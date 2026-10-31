@@ -5,6 +5,7 @@ import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {stepPracticeActors} from '../../shared/sim/practice.mjs';
 import {stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
 import {SIEGE_OPERATORS} from '../../shared/sim/practiceSiegeOperators.mjs';
+import {soFistExit} from '../../shared/sim/soFistication.mjs';
 
 const world={floors:[{id:'ground',center:[0,-.1,0],size:[160,.2,160],y:0}],
   solids:[],ramps:[],spawnPoints:[{x:0,y:0,z:0,yaw:0}],abyssY:-10};
@@ -66,6 +67,8 @@ test('Ballistefan takes aim and operates actual projectile mechanisms and the si
    'real heavy bow Skill or coupled volley is used');
  assert.ok(room.biByeLlista.mode==='DEPLOYED'||room.biByeLlista.z!==initialZ||
     room.events.some(e=>e.type==='bibyeModeChanged'),'operator genuinely repositions or deploys');
+ assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'),
+   'Ballistefan must inflict real HP damage using the actual ballista physics');
 });
 test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
  const {room,command}=setup();
@@ -75,7 +78,18 @@ test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
  assert.notEqual(room.soFistication.z,z,'ram moves under ordinary driving physics');
  assert.ok(room.events.some(e=>e.type==='soFistStrike'),
    'physical ram stroke comes from the usual machine');
- assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id));
+ assert.ok(room.events.some(e=>e.type==='soFistImpact'&&e.piston),
+   'Sir Uppercuff must actually land a physical piston collision, not just play an animation');
+});
+test('Sir Uppercuff primes Beat to the Punch against a visible opponent attack',()=>{
+ const {room,player,command}=setup();
+ assert.deepEqual(command('spawn','so-fist-ication','formidable'),{});
+ const b=room.soFistication;
+ player.position={x:b.x-Math.sin(b.heading)*8,y:0,z:b.z-Math.cos(b.heading)*8};
+ player.attackActive=true;player.attackStartedAt=2;player.attackHeld=true;
+ stepPracticeActors(room,2.1,room.world);
+ assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id),
+   'genuine visible attack invites the existing reactive machine Skill');
 });
 test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bolts',()=>{
  const {room,command}=setup();
@@ -87,6 +101,9 @@ test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bo
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'repeater releases real projectiles');
  assert.ok(f.flightCharge<100,'ascent or hover has a real charge cost');
  assert.ok(f.ammo<=14&&f.ammo>=0);
+ assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'&&
+   e.source==='fight-flight-repeater'),
+   'Mr. Donte Shoot must hit the actual player with a physical repeater quarrel');
 });
 test('Wrecked or dismounted surviving pilots leave machine authority and resume foot combat',async()=>{
  const {room,command}=setup();
@@ -116,4 +133,47 @@ test('Competence settings change real decision cadence and aiming, not equipment
   assert.equal(f.health,250);
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
+});
+
+test('Practice hosts three distinct siege operators without duplicating any authoritative machine',()=>{
+ const {room,command}=setup();
+ for(const machine of ['fight-and-flight','so-fist-ication','bi-bye-llista'])
+  assert.deepEqual(command('spawn',machine,'skilled'),{},
+    `spawning ${machine} must respect the other two machines' actual collision volumes`);
+ const pilots=[...room.players.values()].filter(a=>a.practiceSiegeOperator);
+ assert.equal(pilots.length,3);
+ assert.equal(new Set(pilots.map(a=>a.id)).size,3);
+ for(const machine of Object.keys(SIEGE_OPERATORS)){
+  const m=room[SIEGE_OPERATORS[machine].field];
+  assert.ok(m?.operatorId&&pilots.some(a=>a.id===m.operatorId));
+ }
+ assert.deepEqual(command('remove','all'),{});
+ assert.equal(room.players.size,1);
+ assert.ok(!room.biByeLlista&&!room.soFistication&&!room.fightFlight);
+});
+
+test('Surviving grounded rotor-failure pilot exits normally and resumes foot AI',()=>{
+ const {room,command}=setup();assert.deepEqual(command('spawn','fight-and-flight'),{});
+ const m=room.fightFlight,p=room.players.get(m.operatorId);
+ m.rotorHP=0;m.grounded=true;m.mode='GROUNDED';
+ stepPracticeActors(room,2.1,room.world);
+ assert.equal(p.operatingFightFlightId,null);
+ assert.equal(p.siegeAi.phase,'foot');
+ assert.ok(p.alive&&room.players.has(p.id));
+});
+test('Immobilized ram pilot uses a physical safe exit rather than teleporting or dying',()=>{
+ const {room,command}=setup();assert.deepEqual(command('spawn','so-fist-ication'),{});
+ const m=room.soFistication,p=room.players.get(m.operatorId);
+ for(const name of ['Wheel_FL','Wheel_FR'])m.components[name].health=0;
+ const before={...p.position},safe=soFistExit(room,m,p);
+ stepPracticeActors(room,2.1,room.world);
+ if(safe){
+  assert.equal(p.operatingRamId,null);
+  assert.equal(p.siegeAi.phase,'foot');
+ }else{
+  // A physically blocked exit must not teleport the rider to the outside.
+  assert.equal(p.operatingRamId,m.id);
+  assert.deepEqual(p.position,before);
+ }
+ assert.ok(p.alive&&room.players.has(p.id));
 });

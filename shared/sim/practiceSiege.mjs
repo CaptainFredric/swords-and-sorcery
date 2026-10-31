@@ -1,4 +1,6 @@
 import {practiceFightFlight} from './practiceFightFlight.mjs';
+import {fightFlightSolids} from './fightFlight.mjs';
+import {fightFlightHitVolumes} from './fightFlightComponents.mjs';
 import {createSoFistication,soFistTerrainPose,soFistClear,soFistExit,dismountSoFistication} from './soFistication.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {createBiByeLlista,dismountBiByeLlista,getBiByeSolids} from './biByeLlista.mjs';
@@ -9,7 +11,8 @@ const actorBoxes=(room,ignore)=>[...room.players.values()].filter(p=>p.alive&&p.
 // Pure validation. No fallback coordinates and no mutation before a complete plan exists.
 export function practiceBiByeExit(room,b,player,extraSolids=[]){
  const forward=[-Math.sin(b.heading),-Math.cos(b.heading)],right=[Math.cos(b.heading),-Math.sin(b.heading)];
- const solids=[...(room.world.solids??[]),...getBiByeSolids(b),...soFistSolids(room.soFistication),...extraSolids,...actorBoxes(room,player.id)];
+ const solids=[...(room.world.solids??[]),...getBiByeSolids(b),...soFistSolids(room.soFistication),
+  ...fightFlightHitVolumes(room.fightFlight),...extraSolids,...actorBoxes(room,player.id)];
  for(const [back,side]of [[3,0],[2.8,0],[3,-1.8],[3,1.8],[2,-2.8],[2,2.8],[0,-3.5],[0,3.5]]){
   const x=b.x-forward[0]*back+right[0]*side,z=b.z-forward[1]*back+right[1]*side;
   const y=surfaceHeightAt(x,z,b.y+1,room.world);if(y===null||Math.abs(y-b.y)>1)continue;
@@ -21,7 +24,9 @@ export function practiceBiByeExit(room,b,player,extraSolids=[]){
 function candidate(room,player,x,z,heading,old,ram=false){
  const y=surfaceHeightAt(x,z,player.position.y+1.5,room.world);if(y===null)return null;
  const b=ram?createSoFistication({x,y,z,heading}):createBiByeLlista({x,y,z,baseYaw:heading});
- const other=ram?getBiByeSolids(room.biByeLlista):soFistSolids(room.soFistication),actors=actorBoxes(room,old?.operatorId);
+ const flight=[...fightFlightSolids(room.fightFlight),...fightFlightHitVolumes(room.fightFlight)];
+ const other=ram?[...getBiByeSolids(room.biByeLlista),...flight]:
+   [...soFistSolids(room.soFistication),...flight],actors=actorBoxes(room,old?.operatorId);
  const ctx=ram?null:biByeTerrainContext(room.world,b,[...actors,...other]);
  const pose=ram?soFistTerrainPose(b,room.world):biByeTerrainPose(b,ctx);if(!pose)return null;Object.assign(b,pose,{terrainInitialized:true});
  if(ram?!soFistClear({...b,operatorId:player.id},room.world,[...actors,...other])||Math.hypot(b.chassisPitch,b.chassisRoll)>8*Math.PI/180:!biByeTerrainClear(b,ctx)||!biByeDeploymentSupport(b,room.world).ok)return null;
@@ -40,11 +45,29 @@ export function practiceHostileSiegePlacement(room,player,machine){
  const ram=machine==='so-fist-ication';
  if(!ram&&machine!=='bi-bye-llista')return null;
  const at=player.position,yaw=player.yaw??0;
- for(const range of [11,15,20,25,8])for(const offset of [0,.6,-.6,1.25,-1.25,Math.PI]){
+ const distances=ram?[8,10,11,13,15,20]:[11,15,20,25,8];
+ for(const range of distances)for(const offset of [0,.6,-.6,1.25,-1.25,Math.PI]){
   const angle=yaw+offset,x=at.x-Math.sin(angle)*range,z=at.z-Math.cos(angle)*range;
   const facing=Math.atan2(-(at.x-x),-(at.z-z));
   const plan=candidate(room,player,x,z,facing,null,ram);
-  if(plan)return plan;
+  if(!plan)continue;
+  if(ram){
+   // Static clearance is insufficient for this long, wheel-contact chassis.
+   // Refuse a barely fitting spawn if the next 1.5 m of *real* straight
+   // travel would clip masonry or lose support before combat can begin.
+   const other=[...getBiByeSolids(room.biByeLlista),...actorBoxes(room,player.id)];
+   let viable=true;
+   for(const distance of [.5,1,1.5]){
+    const projected={...plan.b,x:plan.b.x-Math.sin(facing)*distance,
+      z:plan.b.z-Math.cos(facing)*distance};
+    const terrain=soFistTerrainPose(projected,room.world);
+    if(!terrain||!soFistClear({...projected,...terrain,operatorId:player.id},room.world,other)){
+      viable=false;break;
+    }
+   }
+   if(!viable)continue;
+  }
+  return plan;
  }
  return null;
 }
