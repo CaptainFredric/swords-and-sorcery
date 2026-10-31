@@ -5,6 +5,7 @@ import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {stepPracticeActors} from '../../shared/sim/practice.mjs';
 import {stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
 import {SIEGE_OPERATORS} from '../../shared/sim/practiceSiegeOperators.mjs';
+import {soFistExit} from '../../shared/sim/soFistication.mjs';
 
 const world={floors:[{id:'ground',center:[0,-.1,0],size:[160,.2,160],y:0}],
   solids:[],ramps:[],spawnPoints:[{x:0,y:0,z:0,yaw:0}],abyssY:-10};
@@ -164,8 +165,15 @@ test('Immobilized ram pilot uses a physical safe exit rather than teleporting or
  const {room,command}=setup();assert.deepEqual(command('spawn','so-fist-ication'),{});
  const m=room.soFistication,p=room.players.get(m.operatorId);
  for(const name of ['Wheel_FL','Wheel_FR'])m.components[name].health=0;
+ const before={...p.position},safe=soFistExit(room,m,p);
  stepPracticeActors(room,2.1,room.world);
- assert.equal(p.operatingRamId,null);
- assert.equal(p.siegeAi.phase,'foot');
+ if(safe){
+  assert.equal(p.operatingRamId,null);
+  assert.equal(p.siegeAi.phase,'foot');
+ }else{
+  // A physically blocked exit must not teleport the rider to the outside.
+  assert.equal(p.operatingRamId,m.id);
+  assert.deepEqual(p.position,before);
+ }
  assert.ok(p.alive&&room.players.has(p.id));
 });
