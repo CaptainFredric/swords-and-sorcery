@@ -106,6 +106,12 @@ try{
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'right',clickCount:1});
  const afterAmmo=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.ammo");
  assert.ok(afterAmmo<startingAmmo,'live right-button repeater must consume ammo');
+ // The accessible mounted B shortcut must activate the real machine Skill.
+ await tap('B');
+ await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.skill?.phase==='active'"),'mounted B activates Fire Away Skill',45);
+ const activeSkill=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m?.skill?.phase,borrowed:m?.skill?.borrowed,ammoDebt:m?.ammoDebt,readyAt:m?.skill?.readyAt};})()");
+ assert.equal(activeSkill.borrowed,0,'activation must not invent borrowed bolts');
+ await screenshot('03c-fire-away');
  assert.ok(flying.machine.y>1,'airborne model must move physically');
  assert.ok(flying.machine.charge<before.machine.charge,'ascent spends actual flight charge');
  assert.ok(flying.cam?.[1]>before.cam?.[1],'mounted camera must follow changing altitude');
@@ -121,7 +127,7 @@ try{
  const landed=await evaluate(flightState);await screenshot('04-landed');
  await tap('T');
  await until(()=>evaluate("!window.__ssRuntime?.localAuth?.operatingFightFlightId"),'safe grounded dismount');
- const result={before,mounted,flying,landed,after:await evaluate(flightState),errors};
+ const result={before,mounted,flying,activeSkill,landed,after:await evaluate(flightState),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
  assert.equal(errors.length,0,'Browser JS exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-A acceptance:',JSON.stringify({takeoff:flying.machine.y,landing:landed.machine.y,charge:flying.machine.charge,model:flying.model,herald:flying.herald,errors}));
