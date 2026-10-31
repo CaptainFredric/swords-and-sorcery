@@ -1,4 +1,4 @@
-// Shared, authoritative fit of the v2.6 crossbow pivot and named muzzle.
+// Shared, authoritative v2.7 crossbow: GLB joints 50 -> 51 -> 12 -> 38.
 // All positions are in metres. Crossbow local +Z fires forward; the authored
 // model first pitches with the flight run, then rotates with the machine heading.
 export const FLIGHT_REPEATER=Object.freeze({capacity:18,production:2,fireRate:7,speed:64,
@@ -20,13 +20,16 @@ export function inverseTransform(m,wx,wy,wz){
 export function solveConvergence(m,target){
   const relTarget={x:target.x-(m?.x??0),y:target.y-(m?.y??0),z:target.z-(m?.z??0)};
   const loc=inverseTransform(m,relTarget.x,relTarget.y,relTarget.z);
-  const px=0.65,py=1.05,pz=0.22;
+  // GLB node 50 pivot, not the old v2.6 body pivot.
+  const px=.565,py=1.290,pz=.365;
   let rel=Math.atan2(loc.x-px,loc.z-pz);
   let p=Math.atan2(loc.y-py,Math.hypot(loc.x-px,loc.z-pz));
-  for(let iter=0;iter<2;iter++){
-    const along=-0.048*Math.sin(p)+0.585*Math.cos(p);
+  // Fixed-point convergence uses the *moving* muzzle. At very short range
+  // physical stops may make the camera ray unreachable; that is reported below.
+  for(let iter=0;iter<8;iter++){
+    const along=.470*Math.cos(p)-.003*Math.sin(p);
     const mx=px+along*Math.sin(rel);
-    const my=py+0.048*Math.cos(p)+0.585*Math.sin(p);
+    const my=py+.003*Math.cos(p)+.470*Math.sin(p);
     const mz=pz+along*Math.cos(rel);
     const vx=loc.x-mx,vy=loc.y-my,vz=loc.z-mz;
     rel=Math.atan2(vx,vz);
@@ -44,7 +47,7 @@ export function flightRepeaterAim(m,input={}){
     const aim=solveConvergence(m,input.siegeTarget);
     const pitch=m?.terminalDive?Math.min(aim.pitch,-Math.min(.34,Math.max(.18,rootPitch(m)*.55))):aim.pitch;
     const firing={yaw:aim.yaw,pitch};
-    // Report the physical path from the authoritative v2.6 muzzle, including
+    // Report the physical path from the authoritative v2.7 muzzle, including
     // when the real joints cannot converge on an out-of-arc camera target.
     const muzzle=flightMuzzle(m,firing),direction=flightDirection(m,firing);
     const towards={x:input.siegeTarget.x-muzzle.x,y:input.siegeTarget.y-muzzle.y,z:input.siegeTarget.z-muzzle.z};
@@ -68,11 +71,14 @@ function transform(m,x,y,z){
 /** Position of the GLB muzzle after crossbow yaw, pitch and root run pitch. */
 export function flightMuzzle(m,{yaw=m?.heading??0,pitch=0}={}){
   const rel=localYaw(m,yaw),p=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
-  // Crossbow_Body pivot [+.65,+1.05,+.22]; muzzle [0,+.048,+.585].
-  // Authored Euler YXZ applies crossbow-local pitch before traverse yaw.
-  const along=-.048*Math.sin(p)+.585*Math.cos(p);
-  const offset=transform(m,.65+along*Math.sin(rel),
-    1.05+.048*Math.cos(p)+.585*Math.sin(p),.22+along*Math.cos(rel));
+  // Exported parent chain (all metres):
+  // 50 YawGimbal [.565,1.195,.365] -> 51 PitchCradle [0,.095,0]
+  // -> 12 Body [0,-.045,.025] -> 38 muzzle [0,.048,.445].
+  // 50 applies Ry(rel); 51 applies Rx(-p). Body + muzzle yield
+  // [0,+.003,+.470] relative to cradle. Never rotate only Crossbow_Body.
+  const along=.470*Math.cos(p)-.003*Math.sin(p);
+  const offset=transform(m,.565+along*Math.sin(rel),
+    1.290+.003*Math.cos(p)+.470*Math.sin(p),.365+along*Math.cos(rel));
   return {x:(m?.x??0)+offset.x,y:(m?.y??0)+offset.y,z:(m?.z??0)+offset.z};
 }
 /** Unit launch vector from the SAME articulated transform as flightMuzzle. */
