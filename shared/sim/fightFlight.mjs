@@ -2,6 +2,8 @@
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
 // Flight charge (power supply) and spinning rotor energy remain separate.
 import {resolvePlayerWorld,surfaceHeightAt,segmentAabbHit} from '../src/collision.mjs';
+import {createSiegeSkill} from './siegeSkills.mjs';
+import {flightSkillHoverRelief} from './fightFlightSkill.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 
@@ -35,7 +37,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,rotorEpisodes:{},lastRotorDelta:0,
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
     ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
-    skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
+    skill:{...createSiegeSkill('fireAway'),activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,lastImpactAt:-Infinity,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
@@ -134,7 +136,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       // Hover offsets gravity; climbing adds bounded upward acceleration.
       const ay=lift*FIGHT_FLIGHT.gravity-FIGHT_FLIGHT.gravity+(jump?lift*5.6:descend?-7.0:0);
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
-      const cost=jump?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
+      const cost=jump?FIGHT_FLIGHT.climbCost:descend?2:Math.max(0,FIGHT_FLIGHT.hoverCost-flightSkillHoverRelief(m,now));
       m.flightCharge=cap(m.flightCharge-dt*cost,0,m.maxFlightCharge);
       if(descend&&m.velocity.y<-.3)m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
