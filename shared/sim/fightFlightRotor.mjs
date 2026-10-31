@@ -126,10 +126,14 @@ export function stepFightFlightRotor(room,m,dt,now){
         if(intersection&&!episodes[key]){
           episodes[key]=true;
           const beforeEnergy=m.rotorEnergy;
-          m.rotorEnergy=clamp(m.rotorEnergy-18,0,100);
-          m.rotorAngularVelocity*=.72;
-          // Only a substantial strike at high speed damages rotor integrity.
-          if(beforeEnergy>65&&Math.abs(m.rotorAngularVelocity)>24)
+          m.rotorEnergy=clamp(m.rotorEnergy-28,0,100);
+          m.rotorAngularVelocity*=.55;
+          m.rotorLiftSuppressedUntil=Math.max(m.rotorLiftSuppressedUntil??0,now+.20);
+          const travelSpeed=Math.hypot(m.velocity?.x??0,m.velocity?.y??0,m.velocity?.z??0);
+          if(travelSpeed>3){m.velocity.x*=.72;m.velocity.z*=.72;}
+          // Only high-energy translation contact, not ordinary blade RPM,
+          // can cause component HP damage. One continuous contact is one episode.
+          if(travelSpeed>12&&beforeEnergy>85&&Math.abs(m.rotorAngularVelocity)>24)
             damageFightFlight(room,m,7,null,'fight-flight-rotor-masonry',now,{componentId:'rotor',
               point:{x:intersection.point[0],y:intersection.point[1],z:intersection.point[2]},steelMinimum:1});
           room.events.push({type:'fightFlightRotorWorldImpact',machineId:m.id,solidId:solid.id??null,
