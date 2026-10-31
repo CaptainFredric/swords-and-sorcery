@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
+import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
+import { BiByeMotion } from './biByeMotion.mjs';
 import { buildHighGroundsDecks, buildHighGroundsSurroundings, buildHighGroundsDetail, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
@@ -39,6 +41,11 @@ export class HighGroundsRenderer {
       crimson: mat(TEAM_COLOR.DEFENDERS), neutral: mat(0xcabf97),
       ...highGroundsSceneryMaterials(),
     };
+    this.biByeLlista = new BiByeLlistaRenderer(scene);
+    this.biByeMotion = new BiByeMotion();
+    this.biByeRoomCode = null;
+    this.biByeServerTime = null;
+    this.biByePresentationOptions = null;
     this.standards = new Map();
     this.#build();
     scene.add(this.group);
@@ -123,6 +130,20 @@ export class HighGroundsRenderer {
         [foundry.x, 3.1, foundry.z - 3]);
     }
   }
+  // Use the same authoritative snapshot interpolation as the Outerworks.
+  // This map can construct its ballista *during* play, not only at load.
+  setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
+    if (this.biByeRoomCode !== snapshot?.roomCode) {
+      this.biByeRoomCode = snapshot?.roomCode;
+      this.biByeMotion = new BiByeMotion();
+    }
+    if ((snapshot?.bibyeRevision ?? 0) < this.biByeMotion.revision) return;
+    this.biByePresentationOptions = options;
+    this.biByeMotion.push(snapshot?.bibyeBallista ?? null,
+      snapshot?.bibyeProjectiles ?? [], snapshot?.serverTime ?? serverNow,
+      snapshot?.bibyeRevision ?? 0);
+    this.biByeServerTime = serverNow;
+  }
   setHighGroundsState(state) {
     const owners = state?.sites ?? [];
     for (const [id, standard] of this.standards) {
@@ -131,10 +152,15 @@ export class HighGroundsRenderer {
       standard.material = this.materials[owner === 'ATTACKERS' ? 'azure' : owner === 'DEFENDERS' ? 'crimson' : 'neutral'];
     }
   }
-  update() {}
+  update(timeSec) {
+    const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec,
+      this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
+    this.biByeLlista.update(view.clock, view.ballista, view.projectiles);
+  }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.biByeLlista?.dispose();
     this.scene.remove(this.group);
     this.group.traverse(obj => { obj.geometry?.dispose?.(); });
     for (const material of Object.values(this.materials)) material.dispose();
