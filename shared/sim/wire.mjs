@@ -6,6 +6,7 @@ import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
+import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
 import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
@@ -41,6 +42,7 @@ export function serializeLobby(room) {
       team: p.team ?? null,
       actorKind: p.actorKind,
       practiceMode: p.practiceMode ?? null,
+      practiceSiegeOperator: p.practiceSiegeOperator ? {...p.practiceSiegeOperator} : null,
       connected: p.connected,
       arenaReady: Boolean(p.arenaReady),
       lobbyReady: Boolean(p.lobbyReady),
@@ -418,6 +420,13 @@ export function applyRoomCommand(room, player, message, time) {
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
+    case 'practiceSiegeOpponent':{
+      const {action,machine,difficulty}=message;
+      if(action==='spawn')return spawnPracticeSiegeOperator(room,player,machine,difficulty,time);
+      if(action==='remove')return removePracticeSiegeOperator(room,player,machine,time);
+      if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time);
+      return {rejected:'Unknown hostile Practice operator action.'};
+    }
     case 'practiceSiege':return practiceSiegeCommand(room,player,message.action,message.machine,time);
     case 'practiceBuildBiBye':return practiceBiByeCommand(room,player,'build',time);
     case 'practiceRebuildBiBye':return practiceBiByeCommand(room,player,'rebuild',time);

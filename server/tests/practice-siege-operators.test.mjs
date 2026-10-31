@@ -1,0 +1,116 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {RoomManager} from '../../shared/sim/RoomManager.mjs';
+import {applyRoomCommand} from '../../shared/sim/wire.mjs';
+import {stepPracticeActors} from '../../shared/sim/practice.mjs';
+import {stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
+import {SIEGE_OPERATORS} from '../../shared/sim/practiceSiegeOperators.mjs';
+
+const world={floors:[{id:'ground',center:[0,-.1,0],size:[160,.2,160],y:0}],
+  solids:[],ramps:[],spawnPoints:[{x:0,y:0,z:0,yaw:0}],abyssY:-10};
+function setup(){
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
+ room.world=structuredClone(world);room.state='PLAYING';
+ const player=room.addPlayer({id:'human',token:'human',name:'Player'},0);
+ player.position={x:0,y:0,z:0};player.yaw=player.input.yaw=0;player.spawnProtectionUntil=0;
+ return {room,player,command:(action,machine,difficulty='skilled',now=2)=>
+   applyRoomCommand(room,player,{type:'practiceSiegeOpponent',action,machine,difficulty},now)};
+}
+function advance(room,start=2,seconds=6){
+ for(let i=1;i<=seconds*30;i++){
+  const t=start+i/30;
+  stepPracticeActors(room,t,room.world,{random:()=>.5});
+  stepRoom(room,1/30,t,room.world);
+ }
+}
+test('Practice hostile opponents validate actor, difficulty, machine occupancy and perform clean removal',()=>{
+ const {room,player,command}=setup();
+ assert.ok(command('spawn','not-a-machine').rejected);
+ assert.ok(command('spawn','bi-bye-llista','unknown').rejected);
+ assert.deepEqual(command('spawn','bi-bye-llista'),{});
+ const b=room.biByeLlista,actor=[...room.players.values()].find(a=>a.practiceSiegeOperator);
+ assert.equal(actor.name,'Ballistefan');assert.equal(b.operatorId,actor.id);
+ assert.equal(actor.operatingBallistaId,b.id);
+ assert.ok(command('spawn','bi-bye-llista').rejected);
+ assert.ok(applyRoomCommand(room,{...player},{type:'practiceSiegeOpponent',action:'remove',machine:'all'},2).rejected);
+ assert.deepEqual(command('remove','bi-bye-llista'),{});
+ assert.equal(room.biByeLlista,null);assert.equal(room.players.has(actor.id),false);
+ assert.deepEqual(command('spawn','bi-bye-llista'),{});
+ assert.equal([...room.players.values()].filter(a=>a.practiceSiegeOperator).length,1);
+});
+test('Hostile summon is atomic on blocked terrain and does not duplicate installed machines',()=>{
+ const {room,command}=setup();
+ room.world.floors=[];
+ const before=room.players.size;
+ assert.ok(command('spawn','so-fist-ication').rejected);
+ assert.equal(room.players.size,before);assert.equal(room.soFistication,null);
+ room.world=structuredClone(world);
+ assert.deepEqual(command('spawn','so-fist-ication'),{});
+ assert.ok(command('spawn','so-fist-ication').rejected);
+ assert.equal(room.players.size,before+1);
+});
+test('Ballistefan takes aim and operates actual projectile mechanisms and the siege Skill',()=>{
+ const {room,command}=setup();
+ assert.deepEqual(command('spawn','bi-bye-llista','formidable'),{});
+ const initialZ=room.biByeLlista.z;
+ advance(room,2,10);
+ const fired=room.events.filter(e=>e.type==='bibyeBoltSpawned');
+ const actions=room.events.map(e=>e.type);
+ assert.ok(fired.some(e=>e.shot==='I'||e.kind==='conditioning')||
+   room.events.some(e=>e.type==='bibyeMobileFireTriggered'||e.type==='bibyeVolleyInitiated'),
+   'Shot I is actually requested through the ballista');
+ assert.ok(actions.includes('siegeSkill')||actions.includes('bibyeVolleyInitiated'),
+   'real heavy bow Skill or coupled volley is used');
+ assert.ok(room.biByeLlista.mode==='DEPLOYED'||room.biByeLlista.z!==initialZ||
+    room.events.some(e=>e.type==='bibyeModeChanged'),'operator genuinely repositions or deploys');
+});
+test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
+ const {room,command}=setup();
+ assert.deepEqual(command('spawn','so-fist-ication','formidable'),{});
+ const z=room.soFistication.z;
+ advance(room,2,12);
+ assert.notEqual(room.soFistication.z,z,'ram moves under ordinary driving physics');
+ assert.ok(room.events.some(e=>e.type==='soFistStrike'),
+   'physical ram stroke comes from the usual machine');
+ assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id));
+});
+test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bolts',()=>{
+ const {room,command}=setup();
+ assert.deepEqual(command('spawn','fight-and-flight','formidable'),{});
+ const f=room.fightFlight,z=f.z;
+ advance(room,2,8);
+ assert.ok(f.y>0||room.events.some(e=>e.type==='fightFlightMounted'),'flight actuator used');
+ assert.notEqual(f.z,z,'machine actually translates');
+ assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'repeater releases real projectiles');
+ assert.ok(f.flightCharge<100,'ascent or hover has a real charge cost');
+ assert.ok(f.ammo<=14&&f.ammo>=0);
+});
+test('Wrecked or dismounted surviving pilots leave machine authority and resume foot combat',async()=>{
+ const {room,command}=setup();
+ assert.deepEqual(command('spawn','fight-and-flight'),{});
+ const a=[...room.players.values()].find(p=>p.practiceSiegeOperator);
+ const machine=room.fightFlight;
+ machine.health=1;
+ // Use genuine component damage, which forces pilot dismount.
+ const {damageFightFlight}=await import('../../shared/sim/fightFlightComponents.mjs');
+ damageFightFlight(room,machine,2,null,'test-impact',3,{componentId:'main'});
+ assert.equal(a.operatingFightFlightId,null);
+ if(a.alive){
+  stepPracticeActors(room,3.1,room.world);
+  assert.equal(a.siegeAi.phase,'foot');
+ }
+});
+test('Competence settings change real decision cadence and aiming, not equipment stats',()=>{
+ const times=[];
+ for(const difficulty of ['learner','skilled','formidable']){
+  const {room,command}=setup();
+  assert.deepEqual(command('spawn','fight-and-flight',difficulty),{});
+  const f=room.fightFlight,a=room.players.get(f.operatorId);
+  stepPracticeActors(room,2.1,room.world);
+  times.push(a.siegeAi.nextThinkAt);
+  assert.equal(f.maxFlightCharge,100);
+  assert.ok(f.ammo>=0&&f.ammo<=14,'a skilled pilot uses finite ammunition');
+  assert.equal(f.health,250);
+ }
+ assert.ok(times[0]>times[1]&&times[1]>times[2]);
+});

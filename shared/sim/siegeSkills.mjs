@@ -7,7 +7,7 @@ export const SIEGE_SKILLS=Object.freeze({
  }),
 });
 export const createSiegeSkill=id=>({id,readyAt:0,phase:'idle',expiresAt:null,debt:0,primedAt:null});
-export function skillOperator(room,b,p,now){return Boolean(b&&!b.retired&&b.health>0&&p?.alive&&p.connected!==false&&b.operatorId===p.id&&(p.operatingRamId===b.id||p.operatingBallistaId===b.id)&&(p.staggerUntil??0)<=now&&(room.mode==='PRACTICE'||room.state==='PLAYING'));}
+export function skillOperator(room,b,p,now){return Boolean(b&&!b.retired&&b.health>0&&p?.alive&&(p.actorKind!=='human'||p.connected!==false)&&b.operatorId===p.id&&(p.operatingRamId===b.id||p.operatingBallistaId===b.id)&&(p.staggerUntil??0)<=now&&(room.mode==='PRACTICE'||room.state==='PLAYING'));}
 export function primeSiegeSkill(b,now){
  const s=b?.skill;if(!s||s.phase!=='idle'||now+1e-8<s.readyAt)return false;
  s.phase='primed';s.primedAt=now;s.expiresAt=null;s.debt=0;return true;

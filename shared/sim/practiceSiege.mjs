@@ -34,6 +34,20 @@ function candidate(room,player,x,z,heading,old,ram=false){
  if(old?.operatorId&&!exit)return null;
  return {b,exit};
 }
+// Reuse actual wheel/terrain, construction and egress constraints for hostile
+// operators. Candidate placement is pure; only the caller owns commitment.
+export function practiceHostileSiegePlacement(room,player,machine){
+ const ram=machine==='so-fist-ication';
+ if(!ram&&machine!=='bi-bye-llista')return null;
+ const at=player.position,yaw=player.yaw??0;
+ for(const range of [11,15,20,25,8])for(const offset of [0,.6,-.6,1.25,-1.25,Math.PI]){
+  const angle=yaw+offset,x=at.x-Math.sin(angle)*range,z=at.z-Math.cos(angle)*range;
+  const facing=Math.atan2(-(at.x-x),-(at.z-z));
+  const plan=candidate(room,player,x,z,facing,null,ram);
+  if(plan)return plan;
+ }
+ return null;
+}
 function placement(room,player,old,ram=false){
  const heading=old?.heading??player.yaw??0;
  if(old){

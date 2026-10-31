@@ -11,6 +11,7 @@ import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 import { setupStPerry, stepStPerry, cleanupStPerry, isCanonizationUnlocked } from './StPerry.mjs';
 import { dismountBiByeLlista } from './biByeLlista.mjs';
+import {stepPracticeSiegeOperators} from './practiceSiegeOperators.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -248,6 +249,7 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
 
 export function stepPracticeActors(room, nowSec, world = room.world, { random = Math.random } = {}) {
   if (!isPractice(room) || room.state !== 'PLAYING') return;
+  stepPracticeSiegeOperators(room,nowSec,world);
   const dummy = findPracticeDummy(room);
   if (!dummy) return;
   if (room.inspectionEnabled && (dummy.aiSuspended || dummy.id === room.inspectionControlId)) {
