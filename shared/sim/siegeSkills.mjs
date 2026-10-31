@@ -1,5 +1,6 @@
 // Authoritative, machine-owned Skill clocks. Priming is not the same as spending.
 export const SIEGE_SKILLS=Object.freeze({
+ fireAway:Object.freeze({cooldown:26,duration:5.0,hoverOffset:7,shotGrace:.20}),
  boltToTheOccasion:Object.freeze({cooldown:24,interShotPrep:.2}),
  beatToThePunch:Object.freeze({
   cooldown:24,chassisTrigger:35,reverseSpeed:8,reverseDebt:1.5,
@@ -7,7 +8,7 @@ export const SIEGE_SKILLS=Object.freeze({
  }),
 });
 export const createSiegeSkill=id=>({id,readyAt:0,phase:'idle',expiresAt:null,debt:0,primedAt:null});
-export function skillOperator(room,b,p,now){return Boolean(b&&!b.retired&&b.health>0&&p?.alive&&p.connected!==false&&b.operatorId===p.id&&(p.operatingRamId===b.id||p.operatingBallistaId===b.id)&&(p.staggerUntil??0)<=now&&(room.mode==='PRACTICE'||room.state==='PLAYING'));}
+export function skillOperator(room,b,p,now){return Boolean(b&&!b.retired&&b.health>0&&p?.alive&&p.connected!==false&&b.operatorId===p.id&&(p.operatingRamId===b.id||p.operatingBallistaId===b.id||p.operatingFightFlightId===b.id)&&(p.staggerUntil??0)<=now&&(room.mode==='PRACTICE'||room.state==='PLAYING'));}
 export function primeSiegeSkill(b,now){
  const s=b?.skill;if(!s||s.phase!=='idle'||now+1e-8<s.readyAt)return false;
  s.phase='primed';s.primedAt=now;s.expiresAt=null;s.debt=0;return true;
