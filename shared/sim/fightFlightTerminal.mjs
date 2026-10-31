@@ -95,7 +95,12 @@ export function resolveTerminalFlight(room,m,now){
    if(raw>0)applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
  }
  const pilot=room.players.get(d.operatorId);
- if(pilot?.alive)killPlayer(room,pilot.id,null,'fight-flight-terminal',now);
+ if(pilot?.alive){
+   // An intentional sacrifice must not award a stray prior knockback attacker
+   // a defeat for the dive's own explosion.
+   pilot.lastKnockbackAt=-Infinity;pilot.lastAttackerId=null;
+   killPlayer(room,pilot.id,null,'fight-flight-terminal',now);
+ }
  else if(pilot?.terminalRespawnDeferredFor===m.id){
    pilot.respawnAt=now+(room.policy?.respawnSec??5);
    pilot.terminalRespawnDeferredFor=null;
