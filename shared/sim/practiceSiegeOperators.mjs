@@ -12,7 +12,8 @@ import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
-import {segmentAabbHit,surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
+import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
+import {beginAttack,endAttack} from './combat.mjs';
 
 export const SIEGE_OPERATORS=Object.freeze({
   'bi-bye-llista':Object.freeze({name:'Ballistefan',field:'biByeLlista'}),
@@ -231,8 +232,8 @@ function donte(room,a,m,target,ai,tuning,now){
   if(close&&!a.attackHeld&&now>=(a.attackRestartAt??0)){
     // Ordinary mounted sword collision is resolved by standard combat step.
     // Chivalry retains its normal concurrency permission.
-    a.input.attack=true;
-  }else a.input.attack=false;
+    beginAttack(room,a.id,now);
+  }else if(a.attackHeld)endAttack(room,a.id,now);
   if(ai.difficulty==='formidable'&&!m.grounded&&charge>58&&d>8&&d<20&&
     Math.abs(difference(heading,m.heading))<.2&&!m.offensiveRun)
     requestFlightDash(room,m,a,true,now);
