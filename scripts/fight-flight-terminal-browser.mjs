@@ -44,7 +44,7 @@ async function down(key){await send('Input.dispatchKeyEvent',{type:'rawKeyDown',
 async function up(key){await send('Input.dispatchKeyEvent',{type:'keyUp',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
-const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,operator:m.operatorId,grounded:m.grounded,terminalPrep:m.terminalPrep,terminalDive:m.terminalDive,terminalDiveSpent:m.terminalDiveSpent,health:m.health}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,prowess:p.prowess,ultimate:p.ultimate,alive:p.alive}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
+const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,operator:m.operatorId,grounded:m.grounded,terminalPrep:m.terminalPrep,terminalDive:m.terminalDive,terminalDiveSpent:m.terminalDiveSpent,health:m.health,runPitch:m.runPitch}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,prowess:p.prowess,ultimate:p.ultimate,alive:p.alive}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray(),riderPitch:r?.remotePlayers?.self?.root?.rotation.x};})()";
 try{
  const target=await until(async()=>{
   const r=await fetch('http://127.0.0.1:'+port+'/json/list');
@@ -116,6 +116,7 @@ try{
  assert.ok(prep.player.prowess>=100,'precommit meter must remain unspent');
  await screenshot('04-terminal-preparing');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),'real one-second Valkyrie commitment',160);
+ await until(()=>evaluate("(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;return Boolean(m?.terminalDive && m.runPitch>.3 && Math.abs(r.remotePlayers.self.root.rotation.x+m.runPitch)<.12);})()"),'authored flying chassis and visible Spellblade share terminal pitch',80);
  const committed=await evaluate(flightState);
  assert.ok(committed.machine.terminalDiveSpent,'the machine spends one terminal opportunity');
  assert.equal(committed.player.prowess,0,'only the committed dive consumes the ready personal Ultimate');
