@@ -26,7 +26,7 @@ test('all rendering deck triangles are unique and exactly at an authoritative he
 test('entrance staging and root/ramp approaches remain physically supported',()=>{
   for(const z of [-105,-99,-91,-85,-81,-69,69,81,85,91,99,105])
     assert.equal(surfaceHeightAt(0,z,2,HIGH_GROUNDS),0,`centre entrance at z ${z}`);
-  const startPoints=[[-38,-80],[38,-98],[-38,98],[38,80],[-16,-54],[16,54]];
+  const startPoints=[[-38,-98],[38,-98],[-38,98],[38,98],[-16,-54],[16,54]];
   for(const [x,z]of startPoints) {
     assert.equal(surfaceHeightAt(x,z,2,HIGH_GROUNDS),0,`ramp toe ungrounded: ${x},${z}`);
   }
