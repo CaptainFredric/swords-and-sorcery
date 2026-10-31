@@ -335,8 +335,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
-      // The actual Spellblade's right-hand sword remains operable in the apparatus.
-      // Crossbow is a separate mounted trigger and pauses during ordinary sword swings.
+      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id)return {};
       if(player.operatingRamId&&room.soFistication?.operatorId===player.id){if(message.down&&player.alive)fireSoFistication(room,room.soFistication,time);return {};}
       if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
         if (message.down) {
