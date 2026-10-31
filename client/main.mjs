@@ -32,6 +32,7 @@ import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView, preparedArmoryView } from './menu/armoryView.mjs';
+import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
@@ -1213,6 +1214,9 @@ function applySettings() {
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
 }
+const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:'beatToThePunch',fightFlight:'fireAwayRightHere'});
+const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
+  settings.get('loadout.preparedSpells'),siegeSelections());
 const settingsPanel = new SettingsPanel({
   root: $('#settings'),
   store: settings,
@@ -1224,21 +1228,22 @@ settings.onChange((change) => {
   if (change.id === 'loadout.ultimate') {
     armoryFeedback.cancel();
     if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
-    socket.loadout(settings.get('loadout.spell'), change.value, settings.get('loadout.preparedSpells'));
+    transmitLoadout();
     renderArmory();
   }
   if (change.id === 'loadout.spell') {
     armoryFeedback.cancel();
     const prepared = normalizePreparedSpells(change.value, settings.get('loadout.preparedSpells'));
     if (JSON.stringify(prepared) !== JSON.stringify(settings.get('loadout.preparedSpells'))) settings.set('loadout.preparedSpells', prepared);
-    socket.loadout(change.value, settings.get('loadout.ultimate'), prepared);
+    transmitLoadout();
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
   }
   if (change.id === 'loadout.preparedSpells') {
-    socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), change.value);
+    transmitLoadout();
     renderArmory();
   }
+  if (change.id === 'loadout.bibyeSkill') { transmitLoadout(); renderArmory(); }
   if (change.id === 'audio.soundtrack') {
     syncSoundscape();
   }
@@ -1294,6 +1299,24 @@ function renderArmory() {
     <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
   renderPreparedArmory();
+  const siegeFocus=document.activeElement?.dataset?.siegeSkill;
+  $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
+    <article class="siege-armory-card">
+      <div class="siege-armory-heading">
+        <span class="siege-armory-mark" aria-hidden="true">${m.mark}</span>
+        <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
+      </div>
+      <p>${m.line}</p><small class="siege-armory-facts">${m.facts}</small>
+      <p class="armory-slot">SIEGE SKILL · U</p>
+      <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
+        ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
+          role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}"
+          data-siege-skill="${skill.id}" ${m.skills.length===1?'disabled':''}>
+          <span class="spell-name">${skill.name}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
+          <small>${skill.line}</small></button>`).join('')}
+      </div>
+    </article>`).join('');
+  if(siegeFocus)document.querySelector(`[data-siege-skill="${siegeFocus}"]`)?.focus({preventScroll:true});
   if (focusSpell) document.querySelector(`[data-spell="${focusSpell}"]`)?.focus({ preventScroll: true });
   if (focusUltimate) document.querySelector(`[data-ultimate="${focusUltimate}"]`)?.focus({ preventScroll: true });
 }
@@ -1312,6 +1335,11 @@ function renderPreparedArmory() {
       <kbd>${slot.key}</kbd><span class="spell-mark">${slot.mark}</span><span class="spell-name">${escapeHtml(slot.name)}</span>
       ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';
 }
+$('#armory-siege-machines').addEventListener('click',event=>{
+  const button=event.target.closest('[data-siege-skill]');
+  if(!button||button.disabled||button.dataset.siegeMachine!=='biBye')return;
+  settings.set('loadout.bibyeSkill',button.dataset.siegeSkill);
+});
 $('#armory-prepared').addEventListener('click', event => {
   const button = event.target.closest('[data-prepared-to]');
   if (!button) return;
@@ -1331,7 +1359,7 @@ $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
-for (const id of ['armory-kit-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
+for (const id of ['armory-kit-tab', 'armory-siege-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
   armoryFeedback.cancel();
   menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
 });
@@ -1928,7 +1956,7 @@ for (const selector of ONLINE_COMMANDS) {
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
-  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.preparedSpells'));
+  if (connected) transmitLoadout();
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
 });
 
