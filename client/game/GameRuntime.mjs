@@ -6,7 +6,7 @@ import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
-import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
+import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
@@ -436,7 +436,7 @@ export class GameRuntime {
     // when each of the two was last pressed: of the two held together, the one pressed last has the hands
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
-      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
+      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId) {
         return;
       }
       if (held) this.pressedAt.attack = this.socket.serverNow();
@@ -449,7 +449,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
-      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
+      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
@@ -1350,6 +1350,7 @@ export class GameRuntime {
     for (const event of events) {
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
+      if(event.type==='fightFlightBoltReleased'&&event.operatorId===this.playerId)this.hud.recoilCrosshair?.();
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
         else this.effects.splinters?.(event.point);
@@ -2823,7 +2824,12 @@ export class GameRuntime {
   }
 
   #mountedIntent(wanted){
-    if(this.localAuth?.operatingFightFlightId)return {...wanted,mounted:true};
+    if(this.localAuth?.operatingFightFlightId){
+      const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(wanted.yaw,wanted.pitch);
+      const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
+      this.flightSiegeTarget={x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance};
+      return {...wanted,siegeTarget:this.flightSiegeTarget,mounted:true};
+    }
     const b=this.latestSnapshot?.bibyeBallista;
     if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};
     if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED'){
@@ -2867,7 +2873,19 @@ export class GameRuntime {
         const elevationLimited = effectivePitch < FLIGHT_REPEATER.minPitch - 0.02 || effectivePitch > FLIGHT_REPEATER.maxPitch + 0.02 || (Boolean(m.terminalDive) && this.input.pitch > -0.15);
         const limited = traverseLimited || elevationLimited;
         const limitReason = traverseLimited ? 'TRAVERSE LIMIT' : elevationLimited ? 'ELEVATION LIMIT' : 'AIM LIMITED';
-        this.hud.setFlightSight?.({ limited, limitReason });
+        let trueAim = null;
+        if (limited) {
+          const muz = flightMuzzle(m, { yaw: m.crossbowYaw, pitch: m.crossbowPitch });
+          const dir = flightDirection(m, { yaw: m.crossbowYaw, pitch: m.crossbowPitch });
+          const testPt = new THREE.Vector3(muz.x + dir.x * 25, muz.y + dir.y * 25, muz.z + dir.z * 25);
+          testPt.project(this.camera);
+          if (testPt.z < 1) {
+            const halfW = (this.element?.clientWidth ?? window.innerWidth) * 0.5;
+            const halfH = (this.element?.clientHeight ?? window.innerHeight) * 0.5;
+            trueAim = { x: testPt.x * halfW, y: -testPt.y * halfH };
+          }
+        }
+        this.hud.setFlightSight?.({ limited, limitReason, trueAim });
       } else {
         this.hud.setFlightSight?.(null);
         if(this.siegeView==='third')target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
@@ -3186,6 +3204,7 @@ export class GameRuntime {
       if (this.remotePlayers.self?.setCockpitHeadHidden) {
         this.remotePlayers.self.setCockpitHeadHidden(isFpFlight);
       }
+      this.flightRenderer?.setFirstPerson?.(isFpFlight);
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
       this.#viewInHelm(nowMs, dt);
@@ -3208,7 +3227,7 @@ export class GameRuntime {
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
     const localIsFlightDriver = Boolean(this.localAuth?.alive && this.localAuth?.operatingFightFlightId);
-    const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch } : null;
+    const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch, siegeTarget: this.flightSiegeTarget } : null;
     this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
@@ -3240,7 +3259,9 @@ export class GameRuntime {
         // The character faces -Z while the authored chassis faces +Z, so their
         // forward/downward local pitch signs are opposite.
         driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
-        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips());
+        const driverPlayer = flightPose.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightPose.operatorId);
+        const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
+        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking);
       }
     }
     this.#mountedView(dt);

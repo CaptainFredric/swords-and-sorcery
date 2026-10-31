@@ -724,7 +724,7 @@ export class HUD {
     if (!this.flightSight) {
       this.flightSight = document.createElement('div');
       this.flightSight.className = 'flight-sight';
-      this.flightSight.innerHTML = '<span class="flight-aim-limit">AIM LIMITED</span>';
+      this.flightSight.innerHTML = '<span class="flight-aim-limit">AIM LIMITED</span><div class="flight-true-aim" hidden><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="3" fill="none" stroke="#eed39b" stroke-width="1.5"/><line x1="8" y1="1" x2="8" y2="15" stroke="#eed39b" stroke-width="1"/><line x1="1" y1="8" x2="15" y2="8" stroke="#eed39b" stroke-width="1"/></svg></div>';
       this.root.append(this.flightSight);
     }
     this.flightSight.hidden = !sight;
@@ -734,6 +734,23 @@ export class HUD {
     if (label) {
       label.textContent = sight.limitReason ?? 'AIM LIMITED';
     }
+    const trueAim = this.flightSight.querySelector('.flight-true-aim');
+    if (trueAim) {
+      if (sight.limited && sight.trueAim) {
+        trueAim.hidden = false;
+        trueAim.style.transform = `translate(${sight.trueAim.x}px, ${sight.trueAim.y}px)`;
+      } else {
+        trueAim.hidden = true;
+      }
+    }
+  }
+
+  recoilCrosshair() {
+    this.crosshair.classList.add('recoil');
+    clearTimeout(this.recoilTimer);
+    this.recoilTimer = setTimeout(() => {
+      this.crosshair.classList.remove('recoil');
+    }, 150);
   }
 
   clearHit() {

@@ -107,7 +107,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const yaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
   // Turn rate is limited while airborne, not an instantaneous lateral inversion.
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
-  if(!m.terminalDive)m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt);
+  if(!m.terminalDive)m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:4.2)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:4.2)*dt);
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
   const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;

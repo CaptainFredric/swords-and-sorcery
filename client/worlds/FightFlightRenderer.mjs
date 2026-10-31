@@ -36,9 +36,23 @@ export class FightFlightRenderer{
       this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
       // Emblem deliberately unapproved: display the authored plain crimson cloth.
       const crest=this.nodes.get('Rear_Banner_Heraldic_Emblem');if(crest)crest.visible=false;
+      this.setFirstPerson(this.isFirstPerson);
       this.setFailureParts();resolve(true);
     },undefined,err=>{console.warn('Fight-and-Flight v2.6 asset failed to load',err);this.pending=null;resolve(false);}));
     return this.pending;
+  }
+  setFirstPerson(firstPerson){
+    this.isFirstPerson=Boolean(firstPerson);
+    const banner=this.nodes.get('Rear_Trident_Banner');
+    if(banner)banner.visible=!this.isFirstPerson;
+    const braceL=this.nodes.get('Protective_Brace_L');
+    if(braceL)braceL.visible=!this.isFirstPerson;
+    const braceR=this.nodes.get('Protective_Brace_R');
+    if(braceR)braceR.visible=!this.isFirstPerson;
+    const braceLDam=this.nodes.get('Protective_Brace_L_Damaged');
+    if(braceLDam)braceLDam.visible=!this.isFirstPerson;
+    const braceRDam=this.nodes.get('Protective_Brace_R_Damaged');
+    if(braceRDam)braceRDam.visible=!this.isFirstPerson;
   }
   setFailureParts(){
     const m=this.state;if(!m)return;
@@ -46,9 +60,11 @@ export class FightFlightRenderer{
       ['Protective_Brace_L','Protective_Brace_L_Damaged',m.braceLHP],
       ['Protective_Brace_R','Protective_Brace_R_Damaged',m.braceRHP]]){
       const original=this.nodes.get(intact),broken=this.nodes.get(damaged);
-      if(original)original.visible=hp>0;
-      if(broken){broken.scale.setScalar(hp>0?0:1);broken.visible=hp<=0;}
+      if(original)original.visible=!this.isFirstPerson&&hp>0;
+      if(broken){broken.scale.setScalar(hp>0?0:1);broken.visible=!this.isFirstPerson&&hp<=0;}
     }
+    const banner=this.nodes.get('Rear_Trident_Banner');
+    if(banner)banner.visible=!this.isFirstPerson;
     for(const name of SLOT_NAMES){const i=SLOT_NAMES.indexOf(name),n=this.nodes.get(name);if(n)n.visible=Math.floor(m.ammo??0)>=i+1;}
     const rotorAlive=m.rotorHP>0;
     for(const name of ['Rotor_Sword_Blade_L','Rotor_Sword_Blade_R']){const n=this.nodes.get(name);if(n)n.visible=rotorAlive;}

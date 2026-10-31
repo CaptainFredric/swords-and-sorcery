@@ -262,7 +262,7 @@ export class SpellbladeAnimator {
   }
 
   applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
-  applyFightFlight(grips){this.siege.applyFlight(grips);}
+  applyFightFlight(grips, attacking = false){this.siege.applyFlight(grips, attacking);}
   applyRam(station){
     this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
     this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);

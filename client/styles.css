@@ -55,6 +55,7 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
 .feed-line.fire { color: #ffc08b; }
 .feed-line.abyss { color: #c1c6d8; }
 .crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%); filter: drop-shadow(0 1px 2px #000); }
+.crosshair.recoil { transform: translate(-50%,-50%) scale(1.15); transition: transform .15s ease-out; }
 .crosshair i { position:absolute; background:#eef0e8; transition:.08s; }
 .crosshair i:nth-child(1){width:6px;height:1px;left:0;top:10px}.crosshair i:nth-child(2){width:6px;height:1px;right:0;top:10px}.crosshair i:nth-child(3){height:6px;width:1px;left:10px;top:0}.crosshair i:nth-child(4){height:6px;width:1px;left:10px;bottom:0}
 .crosshair.hit i{background:#ffcf80;transform:scale(1.3)}.crosshair.glance i{background:#c9b99a;transform:scale(1.1)}.crosshair.kill i{background:#fff;box-shadow:0 0 8px #fff;transform:scale(1.7)}
@@ -456,10 +457,12 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .siege-sight[data-weapon="MAIN"] .upper-mark,.siege-sight[data-weapon="UPPER"] .main-mark{display:none}
 .siege-primary.limited svg{stroke:#efc07d;stroke-width:2}
 .siege-secondary{position:absolute;left:-5px;top:-9px;font:16px Georgia,serif;color:#dfd4b9}
-.flight-sight{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);pointer-events:none;text-align:center}
+.flight-sight{position:absolute;inset:0;pointer-events:none}
 .flight-sight[hidden]{display:none}
-.flight-aim-limit{display:inline-block;padding:2px 7px;font-size:8px;font-weight:800;letter-spacing:.14em;color:#f5b060;background:rgba(22,23,19,.72);border:1px solid rgba(245,176,96,.45);border-radius:3px;text-shadow:0 1px 2px #000;opacity:0;transition:opacity .1s ease}
+.flight-aim-limit{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);display:inline-block;padding:2px 7px;font-size:8px;font-weight:800;letter-spacing:.14em;color:#f5b060;background:rgba(22,23,19,.72);border:1px solid rgba(245,176,96,.45);border-radius:3px;text-shadow:0 1px 2px #000;opacity:0;transition:opacity .1s ease;white-space:nowrap}
 .flight-sight.limited .flight-aim-limit{opacity:1}
+.flight-true-aim{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;pointer-events:none;opacity:.85;filter:drop-shadow(0 1px 2px #000);transition:transform .04s linear}
+.flight-true-aim[hidden]{display:none}
 .crosshair.clear-reference:not(:is(.hit,.glance,.kill,.block,.break,.parry))>i{opacity:.28;transform:scale(.55)}
 
 /* Inspection has one simulation and separately selectable actor/camera views. */

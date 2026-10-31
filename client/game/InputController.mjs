@@ -53,7 +53,7 @@ export class InputController {
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
-    this.mountedFlight = false;
+    this._mountedFlight = false;
     this.flightFireSources = new Set();
     this.flightDashSources = new Set();
     this.flightUltimateSources=new Set();
@@ -84,6 +84,24 @@ export class InputController {
     this.#index();
 
     this.#bind();
+  }
+
+  get mountedFlight() { return this._mountedFlight; }
+  set mountedFlight(value) {
+    const next = Boolean(value);
+    if (this._mountedFlight !== next) {
+      if (this._mountedFlight && !next) {
+        this.flightFire(false, 'mouse');
+        this.flightFire(false, 'key');
+        this.flightFire(false, 'touch');
+        this.flightDash(false, 'key');
+        this.flightDash(false, 'touch');
+        this.flightUltimate(false, 'key');
+        this.flightUltimate(false, 'touch');
+        this.setAttack(false, 'mouse');
+      }
+      this._mountedFlight = next;
+    }
   }
 
   /** Settings: { mouse, touch, invertY, bindings: { action: [codes] } }. */
@@ -255,7 +273,10 @@ export class InputController {
 
   handleMouseButtonDown(code) {
     if (!this.enabled && !this.pointerLocked) return;
-    if(this.mountedFlight&&code==='Mouse2'){this.flightFire(true,'mouse');return;}
+    if(this.mountedFlight){
+      if(code==='Mouse0'){this.flightFire(true,'mouse');return;}
+      if(code==='Mouse2'){this.setAttack(true,'mouse');return;}
+    }
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseDown(code);return;
     }
@@ -270,7 +291,10 @@ export class InputController {
   }
 
   handleMouseButtonUp(code) {
-    if(this.mountedFlight&&code==='Mouse2'){this.flightFire(false,'mouse');return;}
+    if(this.mountedFlight){
+      if(code==='Mouse0'){this.flightFire(false,'mouse');return;}
+      if(code==='Mouse2'){this.setAttack(false,'mouse');return;}
+    }
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseUp(code);return;
     }

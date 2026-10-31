@@ -336,7 +336,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'input': {
       player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
       player.input = {
-        siegeTarget:player.operatingBallistaId&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
+        siegeTarget:(player.operatingBallistaId||player.operatingFightFlightId)&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         jump: Boolean(message.jump),
