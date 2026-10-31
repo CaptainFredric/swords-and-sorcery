@@ -38,9 +38,13 @@ async function evalInBrowser(expression){
 }
 async function snap(){return evalInBrowser(`(() => {
  const s=window.__ssRuntime?.latestSnapshot;
- const ops=s?.players?.filter(p=>p.practiceSiegeOperator).map(p=>({
-  id:p.id,name:p.name,machine:p.practiceSiegeOperator.machine,
-  difficulty:p.practiceSiegeOperator.difficulty,health:p.health,alive:p.health>0}));
+ const supported=['bi-bye-llista','so-fist-ication','fight-and-flight'];
+ const ops=s?.players?.filter(p=>p.practiceSiegeOperator||
+   supported.some(machine=>p.id==='hostile-'+machine+'-'+s.roomCode)).map(p=>({
+  id:p.id,name:p.name,machine:p.practiceSiegeOperator?.machine??
+    supported.find(machine=>p.id==='hostile-'+machine+'-'+s.roomCode),
+  difficulty:p.practiceSiegeOperator?.difficulty??null,
+  health:p.health,alive:p.health>0,metadataPresent:Boolean(p.practiceSiegeOperator)}));
  const live=window.__ssRuntime?.socket?.local?.room;
  const actorIds=s?.players?.map(p=>({id:p.id,kind:p.actorKind,operator:p.practiceSiegeOperator??null}))??[];
  const ballistaPilot=live?.players?.get(s?.bibyeBallista?.operatorId);
@@ -86,6 +90,9 @@ try{
    return s.ops?.find(p=>p.machine===machine)&&s[field]?.operatorId?s:false;
   },'authoritative mounted '+name,65);
   assert.equal(first.ops.find(x=>x.machine===machine)?.name,name);
+  console.log('[SIEGE ACTOR]',JSON.stringify({machine,
+    metadata:first.ops.find(x=>x.machine===machine)?.metadataPresent,
+    actorIds:first.actorIds,actualPilot:first.actualPilot}));
   assert.equal(first[field].operatorId,first.ops.find(x=>x.machine===machine).id);
   await shot('summoned-'+machine);
   let evidence;
@@ -105,7 +112,8 @@ try{
   }
   record[machine]={first:{
     id:first[field].id,position:[first[field].x,first[field].y,first[field].z],
-    operator:first[field].operatorId},after:{
+    operator:first[field].operatorId,
+    metadataPresent:first.ops.find(x=>x.machine===machine)?.metadataPresent},after:{
     position:[evidence[field].x,evidence[field].y,evidence[field].z],
     mode:evidence[field].mode,ammo:evidence[field].ammo,
     charge:evidence[field].flightCharge,skill:evidence[field].skill?.phase}};
