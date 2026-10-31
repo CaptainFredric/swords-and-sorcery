@@ -108,3 +108,22 @@ test('server actors do not keep an abandoned solo room alive forever', () => {
   assert.equal(room.isCleanupEligible(75), false);
   assert.equal(room.isCleanupEligible(76.2), true);
 });
+
+
+test('Shared Practice is a real private Practice room, never matchmaking FFA or solo LocalHost',()=>{
+ const manager=new RoomManager({random:sequenceRandom(.17)});
+ const shared=manager.createSharedPracticeRoom(0,'castleward');
+ assert.equal(shared.mode,'PRACTICE');assert.equal(shared.isPrivate,true);
+ assert.equal(shared.sharedPractice,true);
+ const privateFFA=manager.createPrivateRoom(0);
+ assert.equal(privateFFA.mode,'FFA');assert.equal(privateFFA.sharedPractice,false);
+ const joiner=shared.addPlayer({id:'player-1',token:'t1',name:'First'},0);
+ shared.sharedPracticeHostId=joiner.id;
+ shared.addPlayer({id:'player-2',token:'t2',name:'Second'},0);
+ shared.armAutoStart(0);
+ assert.equal(shared.state,'PLAYING');
+ const quick=manager.quickPlay(1);
+ assert.notEqual(quick.code,shared.code);
+ shared.disconnectPlayer('player-1',2);
+ assert.equal(shared.sharedPracticeHostId,'player-2');
+});

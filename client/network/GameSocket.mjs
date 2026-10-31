@@ -115,6 +115,7 @@ export class GameSocket {
   }
 
   createRoom(name) { this.send({ type: 'createRoom', name }); }
+  createSharedPracticeRoom(name,worldId='castleward') { this.send({type:'createSharedPracticeRoom',name,worldId}); }
   createBreakthroughRoom(name, team = null, botSkill = null, teamSize = null, worldId = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}), ...(teamSize ? { teamSize } : {}), ...(worldId ? { worldId } : {}) }); }
 
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }

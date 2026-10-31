@@ -1156,6 +1156,7 @@ function startBotDuel() {
 $('#bot-duel').addEventListener('click', startBotDuel);
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#shared-practice-mode')?.addEventListener('click',()=>runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU));
 $('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
