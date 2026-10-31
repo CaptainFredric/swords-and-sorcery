@@ -34,8 +34,14 @@ test('Rotating sword crosses a target between 30Hz endpoints; contact is not an 
  assert.ok(m.rotorEnergy<100,'contact spends actual rotational energy');
 });
 test('Continuous contact deals once, a later genuine new crossing may hit again',()=>{
- const {room,m,defender}=setup();crossing(room,m,10);
+ const {room,m,defender}=setup();
+ // End the first step *inside* the blade/body overlap; the next tick continues
+ // that same episode rather than teleporting back from a completed crossing.
+ m.rotorAngleBefore=-.12;m.lastRotorDelta=.12;m.rotorAngle=0;
+ m.rotorAngularVelocity=47.1238898;m.rotorPositionBefore={x:0,y:0,z:0};
+ stepFightFlightRotor(room,m,1/30,10);
  const first=room.events.filter(e=>e.type==='fightFlightRotorContact').length;
+ assert.ok(first>0);
  // Approach the same victim from inside the still-open physical contact interval.
  m.rotorAngleBefore=-.08;m.lastRotorDelta=.08;m.rotorAngle=0;
  stepFightFlightRotor(room,m,1/30,10.1);
