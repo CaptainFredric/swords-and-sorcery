@@ -17,11 +17,13 @@ export function setFlightUltimateHold(room,m,p,down,now){
  if(!operator(room,m,p))return {rejected:'Operate Fight-and-Flight first.'};
  const prior=Boolean(m.flightUltimateHeld),wasAt=m.flightUltimateDownAt??now;
  m.flightUltimateHeld=Boolean(down);
- if(down){if(!prior)m.flightUltimateDownAt=now;return {};}
+ if(down){if(!prior){m.flightUltimateDownAt=now;m.flightUltimateChordAttempted=false;}return {};}
  const wasPreparing=Boolean(m.terminalPrep);
  if(wasPreparing){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
- const tap=!wasPreparing&&!m.flightDashHeld&&prior&&now-wasAt<=.35&&!m.terminalDive;
- m.flightUltimateDownAt=null;
+ // Once an attempted Dash+Ultimate chord has begun, cancelling Dash first
+ // must NEVER turn the later Ultimate release into an accidental activation.
+ const tap=!wasPreparing&&!m.flightUltimateChordAttempted&&!m.flightDashHeld&&prior&&!m.terminalDive;
+ m.flightUltimateDownAt=null;m.flightUltimateChordAttempted=false;
  return {tapUltimate:tap};
 }
 export function stepTerminalPreparation(room,m,now){
@@ -34,6 +36,7 @@ export function stepTerminalPreparation(room,m,now){
  }
  if(!m.terminalPrep){
   m.terminalPrep={phase:'holding',startedAt:Math.max(m.flightDashStartedAt??now,m.flightUltimateDownAt??now),until:now+TERMINAL.holdSec};
+  m.flightUltimateChordAttempted=true;
   m.offensiveRun=false;
   room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,operatorId:p.id,action:'started',until:m.terminalPrep.until,at:now});
  }
