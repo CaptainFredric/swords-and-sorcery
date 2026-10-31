@@ -52,6 +52,7 @@ export class FightFlightRenderer{
   posture(m){
     if(m.rotorHP<=0)return 'Damage_08_Rotor_Destroy_Grounded';
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
+    if(m.terminalDive&&!m.terminalDive.resolved)return 'Posture_07_Terminal_Dive_Pitch';
     if(m.offensiveRun)return 'Posture_06_Airborne_Overdrive_Pitch';
     if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
     if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
