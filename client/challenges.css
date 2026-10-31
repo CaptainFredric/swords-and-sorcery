@@ -1,4 +1,4 @@
-.armory-tabs:has(#armory-challenges-tab) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.armory-tabs:has(#armory-challenges-tab) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .armory-tabs:has(#armory-challenges-tab) button { min-width: 0; font-size: 13px; letter-spacing: .02em; }
 #armory-challenges { padding-bottom: 4px; }
 .mastery-intro { margin-bottom: 16px; }
