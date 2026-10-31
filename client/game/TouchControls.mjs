@@ -316,15 +316,16 @@ export class TouchControls {
       this.ramMounted=ram;
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-flight',flight);
+      this.buttons.spell.hidden=flight;
       this.buttons.jump.querySelector('span').textContent=flight?'RISE':'JUMP';
       this.buttons.crouch.querySelector('span').textContent=flight?'LOWER':'CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       if(this.buttons.siegeSkill){
-        const button=this.buttons.siegeSkill,machine=ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
-        const label=siegeSkillControlLabel(machine,serverNow);
-        button.hidden=!mounted||flight;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
-        button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        const button=this.buttons.siegeSkill,machine=ram?rb:flight?fb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
+        const label=flight?(skill?.phase==='active'?'ACTIVE':remaining>0?'COOLING':'FIRE AWAY'):siegeSkillControlLabel(machine,serverNow);
+        button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
+        button.setAttribute('aria-label',`${flight?"Fire Away? I'm Right Here.":ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
       }
       if(this.buttons.siegeBoth){
         const primed=!ram&&!flight&&mounted&&bl?.skill?.phase==='primed';
