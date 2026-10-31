@@ -99,6 +99,8 @@ try{
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');
  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await sleep(700);
+ console.log('[FAF ASCENT TRACE]',await evaluate("(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;return {inputEnabled:r?.input?.enabled,spaceHeld:r?.input?.keys?.has('Space'),jumpBinding:r?.input?.bindings?.jump,clientMovement:r?.input?.movement?.(),machine:{y:m?.y,mode:m?.mode,grounded:m?.grounded,rotorRPM:m?.rotorRPM,rotorPowered:m?.rotorPowered,verticalIntent:m?.verticalIntent,hopStartedAt:m?.hopStartedAt,rotorHP:m?.rotorHP,flightCharge:m?.flightCharge},socketLocal:r?.socket?.playingLocally};})()"));
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
