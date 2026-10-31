@@ -75,7 +75,16 @@ test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
  assert.notEqual(room.soFistication.z,z,'ram moves under ordinary driving physics');
  assert.ok(room.events.some(e=>e.type==='soFistStrike'),
    'physical ram stroke comes from the usual machine');
- assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id));
+ assert.ok(room.events.some(e=>e.type==='soFistImpact'&&e.piston),
+   'Sir Uppercuff must actually land a physical piston collision, not just play an animation');
+});
+test('Sir Uppercuff primes Beat to the Punch against a visible opponent attack',()=>{
+ const {room,player,command}=setup();
+ assert.deepEqual(command('spawn','so-fist-ication','formidable'),{});
+ player.attackActive=true;player.attackStartedAt=2;player.attackHeld=true;
+ stepPracticeActors(room,2.1,room.world);
+ assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id),
+   'genuine visible attack invites the existing reactive machine Skill');
 });
 test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bolts',()=>{
  const {room,command}=setup();
