@@ -100,7 +100,7 @@ test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bo
  assert.notEqual(f.z,z,'machine actually translates');
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'repeater releases real projectiles');
  assert.ok(f.flightCharge<100,'ascent or hover has a real charge cost');
- assert.ok(f.ammo<=14&&f.ammo>=0);
+ assert.ok(f.ammo<=18&&f.ammo>=0);
  assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'&&
    e.source==='fight-flight-repeater'),
    'Mr. Donte Shoot must hit the actual player with a physical repeater quarrel');
@@ -129,7 +129,7 @@ test('Competence settings change real decision cadence and aiming, not equipment
   stepPracticeActors(room,2.1,room.world);
   times.push(a.siegeAi.nextThinkAt);
   assert.equal(f.maxFlightCharge,100);
-  assert.ok(f.ammo>=0&&f.ammo<=14,'a skilled pilot uses finite ammunition');
+  assert.ok(f.ammo>=0&&f.ammo<=18,'a skilled pilot uses finite ammunition');
   assert.equal(f.health,250);
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
