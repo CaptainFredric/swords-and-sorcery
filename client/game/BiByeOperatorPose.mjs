@@ -49,9 +49,10 @@ export class BiByeOperatorPose {
   }
  }
  applyFlight(grips){
-  // Keep the Spellblade's real sword equipped; only the left hand holds the repeater.
+  // Keep the Spellblade's real sword equipped; left hand holds repeater, right hand in sword corridor
   this.root.updateWorldMatrix(true,true);
   this.#arm('L',grips?.left,false);
+  if(grips?.right)this.#arm('R',grips.right,false);
  }
  applyStanding(grips){
   if(!this.standingActive){this.standingActive=true;this.standingSwordVisible=this.sword?.visible??true;}

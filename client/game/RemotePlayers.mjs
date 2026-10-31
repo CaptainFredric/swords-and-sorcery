@@ -294,6 +294,19 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
   });
   shell.createdAtMs = nowMs;
   shell.fallbackRig = fallbackRig;
+  shell.cockpitHeadHidden = false;
+  shell.setCockpitHeadHidden = (hidden) => {
+    const want = Boolean(hidden);
+    if (shell.cockpitHeadHidden === want && shell.lastHeadMeshConfigured) return;
+    shell.cockpitHeadHidden = want;
+    shell.lastHeadMeshConfigured = true;
+    if (shell.fallbackRig?.head) shell.fallbackRig.head.visible = !want;
+    shell.root.traverse((n) => {
+      if (['head', 'HelmetJaw', 'HelmetShell', 'Visor', 'Crest'].some(k => n.name?.includes(k))) {
+        n.visible = !want;
+      }
+    });
+  };
   reportSpellbladeAssetStatus('remote');
 
   const d = root.userData;
@@ -315,6 +328,10 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
       if (upgradeRemoteVisual(shell, instance, generation)) {
         instance.setCloth(shell.cloth ?? 'crimson');
         instance.setEmblem?.(shell.emblem ?? 'trident');
+        if (shell.cockpitHeadHidden) {
+          shell.lastHeadMeshConfigured = false;
+          shell.setCockpitHeadHidden(true);
+        }
         reportSpellbladeAssetStatus('remote', instance);
       }
     })

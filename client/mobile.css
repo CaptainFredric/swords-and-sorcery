@@ -346,5 +346,92 @@ html.turn-typing .rotate-prompt { display: none !important; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
+/* Fight-and-Flight mobile layout */
+.touch-ui .flight-hud { width: min(340px, 94vw); }
+.touch-ui .flight-hud-strip { padding: 3px 8px; }
+.touch-ui .flight-metric label { font-size: 7px; }
+.touch-ui .flight-metric b { font-size: 11px; }
+.touch-ui .flight-bar-wrap progress { width: 44px; height: 6px; }
+
+/* Contiguous vertical RISE / LOWER rocker inward and slightly above movement stick */
+.touch-mounted.touch-flight .touch-jump,
+.touch-mounted.touch-flight .touch-crouch {
+  display: grid !important;
+  position: absolute;
+  width: calc(52px * var(--s));
+  height: calc(44px * var(--s));
+  left: calc(var(--safe-l) + 188px * var(--s));
+  right: auto;
+  border: 1.5px solid rgba(222, 204, 160, .6);
+  background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .75), rgba(15, 16, 12, .88));
+  color: #f1e8d0;
+  z-index: 15;
+}
+.touch-mounted.touch-flight .touch-jump {
+  bottom: calc(var(--safe-b) + 134px * var(--s));
+  border-radius: 14px 14px 2px 2px;
+  border-bottom: 1px solid rgba(222, 204, 160, .35);
+}
+.touch-mounted.touch-flight .touch-crouch {
+  bottom: calc(var(--safe-b) + 88px * var(--s));
+  border-radius: 2px 2px 14px 14px;
+  border-top: 1px solid rgba(222, 204, 160, .35);
+}
+.touch-mounted.touch-flight .touch-jump span,
+.touch-mounted.touch-flight .touch-crouch span {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+/* Combat controls on right thumb */
+.touch-mounted.touch-flight .touch-attack {
+  --size: 74px;
+  right: calc(var(--safe-r) + 24px * var(--s));
+  bottom: calc(var(--safe-b) + 24px * var(--s));
+}
+.touch-mounted.touch-flight .touch-siegeWeapon {
+  display: grid !important;
+  --size: 72px;
+  right: calc(var(--safe-r) + 110px * var(--s));
+  bottom: calc(var(--safe-b) + 32px * var(--s));
+  color: #e6c98f;
+  border-color: rgba(230, 201, 143, .75);
+}
+.touch-mounted.touch-flight .touch-siegeSkill {
+  --size: 54px;
+  right: calc(var(--safe-r) + 114px * var(--s));
+  bottom: calc(var(--safe-b) + 116px * var(--s));
+}
+.touch-mounted.touch-flight .touch-dash {
+  display: grid !important;
+  --size: 54px;
+  right: calc(var(--safe-r) + 40px * var(--s));
+  bottom: calc(var(--safe-b) + 110px * var(--s));
+}
+.touch-mounted.touch-flight .touch-ultimate {
+  display: grid !important;
+  --size: 56px;
+  right: calc(var(--safe-r) + 184px * var(--s));
+  bottom: calc(var(--safe-b) + 48px * var(--s));
+}
+
+/* Auxiliary controls in upper edge */
+.touch-mounted.touch-flight .touch-siegeView {
+  --size: 42px;
+  top: calc(var(--safe-t) + 12px * var(--s));
+  bottom: auto;
+  right: calc(var(--safe-r) + 14px * var(--s));
+}
+.touch-mounted.touch-flight .touch-interact {
+  --size: 42px;
+  top: calc(var(--safe-t) + 12px * var(--s));
+  bottom: auto;
+  right: calc(var(--safe-r) + 64px * var(--s));
+}
+.touch-mounted.touch-flight.airborne .touch-interact {
+  opacity: .4;
+}
+
 /* Deliberate mobile volley: separate from simultaneous finger gestures. */
 .touch-siegeBoth { --size: 62px; right: calc(var(--safe-r) + 203px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #f3d4ac; border-color: #e6ad77; }

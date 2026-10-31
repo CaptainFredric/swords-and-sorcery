@@ -64,7 +64,7 @@ export class FightFlightRenderer{
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
   }
-  update(now,m,projectiles=[],snapshotTime=now,zones=[]){
+  update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null){
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
     this.state=m;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
@@ -92,9 +92,14 @@ export class FightFlightRenderer{
     this.mixer.update(0);
     const crossbow=this.nodes.get('Crossbow_Body');
     if(crossbow){
-      const relative=Math.atan2(Math.sin((m.crossbowYaw??m.heading)-m.heading),Math.cos((m.crossbowYaw??m.heading)-m.heading));
+      const rawYaw=aim?.yaw??m.crossbowYaw??m.heading??0;
+      const rawPitch=aim?.pitch??m.crossbowPitch??0;
+      const maxTraverse=Math.PI*25/180,minPitch=-Math.PI*20/180,maxPitch=Math.PI*20/180;
+      const deltaYaw=Math.atan2(Math.sin(rawYaw-(m.heading??0)),Math.cos(rawYaw-(m.heading??0)));
+      const relative=Math.max(-maxTraverse,Math.min(maxTraverse,deltaYaw));
+      const clampedPitch=Math.max(minPitch,Math.min(maxPitch,rawPitch));
       const age=now-(m.lastShotAt??-Infinity),recoil=age>=0&&age<.143?(.065*(1-age/.143)):0;
-      crossbow.rotation.set(-(m.crossbowPitch??0)-recoil,relative,0,'YXZ');
+      crossbow.rotation.set(-clampedPitch-recoil,relative,0,'YXZ');
     }
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
@@ -136,7 +141,10 @@ export class FightFlightRenderer{
   }
   getOperatorGrips(){
     this.group.updateMatrixWorld(true);
-    return {left:this.nodes.get('operator_hand_L_crossbow_grip')?.getWorldPosition(new THREE.Vector3())??null};
+    return {
+      left:this.nodes.get('operator_hand_L_crossbow_grip')?.getWorldPosition(new THREE.Vector3())??null,
+      right:this.nodes.get('operator_hand_R_sword_corridor')?.getWorldPosition(new THREE.Vector3())??null
+    };
   }
   getMountedCameraPosition(view,out=new THREE.Vector3()){
     const m=this.state;if(!m)return null;
