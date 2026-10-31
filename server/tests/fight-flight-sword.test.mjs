@@ -24,7 +24,7 @@ test('Mounted right-hand sword uses actual swept contact, not a proximity-damage
  const {room,a,b,m}=setup();
  assert.equal(beginAttack(room,a.id,10),true);
  stepRoom(room,.01,10.4,world);
- assert.ok(room.events.some(e=>e.type==='swordHit'&&e.attackerId===a.id),'mounted swing reaches real sword swept volume');
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.playerId===a.id&&e.targetId===b.id),'mounted swing reaches real sword swept volume');
  assert.ok(b.health<100,'actual target HP is reduced through ordinary sword rules');
  assert.equal(m.operatorId,a.id);
 });
@@ -55,7 +55,7 @@ test('Only an active, not merely ready, Spells and Chivalry allows mounted sword
 test('Grounded Guard remains real and suppresses ordinary firing; airborne Guard is unavailable',()=>{
  const {room,a,m}=setup();
  assert.deepEqual(applyRoomCommand(room,a,{type:'guard',down:true},10),{});
- assert.equal(a.guarding,true);
+ assert.equal(a.guarding,true,JSON.stringify({state:room.state,guardStamina:a.guardStamina,staggerUntil:a.staggerUntil,guardBrokenUntil:a.guardBrokenUntil,ultimateState:a.ultimateState,grounded:m.grounded,operatorId:m.operatorId,guardHeld:a.guardHeld,guardButton:a.guardButton,events:room.events.slice(-3)}));
  assert.equal(requestFightFlightFire(room,m,a,true,10.01),true);
  assert.equal(m.ammo,14);
  m.grounded=false;m.mode='AIRBORNE';m.y=3;
