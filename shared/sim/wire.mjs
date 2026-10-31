@@ -335,7 +335,10 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
-      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id)return {};
+      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id){
+        // Keep the *actual* Spellblade sword press and swing pipeline; the
+        // repeater independently respects active melee unless Chivalry permits both.
+      }
       if(player.operatingRamId&&room.soFistication?.operatorId===player.id){if(message.down&&player.alive)fireSoFistication(room,room.soFistication,time);return {};}
       if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
         if (message.down) {
@@ -350,7 +353,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'guard': {
-      if(player.operatingFightFlightId)return {};
+      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded)return {};
       const inputTime = compensatedInputTime(message.clientTime, time);
       pressButton(room, player.id, 'guard', message.down, inputTime);
       setGuard(room, player.id, Boolean(message.down), inputTime);
