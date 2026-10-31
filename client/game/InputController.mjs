@@ -58,8 +58,6 @@ export class InputController {
     this.flightDashSources = new Set();
     this.flightUltimateSources=new Set();
     this.ballistaSkillPhase = 'idle';
-    this.ballistaChordMs = 45;
-    this.ballistaMouse = {leftTimer:null,rightTimer:null,attackSent:false,consumed:false,primeHeld:false};
     this.attackHeld = false;
     this.guardHeld = false;
     this.scoreboardHeld = false;
@@ -281,65 +279,20 @@ export class InputController {
     this.#release(code);
   }
 
-  #ballistaCancelPending(){
-    const state=this.ballistaMouse;
-    this.clearTimer(state.leftTimer);this.clearTimer(state.rightTimer);
-    state.leftTimer=null;state.rightTimer=null;
-  }
-
+  // Mouse buttons are independent edge-triggered weapon requests. U is
+  // the Skill activation; RMB must never secretly prime it or wait for a chord.
   #ballistaMouseDown(code){
-    if(this.keys.has(code))return; // compatibility pointer+mouse or OS repeat
+    if(this.keys.has(code))return;
     this.keys.add(code);
-    const state=this.ballistaMouse;
-    const isLeft=code==='Mouse0';
-    if(!isLeft&&this.ballistaSkillPhase!=='primed'){
-      // First right press is PRIME only. Holding it cannot also FIRE II.
-      state.primeHeld=true;
-      this.siegeSkill();this.ballistaSkillPhase='primed';
-      return;
-    }
-    if(state.primeHeld){
-      // A first-prime right hold is not a deliberate second press or chord.
-      if(isLeft){this.setAttack(true,'desktop');state.attackSent=true;}
-      return;
-    }
-    if(this.ballistaSkillPhase==='primed'&&this.keys.has('Mouse0')&&this.keys.has('Mouse2')&&!state.attackSent&&!state.consumed){
-      this.#ballistaCancelPending();
-      state.consumed=true;
-      this.siegeBoth();
-      this.ballistaSkillPhase='releasing';
-      return;
-    }
-    const send=()=>{
-      const field=isLeft?'leftTimer':'rightTimer';state[field]=null;
-      if(state.consumed||!this.keys.has(code)||!this.mountedBallista)return;
-      if(isLeft){this.setAttack(true,'desktop');state.attackSent=true;}
-      else{this.siegeSkill();this.ballistaSkillPhase='releasing';}
-    };
-    // Only already-primed clicks receive the short chord recognition window.
-    // Normal unprimed Bolt I retains instantaneous input.
-    if(this.ballistaSkillPhase!=='primed'){
-      if(isLeft){this.setAttack(true,'desktop');state.attackSent=true;}
-      return;
-    }
-    const field=isLeft?'leftTimer':'rightTimer';
-    state[field]=this.setTimer(send,this.ballistaChordMs);
+    if(code==='Mouse0')this.setAttack(true,'desktop');
+    else if(this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'bibyeHeavyFire',yaw:this.yaw,pitch:this.pitch,
+      ...(this.siegeTarget?{siegeTarget:{...this.siegeTarget}}:{})});
   }
 
   #ballistaMouseUp(code){
     this.blockedKeys.delete(code);
     if(!this.keys.delete(code))return;
-    const state=this.ballistaMouse,isLeft=code==='Mouse0',field=isLeft?'leftTimer':'rightTimer';
-    if(state[field]!=null){
-      this.clearTimer(state[field]);state[field]=null;
-      if(!state.consumed){
-        if(isLeft){this.setAttack(true,'desktop');state.attackSent=true;}
-        else{this.siegeSkill();this.ballistaSkillPhase='releasing';}
-      }
-    }
-    if(isLeft&&state.attackSent){this.setAttack(false,'desktop');state.attackSent=false;}
-    if(!isLeft)state.primeHeld=false;
-    if(!this.keys.has('Mouse0')&&!this.keys.has('Mouse2'))state.consumed=false;
+    if(code==='Mouse0')this.setAttack(false,'desktop');
   }
 
   #setEnabled(enabled) {
@@ -440,9 +393,6 @@ export class InputController {
     if(this.flightFireSources.size){this.flightFireSources.clear();this.socket?.send?.({type:'fightFlightFire',down:false});}
     if(this.flightDashSources.size){this.flightDashSources.clear();this.socket?.send?.({type:'flightDash',down:false});}
     if(this.flightUltimateSources.size){this.flightUltimateSources.clear();this.socket?.send?.({type:'flightUltimateHold',down:false,cancel:true});}
-    this.#ballistaCancelPending();
-    this.ballistaMouse.consumed=false;this.ballistaMouse.primeHeld=false;
-    this.ballistaMouse.attackSent=false;
     this.aimGain = 1;
     this.onAimCancelled();
     this.cancelPreparedGesture();

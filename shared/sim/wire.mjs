@@ -7,7 +7,7 @@ import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
-import { requestColdHowTouching, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
+import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -458,6 +458,17 @@ export function applyRoomCommand(room, player, message, time) {
       const m=room.fightFlight;
       if(!requestFightFlightFire(room,m,player,Boolean(message.down),time))return {rejected:'Operate Fight-and-Flight to fire the repeater.'};
       return {};
+    }
+    case 'bibyeHeavyFire': {
+      const b=room.biByeLlista;
+      if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
+      const ray=Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)?
+        {yaw:message.yaw,pitch:message.pitch,
+          siegeTarget:message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))
+            &&Math.hypot(message.siegeTarget.x-b.x,message.siegeTarget.y-b.y,message.siegeTarget.z-b.z)<=210?
+            message.siegeTarget:null}:null;
+      const reason=requestBiByeIndependentHeavy(room,b,player,time,biByeTargetAim,ray);
+      return reason?{rejected:reason}:{};
     }
     case 'bibyeCombinedFire': {
       const b=room.biByeLlista;

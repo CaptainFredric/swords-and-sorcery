@@ -2826,13 +2826,18 @@ export class GameRuntime {
     if(this.localAuth?.operatingFightFlightId)return {...wanted,mounted:true};
     const b=this.latestSnapshot?.bibyeBallista;
     if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};
-    if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED')return {...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {})};
+    if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED'){
+      this.input.siegeTarget=null;
+      return {...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {})};
+    }
     const aim=biByeConstrainAim({...b,...b.position},wanted,b.mode!=='DEPLOYED'||b.weaponFocus!=='MAIN');
     // Stop accumulating input beyond the physical joint stops.
     this.input.yaw=aim.yaw;this.input.pitch=aim.pitch;
     const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(aim.yaw,aim.pitch);
     const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
-    return {...wanted,...aim,siegeTarget:{x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance},mounted:true};
+    const siegeTarget={x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance};
+    this.input.siegeTarget=siegeTarget;
+    return {...wanted,...aim,siegeTarget,mounted:true};
   }
 
   #mountedView(dt) {

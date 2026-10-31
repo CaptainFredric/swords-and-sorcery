@@ -587,41 +587,36 @@ test('dedicated siege Skill respects rebinding, one press and disabled input',()
  down('KeyH');send('keydown',{code:'KeyH',repeat:true});up('KeyH');assert.deepEqual(calls,[{type:'siegeSkill'}]);input.enabled=false;down('KeyH');assert.equal(calls.length,1);
 });
 
-test('mounted right mouse primes once, then a distinct right click releases the heavy Skill',()=>{
- const {input,calls,down,up,reveal}=setup();
- input.socket.send=message=>calls.push(['send',message]);
- input.mountedBallista=true;input.ballistaSkillPhase='idle';
- down('Mouse2');down('Mouse2');
- assert.deepEqual(calls,[['send',{type:'siegeSkill'}]]);
- up('Mouse2');
- input.ballistaSkillPhase='primed';
- down('Mouse2');assert.equal(calls.length,1);
- reveal();assert.deepEqual(calls,[['send',{type:'siegeSkill'}],['send',{type:'siegeSkill'}]]);
- up('Mouse2');assert.equal(calls.length,2);
+test('mounted RMB requests Bolt II immediately, never primes or creates a mouse chord',()=>{
+ const {input,calls,down,up,reveal}=setup();input.socket.send=m=>calls.push(m);
+ input.mountedBallista=true;
+ down('Mouse2');down('Mouse2');reveal();up('Mouse2');
+ assert.deepEqual(calls.map(c=>c.type),['bibyeHeavyFire']);
+ assert.ok(Number.isFinite(calls[0].yaw)&&Number.isFinite(calls[0].pitch));
+ down('Mouse2');up('Mouse2');
+ assert.deepEqual(calls.map(c=>c.type),['bibyeHeavyFire','bibyeHeavyFire']);
+ assert.ok(calls.every(c=>Number.isFinite(c.yaw)&&Number.isFinite(c.pitch)));
 });
 
-for(const buttons of [['Mouse0','Mouse2'],['Mouse2','Mouse0']]){
- test('mounted already-primed '+buttons.join(' then ')+' commits one atomic BOTH and no ordinary ATTACK',()=>{
-  const {input,calls,down,up,reveal}=setup();
-  input.socket.send=message=>calls.push(['send',message]);
-  input.mountedBallista=true;input.ballistaSkillPhase='primed';
-  down(buttons[0]);down(buttons[1]);reveal();
-  assert.deepEqual(calls,[['send',{type:'bibyeCombinedFire'}]]);
-  up(buttons[1]);up(buttons[0]);assert.equal(calls.length,1);
- });
-}
-
-test('mounted quick single left click still fires Bolt I, and dismount preserves ordinary Guard',()=>{
- const {input,calls,down,up}=setup();
- input.socket.send=message=>calls.push(['send',message]);
- input.mountedBallista=true;input.ballistaSkillPhase='primed';
+test('U, then LMB and RMB are independent, including sequential presses on a one-button-at-a-time mouse',()=>{
+ const {input,calls,down,up,reveal}=setup();input.socket.send=m=>calls.push(m);
+ input.mountedBallista=true;
+ down('KeyU');up('KeyU');
  down('Mouse0');up('Mouse0');
- assert.deepEqual(calls.filter(v=>v[0]==='attack'),[['attack',true],['attack',false]]);
- input.mountedBallista=false;input.releaseInputs();calls.length=0;
- down('Mouse2');assert.deepEqual(calls,[['guard',true]]);
- up('Mouse2');assert.deepEqual(calls,[['guard',true],['guard',false]]);
+ down('Mouse2');up('Mouse2');reveal();
+ assert.deepEqual(calls.filter(c=>c?.type).map(c=>c.type),['siegeSkill','bibyeHeavyFire']);
+ assert.deepEqual(calls.filter(c=>Array.isArray(c)&&c[0]==='attack'),[['attack',true],['attack',false]]);
 });
 
+test('mounted mouse release, blur and operator switching never issue phantom heavy shots',()=>{
+ const {input,calls,down,up,send,win}=setup();input.socket.send=m=>calls.push(m);
+ input.mountedBallista=true;
+ down('Mouse0');send('blur',{},win);up('Mouse0');
+ input.mountedBallista=false;input.releaseInputs();
+ assert.equal(calls.some(c=>c?.type==='bibyeHeavyFire'||c?.type==='bibyeCombinedFire'),false);
+ down('Mouse2');up('Mouse2');
+ assert.equal(input.guardHeld,false);
+});
 
 test('Flight repeater merges mouse/key/touch holds and releases on blur without an abandoned trigger',()=>{
   const {input,calls,down,up,send,win}=setup();
