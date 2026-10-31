@@ -3,7 +3,7 @@ import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS]);
 
 export function generateRoomCode(random = Math.random) {
   let code = '';
@@ -41,7 +41,7 @@ export class RoomManager {
   }
 
   createBreakthroughRoom(nowSec = 0, isPrivate = true, worldId = WORLD_IDS.BASTION_BREACH, { teamSize = null } = {}) {
-    return this.#createRoom({ isPrivate, mode: GAME_MODES.BREAKTHROUGH, worldId, teamSize }, nowSec);
+    return this.#createRoom({ isPrivate, mode: worldId === WORLD_IDS.HIGH_GROUNDS ? GAME_MODES.HIGH_GROUNDS : GAME_MODES.BREAKTHROUGH, worldId, teamSize }, nowSec);
   }
 
   // a matchmade one-on-one: never listed, never joinable by code or Quick Play
