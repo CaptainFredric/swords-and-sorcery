@@ -7,7 +7,7 @@ import {createSoFistication,mountSoFistication,dismountSoFistication,
   soFistEntry,primeSoFistSkill,fireSoFistication} from './soFistication.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
 import {fightFlightConstructionClear} from './practiceFightFlight.mjs';
-import {requestFightFlightFire} from './fightFlightWeapons.mjs';
+import {requestFightFlightFire,flightMuzzle,flightRepeaterAim} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
@@ -244,13 +244,26 @@ function donte(room,a,m,target,ai,tuning,now){
     target.position.y+shootingAltitude;
   // Real helm authority is bounded by the flight physics turn rate.
   const heading=bearing(at,aim.point);
+  // Physical muzzle parallax matters at close range: the left-side crossbow
+  // is 0.65 m off center and a center-of-machine ray would miss the knight.
+  // Iteratively solve the desired muzzle-to-torso vector, always evaluating
+  // the same joint-clamped authored transform the server uses to fire.
+  const impact={...aim.point,y:aim.point.y+1.1};
+  let fireYaw=heading,firePitch=0;
+  for(let iteration=0;iteration<3;iteration++){
+    const legal=flightRepeaterAim(m,{yaw:fireYaw,pitch:firePitch});
+    const muzzle=flightMuzzle(m,legal);
+    fireYaw=bearing(muzzle,impact);
+    firePitch=Math.atan2(impact.y-muzzle.y,
+      Math.max(.1,Math.hypot(impact.x-muzzle.x,impact.z-muzzle.z)));
+  }
   const climb=m.grounded?charge>22:charge>18&&m.y<desiredHeight-.8;
   const descend=!m.grounded&&(m.y>desiredHeight+1.5||charge<17);
   // Offensive passes, not stationary hovering at a single point.
   const advance=d>5?1:d<2.1?-.6:.45;
   const flank=d<13?ai.side*.4:0;
-  a.input={...a.input,forward:advance,right:flank,yaw:heading,
-    pitch:clamp(Math.atan2(aim.point.y+1.1-(m.y+1.098),Math.max(1,d)),-.35,.35),
+  a.input={...a.input,forward:advance,right:flank,yaw:fireYaw,
+    pitch:clamp(firePitch,-1.45,1.45),
     jump:climb,crouch:descend,sprint:false};
   if(m.ammo<4&&m.skill?.phase==='idle'&&d<32)requestFightFlightSkill(room,m,a,now);
   // While Sword is committed, the real weapon gate controls the repeater;
