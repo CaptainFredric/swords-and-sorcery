@@ -163,6 +163,8 @@ export class FlightSound {
     this.lastTime = 0;
     this.wasGrounded = true;
     this.lastVelY = 0;
+    this.lastStartWhooshAt=-Infinity;
+    this.lastReleaseWhooshAt=-Infinity;
   }
 
   #place(b) {
@@ -242,6 +244,16 @@ export class FlightSound {
     this.#loop('walk', walking, m, 0.22, Math.max(0.6, Math.min(1.3, speed / 3)));
 
     const offensive = owned && Boolean(m.offensiveRun);
+    // A released Dash clears offensiveRun in the command handler *before*
+    // the next sim tick; it need not emit a separate ended event. Observe
+    // the authoritative edge so the tail whoosh still sounds on release.
+    // Event-provided audio and snapshot fallback share the same cooldown.
+    if(offensive&&!last?.offensiveRun&&options.now-this.lastStartWhooshAt>.45){
+      this.#play('offensiveRun',m,.85);this.lastStartWhooshAt=options.now;
+    }
+    if(!offensive&&last?.offensiveRun&&options.now-this.lastReleaseWhooshAt>.35){
+      this.#play('offensiveRelease',m,.55);this.lastReleaseWhooshAt=options.now;
+    }
     this.#loop('offensive', offensive, m, 0.35, 1.15);
 
     this.last = { ...m };
@@ -281,8 +293,12 @@ export class FlightSound {
     } else if (event.type === 'fightFlightRotorWorldImpact' || event.type === 'fightFlightRotorContact') {
       kind = 'rotorCollision';
     } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'started') {
+      if(now-this.lastStartWhooshAt<=.45)return;
+      this.lastStartWhooshAt=now;
       kind = 'offensiveRun';
     } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'ended') {
+      if(now-this.lastReleaseWhooshAt<=.35)return;
+      this.lastReleaseWhooshAt=now;
       kind = 'offensiveRelease';
     } else if (event.type === 'fightFlightTerminalPrep' && event.action === 'started') {
       kind = 'valkyriePrep';
