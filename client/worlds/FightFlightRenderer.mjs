@@ -5,6 +5,7 @@ import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {SWORD_STRIKE_TIMES} from '../../shared/src/combat.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
+import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
 // v2.6 remains checked into this directory as a verifiable rollback.
 const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v2.7.glb?v=5358f2629a84';
@@ -16,7 +17,7 @@ export class FightFlightRenderer{
     this.group.visible=false;scene.add(this.group);this.nodes=new Map();this.state=null;
     this.lastMode=null;this.clip=null;this.disposed=false;
     this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
-    this.quarrelPrototype=null;this.lastSwordChain=null;this.operator=null;this.ejectionAt=null;
+    this.quarrelPrototype=null;this.quarrelDetail=createQuarrelDetail();this.lastSwordChain=null;this.operator=null;this.ejectionAt=null;
     this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
     // Ground fire is authoritative aftermath, not part of the wreck model:
     // it remains visible after the apparatus disappears.
@@ -48,6 +49,10 @@ export class FightFlightRenderer{
       const fire=this.clips.get('Crossbow_Fire_Loop');
       if(fire){this.fireAction=this.mixer.clipAction(fire);this.fireAction.play();}
       this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
+      // Six individually ornamented GLB magazine quarrels. Detail groups are
+      // attached to their actual moving nodes, so reload indexing and the
+      // authoritative visible-ammo count remain unchanged.
+      SLOT_NAMES.forEach((name,i)=>ornamentQuarrelSlot(this.nodes.get(name),this.quarrelDetail,i));
       // Emblem deliberately unapproved: display the authored plain crimson cloth.
       const crest=this.nodes.get('Rear_Banner_Heraldic_Emblem');if(crest)crest.visible=false;
       this.setFirstPerson(this.isFirstPerson);
@@ -230,13 +235,19 @@ export class FightFlightRenderer{
     for(const p of projectiles){
       keep.add(p.id);let mesh=this.bolts.get(p.id);
       if(!mesh){
-        mesh=this.quarrelPrototype?this.quarrelPrototype.clone(true):new THREE.Mesh(this.boltGeometry,this.boltMaterial);
+        mesh=new THREE.Group();mesh.name='Authored_Flight_Quarrel_'+p.id;
+        if(this.quarrelPrototype)mesh.add(this.quarrelPrototype.clone(true));
+        else{
+          const fallback=new THREE.Mesh(this.boltGeometry,this.boltMaterial);
+          fallback.rotation.x=Math.PI/2;mesh.add(fallback);
+        }
+        mesh.add(this.quarrelDetail.clone(true));
         mesh.traverse(n=>{if(n.isMesh)n.castShadow=true;});
         this.scene.add(mesh);this.bolts.set(p.id,mesh);}
       const span=Math.max(0,Math.min(.12,now-stamp));
       mesh.position.set(p.position.x+p.velocity.x*span,p.position.y+p.velocity.y*span,p.position.z+p.velocity.z*span);
       const dir=new THREE.Vector3(p.velocity.x,p.velocity.y,p.velocity.z).normalize();
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,mesh.isMesh?1:0,mesh.isMesh?0:1),dir);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),dir);
     }
     for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
   }
@@ -293,6 +304,8 @@ export class FightFlightRenderer{
   }
   dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
     this.boltGeometry.dispose();this.boltMaterial.dispose();
+    disposeQuarrelDetail(this.quarrelDetail);
+    this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();this.burnGeometry.dispose();
     this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
 }
