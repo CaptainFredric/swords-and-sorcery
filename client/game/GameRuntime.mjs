@@ -1359,6 +1359,20 @@ export class GameRuntime {
         if(event.hitKind==='player'||event.hitKind==='guard'||event.hitKind==='parry')this.effects.wallClang?.(event.point);
         else this.effects.splinters?.(event.point);
       }
+      if(event.type==='fightFlightRotorContact'&&event.point){
+        if(event.result==='guard'||event.result==='parry')this.effects.blockBurst?.(event.point,null,{parry:event.result==='parry'});
+        else this.effects.wallClang?.(event.point);
+        if(event.victimId===this.playerId){
+          if(event.result==='parry')this.hud.flashText('ROTOR PARRIED','parry');
+          else if(event.result==='guard')this.hud.flashText('ROTOR DEFLECTED','',650);
+        }
+      }
+      if(event.type==='fightFlightComponentHit'&&event.point){
+        if(event.component==='braceL'||event.component==='braceR'||event.component==='main')this.effects.splinters?.(event.point);
+        else this.effects.wallClang?.(event.point);
+        if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
+      }
+      if(event.type==='fightFlightRotorDestroyed'&&this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
       this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
