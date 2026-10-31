@@ -8,7 +8,7 @@ export function applySavedLoadout(session, room, player, message) {
   session.spell = isSpell(message.spell) ? message.spell : DEFAULT_SPELL;
   session.ultimate = isUltimate(message.ultimate) ? message.ultimate : DEFAULT_ULTIMATE;
   session.preparedSpells = normalizePreparedSpells(session.spell, message.preparedSpells);
-  session.siegeLoadout = normalizeSiegeLoadout(message.siegeLoadout);
+  session.siegeLoadout = normalizeSiegeLoadout(message.siegeLoadout??session.siegeLoadout);
   if (!player) return;
   // Equipment switches only while unmounted; an active apparatus cannot have
   // its current technique silently replaced by an Armory request.
