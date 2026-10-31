@@ -55,6 +55,7 @@ export class InputController {
     this.mountedBallista = false;
     this.mountedFlight = false;
     this.flightFireSources = new Set();
+    this.flightDashSources = new Set();
     this.ballistaSkillPhase = 'idle';
     this.ballistaChordMs = 45;
     this.ballistaMouse = {leftTimer:null,rightTimer:null,attackSent:false,consumed:false,primeHeld:false};
@@ -109,6 +110,7 @@ export class InputController {
     const action = this.actionOf.get(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
+    if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
@@ -121,6 +123,7 @@ export class InputController {
     if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
+    if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
@@ -432,6 +435,7 @@ export class InputController {
     // machine's repeating trigger latched. A release is legitimate even after
     // `enabled` has already become false.
     if(this.flightFireSources.size){this.flightFireSources.clear();this.socket?.send?.({type:'fightFlightFire',down:false});}
+    if(this.flightDashSources.size){this.flightDashSources.clear();this.socket?.send?.({type:'flightDash',down:false});}
     this.#ballistaCancelPending();
     this.ballistaMouse.consumed=false;this.ballistaMouse.primeHeld=false;
     this.ballistaMouse.attackSent=false;
@@ -564,6 +568,13 @@ export class InputController {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'siegeSkill'});
   }
 
+  flightDash(down,source='touch') {
+    if(down&&(!this.enabled||!this.mountedFlight))return;
+    const was=this.flightDashSources.size>0;
+    if(down)this.flightDashSources.add(source);else this.flightDashSources.delete(source);
+    const held=this.flightDashSources.size>0;
+    if(was!==held&&this.mountedFlight)this.socket?.send?.({type:'flightDash',down:held});
+  }
   flightFire(down,source='touch') {
     if(down&&(!this.enabled||!this.mountedFlight))return;
     const was=this.flightFireSources.size>0;
