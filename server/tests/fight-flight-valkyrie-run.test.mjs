@@ -14,7 +14,7 @@ function setup(){
  const m=createFightFlight({id:'test-rotor'});
  room.fightFlight=m;assert.equal(mountFightFlight(room,m,p,0),true);
  m.grounded=false;m.mode='AIRBORNE';m.y=8;m.position.y=8;p.position.y=8;
- m.rotorAngularVelocity=Math.PI*15;
+ m.rotorAngularVelocity=Math.PI*15;m.rotorPowered=true;
  return {room,m,p};
 }
 test('Held Dash spends operator prowess over ~2.4s and actually accelerates forward, not a timer-only effect',()=>{
@@ -83,4 +83,27 @@ test('Physically pitched rotor crossing shifts forward and down with the machine
  const advanced=rotorBladeContact(tilted,victim,-Math.PI/2,0);
  assert.ok(advanced?.contact?.y<baseline?.contact?.y,'leading blade actually descends during offensive pitch');
  assert.equal(typeof VALKYRIE_RUN.drainPerSec,'number');
+});
+
+
+test('Airborne ejection finds clearance, carries momentum and never reloads the machine',()=>{
+ const {room,m,p}=setup();m.velocity={x:3,y:-2,z:-1};m.ammo=5;m.ammoDebt=3;
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightEject',down:true},10),{});
+ assert.equal(m.operatorId,p.id,'press is not immediate ejection');
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightEject',down:false},10.1),{});
+ assert.equal(m.operatorId,null);assert.equal(p.operatingFightFlightId,null);
+ assert.equal(p.grounded,false);assert.equal(p.ejectionFallExempt,true);
+ assert.ok(p.velocity.x!==0&&p.velocity.y<0);
+ assert.equal(m.ammo,5);assert.equal(m.ammoDebt,3);
+ assert.ok(Math.hypot(p.position.x-m.x,p.position.z-m.z)>=2);
+});
+test('A held eject command genuinely brakes the rotor and a terminal dive rejects it',()=>{
+ const {room,m,p}=setup();m.rotorAngularVelocity=47;m.rotorPowered=true;
+ applyRoomCommand(room,p,{type:'flightEject',down:true},10);
+ stepFightFlight(room,m,1/30,10.4);
+ assert.equal(m.emergencyBrakeActive,true);assert.ok(m.rotorAngularVelocity<47);
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightEject',down:false},10.5),{});
+ assert.equal(m.rotorPowered,false);
+ const second=setup();second.m.terminalDive={resolved:false};
+ assert.ok(applyRoomCommand(second.room,second.p,{type:'flightEject',down:true},10).rejected);
 });
