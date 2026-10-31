@@ -6,6 +6,7 @@ import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
 import {VALKYRIE_RUN} from './fightFlightRun.mjs';
+import {flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
@@ -108,8 +109,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
   if(!m.terminalDive)m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt);
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
-  m.crossbowYaw=m.heading+cap(Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading)),-Math.PI*25/180,Math.PI*25/180);
-  m.crossbowPitch=cap(Number.isFinite(input.pitch)?input.pitch:0,-Math.PI/9,Math.PI/9);
+  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch});
+  m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
   const intact=m.rotorHP>0&&m.health>0;
   if(op&&!m.grounded&&op.guarding){op.guarding=false;op.guardHeld=false;op.guardButton=false;op.guardAuto=false;}
   const jump=Boolean(op&&!m.terminalDive&&input.jump),descend=Boolean(op&&!m.terminalDive&&input.crouch);
