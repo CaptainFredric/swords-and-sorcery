@@ -7,7 +7,7 @@ export const VALKYRIE_RUN=Object.freeze({drainPerSec:42,speed:18,turnRate:.85,
   acceleration:3.2,pitch:.34,chargeGraceSec:.14,chivalryDashImpulse:8});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function requestFlightDash(room,m,p,held,now){
- if(!m||m.mode==='DESTROYED'||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
+ if(!m||m.mode==='DESTROYED'||m.terminalDive||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
  const before=m.flightDashHeld===true;
  m.flightDashHeld=Boolean(held);
@@ -31,7 +31,7 @@ export function requestFlightDash(room,m,p,held,now){
 export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
- const valid=Boolean(p?.alive&&p.operatingFightFlightId===m.id&&m.health>0&&m.rotorHP>0&&!m.grounded&&m.flightDashHeld);
+ const valid=Boolean(!m.terminalDive&&p?.alive&&p.operatingFightFlightId===m.id&&m.health>0&&m.rotorHP>0&&!m.grounded&&m.flightDashHeld);
  const activeChivalry=Boolean(p&&activeUltimate(p,now)?.id==='chivalry');
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
