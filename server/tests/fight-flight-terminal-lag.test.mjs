@@ -61,4 +61,5 @@ test('A genuine bottomless trajectory still resolves after bounded simulated fli
   assert.equal(m.terminalDive.resolved,true,'still enforces finite simulated timeout');
   assert.equal(m.terminalDive.impactAt,null);
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
+  assert.equal(room.flightBurnZones.length,0,'an explosion above a bottomless abyss cannot leave hovering ground fire');
 });
