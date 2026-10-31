@@ -81,7 +81,13 @@ export function buildHighGroundsSurroundings(group, world, materials) {
   const centers=[[-1,-100,45,33],[1,100,45,33],[0,0,28,24],
     [0,-52,24,22],[0,52,24,22],[-38,-7,25,25],[38,7,25,25]];
   centers.forEach(([x,z,w,d],i)=>addCliffFooting(group,materials,x,z,w,d,
-    i>4?11.6:-1.35,-55,i));
+    i>4?11.6:-1.35,-90,i));
+  // The colossal flowering trees are rooted in *real visible highland rock*.
+  // Previously the trunks stopped at Y=-1 with open sky beneath them, making
+  // the entire battlefield look suspended in a featureless void.
+  for(const [i,tree]of world.trees.entries())
+    addCliffFooting(group,materials,tree.x,tree.z,tree.radius*2.4,
+      tree.radius*2.4,-1.1,-88,100+i);
   // Distant mountain silhouettes and terraces, rather than the featureless
   // dark void formerly seen immediately beyond the entrances.
   for(let i=0;i<13;i++){
