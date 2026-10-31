@@ -185,6 +185,12 @@ export class FightFlightRenderer{
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
     // not an unrelated animation clock. This also stops on rotor failure.
     this.mixer.update(0); // sample rotor, fire, sword and rotor failure at authoritative time
+    // Authored posture tracks animate Node 1's root translation/attitude. The
+    // simulation already owns chassis XYZ and run pitch; allowing those visual
+    // oscillations to move the muzzle would desynchronize server collision,
+    // crosshair truth and the displayed gun. Keep limb/banner animation only.
+    const chassis=this.nodes.get('Main_Apparatus_Chassis');
+    if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
   }
   drawBolts(projectiles,now,stamp){
