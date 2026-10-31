@@ -480,7 +480,11 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId === player.id) {
+        const interrupted=room.biByeLlista.skill?.id==='coldHowTouching'&&
+          room.biByeLlista.skill?.phase==='active';
         dismountBiByeLlista(room.biByeLlista, player, true, room.world, time);
+        if(interrupted)room.events.push({type:'siegeSkill',machineId:room.biByeLlista.id,
+          skill:'coldHowTouching',action:'ended',reason:'dismount',at:time});
       } else {
         mountBiByeLlista(room.biByeLlista, player, time);
       }
