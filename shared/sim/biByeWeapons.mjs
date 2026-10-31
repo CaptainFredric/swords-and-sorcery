@@ -1,5 +1,6 @@
 import {createSiegeSkill,primeSiegeSkill,commitSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import { biByeCondition, biByeConstrainAim } from './biByeComponents.mjs';
+import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
 // authored asset can load late without changing aim, ammunition or release clocks.
