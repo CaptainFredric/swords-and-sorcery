@@ -1501,8 +1501,9 @@ document.addEventListener('keydown', event => {
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     returnToMenu();
   } else if (latestSnapshot?.roomState === 'PLAYING') {
-    if (document.pointerLockElement) document.exitPointerLock();
-    else if (paused) { paused = false; pauseMenu.classList.add('hidden'); }
+    // Escape is the arena menu action, not merely a pointer-lock release.
+    // In particular, High Grounds must not require a second Escape press.
+    if (paused) { paused = false; pauseMenu.classList.add('hidden');runtime?.requestPointerLock(); }
     else openPause();
   }
 });
