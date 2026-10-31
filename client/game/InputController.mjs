@@ -554,6 +554,9 @@ export class InputController {
 
   deploy() {
     if (!this.enabled) return;
+    // The easy-to-reach existing Deploy binding (B) is a contextual second
+    // route to this machine's Skill, leaving U rebinds and normal B intact.
+    if(this.mountedFlight){this.siegeSkill();return;}
     this.socket?.send?.({ type: 'bibyeToggleDeploy' });
   }
 
