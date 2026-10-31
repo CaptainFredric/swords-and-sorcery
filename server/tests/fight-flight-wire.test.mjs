@@ -22,14 +22,14 @@ test('Practice -> operate -> network snapshot -> authoritative real flying movem
  assert.deepEqual(s.do('siegeOperate'),{});
  assert.equal(s.p.operatingFightFlightId,m.id);
  assert.deepEqual(s.do('input',{forward:1,jump:true,yaw:0,pitch:0}),{});
- for(let i=0;i<70;i++)stepRoom(s.room,1/30,(i+1)/30,s.room.world);
+ for(let i=0;i<70;i++){if(i%5===0)s.do('input',{forward:1,jump:true,yaw:0,pitch:0},(i+1)/30);stepRoom(s.room,1/30,(i+1)/30,s.room.world);}
  const snap=serializeSnapshot(s.room,3);
  assert.ok(snap.fightFlight.y>0);
  assert.equal(snap.players.find(p=>p.id==='pilot').operatingFightFlightId,m.id);
  assert.ok(m.flightCharge<100);
  assert.equal(m.operatorId,s.p.id,'pilot remains until an explicit eject command');
  assert.deepEqual(s.do('input',{jump:false,crouch:true,yaw:0,forward:0}),{});
- for(let i=70;i<220;i++)stepRoom(s.room,1/30,(i+1)/30,s.room.world);
+ for(let i=70;i<220;i++){if(i%5===0)s.do('input',{jump:false,crouch:true,yaw:0,forward:0},(i+1)/30);stepRoom(s.room,1/30,(i+1)/30,s.room.world);}
  assert.ok(m.grounded,'descent must re-establish ground contact');
  assert.deepEqual(s.do('siegeOperate'),{});
  assert.equal(s.p.operatingFightFlightId,null);
