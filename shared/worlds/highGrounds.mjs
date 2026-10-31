@@ -114,7 +114,7 @@ export const HIGH_GROUNDS = Object.freeze({
   // Production pads are separate from the home spawn; the operator's station
   // and a real forward-travel corridor must remain clear.
   siegeFoundries: Object.freeze([
-    { id: 'azure-foundry', team: TEAMS.ATTACKERS, x: 16, y: 0, z: -101, heading: Math.PI },
-    { id: 'crimson-foundry', team: TEAMS.DEFENDERS, x: -16, y: 0, z: 101, heading: 0 },
+    { id: 'azure-foundry', team: TEAMS.ATTACKERS, x: 16, y: 0, z: -101, spawnX: 0, spawnZ: -87, heading: Math.PI },
+    { id: 'crimson-foundry', team: TEAMS.DEFENDERS, x: -16, y: 0, z: 101, spawnX: 0, spawnZ: 87, heading: 0 },
   ]),
 });
