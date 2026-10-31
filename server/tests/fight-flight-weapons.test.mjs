@@ -20,7 +20,7 @@ test('Flight crossbow physically releases from left-side authored muzzle with au
  const {room,m,p}=setup();
  const muzzle=flightMuzzle(m);assert.ok(muzzle.x<0&&muzzle.z<0&&muzzle.y>1);
  assert.deepEqual(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2),{});
- assert.equal(m.ammo,13);assert.equal(room.fightFlightProjectiles.size,1);
+ assert.equal(m.ammo,17);assert.equal(room.fightFlightProjectiles.size,1);
  assert.equal(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2.01).rejected,undefined);
  assert.equal(room.fightFlightProjectiles.size,1,'a repeated key-down cannot duplicate a bolt');
  for(let tick=1;tick<=15;tick++)stepFightFlightWeapons(room,m,1/30,2+tick/30);
@@ -50,7 +50,7 @@ test('No negative reserve under prolonged held 7Hz fire and no full magazine pre
  assert.ok(m.shotSeq>seq,'one newly generated bolt is independently fireable');
  assert.ok(m.ammo>=0);
  for(let i=16;i<=300;i++)stepFightFlightWeapons(room,m,1/30,2+i/30);
- assert.ok(m.ammo>=0&&m.ammo<=14);
+ assert.ok(m.ammo>=0&&m.ammo<=FLIGHT_REPEATER.capacity);
  assert.ok(m.shotSeq<=1+Math.floor(300/30*2+.001),'depleted production cannot conjure extra ammo');
 });
 test('Unauthorized fire cannot create a projectile or change another pilot machine reserve',()=>{
@@ -58,7 +58,7 @@ test('Unauthorized fire cannot create a projectile or change another pilot machi
  const guest=room.addPlayer({id:'guest',token:'guest',name:'Intruder'},0);
  guest.alive=true;guest.position={x:0,y:0,z:1};
  assert.ok(applyRoomCommand(room,guest,{type:'fightFlightFire',down:true},2).rejected);
- assert.equal(room.fightFlightProjectiles.size,0);assert.equal(m.ammo,14);
+ assert.equal(room.fightFlightProjectiles.size,0);assert.equal(m.ammo,FLIGHT_REPEATER.capacity);
  assert.deepEqual(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2),{});
  assert.ok(room.fightFlightProjectiles.size===1);
 });
@@ -164,4 +164,29 @@ test('Visual aim, muzzle calculation, projectile trajectory, and close target hi
   assert.ok(snap.fightFlight);
   assert.equal(snap.fightFlight.crossbowYaw, m.crossbowYaw);
   assert.equal(snap.fightFlight.crossbowPitch, m.crossbowPitch);
+});
+
+
+test('Near-range camera ray is converged from the genuine physical offset muzzle, not substituted for it',()=>{
+ const m=createFightFlight({x:0,y:0,z:0,heading:0});
+ const target={x:0,y:1.60,z:-5};
+ const aim=flightRepeaterAim(m,{yaw:0,pitch:0,siegeTarget:target});
+ assert.equal(aim.limited,false);
+ const muzzle=flightMuzzle(m,aim),dir=flightDirection(m,aim);
+ const toTarget={x:target.x-muzzle.x,y:target.y-muzzle.y,z:target.z-muzzle.z};
+ assert.ok(Math.hypot(...Object.values(toTarget))>0);
+ const length=Math.hypot(...Object.values(toTarget));
+ assert.ok(Math.abs(dir.x-toTarget.x/length)<.015);
+ assert.ok(Math.abs(dir.y-toTarget.y/length)<.015);
+ assert.ok(Math.abs(dir.z-toTarget.z/length)<.015);
+ assert.ok(Math.hypot(muzzle.x,muzzle.y-1.60,muzzle.z+5)>1);
+});
+test('Unreachable near/parallax aim is bounded and exports the reachable physical aim point',()=>{
+ const m=createFightFlight({x:0,y:0,z:0,heading:0});
+ const aim=flightRepeaterAim(m,{yaw:0,pitch:0,siegeTarget:{x:0,y:2.5,z:-.8}});
+ assert.equal(aim.limited,true);
+ assert.ok(aim.missDistance>.08);
+ assert.ok(Math.abs(aim.yaw-m.heading)<=FLIGHT_REPEATER.maxTraverse+1e-9);
+ assert.ok(aim.pitch<=FLIGHT_REPEATER.maxPitch);
+ assert.ok(Number.isFinite(aim.reachableAimPoint.x));
 });
