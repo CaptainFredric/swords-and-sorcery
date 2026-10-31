@@ -170,3 +170,16 @@ test('Real swept relative motion detects an evasive target crossing the bolt pat
    'continuous relative sweep must intercept crossing target');
  assert.ok(p.health<original,'impact is resolved using the normal authoritative frost blast');
 });
+
+test('Voluntary dismount ends Cold with explicit feedback and full machine cooldown',()=>{
+ const s=setup();
+ skill(s,1);
+ assert.equal(s.ballista.skill.phase,'active');
+ const response=applyRoomCommand(s.room,s.op,{type:'bibyeOperate'},2);
+ assert.deepEqual(response,{});
+ assert.equal(s.ballista.operatorId,null);
+ assert.equal(s.ballista.skill.phase,'idle');
+ assert.equal(s.ballista.skill.readyAt,26);
+ assert.ok(s.room.events.some(e=>e.type==='siegeSkill'&&
+   e.skill==='coldHowTouching'&&e.action==='ended'&&e.reason==='dismount'));
+});
