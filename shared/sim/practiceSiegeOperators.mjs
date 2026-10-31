@@ -3,7 +3,7 @@
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista,toggleBiByeDeploy,
   fireBiByeMobile,fireBiByeFullVolley,biByeTargetAim} from './biByeLlista.mjs';
 import {requestBiByeHeavySkill,setBiByeWeaponFocus} from './biByeWeapons.mjs';
-import {createSoFistication,mountSoFistication,dismountSoFistication,
+import {createSoFistication,mountSoFistication,dismountSoFistication,soFistExit,
   soFistEntry,primeSoFistSkill,fireSoFistication} from './soFistication.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
 import {fightFlightConstructionClear} from './practiceFightFlight.mjs';
@@ -293,6 +293,20 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
     const {machine,difficulty}=a.practiceSiegeOperator,def=SIEGE_OPERATORS[machine];
     const m=room[def.field],ai=a.siegeAi;
     if(!ai)continue;
+    // Realistic retreat: an intact pilot can abandon a physically unusable
+    // machine only via the same supported ground egress as a human. A rotor
+    // failure aloft must first complete its genuine fall and landing.
+    if(m?.operatorId===a.id&&machine==='fight-and-flight'&&
+      m.rotorHP<=0&&m.grounded&&fightFlightExit(room,m,a))
+      dismountFightFlight(room,m,a,{at:now});
+    if(m?.operatorId===a.id&&machine==='so-fist-ication'){
+      const failed=['FL','FR','RL','RR'].filter(w=>
+        (m.components?.['Wheel_'+w]?.health??0)<=0);
+      const immobilized=failed.length>=3||['L','R'].some(side=>
+        failed.filter(w=>w.endsWith(side)).length>=2);
+      if(immobilized&&soFistExit(room,m,a))
+        dismountSoFistication(room,m,a,{at:now});
+    }
     if(noOperation(room,a,now)){
       // Wrecked or dismounted: use existing foot Spellblade controller next tick.
       if(ai.phase!=='foot'){ai.phase='foot';room.events.push({type:'practiceSiegePilotOnFoot',playerId:a.id,at:now});}
