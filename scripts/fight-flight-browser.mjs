@@ -46,23 +46,26 @@ async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
 // HTML5 Chrome software-renderer sample, not a claim about physical mobile GPUs.
 async function profileFramePerformance(label){
- const stats=await evaluate(`new Promise(resolve=>{
-   const r=window.__ssRuntime,delta=[];let last=0,frames=0;
+ // Software Chrome can render slower than the 12s debugger response deadline.
+ // Start a short rAF sample, then poll for its completion asynchronously.
+ await evaluate(`(() => {
+   const label=${JSON.stringify(label)},r=window.__ssRuntime,delta=[];let last=0,frames=0;
    const tick=t=>{
      if(last)delta.push(t-last);last=t;
-     if(++frames<16){requestAnimationFrame(tick);return;}
+     if(++frames<9){requestAnimationFrame(tick);return;}
      const sorted=[...delta].sort((a,b)=>a-b);
-     resolve({label:'${label}',frames:delta.length,
+     (window.__fafFrameProfile??={})[label]={label,frames:delta.length,
        frameMsMedian:sorted[Math.floor(sorted.length/2)]??null,
        frameMsP95:sorted[Math.min(sorted.length-1,Math.floor(sorted.length*.95))]??null,
        calls:r?.renderer?.info?.render?.calls??null,
        triangles:r?.renderer?.info?.render?.triangles??null,
        geometries:r?.renderer?.info?.memory?.geometries??null,
        textures:r?.renderer?.info?.memory?.textures??null,
-       usedJSHeapBytes:performance.memory?.usedJSHeapSize??null,
-       glVersion:r?.renderer?.getContext?.()?.getParameter?.(r.renderer.getContext().VERSION)??null});
+       usedJSHeapBytes:performance.memory?.usedJSHeapSize??null};
    };requestAnimationFrame(tick);
- })`);
+ })()`);
+ const stats=await until(()=>evaluate(`window.__fafFrameProfile?.[${JSON.stringify(label)}]`),
+   'Chrome frame profile '+label,90);
  await writeFile(folder+'/performance-'+label+'.json',JSON.stringify(stats,null,2));
  console.log('[FAF HTML5 PERFORMANCE]',JSON.stringify(stats));
 }
