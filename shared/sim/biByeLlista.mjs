@@ -935,7 +935,10 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
             point:impactPoint,at:nowSec});
           // Explosion remains at the actual bolt; unchanged falloff and guard.
           detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false);
-          if(room.soFistication?.operatorId!==projectile.ownerId)
+          if(room.soFistication&&room.soFistication.operatorId!==projectile.ownerId&&
+             !areAllies(room,projectile.ownerId,room.soFistication.operatorId)&&
+             !frostHasCover(world,impactPoint,{x:room.soFistication.x,
+               y:room.soFistication.y+1,z:room.soFistication.z}))
             blastSoFistication(room,room.soFistication,{point:impactPoint,
               radius:projectile.blastRadius,damage:projectile.directDamage},
               projectile.ownerId,'bibye-conditioning',nowSec);
@@ -943,7 +946,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
             blastBiByeLlista(room,machine,{point:impactPoint,
               radius:projectile.blastRadius,damage:projectile.directDamage},
               projectile.ownerId,'bibye-conditioning',nowSec,world?.solids??[]);
-          frostBlastFlight(room,room.fightFlight,projectile,impactPoint,nowSec);
+          frostBlastFlight(room,room.fightFlight,projectile,impactPoint,nowSec,world);
           continue;
         }
         if(first.kind==='solid')damageStructureSolid(room,first.box,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{point:impactPoint});
@@ -1068,9 +1071,16 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
   }
 }
 
+function frostHasCover(world,from,to){
+ return (world?.solids??[]).some(solid=>{
+  if(String(solid.id??'').startsWith('bibye-')||String(solid.id??'').startsWith('sofist-'))return false;
+  const h=segmentAabbHit([from.x,from.y,from.z],[to.x,to.y,to.z],solid);
+  return h&&h.t>1e-5&&h.t<1-1e-5;
+ });
+}
 // One damage budget across every damaged flight component; rotor blades
 // are not independent 18-HP targets within a single detonation.
-function frostBlastFlight(room,m,projectile,point,now){
+function frostBlastFlight(room,m,projectile,point,now,world){
  if(!m||m.retired||m.mode==='DESTROYED'||m.operatorId===projectile.ownerId||
    m.team&&room.players.get(projectile.ownerId)?.team===m.team)return;
  const exposures=new Map(),radius=projectile.blastRadius;
@@ -1082,6 +1092,14 @@ function frostBlastFlight(room,m,projectile,point,now){
    outside+=Math.max(0,Math.abs(projection)-box.size[i]/2)**2;
   }
   const exposure=Math.max(0,1-Math.sqrt(outside)/radius);
+  if(exposure<=0)continue;
+  const nearest=[...box.center];
+  for(let j=0;j<3;j++){
+   const projection=d.reduce((sum,x,k)=>sum+x*box.axes[j][k],0);
+   const offset=Math.max(-box.size[j]/2,Math.min(box.size[j]/2,projection));
+   for(let k=0;k<3;k++)nearest[k]+=offset*box.axes[j][k];
+  }
+  if(frostHasCover(world,point,{x:nearest[0],y:nearest[1],z:nearest[2]}))continue;
   exposures.set(box.componentId,Math.max(exposures.get(box.componentId)??0,exposure));
  }
  const total=[...exposures.values()].reduce((a,e)=>a+e,0);
