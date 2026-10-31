@@ -30,12 +30,12 @@ const grounds = [
   floor('azure-forward-deck', 0, -52, 25, 23, 0, 'stone'),
   floor('crimson-forward-deck', 0, 52, 25, 23, 0, 'stone'),
   // High, exposed canopy traverse is not required to cross on foot.
-  floor('west-canopy-south', -38, -47, 12, 56, 12),
+  floor('west-canopy-south', -38, -42, 12, 46, 12),
   floor('west-canopy-capture', -38, -7, 25, 25, 12, 'stone'),
   floor('west-canopy-north', -38, 35, 12, 62, 12),
   floor('east-canopy-south', 38, -35, 12, 62, 12),
   floor('east-canopy-capture', 38, 7, 25, 25, 12, 'stone'),
-  floor('east-canopy-north', 38, 47, 12, 56, 12),
+  floor('east-canopy-north', 38, 42, 12, 46, 12),
   // Three cross-bridges join the treetop highways.
   floor('high-bridge-south', 0, -57, 78, 8, 12),
   floor('high-bridge-centre', 0, 0, 76, 7, 12),
@@ -47,16 +47,16 @@ const grounds = [
   floor('root-shelf-cross-north', 0, 28, 42, 7, -9),
   floor('root-shelf-cross-centre', 0, 0, 42, 6, -9),
   // Reinforced side approaches with open, physically traversable slopes.
-  floor('azure-west-landing', -38, -86, 19, 12, 0),
-  floor('crimson-east-landing', 38, 80, 19, 14, 0),
+  floor('azure-west-landing', -38, -104, 19, 12, 0),
+  floor('crimson-east-landing', 38, 104, 19, 12, 0),
   // Seamless, physically supported links between camp ground and side-ramp
   // landings. Before this, the first steps of several ramps hung in midair.
-  floor('azure-west-gate-approach', -26, -81, 16, 12, 0, 'stone'),
-  floor('crimson-east-gate-approach', 26, 81, 16, 12, 0, 'stone'),
+  floor('azure-west-gate-approach', -26, -99, 16, 12, 0, 'stone'),
+  floor('crimson-east-gate-approach', 26, 99, 16, 12, 0, 'stone'),
   floor('azure-east-gate-approach', 26, -99, 16, 12, 0, 'stone'),
   floor('crimson-west-gate-approach', -26, 99, 16, 12, 0, 'stone'),
   floor('azure-east-ascent-landing', 38, -104, 19, 12, 0, 'stone'),
-  floor('crimson-west-descent-landing', -38, 96, 19, 14, 0, 'stone'),
+  floor('crimson-west-descent-landing', -38, 104, 19, 12, 0, 'stone'),
   // Entrances to the under-roots must be supported at Y=0, not begin
   // outside the forward deck in invisible space.
   floor('azure-root-approach', -14, -55, 13, 5, 0, 'stone'),
@@ -65,8 +65,8 @@ const grounds = [
 ];
 const ramps = [
   // 12 m ascent over 33 m: deliberate high-ground access without teleporting.
-  ramp('west-ascent', 'z', -44, -32, -80, -47, 0, 12),
-  ramp('east-ascent', 'z', 32, 44, 47, 80, 12, 0),
+  ramp('west-ascent', 'z', -44, -32, -98, -65, 0, 12),
+  ramp('east-ascent', 'z', 32, 44, 65, 98, 12, 0),
   ramp('west-north-descent', 'z', -44, -32, 65, 98, 12, 0),
   ramp('east-south-ascent', 'z', 32, 44, -98, -65, 0, 12),
   // Cross-connect road and tree roads; intentional infantry shortcuts.
@@ -139,7 +139,7 @@ const nav = (id,x,y,z) => nodes.push({id,x,y,z});
 for(let z=-108;z<=108;z+=12)nav('road-'+z,0,0,z);
 // Route mouths must be within the actual bot-nav link reach (18m).
 // Cover the 35m horizontal excursion from main road to side ascent ramps.
-for(const [side,z] of [[-1,-85],[1,-102],[-1,97],[1,83]]){
+for(const [side,z] of [[-1,-102],[1,-102],[-1,102],[1,102]]){
   for(const x of [side*15,side*27,side*37])nav('camp-approach-'+side+'-'+z+'-'+x,x,0,z);
 }
 
