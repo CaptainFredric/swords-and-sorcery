@@ -2,26 +2,16 @@
 // A shared wood-grain texel atlas and low-poly iron/feather geometry keep all
 // visible hopper bolts and flying quarrels consistent without replacing the GLB.
 import * as THREE from 'three';
+import {QUARREL_LENGTH,boltWoodPixels,featherMeshData} from './flightQuarrelData.mjs';
 
-const LENGTH=.83;
+const LENGTH=QUARREL_LENGTH;
 const AXIS=new THREE.Vector3(0,0,1);
 const corners=[
   [0,0,0],[0,0,1],[0,1,0],[0,1,1],[1,0,0],[1,0,1],[1,1,0],[1,1,1]
 ];
 
 export function boltWoodGrain(){
-  const w=16,h=64,data=new Uint8Array(w*h*4);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const grain=Math.sin(x*2.4+Math.sin(y*.13)*1.5)*9+
-      Math.sin(y*.74+x*.48)*4+Math.sin(y*.09+x*4.7)*3;
-    const nick=(x*13+y*23)%113===0?-23:0;
-    const v=Math.max(-23,Math.min(20,Math.round(grain+nick)));
-    const i=(y*w+x)*4;
-    data[i]=Math.max(0,145+v);
-    data[i+1]=Math.max(0,105+v);
-    data[i+2]=Math.max(0,67+Math.round(v*.76));
-    data[i+3]=255;
-  }
+  const {width:w,height:h,pixels:data}=boltWoodPixels();
   const map=new THREE.DataTexture(data,w,h,THREE.RGBAFormat);
   map.colorSpace=THREE.SRGBColorSpace;
   map.wrapS=THREE.RepeatWrapping;
@@ -50,30 +40,7 @@ export function createQuarrelDetail(){
 
   // Three small vanes, each subdivided into light/dark barbs: true double-sided
   // polygons with a readable silhouette, not a transparent feather sticker.
-  const verts=[],colors=[],indices=[];
-  const sections=[
-    {z:-.374,r:.024,c:[.60,.55,.47]},
-    {z:-.329,r:.072,c:[.75,.69,.57]},
-    {z:-.277,r:.078,c:[.58,.52,.44]},
-    {z:-.214,r:.039,c:[.80,.72,.59]}
-  ];
-  for(let blade=0;blade<3;blade++){
-    const a=blade*2*Math.PI/3,u=Math.cos(a),v=Math.sin(a);
-    const base=verts.length/3;
-    for(let j=0;j<sections.length;j++){
-      const sec=sections[j];
-      // A thin, tapered quill ridge gives the feather a discernible profile.
-      for(const side of [-1,1]){
-        verts.push(u*sec.r+(-v)*side*.004,v*sec.r+u*side*.004,sec.z);
-        const shift=(blade*3+j*7+side+20)%5===0?-.09:0;
-        colors.push(Math.max(0,sec.c[0]+shift),Math.max(0,sec.c[1]+shift),Math.max(0,sec.c[2]+shift));
-      }
-    }
-    for(let j=0;j<sections.length-1;j++){
-      const k=base+j*2;
-      indices.push(k,k+1,k+2,k+1,k+3,k+2);
-    }
-  }
+  const {positions:verts,colors,indices}=featherMeshData();
   const vaneGeometry=new THREE.BufferGeometry();
   vaneGeometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
   vaneGeometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
