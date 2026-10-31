@@ -155,3 +155,17 @@ test('Operator transfer cannot erase a physically committed independent Bolt II'
  assert.equal(b.skill.readyAt,25.1);
  assert.ok(applyRoomCommand(room,second,{type:'siegeSkill'},2).rejected);
 });
+
+test('Real swept relative motion detects an evasive target crossing the bolt path within one tick',()=>{
+ const s=setup(),p=target(s.room,3,-8);
+ // The target crosses from the other side of the arrow path between
+ // authoritative history frames. At both endpoints it is >1.7m away.
+ p.history=[{at:0,position:{x:-3,y:0,z:-8},yaw:0,pitch:0,crouched:false},
+            {at:.25,position:{x:3,y:0,z:-8},yaw:0,pitch:0,crouched:false}];
+ projectile(s.room);
+ const original=p.health;
+ stepBiByeProjectiles(s.room,.25,.25);
+ assert.ok(s.room.events.some(e=>e.type==='bibyeFrostProximity'&&e.targetKind==='player'),
+   'continuous relative sweep must intercept crossing target');
+ assert.ok(p.health<original,'impact is resolved using the normal authoritative frost blast');
+});
