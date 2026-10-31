@@ -75,8 +75,21 @@ try{
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ // Practice opens its toolbox after building. Explicitly acquire ordinary
+ // gameplay focus, as a user must, before dispatching physical movement.
+ await evaluate("window.__ssRuntime?.requestPointerLock()");
+ await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'actual gameplay input focus',60);
+ const start=await evaluate(state);
+ console.log('[COLD MOVE START]',JSON.stringify({me:start.me,ballista:start.ballista,
+  controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,locked:!!document.pointerLockElement,inspection:window.__ssRuntime?.inspectionFree})")}));
  await key('W','rawKeyDown');
- await until(async()=>{const s=await evaluate(state);return Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z)<2.6?s:false;},'walk to actual operator station',140);
+ await sleep(550);
+ const moved=await evaluate(state);
+ console.log('[COLD MOVE CHECK]',JSON.stringify({before:start.me.position,after:moved.me.position,
+  controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,forward:window.__ssRuntime?.input?.movement?.().forward})")}));
+ if(Math.hypot(start.me.position.x-moved.me.position.x,start.me.position.z-moved.me.position.z)<.08)
+  throw Error('Real keyboard movement did not change player position; input focus or collision blocked');
+ await until(async()=>{const s=await evaluate(state);return Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z)<2.6?s:false;},'walk to actual operator station',160);
  await key('W','keyUp');await sleep(120);await tap('T');
  const mounted=await until(async()=>{const s=await evaluate(state);return s?.me?.operating===s?.ballista?.id?s:false;},'physical T mount',70);
  assert.equal(mounted.ballista.skill.id,'coldHowTouching');
