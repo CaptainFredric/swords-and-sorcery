@@ -100,7 +100,7 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
   m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
-  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;player.operatingFightFlightId=null;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;player.operatingFightFlightId=null;
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
@@ -142,7 +142,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // Held movement must come from a recent authoritative input packet. A lost
   // mobile pointer, focus or connection cannot leave a stale ascent running.
   // Direct simulation callers (bots and unit tests) have no packet timestamp.
-  const live=Boolean(op&&!m.terminalDive&&
+  const live=Boolean(op?.alive&&!m.terminalDive&&
     (!Number.isFinite(op.flightInputAt)||now-op.flightInputAt<=.5));
   const legacyJump=Boolean(live&&input.jump);
   const rise=Boolean(live&&(input.flightRise||legacyJump));
@@ -183,7 +183,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
-  m.verticalIntent=descend?'LOWER':live&&sustainedRise?'RISE':m.hopStartedAt!=null||explicitHop?'HOP':'HOVER';
+  m.verticalIntent=!op?.alive?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':m.hopStartedAt!=null||explicitHop?'HOP':'HOVER';
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
   m.rotorBrakeHeld=Boolean(descend&&m.grounded);
