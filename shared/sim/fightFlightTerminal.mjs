@@ -49,16 +49,28 @@ export function stepTerminalPreparation(room,m,now){
  p.prowess=0;
  m.terminalDiveSpent=true;
  m.terminalDive={operatorId:p.id,startedAt:now,expiresAt:now+TERMINAL.timeout,
-  heading:m.heading,impactAt:null,resolved:false,chargeAtCommit:m.flightCharge};
+  heading:m.heading,impactAt:null,resolved:false,chargeAtCommit:m.flightCharge,
+  // LocalHost may deliver fewer than 30 callbacks per wall-clock second in a
+  // saturated browser. The dive's finite TIMEOUT must represent simulated
+  // travel, not expire while its chassis has barely moved.
+  simulatedSec:0,lastWallStepAt:now};
  m.flightUltimateHeld=false;m.flightDashHeld=false;m.offensiveRun=false;
  m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;
  room.events.push({type:'fightFlightTerminalCommitted',machineId:m.id,operatorId:p.id,
    trajectory:{x:m.x,y:m.y,z:m.z,heading:m.heading,velocity:{...m.velocity}},
    expiresAt:m.terminalDive.expiresAt,at:now});
 }
+export function terminalFlightSteps(dive,now,dt){
+ // Preserve real 30 Hz physics under a throttled solo/browser host without
+ // an unbounded catch-up loop. Other room actors still advance normally.
+ const elapsed=Math.max(dt,now-(dive.lastWallStepAt??dive.startedAt));
+ dive.lastWallStepAt=now;
+ return Math.max(1,Math.min(45,Math.ceil(Math.min(1.5,elapsed)/dt)));
+}
 export function advanceTerminalFlight(room,m,dt,now){
  const dive=m?.terminalDive;if(!dive||dive.resolved)return;
- const t=Math.max(0,now-dive.startedAt);
+ dive.simulatedSec=(dive.simulatedSec??0)+dt;
+ const t=dive.simulatedSec;
  if(m.rotorHP>0){
    // Do not snap direction to a target. Increase forward momentum from the
    // heading at commitment; the player cannot arbitrarily steer this trajectory.
@@ -86,7 +98,10 @@ function occluded(room,from,p){
 export function resolveTerminalFlight(room,m,now){
  const d=m?.terminalDive;
  if(!d||d.resolved)return false;
- if(!m.grounded&&d.impactAt==null&&now<d.expiresAt)return false;
+ // Finish on real collision, after five simulated flight seconds, or an
+ // independent long wall-clock failsafe if the entire room becomes unresponsive.
+ // The wall failsafe is intentionally not the normal detonation mechanism.
+ if(!m.grounded&&d.impactAt==null&&(d.simulatedSec??0)<TERMINAL.timeout&&now<d.expiresAt+30)return false;
  d.resolved=true;d.resolvedAt=now;
  const point={x:m.x,y:m.y,z:m.z};
  const reason=d.impactAt!=null?'impact':m.grounded?'landing':'timeout';
