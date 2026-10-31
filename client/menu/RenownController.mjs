@@ -82,7 +82,29 @@ export class RenownController {
       this.cards.appendChild(button);
     }
     this.action = doc.querySelector('#cloth-action');
-    this.action.addEventListener('click', () => {
+    this.action.addEventListener('click', async () => {
+      if (this.pending) return;
+      if (!this.online()) {
+        this.pending = true;
+        this.feedback = 'Connecting to heralds…';
+        this.error = '';
+        this.render();
+        const connected = await this.socket.ensureConnected?.();
+        if (!connected) {
+          this.pending = false;
+          this.error = 'Multiplayer server could not be reached. You can continue previewing offline.';
+          this.render();
+          return;
+        }
+        if (!this.socket.remote?.profileReady) {
+          await new Promise((resolve) => {
+            const off = this.socket.on?.('profile', () => { off(); resolve(); });
+            setTimeout(() => { off?.(); resolve(); }, 3000);
+          });
+        }
+        this.pending = false;
+        this.render();
+      }
       const view = renownView(this.profile, this.preview, this.online());
       if (view.disabled || this.pending) return;
       this.pending = true;
@@ -90,7 +112,7 @@ export class RenownController {
       this.feedback = '';
       this.error = '';
       this.render();
-      socket.remote.send({ type: view.action === 'purchase' ? 'purchaseCloth' : 'equipCloth', cloth: view.item.id });
+      socket.remote?.send?.({ type: view.action === 'purchase' ? 'purchaseCloth' : 'equipCloth', cloth: view.item.id });
       clearTimeout(this.timer);
       this.timer = setTimeout(() => {
         this.pending = false;
@@ -144,14 +166,36 @@ export class RenownController {
       this.emblemCards?.appendChild(button);
     }
     this.emblemAction = doc.querySelector('#emblem-action');
-    this.emblemAction?.addEventListener('click', () => {
+    this.emblemAction?.addEventListener('click', async () => {
+      if (this.pending) return;
+      if (!this.online()) {
+        this.pending = true;
+        this.feedback = 'Connecting to heralds…';
+        this.error = '';
+        this.render();
+        const connected = await this.socket.ensureConnected?.();
+        if (!connected) {
+          this.pending = false;
+          this.error = 'Multiplayer server could not be reached. You can continue previewing offline.';
+          this.render();
+          return;
+        }
+        if (!this.socket.remote?.profileReady) {
+          await new Promise((resolve) => {
+            const off = this.socket.on?.('profile', () => { off(); resolve(); });
+            setTimeout(() => { off?.(); resolve(); }, 3000);
+          });
+        }
+        this.pending = false;
+        this.render();
+      }
       const view = heraldryView(this.profile, this.emblemPreview, this.online());
       if (view.disabled || this.pending) return;
       this.pending = true;
       this.operation = { action: 'equipEmblem', id: view.emblem.id };
       this.feedback = ''; this.error = '';
       this.render();
-      socket.remote.send({ type: 'equipEmblem', emblem: view.emblem.id });
+      socket.remote?.send?.({ type: 'equipEmblem', emblem: view.emblem.id });
       clearTimeout(this.timer);
       this.timer = setTimeout(() => {
         this.pending = false;
@@ -283,7 +327,7 @@ export class RenownController {
       this.doc.querySelector('#emblem-hint').textContent = heraldry.hint;
     }
     this.doc.querySelector('#renown-status').textContent = this.error || (!this.online()
-      ? 'Reconnect to earn and spend Renown. You can still preview your standards.'
+      ? 'Preview freely. Unlock or equip to connect & sync online.'
       : this.feedback || 'Preview freely. Unlock and equip when ready.');
     this.renderReward();
   }
