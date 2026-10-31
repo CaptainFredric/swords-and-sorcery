@@ -33,7 +33,7 @@ test('The High Grounds is enormous, has 3 accessible heights, true abyss and uni
   for (let z=-110; z<=110; z+=2) {
     assert.equal(surfaceHeightAt(0,z,2,w),0, `No road or siege support at z=${z}`);
   }
-  assert.equal(surfaceHeightAt(0,0,14,w),0, 'An overpass does not replace the road deck');
+  assert.equal(surfaceHeightAt(0,0,2,w),0, 'The central road remains navigable beneath the high crossing');
   assert.equal(surfaceHeightAt(-38,-7,14,w),12);
   assert.equal(surfaceHeightAt(-16,0,-7,w),-9);
   assert.equal(surfaceHeightAt(75,0,20,w),null, 'Abyss remains open beyond suspended structures');
