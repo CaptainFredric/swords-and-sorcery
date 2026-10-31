@@ -1470,6 +1470,19 @@ $('#leave').addEventListener('click', () => returnToMenu());
 
 let preparingSiege=false;
 function updateInspectionControls() {
+  const machineChoice=$('#practice-hostile-machine')?.value;
+  const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
+  const hostileStatus=$('#practice-hostile-status');
+  if(hostileStatus){
+    const role=hostile?.name??'No hostile operator';
+    const alive=hostile?.health>0;
+    hostileStatus.textContent=hostile
+      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'}`
+      : 'No hostile operator summoned.';
+  }
+  if($('#practice-hostile-spawn'))$('#practice-hostile-spawn').disabled=Boolean(hostile);
+  if($('#practice-hostile-reset'))$('#practice-hostile-reset').disabled=!hostile;
+  if($('#practice-hostile-remove'))$('#practice-hostile-remove').disabled=!hostile;
   const ram=$('#practice-siege-type').value==='so-fist-ication';
   const flight=$('#practice-siege-type').value==='fight-and-flight';
   const machine=Boolean(flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
@@ -1551,6 +1564,12 @@ document.addEventListener('keydown', event => {
 socket.on('inspectionState', updateInspectionControls);
 
 $('#practice-siege-type').addEventListener('change',updateInspectionControls);
+$('#practice-hostile-machine')?.addEventListener('change',updateInspectionControls);
+for(const action of ['spawn','reset','remove'])$('#practice-hostile-'+action)?.addEventListener('click',()=>{
+  if(latestSnapshot?.mode!=='PRACTICE')return;
+  const machine=$('#practice-hostile-machine').value,difficulty=$('#practice-hostile-difficulty').value;
+  socket.send({type:'practiceSiegeOpponent',action,machine,difficulty});
+});
 for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',async()=>{
   if(preparingSiege)return;const machine=$('#practice-siege-type').value,room=latestSnapshot?.roomCode;
   if((machine==='so-fist-ication'||machine==='fight-and-flight')&&action!=='dismantle'){
