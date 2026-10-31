@@ -86,9 +86,16 @@ test('ballista: invalid heavy release, operator interruptions and machine cooldo
   assert.ok(applyRoomCommand(s.room,intruder,{type:'siegeSkill'},1.05).rejected);
   if(when==='after') {skill(s,1.1);assert.equal(s.b.skill.readyAt,25.1);}
   dismountBiByeLlista(s.b,s.p);
-  assert.equal(s.b.skill.phase,'idle');
+  // Before commitment: ordinary priming is refundable. After commitment,
+  // the actual physical heavy string is still owed through the dismount.
+  assert.equal(s.b.skill.phase,when==='before'?'idle':'releasing');
   assert.equal(s.b.skill.readyAt,when==='before'?0:25.1);
   assert.equal(kinds(s).length,0);
+  if(when==='after'){
+    stepBiByeLlista(s.room,s.b,1/30,1.16);
+    assert.equal(s.b.skill.phase,'idle');
+    assert.deepEqual(kinds(s),['siege']);
+  }
  }
  const s=setup('bow');s.b.mainBoltLoaded=false;assert.ok(skill(s).rejected);
  s.b.mainBoltLoaded=true;s.p.alive=false;assert.ok(skill(s).rejected);

@@ -1,5 +1,6 @@
 import {createSiegeSkill,primeSiegeSkill,commitSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import { biByeCondition, biByeConstrainAim } from './biByeComponents.mjs';
+import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
 // authored asset can load late without changing aim, ammunition or release clocks.
@@ -50,9 +51,30 @@ export function setBiByeWeaponFocus(b,focus,now=0) {
   b.pitch=focus==='UPPER'?b.upperPitch:b.mainPitch;
   return true;
 }
+// Cold is a sustained enhancement of newly released Bolt I, never a free
+// Bolt II or an alternate independent heavy launcher.
+export function requestColdHowTouching(room,b,p,now){
+ if(!skillOperator(room,b,p,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||
+  !biByeCondition(b).canSiege)return 'The frost launcher is not operational.';
+ if(b.skill?.id!=='coldHowTouching')return 'Cold, How Touching is not equipped.';
+ if(b.skill.phase==='active')return 'Cold, How Touching is already active.';
+ if(b.skill.phase!=='idle'||now+1e-8<b.skill.readyAt)
+   return 'Cold, How Touching is cooling down.';
+ if(b.heavySkill||b.coupling==='FIRING'||b.combinedUpperPendingAt!=null)
+   return 'Finish the current Bolt II release first.';
+ b.poseTime=Math.max(b.poseTime??0,now);
+ b.skill.phase='active';b.skill.ownerId=p.id;b.skill.primedAt=now;
+ skillEvent(room,b,now,'activated');return null;
+}
+function finishColdHowTouching(room,b,now,reason){
+ if(b.skill?.id!=='coldHowTouching'||b.skill.phase!=='active')return;
+ endSiegeSkill(b,now);
+ skillEvent(room,b,now,'ended',{reason});
+}
 // SKILL is a two-press command: first primes independent aim, second fires
 // the loaded heavy bow. Ordinary ATTACK can still release Bolt I in between.
 export function requestBiByeHeavySkill(room,b,p,now,targetAim,{combined=false}={}){
+ if(b?.skill?.id!=='boltToTheOccasion')return 'Bolt to the Occasion is not equipped.';
  if(!skillOperator(room,b,p,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)return 'The main launcher cannot release here.';
  const s=b.skill;
  if(s?.phase==='releasing')return 'Bolt II is already releasing.';
@@ -128,12 +150,19 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
     b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b,now);
   }
+  if(b.skill?.id==='coldHowTouching'&&b.skill.phase==='active'&&
+    (!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||
+     !biByeCondition(b).canSiege||b.skill.ownerId!==op?.id)){
+    finishColdHowTouching(room,b,now,'interrupted');
+  }
   if(b.skill?.phase==='primed'&&(!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)){
     endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled');
   }
   if(b.heavySkill){
     const pending=b.heavySkill;
-    if(!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){b.heavySkill=null;endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}
+    if(!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){
+      b.heavySkill=null;endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled');
+    }
     else{
       const target=biByeConstrainAim(b,pending.aim);
       b.mainYaw=approach(b.mainYaw,target.yaw,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(target.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
@@ -150,7 +179,11 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
           b.upperFiredAt=now;b.upperShotKind='combined';
           event(room,b,'bibyeCombinedCommitted',now,{operatorId:pending.operatorId,upperReleaseAt:b.combinedUpperPendingAt});
         }
-        b.heavySkill=null;endSiegeSkill(b);
+        b.heavySkill=null;endSiegeSkill(b,now);
+        // Selection of the current rider was deferred until the first
+        // operator's irrevocable release finished. No cooldown reset.
+        const current=room.players.get(b.operatorId);
+        if(current?.alive)b.skill.id=selectedSiegeSkill(current,'biBye');
         event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL'});skillEvent(room,b,now,'released');
       }
     }
@@ -242,7 +275,9 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
     if(b.upperReleasedAt!=null&&!supported(b))interruptBiByeSupport(b,now);
     else if(b.upperReleasedAt!=null&&now+1e-8>=b.shotIIPendingAt){
       const releasedAt=b.shotIIPendingAt;
-      shotII?.(room,b,b.committedAim,releasedAt);b.shotIIPendingAt=Infinity;
+      shotII?.(room,b,b.committedAim,releasedAt);
+      finishColdHowTouching(room,b,releasedAt,'boltII');
+      b.shotIIPendingAt=Infinity;
       b.mainReleasedAt=releasedAt;b.mainBoltLoaded=false;b.state='SPENT';b.reloadStartedAt=b.firedAt+BI_BYE_WEAPONS.recovery;
       b.reloadEndsAt=b.reloadStartedAt+BI_BYE_WEAPONS.heavyReload;
       releaseClutch(b,releasedAt);b.pendingVolley=null;
