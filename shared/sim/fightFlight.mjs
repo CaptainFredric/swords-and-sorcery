@@ -4,6 +4,7 @@
 import {resolvePlayerWorld,surfaceHeightAt,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
@@ -83,6 +84,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   const safe=exit??fightFlightExit(room,m,player);
   if(!safe&&!force)return false;
   // Forced removal is reserved for death/disconnect/destruction: no airborne teleport.
+  // The machine retains its cooldown and actual ammunition debt when the rider leaves.
+  endFightFlightSkill(room,m,at,'interrupted');
   m.operatorId=null;m.firingOperatorId=null;player.operatingFightFlightId=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
@@ -134,7 +137,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       // Hover offsets gravity; climbing adds bounded upward acceleration.
       const ay=lift*FIGHT_FLIGHT.gravity-FIGHT_FLIGHT.gravity+(jump?lift*5.6:descend?-7.0:0);
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
-      const cost=jump?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
+      // Power assistance is only steady-altitude compensation. Ascending
+      // still spends the normal powered-climb charge; suppression is a choice.
+      const support=fightFlightHoverSupport(m,now,{climbing:jump,descending:descend});
+      const cost=support?0:jump?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
       m.flightCharge=cap(m.flightCharge-dt*cost,0,m.maxFlightCharge);
       if(descend&&m.velocity.y<-.3)m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
