@@ -34,6 +34,7 @@ import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs'
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { TouchControls } from './TouchControls.mjs';
+import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
@@ -1214,6 +1215,7 @@ export class GameRuntime {
   enableTouch() {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
+    this.touchLayoutEditor = new TouchLayoutEditor(this.touch);
     this.hud.setPreparedInputMode('touch');
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
@@ -1221,6 +1223,12 @@ export class GameRuntime {
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
+  }
+
+  editTouchLayout(mode) {
+    if (!this.touch) this.enableTouch();
+    this.touch?.setActive(true);
+    this.touchLayoutEditor?.open(mode);
   }
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
@@ -1390,6 +1398,8 @@ export class GameRuntime {
         else this.effects.wallClang?.(event.point);
         if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
       }
+      if(event.type==='fightFlightDismounted'&&!event.forced&&this.latestSnapshot?.fightFlight?.id===event.machineId
+        &&!this.latestSnapshot.fightFlight.grounded){this.flightRenderer.noteEjection(event.at);}
       if(event.type==='fightFlightRotorDestroyed'&&this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
       if(event.type==='fightFlightTerminalPrep'&&event.operatorId===this.playerId){
         if(event.action==='started')this.hud.flashText('HOLD DASH + ULTIMATE · VALKYRIE','',1100);
@@ -3243,7 +3253,9 @@ export class GameRuntime {
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
     const localIsFlightDriver = Boolean(this.localAuth?.alive && this.localAuth?.operatingFightFlightId);
     const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch, siegeTarget: this.flightSiegeTarget } : null;
-    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim);
+    const flightState=this.latestSnapshot?.fightFlight;
+    const flightOperator=flightState?.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightState?.operatorId);
+    this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;

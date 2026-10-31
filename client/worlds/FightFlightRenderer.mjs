@@ -1,11 +1,15 @@
-// Authored Fight-and-Flight v2.6 presentation. No replacement helicopter or baked-in Spellblade.
+// Authored Fight-and-Flight v2.7 presentation. No replacement helicopter or baked-in Spellblade.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
+import {SWORD_STRIKE_TIMES} from '../../shared/src/combat.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
+import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
-const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v2.6.glb?v=122c53cb5513';
+// v2.6 remains checked into this directory as a verifiable rollback.
+const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v2.7.glb?v=5358f2629a84';
+const QUARREL='/client/assets/props/fight-and-flight/fight-and-flight-v2.7-quarrel.glb?v=f0fb5f44c1ee';
 const SLOT_NAMES=['Quarrel_Visual_Chambered','Quarrel_Visual_Feed_Next','Quarrel_Visual_Hopper_Top','Quarrel_Visual_Slot_4','Quarrel_Visual_Slot_5','Quarrel_Visual_Slot_6'];
 export class FightFlightRenderer{
   constructor(scene){
@@ -13,6 +17,7 @@ export class FightFlightRenderer{
     this.group.visible=false;scene.add(this.group);this.nodes=new Map();this.state=null;
     this.lastMode=null;this.clip=null;this.disposed=false;
     this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
+    this.quarrelPrototype=null;this.quarrelDetail=createQuarrelDetail();this.lastSwordChain=null;this.operator=null;this.ejectionAt=null;
     this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
     // Ground fire is authoritative aftermath, not part of the wreck model:
     // it remains visible after the apparatus disappears.
@@ -31,28 +36,46 @@ export class FightFlightRenderer{
       if(spin){this.rotorAction=this.mixer.clipAction(spin);this.rotorAction.play();}
       const reload=this.clips.get('Crossbow_Reload_Index');
       if(reload){this.reloadAction=this.mixer.clipAction(reload);this.reloadAction.play();}
+      const eject=this.clips.get('Posture_11_Aerial_Ejection');
+      if(eject){
+        this.ejectionAction=this.mixer.clipAction(eject);
+        this.ejectionAction.setLoop(THREE.LoopOnce,1);
+        this.ejectionAction.clampWhenFinished=true;
+        this.ejectionAction.play();this.ejectionAction.paused=true;
+        this.ejectionAction.enabled=false;
+      }
+      const sword=this.clips.get('Sword_Strike_And_Recovery');
+      if(sword){this.swordAction=this.mixer.clipAction(sword);this.swordAction.setLoop(THREE.LoopOnce,1);this.swordAction.clampWhenFinished=true;this.swordAction.play();this.swordAction.paused=true;this.swordAction.enabled=false;}
       const fire=this.clips.get('Crossbow_Fire_Loop');
       if(fire){this.fireAction=this.mixer.clipAction(fire);this.fireAction.play();}
       this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
+      // Six individually ornamented GLB magazine quarrels. Detail groups are
+      // attached to their actual moving nodes, so reload indexing and the
+      // authoritative visible-ammo count remain unchanged.
+      SLOT_NAMES.forEach((name,i)=>ornamentQuarrelSlot(this.nodes.get(name),this.quarrelDetail,i));
       // Emblem deliberately unapproved: display the authored plain crimson cloth.
       const crest=this.nodes.get('Rear_Banner_Heraldic_Emblem');if(crest)crest.visible=false;
       this.setFirstPerson(this.isFirstPerson);
       this.setFailureParts();resolve(true);
-    },undefined,err=>{console.warn('Fight-and-Flight v2.6 asset failed to load',err);this.pending=null;resolve(false);}));
+      // A GLB quarrel points along its authored local +Z (tip at +0.415 m).
+      // Failure leaves the legacy cylinder fallback, never changes ballistics.
+      new GLTFLoader().load(appUrl(QUARREL),bolt=>{
+        if(this.disposed)return;
+        this.quarrelPrototype=bolt.scene;
+      },undefined,e=>console.warn('Quarrel GLB unavailable; keeping fallback',e));
+    },undefined,err=>{console.warn('Fight-and-Flight v2.7 asset failed to load',err);this.pending=null;resolve(false);}));
     return this.pending;
   }
   setFirstPerson(firstPerson){
     this.isFirstPerson=Boolean(firstPerson);
-    const banner=this.nodes.get('Rear_Trident_Banner');
-    if(banner)banner.visible=!this.isFirstPerson;
-    const braceL=this.nodes.get('Protective_Brace_L');
-    if(braceL)braceL.visible=!this.isFirstPerson;
-    const braceR=this.nodes.get('Protective_Brace_R');
-    if(braceR)braceR.visible=!this.isFirstPerson;
-    const braceLDam=this.nodes.get('Protective_Brace_L_Damaged');
-    if(braceLDam)braceLDam.visible=!this.isFirstPerson;
-    const braceRDam=this.nodes.get('Protective_Brace_R_Damaged');
-    if(braceRDam)braceRDam.visible=!this.isFirstPerson;
+    // The v2.7 cockpit keeps BOTH protective shoulder mantlets visible;
+    // only rear-only drive components/banner obstruct the visor camera.
+    for(const name of ['Rear_Drive_Assembly','Rear_Trident_Banner']){
+      const node=this.nodes.get(name);if(node)node.visible=!this.isFirstPerson;
+    }
+  }
+  noteEjection(at){
+    if(Number.isFinite(at))this.ejectionAt=at;
   }
   setFailureParts(){
     const m=this.state;if(!m)return;
@@ -60,8 +83,8 @@ export class FightFlightRenderer{
       ['Protective_Brace_L','Protective_Brace_L_Damaged',m.braceLHP],
       ['Protective_Brace_R','Protective_Brace_R_Damaged',m.braceRHP]]){
       const original=this.nodes.get(intact),broken=this.nodes.get(damaged);
-      if(original)original.visible=!this.isFirstPerson&&hp>0;
-      if(broken){broken.scale.setScalar(hp>0?0:1);broken.visible=!this.isFirstPerson&&hp<=0;}
+      if(original)original.visible=hp>0;
+      if(broken){broken.scale.setScalar(hp>0?0:1);broken.visible=hp<=0;}
     }
     const banner=this.nodes.get('Rear_Trident_Banner');
     if(banner)banner.visible=!this.isFirstPerson;
@@ -75,16 +98,31 @@ export class FightFlightRenderer{
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
     if(m.terminalDive&&!m.terminalDive.resolved)return 'Posture_07_Terminal_Dive_Pitch';
     if(m.offensiveRun)return 'Posture_06_Airborne_Overdrive_Pitch';
+    // Discrete hop has its own authored trajectory; otherwise takeoff
+    // transitions to powered ascent/hover without replaying the hop.
+    if(m.mode==='TAKEOFF'&&Number.isFinite(m.hopStartedAt))return 'Posture_09_Ordinary_Small_Jump';
     if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
     if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
-    if(!m.grounded)return m.velocity?.y<-.9?'Posture_02_Controlled_Landing':'Posture_04_Takeoff_To_Flight';
+    if(!m.grounded)return 'Posture_10_Ascending_Hover_Descending';
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
   }
-  update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null){
+  update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null,operator=null){
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
-    this.state=m;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
+    this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
+    if(!m?.operatorId)this.lastSwordChain=null;
+    // Server detachment is immediate. The authored clip opens the empty
+    // harness and deflects the coasting shaft, never teleports or reattaches
+    // the live Spellblade after its airborne ejection.
+    if(this.ejectionAction){
+      const age=now-(this.ejectionAt??-Infinity);
+      const active=age>=0&&age<this.ejectionAction.getClip().duration
+        &&!m?.operatorId&&(m?.rotorHP??0)>0;
+      this.ejectionAction.enabled=active;
+      if(active)this.ejectionAction.time=age;
+      if(age>=this.ejectionAction.getClip().duration)this.ejectionAt=null;
+    }
     if(!this.group.visible)return;
     this.load();
     const at=m.position??m;
@@ -126,36 +164,90 @@ export class FightFlightRenderer{
     if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
       if(this.fireAction.enabled)this.fireAction.time=Math.max(0,now-m.lastShotAt);
     }
-    const crossbow=this.nodes.get('Crossbow_Body');
-    if(crossbow){
-      let pitchAngle=0,relativeYaw=0;
-      if(aim){
-        const computed=flightRepeaterAim(m,aim);
-        pitchAngle=computed.pitch;
-        relativeYaw=Math.atan2(Math.sin(computed.yaw-(m.heading??0)),Math.cos(computed.yaw-(m.heading??0)));
-      }else{
-        pitchAngle=m.crossbowPitch??0;
-        const targetYaw=m.crossbowYaw??m.heading??0;
-        relativeYaw=Math.atan2(Math.sin(targetYaw-(m.heading??0)),Math.cos(targetYaw-(m.heading??0)));
+    // Gimbal motion follows the machine's authoritative replicated joint angles,
+    // never a second, visually convenient convergence calculation.
+    const rel=Math.atan2(Math.sin((m.crossbowYaw??m.heading??0)-(m.heading??0)),
+      Math.cos((m.crossbowYaw??m.heading??0)-(m.heading??0)));
+    const yaw=Math.max(-FLIGHT_REPEATER.maxTraverse,Math.min(FLIGHT_REPEATER.maxTraverse,rel));
+    const pitch=Math.max(FLIGHT_REPEATER.minPitch,Math.min(FLIGHT_REPEATER.maxPitch,m.crossbowPitch??0));
+    const gimbal=this.nodes.get('Crossbow_Yaw_Gimbal');
+    const cradle=this.nodes.get('Crossbow_Pitch_Cradle');
+    const tilter=this.nodes.get('Crossbow_Aim_Tilter_Link');
+    if(gimbal&&cradle){
+      gimbal.rotation.set(0,yaw,0);
+      cradle.rotation.set(-pitch,0,0);
+      if(tilter){
+        const xAxis=new THREE.Vector3(1,0,0),yAxis=new THREE.Vector3(0,1,0);
+        const inverseCradle=new THREE.Quaternion().setFromAxisAngle(xAxis,pitch);
+        const counterYaw=new THREE.Quaternion().setFromAxisAngle(yAxis,-.75*yaw);
+        const counterPitch=new THREE.Quaternion().setFromAxisAngle(xAxis,-.32*pitch);
+        tilter.quaternion.copy(inverseCradle.multiply(counterYaw).multiply(counterPitch));
       }
-      const age=now-(m.lastShotAt??-Infinity),recoil=age>=0&&age<.143?(.065*(1-age/.143)):0;
-      crossbow.rotation.set(-pitchAngle-recoil,relativeYaw,0,'YXZ');
+    }
+    // The authored 0.65s sword clip crosses the reticle at 46% duration.
+    // Align that crossing to the actual server strike contacts (0.4/1.1/1.8s),
+    // and do not render uncommitted subsequent swings.
+    if(this.swordAction){
+      // A released sword chain clears attackCommitted on the host. Keep
+      // presenting its last genuinely committed swing through recovery, never
+      // invent a next strike from an uncommitted held-button visual.
+      if(operator?.attackActive&&Number.isFinite(operator.attackStartedAt)){
+        this.lastSwordChain={startedAt:operator.attackStartedAt,committed:operator.attackCommitted??0};
+      }
+      const chain=this.lastSwordChain;
+      const sampleOffset=this.swordAction.getClip().duration*.46;
+      let swordTime=-1;
+      if(chain){
+        for(let i=0;i<Math.min(chain.committed,SWORD_STRIKE_TIMES.length);i++){
+          const elapsed=now-chain.startedAt-(SWORD_STRIKE_TIMES[i]-sampleOffset);
+          if(elapsed>=0&&elapsed<this.swordAction.getClip().duration)swordTime=elapsed;
+        }
+        if(now-chain.startedAt>SWORD_STRIKE_TIMES.at(-1)+this.swordAction.getClip().duration)
+          this.lastSwordChain=null;
+      }
+      this.swordAction.enabled=swordTime>=0;
+      if(swordTime>=0)this.swordAction.time=swordTime;
     }
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
     // not an unrelated animation clock. This also stops on rotor failure.
+    this.mixer.update(0); // sample rotor, fire, sword and rotor failure at authoritative time
+    // Authored posture tracks animate Node 1's root translation/attitude. The
+    // simulation already owns chassis XYZ and run pitch; allowing those visual
+    // oscillations to move the muzzle would desynchronize server collision,
+    // crosshair truth and the displayed gun. Keep limb/banner animation only.
+    if(!this.ejectionAction?.enabled){
+      for(const name of ['Protective_Brace_L','Protective_Brace_R']){
+        const brace=this.nodes.get(name);if(brace)brace.quaternion.identity();
+      }
+      if(m.rotorHP>0&&!m.terminalDive){
+        const shaft=this.nodes.get('Rotor_Shaft_And_Bearing');if(shaft)shaft.quaternion.identity();
+      }
+      const anchor=this.nodes.get('operator_root_anchor');
+      if(anchor){anchor.position.set(0,0,0);anchor.quaternion.identity();}
+    }
+    const chassis=this.nodes.get('Main_Apparatus_Chassis');
+    if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
   }
   drawBolts(projectiles,now,stamp){
     const keep=new Set();
     for(const p of projectiles){
       keep.add(p.id);let mesh=this.bolts.get(p.id);
-      if(!mesh){mesh=new THREE.Mesh(this.boltGeometry,this.boltMaterial);mesh.castShadow=true;
+      if(!mesh){
+        mesh=new THREE.Group();mesh.name='Authored_Flight_Quarrel_'+p.id;
+        if(this.quarrelPrototype)mesh.add(this.quarrelPrototype.clone(true));
+        else{
+          const fallback=new THREE.Mesh(this.boltGeometry,this.boltMaterial);
+          fallback.rotation.x=Math.PI/2;mesh.add(fallback);
+        }
+        mesh.add(this.quarrelDetail.clone(true));
+        mesh.traverse(n=>{if(n.isMesh)n.castShadow=true;});
         this.scene.add(mesh);this.bolts.set(p.id,mesh);}
       const span=Math.max(0,Math.min(.12,now-stamp));
       mesh.position.set(p.position.x+p.velocity.x*span,p.position.y+p.velocity.y*span,p.position.z+p.velocity.z*span);
       const dir=new THREE.Vector3(p.velocity.x,p.velocity.y,p.velocity.z).normalize();
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),dir);
     }
     for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
   }
@@ -212,6 +304,8 @@ export class FightFlightRenderer{
   }
   dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
     this.boltGeometry.dispose();this.boltMaterial.dispose();
+    disposeQuarrelDetail(this.quarrelDetail);
+    this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();this.burnGeometry.dispose();
     this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
 }
