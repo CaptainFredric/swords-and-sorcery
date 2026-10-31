@@ -79,6 +79,12 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
     overtime: Boolean(room.overtime),
+    highGrounds: room.highGrounds ? {
+      sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
+      scores: { ...room.highGrounds.scores },
+      scoreToWin: 900,
+      foundries: room.highGrounds.foundries.map(f => ({ ...f })),
+    } : null,
     objective: room.objectiveState ? {
       index: room.objectiveState.index,
       phase: room.objectiveState.phase,
