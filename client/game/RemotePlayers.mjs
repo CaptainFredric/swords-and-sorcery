@@ -301,8 +301,10 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
     shell.cockpitHeadHidden = want;
     shell.lastHeadMeshConfigured = true;
     if (shell.fallbackRig?.head) shell.fallbackRig.head.visible = !want;
+    if (shell.fallbackRig?.torso) shell.fallbackRig.torso.visible = !want;
+    if (shell.fallbackRig?.legs) shell.fallbackRig.legs.visible = !want;
     shell.root.traverse((n) => {
-      if (['head', 'HelmetJaw', 'HelmetShell', 'Visor', 'Crest'].some(k => n.name?.includes(k))) {
+      if (['head', 'HelmetJaw', 'HelmetShell', 'Visor', 'Crest', 'Breastplate', 'Pauldron', 'TabardFront', 'TabardBack', 'Greave', 'Boot'].some(k => n.name?.includes(k))) {
         n.visible = !want;
       }
     });
@@ -718,7 +720,11 @@ export class RemotePlayers {
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
-    if(pb.alive&&(pb.operatingBallistaId||pb.operatingFightFlightId))Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
+    if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
+    if(pb.alive&&pb.operatingFightFlightId){
+      if(!pb.attackActive&&!pb.guarding)Object.assign(plan,{flightMounted:true,clip:'Idle',layers:null,concurrent:null});
+      else plan.flightMounted=true;
+    }
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
     const gait = shell.visualInstance?.animator?.gaitPhase;

@@ -48,12 +48,12 @@ export class BiByeOperatorPose {
    if(grips.right&&grips.lever)this.#arm('R',grips.right.clone().lerp(grips.lever,reach));
   }
  }
- applyFlight(grips){
+ applyFlight(grips, attacking = false){
   if(!this.flightActive){this.flightActive=true;}
   // Keep the Spellblade's real sword equipped; left hand holds repeater, right hand in sword corridor
   this.root.updateWorldMatrix(true,true);
   this.#arm('L',grips?.left,false);
-  if(grips?.right)this.#arm('R',grips.right,false);
+  if(grips?.right && !attacking)this.#arm('R',grips.right,false);
  }
  applyStanding(grips){
   if(!this.standingActive){this.standingActive=true;this.standingSwordVisible=this.sword?.visible??true;}

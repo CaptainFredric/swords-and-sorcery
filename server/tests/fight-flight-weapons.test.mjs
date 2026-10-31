@@ -152,8 +152,8 @@ test('Visual aim, muzzle calculation, projectile trajectory, and close target hi
   assert.equal(victim.health, healthBefore - 4, 'Close target receives full 4 damage');
   assert.ok(room.events.some(e => e.type === 'fightFlightBoltImpact' && e.victimId === victim.id));
 
-  // 2. Aim beyond traverse limit (attempting +0.8 rad, limited to maxTraverse = 25 deg = 0.4363 rad)
-  p.input.yaw = m.heading + 0.8;
+  // 2. Aim beyond traverse limit (attempting +1.2 rad, limited to maxTraverse = 50 deg = 0.8726 rad)
+  p.input.yaw = m.heading + 1.2;
   const limitedAim = flightRepeaterAim(m, p.input);
   const traverseOffset = Math.atan2(Math.sin(limitedAim.yaw - m.heading), Math.cos(limitedAim.yaw - m.heading));
   assert.ok(Math.abs(traverseOffset - FLIGHT_REPEATER.maxTraverse) < 1e-6, 'Traverse clamped to exact limit');
