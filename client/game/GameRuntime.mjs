@@ -34,6 +34,7 @@ import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs'
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { TouchControls } from './TouchControls.mjs';
+import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
@@ -1200,6 +1201,7 @@ export class GameRuntime {
   enableTouch() {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
+    this.touchLayoutEditor = new TouchLayoutEditor(this.touch);
     this.hud.setPreparedInputMode('touch');
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
@@ -1207,6 +1209,12 @@ export class GameRuntime {
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
+  }
+
+  editTouchLayout(mode) {
+    if (!this.touch) this.enableTouch();
+    this.touch?.setActive(true);
+    this.touchLayoutEditor?.open(mode);
   }
 
   setPlaying(playing, { preservePointerLock = false } = {}) {

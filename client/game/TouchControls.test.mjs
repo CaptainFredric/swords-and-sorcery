@@ -688,7 +688,7 @@ test('touch siege Skill sends one authoritative command and leaves personal Ulti
  assert.deepEqual(calls,[{type:'siegeSkill'}]);controls.reset();assert.equal(controls.held.size,0);
 });
 
-test('mobile Valkyrie touch latches actions and safely releases Dash and Ultimate on release, cancel, death, and blur even if eligibility changes', () => {
+test('mobile Valkyrie requires intentional simultaneous holding of Dash and Ultimate; Ultimate alone never synthesizes Dash', () => {
   const flightPlayer = {
     alive: true,
     operatingFightFlightId: 'flight-1',
@@ -715,82 +715,143 @@ test('mobile Valkyrie touch latches actions and safely releases Dash and Ultimat
   controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
   assert.equal(controls.valkyrieEligible, true);
 
-  // Press Valkyrie touch button
+  // Press Ultimate touch button ALONE: MUST NOT synthesize Dash!
   send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 42 });
   assert.deepEqual(flightEvents, [
-    ['dash', true, 'touch'],
-    ['ultimate', true, 'touch'],
+    ['ultimate', true, 'touch:42'],
   ]);
   flightEvents.length = 0;
 
-  // 2. Mid-gesture eligibility change: prowess spent or terminalDive active
-  flightMachine.terminalDive = { heading: 0, committed: true };
-  flightPlayer.prowess = 0;
-  controls.update(flightPlayer, 11, { snapshot: { fightFlight: flightMachine } });
-  assert.equal(controls.valkyrieEligible, false);
+  // Press Dash touch button simultaneously with a second finger
+  send('pointerdown', 650, 400, { action: 'dash', pointerId: 43 });
+  assert.deepEqual(flightEvents, [
+    ['dash', true, 'touch:43'],
+  ]);
+  flightEvents.length = 0;
 
-  // Release finger: both MUST be released even though valkyrieEligible is now false!
+  // 2. Release Dash before commitment: releases Dash while Ultimate stays held
+  send('pointerup', 650, 400, { action: 'dash', pointerId: 43 });
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch:43'],
+  ]);
+  flightEvents.length = 0;
+
+  // Release Ultimate
   send('pointerup', 750, 400, { action: 'ultimate', pointerId: 42 });
   assert.deepEqual(flightEvents, [
-    ['dash', false, 'touch'],
-    ['ultimate', false, 'touch'],
+    ['ultimate', false, 'touch:42'],
   ]);
   flightEvents.length = 0;
 
   // 3. Pointer cancellation test
-  flightMachine.terminalDive = null;
-  flightPlayer.prowess = 100;
-  controls.update(flightPlayer, 12, { snapshot: { fightFlight: flightMachine } });
-  assert.equal(controls.valkyrieEligible, true);
-
-  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 43 });
-  assert.deepEqual(flightEvents, [
-    ['dash', true, 'touch'],
-    ['ultimate', true, 'touch'],
-  ]);
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 44 });
+  send('pointerdown', 650, 400, { action: 'dash', pointerId: 45 });
   flightEvents.length = 0;
 
   // Pointer cancel (e.g. system gesture / palm rejection)
-  send('pointercancel', 750, 400, { action: 'ultimate', pointerId: 43 });
+  send('pointercancel', 750, 400, { action: 'ultimate', pointerId: 44 });
   assert.deepEqual(flightEvents, [
-    ['dash', false, 'touch'],
-    ['ultimate', false, 'touch'],
+    ['ultimate', false, 'touch:44'],
+  ]);
+  flightEvents.length = 0;
+  send('pointercancel', 650, 400, { action: 'dash', pointerId: 45 });
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch:45'],
   ]);
   flightEvents.length = 0;
 
-  // 4. Pilot death test
-  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 44 });
-  assert.deepEqual(flightEvents, [
-    ['dash', true, 'touch'],
-    ['ultimate', true, 'touch'],
-  ]);
+  // 4. Pilot death while holding
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 46 });
+  send('pointerdown', 650, 400, { action: 'dash', pointerId: 47 });
   flightEvents.length = 0;
 
-  // Pilot dies while holding
   flightPlayer.alive = false;
   controls.update(flightPlayer, 13, { snapshot: { fightFlight: flightMachine } });
-  assert.deepEqual(flightEvents, [
-    ['dash', false, 'touch'],
-    ['ultimate', false, 'touch'],
-  ]);
+  assert.ok(flightEvents.some(([act, down]) => act === 'dash' && down === false));
+  assert.ok(flightEvents.some(([act, down]) => act === 'ultimate' && down === false));
   flightEvents.length = 0;
 
   // 5. Document hidden / focus loss test
   flightPlayer.alive = true;
   controls.update(flightPlayer, 14, { snapshot: { fightFlight: flightMachine } });
-  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 45 });
-  assert.deepEqual(flightEvents, [
-    ['dash', true, 'touch'],
-    ['ultimate', true, 'touch'],
-  ]);
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 48 });
+  send('pointerdown', 650, 400, { action: 'dash', pointerId: 49 });
   flightEvents.length = 0;
 
-  // Document hidden blur
   globalThis.document.hidden = true;
   globalThis.window.dispatchEvent(new Event('blur'));
-  assert.deepEqual(flightEvents, [
-    ['dash', false, 'touch'],
-    ['ultimate', false, 'touch'],
-  ]);
+  assert.ok(flightEvents.some(([act, down]) => act === 'dash' && down === false));
+  assert.ok(flightEvents.some(([act, down]) => act === 'ultimate' && down === false));
   globalThis.document.hidden = false;
+});
+
+test('Fight-and-Flight discrete hop, continuous Rise and Lower, and multi-touch isolation', () => {
+  const flightPlayer = {
+    alive: true,
+    operatingFightFlightId: 'flight-1',
+    ultimate: 'sunder',
+    prowess: 50,
+    position: { x: 0, y: 0, z: 0 },
+  };
+  const flightMachine = {
+    id: 'flight-1',
+    health: 100,
+    rotorHP: 100,
+    grounded: true,
+  };
+  const { input, controls, send } = setup(flightPlayer);
+  input.mountedFlight = true;
+  let hopSent = 0;
+  input.flightHop = () => { hopSent++; };
+
+  controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
+
+  // 1. Tapping JUMP sends flightHop and does NOT latch jumpHeld
+  send('pointerdown', 700, 400, { action: 'jump', pointerId: 10 });
+  assert.equal(hopSent, 1);
+  const mov1 = controls.movement();
+  assert.equal(mov1.jump, false);
+  send('pointerup', 700, 400, { action: 'jump', pointerId: 10 });
+
+  // 2. Pressing RISE sets flightRise in movement
+  send('pointerdown', 200, 400, { action: 'flightRise', pointerId: 11 });
+  const movRise = controls.movement();
+  assert.equal(movRise.flightRise, true);
+  assert.equal(movRise.flightLower, false);
+  send('pointerup', 200, 400, { action: 'flightRise', pointerId: 11 });
+  const movRiseEnd = controls.movement();
+  assert.equal(movRiseEnd.flightRise, false);
+
+  // 3. Pressing LOWER sets flightLower in movement
+  send('pointerdown', 200, 450, { action: 'flightLower', pointerId: 12 });
+  const movLower = controls.movement();
+  assert.equal(movLower.flightLower, true);
+  assert.equal(movLower.flightRise, false);
+  send('pointerup', 200, 450, { action: 'flightLower', pointerId: 12 });
+  const movLowerEnd = controls.movement();
+  assert.equal(movLowerEnd.flightLower, false);
+
+  // 4. Multi-touch on Sword/Attack: releasing one pointer does not cancel if another still holds
+  const attacks = [];
+  const origSetAttack = input.setAttack.bind(input);
+  input.setAttack = (down, source) => { attacks.push([down, source]); origSetAttack(down, source); };
+  send('pointerdown', 700, 500, { action: 'attack', pointerId: 21 });
+  assert.deepEqual(attacks, [[true, 'touch:21']]);
+  attacks.length = 0;
+
+  send('pointerdown', 700, 500, { action: 'attack', pointerId: 22 });
+  assert.deepEqual(attacks, [[true, 'touch:22']]);
+  attacks.length = 0;
+
+  // Release pointer 21: pointer 22 is still holding!
+  send('pointerup', 700, 500, { action: 'attack', pointerId: 21 });
+  assert.deepEqual(attacks, [[false, 'touch:21']]);
+  // inputController still has touch:22 in attackSources, so attackHeld remains true!
+  assert.equal(input.attackHeld, true);
+  attacks.length = 0;
+
+  // Release pointer 22: now all sources released
+  send('pointerup', 700, 500, { action: 'attack', pointerId: 22 });
+  assert.deepEqual(attacks, [[false, 'touch:22']]);
+  assert.equal(input.attackHeld, false);
 });
