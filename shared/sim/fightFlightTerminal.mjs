@@ -18,8 +18,9 @@ export function setFlightUltimateHold(room,m,p,down,now){
  const prior=Boolean(m.flightUltimateHeld),wasAt=m.flightUltimateDownAt??now;
  m.flightUltimateHeld=Boolean(down);
  if(down){if(!prior)m.flightUltimateDownAt=now;return {};}
- if(m.terminalPrep){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
- const tap=!m.flightDashHeld&&prior&&now-wasAt<=.35&&!m.terminalDive;
+ const wasPreparing=Boolean(m.terminalPrep);
+ if(wasPreparing){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
+ const tap=!wasPreparing&&!m.flightDashHeld&&prior&&now-wasAt<=.35&&!m.terminalDive;
  m.flightUltimateDownAt=null;
  return {tapUltimate:tap};
 }
