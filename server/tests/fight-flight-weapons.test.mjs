@@ -183,7 +183,7 @@ test('Near-range camera ray is converged from the genuine physical offset muzzle
 });
 test('Unreachable near/parallax aim is bounded and exports the reachable physical aim point',()=>{
  const m=createFightFlight({x:0,y:0,z:0,heading:0});
- const aim=flightRepeaterAim(m,{yaw:0,pitch:0,siegeTarget:{x:0,y:2.5,z:-.8}});
+ const aim=flightRepeaterAim(m,{yaw:0,pitch:0,siegeTarget:{x:0,y:2.5,z:3}});
  assert.equal(aim.limited,true);
  assert.ok(aim.missDistance>.08);
  assert.ok(Math.abs(aim.yaw-m.heading)<=FLIGHT_REPEATER.maxTraverse+1e-9);
