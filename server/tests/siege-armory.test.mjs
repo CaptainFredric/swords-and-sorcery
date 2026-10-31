@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {Room} from '../../shared/sim/Room.mjs';
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {applySavedLoadout} from '../src/savedLoadout.mjs';
+import {LocalHost} from '../../client/network/LocalHost.mjs';
 import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
 import {registry} from '../../client/settings/settingsRegistry.mjs';
 import {SettingsStore} from '../../client/settings/SettingsStore.mjs';
@@ -49,4 +50,18 @@ test('Server accepts only validated personal equipment, deferring mounted loadou
  assert.equal(p.siegeLoadout.biBye,'boltToTheOccasion');
  assert.equal(p.queuedSiegeLoadout.biBye,'coldHowTouching');
  assert.equal(session.siegeLoadout.soFist,'beatToThePunch');
+});
+
+test('LocalHost and server apply the same normalized personal Siege equipment',()=>{
+ const chosen={biBye:'coldHowTouching',soFist:'invented',fightFlight:'fireAwayRightHere'};
+ const local=new LocalHost({now:()=>0,every:()=>1,cancel:()=>{},later:()=>{},storage:null});
+ local.loadout('fireball','sunder',[],chosen);
+ local.startSolo('PRACTICE','Local tester','castleward');
+ assert.equal(local.player.siegeLoadout.biBye,'coldHowTouching');
+ assert.equal(local.player.siegeLoadout.soFist,'beatToThePunch');
+ const room={state:'WAITING'},serverSession={},networkPlayer={};
+ applySavedLoadout(serverSession,room,networkPlayer,{spell:'fireball',ultimate:'sunder',
+   preparedSpells:[],siegeLoadout:chosen});
+ assert.deepEqual(networkPlayer.siegeLoadout,local.player.siegeLoadout);
+ local.close();
 });
