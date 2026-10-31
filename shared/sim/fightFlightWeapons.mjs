@@ -47,7 +47,7 @@ function release(room,m,p,now){
   if(!validOperator(room,m,p)||m.ammo<1||now+1e-8<(m.nextShotAt??0))return false;
   // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
   // explicitly permitted exception when sword combat is integrated.
-  if(p.attackActive&&!combatActionPolicy(p,now).concurrent)return false;
+  if((p.attackActive||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
   const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
   const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
   const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
