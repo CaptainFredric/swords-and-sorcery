@@ -87,7 +87,8 @@ export function earliestFrostProximity(room,projectile,before,after,world,now,fl
  ];
  for(const {kind,m,volumes} of machines){
   if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0||m.id===projectile.ballistaId||
-    m.operatorId===projectile.ownerId||m.operatorId&&areAllies(room,projectile.ownerId,m.operatorId))continue;
+    !m.operatorId||m.operatorId===projectile.ownerId||
+    areAllies(room,projectile.ownerId,m.operatorId))continue;
   for(const volume of volumes){
    const near=sweptNearBox(from,to,volume);
    if(!near)continue;
