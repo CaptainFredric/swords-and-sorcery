@@ -342,8 +342,10 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
-  ballista.heavySkill=null;
-  endSiegeSkill(ballista,nowSec);
+  // Once Bolt II is committed, the mechanism owes that physical shot even
+  // if the rider changes. Destruction may still arrest the mechanism.
+  const committedHeavy=Boolean(ballista.heavySkill&&ballista.skill?.phase==='releasing');
+  if(!committedHeavy){ballista.heavySkill=null;endSiegeSkill(ballista,nowSec);}
   ballista.pendingIndependent=null;
   cancelBiByeCoupling(ballista);
   if(ballista.mobileShotPendingAt != null){ballista.mobileShotPendingAt=null;ballista.mobileFiredAt=null;ballista.upperFiredAt=null;}
