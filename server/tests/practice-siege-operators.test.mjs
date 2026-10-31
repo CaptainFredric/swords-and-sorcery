@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
-import {applyRoomCommand} from '../../shared/sim/wire.mjs';
+import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {stepPracticeActors} from '../../shared/sim/practice.mjs';
 import {stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
 import {SIEGE_OPERATORS} from '../../shared/sim/practiceSiegeOperators.mjs';
@@ -31,6 +31,9 @@ test('Practice hostile opponents validate actor, difficulty, machine occupancy a
  const b=room.biByeLlista,actor=[...room.players.values()].find(a=>a.practiceSiegeOperator);
  assert.equal(actor.name,'Ballistefan');assert.equal(b.operatorId,actor.id);
  assert.equal(actor.operatingBallistaId,b.id);
+ const reflected=serializeSnapshot(room,2).players.find(p=>p.id===actor.id);
+ assert.equal(reflected?.practiceSiegeOperator?.machine,'bi-bye-llista',
+   'real snapshots must preserve the hostile operator identity for Practice controls');
  assert.ok(command('spawn','bi-bye-llista').rejected);
  assert.ok(applyRoomCommand(room,{...player},{type:'practiceSiegeOpponent',action:'remove',machine:'all'},2).rejected);
  assert.deepEqual(command('remove','bi-bye-llista'),{});
