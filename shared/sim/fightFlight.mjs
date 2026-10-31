@@ -171,11 +171,19 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     // Sample horizontal AND vertical extent. A ceiling contact kills upward
     // movement rather than phasing the 2.6m-high chassis into masonry.
     if(!collisionFree(candidate,solids,h)){
-      if(m.terminalDive&&Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5)m.terminalDive.impactAt=now;
+      if(m.terminalDive){
+        // A terminal attack wedged against a genuine solid must resolve at the
+        // contact, rather than silently hovering until a distant timeout.
+        // A glancing obstruction is not sufficient; require either a real
+        // high-energy strike or sustained physical resistance under thrust.
+        m.terminalDive.blockedContactSec=(m.terminalDive.blockedContactSec??0)+step;
+        if(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5||m.terminalDive.blockedContactSec>=.24)
+          m.terminalDive.impactAt=now;
+      }
       if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
       else{candidate.x=previous.x;candidate.y=previous.y;candidate.z=previous.z;m.velocity={x:0,y:0,z:0};}
       m.lastImpactAt=now;
-    }
+    } else if(m.terminalDive) m.terminalDive.blockedContactSec=0;
     // Midair upward collision: capsule XY solver cannot stop ceilings;
     // inspect explicit AABBs at the current footprint.
     if(candidate.y>previous.y){
