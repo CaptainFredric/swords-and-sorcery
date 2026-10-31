@@ -111,6 +111,23 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
     machine,difficulty,name:def.name,at:now});
   return {};
 }
+// Grounded rotor clearance alone does not make a safe vertical launch site.
+// Hostile pilots cannot plan around a roof intersecting their first metres of
+// powered ascent; do not spawn them trapped below an otherwise clear canopy.
+function flightLaunchCorridorClear(room,pose){
+  const top=pose.y+2.65+4.5;
+  const radius=1.35;
+  return (room.world?.solids??[]).every(s=>{
+    if(!s?.center||!s?.size)return true;
+    const center=s.center,size=s.size,axes=s.axes;
+    // An oriented solid's enclosing AABB is conservative for placement only.
+    const ext=axis=>axes?axes.reduce((sum,v,i)=>sum+Math.abs(v[axis])*(size[i]??0)/2,0):(size[axis]??0)/2;
+    const above=center[1]+ext(1)>=pose.y&&center[1]-ext(1)<=top;
+    const horizontal=Math.abs(center[0]-pose.x)<=radius+ext(0)&&
+      Math.abs(center[2]-pose.z)<=radius+ext(2);
+    return !above||!horizontal;
+  });
+}
 function flightPlacement(room,human){
   const at=human.position,origYaw=human.yaw??0;
   for(const distance of [10,14,18,22,8])for(const delta of [0,.8,-.8,1.6,-1.6,Math.PI]){
@@ -118,6 +135,7 @@ function flightPlacement(room,human){
     const y=surfaceHeightAt(x,z,at.y+2,room.world);if(y==null||Math.abs(y-at.y)>1.7)continue;
     const pose={x,y,z},heading=bearing(pose,at);
     if(!fightFlightConstructionClear(room,pose,human.id))continue;
+    if(!flightLaunchCorridorClear(room,pose)||blocked(room,pose,human.position))continue;
     const m=createFightFlight({...pose,heading});
     if(!fightFlightExit(room,m,human))continue;
     return m;
