@@ -1,6 +1,7 @@
 // Swept frost proximity for Cold, How Touching. Detection is purely spatial;
 // consequences are resolved by the original projectile and blast simulation.
 import {segmentAabbHit} from '../src/collision.mjs';
+import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {soFistVolumes} from './soFistGeometry.mjs';
 import {fightFlightHitVolumes} from './fightFlightComponents.mjs';
@@ -35,7 +36,9 @@ function sphereEntry(a,b,c,r){
 // a convex box along a line is convex; golden section + bisection handles
 // corners where naively expanding AABB axes detonates outside true radius.
 export function sweptNearBox(from,to,volume,radius=FROST_EFFECTIVE_PROXIMITY){
- const distance=t=>sq(mix(from,to,t).map((x,i)=>x-nearest(volume,mix(from,to,t))[i]));
+ if(!orientedBoxHit(from,to,volume,radius))return null;
+ const distance=t=>{const point=mix(from,to,t),nearestPoint=nearest(volume,point);
+  return sq(point.map((x,i)=>x-nearestPoint[i]));};
  const limit=radius*radius;
  if(distance(0)<=limit)return {t:0,point:nearest(volume,from)};
  let lo=0,hi=1;
@@ -80,7 +83,7 @@ export function earliestFrostProximity(room,projectile,before,after,world,now,fl
  const machines=[
   {kind:'flight',m:room.fightFlight,volumes:fightFlightHitVolumes(room.fightFlight)},
   {kind:'ram',m:room.soFistication,volumes:soFistVolumes(room.soFistication,now)},
-  {kind:'machine',m:room.biByeLlista,volumes:biByeHitVolumes(room.biByeLlista,now)}
+  {kind:'machine',m:room.biByeLlista,volumes:room.biByeLlista?biByeHitVolumes(room.biByeLlista,now):[]}
  ];
  for(const {kind,m,volumes} of machines){
   if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0||m.id===projectile.ballistaId||
