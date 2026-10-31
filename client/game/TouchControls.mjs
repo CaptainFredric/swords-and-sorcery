@@ -623,7 +623,7 @@ export class TouchControls {
     }
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ultimate') this.input.ultimate();
-    if (action === 'dash') this.input.dash();
+    if (action === 'dash') {if(this.input.mountedFlight)this.input.flightDash(true,'touch');else this.input.dash();}
     if (action === 'jump') {
       this.jumpHeld = true;
       this.jumpUntil = performance.now() + JUMP_LATCH_MS;
@@ -656,6 +656,7 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false,'touch');
+    if (action === 'dash' && this.input.mountedFlight) this.input.flightDash(false,'touch');
     if (action === 'jump') this.jumpHeld = false;
     if(action==='crouch'&&this.inspectionFlight)this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
