@@ -178,3 +178,12 @@ test('Chivalry chord can begin after a human-scale Dash-then-Ultimate stagger wi
  stepTerminalPreparation(s.room,s.m,2.27);
  assert.equal(s.m.terminalDiveSpent,true);
 });
+
+
+test('A new match clears the previous Valkyrie burning-ground aftermath',()=>{
+ const {room}=setup();
+ room.flightBurnZones=[{id:'old-life-burn',point:{x:0,y:0,z:0},radius:4,expiresAt:99,nextTickAt:1}];
+ room.startMatch(12);
+ assert.deepEqual(room.flightBurnZones,[],'a fresh match cannot inherit hazardous terminal fire');
+ assert.equal(room.fightFlight,null);
+});
