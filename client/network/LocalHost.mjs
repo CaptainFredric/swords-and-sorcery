@@ -909,6 +909,7 @@ export class LocalHost {
   bibyeToggleDeploy() { this.#command({ type: 'bibyeToggleDeploy' }); }
   bibyeWeaponFocus(focus) { this.#command({ type: 'bibyeWeaponFocus', focus }); }
   practiceSiege(action, machine) { this.#command({ type: 'practiceSiege', action, machine }); }
+  highGroundsBuild(machine) { this.#command({ type: 'highGroundsBuild', machine }); }
   dash(direction) { this.#command({ type: 'dash', direction }); }
   rematch() { this.#command({ type: 'rematch' }); }
   switchTeam(team = null) { this.#command({ type: 'switchTeam', team }); }
