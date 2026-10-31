@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
+import { buildHighGroundsDecks, buildHighGroundsSurroundings, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
 // remain legible and run in the HTML5/mobile renderer without texture atlases.
 export const HIGH_GROUNDS_LIGHTING = Object.freeze({
-  cameraFar: 340,
-  background: 0x9ebac2,
-  fog: Object.freeze({ color: 0x9ebac2, density: 0.0035 }),
+  cameraFar: 610,
+  background: 0xb2cbd2,
+  fog: Object.freeze({ color: 0xb2cbd2, density: 0.0017 }),
   hemisphere: Object.freeze({ skyColor: 0xedf2e7, groundColor: 0x566755, intensity: 2.1 }),
   sun: Object.freeze({ color: 0xffdf9c, intensity: 2.35, position: Object.freeze([-65, 86, -40]) }),
 });
@@ -36,43 +37,37 @@ export class HighGroundsRenderer {
       rose: mat(BLOOM_COLOR.rose), ivory: mat(BLOOM_COLOR.ivory), gold: mat(BLOOM_COLOR.gold),
       leaf: mat(0x718e60), azure: mat(TEAM_COLOR.ATTACKERS),
       crimson: mat(TEAM_COLOR.DEFENDERS), neutral: mat(0xcabf97),
+      ...highGroundsSceneryMaterials(),
     };
     this.standards = new Map();
     this.#build();
     scene.add(this.group);
   }
   #build() {
-    for (const fl of HIGH_GROUNDS.floors) {
-      const material = this.materials[fl.material] ?? this.materials.timber;
-      mesh(this.group, new THREE.BoxGeometry(...fl.size), material, fl.center);
-      // Sparse ribs visually communicate suspended platforms, but the playable
-      // surface remains exactly the authoritative shared floor geometry.
-      if (fl.size[0] > 16 || fl.size[2] > 20) {
-        const alongZ = fl.size[2] >= fl.size[0];
-        const beam = alongZ ? [fl.size[0], .35, .48] : [.48, .35, fl.size[2]];
-        for (const side of [-1, 1]) {
-          const p = [...fl.center];
-          p[1] -= .35;
-          p[alongZ ? 2 : 0] += side * (fl.size[alongZ ? 2 : 0] / 2 - .24);
-          mesh(this.group, new THREE.BoxGeometry(...beam), this.materials.wood, p);
-        }
-      }
-    }
+    // Visibly contiguous upper world, using exactly one deck per region.
+    // The original individual overlapping boxes flickered at both entrances.
+    buildHighGroundsSurroundings(this.group, HIGH_GROUNDS, this.materials);
+    buildHighGroundsDecks(this.group, HIGH_GROUNDS, this.materials);
     for (const s of HIGH_GROUNDS.solids) {
       if (s.id.startsWith('trunk-')) continue;
       mesh(this.group, new THREE.BoxGeometry(...s.size), this.materials[s.material] ?? this.materials.timber, s.center, true);
     }
+    // Use literal server ramp endpoints instead of two independently rotated
+    // overlapping rectangular boxes. No diagonal clipping at the landings.
     for (const ramp of HIGH_GROUNDS.ramps) {
       const zAxis = ramp.axis === 'z';
-      const run = zAxis ? ramp.maxZ - ramp.minZ : ramp.maxX - ramp.minX;
-      const rise = ramp.endY - ramp.startY;
-      const width = zAxis ? ramp.maxX - ramp.minX : ramp.maxZ - ramp.minZ;
-      const g = new THREE.BoxGeometry(width, .4, Math.hypot(run, rise));
-      const p = [(ramp.minX + ramp.maxX) / 2, (ramp.startY + ramp.endY) / 2 - .2,
-        (ramp.minZ + ramp.maxZ) / 2];
-      const m = mesh(this.group, g, this.materials.timber, p);
-      if (zAxis) m.rotation.x = -Math.atan2(rise, run);
-      else { m.rotation.y = Math.PI / 2; m.rotation.x = -Math.atan2(rise, run); }
+      const x0=ramp.minX,x1=ramp.maxX,z0=ramp.minZ,z1=ramp.maxZ;
+      const start=ramp.startY+.015,end=ramp.endY+.015;
+      const pts=zAxis
+        ? [[x0,start,z0],[x1,start,z0],[x0,end,z1],[x1,end,z1]]
+        : [[x0,start,z0],[x0,start,z1],[x1,end,z0],[x1,end,z1]];
+      const corners=[pts[0],pts[2],pts[1],pts[1],pts[2],pts[3]];
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(corners.flat(),3));
+      g.computeVertexNormals();
+      const m=mesh(this.group,g,this.materials.timber,[0,0,0]);
+      m.name='ramp-deck-'+ramp.id;
+      m.material.side=THREE.DoubleSide;
     }
     // Massive tree silhouettes with angular bloom canopies. Individual petals
     // are low-poly billboards, never full alpha-blended particle fields.
@@ -130,7 +125,8 @@ export class HighGroundsRenderer {
   setHighGroundsState(state) {
     const owners = state?.sites ?? [];
     for (const [id, standard] of this.standards) {
-      const owner = owners.find(s => s.id === id)?.owner ?? HIGH_GROUNDS.objectives.find(s => s.id === id)?.initialOwner;
+      const updated = owners.find(s => s.id === id);
+      const owner = updated ? updated.owner : HIGH_GROUNDS.objectives.find(s => s.id === id)?.initialOwner;
       standard.material = this.materials[owner === 'ATTACKERS' ? 'azure' : owner === 'DEFENDERS' ? 'crimson' : 'neutral'];
     }
   }
