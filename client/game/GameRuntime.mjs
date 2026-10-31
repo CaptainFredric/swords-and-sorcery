@@ -677,6 +677,14 @@ export class GameRuntime {
 
   // a world may bring its own time of day; otherwise the default moonlit presentation applies
   #applyLighting(lighting) {
+    // A world's atmospheric palette must actually reach the Three.js scene.
+    // High Grounds previously inherited Castleward's almost-black night fog
+    // despite defining a much brighter outdoor sky: the ravine looked void.
+    this.scene.background = new THREE.Color(lighting?.background ?? SCENE_PRESENTATION.background);
+    this.scene.fog = new THREE.FogExp2(
+      lighting?.fog?.color ?? SCENE_PRESENTATION.fogColor,
+      lighting?.fog?.density ?? SCENE_PRESENTATION.fogDensity,
+    );
     this.camera.far = lighting?.cameraFar ?? 180;
     this.camera.updateProjectionMatrix();
     const hemisphere = lighting?.hemisphere ?? SCENE_PRESENTATION.hemisphere;
