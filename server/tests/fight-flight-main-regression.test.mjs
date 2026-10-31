@@ -65,5 +65,5 @@ test('Blocked airborne ejection preserves operator occupancy and rejects a fabri
   assert.ok(reply.rejected,'solid cage is not a safe ejection corridor');
   assert.equal(m.operatorId,p.id);
   assert.equal(p.operatingFightFlightId,m.id);
-  assert.equal(p.ejectionFallExempt,undefined);
+  assert.equal(p.ejectionFallExempt,false,'failed clearance cannot create an airborne ejection exemption');
 });
