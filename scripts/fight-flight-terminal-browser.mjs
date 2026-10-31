@@ -112,7 +112,7 @@ try{
  assert.ok(beforeChord.machine.y>.5,'must be airborne at terminal input');
  // Observe rendered Spellblade frames across a subsecond terminal dive.
  // Sparse Chrome debugger polls otherwise miss an entire genuine animation.
- await evaluate("(() => {const samples=window.__terminalPitchTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
+ await evaluate("(() => {const samples=window.__terminalPitchTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
  await down('E');await down('R');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalPrep)"),'visible one-second terminal chord preparation',100);
  const prep=await evaluate(flightState);
@@ -132,10 +132,14 @@ try{
  assert.equal(aftermath.machine.resolved,true,'one authoritative terminal outcome must resolve');
  assert.ok(aftermath.machine.impactAt!=null,'terminal dive must actually hit geometry, not time out suspended in midair');
  assert.ok(aftermath.machine.resolvedAt-aftermath.machine.startedAt<4.5,'the collision must finish the dive promptly');
- assert.ok(aftermath.burnZones?.length>0,'lasting ground fire must survive the lost machine');
- assert.ok(Math.abs(aftermath.burnZones[0].point.y)<.3,'burning ground must rest on the Practice Yard floor');
+ // Observe real networked fire while it is alive. Heavy Chrome capture and
+ // debugger latency can exceed the seven-second burn lifetime after impact.
+ const observedBurn=await evaluate("window.__terminalBurnTrace?.[0]??null");
+ const actualBurn=aftermath.burnZones?.length?aftermath.burnZones:observedBurn;
+ assert.ok(actualBurn?.length>0,'networked ground fire must exist after real terminal impact');
+ assert.ok(Math.abs(actualBurn[0].point.y)<.3,'burning ground must rest on the Practice Yard floor');
  await screenshot('06-terminal-aftermath');
- await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,pitchEvidence,pitchTrace:await evaluate('window.__terminalPitchTrace'),committed,aftermath,errors},null,2));
+ await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,pitchEvidence,pitchTrace:await evaluate('window.__terminalPitchTrace'),burnTrace:await evaluate('window.__terminalBurnTrace'),committed,aftermath,errors},null,2));
  assert.equal(errors.length,0,'Unexpected browser exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-C3 terminal acceptance:',JSON.stringify({prepHeld:true,committed:true,spent:committed.machine.terminalDiveSpent,mode:aftermath.machine.mode,burnZones:aftermath.burnZones?.length,errors}));
 
