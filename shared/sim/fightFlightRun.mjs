@@ -4,7 +4,7 @@ import {PROWESS} from '../src/prowess.mjs';
 import {activeUltimate} from '../src/ultimates.mjs';
 import {tryDash} from './combat.mjs';
 export const VALKYRIE_RUN=Object.freeze({drainPerSec:42,speed:18,turnRate:.85,
-  acceleration:3.2,pitch:.34,chargeGraceSec:.14,chivalryDashImpulse:8});
+  acceleration:3.2,pitch:.34,chargeGraceSec:.30,chivalryDashImpulse:8});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function requestFlightDash(room,m,p,held,now){
  if(!m||m.mode==='DESTROYED'||m.terminalDive||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
