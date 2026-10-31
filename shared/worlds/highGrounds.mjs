@@ -106,9 +106,31 @@ const spawnPoints = [
   spawn(-5, 0, 69, TEAMS.DEFENDERS, true),
   spawn(5, 0, 69, TEAMS.DEFENDERS, true),
 ];
+// Navigation is authoritative world metadata shared by bot brains. Connected
+// road, canopy, root and ramp samples prevent AI from sprinting over the
+// apparently shortest (but actually bottomless) straight line to a capture.
+const nodes = [];
+const nav = (id,x,y,z) => nodes.push({id,x,y,z});
+for(let z=-108;z<=108;z+=12)nav('road-'+z,0,0,z);
+for(const side of [-1,1]){
+  for(let z=-69;z<=69;z+=12)nav('canopy-'+side+'-'+z,side*38,12,z);
+  for(let z=-24;z<=24;z+=12)nav('root-'+side+'-'+z,side*16,-9,z);
+}
+for(const z of [-57,0,57])for(let x=-36;x<=36;x+=12)nav('sky-'+z+'-'+x,x,12,z);
+for(const z of [-28,0,28])for(let x=-15;x<=15;x+=10)nav('root-bridge-'+z+'-'+x,x,-9,z);
+for(const r of ramps) {
+  for(let t=0;t<=1.001;t+=.25) {
+    nav('ramp-'+r.id+'-'+Math.round(t*4),
+      r.axis==='x'?r.minX+(r.maxX-r.minX)*t:(r.minX+r.maxX)/2,
+      r.startY+(r.endY-r.startY)*t,
+      r.axis==='z'?r.minZ+(r.maxZ-r.minZ)*t:(r.minZ+r.maxZ)/2);
+  }
+}
+
 export const HIGH_GROUNDS = Object.freeze({
   id: 'high-grounds', name: 'The High Grounds',
   floors: grounds, ramps, solids, trees, objectives, spawnPoints,
+  navigation: Object.freeze({nodes}),
   bounds: Object.freeze({ minX: -78, maxX: 78, minZ: -117, maxZ: 117 }),
   abyssY: -52,
   // Production pads are separate from the home spawn; the operator's station
