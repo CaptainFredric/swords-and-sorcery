@@ -207,6 +207,14 @@ export class RenownController {
       this.doc.querySelector(`#armory-${id}`)?.classList.toggle('hidden', id !== section);
       this.doc.querySelector(`#armory-${id}-tab`)?.setAttribute('aria-pressed', String(id === section));
     }
+    const hints={
+      kit:'SCROLL FOR SPELLS AND ULTIMATES ↓',
+      siege:'SCROLL FOR ALL THREE SIEGE MACHINES ↓',
+      heraldry:'SCROLL FOR STANDARDS AND HERALDRY ↓',
+      challenges:'SCROLL FOR CHALLENGES ↓',
+    };
+    const hint=this.doc.querySelector('#armory-menu .armory-scroll-hint');
+    if(hint)hint.textContent=hints[section];
     if (changed) {
       const scroll = this.doc.querySelector('#armory-menu .armory-scroll');
       if (scroll) scroll.scrollTop = 0;
