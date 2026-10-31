@@ -160,7 +160,9 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   }
   if(b.heavySkill){
     const pending=b.heavySkill;
-    if(!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){b.heavySkill=null;endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}
+    if(!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){
+      b.heavySkill=null;endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled');
+    }
     else{
       const target=biByeConstrainAim(b,pending.aim);
       b.mainYaw=approach(b.mainYaw,target.yaw,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(target.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
