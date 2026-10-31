@@ -2155,7 +2155,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId),
+      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId) || Boolean(player.operatingFightFlightId),
       crouched: Boolean(player.crouched),
     });
     // (torn ground breaks a sprint outright: the speed it had built goes with it)
@@ -2180,11 +2180,13 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.whirl = whirl;
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
-    if (player.operatingFightFlightId && room.fightFlight?.operatorId === player.id) {
-      // Flight uses Jump for powered ascent, not accidental ejection.
+    const aboardFlight=Boolean(player.operatingFightFlightId && room.fightFlight?.operatorId === player.id);
+    if (aboardFlight) {
+      // Flight uses Jump for ascent, not accidental ejection. Keep the existing
+      // sword chain/swept contact logic below, *only* skip ordinary foot locomotion.
       player.position={x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z};
       player.velocity={...room.fightFlight.velocity};player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;
-      player.sprinting=false;player.sprintBlend=0;continue;
+      player.sprinting=false;player.sprintBlend=0;
     }
     if (player.operatingRamId && room.soFistication?.operatorId === player.id) {
       if(input.jump)dismountSoFistication(room,room.soFistication,player);
@@ -2224,7 +2226,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         player.yaw = bl.yaw;
         player.pitch = bl.pitch;
       }
-    } else {
+    } else if (!aboardFlight) {
       const moved = movePlayer(player, input, dt, nowSec, effectiveWorld);
       player.position = moved.position;
       player.velocity = moved.velocity;
