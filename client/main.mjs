@@ -1471,13 +1471,18 @@ $('#leave').addEventListener('click', () => returnToMenu());
 let preparingSiege=false;
 function updateInspectionControls() {
   const machineChoice=$('#practice-hostile-machine')?.value;
-  const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
+  // Ownership comes from the authoritative machine instance. Retain the
+  // server actor's stable hostile identity even if a legacy snapshot omits
+  // the optional Practice-only metadata (including when the wreck is gone).
+  const hostileId='hostile-'+machineChoice+'-'+(latestSnapshot?.roomCode??'');
+  const hostile=latestSnapshot?.players?.find(p=>
+    p.practiceSiegeOperator?.machine===machineChoice||p.id===hostileId);
   const hostileStatus=$('#practice-hostile-status');
   if(hostileStatus){
     const role=hostile?.name??'No hostile operator';
     const alive=hostile?.health>0;
     hostileStatus.textContent=hostile
-      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'}`
+      ? `${role} · ${hostile.practiceSiegeOperator?.difficulty?.toUpperCase()??'HOSTILE'} · ${alive?'ACTIVE':'DEFEATED'}`
       : 'No hostile operator summoned.';
   }
   const ram=$('#practice-siege-type').value==='so-fist-ication';
