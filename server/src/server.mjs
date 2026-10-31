@@ -15,13 +15,13 @@ import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../share
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
-import { GAME_MODES, BREAKTHROUGH_ARENAS, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { GAME_MODES, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, arenaOrDefault } from '../../shared/src/modes.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS]);
 const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
@@ -371,7 +371,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
         return;
       }
-      const resolvedWorld = BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach';
+      const resolvedWorld = HIGH_GROUNDS_ARENAS.includes(message.worldId) ? message.worldId : BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach';
       const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true), resolvedWorld, { teamSize });
       room.setBotSkill(message.botSkill);
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
@@ -390,14 +390,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         return;
       }
       let teamSize = null;
-      if (message.mode === GAME_MODES.BREAKTHROUGH && message.teamSize !== undefined) {
+      if ((message.mode === GAME_MODES.BREAKTHROUGH || message.mode === GAME_MODES.HIGH_GROUNDS) && message.teamSize !== undefined) {
         teamSize = Number(message.teamSize);
         if (teamSize !== 2 && teamSize !== 3) {
           send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
           return;
         }
       }
-      const resolvedWorld = message.mode === GAME_MODES.BREAKTHROUGH
+      const resolvedWorld = message.mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds' : message.mode === GAME_MODES.BREAKTHROUGH
         ? (BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach')
         : arenaOrDefault(message.worldId);
       const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });
@@ -413,7 +413,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (message.type === 'joinRoom' && !session.roomCode) {
       const room = roomManager.findByCode(message.code);
       if (!room) { send(session, { type: 'error', message: 'Room not found' }); return; }
-      if(room.mode!==GAME_MODES.FFA&&room.mode!==GAME_MODES.BREAKTHROUGH&&!(room.mode===GAME_MODES.PRACTICE&&room.sharedPractice)){
+      if(room.mode!==GAME_MODES.FFA&&room.mode!==GAME_MODES.BREAKTHROUGH&&room.mode!==GAME_MODES.HIGH_GROUNDS&&!(room.mode===GAME_MODES.PRACTICE&&room.sharedPractice)){
         send(session,{type:'error',message:'Room is not joinable'});return;
       }
       try { joinNew(session, room, message.name); } catch (error) { send(session, { type: 'error', message: error.message }); }
