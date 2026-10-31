@@ -39,7 +39,7 @@ async function key(letter,type){
  windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
 }
 async function tap(letter){await key(letter,'rawKeyDown');await sleep(90);await key(letter,'keyUp');}
-const state="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return {room:s?.roomCode,mode:s?.mode,ballista:s?.bibyeBallista?{id:s.bibyeBallista.id,operatorId:s.bibyeBallista.operatorId,skill:s.bibyeBallista.skill,smallBoltReadyAt:s.bibyeBallista.smallBoltReadyAt,mainBoltLoaded:s.bibyeBallista.mainBoltLoaded,position:{x:s.bibyeBallista.x,y:s.bibyeBallista.y,z:s.bibyeBallista.z}}:null,projectiles:s?.bibyeProjectiles?.map(p=>({id:p.id,subKind:p.subKind})),me:r?.localAuth?{id:r.localAuth.id,operating:r.localAuth.operatingBallistaId,position:r.localAuth.position}:null};})()";
+const state="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return {room:s?.roomCode,mode:s?.mode,ballista:s?.bibyeBallista?{id:s.bibyeBallista.id,operatorId:s.bibyeBallista.operatorId,skill:s.bibyeBallista.skill,smallBoltReadyAt:s.bibyeBallista.smallBoltReadyAt,mainBoltLoaded:s.bibyeBallista.mainBoltLoaded,interactRadius:s.bibyeBallista.interactRadius,position:{x:s.bibyeBallista.x,y:s.bibyeBallista.y,z:s.bibyeBallista.z}}:null,projectiles:s?.bibyeProjectiles?.map(p=>({id:p.id,subKind:p.subKind})),me:r?.localAuth?{id:r.localAuth.id,operating:r.localAuth.operatingBallistaId,position:r.localAuth.position}:null};})()";
 try{
  const target=await until(async()=>{const res=await fetch('http://127.0.0.1:'+port+'/json/list');return (await res.json()).find(x=>x.type==='page');},'Chrome debugger',170);
  ws=new WebSocket(target.webSocketDebuggerUrl);
@@ -91,7 +91,15 @@ try{
   controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,forward:window.__ssRuntime?.input?.movement?.().forward})")}));
  if(Math.hypot(start.me.position.x-moved.me.position.x,start.me.position.z-moved.me.position.z)<.08)
   throw Error('Real keyboard movement did not change player position; input focus or collision blocked');
- await until(async()=>{const s=await evaluate(state);return Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z)<2.6?s:false;},'walk to actual operator station',160);
+ let samples=0;
+ await until(async()=>{
+  const s=await evaluate(state);if(!s?.me?.position||!s?.ballista)return false;
+  const distance=Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z);
+  // The physical chassis may prevent approaching as close as 2.6m; the
+  // machine's *authoritative* mount radius is the real interaction rule.
+  if(++samples%12===0)console.log('[COLD WALK]',JSON.stringify({at:s.me.position,distance,interactRadius:s.ballista.interactRadius,forward:await evaluate('window.__ssRuntime.input.movement().forward')}));
+  return distance<Math.max(1,s.ballista.interactRadius-.05)?s:false;
+ },'walk to actual operator station',120);
  await key('W','keyUp');await sleep(120);await tap('T');
  const mounted=await until(async()=>{const s=await evaluate(state);return s?.me?.operating===s?.ballista?.id?s:false;},'physical T mount',70);
  assert.equal(mounted.ballista.skill.id,'coldHowTouching');
