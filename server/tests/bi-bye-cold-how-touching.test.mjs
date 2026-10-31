@@ -111,3 +111,20 @@ test('The actual coupled Bolt II release ends Cold and starts its 24-second chas
  assert.ok(s.room.events.some(e=>e.type==='siegeSkill'&&e.action==='ended'&&e.reason==='boltII'));
  assert.ok(s.room.events.some(e=>e.type==='bibyeFired'&&e.shot==='II'));
 });
+
+test('Moving airborne Fight-and-Flight is an actual proximity target, not a grounded proxy',()=>{
+ const s=setup();const m=s.room.fightFlight=createFightFlight({id:'airborne',
+  x:2,y:5,z:-8,heading:0});m.grounded=false;m.mode='FLYING';
+ // Bolt I remains an ordinary non-homing horizontal flight at an aimed
+ // altitude. Crossing the machine's component volume creates proximity.
+ const bolt=projectile(s.room);bolt.position.y=6.4;
+ const before={...bolt.position},after={x:0,y:6.4,z:-12};
+ const near=earliestFrostProximity(s.room,bolt,before,after,s.room.world,.25,.25);
+ assert.equal(near?.targetKind,'flight');
+ assert.ok(near.t>0&&near.t<1);
+ stepBiByeProjectiles(s.room,.25,.25);
+ assert.ok(s.room.events.some(e=>e.type==='bibyeFrostProximity'&&e.targetKind==='flight'));
+ const hits=s.room.events.filter(e=>e.type==='fightFlightComponentHit');
+ assert.ok(hits.length>0);
+ assert.ok(hits.reduce((sum,e)=>sum+e.damage,0)<=18+1e-6);
+});
