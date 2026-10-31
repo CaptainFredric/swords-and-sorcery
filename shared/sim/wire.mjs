@@ -2,6 +2,7 @@ import { GALE_MODES } from '../src/galeModes.mjs';
 import {mountFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
+import {requestFlightDash} from './fightFlightRun.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
@@ -391,7 +392,13 @@ export function applyRoomCommand(room, player, message, time) {
     }
     // the gauntlet on its own key: the fist, whether or not the spell is ready
     case 'gauntlet': tryGauntletStrike(room, player.id, time, compensatedInputTime(message.clientTime, time)); return {};
-    case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    case 'dash':
+      if(player.operatingFightFlightId)return {rejected:'Hold Dash to initiate Flight to the Valkyrie.'};
+      tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    case 'flightDash': {
+      const ok=requestFlightDash(room,room.fightFlight,player,Boolean(message.down),time);
+      return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
+    }
     // the ultimate's key (a full prowess meter): the brace begins
     case 'ultimate': tryUltimate(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};
