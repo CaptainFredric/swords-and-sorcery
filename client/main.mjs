@@ -1471,14 +1471,15 @@ $('#leave').addEventListener('click', () => returnToMenu());
 let preparingSiege=false;
 function updateInspectionControls() {
   const ram=$('#practice-siege-type').value==='so-fist-ication';
-  const machine=Boolean(ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
-  const name=ram?'SO-FIST-ICATION':'BI-BYE-LLISTA';
+  const flight=$('#practice-siege-type').value==='fight-and-flight';
+  const machine=Boolean(flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
+  const name=flight?'FIGHT-AND-FLIGHT':ram?'SO-FIST-ICATION':'BI-BYE-LLISTA';
   $('[data-siege-title]').textContent=name;
-  $('[data-siege-classification]').hidden=!ram;
-  $('[data-siege-classification]').textContent=ram?'Mechanical Battering Ram':'';
+  $('[data-siege-classification]').hidden=!(ram||flight);
+  $('[data-siege-classification]').textContent=flight?'Wearable Flying Siege Apparatus':ram?'Mechanical Battering Ram':'';
   $('[data-siege-description]').hidden=false;
-  $('[data-siege-description]').textContent=ram?'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.':'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.';
-  $('[data-siege-final]').textContent=ram?'Will not leave a scratch.':"The first shot lowers the target's defense.";
+  $('[data-siege-description]').textContent=flight?'A sword-bladed rotor above you, a repeating crossbow beside you, and an excellent opportunity to reconsider the laws of gravity. Mount nearby; hold JUMP to climb, CROUCH to descend, and use VIEW to change cameras. Land before dismounting.':ram?'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.':'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.';
+  $('[data-siege-final]').textContent=flight?'Your sword has taken to the skies.':ram?'Will not leave a scratch.':"The first shot lowers the target's defense.";
   for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').textContent=preparingSiege&&action!=='dismantle'?'PREPARING CARRIAGE…':action.toUpperCase()+(action==='build'?' A ':' ')+name;
   $('#practice-build-bibye').hidden=machine;
   $('#practice-rebuild-bibye').hidden=!machine;
@@ -1552,9 +1553,9 @@ socket.on('inspectionState', updateInspectionControls);
 $('#practice-siege-type').addEventListener('change',updateInspectionControls);
 for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',async()=>{
   if(preparingSiege)return;const machine=$('#practice-siege-type').value,room=latestSnapshot?.roomCode;
-  if(machine==='so-fist-ication'&&action!=='dismantle'){
+  if((machine==='so-fist-ication'||machine==='fight-and-flight')&&action!=='dismantle'){
     preparingSiege=true;updateInspectionControls();$('#practice-siege-type').disabled=true;$('#practice-siege-status').hidden=false;$('#practice-siege-status').textContent='Preparing carriage…';
-    const loaded=await runtime.world?.soFistication?.load(true);
+    const loaded=machine==='fight-and-flight'?await runtime.flightRenderer?.load():await runtime.world?.soFistication?.load(true);
     preparingSiege=false;$('#practice-siege-type').disabled=false;updateInspectionControls();
     if(latestSnapshot?.roomCode!==room||latestSnapshot?.mode!=='PRACTICE')return;
     $('#practice-siege-status').hidden=Boolean(loaded);
@@ -1636,7 +1637,7 @@ function updateStPerryUI(snapshot) {
   const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
 
   const localPlayer = snapshot.players?.find((p) => p.id === myId) || window.__ssRuntime?.localAuth;
-  const isOperatingSiege = Boolean(localPlayer?.operatingRamId || localPlayer?.operatingBallistaId);
+  const isOperatingSiege = Boolean(localPlayer?.operatingRamId || localPlayer?.operatingBallistaId || localPlayer?.operatingFightFlightId);
   const isInCombat = Boolean(
     localPlayer?.attackActive ||
     dummy?.attackActive ||

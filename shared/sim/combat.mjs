@@ -1,4 +1,5 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
+import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -1169,6 +1170,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   if (victim.operatingBallistaId && room.biByeLlista) {
     dismountBiByeLlista(room.biByeLlista, victim);
   }
+  if (victim.operatingFightFlightId && room.fightFlight) dismountFightFlight(room,room.fightFlight,victim,{force:true,at:nowSec});
   if (victim.operatingRamId && room.soFistication) {
     dismountSoFistication(room, room.soFistication, victim, { administrative: false, force: true });
   }
@@ -2045,7 +2047,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   world = structureWorld(world, room.structures);
   room.world = world;
   markTornGround(room);
-  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
+  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),...fightFlightSolids(room.fightFlight)];
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
 
   for (const player of room.players.values()) {
@@ -2176,6 +2178,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.whirl = whirl;
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
+    if (player.operatingFightFlightId && room.fightFlight?.operatorId === player.id) {
+      // Flight uses Jump for powered ascent, not accidental ejection.
+      player.position={x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z};
+      player.velocity={...room.fightFlight.velocity};player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;
+      player.sprinting=false;player.sprintBlend=0;continue;
+    }
     if (player.operatingRamId && room.soFistication?.operatorId === player.id) {
       if(input.jump)dismountSoFistication(room,room.soFistication,player);
       if(player.operatingRamId){player.position=soFistOperator(room.soFistication);player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;player.sprinting=false;player.sprintBlend=0;continue;}
@@ -2301,9 +2309,13 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
-  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId), effectiveWorld);
+  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId), effectiveWorld);
   const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
+  if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
+    stepFightFlight(room,room.fightFlight,dt,nowSec,world);
+    const op=room.players.get(room.fightFlight.operatorId);if(op)recordTransform(op,nowSec);
+  }
   if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
   if (room.biByeLlista && (!isOthersFreeze || room.biByeLlista.operatorId === activeActorId)) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);

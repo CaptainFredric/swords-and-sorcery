@@ -1,3 +1,4 @@
+import {practiceFightFlight} from './practiceFightFlight.mjs';
 import {createSoFistication,soFistTerrainPose,soFistClear,soFistExit,dismountSoFistication} from './soFistication.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {createBiByeLlista,dismountBiByeLlista,getBiByeSolids} from './biByeLlista.mjs';
@@ -56,6 +57,7 @@ function retire(room,b,player,exit,ram=false){
 }
 export const practiceBiByeCommand=(room,player,action,now)=>practiceSiegeCommand(room,player,action,'bi-bye-llista',now);
 export function practiceSiegeCommand(room,player,action,machine,now){
+ if(machine==='fight-and-flight')return practiceFightFlight(room,player,action,now);
  if(!['build','rebuild','dismantle'].includes(action)||!['bi-bye-llista','so-fist-ication'].includes(machine))return {rejected:'Unknown siege action or machine.'};
  const ram=machine==='so-fist-ication',field=ram?'soFistication':'biByeLlista',revision=ram?'soFistRevision':'biByeRevision';
  if(room?.mode!=='PRACTICE'||room.state!=='PLAYING'||!player?.alive||player.actorKind!=='human'||room.players.get(player.id)!==player)return {rejected:'Siege tools are available to living players in Practice.'};

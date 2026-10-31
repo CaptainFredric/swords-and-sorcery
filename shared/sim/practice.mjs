@@ -1,3 +1,4 @@
+import { dismountFightFlight } from './fightFlight.mjs';
 import {dismountSoFistication} from './soFistication.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { guardProfile } from '../src/combat.mjs';
@@ -136,6 +137,7 @@ export function resetPracticePlayer(room, playerId, nowSec) {
 
   }
   if(player.operatingRamId&&room.soFistication)dismountSoFistication(room,room.soFistication,player,{force:true});
+  if(player.operatingFightFlightId&&room.fightFlight)dismountFightFlight(room,room.fightFlight,player,{force:true,at:nowSec});
   if (room.stPerryState?.byPlayer && !room.stPerryState.unlocked) {
     const prog = room.stPerryState.byPlayer.get(playerId);
     if (prog && !prog.unlocked) {
@@ -194,6 +196,7 @@ export function removePracticeDummy(room) {
   if (dummy.operatingRamId && room.soFistication) {
     dismountSoFistication(room, room.soFistication, dummy, { administrative: false, force: true });
   }
+  if (dummy.operatingFightFlightId && room.fightFlight) dismountFightFlight(room,room.fightFlight,dummy,{force:true});
   room.players.delete(dummy.id);
   room.events.push({ type: 'practiceDummyRemoved', playerId: dummy.id });
   return true;

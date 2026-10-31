@@ -1,5 +1,6 @@
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import { createStructureState } from './structures.mjs';
+import { dismountFightFlight } from './fightFlight.mjs';
 import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
@@ -30,6 +31,7 @@ function freshCombatState(spawn, nowSec = 0) {
   const movement = createMovementState({ x: spawn.x, y: spawn.y, z: spawn.z });
   return {
     ...movement,
+    operatingFightFlightId: null,
     dashStartedAt: -Infinity,
     yaw: spawn.yaw ?? 0,
     pitch: 0,
@@ -111,6 +113,8 @@ export class Room {
     this.structures = createStructureState(this.world);
     this.soFistication = null;
     this.soFistRevision = 0;
+    this.fightFlight = null;
+    this.fightFlightRevision = 0;
     if (this.world.ballistaEmplacement) {
       this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
       this.biByeRevision = 0;
@@ -445,6 +449,7 @@ export class Room {
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
     this.soFistication=null;this.soFistRevision++;
+    this.fightFlight=null;this.fightFlightRevision++;
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
     this.botsProvisioned=false;this.autoStartAt=null;
@@ -642,6 +647,7 @@ export class Room {
         else if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState)
           this.world = bastionBreachForObjective(this.objectiveState);
         this.biByeLlista = this.world.ballistaEmplacement ? createBiByeLlista(this.world.ballistaEmplacement) : null;
+        this.fightFlight=null;this.fightFlightRevision++;
         this.biByeRevision = (this.biByeRevision ?? 0) + 1;
         this.bibyeProjectiles = new Map();
       } catch { /* unknown world: keep the current one */ }
@@ -658,6 +664,7 @@ export class Room {
       dismountBiByeLlista(this.biByeLlista, player, false, this.world);
     }
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
+    if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
     this.rematchVotes.delete(id);
     if (this.humanActorCount() === 0) {
@@ -675,6 +682,7 @@ export class Room {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
+    if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     player.connected = false;
     player.arenaReady = false;
     player.disconnectedAt = nowSec;
@@ -732,6 +740,7 @@ export class Room {
         if (this.biByeLlista && this.biByeLlista.operatorId === id) {
           dismountBiByeLlista(this.biByeLlista, player, false, this.world);
         }
+        if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
         this.players.delete(id);
         this.rematchVotes.delete(id);
         expiredHuman = true;
@@ -894,6 +903,7 @@ export class Room {
     this.structures = createStructureState(baseWorld, (this.structures?.revision ?? 0) + 1);
     this.soFistication = null;
     this.soFistRevision++;
+    this.fightFlight=null;this.fightFlightRevision++;
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
         if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
@@ -912,6 +922,7 @@ export class Room {
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
+      player.operatingFightFlightId = null;
       const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
