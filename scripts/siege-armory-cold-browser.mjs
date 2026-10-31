@@ -1,6 +1,7 @@
 // Chrome/CDP acceptance on a real locally hosted HTML5 Castleward build.
 // Uses visible Armory clicks and real keyboard/mouse gameplay, not fake damage.
 import assert from 'node:assert/strict';
+import {BI_BYE_LLISTA_CONFIG} from '../shared/sim/biByeLlista.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
@@ -97,8 +98,8 @@ try{
   const distance=Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z);
   // The physical chassis may prevent approaching as close as 2.6m; the
   // machine's *authoritative* mount radius is the real interaction rule.
-  if(++samples%12===0)console.log('[COLD WALK]',JSON.stringify({at:s.me.position,distance,interactRadius:s.ballista.interactRadius,forward:await evaluate('window.__ssRuntime.input.movement().forward')}));
-  return distance<Math.max(1,s.ballista.interactRadius-.05)?s:false;
+  if(++samples%12===0)console.log('[COLD WALK]',JSON.stringify({at:s.me.position,distance,interactRadius:BI_BYE_LLISTA_CONFIG.interactRadius,forward:await evaluate('window.__ssRuntime.input.movement().forward')}));
+  return distance<Math.max(1,BI_BYE_LLISTA_CONFIG.interactRadius-.05)?s:false;
  },'walk to actual operator station',120);
  await key('W','keyUp');await sleep(120);await tap('T');
  const mounted=await until(async()=>{const s=await evaluate(state);return s?.me?.operating===s?.ballista?.id?s:false;},'physical T mount',70);
