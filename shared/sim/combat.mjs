@@ -2,6 +2,7 @@ import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
+import {stepFlightRun} from './fightFlightRun.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
@@ -2318,6 +2319,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
   if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
+    stepFlightRun(room,room.fightFlight,dt,nowSec);
     stepFightFlight(room,room.fightFlight,dt,nowSec,world);
     stepFightFlightSkill(room,room.fightFlight,nowSec);
     stepFightFlightWeapons(room,room.fightFlight,dt,nowSec);
