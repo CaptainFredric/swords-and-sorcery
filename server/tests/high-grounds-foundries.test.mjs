@@ -6,6 +6,7 @@ import { WORLD_IDS } from '../../shared/worlds/registry.mjs';
 import { TEAMS } from '../../shared/src/teams.mjs';
 import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { HIGH_GROUNDS_MACHINES } from '../../shared/sim/highGroundsFoundry.mjs';
+import { soFistEntry } from '../../shared/sim/soFistication.mjs';
 
 // Regression: GameSocket and LocalHost supported this command while GameLink
 // omitted its forwarder, so every visible foundry button threw a TypeError.
@@ -57,6 +58,19 @@ for(const type of HIGH_GROUNDS_MACHINES) {
     assert.equal(snap.highGrounds.foundries.find(f=>f.id===foundry.id).machineId,machine.id);
     assert.ok(room.events.some(e=>e.type==='highGroundsProduced'&&e.machineId===machine.id));
     assert.ok(applyRoomCommand(room,azure,cmd,at+1).rejected,'duplicate machine cannot be built at no cost');
+    // A machine that merely exists in a snapshot but cannot be mounted is not
+    // useful. Test the real input/mount contract at its reachable station.
+    azure.position = type === 'so-fist-ication' ? soFistEntry(machine, room.world)
+      : type === 'fight-and-flight' ? {x:machine.x+1.8,y:machine.y,z:machine.z}
+      : {x:machine.x,y:machine.y,z:machine.z+1.8};
+    azure.velocity={x:0,y:0,z:0};
+    const operate=applyRoomCommand(room,azure,{type:'siegeOperate'},at+2);
+    assert.equal(operate.rejected,undefined,operate.rejected??'');
+    const mountedField=type==='bi-bye-llista'?'operatingBallistaId'
+      :type==='so-fist-ication'?'operatingRamId':'operatingFightFlightId';
+    assert.equal(azure[mountedField],machine.id,`${type} must be mountable at deployment`);
+    assert.equal(machine.operatorId,azure.id);
+
   });
 }
 test('foundry rejects unauthorized, unreachable and invalid selections without spending production',()=>{
