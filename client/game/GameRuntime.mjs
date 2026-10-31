@@ -1373,6 +1373,20 @@ export class GameRuntime {
         if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
       }
       if(event.type==='fightFlightRotorDestroyed'&&this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
+      if(event.type==='fightFlightTerminalPrep'&&event.operatorId===this.playerId){
+        if(event.action==='started')this.hud.flashText('HOLD DASH + ULTIMATE · VALKYRIE','',1100);
+        else if(event.action==='cancelled')this.hud.flashText('VALKYRIE DIVE CANCELLED','',700);
+      }
+      if(event.type==='fightFlightTerminalCommitted'){
+        if(event.operatorId===this.playerId)this.hud.flashText('VALKYRIE DIVE · NO TURNING BACK','',1800);
+        if(event.trajectory){const at=event.trajectory;this.effects.sparks(at,0xe4a44c,9);}
+      }
+      if(event.type==='fightFlightTerminalExplosion'&&event.point){
+        this.effects.impact(event.point,{spell:'fireball',radius:Math.min(event.radius??8,8),ground:event.point.y});
+        this.effects.groundShock(event.point,{radius:Math.min(event.radius??8,8)});
+        this.effects.splinters(event.point,16);
+        this.#play(fireballImpactRecipe(),event.point,1);
+      }
       this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
@@ -3151,7 +3165,7 @@ export class GameRuntime {
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
-    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow());
+    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[]);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;
