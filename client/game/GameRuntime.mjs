@@ -656,10 +656,9 @@ export class GameRuntime {
           : nextWorld;
       this.activeWorld = structureWorld(phasedWorld, this.latestSnapshot?.structures);
       this.worldId = worldId;
-      // Avoid near-clip scenery on an actual 234 m battlefield, without
-      // spending the extra depth range in smaller arenas.
-      this.camera.far = worldId === 'high-grounds' ? 340 : 180;
-      this.camera.updateProjectionMatrix();
+      // #applyLighting already applied the world's actual far plane.
+      // Replacing it with a legacy 340 m limit clipped distant mountains
+      // from The High Grounds despite the map's 610 m landscape contract.
       this.worldError = null;
       this.localState = null;
       // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
