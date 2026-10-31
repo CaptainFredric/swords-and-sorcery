@@ -1,7 +1,7 @@
 // Shared, authoritative fit of the v2.6 crossbow pivot and named muzzle.
 // All positions are in metres. Crossbow local +Z fires forward; the authored
 // model first pitches with the flight run, then rotates with the machine heading.
-export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
+export const FLIGHT_REPEATER=Object.freeze({capacity:18,production:2,fireRate:7,speed:64,
   lifespan:2.4,falloff:22,closeDamage:4,farDamage:2,guardStamina:8,guardArc:100,
   maxTraverse:Math.PI*50/180,maxPitch:Math.PI*65/180,minPitch:-Math.PI*65/180,radius:.065});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -43,7 +43,15 @@ export function flightRepeaterAim(m,input={}){
   if(input?.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(input.siegeTarget[k]))){
     const aim=solveConvergence(m,input.siegeTarget);
     const pitch=m?.terminalDive?Math.min(aim.pitch,-Math.min(.34,Math.max(.18,rootPitch(m)*.55))):aim.pitch;
-    return {yaw:aim.yaw,pitch};
+    const firing={yaw:aim.yaw,pitch};
+    // Report the physical path from the authoritative v2.6 muzzle, including
+    // when the real joints cannot converge on an out-of-arc camera target.
+    const muzzle=flightMuzzle(m,firing),direction=flightDirection(m,firing);
+    const towards={x:input.siegeTarget.x-muzzle.x,y:input.siegeTarget.y-muzzle.y,z:input.siegeTarget.z-muzzle.z};
+    const projection=Math.max(0,towards.x*direction.x+towards.y*direction.y+towards.z*direction.z);
+    const reachableAimPoint={x:muzzle.x+projection*direction.x,y:muzzle.y+projection*direction.y,z:muzzle.z+projection*direction.z};
+    const missDistance=Math.hypot(input.siegeTarget.x-reachableAimPoint.x,input.siegeTarget.y-reachableAimPoint.y,input.siegeTarget.z-reachableAimPoint.z);
+    return {...firing,limited:missDistance>.08,missDistance,reachableAimPoint};
   }
   const facing=m?.heading??0,requestedYaw=Number.isFinite(input.yaw)?input.yaw:facing;
   const yaw=facing+localYaw(m,requestedYaw);
