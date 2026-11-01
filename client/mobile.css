@@ -151,8 +151,8 @@ button, input { touch-action: manipulation; }
 .touch-motion-guide.active .touch-motion-well svg:nth-child(3) { animation-delay: -.7s; }
 .touch-motion-guide[data-motion="charging"] { --motion-tint: #f0ae76; }
 .touch-motion-guide[data-motion="charging"] svg { animation-duration: .8s; }
-.touch-motion-guide[data-motion="charging"] svg:nth-child(2) { animation-delay: -.267s; }
-.touch-motion-guide[data-motion="charging"] svg:nth-child(3) { animation-delay: -.533s; }
+.touch-motion-guide.active[data-motion="charging"] .touch-motion-well svg:nth-child(2) { animation-delay: -.267s; }
+.touch-motion-guide.active[data-motion="charging"] .touch-motion-well svg:nth-child(3) { animation-delay: -.533s; }
 .touch-stick.motion-active { opacity: 1; }
 @keyframes touch-motion-rise {
   0% { transform: translateY(11px); opacity: 0; }
