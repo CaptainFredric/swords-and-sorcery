@@ -14,7 +14,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   spell: { right: 88, bottom: 147, size: 54 },
   jump: { right: 21, bottom: 154, size: 58 },
   sprint: { left: 26, bottom: 190, size: 50 },
-  crouch: { left: 90, bottom: 196, size: 50 },
+  crouch: { left: 190, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
   ultimate: { right: 24, bottom: 222, size: 50 },
   interact: { right: 204, bottom: 96, size: 58 },
@@ -92,13 +92,21 @@ export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   return clamped;
 }
 
+// Old saved default layouts used the centerline above the joystick for Crouch.
+// Migrate only that exact unmodified location; preserve deliberate custom layouts.
+function migrateCrouchPosition(onFoot) {
+  const crouch = onFoot?.crouch;
+  if (!crouch || crouch.custom || crouch.left !== 90 || crouch.bottom !== 196) return onFoot;
+  return { ...onFoot, crouch: { ...crouch, left: 190, bottom: 187 } };
+}
+
 export function loadTouchLayout(storage = globalThis.localStorage) {
   try {
     const raw = storage?.getItem?.('ss-touch-layout');
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        onFoot: parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT },
+        onFoot: migrateCrouchPosition(parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT }),
         flight: parsed.flight ?? { ...DEFAULT_FLIGHT_LAYOUT },
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
         handedness: parsed.handedness === 'left' ? 'left' : 'right',
