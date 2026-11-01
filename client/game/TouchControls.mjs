@@ -79,6 +79,7 @@ export class TouchControls {
     this.flightLowerHeld = false;
     this.flightRiseSources = new Set();
     this.flightLowerSources = new Set();
+    this.flightRailPointer = null;
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.layouts = loadTouchLayout();
@@ -96,6 +97,11 @@ export class TouchControls {
             <svg viewBox="0 0 20 13" aria-hidden="true"><path d="M3 10L10 3l7 7"/></svg>
             <svg viewBox="0 0 20 13" aria-hidden="true"><path d="M3 10L10 3l7 7"/></svg>
           </div>
+        </div>
+        <div class="touch-flight-rail" role="slider" aria-label="Flight ascent and descent" aria-orientation="vertical" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="-1">
+          <span class="touch-flight-rail-arrow" aria-hidden="true">↑</span>
+          <span class="touch-flight-rail-thumb" aria-hidden="true"></span>
+          <span class="touch-flight-rail-arrow" aria-hidden="true">↓</span>
         </div>
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
@@ -141,6 +147,8 @@ export class TouchControls {
     }
     this.stickBase = this.layer.querySelector('.touch-stick');
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
+    this.flightRail = this.layer.querySelector('.touch-flight-rail');
+    this.flightRailThumb = this.layer.querySelector('.touch-flight-rail-thumb');
     this.motionGuide = this.layer.querySelector('.touch-motion-guide');
     this.motionLabel = this.layer.querySelector('.touch-motion-label');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
@@ -169,9 +177,10 @@ export class TouchControls {
     // or browser chrome. Recover movement/end events delivered outside the touch layer.
     this.onWindowStickMove = (event) => {
       if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
+      if (this.flightRailPointer === event.pointerId && !this.layer.contains?.(event.target)) this.#moveFlightRail(event);
     };
     this.onWindowStickEnd = (event) => {
-      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#up(event);
+      if ((this.stick?.id === event.pointerId || this.flightRailPointer === event.pointerId) && !this.layer.contains?.(event.target)) this.#up(event);
     };
     window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
     window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
@@ -185,6 +194,7 @@ export class TouchControls {
     this.onBlur = () => {
       this.touchDebugEvent = document.hidden ? 'blur-hidden' : 'blur-visible';
       if (document.hidden) this.reset();
+      else this.#resetFlightRail();
     };
     this.onVisibilityChange = () => {
       this.touchDebugEvent = document.hidden ? 'visibility-hidden' : 'visibility-visible';
@@ -242,8 +252,8 @@ export class TouchControls {
     this.previewMode = mode;
     this.layer.classList.toggle('touch-flight', mode === 'flight');
     this.layer.classList.toggle('touch-mounted', mode === 'flight');
-    if (this.buttons.flightRise) this.buttons.flightRise.hidden = mode !== 'flight';
-    if (this.buttons.flightLower) this.buttons.flightLower.hidden = mode !== 'flight';
+    if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
+    if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
     if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = mode !== 'flight';
     if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = mode !== 'flight';
     this.applyLayout(this.layouts);
@@ -280,6 +290,7 @@ export class TouchControls {
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId, true);
     this.held.clear();
+    this.#resetFlightRail();
     this.flightRiseSources.clear();
     this.flightRiseHeld = false;
     this.flightLowerSources.clear();
@@ -319,10 +330,12 @@ export class TouchControls {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
-      flightRise: Boolean(this.flightRiseHeld),
-      flightLower: Boolean(this.flightLowerHeld),
-      sprint: this.ramMounted?(this.chargeHeld || moveAllowed && this.stickState.sprint):moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
-      crouch: (this.inspectionFlight || this.flightMounted) ? Boolean(this.flightCrouchHeld || this.flightLowerHeld) : Boolean(this.crouchLatched),
+      flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
+      flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
+      sprint: this.flightMounted ? false : this.ramMounted
+        ? Boolean(this.chargeHeld || (moveAllowed && this.stickState.sprint))
+        : Boolean(moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false))),
+      crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) : this.flightMounted ? false : Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
     return result;
@@ -403,8 +416,8 @@ export class TouchControls {
       this.layer.classList.toggle('touch-flight',flight);
       const airborne = Boolean(flight && !fb?.grounded);
       this.layer.classList.toggle('airborne', airborne);
-      if (this.buttons.flightRise) this.buttons.flightRise.hidden = !flight;
-      if (this.buttons.flightLower) this.buttons.flightLower.hidden = !flight;
+      if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
+      if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
       this.buttons.jump.querySelector('span').textContent='JUMP';
       this.buttons.crouch.querySelector('span').textContent='CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
@@ -609,6 +622,14 @@ export class TouchControls {
   #down = (event) => {
     this.touchDebugEvent = 'down';
     if (!this.active) return;
+    if (event.target.closest?.('.touch-flight-rail') && this.flightMounted) {
+      event.preventDefault();
+      if (this.flightRailPointer !== null) return;
+      try { this.layer.setPointerCapture?.(event.pointerId); } catch {}
+      this.flightRailPointer = event.pointerId;
+      this.#moveFlightRail(event);
+      return;
+    }
     const isMouse = event.pointerType === 'mouse';
     const button = event.target.closest?.('[data-action]');
     if (button) {
@@ -644,6 +665,7 @@ export class TouchControls {
   };
 
   #move = (event) => {
+    if (this.flightRailPointer === event.pointerId) { this.#moveFlightRail(event); return; }
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) return;
     if(this.viewGesture?.id===event.pointerId){
       const point=gamePoint(event,this.layer),g=this.viewGesture,dx=point.x-g.x,dy=g.y-point.y;
@@ -689,6 +711,7 @@ export class TouchControls {
 
   #up = (event) => {
     this.touchDebugEvent = event.type;
+    if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
     if(event.type!=='pointerup'&&(this.look?.id===event.pointerId||this.viewGesture?.id===event.pointerId||this.aim?.has(event.pointerId)))this.input.onAimCancelled?.();
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
       const button = typeof event.button === 'number' && event.button >= 0 ? event.button : 0;
@@ -906,6 +929,36 @@ export class TouchControls {
     this.buttons.spell.classList.toggle('prepared-highlighted', gesture.selector.highlight === this.prepared.current);
   }
 
+  #moveFlightRail(event) {
+    if (this.flightRailPointer !== event.pointerId || !this.flightMounted) return;
+    // The control's own frame works on portrait-locked rotated screens too.
+    const height = this.flightRail.offsetHeight || 132;
+    const point = touchLayerPoint(event.clientX, event.clientY,
+      this.flightRail.getBoundingClientRect?.(), {width:this.flightRail.offsetWidth || 44, height},
+      screenTurn?.angle ?? 0);
+    if (!point) return;
+    const value = Math.max(-1, Math.min(1, (height * .5 - point.y) / (height * .5 - 14)));
+    const intent = Math.abs(value) < .24 ? 'neutral' : value > 0 ? 'rise' : 'lower';
+    this.flightRiseHeld = intent === 'rise';
+    this.flightLowerHeld = intent === 'lower';
+    this.flightRail.dataset.intent = intent;
+    this.flightRail.setAttribute('aria-valuenow', String(intent === 'rise' ? 1 : intent === 'lower' ? -1 : 0));
+    this.flightRailThumb.style.transform = `translateY(calc(-50% + ${(-value * (height * .5 - 21)).toFixed(1)}px))`;
+  }
+
+  #resetFlightRail() {
+    this.flightRailPointer = null;
+    this.flightRiseSources.clear();
+    this.flightLowerSources.clear();
+    this.flightRiseHeld = false;
+    this.flightLowerHeld = false;
+    if (this.flightRail) {
+      this.flightRail.dataset.intent = 'neutral';
+      this.flightRail.setAttribute('aria-valuenow', '0');
+    }
+    if (this.flightRailThumb) this.flightRailThumb.style.transform = '';
+  }
+
   #startStick(event, point) {
     // The joystick's outer ring stays anchored in the lower left. Never write its CSS
     // left/top from touch-layer dimensions: on mobile fullscreen/resize transitions
@@ -930,10 +983,11 @@ export class TouchControls {
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
-    const vector = stickVector(delta.x, delta.y,{deadZone:this.mounted?.06:TOUCH.deadZone, sprintActive:this.ramMounted && this.stickSprintRequested});
-    this.stickSprintRequested = vector.sprint;
+    const vector = stickVector(delta.x, delta.y, {deadZone:this.mounted?.06:TOUCH.deadZone, sprintActive:this.stickSprintRequested});
+    this.stickSprintRequested = !this.flightMounted && vector.sprint;
+    this.motionGuide.classList.toggle('approaching', !this.flightMounted && vector.magnitude >= .78 && vector.forward >= .55);
     this.#gateHeld('move', true, 'touch-stick', false);
-    const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
+    const sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick');
     this.stickState = { forward: vector.forward, right: vector.right, sprint };
     this.stickKnob.style.transform = `translate(${vector.knob.x}px, ${vector.knob.y}px)`;
     this.stickBase.classList.toggle('sprint', sprint);
@@ -947,6 +1001,7 @@ export class TouchControls {
     this.#gateHeld('sprint', false, 'touch-latch');
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
+    this.motionGuide.classList.remove('approaching');
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {
