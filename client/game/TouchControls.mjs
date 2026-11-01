@@ -397,6 +397,7 @@ export class TouchControls {
         const atkLabel = this.buttons.attack?.querySelector('span');
         if (atkLabel && atkLabel.textContent !== 'SWORD') atkLabel.textContent = 'SWORD';
         this.buttons.guard?.classList.toggle('airborne-forbidden', airborne);
+        this.buttons.guard?.setAttribute('aria-disabled',airborne?'true':'false');
         this.buttons.guard?.setAttribute('aria-label', airborne ? 'Guard unavailable while airborne' : 'Guard');
 
         const dashBtn = this.buttons.dash;
@@ -411,6 +412,7 @@ export class TouchControls {
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
           dashBtn.classList.toggle('flight-dash-active', offensiveActive);
           dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
+          dashBtn.querySelector('span').textContent=dashGrounded?'FLY FIRST':dashNoRotor?'NO ROTOR':dashNoProwess&&!offensiveActive?'NEED METER':'DASH';
           dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' : dashGrounded ? 'Dash requires being airborne' : dashNoProwess ? 'Offensive run requires Prowess' : dashNoRotor ? 'Rotor destroyed' : offensiveActive ? 'Offensive Flight Run Active' : 'Hold Dash for Prowess-powered offensive run');
         }
 
@@ -433,6 +435,7 @@ export class TouchControls {
         this.valkyrieEligible = false;
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');
+        this.buttons.dash.querySelector('span').textContent='DASH';
         this.buttons.ultimate?.classList.remove('valkyrie-ready', 'valkyrie-prep');
       }
 
@@ -696,11 +699,16 @@ export class TouchControls {
       }
     }
     if (action) {
+      const denied=this.deniedButtons.has(event.pointerId);
       this.held.delete(event.pointerId);
       this.aim?.delete(event.pointerId);
       this.#release(action, event.pointerId, event.type !== 'pointerup');
       // the menu opens on release, so the lifting finger cannot land on the arena and re-enter it
-      if (action === 'pause' && event.type === 'pointerup') this.input.releaseFocus();
+      if (action === 'pause' && event.type === 'pointerup' && !denied) {
+        // MENU previously just dropped touch focus without opening the dialog.
+        this.input.onAction?.('pause',true);
+        this.input.releaseFocus();
+      }
     }
   };
 

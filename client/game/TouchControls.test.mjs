@@ -25,6 +25,7 @@ class Node extends EventTarget {
   append(node) { this.children.push(node); }
   setAttribute() {}
   replaceWith() {}
+  remove() {}
   querySelector(selector) {
     if (!this.nodes.has(selector)) {
       const node = new Node();
@@ -854,4 +855,59 @@ test('Fight-and-Flight discrete hop, continuous Rise and Lower, and multi-touch 
   send('pointerup', 700, 500, { action: 'attack', pointerId: 22 });
   assert.deepEqual(attacks, [[false, 'touch:22']]);
   assert.equal(input.attackHeld, false);
+});
+
+test('mobile MENU opens the arena pause through the runtime action, then releases focus',()=>{
+  const {controls,input,send}=setup({alive:true,spell:'fireball'});
+  const actions=[],focus=[];
+  input.onAction=(...args)=>actions.push(args);
+  input.releaseFocus=()=>focus.push('released');
+  send('pointerdown',38,24,{action:'pause',pointerId:42});
+  assert.deepEqual(actions,[],'do not pause on pointerdown');
+  send('pointerup',38,24,{action:'pause',pointerId:42});
+  assert.deepEqual(actions,[['pause',true]],'MENU invokes the exact arena pause action');
+  assert.deepEqual(focus,['released']);
+  controls.dispose();
+});
+test('cancelled MENU pointer cannot open pause and a subsequent tap still works',()=>{
+  const {controls,input,send}=setup({alive:true,spell:'fireball'});
+  let pauses=0;
+  input.onAction=(action,down)=>{if(action==='pause'&&down)pauses++;};
+  input.releaseFocus=()=>{};
+  send('pointerdown',38,24,{action:'pause',pointerId:30});
+  send('pointercancel',38,24,{action:'pause',pointerId:30});
+  assert.equal(pauses,0);
+  send('pointerdown',38,24,{action:'pause',pointerId:31});
+  send('pointerup',38,24,{action:'pause',pointerId:31});
+  assert.equal(pauses,1);
+  controls.dispose();
+});
+test('mounted flight retains working independent climb, bolt, view, dash and pause controls',()=>{
+  const p={alive:true,spell:'fireball',team:'ATTACKERS',position:{x:0,y:0,z:0},operatingFightFlightId:'machine'};
+  const {controls,input,send}=setup(p);
+  input.mountedFlight=true;input.touch=controls;
+  const calls=[],actions=[];
+  input.socket.send=m=>calls.push(m);
+  input.onAction=(...args)=>actions.push(args);
+  input.releaseFocus=()=>{};
+  controls.update(p,10,{snapshot:{fightFlight:{id:'machine',health:250,rotorHP:100,grounded:false,ammo:14,skill:{phase:'idle',readyAt:0}}}});
+  send('pointerdown',600,300,{action:'flightRise',pointerId:15});
+  assert.equal(controls.movement().flightRise,true);
+  send('pointerup',600,300,{action:'flightRise',pointerId:15});
+  assert.equal(controls.movement().flightRise,false);
+  send('pointerdown',600,300,{action:'siegeWeapon',pointerId:16});
+  send('pointerup',600,300,{action:'siegeWeapon',pointerId:16});
+  assert.ok(calls.some(x=>x.type==='fightFlightFire'&&x.down===true));
+  assert.ok(calls.some(x=>x.type==='fightFlightFire'&&x.down===false));
+  send('pointerdown',600,300,{action:'siegeView',pointerId:17});
+  send('pointerup',600,300,{action:'siegeView',pointerId:17});
+  assert.deepEqual(actions.filter(x=>x[0]==='siegeView'),[['siegeView',true]]);
+  send('pointerdown',600,300,{action:'dash',pointerId:18});
+  send('pointerup',600,300,{action:'dash',pointerId:18});
+  assert.ok(calls.some(x=>x.type==='flightDash'&&x.down===true));
+  assert.ok(calls.some(x=>x.type==='flightDash'&&x.down===false));
+  send('pointerdown',38,24,{action:'pause',pointerId:19});
+  send('pointerup',38,24,{action:'pause',pointerId:19});
+  assert.ok(actions.some(x=>x[0]==='pause'));
+  controls.dispose();
 });

@@ -42,8 +42,8 @@ const snapshot=`(() => {
     foundries:s?.highGrounds?.foundries,scores:s?.highGrounds?.scores,
     renderer:r?.world?.constructor?.name, activeWorld:r?.activeWorld?.id,
     player:s?.players?.find(p=>p.id===r?.playerId), visible:!!r?.world?.group?.visible,
-    hud:document.querySelector('#high-grounds-status')?.className,
-    title:document.querySelector('#high-grounds-score')?.textContent};
+    hud:document.querySelector('#breakthrough-hud')?.className,
+    title:document.querySelector('#breakthrough-hud [data-bt-phase]')?.textContent};
 })()`;
 try{
   const page=await until(async()=>{const res=await fetch('http://127.0.0.1:'+port+'/json/list');
@@ -73,8 +73,32 @@ try{
   assert.equal(state.sites.length,5);
   assert.equal(state.foundries.length,2);
   assert.equal(state.player?.alive,true);
-  await until(()=>evalBrowser("!document.querySelector('#high-grounds-status').classList.contains('hidden')"),'live capture HUD',70);
+  await until(()=>evalBrowser("!document.querySelector('#breakthrough-hud').classList.contains('hidden') && document.querySelector('#breakthrough-hud')?.dataset?.mode==='high-grounds'"),'shared objective HUD',70);
+  assert.match(await evalBrowser("document.querySelector('#breakthrough-hud [data-bt-phase]')?.textContent"),/AZURE .* CRIMSON/);
   await screenshot('02-real-high-grounds');
+  // Real keyboard Esc path, not a manual DOM class flip: this must be usable
+  // while the High Grounds match is in progress.
+  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await until(()=>evalBrowser("!document.querySelector('#pause-menu').classList.contains('hidden')"),'Esc opens High Grounds pause menu',80);
+  await screenshot('03-pause-menu');
+  await evalBrowser("document.querySelector('#resume-game').click()");
+  await until(()=>evalBrowser("document.querySelector('#pause-menu').classList.contains('hidden')"),'resume closes pause menu',60);
+  // Exercise the real touch input path too: a Chrome-generated touch pointer,
+  // not a synthetic HTMLElement.click(). This was the original dead MENU bug.
+  await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  await evalBrowser("window.__ssRuntime.enableTouch();window.__ssRuntime.input.requestPointerLock()");
+  await until(()=>evalBrowser("document.querySelector('.touch-controls')?.classList.contains('active')"),'mobile touch controls active',50);
+  const menuRect=await evalBrowser("(()=>{const r=document.querySelector('.touch-pause').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,visible:r.width>15};})()");
+  assert.ok(menuRect.visible,'MENU has a real touch hit target');
+  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:menuRect.x,y:menuRect.y,id:81}]});
+  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await until(()=>evalBrowser("!document.querySelector('#pause-menu').classList.contains('hidden')"),'actual touch MENU opens High Grounds pause',65);
+  assert.equal(await evalBrowser("document.querySelector('.touch-controls').classList.contains('active')"),false,'touch focus releases behind the dialog');
+  await screenshot('04-mobile-touch-pause');
+  await evalBrowser("document.querySelector('#resume-game').click()");
+  await until(()=>evalBrowser("document.querySelector('#pause-menu').classList.contains('hidden')"),'mobile resume closes pause',60);
+  assert.equal(await evalBrowser("document.querySelector('.touch-controls')?.classList.contains('active')"),true,'resume restores touch controls');
   if(exceptions.length)throw Error('Browser exceptions: '+exceptions.join(' / '));
   await writeFile(output+'/result.json',JSON.stringify({state,exceptions},null,2));
   console.log('[HIGH GROUNDS BROWSER ACCEPTED]',JSON.stringify({mode:state.mode,renderer:state.renderer,sites:state.sites.length}));

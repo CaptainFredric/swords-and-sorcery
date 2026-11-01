@@ -16,6 +16,7 @@ import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
+import {highGroundsFoundryView,HIGH_GROUNDS_MACHINE_KEYS} from './ui/highGroundsHudView.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
 import { SoundEngine } from './game/sound/SoundEngine.mjs';
@@ -533,6 +534,7 @@ function ensureRuntime() {
       }
     };
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
+    runtime.onPause = () => openPause();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
@@ -1499,8 +1501,9 @@ document.addEventListener('keydown', event => {
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     returnToMenu();
   } else if (latestSnapshot?.roomState === 'PLAYING') {
-    if (document.pointerLockElement) document.exitPointerLock();
-    else if (paused) { paused = false; pauseMenu.classList.add('hidden'); }
+    // Escape is the arena menu action, not merely a pointer-lock release.
+    // In particular, High Grounds must not require a second Escape press.
+    if (paused) { paused = false; pauseMenu.classList.add('hidden');runtime?.requestPointerLock(); }
     else openPause();
   }
 });
@@ -1861,41 +1864,42 @@ function noteRoomState(snapshot) {
 // Team territory telemetry and machine selection use the *same* authoritative
 // snapshot for both LocalHost and multiplayer, never estimated cooldowns.
 const hgStatus = $('#high-grounds-status');
-const hgScore = $('#high-grounds-score');
-const hgSites = $('#high-grounds-sites');
+const hgFoundryPicker=$('#high-grounds-foundry-picker');
+const hgFoundryHint=$('#high-grounds-foundry-hint');
 const hgFoundry = $('#high-grounds-foundry');
 const hgFoundryState = $('#high-grounds-foundry-state');
 hgFoundry?.addEventListener('click', (event) => {
   const button = event.target.closest?.('[data-high-grounds-machine]');
-  if (button && !button.disabled) socket.highGroundsBuild(button.dataset.highGroundsMachine);
-});
-function updateHighGroundsHud(snapshot) {
-  const state = snapshot.highGrounds;
-  const active = snapshot.mode === 'HIGH_GROUNDS' && snapshot.roomState === 'PLAYING' && state;
-  hgStatus?.classList.toggle('hidden', !active);
-  hgFoundry?.classList.add('hidden');
-  if (!active) return;
-  hgScore.textContent = `AZURE ${Math.floor(state.scores.ATTACKERS)} · CRIMSON ${Math.floor(state.scores.DEFENDERS)} · FIRST TO ${state.scoreToWin}`;
-  hgSites.textContent = state.sites.map(site =>
-    `${site.name}: ${site.contested ? 'CONTESTED' : site.owner === 'ATTACKERS' ? 'AZURE' : site.owner === 'DEFENDERS' ? 'CRIMSON' : 'NEUTRAL'}`
-  ).join(' · ');
-  const me = snapshot.players.find(p => p.id === socket.playerId);
-  const foundry = state.foundries.find(f => f.team === me?.team);
-  if (!me?.alive || !foundry || Math.hypot(me.position.x - foundry.x, me.position.z - foundry.z) > 5 ||
-    Math.abs(me.position.y - foundry.y) > 2 || me.operatingBallistaId || me.operatingRamId || me.operatingFightFlightId) return;
-  hgFoundry?.classList.remove('hidden');
-  const remaining = Math.max(0, Math.ceil(foundry.readyAt - snapshot.serverTime));
-  const ownership = foundry.machineId && [
-    snapshot.bibyeBallista, snapshot.soFistication, snapshot.fightFlight
-  ].some(m => m?.id === foundry.machineId && !m.retired && m.mode !== 'DESTROYED' && m.health > 0);
-  hgFoundryState.textContent = ownership ? 'YOUR TEAM ALREADY HAS A MACHINE'
-    : remaining ? `FOUNDRY RECOVERY · ${remaining}s` : 'CHOOSE THE NEXT MACHINE';
-  for (const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) {
-    const field = button.dataset.highGroundsMachine === 'bi-bye-llista' ? snapshot.bibyeBallista :
-      button.dataset.highGroundsMachine === 'so-fist-ication' ? snapshot.soFistication : snapshot.fightFlight;
-    button.disabled = Boolean(ownership || remaining || (field && !field.retired && field.mode !== 'DESTROYED' && field.health > 0));
+  if (button && !button.disabled){
+    socket.highGroundsBuild(button.dataset.highGroundsMachine);
+    if(hgFoundryHint)hgFoundryHint.textContent='ORDER SENT · AWAITING FOUNDRY';
+    if(hgFoundryPicker)hgFoundryPicker.open=false;
   }
+});
+// High Grounds uses Breakthrough's objective HUD; the foundry is contextual.
+function updateHighGroundsHud(snapshot) {
+  hgStatus?.classList.add('hidden'); // retire duplicate five-site text banner
+  const me=snapshot.players?.find(p=>p.id===socket.playerId);
+  const view=highGroundsFoundryView(snapshot,me,snapshot.serverTime);
+  hgFoundry?.classList.toggle('hidden',!view.visible);
+  if(!view.visible){if(hgFoundryPicker)hgFoundryPicker.open=false;return;}
+  hgFoundryState.textContent=view.status;
+  if(hgFoundryHint)hgFoundryHint.textContent=view.ready?'TAP A MACHINE · OR PRESS 7 / 8 / 9':
+    view.owned?'CURRENT MACHINE MUST BE LOST FIRST':'PRODUCTION UNAVAILABLE';
+  for(const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]'))
+    button.disabled=Boolean(view.disabled?.[button.dataset.highGroundsMachine]);
 }
+// Desktop has pointer lock: 7/8/9 operate the same authoritative foundry as touch.
+document.addEventListener('keydown',event=>{
+  const machine=HIGH_GROUNDS_MACHINE_KEYS[event.code];
+  if(!machine||event.repeat||event.altKey||event.ctrlKey||event.metaKey||paused||
+    router.current!==null||hgFoundry?.classList.contains('hidden')||
+    event.target?.closest?.('input,textarea,select,[role="dialog"]'))return;
+  const button=hgFoundry.querySelector('[data-high-grounds-machine="'+machine+'"]');
+  if(!button||button.disabled)return;
+  event.preventDefault();socket.highGroundsBuild(machine);
+  if(hgFoundryHint)hgFoundryHint.textContent='ORDER SENT · AWAITING FOUNDRY';
+});
 
 socket.on('snapshot', (snapshot) => {
   if(snapshot.roomCode===latestSnapshot?.roomCode&&((snapshot.bibyeRevision??0)<(latestSnapshot?.bibyeRevision??0)||(snapshot.soFistRevision??0)<(latestSnapshot?.soFistRevision??0)))return;
