@@ -107,6 +107,33 @@ test('foundry only accepts a nearby living ally, valid machine choice, and produ
   assert.ok(applyRoomCommand(room,a,{type:'highGroundsBuild',machine:'bi-bye-llista'},2).rejected);
   assert.deepEqual(HIGH_GROUNDS_MACHINES,['bi-bye-llista','so-fist-ication','fight-and-flight']);
 });
+test('both team foundries actually construct every supported machine with authoritative snapshots', () => {
+  const config = [
+    ['bi-bye-llista', 'biByeLlista', 'bibyeConstructed'],
+    ['so-fist-ication', 'soFistication', 'soFistConstructed'],
+    ['fight-and-flight', 'fightFlight', 'fightFlightConstructed'],
+  ];
+  for (const [machine, field, event] of config) for (const side of [TEAMS.ATTACKERS, TEAMS.DEFENDERS]) {
+    const {room, a, b} = setup();
+    const operator = side === TEAMS.ATTACKERS ? a : b;
+    const foundry = room.highGrounds.foundries.find(f => f.team === side);
+    operator.position = {x:foundry.x, y:foundry.y, z:foundry.z};
+    const outcome = applyRoomCommand(room, operator, {type:'highGroundsBuild',machine}, 1);
+    assert.equal(outcome.rejected, undefined, machine + ' ' + side + ': ' + outcome.rejected);
+    const built = room[field];
+    assert.ok(built, machine + ' ' + side + ' must exist on authority');
+    assert.equal(built.team, side);
+    assert.equal(built.id, foundry.machineId);
+    assert.equal(foundry.machine, machine);
+    assert.ok(built.health > 0 && !built.retired);
+    assert.ok(Math.hypot(built.x-foundry.spawnX,built.z-foundry.spawnZ)<1, 'built on designated pad');
+    const snapshot = serializeSnapshot(room, 1.05);
+    const snapField = machine === 'bi-bye-llista' ? 'bibyeBallista' : machine === 'so-fist-ication' ? 'soFistication' : 'fightFlight';
+    assert.equal(snapshot[snapField]?.id, built.id, machine + ' must replicate to browser');
+    assert.ok(room.events.some(e => e.type === event && e.machineId === built.id));
+    assert.ok(room.events.some(e => e.type === 'highGroundsProduced' && e.machineId === built.id));
+  }
+});
 test('territory match resolves by score on time, without Breakthrough overtime', () => {
   const {room}=setup();
   room.highGrounds.scores.ATTACKERS=200;
