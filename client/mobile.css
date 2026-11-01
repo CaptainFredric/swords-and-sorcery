@@ -505,7 +505,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
   color: #a6e6f3;
   border-color: rgba(102, 201, 221, .62);
 }
-.touch-mounted.touch-flight.airborne .touch-guard {
+.touch-mounted.touch-flight.airborne .touch-guard.airborne-forbidden {
   opacity: .42;
   filter: grayscale(0.5);
   pointer-events: none;
