@@ -1,4 +1,5 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
+import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
 import {mountFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
@@ -377,7 +378,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'guard': {
-      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded)return {};
+      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded&&!combatActionPolicy(player,time).concurrent)return {};
       const inputTime = compensatedInputTime(message.clientTime, time);
       pressButton(room, player.id, 'guard', message.down, inputTime);
       setGuard(room, player.id, Boolean(message.down), inputTime);
