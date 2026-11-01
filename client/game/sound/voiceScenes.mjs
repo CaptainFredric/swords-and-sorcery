@@ -55,6 +55,16 @@
 import { HEALTH_REGEN } from '../../../shared/src/combat.mjs';
 import { REPLY_LINES, VOICE_LINE_LIST, voiceLine } from './voiceLines.mjs';
 
+/** Deterministic pseudo-random roll [0, 1) derived from an authoritative event. */
+export function eventDeterministicRoll(event, salt = '') {
+  const key = `${event?.killerId ?? ''}:${event?.victimId ?? ''}:${Math.round((event?.at ?? 0) * 1000)}:${salt}`;
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619) >>> 0;
+  hash = Math.imul(hash ^ (hash >>> 15), 2246822507) >>> 0;
+  hash = Math.imul(hash ^ (hash >>> 13), 3266489909) >>> 0;
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+}
+
 // the line that waits for a scene's moment (the declarations say which: voiceLines.mjs)
 const lineFor = (tag) => VOICE_LINE_LIST.find((line) => !line.coming && line.triggers[tag] > 0)?.id ?? null;
 const LINES = Object.freeze({
@@ -73,9 +83,15 @@ const LINES = Object.freeze({
   nap: lineFor('napFall'),
   foundIt: lineFor('foundDisablePayoff') ?? 'foundDisablePoint',
   shaken: lineFor('handshakePayoff') ?? 'handshakePayoff',
+  tranquilizerAsleep: lineFor('tranquilizerPayoff') ?? 'tranquilizerAsleep',
+  enjoyRestAha: 'enjoyRestV1',
 });
 
 export const SCENES = Object.freeze({
+  tranquilizer: Object.freeze({
+    expirySec: 25,
+    payoffAfter: 0.35,
+  }),
   troubleshoot: Object.freeze({
     expirySec: 20,
     payoffAfter: 0.35,
@@ -128,7 +144,7 @@ export const SCENES = Object.freeze({
 });
 
 export class VoiceScenes {
-  constructor({ say = () => false, rand = Math.random, free = () => true } = {}) {
+  constructor({ say = () => false, rand = null, free = () => true } = {}) {
     this.say = say;
     this.rand = rand;
     this.free = free;
@@ -145,6 +161,7 @@ export class VoiceScenes {
     this.naps = new Map();        // speaker -> { until }: a nap announced as he fell, his return waited for
     this.troubleshoot = new Map(); // speaker -> { targetId, until }: "Where do I have to hit you..." setup
     this.handshakes = new Map();   // speaker -> { targetId, until }: "Hand shake? This hand will shake you..." setup
+    this.tranquilizers = new Map(); // speaker -> { targetId, until }: "Which one of these arrows..." setup
   }
 
   /** A new match: nothing carries over. */
@@ -162,6 +179,7 @@ export class VoiceScenes {
     this.naps.clear();
     this.troubleshoot.clear();
     this.handshakes.clear();
+    this.tranquilizers.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -431,7 +449,17 @@ export class VoiceScenes {
     this.troubleshoot.delete(victimId);
     this.handshakes.delete(victimId);
     for (const [speaker, scene] of [...this.handshakes]) if (scene.targetId === victimId) this.handshakes.delete(speaker);
+    this.tranquilizers.delete(victimId);
     let victor = false;
+    const activeTranquilizer = killerId ? this.tranquilizers.get(killerId) : null;
+    if (activeTranquilizer && activeTranquilizer.targetId === victimId && at <= activeTranquilizer.until) {
+      this.tranquilizers.delete(killerId);
+      const roll = this.rand ? this.rand() : (event?.at != null ? eventDeterministicRoll(event, 'tranquilizerPayoff') : Math.random());
+      const payoffLine = roll < 0.25 ? LINES.enjoyRestAha : LINES.tranquilizerAsleep;
+      if (this.say(payoffLine, killerId, { earned: true, delay: SCENES.tranquilizer.payoffAfter })) victor = true;
+    } else {
+      for (const [speaker, scene] of [...this.tranquilizers]) if (scene.targetId === victimId) this.tranquilizers.delete(speaker);
+    }
     const activeTroubleshoot = killerId ? this.troubleshoot.get(killerId) : null;
     if (activeTroubleshoot && activeTroubleshoot.targetId === victimId && at <= activeTroubleshoot.until) {
       this.troubleshoot.delete(killerId);
@@ -496,7 +524,7 @@ export class VoiceScenes {
       }
       if (duel.stage === 'declared' && now >= duel.at) {
         // the foe's own remark: one of their ordinary lines fit to say back, whichever comes first to hand
-        const candidates = [...REPLY_LINES].sort(() => this.rand() - 0.5);
+        const candidates = [...REPLY_LINES].sort(() => (this.rand ? this.rand() : Math.random()) - 0.5);
         let reply = false;
         for (const line of candidates) {
           reply = this.say(line, duel.foe, { earned: true });
@@ -577,5 +605,16 @@ export class VoiceScenes {
     if (!scene || scene.targetId !== targetId || at > scene.until) return;
     this.handshakes.delete(speaker);
     this.say(LINES.shaken, speaker, { earned: true, delay: SCENES.handshake.payoffAfter });
+  }
+
+  // ------------------------------------------------------------------------------------------------ tranquilizer scene
+  tranquilizerStarted(speaker, targetId, at) {
+    if (!speaker || !targetId) return;
+    this.tranquilizers.set(speaker, { targetId, until: at + SCENES.tranquilizer.expirySec });
+  }
+
+  tranquilizerReset(speaker = null) {
+    if (speaker === null) this.tranquilizers.clear();
+    else this.tranquilizers.delete(speaker);
   }
 }

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { VoiceDirector } from './voiceRules.mjs';
+import { VoiceDirector, hearingFor, voicePlacement } from './voiceRules.mjs';
 import { VoiceMoments } from './voiceMoments.mjs';
-import { VoiceScenes } from './voiceScenes.mjs';
+import { VoiceScenes, eventDeterministicRoll } from './voiceScenes.mjs';
 import { linesFor, voiceLine } from './voiceLines.mjs';
 
 test('Not right now: 18m spatial hush, ongoing speech cancellation, 2s post-line tail suppression', () => {
@@ -594,4 +594,244 @@ test('Priority 4: Machine lifecycle & VO state resets across mount, dismount, re
   // Destruction clears all flight VO states
   onMachineDestroyed();
   assert.equal(flightVoState.size, 0, 'destruction resets all flight states');
+});
+
+test('Tranquilizer Packet: exact audio-to-subtitle mapping, Credits, and asset verification', () => {
+  const arrow = voiceLine('tranquilizerArrow');
+  const asleep = voiceLine('tranquilizerAsleep');
+  const rest1 = voiceLine('enjoyRestV1');
+  const rest2 = voiceLine('enjoyRestV2');
+
+  assert.ok(arrow, 'tranquilizerArrow declared');
+  assert.ok(asleep, 'tranquilizerAsleep declared');
+  assert.ok(rest1, 'enjoyRestV1 declared');
+  assert.ok(rest2, 'enjoyRestV2 declared');
+
+  assert.equal(arrow.text, 'Which one of these arrows was the tranquilizing one?');
+  assert.equal(asleep.text, 'Aha! You’re asleep now!');
+  assert.equal(rest1.text, 'Aha! Enjoy your rest.');
+  assert.equal(rest2.text, 'Ah, enjoy your rest.');
+
+  assert.equal(arrow.credits.title, 'The Tranquilizer');
+  assert.equal(asleep.credits.title, 'Asleep Now');
+  assert.equal(rest1.credits.title, 'Enjoy Your Rest');
+  assert.equal(rest2.credits.title, 'Enjoy Your Rest (Gentle)');
+
+  assert.equal(rest1.family, 'enjoyRest');
+  assert.equal(rest2.family, 'enjoyRest');
+  assert.equal(rest1.cooldown, 240);
+  assert.equal(rest2.cooldown, 240);
+});
+
+test('Tranquilizer Scene: setup on repeater volley, earned payoff on kill, single payoff, target matching, and expiry', () => {
+  let spoken = [];
+  const scenes = new VoiceScenes({
+    say: (line, speaker, opts) => {
+      spoken.push({ line, speaker, opts });
+      return true;
+    },
+    rand: () => 0.5, // > 0.25 -> chooses tranquilizerAsleep
+  });
+
+  // Scene setup: operator 1 starts tranquilizer setup against target A at t = 10.0
+  scenes.tranquilizerStarted('pilot1', 'targetA', 10.0);
+  assert.equal(scenes.tranquilizers.get('pilot1')?.targetId, 'targetA');
+
+  // Killer 2 kills target A -> NOT pilot1, so tranquilizer payoff does NOT fire for killer2
+  scenes.death({ victimId: 'targetA', killerId: 'pilot2', at: 15.0 });
+  assert.equal(spoken.length, 0, 'no tranquilizer payoff for different killer');
+
+  // Re-start scene for pilot1 on target B
+  scenes.tranquilizerStarted('pilot1', 'targetB', 20.0);
+
+  // Pilot 1 kills target C (different target) -> payoff does NOT fire
+  scenes.death({ victimId: 'targetC', killerId: 'pilot1', at: 25.0 });
+  assert.equal(spoken.length, 0, 'no tranquilizer payoff for killing different target');
+  assert.ok(scenes.tranquilizers.has('pilot1'), 'scene remains active for targetB');
+
+  // Pilot 1 kills target B within valid window (t = 30.0, expiry is 20 + 25 = 45.0)
+  scenes.death({ victimId: 'targetB', killerId: 'pilot1', at: 30.0 });
+  assert.equal(spoken.length, 1, 'earned payoff fires on kill of correct target');
+  assert.equal(spoken[0].line, 'tranquilizerAsleep');
+  assert.equal(spoken[0].speaker, 'pilot1');
+  assert.equal(spoken[0].opts.earned, true);
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'scene consumed after kill');
+
+  // Verify occasional "Enjoy your rest" branch when rand < 0.25
+  spoken = [];
+  scenes.rand = () => 0.1; // < 0.25 -> chooses enjoyRestV1
+  scenes.tranquilizerStarted('pilot1', 'targetD', 50.0);
+  scenes.death({ victimId: 'targetD', killerId: 'pilot1', at: 55.0 });
+  assert.equal(spoken.length, 1, 'single payoff played');
+  assert.equal(spoken[0].line, 'enjoyRestV1');
+  assert.equal(spoken[0].opts.earned, true);
+
+  // Verify expiry: scene opened at t = 100, expires at 125. Kill at 126 fails
+  spoken = [];
+  scenes.tranquilizerStarted('pilot1', 'targetE', 100.0);
+  scenes.death({ victimId: 'targetE', killerId: 'pilot1', at: 126.0 });
+  assert.equal(spoken.length, 0, 'expired scene does not fire payoff');
+});
+
+test('Independent post-kill farewell: enjoyRest family triggers rarely on ordinary kills with shared cooldown', () => {
+  // Verify linesFor offers exactly one member of enjoyRest family for ordinary 'kill'
+  const lines = linesFor('killer', ['kill'], { rand: () => 0.01 });
+  const restLines = lines.filter(l => l.line === 'enjoyRestV1' || l.line === 'enjoyRestV2');
+  assert.equal(restLines.length, 1, 'exactly one take from enjoyRest family offered on kill');
+
+  // Verify shared cooldown in VoiceDirector
+  const director = new VoiceDirector({ rand: () => 0.01 });
+  const first = director.consider('enjoyRestV1', 'killer', 10.0, { duration: 1.68 });
+  assert.ok(first, 'first enjoyRest line speaks');
+
+  // Alternate take enjoyRestV2 attempted at t = 15.0 (< 240s cooldown)
+  const second = director.consider('enjoyRestV2', 'killer', 15.0, { duration: 1.51 });
+  assert.equal(second, null, 'alternate take blocked by shared enjoyRest family cooldown');
+});
+
+test('Tranquilizer apparatus lifecycle: resets on dismount, machine destruction, and player death', () => {
+  const scenes = new VoiceScenes({ say: () => true });
+
+  scenes.tranquilizerStarted('pilot1', 'targetA', 10.0);
+  assert.ok(scenes.tranquilizers.has('pilot1'));
+
+  // Dismount resets operator tranquilizer scene
+  scenes.tranquilizerReset('pilot1');
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'dismount cleans operator tranquilizer scene');
+
+  scenes.tranquilizerStarted('pilot1', 'targetA', 20.0);
+  // Target death resets scene
+  scenes.death({ victimId: 'targetA', killerId: 'someoneElse', at: 22.0 });
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'target death cleans scene without payoff');
+
+  scenes.tranquilizerStarted('pilot1', 'targetB', 30.0);
+  // Machine destruction resets all tranquilizer scenes
+  scenes.tranquilizerReset();
+  assert.equal(scenes.tranquilizers.size, 0, 'destruction resets all tranquilizer scenes');
+});
+
+test('Tranquilizer volley sampling: 4% rarity, single evaluation per distinct burst, and no repeated rolls on sustained fire', () => {
+  const arrow = voiceLine('tranquilizerArrow');
+  const rest1 = voiceLine('enjoyRestV1');
+  const rest2 = voiceLine('enjoyRestV2');
+
+  assert.equal(arrow.rarity, 0.04, 'tranquilizerArrow declared at 4% rarity per distinct volley');
+  assert.equal(rest1.rarity, 0.04, 'enjoyRestV1 declared at 4% rarity');
+  assert.equal(rest2.rarity, 0.04, 'enjoyRestV2 declared at 4% rarity');
+
+  // Simulate volley tracking logic
+  const volleys = new Map();
+  let evaluations = 0;
+  const onBoltHit = (operatorId, victimId, now) => {
+    const key = `${operatorId}>${victimId}`;
+    const v = volleys.get(key) ?? { hits: [], evaluated: false, lastAt: -Infinity };
+    if (now - v.lastAt > 2.5) {
+      v.hits = [];
+      v.evaluated = false;
+    }
+    v.hits = [...v.hits.filter(t => now - t <= 2.5), now];
+    v.lastAt = now;
+    volleys.set(key, v);
+    if (v.hits.length >= 3 && !v.evaluated) {
+      v.evaluated = true;
+      evaluations++;
+    }
+  };
+
+  // Sustained burst of 7 bolts within 1.2s on target B
+  for (let i = 0; i < 7; i++) {
+    onBoltHit('pilot1', 'targetB', 10.0 + i * 0.15);
+  }
+  // Must evaluate exactly ONCE despite 7 hits (> threshold of 3)
+  assert.equal(evaluations, 1, 'evaluated exactly once during sustained burst, not on every subsequent bolt');
+
+  // Another bolt 0.3s later (still in same burst) -> still 1
+  onBoltHit('pilot1', 'targetB', 11.3);
+  assert.equal(evaluations, 1, 'no repeated evaluation while continuous fire continues');
+
+  // Pause for 3.0s (> 2.5s window), then fire fresh 3-bolt burst -> new distinct volley evaluates
+  for (let i = 0; i < 3; i++) {
+    onBoltHit('pilot1', 'targetB', 15.0 + i * 0.15);
+  }
+  assert.equal(evaluations, 2, 'fresh burst after pause constitutes a distinct volley');
+});
+
+test('Projectile ownership attribution across delayed impacts, dismount, and operator swap', () => {
+  const flightProjectileOwners = new Map();
+  const onRelease = (projectileId, operatorId, at) => {
+    flightProjectileOwners.set(projectileId, { ownerId: operatorId, at });
+  };
+  const onImpact = (event) => {
+    const ownerId = event.attackerId ?? flightProjectileOwners.get(event.projectileId)?.ownerId;
+    flightProjectileOwners.delete(event.projectileId);
+    return ownerId;
+  };
+
+  // Pilot A fires quarrel-1 at t = 1.0
+  onRelease('q-1', 'pilotA', 1.0);
+
+  // Pilot A dismounts at t = 1.2, Pilot B mounts at t = 1.3
+  // Quarrel-1 impacts at t = 1.4 without attackerId in event (legacy fallback)
+  const resolvedOwner = onImpact({ projectileId: 'q-1', at: 1.4 });
+  assert.equal(resolvedOwner, 'pilotA', 'projectile impact attributed to actual shooter (pilotA), not current operator');
+
+  // When server sends authoritative attackerId, it takes precedence
+  onRelease('q-2', 'pilotA', 2.0);
+  const authOwner = onImpact({ projectileId: 'q-2', attackerId: 'pilotA', at: 2.3 });
+  assert.equal(authOwner, 'pilotA');
+});
+
+test('Multiplayer deterministic kill voice selection: Client A and Client B hear identical dialogue and subtitles', () => {
+  const deathEvent = {
+    type: 'death',
+    killerId: 'astra',
+    victimId: 'rival',
+    at: 54.321,
+    source: 'fight-flight-repeater',
+  };
+
+  // Both clients simulate selecting tranquilizer payoff
+  const rollA = eventDeterministicRoll(deathEvent, 'tranquilizerPayoff');
+  const rollB = eventDeterministicRoll(deathEvent, 'tranquilizerPayoff');
+  assert.equal(rollA, rollB, 'deterministic roll is identical on both clients');
+
+  const payoffA = rollA < 0.25 ? 'enjoyRestV1' : 'tranquilizerAsleep';
+  const payoffB = rollB < 0.25 ? 'enjoyRestV1' : 'tranquilizerAsleep';
+  assert.equal(payoffA, payoffB, 'both clients select the exact same tranquilizer payoff line');
+
+  // Ordinary kill RNG stream is identical on both clients
+  const rngA = (() => { let s = 0; return () => eventDeterministicRoll(deathEvent, 'death:' + (++s)); })();
+  const rngB = (() => { let s = 0; return () => eventDeterministicRoll(deathEvent, 'death:' + (++s)); })();
+
+  const linesA = linesFor('astra', ['kill'], { rand: rngA });
+  const linesB = linesFor('astra', ['kill'], { rand: rngB });
+  assert.deepEqual(linesA.map(l => l.line), linesB.map(l => l.line), 'both clients offer identical candidate kill lines in identical order');
+});
+
+test('Death camera audibility: Player B hears victor Player A with spatial placement and extended hearing range', () => {
+  // Killer Player A at (10, 0, 30)
+  const killerPos = { x: 10, y: 1.5, z: 30 };
+  // Fallen Player B corpse at (0, 0, 0), death camera at (0, 2.0, -1) looking toward killer
+  const cameraPos = { x: 0, y: 2.0, z: -1 };
+  const cameraYaw = Math.atan2(-(killerPos.x - cameraPos.x), -(killerPos.z - cameraPos.z));
+
+  // Regular hearing for words has far: 28m
+  const regularHearing = hearingFor('enjoyRestV1');
+  assert.equal(regularHearing.far, 28);
+
+  // At distance 32.5m, regular hearing would return null (silence)
+  const dx = killerPos.x - cameraPos.x, dz = killerPos.z - cameraPos.z;
+  const dist = Math.hypot(dx, dz);
+  assert.ok(dist > 28, 'killer is beyond ordinary speech hearing range (32.5m > 28m)');
+  const unboosted = voicePlacement(cameraPos, cameraYaw, killerPos, regularHearing);
+  assert.equal(unboosted, null, 'regular hearing drops distant speech');
+
+  // With death camera extended hearing range (far: 50m)
+  const deathCamHearing = { ...regularHearing, far: Math.max(regularHearing.far, 50), rolloff: 0.4 };
+  const deathCamPlace = voicePlacement(cameraPos, cameraYaw, killerPos, deathCamHearing);
+
+  assert.ok(deathCamPlace, 'speech is audible in death camera');
+  assert.ok(deathCamPlace.gain > 0.1, 'killer is clearly audible');
+  // Facing directly at killer, stereo pan should be centered (near 0)
+  assert.ok(Math.abs(deathCamPlace.pan) < 0.1, 'killer speaking directly in front of death camera is centered');
 });

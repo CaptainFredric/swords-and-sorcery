@@ -237,7 +237,7 @@ export class VoiceMoments {
    * extra: what the runtime watched of it (rushed, fair, leader, chivalry; charging: the fallen charged a foe a moment
    * ago; pose: how he lies, deathPose; doomCut: he was spelling a threat).
    */
-  death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false, extra = {} } = {}) {
+  death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false, extra = {}, rand = null } = {}) {
     // (extra, from the runtime's watch: passing, the fallen was sprinting across or past the one who shot them;
     // thirdParty, the fallen was trading blows with someone else and was shot from outside that fight; nap, his return
     // is to come and no comeback is under way)
@@ -316,8 +316,8 @@ export class VoiceMoments {
       nap: Boolean(extra.nap) && !practice && !event.decisive && Number.isFinite(event.respawnAt) && event.respawnAt > at,
     });
     // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
-    const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
-    const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts }) : [];
+    const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer, rand });
+    const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts, rand }) : [];
     // whoever the fallen was threatening, near their own end, saved by somebody else
     const rescued = this.#rescues(victimId, killerId, at, knight);
     this.#forget(victimId);

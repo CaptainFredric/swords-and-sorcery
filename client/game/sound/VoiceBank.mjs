@@ -89,7 +89,7 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null, source = null, chorus = null, gainScale = 1 } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null, source = null, chorus = null, gainScale = 1, rand = null } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
     // a line said in parts: its recordings are its parts, in order (the part asked for, the first if none is)
@@ -98,7 +98,7 @@ export class VoiceBank {
     const index = parts ? part ?? 0 : this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
     if (!force && !cry && !earned && !opening && VOICE_LINES[line]?.kind === 'sentence') chanceScale *= this.audibleHistory.scale(line,speaker,this.engine.now,source);
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, source, duration: delay + take.duration / Math.max(0.5, rate) });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, source, duration: delay + take.duration / Math.max(0.5, rate), rand });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)

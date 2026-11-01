@@ -67,7 +67,7 @@ import { STEEL_RIPPLE } from './steelSheen.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { UltimateLines, cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { MOMENTS, PROJECTILES, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
-import { VoiceScenes } from './sound/voiceScenes.mjs';
+import { VoiceScenes, eventDeterministicRoll } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { VOICE_TAGS, linesFor, voiceLine } from './sound/voiceLines.mjs';
 import { TeamVoiceEvents } from './sound/teamVoiceEvents.mjs';
@@ -1307,6 +1307,7 @@ export class GameRuntime {
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
       this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
       this.flightVoState?.delete(auth.id);
+      this.scenes?.tranquilizerReset?.(auth.id);
     }
     if(auth?.operatingRamId&&!wasMounted){
       this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
@@ -1330,6 +1331,7 @@ export class GameRuntime {
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
       this.flightVoState?.delete(auth?.id ?? this.playerId);
+      this.scenes?.tranquilizerReset?.(auth?.id ?? this.playerId);
     }
     this.input.updatePreparedSpells?.(auth, this.socket.serverNow());
     this.weapon.setCombatPolicy(combatActionPolicy(auth, this.socket.serverNow()), auth, this.socket.serverNow());
@@ -1400,9 +1402,17 @@ export class GameRuntime {
       if(event.type==='fightFlightBoltReleased'){
         if(event.operatorId===this.playerId)this.hud.recoilCrosshair?.();
         const op = event.operatorId ?? this.latestSnapshot?.fightFlight?.operatorId;
+        const now = event.at ?? this.socket.serverNow();
+        if (event.projectileId && op) {
+          this.flightProjectileOwners ??= new Map();
+          this.flightProjectileOwners.set(event.projectileId, { ownerId: op, at: now });
+          for (const [projId, rec] of this.flightProjectileOwners) {
+            if (now - rec.at > 5.0) this.flightProjectileOwners.delete(projId);
+          }
+        }
         if (op) {
           this.flightBolts ??= new Map();
-          const recent = [...(this.flightBolts.get(op) ?? []).filter(t => (event.at ?? this.socket.serverNow()) - t <= 2.0), event.at ?? this.socket.serverNow()];
+          const recent = [...(this.flightBolts.get(op) ?? []).filter(t => now - t <= 2.5), now];
           this.flightBolts.set(op, recent);
           if (recent.length >= 3) this.#sayMoment(op, ['flightBoltBurst']);
         }
@@ -1420,6 +1430,31 @@ export class GameRuntime {
       if(event.type==='fightFlightBoltImpact'&&event.point){
         if(event.hitKind==='player'||event.hitKind==='guard'||event.hitKind==='parry')this.effects.wallClang?.(event.point);
         else this.effects.splinters?.(event.point);
+        const ownerId = event.attackerId ?? this.flightProjectileOwners?.get(event.projectileId)?.ownerId ?? this.latestSnapshot?.fightFlight?.operatorId;
+        if (event.projectileId) this.flightProjectileOwners?.delete(event.projectileId);
+        if(event.victimId && ownerId){
+          this.moments?.setLastTarget?.(ownerId, event.victimId);
+          const victim = this.latestSnapshot?.players?.find(p => p.id === event.victimId);
+          if (victim && victim.alive !== false) {
+            this.flightVolleys ??= new Map();
+            const now = event.at ?? this.socket.serverNow();
+            const key = `${ownerId}>${event.victimId}`;
+            const volley = this.flightVolleys.get(key) ?? { hits: [], evaluated: false, lastAt: -Infinity };
+            if (now - volley.lastAt > 2.5) {
+              volley.hits = [];
+              volley.evaluated = false;
+            }
+            volley.hits = [...volley.hits.filter(t => now - t <= 2.5), now];
+            volley.lastAt = now;
+            this.flightVolleys.set(key, volley);
+            if (volley.hits.length >= 3 && !volley.evaluated) {
+              volley.evaluated = true;
+              this.activeVolleyTargets ??= new Map();
+              this.activeVolleyTargets.set(ownerId, { targetId: event.victimId, at: now });
+              this.#sayMoment(ownerId, ['tranquilizerVolley']);
+            }
+          }
+        }
       }
       if(event.type==='fightFlightRotorContact'&&event.point){
         if(event.result==='guard'||event.result==='parry')this.effects.blockBurst?.(event.point,null,{parry:event.result==='parry'});
@@ -1449,6 +1484,10 @@ export class GameRuntime {
       }
       if(event.type==='fightFlightDestroyed'){
         this.flightVoState?.clear();
+        this.flightVolleys?.clear();
+        this.activeVolleyTargets?.clear();
+        this.flightProjectileOwners?.clear();
+        this.scenes?.tranquilizerReset?.();
       }
       if(event.type==='soFistDamaged'){
         const op = this.latestSnapshot?.soFistication?.operatorId;
@@ -1821,6 +1860,9 @@ export class GameRuntime {
       if (event.type === 'death') {
         this.flightVoState?.delete(event.victimId);
         this.pendingSentenceComplaints?.delete(event.victimId);
+        this.scenes?.tranquilizerReset?.(event.victimId);
+        this.activeVolleyTargets?.delete(event.victimId);
+        this.flightVolleys?.delete(event.victimId);
         this.#deathEvent(event);
         // (his ultimate goes with him: its one line, said or not, is spent)
         this.ultimateLines.end(event.victimId);
@@ -1852,6 +1894,9 @@ export class GameRuntime {
       if (event.type === 'respawn') {
         this.flightVoState?.delete(event.playerId);
         this.pendingSentenceComplaints?.delete(event.playerId);
+        this.scenes?.tranquilizerReset?.(event.playerId);
+        this.activeVolleyTargets?.delete(event.playerId);
+        this.flightVolleys?.delete(event.playerId);
         this.voice?.director?.newLife?.(event.playerId);
       }
       // back on his feet: a scene's word for it first ("It was brief.", the comeback's "Now..."); otherwise, in a bad
@@ -2013,7 +2058,7 @@ export class GameRuntime {
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
   // Returns whether anything was said.
   // (ultimate: a line said of an ultimate he is using: only the first said in each activation is said at all)
-  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false } = {}) {
+  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false, rand = null } = {}) {
     if (!this.voice || !playerId) return false;
     // (his ultimate's one line for this activation, in turn: none other of it; that one, whatever its odds)
     if (ultimate) {
@@ -2021,34 +2066,49 @@ export class GameRuntime {
       if (verdict === 'no') return false;
       if (verdict === 'force') force = true;
     }
-    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part });
+    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand });
     if (said && ultimate) this.ultimateLines.said(playerId);
     return said;
   }
 
-  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part }) {
-    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
+  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand }) {
+    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part, rand });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || (snapshotPlayer?.actorKind === 'dummy' && !this.socket.inspectionAvailable)) return false;
-    const listener = this.localState?.position ?? this.localAuth?.position;
-    // only within earshot: his words carry across a duel, his breath only to those around him (voiceRules hearingFor)
-    const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
+    const isDeathCam = Boolean(this.deathCam && this.localAuth?.alive === false);
+    const listener = isDeathCam
+      ? { x: this.camera.position.x, z: this.camera.position.z }
+      : (this.localState?.position ?? this.localAuth?.position);
+    const listenerYaw = isDeathCam ? this.camera.rotation.y : this.input.yaw;
+    let hearing = hearingFor(line);
+    if (isDeathCam && this.deathCam?.killerId === playerId) {
+      hearing = { ...hearing, far: Math.max(hearing.far, 50), rolloff: 0.4 };
+    }
+    const place = voicePlacement(listener, listenerYaw, body, hearing);
     if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part });
+    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part, rand });
   }
 
   // another knight's line follows him while he says it (a charge begun a dozen metres off arrives with him)
   #placeVoices() {
     const bank = this.voice;
-    const listener = this.localState?.position ?? this.localAuth?.position;
+    const isDeathCam = Boolean(this.deathCam && this.localAuth?.alive === false);
+    const listener = isDeathCam
+      ? { x: this.camera.position.x, z: this.camera.position.z }
+      : (this.localState?.position ?? this.localAuth?.position);
+    const listenerYaw = isDeathCam ? this.camera.rotation.y : this.input.yaw;
     if (!bank?.playing?.size || !listener) return;
     for (const speaker of bank.playing.keys()) {
       if (speaker === this.playerId) continue;
       const line = bank.speakingLine?.(speaker);
       const body = line ? this.#bodyPosition(speaker) : null;
       if (!body) continue;
-      const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
+      let hearing = hearingFor(line);
+      if (isDeathCam && this.deathCam?.killerId === speaker) {
+        hearing = { ...hearing, far: Math.max(hearing.far, 50), rolloff: 0.4 };
+      }
+      const place = voicePlacement(listener, listenerYaw, body, hearing);
       bank.place(speaker, { pan: place?.pan ?? 0, gain: (place?.gain ?? 0) * 0.9 });
     }
   }
@@ -2473,7 +2533,11 @@ export class GameRuntime {
     };
     this.chivalrous.delete(victimId);
     this.watch.death(victimId, at, this.#bodyPosition(victimId));
-    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
+    const eventRng = event?.at != null ? (() => {
+      let s = 0;
+      return () => eventDeterministicRoll(event, 'death:' + (++s));
+    })() : null;
+    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra, rand: eventRng });
     const wasMarked = this.teamVoiceEvents.consumeMarkedPayoff(victimId, at);
     const candidateFallen = wasMarked
       ? this.teamVoiceEvents.biasDefeatCandidates(fallen)
@@ -2665,6 +2729,15 @@ export class GameRuntime {
         if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
         if (say.opens === 'troubleshoot') this.scenes.troubleshootStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'handshake') this.scenes.handshakeStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
+        if (say.opens === 'tranquilizer') {
+          const volley = this.activeVolleyTargets?.get(say.speaker);
+          if (volley && (at - volley.at) <= 4.0) {
+            const target = this.latestSnapshot?.players?.find((p) => p.id === volley.targetId);
+            if (target && target.alive !== false) {
+              this.scenes.tranquilizerStarted(say.speaker, volley.targetId, at);
+            }
+          }
+        }
         break;
       }
     }
