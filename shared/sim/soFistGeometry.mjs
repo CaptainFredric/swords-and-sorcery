@@ -69,7 +69,7 @@ export function soFistWheelSteering(b){
 }
 export const soFistFrame=b=>biByeRootFrame(b);
 export function soFistVolumes(b,now=b?.poseTime??0){
- if(!b||b.retired)return[];const root=soFistFrame(b),pose=soFistPose(b,now),out=[];
+ if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return[];const root=soFistFrame(b),pose=soFistPose(b,now),out=[];
  const add=(id,center,size,material='timber',native=false)=>{if(!native){center=center.map(fit);size=size.map(fit);}return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,center:boxWorld(root,center),axes:root.axes,size});};
  const native=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true);
  // Physical framing is separate from the cylinder and drivetrain. The open
