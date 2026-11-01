@@ -50,13 +50,20 @@ export function highGroundsFoundryView(snapshot,player,now){
  const state=snapshot?.highGrounds;
  if(snapshot?.mode!=='HIGH_GROUNDS'||snapshot.roomState!=='PLAYING'||!state||!player?.alive)return {visible:false};
  const foundry=state.foundries?.find(f=>f.team===player.team);
- if(!foundry||!player.position||Math.hypot(foundry.x-player.position.x,foundry.z-player.position.z)>5
+ if(!foundry||!player.position||Math.hypot(foundry.x-player.position.x,foundry.z-player.position.z)>HIGH_GROUNDS_RULES.foundryInteractRadius
    ||Math.abs(foundry.y-player.position.y)>2||player.operatingBallistaId||player.operatingRamId||player.operatingFightFlightId)return {visible:false};
  const remaining=Math.max(0,Math.ceil(foundry.readyAt-now));
  const machines=[snapshot.bibyeBallista,snapshot.soFistication,snapshot.fightFlight];
  const owned=Boolean(foundry.machineId&&machines.some(m=>m?.id===foundry.machineId&&!m.retired&&m.mode!=='DESTROYED'&&m.health>0));
- return {visible:true,remaining,owned,ready:!remaining&&!owned,
-   status:owned?'TEAM MACHINE ACTIVE':remaining?`RECHARGING · ${remaining}s`:'CHOOSE YOUR SIEGE MACHINE',
+ const machineTypes=['bi-bye-llista','so-fist-ication','fight-and-flight'];
+ const occupied=machines.map(m=>Boolean(m&&!m.retired&&m.mode!=='DESTROYED'&&m.health>0));
+ const available=occupied.some(value=>!value);
+ const ready=!remaining&&!owned&&available;
+ return {visible:true,remaining,owned,ready,
+   status:owned?'TEAM MACHINE DEPLOYED':remaining?`RECHARGING · ${remaining}s`:ready?'CHOOSE YOUR SIEGE MACHINE':'ALL TYPES IN USE',
+   hint:owned?'YOUR MACHINE IS ON THE ROAD PAD · APPROACH TO MOUNT':remaining?`NEXT BUILD IN ${remaining}s`:ready?'SELECT A MACHINE · 7 / 8 / 9':'ALL MACHINE CLASSES ARE DEPLOYED',
+   machine:owned?foundry.machine:null,
+   availableTypes:machineTypes.filter((_,i)=>!occupied[i]),
    disabled:{
     'bi-bye-llista':Boolean(owned||remaining||machines[0]&&!machines[0].retired&&machines[0].mode!=='DESTROYED'&&machines[0].health>0),
     'so-fist-ication':Boolean(owned||remaining||machines[1]&&!machines[1].retired&&machines[1].mode!=='DESTROYED'&&machines[1].health>0),
