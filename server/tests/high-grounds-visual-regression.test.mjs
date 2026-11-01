@@ -53,10 +53,11 @@ test('High Grounds presents all three authoritative siege vehicles, including re
   const flight=await read('client/worlds/FightFlightRenderer.mjs');
   const runtime=await read('client/game/GameRuntime.mjs');
   const main=await read('client/main.mjs');
-  assert.match(map,/this\.biByeLlista = new BiByeLlistaRenderer\(scene\)/);
+  assert.match(map,/if \(snapshot\?\.bibyeBallista && !this\.biByeLlista\)/);
+  assert.match(map,/this\.biByeLlista = new BiByeLlistaRenderer\(this\.scene\)/);
   assert.match(map,/setBiByeState\(snapshot/);
-  assert.match(map,/this\.biByeLlista\.update\(view\.clock, view\.ballista, view\.projectiles\)/);
-  assert.match(map,/this\.biByeLlista\.dispose\(\)/);
+  assert.match(map,/this\.biByeLlista\?\.update\(view\.clock, view\.ballista, view\.projectiles\)/);
+  assert.match(map,/this\.biByeLlista\?\.dispose\(\)/);
   assert.match(flight,/this\.autoLoadMachineId !== m\.id/);
   assert.match(flight,/void this\.load\(\)/);
   assert.match(runtime,/this\.ramRenderer\.update\(ramView\.clock,ramView\.ballista\)/);
