@@ -40,7 +40,7 @@ const BUTTONS = [
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
-  { action: 'practiceTools', label: 'PRACTICE TOOLS' },
+  { action: 'practiceTools', label: 'TOOLS' },
   { action: 'interact', label: 'MOUNT' },
   { action: 'deploy', label: 'DEPLOY' },
   { action: 'siegeView', label: 'VIEW' },
@@ -160,6 +160,7 @@ export class TouchControls {
       ...cooldown,
     }));
     this.buttons.practiceTools.hidden = true;
+    this.buttons.practiceTools.setAttribute('aria-label', 'Practice tools');
     if (this.buttons.interact) this.buttons.interact.hidden = true;
     if (this.buttons.deploy) this.buttons.deploy.hidden = true;
     if (this.buttons.siegeView) this.buttons.siegeView.hidden = true;
