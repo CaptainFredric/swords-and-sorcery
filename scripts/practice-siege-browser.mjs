@@ -71,6 +71,38 @@ try{
  await until(()=>evalInBrowser("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'solo Practice entry');
  await evalInBrowser("document.querySelector('#practice-mode').click()");
  await until(async()=>{const s=await snap();return s?.mode==='PRACTICE'&&s?.room;},'real local Practice session',160);
+ // The same controls must be usable from Pause and restored to their HUD parent
+ // when returning to the arena. No duplicate panel, IDs, or event handlers.
+ await evalInBrowser("window.__ssRuntime.onPause()");
+ const mainMenu=await until(()=>evalInBrowser(`(() => {
+  const menu=document.querySelector('#pause-menu'),button=document.querySelector('#pause-practice');
+  return !menu.classList.contains('hidden')&&!button.hidden&&button.offsetParent!==null;
+ })()`),'Practice choice visible in Arena Pause');
+ assert.equal(mainMenu,true);
+ await evalInBrowser("document.querySelector('#pause-practice').click()");
+ const practicePanel=await evalInBrowser(`(() => {
+  const menu=document.querySelector('#pause-menu'),panel=document.querySelector('#practice-overlay');
+  return {section:!document.querySelector('#pause-practice-section').classList.contains('hidden'),
+   parent:panel.parentElement?.id,visible:getComputedStyle(panel).display!=='none',
+   inert:panel.inert,expanded:!document.querySelector('#practice-panel-content').classList.contains('hidden'),
+   buttonCount:panel.querySelectorAll('button').length};
+ })()`);
+ assert.equal(practicePanel.section,true);
+ assert.equal(practicePanel.parent,'pause-practice-mount');
+ assert.equal(practicePanel.visible,true);
+ assert.equal(practicePanel.inert,false);
+ assert.equal(practicePanel.expanded,true);
+ assert.ok(practicePanel.buttonCount>10,'The complete Practice toolset is accessible');
+ await shot('pause-practice-tools');
+ await evalInBrowser("document.querySelector('#pause-practice-back').click()");
+ assert.equal(await evalInBrowser("document.querySelector('#practice-overlay').inert"),true);
+ await evalInBrowser("document.querySelector('#resume-game').click()");
+ const restored=await evalInBrowser(`(() => ({
+  menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
+  parent:document.querySelector('#practice-overlay').parentElement?.id,
+  visible:!document.querySelector('#practice-overlay').classList.contains('hidden')
+ }))()`);
+ assert.deepEqual(restored,{menuHidden:true,parent:'hud',visible:true});
  const choices=[
   ['bi-bye-llista','Ballistefan','ballista'],
   ['so-fist-ication','Sir Uppercuff','ram'],
