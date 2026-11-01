@@ -81,6 +81,97 @@ button, input { touch-action: manipulation; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
+/* Motion channel: a tiny recessed brass well anchored to the joystick rather
+   than a floating HUD meter. The on-foot Sprint/Crouch buttons are immediately
+   above the stick, so the well sits 43px *inward* to avoid covering either.
+   Pure presentation: it never captures thumbs or changes steering semantics. */
+.touch-motion-guide {
+  --motion-tint: #ecd18a;
+  position: absolute;
+  left: calc(50% + 43px);
+  bottom: calc(100% + 9px);
+  width: 24px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 2;
+}
+.touch-stick.motion-mirrored .touch-motion-guide { left: calc(50% - 43px); }
+.touch-motion-label {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  font: 800 9px/1.2 var(--font-script, system-ui);
+  letter-spacing: .085em;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--motion-tint);
+  text-shadow: 0 1px 3px #15130f, 0 0 5px #15130f;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.touch-motion-well {
+  position: relative;
+  width: 22px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 11px 11px 7px 7px;
+  border: 1px solid rgba(226, 202, 148, .24);
+  background: rgba(13, 16, 16, .08);
+  box-shadow: inset 0 0 0 1px rgba(7, 10, 8, .07);
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.touch-motion-well svg {
+  position: absolute;
+  top: 33px;
+  left: 1px;
+  width: 18px;
+  height: 13px;
+  fill: none;
+  stroke: var(--motion-tint);
+  stroke-width: 2.35;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: .08;
+}
+.touch-motion-guide.active .touch-motion-well {
+  border-color: color-mix(in srgb, var(--motion-tint) 75%, transparent);
+  background: linear-gradient(180deg, rgba(31, 29, 23, .3), rgba(24, 22, 19, .65));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--motion-tint) 22%, transparent),
+              inset 0 0 6px rgba(0, 0, 0, .32);
+}
+.touch-motion-guide.active .touch-motion-label { opacity: 1; }
+.touch-motion-guide.active .touch-motion-well svg {
+  opacity: 1;
+  animation: touch-motion-rise 1.05s linear infinite;
+}
+.touch-motion-guide.active .touch-motion-well svg:nth-child(2) { animation-delay: -.35s; }
+.touch-motion-guide.active .touch-motion-well svg:nth-child(3) { animation-delay: -.7s; }
+.touch-motion-guide[data-motion="charging"] { --motion-tint: #f0ae76; }
+.touch-motion-guide[data-motion="charging"] svg { animation-duration: .8s; }
+.touch-motion-guide[data-motion="charging"] svg:nth-child(2) { animation-delay: -.267s; }
+.touch-motion-guide[data-motion="charging"] svg:nth-child(3) { animation-delay: -.533s; }
+.touch-stick.motion-active { opacity: 1; }
+@keyframes touch-motion-rise {
+  0% { transform: translateY(11px); opacity: 0; }
+  25% { opacity: .95; }
+  72% { opacity: .95; }
+  100% { transform: translateY(-47px); opacity: 0; }
+}
+/* Flight and every unrelated mounted machine use different motion semantics. */
+.touch-mounted:not(.touch-ram) .touch-motion-guide,
+.touch-controls.inspection-flight .touch-motion-guide,
+.touch-controls.touch-flight .touch-motion-guide { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .touch-motion-guide.active .touch-motion-well svg { animation: none; opacity: .9; }
+  .touch-motion-well svg:nth-child(1) { top: 5px; }
+  .touch-motion-well svg:nth-child(2) { top: 18px; }
+  .touch-motion-well svg:nth-child(3) { top: 31px; }
+}
+
+
 /* the touch HUD moves health and stamina to the top, clear of both thumbs; the buttons show their own cooldowns */
 .touch-ui .bottom-hud { top: calc(var(--safe-t) + 9px); bottom: auto; left: calc(var(--safe-l) + 104px); right: auto; display: block; }
 .touch-ui .health-block { width: 150px; }
