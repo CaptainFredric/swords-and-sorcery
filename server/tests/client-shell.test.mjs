@@ -65,6 +65,21 @@ test('Practice controls collapse out of the combat view while pointer lock is ac
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
 });
 
+test('Pause mounts the existing Practice tools in its own section and restores them on exit', async () => {
+  const html = await read('client/index.html');
+  const main = await read('client/main.mjs');
+  const css = await read('client/playability.css');
+  assert.match(html, /id="pause-practice"[^>]*hidden/);
+  assert.match(html, /id="pause-practice-section"/);
+  assert.match(html, /id="pause-practice-mount"/);
+  assert.equal((html.match(/id="practice-overlay"/g) ?? []).length, 1);
+  assert.match(main, /pausePracticeMount\.append\(practiceOverlay\)/);
+  assert.match(main, /practiceHome\.insertBefore\(practiceOverlay, practiceHomeNext\)/);
+  assert.match(main, /practiceVisibleWanted && \(!paused \|\| pauseSection === 'practice'\)/);
+  assert.match(main, /if \(locked && paused\) closePause\(\{ resumeArena: false \}\)/);
+  assert.match(css, /\.pause-menu \.pause-section\.hidden \{ display: none !important; \}/);
+});
+
 test('Practice tool hint describes the current cursor state instead of telling an already-unlocked player to press Esc', async () => {
   const html = await read('client/index.html');
   const css = await read('client/playability.css');

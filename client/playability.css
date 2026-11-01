@@ -66,6 +66,35 @@
 .pause-card { width: min(420px, 90cqw); padding: 28px; background: #202521; color: #ece5d6; border: 1px solid #766c52; }
 .pause-card p { margin: 12px 0 22px; }
 .pause-card button, #start-match, #lobby-leave { margin-bottom: 10px; }
+/* One dialog, two sections: reuse the real Practice DOM and event handlers. */
+.pause-menu .pause-card {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  flex-direction: column;
+  padding: clamp(12px, 3vw, 28px);
+}
+.pause-menu.practice-open .pause-card { width: min(620px, calc(100vw - 24px)); }
+.pause-menu .pause-section { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.pause-menu .pause-section.hidden { display: none !important; }
+.pause-menu .pause-practice-section #practice-overlay:not(.hidden) {
+  display: flex !important;
+  position: static;
+  inset: auto;
+  width: 100%;
+  max-height: none;
+  box-sizing: border-box;
+  overflow: visible;
+  margin-top: 10px;
+}
+.pause-menu .pause-practice-section #practice-overlay .practice-tools-unlocked-hint,
+.pause-menu .pause-practice-section #practice-overlay .practice-tools-locked-hint { display: none; }
+.pause-menu .pause-practice-section #practice-overlay .practice-panel-content { display: grid; }
+.pause-menu #pause-practice-back { margin-bottom: 10px; }
+@media (max-height: 470px) {
+  .pause-menu .pause-card { max-height: calc(100dvh - 12px); }
+  .pause-menu .pause-practice-section #practice-overlay:not(.hidden) { padding: 8px 10px; }
+}
 #solo-name, #private-name { margin: 8px 0 12px; width: 100%; }
 #lobby-code { user-select: text; }
 
