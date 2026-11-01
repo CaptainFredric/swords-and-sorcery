@@ -169,10 +169,8 @@ try{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
   if(y>1.1)return true;
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
-  await evaluate("window.__ssRuntime?.input?.keys?.add?.('Space');");
   return false;
  },'second powered takeoff before aerial ejection',160);
- await evaluate("window.__ssRuntime?.input?.keys?.delete?.('Space');");
  const beforeEject=await evaluate(flightState);
  await tap('T');
  const ejected=await until(async()=>{const s=await evaluate(flightState);return s.player?.operating===null&&s.machine?.operator===null?s:false;},'real airborne eject',75);

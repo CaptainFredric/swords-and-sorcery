@@ -154,12 +154,19 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   }
   // Discrete Hop uses ballistic gravity; only a held Rise can spin up sustained
   // lift. Desktop Space preserves tap-to-hop, hold (>230 ms)-to-rise behavior.
+  if(m.hopStartedAt!=null){
+    if(!legacyJump&&now-m.hopStartedAt<.23){
+      m.rotorPowered=false;m.hopStartedAt=null;
+    }else if(now-m.hopStartedAt>=.23)m.hopStartedAt=null;
+  }
+  const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
+  const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
-    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise)){
+    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||launchRise)){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
       m.velocity.y=Math.max(m.velocity.y,3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
@@ -167,19 +174,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.rotorPowered=true; // release inside the short-hop window cuts the motor
       }else{
         m.hopStartedAt=null;
-        m.rotorPowered=Boolean(input.flightRise&&!explicitHop);
+        m.rotorPowered=Boolean((input.flightRise||launchRise)&&!explicitHop);
       }
     }
   }else{
     m.crouched=false;
     m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
   }
-  if(m.hopStartedAt!=null){
-    if(!legacyJump&&now-m.hopStartedAt<.23){
-      m.rotorPowered=false;m.hopStartedAt=null;
-    }else if(now-m.hopStartedAt>=.23)m.hopStartedAt=null;
-  }
-  const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
@@ -223,7 +224,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
       // Bounded velocity servo, counteracting ascent and descent momentum.
-      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:0;
+      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):0;
       const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
