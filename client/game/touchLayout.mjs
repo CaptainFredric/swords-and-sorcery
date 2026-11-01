@@ -25,16 +25,14 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
 
 export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   stick: { left: 118, bottom: 110, size: 112, type: 'stick' },
-  // Vertical Rise / Lower rocker inward from joystick
-  flightRise: { left: 196, bottom: 124, width: 56, height: 46 },
-  flightLower: { left: 196, bottom: 74, width: 56, height: 46 },
+  // Vertical flight rail is attached to the movement stick; it follows mirrored/custom stick placement.
   // Right-side combat cluster (bottom to top):
   // Bottom row: GUARD (left), SWORD (right)
   guard: { right: 108, bottom: 24, size: 66 },
-  attack: { right: 24, bottom: 24, size: 74 },
-  // Second row: JUMP (left), BOLT (right)
-  jump: { right: 108, bottom: 98, size: 62 },
-  siegeWeapon: { right: 24, bottom: 98, size: 68 },
+  attack: { right: 20, bottom: 24, width: 88, height: 76 },
+  // Second row: BOLT (left) with sustained-fire target, JUMP (right)
+  siegeWeapon: { right: 108, bottom: 105, width: 86, height: 62 },
+  jump: { right: 26, bottom: 105, size: 62 },
   // Third row: FIRE AWAY (left), DASH (right)
   siegeSkill: { right: 108, bottom: 172, size: 58 },
   dash: { right: 24, bottom: 172, size: 58 },
