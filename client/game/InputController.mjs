@@ -600,6 +600,10 @@ export class InputController {
       forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
       right: moveAllowed ? (moving('right') ? 1 : 0) - (moving('left') ? 1 : 0) + (touch?.right ?? 0) : 0,
       jump: (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
+      // Flight rail uses distinct held inputs: never recast Rise as Jump or Lower as Crouch.
+      // Only forward live, mounted, authorized touch input to the authoritative host.
+      flightRise: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightRise),
+      flightLower: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightLower),
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
