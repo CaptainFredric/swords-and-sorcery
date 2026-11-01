@@ -21,6 +21,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
   scores: { left: 54, top: 8, size: 38 },
+  practiceTools: { left: 10, top: 56, size: 44 },
 });
 
 export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
@@ -43,6 +44,7 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   interact: { right: 68, top: 12, size: 44 },
   pause: { left: 10, top: 8, size: 38 },
   scores: { left: 54, top: 8, size: 38 },
+  practiceTools: { left: 10, top: 56, size: 44 },
 });
 
 export function mirrorLayoutHorizontal(layout) {
