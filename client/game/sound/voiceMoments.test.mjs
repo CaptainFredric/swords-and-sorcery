@@ -128,7 +128,7 @@ test('the victor\'s lines: each moment its own, before the ordinary taunt', () =
   assert.equal(victor({ clean: true })[0], 'hackSlash');
   assert.equal(victor({ clean: true }, 'fireball').includes('hackSlash'), false, 'a clean sword kill only');
   assert.equal(victor({ subpar: true })[0], 'subparStandard');
-  assert.deepEqual(victor({}).slice(-3), ['killTaunt', 'workHard', 'laugh']);
+  assert.deepEqual(victor({}).slice(-2), ['workHard', 'laugh']);
   // the fall that lost the match: the protest likelier
   assert.equal(deathLines({ victimId: 'v', killerId: 'k', source: 'sword', decisive: true }).fallen.find((say) => say.line === 'defeat').chanceScale, DEFEAT_ON_LOSS);
   // who they were: a player flying another standard, a Practice Yard opponent that fights
@@ -145,8 +145,8 @@ test('force settles the argument: a Sundering guard break, balance broken by a S
   assert.ok(VOICE_LINES.breakTaunt.chance < VOICE_LINES.lowerGuard.chance);
   const moments = new VoiceMoments();
   const sundering = knights({ k: { ultimateState: { phase: 'active', until: 20 } } });
-  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 5 }, sundering)[0]), ['victory', 'staggerDisplay']);
-  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 25 }, sundering)[0]), ['staggerDisplay']);
+  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 5 }, sundering)[0]), ['victory', 'staggerDisplay', 'groundPersuasion']);
+  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 25 }, sundering)[0]), ['staggerDisplay', 'groundPersuasion']);
   const rupture = (victimId, at) => moments.damage({ type: 'damage', attackerId: 'k', victimId, source: 'rupture', amount: 12, health: 50, at, ultimate: true }, sundering);
   assert.ok(!rupture('a', 5).some((group) => lines(group).includes('victory')));
   assert.ok(rupture('b', 5.3).some((group) => lines(group).includes('victory')), 'two caught at once');

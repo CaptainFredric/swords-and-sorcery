@@ -145,7 +145,7 @@ test('4. the Spellblade: only once that same Chivalry has shown a spell and a sw
 
 test('5. stop moving: a Frostfire\'s chill taking hold on a foe (the host\'s word), never the cast itself', () => {
   assert.ok(!said(['spellCast', 'projectileGather']).includes('stopMoving'), 'not as it is cast');
-  assert.deepEqual(said(['frostChill']), ['stopMoving']);
+  assert.deepEqual(said(['frostChill']), ['stopMoving', 'heroSubZero']);
   // raised from the host's `chilled`, by its thrower, only for a chill worth remarking on
   assert.match(runtime, /event\.type === 'chilled' && event\.by && event\.by !== event\.playerId && event\.slow >= MOMENTS\.chill\.slow\) this\.#sayMoment\(event\.by, \['frostChill'\]\)/);
   // scorch mark: a Fireball thrown (left the hand), before it lands

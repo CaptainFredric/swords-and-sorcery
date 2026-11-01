@@ -131,6 +131,8 @@ export class VoiceMoments {
     this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
     this.consecutiveFoe = new Map(); // killerId -> { victimId, count }
     this.hurtInMatch = new Set();
+    this.lastTargets = new Map(); // speaker -> last targeted/attacked opponent id
+    this.damageStrikes = new Map(); // `${attacker}>${victim}` -> number of strikes against standing victim
   }
 
   /**
@@ -141,7 +143,10 @@ export class VoiceMoments {
     if (!(event.amount > 0)) return [];
     const groups = [];
     const other = Boolean(attackerId) && attackerId !== victimId;
-    if (other) this.threats.set(victimId, { by: attackerId, at });
+    if (other) {
+      this.threats.set(victimId, { by: attackerId, at });
+      this.lastTargets.set(attackerId, victimId);
+    }
     const firstHurt = other && !this.hurtInMatch.has(victimId);
     if (other) this.hurtInMatch.add(victimId);
     const winStreakFirstHurt = firstHurt && !practice && (winStreak(victimId) >= 2);
@@ -184,9 +189,13 @@ export class VoiceMoments {
     const point = other && engaged && !this.matchPoints.has(attackerId) && matchPoint(attackerId);
     if (point) this.matchPoints.add(attackerId);
     if (other && standing) {
+      const strikeKey = `${attackerId}>${victimId}`;
+      const strikes = (this.damageStrikes.get(strikeKey) ?? 0) + 1;
+      this.damageStrikes.set(strikeKey, strikes);
       groups.push(this.#lines(attackerId, [
         // a foe he has all but finished (the squire's question); the cleanest blow, through the foe's own swing
         event.health <= MOMENTS.squire.health && 'squireOpening',
+        event.health <= MOMENTS.nearDemise && 'preKillThreat',
         source === 'sword' && event.clean && knight(victimId)?.attackActive && 'counterHit',
         fresh && 'worthyFoe',
         // (by the sword: the count of strikes on that same foe may begin)
@@ -195,6 +204,7 @@ export class VoiceMoments {
         // (the first blow of any fresh encounter is him committing to it; his own spell landing is magic helping him)
         engaged && 'engage',
         (source === 'fireball' || source === 'frostfire') && 'magicHelped',
+        strikes >= 3 && 'renderDisabledSetup',
         wild(source) && 'blowDealt',
       ]));
     }
@@ -215,7 +225,7 @@ export class VoiceMoments {
       const possessed = other && event.health <= MOMENTS.losingFace.health && (this.fallsInARow.get(victimId) ?? 0) >= MOMENTS.possessed.falls
         && !this.#excused(victimId, saidAgo);
       const heavy = other && event.amount >= MOMENTS.hurtSounds.heavy;
-      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', heavy && 'heavyHurt', 'blowTaken']));
+      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', ((event.prowess ?? 100) <= 0 || event.health <= 20) && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken']));
     }
     return groups.filter((group) => group.length);
   }
@@ -274,6 +284,8 @@ export class VoiceMoments {
       sameFoeAgain: Boolean(killerId && this.consecutiveFoe.get(killerId)?.victimId === victimId),
       // the blow that wins him the match
       decisive: Boolean(event.decisive),
+      flightElevated: Boolean(extra.flightElevated),
+      quickMultikill: Boolean(extra.quickMultikill),
     } : {};
     if (killerId) {
       const prevFoe = this.consecutiveFoe.get(killerId);
@@ -298,6 +310,7 @@ export class VoiceMoments {
     const fall = deathMoment({
       victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed,
       chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), committed, pose: extra.pose ?? null, doomCut: Boolean(extra.doomCut), moment,
+      victimWasSpeaking: Boolean(extra.victimWasSpeaking),
       // (a nap: his return to come (never the fall that ends the match), and never the yard)
       nap: Boolean(extra.nap) && !practice && !event.decisive && Number.isFinite(event.respawnAt) && event.respawnAt > at,
     });
@@ -378,7 +391,7 @@ export class VoiceMoments {
    * `swordMiss` with a foe close by: `near` gives who). The same foe denying him again and again is a moment of its
    * own (once it has come, the count begins again).
    */
-  denied(attackerId, defenderId, at) {
+  denied(attackerId, defenderId, at, { targetKind = null } = {}) {
     if (!attackerId || !defenderId || attackerId === defenderId) return [];
     const key = `${attackerId}>${defenderId}`;
     const times = [...(this.denials.get(key) ?? []).filter((t) => at - t <= MOMENTS.denied.withinSec), at];
@@ -387,12 +400,26 @@ export class VoiceMoments {
       return [];
     }
     this.denials.delete(key);
-    return [this.#lines(attackerId, ['deniedOpening'])];
+    return [this.#lines(attackerId, [targetKind === 'sorcery' ? 'spellMiss' : 'deniedOpening'])];
+  }
+
+  /** Repeated interruptions of speech: threatens drastic action. */
+  interrupted(speaker) {
+    return [this.#lines(speaker, ['interruptedRepeated'])];
   }
 
   /** The foe a fresh encounter was opened with by `speaker` (the final duel is declared to them; the strikes counted). */
   duelFoe(speaker) {
     return this.duelFoes.get(speaker) ?? null;
+  }
+
+  /** The opponent lately targeted/attacked by `speaker`. */
+  lastTarget(speaker) {
+    return this.lastTargets.get(speaker) ?? this.duelFoes.get(speaker) ?? null;
+  }
+
+  setLastTarget(speaker, targetId) {
+    if (speaker && targetId) this.lastTargets.set(speaker, targetId);
   }
 
   // whether `killerId` felling `victimId` avenges a blow of theirs that had just left him nearly dead (him standing)
@@ -481,6 +508,8 @@ export class VoiceMoments {
     this.misses.clear();
     this.consecutiveFoe.clear();
     this.hurtInMatch.clear();
+    this.lastTargets.clear();
+    this.damageStrikes.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -516,6 +545,8 @@ export class VoiceMoments {
     // (a new life is a new encounter with everyone)
     for (const pair of [...this.met]) if (pair.split('|').includes(id)) this.met.delete(pair);
     this.duelFoes.delete(id);
+    this.lastTargets.delete(id);
+    for (const key of [...this.damageStrikes.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.damageStrikes.delete(key);
     for (const key of [...this.denials.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.denials.delete(key);
     for (const key of [...this.misses.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.misses.delete(key);
     for (const [victim, threat] of [...this.threats]) if (threat.by === id) this.threats.delete(victim);

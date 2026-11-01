@@ -57,6 +57,10 @@ export class TeamVoiceEvents {
       return false;
     }
 
+    if (event.type === 'lowContribution' && event.allyId) {
+      return Boolean(this.sayMoment(event.allyId, ['lowContribution']));
+    }
+
     return false;
   }
 

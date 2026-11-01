@@ -175,7 +175,7 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, committed = false, pose = null, doomCut = false, nap = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, committed = false, pose = null, doomCut = false, nap = false, victimWasSpeaking = false, moment = {} }) {
   return {
     // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
     // (chivalry: felled during Spells & Chivalry; fair: by the sword, after a real exchange of blows with the victor)
@@ -193,7 +193,7 @@ export function deathMoment({ victimId, killerId, source, overkill = false, mino
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
-    victorFacts: moment.knighthood >= 2 ? ['highSwing'] : [],
+    victorFacts: [moment.knighthood >= 2 && 'highSwing', victimWasSpeaking && 'victimSpoke'].filter(Boolean),
   };
 }
 
@@ -223,6 +223,8 @@ export function victorTags({ source, moment = {} }) {
     ...(moment.passing ? { passingKill: 1 } : {}),
     ...(moment.thirdParty ? { thirdPartyKill: 1 } : {}),
     ...(moment.fair && !moment.decisive ? { fairDuelKill: 1 } : {}),
+    ...(moment.flightElevated ? { flightElevatedKill: 1 } : {}),
+    ...(moment.quickMultikill ? { quickMultikill: 1 } : {}),
   };
 }
 
@@ -342,6 +344,25 @@ export class VoiceDirector {
     // never heard: voiceReport)
     this.stats = new Map();
     this.choruses = new Map();
+    this.suppressions = []; // [{ x, z, radius: 18, until, killerId }]
+  }
+
+  cancelSuppression(speaker = null) {
+    if (speaker === null) this.suppressions = [];
+    else this.suppressions = this.suppressions.filter((s) => s.killerId !== speaker);
+  }
+
+  reset() {
+    this.readyAt.clear();
+    this.thisLife.clear();
+    this.lastLine.clear();
+    this.lastSpoke.clear();
+    this.lastSentence.clear();
+    this.speaking.clear();
+    this.sentence = null;
+    this.stats.clear();
+    this.choruses.clear();
+    this.suppressions = [];
   }
 
   beginChorus(id, speakers, now) {
@@ -360,7 +381,12 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null } = {}) {
+    this.suppressions = this.suppressions.filter((s) => now < s.until);
+    if (line !== 'notRightNow' && source) {
+      const sx = source.x ?? 0, sz = source.z ?? 0;
+      if (this.suppressions.some((s) => Math.hypot(sx - s.x, sz - s.z) <= s.radius)) return null;
+    }
     const coordinated = line === 'defeat' && this.choruses.get(chorus)?.speakers.has(speaker) && now < this.choruses.get(chorus).until;
     if (coordinated) force = true;
     const base = VOICE_LINES[line];
@@ -400,13 +426,34 @@ export class VoiceDirector {
       stop.push(other.speaker);
       this.speaking.delete(other.speaker);
     }
+    if (line === 'notRightNow') {
+      const sx = source?.x ?? 0, sz = source?.z ?? 0;
+      this.suppressions.push({ x: sx, z: sz, radius: 18, until: now + Math.max(0, duration) + 2.0, killerId: speaker });
+      for (const [otherSpeaker, otherEntry] of this.speaking.entries()) {
+        if (otherSpeaker !== speaker) {
+          const ox = otherEntry.source?.x ?? sx, oz = otherEntry.source?.z ?? sz;
+          if (Math.hypot(ox - sx, oz - sz) <= 18) {
+            if (!stop.includes(otherSpeaker)) stop.push(otherSpeaker);
+            this.speaking.delete(otherSpeaker);
+          }
+        }
+      }
+      if (this.sentence && this.sentence.speaker !== speaker) {
+        const ox = this.sentence.source?.x ?? sx, oz = this.sentence.source?.z ?? sz;
+        if (Math.hypot(ox - sx, oz - sz) <= 18) {
+          if (!stop.includes(this.sentence.speaker)) stop.push(this.sentence.speaker);
+          this.speaking.delete(this.sentence.speaker);
+          this.sentence = null;
+        }
+      }
+    }
     stat.said += 1;
     this.lastLine.set(key, now);
     const [least, most] = Array.isArray(rule.cooldown) ? rule.cooldown : [rule.cooldown, rule.cooldown];
     this.readyAt.set(key, now + (most > least ? least + (most - least) * this.rand() : least));
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
-    const entry = { speaker, line, priority, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };
+    const entry = { speaker, line, priority, source, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };
     this.speaking.set(speaker, entry);
     if (sentence) {
       this.lastSentence.set(speaker, now);
@@ -425,6 +472,7 @@ export class VoiceDirector {
   newLife(speaker = null) {
     if (speaker === null) this.thisLife.clear();
     for (const key of [...this.thisLife.keys()]) if (key.startsWith(`${speaker}:`)) this.thisLife.delete(key);
+    this.cancelSuppression(speaker);
   }
 
   /** The line `speaker` is saying at `now` (its id), or null. */

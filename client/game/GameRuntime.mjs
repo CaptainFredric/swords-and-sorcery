@@ -1372,10 +1372,21 @@ export class GameRuntime {
     for (const event of events) {
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
-      if(event.type==='fightFlightBoltReleased'&&event.operatorId===this.playerId)this.hud.recoilCrosshair?.();
+      if(event.type==='fightFlightBoltReleased'){
+        if(event.operatorId===this.playerId)this.hud.recoilCrosshair?.();
+        const op = event.operatorId ?? this.latestSnapshot?.fightFlight?.operatorId;
+        if (op) {
+          this.flightBolts ??= new Map();
+          const recent = [...(this.flightBolts.get(op) ?? []).filter(t => (event.at ?? this.socket.serverNow()) - t <= 2.0), event.at ?? this.socket.serverNow()];
+          this.flightBolts.set(op, recent);
+          if (recent.length >= 3) this.#sayMoment(op, ['flightBoltBurst']);
+        }
+      }
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
         else this.effects.splinters?.(event.point);
+        const op = this.latestSnapshot?.bibyeBallista?.operatorId;
+        if (op) this.#sayMoment(op, ['apparatusHit']);
       }
       if(event.type==='structureDamaged'){
         if(event.point)this.effects.splinters?.(event.point);
@@ -1392,15 +1403,51 @@ export class GameRuntime {
           if(event.result==='parry')this.hud.flashText('ROTOR PARRIED','parry');
           else if(event.result==='guard')this.hud.flashText('ROTOR DEFLECTED','',650);
         }
+        const op = this.latestSnapshot?.fightFlight?.operatorId;
+        if (op && event.result !== 'guard' && event.result !== 'parry') this.#sayMoment(op, ['flightRotorHit']);
       }
       if(event.type==='fightFlightComponentHit'&&event.point){
         if(event.component==='braceL'||event.component==='braceR'||event.component==='main')this.effects.splinters?.(event.point);
         else this.effects.wallClang?.(event.point);
         if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
+        const op = this.latestSnapshot?.fightFlight?.operatorId;
+        if (op) this.#sayMoment(op, ['apparatusHit']);
+      }
+      if(event.type==='fightFlightRotorDestroyed'){
+        if(this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
+        const op = this.latestSnapshot?.fightFlight?.operatorId;
+        const opPlayer = this.latestSnapshot?.players?.find(p => p.id === op);
+        if (op && opPlayer?.alive) {
+          if ((this.latestSnapshot?.fightFlight?.y ?? 0) >= 5.0) this.#sayMoment(op, ['machineDisabledElevated']);
+          else this.#sayMoment(op, ['rotorDestroyedSurvive']);
+        }
+      }
+      if(event.type==='soFistDamaged'){
+        const op = this.latestSnapshot?.soFistication?.operatorId;
+        if (op) this.#sayMoment(op, ['apparatusHit']);
+      }
+      if(event.type==='soFistStrike'){
+        const op = this.latestSnapshot?.soFistication?.operatorId;
+        if (op) {
+          const opPlayer = this.latestSnapshot?.players?.find(p => p.id === op);
+          if (opPlayer) {
+            const foes = (this.latestSnapshot?.players ?? []).filter(p => p.alive && p.id !== op && (!opPlayer.team || p.team !== opPlayer.team));
+            const target = foes.find(p => Math.hypot(p.position.x - opPlayer.position.x, p.position.z - opPlayer.position.z) <= 12);
+            if (target) {
+              this.moments.setLastTarget(op, target.id);
+              this.#sayMoment(op, ['pistonWindup']);
+            }
+          }
+        }
+      }
+      if(event.type==='soFistImpact'&&event.piston&&!event.guarded){
+        const op = this.latestSnapshot?.soFistication?.operatorId;
+        if (op && event.victimId) {
+          this.scenes.handshakeCompleted(op, event.victimId, event.at ?? this.socket.serverNow());
+        }
       }
       if(event.type==='fightFlightDismounted'&&!event.forced&&this.latestSnapshot?.fightFlight?.id===event.machineId
         &&!this.latestSnapshot.fightFlight.grounded){this.flightRenderer.noteEjection(event.at);}
-      if(event.type==='fightFlightRotorDestroyed'&&this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
       if(event.type==='fightFlightTerminalPrep'&&event.operatorId===this.playerId){
         if(event.action==='started')this.hud.flashText('HOLD DASH + ULTIMATE · VALKYRIE','',1100);
         else if(event.action==='cancelled')this.hud.flashText('VALKYRIE DIVE CANCELLED','',700);
@@ -1580,6 +1627,7 @@ export class GameRuntime {
         this.#staggerBreak(event);
         this.watch.staggerBreak(event);
         this.#sayMoments(this.moments.staggerBreak(event, this.#voiceWorld()), event.at);
+        this.scenes.staggerBroken(event);
       }
       // another knight's dash: its breath, or the wildcard, now and then (mine is said as I press it)
       if (event.type === 'dash' && event.playerId !== me) this.#sayMoment(event.playerId, event.toward ? ['steelCharge', 'dash'] : ['dash']);
@@ -1723,7 +1771,7 @@ export class GameRuntime {
         const outlasts = saying && voiceLine(saying)?.outlasts === event.source;
         if (!outlasts) this.voice?.cut?.(event.victimId, 0.12);
         const important = outlasts || saying === 'spellDoom';
-        (this.deathVoiceFacts??=new Map()).set(event.victimId,{at:event.at,doomCut:saying==='spellDoom',handled:important});
+        (this.deathVoiceFacts??=new Map()).set(event.victimId,{at:event.at,doomCut:saying==='spellDoom',handled:important,victimWasSpeaking:Boolean(saying)});
         if (!event.voicePending || important) this.#deathVoice(event, { doomCut: saying === 'spellDoom' });
       }
       if (event.type === 'defeatVoice') this.#readyDefeatVoice(event);
@@ -2304,6 +2352,7 @@ export class GameRuntime {
   #deathVoice(event, { doomCut = false } = {}) {
     const blow = this.killingBlow?.get(event.victimId) ?? null;
     this.killingBlow?.delete(event.victimId);
+    const victimWasSpeaking = Boolean(this.deathVoiceFacts?.get(event.victimId)?.victimWasSpeaking);
     // (his longer scenes first: a plan the fallen had announced, a verdict or a sentence the victor has words for)
     const scene = this.scenes.death(event);
     // what was watched of it: the fallen had rushed the victor, led the match, fought them fairly, fell in Chivalry
@@ -2312,6 +2361,16 @@ export class GameRuntime {
     const players = this.latestSnapshot?.players ?? [];
     const kills = (id) => players.find((p) => p.id === id)?.kills ?? 0;
     const victimKills = kills(victimId);
+    let quickMultikill = false;
+    if (killerId) {
+      this.recentKills ??= new Map();
+      const recent = [...(this.recentKills.get(killerId) ?? []).filter(t => at - t <= 4.0), at];
+      this.recentKills.set(killerId, recent);
+      if (recent.length >= 2) quickMultikill = true;
+    }
+    const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
+    const victimPlayer = players.find((p) => p.id === victimId);
+    const flightElevated = Boolean(killerId && (killerPlayer?.flying || killerPlayer?.mountedKind === 'fightFlight' || ((killerPlayer?.position?.y ?? 0) - (victimPlayer?.position?.y ?? 0) >= 3.0)));
     const extra = {
       rushed: Boolean(killerId) && this.watch.rushed(victimId, killerId, at),
       fair: Boolean(killerId) && this.watch.fair(victimId, killerId, at, event.source),
@@ -2329,6 +2388,9 @@ export class GameRuntime {
       fleeing: Boolean(killerId) && this.watch.fleeing(victimId, this.#bodyPosition(killerId), at),
       // his return to come, and no comeback under way: a nap may be announced
       nap: !scene.comeback,
+      flightElevated,
+      quickMultikill,
+      victimWasSpeaking,
     };
     this.chivalrous.delete(victimId);
     this.watch.death(victimId, at, this.#bodyPosition(victimId));
@@ -2348,7 +2410,6 @@ export class GameRuntime {
     const myId = this.playerId;
     const myPlayer = players.find((p) => p.id === myId);
     const myTeam = this.localAuth?.team ?? myPlayer?.team;
-    const victimPlayer = players.find((p) => p.id === victimId);
     const nowSec = this.presentationNow() / 1000;
     const canTeamVoice = (nowSec - Math.max(this.lastTeamVoiceAt ?? -Infinity, this.teamVoiceEvents.lastTeamVoicePresentationAt ?? -Infinity)) >= 3.5;
 
@@ -2523,6 +2584,8 @@ export class GameRuntime {
         if (say.opens === 'threeStrikes') this.scenes.strikesDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
         // (the comeback declared: his next falls without a kill are corrected, and a kill is what he always knew)
         if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
+        if (say.opens === 'troubleshoot') this.scenes.troubleshootStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
+        if (say.opens === 'handshake') this.scenes.handshakeStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         break;
       }
     }
@@ -3278,6 +3341,24 @@ export class GameRuntime {
     }
     const flightPose=this.latestSnapshot?.fightFlight;
     if(flightPose?.operatorId){
+      this.lastFlightGrounded ??= new Map();
+      const prevGrounded = this.lastFlightGrounded.get(flightPose.operatorId);
+      const nowGrounded = Boolean(flightPose.grounded);
+      this.lastFlightGrounded.set(flightPose.operatorId, nowGrounded);
+      if (prevGrounded === true && !nowGrounded) {
+        this.#sayMoment(flightPose.operatorId, ['flightTakeoff']);
+      } else if (!nowGrounded) {
+        const floor = this.activeWorld ? surfaceHeightAt(flightPose.x, flightPose.z, flightPose.y, this.activeWorld) : 0;
+        if ((flightPose.y - (floor ?? 0)) >= 5.0) {
+          this.#sayMoment(flightPose.operatorId, ['flightHoverHigh']);
+        }
+        if (flightPose.rotorPowered) {
+          this.#sayMoment(flightPose.operatorId, ['flightRotorSustained']);
+        }
+        if ((flightPose.rotorRpm ?? 0) >= 120) {
+          this.#sayMoment(flightPose.operatorId, ['flightRotorNear']);
+        }
+      }
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
       if(driver?.root?.visible){
         driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);
