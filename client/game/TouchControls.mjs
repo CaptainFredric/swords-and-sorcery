@@ -376,11 +376,6 @@ export class TouchControls {
       element.style.setProperty('--cooldown', String(Math.min(1, remaining / seconds)));
       timer.textContent = ready ? '' : remaining.toFixed(remaining < 1 ? 1 : 0);
     }
-    // Show confirmed locomotion, not a speculative input or a button latch.
-    // A drained/blocked ram may be pressing Charge but is not charging.
-    this.#setMotionIndicator(touchMotionIndicator(local, snapshot, {
-      active: this.active, inspectionFlight: this.inspectionFlight,
-    }));
     this.buttons.sprint.classList.toggle('sprinting', Boolean(local.sprinting));
     this.buttons.crouch?.classList.toggle('crouched', Boolean(local.crouched));
     // its word says what it is doing: CROUCH to go down, DOWN while it holds the knight low
@@ -414,6 +409,11 @@ export class TouchControls {
       this.buttons.crouch.querySelector('span').textContent='CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
+      // After mount transitions (which reset held controls), paint the real
+      // server-confirmed movement state without a one-frame false idle flash.
+      this.#setMotionIndicator(touchMotionIndicator(local, snapshot, {
+        active: this.active, inspectionFlight: this.inspectionFlight,
+      }));
 
       if (flight) {
         const atkLabel = this.buttons.attack?.querySelector('span');
