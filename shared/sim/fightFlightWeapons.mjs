@@ -129,13 +129,14 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
         }else applyDamage(room,q.ownerId,p.id,damage,'fight-flight-repeater',now,null,
           {minDamage:FLIGHT_REPEATER.farDamage});
         room.events.push({type:'fightFlightBoltImpact',machineId:q.machineId,projectileId:q.id,
+          attackerId:q.ownerId,
           victimId:p.id,point,hitKind:parried?'parry':defended?'guard':'player',
           damage:defended?0:Math.max(0,healthBefore-p.health),at:now});
       }else{
         if(first.kind==='wall')damageStructureSolid(room,first.solid,damage,q.ownerId,'fight-flight-repeater',now,{point});
         if(first.kind==='ballista')damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box.componentId,point});
         if(first.kind==='ram')damageSoFistication(room,room.soFistication,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box.componentId,point});
-        room.events.push({type:'fightFlightBoltImpact',machineId:q.machineId,projectileId:q.id,point,hitKind:first.kind,damage,at:now});
+        room.events.push({type:'fightFlightBoltImpact',machineId:q.machineId,projectileId:q.id,attackerId:q.ownerId,point,hitKind:first.kind,damage,at:now});
       }
       map.delete(q.id);
     }else{q.position=b;q.dist+=delta;}

@@ -149,6 +149,12 @@
   "effort": [
     "effort-1.mp3"
   ],
+  "enjoyRestV1": [
+    "enjoy-rest-v1-1.mp3"
+  ],
+  "enjoyRestV2": [
+    "enjoy-rest-v2-1.mp3"
+  ],
   "excuseYou": [
     "excuse-you-1.mp3"
   ],
@@ -562,6 +568,12 @@
   ],
   "toldToWait": [
     "told-to-wait-1.mp3"
+  ],
+  "tranquilizerArrow": [
+    "tranquilizer-arrow-1.mp3"
+  ],
+  "tranquilizerAsleep": [
+    "tranquilizer-asleep-1.mp3"
   ],
   "trapdoor": [
     "trapdoor-1.mp3"

@@ -382,7 +382,7 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null, rand = null } = {}) {
     this.suppressions = this.suppressions.filter((s) => now < s.until);
     if (line !== 'notRightNow' && source) {
       const sx = source.x ?? 0, sz = source.z ?? 0;
@@ -437,7 +437,7 @@ export class VoiceDirector {
     }
     if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
-    if (!force && this.rand() >= rule.chance * chanceScale) return null;
+    if (!force && (rand ? rand() : this.rand()) >= rule.chance * chanceScale) return null;
     const stop = [];
     if (ownBusy) stop.push(speaker);
     if (other && !(coordinated && other.chorus === chorus) && !notRightNow) {
@@ -468,7 +468,7 @@ export class VoiceDirector {
     stat.said += 1;
     this.lastLine.set(key, now);
     const [least, most] = Array.isArray(rule.cooldown) ? rule.cooldown : [rule.cooldown, rule.cooldown];
-    const readyAtTime = now + (most > least ? least + (most - least) * this.rand() : least);
+    const readyAtTime = now + (most > least ? least + (most - least) * (rand ? rand() : this.rand()) : least);
     this.readyAt.set(key, readyAtTime);
     if (familyKey) this.readyAt.set(familyKey, readyAtTime);
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
