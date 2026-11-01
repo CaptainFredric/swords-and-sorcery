@@ -5,6 +5,7 @@ import { WORLD_IDS, getWorld } from '../../shared/worlds/registry.mjs';
 import { surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { stepHighGrounds, availableHighGroundsSpawns } from '../../shared/sim/highGroundsMode.mjs';
 import { HIGH_GROUNDS_MACHINES } from '../../shared/sim/highGroundsFoundry.mjs';
+import { soFistEntry } from '../../shared/sim/soFistication.mjs';
 import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { TEAMS } from '../../shared/src/teams.mjs';
 
@@ -133,6 +134,25 @@ test('both team foundries actually construct every supported machine with author
     assert.ok(room.events.some(e => e.type === event && e.machineId === built.id));
     assert.ok(room.events.some(e => e.type === 'highGroundsProduced' && e.machineId === built.id));
   }
+});
+test('a produced siege machine is physically mountable on the High Grounds road pad',()=>{
+ for(const [machine,field,operatorField] of [
+  ['bi-bye-llista','biByeLlista','operatingBallistaId'],
+  ['so-fist-ication','soFistication','operatingRamId'],
+  ['fight-and-flight','fightFlight','operatingFightFlightId'],
+ ]) {
+  const {room,a}=setup(), f=room.highGrounds.foundries.find(f=>f.team===a.team);
+  a.position={x:f.x,y:f.y,z:f.z};
+  const result=applyRoomCommand(room,a,{type:'highGroundsBuild',machine},1);
+  assert.equal(result.rejected,undefined,machine+' spawn failed: '+result.rejected);
+  const built=room[field];
+  a.position=machine==='so-fist-ication'?soFistEntry(built,room.world):
+    {x:built.x,y:built.y,z:built.z};
+  const entered=applyRoomCommand(room,a,{type:'siegeOperate'},2);
+  assert.equal(entered.rejected,undefined,machine+' mount failed: '+entered.rejected);
+  assert.equal(built.operatorId,a.id,machine+' must actually accept an operator');
+  assert.equal(a[operatorField],built.id);
+ }
 });
 test('territory match resolves by score on time, without Breakthrough overtime', () => {
   const {room}=setup();
