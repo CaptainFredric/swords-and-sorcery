@@ -30,6 +30,31 @@ test('foundry only actionable for nearby living unmounted team member after cool
  s.highGrounds.foundries[0].readyAt=75;v=highGroundsFoundryView(s,p,30);
  assert.equal(v.remaining,45);assert.equal(v.disabled['fight-and-flight'],true);
 });
+test('all starting camp spawns can choose a machine without an invisible 5m console hunt',()=>{
+ const s=snap(), foundry=s.highGrounds.foundries[0];
+ for (const x of [-7,0,7]) for (const z of [-105,-99]) {
+   // Match the real camp-relative offset from the home forge.
+   const player={alive:true,team:'ATTACKERS',position:{x:foundry.x-16+x,y:0,z:z+101}};
+   const view=highGroundsFoundryView(s,player,40);
+   assert.equal(view.visible,true,'spawn '+x+','+z);
+   assert.equal(view.ready,true);
+ }
+ const edge={alive:true,team:'ATTACKERS',position:{x:foundry.x+26,y:0,z:foundry.z}};
+ assert.equal(highGroundsFoundryView(s,edge,40).visible,false,'beyond home camp stays gated');
+});
+test('foundry gives clear feedback for deployed machines and globally occupied classes',()=>{
+ const s=snap(),p={alive:true,team:'ATTACKERS',position:{x:-40,y:0,z:0}};
+ s.bibyeBallista={id:'ballista',health:400,mode:'MOBILE',retired:false};
+ let view=highGroundsFoundryView(s,p,40);
+ assert.equal(view.disabled['bi-bye-llista'],true);
+ assert.equal(view.disabled['fight-and-flight'],false);
+ s.highGrounds.foundries[0].machineId='ballista';
+ s.highGrounds.foundries[0].machine='bi-bye-llista';
+ view=highGroundsFoundryView(s,p,40);
+ assert.equal(view.owned,true);
+ assert.match(view.status,/DEPLOYED/);
+ assert.match(view.hint,/ROAD PAD/);
+});
 test('foundry shortcuts are noncombat numeric keys away from prepared slots 1–3',()=>{
  assert.deepEqual(Object.keys(HIGH_GROUNDS_MACHINE_KEYS),['Digit7','Digit8','Digit9']);
  assert.equal(HIGH_GROUNDS_MACHINE_KEYS.Digit9,'fight-and-flight');
