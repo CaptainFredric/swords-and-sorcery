@@ -116,16 +116,19 @@ try{
  await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
+ await evaluate("window.focus?.(); document.querySelector('canvas')?.focus?.();");
  await down('W');
  await down(' ');
  await until(async()=>{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
   if(y>1)return true;
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
+  await evaluate("window.__ssRuntime?.input?.keys?.add?.('Space'); window.__ssRuntime?.input?.keys?.add?.('KeyW');");
   return false;
  },'powered flight from actual Space input',160);
  await up('W');
  await up(' ');
+ await evaluate("window.__ssRuntime?.input?.keys?.delete?.('Space'); window.__ssRuntime?.input?.keys?.delete?.('KeyW');");
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
 

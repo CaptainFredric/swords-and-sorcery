@@ -159,7 +159,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
-    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise)){
+    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||legacyJump)){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
       m.velocity.y=Math.max(m.velocity.y,3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
@@ -167,7 +167,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.rotorPowered=true; // release inside the short-hop window cuts the motor
       }else{
         m.hopStartedAt=null;
-        m.rotorPowered=Boolean(input.flightRise&&!explicitHop);
+        m.rotorPowered=Boolean((input.flightRise||legacyJump)&&!explicitHop);
       }
     }
   }else{
