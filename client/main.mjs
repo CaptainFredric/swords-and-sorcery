@@ -188,9 +188,16 @@ const roomInput = $('#room-code');
 const menuErrors = [...document.querySelectorAll('[data-menu-error]')];
 const nameFields = [nameInput, ...document.querySelectorAll('[data-name-copy]')];
 const pauseMenu = $('#pause-menu');
+const pauseMainSection = $('#pause-main-section');
+const pausePracticeSection = $('#pause-practice-section');
+const pausePracticeMount = $('#pause-practice-mount');
+const pausePracticeButton = $('#pause-practice');
+const practiceHome = practiceOverlay.parentNode;
+const practiceHomeNext = practiceOverlay.nextSibling;
 const startMatchButton = $('#start-match');
 let paused = false;
 let practiceVisibleWanted = false;
+let pauseSection = 'main';
 pauseMenu.inert = true;
 function showMenuError(text) { for (const element of menuErrors) element.textContent = text; }
 const lobbyCode = $('#lobby-code');
@@ -540,7 +547,7 @@ function ensureRuntime() {
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
-      if (locked) { paused = false; pauseMenu.classList.add('hidden'); }
+      if (locked && paused) closePause({ resumeArena: false });
     };
   }
   runtime.setPlayerId(socket.inspectionActorId??socket.playerId);
@@ -811,9 +818,7 @@ function putAwayMatch() {
   endingTutorial?.stop();
   tutorialView.hide();
   revealTutorialControls(null);
-  paused = false;
-  pauseMenu.classList.add('hidden');
-  pauseMenu.inert = true;
+  closePause({ resumeArena: false });
   hideChallenge();
   clearTimeout(gateTimer);
   arenaGate.classList.add('hidden');
@@ -840,14 +845,28 @@ function fromLeftRoom(message) {
   return leftRoom !== null && message?.roomCode === leftRoom;
 }
 
+function syncPauseSections() {
+  pauseMainSection.classList.toggle('hidden', pauseSection !== 'main');
+  pausePracticeSection.classList.toggle('hidden', pauseSection !== 'practice');
+  pauseMenu.classList.toggle('practice-open', pauseSection === 'practice');
+}
 function setPracticeVisible(visible) {
-  // Snapshots can arrive while Pause is open. Preserve the requested panel state
-  // without ever letting a practice control receive focus or clicks behind Pause.
+  // Snapshot changes cannot expose tools behind the menu or strand their DOM.
   practiceVisibleWanted = Boolean(visible && !tutorialSession);
-  const show = practiceVisibleWanted && !paused;
+  pausePracticeButton.hidden = !practiceVisibleWanted;
+  if (!practiceVisibleWanted && pauseSection === 'practice') {
+    pauseSection = 'main';
+    syncPauseSections();
+  }
+  const show = practiceVisibleWanted && (!paused || pauseSection === 'practice');
   practiceOverlay.classList.toggle('hidden', !show);
   practiceOverlay.inert = !show;
   updateInspectionControls();
+}
+function showPauseSection(section) {
+  pauseSection = section === 'practice' && practiceVisibleWanted ? 'practice' : 'main';
+  syncPauseSections();
+  setPracticeVisible(practiceVisibleWanted);
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
@@ -1213,6 +1232,10 @@ function openPause() {
   if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
   paused = true;
   runtime?.releasePointer();
+  // Move, never clone: all Practice controls retain their original listeners.
+  pausePracticeMount.append(practiceOverlay);
+  pauseSection = 'main';
+  syncPauseSections();
   setPracticeVisible(practiceVisibleWanted);
   pauseMenu.inert = false;
   pauseMenu.classList.remove('hidden');
@@ -1220,12 +1243,25 @@ function openPause() {
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
+  pauseSection = 'main';
+  syncPauseSections();
+  if (practiceOverlay.parentNode !== practiceHome) {
+    practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
+  }
   pauseMenu.classList.add('hidden');
   pauseMenu.inert = true;
   setPracticeVisible(practiceVisibleWanted);
   if (resumeArena) runtime?.requestPointerLock();
 }
 $('#resume-game').addEventListener('click', () => closePause());
+pausePracticeButton.addEventListener('click', () => {
+  showPauseSection('practice');
+  $('#pause-practice-back').focus();
+});
+$('#pause-practice-back').addEventListener('click', () => {
+  showPauseSection('main');
+  pausePracticeButton.focus();
+});
 $('#pause-edit-controls')?.addEventListener('click', () => { closePause({ resumeArena: false }); runtime?.editTouchLayout(); });
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
@@ -1931,7 +1967,7 @@ socket.on('snapshot', (snapshot) => {
     // keep the arena focused through a bot duel's or a matchmade duel's countdown
     const preservePointerLock = (snapshot.mode === 'BOT_DUEL' || duel)
       && (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN');
-    paused = false; pauseMenu.classList.add('hidden'); pauseMenu.inert = true;
+    closePause({ resumeArena: false });
     runtime.setPlaying(false, { preservePointerLock });
     hud.hide();
     setPracticeVisible(false);
@@ -1947,7 +1983,7 @@ socket.on('snapshot', (snapshot) => {
     updateStPerryUI(snapshot);
   } else if (snapshot.roomState === 'FINISHED') {
     hideChallenge();
-    paused = false; pauseMenu.classList.add('hidden'); pauseMenu.inert = true;
+    closePause({ resumeArena: false });
     runtime.setPlaying(false);
     hud.hide();
     setPracticeVisible(false);
