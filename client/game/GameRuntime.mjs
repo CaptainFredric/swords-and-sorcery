@@ -473,7 +473,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
-      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded)) return;
+      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (held && this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded && !combatActionPolicy(this.localAuth, this.socket.serverNow()).concurrent)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
