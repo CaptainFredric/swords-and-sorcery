@@ -11,7 +11,7 @@ import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
-  hoverCost:7,climbCost:14,descentRecharge:5,groundSpeed:3.3,sprintSpeed:5.2,
+  hoverCost:7,climbCost:14,descentRecharge:5,groundSpeed:3.3,sprintSpeed:9.3,
   airSpeed:9,airAcceleration:9,groundAcceleration:15,gravity:13.5,
 });
 const cap=(v,a,b)=>Math.max(a,Math.min(b,v));

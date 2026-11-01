@@ -1,6 +1,6 @@
 /**
  * Final Fight-and-Flight Mobile Controls & Layout Verification
- * Tests the locked default combat ladder, movement rocker, Valkyrie chord isolation,
+ * Tests the locked combat ladder, functional vertical flight rail, Valkyrie chord isolation,
  * and the Touch Layout Editor with real headless Chrome in landscape mobile dimensions.
  */
 
@@ -219,8 +219,7 @@ try {
     const dash = getRect('.touch-dash');
     const ult = getRect('.touch-ultimate');
     const stick = getRect('.touch-stick');
-    const rise = getRect('.touch-flightRise');
-    const lower = getRect('.touch-flightLower');
+    const rail = getRect('.touch-flight-rail');
     const eject = getRect('.touch-interact');
 
     const swordLabel = document.querySelector('.touch-attack span')?.textContent;
@@ -230,7 +229,7 @@ try {
     const ultLabel = document.querySelector('.touch-ultimate span')?.textContent;
 
     return {
-      sword, guard, jump, bolt, skill, dash, ult, stick, rise, lower, eject,
+      sword, guard, jump, bolt, skill, dash, ult, stick, rail, eject,
       swordLabel, ejectLabel, boltLabel, skillLabel, ultLabel
     };
   })()`);
@@ -242,10 +241,11 @@ try {
   assert.ok(layoutCheck.guard.left < layoutCheck.sword.left, 'Guard is left of Sword on bottom row');
   assert.ok(Math.abs(layoutCheck.guard.bottom - layoutCheck.sword.bottom) < 25, 'Guard and Sword are in bottom row');
 
-  // 2. Second row: Jump directly above Guard, Bolt directly above Sword
-  assert.ok(layoutCheck.jump.top < layoutCheck.guard.top, 'Jump is above Guard');
-  assert.ok(layoutCheck.bolt.top < layoutCheck.sword.top, 'Bolt is above Sword');
-  assert.ok(layoutCheck.jump.left < layoutCheck.bolt.left, 'Jump is left of Bolt');
+  // 2. Second row: wider Bolt left of Jump
+  assert.ok(layoutCheck.jump.top < layoutCheck.sword.top, 'Jump is above Sword');
+  assert.ok(layoutCheck.bolt.top < layoutCheck.guard.top, 'Bolt is above Guard');
+  assert.ok(layoutCheck.bolt.left < layoutCheck.jump.left, 'Bolt is left of Jump');
+  assert.ok(layoutCheck.bolt.width > layoutCheck.jump.width, 'Bolt has a wider held-fire touch target');
 
   // 3. Third row: Fire Away (skill) on left, Dash on right
   assert.ok(layoutCheck.skill.top < layoutCheck.jump.top, 'Fire Away is above Jump');
@@ -255,9 +255,9 @@ try {
   // 4. Above combat cluster: Ultimate
   assert.ok(layoutCheck.ult.top < layoutCheck.dash.top, 'Ultimate is above Dash and combat cluster');
 
-  // 5. Movement cluster: Rise/Lower vertical rocker inward from stick
-  assert.ok(layoutCheck.rise.left > layoutCheck.stick.left, 'Rise/Lower is inward (right) of joystick');
-  assert.ok(layoutCheck.rise.top < layoutCheck.lower.top, 'Rise is vertically above Lower in rocker');
+  // 5. Movement cluster: one spring-centered rail inward from the movement stick
+  assert.ok(layoutCheck.rail.left > layoutCheck.stick.left, 'Flight rail is inward from joystick');
+  assert.ok(layoutCheck.rail.height > layoutCheck.rail.width * 2, 'Flight rail is vertical');
 
   // 6. Labels
   assert.equal(layoutCheck.swordLabel, 'SWORD', 'Attack button renamed to SWORD');
@@ -311,18 +311,44 @@ try {
 
   console.log('[PASS] Dash and Ultimate are completely independent with no auto-synthesis!');
 
-  // 3. Takeoff to airborne and activate Valkyrie prep chord
-  await evaluate(`(() => {
+  // Actual touch rail input, not a synthetic property on InputController.
+  const startY = await evaluate('window.__ssRuntime.latestSnapshot.fightFlight.y');
+  const riseSent = await evaluate(`(() => {
     const rt = window.__ssRuntime;
-    rt.localAuth.prowess = 100;
-    rt.localAuth.ultimate = 'chivalry';
-    rt.touch.flightMounted = true;
-    // Ascend into air
-    rt.input.flightRise = true;
+    const rail = document.querySelector('.touch-flight-rail');
+    const r = rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles:true, pointerId:81, pointerType:'touch', clientX:r.left+r.width/2, clientY:r.top+8,
+    }));
+    return rt.input.movement().flightRise === true && rt.input.movement().flightLower === false;
   })()`);
-
-  // Wait 1 second for climb
-  await sleep(1000);
+  assert.equal(riseSent,true,'Rail Rise must survive through InputController');
+  await until(() => evaluate(`window.__ssRuntime.latestSnapshot.fightFlight.y > ${startY + .15}`), 'Real authoritative flight ascent',40,150);
+  await evaluate(`(() => {
+    const rail=document.querySelector('.touch-flight-rail'),r=rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles:true,pointerId:81,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+8,
+    }));
+  })()`);
+  assert.equal(await evaluate('window.__ssRuntime.input.movement().flightRise'),false,'releasing rail stops Rise');
+  await sleep(150);
+  const lowerSent = await evaluate(`(() => {
+    const rail=document.querySelector('.touch-flight-rail'),r=rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles:true,pointerId:82,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.bottom-8,
+    }));
+    return window.__ssRuntime.input.movement().flightLower;
+  })()`);
+  assert.equal(lowerSent,true,'Rail Lower reaches movement packets');
+  await evaluate(`(() => {
+    const rail=document.querySelector('.touch-flight-rail'),r=rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles:true,pointerId:82,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.bottom-8,
+    }));
+  })()`);
+  assert.equal(await evaluate('window.__ssRuntime.input.movement().flightLower'),false);
+  await captureScreenshot('mobile-flight-actual-ascent.png');
+  // The authoritative server, not the browser, owns prowess and Ultimate state.
 
   // Press both Dash and Ultimate to begin Valkyrie Prep
   await evaluate(`(() => {
@@ -343,9 +369,29 @@ try {
     const ultBtn = document.querySelector('.touch-ultimate');
     dashBtn?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 21, pointerType: 'touch' }));
     ultBtn?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 22, pointerType: 'touch' }));
-    rt.input.flightRise = false;
+    // Rise/Lower were already released by their real pointer events.
   })()`);
   await sleep(200);
+
+  // Pause must actually suppress Practice instead of stacking two menus.
+  const pauseResult = await evaluate(`(() => {
+    const rt=window.__ssRuntime;
+    const practice=document.querySelector('#practice-overlay');
+    practice.style.removeProperty('display');
+    rt.onPause();
+    const menu=document.querySelector('#pause-menu');
+    return {
+      menuShown:!menu.classList.contains('hidden') && getComputedStyle(menu).display !== 'none',
+      practiceHidden:getComputedStyle(practice).display === 'none',
+      practiceInert:practice.inert,
+    };
+  })()`);
+  assert.equal(pauseResult.menuShown,true,'Pause is visible');
+  assert.equal(pauseResult.practiceHidden,true,'Practice is not drawn behind Pause');
+  assert.equal(pauseResult.practiceInert,true,'Practice cannot receive focus behind Pause');
+  await captureScreenshot('mobile-flight-practice-paused.png');
+  await evaluate("document.querySelector('#resume-game').click()");
+  assert.equal(await evaluate("document.querySelector('#pause-menu').classList.contains('hidden')"),true,'Resume closes Pause');
 
   // Open Touch Layout Editor
   await evaluate(`(() => {

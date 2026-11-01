@@ -190,6 +190,8 @@ const nameFields = [nameInput, ...document.querySelectorAll('[data-name-copy]')]
 const pauseMenu = $('#pause-menu');
 const startMatchButton = $('#start-match');
 let paused = false;
+let practiceVisibleWanted = false;
+pauseMenu.inert = true;
 function showMenuError(text) { for (const element of menuErrors) element.textContent = text; }
 const lobbyCode = $('#lobby-code');
 const lobbyState = $('#lobby-state');
@@ -811,6 +813,7 @@ function putAwayMatch() {
   revealTutorialControls(null);
   paused = false;
   pauseMenu.classList.add('hidden');
+  pauseMenu.inert = true;
   hideChallenge();
   clearTimeout(gateTimer);
   arenaGate.classList.add('hidden');
@@ -838,8 +841,12 @@ function fromLeftRoom(message) {
 }
 
 function setPracticeVisible(visible) {
-  if (tutorialSession) visible = false;
-  practiceOverlay.classList.toggle('hidden', !visible);
+  // Snapshots can arrive while Pause is open. Preserve the requested panel state
+  // without ever letting a practice control receive focus or clicks behind Pause.
+  practiceVisibleWanted = Boolean(visible && !tutorialSession);
+  const show = practiceVisibleWanted && !paused;
+  practiceOverlay.classList.toggle('hidden', !show);
+  practiceOverlay.inert = !show;
   updateInspectionControls();
 }
 
@@ -1203,14 +1210,23 @@ async function copyText(text, title) {
   catch { window.prompt(title, text); }
 }
 function openPause() {
-  if (latestSnapshot?.roomState !== 'PLAYING') return;
+  if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
   paused = true;
   runtime?.releasePointer();
+  setPracticeVisible(practiceVisibleWanted);
+  pauseMenu.inert = false;
   pauseMenu.classList.remove('hidden');
   $('#resume-game').focus();
 }
-$('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.classList.add('hidden'); runtime?.requestPointerLock(); });
-$('#pause-edit-controls')?.addEventListener('click', () => {paused = false;pauseMenu.classList.add('hidden');runtime?.editTouchLayout();});
+function closePause({ resumeArena = true } = {}) {
+  paused = false;
+  pauseMenu.classList.add('hidden');
+  pauseMenu.inert = true;
+  setPracticeVisible(practiceVisibleWanted);
+  if (resumeArena) runtime?.requestPointerLock();
+}
+$('#resume-game').addEventListener('click', () => closePause());
+$('#pause-edit-controls')?.addEventListener('click', () => { closePause({ resumeArena: false }); runtime?.editTouchLayout(); });
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
@@ -1503,7 +1519,7 @@ document.addEventListener('keydown', event => {
   } else if (latestSnapshot?.roomState === 'PLAYING') {
     // Escape is the arena menu action, not merely a pointer-lock release.
     // In particular, High Grounds must not require a second Escape press.
-    if (paused) { paused = false; pauseMenu.classList.add('hidden');runtime?.requestPointerLock(); }
+    if (paused) closePause();
     else openPause();
   }
 });
@@ -1915,7 +1931,7 @@ socket.on('snapshot', (snapshot) => {
     // keep the arena focused through a bot duel's or a matchmade duel's countdown
     const preservePointerLock = (snapshot.mode === 'BOT_DUEL' || duel)
       && (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN');
-    paused = false; pauseMenu.classList.add('hidden');
+    paused = false; pauseMenu.classList.add('hidden'); pauseMenu.inert = true;
     runtime.setPlaying(false, { preservePointerLock });
     hud.hide();
     setPracticeVisible(false);
@@ -1931,7 +1947,7 @@ socket.on('snapshot', (snapshot) => {
     updateStPerryUI(snapshot);
   } else if (snapshot.roomState === 'FINISHED') {
     hideChallenge();
-    paused = false; pauseMenu.classList.add('hidden');
+    paused = false; pauseMenu.classList.add('hidden'); pauseMenu.inert = true;
     runtime.setPlaying(false);
     hud.hide();
     setPracticeVisible(false);

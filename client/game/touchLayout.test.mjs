@@ -32,8 +32,8 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
 
   // Flight controls: Section A & B specification
   assert.ok(DEFAULT_FLIGHT_LAYOUT.stick);
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.flightRise);
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.flightLower);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.flightRise, undefined, 'rail is anchored to the stick, not a legacy button');
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.flightLower, undefined);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.guard);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.attack);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.jump);
@@ -50,25 +50,23 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
   assert.equal(DEFAULT_FLIGHT_LAYOUT.attack.bottom, 24);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.guard.right > DEFAULT_FLIGHT_LAYOUT.attack.right, 'Guard is left of Sword');
 
-  // Second row: Jump (left), Bolt (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 98);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 98);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.right, DEFAULT_FLIGHT_LAYOUT.guard.right, 'Jump is directly above Guard');
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right, DEFAULT_FLIGHT_LAYOUT.attack.right, 'Bolt is directly above Sword');
+  // Second row: Bolt (left, wider), Jump (right)
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 105);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 105);
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right > DEFAULT_FLIGHT_LAYOUT.jump.right, 'Bolt is left of Jump');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width > DEFAULT_FLIGHT_LAYOUT.jump.size, 'Bolt has a wider sustained-fire target');
 
   // Third row: Fire Away (left), Dash (right)
   assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.bottom, 172);
   assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.bottom, 172);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.right, DEFAULT_FLIGHT_LAYOUT.jump.right, 'Fire Away is directly above Jump');
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.right, DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right, 'Dash is directly above Bolt');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeSkill.right > DEFAULT_FLIGHT_LAYOUT.dash.right, 'Fire Away is left of Dash');
 
   // Above ordinary cluster: Ultimate
   assert.ok(DEFAULT_FLIGHT_LAYOUT.ultimate.bottom > DEFAULT_FLIGHT_LAYOUT.dash.bottom, 'Ultimate is above Dash');
 
-  // Movement side: Rise and Lower rocker inward from stick
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.flightRise.left > DEFAULT_FLIGHT_LAYOUT.stick.left, 'Rise is inward from stick');
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.flightLower.left > DEFAULT_FLIGHT_LAYOUT.stick.left, 'Lower is inward from stick');
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.flightRise.bottom > DEFAULT_FLIGHT_LAYOUT.flightLower.bottom, 'Rise is above Lower');
+  // Vertical flight rail is mechanically attached to the stick and mirrors with it.
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.stick.left > 0);
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.attack.width > DEFAULT_FLIGHT_LAYOUT.attack.height, 'Sword has a wider aim-and-attack target');
 });
 
 test('mirrorLayoutHorizontal swaps left and right anchors and marks customized', () => {

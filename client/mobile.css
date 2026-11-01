@@ -81,23 +81,36 @@ button, input { touch-action: manipulation; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
-/* Motion channel: a tiny recessed brass well anchored to the joystick rather
-   than a floating HUD meter. The on-foot Sprint/Crouch buttons are immediately
-   above the stick, so the well sits 43px *inward* to avoid covering either.
-   Pure presentation: it never captures thumbs or changes steering semantics. */
+/* Sprint/ram Charge is a forward continuation of the joystick itself. The
+   neck overlaps the upper rim instead of floating beside or above it. Mirroring
+   or repositioning the stick carries its centerline, foot and channel together.
+   The gesture is still owned by the joystick; the rail adds no second throttle. */
 .touch-motion-guide {
   --motion-tint: #ecd18a;
+  --motion-push: 0;
   position: absolute;
-  left: calc(50% + 43px);
-  bottom: calc(100% + 9px);
-  width: 24px;
+  left: 50%;
+  bottom: calc(100% - 12px);
+  width: 34px;
   transform: translateX(-50%);
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
   z-index: 2;
 }
-.touch-stick.motion-mirrored .touch-motion-guide { left: calc(50% - 43px); }
+.touch-motion-guide::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 48px;
+  height: 25px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(223, 197, 139, .40);
+  border-radius: 13px 13px 24px 24px;
+  background: linear-gradient(90deg, #201f1aeb, #6f6045a6 49%, #201f1aeb);
+  box-shadow: inset 0 1px rgba(247, 221, 168, .12);
+}
 .touch-motion-label {
   position: absolute;
   bottom: calc(100% + 5px);
@@ -114,20 +127,40 @@ button, input { touch-action: manipulation; }
 }
 .touch-motion-well {
   position: relative;
-  width: 22px;
-  height: 48px;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 34px;
+  height: 58px;
   overflow: hidden;
-  border-radius: 11px 11px 7px 7px;
-  border: 1px solid rgba(226, 202, 148, .24);
-  background: rgba(13, 16, 16, .08);
-  box-shadow: inset 0 0 0 1px rgba(7, 10, 8, .07);
+  border-radius: 12px 12px 5px 5px;
+  border: 1.5px solid rgba(226, 202, 148, .40);
+  background: linear-gradient(90deg, rgba(17, 20, 19, .76), rgba(38, 35, 28, .40), rgba(17, 20, 19, .76));
+  box-shadow: inset 2px 0 5px #080a08a8, inset -2px 0 5px #080a08a8;
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
+/* This small detent moves with the actual joystick push, not with server state.
+   The animated arrows and SPRINTING/CHARGING label remain authoritative. */
+.touch-motion-well::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 16px;
+  height: 7px;
+  border-radius: 4px;
+  transform: translate(-50%, calc(var(--motion-push, 0) * -40px));
+  background: linear-gradient(#f0dcad, #a48149);
+  border: 1px solid rgba(255, 239, 199, .62);
+  box-shadow: 0 0 5px rgba(222, 186, 110, .30);
+  opacity: 0;
+  pointer-events: none;
+}
+.touch-stick.held .touch-motion-guide.forward .touch-motion-well::after { opacity: .85; }
 .touch-motion-well svg {
   position: absolute;
-  top: 33px;
-  left: 1px;
-  width: 18px;
+  top: 39px;
+  left: 6px;
+  width: 20px;
   height: 13px;
   fill: none;
   stroke: var(--motion-tint);
@@ -143,6 +176,13 @@ button, input { touch-action: manipulation; }
               inset 0 0 6px rgba(0, 0, 0, .32);
 }
 .touch-motion-guide.active .touch-motion-label { opacity: 1; }
+/* Preview is deliberately distinct from confirmed authoritative Sprint/Charge. */
+.touch-motion-guide.approaching:not(.active) .touch-motion-well {
+  border-color: rgba(226,202,148,.65); background: rgba(40,37,28,.45);
+}
+.touch-motion-guide.approaching:not(.active) .touch-motion-well svg { opacity:.52; }
+.touch-motion-guide.approaching:not(.active) .touch-motion-label { opacity:.7; }
+.touch-motion-guide.approaching:not(.active) .touch-motion-label::after { content:'PUSH ↑'; }
 .touch-motion-guide.active .touch-motion-well svg {
   opacity: 1;
   animation: touch-motion-rise 1.05s linear infinite;
@@ -158,7 +198,7 @@ button, input { touch-action: manipulation; }
   0% { transform: translateY(11px); opacity: 0; }
   25% { opacity: .95; }
   72% { opacity: .95; }
-  100% { transform: translateY(-47px); opacity: 0; }
+  100% { transform: translateY(-58px); opacity: 0; }
 }
 /* Flight and every unrelated mounted machine use different motion semantics. */
 .touch-mounted:not(.touch-ram) .touch-motion-guide,
@@ -166,9 +206,9 @@ button, input { touch-action: manipulation; }
 .touch-controls.touch-flight .touch-motion-guide { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .touch-motion-guide.active .touch-motion-well svg { animation: none; opacity: .9; }
-  .touch-motion-well svg:nth-child(1) { top: 5px; }
-  .touch-motion-well svg:nth-child(2) { top: 18px; }
-  .touch-motion-well svg:nth-child(3) { top: 31px; }
+  .touch-motion-well svg:nth-child(1) { top: 7px; }
+  .touch-motion-well svg:nth-child(2) { top: 23px; }
+  .touch-motion-well svg:nth-child(3) { top: 39px; }
 }
 
 
@@ -391,9 +431,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* the gauntlet's own button: only when asked for in the settings, left of the spell */
 .touch-gauntlet { --size: 46px; display: none !important; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #eadfc4; border-color: rgba(214, 190, 140, .62); }
 .touch-controls.gauntlet-on .touch-gauntlet { display: grid !important; }
-/* crouch: a toggle beside sprint, as big as it; a finger landing a little off it still counts (the hit area reaches
-   past the ring). Lit while on (its word says so), glowing while the body is actually down */
-.touch-crouch { --size: 50px; left: calc(var(--safe-l) + 90px * var(--s)); bottom: calc(var(--safe-b) + 196px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }
+/* Crouch sits inward of the joystick, away from its forward Sprint/Charge
+   extension. The flight rail occupies this space only while Crouch is hidden. */
+.touch-crouch { --size: 50px; left: calc(var(--safe-l) + 190px * var(--s)); bottom: calc(var(--safe-b) + 187px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }
 .touch-crouch::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
 .touch-crouch svg { stroke-width: 2.5; }
 .touch-crouch.on { color: #fff6de; background: radial-gradient(circle at 50% 40%, rgba(214, 196, 150, .55), rgba(64, 58, 42, .78)); border-color: #ecd9a4; box-shadow: inset 0 0 0 2px rgba(236, 217, 164, .3); }
@@ -433,7 +473,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 .touch-siegeWeapon { --size: 62px; right: calc(var(--safe-r) + 48px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); color: #a8e2e9; }
-.touch-mounted.touch-ram .touch-sprint { display: grid; }
+.touch-mounted.touch-ram .touch-sprint { display: none; }
+/* Joystick channel is the sprint/charge gesture; retain FAST in inspection flight. */
+.touch-controls:not(.inspection-flight) .touch-sprint { display: none !important; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
@@ -444,44 +486,46 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-ui .flight-metric b { font-size: 11px; }
 .touch-ui .flight-bar-wrap progress { width: 44px; height: 6px; }
 
-/* Contiguous vertical RISE / LOWER rocker inward from movement stick */
-.touch-flightRise, .touch-flightLower { display: none; }
-.touch-mounted.touch-flight .touch-flightRise,
-.touch-mounted.touch-flight .touch-flightLower {
-  display: grid !important;
-  position: absolute;
-  width: calc(56px * var(--s));
-  height: calc(44px * var(--s));
-  left: calc(var(--safe-l) + 196px * var(--s));
-  right: auto;
-  border: 1.5px solid rgba(222, 204, 160, .6);
-  background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .75), rgba(15, 16, 12, .88));
-  color: #f1e8d0;
-  z-index: 15;
+/* The rail shares the stick's frame, so mirrored/custom stick placement moves both.
+   The thumb springs to neutral on pointerup, cancel, blur and unmount. */
+.touch-flightRise, .touch-flightLower { display: none !important; }
+.touch-flight-rail { display: none; }
+.touch-controls.touch-flight .touch-stick { opacity: 1; }
+.touch-controls.touch-flight .touch-flight-rail {
+  position: absolute; left: calc(100% + 22px); bottom: -8px;
+  width: calc(44px * var(--s)); height: calc(140px * var(--s));
+  border: 1.5px solid #c6a66f; border-radius: 20px;
+  background: linear-gradient(90deg,#141715ec,#3b392fea 48%,#151917ef);
+  box-shadow: inset 0 0 0 4px #0c100dbb, 0 3px 12px #000a;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  box-sizing: border-box; padding: 5px 0; touch-action: none; pointer-events: auto;
+  color: #e9d7ad; z-index: 18;
 }
-.touch-mounted.touch-flight .touch-flightRise {
-  bottom: calc(var(--safe-b) + 124px * var(--s));
-  border-radius: 14px 14px 2px 2px;
-  border-bottom: 1px solid rgba(222, 204, 160, .35);
+.touch-stick.motion-mirrored .touch-flight-rail { left: auto; right: calc(100% + 22px); }
+.touch-flight-rail::before {
+  content: 'FLIGHT'; position:absolute; bottom:calc(100% + 3px); left:50%;
+  transform: translateX(-50%); font: 800 8px system-ui; letter-spacing:.08em;
+  text-shadow: 0 1px 2px #000; white-space: nowrap; color:#dac18c;
 }
-.touch-mounted.touch-flight .touch-flightLower {
-  bottom: calc(var(--safe-b) + 74px * var(--s));
-  border-radius: 2px 2px 14px 14px;
-  border-top: 1px solid rgba(222, 204, 160, .35);
+.touch-flight-rail-arrow { font: 800 20px/1 system-ui; opacity: .52; pointer-events:none; }
+.touch-flight-rail-thumb {
+  position:absolute; top:50%; left:4px; right:4px; height:30px;
+  transform:translateY(-50%); border-radius:11px; pointer-events:none;
+  border:1px solid #e0c98c; background:linear-gradient(160deg,#ac8b56,#554930 60%,#443b31);
+  box-shadow:inset 0 1px #f4e1ac9c,0 2px 5px #000a;
 }
-.touch-mounted.touch-flight .touch-flightRise span,
-.touch-mounted.touch-flight .touch-flightLower span {
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .08em;
-}
+.touch-flight-rail[data-intent="rise"] { border-color:#e7cf92; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #d6b56a66; }
+.touch-flight-rail[data-intent="lower"] { border-color:#9bc6d2; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #8aaebc66; }
 
 /* Right-side combat cluster (bottom to top): */
 /* Bottom row: GUARD (left), SWORD (right) */
 .touch-mounted.touch-flight .touch-attack {
   display: grid !important;
-  --size: 74px;
-  right: calc(var(--safe-r) + 24px * var(--s));
+  --size: 80px;
+  width: calc(88px * var(--s));
+  height: calc(76px * var(--s));
+  border-radius: 24px;
+  right: calc(var(--safe-r) + 20px * var(--s));
   bottom: calc(var(--safe-b) + 24px * var(--s));
   color: #f1e8d0;
   border-color: rgba(233, 130, 90, .75);
@@ -494,18 +538,18 @@ html.turn-typing .rotate-prompt { display: none !important; }
   color: #a6e6f3;
   border-color: rgba(102, 201, 221, .62);
 }
-.touch-mounted.touch-flight.airborne .touch-guard {
+.touch-mounted.touch-flight.airborne .touch-guard.airborne-forbidden {
   opacity: .42;
   filter: grayscale(0.5);
   pointer-events: none;
 }
 
-/* Second row: JUMP (left), BOLT (right) */
+/* Second row: BOLT (left, hold to fire) and JUMP (right, discrete hop). */
 .touch-mounted.touch-flight .touch-jump {
   display: grid !important;
   --size: 62px;
-  right: calc(var(--safe-r) + 108px * var(--s));
-  bottom: calc(var(--safe-b) + 98px * var(--s));
+  right: calc(var(--safe-r) + 26px * var(--s));
+  bottom: calc(var(--safe-b) + 105px * var(--s));
   left: auto;
   border-radius: 50%;
   color: #f1e8d0;
@@ -514,8 +558,11 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-mounted.touch-flight .touch-siegeWeapon {
   display: grid !important;
   --size: 68px;
-  right: calc(var(--safe-r) + 24px * var(--s));
-  bottom: calc(var(--safe-b) + 98px * var(--s));
+  width: calc(86px * var(--s));
+  height: calc(62px * var(--s));
+  border-radius: 17px;
+  right: calc(var(--safe-r) + 108px * var(--s));
+  bottom: calc(var(--safe-b) + 105px * var(--s));
   color: #e6c98f;
   border-color: rgba(230, 201, 143, .75);
 }
@@ -721,10 +768,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-controls.touch-mounted.touch-flight .touch-interact {
   border-radius:9px; background:rgba(25,29,30,.9);
 }
+/* Retired rocker elements remain hidden even under old saved touch layouts. */
 .touch-controls.touch-mounted.touch-flight .touch-flightRise,
-.touch-controls.touch-mounted.touch-flight .touch-flightLower { z-index:2; border-radius:9px; }
-.touch-controls.touch-mounted.touch-flight .touch-flightRise { border-radius:10px 10px 3px 3px; }
-.touch-controls.touch-mounted.touch-flight .touch-flightLower { border-radius:3px 3px 10px 10px; }
+.touch-controls.touch-mounted.touch-flight .touch-flightLower { display: none !important; }
 
 /* Nonflight siege machines also get a coherent brass/iron action family. */
 .touch-controls.touch-mounted:not(.touch-flight) .touch-siegeWeapon,

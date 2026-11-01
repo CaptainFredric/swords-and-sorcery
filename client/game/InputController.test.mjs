@@ -663,3 +663,27 @@ test('Flight T ejection is a single press-release pair and blur only cancels',()
  calls.length=0;down('KeyT');send('blur',{},win);up('KeyT');
  assert.deepEqual(calls,[{type:'flightEject',down:true},{type:'flightEject',down:false,cancel:true}]);
 });
+
+test('mounted touch flight Rise and Lower survive controller forwarding, then clear on unmount and focus loss', () => {
+  const { input } = setup();
+  let rise = true, lower = false;
+  input.touch = { movement: () => ({ forward: 0, right: 0, jump: false, sprint: false, crouch: false, flightRise: rise, flightLower: lower }) };
+  input.mountedFlight = true;
+  assert.equal(input.movement().flightRise, true);
+  assert.equal(input.movement().flightLower, false);
+  rise = false; lower = true;
+  assert.equal(input.movement().flightRise, false);
+  assert.equal(input.movement().flightLower, true);
+  lower = false;
+  assert.equal(input.movement().flightLower, false, 'release stops descent without a stale packet');
+  rise = true;
+  input.mountedFlight = false;
+  assert.equal(input.movement().flightRise, false, 'unmount invalidates flight intent');
+  input.mountedFlight = true;
+  input.enabled = false;
+  assert.equal(input.movement().flightRise, false, 'loss of focus invalidates flight intent');
+  input.enabled = true;
+  input.allowAction = action => action !== 'move';
+  assert.equal(input.movement().flightRise, false, 'input gate cannot be bypassed by touch rail');
+  input.dispose();
+});
