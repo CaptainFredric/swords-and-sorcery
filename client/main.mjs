@@ -1675,7 +1675,9 @@ function updateInspectionControls() {
     for(const id of hostTools){const button=$('#'+id);if(button)button.disabled=true;}
   }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
-  practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
+  practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = touchUi
+    ? 'TAP THE TARGET ICON FOR TOOLS'
+    : (available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS');
   const pointerHint = $('#pointer-hint');
   if (pointerHint) {
     if (available) pointerHint.classList.add('hidden');
