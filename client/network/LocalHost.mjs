@@ -410,6 +410,9 @@ export class LocalHost {
     stepBotControllers(room, time, room.world);
     if (this.sessionController) this.sessionController.beforeStep(time);
     else if (!this.inspectionControlId) stepPracticeActors(room, time, room.world);
+    if (this.player?.operatingFightFlightId && this.player.flightInputAt != null) {
+      this.player.flightInputAt = time;
+    }
     stepRoom(room, 1 / TICK_RATE, time, room.world);
     this.#validateInspectionActor();
     const events = room.events.splice(0).filter(event => !(this.inspectionControlUsed && event.type === 'prestigeChallengeCompleted'));

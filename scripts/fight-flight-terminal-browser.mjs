@@ -58,7 +58,7 @@ async function up(key){
 }
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
-const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,operator:m.operatorId,grounded:m.grounded,terminalPrep:m.terminalPrep,terminalDive:m.terminalDive,terminalDiveSpent:m.terminalDiveSpent,health:m.health,runPitch:m.runPitch}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,prowess:p.prowess,ultimate:p.ultimate,alive:p.alive}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray(),riderPitch:r?.remotePlayers?.self?.root?.rotation.x};})()";
+const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,operator:m.operatorId,grounded:m.grounded,terminalPrep:m.terminalPrep,terminalDive:m.terminalDive,terminalDiveSpent:m.terminalDiveSpent,health:m.health,runPitch:m.runPitch,intent:m.verticalIntent}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,prowess:p.prowess,ultimate:p.ultimate,alive:p.alive,flightInputAt:p.flightInputAt}:null,keys:Array.from(r?.input?.keys??[]),blocked:Array.from(r?.input?.blockedKeys??[]),jumpInput:Boolean(r?.input?.movement?.()?.jump),inputEnabled:Boolean(r?.input?.enabled),cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray(),riderPitch:r?.remotePlayers?.self?.root?.rotation.x};})()";
 try{
  const target=await until(async()=>{
   const r=await fetch('http://127.0.0.1:'+port+'/json/list');
@@ -121,13 +121,12 @@ try{
  await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
- await send('Page.bringToFront');
- await evaluate("window.focus?.()");
  if(!await evaluate("Boolean(window.__ssRuntime?.input?.enabled && document.pointerLockElement)")){
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
   await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled && document.pointerLockElement)"),'genuine enabled gameplay input before flight',40);
  }
+ await up(' ');
  await down(' ');
  await until(async()=>{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
