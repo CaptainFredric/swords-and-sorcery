@@ -101,6 +101,9 @@ try{
   assert.equal(sprint.label,'SPRINTING');
   assert.equal(sprint.animation,'touch-motion-rise');
   assert.ok(Math.abs(sprint.wellCenter-sprint.stickCenter)<3, 'cavity is centered above the joystick, not beside it');
+  assert.ok(sprint.wellWidth>=46, 'Sprint/Charge channel should be wide enough to read at touch scale');
+  assert.ok(sprint.rimOverlap>=20, 'channel should grow from within the joystick rim');
+  assert.equal(sprint.connector,'none','no separate oval connector should appear underneath');
   assert.ok(sprint.wellTop<sprint.stickTop && sprint.wellBottom>sprint.stickTop+6,
     'cavity protrudes upward and overlaps the actual joystick rim without a floating gap');
   assert.equal(sprint.crouchOverlaps,false,'repositioned Crouch must not cover the cavity');
