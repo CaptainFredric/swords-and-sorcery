@@ -272,6 +272,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
           m.terminalDive.impactAt=now;
       }
       if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
+      else if(candidate.y>previous.y){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
       else{candidate.x=previous.x;candidate.y=previous.y;candidate.z=previous.z;m.velocity={x:0,y:0,z:0};}
       m.lastImpactAt=now;
     } else if(m.terminalDive) m.terminalDive.blockedContactSec=0;

@@ -120,7 +120,6 @@ try{
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
   await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'genuine enabled gameplay input before flight',40);
  }
- await down('W');
  await down(' ');
  await until(async()=>{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
@@ -128,7 +127,6 @@ try{
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
   return false;
  },'powered flight from actual Space input',160);
- await up('W');
  await up(' ');
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
