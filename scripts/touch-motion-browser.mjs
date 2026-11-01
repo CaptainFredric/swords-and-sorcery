@@ -50,7 +50,8 @@ const uiState=`(() => {
     pointerEvents:getComputedStyle(g).pointerEvents,animation:style.animationName,
     visible:getComputedStyle(g).display!=='none',wellLeft:rect.left,wellRight:rect.right,
     wellTop:rect.top,wellBottom:rect.bottom,stickTop:stick.top,stickCenter:(stick.left+stick.right)/2,
-    wellCenter:(rect.left+rect.right)/2,
+    wellCenter:(rect.left+rect.right)/2,wellWidth:rect.width,
+    rimOverlap:rect.bottom-stick.top,connector:getComputedStyle(g,'::before').content,
     crouchOverlaps:overlap(rect,crouch),crouchLeft:crouch.left,crouchRight:crouch.right};
 })()`;
 async function display(mode){
