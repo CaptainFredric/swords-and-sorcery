@@ -59,6 +59,12 @@ function setup(local, { orientation } = {}) {
   };
   return { input, controls, calls, send };
 }
+function flightRailTarget(controls) {
+  controls.flightRail.offsetWidth = 44;
+  controls.flightRail.offsetHeight = 140;
+  controls.flightRail.getBoundingClientRect = () => ({ left: 100, top: 100, width: 44, height: 140 });
+  return { closest: selector => selector === '.touch-flight-rail' ? controls.flightRail : null };
+}
 const local = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', until: 19 }, chivalryProjectileReadyAt: 0 };
 
@@ -593,7 +599,8 @@ test('two held Charge pointers remain independent and ordinary on-foot Sprint ke
  send('pointerup',50,180,{action:'sprint',pointerId:3});assert.equal(controls.movement().sprint,false);
  controls.update({...p,operatingRamId:null},10);const stick={target:controls.layer};
  send('pointerdown',100,400,stick);send('pointermove',100,347,stick);assert.equal(controls.movement().sprint,true);
- send('pointermove',100,350,stick);assert.equal(controls.movement().sprint,false,'on foot behavior retains established threshold');
+ send('pointermove',100,350,stick);assert.equal(controls.movement().sprint,true,'on foot hysteresis holds near threshold');
+ send('pointermove',100,354,stick);assert.equal(controls.movement().sprint,false,'easing below release threshold cancels sprint');
 });
 
 test('cancelled look or View fingers cancel precision view while ordinary finger release preserves it',()=>{
@@ -814,23 +821,18 @@ test('Fight-and-Flight discrete hop, continuous Rise and Lower, and multi-touch 
   assert.equal(mov1.jump, false);
   send('pointerup', 700, 400, { action: 'jump', pointerId: 10 });
 
-  // 2. Pressing RISE sets flightRise in movement
-  send('pointerdown', 200, 400, { action: 'flightRise', pointerId: 11 });
-  const movRise = controls.movement();
-  assert.equal(movRise.flightRise, true);
-  assert.equal(movRise.flightLower, false);
-  send('pointerup', 200, 400, { action: 'flightRise', pointerId: 11 });
-  const movRiseEnd = controls.movement();
-  assert.equal(movRiseEnd.flightRise, false);
-
-  // 3. Pressing LOWER sets flightLower in movement
-  send('pointerdown', 200, 450, { action: 'flightLower', pointerId: 12 });
-  const movLower = controls.movement();
-  assert.equal(movLower.flightLower, true);
-  assert.equal(movLower.flightRise, false);
-  send('pointerup', 200, 450, { action: 'flightLower', pointerId: 12 });
-  const movLowerEnd = controls.movement();
-  assert.equal(movLowerEnd.flightLower, false);
+  // The spring-centered rail replaces both legacy Rise / Lower buttons.
+  const rail = flightRailTarget(controls);
+  send('pointerdown', 120, 120, { target: rail, pointerId: 11 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.movement().flightLower, false);
+  send('pointermove', 120, 170, { target: rail, pointerId: 11 });
+  assert.equal(controls.movement().flightRise, false, 'center is neutral while held');
+  send('pointermove', 120, 220, { target: rail, pointerId: 11 });
+  assert.equal(controls.movement().flightLower, true);
+  send('pointercancel', 120, 220, { target: rail, pointerId: 11 });
+  assert.equal(controls.movement().flightLower, false, 'cancellation springs back to neutral');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
 
   // 4. Multi-touch on Sword/Attack: releasing one pointer does not cancel if another still holds
   const attacks = [];
@@ -891,10 +893,12 @@ test('mounted flight retains working independent climb, bolt, view, dash and pau
   input.onAction=(...args)=>actions.push(args);
   input.releaseFocus=()=>{};
   controls.update(p,10,{snapshot:{fightFlight:{id:'machine',health:250,rotorHP:100,grounded:false,ammo:14,skill:{phase:'idle',readyAt:0}}}});
-  send('pointerdown',600,300,{action:'flightRise',pointerId:15});
+  const rail=flightRailTarget(controls);
+  send('pointerdown',120,120,{target:rail,pointerId:15});
   assert.equal(controls.movement().flightRise,true);
-  send('pointerup',600,300,{action:'flightRise',pointerId:15});
-  assert.equal(controls.movement().flightRise,false);
+  assert.equal(input.movement().flightRise,true, 'Rise reaches the production InputController');
+  send('pointerup',120,120,{target:rail,pointerId:15});
+  assert.equal(input.movement().flightRise,false);
   send('pointerdown',600,300,{action:'siegeWeapon',pointerId:16});
   send('pointerup',600,300,{action:'siegeWeapon',pointerId:16});
   assert.ok(calls.some(x=>x.type==='fightFlightFire'&&x.down===true));
@@ -910,4 +914,26 @@ test('mounted flight retains working independent climb, bolt, view, dash and pau
   send('pointerup',38,24,{action:'pause',pointerId:19});
   assert.ok(actions.some(x=>x[0]==='pause'));
   controls.dispose();
+});
+
+test('flight rail cannot retain input across mount loss, focus reset or another pointer', () => {
+  const p = { alive: true, spell: 'fireball', position: {x:0,y:0,z:0}, operatingFightFlightId: 'flight' };
+  const { input, controls, send } = setup(p);
+  input.mountedFlight = true;
+  input.touch = controls;
+  controls.update(p, 10, { snapshot: { fightFlight: { id:'flight', health:250, rotorHP:100, grounded:true } } });
+  const rail = flightRailTarget(controls);
+  send('pointerdown',120,120,{target:rail,pointerId:51});
+  send('pointerdown',120,220,{target:rail,pointerId:52});
+  assert.equal(controls.movement().flightRise, true, 'second finger cannot seize flight rail');
+  send('pointerup',120,220,{target:rail,pointerId:52});
+  assert.equal(controls.movement().flightRise, true, 'unrelated lift cannot stop held rise');
+  controls.reset();
+  assert.equal(input.movement().flightRise, false);
+  send('pointermove',120,120,{target:rail,pointerId:51});
+  assert.equal(input.movement().flightRise,false,'old pointer cannot restore a cancelled climb');
+  send('pointerdown',120,120,{target:rail,pointerId:53});
+  controls.update({...p, operatingFightFlightId:null}, 10);
+  input.mountedFlight = false;
+  assert.equal(controls.movement().flightRise,false,'dismount clears flight gesture');
 });
