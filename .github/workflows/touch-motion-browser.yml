@@ -1,0 +1,49 @@
+name: Mobile sprint and ram charge indicator browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/touchMotionIndicator.mjs'
+      - 'client/mobile.css'
+      - 'scripts/touch-motion-browser.mjs'
+      - '.github/workflows/touch-motion-browser.yml'
+permissions:
+  contents: read
+jobs:
+  touch-motion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Boot actual game
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs >/tmp/touch-motion.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/touch-motion.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Check indicator labels, animation, input transparency, visual spacing
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+        run: node scripts/touch-motion-browser.mjs
+      - name: Keep screenshots and computed CSS results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: touch-motion-browser
+          path: output/playwright/touch-motion/
+          retention-days: 7

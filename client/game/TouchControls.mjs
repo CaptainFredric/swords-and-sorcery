@@ -11,6 +11,7 @@ import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem } from './touchLayout.mjs';
+import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -86,7 +87,17 @@ export class TouchControls {
     this.layer = document.createElement('div');
     this.layer.className = 'touch-controls';
     this.layer.innerHTML = `
-      <div class="touch-stick"><div class="touch-stick-knob"></div></div>
+      <div class="touch-stick">
+        <div class="touch-stick-knob"></div>
+        <div class="touch-motion-guide" data-motion="idle" aria-hidden="true">
+          <span class="touch-motion-label"></span>
+          <div class="touch-motion-well">
+            <svg viewBox="0 0 20 13" aria-hidden="true"><path d="M3 10L10 3l7 7"/></svg>
+            <svg viewBox="0 0 20 13" aria-hidden="true"><path d="M3 10L10 3l7 7"/></svg>
+            <svg viewBox="0 0 20 13" aria-hidden="true"><path d="M3 10L10 3l7 7"/></svg>
+          </div>
+        </div>
+      </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
           ${svg(icon)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
@@ -130,6 +141,8 @@ export class TouchControls {
     }
     this.stickBase = this.layer.querySelector('.touch-stick');
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
+    this.motionGuide = this.layer.querySelector('.touch-motion-guide');
+    this.motionLabel = this.layer.querySelector('.touch-motion-label');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
     this.cooldowns = BUTTONS.filter((button) => button.cooldown).map(({ action, cooldown }) => ({
       element: this.buttons[action],
@@ -207,6 +220,9 @@ export class TouchControls {
     this.layouts = layouts;
     const mode = this.previewMode ?? (this.flightMounted ? 'flight' : 'onFoot');
     const layout = mode === 'flight' ? layouts.flight : layouts.onFoot;
+    // The motion well is a child of the stick: edited, moved, or mirrored
+    // joystick placements carry the feedback with them automatically.
+    this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
         const element = action === 'stick' ? this.stickBase : this.buttons[action];
@@ -251,10 +267,11 @@ export class TouchControls {
     this.buttons.jump.setAttribute('aria-label',active?'Fly up':'JUMP');
     this.buttons.crouch.setAttribute('aria-label',active?'Fly down':'CROUCH');
     this.buttons.sprint.setAttribute('aria-label',active?'Camera fast mode':'SPRINT');
-    if(active){this.ramMounted=false;this.layer.classList.remove('touch-mounted','touch-ram');}
+    if(active){this.ramMounted=false;this.layer.classList.remove('touch-mounted','touch-ram');this.#setMotionIndicator('idle');}
   }
 
   reset() {
+    this.#setMotionIndicator('idle');
     this.input.onAimCancelled?.();
     if (this.galeGesture?.mode !== 'balanced' && this.galeGesture) this.input.selectGaleMode?.('balanced');
     this.galeGesture = null;
@@ -392,6 +409,11 @@ export class TouchControls {
       this.buttons.crouch.querySelector('span').textContent='CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
+      // After mount transitions (which reset held controls), paint the real
+      // server-confirmed movement state without a one-frame false idle flash.
+      this.#setMotionIndicator(touchMotionIndicator(local, snapshot, {
+        active: this.active, inspectionFlight: this.inspectionFlight,
+      }));
 
       if (flight) {
         const atkLabel = this.buttons.attack?.querySelector('span');
@@ -496,6 +518,15 @@ export class TouchControls {
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       }
     }
+  }
+
+  #setMotionIndicator(mode) {
+    const next = TOUCH_MOTION_LABELS[mode] === undefined ? 'idle' : mode;
+    if (this.motionGuide.dataset.motion === next) return;
+    this.motionGuide.dataset.motion = next;
+    this.motionGuide.classList.toggle('active', next !== 'idle');
+    this.stickBase.classList.toggle('motion-active', next !== 'idle');
+    this.motionLabel.textContent = TOUCH_MOTION_LABELS[next];
   }
 
   // the ultimate's button: filling with prowess, glowing when full, lit while it is active
