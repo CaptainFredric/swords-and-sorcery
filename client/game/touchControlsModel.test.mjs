@@ -77,3 +77,11 @@ test('layer-relative touch positions undo both sideways rotations', () => {
   assert.deepEqual(touchLayerPoint(230, 510, rect, size, -90), { x: 130, y: 210 });
   assert.equal(touchLayerPoint(0, 0, null, size), null);
 });
+
+test('sprint and ram charge both use hysteresis without accidental diagonal acceleration', () => {
+  const radius = TOUCH.stickRadius;
+  assert.equal(stickVector(0,-radius * .93).sprint,true);
+  assert.equal(stickVector(0,-radius * .88,{sprintActive:true}).sprint,true);
+  assert.equal(stickVector(0,-radius * .82,{sprintActive:true}).sprint,false);
+  assert.equal(stickVector(radius * .8,-radius * .8).sprint,false,'a broad diagonal does not trigger Sprint');
+});
