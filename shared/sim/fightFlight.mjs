@@ -123,6 +123,12 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
 }
 export function stepFightFlight(room,m,dt,now,world=room.world){
   if(!m||m.retired||m.mode==='DESTROYED')return;
+  if(dt>.04&&!m.terminalDive){
+    const subSteps=Math.min(10,Math.ceil(dt/.033));
+    const subDt=dt/subSteps,startNow=now-dt;
+    for(let s=1;s<=subSteps;s++)stepFightFlight(room,m,subDt,startNow+s*subDt,world);
+    return;
+  }
   m.rotorAngleBefore=m.rotorAngle;
   m.rotorPositionBefore={x:m.x,y:m.y,z:m.z};
   const op=m.operatorId?room.players.get(m.operatorId):null;
@@ -154,12 +160,19 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   }
   // Discrete Hop uses ballistic gravity; only a held Rise can spin up sustained
   // lift. Desktop Space preserves tap-to-hop, hold (>230 ms)-to-rise behavior.
+  if(m.hopStartedAt!=null){
+    if(!legacyJump&&now-m.hopStartedAt<.23){
+      m.rotorPowered=false;m.hopStartedAt=null;
+    }else if(now-m.hopStartedAt>=.23)m.hopStartedAt=null;
+  }
+  const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
+  const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
-    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||legacyJump)){
+    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||launchRise)){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
       m.velocity.y=Math.max(m.velocity.y,3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
@@ -167,19 +180,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.rotorPowered=true; // release inside the short-hop window cuts the motor
       }else{
         m.hopStartedAt=null;
-        m.rotorPowered=Boolean((input.flightRise||legacyJump)&&!explicitHop);
+        m.rotorPowered=Boolean((input.flightRise||launchRise)&&!explicitHop);
       }
     }
   }else{
     m.crouched=false;
     m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
   }
-  if(m.hopStartedAt!=null){
-    if(!legacyJump&&now-m.hopStartedAt<.23){
-      m.rotorPowered=false;m.hopStartedAt=null;
-    }else if(now-m.hopStartedAt>=.23)m.hopStartedAt=null;
-  }
-  const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
@@ -196,8 +203,16 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
   m.lastRotorDelta=m.rotorAngularVelocity*dt;
   m.rotorAngle=(m.rotorAngle+m.lastRotorDelta)%(Math.PI*2);
-  if(spinning)m.rotorEnergy=cap(m.rotorEnergy+dt*7,0,100);
-  else m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
+  if(m.grounded){
+    if(intact)m.rotorEnergy=cap(m.rotorEnergy+dt*25,0,100);
+  }else if(spinning){
+    m.rotorEnergy=cap(m.rotorEnergy+dt*10,0,100);
+  }else{
+    m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
+  }
+  if(spinning&&intact){
+    m.rotorEnergy=Math.max(m.rotorEnergy,cap(m.rotorAngularVelocity/maxOmega*100,0,100));
+  }
   m.rotorLiftAuthority=intact&&m.flightCharge>0?
     cap(m.rotorAngularVelocity/maxOmega,0,1)*cap(m.rotorEnergy/35,0,1)*(now<(m.rotorLiftSuppressedUntil??0)?.45:1):0;
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
@@ -215,7 +230,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
       // Bounded velocity servo, counteracting ascent and descent momentum.
-      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:0;
+      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):0;
       const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
@@ -235,7 +250,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const previous={x:m.x,y:m.y,z:m.z},step=dt/steps;
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};
     const floor=ground(world,candidate.x,candidate.z,Math.max(candidate.y,m.y));
-    if(floor!==null&&candidate.y<=floor){
+    if(floor!==null&&candidate.y<=floor&&m.velocity.y<=0){
       if(m.terminalDive)m.terminalDive.impactAt=now;
       if(!m.grounded)m.landingAt=now;
       candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
@@ -257,6 +272,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
           m.terminalDive.impactAt=now;
       }
       if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
+      else if(candidate.y>previous.y){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
       else{candidate.x=previous.x;candidate.y=previous.y;candidate.z=previous.z;m.velocity={x:0,y:0,z:0};}
       m.lastImpactAt=now;
     } else if(m.terminalDive) m.terminalDive.blockedContactSec=0;
