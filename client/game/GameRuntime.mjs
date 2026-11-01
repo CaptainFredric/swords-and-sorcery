@@ -432,7 +432,7 @@ export class GameRuntime {
       stageToggleFlight: () => this.toggleSpellbladeFlight(),
     });
     this.inspectionActionGate = (action, notify=true) => {
-      if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause'].includes(action)) return true;
+      if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause','practiceTools'].includes(action)) return true;
       if (this.inspectionFree && (action === 'attack' || action === 'guard')) {
         if (!this.touch) this.input.requestPointerLock();
         return false;
@@ -444,6 +444,7 @@ export class GameRuntime {
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
       if(action==='pause'&&pressed){this.onPause?.();return;}
+      if(action==='practiceTools'&&pressed){this.onPracticeTools?.();return;}
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
         if(this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');

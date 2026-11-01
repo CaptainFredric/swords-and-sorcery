@@ -40,6 +40,7 @@ const BUTTONS = [
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
+  { action: 'practiceTools', label: 'TOOLS' },
   { action: 'interact', label: 'MOUNT' },
   { action: 'deploy', label: 'DEPLOY' },
   { action: 'siegeView', label: 'VIEW' },
@@ -158,6 +159,8 @@ export class TouchControls {
       timer: this.buttons[action].querySelector('.touch-timer'),
       ...cooldown,
     }));
+    this.buttons.practiceTools.hidden = true;
+    this.buttons.practiceTools.setAttribute('aria-label', 'Practice tools');
     if (this.buttons.interact) this.buttons.interact.hidden = true;
     if (this.buttons.deploy) this.buttons.deploy.hidden = true;
     if (this.buttons.siegeView) this.buttons.siegeView.hidden = true;
@@ -214,7 +217,7 @@ export class TouchControls {
     const hints = [
       ['#pointer-hint', 'TAP TO ENTER THE ARENA'],
       ['.practice-tools-unlocked-hint', 'TAP ARENA TO RESUME'],
-      ['.practice-tools-locked-hint', 'MENU BUTTON FOR TOOLS'],
+      ['.practice-tools-locked-hint', 'TAP TARGET ICON FOR TOOLS'],
     ];
     for (const [selector, text] of hints) {
       const element = document.querySelector(selector);
@@ -265,6 +268,11 @@ export class TouchControls {
     this.active = Boolean(active);
     this.layer.classList.toggle('active', this.active);
     if (!this.active) this.reset();
+  }
+
+  // Shown only in actual Practice sessions, independent of operator/mount state.
+  setPracticeToolsAvailable(available) {
+    this.buttons.practiceTools.hidden = !available;
   }
 
   setInspectionFlight(active) {
@@ -763,6 +771,11 @@ export class TouchControls {
       if (action === 'pause' && event.type === 'pointerup' && !denied) {
         // MENU previously just dropped touch focus without opening the dialog.
         this.input.onAction?.('pause',true);
+        this.input.releaseFocus();
+      }
+      if (action === 'practiceTools' && event.type === 'pointerup' && !denied && !this.buttons.practiceTools.hidden) {
+        // The lifting finger cannot press the arena under the newly opened panel.
+        this.input.onAction?.('practiceTools', true);
         this.input.releaseFocus();
       }
     }

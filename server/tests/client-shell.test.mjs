@@ -80,6 +80,25 @@ test('Pause mounts the existing Practice tools in its own section and restores t
   assert.match(css, /\.pause-menu \.pause-section\.hidden \{ display: none !important; \}/);
 });
 
+test('Practice has a direct, Practice-only touch shortcut below Pause and Scores', async () => {
+  const main = await read('client/main.mjs');
+  const touch = await read('client/game/TouchControls.mjs');
+  const css = await read('client/mobile.css');
+  const runtime = await read('client/game/GameRuntime.mjs');
+  const layout = await read('client/game/touchLayout.mjs');
+  assert.match(touch, /action: 'practiceTools', label: 'TOOLS'/);
+  assert.match(touch, /setPracticeToolsAvailable\(available\)/);
+  assert.match(touch, /setAttribute\('aria-label', 'Practice tools'\)/);
+  assert.match(touch, /action === 'practiceTools' && event\.type === 'pointerup'/);
+  assert.match(runtime, /action==='practiceTools'&&pressed/);
+  assert.match(runtime, /'pause','practiceTools'\]\.includes\(action\)/);
+  assert.match(main, /runtime\.onPracticeTools = \(\) => openPause\('practice'\)/);
+  assert.match(main, /if \(practiceDirect\) \{\s*closePause\(\)/);
+  assert.match(css, /\.touch-ui #pause-practice \{ display: none !important; \}/);
+  assert.match(css, /\.touch-practiceTools\[hidden\] \{ display: none !important; \}/);
+  assert.match(layout, /practiceTools: \{ left: 10, top: 56, size: 44 \}/);
+});
+
 test('Practice tool hint describes the current cursor state instead of telling an already-unlocked player to press Esc', async () => {
   const html = await read('client/index.html');
   const css = await read('client/playability.css');

@@ -27,6 +27,8 @@ export const ICONS = Object.freeze({
   crouch: '<path d="M6 7.5 12 13l6-5.5M6 18.5h12"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   scores: '<path d="M5 7h14M5 12h14M5 17h14"/>',
+  // Target signifies the Practice Yard; distinct from Pause and Scores.
+  practiceTools: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/>',
   interact: '<path d="M12 4v12M8 8l4-4 4 4M4 20h16"/>',
   rise: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   lower: '<path d="M12 5v14M19 12l-7 7-7-7"/>',

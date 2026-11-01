@@ -63,6 +63,20 @@ button, input { touch-action: manipulation; }
 .touch-scores { left: calc(var(--safe-l) + 54px); }
 .touch-pause span, .touch-scores span { display: none; }
 .touch-pause svg, .touch-scores svg { width: calc(var(--size) * var(--s) * .5); height: calc(var(--size) * var(--s) * .5); stroke-width: 2.6; }
+/* Practice-only: directly below the Pause and Scores icons, out of the combat arc. */
+.touch-practiceTools {
+  --size: 44px;
+  top: calc(var(--safe-t) + 56px);
+  left: calc(var(--safe-l) + 10px);
+  color: #f2d48f;
+  border-color: rgba(236, 201, 127, .84);
+  background: radial-gradient(circle at 50% 32%, rgba(113, 73, 39, .86), rgba(53, 27, 22, .91));
+}
+.touch-practiceTools svg { width: calc(22px * var(--s)); height: calc(22px * var(--s)); }
+.touch-practiceTools span { font-size: 6px; letter-spacing: .04em; }
+.touch-practiceTools[hidden] { display: none !important; }
+/* Touch users get a direct shortcut; desktop's established menu route is unchanged. */
+.touch-ui #pause-practice { display: none !important; }
 
 /* Ballista mount & deploy touch controls */
 .touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }

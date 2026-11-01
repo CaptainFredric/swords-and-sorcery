@@ -103,6 +103,46 @@ try{
   visible:!document.querySelector('#practice-overlay').classList.contains('hidden')
  }))()`);
  assert.deepEqual(restored,{menuHidden:true,parent:'hud',visible:true});
+ // Mobile: one tap on the training-target icon enters the Practice panel directly.
+ await evalInBrowser("document.body.classList.add('touch-ui');window.__ssRuntime.enableTouch();window.__ssRuntime.requestPointerLock()");
+ const mobileButton=await evalInBrowser(`(() => {
+  const t=window.__ssRuntime.touch,b=t.buttons.practiceTools;
+  const pause=document.querySelector('#pause-practice');
+  const rect=b.getBoundingClientRect();
+  return {available:!b.hidden,visible:getComputedStyle(b).display!=='none',
+   width:rect.width,top:rect.top,pauseMenuEntryHidden:getComputedStyle(pause).display==='none'};
+ })()`);
+ assert.equal(mobileButton.available,true);
+ assert.equal(mobileButton.visible,true);
+ assert.ok(mobileButton.width>=40,'Practice touch target should be at least 40px');
+ assert.equal(mobileButton.pauseMenuEntryHidden,true,'Mobile Practice must not be nested in the Arena Menu');
+ await evalInBrowser(`(() => {
+  const b=window.__ssRuntime.touch.buttons.practiceTools;
+  b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',pointerId:727}));
+  b.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerType:'touch',pointerId:727}));
+ })()`);
+ const direct=await evalInBrowser(`(() => ({
+  menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
+  section:!document.querySelector('#pause-practice-section').classList.contains('hidden'),
+  mainHidden:document.querySelector('#pause-main-section').classList.contains('hidden'),
+  parent:document.querySelector('#practice-overlay').parentElement?.id,
+  back:document.querySelector('#pause-practice-back').textContent,
+  inert:document.querySelector('#practice-overlay').inert
+ }))()`);
+ assert.equal(direct.menuHidden,false);
+ assert.equal(direct.section,true);
+ assert.equal(direct.mainHidden,true);
+ assert.equal(direct.parent,'pause-practice-mount');
+ assert.equal(direct.inert,false);
+ assert.match(direct.back,/RETURN TO PRACTICE/);
+ await shot('direct-mobile-practice-tools');
+ await evalInBrowser("document.querySelector('#pause-practice-back').click()");
+ const directExit=await evalInBrowser(`(() => ({
+  menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
+  parent:document.querySelector('#practice-overlay').parentElement?.id,
+  touchActive:window.__ssRuntime.touch.active
+ }))()`);
+ assert.deepEqual(directExit,{menuHidden:true,parent:'hud',touchActive:true});
  const choices=[
   ['bi-bye-llista','Ballistefan','ballista'],
   ['so-fist-ication','Sir Uppercuff','ram'],
