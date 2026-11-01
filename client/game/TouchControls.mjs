@@ -987,6 +987,11 @@ export class TouchControls {
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
     const vector = stickVector(delta.x, delta.y, {deadZone:this.mounted?.06:TOUCH.deadZone, sprintActive:this.stickSprintRequested});
     this.stickSprintRequested = !this.flightMounted && vector.sprint;
+    // The detent physically travels up the cavity as the joystick is pushed.
+    // Its position represents thumb intent; the arrows/label show confirmed action.
+    const forwardPush = !this.flightMounted ? Math.max(0, Math.min(1, -vector.knob.y / TOUCH.stickRadius)) : 0;
+    this.motionGuide.style.setProperty('--motion-push', forwardPush.toFixed(3));
+    this.motionGuide.classList.toggle('forward', forwardPush > .2);
     this.motionGuide.classList.toggle('approaching', !this.flightMounted && vector.magnitude >= .78 && vector.forward >= .55);
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick');
@@ -1003,7 +1008,8 @@ export class TouchControls {
     this.#gateHeld('sprint', false, 'touch-latch');
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
-    this.motionGuide.classList.remove('approaching');
+    this.motionGuide.classList.remove('approaching', 'forward');
+    this.motionGuide.style.setProperty('--motion-push', '0');
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {
