@@ -198,6 +198,7 @@ const startMatchButton = $('#start-match');
 let paused = false;
 let practiceVisibleWanted = false;
 let pauseSection = 'main';
+let practiceDirect = false;
 pauseMenu.inert = true;
 function showMenuError(text) { for (const element of menuErrors) element.textContent = text; }
 const lobbyCode = $('#lobby-code');
@@ -499,6 +500,7 @@ function useTouchUi() {
   const turnHint = $('.turn-hint');
   if (turnHint) turnHint.textContent = 'DRAG TO TURN · DOUBLE-TAP TO RESET';
   runtime?.enableTouch();
+  runtime?.touch?.setPracticeToolsAvailable(practiceVisibleWanted);
   tutorialTouchControls();
 }
 // (the touch controls may be made after the tutorial's first word: whatever it has not taught yet is absent from the start)
@@ -544,6 +546,7 @@ function ensureRuntime() {
     };
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPause = () => openPause();
+    runtime.onPracticeTools = () => openPause('practice');
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
@@ -854,6 +857,7 @@ function setPracticeVisible(visible) {
   // Snapshot changes cannot expose tools behind the menu or strand their DOM.
   practiceVisibleWanted = Boolean(visible && !tutorialSession);
   pausePracticeButton.hidden = !practiceVisibleWanted;
+  runtime?.touch?.setPracticeToolsAvailable(practiceVisibleWanted);
   if (!practiceVisibleWanted && pauseSection === 'practice') {
     pauseSection = 'main';
     syncPauseSections();
@@ -1228,22 +1232,29 @@ async function copyText(text, title) {
   try { await navigator.clipboard.writeText(text); }
   catch { window.prompt(title, text); }
 }
-function openPause() {
+function openPause(section = 'main') {
   if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
+  // The top-left touch shortcut bypasses Arena Menu, without cloning controls.
+  const direct = section === 'practice' && practiceVisibleWanted;
   paused = true;
+  practiceDirect = direct;
   runtime?.releasePointer();
-  // Move, never clone: all Practice controls retain their original listeners.
   pausePracticeMount.append(practiceOverlay);
-  pauseSection = 'main';
+  if (direct) expandPracticeTools();
+  pauseSection = direct ? 'practice' : 'main';
+  pauseMenu.setAttribute('aria-label', direct ? 'Practice tools' : 'Arena menu');
+  $('#pause-practice-back').textContent = direct ? '← RETURN TO PRACTICE' : '← BACK TO ARENA MENU';
   syncPauseSections();
   setPracticeVisible(practiceVisibleWanted);
   pauseMenu.inert = false;
   pauseMenu.classList.remove('hidden');
-  $('#resume-game').focus();
+  (direct ? $('#pause-practice-back') : $('#resume-game')).focus();
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
+  practiceDirect = false;
   pauseSection = 'main';
+  pauseMenu.setAttribute('aria-label', 'Arena menu');
   syncPauseSections();
   if (practiceOverlay.parentNode !== practiceHome) {
     practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
@@ -1253,9 +1264,8 @@ function closePause({ resumeArena = true } = {}) {
   setPracticeVisible(practiceVisibleWanted);
   if (resumeArena) runtime?.requestPointerLock();
 }
-$('#resume-game').addEventListener('click', () => closePause());
-pausePracticeButton.addEventListener('click', () => {
-  // Open the complete panel even if Inspection previously minimized its tools.
+function expandPracticeTools() {
+  // A minimized Inspection panel must not make the direct shortcut appear empty.
   const content = $('#practice-panel-content');
   const toggle = $('#practice-panel-toggle');
   content?.classList.remove('hidden');
@@ -1263,10 +1273,18 @@ pausePracticeButton.addEventListener('click', () => {
     toggle.textContent = '− MINIMIZE';
     toggle.setAttribute('aria-expanded', 'true');
   }
+}
+$('#resume-game').addEventListener('click', () => closePause());
+pausePracticeButton.addEventListener('click', () => {
+  expandPracticeTools();
   showPauseSection('practice');
   $('#pause-practice-back').focus();
 });
 $('#pause-practice-back').addEventListener('click', () => {
+  if (practiceDirect) {
+    closePause(); // shortcut returns to gameplay, not another menu
+    return;
+  }
   showPauseSection('main');
   pausePracticeButton.focus();
 });
