@@ -395,16 +395,24 @@
 
     <section id="pause-menu" class="pause-menu hidden" role="dialog" aria-label="Arena menu">
       <div class="pause-card">
-        <h2>ARENA MENU</h2>
-        <p>The match continues while this menu is open.</p>
-        <button id="resume-game" class="wide-button primary-command">RESUME</button>
-        <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
-        <button id="pause-edit-controls" class="wide-button turn-only" type="button">EDIT TOUCH CONTROLS</button>
-        <button class="wide-button" data-open-settings>SETTINGS</button>
-        <button class="wide-button turn-only" data-turn-flip>FLIP SCREEN ⟲</button>
-        <div class="sound-toggles" role="group" aria-label="Sound">
-          <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
-          <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
+        <div id="pause-main-section" class="pause-section">
+          <h2>ARENA MENU</h2>
+          <p>The match continues while this menu is open.</p>
+          <button id="resume-game" class="wide-button primary-command">RESUME</button>
+          <button id="pause-practice" class="wide-button" type="button" hidden>PRACTICE TOOLS</button>
+          <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
+          <button id="pause-edit-controls" class="wide-button turn-only" type="button">EDIT TOUCH CONTROLS</button>
+          <button class="wide-button" data-open-settings>SETTINGS</button>
+          <button class="wide-button turn-only" data-turn-flip>FLIP SCREEN ⟲</button>
+          <div class="sound-toggles" role="group" aria-label="Sound">
+            <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
+            <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
+          </div>
+        </div>
+        <div id="pause-practice-section" class="pause-section pause-practice-section hidden" aria-label="Practice tools">
+          <button id="pause-practice-back" class="wide-button" type="button">← BACK TO ARENA MENU</button>
+          <h2>PRACTICE TOOLS</h2>
+          <div id="pause-practice-mount"></div>
         </div>
       </div>
     </section>
