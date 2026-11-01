@@ -59,7 +59,7 @@ async function display(mode){
       snapshot.soFistication={...snapshot.soFistication,id:local.operatingRamId,
         operatorId:local.id,health:1400,charging:true,retired:false};
     }else{local.operatingRamId=null;local.operatingBallistaId=null;local.operatingFightFlightId=null;}
-    t.update(local,r.socket.serverNow(),{snapshot});
+    window.__motionLiveUpdate(local,r.socket.serverNow(),{snapshot});
     return t.motionGuide.dataset.motion;
   })()`);
 }
@@ -84,7 +84,7 @@ try{
   await evalPage("window.__ssRuntime.enableTouch();window.__ssRuntime.touch.setActive(true)");
   // Freeze the normal display refresh for deterministic screenshot sampling.
   // Test fixture touches no production code or game state outside the client.
-  await evalPage("window.__ssRuntime.touch.update=window.__ssRuntime.touch.update.bind(window.__ssRuntime.touch)");
+  await evalPage("window.__motionLiveUpdate=window.__ssRuntime.touch.update.bind(window.__ssRuntime.touch);window.__ssRuntime.touch.update=()=>{}");
   const initial=await evalPage(uiState);
   assert.equal(initial.mode,'idle');
   assert.equal(initial.label,'');
