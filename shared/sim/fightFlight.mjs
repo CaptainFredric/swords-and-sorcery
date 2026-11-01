@@ -159,7 +159,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
-    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||legacyJump)){
+    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise)){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
       m.velocity.y=Math.max(m.velocity.y,3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
@@ -167,7 +167,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.rotorPowered=true; // release inside the short-hop window cuts the motor
       }else{
         m.hopStartedAt=null;
-        m.rotorPowered=Boolean((input.flightRise||legacyJump)&&!explicitHop);
+        m.rotorPowered=Boolean(input.flightRise&&!explicitHop);
       }
     }
   }else{
@@ -196,8 +196,16 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
   m.lastRotorDelta=m.rotorAngularVelocity*dt;
   m.rotorAngle=(m.rotorAngle+m.lastRotorDelta)%(Math.PI*2);
-  if(spinning)m.rotorEnergy=cap(m.rotorEnergy+dt*7,0,100);
-  else m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
+  if(m.grounded){
+    if(intact)m.rotorEnergy=cap(m.rotorEnergy+dt*25,0,100);
+  }else if(spinning){
+    m.rotorEnergy=cap(m.rotorEnergy+dt*10,0,100);
+  }else{
+    m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
+  }
+  if(spinning&&intact){
+    m.rotorEnergy=Math.max(m.rotorEnergy,cap(m.rotorAngularVelocity/maxOmega*100,0,100));
+  }
   m.rotorLiftAuthority=intact&&m.flightCharge>0?
     cap(m.rotorAngularVelocity/maxOmega,0,1)*cap(m.rotorEnergy/35,0,1)*(now<(m.rotorLiftSuppressedUntil??0)?.45:1):0;
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);

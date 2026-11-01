@@ -113,19 +113,23 @@ try{
  await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
+ await send('Page.bringToFront');
  await evaluate("window.focus?.(); document.querySelector('canvas')?.focus?.();");
+ if(!await evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'genuine enabled gameplay input before flight',40);
+ }
  await down('W');
  await down(' ');
  await until(async()=>{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
   if(y>1)return true;
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
-  await evaluate("window.__ssRuntime?.input?.keys?.add?.('Space'); window.__ssRuntime?.input?.keys?.add?.('KeyW');");
   return false;
  },'powered flight from actual Space input',160);
  await up('W');
  await up(' ');
- await evaluate("window.__ssRuntime?.input?.keys?.delete?.('Space'); window.__ssRuntime?.input?.keys?.delete?.('KeyW');");
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
  // Real mounted left mouse hold must release finite bolts and replenish only at 2/s.
