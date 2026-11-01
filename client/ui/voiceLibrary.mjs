@@ -25,6 +25,7 @@ export const VOICE_LIBRARY = Object.freeze(VOICE_LINE_LIST.map((line) => Object.
   coming: line.coming,
   // (a line said in parts: how many; its recordings are those parts, heard in the Credits as one)
   parts: line.parts?.length ?? 0,
+  family: line.family ?? null,
   // where it stands in the library: authored on the line (voiceLines.mjs `section`), never worked out from its triggers
   section: line.section,
 })));
