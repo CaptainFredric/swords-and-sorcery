@@ -138,3 +138,24 @@ test('applyLayoutItem sets inline CSS custom properties only when customized', (
   assert.match(element.style.bottom, /40px/);
   assert.equal(element.style['--size'], '70px');
 });
+
+
+test('legacy default Crouch moves away from the joystick extension without overriding customization', () => {
+  const old = {
+    onFoot: {
+      ...DEFAULT_ON_FOOT_LAYOUT,
+      crouch: { left: 90, bottom: 196, size: 50 },
+    },
+    flight: DEFAULT_FLIGHT_LAYOUT,
+  };
+  const storage = memoryStorage();
+  storage.setItem('ss-touch-layout', JSON.stringify(old));
+  let current = loadTouchLayout(storage);
+  assert.deepEqual(current.onFoot.crouch, { left: 190, bottom: 187, size: 50 });
+  storage.setItem('ss-touch-layout', JSON.stringify({
+    ...old,
+    onFoot: { ...old.onFoot, crouch: { ...old.onFoot.crouch, custom: true } },
+  }));
+  current = loadTouchLayout(storage);
+  assert.equal(current.onFoot.crouch.left, 90, 'explicitly customized positions are preserved');
+});
