@@ -3,6 +3,7 @@ import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
+import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
@@ -431,9 +432,10 @@ export class TouchControls {
       if (flight) {
         const atkLabel = this.buttons.attack?.querySelector('span');
         if (atkLabel && atkLabel.textContent !== 'SWORD') atkLabel.textContent = 'SWORD';
-        this.buttons.guard?.classList.toggle('airborne-forbidden', airborne);
-        this.buttons.guard?.setAttribute('aria-disabled',airborne?'true':'false');
-        this.buttons.guard?.setAttribute('aria-label', airborne ? 'Guard unavailable while airborne' : 'Guard');
+        const guardUnavailable = airborne && !combatActionPolicy(local, serverNow).concurrent;
+        this.buttons.guard?.classList.toggle('airborne-forbidden', guardUnavailable);
+        this.buttons.guard?.setAttribute('aria-disabled',guardUnavailable?'true':'false');
+        this.buttons.guard?.setAttribute('aria-label', guardUnavailable ? 'Guard unavailable while airborne' : 'Guard');
 
         const dashBtn = this.buttons.dash;
         if (dashBtn) {
