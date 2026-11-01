@@ -204,6 +204,7 @@ export class VoiceWatch {
       // a blow taken that filled the meter
       const prowess = knight.prowess ?? 0;
       if (prowess >= PROWESS.full && state.prowess < PROWESS.full && now - state.hurtAt <= WATCH.ready.withinSec) out.push({ speaker: knight.id, tags: ['hurtToReady'] });
+      if (state.prowess > 0 && prowess <= 0 && now - state.hurtAt <= 4.0) out.push({ speaker: knight.id, tags: ['prowessDepleted'] });
       state.prowess = prowess;
       const foes = living.filter((other) => other.id !== knight.id);
       if (!foes.length) continue;

@@ -165,7 +165,23 @@ export class GameRuntime {
     this.subtitleHook = (said) => this.#subtitle(said);
     if (this.voice) this.voice.onSpoken = this.subtitleHook;
     // and a line cut off (by a line that matters more, or a fall) takes its caption with it
-    this.captionCut = (speaker) => this.hud.subtitleCut?.(speaker);
+    this.speechInterrupted = new Map();
+    this.captionCut = (speaker, info = {}) => {
+      this.hud.subtitleCut?.(speaker);
+      const isSentence = info.wasSentence ?? true;
+      if (speaker && isSentence) {
+        const player = this.latestSnapshot?.players?.find((p) => p.id === speaker) ?? (speaker === this.playerId ? this.localAuth : null);
+        if (player?.alive !== false) {
+          const now = this.socket?.serverNow ? this.socket.serverNow() : 0;
+          const prev = this.speechInterrupted.get(speaker);
+          const count = (prev && (now - prev.at <= 30.0)) ? prev.count + 1 : 1;
+          this.speechInterrupted.set(speaker, { count, at: now });
+          if (count >= 2) {
+            this.#sayMoments(this.moments.interrupted(speaker), now);
+          }
+        }
+      }
+    };
     if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
     this.scene = new THREE.Scene();
@@ -1427,12 +1443,31 @@ export class GameRuntime {
         if (op) this.#sayMoment(op, ['apparatusHit']);
       }
       if(event.type==='soFistStrike'){
-        const op = this.latestSnapshot?.soFistication?.operatorId;
+        const ram = this.latestSnapshot?.soFistication;
+        const op = ram?.operatorId;
         if (op) {
-          const opPlayer = this.latestSnapshot?.players?.find(p => p.id === op);
+          const opPlayer = this.latestSnapshot?.players?.find((p) => p.id === op);
           if (opPlayer) {
-            const foes = (this.latestSnapshot?.players ?? []).filter(p => p.alive && p.id !== op && (!opPlayer.team || p.team !== opPlayer.team));
-            const target = foes.find(p => Math.hypot(p.position.x - opPlayer.position.x, p.position.z - opPlayer.position.z) <= 12);
+            const heading = ram.heading ?? opPlayer.yaw ?? 0;
+            const fx = -Math.sin(heading);
+            const fz = -Math.cos(heading);
+            const rx = Math.cos(heading);
+            const rz = -Math.sin(heading);
+            const foes = (this.latestSnapshot?.players ?? []).filter((p) => p.alive !== false && p.id !== op && (!opPlayer.team || p.team !== opPlayer.team));
+            const candidates = [];
+            for (const foe of foes) {
+              const pos = foe.position ?? { x: 0, y: 0, z: 0 };
+              const dx = pos.x - (ram.x ?? opPlayer.position.x);
+              const dy = pos.y - (ram.y ?? opPlayer.position.y);
+              const dz = pos.z - (ram.z ?? opPlayer.position.z);
+              const forward = dx * fx + dz * fz;
+              const lateral = Math.abs(dx * rx + dz * rz);
+              if (forward >= 0.5 && forward <= 6.0 && lateral <= 1.8 && Math.abs(dy) <= 2.2) {
+                candidates.push({ foe, forward });
+              }
+            }
+            candidates.sort((a, b) => a.forward - b.forward);
+            const target = candidates[0]?.foe;
             if (target) {
               this.moments.setLastTarget(op, target.id);
               this.#sayMoment(op, ['pistonWindup']);
@@ -1556,7 +1591,18 @@ export class GameRuntime {
       if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
       if (event.type === 'swordMiss') {
         const near = this.#nearestFoe(event.playerId, MOMENTS.denied.near);
-        this.#sayMoments(this.moments.denied(event.playerId, near, event.at), event.at);
+        const defender = near ? this.latestSnapshot?.players.find((p) => p.id === near) : null;
+        const isCasting = Boolean(
+          defender && (
+            defender.practiceMode === 'SORCERY' ||
+            defender.casting ||
+            (defender.castEndsAt ?? 0) > event.at ||
+            (defender.gatherUntil ?? 0) > event.at ||
+            (defender.id === this.playerId && (this.weapon?.castUntil > (this.timeSec ?? 0) || (this.localAuth?.castEndsAt ?? 0) > event.at))
+          )
+        );
+        const targetKind = isCasting ? 'sorcery' : null;
+        this.#sayMoments(this.moments.denied(event.playerId, near, event.at, { targetKind }), event.at);
         // (and the same foe swinging at him and missing, again and again: in a real match, not much of a foe)
         this.#sayMoments(this.moments.flailing(event.playerId, near, event.at, { practice: this.#inPractice(), ...this.#voiceWorld() }), event.at);
       }
@@ -2370,7 +2416,19 @@ export class GameRuntime {
     }
     const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
     const victimPlayer = players.find((p) => p.id === victimId);
-    const flightElevated = Boolean(killerId && (killerPlayer?.flying || killerPlayer?.mountedKind === 'fightFlight' || ((killerPlayer?.position?.y ?? 0) - (victimPlayer?.position?.y ?? 0) >= 3.0)));
+    const flightMachine = this.latestSnapshot?.fightFlight;
+    const isFlight = Boolean(
+      killerPlayer?.flying ||
+      killerPlayer?.mountedKind === 'fightFlight' ||
+      killerPlayer?.operatingFightFlightId ||
+      flightMachine?.operatorId === killerId
+    );
+    const airborne = flightMachine?.operatorId === killerId
+      ? !flightMachine.grounded
+      : (killerPlayer?.grounded === false || killerPlayer?.flying);
+    const killerY = (flightMachine?.operatorId === killerId ? flightMachine.y : killerPlayer?.position?.y) ?? 0;
+    const victimY = victimPlayer?.position?.y ?? 0;
+    const flightElevated = Boolean(killerId && isFlight && airborne && (killerY - victimY >= 3.0));
     const extra = {
       rushed: Boolean(killerId) && this.watch.rushed(victimId, killerId, at),
       fair: Boolean(killerId) && this.watch.fair(victimId, killerId, at, event.source),
@@ -3341,23 +3399,76 @@ export class GameRuntime {
     }
     const flightPose=this.latestSnapshot?.fightFlight;
     if(flightPose?.operatorId){
-      this.lastFlightGrounded ??= new Map();
-      const prevGrounded = this.lastFlightGrounded.get(flightPose.operatorId);
+      const serverNow = this.socket.serverNow();
+      this.flightVoState ??= new Map();
+      const voState = this.flightVoState.get(flightPose.operatorId) ?? {
+        grounded: true,
+        airborneSince: 0,
+        wasHighHover: false,
+        lastHoverCheckAt: -Infinity,
+        lastSustainCheckAt: -Infinity,
+        wasFastNear: false,
+        lastNearCheckAt: -Infinity,
+      };
+      this.flightVoState.set(flightPose.operatorId, voState);
+
+      const prevGrounded = voState.grounded;
       const nowGrounded = Boolean(flightPose.grounded);
-      this.lastFlightGrounded.set(flightPose.operatorId, nowGrounded);
-      if (prevGrounded === true && !nowGrounded) {
+      voState.grounded = nowGrounded;
+
+      if (prevGrounded && !nowGrounded) {
+        voState.airborneSince = serverNow;
+        voState.wasHighHover = false;
+        voState.wasFastNear = false;
         this.#sayMoment(flightPose.operatorId, ['flightTakeoff']);
-      } else if (!nowGrounded) {
+      } else if (nowGrounded) {
+        voState.airborneSince = 0;
+        voState.wasHighHover = false;
+        voState.wasFastNear = false;
+      } else {
+        const opPlayer = this.latestSnapshot?.players?.find((p) => p.id === flightPose.operatorId) ?? (flightPose.operatorId === this.localAuth?.id ? this.localAuth : null);
+        const opTeam = opPlayer?.team;
+        const enemies = (this.latestSnapshot?.players ?? []).filter((p) => p.id !== flightPose.operatorId && p.alive !== false && (!opTeam || p.team !== opTeam));
+
+        // 1. Hover high: altitude above floor >= 5.0m with an enemy below within 25m horizontal reach
         const floor = this.activeWorld ? surfaceHeightAt(flightPose.x, flightPose.z, flightPose.y, this.activeWorld) : 0;
-        if ((flightPose.y - (floor ?? 0)) >= 5.0) {
+        const hasEnemyBelow = enemies.some((e) => {
+          const ep = e.position ?? { x: 0, y: 0, z: 0 };
+          return (flightPose.y - ep.y) >= 3.5 && Math.hypot(flightPose.x - ep.x, flightPose.z - ep.z) <= 25;
+        });
+        const isHighHover = (flightPose.y - (floor ?? 0)) >= 5.0 && hasEnemyBelow;
+        const hoverTransition = isHighHover && !voState.wasHighHover;
+        const hoverSampleDue = isHighHover && (serverNow - voState.lastHoverCheckAt >= 8.0);
+        if (hoverTransition || hoverSampleDue) {
+          voState.lastHoverCheckAt = serverNow;
           this.#sayMoment(flightPose.operatorId, ['flightHoverHigh']);
         }
-        if (flightPose.rotorPowered) {
+        voState.wasHighHover = isHighHover;
+
+        // 2. Rotor sustained powered flight: airborne >= 3.5s, rotorPowered, enemies present within 35m, sampled every 9.0s
+        const hasEnemiesNearby = enemies.some((e) => {
+          const ep = e.position ?? { x: 0, y: 0, z: 0 };
+          return Math.hypot(flightPose.x - ep.x, flightPose.z - ep.z) <= 35;
+        });
+        const sustainedFlight = flightPose.rotorPowered && (serverNow - voState.airborneSince >= 3.5) && hasEnemiesNearby;
+        if (sustainedFlight && (serverNow - voState.lastSustainCheckAt >= 9.0)) {
+          voState.lastSustainCheckAt = serverNow;
           this.#sayMoment(flightPose.operatorId, ['flightRotorSustained']);
         }
-        if ((flightPose.rotorRpm ?? 0) >= 120) {
+
+        // 3. Rotor near: rotor RPM >= 120 with an enemy near the spinning blades (<= 7m horizontal, |dy| <= 3.5m)
+        const enemyNearRotor = enemies.some((e) => {
+          const ep = e.position ?? { x: 0, y: 0, z: 0 };
+          return Math.hypot(flightPose.x - ep.x, flightPose.z - ep.z) <= 7.0 && Math.abs(flightPose.y - ep.y) <= 3.5;
+        });
+        const isFastNear = (flightPose.rotorRpm ?? 0) >= 120 && enemyNearRotor;
+        const nearTransition = isFastNear && !voState.wasFastNear;
+        const nearSampleDue = isFastNear && (serverNow - voState.lastNearCheckAt >= 8.0);
+        if (nearTransition || nearSampleDue) {
+          voState.lastNearCheckAt = serverNow;
           this.#sayMoment(flightPose.operatorId, ['flightRotorNear']);
         }
+        voState.wasFastNear = isFastNear;
       }
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
       if(driver?.root?.visible){

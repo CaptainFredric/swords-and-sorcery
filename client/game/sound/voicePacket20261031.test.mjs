@@ -109,3 +109,281 @@ test('Packet metadata & multi-beat punchline timings integrity', () => {
   assert.equal(groundedDebut.credits.title, 'Grounded Debut');
   assert.equal(groundedDebut.triggers.rotorDestroyedSurvive, 1);
 });
+
+test('Prowess triggers: require authoritative depletion or expenditure, not merely low health', () => {
+  const moments = new VoiceMoments();
+
+  // Low health (15 HP <= 20) with NO prowess depletion: prowessDepleted must NOT be offered
+  const lowHealthOnly = moments.damage({ attackerId: 'atk', victimId: 'vic', amount: 25, health: 15, source: 'sword', at: 1.0 });
+  const lowHealthTags = lowHealthOnly.flat().map((s) => s.line);
+  assert.ok(!lowHealthTags.includes('prowessConspiracyV1') && !lowHealthTags.includes('prowessConspiracyV2'), 'low health alone never triggers prowess conspiracy');
+
+  // Authoritative prowess depletion (prowess drops to 0 from 50) while standing: MUST offer prowessDepleted
+  const prowessDepleted = moments.damage({ attackerId: 'atk', victimId: 'vic', amount: 20, health: 60, prowess: 0, prowessBefore: 50, source: 'sword', at: 2.0 });
+  const prowessTags = prowessDepleted.flat().map((s) => s.line);
+  assert.ok(prowessTags.includes('prowessConspiracyV1') || prowessTags.includes('prowessConspiracyV2'), 'authoritative prowess depletion triggers prowess conspiracy');
+
+  // Explicit prowessDepleted flag: MUST offer prowessDepleted
+  const explicitDepleted = moments.damage({ attackerId: 'atk', victimId: 'vic', amount: 20, health: 70, prowessDepleted: true, source: 'sword', at: 3.0 });
+  const explicitTags = explicitDepleted.flat().map((s) => s.line);
+  assert.ok(explicitTags.includes('prowessConspiracyV1') || explicitTags.includes('prowessConspiracyV2'), 'explicit prowessDepleted flag triggers prowess conspiracy');
+
+  // Direct method: moments.prowessDepleted('vic')
+  const directLines = moments.prowessDepleted('vic').flat().map((s) => s.line);
+  assert.ok(directLines.includes('prowessConspiracyV1') || directLines.includes('prowessConspiracyV2'), 'direct prowessDepleted method returns conspiracy lines');
+});
+
+test('Special events: spell-miss dialogue occurs when attacking an enemy preparing or casting a spell', () => {
+  const moments = new VoiceMoments();
+
+  // Missing against a normal defender (targetKind is null): does not trigger on single miss (requires 3 denials)
+  const normalMiss = moments.denied('attacker', 'defender', 1.0, { targetKind: null });
+  assert.deepEqual(normalMiss, [], 'single sword miss against normal defender does not trigger');
+
+  // Missing against an enemy spellcaster preparing/casting a spell (targetKind: "sorcery"): immediate spellMiss
+  const spellMiss = moments.denied('attacker', 'defender', 2.0, { targetKind: 'sorcery' });
+  const spellMissLines = spellMiss.flat().map((s) => s.line);
+  assert.ok(spellMissLines.includes('spellTurnV1') || spellMissLines.includes('spellTurnV2'), 'missing against casting opponent offers spellTurn dialogue');
+});
+
+test('Special events: repeated sentence interruptions trigger "If I\'m not allowed to finish a sentence..."', () => {
+  const moments = new VoiceMoments();
+
+  // moments.interrupted('speaker') delivers interruptedRepeated moment
+  const lines = moments.interrupted('speaker').flat().map((s) => s.line);
+  assert.ok(lines.includes('finishSentence'), 'interrupted offers finishSentence line');
+
+  // Test interruption lifecycle in simulated captionCut / voiceBank cut
+  const speechInterrupted = new Map();
+  let voicedMoments = [];
+  const sayMoments = (groups, at) => { voicedMoments.push({ groups, at }); };
+
+  const onSentenceCut = (speaker, now, isAlive = true) => {
+    if (!isAlive) return;
+    const prev = speechInterrupted.get(speaker);
+    const count = (prev && (now - prev.at <= 30.0)) ? prev.count + 1 : 1;
+    speechInterrupted.set(speaker, { count, at: now });
+    if (count >= 2) {
+      sayMoments(moments.interrupted(speaker), now);
+    }
+  };
+
+  // 1st interruption: count = 1, no line yet
+  onSentenceCut('speakerA', 10.0, true);
+  assert.equal(voicedMoments.length, 0);
+
+  // 2nd interruption within 30s: count = 2, triggers finishSentence!
+  onSentenceCut('speakerA', 14.0, true);
+  assert.equal(voicedMoments.length, 1);
+  const delivered = voicedMoments[0].groups.flat().map((s) => s.line);
+  assert.ok(delivered.includes('finishSentence'), 'repeated interruptions trigger drastic action threat');
+});
+
+test('Strengthen Not right now: interrupts even STATE-priority speech, respects 18m radius and 2s post-line hush', () => {
+  const director = new VoiceDirector({ rand: () => 0.01 });
+
+  // Speaker A at (0, 0) is speaking high-priority STATE speech (cry = true)
+  const stateCry = director.consider('sunderCall', 'speakerA', 10.0, { source: { x: 0, z: 0 }, duration: 4.0, cry: true });
+  assert.ok(stateCry, 'sunderCall cry started');
+  assert.equal(director.saying('speakerA', 10.5), 'sunderCall');
+
+  // Killer at (0, 0) kills and says 'notRightNow' (duration 2.5s)
+  const allowed = director.consider('notRightNow', 'killer', 11.0, { source: { x: 0, z: 0 }, duration: 2.5 });
+  assert.ok(allowed, 'notRightNow allowed');
+  assert.ok(allowed.stop.includes('speakerA'), 'notRightNow interrupts even STATE priority speech');
+  assert.equal(director.saying('speakerA', 11.1), null, 'speakerA speech cut');
+  assert.equal(director.saying('killer', 11.1), 'notRightNow');
+
+  // Speaker B within 18m at (3, 4) (dist 5m) is suppressed during playback (t = 12.0)
+  const nearDuring = director.consider('effort', 'speakerB', 12.0, { source: { x: 3, z: 4 } });
+  assert.equal(nearDuring, null, 'suppressed within 18m during playback');
+
+  // Speaker B within 18m is still suppressed during 2s post-line tail hush (line ends 13.5, hush until 15.5)
+  const nearTail = director.consider('effort', 'speakerB', 14.5, { source: { x: 3, z: 4 } });
+  assert.equal(nearTail, null, 'suppressed within 18m during 2s tail hush');
+
+  // Remote speaker R at (25, 25) (dist ~35m > 18m) is NOT suppressed during playback or tail
+  const remote = director.consider('effort', 'speakerR', 14.5, { source: { x: 25, z: 25 } });
+  assert.ok(remote, 'remote speaker > 18m remains completely unaffected');
+
+  // After 2s tail expires at t = 16.0, nearby speech resumes
+  const nearAfter = director.consider('effort', 'speakerB', 16.0, { source: { x: 3, z: 4 } });
+  assert.ok(nearAfter, 'nearby speech resumes after hush window expires');
+
+  // Verify probabilities and cooldown
+  const rule = voiceLine('notRightNow');
+  assert.equal(rule.rarity, 0.03, 'base rarity 3%');
+  assert.equal(rule.cooldown, 240, 'cooldown 240s');
+  assert.equal(rule.boost?.victimSpoke, 5.0, '5x boost when victim was speaking (15%)');
+});
+
+test('SO-FIST-ICATION handshake: piston cylinder sweep geometry and exact target matching', () => {
+  // Test piston forward cylinder sweep geometry
+  const ram = { x: 0, y: 0, z: 0, heading: 0 }; // heading 0 -> forward is -Z (fx = 0, fz = -1), right is +X (rx = 1, rz = 0)
+  const fx = -Math.sin(ram.heading);
+  const fz = -Math.cos(ram.heading);
+  const rx = Math.cos(ram.heading);
+  const rz = -Math.sin(ram.heading);
+
+  const evaluateSweep = (pos) => {
+    const dx = pos.x - ram.x;
+    const dy = pos.y - ram.y;
+    const dz = pos.z - ram.z;
+    const forward = dx * fx + dz * fz;
+    const lateral = Math.abs(dx * rx + dz * rz);
+    const valid = forward >= 0.5 && forward <= 6.0 && lateral <= 1.8 && Math.abs(dy) <= 2.2;
+    return { valid, forward, lateral, dy };
+  };
+
+  // Target 1: right in front at (0, 0, -3.0): forward = 3.0, lateral = 0 -> VALID
+  assert.ok(evaluateSweep({ x: 0, y: 0, z: -3.0 }).valid, 'straight ahead in reach is valid');
+
+  // Target 2: lateral offset 3.0m at (3.0, 0, -3.0): forward = 3.0, lateral = 3.0 > 1.8m -> INVALID
+  assert.ok(!evaluateSweep({ x: 3.0, y: 0, z: -3.0 }).valid, 'outside lateral cylinder sweep is invalid');
+
+  // Target 3: behind ram at (0, 0, 4.0): forward = -4.0 < 0.5 -> INVALID
+  assert.ok(!evaluateSweep({ x: 0, y: 0, z: 4.0 }).valid, 'behind ram is invalid');
+
+  // Target 4: too high at (0, 4.0, -3.0): dy = 4.0 > 2.2 -> INVALID
+  assert.ok(!evaluateSweep({ x: 0, y: 4.0, z: -3.0 }).valid, 'outside vertical reach is invalid');
+
+  // Test exact target matching for handshake payoff
+  let spoken = [];
+  const say = (line, speaker, opt) => { spoken.push({ line, speaker, opt }); return { seconds: 2, delay: 0 }; };
+  const scenes = new VoiceScenes({ say });
+
+  // Windup setup targets victim1
+  scenes.handshakeStarted('operator', 'victim1', 10.0);
+  assert.ok(scenes.handshakes.has('operator'));
+
+  // Piston impact hits a different enemy (victim2): payoff must NOT trigger!
+  scenes.handshakeCompleted('operator', 'victim2', 12.0);
+  assert.equal(spoken.length, 0, 'payoff not delivered for different enemy');
+  assert.ok(scenes.handshakes.has('operator'), 'handshake remains pending for victim1');
+
+  // Piston impact hits the exact targeted enemy (victim1): payoff delivered!
+  scenes.handshakeCompleted('operator', 'victim1', 12.5);
+  assert.ok(!scenes.handshakes.has('operator'), 'handshake completed');
+  assert.ok(spoken.some((s) => s.line === 'handshakePayoff' && s.speaker === 'operator' && s.opt.earned), 'payoff earned for exact targeted opponent');
+});
+
+test('Aerial-kill semantics: high ground requires killer airborne in flight with >= 3.0m elevation superiority', () => {
+  const evalHighGround = ({ isFlight, airborne, killerY, victimY }) => {
+    return Boolean(isFlight && airborne && (killerY - victimY >= 3.0));
+  };
+
+  // Case A: Grounded Fight-and-Flight machine (airborne: false, killerY: 0, victimY: 0) -> FALSE
+  assert.equal(evalHighGround({ isFlight: true, airborne: false, killerY: 0, victimY: 0 }), false, 'grounded machine does not get high ground');
+
+  // Case B: Airborne Fight-and-Flight machine, but insufficient vertical height (diff 2.0m < 3.0m) -> FALSE
+  assert.equal(evalHighGround({ isFlight: true, airborne: true, killerY: 2.0, victimY: 0 }), false, 'insufficient height difference does not get high ground');
+
+  // Case C: Airborne Fight-and-Flight machine with genuine vertical superiority (diff 5.0m >= 3.0m) -> TRUE
+  assert.equal(evalHighGround({ isFlight: true, airborne: true, killerY: 6.0, victimY: 1.0 }), true, 'airborne with >= 3.0m height superiority gets high ground');
+
+  // Case D: Killer on foot on higher terrain (isFlight: false, diff 4.0m) -> FALSE
+  assert.equal(evalHighGround({ isFlight: false, airborne: false, killerY: 5.0, victimY: 1.0 }), false, 'pedestrian killer never gets flight elevated kill');
+
+  // Verify voice line triggers
+  const moments = new VoiceMoments();
+  const deathLines = moments.death(
+    { victimId: 'vic', killerId: 'kil', source: 'sword', at: 10.0 },
+    { extra: { flightElevated: true } }
+  );
+  const victorLines = deathLines.victor.flat().map((s) => s.line);
+  assert.ok(victorLines.includes('highGround'), 'flightElevated extra fact offers highGround line');
+});
+
+test('Rare VO probability semantics: fight-and-flight lines bounded by state transitions and intervals', () => {
+  // Verify moral rotation lines have very low rarity (0.025 - 0.04) and 240s cooldown
+  const moralLines = ['rotorMoralityV1', 'rotorMoralityV2', 'rotorMoralityV3', 'rotorMoralityV4'].map(voiceLine);
+  for (const line of moralLines) {
+    assert.ok(line.rarity <= 0.04, `${line.id} rarity is rare (${line.rarity})`);
+    assert.ok(line.cooldown >= 240, `${line.id} cooldown is at least 240s (${line.cooldown})`);
+    assert.equal(line.trigger, 'flightRotorSustained');
+  }
+
+  // Verify hover line
+  const hoverLine = voiceLine('aboveYou');
+  assert.equal(hoverLine.trigger, 'flightHoverHigh');
+  assert.ok(hoverLine.rarity <= 0.08);
+
+  // Verify rotor near line
+  const rotorNearLine = voiceLine('rotaryExhibit');
+  assert.equal(rotorNearLine.trigger, 'flightRotorNear');
+  assert.ok(rotorNearLine.rarity <= 0.05);
+
+  // Simulate bounded sampling logic
+  const voState = {
+    grounded: false,
+    airborneSince: 0.0,
+    wasHighHover: false,
+    lastHoverCheckAt: -Infinity,
+    lastSustainCheckAt: -Infinity,
+    wasFastNear: false,
+    lastNearCheckAt: -Infinity,
+  };
+
+  let sustainRolls = 0;
+  let hoverRolls = 0;
+  let nearRolls = 0;
+
+  const simulateFrame = (serverNow, dt, { floorY = 0, flightY = 6.0, rotorPowered = true, rotorRpm = 130, enemies = [{ position: { x: 3, y: 1, z: 3 } }, { position: { x: 2, y: 5, z: 2 } }] }) => {
+    // High hover check
+    const hasEnemyBelow = enemies.some((e) => (flightY - e.position.y >= 3.5) && Math.hypot(flightY - e.position.y) <= 25);
+    const isHighHover = (flightY - floorY >= 5.0) && hasEnemyBelow;
+    const hoverTransition = isHighHover && !voState.wasHighHover;
+    const hoverSampleDue = isHighHover && (serverNow - voState.lastHoverCheckAt >= 8.0);
+    if (hoverTransition || hoverSampleDue) {
+      voState.lastHoverCheckAt = serverNow;
+      hoverRolls++;
+    }
+    voState.wasHighHover = isHighHover;
+
+    // Sustained flight check
+    const hasEnemiesNearby = enemies.some((e) => Math.hypot(e.position.x, e.position.z) <= 35);
+    const sustainedFlight = rotorPowered && (serverNow - voState.airborneSince >= 3.5) && hasEnemiesNearby;
+    if (sustainedFlight && (serverNow - voState.lastSustainCheckAt >= 9.0)) {
+      voState.lastSustainCheckAt = serverNow;
+      sustainRolls++;
+    }
+
+    // Near check
+    const enemyNearRotor = enemies.some((e) => Math.hypot(e.position.x, e.position.z) <= 7.0 && Math.abs(flightY - e.position.y) <= 3.5);
+    const isFastNear = rotorRpm >= 120 && enemyNearRotor;
+    const nearTransition = isFastNear && !voState.wasFastNear;
+    const nearSampleDue = isFastNear && (serverNow - voState.lastNearCheckAt >= 8.0);
+    if (nearTransition || nearSampleDue) {
+      voState.lastNearCheckAt = serverNow;
+      nearRolls++;
+    }
+    voState.wasFastNear = isFastNear;
+  };
+
+  // Run 60 frames in 1.0 second (t = 0 to t = 1.0)
+  for (let f = 0; f < 60; f++) {
+    simulateFrame(f / 60, 1 / 60, {});
+  }
+
+  // Hover transitions once on frame 0, and does NOT roll again in 1.0 second!
+  assert.equal(hoverRolls, 1, 'hover rolls exactly once on transition, not 60 times');
+  // Sustain does not roll during the first 3.5 seconds
+  assert.equal(sustainRolls, 0, 'sustain does not roll during first 3.5s startup');
+  // Rotor near rolls once on transition
+  assert.equal(nearRolls, 1, 'rotor near rolls once on transition, not 60 times');
+
+  // Advance to t = 4.0s (sustained flight achieved)
+  simulateFrame(4.0, 1 / 60, {});
+  assert.equal(sustainRolls, 1, 'sustain rolls once at 4.0s');
+
+  // Advance 300 frames over 5 seconds (t = 4.0 to 9.0s)
+  for (let f = 1; f <= 300; f++) {
+    simulateFrame(4.0 + f / 60, 1 / 60, {});
+  }
+  // At t = 9.0s, interval of 9.0s has not elapsed since 4.0s (only 5s elapsed)
+  assert.equal(sustainRolls, 1, 'sustain does not roll again before 9.0s interval');
+
+  // Advance to t = 13.1s (> 9s since t = 4.0)
+  simulateFrame(13.1, 1 / 60, {});
+  assert.equal(sustainRolls, 2, 'sustain rolls second sample after 9.0s interval');
+});

@@ -399,7 +399,8 @@ export class VoiceDirector {
     // opening: the first part of a scene that begins on something done (the Sunder sentence, at its first slam): the
     // line's own odds, cooldown and once-a-life, but it takes the voice as a part does
     const part = earned || opening;
-    const rule = cry ? { ...base, priority: STATE, interrupts: true } : part ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true } : base;
+    const notRightNow = line === 'notRightNow';
+    const rule = notRightNow ? { ...base, priority: STATE + 1, interrupts: true } : cry ? { ...base, priority: STATE, interrupts: true } : part ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true } : base;
     if (cry || earned) force = true;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;

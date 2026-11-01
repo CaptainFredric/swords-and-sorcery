@@ -225,7 +225,8 @@ export class VoiceMoments {
       const possessed = other && event.health <= MOMENTS.losingFace.health && (this.fallsInARow.get(victimId) ?? 0) >= MOMENTS.possessed.falls
         && !this.#excused(victimId, saidAgo);
       const heavy = other && event.amount >= MOMENTS.hurtSounds.heavy;
-      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', ((event.prowess ?? 100) <= 0 || event.health <= 20) && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken']));
+      const prowessDepleted = Boolean(event.prowessDepleted || event.prowessSpent || (event.prowess !== undefined && event.prowess <= 0 && (event.prowessBefore === undefined || event.prowessBefore > 0)));
+      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', prowessDepleted && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken']));
     }
     return groups.filter((group) => group.length);
   }
@@ -393,6 +394,9 @@ export class VoiceMoments {
    */
   denied(attackerId, defenderId, at, { targetKind = null } = {}) {
     if (!attackerId || !defenderId || attackerId === defenderId) return [];
+    if (targetKind === 'sorcery') {
+      return [this.#lines(attackerId, ['spellMiss'])];
+    }
     const key = `${attackerId}>${defenderId}`;
     const times = [...(this.denials.get(key) ?? []).filter((t) => at - t <= MOMENTS.denied.withinSec), at];
     if (times.length < MOMENTS.denied.count) {
@@ -400,7 +404,12 @@ export class VoiceMoments {
       return [];
     }
     this.denials.delete(key);
-    return [this.#lines(attackerId, [targetKind === 'sorcery' ? 'spellMiss' : 'deniedOpening'])];
+    return [this.#lines(attackerId, ['deniedOpening'])];
+  }
+
+  /** Authoritative prowess depletion or expenditure: conspiracy lines. */
+  prowessDepleted(speaker) {
+    return [this.#lines(speaker, ['prowessDepleted'])];
   }
 
   /** Repeated interruptions of speech: threatens drastic action. */
