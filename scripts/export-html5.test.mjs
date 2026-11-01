@@ -72,7 +72,7 @@ test('production export includes all local module, HTML and CSS dependencies', a
     assert(bundleContent.includes('LocalHost'), 'Simulation engine must be bundled into client/main.mjs');
     assert(paths.has('client/assets/characters/spellblade/spellblade.glb'));
     assert(paths.has('client/assets/voice/manifest.json'));
-    assert(built.files < 750, `Expected fewer than 750 files in bundled export, got ${built.files}`);
+    assert(built.files < 950, `Expected fewer than 950 files in bundled export, got ${built.files}`);
     assert.equal(built.files, paths.size);
 
     for (const p of paths) {

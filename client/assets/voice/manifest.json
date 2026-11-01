@@ -7,6 +7,12 @@
         "seconds": 12.03
       }
     ],
+    "aboveYou": [
+      {
+        "file": "above-you-1",
+        "seconds": 3.39
+      }
+    ],
     "abyssCalls": [
       {
         "file": "abyss-calls-1",
@@ -55,10 +61,28 @@
         "seconds": 2.9
       }
     ],
+    "apparatusFairnessV1": [
+      {
+        "file": "apparatus-fairness-v1-1",
+        "seconds": 3.69
+      }
+    ],
+    "apparatusFairnessV2": [
+      {
+        "file": "apparatus-fairness-v2-1",
+        "seconds": 3.73
+      }
+    ],
     "armorHoldingBack": [
       {
         "file": "armor-holding-back-1",
         "seconds": 3.53
+      }
+    ],
+    "badDay": [
+      {
+        "file": "bad-day-1",
+        "seconds": 2.14
       }
     ],
     "believeMagic": [
@@ -77,6 +101,12 @@
       {
         "file": "best-strategy-1",
         "seconds": 2.89
+      }
+    ],
+    "bizarreAppearance": [
+      {
+        "file": "bizarre-appearance-1",
+        "seconds": 2.31
       }
     ],
     "bladeCaught": [
@@ -156,6 +186,12 @@
         "seconds": 5.42
       }
     ],
+    "choseNotSurvive": [
+      {
+        "file": "chose-not-survive-1",
+        "seconds": 2.73
+      }
+    ],
     "coldHurt": [
       {
         "file": "cold-hurt-1",
@@ -184,6 +220,18 @@
         "seconds": 1.86
       }
     ],
+    "contributionInsultV1": [
+      {
+        "file": "contribution-insult-v1-1",
+        "seconds": 3.76
+      }
+    ],
+    "contributionInsultV2": [
+      {
+        "file": "contribution-insult-v2-1",
+        "seconds": 3.56
+      }
+    ],
     "couldveDoneThat": [
       {
         "file": "couldve-done-that-1",
@@ -198,6 +246,42 @@
       {
         "file": "death-2",
         "seconds": 1.98
+      }
+    ],
+    "deathSceneV1": [
+      {
+        "file": "death-scene-v1-1",
+        "seconds": 4.15,
+        "beats": [
+          0.0,
+          2.1
+        ]
+      }
+    ],
+    "deathSceneV2": [
+      {
+        "file": "death-scene-v2-1",
+        "seconds": 3.95,
+        "beats": [
+          0.0,
+          2.0
+        ]
+      }
+    ],
+    "deceasedStatusV1": [
+      {
+        "file": "deceased-status-v1-1",
+        "seconds": 4.55
+      },
+      {
+        "file": "deceased-status-v1-2",
+        "seconds": 4.58
+      }
+    ],
+    "deceasedStatusV2": [
+      {
+        "file": "deceased-status-v2-1",
+        "seconds": 3.83
       }
     ],
     "defeat": [
@@ -236,6 +320,12 @@
       {
         "file": "distance-advice-1",
         "seconds": 3.42
+      }
+    ],
+    "dontTouchBlades": [
+      {
+        "file": "dont-touch-blades-1",
+        "seconds": 1.4
       }
     ],
     "doomCut": [
@@ -314,6 +404,12 @@
         "seconds": 2.42
       }
     ],
+    "finishSentence": [
+      {
+        "file": "finish-sentence-1",
+        "seconds": 3.81
+      }
+    ],
     "firstStrike": [
       {
         "file": "first-strike-1",
@@ -330,6 +426,18 @@
       {
         "file": "fist-throw-1",
         "seconds": 2.04
+      }
+    ],
+    "foundDisablePoint": [
+      {
+        "file": "found-disable-point-1",
+        "seconds": 2.14
+      }
+    ],
+    "funLifetime": [
+      {
+        "file": "fun-lifetime-1",
+        "seconds": 2.03
       }
     ],
     "galeTaunt": [
@@ -350,6 +458,24 @@
         "seconds": 4.31
       }
     ],
+    "gloryWitnessV1": [
+      {
+        "file": "glory-witness-v1-1",
+        "seconds": 3.89
+      }
+    ],
+    "gloryWitnessV2": [
+      {
+        "file": "glory-witness-v2-1",
+        "seconds": 3.84
+      }
+    ],
+    "gloryWitnessV3": [
+      {
+        "file": "glory-witness-v3-1",
+        "seconds": 4.47
+      }
+    ],
     "goingEasy": [
       {
         "file": "going-easy-1",
@@ -360,10 +486,54 @@
         ]
       }
     ],
+    "groundPersuasion": [
+      {
+        "file": "ground-persuasion-1",
+        "seconds": 3.05
+      }
+    ],
+    "groundedDebut": [
+      {
+        "file": "grounded-debut-1",
+        "seconds": 1.68
+      }
+    ],
     "hackSlash": [
       {
         "file": "hack-slash-1",
         "seconds": 3.04
+      }
+    ],
+    "handshakePayoff": [
+      {
+        "file": "handshake-payoff-1",
+        "seconds": 2.91
+      }
+    ],
+    "handshakeSetup": [
+      {
+        "file": "handshake-setup-1",
+        "seconds": 2.77
+      }
+    ],
+    "happilyBookV1": [
+      {
+        "file": "happily-book-v1-1",
+        "seconds": 6.9,
+        "beats": [
+          0.0,
+          4.09
+        ]
+      }
+    ],
+    "happilyBookV2": [
+      {
+        "file": "happily-book-v2-1",
+        "seconds": 7.22,
+        "beats": [
+          0.0,
+          4.14
+        ]
       }
     ],
     "headOn": [
@@ -400,6 +570,22 @@
       {
         "file": "herald-1",
         "seconds": 4.15
+      }
+    ],
+    "heroSubZero": [
+      {
+        "file": "hero-sub-zero-1",
+        "seconds": 3.36
+      }
+    ],
+    "highGround": [
+      {
+        "file": "high-ground-1",
+        "seconds": 4.39,
+        "beats": [
+          0.0,
+          3.37
+        ]
       }
     ],
     "hurt": [
@@ -456,6 +642,12 @@
         "seconds": 3.49
       }
     ],
+    "lastWarning": [
+      {
+        "file": "last-warning-1",
+        "seconds": 2.96
+      }
+    ],
     "lateLine": [
       {
         "file": "late-line-1",
@@ -478,10 +670,50 @@
         "seconds": 3.6
       }
     ],
+    "livingComplaintV1": [
+      {
+        "file": "living-complaint-v1-1",
+        "seconds": 2.86
+      }
+    ],
+    "livingComplaintV2": [
+      {
+        "file": "living-complaint-v2-1",
+        "seconds": 2.13
+      }
+    ],
+    "lookalikeJealousy": [
+      {
+        "file": "lookalike-jealousy-1",
+        "seconds": 4.72
+      }
+    ],
     "lowerGuard": [
       {
         "file": "lower-guard-1",
         "seconds": 2.03
+      }
+    ],
+    "machineElevated": [
+      {
+        "file": "machine-elevated-1",
+        "seconds": 5.39,
+        "beats": [
+          0.0,
+          3.25
+        ]
+      }
+    ],
+    "machineLoanV1": [
+      {
+        "file": "machine-loan-v1-1",
+        "seconds": 9.65
+      }
+    ],
+    "machineLoanV2": [
+      {
+        "file": "machine-loan-v2-1",
+        "seconds": 7.51
       }
     ],
     "magicDefeat": [
@@ -518,6 +750,16 @@
         ]
       }
     ],
+    "neverAfter": [
+      {
+        "file": "never-after-1",
+        "seconds": 6.16,
+        "beats": [
+          0.0,
+          4.26
+        ]
+      }
+    ],
     "neverThought": [
       {
         "file": "never-thought-1",
@@ -546,6 +788,12 @@
       {
         "file": "not-fall-1",
         "seconds": 3.49
+      }
+    ],
+    "notRightNow": [
+      {
+        "file": "not-right-now-1",
+        "seconds": 1.95
       }
     ],
     "notTired": [
@@ -604,10 +852,32 @@
         ]
       }
     ],
+    "practiceNeverMe": [
+      {
+        "file": "practice-never-me-1",
+        "seconds": 5.8,
+        "beats": [
+          0.0,
+          4.03
+        ]
+      }
+    ],
     "preferNoPain": [
       {
         "file": "prefer-no-pain-1",
         "seconds": 3.23
+      }
+    ],
+    "prowessConspiracyV1": [
+      {
+        "file": "prowess-conspiracy-v1-1",
+        "seconds": 6.94
+      }
+    ],
+    "prowessConspiracyV2": [
+      {
+        "file": "prowess-conspiracy-v2-1",
+        "seconds": 7.65
       }
     ],
     "realMatch": [
@@ -652,10 +922,62 @@
         ]
       }
     ],
+    "renderDisabled": [
+      {
+        "file": "render-disabled-1",
+        "seconds": 2.53
+      }
+    ],
     "renownDisowned": [
       {
         "file": "renown-disowned-1",
         "seconds": 5.97
+      }
+    ],
+    "retreatObservation": [
+      {
+        "file": "retreat-observation-1",
+        "seconds": 1.97
+      }
+    ],
+    "rightfulPlaces": [
+      {
+        "file": "rightful-places-1",
+        "seconds": 3.86
+      }
+    ],
+    "rotaryExhibit": [
+      {
+        "file": "rotary-exhibit-1",
+        "seconds": 2.31
+      }
+    ],
+    "rotorMoralityV1": [
+      {
+        "file": "rotor-morality-v1-1",
+        "seconds": 4.52
+      }
+    ],
+    "rotorMoralityV2": [
+      {
+        "file": "rotor-morality-v2-1",
+        "seconds": 4.56
+      }
+    ],
+    "rotorMoralityV3": [
+      {
+        "file": "rotor-morality-v3-1",
+        "seconds": 5.95,
+        "beats": [
+          0.0,
+          4.89
+        ]
+      }
+    ],
+    "rotorMoralityV4": [
+      {
+        "file": "rotor-morality-v4-1",
+        "seconds": 4.5
       }
     ],
     "runAwayFromSafety": [
@@ -730,6 +1052,18 @@
         ]
       }
     ],
+    "spellTurnV1": [
+      {
+        "file": "spell-turn-v1-1",
+        "seconds": 6.11
+      }
+    ],
+    "spellTurnV2": [
+      {
+        "file": "spell-turn-v2-1",
+        "seconds": 6.23
+      }
+    ],
     "squireSetup": [
       {
         "file": "squire-setup-1",
@@ -752,6 +1086,22 @@
       {
         "file": "stand-fight-1",
         "seconds": 5.37
+      }
+    ],
+    "statueLabor": [
+      {
+        "file": "statue-labor-1",
+        "seconds": 1.99
+      }
+    ],
+    "statueLanding": [
+      {
+        "file": "statue-landing-1",
+        "seconds": 4.61,
+        "beats": [
+          0.0,
+          2.6
+        ]
       }
     ],
     "steelBoast": [
@@ -798,6 +1148,18 @@
       {
         "file": "subpar-standard-1",
         "seconds": 2.56
+      }
+    ],
+    "sufferingArithmeticV1": [
+      {
+        "file": "suffering-arithmetic-v1-1",
+        "seconds": 3.07
+      }
+    ],
+    "sufferingArithmeticV2": [
+      {
+        "file": "suffering-arithmetic-v2-1",
+        "seconds": 3.56
       }
     ],
     "sunderCall": [
@@ -860,6 +1222,12 @@
       {
         "file": "survive-in-spirit-1",
         "seconds": 5.77
+      }
+    ],
+    "swordTraining": [
+      {
+        "file": "sword-training-1",
+        "seconds": 2.84
       }
     ],
     "thankYou": [
@@ -970,6 +1338,12 @@
         "seconds": 2.17
       }
     ],
+    "undeadRecreation": [
+      {
+        "file": "undead-recreation-1",
+        "seconds": 2.16
+      }
+    ],
     "underworld": [
       {
         "file": "underworld-1",
@@ -1004,6 +1378,12 @@
       {
         "file": "where-ancillary-1",
         "seconds": 3.57
+      }
+    ],
+    "woodVsSteel": [
+      {
+        "file": "wood-vs-steel-1",
+        "seconds": 4.7
       }
     ],
     "workHard": [
@@ -1152,6 +1532,62 @@
     "whatNotToDo": "2026-10-16",
     "whereAncillary": "2026-10-16",
     "workHard": "2026-09-30",
-    "wrongRest": "2026-10-06"
+    "wrongRest": "2026-10-06",
+    "gloryWitnessV1": "2026-11-01",
+    "highGround": "2026-11-01",
+    "rotaryExhibit": "2026-11-01",
+    "apparatusFairnessV1": "2026-11-01",
+    "gloryWitnessV2": "2026-11-01",
+    "rotorMoralityV1": "2026-11-01",
+    "undeadRecreation": "2026-11-01",
+    "foundDisablePoint": "2026-11-01",
+    "contributionInsultV1": "2026-11-01",
+    "deathSceneV1": "2026-11-01",
+    "deceasedStatusV1": "2026-11-01",
+    "swordTraining": "2026-11-01",
+    "renderDisabled": "2026-11-01",
+    "heroSubZero": "2026-11-01",
+    "notRightNow": "2026-11-01",
+    "retreatObservation": "2026-11-01",
+    "spellTurnV1": "2026-11-01",
+    "prowessConspiracyV1": "2026-11-01",
+    "gloryWitnessV3": "2026-11-01",
+    "groundedDebut": "2026-11-01",
+    "sufferingArithmeticV1": "2026-11-01",
+    "groundPersuasion": "2026-11-01",
+    "machineElevated": "2026-11-01",
+    "rotorMoralityV2": "2026-11-01",
+    "deceasedStatusV2": "2026-11-01",
+    "funLifetime": "2026-11-01",
+    "aboveYou": "2026-11-01",
+    "sufferingArithmeticV2": "2026-11-01",
+    "happilyBookV1": "2026-11-01",
+    "statueLabor": "2026-11-01",
+    "dontTouchBlades": "2026-11-01",
+    "badDay": "2026-11-01",
+    "rotorMoralityV3": "2026-11-01",
+    "handshakePayoff": "2026-11-01",
+    "choseNotSurvive": "2026-11-01",
+    "bizarreAppearance": "2026-11-01",
+    "lastWarning": "2026-11-01",
+    "apparatusFairnessV2": "2026-11-01",
+    "statueLanding": "2026-11-01",
+    "practiceNeverMe": "2026-11-01",
+    "happilyBookV2": "2026-11-01",
+    "spellTurnV2": "2026-11-01",
+    "neverAfter": "2026-11-01",
+    "lookalikeJealousy": "2026-11-01",
+    "livingComplaintV1": "2026-11-01",
+    "machineLoanV1": "2026-11-01",
+    "deathSceneV2": "2026-11-01",
+    "livingComplaintV2": "2026-11-01",
+    "machineLoanV2": "2026-11-01",
+    "rotorMoralityV4": "2026-11-01",
+    "contributionInsultV2": "2026-11-01",
+    "finishSentence": "2026-11-01",
+    "rightfulPlaces": "2026-11-01",
+    "handshakeSetup": "2026-11-01",
+    "woodVsSteel": "2026-11-01",
+    "prowessConspiracyV2": "2026-11-01"
   }
 }

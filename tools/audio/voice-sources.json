@@ -2,6 +2,9 @@
   "abolishBattle": [
     "abolish-battle-1.mp3"
   ],
+  "aboveYou": [
+    "above-you-1.mp3"
+  ],
   "abyssCalls": [
     "abyss-calls-1.mp3"
   ],
@@ -21,8 +24,17 @@
   "anybodyThere": [
     "anybody-there-1.mp3"
   ],
+  "apparatusFairnessV1": [
+    "apparatus-fairness-v1-1.mp3"
+  ],
+  "apparatusFairnessV2": [
+    "apparatus-fairness-v2-1.mp3"
+  ],
   "armorHoldingBack": [
     "armor-holding-back-1.mp3"
+  ],
+  "badDay": [
+    "bad-day-1.mp3"
   ],
   "believeMagic": [
     "believe-magic-1.mp3"
@@ -32,6 +44,9 @@
   ],
   "bestStrategy": [
     "best-strategy-1.mp3"
+  ],
+  "bizarreAppearance": [
+    "bizarre-appearance-1.mp3"
   ],
   "bladeCaught": [
     "blade-caught-1.mp3"
@@ -64,6 +79,9 @@
   "chivalryTest": [
     "chivalry-test-1.mp3"
   ],
+  "choseNotSurvive": [
+    "chose-not-survive-1.mp3"
+  ],
   "coldHurt": [
     "cold-hurt-1.mp3"
   ],
@@ -77,12 +95,31 @@
   "continueToPass": [
     "continue-to-pass-1.mp3"
   ],
+  "contributionInsultV1": [
+    "contribution-insult-v1-1.mp3"
+  ],
+  "contributionInsultV2": [
+    "contribution-insult-v2-1.mp3"
+  ],
   "couldveDoneThat": [
     "couldve-done-that-1.mp3"
   ],
   "death": [
     "death-1.mp3",
     "death-2.mp3"
+  ],
+  "deathSceneV1": [
+    "death-scene-v1-1.mp3"
+  ],
+  "deathSceneV2": [
+    "death-scene-v2-1.mp3"
+  ],
+  "deceasedStatusV1": [
+    "deceased-status-v1-1.mp3",
+    "deceased-status-v1-2.mp3"
+  ],
+  "deceasedStatusV2": [
+    "deceased-status-v2-1.mp3"
   ],
   "defeat": [
     "recording-2-master.wav:18.35-20.16",
@@ -99,6 +136,9 @@
   ],
   "distanceAdvice": [
     "distance-advice-1.mp3"
+  ],
+  "dontTouchBlades": [
+    "dont-touch-blades-1.mp3"
   ],
   "doomCut": [
     "doom-cut-1.mp3"
@@ -132,6 +172,9 @@
     "find-tombstone-1.mp3",
     "find-tombstone-2.mp3"
   ],
+  "finishSentence": [
+    "finish-sentence-1.mp3"
+  ],
   "firstStrike": [
     "first-strike-1.mp3"
   ],
@@ -140,6 +183,12 @@
   ],
   "fistThrow": [
     "fist-throw-1.mp3"
+  ],
+  "foundDisablePoint": [
+    "found-disable-point-1.mp3"
+  ],
+  "funLifetime": [
+    "fun-lifetime-1.mp3"
   ],
   "galeTaunt": [
     "gale-taunt-1.mp3"
@@ -150,11 +199,38 @@
   "gleanHope": [
     "glean-hope-1.mp3"
   ],
+  "gloryWitnessV1": [
+    "glory-witness-v1-1.mp3"
+  ],
+  "gloryWitnessV2": [
+    "glory-witness-v2-1.mp3"
+  ],
+  "gloryWitnessV3": [
+    "glory-witness-v3-1.mp3"
+  ],
   "goingEasy": [
     "going-easy-1.mp3"
   ],
+  "groundPersuasion": [
+    "ground-persuasion-1.mp3"
+  ],
+  "groundedDebut": [
+    "grounded-debut-1.mp3"
+  ],
   "hackSlash": [
     "hack-slash-1.mp3"
+  ],
+  "handshakePayoff": [
+    "handshake-payoff-1.mp3"
+  ],
+  "handshakeSetup": [
+    "handshake-setup-1.mp3"
+  ],
+  "happilyBookV1": [
+    "happily-book-v1-1.mp3"
+  ],
+  "happilyBookV2": [
+    "happily-book-v2-1.mp3"
   ],
   "headOn": [
     "head-on-1.mp3"
@@ -173,6 +249,12 @@
   ],
   "herald": [
     "herald-1.mp3"
+  ],
+  "heroSubZero": [
+    "hero-sub-zero-1.mp3"
+  ],
+  "highGround": [
+    "high-ground-1.mp3"
   ],
   "hurt": [
     "hurt-1.mp3"
@@ -197,6 +279,9 @@
   "laidBack": [
     "laid-back-1.mp3"
   ],
+  "lastWarning": [
+    "last-warning-1.mp3"
+  ],
   "lateLine": [
     "late-line-1.mp3"
   ],
@@ -207,8 +292,26 @@
   "lesserFoe": [
     "lesser-foe-1.mp3"
   ],
+  "livingComplaintV1": [
+    "living-complaint-v1-1.mp3"
+  ],
+  "livingComplaintV2": [
+    "living-complaint-v2-1.mp3"
+  ],
+  "lookalikeJealousy": [
+    "lookalike-jealousy-1.mp3"
+  ],
   "lowerGuard": [
     "lower-guard-1.mp3"
+  ],
+  "machineElevated": [
+    "machine-elevated-1.mp3"
+  ],
+  "machineLoanV1": [
+    "machine-loan-v1-1.mp3"
+  ],
+  "machineLoanV2": [
+    "machine-loan-v2-1.mp3"
   ],
   "magicDefeat": [
     "recording-2-master.wav:5.15-7.25"
@@ -225,6 +328,9 @@
   "mustBePractice": [
     "must-be-practice-1.mp3"
   ],
+  "neverAfter": [
+    "never-after-1.mp3"
+  ],
   "neverThought": [
     "never-thought-1.mp3"
   ],
@@ -239,6 +345,9 @@
   ],
   "notFall": [
     "not-fall-1.mp3"
+  ],
+  "notRightNow": [
+    "not-right-now-1.mp3"
   ],
   "notTired": [
     "not-tired-fabled-what.wav"
@@ -264,8 +373,17 @@
   "possessed": [
     "possessed-1.mp3"
   ],
+  "practiceNeverMe": [
+    "practice-never-me-1.mp3"
+  ],
   "preferNoPain": [
     "prefer-no-pain-1.mp3"
+  ],
+  "prowessConspiracyV1": [
+    "prowess-conspiracy-v1-1.mp3"
+  ],
+  "prowessConspiracyV2": [
+    "prowess-conspiracy-v2-1.mp3"
   ],
   "realMatch": [
     "real-match-1.mp3"
@@ -283,8 +401,32 @@
   "rememberThis": [
     "remember-this-1.mp3"
   ],
+  "renderDisabled": [
+    "render-disabled-1.mp3"
+  ],
   "renownDisowned": [
     "renown-disowned-1.mp3"
+  ],
+  "retreatObservation": [
+    "retreat-observation-1.mp3"
+  ],
+  "rightfulPlaces": [
+    "rightful-places-1.mp3"
+  ],
+  "rotaryExhibit": [
+    "rotary-exhibit-1.mp3"
+  ],
+  "rotorMoralityV1": [
+    "rotor-morality-v1-1.mp3"
+  ],
+  "rotorMoralityV2": [
+    "rotor-morality-v2-1.mp3"
+  ],
+  "rotorMoralityV3": [
+    "rotor-morality-v3-1.mp3"
+  ],
+  "rotorMoralityV4": [
+    "rotor-morality-v4-1.mp3"
   ],
   "runAwayFromSafety": [
     "run-away-from-safety-1.mp3"
@@ -308,6 +450,12 @@
   "spellDoom": [
     "spell-doom-1.mp3"
   ],
+  "spellTurnV1": [
+    "spell-turn-v1-1.mp3"
+  ],
+  "spellTurnV2": [
+    "spell-turn-v2-1.mp3"
+  ],
   "squireSetup": [
     "squire-setup-1.mp3"
   ],
@@ -319,6 +467,12 @@
   ],
   "standFight": [
     "stand-fight-1.mp3"
+  ],
+  "statueLabor": [
+    "statue-labor-1.mp3"
+  ],
+  "statueLanding": [
+    "statue-landing-1.mp3"
   ],
   "steelBoast": [
     "steel-boast-1.mp3"
@@ -342,6 +496,12 @@
   "subparStandard": [
     "subpar-standard-1.mp3"
   ],
+  "sufferingArithmeticV1": [
+    "suffering-arithmetic-v1-1.mp3"
+  ],
+  "sufferingArithmeticV2": [
+    "suffering-arithmetic-v2-1.mp3"
+  ],
   "sunderCall": [
     "sunder-call-1.mp3"
   ],
@@ -361,6 +521,9 @@
   ],
   "surviveInSpirit": [
     "survive-in-spirit-1.mp3"
+  ],
+  "swordTraining": [
+    "sword-training-1.mp3"
   ],
   "thankYou": [
     "thank-you-1.mp3"
@@ -403,6 +566,9 @@
   "trapdoor": [
     "trapdoor-1.mp3"
   ],
+  "undeadRecreation": [
+    "undead-recreation-1.mp3"
+  ],
   "underworld": [
     "underworld-1.mp3"
   ],
@@ -420,6 +586,9 @@
   ],
   "whereAncillary": [
     "where-ancillary-1.mp3"
+  ],
+  "woodVsSteel": [
+    "wood-vs-steel-1.mp3"
   ],
   "workHard": [
     "work-hard-1.mp3"

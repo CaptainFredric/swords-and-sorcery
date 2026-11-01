@@ -98,16 +98,19 @@ export class VoiceBank {
     const index = parts ? part ?? 0 : this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
     if (!force && !cry && !earned && !opening && VOICE_LINES[line]?.kind === 'sentence') chanceScale *= this.audibleHistory.scale(line,speaker,this.engine.now,source);
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, duration: delay + take.duration / Math.max(0.5, rate) });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, source, duration: delay + take.duration / Math.max(0.5, rate) });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)
     for (const cut of verdict.stop) {
-      this.audibleHistory.cancel(this.playing.get(cut)?.audibleEntry,this.engine.now);
-      this.playing.get(cut)?.stop?.(0.1);
+      const handle = this.playing.get(cut);
+      const cutLine = handle?.line;
+      const wasSentence = Boolean(cutLine && VOICE_LINES[cutLine]?.kind === 'sentence');
+      this.audibleHistory.cancel(handle?.audibleEntry,this.engine.now);
+      handle?.stop?.(0.1);
       this.playing.delete(cut);
       // (what they were saying is over: its caption goes too)
-      this.onCut?.(cut);
+      this.onCut?.(cut, { line: cutLine, wasSentence });
     }
     const rule = VOICE_LINES[line];
     // (a hair of variety each time, no more: every word stays the word it was)
@@ -201,13 +204,16 @@ export class VoiceBank {
 
   /** Cut short whatever `speaker` is saying (a short fade): his case for not falling, as he rises again. */
   cut(speaker, fade = 0.06) {
-    this.audibleHistory.cancel(this.playing.get(speaker)?.audibleEntry,this.engine.now);
-    this.playing.get(speaker)?.stop?.(fade);
+    const handle = this.playing.get(speaker);
+    const cutLine = handle?.line;
+    const wasSentence = Boolean(cutLine && VOICE_LINES[cutLine]?.kind === 'sentence');
+    this.audibleHistory.cancel(handle?.audibleEntry,this.engine.now);
+    handle?.stop?.(fade);
     this.playing.delete(speaker);
     this.director.speaking?.delete?.(speaker);
     // (and nobody else waits for the rest of a sentence that is no longer being said)
     if (this.director.sentence?.speaker === speaker) this.director.sentence = null;
-    this.onCut?.(speaker);
+    this.onCut?.(speaker, { line: cutLine, wasSentence });
   }
 
   stopPreview() {

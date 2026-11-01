@@ -71,9 +71,19 @@ const LINES = Object.freeze({
   // (the comeback's payoff is an old line of his, said here as earned: it keeps its own moments too)
   knew: 'alwaysKnew',
   nap: lineFor('napFall'),
+  foundIt: lineFor('foundDisablePayoff') ?? 'foundDisablePoint',
+  shaken: lineFor('handshakePayoff') ?? 'handshakePayoff',
 });
 
 export const SCENES = Object.freeze({
+  troubleshoot: Object.freeze({
+    expirySec: 20,
+    payoffAfter: 0.35,
+  }),
+  handshake: Object.freeze({
+    expirySec: 10,
+    payoffAfter: 0.25,
+  }),
   finalDuel: Object.freeze({
     replyAfter: 0.4,       // after the declaration ends, before the foe's remark
     questAfter: 0.35,      // after the remark ends, before "...The quest continues."
@@ -133,6 +143,8 @@ export class VoiceScenes {
     this.counts = new Map();      // speaker -> { foe, count, freeAt, lastAt }: the strikes being counted
     this.comebacks = new Map();   // speaker -> { corrections, awaiting, lastAt }: a comeback declared, and restated
     this.naps = new Map();        // speaker -> { until }: a nap announced as he fell, his return waited for
+    this.troubleshoot = new Map(); // speaker -> { targetId, until }: "Where do I have to hit you..." setup
+    this.handshakes = new Map();   // speaker -> { targetId, until }: "Hand shake? This hand will shake you..." setup
   }
 
   /** A new match: nothing carries over. */
@@ -148,6 +160,8 @@ export class VoiceScenes {
     this.counts.clear();
     this.comebacks.clear();
     this.naps.clear();
+    this.troubleshoot.clear();
+    this.handshakes.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -290,9 +304,16 @@ export class VoiceScenes {
   /** A guard broke (a `guardBreak`): if its knight had just claimed it would stop the threat, the claim is disproved. */
   guardBroken(event) {
     const claim = this.guards.get(event.defenderId);
-    if (!claim || event.at > claim.until) return;
-    this.guards.delete(event.defenderId);
-    this.say(LINES.guard, event.defenderId, { part: 1, earned: true, delay: SCENES.guardClaim.payoffAfter });
+    if (claim && event.at <= claim.until) {
+      this.guards.delete(event.defenderId);
+      this.say(LINES.guard, event.defenderId, { part: 1, earned: true, delay: SCENES.guardClaim.payoffAfter });
+    }
+    if (event.attackerId) this.troubleshootResolved(event.attackerId, event.defenderId, event.at);
+  }
+
+  /** A knight's balance broke (a `staggerBreak`): checks if troubleshooting attacker resolved the off switch. */
+  staggerBroken(event) {
+    if (event.by) this.troubleshootResolved(event.by, event.playerId, event.at);
   }
 
   // --------------------------------------------------------------------------------------------------- three strikes
@@ -407,7 +428,17 @@ export class VoiceScenes {
     this.guards.delete(victimId);
     this.counts.delete(victimId);
     for (const [speaker, count] of [...this.counts]) if (count.foe === victimId) this.counts.delete(speaker);
+    this.troubleshoot.delete(victimId);
+    this.handshakes.delete(victimId);
+    for (const [speaker, scene] of [...this.handshakes]) if (scene.targetId === victimId) this.handshakes.delete(speaker);
     let victor = false;
+    const activeTroubleshoot = killerId ? this.troubleshoot.get(killerId) : null;
+    if (activeTroubleshoot && activeTroubleshoot.targetId === victimId && at <= activeTroubleshoot.until) {
+      this.troubleshoot.delete(killerId);
+      if (this.say(LINES.foundIt, killerId, { earned: true, delay: SCENES.troubleshoot.payoffAfter })) victor = true;
+    } else {
+      for (const [speaker, scene] of [...this.troubleshoot]) if (scene.targetId === victimId) this.troubleshoot.delete(speaker);
+    }
     // the comeback: the fallen restates it as he gets up (not after the last time: then it simply ends); a kill of the
     // one who declared it, while it stands, is what he always knew
     const fallenComeback = this.comebacks.get(victimId);
@@ -520,5 +551,31 @@ export class VoiceScenes {
         this.tricks.delete(knight.id);
       }
     }
+  }
+
+  // ------------------------------------------------------------------------------------------------ troubleshooting
+  troubleshootStarted(speaker, targetId, at) {
+    if (!speaker || !targetId) return;
+    this.troubleshoot.set(speaker, { targetId, until: at + SCENES.troubleshoot.expirySec });
+  }
+
+  troubleshootResolved(speaker, targetId, at) {
+    const scene = this.troubleshoot.get(speaker);
+    if (!scene || scene.targetId !== targetId || at > scene.until) return;
+    this.troubleshoot.delete(speaker);
+    this.say(LINES.foundIt, speaker, { earned: true, delay: SCENES.troubleshoot.payoffAfter });
+  }
+
+  // ------------------------------------------------------------------------------------------------ SO-FIST handshake
+  handshakeStarted(speaker, targetId, at) {
+    if (!speaker || !targetId) return;
+    this.handshakes.set(speaker, { targetId, until: at + SCENES.handshake.expirySec });
+  }
+
+  handshakeCompleted(speaker, targetId, at) {
+    const scene = this.handshakes.get(speaker);
+    if (!scene || scene.targetId !== targetId || at > scene.until) return;
+    this.handshakes.delete(speaker);
+    this.say(LINES.shaken, speaker, { earned: true, delay: SCENES.handshake.payoffAfter });
   }
 }
