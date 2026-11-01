@@ -86,8 +86,9 @@ test('Practice has a direct, Practice-only touch shortcut below Pause and Scores
   const css = await read('client/mobile.css');
   const runtime = await read('client/game/GameRuntime.mjs');
   const layout = await read('client/game/touchLayout.mjs');
-  assert.match(touch, /action: 'practiceTools', label: 'PRACTICE TOOLS'/);
+  assert.match(touch, /action: 'practiceTools', label: 'TOOLS'/);
   assert.match(touch, /setPracticeToolsAvailable\(available\)/);
+  assert.match(touch, /setAttribute\('aria-label', 'Practice tools'\)/);
   assert.match(touch, /action === 'practiceTools' && event\.type === 'pointerup'/);
   assert.match(runtime, /action==='practiceTools'&&pressed/);
   assert.match(main, /runtime\.onPracticeTools = \(\) => openPause\('practice'\)/);
