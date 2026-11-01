@@ -1967,7 +1967,7 @@ async function chooseHighGroundsMachine(machine) {
     try {
       loaded=machine==='fight-and-flight'
         ? Boolean(await runtime?.flightRenderer?.load())
-        : Boolean(await runtime?.world?.soFistication?.load(true));
+        : Boolean(await runtime?.ramRenderer?.load(true));
     } catch { loaded=false; }
     preparingHighGroundsMachine=false;
     if (latestSnapshot?.roomCode!==room || latestSnapshot?.roomState!=='PLAYING' || paused) return;
