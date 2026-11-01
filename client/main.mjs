@@ -1948,13 +1948,43 @@ const hgFoundryPicker=$('#high-grounds-foundry-picker');
 const hgFoundryHint=$('#high-grounds-foundry-hint');
 const hgFoundry = $('#high-grounds-foundry');
 const hgFoundryState = $('#high-grounds-foundry-state');
+let preparingHighGroundsMachine = false;
+async function chooseHighGroundsMachine(machine) {
+  if (preparingHighGroundsMachine || paused || latestSnapshot?.mode !== 'HIGH_GROUNDS' ||
+      latestSnapshot?.roomState !== 'PLAYING') return;
+  const button=hgFoundry?.querySelector('[data-high-grounds-machine="'+machine+'"]');
+  const me=latestSnapshot.players?.find(p=>p.id===socket.playerId);
+  const choice=highGroundsFoundryView(latestSnapshot,me,latestSnapshot.serverTime);
+  if (!choice.visible || choice.disabled?.[machine] || !button || button.disabled) return;
+  const room=latestSnapshot.roomCode;
+  // As in Practice, preload the authored 3D machine before committing a build.
+  // Remote clients also auto-load from the authoritative snapshot.
+  if (machine === 'fight-and-flight' || machine === 'so-fist-ication') {
+    preparingHighGroundsMachine=true;
+    if (hgFoundryHint) hgFoundryHint.textContent='PREPARING AUTHORED SIEGE MACHINE…';
+    for(const item of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) item.disabled=true;
+    let loaded=false;
+    try {
+      loaded=machine==='fight-and-flight'
+        ? Boolean(await runtime?.flightRenderer?.load())
+        : Boolean(await runtime?.world?.soFistication?.load(true));
+    } catch { loaded=false; }
+    preparingHighGroundsMachine=false;
+    if (latestSnapshot?.roomCode!==room || latestSnapshot?.roomState!=='PLAYING' || paused) return;
+    if (!loaded) {
+      hud.flashText('SIEGE MODEL COULD NOT LOAD · TRY AGAIN', 'danger', 2600);
+      updateHighGroundsHud(latestSnapshot);
+      return;
+    }
+  }
+  if (latestSnapshot?.roomCode!==room) return;
+  socket.highGroundsBuild(machine);
+  if(hgFoundryHint)hgFoundryHint.textContent='BUILD ORDER SENT · AWAITING FOUNDRY';
+  if(hgFoundryPicker)hgFoundryPicker.open=false;
+}
 hgFoundry?.addEventListener('click', (event) => {
   const button = event.target.closest?.('[data-high-grounds-machine]');
-  if (button && !button.disabled){
-    socket.highGroundsBuild(button.dataset.highGroundsMachine);
-    if(hgFoundryHint)hgFoundryHint.textContent='ORDER SENT · AWAITING FOUNDRY';
-    if(hgFoundryPicker)hgFoundryPicker.open=false;
-  }
+  if (button && !button.disabled) void chooseHighGroundsMachine(button.dataset.highGroundsMachine);
 });
 // High Grounds uses Breakthrough's objective HUD; the foundry is contextual.
 function updateHighGroundsHud(snapshot) {
@@ -1964,10 +1994,11 @@ function updateHighGroundsHud(snapshot) {
   hgFoundry?.classList.toggle('hidden',!view.visible);
   if(!view.visible){if(hgFoundryPicker)hgFoundryPicker.open=false;return;}
   hgFoundryState.textContent=view.status;
-  if(hgFoundryHint)hgFoundryHint.textContent=view.ready?'TAP A MACHINE · OR PRESS 7 / 8 / 9':
-    view.owned?'CURRENT MACHINE MUST BE LOST FIRST':'PRODUCTION UNAVAILABLE';
+  if(hgFoundryHint)hgFoundryHint.textContent=preparingHighGroundsMachine
+    ? 'PREPARING AUTHORED SIEGE MACHINE…'
+    : view.hint;
   for(const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]'))
-    button.disabled=Boolean(view.disabled?.[button.dataset.highGroundsMachine]);
+    button.disabled=preparingHighGroundsMachine||Boolean(view.disabled?.[button.dataset.highGroundsMachine]);
 }
 // Desktop has pointer lock: 7/8/9 operate the same authoritative foundry as touch.
 document.addEventListener('keydown',event=>{
@@ -1977,8 +2008,8 @@ document.addEventListener('keydown',event=>{
     event.target?.closest?.('input,textarea,select,[role="dialog"]'))return;
   const button=hgFoundry.querySelector('[data-high-grounds-machine="'+machine+'"]');
   if(!button||button.disabled)return;
-  event.preventDefault();socket.highGroundsBuild(machine);
-  if(hgFoundryHint)hgFoundryHint.textContent='ORDER SENT · AWAITING FOUNDRY';
+  event.preventDefault();
+  void chooseHighGroundsMachine(machine);
 });
 
 socket.on('snapshot', (snapshot) => {
