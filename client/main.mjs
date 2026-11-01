@@ -1255,6 +1255,14 @@ function closePause({ resumeArena = true } = {}) {
 }
 $('#resume-game').addEventListener('click', () => closePause());
 pausePracticeButton.addEventListener('click', () => {
+  // Open the complete panel even if Inspection previously minimized its tools.
+  const content = $('#practice-panel-content');
+  const toggle = $('#practice-panel-toggle');
+  content?.classList.remove('hidden');
+  if (toggle) {
+    toggle.textContent = '− MINIMIZE';
+    toggle.setAttribute('aria-expanded', 'true');
+  }
   showPauseSection('practice');
   $('#pause-practice-back').focus();
 });
