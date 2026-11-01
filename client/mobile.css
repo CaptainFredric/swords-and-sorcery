@@ -143,6 +143,13 @@ button, input { touch-action: manipulation; }
               inset 0 0 6px rgba(0, 0, 0, .32);
 }
 .touch-motion-guide.active .touch-motion-label { opacity: 1; }
+/* Preview is deliberately distinct from confirmed authoritative Sprint/Charge. */
+.touch-motion-guide.approaching:not(.active) .touch-motion-well {
+  border-color: rgba(226,202,148,.65); background: rgba(40,37,28,.45);
+}
+.touch-motion-guide.approaching:not(.active) .touch-motion-well svg { opacity:.52; }
+.touch-motion-guide.approaching:not(.active) .touch-motion-label { opacity:.7; }
+.touch-motion-guide.approaching:not(.active) .touch-motion-label::after { content:'PUSH ↑'; }
 .touch-motion-guide.active .touch-motion-well svg {
   opacity: 1;
   animation: touch-motion-rise 1.05s linear infinite;
@@ -433,7 +440,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 .touch-siegeWeapon { --size: 62px; right: calc(var(--safe-r) + 48px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); color: #a8e2e9; }
-.touch-mounted.touch-ram .touch-sprint { display: grid; }
+.touch-mounted.touch-ram .touch-sprint { display: none; }
+/* Joystick channel is the sprint/charge gesture; retain FAST in inspection flight. */
+.touch-controls:not(.inspection-flight) .touch-sprint { display: none !important; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
@@ -444,44 +453,46 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-ui .flight-metric b { font-size: 11px; }
 .touch-ui .flight-bar-wrap progress { width: 44px; height: 6px; }
 
-/* Contiguous vertical RISE / LOWER rocker inward from movement stick */
-.touch-flightRise, .touch-flightLower { display: none; }
-.touch-mounted.touch-flight .touch-flightRise,
-.touch-mounted.touch-flight .touch-flightLower {
-  display: grid !important;
-  position: absolute;
-  width: calc(56px * var(--s));
-  height: calc(44px * var(--s));
-  left: calc(var(--safe-l) + 196px * var(--s));
-  right: auto;
-  border: 1.5px solid rgba(222, 204, 160, .6);
-  background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .75), rgba(15, 16, 12, .88));
-  color: #f1e8d0;
-  z-index: 15;
+/* The rail shares the stick's frame, so mirrored/custom stick placement moves both.
+   The thumb springs to neutral on pointerup, cancel, blur and unmount. */
+.touch-flightRise, .touch-flightLower { display: none !important; }
+.touch-flight-rail { display: none; }
+.touch-controls.touch-flight .touch-stick { opacity: 1; }
+.touch-controls.touch-flight .touch-flight-rail {
+  position: absolute; left: calc(100% + 22px); bottom: -8px;
+  width: calc(44px * var(--s)); height: calc(140px * var(--s));
+  border: 1.5px solid #c6a66f; border-radius: 20px;
+  background: linear-gradient(90deg,#141715ec,#3b392fea 48%,#151917ef);
+  box-shadow: inset 0 0 0 4px #0c100dbb, 0 3px 12px #000a;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  box-sizing: border-box; padding: 5px 0; touch-action: none; pointer-events: auto;
+  color: #e9d7ad; z-index: 18;
 }
-.touch-mounted.touch-flight .touch-flightRise {
-  bottom: calc(var(--safe-b) + 124px * var(--s));
-  border-radius: 14px 14px 2px 2px;
-  border-bottom: 1px solid rgba(222, 204, 160, .35);
+.touch-stick.motion-mirrored .touch-flight-rail { left: auto; right: calc(100% + 22px); }
+.touch-flight-rail::before {
+  content: 'FLIGHT'; position:absolute; bottom:calc(100% + 3px); left:50%;
+  transform: translateX(-50%); font: 800 8px system-ui; letter-spacing:.08em;
+  text-shadow: 0 1px 2px #000; white-space: nowrap; color:#dac18c;
 }
-.touch-mounted.touch-flight .touch-flightLower {
-  bottom: calc(var(--safe-b) + 74px * var(--s));
-  border-radius: 2px 2px 14px 14px;
-  border-top: 1px solid rgba(222, 204, 160, .35);
+.touch-flight-rail-arrow { font: 800 20px/1 system-ui; opacity: .52; pointer-events:none; }
+.touch-flight-rail-thumb {
+  position:absolute; top:50%; left:4px; right:4px; height:30px;
+  transform:translateY(-50%); border-radius:11px; pointer-events:none;
+  border:1px solid #e0c98c; background:linear-gradient(160deg,#ac8b56,#554930 60%,#443b31);
+  box-shadow:inset 0 1px #f4e1ac9c,0 2px 5px #000a;
 }
-.touch-mounted.touch-flight .touch-flightRise span,
-.touch-mounted.touch-flight .touch-flightLower span {
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .08em;
-}
+.touch-flight-rail[data-intent="rise"] { border-color:#e7cf92; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #d6b56a66; }
+.touch-flight-rail[data-intent="lower"] { border-color:#9bc6d2; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #8aaebc66; }
 
 /* Right-side combat cluster (bottom to top): */
 /* Bottom row: GUARD (left), SWORD (right) */
 .touch-mounted.touch-flight .touch-attack {
   display: grid !important;
-  --size: 74px;
-  right: calc(var(--safe-r) + 24px * var(--s));
+  --size: 80px;
+  width: calc(88px * var(--s));
+  height: calc(76px * var(--s));
+  border-radius: 24px;
+  right: calc(var(--safe-r) + 20px * var(--s));
   bottom: calc(var(--safe-b) + 24px * var(--s));
   color: #f1e8d0;
   border-color: rgba(233, 130, 90, .75);
@@ -500,12 +511,12 @@ html.turn-typing .rotate-prompt { display: none !important; }
   pointer-events: none;
 }
 
-/* Second row: JUMP (left), BOLT (right) */
+/* Second row: BOLT (left, hold to fire) and JUMP (right, discrete hop). */
 .touch-mounted.touch-flight .touch-jump {
   display: grid !important;
   --size: 62px;
-  right: calc(var(--safe-r) + 108px * var(--s));
-  bottom: calc(var(--safe-b) + 98px * var(--s));
+  right: calc(var(--safe-r) + 26px * var(--s));
+  bottom: calc(var(--safe-b) + 105px * var(--s));
   left: auto;
   border-radius: 50%;
   color: #f1e8d0;
@@ -514,8 +525,11 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-mounted.touch-flight .touch-siegeWeapon {
   display: grid !important;
   --size: 68px;
-  right: calc(var(--safe-r) + 24px * var(--s));
-  bottom: calc(var(--safe-b) + 98px * var(--s));
+  width: calc(86px * var(--s));
+  height: calc(62px * var(--s));
+  border-radius: 17px;
+  right: calc(var(--safe-r) + 108px * var(--s));
+  bottom: calc(var(--safe-b) + 105px * var(--s));
   color: #e6c98f;
   border-color: rgba(230, 201, 143, .75);
 }
@@ -721,10 +735,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-controls.touch-mounted.touch-flight .touch-interact {
   border-radius:9px; background:rgba(25,29,30,.9);
 }
+/* Retired rocker elements remain hidden even under old saved touch layouts. */
 .touch-controls.touch-mounted.touch-flight .touch-flightRise,
-.touch-controls.touch-mounted.touch-flight .touch-flightLower { z-index:2; border-radius:9px; }
-.touch-controls.touch-mounted.touch-flight .touch-flightRise { border-radius:10px 10px 3px 3px; }
-.touch-controls.touch-mounted.touch-flight .touch-flightLower { border-radius:3px 3px 10px 10px; }
+.touch-controls.touch-mounted.touch-flight .touch-flightLower { display: none !important; }
 
 /* Nonflight siege machines also get a coherent brass/iron action family. */
 .touch-controls.touch-mounted:not(.touch-flight) .touch-siegeWeapon,
