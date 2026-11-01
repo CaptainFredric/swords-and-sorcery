@@ -93,9 +93,16 @@ export function flightRecipe(kind, rand=Math.random){
       ...ticks(7, .05, 1400, .24)
     ],
     offensiveRun: [
-      noise(520, .48, .35),
-      thud(130, .38, .45, 0, 220),
-      ring(rand, 480, { decay: .35, gain: .12, partials: 3 })
+      // Layered cloth-cutting air rather than a vocal-like sustained tone:
+      // immediate high rush, lower follow-through and the drivetrain catching.
+      noise(1550, .21, .48, 0, 'highpass', .55),
+      noise(650, .60, .36, .055, 'bandpass', .6),
+      noise(2400, .14, .17, .13, 'highpass', .5),
+      thud(150, .20, .28, 0, 210),
+    ],
+    offensiveRelease: [
+      noise(950,.17,.21,0,'highpass',.6),
+      noise(440,.26,.16,.04,'bandpass',.7),
     ],
     valkyriePrep: [
       thud(55, .95, .62, 0, 95),
@@ -136,8 +143,9 @@ export function flightLoopSamples(kind, rate=22050, seconds=2, rand=Math.random)
       const foot = Math.exp(-phase * 22) * Math.sin(2 * Math.PI * 95 * t) * 0.18;
       result[i] = seam * (low * 0.24 + foot);
     } else if (kind === 'offensive') {
-      const hum = Math.sin(2 * Math.PI * 260 * t) * 0.16 + Math.sin(2 * Math.PI * 520 * t) * 0.08;
-      result[i] = seam * (low * 0.42 + hum);
+      const bearing=Math.sin(2*Math.PI*310*t)*.05;
+      const rushingAir=(white-low)*.10;
+      result[i]=seam*(low*.43+rushingAir+bearing);
     }
   }
   return result;
@@ -155,6 +163,8 @@ export class FlightSound {
     this.lastTime = 0;
     this.wasGrounded = true;
     this.lastVelY = 0;
+    this.lastStartWhooshAt=-Infinity;
+    this.lastReleaseWhooshAt=-Infinity;
   }
 
   #place(b) {
@@ -234,6 +244,16 @@ export class FlightSound {
     this.#loop('walk', walking, m, 0.22, Math.max(0.6, Math.min(1.3, speed / 3)));
 
     const offensive = owned && Boolean(m.offensiveRun);
+    // A released Dash clears offensiveRun in the command handler *before*
+    // the next sim tick; it need not emit a separate ended event. Observe
+    // the authoritative edge so the tail whoosh still sounds on release.
+    // Event-provided audio and snapshot fallback share the same cooldown.
+    if(offensive&&!last?.offensiveRun&&options.now-this.lastStartWhooshAt>.45){
+      this.#play('offensiveRun',m,.85);this.lastStartWhooshAt=options.now;
+    }
+    if(!offensive&&last?.offensiveRun&&options.now-this.lastReleaseWhooshAt>.35){
+      this.#play('offensiveRelease',m,.55);this.lastReleaseWhooshAt=options.now;
+    }
     this.#loop('offensive', offensive, m, 0.35, 1.15);
 
     this.last = { ...m };
@@ -273,7 +293,13 @@ export class FlightSound {
     } else if (event.type === 'fightFlightRotorWorldImpact' || event.type === 'fightFlightRotorContact') {
       kind = 'rotorCollision';
     } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'started') {
+      if(now-this.lastStartWhooshAt<=.45)return;
+      this.lastStartWhooshAt=now;
       kind = 'offensiveRun';
+    } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'ended') {
+      if(now-this.lastReleaseWhooshAt<=.35)return;
+      this.lastReleaseWhooshAt=now;
+      kind = 'offensiveRelease';
     } else if (event.type === 'fightFlightTerminalPrep' && event.action === 'started') {
       kind = 'valkyriePrep';
     } else if (event.type === 'fightFlightTerminalCommitted') {

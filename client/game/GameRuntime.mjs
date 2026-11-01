@@ -6,6 +6,7 @@ import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
+import {FlightDashPresentation} from './flightDashPresentation.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
@@ -155,6 +156,7 @@ export class GameRuntime {
     this.hud = hud;
     this.sound = sound;
     this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);
+    this.flightDashPresentation=new FlightDashPresentation();
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
     this.music = music;
@@ -734,6 +736,7 @@ export class GameRuntime {
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
     this.localState=null;this.localAuth=null;this.deathCam=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
+    this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
     this.localRam=null;this.windOnMeUntil=null;this.braceAskedAt=null;
@@ -1233,7 +1236,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();}
+    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();
   }
@@ -1302,6 +1305,7 @@ export class GameRuntime {
       this.input.pitch = snapshot.bibyeBallista.pitch;
     }
     if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId && !auth?.operatingFightFlightId)) {
+      this.flightDashPresentation.reset();
       this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
@@ -2877,6 +2881,15 @@ export class GameRuntime {
       const target=this.flightRenderer.getMountedCameraPosition(this.siegeView)??new THREE.Vector3(m.x,m.y+1.52,m.z);
       this.flightCameraMotion ??= new FlightCameraMotion();
       const motion = this.flightCameraMotion.update(dt, m, this.view.cameraMotion);
+      // An authoritative offensive-run edge triggers a single, brief speed
+      // accent. Do not switch cockpit mode or rotate the aim: the mouse and
+      // physical repeater muzzle must remain trustworthy throughout Dash.
+      const dash=this.flightDashPresentation.update(dt,m,{
+        eligible:this.playing&&this.localAuth.alive&&m.operatorId===this.playerId,
+        cameraMotion:this.view.cameraMotion,
+      });
+      if(dash.started)this.effects.flightDash();
+      this.#setFov(this.view.fov+dash.fov);
 
       if (isFirstPerson) {
         this.camera.position.copy(target);
@@ -2912,7 +2925,16 @@ export class GameRuntime {
         this.hud.setFlightSight?.({ limited, limitReason, trueAim });
       } else {
         this.hud.setFlightSight?.(null);
-        if(this.siegeView==='third')target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
+        if(this.siegeView==='third'){
+          // A small boom retreat *only* in the existing third-person view;
+          // clip against masonry so the camera cannot pass through walls.
+          if(dash.pullback>0){
+            const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
+            const retreat=target.clone().sub(anchor);
+            if(retreat.lengthSq()>1e-6)target.addScaledVector(retreat.normalize(),dash.pullback);
+          }
+          target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
+        }
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.lerp(target,1-Math.exp(-dt*13));
         this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
@@ -2921,6 +2943,9 @@ export class GameRuntime {
       this.input.aimGain=1;return;
     }
     this.hud.setFlightSight?.(null);
+    // Leaves the zoom fully reset on dismount, death, room change or any
+    // other non-flight camera path; no stale visual or forced camera mode.
+    this.flightDashPresentation.reset();
     const ram=Boolean(this.localAuth?.operatingRamId);
     const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
     const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId) && b && b.mode !== 'DESTROYED';

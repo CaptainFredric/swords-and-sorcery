@@ -450,6 +450,23 @@ export class Effects {
   /** The palm lights up as a spell begins to gather. */
   castFlash(spell = 'fireball') { this.#cameraFlash(lookFor(spell).flash, 0.08, 0.58); }
   dash() { this.#dashStreaks(); }
+  flightDash() {
+    // A restrained rush of peripheral air at the *start* of a real flying
+    // run. Uses pooled geometry/material, respects the particles preference,
+    // and deliberately leaves the reticle and central aiming view clear.
+    for(let i=0,n=this.#many(9);i<n;i++){
+      const side=i%2===0?-1:1;
+      const mesh=new THREE.Mesh(this.dashGeometry,this.dashMaterial);
+      mesh.scale.set(.7+Math.random()*.55,1.3+Math.random()*.85,1);
+      mesh.position.set(side*(.38+Math.random()*.22),(Math.random()-.5)*.65,-.55-Math.random()*.10);
+      mesh.rotation.z=side*(.10+Math.random()*.24);
+      this.#addTransient(mesh,{
+        parent:this.camera,
+        velocity:new THREE.Vector3(side*(1.0+Math.random()*.5),0,0),
+        life:.18+Math.random()*.10,shrink:true,
+      });
+    }
+  }
 
   wallClang(point) {
     this.sparks(point, 0xffd48a, 14);
