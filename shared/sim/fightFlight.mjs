@@ -123,6 +123,12 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
 }
 export function stepFightFlight(room,m,dt,now,world=room.world){
   if(!m||m.retired||m.mode==='DESTROYED')return;
+  if(dt>.04&&!m.terminalDive){
+    const subSteps=Math.min(10,Math.ceil(dt/.033));
+    const subDt=dt/subSteps,startNow=now-dt;
+    for(let s=1;s<=subSteps;s++)stepFightFlight(room,m,subDt,startNow+s*subDt,world);
+    return;
+  }
   m.rotorAngleBefore=m.rotorAngle;
   m.rotorPositionBefore={x:m.x,y:m.y,z:m.z};
   const op=m.operatorId?room.players.get(m.operatorId):null;
@@ -244,7 +250,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const previous={x:m.x,y:m.y,z:m.z},step=dt/steps;
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};
     const floor=ground(world,candidate.x,candidate.z,Math.max(candidate.y,m.y));
-    if(floor!==null&&candidate.y<=floor){
+    if(floor!==null&&candidate.y<=floor&&m.velocity.y<=0){
       if(m.terminalDive)m.terminalDive.impactAt=now;
       if(!m.grounded)m.landingAt=now;
       candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
