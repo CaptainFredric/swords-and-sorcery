@@ -387,3 +387,211 @@ test('Rare VO probability semantics: fight-and-flight lines bounded by state tra
   simulateFrame(13.1, 1 / 60, {});
   assert.equal(sustainRolls, 2, 'sustain rolls second sample after 9.0s interval');
 });
+
+test('Priority 1: Spatial suppression does not interrupt or block distant speakers (>18m), while suppressing nearby speakers (<=18m)', () => {
+  const director = new VoiceDirector({ rand: () => 0.01 });
+
+  // Distant speaker D at (30, 0) is speaking a sentence (duration 5.0s, t = 10.0 to 15.0)
+  const distantSentence = director.consider('gloryWitnessV1', 'speakerD', 10.0, { source: { x: 30, z: 0 }, duration: 5.0 });
+  assert.ok(distantSentence, 'distant sentence started');
+  assert.equal(director.saying('speakerD', 10.5), 'gloryWitnessV1');
+
+  // Killer at (0, 0) triggers 'notRightNow' (priority STATE + 1, duration 2.5s)
+  const nrn = director.consider('notRightNow', 'killer', 11.0, { source: { x: 0, z: 0 }, duration: 2.5 });
+  assert.ok(nrn, 'notRightNow allowed');
+
+  // Distant speaker D (dist 30m > 18m) MUST NOT be cut and continues speaking!
+  assert.ok(!nrn.stop.includes('speakerD'), 'distant speaker > 18m is NOT cut');
+  assert.equal(director.saying('speakerD', 11.1), 'gloryWitnessV1', 'distant speaker continues speaking');
+
+  // Another remote speaker R at (-25, 0) (dist 25m > 18m) is NOT blocked by notRightNow suppression
+  const remoteNew = director.consider('gloryWitnessV2', 'speakerR', 12.0, { source: { x: -25, z: 0 }, duration: 3.0 });
+  assert.ok(remoteNew, 'distant speaker outside 18m can start speaking');
+
+  // But a nearby speaker M at (3, 0) (dist 3m <= 18m) IS blocked during notRightNow + 2s post-line hush
+  const nearbyBlocked = director.consider('gloryWitnessV2', 'speakerM', 12.0, { source: { x: 3, z: 0 }, duration: 3.0, force: true });
+  assert.equal(nearbyBlocked, null, 'nearby speaker inside 18m is blocked during hush');
+
+  // Nearby speaker N at (5, 0) is speaking a high-priority / STATE line
+  director.reset();
+  const nearbyState = director.consider('sunderCall', 'speakerN', 20.0, { cry: true, source: { x: 5, z: 0 }, duration: 4.0 });
+  assert.ok(nearbyState, 'nearby state sentence started');
+  assert.equal(director.saying('speakerN', 20.5), 'sunderCall');
+
+  // Killer at (0, 0) triggers 'notRightNow' at t = 21.0
+  const nrn2 = director.consider('notRightNow', 'killer', 21.0, { source: { x: 0, z: 0 }, duration: 2.5 });
+  assert.ok(nrn2, 'notRightNow allowed');
+  assert.ok(nrn2.stop.includes('speakerN'), 'nearby speaker on STATE line is cut by notRightNow');
+  assert.equal(director.saying('speakerN', 21.1), null, 'nearby speaker mouth stopped');
+});
+
+test('Priority 2: Deferred interrupted-sentence complaint fires when mouth and sentence channel become free; cancels on death/respawn', () => {
+  const speechInterrupted = new Map();
+  const pendingSentenceComplaints = new Map();
+  let delivered = [];
+
+  const moments = new VoiceMoments();
+  let mockSentence = null;
+  let mockPlaying = new Set();
+  let mockAlive = new Map([['speakerA', true]]);
+
+  const canSayComplaint = (speaker, now) => {
+    const mouthFree = !mockPlaying.has(speaker);
+    const sentenceFree = !mockSentence || now >= mockSentence.until || mockSentence.speaker === speaker;
+    return mouthFree && sentenceFree;
+  };
+
+  const queueSentenceComplaint = (speaker, now) => {
+    if (canSayComplaint(speaker, now)) {
+      delivered.push({ speaker, at: now, line: 'finishSentence' });
+      return;
+    }
+    pendingSentenceComplaints.set(speaker, { expiresAt: now + 4.0 });
+  };
+
+  const pollSentenceComplaints = (now) => {
+    for (const [speaker, pending] of pendingSentenceComplaints.entries()) {
+      if (now > pending.expiresAt || !mockAlive.get(speaker)) {
+        pendingSentenceComplaints.delete(speaker);
+        continue;
+      }
+      if (canSayComplaint(speaker, now)) {
+        delivered.push({ speaker, at: now, line: 'finishSentence' });
+        pendingSentenceComplaints.delete(speaker);
+      }
+    }
+  };
+
+  const onSentenceCut = (speaker, now) => {
+    const prev = speechInterrupted.get(speaker);
+    const count = (prev && (now - prev.at <= 30.0)) ? prev.count + 1 : 1;
+    speechInterrupted.set(speaker, { count, at: now });
+    if (count >= 2) {
+      queueSentenceComplaint(speaker, now);
+    }
+  };
+
+  // Interruption 1
+  onSentenceCut('speakerA', 10.0);
+  assert.equal(delivered.length, 0);
+
+  // Interruption 2 at t = 15.0 by higher priority line (speakerB speaks until t = 17.5)
+  mockSentence = { speaker: 'speakerB', until: 17.5 };
+  mockPlaying.add('speakerB');
+  onSentenceCut('speakerA', 15.0);
+
+  // Complaint could NOT be spoken immediately because speakerB is speaking!
+  assert.equal(delivered.length, 0, 'complaint not spoken while speakerB is speaking');
+  assert.ok(pendingSentenceComplaints.has('speakerA'), 'complaint registered as deferred opportunity');
+
+  // Poll at t = 16.0: speakerB still speaking -> still pending
+  pollSentenceComplaints(16.0);
+  assert.equal(delivered.length, 0, 'still pending while speakerB speaks');
+
+  // At t = 17.5: speakerB finishes
+  mockSentence = null;
+  mockPlaying.delete('speakerB');
+
+  // Poll at t = 17.6: mouth & sentence are free -> complaint fires!
+  pollSentenceComplaints(17.6);
+  assert.equal(delivered.length, 1, 'deferred complaint fires once channel frees up');
+  assert.equal(delivered[0].speaker, 'speakerA');
+  assert.equal(delivered[0].at, 17.6);
+  assert.equal(pendingSentenceComplaints.size, 0, 'pending queue cleared');
+
+  // Test cancellation on death:
+  mockSentence = { speaker: 'speakerB', until: 25.0 };
+  onSentenceCut('speakerA', 20.0);
+  assert.ok(pendingSentenceComplaints.has('speakerA'));
+
+  // Speaker A dies at t = 21.0
+  mockAlive.set('speakerA', false);
+  pollSentenceComplaints(21.0);
+  assert.equal(pendingSentenceComplaints.size, 0, 'complaint discarded on death');
+  assert.equal(delivered.length, 1, 'no extra delivery after death');
+});
+
+test('Priority 3: Rotor-morality dialogue family shares eligibility roll, shared cooldown, and picks one take with verbatim text', () => {
+  // Verify all 4 variants belong to the family
+  const v1 = voiceLine('rotorMoralityV1');
+  const v2 = voiceLine('rotorMoralityV2');
+  const v3 = voiceLine('rotorMoralityV3');
+  const v4 = voiceLine('rotorMoralityV4');
+
+  assert.equal(v1.family, 'rotorMorality');
+  assert.equal(v2.family, 'rotorMorality');
+  assert.equal(v3.family, 'rotorMorality');
+  assert.equal(v4.family, 'rotorMorality');
+
+  assert.equal(v1.cooldown, 240);
+  assert.equal(v2.cooldown, 240);
+  assert.equal(v3.cooldown, 240);
+  assert.equal(v4.cooldown, 240);
+
+  // Verbatim texts preserved
+  assert.match(v1.text, /morally obligated/);
+  assert.match(v2.text, /morally required/);
+  assert.match(v3.text, /As long as it’s fun/);
+  assert.match(v4.text, /allowed officially/);
+
+  // linesFor with flightRotorSustained tag returns exactly ONE candidate from the family!
+  const offered = linesFor('pilot', ['flightRotorSustained'], { rand: () => 0.5 });
+  const moralityOffered = offered.filter((o) => ['rotorMoralityV1', 'rotorMoralityV2', 'rotorMoralityV3', 'rotorMoralityV4'].includes(o.line));
+  assert.equal(moralityOffered.length, 1, 'exactly one take offered from the dialogue family, not four');
+
+  // Verify family cooldown in VoiceDirector
+  const director = new VoiceDirector({ rand: () => 0.01 }); // always passes rarity roll
+  const first = director.consider(moralityOffered[0].line, 'pilot', 10.0);
+  assert.ok(first, 'first family take spoken');
+
+  // At t = 50.0 (< 240s cooldown), no other variant from the family may speak
+  for (const id of ['rotorMoralityV1', 'rotorMoralityV2', 'rotorMoralityV3', 'rotorMoralityV4']) {
+    const blocked = director.consider(id, 'pilot', 50.0);
+    assert.equal(blocked, null, `${id} is blocked by shared family cooldown`);
+  }
+
+  // At t = 260.0 (> 240s cooldown), family becomes eligible again
+  const nextOffered = linesFor('pilot', ['flightRotorSustained'], { rand: () => 0.25 });
+  const nextSaid = director.consider(nextOffered[0].line, 'pilot', 260.0);
+  assert.ok(nextSaid, 'family take eligible again after shared cooldown');
+});
+
+test('Priority 4: Machine lifecycle & VO state resets across mount, dismount, remount, destruction, and death', () => {
+  const flightVoState = new Map();
+
+  const onMount = (operatorId) => {
+    flightVoState.delete(operatorId);
+  };
+  const onDismount = (operatorId) => {
+    flightVoState.delete(operatorId);
+  };
+  const onMachineDestroyed = () => {
+    flightVoState.clear();
+  };
+  const onPlayerDeath = (playerId) => {
+    flightVoState.delete(playerId);
+  };
+
+  // Mount creates fresh state
+  onMount('pilot1');
+  flightVoState.set('pilot1', { airborneSince: 10.0, wasHighHover: true, lastHoverCheckAt: 12.0 });
+  assert.equal(flightVoState.get('pilot1').wasHighHover, true);
+
+  // Dismount clears operator state
+  onDismount('pilot1');
+  assert.equal(flightVoState.has('pilot1'), false, 'dismount cleans operator state');
+
+  // Remount starts clean without stale hover or timers
+  onMount('pilot1');
+  assert.equal(flightVoState.has('pilot1'), false, 'remount starts completely fresh');
+
+  flightVoState.set('pilot1', { airborneSince: 20.0, wasHighHover: true });
+  // Death clears state
+  onPlayerDeath('pilot1');
+  assert.equal(flightVoState.has('pilot1'), false, 'death cleans flight state');
+
+  flightVoState.set('pilot1', { airborneSince: 30.0 });
+  // Destruction clears all flight VO states
+  onMachineDestroyed();
+  assert.equal(flightVoState.size, 0, 'destruction resets all flight states');
+});

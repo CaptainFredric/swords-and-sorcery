@@ -39,6 +39,7 @@ export const VOICE_LINES = Object.freeze(Object.fromEntries(VOICE_LINE_LIST.filt
     chance: line.rarity,
     cooldown: line.cooldown,
     gain: line.gain,
+    ...(line.family ? { family: line.family } : {}),
     ...(line.perLife ? { perLife: line.perLife } : {}),
     ...(priority === STATE ? { interrupts: true } : {}),
     ...(line.parts ? { parts: line.parts.length } : {}),
@@ -404,7 +405,9 @@ export class VoiceDirector {
     if (cry || earned) force = true;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;
+    const familyKey = rule.family ? `${speaker}:family:${rule.family}` : null;
     if (!force && now < (this.readyAt.get(key) ?? -Infinity)) return null;
+    if (!force && familyKey && now < (this.readyAt.get(familyKey) ?? -Infinity)) return null;
     if (!force && rule.perLife && (this.thisLife.get(key) ?? 0) >= rule.perLife) return null;
     // never over one's own line, unless this one matters more
     const own = this.speaking.get(speaker);
@@ -417,13 +420,27 @@ export class VoiceDirector {
     if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
     const sentence = rule.kind === 'sentence';
     // one sentence heard at a time: another knight's is let finish, unless this one matters more
-    const other = sentence && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
+    let other = sentence && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
+    if (other && notRightNow && source && other.source) {
+      const sx = source.x ?? 0, sz = source.z ?? 0;
+      const ox = other.source.x ?? 0, oz = other.source.z ?? 0;
+      if (Math.hypot(ox - sx, oz - sz) > 18) {
+        other = null;
+      }
+    }
+    if (other && other.line === 'notRightNow' && source && other.source) {
+      const sx = source.x ?? 0, sz = source.z ?? 0;
+      const ox = other.source.x ?? 0, oz = other.source.z ?? 0;
+      if (Math.hypot(ox - sx, oz - sz) > 18) {
+        other = null;
+      }
+    }
     if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     if (!force && this.rand() >= rule.chance * chanceScale) return null;
     const stop = [];
     if (ownBusy) stop.push(speaker);
-    if (other && !(coordinated && other.chorus === chorus)) {
+    if (other && !(coordinated && other.chorus === chorus) && !notRightNow) {
       stop.push(other.speaker);
       this.speaking.delete(other.speaker);
     }
@@ -451,7 +468,9 @@ export class VoiceDirector {
     stat.said += 1;
     this.lastLine.set(key, now);
     const [least, most] = Array.isArray(rule.cooldown) ? rule.cooldown : [rule.cooldown, rule.cooldown];
-    this.readyAt.set(key, now + (most > least ? least + (most - least) * this.rand() : least));
+    const readyAtTime = now + (most > least ? least + (most - least) * this.rand() : least);
+    this.readyAt.set(key, readyAtTime);
+    if (familyKey) this.readyAt.set(familyKey, readyAtTime);
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
     const entry = { speaker, line, priority, source, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };

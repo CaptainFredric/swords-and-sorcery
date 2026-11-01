@@ -166,6 +166,7 @@ export class GameRuntime {
     if (this.voice) this.voice.onSpoken = this.subtitleHook;
     // and a line cut off (by a line that matters more, or a fall) takes its caption with it
     this.speechInterrupted = new Map();
+    this.pendingSentenceComplaints = new Map();
     this.captionCut = (speaker, info = {}) => {
       this.hud.subtitleCut?.(speaker);
       const isSentence = info.wasSentence ?? true;
@@ -177,10 +178,11 @@ export class GameRuntime {
           const count = (prev && (now - prev.at <= 30.0)) ? prev.count + 1 : 1;
           this.speechInterrupted.set(speaker, { count, at: now });
           if (count >= 2) {
-            this.#sayMoments(this.moments.interrupted(speaker), now);
+            this.#queueSentenceComplaint(speaker, now);
           }
         }
       }
+      this.#pollSentenceComplaints(this.socket?.serverNow ? this.socket.serverNow() : 0);
     };
     if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
@@ -1300,6 +1302,7 @@ export class GameRuntime {
       this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
       this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
+      this.flightVoState?.delete(auth.id);
     }
     if(auth?.operatingRamId&&!wasMounted){
       this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
@@ -1321,6 +1324,7 @@ export class GameRuntime {
       this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
+      this.flightVoState?.delete(auth?.id ?? this.playerId);
     }
     this.input.updatePreparedSpells?.(auth, this.socket.serverNow());
     this.weapon.setCombatPolicy(combatActionPolicy(auth, this.socket.serverNow()), auth, this.socket.serverNow());
@@ -1437,6 +1441,9 @@ export class GameRuntime {
           if ((this.latestSnapshot?.fightFlight?.y ?? 0) >= 5.0) this.#sayMoment(op, ['machineDisabledElevated']);
           else this.#sayMoment(op, ['rotorDestroyedSurvive']);
         }
+      }
+      if(event.type==='fightFlightDestroyed'){
+        this.flightVoState?.clear();
       }
       if(event.type==='soFistDamaged'){
         const op = this.latestSnapshot?.soFistication?.operatorId;
@@ -1807,6 +1814,8 @@ export class GameRuntime {
         }
       }
       if (event.type === 'death') {
+        this.flightVoState?.delete(event.victimId);
+        this.pendingSentenceComplaints?.delete(event.victimId);
         this.#deathEvent(event);
         // (his ultimate goes with him: its one line, said or not, is spent)
         this.ultimateLines.end(event.victimId);
@@ -1835,7 +1844,11 @@ export class GameRuntime {
       if (event.type === 'respawn' && this.voice?.director?.speaking.get(event.playerId)?.chorus) this.voice.cut(event.playerId);
       if (event.type === 'respawn' && event.playerId === this.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
-      if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
+      if (event.type === 'respawn') {
+        this.flightVoState?.delete(event.playerId);
+        this.pendingSentenceComplaints?.delete(event.playerId);
+        this.voice?.director?.newLife?.(event.playerId);
+      }
       // back on his feet: a scene's word for it first ("It was brief.", the comeback's "Now..."); otherwise, in a bad
       // stretch, now and then one explanation of it (never two in one collapse)
       if (event.type === 'respawn' && !this.scenes.respawn(event)) {
@@ -1916,6 +1929,9 @@ export class GameRuntime {
         this.watch.reset();
         this.chivalrous.clear();
         this.chivalryEndedAt.clear();
+        this.flightVoState?.clear();
+        this.speechInterrupted?.clear();
+        this.pendingSentenceComplaints?.clear();
         this.voice?.director?.newLife?.();
         this.ultimateLines.reset();
         this.lastTeamVoiceAt = -Infinity;
@@ -2650,6 +2666,44 @@ export class GameRuntime {
     return anySaid;
   }
 
+  #queueSentenceComplaint(speaker, now) {
+    this.pendingSentenceComplaints ??= new Map();
+    if (this.#canSayComplaint(speaker, now)) {
+      if (this.#sayMoments(this.moments.interrupted(speaker), now)) {
+        this.pendingSentenceComplaints.delete(speaker);
+        return;
+      }
+    }
+    this.pendingSentenceComplaints.set(speaker, { expiresAt: now + 4.0 });
+  }
+
+  #canSayComplaint(speaker, now) {
+    const mouthFree = !this.voice?.playing?.has(speaker);
+    const sentence = this.voice?.director?.sentence;
+    const sentenceFree = !sentence || now >= sentence.until || sentence.speaker === speaker;
+    return mouthFree && sentenceFree;
+  }
+
+  #pollSentenceComplaints(now) {
+    if (!this.pendingSentenceComplaints?.size) return;
+    for (const [speaker, pending] of this.pendingSentenceComplaints.entries()) {
+      if (now > pending.expiresAt) {
+        this.pendingSentenceComplaints.delete(speaker);
+        continue;
+      }
+      const player = this.latestSnapshot?.players?.find((p) => p.id === speaker) ?? (speaker === this.playerId ? this.localAuth : null);
+      if (player?.alive === false) {
+        this.pendingSentenceComplaints.delete(speaker);
+        continue;
+      }
+      if (this.#canSayComplaint(speaker, now)) {
+        if (this.#sayMoments(this.moments.interrupted(speaker), now)) {
+          this.pendingSentenceComplaints.delete(speaker);
+        }
+      }
+    }
+  }
+
   // steel anywhere stirs the music; blows that involve me put it on the fight
   #warm(event, me) {
     const now = performance.now() / 1000;
@@ -3159,6 +3213,7 @@ export class GameRuntime {
       this.weapon.setCombatPolicy(combatActionPolicy(this.localAuth, now), this.localAuth, now);
       this.#spin(now);
       this.#resumeHeld(now);
+      this.#pollSentenceComplaints(now);
     }
     // (a brace begun on my own key that the host never took: the arms are let down again)
     if (this.braceAskedAt && nowMs - this.braceAskedAt > 400) {

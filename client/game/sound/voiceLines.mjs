@@ -1611,7 +1611,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'rotorMoralityV1',
     text: 'As long as this thing atop of me keeps spinning, then I am morally obligated to keep killing.',
     trigger: 'flightRotorSustained',
-    priority: 'normal', rarity: 0.025, cooldown: 240,
+    family: 'rotorMorality',
+    priority: 'normal', rarity: 0.03, cooldown: 240,
     section: 'Remarks & Oddities',
     credits: { title: 'Moral Rotation', description: 'Very rarely during sustained powered flight, while the rotor continues turning and enemies remain nearby.', note: 'The code of chivalry is now mechanically driven.' },
     file: 'AsLongAsThisKeepsSpinning.mp3',
@@ -1713,6 +1714,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'spellTurnV1',
     text: 'I missed. You may now cast your spell at me. Hurry, as I am pretending to not want to get hit by it.',
     trigger: 'spellMiss',
+    family: 'spellTurn',
     priority: 'normal', rarity: 0.05, cooldown: 240,
     section: 'Battle & Abilities',
     credits: { title: 'Your Turn', description: 'Rarely after missing an attack and confronting an enemy spellcaster.', note: 'Turn-based combat has been unilaterally declared.' },
@@ -1722,6 +1724,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'prowessConspiracyV1',
     text: 'No. They took away my fighting prowess because they knew, they knew that I would not let you scratch my armor today.',
     trigger: 'prowessDepleted',
+    family: 'prowessConspiracy',
     priority: 'normal', rarity: 0.06, cooldown: 300,
     section: 'Remarks & Oddities',
     credits: { title: 'Armor Protection', description: 'Rarely when drained of prowess while under attack.', note: 'The authorities conspired to expose his plate.' },
@@ -1777,7 +1780,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'rotorMoralityV2',
     text: 'As long as this thing atop of me keeps spinning, then I am morally required to keep killing.',
     trigger: 'flightRotorSustained',
-    priority: 'normal', rarity: 0.025, cooldown: 240,
+    family: 'rotorMorality',
+    priority: 'normal', rarity: 0.03, cooldown: 240,
     section: 'Remarks & Oddities',
     credits: { title: 'Moral Rotation', description: 'Very rarely during sustained powered flight, while the rotor continues turning and enemies remain nearby.', note: 'The code of chivalry is now mechanically driven.' },
     file: 'AsLongAsThisThingAtopOfMeKeepsSpinningIMorallyRequired.mp3',
@@ -1860,7 +1864,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'As long as this thing atop of me keeps spinning, then I am morally required to keep killing. As long as it’s fun.',
     beats: [{ words: 'As long as this thing atop of me keeps spinning, then I am morally required to keep killing.' }, { at: 5.2, words: 'As long as it’s fun.' }],
     trigger: 'flightRotorSustained',
-    priority: 'normal', rarity: 0.04, cooldown: 240,
+    family: 'rotorMorality',
+    priority: 'normal', rarity: 0.03, cooldown: 240,
     section: 'Remarks & Oddities',
     credits: { title: 'Moral Rotation', description: 'Very rarely during sustained powered flight, while the rotor continues turning and enemies remain nearby.', note: 'The code of chivalry is now mechanically driven.' },
     file: 'AsLongAsThisThingAtopOfMeKeepsSpinning(1).mp3',
@@ -1944,6 +1949,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'spellTurnV2',
     text: 'I missed. You may now cast your spell at me. Hurry, as I am moving around and pretending to not want to get hit.',
     trigger: 'spellMiss',
+    family: 'spellTurn',
     priority: 'normal', rarity: 0.05, cooldown: 240,
     section: 'Battle & Abilities',
     credits: { title: 'Your Turn', description: 'Rarely after missing an attack and confronting an enemy spellcaster.', note: 'Turn-based combat has been unilaterally declared.' },
@@ -2020,7 +2026,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'rotorMoralityV4',
     text: 'As long as this thing atop of me keeps spinning, then I am allowed officially to keep killing.',
     trigger: 'flightRotorSustained',
-    priority: 'normal', rarity: 0.025, cooldown: 240,
+    family: 'rotorMorality',
+    priority: 'normal', rarity: 0.03, cooldown: 240,
     section: 'Remarks & Oddities',
     credits: { title: 'Moral Rotation', description: 'Very rarely during sustained powered flight, while the rotor continues turning and enemies remain nearby.', note: 'The code of chivalry is now mechanically driven.' },
     file: '2026_10_31_11_11_26.mp3',
@@ -2074,6 +2081,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'prowessConspiracyV2',
     text: 'No. They took away my fighting prowess because they knew, they knew that I was going to win this match someday.',
     trigger: 'prowessDepleted',
+    family: 'prowessConspiracy',
     priority: 'normal', rarity: 0.06, cooldown: 300,
     section: 'Remarks & Oddities',
     credits: { title: 'Stolen Prowess', description: 'Rarely when drained of prowess while under attack.', note: 'The conspiracy targets his eventual triumph.' },
@@ -2185,12 +2193,28 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
     return chosen ? [{ line: chosen.id, speaker, delay: VOICE_TAGS[cry].delay ?? 0, cry: true }] : [];
   }
   const offered = [];
+  const familySeen = new Set();
   lines.forEach((line, index) => {
     if (line.coming) return;
     if (force && (line.kind !== 'sentence' || line.priority !== 'high')) return;
     // the tag it is offered through: the most particular of its triggers that the moment carries
     const through = known.filter((tag) => line.triggers[tag] > 0).sort((a, b) => VOICE_TAGS[b].rank - VOICE_TAGS[a].rank)[0];
     if (!through) return;
+    if (line.family) {
+      const familyKey = `${line.family}:${through}`;
+      if (familySeen.has(familyKey)) return;
+      familySeen.add(familyKey);
+      const members = lines.filter((l) => l.family === line.family && !l.coming && l.triggers[through] > 0);
+      const chosen = members[Math.floor(rand() * members.length)] ?? line;
+      let chanceScale = chosen.triggers[through] * present[through];
+      for (const fact of facts) if (chosen.boost[fact]) chanceScale *= chosen.boost[fact];
+      const tag = VOICE_TAGS[through];
+      offered.push({
+        say: { line: chosen.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}) },
+        rank: tag.rank, order: chosen.order, index, shuffle: force ? rand() : 0,
+      });
+      return;
+    }
     let chanceScale = line.triggers[through] * present[through];
     for (const fact of facts) if (line.boost[fact]) chanceScale *= line.boost[fact];
     const tag = VOICE_TAGS[through];
