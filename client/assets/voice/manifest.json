@@ -346,6 +346,18 @@
         "seconds": 1.1
       }
     ],
+    "enjoyRestV1": [
+      {
+        "file": "enjoy-rest-v1-1",
+        "seconds": 1.68
+      }
+    ],
+    "enjoyRestV2": [
+      {
+        "file": "enjoy-rest-v2-1",
+        "seconds": 1.51
+      }
+    ],
     "excuseYou": [
       {
         "file": "excuse-you-1",
@@ -1332,6 +1344,18 @@
         "seconds": 1.03
       }
     ],
+    "tranquilizerArrow": [
+      {
+        "file": "tranquilizer-arrow-1",
+        "seconds": 2.41
+      }
+    ],
+    "tranquilizerAsleep": [
+      {
+        "file": "tranquilizer-asleep-1",
+        "seconds": 1.79
+      }
+    ],
     "trapdoor": [
       {
         "file": "trapdoor-1",
@@ -1588,6 +1612,10 @@
     "rightfulPlaces": "2026-11-01",
     "handshakeSetup": "2026-11-01",
     "woodVsSteel": "2026-11-01",
-    "prowessConspiracyV2": "2026-11-01"
+    "prowessConspiracyV2": "2026-11-01",
+    "enjoyRestV2": "2026-11-01",
+    "enjoyRestV1": "2026-11-01",
+    "tranquilizerAsleep": "2026-11-01",
+    "tranquilizerArrow": "2026-11-01"
   }
 }

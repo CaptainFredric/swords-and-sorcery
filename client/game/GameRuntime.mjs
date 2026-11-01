@@ -1303,6 +1303,7 @@ export class GameRuntime {
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
       this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
       this.flightVoState?.delete(auth.id);
+      this.scenes?.tranquilizerReset?.(auth.id);
     }
     if(auth?.operatingRamId&&!wasMounted){
       this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
@@ -1325,6 +1326,7 @@ export class GameRuntime {
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
       this.flightVoState?.delete(auth?.id ?? this.playerId);
+      this.scenes?.tranquilizerReset?.(auth?.id ?? this.playerId);
     }
     this.input.updatePreparedSpells?.(auth, this.socket.serverNow());
     this.weapon.setCombatPolicy(combatActionPolicy(auth, this.socket.serverNow()), auth, this.socket.serverNow());
@@ -1397,9 +1399,13 @@ export class GameRuntime {
         const op = event.operatorId ?? this.latestSnapshot?.fightFlight?.operatorId;
         if (op) {
           this.flightBolts ??= new Map();
-          const recent = [...(this.flightBolts.get(op) ?? []).filter(t => (event.at ?? this.socket.serverNow()) - t <= 2.0), event.at ?? this.socket.serverNow()];
+          const recent = [...(this.flightBolts.get(op) ?? []).filter(t => (event.at ?? this.socket.serverNow()) - t <= 2.5), event.at ?? this.socket.serverNow()];
           this.flightBolts.set(op, recent);
           if (recent.length >= 3) this.#sayMoment(op, ['flightBoltBurst']);
+          const target = this.moments?.lastTarget?.(op);
+          if (recent.length >= 4 && target) {
+            this.#sayMoment(op, ['tranquilizerVolley']);
+          }
         }
       }
       if(event.type === "bibyeDamaged" && event.point) {
@@ -1415,6 +1421,20 @@ export class GameRuntime {
       if(event.type==='fightFlightBoltImpact'&&event.point){
         if(event.hitKind==='player'||event.hitKind==='guard'||event.hitKind==='parry')this.effects.wallClang?.(event.point);
         else this.effects.splinters?.(event.point);
+        if(event.victimId){
+          const op = this.latestSnapshot?.fightFlight?.operatorId;
+          if(op) {
+            this.moments?.setLastTarget?.(op, event.victimId);
+            this.flightBoltVolleys ??= new Map();
+            const now = event.at ?? this.socket.serverNow();
+            const key = `${op}>${event.victimId}`;
+            const hits = [...(this.flightBoltVolleys.get(key) ?? []).filter(t => now - t <= 3.0), now];
+            this.flightBoltVolleys.set(key, hits);
+            if (hits.length >= 3) {
+              this.#sayMoment(op, ['tranquilizerVolley']);
+            }
+          }
+        }
       }
       if(event.type==='fightFlightRotorContact'&&event.point){
         if(event.result==='guard'||event.result==='parry')this.effects.blockBurst?.(event.point,null,{parry:event.result==='parry'});
@@ -1444,6 +1464,7 @@ export class GameRuntime {
       }
       if(event.type==='fightFlightDestroyed'){
         this.flightVoState?.clear();
+        this.scenes?.tranquilizerReset?.();
       }
       if(event.type==='soFistDamaged'){
         const op = this.latestSnapshot?.soFistication?.operatorId;
@@ -1816,6 +1837,7 @@ export class GameRuntime {
       if (event.type === 'death') {
         this.flightVoState?.delete(event.victimId);
         this.pendingSentenceComplaints?.delete(event.victimId);
+        this.scenes?.tranquilizerReset?.(event.victimId);
         this.#deathEvent(event);
         // (his ultimate goes with him: its one line, said or not, is spent)
         this.ultimateLines.end(event.victimId);
@@ -1847,6 +1869,7 @@ export class GameRuntime {
       if (event.type === 'respawn') {
         this.flightVoState?.delete(event.playerId);
         this.pendingSentenceComplaints?.delete(event.playerId);
+        this.scenes?.tranquilizerReset?.(event.playerId);
         this.voice?.director?.newLife?.(event.playerId);
       }
       // back on his feet: a scene's word for it first ("It was brief.", the comeback's "Now..."); otherwise, in a bad
@@ -2660,6 +2683,7 @@ export class GameRuntime {
         if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
         if (say.opens === 'troubleshoot') this.scenes.troubleshootStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'handshake') this.scenes.handshakeStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
+        if (say.opens === 'tranquilizer') this.scenes.tranquilizerStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         break;
       }
     }

@@ -40,8 +40,17 @@ async function evaluate(expression){
   if(x.exceptionDetails)throw Error(x.exceptionDetails.text);
   return x.result?.value;
 }
-async function down(key){await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
-async function up(key){await send('Input.dispatchKeyEvent',{type:'keyUp',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
+async function down(key){
+  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
+  const text = key === ' ' ? ' ' : key.toLowerCase();
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:text,code,text,windowsVirtualKeyCode:vk});
+}
+async function up(key){
+  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:key===' '?' ':key.toLowerCase(),code,windowsVirtualKeyCode:vk});
+}
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
 const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,operator:m.operatorId,grounded:m.grounded,terminalPrep:m.terminalPrep,terminalDive:m.terminalDive,terminalDiveSpent:m.terminalDiveSpent,health:m.health,runPitch:m.runPitch}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,prowess:p.prowess,ultimate:p.ultimate,alive:p.alive}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray(),riderPitch:r?.remotePlayers?.self?.root?.rotation.x};})()";
@@ -108,10 +117,15 @@ try{
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');
- await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
+ await down(' ');
+ await until(async()=>{
+  const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
+  if(y>1)return true;
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
+  return false;
+ },'powered flight from actual Space input',160);
  await up('W');
- await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await up(' ');
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
 
@@ -119,7 +133,7 @@ try{
  await evaluate("document.querySelector('#practice-ultimate').click()");
  await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p?.prowess>=100;})()"),'ready unspent Chivalry in Practice',100);
  await up('W');
- await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await up(' ');
  const beforeChord=await evaluate(flightState);
  assert.ok(beforeChord.machine.y>.5,'must be airborne at terminal input');
  // Observe rendered Spellblade frames across a subsecond terminal dive.

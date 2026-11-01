@@ -73,9 +73,15 @@ const LINES = Object.freeze({
   nap: lineFor('napFall'),
   foundIt: lineFor('foundDisablePayoff') ?? 'foundDisablePoint',
   shaken: lineFor('handshakePayoff') ?? 'handshakePayoff',
+  tranquilizerAsleep: lineFor('tranquilizerPayoff') ?? 'tranquilizerAsleep',
+  enjoyRestAha: 'enjoyRestV1',
 });
 
 export const SCENES = Object.freeze({
+  tranquilizer: Object.freeze({
+    expirySec: 25,
+    payoffAfter: 0.35,
+  }),
   troubleshoot: Object.freeze({
     expirySec: 20,
     payoffAfter: 0.35,
@@ -145,6 +151,7 @@ export class VoiceScenes {
     this.naps = new Map();        // speaker -> { until }: a nap announced as he fell, his return waited for
     this.troubleshoot = new Map(); // speaker -> { targetId, until }: "Where do I have to hit you..." setup
     this.handshakes = new Map();   // speaker -> { targetId, until }: "Hand shake? This hand will shake you..." setup
+    this.tranquilizers = new Map(); // speaker -> { targetId, until }: "Which one of these arrows..." setup
   }
 
   /** A new match: nothing carries over. */
@@ -162,6 +169,7 @@ export class VoiceScenes {
     this.naps.clear();
     this.troubleshoot.clear();
     this.handshakes.clear();
+    this.tranquilizers.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -431,7 +439,16 @@ export class VoiceScenes {
     this.troubleshoot.delete(victimId);
     this.handshakes.delete(victimId);
     for (const [speaker, scene] of [...this.handshakes]) if (scene.targetId === victimId) this.handshakes.delete(speaker);
+    this.tranquilizers.delete(victimId);
     let victor = false;
+    const activeTranquilizer = killerId ? this.tranquilizers.get(killerId) : null;
+    if (activeTranquilizer && activeTranquilizer.targetId === victimId && at <= activeTranquilizer.until) {
+      this.tranquilizers.delete(killerId);
+      const payoffLine = this.rand() < 0.25 ? LINES.enjoyRestAha : LINES.tranquilizerAsleep;
+      if (this.say(payoffLine, killerId, { earned: true, delay: SCENES.tranquilizer.payoffAfter })) victor = true;
+    } else {
+      for (const [speaker, scene] of [...this.tranquilizers]) if (scene.targetId === victimId) this.tranquilizers.delete(speaker);
+    }
     const activeTroubleshoot = killerId ? this.troubleshoot.get(killerId) : null;
     if (activeTroubleshoot && activeTroubleshoot.targetId === victimId && at <= activeTroubleshoot.until) {
       this.troubleshoot.delete(killerId);
@@ -577,5 +594,16 @@ export class VoiceScenes {
     if (!scene || scene.targetId !== targetId || at > scene.until) return;
     this.handshakes.delete(speaker);
     this.say(LINES.shaken, speaker, { earned: true, delay: SCENES.handshake.payoffAfter });
+  }
+
+  // ------------------------------------------------------------------------------------------------ tranquilizer scene
+  tranquilizerStarted(speaker, targetId, at) {
+    if (!speaker || !targetId) return;
+    this.tranquilizers.set(speaker, { targetId, until: at + SCENES.tranquilizer.expirySec });
+  }
+
+  tranquilizerReset(speaker = null) {
+    if (speaker === null) this.tranquilizers.clear();
+    else this.tranquilizers.delete(speaker);
   }
 }

@@ -219,6 +219,8 @@ export const VOICE_TAGS = Object.freeze({
   machineDisabledElevated: { rank: 25, delay: 0.5, about: "machine disabled while holding high ground" },
   pistonWindup: { rank: 30, delay: 0.1, opens: "handshake", about: "SO-FIST-ICATION piston windup with enemy in path" },
   handshakePayoff: { rank: 35, delay: 0.25, about: "earned payoff when piston knocks back target" },
+  tranquilizerVolley: { rank: 26, delay: 0.3, opens: "tranquilizer", about: "substantial repeating-crossbow volley against a living opponent" },
+  tranquilizerPayoff: { rank: 76, delay: 0.35, about: "earned payoff when felling the tranquilizer target" },
   renderDisabledSetup: { rank: 26, delay: 0.3, opens: "troubleshoot", about: "repeated strikes against stubborn standing opponent" },
   foundDisablePayoff: { rank: 72, delay: 0.45, about: "earned payoff when target is disabled" },
   interruptedRepeated: { rank: 24, delay: 0.3, about: "repeated voice interruptions in same encounter" },
@@ -2087,6 +2089,44 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     credits: { title: 'Stolen Prowess', description: 'Rarely when drained of prowess while under attack.', note: 'The conspiracy targets his eventual triumph.' },
     file: '2026_10_31_10_51_24.mp3',
   },
+  {
+    id: 'tranquilizerArrow',
+    text: 'Which one of these arrows was the tranquilizing one?',
+    trigger: 'tranquilizerVolley',
+    priority: 'normal', rarity: 0.12, cooldown: 240,
+    section: 'Battle & Abilities',
+    credits: { title: 'The Tranquilizer', description: 'Rarely after a sustained repeating-crossbow volley against a living opponent.', note: 'The armorer’s labels have rubbed off.' },
+    file: 'WhichOneOfTheseArrowsWas.mp3',
+  },
+  {
+    id: 'tranquilizerAsleep',
+    text: 'Aha! You’re asleep now!',
+    trigger: 'tranquilizerPayoff',
+    priority: 'high', rarity: 1.0, cooldown: 240,
+    section: 'Kills & Triumphs',
+    credits: { title: 'Asleep Now', description: 'Earned payoff upon eliminating the opponent marked with the tranquilizer inquiry.', note: 'Vitals have dropped to a peaceful zero.' },
+    file: 'AhaYoureAsleepNow.mp3',
+  },
+  {
+    id: 'enjoyRestV1',
+    text: 'Aha! Enjoy your rest.',
+    trigger: ['kill', 'tranquilizerPayoff'],
+    family: 'enjoyRest',
+    priority: 'normal', rarity: 0.05, cooldown: 240,
+    section: 'Kills & Triumphs',
+    credits: { title: 'Enjoy Your Rest', description: 'Occasionally after felling an opponent, or concluding a tranquilizer volley.', note: 'Bedtime has been formally declared.' },
+    file: 'AhaEnjoyYourRest.mp3',
+  },
+  {
+    id: 'enjoyRestV2',
+    text: 'Ah, enjoy your rest.',
+    trigger: 'kill',
+    family: 'enjoyRest',
+    priority: 'normal', rarity: 0.05, cooldown: 240,
+    section: 'Kills & Triumphs',
+    credits: { title: 'Enjoy Your Rest (Gentle)', description: 'Very rarely after an ordinary kill.', note: 'A courteous dismissal from a considerate opponent.' },
+    file: 'AhEnjoy.mp3',
+  },
 ]);
 
 const PRIORITIES = Object.freeze({ low: 1, normal: 2, high: 3 });
@@ -2182,13 +2222,14 @@ export function fileStem(id) {
  * chosen by share and always said. force: every line offered is said whatever its odds (the squire's answer), and
  * only lines of state that are sentences are offered (no grunt, no wildcard), those of one moment in a random order.
  */
-export function linesFor(speaker, tags, { facts = [], force = false, rand = Math.random, lines = VOICE_LINE_LIST } = {}) {
+export function linesFor(speaker, tags, { facts = [], force = false, rand = null, lines = VOICE_LINE_LIST } = {}) {
+  const rng = rand ?? Math.random;
   const present = Array.isArray(tags) ? Object.fromEntries(tags.map((tag) => [tag, 1])) : { ...tags };
   const known = Object.keys(present).filter((tag) => VOICE_TAGS[tag] && present[tag] > 0);
   const cry = known.find((tag) => VOICE_TAGS[tag].cry);
   if (cry) {
     const voices = lines.filter((line) => !line.coming && line.triggers[cry] > 0);
-    let roll = rand() * voices.reduce((sum, line) => sum + line.triggers[cry], 0);
+    let roll = rng() * voices.reduce((sum, line) => sum + line.triggers[cry], 0);
     const chosen = voices.find((line) => (roll -= line.triggers[cry]) < 0) ?? voices[0];
     return chosen ? [{ line: chosen.id, speaker, delay: VOICE_TAGS[cry].delay ?? 0, cry: true }] : [];
   }
@@ -2205,13 +2246,13 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
       if (familySeen.has(familyKey)) return;
       familySeen.add(familyKey);
       const members = lines.filter((l) => l.family === line.family && !l.coming && l.triggers[through] > 0);
-      const chosen = members[Math.floor(rand() * members.length)] ?? line;
+      const chosen = rand ? (members[Math.floor(rand() * members.length)] ?? line) : (members[0] ?? line);
       let chanceScale = chosen.triggers[through] * present[through];
       for (const fact of facts) if (chosen.boost[fact]) chanceScale *= chosen.boost[fact];
       const tag = VOICE_TAGS[through];
       offered.push({
         say: { line: chosen.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}) },
-        rank: tag.rank, order: chosen.order, index, shuffle: force ? rand() : 0,
+        rank: tag.rank, order: chosen.order, index, shuffle: force ? rng() : 0,
       });
       return;
     }
@@ -2220,7 +2261,7 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
     const tag = VOICE_TAGS[through];
     offered.push({
       say: { line: line.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}) },
-      rank: tag.rank, order: line.order, index, shuffle: force ? rand() : 0,
+      rank: tag.rank, order: line.order, index, shuffle: force ? rng() : 0,
     });
   });
   offered.sort((a, b) => b.rank - a.rank || (force ? a.shuffle - b.shuffle : 0) || b.order - a.order || a.index - b.index);

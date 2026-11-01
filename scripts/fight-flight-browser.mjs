@@ -40,8 +40,17 @@ async function evaluate(expression){
   if(x.exceptionDetails)throw Error(x.exceptionDetails.text);
   return x.result?.value;
 }
-async function down(key){await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
-async function up(key){await send('Input.dispatchKeyEvent',{type:'keyUp',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
+async function down(key){
+  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
+  const text = key === ' ' ? ' ' : key.toLowerCase();
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:text,code,text,windowsVirtualKeyCode:vk});
+}
+async function up(key){
+  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:key===' '?' ':key.toLowerCase(),code,windowsVirtualKeyCode:vk});
+}
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
 const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
@@ -105,10 +114,15 @@ try{
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');
- await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
+ await down(' ');
+ await until(async()=>{
+  const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
+  if(y>1)return true;
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
+  return false;
+ },'powered flight from actual Space input',160);
  await up('W');
- await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await up(' ');
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
  // Real mounted left mouse hold must release finite bolts and replenish only at 2/s.
@@ -132,7 +146,7 @@ try{
  // Airborne ejection is now intentional, so first verify a normal powered
  // ascent -> powered descent -> landing while staying seated.
  await up('W');
- await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await up(' ');
  await down('C');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.grounded)"),'controlled landing',190);
  await up('C');
@@ -143,15 +157,20 @@ try{
  // tap-to-eject as a separate physical operation, preserving machine ammo.
  await tap('T');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'real remount for aerial ejection',75);
- await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y>1.1"),'second powered takeoff before aerial ejection',160);
+ await down(' ');
+ await until(async()=>{
+  const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
+  if(y>1.1)return true;
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
+  return false;
+ },'second powered takeoff before aerial ejection',160);
  const beforeEject=await evaluate(flightState);
  await tap('T');
  const ejected=await until(async()=>{const s=await evaluate(flightState);return s.player?.operating===null&&s.machine?.operator===null?s:false;},'real airborne eject',75);
  assert.equal(ejected.machine.id,beforeEject.machine.id);
  assert.ok(ejected.machine.y>.5,'ejection cannot secretly land the machine');
  assert.equal(ejected.machine.ammo,beforeEject.machine.ammo,'ejection cannot reload or regenerate ammo');
- await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await up(' ');
  const result={before,mounted,flying,activeSkill,landed,after:await evaluate(flightState),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
  assert.equal(errors.length,0,'Browser JS exceptions: '+errors.join('; '));

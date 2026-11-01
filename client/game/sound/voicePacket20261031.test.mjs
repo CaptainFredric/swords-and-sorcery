@@ -595,3 +595,117 @@ test('Priority 4: Machine lifecycle & VO state resets across mount, dismount, re
   onMachineDestroyed();
   assert.equal(flightVoState.size, 0, 'destruction resets all flight states');
 });
+
+test('Tranquilizer Packet: exact audio-to-subtitle mapping, Credits, and asset verification', () => {
+  const arrow = voiceLine('tranquilizerArrow');
+  const asleep = voiceLine('tranquilizerAsleep');
+  const rest1 = voiceLine('enjoyRestV1');
+  const rest2 = voiceLine('enjoyRestV2');
+
+  assert.ok(arrow, 'tranquilizerArrow declared');
+  assert.ok(asleep, 'tranquilizerAsleep declared');
+  assert.ok(rest1, 'enjoyRestV1 declared');
+  assert.ok(rest2, 'enjoyRestV2 declared');
+
+  assert.equal(arrow.text, 'Which one of these arrows was the tranquilizing one?');
+  assert.equal(asleep.text, 'Aha! You’re asleep now!');
+  assert.equal(rest1.text, 'Aha! Enjoy your rest.');
+  assert.equal(rest2.text, 'Ah, enjoy your rest.');
+
+  assert.equal(arrow.credits.title, 'The Tranquilizer');
+  assert.equal(asleep.credits.title, 'Asleep Now');
+  assert.equal(rest1.credits.title, 'Enjoy Your Rest');
+  assert.equal(rest2.credits.title, 'Enjoy Your Rest (Gentle)');
+
+  assert.equal(rest1.family, 'enjoyRest');
+  assert.equal(rest2.family, 'enjoyRest');
+  assert.equal(rest1.cooldown, 240);
+  assert.equal(rest2.cooldown, 240);
+});
+
+test('Tranquilizer Scene: setup on repeater volley, earned payoff on kill, single payoff, target matching, and expiry', () => {
+  let spoken = [];
+  const scenes = new VoiceScenes({
+    say: (line, speaker, opts) => {
+      spoken.push({ line, speaker, opts });
+      return true;
+    },
+    rand: () => 0.5, // > 0.25 -> chooses tranquilizerAsleep
+  });
+
+  // Scene setup: operator 1 starts tranquilizer setup against target A at t = 10.0
+  scenes.tranquilizerStarted('pilot1', 'targetA', 10.0);
+  assert.equal(scenes.tranquilizers.get('pilot1')?.targetId, 'targetA');
+
+  // Killer 2 kills target A -> NOT pilot1, so tranquilizer payoff does NOT fire for killer2
+  scenes.death({ victimId: 'targetA', killerId: 'pilot2', at: 15.0 });
+  assert.equal(spoken.length, 0, 'no tranquilizer payoff for different killer');
+
+  // Re-start scene for pilot1 on target B
+  scenes.tranquilizerStarted('pilot1', 'targetB', 20.0);
+
+  // Pilot 1 kills target C (different target) -> payoff does NOT fire
+  scenes.death({ victimId: 'targetC', killerId: 'pilot1', at: 25.0 });
+  assert.equal(spoken.length, 0, 'no tranquilizer payoff for killing different target');
+  assert.ok(scenes.tranquilizers.has('pilot1'), 'scene remains active for targetB');
+
+  // Pilot 1 kills target B within valid window (t = 30.0, expiry is 20 + 25 = 45.0)
+  scenes.death({ victimId: 'targetB', killerId: 'pilot1', at: 30.0 });
+  assert.equal(spoken.length, 1, 'earned payoff fires on kill of correct target');
+  assert.equal(spoken[0].line, 'tranquilizerAsleep');
+  assert.equal(spoken[0].speaker, 'pilot1');
+  assert.equal(spoken[0].opts.earned, true);
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'scene consumed after kill');
+
+  // Verify occasional "Enjoy your rest" branch when rand < 0.25
+  spoken = [];
+  scenes.rand = () => 0.1; // < 0.25 -> chooses enjoyRestV1
+  scenes.tranquilizerStarted('pilot1', 'targetD', 50.0);
+  scenes.death({ victimId: 'targetD', killerId: 'pilot1', at: 55.0 });
+  assert.equal(spoken.length, 1, 'single payoff played');
+  assert.equal(spoken[0].line, 'enjoyRestV1');
+  assert.equal(spoken[0].opts.earned, true);
+
+  // Verify expiry: scene opened at t = 100, expires at 125. Kill at 126 fails
+  spoken = [];
+  scenes.tranquilizerStarted('pilot1', 'targetE', 100.0);
+  scenes.death({ victimId: 'targetE', killerId: 'pilot1', at: 126.0 });
+  assert.equal(spoken.length, 0, 'expired scene does not fire payoff');
+});
+
+test('Independent post-kill farewell: enjoyRest family triggers rarely on ordinary kills with shared cooldown', () => {
+  // Verify linesFor offers exactly one member of enjoyRest family for ordinary 'kill'
+  const lines = linesFor('killer', ['kill'], { rand: () => 0.01 });
+  const restLines = lines.filter(l => l.line === 'enjoyRestV1' || l.line === 'enjoyRestV2');
+  assert.equal(restLines.length, 1, 'exactly one take from enjoyRest family offered on kill');
+
+  // Verify shared cooldown in VoiceDirector
+  const director = new VoiceDirector({ rand: () => 0.01 });
+  const first = director.consider('enjoyRestV1', 'killer', 10.0, { duration: 1.68 });
+  assert.ok(first, 'first enjoyRest line speaks');
+
+  // Alternate take enjoyRestV2 attempted at t = 15.0 (< 240s cooldown)
+  const second = director.consider('enjoyRestV2', 'killer', 15.0, { duration: 1.51 });
+  assert.equal(second, null, 'alternate take blocked by shared enjoyRest family cooldown');
+});
+
+test('Tranquilizer apparatus lifecycle: resets on dismount, machine destruction, and player death', () => {
+  const scenes = new VoiceScenes({ say: () => true });
+
+  scenes.tranquilizerStarted('pilot1', 'targetA', 10.0);
+  assert.ok(scenes.tranquilizers.has('pilot1'));
+
+  // Dismount resets operator tranquilizer scene
+  scenes.tranquilizerReset('pilot1');
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'dismount cleans operator tranquilizer scene');
+
+  scenes.tranquilizerStarted('pilot1', 'targetA', 20.0);
+  // Target death resets scene
+  scenes.death({ victimId: 'targetA', killerId: 'someoneElse', at: 22.0 });
+  assert.equal(scenes.tranquilizers.has('pilot1'), false, 'target death cleans scene without payoff');
+
+  scenes.tranquilizerStarted('pilot1', 'targetB', 30.0);
+  // Machine destruction resets all tranquilizer scenes
+  scenes.tranquilizerReset();
+  assert.equal(scenes.tranquilizers.size, 0, 'destruction resets all tranquilizer scenes');
+});
