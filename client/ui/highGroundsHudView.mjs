@@ -1,3 +1,5 @@
+import { HIGH_GROUNDS_RULES } from '../../shared/sim/highGroundsMode.mjs';
+
 // High Grounds uses the established Breakthrough objective HUD instead of a second,
 // full-width status overlay. All fields come from the authoritative room snapshot.
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
