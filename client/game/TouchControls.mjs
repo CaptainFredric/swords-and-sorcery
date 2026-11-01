@@ -217,7 +217,7 @@ export class TouchControls {
     const hints = [
       ['#pointer-hint', 'TAP TO ENTER THE ARENA'],
       ['.practice-tools-unlocked-hint', 'TAP ARENA TO RESUME'],
-      ['.practice-tools-locked-hint', 'MENU BUTTON FOR TOOLS'],
+      ['.practice-tools-locked-hint', 'TAP TARGET ICON FOR TOOLS'],
     ];
     for (const [selector, text] of hints) {
       const element = document.querySelector(selector);
