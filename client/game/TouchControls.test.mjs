@@ -30,7 +30,11 @@ class Node extends EventTarget {
     if (!this.nodes.has(selector)) {
       const node = new Node();
       const action = selector.match(/data-action="(\w+)"/)?.[1];
-      if (action) { node.dataset.action = action; node.closest = () => node; }
+      if (action) {
+        node.dataset.action = action;
+        // Match actual DOM closest(): an ordinary button is not the flight rail.
+        node.closest = selector => selector === '[data-action]' ? node : null;
+      }
       this.nodes.set(selector, node);
     }
     return this.nodes.get(selector);
@@ -936,4 +940,21 @@ test('flight rail cannot retain input across mount loss, focus reset or another 
   controls.update({...p, operatingFightFlightId:null}, 10);
   input.mountedFlight = false;
   assert.equal(controls.movement().flightRise,false,'dismount clears flight gesture');
+});
+
+
+test('the joystick extension follows the forward thumb, resets and never impersonates authoritative Sprint', () => {
+  const {controls,send}=setup({alive:true,spell:'fireball',position:{x:0,y:0,z:0}});
+  const states=[];
+  controls.motionGuide.style.setProperty=(name,value)=>{if(name==='--motion-push')states.push(Number(value));};
+  send('pointerdown',110,400,{target:controls.layer,pointerId:77});
+  send('pointermove',110,371,{target:controls.layer,pointerId:77});
+  assert.ok(states.at(-1)>.4 && states.at(-1)<.6,'detent climbs in proportion to thumb movement');
+  assert.equal(controls.motionGuide.dataset.motion,'idle','thumb intent does not claim Sprinting');
+  assert.equal(controls.motionGuide.classList.contains('forward'),true);
+  send('pointermove',160,400,{target:controls.layer,pointerId:77});
+  assert.equal(controls.motionGuide.classList.contains('forward'),false,'sideways steering is not a forward push');
+  send('pointerup',160,400,{target:controls.layer,pointerId:77});
+  assert.equal(states.at(-1),0,'release springs the detent back into the joystick');
+  assert.equal(controls.motionGuide.classList.contains('approaching'),false);
 });
