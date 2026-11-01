@@ -43,11 +43,15 @@ const uiState=`(() => {
   if(!g)return null;
   const well=g.querySelector('.touch-motion-well'),chevron=well?.querySelector('svg');
   const rect=well?.getBoundingClientRect(),crouch=t.buttons.crouch.getBoundingClientRect();
+  const stick=t.stickBase.getBoundingClientRect();
   const style=getComputedStyle(chevron);
+  const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
   return {mode:g.dataset.motion,label:t.motionLabel.textContent,active:g.classList.contains('active'),
     pointerEvents:getComputedStyle(g).pointerEvents,animation:style.animationName,
     visible:getComputedStyle(g).display!=='none',wellLeft:rect.left,wellRight:rect.right,
-    crouchLeft:crouch.left,crouchRight:crouch.right};
+    wellTop:rect.top,wellBottom:rect.bottom,stickTop:stick.top,stickCenter:(stick.left+stick.right)/2,
+    wellCenter:(rect.left+rect.right)/2,
+    crouchOverlaps:overlap(rect,crouch),crouchLeft:crouch.left,crouchRight:crouch.right};
 })()`;
 async function display(mode){
   return evalPage(`(() => {
@@ -95,13 +99,18 @@ try{
   const sprint=await evalPage(uiState);
   assert.equal(sprint.label,'SPRINTING');
   assert.equal(sprint.animation,'touch-motion-rise');
-  assert.ok(sprint.wellLeft>sprint.crouchRight,'indicator must clear Crouch hit target');
+  assert.ok(Math.abs(sprint.wellCenter-sprint.stickCenter)<3, 'cavity is centered above the joystick, not beside it');
+  assert.ok(sprint.wellTop<sprint.stickTop && sprint.wellBottom>sprint.stickTop+6,
+    'cavity protrudes upward and overlaps the actual joystick rim without a floating gap');
+  assert.equal(sprint.crouchOverlaps,false,'repositioned Crouch must not cover the cavity');
   await snap('01-sprinting');
   assert.equal(await display('charging'),'charging');
   const charge=await evalPage(uiState);
   assert.equal(charge.label,'CHARGING');
   assert.equal(charge.pointerEvents,'none');
   assert.equal(charge.animation,'touch-motion-rise');
+  assert.ok(Math.abs(charge.wellCenter-charge.stickCenter)<3,'Charge and Sprint share the same joystick extension');
+  assert.equal(charge.crouchOverlaps,false);
   await snap('02-ram-charging');
   assert.equal(await display('idle'),'idle');
   assert.equal((await evalPage(uiState)).label,'');
