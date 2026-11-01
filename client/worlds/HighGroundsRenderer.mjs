@@ -35,7 +35,7 @@ export class HighGroundsRenderer {
     this.disposed = false;
     // A constructed ballista must be rendered in High Grounds just as it is
     // in Castleward and Outerworks; authority still owns all simulation.
-    this.biByeLlista = new BiByeLlistaRenderer(scene);
+    this.biByeLlista = null; // Load the heavy authored GLB only if a ballista is produced.
     this.biByeMotion = new BiByeMotion();
     this.biByeRoomCode = null;
     this.biByeServerTime = null;
@@ -141,6 +141,9 @@ export class HighGroundsRenderer {
     }
   }
   setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
+    if (snapshot?.bibyeBallista && !this.biByeLlista) {
+      this.biByeLlista = new BiByeLlistaRenderer(this.scene);
+    }
     if (this.biByeRoomCode !== snapshot?.roomCode) {
       this.biByeRoomCode = snapshot?.roomCode;
       this.biByeMotion = new BiByeMotion();
@@ -155,12 +158,12 @@ export class HighGroundsRenderer {
   update(timeSec) {
     const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec,
       this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
-    this.biByeLlista.update(view.clock, view.ballista, view.projectiles);
+    this.biByeLlista?.update(view.clock, view.ballista, view.projectiles);
   }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    this.biByeLlista.dispose();
+    this.biByeLlista?.dispose();
     this.scene.remove(this.group);
     this.group.traverse(obj => { obj.geometry?.dispose?.(); });
     for (const material of Object.values(this.materials)) material.dispose();
