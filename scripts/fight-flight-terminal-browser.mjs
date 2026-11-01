@@ -12,7 +12,9 @@ let stage='Chrome launch';
 const folder='output/playwright/fight-flight-terminal';
 await mkdir(folder,{recursive:true});
 const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
-  '--enable-unsafe-swiftshader','--remote-allow-origins=*','--window-size=1280,800',
+  '--enable-unsafe-swiftshader','--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows',
+  '--remote-allow-origins=*','--window-size=1280,800',
   '--remote-debugging-port='+port,'--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
 let ws,seq=0;const pending=new Map(),errors=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -41,15 +43,18 @@ async function evaluate(expression){
   return x.result?.value;
 }
 async function down(key){
-  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
-  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
-  const text = key === ' ' ? ' ' : key.toLowerCase();
-  await send('Input.dispatchKeyEvent',{type:'keyDown',key:text,code,text,windowsVirtualKeyCode:vk});
+  const isSpace = key === ' ';
+  const code = isSpace ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = isSpace ? 32 : key.toUpperCase().charCodeAt(0);
+  const text = isSpace ? ' ' : key.toLowerCase();
+  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:text,code,windowsVirtualKeyCode:vk});
 }
 async function up(key){
-  const code = key === ' ' ? 'Space' : 'Key' + key.toUpperCase();
-  const vk = key === ' ' ? 32 : key.toUpperCase().charCodeAt(0);
-  await send('Input.dispatchKeyEvent',{type:'keyUp',key:key===' '?' ':key.toLowerCase(),code,windowsVirtualKeyCode:vk});
+  const isSpace = key === ' ';
+  const code = isSpace ? 'Space' : 'Key' + key.toUpperCase();
+  const vk = isSpace ? 32 : key.toUpperCase().charCodeAt(0);
+  const text = isSpace ? ' ' : key.toLowerCase();
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:text,code,windowsVirtualKeyCode:vk});
 }
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
@@ -117,17 +122,17 @@ try{
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await send('Page.bringToFront');
- await evaluate("window.focus?.(); document.querySelector('canvas')?.focus?.();");
- if(!await evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
+ await evaluate("window.focus?.()");
+ if(!await evaluate("Boolean(window.__ssRuntime?.input?.enabled && document.pointerLockElement)")){
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
-  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'genuine enabled gameplay input before flight',40);
+  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled && document.pointerLockElement)"),'genuine enabled gameplay input before flight',40);
  }
  await down(' ');
  await until(async()=>{
   const y=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y");
   if(y>1)return true;
-  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32,autoRepeat:true});
+  if(!await evaluate("Boolean(window.__ssRuntime?.input?.keys?.has?.('Space'))"))await down(' ');
   return false;
  },'powered flight from actual Space input',160);
  await up(' ');
