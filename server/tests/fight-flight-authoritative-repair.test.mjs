@@ -96,6 +96,9 @@ test('Practice held offensive Dash cycles meter at 42/s and 70/s without interru
  assert.ok(refills.length>=1);assert.equal(m.offensiveRun,true);
  assert.equal(VALKYRIE_RUN.drainPerSec,42);
  assert.equal(VALKYRIE_RUN.practiceRefillPerSec,70);
+ // Resource-only harness does not step machine locomotion; after ten seconds
+ // of simulated unobstructed travel its actual run distance would exceed 10m.
+ m.runTravel=VALKYRIE_RUN.minTravel;
  requestFlightDash(room,m,p,false,12);
  const after=p.prowess;
  for(let i=1;i<=40;i++)stepFlightRun(room,m,DT,12+i*DT);
