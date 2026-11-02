@@ -408,6 +408,22 @@ export class BiByeLlistaRenderer {
     return null;
   }
 
+  getComponentWorldPosition(componentId, out = new THREE.Vector3()) {
+    const b = this.presentationData;
+    if (!b || b.mode === 'DESTROYED' || (b.health ?? 0) <= 0) return null;
+    let node = null;
+    if (componentId === 'hull' && (b.health ?? 0) > 0) node = this.group;
+    else if (componentId) {
+      const def = BI_BYE_COMPONENTS.find(d => d.id === componentId);
+      if (def && (b.components?.[componentId]?.health ?? def.maxHealth) > 0) {
+        node = this.nodes.get(def.id);
+      }
+    }
+    if (!node) return null;
+    this.group.updateMatrixWorld(true);
+    return node.getWorldPosition(out);
+  }
+
   getOperatorGrips(){
     this.group.updateMatrixWorld(true);
     const point=name=>this.nodes.get(name)?.getWorldPosition(new THREE.Vector3());

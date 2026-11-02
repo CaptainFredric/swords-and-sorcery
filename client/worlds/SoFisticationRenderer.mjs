@@ -133,6 +133,19 @@ export class SoFisticationRenderer {
   return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
  }
  getOperatorGrips(){const station=this.getOperatorStation(this.presentationData?.poseTime??0);return station?{left:station.leftHand,right:station.rightHand}:null;}
+ getComponentWorldPosition(componentId){
+  const b=this.presentationData;if(!b||b.mode==='DESTROYED'||(b.health??0)<=0)return null;
+  let node=null;
+  if(componentId==='hull'&&(b.health??0)>0)node=this.nodes?.get?.('Chassis')??this.group;
+  else if(componentId==='Fist'&&(b.components?.Fist?.health??0)>0)node=this.nodes?.get?.('Armored_Fist');
+  else if(this.wheels){
+    const index=SO_FIST_WHEELS.findIndex(w=>w.id===componentId);
+    if(index>=0&&(b.components?.[componentId]?.health??0)>0)node=this.wheels[index]?.o;
+  }
+  if(!node)return null;
+  this.group.updateMatrixWorld(true);
+  return node.getWorldPosition(new THREE.Vector3());
+ }
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
  dispose(){this.disposed=true;this.clearDebris();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}

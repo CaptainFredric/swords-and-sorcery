@@ -8,6 +8,19 @@ import {join} from 'node:path';
 const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+let spawnedServer = null;
+try {
+  const res = await fetch(url + '/health');
+  if (!res.ok) throw new Error('health check not ok');
+} catch {
+  const p = new URL(url).port || '3001';
+  spawnedServer = spawn('node', ['server/src/server.mjs'], {
+    env: { ...process.env, PORT: p, HOST: '127.0.0.1' },
+    stdio: 'ignore'
+  });
+  await sleep(1500);
+}
 const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium');
 const browsers=[];
 async function connectBrowser(label,port){
@@ -39,7 +52,7 @@ async function connectBrowser(label,port){
   if(r.exceptionDetails)throw Error('Chrome expression: '+r.exceptionDetails.text);return r.result?.value;};
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
- b.screenshot=async name=>{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));};
+ b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
  await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  return b;
@@ -85,8 +98,14 @@ try{
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
  await host.key('W','rawKeyDown');
  await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return Math.hypot(p.x-m.x,p.z-m.z)<2.2;})()"),'host walks physically to the machine',170);
- await host.key('W','keyUp');await host.tap('T');
+ await host.key('W','keyUp');
+ // Wait for host locomotion to settle and ensure click-to-focus attack is not active
+ await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth;return p&&!p.attackActive&&Math.hypot(p.velocity?.x??0,p.velocity?.z??0)<.25;})()"),'host stationary and ready to interact',80);
+ console.log('[SHARED HOST APPROACHED]',await host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth,m=r?.latestSnapshot?.fightFlight;return {dist:p&&m?Math.hypot(p.position.x-m.x,p.position.z-m.z):null,attack:p?.attackActive,operating:p?.operatingFightFlightId,machineOp:m?.operatorId};})()"));
+ await host.tap('T');
+ await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'host confirmed mounted in apparatus via T',80);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
+ await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
  const start=await guest.evaluate("(() => {const r=window.__ssRuntime;return {...r.localAuth.position};})()");
  await guest.send('Page.bringToFront');
@@ -108,9 +127,19 @@ try{
   return host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()");
  },'host observes guest melee action',110);
  await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
- await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq>0)"),'guest sees host fire real network repeater',140);
- await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ await host.send('Page.bringToFront');
+ await host.evaluate("window.focus()");
+ if (!await host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")) {
+  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
+ }
+ const currentHostShots=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq??0");
+ if(currentHostShots===0){
+  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+  await waitFor(()=>guest.evaluate("Boolean((window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq??0)>0)"),'guest sees host fire real network repeater',140);
+  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ }
  // A real second client must observe mounted RMB sword input without a phantom bolt.
  const beforeSwordShot=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq");
  // Record actual remote rig animation frames, not just a server swing flag.
@@ -170,12 +199,15 @@ try{
  console.log('[SHARED PRACTICE CHROME ACCEPTED]',JSON.stringify(result));
 }catch(e){
  console.error('[SHARED PRACTICE CHROME FAILED]',e.stack??String(e));
- await writeFile(out+'/failure.json',JSON.stringify({error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors},null,2));
+ const hostDiag=await host?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
+ const guestDiag=await guest?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
+ await writeFile(out+'/failure.json',JSON.stringify({error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
  throw e;
 }finally{
  for(const b of browsers){b.ws?.close();b.child.kill('SIGTERM');}
+ if(spawnedServer)spawnedServer.kill('SIGTERM');
  await sleep(1100);
  for(const b of browsers)await rm(b.profile,{recursive:true,force:true}).catch(()=>{});
 }

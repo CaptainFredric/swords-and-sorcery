@@ -1565,14 +1565,19 @@ export class GameRuntime {
       if (event.type === 'siegeSteelOn') {
         const machine = this.#siegeMachine(event.machineId);
         const pos = machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null;
-        this.#play(steelCallRecipe(), event.operatorId === this.playerId ? null : pos, event.operatorId === this.playerId ? 0.95 : 0.7);
-        if (event.operatorId === this.playerId) {
+        const isMe = event.operatorId === this.playerId;
+        const alreadyPredicted = isMe && Number.isFinite(this.localSteelAt) && Math.abs(this.socket.serverNow() - this.localSteelAt) < 0.6;
+        if (!alreadyPredicted) {
+          this.#play(steelCallRecipe(), isMe ? null : pos, isMe ? 0.95 : 0.7);
+        }
+        if (isMe) {
           this.hud.flashText('SHEATHED IN STEEL', 'gold', 1100);
         }
       }
       if (event.type === 'siegeSteelBlocked') {
         const machine = this.#siegeMachine(event.machineId);
-        const point = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null);
+        const compPos = event.componentId ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
+        const point = event.point ?? compPos ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null);
         const isMine = machine?.operatorId === this.playerId;
         if (point) {
           this.effects.steelGlint(point, null, { strength: 1.0, ring: true, scale: 0.95 });
@@ -1586,7 +1591,10 @@ export class GameRuntime {
       }
       if (event.type === 'siegeSteelRepair') {
         const machine = this.#siegeMachine(event.machineId);
-        const pt = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z } : null);
+        let pt = event.componentId ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
+        if (!pt && !event.componentId && machine && (machine.health ?? 1) > 0) {
+          pt = event.point ?? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z };
+        }
         if (pt) {
           this.effects.steelGlint(pt, null, { strength: 0.45, ring: false, scale: 0.4 });
         }
@@ -1727,8 +1735,12 @@ export class GameRuntime {
         this.scenes.chivalryEnded(event.playerId);
       }
 
-      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
-      if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
+      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed; mounted knights ring via siegeSteelOn)
+      const isMountedKnight = (id) => {
+        const p = this.latestSnapshot?.players?.find(pl => pl.id === id);
+        return Boolean(p?.operatingFightFlightId || p?.operatingBallistaId || p?.operatingRamId);
+      };
+      if (event.type === 'steelOn' && event.playerId !== me && !isMountedKnight(event.playerId)) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
       // now and then a word as it hardens
       if (event.type === 'steelOn') this.#sayMoment(event.playerId, ['steelCalled']);
       // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
@@ -2091,6 +2103,24 @@ export class GameRuntime {
     if (this.latestSnapshot?.fightFlight?.id === machineId) return this.latestSnapshot.fightFlight;
     if (this.latestSnapshot?.bibyeBallista?.id === machineId) return this.latestSnapshot.bibyeBallista;
     if (this.latestSnapshot?.soFistication?.id === machineId) return this.latestSnapshot.soFistication;
+    return null;
+  }
+
+  #siegeComponentPosition(machineId, componentId) {
+    if (!machineId || !componentId) return null;
+    if (this.flightRenderer?.state?.id === machineId) {
+      const pos = this.flightRenderer.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
+    if (this.ramRenderer?.presentationData?.id === machineId) {
+      const pos = this.ramRenderer.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
+    const b = this.world?.biByeLlista;
+    if (b?.presentationData?.id === machineId) {
+      const pos = b.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
     return null;
   }
 

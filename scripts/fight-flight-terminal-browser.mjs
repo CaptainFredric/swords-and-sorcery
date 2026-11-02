@@ -6,6 +6,21 @@ import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const base=(process.env.FAF_TERMINAL_URL??process.env.FAF_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+let spawnedServer = null;
+try {
+  const res = await fetch(base + '/health');
+  if (!res.ok) throw new Error('health check not ok');
+} catch {
+  const p = new URL(base).port || '3001';
+  spawnedServer = spawn('node', ['server/src/server.mjs'], {
+    env: { ...process.env, PORT: p, HOST: '127.0.0.1' },
+    stdio: 'ignore'
+  });
+  await sleep(1500);
+}
+
 const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium'),port=9247;
 const profile=await mkdtemp(join(tmpdir(),'ss-faf-chrome-'));
 let stage='Chrome launch';
@@ -17,7 +32,6 @@ const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm
   '--remote-allow-origins=*','--window-size=1280,800',
   '--remote-debugging-port='+port,'--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
 let ws,seq=0;const pending=new Map(),errors=[];
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,name,limit=300){
   stage=name;const started=Date.now();let lastError=null;
   for(let i=0;i<limit;i++){
@@ -187,6 +201,7 @@ try{
  throw err;
 }finally{
  ws?.close();chrome.kill('SIGTERM');
+ if(spawnedServer)spawnedServer.kill('SIGTERM');
  // Chrome creates profile files during shutdown; never mask gameplay failure with ENOTEMPTY.
  await sleep(900);await rm(profile,{recursive:true,force:true}).catch(e=>console.warn('Chrome profile cleanup:',e.message));
 }
