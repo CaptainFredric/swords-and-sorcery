@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "120 moving/aimed/firing/damaged Dash samples: muzzle and phase agree",
+    "Physical impact clock selects narrowed collision interruption",
+    "Production rider soles fit both moving stirrups through walk, sprint and Dash",
+    "Steel recovery of survivors, permanent brace failure",
+    "Rotor failure coasts cosmetically after contact authority stops",
+    "Break, fall, impact, terminal, finite cleanup",
+    "Directional ram ruin and pre-destroyed fist"
+  ],
+  "passed": true,
+  "worstMuzzleMetres": 1.8841109504205303e-15,
+  "worstSoleSeparationMetres": 0.004215652902313575
+}

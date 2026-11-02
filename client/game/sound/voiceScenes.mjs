@@ -85,9 +85,18 @@ const LINES = Object.freeze({
   shaken: lineFor('handshakePayoff') ?? 'handshakePayoff',
   tranquilizerAsleep: lineFor('tranquilizerPayoff') ?? 'tranquilizerAsleep',
   enjoyRestAha: 'enjoyRestV1',
+  shameOpen: lineFor('shameOpening') ?? 'haveYouNoShame',
+  shameAns: lineFor('shameAnswer') ?? 'notOnMe',
+  shamePay: lineFor('shamePayoff') ?? 'thenLetMeHaveIt',
 });
 
 export const SCENES = Object.freeze({
+  shame: Object.freeze({
+    answerAfter: 0.35,     // after Knight A finishes "Have you no shame!?"
+    payoffAfter: 0.35,     // after Knight B finishes "Not on me!"
+    maxDistance: 18,       // both knights must remain within hearing range
+    expirySec: 12,
+  }),
   tranquilizer: Object.freeze({
     expirySec: 25,
     payoffAfter: 0.35,
@@ -162,6 +171,7 @@ export class VoiceScenes {
     this.troubleshoot = new Map(); // speaker -> { targetId, until }: "Where do I have to hit you..." setup
     this.handshakes = new Map();   // speaker -> { targetId, until }: "Hand shake? This hand will shake you..." setup
     this.tranquilizers = new Map(); // speaker -> { targetId, until }: "Which one of these arrows..." setup
+    this.shameScenes = new Map();  // speaker -> { foe, stage, at, expiryAt }: "Have you no shame!?" scene
   }
 
   /** A new match: nothing carries over. */
@@ -180,6 +190,21 @@ export class VoiceScenes {
     this.troubleshoot.clear();
     this.handshakes.clear();
     this.tranquilizers.clear();
+    this.shameScenes.clear();
+  }
+
+  // ------------------------------------------------------------------------------------------------ the shame dialogue
+
+  shameDeclared(speaker, foe, at, seconds = 0) {
+    if (!speaker || !foe || speaker === foe) return;
+    this.shameScenes.set(speaker, { foe, stage: 'declared', at: at + seconds + SCENES.shame.answerAfter, expiryAt: at + SCENES.shame.expirySec });
+  }
+
+  shameSpeaking(speaker) {
+    for (const [spk, s] of this.shameScenes) {
+      if (spk === speaker || s.foe === speaker) return true;
+    }
+    return false;
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -506,12 +531,40 @@ export class VoiceScenes {
    * Time passes: the parts whose moment has come are said. now: the host's time; knights: every knight as last seen
    * ([{ id, alive, health }]).
    */
-  step(now, knights = []) {
+  step(now, knights = [], positionOf = null) {
     this.#duels(now, knights);
     this.#tricks(now, knights);
     this.#guards(now, knights);
     this.#counts(now, knights);
     this.#comebacks(now, knights);
+    this.#shame(now, knights, positionOf);
+  }
+
+  #shame(now, knights, positionOf = null) {
+    const alive = (id) => knights.find((knight) => knight.id === id)?.alive !== false;
+    for (const [speaker, scene] of [...this.shameScenes]) {
+      if (!alive(speaker) || !alive(scene.foe) || now > scene.expiryAt) {
+        this.shameScenes.delete(speaker);
+        continue;
+      }
+      const p1 = positionOf?.(speaker) ?? knights.find((k) => k?.id === speaker)?.position;
+      const p2 = positionOf?.(scene.foe) ?? knights.find((k) => k?.id === scene.foe)?.position;
+      if (p1 && p2 && Math.hypot(p1.x - p2.x, (p1.z ?? 0) - (p2.z ?? 0)) > SCENES.shame.maxDistance) {
+        this.shameScenes.delete(speaker);
+        continue;
+      }
+      if (scene.stage === 'declared' && now >= scene.at) {
+        const answer = this.say(LINES.shameAns, scene.foe, { earned: true });
+        if (!answer) {
+          this.shameScenes.delete(speaker);
+        } else {
+          this.shameScenes.set(speaker, { ...scene, stage: 'answered', at: now + (answer.delay ?? 0) + (answer.seconds ?? 0) + SCENES.shame.payoffAfter });
+        }
+      } else if (scene.stage === 'answered' && now >= scene.at) {
+        this.say(LINES.shamePay, speaker, { earned: true });
+        this.shameScenes.delete(speaker);
+      }
+    }
   }
 
   #duels(now, knights) {

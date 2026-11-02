@@ -1,0 +1,60 @@
+{
+  "delivery": "Argon v3.1 character and v3.0 simulation-aligned 19.5 degree flight",
+  "runtimeAdmission": "Human handoff 1f0bdaa5 and explicit permission to use newer Argon delivery if better",
+  "characterStatus": "Review only. Production manifest and first person assets unchanged.",
+  "providerScriptsExecuted": false,
+  "files": {
+    "Castleward_Reproducible_Source_And_Export_Scripts_v31.zip": {
+      "bytes": 195996,
+      "sha256": "e789547c83a00620b838550737380190536b7fade3cd0abc6970fce427764aa6"
+    },
+    "spellblade-v30.blend": {
+      "bytes": 4383471,
+      "sha256": "ae5ef8bc7738f46a53a7cdbdecb7408c4a24cbde8656bf7b224880d6afc359ec"
+    },
+    "CASTLEWARD_V31_SPELLBLADE_AND_19P5_DASH_CONTRACT.md": {
+      "bytes": 11639,
+      "sha256": "7ebc9e1e180b187a4982c7572344e0479c44d485ebc09eed244c09121cd3247d"
+    },
+    "rollback-fight-and-flight-v2.7.glb": {
+      "bytes": 2708936,
+      "sha256": "5358f2629a84563df4b2b64063f4ad31b844ac37ec3c37989c18586959125944"
+    },
+    "spellblade-v31-ingame-review-candidate.glb": {
+      "bytes": 3107952,
+      "sha256": "4fddfe876fb2067a1b60d633c4e1fad77a1379568dfa2d7ead1a7f998015c97b"
+    },
+    "spellblade-v31.blend": {
+      "bytes": 4375387,
+      "sha256": "14c81e6037f1012f4b1e3b02001625379ecc3f298da4c4b4ad24ccf3986c0fe3"
+    },
+    "fight-and-flight-v29-coherent-destruction.glb": {
+      "bytes": 3867084,
+      "sha256": "41597095283af0a716321f9320cf294b0842a4ccd489f5bb49d7a4eaded84d25"
+    },
+    "spellblade-v30-refined-candidate.glb": {
+      "bytes": 3170352,
+      "sha256": "b87eb19f7f22b7dc542f8c5f2806a923518ff58e16e87d6cba76982cf0007738"
+    },
+    "fight-and-flight-v30-sim19p5-dash.blend": {
+      "bytes": 456990,
+      "sha256": "c520bb107fdf726851ed7632244c2b334761f07451160ea5c7c8569f6caebb20"
+    },
+    "spellblade-v2.9-review-only.glb": {
+      "bytes": 2880204,
+      "sha256": "a1d4e3e63412fe13ac2fc4f254e455499bed075d32f8f9422c9ccf86b0801d1c"
+    },
+    "rollback-so-fist-ication-v2_5.glb": {
+      "bytes": 5713504,
+      "sha256": "b1ea92edc3310114c4c5ec08ce68ecb4768a2fed9ee816a25040b1d2281819d1"
+    },
+    "client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb": {
+      "bytes": 3949716,
+      "sha256": "b7967ba87ffa0f4ad6f1ee54d7e6897eb8e993e8407dc567817c4a2725fc0d6b"
+    },
+    "client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb": {
+      "bytes": 5842540,
+      "sha256": "21219a43541c78926b00365ddda6ad10501216c1c48fe3b24be984cad5822feb"
+    }
+  }
+}

@@ -3,7 +3,7 @@
 import {inverseTransform} from '../src/flightRepeaterAim.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {steelMitigate,steelTakes,callSteel,STEEL} from '../src/steel.mjs';
-import {dismountFightFlight} from './fightFlight.mjs';
+import {dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
 import {applyDamage} from './combat.mjs';
 import {mitigateSiegeSteel,endSiegeSteel} from './siegeSteel.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
@@ -95,10 +95,11 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
     attackerId,source,pointLocal:point?inverseTransform(m,point.x-m.x,point.y-m.y,point.z-m.z):null,damage:actual,turned,health:m[def.hp],destroyed:gone,at:now});
   if(gone&&componentId==='rotor'){
     m.rotorHP=0;m.rotorEnergy=0;m.rotorAngularVelocity=0;
-    m.offensiveRun=false;m.rotorDestroyedAt=now;
+    if(m.offensiveRun)m.runAnimationEndedAt=now;m.offensiveRun=false;m.rotorDestroyedAt=now;
     if(!m.grounded)m.mode='FALLING';
     room.events?.push({type:'fightFlightRotorDestroyed',machineId:m.id,point,at:now});
   }
+  if(gone&&componentId.startsWith('brace')){m.componentFailedAt??={};m.componentFailedAt[componentId]=now;}
   if(gone&&componentId.startsWith('brace'))room.events?.push({type:'fightFlightBraceDestroyed',machineId:m.id,component:componentId,at:now,point});
   if(gone&&componentId==='main'){
     // An irreversibly committed terminal wreck still owes one explosion and
@@ -109,14 +110,17 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
       room.events?.push({type:'fightFlightTerminalStructuralFailure',machineId:m.id,at:now,point});
       return {damage:actual,turned,destroyed:true,component:componentId};
     }
+    // Find clearance while the live apparatus can still supply an exit.
+    // DESTROYED intentionally rejects ordinary boarding and exit queries.
+    const pilot=m.operatorId?room.players.get(m.operatorId):null;
+    const exit=pilot?fightFlightExit(room,m,pilot):null;
     endSiegeSteel(room,m,now);
     beginSiegeWreck(room,m,'fight-flight',now,{attackerId,source,point});
     m.mode='DESTROYED';m.firingOperatorId=null;m.offensiveRun=false;
-    const pilot=m.operatorId?room.players.get(m.operatorId):null;
     if(pilot){
       // Separates rider from wreck before real damage; death/Steel and attribution
       // remain owned by Castleward's regular combat system.
-      dismountFightFlight(room,m,pilot,{force:true,at:now});
+      dismountFightFlight(room,m,pilot,{force:true,at:now,exit});
       applyDamage(room,attackerId,pilot.id,35,'fight-flight-collapse',now);
     }
     room.events?.push({type:'fightFlightDestroyed',machineId:m.id,point,attackerId,at:now});

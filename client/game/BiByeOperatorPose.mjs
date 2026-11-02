@@ -49,7 +49,7 @@ export class BiByeOperatorPose {
   }
  }
  applyFlight(grips, attacking = false){
-  if(!this.flightActive){this.flightActive=true;}
+  // FlightRiderPose saves/restores the frame; keep the ordinary mixer running.
   // Keep the Spellblade's real sword equipped; left hand holds repeater, right hand in sword corridor
   this.root.updateWorldMatrix(true,true);
   this.#arm('L',grips?.left,false);

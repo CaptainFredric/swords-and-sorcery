@@ -267,8 +267,17 @@ export class GameRuntime {
     this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 1);
     // my sword drawn, my magic hand raised (the tutorial brings them out): heard as my own
     this.weapon.onEquip = (what, { quick = false } = {}) => {
-      if (what === 'sword') this.#play(swordDrawRecipe(Math.random, { clearSec: quick ? 0.07 : 0.16 }), null, quick ? 0.6 : 0.85);
-      else this.#play(palmRevealRecipe(Math.random, { quick }), null, quick ? 0.6 : 0.9);
+      if (what === 'sword') {
+        this.#play(swordDrawRecipe(Math.random, { clearSec: quick ? 0.07 : 0.16 }), null, quick ? 0.6 : 0.85);
+        const me = this.playerId;
+        const knights = (this.latestSnapshot?.players ?? []).map((p) => (p.id === me && this.localState
+          ? { ...p, position: this.localState.position, yaw: this.input.yaw ?? p.yaw } : p));
+        const nowSec = this.presentationNow() / 1000;
+        const moments = this.watch.swordDraw({ playerId: me, at: nowSec }, knights);
+        this.#sayMoments(me, moments);
+      } else {
+        this.#play(palmRevealRecipe(Math.random, { quick }), null, quick ? 0.6 : 0.9);
+      }
     };
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
       // (Sundering, every strike is swung as the heavy one)
@@ -1486,6 +1495,11 @@ export class GameRuntime {
         if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('COMPONENT BROKEN','gold',800);
         const op = this.latestSnapshot?.fightFlight?.operatorId;
         if (op) this.#sayMoment(op, ['apparatusHit']);
+        const ff = this.latestSnapshot?.fightFlight;
+        const isAirborne = ff?.mode === 'AIRBORNE' || (ff && !ff.grounded && (ff.y ?? 0) > 1.0);
+        if (event.attackerId && op && op !== event.attackerId && isAirborne) {
+          this.#sayMoment(event.attackerId, ['antiAirAttack']);
+        }
       }
       if(event.type==='fightFlightRotorDestroyed'){
         if(this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
@@ -1703,7 +1717,14 @@ export class GameRuntime {
         if (!event.ongoing) this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
-      if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
+      if ((event.type === 'block' && !event.vortex) || event.type === 'parry') {
+        this.repeatedGuards ??= new Map();
+        const key = `${event.attackerId}>${event.defenderId}`;
+        const guards = [...(this.repeatedGuards.get(key) ?? []).filter((t) => event.at - t <= 6.0), event.at];
+        this.repeatedGuards.set(key, guards);
+        if (guards.length >= 2) this.#sayMoment(event.attackerId, ['opponentsResistance']);
+        this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
+      }
       if (event.type === 'swordMiss') {
         const near = this.#nearestFoe(event.playerId, MOMENTS.denied.near);
         const defender = near ? this.latestSnapshot?.players.find((p) => p.id === near) : null;
@@ -2015,6 +2036,9 @@ export class GameRuntime {
       if (event.type === 'objectiveContested') {
         const myTeam = this.localAuth?.team;
         if (myTeam === 'DEFENDERS') this.hud.flashText('OBJECTIVE CONTESTED', 'metal', 1600);
+        if (this.playerId) {
+          this.#sayMoment(this.playerId, ['contestedZone']);
+        }
       }
       if (event.type === 'teamMark') {
         const myTeam = this.localAuth?.team;
@@ -2204,6 +2228,66 @@ export class GameRuntime {
       }
       const place = voicePlacement(listener, listenerYaw, body, hearing);
       bank.place(speaker, { pan: place?.pan ?? 0, gain: (place?.gain ?? 0) * 0.9 });
+    }
+  }
+
+  #checkThreatenedCircleApproach(nowSec) {
+    if (nowSec - (this.lastThreatenedCircleCheckAt ?? -Infinity) < 3.0) return;
+    this.lastThreatenedCircleCheckAt = nowSec;
+    const pPos = this.localState?.position ?? this.localAuth?.position;
+    if (!pPos || !this.playerId) return;
+    const myTeam = this.localAuth?.team;
+    const players = this.latestSnapshot?.players ?? [];
+    const allyNear = players.some((p) => p.id !== this.playerId && p.team === myTeam && p.alive !== false && Math.hypot(p.position.x - pPos.x, (p.position.z ?? 0) - pPos.z) <= 12.0);
+
+    const vx = this.localState?.velocity?.x ?? this.localAuth?.velocity?.x ?? 0;
+    const vz = this.localState?.velocity?.z ?? this.localAuth?.velocity?.z ?? 0;
+    const speed = Math.hypot(vx, vz);
+
+    const checkPoint = (oPos, radius, isThreatenedOrChanging) => {
+      if (!oPos || !isThreatenedOrChanging) return false;
+      const toX = oPos.x - pPos.x;
+      const toZ = (oPos.z ?? 0) - pPos.z;
+      const d = Math.hypot(toX, toZ);
+      const rad = radius ?? 6.0;
+      if (d <= rad + 1.0) {
+        this.#sayMoment(this.playerId, ['contestedZone']);
+        return true;
+      }
+      const movingToward = speed >= 1.2 && d > 1.0 && ((vx * toX + vz * toZ) / (speed * d)) >= 0.35;
+      if (movingToward && allyNear && d <= rad + 18.0 && d > rad) {
+        this.#sayMoment(this.playerId, ['threatenedCircleApproach']);
+        return true;
+      }
+      return false;
+    };
+
+    const obj = this.latestSnapshot?.objective;
+    if (obj) {
+      const objThreatened = Boolean(obj.contested) || Boolean(obj.capturing) || (Number(obj.progress) > 0 && Boolean(obj.decaying));
+      if (checkPoint(obj.position, obj.radius ?? 6.0, objThreatened)) return;
+    }
+
+    const hg = this.latestSnapshot?.highGrounds;
+    if (hg?.sites) {
+      for (const site of hg.sites) {
+        const siteThreatened = site.owner === myTeam
+          ? Boolean(site.contested) || (Boolean(site.capturingTeam) && site.capturingTeam !== myTeam) || Number(site.progress) > 0 || (myTeam === 'defenders' ? (site.attackersCount ?? 0) > 0 : (site.defendersCount ?? 0) > 0)
+          : Boolean(site.contested) || Boolean(site.capturingTeam) || Number(site.progress) > 0;
+        if (checkPoint(site.position, site.radius ?? 8.0, siteThreatened)) return;
+      }
+    }
+  }
+
+  #checkPendingCloseMultikill(nowSec) {
+    if (!this.pendingCloseMultikill) return;
+    const { killerId, readyAt } = this.pendingCloseMultikill;
+    if (nowSec >= readyAt) {
+      this.pendingCloseMultikill = null;
+      const killer = (this.latestSnapshot?.players ?? []).find((p) => p.id === killerId);
+      if (killer && killer.alive !== false) {
+        this.#sayMoment(killerId, ['quickCloseMultikill']);
+      }
     }
   }
 
@@ -2578,16 +2662,28 @@ export class GameRuntime {
     const scene = this.scenes.death(event);
     // what was watched of it: the fallen had rushed the victor, led the match, fought them fairly, fell in Chivalry
     const { victimId, at } = event;
+    if (this.pendingCloseMultikill?.killerId === victimId) this.pendingCloseMultikill = null;
     const killerId = event.killerId && event.killerId !== victimId ? event.killerId : null;
     const players = this.latestSnapshot?.players ?? [];
     const kills = (id) => players.find((p) => p.id === id)?.kills ?? 0;
     const victimKills = kills(victimId);
     let quickMultikill = false;
+    let quickCloseMultikill = false;
     if (killerId) {
       this.recentKills ??= new Map();
-      const recent = [...(this.recentKills.get(killerId) ?? []).filter(t => at - t <= 4.0), at];
+      const killerPos = this.#bodyPosition(killerId);
+      const victimPos = this.#bodyPosition(victimId);
+      const dist = killerPos && victimPos ? Math.hypot(killerPos.x - victimPos.x, (killerPos.z ?? 0) - (victimPos.z ?? 0)) : Infinity;
+      const isClose = dist <= 6.0 || event.source === 'sword' || event.source === 'gauntlet';
+      const recent = [...(this.recentKills.get(killerId) ?? []).filter(k => at - (k.at ?? k) <= 4.0), { at, close: isClose }];
       this.recentKills.set(killerId, recent);
-      if (recent.length >= 2) quickMultikill = true;
+      if (recent.length >= 2) {
+        quickMultikill = true;
+        if (recent.filter(k => k.close).length >= 2) {
+          // Allow an appropriate short lull (1.8s) so the line feels like resuming interrupted business
+          this.pendingCloseMultikill = { killerId, at, readyAt: at + 1.8 };
+        }
+      }
     }
     const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
     const victimPlayer = players.find((p) => p.id === victimId);
@@ -2623,6 +2719,7 @@ export class GameRuntime {
       nap: !scene.comeback,
       flightElevated,
       quickMultikill,
+      quickCloseMultikill,
       victimWasSpeaking,
     };
     this.chivalrous.delete(victimId);
@@ -2821,6 +2918,10 @@ export class GameRuntime {
         if (say.opens === 'threeStrikes') this.scenes.strikesDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
         // (the comeback declared: his next falls without a kill are corrected, and a kill is what he always knew)
         if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
+        if (say.opens === 'shame') {
+          const foe = this.moments.duelFoe(say.speaker) ?? this.moments.lastTarget(say.speaker);
+          if (foe) this.scenes.shameDeclared(say.speaker, foe, at, (said.delay ?? 0) + (said.seconds ?? 0));
+        }
         if (say.opens === 'troubleshoot') this.scenes.troubleshootStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'handshake') this.scenes.handshakeStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'tranquilizer') {
@@ -3613,6 +3714,16 @@ export class GameRuntime {
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    const ramState = this.latestSnapshot?.soFistication;
+    if (ramState?.operatorId) {
+      const isCharging = Boolean(ramState.charging);
+      if (isCharging && !this.lastRamCharging) {
+        this.#sayMoment(ramState.operatorId, ['ramCharging']);
+      }
+      this.lastRamCharging = isCharging;
+    } else {
+      this.lastRamCharging = false;
+    }
     this.flightSound.update(this.latestSnapshot?.fightFlight,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
@@ -3725,7 +3836,7 @@ export class GameRuntime {
         driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
         const driverPlayer = flightPose.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightPose.operatorId);
         const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
-        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking);
+        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
       }
     }
     this.#mountedView(dt);
@@ -3734,7 +3845,9 @@ export class GameRuntime {
 
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
-      this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
+      this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players, (id) => this.#bodyPosition(id));
+      if (this.localAuth.alive) this.#checkThreatenedCircleApproach(timeSec);
+      this.#checkPendingCloseMultikill(this.socket.serverNow());
       const players = this.latestSnapshot.players.map((p) => (p.id === this.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
       this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.playerId, world: this.activeWorld, practice: this.#inPractice() }));
       // the last seconds of a timed match (never the yard's, never sudden death)

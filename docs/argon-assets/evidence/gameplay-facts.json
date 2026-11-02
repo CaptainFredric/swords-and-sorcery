@@ -1,0 +1,37 @@
+{
+  "fixture": "Local Inspection starting altitude and component HP; subsequent touch pointer events traverse ordinary TouchControls and authoritative simulation. Separate damage and Steel fixtures call actual shared authority APIs.",
+  "captureSeconds": 8.013199999988078,
+  "samples": 406,
+  "runSamples": 216,
+  "attackingSamples": 93,
+  "maxRunSpeed": 17.999996137606978,
+  "verticalVelocityRange": [
+    -7.394577419900496,
+    4.278625077780355
+  ],
+  "clips": [
+    "Posture_01_Grounded_Idle",
+    "Dash_Narrowed_01_Entry_Posture",
+    "Dash_Narrowed_02_Sustained_Hold_Loop",
+    "Dash_Narrowed_03_Release_Flare_Recovery",
+    "Posture_10_Ascending_Hover_Descending",
+    "Posture_02_Controlled_Landing"
+  ],
+  "brokenBraceNeverRestored": true,
+  "survivingBraceHP": [
+    25
+  ],
+  "operatorReleased": true,
+  "steelAuthority": {
+    "brokenBraceBefore": 0,
+    "brokenBraceAfter": 0,
+    "survivingBraceBefore": 25,
+    "survivingBraceAfter": 36.39999999998963
+  },
+  "structuralFailure": {
+    "clearExitDistance": 2.2,
+    "collapseDamage": 35,
+    "fallExemption": false,
+    "singleLivingRider": true
+  }
+}

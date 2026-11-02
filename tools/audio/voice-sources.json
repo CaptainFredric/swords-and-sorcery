@@ -155,6 +155,9 @@
   "enjoyRestV2": [
     "enjoy-rest-v2-1.mp3"
   ],
+  "enoughFlying": [
+    "enough-flying-1.mp3"
+  ],
   "excuseYou": [
     "excuse-you-1.mp3"
   ],
@@ -199,6 +202,9 @@
   "galeTaunt": [
     "gale-taunt-1.mp3"
   ],
+  "getAwayFromThisSpot": [
+    "get-away-from-this-spot-1.mp3"
+  ],
   "getThingOff": [
     "get-thing-off-1.mp3"
   ],
@@ -226,6 +232,9 @@
   "hackSlash": [
     "hack-slash-1.mp3"
   ],
+  "hahahaANewBattlefieldAwaits": [
+    "hahaha-a-new-battlefield-awaits-1.mp3"
+  ],
   "handshakePayoff": [
     "handshake-payoff-1.mp3"
   ],
@@ -237,6 +246,9 @@
   ],
   "happilyBookV2": [
     "happily-book-v2-1.mp3"
+  ],
+  "haveYouNoShame": [
+    "have-you-no-shame-1.mp3"
   ],
   "headOn": [
     "head-on-1.mp3"
@@ -264,6 +276,12 @@
   ],
   "hurt": [
     "hurt-1.mp3"
+  ],
+  "iNeedAMoment": [
+    "i-need-a-moment-1.mp3"
+  ],
+  "ifYouContinueResist": [
+    "if-you-continue-resist-1.mp3"
   ],
   "jump": [
     "jump-1.mp3",
@@ -334,11 +352,17 @@
   "mustBePractice": [
     "must-be-practice-1.mp3"
   ],
+  "mySwordFeels": [
+    "my-sword-feels-1.mp3"
+  ],
   "neverAfter": [
     "never-after-1.mp3"
   ],
   "neverThought": [
     "never-thought-1.mp3"
+  ],
+  "neverYield": [
+    "never-yield-1.mp3"
   ],
   "newKnighthood": [
     "new-knighthood-1.mp3"
@@ -352,14 +376,23 @@
   "notFall": [
     "not-fall-1.mp3"
   ],
+  "notOnMe": [
+    "not-on-me-1.mp3"
+  ],
   "notRightNow": [
     "not-right-now-1.mp3"
   ],
   "notTired": [
     "not-tired-fabled-what.wav"
   ],
+  "nowWhere": [
+    "now-where-1.mp3"
+  ],
   "offGuard": [
     "off-guard-1.mp3"
+  ],
+  "ohMyFavoriteWind": [
+    "oh-my-favorite-wind-1.mp3"
   ],
   "oneMoreDefeat": [
     "one-more-defeat-1.mp3"
@@ -541,6 +574,9 @@
   "theDeceased": [
     "the-deceased-1.mp3"
   ],
+  "theOnlyRetreat": [
+    "the-only-retreat-1.mp3"
+  ],
   "thePlan": [
     "the-plan-1.mp3"
   ],
@@ -550,8 +586,14 @@
   "theSky": [
     "the-sky-1.mp3"
   ],
+  "thenLetMeHaveIt": [
+    "then-let-me-have-it-1.mp3"
+  ],
   "theoreticalVictory": [
     "theoretical-victory-1.mp3"
+  ],
+  "theyAreRuiningTheColor": [
+    "they-are-ruining-the-color-1.mp3"
   ],
   "thinkAbout": [
     "think-about-1.mp3"
@@ -607,5 +649,8 @@
   ],
   "wrongRest": [
     "wrong-rest-1.mp3"
+  ],
+  "youMayNoLonger": [
+    "you-may-no-longer-1.mp3"
   ]
 }

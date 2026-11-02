@@ -240,7 +240,7 @@ test('10. the Abyss calls: raised as he falls past saving, said through that fal
   assert.ok(!tagsOf(watch.step(1.1, [over(-1, 1), body('foe', 0, 0)], { world }), 'me').includes('abyssFall'), 'rising (a jump)');
   assert.ok(tagsOf(watch.step(1.2, [over(-1.2, -7), body('foe', 0, 0)], { world }), 'me').includes('abyssFall'));
   assert.ok(!tagsOf(watch.step(1.3, [over(-3, -9), body('foe', 0, 0)], { world }), 'me').includes('abyssFall'), 'once a fall');
-  assert.deepEqual(said(['abyssFall']), ['abyssCalls']);
+  assert.deepEqual(said(['abyssFall']), ['abyssCalls', 'hahahaANewBattlefieldAwaits']);
   // the fall's own end does not cut it; the runtime keeps it, and cuts anything else
   assert.equal(voiceLine('abyssCalls').outlasts, 'abyss');
   assert.match(runtime, /const outlasts = saying && voiceLine\(saying\)\?\.outlasts === event\.source;\s+if \(!outlasts\) this\.voice\?\.cut\?\.\(event\.victimId, 0\.12\);/);

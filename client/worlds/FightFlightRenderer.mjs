@@ -1,15 +1,15 @@
-// Authored Fight-and-Flight v2.7 presentation. No replacement helicopter or baked-in Spellblade.
+// Authored Fight-and-Flight v3.0 presentation. No replacement helicopter or baked-in Spellblade.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
-import {SWORD_STRIKE_TIMES} from '../../shared/src/combat.mjs';
+import {FlightRigAnimation} from './FlightRigAnimation.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
 // v2.6 remains checked into this directory as a verifiable rollback.
-const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v2.7.glb?v=5358f2629a84';
+const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb?v=b7967ba87ffa';
 const QUARREL='/client/assets/props/fight-and-flight/fight-and-flight-v2.7-quarrel.glb?v=f0fb5f44c1ee';
 const SLOT_NAMES=['Quarrel_Visual_Chambered','Quarrel_Visual_Feed_Next','Quarrel_Visual_Hopper_Top','Quarrel_Visual_Slot_4','Quarrel_Visual_Slot_5','Quarrel_Visual_Slot_6'];
 export class FightFlightRenderer{
@@ -30,28 +30,10 @@ export class FightFlightRenderer{
     this.pending=new Promise(resolve=>new GLTFLoader().load(appUrl(ASSET),gltf=>{
       if(this.disposed){resolve(false);return;}
       this.model=gltf.scene;this.group.add(this.model);
-      this.mixer=new THREE.AnimationMixer(this.model);
-      this.clips=new Map(gltf.animations.map(clip=>[clip.name,clip]));
-      // Separate rotor/gear channel from torso/limb posture; both share the authored rig.
-      const spin=this.clips.get('Rotor_Spin_Cycle_1Rev');
-      if(spin){this.rotorAction=this.mixer.clipAction(spin);this.rotorAction.play();}
-      const reload=this.clips.get('Crossbow_Reload_Index');
-      if(reload){this.reloadAction=this.mixer.clipAction(reload);this.reloadAction.play();}
-      const eject=this.clips.get('Posture_11_Aerial_Ejection');
-      if(eject){
-        this.ejectionAction=this.mixer.clipAction(eject);
-        this.ejectionAction.setLoop(THREE.LoopOnce,1);
-        this.ejectionAction.clampWhenFinished=true;
-        this.ejectionAction.play();this.ejectionAction.paused=true;
-        this.ejectionAction.enabled=false;
-      }
-      const sword=this.clips.get('Sword_Strike_And_Recovery');
-      if(sword){this.swordAction=this.mixer.clipAction(sword);this.swordAction.setLoop(THREE.LoopOnce,1);this.swordAction.clampWhenFinished=true;this.swordAction.play();this.swordAction.paused=true;this.swordAction.enabled=false;}
-      const fire=this.clips.get('Crossbow_Fire_Loop');
-      if(fire){this.fireAction=this.mixer.clipAction(fire);this.fireAction.play();}
+      this.animation=new FlightRigAnimation(this.model,gltf.animations);
       this.model.traverse(n=>{
         if(n.name)this.nodes.set(n.name,n);
-        if(n.isMesh){
+        if(n.isMesh&&n.geometry.attributes.position?.count){
           n.castShadow=true;n.receiveShadow=true;
           let component='main';
           for(let parent=n;parent&&parent!==this.model;parent=parent.parent){
@@ -87,7 +69,7 @@ export class FightFlightRenderer{
     return this.pending;
   }
   setFirstPerson(firstPerson){
-    this.isFirstPerson=Boolean(firstPerson);
+    this.isFirstPerson=Boolean(firstPerson);if(this.animation)this.animation.isFirstPerson=this.isFirstPerson;
     // The v2.7 cockpit keeps BOTH protective shoulder mantlets visible;
     // only rear-only drive components/banner obstruct the visor camera.
     for(const name of ['Rear_Drive_Assembly','Rear_Trident_Banner']){
@@ -99,46 +81,19 @@ export class FightFlightRenderer{
   }
   setFailureParts(){
     const m=this.state;if(!m)return;
-    const isDestroyed = m.mode === 'DESTROYED' || (m.health ?? 1) <= 0;
-    for(const [intact,damaged,hp] of [
-      ['Protective_Brace_L','Protective_Brace_L_Damaged',isDestroyed ? 0 : m.braceLHP],
-      ['Protective_Brace_R','Protective_Brace_R_Damaged',isDestroyed ? 0 : m.braceRHP]]){
-      const original=this.nodes.get(intact),broken=this.nodes.get(damaged);
-      if(original)original.visible=!isDestroyed && hp>0;
-      if(broken){broken.scale.setScalar((isDestroyed || hp<=0)?1:0);broken.visible=(isDestroyed || hp<=0);}
+    const dead=m.mode==='DESTROYED'||m.health<=0;
+    for(const side of ['L','R']){
+      const broken=(m['brace'+side+'HP']??80)<=0;
+      const intact=this.nodes.get('Protective_Brace_'+side),ruin=this.nodes.get('Protective_Brace_'+side+'_Damaged');
+      if(intact)intact.visible=!broken;
+      if(ruin)ruin.visible=broken||dead;
     }
-    const banner=this.nodes.get('Rear_Trident_Banner');
-    if(banner)banner.visible=!this.isFirstPerson && !isDestroyed;
-    for(const name of SLOT_NAMES){const i=SLOT_NAMES.indexOf(name),n=this.nodes.get(name);if(n)n.visible=!isDestroyed && Math.floor(m.ammo??0)>=i+1;}
-    const rotorAlive=!isDestroyed && m.rotorHP>0;
+    SLOT_NAMES.forEach((name,i)=>{const n=this.nodes.get(name);if(n)n.visible=!dead&&Math.floor(m.ammo??0)>i;});
+    const rotorAlive=m.rotorHP>0;
     for(const name of ['Rotor_Sword_Blade_L','Rotor_Sword_Blade_R']){const n=this.nodes.get(name);if(n)n.visible=rotorAlive;}
-    for(const name of ['Rotor_Hub_Fractured_Collar','Rotor_Blade_L_Fractured_Stump']){const n=this.nodes.get(name);if(n){n.visible=!rotorAlive;n.scale.setScalar(rotorAlive?0:1);}}
-    const detached=this.nodes.get('Rotor_Blade_L_Detached_Segment');
-    if(detached){
-      detached.visible=!rotorAlive;
-      if(!rotorAlive){
-        detached.scale.setScalar(1);
-        if(isDestroyed){
-          detached.position.set(-0.35, -0.6, 0.25);
-          detached.rotation.set(0.4, 0.2, -0.6);
-        }
-      }
+    for(const name of ['Rotor_Hub_Fractured_Collar','Rotor_Blade_L_Fractured_Stump','Rotor_Blade_L_Detached_Segment']){
+      const n=this.nodes.get(name);if(n)n.visible=!rotorAlive||dead;
     }
-  }
-  posture(m){
-    if(m.mode==='DESTROYED'||(m.health??1)<=0)return 'Damage_08_Rotor_Destroy_Grounded';
-    if(m.rotorHP<=0)return 'Damage_08_Rotor_Destroy_Grounded';
-    if(m.crouched)return 'Posture_03_Grounded_Crouch';
-    if(m.terminalDive&&!m.terminalDive.resolved)return 'Posture_07_Terminal_Dive_Pitch';
-    if(m.offensiveRun)return 'Posture_06_Airborne_Overdrive_Pitch';
-    // Discrete hop has its own authored trajectory; otherwise takeoff
-    // transitions to powered ascent/hover without replaying the hop.
-    if(m.mode==='TAKEOFF'&&Number.isFinite(m.hopStartedAt))return 'Posture_09_Ordinary_Small_Jump';
-    if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
-    if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
-    if(!m.grounded)return 'Posture_10_Ascending_Hover_Descending';
-    if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
-    return 'Posture_01_Grounded_Idle';
   }
   update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null,operator=null){
     this.drawBolts(projectiles,now,snapshotTime);
@@ -153,17 +108,6 @@ export class FightFlightRenderer{
       void this.load();
     }
     if(!m?.operatorId)this.lastSwordChain=null;
-    // Server detachment is immediate. The authored clip opens the empty
-    // harness and deflects the coasting shaft, never teleports or reattaches
-    // the live Spellblade after its airborne ejection.
-    if(this.ejectionAction){
-      const age=now-(this.ejectionAt??-Infinity);
-      const active=age>=0&&age<this.ejectionAction.getClip().duration
-        &&!m?.operatorId&&(m?.rotorHP??0)>0;
-      this.ejectionAction.enabled=active;
-      if(active)this.ejectionAction.time=age;
-      if(age>=this.ejectionAction.getClip().duration)this.ejectionAt=null;
-    }
     if(!this.group.visible)return;
     this.load();
     const at=m.position??m;
@@ -174,40 +118,9 @@ export class FightFlightRenderer{
     // Authored pitched flight pose and actual pilot machine silhouette share
     // the same authoritative run tilt; no unrelated camera dip is applied.
     this.model.rotation.x=m.runPitch??0;
-    const isDestroyed = m.mode === 'DESTROYED' || (m.health ?? 1) <= 0;
-    const collapse=isDestroyed?Math.min(1,Math.max(0,(now-(m.destroyedAt??now))/1.4)):0;
-    this.model.rotation.z=collapse*.22;this.model.position.y=-collapse*.16;
-    const dt=this.lastUpdateAt!=null?Math.min(0.1,Math.max(0,now-this.lastUpdateAt)):0;
+    const dt=this.lastUpdateAt!=null?Math.min(.1,Math.max(0,now-this.lastUpdateAt)):0;
     this.lastUpdateAt=now;
-    const name=this.posture(m),clip=this.clips.get(name);
-    if(clip&&name!==this.lastMode){
-      const prev=this.action;
-      const next=this.mixer.clipAction(clip);
-      next.reset();
-      next.enabled=true;
-      if(name==='Posture_05_Grounded_Walk_Loop'){
-        next.setLoop(THREE.LoopRepeat);
-      }else{
-        next.clampWhenFinished=true;
-        next.setLoop(THREE.LoopOnce,1);
-      }
-      if(prev&&prev!==next){
-        prev.crossFadeTo(next,0.22,false);
-      }
-      next.play();
-      this.action=next;
-      this.lastMode=name;
-    }
-    if(this.action&&name==='Posture_05_Grounded_Walk_Loop'){
-      const speed=Math.hypot(m.velocity?.x??0,m.velocity?.z??0);
-      this.action.timeScale=Math.max(0.4,speed*1.3);
-    }
-    this.mixer.update(dt);
-    if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
-    if(this.reloadAction)this.reloadAction.time=Math.min(6,Math.floor(m.ammo??0))/6*this.reloadAction.getClip().duration;
-    if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
-      if(this.fireAction.enabled)this.fireAction.time=Math.max(0,now-m.lastShotAt);
-    }
+    this.animation.update(m,now,dt,operator,this.ejectionAt);
     // Gimbal motion follows the machine's authoritative replicated joint angles,
     // never a second, visually convenient convergence calculation.
     const rel=Math.atan2(Math.sin((m.crossbowYaw??m.heading??0)-(m.heading??0)),
@@ -228,50 +141,6 @@ export class FightFlightRenderer{
         tilter.quaternion.copy(inverseCradle.multiply(counterYaw).multiply(counterPitch));
       }
     }
-    // The authored 0.65s sword clip crosses the reticle at 46% duration.
-    // Align that crossing to the actual server strike contacts (0.4/1.1/1.8s),
-    // and do not render uncommitted subsequent swings.
-    if(this.swordAction){
-      // A released sword chain clears attackCommitted on the host. Keep
-      // presenting its last genuinely committed swing through recovery, never
-      // invent a next strike from an uncommitted held-button visual.
-      if(operator?.attackActive&&Number.isFinite(operator.attackStartedAt)){
-        this.lastSwordChain={startedAt:operator.attackStartedAt,committed:operator.attackCommitted??0};
-      }
-      const chain=this.lastSwordChain;
-      const sampleOffset=this.swordAction.getClip().duration*.46;
-      let swordTime=-1;
-      if(chain){
-        for(let i=0;i<Math.min(chain.committed,SWORD_STRIKE_TIMES.length);i++){
-          const elapsed=now-chain.startedAt-(SWORD_STRIKE_TIMES[i]-sampleOffset);
-          if(elapsed>=0&&elapsed<this.swordAction.getClip().duration)swordTime=elapsed;
-        }
-        if(now-chain.startedAt>SWORD_STRIKE_TIMES.at(-1)+this.swordAction.getClip().duration)
-          this.lastSwordChain=null;
-      }
-      this.swordAction.enabled=swordTime>=0;
-      if(swordTime>=0)this.swordAction.time=swordTime;
-    }
-    const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
-    // The named GLB rotor's authored pose is driven by the authoritative angular phase,
-    // not an unrelated animation clock. This also stops on rotor failure.
-    this.mixer.update(0); // sample rotor, fire, sword and rotor failure at authoritative time
-    // Authored posture tracks animate Node 1's root translation/attitude. The
-    // simulation already owns chassis XYZ and run pitch; allowing those visual
-    // oscillations to move the muzzle would desynchronize server collision,
-    // crosshair truth and the displayed gun. Keep limb/banner animation only.
-    if(!this.ejectionAction?.enabled){
-      for(const name of ['Protective_Brace_L','Protective_Brace_R']){
-        const brace=this.nodes.get(name);if(brace)brace.quaternion.identity();
-      }
-      if(m.rotorHP>0&&!m.terminalDive){
-        const shaft=this.nodes.get('Rotor_Shaft_And_Bearing');if(shaft)shaft.quaternion.identity();
-      }
-      const anchor=this.nodes.get('operator_root_anchor');
-      if(anchor){anchor.position.set(0,0,0);anchor.quaternion.identity();}
-    }
-    const chassis=this.nodes.get('Main_Apparatus_Chassis');
-    if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
     this.group.updateMatrixWorld(true);
     for(const event of this.pendingHits.filter(e=>e.at<=now)){
@@ -359,13 +228,7 @@ export class FightFlightRenderer{
       mesh.removeFromParent();mesh.material.dispose();this.burnZones.delete(id);
     }
   }
-  getOperatorGrips(){
-    this.group.updateMatrixWorld(true);
-    return {
-      left:this.nodes.get('operator_hand_L_crossbow_grip')?.getWorldPosition(new THREE.Vector3())??null,
-      right:this.nodes.get('operator_hand_R_sword_corridor')?.getWorldPosition(new THREE.Vector3())??null
-    };
-  }
+  getOperatorGrips(){return this.animation?.grips()??null;}
   getMountedCameraPosition(view,out=new THREE.Vector3()){
     const m=this.state;if(!m)return null;
     const first=view==='sight';

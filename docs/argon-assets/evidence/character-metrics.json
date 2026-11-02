@@ -1,0 +1,38 @@
+{
+  "production": {
+    "geometryBufferBytes": 1823064,
+    "incrementalDrawCalls": 26,
+    "joints": 27,
+    "materials": 5,
+    "primitives": 26,
+    "storedTriangles": 13124,
+    "vertices": 27285
+  },
+  "v29": {
+    "geometryBufferBytes": 2560544,
+    "incrementalDrawCalls": 13,
+    "joints": 27,
+    "materials": 6,
+    "primitives": 17,
+    "storedTriangles": 14392,
+    "vertices": 37310
+  },
+  "v30": {
+    "geometryBufferBytes": 2850680,
+    "incrementalDrawCalls": 13,
+    "joints": 27,
+    "materials": 6,
+    "primitives": 17,
+    "storedTriangles": 16522,
+    "vertices": 41444
+  },
+  "v31": {
+    "geometryBufferBytes": 2788160,
+    "incrementalDrawCalls": 13,
+    "joints": 27,
+    "materials": 6,
+    "primitives": 17,
+    "storedTriangles": 16080,
+    "vertices": 40550
+  }
+}
