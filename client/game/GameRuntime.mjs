@@ -487,15 +487,16 @@ export class GameRuntime {
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
+      const mounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
       // Preserve mounted casting restrictions. Only legitimate personal Steel
       // gets its existing clench/ring prediction while aboard a siege machine.
-      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)&&intendedSpell!=='steel') return;
+      if (mounted && intendedSpell!=='steel') return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
       const policy = combatActionPolicy(this.localAuth, now);
       if (!canPresentLocalAction('cast', this.localAuth, this.localState, now, { practice, gate: this.localGate, spell: intendedSpell })) {
-        if (metadata.spellOnly || this.localAuth?.preparedSpellSelected || policy.concurrent || handsTaken(this.localAuth, now)) {
+        if (mounted || metadata.spellOnly || this.localAuth?.preparedSpellSelected || policy.concurrent || handsTaken(this.localAuth, now)) {
           this.hud.denied?.('spell');
           this.#play(deniedRecipe(), null, 0.6);
           return;
