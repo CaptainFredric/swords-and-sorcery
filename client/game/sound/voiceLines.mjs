@@ -231,10 +231,10 @@ export const VOICE_TAGS = Object.freeze({
   quickMultikill: { rank: 82, delay: 0.4, about: "two or more rapid kills" },
   machineTakeover: { rank: 20, future: true, about: "attempting to commandeer an enemy siege machine" },
   // --- November 2026 packet (15 newly recorded Spellblade lines)
-  closeSwordThreat: { rank: 8, delay: 0.1, about: 'threatening an opponent with his sword in close encounter before an attack' },
+  closeSwordThreat: { rank: 8, delay: 0.15, about: 'facing a nearby foe with sword in hand before striking' },
   contestedZone: { rank: 25, delay: 0.2, about: 'advancing or clearing a contested capture zone' },
   threatenedCircleApproach: { rank: 24, delay: 0.3, about: 'running alongside a teammate toward an enemy-contested point' },
-  quickCloseMultikill: { rank: 83, delay: 0.45, about: 'two or more rapid close-range kills' },
+  quickCloseMultikill: { rank: 83, delay: 0.1, about: 'after rapid close-range kills, during a short lull' },
   withdrawingUnderPressure: { rank: 14, delay: 0.2, about: 'withdrawing under attack while denying retreat' },
   shameOpening: { rank: 29, delay: 0.3, opens: 'shame', about: 'first knight opens a rare shame dialogue scene in a fresh encounter' },
   shameAnswer: { rank: 35, delay: 0.2, about: 'second knight answers the shame inquiry' },

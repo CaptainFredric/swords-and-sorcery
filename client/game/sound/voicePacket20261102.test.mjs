@@ -194,3 +194,67 @@ test('voice diversity: lifetime cumulative repeat penalty does not permanently s
   const second = director.consider('nowWhere', 'k', 140.0, { duration: 1.5 });
   assert.ok(second, 'base rate restored after cooldown and recency window without permanent match decay');
 });
+
+test('distinct sword draw event raises closeSwordThreat before strike, while sword swing does not mask attack', () => {
+  const watch = new VoiceWatch();
+  const knights = [
+    { id: 'player1', alive: true, position: { x: 0, z: 0 }, yaw: 0 }, // facing -Z
+    { id: 'foe1', alive: true, position: { x: 0, z: -2.5 } }, // 2.5m ahead
+  ];
+
+  // Distinct sword draw event facing close foe
+  const onDraw = watch.swordDraw({ playerId: 'player1', at: 10.0 }, knights);
+  assert.equal(onDraw.length, 1);
+  assert.deepEqual(onDraw[0].tags, ['closeSwordThreat']);
+
+  // Actual sword swing begin does NOT include closeSwordThreat (preventing masking the attack)
+  const onSwing0 = watch.begin({ playerId: 'player1', strikeIndex: 0, at: 11.0 }, knights);
+  assert.ok(!onSwing0[0]?.tags?.includes('closeSwordThreat'), 'closeSwordThreat must not fire on swing begin');
+});
+
+test('shame conversation uses exact recording lengths and handles interruptions', () => {
+  const spoken = [];
+  const scenes = new VoiceScenes({
+    say: (line, speaker, options) => {
+      spoken.push({ line, speaker, options, at: currentSec });
+      // Return exact take duration from manifest
+      const takes = manifest.lines[line] ?? [];
+      return { seconds: takes[0]?.seconds ?? 1.2, delay: 0 };
+    },
+  });
+
+  let currentSec = 100.0;
+  const haveLen = manifest.lines.haveYouNoShame[0].seconds; // 1.27
+  const notLen = manifest.lines.notOnMe[0].seconds; // 1.10
+  const thenLen = manifest.lines.thenLetMeHaveIt[0].seconds; // 1.60
+
+  const pos = (id) => (id === 'knightA' ? { x: 0, z: 0 } : { x: 7, z: 0 }); // 7m apart <= 18m
+  const knights = [{ id: 'knightA', alive: true }, { id: 'knightB', alive: true }];
+
+  // Knight A says HaveYouNoShame at 100.0
+  scenes.shameDeclared('knightA', 'knightB', currentSec, haveLen);
+
+  // Advance time to just before answer: 100.0 + 1.27 + 0.35 = 101.62
+  currentSec = 101.5;
+  scenes.step(currentSec, knights, pos);
+  assert.equal(spoken.length, 0);
+
+  // At 101.62, Knight B answers NotOnMe
+  currentSec = 101.65;
+  scenes.step(currentSec, knights, pos);
+  assert.equal(spoken.length, 1);
+  assert.equal(spoken[0].line, 'notOnMe');
+  assert.equal(spoken[0].speaker, 'knightB');
+
+  // Advance time to just before payoff: 101.65 + 1.10 + 0.35 = 103.10
+  currentSec = 103.0;
+  scenes.step(currentSec, knights, pos);
+  assert.equal(spoken.length, 1);
+
+  // At 103.15, Knight A payoff ThenLetMeHaveIt
+  currentSec = 103.15;
+  scenes.step(currentSec, knights, pos);
+  assert.equal(spoken.length, 2);
+  assert.equal(spoken[1].line, 'thenLetMeHaveIt');
+  assert.equal(spoken[1].speaker, 'knightA');
+});

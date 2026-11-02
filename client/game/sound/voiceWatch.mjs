@@ -297,6 +297,14 @@ export class VoiceWatch {
       }
       giving.at = now;
       state.giving.set(nearest.foe.id, giving);
+
+      // facing a nearby foe with sword in hand before striking (not mid-swing)
+      if (alive && !knight.attackActive && (now - state.lastSwingAt >= 6.0)) {
+        if (this.#closeFoe(knight.id, knights) && (now - (state.lastCloseThreatAt ?? -Infinity) >= 40.0)) {
+          state.lastCloseThreatAt = now;
+          out.push({ speaker: knight.id, tags: ['closeSwordThreat'] });
+        }
+      }
     }
     // a balance broken and found again before the one who broke it struck them
     for (const [key, watch] of [...this.staggers]) {
@@ -476,8 +484,19 @@ export class VoiceWatch {
     const state = this.#knight(playerId, at);
     const tags = [];
     if (strikeIndex === 0 && at - state.lastSwingAt >= WATCH.firstSwing.afterSec) tags.push('firstSwing');
-    if (strikeIndex === 0 && this.#closeFoe(playerId, knights)) tags.push('closeSwordThreat');
     if (strikeIndex === 2 && this.#finishing(playerId, knights)) tags.push('finalStrike');
+    return tags.length ? [{ speaker: playerId, tags }] : [];
+  }
+
+  /**
+   * The sword drawn from the hip (a distinct sword-draw event): facing a nearby foe with sword in hand before striking.
+   */
+  swordDraw({ playerId, at }, knights = []) {
+    if (!playerId) return [];
+    const state = this.#knight(playerId, at);
+    state.swordDrawnAt = at;
+    const tags = [];
+    if (this.#closeFoe(playerId, knights)) tags.push('closeSwordThreat');
     return tags.length ? [{ speaker: playerId, tags }] : [];
   }
 
