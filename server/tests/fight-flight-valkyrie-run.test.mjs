@@ -32,13 +32,14 @@ test('Held Dash spends operator prowess over ~2.4s and actually accelerates forw
  assert.equal(p.prowess,0);assert.equal(m.offensiveRun,false);
  assert.equal(m.terminalDiveSpent,false);
 });
-test('Releasing Dash immediately ends offensive run, momentum decays naturally, energy stops draining',()=>{
+test('Releasing after the powered minimum ends the run without stopping momentum or draining more prowess',()=>{
  const {room,m,p}=setup();p.prowess=100;p.ultimate='sunder';
  assert.equal(requestFlightDash(room,m,p,true,1),true);
- for(let i=1;i<=15;i++){let now=1+i/30;stepFlightRun(room,m,1/30,now);stepFightFlight(room,m,1/30,now);}
+ for(let i=1;i<=38;i++){let now=1+i/30;stepFlightRun(room,m,1/30,now);stepFightFlight(room,m,1/30,now);}
+ assert.ok(m.runTravel>=VALKYRIE_RUN.minTravel);
  const spent=p.prowess,speed=Math.hypot(m.velocity.x,m.velocity.z);
- assert.equal(requestFlightDash(room,m,p,false,1.5),true);
- stepFlightRun(room,m,1/30,1.53);stepFightFlight(room,m,1/30,1.53);
+ assert.equal(requestFlightDash(room,m,p,false,1+38/30),true);
+ stepFlightRun(room,m,1/30,1+39/30);stepFightFlight(room,m,1/30,1+39/30);
  assert.equal(m.offensiveRun,false);assert.equal(p.prowess,spent);
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)>0,'release does not zero accumulated real momentum');
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)<=speed+.1);

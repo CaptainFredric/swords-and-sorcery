@@ -46,7 +46,11 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
-    flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,runPitch:0,runTrim:0,runFlightPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
+    flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,
+    runPitch:0,runTrim:0,runFlightPitch:0,runCommitHeading:null,runCommitPitch:null,
+    runStartAt:null,runElapsed:0,runReleaseElapsed:0,runTravel:0,runLastPosition:null,
+    runLaunchStartY:null,runLaunchMinVy:0,runLaunchDrop:0,runLaunchDistance:0,runStopRequested:false,
+    runReleasedAt:null,runTurnSpeed:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
@@ -103,7 +107,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
   m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
-  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;m.practiceDashRefilling=false;player.operatingFightFlightId=null;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;m.practiceDashRefilling=false;
+  m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=null;player.operatingFightFlightId=null;
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
@@ -139,9 +144,28 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
   const yaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
-  // Turn rate is limited while airborne, not an instantaneous lateral inversion.
+  // The first .36s of genuine propulsion retains the heading captured at the
+  // press. Once released into steering, angular velocity builds and brakes
+  // under bounded angular acceleration; even a 180-degree reticle change
+  // cannot reverse a heavy machine instantly.
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
-  if(!m.terminalDive)m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:4.2)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:4.2)*dt);
+  if(!m.terminalDive){
+    if(m.offensiveRun){
+      if((m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec){
+        m.runTurnSpeed=0;
+      }else{
+        const desiredRate=cap(delta*2.8,-VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
+        m.runTurnSpeed=cap((m.runTurnSpeed??0)+cap(desiredRate-(m.runTurnSpeed??0),
+          -VALKYRIE_RUN.turnAcceleration*dt,VALKYRIE_RUN.turnAcceleration*dt),
+          -VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
+        m.heading+=cap(m.runTurnSpeed*dt,-Math.abs(delta),Math.abs(delta));
+      }
+    }else if(!(m.flightDashHeld&&m.runCommitHeading!=null&&!m.grounded&&!m.terminalPrep&&
+      now-(m.flightDashStartedAt??now)<VALKYRIE_RUN.chargeGraceSec+.08)){
+      m.heading+=cap(delta,-(m.grounded?3.8:4.2)*dt,(m.grounded?3.8:4.2)*dt);
+      m.runTurnSpeed=0;
+    }
+  }
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
   const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
@@ -237,7 +261,16 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.velocity.y=Math.max(-25,m.velocity.y);
     m.mode='TERMINAL';
   }else if(run){
-    const targetY=VALKYRIE_RUN.speed*Math.sin(flightPitch);
+    let targetY=VALKYRIE_RUN.speed*Math.sin(flightPitch);
+    // Limit descent by the stopping distance available above real support.
+    // This constraint acts on authoritative velocity, never just on camera.
+    if(targetY<0){
+      const floor=flightSupportAt(world,m.x,m.z,m.y+.35);
+      if(floor!=null){
+        const safe=Math.max(0,m.y-floor-VALKYRIE_RUN.clearance);
+        targetY=Math.max(targetY,-Math.sqrt(2*13*safe));
+      }
+    }
     m.velocity.y+=(targetY-m.velocity.y)*response;
     if(!training)m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
   }else if(!m.grounded){
@@ -329,5 +362,15 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(!m.grounded&&m.mode==='AIRBORNE'&&m.velocity.y<-.9)m.mode='LANDING';
   if(m.mode==='GROUNDED'&&now-m.landingAt<.55)m.mode='LANDING';
   m.position={x:m.x,y:m.y,z:m.z};
+  if(m.offensiveRun&&m.runLastPosition){
+    m.runTravel=(m.runTravel??0)+Math.hypot(m.x-m.runLastPosition.x,
+      m.y-m.runLastPosition.y,m.z-m.runLastPosition.z);
+    m.runLastPosition={x:m.x,y:m.y,z:m.z};
+    if((m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec+1e-8){
+      m.runLaunchMinVy=Math.min(m.runLaunchMinVy??0,m.velocity.y);
+      m.runLaunchDrop=Math.max(m.runLaunchDrop??0,(m.runLaunchStartY??m.y)-m.y);
+      m.runLaunchDistance=m.runTravel;
+    }
+  }
   if(op){op.position=fightFlightOperator(m);op.velocity={...m.velocity};op.yaw=yaw;op.pitch=finite(input.pitch);op.grounded=m.grounded;op.crouched=m.crouched;op.sprinting=Boolean(input.sprint&&m.grounded);op.sprintBlend=0;}
 }

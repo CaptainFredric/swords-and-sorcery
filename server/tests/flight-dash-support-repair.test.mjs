@@ -82,8 +82,10 @@ test('damage event attaches contact in the actual pitched machine frame; rejecte
  damageFightFlight(s.room,s.m,0,null,'sword',1,{componentId:'main',point:{x:0,y:30,z:0}});
  assert.equal(s.room.events.length,before);
 });
-test('level Dash startup never adds an uncommanded upward impulse',()=>{
- const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);frames(s,1);assert.ok(Math.abs(s.m.velocity.y)<1e-6);
+test('level Dash startup creates real downward attacking thrust, not upward hover',()=>{
+ const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);frames(s,6);
+ assert.ok(s.m.velocity.y<-.5,'world-space motion pitches down');
+ assert.ok(s.m.runPitch>.15,'the chassis follows the real attacking vector');
 });
 test('emergency rotor braking interrupts even a Practice training run',()=>{
  const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);frames(s,10);s.m.emergencyBrakeActive=true;frames(s,1);

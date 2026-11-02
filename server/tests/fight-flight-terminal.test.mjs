@@ -68,7 +68,9 @@ test('Ordinary held Dash alone spends prowess but never triggers irreversible te
  assert.ok(s.p.prowess<100);
  assert.equal(s.m.terminalPrep,null);assert.equal(s.m.terminalDive,null);
  s.cmd('flightDash',false,1.38);
- assert.equal(s.m.offensiveRun,false);
+ assert.equal(s.m.flightDashHeld,false);
+ assert.equal(s.m.offensiveRun,true,'short press must finish its minimum powered launch');
+ assert.equal(s.m.terminalDive,null,'release never commits a terminal sacrifice');
 });
 test('Already active Chivalry cannot spend another Ultimate on a terminal chord',()=>{
  const s=setup();s.p.ultimateState={id:'chivalry',phase:'active',until:8};
