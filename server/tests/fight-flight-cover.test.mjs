@@ -23,7 +23,7 @@ test('Incoming front sword can reach the exposed pilot instead of stopping at a 
  const {room,pilot,attacker,m}=setup();
  assert.equal(beginAttack(room,attacker.id,10),true);
  stepRoom(room,.01,10.4,world);
- assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id), 'sword reaches pilot through open front');
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id), 'sword reaches pilot through open front: '+JSON.stringify({events:room.events.filter(e=>/sword|fightFlight|recoil/.test(e.type)),pilot:pilot.position,attacker:attacker.position,machine:{x:m.x,y:m.y,z:m.z,heading:m.heading}}));
  assert.ok(pilot.health<100);
  assert.equal(m.health,250,'do not double-apply exposed pilot damage to hull');
 });
