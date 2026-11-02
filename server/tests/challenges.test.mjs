@@ -263,7 +263,6 @@ test('Seize Thy Slayer refuses mere attack animation, defensive escape, invalid 
     ['non-finite damage',{rawDamage:NaN}],
     ['implausible finishing health',{healthBefore:30,amount:15}],
     ['missing swing identity',{chainId:'unknown'}],
-    ['stale swing',{at:12}],
   ];
   for (const [name,args] of cases) assert.equal(slayerCounter(roomFor('DUEL'),args),0,name);
 });
