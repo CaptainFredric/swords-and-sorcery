@@ -1,0 +1,32 @@
+name: Mounted Siege Steel verification
+on:
+  pull_request:
+    paths:
+      - 'shared/sim/siegeSteel.mjs'
+      - 'shared/src/soFistPiston.mjs'
+      - 'shared/sim/fightFlightComponents.mjs'
+      - 'shared/sim/biByeLlista.mjs'
+      - 'shared/sim/soFistication.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'server/tests/siege-steel-repair.test.mjs'
+      - '.github/workflows/siege-steel-repair.yml'
+permissions:
+  contents: read
+jobs:
+  focused-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Syntax and simulation exports
+        run: npm run check
+      - name: Dedicated mounted Steel combat and network regression
+        run: node --experimental-websocket --test server/tests/siege-steel-repair.test.mjs
+      - name: HTML5 export validation
+        run: npm run test:html5
+      - name: Local server smoke validation
+        run: npm run smoke
