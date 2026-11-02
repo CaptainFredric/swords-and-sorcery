@@ -8,7 +8,7 @@ export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
   // A committed attack, then a heavier, acceleration-limited turn than ordinary flight.
   commitmentSec:.36,minTravel:10,turnRate:1.65,turnAcceleration:5.4,
-  acceleration:5.5,pitch:.34,visualTrim:.12,pitchLimit:.85,pitchRate:1.45,
+  acceleration:5.5,pitch:.34,visualTrim:.34,pitchLimit:.85,pitchRate:1.45,
   clearance:1.1,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
