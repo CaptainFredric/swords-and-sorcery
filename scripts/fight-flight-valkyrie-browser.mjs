@@ -173,7 +173,9 @@ try{
  const curved=await until(async()=>{
   const s=await evaluate(flightState);
   const delta=Math.atan2(Math.sin(s.machine?.heading-startHeading),Math.cos(s.machine?.heading-startHeading));
-  return s.machine?.offensiveRun&&delta>.45&&s.machine?.velocity?.x<-.5?s:false;
+  const v=s.machine?.velocity;
+  const along=v?-Math.sin(s.machine.heading)*v.x-Math.cos(s.machine.heading)*v.z:0;
+  return s.machine?.offensiveRun&&delta>.45&&along>3?s:false;
  },'held Dash genuinely turns and accelerates in world space',80);
  assert.ok(Math.atan2(Math.sin(curved.machine.heading-startHeading),Math.cos(curved.machine.heading-startHeading))>.4,'server-owned yaw follows later aim');
  assert.ok(curved.machine.runFlightPitch>-.2,'flight angle starts recovering toward elevation aim');
