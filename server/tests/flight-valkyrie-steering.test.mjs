@@ -37,6 +37,8 @@ test('Launch aim is physically committed for .36 seconds; level aim still descen
   assert.ok(Math.abs(s.m.heading)<.01,'immediate turn cannot redirect initial thrust');
   assert.ok(s.m.velocity.z<-5,'propulsion is real forward motion');
   assert.ok(s.m.velocity.y<-1,'neutral aim creates physical downward motion');
+  assert.ok(s.m.runLaunchMinVy<-.35&&s.m.runLaunchDrop>.02,'authoritative launch telemetry records downward motion');
+  assert.ok(s.m.runLaunchDistance>0,'actual committed 3D displacement is recorded');
   assert.ok(s.m.y<30,'the world position descends, not only the camera');
   assert.ok(s.m.runPitch>.2,'rotor leads the visibly pitched attack');
   assert.equal(s.m.terminalDive,null);
