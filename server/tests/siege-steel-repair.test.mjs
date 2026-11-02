@@ -35,7 +35,7 @@ function heal({room,m},now=1){
 }
 const sum=parts=>parts.reduce((n,p)=>n+p.health,0);
 
-test('Fight-and-Flight repairs 30 HP exactly, over five full plus five fading seconds',()=>{
+test('Fight-and-Flight reserves 11 bonus HP until ward expiry while earning 19 HP during hardening',()=>{
  const x=setup();x.m.health=175;
  cast(x);
  stepSiegeSteel(x.room,x.m,1);
@@ -45,7 +45,8 @@ test('Fight-and-Flight repairs 30 HP exactly, over five full plus five fading se
  stepSiegeSteel(x.room,x.m,6);
  assert.ok(Math.abs(x.m.health-194)<1e-6,'full phase gives 19 HP');
  stepSiegeSteel(x.room,x.m,8.5);
- assert.ok(Math.abs(x.m.health-199.5)<1e-6,'fade phase awards partial conditional healing');
+ assert.ok(Math.abs(x.m.health-194)<1e-6,'no conditional restoration before expiry');
+ assert.equal(x.m.siegeSteel.bonusHealed,0);
  stepSiegeSteel(x.room,x.m,11);
  assert.ok(Math.abs(x.m.health-205)<1e-6);
  assert.ok(Math.abs(x.m.siegeSteel.healed-30)<1e-6);
@@ -207,16 +208,74 @@ test('first-hit extension lengthens protection but not the ten-second repair bud
  assert.equal(x.m.siegeSteel.state,'expired');
 });
 
-test('unused repair is forfeited at the ten-second deadline even when first-hit extension protects longer',()=>{
+test('first-hit extension delays bonus payout and continues consuming its reserve',()=>{
  const x=setup();cast(x);
  // A first hit just before hardening ends gives Steel a longer protective tail.
  damageFightFlight(x.room,x.m,25,null,'sword',5.9,{componentId:'main'});
  stepSiegeSteel(x.room,x.m,11);
- assert.equal(x.m.siegeSteel.state,'protection-only');
+ assert.equal(x.m.siegeSteel.state,'active');
  const previous=x.m.siegeSteel.healed;
- damageFightFlight(x.room,x.m,25,null,'sword',11.3,{componentId:'main'});
+ const hit=damageFightFlight(x.room,x.m,30,null,'sword',11.3,{componentId:'main'});
+ assert.ok(hit.turned>0,'extended ward still mitigates after the nominal ten seconds');
  const damaged=x.m.health;
  stepSiegeSteel(x.room,x.m,11.5);
  assert.equal(x.m.health,damaged,'new damage outside repair window does not unlock banked healing');
  assert.equal(x.m.siegeSteel.healed,previous);
+ stepSiegeSteel(x.room,x.m,13);
+ assert.equal(x.m.siegeSteel.state,'expired');
+ assert.ok(x.m.siegeSteel.bonusHealed<=11-x.m.siegeSteel.bonusPrevented+1e-7);
+});
+
+test('late decay contact spends the previously unclaimed conditional bonus',()=>{
+ const x=setup();x.m.health=120;cast(x);stepSiegeSteel(x.room,x.m,6);
+ assert.equal(x.m.siegeSteel.baselineHealed,19);
+ const hit=damageFightFlight(x.room,x.m,30,null,'sword',8,{componentId:'main'});
+ assert.ok(hit.turned>0);
+ const spent=x.m.siegeSteel.bonusPrevented;
+ assert.equal(x.m.siegeSteel.bonusHealed,0);
+ stepSiegeSteel(x.room,x.m,10.9);
+ assert.equal(x.m.siegeSteel.bonusHealed,0);
+ stepSiegeSteel(x.room,x.m,11);
+ assert.ok(Math.abs(x.m.siegeSteel.bonusHealed-(11-spent))<1e-7);
+ assert.ok(Math.abs(x.m.siegeSteel.healed-(30-spent))<1e-7);
+});
+test('exhausted repair reserve does not disable Steel mitigation for later hits',()=>{
+ const x=setup();x.m.health=95;cast(x);
+ const first=damageFightFlight(x.room,x.m,30,null,'sword',2,{componentId:'main'});
+ const second=damageFightFlight(x.room,x.m,30,null,'sword',4,{componentId:'main'});
+ assert.equal(first.turned,11);
+ assert.equal(second.turned,11);
+ assert.equal(x.m.siegeSteel.bonusPrevented,11);
+ assert.equal(x.m.siegeSteel.blockedDamage,22);
+ stepSiegeSteel(x.room,x.m,11);
+ assert.equal(x.m.siegeSteel.bonusHealed,0);
+ assert.equal(x.m.siegeSteel.baselineHealed,19);
+});
+test('expiry exactly on an attack tick heals BEFORE the new damage',()=>{
+ const x=setup();x.m.health=180;cast(x);
+ stepSiegeSteel(x.room,x.m,6);assert.equal(x.m.health,199);
+ const hit=damageFightFlight(x.room,x.m,30,null,'sword',11,{componentId:'main'});
+ assert.equal(x.m.siegeSteel.bonusHealed,11);
+ assert.equal(x.m.siegeSteel.state,'expired');
+ assert.equal(hit.damage,30);
+ assert.equal(x.m.health,180);
+ const events=x.room.events.filter(e=>['siegeSteelRepairFinished','siegeSteelEnded','fightFlightComponentHit'].includes(e.type)).map(e=>e.type);
+ assert.deepEqual(events.slice(-3),['siegeSteelRepairFinished','siegeSteelEnded','fightFlightComponentHit']);
+});
+test('post-expiry damage never retroactively unlocks the forfeited bonus',()=>{
+ const x=setup();cast(x);stepSiegeSteel(x.room,x.m,6);
+ damageFightFlight(x.room,x.m,30,null,'sword',11.01,{componentId:'main'});
+ assert.equal(x.m.siegeSteel.bonusHealed,0);
+ assert.equal(x.m.health,220);
+ stepSiegeSteel(x.room,x.m,20);assert.equal(x.m.health,220);
+});
+test('reserved bonus restores a damaged rotor at expiry and does not multiply per component',()=>{
+ const x=setup();x.m.health=210;x.m.rotorHP=15;x.m.braceLHP=42;
+ cast(x);stepSiegeSteel(x.room,x.m,6);
+ assert.equal(x.m.rotorHP,34);
+ const before=sum(machineSteelParts(x.m,'flight'));
+ stepSiegeSteel(x.room,x.m,10.9);assert.equal(sum(machineSteelParts(x.m,'flight')),before);
+ stepSiegeSteel(x.room,x.m,11);
+ assert.ok(Math.abs(sum(machineSteelParts(x.m,'flight'))-before-11)<1e-7);
+ assert.equal(x.m.rotorHP,45);
 });
