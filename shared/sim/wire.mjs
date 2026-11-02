@@ -21,6 +21,8 @@ import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPra
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
+import {preparedSpellMember} from '../src/preparedSpells.mjs';
+import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
 export function serializeLobby(room) {
@@ -294,6 +296,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       reloadStartedAt: Number.isFinite(room.biByeLlista.reloadStartedAt) ? room.biByeLlista.reloadStartedAt : null,
       reloadEndsAt: Number.isFinite(room.biByeLlista.reloadEndsAt) ? room.biByeLlista.reloadEndsAt : null,
       destroyedAt: room.biByeLlista.destroyedAt,
+      siegeSteel:room.biByeLlista.siegeSteel?{...room.biByeLlista.siegeSteel,steel:{...room.biByeLlista.siegeSteel.steel}}:null,
       modeTransitionStartedAt: Number.isFinite(room.biByeLlista.modeTransitionStartedAt) ? room.biByeLlista.modeTransitionStartedAt : null,
       smallBoltReady: nowSec + 1e-8 >= (room.biByeLlista.smallBoltReadyAt ?? 0) && room.biByeLlista.mobileShotPendingAt == null && !(room.biByeLlista.coupling === 'FIRING' && room.biByeLlista.upperReleasedAt == null),
       mainBoltLoaded: Boolean(room.biByeLlista.mainBoltLoaded),
@@ -320,8 +323,16 @@ export function applyRoomCommand(room, player, message, time) {
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
-  if(groundSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','guard','dash','gauntlet','ultimate'].includes(message.type))return {};
-  if(flightSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','dash','gauntlet'].includes(message.type))return {};
+  const mounted=groundSiege||flightSiege;
+  const preparedId=message.type==='castPreparedSlot'
+    ?(Number.isInteger(message.slot)&&message.slot>=1&&message.slot<=3?player.preparedSpells?.[message.slot-1]:null)
+    :message.spell??message.id;
+  const selectedSteel=(message.type==='cast'||message.type==='castCurrentSpell')&&player.spell==='steel';
+  const preparedSteel=['castPreparedSlot','castPreparedSpell'].includes(message.type)&&
+    preparedId==='steel'&&preparedSpellMember(player,'steel')&&combatActionPolicy(player,time).concurrent;
+  const authorizedMountedSteel=mounted&&(selectedSteel||preparedSteel)&&Boolean(operatedSiegeSteelMachine(room,player));
+  if(groundSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','guard','dash','gauntlet','ultimate'].includes(message.type)&&!authorizedMountedSteel)return {};
+  if(flightSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','dash','gauntlet'].includes(message.type)&&!authorizedMountedSteel)return {};
   // Gate B3: only the named Chivalry Ultimate may start aboard the flying
   // apparatus; other Ultimates retain their standard unmounted restrictions.
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
