@@ -122,5 +122,5 @@ export function stepFlightRun(room,m,dt,now){
 export function practiceFlightRun(room,m){
  const p=m?.operatorId?room.players.get(m.operatorId):null;
  return Boolean(room.mode==='PRACTICE'&&!room.localTutorial&&p?.actorKind==='human'&&p.alive&&
-   p.operatingFightFlightId===m?.id&&m.offensiveRun&&m.flightDashHeld&&!m.grounded&&m.health>0&&m.rotorHP>0&&!m.terminalDive&&!m.emergencyBrakeActive);
+   p.operatingFightFlightId===m?.id&&m.offensiveRun&&(m.flightDashHeld||m.runStopRequested)&&!m.grounded&&m.health>0&&m.rotorHP>0&&!m.terminalDive&&!m.emergencyBrakeActive);
 }
