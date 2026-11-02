@@ -465,7 +465,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
   if (!component || component.health <= 0) return false;
   // Apply machine-linked Steel only after contact eligibility; hull, wheels,
   // stabilizers and surviving assemblies all use this same damage entrypoint.
-  const ward=mitigateSiegeSteel(room,ballista,amount,source,now,{componentId,point});
+  const ward=mitigateSiegeSteel(room,ballista,amount,source,nowSec,{componentId,point});
   const dealt=Math.min(ward.amount,component.health);
   component.health -= dealt;
   component.lastHitAt = nowSec;
