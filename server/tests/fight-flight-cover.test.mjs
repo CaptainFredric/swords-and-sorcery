@@ -21,11 +21,16 @@ function setup(){
 }
 test('Incoming front sword can reach the exposed pilot instead of stopping at a fictitious chassis box',()=>{
  const {room,pilot,attacker,m}=setup();
+ // The central forehand first contacts the real left strut. Approach the
+ // exposed frontal corridor obliquely instead: the sword must meet the rider.
+ attacker.position.z=.8;
+ attacker.yaw=attacker.input.yaw=Math.atan2(2,-.8);
  assert.equal(beginAttack(room,attacker.id,10),true);
  stepRoom(room,.01,10.4,world);
- assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id), 'sword reaches pilot through open front: '+JSON.stringify({events:room.events.filter(e=>/sword|fightFlight|recoil/.test(e.type)),pilot:pilot.position,attacker:attacker.position,machine:{x:m.x,y:m.y,z:m.z,heading:m.heading}}));
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id), 'real sword reaches pilot through open frontal gap');
  assert.ok(pilot.health<100);
  assert.equal(m.health,250,'do not double-apply exposed pilot damage to hull');
+ assert.equal(room.events.filter(e=>e.type==='fightFlightComponentHit').length,0,'open corridor must not hit phantom armor');
 });
 test('A mounted pilot can still swing outward: own machine does not interrupt their attack',()=>{
  const {room,pilot,attacker}=setup();
@@ -35,19 +40,21 @@ test('A mounted pilot can still swing outward: own machine does not interrupt th
  assert.ok(attacker.health<100);
 });
 
-test('diagnose genuine incoming sword trajectories around frontal machine braces',()=>{
- const cases=[];
- for(const dz of [-1.2,-.8,-.4,0,.4,.8,1.2]){
-  for(const pitch of [-.3,0,.3]){
-   const {room,pilot,attacker,m}=setup();
-   attacker.position.z=dz;
-   attacker.yaw=attacker.input.yaw=Math.atan2(2,-dz);
-   attacker.pitch=attacker.input.pitch=pitch;
-   beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
-   const hits=room.events.filter(e=>e.type==='swordHit'||e.type==='fightFlightComponentHit')
-     .map(e=>e.type==='swordHit'?'pilot':e.component);
-   cases.push({dz,pitch,hits});
-  }
- }
- console.log('FRONT_SWEEP_MATRIX',JSON.stringify(cases));
+test('a sword genuinely strikes the surviving left strut before reaching the rider',()=>{
+ const {room,pilot,attacker,m}=setup();
+ beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
+ const hits=room.events.filter(e=>e.type==='fightFlightComponentHit');
+ assert.equal(hits.length,1);
+ assert.equal(hits[0].component,'braceL');
+ assert.ok(m.braceLHP<80);
+ assert.equal(m.health,250);
+ assert.equal(pilot.health,100,'a physically intercepted sword must not also hit the rider');
+});
+test('destroying the left strut removes its real sweep interception',()=>{
+ const {room,pilot,attacker,m}=setup();
+ m.braceLHP=0;
+ beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
+ assert.equal(room.events.filter(e=>e.type==='fightFlightComponentHit'&&e.component==='braceL').length,0);
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id),
+   'the same centered sword now reaches rider after left strut breaks');
 });
