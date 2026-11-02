@@ -7,7 +7,7 @@ import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fig
 import {createSoFistication,damageSoFistication,stepSoFistication} from '../../shared/sim/soFistication.mjs';
 import {soFistSolids} from '../../shared/sim/soFistGeometry.mjs';
 import {stepSiegeWreck,SIEGE_WRECK} from '../../shared/sim/siegeWreck.mjs';
-import {roomSnapshot} from '../../shared/sim/wire.mjs';
+import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 
 const DT=1/30;
 const world={floors:[{id:'ground',center:[0,-.1,0],size:[300,.2,300],y:0}],
@@ -159,4 +159,17 @@ test('ram destruction attributes collapse, forcibly dismounts pilot and ages vis
  assert.equal(room.events.filter(e=>e.type==='siegeWreckStarted').length,1);
  stepSoFistication(room,ram,DT,11.5);assert.equal(ram.wreckPhase,'settled');
  stepSoFistication(room,ram,DT,16.2);assert.equal(ram.wreckPhase,'expired');
+});
+
+test('two independent recipients see identical authoritative wreck dates, owner and phase',()=>{
+ const {room,m}=setup();
+ const other=room.addPlayer({id:'observer',token:'obs',name:'Observer'},0);
+ other.spawnProtectionUntil=0;
+ damageFightFlight(room,m,500,other.id,'sword',11,{componentId:'main'});
+ const a=serializeSnapshot(room,11,'pilot');
+ const b=serializeSnapshot(room,11,'observer');
+ for(const key of ['id','destroyedAt','wreckPhase','wreckSettleAt','wreckCleanupAt']){
+   assert.equal(a.fightFlight[key],b.fightFlight[key],key);
+ }
+ assert.equal(a.fightFlight.destroyedAt,11);
 });
