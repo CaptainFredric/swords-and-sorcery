@@ -48,7 +48,8 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
     flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,
     runPitch:0,runTrim:0,runFlightPitch:0,runCommitHeading:null,runCommitPitch:null,
-    runStartAt:null,runTravel:0,runLastPosition:null,runStopRequested:false,
+    runStartAt:null,runTravel:0,runLastPosition:null,
+    runLaunchStartY:null,runLaunchMinVy:0,runLaunchDrop:0,runLaunchDistance:0,runStopRequested:false,
     runReleasedAt:null,runTurnSpeed:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
@@ -365,6 +366,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.runTravel=(m.runTravel??0)+Math.hypot(m.x-m.runLastPosition.x,
       m.y-m.runLastPosition.y,m.z-m.runLastPosition.z);
     m.runLastPosition={x:m.x,y:m.y,z:m.z};
+    if(now-(m.runStartAt??now)<=VALKYRIE_RUN.commitmentSec+1e-8){
+      m.runLaunchMinVy=Math.min(m.runLaunchMinVy??0,m.velocity.y);
+      m.runLaunchDrop=Math.max(m.runLaunchDrop??0,(m.runLaunchStartY??m.y)-m.y);
+      m.runLaunchDistance=m.runTravel;
+    }
   }
   if(op){op.position=fightFlightOperator(m);op.velocity={...m.velocity};op.yaw=yaw;op.pitch=finite(input.pitch);op.grounded=m.grounded;op.crouched=m.crouched;op.sprinting=Boolean(input.sprint&&m.grounded);op.sprintBlend=0;}
 }
