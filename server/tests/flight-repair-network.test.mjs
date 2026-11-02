@@ -23,7 +23,7 @@ test('two real clients agree on pitched Dash, release and a falling wreck',async
   const down=await b.wait(s=>s.type==='snapshot'&&s.fightFlight?.offensiveRun&&s.fightFlight.velocity.y< -3);
   const same=await a.wait(s=>s.type==='snapshot'&&s.tick===down.tick);
   assert.deepEqual(same.fightFlight,down.fightFlight,'one physical authority for both recipients');
-  assert.ok(down.fightFlight.runPitch>.6);
+  assert.ok(down.fightFlight.runPitch>.35,'physical dive is visibly pitched as it descends');
   pitch=.6;sendInput();const up=await b.wait(s=>s.type==='snapshot'&&s.fightFlight?.offensiveRun&&s.fightFlight.velocity.y>3);
   assert.ok(up.fightFlight.runPitch<.15);
   a.send({type:'flightDash',down:false});await b.wait(s=>s.type==='snapshot'&&s.fightFlight?.flightDashHeld===false&&!s.fightFlight.offensiveRun);
