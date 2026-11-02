@@ -9,7 +9,7 @@ const CONTACT_SOURCES = new Set(['sword', 'fireball', 'frostfire', 'gale', 'gaun
 /** Match memory only. Profile settlement owns persistence and rewards. */
 export function resetChallengeTracking(room) {
   room.challengeFacts = [];
-  room.challengeTracking = { players: new Map(), bentProjectiles: new Map(), encounters: new Map() };
+  room.challengeTracking = { players: new Map(), bentProjectiles: new Map() };
 }
 
 /** Authoritative combat queues facts independently from public presentation events. */
@@ -76,36 +76,24 @@ function mixedContact(state, victimId, contact) {
   }
 }
 
-// Seize Thy Slayer: one knight takes an enemy Spellblade from full health to defeat with the sword alone, never
-// guarding, and the strike that fells them began with a damaging spell ready whose listed damage would have done it.
-// An encounter is the victim's, from a blow that finds them at full health to their fall: it is the striker's only while
-// every blow is that striker's sword (Steel-hardened or not), and nothing else touches the victim (another knight, a
-// spell or its burn, the world); the striker raising a guard spoils it. A blow that finds the victim already hurt by
-// something else starts nothing: they must be back at full health first.
+// Seize Thy Slayer: the finishing sword blow is chosen over an available lethal spell
+// while the SAME foe has an imminent, geometrically validated attack that would kill
+// the striker. The threat is assessed before that foe's death interrupts its attack.
+// No unrelated 100-to-zero encounter bookkeeping or whole-fight Guard prohibition.
 const SWING_MEMORY_SEC = 10;
-function slayerEncounter(room, f) {
-  const victim = room.players.get(f.victimId);
-  if (!victim || !Number.isFinite(f.amount) || f.amount <= 0 || !Number.isFinite(f.healthBefore)) return;
-  const encounters = room.challengeTracking.encounters;
-  const byEnemy = enemies(room, f.attackerId, f.victimId);
-  let encounter = encounters.get(f.victimId);
-  if (f.healthBefore >= GAME.maxHealth - 1e-6) {
-    encounter = { attackerId: byEnemy ? f.attackerId : null, valid: byEnemy, startedAt: f.at };
-    encounters.set(f.victimId, encounter);
-  } else if (!encounter) {
-    encounter = { attackerId: null, valid: false, startedAt: f.at };
-    encounters.set(f.victimId, encounter);
-  }
-  if (!byEnemy || f.attackerId !== encounter.attackerId || f.source !== 'sword' || f.contact !== true || f.guarding === true) {
-    encounter.valid = false;
-  }
-  if (!encounter.valid || !(f.healthAfter <= 0)) return;
-  // the felling blow: by a knight against a fellow player, or against a bot only at the Spellblade's own difficulty
+function slayerFinisher(room, f) {
+  if (!enemies(room, f.attackerId, f.victimId) || f.source !== 'sword'
+    || f.contact !== true || f.healthAfter !== 0 || !(f.amount > 0)
+    || f.guarding === true || f.dashing === true || f.lethalThreat !== true) return;
+  const foe = room.players.get(f.victimId);
+  if (foe.actorKind !== 'human' && !(foe.actorKind === 'bot' && foe.botSkill === 'spellblade')) return;
   const slayer = stateFor(room, f.attackerId);
-  const qualified = victim.actorKind === 'human' || (victim.actorKind === 'bot' && victim.botSkill === 'spellblade');
-  const swing = slayer?.swings.get(`${f.chainId}#${f.strikeIndex}`);
-  if (slayer && qualified && swing?.spellReady === true && Number.isFinite(swing.spellNominal)
-    && swing.spellNominal >= f.healthBefore) advance(slayer, 'seize_thy_slayer');
+  if (!slayer || typeof f.chainId !== 'string' || !Number.isInteger(f.strikeIndex)) return;
+  const swing = slayer.swings.get(`${f.chainId}#${f.strikeIndex}`);
+  if (!swing || !(f.at >= swing.at && f.at - swing.at <= 1.2)
+    || swing.spellReady !== true || !Number.isFinite(swing.spellNominal)
+    || swing.spellNominal < f.healthBefore) return;
+  advance(slayer, 'seize_thy_slayer');
 }
 
 function observeDamage(room, f) {
@@ -142,7 +130,7 @@ export function observeChallengeFacts(room) {
   for (const f of facts) {
     if (!f || !Number.isFinite(f.at)) continue;
     switch (f.type) {
-      case 'damage': slayerEncounter(room, f); observeDamage(room, f); break;
+      case 'damage': slayerFinisher(room, f); observeDamage(room, f); break;
       case 'swordSwing': {
         const state = stateFor(room, f.playerId);
         if (!state || typeof f.chainId !== 'string' || !Number.isInteger(f.strikeIndex)) break;
@@ -150,9 +138,6 @@ export function observeChallengeFacts(room) {
         state.swings.set(`${f.chainId}#${f.strikeIndex}`, { at: f.at, spellReady: f.spellReady === true, spellNominal: f.spellNominal });
         break;
       }
-      case 'guardRaised':
-        for (const encounter of room.challengeTracking.encounters.values()) if (encounter.attackerId === f.playerId) encounter.valid = false;
-        break;
       case 'swordChainInterrupted': {
         const state = stateFor(room, f.playerId);
         if (!state || typeof f.chainId !== 'string' || !f.chainId) break;
@@ -173,7 +158,6 @@ export function observeChallengeFacts(room) {
         break;
       }
       case 'death': {
-        room.challengeTracking.encounters.delete(f.victimId);
         const victim = stateFor(room, f.victimId);
         if (victim && Number.isFinite(victim.vortexStartedAt)
           && f.at >= victim.vortexStartedAt
