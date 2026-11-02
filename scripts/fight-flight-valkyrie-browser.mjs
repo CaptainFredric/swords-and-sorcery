@@ -72,7 +72,7 @@ async function up(key){
 }
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
-const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded,intent:m.verticalIntent,lastImpactAt:m.lastImpactAt,velocity:m.velocity,heading:m.heading,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,runTravel:m.runTravel,offensiveRun:m.offensiveRun,dashHeld:m.flightDashHeld}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,flightInputAt:p.flightInputAt}:null,keys:Array.from(r?.input?.keys??[]),blocked:Array.from(r?.input?.blockedKeys??[]),jumpInput:Boolean(r?.input?.movement?.()?.jump),inputEnabled:Boolean(r?.input?.enabled),cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
+const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded,intent:m.verticalIntent,lastImpactAt:m.lastImpactAt,velocity:m.velocity,heading:m.heading,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,runTravel:m.runTravel,runLaunchMinVy:m.runLaunchMinVy,runLaunchDrop:m.runLaunchDrop,runLaunchDistance:m.runLaunchDistance,offensiveRun:m.offensiveRun,dashHeld:m.flightDashHeld}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,flightInputAt:p.flightInputAt}:null,keys:Array.from(r?.input?.keys??[]),blocked:Array.from(r?.input?.blockedKeys??[]),jumpInput:Boolean(r?.input?.movement?.()?.jump),inputEnabled:Boolean(r?.input?.enabled),cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
 try{
  const target=await until(async()=>{
   const r=await fetch('http://127.0.0.1:'+port+'/json/list');
@@ -165,10 +165,11 @@ try{
  await evaluate("(() => {const trace=window.__valkyrieTrace=[];let count=0;const capture=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;if(m&&count<2000)trace.push({at:performance.now(),x:m.x,y:m.y,z:m.z,heading:m.heading,vy:m.velocity?.y,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,travel:m.runTravel,run:Boolean(m.offensiveRun),terminal:Boolean(m.terminalDive)});if(++count<2000)requestAnimationFrame(capture);};requestAnimationFrame(capture);})()");
  await down('E');
  const committed=await until(async()=>{
-  const trace=await evaluate("window.__valkyrieTrace?.find(s=>s.run&&s.runPitch>.2&&s.vy<-.35&&s.y<"+JSON.stringify(ready.machine.y)+"-.02)??null");
-  return trace?{machine:{...trace,velocity:{y:trace.vy},terminalDive:trace.terminal}}:false;
- },'physical nose-down Valkyrie launch from captured live simulation frames',85);
- assert.ok(committed.machine.y<ready.machine.y,'actual Y descends, not camera alone');
+  const s=await evaluate(flightState);
+  return s.machine?.offensiveRun&&s.machine.runLaunchMinVy<-.35&&s.machine.runLaunchDrop>.02?s:false;
+ },'authoritative recorded downward velocity and displacement during launch',85);
+ assert.ok(committed.machine.runLaunchDrop>.02,'machine physically descends during launch');
+ assert.ok(committed.machine.runLaunchDistance>0,'launch traverses real world space');
  assert.equal(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),false);
  await screenshot('04-valkyrie-physical-dive');
  // The initial reticle changes cannot teleport thrust to the new vector.
@@ -202,7 +203,9 @@ try{
  assert.equal(errors.length,0,'Browser exceptions: '+errors.join('; '));
  console.log('[FAF VALKYRIE] world measurements',JSON.stringify({
   travelMetres:result.travelMetres,turnRadians:result.turnRadians,
-  initialVerticalVelocity:committed.machine.velocity.y,
+  initialVerticalVelocity:committed.machine.runLaunchMinVy,
+  committedLaunchTravelMetres:committed.machine.runLaunchDistance,
+  committedLaunchDropMetres:committed.machine.runLaunchDrop,
   pitch:committed.machine.runPitch,errors}));
 }catch(err){
  console.error('[FAF FAILED]',stage,err.stack??String(err));
