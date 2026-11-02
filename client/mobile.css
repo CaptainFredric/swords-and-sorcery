@@ -802,10 +802,11 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-controls.touch-mounted.touch-flight .touch-dash span { font-size:7px; }
 .touch-controls.touch-mounted.touch-flight::before {
   content:'';position:absolute;pointer-events:none;z-index:0;
-  right:calc(var(--safe-r) + 10px);bottom:calc(var(--safe-b) + 10px);
-  width:calc(186px * var(--s));height:calc(226px * var(--s));
-  border:1px solid #c4a66d55; border-radius:19px;
-  background:linear-gradient(140deg,#322c2570,#161c1d78);
+  right:calc(var(--safe-r) + 12px);bottom:calc(var(--safe-b) + 12px);
+  width:calc(172px * var(--s));height:calc(196px * var(--s));
+  border:1px solid rgba(196,166,109,.26); border-radius:18px;
+  background:radial-gradient(ellipse at 65% 65%, rgba(48,42,34,.45), rgba(20,25,26,.32));
+  backdrop-filter: blur(2px);
 }
 .touch-controls.touch-mounted.touch-flight .touch-btn { z-index:1; }
 .touch-controls.touch-mounted.touch-flight .touch-guard.airborne-forbidden {
@@ -839,7 +840,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
  .touch-controls.touch-mounted.touch-flight .touch-dash {
    bottom:calc(var(--safe-b) + 159px * var(--s));
  }
- .touch-controls.touch-mounted.touch-flight::before { height:calc(210px * var(--s)); }
+ .touch-controls.touch-mounted.touch-flight::before { height:calc(180px * var(--s)); width:calc(166px * var(--s)); }
 }
 
 /* Mounted Sheathe in Steel */

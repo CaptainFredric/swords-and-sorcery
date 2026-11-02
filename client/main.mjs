@@ -199,6 +199,7 @@ let paused = false;
 let practiceVisibleWanted = false;
 let pauseSection = 'main';
 let practiceDirect = false;
+let practiceDrawerOpen = false;
 pauseMenu.inert = true;
 function showMenuError(text) { for (const element of menuErrors) element.textContent = text; }
 const lobbyCode = $('#lobby-code');
@@ -546,11 +547,12 @@ function ensureRuntime() {
     };
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPause = () => openPause();
-    runtime.onPracticeTools = () => openPause('practice');
+    runtime.onPracticeTools = () => togglePracticeDrawer();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
       if (locked && paused) closePause({ resumeArena: false });
+      if (locked && practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
     };
   }
   runtime.setPlayerId(socket.inspectionActorId??socket.playerId);
@@ -861,6 +863,9 @@ function setPracticeVisible(visible) {
   if (!practiceVisibleWanted && pauseSection === 'practice') {
     pauseSection = 'main';
     syncPauseSections();
+  }
+  if (!practiceVisibleWanted && practiceDrawerOpen) {
+    closePracticeDrawer({ resumeArena: false });
   }
   const show = practiceVisibleWanted && (!paused || pauseSection === 'practice');
   practiceOverlay.classList.toggle('hidden', !show);
@@ -1232,23 +1237,55 @@ async function copyText(text, title) {
   try { await navigator.clipboard.writeText(text); }
   catch { window.prompt(title, text); }
 }
+function openPracticeDrawer() {
+  if (latestSnapshot?.roomState !== 'PLAYING' || !practiceVisibleWanted) return;
+  if (paused) closePause({ resumeArena: false });
+  practiceDrawerOpen = true;
+  runtime?.releasePointer();
+  if (practiceOverlay.parentNode !== practiceHome) {
+    practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
+  }
+  expandPracticeTools();
+  practiceOverlay.classList.add('drawer-open');
+  setPracticeVisible(practiceVisibleWanted);
+  $('#practice-drawer-close')?.focus();
+}
+
+function closePracticeDrawer({ resumeArena = true } = {}) {
+  practiceDrawerOpen = false;
+  practiceOverlay.classList.remove('drawer-open');
+  setPracticeVisible(practiceVisibleWanted);
+  if (resumeArena) runtime?.requestPointerLock();
+}
+
+function togglePracticeDrawer() {
+  if (practiceDrawerOpen) {
+    closePracticeDrawer();
+  } else {
+    openPracticeDrawer();
+  }
+}
+
 function openPause(section = 'main') {
   if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
-  // The top-left touch shortcut bypasses Arena Menu, without cloning controls.
-  const direct = section === 'practice' && practiceVisibleWanted;
+  if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
-  practiceDirect = direct;
+  practiceDirect = false;
   runtime?.releasePointer();
-  pausePracticeMount.append(practiceOverlay);
-  if (direct) expandPracticeTools();
-  pauseSection = direct ? 'practice' : 'main';
-  pauseMenu.setAttribute('aria-label', direct ? 'Practice tools' : 'Arena menu');
-  $('#pause-practice-back').textContent = direct ? '← RETURN TO PRACTICE' : '← BACK TO ARENA MENU';
+  if (section === 'practice' && practiceVisibleWanted) {
+    pausePracticeMount.append(practiceOverlay);
+    expandPracticeTools();
+    pauseSection = 'practice';
+  } else {
+    pauseSection = 'main';
+  }
+  pauseMenu.setAttribute('aria-label', pauseSection === 'practice' ? 'Practice tools' : 'Arena menu');
+  $('#pause-practice-back').textContent = '← BACK TO ARENA MENU';
   syncPauseSections();
   setPracticeVisible(practiceVisibleWanted);
   pauseMenu.inert = false;
   pauseMenu.classList.remove('hidden');
-  (direct ? $('#pause-practice-back') : $('#resume-game')).focus();
+  (pauseSection === 'practice' ? $('#pause-practice-back') : $('#resume-game')).focus();
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
@@ -1277,17 +1314,18 @@ function expandPracticeTools() {
 $('#resume-game').addEventListener('click', () => closePause());
 pausePracticeButton.addEventListener('click', () => {
   expandPracticeTools();
+  pausePracticeMount.append(practiceOverlay);
   showPauseSection('practice');
   $('#pause-practice-back').focus();
 });
 $('#pause-practice-back').addEventListener('click', () => {
-  if (practiceDirect) {
-    closePause(); // shortcut returns to gameplay, not another menu
-    return;
+  if (practiceOverlay.parentNode !== practiceHome) {
+    practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
   }
   showPauseSection('main');
   pausePracticeButton.focus();
 });
+$('#practice-drawer-close')?.addEventListener('click', () => closePracticeDrawer());
 $('#pause-edit-controls')?.addEventListener('click', () => { closePause({ resumeArena: false }); runtime?.editTouchLayout(); });
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
@@ -1581,7 +1619,8 @@ document.addEventListener('keydown', event => {
   } else if (latestSnapshot?.roomState === 'PLAYING') {
     // Escape is the arena menu action, not merely a pointer-lock release.
     // In particular, High Grounds must not require a second Escape press.
-    if (paused) closePause();
+    if (practiceDrawerOpen) closePracticeDrawer();
+    else if (paused) closePause();
     else openPause();
   }
 });

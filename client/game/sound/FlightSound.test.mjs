@@ -185,3 +185,63 @@ test('actual Dash key release gets a single whoosh tail even without an ended se
   assert.deepEqual(played, ['offensiveRun', 'offensiveRelease'], 'no double whoosh from late network events');
   sound.dispose();
 });
+
+test('Dash sound sequence: onset whoosh, sustained light propeller flutter with ducked rotor, and smooth release fade', () => {
+  const played = [];
+  const stopped = [];
+  const placed = [];
+  const engine = {
+    running: true, muted: false,
+    buffer: (samples) => ({ samples }),
+    playBuffer: (buf, opts) => {
+      const h = {
+        stop: (fade) => stopped.push({ loop: opts, fade }),
+        place: (p) => placed.push(p),
+      };
+      return h;
+    },
+    play: (recipe, opts) => {
+      played.push({ tag: recipe.tag, opts });
+      return { stop() {} };
+    },
+  };
+  const sound = new FlightSound(engine);
+  const m = dashMachine();
+  m.offensiveRun = false;
+  m.flightDashHeld = false;
+
+  // 1. Airborne idling: rotor loop active at standard gain
+  sound.update(m, { active: true, listener: m.position, yaw: 0, now: 1.0 });
+  assert.ok(sound.loops.has('rotor'), 'rotor loop active');
+  assert.equal(sound.loops.has('offensive'), false, 'offensive loop not yet active');
+
+  // 2. Dash begins: triggers exactly one offensiveRun whoosh, ducks ordinary rotor loop, starts offensive flutter loop
+  m.offensiveRun = true;
+  m.flightDashHeld = true;
+  sound.update(m, { active: true, listener: m.position, yaw: 0, now: 1.1 });
+  assert.equal(played.filter((p) => p.tag === 'offensiveRun').length, 1, 'one initial whoosh on start');
+  assert.ok(sound.loops.has('offensive'), 'sustained offensive loop started');
+
+  // 3. Continuous Dash hold across Practice meter refill: prowess depletes and refills while Dash button held
+  // Sim temporarily clears offensiveRun during empty prowess tick...
+  m.offensiveRun = false;
+  sound.update(m, { active: true, listener: m.position, yaw: 0, now: 1.4 });
+
+  // ...then prowess refills while flightDashHeld remains continuously true
+  m.offensiveRun = true;
+  sound.update(m, { active: true, listener: m.position, yaw: 0, now: 1.5 });
+
+  // Should NOT trigger a second start whoosh because Dash was held continuously:
+  assert.equal(played.filter((p) => p.tag === 'offensiveRun').length, 1, 'no repeated start whoosh during continuous hold / meter refill');
+
+  // 4. Dash released: triggers offensiveRelease whoosh and smooth release fade on offensive loop
+  m.offensiveRun = false;
+  m.flightDashHeld = false;
+  sound.update(m, { active: true, listener: m.position, yaw: 0, now: 2.0 });
+  assert.equal(played.filter((p) => p.tag === 'offensiveRelease').length, 1, 'release whoosh played');
+  assert.ok(stopped.some((s) => s.fade >= 0.25), 'smooth release fade applied to offensive loop');
+
+  // 5. Dismount: stops all flight loops cleanly
+  sound.update({ ...m, operatorId: null }, { active: false, listener: m.position, yaw: 0, now: 2.5 });
+  assert.equal(sound.loops.size, 0, 'all loops stopped on dismount');
+});

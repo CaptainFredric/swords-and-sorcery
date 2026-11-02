@@ -159,3 +159,20 @@ test('legacy default Crouch moves away from the joystick extension without overr
   current = loadTouchLayout(storage);
   assert.equal(current.onFoot.crouch.left, 90, 'explicitly customized positions are preserved');
 });
+
+test('older saved flight layouts migrate safely while preserving custom coordinates', () => {
+  const oldSaved = {
+    onFoot: DEFAULT_ON_FOOT_LAYOUT,
+    flight: {
+      attack: { right: 40, bottom: 50, size: 70, custom: true },
+      dash: { right: 30, bottom: 160, size: 60 },
+    },
+  };
+  const storage = memoryStorage();
+  storage.setItem('ss-touch-layout', JSON.stringify(oldSaved));
+  const loaded = loadTouchLayout(storage);
+  assert.equal(loaded.flight.attack.right, 40, 'custom attack placement preserved');
+  assert.equal(loaded.flight.attack.custom, true);
+  assert.ok(loaded.flight.siegeWeapon, 'missing controls like siegeWeapon populated from default');
+  assert.ok(loaded.flight.guard, 'missing controls like guard populated from default');
+});

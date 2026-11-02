@@ -33,13 +33,14 @@ const { exertion: EXERTION, context: CONTEXT, earned: EARNED, state: STATE } = V
 // here: it cannot be said.
 export const VOICE_LINES = Object.freeze(Object.fromEntries(VOICE_LINE_LIST.filter((line) => !line.coming).map((line) => {
   const priority = priorityRank(line.priority);
+  const family = line.family ?? line.id.match(/^([a-zA-Z]+)V\d+$/)?.[1];
   return [line.id, Object.freeze({
     kind: line.kind,
     priority,
     chance: line.rarity,
     cooldown: line.cooldown,
     gain: line.gain,
-    ...(line.family ? { family: line.family } : {}),
+    ...(family ? { family } : {}),
     ...(line.perLife ? { perLife: line.perLife } : {}),
     ...(priority === STATE ? { interrupts: true } : {}),
     ...(line.parts ? { parts: line.parts.length } : {}),
@@ -330,8 +331,9 @@ export class UltimateLines {
 }
 
 export class VoiceDirector {
-  constructor({ rand = Math.random } = {}) {
+  constructor({ rand = Math.random, frequentException = 'killTaunt' } = {}) {
     this.rand = rand;
+    this.frequentException = frequentException;
     // when each knight may say each line again (its cooldown, some of them a spread), and how often this life
     this.readyAt = new Map();
     this.thisLife = new Map();
@@ -437,7 +439,11 @@ export class VoiceDirector {
     }
     if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
-    if (!force && (rand ? rand() : this.rand()) >= rule.chance * chanceScale) return null;
+    let odds = rule.chance * chanceScale;
+    if (!force && sentence && line !== this.frequentException && stat.said > 0) {
+      odds *= Math.max(0.35, 1 / (1 + 0.45 * stat.said));
+    }
+    if (!force && (rand ? rand() : this.rand()) >= odds) return null;
     const stop = [];
     if (ownBusy) stop.push(speaker);
     if (other && !(coordinated && other.chorus === chorus) && !notRightNow) {
