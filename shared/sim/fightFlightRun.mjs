@@ -75,6 +75,9 @@ export function stepFlightRun(room,m,dt,now){
  }else{
    if(!m.offensiveRun){
      m.offensiveRun=true;m.runStartAt=now;m.runTravel=0;
+     // Authoritative, persistent measurements of the short committed launch.
+     // Browser snapshots can miss a 360ms phase under headless rendering load.
+     m.runLaunchStartY=m.y;m.runLaunchMinVy=0;m.runLaunchDrop=0;m.runLaunchDistance=0;
      m.runLastPosition={x:m.x,y:m.y,z:m.z};
      m.runCommitHeading=Number.isFinite(m.runCommitHeading)?m.runCommitHeading:m.heading;
      m.runCommitPitch=Number.isFinite(m.runCommitPitch)?m.runCommitPitch:-VALKYRIE_RUN.pitch;
