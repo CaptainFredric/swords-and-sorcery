@@ -49,14 +49,17 @@ export function machineSteelParts(m,kind){
 export function beginSiegeSteel(room,m,kind,p,now){
   if(!machineLive(m,kind)||!SIEGE_STEEL_REFERENCES[kind]||
     operatedSiegeSteelMachine(room,p)?.machine!==m)return false;
-  if(m.siegeSteel&&now<m.siegeSteel.protectionUntil-EPS)return false;
+  // A legitimate later cast must settle the previous ward before overwriting
+  // its machine-linked bookkeeping; it cannot discard or duplicate old credit.
+  if(m.siegeSteel)stepSiegeSteel(room,m,now);
+  if(m.siegeSteel&&m.siegeSteel.state!=='expired')return false;
   const reference=SIEGE_STEEL_REFERENCES[kind];
   m.siegeSteel={
     kind,operatorId:p.id,calledAt:now,steel:callSteel(now),state:'active',
     fullRepairUntil:now+STEEL.fullSec,repairUntil:now+STEEL.fullSec+STEEL.fadeSec,
     protectionUntil:now+STEEL.fullSec+STEEL.fadeSec,
     minimum:reference.minimum,maximum:reference.maximum,
-    baselineHealed:0,bonusHealed:0,bonusPrevented:0,blockedDamage:0,
+    baselineHealed:0,baselineClosed:false,bonusHealed:0,bonusPrevented:0,blockedDamage:0,
     healed:0,lastStepAt:now,
   };
   room.events?.push({type:'siegeSteelOn',machineId:m.id,kind,operatorId:p.id,
@@ -70,6 +73,9 @@ export function beginSiegeSteel(room,m,kind,p,now){
 export function mitigateSiegeSteel(room,m,amount,source,now,{
   innateAmount=amount,componentId=null,explicitMin=null,point=null,
 }={}){
+  // Settle at the exact expiry boundary BEFORE this hit can damage a component.
+  // Otherwise a late strike could create missing HP that the expired ward heals.
+  stepSiegeSteel(room,m,now);
   const ward=m?.siegeSteel;
   if(!ward||ward.state==='expired'||!machineLive(m,ward.kind)||
      steelStrength(ward.steel,now)<=.005)
@@ -80,10 +86,12 @@ export function mitigateSiegeSteel(room,m,amount,source,now,{
   if(turned>EPS){
     // The finite bonus is spent by *additional* mitigation, not by a fist's
     // inherent armor or the flight rotor's pre-existing component Steel.
-    const spend=Math.min(turned,Math.max(0,ward.maximum-ward.minimum-ward.bonusPrevented-ward.bonusHealed));
+    const spend=Math.min(turned,Math.max(0,ward.maximum-ward.minimum-ward.bonusPrevented));
     ward.bonusPrevented+=spend;ward.blockedDamage+=turned;
     ward.steel=steelTakes(ward.steel,now);
     ward.protectionUntil=ward.steel.fullUntil+STEEL.fadeSec;
+    // Legacy snapshot field now follows the real settlement deadline.
+    ward.repairUntil=ward.protectionUntil;
     room.events?.push({type:'siegeSteelBlocked',machineId:m.id,componentId,
       source,attackerDamagePrevented:turned,bonusSpent:spend,point,at:now});
   }
@@ -117,29 +125,38 @@ function heal(room,m,ward,amount,phase,now){
   }
   return delivered;
 }
-// Absolute-time accrual; idempotent at a fixed now even when a local host
-// repeats a frame. First-hit extension affects protection, NOT repair accrual.
+// The first five seconds accrue the guaranteed minimum, once per absolute
+// timestamp. Whatever cannot be applied to existing damage during that phase
+// is forfeited, not banked for a late strike.
+function accrueGuaranteedRepair(room,m,ward,now){
+  if(ward.baselineClosed)return;
+  const at=Math.max(ward.calledAt,Math.min(now,ward.fullRepairUntil));
+  const earned=ward.minimum*clamp((at-ward.calledAt)/STEEL.fullSec,0,1);
+  const delivered=heal(room,m,ward,Math.max(0,earned-ward.baselineHealed),'full',at);
+  ward.baselineHealed+=delivered;
+  ward.healed+=delivered;
+  if(now+EPS>=ward.fullRepairUntil)ward.baselineClosed=true;
+}
+
+// Damage entrypoints call this BEFORE mutating HP; stepRoom also calls it
+// after collision/projectile resolution. A hit at the expiry timestamp
+// therefore cannot create an eligible wound before the reserved bonus settles.
 export function stepSiegeSteel(room,m,now){
   const ward=m?.siegeSteel;
   if(!ward||ward.state==='expired')return;
   if(!machineLive(m,ward.kind)){endSiegeSteel(room,m,now);return;}
-  if(ward.state==='active'){
-    const current=Math.max(ward.calledAt,Math.min(now,ward.repairUntil));
-    const baselineEarned=ward.minimum*clamp((current-ward.calledAt)/STEEL.fullSec,0,1);
-    const bonusEarned=(ward.maximum-ward.minimum)*
-      clamp((current-ward.fullRepairUntil)/STEEL.fadeSec,0,1);
-    const baselineAvailable=Math.max(0,baselineEarned-ward.baselineHealed);
-    const baseline=heal(room,m,ward,baselineAvailable,'full',now);
-    ward.baselineHealed+=baseline;
-    const bonusAvailable=Math.max(0,bonusEarned-ward.bonusPrevented-ward.bonusHealed);
-    const bonus=heal(room,m,ward,bonusAvailable,'decay',now);
-    ward.bonusHealed+=bonus;ward.healed+=baseline+bonus;
-  }
-  ward.lastStepAt=Math.max(now,ward.lastStepAt);
-  if(now+EPS>=ward.repairUntil&&ward.state==='active'){
-    ward.state='protection-only';
-    room.events?.push({type:'siegeSteelRepairFinished',machineId:m.id,kind:ward.kind,
-      healed:ward.healed,bonusPrevented:ward.bonusPrevented,at:ward.repairUntil});
-  }
-  if(now>=ward.protectionUntil-EPS)endSiegeSteel(room,m,now,'expired');
+  const at=Math.max(ward.lastStepAt,now);
+  accrueGuaranteedRepair(room,m,ward,at);
+  ward.lastStepAt=at;
+  if(at+EPS<ward.protectionUntil)return;
+  // All prevented damage throughout the actual protection window (including
+  // the one-time first-hit extension) has already consumed this reserve.
+  const available=Math.max(0,ward.maximum-ward.minimum-ward.bonusPrevented-ward.bonusHealed);
+  const bonus=heal(room,m,ward,available,'expiry',ward.protectionUntil);
+  ward.bonusHealed+=bonus;ward.healed+=bonus;
+  ward.state='settled';
+  room.events?.push({type:'siegeSteelRepairFinished',machineId:m.id,kind:ward.kind,
+    healed:ward.healed,bonusPrevented:ward.bonusPrevented,bonusHealed:ward.bonusHealed,
+    at:ward.protectionUntil});
+  endSiegeSteel(room,m,ward.protectionUntil,'expired');
 }

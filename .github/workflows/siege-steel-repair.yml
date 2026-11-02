@@ -25,7 +25,7 @@ jobs:
       - name: Syntax and simulation exports
         run: npm run check
       - name: Dedicated mounted Steel combat and network regression
-        run: node --experimental-websocket --test server/tests/siege-steel-repair.test.mjs
+        run: node --experimental-websocket --test server/tests/siege-steel-repair.test.mjs server/tests/fight-flight-cover.test.mjs server/tests/fight-flight-rotor.test.mjs
       - name: HTML5 export validation
         run: npm run test:html5
       - name: Local server smoke validation
