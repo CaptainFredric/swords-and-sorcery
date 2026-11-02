@@ -2,6 +2,7 @@ import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
 import {earliestFrostProximity} from './biByeProximity.mjs';
 import {SIEGE_IMPACT} from './siegeImpact.mjs';
+import {mitigateSiegeSteel,endSiegeSteel} from './siegeSteel.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
@@ -462,7 +463,10 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
   if (!biByeCanDamage(room, ballista, attackerId) || !Number.isFinite(amount) || !(amount > 0)) return false;
   const component = componentId === 'hull' ? ballista : ballista.components?.[componentId];
   if (!component || component.health <= 0) return false;
-  const dealt = Math.min(amount, component.health);
+  // Apply machine-linked Steel only after contact eligibility; hull, wheels,
+  // stabilizers and surviving assemblies all use this same damage entrypoint.
+  const ward=mitigateSiegeSteel(room,ballista,amount,source,now,{componentId,point});
+  const dealt=Math.min(ward.amount,component.health);
   component.health -= dealt;
   component.lastHitAt = nowSec;
   room.events?.push({ type: 'bibyeDamaged', ballistaId: ballista.id, componentId, amount: dealt,
@@ -485,6 +489,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
     }
   }
   if (ballista.health <= 0) {
+    endSiegeSteel(room,ballista,nowSec);
     ballista.destroyedAt = nowSec;
     ballista.mode = BI_BYE_MODES.DESTROYED;
     ballista.state = BI_BYE_STATES.SPENT;
