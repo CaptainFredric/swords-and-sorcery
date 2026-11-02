@@ -32,6 +32,7 @@ import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
+import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
 import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
@@ -395,6 +396,10 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   const practice = practising(room, player);
   const spell = spellFor(player.spell);
+  // Even a direct simulation caller cannot cast arbitrary ordinary spells
+  // from the operator's station; only a real mounted Steel ward is allowed.
+  const seated=Boolean(player.operatingFightFlightId||player.operatingBallistaId||player.operatingRamId);
+  if(seated&&(spell.id!=='steel'||!operatedSiegeSteelMachine(room,player)))return false;
   if (player.pendingSpell && nowSec >= player.castEndsAt && !ultimateStartup(player, nowSec)) spawnSpell(room, player, nowSec, room.world);
   if (player.pendingSpell || !spellReady(player, spell, nowSec, practice) || ultimateStartup(player, nowSec) || handsTaken(player, nowSec)) return false;
   if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
@@ -420,6 +425,8 @@ function preparedSelectionAllowed(room, player, spellId, nowSec) {
 export function selectPreparedSpell(room, playerId, spellId, nowSec) {
   const player = room.players.get(playerId);
   if (!preparedSelectionAllowed(room, player, spellId, nowSec)) return false;
+  if((player.operatingFightFlightId||player.operatingBallistaId||player.operatingRamId)&&
+    (spellId!=='steel'||!operatedSiegeSteelMachine(room,player)))return false;
   player.spellReadyById ??= {};
   // Capture legacy state before switching, for hosts that restored an older player shape.
   player.spellReadyById[player.spell] ??= player.spellReadyAt ?? 0;
@@ -440,6 +447,11 @@ export function castPreparedSpell(room, playerId, spellId, direction, nowSec) {
 // Steel keeps its ordinary identity clock and mechanics.
 function sheatheInSteel(room, player, spell, nowSec) {
   if (player.pendingSpell) return false;
+  const seated=Boolean(player.operatingFightFlightId||player.operatingBallistaId||player.operatingRamId);
+  const operating=seated?operatedSiegeSteelMachine(room,player):null;
+  if(seated&&!operating)return false;
+  if(operating&&!beginSiegeSteel(room,operating.machine,operating.kind,player,nowSec))
+    return false; // a previous ward cannot be duplicated during the training recast window
   player.steel = callSteel(nowSec);
   recordSpellUse(player, spell, nowSec, practising(room, player));
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
@@ -2371,6 +2383,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if (room.biByeLlista && (!isOthersFreeze || room.biByeLlista.operatorId === activeActorId)) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
   }
+  // One shared authoritative repair clock per machine; never per pilot or
+  // per rendered frame. Damage entrypoints also use the same ward object.
+  if(room.fightFlight)stepSiegeSteel(room,room.fightFlight,nowSec);
+  if(room.biByeLlista)stepSiegeSteel(room,room.biByeLlista,nowSec);
+  if(room.soFistication)stepSiegeSteel(room,room.soFistication,nowSec);
   if (!room.freezeProjectiles) {
     const filterOwnerId = isOthersFreeze ? activeActorId : null;
     stepProjectiles(room, dt, nowSec, world, { filterOwnerId });
