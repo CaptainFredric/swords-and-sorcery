@@ -6,13 +6,15 @@ import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
 import {VALKYRIE_RUN} from './fightFlightRun.mjs';
+import {stepSiegeWreck} from './siegeWreck.mjs';
 import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
-  hoverCost:7,climbCost:14,descentRecharge:5,groundSpeed:3.3,sprintSpeed:9.3,
-  airSpeed:9,airAcceleration:9,groundAcceleration:15,gravity:13.5,
+  hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
+  neutralStabilizeSec:1.0,neutralDescentSpeed:.4,
+  airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
 const cap=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=v=>Number.isFinite(v)?v:0;
@@ -39,11 +41,11 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
     rotorPowered:false,rotorBrakeHeld:false,rotorTargetRPM:0,rotorRPM:0,
     rotorSpinupAcceleration:90,rotorSpindownAcceleration:65,rotorLiftAuthority:0,
-    jumpWasHeld:false,hopStartedAt:null,hopRequested:false,verticalIntent:'IDLE',rotorLiftSuppressedUntil:0,
+    jumpWasHeld:false,hopStartedAt:null,hopRequested:false,verticalIntent:'IDLE',neutralHoverAt:null,rotorLiftSuppressedUntil:0,
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
-    flightDashHeld:false,flightDashStartedAt:null,runPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
+    flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,runPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
@@ -81,7 +83,7 @@ export function mountFightFlight(room,m,player,now=0){
   // Do not imprison the rider in machinery with no safe way to exit.
   if(!fightFlightExit(room,m,player))return false;
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
-  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';
+  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;
   player.flightInputAt=null;player.ejectionFallExempt=false;
   player.operatingFightFlightId=m.id;
   player.position=fightFlightOperator(m);player.velocity={x:0,y:0,z:0};
@@ -100,8 +102,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
   m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
-  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;player.operatingFightFlightId=null;
-  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';player.flightInputAt=null;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;m.practiceDashRefilling=false;player.operatingFightFlightId=null;
+  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   if(airborne&&safe&&!force){
@@ -122,7 +124,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   return true;
 }
 export function stepFightFlight(room,m,dt,now,world=room.world){
-  if(!m||m.retired||m.mode==='DESTROYED')return;
+  if(!m||m.retired)return;
+  if(m.mode==='DESTROYED'){stepSiegeWreck(room,m,now);return;}
   if(dt>.04&&!m.terminalDive){
     const subSteps=Math.min(10,Math.ceil(dt/.033));
     const subDt=dt/subSteps,startNow=now-dt;
@@ -191,6 +194,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
   m.verticalIntent=!op?.alive?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':m.hopStartedAt!=null||explicitHop?'HOP':'HOVER';
+  if(m.grounded||m.verticalIntent!=='HOVER')m.neutralHoverAt=null;
+  else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
   m.rotorBrakeHeld=Boolean(descend&&m.grounded);
@@ -230,7 +235,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
       // Bounded velocity servo, counteracting ascent and descent momentum.
-      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):0;
+      const settled=m.neutralHoverAt!=null&&now-m.neutralHoverAt>=FIGHT_FLIGHT.neutralStabilizeSec;
+      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):settled?-FIGHT_FLIGHT.neutralDescentSpeed:0;
       const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);

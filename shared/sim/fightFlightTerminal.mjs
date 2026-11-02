@@ -4,6 +4,7 @@
 import {PROWESS} from '../src/prowess.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
+import {beginSiegeWreck} from './siegeWreck.mjs';
 import {applyDamage,killPlayer} from './combat.mjs';
 import {blastBiByeLlista} from './biByeLlista.mjs';
 import {blastSoFistication} from './soFistication.mjs';
@@ -144,6 +145,7 @@ export function resolveTerminalFlight(room,m,now){
    pilot.respawnAt=now+(room.policy?.respawnSec??5);
    pilot.terminalRespawnDeferredFor=null;
  }
+ beginSiegeWreck(room,m,'fight-flight',now,{attackerId:d.operatorId,source:'fight-flight-terminal',point});
  m.health=0;m.mode='DESTROYED';m.operatorId=null;m.firingOperatorId=null;
  m.flightDashHeld=false;m.flightUltimateHeld=false;
  room.flightBurnZones??=[];

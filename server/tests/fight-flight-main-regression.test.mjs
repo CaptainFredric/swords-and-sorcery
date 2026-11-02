@@ -34,14 +34,14 @@ test('Rotor power, braking, lift and RPM are authoritative state with bounded an
   assert.ok(m.rotorRPM>0&&m.rotorTargetRPM===0,'RPM is physical, not an invented static HUD percentage');
   assert.equal(m.rotorPowered,false);
 });
-test('Neutral powered hover damps vertical momentum instead of preserving takeoff ascent indefinitely',()=>{
+test('Neutral powered hover stabilizes then gently descends without losing rotor support',()=>{
   const {room,m}=setup();
   tick(room,m,0,45,{jump:true});
   assert.equal(m.grounded,false);
   assert.ok(m.rotorPowered&&m.rotorRPM>0);
-  tick(room,m,1.5,36,{jump:false,crouch:false});
+  tick(room,m,1.5,50,{jump:false,crouch:false});
   assert.ok(m.rotorLiftAuthority>.8,'real rotor provides neutral hover support');
-  assert.ok(Math.abs(m.velocity.y)<.4,'neutral hover converges to zero vertical velocity');
+  assert.ok(m.velocity.y<-.25&&m.velocity.y>-.7,'neutral hover converges to gentle powered descent');
 });
 test('A short Space tap is a hop; a held Space press produces sustained takeoff',()=>{
   const brief=setup();

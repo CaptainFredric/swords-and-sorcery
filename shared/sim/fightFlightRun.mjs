@@ -3,7 +3,7 @@
 import {PROWESS} from '../src/prowess.mjs';
 import {activeUltimate} from '../src/ultimates.mjs';
 import {tryDash} from './combat.mjs';
-export const VALKYRIE_RUN=Object.freeze({drainPerSec:42,speed:18,turnRate:.85,
+export const VALKYRIE_RUN=Object.freeze({drainPerSec:42,practiceRefillPerSec:70,speed:18,turnRate:.85,
   acceleration:3.2,pitch:.34,chargeGraceSec:.30,chivalryDashImpulse:8});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function requestFlightDash(room,m,p,held,now){
@@ -11,7 +11,7 @@ export function requestFlightDash(room,m,p,held,now){
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
  const before=m.flightDashHeld===true;
  m.flightDashHeld=Boolean(held);
- if(!held){m.offensiveRun=false;m.flightDashStartedAt=null;return true;}
+ if(!held){m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;return true;}
  if(before)return true;
  m.flightDashStartedAt=now;
  const ultimate=activeUltimate(p,now);
@@ -36,15 +36,37 @@ export function stepFlightRun(room,m,dt,now){
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
  const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&now-(m.flightDashStartedAt??now)<VALKYRIE_RUN.chargeGraceSec);
- if(!valid||activeChivalry||preparing||grace||!(p.prowess>0)){
-   if(m.offensiveRun){room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+ const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
+ let running=valid&&!activeChivalry&&!preparing&&!grace;
+ // Training alone restores visible Prowess while Dash remains held. Runs still
+ // cost 42/s; each new burst waits for the complete 70/s training refill.
+ // Chivalry/terminal preparation always take precedence over a training run.
+ if(running&&practice&&(m.practiceDashRefilling||!(p.prowess>0))){
+   if(!m.practiceDashRefilling){
+     m.practiceDashRefilling=true;
+     room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});
+   }
+   p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
+   if(p.prowess>=PROWESS.full){
+     m.practiceDashRefilling=false;
+     room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});
+   }
+   running=false;
+ }
+ if(!running||!(p.prowess>0)){
+   if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
  }else{
    if(!m.offensiveRun){m.offensiveRun=true;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
-   // Provisional full personal meter lasts 2.38 seconds. Never deduct
-   // a Skill resource, machine flight charge, or an already active Ultimate.
    p.prowess=clamp(p.prowess-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
-   if(p.prowess<=0)m.offensiveRun=false;
+   if(p.prowess<=0){
+     m.offensiveRun=false;
+     room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
+     if(practice){
+       m.practiceDashRefilling=true;
+       room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});
+     }
+   }
  }
  const target=m.offensiveRun?VALKYRIE_RUN.pitch:0;
  m.runPitch=(m.runPitch??0)+(target-(m.runPitch??0))*(1-Math.exp(-dt*6));

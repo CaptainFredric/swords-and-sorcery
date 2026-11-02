@@ -9,6 +9,7 @@ import {postureOf} from '../src/body.mjs';
 import {GAME} from '../src/combat.mjs';
 import {STEEL_DAMAGE_RANGES} from '../src/steel.mjs';
 import {areAllies} from '../src/teams.mjs';
+import {beginSiegeWreck,stepSiegeWreck} from './siegeWreck.mjs';
 import {sampleTransform} from './history.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
 import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
@@ -108,7 +109,7 @@ function pinsPlayer(room,next,world,obstacles){
  return false;
 }
 export function stepSoFistication(room,b,dt,now,world=room.world){
- if(!b||b.retired||b.health<=0)return;b.poseTime=now;stepSoFistSkill(room,b,now);
+ if(!b||b.retired)return;if(b.health<=0){stepSiegeWreck(room,b,now);return;}b.poseTime=now;stepSoFistSkill(room,b,now);
  // Sweep the real striking surface against architecture before sampling contacts.
  const prior=soFistPose(b,now-dt),raw=soFistPose({...b,strokeLimit:null},now);
  b.strokePreviousOffset=prior.offset;b.strokeStepDt=dt;
@@ -310,7 +311,14 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+    beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
+    b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
+    const pilot=b.operatorId?room.players.get(b.operatorId):null;
+    dismountSoFistication(room,b,pilot,{force:true,at:now});
+    if(pilot?.alive)applyDamage(room,attackerId,pilot.id,35,'so-fist-collapse',now);
+    room.events.push({type:'soFistDestroyed',machineId:b.id,attackerId,source,point,at:now});
+   }}
  return true;
 }
 
