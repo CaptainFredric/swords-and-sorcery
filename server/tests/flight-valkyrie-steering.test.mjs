@@ -43,6 +43,32 @@ test('Launch aim is physically committed for .36 seconds; level aim still descen
   assert.ok(s.m.runPitch>.2,'rotor leads the visibly pitched attack');
   assert.equal(s.m.terminalDive,null);
 });
+test('Throttle gaps cannot consume the directional lock without real physics ticks',()=>{
+  const s=setup();s.p.input.yaw=0;s.p.input.pitch=0;
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  s.p.input.yaw=Math.PI/2;s.p.input.pitch=.7;
+  for(let i=1;i<=8;i++){
+    // Actual browser wall time may progress >360ms between 30Hz physics steps.
+    const now=i*.8;
+    stepFlightRun(s.room,s.m,DT,now);stepFightFlight(s.room,s.m,DT,now);
+    assert.ok(Math.abs(s.m.heading)<.001,'initial heading remains committed for simulated ticks');
+  }
+  assert.ok(s.m.runLaunchMinVy<-.35&&s.m.runLaunchDrop>.02,
+    'the real machine descends even if wall clock leapt seconds between ticks');
+  assert.ok(s.m.runElapsed<VALKYRIE_RUN.commitmentSec);
+  for(let i=9;i<=36;i++){const now=i*.8;stepFlightRun(s.room,s.m,DT,now);stepFightFlight(s.room,s.m,DT,now);}
+  assert.ok(s.m.heading>.4,'continued hold eventually transitions into turning');
+});
+test('Early release completes ten-metre physical travel even across wall-clock stalls',()=>{
+  const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);
+  frames(s,3);requestFlightDash(s.room,s.m,s.p,false,s.now);
+  for(let i=1;i<=45&&s.m.offensiveRun;i++){
+    const now=10+i*1.8; // wall time jumps, but each real physics step is 1/30s
+    stepFlightRun(s.room,s.m,DT,now);stepFightFlight(s.room,s.m,DT,now);
+  }
+  assert.ok(s.m.runTravel>=10);
+  assert.equal(s.m.offensiveRun,false);
+});
 test('Sustained held Dash turns with rate-limited angular acceleration',()=>{
   const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);
   frames(s,12);
