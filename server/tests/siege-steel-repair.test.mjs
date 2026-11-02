@@ -60,7 +60,7 @@ test('ward prevents 7 sword damage and permits at most 23 actual repair',()=>{
  const hit=damageFightFlight(x.room,x.m,26,null,'sword',2,{componentId:'main'});
  assert.equal(hit.damage,19);assert.equal(hit.turned,7);
  assert.equal(x.m.siegeSteel.bonusPrevented,7);
- assert.equal(x.m.health,before-19);
+ assert.ok(Math.abs(x.m.health-(before+19/5-19))<1e-7,'one second of guaranteed repair accrues before the hit');
  heal(x);
  assert.ok(Math.abs(x.m.siegeSteel.healed-23)<1e-6);
  assert.ok(Math.abs(x.m.health-(before-19+23))<1e-6);
@@ -121,7 +121,7 @@ test('ram Fist material mitigation is applied before temporary ward accounting',
  const x=setup('ram');x.m.components.Fist.health=400;cast(x);
  const before=x.m.components.Fist.health;
  assert.equal(damageSoFistication(x.room,x.m,30,null,'sword',2,{componentId:'Fist'}),true);
- assert.equal(x.m.components.Fist.health,before-19);
+ assert.equal(x.m.components.Fist.health,before+90/5-19,'the guaranteed ram repair precedes Fist material mitigation');
  assert.equal(x.m.siegeSteel.bonusPrevented,0,'inherent armor did not spend magic');
 });
 test('innate Fight-and-Flight Steel cannot be double-counted or reset by cast',()=>{
