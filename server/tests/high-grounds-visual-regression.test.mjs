@@ -4,6 +4,7 @@ import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
 import { partitionHighGroundsDecks } from '../../shared/worlds/highGroundsVisualGeometry.mjs';
 import { surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { navGraph, runClear } from '../../shared/sim/botNav.mjs';
+import { readFile } from 'node:fs/promises';
 
 test('all rendering deck triangles are unique and exactly at an authoritative height',()=>{
   const {top,fascia}=partitionHighGroundsDecks(HIGH_GROUNDS);
@@ -44,4 +45,22 @@ test('no isolated route nodes on ground, canopy, root path or entry roads',()=>{
   for(const spawn of HIGH_GROUNDS.spawnPoints)
     assert.ok(g.nodes.some(n=>runClear(HIGH_GROUNDS,spawn,n)),
       `stranded spawn ${spawn.x},${spawn.z}`);
+});
+
+test('High Grounds presents all three authoritative siege vehicles, including remote production',async()=>{
+  const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
+  const map=await read('client/worlds/HighGroundsRenderer.mjs');
+  const flight=await read('client/worlds/FightFlightRenderer.mjs');
+  const runtime=await read('client/game/GameRuntime.mjs');
+  const main=await read('client/main.mjs');
+  assert.match(map,/if \(snapshot\?\.bibyeBallista && !this\.biByeLlista\)/);
+  assert.match(map,/this\.biByeLlista = new BiByeLlistaRenderer\(this\.scene\)/);
+  assert.match(map,/setBiByeState\(snapshot/);
+  assert.match(map,/this\.biByeLlista\?\.update\(view\.clock, view\.ballista, view\.projectiles\)/);
+  assert.match(map,/this\.biByeLlista\?\.dispose\(\)/);
+  assert.match(flight,/this\.autoLoadMachineId !== m\.id/);
+  assert.match(flight,/void this\.load\(\)/);
+  assert.match(runtime,/this\.ramRenderer\.update\(ramView\.clock,ramView\.ballista\)/);
+  assert.match(main,/runtime\?\.ramRenderer\?\.load\(true\)/);
+  assert.match(main,/runtime\?\.flightRenderer\?\.load\(\)/);
 });
