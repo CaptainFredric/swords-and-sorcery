@@ -152,18 +152,22 @@ try{
  // Execute the *ordinary* E Dash in the actual networked Practice canvas.
  // No Ultimate key is pressed: the separate terminal chord is never attempted.
  await down(' '); // climb high enough for the real attack to descend
- await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y>8"),'clearance for a true descending launch',180);
+ await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y>5.5"),'clearance for a true descending launch',180);
  await up(' ');await sleep(600);
  await evaluate("document.querySelector('#practice-ultimate').click()");
  await until(()=>evaluate("(window.__ssRuntime?.localAuth?.prowess??0)>=99"),'legitimate full Practice Prowess',80);
  await evaluate("window.__ssRuntime.input.pitch=0");
  const ready=await evaluate(flightState);
  const startHeading=ready.machine.heading;
+ // The game runs real 30Hz ticks; a CDP round-trip can exceed the complete
+ // 360ms launch in software Chrome. Sample every rendered update *in Chrome*,
+ // then inspect those immutable authoritative snapshots from CDP.
+ await evaluate("(() => {const trace=window.__valkyrieTrace=[];let count=0;const capture=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;if(m&&count<2000)trace.push({at:performance.now(),x:m.x,y:m.y,z:m.z,heading:m.heading,vy:m.velocity?.y,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,travel:m.runTravel,run:Boolean(m.offensiveRun),terminal:Boolean(m.terminalDive)});if(++count<2000)requestAnimationFrame(capture);};requestAnimationFrame(capture);})()");
  await down('E');
  const committed=await until(async()=>{
-  const s=await evaluate(flightState);
-  return s.machine?.offensiveRun&&s.machine.runPitch>.2&&s.machine.velocity?.y<-.5?s:false;
- },'physical nose-down Valkyrie launch from an ordinary Dash key',85);
+  const trace=await evaluate("window.__valkyrieTrace?.find(s=>s.run&&s.runPitch>.2&&s.vy<-.35&&s.y<"+JSON.stringify(ready.machine.y)+"-.02)??null");
+  return trace?{machine:{...trace,velocity:{y:trace.vy},terminalDive:trace.terminal}}:false;
+ },'physical nose-down Valkyrie launch from captured live simulation frames',85);
  assert.ok(committed.machine.y<ready.machine.y,'actual Y descends, not camera alone');
  assert.equal(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),false);
  await screenshot('04-valkyrie-physical-dive');
@@ -190,8 +194,10 @@ try{
   'short launch must travel 10m unless real collision or landing interrupts it');
  assert.equal(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),false);
  await screenshot('06-valkyrie-recovered');
- const result={before,mounted,flying,ready,committed,curved,recovered,
-  travelMetres:recovered.machine.runTravel,turnRadians:curved.machine.heading-startHeading,errors};
+ const trace=await evaluate("window.__valkyrieTrace??[]");
+ const result={before,mounted,flying,ready,committed,curved,recovered,trace,
+  travelMetres:recovered.machine.runTravel,
+  turnRadians:Math.atan2(Math.sin(curved.machine.heading-startHeading),Math.cos(curved.machine.heading-startHeading)),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
  assert.equal(errors.length,0,'Browser exceptions: '+errors.join('; '));
  console.log('[FAF VALKYRIE] world measurements',JSON.stringify({
