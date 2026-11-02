@@ -85,7 +85,7 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
     if(turned>0)m.componentSteel[componentId]=steelTakes(state,now);
   }
   const ward=mitigateSiegeSteel(room,m,amount,source,now,
-    {innateAmount:actual,componentId,explicitMin:steelMinimum,point});
+    {innateAmount:actual,componentId,explicitMin:steelMinimum>0?steelMinimum:null,point});
   actual=ward.amount;turned+=ward.turned;
   actual=clamp(actual,0,m[def.hp]);
   m[def.hp]-=actual;
