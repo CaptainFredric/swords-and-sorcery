@@ -115,7 +115,9 @@ test('Prowess-powered Dash accelerates a rotor-equipped machine and pitches forw
  assert.ok(m.offensiveRun&&m.runPitch>.1&&Math.hypot(m.velocity.x,m.velocity.z)>8);
  assert.ok(p.prowess>0&&p.prowess<100);assert.equal(m.terminalDiveSpent,false);
  assert.deepEqual(applyRoomCommand(room,p,{type:'flightDash',down:false},2.11),{});
- stepFlightRun(room,m,DT,2.12);assert.equal(m.offensiveRun,false);
+ stepFlightRun(room,m,DT,2.12);
+ assert.equal(m.flightDashHeld,false);
+ assert.equal(m.offensiveRun,true,'early release finishes the ten-metre launch');
 });
 test('Aerial ejection falls and lands; remount preserves machine ammunition, debt, and Skill state',()=>{
  const {room,m,p}=setup();step(room,m,0,65,{flightRise:true});
