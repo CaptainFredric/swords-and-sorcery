@@ -155,19 +155,30 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .ballista-hud strong { font-size: 10px; letter-spacing: .06em; color: #e4ce98; }
 .ballista-hud span { font-size: 12px; }
 .ballista-hud small { font-size: 10px; line-height: 1.3; color: #c4bda8; }
-.flight-hud { width: min(480px, calc(100% - 24px)); display: grid; gap: 4px; justify-items: center; pointer-events: none; }
+.flight-hud { width: min(390px, calc(100% - 24px)); display: grid; gap: 3px; justify-items: center; pointer-events: none; }
 .flight-hud[hidden] { display: none; }
-.flight-hud-strip { display: flex; align-items: center; justify-content: space-around; width: 100%; padding: 5px 12px; background: linear-gradient(180deg, rgba(24, 25, 20, .78), rgba(16, 17, 13, .88)); border: 1px solid rgba(190, 155, 85, .45); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .55); }
-.flight-metric { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.flight-metric label { font-size: 8px; font-weight: 800; letter-spacing: .12em; color: #c9b990; }
-.flight-metric b { font-size: 13px; font-variant-numeric: tabular-nums; color: #f5eedc; }
-.flight-metric.skill b.active { color: #ffcf68; text-shadow: 0 0 8px rgba(255, 207, 104, .7); }
-.flight-bar-wrap { display: flex; align-items: center; gap: 6px; }
-.flight-bar-wrap progress { width: 64px; height: 8px; accent-color: #d4a958; }
+.flight-hud-strip { display: flex; align-items: center; justify-content: space-around; width: 100%; padding: 3px 10px; background: linear-gradient(180deg, rgba(22, 23, 19, .72), rgba(14, 15, 12, .82)); border: 1px solid rgba(190, 155, 85, .38); border-radius: 7px; box-shadow: 0 3px 12px rgba(0, 0, 0, .45); backdrop-filter: blur(2px); }
+.flight-metric { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.flight-metric label { font-size: 8px; font-weight: 800; letter-spacing: .08em; color: #c9b990; line-height: 1; }
+.flight-metric b { font-size: 11px; font-variant-numeric: tabular-nums; color: #f5eedc; line-height: 1.1; }
+.flight-metric small { font-size: 8px; color: #a8a08c; line-height: 1; }
+.flight-metric.skill b.active { color: #ffcf68; text-shadow: 0 0 6px rgba(255, 207, 104, .7); }
+.flight-bar-wrap { display: flex; align-items: center; gap: 4px; }
+.flight-bar-wrap progress { width: 48px; height: 6px; border-radius: 2px; }
+.flight-metric.hull progress { accent-color: #e65245; }
+.flight-metric.hull progress::-webkit-progress-value { background: linear-gradient(90deg, #b0342a, #e65245); border-radius: 2px; }
+.flight-metric.hull progress::-moz-progress-bar { background: linear-gradient(90deg, #b0342a, #e65245); border-radius: 2px; }
+.flight-metric.charge progress { accent-color: #f0c354; }
+.flight-metric.charge progress::-webkit-progress-value { background: linear-gradient(90deg, #c99832, #f0c354); border-radius: 2px; }
+.flight-metric.charge progress::-moz-progress-bar { background: linear-gradient(90deg, #c99832, #f0c354); border-radius: 2px; }
 .flight-warning-banner { padding: 3px 12px; background: rgba(180, 42, 34, .82); border: 1px solid #ff7b72; border-radius: 4px; font-size: 9px; font-weight: 900; letter-spacing: .14em; color: #fff; text-shadow: 0 1px 2px #000; animation: pulse-warn 1s infinite alternate; }
 @keyframes pulse-warn { from { opacity: .85; transform: scale(.98); } to { opacity: 1; transform: scale(1.02); } }
 .flight-controls-hint { font-size: 9px; line-height: 1.25; color: #b8b09a; text-align: center; text-shadow: 0 1px 2px #000; }
-.ballista-mounted :is(.abilities, .guard-block) { display: none; }
+.ballista-mounted:not(.flight-mounted) .guard-block,
+.ballista-mounted .abilities { display: none; }
+.flight-mounted .bottom-hud { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.flight-mounted .guard-block { display: block !important; opacity: 1 !important; position: static; transform: none; width: 250px; margin-top: 6px; }
+.guard-block.flight-persistent { opacity: 1 !important; display: block !important; }
 .ballista-mounted.pointer-locked .practice-tools { display: none; }
 .breakthrough-hud[data-team="ATTACKERS"] { border-top: 2px solid #5294ff; }
 .breakthrough-hud[data-team="DEFENDERS"] { border-top: 2px solid #de4840; }

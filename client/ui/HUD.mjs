@@ -225,9 +225,10 @@ export class HUD {
     this.flightPanel.hidden = true;
     this.flightPanel.innerHTML = `
       <div class="flight-hud-strip">
-        <div class="flight-metric alt"><label>ALT</label><b><output data-flight-alt>0.0</output>m</b></div>
-        <div class="flight-metric charge"><label>CHARGE</label><div class="flight-bar-wrap"><progress max="100" value="100" data-flight-charge-bar></progress><output data-flight-charge>100</output></div></div>
+        <div class="flight-metric hull"><label>HULL</label><div class="flight-bar-wrap"><progress max="250" value="250" data-flight-hull-bar></progress><b><output data-flight-hull>250</output></b></div></div>
+        <div class="flight-metric charge"><label>CHARGE</label><div class="flight-bar-wrap"><progress max="100" value="100" data-flight-charge-bar></progress><b><output data-flight-charge>100</output></b></div></div>
         <div class="flight-metric rotor"><label>ROTOR</label><b><output data-flight-rotor>100</output>%</b><small><output data-flight-rpm>0</output> RPM</small></div>
+        <div class="flight-metric alt"><label>ALT</label><b><output data-flight-alt>0.0</output>m</b></div>
         <div class="flight-metric ammo"><label>AMMO</label><b><output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></b><small data-flight-debt></small></div>
         <div class="flight-metric skill"><label>SKILL</label><b data-flight-skill>READY</b></div>
       </div>
@@ -285,7 +286,9 @@ export class HUD {
       this.staggerTrack.classList.toggle('warn', stagger >= 0.72);
       this.staggerTrack.classList.toggle('recovering', (local.stagger?.recoverUntil ?? -Infinity) > serverNow);
     }
-    this.guardBlock.classList.toggle('faded', !local.guarding && !local.sprinting && guard >= 99.5 && stagger <= 0.01);
+    const inFlight = Boolean(local.alive && local.operatingFightFlightId);
+    this.guardBlock.classList.toggle('faded', !inFlight && !local.guarding && !local.sprinting && guard >= 99.5 && stagger <= 0.01);
+    this.guardBlock.classList.toggle('flight-persistent', inFlight);
     this.guardBlock.classList.toggle('sprinting', Boolean(local.sprinting));
     this.guardBlock.classList.toggle('winded', !local.sprinting && guard < SPRINT.restartStamina);
 
@@ -333,6 +336,10 @@ export class HUD {
       if(siege.pressure!=null){pressure.querySelector('output').textContent=Math.ceil(siege.pressure);pressure.querySelector('progress').value=siege.pressure;}
     } else if (siege && isFlight) {
       this.flightPanel.querySelector('[data-flight-alt]').textContent = siege.alt;
+      const hullBar = this.flightPanel.querySelector('[data-flight-hull-bar]');
+      if (hullBar) { hullBar.max = siege.maxHull ?? 250; hullBar.value = siege.hull ?? 250; }
+      const hullOut = this.flightPanel.querySelector('[data-flight-hull]');
+      if (hullOut) hullOut.textContent = siege.hull ?? 250;
       this.flightPanel.querySelector('[data-flight-charge]').textContent = siege.charge;
       const chargeBar = this.flightPanel.querySelector('[data-flight-charge-bar]');
       chargeBar.max = siege.maxCharge; chargeBar.value = siege.charge;
@@ -602,6 +609,18 @@ export class HUD {
     tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     // (running, it is lit, not shaded: what is left of it is the ring round it)
     tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
+    const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
+    tile.style.setProperty('--prowess', `${prowess.toFixed(1)}%`);
+    tile.style.setProperty('--prowess-fraction', (prowess / 100).toFixed(3));
+    const inFlight = Boolean(local?.alive && local.operatingFightFlightId);
+    const flightDashDraining = Boolean(inFlight && local.offensiveRun);
+    tile.classList.toggle('prowess-draining', flightDashDraining);
+    if (practice && prowess >= 98 && (this.lastProwess ?? 100) < 60) {
+      tile.classList.remove('practice-refill');
+      void tile.offsetWidth;
+      tile.classList.add('practice-refill');
+    }
+    this.lastProwess = prowess;
     const value = tile.querySelector('strong');
     if (value.textContent !== view.label) value.textContent = view.label;
     const ready = view.state === 'ready';

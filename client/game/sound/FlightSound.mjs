@@ -140,8 +140,10 @@ export function flightLoopSamples(kind, rate=22050, seconds=2, rand=Math.random)
       result[i] = seam * (low * 0.22 + wash * 0.26 + gear);
     } else if (kind === 'walk') {
       const phase = (t * 4.2) % 1;
-      const foot = Math.exp(-phase * 22) * Math.sin(2 * Math.PI * 95 * t) * 0.18;
-      result[i] = seam * (low * 0.24 + foot);
+      const thud = Math.exp(-phase * 18) * Math.sin(2 * Math.PI * 68 * t) * 0.24;
+      const foot = Math.exp(-phase * 24) * Math.sin(2 * Math.PI * 110 * t) * 0.16;
+      const clank = Math.exp(-phase * 32) * Math.sin(2 * Math.PI * 380 * t) * 0.05 * (white * 0.4 + 0.6);
+      result[i] = seam * (low * 0.26 + thud + foot + clank);
     } else if (kind === 'offensive') {
       const bearing=Math.sin(2*Math.PI*310*t)*.05;
       const rushingAir=(white-low)*.10;
@@ -241,7 +243,9 @@ export class FlightSound {
     this.#loop('rotor', rotorSpinning, m, rotorGain, climbRateMod);
 
     const walking = owned && grounded && speed > 0.35;
-    this.#loop('walk', walking, m, 0.22, Math.max(0.6, Math.min(1.3, speed / 3)));
+    const isSprint = speed > 5.2 || Boolean(m.offensiveRun);
+    const walkRate = isSprint ? Math.max(1.0, Math.min(1.5, speed / 4.2)) : Math.max(0.65, Math.min(1.25, speed / 3.2));
+    this.#loop('walk', walking, m, isSprint ? 0.28 : 0.22, walkRate);
 
     const offensive = owned && Boolean(m.offensiveRun);
     // A released Dash clears offensiveRun in the command handler *before*

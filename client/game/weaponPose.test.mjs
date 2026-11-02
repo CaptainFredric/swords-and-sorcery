@@ -106,3 +106,30 @@ test('local cast visual duration comes only from an authoritative local cast eve
   assert.equal(castVisualDuration({ type: 'respawn', playerId: 'me', at: 20 }, 'me', 20.05), null);
   assert.equal(castVisualDuration({ type: 'spellCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.5), null);
 });
+
+test('flight cockpit first-person view holds lower-right stance, visible attacks, low guard and parry', () => {
+  const idle = resolveWeaponPose({ ...base, flightCockpit: true });
+  assert.equal(idle.state, 'idle');
+  assert.ok(idle.group.x >= 0.60, 'cockpit idle should sit biased to lower-right');
+  assert.ok(idle.group.y <= -0.55, 'cockpit idle should sit low, clear of reticle');
+  assert.ok(idle.leftHand.y <= -0.90, 'cockpit left hand should stay tucked away on machine grip');
+
+  const guard = resolveWeaponPose({ ...base, guard: true, flightCockpit: true });
+  assert.equal(guard.state, 'guard');
+  assert.ok(guard.group.x >= 0.44, 'cockpit guard should stay biased right');
+  assert.ok(guard.group.y <= -0.44, 'cockpit guard should remain low and readable');
+  assert.ok(guard.sword.rx < -0.30, 'cockpit guard should angle the blade defensively');
+
+  const attack = resolveWeaponPose({ ...base, attackHeld: true, attackStartedAt: 9.64, flightCockpit: true });
+  assert.equal(attack.state, 'attack');
+  assert.equal(attack.attackPhase, 'cut');
+  assert.ok(attack.group.y <= -0.40, 'cockpit attack cut should sweep across lower field of view');
+
+  const parry = resolveWeaponPose({ ...base, parryUntil: 10.2, flightCockpit: true });
+  assert.ok(parry.group.y > idle.group.y, 'parry should deliver sharp upward deflection jolt');
+
+  const chivalry = resolveWeaponPose({ ...base, concurrent: true, flightCockpit: true, guard: true, attackHeld: true, attackStartedAt: 9.64 });
+  assert.ok(chivalry.concurrent.attack);
+  assert.ok(chivalry.concurrent.guard);
+  assert.ok(chivalry.group.x >= 0.40);
+});

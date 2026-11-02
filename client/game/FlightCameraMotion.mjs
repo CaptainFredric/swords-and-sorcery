@@ -42,18 +42,18 @@ export class FlightCameraMotion {
     // 1. Landing impulse and equipment settling: proportional to vertical impact
     if (grounded && !this.wasGrounded) {
       const impact = Math.min(8, Math.max(1.2, Math.abs(this.lastVelY)));
-      this.posVel.y -= impact * 0.045; // downward compression
-      this.rotVel.pitch += impact * 0.025;  // forward nod as feet contact turf
+      this.posVel.y -= impact * 0.055; // downward compression
+      this.rotVel.pitch += impact * 0.03;  // forward nod as sabatons contact turf
     } else if (grounded && this.lastVelY < -1.5) {
       const impact = Math.min(6, Math.abs(this.lastVelY));
-      this.posVel.y -= impact * 0.04;
-      this.rotVel.pitch += impact * 0.02;
+      this.posVel.y -= impact * 0.048;
+      this.rotVel.pitch += impact * 0.024;
     }
 
     // 2. Takeoff surge and harness lift reaction
     if (!grounded && this.wasGrounded && vy > 0.3) {
-      this.posVel.y -= 0.045; // initial downward inertia as machine lifts off
-      this.rotVel.pitch += 0.02; // slight upward tilt
+      this.posVel.y -= 0.05; // initial downward inertia as machine lifts off
+      this.rotVel.pitch += 0.024; // slight upward tilt
     }
 
     this.wasGrounded = grounded;
@@ -62,53 +62,67 @@ export class FlightCameraMotion {
     // 3. Weapon firing recoil: brief kick when a bolt releases
     if (m.lastShotAt && m.lastShotAt !== this.lastShotAt) {
       this.lastShotAt = m.lastShotAt;
-      this.posVel.z += 0.018; // slight backward kick in local space
-      this.rotVel.pitch += 0.012; // slight upward pitch kick
+      this.posVel.z += 0.022; // slight backward kick in local space
+      this.rotVel.pitch += 0.015; // slight upward pitch kick
     }
 
-    // 4. Ground walking cadence bob
+    // 4. Ground walking cadence bob, heavy footsteps, and lateral body weight transfer
+    let targetX = 0;
     let targetY = 0;
     let targetPitch = 0;
     let targetRoll = 0;
 
     if (grounded && speed > 0.3) {
-      this.walkPhase = (this.walkPhase + clampedDt * speed * 4.2) % (Math.PI * 2);
-      targetY += Math.sin(this.walkPhase) * 0.015;
-      targetRoll += Math.cos(this.walkPhase * 0.5) * 0.008;
+      const isSprinting = speed > 5.2 || Boolean(m.offensiveRun);
+      const cadence = isSprinting ? 5.8 : 4.0;
+      this.walkPhase = (this.walkPhase + clampedDt * speed * cadence) % (Math.PI * 2);
+
+      // Heavy ground footstep: heel-strike compression + stride rise
+      const stepCompression = Math.abs(Math.sin(this.walkPhase));
+      const bobAmp = isSprinting ? 0.042 : 0.032;
+      targetY += (Math.sin(this.walkPhase * 2) * 0.5 - stepCompression * 0.5) * bobAmp;
+
+      // Body weight transfer: lateral sway between left and right sabatons
+      const swayAmp = isSprinting ? 0.022 : 0.016;
+      targetX += Math.sin(this.walkPhase) * swayAmp;
+      targetRoll += Math.sin(this.walkPhase) * (isSprinting ? 0.020 : 0.015);
+
+      // Rhythmic step pitch nod
+      targetPitch += Math.cos(this.walkPhase * 2) * (isSprinting ? 0.012 : 0.008);
     }
 
-    // 5. Horizontal acceleration / braking reaction
+    // 5. Horizontal acceleration / braking reaction (lean back on throttle, lean forward on brake)
     const accel = (speed - this.lastSpeed) / clampedDt;
     this.lastSpeed = speed;
-    if (accel > 1.8) {
-      targetPitch += Math.min(0.025, accel * 0.0025);
-    } else if (accel < -2.5) {
-      targetPitch -= Math.min(0.035, Math.abs(accel) * 0.0035);
+    if (accel > 1.6) {
+      targetPitch += Math.min(0.042, accel * 0.0035);
+    } else if (accel < -2.2) {
+      targetPitch -= Math.min(0.048, Math.abs(accel) * 0.0042);
     }
 
-    // 6. Climb / descent / takeoff inertia
+    // 6. Climb / descent / takeoff inertia & subtle airborne bounce
     if (!grounded) {
       if (vy > 0.5) {
-        targetY -= Math.min(0.025, vy * 0.005);
+        targetY -= Math.min(0.03, vy * 0.006);
       } else if (vy < -0.5) {
-        targetY += Math.min(0.02, Math.abs(vy) * 0.004);
+        targetY += Math.min(0.025, Math.abs(vy) * 0.005);
       }
       if (speed > 1) {
-        targetPitch -= Math.min(0.025, speed * 0.003);
+        targetPitch -= Math.min(0.03, speed * 0.0035);
       }
       if (m.offensiveRun) {
-        targetPitch -= 0.035;
+        targetPitch -= 0.042;
       }
-      if ((m.rotorEnergy ?? 0) > 20 && (m.rotorHP ?? 0) > 0) {
+      if ((m.rotorEnergy ?? 0) > 15 && (m.rotorHP ?? 0) > 0) {
         const rotorFreq = (m.rotorAngle ?? 0) * 2;
-        targetY += Math.sin(rotorFreq) * 0.0025;
+        targetY += Math.sin(rotorFreq) * 0.0035;
       }
     }
 
     // Spring damping constants: stiff, responsive, well-damped
     const kPos = 160;
     const dPos = 18;
-    this.posVel.x += (0 - this.posSpring.x) * kPos * clampedDt - this.posVel.x * dPos * clampedDt;
+    this.posVel.x += (targetX - this.posSpring.x) * kPos * clampedDt - this.posVel.x * dPos * clampedDt;
     this.posVel.y += (targetY - this.posSpring.y) * kPos * clampedDt - this.posVel.y * dPos * clampedDt;
     this.posVel.z += (0 - this.posSpring.z) * kPos * clampedDt - this.posVel.z * dPos * clampedDt;
     this.posSpring.x += this.posVel.x * clampedDt;

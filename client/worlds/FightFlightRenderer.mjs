@@ -79,21 +79,34 @@ export class FightFlightRenderer{
   }
   setFailureParts(){
     const m=this.state;if(!m)return;
+    const isDestroyed = m.mode === 'DESTROYED' || (m.health ?? 1) <= 0;
     for(const [intact,damaged,hp] of [
-      ['Protective_Brace_L','Protective_Brace_L_Damaged',m.braceLHP],
-      ['Protective_Brace_R','Protective_Brace_R_Damaged',m.braceRHP]]){
+      ['Protective_Brace_L','Protective_Brace_L_Damaged',isDestroyed ? 0 : m.braceLHP],
+      ['Protective_Brace_R','Protective_Brace_R_Damaged',isDestroyed ? 0 : m.braceRHP]]){
       const original=this.nodes.get(intact),broken=this.nodes.get(damaged);
-      if(original)original.visible=hp>0;
-      if(broken){broken.scale.setScalar(hp>0?0:1);broken.visible=hp<=0;}
+      if(original)original.visible=!isDestroyed && hp>0;
+      if(broken){broken.scale.setScalar((isDestroyed || hp<=0)?1:0);broken.visible=(isDestroyed || hp<=0);}
     }
     const banner=this.nodes.get('Rear_Trident_Banner');
-    if(banner)banner.visible=!this.isFirstPerson;
-    for(const name of SLOT_NAMES){const i=SLOT_NAMES.indexOf(name),n=this.nodes.get(name);if(n)n.visible=Math.floor(m.ammo??0)>=i+1;}
-    const rotorAlive=m.rotorHP>0;
+    if(banner)banner.visible=!this.isFirstPerson && !isDestroyed;
+    for(const name of SLOT_NAMES){const i=SLOT_NAMES.indexOf(name),n=this.nodes.get(name);if(n)n.visible=!isDestroyed && Math.floor(m.ammo??0)>=i+1;}
+    const rotorAlive=!isDestroyed && m.rotorHP>0;
     for(const name of ['Rotor_Sword_Blade_L','Rotor_Sword_Blade_R']){const n=this.nodes.get(name);if(n)n.visible=rotorAlive;}
     for(const name of ['Rotor_Hub_Fractured_Collar','Rotor_Blade_L_Fractured_Stump']){const n=this.nodes.get(name);if(n){n.visible=!rotorAlive;n.scale.setScalar(rotorAlive?0:1);}}
+    const detached=this.nodes.get('Rotor_Blade_L_Detached_Segment');
+    if(detached){
+      detached.visible=!rotorAlive;
+      if(!rotorAlive){
+        detached.scale.setScalar(1);
+        if(isDestroyed){
+          detached.position.set(-0.35, -0.6, 0.25);
+          detached.rotation.set(0.4, 0.2, -0.6);
+        }
+      }
+    }
   }
   posture(m){
+    if(m.mode==='DESTROYED'||(m.health??1)<=0)return 'Damage_08_Rotor_Destroy_Grounded';
     if(m.rotorHP<=0)return 'Damage_08_Rotor_Destroy_Grounded';
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
     if(m.terminalDive&&!m.terminalDive.resolved)return 'Posture_07_Terminal_Dive_Pitch';
@@ -140,6 +153,9 @@ export class FightFlightRenderer{
     // Authored pitched flight pose and actual pilot machine silhouette share
     // the same authoritative run tilt; no unrelated camera dip is applied.
     this.model.rotation.x=m.runPitch??0;
+    const isDestroyed = m.mode === 'DESTROYED' || (m.health ?? 1) <= 0;
+    this.model.rotation.z = isDestroyed ? 0.22 : 0;
+    this.model.position.y = isDestroyed ? -0.16 : 0;
     const dt=this.lastUpdateAt!=null?Math.min(0.1,Math.max(0,now-this.lastUpdateAt)):0;
     this.lastUpdateAt=now;
     const name=this.posture(m),clip=this.clips.get(name);

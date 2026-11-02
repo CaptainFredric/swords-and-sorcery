@@ -442,7 +442,12 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-crouch.crouched { box-shadow: inset 0 0 0 2px rgba(236, 217, 164, .3), 0 0 14px rgba(236, 217, 164, .55); }
 
 /* the ultimate: top of the right thumb's arc, above Jump; its shade drains as prowess fills, full it glows */
-.touch-ultimate { --size: 50px; right: calc(var(--safe-r) + 24px * var(--s)); bottom: calc(var(--safe-b) + 222px * var(--s)); color: #e2c27a; border-color: rgba(226, 194, 122, .55); }
+.touch-ultimate { --size: 50px; right: calc(var(--safe-r) + 24px * var(--s)); bottom: calc(var(--safe-b) + 222px * var(--s)); color: #e2c27a; border-color: rgba(226, 194, 122, .55); background: radial-gradient(circle at 50% 120%, rgba(226, 120, 40, calc(var(--prowess-fraction, 0) * 0.45)), rgba(18, 20, 16, 0.95)); transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out; }
+.touch-ultimate.prowess-draining { border-color: #ff9d42 !important; box-shadow: 0 0 14px rgba(255, 140, 50, 0.65), inset 0 0 10px rgba(255, 120, 30, 0.35) !important; animation: prowess-fluid-drain 0.4s ease-in-out infinite alternate; }
+.touch-ultimate.practice-refill { animation: prowess-practice-refill 0.5s ease-out; }
+@keyframes prowess-fluid-drain { 0% { filter: brightness(1) drop-shadow(0 0 2px rgba(255, 140, 50, 0.4)); } 100% { filter: brightness(1.2) drop-shadow(0 0 6px rgba(255, 140, 50, 0.75)); } }
+@keyframes prowess-practice-refill { 0% { box-shadow: 0 0 22px rgba(255, 200, 80, 0.9), inset 0 0 14px rgba(255, 200, 80, 0.6); border-color: #ffe082; } 100% { box-shadow: 0 0 14px rgba(226, 194, 122, .55); border-color: #e2c27a; } }
+@media (prefers-reduced-motion: reduce) { .touch-ultimate.prowess-draining, .touch-ultimate.practice-refill { animation: none; } }
 .touch-ultimate::after { content: ""; position: absolute; inset: 0; background: rgba(8, 9, 7, .66); transform: translateY(calc(var(--charge, 0) * -100%)); pointer-events: none; }
 .touch-ultimate.charging svg, .touch-ultimate.charging span { opacity: .55; }
 .touch-ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 14px rgba(226, 194, 122, .55); }
@@ -479,14 +484,54 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Joystick channel is the sprint/charge gesture; retain FAST in inspection flight. */
 .touch-controls:not(.inspection-flight) .touch-sprint { display: none !important; }
 
+/* Winged arrow icon for siegeSkill */
+.winged-arrow-shaft {
+  transition: transform 0.12s ease-out;
+}
+.winged-arrow-wing-l,
+.winged-arrow-wing-r {
+  transform-origin: 12px 10px;
+  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
+}
+
+/* During ordinary repeater fire (firing / repeater-active) */
+.touch-siegeSkill.firing .winged-arrow-wing-l,
+.touch-siegeSkill.repeater-active .winged-arrow-wing-l {
+  transform: rotate(26deg) scale(0.72);
+  opacity: 0.8;
+}
+.touch-siegeSkill.firing .winged-arrow-wing-r,
+.touch-siegeSkill.repeater-active .winged-arrow-wing-r {
+  transform: rotate(-26deg) scale(0.72);
+  opacity: 0.8;
+}
+.touch-siegeSkill.firing .winged-arrow-shaft,
+.touch-siegeSkill.repeater-active .winged-arrow-shaft {
+  transform: translateY(-2px);
+}
+
+/* Distinct from skill-active (Fire Away skill active) */
+.touch-siegeSkill.skill-active {
+  box-shadow: 0 0 16px rgba(238, 211, 155, .85);
+  border-color: #ffd875;
+}
+.touch-siegeSkill.skill-active .winged-arrow-wing-l {
+  transform: rotate(-12deg) scale(1.15);
+  filter: drop-shadow(0 0 3px #ffd875);
+}
+.touch-siegeSkill.skill-active .winged-arrow-wing-r {
+  transform: rotate(12deg) scale(1.15);
+  filter: drop-shadow(0 0 3px #ffd875);
+}
+
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
 /* Fight-and-Flight mobile layout */
-.touch-ui .flight-hud { width: min(340px, 94vw); }
-.touch-ui .flight-hud-strip { padding: 3px 8px; }
+.touch-ui .flight-hud { width: min(290px, 92vw); }
+.touch-ui .flight-hud-strip { padding: 2px 6px; }
 .touch-ui .flight-metric label { font-size: 7px; }
 .touch-ui .flight-metric b { font-size: 11px; }
-.touch-ui .flight-bar-wrap progress { width: 44px; height: 6px; }
+.touch-ui .flight-bar-wrap progress { width: 36px; height: 5px; }
 
 /* The rail shares the stick's frame, so mirrored/custom stick placement moves both.
    The thumb springs to neutral on pointerup, cancel, blur and unmount. */
