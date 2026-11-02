@@ -77,7 +77,9 @@ test('Timed parry reduces rotor HP only after finite Steel mitigation; spends fl
  assert.ok(room.events.some(e=>e.type==='fightFlightRotorParried'));
 });
 test('The authored left brace intercepts a genuine ray; destroying it exposes the side',()=>{
- const {room,m}=setup(),start=[-2,1.28,-.05],end=[0,1.28,-.05];
+ // World z=+.24 runs through the surviving left forward strut at local z=-.24.
+ // The old z=-.05 ray passed through the deliberate gap between struts.
+ const {room,m}=setup(),start=[-2,1.28,.24],end=[0,1.28,.24];
  const before=fightFlightFirstHit(m,start,end);
  assert.equal(before.componentId,'braceL');
  const result=damageFightFlight(room,m,200,null,'bibye-siege',10,{componentId:'braceL',point:{x:-.4,y:1.28,z:-.05}});
