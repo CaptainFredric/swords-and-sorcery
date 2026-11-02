@@ -13,7 +13,7 @@ const COMPONENTS={rotor:{hp:'rotorHP',max:100,steel:true},
   main:{hp:'health',max:250,steel:false}};
 export const FIGHT_FLIGHT_COMPONENTS=Object.freeze(COMPONENTS);
 const rot=m=>({s:Math.sin(m.heading??0),c:Math.cos(m.heading??0)});
-function box(m,component,local,size,spin=0){
+function box(m,component,local,size,spin=0,material=component==='main'?'timber':'metal'){
   const {s,c}=rot(m);
   // The renderer pitches the complete authored model about local +X
   // during offensive runs and terminal dives, before heading rotation.
@@ -23,7 +23,7 @@ function box(m,component,local,size,spin=0){
   const a=[[-c,0,s],[-s*sp,cp,-c*sp],[-s*cp,-sp,-c*cp]];
   if(spin){const sa=Math.sin(spin),ca=Math.cos(spin);
     const u=a[0],v=a[2];a[0]=u.map((x,i)=>x*ca+v[i]*sa);a[2]=v.map((x,i)=>x*ca-u[i]*sa);}
-  return {id:'fight-flight-'+m.id+'-'+component,componentId:component,center:[p.x,p.y,p.z],axes:a,size};
+  return {id:'fight-flight-'+m.id+'-'+component,componentId:component,center:[p.x,p.y,p.z],axes:a,size,material,kind:'siege-component'};
 }
 export function fightFlightHitVolumes(m){
   if(!m||m.retired||m.mode==='DESTROYED')return [];
@@ -52,7 +52,7 @@ export function fightFlightHitVolumes(m){
   // reached the rider. Model the pan, rear plate and narrow crossmembers;
   // exposed frontal and lateral pilot collision remains authoritative.
   volumes.push(box(m,'main',[0,.48,-.05],[1.15,.24,1.00]));
-  volumes.push(box(m,'main',[0,1.28,-.48],[1.09,1.45,.16]));
+  volumes.push(box(m,'main',[0,1.28,-.48],[1.09,1.45,.16],0,'metal'));
   volumes.push(box(m,'main',[0,.93,.45],[1.08,.16,.13]));
   volumes.push(box(m,'main',[0,1.99,-.08],[1.06,.13,.88]));
   return volumes;
