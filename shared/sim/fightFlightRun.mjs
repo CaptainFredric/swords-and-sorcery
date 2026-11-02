@@ -16,6 +16,7 @@ export function requestFlightDash(room,m,p,held,now){
  if(!m||m.mode==='DESTROYED'||m.terminalDive||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
  const before=m.flightDashHeld===true;
+ if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
  if(!held){
    // A short tap completes its genuinely powered ten-metre launch, if there is
@@ -50,6 +51,8 @@ export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
+ if(m.flightDashHeld&&!fresh){m.flightDashHeld=false;m.runStopRequested=false;}
+
  const finishing=Boolean(m.offensiveRun&&m.runStopRequested&&
    (m.runTravel??0)<VALKYRIE_RUN.minTravel&&now-(m.runReleasedAt??now)<1.25);
  const valid=Boolean(!m.terminalDive&&!m.emergencyBrakeActive&&p?.alive&&
@@ -65,6 +68,7 @@ export function stepFlightRun(room,m,dt,now){
  // exception is evaluated from the room and actual human owner every tick.
  if(running&&!practice&&!(m.flightCharge>0))running=false;
  if(!running||(!practice&&!(p.prowess>0))){
+   if(!practice&&m.offensiveRun)m.flightDashHeld=false;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;
@@ -84,7 +88,7 @@ export function stepFlightRun(room,m,dt,now){
      p.prowess=clamp((p.prowess??0)-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
      if(p.prowess<=0){
        if(practice){m.practiceDashRefilling=true;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});}
-       else{m.offensiveRun=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+       else{m.offensiveRun=false;m.flightDashHeld=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
      }
    }
  }
