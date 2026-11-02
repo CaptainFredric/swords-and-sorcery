@@ -84,6 +84,9 @@ const SWING_MEMORY_SEC = 10;
 function slayerFinisher(room, f) {
   if (!enemies(room, f.attackerId, f.victimId) || f.source !== 'sword'
     || f.contact !== true || f.healthAfter !== 0 || !(f.amount > 0)
+    || !Number.isFinite(f.healthBefore) || f.healthBefore <= 0
+    || !Number.isFinite(f.rawDamage) || f.rawDamage < 0
+    || Math.abs(f.amount - f.healthBefore) > 1e-6
     || f.guarding === true || f.dashing === true || f.lethalThreat !== true) return;
   const foe = room.players.get(f.victimId);
   if (foe.actorKind !== 'human' && !(foe.actorKind === 'bot' && foe.botSkill === 'spellblade')) return;
