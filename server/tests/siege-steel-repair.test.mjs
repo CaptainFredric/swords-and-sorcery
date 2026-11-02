@@ -206,3 +206,17 @@ test('first-hit extension lengthens protection but not the ten-second repair bud
  stepSiegeSteel(x.room,x.m,14);
  assert.equal(x.m.siegeSteel.state,'expired');
 });
+
+test('unused repair is forfeited at the ten-second deadline even when first-hit extension protects longer',()=>{
+ const x=setup();cast(x);
+ // A first hit just before hardening ends gives Steel a longer protective tail.
+ damageFightFlight(x.room,x.m,25,null,'sword',5.9,{componentId:'main'});
+ stepSiegeSteel(x.room,x.m,11);
+ assert.equal(x.m.siegeSteel.state,'protection-only');
+ const previous=x.m.siegeSteel.healed;
+ damageFightFlight(x.room,x.m,25,null,'sword',11.3,{componentId:'main'});
+ const damaged=x.m.health;
+ stepSiegeSteel(x.room,x.m,11.5);
+ assert.equal(x.m.health,damaged,'new damage outside repair window does not unlock banked healing');
+ assert.equal(x.m.siegeSteel.healed,previous);
+});
