@@ -123,16 +123,18 @@ export function stepSiegeSteel(room,m,now){
   const ward=m?.siegeSteel;
   if(!ward||ward.state==='expired')return;
   if(!machineLive(m,ward.kind)){endSiegeSteel(room,m,now);return;}
-  const current=Math.max(ward.calledAt,Math.min(now,ward.repairUntil));
-  const baselineEarned=ward.minimum*clamp((current-ward.calledAt)/STEEL.fullSec,0,1);
-  const bonusEarned=(ward.maximum-ward.minimum)*
-    clamp((current-ward.fullRepairUntil)/STEEL.fadeSec,0,1);
-  const baselineAvailable=Math.max(0,baselineEarned-ward.baselineHealed);
-  const baseline=heal(room,m,ward,baselineAvailable,'full',now);
-  ward.baselineHealed+=baseline;
-  const bonusAvailable=Math.max(0,bonusEarned-ward.bonusPrevented-ward.bonusHealed);
-  const bonus=heal(room,m,ward,bonusAvailable,'decay',now);
-  ward.bonusHealed+=bonus;ward.healed+=baseline+bonus;
+  if(ward.state==='active'){
+    const current=Math.max(ward.calledAt,Math.min(now,ward.repairUntil));
+    const baselineEarned=ward.minimum*clamp((current-ward.calledAt)/STEEL.fullSec,0,1);
+    const bonusEarned=(ward.maximum-ward.minimum)*
+      clamp((current-ward.fullRepairUntil)/STEEL.fadeSec,0,1);
+    const baselineAvailable=Math.max(0,baselineEarned-ward.baselineHealed);
+    const baseline=heal(room,m,ward,baselineAvailable,'full',now);
+    ward.baselineHealed+=baseline;
+    const bonusAvailable=Math.max(0,bonusEarned-ward.bonusPrevented-ward.bonusHealed);
+    const bonus=heal(room,m,ward,bonusAvailable,'decay',now);
+    ward.bonusHealed+=bonus;ward.healed+=baseline+bonus;
+  }
   ward.lastStepAt=Math.max(now,ward.lastStepAt);
   if(now+EPS>=ward.repairUntil&&ward.state==='active'){
     ward.state='protection-only';
