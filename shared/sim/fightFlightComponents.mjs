@@ -4,6 +4,7 @@ import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {steelMitigate,steelTakes,callSteel,STEEL} from '../src/steel.mjs';
 import {dismountFightFlight} from './fightFlight.mjs';
 import {applyDamage} from './combat.mjs';
+import {mitigateSiegeSteel,endSiegeSteel} from './siegeSteel.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const COMPONENTS={rotor:{hp:'rotorHP',max:100,steel:true},
@@ -83,6 +84,9 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
     // Real finite Steel: after contact it can fade and its window is not indefinitely restored.
     if(turned>0)m.componentSteel[componentId]=steelTakes(state,now);
   }
+  const ward=mitigateSiegeSteel(room,m,amount,source,now,
+    {innateAmount:actual,componentId,explicitMin:steelMinimum>0?steelMinimum:null,point});
+  actual=ward.amount;turned+=ward.turned;
   actual=clamp(actual,0,m[def.hp]);
   m[def.hp]-=actual;
   const gone=m[def.hp]<=0;
@@ -104,6 +108,7 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
       room.events?.push({type:'fightFlightTerminalStructuralFailure',machineId:m.id,at:now,point});
       return {damage:actual,turned,destroyed:true,component:componentId};
     }
+    endSiegeSteel(room,m,now);
     beginSiegeWreck(room,m,'fight-flight',now,{attackerId,source,point});
     m.mode='DESTROYED';m.firingOperatorId=null;m.offensiveRun=false;
     const pilot=m.operatorId?room.players.get(m.operatorId):null;

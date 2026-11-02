@@ -8,6 +8,8 @@ import {SIEGE_IMPACT,recordSiegeImpact,ramReboundSpeed,recoilRamOnPistonHit,appl
 import {postureOf} from '../src/body.mjs';
 import {GAME} from '../src/combat.mjs';
 import {STEEL_DAMAGE_RANGES} from '../src/steel.mjs';
+import {SO_FIST_PISTON} from '../src/soFistPiston.mjs';
+import {mitigateSiegeSteel,endSiegeSteel} from './siegeSteel.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {beginSiegeWreck,stepSiegeWreck} from './siegeWreck.mjs';
 import {sampleTransform} from './history.mjs';
@@ -16,7 +18,7 @@ import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
+export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
@@ -276,7 +278,7 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
   // speed does not turn a glancing scrape into a full energy frontal blow.
   const force=clamp((closing*closing-3.5*3.5)/(SO_FIST.peak**2-3.5*3.5),0,1);
   if(!piston&&(closing<=3.5||Math.round((frontal?90:35)*force)===0))continue;
-  let amount=piston?(fistAlive?90+30*clamp((pose.velocity+Math.max(0,b.speed)-4.4)/8.2,0,1):75+15*clamp(pose.velocity/12.6,0,1)):(frontal?90:35)*force;
+  let amount=piston?(fistAlive?SO_FIST_PISTON.minimum+(SO_FIST_PISTON.maximum-SO_FIST_PISTON.minimum)*clamp((pose.velocity+Math.max(0,b.speed)-4.4)/8.2,0,1):75+15*clamp(pose.velocity/12.6,0,1)):(frontal?90:35)*force;
   if(piston){
    const behind={x:victim.position.x+forward.x*.65,y:victim.position.y,z:victim.position.z+forward.z*.65},resolved=resolvePlayerWorld(behind,.45,room.world.solids??[],1.8);
    if(fistAlive&&Math.hypot(resolved.x-behind.x,resolved.z-behind.z)>.1)amount=110;
@@ -308,10 +310,15 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  const component=b.components[componentId],target=component??b;if(target.health<=0)return false;
  const old=target.health;
  if(componentId==='Fist'){const range=STEEL_DAMAGE_RANGES[source];amount=Math.min(amount,range?.min??Math.round(amount*GAME.swordGlance/GAME.swordDamage));}
+ // Existing piston armor is applied first. Only additional temporary Steel
+ // mitigation spends the conditional restoration pool.
+ const ward=mitigateSiegeSteel(room,b,amount,source,now,{componentId,point});
+ amount=ward.amount;
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
  if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+    endSiegeSteel(room,b,now);
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
     const pilot=b.operatorId?room.players.get(b.operatorId):null;
