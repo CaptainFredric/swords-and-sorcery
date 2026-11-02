@@ -85,14 +85,15 @@ test('active Skill eliminates steady-hover expense but not powered climb expense
  p.input.flightRise=true;frames(room,m,90*DT,20);
  assert.ok(m.flightCharge<idleCharge-7,'Skill does not make climbing free');
 });
-test('Practice held offensive Dash cycles empty-refill-full at 42/s and 70/s without repressing',()=>{
+test('Practice held offensive Dash cycles meter at 42/s and 70/s without interrupting propulsion',()=>{
  const {room,p,m}=setup();p.prowess=100;p.ultimate='sunder';
  m.grounded=false;m.y=20;m.mode='AIRBORNE';m.rotorHP=100;
  assert.equal(requestFlightDash(room,m,p,true,1),true);
  for(let i=1;i<=320;i++)stepFlightRun(room,m,DT,1+i*DT);
  const starts=room.events.filter(e=>e.type==='fightFlightOffensiveRun'&&e.action==='started');
  const refills=room.events.filter(e=>e.type==='fightFlightPracticeDash'&&e.action==='refilled');
- assert.ok(starts.length>=2&&refills.length>=1,'auto-repeat has actual observable rests');
+ assert.equal(starts.length,1,'training resource cycles never restart Dash');
+ assert.ok(refills.length>=1);assert.equal(m.offensiveRun,true);
  assert.equal(VALKYRIE_RUN.drainPerSec,42);
  assert.equal(VALKYRIE_RUN.practiceRefillPerSec,70);
  requestFlightDash(room,m,p,false,12);

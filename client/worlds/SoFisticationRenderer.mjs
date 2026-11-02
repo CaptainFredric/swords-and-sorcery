@@ -54,9 +54,11 @@ export class SoFisticationRenderer {
   });return this.loadingPromise;
  }
  update(now,b){
-  this.presentationData=b;this.group.visible=Boolean(b&&!b.retired);
+  this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
   if(!b){this.clearDebris();return;}
   if(this.id!==b.id){this.id=b.id;this.clearDebris();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
+  if(this.debris)this.debris.visible=!b.wreckVisualExpired;
+  if(b.wreckVisualExpired)return;
   this.load();const frame=soFistFrame(b);
   this.group.position.set(b.position?.x??b.x,b.position?.y??b.y,b.position?.z??b.z);
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
@@ -73,8 +75,8 @@ export class SoFisticationRenderer {
    if(failed){o.position.y-=destroyed?.16:.07;o.rotation.z+=(i%2?1:-1)*(destroyed?.28:.12);}
   }
   if(destroyed){
-    this.model.rotation.z = 0.18;
-    this.model.position.y = -0.14;
+    const collapse=Math.min(1,Math.max(0,(now-(b.destroyedAt??now))/1.4));
+    this.model.rotation.z=collapse*.18;this.model.position.y=-collapse*.14;
     const piston = this.nodes.get('Ram_Shaft_Piston');
     if(piston) piston.rotation.x = -0.22;
   } else {

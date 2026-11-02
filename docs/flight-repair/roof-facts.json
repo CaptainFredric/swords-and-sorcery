@@ -1,0 +1,37 @@
+[
+  {
+    "age": 258.30000001192093,
+    "charge": 20,
+    "grounded": false,
+    "intent": "HOVER",
+    "y": 7.193333333333333
+  },
+  {
+    "age": 907.4000000357628,
+    "charge": 23.500000000000018,
+    "grounded": true,
+    "intent": "HOVER",
+    "y": 6.6
+  },
+  {
+    "age": 1608.9000000357628,
+    "charge": 28.63333333333337,
+    "grounded": true,
+    "intent": "HOVER",
+    "y": 6.6
+  },
+  {
+    "age": 2508.800000011921,
+    "charge": 34.933333333333394,
+    "grounded": true,
+    "intent": "HOVER",
+    "y": 6.6
+  },
+  {
+    "age": 3408.400000035763,
+    "charge": 41.23333333333342,
+    "grounded": true,
+    "intent": "HOVER",
+    "y": 6.6
+  }
+]
