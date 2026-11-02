@@ -281,7 +281,7 @@ export class VoiceWatch {
         state.pursuitSince ??= now;
         if (now - state.pursuitSince >= p.holdSec && now - state.pursuitAt > p.rearmSec) {
           state.pursuitAt = now;
-          out.push({ speaker: knight.id, tags: ['pursuit'] });
+          out.push({ speaker: knight.id, tags: ['pursuit', 'pursuitThreat'] });
         }
       }
       // giving ground: drawing back from the nearest foe (remembered, to be stood later)
@@ -290,9 +290,21 @@ export class VoiceWatch {
       if (-closing >= WATCH.ground.give && nearest.distance <= WATCH.ground.near) {
         giving.seconds += Math.max(0, Math.min(0.25, now - giving.at));
         giving.last = now;
+        if (giving.seconds >= 0.8 && now - (state.withdrawingAt ?? -Infinity) > 40) {
+          state.withdrawingAt = now;
+          out.push({ speaker: knight.id, tags: ['withdrawingUnderPressure', 'pursuitThreat'] });
+        }
       }
       giving.at = now;
       state.giving.set(nearest.foe.id, giving);
+
+      // facing a nearby foe with sword in hand before striking (not mid-swing)
+      if (alive && !knight.attackActive && (now - state.lastSwingAt >= 6.0)) {
+        if (this.#closeFoe(knight.id, knights) && (now - (state.lastCloseThreatAt ?? -Infinity) >= 40.0)) {
+          state.lastCloseThreatAt = now;
+          out.push({ speaker: knight.id, tags: ['closeSwordThreat'] });
+        }
+      }
     }
     // a balance broken and found again before the one who broke it struck them
     for (const [key, watch] of [...this.staggers]) {
@@ -474,6 +486,31 @@ export class VoiceWatch {
     if (strikeIndex === 0 && at - state.lastSwingAt >= WATCH.firstSwing.afterSec) tags.push('firstSwing');
     if (strikeIndex === 2 && this.#finishing(playerId, knights)) tags.push('finalStrike');
     return tags.length ? [{ speaker: playerId, tags }] : [];
+  }
+
+  /**
+   * The sword drawn from the hip (a distinct sword-draw event): facing a nearby foe with sword in hand before striking.
+   */
+  swordDraw({ playerId, at }, knights = []) {
+    if (!playerId) return [];
+    const state = this.#knight(playerId, at);
+    state.swordDrawnAt = at;
+    const tags = [];
+    if (this.#closeFoe(playerId, knights)) tags.push('closeSwordThreat');
+    return tags.length ? [{ speaker: playerId, tags }] : [];
+  }
+
+  #closeFoe(attackerId, knights) {
+    const attacker = knights.find((k) => k?.id === attackerId);
+    if (!attacker?.position) return false;
+    const yaw = attacker.yaw ?? 0;
+    const facing = { x: -Math.sin(yaw), z: -Math.cos(yaw) };
+    return knights.some((foe) => {
+      if (!foe?.position || foe.id === attackerId || foe.alive === false) return false;
+      const to = { x: foe.position.x - attacker.position.x, z: foe.position.z - attacker.position.z };
+      const distance = length(to);
+      return distance <= 4.0 && (distance < 1e-6 || dot(to, facing) / distance >= Math.cos((45 * Math.PI) / 180));
+    });
   }
 
   // another knight's strikes as their chain shows them begun (the chain's start, and each strike committed since)

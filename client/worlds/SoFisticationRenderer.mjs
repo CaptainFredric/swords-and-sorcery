@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
+import {ramWreckClip} from './flightAnimationState.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
@@ -19,7 +21,7 @@ export class SoFisticationRenderer {
   if(this.loadingPromise)return this.loadingPromise;
   if(this.disposed||this.error)return Promise.resolve(false);this.loading=true;
   this.loadingPromise=new Promise(resolve=>{
-  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_5.glb?v=b1ea92edc3310114'),gltf=>{
+  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892'),gltf=>{
    if(this.disposed){this.destroyMeshes(gltf.scene);resolve(false);return;}
    this.model=gltf.scene;this.model.scale.setScalar(SO_FIST_SCALE);this.group.add(this.model);
    const sky=new Uint8Array(32*16*4);for(let y=0;y<16;y++)for(let x=0;x<32;x++)sky.set([...(y<8?[192,203,211]:[94,89,76]),255],(y*32+x)*4);
@@ -47,8 +49,7 @@ export class SoFisticationRenderer {
     }
    });
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
-   const clip=gltf.animations.find(c=>c.name==='01_Ram_Strike_Full_Cycle').clone();clip.tracks=clip.tracks.filter(t=>!t.name.startsWith('Wheel_')&&!t.name.startsWith('BattleRam_Root')); // Keep wheel/authority placement registered; recoil belongs to the mechanism and rider.
-   this.mixer=new THREE.AnimationMixer(this.model);this.strike=this.mixer.clipAction(clip);this.strike.setLoop(THREE.LoopOnce,1);this.strike.clampWhenFinished=true;this.strike.play();this.strike.paused=true;
+   this.animation=new MachineAnimationComposition(this.model,gltf.animations);
    this.loading=false;resolve(true);
   },undefined,error=>{this.error=true;this.loading=false;resolve(false);console.error('SoFistication authored asset failed to load',error);});
   });return this.loadingPromise;
@@ -65,31 +66,31 @@ export class SoFisticationRenderer {
   const rock=siegeRock(b,now);
   if(rock.pitch||rock.roll)this.group.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-rock.pitch,0,rock.roll,'XYZ')));
   if(!this.model)return;
-  this.strike.time=Math.min(3.999,soFistPose(b,now).clipAge);this.strike.enabled=true;this.mixer.update(0);
-  this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
   const destroyed=b.mode==='DESTROYED'||(b.health??1)<=0;
-  for(let i=0;i<this.wheels.length;i++){
-   const {o,rest,position}=this.wheels[i],failed=destroyed||b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
-   o.position.copy(position);o.position.y+=(b.wheelOffsets?.[i]??0)/SO_FIST_SCALE;
-   this.turn.setFromAxisAngle(new THREE.Vector3(0,1,0),soFistWheelSteering(b)[i]);this.spin.setFromAxisAngle(new THREE.Vector3(1,0,0),(b.wheelRolls?.[i]??0));o.quaternion.copy(this.turn).multiply(rest).multiply(this.spin);
-   if(failed){o.position.y-=destroyed?.16:.07;o.rotation.z+=(i%2?1:-1)*(destroyed?.28:.12);}
-  }
+  const dt=this.lastAt==null?0:Math.min(.1,Math.max(0,now-this.lastAt));this.lastAt=now;
+  this.animation.begin(dt);
   if(destroyed){
-    const collapse=Math.min(1,Math.max(0,(now-(b.destroyedAt??now))/1.4));
-    this.model.rotation.z=collapse*.18;this.model.position.y=-collapse*.14;
-    const piston = this.nodes.get('Ram_Shaft_Piston');
-    if(piston) piston.rotation.x = -0.22;
-  } else {
-    this.model.rotation.z = 0;
-    this.model.position.y = 0;
-    const piston = this.nodes.get('Ram_Shaft_Piston');
-    if(piston) piston.rotation.x = 0;
+   this.animation.sample({clip:ramWreckClip(b),time:now-(b.destroyedAt??now)},()=>true);
+  }else{
+   this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',time:Math.min(3.999,soFistPose(b,now).clipAge)},k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
+   for(let i=0;i<this.wheels.length;i++){
+    const {o,rest,position}=this.wheels[i],failed=b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
+    o.position.copy(position);o.position.y+=(b.wheelOffsets?.[i]??0)/SO_FIST_SCALE;
+    this.turn.setFromAxisAngle(new THREE.Vector3(0,1,0),soFistWheelSteering(b)[i]);this.spin.setFromAxisAngle(new THREE.Vector3(1,0,0),b.wheelRolls?.[i]??0);o.quaternion.copy(this.turn).multiply(rest).multiply(this.spin);
+    if(failed){o.position.y-=.07;o.rotation.z+=(i%2?1:-1)*.12;}
+    const c=b.components?.[SO_FIST_WHEELS[i].id],weight=c?.maxHealth?1-c.health/c.maxHealth:0;
+    this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>k.startsWith(o.name+'.'),{additive:true,weight:Math.max(0,weight)*.35});
+   }
+   const drive=b.components?.Drive,weight=drive?.maxHealth?1-drive.health/drive.maxHealth:0;
+   this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>!k.startsWith('Wheel_'),{additive:true,weight:Math.max(0,weight)});
   }
+  this.animation.end();
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
   if(broken&&!this.debris){
    this.group.updateMatrixWorld(true);this.debris=new THREE.Group();const bounds=new THREE.Box3().setFromObject(fist),center=bounds.getCenter(new THREE.Vector3());this.debris.position.copy(center);
-   for(const part of [fist,ring]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
+   for(const part of [fist,ring]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
    this.scene.add(this.debris);this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+bounds.getSize(new THREE.Vector3()).y/2;this.debrisHeading=b.heading;this.brokenAt=b.fistBrokenAt??now;
   }
   fist.visible=ring.visible=!broken;

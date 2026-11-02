@@ -18,14 +18,7 @@ export function requestFlightDash(room,m,p,held,now){
  const before=m.flightDashHeld===true;
  if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
- if(!held){
-   // A short tap completes its genuinely powered ten-metre launch, if there is
-   // clearance and enough charge. An established run ends on release normally.
-   m.runStopRequested=Boolean(m.offensiveRun&&(m.runTravel??0)<VALKYRIE_RUN.minTravel);
-   m.runReleasedAt=now;m.runReleaseElapsed=0;
-   if(!m.runStopRequested){m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;}
-   return true;
- }
+ if(!held){if(m.offensiveRun)m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;return true;}
  if(before)return true;
  m.flightDashStartedAt=now;
  m.runCommitHeading=m.heading;
@@ -71,25 +64,12 @@ export function stepFlightRun(room,m,dt,now){
  // exception is evaluated from the room and actual human owner every tick.
  if(running&&!practice&&!(m.flightCharge>0))running=false;
  if(!running||(!practice&&!(p.prowess>0))){
-   if(!practice&&m.offensiveRun)m.flightDashHeld=false;
+   if(m.offensiveRun)m.runAnimationEndedAt=now;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
  }else{
-   if(!m.offensiveRun){
-     m.offensiveRun=true;m.runStartAt=now;m.runElapsed=0;m.runTravel=0;
-     // Authoritative, persistent measurements of the short committed launch.
-     // Browser snapshots can miss a 360ms phase under headless rendering load.
-     m.runLaunchStartY=m.y;m.runLaunchMinVy=0;m.runLaunchDrop=0;m.runLaunchDistance=0;
-     m.runLastPosition={x:m.x,y:m.y,z:m.z};
-     m.runCommitHeading=Number.isFinite(m.runCommitHeading)?m.runCommitHeading:m.heading;
-     m.runCommitPitch=Number.isFinite(m.runCommitPitch)?m.runCommitPitch:-VALKYRIE_RUN.pitch;
-     m.runTurnSpeed=0;
-     room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});
-   }
-   // Count genuine fixed-step propulsion; unlike `now`, dt cannot skip the
-   // entire launch commitment under a slow browser or overloaded server.
-   m.runElapsed=(m.runElapsed??0)+dt;
+   if(!m.offensiveRun){m.runAnimationStartedAt=now;m.offensiveRun=true;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
    if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
@@ -97,7 +77,7 @@ export function stepFlightRun(room,m,dt,now){
      p.prowess=clamp((p.prowess??0)-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
      if(p.prowess<=0){
        if(practice){m.practiceDashRefilling=true;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});}
-       else{m.offensiveRun=false;m.flightDashHeld=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+       else{m.runAnimationEndedAt=now;m.offensiveRun=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
      }
    }
  }

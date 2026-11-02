@@ -864,6 +864,60 @@ function sweepStrike(room, player, nowSec, world) {
   }
 }
 
+/** A counterfactual made at the instant we kill this foe: was their own
+ * already-live sword/gauntlet contact about to kill us? No animation flags,
+ * client hints or speculative future input. Sample the same swept blade,
+ * geometry, walls and mitigation rules as a normal authoritative hit. */
+function lethalIncomingCounter(room, defender, opponent, atSec) {
+  if (!(defender?.alive && opponent?.alive) || defender.guarding
+    || atSec < (defender.spawnProtectionUntil ?? -Infinity)) return false;
+  // A prepared gauntlet strike is already committed to its actual target.
+  const gauntlet = opponent.gauntlet;
+  if (gauntlet && gauntlet.targetId === defender.id
+    && gauntlet.landAt >= atSec && gauntlet.landAt - atSec <= .18) {
+    const from = transformFor(opponent, gauntlet.landAt);
+    const to = transformFor(defender, gauntlet.landAt);
+    const placed = gauntletGeometry(from.position, from.yaw, to.position);
+    if (withinGauntlet(placed, GAUNTLET.landSlack)
+      && !targetBlockedByWorld(from, to, room.world ?? {})
+      && steelBlunt(defender.steel, GAUNTLET.damage, gauntlet.landAt).amount >= defender.health) return true;
+  }
+  const active = opponent.attackSweep;
+  if (!active || active.struck || !opponent.attackActive) return false;
+  const win = strikeWindow(opponent, active.strike, active.slam);
+  const fromAt = Math.max(atSec, active.sampledTo, win.from);
+  const toAt = Math.min(atSec + .18, win.to);
+  if (!(toAt > fromAt + 1e-9)) return false;
+  const blade = active.slam ? SLAM_STRIKE : active.strike;
+  const solids = [...(room.world?.solids ?? []), ...biByeHitVolumes(room.biByeLlista, atSec),
+    ...soFistVolumes(room.soFistication, atSec), ...fightFlightHitVolumes(room.fightFlight)];
+  const target = transformFor(defender, atSec);
+  const bodies = [{ id: defender.id, base: target.position, top: postureOf(target).crown }];
+  const enemy = transformFor(opponent, atSec);
+  const frame = strikeFrame(enemy, active.slam);
+  const { eye } = bladeOrigin(enemy);
+  const empowered = sundering(opponent, atSec) && steelStrength(defender.steel, atSec) <= .005;
+  for (let t = fromAt; t < toAt - 1e-9; t += SWEEP_STEP) {
+    const next = Math.min(toAt, t + SWEEP_STEP);
+    const met = sweepBlade(eye,
+      bladeDirection(blade, t - win.contact, frame),
+      bladeDirection(blade, next - win.contact, frame),
+      bodies, solids, { aim: frame.forward, world: t < win.contact + MELEE_CONTACT.worldFollow - 1e-9,
+        ...(active.ruptures ? SUNDER_SWEEP : {}) });
+    if (!met) continue;
+    // If real geometry hits a wall first, the blade cannot subsequently hit us.
+    if (met.kind !== 'body' || met.id !== defender.id) return false;
+    const at = t + (next - t) * (met.stepFraction ?? 1);
+    const q = evaluateBladeHeatmap(blade, { dt: at - win.contact, along: met.along,
+      point: met.point, direction: met.direction, eye, frame: bladeOrigin(enemy).frame,
+      targetBase: target.position, targetTop: postureOf(target).crown }).quality;
+    const effective = empowered ? GAME.swordElevated
+      : swordDamage({ quality: steelQuality(defender.steel, q, at).quality, level: DAMAGE_LEVELS.normal });
+    return Number.isFinite(effective) && effective >= defender.health;
+  }
+  return false;
+}
+
 /** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
 function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = null, contactSec = null) {
   if (target.spawnProtectionUntil > nowSec) {
@@ -982,6 +1036,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   const armour = cancelled ? { quality, strength: 0 } : steelQuality(target.steel, quality, nowSec);
   if (!cancelled) target.steel = steelTakes(target.steel, nowSec);
   const damage = swordDamage({ quality: armour.quality, level });
+  const lethalCounter = damage >= target.health && lethalIncomingCounter(room, attacker, target, atSec);
   applyDamage(room, attacker.id, target.id, damage, 'sword', nowSec, push, {
     steel: armour.strength,
     turned: level === DAMAGE_LEVELS.normal ? swordDamageFor(quality) - damage : 0,
@@ -991,7 +1046,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     ultimate: sunder || Boolean(attacker.attackChivalry) || combatActionPolicy(attacker, nowSec).concurrent,
     rawDamage: sunder ? GAME.swordElevated : GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * quality,
     contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
-      chainId: attacker.attackChainId, strikeIndex, steel: cancelled ? steelStrength(target.steel, nowSec) : armour.strength }),
+      chainId: attacker.attackChainId, strikeIndex, lethalThreat: lethalCounter,
+      steel: cancelled ? steelStrength(target.steel, nowSec) : armour.strength }),
   });
   // (a Sundering blow on the body shakes a balance by its own measure: the heaviest single contact there is)
   staggerBy(room, target, empowered ? ultimateFor('sunder').stagger : STAGGER.gain.sword * force, nowSec, attacker.id);

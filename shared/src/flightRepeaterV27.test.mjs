@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {flightMuzzle,flightDirection,solveConvergence,FLIGHT_REPEATER} from './flightRepeaterAim.mjs';
 const base=new URL('../../client/assets/props/fight-and-flight/',import.meta.url);
-const apparatus=fileURLToPath(new URL('fight-and-flight-v2.7.glb',base));
+const apparatus=fileURLToPath(new URL('fight-and-flight-v30-sim19p5-dash.glb',base));
 const quarrel=fileURLToPath(new URL('fight-and-flight-v2.7-quarrel.glb',base));
 const rollback=fileURLToPath(new URL('fight-and-flight-v2.6.glb',base));
 const sha=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -47,11 +47,11 @@ function authoredMuzzle(m,yaw,pitch){
   return {p,forward:rotate(q,[0,0,1])};
 }
 test('hash, hierarchy, animation manifest, independent quarrel and rollback',()=>{
-  assert.equal(sha(apparatus),'5358f2629a84563df4b2b64063f4ad31b844ac37ec3c37989c18586959125944');
+  assert.equal(sha(apparatus),'b7967ba87ffa0f4ad6f1ee54d7e6897eb8e993e8407dc567817c4a2725fc0d6b');
   assert.equal(sha(quarrel),'f0fb5f44c1ee1348e7b7bb7e27a907879b289d6287a6eb674db1db0c41955091');
   assert.equal(sha(rollback),'122c53cb55134e400c1c4958b580c51bec311777deeed8ede67716efff1cd928');
-  assert.equal(nodes.length,61);assert.equal(authored.meshes.length,38);
-  assert.equal(authored.materials.length,1);assert.equal(authored.animations.length,18);
+  assert.equal(nodes.length,67);assert.equal(authored.meshes.length,44);
+  assert.equal(authored.materials.length,4);assert.equal(authored.animations.length,54);
   assert.deepEqual([50,51,12,38].map(parentOf),[1,50,51,12]);
   assert.deepEqual([50,51,12,38].map(i=>nodes[i].name),
     ['Crossbow_Yaw_Gimbal','Crossbow_Pitch_Cradle','Crossbow_Body','crossbow_muzzle']);

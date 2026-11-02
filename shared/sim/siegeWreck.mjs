@@ -11,7 +11,13 @@ export function beginSiegeWreck(room,m,machine,now,{attackerId=null,source=null,
  m.wreckCleanupAt=now+SIEGE_WRECK.visualSec;
  m.wreckVisualExpired=false;
  m.wreckAirborne=machine==='fight-flight'&&m.grounded===false;
- m.wreckPhysicsAt=now;
+ m.wreckPhysicsAt=now;m.wreckWasAirborne=m.wreckAirborne;
+ m.wreckImpactAt=m.wreckAirborne?null:now;
+ if(machine==='so-fist-ication'){
+   m.wreckFistMissing=(m.components?.Fist?.health??1)<=0;
+   const dx=(point?.x??m.x)-m.x,dz=(point?.z??m.z)-m.z;
+   m.wreckSide=dx*Math.cos(m.heading??0)-dz*Math.sin(m.heading??0)<0?-1:1;
+ }
  room.events?.push({type:'siegeWreckStarted',machineId:m.id,machine,attackerId,source,point,
    at:now,settleAt:m.wreckSettleAt,cleanupAt:m.wreckCleanupAt});
  return true;
@@ -28,7 +34,7 @@ export function stepSiegeWreck(room,m,now){
      const floor=flightSupportAt(room.world,next.x,next.z,oldY+.01);
      if(floor!=null&&next.y<=floor){
        next.y=floor;m.velocity={x:0,y:0,z:0};m.grounded=true;m.wreckAirborne=false;
-       const impactAt=now-elapsed+(i+1)*dt;
+       const impactAt=now-elapsed+(i+1)*dt;m.wreckImpactAt=impactAt;
        m.wreckSettleAt=impactAt+SIEGE_WRECK.settleSec;
        m.wreckCleanupAt=impactAt+SIEGE_WRECK.visualSec;
        room.events?.push({type:'siegeWreckGroundImpact',machineId:m.id,at:impactAt,point:{...next}});

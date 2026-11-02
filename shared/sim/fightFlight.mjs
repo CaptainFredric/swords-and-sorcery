@@ -112,15 +112,15 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
-  if(airborne&&safe&&!force){
+  if(airborne&&player.alive){
     const right={x:Math.cos(m.heading),z:-Math.sin(m.heading)};
-    const side=(safe.x-m.x)*right.x+(safe.z-m.z)*right.z;
-    const outward=side>=0?1:-1;
+    const side=safe?(safe.x-m.x)*right.x+(safe.z-m.z)*right.z:0;
+    const outward=safe?(side>=0?1:-1):0;
     player.velocity={x:(m.velocity.x??0)+right.x*outward*1.3,
-      y:Math.max(-18,(m.velocity.y??0)+.8),z:(m.velocity.z??0)+right.z*outward*1.3};
+      y:Math.max(-18,(m.velocity.y??0)+(safe ? .8 : 0)),z:(m.velocity.z??0)+right.z*outward*1.3};
     player.grounded=false;
     // Landing-only bookkeeping; enemy and environmental damage remain live.
-    player.ejectionFallExempt=true;
+    player.ejectionFallExempt=!force;
   }else{
     player.velocity={x:0,y:0,z:0};player.grounded=true;
     player.ejectionFallExempt=false;
@@ -319,7 +319,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         if(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5||m.terminalDive.blockedContactSec>=.24)
           m.terminalDive.impactAt=now;
       }
-      if(m.offensiveRun){m.offensiveRun=false;m.flightDashHeld=false;}
+      if(m.offensiveRun){m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;}
       if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){const slideX={x:candidate.x,y:candidate.y,z:previous.z},slideZ={x:previous.x,y:candidate.y,z:candidate.z};
         if(collisionFree(slideX,solids,h)){candidate.z=previous.z;m.velocity.z=0;}
         else if(collisionFree(slideZ,solids,h)){candidate.x=previous.x;m.velocity.x=0;}
