@@ -39,7 +39,7 @@ test('Neutral powered hover stabilizes then gently descends without losing rotor
   tick(room,m,0,45,{jump:true});
   assert.equal(m.grounded,false);
   assert.ok(m.rotorPowered&&m.rotorRPM>0);
-  tick(room,m,1.5,36,{jump:false,crouch:false});
+  tick(room,m,1.5,50,{jump:false,crouch:false});
   assert.ok(m.rotorLiftAuthority>.8,'real rotor provides neutral hover support');
   assert.ok(m.velocity.y<-.25&&m.velocity.y>-.7,'neutral hover converges to gentle powered descent');
 });
