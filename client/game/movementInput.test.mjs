@@ -153,3 +153,45 @@ test('LocalHost flight-input freshness: samples live controller at 30 Hz and doe
   assert.equal(host.player.flightInputAt, frozenTimestamp, 'unconditional tick renewal is absent; flightInputAt stays frozen');
   assert.ok(now - host.player.flightInputAt > 0.5, 'authoritative 0.5s freshness timeout elapsed');
 });
+
+test('Flight input safety: slow rendering maintains fresh 30 Hz live input while stopped sampling halts ascent via half-second authority', () => {
+  let now = 200;
+  const host = new LocalHost({ now: () => now, every: () => 1, cancel: () => {}, later: fn => fn() });
+  host.startSolo('PRACTICE', 'Pilot');
+  host.arenaReady(true);
+  host.tick();
+
+  host.player.operatingFightFlightId = 'faf_slow';
+  host.player.flightInputAt = null;
+
+  // Physical controller state (held Rise by player)
+  const controller = { forward: 0, right: 0, jump: true, flightRise: true, yaw: 0, pitch: 0 };
+  host.setInputSampler(() => ({ ...controller }));
+
+  // Simulate slow rendering: render frame ticks only every 100ms (10 FPS),
+  // but simulation ticks at 30 Hz (every 33.3ms)
+  for (let renderFrame = 0; renderFrame < 10; renderFrame++) {
+    // 3 simulation ticks per 100ms render interval
+    for (let simTick = 0; simTick < 3; simTick++) {
+      now += 1 / 30;
+      host.tick();
+      assert.equal(host.player.input.flightRise, true, 'held rise stays active across simulation ticks');
+      assert.equal(host.player.flightInputAt, now, 'flightInputAt remains fresh at each 30 Hz simulation tick under slow rendering');
+    }
+  }
+
+  // Now simulate tab blur / window focus loss: controller stops sampling
+  let samplingActive = false;
+  host.setInputSampler(() => (samplingActive ? { ...controller } : null));
+
+  const blurTime = now;
+  // Advance simulation by 0.6 seconds (18 ticks at 30 Hz)
+  for (let i = 0; i < 18; i++) {
+    now += 1 / 30;
+    host.tick();
+  }
+
+  // Verify that flightInputAt remained frozen at blurTime
+  assert.equal(host.player.flightInputAt, blurTime, 'flightInputAt stayed frozen after sampling stopped');
+  assert.ok(now - host.player.flightInputAt >= 0.5, 'half-second authority rule is preserved: input has expired');
+});

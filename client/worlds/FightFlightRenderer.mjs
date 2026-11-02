@@ -351,6 +351,17 @@ export class FightFlightRenderer{
     const computed=this.getCrossbowAim(aim);
     return flightDirection(m,computed);
   }
+  getComponentWorldPosition(componentId){
+    const m=this.state;if(!m||m.mode==='DESTROYED'||(m.health??0)<=0)return null;
+    let node=null;
+    if(componentId==='rotor'&&m.rotorHP>0)node=this.nodes.get('Rotor_Hub');
+    else if(componentId==='braceL'&&m.braceLHP>0)node=this.nodes.get('Protective_Brace_L');
+    else if(componentId==='braceR'&&m.braceRHP>0)node=this.nodes.get('Protective_Brace_R');
+    else if(componentId==='main'&&(m.health??0)>0)node=this.nodes.get('Main_Apparatus_Chassis');
+    if(!node)return null;
+    this.group.updateMatrixWorld(true);
+    return node.getWorldPosition(new THREE.Vector3());
+  }
   dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
     this.boltGeometry.dispose();this.boltMaterial.dispose();
     disposeQuarrelDetail(this.quarrelDetail);

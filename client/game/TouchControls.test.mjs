@@ -1037,3 +1037,47 @@ test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, h
   send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 81 });
   assert.deepEqual(usePreparedCalls, ['steel']);
 });
+
+test('Flight input safety: slider release, pointer cancellation, and lost pointer capture neutralize ascent immediately and call onInputsReleased', () => {
+  const p = { alive: true, spell: 'steel', position: { x: 0, y: 0, z: 0 }, operatingFightFlightId: 'faf_safety' };
+  const { input, controls, send } = setup(p);
+  input.mountedFlight = true;
+  input.touch = controls;
+  let releasedCalls = 0;
+  input.onInputsReleased = () => { releasedCalls++; };
+
+  controls.update(p, 10, {
+    snapshot: { fightFlight: { id: 'faf_safety', health: 250, rotorHP: 100, grounded: false, ammo: 18 } }
+  });
+  const rail = flightRailTarget(controls);
+
+  // 1. Slider release: hold Rise, then pointerup
+  send('pointerdown', 120, 120, { target: rail, pointerId: 101 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
+
+  send('pointerup', 120, 120, { target: rail, pointerId: 101 });
+  assert.equal(controls.movement().flightRise, false, 'slider release immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 1, 'slider release invokes onInputsReleased');
+
+  // 2. Pointer cancellation: hold Rise, then pointercancel
+  send('pointerdown', 120, 120, { target: rail, pointerId: 102 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
+
+  send('pointercancel', 120, 120, { target: rail, pointerId: 102 });
+  assert.equal(controls.movement().flightRise, false, 'pointercancel immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 2, 'pointer cancellation invokes onInputsReleased');
+
+  // 3. Lost pointer capture: hold Rise, then lostpointercapture
+  send('pointerdown', 120, 120, { target: rail, pointerId: 103 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
+
+  send('lostpointercapture', 120, 120, { target: rail, pointerId: 103 });
+  assert.equal(controls.movement().flightRise, false, 'lostpointercapture immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 3, 'lost pointer capture invokes onInputsReleased');
+});
