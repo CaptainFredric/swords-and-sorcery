@@ -203,6 +203,10 @@ export class FightFlightRenderer{
       this.action.timeScale=Math.max(0.4,speed*1.3);
     }
     this.mixer.update(dt);
+    // Animation blending may include the rig's root rotation. Apply the
+    // authoritative chassis pitch AFTER sampling authored posture tracks so
+    // Overdrive never visually levels a physically descending rotor.
+    this.model.rotation.x=m.runPitch??0;
     if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
     if(this.reloadAction)this.reloadAction.time=Math.min(6,Math.floor(m.ammo??0))/6*this.reloadAction.getClip().duration;
     if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
