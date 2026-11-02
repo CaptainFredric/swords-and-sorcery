@@ -2147,7 +2147,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'closeSwordThreat',
     priority: 'normal', rarity: 0.15, cooldown: 180,
     section: 'Challenges & Pursuit',
-    credits: { title: 'Pain to Spare', description: 'Rarely when closing with a foe sword in hand before striking.', note: 'A generous disposition.' },
+    credits: { title: 'Pain to Spare', description: 'Rarely, facing a nearby foe with sword in hand before striking.', note: 'The sword has issued a request.' },
     file: 'MySwordFeels.mp3',
   },
   {
@@ -2156,7 +2156,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'contestedZone',
     priority: 'normal', rarity: 0.25, cooldown: 120,
     section: 'Battle & Abilities',
-    credits: { title: 'Cleaning It Out', description: 'Entering or clearing a contested capture zone.', note: 'Housekeeping in heavy plate.' },
+    credits: { title: 'Cleaning It Out', description: 'Entering or clearing a contested capture zone.', note: 'He considers this routine maintenance.' },
     file: 'GetAwayFromThisSpot.mp3',
   },
   {
@@ -2165,7 +2165,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'threatenedCircleApproach',
     priority: 'normal', rarity: 0.25, cooldown: 150,
     section: 'Team',
-    credits: { title: 'Ruining the Color', description: 'Running alongside a teammate toward an enemy-contested point.', note: 'He has very particular aesthetic standards for the courtyards.' },
+    credits: { title: 'Ruining the Color', description: 'Approaching a threatened control point alongside a teammate.', note: 'The circles were perfectly acceptable before.' },
     file: 'TheyAreRuiningTheColor.mp3',
   },
   {
@@ -2174,7 +2174,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'quickCloseMultikill',
     priority: 'normal', rarity: 0.35, cooldown: 120,
     section: 'Kills & Triumphs',
-    credits: { title: 'Where Was I', description: 'After rapid close-range kills during a brief lull.', note: 'So many interruptions.' },
+    credits: { title: 'Where Was I?', description: 'After several rapid close-range kills.', note: 'He had been in the middle of something.' },
     file: 'NowWhere.mp3',
   },
   {
@@ -2184,7 +2184,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'withdrawingUnderPressure',
     priority: 'normal', rarity: 0.20, cooldown: 200,
     section: 'Remarks & Oddities',
-    credits: { title: 'The Only Retreat', description: 'Withdrawing under pressure while vigorously denying the concept of retreat.', note: 'An elaborate grammatical defense against admitting defeat.' },
+    credits: { title: 'The Only Retreat', description: 'Withdrawing under pressure without admitting that he is retreating.', note: 'A technical distinction. No one has accepted it.' },
     file: 'TheOnlyRetreat.mp3',
   },
   {
@@ -2194,7 +2194,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     opens: 'shame',
     priority: 'normal', rarity: 0.08, cooldown: 300,
     section: 'Remarks & Oddities',
-    credits: { title: 'Have You No Shame!?', description: 'Knight A challenges another knight to a rare duel of honor.', note: 'The opening inquiry.' },
+    credits: { title: 'Have You No Shame!?', description: 'Opening a rare two-knight conversation.', note: 'An inventory question, as it turns out.' },
     file: 'HaveYouNoShame.mp3',
   },
   {
@@ -2203,7 +2203,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'shameAnswer',
     priority: 'high', rarity: 1.0, cooldown: 0,
     section: 'Remarks & Oddities',
-    credits: { title: 'Not on Me!', description: 'Knight B answers the inquiry.', note: 'Carried none on his person.' },
+    credits: { title: 'Not on Me!', description: 'Answering the opening question in the shame exchange.', note: 'An inventory search has proved negative.' },
     file: 'NotOnMe.mp3',
   },
   {
@@ -2212,7 +2212,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'shamePayoff',
     priority: 'high', rarity: 1.0, cooldown: 0,
     section: 'Remarks & Oddities',
-    credits: { title: 'Then Let ME Have It!', description: 'Knight A concludes the exchange.', note: 'A prompt resolution.' },
+    credits: { title: 'Then Let ME Have It!', description: 'Concluding the rare two-knight shame exchange.', note: 'A transfer has been proposed. Stock remains unverified.' },
     file: 'ThenLetMeHaveIt.mp3',
   },
   {
@@ -2221,7 +2221,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'death',
     priority: 'high', rarity: 0.08, cooldown: 180,
     section: 'Defeat & Death',
-    credits: { title: 'I Need a Moment', description: 'Rarely, upon defeat, requesting a brief pause in hostilities.', note: 'Combat will resume shortly.' },
+    credits: { title: 'I Need a Moment', description: 'Rarely, upon defeat, interrupting ordinary speech.', note: 'The request arrives slightly late.' },
     file: 'INeedAMoment...mp3',
   },
   {
@@ -2231,7 +2231,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'pursuitThreat',
     priority: 'normal', rarity: 0.20, cooldown: 180,
     section: 'Challenges & Pursuit',
-    credits: { title: 'Only Defeat', description: 'Pursuing or being pursued by a foe.', note: 'Follow his footsteps, or follow de feet.' },
+    credits: { title: 'Only Defeat', description: 'Threatening a foe during pursuit.', note: 'The directions are not especially helpful.' },
     file: 'YouMayNoLonger.mp3',
   },
   {
@@ -2240,7 +2240,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'ramCharging',
     priority: 'normal', rarity: 0.35, cooldown: 60,
     section: 'Battle & Abilities',
-    credits: { title: 'I Never Yield!', description: 'Committing to a SO-FIST-ICATION ram charge.', note: 'Neither surrendering nor yielding the right of way.' },
+    credits: { title: 'I Never Yield!', description: 'Committing to a SO-FIST-ICATION ram charge.', note: 'No right-of-way discussion was held.' },
     file: 'NeverYield.mp3',
   },
   {
@@ -2250,7 +2250,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'abyssFall', outlasts: 'abyss',
     priority: 'high', rarity: 0.30, cooldown: 180,
     section: 'Defeat & Death',
-    credits: { title: 'A New Battlefield Awaits', description: 'Rarely during an unrecoverable fall into the Abyss.', note: 'There must be someone to fight down there.' },
+    credits: { title: 'A New Battlefield Awaits', description: 'Rarely, during an unrecoverable fall into the Abyss.', note: 'A location has been selected without reconnaissance.' },
     file: 'HahahaANewBattlefieldAwaits....mp3',
   },
   {
@@ -2259,7 +2259,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'antiAirAttack',
     priority: 'normal', rarity: 0.30, cooldown: 90,
     section: 'Battle & Abilities',
-    credits: { title: 'Enough Flying', description: 'Attacking an enemy-operated airborne Fight-and-Flight.', note: 'A methodical approach to aerial anatomy.' },
+    credits: { title: 'Enough Flying', description: 'Attacking an enemy-operated airborne Fight-and-Flight.', note: 'His surgical qualifications remain unverified.' },
     file: 'EnoughFlying.mp3',
   },
   {
@@ -2269,7 +2269,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'opponentsResistance',
     priority: 'normal', rarity: 0.25, cooldown: 180,
     section: 'Remarks & Oddities',
-    credits: { title: 'Think About It', description: 'When an opponent repeatedly guards, blocks, or resists defeat.', note: 'An irrefutable tactical revelation.' },
+    credits: { title: 'Think About It', description: 'After an opponent repeatedly blocks or parries his attacks.', note: 'The conclusion remains technically correct.' },
     file: 'IfYouContinueResist.mp3',
   },
   {
@@ -2278,7 +2278,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'galeVictimDisplacement',
     priority: 'normal', rarity: 0.30, cooldown: 90,
     section: 'Battle & Abilities',
-    credits: { title: 'My Favorite Wind', description: 'Forcibly displaced by an enemy Gale.', note: 'Politely reframing being blown off a cliff as graciously making room.' },
+    credits: { title: 'My Favorite Wind', description: 'Forcibly displaced by another knight\'s Gale.', note: 'His cooperation was entirely involuntary.' },
     file: 'OhMyFavoriteWind.mp3',
   },
 ]);
