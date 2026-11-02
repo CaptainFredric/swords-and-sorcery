@@ -34,3 +34,20 @@ test('A mounted pilot can still swing outward: own machine does not interrupt th
  assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===attacker.id));
  assert.ok(attacker.health<100);
 });
+
+test('diagnose genuine incoming sword trajectories around frontal machine braces',()=>{
+ const cases=[];
+ for(const dz of [-1.2,-.8,-.4,0,.4,.8,1.2]){
+  for(const pitch of [-.3,0,.3]){
+   const {room,pilot,attacker,m}=setup();
+   attacker.position.z=dz;
+   attacker.yaw=attacker.input.yaw=Math.atan2(2,-dz);
+   attacker.pitch=attacker.input.pitch=pitch;
+   beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
+   const hits=room.events.filter(e=>e.type==='swordHit'||e.type==='fightFlightComponentHit')
+     .map(e=>e.type==='swordHit'?'pilot':e.component);
+   cases.push({dz,pitch,hits});
+  }
+ }
+ console.log('FRONT_SWEEP_MATRIX',JSON.stringify(cases));
+});
