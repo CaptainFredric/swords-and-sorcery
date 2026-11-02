@@ -22,7 +22,7 @@ export function requestFlightDash(room,m,p,held,now){
    // A short tap completes its genuinely powered ten-metre launch, if there is
    // clearance and enough charge. An established run ends on release normally.
    m.runStopRequested=Boolean(m.offensiveRun&&(m.runTravel??0)<VALKYRIE_RUN.minTravel);
-   m.runReleasedAt=now;
+   m.runReleasedAt=now;m.runReleaseElapsed=0;
    if(!m.runStopRequested){m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;}
    return true;
  }
@@ -31,7 +31,7 @@ export function requestFlightDash(room,m,p,held,now){
  m.runCommitHeading=m.heading;
  m.runCommitPitch=Math.min(-VALKYRIE_RUN.pitch,clamp(
    Number.isFinite(p.input?.pitch)?p.input.pitch:0,-VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit));
- m.runStartAt=null;m.runTravel=0;m.runLastPosition=null;
+ m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
@@ -53,8 +53,11 @@ export function stepFlightRun(room,m,dt,now){
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
  if(m.flightDashHeld&&!fresh){m.flightDashHeld=false;m.runStopRequested=false;}
 
+ // These phases are governed by simulated motion ticks, not a stalled browser's
+ // wall clock. A 500ms render stall must not erase a 360ms physical commitment.
+ if(m.offensiveRun&&m.runStopRequested)m.runReleaseElapsed=(m.runReleaseElapsed??0)+dt;
  const finishing=Boolean(m.offensiveRun&&m.runStopRequested&&
-   (m.runTravel??0)<VALKYRIE_RUN.minTravel&&now-(m.runReleasedAt??now)<1.25);
+   (m.runTravel??0)<VALKYRIE_RUN.minTravel&&(m.runReleaseElapsed??0)<1.25);
  const valid=Boolean(!m.terminalDive&&!m.emergencyBrakeActive&&p?.alive&&
    p.operatingFightFlightId===m.id&&m.health>0&&m.rotorHP>0&&!m.grounded&&
    (finishing||(m.flightDashHeld&&fresh)));
@@ -71,10 +74,10 @@ export function stepFlightRun(room,m,dt,now){
    if(!practice&&m.offensiveRun)m.flightDashHeld=false;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
-   m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;
+   m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
  }else{
    if(!m.offensiveRun){
-     m.offensiveRun=true;m.runStartAt=now;m.runTravel=0;
+     m.offensiveRun=true;m.runStartAt=now;m.runElapsed=0;m.runTravel=0;
      // Authoritative, persistent measurements of the short committed launch.
      // Browser snapshots can miss a 360ms phase under headless rendering load.
      m.runLaunchStartY=m.y;m.runLaunchMinVy=0;m.runLaunchDrop=0;m.runLaunchDistance=0;
@@ -84,6 +87,9 @@ export function stepFlightRun(room,m,dt,now){
      m.runTurnSpeed=0;
      room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});
    }
+   // Count genuine fixed-step propulsion; unlike `now`, dt cannot skip the
+   // entire launch commitment under a slow browser or overloaded server.
+   m.runElapsed=(m.runElapsed??0)+dt;
    if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
@@ -100,7 +106,7 @@ export function stepFlightRun(room,m,dt,now){
  // The initial vector is captured at the press; aim cannot retarget it until
  // the commitment expires. Practice refills never restart this phase.
  if(m.terminalDive)return; // irreversible Dive owns its own physics
- const committed=Boolean(m.offensiveRun&&now-(m.runStartAt??now)<VALKYRIE_RUN.commitmentSec);
+ const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit);
  let target=m.offensiveRun?(committed?m.runCommitPitch:livePitch):0;
