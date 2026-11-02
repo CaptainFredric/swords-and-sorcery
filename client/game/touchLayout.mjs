@@ -37,8 +37,9 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   // Third row: FIRE AWAY (left), DASH (right)
   siegeSkill: { right: 108, bottom: 172, size: 58 },
   dash: { right: 24, bottom: 172, size: 58 },
-  // Above ordinary cluster: ULTIMATE / VALKYRIE
+  // Above ordinary cluster: ULTIMATE / VALKYRIE and mounted Steel
   ultimate: { right: 66, bottom: 242, size: 58 },
+  spell: { right: 138, bottom: 242, size: 58 },
   // Upper auxiliary controls
   siegeView: { right: 14, top: 12, size: 44 },
   interact: { right: 68, top: 12, size: 44 },

@@ -176,14 +176,22 @@ export class BiByeLlistaRenderer {
   }
 
   #updateDamageMaterials(groups,b,now){
+    const steelActive=Boolean(b?.siegeSteel&&b.siegeSteel.state!=='expired'&&now<(b.siegeSteel.protectionUntil??0));
+    const steelPulse=steelActive&&b.health>0?0.65+0.35*Math.sin(now*3.5):0;
     for(const [id,materials]of groups??[]){
       const def=BI_BYE_COMPONENTS.find(d=>d.id===id),damage=def?1-Math.max(0,Math.min(1,(b.components?.[id]?.health??def.maxHealth)/def.maxHealth)):0;
+      const compAlive=!def||(b.components?.[id]?.health??def.maxHealth)>0;
       const pulse=biByeDamageFlash(b,id,now);
       for(const m of materials){
         m.color.copy(m.userData.baseColor).multiplyScalar(1-.4*damage).lerp(this.hitColor,pulse*.5);
         m.roughness=Math.min(1,m.userData.baseRoughness+.35*damage);
-        m.emissive.copy(m.userData.baseEmissive).lerp(this.hitColor,pulse*.45);
-        m.emissiveIntensity=m.userData.baseEmission+.3*pulse;
+        if(steelActive&&b.health>0&&compAlive){
+          m.emissive.copy(m.userData.baseEmissive).lerp(this.hitColor,pulse*.45).lerp(new THREE.Color(0x386899),0.5*steelPulse);
+          m.emissiveIntensity=m.userData.baseEmission+.3*pulse+0.35*steelPulse;
+        }else{
+          m.emissive.copy(m.userData.baseEmissive).lerp(this.hitColor,pulse*.45);
+          m.emissiveIntensity=m.userData.baseEmission+.3*pulse;
+        }
       }
     }
   }

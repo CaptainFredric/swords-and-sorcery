@@ -832,9 +832,46 @@ html.turn-typing .rotate-prompt { display: none !important; }
  .touch-controls.touch-mounted.touch-flight .touch-ultimate {
    bottom:calc(var(--safe-b) + 226px * var(--s));
  }
+ .touch-controls.touch-mounted.touch-flight.mounted-steel-available .touch-spell {
+   bottom:calc(var(--safe-b) + 226px * var(--s));
+ }
  .touch-controls.touch-mounted.touch-flight .touch-siegeSkill,
  .touch-controls.touch-mounted.touch-flight .touch-dash {
    bottom:calc(var(--safe-b) + 159px * var(--s));
  }
  .touch-controls.touch-mounted.touch-flight::before { height:calc(210px * var(--s)); }
+}
+
+/* Mounted Sheathe in Steel */
+.touch-controls.touch-mounted.mounted-steel-available .touch-spell {
+  display: grid !important;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #2a3442e0, #141d27f0);
+  border-color: rgba(182, 214, 240, 0.72);
+  color: #dfe9f5;
+  box-shadow: inset 0 1px #ffffff30, 0 3px 12px #0009;
+}
+.touch-controls.touch-mounted.touch-flight.mounted-steel-available .touch-spell {
+  --size: 58px;
+  right: calc(var(--safe-r) + 138px * var(--s));
+  bottom: calc(var(--safe-b) + 242px * var(--s));
+}
+.touch-controls.touch-mounted:not(.touch-flight).mounted-steel-available .touch-spell {
+  --size: 62px;
+  right: calc(var(--safe-r) + 48px * var(--s));
+  bottom: calc(var(--safe-b) + 96px * var(--s));
+}
+.touch-controls .touch-spell.steel-ward-active {
+  border-color: #79c0ff !important;
+  box-shadow: inset 0 1px #ffffff40, 0 0 14px rgba(110, 184, 255, 0.75) !important;
+  animation: touch-steel-pulse 1.8s infinite ease-in-out;
+}
+@keyframes touch-steel-pulse {
+  0%, 100% { box-shadow: inset 0 1px #ffffff40, 0 0 8px rgba(110, 184, 255, 0.5); }
+  50% { box-shadow: inset 0 1px #ffffff60, 0 0 18px rgba(130, 205, 255, 0.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .touch-controls .touch-spell.steel-ward-active {
+    animation: none;
+  }
 }

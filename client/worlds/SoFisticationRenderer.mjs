@@ -113,8 +113,18 @@ export class SoFisticationRenderer {
    }
   }
   this.pendingHits=this.pendingHits.filter(e=>e.at>now&&e.at<now+2);
+  const steelActive=Boolean(b?.siegeSteel&&b.siegeSteel.state!=='expired'&&now<(b.siegeSteel.protectionUntil??0));
+  const pulse=steelActive?0.65+0.35*Math.sin(now*3.5):0;
   for(const {m,id,color,emission,intensity,hit,hitTimes}of this.materials){
-   hit.uRamHitAge.value=hitTimes.map(t=>now-t>=0&&now-t<.3?now-t:-1);const c=id==='hull'?b:b.components?.[id],damage=destroyed?1:1-(c?.health??1)/(c?.maxHealth??1);m.color.copy(color).multiplyScalar(1-damage*(destroyed?.55:.32));m.emissive.copy(emission);m.emissiveIntensity=intensity;}
+   hit.uRamHitAge.value=hitTimes.map(t=>now-t>=0&&now-t<.3?now-t:-1);const c=id==='hull'?b:b.components?.[id],damage=destroyed?1:1-(c?.health??1)/(c?.maxHealth??1);
+   m.color.copy(color).multiplyScalar(1-damage*(destroyed?.55:.32));
+   if(steelActive&&!destroyed&&(c?.health??1)>0){
+     m.emissive.copy(emission).lerp(new THREE.Color(0x386899),0.5*pulse);
+     m.emissiveIntensity=intensity+0.35*pulse;
+   }else{
+     m.emissive.copy(emission);m.emissiveIntensity=intensity;
+   }
+  }
  }
  hit(event){if(event.type==='soFistDamaged'&&event.machineId===this.presentationData?.id&&event.amount>0&&event.point&&Object.values(event.point).every(Number.isFinite)){this.pendingHits.push(event);if(this.pendingHits.length>24)this.pendingHits.shift();}}
  getOperatorStation(now=0){

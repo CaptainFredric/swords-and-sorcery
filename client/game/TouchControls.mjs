@@ -378,7 +378,78 @@ export class TouchControls {
     this.input.updatePreparedSpells(local, serverNow);
     if (!this.prepared.visible) this.#cancelPreparedTouch();
     this.layer.classList.toggle('chivalry-prepared', this.prepared.visible);
-    this.#showSpell(spellFor(local.spell), !this.prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+
+    const bl = snapshot?.bibyeBallista;
+    const fb = snapshot?.fightFlight;
+    const rb = snapshot?.soFistication;
+    const ram = Boolean(local.alive && local.operatingRamId);
+    const flight = Boolean(local.alive && local.operatingFightFlightId);
+    const mounted = Boolean(local.alive && (local.operatingBallistaId || local.operatingRamId || local.operatingFightFlightId));
+    const machine = flight ? fb : ram ? rb : bl;
+    const machineAlive = Boolean(machine && (machine.health ?? 0) > 0 && machine.mode !== 'DESTROYED' && !machine.retired);
+    const hasBaseSteel = local.spell === 'steel';
+    const hasPreparedSteel = Boolean(this.prepared?.visible && this.prepared.spells?.some((s) => s.id === 'steel'));
+    const canMountedSteel = Boolean(mounted && machineAlive && (hasBaseSteel || hasPreparedSteel));
+    this.layer.classList.toggle('mounted-steel-available', canMountedSteel);
+    this.mountedSteelEligible = canMountedSteel;
+
+    if (mounted) {
+      if (canMountedSteel) {
+        this.buttons.spell.hidden = false;
+        this.buttons.spell.classList.remove('fist', 'frost', 'gale', 'coreflagration');
+        this.buttons.spell.classList.add('steel');
+        const svgEl = this.buttons.spell.querySelector('svg');
+        if (svgEl && this.buttons.spell.dataset.face !== 'steel:mounted') {
+          svgEl.innerHTML = ICONS.steel;
+          this.buttons.spell.dataset.face = 'steel:mounted';
+          this.buttons.spell.dataset.spell = 'steel';
+        }
+        const badge = this.buttons.spell.querySelector('.touch-badge');
+        if (badge) badge.innerHTML = '';
+
+        const wardActive = Boolean(machine?.siegeSteel && machine.siegeSteel.state !== 'expired' && serverNow < machine.siegeSteel.protectionUntil);
+        this.buttons.spell.classList.toggle('steel-ward-active', wardActive);
+
+        let remaining = 0;
+        if (hasPreparedSteel && !hasBaseSteel) {
+          const entry = this.prepared.spells.find((s) => s.id === 'steel');
+          remaining = entry?.remaining ?? 0;
+        } else {
+          remaining = Math.max(0, (local.spellReadyAt ?? 0) - serverNow);
+        }
+        if (practice) remaining = 0;
+
+        this.buttons.spell.classList.toggle('cooling', remaining > 0.01);
+        const timer = this.buttons.spell.querySelector('.touch-timer');
+        const span = this.buttons.spell.querySelector('span');
+
+        if (wardActive) {
+          if (span) span.textContent = 'WARD';
+          if (timer) timer.textContent = '';
+          this.buttons.spell.setAttribute('aria-label', 'Sheathe in Steel: ward active');
+          this.buttons.spell.setAttribute('aria-disabled', 'true');
+          this.buttons.spell.style.setProperty('--cooldown', '0');
+        } else if (remaining > 0.01) {
+          if (span) span.textContent = 'STEEL';
+          if (timer) timer.textContent = remaining.toFixed(remaining < 1 ? 1 : 0);
+          this.buttons.spell.setAttribute('aria-label', `Sheathe in Steel: ${Math.ceil(remaining)}s cooldown`);
+          this.buttons.spell.setAttribute('aria-disabled', 'true');
+          this.buttons.spell.style.setProperty('--cooldown', String(Math.min(1, remaining / 10)));
+        } else {
+          if (span) span.textContent = 'STEEL';
+          if (timer) timer.textContent = '';
+          this.buttons.spell.setAttribute('aria-label', 'Sheathe in Steel');
+          this.buttons.spell.setAttribute('aria-disabled', 'false');
+          this.buttons.spell.style.setProperty('--cooldown', '0');
+        }
+      } else {
+        this.buttons.spell.hidden = true;
+        this.buttons.spell.classList.remove('steel-ward-active');
+      }
+    } else {
+      this.buttons.spell.classList.remove('steel-ward-active');
+      this.#showSpell(spellFor(local.spell), !this.prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+    }
     if (this.preparedTouch) this.#showPreparedTouch();
     // the Practice Yard: the real cooldown shown, and a mark while the button works anyway
     this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
@@ -389,6 +460,9 @@ export class TouchControls {
         try { element.style?.removeProperty?.('--cooldown'); } catch {}
         element.style?.setProperty?.('--cooldown', '0');
         if (timer) timer.textContent = '';
+        continue;
+      }
+      if (mounted && element === this.buttons.spell) {
         continue;
       }
       const preparedCurrent = key === 'spellReadyAt' && this.prepared.visible ? this.prepared.spells.find((spell) => spell.current) : null;
@@ -413,8 +487,8 @@ export class TouchControls {
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
       const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
-      const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
-      const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
+      const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&local.position&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
+      const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
       if(this.flightMounted!==undefined&&this.flightMounted!==flight){this.reset();this.flightMounted=flight;this.applyLayout(this.layouts);}
@@ -762,7 +836,15 @@ export class TouchControls {
       const gesture = this.preparedTouch;
       const chosen = gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
       this.#cancelPreparedTouch();
-      if (event.type === 'pointerup' && chosen) this.input.usePreparedSpell(chosen);
+      if (event.type === 'pointerup') {
+        if (this.mounted) {
+          if (gesture.mountedSteel || chosen === 'steel' || Math.hypot(point.x - gesture.x, point.y - gesture.y) <= 22) {
+            this.input.usePreparedSpell('steel');
+          }
+        } else if (chosen) {
+          this.input.usePreparedSpell(chosen);
+        }
+      }
     }
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
@@ -830,6 +912,26 @@ export class TouchControls {
       this.flightLowerHeld = true;
     }
     if (action === 'spell') {
+      if (this.mounted) {
+        if (!this.mountedSteelEligible) return;
+        if (this.prepared?.visible) {
+          if (this.prepared.spells?.some((s) => s.id === 'steel')) {
+            if (!this.preparedTouch) {
+              const point = gamePoint(event, this.layer);
+              this.preparedTouch = {
+                id: event.pointerId,
+                ...point,
+                mountedSteel: true,
+                selector: new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), 'steel', { touch: true }),
+              };
+              this.#showPreparedTouch();
+            }
+          }
+        } else {
+          this.input.cast();
+        }
+        return;
+      }
       if (this.galeAvailable && !this.prepared?.visible) {
         this.galeGesture = { id: event.pointerId, ...gamePoint(event, this.layer), mode: 'balanced' };
         this.input.cast();
@@ -992,6 +1094,7 @@ export class TouchControls {
       this.flightRail.setAttribute('aria-valuenow', '0');
     }
     if (this.flightRailThumb) this.flightRailThumb.style.transform = '';
+    this.input?.onInputsReleased?.();
   }
 
   #startStick(event, point) {

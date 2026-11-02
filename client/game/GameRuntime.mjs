@@ -290,6 +290,16 @@ export class GameRuntime {
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
+    this.input.onInputsReleased = () => {
+      if (!this.localAuth) return;
+      const wanted = { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
+      sendMovementInput(this.socket, this.#mountedIntent(wanted), performance.now(), this);
+    };
+    this.socket.setInputSampler?.(() => {
+      if (!this.input?.enabled || this.inspectionFree || (typeof document !== 'undefined' && document.hidden)) return null;
+      const wanted = { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
+      return { seq: ++this.sequence, ...this.#mountedIntent(wanted) };
+    });
     this.inspectionFocus = 'actor';
     this.inspectionSplit = false;
     this.flyCamera = new THREE.PerspectiveCamera(78, 1, .05, 2000);
@@ -1552,6 +1562,47 @@ export class GameRuntime {
         this.effects.splinters(event.point,16);
         this.#play(fireballImpactRecipe(),event.point,1);
       }
+      if (event.type === 'siegeSteelOn') {
+        const machine = this.#siegeMachine(event.machineId);
+        const pos = machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null;
+        this.#play(steelCallRecipe(), event.operatorId === this.playerId ? null : pos, event.operatorId === this.playerId ? 0.95 : 0.7);
+        if (event.operatorId === this.playerId) {
+          this.hud.flashText('SHEATHED IN STEEL', 'gold', 1100);
+        }
+      }
+      if (event.type === 'siegeSteelBlocked') {
+        const machine = this.#siegeMachine(event.machineId);
+        const point = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null);
+        const isMine = machine?.operatorId === this.playerId;
+        if (point) {
+          this.effects.steelGlint(point, null, { strength: 1.0, ring: true, scale: 0.95 });
+          this.effects.blockBurst?.(point, null, { parry: false });
+          this.effects.wallClang?.(point);
+        }
+        this.#play(steelClangRecipe(Math.random, { strength: 1.0, local: isMine }), isMine ? null : point, isMine ? 1.0 : 0.85);
+        if (isMine) {
+          this.hud.flashText('STEEL WARD BLOCKED', 'parry', 750);
+        }
+      }
+      if (event.type === 'siegeSteelRepair') {
+        const machine = this.#siegeMachine(event.machineId);
+        const pt = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z } : null);
+        if (pt) {
+          this.effects.steelGlint(pt, null, { strength: 0.45, ring: false, scale: 0.4 });
+        }
+      }
+      if (event.type === 'siegeSteelRepairFinished') {
+        const machine = this.#siegeMachine(event.machineId);
+        if (machine?.operatorId === this.playerId) {
+          this.hud.flashText('STEEL REPAIR SETTLED', '', 800);
+        }
+      }
+      if (event.type === 'siegeSteelEnded') {
+        const machine = this.#siegeMachine(event.machineId);
+        if (machine?.operatorId === this.playerId) {
+          this.hud.flashText(event.reason === 'destroyed' ? 'STEEL WARD BROKEN' : 'STEEL WARD EXPIRED', event.reason === 'destroyed' ? 'danger' : '', 900);
+        }
+      }
       this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
@@ -2033,6 +2084,14 @@ export class GameRuntime {
         }
       }
     }
+  }
+
+  #siegeMachine(machineId) {
+    if (!machineId) return null;
+    if (this.latestSnapshot?.fightFlight?.id === machineId) return this.latestSnapshot.fightFlight;
+    if (this.latestSnapshot?.bibyeBallista?.id === machineId) return this.latestSnapshot.bibyeBallista;
+    if (this.latestSnapshot?.soFistication?.id === machineId) return this.latestSnapshot.soFistication;
+    return null;
   }
 
   // where a Spellblade is drawn right now (me: my predicted body; others: their interpolated body)
@@ -3791,6 +3850,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    this.socket.setInputSampler?.(null);
     this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
