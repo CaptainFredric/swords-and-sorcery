@@ -71,6 +71,15 @@ test('Quick release honors minimum powered distance before coasting, without res
   assert.equal(s.room.events.filter(e=>e.type==='fightFlightOffensiveRun'&&e.action==='started').length,1);
   assert.equal(s.m.terminalDive,null);
 });
+test('Practice short tap still reaches minimum distance through an almost empty charge cycle',()=>{
+  const s=setup({practice:true});s.m.flightCharge=.1;
+  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,4);
+  requestFlightDash(s.room,s.m,s.p,false,s.now);
+  for(let i=0;i<55&&s.m.offensiveRun;i++)frames(s,1);
+  assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel);
+  assert.equal(s.m.offensiveRun,false);
+  assert.equal(s.m.terminalDive,null);
+});
 test('Physical wall and rotor destruction interrupt held propulsion, no automatic restart',()=>{
   const s=setup();s.room.world.solids=[{center:[0,30,-6],size:[8,60,1]}];
   requestFlightDash(s.room,s.m,s.p,true,0);frames(s,50);
