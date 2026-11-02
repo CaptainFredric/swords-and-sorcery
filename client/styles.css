@@ -110,6 +110,8 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .practice-tools > div { margin-bottom: 2px; }
 .practice-tools-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; width: 100%; border-bottom: 1px solid rgba(215,199,160,.18); padding-bottom: 4px; }
 .practice-role-hint { color: #f5d489 !important; font-size: 7.5px !important; margin-top: 3px !important; line-height: 1.25; }
+.practice-drawer-close { width: auto !important; min-height: 22px !important; padding: 2px 7px !important; font-size: 8px !important; font-weight: 800 !important; color: #eadcb6 !important; background: rgba(0,0,0,.35) !important; border: 1px solid rgba(201,156,82,.5) !important; border-radius: 3px; cursor: pointer; flex-shrink: 0; }
+.practice-drawer-close:hover { background: rgba(201,156,82,.2) !important; color: #fff !important; }
 .practice-panel-toggle { width: auto !important; min-height: 22px !important; padding: 2px 7px !important; font-size: 8px !important; font-weight: 800 !important; color: #eadcb6 !important; background: rgba(0,0,0,.35) !important; border: 1px solid rgba(201,156,82,.5) !important; border-radius: 3px; cursor: pointer; flex-shrink: 0; }
 .practice-panel-toggle:hover { background: rgba(201,156,82,.2) !important; color: #fff !important; }
 .practice-panel-content { display: grid; grid-template-columns: 1fr 1fr; gap: 0 7px; width: 100%; margin-top: 4px; }
@@ -118,6 +120,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .practice-panel-content > small { grid-column: 1 / -1; color: #eadcb6; font-size: 9px; }
 .practice-panel-content > details { grid-column: 1 / -1; }
 .hud.pointer-locked .practice-tools .practice-panel-content { display: none !important; }
+.hud.pointer-locked .practice-tools .practice-drawer-close { display: none !important; }
 .hud.pointer-locked .practice-tools .practice-panel-toggle { display: none !important; }
 .hud.pointer-locked .practice-tools .practice-role-hint { display: none !important; }
 .practice-tools h3 { grid-column: 1 / -1; margin: 7px 0 2px; color: #ecc97f; font: 800 9px/1.1 var(--font-script); letter-spacing: .14em; }

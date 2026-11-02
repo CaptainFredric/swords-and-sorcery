@@ -33,3 +33,29 @@ test('silent voice output never suppresses a later audible speaker',()=>{
   bank.takes.set('defeat',[{duration:2}]);bank.say('defeat',{speaker:'a',force:true,source:{x:0,z:0}});
   engine.now=3;assert.equal(bank.audibleHistory.scale('defeat','b',3,{x:0,z:0}),1);
 });
+
+test('voice diversity: numbered variations share family cooldown and killTaunt remains frequent exception', () => {
+  const director = new VoiceDirector({ rand: () => 0.01 });
+
+  // 1. First variation speaks: deceasedStatusV1
+  const first = director.consider('deceasedStatusV1', 'pilot', 10.0, { duration: 2.0 });
+  assert.ok(first, 'first variation permitted');
+
+  // Alternate variation deceasedStatusV2 attempted during family cooldown (< 240s)
+  const second = director.consider('deceasedStatusV2', 'pilot', 25.0, { duration: 2.0 });
+  assert.equal(second, null, 'alternate variation blocked by shared family cooldown');
+
+  // 2. Configurable frequent exception: killTaunt retains full eligibility without repeat scale penalty
+  const dDefault = new VoiceDirector({ rand: () => 0.25 }); // 0.25 < 0.30 rarity
+  // First kill taunt
+  const kt1 = dDefault.consider('killTaunt', 'k', 10.0, { duration: 1.5 });
+  assert.ok(kt1, 'first killTaunt permitted');
+
+  // Second kill taunt after sentence gap (45s) retains full rarity (0.30 > 0.25) because it is frequent exception
+  const kt2 = dDefault.consider('killTaunt', 'k', 60.0, { duration: 1.5 });
+  assert.ok(kt2, 'killTaunt permitted again without repeat penalty');
+
+  // 3. Changing frequentException to custom line
+  const dCustom = new VoiceDirector({ rand: () => 0.25, frequentException: 'sorcery' });
+  assert.equal(dCustom.frequentException, 'sorcery');
+});

@@ -92,8 +92,10 @@ test('Practice has a direct, Practice-only touch shortcut below Pause and Scores
   assert.match(touch, /action === 'practiceTools' && event\.type === 'pointerup'/);
   assert.match(runtime, /action==='practiceTools'&&pressed/);
   assert.match(runtime, /'pause','practiceTools'\]\.includes\(action\)/);
-  assert.match(main, /runtime\.onPracticeTools = \(\) => openPause\('practice'\)/);
-  assert.match(main, /if \(practiceDirect\) \{\s*closePause\(\)/);
+  assert.match(main, /runtime\.onPracticeTools = \(\) => togglePracticeDrawer\(\)/);
+  assert.match(main, /function togglePracticeDrawer\(\)/);
+  assert.match(main, /function openPracticeDrawer\(\)/);
+  assert.match(main, /function closePracticeDrawer/);
   assert.match(css, /\.touch-ui #pause-practice \{ display: none !important; \}/);
   assert.match(css, /\.touch-practiceTools\[hidden\] \{ display: none !important; \}/);
   assert.match(layout, /practiceTools: \{ left: 10, top: 56, size: 44 \}/);

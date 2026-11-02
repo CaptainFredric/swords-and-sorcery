@@ -145,9 +145,13 @@ export function flightLoopSamples(kind, rate=22050, seconds=2, rand=Math.random)
       const clank = Math.exp(-phase * 32) * Math.sin(2 * Math.PI * 380 * t) * 0.05 * (white * 0.4 + 0.6);
       result[i] = seam * (low * 0.26 + thud + foot + clank);
     } else if (kind === 'offensive') {
-      const bearing=Math.sin(2*Math.PI*310*t)*.05;
-      const rushingAir=(white-low)*.10;
-      result[i]=seam*(low*.43+rushingAir+bearing);
+      // Rhythmic propeller flutter tied to blade-pass modulation
+      // ~26 Hz rotor flutter with soft aerodynamic envelope
+      const flutterFreq = 26;
+      const bladePhase = (t * flutterFreq) % 1;
+      const bladeFlutter = Math.exp(-bladePhase * 9.5) * Math.sin(2 * Math.PI * 68 * t) * 0.22;
+      const airFlutter = (0.55 + 0.45 * Math.sin(2 * Math.PI * flutterFreq * t)) * (low * 0.26 + (white - low) * 0.08);
+      result[i] = seam * (bladeFlutter + airFlutter);
     }
   }
   return result;
@@ -181,9 +185,9 @@ export class FlightSound {
     if (this.ones.length > 24) this.ones.shift();
   }
 
-  #loop(kind, wanted, b, gain, rate = 1) {
+  #loop(kind, wanted, b, gain, rate = 1, fadeOut = 0.08) {
     if (!wanted) {
-      this.loops.get(kind)?.stop(0.08);
+      this.loops.get(kind)?.stop(fadeOut);
       this.loops.delete(kind);
       return;
     }
@@ -239,7 +243,10 @@ export class FlightSound {
     const rotorAlive = (m.rotorHP ?? 0) > 0;
     const rotorSpinning = rotorAlive && (owned || !grounded || (m.rotorEnergy ?? 0) > 10);
     const climbRateMod = Math.max(0.7, Math.min(1.4, 1 + vy * 0.06));
-    const rotorGain = grounded ? 0.18 : 0.28 + Math.min(0.12, Math.max(0, vy * 0.03));
+    const baseRotorGain = grounded ? 0.18 : 0.28 + Math.min(0.12, Math.max(0, vy * 0.03));
+    const offensive = owned && Boolean(m.offensiveRun);
+    // Duck ordinary rotor loop during Dash to avoid muddy sound layering with propeller flutter
+    const rotorGain = baseRotorGain * (offensive ? 0.42 : 1.0);
     this.#loop('rotor', rotorSpinning, m, rotorGain, climbRateMod);
 
     const walking = owned && grounded && speed > 0.35;
@@ -247,18 +254,23 @@ export class FlightSound {
     const walkRate = isSprint ? Math.max(1.0, Math.min(1.5, speed / 4.2)) : Math.max(0.65, Math.min(1.25, speed / 3.2));
     this.#loop('walk', walking, m, isSprint ? 0.28 : 0.22, walkRate);
 
-    const offensive = owned && Boolean(m.offensiveRun);
-    // A released Dash clears offensiveRun in the command handler *before*
-    // the next sim tick; it need not emit a separate ended event. Observe
-    // the authoritative edge so the tail whoosh still sounds on release.
-    // Event-provided audio and snapshot fallback share the same cooldown.
-    if(offensive&&!last?.offensiveRun&&options.now-this.lastStartWhooshAt>.45){
-      this.#play('offensiveRun',m,.85);this.lastStartWhooshAt=options.now;
+    // One initial whoosh on Dash onset; smooth release fade on end:
+    // Avoid repeated start whooshes during Practice meter refills when Dash is continuously held.
+    const dashHeld = Boolean(m.flightDashHeld || m.continuousDashHeld);
+    const wasDashHeld = Boolean(last?.flightDashHeld || last?.continuousDashHeld);
+    const isContinuousPracticeRefill = dashHeld && wasDashHeld;
+
+    if (offensive && !last?.offensiveRun && !isContinuousPracticeRefill && options.now - this.lastStartWhooshAt > 0.45) {
+      this.#play('offensiveRun', m, 0.85);
+      this.lastStartWhooshAt = options.now;
     }
-    if(!offensive&&last?.offensiveRun&&options.now-this.lastReleaseWhooshAt>.35){
-      this.#play('offensiveRelease',m,.55);this.lastReleaseWhooshAt=options.now;
+    if (!offensive && last?.offensiveRun && !isContinuousPracticeRefill && options.now - this.lastReleaseWhooshAt > 0.35) {
+      this.#play('offensiveRelease', m, 0.55);
+      this.lastReleaseWhooshAt = options.now;
     }
-    this.#loop('offensive', offensive, m, 0.35, 1.15);
+    const offensiveRate = Math.max(0.85, Math.min(1.4, (m.rotorRPM ?? 300) / 280));
+    const offensiveGain = 0.32 * Math.min(1.0, Math.max(0.5, (m.rotorEnergy ?? 80) / 80));
+    this.#loop('offensive', offensive, m, offensiveGain, offensiveRate, 0.25);
 
     this.last = { ...m };
   }
@@ -297,12 +309,13 @@ export class FlightSound {
     } else if (event.type === 'fightFlightRotorWorldImpact' || event.type === 'fightFlightRotorContact') {
       kind = 'rotorCollision';
     } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'started') {
-      if(now-this.lastStartWhooshAt<=.45)return;
-      this.lastStartWhooshAt=now;
+      const isContinuous = Boolean(m.flightDashHeld && this.last?.flightDashHeld);
+      if (isContinuous || now - this.lastStartWhooshAt <= 0.45) return;
+      this.lastStartWhooshAt = now;
       kind = 'offensiveRun';
     } else if (event.type === 'fightFlightOffensiveRun' && event.action === 'ended') {
-      if(now-this.lastReleaseWhooshAt<=.35)return;
-      this.lastReleaseWhooshAt=now;
+      if (now - this.lastReleaseWhooshAt <= 0.35) return;
+      this.lastReleaseWhooshAt = now;
       kind = 'offensiveRelease';
     } else if (event.type === 'fightFlightTerminalPrep' && event.action === 'started') {
       kind = 'valkyriePrep';

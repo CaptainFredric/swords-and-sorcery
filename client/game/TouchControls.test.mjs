@@ -1037,3 +1037,89 @@ test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, h
   send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 81 });
   assert.deepEqual(usePreparedCalls, ['steel']);
 });
+
+test('spell button lifecycle: normal spell button reliably reappears across all transitions', () => {
+  let castCalls = 0;
+  const { controls, input, send } = setup({
+    alive: true,
+    spell: 'fireball',
+    spellReadyAt: 0,
+    operatingFightFlightId: 'faf_1',
+    position: { x: 0, y: 0, z: 0 },
+  });
+  input.cast = () => { castCalls++; };
+
+  const snapshotAlive = {
+    fightFlight: { id: 'faf_1', health: 250, mode: 'AIRBORNE', rotorHP: 100 },
+    bibyeBallista: { id: 'bb_1', health: 180, deployed: true },
+  };
+
+  // Step 1: Mounted without Steel (fireball) -> hidden
+  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, true, 'illegal mounted fireball is hidden');
+
+  // Step 2: Dismounting Fight-and-Flight -> normal fireball reappears and works
+  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingFightFlightId: null }, 11, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, false, 'fireball reappears after dismounting flight');
+  assert.equal(controls.buttons.spell.dataset.spell, 'fireball');
+  assert.equal(controls.buttons.spell.getAttribute('aria-disabled'), 'false');
+
+  // Verify real tap triggers cast
+  castCalls = 0;
+  send('pointerdown', 10, 10, { target: controls.buttons.spell, pointerId: 90 });
+  send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 90 });
+  assert.equal(castCalls, 1, 'reappeared spell button casts successfully');
+
+  // Step 3: Mounted on Bi-Bye-llista without Steel -> hidden; Machine destroyed -> dismounted & reappears
+  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: 'bb_1' }, 12, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, true, 'hidden while operating ballista without steel');
+
+  const snapshotDestroyed = {
+    fightFlight: null,
+    bibyeBallista: { id: 'bb_1', health: 0, destroyed: true },
+  };
+  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 13, { snapshot: snapshotDestroyed });
+  assert.equal(controls.buttons.spell.hidden, false, 'reappears after machine destruction');
+
+  // Step 4: Operator death & respawn
+  controls.update({ alive: false, health: 0, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 14, { snapshot: snapshotDestroyed });
+  controls.update({ alive: true, health: 100, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 15, { snapshot: snapshotDestroyed });
+  assert.equal(controls.buttons.spell.hidden, false, 'reappears on operator respawn');
+
+  // Step 5: Switching loadouts to frostfire and gale
+  controls.update({ alive: true, spell: 'frostfire', spellReadyAt: 0 }, 16, {});
+  assert.equal(controls.buttons.spell.hidden, false);
+  assert.equal(controls.buttons.spell.dataset.spell, 'frostfire');
+
+  controls.update({ alive: true, spell: 'gale', spellReadyAt: 0 }, 17, {});
+  assert.equal(controls.buttons.spell.hidden, false);
+  assert.equal(controls.buttons.spell.dataset.spell, 'gale');
+
+  // Step 6: Chivalry prepared Steel while mounted -> shown; Chivalry expires while still mounted -> hidden
+  controls.update({
+    alive: true,
+    spell: 'frostfire',
+    operatingFightFlightId: 'faf_1',
+    preparedSpells: ['frostfire', 'steel'],
+  }, 18, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, false, 'mounted steel shown via prepared chivalry');
+
+  // Prepared chivalry expires
+  controls.update({
+    alive: true,
+    spell: 'frostfire',
+    operatingFightFlightId: 'faf_1',
+    preparedSpells: [],
+  }, 19, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, true, 'mounted steel hides once prepared steel expires');
+
+  // Dismounting after chivalry expiry -> normal frostfire reappears
+  controls.update({
+    alive: true,
+    spell: 'frostfire',
+    operatingFightFlightId: null,
+    preparedSpells: [],
+  }, 20, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.hidden, false, 'normal frostfire reappears after dismounting');
+  assert.equal(controls.buttons.spell.dataset.spell, 'frostfire');
+});

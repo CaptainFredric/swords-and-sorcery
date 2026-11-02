@@ -297,6 +297,9 @@ export class TouchControls {
     this.#hideGaleIndicator();
     this.viewGesture=null;
     this.#cancelPreparedTouch();
+    if (!this.ballistaMounted && !this.ramMounted && !this.flightMounted && this.buttons.spell) {
+      this.buttons.spell.hidden = false;
+    }
     for (const [pointerId, action] of this.held) this.#release(action, pointerId, true);
     this.held.clear();
     this.#resetFlightRail();
@@ -447,6 +450,7 @@ export class TouchControls {
         this.buttons.spell.classList.remove('steel-ward-active');
       }
     } else {
+      this.buttons.spell.hidden = false;
       this.buttons.spell.classList.remove('steel-ward-active');
       this.#showSpell(spellFor(local.spell), !this.prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
     }
@@ -688,8 +692,10 @@ export class TouchControls {
   // the spell button wears the carried spell, or, while that cools, the gauntlet
   #showSpell(spell, cooling) {
     const button = this.buttons.spell;
+    if (!button) return;
+    button.hidden = false;
     const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
-    if (!button || button.dataset.face === face) return;
+    if (button.dataset.face === face) return;
     button.dataset.face = face;
     button.dataset.spell = spell.id;
     button.classList.toggle('frost', spell.id === 'frostfire');
@@ -698,6 +704,7 @@ export class TouchControls {
     button.classList.toggle('coreflagration', spell.id === 'coreflagration');
     button.classList.toggle('fist', Boolean(cooling));
     button.setAttribute('aria-label', cooling ? `GAUNTLET (${spell.label.toUpperCase()} RECHARGING)` : spell.label.toUpperCase());
+    button.setAttribute('aria-disabled', 'false');
     button.querySelector('span').textContent = cooling ? 'FIST' : (spell.short ?? spell.label).toUpperCase();
     button.querySelector('svg').innerHTML = ICONS[cooling ? 'gauntlet' : spell.id] ?? ICONS.fireball;
     let badge = button.querySelector('.touch-badge');

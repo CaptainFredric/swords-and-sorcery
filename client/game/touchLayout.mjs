@@ -103,6 +103,12 @@ function migrateCrouchPosition(onFoot) {
   return { ...onFoot, crouch: { ...crouch, left: 190, bottom: 187 } };
 }
 
+// Ensure saved flight layouts preserve custom positioning while migrating missing controls.
+function migrateFlightLayout(flight) {
+  if (!flight) return { ...DEFAULT_FLIGHT_LAYOUT };
+  return { ...DEFAULT_FLIGHT_LAYOUT, ...flight };
+}
+
 export function loadTouchLayout(storage = globalThis.localStorage) {
   try {
     const raw = storage?.getItem?.('ss-touch-layout');
@@ -110,7 +116,7 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
       const parsed = JSON.parse(raw);
       return {
         onFoot: migrateCrouchPosition(parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT }),
-        flight: parsed.flight ?? { ...DEFAULT_FLIGHT_LAYOUT },
+        flight: migrateFlightLayout(parsed.flight),
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
         handedness: parsed.handedness === 'left' ? 'left' : 'right',
       };
