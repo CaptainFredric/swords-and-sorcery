@@ -25,6 +25,12 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   else if (preparing) warning = 'VALKYRIE PREPARING · ' + Math.max(0, (m.terminalPrep.until - now)).toFixed(1) + 's';
   else if (!supported && charge < 15) warning = 'LOW FLIGHT CHARGE';
   else if (m.crossbowAimLimited) warning = 'AIM OUTSIDE CROSSBOW ARC · MUZZLE PATH DIFFERS';
+
+  const hull = Math.max(0, Math.ceil(m.health ?? 250));
+  const maxHull = m.maxHealth ?? 250;
+  const playerHealth = Math.max(0, Math.min(100, Math.ceil(player.health ?? 100)));
+  const playerGuard = Math.max(0, Math.min(100, Math.ceil(player.guardStamina ?? 100)));
+
   return {
     isFlight: true,
     title:'FIGHT-AND-FLIGHT · '+grounded,
@@ -39,6 +45,10 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     rotorBrakeHeld: Boolean(m.rotorBrakeHeld),
     ammo: reserve,
     debt,
+    hull,
+    maxHull,
+    playerHealth,
+    playerGuard,
     skillText: active ? 'FIRE AWAY ' + Math.max(0, (skill.activeUntil - now)).toFixed(1) + 's' : now < (skill.readyAt ?? 0) ? Math.ceil(skill.readyAt - now) + 's' : 'READY',
     skillActive: active,
     warning,

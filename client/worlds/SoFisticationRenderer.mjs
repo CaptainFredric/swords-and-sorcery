@@ -65,11 +65,23 @@ export class SoFisticationRenderer {
   if(!this.model)return;
   this.strike.time=Math.min(3.999,soFistPose(b,now).clipAge);this.strike.enabled=true;this.mixer.update(0);
   this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
+  const destroyed=b.mode==='DESTROYED'||(b.health??1)<=0;
   for(let i=0;i<this.wheels.length;i++){
-   const {o,rest,position}=this.wheels[i],failed=b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
+   const {o,rest,position}=this.wheels[i],failed=destroyed||b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
    o.position.copy(position);o.position.y+=(b.wheelOffsets?.[i]??0)/SO_FIST_SCALE;
    this.turn.setFromAxisAngle(new THREE.Vector3(0,1,0),soFistWheelSteering(b)[i]);this.spin.setFromAxisAngle(new THREE.Vector3(1,0,0),(b.wheelRolls?.[i]??0));o.quaternion.copy(this.turn).multiply(rest).multiply(this.spin);
-   if(failed){o.position.y-=.07;o.rotation.z+=(i%2?1:-1)*.12;}
+   if(failed){o.position.y-=destroyed?.16:.07;o.rotation.z+=(i%2?1:-1)*(destroyed?.28:.12);}
+  }
+  if(destroyed){
+    this.model.rotation.z = 0.18;
+    this.model.position.y = -0.14;
+    const piston = this.nodes.get('Ram_Shaft_Piston');
+    if(piston) piston.rotation.x = -0.22;
+  } else {
+    this.model.rotation.z = 0;
+    this.model.position.y = 0;
+    const piston = this.nodes.get('Ram_Shaft_Piston');
+    if(piston) piston.rotation.x = 0;
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
@@ -102,7 +114,7 @@ export class SoFisticationRenderer {
   }
   this.pendingHits=this.pendingHits.filter(e=>e.at>now&&e.at<now+2);
   for(const {m,id,color,emission,intensity,hit,hitTimes}of this.materials){
-   hit.uRamHitAge.value=hitTimes.map(t=>now-t>=0&&now-t<.3?now-t:-1);const c=id==='hull'?b:b.components?.[id],damage=1-(c?.health??1)/(c?.maxHealth??1);m.color.copy(color).multiplyScalar(1-damage*.32);m.emissive.copy(emission);m.emissiveIntensity=intensity;}
+   hit.uRamHitAge.value=hitTimes.map(t=>now-t>=0&&now-t<.3?now-t:-1);const c=id==='hull'?b:b.components?.[id],damage=destroyed?1:1-(c?.health??1)/(c?.maxHealth??1);m.color.copy(color).multiplyScalar(1-damage*(destroyed?.55:.32));m.emissive.copy(emission);m.emissiveIntensity=intensity;}
  }
  hit(event){if(event.type==='soFistDamaged'&&event.machineId===this.presentationData?.id&&event.amount>0&&event.point&&Object.values(event.point).every(Number.isFinite)){this.pendingHits.push(event);if(this.pendingHits.length>24)this.pendingHits.shift();}}
  getOperatorStation(now=0){

@@ -59,3 +59,19 @@ test('FlightCameraMotion reacts to horizontal acceleration with settling reactio
   const result = motion.update(0.016, { velocity: { x: 4, y: 0, z: 0 }, grounded: true }, 1);
   assert.ok(result.pitch > 0, 'Acceleration should produce settling pitch back');
 });
+
+test('FlightCameraMotion generates heavy footsteps and lateral body weight transfer', () => {
+  const motion = new FlightCameraMotion();
+  let maxLateral = 0;
+  let maxVertical = 0;
+  let maxRoll = 0;
+  for (let i = 0; i < 40; i++) {
+    const res = motion.update(0.02, { velocity: { x: 3.5, y: 0, z: 0 }, grounded: true }, 1);
+    maxLateral = Math.max(maxLateral, Math.abs(res.offset.x));
+    maxVertical = Math.max(maxVertical, Math.abs(res.offset.y));
+    maxRoll = Math.max(maxRoll, Math.abs(res.roll));
+  }
+  assert.ok(maxLateral > 0.005, 'Ground walking should produce lateral weight transfer sway');
+  assert.ok(maxVertical > 0.005, 'Ground walking should produce vertical footstep bob');
+  assert.ok(maxRoll > 0.003, 'Ground walking should produce lateral roll');
+});

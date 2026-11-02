@@ -32,7 +32,7 @@ export const ICONS = Object.freeze({
   interact: '<path d="M12 4v12M8 8l4-4 4 4M4 20h16"/>',
   rise: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   lower: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
-  siegeSkill: '<path d="M9 3h6l.5 3 2.5 1 2.5-1 3 5-2.5 2v2l2.5 2-3 5-2.5-1-2.5 1-.5 3H9l-.5-3-2.5-1-2.5 1-3-5L3 15v-2L.5 11l3-5L6 7l2.5-1z" transform="translate(1 -1) scale(.9)"/><circle cx="12" cy="12" r="3"/>',
+  siegeSkill: '<path class="winged-arrow-shaft" d="M12 2.5v17M8 6.5l4-4 4 4M9 20h6"/><path class="winged-arrow-wing-l" d="M10 8c-4-2-7 1-7 4 3 0 5-1 7-3M9 12c-3-1-5 1-5 3 2 0 4-1 5-2"/><path class="winged-arrow-wing-r" d="M14 8c4-2 7 1 7 4-3 0-5-1-7-3M15 12c3-1 5 1 5 3-2 0-4-1-5-2"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   deploy: '<path d="M4 12h16M12 4v16M7 7l10 10M17 7l-10 10"/>',

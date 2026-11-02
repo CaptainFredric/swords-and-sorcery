@@ -404,11 +404,22 @@ export class WeaponView {
     return true;
   }
 
+  setFlightCockpit({ active = false, concurrent = false } = {}) {
+    this.flightCockpit = Boolean(active);
+    this.flightConcurrent = Boolean(concurrent);
+  }
+
   // The arms still being brought out, this frame: the sword arm's draw pose (or held at the hip) and its weight, the
   // magic hand's target and weight, and how bright its rune and light are (1: as ever; 0: down out of sight).
   #equipmentPose(timeSec) {
     const e = this.equipment;
     let sword = null, hand = null, rune = 1, wake = 0;
+    if (this.flightCockpit) {
+      // Off-hand grips the flight apparatus throttle/controls, not raised into visor view
+      hand = { target: HAND_AWAY, weight: 1 };
+      rune = 0;
+      return { sword, hand, rune, wake: 0 };
+    }
     if (e.sword === 'away') sword = { pose: drawPose(0), weight: 1 };
     else if (e.sword === 'drawing') {
       const t = timeSec - e.swordAt, length = e.swordQuick ? QUICK_DRAW_SEC : DRAW_END;
@@ -785,6 +796,7 @@ export class WeaponView {
       castUntil: this.castUntil,
       dashUntil: this.dashUntil,
       concurrent: this.concurrent,
+      flightCockpit: this.flightCockpit,
     });
 
     const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
@@ -886,6 +898,16 @@ export class WeaponView {
           // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
           // pull against each other)
           ...(combo ? counterRotations(combo.counter, combo.weight * swordOffhand * (1 - (combo.offHand?.weight ?? 0))) : []),
+          ...(this.flightCockpit ? [
+            { bone: 'upper_arm.R', axis: [0, 1, 0], angle: -0.16 },
+            { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.18 },
+            { bone: 'hand.R', axis: [1, 0, 0], angle: -0.14, space: 'local' },
+            { bone: 'hand.R', axis: [0, 0, 1], angle: -0.22, space: 'local' },
+            { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.10 * (this.guardBlend * (combo ? 0 : 1)) },
+            { bone: 'hand.R', axis: [0, 0, 1], angle: 0.32 * (this.guardBlend * (combo ? 0 : 1)), space: 'local' },
+            { bone: 'hand.R', axis: [1, 0, 0], angle: -0.32 * Math.min(1, Math.max(0, (this.parryUntil - timeSec) / 0.3)), space: 'local' },
+            { bone: 'forearm.R', axis: [0, 1, 0], angle: 0.25 * Math.min(1, Math.max(0, (this.parryUntil - timeSec) / 0.3)), space: 'local' },
+          ] : []),
         ],
         solve: combo || jab || away.sword || away.hand ? (bones) => {
           if (combo) {
@@ -904,7 +926,11 @@ export class WeaponView {
       const w = motion.weapon;
       // the body carries the arms into each cut
       const body = combo ? combo.body.map((v) => v * combo.weight) : [0, 0, 0];
-      this.productionOffset.position.set(w.x + body[0], w.y + body[1], w.z + body[2]);
+      this.productionOffset.position.set(
+        w.x + body[0] + (this.flightCockpit ? 0.14 : 0),
+        w.y + body[1] + (this.flightCockpit ? -0.12 : 0),
+        w.z + body[2] + (this.flightCockpit ? 0.06 : 0),
+      );
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
       // Sundering: the heat in my steel; off balance: the arms sway as I fight to keep my feet (the aim never does)
       if (this.sunderBladeOf !== this.productionInstance) {
@@ -960,12 +986,23 @@ export class WeaponView {
         this.steelSheen ??= createSteelSheen(this.productionInstance);
         this.steelSheen.set(this.steel.strength, this.steel.rippleAge);
       }
+      if (this.flightCockpit && (this.concurrent || this.flightConcurrent)) {
+        const chivalryGlow = 0.85 + 0.15 * Math.sin(timeSec * 8);
+        if (this.productionInstance.materials?.blade) {
+          for (const mat of [this.productionInstance.materials.blade].flat()) {
+            if (mat?.emissive) {
+              mat.emissive.setHex(0xe6b840);
+              mat.emissiveIntensity = 0.45 * chivalryGlow;
+            }
+          }
+        }
+      }
       return motion;
     }
 
     const away = this.#equipmentPose(timeSec);
     this.weaponGroup.visible = this.equipment.sword !== 'away';
-    this.leftHandGroup.visible = this.equipment.hand !== 'away';
+    this.leftHandGroup.visible = !this.flightCockpit && this.equipment.hand !== 'away';
 
     const groupSnap = pose.state === 'attack' ? 0.40 : pose.state === 'guard' || pose.state === 'cast' ? 0.34 : 0.27;
     const swordSnap = pose.state === 'attack' ? 0.58 : pose.state === 'guard' ? 0.42 : 0.32;

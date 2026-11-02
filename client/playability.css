@@ -282,7 +282,10 @@
 
 /* --- the ultimate: a tile of its own, brass-edged. Its shade drains as prowess is earned; full, it glows softly (a
    restrained cue: it is ready, not shouting); while it runs, a steady ember-dark light ------------------------------ */
-.ability.ultimate { border-color: #7a6a44; }
+.ability.ultimate { border-color: #7a6a44; background: radial-gradient(circle at 50% 120%, rgba(226, 120, 40, calc(var(--prowess-fraction, 0) * 0.45)), rgba(18, 20, 16, 0.95)); transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out; }
+.ability.ultimate.prowess-draining { border-color: #ff9d42 !important; box-shadow: 0 0 14px rgba(255, 140, 50, 0.65), inset 0 0 10px rgba(255, 120, 30, 0.35) !important; animation: prowess-fluid-drain 0.4s ease-in-out infinite alternate; }
+.ability.ultimate.practice-refill { animation: prowess-practice-refill 0.5s ease-out; }
+@media (prefers-reduced-motion: reduce) { .ability.ultimate.prowess-draining, .ability.ultimate.practice-refill { animation: none; } }
 .ability.ultimate .ability-icon { color: #d9b36a; }
 .ability.ultimate em { color: #c9ae78; }
 .ability.ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 10px rgba(226, 194, 122, .35), inset 0 0 8px rgba(226, 194, 122, .18); animation: ultimate-ready 2.4s ease-in-out infinite; }

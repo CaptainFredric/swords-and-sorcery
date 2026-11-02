@@ -3496,7 +3496,9 @@ export class GameRuntime {
       const isFpFlight = isOperatingFlight && this.siegeView === 'sight';
       const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||isOperatingFlight));
       if (mounted) outside = true;
+      this.weapon.setFlightCockpit?.({ active: isFpFlight, concurrent: combatActionPolicy(this.localAuth, serverNow).concurrent });
       this.weapon.group.visible = !outside;
+      if (isFpFlight) this.weapon.group.visible = true;
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,

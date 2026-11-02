@@ -489,6 +489,14 @@ export class TouchControls {
         const label=flight?(skill?.phase==='active'?'ACTIVE':remaining>0?Math.ceil(remaining)+'s':'FIRE AWAY'):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${flight?"Fire Away? I'm Right Here":ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        if (flight) {
+          const firing = Boolean(fb?.lastShotAt && (serverNow - fb.lastShotAt) < 0.16) || this.input?.flightFireHeld;
+          button.classList.toggle('firing', firing);
+          button.classList.toggle('repeater-active', firing);
+          button.classList.toggle('skill-active', skill?.phase === 'active');
+        } else {
+          button.classList.remove('firing', 'repeater-active', 'skill-active');
+        }
       }
       if(this.buttons.siegeBoth){
         const primed=!ram&&!flight&&mounted&&bl?.skill?.phase==='primed';
@@ -576,6 +584,18 @@ export class TouchControls {
     button.classList.toggle('ready', view.state === 'ready');
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     button.style.setProperty('--charge', view.charge.toFixed(3));
+    const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
+    button.style.setProperty('--prowess', `${prowess.toFixed(1)}%`);
+    button.style.setProperty('--prowess-fraction', (prowess / 100).toFixed(3));
+    const inFlight = Boolean(local?.alive && (this.input?.mountedFlight || this.flightMounted));
+    const flightDashDraining = Boolean(inFlight && this.latestSnapshot?.fightFlight?.offensiveRun);
+    button.classList.toggle('prowess-draining', flightDashDraining);
+    if (practice && prowess >= 98 && (this.lastTouchProwess ?? 100) < 60) {
+      button.classList.remove('practice-refill');
+      void button.offsetWidth;
+      button.classList.add('practice-refill');
+    }
+    this.lastTouchProwess = prowess;
   }
 
   /**

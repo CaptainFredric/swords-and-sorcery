@@ -56,6 +56,27 @@ const ATTACK_POSES = Object.freeze([
   },
 ]);
 
+const COCKPIT_ATTACK_POSES = Object.freeze([
+  {
+    windupGroup: transform(0.72, -0.56, -0.88, -0.10, 0.22, -0.15),
+    cutGroup: transform(0.42, -0.48, -0.88, -0.08, -0.22, 0.12),
+    windupSword: transform(0, -0.01, -0.18, -0.14, 0.32, -0.08),
+    cutSword: transform(0, -0.01, -0.18, -0.20, -0.45, 0.18),
+  },
+  {
+    windupGroup: transform(0.40, -0.52, -0.88, -0.08, -0.20, 0.10),
+    cutGroup: transform(0.68, -0.50, -0.88, -0.10, 0.24, -0.12),
+    windupSword: transform(0, -0.01, -0.18, -0.16, -0.25, 0.12),
+    cutSword: transform(0, -0.01, -0.18, -0.18, 0.48, -0.14),
+  },
+  {
+    windupGroup: transform(0.58, -0.38, -0.92, -0.14, -0.06, 0.04),
+    cutGroup: transform(0.50, -0.54, -0.88, 0.16, -0.14, -0.04),
+    windupSword: transform(0, -0.01, -0.18, -0.70, -0.06, 0.04),
+    cutSword: transform(0, -0.01, -0.18, 0.38, -0.12, -0.05),
+  },
+]);
+
 function attackPhase(local) {
   if (local < 0.22) return { name: 'windup', t: local / 0.22 };
   if (local < 0.62) return { name: 'cut', t: (local - 0.22) / 0.40 };
@@ -86,15 +107,16 @@ export function resolveWeaponPose({
   castUntil = 0,
   dashUntil = 0,
   concurrent = false,
+  flightCockpit = false,
 }) {
   if (concurrent) {
-    const args = { timeSec, movingAmount, attackStartedAt, attackSlam, recoilUntil, parryUntil, castStartedAt, castUntil };
+    const args = { timeSec, movingAmount, attackStartedAt, attackSlam, recoilUntil, parryUntil, castStartedAt, castUntil, flightCockpit };
     const swordPose = resolveWeaponPose({ ...args, attackHeld, guard: guard && !attackHeld });
     if (guard && attackHeld) {
       const defense = resolveWeaponPose({ ...args, guard: true });
       swordPose.group = mixTransform(swordPose.group, defense.group, 0.25);
     }
-    if (castUntil > timeSec) {
+    if (castUntil > timeSec && !flightCockpit) {
       const sorcery = resolveWeaponPose(args);
       swordPose.leftHand = sorcery.leftHand;
       swordPose.magicScale = sorcery.magicScale;
@@ -106,22 +128,35 @@ export function resolveWeaponPose({
   const stride = Math.sin(timeSec * 9.2);
   const bob = Math.abs(Math.cos(timeSec * 9.2)) * 0.014 * movingAmount;
 
-  const baseGroup = transform(
-    0.50 + idle + stride * 0.010 * movingAmount,
-    -0.47 + bob,
-    -0.94,
-    -0.08,
-    -0.10,
-    -0.10 + stride * 0.014 * movingAmount,
-  );
-  const baseSword = transform(0, -0.01, -0.18, 0.34, -0.26, 0.02);
-  const baseLeft = transform(-0.42, -0.58 + bob * 0.5, -0.82, -0.28, 0.16, 0.18);
+  const baseGroup = flightCockpit
+    ? transform(
+        0.66 + idle * 0.4,
+        -0.60 + bob * 0.4,
+        -0.84,
+        -0.06,
+        -0.16,
+        -0.08,
+      )
+    : transform(
+        0.50 + idle + stride * 0.010 * movingAmount,
+        -0.47 + bob,
+        -0.94,
+        -0.08,
+        -0.10,
+        -0.10 + stride * 0.014 * movingAmount,
+      );
+  const baseSword = flightCockpit
+    ? transform(0, -0.01, -0.18, 0.42, -0.32, 0.05)
+    : transform(0, -0.01, -0.18, 0.34, -0.26, 0.02);
+  const baseLeft = flightCockpit
+    ? transform(-0.45, -0.98, -0.68, -0.4, 0.1, 0.1)
+    : transform(-0.42, -0.58 + bob * 0.5, -0.82, -0.28, 0.16, 0.18);
 
   let group = { ...baseGroup };
   let sword = { ...baseSword };
   let leftHand = { ...baseLeft };
   const rightHand = { ...defaultHand(), rx: 0.04 };
-  let magicScale = 0.68;
+  let magicScale = flightCockpit ? 0 : 0.68;
   let state = 'idle';
   let strike = null;
   let attackPhaseName = null;
@@ -129,23 +164,31 @@ export function resolveWeaponPose({
 
   if (dashUntil > timeSec) {
     state = 'dash';
-    group = transform(0.55, -0.64, -0.88, 0.18, -0.26, -0.42);
+    group = flightCockpit
+      ? transform(0.70, -0.68, -0.82, 0.12, -0.22, -0.28)
+      : transform(0.55, -0.64, -0.88, 0.18, -0.26, -0.42);
     sword = transform(0, -0.01, -0.18, 0.08, -0.12, -0.12);
-    leftHand = transform(-0.46, -0.67, -0.74, 0.36, 0.10, 0.16);
-    magicScale = 0.44;
+    leftHand = transform(-0.46, -0.98, -0.74, 0.36, 0.10, 0.16);
+    magicScale = 0;
   } else if (guard) {
     state = 'guard';
-    group = transform(0.30, -0.34, -1.00, -0.08, -0.25, 0.10);
-    sword = transform(0, -0.02, -0.16, -0.62, -0.18, 0.12);
-    leftHand = transform(-0.24, -0.38, -0.90, -0.45, 0.20, -0.10);
-    magicScale = 0.46;
+    group = flightCockpit
+      ? transform(0.48, -0.48, -0.88, -0.10, -0.20, 0.12)
+      : transform(0.30, -0.34, -1.00, -0.08, -0.25, 0.10);
+    sword = flightCockpit
+      ? transform(0, -0.02, -0.16, -0.46, -0.14, 0.18)
+      : transform(0, -0.02, -0.16, -0.62, -0.18, 0.12);
+    leftHand = flightCockpit
+      ? transform(-0.45, -0.98, -0.68, -0.4, 0.1, 0.1)
+      : transform(-0.24, -0.38, -0.90, -0.45, 0.20, -0.10);
+    magicScale = flightCockpit ? 0 : 0.46;
   } else if (attackHeld) {
     state = 'attack';
     const motion = attackMotion({ attackStartedAt, attackSlam }, timeSec);
     strike = motion.strike;
     const phase = attackPhase(motion.local);
     attackPhaseName = phase.name;
-    const poses = ATTACK_POSES[strike];
+    const poses = (flightCockpit ? COCKPIT_ATTACK_POSES : ATTACK_POSES)[strike];
 
     if (phase.name === 'windup') {
       group = mixTransform(baseGroup, poses.windupGroup, phase.t);
@@ -158,9 +201,9 @@ export function resolveWeaponPose({
       sword = mixTransform(poses.cutSword, baseSword, phase.t);
     }
 
-    leftHand = transform(-0.42, -0.54, -0.84, -0.26, 0.14, 0.16);
-    magicScale = 0.58;
-  } else if (castUntil > timeSec) {
+    leftHand = baseLeft;
+    magicScale = 0;
+  } else if (castUntil > timeSec && !flightCockpit) {
     state = 'cast';
     const inferredStart = castUntil - 0.36;
     const start = Number.isFinite(castStartedAt) && castStartedAt > 0 ? Math.min(castStartedAt, timeSec) : inferredStart;
@@ -207,10 +250,18 @@ export function resolveWeaponPose({
 
   if (parryUntil > timeSec) {
     const t = Math.min(1, (parryUntil - timeSec) / 0.3);
-    group.z -= 0.05 * t;
-    group.ry -= 0.18 * t;
-    sword.rx -= 0.20 * t;
-    leftHand.y += 0.05 * t;
+    if (flightCockpit) {
+      group.z -= 0.04 * t;
+      group.y += 0.08 * t;
+      group.x -= 0.05 * t;
+      sword.rx -= 0.30 * t;
+      rightHand.rx += 0.22 * t;
+    } else {
+      group.z -= 0.05 * t;
+      group.ry -= 0.18 * t;
+      sword.rx -= 0.20 * t;
+      leftHand.y += 0.05 * t;
+    }
   }
 
   return {
