@@ -358,6 +358,12 @@
         "seconds": 1.51
       }
     ],
+    "enoughFlying": [
+      {
+        "file": "enough-flying-1",
+        "seconds": 3.45
+      }
+    ],
     "excuseYou": [
       {
         "file": "excuse-you-1",
@@ -458,6 +464,12 @@
         "seconds": 3.29
       }
     ],
+    "getAwayFromThisSpot": [
+      {
+        "file": "get-away-from-this-spot-1",
+        "seconds": 2.49
+      }
+    ],
     "getThingOff": [
       {
         "file": "get-thing-off-1",
@@ -516,6 +528,16 @@
         "seconds": 3.04
       }
     ],
+    "hahahaANewBattlefieldAwaits": [
+      {
+        "file": "hahaha-a-new-battlefield-awaits-1",
+        "seconds": 3.5,
+        "beats": [
+          0.0,
+          1.41
+        ]
+      }
+    ],
     "handshakePayoff": [
       {
         "file": "handshake-payoff-1",
@@ -546,6 +568,12 @@
           0.0,
           4.14
         ]
+      }
+    ],
+    "haveYouNoShame": [
+      {
+        "file": "have-you-no-shame-1",
+        "seconds": 1.27
       }
     ],
     "headOn": [
@@ -604,6 +632,22 @@
       {
         "file": "hurt-1",
         "seconds": 0.9
+      }
+    ],
+    "iNeedAMoment": [
+      {
+        "file": "i-need-a-moment-1",
+        "seconds": 1.08
+      }
+    ],
+    "ifYouContinueResist": [
+      {
+        "file": "if-you-continue-resist-1",
+        "seconds": 5.17,
+        "beats": [
+          0.0,
+          4.22
+        ]
       }
     ],
     "jump": [
@@ -762,6 +806,12 @@
         ]
       }
     ],
+    "mySwordFeels": [
+      {
+        "file": "my-sword-feels-1",
+        "seconds": 3.26
+      }
+    ],
     "neverAfter": [
       {
         "file": "never-after-1",
@@ -776,6 +826,12 @@
       {
         "file": "never-thought-1",
         "seconds": 2.13
+      }
+    ],
+    "neverYield": [
+      {
+        "file": "never-yield-1",
+        "seconds": 1.57
       }
     ],
     "newKnighthood": [
@@ -802,6 +858,12 @@
         "seconds": 3.49
       }
     ],
+    "notOnMe": [
+      {
+        "file": "not-on-me-1",
+        "seconds": 1.1
+      }
+    ],
     "notRightNow": [
       {
         "file": "not-right-now-1",
@@ -814,10 +876,22 @@
         "seconds": 2.13
       }
     ],
+    "nowWhere": [
+      {
+        "file": "now-where-1",
+        "seconds": 1.22
+      }
+    ],
     "offGuard": [
       {
         "file": "off-guard-1",
         "seconds": 2.31
+      }
+    ],
+    "ohMyFavoriteWind": [
+      {
+        "file": "oh-my-favorite-wind-1",
+        "seconds": 2.63
       }
     ],
     "oneMoreDefeat": [
@@ -1268,6 +1342,16 @@
         ]
       }
     ],
+    "theOnlyRetreat": [
+      {
+        "file": "the-only-retreat-1",
+        "seconds": 5.99,
+        "beats": [
+          0.0,
+          4.46
+        ]
+      }
+    ],
     "thePlan": [
       {
         "file": "the-plan-1",
@@ -1286,10 +1370,22 @@
         "seconds": 3.18
       }
     ],
+    "thenLetMeHaveIt": [
+      {
+        "file": "then-let-me-have-it-1",
+        "seconds": 1.6
+      }
+    ],
     "theoreticalVictory": [
       {
         "file": "theoretical-victory-1",
         "seconds": 7.01
+      }
+    ],
+    "theyAreRuiningTheColor": [
+      {
+        "file": "they-are-ruining-the-color-1",
+        "seconds": 2.47
       }
     ],
     "thinkAbout": [
@@ -1420,6 +1516,16 @@
       {
         "file": "wrong-rest-1",
         "seconds": 2.37
+      }
+    ],
+    "youMayNoLonger": [
+      {
+        "file": "you-may-no-longer-1",
+        "seconds": 3.15,
+        "beats": [
+          0.0,
+          2.26
+        ]
       }
     ]
   },
@@ -1616,6 +1722,21 @@
     "enjoyRestV2": "2026-11-01",
     "enjoyRestV1": "2026-11-01",
     "tranquilizerAsleep": "2026-11-01",
-    "tranquilizerArrow": "2026-11-01"
+    "tranquilizerArrow": "2026-11-01",
+    "enoughFlying": "2026-11-02",
+    "getAwayFromThisSpot": "2026-11-02",
+    "hahahaANewBattlefieldAwaits": "2026-11-02",
+    "haveYouNoShame": "2026-11-02",
+    "iNeedAMoment": "2026-11-02",
+    "ifYouContinueResist": "2026-11-02",
+    "mySwordFeels": "2026-11-02",
+    "neverYield": "2026-11-02",
+    "notOnMe": "2026-11-02",
+    "nowWhere": "2026-11-02",
+    "ohMyFavoriteWind": "2026-11-02",
+    "theOnlyRetreat": "2026-11-02",
+    "thenLetMeHaveIt": "2026-11-02",
+    "theyAreRuiningTheColor": "2026-11-02",
+    "youMayNoLonger": "2026-11-02"
   }
 }

@@ -34,7 +34,7 @@ test('silent voice output never suppresses a later audible speaker',()=>{
   engine.now=3;assert.equal(bank.audibleHistory.scale('defeat','b',3,{x:0,z:0}),1);
 });
 
-test('voice diversity: numbered variations share family cooldown and killTaunt remains frequent exception', () => {
+test('voice diversity: numbered variations share family cooldown and frequent exception is configurable', () => {
   const director = new VoiceDirector({ rand: () => 0.01 });
 
   // 1. First variation speaks: deceasedStatusV1
@@ -45,17 +45,23 @@ test('voice diversity: numbered variations share family cooldown and killTaunt r
   const second = director.consider('deceasedStatusV2', 'pilot', 25.0, { duration: 2.0 });
   assert.equal(second, null, 'alternate variation blocked by shared family cooldown');
 
-  // 2. Configurable frequent exception: killTaunt retains full eligibility without repeat scale penalty
-  const dDefault = new VoiceDirector({ rand: () => 0.25 }); // 0.25 < 0.30 rarity
+  // 2. Configurable frequent exception: retains full eligibility without repeat scale penalty when configured
+  const dConfigured = new VoiceDirector({ rand: () => 0.25, frequentException: 'killTaunt' }); // 0.25 < 0.30 rarity
   // First kill taunt
-  const kt1 = dDefault.consider('killTaunt', 'k', 10.0, { duration: 1.5 });
+  const kt1 = dConfigured.consider('killTaunt', 'k', 10.0, { duration: 1.5 });
   assert.ok(kt1, 'first killTaunt permitted');
 
-  // Second kill taunt after sentence gap (45s) retains full rarity (0.30 > 0.25) because it is frequent exception
-  const kt2 = dDefault.consider('killTaunt', 'k', 60.0, { duration: 1.5 });
-  assert.ok(kt2, 'killTaunt permitted again without repeat penalty');
+  // Second kill taunt after cooldown retains full rarity (0.30 > 0.25) because it is frequent exception
+  const kt2 = dConfigured.consider('killTaunt', 'k', 60.0, { duration: 1.5 });
+  assert.ok(kt2, 'killTaunt permitted again without repeat penalty when configured');
 
   // 3. Changing frequentException to custom line
   const dCustom = new VoiceDirector({ rand: () => 0.25, frequentException: 'sorcery' });
   assert.equal(dCustom.frequentException, 'sorcery');
+  dCustom.setFrequentException('anotherLine');
+  assert.equal(dCustom.frequentException, 'anotherLine');
+
+  // 4. Default constructor does not arbitrarily hardcode killTaunt
+  const dDefault = new VoiceDirector();
+  assert.equal(dDefault.frequentException, null, 'frequentException defaults to null until creator selects one');
 });
