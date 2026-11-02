@@ -207,6 +207,8 @@ export class FightFlightRenderer{
     // authoritative chassis pitch AFTER sampling authored posture tracks so
     // Overdrive never visually levels a physically descending rotor.
     this.model.rotation.x=m.runPitch??0;
+    this.model.rotation.z=collapse*.22;
+    this.model.position.set(0,-collapse*.16,0);
     if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
     if(this.reloadAction)this.reloadAction.time=Math.min(6,Math.floor(m.ammo??0))/6*this.reloadAction.getClip().duration;
     if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
