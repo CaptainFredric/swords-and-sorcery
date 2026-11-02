@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-02",
+  "base": "39252d87",
+  "repositoryVerify": {
+    "syntaxModules": 625,
+    "tests": 2299,
+    "passed": 2299,
+    "releaseTests": 21,
+    "smoke": "PASS",
+    "log": "/tmp/argon-final-verify.txt"
+  },
+  "subsequentPresentationFit": {
+    "change": "Exact leg reach sphere solve, bounded 15 cm harness settle",
+    "syntax": "PASS",
+    "actualThreeRegression": {
+      "checks": [
+        "120 moving/aimed/firing/damaged Dash samples: muzzle and phase agree",
+        "Physical impact clock selects narrowed collision interruption",
+        "Production rider soles fit both moving stirrups through walk, sprint and Dash",
+        "Steel recovery of survivors, permanent brace failure",
+        "Rotor failure coasts cosmetically after contact authority stops",
+        "Break, fall, impact, terminal, finite cleanup",
+        "Directional ram ruin and pre-destroyed fist"
+      ],
+      "passed": true,
+      "worstMuzzleMetres": 1.8841109504205303e-15,
+      "worstSoleSeparationMetres": 0.004215652902313575
+    }
+  },
+  "network": "Two actual WebSocket clients agree on physical snapshots, Dash clocks, release and wreck impact. Included in the passing repository run.",
+  "scopeLimits": [
+    "No physical phone",
+    "No pair of simultaneously rendered remote browsers",
+    "Generic character retarget remains a diagnostic, not production approval"
+  ],
+  "html5": {
+    "command": "npm run export:html5",
+    "resultLocation": "Exact source revision, ZIP SHA256 and archive admission result are recorded in the draft PR after committing.",
+    "excluded": [
+      "assets/source/argon-review",
+      "docs/argon-assets",
+      "tools/assets"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-Current runtime: so-fist-ication-v2_5.glb, exact upstream SHA b1ea92edc3310114c4c5ec08ce68ecb4768a2fed9ee816a25040b1d2281819d1. Rear axle Z is minus .820 native, wheelbase 1.145 at scale 2.85. Prior runtimes and source bundles are outside HTML5 in assets/source. The previous v2.2 notes below are historical.
+Current runtime: so-fist-ication-v2_7.glb, exact upstream SHA 21219a43541c78926b00365ddda6ad10501216c1c48fe3b24be984cad5822feb. The v2.5 carriage fit and piston geometry remain unchanged. Ten authored clips include directional and pre-destroyed-fist wrecks. Previous v2.5 runtime is preserved in assets/source/argon-review. See docs/argon-assets/README.md.
 
 # SO FIST v2.2 integration candidate
 
