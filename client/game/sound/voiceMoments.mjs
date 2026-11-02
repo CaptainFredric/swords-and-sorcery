@@ -198,6 +198,7 @@ export class VoiceMoments {
         event.health <= MOMENTS.nearDemise && 'preKillThreat',
         source === 'sword' && event.clean && knight(victimId)?.attackActive && 'counterHit',
         fresh && 'worthyFoe',
+        fresh && 'shameOpening',
         // (by the sword: the count of strikes on that same foe may begin)
         fresh && source === 'sword' && 'strikeCount',
         point && 'matchPoint',
@@ -287,6 +288,7 @@ export class VoiceMoments {
       decisive: Boolean(event.decisive),
       flightElevated: Boolean(extra.flightElevated),
       quickMultikill: Boolean(extra.quickMultikill),
+      quickCloseMultikill: Boolean(extra.quickCloseMultikill),
     } : {};
     if (killerId) {
       const prevFoe = this.consecutiveFoe.get(killerId);
@@ -373,6 +375,7 @@ export class VoiceMoments {
       if (caught.guarded || !(caught.pressure >= 0.5)) continue;
       this.gusts.set(`${event.playerId}>${caught.id}`, event.at);
       groups.push(...this.#rescues(caught.id, event.playerId, event.at, knight));
+      if (caught.id !== event.playerId) groups.push(this.#lines(caught.id, ['galeVictimDisplacement']));
       if (caught.pressure >= MOMENTS.launch) groups.push(this.#lines(caught.id, ['launched']));
     }
     return groups.filter((group) => group.length);

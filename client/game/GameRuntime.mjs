@@ -1486,6 +1486,11 @@ export class GameRuntime {
         if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('COMPONENT BROKEN','gold',800);
         const op = this.latestSnapshot?.fightFlight?.operatorId;
         if (op) this.#sayMoment(op, ['apparatusHit']);
+        const ff = this.latestSnapshot?.fightFlight;
+        const isAirborne = ff?.mode === 'AIRBORNE' || (ff && !ff.grounded && (ff.y ?? 0) > 1.0);
+        if (event.attackerId && op && op !== event.attackerId && isAirborne) {
+          this.#sayMoment(event.attackerId, ['antiAirAttack']);
+        }
       }
       if(event.type==='fightFlightRotorDestroyed'){
         if(this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
@@ -1703,7 +1708,14 @@ export class GameRuntime {
         if (!event.ongoing) this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
-      if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
+      if ((event.type === 'block' && !event.vortex) || event.type === 'parry') {
+        this.repeatedGuards ??= new Map();
+        const key = `${event.attackerId}>${event.defenderId}`;
+        const guards = [...(this.repeatedGuards.get(key) ?? []).filter((t) => event.at - t <= 6.0), event.at];
+        this.repeatedGuards.set(key, guards);
+        if (guards.length >= 2) this.#sayMoment(event.attackerId, ['opponentsResistance']);
+        this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
+      }
       if (event.type === 'swordMiss') {
         const near = this.#nearestFoe(event.playerId, MOMENTS.denied.near);
         const defender = near ? this.latestSnapshot?.players.find((p) => p.id === near) : null;
@@ -2015,6 +2027,9 @@ export class GameRuntime {
       if (event.type === 'objectiveContested') {
         const myTeam = this.localAuth?.team;
         if (myTeam === 'DEFENDERS') this.hud.flashText('OBJECTIVE CONTESTED', 'metal', 1600);
+        if (this.playerId) {
+          this.#sayMoment(this.playerId, ['contestedZone']);
+        }
       }
       if (event.type === 'teamMark') {
         const myTeam = this.localAuth?.team;
@@ -2204,6 +2219,46 @@ export class GameRuntime {
       }
       const place = voicePlacement(listener, listenerYaw, body, hearing);
       bank.place(speaker, { pan: place?.pan ?? 0, gain: (place?.gain ?? 0) * 0.9 });
+    }
+  }
+
+  #checkThreatenedCircleApproach(nowSec) {
+    if (nowSec - (this.lastThreatenedCircleCheckAt ?? -Infinity) < 3.0) return;
+    this.lastThreatenedCircleCheckAt = nowSec;
+    const pPos = this.localState?.position ?? this.localAuth?.position;
+    if (!pPos || !this.playerId) return;
+    const myTeam = this.localAuth?.team;
+    const players = this.latestSnapshot?.players ?? [];
+    const allyNear = players.some((p) => p.id !== this.playerId && p.team === myTeam && p.alive !== false && Math.hypot(p.position.x - pPos.x, (p.position.z ?? 0) - pPos.z) <= 10.0);
+    if (!allyNear) return;
+
+    const obj = this.latestSnapshot?.objective;
+    const hg = this.latestSnapshot?.highGrounds;
+    if (obj && (obj.contested || obj.capturing)) {
+      const oPos = obj.position;
+      if (oPos) {
+        const d = Math.hypot(oPos.x - pPos.x, (oPos.z ?? 0) - pPos.z);
+        if (d <= (obj.radius ?? 6.0) + 15.0) {
+          this.#sayMoment(this.playerId, ['threatenedCircleApproach']);
+          if (d <= (obj.radius ?? 6.0) + 1.0) this.#sayMoment(this.playerId, ['contestedZone']);
+          return;
+        }
+      }
+    }
+    if (hg?.sites) {
+      for (const site of hg.sites) {
+        if (site.contested || (site.owner && site.owner !== myTeam) || site.capturingTeam) {
+          const sPos = site.position;
+          if (sPos) {
+            const d = Math.hypot(sPos.x - pPos.x, (sPos.z ?? 0) - pPos.z);
+            if (d <= (site.radius ?? 8.0) + 15.0) {
+              this.#sayMoment(this.playerId, ['threatenedCircleApproach']);
+              if (d <= (site.radius ?? 8.0) + 1.0) this.#sayMoment(this.playerId, ['contestedZone']);
+              return;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -2583,11 +2638,19 @@ export class GameRuntime {
     const kills = (id) => players.find((p) => p.id === id)?.kills ?? 0;
     const victimKills = kills(victimId);
     let quickMultikill = false;
+    let quickCloseMultikill = false;
     if (killerId) {
       this.recentKills ??= new Map();
-      const recent = [...(this.recentKills.get(killerId) ?? []).filter(t => at - t <= 4.0), at];
+      const killerPos = this.#bodyPosition(killerId);
+      const victimPos = this.#bodyPosition(victimId);
+      const dist = killerPos && victimPos ? Math.hypot(killerPos.x - victimPos.x, (killerPos.z ?? 0) - (victimPos.z ?? 0)) : Infinity;
+      const isClose = dist <= 6.0 || event.source === 'sword' || event.source === 'gauntlet';
+      const recent = [...(this.recentKills.get(killerId) ?? []).filter(k => at - (k.at ?? k) <= 4.0), { at, close: isClose }];
       this.recentKills.set(killerId, recent);
-      if (recent.length >= 2) quickMultikill = true;
+      if (recent.length >= 2) {
+        quickMultikill = true;
+        if (recent.filter(k => k.close).length >= 2) quickCloseMultikill = true;
+      }
     }
     const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
     const victimPlayer = players.find((p) => p.id === victimId);
@@ -2623,6 +2686,7 @@ export class GameRuntime {
       nap: !scene.comeback,
       flightElevated,
       quickMultikill,
+      quickCloseMultikill,
       victimWasSpeaking,
     };
     this.chivalrous.delete(victimId);
@@ -2821,6 +2885,10 @@ export class GameRuntime {
         if (say.opens === 'threeStrikes') this.scenes.strikesDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
         // (the comeback declared: his next falls without a kill are corrected, and a kill is what he always knew)
         if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
+        if (say.opens === 'shame') {
+          const foe = this.moments.duelFoe(say.speaker) ?? this.moments.lastTarget(say.speaker);
+          if (foe) this.scenes.shameDeclared(say.speaker, foe, at, (said.delay ?? 0) + (said.seconds ?? 0));
+        }
         if (say.opens === 'troubleshoot') this.scenes.troubleshootStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'handshake') this.scenes.handshakeStarted(say.speaker, this.moments.lastTarget(say.speaker), at);
         if (say.opens === 'tranquilizer') {
@@ -3613,6 +3681,16 @@ export class GameRuntime {
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    const ramState = this.latestSnapshot?.soFistication;
+    if (ramState?.operatorId) {
+      const isCharging = Boolean(ramState.charging);
+      if (isCharging && !this.lastRamCharging) {
+        this.#sayMoment(ramState.operatorId, ['ramCharging']);
+      }
+      this.lastRamCharging = isCharging;
+    } else {
+      this.lastRamCharging = false;
+    }
     this.flightSound.update(this.latestSnapshot?.fightFlight,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
@@ -3734,7 +3812,8 @@ export class GameRuntime {
 
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
-      this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
+      this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players, (id) => this.#bodyPosition(id));
+      if (this.localAuth.alive) this.#checkThreatenedCircleApproach(timeSec);
       const players = this.latestSnapshot.players.map((p) => (p.id === this.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
       this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.playerId, world: this.activeWorld, practice: this.#inPractice() }));
       // the last seconds of a timed match (never the yard's, never sudden death)

@@ -227,6 +227,7 @@ export function victorTags({ source, moment = {} }) {
     ...(moment.fair && !moment.decisive ? { fairDuelKill: 1 } : {}),
     ...(moment.flightElevated ? { flightElevatedKill: 1 } : {}),
     ...(moment.quickMultikill ? { quickMultikill: 1 } : {}),
+    ...(moment.quickCloseMultikill ? { quickCloseMultikill: 1 } : {}),
   };
 }
 
@@ -331,7 +332,7 @@ export class UltimateLines {
 }
 
 export class VoiceDirector {
-  constructor({ rand = Math.random, frequentException = 'killTaunt' } = {}) {
+  constructor({ rand = Math.random, frequentException = null } = {}) {
     this.rand = rand;
     this.frequentException = frequentException;
     // when each knight may say each line again (its cooldown, some of them a spread), and how often this life
@@ -340,6 +341,7 @@ export class VoiceDirector {
     this.lastLine = new Map();
     this.lastSpoke = new Map();
     this.lastSentence = new Map();
+    this.lastSentenceLine = new Map();
     // what each knight is saying now, and the one sentence being heard anywhere ({ speaker, line, priority, until })
     this.speaking = new Map();
     this.sentence = null;
@@ -348,6 +350,10 @@ export class VoiceDirector {
     this.stats = new Map();
     this.choruses = new Map();
     this.suppressions = []; // [{ x, z, radius: 18, until, killerId }]
+  }
+
+  setFrequentException(line) {
+    this.frequentException = line;
   }
 
   cancelSuppression(speaker = null) {
@@ -361,6 +367,7 @@ export class VoiceDirector {
     this.lastLine.clear();
     this.lastSpoke.clear();
     this.lastSentence.clear();
+    this.lastSentenceLine.clear();
     this.speaking.clear();
     this.sentence = null;
     this.stats.clear();
@@ -440,8 +447,12 @@ export class VoiceDirector {
     if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     let odds = rule.chance * chanceScale;
-    if (!force && sentence && line !== this.frequentException && stat.said > 0) {
-      odds *= Math.max(0.35, 1 / (1 + 0.45 * stat.said));
+    if (!force && sentence && line !== this.frequentException) {
+      const last = this.lastSentenceLine.get(line) ?? -Infinity;
+      const elapsed = now - last;
+      if (elapsed < 60) {
+        odds *= Math.max(0.35, Math.min(1.0, elapsed / 60));
+      }
     }
     if (!force && (rand ? rand() : this.rand()) >= odds) return null;
     const stop = [];
@@ -482,6 +493,7 @@ export class VoiceDirector {
     const entry = { speaker, line, priority, source, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };
     this.speaking.set(speaker, entry);
     if (sentence) {
+      this.lastSentenceLine.set(line, now);
       this.lastSentence.set(speaker, now);
       if (coordinated && this.sentence?.chorus === chorus) entry.until = Math.max(entry.until, this.sentence.until);
       this.sentence = entry;
