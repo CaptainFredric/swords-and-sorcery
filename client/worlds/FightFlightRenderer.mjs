@@ -48,7 +48,19 @@ export class FightFlightRenderer{
       if(sword){this.swordAction=this.mixer.clipAction(sword);this.swordAction.setLoop(THREE.LoopOnce,1);this.swordAction.clampWhenFinished=true;this.swordAction.play();this.swordAction.paused=true;this.swordAction.enabled=false;}
       const fire=this.clips.get('Crossbow_Fire_Loop');
       if(fire){this.fireAction=this.mixer.clipAction(fire);this.fireAction.play();}
-      this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
+      this.model.traverse(n=>{
+        if(n.name)this.nodes.set(n.name,n);
+        if(n.isMesh){
+          n.castShadow=true;n.receiveShadow=true;
+          for (const mat of [n.material].flat()) {
+            if (mat && !mat.userData.baseEmissive) {
+              mat.userData.baseEmissive = mat.emissive ? mat.emissive.clone() : new THREE.Color(0x000000);
+              mat.userData.baseEmission = mat.emissiveIntensity ?? 1;
+              (this.modelMaterials ??= []).push({ mesh: n, material: mat });
+            }
+          }
+        }
+      });
       // Six individually ornamented GLB magazine quarrels. Detail groups are
       // attached to their actual moving nodes, so reload indexing and the
       // authoritative visible-ammo count remain unchanged.
@@ -252,6 +264,20 @@ export class FightFlightRenderer{
     const chassis=this.nodes.get('Main_Apparatus_Chassis');
     if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
+    const steelActive = Boolean(m?.siegeSteel && m.siegeSteel.state !== 'expired' && now < (m.siegeSteel.protectionUntil ?? 0));
+    if (this.modelMaterials) {
+      const pulse = steelActive ? 0.65 + 0.35 * Math.sin(now * 3.5) : 0;
+      for (const { mesh, material } of this.modelMaterials) {
+        if (!material.userData.baseEmissive) continue;
+        if (steelActive && mesh.visible && (m.health ?? 1) > 0) {
+          material.emissive.copy(material.userData.baseEmissive).lerp(new THREE.Color(0x386899), 0.5 * pulse);
+          material.emissiveIntensity = material.userData.baseEmission + 0.35 * pulse;
+        } else {
+          material.emissive.copy(material.userData.baseEmissive);
+          material.emissiveIntensity = material.userData.baseEmission;
+        }
+      }
+    }
   }
   drawBolts(projectiles,now,stamp){
     const keep=new Set();

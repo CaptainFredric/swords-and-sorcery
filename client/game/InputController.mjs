@@ -433,6 +433,7 @@ export class InputController {
     } else this.blockedKeys.clear();
     releaseHeldInputs(this);
     this.blockedHolds.clear();
+    this.onInputsReleased?.();
   }
 
   updatePreparedSpells(local, serverNow) {

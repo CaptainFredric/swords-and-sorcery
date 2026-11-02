@@ -108,3 +108,48 @@ test('mounted aim and steering use fine packet transitions while on foot thresho
  assert.equal(hasMeaningfulInputChange({...a,mounted:true,yaw:.003},{...a,mounted:true}),true);
  assert.equal(hasMeaningfulInputChange({...a,mounted:true,right:.02},{...a,mounted:true}),true);
 });
+
+test('LocalHost flight-input freshness: samples live controller at 30 Hz and does NOT unconditionally renew when suspended', () => {
+  let now = 100;
+  const host = new LocalHost({ now: () => now, every: () => 1, cancel: () => {}, later: fn => fn() });
+  host.startSolo('PRACTICE', 'Pilot');
+  host.arenaReady(true);
+  host.tick();
+
+  // Simulate pilot mounted on Fight-and-Flight
+  host.player.operatingFightFlightId = 'faf_test';
+  host.player.flightInputAt = null;
+
+  let liveSample = { forward: 0, right: 0, jump: true, flightRise: true, yaw: 0, pitch: 0 };
+  host.setInputSampler(() => liveSample);
+
+  // 1. Tick samples live input and updates player.flightInputAt to current time
+  host.tick();
+  assert.equal(host.player.input.flightRise, true);
+  assert.equal(host.player.flightInputAt, 100);
+
+  // 2. Continuous sampling at next tick
+  now += 1 / 30;
+  host.tick();
+  assert.equal(host.player.flightInputAt, 100 + 1 / 30);
+
+  // 3. User releases input: sampler returns neutralized input
+  liveSample = { forward: 0, right: 0, jump: false, flightRise: false, yaw: 0, pitch: 0 };
+  now += 1 / 30;
+  host.tick();
+  assert.equal(host.player.input.flightRise, false);
+  assert.equal(host.player.input.jump, false);
+  assert.equal(host.player.flightInputAt, 100 + 2 / 30);
+
+  // 4. Tab backgrounded or blurred: sampler returns null
+  host.setInputSampler(() => null);
+  const frozenTimestamp = host.player.flightInputAt;
+
+  // Advance 20 ticks (0.66s): ticks must NOT renew flightInputAt!
+  for (let i = 0; i < 20; i++) {
+    now += 1 / 30;
+    host.tick();
+  }
+  assert.equal(host.player.flightInputAt, frozenTimestamp, 'unconditional tick renewal is absent; flightInputAt stays frozen');
+  assert.ok(now - host.player.flightInputAt > 0.5, 'authoritative 0.5s freshness timeout elapsed');
+});

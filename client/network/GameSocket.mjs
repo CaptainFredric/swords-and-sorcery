@@ -156,6 +156,7 @@ export class GameSocket {
   practiceSetDummyMode(mode) { this.send({ type: 'practiceSetDummyMode', mode }); }
   practicePerryAnswer(answer) { this.send({ type: 'practicePerryAnswer', answer }); }
   practicePerryDismiss() { this.send({ type: 'practicePerryDismiss' }); }
+  setInputSampler(sampler) {}
   input(input) { this.send({ type: 'input', ...input }); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }

@@ -49,7 +49,7 @@ export function linkStatusView(status) {
 export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YOU!', note: '(multiplayer now online)' });
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
-const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
+const PLAY = ['startMatch', 'ready', 'arenaReady', 'setInputSampler', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
   'practiceSetDummyMode', 'practiceReadyUltimate', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'ping', 'send'];
 const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];

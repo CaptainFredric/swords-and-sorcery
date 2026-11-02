@@ -76,6 +76,7 @@ export class LocalHost {
     this.cancel = cancel;
     this.later = later;
     this.storage = storage;
+    this.inputSampler = null;
     this.handlers = new Map();
     this.rooms = new RoomManager();
     this.room = null;
@@ -410,8 +411,11 @@ export class LocalHost {
     stepBotControllers(room, time, room.world);
     if (this.sessionController) this.sessionController.beforeStep(time);
     else if (!this.inspectionControlId) stepPracticeActors(room, time, room.world);
-    if (this.player?.operatingFightFlightId && this.player.flightInputAt != null) {
-      this.player.flightInputAt = time;
+    if (this.inputSampler && this.player && !this.inspectionFrozen) {
+      const sample = this.inputSampler();
+      if (sample) {
+        applyRoomCommand(room, this.player, { type: 'input', ...sample }, time);
+      }
     }
     stepRoom(room, 1 / TICK_RATE, time, room.world);
     this.#validateInspectionActor();
@@ -478,6 +482,7 @@ export class LocalHost {
     this.freezeModeState = 'none';
     this.freezeProjectilesState = false;
     this.inspectionQueuedActions = [];
+    this.inputSampler = null;
     this.frozenAt = null;
     this.timeOffset = 0;
   }
@@ -882,6 +887,7 @@ export class LocalHost {
   practiceSetDummyMode(mode) { this.#command({ type: 'practiceSetDummyMode', mode }); }
   practicePerryAnswer(answer) { this.#command({ type: 'practicePerryAnswer', answer }); }
   practicePerryDismiss() { this.#command({ type: 'practicePerryDismiss' }); }
+  setInputSampler(sampler) { this.inputSampler = typeof sampler === 'function' ? sampler : null; }
   input(input) { this.#command({ type: 'input', ...input }); }
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }

@@ -23,7 +23,8 @@ class Node extends EventTarget {
     this.style = { setProperty() {} }; this.nodes = new Map();
   }
   append(node) { this.children.push(node); }
-  setAttribute() {}
+  setAttribute(k, v) { this.attributes ??= new Map(); this.attributes.set(k, String(v)); }
+  getAttribute(k) { return this.attributes?.get(k) ?? null; }
   replaceWith() {}
   remove() {}
   querySelector(selector) {
@@ -957,4 +958,82 @@ test('the joystick extension follows the forward thumb, resets and never imperso
   send('pointerup',160,400,{target:controls.layer,pointerId:77});
   assert.equal(states.at(-1),0,'release springs the detent back into the joystick');
   assert.equal(controls.motionGuide.classList.contains('approaching'),false);
+});
+
+test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, hides on illegal spell or destroyed machine', () => {
+  let castCalls = 0;
+  let usePreparedCalls = [];
+  const { controls, input, send } = setup({
+    alive: true,
+    spell: 'steel',
+    spellReadyAt: 0,
+    operatingFightFlightId: 'faf_1',
+    position: { x: 0, y: 0, z: 0 },
+  });
+  input.cast = () => { castCalls++; };
+  input.usePreparedSpell = (id) => { usePreparedCalls.push(id); };
+
+  const snapshotAlive = {
+    fightFlight: { id: 'faf_1', health: 250, mode: 'AIRBORNE', rotorHP: 100 },
+  };
+
+  // 1. Mounted with base steel: visible, STEEL label, ready
+  controls.update({ alive: true, spell: 'steel', spellReadyAt: 0, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotAlive });
+  assert.equal(controls.layer.classList.contains('mounted-steel-available'), true);
+  assert.equal(controls.buttons.spell.hidden, false);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'STEEL');
+  assert.equal(controls.buttons.spell.classList.contains('fist'), false, 'Never shows FIST while mounted');
+  assert.equal(controls.buttons.spell.classList.contains('cooling'), false);
+
+  // Pressing spell invokes cast
+  send('pointerdown', 10, 10, { target: controls.buttons.spell, pointerId: 80 });
+  send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 80 });
+  assert.equal(castCalls, 1);
+
+  // 2. Active ward: shows WARD and steel-ward-active pulse
+  const snapshotWard = {
+    fightFlight: { id: 'faf_1', health: 250, mode: 'AIRBORNE', rotorHP: 100, siegeSteel: { state: 'active', protectionUntil: 15 } },
+  };
+  controls.update({ alive: true, spell: 'steel', spellReadyAt: 20, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotWard });
+  assert.equal(controls.buttons.spell.classList.contains('steel-ward-active'), true);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'WARD');
+  assert.equal(controls.buttons.spell.getAttribute('aria-disabled'), 'true');
+
+  // 3. Cooling state: shows STEEL with cooldown timer
+  controls.update({ alive: true, spell: 'steel', spellReadyAt: 14.5, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotAlive });
+  assert.equal(controls.buttons.spell.classList.contains('cooling'), true);
+  assert.equal(controls.buttons.spell.classList.contains('steel-ward-active'), false);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'STEEL');
+  assert.equal(controls.buttons.spell.querySelector('.touch-timer').textContent, '5');
+
+  // 4. Machine destroyed: hides spell button
+  const snapshotDestroyed = {
+    fightFlight: { id: 'faf_1', health: 0, mode: 'DESTROYED', rotorHP: 0 },
+  };
+  controls.update({ alive: true, spell: 'steel', spellReadyAt: 0, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotDestroyed });
+  assert.equal(controls.layer.classList.contains('mounted-steel-available'), false);
+  assert.equal(controls.buttons.spell.hidden, true);
+
+  // 5. Mounted with Fireball (illegal mounted spell): hidden
+  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotAlive });
+  assert.equal(controls.layer.classList.contains('mounted-steel-available'), false);
+  assert.equal(controls.buttons.spell.hidden, true);
+
+  // 6. Chivalry prepared spells containing steel: exposed and casts steel on tap
+  const chivalryState = {
+    alive: true,
+    spell: 'fireball',
+    ultimate: 'chivalry',
+    ultimateState: { id: 'chivalry', phase: 'active', until: 30 },
+    preparedSpells: ['fireball', 'steel', 'gale'],
+    operatingFightFlightId: 'faf_1',
+  };
+  controls.update(chivalryState, 10, { snapshot: snapshotAlive });
+  assert.equal(controls.layer.classList.contains('mounted-steel-available'), true);
+  assert.equal(controls.buttons.spell.hidden, false);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'STEEL');
+
+  send('pointerdown', 10, 10, { target: controls.buttons.spell, pointerId: 81 });
+  send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 81 });
+  assert.deepEqual(usePreparedCalls, ['steel']);
 });
