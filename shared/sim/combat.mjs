@@ -466,6 +466,9 @@ function sheatheInSteel(room, player, spell, nowSec) {
 export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
   if (!player) return false;
+  // A cooling mounted Steel key never becomes a free gauntlet strike.
+  if(player.operatingFightFlightId||player.operatingBallistaId||player.operatingRamId)
+    return tryCastSpell(room,playerId,direction,nowSec);
   if (player.preparedSpellSelected || combatActionPolicy(player, nowSec).concurrent || spellReady(player, spellFor(player.spell), nowSec, practising(room, player))) return tryCastSpell(room, playerId, direction, nowSec);
   // (in the yard the key is the spell's: it comes back after a moment; the gauntlet keeps its own key)
   if (practising(room, player)) return false;
