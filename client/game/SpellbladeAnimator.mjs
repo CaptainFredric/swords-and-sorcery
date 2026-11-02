@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {FlightRiderPose} from './FlightRiderPose.mjs';
 import {RamOperatorPose} from './RamOperatorPose.mjs';
 import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
@@ -103,6 +104,7 @@ export class SpellbladeAnimator {
     });
     // what a procedural solver (motion.solve, e.g. the first-person sword arm) may read and turn, in root space
     this.siege = new BiByeOperatorPose(root,this.bones);
+    this.flightRider=new FlightRiderPose(root,this.bones,this.siege,this.soles);
     this.boneApi = {
       position: (name) => {
         const bone = this.bone(name);
@@ -137,6 +139,7 @@ export class SpellbladeAnimator {
   }
 
   apply(plan, dt = 0) {
+    this.flightRider.restore();
     this.restoreRamArms();if(!plan?.ramMounted)this.siege.releaseStanding();
     if(plan?.mounted){
       if(!this.siege.active)this.reset();
@@ -262,7 +265,7 @@ export class SpellbladeAnimator {
   }
 
   applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
-  applyFightFlight(grips, attacking = false){this.siege.applyFlight(grips, attacking);}
+  applyFightFlight(grips, priority = false, machine = null, now = 0, dt = 1/60){this.flightRider.apply(grips,machine,now,priority,dt);this.#followPauldrons();}
   applyRam(station){
     this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
     this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);

@@ -11,7 +11,7 @@ export function requestFlightDash(room,m,p,held,now){
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
  const before=m.flightDashHeld===true;
  m.flightDashHeld=Boolean(held);
- if(!held){m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;return true;}
+ if(!held){if(m.offensiveRun)m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;return true;}
  if(before)return true;
  m.flightDashStartedAt=now;
  const ultimate=activeUltimate(p,now);
@@ -42,10 +42,11 @@ export function stepFlightRun(room,m,dt,now){
  // exception is evaluated from the room and actual human owner every tick.
  if(running&&!practice&&!(m.flightCharge>0))running=false;
  if(!running||(!practice&&!(p.prowess>0))){
+   if(m.offensiveRun)m.runAnimationEndedAt=now;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
  }else{
-   if(!m.offensiveRun){m.offensiveRun=true;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
+   if(!m.offensiveRun){m.runAnimationStartedAt=now;m.offensiveRun=true;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
    if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
@@ -53,7 +54,7 @@ export function stepFlightRun(room,m,dt,now){
      p.prowess=clamp((p.prowess??0)-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
      if(p.prowess<=0){
        if(practice){m.practiceDashRefilling=true;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});}
-       else{m.offensiveRun=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+       else{m.runAnimationEndedAt=now;m.offensiveRun=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
      }
    }
  }

@@ -3725,7 +3725,7 @@ export class GameRuntime {
         driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
         const driverPlayer = flightPose.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightPose.operatorId);
         const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
-        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking);
+        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
       }
     }
     this.#mountedView(dt);
