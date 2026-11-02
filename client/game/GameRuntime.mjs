@@ -1439,7 +1439,7 @@ export class GameRuntime {
       }
       if(event.type==='structureDamaged'){
         if(event.point)this.effects.splinters?.(event.point);
-        if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'BREACH OPEN':`TIMBER DAMAGED · ${Math.ceil(event.health)}/${event.maxHealth}`,event.destroyed?'gold':'',event.destroyed?1800:950);
+        if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('BREACH OPEN','gold',1800);
       }
       if(event.type==='fightFlightBoltImpact'&&event.point){
         if(event.hitKind==='player'||event.hitKind==='guard'||event.hitKind==='parry')this.effects.wallClang?.(event.point);
@@ -1483,7 +1483,7 @@ export class GameRuntime {
       if(event.type==='fightFlightComponentHit'&&event.point){
         if(event.component==='braceL'||event.component==='braceR'||event.component==='main')this.effects.splinters?.(event.point);
         else this.effects.wallClang?.(event.point);
-        if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
+        if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('COMPONENT BROKEN','gold',800);
         const op = this.latestSnapshot?.fightFlight?.operatorId;
         if (op) this.#sayMoment(op, ['apparatusHit']);
       }
@@ -1565,14 +1565,19 @@ export class GameRuntime {
       if (event.type === 'siegeSteelOn') {
         const machine = this.#siegeMachine(event.machineId);
         const pos = machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null;
-        this.#play(steelCallRecipe(), event.operatorId === this.playerId ? null : pos, event.operatorId === this.playerId ? 0.95 : 0.7);
-        if (event.operatorId === this.playerId) {
+        const isMe = event.operatorId === this.playerId;
+        const alreadyPredicted = isMe && Number.isFinite(this.localSteelAt) && Math.abs(this.socket.serverNow() - this.localSteelAt) < 0.6;
+        if (!alreadyPredicted) {
+          this.#play(steelCallRecipe(), isMe ? null : pos, isMe ? 0.95 : 0.7);
+        }
+        if (isMe) {
           this.hud.flashText('SHEATHED IN STEEL', 'gold', 1100);
         }
       }
       if (event.type === 'siegeSteelBlocked') {
         const machine = this.#siegeMachine(event.machineId);
-        const point = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null);
+        const compPos = event.componentId ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
+        const point = event.point ?? compPos ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 1.2, z: machine.z } : null);
         const isMine = machine?.operatorId === this.playerId;
         if (point) {
           this.effects.steelGlint(point, null, { strength: 1.0, ring: true, scale: 0.95 });
@@ -1586,7 +1591,10 @@ export class GameRuntime {
       }
       if (event.type === 'siegeSteelRepair') {
         const machine = this.#siegeMachine(event.machineId);
-        const pt = event.point ?? (machine ? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z } : null);
+        let pt = event.componentId ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
+        if (!pt && !event.componentId && machine && (machine.health ?? 1) > 0) {
+          pt = event.point ?? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z };
+        }
         if (pt) {
           this.effects.steelGlint(pt, null, { strength: 0.45, ring: false, scale: 0.4 });
         }
@@ -1604,6 +1612,7 @@ export class GameRuntime {
         }
       }
       this.ramRenderer.hit(event);
+      this.flightRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       const frostFeedback=biByeFrostFeedback(event,this.playerId);
@@ -1727,8 +1736,12 @@ export class GameRuntime {
         this.scenes.chivalryEnded(event.playerId);
       }
 
-      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
-      if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
+      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed; mounted knights ring via siegeSteelOn)
+      const isMountedKnight = (id) => {
+        const p = this.latestSnapshot?.players?.find(pl => pl.id === id);
+        return Boolean(p?.operatingFightFlightId || p?.operatingBallistaId || p?.operatingRamId);
+      };
+      if (event.type === 'steelOn' && event.playerId !== me && !isMountedKnight(event.playerId)) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
       // now and then a word as it hardens
       if (event.type === 'steelOn') this.#sayMoment(event.playerId, ['steelCalled']);
       // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
@@ -2091,6 +2104,24 @@ export class GameRuntime {
     if (this.latestSnapshot?.fightFlight?.id === machineId) return this.latestSnapshot.fightFlight;
     if (this.latestSnapshot?.bibyeBallista?.id === machineId) return this.latestSnapshot.bibyeBallista;
     if (this.latestSnapshot?.soFistication?.id === machineId) return this.latestSnapshot.soFistication;
+    return null;
+  }
+
+  #siegeComponentPosition(machineId, componentId) {
+    if (!machineId || !componentId) return null;
+    if (this.flightRenderer?.state?.id === machineId) {
+      const pos = this.flightRenderer.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
+    if (this.ramRenderer?.presentationData?.id === machineId) {
+      const pos = this.ramRenderer.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
+    const b = this.world?.biByeLlista;
+    if (b?.presentationData?.id === machineId) {
+      const pos = b.getComponentWorldPosition(componentId);
+      if (pos) return pos;
+    }
     return null;
   }
 
@@ -3189,20 +3220,25 @@ export class GameRuntime {
   #mountedView(dt) {
     if(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight){
       const m=this.latestSnapshot.fightFlight;
-      const isFirstPerson = this.siegeView === 'sight';
-      const target=this.flightRenderer.getMountedCameraPosition(this.siegeView)??new THREE.Vector3(m.x,m.y+1.52,m.z);
       this.flightCameraMotion ??= new FlightCameraMotion();
-      const motion = this.flightCameraMotion.update(dt, m, this.view.cameraMotion);
-      // An authoritative offensive-run edge triggers a single, brief speed
-      // accent. Do not switch cockpit mode or rotate the aim: the mouse and
-      // physical repeater muzzle must remain trustworthy throughout Dash.
+      const motion=this.flightCameraMotion.update(dt,m,this.view.cameraMotion);
       const dash=this.flightDashPresentation.update(dt,m,{
         eligible:this.playing&&this.localAuth.alive&&m.operatorId===this.playerId,
         cameraMotion:this.view.cameraMotion,
       });
       if(dash.started)this.effects.flightDash();
       this.#setFov(this.view.fov+dash.fov);
-
+      // Keep the chosen mode intact. The temporary boom recovers to that mode
+      // after release, landing or interruption without modifying input yaw/pitch.
+      const blend=this.siegeView==='third'?1:dash.thirdBlend;
+      const isFirstPerson=blend<.002;
+      const eye=this.flightRenderer.getMountedCameraPosition('sight')??new THREE.Vector3(m.x,m.y+1.52,m.z);
+      const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
+      const distance=5.5+dash.pullback;
+      const third=new THREE.Vector3(m.x+Math.sin(this.input.yaw)*distance,
+        m.y+3.05-Math.sin(this.input.pitch)*distance,m.z+Math.cos(this.input.yaw)*distance);
+      const target=eye.clone().lerp(third,blend);
+      target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
       if (isFirstPerson) {
         this.camera.position.copy(target);
         if (motion.offset) {
@@ -3237,18 +3273,8 @@ export class GameRuntime {
         this.hud.setFlightSight?.({ limited, limitReason, trueAim });
       } else {
         this.hud.setFlightSight?.(null);
-        if(this.siegeView==='third'){
-          // A small boom retreat *only* in the existing third-person view;
-          // clip against masonry so the camera cannot pass through walls.
-          if(dash.pullback>0){
-            const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
-            const retreat=target.clone().sub(anchor);
-            if(retreat.lengthSq()>1e-6)target.addScaledVector(retreat.normalize(),dash.pullback);
-          }
-          target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
-        }
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
-        this.siegeCamera.position.lerp(target,1-Math.exp(-dt*13));
+        this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
         this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
@@ -3555,7 +3581,7 @@ export class GameRuntime {
       }
       // (outside, my own body is drawn and the helm's arms are not; mounted on ballista, draw body at station and hide FP arms)
       const isOperatingFlight = Boolean(this.localAuth?.operatingFightFlightId);
-      const isFpFlight = isOperatingFlight && this.siegeView === 'sight';
+      const isFpFlight = isOperatingFlight && this.siegeView === 'sight' && (this.flightDashPresentation.thirdBlend??0)<.05;
       const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||isOperatingFlight));
       if (mounted) outside = true;
       this.weapon.setFlightCockpit?.({ active: isFpFlight, concurrent: combatActionPolicy(this.localAuth, serverNow).concurrent });

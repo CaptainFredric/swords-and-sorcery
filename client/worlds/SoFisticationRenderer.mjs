@@ -54,9 +54,11 @@ export class SoFisticationRenderer {
   });return this.loadingPromise;
  }
  update(now,b){
-  this.presentationData=b;this.group.visible=Boolean(b&&!b.retired);
+  this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
   if(!b){this.clearDebris();return;}
   if(this.id!==b.id){this.id=b.id;this.clearDebris();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
+  if(this.debris)this.debris.visible=!b.wreckVisualExpired;
+  if(b.wreckVisualExpired)return;
   this.load();const frame=soFistFrame(b);
   this.group.position.set(b.position?.x??b.x,b.position?.y??b.y,b.position?.z??b.z);
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
@@ -73,8 +75,8 @@ export class SoFisticationRenderer {
    if(failed){o.position.y-=destroyed?.16:.07;o.rotation.z+=(i%2?1:-1)*(destroyed?.28:.12);}
   }
   if(destroyed){
-    this.model.rotation.z = 0.18;
-    this.model.position.y = -0.14;
+    const collapse=Math.min(1,Math.max(0,(now-(b.destroyedAt??now))/1.4));
+    this.model.rotation.z=collapse*.18;this.model.position.y=-collapse*.14;
     const piston = this.nodes.get('Ram_Shaft_Piston');
     if(piston) piston.rotation.x = -0.22;
   } else {
@@ -133,6 +135,19 @@ export class SoFisticationRenderer {
   return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
  }
  getOperatorGrips(){const station=this.getOperatorStation(this.presentationData?.poseTime??0);return station?{left:station.leftHand,right:station.rightHand}:null;}
+ getComponentWorldPosition(componentId){
+  const b=this.presentationData;if(!b||b.mode==='DESTROYED'||(b.health??0)<=0)return null;
+  let node=null;
+  if(componentId==='hull'&&(b.health??0)>0)node=this.nodes?.get?.('Chassis')??this.group;
+  else if(componentId==='Fist'&&(b.components?.Fist?.health??0)>0)node=this.nodes?.get?.('Armored_Fist');
+  else if(this.wheels){
+    const index=SO_FIST_WHEELS.findIndex(w=>w.id===componentId);
+    if(index>=0&&(b.components?.[componentId]?.health??0)>0)node=this.wheels[index]?.o;
+  }
+  if(!node)return null;
+  this.group.updateMatrixWorld(true);
+  return node.getWorldPosition(new THREE.Vector3());
+ }
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
  dispose(){this.disposed=true;this.clearDebris();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}

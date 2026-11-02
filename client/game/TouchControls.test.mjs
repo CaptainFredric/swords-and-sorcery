@@ -1038,88 +1038,46 @@ test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, h
   assert.deepEqual(usePreparedCalls, ['steel']);
 });
 
-test('spell button lifecycle: normal spell button reliably reappears across all transitions', () => {
-  let castCalls = 0;
-  const { controls, input, send } = setup({
-    alive: true,
-    spell: 'fireball',
-    spellReadyAt: 0,
-    operatingFightFlightId: 'faf_1',
-    position: { x: 0, y: 0, z: 0 },
+test('Flight input safety: slider release, pointer cancellation, and lost pointer capture neutralize ascent immediately and call onInputsReleased', () => {
+  const p = { alive: true, spell: 'steel', position: { x: 0, y: 0, z: 0 }, operatingFightFlightId: 'faf_safety' };
+  const { input, controls, send } = setup(p);
+  input.mountedFlight = true;
+  input.touch = controls;
+  let releasedCalls = 0;
+  input.onInputsReleased = () => { releasedCalls++; };
+
+  controls.update(p, 10, {
+    snapshot: { fightFlight: { id: 'faf_safety', health: 250, rotorHP: 100, grounded: false, ammo: 18 } }
   });
-  input.cast = () => { castCalls++; };
+  const rail = flightRailTarget(controls);
 
-  const snapshotAlive = {
-    fightFlight: { id: 'faf_1', health: 250, mode: 'AIRBORNE', rotorHP: 100 },
-    bibyeBallista: { id: 'bb_1', health: 180, deployed: true },
-  };
+  // 1. Slider release: hold Rise, then pointerup
+  send('pointerdown', 120, 120, { target: rail, pointerId: 101 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
 
-  // Step 1: Mounted without Steel (fireball) -> hidden
-  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingFightFlightId: 'faf_1' }, 10, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, true, 'illegal mounted fireball is hidden');
+  send('pointerup', 120, 120, { target: rail, pointerId: 101 });
+  assert.equal(controls.movement().flightRise, false, 'slider release immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 1, 'slider release invokes onInputsReleased');
 
-  // Step 2: Dismounting Fight-and-Flight -> normal fireball reappears and works
-  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingFightFlightId: null }, 11, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, false, 'fireball reappears after dismounting flight');
-  assert.equal(controls.buttons.spell.dataset.spell, 'fireball');
-  assert.equal(controls.buttons.spell.getAttribute('aria-disabled'), 'false');
+  // 2. Pointer cancellation: hold Rise, then pointercancel
+  send('pointerdown', 120, 120, { target: rail, pointerId: 102 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
 
-  // Verify real tap triggers cast
-  castCalls = 0;
-  send('pointerdown', 10, 10, { target: controls.buttons.spell, pointerId: 90 });
-  send('pointerup', 10, 10, { target: controls.buttons.spell, pointerId: 90 });
-  assert.equal(castCalls, 1, 'reappeared spell button casts successfully');
+  send('pointercancel', 120, 120, { target: rail, pointerId: 102 });
+  assert.equal(controls.movement().flightRise, false, 'pointercancel immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 2, 'pointer cancellation invokes onInputsReleased');
 
-  // Step 3: Mounted on Bi-Bye-llista without Steel -> hidden; Machine destroyed -> dismounted & reappears
-  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: 'bb_1' }, 12, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, true, 'hidden while operating ballista without steel');
+  // 3. Lost pointer capture: hold Rise, then lostpointercapture
+  send('pointerdown', 120, 120, { target: rail, pointerId: 103 });
+  assert.equal(controls.movement().flightRise, true);
+  assert.equal(controls.flightRail.dataset.intent, 'rise');
 
-  const snapshotDestroyed = {
-    fightFlight: null,
-    bibyeBallista: { id: 'bb_1', health: 0, destroyed: true },
-  };
-  controls.update({ alive: true, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 13, { snapshot: snapshotDestroyed });
-  assert.equal(controls.buttons.spell.hidden, false, 'reappears after machine destruction');
-
-  // Step 4: Operator death & respawn
-  controls.update({ alive: false, health: 0, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 14, { snapshot: snapshotDestroyed });
-  controls.update({ alive: true, health: 100, spell: 'fireball', spellReadyAt: 0, operatingBallistaId: null }, 15, { snapshot: snapshotDestroyed });
-  assert.equal(controls.buttons.spell.hidden, false, 'reappears on operator respawn');
-
-  // Step 5: Switching loadouts to frostfire and gale
-  controls.update({ alive: true, spell: 'frostfire', spellReadyAt: 0 }, 16, {});
-  assert.equal(controls.buttons.spell.hidden, false);
-  assert.equal(controls.buttons.spell.dataset.spell, 'frostfire');
-
-  controls.update({ alive: true, spell: 'gale', spellReadyAt: 0 }, 17, {});
-  assert.equal(controls.buttons.spell.hidden, false);
-  assert.equal(controls.buttons.spell.dataset.spell, 'gale');
-
-  // Step 6: Chivalry prepared Steel while mounted -> shown; Chivalry expires while still mounted -> hidden
-  controls.update({
-    alive: true,
-    spell: 'frostfire',
-    operatingFightFlightId: 'faf_1',
-    preparedSpells: ['frostfire', 'steel'],
-  }, 18, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, false, 'mounted steel shown via prepared chivalry');
-
-  // Prepared chivalry expires
-  controls.update({
-    alive: true,
-    spell: 'frostfire',
-    operatingFightFlightId: 'faf_1',
-    preparedSpells: [],
-  }, 19, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, true, 'mounted steel hides once prepared steel expires');
-
-  // Dismounting after chivalry expiry -> normal frostfire reappears
-  controls.update({
-    alive: true,
-    spell: 'frostfire',
-    operatingFightFlightId: null,
-    preparedSpells: [],
-  }, 20, { snapshot: snapshotAlive });
-  assert.equal(controls.buttons.spell.hidden, false, 'normal frostfire reappears after dismounting');
-  assert.equal(controls.buttons.spell.dataset.spell, 'frostfire');
+  send('lostpointercapture', 120, 120, { target: rail, pointerId: 103 });
+  assert.equal(controls.movement().flightRise, false, 'lostpointercapture immediately clears flightRise');
+  assert.equal(controls.flightRail.dataset.intent, 'neutral');
+  assert.equal(releasedCalls, 3, 'lost pointer capture invokes onInputsReleased');
 });

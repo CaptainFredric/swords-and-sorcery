@@ -1,12 +1,13 @@
 // Fight-and-Flight: server-authoritative Gate A locomotion. One actual machine per lifecycle.
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
 // Flight charge (power supply) and spinning rotor energy remain separate.
-import {resolvePlayerWorld,surfaceHeightAt,segmentAabbHit} from '../src/collision.mjs';
+import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
-import {VALKYRIE_RUN} from './fightFlightRun.mjs';
+import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
+import {flightSupportAt} from './flightSupport.mjs';
 import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
@@ -18,7 +19,7 @@ export const FIGHT_FLIGHT = Object.freeze({
 });
 const cap=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=v=>Number.isFinite(v)?v:0;
-const ground=(world,x,z,y)=>surfaceHeightAt(x,z,y+.7,world);
+const ground=(world,x,z,y)=>flightSupportAt(world,x,z,y+.35);
 export const fightFlightOperator=m=>({x:m.x,y:m.y,z:m.z});
 // Solid chassis, not a defensive bubble: rotor and braces require their own real hit geometry in Gate B.
 export function fightFlightSolids(m){
@@ -26,8 +27,8 @@ export function fightFlightSolids(m){
   return [{id:'fight-flight-chassis-'+m.id,kind:'siege-chassis',
     center:[m.x,m.y+(m.crouched?1:1.15),m.z],size:[1.4,m.crouched?2:2.3,1.35]}];
 }
-const extraSolids=(room,m)=>[
-  ...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),
+const extraSolids=(room,m,world=room.world)=>[
+  ...(world?.solids??[]),...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),
 ];
 function collisionFree(p,solids,height=FIGHT_FLIGHT.height,radius=FIGHT_FLIGHT.radius){
   const q=resolvePlayerWorld(p,radius,solids,height);
@@ -45,7 +46,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
-    flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,runPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
+    flightDashHeld:false,flightDashStartedAt:null,practiceDashRefilling:false,runPitch:0,runTrim:0,runFlightPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
@@ -159,7 +160,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const explicitHop=Boolean(live&&m.hopRequested);
   m.hopRequested=false; // one server-validated impulse, not a latched held state
   if(m.ejectHoldStartedAt!=null&&now-m.ejectHoldStartedAt>=.35){
-    m.emergencyBrakeActive=true;m.rotorPowered=false;
+    m.emergencyBrakeActive=true;m.rotorPowered=false;m.offensiveRun=false;m.flightDashHeld=false;
   }
   // Discrete Hop uses ballistic gravity; only a held Rise can spin up sustained
   // lift. Desktop Space preserves tap-to-hop, hold (>230 ms)-to-rise behavior.
@@ -171,6 +172,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
+  const training=practiceFlightRun(room,m);
+  if(training){m.flightCharge=Math.max(m.flightCharge,2.1);m.rotorPowered=true;}
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
@@ -223,14 +226,20 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
   const speed=m.grounded?(input.sprint&&!m.crouched?FIGHT_FLIGHT.sprintSpeed:m.crouched?1.7:FIGHT_FLIGHT.groundSpeed):FIGHT_FLIGHT.airSpeed;
   const run=m.offensiveRun&&!m.grounded;
-  const dx=run?-Math.sin(m.heading)*VALKYRIE_RUN.speed:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
-  const dz=run?-Math.cos(m.heading)*VALKYRIE_RUN.speed:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+  const flightPitch=m.runFlightPitch??0;
+  const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
+  const dx=run?-Math.sin(m.heading)*runHorizontal:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+  const dz=run?-Math.cos(m.heading)*runHorizontal:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
     // Already committed momentum and gravity, not the live rider's jump/aim.
     m.velocity.y=Math.max(-25,m.velocity.y);
     m.mode='TERMINAL';
+  }else if(run){
+    const targetY=VALKYRIE_RUN.speed*Math.sin(flightPitch);
+    m.velocity.y+=(targetY-m.velocity.y)*response;
+    if(!training)m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
   }else if(!m.grounded){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
@@ -249,17 +258,17 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       if(descend&&m.velocity.y<-.3)m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
   }else{m.velocity.y=0;m.flightCharge=cap(m.flightCharge+dt*7,0,m.maxFlightCharge);}
-  const solids=extraSolids(room,m);
+  const solids=extraSolids(room,m,world);
   const steps=Math.max(1,Math.ceil(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)*dt/.25));
   const h=m.crouched?FIGHT_FLIGHT.crouchHeight:FIGHT_FLIGHT.height;
   for(let i=0;i<steps;i++){
     const previous={x:m.x,y:m.y,z:m.z},step=dt/steps;
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};
-    const floor=ground(world,candidate.x,candidate.z,Math.max(candidate.y,m.y));
-    if(floor!==null&&candidate.y<=floor&&m.velocity.y<=0){
+    const floor=flightSupportAt(world,candidate.x,candidate.z,previous.y+(m.grounded?.35:.05));
+    if(floor!==null&&(candidate.y<=floor||(m.grounded&&candidate.y-floor<.35))&&m.velocity.y<=0){
       if(m.terminalDive)m.terminalDive.impactAt=now;
       if(!m.grounded)m.landingAt=now;
-      candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
+      candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';m.offensiveRun=false;m.flightDashHeld=false;
     }
     else if(floor===null||candidate.y>floor+.05){
       // Losing support at a cliff is a real transition to falling, not hovering at its rim.
@@ -277,9 +286,26 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         if(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5||m.terminalDive.blockedContactSec>=.24)
           m.terminalDive.impactAt=now;
       }
-      if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
+      if(m.offensiveRun){m.offensiveRun=false;m.flightDashHeld=false;}
+      if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){const slideX={x:candidate.x,y:candidate.y,z:previous.z},slideZ={x:previous.x,y:candidate.y,z:candidate.z};
+        if(collisionFree(slideX,solids,h)){candidate.z=previous.z;m.velocity.z=0;}
+        else if(collisionFree(slideZ,solids,h)){candidate.x=previous.x;m.velocity.x=0;}
+        else{candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
+      }
       else if(candidate.y>previous.y){candidate.x=previous.x;candidate.z=previous.z;m.velocity.x=0;m.velocity.z=0;}
-      else{candidate.x=previous.x;candidate.y=previous.y;candidate.z=previous.z;m.velocity={x:0,y:0,z:0};}
+      else{
+        // The feet can overhang a ledge while the wider chassis overlaps its
+        // side. Resolve that contact outward at a bounded sliding speed; zeroing
+        // every axis here would suspend an unsupported machine indefinitely.
+        const free=resolvePlayerWorld(candidate,FIGHT_FLIGHT.radius,solids,h);
+        const length=Math.hypot(free.x-previous.x,free.z-previous.z);
+        const slide=Math.min(length,3*step);
+        candidate.x=previous.x+(length>0?(free.x-previous.x)/length*slide:0);
+        candidate.z=previous.z+(length>0?(free.z-previous.z)/length*slide:0);
+        candidate.y=previous.y;
+        m.velocity.x=length>0?(free.x-previous.x)/length*3:0;
+        m.velocity.z=length>0?(free.z-previous.z)/length*3:0;
+      }
       m.lastImpactAt=now;
     } else if(m.terminalDive) m.terminalDive.blockedContactSec=0;
     // Midair upward collision: capsule XY solver cannot stop ceilings;
@@ -296,6 +322,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.x=candidate.x;m.y=candidate.y;m.z=candidate.z;
     if(m.grounded&&floor!==null&&m.y>floor+.05)m.grounded=false;
   }
+  const support=flightSupportAt(world,m.x,m.z,m.y+.05);
+  if(m.grounded&&(support==null||Math.abs(m.y-support)>.08))m.grounded=false;
   if(!m.grounded&&m.mode==='GROUNDED')m.mode='AIRBORNE';
   if(m.terminalDive)m.mode='TERMINAL';
   if(!m.grounded&&m.mode==='AIRBORNE'&&m.velocity.y<-.9)m.mode='LANDING';

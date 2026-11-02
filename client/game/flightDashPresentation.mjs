@@ -1,5 +1,5 @@
 // One-shot, source-authenticated Fight-and-Flight dash camera accent.
-// Deliberately NOT a locomotion, aim, or camera-mode state machine.
+// Presentation only: the held run owns a smooth temporary third-person boom.
 // Only a real authoritative offensiveRun edge starts the pulse.
 const ATTACK=.12,PLATEAU=.12,RECOVER=.63;
 const clamp01=n=>Math.min(1,Math.max(0,n));
@@ -14,10 +14,10 @@ export function flightDashEnvelope(age){
 export const FLIGHT_DASH_VIEW=Object.freeze({fovDegrees:7.5,thirdPersonPullback:1.35,duration:ATTACK+PLATEAU+RECOVER});
 export class FlightDashPresentation{
   constructor(){this.reset();}
-  reset(){this.machine=null;this.wasRunning=false;this.startedAt=Infinity;this.elapsed=Infinity;this.release=1;this.strength=0;}
+  reset(){this.machine=null;this.wasRunning=false;this.startedAt=Infinity;this.elapsed=Infinity;this.release=1;this.strength=0;this.thirdBlend=0;}
   update(dt,m,{eligible=false,cameraMotion=1}={}){
     const valid=Boolean(eligible&&m?.id&&m?.operatorId&&m?.health>0&&m?.rotorHP>0&&!m.terminalDive);
-    if(!valid){this.reset();return {started:false,strength:0,fov:0,pullback:0};}
+    if(!valid){this.reset();return {started:false,strength:0,fov:0,pullback:0,thirdBlend:0};}
     if(this.machine!==m.id){this.reset();this.machine=m.id;}
     const running=Boolean(m.offensiveRun);
     const started=running&&!this.wasRunning;
@@ -27,8 +27,9 @@ export class FlightDashPresentation{
     if(Number.isFinite(this.elapsed))this.elapsed+=step;
     if(!running)this.release*=Math.exp(-step*11);
     this.strength=flightDashEnvelope(this.elapsed)*this.release;
+    this.thirdBlend+=((running?1:0)-this.thirdBlend)*(1-Math.exp(-step*(running?13:11)));
     this.wasRunning=running;
     const scaled=this.strength*clamp01(cameraMotion);
-    return {started,strength:scaled,fov:scaled*FLIGHT_DASH_VIEW.fovDegrees,pullback:scaled*FLIGHT_DASH_VIEW.thirdPersonPullback};
+    return {started,strength:scaled,fov:scaled*FLIGHT_DASH_VIEW.fovDegrees,pullback:this.thirdBlend*FLIGHT_DASH_VIEW.thirdPersonPullback,thirdBlend:this.thirdBlend};
   }
 }
