@@ -18,7 +18,7 @@ function setup(){
  return {room,m,p};
 }
 test('Held Dash spends operator prowess over ~2.4s and actually accelerates forward, not a timer-only effect',()=>{
- const {room,m,p}=setup();p.prowess=100;p.ultimate='sunder';
+ const {room,m,p}=setup();room.mode='FREE_FOR_ALL';p.prowess=100;p.ultimate='sunder';
  assert.deepEqual(applyRoomCommand(room,p,{type:'flightDash',down:true},1),{});
  let firstSpeed=0;for(let i=1;i<=20;i++){const now=1+i/30;stepFlightRun(room,m,1/30,now);stepFightFlight(room,m,1/30,now);}
  firstSpeed=-m.velocity.z;

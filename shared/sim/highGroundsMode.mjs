@@ -5,7 +5,9 @@ export const HIGH_GROUNDS_RULES = Object.freeze({
   matchSec: 720,
   neutralizeSec: 9,
   foundryCooldownSec: 120,
-  foundryInteractRadius: 5,
+  // Cover the home encampment (including all six initial spawns), not only the
+  // tiny console ring. Production still occurs on the fixed, clear road pad.
+  foundryInteractRadius: 25,
   spawnSafetyRadius: 18,
 });
 const SIDES = [TEAMS.ATTACKERS, TEAMS.DEFENDERS];

@@ -19,14 +19,13 @@ function setup(){
  m.operatorId=pilot.id;pilot.operatingFightFlightId=m.id;room.fightFlight=m;room.events.length=0;
  return {room,pilot,attacker,m};
 }
-test('Incoming sword meets flight components instead of phasing through the machine to the rider',()=>{
+test('Incoming front sword can reach the exposed pilot instead of stopping at a fictitious chassis box',()=>{
  const {room,pilot,attacker,m}=setup();
  assert.equal(beginAttack(room,attacker.id,10),true);
  stepRoom(room,.01,10.4,world);
- assert.ok(room.events.some(e=>e.type==='fightFlightComponentHit'&&e.source==='sword'),
-   'real incoming sword damages first physical component');
- assert.equal(pilot.health,100,'component physically intercepts the hit before rider');
- assert.ok(m.health<250||m.braceLHP<80||m.braceRHP<80||m.rotorHP<100);
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id), 'sword reaches pilot through open front');
+ assert.ok(pilot.health<100);
+ assert.equal(m.health,250,'do not double-apply exposed pilot damage to hull');
 });
 test('A mounted pilot can still swing outward: own machine does not interrupt their attack',()=>{
  const {room,pilot,attacker}=setup();

@@ -4,6 +4,7 @@ import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {steelMitigate,steelTakes,callSteel,STEEL} from '../src/steel.mjs';
 import {dismountFightFlight} from './fightFlight.mjs';
 import {applyDamage} from './combat.mjs';
+import {beginSiegeWreck} from './siegeWreck.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const COMPONENTS={rotor:{hp:'rotorHP',max:100,steel:true},
   braceL:{hp:'braceLHP',max:80,steel:true},
@@ -26,9 +27,15 @@ function box(m,component,local,size,spin=0){
 export function fightFlightHitVolumes(m){
   if(!m||m.retired||m.mode==='DESTROYED')return [];
   const volumes=[];
-  // GLB mesh bounds include oak/iron brace rather than a spherical protective field.
-  if(m.braceLHP>0)volumes.push(box(m,'braceL',[.415,1.28,.05],[.51,.94,.64]));
-  if(m.braceRHP>0)volumes.push(box(m,'braceR',[-.415,1.28,.05],[.51,.94,.64]));
+  // Two slim metal struts per side; their gaps are real vulnerability windows.
+  if(m.braceLHP>0){
+    volumes.push(box(m,'braceL',[.49,1.28,-.24],[.18,.94,.20]));
+    volumes.push(box(m,'braceL',[.49,1.28,.30],[.18,.94,.19]));
+  }
+  if(m.braceRHP>0){
+    volumes.push(box(m,'braceR',[-.49,1.28,-.24],[.18,.94,.20]));
+    volumes.push(box(m,'braceR',[-.49,1.28,.30],[.18,.94,.19]));
+  }
   if(m.rotorHP>0){
     // Both sword blades swing on the hub centered at Y=2.18; broad bevel adds
     // at most 0.377m chord width. The hub itself also receives rotor damage.
@@ -40,7 +47,13 @@ export function fightFlightHitVolumes(m){
       volumes.push(box(m,'rotor',[cx,2.18,cz],[1.228,.18,.754],phase));
     }
   }
-  volumes.push(box(m,'main',[0,1.44,-.14],[1.18,1.22,1.06]));
+  // The former solid torso-sized damage box absorbed sword strikes that
+  // reached the rider. Model the pan, rear plate and narrow crossmembers;
+  // exposed frontal and lateral pilot collision remains authoritative.
+  volumes.push(box(m,'main',[0,.48,-.05],[1.15,.24,1.00]));
+  volumes.push(box(m,'main',[0,1.28,-.48],[1.09,1.45,.16]));
+  volumes.push(box(m,'main',[0,.93,.45],[1.08,.16,.13]));
+  volumes.push(box(m,'main',[0,1.99,-.08],[1.06,.13,.88]));
   return volumes;
 }
 export function fightFlightFirstHit(m,start,end,grow=0){
@@ -91,7 +104,8 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
       room.events?.push({type:'fightFlightTerminalStructuralFailure',machineId:m.id,at:now,point});
       return {damage:actual,turned,destroyed:true,component:componentId};
     }
-    m.mode='DESTROYED';m.destroyedAt=now;m.firingOperatorId=null;m.offensiveRun=false;
+    beginSiegeWreck(room,m,'fight-flight',now,{attackerId,source,point});
+    m.mode='DESTROYED';m.firingOperatorId=null;m.offensiveRun=false;
     const pilot=m.operatorId?room.players.get(m.operatorId):null;
     if(pilot){
       // Separates rider from wreck before real damage; death/Steel and attribution

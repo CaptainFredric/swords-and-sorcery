@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
+import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
+import { BiByeMotion } from './biByeMotion.mjs';
 import { buildHighGroundsDecks, buildHighGroundsSurroundings, buildHighGroundsDetail, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
@@ -31,6 +33,13 @@ export class HighGroundsRenderer {
     this.group.name = 'The High Grounds';
     this.lighting = HIGH_GROUNDS_LIGHTING;
     this.disposed = false;
+    // A constructed ballista must be rendered in High Grounds just as it is
+    // in Castleward and Outerworks; authority still owns all simulation.
+    this.biByeLlista = null; // Load the heavy authored GLB only if a ballista is produced.
+    this.biByeMotion = new BiByeMotion();
+    this.biByeRoomCode = null;
+    this.biByeServerTime = null;
+    this.biByePresentationOptions = null;
     this.materials = {
       timber: mat(0x7a5740), stone: mat(0x9b9a83), iron: mat(0x444c50, .55),
       wood: mat(0x52372b), brass: mat(0xb3914d, .67),
@@ -131,10 +140,30 @@ export class HighGroundsRenderer {
       standard.material = this.materials[owner === 'ATTACKERS' ? 'azure' : owner === 'DEFENDERS' ? 'crimson' : 'neutral'];
     }
   }
-  update() {}
+  setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
+    if (snapshot?.bibyeBallista && !this.biByeLlista) {
+      this.biByeLlista = new BiByeLlistaRenderer(this.scene);
+    }
+    if (this.biByeRoomCode !== snapshot?.roomCode) {
+      this.biByeRoomCode = snapshot?.roomCode;
+      this.biByeMotion = new BiByeMotion();
+    }
+    if ((snapshot?.bibyeRevision ?? 0) < this.biByeMotion.revision) return;
+    this.biByePresentationOptions = options;
+    this.biByeMotion.push(snapshot?.bibyeBallista ?? null,
+      snapshot?.bibyeProjectiles ?? [], snapshot?.serverTime ?? serverNow,
+      snapshot?.bibyeRevision ?? 0);
+    this.biByeServerTime = serverNow;
+  }
+  update(timeSec) {
+    const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec,
+      this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
+    this.biByeLlista?.update(view.clock, view.ballista, view.projectiles);
+  }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.biByeLlista?.dispose();
     this.scene.remove(this.group);
     this.group.traverse(obj => { obj.geometry?.dispose?.(); });
     for (const material of Object.values(this.materials)) material.dispose();

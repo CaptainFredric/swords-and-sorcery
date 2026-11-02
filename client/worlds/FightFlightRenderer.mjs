@@ -123,7 +123,14 @@ export class FightFlightRenderer{
   update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null,operator=null){
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
-    this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired);
+    this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
+    // High Grounds (including remote team production) does not pass through
+    // Practice's explicit asset preload. Begin one lazy load per new machine,
+    // never retry a missing GLB every render frame.
+    if (this.group.visible && !this.model && this.autoLoadMachineId !== m.id) {
+      this.autoLoadMachineId=m.id;
+      void this.load();
+    }
     if(!m?.operatorId)this.lastSwordChain=null;
     // Server detachment is immediate. The authored clip opens the empty
     // harness and deflects the coasting shaft, never teleports or reattaches

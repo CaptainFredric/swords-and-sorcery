@@ -99,6 +99,38 @@ try{
   await evalBrowser("document.querySelector('#resume-game').click()");
   await until(()=>evalBrowser("document.querySelector('#pause-menu').classList.contains('hidden')"),'mobile resume closes pause',60);
   assert.equal(await evalBrowser("document.querySelector('.touch-controls')?.classList.contains('active')"),true,'resume restores touch controls');
+  // Actual foundry integration: position the local actor at the authoritative
+  // team console, tap the real machine option, then inspect the next replicated
+  // snapshot and the loaded production GLB (never a hand-painted fake machine).
+  await evalBrowser(`(() => {
+    const rt=window.__ssRuntime, host=rt.socket.local, room=host.room;
+    const actor=room.players.get(rt.playerId);
+    const foundry=room.highGrounds.foundries.find(f=>f.team===actor.team);
+    actor.position={x:foundry.x,y:foundry.y,z:foundry.z};
+    actor.velocity={x:0,y:0,z:0};
+    return true;
+  })()`);
+  await until(()=>evalBrowser("!document.querySelector('#high-grounds-foundry').classList.contains('hidden')"),'foundry appears in allied home camp',85);
+  await evalBrowser("document.querySelector('#high-grounds-foundry-picker').open=true");
+  const machineButton=await evalBrowser(`(() => {
+    const b=document.querySelector('[data-high-grounds-machine="fight-and-flight"]');
+    const r=b.getBoundingClientRect();
+    return {x:r.x+r.width/2,y:r.y+r.height/2,disabled:b.disabled};
+  })()`);
+  assert.equal(machineButton.disabled,false,'Flight production is enabled at the foundry');
+  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:machineButton.x,y:machineButton.y,id:92}]});
+  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const produced=await until(()=>evalBrowser(`(() => {
+    const rt=window.__ssRuntime,s=rt.latestSnapshot,m=s?.fightFlight;
+    if(!m?.id || !s?.highGrounds?.foundries?.some(f=>f.machineId===m.id))return null;
+    return {id:m.id,team:m.team,x:m.x,z:m.z,health:m.health,
+      readyAt:s.highGrounds.foundries.find(f=>f.machineId===m.id).readyAt};
+  })()`),'touch foundry builds real, team-owned Fight-and-Flight',200);
+  assert.ok(produced.health>0);
+  assert.ok(Number.isFinite(produced.readyAt));
+  await until(()=>evalBrowser("Boolean(window.__ssRuntime?.flightRenderer?.model && window.__ssRuntime?.flightRenderer?.group?.visible)"),
+    'authored Fight-and-Flight model is loaded and visible',190);
+  await screenshot('05-real-foundry-flight');
   if(exceptions.length)throw Error('Browser exceptions: '+exceptions.join(' / '));
   await writeFile(output+'/result.json',JSON.stringify({state,exceptions},null,2));
   console.log('[HIGH GROUNDS BROWSER ACCEPTED]',JSON.stringify({mode:state.mode,renderer:state.renderer,sites:state.sites.length}));
