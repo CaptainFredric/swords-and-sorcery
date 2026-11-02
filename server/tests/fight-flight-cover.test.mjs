@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
-import {beginAttack,stepRoom} from '../../shared/sim/combat.mjs';
+import {beginAttack,stepRoom,tryCastSpell} from '../../shared/sim/combat.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
 
 const world={floors:[{id:'floor',center:[0,-.1,0],size:[60,.2,60],y:0}],ramps:[],solids:[],
@@ -57,4 +57,29 @@ test('destroying the left strut removes its real sweep interception',()=>{
  assert.equal(room.events.filter(e=>e.type==='fightFlightComponentHit'&&e.component==='braceL').length,0);
  assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===pilot.id),
    'the same centered sword now reaches rider after left strut breaks');
+});
+
+test('open-corridor sword damages the personally steeled rider, not machine ward reserve',()=>{
+ const {room,pilot,attacker,m}=setup();
+ pilot.spell='steel';assert.equal(tryCastSpell(room,pilot.id,{x:0,y:0,z:-1},9),true);
+ attacker.position.z=.8;attacker.yaw=attacker.input.yaw=Math.atan2(2,-.8);
+ beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
+ const body=room.events.find(e=>e.type==='swordHit'&&e.targetId===pilot.id);
+ assert.ok(body,'an unarmored frontal lane really hits the human rider');
+ assert.ok(pilot.health<100);
+ assert.equal(m.health,250);
+ assert.equal(m.siegeSteel.bonusPrevented,0,'pilot damage is protected only by personal Steel');
+});
+test('sword contacting real brace routes mitigation to machine Steel, not rider Steel',()=>{
+ const {room,pilot,attacker,m}=setup();
+ pilot.spell='steel';assert.equal(tryCastSpell(room,pilot.id,{x:0,y:0,z:-1},9),true);
+ beginAttack(room,attacker.id,10);stepRoom(room,.01,10.4,world);
+ const hit=room.events.find(e=>e.type==='fightFlightComponentHit'&&e.component==='braceL');
+ assert.ok(hit,'actual left brace absorbs this swing');
+ assert.equal(pilot.health,100);
+ assert.equal(hit.source,'sword');
+ assert.equal(hit.damage,19,'machine-linked Steel reduces ordinary sword toward legitimate glance');
+ assert.ok(m.siegeSteel.bonusPrevented>0);
+ assert.ok(m.siegeSteel.blockedDamage>0);
+ assert.equal(room.events.filter(e=>e.type==='swordHit'&&e.targetId===pilot.id).length,0);
 });
