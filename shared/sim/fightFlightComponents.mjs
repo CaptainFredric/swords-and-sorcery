@@ -1,5 +1,6 @@
 // Fight-and-Flight component geometry, fitted to canonical v2.6 GLB node transforms.
 // Local +Z points forward; world heading zero points -Z. No player-health redirection.
+import {inverseTransform} from '../src/flightRepeaterAim.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {steelMitigate,steelTakes,callSteel,STEEL} from '../src/steel.mjs';
 import {dismountFightFlight} from './fightFlight.mjs';
@@ -91,7 +92,7 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
   m[def.hp]-=actual;
   const gone=m[def.hp]<=0;
   room.events?.push({type:'fightFlightComponentHit',machineId:m.id,component:componentId,point,
-    attackerId,source,damage:actual,turned,health:m[def.hp],destroyed:gone,at:now});
+    attackerId,source,pointLocal:point?inverseTransform(m,point.x-m.x,point.y-m.y,point.z-m.z):null,damage:actual,turned,health:m[def.hp],destroyed:gone,at:now});
   if(gone&&componentId==='rotor'){
     m.rotorHP=0;m.rotorEnergy=0;m.rotorAngularVelocity=0;
     m.offensiveRun=false;m.rotorDestroyedAt=now;

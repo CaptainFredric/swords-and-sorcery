@@ -5,6 +5,7 @@ import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {SWORD_STRIKE_TIMES} from '../../shared/src/combat.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
+import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
 // v2.6 remains checked into this directory as a verifiable rollback.
@@ -15,7 +16,7 @@ export class FightFlightRenderer{
   constructor(scene){
     this.scene=scene;this.group=everywhere(new THREE.Group());this.group.name='Fight-and-Flight';
     this.group.visible=false;scene.add(this.group);this.nodes=new Map();this.state=null;
-    this.lastMode=null;this.clip=null;this.disposed=false;
+    this.pendingHits=[];this.modelMaterials=[];this.lastMode=null;this.clip=null;this.disposed=false;
     this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
     this.quarrelPrototype=null;this.quarrelDetail=createQuarrelDetail();this.lastSwordChain=null;this.operator=null;this.ejectionAt=null;
     this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
@@ -52,13 +53,20 @@ export class FightFlightRenderer{
         if(n.name)this.nodes.set(n.name,n);
         if(n.isMesh){
           n.castShadow=true;n.receiveShadow=true;
-          for (const mat of [n.material].flat()) {
-            if (mat && !mat.userData.baseEmissive) {
-              mat.userData.baseEmissive = mat.emissive ? mat.emissive.clone() : new THREE.Color(0x000000);
-              mat.userData.baseEmission = mat.emissiveIntensity ?? 1;
-              (this.modelMaterials ??= []).push({ mesh: n, material: mat });
-            }
+          let component='main';
+          for(let parent=n;parent&&parent!==this.model;parent=parent.parent){
+            if(parent.name.startsWith('Rotor_')){component='rotor';break;}
+            if(parent.name.startsWith('Protective_Brace_L')){component='braceL';break;}
+            if(parent.name.startsWith('Protective_Brace_R')){component='braceR';break;}
           }
+          const materials=[n.material].flat().map(original=>{
+            const mat=original.clone();mat.userData={...original.userData};
+            mat.userData.baseEmissive=mat.emissive.clone();mat.userData.baseEmission=mat.emissiveIntensity;
+            const hit=ramHitMaterial(mat,component!=='main',{radius:.32,duration:.22});
+            this.modelMaterials.push({mesh:n,material:mat,component,hit,times:[-Infinity,-Infinity]});
+            return mat;
+          });
+          n.material=Array.isArray(n.material)?materials:materials[0];
         }
       });
       // Six individually ornamented GLB magazine quarrels. Detail groups are
@@ -135,7 +143,8 @@ export class FightFlightRenderer{
   update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null,operator=null){
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
-    this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
+    if(this.state?.id!==m?.id){this.pendingHits=[];this.lastMode=null;for(const e of this.modelMaterials)e.times=[-Infinity,-Infinity];}
+    this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&!m.wreckVisualExpired);
     // High Grounds (including remote team production) does not pass through
     // Practice's explicit asset preload. Begin one lazy load per new machine,
     // never retry a missing GLB every render frame.
@@ -166,8 +175,8 @@ export class FightFlightRenderer{
     // the same authoritative run tilt; no unrelated camera dip is applied.
     this.model.rotation.x=m.runPitch??0;
     const isDestroyed = m.mode === 'DESTROYED' || (m.health ?? 1) <= 0;
-    this.model.rotation.z = isDestroyed ? 0.22 : 0;
-    this.model.position.y = isDestroyed ? -0.16 : 0;
+    const collapse=isDestroyed?Math.min(1,Math.max(0,(now-(m.destroyedAt??now))/1.4)):0;
+    this.model.rotation.z=collapse*.22;this.model.position.y=-collapse*.16;
     const dt=this.lastUpdateAt!=null?Math.min(0.1,Math.max(0,now-this.lastUpdateAt)):0;
     this.lastUpdateAt=now;
     const name=this.posture(m),clip=this.clips.get(name);
@@ -264,6 +273,31 @@ export class FightFlightRenderer{
     const chassis=this.nodes.get('Main_Apparatus_Chassis');
     if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
+    this.group.updateMatrixWorld(true);
+    for(const event of this.pendingHits.filter(e=>e.at<=now)){
+      let point=event.pointLocal?this.model.localToWorld(new THREE.Vector3(event.pointLocal.x,event.pointLocal.y,event.pointLocal.z)):
+        new THREE.Vector3(event.point.x,event.point.y,event.point.z);
+      // Component OBB contact can lie just off the authored bevel. Seat the
+      // small mark on the nearest real triangle, then retain it in mesh space.
+      let closest=null;
+      const meshes=new Set(this.modelMaterials.filter(e=>e.component===event.component).map(e=>e.mesh));
+      for(const mesh of meshes){
+        const local=mesh.worldToLocal(point.clone()),g=mesh.geometry,p=g.attributes.position,index=g.index;
+        const tri=new THREE.Triangle(),q=new THREE.Vector3();let best=Infinity,bestPoint=null;
+        for(let i=0,n=index?.count??p.count;i<n;i+=3){
+          tri.a.fromBufferAttribute(p,index?index.getX(i):i);tri.b.fromBufferAttribute(p,index?index.getX(i+1):i+1);tri.c.fromBufferAttribute(p,index?index.getX(i+2):i+2);
+          tri.closestPointToPoint(local,q);const d=q.distanceToSquared(local);if(d<best){best=d;bestPoint=q.clone();}
+        }
+        if(bestPoint){const world=mesh.localToWorld(bestPoint),d=world.distanceToSquared(point);if(!closest||d<closest.d)closest={point:world,d};}
+      }
+      if(closest)point=closest.point;
+      for(const entry of this.modelMaterials)if(entry.component===event.component){
+        const slot=entry.times[0]<=entry.times[1]?0:1;entry.times[slot]=event.at;
+        entry.hit.uRamHitFrom.value[slot].copy(entry.mesh.worldToLocal(point.clone()));
+      }
+    }
+    this.pendingHits=this.pendingHits.filter(e=>e.at>now&&e.at<now+2);
+    for(const entry of this.modelMaterials)entry.hit.uRamHitAge.value=entry.times.map(t=>now-t>=0&&now-t<.22?now-t:-1);
     const steelActive = Boolean(m?.siegeSteel && m.siegeSteel.state !== 'expired' && now < (m.siegeSteel.protectionUntil ?? 0));
     if (this.modelMaterials) {
       const pulse = steelActive ? 0.65 + 0.35 * Math.sin(now * 3.5) : 0;
@@ -277,6 +311,11 @@ export class FightFlightRenderer{
           material.emissiveIntensity = material.userData.baseEmission;
         }
       }
+    }
+  }
+  hit(event){
+    if(event.type==='fightFlightComponentHit'&&event.machineId===this.state?.id&&event.damage>0&&event.point&&Object.values(event.point).every(Number.isFinite)){
+      this.pendingHits.push(event);if(this.pendingHits.length>24)this.pendingHits.shift();
     }
   }
   drawBolts(projectiles,now,stamp){
@@ -367,5 +406,5 @@ export class FightFlightRenderer{
     disposeQuarrelDetail(this.quarrelDetail);
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();this.burnGeometry.dispose();
-    this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
+    this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();for(const mat of [o.material].flat())mat?.dispose();}});}
 }

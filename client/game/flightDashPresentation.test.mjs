@@ -20,7 +20,7 @@ test('release, collision interruption or terminal dive cancels the pulse quickly
  assert.ok(v.strength<before*.12);
  assert.equal(tick(v,m).started,false);
  m.offensiveRun=true;assert.equal(tick(v,m).started,true);
- m.terminalDive={};assert.deepEqual(tick(v,m),{started:false,strength:0,fov:0,pullback:0});
+ m.terminalDive={};assert.deepEqual(tick(v,m),{started:false,strength:0,fov:0,pullback:0,thirdBlend:0});
 });
 test('never triggers for unmounted spectators, dead pilots, destroyed rotors, or a new operator',()=>{
  const v=new FlightDashPresentation(),m=machine({offensiveRun:true});
@@ -34,7 +34,7 @@ test('never triggers for unmounted spectators, dead pilots, destroyed rotors, or
 });
 test('reduced-motion setting can turn zoom entirely off without disabling authoritative Dash or timing',()=>{
  const v=new FlightDashPresentation(),m=machine({offensiveRun:true});
- const s=tick(v,m,.1,0);assert.equal(s.started,true);assert.equal(s.fov,0);assert.equal(s.pullback,0);
+ const s=tick(v,m,.1,0);assert.equal(s.started,true);assert.equal(s.fov,0);assert.ok(s.thirdBlend>0,'mode transition remains available with reduced camera motion');
  const next=tick(v,m,.1,.5);assert.ok(next.fov>0&&next.fov<=FLIGHT_DASH_VIEW.fovDegrees/2);
 });
 test('pulse never depends on client-supplied camera time or JS wall clock',()=>{
@@ -42,4 +42,11 @@ test('pulse never depends on client-supplied camera time or JS wall clock',()=>{
  assert.ok(flightDashEnvelope(.12)>=.99);assert.equal(flightDashEnvelope(1),0);
  const a=new FlightDashPresentation(),b=new FlightDashPresentation(),m=machine({offensiveRun:true});
  for(let i=0;i<32;i++)assert.deepEqual(tick(a,m),tick(b,m));
+});
+test('held run keeps the third person boom after the transient FOV accent ends',()=>{
+ const v=new FlightDashPresentation(),m=machine({offensiveRun:true});
+ let f;for(let i=0;i<150;i++)f=tick(v,m);
+ assert.ok(f.thirdBlend>.99);assert.ok(f.pullback>1);assert.equal(f.fov,0);
+ m.offensiveRun=false;for(let i=0;i<40;i++)f=tick(v,m);
+ assert.ok(f.thirdBlend<.01);assert.ok(f.pullback<.02);
 });

@@ -1,0 +1,32 @@
+[
+  {
+    "age": 1688.600000023842,
+    "expired": false,
+    "phase": "collapsing",
+    "visible": true
+  },
+  {
+    "age": 1719.699999988079,
+    "expired": false,
+    "phase": "collapsing",
+    "visible": true
+  },
+  {
+    "age": 2212.5,
+    "expired": false,
+    "phase": "collapsing",
+    "visible": true
+  },
+  {
+    "age": 4513.300000011921,
+    "expired": false,
+    "phase": "settled",
+    "visible": true
+  },
+  {
+    "age": 6914.5,
+    "expired": false,
+    "phase": "settled",
+    "visible": true
+  }
+]
