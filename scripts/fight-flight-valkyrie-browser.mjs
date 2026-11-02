@@ -72,7 +72,7 @@ async function up(key){
 }
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
-const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded,intent:m.verticalIntent,velocity:m.velocity,heading:m.heading,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,runTravel:m.runTravel,offensiveRun:m.offensiveRun,dashHeld:m.flightDashHeld}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,flightInputAt:p.flightInputAt}:null,keys:Array.from(r?.input?.keys??[]),blocked:Array.from(r?.input?.blockedKeys??[]),jumpInput:Boolean(r?.input?.movement?.()?.jump),inputEnabled:Boolean(r?.input?.enabled),cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
+const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded,intent:m.verticalIntent,lastImpactAt:m.lastImpactAt,velocity:m.velocity,heading:m.heading,runPitch:m.runPitch,runFlightPitch:m.runFlightPitch,runTravel:m.runTravel,offensiveRun:m.offensiveRun,dashHeld:m.flightDashHeld}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position,flightInputAt:p.flightInputAt}:null,keys:Array.from(r?.input?.keys??[]),blocked:Array.from(r?.input?.blockedKeys??[]),jumpInput:Boolean(r?.input?.movement?.()?.jump),inputEnabled:Boolean(r?.input?.enabled),cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
 try{
  const target=await until(async()=>{
   const r=await fetch('http://127.0.0.1:'+port+'/json/list');
@@ -175,7 +175,7 @@ try{
   const delta=Math.atan2(Math.sin(s.machine?.heading-startHeading),Math.cos(s.machine?.heading-startHeading));
   return s.machine?.offensiveRun&&delta>.45&&s.machine?.velocity?.x<-.5?s:false;
  },'held Dash genuinely turns and accelerates in world space',80);
- assert.ok(curved.machine.heading>startHeading+.4,'server-owned yaw follows later aim');
+ assert.ok(Math.atan2(Math.sin(curved.machine.heading-startHeading),Math.cos(curved.machine.heading-startHeading))>.4,'server-owned yaw follows later aim');
  assert.ok(curved.machine.runFlightPitch>-.2,'flight angle starts recovering toward elevation aim');
  await screenshot('05-valkyrie-held-steering');
  await up('E');
@@ -184,7 +184,8 @@ try{
   return s.machine&&!s.machine.offensiveRun&&!s.machine.dashHeld?s:false;
  },'released Dash returns to ordinary flight',80);
  assert.equal(recovered.machine.dashHeld,false);
- assert.ok(recovered.machine.runTravel>=10||!recovered.machine.grounded,'physical launch or environmental interruption');
+ assert.ok(recovered.machine.runTravel>=10||recovered.machine.grounded||Number.isFinite(recovered.machine.lastImpactAt),
+  'short launch must travel 10m unless real collision or landing interrupts it');
  assert.equal(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),false);
  await screenshot('06-valkyrie-recovered');
  const result={before,mounted,flying,ready,committed,curved,recovered,
