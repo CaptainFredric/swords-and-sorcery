@@ -26,6 +26,19 @@ function setup({ useHostTimers = false } = {}) {
 const chivalry = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', until: 20 }, spellReadyById: { gale: 14 }, chivalryProjectileReadyAt: 0 };
 
+test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
+  const {input}=setup(),sent=[];
+  input.socket.send=message=>sent.push(message);
+  input.enabled=true;input.mountedFlight=true;
+  input.flightHop();
+  assert.deepEqual(sent,[{type:'flightHop'}]);
+  assert.equal(input.movement().flightRise,false);
+  input.mountedFlight=false;input.flightHop();
+  assert.equal(sent.length,1,'dismount disallows Hop commands');
+  input.mountedFlight=true;input.enabled=false;input.flightHop();
+  assert.equal(sent.length,1,'focus loss disallows Hop commands');
+});
+
 test('mounted view toggle uses its rebound key and produces one local presentation action', () => {
   const { input, down, up } = setup();
   const actions = [];
