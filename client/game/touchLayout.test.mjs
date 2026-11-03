@@ -257,3 +257,31 @@ test('stock mounted firing controls stay in the right thumb area with distinct t
   }
  }
 });
+
+test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const l=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
+ const items=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView'];
+ const bounds=name=>{const p=l[name],s=p.size;return {
+  left:568-(p.right??0)-s,right:568-(p.right??0),
+  top:p.top??320-p.bottom-s,bottom:p.top!=null?p.top+s:320-p.bottom
+ };};
+ for(const a of items){
+  const x=bounds(a);assert.ok(x.left>=0&&x.top>=0&&x.right<=568&&x.bottom<=320,a+' offscreen');
+  for(const b of items.filter(b=>b!==a)){
+   const y=bounds(b);
+   assert.ok(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top,a+' overlaps '+b);
+  }
+ }
+ assert.ok(l.attack.size>l.siegeSkill.size);
+ assert.ok(l.siegeBoth.bottom>l.attack.bottom+l.attack.size);
+ assert.equal(l.deploy.top,l.siegeWeapon.top);
+ const legacy=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','generic');
+ assert.deepEqual(legacy,mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+ assert.notDeepEqual(legacy.attack,l.attack);
+ const custom={right:191,bottom:42,size:71,custom:true};
+ assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,attack:custom},'right','biBye').attack,custom);
+ const mirrored=mountedTouchLayout(mirrorLayoutHorizontal(DEFAULT_ON_FOOT_LAYOUT),'left','biBye');
+ assert.equal(mirrored.attack.left,l.attack.right);
+ assert.equal(mirrored.deploy.left,l.deploy.right);
+});
