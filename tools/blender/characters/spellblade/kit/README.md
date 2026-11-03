@@ -1,5 +1,7 @@
 # Spellblade armour kit
 
+**Superseded on November 3** by the Rodin model (`../rodin/`), which builds both sources on this kit's rig and actions. This pipeline is kept as history and as the source of those actions.
+
 This pipeline builds the third-person Spellblade as a crisp low-poly armour kit: one clean shell per piece, measured from the canonical sheet and coloured to match it under the game's own lighting.
 
 It replaces the concept-generated body from `../concept3d`. That body had the right silhouette but lumpy surfaces, and its projected paint smeared across them, so up close it read as murky camouflage. The helmet built from measurements was the part that matched the concept best, so every other piece is now built the same way.
