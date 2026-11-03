@@ -27,8 +27,9 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const focus = b.mode === 'DEPLOYED' ? `[${key('siegeWeapon')}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
   if(b.skill?.phase==='primed'&&b.mainBoltLoaded!==false&&upperReady&&!b.upperQueued&&!b.upperPending&&b.combinedUpperPendingAt==null&&b.coupling==='INDEPENDENT')status+=' · BOTH READY';
   if(b.combinedUpperPendingAt!=null)status+=' · BOLT I FOLLOW-THROUGH';
-  status+=' · '+siegeSkillLabel(b,now);
+  if(!touch)status+=' · '+siegeSkillLabel(b,now);
   const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ATTACK I · SKILL II · BOTH when ready`
     : `LMB Bolt I · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
-  return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED'}`, status, controls };
+  const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
+  return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${touch?station.split(' / ')[0]:station}`, status, controls };
 }
