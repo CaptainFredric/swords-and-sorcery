@@ -39,6 +39,12 @@ export const ICONS = Object.freeze({
   rise: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   lower: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
   fireAway: '<path d="M3 5h10M10 2l4 3-4 3M6 12h14M17 9l4 3-4 3M2 19h11M10 16l4 3-4 3"/>',
+  // Three trajectories converge on one exposed target. The right-side arrow
+  // is deliberately counter-directed to make the three approaches distinct.
+  narrowToOne: '<circle cx="17.5" cy="12.5" r="3.2"/><circle cx="17.5" cy="12.5" r=".7" fill="currentColor" stroke="none"/><path d="M2 21 13.9 14.3m-4.4-.1 4.4.1-2.3 3.5M21 2l-3 7.2m-1.3-4.2 1.3 4.2 3-2.7M23 12.5h-2.1m1.8-2-1.8 2 1.8 2"/>',
+  // A saintly halo encircles the crossed sword-propeller, with swept arcs
+  // suggesting rotation rather than a static heraldic pair.
+  doNotStopMyAscension: '<ellipse cx="12" cy="5.6" rx="8.1" ry="2.7"/><path d="M4.3 13.4A8 8 0 0 1 16 9.3M19.7 10.6A8 8 0 0 1 8 22M15.2 8.9 16 12l2.3-1.8M8.8 22l-.8-3.1-2.3 1.8"/><path d="m7 9 10 10m-9.9-6.4-1.8 1.8m-.3-8L6.7 8l-1.8 1.8 1.8 1.8 2-2M17 9 7 19m9.9-6.4 1.8 1.8m.3-8L17.3 8l1.8 1.8-1.8 1.8-2-2"/>',
   repeater: '<path d="M4 12h15M15 8l6 4-6 4M2 8l4 4-4 4"/>',
   flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
   eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
