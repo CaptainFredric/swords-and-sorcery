@@ -1174,3 +1174,53 @@ test('held flight Dash aims off its button without releasing propulsion or anoth
  assert.equal(messages.filter(m=>m.type==='flightDash'&&!m.down).length,1);
  controls.dispose();
 });
+
+test('Bi-Bye-llista real pointer events keep the one Skill control and server-confirmed mode icons',()=>{
+ const p={alive:true,spell:'fireball',operatingBallistaId:'siege',position:{x:0,y:0,z:0}};
+ const {controls,input,send}=setup(p);
+ const messages=[];input.socket.send=m=>messages.push(m);input.mountedBallista=true;
+ const b={id:'siege',position:{x:0,z:0},health:500,mode:'MOBILE',weaponFocus:'UPPER',
+  mainBoltLoaded:true,state:'LOADED',smallBoltReadyAt:0,coupling:'INDEPENDENT',
+  skill:{id:'boltToTheOccasion',phase:'idle',readyAt:0}};
+ const update=()=>controls.update(p,10,{snapshot:{bibyeBallista:b}});
+ update();
+ assert.equal(controls.layer.classList.contains('touch-ballista'),true);
+ assert.equal(controls.buttons.attack.dataset.icon,'boltI');
+ assert.equal(controls.buttons.deploy.dataset.icon,'boltII');
+ assert.equal(controls.buttons.deploy.querySelector('span').textContent,'HEAVY');
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltToTheOccasion');
+ send('pointerdown',550,100,{action:'deploy',pointerId:81});
+ send('pointerup',550,100,{action:'deploy',pointerId:81});
+ assert.deepEqual(messages.pop(),{type:'bibyeToggleDeploy'});
+ assert.equal(controls.buttons.deploy.querySelector('span').textContent,'HEAVY','a local tap cannot claim deployment');
+ b.mode='DEPLOYING';update();
+ assert.equal(controls.buttons.deploy.getAttribute('aria-disabled'),'true');
+ const before=messages.length;
+ send('pointerdown',550,100,{action:'deploy',pointerId:82});
+ send('pointerup',550,100,{action:'deploy',pointerId:82});
+ assert.equal(messages.length,before,'transitional input is not sent');
+ b.mode='DEPLOYED';update();
+ assert.equal(controls.buttons.deploy.dataset.icon,'ballistaWheel');
+ assert.equal(controls.buttons.deploy.querySelector('span').textContent,'MOBILE');
+ assert.equal(controls.buttons.siegeWeapon.hidden,false);
+ send('pointerdown',550,100,{action:'siegeWeapon',pointerId:83});
+ send('pointerup',550,100,{action:'siegeWeapon',pointerId:83});
+ assert.deepEqual(messages.pop(),{type:'bibyeWeaponFocus'});
+ send('pointerdown',550,100,{action:'siegeSkill',pointerId:84});
+ send('pointerup',550,100,{action:'siegeSkill',pointerId:84});
+ assert.deepEqual(messages.pop(),{type:'siegeSkill'});
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltToTheOccasion','tap alone does not prime UI');
+ b.skill.phase='primed';update();
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltII');
+ assert.equal(controls.buttons.siegeBoth.dataset.icon,'boltBoth');
+ assert.equal(controls.buttons.siegeBoth.hidden,false);
+ send('pointerdown',550,100,{action:'siegeBoth',pointerId:85});
+ send('pointerup',550,100,{action:'siegeBoth',pointerId:85});
+ assert.deepEqual(messages.pop(),{type:'bibyeCombinedFire'});
+ b.skill.boltIReleasedAt=10;update();
+ assert.equal(controls.buttons.siegeBoth.hidden,true,'inter-shot preparation blocks BOTH');
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltToTheOccasion');
+ b.skill.id='coldHowTouching';b.skill.phase='idle';update();
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'frostBolt');
+ assert.equal(controls.buttons.siegeBoth.hidden,true);
+});

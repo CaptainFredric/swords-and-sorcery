@@ -960,6 +960,10 @@ export class TouchControls {
       return;
     }
     const element = this.buttons[action];
+    if(action==='deploy'&&element?.getAttribute('aria-disabled')==='true'){
+      this.deniedButtons.add(event.pointerId);
+      return;
+    }
     element?.classList.add('pressed');
     if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
     if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
