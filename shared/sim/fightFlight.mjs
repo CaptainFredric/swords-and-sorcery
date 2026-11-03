@@ -4,7 +4,8 @@
 import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,ASCENSION} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
@@ -181,7 +182,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     }
   }
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
-  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
+  // Keep the real articulated crossbow tracking between shots. Solving only
+  // on the firing frame made the bolts accurate but the weapon appear idle.
+  const tracking=op&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id)?
+    updateNarrowTracking(room,m,op,now):null;
+  const crossbow=tracking?.aim??flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
   m.crossbowAimLimited=Boolean(crossbow.limited);
   m.crossbowReachableAim=crossbow.reachableAimPoint??null;
