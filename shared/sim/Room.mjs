@@ -186,8 +186,11 @@ export class Room {
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
       if (this.mode === GAME_MODES.HIGH_GROUNDS) {
-        const candidates = availableHighGroundsSpawns(this, player, this.world.spawnPoints);
-        if (candidates.length) return candidates[index % candidates.length];
+        // A match begins in the home camp, beside the team's siege foundry (its controls show only within reach of
+        // it): starting at the forward camp, 38 m up the road, nobody ever saw the foundry. Respawns still go
+        // forward while the forward camp is held (availableHighGroundsSpawns, in respawnPlayer).
+        const home = this.world.spawnPoints.filter((s) => s.team === player.team && !s.forward);
+        if (home.length) return home[index % home.length];
       }
       const currentPhase = this.objectiveState?.phase ?? 0;
       const phaseMatching = this.world.spawnPoints.filter((s) => s.team === player.team && s.phase === currentPhase);
