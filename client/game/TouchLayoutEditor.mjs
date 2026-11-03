@@ -12,6 +12,7 @@ import {
   saveTouchLayout,
   applyLayoutItem,
 } from './touchLayout.mjs';
+import {screenTurn} from '../ui/screenTurn.mjs';
 
 export class TouchLayoutEditor {
   constructor(touchControls) {
@@ -190,11 +191,11 @@ export class TouchLayoutEditor {
 
   #onPointerDown = (event) => {
     if (!this.active) return;
-    const button = event.target.closest('[data-action], .touch-stick');
-    if (!button) return;
-
+    // Editing must never launch a spell, move the pilot or fire a siege weapon.
     event.preventDefault();
     event.stopPropagation();
+    const button = event.target.closest?.('[data-action], .touch-stick');
+    if (!button) return;
 
     const action = button.dataset.action ?? (button.classList.contains('touch-stick') ? 'stick' : null);
     if (!action) return;
@@ -224,8 +225,10 @@ export class TouchLayoutEditor {
     event.preventDefault();
     event.stopPropagation();
 
-    const dx = event.clientX - this.dragStart.pointerX;
-    const dy = event.clientY - this.dragStart.pointerY;
+    const delta={x:event.clientX-this.dragStart.pointerX,y:event.clientY-this.dragStart.pointerY};
+    const mapped=this.touchControls.layer.classList.contains('touch-layout-detached')?delta:
+      (screenTurn?.vector(delta.x,delta.y)??delta);
+    const dx=mapped.x,dy=mapped.y;
     const orig = this.dragStart.placement;
     const activeLayout=layoutForMode(this.layouts,this.mode);
 
