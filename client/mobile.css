@@ -514,6 +514,17 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-mounted.mounted-steel-available .touch-spell { display:grid; }
 .touch-controls.touch-flight .touch-btn { min-width:44px; min-height:44px; }
 .touch-controls.touch-flight .touch-btn span { white-space:nowrap; }
+/* Wider attack targets are paired low-profile metal plates, not enlarged
+   circular buttons that overlap Jump or crowd the safe-area edge. */
+.touch-controls.touch-flight :is(.touch-attack,.touch-siegeWeapon) {
+  border-radius:15px;
+  border-width:2px;
+  background:linear-gradient(150deg,rgba(71,75,73,.85),rgba(22,29,30,.94));
+}
+.touch-controls.touch-flight :is(.touch-attack,.touch-siegeWeapon) .touch-face { gap:2px; }
+.touch-controls.touch-flight .touch-siegeWeapon.pressed { border-color:#b4f2f6;box-shadow:0 0 10px #a7dfe277; }
+.touch-controls.touch-flight .touch-jump.pressed { border-color:#ffe4aa;box-shadow:0 0 11px #dfc18b66; }
+
 .touch-controls.touch-flight .touch-siegeSkill span { font-size:7px;letter-spacing:.03em; }
 .touch-controls.touch-flight .touch-interact { color:#e3b3a6; }
 .touch-controls.touch-flight .touch-guard.airborne-forbidden,
