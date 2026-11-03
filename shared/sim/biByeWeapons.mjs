@@ -16,10 +16,14 @@ const event=(room,b,type,at,extra={})=>room.events?.push({type,ballistaId:b.id,a
 const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null&&b.combinedUpperPendingAt==null;
 const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCondition(b).canSiege;
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
+// Ordinary coupled volley, distinct from the heavy-first atomic Skill command.
+export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&b.skill?.phase!=='primed'&&
+ supported(b)&&b.state==='LOADED'&&b.mainBoltLoaded&&ready(b,now)&&
+ !b.pendingCoupledFromUpper&&!busy(b));
 
 export function biByeWeaponState(heading) {
   return {skill:createSiegeSkill('boltToTheOccasion'),heavySkill:null,mainSkillUntil:0,mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
-    pendingIndependent:null,weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
+    pendingIndependent:null,pendingCoupledFromUpper:null,weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
     couplingStartedAt:null,couplingEndsAt:null,couplingReleaseFrom:1,pendingVolley:null,upperReleasedAt:null,upperReadyAnnouncedAt:null,
     heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null,combinedUpperPendingAt:null,combinedUpperAim:null,combinedOperatorId:null};
 }
@@ -31,6 +35,7 @@ function releaseClutch(b,now,from=1){
   b.couplingStartedAt=now;b.couplingEndsAt=now+BI_BYE_WEAPONS.releaseDuration*from;
 }
 export function cancelBiByeCoupling(b,now=b.poseTime??0) {
+  b.pendingCoupledFromUpper=null;
   if(b.coupling==='FIRING'&&b.upperReleasedAt!=null)return false;
   if(b.trackingSince!=null){const from=clamp((now-b.trackingSince)/.6,0,1);b.trackingSince=null;if(!busy(b)){if(from>0)releaseClutch(b,now,from);return true;}}
   if(!busy(b)||b.coupling==='RELEASING')return true;
@@ -46,6 +51,7 @@ export function setBiByeWeaponFocus(b,focus,now=0) {
   if(!b||b.mode!=='DEPLOYED'||!['MAIN','UPPER'].includes(focus))return false;
   if(focus===b.weaponFocus)return true;
   if(focus==='UPPER')cancelBiByeCoupling(b,now);
+  b.pendingCoupledFromUpper=null;
   b.pendingIndependent=null;b.weaponFocus=focus;b.focusRevision=(b.focusRevision??0)+1;
   b.yaw=focus==='UPPER'?b.upperYaw:b.mainYaw;
   b.pitch=focus==='UPPER'?b.upperPitch:b.mainPitch;
@@ -103,6 +109,7 @@ export function requestBiByeHeavySkill(room,b,p,now,targetAim,{combined=false,co
  if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
  if(b.coupling==='FIRING')return 'Finish the coupled volley first.';
  if(!primeSiegeSkill(b,now))return 'Bolt to the Occasion is cooling down.';
+ b.pendingCoupledFromUpper=null;
  // Release an uncommitted clutch, but never start a coupled projectile.
  if(!cancelBiByeCoupling(b,now)){endSiegeSkill(b,now);return 'Finish the current mechanism first.';}
  b.pendingVolley=null;
@@ -123,7 +130,7 @@ export function requestBiByeCombinedSkill(room,b,p,now,targetAim){
  return requestBiByeHeavySkill(room,b,p,now,targetAim,{combined:true});
 }
 export function requestBiByeIndependent(room,b,now) {
-  if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||!ready(b,now))return false;
+  if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||b.pendingCoupledFromUpper||!ready(b,now))return false;
   if(b.coupling==='RELEASING'&&(b.weaponFocus==='UPPER'||b.skill?.phase==='primed')){
     b.pendingIndependent??={operatorId:b.operatorId,yaw:b.upperYaw,pitch:b.upperPitch};return true;
   }
@@ -135,8 +142,7 @@ export function requestBiByeIndependent(room,b,now) {
   return true;
 }
 export function requestBiByeVolley(room,b,now) {
-  if(b?.heavySkill||b?.skill?.phase==='primed')return false;
-  if(!b||!supported(b)||b.state!=='LOADED'||!b.mainBoltLoaded||!ready(b,now)||busy(b))return false;
+  if(!canBiByeCouple(b,now))return false;
   if(b.trackingSince!=null&&now+1e-8>=b.trackingSince+BI_BYE_WEAPONS.latchDuration){
     b.trackingSince=null;b.upperReleasedAt=null;b.heavyDelayTrippedAt=null;
     b.committedAim={yaw:b.mainYaw,pitch:b.mainPitch,upperYaw:b.upperYaw,upperPitch:b.upperPitch};
@@ -151,6 +157,20 @@ export function requestBiByeVolley(room,b,now) {
   event(room,b,'bibyeAlignmentStarted',now);
   return true;
 }
+// A coupled shot from UPPER focus: first physically traverse the main turret
+// toward the captured crosshair, then use the existing clutch and reload.
+export function requestBiByeCoupledFromUpper(room,b,p,now,targetAim,commandAim=null){
+ if(!p?.alive||!b||b.operatorId!==p.id||p.operatingBallistaId!==b.id||
+    b.mode!=='DEPLOYED'||b.weaponFocus!=='UPPER')return 'Operate the deployed upper launcher.';
+ if(!canBiByeCouple(b,now))return 'Both bows must be ready for a coupled volley.';
+ const input={yaw:commandAim?.yaw??p.input?.yaw??b.upperYaw,
+   pitch:commandAim?.pitch??p.input?.pitch??b.upperPitch};
+ const point=commandAim?.siegeTarget??p.input?.siegeTarget??b.aimTarget??null;
+ const aim=targetAim?.(b,'siege',input,point)??biByeConstrainAim(b,input);
+ b.pendingCoupledFromUpper={operatorId:p.id,aim:{yaw:aim.yaw,pitch:aim.pitch}};
+ return null;
+}
+
 export function interruptBiByeSupport(b,now=b.poseTime??0) {
   if(b.coupling==='FIRING'&&b.upperReleasedAt!=null){
     b.shotIIPendingAt=Infinity;releaseClutch(b,now);
@@ -200,6 +220,24 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
         const current=room.players.get(b.operatorId);
         if(current?.alive)b.skill.id=selectedSiegeSkill(current,'biBye');
         event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL'});skillEvent(room,b,now,'released');
+      }
+    }
+  }
+  // Preserve the heavy turret's turning rate when committing a coupled shot
+  // from UPPER focus. Never snap the heavy bolt to a previous aim direction.
+  if(b.pendingCoupledFromUpper){
+    const pending=b.pendingCoupledFromUpper;
+    if(!op?.alive||op.id!==pending.operatorId||b.weaponFocus!=='UPPER'||
+      b.mode!=='DEPLOYED'||b.skill?.phase==='primed'||b.heavySkill||
+      b.state!=='LOADED'||!b.mainBoltLoaded||!ready(b,now)||busy(b)||!supported(b)){
+      b.pendingCoupledFromUpper=null;
+    }else{
+      const aim=biByeConstrainAim(b,pending.aim);
+      b.mainYaw=approach(b.mainYaw,aim.yaw,BI_BYE_WEAPONS.turnRate*dt);
+      b.mainPitch+=clamp(aim.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
+      if(Math.abs(wrapBiByeAngle(aim.yaw-b.mainYaw))<.001&&Math.abs(aim.pitch-b.mainPitch)<.001){
+        b.pendingCoupledFromUpper=null;
+        requestBiByeVolley(room,b,now);
       }
     }
   }

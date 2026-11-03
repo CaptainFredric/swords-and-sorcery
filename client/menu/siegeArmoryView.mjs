@@ -21,6 +21,8 @@ const EXPLANATIONS={
 export function siegeArmoryView(choice){
  const selected=normalizeSiegeLoadout(choice);
  return MACHINES.map(machine=>({...machine,skills:SIEGE_SKILL_OPTIONS[machine.id].map(id=>({
-  id,name:SIEGE_SKILL_NAMES[id],line:EXPLANATIONS[id],equipped:selected[machine.id]===id
+  id,name:SIEGE_SKILL_NAMES[id],line:EXPLANATIONS[id],
+  ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:{}),
+  equipped:selected[machine.id]===id
  }))}));
 }

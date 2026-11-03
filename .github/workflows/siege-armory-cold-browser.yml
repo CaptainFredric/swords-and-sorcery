@@ -11,6 +11,12 @@ on:
       - 'shared/sim/biByeProximity.mjs'
       - 'shared/sim/siegeSkills.mjs'
       - 'scripts/siege-armory-cold-browser.mjs'
+      - 'scripts/bibye-touch-capture.mjs'
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/touchLayout.mjs'
+      - 'client/mobile.css'
+      - 'client/ui/icons.mjs'
+      - 'client/ui/biByeControlView.mjs'
       - '.github/workflows/siege-armory-cold-browser.yml'
 permissions:
   contents: read
@@ -46,6 +52,19 @@ jobs:
           SIEGE_BROWSER_URL: http://127.0.0.1:3001
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
         run: node scripts/siege-armory-cold-browser.mjs
+      - name: Verify Bi-Bye-llista layout and capture real Chrome viewports
+        if: always() # Existing keyboard-motion acceptance can be intermittently blocked
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/bibye-touch-capture.mjs
+      - name: Save Bi-Bye-llista touch layout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bibye-mobile-controls
+          path: output/playwright/bi-bye-controls/
+          retention-days: 7
       - name: Save acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4

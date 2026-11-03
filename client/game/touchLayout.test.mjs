@@ -257,3 +257,43 @@ test('stock mounted firing controls stay in the right thumb area with distinct t
   }
  }
 });
+
+test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const l=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
+ const items=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView'];
+ const bounds=name=>{const p=l[name],s=p.size;return {
+  left:568-(p.right??0)-s,right:568-(p.right??0),
+  top:p.top??320-p.bottom-s,bottom:p.top!=null?p.top+s:320-p.bottom
+ };};
+ for(const a of items){
+  const x=bounds(a);assert.ok(x.left>=0&&x.top>=0&&x.right<=568&&x.bottom<=320,a+' offscreen');
+  for(const b of items.filter(b=>b!==a)){
+   const y=bounds(b);
+   assert.ok(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top,a+' overlaps '+b);
+  }
+ }
+ assert.ok(l.attack.size>l.siegeSkill.size);
+ assert.ok(l.siegeBoth.bottom>l.attack.bottom+l.attack.size);
+ assert.equal(l.deploy.top,l.siegeWeapon.top);
+ const legacy=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','generic');
+ assert.deepEqual(legacy,mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+ assert.notDeepEqual(legacy.attack,l.attack);
+ const custom={right:191,bottom:42,size:71,custom:true};
+ assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,attack:custom},'right','biBye').attack,custom);
+ const mirrored=mountedTouchLayout(mirrorLayoutHorizontal(DEFAULT_ON_FOOT_LAYOUT),'left','biBye');
+ assert.equal(mirrored.attack.left,l.attack.right);
+ assert.equal(mirrored.deploy.left,l.deploy.right);
+});
+
+test('Bi-Bye View is beside BOTH but away from LEAVE, and custom VIEW stays untouched',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const b=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
+ assert.equal(b.siegeView.top,undefined);
+ assert.ok(Math.abs((b.siegeView.bottom+b.siegeView.size/2)-(b.siegeBoth.bottom+b.siegeBoth.size/2))<25);
+ const separation=b.siegeView.right-(b.siegeBoth.right+b.siegeBoth.size);
+ assert.ok(separation>=12&&separation<55,'VIEW is to the left of BOTH with a deliberate gap');
+ assert.ok(b.interact.top===8,'LEAVE stays in the separate top utility corner');
+ const custom={right:211,bottom:43,size:49,custom:true};
+ assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,siegeView:custom},'right','biBye').siegeView,custom);
+});

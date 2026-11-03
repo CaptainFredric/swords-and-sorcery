@@ -1,4 +1,5 @@
 import {siegeSkillLabel} from './siegeSkillView.mjs';
+import {biByeCombatView} from './biByeControlView.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { keyLabel, registry } from '../settings/settingsRegistry.mjs';
 import { BI_BYE_LLISTA_CONFIG } from '../../shared/sim/biByeLlista.mjs';
@@ -15,7 +16,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const upperReady = b.smallBoltReady ?? (now >= (b.smallBoltReadyAt ?? 0) && !b.upperPending);
   const upper = b.upperQueued ? 'Shot I queued' : upperReady ? 'Shot I ready' : b.upperPending ? 'Shot I releasing' : `Shot I ${Math.max(0,(b.smallBoltReadyAt??now)-now).toFixed(1)}s`;
   const heavy = b.mainBoltLoaded !== false ? 'II ready' : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
-  const coupling = b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
+  const coupling = b.pendingCoupledFromUpper ? 'Main bow traversing'
+    : b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
     : b.coupling === 'ENGAGING' ? 'Engaging latch' : b.coupling === 'RELEASING' ? 'Releasing clutch' : b.coupling === 'FIRING' ? 'Volley committed' : '';
   let status = b.mode === 'DEPLOYING' ? 'Deploying outriggers' : b.mode === 'RETRACTING' ? 'Packing outriggers'
     : [upper,b.mode === 'DEPLOYED' || b.mainBoltLoaded === false ? heavy : '',coupling].filter(Boolean).join(' · ');
@@ -28,7 +30,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if(b.skill?.phase==='primed'&&b.mainBoltLoaded!==false&&upperReady&&!b.upperQueued&&!b.upperPending&&b.combinedUpperPendingAt==null&&b.coupling==='INDEPENDENT')status+=' · BOTH READY';
   if(b.combinedUpperPendingAt!=null)status+=' · BOLT I FOLLOW-THROUGH';
   if(!touch)status+=' · '+siegeSkillLabel(b,now);
-  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ATTACK I · SKILL II · BOTH when ready`
+  const tray=biByeCombatView(b,now);
+  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SKILL II${tray.secondary?' · BOTH':''}`
     : `LMB Bolt I · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
   const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
   return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${touch?station.split(' / ')[0]:station}`, status, controls };

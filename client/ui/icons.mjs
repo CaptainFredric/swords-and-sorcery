@@ -2,6 +2,12 @@
 // desktop HUD's tiles and the touch buttons, so a spell or an action looks the same wherever it shows. Pure strings,
 // so they can be tested and dropped into any markup.
 
+// Shared projectile and carriage motifs, composed rather than redrawn for BOTH
+// and the Skill emblem. Each stays distinguishable in a 24-unit SVG.
+const BOLT_I='<path d="M12 1 8.6 7.4h2v11h2.8v-11h2z" fill="#83ddff" stroke="#baf3ff" stroke-width=".9"/><path d="m10.6 18.4-2.4 3.4 3.8-1.3 3.8 1.3-2.4-3.4" fill="#64bbec" stroke="#baf3ff" stroke-width=".8"/>';
+const BOLT_II='<path d="M12 1 5.4 9.5 10 8.4v10.3h4V8.4l4.6 1.1z" fill="#e1d8c4" stroke="#faf0d7" stroke-width=".8"/><path d="M10 17.5 5 22l7-1.8 7 1.8-5-4.5" fill="#aab3bb" stroke="#f1e6cb" stroke-width=".9"/><path d="M11 9h2v9h-2z" fill="#7b858e" stroke="none"/>';
+const CARRIAGE_WHEEL='<circle cx="12" cy="12" r="9" fill="none" stroke="#dfc89c" stroke-width="2.2"/><circle cx="12" cy="12" r="2.6" fill="#7d8890" stroke="#eee2c8" stroke-width="1.1"/><path d="M12 3v6.3M12 14.6V21M3 12h6.3M14.7 12H21M5.6 5.6l4.4 4.4M14 14l4.4 4.4M18.4 5.6 14 10M10 14l-4.4 4.4" fill="none" stroke="#c4ad84" stroke-width="1.2"/>';
+
 export const ICONS = Object.freeze({
   attack: '<path d="m19 2 2 2-10 12-3-3z" fill="currentColor" stroke="none"/><path d="m6 12 6 6M8 16l-4 5-2-2 5-4"/>',
   guard: '<path d="m12 2 8 3-1 9-7 8-7-8-1-9z"/><path d="M12 5v12M7 7l1 6 4 4"/>',
@@ -36,10 +42,15 @@ export const ICONS = Object.freeze({
   repeater: '<path d="M4 12h15M15 8l6 4-6 4M2 8l4 4-4 4"/>',
   flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
   eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
-  heavyBolt: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
+  boltI: BOLT_I,
+  boltII: BOLT_II,
+  boltBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
+  ballistaWheel: CARRIAGE_WHEEL,
+  boltToTheOccasion: '<g opacity=".78">' + CARRIAGE_WHEEL + '</g><g>' + BOLT_II + '</g>',
+  heavyBolt: BOLT_II,
   frostBolt: '<path d="M12 2v20M9 5l3-3 3 3M5 8l14 8M5 16l14-8M6 6l1 3-3 1M18 6l-1 3 3 1M6 18l1-3-3-1M18 18l-1-3 3-1"/>',
   ram: '<path d="M4 9h5v10H4zM9 7h8l4 3v7l-3 3H9zM12 7v4M15 7v4M18 8v4M9 14h5M1 12h3M1 16h3"/>',
-  siegeBoth: '<path d="M7 3v18M3 7l4-4 4 4M17 3v18M13 7l4-4 4 4M4 18h6M14 18h6"/>',
+  siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
   siegeSkill: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',

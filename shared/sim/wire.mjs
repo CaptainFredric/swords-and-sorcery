@@ -9,7 +9,7 @@ import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSk
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
-import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
+import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill,requestBiByeCoupledFromUpper } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -272,6 +272,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       upperPending: room.biByeLlista.mobileShotPendingAt != null,
       upperQueued:Boolean(room.biByeLlista.pendingIndependent),
       combinedUpperPendingAt:room.biByeLlista.combinedUpperPendingAt,
+      pendingCoupledFromUpper:Boolean(room.biByeLlista.pendingCoupledFromUpper),
 
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
@@ -586,6 +587,18 @@ export function applyRoomCommand(room, player, message, time) {
       if (!setBiByeWeaponFocus(b, focus, time)) return { rejected: 'Deploy before switching weapon focus' };
       player.input = {...player.input,yaw:b.yaw,pitch:b.pitch};
       return {};
+    }
+    case 'bibyeCoupledFire': {
+      const b=room.biByeLlista;
+      if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)
+        return {rejected:'Operate the ballista before firing a coupled volley.'};
+      const aim=Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)?{
+        yaw:message.yaw,pitch:message.pitch,
+        siegeTarget:message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))&&
+          Math.hypot(message.siegeTarget.x-b.x,message.siegeTarget.y-b.y,message.siegeTarget.z-b.z)<=210?
+          message.siegeTarget:null}:null;
+      const reason=requestBiByeCoupledFromUpper(room,b,player,time,biByeTargetAim,aim);
+      return reason?{rejected:reason}:{};
     }
     case 'bibyeFire': {
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
