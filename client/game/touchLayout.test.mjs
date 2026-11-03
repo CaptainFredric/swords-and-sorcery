@@ -48,8 +48,11 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
   assert.ok(DEFAULT_FLIGHT_LAYOUT.guard.right >
     DEFAULT_FLIGHT_LAYOUT.attack.right+DEFAULT_FLIGHT_LAYOUT.attack.width,
     'Guard is to the left of the wider Sword');
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.attack.width, DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width,
-    'Sword and Bolt have equally wide sustained contact targets');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width>DEFAULT_FLIGHT_LAYOUT.attack.width,
+    'Bolt now extends farther toward Guard without reducing Sword');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right+DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width>=
+    DEFAULT_FLIGHT_LAYOUT.guard.right,
+    'the upper Bolt target reaches at least the inner edge of Guard');
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom >=
     DEFAULT_FLIGHT_LAYOUT.attack.bottom+DEFAULT_FLIGHT_LAYOUT.attack.height+4,
     'Bolt occupies the second row directly above Sword');
@@ -256,4 +259,31 @@ test('stock mounted firing controls stay in the right thumb area with distinct t
     a.bottom+a.size<=b.bottom||b.bottom+b.size<=a.bottom,action+' overlaps '+other);
   }
  }
+});
+
+test('four distinct edit pages persist joystick radius and siege controls without editing one another',async()=>{
+ const {DEFAULT_BALLISTA_LAYOUT,DEFAULT_RAM_LAYOUT,TOUCH_LAYOUT_PAGES,layoutForMode}=await import('./touchLayout.mjs');
+ assert.deepEqual(TOUCH_LAYOUT_PAGES.map(page=>page.id),['onFoot','flight','ballista','ram']);
+ const storage=memoryStorage(),layout=loadTouchLayout(storage);
+ assert.deepEqual(layout.ballista,DEFAULT_BALLISTA_LAYOUT);
+ assert.deepEqual(layout.ram,DEFAULT_RAM_LAYOUT);
+ layout.onFoot.stick={...layout.onFoot.stick,size:140,custom:true};
+ layout.flight.stick={...layout.flight.stick,size:154,custom:true};
+ layout.ballista.siegeSkill={...layout.ballista.siegeSkill,right:80,size:90,custom:true};
+ layout.ram.attack={...layout.ram.attack,right:25,size:103,custom:true};
+ saveTouchLayout(layout,storage);
+ const next=loadTouchLayout(storage);
+ assert.equal(layoutForMode(next,'onFoot').stick.size,140);
+ assert.equal(layoutForMode(next,'flight').stick.size,154);
+ assert.equal(layoutForMode(next,'ballista').siegeSkill.size,90);
+ assert.equal(layoutForMode(next,'ram').attack.size,103);
+ assert.notEqual(next.ballista.attack.size,next.ram.attack.size);
+ const style={setProperty(k,v){this[k]=v;}};
+ applyLayoutItem({style},{left:85,bottom:90,size:154,type:'stick',custom:true});
+ assert.equal(style['--stick-size'],'154px');
+ assert.match(style.bottom,/stick-size/,'joystick bottom remains the saved center');
+ const rect={style:{setProperty(k,v){this[k]=v;}}};
+ applyLayoutItem(rect,{right:14,bottom:82,width:140,height:70,size:62,custom:true});
+ assert.match(rect.style.width,/140px/);
+ assert.match(rect.style.height,/70px/);
 });
