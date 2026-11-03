@@ -8,6 +8,10 @@ const BOLT_I='<path d="M12 1 8.6 7.4h2v11h2.8v-11h2z" fill="#83ddff" stroke="#ba
 const BOLT_II='<path d="M12 1 5.4 9.5 10 8.4v10.3h4V8.4l4.6 1.1z" fill="#e1d8c4" stroke="#faf0d7" stroke-width=".8"/><path d="M10 17.5 5 22l7-1.8 7 1.8-5-4.5" fill="#aab3bb" stroke="#f1e6cb" stroke-width=".9"/><path d="M11 9h2v9h-2z" fill="#7b858e" stroke="none"/>';
 const CARRIAGE_WHEEL='<circle cx="12" cy="12" r="9" fill="none" stroke="#dfc89c" stroke-width="2.2"/><circle cx="12" cy="12" r="2.6" fill="#7d8890" stroke="#eee2c8" stroke-width="1.1"/><path d="M12 3v6.3M12 14.6V21M3 12h6.3M14.7 12H21M5.6 5.6l4.4 4.4M14 14l4.4 4.4M18.4 5.6 14 10M10 14l-4.4 4.4" fill="none" stroke="#c4ad84" stroke-width="1.2"/>';
 
+// Shared ram gauntlet: flared cuff, dorsal plate, curled finger lames and
+// a thumb folded underneath. The skill uses this same fist through a clock.
+const RAM_GAUNTLET='<g stroke="currentColor" stroke-width="1" stroke-linejoin="bevel"><path d="M2 7 7 8.5v9L2 19z" fill="#a18b66"/><path d="m7 8.5 4-3h7l4 3v7l-4 3H7z" fill="#59636c"/><path d="m11 5.5 1 7 5 1 1-8M18 9h4M18 12h4M18 15h4" fill="none"/><path d="m8 14 4-2 5 2v3l-3 1-6-1z" fill="#7d8890"/><path d="M4.5 8v9.5" fill="none"/></g>';
+
 export const ICONS = Object.freeze({
   attack: '<path d="m19 2 2 2-10 12-3-3z" fill="currentColor" stroke="none"/><path d="m6 12 6 6M8 16l-4 5-2-2 5-4"/>',
   guard: '<path d="m12 2 8 3-1 9-7 8-7-8-1-9z"/><path d="M12 5v12M7 7l1 6 4 4"/>',
@@ -49,7 +53,10 @@ export const ICONS = Object.freeze({
   boltToTheOccasion: '<g opacity=".78">' + CARRIAGE_WHEEL + '</g><g>' + BOLT_II + '</g>',
   heavyBolt: BOLT_II,
   frostBolt: '<path d="M12 2v20M9 5l3-3 3 3M5 8l14 8M5 16l14-8M6 6l1 3-3 1M18 6l-1 3 3 1M6 18l1-3-3-1M18 18l-1-3 3-1"/>',
-  ram: '<path d="M4 9h5v10H4zM9 7h8l4 3v7l-3 3H9zM12 7v4M15 7v4M18 8v4M9 14h5M1 12h3M1 16h3"/>',
+  ram: RAM_GAUNTLET,
+  // Broken clock rim and displaced shard surround the punching fist. The
+  // visible hands and cardinal ticks retain the analog clock at small sizes.
+  beatToThePunch: '<g stroke="currentColor" stroke-width="1.25" fill="none"><path d="M7.5 12A8 8 0 1 1 22 12l-2 1.5M20 17l-3 1"/><path d="M15 2v1.7M22 9h-1.7M8 9h1.7M15 5v4l3 1.5"/><path d="m22 14 1 2-2 1M9 15l-2 2"/></g><g transform="translate(-.4 4) scale(.83)">' + RAM_GAUNTLET + '</g>',
   siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
   siegeSkill: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
