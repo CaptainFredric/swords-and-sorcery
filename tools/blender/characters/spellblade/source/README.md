@@ -2,6 +2,8 @@
 
 These two Blender 4.5.14 LTS files own the production geometry, rest rigs, skinning, materials, actions and review cameras.
 
+Since November 3 both files are built from the creator's Hyper3D Rodin model of the concept by `../rodin/build.sh` (see `../rodin/README.md`), on the kit's rig and actions. A rebuild replaces them, so lasting changes belong in that builder; the dated sections below record the kit's history.
+
 Edit `spellblade-third-person.blend` for the world character and `spellblade-first-person.blend` for the camera presentation. Save edits here, then run `build.py` to export. The exporter reads these files. It never reconstructs armor or reauthors actions.
 
 Export collections are `SpellbladeExport` and `SpellbladeFirstPersonExport`. Keep exactly one armature and the intended meshes in each. Review lights, cameras and floor belong outside those collections. Keep the existing bone and socket names, action names, unit scale and coordinate convention. Third person uses Blender +Z up and +Y forward, converted by glTF to runtime +Y up and -Z forward.
@@ -329,3 +331,12 @@ See `docs/art/right-gauntlet/README.md` for the source handoff and comparisons. 
 The current review branch copies all 37 accepted third person hand components into first person, with matching topology, materials and ArmorColor corner values. Local placement, taper, hidden palm fit and thumb opposition adapt them to the unchanged FP handle, cuff and gameplay eye direction. The body rig, all actions, sword, left arm and forearm geometry remain preserved.
 
 See `docs/art/fp-gauntlet-parity/README.md` for the measured correspondence, deliberate deviations, iteration evidence and future parity phases. `GauntletPart` now uses 1000 plus the accepted TP component index. The exporter accepts an optional source path so candidate files can be reviewed separately. This model remains a candidate pending creator artistic acceptance.
+
+## November 3 Rodin model
+
+Both sources now carry the Rodin model (`../rodin/`), replacing the armour kit's pieces and the first-person arms. The
+rig, bone names, sockets, all fifteen third-person and eight first-person actions, contact and end frames, the
+references and the review cameras are the kit's. The actions are refitted to Rodin's proportions: rest lifted, feet
+re-planted, the swing knee in Run bent 20° more, the sword hand's grip turned where the longer sword met the floor.
+Materials are `GameBody`, `CapeBanner`, `VisorGlow` and `SorceryAccent`; the runtime's plate lighting, steel sheen,
+cloth dye and emblem banner all recognise them. Part names are unchanged.

@@ -1,4 +1,5 @@
 import { TEAMS } from '../src/teams.mjs';
+import { propSolids } from './props.mjs';
 
 // Blackbell Foundry: Medieval industrial foundry and weaponworks for Breakthrough team battles.
 //
@@ -88,7 +89,41 @@ const RAMPS = [
   { id: 'ramp-bell-north', minX: -3.5, maxX: 3.5, minZ: 29.5, maxZ: 34.5, startY: FOUNDRY_DAIS_Y, endY: 0, axis: 'z', steps: true },
 ];
 
+// The foundry's furnishings (shared/worlds/props.mjs: what stands is solid, for bodies and blades alike): the
+// attackers' camp in Azure, coal and ore and the smiths' gear through the yard and the hall, the defenders' quarters by
+// the Great Bell in Crimson. Each stands against a wall or a pillar line, off the central lane, the trench's and the
+// gantry's lines, the portal, outside both capture rings and clear of every spawn (the world's tests hold all of it).
+const PROPS = Object.freeze([
+  // the attackers' camp: tents at the south wall's ends, its fires, the coal and ore brought up for the assault
+  { kind: 'tent', x: -12.4, z: -35.4, facing: 0, team: TEAMS.ATTACKERS },
+  { kind: 'tent', x: 12.4, z: -35.4, facing: 0, team: TEAMS.ATTACKERS },
+  { kind: 'brazier', x: -8.0, z: -36.6 }, { kind: 'brazier', x: 8.0, z: -36.6 },
+  { kind: 'ore', x: 14.6, z: -30.2 }, { kind: 'cart', x: -14.4, z: -31.6, facing: Math.PI },
+  { kind: 'standard', x: -8.2, z: -27.4, team: TEAMS.ATTACKERS }, { kind: 'standard', x: 8.2, z: -27.4, team: TEAMS.ATTACKERS },
+  // the yard: quench barrels and crates of ingots along its sides, between the gantry's pillars
+  { kind: 'barrel', x: 8.7, z: -22.4 }, { kind: 'barrel', x: 8.8, z: -21.7, tilt: 0.3 },
+  { kind: 'crate', x: 8.7, z: -10.0, turn: 0.15, stack: true }, { kind: 'crate', x: 8.8, z: -4.2, turn: -0.1 },
+  { kind: 'barrel', x: -7.3, z: -22.0 }, { kind: 'sacks', x: -7.4, z: -19.6 },
+  { kind: 'woodpile', x: -7.4, z: -24.9, length: 1.6, facing: 0 },
+  // the drainage trench: lamps on its outer wall and a heap of slag
+  { kind: 'lantern', x: -15.1, y: FOUNDRY_TRENCH_Y, z: -19.6 }, { kind: 'lantern', x: -15.1, y: FOUNDRY_TRENCH_Y, z: -4.4 },
+  { kind: 'ore', x: -14.6, y: FOUNDRY_TRENCH_Y, z: -9.2 },
+  // the gantry: stores at its outer rail
+  { kind: 'crate', x: 14.8, y: FOUNDRY_GANTRY_Y, z: -12.6, turn: 0.2 }, { kind: 'barrel', x: 14.9, y: FOUNDRY_GANTRY_Y, z: -9.0 },
+  { kind: 'lantern', x: 15.0, y: FOUNDRY_GANTRY_Y, z: -6.6 },
+  // the furnace hall: anvils at the master forge, ore by the furnaces, water and stores at the walls
+  { kind: 'anvil', x: 10.4, z: 23.4, facing: Math.PI / 2 }, { kind: 'anvil', x: 10.4, z: 28.6, facing: Math.PI / 2 },
+  { kind: 'ore', x: -10.2, z: 19.4 }, { kind: 'ore', x: -10.2, z: 33.0 },
+  { kind: 'barrel', x: -14.8, z: 17.4 }, { kind: 'barrel', x: 14.8, z: 17.4 }, { kind: 'barrel', x: 14.1, z: 17.2, tilt: 0.2 },
+  { kind: 'crate', x: 14.6, z: 33.4, turn: 0.1, stack: true }, { kind: 'crate', x: -14.6, z: 33.4, turn: -0.2 },
+  { kind: 'rack', x: -9.0, z: 35.75, facing: Math.PI }, { kind: 'rack', x: 9.0, z: 35.75, facing: Math.PI },
+  { kind: 'brazier', x: -12.6, z: 35.2 }, { kind: 'brazier', x: 12.6, z: 35.2 },
+  { kind: 'standard', x: -7.2, z: 16.9, team: TEAMS.DEFENDERS }, { kind: 'standard', x: 7.2, z: 16.9, team: TEAMS.DEFENDERS },
+].map((prop, index) => Object.freeze({ id: `bb-prop-${index}`, ...prop })));
+
 const SOLIDS = [
+  // the furnishings (above)
+  ...propSolids(PROPS),
   // --- Boundary Walls ---
   solid('wall-south-camp', [-16.5, 16.5], [0, 4.5], [-38.5, -37.5], { material: 'stone' }),
   solid('wall-west-camp', [-17.0, -15.8], [FOUNDRY_TRENCH_Y, 5.0], [-38, 8], { material: 'stone' }),
@@ -326,7 +361,7 @@ export const BLACKBELL_FOUNDRY = Object.freeze({
   floors: FLOORS,
   ramps: RAMPS,
   solids: SOLIDS,
-  props: [],
+  props: PROPS,
   objectives: OBJECTIVES,
   spawnPoints: SPAWN_POINTS,
   navigation: Object.freeze({

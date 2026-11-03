@@ -15,6 +15,8 @@ rig.animation_data_clear()
 rig.rotation_mode='XYZ';rig.rotation_euler=(0,0,math.pi);rig.location=(0,1.88,-.05)
 for b in rig.pose.bones: b.matrix_basis.identity()
 bpy.context.view_layer.update()
+# how high each boot holds its ankle above its sole, at rest
+ANKLE={side:rig.data.bones['foot.'+side].head_local.z-min(v.co.z for v in next(o for o in scene.objects if o.name=='Boot.'+side).data.vertices) for side in 'LR'}
 
 def arm(p): return rig.matrix_world.inverted()@Vector((p[0],-p[2],p[1]))
 def orient(name,direction):
@@ -30,8 +32,9 @@ def chain(a,b,c,target,pole):
     bend=hint-start-axis*(hint-start).dot(axis);bend.normalize()
     aim(a,start+axis*along+bend*height);aim(b,end)
 for side,sign in [('L',1),('R',-1)]:
-    # The locator is on the sole platform. Original boots put the ankle .21m above it.
-    chain('thigh.'+side,'shin.'+side,'foot.'+side,[sign*.22,.765,-1.59],[sign*.24,1,-1.15])
+    # The locator is on the sole platform (y .555): the ankle goes as high above it as this model's boot puts it
+    # (the kit's boots .21m, the Rodin Spellblade's .184m).
+    chain('thigh.'+side,'shin.'+side,'foot.'+side,[sign*.22,.555+ANKLE[side],-1.59],[sign*.24,1,-1.15])
     foot=rig.pose.bones['foot.'+side]
     foot.matrix=Matrix.LocRotScale(foot.head,foot.bone.matrix_local.to_quaternion(),Vector((1,1,1)))
     bpy.context.view_layer.update()
@@ -82,7 +85,13 @@ bpy.context.view_layer.update()
 # Render a rigid stowed instance, leaving its ordinary skinned mesh untouched.
 sword=next(o for o in scene.objects if o.name=='HeroSword')
 anchor=rig.data.bones['socket_sword'].head_local.copy()
-longaxis=Vector((-.21388392,-.53408719,-.81792698)).normalized()
+# The sword's long axis, grip toward tip, measured on its own mesh: whichever model is in production
+# (the kit's sword gave (-.214,-.534,-.818); the Rodin sword is longer and sits differently in the hand).
+import numpy as np
+points=np.array([tuple(v.co) for v in sword.data.vertices]);axis=np.linalg.svd(points-points.mean(0))[2][0]
+tip=points[np.argmax(np.linalg.norm(points-np.array(tuple(anchor)),axis=1))]
+if np.dot(tip-np.array(tuple(anchor)),axis)<0: axis=-axis
+longaxis=Vector(tuple(axis)).normalized()
 rotation=longaxis.rotation_difference(Vector((0,.30,-.954)).normalized())
 D=Matrix.Translation(Vector((-.55,2.25,1.27)))@rotation.to_matrix().to_4x4()@Matrix.Translation(-anchor)
 preview=scene.objects.get('Operator stowed sword preview')

@@ -1,4 +1,5 @@
 import { TEAMS } from '../src/teams.mjs';
+import { propSolids } from './props.mjs';
 
 /**
  * The Outerworks: Expansive fortified siege battlefield.
@@ -51,6 +52,7 @@ function nav(id, x, y, z) {
 export const OUTERWORKS_TERRACE_Y = 1.2;
 export const OUTERWORKS_PARAPET_Y = 2.4;
 export const OUTERWORKS_TRENCH_Y = -1.2;
+
 export const OUTERWORKS_GATE_OPEN_DURATION_SEC = 1.4;
 
 const FLOORS = [
@@ -135,7 +137,53 @@ const RAMPS = [
   },
 ];
 
+// The furnishings of a siege (shared/worlds/props.mjs: what stands is solid, for bodies and blades alike): the
+// attackers' camp below the esplanade in Azure, the defenders' quarters and the bailey's stores in Crimson. Each stands
+// against a wall or in a corner, off the siege road and the ballista's emplacement and its way out, off the trench's
+// line, outside both capture rings and clear of every spawn (the world's tests hold all of it).
+const PROPS = Object.freeze([
+  // the attackers' camp: tents along the south wall's east half, a fire, a woodpile and a rack along its west half
+  { kind: 'tent', x: 9.6, z: -55.9, facing: 0, team: TEAMS.ATTACKERS },
+  { kind: 'tent', x: 14.4, z: -55.6, facing: 0, team: TEAMS.ATTACKERS },
+  { kind: 'brazier', x: 6.8, z: -56.6 },
+  { kind: 'rack', x: -14.8, z: -57.6, facing: 0 },
+  { kind: 'woodpile', x: -17.2, z: -54.2, length: 2.2, facing: 0 },
+  { kind: 'barrel', x: -16.9, z: -51.9 }, { kind: 'barrel', x: -17.1, z: -51.2, tilt: 0.3 },
+  { kind: 'cart', x: 16.4, z: -47.6, facing: Math.PI },
+  { kind: 'crate', x: 16.9, z: -50.7, turn: 0.2 }, { kind: 'crate', x: 16.8, z: -51.5, turn: -0.15, stack: true },
+  { kind: 'sacks', x: 15.4, z: -50.9 },
+  { kind: 'standard', x: 9.4, z: -41.2, team: TEAMS.ATTACKERS }, { kind: 'standard', x: -16.4, z: -41.2, team: TEAMS.ATTACKERS },
+  // the esplanade: stakes and a lantern at its flanks, clear of the 8.5 m road
+  { kind: 'stakes', x: -13.6, z: -36.5, length: 3.2, facing: 0 },
+  { kind: 'stakes', x: 10.6, z: -33.4, length: 2.6, facing: 0 },
+  { kind: 'barrel', x: -12.7, z: -32.2 }, { kind: 'sacks', x: -12.4, z: -31.1 },
+  // the redoubt's back, against the curtain wall
+  { kind: 'crate', x: -10.6, z: -0.9, turn: 0.1 }, { kind: 'barrel', x: -9.8, z: -0.8 },
+  { kind: 'lantern', x: -12.2, z: -0.8 }, { kind: 'lantern', x: 12.2, z: -0.8 },
+  { kind: 'woodpile', x: 10.4, z: -0.9, length: 2.4, facing: 0 },
+  // the bailey's stores, against its walls
+  { kind: 'barrel', x: -16.9, z: 10.4 }, { kind: 'barrel', x: -16.8, z: 11.2 }, { kind: 'crate', x: -16.8, z: 12.3, turn: 0.15, stack: true },
+  { kind: 'woodpile', x: -16.9, z: 31.5, length: 2.6, facing: 0 },
+  { kind: 'sacks', x: 16.6, z: 9.6 }, { kind: 'crate', x: 16.9, z: 10.8, turn: -0.2 },
+  { kind: 'cart', x: 15.6, z: 24.5, facing: 0 },
+  { kind: 'lantern', x: -16.6, z: 22.0 }, { kind: 'lantern', x: 16.6, z: 18.5 },
+  { kind: 'standard', x: -10.2, z: 38.6, team: TEAMS.DEFENDERS }, { kind: 'standard', x: 10.2, z: 38.6, team: TEAMS.DEFENDERS },
+  // the defenders' quarters behind the gatehouse
+  { kind: 'tent', x: -10.4, z: 57.9, facing: Math.PI, team: TEAMS.DEFENDERS },
+  { kind: 'tent', x: -15.2, z: 57.5, facing: Math.PI, team: TEAMS.DEFENDERS },
+  { kind: 'tent', x: 12.6, z: 57.9, facing: Math.PI, team: TEAMS.DEFENDERS },
+  { kind: 'brazier', x: -7.0, z: 58.4 }, { kind: 'brazier', x: 7.6, z: 58.4 },
+  { kind: 'rack', x: 16.8, z: 52.6, facing: -Math.PI / 2 },
+  // the high parapet: stores along its outer edge
+  { kind: 'crate', x: 24.7, y: OUTERWORKS_PARAPET_Y, z: 10.2, turn: 0.2 }, { kind: 'barrel', x: 24.8, y: OUTERWORKS_PARAPET_Y, z: 22.0 },
+  { kind: 'barrel', x: 24.8, y: OUTERWORKS_PARAPET_Y, z: 33.6 }, { kind: 'lantern', x: 24.9, y: OUTERWORKS_PARAPET_Y, z: 16 },
+  // the sally trench: a lantern and stores at its outer wall
+  { kind: 'lantern', x: -24.2, y: OUTERWORKS_TRENCH_Y, z: -21.6 }, { kind: 'barrel', x: -24.2, y: OUTERWORKS_TRENCH_Y, z: -33.4 },
+].map((prop, index) => Object.freeze({ id: `ow-prop-${index}`, ...prop })));
+
 const SOLIDS = [
+  // the furnishings (above)
+  ...propSolids(PROPS),
   // --- Outer Perimeter Fortress Walls ---
   solid('wall-south-camp', [-19, 19], [0, 4.5], [-59, -58]),
   solid('wall-west-camp', [-19, -18], [0, 4.0], [-58, -46]),
@@ -431,7 +479,7 @@ const BASE_OUTERWORKS = Object.freeze({
   name: 'The Outerworks',
   floors: FLOORS,
   ramps: RAMPS,
-  props: [],
+  props: PROPS,
   objectives: OBJECTIVES,
   spawnPoints: SPAWN_POINTS,
   ballistaEmplacement: OUTERWORKS_BALLISTA_EMPLACEMENT,

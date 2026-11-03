@@ -6,7 +6,8 @@
 //
 // banners: the emblem's back-banner texture for each kind of banner cloth a model may have, by its material's name:
 //   KitBanner: the kit's banner atlas with the emblem on the back banner's half (the front tabard's half unchanged);
-//   CapeBanner: a cape with a texture of its own (the supplied Spellblade's), its sign replaced by the emblem.
+//   CapeBanner: the Rodin Spellblade's cape, laid out in its body atlas: that atlas with the cape alone kept and its trident
+//   replaced by the emblem (made by tools/blender/characters/spellblade/rodin/emblems.py).
 
 import { CHALLENGE_PREVIEWS } from './challenges.mjs';
 
