@@ -47,6 +47,15 @@ test('Narrow to One acquires one actual enemy but never fires without a held tri
  assert.equal(m.shotSeq,1);
  assert.equal(room.fightFlightProjectiles.size,1);
 });
+test('Precision-tracked crossbow joints follow the target even when Fire is not held',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ enemy.position={x:-5,y:0,z:-18};
+ assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
+ assert.equal(m.shotSeq,0);
+ stepFightFlight(room,m,1/30,1.1);
+ assert.ok(Math.abs(m.crossbowYaw-m.heading)>.1,'the actual muzzle is physically tracking');
+ assert.equal(m.shotSeq,0,'tracking does not auto-shoot');
+});
 test('An airborne lock cannot switch targets; landing permits immediate fresh acquisition',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
  assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
