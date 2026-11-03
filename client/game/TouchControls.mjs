@@ -12,7 +12,7 @@ import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -240,8 +240,10 @@ export class TouchControls {
 
   applyLayout(layouts = this.layouts) {
     this.layouts = layouts;
-    const mode = this.previewMode ?? (this.flightMounted ? 'flight' : 'onFoot');
-    const layout = mode === 'flight' ? layouts.flight : this.mounted ? mountedTouchLayout(layouts.onFoot,layouts.handedness,this.ballistaMounted?'biBye':'generic') : layouts.onFoot;
+    const mode = this.previewMode ?? (this.flightMounted ? 'flight' : this.ramMounted ? 'ram':
+      this.ballistaMounted ? 'ballista' : 'onFoot');
+    const layout = layoutForMode(layouts,mode)??(this.mounted?
+      mountedTouchLayout(layouts.onFoot,layouts.handedness):layouts.onFoot);
     // The motion well is a child of the stick: edited, moved, or mirrored
     // joystick placements carry the feedback with them automatically.
     this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
@@ -249,7 +251,7 @@ export class TouchControls {
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
         const element = action === 'stick' ? this.stickBase : this.buttons[action];
-        if (element) applyLayoutItem(element, mode==='flight'?{...placement,custom:true}:placement);
+        if (element) applyLayoutItem(element, mode!=='onFoot'?{...placement,custom:true}:placement);
       }
     }
     if (layouts.opacity !== undefined) {
@@ -263,12 +265,25 @@ export class TouchControls {
 
   previewEditMode(mode) {
     this.previewMode = mode;
-    this.layer.classList.toggle('touch-flight', mode === 'flight');
-    this.layer.classList.toggle('touch-mounted', mode === 'flight');
-    if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
-    if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
-    if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = mode !== 'flight';
-    if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = mode !== 'flight';
+    const activeMode=mode??(this.flightMounted?'flight':this.ramMounted?'ram':
+      this.ballistaMounted?'ballista':'onFoot');
+    const flight=activeMode==='flight',ram=activeMode==='ram',
+      ballista=activeMode==='ballista',mounted=flight||ram||ballista;
+    this.layer.classList.toggle('touch-flight',flight);
+    this.layer.classList.toggle('touch-ram',ram);
+    this.layer.classList.toggle('touch-ballista',ballista);
+    this.layer.classList.toggle('touch-mounted',mounted);
+    // Give each editor page its real mounted controls regardless of the
+    // current player state. None of these preview presses reach gameplay.
+    if(mode){
+      const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
+        ram?['attack','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
+        ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
+        ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','interact','pause','scores','practiceTools'];
+      for(const [action,button]of Object.entries(this.buttons))
+        button.hidden=!visible.includes(action);
+      this.layer.classList.toggle('mounted-steel-available',mounted);
+    }
     this.applyLayout(this.layouts);
   }
 
@@ -385,6 +400,10 @@ export class TouchControls {
   }
 
   update(local, serverNow, { practice = false, snapshot = null } = {}) {
+    // The workshop is a real per-machine preview. Live snapshots must not
+    // repaint hidden actions or restore the currently mounted machine while
+    // the player edits Ballista, Ram, Flight or on-foot controls.
+    if (this.layer.classList.contains('touch-layout-editing')) return;
     if (this.inspectionFlight) return;
     if (!local) return;
     this.galeAvailable = local.spell === 'gale' && (practice || (local.spellReadyAt ?? 0) <= serverNow || local.castingSpell === 'gale');
@@ -501,16 +520,17 @@ export class TouchControls {
       const bl = snapshot?.bibyeBallista;
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
-      const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
+      const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),
+        ballista=Boolean(local.alive&&local.operatingBallistaId),
+        fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
       const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&local.position&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
-      const ballista=mounted&&!ram&&!flight;
-      const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight||this.ballistaMounted!==ballista;
+      const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight||
+        this.ramMounted!==ram||this.ballistaMounted!==ballista;
       if(this.ramMounted!==undefined&&this.ramMounted!==ram||this.flightMounted!==flight)this.reset();
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
-      this.ramMounted=ram;
-      this.ballistaMounted=ballista;
+      this.ramMounted=ram;this.ballistaMounted=ballista;
       this.flightMounted=flight;this.mounted=mounted;
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
@@ -548,19 +568,29 @@ export class TouchControls {
         const dashBtn = this.buttons.dash;
         if (dashBtn) {
           const dashGrounded = !airborne;
+          const spool=fb?.runGroundPhase;
           const dashNoProwess = (local.prowess ?? 0) <= 0;
           const dashNoRotor = (fb?.rotorHP ?? 0) <= 0;
           const offensiveActive = Boolean(fb?.offensiveRun);
           const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
-          dashBtn.classList.toggle('flight-grounded', dashGrounded);
+          // Grounded Dash is *available*: pressing it starts the 450 RPM
+          // spool sequence. Only missing Prowess/rotor should look disabled.
+          dashBtn.classList.toggle('flight-grounded', false);
+          dashBtn.classList.toggle('flight-spinning',Boolean(spool));
           dashBtn.classList.toggle('flight-no-prowess', dashNoProwess);
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
           dashBtn.classList.toggle('flight-dash-active', offensiveActive);
           dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
           dashBtn.querySelector('span').textContent='DASH';
           const status=dashBtn.querySelector('.touch-status');
-          if(status)status.textContent=dashGrounded?'TAKE OFF':dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';
-          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' : dashGrounded ? 'Dash requires being airborne' : dashNoProwess ? 'Offensive run requires Prowess' : dashNoRotor ? 'Rotor destroyed' : offensiveActive ? 'Offensive Flight Run Active' : 'Hold Dash for Prowess-powered offensive run');
+          if(status)status.textContent=spool==='SPINUP'?'SPIN 450':spool==='ASCENT'?'LIFT':
+            dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';
+          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' :
+            spool==='SPINUP'?'Spooling rotor to 450 RPM for ground Dash':
+            spool==='ASCENT'?'Taking off for ground Dash':
+            dashNoRotor?'Rotor destroyed':dashNoProwess?'Dash requires Prowess':
+            offensiveActive?'Offensive Flight Run Active':
+            dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
         const valkyrieReady = flight && !fb?.terminalDive && !fb?.terminalDiveSpent && (fb?.rotorHP ?? 0) > 0 && local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100;
@@ -582,7 +612,7 @@ export class TouchControls {
         this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
         this.valkyrieEligible = false;
         this.buttons.guard?.classList.remove('airborne-forbidden');
-        this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');
+        this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'flight-spinning', 'valkyrie-prep');
         this.buttons.dash.querySelector('span').textContent='DASH';
         const status=this.buttons.dash.querySelector('.touch-status');if(status)status.textContent='';
         this.buttons.ultimate?.classList.remove('valkyrie-ready', 'valkyrie-prep');
@@ -1193,11 +1223,13 @@ export class TouchControls {
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
-    const vector = stickVector(delta.x, delta.y, {deadZone:this.mounted?.06:TOUCH.deadZone, sprintActive:this.stickSprintRequested});
+    const radius=(this.stickBase.getBoundingClientRect?.()?.width||112)/2;
+    const vector = stickVector(delta.x, delta.y, {radius:Math.max(40,radius),
+      deadZone:this.mounted?.06:TOUCH.deadZone,sprintActive:this.stickSprintRequested});
     this.stickSprintRequested = !this.flightMounted && vector.sprint;
     // The detent physically travels up the cavity as the joystick is pushed.
     // Its position represents thumb intent; the arrows/label show confirmed action.
-    const forwardPush = !this.flightMounted ? Math.max(0, Math.min(1, -vector.knob.y / TOUCH.stickRadius)) : 0;
+    const forwardPush = !this.flightMounted ? Math.max(0, Math.min(1, -vector.knob.y / Math.max(40,radius))) : 0;
     this.motionGuide.style.setProperty('--motion-push', forwardPush.toFixed(3));
     this.motionGuide.classList.toggle('forward', forwardPush > .2);
     this.motionGuide.classList.toggle('approaching', !this.flightMounted && vector.magnitude >= .78 && vector.forward >= .55);

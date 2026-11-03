@@ -11,9 +11,10 @@ export const VALKYRIE_RUN=Object.freeze({
   // A descending *physical* attack launch. The rotor plane gets a small
   // geometric lead to intersect the crosshair's near opponents, not a separate
   // cosmetic tilt that points a metre below its thrust trajectory.
-  acceleration:7.4,pitch:.54,launchRotorLead:.77,rotorAimLead:.60,
-  maxAttackPitch:1.36,pitchLimit:1.04,descentPitchLimit:1.14,pitchRate:2.65,
-  clearance:1.1,chargeGraceSec:.30,chivalryDashImpulse:8,
+  acceleration:7.4,pitch:.54,launchRotorLead:Math.PI/2,rotorAimLead:Math.PI/2,
+  maxAttackPitch:Math.PI/2,pitchLimit:1.04,descentPitchLimit:1.14,pitchRate:5.5,
+  clearance:1.1,groundLaunchClearance:1.75,groundTakeoffVelocity:6.4,
+  spinupRPM:450,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function requestFlightDash(room,m,p,held,now){
@@ -23,6 +24,12 @@ export function requestFlightDash(room,m,p,held,now){
  if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
  if(!held){
+   if(m.runGroundPhase==='SPINUP'){
+     // Releasing a ground wind-up before lift cancels it safely. A launch
+     // already airborne must still finish its guaranteed minimum distance.
+     m.runGroundPhase=null;
+     if(m.grounded)m.rotorPowered=false;
+   }else if(m.runGroundPhase==='ASCENT')m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
    m.runReleasedAt=now;m.flightDashStartedAt=null;
@@ -38,6 +45,11 @@ export function requestFlightDash(room,m,p,held,now){
  m.runCommitPitch=aimPitch>0?aimPitch:Math.min(-VALKYRIE_RUN.pitch,aimPitch);
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
+ m.runGroundReleased=false;
+ // Dash begins from the floor by spooling the ACTUAL rotor to full 450 RPM.
+ // No early impulse or airborne propulsion may bypass this mechanical state.
+ if(m.grounded&&!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&p.prowess>0)
+   m.runGroundPhase='SPINUP';
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
    // Chivalry's ordinary midair dash still consumes its own normal cooldown,
@@ -56,20 +68,38 @@ export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
- if(m.flightDashHeld&&!fresh){m.flightDashHeld=false;m.runStopRequested=false;}
+ if(m.flightDashHeld&&!fresh){
+   m.flightDashHeld=false;m.runStopRequested=false;m.runGroundPhase=null;
+ }
+ if(m.runGroundPhase){
+   if(!p?.alive||m.terminalDive||m.terminalPrep||m.emergencyBrakeActive||
+     m.rotorHP<=0||m.health<=0||m.flightCharge<=0||
+     p.operatingFightFlightId!==m.id){
+     m.runGroundPhase=null;m.runGroundReleased=false;m.flightDashHeld=false;
+   }else if(m.runGroundPhase==='SPINUP')return;
+   else {
+     const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
+     if(m.grounded||floor!=null&&m.y-floor<VALKYRIE_RUN.groundLaunchClearance)return;
+     m.runGroundPhase=null; // next lines start the committed physical run
+     m.runGroundLaunchReady=true;
+   }
+ }
 
  // These phases are governed by simulated motion ticks, not a stalled browser's
  // wall clock. A 500ms render stall must not erase a 360ms physical commitment.
  if(m.offensiveRun&&m.runStopRequested)m.runReleaseElapsed=(m.runReleaseElapsed??0)+dt;
  const finishing=Boolean(m.offensiveRun&&m.runStopRequested&&
    (m.runTravel??0)<VALKYRIE_RUN.minTravel&&(m.runReleaseElapsed??0)<1.25);
+ const launchReady=Boolean(m.runGroundLaunchReady);
+ m.runGroundLaunchReady=false;
  const valid=Boolean(!m.terminalDive&&!m.emergencyBrakeActive&&p?.alive&&
    p.operatingFightFlightId===m.id&&m.health>0&&m.rotorHP>0&&!m.grounded&&
-   (finishing||(m.flightDashHeld&&fresh)));
+   (finishing||launchReady||(m.flightDashHeld&&fresh)));
  const activeChivalry=Boolean(p&&activeUltimate(p,now)?.id==='chivalry');
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
- const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&now-(m.flightDashStartedAt??now)<VALKYRIE_RUN.chargeGraceSec);
+ const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
+   m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
  let running=valid&&!activeChivalry&&!preparing&&!grace;
  // Training meters cycle without dropping the held propulsion state. This
@@ -85,6 +115,7 @@ export function stepFlightRun(room,m,dt,now){
    if(!m.offensiveRun){
      m.runAnimationStartedAt=now;m.offensiveRun=true;
      m.runStartAt=now;m.runElapsed=0;m.runReleaseElapsed=0;
+     m.runStopRequested=Boolean(m.runGroundReleased);m.runGroundReleased=false;
      m.runLaunchStartY=m.y;m.runLaunchMinVy=0;m.runLaunchDrop=0;m.runLaunchDistance=0;
      m.runLastPosition={x:m.x,y:m.y,z:m.z};
      room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
@@ -108,7 +139,7 @@ export function stepFlightRun(room,m,dt,now){
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
- const floor=flightSupportAt(room.world,m.x,m.z,m.y+.35);
+ const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
  let target=m.offensiveRun?(committed?m.runCommitPitch:livePitch):0;
  if(m.offensiveRun&&target<0){
    // Do not drive the rotor into an unavoidable ground strike. The chassis
@@ -120,9 +151,10 @@ export function stepFlightRun(room,m,dt,now){
    }
  }
  const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
- // The rotor has a fixed offset above the visor, so tilt its swept disc toward
- // the near crosshair corridor. Ease that lead after commitment. Avoid the old
- // 1.12-radian *permanent* trim that kept the rotor below an upward reticle.
+ // During the attack the rotor sweeps toward a full 90-degree vertical
+ // cutting plane: a charged blade, not a sightseeing helicopter. Camera pitch
+ // still controls the physically replicated flight vector and visual tilt.
+ // Ground clearance is enforced below on the REAL collision-swept rotor.
  // If clearance suppresses downward thrust, the rotor may still pitch
  // physically into the infantry-height crosshair corridor. Its actual swept
  // blades share runPitch and must respect the separate real-ground limit.

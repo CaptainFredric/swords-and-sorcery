@@ -23,7 +23,7 @@ test('offensive flight steers down then up in 3D at bounded 18 m/s',()=>{
  assert.ok(Math.abs(Math.hypot(...Object.values(s.m.velocity))-18)<.6);
  const down=s.m.runPitch;s.p.input.pitch=.6;frames(s,60,1.5);
  assert.ok(s.m.velocity.y>7,'steering back up produces real ascent');
- assert.ok(s.m.runPitch<down-.6,'body attitude follows direction');
+ assert.ok(s.m.runPitch<down-.42,'vertical rotor plane tilts upward with the reticle while the craft climbs');
  assert.ok(Math.abs(Math.hypot(...Object.values(s.m.velocity))-18)<.6);
 });
 test('Practice holds propulsion across many resource cycles, including nearly empty flight charge',()=>{

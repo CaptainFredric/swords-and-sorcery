@@ -5,6 +5,8 @@
 export const MIN_BUTTON_SIZE = 40;
 export const MAX_BUTTON_SIZE = 110;
 export const DEFAULT_OPACITY = 0.85;
+const clonePlacements=layout=>Object.fromEntries(
+  Object.entries(layout).map(([action,placement])=>[action,{...placement}]));
 
 export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   stick: { left: 118, bottom: 110, size: 112, type: 'stick' },
@@ -83,7 +85,7 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   attack:{right:14,bottom:10,size:62,width:96,height:62},
   // Bolt now fills its former position PLUS the old Jump column. Directly
   // above Bolt is Jump, allowing one finger to slide upward into a Hop.
-  siegeWeapon:{right:14,bottom:80,size:62,width:96,height:62},
+  siegeWeapon:{right:14,bottom:80,size:62,width:122,height:62},
   jump:{right:14,bottom:146,size:62},
   // Dash takes Fire Away's old left-hand position.
   dash:{right:88,bottom:146,size:60},
@@ -136,7 +138,7 @@ export function mirrorLayoutHorizontal(layout) {
 
 /** Preserve the ram preset; choose the independent ballista ladder by machine. */
 export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
-  const layout={...onFoot};
+  const layout=clonePlacements(onFoot);
   const auxiliary=machine==='biBye'
     ? {...BI_BYE_MOUNTED_ACTIONS,...BI_BYE_UTILITIES}
     : {...MOUNTED_ACTIONS,interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
@@ -145,10 +147,22 @@ export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
     const mirrored=original?mirrorLayoutHorizontal({[action]:original})[action]:null;
     const preset=mirrored&&Object.entries(mirrored).every(([k,v])=>saved?.[k]===v);
-    layout[action]=saved?.custom&&!preset?saved:{...placement,custom:true};
+    layout[action]=saved?.custom&&!preset?{...saved}:{...placement,custom:true};
   }
   return layout;
 }
+
+// Separate editable pages for stationary artillery and the mobile ram. Old
+// shared on-foot layouts are preserved when migrating an existing player.
+export const DEFAULT_BALLISTA_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye'));
+export const DEFAULT_RAM_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+export const TOUCH_LAYOUT_PAGES=Object.freeze([
+ {id:'onFoot',label:'SPELLBLADE'}, {id:'flight',label:'FLIGHT'},
+ {id:'ballista',label:'BALLISTA'}, {id:'ram',label:'RAM'},
+]);
+export const layoutForMode=(layouts,mode)=>
+ mode==='flight'?layouts.flight:mode==='ballista'?layouts.ballista:
+ mode==='ram'?layouts.ram:layouts.onFoot;
 
 export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const clamped = { ...item, custom: true };
@@ -157,13 +171,14 @@ export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const safeMargin = 4;
 
   if (clamped.size !== undefined) {
-    clamped.size = Math.max(MIN_BUTTON_SIZE, Math.min(MAX_BUTTON_SIZE, clamped.size));
+    clamped.size = Math.max(item.type==='stick'?80:MIN_BUTTON_SIZE,
+      Math.min(item.type==='stick'?172:MAX_BUTTON_SIZE, clamped.size));
   }
   if (clamped.width !== undefined) {
-    clamped.width = Math.max(36, Math.min(120, clamped.width));
+    clamped.width = Math.max(36, Math.min(160, clamped.width));
   }
   if (clamped.height !== undefined) {
-    clamped.height = Math.max(30, Math.min(80, clamped.height));
+    clamped.height = Math.max(30, Math.min(96, clamped.height));
   }
 
   if ('left' in clamped) {
@@ -191,7 +206,7 @@ function migrateCrouchPosition(onFoot) {
 
 // Ensure saved flight layouts preserve custom positioning while migrating missing controls.
 function migrateFlightLayout(flight) {
-  if (!flight) return { ...DEFAULT_FLIGHT_LAYOUT };
+  if (!flight) return clonePlacements(DEFAULT_FLIGHT_LAYOUT);
   const matches=(a,b)=>a&&b&&Object.keys(b).every(k=>a[k]===b[k])&&Object.keys(a).every(k=>k==='custom'||k in b);
   // The old handedness preset marked every control custom. Migrate only the
   // complete unedited preset; individual edited controls remain untouched.
@@ -201,7 +216,7 @@ function migrateFlightLayout(flight) {
   if(Object.keys(outgoingMirror).every(k=>matches(flight[k],outgoingMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(previousMirror).every(k=>matches(flight[k],previousMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
-  const migrated={...DEFAULT_FLIGHT_LAYOUT};
+  const migrated=clonePlacements(DEFAULT_FLIGHT_LAYOUT);
   for(const [key,item] of Object.entries(flight)){
     const legacy=LEGACY_FLIGHT_LAYOUT[key];
     const untouched=!item.custom&&(legacy&&matches(item,legacy)||
@@ -217,16 +232,22 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        onFoot: migrateCrouchPosition(parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT }),
+        onFoot: migrateCrouchPosition(parsed.onFoot ?? clonePlacements(DEFAULT_ON_FOOT_LAYOUT)),
         flight: migrateFlightLayout(parsed.flight),
+        ballista:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
+          parsed.handedness==='left'?'left':'right','biBye'),...(parsed.ballista??{})},
+        ram:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
+          parsed.handedness==='left'?'left':'right'),...(parsed.ram??{})},
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
         handedness: parsed.handedness === 'left' ? 'left' : 'right',
       };
     }
   } catch {}
   return {
-    onFoot: { ...DEFAULT_ON_FOOT_LAYOUT },
-    flight: { ...DEFAULT_FLIGHT_LAYOUT },
+    onFoot: clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
+    flight: clonePlacements(DEFAULT_FLIGHT_LAYOUT),
+    ballista: clonePlacements(DEFAULT_BALLISTA_LAYOUT),
+    ram: clonePlacements(DEFAULT_RAM_LAYOUT),
     opacity: DEFAULT_OPACITY,
     handedness: 'right',
   };
@@ -240,8 +261,9 @@ export function saveTouchLayout(layout, storage = globalThis.localStorage) {
 
 export function clearLayoutItem(element){
   if(!element?.style)return;
-  for(const key of ['left','right','top','bottom','width','height'])if(element.style[key]!=null)element.style[key]='';
+  for(const key of ['left','right','top','bottom','width','height','marginLeft','marginRight'])if(element.style[key]!=null)element.style[key]='';
   element.style.setProperty('--size','');
+  element.style.setProperty('--stick-size','');
 }
 
 export function applyLayoutItem(element, placement, scale = 1) {
@@ -250,21 +272,25 @@ export function applyLayoutItem(element, placement, scale = 1) {
   if ('left' in placement) {
     element.style.left = `calc(var(--safe-l) + ${placement.left}px * var(--s))`;
     element.style.right = 'auto';
+    if(placement.type==='stick'){element.style.marginLeft='calc(var(--stick-size) * -.5)';element.style.marginRight='0';}
   } else if ('right' in placement) {
     element.style.right = `calc(var(--safe-r) + ${placement.right}px * var(--s))`;
     element.style.left = 'auto';
+    if(placement.type==='stick'){element.style.marginLeft='0';element.style.marginRight='calc(var(--stick-size) * -.5)';}
   }
 
   if ('top' in placement) {
     element.style.top = `calc(var(--safe-t) + ${placement.top}px * var(--s))`;
     element.style.bottom = 'auto';
   } else if ('bottom' in placement) {
-    element.style.bottom = `calc(var(--safe-b) + ${placement.bottom}px * var(--s))`;
+    element.style.bottom = placement.type==='stick'?
+      `calc(var(--safe-b) + ${placement.bottom}px * var(--s) - var(--stick-size) * .5)`:
+      `calc(var(--safe-b) + ${placement.bottom}px * var(--s))`;
     element.style.top = 'auto';
   }
 
   if (placement.size !== undefined) {
-    element.style.setProperty('--size', `${placement.size}px`);
+    element.style.setProperty(placement.type==='stick'?'--stick-size':'--size', `${placement.size}px`);
   }
   if (placement.width !== undefined) {
     element.style.width = `calc(${placement.width}px * var(--s))`;

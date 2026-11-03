@@ -96,10 +96,10 @@ button, input { touch-action: manipulation; }
 .touch-btn.cooling svg, .touch-btn.cooling span { opacity: .4; }
 
 /* fixed lower-left movement ring: only its thumb knob moves; no layout snap during fullscreen/resize */
-.touch-stick { position: absolute; left: calc(var(--safe-l) + 118px); top: calc(100% - var(--safe-b) - 110px); width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .38); background: radial-gradient(circle, rgba(20, 21, 17, .16), rgba(20, 21, 17, .4)); opacity: .5; pointer-events: auto; touch-action: none; transition: opacity .12s ease; }
+.touch-stick { --stick-size:112px;position: absolute; left: calc(var(--safe-l) + 118px); top: calc(100% - var(--safe-b) - 110px); width: var(--stick-size); height: var(--stick-size); margin: calc(var(--stick-size) * -.5) 0 0 calc(var(--stick-size) * -.5); border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .38); background: radial-gradient(circle, rgba(20, 21, 17, .16), rgba(20, 21, 17, .4)); opacity: .5; pointer-events: auto; touch-action: none; transition: opacity .12s ease; }
 .touch-stick.held { opacity: 1; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
-.touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
+.touch-stick-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--stick-size) * .447); height: calc(var(--stick-size) * .447); margin: calc(var(--stick-size) * -.2235) 0 0 calc(var(--stick-size) * -.2235); border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
 /* One outline joins the circle and its forward channel. The guide inside it
    carries no second frame across the joystick. Input geometry is unchanged. */
@@ -119,7 +119,7 @@ button, input { touch-action: manipulation; }
   position: absolute;
   left: 50%;
   bottom: calc(100% - 20px);
-  width: 60px;
+  width: calc(var(--stick-size) * .536);
   transform: translateX(-50%);
   pointer-events: none;
   user-select: none;
@@ -523,6 +523,10 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 .touch-controls.touch-flight :is(.touch-attack,.touch-siegeWeapon) .touch-face { gap:2px; }
 .touch-controls.touch-flight .touch-siegeWeapon.pressed { border-color:#b4f2f6;box-shadow:0 0 10px #a7dfe277; }
+.touch-controls.touch-flight .touch-dash.flight-spinning { border-color:#eac47c;box-shadow:0 0 12px #ecbd6499;animation:flight-spool-pulse .28s ease-in-out infinite alternate; }
+@keyframes flight-spool-pulse {from { filter:brightness(.92); } to {filter:brightness(1.18);}}
+@media(prefers-reduced-motion:reduce){.touch-controls.touch-flight .touch-dash.flight-spinning{animation:none;}}
+
 .touch-controls.touch-flight .touch-jump.pressed { border-color:#ffe4aa;box-shadow:0 0 11px #dfc18b66; }
 
 .touch-controls.touch-flight .touch-siegeSkill span { font-size:7px;letter-spacing:.03em; }
@@ -557,8 +561,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 /* Touch Layout Editor overlay & toolbar */
+.touch-controls.touch-layout-detached {position:fixed !important;inset:0 !important;z-index:59 !important;}
 .touch-layout-editor {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 60;
   pointer-events: none;
@@ -627,6 +632,18 @@ html.turn-typing .rotate-prompt { display: none !important; }
   color: #1a140c;
   font-weight: 900;
   border-color: #ffd580;
+}
+.tle-selected-name { color:#f4d58c;font:800 10px system-ui;letter-spacing:.04em; }
+.tle-mode-toggles { display:flex; flex-wrap:wrap;gap:4px;justify-content:flex-end; }
+.tle-dimension[hidden] { display:none !important; }
+.tle-controls input[type="range"] {accent-color:#dbb763;}
+.tle-btn:focus-visible{outline:2px solid #ffe2a0;outline-offset:2px;}
+@container app (max-height:385px){
+ .tle-bar {top:3px;gap:3px;padding:4px 8px;max-width:98vw;}
+ .tle-header strong{font-size:10px;}
+ .tle-controls{gap:5px;}
+ .tle-btn {padding:3px 6px;font-size:8px;}
+ .tle-hint {bottom:3px;font-size:8px;padding:2px 7px;}
 }
 .tle-hint {
   position: absolute;
