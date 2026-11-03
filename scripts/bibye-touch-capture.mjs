@@ -51,21 +51,22 @@ const stateUI=`(() => {
  }));
  return {width:innerWidth,height:innerHeight,items,mounted:t.layer.classList.contains('touch-ballista')};
 })()`;
-async function show(mode,phase,steel=false){
+async function show(mode,phase,steel=false,focus='UPPER'){
  return evalPage(`(() => {
   const r=window.__ssRuntime,t=r.touch,now=r.socket.serverNow();
   const local={...r.localAuth,alive:true,operatingBallistaId:'bb-control-capture',operatingRamId:null,
    operatingFightFlightId:null,spell:'${steel?'steel':'fireball'}',spellReadyAt:0};
   const b={...(r.latestSnapshot?.bibyeBallista??{}),id:'bb-control-capture',
    position:{x:0,z:0},health:650,maxHealth:650,retired:false,
-   mode:'${mode}',weaponFocus:'UPPER',state:'LOADED',mainBoltLoaded:true,
+   mode:'${mode}',weaponFocus:'${focus}',state:'LOADED',mainBoltLoaded:true,
    smallBoltReady:true,smallBoltReadyAt:0,upperPending:false,upperQueued:false,
    pendingIndependent:null,mobileShotPendingAt:null,combinedUpperPendingAt:null,
+   pendingCoupledFromUpper:false,deploymentSupported:true,
    coupling:'INDEPENDENT',heavySkill:null,
    skill:{id:'boltToTheOccasion',phase:'${phase}',readyAt:0,primedAt:now-1,boltIReleasedAt:null}};
   t.setActive(true);
   window.__bibyeActualUpdate(local,now,{snapshot:{...r.latestSnapshot,bibyeBallista:b}});
-  return {mode:b.mode,phase:b.skill.phase,steel:Boolean(${steel})};
+  return {mode:b.mode,phase:b.skill.phase,focus:b.weaponFocus,steel:Boolean(${steel})};
  })()`);
 }
 try{
@@ -98,8 +99,8 @@ try{
  for(const [width,height] of [[844,390],[568,320],[1024,600]]){
   await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
   await sleep(300);
-  for(const [mode,phase,steel] of [['MOBILE','idle',false],['MOBILE','primed',false],['DEPLOYED','idle',false],['DEPLOYED','primed',false],['DEPLOYED','primed',true]]){
-   await show(mode,phase,steel);await sleep(130);
+  for(const [mode,phase,steel,focus] of [['MOBILE','idle',false,'UPPER'],['MOBILE','primed',false,'UPPER'],['DEPLOYED','idle',false,'MAIN'],['DEPLOYED','idle',false,'UPPER'],['DEPLOYED','primed',false,'MAIN'],['DEPLOYED','primed',false,'UPPER'],['DEPLOYED','primed',true,'UPPER']]){
+   await show(mode,phase,steel,focus);await sleep(130);
    const view=await evalPage(stateUI);
    assert.equal(view.mounted,true);
    assert.equal(view.width,width);assert.equal(view.height,height);
@@ -110,15 +111,18 @@ try{
      assert.equal(overlaps(a,otherItem.rect),false,name+' overlaps '+other);
     }
    }
-   assert.equal(items.attack.icon,'boltI');
+   const coupledPrimary=mode==='DEPLOYED'&&focus==='MAIN'&&phase!=='primed';
+   assert.equal(items.attack.icon,coupledPrimary?'boltBoth':'boltI');
    assert.equal(items.siegeSkill.icon,phase==='primed'?'boltII':'boltToTheOccasion');
    assert.equal(items.deploy.icon,mode==='DEPLOYED'?'ballistaWheel':'boltII');
    assert.equal(items.deploy.label,mode==='DEPLOYED'?'MOBILE':'HEAVY');
-   assert.equal(items.siegeBoth.visible,phase==='primed');
+   const secondary=phase==='primed'?'skill':mode==='DEPLOYED'&&focus==='UPPER'?'coupled':null;
+   assert.equal(items.siegeBoth.visible,Boolean(secondary));
+   if(secondary)assert.equal(items.siegeBoth.label,'BOTH');
    assert.equal(items.siegeBoth.icon,'boltBoth');
    assert.equal(items.siegeWeapon.visible,mode==='DEPLOYED');
    if(steel)assert.equal(items.spell.visible,true);
-   const name=`${width}x${height}-${mode.toLowerCase()}-${phase}${steel?'-steel':''}`;
+   const name=`${width}x${height}-${mode.toLowerCase()}-${focus.toLowerCase()}-${phase}${steel?'-steel':''}`;
    await snap(name);
    evidence.push({name,...view});
   }
