@@ -107,6 +107,9 @@ const MOUNTED_ACTIONS = Object.freeze({
 // Bi-Bye-llista only. Fixed positions prevent the conditional BOTH control from
 // shifting the main firing targets. The generic layout remains the ram preset.
 export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
+ // Steel is available on deployed artillery, too. Its on-foot position
+ // overlapped the conditional BOTH carousel on compact landscape phones.
+ spell:{right:198,bottom:104,size:48},
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
  siegeBoth:{right:64,bottom:102,size:60},
