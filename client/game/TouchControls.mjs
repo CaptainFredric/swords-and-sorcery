@@ -537,6 +537,7 @@ export class TouchControls {
       }));
 
       if (flight) {
+        this.buttons.attack?.setAttribute('aria-label','Sword attack');
         const atkLabel = this.buttons.attack?.querySelector('span');
         if (atkLabel && atkLabel.textContent !== 'SWORD') atkLabel.textContent = 'SWORD';
         const guardUnavailable = airborne && !combatActionPolicy(local, serverNow).concurrent;
@@ -578,7 +579,7 @@ export class TouchControls {
       } else {
         const atkLabel = this.buttons.attack?.querySelector('span');
         if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
-        if(ballista)this.buttons.attack.setAttribute('aria-label',combat.primary.description);
+        this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
         this.valkyrieEligible = false;
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');
