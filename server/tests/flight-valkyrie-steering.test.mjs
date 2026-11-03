@@ -86,13 +86,13 @@ test('Rotor physically follows the camera after commitment, not a fixed deep nos
   assert.ok(s.m.runPitch>1.0,'within the 0.36-second launch, the rotor attacks steeply');
   s.p.input.pitch=0;frames(s,30);
   const neutral=s.m.runPitch;
-  assert.ok(neutral>.38&&neutral<.78,'after commitment rotor centers on near-level reticle');
+  assert.ok(neutral>1.47&&neutral<1.58,'sustained neutral attack keeps its rotor in a near-vertical cutting plane');
   s.p.input.pitch=-.55;frames(s,18);
   const downward=s.m.runPitch,downVy=s.m.velocity.y;
-  assert.ok(downward>neutral+.35,'looking down physically lowers the rotor plane');
+  assert.ok(downward>=neutral-.04,'downward aim keeps the rotor at its physical 90-degree limit');
   assert.ok(downVy<-3,'forward thrust follows the descending rotor direction');
   s.p.input.pitch=.55;frames(s,18);
-  assert.ok(s.m.runPitch<downward-.65,'looking up physically raises rotor attitude');
+  assert.ok(s.m.runPitch<downward-.45,'looking up physically raises rotor attitude');
   assert.ok(s.m.velocity.y>2,'upward reticle follows authoritative ascent, not cosmetic camera');
 });
 test('Post-commit Dash can orbit ninety degrees quickly without snapping',()=>{
@@ -183,4 +183,45 @@ test('low flight attack banks farther nose-down while keeping its real rotor abo
  assert.ok(s.m.runPitch>=1.1,'low attack pitches past the former 57 degree trim');
  const low=s.m.y+2.185*Math.cos(s.m.runPitch)-1.295*Math.sin(s.m.runPitch);
  assert.ok(low>=.10,'actual hub and swept blade keep ground clearance');
+});
+
+test('Ground Dash must reach ACTUAL 450 RPM before launch, then climbs to clearance and commits real travel',()=>{
+  const s=setup({practice:true,y:0});
+  s.m.grounded=true;s.m.mode='GROUNDED';s.m.rotorPowered=false;
+  s.m.rotorAngularVelocity=0;s.m.rotorRPM=0;s.m.y=0;s.m.position.y=0;
+  assert.equal(requestFlightDash(s.room,s.m,s.p,true,0),true);
+  assert.equal(s.m.runGroundPhase,'SPINUP');
+  frames(s,9);
+  assert.ok(s.m.grounded,'spinning does not launch until 450 RPM');
+  assert.ok(s.m.rotorRPM>0&&s.m.rotorRPM<450,'real rotor accelerates progressively');
+  assert.equal(s.m.offensiveRun,false,'no free Dash while rotor warms up');
+  for(let i=0;i<34&&!s.m.offensiveRun;i++)frames(s,1);
+  assert.ok(s.m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1,'required full 450 RPM');
+  assert.ok(s.m.y>=VALKYRIE_RUN.groundLaunchClearance-.05,'real motor lift, not a grounded Dash teleport');
+  assert.equal(s.m.grounded,false);
+  assert.equal(s.m.offensiveRun,true,'attack becomes active after the lifted machine clears its rotor');
+  frames(s,8);
+  assert.ok(s.m.runPitch>1.25,'propeller attacks steeply after the physical takeoff');
+  assert.ok(s.m.runTravel>0,'ground Dash advances through actual world movement');
+  assert.equal(s.m.terminalDive,null,'ordinary Dash must never accidentally terminal-dive');
+});
+test('Ground Dash early release cancels spool; release AFTER takeoff finishes 10m minimum',()=>{
+  const init=()=>{const s=setup({practice:true,y:0});Object.assign(s.m,{
+    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,
+    rotorAngularVelocity:0,rotorRPM:0});return s;};
+  const cancel=init();requestFlightDash(cancel.room,cancel.m,cancel.p,true,0);frames(cancel,3);
+  requestFlightDash(cancel.room,cancel.m,cancel.p,false,cancel.now);
+  assert.equal(cancel.m.runGroundPhase,null);
+  frames(cancel,25);
+  assert.equal(cancel.m.grounded,true,'release during spool safely aborts launch');
+  assert.equal(cancel.m.offensiveRun,false);
+  const s=init();requestFlightDash(s.room,s.m,s.p,true,0);
+  for(let i=0;i<42&&s.m.runGroundPhase!=='ASCENT';i++)frames(s,1);
+  assert.equal(s.m.runGroundPhase,'ASCENT');
+  requestFlightDash(s.room,s.m,s.p,false,s.now);
+  for(let i=0;i<100&&(s.m.runGroundPhase||s.m.offensiveRun||s.m.runTravel===0);i++)frames(s,1);
+  assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel,
+    'release during committed takeoff still produces ten metres of physical attack');
+  assert.equal(s.m.flightDashHeld,false);
+  assert.equal(s.m.terminalDive,null);
 });
