@@ -1,0 +1,108 @@
+# Rodin Spellblade
+
+This pipeline makes the Spellblade from the creator's Hyper3D Rodin model of the canonical concept
+(`assets/source/rodin/`). It keeps everything the game relies on from the armour kit: the 27-bone rig, all fifteen
+third-person actions and eight first-person actions, the sockets, the review cameras and the part names. Only the body
+changes, and the actions are refitted to its proportions.
+
+It replaces the armour kit (`../kit/`). The kit matched the concept's parts one by one but stayed blocky; Rodin's model
+reads as the concept itself: the helmet's T visor and crest, the scarf, the long banner with its trident, the heavy
+sword with its red gem.
+
+## Run it
+
+From the repository root, with a Blender 4.5 binary:
+
+```sh
+BLENDER=/path/to/blender tools/blender/characters/spellblade/rodin/build.sh
+```
+
+It writes both sources in `../source/` and the emblem cape textures in `client/assets/heraldry/`, working in
+`artifacts/rodin/` (git-ignored). The kit sources it starts from are read from git at a fixed commit, so the build does
+not depend on the current sources. Then build and validate as the source README describes (`../build.py`, the GLB
+validators, `scripts/test-spellblade-*.py`).
+
+## Third person (`build_source.py`)
+
+1. **Fit** (`fit.py`). Rodin's mesh is turned to face +Y and scaled so its hips sit at the pelvis height (×1.064, 2.05 m
+   tall). Every bone keeps its production rest orientation and moves its rest head onto Rodin's joint; a pose turns each
+   bone onto Rodin's limb, and the mesh is unposed from that pose into the rest (inverse linear blend skinning). The
+   actions store rotations about the same orientations, so they play the new body as they played the kit.
+   - **Weights** come from Rodin's autorigged file by vertex index (both files hold one mesh), mapped onto the 27 bones.
+   - **The sword** is rigid on `hand.R`. It is found by growing from the blade's core through connected vertices inside
+     a generous cylinder, so the knee it passes in Rodin's pose stays with the leg. The hand's pose lays the kit
+     sword's axis and width, measured in the hand, onto Rodin's blade (its axis refined from the blade's own vertices),
+     so every action points Rodin's sword where it pointed the kit's.
+   - **Rest lift.** Rodin's sword reaches 1.36 m from the wrist (the kit's 1.04 m), so at the kit's rest its tip sank
+     below the floor, which the validators reject. The hand's rest is turned up 11.5° and every `hand.R` key is turned
+     back by the same rotation (a fixed quaternion product: exact for keys and handles), so no pose changes.
+   - **Sockets.** `socket_sword` moves onto Rodin's grip, `socket_sorcery` onto the open left palm; the kit's palm rune
+     (`SorceryAccent`) rides with it.
+2. **Parts** (`parts.py`). The game finds parts by name (the sword's finish and stowed copy, cloth dye, the banner's
+   emblem, the cockpit hiding all but the gauntlets), so each face goes to one part:
+   - `HeroSword`: faces wholly on the rigid sword.
+   - `TabardBack`: the cape. Below 1.35 m it hangs free of the body as one surface, found by cutting the mesh there and
+     keeping the red component behind the body.
+   - `TabardFront`: the front tabard, found the same way below the belt (1.0 m).
+   - The helmet: everything above 1.63 m, plus the visor and rim below that inside the helmet's footprint. `Visor` is the
+     glass Rodin's emissive map marks, `Crest` the red plume, `HelmetJaw` the guard below the eyes, `HelmetShell` the rest.
+   - Everything else by the bone that carries most of it: `Breastplate`, `Pauldron`, `Gauntlet`, `Greave`, `Boot`.
+
+   Two weight fixes come with the split. The helmet is made rigid on the head (Rodin had its lower half on the chest, so
+   a turned head sheared the visor). The cape and tabard move onto the tabard chains that the runtime's spring cloth
+   drives (Rodin had the cape on the chest, so leaning into a dash swung it out like a plank): the anchor bone above,
+   blending onto the first cloth bone just below the cut and onto the second around the middle. Split edges keep one set
+   of weights and Rodin's own normals, so no seam opens.
+3. **Motion** (`motion.py`).
+   - **Rest:** the rest skeleton and mesh are lifted 2.7 cm so the rest model stands on the floor.
+   - **Feet:** each pelvis height key of every standing action (and Death, which falls back pivoting on its feet) is
+     re-planted so the lower sole touches the floor. The key and its handles move together, so loop seams keep their
+     values and slopes. At mid-swing in Run the knee bends a little more (20°), so the returning boot clears 7 cm: Rodin's
+     thigh is shorter and his shin longer than the kit's.
+   - **Sword and floor:** with the longer sword and a forearm 39 % longer than the kit's, the kit's poses put the blade
+     through the floor (up to 52 cm in Cast). Each hand key whose pose sinks it turns the grip by the least angle that
+     clears it, about the axis that raises the blade's lowest point, and a key is added wherever it still dips between
+     keys. Keys that clear are left as authored. The largest turns are in Dash (35°), Stagger (35°) and Death's first
+     key (34°).
+   - **Sword and body:** any frame where the blade still passes through the body or off hand gets the kit's
+     follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up). One frame
+     remains: `GuardCut_1` frame 17, where the blade grazes the helmet (the kit's own blade cut through its breastplate
+     and right pauldron on that frame).
+4. **Look** (`look.py`). Rodin's one material becomes the materials the runtime looks for:
+   - `GameBody`: every armour part and the sword. `plateEnvironment.mjs` gives this material a soft sky to reflect and
+     raises its metalness by 1.25, so its metalness is cut to a sixth here; `steelSheen.mjs` hardens it in game.
+   - `CapeBanner`: the cape, on the same atlas (no extra bytes); `emblemBanner.mjs` swaps its map for an emblem's.
+   - `VisorGlow`: the visor glass, glowing with its own painted colour; `SorceryAccent` stays on the palm rune.
+
+   The diffuse is lifted for the game's light (`rgb^0.8 × 1.12`): Rodin painted shading into it, which read muddy and
+   dark under a hemisphere and sun. Textures are WebP (`EXT_texture_webp`), the diffuse at 1024 px, metal-roughness at
+   256 px. Rodin's normal map is dropped: nine texels in ten tilted the surface by under 2.6°.
+
+## First person (`fp_arms.py`)
+
+First person keeps its own rig, camera and camera-tuned actions; only the meshes change, so both views share one look.
+Each vertex of Rodin's gauntlets and sword is carried from the third-person rest into the first-person rest through
+its bones: upper arm and forearm bone to bone, shortened to the first-person lengths and slimmed (×0.82 and ×0.86, as
+the kit slimmed its first-person forearms); the left hand bone to bone; the sword hand and sword by the transform that
+carries the kit's own third-person sword onto its first-person one (fitted on the kit's two meshes: the grip turned 31°
+and the sword drawn at 83 %). The sockets and palm rune move with their hands.
+
+## Emblems (`emblems.py`)
+
+An earned emblem replaces the trident on the back banner. Each emblem texture is the atlas with only the cape kept:
+the trident found on the cape's outer face (each texel placed back on the cloth, across and down), painted out by
+diffusing the surrounding cloth into it, and the emblem drawn where it was, in the trident's colour for a one-colour
+mark. Everything outside the cape's islands is flat grey, so each texture is about 35 KB. Rodin modelled the trident in relief (up to 3 cm off the cloth), so under an emblem its outline still
+shows faintly in the light. Laying the relief flat was tried and smeared the default trident's paint, which every
+knight wears, so the relief stays. Marks: Seize Thy Slayer from
+`client/assets/heraldry/seize-thy-slayer.png`, St. Perry's shield from `emblem-st-perry-the-plain.png` (keyed from its
+earlier cape texture).
+
+## Checks on this source
+
+- **Validators:** rig and model (`build.py`), both GLB validators, the first-person sword visibility check, and
+  `scripts/test-spellblade-source.py`, `test-spellblade-motion.py` and `test-spellblade-combat-presentation.py` pass.
+- **Budgets:** third person 30,044 triangles (target 35,000), 1.65 MB GLB (2.5 MB), 0.74 MB gzipped (the static
+  server test allows 0.8 MB); first person about 9,400 triangles and 0.53 MB.
+- **Bytes:** `tools/blender/common/gltf_quantize.py` stores normals, texture coordinates and skin weights as normalized
+  integers (`KHR_mesh_quantization`, read natively by three.js). Positions stay floats.

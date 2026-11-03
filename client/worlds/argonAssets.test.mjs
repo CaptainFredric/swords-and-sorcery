@@ -15,7 +15,8 @@ test('exact delivered assets and review-only Spellblades preserve their contract
   const {bytes,g}=read(path);assert.equal(createHash('sha256').update(bytes).digest('hex'),hash);assert.equal(g.animations.length,clips);
   if(path.includes('spellblade-v')){assert.equal(g.skins[0].joints.length,27);assert.equal(g.materials.length,6);}
  }
- const manifest=readFileSync(new URL('../assets/characters/spellblade/manifest.json',import.meta.url),'utf8');assert.ok(manifest.includes('359f24af1f618cfa0f58d6d3f704dc069e083a23'));assert.ok(!manifest.includes('review-only'));
+ const manifest=readFileSync(new URL('../assets/characters/spellblade/manifest.json',import.meta.url),'utf8');// (production is whatever was last promoted from a reviewed source, never a review-only candidate)
+ const promoted=JSON.parse(readFileSync(new URL('../../tools/blender/characters/spellblade/promotion.json',import.meta.url),'utf8')).sourceRevision;assert.ok(manifest.includes(promoted));assert.ok(!manifest.includes('review-only'));
 });
 test('actual full Dash exports contain dangerous overlaps excluded from live posture ownership',()=>{
  const g=flight.g;

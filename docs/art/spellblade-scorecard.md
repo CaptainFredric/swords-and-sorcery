@@ -1,5 +1,7 @@
 # Spellblade concept scorecard
 
+November 3: the Spellblade is now the creator's Hyper3D Rodin model of the concept, fitted to the game's rig and actions by `tools/blender/characters/spellblade/rodin/`. Every region below is re-opened for review against the concept on that model.
+
 September 25: the Spellblade is now a crisp armour kit built by `tools/blender/characters/spellblade/kit/`. Each piece is measured from the registered concept panels and coloured to match the sheet under the game's own lighting, with wear textures and baked occlusion. It replaces the concept-generated body. The rows below describe the earlier hand-modelled passes, so judge the new model against the concept as a whole.
 
 The canonical sheet (`tools/blender/characters/spellblade/source/references/canonical-spellblade.png`) is the ideal look, not a blueprint. It is painted in perspective and its views disagree slightly (the back view reads about 7.5 heads tall, the front about 6.75), so each region names the view that decides it. Gameplay readability wins a conflict: opponents see the Spellblade at 5 to 20 m, usually moving, and the owner sees only first-person arms.

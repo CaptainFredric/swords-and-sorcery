@@ -5,6 +5,7 @@ from pathlib import Path
 
 import bpy
 
+from .gltf_quantize import quantize_attributes
 from .gltf_rotation import fix_rotation_continuity
 
 
@@ -58,3 +59,6 @@ def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
     # the exporter can leave neighbouring rotation keys in opposite hemispheres with unflipped tangents, which the
     # runtime plays as a one-frame snap (the Spellblade's thighs in Run and Dash); keep every curve continuous
     fix_rotation_continuity(path)
+    # normals, texture coordinates and skin weights as normalized integers (KHR_mesh_quantization): about a third of
+    # the file, and float normals were most of what the GLB couldn't compress
+    quantize_attributes(path)
