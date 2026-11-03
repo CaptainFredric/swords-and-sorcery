@@ -44,10 +44,15 @@ async function snap(){return evalInBrowser(`(() => {
  const live=window.__ssRuntime?.socket?.local?.room;
  const actorIds=s?.players?.map(p=>({id:p.id,kind:p.actorKind,operator:p.practiceSiegeOperator??null}))??[];
  const ballistaPilot=live?.players?.get(s?.bibyeBallista?.operatorId);
- return {room:s?.roomCode,mode:s?.mode,ops,actorIds,actualPilot:ballistaPilot?{id:ballistaPilot.id,
+ return {room:s?.roomCode,mode:s?.mode,roomState:s?.roomState,ops,actorIds,actualPilot:ballistaPilot?{id:ballistaPilot.id,
   operator:ballistaPilot.practiceSiegeOperator,alive:ballistaPilot.alive}:null,
   ballista:s?.bibyeBallista,
-  ram:s?.soFistication,flight:s?.fightFlight};
+  ram:s?.soFistication,flight:s?.fightFlight,
+  me:window.__ssRuntime?.localAuth?{alive:window.__ssRuntime.localAuth.alive,health:window.__ssRuntime.localAuth.health,
+   position:window.__ssRuntime.localAuth.position,yaw:window.__ssRuntime.localAuth.yaw}:null,
+  spawn:live?.world?.spawnPoints?.[0]??null,
+  hostileStatus:document.querySelector('#practice-hostile-status')?.textContent,
+  rejections:window.__practiceRejections??[]};
 })()`);}
 async function shot(name){
  const img=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
@@ -70,7 +75,9 @@ try{
  await evalInBrowser("document.querySelector('#player-name').value='Siege probe';document.querySelector('#solo-button').click()");
  await until(()=>evalInBrowser("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'solo Practice entry');
  await evalInBrowser("document.querySelector('#practice-mode').click()");
- await until(async()=>{const s=await snap();return s?.mode==='PRACTICE'&&s?.room;},'real local Practice session',160);
+ await until(async()=>{const s=await snap();return s?.mode==='PRACTICE'&&s?.room&&s?.roomState==='PLAYING';},'real local Practice session',160);
+ // Commands the room refuses come back as socket errors; keep them as evidence.
+ await evalInBrowser("window.__practiceRejections=[];window.__ssRuntime.socket.on('error',m=>window.__practiceRejections.push(m?.message??String(m)))");
  // The same controls must be usable from Pause and restored to their HUD parent
  // when returning to the arena. No duplicate panel, IDs, or event handlers.
  await evalInBrowser("window.__ssRuntime.onPause()");
@@ -79,6 +86,7 @@ try{
   return !menu.classList.contains('hidden')&&!button.hidden&&button.offsetParent!==null;
  })()`),'Practice choice visible in Arena Pause');
  assert.equal(mainMenu,true);
+ stage='Practice tools inside Arena Pause';
  await evalInBrowser("document.querySelector('#pause-practice').click()");
  const practicePanel=await evalInBrowser(`(() => {
   const menu=document.querySelector('#pause-menu'),panel=document.querySelector('#practice-overlay');
@@ -96,6 +104,7 @@ try{
  await shot('pause-practice-tools');
  await evalInBrowser("document.querySelector('#pause-practice-back').click()");
  assert.equal(await evalInBrowser("document.querySelector('#practice-overlay').inert"),true);
+ stage='Practice tools restored to the HUD after Resume';
  await evalInBrowser("document.querySelector('#resume-game').click()");
  const restored=await evalInBrowser(`(() => ({
   menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
@@ -103,8 +112,13 @@ try{
   visible:!document.querySelector('#practice-overlay').classList.contains('hidden')
  }))()`);
  assert.deepEqual(restored,{menuHidden:true,parent:'hud',visible:true});
- // Mobile Tools opens the existing direct drawer, retaining its HUD parent.
- await evalInBrowser("document.body.classList.add('touch-ui');window.__ssRuntime.enableTouch();window.__ssRuntime.requestPointerLock()");
+ // Mobile: a touchscreen switches to touch UI on its first touch (main.mjs
+ // useTouchUi), which also tells the new touch controls that Practice tools
+ // exist. Calling runtime.enableTouch() directly skipped that sync, so the
+ // TOOLS button stayed hidden until the next snapshot happened to arrive.
+ stage='mobile Practice TOOLS touch button';
+ await evalInBrowser("window.dispatchEvent(new PointerEvent('pointerdown',{pointerType:'touch',pointerId:726}));window.__ssRuntime.requestPointerLock()");
+ assert.equal(await evalInBrowser("document.body.classList.contains('touch-ui')"),true,'first touch switches to touch UI');
  const mobileButton=await evalInBrowser(`(() => {
   const t=window.__ssRuntime.touch,b=t.buttons.practiceTools;
   const pause=document.querySelector('#pause-practice');
@@ -116,6 +130,9 @@ try{
  assert.equal(mobileButton.visible,true);
  assert.ok(mobileButton.width>=40,'Practice touch target should be at least 40px');
  assert.equal(mobileButton.pauseMenuEntryHidden,true,'Mobile Practice must not be nested in the Arena Menu');
+ // One tap on TOOLS opens the side drawer (4cc5245d), not the Arena Menu,
+ // and the panel stays in its HUD home.
+ stage='mobile TOOLS tap opens the Practice drawer';
  await evalInBrowser(`(() => {
   const b=window.__ssRuntime.touch.buttons.practiceTools;
   b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',pointerId:727}));
@@ -125,31 +142,38 @@ try{
   menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
   drawerOpen:document.querySelector('#practice-overlay').classList.contains('drawer-open'),
   visible:getComputedStyle(document.querySelector('#practice-overlay')).display!=='none',
+  expanded:!document.querySelector('#practice-panel-content').classList.contains('hidden'),
   parent:document.querySelector('#practice-overlay').parentElement?.id,
-  closeVisible:document.querySelector('#practice-drawer-close').offsetParent!==null,
+  closeVisible:document.querySelector('#practice-drawer-close')?.offsetParent!=null,
   inert:document.querySelector('#practice-overlay').inert
  }))()`);
- assert.equal(direct.menuHidden,true);
- assert.equal(direct.drawerOpen,true);
- assert.equal(direct.visible,true);
- assert.equal(direct.parent,'hud');
- assert.equal(direct.inert,false);
- assert.equal(direct.closeVisible,true);
+ assert.deepEqual(direct,{menuHidden:true,drawerOpen:true,visible:true,expanded:true,
+  parent:'hud',closeVisible:true,inert:false});
  await shot('direct-mobile-practice-tools');
+ stage='closing the mobile Practice drawer returns to the arena';
  await evalInBrowser("document.querySelector('#practice-drawer-close').click()");
  const directExit=await evalInBrowser(`(() => ({
   menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
-  parent:document.querySelector('#practice-overlay').parentElement?.id,
   drawerOpen:document.querySelector('#practice-overlay').classList.contains('drawer-open'),
+  parent:document.querySelector('#practice-overlay').parentElement?.id,
   touchActive:window.__ssRuntime.touch.active
  }))()`);
- assert.deepEqual(directExit,{menuHidden:true,parent:'hud',drawerOpen:false,touchActive:true});
+ assert.deepEqual(directExit,{menuHidden:true,drawerOpen:false,parent:'hud',touchActive:true});
  const choices=[
   ['bi-bye-llista','Ballistefan','ballista'],
   ['so-fist-ication','Sir Uppercuff','ram'],
   ['fight-and-flight','Mr. Donte Shoot','flight']
  ];
  for(const [machine,name,field] of choices){
+  // Summoning is refused for a dead player and placed relative to where the
+  // player stands. A formidable hostile can kill or displace the idle prober
+  // before it is removed (seen when sampling is slow), so start each machine
+  // from the start spawn with the visible RESET SELF control.
+  stage='RESET SELF before summoning '+name;
+  await evalInBrowser("document.querySelector('#practice-reset').click()");
+  await until(async()=>{const s=await snap();
+   return s.me?.alive&&s.me.health===100&&s.spawn&&Math.hypot(s.me.position.x-s.spawn.x,s.me.position.z-s.spawn.z)<.1;
+  },'player alive at the start spawn before '+name,60);
   stage='summon '+name;
   await evalInBrowser(`(() => {const s=document.querySelector('#practice-hostile-machine');s.value=${JSON.stringify(machine)};s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-hostile-difficulty').value='formidable';document.querySelector('#practice-hostile-spawn').click();})()`);
   const first=await until(async()=>{const s=await snap();
