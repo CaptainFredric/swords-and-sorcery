@@ -1229,6 +1229,8 @@ export class GameRuntime {
   }
 
   releasePointer() {
+    // Pointer Lock exits asynchronously. Neutralize controls before UI opens.
+    this.input.releaseInputs();
     this.input.releaseFocus();
   }
 
@@ -3687,7 +3689,9 @@ export class GameRuntime {
       if (mounted) outside = true;
       this.weapon.setFlightCockpit?.({ active: isFpFlight, concurrent: combatActionPolicy(this.localAuth, serverNow).concurrent });
       this.weapon.group.visible = !outside;
-      if (isFpFlight) this.weapon.group.visible = true;
+      // The seated production rider supplies the actual hands and sword.
+      // A second camera-locked weapon obscures the cockpit and duplicates the grip.
+      if (isFpFlight) this.weapon.group.visible = false;
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,

@@ -8,7 +8,7 @@ export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
   // A committed attack, then a heavier, acceleration-limited turn than ordinary flight.
   commitmentSec:.36,minTravel:10,turnRate:1.65,turnAcceleration:5.4,
-  acceleration:5.5,pitch:.34,visualTrim:.34,pitchLimit:.85,pitchRate:1.45,
+  acceleration:5.5,pitch:.18,visualTrim:1.0,pitchLimit:.85,pitchRate:1.45,
   clearance:1.1,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -18,12 +18,20 @@ export function requestFlightDash(room,m,p,held,now){
  const before=m.flightDashHeld===true;
  if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
- if(!held){if(m.offensiveRun)m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashStartedAt=null;m.practiceDashRefilling=false;return true;}
+ if(!held){
+   m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
+   if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
+   m.runReleasedAt=now;m.flightDashStartedAt=null;
+   if(!m.offensiveRun)m.practiceDashRefilling=false;
+   return true;
+ }
  if(before)return true;
  m.flightDashStartedAt=now;
- m.runCommitHeading=m.heading;
- m.runCommitPitch=Math.min(-VALKYRIE_RUN.pitch,clamp(
-   Number.isFinite(p.input?.pitch)?p.input.pitch:0,-VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit));
+ m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:m.heading;
+ const aimPitch=clamp(Number.isFinite(p.input?.pitch)?p.input.pitch:0,
+   -VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit);
+ // Level launches make a shallow attacking descent; upward intent stays upward.
+ m.runCommitPitch=aimPitch>0?aimPitch:Math.min(-VALKYRIE_RUN.pitch,aimPitch);
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  const ultimate=activeUltimate(p,now);
@@ -67,9 +75,16 @@ export function stepFlightRun(room,m,dt,now){
    if(m.offensiveRun)m.runAnimationEndedAt=now;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
+   if(!valid||(!practice&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
  }else{
-   if(!m.offensiveRun){m.runAnimationStartedAt=now;m.offensiveRun=true;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
+   if(!m.offensiveRun){
+     m.runAnimationStartedAt=now;m.offensiveRun=true;
+     m.runStartAt=now;m.runElapsed=0;m.runReleaseElapsed=0;
+     m.runLaunchStartY=m.y;m.runLaunchMinVy=0;m.runLaunchDrop=0;m.runLaunchDistance=0;
+     m.runLastPosition={x:m.x,y:m.y,z:m.z};
+     room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
+   m.runElapsed=(m.runElapsed??0)+dt;
    if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
@@ -77,7 +92,7 @@ export function stepFlightRun(room,m,dt,now){
      p.prowess=clamp((p.prowess??0)-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
      if(p.prowess<=0){
        if(practice){m.practiceDashRefilling=true;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});}
-       else{m.runAnimationEndedAt=now;m.offensiveRun=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+       else{m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
      }
    }
  }
@@ -101,10 +116,10 @@ export function stepFlightRun(room,m,dt,now){
    }
  }
  const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
- m.runTrim=approach(m.runTrim??0,m.offensiveRun?VALKYRIE_RUN.visualTrim:0,VALKYRIE_RUN.pitchRate);
+ m.runTrim=approach(m.runTrim??0,m.offensiveRun?VALKYRIE_RUN.visualTrim*(1-clamp((m.runFlightPitch??0)/.5,0,1)):0,VALKYRIE_RUN.pitchRate);
  m.runFlightPitch=approach(m.runFlightPitch??0,target,
    target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
- m.runPitch=m.runTrim-m.runFlightPitch;
+ m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,1.20);
 
 }
 

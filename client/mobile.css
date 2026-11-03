@@ -35,10 +35,16 @@ button, input { touch-action: manipulation; }
 .touch-controls.active { display: block; position: absolute; inset: 0; z-index: 12; pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; --s: var(--ts, 1); }
 @container app (min-height: 560px) { .touch-controls.active { --s: calc(1.18 * var(--ts, 1)); } }
 
-.touch-btn { position: absolute; display: grid; place-items: center; align-content: center; gap: 1px; width: calc(var(--size) * var(--s)); height: calc(var(--size) * var(--s)); border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .5); background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .6), rgba(15, 16, 12, .68)); color: #f1e8d0; box-shadow: 0 2px 10px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .08); overflow: hidden; transition: transform .06s ease, background .06s ease; }
+.touch-btn { position: absolute; display: grid; place-items: center; align-content: center; gap: 1px; width: calc(var(--size) * var(--s)); height: calc(var(--size) * var(--s)); border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .5); background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .6), rgba(15, 16, 12, .68)); color: #f1e8d0; box-shadow: 0 2px 10px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .08); overflow: hidden; transition: background .08s ease; }
 .touch-btn svg { width: calc(var(--size) * var(--s) * .42); height: calc(var(--size) * var(--s) * .42); fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
 .touch-btn span { font-size: 7px; font-weight: 900; letter-spacing: .14em; opacity: .82; }
-.touch-btn.pressed { transform: scale(.93); background: radial-gradient(circle at 50% 40%, rgba(200, 164, 95, .55), rgba(70, 55, 30, .72)); }
+.touch-btn.pressed { background: radial-gradient(circle at 50% 40%, rgba(200, 164, 95, .55), rgba(70, 55, 30, .72)); }
+
+/* Only the face compresses; the captured touch target never changes size. */
+.touch-face { position:absolute; inset:0; display:grid; place-items:center; align-content:center; gap:1px; border-radius:inherit; transition:transform .07s ease; pointer-events:none; }
+.touch-btn.pressed .touch-face { transform:scale(.95); }
+.touch-status:empty { display:none; }
+.touch-status { font:800 6px/1 system-ui; letter-spacing:.02em; color:#dbc38c; }
 
 /* right thumb: an arc of actions around Attack */
 .touch-attack { --size: 80px; right: calc(var(--safe-r) + 28px * var(--s)); bottom: calc(var(--safe-b) + 28px * var(--s)); border-color: rgba(233, 130, 90, .75); }
@@ -527,161 +533,61 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
 /* Fight-and-Flight mobile layout */
-.touch-ui .flight-hud { width: min(290px, 92vw); }
+.touch-ui .flight-hud { width: min(290px, 100%); }
 .touch-ui .flight-hud-strip { padding: 2px 6px; }
 .touch-ui .flight-metric label { font-size: 7px; }
 .touch-ui .flight-metric b { font-size: 11px; }
 .touch-ui .flight-bar-wrap progress { width: 36px; height: 5px; }
 
-/* The rail shares the stick's frame, so mirrored/custom stick placement moves both.
-   The thumb springs to neutral on pointerup, cancel, blur and unmount. */
-.touch-flightRise, .touch-flightLower { display: none !important; }
-.touch-flight-rail { display: none; }
-.touch-controls.touch-flight .touch-stick { opacity: 1; }
+/* Flight layout positions come from touchLayout.mjs, including mirroring and
+   saved edits. One visual family, with fixed targets around pressed metal faces. */
+.touch-flightRise, .touch-flightLower, .touch-flight-rail { display:none; }
+.touch-controls.touch-flight { --s:var(--ts,1); }
+.touch-mounted.touch-flight :is(.touch-guard,.touch-dash,.touch-jump,.touch-ultimate),
+.touch-mounted.mounted-steel-available .touch-spell { display:grid; }
+.touch-controls.touch-flight .touch-btn:not(.touch-pause):not(.touch-scores) {
+  border:0; background:none; box-shadow:none; border-radius:10px;
+  min-width:44px; min-height:44px; overflow:visible; color:#e8d4a2;
+}
+.touch-controls.touch-flight .touch-face {
+  inset:2px; overflow:hidden; border:1px solid #d2b66c;
+  background:linear-gradient(165deg,#68706b 0%,#3b4445 12%,#252d30 48%,#171d20 70%,#394044 100%);
+  box-shadow:inset 0 1px #f8e4ae66,inset 0 0 0 3px #12191d80,0 2px 7px #0007;
+}
+.touch-controls.touch-flight .touch-btn.pressed .touch-face {
+  background:linear-gradient(160deg,#8d835e,#3d4036 42%,#20292a);
+  box-shadow:inset 0 1px #ffdfa8aa,inset 0 0 0 2px #e3c26c55;
+}
+.touch-controls.touch-flight .touch-btn svg { width:25px; height:25px; stroke-width:1.8; stroke-linejoin:miter; stroke-linecap:square; }
+.touch-controls.touch-flight .touch-btn span { font:800 8px/1.2 system-ui; letter-spacing:.035em; opacity:1; }
+.touch-controls.touch-flight .touch-siegeSkill span { font-size:7px; letter-spacing:0; white-space:nowrap; }
+.touch-controls.touch-flight .touch-siegeSkill.skill-active .touch-face { border-color:#ffe39c; box-shadow:inset 0 0 10px #ddc48666; }
+.touch-controls.touch-flight .touch-attack svg { width:29px; height:29px; }
+.touch-controls.touch-flight .touch-guard { color:#b6d8df; }
+.touch-controls.touch-flight .touch-interact { color:#e3b3a6; }
+.touch-controls.touch-flight .touch-guard.airborne-forbidden,
+.touch-controls.touch-flight .touch-dash:is(.flight-grounded,.flight-no-prowess,.flight-no-rotor) { opacity:.48; }
+.touch-controls.touch-flight .touch-dash.flight-dash-active .touch-face { border-color:#eae0af; box-shadow:inset 0 0 8px #c7d5c94a,0 0 7px #b9c9b94a; }
+.touch-controls.touch-flight :is(.touch-ultimate,.touch-dash).valkyrie-prep .touch-face { border-color:#f5a17a; box-shadow:inset 0 0 10px #bf623666; }
+.touch-controls.touch-flight .touch-stick { opacity:1; border-color:#c6ae73aa; background:radial-gradient(circle,#26303555,#162126a8); }
+.touch-controls.touch-flight .touch-stick::before {
+  content:'';position:absolute;z-index:-1;inset:-6px -45px -6px -6px;border:1px solid #b99f6399;border-radius:58px 18px 18px 58px;
+  background:linear-gradient(150deg,#414a4dbb,#131e24b8);box-shadow:inset 0 1px #eee0b433,0 2px 7px #0005;pointer-events:none;
+}
+.touch-controls.touch-flight .touch-stick.motion-mirrored::before { inset:-6px -6px -6px -45px; border-radius:18px 58px 58px 18px; }
+.touch-controls.touch-flight .touch-motion-guide { display:none; }
 .touch-controls.touch-flight .touch-flight-rail {
-  position: absolute; left: calc(100% + 22px); bottom: -8px;
-  width: calc(44px * var(--s)); height: calc(140px * var(--s));
-  border: 1.5px solid #c6a66f; border-radius: 20px;
-  background: linear-gradient(90deg,#141715ec,#3b392fea 48%,#151917ef);
-  box-shadow: inset 0 0 0 4px #0c100dbb, 0 3px 12px #000a;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-  box-sizing: border-box; padding: 5px 0; touch-action: none; pointer-events: auto;
-  color: #e9d7ad; z-index: 18;
+  position:absolute;left:calc(100% + 2px);top:0;width:40px;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  box-sizing:border-box;padding:7px 0;border-radius:12px;touch-action:none;pointer-events:auto;
+  color:#e9d7ad;background:linear-gradient(90deg,#0c171b88,#333d40cc,#0c171b88);z-index:18;
 }
-.touch-stick.motion-mirrored .touch-flight-rail { left: auto; right: calc(100% + 22px); }
-.touch-flight-rail::before {
-  content: 'FLIGHT'; position:absolute; bottom:calc(100% + 3px); left:50%;
-  transform: translateX(-50%); font: 800 8px system-ui; letter-spacing:.08em;
-  text-shadow: 0 1px 2px #000; white-space: nowrap; color:#dac18c;
-}
-.touch-flight-rail-arrow { font: 800 20px/1 system-ui; opacity: .52; pointer-events:none; }
-.touch-flight-rail-thumb {
-  position:absolute; top:50%; left:4px; right:4px; height:30px;
-  transform:translateY(-50%); border-radius:11px; pointer-events:none;
-  border:1px solid #e0c98c; background:linear-gradient(160deg,#ac8b56,#554930 60%,#443b31);
-  box-shadow:inset 0 1px #f4e1ac9c,0 2px 5px #000a;
-}
-.touch-flight-rail[data-intent="rise"] { border-color:#e7cf92; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #d6b56a66; }
-.touch-flight-rail[data-intent="lower"] { border-color:#9bc6d2; box-shadow:inset 0 0 0 4px #0c100dbb,0 0 10px #8aaebc66; }
-
-/* Right-side combat cluster (bottom to top): */
-/* Bottom row: GUARD (left), SWORD (right) */
-.touch-mounted.touch-flight .touch-attack {
-  display: grid !important;
-  --size: 80px;
-  width: calc(88px * var(--s));
-  height: calc(76px * var(--s));
-  border-radius: 24px;
-  right: calc(var(--safe-r) + 20px * var(--s));
-  bottom: calc(var(--safe-b) + 24px * var(--s));
-  color: #f1e8d0;
-  border-color: rgba(233, 130, 90, .75);
-}
-.touch-mounted.touch-flight .touch-guard {
-  display: grid !important;
-  --size: 66px;
-  right: calc(var(--safe-r) + 108px * var(--s));
-  bottom: calc(var(--safe-b) + 24px * var(--s));
-  color: #a6e6f3;
-  border-color: rgba(102, 201, 221, .62);
-}
-.touch-mounted.touch-flight.airborne .touch-guard.airborne-forbidden {
-  opacity: .42;
-  filter: grayscale(0.5);
-  pointer-events: none;
-}
-
-/* Second row: BOLT (left, hold to fire) and JUMP (right, discrete hop). */
-.touch-mounted.touch-flight .touch-jump {
-  display: grid !important;
-  --size: 62px;
-  right: calc(var(--safe-r) + 26px * var(--s));
-  bottom: calc(var(--safe-b) + 105px * var(--s));
-  left: auto;
-  border-radius: 50%;
-  color: #f1e8d0;
-  border-color: rgba(222, 204, 160, .6);
-}
-.touch-mounted.touch-flight .touch-siegeWeapon {
-  display: grid !important;
-  --size: 68px;
-  width: calc(86px * var(--s));
-  height: calc(62px * var(--s));
-  border-radius: 17px;
-  right: calc(var(--safe-r) + 108px * var(--s));
-  bottom: calc(var(--safe-b) + 105px * var(--s));
-  color: #e6c98f;
-  border-color: rgba(230, 201, 143, .75);
-}
-
-/* Third row: FIRE AWAY (left), DASH (right) */
-.touch-mounted.touch-flight .touch-siegeSkill {
-  display: grid !important;
-  --size: 58px;
-  right: calc(var(--safe-r) + 108px * var(--s));
-  bottom: calc(var(--safe-b) + 172px * var(--s));
-  color: #eed39b;
-  border-color: #bca06c;
-}
-.touch-mounted.touch-flight .touch-dash {
-  display: grid !important;
-  --size: 58px;
-  right: calc(var(--safe-r) + 24px * var(--s));
-  bottom: calc(var(--safe-b) + 172px * var(--s));
-  color: #a6e6f3;
-  border-color: rgba(102, 201, 221, .62);
-}
-
-/* Above ordinary combat cluster: ULTIMATE / VALKYRIE */
-.touch-mounted.touch-flight .touch-ultimate {
-  display: grid !important;
-  --size: 58px;
-  right: calc(var(--safe-r) + 66px * var(--s));
-  bottom: calc(var(--safe-b) + 242px * var(--s));
-}
-
-/* Auxiliary controls in upper edge */
-.touch-mounted.touch-flight .touch-siegeView {
-  --size: 44px;
-  top: calc(var(--safe-t) + 12px * var(--s));
-  bottom: auto;
-  right: calc(var(--safe-r) + 14px * var(--s));
-}
-.touch-mounted.touch-flight .touch-interact {
-  --size: 44px;
-  top: calc(var(--safe-t) + 12px * var(--s));
-  bottom: auto;
-  right: calc(var(--safe-r) + 68px * var(--s));
-  opacity: 1 !important;
-  color: #f48fb1;
-  border-color: rgba(244, 143, 177, .75);
-}
-.touch-mounted.touch-flight .touch-interact.terminal-locked {
-  display: none !important;
-}
-
-/* Dash mounted states */
-.touch-mounted.touch-flight .touch-dash.flight-grounded,
-.touch-mounted.touch-flight .touch-dash.flight-no-prowess,
-.touch-mounted.touch-flight .touch-dash.flight-no-rotor {
-  opacity: .5;
-}
-.touch-mounted.touch-flight .touch-dash.flight-dash-active {
-  box-shadow: 0 0 16px rgba(102, 201, 221, .85);
-  background: radial-gradient(circle at 50% 40%, rgba(102, 201, 221, .6), rgba(30, 60, 70, .8));
-}
-
-/* Valkyrie prep pulse indicator on Dash and Ultimate */
-.touch-mounted.touch-flight .touch-ultimate.valkyrie-prep,
-.touch-mounted.touch-flight .touch-dash.valkyrie-prep {
-  animation: valkyrie-prep-pulse 0.4s infinite alternate;
-  border-color: #ff5252 !important;
-  box-shadow: 0 0 18px rgba(255, 82, 82, .9);
-}
-@keyframes valkyrie-prep-pulse {
-  from { transform: scale(0.95); }
-  to { transform: scale(1.06); }
-}
+.touch-stick.motion-mirrored .touch-flight-rail { left:auto;right:calc(100% + 2px); }
+.touch-flight-rail-arrow { font:800 17px/1 system-ui;opacity:.7;pointer-events:none; }
+.touch-flight-rail-thumb { position:absolute;top:50%;left:4px;right:4px;height:28px;transform:translateY(-50%);border-radius:6px;pointer-events:none;border:1px solid #e0c98c;background:linear-gradient(160deg,#b69c63,#555440 60%,#353d3b);box-shadow:inset 0 1px #f4e1ac9c,0 2px 4px #000a; }
+.touch-flight-rail[data-intent="rise"] { color:#fff1bd; }
+.touch-flight-rail[data-intent="lower"] { color:#b9dce6; }
+@container app (max-height:340px) { .touch-controls.touch-flight { --s:calc(.88 * var(--ts,1)); } }
 
 /* Custom opacity support */
 .touch-controls {
@@ -786,40 +692,6 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Deliberate mobile volley: separate from simultaneous finger gestures. */
 .touch-siegeBoth { --size: 62px; right: calc(var(--safe-r) + 203px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #f3d4ac; border-color: #e6ad77; }
 
-/* Mounted controls must remain legible, usable and outside the main sightline.
-   The previous round-button soup had no grouping and CSS !important display
-   overrode the HTML hidden state (making unavailable buttons appear functional). */
-.touch-controls.touch-mounted.touch-flight .touch-btn[hidden] { display:none !important; }
-.touch-controls.touch-mounted.touch-flight .touch-btn:not(.touch-pause):not(.touch-scores) {
-  border-radius:12px;
-  box-shadow:inset 0 1px #ffffff20,0 3px 12px #0009;
-  background:linear-gradient(160deg,rgba(57,53,42,.88),rgba(19,22,22,.89));
-}
-.touch-controls.touch-mounted.touch-flight .touch-btn.pressed {
-  border-color:#e8c88b; background:linear-gradient(160deg,rgba(145,112,60,.9),rgba(47,45,38,.93));
-}
-.touch-controls.touch-mounted.touch-flight .touch-btn span { font-size:8px; letter-spacing:.045em; }
-.touch-controls.touch-mounted.touch-flight .touch-dash span { font-size:7px; }
-.touch-controls.touch-mounted.touch-flight::before {
-  content:'';position:absolute;pointer-events:none;z-index:0;
-  right:calc(var(--safe-r) + 12px);bottom:calc(var(--safe-b) + 12px);
-  width:calc(172px * var(--s));height:calc(196px * var(--s));
-  border:1px solid rgba(196,166,109,.26); border-radius:18px;
-  background:radial-gradient(ellipse at 65% 65%, rgba(48,42,34,.45), rgba(20,25,26,.32));
-  backdrop-filter: blur(2px);
-}
-.touch-controls.touch-mounted.touch-flight .touch-btn { z-index:1; }
-.touch-controls.touch-mounted.touch-flight .touch-guard.airborne-forbidden {
-  opacity:.35; pointer-events:none; filter:grayscale(.7);
-}
-.touch-controls.touch-mounted.touch-flight .touch-siegeView,
-.touch-controls.touch-mounted.touch-flight .touch-interact {
-  border-radius:9px; background:rgba(25,29,30,.9);
-}
-/* Retired rocker elements remain hidden even under old saved touch layouts. */
-.touch-controls.touch-mounted.touch-flight .touch-flightRise,
-.touch-controls.touch-mounted.touch-flight .touch-flightLower { display: none !important; }
-
 /* Nonflight siege machines also get a coherent brass/iron action family. */
 .touch-controls.touch-mounted:not(.touch-flight) .touch-siegeWeapon,
 .touch-controls.touch-mounted:not(.touch-flight) .touch-siegeSkill,
@@ -829,33 +701,14 @@ html.turn-typing .rotate-prompt { display: none !important; }
   border-radius:12px; background:linear-gradient(160deg,#3b332cd9,#1b2020e8);
   border-color:#b6a074a0; box-shadow:inset 0 1px #ffffff20,0 3px 12px #0009;
 }
-@container app (max-height:410px) {
- .touch-controls.touch-mounted.touch-flight .touch-ultimate {
-   bottom:calc(var(--safe-b) + 226px * var(--s));
- }
- .touch-controls.touch-mounted.touch-flight.mounted-steel-available .touch-spell {
-   bottom:calc(var(--safe-b) + 226px * var(--s));
- }
- .touch-controls.touch-mounted.touch-flight .touch-siegeSkill,
- .touch-controls.touch-mounted.touch-flight .touch-dash {
-   bottom:calc(var(--safe-b) + 159px * var(--s));
- }
- .touch-controls.touch-mounted.touch-flight::before { height:calc(180px * var(--s)); width:calc(166px * var(--s)); }
-}
-
 /* Mounted Sheathe in Steel */
-.touch-controls.touch-mounted.mounted-steel-available .touch-spell {
-  display: grid !important;
+.touch-controls.touch-mounted:not(.touch-flight).mounted-steel-available .touch-spell {
+  display: grid;
   border-radius: 14px;
   background: linear-gradient(160deg, #2a3442e0, #141d27f0);
   border-color: rgba(182, 214, 240, 0.72);
   color: #dfe9f5;
   box-shadow: inset 0 1px #ffffff30, 0 3px 12px #0009;
-}
-.touch-controls.touch-mounted.touch-flight.mounted-steel-available .touch-spell {
-  --size: 58px;
-  right: calc(var(--safe-r) + 138px * var(--s));
-  bottom: calc(var(--safe-b) + 242px * var(--s));
 }
 .touch-controls.touch-mounted:not(.touch-flight).mounted-steel-available .touch-spell {
   --size: 62px;
@@ -876,3 +729,17 @@ html.turn-typing .rotate-prompt { display: none !important; }
     animation: none;
   }
 }
+
+.touch-controls .touch-btn[hidden] { display:none !important; }
+
+/* Reserve the auxiliary controls even on short phones. Six flight metrics form
+   two rows only when the space between health and View cannot fit one strip. */
+@container app (max-width:700px) {
+ .touch-ui .hud.flight-mounted .hud-status-stack { left:calc(var(--safe-l) + 266px); right:calc(var(--safe-r) + 116px); }
+ .touch-ui .hud.flight-mounted .flight-hud-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px 5px; }
+ .touch-ui .hud.flight-mounted .match-info { font-size:7px; letter-spacing:.06em; }
+}
+@container app (max-width:540px) {
+ .touch-ui .hud.flight-mounted .hud-status-stack { top:calc(var(--safe-t) + 85px); left:calc(var(--safe-l) + 180px); right:calc(var(--safe-r) + 116px); }
+}
+.touch-ui:has(.touch-flight .motion-mirrored) .bottom-hud { left:calc(var(--safe-l) + 120px); }

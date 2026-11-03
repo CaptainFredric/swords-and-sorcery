@@ -77,6 +77,6 @@ export class FlightRigAnimation{
  }
  grips(){
   const point=name=>this.nodes.get(name)?.getWorldPosition(new THREE.Vector3());
-  return{leftFootQ:this.nodes.get('operator_foot_stirrup_L')?.getWorldQuaternion(new THREE.Quaternion()),rightFootQ:this.nodes.get('operator_foot_stirrup_R')?.getWorldQuaternion(new THREE.Quaternion()),pelvis:point('operator_waist_harness_anchor'),left:point('operator_hand_L_crossbow_grip'),right:point('operator_hand_R_sword_grip'),leftFoot:point('operator_foot_stirrup_L'),rightFoot:point('operator_foot_stirrup_R')};
+  return{leftFootQ:this.nodes.get('operator_foot_stirrup_L')?.getWorldQuaternion(new THREE.Quaternion()),rightFootQ:this.nodes.get('operator_foot_stirrup_R')?.getWorldQuaternion(new THREE.Quaternion()),pelvis:point('operator_waist_harness_anchor'),left:point('operator_hand_L_crossbow_grip'),right:point('operator_hand_R_sword_grip'),rightTip:point('operator_sword_tip_locator'),leftFoot:point('operator_foot_stirrup_L'),rightFoot:point('operator_foot_stirrup_R')};
  }
 }

@@ -24,7 +24,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   practiceTools: { left: 10, top: 56, size: 44 },
 });
 
-export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+const LEGACY_FLIGHT_LAYOUT = Object.freeze({
   stick: { left: 118, bottom: 110, size: 112, type: 'stick' },
   // Vertical flight rail is attached to the movement stick; it follows mirrored/custom stick placement.
   // Right-side combat cluster (bottom to top):
@@ -46,6 +46,23 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   pause: { left: 10, top: 8, size: 38 },
   scores: { left: 54, top: 8, size: 38 },
   practiceTools: { left: 10, top: 56, size: 44 },
+});
+
+export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+  stick: {left:82,bottom:91,size:112,type:'stick'},
+  guard: {right:88,bottom:12,size:64},
+  attack: {right:14,bottom:12,width:68,height:64},
+  siegeWeapon: {right:88,bottom:82,width:64,height:54},
+  jump: {right:14,bottom:82,size:54},
+  siegeSkill: {right:88,bottom:142,size:54},
+  dash: {right:14,bottom:142,size:54},
+  spell: {right:88,bottom:202,size:54},
+  ultimate: {right:14,bottom:202,size:54},
+  siegeView: {right:14,top:10,size:44},
+  interact: {right:64,top:10,size:44},
+  pause: {left:10,top:8,size:38},
+  scores: {left:54,top:8,size:38},
+  practiceTools: {left:10,top:56,size:44},
 });
 
 export function mirrorLayoutHorizontal(layout) {
@@ -106,7 +123,18 @@ function migrateCrouchPosition(onFoot) {
 // Ensure saved flight layouts preserve custom positioning while migrating missing controls.
 function migrateFlightLayout(flight) {
   if (!flight) return { ...DEFAULT_FLIGHT_LAYOUT };
-  return { ...DEFAULT_FLIGHT_LAYOUT, ...flight };
+  const matches=(a,b)=>a&&b&&Object.keys(b).every(k=>a[k]===b[k])&&Object.keys(a).every(k=>k==='custom'||k in b);
+  // The old handedness preset marked every control custom. Migrate only the
+  // complete unedited preset; individual edited controls remain untouched.
+  const oldMirror=mirrorLayoutHorizontal(LEGACY_FLIGHT_LAYOUT);
+  if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
+  const migrated={...DEFAULT_FLIGHT_LAYOUT};
+  for(const [key,item] of Object.entries(flight)){
+    const legacy=LEGACY_FLIGHT_LAYOUT[key];
+    const untouched=legacy&&!item.custom&&matches(item,legacy);
+    if(!untouched)migrated[key]=item;
+  }
+  return migrated;
 }
 
 export function loadTouchLayout(storage = globalThis.localStorage) {
@@ -134,6 +162,12 @@ export function saveTouchLayout(layout, storage = globalThis.localStorage) {
   try {
     storage?.setItem?.('ss-touch-layout', JSON.stringify(layout));
   } catch {}
+}
+
+export function clearLayoutItem(element){
+  if(!element?.style)return;
+  for(const key of ['left','right','top','bottom','width','height'])if(element.style[key]!=null)element.style[key]='';
+  element.style.setProperty('--size','');
 }
 
 export function applyLayoutItem(element, placement, scale = 1) {

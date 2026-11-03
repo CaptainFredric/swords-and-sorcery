@@ -137,3 +137,19 @@ test('Stale desktop or touch hold expires; neither alone can commit terminal Div
     assert.equal(s.m.terminalDive,null);
   }
 });
+
+test('Dash captures camera heading and honors an initially upward aim',()=>{
+  const s=setup();s.p.input.yaw=Math.PI/2;s.p.input.pitch=.65;
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  assert.equal(s.m.runCommitHeading,Math.PI/2);
+  frames(s,9);
+  assert.ok(s.m.velocity.x < -5,'launch thrust follows the selected camera direction');
+  assert.ok(s.m.velocity.y > 1,'upward launch is physically upward');
+  assert.ok(s.m.heading>0&&s.m.heading<Math.PI/2,'chassis aligns without an instant rotation');
+});
+test('Low pass genuinely pitches the blade into standing infantry height',()=>{
+  const s=setup({practice:true,y:1.2});s.p.input.pitch=-.5;
+  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,25);
+  assert.ok(s.m.runPitch>.65,'actual root pitches substantially at floor clearance');
+  assert.ok(s.m.y>=1.05,'ground safety remains intact');
+});

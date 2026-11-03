@@ -11,7 +11,7 @@ import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -108,7 +108,7 @@ export class TouchControls {
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          ${svg(icon)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
+          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
     this.galeGesture = null;
@@ -237,10 +237,11 @@ export class TouchControls {
     // The motion well is a child of the stick: edited, moved, or mirrored
     // joystick placements carry the feedback with them automatically.
     this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
+    for(const element of [this.stickBase,...Object.values(this.buttons)])clearLayoutItem(element);
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
         const element = action === 'stick' ? this.stickBase : this.buttons[action];
-        if (element) applyLayoutItem(element, placement);
+        if (element) applyLayoutItem(element, mode==='flight'?{...placement,custom:true}:placement);
       }
     }
     if (layouts.opacity !== undefined) {
@@ -495,12 +496,17 @@ export class TouchControls {
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
-      if(this.flightMounted!==undefined&&this.flightMounted!==flight){this.reset();this.flightMounted=flight;this.applyLayout(this.layouts);}
+      if(this.flightMounted!==flight){this.reset();this.flightMounted=flight;this.applyLayout(this.layouts);}
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;
       this.flightMounted=flight;
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-flight',flight);
+      for(const [action,name] of [['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':'siegeSkill'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',flight?'eject':'interact']]){
+        const button=this.buttons[action];if(button&&button.dataset.icon!==name){
+          button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
+        }
+      }
       const airborne = Boolean(flight && !fb?.grounded);
       this.layer.classList.toggle('airborne', airborne);
       if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
@@ -535,7 +541,9 @@ export class TouchControls {
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
           dashBtn.classList.toggle('flight-dash-active', offensiveActive);
           dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
-          dashBtn.querySelector('span').textContent=dashGrounded?'FLY FIRST':dashNoRotor?'NO ROTOR':dashNoProwess&&!offensiveActive?'NEED METER':'DASH';
+          dashBtn.querySelector('span').textContent='DASH';
+          const status=dashBtn.querySelector('.touch-status');
+          if(status)status.textContent=dashGrounded?'TAKE OFF':dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';
           dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' : dashGrounded ? 'Dash requires being airborne' : dashNoProwess ? 'Offensive run requires Prowess' : dashNoRotor ? 'Rotor destroyed' : offensiveActive ? 'Offensive Flight Run Active' : 'Hold Dash for Prowess-powered offensive run');
         }
 
@@ -559,6 +567,7 @@ export class TouchControls {
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');
         this.buttons.dash.querySelector('span').textContent='DASH';
+        const status=this.buttons.dash.querySelector('.touch-status');if(status)status.textContent='';
         this.buttons.ultimate?.classList.remove('valkyrie-ready', 'valkyrie-prep');
       }
 
@@ -883,7 +892,9 @@ export class TouchControls {
         this.input.releaseFocus();
       }
       if (action === 'practiceTools' && event.type === 'pointerup' && !denied && !this.buttons.practiceTools.hidden) {
-        // The lifting finger cannot press the arena under the newly opened panel.
+        // Cancel captures before changing focus or revealing UI. A late release
+        // must never turn a held Eject into a completed eject gesture.
+        this.reset();
         this.input.onAction?.('practiceTools', true);
         this.input.releaseFocus();
       }

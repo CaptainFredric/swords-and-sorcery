@@ -1081,3 +1081,23 @@ test('Flight input safety: slider release, pointer cancellation, and lost pointe
   assert.equal(controls.flightRail.dataset.intent, 'neutral');
   assert.equal(releasedCalls, 3, 'lost pointer capture invokes onInputsReleased');
 });
+
+test('Practice Tools cancels held vehicle gestures without an operate, reset or eject command',()=>{
+ for(const field of ['operatingFightFlightId','operatingBallistaId','operatingRamId']){
+  const p={alive:true,spell:'steel',position:{x:0,y:0,z:0},[field]:'machine'};
+  const {controls,input,send}=setup(p);input.touch=controls;controls.buttons.practiceTools.hidden=false;
+  input.mountedFlight=field==='operatingFightFlightId';input.mountedRam=field==='operatingRamId';
+  const messages=[];input.socket.send=m=>messages.push(m);
+  let opened=0;input.onAction=(action)=>{if(action==='practiceTools')opened++;};
+  send('pointerdown',600,300,{action:'interact',pointerId:91});
+  messages.length=0;
+  send('pointerdown',30,78,{action:'practiceTools',pointerId:92});
+  send('pointerup',30,78,{action:'practiceTools',pointerId:92});
+  assert.equal(opened,1);assert.equal(p[field],'machine');
+  assert.equal(messages.some(m=>m.type==='siegeOperate'||m.type.startsWith('practice')),false);
+  assert.equal(messages.some(m=>m.type==='flightEject'&&!m.cancel),false,'held Eject cancels rather than releasing into ejection');
+  send('pointerup',600,300,{action:'interact',pointerId:91});
+  assert.equal(messages.some(m=>m.type==='flightEject'&&!m.cancel),false,'stale lift cannot eject from inside menu');
+  controls.dispose();
+ }
+});

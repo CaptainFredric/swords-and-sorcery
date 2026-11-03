@@ -3,8 +3,8 @@
 // so they can be tested and dropped into any markup.
 
 export const ICONS = Object.freeze({
-  attack: '<path d="M20 4 9 15M6 12l6 6M7.5 16.5 4 20"/>',
-  guard: '<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>',
+  attack: '<path d="m19 2 2 2-10 12-3-3z" fill="currentColor" stroke="none"/><path d="m6 12 6 6M8 16l-4 5-2-2 5-4"/>',
+  guard: '<path d="m12 2 8 3-1 9-7 8-7-8-1-9z"/><path d="M12 5v12M7 7l1 6 4 4"/>',
   fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',
   // A heavy fissured stone with flames breaking its upper edge.
   coreflagration: '<path d="M7 8 11 5l5 2 3 5-2 7-7 1-5-5z"/><path d="m11 5 1-3 2 3M8 11l4 3 4-2M12 14l-1 5"/>',
@@ -12,15 +12,15 @@ export const ICONS = Object.freeze({
   // three lines of wind, curling at their ends
   gale: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
   // Sheathe in Steel: a riveted plate, banded across (armour, not the Guard's plain shield)
-  steel: '<path d="M5 6.5 12 4l7 2.5V12c0 4.2-3 7.2-7 8.5-4-1.3-7-4.3-7-8.5z"/><path d="M5.2 11h13.6M12 11v8.8"/><path d="M8.5 8.2h.01M15.5 8.2h.01"/>',
+  steel: '<path d="m7 3 5 2 5-2 4 6-3 11H6L3 9z"/><path d="m7 3 2 8h6l2-8M9 11l-1 6h8l-1-6M6 8h.01M18 8h.01"/>',
   // the gauntlet: a closed armoured fist driving forward, a line of speed behind it
   gauntlet: '<path d="M8.5 6.5h8a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4H11a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M12.5 6.5v4M16.5 6.5v4M8.5 13h5"/><path d="M8.5 8.5h-3v7h3"/><path d="M1.5 9.5h2M1 14.5h2.5"/>',
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
   // Sunder All That Rusts: a sword driven point down into the ground, the ground split either side of it
-  sunder: '<path d="M12 2.5v11.5M9 5.5h6M12 14l-1.6 2.6M12 14l1.6 2.6"/><path d="M2.5 20.5 6 18.5l2.5 1.7L11 18.2M13 18.2l2.5 2 2.5-1.7 3.5 2"/>',
+  sunder: '<path d="M10 4h4v11l-2 3-2-3z" fill="currentColor" stroke="none"/><path d="M12 1v3M7 6h10M2 19l4-2 3 3 3-2 3 2 3-3 4 2M6 12l-3 2M18 12l3 2"/>',
   // Blazing Vortex: a turning spiral, and the spark it starts from
-  vortex: '<path d="M12 12a2 2 0 0 1 2-2 4 4 0 0 1 4 4 6 6 0 0 1-6 6 8 8 0 0 1-8-8 8.5 8.5 0 0 1 7-8.4"/><path d="M18.5 2.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
-  chivalry: '<path d="M4 4l13 13M4 8l4-4M14 17l3-3M17 17l3 3M18 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM4 19l5-5"/>',
+  vortex: '<path d="M6 7C1 11 5 20 13 20c6 0 9-5 7-10M5 7l1-4 3 3M19 10l3-1-1-3"/><path d="m16 4 3 3-9 9-3-3z" fill="currentColor" stroke="none"/><path d="m5 12 6 6M3 19l4-4M12 3l-2 3 1 2"/>',
+  chivalry: '<path d="m7 3 2 2-3 10-3-1zM14 10l4-4 4 5-4 4z" fill="currentColor" stroke="none"/><path d="m2 13 7 2M5 16l-1 5M18 2v3M13 6l2 2M23 6l-2 2M12 20l2-4 4 3 3-2"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
   // a chevron pressed down to a line
@@ -32,6 +32,10 @@ export const ICONS = Object.freeze({
   interact: '<path d="M12 4v12M8 8l4-4 4 4M4 20h16"/>',
   rise: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   lower: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  fireAway: '<path d="M10 8h4v12h-4zM12 2v6M7 3l5-2 5 2M3 9l9-3 9 3-3 5-6-5-6 5z"/><path d="M4 19v-3M20 19v-3M7 22v-3M17 22v-3"/>',
+  repeater: '<path d="M10 5h4v16h-4zM12 1v4M2 8l10-4 10 4-4 5-6-6-6 6z"/><path d="M4 17h3M17 17h3"/>',
+  flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
+  eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
   siegeSkill: '<path class="winged-arrow-shaft" d="M12 2.5v17M8 6.5l4-4 4 4M9 20h6"/><path class="winged-arrow-wing-l" d="M10 8c-4-2-7 1-7 4 3 0 5-1 7-3M9 12c-3-1-5 1-5 3 2 0 4-1 5-2"/><path class="winged-arrow-wing-r" d="M14 8c4-2 7 1 7 4-3 0-5-1-7-3M15 12c3-1 5 1 5 3-2 0-4-1-5-2"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',

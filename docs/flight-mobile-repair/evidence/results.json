@@ -1,0 +1,76 @@
+{
+  "fixture": {
+    "dummy": {
+      "x": 0,
+      "y": 0,
+      "z": -2
+    },
+    "machine": {
+      "pitch": -0.5,
+      "x": 0,
+      "y": 3,
+      "yaw": 0,
+      "z": 10
+    }
+  },
+  "samples": 91,
+  "durationSeconds": 4.171699999988079,
+  "contacts": [
+    {
+      "at": 281.28030000001195,
+      "blade": 1,
+      "contactQuality": 0.06685209260377281,
+      "damage": 1,
+      "machineId": "delivery-flight",
+      "point": {
+        "x": -0.10808848784602731,
+        "y": 1.0424668810713036,
+        "z": -1.4521144242996211
+      },
+      "result": "hit",
+      "type": "fightFlightRotorContact",
+      "victimId": "practice-dummy-HYDE4"
+    },
+    {
+      "at": 281.34160000002385,
+      "blade": 0,
+      "contactQuality": 0.924419685592219,
+      "damage": 13,
+      "machineId": "delivery-flight",
+      "point": {
+        "x": 0.12523775043589047,
+        "y": 1.775472598628954,
+        "z": -1.9109428498724863
+      },
+      "result": "hit",
+      "type": "fightFlightRotorContact",
+      "victimId": "practice-dummy-HYDE4"
+    }
+  ],
+  "maxAscentPitch": 0.6039999999999999,
+  "maxHeading": 0.696,
+  "initialY": 3,
+  "finalY": 17.868133365532998,
+  "geometry": {
+    "maxRotorTransformError": 1.831026719408895e-15,
+    "rotorSamples": 12,
+    "wristDirectionDot": 1.0000000009097774
+  },
+  "manualChecks": {
+    "viewports": [
+      "1338x608",
+      "844x390",
+      "568x320",
+      "390x844 rotated shell"
+    ],
+    "customModeSwitch": "74x66 target restored; stale inline width cleared on foot",
+    "rotatedRail": "Rise true, then false after pointer cancellation",
+    "pressedBolt": "face matrix .95; outer target remains64x54",
+    "nativeKeyboard": "E started and ended authoritative offensiveRun on desktop-check",
+    "tools": {
+      "flight": "held Eject canceled before Tools; owner and ammo18 retained",
+      "ballista": "owner, loaded bolt and650HP retained",
+      "ram": "owner, pressure100 and1400HP retained"
+    }
+  }
+}
