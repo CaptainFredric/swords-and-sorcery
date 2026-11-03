@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { partitionHighGroundsDecks } from '../../shared/worlds/highGroundsVisualGeometry.mjs';
+import { FLAG_TILE_METRES, PLANK_TILE_METRES, flagstoneTexture, floorUVs, plankTexture } from './kit/surfaceTextures.mjs';
 
 // Presentation-only terrain. Authoritative floors and ramps still come from
 // shared/worlds/highGrounds.mjs; nothing scenic changes combat collision.
@@ -18,8 +19,19 @@ function flatMesh(group, vertices, material, name) {
  * consumes the same pure triangle planner validated by Node regression tests. */
 export function buildHighGroundsDecks(group, world, materials) {
   const {top,fascia}=partitionHighGroundsDecks(world);
-  for(const [key,vertices]of top)
-    flatMesh(group,vertices,materials[key],`joined-${key}-walkable-decks`);
+  // The walkable tops are drawn as built: planks on the timber decks (across the way each deck runs), flagstones on
+  // the stone ones, tiled in world space so they run on unbroken from deck to deck.
+  const deck=deckMaterials(materials);
+  const acrossX=(x,z,y)=>{
+    const f=world.floors.find(floor=>Math.abs(floor.y-y)<1e-4
+      &&Math.abs(x-floor.center[0])<=floor.size[0]/2&&Math.abs(z-floor.center[2])<=floor.size[2]/2);
+    return !f||f.size[2]>=f.size[0];
+  };
+  for(const [key,vertices]of top){
+    const m=flatMesh(group,vertices,deck[key]??materials[key],`joined-${key}-walkable-decks`);
+    if(m)m.geometry.setAttribute('uv',new THREE.Float32BufferAttribute(
+      floorUVs(vertices,key==='stone'?FLAG_TILE_METRES:PLANK_TILE_METRES,acrossX),2));
+  }
   for(const [key,vertices]of fascia)
     flatMesh(group,vertices,materials[key==='stone'?'cliff':'underwood'],
       `perimeter-${key}-fascia`);
@@ -173,6 +185,18 @@ export function buildHighGroundsDetail(group, world, mats) {
   }
 }
 
+/** The decks' own materials: the floor's colour drawn as planks or flagstones (shared, made once per set). */
+export function deckMaterials(materials) {
+  if(materials.deckTimber)return {timber:materials.deckTimber,stone:materials.deckStone};
+  const drawn=(base,texture)=>{
+    const m=base.clone();
+    if(texture){m.map=texture;m.color.set(0xffffff);}
+    return m;
+  };
+  materials.deckTimber=drawn(materials.timber,plankTexture(materials.timber.color.getHex()));
+  materials.deckStone=drawn(materials.stone,flagstoneTexture(materials.stone.color.getHex()));
+  return {timber:materials.deckTimber,stone:materials.deckStone};
+}
 export function highGroundsSceneryMaterials() {
   return {
     cliff:sceneryMaterial(0x706f61),underwood:sceneryMaterial(0x4f3b2d),

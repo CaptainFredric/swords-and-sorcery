@@ -2,8 +2,15 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { appUrl } from '../appUrl.mjs';
-import { BASTION_BREACH, BASTION_GALLERY_Y, BASTION_GATE_OPEN_DURATION_SEC } from '../../shared/worlds/bastionBreach.mjs';
+import { BASTION_BREACH, BASTION_GATE_OPEN_DURATION_SEC } from '../../shared/worlds/bastionBreach.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
+import { createBatch, masonry, palisade } from './kit/kitPieces.mjs';
+import { facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
+import { floorTile } from './kit/kitTerrain.mjs';
+import { drawWorldProps } from './kit/worldProps.mjs';
+import { FlameSet } from './kit/flames.mjs';
+import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.mjs';
+import { drawnFloors, flagstoneTexture } from './kit/surfaceTextures.mjs';
 
 export const GATEHOUSE_MODEL_URL = '/client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb';
 
@@ -32,13 +39,15 @@ export function resetGatehouseAssetCache() {
   gatehouseGltfPromise = null;
 }
 
-export const BASTION_BREACH_LIGHTING = Object.freeze({
+// (the bastion stands on a crag over a green march at dusk: its land and sky are drawn round it, kit/backdrop.mjs)
+const BASTION_BACKDROP_RADIUS = 300;
+export const BASTION_BREACH_LIGHTING = backdropLighting({
   background: 0x242832,
   fog: Object.freeze({ color: 0x2c3340, density: 0.011 }),
   hemisphere: Object.freeze({ skyColor: 0xd8d4c8, groundColor: 0x48423b, intensity: 1.8 }),
   sun: Object.freeze({ color: 0xffb570, intensity: 2.8, position: Object.freeze([-25, 22, -18]) }),
   sky: Object.freeze({ zenith: 0x3d4b60, horizon: 0xca8c64, below: 0x252320 }),
-});
+}, { radius: BASTION_BACKDROP_RADIUS });
 
 function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -144,21 +153,40 @@ export class BastionBreachRenderer {
       }),
     };
 
-    // --- Build Floors ---
-    for (const fl of BASTION_BREACH.floors) {
-      const isDais = fl.id.includes('dais') || fl.id.includes('step');
-      const mat = isDais ? this.materials.stoneDais : this.materials.stoneFloor;
-      const mesh = box(this.group, fl.size, mat, fl.center, [0, 0, 0], false);
-      mesh.receiveShadow = true;
-    }
-
-    // --- Build Solids ---
+    // --- Floors, walls and furnishings in the environment kit ---
+    // (the camp trodden earth; the courts laid flagstones, the sanctum's dais a paler dressed stone; walls, towers
+    // and pillars coursed masonry, the rubble rough; the timber palisades: each fills its own box. The parapets keep
+    // their own battlements, below.)
+    this.kit = kitMaterials();
+    const rand = seededRandom(3301);
+    const batch = createBatch();
+    const earthy = (floor) => /camp/.test(floor.id);
+    const dais = (floor) => /dais|step/.test(floor.id);
+    BASTION_BREACH.floors.forEach((floor) => { if (earthy(floor)) floorTile(batch, { ...floor, material: 'earth' }, [], rand, []); });
+    this.kit.paving = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0x857e74, 37), roughness: 0.9, metalness: 0.03 });
+    this.kit.daisPaving = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0xa8a094, 43), roughness: 0.82, metalness: 0.04 });
+    const ordered = [...BASTION_BREACH.floors.filter(earthy), ...BASTION_BREACH.floors.filter((f) => !earthy(f))];
+    this.group.add(drawnFloors(ordered, this.kit.paving, { name: 'bastion-paving', draw: (floor) => !earthy(floor) && !dais(floor) }));
+    this.group.add(drawnFloors(ordered, this.kit.daisPaving, { name: 'bastion-dais', draw: dais }));
     for (const sol of BASTION_BREACH.solids) {
       if (sol.id.startsWith('gatehouse-') || BASTION_BREACH.structures.some(def => def.solidIds.includes(sol.id))) continue;
+      if (sol.kind === 'prop') continue;
       const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
-      const mat = isTimber ? this.materials.timber : this.materials.stone;
-      box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
+      if (isTimber) palisade(batch, rand, sol);
+      else if (/rubble/.test(sol.id)) masonry(batch, rand, sol, { style: 'rubble', coping: false });
+      else if (/breastwork|footing/.test(sol.id)) masonry(batch, rand, sol, { style: 'drystone' });
+      else masonry(batch, rand, sol, { merlons: /^wall-(south|west|east)/.test(sol.id) && sol.size[1] >= 4.4 || sol.id === 'gallery-parapet-east' });
     }
+    const { flames, glows } = drawWorldProps(batch, rand, BASTION_BREACH.props);
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      this.group.add(facetMesh(builder, this.kit[name], { castShadow: name !== 'ground', receiveShadow: true, name: `bastion-${name}` }));
+    }
+    this.furnishingFire = new FlameSet(this.group, { flames, glows });
+    this.backdrop = buildBackdrop(this.group, {
+      footprint: [-17, 17, -39, 37.5], floorY: 0, sky: BASTION_BREACH_LIGHTING.sky, mood: BACKDROP_MOODS.dusk,
+      seed: 33, radius: BASTION_BACKDROP_RADIUS, depth: 20, materials: this.kit,
+    });
 
     // --- Build Ramps ---
     for (const ramp of BASTION_BREACH.ramps) {
@@ -182,16 +210,7 @@ export class BastionBreachRenderer {
     // --- The Honorable Entry Gatehouse (Centerpiece of Transition & Doctrine at z = 8.8) ---
     this.#buildHonorableEntryGatehouse();
 
-    // --- Wall Battlements & Crenellations (Merlons along fortress parapets) ---
-    for (let x = -14; x <= 14; x += 3.5) {
-      box(this.group, [1.8, 0.9, 0.9], this.materials.stone, [x, 4.95, -38.0]);
-    }
-    for (let z = 8; z <= 22; z += 3.2) {
-      box(this.group, [0.8, 0.8, 1.6], this.materials.stone, [15.1, BASTION_GALLERY_Y + 1.6, z]);
-    }
-    for (let z = -24; z <= 6; z += 4.5) {
-      box(this.group, [0.9, 0.8, 2.0], this.materials.stone, [-16.0, 4.9, z]);
-    }
+    // (the battlements: the kit's merlons along the outer walls and the gallery's parapet, drawn with their masonry)
 
     // --- High Sanctum Gothic Vault Arch Ribs & Siege Damage ---
     this.#buildSanctumVaultArches();
@@ -825,6 +844,7 @@ export class BastionBreachRenderer {
   }
 
   update(timeSec, camera = null) {
+    this.furnishingFire?.update(timeSec);
     const dt = this.lastTimeSec !== null ? Math.min(0.1, Math.max(0.0001, timeSec - this.lastTimeSec)) : 0.016;
     this.lastTimeSec = timeSec;
     if (this.serverTime !== null) {
@@ -919,6 +939,8 @@ export class BastionBreachRenderer {
 
   dispose() {
     this.disposed = true;
+    this.furnishingFire?.dispose();
+    for (const mat of Object.values(this.kit ?? {})) mat?.dispose?.();
     this.gatehouseMixer?.stopAllAction?.();
     if (this.gatehouseModel) {
       this.gatehouseMixer?.uncacheRoot?.(this.gatehouseModel);

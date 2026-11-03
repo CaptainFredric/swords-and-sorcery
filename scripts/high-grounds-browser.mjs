@@ -52,7 +52,10 @@ try{
   await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject;});
   ws.onmessage=e=>{
     const d=JSON.parse(String(e.data));
-    if(d.method==='Runtime.exceptionThrown') exceptions.push(d.params?.exceptionDetails?.text??'exception');
+    if(d.method==='Runtime.exceptionThrown') {
+      const detail=d.params?.exceptionDetails;
+      exceptions.push(detail?.exception?.description??detail?.text??'exception');
+    }
     const p=pending.get(d.id);if(!p)return;pending.delete(d.id);
     if(d.error)p.reject(Error(d.error.message));else p.resolve(d.result);
   };

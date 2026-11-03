@@ -33,16 +33,16 @@ function command(room, a, type, spell, at, extra = {}) {
 }
 function run(room, from, until) { for (let now = from; now <= until + 1e-8; now += 0.01) tick(room, now); }
 
-test('Chivalry owns startup for 0.65 seconds and opens concurrent actions for nine seconds', () => {
+test('Chivalry owns startup for 0.65 seconds and opens concurrent actions for ten seconds', () => {
   const { room, a } = duel(); a.prowess = 100;
   combat.beginAttack(room, 'a', 9.8); combat.setGuard(room, 'a', true, 9.9);
   a.input.attack = a.input.guard = true;
   assert.equal(combat.tryUltimate(room, 'a', 10), true);
   assert.equal(a.attackActive, false); assert.equal(a.guarding, false);
   tick(room, 10.64); assert.equal(a.prowess, 100); assert.equal(a.ultimateState.phase, 'startup');
-  tick(room, 10.65); assert.equal(a.prowess, 0); assert.equal(a.ultimateState.until, 19.65);
+  tick(room, 10.65); assert.equal(a.prowess, 0); assert.equal(a.ultimateState.until, 20.65);
   assert.equal(a.guarding, true); assert.equal(a.attackActive, true);
-  tick(room, 19.65); assert.equal(a.ultimateState, null);
+  tick(room, 20.65); assert.equal(a.ultimateState, null);
 });
 
 test('activation cancels a gathering spell and current Dash without consuming extra charge', () => {
@@ -174,6 +174,8 @@ test('snapshot exposes saved, prepared, current and identity availability withou
 
 test('a Guard Break in Chivalry breaks only the guard: the sword and the spell carry on, and Guard waits to be raised again', () => {
   const { room, a, b } = duel(); active(room, a);
+  // Outside automatic frontal defense but inside the ordinary Guard cone.
+  a.yaw+=50*Math.PI/180;a.input.yaw=a.yaw;
   combat.beginAttack(room, 'b', 10.7);
   combat.beginAttack(room, 'a', 10.9);
   combat.setGuard(room, 'a', true, 10.91); a.guardStartedAt = 9; a.guardStamina = 1;
@@ -204,20 +206,20 @@ test('Chivalry\'s automatic raise ends with it: Guard stays up only if it is rea
   // never touched: the raise was the ultimate's, and goes with it
   const loose = duel(); active(loose.room, loose.a); loose.a.input.guard = false;
   assert.equal(loose.a.guarding, true);
-  run(loose.room, 10.66, 19.8);
+  run(loose.room, 10.66, 20.8);
   assert.equal(loose.a.ultimateState, null);
   assert.equal(loose.a.guarding, false, 'no Guard left stuck after the ultimate');
   assert.ok(loose.room.events.some((e) => e.type === 'guardEnded' && e.playerId === 'a'));
   // held through the end: it stays up, as an ordinary guard
   const held = duel(); active(held.room, held.a); held.a.input.guard = true;
-  run(held.room, 10.66, 19.8);
+  run(held.room, 10.66, 20.8);
   assert.equal(held.a.ultimateState, null);
   assert.equal(held.a.guarding, true);
   // raised by hand during it and let go before the end: down, as the hand says
   const own = duel(); active(own.room, own.a);
   combat.setGuard(own.room, 'a', false, 11); combat.setGuard(own.room, 'a', true, 12);
   own.a.input.guard = true; combat.setGuard(own.room, 'a', false, 15); own.a.input.guard = false;
-  run(own.room, 15.01, 19.8);
+  run(own.room, 15.01, 20.8);
   assert.equal(own.a.guarding, false);
 });
 
@@ -345,15 +347,15 @@ test('parry carries its authoritative reel decision through a later expiry snaps
   }
 });
 
-test('activation Guard gets one ordinary perfect Parry then settles into an ordinary block', () => {
+test('active Chivalry can automatically parry successive frontal attacks without refreshing Guard age', () => {
   const { room, a, b } = duel();
   combat.beginAttack(room, 'b', 10.3); active(room, a);
   run(room, 10.66, 10.72);
   assert.equal(room.events.filter(e => e.type === 'parry' && e.defenderId === 'a').length, 1);
   combat.cancelAttack(room, 'b', 10.73);
   combat.beginAttack(room, 'b', 11.3); run(room, 11.31, 11.72);
-  assert.equal(room.events.filter(e => e.type === 'parry' && e.defenderId === 'a').length, 1);
-  assert.ok(room.events.some(e => e.type === 'block' && e.defenderId === 'a'));
+  assert.equal(room.events.filter(e => e.type === 'parry' && e.defenderId === 'a').length, 2);
+  assert.equal(room.events.some(e => e.type === 'block' && e.defenderId === 'a'),false);
   assert.equal(a.guardStartedAt, 10.65);
 });
 

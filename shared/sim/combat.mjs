@@ -20,7 +20,7 @@ import {
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import {
-  ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
+  ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
 import { heldActions } from '../src/heldActions.mjs';
@@ -973,7 +973,11 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   const level = empowered ? DAMAGE_LEVELS.elevated : DAMAGE_LEVELS.normal;
   const force = swordForce(physical);
 
-  if (target.guarding && isInGuardCone(target, attacker, atSec)) {
+  const automaticParry=chivalryParries({...target,yaw:targetTransform.yaw},nowSec,{
+    x:attackerTransform.position.x-targetTransform.position.x,
+    z:attackerTransform.position.z-targetTransform.position.z,
+  });
+  if (automaticParry || target.guarding && isInGuardCone(target, attacker, atSec)) {
     guardChallengeContact(room, target, attacker, nowSec);
     // a Sundering blow lands on a guard as two (the guard pays for both; it is still one blow)
     const impacts = empowered ? ultimateFor('sunder').guardImpacts : 1;
@@ -984,7 +988,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact);
       const guardResult = resolveSwordVsGuard({
         guarding: true,
-        guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
+        guardAgeMs: automaticParry ? 0 : (nowSec - target.guardStartedAt) * 1000,
         stamina: target.guardStamina,
         profile: guardProfile(target.knightClass),
         pressure,
@@ -1003,6 +1007,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       gainProwess(room, target, PROWESS.parry);
       room.events.push({
         type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel,
+        ...(automaticParry?{automatic:true}:{}),
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       recordChallengeFact(room, { type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
@@ -1630,8 +1635,9 @@ function detonateCoreflagration(room, projectile, nowSec) {
 }
 
 function coreflagrationParry(room, projectile, defender, nowSec) {
-  if (!defender?.guarding || !(defender.guardStamina > 0) || projectile.coreParried) return false;
-  const age = (nowSec - defender.guardStartedAt) * 1000;
+  const automatic=chivalryParries(defender,nowSec,{x:-projectile.velocity.x,z:-projectile.velocity.z});
+  if ((!defender?.guarding&&!automatic) || !(defender.guardStamina > 0) || projectile.coreParried) return false;
+  const age = automatic ? 0 : (nowSec - defender.guardStartedAt) * 1000;
   if (!(age >= 0 && age <= GAME.parryWindowMs)) return false;
   const face = forwardFromYaw(defender.yaw ?? 0);
   const speed = Math.hypot(projectile.velocity.x, projectile.velocity.z);
@@ -1649,7 +1655,7 @@ function coreflagrationParry(room, projectile, defender, nowSec) {
   defender.coreRegenPausedUntil = Math.max(defender.coreRegenPausedUntil ?? -Infinity, nowSec + core.parryRegenPauseSec);
   room.events.push({
     type: 'coreflagrationParried', projectileId: projectile.id, defenderId: defender.id,
-    ownerId: projectile.ownerId, point: { ...projectile.position }, at: nowSec,
+    ownerId: projectile.ownerId, point: { ...projectile.position }, ...(automatic?{automatic:true}:{}), at: nowSec,
   });
   return true;
 }

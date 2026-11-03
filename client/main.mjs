@@ -33,6 +33,7 @@ import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView, preparedArmoryView } from './menu/armoryView.mjs';
+import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
@@ -1441,7 +1442,7 @@ function renderArmory() {
   $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
     <article class="siege-armory-card">
       <div class="siege-armory-heading">
-        <span class="siege-armory-mark" aria-hidden="true">${m.mark}</span>
+        <span class="siege-armory-mark" aria-hidden="true">${m.icon?iconSvg(m.icon):m.mark}</span>
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
       <p>${m.line}</p><small class="siege-armory-facts">${m.facts}</small>
@@ -2021,9 +2022,18 @@ async function chooseHighGroundsMachine(machine) {
   if(hgFoundryHint)hgFoundryHint.textContent='BUILD ORDER SENT · AWAITING FOUNDRY';
   if(hgFoundryPicker)hgFoundryPicker.open=false;
 }
+// (a build that fails here says so: it used to throw inside this promise and vanish without a word)
+function orderHighGroundsMachine(machine) {
+  chooseHighGroundsMachine(machine).catch((error) => {
+    preparingHighGroundsMachine = false;
+    console.error('High Grounds build order failed', error);
+    hud.flashText('THE FOUNDRY COULD NOT TAKE THAT ORDER · TRY AGAIN', 'danger', 2600);
+    if (latestSnapshot) updateHighGroundsHud(latestSnapshot);
+  });
+}
 hgFoundry?.addEventListener('click', (event) => {
   const button = event.target.closest?.('[data-high-grounds-machine]');
-  if (button && !button.disabled) void chooseHighGroundsMachine(button.dataset.highGroundsMachine);
+  if (button && !button.disabled) orderHighGroundsMachine(button.dataset.highGroundsMachine);
 });
 // High Grounds uses Breakthrough's objective HUD; the foundry is contextual.
 function updateHighGroundsHud(snapshot) {
@@ -2048,7 +2058,7 @@ document.addEventListener('keydown',event=>{
   const button=hgFoundry.querySelector('[data-high-grounds-machine="'+machine+'"]');
   if(!button||button.disabled)return;
   event.preventDefault();
-  void chooseHighGroundsMachine(machine);
+  orderHighGroundsMachine(machine);
 });
 
 socket.on('snapshot', (snapshot) => {

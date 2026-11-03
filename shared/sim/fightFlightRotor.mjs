@@ -1,5 +1,6 @@
 // Actual rotor blade crossings. Angular substeps detect an entire blade passage at 30Hz,
 // not a fixed hit aura. An episode ends only when the blade physically leaves a body.
+import {chivalryParries} from '../src/ultimates.mjs';
 import {flightTransform} from '../src/flightRepeaterAim.mjs';
 import {postureOf} from '../src/body.mjs';
 import {segmentAabbHit} from '../src/collision.mjs';
@@ -45,8 +46,8 @@ export function rotorBladeContact(m,body,phase,blade=0){
   if(distance>radius)return null;
   return {distance,r,contact,quality:clamp((radius-distance)/(radius*.8),0,1)};
 }
-function defended(victim,point,m){
-  if(!victim.guarding||victim.guardStamina<=0)return false;
+function defended(victim,point,m,automatic){
+  if((!victim.guarding&&!automatic)||victim.guardStamina<=0)return false;
   // The attack originates at the spinning hub, not at the moving contact point
   // (which can be coincident with the victim's center).
   const dx=m.x-victim.position.x,dz=m.z-victim.position.z;
@@ -67,10 +68,11 @@ function hit(room,m,p,part,contact,now,phase){
   const clean=clamp(quality*t,0,1);
   const damage=Math.max(0,Math.round((ROTOR_CONTACT.baseDamage+22*clean)*rpm*Math.sqrt(available)*Math.min(1,quality*1.6)));
   let result='graze',appliedDamage=0;
-  const blocked=defended(p,contact.contact,m);
+  const automatic=chivalryParries(p,now,{x:m.x-p.position.x,z:m.z-p.position.z});
+  const blocked=defended(p,contact.contact,m,automatic);
   if(blocked){
     const time=(now-(p.guardStartedAt??-Infinity))*1000;
-    const parry=time>=0&&time<=GAME.parryWindowMs;
+    const parry=automatic||time>=0&&time<=GAME.parryWindowMs;
     if(parry){
       // Eight base rotor damage before the rotor's finite component Steel.
       const outcome=damageFightFlight(room,m,ROTOR_CONTACT.parryRotorDamage,p.id,

@@ -124,12 +124,12 @@ export function weaponRack(batch, rand, { x, y = 0, z, facing = 0 }) {
 }
 
 /** A pennant on a pole, raised over a gatepost (base at the post's top). */
-export function pennant(batch, rand, { x, y = 0, z, height = 1.2, facing = 0 }) {
+export function pennant(batch, rand, { x, y = 0, z, height = 1.2, facing = 0, color = P.crimson }) {
   batch.wood.prism({ cx: x, cy: y, cz: z, radiusBottom: 0.05, radiusTop: 0.035, height, sides: 6, color: P.timberDark, rand });
   batch.metal.prism({ cx: x, cy: y + height, cz: z, radiusBottom: 0.06, radiusTop: 0, height: 0.12, sides: 6, color: P.brass, rand });
   const [ax, az] = [Math.cos(facing), -Math.sin(facing)];
   const top = y + height - 0.05;
-  batch.cloth.tri([x, top, z], [x, top - 0.42, z], [x + ax * 0.9, top - 0.2, z + az * 0.9], P.crimson);
+  batch.cloth.tri([x, top, z], [x, top - 0.42, z], [x + ax * 0.9, top - 0.2, z + az * 0.9], color);
   // the stripe sewn on both faces, a hair off the cloth (drawn in its very plane, the two would flicker)
   const [nx, nz] = [-az * 0.008, ax * 0.008];
   for (const side of [-1, 1]) {
@@ -157,7 +157,8 @@ export function strawBales(batch, rand, solid) {
 }
 
 /** A striped pavilion filling a solid: octagonal walls, a peaked roof, a scalloped valance and a pennant on top. */
-export function pavilion(batch, rand, solid, { door = 0 } = {}) {
+export function pavilion(batch, rand, solid, { door = 0, colors = null } = {}) {
+  const [stripeA, stripeB, valance] = colors ?? [P.crimson, P.cream, P.crimsonDark];
   const [cx, cy, cz] = solid.center;
   const [sx, sy, sz] = solid.size;
   const bottom = cy - sy / 2;
@@ -169,13 +170,13 @@ export function pavilion(batch, rand, solid, { door = 0 } = {}) {
   for (let i = 0; i < sides; i += 1) {
     const a0 = (i / sides) * Math.PI * 2 + Math.PI / sides;
     const a1 = ((i + 1) / sides) * Math.PI * 2 + Math.PI / sides;
-    const stripe = i % 2 ? P.crimson : P.cream;
+    const stripe = i % 2 ? stripeA : stripeB;
     batch.cloth.quad(ring(a0, radius, bottom), ring(a0, radius, eave), ring(a1, radius, eave), ring(a1, radius, bottom), stripe);
-    batch.cloth.tri(ring(a0, radius + 0.25, eave), [cx, apex, cz], ring(a1, radius + 0.25, eave), i % 2 ? P.cream : P.crimson);
+    batch.cloth.tri(ring(a0, radius + 0.25, eave), [cx, apex, cz], ring(a1, radius + 0.25, eave), i % 2 ? stripeB : stripeA);
     // the valance hangs in two scallops per side
     const mid = (a0 + a1) / 2;
     for (const [s0, s1] of [[a0, mid], [mid, a1]]) {
-      batch.cloth.tri(ring(s0, radius + 0.25, eave), ring(s1, radius + 0.25, eave), ring((s0 + s1) / 2, radius + 0.24, eave - 0.22), P.crimsonDark);
+      batch.cloth.tri(ring(s0, radius + 0.25, eave), ring(s1, radius + 0.25, eave), ring((s0 + s1) / 2, radius + 0.24, eave - 0.22), valance);
     }
   }
   // the door: a dark opening with its flaps tied back
@@ -184,5 +185,5 @@ export function pavilion(batch, rand, solid, { door = 0 } = {}) {
   const front = [cx + dx * (radius + 0.02), cz + dz * (radius + 0.02)];
   const doorAt = (u, y) => [front[0] + rx * u, y, front[1] + rz * u];
   batch.cloth.quad(doorAt(-0.45, bottom), doorAt(0.45, bottom), doorAt(0.3, eave - 0.1), doorAt(-0.3, eave - 0.1), 0x2a1c14);
-  pennant(batch, rand, { x: cx, y: apex - 0.05, z: cz, height: 0.8, facing: door + Math.PI / 2 });
+  pennant(batch, rand, { x: cx, y: apex - 0.05, z: cz, height: 0.8, facing: door + Math.PI / 2, color: stripeA });
 }

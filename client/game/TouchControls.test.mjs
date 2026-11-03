@@ -1101,3 +1101,24 @@ test('Practice Tools cancels held vehicle gestures without an operate, reset or 
   controls.dispose();
  }
 });
+
+test('held flight Dash aims off its button without releasing propulsion or another finger',()=>{
+ const p={alive:true,spell:'steel',prowess:100,position:{x:0,y:0,z:0},operatingFightFlightId:'f'};
+ const {input,controls,send}=setup(p);input.mountedFlight=true;input.touch=controls;
+ const messages=[];input.socket.send=m=>messages.push(m);
+ controls.update(p,10,{snapshot:{fightFlight:{id:'f',health:250,rotorHP:100,grounded:false}}});
+ send('pointerdown',720,200,{action:'dash',pointerId:61});
+ send('pointermove',560,120,{action:'dash',target:controls.layer,pointerId:61});
+ assert.ok(input.yaw>0&&input.pitch>0,'the captured Dash finger can turn and look upward off button');
+ assert.equal(input.flightDashSources.has('touch:61'),true);
+ send('pointerdown',700,300,{action:'siegeWeapon',pointerId:62});
+ send('pointercancel',560,120,{action:'dash',target:controls.layer,pointerId:61});
+ assert.equal(input.flightDashSources.size,0);
+ assert.equal(input.flightFireSources.has('touch:62'),true,'canceling Dash leaves a different held Bolt alone');
+ const yaw=input.yaw;send('pointermove',450,80,{action:'dash',target:controls.layer,pointerId:61});
+ assert.equal(input.yaw,yaw,'canceled pointer cannot keep steering');
+ send('pointerup',700,300,{action:'siegeWeapon',pointerId:62});
+ assert.equal(messages.filter(m=>m.type==='flightDash'&&m.down).length,1);
+ assert.equal(messages.filter(m=>m.type==='flightDash'&&!m.down).length,1);
+ controls.dispose();
+});

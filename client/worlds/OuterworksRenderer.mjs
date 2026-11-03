@@ -8,14 +8,33 @@ import {
 } from '../../shared/worlds/outerworks.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
+import { createBatch, masonry, palisade } from './kit/kitPieces.mjs';
+import { facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
+import { floorTile } from './kit/kitTerrain.mjs';
+import { drawWorldProps } from './kit/worldProps.mjs';
+import { FlameSet } from './kit/flames.mjs';
+import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.mjs';
+import { drawnFloors, flagstoneTexture } from './kit/surfaceTextures.mjs';
 
-export const OUTERWORKS_LIGHTING = Object.freeze({
+// (the fortress stands on a plateau over a valley at dusk: its land and sky are drawn round it, kit/backdrop.mjs)
+const OUTERWORKS_BACKDROP_RADIUS = 330;
+export const OUTERWORKS_LIGHTING = backdropLighting({
   background: 0x1e242e,
   fog: Object.freeze({ color: 0x242b38, density: 0.009 }),
   hemisphere: Object.freeze({ skyColor: 0xdde3eb, groundColor: 0x403c36, intensity: 1.85 }),
   sun: Object.freeze({ color: 0xffaa5e, intensity: 3.0, position: Object.freeze([-36, 28, -26]) }),
   sky: Object.freeze({ zenith: 0x32445c, horizon: 0xd69666, below: 0x1c1a18 }),
-});
+}, { radius: OUTERWORKS_BACKDROP_RADIUS });
+
+// how the kit dresses each of the Outerworks' solids (each drawn to fill its authoritative box)
+function solidStyle(solid) {
+  const id = solid.id;
+  if (solid.material === 'timber') return 'palisade';
+  if (/^(wall-|tower-|arch-)/.test(id)) return 'wall';
+  if (/(ruin|crenel|parapet|retaining)/.test(id)) return 'ashlar';
+  if (/(rubble|boulder)/.test(id)) return 'rubble';
+  return 'drystone';
+}
 
 function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -131,27 +150,46 @@ export class OuterworksRenderer {
       }),
     };
 
-    // --- Build Floors ---
-    for (const fl of OUTERWORKS.floors) {
-      let mat = this.materials.stoneFloor;
-      if (fl.id.includes('trench')) mat = this.materials.trenchDirt;
-      else if (fl.id.includes('att-camp')) mat = this.materials.campDirt;
-      else if (fl.id.includes('esplanade')) mat = this.materials.roadStone;
-      else if (fl.id.includes('terrace') || fl.id.includes('parapet')) mat = this.materials.terraceStone;
-
-      const mesh = box(this.group, fl.size, mat, fl.center, [0, 0, 0], false);
-      mesh.receiveShadow = true;
-    }
-
-    // --- Build Authoritative Collision Solids ---
+    // --- Floors, walls, earthworks and furnishings in the environment kit ---
+    // (paving on the stone, trodden earth in the camps and the trench; coursed masonry on the walls, crowned where
+    // they are tall; drystone and rubble on the earthworks; palisades for the timber; each fills its own box)
+    this.kit = kitMaterials();
+    const rand = seededRandom(2603);
+    const batch = createBatch();
+    // (the camps and the trench trodden earth in the kit; the paved floors laid flagstones, drawn)
+    const earthy = (floor) => floor.material === 'dirt' || /camp|def-base/.test(floor.id);
+    OUTERWORKS.floors.forEach((floor, index) => {
+      if (!earthy(floor)) return;
+      const covers = OUTERWORKS.floors.slice(0, index).filter((other) => Math.abs(other.y - floor.y) < 1e-6).map((other) => ({
+        minX: other.center[0] - other.size[0] / 2, maxX: other.center[0] + other.size[0] / 2,
+        minZ: other.center[2] - other.size[2] / 2, maxZ: other.center[2] + other.size[2] / 2,
+      }));
+      floorTile(batch, { ...floor, material: 'earth' }, [], rand, covers);
+    });
+    this.kit.paving = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0x8c857a, 41), roughness: 0.9, metalness: 0.02 });
+    // (earth first: a paved floor leaves out what an earthen one already covers, and the other way round)
+    this.group.add(drawnFloors([...OUTERWORKS.floors.filter(earthy), ...OUTERWORKS.floors.filter((f) => !earthy(f))], this.kit.paving,
+      { name: 'outerworks-paving', draw: (floor) => !earthy(floor) }));
     for (const sol of OUTERWORKS.solids) {
       if (sol.id === 'barrier-outer-palisade' || sol.id === 'portcullis-inner-gate' || sol.id === 'cover-esplanade-mantlet' || sol.id === 'cover-esplanade-cart') continue;
-      const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates')
-        || sol.id.includes('mantlet') || sol.id.includes('cart') || sol.id.includes('barricade')
-        || sol.id.includes('chicane');
-      const mat = isTimber ? this.materials.timber : this.materials.stone;
-      box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
+      if (sol.kind === 'prop') continue;
+      const style = solidStyle(sol);
+      if (style === 'palisade') palisade(batch, rand, sol);
+      else if (style === 'wall') masonry(batch, rand, sol, { merlons: sol.size[1] >= 4.4 && !/^(tower-|arch-)/.test(sol.id) });
+      else if (style === 'ashlar') masonry(batch, rand, sol, {});
+      else masonry(batch, rand, sol, { style: style === 'rubble' ? 'rubble' : 'drystone', coping: style !== 'rubble' });
     }
+    const { flames, glows } = drawWorldProps(batch, rand, OUTERWORKS.props);
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      this.group.add(facetMesh(builder, this.kit[name], { castShadow: name !== 'ground', receiveShadow: true, name: `outerworks-${name}` }));
+    }
+    this.furnishingFire = new FlameSet(this.group, { flames, glows });
+    // the land round the fortress: its plateau, the valley, the hills and the dusk sky
+    this.backdrop = buildBackdrop(this.group, {
+      footprint: [-27.5, 27, -60, 62], floorY: 0, sky: OUTERWORKS_LIGHTING.sky, mood: BACKDROP_MOODS.dusk,
+      seed: 26, radius: OUTERWORKS_BACKDROP_RADIUS, materials: this.kit,
+    });
 
     // --- Build Authoritative Ramps ---
     for (const ramp of OUTERWORKS.ramps) {
@@ -588,6 +626,7 @@ export class OuterworksRenderer {
   }
 
   update(timeSec, camera = null) {
+    this.furnishingFire?.update(timeSec);
     // Torches
     for (const flame of this.flames) {
       const pulse = 0.9 + Math.sin(timeSec * 8.5 + flame.userData.phase) * 0.07;
@@ -625,5 +664,7 @@ export class OuterworksRenderer {
     for (const mat of Object.values(this.materials)) {
       disposeMaterial(mat);
     }
+    for (const mat of Object.values(this.kit ?? {})) disposeMaterial(mat);
+    this.furnishingFire?.dispose();
   }
 }
