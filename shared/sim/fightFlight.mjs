@@ -15,6 +15,7 @@ export const FIGHT_FLIGHT = Object.freeze({
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
   neutralStabilizeSec:1.0,neutralDescentSpeed:.4,
+  airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
 const cap=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -42,7 +43,8 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
     rotorPowered:false,rotorBrakeHeld:false,rotorTargetRPM:0,rotorRPM:0,
     rotorSpinupAcceleration:90,rotorSpindownAcceleration:65,rotorLiftAuthority:0,
-    jumpWasHeld:false,hopStartedAt:null,hopRequested:false,verticalIntent:'IDLE',neutralHoverAt:null,rotorLiftSuppressedUntil:0,
+    jumpWasHeld:false,hopStartedAt:null,hopRequested:false,airHopRequested:false,
+    airHopRemaining:0,nextAirHopAt:-Infinity,verticalIntent:'IDLE',neutralHoverAt:null,rotorLiftSuppressedUntil:0,
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
@@ -88,7 +90,8 @@ export function mountFightFlight(room,m,player,now=0){
   // Do not imprison the rider in machinery with no safe way to exit.
   if(!fightFlightExit(room,m,player))return false;
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
-  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;
+  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
+  m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
   player.flightInputAt=null;player.ejectionFallExempt=false;
   player.operatingFightFlightId=m.id;
   player.position=fightFlightOperator(m);player.velocity={x:0,y:0,z:0};
@@ -185,7 +188,15 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const rise=Boolean(live&&(input.flightRise||legacyJump));
   const descend=Boolean(live&&(input.flightLower||input.crouch));
   const explicitHop=Boolean(live&&m.hopRequested);
-  m.hopRequested=false; // one server-validated impulse, not a latched held state
+  const airHop=Boolean(explicitHop&&m.airHopRequested&&!m.grounded);
+  m.hopRequested=false;m.airHopRequested=false; // one server-validated impulse
+  if(airHop&&intact&&!m.terminalDive&&!m.emergencyBrakeActive){
+    m.flightCharge=Math.max(0,m.flightCharge-FIGHT_FLIGHT.airHopCost);
+    m.velocity.y=Math.max(m.velocity.y,FIGHT_FLIGHT.airHopVelocity);
+    m.airHopRemaining=FIGHT_FLIGHT.airHopHoldSec;
+    m.neutralHoverAt=null;
+  }
+  m.airHopRemaining=Math.max(0,(m.airHopRemaining??0)-dt);
   if(m.ejectHoldStartedAt!=null&&now-m.ejectHoldStartedAt>=.35){
     m.emergencyBrakeActive=true;m.rotorPowered=false;m.offensiveRun=false;m.flightDashHeld=false;
   }
@@ -223,7 +234,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
-  m.verticalIntent=!op?.alive?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':m.hopStartedAt!=null||explicitHop?'HOP':'HOVER';
+  m.verticalIntent=!op?.alive?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':
+    m.hopStartedAt!=null||explicitHop||(m.airHopRemaining??0)>0?'HOP':'HOVER';
   if(m.grounded||m.verticalIntent!=='HOVER')m.neutralHoverAt=null;
   else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
   m.jumpWasHeld=legacyJump;
