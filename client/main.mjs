@@ -1360,7 +1360,7 @@ const settingsPanel = new SettingsPanel({
   store: settings,
   registry,
   device: () => (touchUi ? 'touch' : 'desktop'),
-  onOpenTouchEditor: () => runtime?.editTouchLayout(),
+  onOpenTouchEditor: () => { ensureRuntime(); runtime?.editTouchLayout(); },
 });
 settings.onChange((change) => {
   applySettings();
