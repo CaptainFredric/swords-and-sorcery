@@ -28,6 +28,7 @@ export function requestFlightDash(room,m,p,held,now){
      // Releasing a ground wind-up before lift cancels it safely. A launch
      // already airborne must still finish its guaranteed minimum distance.
      m.runGroundPhase=null;
+     if(m.grounded)m.rotorPowered=false;
    }else if(m.runGroundPhase==='ASCENT')m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
@@ -97,7 +98,8 @@ export function stepFlightRun(room,m,dt,now){
  const activeChivalry=Boolean(p&&activeUltimate(p,now)?.id==='chivalry');
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
- const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&now-(m.flightDashStartedAt??now)<VALKYRIE_RUN.chargeGraceSec);
+ const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
+   m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
  let running=valid&&!activeChivalry&&!preparing&&!grace;
  // Training meters cycle without dropping the held propulsion state. This
