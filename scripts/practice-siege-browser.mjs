@@ -173,7 +173,11 @@ try{
    },'Sir Uppercuff: real wheel-driven movement',120);
   }else{
    evidence=await until(async()=>{const s=await snap(),b=s.flight;
-    return b&&b.y>1&&b.flightCharge<100&&b.ammo<18&&b.shotSeq>0?s:null;
+    // Formidable pilots deliberately make low rotor passes. Verify actual
+    // powered ascent from this launch surface, not an arbitrary 1 m cruise.
+    const airborne=b&&b.mode==='AIRBORNE'&&!b.grounded&&b.rotorPowered&&
+     b.y>first.flight.y+.25&&Math.abs(b.rotorAngularVelocity)>0;
+    return airborne&&b.flightCharge<100&&b.ammo<18&&b.shotSeq>0?s:null;
    },'Mr. Donte Shoot: actual powered flight and physical repeater firing',160);
   }
   record[machine]={first:{
