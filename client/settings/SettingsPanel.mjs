@@ -93,8 +93,8 @@ export class SettingsPanel {
     const settings = this.registry.settingsIn(this.section, device);
     let html = groupRows(settings, (setting) => this.#row(setting));
     if (this.section === 'controls' && device === 'desktop') html += this.#bindings(flashAction);
-    if (this.section === 'controls' && device === 'touch') {
-      html += `<div class="setting-row"><div class="setting-text"><b>Edit touch controls</b><small>Reposition, resize, choose presets and adjust opacity</small></div><button type="button" class="setting-switch" data-action="open-touch-editor">EDIT</button></div>`;
+    if (this.section === 'controls') {
+      html += `<div class="setting-row"><div class="setting-text"><b>Touch layout workshop</b><small>Spellblade · Fight-and-Flight · Bi-Bye-llista · SO-FIST-ICATION. Drag controls and joysticks, resize widths and heights, save each layout independently.</small></div><button type="button" class="setting-switch" data-action="open-touch-editor">CUSTOMIZE</button></div>`;
     }
     this.body.innerHTML = html || '<p class="setting-empty">Nothing to set here on this device.</p>';
   }
