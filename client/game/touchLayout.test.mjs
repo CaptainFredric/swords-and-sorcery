@@ -287,3 +287,21 @@ test('four distinct edit pages persist joystick radius and siege controls withou
  assert.match(rect.style.width,/140px/);
  assert.match(rect.style.height,/70px/);
 });
+
+test('resizing a default joystick or button never mutates another machine or canonical presets',async()=>{
+ const {DEFAULT_BALLISTA_LAYOUT,DEFAULT_RAM_LAYOUT}=await import('./touchLayout.mjs');
+ const onFootPresetSize=DEFAULT_ON_FOOT_LAYOUT.stick.size;
+ const flightPresetSize=DEFAULT_FLIGHT_LAYOUT.stick.size;
+ const ballistaPresetSize=DEFAULT_BALLISTA_LAYOUT.stick.size;
+ const ramPresetSize=DEFAULT_RAM_LAYOUT.stick.size;
+ const first=loadTouchLayout(memoryStorage());
+ first.ballista.stick.size=164;first.ballista.stick.custom=true;
+ first.flight.siegeWeapon.width=150;first.flight.siegeWeapon.custom=true;
+ assert.equal(first.onFoot.stick.size,onFootPresetSize);
+ assert.equal(first.flight.stick.size,flightPresetSize);
+ assert.equal(first.ram.stick.size,ramPresetSize);
+ assert.equal(DEFAULT_BALLISTA_LAYOUT.stick.size,ballistaPresetSize);
+ assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width,122);
+ assert.equal(loadTouchLayout(memoryStorage()).ballista.stick.size,ballistaPresetSize,
+   'fresh user profile starts from untouched factory sizes');
+});
