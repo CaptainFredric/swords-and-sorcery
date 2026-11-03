@@ -8,14 +8,16 @@ First person keeps its own arm rig, camera and camera-tuned actions (kit/README.
 would drift out of frame and every swing would need retuning). Only the meshes change: Rodin's gauntlets and sword
 replace the kit's arms, so both views share one look.
 
-Each vertex is carried from the third-person rest into the first-person rest through the bones that carry it:
+Each vertex is carried from the third-person rest into the first-person rest through the bones that carry it, so
+first person is the third-person model drawn at one scale (the kit's: it drew its first-person sword and arms at about
+83 % of its third-person ones, so at arm's length from the eye they do not fill the frame):
 
-- upper arm and forearm: bone to bone, shortened along the bone to the first-person length and slimmed (as the kit
-  drew its first-person forearms 20 % slimmer: at arm's length from the eye they otherwise fill the frame);
-- left hand: bone to bone, at its own size;
 - sword hand and sword: by the transform that carries the kit's own third-person sword onto its first-person sword
-  (fitted on the kit's two meshes: the first-person grip is turned in the hand and the sword drawn smaller). Rodin's
-  sword sits in its hand as the kit's sat in its hand, so the same transform places it as the kit placed its own.
+  (fitted on the kit's two meshes: the first-person grip is turned in the hand and the sword drawn at 83 %). Rodin's
+  sword sits in its hand as the kit's sat in its hand, so the same transform places it as the kit placed its own;
+- left hand: bone to bone, at that same scale, so both hands match;
+- upper arm and forearm: bone to bone, at that scale across the bone and stretched along it to the first-person rig's
+  lengths (its camera-tuned actions place the hands; the forearm comes out 7 % shorter than a true copy).
 
 Rodin's sword is longer and his left gauntlet bigger, so in Slash_1 and Slash_2 the blade crossed the open off hand.
 There the left arm is keyed out of the blade's path by the least turn that clears it (clear_off_hand).
@@ -31,7 +33,6 @@ import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
-SLIM = {"upper_arm": 0.82, "forearm": 0.86, "hand": 1.0}
 ARM_BONES = ("upper_arm", "forearm", "hand")
 
 
@@ -207,13 +208,14 @@ def main() -> None:
     fp_rest = {b.name: np.array(b.matrix_local) for b in rig.data.bones}
     fp_length = {b.name: b.length for b in rig.data.bones}
 
+    scale = grip_report["scale"]
+
     def carry(bone: str) -> np.ndarray:
         """Third-person rest to first-person rest, for the vertices this bone carries."""
         if bone == "hand.R":
             return fp_rest[bone] @ grip @ np.linalg.inv(tp_rest[bone])
-        part = bone.split(".")[0]
-        shape = np.diag([SLIM[part], fp_length[bone] / tp_length[bone] if part != "hand" else 1.0, SLIM[part], 1.0])
-        return fp_rest[bone] @ shape @ np.linalg.inv(tp_rest[bone])
+        along = scale if bone.startswith("hand") else fp_length[bone] / tp_length[bone]
+        return fp_rest[bone] @ np.diag([scale, along, scale, 1.0]) @ np.linalg.inv(tp_rest[bone])
 
     carries = {f"{p}.{s}": carry(f"{p}.{s}") for p in ARM_BONES for s in "LR"}
     with bpy.data.libraries.load(str(args.third_person), link=False) as (source, target):

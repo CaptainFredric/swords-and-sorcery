@@ -6,9 +6,12 @@ The open file is the kit source: it supplies SpellbladeRig, the fifteen actions,
 - Every mapped bone keeps its production rest orientation and moves its rest head to Rodin's joint. Pose P turns each
   bone onto Rodin's limb. The actions store rotations about those same orientations, so they play the new body as they
   played the kit, at Rodin's proportions.
-- The autorigged file's weights carry over by vertex index (both files hold the same mesh) onto production bones.
-- The sword is rigid on hand.R. hand.R's pose P lays the kit sword's axis and width, measured in the hand, onto Rodin's
-  blade, so every action points Rodin's sword where it pointed the kit's.
+- The autorigged file's weights carry over by vertex index (both files hold the same mesh) onto production bones;
+  around the shoulders, bone heat replaces them (Rodin's tore the armpits when an arm rose).
+- The sword is rigid on hand.R: grown from the blade's core through connected vertices, inside a cylinder about the
+  blade's centreline and a slab in its plane (the guard's quillons), never up the arm. hand.R's pose P lays the kit
+  sword's axis, measured in the hand, onto that centreline, so every action points Rodin's sword where it pointed
+  the kit's; the spin about it stays nearest Rodin's own wrist.
 - The mesh is unposed from P into the rest by inverting linear blend skinning.
 """
 from __future__ import annotations
@@ -17,12 +20,17 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
+import bmesh
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
+# bone heat replaces Rodin's weights within the first distance of a shoulder joint, fading out by the second (m)
+SHOULDER_HEAT = (0.24, 0.40)
 # Rodin's blade direction in its own file (glTF Y up, imported Z up), a first estimate refined from the blade itself.
 RODIN_BLADE_ESTIMATE = (-0.616, -0.633, -0.470)
+FIST_REACH = 0.14                # metres from the wrist: Rodin's fist, for the sword socket
+SWORD_SLAB = (0.075, 0.40)       # metres: half thickness and half width of the sword in its own plane
 
 
 def _side(name: str, sfx: str) -> str:
@@ -64,6 +72,9 @@ class Fit:
     scale: float
     blade_length: float
     report: dict
+    blade_axis: np.ndarray = None   # the blade's axis (grip toward tip) and a point on it, in pose P
+    blade_origin: np.ndarray = None
+    hand_to_rest: np.ndarray = None  # carries pose-P points rigid on hand.R into the rest (4x4)
 
 
 def pca(points) -> tuple[np.ndarray, np.ndarray]:
@@ -102,8 +113,8 @@ def _remove(objects) -> None:
                 bpy.data.armatures.remove(data)
 
 
-def kit_sword_in_hand(rig: bpy.types.Object) -> tuple[np.ndarray, np.ndarray]:
-    """The kit sword's blade direction and width direction, in hand.R's rest frame."""
+def kit_sword_in_hand(rig: bpy.types.Object) -> np.ndarray:
+    """The kit sword's blade direction, in hand.R's rest frame."""
     sword = bpy.data.objects["HeroSword"]
     hand = rig.data.bones["hand.R"].matrix_local
     points = np.array([tuple(rig.matrix_world @ sword.matrix_world @ v.co) for v in sword.data.vertices])
@@ -113,12 +124,8 @@ def kit_sword_in_hand(rig: bpy.types.Object) -> tuple[np.ndarray, np.ndarray]:
     span = (points - centre) @ d
     if np.linalg.norm(centre + d * span.max() - wrist) < np.linalg.norm(centre + d * span.min() - wrist):
         d = -d
-    blade = points[((points - wrist) @ d) > 0.35]
-    _, vtb = pca(blade)
-    w = vtb[1] - np.dot(vtb[1], d) * d
-    w /= np.linalg.norm(w)
     rotation = np.array(hand.to_3x3())
-    return rotation.T @ d, rotation.T @ w
+    return rotation.T @ d
 
 
 def _lift_sword_rest(R_old: Matrix, head_rest: Vector, Rp: Matrix, H: Vector, sword_posed: np.ndarray,
@@ -171,8 +178,56 @@ def compensate_rest_rotation(D, bone: str) -> None:
                         c.update()
 
 
-def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
-    sword_d, sword_w = kit_sword_in_hand(rig)
+def bone_heat(mesh: bpy.types.Object, rig: bpy.types.Object, influences: int = 4) -> list[dict[str, float]]:
+    """Blender's bone-heat weights for the mesh at rest, per vertex (computed on a welded copy: Rodin's file splits
+    vertices along every seam, which would cut the heat apart; and at ten times scale, where the solver converges)."""
+    from mathutils.kdtree import KDTree
+    data = mesh.data.copy()
+    temp = bpy.data.objects.new("RodinHeat", data)
+    bpy.context.scene.collection.objects.link(temp)
+    for group in list(temp.vertex_groups):
+        temp.vertex_groups.remove(group)
+    bm = bmesh.new()
+    bm.from_mesh(data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-5)
+    bm.to_mesh(data)
+    bm.free()
+    cloth = [b for b in rig.data.bones if b.name.startswith("tabard_") and b.use_deform]
+    for bone in cloth:
+        bone.use_deform = False
+    keep = (rig.data.pose_position, tuple(rig.scale))
+    rig.data.pose_position = "REST"
+    rig.scale = (10, 10, 10)
+    data.transform(Matrix.Scale(10, 4))
+    bpy.context.view_layer.update()
+    bpy.ops.object.select_all(action="DESELECT")
+    temp.select_set(True)
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    rig.data.pose_position, rig.scale = keep[0], keep[1]
+    for bone in cloth:
+        bone.use_deform = True
+    data.transform(Matrix.Scale(0.1, 4))
+    names = [g.name for g in temp.vertex_groups]
+    welded = []
+    for vertex in data.vertices:
+        w = sorted(((names[g.group], g.weight) for g in vertex.groups if g.weight > 1e-3), key=lambda x: -x[1])[:influences]
+        total = sum(v for _, v in w)
+        welded.append({k: v / total for k, v in w} if total > 0 else {})
+    tree = KDTree(len(data.vertices))
+    for vertex in data.vertices:
+        tree.insert(vertex.co, vertex.index)
+    tree.balance()
+    out = [welded[tree.find(v.co)[1]] for v in mesh.data.vertices]
+    bpy.data.objects.remove(temp)
+    bpy.data.meshes.remove(data)
+    bpy.ops.object.select_all(action="DESELECT")
+    return out
+
+
+def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: bool = True) -> Fit:
+    sword_d = kit_sword_in_hand(rig)
     export = bpy.data.collections["SpellbladeExport"]
     # the kit's armour goes; its palm rune (the spell hand's accent) stays and moves to Rodin's palm
     _remove([o for o in export.all_objects if o.type == "MESH" and o.name != "PalmRune"])
@@ -229,13 +284,8 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
         centre, vt = pca(posed[(along > 0.3) & (off < 0.12)])
         axis = vt[0] * np.sign(vt[0] @ axis)
         origin = centre - axis * ((centre - grip) @ axis)
-    rel = posed - origin
-    along = rel @ axis
-    off = np.linalg.norm(rel - np.outer(along, axis), axis=1)
-    tip = float(along[off < 0.1].max())
     # the sword (blade, guard, grip) and the fist around it: grown from the blade's core through connected vertices
     # inside a generous cylinder, so the knee it passes in Rodin's pose stays with the leg
-    inside = (along > -0.05) & (along <= tip + 0.08) & (off < 0.17)
     weld = np.unique(np.round(posed / 1e-6).astype(np.int64), axis=0, return_inverse=True)[1].ravel()
     edges = np.empty(len(mesh.data.edges) * 2, dtype=int)
     mesh.data.edges.foreach_get("vertices", edges)
@@ -244,21 +294,57 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
     for u, v in edges:
         neighbours[u].append(v)
         neighbours[v].append(u)
-    inside_welded = np.zeros(weld.max() + 1, dtype=bool)
-    inside_welded[weld[inside]] = True
-    reached = np.zeros_like(inside_welded)
-    stack = list(np.unique(weld[(along > 0.3) & (off < 0.04)]))
-    reached[stack] = True
-    while stack:
-        u = stack.pop()
-        for v in neighbours[u]:
-            if inside_welded[v] and not reached[v]:
-                reached[v] = True
-                stack.append(v)
-    is_sword = reached[weld]
-    _, vtw = pca(posed[(along > 0.35) & is_sword])
-    width = vtw[1] - np.dot(vtw[1], axis) * axis
-    width /= np.linalg.norm(width)
+
+    def measure():
+        rel = posed - origin
+        along = rel @ axis
+        perpendicular = rel - np.outer(along, axis)
+        return along, perpendicular, np.linalg.norm(perpendicular, axis=1)
+
+    def grow(inside):
+        inside_welded = np.zeros(weld.max() + 1, dtype=bool)
+        inside_welded[weld[inside]] = True
+        reached = np.zeros_like(inside_welded)
+        stack = list(np.unique(weld[(along > 0.3) & (off < 0.04)]))
+        reached[stack] = True
+        while stack:
+            u = stack.pop()
+            for v in neighbours[u]:
+                if inside_welded[v] and not reached[v]:
+                    reached[v] = True
+                    stack.append(v)
+        return reached[weld]
+    along, perpendicular, off = measure()
+    tip = float(along[off < 0.1].max())
+    blade = grow((along > 0.3) & (along <= tip + 0.08) & (off < 0.17))
+    # the blade is 22 cm wide, so the clipped core above leans toward one edge (7 degrees on Rodin's sword): the
+    # midpoints of its cross-sections, up to where it narrows to the point, lie on its centreline, which the grip
+    # continues
+    _, frame = pca(perpendicular[blade])
+    midpoints = []
+    for start in np.arange(0.35, tip - 0.2, 0.05):
+        section = blade & (along >= start) & (along < start + 0.05)
+        across, thickness = perpendicular[section] @ frame[0], perpendicular[section] @ frame[1]
+        midpoints.append(origin + axis * (start + 0.025) + frame[0] * (across.max() + across.min()) / 2
+                         + frame[1] * (thickness.max() + thickness.min()) / 2)
+    rough = axis
+    centre, vt = pca(np.array(midpoints))
+    axis = vt[0] * np.sign(vt[0] @ axis)
+    origin = centre - axis * ((centre - grip) @ axis)
+    centred = math.degrees(math.acos(min(1.0, float(axis @ rough))))
+    along, perpendicular, off = measure()
+    tip = float(along[off < 0.1].max())
+    # not up the arm: past the wrist the fill would reach the gauntlet's cuff, which bends with the forearm
+    arm = np.array([sum(v for g, v in w.items() if g in ("RightForeArm", "RightArm")) > 0.5 * (sum(w.values()) or 1.0)
+                    for w in rodin_weights])
+    span = (along > -0.05) & (along <= tip + 0.08) & ~arm
+    is_sword = grow(span & (off < 0.17))
+    # the guard's quillons reach past that cylinder, but stay in the blade's plane, where the knee does not: grow
+    # again through a slab in that plane
+    _, frame = pca(perpendicular[is_sword & (along > 0.3)])
+    across, thickness = perpendicular @ frame[0], perpendicular @ frame[1]
+    cylinder = int(is_sword.sum())
+    is_sword = grow(span & ((off < 0.17) | ((np.abs(thickness) < SWORD_SLAB[0]) & (np.abs(across) < SWORD_SLAB[1]))))
 
     # --- the fit ---------------------------------------------------------------------------------------------
     order: list[str] = []
@@ -288,18 +374,13 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
                 L = target.length
             natural = _rot_between(R_old.col[1], target) @ R_old
             if name == "hand.R":
-                # by the sword: the kit blade's axis and width (in the hand) onto Rodin's. The width's sign is free;
-                # take the one nearer the hand's natural turn, so the wrist is not twisted half a turn
-                A = np.column_stack([sword_d, sword_w, np.cross(sword_d, sword_w)])
-                best = None
-                for sign in (1.0, -1.0):
-                    B = np.column_stack([axis, sign * width, np.cross(axis, sign * width)])
-                    candidate = Matrix((B @ A.T).tolist())
-                    twist = (candidate @ natural.transposed()).to_quaternion().angle
-                    if best is None or twist < best[0]:
-                        best = (twist, candidate)
-                hand_twist = math.degrees(best[0])
-                Rp = best[1]
+                # by the sword: the kit blade's axis (in the hand) onto Rodin's blade, so every action points the
+                # sword where it pointed the kit's. Its spin about that axis is free, so the hand keeps the turn
+                # nearest Rodin's own wrist: only the blade's tilt in the fist is left as twist (aligning the blade's
+                # width as well had twisted the wrist 36 degrees and pinched it in every action)
+                in_hand = np.array(natural.transposed()) @ axis
+                Rp = natural @ _rot_between(Vector(tuple(sword_d)), Vector(tuple(in_hand))).to_4x4().to_3x3()
+                hand_twist = math.degrees((Rp @ natural.transposed()).to_quaternion().angle)
                 L = old_length[name] * scale
             else:
                 Rp = natural
@@ -347,11 +428,13 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
 
     # --- weights ------------------------------------------------------------------------------------------------
     weights = []
+    rodin_hand = np.zeros(len(posed), dtype=bool)          # Rodin's own right hand (its fist), before the sword
     for index, source in enumerate(rodin_weights):
         out: dict[str, float] = {}
         for group, value in source.items():
             for target, share in WEIGHT_MAP.get(group, {}).items():
                 out[target] = out.get(target, 0.0) + value * share
+        rodin_hand[index] = out.get("hand.R", 0.0) > 0.6 * (sum(out.values()) or 1.0)
         if is_sword[index]:
             out = {"hand.R": 1.0}
         total = sum(out.values()) or 1.0
@@ -359,13 +442,42 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
 
     # --- unpose into the rest (inverse linear blend skinning) --------------------------------------------------
     M = {n: np.array(rig.matrix_world @ rig.pose.bones[n].matrix @ bones[n].matrix_local.inverted()) for n in order}
-    rest = np.empty_like(posed)
-    for index, w in enumerate(weights):
-        blend = sum(M[k] * v for k, v in w.items())
-        rest[index] = (np.linalg.inv(blend) @ np.append(posed[index], 1.0))[:3]
+
+    def unpose(per_vertex):
+        out = np.empty_like(posed)
+        for index, w in enumerate(per_vertex):
+            blend = sum(M[k] * v for k, v in w.items())
+            out[index] = (np.linalg.inv(blend) @ np.append(posed[index], 1.0))[:3]
+        return out
     mesh.matrix_world = Matrix.Identity(4)
+    rest = unpose(weights)
     mesh.data.vertices.foreach_set("co", rest.ravel())
     mesh.data.update()
+    if heat:
+        # Rodin's autorig weighted a body posed arms down; the kit's swings raise the sword arm overhead, and there
+        # its shoulders and armpits stretched by up to 29 cm. Bone heat on the unposed body spreads the shoulders
+        # over the clavicle, upper arm and chest as the body's own surface runs; the posed mesh is then unposed again
+        # with the new weights, so the rest shape matches them. The sword stays rigid on the hand.
+        # Only around the shoulders: elsewhere (hips, fists, cloth) Rodin's own weights deform better.
+        heated = bone_heat(mesh, rig)
+        shoulders = np.array([tuple(new_rest[f"upper_arm.{s}"].translation) for s in "LR"])
+        near = np.linalg.norm(rest[:, None, :] - shoulders[None], axis=2).min(1)
+        share = 1.0 - np.clip((near - SHOULDER_HEAT[0]) / (SHOULDER_HEAT[1] - SHOULDER_HEAT[0]), 0.0, 1.0)
+        share = share * share * (3 - 2 * share)
+        mixed = []
+        for i, w in enumerate(weights):
+            if is_sword[i] or not heated[i] or share[i] <= 0:
+                mixed.append(w)
+                continue
+            out = {k: v * (1 - share[i]) for k, v in w.items()}
+            for k, v in heated[i].items():
+                out[k] = out.get(k, 0.0) + v * share[i]
+            total = sum(out.values())
+            mixed.append({k: v / total for k, v in out.items() if v / total > 1e-4})
+        weights = mixed
+        rest = unpose(weights)
+        mesh.data.vertices.foreach_set("co", rest.ravel())
+        mesh.data.update()
     groups = {n: mesh.vertex_groups.new(name=n) for n in order if bones[n].use_deform}
     for index, w in enumerate(weights):
         for bone_name, value in w.items():
@@ -377,7 +489,7 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
     # the sword and spell sockets on Rodin's grip and palm, in pose P, then carried into the rest with their hands
     def to_rest(bone_name: str, point) -> Vector:
         return new_rest[bone_name] @ pose_world[bone_name].inverted() @ Vector(tuple(point))
-    fist = posed[np.array([w.get("hand.R", 0) > 0.6 for w in weights]) & ~is_sword]
+    fist = posed[rodin_hand & (np.linalg.norm(posed - grip, axis=1) < FIST_REACH)]
     fist_centre = fist.mean(0)
     sword_socket = origin + axis * ((fist_centre - origin) @ axis)
     palm = posed[np.array([w.get("hand.L", 0) > 0.6 for w in weights])]
@@ -412,6 +524,11 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path) -> Fit:
         "handTwistDegrees": round(hand_twist, 2),
         "swordRestLiftDegrees": rest_lift,
         "swordVertices": int(is_sword.sum()),
+        "swordSlabVertices": int(is_sword.sum()) - cylinder,
+        "bladeCentredDegrees": round(centred, 2),
+        "swordSocketAlong": round(float((sword_socket - origin) @ axis), 3),
         "bladeLengthMeters": round(tip, 3),
     }
-    return Fit(mesh=mesh, weights=weights, is_sword=is_sword, posed=posed, scale=scale, blade_length=tip, report=report)
+    hand_to_rest = np.array(new_rest["hand.R"] @ pose_world["hand.R"].inverted())
+    return Fit(mesh=mesh, weights=weights, is_sword=is_sword, posed=posed, scale=scale, blade_length=tip, report=report,
+               blade_axis=axis, blade_origin=origin, hand_to_rest=hand_to_rest)
