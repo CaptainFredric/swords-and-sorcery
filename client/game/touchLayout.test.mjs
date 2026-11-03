@@ -288,6 +288,20 @@ test('four distinct edit pages persist joystick radius and siege controls withou
  assert.match(rect.style.height,/70px/);
 });
 
+test('legacy saved on-foot controls are copied, not aliased, into new siege editor pages',()=>{
+ const storage=memoryStorage();
+ const legacy={onFoot:{...DEFAULT_ON_FOOT_LAYOUT,
+   stick:{left:118,bottom:110,size:122,type:'stick',custom:true}}};
+ storage.setItem('ss-touch-layout',JSON.stringify(legacy));
+ const migrated=loadTouchLayout(storage);
+ assert.equal(migrated.onFoot.stick.size,122);
+ assert.equal(migrated.ballista.stick.size,122);
+ assert.equal(migrated.ram.stick.size,122);
+ migrated.ballista.stick.size=164;
+ assert.equal(migrated.onFoot.stick.size,122,'editing Ballista does not enlarge Spellblade');
+ assert.equal(migrated.ram.stick.size,122,'editing Ballista does not enlarge Ram');
+});
+
 test('resizing a default joystick or button never mutates another machine or canonical presets',async()=>{
  const {DEFAULT_BALLISTA_LAYOUT,DEFAULT_RAM_LAYOUT}=await import('./touchLayout.mjs');
  const onFootPresetSize=DEFAULT_ON_FOOT_LAYOUT.stick.size;
