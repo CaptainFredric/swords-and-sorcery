@@ -98,14 +98,26 @@ test('Stale held Rise after lost focus expires on the authoritative server witho
  assert.ok(m.velocity.y<3.7);
  assert.ok(prior>0);
 });
-test('Unauthorized Hop and airborne Hop are rejected, without resetting machine resources',()=>{
+test('Mounted Hop works both on ground and in powered flight, without free infinite jumps',()=>{
  const {room,m,p}=setup();
  const stranger=room.addPlayer({id:'stranger',token:'x',name:'Other'},0);
  assert.ok(applyRoomCommand(room,stranger,{type:'flightHop'},1).rejected);
  step(room,m,0,35,{flightRise:true});
- const before=[m.ammo,m.ammoDebt,m.flightCharge];
- assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2).rejected);
- assert.deepEqual([m.ammo,m.ammoDebt,m.flightCharge],before);
+ send(room,p,2,{flightRise:false});
+ const before=[m.ammo,m.ammoDebt,m.flightCharge],y=m.y;
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightHop'},2),{});
+ assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2).rejected,'one request per flight impulse');
+ step(room,m,2,9,{flightRise:false});
+ assert.ok(m.y>y+.45,'air Hop produces actual height, not an inert button');
+ assert.ok(m.flightCharge<before[2]-10,'the extra climb consumes machine charge');
+ assert.equal(m.ammo,before[0]);assert.equal(m.ammoDebt,before[1]);
+ assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2.4).rejected,'cooldown blocks rapid stacking');
+ step(room,m,2.3,30,{flightRise:false});
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightHop'},3.3),{},'a later fresh, powered impulse is legal');
+ const damaged=setup();step(damaged.room,damaged.m,0,35,{flightRise:true});
+ damaged.m.rotorHP=0;
+ assert.ok(applyRoomCommand(damaged.room,damaged.p,{type:'flightHop'},2).rejected,
+   'a destroyed rotor cannot perform powered aerial hops');
 });
 test('Prowess-powered Dash accelerates a rotor-equipped machine and pitches forward without consuming dive',()=>{
  const {room,m,p}=setup();

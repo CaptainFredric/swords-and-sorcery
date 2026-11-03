@@ -241,19 +241,25 @@ try {
   assert.ok(layoutCheck.guard.left < layoutCheck.sword.left, 'Guard is left of Sword on bottom row');
   assert.ok(Math.abs(layoutCheck.guard.bottom - layoutCheck.sword.bottom) < 25, 'Guard and Sword are in bottom row');
 
-  // 2. Second row: wider Bolt left of Jump
-  assert.ok(layoutCheck.jump.top < layoutCheck.sword.top, 'Jump is above Sword');
-  assert.ok(layoutCheck.bolt.top < layoutCheck.guard.top, 'Bolt is above Guard');
-  assert.ok(layoutCheck.bolt.left < layoutCheck.jump.left, 'Bolt is left of Jump');
-  assert.ok(layoutCheck.bolt.width > layoutCheck.jump.width, 'Bolt has a wider held-fire touch target');
+  // 2. The wider Bolt directly above the equally wide Sword: no blind gap.
+  assert.ok(layoutCheck.bolt.top < layoutCheck.sword.top,'Bolt is above Sword');
+  assert.ok(Math.abs(layoutCheck.bolt.left-layoutCheck.sword.left)<8,
+    'Bolt occupies the old right-hand Jump column');
+  assert.ok(Math.abs(layoutCheck.bolt.width-layoutCheck.sword.width)<8,
+    'Bolt and Sword have equal wide contact areas');
+  assert.ok(layoutCheck.bolt.bottom<=layoutCheck.sword.top+3,'Bolt/Sword touch targets do not overlap');
 
-  // 3. Third row: Fire Away (skill) on left, Dash on right
-  assert.ok(layoutCheck.skill.top < layoutCheck.jump.top, 'Fire Away is above Jump');
-  assert.ok(layoutCheck.dash.top < layoutCheck.bolt.top, 'Dash is above Bolt');
-  assert.ok(layoutCheck.skill.left < layoutCheck.dash.left, 'Fire Away is left of Dash');
+  // 3. Jump immediately over Bolt, Dash left in Fire Away former position.
+  assert.ok(Math.abs(layoutCheck.jump.right-layoutCheck.bolt.right)<35,
+    'Jump is vertically reachable from Bolt in a single upward swipe');
+  assert.ok(layoutCheck.jump.bottom<=layoutCheck.bolt.top+3,'Jump/Bolt do not overlap');
+  assert.ok(layoutCheck.dash.left<layoutCheck.jump.left,'Dash is to the left of Jump');
+  assert.ok(Math.abs(layoutCheck.dash.top-layoutCheck.jump.top)<12,'Dash/Jump share a row');
 
-  // 4. Above combat cluster: Ultimate
-  assert.ok(layoutCheck.ult.top < layoutCheck.dash.top, 'Ultimate is above Dash and combat cluster');
+  // 4. Fire Away is adjacent to Ultimate in the high row.
+  assert.ok(layoutCheck.skill.left<layoutCheck.ult.left,'Fire Away is beside Ultimate');
+  assert.ok(Math.abs(layoutCheck.skill.top-layoutCheck.ult.top)<12,'Skill/Ultimate share a row');
+  assert.ok(layoutCheck.skill.bottom<=layoutCheck.dash.top+3,'Skill/Dash do not overlap');
 
   // 5. Movement cluster: one spring-centered rail inward from the movement stick
   assert.ok(layoutCheck.rail.left > layoutCheck.stick.left, 'Flight rail is inward from joystick');
@@ -267,6 +273,34 @@ try {
 
   // Take screenshot of default layout
   await captureScreenshot('mobile-flight-default-layout.png');
+
+  // Physical swipe semantics: drag one captured firing pointer upward into
+  // Jump. The repeater remains held and a real server-side ground Hop occurs.
+  const startHopY=await evaluate('window.__ssRuntime.latestSnapshot.fightFlight.y');
+  const swipeState=await evaluate(`(() => {
+    const rt=window.__ssRuntime,bolt=document.querySelector('.touch-siegeWeapon'),
+      jump=document.querySelector('.touch-jump'),br=bolt.getBoundingClientRect(),
+      jr=jump.getBoundingClientRect();
+    bolt.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:91,
+      pointerType:'touch',clientX:br.left+br.width/2,clientY:br.top+br.height/2}));
+    bolt.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:91,
+      pointerType:'touch',clientX:jr.left+jr.width/2,clientY:jr.top+jr.height/2}));
+    return {firing:rt.input.flightFireSources.size>0,
+      jumpPressed:jump.classList.contains('pressed')};
+  })()`);
+  assert.ok(swipeState.firing,'Bolt must remain held during the Jump slide');
+  assert.ok(swipeState.jumpPressed,'Jump must activate from one Bolt-held pointer');
+  await until(()=>evaluate(`window.__ssRuntime.latestSnapshot.fightFlight.y>${startHopY+.12}`),
+    'real ground Hop produced by Bolt-to-Jump swipe',70,120);
+  await captureScreenshot('mobile-flight-bolt-swipe-hop.png');
+  await evaluate(`(() => {
+    const bolt=document.querySelector('.touch-siegeWeapon'),jump=document.querySelector('.touch-jump'),
+      jr=jump.getBoundingClientRect();
+    bolt.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:91,
+      pointerType:'touch',clientX:jr.left+jr.width/2,clientY:jr.top+jr.height/2}));
+  })()`);
+  assert.equal(await evaluate('window.__ssRuntime.input.flightFireSources.size'),0,
+    'releasing the swiping thumb must finally release Bolt');
 
   // Test Valkyrie chord isolation
   // 1. Ultimate alone:

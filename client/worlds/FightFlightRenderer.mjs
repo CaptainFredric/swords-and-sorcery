@@ -117,10 +117,12 @@ export class FightFlightRenderer{
     if(!this.model)return;
     // Authored pitched flight pose and actual pilot machine silhouette share
     // the same authoritative run tilt; no unrelated camera dip is applied.
-    this.model.rotation.x=m.runPitch??0;
     const dt=this.lastUpdateAt!=null?Math.min(.1,Math.max(0,now-this.lastUpdateAt)):0;
     this.lastUpdateAt=now;
     this.animation.update(m,now,dt,operator,this.ejectionAt);
+    // GLB tracks may sample a root posture, but authoritative flight attitude
+    // (and the pilot's rotor collision frame) must win after all blending.
+    this.model.rotation.x=m.runPitch??0;
     // Gimbal motion follows the machine's authoritative replicated joint angles,
     // never a second, visually convenient convergence calculation.
     const rel=Math.atan2(Math.sin((m.crossbowYaw??m.heading??0)-(m.heading??0)),

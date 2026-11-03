@@ -74,6 +74,9 @@ export class TouchControls {
     this.look = null;
     this.deniedButtons = new Set();
     this.held = new Map();   // pointerId -> action for held buttons
+    // Bolt stays held by the original finger; crossing into Jump fires one
+    // independent Hop without transferring or releasing the repeater pointer.
+    this.boltJumpTriggered = new Set();
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickSprintRequested = false;
     this.sprintLatched = false;this.chargeHeld=false;
@@ -184,9 +187,11 @@ export class TouchControls {
     this.onWindowStickMove = (event) => {
       if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
       if (this.flightRailPointer === event.pointerId && !this.layer.contains?.(event.target)) this.#moveFlightRail(event);
+      if (this.held.has(event.pointerId) && !this.layer.contains?.(event.target)) this.#move(event);
     };
     this.onWindowStickEnd = (event) => {
-      if ((this.stick?.id === event.pointerId || this.flightRailPointer === event.pointerId) && !this.layer.contains?.(event.target)) this.#up(event);
+      if ((this.stick?.id === event.pointerId || this.flightRailPointer === event.pointerId ||
+        this.held.has(event.pointerId)) && !this.layer.contains?.(event.target)) this.#up(event);
     };
     window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
     window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
@@ -305,6 +310,8 @@ export class TouchControls {
     }
     for (const [pointerId, action] of this.held) this.#release(action, pointerId, true);
     this.held.clear();
+    this.boltJumpTriggered.clear();
+    this.buttons.jump?.classList.remove('pressed');
     this.#resetFlightRail();
     this.flightRiseSources.clear();
     this.flightRiseHeld = false;
@@ -821,6 +828,19 @@ export class TouchControls {
     }
     const looking = this.look?.id === event.pointerId ? this.look : null;
     const held = this.held.get(event.pointerId);
+    // Pointer capture keeps the event target at the original Bolt button.
+    // Read actual finger coordinates instead: firing never releases, while
+    // entering Jump adds exactly one separate authoritative upward impulse.
+    if(this.flightMounted && held==='siegeWeapon' && event.pointerType!=='mouse' &&
+      !this.boltJumpTriggered.has(event.pointerId) && this.#fingerOverJump(event)){
+      this.boltJumpTriggered.add(event.pointerId);
+      const source=`touch-bolt-jump:${event.pointerId}`;
+      if(this.#gateHeld('jump',true,source)){
+        this.input.flightHop?.();
+        this.buttons.jump?.classList.add('pressed');
+      }
+      this.#gateHeld('jump',false,source,false);
+    }
     const aiming = aimDragAction(held,this.flightMounted) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
@@ -868,6 +888,7 @@ export class TouchControls {
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
     const action = this.held.get(event.pointerId);
+    if(this.boltJumpTriggered.delete(event.pointerId))this.buttons.jump?.classList.remove('pressed');
     if(action==='siegeView'&&this.viewGesture?.id===event.pointerId){
       const g=this.viewGesture;this.viewGesture=null;
       if(event.type==='pointerup'&&!g.zoomed&&g.travel<18&&this.input.enabled)this.input.onAction?.('siegeView',true);
@@ -903,6 +924,20 @@ export class TouchControls {
       }
     }
   };
+
+  #fingerOverJump(event){
+    const jump=this.buttons.jump;
+    if(!jump||jump.hidden)return false;
+    const x=event.clientX,y=event.clientY;
+    if(!Number.isFinite(x)||!Number.isFinite(y))return false;
+    // getBoundingClientRect is in viewport coordinates, including when the
+    // game canvas is rotated to landscape by ScreenTurn.
+    const rect=jump.getBoundingClientRect?.();
+    if(rect&&Number.isFinite(rect.left)&&Number.isFinite(rect.right)&&
+      Number.isFinite(rect.top)&&Number.isFinite(rect.bottom))
+      return x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom;
+    return document.elementFromPoint?.(x,y)?.closest?.('[data-action="jump"]')===jump;
+  }
 
   #gateHeld(action, requested, source, notify = true) {
     if (this.input.gateHeldAction) return this.input.gateHeldAction(action, requested, source, notify);

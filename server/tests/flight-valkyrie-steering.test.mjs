@@ -80,6 +80,29 @@ test('Sustained held Dash turns with rate-limited angular acceleration',()=>{
   assert.ok(s.m.velocity.x<-5,'thrust curves into the new machine heading');
   assert.ok(Math.abs(s.m.runTurnSpeed)<=VALKYRIE_RUN.turnRate+1e-6);
 });
+test('Rotor physically follows the camera after commitment, not a fixed deep nose-down trim',()=>{
+  const s=setup({practice:true,y:32});s.p.input.pitch=0;
+  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,9);
+  assert.ok(s.m.runPitch>1.0,'within the 0.36-second launch, the rotor attacks steeply');
+  s.p.input.pitch=0;frames(s,30);
+  const neutral=s.m.runPitch;
+  assert.ok(neutral>.38&&neutral<.78,'after commitment rotor centers on near-level reticle');
+  s.p.input.pitch=-.55;frames(s,18);
+  const downward=s.m.runPitch,downVy=s.m.velocity.y;
+  assert.ok(downward>neutral+.35,'looking down physically lowers the rotor plane');
+  assert.ok(downVy<-3,'forward thrust follows the descending rotor direction');
+  s.p.input.pitch=.55;frames(s,18);
+  assert.ok(s.m.runPitch<downward-.65,'looking up physically raises rotor attitude');
+  assert.ok(s.m.velocity.y>2,'upward reticle follows authoritative ascent, not cosmetic camera');
+});
+test('Post-commit Dash can orbit ninety degrees quickly without snapping',()=>{
+  const s=setup({practice:true,y:30});requestFlightDash(s.room,s.m,s.p,true,0);
+  frames(s,12);s.p.input.yaw=Math.PI/2;
+  frames(s,24);
+  assert.ok(s.m.heading>1.1,'held camera turn reaches practical flanking angle within .8s');
+  assert.ok(s.m.heading<=Math.PI/2+.01,'no angular overshoot');
+  assert.ok(Math.abs(s.m.runTurnSpeed)<=VALKYRIE_RUN.turnRate+1e-6);
+});
 test('Held aiming can turn from a downward attack to real ascent',()=>{
   const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);frames(s,12);
   s.p.input.pitch=.65;frames(s,38);

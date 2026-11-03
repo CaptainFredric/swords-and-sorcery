@@ -921,6 +921,58 @@ test('mounted flight retains working independent climb, bolt, view, dash and pau
   controls.dispose();
 });
 
+test('Bolt-to-Jump swipe adds one mounted Hop while the same finger keeps firing',()=>{
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingFightFlightId:'flight'};
+  const {controls,input,send}=setup(p);
+  input.mountedFlight=true;input.touch=controls;
+  const sent=[];input.socket.send=m=>sent.push(m);
+  controls.update(p,10,{snapshot:{fightFlight:{id:'flight',health:250,rotorHP:100,grounded:false,ammo:18}}});
+  // Physical element rectangle, not captured pointer target: the thumb slides
+  // from the wide Bolt face into the Jump face directly above it.
+  controls.buttons.jump.getBoundingClientRect=()=>({left:610,right:680,top:160,bottom:228});
+  send('pointerdown',640,275,{action:'siegeWeapon',pointerId:75});
+  assert.deepEqual(sent,[{type:'fightFlightFire',down:true}]);
+  send('pointermove',645,245,{action:'siegeWeapon',pointerId:75});
+  assert.equal(sent.some(x=>x.type==='flightHop'),false,'crossing empty gutter does not jump');
+  send('pointermove',645,208,{action:'siegeWeapon',pointerId:75});
+  send('pointermove',645,200,{action:'siegeWeapon',pointerId:75});
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,1,'crossing onto Jump triggers only one Hop');
+  assert.equal(sent.some(x=>x.type==='fightFlightFire'&&x.down===false),false,
+    'Bolt continues firing while thumb is on Jump');
+  assert.equal(input.flightFireSources.size,1);
+  assert.ok(controls.boltJumpTriggered.has(75));
+  send('pointerup',645,200,{action:'siegeWeapon',pointerId:75});
+  assert.deepEqual(sent.at(-1),{type:'fightFlightFire',down:false});
+  assert.equal(controls.boltJumpTriggered.size,0);
+  assert.equal(controls.buttons.jump.classList.contains('pressed'),false);
+  controls.dispose();
+});
+
+test('Bolt swipe cancellation, a new pointer, and non-Bolt drags stay independent',()=>{
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingFightFlightId:'flight'};
+  const {controls,input,send}=setup(p);
+  input.mountedFlight=true;input.touch=controls;
+  const sent=[];input.socket.send=m=>sent.push(m);
+  controls.update(p,10,{snapshot:{fightFlight:{id:'flight',health:250,rotorHP:100,grounded:false,ammo:18}}});
+  controls.buttons.jump.getBoundingClientRect=()=>({left:610,right:680,top:160,bottom:228});
+  send('pointerdown',640,280,{action:'attack',pointerId:20});
+  send('pointermove',640,190,{action:'attack',pointerId:20});
+  send('pointerup',640,190,{action:'attack',pointerId:20});
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,0,'Sword aim does not synthesize Hop');
+  send('pointerdown',640,280,{action:'siegeWeapon',pointerId:21});
+  send('pointermove',640,194,{action:'siegeWeapon',pointerId:21});
+  send('pointercancel',640,194,{action:'siegeWeapon',pointerId:21});
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,1);
+  assert.equal(input.flightFireSources.size,0,'pointercancel releases the repeater');
+  send('pointerdown',640,280,{action:'siegeWeapon',pointerId:22});
+  send('pointermove',640,194,{action:'siegeWeapon',pointerId:22});
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,2,'new finger can jump again');
+  controls.reset();
+  assert.equal(input.flightFireSources.size,0);
+  assert.equal(controls.boltJumpTriggered.size,0);
+  controls.dispose();
+});
+
 test('flight rail cannot retain input across mount loss, focus reset or another pointer', () => {
   const p = { alive: true, spell: 'fireball', position: {x:0,y:0,z:0}, operatingFightFlightId: 'flight' };
   const { input, controls, send } = setup(p);

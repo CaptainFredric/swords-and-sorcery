@@ -1,0 +1,44 @@
+name: Fight-and-Flight mobile crosshair and control acceptance
+on:
+  pull_request:
+    paths:
+      - 'shared/sim/fightFlight.mjs'
+      - 'shared/sim/fightFlightRun.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/touchLayout.mjs'
+      - 'client/game/InputController.mjs'
+      - 'client/mobile.css'
+      - 'client/worlds/FightFlightRenderer.mjs'
+      - 'scripts/verify-final-mobile-controls.mjs'
+      - '.github/workflows/flight-mobile-crosshair-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify flight combat touch geometry and real Bolt to Jump swipe in Chrome
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/verify-final-mobile-controls.mjs
+      - name: Upload actual mobile screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flight-mobile-crosshair-browser
+          path: output/mobile-controls-evidence/
+          retention-days: 7
