@@ -44,7 +44,7 @@ export const ICONS = Object.freeze({
   narrowToOne: '<circle cx="17.5" cy="12.5" r="3.2"/><circle cx="17.5" cy="12.5" r=".7" fill="currentColor" stroke="none"/><path d="M2 21 13.9 14.3m-4.4-.1 4.4.1-2.3 3.5M21 2l-3 7.2m-1.3-4.2 1.3 4.2 3-2.7M23 12.5h-2.1m1.8-2-1.8 2 1.8 2"/>',
   // A saintly halo encircles the crossed sword-propeller, with swept arcs
   // suggesting rotation rather than a static heraldic pair.
-  doNotStopMyAscension: '<ellipse cx="12" cy="5.6" rx="8.1" ry="2.7"/><path d="M4.3 13.4A8 8 0 0 1 16 9.3M19.7 10.6A8 8 0 0 1 8 22M15.2 8.9 16 12l2.3-1.8M8.8 22l-.8-3.1-2.3 1.8"/><path d="m7 9 10 10m-9.9-6.4-1.8 1.8m-.3-8L6.7 8l-1.8 1.8 1.8 1.8 2-2M17 9 7 19m9.9-6.4 1.8 1.8m.3-8L17.3 8l1.8 1.8-1.8 1.8-2-2"/>',
+  doNotStopMyAscension: '<ellipse cx="12" cy="12" rx="10" ry="9"/><path d="M3.4 7.3A9.6 8.6 0 0 1 18 4.8m2.6 12A9.6 8.6 0 0 1 6 19.2M18 2.9l.1 3-2.8-.8M6 21.1l-.1-3 2.8.8"/><path d="m6.2 6.1 9.7 9.7m-2.1 1.9 3.9-3.9m-2.2 2.2 2.7 2.7-1.4 1.4-2.7-2.7M17.8 6.1 8.1 15.8m2.1 1.9-3.9-3.9m2.2 2.2-2.7 2.7 1.4 1.4 2.7-2.7"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
   repeater: '<path d="M4 12h15M15 8l6 4-6 4M2 8l4 4-4 4"/>',
   flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
   eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
