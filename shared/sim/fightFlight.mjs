@@ -155,7 +155,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       if((m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec){
         m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
       }else{
-        const desiredRate=cap(delta*2.8,-VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
+        // Reticle-centered steering is responsive enough to orbit a target,
+        // but still passes through an angular-acceleration-limited turn.
+        const desiredRate=cap(delta*4.2,-VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
         m.runTurnSpeed=cap((m.runTurnSpeed??0)+cap(desiredRate-(m.runTurnSpeed??0),
           -VALKYRIE_RUN.turnAcceleration*dt,VALKYRIE_RUN.turnAcceleration*dt),
           -VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
