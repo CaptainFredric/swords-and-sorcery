@@ -700,3 +700,11 @@ test('mounted touch flight Rise and Lower survive controller forwarding, then cl
   assert.equal(input.movement().flightRise, false, 'input gate cannot be bypassed by touch rail');
   input.dispose();
 });
+
+test('UPPER-focus coupled control sends one camera ray, not the primed combined command',()=>{
+ const {input,calls}=setup();input.socket.send=m=>calls.push(m);
+ input.enabled=true;input.mountedBallista=true;input.yaw=.25;input.pitch=.1;
+ input.siegeCoupled();assert.deepEqual(calls,[{type:'bibyeCoupledFire',yaw:.25,pitch:.1}]);
+ input.siegeBoth();assert.deepEqual(calls[1],{type:'bibyeCombinedFire'});
+ input.mountedBallista=false;input.siegeCoupled();assert.equal(calls.length,2);
+});
