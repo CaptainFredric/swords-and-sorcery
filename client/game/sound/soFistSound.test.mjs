@@ -53,6 +53,18 @@ test('SoFistSound plays steam release on piston strike release', () => {
   audio.update({ ...ram, strikeAt: 10 }, { ...opt, now: 10.05 });
   // Strike reaches release phase (age = 0.75s)
   audio.update({ ...ram, strikeAt: 10 }, { ...opt, now: 10.75 });
-  const steam = heard.find(h => h.recipe?.tag === 'steamRelease');
-  assert.ok(steam, 'Piston release should emit steamRelease recipe');
+  const steam = heard.find(h => h.recipe?.tag === 'ramVent');
+  assert.ok(steam, 'Piston release should emit a short vent');
+  assert.ok(steam.recipe.layers.every(l=>l.type==='noise'&&l.at>0&&l.decay<.3));
+  audio.update({ ...ram, strikeAt: 10 }, { ...opt, now: 10.8 });
+  assert.equal(heard.filter(h=>h.recipe?.tag==='ramVent').length,1,'one vent per release');
+});
+
+test('primed hiss keeps one source and stops when audio becomes inactive',()=>{
+ const {audio}=setup();const b={...ram,skill:{phase:'primed',debt:1}};
+ audio.update(b,opt);const pressure=audio.sound.loops.get('pressure');
+ audio.update(b,{...opt,now:10.5});
+ assert.equal(audio.sound.loops.get('pressure'),pressure);
+ audio.update(b,{...opt,active:false,now:10.6});
+ assert.equal(audio.sound.loops.has('pressure'),false);
 });
