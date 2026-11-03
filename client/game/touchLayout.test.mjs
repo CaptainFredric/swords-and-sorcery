@@ -50,15 +50,15 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
   assert.equal(DEFAULT_FLIGHT_LAYOUT.attack.bottom, 12);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.guard.right > DEFAULT_FLIGHT_LAYOUT.attack.right, 'Guard is left of Sword');
 
-  // Second row: Bolt (left, wider), Jump (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 82);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 82);
+  // Second row: Bolt (left, larger), Jump (right)
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 84);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 84);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right > DEFAULT_FLIGHT_LAYOUT.jump.right, 'Bolt is left of Jump');
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width > DEFAULT_FLIGHT_LAYOUT.jump.size, 'Bolt has a wider sustained-fire target');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.size >= DEFAULT_FLIGHT_LAYOUT.jump.size, 'Bolt has a wider sustained-fire target');
 
   // Third row: Fire Away (left), Dash (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.bottom, 142);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.bottom, 142);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.bottom, 154);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.bottom, 154);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeSkill.right > DEFAULT_FLIGHT_LAYOUT.dash.right, 'Fire Away is left of Dash');
 
   // Above ordinary cluster: Ultimate
@@ -66,7 +66,7 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
 
   // Vertical flight rail is mechanically attached to the stick and mirrors with it.
   assert.ok(DEFAULT_FLIGHT_LAYOUT.stick.left > 0);
-  assert.ok(DEFAULT_FLIGHT_LAYOUT.attack.width > DEFAULT_FLIGHT_LAYOUT.attack.height, 'Sword has a wider aim-and-attack target');
+  assert.ok(DEFAULT_FLIGHT_LAYOUT.attack.size === DEFAULT_FLIGHT_LAYOUT.guard.size, 'Sword and Guard have equal circular targets');
 });
 
 test('mirrorLayoutHorizontal swaps left and right anchors and marks customized', () => {
@@ -207,4 +207,31 @@ test('every mounted machine places untouched Leave and View in the auxiliary row
  assert.equal(mirrored.interact.top,DEFAULT_FLIGHT_LAYOUT.interact.top);
  const custom={right:40,bottom:50,size:55,custom:true};
  assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,interact:custom}).interact,custom);
+});
+
+test('previous flight rectangles become round defaults while edited targets remain intact',()=>{
+ const storage=memoryStorage();
+ storage.setItem('ss-touch-layout',JSON.stringify({flight:{
+  siegeWeapon:{right:88,bottom:82,width:64,height:54},
+  attack:{right:14,bottom:12,width:68,height:64},
+  guard:{right:120,bottom:20,size:70,custom:true},
+ }}));
+ const loaded=loadTouchLayout(storage);
+ assert.deepEqual(loaded.flight.siegeWeapon,DEFAULT_FLIGHT_LAYOUT.siegeWeapon);
+ assert.deepEqual(loaded.flight.attack,DEFAULT_FLIGHT_LAYOUT.attack);
+ assert.equal(loaded.flight.guard.right,120);
+ assert.equal(loaded.flight.guard.size,70);
+});
+test('stock mounted firing controls stay in the right thumb area with distinct targets',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const layout=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT);
+ const actions=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy'];
+ for(const action of actions){
+  const a=layout[action];assert.ok(a.right+a.size<=168);
+  for(const other of actions.filter(k=>k!==action)){
+   const b=layout[other];
+   assert.ok(a.right+a.size<=b.right||b.right+b.size<=a.right||
+    a.bottom+a.size<=b.bottom||b.bottom+b.size<=a.bottom,action+' overlaps '+other);
+  }
+ }
 });

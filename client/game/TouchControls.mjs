@@ -505,7 +505,7 @@ export class TouchControls {
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-flight',flight);
-      for(const [action,name] of [['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':bl?.skill?.id==='coldHowTouching'?'frostBolt':'heavyBolt'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':'frostBolt'):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':bl?.skill?.id==='coldHowTouching'?'frostBolt':'heavyBolt'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -565,7 +565,7 @@ export class TouchControls {
         }
       } else {
         const atkLabel = this.buttons.attack?.querySelector('span');
-        if (atkLabel && atkLabel.textContent !== 'ATTACK') atkLabel.textContent = 'ATTACK';
+        if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':'BOLT I'):'ATTACK';
         this.valkyrieEligible = false;
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');

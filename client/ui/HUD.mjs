@@ -551,15 +551,15 @@ export class HUD {
   #armour(strength, calledAt) {
     if (!this.armour) return;
     const shown = Math.round(strength * 200) / 200;
-    if (shown === this.armourShown) return;
-    this.armourShown = shown;
     const recalled = Number.isFinite(calledAt) && calledAt !== this.armourCalledAt;
+    if (shown === this.armourShown && !recalled) return;
+    this.armourShown = shown;
     this.armour.classList.toggle('sheathed', shown > 0);
     this.armour.style.setProperty('--steel', shown.toFixed(3));
     this.armourWas ??= this.armourPlates.map(() => 0);
     this.armourPlates.forEach((plate, i) => {
       const p = Math.max(0, Math.min(1, shown * this.armourPlates.length - i));
-      if (!recalled && this.armourWas[i] > 0.02 && p <= 0) this.#breakPlate(plate, this.armourWas[i]);
+      if (!recalled && this.armourWas[i] > 0 && p <= 0) this.#breakPlate(plate, this.armourWas[i]);
       this.armourWas[i] = p;
       plate.style.setProperty('--p', p.toFixed(3));
       plate.classList.toggle('cracked', shown > 0 && p < 0.5);
@@ -577,6 +577,13 @@ export class HUD {
     const fragment = plate.cloneNode(false);
     fragment.classList.add('armour-fragment');
     fragment.classList.add('cracked');
+    // Freeze the source plate's actual local geometry before appending the copy.
+    // Sibling selectors no longer identify its position once it becomes debris.
+    Object.assign(fragment.style, {
+      left: `${plate.offsetLeft}px`, top: `${plate.offsetTop}px`,
+      width: `${plate.offsetWidth}px`, height: `${plate.offsetHeight}px`,
+      right: 'auto', bottom: 'auto',
+    });
     fragment.style.setProperty('--p', Math.max(0.35, p).toFixed(3));
     fragment.style.setProperty('--dx', `${4 + Math.random() * 8}px`);
     fragment.style.setProperty('--turn', `${(Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 20)}deg`);

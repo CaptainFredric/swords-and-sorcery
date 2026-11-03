@@ -1,0 +1,7 @@
+# Siege controls and Steel debris followup
+
+Ballista primary fire is now a 76 px circle at the right edge; Skill and BOTH form a separate 64 px pair above it, with 56 px utility controls above those. Flight uses circular 64 px Sword/Guard/Bolt targets, 60 px Dash/Skill/Jump targets and 54 px upper utilities. Existing normal button styling and press feedback remain. Untouched old rectangular presets migrate; deliberate custom layouts remain. Mounted primary labels identify Bolt I and Piston.
+
+Steel debris previously lost its sibling based placement when a cloned plate was appended to the health frame. Each fragment now freezes the actual decaying plate's local position and dimensions before detaching. Positive strength reaching zero emits once, including the final thin plate; recalling Steel at the same displayed strength updates the frame without falsely shedding it.
+
+Verification: 61 focused touch/layout tests passed, followed by all 12 layout tests including two new migration/overlap regressions. Syntax and the initial portion of the broad suite passed, but the broad run was canceled on the heavily loaded Mac; it is not reported as a complete pass. In-game visual acceptance remains pending: Chrome creation/navigation repeatedly timed out, and the eventual owned tab disappeared during the Practice check. No new gameplay screenshots or visual success are claimed. No merge or deployment is authorized.
