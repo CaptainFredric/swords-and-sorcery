@@ -103,7 +103,7 @@ try{
   visible:!document.querySelector('#practice-overlay').classList.contains('hidden')
  }))()`);
  assert.deepEqual(restored,{menuHidden:true,parent:'hud',visible:true});
- // Mobile: one tap on the training-target icon enters the Practice panel directly.
+ // Mobile Tools opens the existing direct drawer, retaining its HUD parent.
  await evalInBrowser("document.body.classList.add('touch-ui');window.__ssRuntime.enableTouch();window.__ssRuntime.requestPointerLock()");
  const mobileButton=await evalInBrowser(`(() => {
   const t=window.__ssRuntime.touch,b=t.buttons.practiceTools;
@@ -123,26 +123,27 @@ try{
  })()`);
  const direct=await evalInBrowser(`(() => ({
   menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
-  section:!document.querySelector('#pause-practice-section').classList.contains('hidden'),
-  mainHidden:document.querySelector('#pause-main-section').classList.contains('hidden'),
+  drawerOpen:document.querySelector('#practice-overlay').classList.contains('drawer-open'),
+  visible:getComputedStyle(document.querySelector('#practice-overlay')).display!=='none',
   parent:document.querySelector('#practice-overlay').parentElement?.id,
-  back:document.querySelector('#pause-practice-back').textContent,
+  closeVisible:document.querySelector('#practice-drawer-close').offsetParent!==null,
   inert:document.querySelector('#practice-overlay').inert
  }))()`);
- assert.equal(direct.menuHidden,false);
- assert.equal(direct.section,true);
- assert.equal(direct.mainHidden,true);
- assert.equal(direct.parent,'pause-practice-mount');
+ assert.equal(direct.menuHidden,true);
+ assert.equal(direct.drawerOpen,true);
+ assert.equal(direct.visible,true);
+ assert.equal(direct.parent,'hud');
  assert.equal(direct.inert,false);
- assert.match(direct.back,/RETURN TO PRACTICE/);
+ assert.equal(direct.closeVisible,true);
  await shot('direct-mobile-practice-tools');
- await evalInBrowser("document.querySelector('#pause-practice-back').click()");
+ await evalInBrowser("document.querySelector('#practice-drawer-close').click()");
  const directExit=await evalInBrowser(`(() => ({
   menuHidden:document.querySelector('#pause-menu').classList.contains('hidden'),
   parent:document.querySelector('#practice-overlay').parentElement?.id,
+  drawerOpen:document.querySelector('#practice-overlay').classList.contains('drawer-open'),
   touchActive:window.__ssRuntime.touch.active
  }))()`);
- assert.deepEqual(directExit,{menuHidden:true,parent:'hud',touchActive:true});
+ assert.deepEqual(directExit,{menuHidden:true,parent:'hud',drawerOpen:false,touchActive:true});
  const choices=[
   ['bi-bye-llista','Ballistefan','ballista'],
   ['so-fist-ication','Sir Uppercuff','ram'],
@@ -172,7 +173,11 @@ try{
    },'Sir Uppercuff: real wheel-driven movement',120);
   }else{
    evidence=await until(async()=>{const s=await snap(),b=s.flight;
-    return b&&b.y>1&&b.flightCharge<100&&b.ammo<18&&b.shotSeq>0?s:null;
+    // Formidable pilots deliberately make low rotor passes. Verify actual
+    // powered ascent from this launch surface, not an arbitrary 1 m cruise.
+    const airborne=b&&b.mode==='AIRBORNE'&&!b.grounded&&b.rotorPowered&&
+     b.y>first.flight.y+.25&&Math.abs(b.rotorAngularVelocity)>0;
+    return airborne&&b.flightCharge<100&&b.ammo<18&&b.shotSeq>0?s:null;
    },'Mr. Donte Shoot: actual powered flight and physical repeater firing',160);
   }
   record[machine]={first:{

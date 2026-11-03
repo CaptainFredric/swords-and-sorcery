@@ -8,7 +8,7 @@ export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
   // A committed attack, then a heavier, acceleration-limited turn than ordinary flight.
   commitmentSec:.36,minTravel:10,turnRate:1.65,turnAcceleration:5.4,
-  acceleration:5.5,pitch:.18,visualTrim:1.0,pitchLimit:.85,pitchRate:1.45,
+  acceleration:5.5,pitch:.18,visualTrim:1.12,maxAttackPitch:1.32,pitchLimit:.85,descentPitchLimit:1.05,pitchRate:1.45,
   clearance:1.1,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -29,7 +29,7 @@ export function requestFlightDash(room,m,p,held,now){
  m.flightDashStartedAt=now;
  m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:m.heading;
  const aimPitch=clamp(Number.isFinite(p.input?.pitch)?p.input.pitch:0,
-   -VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit);
+   -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
  // Level launches make a shallow attacking descent; upward intent stays upward.
  m.runCommitPitch=aimPitch>0?aimPitch:Math.min(-VALKYRIE_RUN.pitch,aimPitch);
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
@@ -103,23 +103,30 @@ export function stepFlightRun(room,m,dt,now){
  if(m.terminalDive)return; // irreversible Dive owns its own physics
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
-   -VALKYRIE_RUN.pitchLimit,VALKYRIE_RUN.pitchLimit);
+   -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
+ const floor=flightSupportAt(room.world,m.x,m.z,m.y+.35);
  let target=m.offensiveRun?(committed?m.runCommitPitch:livePitch):0;
  if(m.offensiveRun&&target<0){
    // Do not drive the rotor into an unavoidable ground strike. The chassis
    // still pitches and descends whenever there is actual vertical clearance.
-   const floor=flightSupportAt(room.world,m.x,m.z,m.y+.35);
    if(floor!=null){
      const clearance=m.y-floor;
      const available=clamp((clearance-VALKYRIE_RUN.clearance)/2.5,0,1);
-     target=Math.max(target,-VALKYRIE_RUN.pitchLimit*available);
+     target=Math.max(target,-VALKYRIE_RUN.descentPitchLimit*available);
    }
  }
  const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
  m.runTrim=approach(m.runTrim??0,m.offensiveRun?VALKYRIE_RUN.visualTrim*(1-clamp((m.runFlightPitch??0)/.5,0,1)):0,VALKYRIE_RUN.pitchRate);
  m.runFlightPitch=approach(m.runFlightPitch??0,target,
    target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
- m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,1.20);
+ // Bound the lowest real rotor point against support while allowing a steeper
+ // attack above it. GLB hub y=2.185/z=-.025, blade radius=1.32 metres.
+ let maxPitch=VALKYRIE_RUN.maxAttackPitch;
+ if(floor!=null){
+   const radius=Math.hypot(2.185,1.295),phase=Math.atan2(1.295,2.185);
+   maxPitch=Math.min(maxPitch,Math.acos(clamp((.12-(m.y-floor))/radius,-1,1))-phase);
+ }
+ m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,Math.max(0,maxPitch));
 
 }
 

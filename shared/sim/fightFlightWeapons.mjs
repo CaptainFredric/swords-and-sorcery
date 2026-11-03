@@ -120,8 +120,8 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
         const dx=point.x-p.position.x,dz=point.z-p.position.z;
         const rightX=Math.cos(p.yaw),rightZ=-Math.sin(p.yaw);
         const lateral=Math.abs(dx*rightX+dz*rightZ);
-        const defended=frontal&&dy>=height*.4&&dy<=height*.93&&lateral<=.43;
-        const parried=defended&&Boolean(frostParryContact(p,q,a,b,now,FLIGHT_REPEATER.guardArc));
+        const parried=Boolean(frostParryContact(p,q,a,b,now,FLIGHT_REPEATER.guardArc));
+        const defended=parried||frontal&&dy>=height*.4&&dy<=height*.93&&lateral<=.43;
         if(defended){
           p.guardStamina=Math.max(0,p.guardStamina-FLIGHT_REPEATER.guardStamina);
           p.lastGuardDrainAt=now;

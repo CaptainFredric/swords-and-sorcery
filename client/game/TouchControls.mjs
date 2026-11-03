@@ -11,7 +11,7 @@ import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem, clearLayoutItem } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -21,6 +21,7 @@ import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicato
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
+const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||flight&&(action==='siegeWeapon'||action==='dash');
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -46,7 +47,7 @@ const BUTTONS = [
   { action: 'siegeView', label: 'VIEW' },
   { action: 'siegeWeapon', label: 'UPPER' },
   { action: 'siegeSkill', label: 'SKILL' },
-  { action: 'siegeBoth', label: 'BOTH', icon: 'siegeSkill' },
+  { action: 'siegeBoth', label: 'BOTH', icon: 'siegeBoth' },
   { action: 'flightRise', label: 'RISE', icon: 'rise' },
   { action: 'flightLower', label: 'LOWER', icon: 'lower' },
 ];
@@ -91,6 +92,7 @@ export class TouchControls {
     this.layer.className = 'touch-controls';
     this.layer.innerHTML = `
       <div class="touch-stick">
+        <svg class="touch-stick-shell" viewBox="0 0 112 162" preserveAspectRatio="none" aria-hidden="true"><path d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 1 1 24 60Z"/></svg>
         <div class="touch-stick-knob"></div>
         <div class="touch-motion-guide" data-motion="idle" aria-hidden="true">
           <span class="touch-motion-label"></span>
@@ -233,7 +235,7 @@ export class TouchControls {
   applyLayout(layouts = this.layouts) {
     this.layouts = layouts;
     const mode = this.previewMode ?? (this.flightMounted ? 'flight' : 'onFoot');
-    const layout = mode === 'flight' ? layouts.flight : layouts.onFoot;
+    const layout = mode === 'flight' ? layouts.flight : this.mounted ? mountedTouchLayout(layouts.onFoot,layouts.handedness) : layouts.onFoot;
     // The motion well is a child of the stick: edited, moved, or mirrored
     // joystick placements carry the feedback with them automatically.
     this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
@@ -495,14 +497,15 @@ export class TouchControls {
       const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&local.position&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
-      if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
-      if(this.flightMounted!==flight){this.reset();this.flightMounted=flight;this.applyLayout(this.layouts);}
+      const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight;
+      if(this.ramMounted!==undefined&&this.ramMounted!==ram||this.flightMounted!==flight)this.reset();
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;
-      this.flightMounted=flight;
+      this.flightMounted=flight;this.mounted=mounted;
+      if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-flight',flight);
-      for(const [action,name] of [['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':'siegeSkill'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',flight?'eject':'interact']]){
+      for(const [action,name] of [['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':bl?.skill?.id==='coldHowTouching'?'frostBolt':'heavyBolt'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -818,7 +821,7 @@ export class TouchControls {
     }
     const looking = this.look?.id === event.pointerId ? this.look : null;
     const held = this.held.get(event.pointerId);
-    const aiming = held === 'attack' || held === 'guard' || (held === 'siegeWeapon' && this.flightMounted) ? this.aim?.get(event.pointerId) : null;
+    const aiming = aimDragAction(held,this.flightMounted) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
     const delta=screenTurn?.vector(event.clientX-tracker.clientX,event.clientY-tracker.clientY)??{x:event.clientX-tracker.clientX,y:event.clientY-tracker.clientY};
@@ -908,7 +911,7 @@ export class TouchControls {
 
   #press(action, event) {
     this.held.set(event.pointerId, action);
-    if (action === 'attack' || action === 'guard' || (action === 'siegeWeapon' && this.flightMounted)) {
+    if (aimDragAction(action,this.flightMounted)) {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
@@ -1003,7 +1006,7 @@ export class TouchControls {
   }
 
   #release(action, pointerId, cancelled=false) {
-    if (action === 'attack' || action === 'guard' || (action === 'siegeWeapon' && this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
+    if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(action, false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');

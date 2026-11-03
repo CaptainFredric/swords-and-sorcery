@@ -195,3 +195,16 @@ test('unchanged legacy flight controls migrate, deliberately edited controls sta
  assert.deepEqual(loaded.flight.dash,DEFAULT_FLIGHT_LAYOUT.dash);
  assert.equal(loaded.flight.guard.right,130);
 });
+
+test('every mounted machine places untouched Leave and View in the auxiliary row, preserving deliberate edits',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const right=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT);
+ assert.equal(right.interact.top,DEFAULT_FLIGHT_LAYOUT.interact.top);
+ assert.equal(right.interact.bottom,undefined);
+ assert.equal(right.siegeView.right,DEFAULT_FLIGHT_LAYOUT.siegeView.right);
+ const mirrored=mountedTouchLayout(mirrorLayoutHorizontal(DEFAULT_ON_FOOT_LAYOUT),'left');
+ assert.equal(mirrored.interact.left,DEFAULT_FLIGHT_LAYOUT.interact.right);
+ assert.equal(mirrored.interact.top,DEFAULT_FLIGHT_LAYOUT.interact.top);
+ const custom={right:40,bottom:50,size:55,custom:true};
+ assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,interact:custom}).interact,custom);
+});

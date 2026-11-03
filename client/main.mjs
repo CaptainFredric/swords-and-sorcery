@@ -33,6 +33,7 @@ import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView, preparedArmoryView } from './menu/armoryView.mjs';
+import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
@@ -1441,7 +1442,7 @@ function renderArmory() {
   $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
     <article class="siege-armory-card">
       <div class="siege-armory-heading">
-        <span class="siege-armory-mark" aria-hidden="true">${m.mark}</span>
+        <span class="siege-armory-mark" aria-hidden="true">${m.icon?iconSvg(m.icon):m.mark}</span>
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
       <p>${m.line}</p><small class="siege-armory-facts">${m.facts}</small>

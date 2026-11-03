@@ -87,3 +87,5 @@
 .siege-armory-card .spell-card:disabled { opacity: 1; cursor: default; }
 .siege-armory-card .spell-card:disabled:hover { background: linear-gradient(180deg,var(--heraldry-iron-light),var(--heraldry-iron)); }
 @container app (max-width: 480px) { .armory-tabs button { padding: 9px 3px; font-size: 12px; letter-spacing: 0; } }
+
+.siege-armory-mark svg { width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round; }

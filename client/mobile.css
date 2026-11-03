@@ -101,6 +101,16 @@ button, input { touch-action: manipulation; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
+/* One outline joins the circle and its forward channel. The guide inside it
+   carries no second frame across the joystick. Input geometry is unchanged. */
+.touch-stick-shell { display:none;position:absolute;left:0;top:-50px;width:100%;height:calc(100% + 50px);overflow:visible;pointer-events:none; }
+.touch-stick-shell path { fill:#14151150;stroke:#decca060;stroke-width:1.5; }
+.touch-controls:not(.touch-mounted):not(.inspection-flight) .touch-stick,
+.touch-controls.touch-ram .touch-stick { border-color:transparent;background:none; }
+.touch-controls:not(.touch-mounted):not(.inspection-flight) .touch-stick-shell,
+.touch-controls.touch-ram .touch-stick-shell { display:block; }
+.touch-stick:is(.sprint,.motion-active) .touch-stick-shell path { stroke:#e6c46a;filter:drop-shadow(0 0 5px #e6c46a55); }
+
 /* Sprint/Charge is the joystick's own broad upper channel, not a second
    floating control. Its lower edge overlaps the ring; no oval foot/connector. */
 .touch-motion-guide {
@@ -108,8 +118,8 @@ button, input { touch-action: manipulation; }
   --motion-push: 0;
   position: absolute;
   left: 50%;
-  bottom: calc(100% - 25px);
-  width: 48px;
+  bottom: calc(100% - 20px);
+  width: 60px;
   transform: translateX(-50%);
   pointer-events: none;
   user-select: none;
@@ -136,14 +146,11 @@ button, input { touch-action: manipulation; }
   position: relative;
   z-index: 1;
   box-sizing: border-box;
-  width: 48px;
+  width: 60px;
   height: 70px;
   overflow: hidden;
-  border-radius: 15px 15px 9px 9px;
-  border: 1.5px solid rgba(226, 202, 148, .40);
-  border-bottom-color: rgba(226, 202, 148, .16);
-  background: linear-gradient(90deg, rgba(17, 20, 19, .84), rgba(51, 45, 33, .62), rgba(17, 20, 19, .84));
-  box-shadow: inset 2px 0 5px #080a08a8, inset -2px 0 5px #080a08a8;
+  border-radius: 15px 15px 0 0;
+  border:0; background:none; box-shadow:none;
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 /* This small detent moves with the actual joystick push, not with server state.
@@ -167,7 +174,7 @@ button, input { touch-action: manipulation; }
 .touch-motion-well svg {
   position: absolute;
   top: 49px;
-  left: 14px;
+  left: calc(50% - 10px);
   width: 20px;
   height: 13px;
   fill: none;
@@ -179,14 +186,12 @@ button, input { touch-action: manipulation; }
 }
 .touch-motion-guide.active .touch-motion-well {
   border-color: color-mix(in srgb, var(--motion-tint) 75%, transparent);
-  background: linear-gradient(180deg, rgba(31, 29, 23, .3), rgba(24, 22, 19, .65));
-  box-shadow: 0 0 8px color-mix(in srgb, var(--motion-tint) 22%, transparent),
-              inset 0 0 6px rgba(0, 0, 0, .32);
+  background:none; box-shadow:none;
 }
 .touch-motion-guide.active .touch-motion-label { opacity: 1; }
 /* Preview is deliberately distinct from confirmed authoritative Sprint/Charge. */
 .touch-motion-guide.approaching:not(.active) .touch-motion-well {
-  border-color: rgba(226,202,148,.65); background: rgba(40,37,28,.45);
+  border-color:transparent;background:none;
 }
 .touch-motion-guide.approaching:not(.active) .touch-motion-well svg { opacity:.52; }
 .touch-motion-guide.approaching:not(.active) .touch-motion-label { opacity:.7; }
@@ -490,45 +495,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Joystick channel is the sprint/charge gesture; retain FAST in inspection flight. */
 .touch-controls:not(.inspection-flight) .touch-sprint { display: none !important; }
 
-/* Winged arrow icon for siegeSkill */
-.winged-arrow-shaft {
-  transition: transform 0.12s ease-out;
-}
-.winged-arrow-wing-l,
-.winged-arrow-wing-r {
-  transform-origin: 12px 10px;
-  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
-}
-
-/* During ordinary repeater fire (firing / repeater-active) */
-.touch-siegeSkill.firing .winged-arrow-wing-l,
-.touch-siegeSkill.repeater-active .winged-arrow-wing-l {
-  transform: rotate(26deg) scale(0.72);
-  opacity: 0.8;
-}
-.touch-siegeSkill.firing .winged-arrow-wing-r,
-.touch-siegeSkill.repeater-active .winged-arrow-wing-r {
-  transform: rotate(-26deg) scale(0.72);
-  opacity: 0.8;
-}
-.touch-siegeSkill.firing .winged-arrow-shaft,
-.touch-siegeSkill.repeater-active .winged-arrow-shaft {
-  transform: translateY(-2px);
-}
-
-/* Distinct from skill-active (Fire Away skill active) */
-.touch-siegeSkill.skill-active {
-  box-shadow: 0 0 16px rgba(238, 211, 155, .85);
-  border-color: #ffd875;
-}
-.touch-siegeSkill.skill-active .winged-arrow-wing-l {
-  transform: rotate(-12deg) scale(1.15);
-  filter: drop-shadow(0 0 3px #ffd875);
-}
-.touch-siegeSkill.skill-active .winged-arrow-wing-r {
-  transform: rotate(12deg) scale(1.15);
-  filter: drop-shadow(0 0 3px #ffd875);
-}
+.touch-siegeSkill.skill-active { border-color:#ffd875;box-shadow:0 0 12px #eed39b88; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
@@ -545,30 +512,14 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-controls.touch-flight { --s:var(--ts,1); }
 .touch-mounted.touch-flight :is(.touch-guard,.touch-dash,.touch-jump,.touch-ultimate),
 .touch-mounted.mounted-steel-available .touch-spell { display:grid; }
-.touch-controls.touch-flight .touch-btn:not(.touch-pause):not(.touch-scores) {
-  border:0; background:none; box-shadow:none; border-radius:10px;
-  min-width:44px; min-height:44px; overflow:visible; color:#e8d4a2;
-}
-.touch-controls.touch-flight .touch-face {
-  inset:2px; overflow:hidden; border:1px solid #d2b66c;
-  background:linear-gradient(165deg,#68706b 0%,#3b4445 12%,#252d30 48%,#171d20 70%,#394044 100%);
-  box-shadow:inset 0 1px #f8e4ae66,inset 0 0 0 3px #12191d80,0 2px 7px #0007;
-}
-.touch-controls.touch-flight .touch-btn.pressed .touch-face {
-  background:linear-gradient(160deg,#8d835e,#3d4036 42%,#20292a);
-  box-shadow:inset 0 1px #ffdfa8aa,inset 0 0 0 2px #e3c26c55;
-}
-.touch-controls.touch-flight .touch-btn svg { width:25px; height:25px; stroke-width:1.8; stroke-linejoin:miter; stroke-linecap:square; }
-.touch-controls.touch-flight .touch-btn span { font:800 8px/1.2 system-ui; letter-spacing:.035em; opacity:1; }
-.touch-controls.touch-flight .touch-siegeSkill span { font-size:7px; letter-spacing:0; white-space:nowrap; }
-.touch-controls.touch-flight .touch-siegeSkill.skill-active .touch-face { border-color:#ffe39c; box-shadow:inset 0 0 10px #ddc48666; }
-.touch-controls.touch-flight .touch-attack svg { width:29px; height:29px; }
-.touch-controls.touch-flight .touch-guard { color:#b6d8df; }
+.touch-controls.touch-flight .touch-btn { min-width:44px; min-height:44px; }
+.touch-controls.touch-flight .touch-btn span { white-space:nowrap; }
+.touch-controls.touch-flight .touch-siegeSkill span { font-size:7px;letter-spacing:.03em; }
 .touch-controls.touch-flight .touch-interact { color:#e3b3a6; }
 .touch-controls.touch-flight .touch-guard.airborne-forbidden,
 .touch-controls.touch-flight .touch-dash:is(.flight-grounded,.flight-no-prowess,.flight-no-rotor) { opacity:.48; }
-.touch-controls.touch-flight .touch-dash.flight-dash-active .touch-face { border-color:#eae0af; box-shadow:inset 0 0 8px #c7d5c94a,0 0 7px #b9c9b94a; }
-.touch-controls.touch-flight :is(.touch-ultimate,.touch-dash).valkyrie-prep .touch-face { border-color:#f5a17a; box-shadow:inset 0 0 10px #bf623666; }
+.touch-controls.touch-flight .touch-dash.flight-dash-active { border-color:#eae0af;box-shadow:0 0 9px #b9c9b970; }
+.touch-controls.touch-flight :is(.touch-ultimate,.touch-dash).valkyrie-prep { border-color:#f5a17a;box-shadow:0 0 10px #bf623666; }
 .touch-controls.touch-flight .touch-stick { opacity:1; border-color:#c6ae73aa; background:radial-gradient(circle,#26303555,#162126a8); }
 .touch-controls.touch-flight .touch-stick::before {
   content:'';position:absolute;z-index:-1;inset:-6px -45px -6px -6px;border:1px solid #b99f6399;border-radius:58px 18px 18px 58px;
@@ -692,20 +643,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Deliberate mobile volley: separate from simultaneous finger gestures. */
 .touch-siegeBoth { --size: 62px; right: calc(var(--safe-r) + 203px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #f3d4ac; border-color: #e6ad77; }
 
-/* Nonflight siege machines also get a coherent brass/iron action family. */
-.touch-controls.touch-mounted:not(.touch-flight) .touch-siegeWeapon,
-.touch-controls.touch-mounted:not(.touch-flight) .touch-siegeSkill,
-.touch-controls.touch-mounted:not(.touch-flight) .touch-siegeView,
-.touch-controls.touch-mounted:not(.touch-flight) .touch-interact,
-.touch-controls.touch-mounted:not(.touch-flight) .touch-deploy {
-  border-radius:12px; background:linear-gradient(160deg,#3b332cd9,#1b2020e8);
-  border-color:#b6a074a0; box-shadow:inset 0 1px #ffffff20,0 3px 12px #0009;
-}
 /* Mounted Sheathe in Steel */
 .touch-controls.touch-mounted:not(.touch-flight).mounted-steel-available .touch-spell {
   display: grid;
-  border-radius: 14px;
-  background: linear-gradient(160deg, #2a3442e0, #141d27f0);
   border-color: rgba(182, 214, 240, 0.72);
   color: #dfe9f5;
   box-shadow: inset 0 1px #ffffff30, 0 3px 12px #0009;
@@ -735,11 +675,15 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Reserve the auxiliary controls even on short phones. Six flight metrics form
    two rows only when the space between health and View cannot fit one strip. */
 @container app (max-width:700px) {
- .touch-ui .hud.flight-mounted .hud-status-stack { left:calc(var(--safe-l) + 266px); right:calc(var(--safe-r) + 116px); }
+ .touch-ui .hud.ballista-mounted .hud-status-stack { left:calc(var(--safe-l) + 266px); right:calc(var(--safe-r) + 116px); }
+ .touch-ui .ballista-hud { box-sizing:border-box;padding:4px 6px;gap:2px; }
+ .touch-ui .ballista-hud strong { font-size:8px;letter-spacing:.02em; }
+ .touch-ui .ballista-hud span { font-size:10px;line-height:1.15; }
+ .touch-ui .ballista-hud small { display:none; }
  .touch-ui .hud.flight-mounted .flight-hud-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px 5px; }
  .touch-ui .hud.flight-mounted .match-info { font-size:7px; letter-spacing:.06em; }
 }
 @container app (max-width:540px) {
- .touch-ui .hud.flight-mounted .hud-status-stack { top:calc(var(--safe-t) + 85px); left:calc(var(--safe-l) + 180px); right:calc(var(--safe-r) + 116px); }
+ .touch-ui .hud.ballista-mounted .hud-status-stack { top:calc(var(--safe-t) + 85px); left:calc(var(--safe-l) + 180px); right:calc(var(--safe-r) + 116px); }
 }
 .touch-ui:has(.touch-flight .motion-mirrored) .bottom-hud { left:calc(var(--safe-l) + 120px); }

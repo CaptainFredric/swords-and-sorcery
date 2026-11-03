@@ -46,7 +46,7 @@ const ULTIMATE_WORDS = Object.freeze({
   },
   chivalry: {
     mark: '⚔',
-    line: 'Guard rises as Chivalry begins. For 9 seconds, Sprint, attack, Guard, Dash and cast together. Draw from three prepared spells. The spell you finish with stays equipped for the match.',
+    line: 'Guard rises as Chivalry begins. For 10 seconds, Sprint, attack, Guard, Dash and cast together. Eligible attacks from the front are automatically parried while your Guard is ready. Draw from three prepared spells. The spell you finish with stays equipped for the match.',
     facts: (u) => `${u.activeSec}s · 3 prepared spells · rapid projectile casting · no parry reel`,
   },
   vortex: {

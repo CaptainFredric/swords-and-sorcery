@@ -4,6 +4,15 @@ import { GameSocket } from './GameSocket.mjs';
 import { GameLink } from './GameLink.mjs';
 import { LocalHost } from './LocalHost.mjs';
 
+test('foundry build intent reaches the selected authoritative transport exactly once',()=>{
+ const calls=[];
+ const host=name=>({on:()=>{},highGroundsBuild:machine=>calls.push([name,machine])});
+ const link=new GameLink({local:host('local'),remote:host('remote')});
+ link.hosting='local';link.highGroundsBuild('fight-and-flight');
+ link.hosting='remote';link.highGroundsBuild('so-fist-ication');
+ assert.deepEqual(calls,[['local','fight-and-flight'],['remote','so-fist-ication']]);
+});
+
 test('socket sends one prepared cast intent containing identity and aim', () => {
   const messages = [];
   const socket = Object.create(GameSocket.prototype);

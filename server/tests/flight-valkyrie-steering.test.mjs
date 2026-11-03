@@ -153,3 +153,11 @@ test('Low pass genuinely pitches the blade into standing infantry height',()=>{
   assert.ok(s.m.runPitch>.65,'actual root pitches substantially at floor clearance');
   assert.ok(s.m.y>=1.05,'ground safety remains intact');
 });
+
+test('low flight attack banks farther nose-down while keeping its real rotor above support',()=>{
+ const s=setup({practice:true,y:.7});s.p.input.pitch=-1.2;
+ requestFlightDash(s.room,s.m,s.p,true,0);frames(s,32);
+ assert.ok(s.m.runPitch>=1.1,'low attack pitches past the former 57 degree trim');
+ const low=s.m.y+2.185*Math.cos(s.m.runPitch)-1.295*Math.sin(s.m.runPitch);
+ assert.ok(low>=.10,'actual hub and swept blade keep ground clearance');
+});
