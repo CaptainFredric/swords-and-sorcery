@@ -264,7 +264,7 @@ test('stock mounted firing controls stay in the right thumb area with distinct t
 test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',async()=>{
  const {mountedTouchLayout}=await import('./touchLayout.mjs');
  const l=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
- const items=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView'];
+ const items=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView','spell'];
  const bounds=name=>{const p=l[name],s=p.size;return {
   left:568-(p.right??0)-s,right:568-(p.right??0),
   top:p.top??320-p.bottom-s,bottom:p.top!=null?p.top+s:320-p.bottom
