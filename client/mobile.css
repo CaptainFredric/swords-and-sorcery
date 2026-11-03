@@ -567,6 +567,11 @@ html.turn-typing .rotate-prompt { display: none !important; }
   display:block !important;position:absolute;inset:0;z-index:59;
   pointer-events:auto;touch-action:none;--s:var(--ts,1);
 }
+@container app (min-height:560px) {
+  .touch-controls.touch-layout-editing:not(.touch-flight) {
+    --s:calc(1.18 * var(--ts,1)); /* match the live on-foot/siege HUD */
+  }
+}
 .touch-controls.touch-layout-detached {position:fixed !important;inset:0 !important;z-index:59 !important;}
 .touch-layout-editor {
   position: fixed;
