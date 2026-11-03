@@ -5,6 +5,8 @@
 export const MIN_BUTTON_SIZE = 40;
 export const MAX_BUTTON_SIZE = 110;
 export const DEFAULT_OPACITY = 0.85;
+const clonePlacements=layout=>Object.fromEntries(
+  Object.entries(layout).map(([action,placement])=>[action,{...placement}]));
 
 export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   stick: { left: 118, bottom: 110, size: 112, type: 'stick' },
@@ -186,7 +188,7 @@ function migrateCrouchPosition(onFoot) {
 
 // Ensure saved flight layouts preserve custom positioning while migrating missing controls.
 function migrateFlightLayout(flight) {
-  if (!flight) return { ...DEFAULT_FLIGHT_LAYOUT };
+  if (!flight) return clonePlacements(DEFAULT_FLIGHT_LAYOUT);
   const matches=(a,b)=>a&&b&&Object.keys(b).every(k=>a[k]===b[k])&&Object.keys(a).every(k=>k==='custom'||k in b);
   // The old handedness preset marked every control custom. Migrate only the
   // complete unedited preset; individual edited controls remain untouched.
@@ -196,7 +198,7 @@ function migrateFlightLayout(flight) {
   if(Object.keys(outgoingMirror).every(k=>matches(flight[k],outgoingMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(previousMirror).every(k=>matches(flight[k],previousMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
-  const migrated={...DEFAULT_FLIGHT_LAYOUT};
+  const migrated=clonePlacements(DEFAULT_FLIGHT_LAYOUT);
   for(const [key,item] of Object.entries(flight)){
     const legacy=LEGACY_FLIGHT_LAYOUT[key];
     const untouched=!item.custom&&(legacy&&matches(item,legacy)||
@@ -212,11 +214,11 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        onFoot: migrateCrouchPosition(parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT }),
+        onFoot: migrateCrouchPosition(parsed.onFoot ?? clonePlacements(DEFAULT_ON_FOOT_LAYOUT)),
         flight: migrateFlightLayout(parsed.flight),
-        ballista:{...mountedTouchLayout(parsed.onFoot??DEFAULT_ON_FOOT_LAYOUT,
+        ballista:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
           parsed.handedness==='left'?'left':'right'),...(parsed.ballista??{})},
-        ram:{...mountedTouchLayout(parsed.onFoot??DEFAULT_ON_FOOT_LAYOUT,
+        ram:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
           parsed.handedness==='left'?'left':'right'),...(parsed.ram??{})},
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
         handedness: parsed.handedness === 'left' ? 'left' : 'right',
@@ -224,10 +226,10 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
     }
   } catch {}
   return {
-    onFoot: { ...DEFAULT_ON_FOOT_LAYOUT },
-    flight: { ...DEFAULT_FLIGHT_LAYOUT },
-    ballista: { ...DEFAULT_BALLISTA_LAYOUT },
-    ram: { ...DEFAULT_RAM_LAYOUT },
+    onFoot: clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
+    flight: clonePlacements(DEFAULT_FLIGHT_LAYOUT),
+    ballista: clonePlacements(DEFAULT_BALLISTA_LAYOUT),
+    ram: clonePlacements(DEFAULT_RAM_LAYOUT),
     opacity: DEFAULT_OPACITY,
     handedness: 'right',
   };
