@@ -243,8 +243,9 @@ try {
 
   // 2. The wider Bolt now reaches left over the top edge of Guard.
   assert.ok(layoutCheck.bolt.top < layoutCheck.sword.top,'Bolt is above Sword');
-  assert.ok(Math.abs(layoutCheck.bolt.left-layoutCheck.sword.left)<8,
-    'Bolt occupies the old right-hand Jump column');
+  assert.ok(Math.abs(layoutCheck.bolt.right-layoutCheck.sword.right)<8 &&
+    layoutCheck.bolt.left<layoutCheck.sword.left,
+    'Bolt shares the right edge of Sword and grows left toward Guard');
   assert.ok(layoutCheck.bolt.width>layoutCheck.sword.width+18,
     'Bolt extends further left than Sword, into the space above Guard');
   assert.ok(layoutCheck.bolt.left<layoutCheck.guard.right &&
