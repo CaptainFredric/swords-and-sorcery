@@ -1175,6 +1175,19 @@ test('held flight Dash aims off its button without releasing propulsion or anoth
  controls.dispose();
 });
 
+test('Ram and Flight mounts work with no Ballista in the world',()=>{
+ for(const [kind,property]of [['Ram','operatingRamId'],['Flight','operatingFightFlightId']]){
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},[property]:'mounted-machine'};
+  const {controls}=setup(p);
+  assert.doesNotThrow(()=>controls.update(p,10,{snapshot:{
+    bibyeBallista:null,
+    ...(kind==='Flight'?{fightFlight:{id:'mounted-machine',rotorHP:100,health:250,grounded:true}}:{})
+  }}),kind+' needs no Ballista');
+  assert.equal(controls.buttons.deploy.hidden,true,kind+' cannot show Ballista Deploy');
+  controls.dispose();
+ }
+});
+
 test('Bi-Bye-llista real pointer events keep the one Skill control and server-confirmed mode icons',()=>{
  const p={alive:true,spell:'fireball',operatingBallistaId:'siege',position:{x:0,y:0,z:0}};
  const {controls,input,send}=setup(p);
