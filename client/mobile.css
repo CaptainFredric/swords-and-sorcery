@@ -561,6 +561,12 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 /* Touch Layout Editor overlay & toolbar */
+/* Editor selection never depends on arena pointer-lock/touch focus. A late
+   focus-lost event must not hide controls while someone drags a layout item. */
+.touch-controls.touch-layout-editing {
+  display:block !important;position:absolute;inset:0;z-index:59;
+  pointer-events:auto;touch-action:none;--s:var(--ts,1);
+}
 .touch-controls.touch-layout-detached {position:fixed !important;inset:0 !important;z-index:59 !important;}
 .touch-layout-editor {
   position: fixed;
