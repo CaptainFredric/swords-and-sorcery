@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ICONS, iconSvg } from './icons.mjs';
 import { createSiegeSkill } from '../../shared/sim/siegeSkills.mjs';
-import { biByeModeButton, biByeSkillIcon, biByeCombinedReady } from './biByeControlView.mjs';
+import { biByeModeButton, biByeSkillIcon, biByeCombinedReady, biByeCombatView } from './biByeControlView.mjs';
 
 test('Bolt I, Bolt II, BOTH, wheel and Skill motifs stay distinguishable and related',()=>{
  assert.match(ICONS.boltI,/#83ddff/);assert.match(ICONS.boltII,/#e1d8c4/);
@@ -46,4 +46,27 @@ test('BOTH availability rejects incompatible hardware and release states',()=>{
   if(original===undefined)delete b[key];else b[key]=original;
  }
  assert.equal(biByeCombinedReady(b,2),true);
+});
+
+test('carousel displays the existing primary action in every deployment, focus and Skill state',()=>{
+ const b={mode:'MOBILE',weaponFocus:'UPPER',health:650,deploymentSupported:true,
+  skill:{id:'boltToTheOccasion',phase:'idle',readyAt:0},
+  state:'LOADED',mainBoltLoaded:true,smallBoltReadyAt:0,coupling:'INDEPENDENT'};
+ const view=()=>biByeCombatView(b,2);
+ assert.deepEqual(view().primary,{label:'BOLT I',icon:'boltI',description:'Fire Bolt I'});
+ assert.equal(view().secondary,null,'mobile unprimed has no combined command');
+ b.skill.phase='primed';
+ assert.equal(view().primary.label,'BOLT I');assert.equal(view().secondary,'skill','mobile primed shows heavy-first BOTH');
+ b.skill.phase='idle';b.mode='DEPLOYED';b.weaponFocus='MAIN';
+ assert.equal(view().primary.label,'BOTH','deployed MAIN primary is ordinary coupled fire');
+ assert.equal(view().secondary,null,'no redundant second BOTH');
+ b.weaponFocus='UPPER';
+ assert.equal(view().primary.label,'BOLT I');assert.equal(view().secondary,'coupled','UPPER has an independent coupled option');
+ b.pendingCoupledFromUpper=true;assert.equal(view().secondary,null,'hide while main turret aligns');
+ b.pendingCoupledFromUpper=false;
+ b.skill.phase='primed';
+ assert.equal(view().primary.label,'BOLT I');assert.equal(view().secondary,'skill','priming supersedes ordinary coupling');
+ b.skill.phase='releasing';assert.equal(view().secondary,null,'shot commitment closes extra actions');
+ b.skill.phase='idle';b.mainBoltLoaded=false;assert.equal(view().secondary,null,'unready heavy cannot show BOTH');
+ b.mainBoltLoaded=true;b.upperPending=true;assert.equal(view().secondary,null,'unready upper cannot show BOTH');
 });

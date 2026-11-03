@@ -113,7 +113,9 @@ export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
 });
 const BI_BYE_UTILITIES=Object.freeze({
  interact:{right:60,top:8,size:38},
- siegeView:{right:12,top:8,size:38},
+ // View sits beside the conditional BOTH slot, not beside accidental LEAVE.
+ // Keep enough clearance from the lower Steel / heavy-fire row on short phones.
+ siegeView:{right:145,bottom:111,size:40},
 });
 
 export function mirrorLayoutHorizontal(layout) {

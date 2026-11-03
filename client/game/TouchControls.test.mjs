@@ -1200,6 +1200,17 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
  send('pointerup',550,100,{action:'deploy',pointerId:82});
  assert.equal(messages.length,before,'transitional input is not sent');
  b.mode='DEPLOYED';update();
+ assert.equal(controls.buttons.attack.dataset.icon,'boltI');
+ assert.equal(controls.buttons.siegeBoth.hidden,false,'UPPER exposes ordinary coupled volley');
+ assert.equal(controls.buttons.siegeBoth.dataset.volley,'coupled');
+ send('pointerdown',550,100,{action:'siegeBoth',pointerId:80});
+ send('pointerup',550,100,{action:'siegeBoth',pointerId:80});
+ assert.equal(messages.pop().type,'bibyeCoupledFire');
+ b.weaponFocus='MAIN';update();
+ assert.equal(controls.buttons.attack.dataset.icon,'boltBoth','MAIN changes the primary face, not its action');
+ assert.equal(controls.buttons.attack.querySelector('span').textContent,'BOTH');
+ assert.equal(controls.buttons.siegeBoth.hidden,true);
+ b.weaponFocus='UPPER';update();
  assert.equal(controls.buttons.deploy.dataset.icon,'ballistaWheel');
  assert.equal(controls.buttons.deploy.querySelector('span').textContent,'MOBILE');
  assert.equal(controls.buttons.siegeWeapon.hidden,false);
