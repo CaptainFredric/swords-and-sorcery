@@ -90,7 +90,10 @@ test('Guard and cover never become fictional damage: only real exposed regions q
  requestFightFlightSkill(t.room,t.m,t.pilot,1);
  assert.equal(t.m.skill.targetId,null);
  requestFightFlightFire(t.room,t.m,t.pilot,true,1.1);
- assert.equal(t.m.shotSeq,0);
+ assert.equal(t.m.shotSeq,1,'before the first lock, normal manually aimed fire remains available');
+ for(let i=0;i<20;i++)stepFightFlightProjectiles(t.room,1/30,1.1+(i+1)/30);
+ assert.equal(t.room.events.filter(e=>e.type==='fightFlightBoltImpact'&&e.victimId===t.enemy.id).length,0,
+   'a manually fired bolt still hits the wall rather than the concealed enemy');
 });
 test('Narrow preserves a visible lock but refuses an out-of-traverse shot',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
