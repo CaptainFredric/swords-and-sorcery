@@ -12,7 +12,8 @@ import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
-import {fightFlightSkillActive} from './fightFlightSkill.mjs';
+import {fightFlightSkillActive,endFightFlightSkill,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {updateNarrowTracking} from './fightFlightTracking.mjs';
 
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
 export {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
@@ -39,9 +40,20 @@ function release(room,m,p,now){
   const swordBusy=Boolean(p.attackActive||p.attackSweep||p.attackHeld||p.attackQueued||
     now+1e-8<(p.attackRestartAt??-Infinity));
   if((swordBusy||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
+  let tracking=null;
+  if(fightFlightSkillActive(m,now,NARROW_TO_ONE.id)){
+    tracking=updateNarrowTracking(room,m,p,now);
+    if(tracking?.invalid){endFightFlightSkill(room,m,now,'targetLost');return false;}
+    if(tracking?.targetId&&!tracking.visible){
+      // Only a genuine shot attempt with the lock out of sight breaks the Skill.
+      endFightFlightSkill(room,m,now,'sightLost');return false;
+    }
+    // Without a visible, physically reachable opening, do not fire for free.
+    if(!tracking?.aim)return false;
+  }
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
-  const solved=flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
+  const solved=tracking?.aim??flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
   const {yaw,pitch}=solved;
   m.crossbowAimLimited=Boolean(solved.limited);
   m.crossbowReachableAim=solved.reachableAimPoint??null;
@@ -62,6 +74,8 @@ function release(room,m,p,now){
     bornAt:now,dist:0,radius:FLIGHT_REPEATER.radius});
   room.events.push({type:'fightFlightBoltReleased',machineId:m.id,projectileId:id,operatorId:p.id,
     point:origin,ammo:m.ammo,borrowed,ammoDebt:m.ammoDebt??0,at:now});
+  // Only an actual spawned bolt cancels Ascension: no ghost presses or empty clicks.
+  if(fightFlightSkillActive(m,now,ASCENSION.id))endFightFlightSkill(room,m,now,'boltFired');
   return true;
 }
 export function requestFightFlightFire(room,m,p,down,now){
