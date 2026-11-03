@@ -122,14 +122,14 @@ export function mirrorLayoutHorizontal(layout) {
 
 /** Contextual controls share one auxiliary row on every mounted machine. */
 export function mountedTouchLayout(onFoot,handedness='right'){
-  const layout={...onFoot};
+  const layout=clonePlacements(onFoot);
   const auxiliary={...MOUNTED_ACTIONS,interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
   const defaults=handedness==='left'?mirrorLayoutHorizontal(auxiliary):auxiliary;
   for(const [action,placement]of Object.entries(defaults)){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
     const mirrored=original?mirrorLayoutHorizontal({[action]:original})[action]:null;
     const preset=mirrored&&Object.entries(mirrored).every(([k,v])=>saved?.[k]===v);
-    layout[action]=saved?.custom&&!preset?saved:{...placement,custom:true};
+    layout[action]=saved?.custom&&!preset?{...saved}:{...placement,custom:true};
   }
   return layout;
 }
