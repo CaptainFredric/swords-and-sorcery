@@ -139,7 +139,7 @@ export function stepFlightRun(room,m,dt,now){
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
- const floor=flightSupportAt(room.world,m.x,m.z,m.y+.35);
+ const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
  let target=m.offensiveRun?(committed?m.runCommitPitch:livePitch):0;
  if(m.offensiveRun&&target<0){
    // Do not drive the rotor into an unavoidable ground strike. The chassis
