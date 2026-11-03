@@ -241,7 +241,7 @@ export function saveTouchLayout(layout, storage = globalThis.localStorage) {
 
 export function clearLayoutItem(element){
   if(!element?.style)return;
-  for(const key of ['left','right','top','bottom','width','height'])if(element.style[key]!=null)element.style[key]='';
+  for(const key of ['left','right','top','bottom','width','height','marginLeft','marginRight'])if(element.style[key]!=null)element.style[key]='';
   element.style.setProperty('--size','');
   element.style.setProperty('--stick-size','');
 }
@@ -252,16 +252,20 @@ export function applyLayoutItem(element, placement, scale = 1) {
   if ('left' in placement) {
     element.style.left = `calc(var(--safe-l) + ${placement.left}px * var(--s))`;
     element.style.right = 'auto';
+    if(placement.type==='stick'){element.style.marginLeft='calc(var(--stick-size) * -.5)';element.style.marginRight='0';}
   } else if ('right' in placement) {
     element.style.right = `calc(var(--safe-r) + ${placement.right}px * var(--s))`;
     element.style.left = 'auto';
+    if(placement.type==='stick'){element.style.marginLeft='0';element.style.marginRight='calc(var(--stick-size) * -.5)';}
   }
 
   if ('top' in placement) {
     element.style.top = `calc(var(--safe-t) + ${placement.top}px * var(--s))`;
     element.style.bottom = 'auto';
   } else if ('bottom' in placement) {
-    element.style.bottom = `calc(var(--safe-b) + ${placement.bottom}px * var(--s))`;
+    element.style.bottom = placement.type==='stick'?
+      `calc(var(--safe-b) + ${placement.bottom}px * var(--s) - var(--stick-size) * .5)`:
+      `calc(var(--safe-b) + ${placement.bottom}px * var(--s))`;
     element.style.top = 'auto';
   }
 
