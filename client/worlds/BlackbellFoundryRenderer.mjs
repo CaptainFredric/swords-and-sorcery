@@ -1,14 +1,26 @@
 import * as THREE from 'three';
 import { BLACKBELL_FOUNDRY } from '../../shared/worlds/blackbellFoundry.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
+import { createBatch, masonry, palisade } from './kit/kitPieces.mjs';
+import { FacetBuilder, facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
+import { drawWorldProps, ingotStack, ironwork } from './kit/worldProps.mjs';
+import { FlameSet } from './kit/flames.mjs';
+import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.mjs';
+import { PLANK_TILE_METRES, drawnFloors, flagstoneTexture, plankTexture } from './kit/surfaceTextures.mjs';
 
-export const BLACKBELL_FOUNDRY_LIGHTING = Object.freeze({
+// (the foundry stands on a crag over an iron country of slag and dark pines, other furnaces glowing on the horizon:
+// its land and sky are drawn round it, kit/backdrop.mjs)
+const BLACKBELL_BACKDROP_RADIUS = 300;
+export const BLACKBELL_FOUNDRY_LIGHTING = backdropLighting({
   background: 0x181515,
   fog: Object.freeze({ color: 0x221a18, density: 0.012 }),
   hemisphere: Object.freeze({ skyColor: 0xb89580, groundColor: 0x33221a, intensity: 1.6 }),
   sun: Object.freeze({ color: 0xff8c42, intensity: 2.4, position: Object.freeze([-20, 24, -12]) }),
   sky: Object.freeze({ zenith: 0x2e2528, horizon: 0xba683a, below: 0x161312 }),
-});
+}, { radius: BLACKBELL_BACKDROP_RADIUS, density: 0.0034 });
+// soot-darkened brick for the hall and the boundary, a paler dressed stone for the low partitions
+const SOOT_BRICK = 0x6e4f42;
+const DRESSED_STONE = 0x7b736a;
 
 function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -93,21 +105,58 @@ export class BlackbellFoundryRenderer {
       }),
     };
 
-    // --- Build Floors ---
-    for (const fl of BLACKBELL_FOUNDRY.floors) {
-      const mat = fl.material === 'timber' ? this.materials.timber : this.materials.stoneFloor;
-      const mesh = box(this.group, fl.size, mat, fl.center, [0, 0, 0], false);
-      mesh.receiveShadow = true;
-    }
+    // --- Floors: laid flagstones, the gantry's planks (drawn, tiled in world space) ---
+    this.kit = kitMaterials();
+    const timberFloor = (floor) => floor.material === 'timber';
+    this.kit.paving = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0x6a625a, 59), roughness: 0.9, metalness: 0.03 });
+    this.kit.planks = new THREE.MeshStandardMaterial({ map: plankTexture(0x6a4c36, 61), roughness: 0.9, metalness: 0.02 });
+    this.group.add(drawnFloors(BLACKBELL_FOUNDRY.floors, this.kit.paving, { name: 'blackbell-paving', draw: (floor) => !timberFloor(floor) }));
+    this.group.add(drawnFloors(BLACKBELL_FOUNDRY.floors, this.kit.planks, { name: 'blackbell-planks', metres: PLANK_TILE_METRES, draw: timberFloor }));
 
-    // --- Build Solids ---
+    // --- Solids: brick and stone in coursed masonry, timber as stacked palisade, iron kept as cast machinery ---
+    const rand = seededRandom(1907);
+    const batch = createBatch();
+    // (dull worked iron: the kit's polished metal, with nothing to reflect, rendered these as black slabs)
+    batch.iron = new FacetBuilder();
+    this.kit.iron = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.62, metalness: 0.3 });
     for (const sol of BLACKBELL_FOUNDRY.solids) {
-      let mat = this.materials.iron;
-      if (sol.material === 'stone') mat = this.materials.stone;
-      else if (sol.material === 'timber') mat = this.materials.timber;
-      else if (sol.material === 'brick') mat = this.materials.brick;
-      box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
+      if (sol.kind === 'prop') continue;
+      if (sol.material === 'stone' || sol.material === 'brick') {
+        const tall = sol.size[1] >= 4.4;
+        const rubble = /rubble/.test(sol.id);
+        masonry(batch, rand, sol, rubble ? { style: 'rubble', coping: false }
+          : { merlons: tall && /^wall-/.test(sol.id), color: tall || /furnace|chimney/.test(sol.id) ? SOOT_BRICK : DRESSED_STONE });
+      } else if (sol.material === 'timber' && !/beam/.test(sol.id)) {
+        palisade(batch, rand, sol);
+      } else if (/ingot/.test(sol.id)) {
+        ingotStack(batch.iron, rand, sol);
+      } else if (/(hopper|bin|debris|balustrade|master-forge|winch-drum|pillar-gantry|lintel)/.test(sol.id)) {
+        ironwork(batch.iron, rand, sol, { color: /master-forge/.test(sol.id) ? 0x4a4440 : 0x55575c });
+      } else {
+        let mat = this.materials.iron;
+        if (sol.material === 'timber') mat = this.materials.timber;
+        box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
+      }
     }
+    // the furnace hall's open roof: heavy trusses across it at the walls' height, chains hanging from a few
+    for (const z of [12.5, 18.5, 24.5, 30.5, 35.5]) {
+      batch.wood.block({ cx: 0, cy: 6.55, cz: z, sx: 31, sy: 0.42, sz: 0.36, chamfer: 0.04, jitter: 0.01, color: 0x3d2c20, rand });
+      for (const side of [-1, 1]) {
+        batch.wood.block({ cx: side * 7.5, cy: 6.95, cz: z, sx: 15.6, sy: 0.22, sz: 0.24, rotY: 0, chamfer: 0.02, jitter: 0.01, color: 0x4a3526, rand });
+      }
+    }
+    const { flames, glows } = drawWorldProps(batch, rand, BLACKBELL_FOUNDRY.props);
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      this.group.add(facetMesh(builder, this.kit[name], { castShadow: name !== 'ground', receiveShadow: true, name: `blackbell-${name}` }));
+    }
+    this.furnishingFire = new FlameSet(this.group, { flames, glows });
+    // the crag and the iron country round it
+    this.backdrop = buildBackdrop(this.group, {
+      footprint: [-17.5, 17.5, -39, 38], floorY: 0, sky: BLACKBELL_FOUNDRY_LIGHTING.sky, mood: BACKDROP_MOODS.forge,
+      seed: 19, radius: BLACKBELL_BACKDROP_RADIUS, depth: 24, materials: this.kit,
+    });
+    this.horizonFires = new FlameSet(this.group, { flames: this.backdrop.glows.map((position) => ({ position, scale: 9 })) });
 
     // --- Build Ramps ---
     for (const ramp of BLACKBELL_FOUNDRY.ramps) {
@@ -468,6 +517,8 @@ export class BlackbellFoundryRenderer {
   }
 
   update(timeSec, camera = null) {
+    this.furnishingFire?.update(timeSec);
+    this.horizonFires?.update(timeSec);
     // Pulse glowing furnace fires and forge embers
     for (const fl of this.furnaceLights) {
       fl.light.intensity = fl.baseIntensity
@@ -549,6 +600,8 @@ export class BlackbellFoundryRenderer {
   }
 
   dispose() {
+    this.furnishingFire?.dispose();
+    this.horizonFires?.dispose();
     this.scene.remove(this.group);
     this.group.traverse((object) => {
       object.geometry?.dispose?.();
