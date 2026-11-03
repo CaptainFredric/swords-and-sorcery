@@ -339,9 +339,15 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const floor=flightSupportAt(world,candidate.x,candidate.z,previous.y+(m.grounded?.35:.05));
     if(floor!==null&&(candidate.y<=floor||(m.grounded&&candidate.y-floor<.35))&&m.velocity.y<=0){
       if(m.terminalDive)m.terminalDive.impactAt=now;
-      if(!m.grounded)m.landingAt=now;
+      const arrivedFromAir=!m.grounded;
+      if(arrivedFromAir)m.landingAt=now;
       candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
-      m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;m.runGroundReleased=false;
+      // Ordinary support contact is not a landing! Cancelling on every
+      // grounded tick previously erased a freshly requested rotor spin-up.
+      if(arrivedFromAir||m.runGroundPhase!=='SPINUP'){
+        m.offensiveRun=false;m.flightDashHeld=false;
+        m.runGroundPhase=null;m.runGroundReleased=false;
+      }
     }
     else if(floor===null||candidate.y>floor+.05){
       // Losing support at a cliff is a real transition to falling, not hovering at its rim.
