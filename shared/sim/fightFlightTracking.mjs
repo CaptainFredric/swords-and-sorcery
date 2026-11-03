@@ -8,7 +8,7 @@ import {sweptSegmentCylinderHit} from './biByeLlista.mjs';
 import {biByeFirstHit} from './biByeComponents.mjs';
 import {soFistFirstHit} from './soFistGeometry.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
-import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
+import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim,flightTransform} from '../src/flightRepeaterAim.mjs';
 
 const MAX_RANGE=FLIGHT_REPEATER.speed*FLIGHT_REPEATER.lifespan;
 const bodyPoints=p=>{
@@ -33,7 +33,11 @@ function blocked(room,a,b,solids){
 }
 export function narrowTargetVisible(room,m,target,solids=obstacles(room)){
   if(!target?.alive||!target.position)return false;
-  const start=flightMuzzle(m,{yaw:m.crossbowYaw??m.heading,pitch:m.crossbowPitch??0});
+  // Visibility comes from the pilot's real visor, NOT the lower muzzle.
+  // A pilot can see over parapets that still block every physical bolt;
+  // that must be NO CLEAR SHOT, not SIGHT LOST.
+  const visor=flightTransform(m,0,1.555,.215);
+  const start={x:m.x+visor.x,y:m.y+visor.y,z:m.z+visor.z};
   return bodyPoints(target).some(point=>!blocked(room,start,point,solids));
 }
 function exposedShot(room,m,operator,target,now,solids){
