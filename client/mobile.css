@@ -679,7 +679,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 /* Ballista Steel is a third, low-priority target on the firing row; it no
    longer occludes BOTH. Custom user placements still win as inline styles. */
-.touch-controls.touch-ballista.mounted-steel-available .touch-spell {
+.touch-controls.touch-mounted.touch-ballista:not(.touch-flight).mounted-steel-available .touch-spell {
   --size:54px;
   right:calc(var(--safe-r) + 176px * var(--s));
   bottom:calc(var(--safe-b) + 22px * var(--s));
