@@ -28,7 +28,8 @@ test('two real clients agree on pitched Dash, release and a falling wreck',async
   assert.deepEqual(same.fightFlight,down.fightFlight,'one physical authority for both recipients');
   assert.ok(down.fightFlight.runPitch>.6);assert.ok(Number.isFinite(down.fightFlight.runAnimationStartedAt));
   pitch=.6;sendInput();const up=await b.wait(s=>s.type==='snapshot'&&s.tick>down.tick&&s.fightFlight?.offensiveRun&&s.fightFlight.velocity.y>3);
-  assert.ok(up.fightFlight.runPitch<.15);
+  assert.ok(up.fightFlight.runPitch<1.2&&up.fightFlight.runPitch<down.fightFlight.runPitch,
+    'the up-aimed rotor tilts back from its near-vertical attack posture');
   a.send({type:'flightDash',down:false});const ended=await b.wait(s=>s.type==='snapshot'&&s.tick>up.tick&&s.fightFlight?.flightDashHeld===false&&!s.fightFlight.offensiveRun);assert.ok(ended.fightFlight.runAnimationEndedAt>=down.fightFlight.runAnimationStartedAt);
   clearInterval(inputTimer);inputTimer=null;
   damageFightFlight(room,m,1000,guest.playerId,'sword',game.now(),{componentId:'main',point:{x:m.x,y:m.y+1,z:m.z}});
