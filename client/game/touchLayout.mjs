@@ -83,7 +83,7 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   attack:{right:14,bottom:10,size:62,width:96,height:62},
   // Bolt now fills its former position PLUS the old Jump column. Directly
   // above Bolt is Jump, allowing one finger to slide upward into a Hop.
-  siegeWeapon:{right:14,bottom:80,size:62,width:96,height:62},
+  siegeWeapon:{right:14,bottom:80,size:62,width:122,height:62},
   jump:{right:14,bottom:146,size:62},
   // Dash takes Fire Away's old left-hand position.
   dash:{right:88,bottom:146,size:60},
@@ -132,6 +132,18 @@ export function mountedTouchLayout(onFoot,handedness='right'){
   return layout;
 }
 
+// Separate editable pages for stationary artillery and the mobile ram. Old
+// shared on-foot layouts are preserved when migrating an existing player.
+export const DEFAULT_BALLISTA_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+export const DEFAULT_RAM_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+export const TOUCH_LAYOUT_PAGES=Object.freeze([
+ {id:'onFoot',label:'SPELLBLADE'}, {id:'flight',label:'FLIGHT'},
+ {id:'ballista',label:'BALLISTA'}, {id:'ram',label:'RAM'},
+]);
+export const layoutForMode=(layouts,mode)=>
+ mode==='flight'?layouts.flight:mode==='ballista'?layouts.ballista:
+ mode==='ram'?layouts.ram:layouts.onFoot;
+
 export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const clamped = { ...item, custom: true };
   const w = item.width ?? item.size ?? 50;
@@ -139,13 +151,14 @@ export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const safeMargin = 4;
 
   if (clamped.size !== undefined) {
-    clamped.size = Math.max(MIN_BUTTON_SIZE, Math.min(MAX_BUTTON_SIZE, clamped.size));
+    clamped.size = Math.max(item.type==='stick'?80:MIN_BUTTON_SIZE,
+      Math.min(item.type==='stick'?172:MAX_BUTTON_SIZE, clamped.size));
   }
   if (clamped.width !== undefined) {
-    clamped.width = Math.max(36, Math.min(120, clamped.width));
+    clamped.width = Math.max(36, Math.min(160, clamped.width));
   }
   if (clamped.height !== undefined) {
-    clamped.height = Math.max(30, Math.min(80, clamped.height));
+    clamped.height = Math.max(30, Math.min(96, clamped.height));
   }
 
   if ('left' in clamped) {
@@ -201,6 +214,10 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
       return {
         onFoot: migrateCrouchPosition(parsed.onFoot ?? { ...DEFAULT_ON_FOOT_LAYOUT }),
         flight: migrateFlightLayout(parsed.flight),
+        ballista:{...mountedTouchLayout(parsed.onFoot??DEFAULT_ON_FOOT_LAYOUT,
+          parsed.handedness==='left'?'left':'right'),...(parsed.ballista??{})},
+        ram:{...mountedTouchLayout(parsed.onFoot??DEFAULT_ON_FOOT_LAYOUT,
+          parsed.handedness==='left'?'left':'right'),...(parsed.ram??{})},
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
         handedness: parsed.handedness === 'left' ? 'left' : 'right',
       };
@@ -209,6 +226,8 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
   return {
     onFoot: { ...DEFAULT_ON_FOOT_LAYOUT },
     flight: { ...DEFAULT_FLIGHT_LAYOUT },
+    ballista: { ...DEFAULT_BALLISTA_LAYOUT },
+    ram: { ...DEFAULT_RAM_LAYOUT },
     opacity: DEFAULT_OPACITY,
     handedness: 'right',
   };
@@ -224,6 +243,7 @@ export function clearLayoutItem(element){
   if(!element?.style)return;
   for(const key of ['left','right','top','bottom','width','height'])if(element.style[key]!=null)element.style[key]='';
   element.style.setProperty('--size','');
+  element.style.setProperty('--stick-size','');
 }
 
 export function applyLayoutItem(element, placement, scale = 1) {
@@ -246,7 +266,7 @@ export function applyLayoutItem(element, placement, scale = 1) {
   }
 
   if (placement.size !== undefined) {
-    element.style.setProperty('--size', `${placement.size}px`);
+    element.style.setProperty(placement.type==='stick'?'--stick-size':'--size', `${placement.size}px`);
   }
   if (placement.width !== undefined) {
     element.style.width = `calc(${placement.width}px * var(--s))`;
