@@ -80,14 +80,14 @@ validators, `scripts/test-spellblade-*.py`).
      values and slopes. At mid-swing in Run the knee bends a little more (20°), so the returning boot clears 7 cm: Rodin's
      thigh is shorter and his shin longer than the kit's.
    - **Sword and floor:** with the longer sword and a forearm 39 % longer than the kit's, the kit's poses put the blade
-     through the floor (up to 47 cm in Cast). Each hand key whose pose sinks it turns the grip by the least angle that
+     through the floor (up to 48 cm in Cast). Each hand key whose pose sinks it turns the grip by the least angle that
      clears it, about the axis that raises the blade's lowest point, and a key is added wherever it still dips between
      keys. Keys that clear are left as authored. The largest turns are in Stagger (33°), Dash (31°) and Death's first
      key (30°).
    - **Sword and body:** any frame where the blade still passes through the body or off hand gets the kit's
      follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up). One span
-     remains: `GuardCut_1` frames 15.5 to 17, where the blade grazes the side of the helmet (the kit's own blade cut
-     through its breastplate and right pauldron there).
+     remains: `GuardCut_1` frames 16.5 to 19, where the blade grazes the side of the helmet and its crest (the kit's
+     own blade cut through its breastplate and right pauldron there).
 4. **Look** (`look.py`). Rodin's one material becomes the materials the runtime looks for:
    - `GameBody`: every armour part and the sword. `plateEnvironment.mjs` gives this material a soft sky to reflect and
      raises its metalness by 1.25, so its metalness is cut to a sixth here; `steelSheen.mjs` hardens it in game.
@@ -107,7 +107,7 @@ third-person sword onto its first-person one (fitted on the kit's two meshes: th
 83 %); the left hand goes bone to bone at that same 83 %, so the two hands match; the upper arm and forearm at 83 %
 across the bone and stretched along it to the first-person rig's lengths. The sockets and palm rune move with their
 hands. Rodin's blade is longer and broader than the kit's, so in two swings it crossed the open off hand: there the
-left arm drops out of its path by the least turn that clears it, eased in and out (`clear_off_hand`: 40° over frames
+left arm drops out of its path by the least turn that clears it, eased in and out (`clear_off_hand`: 35° over frames
 12.5 to 17.6 of `Slash_1`, 5° over the first frames of `Slash_2`).
 
 ## Emblems (`emblems.py`)
@@ -125,7 +125,7 @@ earlier cape texture).
 
 - **Validators:** rig and model (`build.py`), both GLB validators, the first-person sword visibility check, and
   `scripts/test-spellblade-source.py`, `test-spellblade-motion.py` and `test-spellblade-combat-presentation.py` pass.
-- **Budgets:** third person 30,044 triangles (target 35,000), 1.65 MB GLB (2.5 MB), 0.74 MB gzipped (the static
-  server test allows 0.8 MB); first person about 9,400 triangles and 0.53 MB.
+- **Budgets:** third person 30,074 triangles (target 35,000), 1.66 MB GLB (2.5 MB), 0.75 MB gzipped (the static
+  server test allows 0.8 MB); first person 9,378 triangles and 0.52 MB.
 - **Bytes:** `tools/blender/common/gltf_quantize.py` stores normals, texture coordinates and skin weights as normalized
   integers (`KHR_mesh_quantization`, read natively by three.js). Positions stay floats.
