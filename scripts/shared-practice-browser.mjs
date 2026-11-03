@@ -55,10 +55,16 @@ async function connectBrowser(label,port){
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
  await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
+ // Input packets leave only from the game's render loop, so how often each
+ // browser draws is evidence for every movement step (CI renders in software).
+ await b.evaluate("(() => {const p=window.__frameProbe={count:0,last:performance.now(),maxGap:0};function f(){const now=performance.now();p.maxGap=Math.max(p.maxGap,now-p.last);p.last=now;p.count++;requestAnimationFrame(f);}requestAnimationFrame(f);})()");
+ b.frames=()=>b.evaluate("(() => {const p=window.__frameProbe,r={count:p.count,sinceLastMs:Math.round(performance.now()-p.last),maxGapMs:Math.round(p.maxGap)};p.maxGap=0;return r;})()");
  return b;
 }
-// Initial debugger probe must not depend upon a connected WebSocket.
-async function waitFor(fn,label,attempts=180){for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome startup: '+label);}
+// Initial debugger probe must not depend upon a connected WebSocket. Used for
+// every wait, not only startup, so the error names the step that stalled.
+let stage='startup';
+async function waitFor(fn,label,attempts=180){stage=label;for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome timed out: '+label);}
 let host=null,guest=null;
 try{
  host=await connectBrowser('host',9263);
@@ -91,22 +97,46 @@ try{
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'host observes physical machine',120);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'guest observes same physical machine',120);
  await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;if(m&&p)r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));})()");
+ // The first frames with a newly built machine can take minutes to draw in
+ // software WebGL, and keys only reach the room from drawn frames. In one CI
+ // run the host held W at spawn for ~3 minutes without a single packet. Walk
+ // once the host is drawing again.
+ const builtFrames=await host.frames();
+ console.log('[SHARED FRAMES] machine built',JSON.stringify({host:builtFrames,guest:await guest.frames()}));
+ await waitFor(async()=>(await host.frames()).count>=builtFrames.count+3,'host draws frames with the machine built',180);
+ console.log('[SHARED FRAMES] host drawing',JSON.stringify({host:await host.frames(),guest:await guest.frames()}));
  await host.send('Page.bringToFront');
  await host.evaluate("window.focus()");
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
- await host.key('W','rawKeyDown');
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return Math.hypot(p.x-m.x,p.z-m.z)<2.2;})()"),'host walks physically to the machine',170);
- await host.key('W','keyUp');
- // Verify the real key release. Mounting validates its own action/clearance
- // gates; a custom velocity threshold is not an authoritative mount rule.
- await waitFor(()=>host.evaluate("window.__ssRuntime?.input?.movement().forward===0"),'host released forward movement',80);
- console.log('[SHARED HOST APPROACHED]',await host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth,m=r?.latestSnapshot?.fightFlight;return {dist:p&&m?Math.hypot(p.position.x-m.x,p.position.z-m.z):null,attack:p?.attackActive,operating:p?.operatingFightFlightId,machineOp:m?.operatorId};})()"));
- await waitFor(async()=>{
-  if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
-  await host.tap('T');return false;
- },'host confirmed mounted in apparatus via T',80);
+ // Walk up as a player does: hold W and keep steering at the machine, then
+ // let go. With one aim before walking, a CI host that had read <2.2 m was
+ // 9.4 m away once stopped: off-line, it passes beside the 1.4 m chassis
+ // instead of stopping against it, and CDP samples are seconds apart there.
+ // The settled stop must satisfy mountFightFlight itself: within 2.5 m and no
+ // active attack. Overshooting means walking back, as a player would.
+ const hostApproach="(() => {const r=window.__ssRuntime,p=r?.localAuth,m=r?.latestSnapshot?.fightFlight;if(!p||!m)return null;"+
+  "return {dist:Math.hypot(p.position.x-m.x,p.position.z-m.z),speed:Math.hypot(p.velocity?.x??0,p.velocity?.z??0),attack:Boolean(p.attackActive),"+
+  "forward:r.input.movement().forward,yaw:r.input.yaw,serverYaw:p.yaw,aim:Math.atan2(-(m.x-p.position.x),-(m.z-p.position.z)),position:p.position,operating:p.operatingFightFlightId,machineOp:m.operatorId};})()";
+ const FLIGHT_MOUNT_RANGE=2.5;
+ let approached=null;
+ for(let attempt=1;attempt<=3&&!approached;attempt++){
+  await host.key('W','rawKeyDown');
+  let samples=0;
+  await waitFor(async()=>{
+   const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));return Math.hypot(p.x-m.x,p.z-m.z);})()");
+   if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
+   return a<FLIGHT_MOUNT_RANGE-.9;
+  },'host walks physically to the machine',170);
+  await host.key('W','keyUp');
+  const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
+  console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
+  if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
+ }
+ assert.ok(approached,'host stopped within flight mount range without an active attack');
+ await host.tap('T');
+ await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'host confirmed mounted in apparatus via T',80);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
@@ -144,7 +174,11 @@ try{
   await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  }
  // A real second client must observe mounted RMB sword input without a phantom bolt.
- const beforeSwordShot=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq");
+ // The repeater keeps firing until the LMB release reaches the room, so count
+ // from a guest snapshot that already shows the trigger released; otherwise
+ // late repeater shots land after the count and look like RMB bolts.
+ const beforeSwordShot=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m&&m.firingOperatorId==null?{shotSeq:m.shotSeq}:null;})()"),
+   'guest sees host repeater trigger released',110).then(x=>x.shotSeq);
  // Record actual remote rig animation frames, not just a server swing flag.
  await guest.evaluate("(() => {const trace=window.__flightSwordTrace=[];let frames=0;function sample(){const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"'),p=r?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"');if(rig)trace.push({clip:rig.visualInstance?.animator?.activeClip,attack:Boolean(p?.attackActive)});if(++frames<500)requestAnimationFrame(sample);}requestAnimationFrame(sample);})()");
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'right',clickCount:1});
@@ -201,10 +235,10 @@ try{
  assert.equal(result.errors.length,0,result.errors.join('; '));
  console.log('[SHARED PRACTICE CHROME ACCEPTED]',JSON.stringify(result));
 }catch(e){
- console.error('[SHARED PRACTICE CHROME FAILED]',e.stack??String(e));
- const hostDiag=await host?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
- const guestDiag=await guest?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
- await writeFile(out+'/failure.json',JSON.stringify({error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
+ console.error('[SHARED PRACTICE CHROME FAILED]','last wait: '+stage,e.stack??String(e));
+ const hostDiag=await host?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
+ const guestDiag=await guest?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
+ await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
  throw e;

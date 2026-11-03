@@ -76,6 +76,10 @@ try{
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
  const inputElement=await evaluate("(() => {const el=window.__ssRuntime.input.element,r=el.getBoundingClientRect();return {tag:el.tagName,id:el.id,x:Math.round(r.left+r.width*.5),y:Math.round(r.top+r.height*.5),suspended:window.__ssRuntime.input.suspended};})()");
  console.log('[COLD INPUT TARGET]',JSON.stringify(inputElement));
+ // Chrome grants pointer lock only to a focused page. A headless page that was
+ // never focused rejects the click's lock with WrongDocumentError, so input
+ // never enables. Focus the tab first, as a user's click on the window would.
+ await send('Page.bringToFront');
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  // Practice opens its toolbox after building. Explicitly acquire ordinary
@@ -92,13 +96,18 @@ try{
   controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,forward:window.__ssRuntime?.input?.movement?.().forward})")}));
  if(Math.hypot(start.me.position.x-moved.me.position.x,start.me.position.z-moved.me.position.z)<.08)
   throw Error('Real keyboard movement did not change player position; input focus or collision blocked');
+ // mountBiByeLlista checks the ballista's own interactRadius, which
+ // createBiByeLlista copies from the emplacement config. There is no top-level
+ // BI_BYE_LLISTA_CONFIG.interactRadius: reading it gave NaN, and distance<NaN
+ // is never true, so this walk could not finish.
+ const interactRadius=BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
+ assert.ok(Number.isFinite(interactRadius),'ballista mount radius');
  let samples=0;
  await until(async()=>{
   const s=await evaluate(state);if(!s?.me?.position||!s?.ballista)return false;
   const distance=Math.hypot(s.me.position.x-s.ballista.position.x,s.me.position.z-s.ballista.position.z);
   // The physical chassis may prevent approaching as close as 2.6m; the
   // machine's *authoritative* mount radius is the real interaction rule.
-  const interactRadius=BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
   if(++samples%12===0)console.log('[COLD WALK]',JSON.stringify({at:s.me.position,distance,interactRadius,forward:await evaluate('window.__ssRuntime.input.movement().forward')}));
   return distance<interactRadius-.05?s:false;
  },'walk to actual operator station',120);
