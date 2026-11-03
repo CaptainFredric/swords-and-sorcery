@@ -108,7 +108,7 @@ test('Held aiming can turn from a downward attack to real ascent',()=>{
   s.p.input.pitch=.65;frames(s,38);
   assert.ok(s.m.velocity.y>2,'authoritative vertical velocity follows later aim');
   assert.ok(s.m.runFlightPitch>.35,'pitch moves through the new flight vector');
-  assert.ok(s.m.runPitch<.05,'rendered chassis follows actual ascending travel');
+  assert.ok(s.m.runPitch<1.2&&s.m.runPitch>0,'the physically pitched rotor follows ascent without losing its attack-plane posture');
 });
 test('Quick release honors minimum powered distance before coasting, without restarting',()=>{
   const s=setup();requestFlightDash(s.room,s.m,s.p,true,0);frames(s,4);
