@@ -82,9 +82,9 @@ test('Sustained held Dash turns with rate-limited angular acceleration',()=>{
 });
 test('Rotor physically follows the camera after commitment, not a fixed deep nose-down trim',()=>{
   const s=setup({practice:true,y:32});s.p.input.pitch=0;
-  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,15);
-  assert.ok(s.m.runPitch>1.0,'opening charge strikes decisively nose-down');
-  s.p.input.pitch=0;frames(s,24);
+  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,9);
+  assert.ok(s.m.runPitch>1.0,'within the 0.36-second launch, the rotor attacks steeply');
+  s.p.input.pitch=0;frames(s,30);
   const neutral=s.m.runPitch;
   assert.ok(neutral>.38&&neutral<.78,'after commitment rotor centers on near-level reticle');
   s.p.input.pitch=-.55;frames(s,18);
