@@ -112,7 +112,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
   m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;m.practiceDashRefilling=false;
   m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=null;player.operatingFightFlightId=null;
-  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
+  m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
+  m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   if(airborne&&player.alive){
