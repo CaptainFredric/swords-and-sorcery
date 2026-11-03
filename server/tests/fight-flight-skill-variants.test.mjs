@@ -104,6 +104,16 @@ test('Guard and cover never become fictional damage: only real exposed regions q
  assert.equal(t.room.events.filter(e=>e.type==='fightFlightBoltImpact'&&e.victimId===t.enemy.id).length,0,
    'a manually fired bolt still hits the wall rather than the concealed enemy');
 });
+test('Visor can see over a parapet even when the lower crossbow muzzle has NO CLEAR SHOT',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ room.world.solids.push({id:'parapet',center:[0,.8,-10],size:[12,1.6,1]});
+ assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
+ assert.equal(m.skill.targetId,enemy.id,'the enemy head is visible over cover');
+ assert.equal(m.skill.trackingState,'noClearShot','the weapon does not fire through the wall');
+ requestFightFlightFire(room,m,pilot,true,1.1);
+ assert.equal(m.shotSeq,0);
+ assert.equal(m.skill.phase,'active','being visible behind cover must not cancel the lock');
+});
 test('Narrow preserves a visible lock but refuses an out-of-traverse shot',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
  requestFightFlightSkill(room,m,pilot,1);
