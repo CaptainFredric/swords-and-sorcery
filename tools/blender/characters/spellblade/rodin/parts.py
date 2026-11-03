@@ -30,7 +30,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from mathutils.kdtree import KDTree
 
 ARCHIVE_EMISSIVE = "rodin-spellblade-emissive.png"
@@ -354,6 +354,23 @@ def _texel_of(obj, select) -> tuple[float, float]:
     return tuple(picked[np.argsort(lum)[len(lum) // 2]])
 
 
+def turn_sword(sword: bpy.types.Object, fit) -> float:
+    """Turn the separated sword in the fist about its centreline by fit.sword_spin (its flat where the kit's lay),
+    normals with it. Returns the turn in degrees."""
+    to_rest = fit.hand_to_rest
+    axis = Vector(tuple(to_rest[:3, :3] @ fit.blade_axis)).normalized()
+    origin = Vector(tuple(to_rest[:3, :3] @ fit.blade_origin + to_rest[:3, 3]))
+    turn = Matrix.Translation(origin) @ Matrix.Rotation(fit.sword_spin, 4, axis) @ Matrix.Translation(-origin)
+    me = sword.data
+    normals = np.empty(len(me.loops) * 3)
+    me.corner_normals.foreach_get("vector", normals)
+    normals = normals.reshape(-1, 3) @ np.array(turn.to_3x3()).T
+    me.transform(turn)
+    me.normals_split_custom_set([tuple(n) for n in normals])
+    me.update()
+    return round(float(np.degrees(fit.sword_spin)), 2)
+
+
 def complete_sword(sword: bpy.types.Object, gauntlet: bpy.types.Object, fit, marks: dict) -> dict:
     """The sword as a whole sword: a leather grip from inside the crossguard through the fist, and a brass pommel
     beyond it (the concept's sword has both; Rodin only made the part that showed). Seen in the hand nothing changes;
@@ -509,6 +526,8 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
         bpy.ops.object.material_slot_remove_unused()
+    turned = turn_sword(objects["HeroSword"], fit)
     report["sword"] = complete_sword(objects["HeroSword"], objects["Gauntlet.R"], fit, marks)
+    report["sword"]["turnedDegrees"] = turned
     report["parts"] = {name: len(obj.data.polygons) for name, obj in objects.items()}
     return report

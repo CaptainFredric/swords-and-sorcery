@@ -38,9 +38,11 @@ validators, `scripts/test-spellblade-*.py`).
      blade's cross-sections: the blade is 22 cm wide, and an axis fitted to its clipped core leaned 7° toward one edge.
    - **The hand.** Its pose lays the kit sword's axis, measured in the hand, onto that centreline, so every action
      points Rodin's sword where it pointed the kit's. Its spin about that axis stays nearest Rodin's own wrist (9.9°
-     away): laying the kit blade's width as well had twisted the wrist 36° and pinched it in every action.
+     away): laying the kit blade's width as well had twisted the wrist 36° and pinched it in every action. The sword
+     turns in the fist instead, 35° about its centreline (`parts.turn_sword`, once it is its own part), so its flat
+     lies where the kit's lay: the edge leads every cut, and first person sees the flat as the kit framed it.
    - **Rest lift.** Rodin's sword reaches 1.36 m from the wrist (the kit's 1.04 m), so at the kit's rest its tip sank
-     below the floor, which the validators reject. The hand's rest is turned up 12.5° and every `hand.R` key is turned
+     below the floor, which the validators reject. The hand's rest is turned up 13° and every `hand.R` key is turned
      back by the same rotation (a fixed quaternion product: exact for keys and handles), so no pose changes.
    - **Sockets.** `socket_sword` moves onto Rodin's grip, `socket_sorcery` onto the open left palm; the kit's palm rune
      (`SorceryAccent`) rides with it.
@@ -78,14 +80,14 @@ validators, `scripts/test-spellblade-*.py`).
      values and slopes. At mid-swing in Run the knee bends a little more (20°), so the returning boot clears 7 cm: Rodin's
      thigh is shorter and his shin longer than the kit's.
    - **Sword and floor:** with the longer sword and a forearm 39 % longer than the kit's, the kit's poses put the blade
-     through the floor (up to 52 cm in Cast). Each hand key whose pose sinks it turns the grip by the least angle that
+     through the floor (up to 47 cm in Cast). Each hand key whose pose sinks it turns the grip by the least angle that
      clears it, about the axis that raises the blade's lowest point, and a key is added wherever it still dips between
-     keys. Keys that clear are left as authored. The largest turns are in Dash (35°), Stagger (35°) and Death's first
-     key (34°).
+     keys. Keys that clear are left as authored. The largest turns are in Stagger (33°), Dash (31°) and Death's first
+     key (30°).
    - **Sword and body:** any frame where the blade still passes through the body or off hand gets the kit's
-     follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up). One frame
-     remains: `GuardCut_1` frame 17, where the blade grazes the helmet (the kit's own blade cut through its breastplate
-     and right pauldron on that frame).
+     follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up). One span
+     remains: `GuardCut_1` frames 15.5 to 17, where the blade grazes the side of the helmet (the kit's own blade cut
+     through its breastplate and right pauldron there).
 4. **Look** (`look.py`). Rodin's one material becomes the materials the runtime looks for:
    - `GameBody`: every armour part and the sword. `plateEnvironment.mjs` gives this material a soft sky to reflect and
      raises its metalness by 1.25, so its metalness is cut to a sixth here; `steelSheen.mjs` hardens it in game.
@@ -104,7 +106,9 @@ into the first-person rest through its bones. The sword hand and sword go by the
 third-person sword onto its first-person one (fitted on the kit's two meshes: the grip turned 31° and the sword drawn at
 83 %); the left hand goes bone to bone at that same 83 %, so the two hands match; the upper arm and forearm at 83 %
 across the bone and stretched along it to the first-person rig's lengths. The sockets and palm rune move with their
-hands.
+hands. Rodin's blade is longer and broader than the kit's, so in two swings it crossed the open off hand: there the
+left arm drops out of its path by the least turn that clears it, eased in and out (`clear_off_hand`: 40° over frames
+12.5 to 17.6 of `Slash_1`, 5° over the first frames of `Slash_2`).
 
 ## Emblems (`emblems.py`)
 

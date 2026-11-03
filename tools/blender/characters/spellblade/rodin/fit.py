@@ -11,7 +11,8 @@ The open file is the kit source: it supplies SpellbladeRig, the fifteen actions,
 - The sword is rigid on hand.R: grown from the blade's core through connected vertices, inside a cylinder about the
   blade's centreline and a slab in its plane (the guard's quillons), never up the arm. hand.R's pose P lays the kit
   sword's axis, measured in the hand, onto that centreline, so every action points Rodin's sword where it pointed
-  the kit's; the spin about it stays nearest Rodin's own wrist.
+  the kit's; the spin about it stays nearest Rodin's own wrist, and the sword turns in the fist instead
+  (sword_spin, applied by parts.turn_sword) so its flat lies where the kit's lay.
 - The mesh is unposed from P into the rest by inverting linear blend skinning.
 """
 from __future__ import annotations
@@ -75,6 +76,7 @@ class Fit:
     blade_axis: np.ndarray = None   # the blade's axis (grip toward tip) and a point on it, in pose P
     blade_origin: np.ndarray = None
     hand_to_rest: np.ndarray = None  # carries pose-P points rigid on hand.R into the rest (4x4)
+    sword_spin: float = 0.0         # radians the sword turns about its centreline in the fist (parts.turn_sword)
 
 
 def pca(points) -> tuple[np.ndarray, np.ndarray]:
@@ -113,8 +115,8 @@ def _remove(objects) -> None:
                 bpy.data.armatures.remove(data)
 
 
-def kit_sword_in_hand(rig: bpy.types.Object) -> np.ndarray:
-    """The kit sword's blade direction, in hand.R's rest frame."""
+def kit_sword_in_hand(rig: bpy.types.Object) -> tuple[np.ndarray, np.ndarray]:
+    """The kit sword's blade direction and the direction across its flat, in hand.R's rest frame."""
     sword = bpy.data.objects["HeroSword"]
     hand = rig.data.bones["hand.R"].matrix_local
     points = np.array([tuple(rig.matrix_world @ sword.matrix_world @ v.co) for v in sword.data.vertices])
@@ -124,8 +126,12 @@ def kit_sword_in_hand(rig: bpy.types.Object) -> np.ndarray:
     span = (points - centre) @ d
     if np.linalg.norm(centre + d * span.max() - wrist) < np.linalg.norm(centre + d * span.min() - wrist):
         d = -d
+    blade = points[((points - wrist) @ d) > 0.35]
+    _, vtb = pca(blade)
+    w = vtb[1] - np.dot(vtb[1], d) * d
+    w /= np.linalg.norm(w)
     rotation = np.array(hand.to_3x3())
-    return rotation.T @ d
+    return rotation.T @ d, rotation.T @ w
 
 
 def _lift_sword_rest(R_old: Matrix, head_rest: Vector, Rp: Matrix, H: Vector, sword_posed: np.ndarray,
@@ -227,7 +233,7 @@ def bone_heat(mesh: bpy.types.Object, rig: bpy.types.Object, influences: int = 4
 
 
 def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: bool = True) -> Fit:
-    sword_d = kit_sword_in_hand(rig)
+    sword_d, sword_w = kit_sword_in_hand(rig)
     export = bpy.data.collections["SpellbladeExport"]
     # the kit's armour goes; its palm rune (the spell hand's accent) stays and moves to Rodin's palm
     _remove([o for o in export.all_objects if o.type == "MESH" and o.name != "PalmRune"])
@@ -334,6 +340,12 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: boo
     centred = math.degrees(math.acos(min(1.0, float(axis @ rough))))
     along, perpendicular, off = measure()
     tip = float(along[off < 0.1].max())
+
+    def spun(points, angle):
+        """Points turned by `angle` about the blade's centreline (Rodrigues)."""
+        rel = points - origin
+        cos, sin = math.cos(angle), math.sin(angle)
+        return origin + rel * cos + np.cross(axis, rel) * sin + np.outer(rel @ axis, axis) * (1 - cos)
     # not up the arm: past the wrist the fill would reach the gauntlet's cuff, which bends with the forearm
     arm = np.array([sum(v for g, v in w.items() if g in ("RightForeArm", "RightArm")) > 0.5 * (sum(w.values()) or 1.0)
                     for w in rodin_weights])
@@ -381,6 +393,12 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: boo
                 in_hand = np.array(natural.transposed()) @ axis
                 Rp = natural @ _rot_between(Vector(tuple(sword_d)), Vector(tuple(in_hand))).to_4x4().to_3x3()
                 hand_twist = math.degrees((Rp @ natural.transposed()).to_quaternion().angle)
+                # the sword turns in the fist instead (HeroSword is its own part): by the least angle about its
+                # centreline that lays its flat where the kit's lay, so its edge leads every cut as the kit's did
+                kit_width = np.array(Rp) @ sword_w
+                sword_spin = math.atan2(float(axis @ np.cross(frame[0], kit_width)), float(frame[0] @ kit_width))
+                if abs(sword_spin) > math.pi / 2:                  # (the blade is the same either way across)
+                    sword_spin -= math.copysign(math.pi, sword_spin)
                 L = old_length[name] * scale
             else:
                 Rp = natural
@@ -389,7 +407,7 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: boo
                 # Rodin's sword is longer than the kit's: at the kit's rest its tip would sink below the floor, which
                 # the validators reject. Lift the hand's rest just enough (the actions are compensated below, so
                 # every pose still points the sword where it pointed the kit's)
-                R_old, rest_lift = _lift_sword_rest(R_old, head_rest, Rp, H, posed[is_sword])
+                R_old, rest_lift = _lift_sword_rest(R_old, head_rest, Rp, H, spun(posed[is_sword], sword_spin))
             new_rest[name] = Matrix.Translation(head_rest) @ R_old.to_4x4()
             pose_world[name] = Matrix.Translation(H) @ Rp.to_4x4()
             length[name] = L
@@ -522,6 +540,7 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: boo
         "fitErrorMeters": round(fit_error, 6),
         "bladeRefinedDegrees": round(math.degrees(math.acos(min(1.0, abs(float(axis @ estimate))))), 2),
         "handTwistDegrees": round(hand_twist, 2),
+        "swordSpinDegrees": round(math.degrees(sword_spin), 2),
         "swordRestLiftDegrees": rest_lift,
         "swordVertices": int(is_sword.sum()),
         "swordSlabVertices": int(is_sword.sum()) - cylinder,
@@ -531,4 +550,4 @@ def fit_rodin(rig: bpy.types.Object, unrigged: Path, autorigged: Path, heat: boo
     }
     hand_to_rest = np.array(new_rest["hand.R"] @ pose_world["hand.R"].inverted())
     return Fit(mesh=mesh, weights=weights, is_sword=is_sword, posed=posed, scale=scale, blade_length=tip, report=report,
-               blade_axis=axis, blade_origin=origin, hand_to_rest=hand_to_rest)
+               blade_axis=axis, blade_origin=origin, hand_to_rest=hand_to_rest, sword_spin=sword_spin)

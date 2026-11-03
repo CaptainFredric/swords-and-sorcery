@@ -19,7 +19,7 @@ first person is the third-person model drawn at one scale (the kit's: it drew it
 - upper arm and forearm: bone to bone, at that scale across the bone and stretched along it to the first-person rig's
   lengths (its camera-tuned actions place the hands; the forearm comes out 7 % shorter than a true copy).
 
-Rodin's sword is longer and his left gauntlet bigger, so in Slash_1 and Slash_2 the blade crossed the open off hand.
+Rodin's sword is longer and broader than the kit's, so in Slash_1 and Slash_2 the blade crossed the open off hand.
 There the left arm is keyed out of the blade's path by the least turn that clears it (clear_off_hand).
 """
 from __future__ import annotations
@@ -132,9 +132,9 @@ def _move_off_hand(rig, action, axis: Vector, degrees: float, lo: float, hi: flo
 
 
 def clear_off_hand(rig) -> dict:
-    """Rodin's sword is longer and his open spell hand bigger than the kit's, so in two swings the blade crossed the
-    off hand. Over each span where it does, the left arm drops out of the blade's path by the least turn that clears
-    the span (checked at eighth frames), eased in and out, never adding a crossing elsewhere."""
+    """Rodin's sword is longer and broader than the kit's, so in two swings the blade crossed the open off hand. Over
+    each span where it does, the left arm drops out of the blade's path by the least turn that clears the span (checked
+    at eighth frames), eased in and out, never adding a crossing elsewhere."""
     report = {}
     for action in [a for a in bpy.data.actions if a.name.startswith("Slash_")]:
         start, end = action.frame_range
@@ -142,9 +142,10 @@ def clear_off_hand(rig) -> dict:
         bad = _overlaps(rig, action, everywhere)
         fixes = []
         while bad:
+            # crossings closer than the eases on either side are one span: a move for the first reaches the second
             lo, hi = bad[0], bad[0]
             for f in bad[1:]:
-                if f - hi > 1.0:
+                if f - hi > 2 * EASE:
                     break
                 hi = f
             before_elsewhere = len([f for f in bad if f > hi])
