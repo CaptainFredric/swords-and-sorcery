@@ -84,7 +84,8 @@ export function updateNarrowTracking(room,m,operator,now){
     const targets=[...room.players.values()].filter(p=>p.alive&&p.id!==operator.id&&
       !areAllies(room,operator.id,p.id)&&p.position)
       .sort((a,b)=>distance(a.position,m)-distance(b.position,m)||String(a.id).localeCompare(String(b.id)));
-    const selected=targets.find(p=>narrowTargetVisible(room,m,p,solids));
+    const selected=targets.find(p=>narrowTargetVisible(room,m,p,solids)&&
+      bodyPoints(p).some(point=>!flightRepeaterAim(m,{siegeTarget:point}).limited));
     if(selected){
       skill.targetId=selected.id;skill.lockedOnce=true;
       room.events.push({type:'fightFlightTargetLock',machineId:m.id,targetId:selected.id,at:now});
