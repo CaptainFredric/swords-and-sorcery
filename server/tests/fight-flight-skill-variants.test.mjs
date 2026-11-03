@@ -55,7 +55,7 @@ test('An airborne lock cannot switch targets; landing permits immediate fresh ac
  enemy.position={x:0,y:0,z:25};
  stepFightFlightSkill(room,m,1.2);
  assert.equal(m.skill.targetId,enemy.id);
- assert.equal(m.skill.trackingState,'locked','target is still visible behind us, not automatically replaceable');
+ assert.equal(m.skill.trackingState,'noClearShot','rearward target stays locked but cannot be shot beyond joint traverse');
  m.grounded=true;stepFightFlightSkill(room,m,1.3);
  assert.equal(m.skill.targetId,other.id);
 });
