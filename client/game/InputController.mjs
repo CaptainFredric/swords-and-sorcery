@@ -552,6 +552,13 @@ export class InputController {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'siegeSkill'});
   }
 
+  // One discrete mounted Hop packet. Touch Jump and Bolt-to-Jump swipe use
+  // the same authoritative command; neither starts the held Rise motor.
+  flightHop(){
+    if(this.enabled&&this.mountedFlight&&this.allowAction?.('jump')!==false)
+      this.socket?.send?.({type:'flightHop'});
+  }
+
   flightEject(down,cancel=false){
     if(down&&(!this.enabled||!this.mountedFlight||this.flightEjectHeld))return;
     if(!down&&!this.flightEjectHeld)return;
