@@ -241,12 +241,15 @@ try {
   assert.ok(layoutCheck.guard.left < layoutCheck.sword.left, 'Guard is left of Sword on bottom row');
   assert.ok(Math.abs(layoutCheck.guard.bottom - layoutCheck.sword.bottom) < 25, 'Guard and Sword are in bottom row');
 
-  // 2. The wider Bolt directly above the equally wide Sword: no blind gap.
+  // 2. The wider Bolt now reaches left over the top edge of Guard.
   assert.ok(layoutCheck.bolt.top < layoutCheck.sword.top,'Bolt is above Sword');
   assert.ok(Math.abs(layoutCheck.bolt.left-layoutCheck.sword.left)<8,
     'Bolt occupies the old right-hand Jump column');
-  assert.ok(Math.abs(layoutCheck.bolt.width-layoutCheck.sword.width)<8,
-    'Bolt and Sword have equal wide contact areas');
+  assert.ok(layoutCheck.bolt.width>layoutCheck.sword.width+18,
+    'Bolt extends further left than Sword, into the space above Guard');
+  assert.ok(layoutCheck.bolt.left<layoutCheck.guard.right &&
+    layoutCheck.bolt.right>layoutCheck.guard.left,
+    'the wider Bolt horizontally reaches over Guard');
   assert.ok(layoutCheck.bolt.bottom<=layoutCheck.sword.top+3,'Bolt/Sword touch targets do not overlap');
 
   // 3. Jump immediately over Bolt, Dash left in Fire Away former position.
@@ -441,6 +444,43 @@ try {
   })()`);
   assert.equal(editorCheck.isVisible, true, 'Touch layout editor is visible');
   assert.equal(editorCheck.modeBtnActive, 'flight', 'Editor starts in flight mode');
+
+  // A real control-preview interaction: select, resize and drag a joystick,
+  // then edit an independent Ballista Skill placement. The edits must persist
+  // per page without moving the live flight controls into the Ballista layout.
+  const editorResize = await evaluate(`(() => {
+    const rt=window.__ssRuntime,editor=rt.touchLayoutEditor,stick=rt.touch.stickBase,
+      rect=stick.getBoundingClientRect();
+    stick.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:210,
+      pointerType:'touch',clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}));
+    window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:210,pointerType:'touch'}));
+    const slider=document.querySelector('.tle-controls [data-action="size"]');
+    slider.value='148';slider.dispatchEvent(new Event('input',{bubbles:true}));
+    return {size:editor.layouts.flight.stick.size,width:stick.getBoundingClientRect().width};
+  })()`);
+  assert.equal(editorResize.size,148,'joystick size slider changes saved size');
+  assert.ok(Math.abs(editorResize.width-148)<5,'joystick actually grows on screen, not just in storage');
+  const pageCheck=await evaluate(`(() => {
+    const editor=window.__ssRuntime.touchLayoutEditor;
+    document.querySelector('[data-mode="ballista"]').click();
+    const skill=window.__ssRuntime.touch.buttons.siegeSkill;
+    const rect=skill.getBoundingClientRect();
+    skill.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:211,
+      pointerType:'touch',clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}));
+    window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:211,pointerType:'touch'}));
+    const slider=document.querySelector('.tle-controls [data-action="size"]');
+    slider.value='74';slider.dispatchEvent(new Event('input',{bubbles:true}));
+    return {mode:editor.mode,skill:editor.layouts.ballista.siegeSkill.size,
+      flightStick:editor.layouts.flight.stick.size,ramPage:!!editor.layouts.ram};
+  })()`);
+  assert.deepEqual(pageCheck,{mode:'ballista',skill:74,flightStick:148,ramPage:true});
+  await captureScreenshot('mobile-ballista-layout-editor.png');
+  await evaluate("document.querySelector('[data-mode=ram]').click()");
+  assert.equal(await evaluate("window.__ssRuntime.touchLayoutEditor.mode"),'ram');
+  await captureScreenshot('mobile-ram-layout-editor.png');
+  await evaluate("document.querySelector('[data-mode=flight]').click()");
+  // The independent Ballista edit must not alter a visible flight action.
+  assert.ok(await evaluate("window.__ssRuntime.touchLayoutEditor.layouts.flight.siegeSkill.size!==74"));
 
   // Capture Touch Layout Editor screenshot
   await captureScreenshot('mobile-flight-touch-editor.png');
