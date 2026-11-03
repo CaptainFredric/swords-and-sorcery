@@ -123,7 +123,12 @@ export function stepFlightRun(room,m,dt,now){
  // The rotor has a fixed offset above the visor, so tilt its swept disc toward
  // the near crosshair corridor. Ease that lead after commitment. Avoid the old
  // 1.12-radian *permanent* trim that kept the rotor below an upward reticle.
- const rotorLead=committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead;
+ // If clearance suppresses downward thrust, the rotor may still pitch
+ // physically into the infantry-height crosshair corridor. Its actual swept
+ // blades share runPitch and must respect the separate real-ground limit.
+ const requested=committed?m.runCommitPitch:livePitch;
+ const clearanceCorrection=m.offensiveRun?clamp(Math.max(0,target-requested)*.49,0,.56):0;
+ const rotorLead=(committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead)+clearanceCorrection;
  m.runTrim=approach(m.runTrim??0,m.offensiveRun?rotorLead:0,VALKYRIE_RUN.pitchRate*1.3);
  m.runFlightPitch=approach(m.runFlightPitch??0,target,
    target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
