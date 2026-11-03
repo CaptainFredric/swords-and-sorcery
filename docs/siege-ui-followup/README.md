@@ -4,4 +4,14 @@ Ballista primary fire is now a 76 px circle at the right edge; Skill and BOTH fo
 
 Steel debris previously lost its sibling based placement when a cloned plate was appended to the health frame. Each fragment now freezes the actual decaying plate's local position and dimensions before detaching. Positive strength reaching zero emits once, including the final thin plate; recalling Steel at the same displayed strength updates the frame without falsely shedding it.
 
-Verification: 61 focused touch/layout tests passed, followed by all 12 layout tests including two new migration/overlap regressions. Syntax and the initial portion of the broad suite passed, but the broad run was canceled on the heavily loaded Mac; it is not reported as a complete pass. In-game visual acceptance remains pending: Chrome creation/navigation repeatedly timed out, and the eventual owned tab disappeared during the Practice check. No new gameplay screenshots or visual success are claimed. No merge or deployment is authorized.
+Verification: all 68 focused touch, layout and ballista HUD tests pass. The original implementation also passed all five GitHub checks, including full repository verification and HTML5 packaging. The final mobile status copy change was followed by the focused tests and fresh in-game inspection.
+
+Actual Chrome renders were inspected at 844 by 390 and 568 by 320 for both machines. A real touch Skill press exposed BOTH in the new location. The mobile ballista status text omits the Skill wording already shown on its button, keeping Pack clear on short phones. Initial machine placement used shared simulation APIs; subsequent touch interaction used normal inputs. A first relocation fixture landed on unsupported scenery and was rejected; its captures were replaced with the supported pad captures below.
+
+A normal Steel cast was observed through its full decay. Five fragments detached once each, at local X coordinates 120, 90, 60, 30 and minus 5 pixels. Each fragment's position and width matched the section wearing through. Raw measurements are in [steel-decay.json](evidence/steel-decay.json). These are measurements of the live HUD, not simulated CSS examples.
+
+![Ballista controls on a short phone](evidence/ballista-568.png)
+![Flight controls on a short phone](evidence/flight-568.png)
+![Actual falling Steel section at the right end](evidence/steel-falling.png)
+
+Larger captures: [ballista](evidence/ballista-844.png), [flight](evidence/flight-844.png). Physical phone testing remains outside this pass. No merge or deployment was performed.

@@ -1,0 +1,47 @@
+[
+  {
+    "at": 220092.39999997616,
+    "i": 4,
+    "left": 120,
+    "sourceLeft": 120,
+    "sourceWidth": 35,
+    "top": -5,
+    "width": 35
+  },
+  {
+    "at": 220920.39999997616,
+    "i": 3,
+    "left": 90,
+    "sourceLeft": 90,
+    "sourceWidth": 30,
+    "top": -3,
+    "width": 30
+  },
+  {
+    "at": 221919.69999992847,
+    "i": 2,
+    "left": 60,
+    "sourceLeft": 60,
+    "sourceWidth": 30,
+    "top": -3,
+    "width": 30
+  },
+  {
+    "at": 222921.60000002384,
+    "i": 1,
+    "left": 30,
+    "sourceLeft": 30,
+    "sourceWidth": 30,
+    "top": -3,
+    "width": 30
+  },
+  {
+    "at": 223919.79999995232,
+    "i": 0,
+    "left": -5,
+    "sourceLeft": -5,
+    "sourceWidth": 35,
+    "top": -3,
+    "width": 35
+  }
+]
