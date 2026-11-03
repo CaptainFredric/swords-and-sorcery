@@ -78,7 +78,7 @@ export function stepFlightRun(room,m,dt,now){
      m.runGroundPhase=null;m.runGroundReleased=false;m.flightDashHeld=false;
    }else if(m.runGroundPhase==='SPINUP')return;
    else {
-     const floor=flightSupportAt(room.world,m.x,m.z,m.y+.35);
+     const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
      if(m.grounded||floor!=null&&m.y-floor<VALKYRIE_RUN.groundLaunchClearance)return;
      m.runGroundPhase=null; // next lines start the committed physical run
      m.runGroundLaunchReady=true;
