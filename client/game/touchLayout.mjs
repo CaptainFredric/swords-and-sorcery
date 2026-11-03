@@ -48,7 +48,7 @@ const LEGACY_FLIGHT_LAYOUT = Object.freeze({
   practiceTools: { left: 10, top: 56, size: 44 },
 });
 
-export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+const PREVIOUS_FLIGHT_LAYOUT = Object.freeze({
   stick: {left:82,bottom:91,size:112,type:'stick'},
   guard: {right:88,bottom:12,size:64},
   attack: {right:14,bottom:12,width:68,height:64},
@@ -63,6 +63,24 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   pause: {left:10,top:8,size:38},
   scores: {left:54,top:8,size:38},
   practiceTools: {left:10,top:56,size:44},
+});
+
+export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+  ...PREVIOUS_FLIGHT_LAYOUT,
+  attack:{right:14,bottom:12,size:64},
+  siegeWeapon:{right:88,bottom:84,size:64},
+  jump:{right:14,bottom:84,size:60},
+  siegeSkill:{right:88,bottom:154,size:60},
+  dash:{right:14,bottom:154,size:60},
+  spell:{right:88,bottom:220,size:54},
+  ultimate:{right:14,bottom:220,size:54},
+});
+const MOUNTED_ACTIONS = Object.freeze({
+  attack:{right:14,bottom:20,size:76},
+  siegeSkill:{right:90,bottom:112,size:64},
+  siegeBoth:{right:14,bottom:112,size:64},
+  siegeWeapon:{right:14,bottom:190,size:56},
+  deploy:{right:90,bottom:190,size:56},
 });
 
 export function mirrorLayoutHorizontal(layout) {
@@ -84,7 +102,7 @@ export function mirrorLayoutHorizontal(layout) {
 /** Contextual controls share one auxiliary row on every mounted machine. */
 export function mountedTouchLayout(onFoot,handedness='right'){
   const layout={...onFoot};
-  const auxiliary={interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
+  const auxiliary={...MOUNTED_ACTIONS,interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
   const defaults=handedness==='left'?mirrorLayoutHorizontal(auxiliary):auxiliary;
   for(const [action,placement]of Object.entries(defaults)){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
@@ -141,11 +159,13 @@ function migrateFlightLayout(flight) {
   // The old handedness preset marked every control custom. Migrate only the
   // complete unedited preset; individual edited controls remain untouched.
   const oldMirror=mirrorLayoutHorizontal(LEGACY_FLIGHT_LAYOUT);
+  const previousMirror=mirrorLayoutHorizontal(PREVIOUS_FLIGHT_LAYOUT);
+  if(Object.keys(previousMirror).every(k=>matches(flight[k],previousMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   const migrated={...DEFAULT_FLIGHT_LAYOUT};
   for(const [key,item] of Object.entries(flight)){
     const legacy=LEGACY_FLIGHT_LAYOUT[key];
-    const untouched=legacy&&!item.custom&&matches(item,legacy);
+    const untouched=!item.custom&&(legacy&&matches(item,legacy)||matches(item,PREVIOUS_FLIGHT_LAYOUT[key]));
     if(!untouched)migrated[key]=item;
   }
   return migrated;
