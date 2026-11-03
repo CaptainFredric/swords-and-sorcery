@@ -197,7 +197,10 @@ test('Ground Dash must reach ACTUAL 450 RPM before launch, then climbs to cleara
   assert.equal(s.m.offensiveRun,false,'no free Dash while rotor warms up');
   for(let i=0;i<34&&!s.m.offensiveRun;i++)frames(s,1);
   assert.ok(s.m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1,'required full 450 RPM');
-  assert.ok(s.m.y>=VALKYRIE_RUN.groundLaunchClearance-.05,'real motor lift, not a grounded Dash teleport');
+  assert.ok(s.m.y>=VALKYRIE_RUN.groundLaunchClearance-.05,
+    'real motor lift, not a grounded Dash teleport: '+JSON.stringify({
+      y:s.m.y,phase:s.m.runGroundPhase,run:s.m.offensiveRun,grounded:s.m.grounded,
+      rpm:s.m.rotorRPM,charge:s.m.flightCharge,elapsed:s.m.runElapsed}));
   assert.equal(s.m.grounded,false);
   assert.equal(s.m.offensiveRun,true,'attack becomes active after the lifted machine clears its rotor');
   frames(s,8);
@@ -217,7 +220,9 @@ test('Ground Dash early release cancels spool; release AFTER takeoff finishes 10
   assert.equal(cancel.m.offensiveRun,false);
   const s=init();requestFlightDash(s.room,s.m,s.p,true,0);
   for(let i=0;i<42&&s.m.runGroundPhase!=='ASCENT';i++)frames(s,1);
-  assert.equal(s.m.runGroundPhase,'ASCENT');
+  assert.equal(s.m.runGroundPhase,'ASCENT','takeoff phase: '+JSON.stringify({
+    y:s.m.y,grounded:s.m.grounded,rpm:s.m.rotorRPM,
+    elapsed:s.m.runElapsed,run:s.m.offensiveRun}));
   requestFlightDash(s.room,s.m,s.p,false,s.now);
   for(let i=0;i<100&&(s.m.runGroundPhase||s.m.offensiveRun||s.m.runTravel===0);i++)frames(s,1);
   assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel,
