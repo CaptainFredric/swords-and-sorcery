@@ -278,7 +278,8 @@ def main() -> None:
     rig.animation_data.action = bpy.data.actions["Idle"]
     bpy.context.scene.frame_set(1)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(args.out.resolve()), compress=True)
+    # (uncompressed: the repository checks that the sources start with the plain BLENDER header)
+    bpy.ops.wm.save_as_mainfile(filepath=str(args.out.resolve()), compress=False)
     print("RODIN_FIRST_PERSON", report)
 
 

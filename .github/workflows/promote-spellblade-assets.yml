@@ -130,6 +130,11 @@ jobs:
           mkdir -p current/client/assets/characters/spellblade
           cp promoted-build/spellblade.glb current/client/assets/characters/spellblade/spellblade.glb
           cp promoted-build/spellblade-fp.glb current/client/assets/characters/spellblade/spellblade-fp.glb
+          # the static server serves a .glb.gz in place of its .glb to any browser that accepts gzip: refresh them
+          # with the models, or those browsers keep loading the previous Spellblade
+          for model in spellblade.glb spellblade-fp.glb; do
+            gzip -9 -n -c "current/client/assets/characters/spellblade/${model}" > "current/client/assets/characters/spellblade/${model}.gz"
+          done
           python3 - <<'PY'
           import json
           import os

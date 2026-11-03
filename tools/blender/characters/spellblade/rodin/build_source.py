@@ -55,7 +55,8 @@ def main() -> None:
     if stop >= 3:
         print("RODIN_LOOK", json.dumps(build_look(args.work)))
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(args.out.resolve()), compress=True)
+    # (uncompressed: the repository checks that the sources start with the plain BLENDER header)
+    bpy.ops.wm.save_as_mainfile(filepath=str(args.out.resolve()), compress=False)
     print("RODIN_SOURCE_WRITTEN", args.out)
 
 
