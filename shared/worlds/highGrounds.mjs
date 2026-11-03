@@ -3,6 +3,7 @@
 // Azure approaches from -Z; Crimson from +Z. Captures are deliberately
 // non-sequential: this map is designed for reciprocal territory control.
 import { TEAMS } from '../src/teams.mjs';
+import { propSolids } from './props.mjs';
 
 const floor = (id, x, z, w, d, y, material = 'timber') => ({
   id, center: [x, y - 0.22, z], size: [w, 0.44, d], y, material,
@@ -84,7 +85,56 @@ const trees = [
   { id: 'west-lantern', x: -63, z: 51, radius: 4, height: 37, bloom: 'ivory' },
   { id: 'east-lantern', x: 63, z: -51, radius: 4, height: 37, bloom: 'ivory' },
 ];
+// The furnishings of two armies in the field (shared/worlds/props.mjs: what stands is solid, for bodies and blades
+// alike), written for Azure's half and turned half round about the Crown Span for Crimson's, as the map itself is.
+// Each stands off every route: off the siege road and its production pad, off the spawns, outside the capture rings,
+// off the gate approaches to the ascents, and away from the bots' straight runs (the world's tests hold all of it).
+const AZURE_PROPS = [
+  // the camp: a row of tents along its back edge, behind the spawns
+  { kind: 'tent', x: -18.5, z: -113.2, facing: 0 }, { kind: 'tent', x: -12.2, z: -113.6, facing: 0 },
+  { kind: 'tent', x: 12.2, z: -113.6, facing: 0 },
+  // between them, the camp's fires and the racks of its arms
+  { kind: 'brazier', x: -4.6, z: -111.6 }, { kind: 'brazier', x: 4.6, z: -111.6 },
+  { kind: 'rack', x: -7.4, z: -115.9, facing: 0 }, { kind: 'rack', x: 7.4, z: -115.9, facing: 0 },
+  { kind: 'woodpile', x: -21.6, z: -108.5, length: 2.2, facing: 0 },
+  // the supply dump in the camp's front corner, beside its west gatepost
+  { kind: 'cart', x: -21.2, z: -86.6, facing: 0.05 },
+  { kind: 'crate', x: -18.6, z: -85.0, turn: 0.15 }, { kind: 'crate', x: -17.8, z: -85.1, turn: -0.2, stack: true },
+  { kind: 'barrel', x: -16.8, z: -84.6 }, { kind: 'barrel', x: -16.3, z: -85.4, tilt: 0.3 },
+  { kind: 'sacks', x: -18.4, z: -87.1 },
+  // the foundry's smithy, behind its console: an anvil, a heap of coal, its water and its iron
+  { kind: 'anvil', x: 13.2, z: -107.4, facing: Math.PI / 2 }, { kind: 'ore', x: 19.4, z: -107.8 },
+  { kind: 'barrel', x: 16.4, z: -108.6 }, { kind: 'crate', x: 21.2, z: -110.6, turn: 0.3, stack: true },
+  // the side's standards either side of the camp's mouth, at the road's edge
+  { kind: 'standard', x: -9.6, z: -84.2 }, { kind: 'standard', x: 9.6, z: -84.2 },
+  // the forward camp: a barricade of crates and sacks at each back corner, stakes at its front ones, a lantern by each
+  { kind: 'crate', x: -10.9, z: -62.4, turn: 0.1 }, { kind: 'crate', x: -10.2, z: -62.6, turn: -0.25, stack: true },
+  { kind: 'sacks', x: -11.0, z: -61.0 },
+  { kind: 'barrel', x: 10.8, z: -62.5 }, { kind: 'barrel', x: 10.2, z: -62.7, tilt: 0.4 }, { kind: 'sacks', x: 11.0, z: -61.1 },
+  { kind: 'stakes', x: -10.4, z: -41.8, length: 3.4, facing: 0 }, { kind: 'stakes', x: 10.4, z: -41.8, length: 3.4, facing: 0 },
+  { kind: 'lantern', x: -12.0, z: -59.6 }, { kind: 'lantern', x: 12.0, z: -59.6 },
+  // the Western Bloom (on the canopy, 12 m up): stores and a lantern in its outer corners
+  { kind: 'crate', x: -48.6, y: 12, z: -17.6, turn: 0.2 }, { kind: 'barrel', x: -47.6, y: 12, z: -17.9 },
+  { kind: 'lantern', x: -49.4, y: 12, z: -16.4 },
+  { kind: 'sacks', x: -48.5, y: 12, z: 3.6 }, { kind: 'lantern', x: -49.4, y: 12, z: 2.4 },
+  { kind: 'crate', x: -27.6, y: 12, z: -17.8, turn: -0.1, stack: true }, { kind: 'lantern', x: -26.6, y: 12, z: -18.6 },
+  // the west root shelf, nine metres down: miners' lanterns along its wall side, and what grows in the dark
+  { kind: 'lantern', x: -20.4, y: -9, z: -18 }, { kind: 'lantern', x: -20.4, y: -9, z: 12 },
+  { kind: 'fungus', x: -20.5, y: -9, z: -9 }, { kind: 'fungus', x: -20.5, y: -9, z: 4.5 },
+  { kind: 'fungus', x: -20.5, y: -9, z: 20 }, { kind: 'fungus', x: -11.6, y: -9, z: -15 },
+  { kind: 'barrel', x: -20.4, y: -9, z: -21.2 }, { kind: 'crate', x: -20.3, y: -9, z: 15.4, turn: 0.2 },
+];
+// (half round about the Crown Span: Crimson's half is Azure's, x and z both turned)
+const mirrored = (prop) => ({ ...prop, x: -prop.x, z: -prop.z, ...(prop.facing !== undefined ? { facing: prop.facing + Math.PI } : {}),
+  ...(prop.turn !== undefined ? { turn: prop.turn + Math.PI } : {}) });
+const PROPS = Object.freeze([
+  ...AZURE_PROPS.map((prop) => ({ ...prop, team: TEAMS.ATTACKERS })),
+  ...AZURE_PROPS.map((prop) => ({ ...mirrored(prop), team: TEAMS.DEFENDERS })),
+].map((prop, index) => Object.freeze({ id: `hg-prop-${index}`, ...prop })));
+
 const solids = [
+  // the armies' furnishings (above)
+  ...propSolids(PROPS),
   // Structural railings on the edges of high crossbridges, above the
   // central vehicle road. These have *real* collision and won't draw
   // misleading phantom barriers in flight or first-person combat.
@@ -160,7 +210,7 @@ for(const r of ramps) {
 
 export const HIGH_GROUNDS = Object.freeze({
   id: 'high-grounds', name: 'The High Grounds',
-  floors: grounds, ramps, solids, trees, objectives, spawnPoints,
+  floors: grounds, ramps, solids, trees, objectives, spawnPoints, props: PROPS,
   navigation: Object.freeze({nodes}),
   bounds: Object.freeze({ minX: -78, maxX: 78, minZ: -117, maxZ: 117 }),
   abyssY: -52,

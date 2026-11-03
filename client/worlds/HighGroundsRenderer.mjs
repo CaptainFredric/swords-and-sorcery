@@ -2,7 +2,12 @@ import * as THREE from 'three';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
-import { buildHighGroundsDecks, buildHighGroundsSurroundings, buildHighGroundsDetail, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
+import { buildHighGroundsDecks, buildHighGroundsSurroundings, buildHighGroundsDetail, deckMaterials, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
+import { PLANK_TILE_METRES } from './kit/surfaceTextures.mjs';
+import { createBatch } from './kit/kitPieces.mjs';
+import { facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
+import { drawWorldProps } from './kit/worldProps.mjs';
+import { FlameSet } from './kit/flames.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
 // remain legible and run in the HTML5/mobile renderer without texture atlases.
@@ -57,8 +62,12 @@ export class HighGroundsRenderer {
     // The original individual overlapping boxes flickered at both entrances.
     buildHighGroundsSurroundings(this.group, HIGH_GROUNDS, this.materials);
     buildHighGroundsDecks(this.group, HIGH_GROUNDS, this.materials);
+    this.rampMaterial = deckMaterials(this.materials).timber.clone();
+    this.rampMaterial.side = THREE.DoubleSide;
+    this.materials.rampDeck = this.rampMaterial;
     for (const s of HIGH_GROUNDS.solids) {
-      if (s.id.startsWith('trunk-')) continue;
+      // (trunks are drawn as trees, furnishings by the kit: each fills its own box)
+      if (s.id.startsWith('trunk-') || s.kind === 'prop') continue;
       mesh(this.group, new THREE.BoxGeometry(...s.size), this.materials[s.material] ?? this.materials.timber, s.center, true);
     }
     // Use literal server ramp endpoints instead of two independently rotated
@@ -73,10 +82,13 @@ export class HighGroundsRenderer {
       const corners=[pts[0],pts[2],pts[1],pts[1],pts[2],pts[3]];
       const g=new THREE.BufferGeometry();
       g.setAttribute('position',new THREE.Float32BufferAttribute(corners.flat(),3));
+      // (planks across the ramp, a board's width measured along its slope as on the level)
+      const slope=Math.hypot(ramp.endY-ramp.startY,zAxis?z1-z0:x1-x0)/(zAxis?z1-z0:x1-x0);
+      g.setAttribute('uv',new THREE.Float32BufferAttribute(corners.flatMap(([x,,z])=>zAxis
+        ?[x/PLANK_TILE_METRES,z*slope/PLANK_TILE_METRES]:[z/PLANK_TILE_METRES,x*slope/PLANK_TILE_METRES]),2));
       g.computeVertexNormals();
-      const m=mesh(this.group,g,this.materials.timber,[0,0,0]);
+      const m=mesh(this.group,g,this.rampMaterial,[0,0,0]);
       m.name='ramp-deck-'+ramp.id;
-      m.material.side=THREE.DoubleSide;
     }
     // Massive tree silhouettes with angular bloom canopies. Individual petals
     // are low-poly billboards, never full alpha-blended particle fields.
@@ -99,6 +111,7 @@ export class HighGroundsRenderer {
         this.materials.leaf, [tree.x, crownY - 3.7, tree.z]);
     }
     buildHighGroundsDetail(this.group, HIGH_GROUNDS, this.materials);
+    this.#furnishings();
     // Three-dimensional standards on *all five* independent capture sites.
     for (const obj of HIGH_GROUNDS.objectives) {
       const parent = new THREE.Group();
@@ -132,6 +145,17 @@ export class HighGroundsRenderer {
         [foundry.x, 3.1, foundry.z - 3]);
     }
   }
+  // the armies' furnishings (shared with authority: what stands collides), in the environment kit
+  #furnishings() {
+    this.kit = kitMaterials();
+    const batch = createBatch();
+    const { flames, glows } = drawWorldProps(batch, seededRandom(4711), HIGH_GROUNDS.props);
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      this.group.add(facetMesh(builder, this.kit[name], { castShadow: true, receiveShadow: true, name: `high-grounds-furnishings-${name}` }));
+    }
+    this.flames = new FlameSet(this.group, { flames, glows });
+  }
   setHighGroundsState(state) {
     const owners = state?.sites ?? [];
     for (const [id, standard] of this.standards) {
@@ -156,6 +180,7 @@ export class HighGroundsRenderer {
     this.biByeServerTime = serverNow;
   }
   update(timeSec) {
+    this.flames?.update(timeSec);
     const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec,
       this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
     this.biByeLlista?.update(view.clock, view.ballista, view.projectiles);
@@ -167,5 +192,7 @@ export class HighGroundsRenderer {
     this.scene.remove(this.group);
     this.group.traverse(obj => { obj.geometry?.dispose?.(); });
     for (const material of Object.values(this.materials)) material.dispose();
+    for (const material of Object.values(this.kit ?? {})) material.dispose();
+    this.flames?.dispose();
   }
 }
