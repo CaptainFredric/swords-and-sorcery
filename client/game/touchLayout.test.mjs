@@ -359,3 +359,26 @@ test('resizing a default joystick or button never mutates another machine or can
  assert.equal(loadTouchLayout(memoryStorage()).ballista.stick.size,ballistaPresetSize,
    'fresh user profile starts from untouched factory sizes');
 });
+
+// A stick's saved left/right/top/bottom position is its center, not its edge.
+// Resizing must keep the entire movement ring inside the viewport.
+test('joystick safe bounds use its resized center while rectangular bounds use final dimensions',()=>{
+ const viewport={width:800,height:450};
+ const left=clampPlacement({left:3,bottom:60,size:172,type:'stick'},viewport);
+ assert.equal(left.size,172);
+ assert.equal(left.left,90,'left edge is 4px inside the viewport');
+ assert.equal(left.bottom,90,'bottom edge is 4px inside the viewport');
+ const right=clampPlacement({right:3,top:2,size:172,type:'stick'},viewport);
+ assert.equal(right.right,90);
+ assert.equal(right.top,90);
+ const far=clampPlacement({left:790,bottom:440,size:172,type:'stick'},viewport);
+ assert.equal(far.left,800-90);
+ assert.equal(far.bottom,450-90);
+ const rectangle=clampPlacement({right:740,bottom:440,width:210,height:120},viewport);
+ assert.equal(rectangle.width,160);
+ assert.equal(rectangle.height,96);
+ assert.equal(rectangle.right,636,'bounds use *clamped* 160px width');
+ assert.equal(rectangle.bottom,350,'bounds use *clamped* 96px height');
+ const valid=clampPlacement({right:14,bottom:80,width:122,height:62},viewport);
+ assert.equal(valid.right,14,'ordinary Bolt remains at intended right edge');
+});
