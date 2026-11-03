@@ -10,7 +10,8 @@ export const ASCENSION=Object.freeze({id:'doNotStopMyAscension',name:'Do Not Sto
 const SKILLS=Object.freeze({fireAwayRightHere:FIRE_AWAY,narrowToOne:NARROW_TO_ONE,doNotStopMyAscension:ASCENSION});
 export const equippedFightFlightSkill=p=>SKILLS[selectedSiegeSkill(p,'fightFlight')]??FIRE_AWAY;
 export function fightFlightSkillActive(m,now,id=FIRE_AWAY.id){
-  if(!m||m.retired||m.mode==='DESTROYED'||m.skill?.phase!=='active'||m.skill.id!==id)return false;
+  if(!m||m.retired||m.mode==='DESTROYED'||m.skill?.phase!=='active'||
+    (m.skill.id??FIRE_AWAY.id)!==id)return false;
   return m.skill.activeUntil==null||now+1e-8<m.skill.activeUntil;
 }
 export function requestFightFlightSkill(room,m,p,now){
