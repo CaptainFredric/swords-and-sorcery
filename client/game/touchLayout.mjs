@@ -65,7 +65,8 @@ const PREVIOUS_FLIGHT_LAYOUT = Object.freeze({
   practiceTools: {left:10,top:56,size:44},
 });
 
-export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+// The Nov 2 layout is kept only for migrating unedited saved positions.
+const OUTGOING_FLIGHT_LAYOUT = Object.freeze({
   ...PREVIOUS_FLIGHT_LAYOUT,
   attack:{right:14,bottom:12,size:64},
   siegeWeapon:{right:88,bottom:84,size:64},
@@ -74,6 +75,24 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   dash:{right:14,bottom:154,size:60},
   spell:{right:88,bottom:220,size:54},
   ultimate:{right:14,bottom:220,size:54},
+});
+export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
+  ...OUTGOING_FLIGHT_LAYOUT,
+  // Bottom: move Guard left and enlarge the actual Sword contact area.
+  guard:{right:122,bottom:12,size:58},
+  attack:{right:14,bottom:10,size:62,width:96,height:62},
+  // Bolt now fills its former position PLUS the old Jump column. Directly
+  // above Bolt is Jump, allowing one finger to slide upward into a Hop.
+  siegeWeapon:{right:14,bottom:80,size:62,width:96,height:62},
+  jump:{right:14,bottom:146,size:62},
+  // Dash takes Fire Away's old left-hand position.
+  dash:{right:88,bottom:146,size:60},
+  // Fire Away moves beside Ultimate, with mounted Steel on their left.
+  siegeSkill:{right:86,bottom:212,size:56},
+  ultimate:{right:14,bottom:212,size:56},
+  spell:{right:154,bottom:214,size:50},
+  siegeView:{right:14,top:6,size:36},
+  interact:{right:60,top:6,size:36},
 });
 const MOUNTED_ACTIONS = Object.freeze({
   attack:{right:14,bottom:20,size:76},
@@ -160,12 +179,15 @@ function migrateFlightLayout(flight) {
   // complete unedited preset; individual edited controls remain untouched.
   const oldMirror=mirrorLayoutHorizontal(LEGACY_FLIGHT_LAYOUT);
   const previousMirror=mirrorLayoutHorizontal(PREVIOUS_FLIGHT_LAYOUT);
+  const outgoingMirror=mirrorLayoutHorizontal(OUTGOING_FLIGHT_LAYOUT);
+  if(Object.keys(outgoingMirror).every(k=>matches(flight[k],outgoingMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(previousMirror).every(k=>matches(flight[k],previousMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
   const migrated={...DEFAULT_FLIGHT_LAYOUT};
   for(const [key,item] of Object.entries(flight)){
     const legacy=LEGACY_FLIGHT_LAYOUT[key];
-    const untouched=!item.custom&&(legacy&&matches(item,legacy)||matches(item,PREVIOUS_FLIGHT_LAYOUT[key]));
+    const untouched=!item.custom&&(legacy&&matches(item,legacy)||
+      matches(item,PREVIOUS_FLIGHT_LAYOUT[key])||matches(item,OUTGOING_FLIGHT_LAYOUT[key]));
     if(!untouched)migrated[key]=item;
   }
   return migrated;
