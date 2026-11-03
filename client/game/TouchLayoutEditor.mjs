@@ -115,6 +115,16 @@ export class TouchLayoutEditor {
       this.touchControls.ramMounted?'ram':this.touchControls.ballistaMounted?'ballista':'onFoot');
     this.selectedAction=null;
     this.root.classList.remove('hidden');
+    // Settings can open from the main menu before the hidden game HUD exists.
+    // Temporarily portal its real touch controls into the visible document;
+    // restore the original hierarchy on Done without duplicating controls.
+    const layer=this.touchControls.layer;
+    if(!layer.getClientRects?.()?.length){
+      this.previewParent=layer.parentNode;
+      this.previewNextSibling=layer.nextSibling;
+      document.body.appendChild(layer);
+      layer.classList.add('touch-layout-detached');
+    }
     this.touchControls.layer.classList.add('touch-layout-editing');
     this.setMode(this.mode);
   }
@@ -128,12 +138,21 @@ export class TouchLayoutEditor {
     this.#clearSelectionHighlight();
     saveTouchLayout(this.layouts);
     this.touchControls.previewEditMode(null);
+    const layer=this.touchControls.layer;
+    if(this.previewParent){
+      if(this.previewNextSibling?.parentNode===this.previewParent)
+        this.previewParent.insertBefore(layer,this.previewNextSibling);
+      else this.previewParent.appendChild(layer);
+      layer.classList.remove('touch-layout-detached');
+      this.previewParent=null;this.previewNextSibling=null;
+    }
     this.touchControls.setActive(Boolean(this.touchControls.input?.touchFocus));
   }
 
   setMode(mode) {
     if(!TOUCH_LAYOUT_PAGES.some(page=>page.id===mode))return;
     this.mode=mode;
+    this.dragPointerId=null;this.dragStart=null;
     this.selectedAction=null;
     this.#clearSelectionHighlight();
     this.#syncDimensionSliders(null);
