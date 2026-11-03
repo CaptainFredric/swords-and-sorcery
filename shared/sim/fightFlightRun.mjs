@@ -7,8 +7,12 @@ import {flightSupportAt} from './flightSupport.mjs';
 export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
   // A committed attack, then a heavier, acceleration-limited turn than ordinary flight.
-  commitmentSec:.36,minTravel:10,turnRate:1.65,turnAcceleration:5.4,
-  acceleration:5.5,pitch:.18,visualTrim:1.12,maxAttackPitch:1.32,pitchLimit:.85,descentPitchLimit:1.05,pitchRate:1.45,
+  commitmentSec:.36,minTravel:10,turnRate:3.05,turnAcceleration:12,
+  // A descending *physical* attack launch. The rotor plane gets a small
+  // geometric lead to intersect the crosshair's near opponents, not a separate
+  // cosmetic tilt that points a metre below its thrust trajectory.
+  acceleration:7.4,pitch:.54,launchRotorLead:.77,rotorAimLead:.60,
+  maxAttackPitch:1.36,pitchLimit:1.04,descentPitchLimit:1.14,pitchRate:2.65,
   clearance:1.1,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -30,7 +34,7 @@ export function requestFlightDash(room,m,p,held,now){
  m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:m.heading;
  const aimPitch=clamp(Number.isFinite(p.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
- // Level launches make a shallow attacking descent; upward intent stays upward.
+ // Level launches physically dive; upward initial intent remains controllable.
  m.runCommitPitch=aimPitch>0?aimPitch:Math.min(-VALKYRIE_RUN.pitch,aimPitch);
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
@@ -116,7 +120,11 @@ export function stepFlightRun(room,m,dt,now){
    }
  }
  const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
- m.runTrim=approach(m.runTrim??0,m.offensiveRun?VALKYRIE_RUN.visualTrim*(1-clamp((m.runFlightPitch??0)/.5,0,1)):0,VALKYRIE_RUN.pitchRate);
+ // The rotor has a fixed offset above the visor, so tilt its swept disc toward
+ // the near crosshair corridor. Ease that lead after commitment. Avoid the old
+ // 1.12-radian *permanent* trim that kept the rotor below an upward reticle.
+ const rotorLead=committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead;
+ m.runTrim=approach(m.runTrim??0,m.offensiveRun?rotorLead:0,VALKYRIE_RUN.pitchRate*1.3);
  m.runFlightPitch=approach(m.runFlightPitch??0,target,
    target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
  // Bound the lowest real rotor point against support while allowing a steeper
