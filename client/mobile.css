@@ -561,8 +561,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 /* Touch Layout Editor overlay & toolbar */
+.touch-controls.touch-layout-detached {position:fixed !important;inset:0 !important;z-index:59 !important;}
 .touch-layout-editor {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 60;
   pointer-events: none;
