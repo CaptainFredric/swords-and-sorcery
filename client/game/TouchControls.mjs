@@ -398,6 +398,10 @@ export class TouchControls {
   }
 
   update(local, serverNow, { practice = false, snapshot = null } = {}) {
+    // The workshop is a real per-machine preview. Live snapshots must not
+    // repaint hidden actions or restore the currently mounted machine while
+    // the player edits Ballista, Ram, Flight or on-foot controls.
+    if (this.layer.classList.contains('touch-layout-editing')) return;
     if (this.inspectionFlight) return;
     if (!local) return;
     this.galeAvailable = local.spell === 'gale' && (practice || (local.spellReadyAt ?? 0) <= serverNow || local.castingSpell === 'gale');
@@ -564,7 +568,9 @@ export class TouchControls {
           const dashNoRotor = (fb?.rotorHP ?? 0) <= 0;
           const offensiveActive = Boolean(fb?.offensiveRun);
           const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
-          dashBtn.classList.toggle('flight-grounded', dashGrounded&&!spool);
+          // Grounded Dash is *available*: pressing it starts the 450 RPM
+          // spool sequence. Only missing Prowess/rotor should look disabled.
+          dashBtn.classList.toggle('flight-grounded', false);
           dashBtn.classList.toggle('flight-spinning',Boolean(spool));
           dashBtn.classList.toggle('flight-no-prowess', dashNoProwess);
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
