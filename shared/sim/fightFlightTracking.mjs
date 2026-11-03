@@ -34,8 +34,7 @@ function blocked(room,a,b,solids){
 export function narrowTargetVisible(room,m,target,solids=obstacles(room)){
   if(!target?.alive||!target.position)return false;
   const start=flightMuzzle(m,{yaw:m.crossbowYaw??m.heading,pitch:m.crossbowPitch??0});
-  return bodyPoints(target).some(point=>distance(start,point)<=MAX_RANGE&&
-    !blocked(room,start,point,solids));
+  return bodyPoints(target).some(point=>!blocked(room,start,point,solids));
 }
 function exposedShot(room,m,operator,target,now,solids){
   const h=postureOf(target).height;
