@@ -95,6 +95,7 @@ export class TouchLayoutEditor {
         const value=Number(slider.value);
         if(!Number.isFinite(value))return;
         item[key]=value;
+        item.custom=true; // defaults also become real resized touch targets
         if(key==='size'&&item.type==='stick')item.size=Math.max(80,Math.min(172,value));
         const output=slider.parentElement?.querySelector('output');
         if(output)output.textContent=(item[key]??value)+'px';
