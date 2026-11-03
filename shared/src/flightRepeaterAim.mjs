@@ -62,7 +62,7 @@ export function flightRepeaterAim(m,input={}){
   const pitch=clamp(wanted+rootPitch(m),FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
   return {yaw,pitch:m?.terminalDive?Math.min(pitch,-Math.min(.34,Math.max(.18,rootPitch(m)*.55))):pitch};
 }
-function transform(m,x,y,z){
+export function flightTransform(m,x,y,z){
   const pitch=rootPitch(m),cp=Math.cos(pitch),sp=Math.sin(pitch);
   const ry=y*cp-z*sp,rz=y*sp+z*cp;
   const c=Math.cos(m?.heading??0),s=Math.sin(m?.heading??0);
@@ -77,12 +77,12 @@ export function flightMuzzle(m,{yaw=m?.heading??0,pitch=0}={}){
   // 50 applies Ry(rel); 51 applies Rx(-p). Body + muzzle yield
   // [0,+.003,+.470] relative to cradle. Never rotate only Crossbow_Body.
   const along=.470*Math.cos(p)-.003*Math.sin(p);
-  const offset=transform(m,.565+along*Math.sin(rel),
+  const offset=flightTransform(m,.565+along*Math.sin(rel),
     1.290+.003*Math.cos(p)+.470*Math.sin(p),.365+along*Math.cos(rel));
   return {x:(m?.x??0)+offset.x,y:(m?.y??0)+offset.y,z:(m?.z??0)+offset.z};
 }
 /** Unit launch vector from the SAME articulated transform as flightMuzzle. */
 export function flightDirection(m,{yaw=m?.heading??0,pitch=0}={}){
   const rel=localYaw(m,yaw),p=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
-  return transform(m,Math.sin(rel)*Math.cos(p),Math.sin(p),Math.cos(rel)*Math.cos(p));
+  return flightTransform(m,Math.sin(rel)*Math.cos(p),Math.sin(p),Math.cos(rel)*Math.cos(p));
 }

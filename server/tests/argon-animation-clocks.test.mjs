@@ -12,7 +12,8 @@ test('replicated Dash clock survives resource cycles and records release',()=>{
  const {room,p,m}=setup();m.grounded=false;m.flightCharge=100;requestFlightDash(room,m,p,true,1);
  for(let i=1;i<400;i++)stepFlightRun(room,m,1/30,1+i/30);
  const start=m.runAnimationStartedAt;assert.equal(start,1+1/30);assert.ok(m.offensiveRun);
- requestFlightDash(room,m,p,false,15);assert.equal(m.runAnimationEndedAt,15);assert.equal(m.runAnimationStartedAt,start);
+ // This unit isolates the presentation clock; locomotion supplies actual travel.
+ m.runTravel=12;requestFlightDash(room,m,p,false,15);assert.equal(m.runAnimationEndedAt,15);assert.equal(m.runAnimationStartedAt,start);
  assert.equal(serializeSnapshot(room,15).fightFlight.runAnimationEndedAt,15);
 });
 test('broken brace timestamp latches and repair cannot revive it',()=>{

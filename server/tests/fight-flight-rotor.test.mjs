@@ -153,3 +153,29 @@ test('Masonry graze removes rotor energy without gratuitous rotor integrity dama
  assert.equal(m.rotorHP,100);assert.ok(m.rotorEnergy<100);
  assert.ok(m.rotorLiftSuppressedUntil>10);assert.ok(m.rotorAngularVelocity<47);
 });
+
+test('Inclined rotor follows the actual rotated and compressed blade segment',()=>{
+ const m={x:3,y:1.1,z:7,heading:.7,runPitch:.8};
+ // Authored blade +X, at phase PI/2 it points along local -Z.
+ const local={x:0,y:2.18,z:-1.1};
+ const ry=local.y*Math.cos(.8)-local.z*Math.sin(.8);
+ const rz=local.y*Math.sin(.8)+local.z*Math.cos(.8);
+ const point={x:3-rz*Math.sin(.7),y:1.1+ry,z:7-rz*Math.cos(.7)};
+ const body={x:point.x,y:point.y-.3,z:point.z,radius:.05,height:.6};
+ assert.ok(rotorBladeContact(m,body,Math.PI/2),'rendered blade and physical contact agree');
+ assert.equal(rotorBladeContact(m,{...body,y:point.y+1},Math.PI/2),null,'no invisible vertical reach');
+});
+
+test('A real nose-down low pass reaches the torso rather than a taller invisible disc',()=>{
+ const m={x:0,y:1.1,z:0,heading:0,runPitch:1};
+ const contact=rotorBladeContact(m,{x:0,y:0,z:-2.4,height:1.8,radius:.45},-Math.PI/2);
+ assert.ok(contact&&contact.contact.y<1.8&&contact.quality>.7);
+ assert.equal(rotorBladeContact({...m,runPitch:.34},{x:0,y:0,z:-2.4,height:1.8,radius:.45},-Math.PI/2),null);
+});
+
+test('A complete physical blade crossing uses its clean contact rather than the first grazing sample',()=>{
+ const {room,m}=setup();crossing(room,m);
+ const hit=room.events.find(e=>e.type==='fightFlightRotorContact'&&e.result==='hit');
+ assert.ok(hit.contactQuality>.8,'sampled center crossing is the actual impact');
+ assert.ok(hit.damage>=16,'existing clean-hit formula survives angular sampling');
+});

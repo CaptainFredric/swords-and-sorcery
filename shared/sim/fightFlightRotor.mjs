@@ -1,5 +1,6 @@
 // Actual rotor blade crossings. Angular substeps detect an entire blade passage at 30Hz,
 // not a fixed hit aura. An episode ends only when the blade physically leaves a body.
+import {flightTransform} from '../src/flightRepeaterAim.mjs';
 import {postureOf} from '../src/body.mjs';
 import {segmentAabbHit} from '../src/collision.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
@@ -13,23 +14,36 @@ const TAU=Math.PI*2;
 export const ROTOR_CONTACT=Object.freeze({inner:.12,outer:1.32,bladeHalfHeight:.11,
   bladeWidth:.14,angularStep:.075,baseDamage:8,peakDamage:30,guardDrain:16,guardEnergy:20,
   parryRotorDamage:8,parryCharge:3.5,parryStagger:5});
-function distanceToBlade(body,m,phase,blade,part){
-  const x=body.x-m.x,z=body.z-m.z;
-  const radialX=Math.cos(phase+blade*Math.PI),radialZ=Math.sin(phase+blade*Math.PI);
-  const projected=clamp(x*radialX+z*radialZ,ROTOR_CONTACT.inner,ROTOR_CONTACT.outer);
-  const cross=x-radialX*projected,depth=z-radialZ*projected;
-  const d=Math.hypot(cross,depth);
-  const fwd=-Math.sin(m.heading??0)*radialX-Math.cos(m.heading??0)*radialZ;
-  const drop=Math.sin(m.runPitch??0)*fwd*projected;
-  return {distance:d,r:projected,contact:{x:m.x+radialX*projected,y:m.y+2.18-drop,z:m.z+radialZ*projected}};
+// Same root pitch, heading and hub rotation as the authored GLB.
+export function rotorBladeSegment(m,phase,blade=0){
+  const theta=phase+blade*Math.PI;
+  // Shaft [0,1.985,-.025] + hub [0,.2,0] in the v3.0 GLB.
+  const hub=flightTransform(m,0,2.185,-.025);
+  const axis=flightTransform(m,Math.cos(theta),0,-Math.sin(theta));
+  const center={x:m.x+hub.x,y:m.y+hub.y,z:m.z+hub.z};
+  const at=r=>[center.x+axis.x*r,center.y+axis.y*r,center.z+axis.z*r];
+  return {center,axis,from:at(ROTOR_CONTACT.inner),to:at(ROTOR_CONTACT.outer)};
 }
-// Pure geometric predicate used by collision regression tests and the host.
+// Intersect blade height with the actual vertical body first, then find the
+// closest horizontal point on that remaining segment. No unpitched hit aura.
 export function rotorBladeContact(m,body,phase,blade=0){
-  const c=distanceToBlade(body,m,phase,blade);
+  const {center,axis}=rotorBladeSegment(m,phase,blade);
+  let lo=ROTOR_CONTACT.inner,hi=ROTOR_CONTACT.outer;
+  const bottom=body.y-ROTOR_CONTACT.bladeHalfHeight;
+  const top=body.y+(body.height??1.8)+ROTOR_CONTACT.bladeHalfHeight;
+  if(Math.abs(axis.y)<1e-8){if(center.y<bottom||center.y>top)return null;}
+  else{
+    const a=(bottom-center.y)/axis.y,b=(top-center.y)/axis.y;
+    lo=Math.max(lo,Math.min(a,b));hi=Math.min(hi,Math.max(a,b));
+    if(lo>hi)return null;
+  }
+  const denominator=axis.x*axis.x+axis.z*axis.z;
+  const r=clamp(((body.x-center.x)*axis.x+(body.z-center.z)*axis.z)/Math.max(1e-9,denominator),lo,hi);
+  const contact={x:center.x+axis.x*r,y:center.y+axis.y*r,z:center.z+axis.z*r};
+  const distance=Math.hypot(body.x-contact.x,body.z-contact.z);
   const radius=(body.radius??.45)+ROTOR_CONTACT.bladeWidth;
-  const y=c.contact.y,pBottom=body.y,pTop=body.y+(body.height??1.8);
-  if(y+ROTOR_CONTACT.bladeHalfHeight<pBottom||y-ROTOR_CONTACT.bladeHalfHeight>pTop||c.distance>radius)return null;
-  return {...c,quality:clamp((radius-c.distance)/(radius*.8),0,1)};
+  if(distance>radius)return null;
+  return {distance,r,contact,quality:clamp((radius-distance)/(radius*.8),0,1)};
 }
 function defended(victim,point,m){
   if(!victim.guarding||victim.guardStamina<=0)return false;
@@ -98,29 +112,28 @@ export function stepFightFlightRotor(room,m,dt,now){
   const before=m.rotorAngleBefore??(m.rotorAngle-angularTravel);
   const x0=m.rotorPositionBefore?.x??m.x,y0=m.rotorPositionBefore?.y??m.y,z0=m.rotorPositionBefore?.z??m.z;
   const episodes=m.rotorEpisodes??={};
+  const pending=new Map();
+  const resolve=entry=>{
+    if(!entry?.episode.pending)return;
+    entry.episode.pending=false;
+    hit(room,m,entry.player,entry.blade,entry.episode.contact,now);
+  };
   for(let k=1;k<=samples;k++){
     const frac=k/samples,theta=before+angularTravel*frac;
-    const pitch=m.runPitch??0,forwardOffset=2.18*Math.sin(pitch);
-    const pose={x:x0+(m.x-x0)*frac-Math.sin(m.heading)*forwardOffset,
-      y:y0+(m.y-y0)*frac+2.18*(Math.cos(pitch)-1),
-      z:z0+(m.z-z0)*frac-Math.cos(m.heading)*forwardOffset,
-      heading:m.heading,runPitch:pitch};
+    const pose={x:x0+(m.x-x0)*frac,y:y0+(m.y-y0)*frac,z:z0+(m.z-z0)*frac,
+      heading:m.heading,runPitch:m.runPitch??0};
     // Blade edges collide with real masonry before the chassis body hits it.
     // Keep world-contact episodes independent of defender contacts, so continuous
     // overlap cannot drain the rotor every rendered frame.
     const worldSolids=room.world?.solids??[];
     for(let blade=0;blade<2;blade++){
-      const heading=theta+blade*Math.PI;
-      const dx=Math.cos(heading),dz=Math.sin(heading);
-      const fwd=-Math.sin(pose.heading)*dx-Math.cos(pose.heading)*dz;
-      const from=[pose.x+dx*ROTOR_CONTACT.inner,pose.y+2.18-Math.sin(pitch)*fwd*ROTOR_CONTACT.inner,pose.z+dz*ROTOR_CONTACT.inner];
-      const to=[pose.x+dx*ROTOR_CONTACT.outer,pose.y+2.18-Math.sin(pitch)*fwd*ROTOR_CONTACT.outer,pose.z+dz*ROTOR_CONTACT.outer];
+      const {center:hub,from,to}=rotorBladeSegment(pose,theta,blade);
       for(let index=0;index<worldSolids.length;index++){
         const solid=worldSolids[index];if(!solid)continue;
         const center=solid.center??[0,0,0],size=solid.size??[0,0,0];
-        if(Math.abs(center[0]-pose.x)>ROTOR_CONTACT.outer+size[0]/2+.2||
-          Math.abs(center[2]-pose.z)>ROTOR_CONTACT.outer+size[2]/2+.2||
-          Math.abs(center[1]-(pose.y+2.18))>size[1]/2+.2)continue;
+        if(Math.abs(center[0]-hub.x)>ROTOR_CONTACT.outer+size[0]/2+.2||
+          Math.abs(center[2]-hub.z)>ROTOR_CONTACT.outer+size[2]/2+.2||
+          Math.abs(center[1]-hub.y)>size[1]/2+ROTOR_CONTACT.outer*Math.abs(Math.sin(pose.runPitch))+.2)continue;
         const key='world:'+String(solid.id??index)+':'+blade;
         const intersection=(solid.axes?orientedBoxHit(from,to,solid,.09):segmentAabbHit(from,to,solid));
         if(intersection&&!episodes[key]){
@@ -150,14 +163,24 @@ export function stepFightFlightRotor(room,m,dt,now){
       for(let blade=0;blade<2;blade++){
         const key=p.id+':'+blade;
         const contact=rotorBladeContact(pose,body,theta,blade);
-        if(contact&&!episodes[key]){
-          episodes[key]=true;
-          hit(room,m,p,blade,contact,now,theta);
-        }else if(!contact)episodes[key]=false;
+        if(contact){
+          if(!episodes[key]){
+            const episode={pending:true,contact};episodes[key]=episode;
+            pending.set(key,{player:p,blade,episode});
+          }else if(episodes[key].pending&&contact.quality>episodes[key].contact.quality){
+            episodes[key].contact=contact;
+          }
+        }else{
+          resolve(pending.get(key));episodes[key]=false;
+        }
         if(m.rotorHP<=0)break;
       }
       if(m.rotorHP<=0)break;
     }
     if(m.rotorHP<=0)break;
   }
+  // Resolve from points the blade actually visited in this tick. The first
+  // boundary sample is usually a graze; it must not consume a clean crossing.
+  // A retained episode still permits exactly one hit until physical separation.
+  for(const entry of pending.values())resolve(entry);
 }

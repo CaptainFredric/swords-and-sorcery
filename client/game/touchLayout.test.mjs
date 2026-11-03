@@ -46,19 +46,19 @@ test('touch layout defaults: on-foot and flight layouts contain all required con
 
   // Check Section A right-side combat ladder arrangement:
   // Bottom row: Guard (left), Sword (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.guard.bottom, 24);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.attack.bottom, 24);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.guard.bottom, 12);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.attack.bottom, 12);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.guard.right > DEFAULT_FLIGHT_LAYOUT.attack.right, 'Guard is left of Sword');
 
   // Second row: Bolt (left, wider), Jump (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 105);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 105);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.jump.bottom, 82);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom, 82);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right > DEFAULT_FLIGHT_LAYOUT.jump.right, 'Bolt is left of Jump');
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeWeapon.width > DEFAULT_FLIGHT_LAYOUT.jump.size, 'Bolt has a wider sustained-fire target');
 
   // Third row: Fire Away (left), Dash (right)
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.bottom, 172);
-  assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.bottom, 172);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.siegeSkill.bottom, 142);
+  assert.equal(DEFAULT_FLIGHT_LAYOUT.dash.bottom, 142);
   assert.ok(DEFAULT_FLIGHT_LAYOUT.siegeSkill.right > DEFAULT_FLIGHT_LAYOUT.dash.right, 'Fire Away is left of Dash');
 
   // Above ordinary cluster: Ultimate
@@ -175,4 +175,23 @@ test('older saved flight layouts migrate safely while preserving custom coordina
   assert.equal(loaded.flight.attack.custom, true);
   assert.ok(loaded.flight.siegeWeapon, 'missing controls like siegeWeapon populated from default');
   assert.ok(loaded.flight.guard, 'missing controls like guard populated from default');
+});
+
+
+test('leaving a custom mode removes stale inline placement before applying the next',async()=>{
+ const {clearLayoutItem}=await import('./touchLayout.mjs');
+ const element={style:{setProperty(k,v){this[k]=v;}}};
+ applyLayoutItem(element,{left:25,top:20,width:85,height:75,custom:true});
+ clearLayoutItem(element);
+ for(const key of ['left','right','top','bottom','width','height','--size'])assert.equal(element.style[key],'');
+});
+test('unchanged legacy flight controls migrate, deliberately edited controls stay',()=>{
+ const storage=memoryStorage();
+ storage.setItem('ss-touch-layout',JSON.stringify({flight:{
+  dash:{right:24,bottom:172,size:58},
+  guard:{right:130,bottom:40,size:70,custom:true}
+ }}));
+ const loaded=loadTouchLayout(storage);
+ assert.deepEqual(loaded.flight.dash,DEFAULT_FLIGHT_LAYOUT.dash);
+ assert.equal(loaded.flight.guard.right,130);
 });

@@ -53,7 +53,33 @@ export class BiByeOperatorPose {
   // Keep the Spellblade's real sword equipped; left hand holds repeater, right hand in sword corridor
   this.root.updateWorldMatrix(true,true);
   this.#arm('L',grips?.left,false);
-  if(grips?.right && !attacking)this.#arm('R',grips.right,false);
+  if(grips?.right && !attacking){
+   this.#arm('R',grips.right,false);
+   // Fit the real production sword to the authored apparatus corridor. The
+   // wrist and sword stay one construction; actual attacks/Guard bypass this.
+   const hand=this.bone('hand.R');
+   if(hand&&this.sword&&grips.rightTip){
+    if(!this.flightSwordAxis){
+     const points=[];this.root.updateWorldMatrix(true,true);
+     this.sword.traverse(mesh=>{if(!mesh.isMesh)return;mesh.skeleton?.update();
+      for(let i=0;i<mesh.geometry.attributes.position.count;i++)points.push(hand.worldToLocal(mesh.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld)));
+     });
+     const furthest=Math.max(0,...points.map(v=>v.length()));
+     const tips=points.filter(v=>v.length()>furthest-.035);
+     if(tips.length)this.flightSwordAxis=tips.reduce((a,v)=>a.add(v),new THREE.Vector3()).normalize();
+    }
+    if(this.flightSwordAxis){
+     const q=hand.getWorldQuaternion(new THREE.Quaternion());
+     const current=this.flightSwordAxis.clone().applyQuaternion(q);
+     // The short candidate corridor points the longer production blade inward.
+     // Open its idle wrist outward, identically in first and third person.
+     const outward=new THREE.Vector3(1,0,0).applyQuaternion(this.root.getWorldQuaternion(new THREE.Quaternion()));
+     const desired=grips.rightTip.clone().addScaledVector(outward,.55).sub(grips.right).normalize();
+     q.premultiply(new THREE.Quaternion().setFromUnitVectors(current,desired));
+     hand.quaternion.copy(hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));hand.updateMatrixWorld(true);
+    }
+   }
+  }
  }
  applyStanding(grips){
   if(!this.standingActive){this.standingActive=true;this.standingSwordVisible=this.sword?.visible??true;}

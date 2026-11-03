@@ -148,11 +148,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // press. Once released into steering, angular velocity builds and brakes
   // under bounded angular acceleration; even a 180-degree reticle change
   // cannot reverse a heavy machine instantly.
-  const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
+  const steeringYaw=m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:yaw;
+  const delta=Math.atan2(Math.sin(steeringYaw-m.heading),Math.cos(steeringYaw-m.heading));
   if(!m.terminalDive){
     if(m.offensiveRun){
       if((m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec){
-        m.runTurnSpeed=0;
+        m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
       }else{
         const desiredRate=cap(delta*2.8,-VALKYRIE_RUN.turnRate,VALKYRIE_RUN.turnRate);
         m.runTurnSpeed=cap((m.runTurnSpeed??0)+cap(desiredRate-(m.runTurnSpeed??0),
@@ -252,8 +253,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const run=m.offensiveRun&&!m.grounded;
   const flightPitch=m.runFlightPitch??0;
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
-  const dx=run?-Math.sin(m.heading)*runHorizontal:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
-  const dz=run?-Math.cos(m.heading)*runHorizontal:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+  const thrustHeading=run&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:m.heading;
+  const dx=run?-Math.sin(thrustHeading)*runHorizontal:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+  const dz=run?-Math.cos(thrustHeading)*runHorizontal:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
