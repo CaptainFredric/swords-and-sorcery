@@ -52,7 +52,8 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     runPitch:0,runTrim:0,runFlightPitch:0,runCommitHeading:null,runCommitPitch:null,
     runStartAt:null,runElapsed:0,runReleaseElapsed:0,runTravel:0,runLastPosition:null,
     runLaunchStartY:null,runLaunchMinVy:0,runLaunchDrop:0,runLaunchDistance:0,runStopRequested:false,
-    runReleasedAt:null,runTurnSpeed:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
+    runReleasedAt:null,runTurnSpeed:0,runGroundPhase:null,runGroundReleased:false,runGroundLaunchReady:false,
+    ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
@@ -111,7 +112,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   endFightFlightSkill(room,m,at,'interrupted');
   m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
   m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.rotorPowered=false;m.practiceDashRefilling=false;
-  m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=null;player.operatingFightFlightId=null;
+  m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=null;
+  m.runGroundPhase=null;m.runGroundReleased=false;m.runGroundLaunchReady=false;player.operatingFightFlightId=null;
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
   m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
   if(safe)player.position={...safe};
@@ -152,10 +154,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // press. Once released into steering, angular velocity builds and brakes
   // under bounded angular acceleration; even a 180-degree reticle change
   // cannot reverse a heavy machine instantly.
-  const steeringYaw=m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:yaw;
+  const steeringYaw=m.runGroundPhase||
+    m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:yaw;
   const delta=Math.atan2(Math.sin(steeringYaw-m.heading),Math.cos(steeringYaw-m.heading));
   if(!m.terminalDive){
-    if(m.offensiveRun){
+    if(m.runGroundPhase){
+      m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
+    }else if(m.offensiveRun){
       if((m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec){
         m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
       }else{
@@ -199,7 +204,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   }
   m.airHopRemaining=Math.max(0,(m.airHopRemaining??0)-dt);
   if(m.ejectHoldStartedAt!=null&&now-m.ejectHoldStartedAt>=.35){
-    m.emergencyBrakeActive=true;m.rotorPowered=false;m.offensiveRun=false;m.flightDashHeld=false;
+    m.emergencyBrakeActive=true;m.rotorPowered=false;m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;
   }
   // Discrete Hop uses ballistic gravity; only a held Rise can spin up sustained
   // lift. Desktop Space preserves tap-to-hop, hold (>230 ms)-to-rise behavior.
@@ -215,7 +220,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(training){m.flightCharge=Math.max(m.flightCharge,2.1);m.rotorPowered=true;}
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
-    m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop;
+    m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop&&!m.runGroundPhase;
+    if(m.runGroundPhase==='SPINUP'&&canLaunch){
+      // Real rotor angular velocity must reach 450 RPM before grounded Dash
+      // is allowed to lift the chassis. Movement keys cannot skip the spool.
+      m.crouched=false;m.rotorPowered=true;
+    }else{
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
     if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||launchRise)){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
@@ -228,6 +238,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.rotorPowered=Boolean((input.flightRise||launchRise)&&!explicitHop);
       }
     }
+    }
   }else{
     m.crouched=false;
     m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
@@ -235,7 +246,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
-  m.verticalIntent=!op?.alive?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':
+  m.verticalIntent=!op?.alive?'IDLE':m.runGroundPhase==='ASCENT'?'RISE':
+    m.runGroundPhase==='SPINUP'?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':
     m.hopStartedAt!=null||explicitHop||(m.airHopRemaining??0)>0?'HOP':'HOVER';
   if(m.grounded||m.verticalIntent!=='HOVER')m.neutralHoverAt=null;
   else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
@@ -249,6 +261,14 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(!intact)m.rotorAngularVelocity=0;
   m.rotorTargetRPM=desiredOmega*60/(2*Math.PI);
   m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
+  if(m.grounded&&m.runGroundPhase==='SPINUP'&&canLaunch&&
+    m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1){
+    m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
+    m.velocity.y=Math.max(m.velocity.y,VALKYRIE_RUN.groundTakeoffVelocity);
+    m.runGroundPhase='ASCENT';
+    room.events.push({type:'fightFlightGroundDashTakeoff',machineId:m.id,operatorId:op?.id,
+      rotorRPM:m.rotorRPM,at:now});
+  }
   m.lastRotorDelta=m.rotorAngularVelocity*dt;
   m.rotorAngle=(m.rotorAngle+m.lastRotorDelta)%(Math.PI*2);
   if(m.grounded){
@@ -269,8 +289,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const flightPitch=m.runFlightPitch??0;
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
   const thrustHeading=run&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:m.heading;
-  const dx=run?-Math.sin(thrustHeading)*runHorizontal:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
-  const dz=run?-Math.cos(thrustHeading)*runHorizontal:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+  const dx=run?-Math.sin(thrustHeading)*runHorizontal:
+    m.runGroundPhase?0:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+  const dz=run?-Math.cos(thrustHeading)*runHorizontal:
+    m.runGroundPhase?0:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
@@ -318,7 +340,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     if(floor!==null&&(candidate.y<=floor||(m.grounded&&candidate.y-floor<.35))&&m.velocity.y<=0){
       if(m.terminalDive)m.terminalDive.impactAt=now;
       if(!m.grounded)m.landingAt=now;
-      candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';m.offensiveRun=false;m.flightDashHeld=false;
+      candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
+      m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;m.runGroundReleased=false;
     }
     else if(floor===null||candidate.y>floor+.05){
       // Losing support at a cliff is a real transition to falling, not hovering at its rim.
@@ -336,7 +359,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         if(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5||m.terminalDive.blockedContactSec>=.24)
           m.terminalDive.impactAt=now;
       }
-      if(m.offensiveRun){m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;}
+      if(m.offensiveRun||m.runGroundPhase){
+        m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;
+      }
       if(collisionFree({x:previous.x,y:candidate.y,z:previous.z},solids,h)){const slideX={x:candidate.x,y:candidate.y,z:previous.z},slideZ={x:previous.x,y:candidate.y,z:candidate.z};
         if(collisionFree(slideX,solids,h)){candidate.z=previous.z;m.velocity.z=0;}
         else if(collisionFree(slideZ,solids,h)){candidate.x=previous.x;m.velocity.x=0;}
