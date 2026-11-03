@@ -4,7 +4,9 @@ The runtime and the validators find parts by name: HeroSword (the sword's finish
 TabardFront and TabardBack (cloth dye, the back banner's emblem), and the helmet, plate and boot pieces (hidden in a
 cockpit, where only the gauntlets stay in view). Each face goes to one part:
 
-- HeroSword: faces wholly on the rigid sword.
+- HeroSword: the sword alone, its blade and crossguard. Rodin fused the fist onto the guard with a stub of leather
+  grip; those stay with the gauntlet, and the sword gets a grip of its own along the blade's centreline, seated in
+  the guard, and a pommel (complete_sword), so stowed, dropped or cut it is a whole sword.
 - TabardBack: the cape, the one surface that hangs free of the body below the shoulders (found by cutting the mesh at
   CAPE_CUT and keeping the cloth component behind the body).
 - TabardFront: the front tabard, found the same way below the belt (TABARD_CUT).
@@ -14,9 +16,11 @@ cockpit, where only the gauntlets stay in view). Each face goes to one part:
 - Every other face by the bone that carries most of it: Breastplate (pelvis to neck), Pauldron (clavicle), Gauntlet
   (upper arm to hand), Greave (thigh, shin), Boot (foot).
 
-The helmet is made rigid on the head (Rodin had its lower half on the chest, so a turned head sheared the visor), and the
-cape and tabard move onto the tabard chains that the runtime's spring cloth drives (Rodin had the cape on the chest, so
-a lean swung it out like a plank). Split edges keep one set of weights and Rodin's own normals, so no seam opens.
+The helmet is made rigid on the head (Rodin had its lower half on the chest, so a turned head sheared the visor),
+easing onto the body's weights across its edge so the pauldrons it touches do not tear. The cape and tabard move onto
+the tabard chains that the runtime's spring cloth drives (Rodin had the cape on the chest, so a lean swung it out like
+a plank), and the cape's chain hangs from the chest, where its top is. Split edges keep one set of weights and Rodin's
+own normals, so no seam opens.
 """
 from __future__ import annotations
 
@@ -26,7 +30,8 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
+from mathutils.kdtree import KDTree
 
 ARCHIVE_EMISSIVE = "rodin-spellblade-emissive.png"
 CAPE_CUT = 1.35          # below this the cape hangs free of the body
@@ -36,6 +41,9 @@ HELMET_FLOOR = 1.555     # its visor and rim reach down to here at the front
 HELMET_REACH = (0.18, -0.17)   # its footprint: |x| below the first, y above the second
 CREST_FLOOR = 1.75
 JAW_TOP = 1.66
+HELMET_BLEND = 0.06      # metres either side of the helmet's edge over which it eases from the body onto the head
+LEATHER = 0.2            # mean texel brightness below which a face near the guard is leather, not brass or steel
+GRIP_ZONE = 0.065        # metres from the blade's centreline: Rodin's leather grip, fused into the fist
 
 BODY_PARTS = {"pelvis": "Breastplate", "spine": "Breastplate", "chest": "Breastplate", "neck": "Breastplate",
               "head": "HelmetShell"}
@@ -166,10 +174,128 @@ def _place_chain(rig, mesh_co: np.ndarray, members: np.ndarray, names: tuple[str
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def classify(faces: Faces, weights: list[dict[str, float]], is_sword: np.ndarray, bone_names: list[str]) -> np.ndarray:
+def hang_from(rig: bpy.types.Object, name: str, parent: str) -> int:
+    """Re-parent a bone so its head rides `parent`, keeping its turn in the world at every frame of every action that
+    keys it (re-keyed on each frame and on its own key times). Returns the keys written."""
+    bones = rig.data.bones
+    path = f'pose.bones["{name}"]'
+    scene = bpy.context.scene
+    saved = rig.animation_data.action, scene.frame_current
+    samples = {}
+    for action in bpy.data.actions:
+        own = [fc for fc in action.fcurves if fc.data_path.startswith(path)]
+        if not own:
+            continue
+        if any(fc.data_path not in (f"{path}.rotation_quaternion", f"{path}.location") for fc in own):
+            raise ValueError(f"{action.name} keys {name} other than by quaternion and location")
+        start, end = action.frame_range
+        times = set(np.arange(start, end + 1e-6, 1.0)) | {k.co[0] for fc in own for k in fc.keyframe_points}
+        rig.animation_data.action = action
+        rows = []
+        for time in sorted(times):
+            scene.frame_set(int(np.floor(time)), subframe=float(time - np.floor(time)))
+            rows.append((float(time), rig.pose.bones[name].matrix.copy(), rig.pose.bones[parent].matrix.copy()))
+        samples[action] = rows
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    edit = rig.data.edit_bones[name]
+    edit.use_connect = False
+    edit.parent = rig.data.edit_bones[parent]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rest = bones[parent].matrix_local.inverted() @ bones[name].matrix_local
+    written = 0
+    for action, rows in samples.items():
+        for fc in [fc for fc in action.fcurves if fc.data_path.startswith(path)]:
+            action.fcurves.remove(fc)
+        curves = [action.fcurves.new(f"{path}.rotation_quaternion", index=i, action_group=name) for i in range(4)]
+        previous = None
+        for time, world, carrier in rows:
+            turn = ((carrier @ rest).inverted() @ world).to_quaternion()
+            if previous is not None and previous.dot(turn) < 0:
+                turn = -turn
+            previous = turn
+            for i, curve in enumerate(curves):
+                key = curve.keyframe_points.insert(time, turn[i], options={"FAST"})
+                key.interpolation = "LINEAR"
+            written += 1
+        for curve in curves:
+            curve.update()
+    rig.pose.bones[name].location = (0.0, 0.0, 0.0)
+    rig.animation_data.action = saved[0]
+    scene.frame_set(saved[1])
+    return written
+
+
+def helmet_weights(faces: Faces, part: np.ndarray, posed: np.ndarray, weights: list[dict[str, float]],
+                   helmet_parts: tuple[str, ...]) -> int:
+    """The helmet rigid on the head, easing onto the body's own weights across its edge (HELMET_BLEND each side), so
+    a turned head neither shears the visor nor tears the pauldrons and collar the helmet touches."""
+    weld = np.unique(np.round(posed / 1e-6).astype(np.int64), axis=0, return_inverse=True)[1].ravel()
+    on_helmet = np.isin(part, helmet_parts)
+    helmet = np.zeros(weld.max() + 1, dtype=bool)
+    helmet[weld[np.unique(faces.verts[on_helmet])]] = True
+    body = np.zeros_like(helmet)
+    body[weld[np.unique(faces.verts[~on_helmet])]] = True
+    seam = np.where((helmet & body)[weld])[0]
+    tree = KDTree(len(seam))
+    for i, vertex in enumerate(seam):
+        tree.insert(Vector(tuple(faces.co[vertex])), i)
+    tree.balance()
+    eased = 0
+    for vertex in range(len(weights)):
+        inside, outside = helmet[weld[vertex]], body[weld[vertex]]
+        distance = tree.find(Vector(tuple(faces.co[vertex])))[2]
+        ease = float(smoothstep(0.0, HELMET_BLEND, distance))
+        share = 0.5 if (inside and outside) else (0.5 + 0.5 * ease if inside else 0.5 * (1 - ease))
+        if share <= 0:
+            continue
+        blended = {bone: value * (1 - share) for bone, value in weights[vertex].items()}
+        blended["head"] = blended.get("head", 0.0) + share
+        weights[vertex] = blended
+        eased += share < 1
+    return eased
+
+
+def sword_landmarks(faces: Faces, posed: np.ndarray, is_sword: np.ndarray, axis: np.ndarray,
+                    origin: np.ndarray) -> dict:
+    """Along the blade's centreline from the grip: where the crossguard begins (nothing below it is sword), where it
+    crosses the centreline (Rodin's leather grip runs from there into the fist) and where the rebuilt grip ends."""
+    rel = posed - origin
+    along = rel @ axis
+    off = np.linalg.norm(rel - np.outer(along, axis), axis=1)
+    sword_along, sword_off = along[is_sword], off[is_sword]
+    start = sword_along.min()
+    slabs = np.arange(start, start + 0.30, 0.01)
+    widths = np.array([np.percentile(sword_off[(sword_along >= a) & (sword_along < a + 0.01)], 90)
+                       if ((sword_along >= a) & (sword_along < a + 0.01)).sum() > 5 else 0.0 for a in slabs])
+    widest = widths.max()
+    guard = float(slabs[np.argmax(widths > 0.7 * widest)])           # the crossguard's first slab (a quillon's end)
+    face_along, face_off = along[faces.verts].mean(1), off[faces.verts].mean(1)
+    leather = faces.colour.mean(1) < LEATHER
+    grip = is_sword[faces.verts].all(1) & (face_off < GRIP_ZONE)
+    centre = guard
+    for slab in np.arange(guard, guard + 0.25, 0.01):
+        inside = grip & (face_along >= slab) & (face_along < slab + 0.01)
+        if inside.sum() >= 3 and leather[inside].mean() < 0.5:
+            centre = float(slab)
+            break
+    return {"along": along, "off": off, "cut": guard - 0.004, "guardCentre": centre, "gripEnd": centre - GRIP_LENGTH,
+            "guardWidth": float(widest)}
+
+
+def classify(faces: Faces, weights: list[dict[str, float]], is_sword: np.ndarray, bone_names: list[str],
+             marks: dict | None = None) -> np.ndarray:
     count = len(faces.verts)
     part = np.array([""] * count, dtype=object)
     sword = is_sword[faces.verts].all(1)
+    if marks is not None:
+        # the sword alone: its blade and crossguard. The fist stays with the gauntlet, and so do Rodin's leather grip
+        # below the guard and the fingers laid over it (dark leather: the sword's brass and steel are never that dark)
+        face_along, face_off = marks["along"][faces.verts], marks["off"][faces.verts].mean(1)
+        sword &= (face_along > marks["cut"]).all(1)
+        sword &= ~((face_off < GRIP_ZONE) & (face_along.max(1) < marks["guardCentre"]))
+        sword &= ~((faces.colour.mean(1) < LEATHER) & (face_along.mean(1) < marks["guardCentre"] + 0.02))
+        sword[:] = False if not sword.any() else np.isin(np.arange(count), faces.components(sword, sword)[0])
     part[sword] = "HeroSword"
 
     cape = _cloth_component(faces, CAPE_CUT, faces.red & (faces.centre[:, 1] < -0.15) & (faces.centre[:, 2] < 1.1), True)
@@ -202,6 +328,119 @@ def classify(faces: Faces, weights: list[dict[str, float]], is_sword: np.ndarray
     return part
 
 
+GRIP_LENGTH = 0.11       # a one-handed grip, a hand's width: in the fist it stays inside the glove
+GRIP_RADIUS = 0.028
+POMMEL_RADIUS = 0.044
+GRIP_SIDES = 8
+
+
+def _texel_of(obj, select) -> tuple[float, float]:
+    """The UV at the median of the faces `select(colour, centre)` picks, read from the object's own atlas."""
+    me = obj.data
+    image = next(n.image for n in me.materials[0].node_tree.nodes if n.type == "TEX_IMAGE" and n.image.name.endswith("diffuse")) \
+        if any(n.type == "TEX_IMAGE" and n.image.name.endswith("diffuse") for n in me.materials[0].node_tree.nodes) else \
+        next(n.image for n in me.materials[0].node_tree.nodes if n.type == "TEX_IMAGE")
+    pixels = _image_pixels(image)
+    uv = np.empty(len(me.loops) * 2)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 3, 2).mean(1)
+    colour = _sample(pixels, uv)[:, :3]
+    centres = np.array([p.center[:] for p in me.polygons])
+    chosen = select(colour, centres)
+    if not chosen.any():
+        raise ValueError(f"no face on {obj.name} to take a texel from")
+    picked = uv[chosen]
+    lum = colour[chosen].mean(1)
+    return tuple(picked[np.argsort(lum)[len(lum) // 2]])
+
+
+def turn_sword(sword: bpy.types.Object, fit) -> float:
+    """Turn the separated sword in the fist about its centreline by fit.sword_spin (its flat where the kit's lay),
+    normals with it. Returns the turn in degrees."""
+    to_rest = fit.hand_to_rest
+    axis = Vector(tuple(to_rest[:3, :3] @ fit.blade_axis)).normalized()
+    origin = Vector(tuple(to_rest[:3, :3] @ fit.blade_origin + to_rest[:3, 3]))
+    turn = Matrix.Translation(origin) @ Matrix.Rotation(fit.sword_spin, 4, axis) @ Matrix.Translation(-origin)
+    me = sword.data
+    normals = np.empty(len(me.loops) * 3)
+    me.corner_normals.foreach_get("vector", normals)
+    normals = normals.reshape(-1, 3) @ np.array(turn.to_3x3()).T
+    me.transform(turn)
+    me.normals_split_custom_set([tuple(n) for n in normals])
+    me.update()
+    return round(float(np.degrees(fit.sword_spin)), 2)
+
+
+def complete_sword(sword: bpy.types.Object, gauntlet: bpy.types.Object, fit, marks: dict) -> dict:
+    """The sword as a whole sword: a leather grip from inside the crossguard through the fist, and a brass pommel
+    beyond it (the concept's sword has both; Rodin only made the part that showed). Seen in the hand nothing changes;
+    stowed on the ballista, cut by Sunder or hidden during the tutorial's draw, the sword is whole."""
+    to_rest = fit.hand_to_rest
+    axis = to_rest[:3, :3] @ fit.blade_axis
+    origin = to_rest[:3, :3] @ fit.blade_origin + to_rest[:3, 3]
+    # two directions across the blade, for the grip's octagon
+    side = np.cross(axis, (0.0, 0.0, 1.0) if abs(axis[2]) < 0.9 else (1.0, 0.0, 0.0))
+    side /= np.linalg.norm(side)
+    up = np.cross(axis, side)
+    # the grip's leather: the glove's darker brown; the pommel's brass: the crossguard's light tan
+    leather = _texel_of(gauntlet, lambda c, p: (c[:, 0] > c[:, 2] + 0.08) & (c.mean(1) > 0.15) & (c.mean(1) < 0.32))
+    brass = _texel_of(sword, lambda c, p: (c[:, 0] > c[:, 2] + 0.10) & (c.mean(1) > 0.45))
+    top, bottom = marks["guardCentre"] + 0.012, marks["gripEnd"]
+    pommel_centre = bottom - POMMEL_RADIUS * 0.8
+    bm = bmesh.new()
+    bm.from_mesh(sword.data)
+    old_loops = len(sword.data.loops)
+    uv_layer = bm.loops.layers.uv.active
+    deform = bm.verts.layers.deform.verify()
+    hand = sword.vertex_groups["hand.R"].index
+
+    def vert(point):
+        v = bm.verts.new(tuple(point))
+        v[deform][hand] = 1.0
+        return v
+
+    added = []
+
+    def face(verts, texel):
+        f = bm.faces.new(verts)
+        for loop in f.loops:
+            loop[uv_layer].uv = texel
+        added.append(f)
+        return f
+    angles = np.linspace(0, 2 * np.pi, GRIP_SIDES, endpoint=False)
+    rings = []
+    for at in (top, bottom):
+        centre = origin + axis * at
+        rings.append([vert(centre + GRIP_RADIUS * (np.cos(a) * side + np.sin(a) * up)) for a in angles])
+    for i in range(GRIP_SIDES):
+        j = (i + 1) % GRIP_SIDES
+        face([rings[0][i], rings[1][i], rings[1][j], rings[0][j]], leather)
+    face(list(reversed(rings[0])), leather)
+    # the pommel: a faceted bead (an octahedron stretched a little along the blade), closing the grip's end
+    centre = origin + axis * pommel_centre
+    tips = [vert(centre + axis * POMMEL_RADIUS * 0.9), vert(centre - axis * POMMEL_RADIUS * 1.2)]
+    belt = [vert(centre + POMMEL_RADIUS * (np.cos(a) * side + np.sin(a) * up)) for a in angles[::2]]
+    for i in range(len(belt)):
+        j = (i + 1) % len(belt)
+        face([tips[0], belt[j], belt[i]], brass)
+        face([tips[1], belt[i], belt[j]], brass)
+    bmesh.ops.recalc_face_normals(bm, faces=added)
+    bm.to_mesh(sword.data)
+    bm.free()
+    me = sword.data
+    # the new faces flat-shaded, as Rodin's facets are; every other corner keeps its normal
+    normals = np.empty(len(me.loops) * 3)
+    me.corner_normals.foreach_get("vector", normals)
+    normals = normals.reshape(-1, 3)
+    for polygon in me.polygons:
+        if polygon.loop_start >= old_loops:
+            normals[polygon.loop_start:polygon.loop_start + polygon.loop_total] = polygon.normal[:]
+    me.normals_split_custom_set([tuple(n) for n in normals])
+    me.update()
+    return {"cut": round(marks["cut"], 3), "guardCentre": round(marks["guardCentre"], 3), "gripEnd": round(marks["gripEnd"], 3),
+            "gripLength": round(top - bottom, 3), "guardHalfWidth": round(marks["guardWidth"], 3)}
+
+
 def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
     mesh = fit.mesh
     emissive_image = bpy.data.images.load(str(archive / ARCHIVE_EMISSIVE), check_existing=True)
@@ -210,15 +449,13 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
     faces = Faces(mesh, fit.posed, emissive)
     bone_names = [b.name for b in rig.data.bones if b.use_deform]
     weights = [dict(w) for w in fit.weights]
-    part = classify(faces, weights, fit.is_sword, bone_names)
+    marks = sword_landmarks(faces, fit.posed, fit.is_sword, fit.blade_axis, fit.blade_origin)
+    part = classify(faces, weights, fit.is_sword, bone_names, marks)
 
     # --- weights: the helmet rigid on the head, the cloth on its chains ---------------------------------------
     co = faces.co
-    def vertices_of(name):
-        return np.unique(faces.verts[part == name])
     helmet_parts = ("Visor", "Crest", "HelmetJaw", "HelmetShell")
-    for vertex in np.unique(np.concatenate([vertices_of(p) for p in helmet_parts])):
-        weights[vertex] = {"head": 1.0}
+    eased = helmet_weights(faces, part, fit.posed, weights, helmet_parts)
     cape_faces = np.where(part == "TabardBack")[0]
     front_faces = np.where(part == "TabardFront")[0]
     chains = {
@@ -234,6 +471,10 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         for vertex, w in zip(vertices, _chain_weights(co[vertices, 2], top, joint, bones)):
             weights[vertex] = w
         report[name] = {"faces": int(len(members)), "top": top, "joint": round(joint, 3), "hem": round(hem, 3)}
+    # the cape hangs from the shoulders: its chain rides the chest (the kit hung it from the waist, so a lean tore
+    # its top, which is on the chest, away from the chain's swing)
+    report["TabardBack"]["hungFromChest"] = hang_from(rig, "tabard_back_01", "chest")
+    report["helmetEasedVertices"] = eased
 
     for group in list(mesh.vertex_groups):
         mesh.vertex_groups.remove(group)
@@ -285,5 +526,8 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
         bpy.ops.object.material_slot_remove_unused()
+    turned = turn_sword(objects["HeroSword"], fit)
+    report["sword"] = complete_sword(objects["HeroSword"], objects["Gauntlet.R"], fit, marks)
+    report["sword"]["turnedDegrees"] = turned
     report["parts"] = {name: len(obj.data.polygons) for name, obj in objects.items()}
     return report

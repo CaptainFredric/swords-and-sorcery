@@ -2,6 +2,8 @@
 
 November 3: the Spellblade is now the creator's Hyper3D Rodin model of the concept, fitted to the game's rig and actions by `tools/blender/characters/spellblade/rodin/`. Every region below is re-opened for review against the concept on that model.
 
+November 3, after review: the sword is its own part (blade and crossguard, with its own grip and pommel; Rodin had fused the fist onto the guard) and turns in the fist so its flat lies where the kit's did; the sword hand no longer twists the wrist; the helmet and cape seams no longer tear in a dash; first person draws the gauntlets, both hands and the sword at one scale. See `tools/blender/characters/spellblade/rodin/README.md`.
+
 September 25: the Spellblade is now a crisp armour kit built by `tools/blender/characters/spellblade/kit/`. Each piece is measured from the registered concept panels and coloured to match the sheet under the game's own lighting, with wear textures and baked occlusion. It replaces the concept-generated body. The rows below describe the earlier hand-modelled passes, so judge the new model against the concept as a whole.
 
 The canonical sheet (`tools/blender/characters/spellblade/source/references/canonical-spellblade.png`) is the ideal look, not a blueprint. It is painted in perspective and its views disagree slightly (the back view reads about 7.5 heads tall, the front about 6.75), so each region names the view that decides it. Gameplay readability wins a conflict: opponents see the Spellblade at 5 to 20 m, usually moving, and the owner sees only first-person arms.

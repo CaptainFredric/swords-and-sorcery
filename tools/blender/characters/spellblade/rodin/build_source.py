@@ -44,7 +44,8 @@ def main() -> None:
     args = parse_args()
     stop = STAGES.index(args.stop_after)
     rig = bpy.data.objects["SpellbladeRig"]
-    fit = fit_rodin(rig, ARCHIVE / "rodin-spellblade-unrigged.glb", ARCHIVE / "rodin-spellblade-autorigged.glb")
+    fit = fit_rodin(rig, ARCHIVE / "rodin-spellblade-unrigged.glb", ARCHIVE / "rodin-spellblade-autorigged.glb",
+                    heat=os.environ.get("RODIN_HEAT", "1") != "0")
     print("RODIN_FIT", json.dumps(fit.report))
     if stop >= 1:
         print("RODIN_PARTS", json.dumps(build_parts(rig, fit, ARCHIVE)))
