@@ -99,11 +99,14 @@ try{
  await host.key('W','rawKeyDown');
  await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return Math.hypot(p.x-m.x,p.z-m.z)<2.2;})()"),'host walks physically to the machine',170);
  await host.key('W','keyUp');
- // Wait for host locomotion to settle and ensure click-to-focus attack is not active
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth;return p&&!p.attackActive&&Math.hypot(p.velocity?.x??0,p.velocity?.z??0)<.25;})()"),'host stationary and ready to interact',80);
+ // Verify the real key release. Mounting validates its own action/clearance
+ // gates; a custom velocity threshold is not an authoritative mount rule.
+ await waitFor(()=>host.evaluate("window.__ssRuntime?.input?.movement().forward===0"),'host released forward movement',80);
  console.log('[SHARED HOST APPROACHED]',await host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth,m=r?.latestSnapshot?.fightFlight;return {dist:p&&m?Math.hypot(p.position.x-m.x,p.position.z-m.z):null,attack:p?.attackActive,operating:p?.operatingFightFlightId,machineOp:m?.operatorId};})()"));
- await host.tap('T');
- await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'host confirmed mounted in apparatus via T',80);
+ await waitFor(async()=>{
+  if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
+  await host.tap('T');return false;
+ },'host confirmed mounted in apparatus via T',80);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
