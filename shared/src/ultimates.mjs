@@ -110,7 +110,8 @@ export const ULTIMATES = Object.freeze({
     label: 'Spells & Chivalry',
     short: 'Chivalry',
     startupSec: 0.65,
-    activeSec: 9,
+    activeSec: 10,
+    autoParryArcDeg: 90,
     lockoutSec: 2.5,
     startupMove: 0.65,
     startupStagger: 1.5,
@@ -222,4 +223,17 @@ export function vortexAngle(state, nowSec) {
 export function vortexWindup(state, nowSec, vortex = ULTIMATES.vortex) {
   const share = Math.max(0, Math.min(1, 1 - ((state?.commitAt ?? nowSec) - nowSec) / vortex.startupSec));
   return 2 * Math.PI * share ** (vortex.balanced.revPerSec * vortex.startupSec);
+}
+
+/** Active Chivalry can meet an eligible physical contact from the front.
+ * Callers still validate the actual blade/projectile and ordinary Guard volume.
+ * This never raises a global guard, refreshes its age, or catches area damage. */
+export function chivalryParries(player, nowSec, incoming) {
+  const active=activeUltimate(player,nowSec);
+  if(!player?.alive||active?.id!=='chivalry'||!(player.guardStamina>0)||
+    nowSec<(player.staggerUntil??-Infinity)||nowSec<(player.guardBrokenUntil??-Infinity))return false;
+  const length=Math.hypot(incoming?.x??0,incoming?.z??0);
+  if(length<1e-8)return false;
+  const dot=(-Math.sin(player.yaw??0)*incoming.x-Math.cos(player.yaw??0)*incoming.z)/length;
+  return dot>=Math.cos(active.autoParryArcDeg*Math.PI/360)-1e-9;
 }
