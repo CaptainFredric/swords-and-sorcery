@@ -55,6 +55,10 @@ async function connectBrowser(label,port){
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
  await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
+ // Input packets leave only from the game's render loop, so how often each
+ // browser draws is evidence for every movement step (CI renders in software).
+ await b.evaluate("(() => {const p=window.__frameProbe={count:0,last:performance.now(),maxGap:0};function f(){const now=performance.now();p.maxGap=Math.max(p.maxGap,now-p.last);p.last=now;p.count++;requestAnimationFrame(f);}requestAnimationFrame(f);})()");
+ b.frames=()=>b.evaluate("(() => {const p=window.__frameProbe,r={count:p.count,sinceLastMs:Math.round(performance.now()-p.last),maxGapMs:Math.round(p.maxGap)};p.maxGap=0;return r;})()");
  return b;
 }
 // Initial debugger probe must not depend upon a connected WebSocket. Used for
@@ -93,6 +97,14 @@ try{
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'host observes physical machine',120);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'guest observes same physical machine',120);
  await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;if(m&&p)r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));})()");
+ // The first frames with a newly built machine can take minutes to draw in
+ // software WebGL, and keys only reach the room from drawn frames. In one CI
+ // run the host held W at spawn for ~3 minutes without a single packet. Walk
+ // once the host is drawing again.
+ const builtFrames=await host.frames();
+ console.log('[SHARED FRAMES] machine built',JSON.stringify({host:builtFrames,guest:await guest.frames()}));
+ await waitFor(async()=>(await host.frames()).count>=builtFrames.count+3,'host draws frames with the machine built',180);
+ console.log('[SHARED FRAMES] host drawing',JSON.stringify({host:await host.frames(),guest:await guest.frames()}));
  await host.send('Page.bringToFront');
  await host.evaluate("window.focus()");
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
@@ -114,12 +126,12 @@ try{
   let samples=0;
   await waitFor(async()=>{
    const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));return Math.hypot(p.x-m.x,p.z-m.z);})()");
-   if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify(await host.evaluate(hostApproach)));
+   if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
    return a<FLIGHT_MOUNT_RANGE-.9;
   },'host walks physically to the machine',170);
   await host.key('W','keyUp');
   const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
-  console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled}));
+  console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
   if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
@@ -224,8 +236,8 @@ try{
  console.log('[SHARED PRACTICE CHROME ACCEPTED]',JSON.stringify(result));
 }catch(e){
  console.error('[SHARED PRACTICE CHROME FAILED]','last wait: '+stage,e.stack??String(e));
- const hostDiag=await host?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
- const guestDiag=await guest?.evaluate("(() => ({localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
+ const hostDiag=await host?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
+ const guestDiag=await guest?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
  await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
