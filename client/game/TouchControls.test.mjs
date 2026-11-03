@@ -1233,5 +1233,11 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
  assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltToTheOccasion');
  b.skill.id='coldHowTouching';b.skill.phase='idle';update();
  assert.equal(controls.buttons.siegeSkill.dataset.icon,'frostBolt');
- assert.equal(controls.buttons.siegeBoth.hidden,true);
+ // Cold strengthens Bolt I, but it does not disable the independent ordinary
+ // coupled mechanism. Keep the mobile carousel matched to the server command.
+ assert.equal(controls.buttons.siegeBoth.hidden,false);
+ assert.equal(controls.buttons.siegeBoth.dataset.volley,'coupled');
+ send('pointerdown',550,100,{action:'siegeBoth',pointerId:86});
+ send('pointerup',550,100,{action:'siegeBoth',pointerId:86});
+ assert.deepEqual(messages.pop(),{type:'bibyeCoupledFire'});
 });
