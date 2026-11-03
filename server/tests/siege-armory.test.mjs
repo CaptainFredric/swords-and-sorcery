@@ -18,6 +18,8 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  const v=siegeArmoryView({biBye:'coldHowTouching'});
  assert.deepEqual(v.map(m=>m.name),['BI-BYE-LLISTA','SO-FIST-ICATION','FIGHT-AND-FLIGHT']);
  assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true]);
+ assert.equal(v[0].skills[0].icon,'boltToTheOccasion');
+ assert.equal(v[0].skills[1].icon,undefined,'alternative frost Skill retains its presentation');
  assert.equal(v[1].skills.length,1);assert.equal(v[2].skills.length,1);
 });
 test('Registry and stored personal Skill survive reload and reject invented values',()=>{

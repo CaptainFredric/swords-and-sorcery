@@ -654,6 +654,17 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* Deliberate mobile volley: separate from simultaneous finger gestures. */
 .touch-siegeBoth { --size: 62px; right: calc(var(--safe-r) + 203px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #f3d4ac; border-color: #e6ad77; }
 
+/* Bi-Bye-llista only. All coordinates are owned by the dedicated touch
+   preset; these selectors provide color hierarchy without altering other rigs. */
+.touch-controls.touch-ballista .touch-attack { color:#a5eaff; border-color:#77cde7; }
+.touch-controls.touch-ballista .touch-siegeSkill { color:#e8d5ab; border-color:#c6ae83; }
+.touch-controls.touch-ballista .touch-deploy { color:#e0cfac; border-color:#b8a06f; }
+.touch-controls.touch-ballista .touch-siegeWeapon { color:#d1e4e8; }
+.touch-controls.touch-ballista .touch-siegeBoth { color:#ead9bb; border-color:#dfb780; }
+.touch-controls.touch-ballista .touch-siegeSkill span { letter-spacing:.015em; font-size:7px; }
+.touch-controls.touch-ballista .touch-deploy span { letter-spacing:0; font-size:6.5px; }
+.touch-controls.touch-ballista .touch-btn[aria-disabled="true"] { opacity:.55; }
+
 /* Mounted Sheathe in Steel */
 .touch-controls.touch-mounted:not(.touch-flight).mounted-steel-available .touch-spell {
   display: grid;
@@ -665,6 +676,13 @@ html.turn-typing .rotate-prompt { display: none !important; }
   --size: 62px;
   right: calc(var(--safe-r) + 48px * var(--s));
   bottom: calc(var(--safe-b) + 96px * var(--s));
+}
+/* Ballista Steel is a third, low-priority target on the firing row; it no
+   longer occludes BOTH. Custom user placements still win as inline styles. */
+.touch-controls.touch-ballista.mounted-steel-available .touch-spell {
+  --size:54px;
+  right:calc(var(--safe-r) + 176px * var(--s));
+  bottom:calc(var(--safe-b) + 22px * var(--s));
 }
 .touch-controls .touch-spell.steel-ward-active {
   border-color: #79c0ff !important;
