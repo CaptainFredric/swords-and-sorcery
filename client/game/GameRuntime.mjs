@@ -1274,6 +1274,7 @@ export class GameRuntime {
 
   editTouchLayout(mode) {
     if (!this.touch) this.enableTouch();
+    this.input.releaseInputs(); // editor drag must not keep a live weapon firing
     this.touch?.setActive(true);
     this.touchLayoutEditor?.open(mode);
   }
