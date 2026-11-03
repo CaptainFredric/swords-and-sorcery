@@ -48,8 +48,9 @@ function release(room,m,p,now){
       // Only a genuine shot attempt with the lock out of sight breaks the Skill.
       endFightFlightSkill(room,m,now,'sightLost');return false;
     }
-    // Without a visible, physically reachable opening, do not fire for free.
-    if(!tracking?.aim)return false;
+    // A locked enemy with no exposed trajectory cannot be hit by this Skill.
+    // Before acquisition, retain the ordinary manually aimed crossbow.
+    if(tracking?.targetId&&!tracking.aim)return false;
   }
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
