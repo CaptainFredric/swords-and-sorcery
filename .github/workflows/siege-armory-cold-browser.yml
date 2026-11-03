@@ -53,6 +53,7 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
         run: node scripts/siege-armory-cold-browser.mjs
       - name: Verify Bi-Bye-llista layout and capture real Chrome viewports
+        if: always() # Existing keyboard-motion acceptance can be intermittently blocked
         env:
           SIEGE_BROWSER_URL: http://127.0.0.1:3001
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
