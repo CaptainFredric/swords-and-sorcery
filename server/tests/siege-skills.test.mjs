@@ -310,3 +310,39 @@ test('Atomic RMB captures command-time aim rather than stale periodic movement i
  assert.ok(Math.abs(s.b.heavySkill.aim.yaw-.28)<.02,'heavy bow must not use old yaw');
  assert.ok(Math.abs(s.b.heavySkill.aim.pitch-.1)<.02,'heavy bow must not use old pitch');
 });
+
+test('UPPER-focus BOTH physically traverses the heavy turret and preserves the ordinary upper-first coupled volley',()=>{
+ const s=setup('bow');s.b.mode='DEPLOYED';s.b.weaponFocus='UPPER';
+ const aim={yaw:.7,pitch:.1};s.p.input={...s.p.input,...aim};
+ const send=(t=1)=>applyRoomCommand(s.room,s.p,{type:'bibyeCoupledFire',...aim},t);
+ assert.equal(send().rejected,undefined);
+ assert.equal(s.b.weaponFocus,'UPPER');
+ assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,0);
+ assert.equal(s.b.coupling,'INDEPENDENT');assert.ok(s.b.pendingCoupledFromUpper);
+ assert.ok(send(1.01).rejected,'no duplicate pending shot');
+ stepBiByeLlista(s.room,s.b,1/30,1.03);
+ assert.ok(s.b.mainYaw>.01&&s.b.mainYaw<.7,'real turning rate');
+ let time=1.03;
+ for(let i=0;i<160;i++){time+=1/30;stepBiByeLlista(s.room,s.b,1/30,time);}
+ assert.equal(s.b.pendingCoupledFromUpper,null);
+ assert.equal(s.b.weaponFocus,'UPPER');
+ assert.deepEqual(kinds(s),['conditioning','siege'],'ordinary coupled order remains intact');
+ assert.equal(s.b.skill.readyAt,0,'does not spend default Skill');
+ assert.equal(s.b.mainBoltLoaded,false);
+ assert.equal(s.room.events.filter(e=>e.type==='bibyeVolleyInitiated').length,1);
+});
+
+test('UPPER-focus coupled shot rejects unavailable or foreign inputs; pending aim cancels on focus change',()=>{
+ const s=setup('bow'),send=at=>applyRoomCommand(s.room,s.p,{type:'bibyeCoupledFire',yaw:0,pitch:0},at);
+ assert.ok(send(1).rejected);
+ s.b.mode='DEPLOYED';s.b.mainBoltLoaded=false;assert.ok(send(1.1).rejected);
+ s.b.mainBoltLoaded=true;
+ assert.equal(send(1.2).rejected,undefined);
+ const intruder=s.room.addPlayer({id:'intruder',token:'i',name:'intruder'},0);
+ assert.ok(applyRoomCommand(s.room,intruder,{type:'bibyeCoupledFire',yaw:0,pitch:0},1.3).rejected);
+ assert.ok(s.b.pendingCoupledFromUpper);
+ assert.equal(applyRoomCommand(s.room,s.p,{type:'bibyeWeaponFocus'},1.4).rejected,undefined);
+ assert.equal(s.b.pendingCoupledFromUpper,null);
+ s.b.weaponFocus='UPPER';assert.equal(skill(s,1.6).rejected,undefined);
+ assert.ok(send(1.7).rejected,'primed Skill uses separate combined command');
+});

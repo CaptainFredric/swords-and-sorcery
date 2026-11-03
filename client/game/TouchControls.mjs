@@ -10,6 +10,7 @@ import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
+import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
@@ -270,6 +271,7 @@ export class TouchControls {
       ballista=activeMode==='ballista',mounted=flight||ram||ballista;
     this.layer.classList.toggle('touch-flight',flight);
     this.layer.classList.toggle('touch-ram',ram);
+    this.layer.classList.toggle('touch-ballista',ballista);
     this.layer.classList.toggle('touch-mounted',mounted);
     // Give each editor page its real mounted controls regardless of the
     // current player state. None of these preview presses reach gameplay.
@@ -532,8 +534,10 @@ export class TouchControls {
       this.flightMounted=flight;this.mounted=mounted;
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
+      this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':'frostBolt'):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':bl?.skill?.id==='coldHowTouching'?'frostBolt':'heavyBolt'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -553,6 +557,7 @@ export class TouchControls {
       }));
 
       if (flight) {
+        this.buttons.attack?.setAttribute('aria-label','Sword attack');
         const atkLabel = this.buttons.attack?.querySelector('span');
         if (atkLabel && atkLabel.textContent !== 'SWORD') atkLabel.textContent = 'SWORD';
         const guardUnavailable = airborne && !combatActionPolicy(local, serverNow).concurrent;
@@ -603,7 +608,8 @@ export class TouchControls {
         }
       } else {
         const atkLabel = this.buttons.attack?.querySelector('span');
-        if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':'BOLT I'):'ATTACK';
+        if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
+        this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
         this.valkyrieEligible = false;
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'flight-spinning', 'valkyrie-prep');
@@ -627,12 +633,10 @@ export class TouchControls {
         }
       }
       if(this.buttons.siegeBoth){
-        const primed=!ram&&!flight&&mounted&&bl?.skill?.phase==='primed';
-        const ready=primed&&bl.mainBoltLoaded!==false&&bl.state==='LOADED'&&
-          serverNow+1e-8>=(bl.smallBoltReadyAt??0)&&!bl.upperPending&&!bl.upperQueued&&
-          bl.combinedUpperPendingAt==null&&(!bl.coupling||bl.coupling==='INDEPENDENT');
-        this.buttons.siegeBoth.hidden=!ready;
-        this.buttons.siegeBoth.setAttribute('aria-label','Fire both bolts together, Bolt II first');
+        const secondary=ballista?combat.secondary:null;
+        this.buttons.siegeBoth.hidden=!secondary;
+        this.buttons.siegeBoth.dataset.volley=secondary??'';
+        this.buttons.siegeBoth.setAttribute('aria-label',combat.secondaryDescription??'Combined volley unavailable');
       }
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
@@ -659,10 +663,12 @@ export class TouchControls {
           this.buttons.interact.classList.toggle('terminal-locked', Boolean(fb?.terminalDive));
         }
         if (this.buttons.deploy) {
-          this.buttons.deploy.hidden = ram||flight||!biByeCondition(bl).canDeploy;
-          const label = this.buttons.deploy.querySelector('span');
-          const text = bl?.mode === 'DEPLOYED' ? 'PACK' : 'DEPLOY';
-          if (label && label.textContent !== text) label.textContent = text;
+          const possible=biByeCondition(bl).canDeploy;
+          this.buttons.deploy.hidden=ram||flight||(!possible&&!modeButton.disabled);
+          const label=this.buttons.deploy.querySelector('span');
+          if(label&&label.textContent!==modeButton.label)label.textContent=modeButton.label;
+          this.buttons.deploy.setAttribute('aria-label',modeButton.disabled?modeButton.label+' in progress':modeButton.label==='MOBILE'?'Pack into mobile configuration':'Deploy heavy siege mode');
+          this.buttons.deploy.setAttribute('aria-disabled',modeButton.disabled?'true':'false');
         }
       } else if (nearFlight||nearRam||(near && bl?.mode !== 'DESTROYED')) {
         if (this.buttons.interact) {
@@ -987,6 +993,10 @@ export class TouchControls {
       return;
     }
     const element = this.buttons[action];
+    if(action==='deploy'&&element?.getAttribute('aria-disabled')==='true'){
+      this.deniedButtons.add(event.pointerId);
+      return;
+    }
     element?.classList.add('pressed');
     if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
     if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
@@ -1064,10 +1074,15 @@ export class TouchControls {
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
     if (action === 'interact') {if(this.input.mountedFlight)this.input.flightEject?.(true);else this.input.interact?.();}
-    if (action === 'deploy') this.input.deploy?.();
+    if (action === 'deploy' && element?.getAttribute('aria-disabled') !== 'true') this.input.deploy?.();
     if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,`touch:${event.pointerId}`);else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
-    if (action === 'siegeBoth') this.input.siegeBoth?.();
+    if (action === 'siegeBoth') {
+      // Ordinary UPPER coupled fire and Skill-primed BOTH are different server
+      // intents with opposite release order; never conflate the two.
+      if(this.buttons.siegeBoth?.dataset.volley==='coupled')this.input.siegeCoupled?.();
+      else this.input.siegeBoth?.();
+    }
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
   }
 

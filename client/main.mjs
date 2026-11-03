@@ -1451,7 +1451,7 @@ function renderArmory() {
         ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
           role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}"
           data-siege-skill="${skill.id}" ${m.skills.length===1?'disabled':''}>
-          <span class="spell-name">${skill.name}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
+          ${skill.icon?`<span class="spell-mark" aria-hidden="true">${iconSvg(skill.icon)}</span>`:''}<span class="spell-name">${skill.name}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
           <small>${skill.line}</small></button>`).join('')}
       </div>
     </article>`).join('');

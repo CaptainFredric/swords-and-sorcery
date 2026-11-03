@@ -104,6 +104,22 @@ const MOUNTED_ACTIONS = Object.freeze({
   deploy:{right:90,bottom:190,size:56},
 });
 
+// Bi-Bye-llista only. Fixed positions prevent the conditional BOTH control from
+// shifting the main firing targets. The generic layout remains the ram preset.
+export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
+ attack:{right:12,bottom:14,size:76},
+ siegeSkill:{right:98,bottom:18,size:68},
+ siegeBoth:{right:64,bottom:102,size:60},
+ deploy:{right:68,top:56,size:48},
+ siegeWeapon:{right:12,top:56,size:48},
+});
+const BI_BYE_UTILITIES=Object.freeze({
+ interact:{right:60,top:8,size:38},
+ // View sits beside the conditional BOTH slot, not beside accidental LEAVE.
+ // Keep enough clearance from the lower Steel / heavy-fire row on short phones.
+ siegeView:{right:145,bottom:111,size:40},
+});
+
 export function mirrorLayoutHorizontal(layout) {
   const mirrored = {};
   for (const [key, item] of Object.entries(layout)) {
@@ -120,10 +136,12 @@ export function mirrorLayoutHorizontal(layout) {
   return mirrored;
 }
 
-/** Contextual controls share one auxiliary row on every mounted machine. */
-export function mountedTouchLayout(onFoot,handedness='right'){
+/** Preserve the ram preset; choose the independent ballista ladder by machine. */
+export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
   const layout=clonePlacements(onFoot);
-  const auxiliary={...MOUNTED_ACTIONS,interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
+  const auxiliary=machine==='biBye'
+    ? {...BI_BYE_MOUNTED_ACTIONS,...BI_BYE_UTILITIES}
+    : {...MOUNTED_ACTIONS,interact:DEFAULT_FLIGHT_LAYOUT.interact,siegeView:DEFAULT_FLIGHT_LAYOUT.siegeView};
   const defaults=handedness==='left'?mirrorLayoutHorizontal(auxiliary):auxiliary;
   for(const [action,placement]of Object.entries(defaults)){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
@@ -136,7 +154,7 @@ export function mountedTouchLayout(onFoot,handedness='right'){
 
 // Separate editable pages for stationary artillery and the mobile ram. Old
 // shared on-foot layouts are preserved when migrating an existing player.
-export const DEFAULT_BALLISTA_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
+export const DEFAULT_BALLISTA_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye'));
 export const DEFAULT_RAM_LAYOUT=Object.freeze(mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT));
 export const TOUCH_LAYOUT_PAGES=Object.freeze([
  {id:'onFoot',label:'SPELLBLADE'}, {id:'flight',label:'FLIGHT'},
@@ -217,7 +235,7 @@ export function loadTouchLayout(storage = globalThis.localStorage) {
         onFoot: migrateCrouchPosition(parsed.onFoot ?? clonePlacements(DEFAULT_ON_FOOT_LAYOUT)),
         flight: migrateFlightLayout(parsed.flight),
         ballista:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
-          parsed.handedness==='left'?'left':'right'),...(parsed.ballista??{})},
+          parsed.handedness==='left'?'left':'right','biBye'),...(parsed.ballista??{})},
         ram:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
           parsed.handedness==='left'?'left':'right'),...(parsed.ram??{})},
         opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,

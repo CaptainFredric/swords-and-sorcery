@@ -587,6 +587,11 @@ export class InputController {
     const held=this.flightFireSources.size>0;
     if(was!==held&&this.mountedFlight)this.socket?.send?.({type:'fightFlightFire',down:held});
   }
+  siegeCoupled() {
+    if(!this.enabled||!this.mountedBallista||this.allowAction?.('attack')===false)return;
+    this.socket?.send?.({type:'bibyeCoupledFire',yaw:this.yaw,pitch:this.pitch,
+      ...(this.siegeTarget?{siegeTarget:{...this.siegeTarget}}:{})});
+  }
   siegeBoth() {
     if(this.enabled&&this.mountedBallista&&this.allowAction?.('siegeSkill')!==false)
       this.socket?.send?.({type:'bibyeCombinedFire'});
