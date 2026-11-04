@@ -82,12 +82,13 @@ export function stepFlightRun(room,m,dt,now){
      m.rotorHP<=0||m.health<=0||m.flightCharge<=0||
      p.operatingFightFlightId!==m.id){
      m.runGroundPhase=null;m.runGroundReleased=false;m.flightDashHeld=false;
-   }else if(m.runGroundPhase==='SPINUP')return;
+   }else if(m.runGroundPhase==='SPINUP'&&m.grounded)return;
    else {
-     // Backwards-compatible recovery for an in-flight ascent phase; it no
-     // longer suspends physical Dash until a separate clearance altitude.
+     // Walking off a ledge during ground spool must not leave SPINUP latched
+     // in free fall. A now-airborne Dash engages without an altitude wait.
      m.runGroundPhase=null;
      m.runGroundLaunchReady=true;
+     m.rotorPowered=true;
    }
  }
 
