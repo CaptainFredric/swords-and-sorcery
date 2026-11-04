@@ -4,10 +4,12 @@ Rodin's hands were lumps: the spell hand one frozen cup, and the sword hand a fi
 grip rather than round it. The rig had one bone per hand, so no finger could move. Both are cut away at the wrist and
 rebuilt, to the concept's weapon sheet:
 
-- every finger is three overlapping steel lames over a dark glove, each lame rigid on a bone of its own
+- every finger is three overlapping ridged steel lames, wrapped well round its sides, over a brown leather glove (it
+  shows on the palm side and between them), each lame rigid on a bone of its own
   (`finger_<index|middle|ring|little>_<1|2|3>.<side>` and `thumb_<1|2|3>.<side>`). Each bone's +x turn curls it
   toward the palm;
-- the back of the hand is one plate with a raised knuckle guard, on the hand bone, with a padded heel under it;
+- the back of the hand is one ridged plate with a raised knuckle guard studded with brass bosses (gadlings), on the
+  hand bone, with a padded heel under it;
 - a flared, brass-rimmed cuff on the forearm covers the cut, as a gauntlet's cuff covers the vambrace.
 
 The sword hand is built round the sword's real grip (forge.py), where the forearm meets it: the palm against the grip
@@ -28,10 +30,10 @@ FINGERS = ("index", "middle", "ring", "little")
 HAND_PARTS = ("hand", "finger", "thumb")          # (bone-name prefixes that make up a hand)
 
 # metres
-LAME = {"width": 0.029, "height": 0.031}
-THUMB = {"width": 0.031, "height": 0.033}
+LAME = {"width": 0.035, "height": 0.04}       # a finger's lames: chunky plate, not a painted glove
+THUMB = {"width": 0.038, "height": 0.043}
 SPELL = {  # the open spell hand, in its hand bone's frame (y along the hand, palm toward +z, thumb toward -x)
-    "palm": (0.118, 0.12, 0.044),            # length, width, height of the back plate
+    "palm": (0.12, 0.134, 0.054),            # length, width, height of the back plate
     "lengths": (0.05, 0.036, 0.031),
     "curls": (0.22, 0.3, 0.24),              # radians at each joint: a relaxed cup
     "spread": 0.075,                         # radians between neighbouring fingers
@@ -41,11 +43,11 @@ SPELL = {  # the open spell hand, in its hand bone's frame (y along the hand, pa
 }
 FIST = {  # the sword hand, in the grip's frame: along the grip (toward the blade), toward the fist from the elbow
     # (u), and toward the back of the hand (w); the grip's axis at u = w = 0
-    "ring": 0.043,                           # the finger lames' centreline about the grip
+    "ring": 0.047,                           # the finger lames' centreline about the grip (grip radius + half a lame)
     "angles": (74.0, 8.0, -58.0, -122.0),    # degrees in the (u, w) plane: knuckle, then each joint, to the tip
     "pitch": 0.0305,                         # metres between fingers along the grip
     "wrist": (-0.075, 0.016),                # (u, w): the heel of the back plate
-    "palmHeight": 0.04,
+    "palmHeight": 0.048,
     "heel": ((-0.072, -0.002), (-0.03, -0.03)),   # the padded heel under the grip
     "thumb": ((-0.045, -0.03), (-0.008, -0.066), (0.032, -0.062), (0.056, -0.036)),
 }
@@ -113,28 +115,47 @@ class Builder:
 
 def lame(b: Builder, start, direction, up, length: float, width: float, height: float, bone: str,
          tip: bool = False, back: float = 0.0, taper: float = 0.92, glove: bool = False):
-    """One plate: a six-sided section along `direction` (steel toward `up`, glove below), from `back` behind `start`
+    """One plate: a ridged section along `direction` (steel toward `up` and down its sides, glove below), from `back` behind `start`
     to `length` beyond it, narrowing by `taper`; a chamfered point at a fingertip. `glove`: all glove (a padded heel)."""
     d = unit(direction)
     u = unit(np.asarray(up, float) - d * (np.asarray(up, float) @ d))
     s = np.cross(d, u)
-    section = [(0.5, 0.15), (0.3, 0.5), (-0.3, 0.5), (-0.5, 0.15), (-0.44, -0.5), (0.44, -0.5)]
-    tones = ["glove"] * 6 if glove else ["steel", "steelLight", "steel", "steelDark", "glove", "steelDark"]
+    # (a forged plate: a raised ridge down its back, its two faces lit differently, its sides wrapping well down round
+    # the finger, so it reads as plate from the palm too; only a strip of the dark glove under it, on the palm side,
+    # and between the lames; a padded heel is all glove)
+    section = [(0.52, 0.05), (0.36, 0.42), (0.0, 0.6), (-0.36, 0.42), (-0.52, 0.05), (-0.46, -0.36), (-0.3, -0.5),
+               (0.3, -0.5), (0.46, -0.36)]
+    tones = ["glove"] * len(section) if glove else \
+        ["steel", "steelLight", "steel", "steelDark", "steelDark", "glove", "glove", "glove", "steel"]
+    n = len(section)
     start = np.asarray(start, float)
 
     def ring(at, scale):
         return [b.vert(start + d * at + s * (x * width * scale) + u * (y * height * scale), bone) for x, y in section]
     near, far = ring(-back, 1.0), ring(length, taper)
-    for k in range(6):
-        j = (k + 1) % 6
+    for k in range(n):
+        j = (k + 1) % n
         b.face([near[k], near[j], far[j], far[k]], tones[k])
     b.face(list(reversed(near)), "glove")
     if tip:
         point = b.vert(start + d * (length + height * 0.32) + u * (height * 0.1), bone)
-        for k in range(6):
-            b.face([far[k], far[(k + 1) % 6], point], tones[k])
+        for k in range(n):
+            b.face([far[k], far[(k + 1) % n], point], tones[k])
     else:
         b.face(far, "steelDark")
+
+
+def stud(b: Builder, centre, up, toward, size: float, bone: str, tone: str = "brassLight"):
+    """A square pyramid boss (a gadling) standing `size` high on `up` at `centre`, its base turned to `toward`."""
+    u = unit(up)
+    x = unit(np.asarray(toward, float) - u * (np.asarray(toward, float) @ u))
+    y = np.cross(u, x)
+    c = np.asarray(centre, float)
+    base = [b.vert(c + (x * dx + y * dy) * size * 0.55, bone) for dx, dy in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
+    apex = b.vert(c + u * size, bone)
+    for k in range(4):
+        b.face([base[k], base[(k + 1) % 4], apex], tone if k % 2 else "brass")
+    b.face(list(reversed(base)), "brassDark")
 
 
 def finger(b: Builder, name: str, side: str, points, ups, width: float, height: float, parent: str) -> list:
@@ -179,6 +200,9 @@ def spell_hand(b: Builder, rig, side: str) -> list:
          glove=True)
     bones = []
     knuckles = o + along * (length - 0.006)
+    for i in range(4):
+        stud(b, o + along * (length - 0.003) + across * ((1.5 - i) * (width / 4)) + back * (height * 0.48), back, along,
+             0.014, hand)
     for i, name in enumerate(FINGERS):
         offset = (1.5 - i) * (width / 4)
         d = rot(back, -SPELL["spread"] * (1.5 - i)) @ along
@@ -239,6 +263,8 @@ def sword_hand(b: Builder, rig, side: str, grip: dict) -> tuple[list, dict]:
     lame(b, heel, d, up, length + 0.01, width * 0.86, FIST["palmHeight"], hand, back=0.012, taper=1.16)
     lame(b, heel + d * (length - 0.012) + up * (FIST["palmHeight"] * 0.2), d, up, 0.028, width * 1.03,
          FIST["palmHeight"] * 0.7, hand)
+    for i in range(4):
+        stud(b, at(alongs[i], knuckle_u, knuckle_w) + up * (FIST["palmHeight"] * 0.5), up, d, 0.013, hand)
     h0, h1 = (at(middle, *p) for p in FIST["heel"])
     lame(b, h0, h1 - h0, -F, float(np.linalg.norm(h1 - h0)), width * 0.95, 0.036, hand, glove=True)
     bones = []
