@@ -3503,6 +3503,49 @@ export class GameRuntime {
 
   #frame(nowMs) {
     if (!this.running) return;
+    // The next visual frame is owned by the loop, NEVER by successful
+    // completion of every camera/model/particle subsystem. Previously one
+    // uncaught Valkyrie render exception permanently stopped RAF even though
+    // the authoritative local match and network ticks continued normally.
+    requestAnimationFrame(t=>this.#frame(t));
+    try{
+      this.#frameTick(nowMs);
+      this.frameFailureStreak=0;
+    }catch(error){
+      this.frameFailureStreak=(this.frameFailureStreak??0)+1;
+      const at=performance.now();
+      if(at-(this.lastFrameFailureLogAt??-Infinity)>2500){
+        this.lastFrameFailureLogAt=at;
+        console.error('[Castleward] Visual frame recovered after exception',
+          {streak:this.frameFailureStreak,machine:this.localAuth?.operatingFightFlightId??null},error);
+      }
+      // Restore a camera that remains usable while an animation, GLB node or
+      // secondary render pass recovers. Do not touch authoritative movement
+      // or remount/dismount state just to fix a rendering problem.
+      this.flightCameraMotion?.reset();
+      const m=this.localAuth?.operatingFightFlightId?this.latestSnapshot?.fightFlight:null;
+      if(m){
+        const ground=surfaceHeightAt(m.x,m.z,m.y,this.activeWorld);
+        const eye=stableFlightCockpitEye(m,null,ground);
+        this.camera.position.set(eye.x,eye.y,eye.z);
+        const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
+        this.camera.rotation.set(look.pitch,look.yaw,0,'YXZ');
+      }
+      try{
+        this.renderer?.setScissorTest(false);
+        this.camera?.layers.set(0);
+        this.#setFov(this.view?.fov);
+        this.#renderView();
+      }catch(renderError){
+        if(at-(this.lastFrameRenderLogAt??-Infinity)>3000){
+          this.lastFrameRenderLogAt=at;
+          console.error('[Castleward] Fallback render failed',renderError);
+        }
+      }
+    }
+  }
+
+  #frameTick(nowMs) {
     const wallDt=Math.min(.05,Math.max(0,(nowMs-(this.inspectionWallAt??nowMs))/1000));
     this.inspectionWallAt=nowMs;
     let flyAim=null;
@@ -3520,7 +3563,6 @@ export class GameRuntime {
       this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();
       if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;}
       this.#renderView();
-      requestAnimationFrame(t => this.#frame(t));
       return;
     }
     const elapsed = (nowMs - this.lastFrameAt) / 1000;
@@ -3946,7 +3988,6 @@ export class GameRuntime {
     if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;this.input.mountedRam=false;}
     this.weapon.syncPalmLight();
     this.#renderView();
-    requestAnimationFrame((t) => this.#frame(t));
   }
 
   // the world; then my own arms and sword over it, on depth cleared of the world (viewLayers.mjs), with the shadows
