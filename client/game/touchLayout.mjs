@@ -107,6 +107,9 @@ const MOUNTED_ACTIONS = Object.freeze({
 // Bi-Bye-llista only. Fixed positions prevent the conditional BOTH control from
 // shifting the main firing targets. The generic layout remains the ram preset.
 export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
+ // Steel is available on deployed artillery, too. Its on-foot position
+ // overlapped the conditional BOTH carousel on compact landscape phones.
+ spell:{right:198,bottom:104,size:48},
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
  siegeBoth:{right:64,bottom:102,size:60},
@@ -166,32 +169,36 @@ export const layoutForMode=(layouts,mode)=>
 
 export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const clamped = { ...item, custom: true };
-  const w = item.width ?? item.size ?? 50;
-  const h = item.height ?? item.size ?? 50;
   const safeMargin = 4;
+  const stick = item.type === 'stick';
 
   if (clamped.size !== undefined) {
-    clamped.size = Math.max(item.type==='stick'?80:MIN_BUTTON_SIZE,
-      Math.min(item.type==='stick'?172:MAX_BUTTON_SIZE, clamped.size));
+    clamped.size = Math.max(stick ? 80 : MIN_BUTTON_SIZE,
+      Math.min(stick ? 172 : MAX_BUTTON_SIZE, Number(clamped.size) || (stick ? 112 : 50)));
   }
   if (clamped.width !== undefined) {
-    clamped.width = Math.max(36, Math.min(160, clamped.width));
+    clamped.width = Math.max(36, Math.min(160, Number(clamped.width) || 36));
   }
   if (clamped.height !== undefined) {
-    clamped.height = Math.max(30, Math.min(96, clamped.height));
+    clamped.height = Math.max(30, Math.min(96, Number(clamped.height) || 30));
   }
 
-  if ('left' in clamped) {
-    clamped.left = Math.max(safeMargin, Math.min(viewport.width - w - safeMargin, clamped.left));
-  } else if ('right' in clamped) {
-    clamped.right = Math.max(safeMargin, Math.min(viewport.width - w - safeMargin, clamped.right));
-  }
+  // The joystick is anchored at its CENTER; ordinary controls use their
+  // exterior edge. After resizing, constrain the *actual* dimensions.
+  const w = clamped.width ?? clamped.size ?? 50;
+  const h = clamped.height ?? clamped.size ?? 50;
+  const sideInset = stick ? w / 2 : 0;
+  const verticalInset = stick ? h / 2 : 0;
+  const horizontalMin = safeMargin + sideInset;
+  const verticalMin = safeMargin + verticalInset;
+  const horizontalMax = Math.max(horizontalMin, viewport.width - w - safeMargin + sideInset);
+  const verticalMax = Math.max(verticalMin, viewport.height - h - safeMargin + verticalInset);
+  const clamp = (number, lo, hi) => Math.max(lo, Math.min(hi, Number(number) || 0));
 
-  if ('top' in clamped) {
-    clamped.top = Math.max(safeMargin, Math.min(viewport.height - h - safeMargin, clamped.top));
-  } else if ('bottom' in clamped) {
-    clamped.bottom = Math.max(safeMargin, Math.min(viewport.height - h - safeMargin, clamped.bottom));
-  }
+  if ('left' in clamped) clamped.left = clamp(clamped.left, horizontalMin, horizontalMax);
+  else if ('right' in clamped) clamped.right = clamp(clamped.right, horizontalMin, horizontalMax);
+  if ('top' in clamped) clamped.top = clamp(clamped.top, verticalMin, verticalMax);
+  else if ('bottom' in clamped) clamped.bottom = clamp(clamped.bottom, verticalMin, verticalMax);
 
   return clamped;
 }

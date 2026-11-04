@@ -1274,8 +1274,13 @@ export class GameRuntime {
 
   editTouchLayout(mode) {
     if (!this.touch) this.enableTouch();
-    this.input.releaseInputs(); // editor drag must not keep a live weapon firing
-    this.touch?.setActive(true);
+    // Controller sources and TouchControls' own pointer ownership are two
+    // different state machines. Clear BOTH before the editor can capture
+    // touches, or an old held Bolt/joystick can be reasserted by window events.
+    this.touch?.reset();
+    this.input.releaseInputs();
+    this.input.releaseFocus();
+    this.touch?.setActive(true); // the real controls are the edit preview
     this.touchLayoutEditor?.open(mode);
   }
 

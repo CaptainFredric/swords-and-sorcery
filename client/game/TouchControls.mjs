@@ -663,8 +663,10 @@ export class TouchControls {
           this.buttons.interact.classList.toggle('terminal-locked', Boolean(fb?.terminalDive));
         }
         if (this.buttons.deploy) {
-          const possible=biByeCondition(bl).canDeploy;
-          this.buttons.deploy.hidden=ram||flight||(!possible&&!modeButton.disabled);
+          // Ram and Fight-and-Flight can be mounted when no Ballista exists.
+          // Never dereference a null Ballista merely to hide its Deploy button.
+          const possible=Boolean(ballista&&bl&&biByeCondition(bl).canDeploy);
+          this.buttons.deploy.hidden=!ballista||(!possible&&!modeButton.disabled);
           const label=this.buttons.deploy.querySelector('span');
           if(label&&label.textContent!==modeButton.label)label.textContent=modeButton.label;
           this.buttons.deploy.setAttribute('aria-label',modeButton.disabled?modeButton.label+' in progress':modeButton.label==='MOBILE'?'Pack into mobile configuration':'Deploy heavy siege mode');
