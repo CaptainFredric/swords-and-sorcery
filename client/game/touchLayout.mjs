@@ -292,7 +292,15 @@ function legacyPage(mode,saved,side){
       item.custom===true&&reference?.patch==null?
         placementPatch(item,base[action]):null;
     const patch=reference?.patch??provenance;
-    if(patch)result[action]=mergePlacement(base[action],patch);
+    if(patch){
+      const merged=mergePlacement(base[action],patch);
+      // An older explicitly drawn rectangle had no circular "size" field.
+      // Do not invent one during the one-time legacy migration. On the next
+      // save only the edited rectangle dimensions become V2 overrides.
+      if(item.custom===true&&!has(item,'size')&&finiteField(item,'width')&&
+        finiteField(item,'height'))delete merged.size;
+      result[action]=merged;
+    }
   }
   return result;
 }
