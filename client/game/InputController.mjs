@@ -549,7 +549,9 @@ export class InputController {
   }
 
   siegeSkill() {
-    if(this.enabled&&this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'siegeSkill'});
+    if(this.enabled&&this.allowAction?.('siegeSkill')!==false)
+      this.socket?.send?.({type:'siegeSkill',
+        ...(this.mountedFlight?{yaw:this.yaw,pitch:this.pitch}:{})});
   }
 
   // One discrete mounted Hop packet. Touch Jump and Bolt-to-Jump swipe use
