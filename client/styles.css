@@ -181,7 +181,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 @keyframes pulse-warn { from { opacity: .85; transform: scale(.98); } to { opacity: 1; transform: scale(1.02); } }
 .flight-controls-hint { font-size: 9px; line-height: 1.25; color: #b8b09a; text-align: center; text-shadow: 0 1px 2px #000; }
 .ballista-mounted:not(.flight-mounted) .guard-block,
-.ballista-mounted .abilities { display: none; }
+.ballista-mounted:not(.flight-mounted) .abilities { display: none; }
 .flight-mounted .bottom-hud { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .flight-mounted .guard-block { display: block !important; opacity: 1 !important; position: static; transform: none; width: 250px; margin-top: 6px; }
 .guard-block.flight-persistent { opacity: 1 !important; display: block !important; }
