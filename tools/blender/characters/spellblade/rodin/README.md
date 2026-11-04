@@ -65,19 +65,23 @@ validators, `scripts/test-spellblade-*.py`).
    - Everything else by the bone that carries most of it: `Breastplate`, `Pauldron`, `Gauntlet`, `Greave`, `Boot`.
 
    Weight fixes come with the split:
-   - **Rigid armour** (`rigid.py`). Rodin spread each limb's weights in long gradients (a vambrace a third on the upper
-     arm, a cuirass half on the hips), so plates sheared and stretched like cloth when anything bent. Now each plate
-     rides the bone that carries it, bending only in a band at each joint, where the dark underlayer is: at the waist,
-     chest, elbows, wrists, knees and ankles a plane through the joint, halving the angle between its bones, divides the weight a
-     vertex has on that joint's two sides (bands 5 to 10 cm: Rodin's triangles run to 4 cm, and a narrower band became
-     one hard step). Weight on any other bone is left alone, so the waist never takes an armpit off its arm.
-   - **Pauldrons.** Each pauldron is one plate on a bone of its own (`pauldron.L/R`: its upper arm's rest, on the
-     clavicle) that follows its arm part of the way, as `client/game/pauldronFollow.mjs` turns it in game (0.6, rising
-     to 0.95 for an arm raised overhead); `bake_pauldrons` keys the same into every action after the motion fixes.
-     Rodin had the left plate half on the arm and the right a fifth, so the two moved differently and an arm raised
-     overhead slid out from under its plate. The plate is the shoulder's faces from 12 cm inside the joint down to its
-     rim (where the arm is wholly the arm's: 24 and 20 cm down the arm), easing onto the body's weights over 9 cm at
-     its edge with the collar; both halves of a vertex Rodin split along a UV seam move as one.
+   - **Joints** (`rigid.py`). Each elbow and knee has a cop, a bone with its lower limb's rest on its upper limb that
+     turns half as far as the lower limb (`elbow.L/R`, `knee.L/R`; `pauldronFollow.mjs` turns them in game, and
+     `bake_pauldrons` keys them into every action). The part of a vertex's weight the two limb bones share equally
+     goes to the cop, so a bending joint keeps its depth instead of pinching in: linear skinning averages two bones'
+     transforms, half the turn taken whole does not. Rodin's own gradients stay. Two stronger fixes were measured and
+     dropped: narrowing the gradients toward rigid plates (Rodin's armour has little but plate, so the bends' stretch
+     moved, harder, onto the plates the bands crossed: 10–14 % of plate edges stretched past a quarter across all
+     fifteen actions, against Rodin's 3–7 %), and cutting elbows and knees apart over padding (the least stretch of
+     all, but Rodin's irregular triangles left ragged, torn-looking edges at every cut).
+   - **Pauldrons** (`rigid.py`, `segments.py`). Each pauldron is one plate on a bone of its own (`pauldron.L/R`: its
+     upper arm's rest, on the clavicle) that follows its arm part of the way, as `client/game/pauldronFollow.mjs`
+     turns it in game (0.6, rising to 0.95 for an arm raised overhead). Rodin had the left plate half on the arm and
+     the right a fifth, so the two moved differently and an arm raised overhead slid out from under its plate. The
+     plate is the shoulder's faces from 12 cm inside the joint down to its rim (24 and 20 cm down the arm). Its edge
+     with the collar is cut (an edge split), so it lifts with its arm without dragging the collar, and a dark padded
+     shoulder on the clavicle fills what opens; its rim stays joined to the arm it rides. Both halves of a vertex
+     Rodin split along a UV seam move as one.
    - **The helmet** is wholly the head's, to its very edge (Rodin had its lower half on the chest, so a turned head
      sheared the visor, dragged the collar and shoulders with it, and read as stuck to the neck). Nothing else rides the
      head: the body's head and neck weights go to the chest. It turns over the collar on its own, up to 47 degrees in

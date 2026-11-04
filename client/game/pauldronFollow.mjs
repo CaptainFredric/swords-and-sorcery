@@ -13,3 +13,11 @@ export function pauldronFollow(turn) {
   const t = Math.max(0, Math.min(1, (turn - PAULDRON_RAISE[0]) / (PAULDRON_RAISE[1] - PAULDRON_RAISE[0])));
   return PAULDRON_FOLLOW + (PAULDRON_RAISED_FOLLOW - PAULDRON_FOLLOW) * t * t * (3 - 2 * t);
 }
+
+// Each elbow's and knee's cop (the model's elbow and knee bones, tools/blender/characters/spellblade/rodin/rigid.py and
+// segments.py): its limb's rest on its parent, turned half as far as the limb, carrying the couter or poleyn plate
+// between the plates either side, and the padding under the cuts between them.
+export const COP_SHARE = 0.5;
+export const COPS = Object.freeze([
+  ['elbowL', 'forearmL'], ['elbowR', 'forearmR'], ['kneeL', 'shinL'], ['kneeR', 'shinR'],
+].map(Object.freeze));

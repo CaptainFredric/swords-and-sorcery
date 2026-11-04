@@ -33,6 +33,11 @@ import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
+ROOT = Path(__file__).resolve().parents[5]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from tools.blender.characters.spellblade.rodin.rigid import bake_pauldrons  # noqa: E402
+
 ARM_BONES = ("upper_arm", "forearm", "hand")
 FINGER_BONES = ("finger", "thumb")    # the gauntlets' finger bones (hands.py: finger_<name>_<n>, thumb_<n>), carried as their hand
 
@@ -242,6 +247,14 @@ def main() -> None:
         bone.parent = rig.data.edit_bones[finger["parent"]]
         bone.use_connect = finger["connect"]
         bone.use_deform = True
+    # each elbow's cop (rigid.py): the forearm's rest on the upper arm, its vertices carried as the forearm's
+    for side in "LR":
+        forearm = rig.data.edit_bones[f"forearm.{side}"]
+        cop = rig.data.edit_bones.new(f"elbow.{side}")
+        cop.head, cop.tail, cop.roll = forearm.head.copy(), forearm.tail.copy(), forearm.roll
+        cop.parent = rig.data.edit_bones[f"upper_arm.{side}"]
+        cop.use_deform = True
+        carries[f"elbow.{side}"] = carries[f"forearm.{side}"]
     bpy.ops.object.mode_set(mode="OBJECT")
     report_fingers = sorted(f["name"] for f in fingers)
     with bpy.data.libraries.load(str(args.third_person), link=False) as (source, target):
@@ -262,7 +275,7 @@ def main() -> None:
             w: dict[str, float] = {}
             for g in vertex.groups:
                 bone = groups[g.group]
-                if bone.split(".")[0] not in ARM_BONES and not _finger(bone):   # shoulder and chest: the upper arm
+                if bone.split(".")[0] not in ARM_BONES + ("elbow",) and not _finger(bone):   # shoulder, chest: upper arm
                     bone = f"upper_arm.{side}"
                 w[bone] = w.get(bone, 0.0) + g.weight
             total = sum(w.values()) or 1.0
@@ -303,6 +316,8 @@ def main() -> None:
     for image in [i for i in bpy.data.images if i.name in ("KitMetalWear", "KitMatteWear") and i.users == 0]:
         bpy.data.images.remove(image)
     report["offHand"] = clear_off_hand(rig)
+    # (the elbows' cops keyed into every first-person action as the runtime turns them: half way with the forearm)
+    report["copKeys"] = bake_pauldrons(rig)
     rig.animation_data.action = bpy.data.actions["Idle"]
     bpy.context.scene.frame_set(1)
     args.out.parent.mkdir(parents=True, exist_ok=True)
