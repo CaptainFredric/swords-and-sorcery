@@ -529,6 +529,9 @@ export class InputController {
   }
 
   dash() {
+    // On SO-FIST-ICATION the same key is a held hydraulic lift control,
+    // not a personal instant Dash.
+    if(this.mountedRam)return;
     if (!this.enabled || this.allowAction?.('dash') === false) return;
     const dir = this.dashDirection();
     this.socket.dash(dir);
@@ -619,6 +622,8 @@ export class InputController {
       // Only forward live, mounted, authorized touch input to the authoritative host.
       flightRise: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightRise),
       flightLower: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightLower),
+      ramRaise: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+        (moving('dash')||touch?.jump||touch?.flightRise)),
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the

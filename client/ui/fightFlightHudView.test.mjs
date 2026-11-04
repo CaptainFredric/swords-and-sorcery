@@ -47,3 +47,16 @@ test('Mounted Flight preserves the desktop E ability tile while other siege mach
    'Siege Skill cards retain their names and descriptions without oversized icons');
  assert.match(siege,/data-siege-skill/);
 });
+
+test('Narrow HUD calls out mechanical traverse and target loss instead of blaming the camera FOV',()=>{
+ const p={id:'pilot',alive:true,operatingFightFlightId:'f',siegeLoadout:{fightFlight:'narrowToOne'}};
+ const m={id:'f',grounded:false,health:250,rotorHP:90,flightCharge:80,
+   skill:{id:'narrowToOne',phase:'active',targetId:'enemy',trackingState:'outOfTraverse'}};
+ const out=fightFlightHudView(p,{fightFlight:m},1);
+ assert.equal(out.skillText,'OUT OF ARC');
+ assert.match(out.warning,/TURN MACHINE/);
+ m.skill.trackingState='sightLost';
+ assert.match(fightFlightHudView(p,{fightFlight:m},1).warning,/FIRE PAUSED/);
+ m.skill.trackingState='locked';
+ assert.equal(fightFlightHudView(p,{fightFlight:m},1).skillText,'TARGET LOCKED');
+});

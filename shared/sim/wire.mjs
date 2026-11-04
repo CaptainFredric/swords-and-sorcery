@@ -366,6 +366,7 @@ export function applyRoomCommand(room, player, message, time) {
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
         sprint: Boolean(message.sprint),
         crouch: Boolean(message.crouch),
+        ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
         attack: Boolean(message.attack),
