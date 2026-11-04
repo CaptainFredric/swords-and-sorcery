@@ -711,6 +711,7 @@ test('UPPER-focus coupled control sends one camera ray, not the primed combined 
 
 test('ram E/C lift the upper frame; RMB changes only their intent to pitch and never Guards',()=>{
  const {input,down,up,calls}=setup();
+ input.socket.dash=()=>calls.push(['dash']);
  input.mountedRam=true;
  down('KeyE');
  assert.equal(input.movement().ramRaise,true);
@@ -726,7 +727,8 @@ test('ram E/C lift the upper frame; RMB changes only their intent to pitch and n
  assert.equal(input.movement().ramRaise,false);
  assert.equal(input.movement().ramPitchUp,true);
  assert.equal(input.movement().guard,false);
- assert.equal(calls.some(x=>x[0]==='guard'),false);
+ assert.equal(calls.some(x=>x[0]==='guard'||x[0]==='dash'),false,
+   'ram hydraulic Raise must not also send Guard or ordinary Dash');
  up('KeyE');
  down('KeyC');
  assert.equal(input.movement().crouch,false);
