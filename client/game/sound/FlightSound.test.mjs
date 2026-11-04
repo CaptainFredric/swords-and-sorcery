@@ -103,7 +103,7 @@ test('terminal Valkyrie dive sequence produces prep, commit, and detonation soun
 
 test('all flight sound recipes and sample buffers produce valid finite waveforms', () => {
   const tags = [
-    'boltRelease', 'impactPlayer', 'impactGuard', 'impactParry', 'impactBrace',
+    'targetLock', 'boltRelease', 'impactPlayer', 'impactGuard', 'impactParry', 'impactBrace',
     'impactRotor', 'impactWall', 'impactGround', 'impactSiege', 'takeoff',
     'landingLight', 'landingHeavy', 'rotorCollision', 'rotorFailure',
     'braceDestroyed', 'offensiveRun', 'valkyriePrep', 'valkyrieCommit', 'valkyrieExplosion'
@@ -244,4 +244,17 @@ test('Dash sound sequence: onset whoosh, sustained light propeller flutter with 
   // 5. Dismount: stops all flight loops cleanly
   sound.update({ ...m, operatorId: null }, { active: false, listener: m.position, yaw: 0, now: 2.5 });
   assert.equal(sound.loops.size, 0, 'all loops stopped on dismount');
+});
+
+test('Narrow to One acquisition makes one crisp mechanical click, not a bolt discharge',()=>{
+ const {audio,heard}=setup();
+ audio.update(machine,opt);
+ const event={type:'fightFlightTargetLock',machineId:machine.id,operatorId:'pilot',targetId:'enemy',at:1};
+ audio.event(event,machine,1);
+ audio.event(event,machine,1);
+ const clicks=heard.filter(x=>x.recipe?.tag==='targetLock');
+ assert.equal(clicks.length,1,'server lock event is deduplicated');
+ assert.equal(heard.some(x=>x.recipe?.tag==='boltRelease'),false);
+ assert.ok(clicks[0].recipe.layers.some(x=>x.type==='noise'&&x.decay<.03));
+ assert.ok(clicks[0].recipe.layers.some(x=>x.type==='tone'));
 });

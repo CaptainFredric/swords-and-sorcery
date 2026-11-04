@@ -65,7 +65,7 @@ test('Airborne lock remains exclusive, real landing permits intentional reselect
  enemy.position={x:0,y:0,z:25};
  stepFightFlightSkill(room,m,1.2);
  assert.equal(m.skill.targetId,enemy.id);
- assert.equal(m.skill.trackingState,'sightLost','rearward target leaves the camera field of view');
+ assert.equal(m.skill.trackingState,'outOfTraverse','rearward target exceeds the physical crossbow arc');
  m.grounded=true;stepFightFlightSkill(room,m,1.3);
  assert.equal(m.skill.targetId,enemy.id,'landing does not silently choose another enemy');
  assert.ok(requestFightFlightSkill(room,m,pilot,1.4),'ground-skim attempt cannot retarget instantly');
@@ -73,17 +73,23 @@ test('Airborne lock remains exclusive, real landing permits intentional reselect
  assert.equal(requestFightFlightSkill(room,m,pilot,1.8),null);
  assert.equal(m.skill.targetId,other.id,'manual press selects the reticle enemy after stable landing');
 });
-test('Firing at a locked target that has moved completely out of sight terminates the Skill',()=>{
+test('A fully occluded locked target pauses held Fire and resumes automatically when cover clears',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
  assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
  room.world.solids.push({id:'occluder',center:[0,2,-10],size:[12,6,1]});
  stepFightFlightSkill(room,m,1.1);
  assert.equal(m.skill.trackingState,'sightLost');
+ const ammo=m.ammo;
  assert.equal(requestFightFlightFire(room,m,pilot,true,1.2),true);
- assert.equal(m.shotSeq,1,'an out-of-view press fires a real manually aimed bolt');
- assert.equal(m.skill.phase,'idle');
- assert.equal(m.skill.readyAt,25.2,'cooldown starts from actual termination');
- assert.equal(room.events.at(-1).action,'sightLost');
+ assert.equal(m.shotSeq,0,'no manually aimed waste shot at cover');
+ assert.equal(m.ammo,ammo);
+ assert.equal(m.skill.phase,'active');
+ assert.equal(m.skill.targetId,enemy.id);
+ room.world.solids.length=0;
+ stepFightFlightWeapons(room,m,1/30,1.4);
+ assert.equal(m.shotSeq,1,'held trigger resumes once a real path opens');
+ assert.equal(m.skill.trackingState,'locked');
+ assert.equal(m.skill.targetId,enemy.id);
 });
 test('Guard and cover never become fictional damage: only real exposed regions qualify',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
@@ -121,19 +127,27 @@ test('Visor can see over a parapet even when the lower crossbow muzzle has NO CL
  assert.equal(m.skill.targetId,enemy.id,'the enemy head is visible over cover');
  assert.equal(m.skill.trackingState,'noClearShot','the weapon does not fire through the wall');
  requestFightFlightFire(room,m,pilot,true,1.1);
- assert.equal(m.shotSeq,1,'no feasible opening falls back to a real forward shot');
+ assert.equal(m.shotSeq,0,'covered target never produces a false forward shot or consumes ammo');
  assert.equal(m.skill.phase,'active','being visible behind cover does not cancel the lock');
 });
-test('Narrow never tracks behind the camera; normal firing exits the skill',()=>{
+test('A target outside crossbow traverse holds lock but does not fire until it returns inside the arc',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
  requestFightFlightSkill(room,m,pilot,1);
  enemy.position={x:40,y:0,z:-2};
  stepFightFlightSkill(room,m,1.1);
  assert.equal(m.skill.targetId,enemy.id);
- assert.equal(m.skill.trackingState,'sightLost');
+ assert.equal(m.skill.trackingState,'outOfTraverse');
+ assert.equal(m.skill.targetInTraverse,false);
+ const ammo=m.ammo;
  requestFightFlightFire(room,m,pilot,true,1.2);
- assert.equal(m.shotSeq,1);
- assert.equal(m.skill.phase,'idle');
+ assert.equal(m.shotSeq,0);
+ assert.equal(m.ammo,ammo);
+ assert.equal(m.skill.phase,'active');
+ enemy.position={x:0,y:0,z:-20};
+ stepFightFlightWeapons(room,m,1/30,1.4);
+ assert.equal(m.skill.trackingState,'locked');
+ assert.equal(m.shotSeq,1,'held Fire automatically resumes when joint angles are valid');
+ assert.equal(m.skill.targetId,enemy.id,'the original exclusive target survives');
 });
 test('Ascension consumes only ordinary Rise charge for Dash while keeping prowess intact',()=>{
  const {room,m,pilot}=setup('doNotStopMyAscension');
@@ -235,4 +249,42 @@ test('Visible target with predictive lateral movement leads physical, non-homing
  assert.ok(bullet.velocity.x>0,'physical launch leads the moving Spellblade');
  assert.ok(bullet.velocity.z<0);
  assert.equal(bullet.position.x!==undefined,true);
+});
+
+test('Narrow target remains physically locked and fires repeatedly when third-person camera turns away',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
+ const original=m.skill.targetId;
+ const locks=room.events.filter(e=>e.type==='fightFlightTargetLock');
+ assert.equal(locks.length,1,'acquisition produces one explicit lock event');
+ assert.equal(locks[0].targetId,enemy.id);
+ assert.equal(locks[0].operatorId,pilot.id);
+ // Simulates orbiting the third-person camera away from the enemy while
+ // the machine and gimbal still physically face the target.
+ pilot.input.yaw=2.2;
+ pilot.input.pitch=.4;
+ const tracking=updateNarrowTracking(room,m,pilot,1.1);
+ assert.equal(tracking.targetId,original);
+ assert.equal(m.skill.trackingState,'locked','the camera FOV cannot drop a valid gimbal lock');
+ requestFightFlightFire(room,m,pilot,true,1.2);
+ for(let i=1;i<=12;i++)stepFightFlightWeapons(room,m,1/30,1.2+i/30);
+ assert.ok(m.shotSeq>=3,'held Fire produces successive tracked bolts despite off-target reticle');
+ assert.equal(m.skill.phase,'active');
+ assert.equal(m.skill.targetId,original);
+ assert.equal(room.events.filter(e=>e.type==='fightFlightTargetLock').length,1,'no ghost target switches');
+ for(const projectile of room.fightFlightProjectiles.values())
+   assert.ok(Math.abs(projectile.velocity.x)<9&&projectile.velocity.z<0,
+     'real bolts aim toward selected Spellblade, not the displaced camera reticle');
+});
+
+test('Ordinary camera movement during repeated fire never retargets a nearer opponent',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ requestFightFlightSkill(room,m,pilot,1);
+ const offAxis=foe(room,'off-axis',4,-8);
+ pilot.input.yaw=.45;
+ requestFightFlightFire(room,m,pilot,true,1.2);
+ for(let i=1;i<=8;i++)stepFightFlightWeapons(room,m,1/30,1.2+i/30);
+ assert.equal(m.skill.targetId,enemy.id);
+ assert.notEqual(m.skill.targetId,offAxis.id);
+ assert.ok(m.shotSeq>=2);
 });
