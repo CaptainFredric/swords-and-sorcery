@@ -4,7 +4,7 @@ import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
-import {ascensionValkyrieReady} from '../../shared/sim/fightFlightSkill.mjs';
+import {ascensionValkyrieReady} from '../../shared/src/flightTerminalPolicy.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';

@@ -4,7 +4,8 @@ import {PROWESS} from '../src/prowess.mjs';
 import {activeUltimate} from '../src/ultimates.mjs';
 import {tryDash} from './combat.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
-import {fightFlightSkillActive,ASCENSION,ascensionValkyrieReady} from './fightFlightSkill.mjs';
+import {fightFlightSkillActive,ASCENSION} from './fightFlightSkill.mjs';
+import {ascensionValkyrieReady} from '../src/flightTerminalPolicy.mjs';
 import {FIGHT_FLIGHT} from './fightFlight.mjs';
 export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,

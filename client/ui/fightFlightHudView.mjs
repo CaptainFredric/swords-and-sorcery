@@ -1,6 +1,6 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {SIEGE_SKILL_NAMES} from '../../shared/src/siegeLoadout.mjs';
-import {ascensionValkyrieReady} from '../../shared/sim/fightFlightSkill.mjs';
+import {ascensionValkyrieReady} from '../../shared/src/flightTerminalPolicy.mjs';
 // Fight-and-Flight Gate A: authoritative resources, airborne posture and real control hints.
 const key=(bindings,action,fallback)=>[...new Set((bindings?.[action]??[])
   .map(code=>code.replace(/^Key/,'').replace(/Left$|Right$/g,'').replace(/^Space$/,'SPACE')))].join('/')||fallback;

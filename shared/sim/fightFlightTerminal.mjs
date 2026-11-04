@@ -1,7 +1,7 @@
 // Terminal Valkyrie Dive: active Ascension + ready Chivalry + held Dash/Ultimate.
 // Actual moving machine, one expenditure per lifecycle, one outcome at real impact.
 // Both input state and destruction are authoritative; no client damage or teleports.
-import {ascensionValkyrieReady} from './fightFlightSkill.mjs';
+import {ascensionValkyrieReady} from '../src/flightTerminalPolicy.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';

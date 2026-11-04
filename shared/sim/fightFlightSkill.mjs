@@ -1,7 +1,6 @@
 // Authoritative machine Skill state. Equipment is personal; cooldowns,
 // actual repeater debt and shared resources stay with Fight-and-Flight.
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
-import {PROWESS} from '../src/prowess.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 export const FIRE_AWAY=Object.freeze({
   id:'fireAwayImRightHere',name:"Fire Away? I'm Right Here.",duration:3.5,cooldown:24,
@@ -14,16 +13,6 @@ export function fightFlightSkillActive(m,now,id=FIRE_AWAY.id){
   if(!m||m.retired||m.mode==='DESTROYED'||m.skill?.phase!=='active'||
     (m.skill.id??FIRE_AWAY.id)!==id)return false;
   return m.skill.activeUntil==null||now+1e-8<m.skill.activeUntil;
-}
-// The terminal Valkyrie sacrifice belongs to Ascension ONLY: it is not a
-// hidden bonus of Fire Away or Narrow to One. Require the live, activated Skill
-// and intact rotor at every hold tick; no meter/one-use opportunity is spent
-// until the complete one-second chord commits.
-export function ascensionValkyrieReady(m,p,now){
- return Boolean(m&&!m.retired&&m.health>0&&!m.terminalDive&&!m.terminalDiveSpent&&
-   m.rotorHP>0&&m.flightCharge>0&&p?.alive&&p.ultimate==='chivalry'&&
-   !p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
-   fightFlightSkillActive(m,now,ASCENSION.id));
 }
 export function requestFightFlightSkill(room,m,p,now){
   const chosen=equippedFightFlightSkill(p);
