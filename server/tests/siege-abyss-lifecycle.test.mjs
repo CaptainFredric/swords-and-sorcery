@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {lostSiegeMachines,siegeAbyssLimit} from '../../shared/sim/siegeAbyss.mjs';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {killPlayer} from '../../shared/sim/combat.mjs';
+import {killPlayer,stepRoom} from '../../shared/sim/combat.mjs';
 import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {practiceFightFlight} from '../../shared/sim/practiceFightFlight.mjs';
 import {practiceSiegeCommand} from '../../shared/sim/practiceSiege.mjs';
@@ -106,4 +106,13 @@ test('builder ownerId is serialized separately from temporary operator for every
       type==='bi-bye-llista'?wire.bibyeBallista:wire.soFistication;
     assert.equal(replica.ownerId,'builder','owner survives network serialization for '+type);
   }
+});
+
+test('actual fixed-step combat tick removes a machine crossing abyssY without manually invoking cleanup',()=>{
+  const r=room(),m=createFightFlight({id:'fixed-step-abyss',x:0,y:-13,z:-18});
+  r.fightFlight=m;r.fightFlightRevision=5;
+  stepRoom(r,1/30,3,r.world);
+  assert.equal(r.fightFlight,null,'authoritative combat tick releases unreachable instance');
+  assert.equal(r.fightFlightRevision,6);
+  assert.ok(r.events.some(e=>e.type==='fightFlightDestroyed'&&e.machineId==='fixed-step-abyss'));
 });
