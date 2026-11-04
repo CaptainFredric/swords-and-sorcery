@@ -211,7 +211,8 @@ try{
      y:m?.y,grounded:m?.grounded,run:m?.offensiveRun,
      phase:m?.runGroundPhase,runPitch:m?.runPitch,fov:c.fov,
      matrix:c.projectionMatrix.elements.slice(),view:r.siegeView,
-     input:r.input.enabled,recoveries:r.frameRecoveryCount??0};
+     input:r.input.enabled,lookYaw:r.input.yaw,cameraYaw:c.rotation.y,
+     recoveries:r.frameRecoveryCount??0};
  })()`;
  for(let cycle=0;cycle<3;cycle++){
    await evaluate("document.querySelector('#practice-ultimate').click()");
@@ -236,14 +237,23 @@ try{
    await up('E');
    await until(()=>evaluate("!window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun"),
      'repeat '+cycle+' returns to ordinary flight',120);
-   await sleep(380);
+   await sleep(750); // allow the boom to finish returning to the visor
    const afterCamera=await evaluate(cameraProbe);
    assert.ok(afterCamera.frame>active1.frame+5,
      'render loop stays alive through Dash exit and cockpit return');
    assert.ok(afterCamera.position[1]>afterCamera.y+1.05,
      'return to cockpit after repeat '+cycle+' must remain above the chassis floor');
    assert.ok(afterCamera.position.every(Number.isFinite)&&afterCamera.matrix.every(Number.isFinite));
-   repeatCamera.push({cycle,beforeCamera,active0,active1,afterCamera});
+   // The camera must respond to fresh look input after EVERY second/third
+   // activation, not merely change world position while retaining a frozen
+   // quaternion.
+   await evaluate("window.__ssRuntime.input.yaw+=.22");
+   await sleep(140);
+   const looked=await evaluate(cameraProbe);
+   assert.ok(Math.abs(Math.atan2(Math.sin(looked.cameraYaw-afterCamera.cameraYaw),
+     Math.cos(looked.cameraYaw-afterCamera.cameraYaw)))>.16,
+     'look input remains responsive after Valkyrie cycle '+cycle);
+   repeatCamera.push({cycle,beforeCamera,active0,active1,afterCamera,looked});
    await screenshot('07-repeated-valkyrie-'+cycle+'-healthy-camera');
  }
  // Deliberately inject a recoverable invalid cockpit spring to verify that
