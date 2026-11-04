@@ -567,10 +567,14 @@ export class TouchControls {
       this.layer.classList.toggle('airborne', airborne);
       if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
       if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
-      this.buttons.jump.querySelector('span').textContent=ram?'RAISE':'JUMP';
-      this.buttons.crouch.querySelector('span').textContent=ram?'LOWER':'CROUCH';
-      this.buttons.jump.setAttribute('aria-label',ram?'Hold to raise ram; swipe up while held to tilt front upward':'Jump');
-      this.buttons.crouch.setAttribute('aria-label',ram?'Hold to lower ram; swipe down while held to tilt front downward':'Crouch');
+      const frontUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='jump');
+      const frontDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='crouch');
+      this.buttons.jump.querySelector('span').textContent=ram?(frontUp?'FRONT UP':'RAISE'):'JUMP';
+      this.buttons.crouch.querySelector('span').textContent=ram?(frontDown?'FRONT DOWN':'LOWER'):'CROUCH';
+      this.buttons.jump.setAttribute('aria-label',frontUp?'Tilting the ram front upward':
+        ram?'Hold to raise ram; swipe up while held to tilt front upward':'Jump');
+      this.buttons.crouch.setAttribute('aria-label',frontDown?'Tilting the ram front downward':
+        ram?'Hold to lower ram; swipe down while held to tilt front downward':'Crouch');
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       // After mount transitions (which reset held controls), paint the real
