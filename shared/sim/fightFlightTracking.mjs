@@ -13,7 +13,6 @@ import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim,flightTra
 const MAX_RANGE=FLIGHT_REPEATER.speed*FLIGHT_REPEATER.lifespan;
 const RETARGET_LANDING_SEC=.45;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const angle=d=>Math.atan2(Math.sin(d),Math.cos(d));
 const rayPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
 const cylinder=(p,at=p.position)=>({x:at.x,y:at.y-FLIGHT_REPEATER.radius,z:at.z,
   radius:.45+FLIGHT_REPEATER.radius,height:postureOf(p).height+2*FLIGHT_REPEATER.radius});
@@ -47,18 +46,6 @@ function aimFrame(operator,aim=null){
     fov:clamp(Number.isFinite(input.viewFov)?input.viewFov:78,50,110)*Math.PI/180,
     aspect:clamp(Number.isFinite(input.viewAspect)?input.viewAspect:16/9,.65,2.8)};
 }
-function inView(source,point,frame){
-  const dx=point.x-source.x,dy=point.y-source.y,dz=point.z-source.z;
-  const yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(dy,Math.hypot(dx,dz));
-  const halfVertical=frame.fov/2,halfHorizontal=Math.atan(Math.tan(halfVertical)*frame.aspect);
-  return Math.abs(angle(yaw-frame.yaw))<=halfHorizontal+.015&&
-    Math.abs(pitch-frame.pitch)<=halfVertical+.015;
-}
-export function narrowTargetInFov(m,operator,target){
-  if(!target?.alive||!target.position)return false;
-  const source=visor(m),frame=aimFrame(operator);
-  return bodyPoints(target).some(point=>inView(source,point,frame));
-}
 export function narrowTargetVisible(room,m,target,solids=obstacles(room)){
   if(!target?.alive||!target.position)return false;
   const start=visor(m);
@@ -88,7 +75,7 @@ export function narrowAcquireTarget(room,m,operator,now,aim=null){
   if(!selected)return null;
   skill.targetId=selected.id;skill.lockedOnce=true;skill.retargetReadyAt=Infinity;
   skill.wasGrounded=Boolean(m.grounded);
-  room.events.push({type:'fightFlightTargetLock',machineId:m.id,targetId:selected.id,at:now});
+  room.events.push({type:'fightFlightTargetLock',machineId:m.id,operatorId:operator.id,targetId:selected.id,at:now});
   updateNarrowTracking(room,m,operator,now);
   return selected.id;
 }
@@ -145,11 +132,19 @@ export function updateNarrowTracking(room,m,operator,now){
   if(skill.targetId&&(!target?.alive||target.connected===false))
     return {invalid:true,reason:'targetLost'};
   const solids=obstacles(room);
-  const inFov=target?narrowTargetInFov(m,operator,target):false;
-  const visible=target&&inFov?narrowTargetVisible(room,m,target,solids):false;
-  const aim=visible?exposedShot(room,m,operator,target,now,solids):null;
-  skill.targetVisible=Boolean(visible);
-  skill.noClearShot=Boolean(target&&visible&&!aim);
-  skill.trackingState=!target?'acquiring':!inFov||!visible?'sightLost':!aim?'noClearShot':'locked';
-  return {targetId:target?.id??null,visible:Boolean(visible),aim};
+  // Camera aim selects a target only at Skill activation. Once locked, actual
+  // crossbow traverse/elevation and physical visibility control tracking.
+  // This deliberately works in third-person when the camera looks elsewhere.
+  const visible=Boolean(target&&narrowTargetVisible(room,m,target,solids));
+  const predicted=target?predictedPosition(m,target):null;
+  const distance=target?Math.hypot(target.position.x-m.x,target.position.y-m.y,target.position.z-m.z):Infinity;
+  const inTraverse=Boolean(visible&&distance<=MAX_RANGE&&
+    bodyPoints(target,predicted).some(point=>!flightRepeaterAim(m,{siegeTarget:point}).limited));
+  const aim=inTraverse?exposedShot(room,m,operator,target,now,solids):null;
+  skill.targetVisible=visible;
+  skill.targetInTraverse=inTraverse;
+  skill.noClearShot=Boolean(target&&inTraverse&&!aim);
+  skill.trackingState=!target?'acquiring':!visible?'sightLost':!inTraverse?'outOfTraverse':
+    !aim?'noClearShot':'locked';
+  return {targetId:target?.id??null,visible,inTraverse,aim};
 }
