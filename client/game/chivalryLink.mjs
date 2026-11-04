@@ -50,7 +50,13 @@ export function createChivalryLink(root, sockets, options = {}) {
       hands.sorcery.getWorldPosition(_b); root.worldToLocal(_b);
       const collapse = state.active ? 0 : 1 - state.opacity;
       const pulse = 0.86 + 0.14 * Math.sin(now * 9);
-      const overlap = Number(concurrent.attack) + Number(concurrent.guard) + Number(concurrent.cast) + Number(concurrent.dash);
+      // Mounted, recovering and terminal-dive poses legitimately disable the
+      // ordinary action layers by passing concurrent:null. Keep Chivalry's
+      // lingering commit tell alive without allowing that animation transition
+      // to throw and abort the entire WebGL frame.
+      const actions = concurrent ?? {};
+      const overlap = Number(Boolean(actions.attack)) + Number(Boolean(actions.guard)) +
+        Number(Boolean(actions.cast)) + Number(Boolean(actions.dash));
       gold.opacity = state.opacity * pulse * style.opacity;
       cyan.opacity = state.opacity * (overlap > 1 ? 0.95 : 0.7) * style.opacity;
       const age = now - (state.committedAt ?? now);
