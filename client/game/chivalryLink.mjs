@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 
 import { CHIVALRY_SIGNATURES, CHIVALRY_END_SEC, chivalryTellState, chivalryTellStyle } from './chivalryPresentation.mjs';
+import {chivalryActionOverlap} from './chivalryLinkState.mjs';
 
 const _b = new THREE.Vector3();
 
@@ -50,13 +51,9 @@ export function createChivalryLink(root, sockets, options = {}) {
       hands.sorcery.getWorldPosition(_b); root.worldToLocal(_b);
       const collapse = state.active ? 0 : 1 - state.opacity;
       const pulse = 0.86 + 0.14 * Math.sin(now * 9);
-      // Mounted, recovering and terminal-dive poses legitimately disable the
-      // ordinary action layers by passing concurrent:null. Keep Chivalry's
-      // lingering commit tell alive without allowing that animation transition
-      // to throw and abort the entire WebGL frame.
-      const actions = concurrent ?? {};
-      const overlap = Number(Boolean(actions.attack)) + Number(Boolean(actions.guard)) +
-        Number(Boolean(actions.cast)) + Number(Boolean(actions.dash));
+      // Mounted, recovering and terminal-dive poses pass concurrent:null.
+      // Their retained Chivalry tell must not abort the entire render frame.
+      const overlap = chivalryActionOverlap(concurrent);
       gold.opacity = state.opacity * pulse * style.opacity;
       cyan.opacity = state.opacity * (overlap > 1 ? 0.95 : 0.7) * style.opacity;
       const age = now - (state.committedAt ?? now);
