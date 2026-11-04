@@ -130,7 +130,7 @@ export const GESTURES = Object.freeze({
   look: Object.freeze({ seconds: 2.2, needs: ['head'], likes: ['torso'] }),
   glance: Object.freeze({ seconds: 1.9, needs: ['head'], likes: [] }),
   yawn: Object.freeze({ seconds: 2.7, needs: ['armL'], likes: ['head', 'torso'], when: (c) => !c.sprinting && !c.airborne }),
-  frustration: Object.freeze({ seconds: 2.9, needs: ['armR'], likes: ['head'],
+  frustration: Object.freeze({ seconds: 2.9, needs: ['armR'], likes: ['head', 'torso'],
     // (more likely while the machine makes him wait)
     bias: (c) => (c.machineReloading ? 3 : 1) }),
   shade: Object.freeze({ seconds: 3.2, needs: ['armL'], likes: ['head'] }),
@@ -138,7 +138,7 @@ export const GESTURES = Object.freeze({
   // reactions (never drawn: an event starts them)
   nod: Object.freeze({ seconds: 1.0, needs: ['head'], likes: ['torso'], reaction: true }),
   appraise: Object.freeze({ seconds: 2.7, needs: ['head'], likes: ['torso'], reaction: true }),
-  thump: Object.freeze({ seconds: 1.2, needs: ['armR'], likes: ['head'], reaction: true }),
+  thump: Object.freeze({ seconds: 1.2, needs: ['armR'], likes: ['head', 'torso'], reaction: true }),
 });
 
 /** The chance that a slot holds a gesture. */
@@ -223,6 +223,13 @@ export function envelope(age, seconds, rise = 0.35, fall = 0.4) {
 }
 // a hump from 0 up to 1 and back over [a, b]
 const hump = (t, a, b) => (t > a && t < b ? Math.sin(((t - a) / (b - a)) * Math.PI) : 0);
+// the trunk leaning into a right-handed blow: forward `pitch` and over to the right `roll` degrees at full `reach`, a
+// third more of it as the blow lands (`down` 0..1)
+function lean(turns, reach, down, pitch, roll) {
+  const k = reach * (0.75 + 0.25 * Math.max(0, Math.min(1, down)));
+  turns.push({ bone: 'spine', axis: [1, 0, 0], angle: -pitch * 0.55 * DEG * k }, { bone: 'chest', axis: [1, 0, 0], angle: -pitch * 0.45 * DEG * k });
+  turns.push({ bone: 'spine', axis: [0, 0, 1], angle: -roll * 0.6 * DEG * k }, { bone: 'chest', axis: [0, 0, 1], angle: -roll * 0.4 * DEG * k });
+}
 
 /**
  * The ram's thump: when its two blows land, from the strike's start (seconds). The second meets the piston's release
@@ -326,6 +333,9 @@ export function gesturePose(g) {
       const t = age;
       const reach = smooth((t - 0.75) / 0.35) * (1 - smooth((t - 2.25) / 0.4));
       const lift = 0.28 * (hump(t, 0.95, 1.4) + hump(t, 1.4, 1.85)) + 0.16 * smooth((t - 0.75) / 0.2) * (1 - smooth((t - 0.95) / 0.1));
+      // (his weight goes into it: the trunk leans forward and over to the fist's side, the more as each blow lands, so
+      // a seated knight reaches the casing below him with a bent arm, not a locked one)
+      lean(turns, reach, 1 - lift / 0.28, 9, 6);
       return { turns, strike: { side: 'R', reach, lift }, weight: w };
     }
     case 'thump': {
@@ -338,6 +348,7 @@ export function gesturePose(g) {
       const down = smooth((t - (b1 - 0.35)) / 0.2) * (1 - smooth((t - b2) / 0.15));
       const after = smooth((t - b2) / 0.15) * (1 - smooth((t - (b2 + 0.35)) / 0.3));
       head(-20 * DEG * down + 8 * DEG * after, 0);
+      lean(turns, reach, 1 - Math.min(1, lift / 0.3), 4, 3);
       return { turns, strike: { side: 'R', reach, lift }, weight: envelope(age, seconds, 0.12, 0.3) };
     }
     case 'lsit': {

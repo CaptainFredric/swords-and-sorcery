@@ -53,8 +53,8 @@ const _m = new THREE.Matrix4();
 const _rootInv = new THREE.Matrix4();
 const _rootQuatInv = new THREE.Quaternion();
 const _bq = new THREE.Quaternion();
-// a hammer fist on a casing: the wrist this far above the surface it lands on (metres; the gauntlet, aimed down and
-// forward, reaches 18 cm below its wrist: measured in game, its lowest plate on the ram's console top)
+// a hammer fist on a casing: the wrist's first goal this far above the surface (metres; about how far the gauntlet
+// reaches below its wrist, aimed down and forward); the fist's own lowest plate then sets it exactly (#fistLowest)
 const STRIKE_HEEL = 0.185;
 
 function clampActionTime(action, time, loop) {
@@ -246,10 +246,64 @@ export class SpellbladeAnimator {
         const rollNow = api.direction(chain.grip, chain.roll);
         const hammer = { aim: [0, -0.55, -0.83], roll: [side === 'R' ? -1 : 1, 0, 0] };
         const mix = (a, b) => unit(a.map((v, i) => v + (b[i] - v) * reach));
-        solveArm(api, chain, { wrist: goal, aim: mix(aimNow, hammer.aim), roll: mix(rollNow, hammer.roll) }, w);
+        const target = { wrist: goal, aim: mix(aimNow, hammer.aim), roll: mix(rollNow, hammer.roll) };
+        solveArm(api, chain, target, w);
+        // then the fist's own lowest plate put on the casing (lift above it), whatever angle the arm meets it at: the
+        // wrist's goal moved by what is left, and solved again (only near full weight, where the blow lands)
+        if (w > 0.98 && reach > 0.5) {
+          const low = this.#fistLowest(side);
+          if (low !== null) {
+            const short = (onto[1] + lift * reach) - low;
+            if (Math.abs(short) > 0.002) solveArm(api, chain, { ...target, wrist: goal.map((v, i) => (i === 1 ? v + short * reach : v)) }, 1);
+          }
+        }
       }
     }
     this.#followPauldrons();
+  }
+
+  // the lowest point of a fist (root space y), from its gauntlet's own surface: the hand's and fingers' plates, and the
+  // cuff on the forearm just behind them (in a downward blow its rim can be lowest), each read once into its own bone's
+  // frame (the fist they are in when first asked) and carried with that bone from then on
+  #fistLowest(side) {
+    const hand = this.bone(`hand.${side}`);
+    const forearm = this.bone(`forearm.${side}`);
+    if (!hand || !forearm) return null;
+    if (!this.fistPoints?.[side]) {
+      let mesh = null;
+      this.root.traverse((o) => { if (o.isSkinnedMesh && o.name === `Gauntlet${side}`) mesh = o; });
+      if (!mesh) return null;
+      const bones = mesh.skeleton.bones;
+      const skin = mesh.geometry.attributes.skinIndex;
+      const weight = mesh.geometry.attributes.skinWeight;
+      const toHand = hand.matrixWorld.clone().invert();
+      const toForearm = forearm.matrixWorld.clone().invert();
+      const wrist = hand.getWorldPosition(new THREE.Vector3());
+      const sets = { hand: [], forearm: [] };
+      for (let i = 0; i < skin.count; i += 1) {
+        let best = 0;
+        let most = -1;
+        for (let k = 0; k < 4; k += 1) if (weight.getComponent(i, k) > most) { most = weight.getComponent(i, k); best = skin.getComponent(i, k); }
+        const name = bones[best]?.name ?? '';
+        if (/^(hand|finger|thumb)/.test(name)) {
+          if (i % 3) continue;
+          mesh.getVertexPosition(i, _s).applyMatrix4(mesh.matrixWorld);
+          sets.hand.push(_s.clone().applyMatrix4(toHand));
+        } else if (/^forearm/.test(name)) {
+          // (the cuff and the vambrace's end: all of the forearm within a hand's length of the wrist)
+          mesh.getVertexPosition(i, _s).applyMatrix4(mesh.matrixWorld);
+          if (_s.distanceTo(wrist) < 0.2) sets.forearm.push(_s.clone().applyMatrix4(toForearm));
+        }
+      }
+      (this.fistPoints ??= {})[side] = [[hand, sets.hand], [forearm, sets.forearm]];
+    }
+    let low = Infinity;
+    for (const [bone, points] of this.fistPoints[side]) {
+      bone.updateMatrixWorld(true);
+      _m.multiplyMatrices(_rootInv, bone.matrixWorld);
+      for (const p of points) low = Math.min(low, _v.copy(p).applyMatrix4(_m).y);
+    }
+    return Number.isFinite(low) ? low : null;
   }
 
   // how far the helmet has turned from its rest, in root space (this frame's pose and turns)
