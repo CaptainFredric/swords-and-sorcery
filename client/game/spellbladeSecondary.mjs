@@ -32,6 +32,29 @@ export const SECONDARY = Object.freeze({
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
+// a kick that rises to 1 at `peak` seconds and dies away after it (an alpha function), 0 before `from`
+const kick = (t, peak, from = 0) => (t > from ? ((t - from) / peak) * Math.exp(1 - (t - from) / peak) : 0);
+
+// a loosed bolt's recoil through the seated knight (radians at its height): the chest thrown back first, the spine
+// less, the helmet a beat after and then a little forward as it settles
+export const RECOIL = Object.freeze({ chest: 3.5 * DEG, spine: 1.5 * DEG, head: 3 * DEG, settle: 1.4 * DEG, seconds: 0.9 });
+
+/**
+ * The knight's body taking a machine's recoil, `age` seconds after the shot (from the machine's authoritative firing
+ * time, so every observer draws the same jolt): root-space turns. His hands stay on the controls (the animator pins
+ * them), so the arms take it at the elbows.
+ */
+export function recoilTurns(age, strength = 1) {
+  if (!(age >= 0) || age > RECOIL.seconds || !(strength > 0)) return [];
+  const back = kick(age, 0.07);
+  const head = kick(age, 0.08, 0.03) * RECOIL.head - kick(age, 0.12, 0.2) * RECOIL.settle;
+  return [
+    { bone: 'spine', axis: [1, 0, 0], angle: RECOIL.spine * kick(age, 0.09) * strength },
+    { bone: 'chest', axis: [1, 0, 0], angle: RECOIL.chest * back * strength },
+    { bone: 'head', axis: [1, 0, 0], angle: head * strength },
+  ];
+}
+
 export class SecondaryMotion {
   constructor() {
     this.reset();
