@@ -101,13 +101,14 @@ test('Server projectile starts at the v2.6 articulated muzzle and follows its pi
   assert.ok(Math.abs(Math.hypot(...Object.values(direction))-1)<1e-8);
   assert.equal(m.crossbowYaw,aim.yaw);assert.equal(m.crossbowPitch,aim.pitch);
 });
-test('Offensive machine pitch compensates within joint limits, never shoots through an invented turret angle',()=>{
+test('Offensive machine pitch counter-stabilizes the physical turret, while retaining narrow traverse',()=>{
   const m=createFightFlight({heading:0});m.runPitch=.3;
   const aim=flightRepeaterAim(m,{yaw:0,pitch:0});
   assert.ok(Math.abs(flightDirection(m,aim).y)<1e-9,'horizontal reticle stays level when crossbow can compensate');
-  const limit=flightRepeaterAim(m,{yaw:Math.PI,pitch:1});
+  const limit=flightRepeaterAim(m,{yaw:Math.PI,pitch:2});
   assert.ok(Math.abs(limit.yaw-FLIGHT_REPEATER.maxTraverse)<1e-8);
-  assert.equal(limit.pitch,FLIGHT_REPEATER.maxPitch);
+  assert.ok(Math.abs(limit.pitch-(FLIGHT_REPEATER.maxPitch+m.runPitch))<1e-8,
+    'chassis tilt expands real cradle compensation, not the horizontal traverse');
   m.terminalDive={heading:0};m.runPitch=.65;
   const committed=flightRepeaterAim(m,{yaw:0,pitch:1});
   assert.ok(committed.pitch<0,'a terminal dive cannot point its crossbow upward');

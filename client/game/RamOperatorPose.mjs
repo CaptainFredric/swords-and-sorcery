@@ -36,16 +36,25 @@ export class RamOperatorPose {
   this.arms.applyStanding({left:wrist(station.leftHand),right:wrist(station.rightHand)});
  }
  leg(side,end,forward){
-  const a=this.bone('thigh.'+side),b=this.bone('shin.'+side),c=this.bone('foot.'+side);if(!a||!b||!c)return;
+  const a=this.bone('thigh.'+side),b=this.bone('shin.'+side),c=this.bone('foot.'+side);if(!a||!b||!c||!a.parent||!b.parent||!c.parent)return;
   const start=a.getWorldPosition(new THREE.Vector3()),knee=b.getWorldPosition(new THREE.Vector3()),ankle=c.getWorldPosition(new THREE.Vector3());
-  const l1=start.distanceTo(knee),l2=knee.distanceTo(ankle),axis=end.clone().sub(start).normalize(),d=Math.max(.001,Math.min(start.distanceTo(end),l1+l2-.001));
+  const l1=start.distanceTo(knee),l2=knee.distanceTo(ankle);
+  const deltaEnd=end.clone().sub(start);
+  if(deltaEnd.lengthSq()<1e-6)return;
+  const axis=deltaEnd.normalize(),d=Math.max(.001,Math.min(start.distanceTo(end),l1+l2-.001));
   const along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
-  const pole=forward.clone().addScaledVector(axis,-forward.dot(axis)).normalize();
+  const pole=forward.clone().addScaledVector(axis,-forward.dot(axis));
+  if(pole.lengthSq()>1e-6)pole.normalize();else pole.set(0,1,0);
   const target=start.clone().addScaledVector(axis,along).addScaledVector(pole,height);
   this.aim(a,b,target);this.aim(b,c,end);
  }
  aim(bone,child,target){
-  const start=bone.getWorldPosition(new THREE.Vector3()),from=child.getWorldPosition(new THREE.Vector3()).sub(start).normalize(),to=target.clone().sub(start).normalize();
+  if(!bone||!child||!target||!bone.parent)return;
+  const start=bone.getWorldPosition(new THREE.Vector3());
+  const from=child.getWorldPosition(new THREE.Vector3()).sub(start);
+  const to=target.clone().sub(start);
+  if(from.lengthSq()<1e-6||to.lengthSq()<1e-6)return;
+  from.normalize();to.normalize();
   const world=bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromUnitVectors(from,to));
   bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));bone.updateMatrixWorld(true);
  }

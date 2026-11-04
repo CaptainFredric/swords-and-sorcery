@@ -8,6 +8,10 @@ const BOLT_I='<path d="M12 1 8.6 7.4h2v11h2.8v-11h2z" fill="#83ddff" stroke="#ba
 const BOLT_II='<path d="M12 1 5.4 9.5 10 8.4v10.3h4V8.4l4.6 1.1z" fill="#e1d8c4" stroke="#faf0d7" stroke-width=".8"/><path d="M10 17.5 5 22l7-1.8 7 1.8-5-4.5" fill="#aab3bb" stroke="#f1e6cb" stroke-width=".9"/><path d="M11 9h2v9h-2z" fill="#7b858e" stroke="none"/>';
 const CARRIAGE_WHEEL='<circle cx="12" cy="12" r="9" fill="none" stroke="#dfc89c" stroke-width="2.2"/><circle cx="12" cy="12" r="2.6" fill="#7d8890" stroke="#eee2c8" stroke-width="1.1"/><path d="M12 3v6.3M12 14.6V21M3 12h6.3M14.7 12H21M5.6 5.6l4.4 4.4M14 14l4.4 4.4M18.4 5.6 14 10M10 14l-4.4 4.4" fill="none" stroke="#c4ad84" stroke-width="1.2"/>';
 
+// Four raised knuckle plates, a folded thumb and a flared metal cuff keep
+// the ram's armored fist legible at touch-button size.
+const RAM_GAUNTLET='<g stroke-linejoin="round" stroke-width="1"><path d="M6 15h13l2 7H4z" fill="#aa9064" stroke="currentColor"/><path d="M7 18h11M8 20h9" stroke="#4a4134" fill="none"/><path d="M5 7V4l2-1h2l1 1V3l2-1h2l1 2 1-1h2l1 2h2l1 2v6l-4 5H8l-4-5V9z" fill="#606d76" stroke="currentColor"/><path d="M6 5h3v6H6zM10 4h4v7h-4zM15 5h3v6h-3zM19 7h2v5h-2z" fill="#c5cbd0" stroke="#30393f"/><path d="M9 12h11l-3 4h-6z" fill="#929fa8" stroke="#30393f"/><path d="m4 9 3-1 6 4-2 4-4-1-3-3z" fill="#b5bfc5" stroke="#30393f"/><path d="m7 10 3 2" fill="none" stroke="#5c6870"/></g>';
+
 export const ICONS = Object.freeze({
   attack: '<path d="m19 2 2 2-10 12-3-3z" fill="currentColor" stroke="none"/><path d="m6 12 6 6M8 16l-4 5-2-2 5-4"/>',
   guard: '<path d="m12 2 8 3-1 9-7 8-7-8-1-9z"/><path d="M12 5v12M7 7l1 6 4 4"/>',
@@ -39,6 +43,12 @@ export const ICONS = Object.freeze({
   rise: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   lower: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
   fireAway: '<path d="M3 5h10M10 2l4 3-4 3M6 12h14M17 9l4 3-4 3M2 19h11M10 16l4 3-4 3"/>',
+  // Three trajectories converge on one exposed target. The right-side arrow
+  // is deliberately counter-directed to make the three approaches distinct.
+  narrowToOne: '<circle cx="17.5" cy="12.5" r="3.2"/><circle cx="17.5" cy="12.5" r=".7" fill="currentColor" stroke="none"/><path d="M2 21 13.9 14.3m-4.4-.1 4.4.1-2.3 3.5M21 2l-3 7.2m-1.3-4.2 1.3 4.2 3-2.7M23 12.5h-2.1m1.8-2-1.8 2 1.8 2"/>',
+  // A saintly halo encircles the crossed sword-propeller, with swept arcs
+  // suggesting rotation rather than a static heraldic pair.
+  doNotStopMyAscension: '<ellipse cx="12" cy="12" rx="10" ry="9"/><path d="M3.4 7.3A9.6 8.6 0 0 1 18 4.8m2.6 12A9.6 8.6 0 0 1 6 19.2M18 2.9l.1 3-2.8-.8M6 21.1l-.1-3 2.8.8"/><path d="m6.2 6.1 9.7 9.7m-2.1 1.9 3.9-3.9m-2.2 2.2 2.7 2.7-1.4 1.4-2.7-2.7M17.8 6.1 8.1 15.8m2.1 1.9-3.9-3.9m2.2 2.2-2.7 2.7 1.4 1.4 2.7-2.7"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
   repeater: '<path d="M4 12h15M15 8l6 4-6 4M2 8l4 4-4 4"/>',
   flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
   eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
@@ -49,7 +59,10 @@ export const ICONS = Object.freeze({
   boltToTheOccasion: '<g opacity=".78">' + CARRIAGE_WHEEL + '</g><g>' + BOLT_II + '</g>',
   heavyBolt: BOLT_II,
   frostBolt: '<path d="M12 2v20M9 5l3-3 3 3M5 8l14 8M5 16l14-8M6 6l1 3-3 1M18 6l-1 3 3 1M6 18l1-3-3-1M18 18l-1-3 3-1"/>',
-  ram: '<path d="M4 9h5v10H4zM9 7h8l4 3v7l-3 3H9zM12 7v4M15 7v4M18 8v4M9 14h5M1 12h3M1 16h3"/>',
+  ram: RAM_GAUNTLET,
+  // A pale clock face and dark hands remain visible above the fist; the
+  // lower rim breaks around its raised knuckles.
+  beatToThePunch: '<g stroke-width="1.15" stroke-linejoin="round"><path d="M7 13a8 8 0 1 1 13 1l-2 .5-1-2-2 3-2-1-2 1z" fill="#e8d7ac" stroke="currentColor"/><path d="M14 2v2M21 9h-2M7 9h2M14 5v4l3-2M18.5 3.5l-1 1M9.5 3.5l1 1" fill="none" stroke="#343b3d" stroke-linecap="square"/><circle cx="14" cy="9" r=".7" fill="#343b3d" stroke="none"/><path d="m20 16 2-1 .5 2-2 1z" fill="#e8d7ac" stroke="none"/></g><g transform="translate(0 8) scale(.68)"><g transform="rotate(25 12 12)">' + RAM_GAUNTLET + '</g></g>',
   siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
   siegeSkill: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',

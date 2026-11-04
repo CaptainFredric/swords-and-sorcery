@@ -20,7 +20,7 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true]);
  assert.equal(v[0].skills[0].icon,'boltToTheOccasion');
  assert.equal(v[0].skills[1].icon,undefined,'alternative frost Skill retains its presentation');
- assert.equal(v[1].skills.length,1);assert.equal(v[2].skills.length,1);
+ assert.equal(v[1].skills.length,1);assert.equal(v[2].skills.length,3);
 });
 test('Registry and stored personal Skill survive reload and reject invented values',()=>{
  const memory=new Map(),storage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
@@ -28,6 +28,9 @@ test('Registry and stored personal Skill survive reload and reject invented valu
  assert.equal(a.set('loadout.bibyeSkill','coldHowTouching'),'coldHowTouching');
  assert.equal(new SettingsStore({registry,storage}).get('loadout.bibyeSkill'),'coldHowTouching');
  assert.equal(registry.validate('loadout.bibyeSkill','noCooldown'),'boltToTheOccasion');
+  assert.equal(a.set('loadout.fightFlightSkill','narrowToOne'),'narrowToOne');
+  assert.equal(new SettingsStore({registry,storage}).get('loadout.fightFlightSkill'),'narrowToOne');
+  assert.equal(registry.validate('loadout.fightFlightSkill','illegal'),'fireAwayRightHere');
  assert.deepEqual(normalizeSiegeLoadout({biBye:'stolenSkill',fightFlight:'coldHowTouching'}),
   {biBye:'boltToTheOccasion',soFist:'beatToThePunch',fightFlight:'fireAwayRightHere'});
 });
@@ -55,12 +58,13 @@ test('Server accepts only validated personal equipment, deferring mounted loadou
 });
 
 test('LocalHost and server apply the same normalized personal Siege equipment',()=>{
- const chosen={biBye:'coldHowTouching',soFist:'invented',fightFlight:'fireAwayRightHere'};
+ const chosen={biBye:'coldHowTouching',soFist:'invented',fightFlight:'doNotStopMyAscension'};
  const local=new LocalHost({now:()=>0,every:()=>1,cancel:()=>{},later:()=>{},storage:null});
  local.loadout('fireball','sunder',[],chosen);
  local.startSolo('PRACTICE','Local tester','castleward');
  assert.equal(local.player.siegeLoadout.biBye,'coldHowTouching');
  assert.equal(local.player.siegeLoadout.soFist,'beatToThePunch');
+  assert.equal(local.player.siegeLoadout.fightFlight,'doNotStopMyAscension');
  const room={state:'WAITING'},serverSession={},networkPlayer={};
  applySavedLoadout(serverSession,room,networkPlayer,{spell:'fireball',ultimate:'sunder',
    preparedSpells:[],siegeLoadout:chosen});

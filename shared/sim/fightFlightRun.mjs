@@ -4,6 +4,9 @@ import {PROWESS} from '../src/prowess.mjs';
 import {activeUltimate} from '../src/ultimates.mjs';
 import {tryDash} from './combat.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
+import {fightFlightSkillActive,ASCENSION} from './fightFlightSkill.mjs';
+import {ascensionValkyrieReady} from '../src/flightTerminalPolicy.mjs';
+import {FIGHT_FLIGHT} from './fightFlight.mjs';
 export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
   // A committed attack, then a heavier, acceleration-limited turn than ordinary flight.
@@ -25,11 +28,11 @@ export function requestFlightDash(room,m,p,held,now){
  m.flightDashHeld=Boolean(held);
  if(!held){
    if(m.runGroundPhase==='SPINUP'){
-     // Releasing a ground wind-up before lift cancels it safely. A launch
-     // already airborne must still finish its guaranteed minimum distance.
+     // A release before the rotor reaches speed cancels the wind-up;
+     // after actual takeoff, minimum-distance commitment is preserved.
      m.runGroundPhase=null;
      if(m.grounded)m.rotorPowered=false;
-   }else if(m.runGroundPhase==='ASCENT')m.runGroundReleased=true;
+   }else if(m.runGroundLaunchReady)m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
    m.runReleasedAt=now;m.flightDashStartedAt=null;
@@ -38,7 +41,7 @@ export function requestFlightDash(room,m,p,held,now){
  }
  if(before)return true;
  m.flightDashStartedAt=now;
- m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:m.heading;
+ m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:(Number.isFinite(m.heading)?m.heading:0);
  const aimPitch=clamp(Number.isFinite(p.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
  // Level launches physically dive; upward initial intent remains controllable.
@@ -46,10 +49,15 @@ export function requestFlightDash(room,m,p,held,now){
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  m.runGroundReleased=false;
- // Dash begins from the floor by spooling the ACTUAL rotor to full 450 RPM.
- // No early impulse or airborne propulsion may bypass this mechanical state.
- if(m.grounded&&!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&p.prowess>0)
-   m.runGroundPhase='SPINUP';
+ // Grounded Dash needs no preliminary Jump: the real rotor spins up to
+ // 450 RPM, then lifts and attacks in the same physical launch. Airborne Dash
+ // engages the rotor immediately, without pausing an ongoing fall.
+ const practice=room.mode==='PRACTICE'&&p.actorKind==='human'&&!room.localTutorial;
+ if(!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2){
+   if(m.grounded&&(p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id)))
+     m.runGroundPhase='SPINUP';
+   else if(!m.grounded)m.rotorPowered=true;
+ }
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
    // Chivalry's ordinary midair dash still consumes its own normal cooldown,
@@ -76,12 +84,13 @@ export function stepFlightRun(room,m,dt,now){
      m.rotorHP<=0||m.health<=0||m.flightCharge<=0||
      p.operatingFightFlightId!==m.id){
      m.runGroundPhase=null;m.runGroundReleased=false;m.flightDashHeld=false;
-   }else if(m.runGroundPhase==='SPINUP')return;
+   }else if(m.runGroundPhase==='SPINUP'&&m.grounded)return;
    else {
-     const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
-     if(m.grounded||floor!=null&&m.y-floor<VALKYRIE_RUN.groundLaunchClearance)return;
-     m.runGroundPhase=null; // next lines start the committed physical run
+     // Walking off a ledge during ground spool must not leave SPINUP latched
+     // in free fall. A now-airborne Dash engages without an altitude wait.
+     m.runGroundPhase=null;
      m.runGroundLaunchReady=true;
+     m.rotorPowered=true;
    }
  }
 
@@ -98,18 +107,22 @@ export function stepFlightRun(room,m,dt,now){
  const activeChivalry=Boolean(p&&activeUltimate(p,now)?.id==='chivalry');
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
- const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
+ // Reserve Chivalry's full meter briefly for a deliberate Dash+Ultimate
+ // chord, without withholding propulsion during the decision window.
+ const chordReserve=Boolean(ascensionValkyrieReady(m,p,now)&&
    m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
- let running=valid&&!activeChivalry&&!preparing&&!grace;
+ const ascension=fightFlightSkillActive(m,now,ASCENSION.id);
+ let running=valid&&!activeChivalry&&!preparing;
  // Training meters cycle without dropping the held propulsion state. This
  // exception is evaluated from the room and actual human owner every tick.
- if(running&&!practice&&!(m.flightCharge>0))running=false;
- if(!running||(!practice&&!(p.prowess>0))){
+ if(running&&(!practice||ascension)&&!(m.flightCharge>0))running=false;
+ if(!running||(!practice&&!ascension&&!(p.prowess>0))){
    if(m.offensiveRun)m.runAnimationEndedAt=now;
    if(m.offensiveRun)room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
    m.offensiveRun=false;
-   if(!valid||(!practice&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
+   if(!valid||(ascension&&!(m.flightCharge>0))||
+     (!practice&&!ascension&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
  }else{
    if(!m.offensiveRun){
@@ -120,7 +133,19 @@ export function stepFlightRun(room,m,dt,now){
      m.runLastPosition={x:m.x,y:m.y,z:m.z};
      room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,operatorId:p.id,action:'started',at:now});}
    m.runElapsed=(m.runElapsed??0)+dt;
-   if(practice&&m.practiceDashRefilling){
+   if(ascension){
+     // Replace prowess with charge at the exact ordinary Rise rate; the
+     // locomotion integrator must not bill a second run surcharge.
+     m.practiceDashRefilling=false;
+     m.flightCharge=clamp(m.flightCharge-FIGHT_FLIGHT.climbCost*dt,0,m.maxFlightCharge);
+     if(m.flightCharge<=0){
+       m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;
+       room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
+     }
+   }else if(chordReserve){
+     // Real momentum and steering continue; only prowess spend waits.
+     m.practiceDashRefilling=false;
+   }else if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
    }else{

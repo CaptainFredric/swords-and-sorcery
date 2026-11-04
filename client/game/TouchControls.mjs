@@ -4,6 +4,7 @@ import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import {ascensionValkyrieReady} from '../../shared/src/flightTerminalPolicy.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
@@ -537,7 +538,14 @@ export class TouchControls {
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?'fireAway':ram?'ram':biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      const flightSkillId=fb?.skill?.id??'fireAwayImRightHere';
+      const flightSkillIcon=flightSkillId==='narrowToOne'?'narrowToOne':
+        flightSkillId==='doNotStopMyAscension'?'doNotStopMyAscension':'fireAway';
+      const flightSkillName=flightSkillId==='narrowToOne'?'Narrow to One':
+        flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
+      const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
+        flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?flightSkillIcon:ram?'beatToThePunch':biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -581,11 +589,12 @@ export class TouchControls {
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
           dashBtn.classList.toggle('flight-dash-active', offensiveActive);
           dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
-          dashBtn.querySelector('span').textContent='DASH';
+          const dashSpan=dashBtn.querySelector('span');
+          if(dashSpan&&dashSpan.textContent!=='DASH')dashSpan.textContent='DASH';
           const status=dashBtn.querySelector('.touch-status');
           if(status)status.textContent=spool==='SPINUP'?'SPIN 450':spool==='ASCENT'?'LIFT':
             dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';
-          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' :
+          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate for one second to commit Ascension Valkyrie Dive' :
             spool==='SPINUP'?'Spooling rotor to 450 RPM for ground Dash':
             spool==='ASCENT'?'Taking off for ground Dash':
             dashNoRotor?'Rotor destroyed':dashNoProwess?'Dash requires Prowess':
@@ -593,7 +602,7 @@ export class TouchControls {
             dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
-        const valkyrieReady = flight && !fb?.terminalDive && !fb?.terminalDiveSpent && (fb?.rotorHP ?? 0) > 0 && local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100;
+        const valkyrieReady = flight && ascensionValkyrieReady(fb,local,serverNow);
         this.valkyrieEligible = valkyrieReady;
         const uBtn = this.buttons.ultimate;
         if (uBtn) {
@@ -620,9 +629,11 @@ export class TouchControls {
 
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
-        const label=flight?(skill?.phase==='active'?'ACTIVE':remaining>0?Math.ceil(remaining)+'s':'FIRE AWAY'):siegeSkillControlLabel(machine,serverNow);
+        const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':'ACQUIRE'):
+          flightSkillId==='doNotStopMyAscension'?'CHARGE':'ACTIVE'):
+          remaining>0?Math.ceil(remaining)+'s':flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
-        button.setAttribute('aria-label',`${flight?"Fire Away? I'm Right Here":ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        button.setAttribute('aria-label',`${flight?flightSkillName:ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
         if (flight) {
           const firing = Boolean(fb?.lastShotAt && (serverNow - fb.lastShotAt) < 0.16) || this.input?.flightFireHeld;
           button.classList.toggle('firing', firing);
@@ -663,8 +674,10 @@ export class TouchControls {
           this.buttons.interact.classList.toggle('terminal-locked', Boolean(fb?.terminalDive));
         }
         if (this.buttons.deploy) {
-          const possible=biByeCondition(bl).canDeploy;
-          this.buttons.deploy.hidden=ram||flight||(!possible&&!modeButton.disabled);
+          // Ram and Fight-and-Flight can be mounted when no Ballista exists.
+          // Never dereference a null Ballista merely to hide its Deploy button.
+          const possible=Boolean(ballista&&bl&&biByeCondition(bl).canDeploy);
+          this.buttons.deploy.hidden=!ballista||(!possible&&!modeButton.disabled);
           const label=this.buttons.deploy.querySelector('span');
           if(label&&label.textContent!==modeButton.label)label.textContent=modeButton.label;
           this.buttons.deploy.setAttribute('aria-label',modeButton.disabled?modeButton.label+' in progress':modeButton.label==='MOBILE'?'Pack into mobile configuration':'Deploy heavy siege mode');

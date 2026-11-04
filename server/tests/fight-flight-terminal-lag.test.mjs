@@ -16,7 +16,8 @@ function startDive({floor=true,altitude=1.7}={}){
     position:{x:0,y:altitude,z:0},operatingFightFlightId:'test-flight'});
   player.input={yaw:0,pitch:0,jump:false,crouch:false,forward:0,right:0};
   const m=createFightFlight({id:'test-flight',x:0,y:altitude,z:0,heading:0});
-  Object.assign(m,{operatorId:player.id,grounded:false,mode:'AIRBORNE',velocity:{x:0,y:0,z:-1}});
+  Object.assign(m,{operatorId:player.id,grounded:false,mode:'AIRBORNE',velocity:{x:0,y:0,z:-1},
+    skill:{id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25}});
   room.fightFlight=m;
   const command=(type,down,at)=>applyRoomCommand(room,player,{type,down},at);
   assert.deepEqual(command('flightDash',true,1),{});

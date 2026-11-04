@@ -405,7 +405,16 @@ function syncSoundscape() {
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    const piece = fighting ? (overridePiece ?? fightPieceFor(latestSnapshot)) : (overridePiece ?? null);
+    const flight=latestSnapshot?.fightFlight;
+    const yours=Boolean(flight&&runtime?.playerId&&
+      (flight.operatorId===runtime.playerId||flight.terminalDive?.operatorId===runtime.playerId));
+    const ascensionActive=flight?.skill?.id==='doNotStopMyAscension'&&flight.skill.phase==='active';
+    const valkyrie=Boolean(fighting&&yours&&(
+      (ascensionActive&&flight.offensiveRun)||flight.terminalPrep?.phase==='holding'||
+      (flight.terminalDive&&!flight.terminalDive.resolved)));
+    // The ride is a temporary, player-specific cue. It overrides an otherwise
+    // fixed soundtrack only during this deliberately equipped machine action.
+    const piece=valkyrie?'valkyrie':fighting?(overridePiece??fightPieceFor(latestSnapshot)):(overridePiece??null);
     music.play(piece);
     if ((fighting || overridePiece) && runtime) {
       music.setIntensity(runtime.musicHeat({ cap: latestSnapshot?.mode === 'PRACTICE' ? 1 : 2 }));
@@ -1352,7 +1361,7 @@ function applySettings() {
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
 }
-const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:'beatToThePunch',fightFlight:'fireAwayRightHere'});
+const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:'beatToThePunch',fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
   settings.get('loadout.preparedSpells'),siegeSelections());
 const settingsPanel = new SettingsPanel({
@@ -1382,7 +1391,7 @@ settings.onChange((change) => {
     transmitLoadout();
     renderArmory();
   }
-  if (change.id === 'loadout.bibyeSkill') { transmitLoadout(); renderArmory(); }
+  if (change.id === 'loadout.bibyeSkill' || change.id === 'loadout.fightFlightSkill') { transmitLoadout(); renderArmory(); }
   if (change.id === 'audio.soundtrack') {
     syncSoundscape();
   }
@@ -1451,7 +1460,7 @@ function renderArmory() {
         ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
           role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}"
           data-siege-skill="${skill.id}" ${m.skills.length===1?'disabled':''}>
-          ${skill.icon?`<span class="spell-mark" aria-hidden="true">${iconSvg(skill.icon)}</span>`:''}<span class="spell-name">${skill.name}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
+          <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
           <small>${skill.line}</small></button>`).join('')}
       </div>
     </article>`).join('');
@@ -1476,8 +1485,10 @@ function renderPreparedArmory() {
 }
 $('#armory-siege-machines').addEventListener('click',event=>{
   const button=event.target.closest('[data-siege-skill]');
-  if(!button||button.disabled||button.dataset.siegeMachine!=='biBye')return;
-  settings.set('loadout.bibyeSkill',button.dataset.siegeSkill);
+  if(!button||button.disabled)return;
+  const setting=button.dataset.siegeMachine==='biBye'?'loadout.bibyeSkill':
+    button.dataset.siegeMachine==='fightFlight'?'loadout.fightFlightSkill':null;
+  if(setting)settings.set(setting,button.dataset.siegeSkill);
 });
 $('#armory-prepared').addEventListener('click', event => {
   const button = event.target.closest('[data-prepared-to]');

@@ -166,6 +166,9 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .flight-metric b { font-size: 11px; font-variant-numeric: tabular-nums; color: #f5eedc; line-height: 1.1; }
 .flight-metric small { font-size: 8px; color: #a8a08c; line-height: 1; }
 .flight-metric.skill b.active { color: #ffcf68; text-shadow: 0 0 6px rgba(255, 207, 104, .7); }
+.flight-metric.skill b { display: inline-flex; align-items: center; gap: 4px; max-width: 170px; }
+.flight-metric.skill b svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: currentColor; stroke-width: 1.7; fill: none; }
+.flight-metric.skill b span { overflow-wrap: anywhere; }
 .flight-bar-wrap { display: flex; align-items: center; gap: 4px; }
 .flight-bar-wrap progress { width: 48px; height: 6px; border-radius: 2px; }
 .flight-metric.hull progress { accent-color: #e65245; }
@@ -178,7 +181,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 @keyframes pulse-warn { from { opacity: .85; transform: scale(.98); } to { opacity: 1; transform: scale(1.02); } }
 .flight-controls-hint { font-size: 9px; line-height: 1.25; color: #b8b09a; text-align: center; text-shadow: 0 1px 2px #000; }
 .ballista-mounted:not(.flight-mounted) .guard-block,
-.ballista-mounted .abilities { display: none; }
+.ballista-mounted:not(.flight-mounted) .abilities { display: none; }
 .flight-mounted .bottom-hud { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .flight-mounted .guard-block { display: block !important; opacity: 1 !important; position: static; transform: none; width: 250px; margin-top: 6px; }
 .guard-block.flight-persistent { opacity: 1 !important; display: block !important; }

@@ -63,3 +63,12 @@ test('primed siege skill activates the subtle ratcheting loop and stops on unpri
  audio.update({ ...machine, skill: { phase: 'idle' } }, opt);
  assert.ok(!audio.loops.has('ratchet'), 'Ratchet loop stops when skill is no longer primed');
 });
+
+test('primed pressure repeats at full noise energy without a silent boundary',()=>{
+ let seed=87;const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/2**32;};
+ const samples=biByeLoopSamples('pressure',22050,2,random);
+ const rms=(start,end)=>Math.sqrt(samples.slice(start,end).reduce((s,v)=>s+v*v,0)/(end-start));
+ const middle=rms(10000,11000);
+ assert.ok(rms(0,110)>middle*.6,'first 5 ms must retain pressure energy');
+ assert.ok(rms(samples.length-110,samples.length)>middle*.6,'last 5 ms must retain pressure energy');
+});

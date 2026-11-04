@@ -4,13 +4,14 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {FlightRigAnimation} from './FlightRigAnimation.mjs';
-import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
+import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection,flightRepeaterPitchLimits} from '../../shared/src/flightRepeaterAim.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
 // v2.6 remains checked into this directory as a verifiable rollback.
 const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb?v=b7967ba87ffa';
 const QUARREL='/client/assets/props/fight-and-flight/fight-and-flight-v2.7-quarrel.glb?v=f0fb5f44c1ee';
+import {stableFlightCockpitEye} from '../game/flightCameraSafety.mjs';
 const SLOT_NAMES=['Quarrel_Visual_Chambered','Quarrel_Visual_Feed_Next','Quarrel_Visual_Hopper_Top','Quarrel_Visual_Slot_4','Quarrel_Visual_Slot_5','Quarrel_Visual_Slot_6'];
 export class FightFlightRenderer{
   constructor(scene){
@@ -128,7 +129,8 @@ export class FightFlightRenderer{
     const rel=Math.atan2(Math.sin((m.crossbowYaw??m.heading??0)-(m.heading??0)),
       Math.cos((m.crossbowYaw??m.heading??0)-(m.heading??0)));
     const yaw=Math.max(-FLIGHT_REPEATER.maxTraverse,Math.min(FLIGHT_REPEATER.maxTraverse,rel));
-    const pitch=Math.max(FLIGHT_REPEATER.minPitch,Math.min(FLIGHT_REPEATER.maxPitch,m.crossbowPitch??0));
+    const pitchLimits=flightRepeaterPitchLimits(m);
+    const pitch=Math.max(pitchLimits.minPitch,Math.min(pitchLimits.maxPitch,m.crossbowPitch??0));
     const gimbal=this.nodes.get('Crossbow_Yaw_Gimbal');
     const cradle=this.nodes.get('Crossbow_Pitch_Cradle');
     const tilter=this.nodes.get('Crossbow_Aim_Tilter_Link');
@@ -234,10 +236,22 @@ export class FightFlightRenderer{
   getMountedCameraPosition(view,out=new THREE.Vector3()){
     const m=this.state;if(!m)return null;
     const first=view==='sight';
-    const eye=this.nodes.get('operator_first_person_camera');
-    if(first&&eye){this.group.updateMatrixWorld(true);return eye.getWorldPosition(out);}
-    const distance=first?0:5.5;
-    out.set(m.x+Math.sin(m.heading)*distance,m.y+(first?1.52:3.05),m.z+Math.cos(m.heading)*distance);
+    if(first){
+      const eye=this.nodes.get('operator_first_person_camera');
+      let authored=null;
+      if(eye){
+        this.group.updateMatrixWorld(true);
+        authored=eye.getWorldPosition(out);
+      }
+      // At Valkyrie's ~90-degree real chassis pitch the authored marker moves
+      // below the operator's feet. Keep aiming from a stabilized visor position
+      // while the pitched sword rotor and its hitboxes remain fully physical.
+      const stable=stableFlightCockpitEye(m,authored);
+      return out.set(stable.x,stable.y,stable.z);
+    }
+    const heading=Number.isFinite(m.heading)?m.heading:0;
+    const distance=5.5;
+    out.set(m.x+Math.sin(heading)*distance,m.y+3.05,m.z+Math.cos(heading)*distance);
     return out;
   }
   getCrossbowAim(aim=null){

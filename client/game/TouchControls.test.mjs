@@ -697,6 +697,8 @@ test('Coreflagration equips with compact label CORE, coreflagration class, and c
 test('touch siege Skill sends one authoritative command and leaves personal Ultimate alone',()=>{
  const {input,controls,calls,send}=setup({local:{alive:true,operatingRamId:'ram',position:{x:0,y:0,z:0}}});input.socket.send=m=>calls.push(m);
  controls.update({alive:true,operatingRamId:'ram',position:{x:0,y:0,z:0}},10,{snapshot:{soFistication:{id:'ram',skill:{id:'beatToThePunch',phase:'idle',readyAt:0}}}});
+ assert.equal(controls.buttons.attack.dataset.icon,'ram');
+ assert.equal(controls.buttons.siegeSkill.dataset.icon,'beatToThePunch');
  assert.equal(controls.buttons.siegeSkill.hidden,false);send('pointerdown',800,100,{action:'siegeSkill'});send('pointerup',800,100,{action:'siegeSkill'});
  assert.deepEqual(calls,[{type:'siegeSkill'}]);controls.reset();assert.equal(controls.held.size,0);
 });
@@ -716,6 +718,8 @@ test('mobile Valkyrie requires intentional simultaneous holding of Dash and Ulti
     grounded: false,
     terminalDive: null,
     terminalDiveSpent: false,
+    flightCharge: 90,
+    skill: { id: 'doNotStopMyAscension', phase: 'active', activeUntil: null },
   };
   const { input, controls, send } = setup(flightPlayer);
   input.mountedFlight = true;
@@ -727,6 +731,12 @@ test('mobile Valkyrie requires intentional simultaneous holding of Dash and Ulti
   // 1. Initial eligible state
   controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
   assert.equal(controls.valkyrieEligible, true);
+  flightMachine.skill.id='fireAwayImRightHere';
+  controls.update(flightPlayer,10,{snapshot:{fightFlight:flightMachine}});
+  assert.equal(controls.valkyrieEligible,false,'Fire Away no longer grants the terminal chord');
+  flightMachine.skill.id='doNotStopMyAscension';
+  controls.update(flightPlayer,10,{snapshot:{fightFlight:flightMachine}});
+  assert.equal(controls.valkyrieEligible,true);
 
   // Press Ultimate touch button ALONE: MUST NOT synthesize Dash!
   send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 42 });
@@ -1175,6 +1185,19 @@ test('held flight Dash aims off its button without releasing propulsion or anoth
  controls.dispose();
 });
 
+test('Ram and Flight mounts work with no Ballista in the world',()=>{
+ for(const [kind,property]of [['Ram','operatingRamId'],['Flight','operatingFightFlightId']]){
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},[property]:'mounted-machine'};
+  const {controls}=setup(p);
+  assert.doesNotThrow(()=>controls.update(p,10,{snapshot:{
+    bibyeBallista:null,
+    ...(kind==='Flight'?{fightFlight:{id:'mounted-machine',rotorHP:100,health:250,grounded:true}}:{})
+  }}),kind+' needs no Ballista');
+  assert.equal(controls.buttons.deploy.hidden,true,kind+' cannot show Ballista Deploy');
+  controls.dispose();
+ }
+});
+
 test('Bi-Bye-llista real pointer events keep the one Skill control and server-confirmed mode icons',()=>{
  const p={alive:true,spell:'fireball',operatingBallistaId:'siege',position:{x:0,y:0,z:0}};
  const {controls,input,send}=setup(p);
@@ -1233,5 +1256,14 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
  assert.equal(controls.buttons.siegeSkill.dataset.icon,'boltToTheOccasion');
  b.skill.id='coldHowTouching';b.skill.phase='idle';update();
  assert.equal(controls.buttons.siegeSkill.dataset.icon,'frostBolt');
- assert.equal(controls.buttons.siegeBoth.hidden,true);
+ // Cold strengthens Bolt I, but it does not disable the independent ordinary
+ // coupled mechanism. Keep the mobile carousel matched to the server command.
+ assert.equal(controls.buttons.siegeBoth.hidden,false);
+ assert.equal(controls.buttons.siegeBoth.dataset.volley,'coupled');
+ send('pointerdown',550,100,{action:'siegeBoth',pointerId:86});
+ send('pointerup',550,100,{action:'siegeBoth',pointerId:86});
+ const coldCoupled=messages.pop();
+ assert.equal(coldCoupled.type,'bibyeCoupledFire');
+ assert.ok(Number.isFinite(coldCoupled.yaw)&&Number.isFinite(coldCoupled.pitch),
+   'Cold preserves the actual coupled command aim, not just its action name');
 });

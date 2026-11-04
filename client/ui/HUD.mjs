@@ -313,10 +313,23 @@ export class HUD {
     this.#ability(this.spell, prepared.visible ? currentPrepared?.remaining ?? 0 : Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.spell.classList.toggle('prepared-current', prepared.visible);
     this.spell.classList.toggle('preselect', prepared.phase === 'startup');
-    this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
+    // Flight to the Valkyrie uses the very same configurable E binding, not
+    // the Spellblade's ground Dash cooldown. Give it a real visible tile.
+    const flightMachine=inFlight?snapshot?.fightFlight:null;
+    const dashFace=inFlight?'flightDash':'dash';
+    if(this.dash.dataset.face!==dashFace){
+      this.dash.dataset.face=dashFace;
+      this.dash.querySelector('.ability-icon').innerHTML=iconSvg(dashFace);
+      this.dash.querySelector('em').textContent=inFlight?'FLIGHT DASH':'DASH';
+    }
+    this.#ability(this.dash,inFlight?0:Math.max(0,local.dashReadyAt-serverNow));
+    const flightDashActive=Boolean(inFlight&&flightMachine?.offensiveRun);
+    this.dash.classList.toggle('active',flightDashActive);
+    if(inFlight)this.dash.querySelector('strong').textContent=
+      flightDashActive?'DASHING':flightMachine?.runGroundPhase==='SPINUP'?'SPINNING':'READY';
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
-    this.dash.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
+    this.dash.classList.toggle('practice', !inFlight&&practiceOverride(local, 'dash', serverNow, practice));
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
@@ -349,7 +362,8 @@ export class HUD {
       const debt = this.flightPanel.querySelector('[data-flight-debt]');
       debt.textContent = siege.debt > 0 ? `-${siege.debt}` : '';
       const skill = this.flightPanel.querySelector('[data-flight-skill]');
-      skill.textContent = siege.skillText;
+      skill.innerHTML = iconSvg(siege.skillIcon) + '<span>' + siege.skillText + '</span>';
+      skill.title = siege.skillName;
       skill.classList.toggle('active', Boolean(siege.skillActive));
       const warn = this.flightPanel.querySelector('[data-flight-warning]');
       warn.hidden = !siege.warning;

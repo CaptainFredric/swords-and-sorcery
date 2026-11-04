@@ -4,7 +4,8 @@
 import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
@@ -91,14 +92,20 @@ export function mountFightFlight(room,m,player,now=0){
   // Do not imprison the rider in machinery with no safe way to exit.
   if(!fightFlightExit(room,m,player))return false;
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
+  // The Armory loadout belongs to the new pilot; physical cooldown remains.
+  m.skill={...m.skill,id:equippedFightFlightSkill(player).id};
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
   m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
+  m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.practiceDashRefilling=false;
+  m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=Number.isFinite(m.heading)?m.heading:0;
+  m.runGroundPhase=null;m.runGroundReleased=false;m.runGroundLaunchReady=false;
   player.flightInputAt=null;player.ejectionFallExempt=false;
   player.operatingFightFlightId=m.id;
   player.position=fightFlightOperator(m);player.velocity={x:0,y:0,z:0};
   player.guarding=false;player.guardHeld=false;player.guardButton=false;
   player.attackHeld=false;player.attackButton=false;player.attackActive=false;
-  player.input={...player.input,forward:0,right:0,jump:false,flightRise:false,flightLower:false,sprint:false,crouch:false,attack:false,guard:false,yaw:m.heading,pitch:0};
+  player.input={...player.input,forward:0,right:0,jump:false,flightRise:false,flightLower:false,sprint:false,crouch:false,attack:false,guard:false,yaw:Number.isFinite(m.heading)?m.heading:0,pitch:0};
   room.events.push({type:'fightFlightMounted',machineId:m.id,playerId:player.id,at:now});
   return true;
 }
@@ -149,14 +156,18 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const op=m.operatorId?room.players.get(m.operatorId):null;
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
-  const yaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
+  const rawYaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
+  const yaw=Number.isFinite(rawYaw)?rawYaw:(Number.isFinite(m.heading)?m.heading:0);
   // The first .36s of genuine propulsion retains the heading captured at the
   // press. Once released into steering, angular velocity builds and brakes
   // under bounded angular acceleration; even a 180-degree reticle change
   // cannot reverse a heavy machine instantly.
-  const steeringYaw=m.runGroundPhase||
-    m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:yaw;
-  const delta=Math.atan2(Math.sin(steeringYaw-m.heading),Math.cos(steeringYaw-m.heading));
+  const steeringYaw=(m.runGroundPhase||(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec))
+    ?(Number.isFinite(m.runCommitHeading)?m.runCommitHeading:yaw)
+    :yaw;
+  const safeHeading=Number.isFinite(m.heading)?m.heading:0;
+  const safeSteeringYaw=Number.isFinite(steeringYaw)?steeringYaw:safeHeading;
+  const delta=Math.atan2(Math.sin(safeSteeringYaw-safeHeading),Math.cos(safeSteeringYaw-safeHeading));
   if(!m.terminalDive){
     if(m.runGroundPhase){
       m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
@@ -178,8 +189,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       m.runTurnSpeed=0;
     }
   }
+  if(!Number.isFinite(m.heading))m.heading=safeHeading;
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
-  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
+  // Keep the real articulated crossbow tracking between shots. Solving only
+  // on the firing frame made the bolts accurate but the weapon appear idle.
+  const tracking=op&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id)?
+    updateNarrowTracking(room,m,op,now):null;
+  const crossbow=tracking?.aim??flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
   m.crossbowAimLimited=Boolean(crossbow.limited);
   m.crossbowReachableAim=crossbow.reachableAimPoint??null;
@@ -216,14 +232,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
-  const training=practiceFlightRun(room,m);
+  const training=practiceFlightRun(room,m)&&!fightFlightSkillActive(m,now,ASCENSION.id);
   if(training){m.flightCharge=Math.max(m.flightCharge,2.1);m.rotorPowered=true;}
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop&&!m.runGroundPhase;
     if(m.runGroundPhase==='SPINUP'&&canLaunch){
-      // Real rotor angular velocity must reach 450 RPM before grounded Dash
-      // is allowed to lift the chassis. Movement keys cannot skip the spool.
+      // E winds the actual rotor to 450 RPM; walking input remains live.
       m.crouched=false;m.rotorPowered=true;
     }else{
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
@@ -253,7 +268,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
-  m.rotorBrakeHeld=Boolean(descend&&m.grounded);
+  // Ground Dash spin-up has priority over the ordinary crouch/lower brake.
+  m.rotorBrakeHeld=Boolean(descend&&m.grounded&&m.runGroundPhase!=='SPINUP');
   const maxOmega=Math.PI*15;
   const desiredOmega=spinning&&!m.rotorBrakeHeld?maxOmega:0;
   const acceleration=desiredOmega>m.rotorAngularVelocity?m.rotorSpinupAcceleration:m.rotorSpindownAcceleration;
@@ -263,9 +279,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
   if(m.grounded&&m.runGroundPhase==='SPINUP'&&canLaunch&&
     m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1){
+    // Real motor takeoff, immediately followed by committed attack.
+    // Eliminate the separate climb-to-clearance pause after rotor spin-up.
     m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
     m.velocity.y=Math.max(m.velocity.y,VALKYRIE_RUN.groundTakeoffVelocity);
-    m.runGroundPhase='ASCENT';
+    m.runGroundPhase=null;m.runGroundLaunchReady=true;
     room.events.push({type:'fightFlightGroundDashTakeoff',machineId:m.id,operatorId:op?.id,
       rotorRPM:m.rotorRPM,at:now});
   }
@@ -290,9 +308,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
   const thrustHeading=run&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:m.heading;
   const dx=run?-Math.sin(thrustHeading)*runHorizontal:
-    m.runGroundPhase?0:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+    (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
   const dz=run?-Math.cos(thrustHeading)*runHorizontal:
-    m.runGroundPhase?0:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+    (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
@@ -311,7 +329,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       }
     }
     m.velocity.y+=(targetY-m.velocity.y)*response;
-    if(!training)m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
+    if(!training&&!fightFlightSkillActive(m,now,ASCENSION.id))
+      m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
   }else if(!m.grounded){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){

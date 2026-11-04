@@ -279,7 +279,7 @@ export class SpellbladeAnimator {
   }
   restoreRamArms(){for(const [b,t]of this.ramArms??[]){b.quaternion.copy(t.q);b.position.copy(t.p);}this.ramArms=null;}
   releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}
-  releaseMounted(){if(this.siege.release())this.reset();}
+  releaseMounted(){this.flightRider?.restore?.();if(this.siege.release())this.reset();}
 
   #clipOf(action) {
     for (const [name, candidate] of this.actions) if (candidate === action) return name;

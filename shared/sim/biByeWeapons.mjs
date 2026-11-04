@@ -17,7 +17,13 @@ const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null&&
 const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCondition(b).canSiege;
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 // Ordinary coupled volley, distinct from the heavy-first atomic Skill command.
-export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&b.skill?.phase!=='primed'&&
+const ordinaryCoupleSkillReady=b=>b.skill?.id==='boltToTheOccasion'?
+  b.skill.phase==='idle':b.skill?.id==='coldHowTouching'&&
+  (b.skill.phase==='idle'||b.skill.phase==='active');
+// Ordinary coupled fire is a mechanical weapon command, not a Bolt to the
+// Occasion Skill. Cold only enhances newly released Bolt I; it must not
+// disable the coupled mechanism, and the real Bolt II release ends Cold.
+export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&ordinaryCoupleSkillReady(b)&&
  supported(b)&&b.state==='LOADED'&&b.mainBoltLoaded&&ready(b,now)&&
  !b.pendingCoupledFromUpper&&!busy(b));
 

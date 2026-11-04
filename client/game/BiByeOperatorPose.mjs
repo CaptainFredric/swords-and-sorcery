@@ -18,11 +18,17 @@ export class BiByeOperatorPose {
    // Preserve both steel and gold pieces rather than assuming one mesh.
    this.stowed=new THREE.Group();this.stowed.name='BiBye_Stowed_Production_Sword';
    this.sword.traverse(source=>{
-    if(!source.isMesh)return;
+    if(!source.isMesh||!source.geometry?.attributes?.position)return;
     source.skeleton?.update();
-    const geometry=source.geometry.clone(),points=[];
-    for(let i=0;i<geometry.attributes.position.count;i++){
-     const p=source.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(source.matrixWorld).applyMatrix4(inverse);points.push(...p.toArray());
+    const geometry=source.geometry.clone(),pos=geometry.attributes.position,points=[];
+    const v=new THREE.Vector3();
+    for(let i=0;i<pos.count;i++){
+     if(source.isSkinnedMesh&&typeof source.getVertexPosition==='function'){
+      source.getVertexPosition(i,v);
+     }else{
+      v.fromBufferAttribute(pos,i);
+     }
+     const p=v.applyMatrix4(source.matrixWorld).applyMatrix4(inverse);points.push(...p.toArray());
     }
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
     const mesh=new THREE.Mesh(geometry,source.material);mesh.castShadow=true;this.stowed.add(mesh);
@@ -58,25 +64,47 @@ export class BiByeOperatorPose {
    // Fit the real production sword to the authored apparatus corridor. The
    // wrist and sword stay one construction; actual attacks/Guard bypass this.
    const hand=this.bone('hand.R');
-   if(hand&&this.sword&&grips.rightTip){
+   if(hand&&this.sword&&grips.rightTip&&grips.right){
     if(!this.flightSwordAxis){
      const points=[];this.root.updateWorldMatrix(true,true);
-     this.sword.traverse(mesh=>{if(!mesh.isMesh)return;mesh.skeleton?.update();
-      for(let i=0;i<mesh.geometry.attributes.position.count;i++)points.push(hand.worldToLocal(mesh.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld)));
+     this.sword.traverse(mesh=>{
+      if(!mesh.isMesh||!mesh.geometry?.attributes?.position)return;
+      mesh.skeleton?.update();
+      const pos=mesh.geometry.attributes.position;
+      const v=new THREE.Vector3();
+      for(let i=0;i<pos.count;i++){
+       if(mesh.isSkinnedMesh&&typeof mesh.getVertexPosition==='function'){
+        mesh.getVertexPosition(i,v);
+       }else{
+        v.fromBufferAttribute(pos,i);
+       }
+       points.push(hand.worldToLocal(v.applyMatrix4(mesh.matrixWorld)));
+      }
      });
-     const furthest=Math.max(0,...points.map(v=>v.length()));
+     let furthest=0;
+     for(let i=0;i<points.length;i++){
+      const d=points[i].length();
+      if(d>furthest)furthest=d;
+     }
      const tips=points.filter(v=>v.length()>furthest-.035);
-     if(tips.length)this.flightSwordAxis=tips.reduce((a,v)=>a.add(v),new THREE.Vector3()).normalize();
+     if(tips.length){
+      const sum=tips.reduce((a,v)=>a.add(v),new THREE.Vector3());
+      if(sum.lengthSq()>1e-6)this.flightSwordAxis=sum.normalize();
+     }
+     this.flightSwordAxis??=new THREE.Vector3(0,0,-1);
     }
-    if(this.flightSwordAxis){
+    if(this.flightSwordAxis&&hand.parent){
      const q=hand.getWorldQuaternion(new THREE.Quaternion());
      const current=this.flightSwordAxis.clone().applyQuaternion(q);
      // The short candidate corridor points the longer production blade inward.
      // Open its idle wrist outward, identically in first and third person.
      const outward=new THREE.Vector3(1,0,0).applyQuaternion(this.root.getWorldQuaternion(new THREE.Quaternion()));
-     const desired=grips.rightTip.clone().addScaledVector(outward,.55).sub(grips.right).normalize();
-     q.premultiply(new THREE.Quaternion().setFromUnitVectors(current,desired));
-     hand.quaternion.copy(hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));hand.updateMatrixWorld(true);
+     const desired=grips.rightTip.clone().addScaledVector(outward,.55).sub(grips.right);
+     if(current.lengthSq()>1e-6&&desired.lengthSq()>1e-6){
+      desired.normalize();
+      q.premultiply(new THREE.Quaternion().setFromUnitVectors(current,desired));
+      hand.quaternion.copy(hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));hand.updateMatrixWorld(true);
+     }
     }
    }
   }
@@ -90,23 +118,30 @@ export class BiByeOperatorPose {
  #arm(side,grip,seated=true){
   if(!grip)return;
   const a=this.bone('upper_arm.'+side),b=this.bone('forearm.'+side),c=this.bone('hand.'+side);
-  if(!a||!b||!c)return;
+  if(!a||!b||!c||!a.parent||!b.parent||!c.parent)return;
   const wristQ=c.getWorldQuaternion(new THREE.Quaternion());
   const local=this.root.worldToLocal(grip.clone()).add(seated?new THREE.Vector3(0,-.02,.12):new THREE.Vector3());
   const end=this.root.localToWorld(local),start=a.getWorldPosition(new THREE.Vector3());
   const elbow=b.getWorldPosition(new THREE.Vector3()),wrist=c.getWorldPosition(new THREE.Vector3());
-  const l1=start.distanceTo(elbow),l2=elbow.distanceTo(wrist),axis=end.clone().sub(start).normalize();
+  const l1=start.distanceTo(elbow),l2=elbow.distanceTo(wrist);
+  const deltaEnd=end.clone().sub(start);
+  if(deltaEnd.lengthSq()<1e-6)return;
+  const axis=deltaEnd.normalize();
   const d=Math.max(.001,Math.min(start.distanceTo(end),l1+l2-.001));
   const along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
-  const pole=elbow.clone().sub(start);pole.addScaledVector(axis,-pole.dot(axis)).normalize();
+  const pole=elbow.clone().sub(start);pole.addScaledVector(axis,-pole.dot(axis));
+  if(pole.lengthSq()>1e-6)pole.normalize();else pole.set(0,1,0);
   const target=start.clone().addScaledVector(axis,along).addScaledVector(pole,height);
   this.#aim(a,b,target);this.#aim(b,c,end);
   c.quaternion.copy(c.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(wristQ));c.updateMatrixWorld(true);
  }
  #aim(bone,child,target){
+  if(!bone||!child||!target||!bone.parent)return;
   const start=bone.getWorldPosition(new THREE.Vector3());
-  const from=child.getWorldPosition(new THREE.Vector3()).sub(start).normalize();
-  const to=target.clone().sub(start).normalize();
+  const from=child.getWorldPosition(new THREE.Vector3()).sub(start);
+  const to=target.clone().sub(start);
+  if(from.lengthSq()<1e-6||to.lengthSq()<1e-6)return;
+  from.normalize();to.normalize();
   const delta=new THREE.Quaternion().setFromUnitVectors(from,to);
   const world=bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(delta);
   bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));bone.updateMatrixWorld(true);

@@ -7,6 +7,7 @@ import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation} from './flightDashPresentation.mjs';
+import {stableFlightCockpitEye,finiteFlightLook} from './flightCameraSafety.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
@@ -1274,8 +1275,13 @@ export class GameRuntime {
 
   editTouchLayout(mode) {
     if (!this.touch) this.enableTouch();
-    this.input.releaseInputs(); // editor drag must not keep a live weapon firing
-    this.touch?.setActive(true);
+    // Controller sources and TouchControls' own pointer ownership are two
+    // different state machines. Clear BOTH before the editor can capture
+    // touches, or an old held Bolt/joystick can be reasserted by window events.
+    this.touch?.reset();
+    this.input.releaseInputs();
+    this.input.releaseFocus();
+    this.touch?.setActive(true); // the real controls are the edit preview
     this.touchLayoutEditor?.open(mode);
   }
 
@@ -1323,6 +1329,14 @@ export class GameRuntime {
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.playerId);
     const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
+    const previousFlightId=this.localAuth?.operatingFightFlightId??null;
+    const currentFlightId=auth?.alive?auth.operatingFightFlightId??null:null;
+    if(previousFlightId!==currentFlightId){
+      // A different operator/machine lifecycle must not inherit the previous
+      // machine's cockpit camera springs or pending third-person Dash boom.
+      this.flightCameraMotion?.reset();
+      this.flightDashPresentation.reset();
+    }
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
@@ -1331,12 +1345,17 @@ export class GameRuntime {
     if(auth?.operatingFightFlightId&&!wasMounted){
       this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
-      this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
+      const heading=snapshot.fightFlight?.heading;
+      this.input.yaw=Number.isFinite(heading)?heading:(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=0;
       this.flightVoState?.delete(auth.id);
       this.scenes?.tranquilizerReset?.(auth.id);
     }
     if(auth?.operatingRamId&&!wasMounted){
-      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
+      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
+      const heading=snapshot.soFistication?.heading;
+      this.input.yaw=Number.isFinite(heading)?heading:(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=0;
     }
     if (auth?.operatingBallistaId && !wasMounted) {
       this.siegeView = 'third';
@@ -1344,18 +1363,25 @@ export class GameRuntime {
       this.input.releaseInputs();
       this.weapon.setAttack(false);
       this.weapon.setGuard(false);
-      this.input.yaw = snapshot.bibyeBallista.yaw;
-      this.input.pitch = snapshot.bibyeBallista.pitch;
+      const yaw = snapshot.bibyeBallista?.yaw;
+      const pitch = snapshot.bibyeBallista?.pitch;
+      this.input.yaw = Number.isFinite(yaw) ? yaw : (Number.isFinite(auth.yaw) ? auth.yaw : (Number.isFinite(this.input.yaw) ? this.input.yaw : 0));
+      this.input.pitch = Number.isFinite(pitch) ? pitch : 0;
     }
     if (auth?.operatingBallistaId && wasMounted && previousSiege?.focusRevision !== snapshot.bibyeBallista?.focusRevision) {
-      this.input.yaw = snapshot.bibyeBallista.yaw;
-      this.input.pitch = snapshot.bibyeBallista.pitch;
+      const yaw = snapshot.bibyeBallista?.yaw;
+      const pitch = snapshot.bibyeBallista?.pitch;
+      if (Number.isFinite(yaw)) this.input.yaw = yaw;
+      if (Number.isFinite(pitch)) this.input.pitch = pitch;
     }
     if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId && !auth?.operatingFightFlightId)) {
       this.flightDashPresentation.reset();
       this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
-      if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
+      if (auth) {
+        if (Number.isFinite(auth.yaw)) this.input.yaw = auth.yaw;
+        if (Number.isFinite(auth.pitch)) this.input.pitch = auth.pitch;
+      }
       this.flightVoState?.delete(auth?.id ?? this.playerId);
       this.scenes?.tranquilizerReset?.(auth?.id ?? this.playerId);
     }
@@ -3303,7 +3329,8 @@ export class GameRuntime {
       const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(wanted.yaw,wanted.pitch);
       const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
       this.flightSiegeTarget={x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance};
-      return {...wanted,siegeTarget:this.flightSiegeTarget,mounted:true};
+      return {...wanted,siegeTarget:this.flightSiegeTarget,
+        viewFov:this.camera.fov,viewAspect:this.camera.aspect,mounted:true};
     }
     const b=this.latestSnapshot?.bibyeBallista;
     if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};
@@ -3325,7 +3352,12 @@ export class GameRuntime {
     if(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight){
       const m=this.latestSnapshot.fightFlight;
       this.flightCameraMotion ??= new FlightCameraMotion();
-      const motion=this.flightCameraMotion.update(dt,m,this.view.cameraMotion);
+      const rawMotion=this.flightCameraMotion.update(dt,m,this.view.cameraMotion);
+      const motionValues=[rawMotion?.offset?.x,rawMotion?.offset?.y,rawMotion?.offset?.z,
+        rawMotion?.pitch,rawMotion?.roll];
+      const motion=motionValues.every(Number.isFinite)?rawMotion:
+        {offset:{x:0,y:0,z:0},pitch:0,roll:0};
+      if(motion!==rawMotion)this.flightCameraMotion.reset();
       const dash=this.flightDashPresentation.update(dt,m,{
         eligible:this.playing&&this.localAuth.alive&&m.operatorId===this.playerId,
         cameraMotion:this.view.cameraMotion,
@@ -3336,13 +3368,24 @@ export class GameRuntime {
       // after release, landing or interruption without modifying input yaw/pitch.
       const blend=this.siegeView==='third'?1:dash.thirdBlend;
       const isFirstPerson=blend<.002;
-      const eye=this.flightRenderer.getMountedCameraPosition('sight')??new THREE.Vector3(m.x,m.y+1.52,m.z);
+      // The collision-swept rotor may pitch through 90 degrees, but the
+      // operator's camera must not follow its GLB visor node underground.
+      const ground=this.activeWorld?surfaceHeightAt(m.x,m.z,m.y,this.activeWorld):null;
+      const stable=stableFlightCockpitEye(m,
+        this.flightRenderer.getMountedCameraPosition('sight'),ground);
+      const eye=new THREE.Vector3(stable.x,stable.y,stable.z);
+      const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      const third=new THREE.Vector3(m.x+Math.sin(this.input.yaw)*distance,
-        m.y+3.05-Math.sin(this.input.pitch)*distance,m.z+Math.cos(this.input.yaw)*distance);
+      const third=new THREE.Vector3(m.x+Math.sin(look.yaw)*distance,
+        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(look.yaw)*distance);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
+      // World collision clipping must not undo the cockpit's floor clearance,
+      // particularly as the third-person boom returns during repeated Dashes.
+      if(![target.x,target.y,target.z].every(Number.isFinite))target.copy(eye);
+      target.y=Math.max(target.y,m.y+1.10,
+        Number.isFinite(ground)?ground+.88:-Infinity);
       if (isFirstPerson) {
         this.camera.position.copy(target);
         if (motion.offset) {
@@ -3351,9 +3394,10 @@ export class GameRuntime {
           this.camera.position.y += motion.offset.y;
           this.camera.position.z += motion.offset.x * sinH + motion.offset.z * cosH;
         }
-        const lookPitch = this.input.pitch + (motion.pitch ?? 0);
-        const lookRoll = motion.roll ?? 0;
-        this.camera.rotation.set(lookPitch, this.input.yaw, lookRoll, 'YXZ');
+        const lookPitch=Math.max(-1.45,Math.min(1.45,
+          look.pitch+(Number.isFinite(motion.pitch)?motion.pitch:0)));
+        const lookRoll=Number.isFinite(motion.roll)?motion.roll:0;
+        this.camera.rotation.set(lookPitch,look.yaw,lookRoll,'YXZ');
         this.siegeCamera = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
         const deltaYaw = Math.atan2(Math.sin(this.input.yaw - (m.heading ?? 0)), Math.cos(this.input.yaw - (m.heading ?? 0)));
         const rootPitch = Number.isFinite(m.runPitch) ? m.runPitch : 0;
@@ -3379,7 +3423,7 @@ export class GameRuntime {
         this.hud.setFlightSight?.(null);
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
-        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;
@@ -3473,6 +3517,50 @@ export class GameRuntime {
 
   #frame(nowMs) {
     if (!this.running) return;
+    // The next visual frame is owned by the loop, NEVER by successful
+    // completion of every camera/model/particle subsystem. Previously one
+    // uncaught Valkyrie render exception permanently stopped RAF even though
+    // the authoritative local match and network ticks continued normally.
+    requestAnimationFrame(t=>this.#frame(t));
+    try{
+      this.#frameTick(nowMs);
+      this.frameFailureStreak=0;
+    }catch(error){
+      this.frameFailureStreak=(this.frameFailureStreak??0)+1;
+      this.frameRecoveryCount=(this.frameRecoveryCount??0)+1;
+      const at=performance.now();
+      if(at-(this.lastFrameFailureLogAt??-Infinity)>2500){
+        this.lastFrameFailureLogAt=at;
+        console.error('[Castleward] Visual frame recovered after exception',
+          {streak:this.frameFailureStreak,machine:this.localAuth?.operatingFightFlightId??null},error);
+      }
+      // Restore a camera that remains usable while an animation, GLB node or
+      // secondary render pass recovers. Do not touch authoritative movement
+      // or remount/dismount state just to fix a rendering problem.
+      this.flightCameraMotion?.reset();
+      const m=this.localAuth?.operatingFightFlightId?this.latestSnapshot?.fightFlight:null;
+      if(m){
+        const ground=this.activeWorld?surfaceHeightAt(m.x,m.z,m.y,this.activeWorld):null;
+        const eye=stableFlightCockpitEye(m,null,ground);
+        this.camera.position.set(eye.x,eye.y,eye.z);
+        const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
+        this.camera.rotation.set(look.pitch,look.yaw,0,'YXZ');
+      }
+      try{
+        this.renderer?.setScissorTest(false);
+        this.camera?.layers.set(0);
+        this.#setFov(this.view?.fov);
+        this.#renderView();
+      }catch(renderError){
+        if(at-(this.lastFrameRenderLogAt??-Infinity)>3000){
+          this.lastFrameRenderLogAt=at;
+          console.error('[Castleward] Fallback render failed',renderError);
+        }
+      }
+    }
+  }
+
+  #frameTick(nowMs) {
     const wallDt=Math.min(.05,Math.max(0,(nowMs-(this.inspectionWallAt??nowMs))/1000));
     this.inspectionWallAt=nowMs;
     let flyAim=null;
@@ -3490,7 +3578,6 @@ export class GameRuntime {
       this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();
       if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;}
       this.#renderView();
-      requestAnimationFrame(t => this.#frame(t));
       return;
     }
     const elapsed = (nowMs - this.lastFrameAt) / 1000;
@@ -3832,16 +3919,22 @@ export class GameRuntime {
         voState.wasFastNear = isFastNear;
       }
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
-      if(driver?.root?.visible){
+      if(driver?.root?.visible && Number.isFinite(flightPose.x) && Number.isFinite(flightPose.y) && Number.isFinite(flightPose.z)){
         driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);
         // The fitted Spellblade pitches with the worn apparatus, including the
         // committed Valkyrie dive; his arm IK continues targeting its real grip.
         // The character faces -Z while the authored chassis faces +Z, so their
         // forward/downward local pitch signs are opposite.
-        driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
+        driver.root.rotation.set(-(flightPose.runPitch??0),Number.isFinite(flightPose.heading)?flightPose.heading:0,0,'YXZ');
         const driverPlayer = flightPose.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightPose.operatorId);
         const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
-        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
+        if(this.flightRenderer.model){
+          try{
+            driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
+          }catch(_e){
+            // Procedural IK error must never stall the render loop
+          }
+        }
       }
     }
     this.#mountedView(dt);
@@ -3910,7 +4003,6 @@ export class GameRuntime {
     if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;this.input.mountedRam=false;}
     this.weapon.syncPalmLight();
     this.#renderView();
-    requestAnimationFrame((t) => this.#frame(t));
   }
 
   // the world; then my own arms and sword over it, on depth cleared of the world (viewLayers.mjs), with the shadows
@@ -3973,8 +4065,12 @@ export class GameRuntime {
   }
 
   #setFov(fov) {
-    if (Math.abs(this.camera.fov - fov) < 1e-3) return;
-    this.camera.fov = fov;
+    // One corrupt animation/snapshot value must not poison the perspective
+    // matrix and turn every subsequent frame black.
+    const baseline=Number.isFinite(this.view?.fov)?this.view.fov:75;
+    const safe=Math.max(45,Math.min(120,Number.isFinite(fov)?fov:baseline));
+    if (Math.abs(this.camera.fov-safe) < 1e-3) return;
+    this.camera.fov=safe;
     this.camera.updateProjectionMatrix();
   }
 

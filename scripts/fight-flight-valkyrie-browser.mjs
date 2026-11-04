@@ -195,8 +195,108 @@ try{
   'short launch must travel 10m unless real collision or landing interrupts it');
  assert.equal(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),false);
  await screenshot('06-valkyrie-recovered');
+
+ // Regression: the first ordinary Dash passed before, but activating it
+ // AGAIN could return the pitched GLB visor to an underground/black camera.
+ // Exercise three consecutive real authoritative Dash presses in 1P, including
+ // the automatic first-to-third-to-first camera handoff on each release.
+ await tap('Z');
+ await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'repeat-Dash first-person cockpit',50);
+ const repeatCamera=[];
+ const cameraProbe=`(() => {
+   const r=window.__ssRuntime,m=r.latestSnapshot?.fightFlight,c=r.camera,
+     eye=r.flightRenderer?.getMountedCameraPosition('sight'),
+     draw=r.renderer?.info?.render?.frame;
+   return {frame:draw,position:c.position.toArray(),visor:eye?.toArray(),
+     y:m?.y,grounded:m?.grounded,run:m?.offensiveRun,
+     phase:m?.runGroundPhase,runPitch:m?.runPitch,fov:c.fov,
+     matrix:c.projectionMatrix.elements.slice(),view:r.siegeView,
+     input:r.input.enabled,lookYaw:r.input.yaw,cameraYaw:c.rotation.y,
+     recoveries:r.frameRecoveryCount??0};
+ })()`;
+ for(let cycle=0;cycle<3;cycle++){
+   await evaluate("document.querySelector('#practice-ultimate').click()");
+   await until(()=>evaluate("(window.__ssRuntime?.localAuth?.prowess??0)>=90"),
+     'legitimate practice prowess cycle '+cycle,80);
+   const beforeCamera=await evaluate(cameraProbe);
+   assert.equal(beforeCamera.view,'sight');
+   await down('E');
+   await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun)"),
+     'subsequent Valkyrie cycle '+cycle+' begins authoritatively',180);
+   const active0=await evaluate(cameraProbe);
+   await sleep(240);
+   const active1=await evaluate(cameraProbe);
+   assert.ok(active1.frame>active0.frame+1,
+     'world renderer must keep advancing during repeat '+cycle);
+   assert.ok(Math.hypot(...active1.position.map((v,i)=>v-active0.position[i]))>.02,
+     'first-person camera follows physical Dash movement in cycle '+cycle);
+   assert.ok(active1.position.every(Number.isFinite)&&active1.matrix.every(Number.isFinite),
+     'repeating Valkyrie cannot put NaN into the camera or projection');
+   // The moving third-person boom and the 30Hz authority snapshot can be
+   // sampled on different frames under software Chrome. During that handoff
+   // insist the actual view remains above world terrain; the settled 1P
+   // height is checked independently below, after the transient has ended.
+   assert.ok(active1.position[1]>Math.max(0,active1.y-.4),
+     'Dash handoff camera must not fall underground: '+JSON.stringify({active0,active1}));
+   await up('E');
+   await until(()=>evaluate("!window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun"),
+     'repeat '+cycle+' returns to ordinary flight',120);
+   await sleep(750); // allow the boom to finish returning to the visor
+   const afterCamera=await evaluate(cameraProbe);
+   assert.ok(afterCamera.frame>active1.frame+5,
+     'render loop stays alive through Dash exit and cockpit return');
+   assert.ok(afterCamera.position[1]>afterCamera.y+.65,
+     'settled first-person cockpit must remain above operator feet: '+
+     JSON.stringify({cycle,active1,afterCamera}));
+   assert.ok(afterCamera.position.every(Number.isFinite)&&afterCamera.matrix.every(Number.isFinite));
+   // The camera must respond to fresh look input after EVERY second/third
+   // activation, not merely change world position while retaining a frozen
+   // quaternion.
+   await evaluate("window.__ssRuntime.input.yaw+=.22");
+   await sleep(140);
+   const looked=await evaluate(cameraProbe);
+   assert.ok(Math.abs(Math.atan2(Math.sin(looked.cameraYaw-afterCamera.cameraYaw),
+     Math.cos(looked.cameraYaw-afterCamera.cameraYaw)))>.16,
+     'look input remains responsive after Valkyrie cycle '+cycle);
+   repeatCamera.push({cycle,beforeCamera,active0,active1,afterCamera,looked});
+   await screenshot('07-repeated-valkyrie-'+cycle+'-healthy-camera');
+ }
+ // Deliberately inject a recoverable invalid cockpit spring to verify that
+ // a bad visual animation frame is discarded without corrupting subsequent
+ // frames, client input, or the server's authoritative physics.
+ const beforeFault=await evaluate(cameraProbe);
+ await evaluate("window.__ssRuntime.flightCameraMotion.posVel.y=NaN");
+ await sleep(250);
+ const afterFault=await evaluate(cameraProbe);
+ assert.ok(afterFault.frame>beforeFault.frame+4,'camera recovers after invalid spring');
+ assert.ok(afterFault.position.every(Number.isFinite)&&afterFault.matrix.every(Number.isFinite),
+   'invalid camera springs must never cause a persistent black projection');
+ assert.ok(afterFault.input,'recovering the visual camera must not disable gameplay');
+ await screenshot('08-visual-failure-recovered');
+
+ // Verify a REAL thrown client render exception no longer kills the RAF loop.
+ // A once-only GLB camera-node error used to strand the visual callback:
+ // authoritative host ticks kept moving, but the game image froze.
+ const prior=await evaluate(cameraProbe);
+ await evaluate(`(() => {
+   const r=window.__ssRuntime, renderer=r.flightRenderer;
+   const original=renderer.getMountedCameraPosition.bind(renderer);
+   renderer.getMountedCameraPosition=(...args)=>{
+     renderer.getMountedCameraPosition=original;
+     throw new Error('Injected once-only Valkyrie camera locator error');
+   };
+ })()`);
+ await sleep(350);
+ const afterException=await evaluate(cameraProbe);
+ assert.ok(afterException.recoveries>prior.recoveries,'injected visual failure hit recovery path');
+ assert.ok(afterException.frame>prior.frame+5,'visual renderer keeps presenting after a thrown camera exception');
+ assert.ok(afterException.position.every(Number.isFinite)&&afterException.matrix.every(Number.isFinite),
+   'fallback cockpit position/projection remains valid');
+ assert.ok(afterException.input,'render exception must not release controls or stop simulation');
+ await screenshot('09-throwing-camera-recovers-without-reload');
+
  const trace=await evaluate("window.__valkyrieTrace??[]");
- const result={before,mounted,flying,ready,committed,curved,recovered,trace,
+ const result={before,mounted,flying,ready,committed,curved,recovered,repeatCamera,afterFault,afterException,trace,
   travelMetres:recovered.machine.runTravel,
   turnRadians:Math.atan2(Math.sin(curved.machine.heading-startHeading),Math.cos(curved.machine.heading-startHeading)),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
