@@ -603,7 +603,7 @@ try {
   await until(()=>evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot?.fightFlight?.skill;return s?.id==='doNotStopMyAscension'&&s.phase==='active';})()"),'activated authoritative Ascension from mobile Skill',120,150);
   await evaluate("document.querySelector('#practice-ultimate').click()");
   await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p.prowess>=100;})()"),'full unspent Chivalry ready on mobile',120,150);
-  const beforeDive=await evaluate("(() => {const m=window.__ssRuntime.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP};})()");
+  const beforeDive=await evaluate("(() => {const r=window.__ssRuntime,m=r.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP,spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth.prowess};})()");
   assert.ok(beforeDive.y>2&&beforeDive.charge>0&&beforeDive.rotor>0);
 
   await until(()=>evaluate("(() => {const rt=window.__ssRuntime;return rt.touch.valkyrieEligible && !rt.touch.valkyrieStencil.hidden;})()"),
@@ -656,7 +656,8 @@ try {
   await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive?.resolved===true"),'mobile terminal impact resolved',150,150);
   const mobileValkyrie=await evaluate("({before:window.__mobileValkyrieTrace[0],trace:window.__mobileValkyrieTrace,errors:window.__mobileValkyrieErrors,final:{mode:window.__ssRuntime.latestSnapshot.fightFlight.mode,spent:window.__ssRuntime.latestSnapshot.fightFlight.terminalDiveSpent}})");
 
-  assert.equal(mobileValkyrie.before?.spent,false,'precommit touch frame does not consume Chivalry');
+  assert.equal(beforeDive.spent,false,'precommit stencil cannot consume Chivalry');
+  assert.equal(beforeDive.prowess,100,'the authorized ritual begins with full Chivalry');
   assert.equal(mobileValkyrie.final.spent,true);
   assert.equal(mobileValkyrie.final.mode,'DESTROYED');
   assert.deepEqual(mobileValkyrie.errors,[],'no JS errors or WebGL context loss');
