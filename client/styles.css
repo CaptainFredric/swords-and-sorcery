@@ -600,3 +600,33 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
 .lobby-arrange summary{cursor:pointer;font-size:12px;letter-spacing:.12em;padding:8px 0;color:var(--gold,#d5b56e)}
 #lobby-error:empty{display:none}
 @media(max-width:380px){.lobby-config,.lobby-swap{grid-template-columns:minmax(0,1fr)}}
+
+/* Narrow to One: light 2D hardware reticle attached to the actual locked enemy.
+   No camera-centered false lock or large ability icon; touch doesn't intercept. */
+.flight-target-marker { position:absolute; z-index:14; transform:translate(-50%,-50%); pointer-events:none;
+  width:112px; text-align:center; color:#d7d1a7; text-shadow:0 1px 3px #000,0 0 4px #080e0e;
+  font:700 9px/1.2 ui-sans-serif,system-ui,sans-serif; letter-spacing:.10em; }
+.flight-target-marker[hidden] { display:none; }
+.flight-target-brackets { position:relative; width:42px; height:47px; margin:0 auto 2px; }
+.flight-target-brackets i { position:absolute; width:12px; height:12px; border-color:currentColor; border-style:solid; border-width:0; }
+.flight-target-brackets i:nth-child(1) { top:0; left:0; border-top-width:2px; border-left-width:2px; }
+.flight-target-brackets i:nth-child(2) { top:0; right:0; border-top-width:2px; border-right-width:2px; }
+.flight-target-brackets i:nth-child(3) { bottom:0; left:0; border-bottom-width:2px; border-left-width:2px; }
+.flight-target-brackets i:nth-child(4) { bottom:0; right:0; border-bottom-width:2px; border-right-width:2px; }
+.flight-target-name { display:block; max-width:112px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; }
+.flight-target-state { display:block; color:#99c4b5; font-size:8px; letter-spacing:.08em; }
+.flight-target-marker[data-state="locked"] { color:#bde3cd; }
+.flight-target-marker[data-state="outOfTraverse"],
+.flight-target-marker[data-state="noClearShot"] { color:#e4b779; }
+.flight-target-marker[data-state="outOfTraverse"] .flight-target-state,
+.flight-target-marker[data-state="noClearShot"] .flight-target-state { color:#edc38d; }
+.flight-target-pointer { display:none; position:absolute; top:-11px; left:calc(50% - 5px);
+  width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent;
+  border-left:9px solid currentColor; transform:rotate(var(--target-angle,0deg)); }
+.flight-target-marker[data-clamped="true"] .flight-target-pointer { display:block; }
+.flight-target-marker[data-clamped="true"] .flight-target-brackets { width:25px; height:25px; }
+@media(max-width:600px) {
+  .flight-target-marker { width:90px; font-size:8px; }
+  .flight-target-name { max-width:90px; font-size:8px; }
+  .flight-target-brackets { width:33px; height:38px; }
+}

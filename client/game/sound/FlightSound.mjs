@@ -18,6 +18,14 @@ export function flightRecipe(kind, rand=Math.random){
 
   const recipes = {
     boltRelease,
+    // Short double metallic latch: the gimbal finds and catches one target.
+    // Entirely synthesized; distinct from the repeater bolt-release snap.
+    targetLock: [
+      noise(3400,.022,.19,0,'highpass',1.2),
+      {type:'tone',wave:'triangle',freq:660,slideTo:460,attack:.001,decay:.055,gain:.12,at:.009},
+      noise(2600,.015,.09,.050,'highpass',1.3),
+      ring(rand,900,{decay:.085,gain:.075,partials:3}),
+    ],
     impactPlayer: [
       noise(340, .14, .36),
       thud(110, .18, .48, 0, 42),
@@ -280,7 +288,7 @@ export class FlightSound {
     if (event.machineId && event.machineId !== m.id) return;
     if (Math.abs(now - event.at) > 1.2) return;
 
-    const key = [event.type, event.machineId, event.at, event.component, event.projectileId, event.hitKind, event.action].join(':');
+    const key = [event.type, event.machineId, event.targetId, event.at, event.component, event.projectileId, event.hitKind, event.action].join(':');
     if (this.seen.has(key)) return;
     this.seen.add(key);
     if (this.seen.size > 180) this.seen.delete(this.seen.values().next().value);
@@ -288,7 +296,9 @@ export class FlightSound {
     let kind = null;
     const targetPoint = event.point ? { ...m, position: event.point } : m;
 
-    if (event.type === 'fightFlightBoltReleased') {
+    if (event.type === 'fightFlightTargetLock') {
+      kind = 'targetLock';
+    } else if (event.type === 'fightFlightBoltReleased') {
       kind = 'boltRelease';
     } else if (event.type === 'fightFlightBoltImpact') {
       if (event.hitKind === 'parry') kind = 'impactParry';

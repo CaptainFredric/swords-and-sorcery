@@ -20,7 +20,9 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   const skillState=variant==='narrowToOne'&&active?
     skill.trackingState==='noClearShot'?'NO CLEAR SHOT':
     skill.trackingState==='sightLost'?'SIGHT LOST':
-    skill.trackingState==='locked'?'TARGET LOCKED':skill.trackingState==='retargetReady'?'PRESS SKILL TO RETARGET':'ACQUIRING':
+    skill.trackingState==='locked'?'TARGET LOCKED':
+    skill.trackingState==='outOfTraverse'?'OUT OF ARC':
+    skill.trackingState==='retargetReady'?'PRESS SKILL TO RETARGET':'ACQUIRING':
     variant==='doNotStopMyAscension'&&active?'CHARGE DASH':
     active?'FIRE AWAY '+Math.max(0,skill.activeUntil-now).toFixed(1)+'s':
     now<(skill.readyAt??0)?Math.ceil(skill.readyAt-now)+'s':'READY';
@@ -37,8 +39,10 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   if (rotor <= 0) warning = 'ROTOR LOST · DESCENDING';
   else if (terminal) warning = 'VALKYRIE DIVE · COMMITTED';
   else if (preparing) warning = 'VALKYRIE PREPARING · ' + Math.max(0, (m.terminalPrep.until - now)).toFixed(1) + 's';
-  else if (active&&variant==='narrowToOne'&&skill.trackingState==='noClearShot') warning = 'NO CLEAR SHOT · GUARD, COVER OR TRAVERSE';
-  else if (active&&variant==='narrowToOne'&&skill.trackingState==='sightLost') warning = 'TARGET OUT OF SIGHT · FIRING ENDS LOCK';
+  else if (active&&variant==='narrowToOne'&&skill.trackingState==='noClearShot') warning = 'LOCK HELD · NO CLEAR SHOT · FIRE PAUSED';
+  else if (active&&variant==='narrowToOne'&&skill.trackingState==='outOfTraverse') warning = 'LOCK HELD · OUTSIDE CROSSBOW ARC · TURN MACHINE';
+  else if (active&&variant==='narrowToOne'&&skill.trackingState==='sightLost') warning = 'LOCK HELD · TARGET BEHIND COVER · FIRE PAUSED';
+  else if (active&&variant==='narrowToOne'&&!skill.targetId) warning = 'NARROW TO ONE · AIM AT AN ENEMY AND PRESS SKILL';
   else if (variant==='doNotStopMyAscension'&&active&&diveReady) warning='VALKYRIE AVAILABLE · HOLD DASH + ULTIMATE 1s';
   else if (!supported && charge < 15) warning = 'LOW FLIGHT CHARGE';
   else if (m.crossbowAimLimited) warning = 'AIM OUTSIDE CROSSBOW ARC · MUZZLE PATH DIFFERS';
