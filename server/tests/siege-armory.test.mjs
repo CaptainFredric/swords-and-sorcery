@@ -20,7 +20,9 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true]);
  assert.equal(v[0].skills[0].icon,'boltToTheOccasion');
  assert.equal(v[0].skills[1].icon,undefined,'alternative frost Skill retains its presentation');
- assert.equal(v[1].skills.length,1);assert.equal(v[2].skills.length,3);
+ assert.deepEqual(v[1].skills.map(s=>s.id),['beatToThePunch','longArmToTheJaw']);
+ assert.equal(v[1].skills[0].equipped,true);
+ assert.equal(v[2].skills.length,3);
 });
 test('Registry and stored personal Skill survive reload and reject invented values',()=>{
  const memory=new Map(),storage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};

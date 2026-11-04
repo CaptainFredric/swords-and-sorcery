@@ -224,6 +224,12 @@ registry
     options: [{value:'boltToTheOccasion',label:'Bolt to the Occasion'},{value:'coldHowTouching',label:'Cold, How Touching'}]
   })
   .defineSetting({
+    id: 'loadout.soFistSkill', section: 'loadout', label: 'SO-FIST-ICATION Skill', type: 'choice',
+    default: 'beatToThePunch',
+    options: [{value:'beatToThePunch',label:'Beat to the Punch'},
+      {value:'longArmToTheJaw',label:'Long Arm to the Jaw'}]
+  })
+  .defineSetting({
     id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: 'fireAwayRightHere',
     options: [{value:'fireAwayRightHere',label:"Fire Away? I'm Right Here."},
       {value:'narrowToOne',label:'Narrow to One'},

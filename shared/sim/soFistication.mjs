@@ -28,7 +28,7 @@ const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==fal
 // authoritative fields.
 function stepRamElevation(room,b,dt,now,world){
  const p=room.players.get(b.operatorId),input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
- if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&!b.ramElevPitch)return;
+ if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&!b.ramElevPitch&&!(input.pitch>0))return;
  const amount=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
  const nextLift=clamp(amount+((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
    input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),0,SO_FIST_LIFT.maxRise);
