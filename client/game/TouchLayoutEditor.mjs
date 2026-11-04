@@ -120,7 +120,14 @@ export class TouchLayoutEditor {
   }
 
   open(mode = null) {
+    if(this.active){this.setMode(mode??this.mode);return;}
+    // Load the latest saved overrides each time the editor opens. The
+    // preview is always the same computed layout the player will use.
+    this.layouts=loadTouchLayout();
+    this.opacitySlider.value=String(Math.round(this.layouts.opacity*100));
+    if(this.opacityOutput)this.opacityOutput.textContent=this.opacitySlider.value+'%';
     this.active = true;
+    document.body.classList.add('touch-layout-editor-open');
     this.mode = mode ?? (this.touchControls.flightMounted ? 'flight':
       this.touchControls.ramMounted?'ram':this.touchControls.ballistaMounted?'ballista':'onFoot');
     this.selectedAction=null;
@@ -132,7 +139,12 @@ export class TouchLayoutEditor {
     if(!layer.getClientRects?.()?.length){
       this.previewParent=layer.parentNode;
       this.previewNextSibling=layer.nextSibling;
-      document.body.appendChild(layer);
+      // Preserve the game's container queries, safe-area variables and
+      // control scale. Reparenting to body changes the coordinate system
+      // and makes buttons visibly shrink or jump after editing.
+      const shell=this.previewParent?.closest?.('#game-shell')??
+        document.querySelector('#game-shell')??document.body;
+      shell.appendChild(layer);
       layer.classList.add('touch-layout-detached');
     }
     this.touchControls.layer.classList.add('touch-layout-editing');
@@ -140,7 +152,9 @@ export class TouchLayoutEditor {
   }
 
   close() {
+    if(!this.active)return;
     this.active = false;
+    document.body.classList.remove('touch-layout-editor-open');
     this.selectedAction = null;
     this.dragPointerId = null;
     this.root.classList.add('hidden');
@@ -178,6 +192,8 @@ export class TouchLayoutEditor {
   resetCurrentMode() {
     const defaults={onFoot:DEFAULT_ON_FOOT_LAYOUT,flight:DEFAULT_FLIGHT_LAYOUT,
       ballista:DEFAULT_BALLISTA_LAYOUT,ram:DEFAULT_RAM_LAYOUT};
+    this.layouts.presets??={};
+    this.layouts.presets[this.mode]='right';
     this.layouts[this.mode]=structuredClone(defaults[this.mode]);
     this.setMode(this.mode);
     saveTouchLayout(this.layouts);
@@ -185,6 +201,8 @@ export class TouchLayoutEditor {
 
   applyPreset(handedness) {
     this.layouts.handedness=handedness;
+    this.layouts.presets??={};
+    this.layouts.presets[this.mode]=handedness;
     const defaults={onFoot:DEFAULT_ON_FOOT_LAYOUT,flight:DEFAULT_FLIGHT_LAYOUT,
       ballista:DEFAULT_BALLISTA_LAYOUT,ram:DEFAULT_RAM_LAYOUT};
     const chosen=handedness==='left'?mirrorLayoutHorizontal(defaults[this.mode]):

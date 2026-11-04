@@ -1277,6 +1277,7 @@ function togglePracticeDrawer() {
 }
 
 function openPause(section = 'main') {
+  if(runtime?.touchLayoutEditor?.active)return; // editing is a modal control state
   if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
   if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
@@ -1369,7 +1370,11 @@ const settingsPanel = new SettingsPanel({
   store: settings,
   registry,
   device: () => (touchUi ? 'touch' : 'desktop'),
-  onOpenTouchEditor: () => { ensureRuntime(); runtime?.editTouchLayout(); },
+  onOpenTouchEditor: () => {
+    // The Settings sheet must not sit behind the new layout workshop.
+    settingsPanel.close();
+    ensureRuntime();runtime?.editTouchLayout();
+  },
 });
 settings.onChange((change) => {
   applySettings();
@@ -1608,6 +1613,11 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
+  if(runtime?.touchLayoutEditor?.active){
+    event.preventDefault();event.stopPropagation();
+    runtime.touchLayoutEditor.close();
+    return;
+  }
   if (creditsPanel.isOpen) {
     creditsPanel.close();
     return;
