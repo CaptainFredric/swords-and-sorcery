@@ -239,7 +239,7 @@ test('Airborne Dash drives a falling craft immediately with full Chivalry and no
   requestFlightDash(s.room,s.m,s.p,true,0);
   stepFlightRun(s.room,s.m,DT,DT);
   assert.equal(s.m.offensiveRun,true,'first physics tick must propel, not wait 0.3s');
-  assert.equal(s.p.prowess,100,'the terminal chord reserve remains available');
+  assert.ok(s.p.prowess<100,'Fire Away spends prowess without reserving an unavailable terminal Dive');
   assert.equal(s.m.rotorPowered,true,'Dash winds an idle rotor while moving');
   stepFightFlight(s.room,s.m,DT,DT);
   assert.ok(s.m.y<35,'fall continues rather than halting in midair');
