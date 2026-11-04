@@ -44,6 +44,7 @@ export class TouchLayoutEditor {
           <button type="button" class="tle-btn" data-action="preset-left">LEFT-HANDED</button>
           <button type="button" class="tle-btn" data-action="reset">RESET DEFAULT</button>
           <button type="button" class="tle-btn primary" data-action="done">DONE</button>
+          <span class="tle-storage-warning" data-storage-status hidden>SESSION ONLY · BROWSER STORAGE UNAVAILABLE</span>
         </div>
       </div>
       <div class="tle-hint">DRAG to move · SELECT to resize · JOYSTICK sizes change real input reach · DONE saves each machine separately</div>
@@ -86,7 +87,7 @@ export class TouchLayoutEditor {
       this.touchControls.setCustomOpacity(val);
       // Opacity is a user edit, not a transient visual preview. Persist it
       // just like geometry even if the browser suspends the editor mid-session.
-      saveTouchLayout(this.layouts);
+      this.#persistLayout();
     });
 
     for(const [key,slider]of [['size',this.sizeSlider],['width',this.widthSlider],['height',this.heightSlider]]){
@@ -111,7 +112,7 @@ export class TouchLayoutEditor {
         if(output)output.textContent=actual+'px';
         slider.value=String(actual);
         this.applyCurrent();
-        saveTouchLayout(this.layouts);
+        this.#persistLayout();
       });
     }
 
@@ -153,6 +154,8 @@ export class TouchLayoutEditor {
     }
     this.touchControls.layer.classList.add('touch-layout-editing');
     this.setMode(this.mode);
+    this.#persistLayout(); // Verify storage availability and migrate old saves.
+
   }
 
   close({resumeArena=this.resumeArenaAfterClose}={}) {
@@ -165,7 +168,7 @@ export class TouchLayoutEditor {
     this.root.classList.add('hidden');
     this.touchControls.layer.classList.remove('touch-layout-editing');
     this.#clearSelectionHighlight();
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
     this.touchControls.previewEditMode(null);
     const layer=this.touchControls.layer;
     if(this.previewParent){
@@ -203,7 +206,7 @@ export class TouchLayoutEditor {
     this.layouts.presets[this.mode]='right';
     this.layouts[this.mode]=structuredClone(defaults[this.mode]);
     this.setMode(this.mode);
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
   }
 
   applyPreset(handedness) {
@@ -216,7 +219,14 @@ export class TouchLayoutEditor {
       structuredClone(defaults[this.mode]);
     this.layouts[this.mode]=chosen; // do not destroy edits on other pages
     this.setMode(this.mode);
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
+  }
+
+  #persistLayout() {
+    const persisted=saveTouchLayout(this.layouts);
+    const status=this.root.querySelector('[data-storage-status]');
+    if(status)status.hidden=persisted;
+    return persisted;
   }
 
   applyCurrent() {
@@ -289,7 +299,7 @@ export class TouchLayoutEditor {
     event.stopPropagation();
     this.dragPointerId = null;
     this.dragStart = null;
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
   };
 
   #syncDimensionSliders(placement) {

@@ -510,3 +510,16 @@ test('layout workshop previews share game scale, avoid Arena Menu and preserve e
  assert.match(controls,/applyLayoutItem\(element,\{\.\.\.placement,custom:true\}\)/,
    'all active controls, including default on-foot controls, render canonical layout values');
 });
+
+test('blocked browser storage retains customized positions in session without claiming persistence',()=>{
+ const blocked={getItem(){throw Error('denied')},setItem(){throw Error('denied')}};
+ const initial=loadTouchLayout(blocked);
+ initial.flight.jump.bottom=191;
+ assert.equal(saveTouchLayout(initial,blocked),false,'durable save must report the denial');
+ const restored=loadTouchLayout(blocked);
+ assert.equal(restored.flight.jump.bottom,191,'tab-local layout must not vanish on reopening editor');
+ assert.equal(restored.flight.attack.width,DEFAULT_FLIGHT_LAYOUT.attack.width);
+ const other=memoryStorage();
+ assert.equal(loadTouchLayout(other).flight.jump.bottom,DEFAULT_FLIGHT_LAYOUT.jump.bottom,
+   'session cache must never leak into a distinct storage profile');
+});
