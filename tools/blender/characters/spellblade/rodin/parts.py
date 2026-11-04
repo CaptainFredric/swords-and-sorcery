@@ -37,8 +37,9 @@ from mathutils import Matrix, Vector
 
 from tools.blender.characters.spellblade.rodin.hands import build_hands
 from tools.blender.characters.spellblade.rodin.forge import check_region_free, forge, swatch_uv
-from tools.blender.characters.spellblade.rodin.rigid import (HELMET_PARTS, add_pauldron_bones, body_off_head,
-                                                             harden_joints, pauldron_weights)
+from tools.blender.characters.spellblade.rodin.rigid import (HELMET_PARTS, add_cop_bones, add_pauldron_bones, body_off_head,
+                                                             pauldron_weights, share_cops)
+from tools.blender.characters.spellblade.rodin.segments import Mesh, free_pauldrons
 
 ARCHIVE_EMISSIVE = "rodin-spellblade-emissive.png"
 CAPE_CUT = 1.35          # below this the cape hangs free of the body
@@ -316,7 +317,8 @@ def _texel_of(obj, select) -> tuple[float, float]:
     pixels = _image_pixels(image)
     uv = np.empty(len(me.loops) * 2)
     me.uv_layers.active.data.foreach_get("uv", uv)
-    uv = uv.reshape(-1, 3, 2).mean(1)
+    uv = uv.reshape(-1, 2)
+    uv = np.array([uv[p.loop_start:p.loop_start + p.loop_total].mean(0) for p in me.polygons])   # (any face size)
     colour = _sample(pixels, uv)[:, :3]
     centres = np.array([p.center[:] for p in me.polygons])
     chosen = select(colour, centres)
@@ -500,9 +502,10 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
     for vertex in np.where(helmet_vertex & ~body_vertex)[0]:
         weights[vertex] = {"head": 1.0}
     report_rigid = {"bodyOffHead": body_off_head(weights, helmet_vertex & ~body_vertex),
-                    "joints": harden_joints(rig, co, weights),
+                    "copBones": add_cop_bones(rig),
                     "pauldronBones": add_pauldron_bones(rig)}
-    report_rigid["pauldrons"] = pauldron_weights(rig, co, faces.verts, part, weights)
+    report_rigid["pauldrons"], plate_faces, rims = pauldron_weights(rig, co, faces.verts, part, weights)
+    report_rigid["cops"] = share_cops(weights)
     bone_names = [b.name for b in rig.data.bones if b.use_deform]
     neck_ring = co[helmet_vertex & body_vertex]
     cape_faces = np.where(part == "TabardBack")[0]
@@ -532,6 +535,20 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         total = sum(w.values()) or 1.0
         for bone, value in w.items():
             groups[bone].add([int(vertex)], value / total, "REPLACE")
+
+    # --- the pauldrons cut free of the collar, a padded shoulder under each (segments.py) ----------------------
+    padding = _texel_of(mesh, lambda c, p: (c.mean(1) > 0.06) & (c.mean(1) < 0.12) & (p[:, 2] > 0.4))
+    body = Mesh(mesh)
+    before = len(body.bm.faces)
+    report["segments"] = {"pauldrons": free_pauldrons(body, rig, plate_faces, rims, padding)}
+    # (the padding's new faces belong to the part they pad)
+    pad_part = {"clavicle": "Pauldron"}
+    added = []
+    for f in body.bm.faces[before:]:
+        bone = body.name[next(iter(f.verts[0][body.deform].keys()))]
+        added.append(f"{pad_part[bone.split('.')[0]]}.{bone.split('.')[1]}")
+    body.finish()
+    part = np.concatenate([part, np.array(added, dtype=object)])
 
     # --- split ----------------------------------------------------------------------------------------------
     attribute = mesh.data.attributes.new("rodin_part", "INT", "FACE")

@@ -1,21 +1,19 @@
-"""Rigid armour: plates that move whole with their bones instead of stretching between them (part of parts.py).
+"""Armour that moves as armour (part of parts.py; the runtime's pauldronFollow.mjs turns the same bones in game).
 
-Rodin's autorig spread each limb's weights in long gradients, so a vambrace was a third on the upper arm and a cuirass
-half on the hips: when an arm rose, every plate on it sheared and stretched like cloth. Here each plate is given to the
-bone that carries it, and the bending is kept to a narrow band at each joint, where the dark underlayer is:
+Rodin's autorig spread each limb's weights in long gradients and tied the head, collar and shoulders together:
 
-- **Joints** (`harden_joints`): at the waist, chest, elbows, wrists, knees and ankles a plane through the joint, halving
-  the angle between its two bones, divides the weight a vertex has on the joint's own two sides by how far past the plane it lies
-  (wholly one side beyond the joint's band in JOINTS). Its weight on any other bone is left alone: the waist does not
-  take an armpit off the arm. The division is a function of rest position and weights alone, so the copies of a
-  vertex on either side of a split edge stay together.
-- **Pauldrons** (`add_pauldron_bones`, `pauldron_weights`): each pauldron is one plate on a bone of its own, which
-  shares its upper arm's rest and parent and turns part of the way with the arm (`pauldronFollow.mjs` at runtime, and
-  baked into every action here by `bake_pauldrons`). Rodin had the left one half on the arm and the right one a fifth,
-  so each moved differently and both stretched over a raised arm. Below its rim the upper arm is wholly the arm's.
-  Across its edge with the collar it eases back onto the body's own weights over PAULDRON_EDGE.
-- **Body against head**: nothing but the helmet rides the head (Rodin had the collar and pauldrons partly on it, so a
-  turned head dragged the shoulders). The body's head and neck weights go to the chest.
+- **Pauldrons** (`add_pauldron_bones`, `pauldron_weights`, then segments.py frees them): each pauldron is one plate on a
+  bone of its own, which shares its upper arm's rest and parent and turns part of the way with the arm (0.6, rising to
+  0.95 for an arm raised overhead), baked into every action by `bake_pauldrons`. Rodin had the left one half on the
+  arm and the right one a fifth, so the two moved differently and a raised arm slid out from under its plate.
+- **Elbows and knees** (`add_cop_bones`, `share_cops`): each joint has a cop, a bone with its lower limb's rest on its
+  upper limb, turned half as far as the lower limb. The part of a vertex's weight its two limb bones share equally
+  goes to the cop, so a bending joint holds its depth instead of pinching in (linear skinning averages two bones'
+  transforms; half the turn, taken whole, does not). Rodin's gradients stay, so no plate stretches more for it.
+  Narrowing the gradients toward rigid plates was tried: the stretch it took off the plates' middles it put, harder,
+  on the plates the bands crossed (Rodin's armour has little but plate), so it was dropped.
+- **Body against head** (`body_off_head`): nothing but the helmet rides the head; the body's head and neck weights go
+  to the chest, so a turned head no longer drags the collar and shoulders.
 """
 from __future__ import annotations
 
@@ -26,18 +24,13 @@ import numpy as np
 from mathutils import Quaternion
 from mathutils.kdtree import KDTree
 
-# Each joint trades weight only between its own two sides (a limb's weight on the torso is not the waist's business),
-# across a plane through the child's head square to the parent bone, over a band of the given half-width in metres.
-# Rodin's triangles run to 4 cm, so a band narrower than about two of them turns into one hard step.
-JOINTS = [(("pelvis",), ("spine",), 0.10), (("spine",), ("chest",), 0.10)] + [  # (parent side, child side, half-width)
-    joint for s in "LR" for joint in (
-        ((f"upper_arm.{s}",), (f"forearm.{s}", f"hand.{s}"), 0.07),
-        ((f"forearm.{s}",), (f"hand.{s}",), 0.05),
-        ((f"thigh.{s}",), (f"shin.{s}", f"foot.{s}"), 0.08),
-        ((f"shin.{s}",), (f"foot.{s}",), 0.06))]
+# each elbow's and knee's cop: (upper limb, lower limb, cop)
+JOINTS = [joint for s in "LR" for joint in ((f"upper_arm.{s}", f"forearm.{s}", f"elbow.{s}"),
+                                             (f"thigh.{s}", f"shin.{s}", f"knee.{s}"))]
+COP_SHARE = 0.5           # how far a cop turns with the limb below it (client/game/SpellbladeAnimator.mjs: the same)
 PAULDRON_REACH = 0.30     # metres from the shoulder joint: nothing further is pauldron
 PAULDRON_INNER = -0.12    # metres back along the arm from the shoulder joint (toward the neck): the plate's inner limit
-PAULDRON_EDGE = 0.09      # metres from the pauldron's edge with the body over which it eases onto the body's weights
+PAULDRON_EDGE = 0.12      # metres from the pauldron's edge with the body over which it eases onto the body's weights
 UPPER_ARM_EDGE = 0.06     # below the rim the upper arm becomes wholly the arm's over this much
 MIN_WEIGHT = 0.02
 HELMET_PARTS = ("Visor", "Crest", "HelmetJaw", "HelmetShell")
@@ -79,36 +72,42 @@ def body_off_head(weights: list[dict[str, float]], is_helmet: np.ndarray) -> int
     return changed
 
 
-def harden_joints(rig, co: np.ndarray, weights: list[dict[str, float]]) -> dict:
-    """Narrow each joint's bend to its band (see the module notes). Joints are taken root to tip."""
+def add_cop_bones(rig) -> list[str]:
+    """Each joint's cop: its child's rest (head, tail and roll) on its parent, deforming."""
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    made = []
+    for parent, child, cop in JOINTS:
+        limb = rig.data.edit_bones[child]
+        bone = rig.data.edit_bones.new(cop)
+        bone.head, bone.tail, bone.roll = limb.head.copy(), limb.tail.copy(), limb.roll
+        bone.parent = rig.data.edit_bones[parent]
+        bone.use_connect = False
+        bone.use_deform = True
+        made.append(cop)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return made
+
+
+def share_cops(weights: list[dict[str, float]]) -> dict:
+    """At each elbow and knee, the part of a vertex's weight its two limb bones share equally goes to the joint's cop
+    (half the joint's turn). Linear skinning averages two bones' transforms, which pulls a bending joint in on itself
+    (a knee bent square loses three tenths of its depth); half the turn, taken whole, does not. The gradients Rodin
+    painted stay as they are, so no plate stretches more for it."""
     report = {}
-    for parent, child, band in JOINTS:
-        head = np.array(rig.matrix_world @ rig.data.bones[child[0]].head_local)
-        # (the plane halves the joint's angle: square to the limb where it is straight, and where it rests bent, as the
-        # spell hand does, the fingers stay the hand's instead of falling behind a plane square to the forearm)
-        direction = _joint(rig, parent[0])[1] + _joint(rig, child[0])[1]
-        direction /= np.linalg.norm(direction)
-        along = (co - head) @ direction
-        changed = 0
+    for upper, lower, cop in JOINTS:
+        moved = 0
         for vertex, w in enumerate(weights):
-            mine = sum(v for k, v in w.items() if k in child)
-            other = sum(v for k, v in w.items() if k in parent)
-            if mine + other <= 1e-6:
+            shared = min(w.get(upper, 0.0), w.get(lower, 0.0))
+            if shared < MIN_WEIGHT:
                 continue
-            # (every vertex on either side, even one wholly on one: inside the band its neighbours blend, and Rodin
-            # left palm vertices on the forearm alone)
-            share = float(smoothstep(-band, band, along[vertex]))
-            total = mine + other
             w = dict(w)
-            for k in child + parent:
-                w.setdefault(k, 0.0)
-            on_child = {k: (w[k] / mine if mine > 1e-6 else (1.0 if k == child[0] else 0.0)) for k in child}
-            on_parent = {k: (w[k] / other if other > 1e-6 else (1.0 if k == parent[0] else 0.0)) for k in parent}
-            w.update({k: share * total * f for k, f in on_child.items()})
-            w.update({k: (1 - share) * total * f for k, f in on_parent.items()})
+            w[upper] -= shared
+            w[lower] -= shared
+            w[cop] = w.get(cop, 0.0) + 2 * shared
             weights[vertex] = _clean(w)
-            changed += 1
-        report[child[0]] = changed
+            moved += 1
+        report[cop] = moved
     return report
 
 
@@ -131,8 +130,9 @@ def add_pauldron_bones(rig) -> list[str]:
 
 def pauldron_weights(rig, co: np.ndarray, face_verts: np.ndarray, part: np.ndarray,
                      weights: list[dict[str, float]]) -> dict:
-    """Each pauldron rigid on its bone, easing onto the body across its edge; the upper arm below its rim the arm's."""
-    report = {}
+    """Each pauldron rigid on its bone, easing onto the body across its edge; the upper arm below its rim the arm's.
+    Returns the report, each plate's faces and each rim (along the arm), for the cut that frees it (segments.py)."""
+    report, plates, rims = {}, {}, {}
     for side in "LR":
         arm_bones = _descendants(rig, f"upper_arm.{side}")
         head, direction = _joint(rig, f"upper_arm.{side}")
@@ -189,7 +189,9 @@ def pauldron_weights(rig, co: np.ndarray, face_verts: np.ndarray, part: np.ndarr
             arm_band += 1
         report[side] = {"rim": round(rim, 3), "plateVertices": int(plate.sum()), "edgeVertices": int(edge.sum()),
                         "upperArmBand": arm_band}
-    return report
+        plates[side] = [int(i) for i in np.where(candidate)[0][plate_faces]]
+        rims[side] = rim
+    return report, plates, rims
 
 
 # How far each pauldron turns with its arm: kept equal to client/game/pauldronFollow.mjs
@@ -204,35 +206,42 @@ def pauldron_follow(turn_degrees: float) -> float:
     return PAULDRON_FOLLOW + (PAULDRON_RAISED_FOLLOW - PAULDRON_FOLLOW) * t * t * (3 - 2 * t)
 
 
+def followers() -> list[tuple[str, str, object]]:
+    """(bone, the bone it follows, its share of that bone's turn as a function of the turn in degrees)."""
+    out = [(f"pauldron.{s}", f"upper_arm.{s}", pauldron_follow) for s in "LR"]
+    out += [(cop, lower, lambda turn: COP_SHARE) for _, lower, cop in JOINTS]
+    return out
+
+
 def bake_pauldrons(rig) -> int:
-    """Key each pauldron in every action as the runtime turns it: part of the way from rest to its arm's turn, on
-    every frame and on the arm's own key times (linear between). Returns the keys written."""
+    """Key each pauldron and each cop in every action as the runtime turns it: part of the way from rest to the turn of
+    the bone it follows, on every frame and on that bone's own key times (linear between). Returns the keys written."""
     scene = bpy.context.scene
     saved = rig.animation_data.action, scene.frame_current
     written = 0
+    follow = [f for f in followers() if f[0] in rig.pose.bones]
     for action in bpy.data.actions:
         rows = []
         times = set(np.arange(action.frame_range[0], action.frame_range[1] + 1e-6, 1.0))
-        for side in "LR":
-            path = f'pose.bones["upper_arm.{side}"].rotation_quaternion'
+        for _, leader, _ in follow:
+            path = f'pose.bones["{leader}"].rotation_quaternion'
             times |= {k.co[0] for fc in action.fcurves if fc.data_path == path for k in fc.keyframe_points}
         rig.animation_data.action = action
         for time in sorted(times):
             scene.frame_set(int(np.floor(time)), subframe=float(time - np.floor(time)))
-            rows.append((float(time), {s: rig.pose.bones[f"upper_arm.{s}"].rotation_quaternion.copy() for s in "LR"}))
-        for side in "LR":
-            path = f'pose.bones["pauldron.{side}"]'
+            rows.append((float(time), {leader: rig.pose.bones[leader].rotation_quaternion.copy() for _, leader, _ in follow}))
+        for name, leader, share in follow:
+            path = f'pose.bones["{name}"]'
             for fc in [fc for fc in action.fcurves if fc.data_path.startswith(path)]:
                 action.fcurves.remove(fc)
-            curves = [action.fcurves.new(f"{path}.rotation_quaternion", index=i, action_group=f"pauldron.{side}")
-                      for i in range(4)]
+            curves = [action.fcurves.new(f"{path}.rotation_quaternion", index=i, action_group=name) for i in range(4)]
             previous = None
             for time, turns in rows:
-                arm = turns[side].normalized()
+                arm = turns[leader].normalized()
                 if arm.w < 0:
                     arm = -arm
                 turn = math.degrees(2 * math.acos(min(1.0, abs(arm.w))))
-                q = Quaternion().slerp(arm, pauldron_follow(turn))
+                q = Quaternion().slerp(arm, share(turn))
                 if previous is not None and previous.dot(q) < 0:
                     q = -q
                 previous = q
@@ -241,7 +250,7 @@ def bake_pauldrons(rig) -> int:
                     key.interpolation = "LINEAR"
                 written += 1
             # a loop's seam: the step into it and the step out of it made one (their mean), so the plate loops as
-            # smoothly as the arm it follows (the keys are linear, one a frame)
+            # smoothly as the bone it follows (the keys are linear, one a frame)
             if action.name in LOOP_SEAMS:
                 start, end = LOOP_SEAMS[action.name]
                 for curve in curves:

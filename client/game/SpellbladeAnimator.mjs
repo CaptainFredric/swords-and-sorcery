@@ -4,7 +4,7 @@ import {RamOperatorPose} from './RamOperatorPose.mjs';
 import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
-import { pauldronFollow } from './pauldronFollow.mjs';
+import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
@@ -81,6 +81,12 @@ export class SpellbladeAnimator {
       const arm = this.bones.get(`upper_arm${side}`);
       if (plate && arm) this.pauldrons.push({ plate, arm, rest: plate.quaternion.clone() });
     }
+    // and each joint's cop, half way with its limb (a model without them has none)
+    for (const [cop, limb] of COPS) {
+      const plate = this.bones.get(cop);
+      const arm = this.bones.get(limb);
+      if (plate && arm) this.pauldrons.push({ plate, arm, rest: plate.quaternion.clone(), share: () => COP_SHARE });
+    }
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
@@ -122,10 +128,10 @@ export class SpellbladeAnimator {
   }
 
   #followPauldrons() {
-    for (const { plate, arm, rest } of this.pauldrons) {
+    for (const { plate, arm, rest, share = pauldronFollow } of this.pauldrons) {
       // (they share a rest: how far the arm has turned from it)
       const turn = THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(rest.dot(arm.quaternion)))));
-      plate.quaternion.copy(rest).slerp(arm.quaternion, pauldronFollow(turn));
+      plate.quaternion.copy(rest).slerp(arm.quaternion, share(turn));
       plate.position.copy(arm.position);
     }
   }

@@ -15,3 +15,12 @@ test('a pauldron turns part of the way with its arm, and further as the arm is r
     last = f;
   }
 });
+
+test('every joint cop follows its own limb half way, each named as the model names it', async () => {
+  const { COPS, COP_SHARE } = await import('./pauldronFollow.mjs');
+  assert.equal(COP_SHARE, 0.5);
+  const cops = new Map(COPS);
+  assert.equal(cops.get('elbowL'), 'forearmL');
+  assert.equal(cops.get('kneeR'), 'shinR');
+  assert.equal(new Set(COPS.map(([cop]) => cop)).size, COPS.length);
+});
