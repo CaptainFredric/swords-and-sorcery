@@ -16,6 +16,7 @@ import {FlightSound} from './sound/FlightSound.mjs';
 import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
+import { gestureMachines } from './spellbladeGestures.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
 import {clearOptics,sightPlanePoint,sightLimits,sightWeaponRay,sightScreenPoint} from './biByeSight.mjs';
 import { biByeViewAction } from '../worlds/biByePresentation.mjs';
@@ -1987,6 +1988,8 @@ export class GameRuntime {
         this.activeVolleyTargets?.delete(event.victimId);
         this.flightVolleys?.delete(event.victimId);
         this.#deathEvent(event);
+        // (the victor nods at his work, once the blow that won it is done)
+        if (event.killerId && event.killerId !== event.victimId) this.remotePlayers?.nod?.(event.killerId, Number.isFinite(event.at) ? event.at : this.socket.serverNow());
         // (his ultimate goes with him: its one line, said or not, is spent)
         this.ultimateLines.end(event.victimId);
         // whatever the fallen was saying stops there, and its caption fades (their fall may have words of its own),
@@ -3588,6 +3591,8 @@ export class GameRuntime {
       this.input.aimGain=1;this.input.mountedRam=false;
     }
     if (this.socket.playingLocally) nowMs = this.presentationNow();
+    // (what each machine's operator is doing, for his gestures: spellbladeGestures.mjs)
+    if (this.remotePlayers) this.remotePlayers.machineContext = gestureMachines(this.latestSnapshot, this.socket.serverNow());
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
       this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();
