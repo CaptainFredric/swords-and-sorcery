@@ -807,6 +807,11 @@ export class TouchControls {
   #down = (event) => {
     this.touchDebugEvent = 'down';
     if (!this.active) return;
+    // A pointer owns the action it STARTED on. A thumb sliding across Dash
+    // cannot be promoted from a look, stick, rail, or other held gesture.
+    // Distinct fingers can still press Dash and Ultimate together.
+    if (this.held.has(event.pointerId) || this.stick?.id === event.pointerId ||
+        this.look?.id === event.pointerId || this.flightRailPointer === event.pointerId) return;
     if (event.target.closest?.('.touch-flight-rail') && this.flightMounted) {
       event.preventDefault();
       if (this.flightRailPointer !== null) return;
