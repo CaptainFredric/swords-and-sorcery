@@ -27,11 +27,11 @@ export function requestFlightDash(room,m,p,held,now){
  m.flightDashHeld=Boolean(held);
  if(!held){
    if(m.runGroundPhase==='SPINUP'){
-     // Releasing a ground wind-up before lift cancels it safely. A launch
-     // already airborne must still finish its guaranteed minimum distance.
+     // A release before the rotor reaches speed cancels the wind-up;
+     // after actual takeoff, minimum-distance commitment is preserved.
      m.runGroundPhase=null;
      if(m.grounded)m.rotorPowered=false;
-   }else if(m.runGroundPhase==='ASCENT')m.runGroundReleased=true;
+   }else if(m.runGroundLaunchReady)m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
    m.runReleasedAt=now;m.flightDashStartedAt=null;
@@ -48,11 +48,15 @@ export function requestFlightDash(room,m,p,held,now){
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  m.runGroundReleased=false;
- // Dash begins from the floor by spooling the ACTUAL rotor to full 450 RPM.
- // No early impulse or airborne propulsion may bypass this mechanical state.
- if(m.grounded&&!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&
-    (p.prowess>0||fightFlightSkillActive(m,now,ASCENSION.id)))
-   m.runGroundPhase='SPINUP';
+ // Grounded Dash needs no preliminary Jump: the real rotor spins up to
+ // 450 RPM, then lifts and attacks in the same physical launch. Airborne Dash
+ // engages the rotor immediately, without pausing an ongoing fall.
+ const practice=room.mode==='PRACTICE'&&p.actorKind==='human'&&!room.localTutorial;
+ if(!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2){
+   if(m.grounded&&(p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id)))
+     m.runGroundPhase='SPINUP';
+   else if(!m.grounded)m.rotorPowered=true;
+ }
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
    // Chivalry's ordinary midair dash still consumes its own normal cooldown,
@@ -79,12 +83,13 @@ export function stepFlightRun(room,m,dt,now){
      m.rotorHP<=0||m.health<=0||m.flightCharge<=0||
      p.operatingFightFlightId!==m.id){
      m.runGroundPhase=null;m.runGroundReleased=false;m.flightDashHeld=false;
-   }else if(m.runGroundPhase==='SPINUP')return;
+   }else if(m.runGroundPhase==='SPINUP'&&m.grounded)return;
    else {
-     const floor=flightSupportAt(room.world,m.x,m.z,m.y+.75);
-     if(m.grounded||floor!=null&&m.y-floor<VALKYRIE_RUN.groundLaunchClearance)return;
-     m.runGroundPhase=null; // next lines start the committed physical run
+     // Walking off a ledge during ground spool must not leave SPINUP latched
+     // in free fall. A now-airborne Dash engages without an altitude wait.
+     m.runGroundPhase=null;
      m.runGroundLaunchReady=true;
+     m.rotorPowered=true;
    }
  }
 
@@ -101,11 +106,13 @@ export function stepFlightRun(room,m,dt,now){
  const activeChivalry=Boolean(p&&activeUltimate(p,now)?.id==='chivalry');
  // A forthcoming terminal preparation gets first claim on a full meter.
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
- const grace=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
+ // Reserve Chivalry's full meter briefly for a deliberate Dash+Ultimate
+ // chord, without withholding propulsion during the decision window.
+ const chordReserve=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
    m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
  const ascension=fightFlightSkillActive(m,now,ASCENSION.id);
- let running=valid&&!activeChivalry&&!preparing&&!grace;
+ let running=valid&&!activeChivalry&&!preparing;
  // Training meters cycle without dropping the held propulsion state. This
  // exception is evaluated from the room and actual human owner every tick.
  if(running&&(!practice||ascension)&&!(m.flightCharge>0))running=false;
@@ -134,6 +141,9 @@ export function stepFlightRun(room,m,dt,now){
        m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;
        room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
      }
+   }else if(chordReserve){
+     // Real momentum and steering continue; only prowess spend waits.
+     m.practiceDashRefilling=false;
    }else if(practice&&m.practiceDashRefilling){
      p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
      if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}

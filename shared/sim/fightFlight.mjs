@@ -238,8 +238,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!rise&&!explicitHop&&!m.runGroundPhase;
     if(m.runGroundPhase==='SPINUP'&&canLaunch){
-      // Real rotor angular velocity must reach 450 RPM before grounded Dash
-      // is allowed to lift the chassis. Movement keys cannot skip the spool.
+      // E winds the actual rotor to 450 RPM; walking input remains live.
       m.crouched=false;m.rotorPowered=true;
     }else{
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
@@ -269,7 +268,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
-  m.rotorBrakeHeld=Boolean(descend&&m.grounded);
+  // Ground Dash spin-up has priority over the ordinary crouch/lower brake.
+  m.rotorBrakeHeld=Boolean(descend&&m.grounded&&m.runGroundPhase!=='SPINUP');
   const maxOmega=Math.PI*15;
   const desiredOmega=spinning&&!m.rotorBrakeHeld?maxOmega:0;
   const acceleration=desiredOmega>m.rotorAngularVelocity?m.rotorSpinupAcceleration:m.rotorSpindownAcceleration;
@@ -279,9 +279,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
   if(m.grounded&&m.runGroundPhase==='SPINUP'&&canLaunch&&
     m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1){
+    // Real motor takeoff, immediately followed by committed attack.
+    // Eliminate the separate climb-to-clearance pause after rotor spin-up.
     m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
     m.velocity.y=Math.max(m.velocity.y,VALKYRIE_RUN.groundTakeoffVelocity);
-    m.runGroundPhase='ASCENT';
+    m.runGroundPhase=null;m.runGroundLaunchReady=true;
     room.events.push({type:'fightFlightGroundDashTakeoff',machineId:m.id,operatorId:op?.id,
       rotorRPM:m.rotorRPM,at:now});
   }
@@ -306,9 +308,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
   const thrustHeading=run&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:m.heading;
   const dx=run?-Math.sin(thrustHeading)*runHorizontal:
-    m.runGroundPhase?0:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+    (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
   const dz=run?-Math.cos(thrustHeading)*runHorizontal:
-    m.runGroundPhase?0:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+    (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
