@@ -9,6 +9,7 @@ import {boxWorld} from '../../shared/src/orientedBox.mjs';
 import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
 import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
+import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -127,11 +128,31 @@ export class SoFisticationRenderer {
     const clone=fist.clone(true);clone.visible=true;
     fist.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
     const center=new THREE.Box3().setFromObject(fist).getCenter(new THREE.Vector3());
-    this.detachedOffset=center.sub(clone.position);
-    this.detachedVisual=clone;this.scene.add(clone);
+    // World-space pivot at the fitted fist center: the gauntlet can tumble
+    // without orbiting the launch point or inheriting chassis movement.
+    const pivot=new THREE.Group();pivot.name='DetachedRamFist';
+    clone.position.sub(center);pivot.add(clone);
+    pivot.position.copy(center);this.detachedVisual=pivot;this.scene.add(pivot);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.53,.64,36),
+      new THREE.MeshBasicMaterial({color:0xd0b77d,side:THREE.DoubleSide,
+        transparent:true,opacity:.52,depthWrite:false}));
+    ring.rotation.x=-Math.PI/2;ring.name='FistPickupFootprint';
+    ring.visible=false;this.scene.add(ring);this.fistPickupRing=ring;
    }
-   if(this.detachedVisual)this.detachedVisual.position.set(
-    remote.position.x,remote.position.y,remote.position.z).sub(this.detachedOffset);
+   if(this.detachedVisual){
+    this.detachedVisual.position.set(remote.position.x,remote.position.y,remote.position.z);
+    const spin=remote.spin??{x:0,y:0,z:0};
+    this.detachedVisual.quaternion.setFromEuler(new THREE.Euler(
+      spin.x??0,spin.y??0,spin.z??0,'XYZ'));
+    if(this.fistPickupRing){
+     this.fistPickupRing.visible=remote.state==='resting';
+     if(this.fistPickupRing.visible){
+      this.fistPickupRing.position.set(remote.position.x,
+       remote.position.y-RAM_FIST.radius+.04,remote.position.z);
+      this.fistPickupRing.material.opacity=.42+.15*(1+Math.sin(now*3))*.5;
+     }
+    }
+   }
   }else this.clearDetachedVisual();
   if(this.debris){const age=Math.max(0,Math.min(1.1,now-this.brokenAt));this.debris.position.copy(this.debrisStart);this.debris.position.y=Math.max(this.debrisGround,this.debrisStart.y+1.2*age-4.9*age*age);this.debris.position.x-=Math.sin(this.debrisHeading)*age*.75;this.debris.position.z-=Math.cos(this.debrisHeading)*age*.75;}
   this.group.updateMatrixWorld(true);
@@ -189,7 +210,14 @@ export class SoFisticationRenderer {
   this.group.updateMatrixWorld(true);
   return node.getWorldPosition(new THREE.Vector3());
  }
- clearDetachedVisual(){if(this.detachedVisual){this.scene.remove(this.detachedVisual);this.detachedVisual=null;this.detachedOffset=null;}}
+ clearDetachedVisual(){
+  if(this.detachedVisual){this.scene.remove(this.detachedVisual);this.detachedVisual=null;}
+  if(this.fistPickupRing){
+   this.scene.remove(this.fistPickupRing);
+   this.fistPickupRing.geometry.dispose();this.fistPickupRing.material.dispose();
+   this.fistPickupRing=null;
+  }
+ }
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
  dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}

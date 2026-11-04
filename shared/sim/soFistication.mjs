@@ -28,21 +28,56 @@ const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==fal
 // of the existing animated ram stroke; the collision boxes use these same
 // authoritative fields.
 function stepRamElevation(room,b,dt,now,world){
- const p=room.players.get(b.operatorId),input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
- if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&!b.ramElevPitch&&!(input.pitch>0))return;
- const amount=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
- const nextLift=clamp(amount+((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
-   input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),0,SO_FIST_LIFT.maxRise);
- const desiredPitch=clamp(input.pitch??0,0,soFistAllowedPitch({...b,ramLiftY:nextLift}));
- const oldPitch=b.ramElevPitch??0;
- const pitch=oldPitch+clamp(desiredPitch-oldPitch,
-   -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
- const candidate={...b,ramLiftY:nextLift,ramElevPitch:pitch};
- // The lifting assembly may not tunnel through masonry or a deployed ballista.
- // If the desired pose is blocked, retain the last physically valid pose.
- if(soFistClear(candidate,world,getBiByeSolids(room.biByeLlista))){
-  b.ramLiftY=nextLift;b.ramElevPitch=pitch;
- }else{
+ const p=room.players.get(b.operatorId);
+ const input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
+ if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&
+   !b.ramElevPitch&&!(input.pitch>0))return;
+ const startLift=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
+ const nextLift=clamp(startLift+
+  ((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
+    input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),
+  0,SO_FIST_LIFT.maxRise);
+ const desiredPitch=clamp(input.pitch??0,0,
+   soFistAllowedPitch({...b,ramLiftY:nextLift}));
+ const startPitch=b.ramElevPitch??0;
+ const nextPitch=startPitch+clamp(desiredPitch-startPitch,
+  -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
+ const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
+ if(Math.abs(deltaLift)+Math.abs(deltaPitch)<1e-9)return;
+ const machineSolids=[
+  ...biByeHitVolumes(room.biByeLlista,now),
+  ...fightFlightHitVolumes(room.fightFlight)
+ ];
+ const actors=[...room.players.values()].filter(other=>
+   other.alive&&other.id!==b.operatorId).map(other=>{
+    const height=postureOf(other).height;
+    return {center:[other.position.x,other.position.y+height/2,other.position.z],
+      size:[.9,height,.9]};
+   });
+ // A rapidly advanced server tick must not let the hydraulics skip thin
+ // masonry, a flying rotor, or an exposed player's hitbox.
+ const steps=Math.max(1,Math.ceil(Math.abs(deltaLift)/.04),
+  Math.ceil(Math.abs(deltaPitch)/(.025)));
+ let current={...b},blocked=false;
+ for(let i=1;i<=steps;i++){
+  const fraction=i/steps;
+  const candidate={...b,ramLiftY:startLift+deltaLift*fraction,
+    ramElevPitch:startPitch+deltaPitch*fraction};
+  const upper=soFistVolumes(candidate,now).filter(box=>box.upper);
+  const prior=soFistVolumes(current,now).filter(box=>box.upper);
+  const playerEntered=upper.some((box,j)=>actors.some(body=>
+   machineryOverlap(box,body)&&
+   !(prior[j]&&machineryOverlap(prior[j],body))));
+  if(playerEntered||!soFistClear(candidate,world,machineSolids)){
+   blocked=true;break;
+  }
+  current=candidate;
+ }
+ b.ramLiftY=current.ramLiftY??startLift;
+ b.ramElevPitch=current.ramElevPitch??startPitch;
+ if(blocked){
+  if(now-(b.ramLiftBlockedAt??-Infinity)>.25)
+   room.events.push({type:'soFistElevationBlocked',machineId:b.id,at:now});
   b.ramLiftBlockedAt=now;
  }
 }
@@ -376,6 +411,9 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
 export function damageSoFistication(room,b,amount,attackerId,source,now,{componentId='hull',point=null}={}){
  if(!b||b.retired||b.health<=0||!Number.isFinite(amount)||!(amount>0))return false;
  if(componentId!=='hull'&&componentId!=='Piston'&&!b.components[componentId])return false;
+ // The fist is not a hittable component of the carriage while in flight,
+ // resting on the ground or being recovered from the abyss.
+ if(componentId==='Fist'&&!hasFist(b))return false;
  if(room.mode!=='PRACTICE'&&(b.operatorId===attackerId||areAllies(room,b.operatorId,attackerId)||b.team&&room.players.get(attackerId)?.team===b.team))return false;
  const component=b.components[componentId],target=component??b;if(target.health<=0)return false;
  const old=target.health;
