@@ -4,7 +4,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {FlightRigAnimation} from './FlightRigAnimation.mjs';
-import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
+import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection,flightRepeaterPitchLimits} from '../../shared/src/flightRepeaterAim.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
 
@@ -128,7 +128,8 @@ export class FightFlightRenderer{
     const rel=Math.atan2(Math.sin((m.crossbowYaw??m.heading??0)-(m.heading??0)),
       Math.cos((m.crossbowYaw??m.heading??0)-(m.heading??0)));
     const yaw=Math.max(-FLIGHT_REPEATER.maxTraverse,Math.min(FLIGHT_REPEATER.maxTraverse,rel));
-    const pitch=Math.max(FLIGHT_REPEATER.minPitch,Math.min(FLIGHT_REPEATER.maxPitch,m.crossbowPitch??0));
+    const pitchLimits=flightRepeaterPitchLimits(m);
+    const pitch=Math.max(pitchLimits.minPitch,Math.min(pitchLimits.maxPitch,m.crossbowPitch??0));
     const gimbal=this.nodes.get('Crossbow_Yaw_Gimbal');
     const cradle=this.nodes.get('Crossbow_Pitch_Cradle');
     const tilter=this.nodes.get('Crossbow_Aim_Tilter_Link');

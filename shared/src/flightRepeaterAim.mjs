@@ -5,6 +5,16 @@ export const FLIGHT_REPEATER=Object.freeze({capacity:18,production:2,fireRate:7,
   lifespan:2.4,falloff:22,closeDamage:4,farDamage:2,guardStamina:8,guardArc:100,
   maxTraverse:Math.PI*50/180,maxPitch:Math.PI*65/180,minPitch:-Math.PI*65/180,radius:.065});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+// The Dash pitches the entire chassis/rotor up to a real 90-degree cutting
+// attitude. The bolter counter-pivots by the same amount so the actual muzzle
+// remains sighted along the visor reticle. Do not change the normal 65-degree
+// stops on a level machine; only the genuine chassis tilt extends the joint's
+// stabilization envelope, including its short recovery from Dash.
+export function flightRepeaterPitchLimits(m){
+  const tilt=clamp(Number.isFinite(m?.runPitch)?m.runPitch:0,-Math.PI/2,Math.PI/2);
+  return {minPitch:FLIGHT_REPEATER.minPitch+Math.min(0,tilt),
+    maxPitch:FLIGHT_REPEATER.maxPitch+Math.max(0,tilt)};
+}
 const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const rootPitch=m=>Number.isFinite(m?.runPitch)?m.runPitch:0;
 function localYaw(m,yaw){
@@ -36,7 +46,8 @@ export function solveConvergence(m,target){
     p=Math.atan2(vy,Math.hypot(vx,vz));
   }
   rel=clamp(rel,-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
-  p=clamp(p,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const limits=flightRepeaterPitchLimits(m);
+  p=clamp(p,limits.minPitch,limits.maxPitch);
   return {yaw:(m?.heading??0)+rel,pitch:p};
 }
 /** Aim in joint-local coordinates. When input.siegeTarget is supplied, the
@@ -59,7 +70,8 @@ export function flightRepeaterAim(m,input={}){
   const facing=m?.heading??0,requestedYaw=Number.isFinite(input.yaw)?input.yaw:facing;
   const yaw=facing+localYaw(m,requestedYaw);
   const wanted=Number.isFinite(input.pitch)?input.pitch:0;
-  const pitch=clamp(wanted+rootPitch(m),FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const limits=flightRepeaterPitchLimits(m);
+  const pitch=clamp(wanted+rootPitch(m),limits.minPitch,limits.maxPitch);
   return {yaw,pitch:m?.terminalDive?Math.min(pitch,-Math.min(.34,Math.max(.18,rootPitch(m)*.55))):pitch};
 }
 export function flightTransform(m,x,y,z){
@@ -70,7 +82,8 @@ export function flightTransform(m,x,y,z){
 }
 /** Position of the GLB muzzle after crossbow yaw, pitch and root run pitch. */
 export function flightMuzzle(m,{yaw=m?.heading??0,pitch=0}={}){
-  const rel=localYaw(m,yaw),p=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const rel=localYaw(m,yaw),limits=flightRepeaterPitchLimits(m);
+  const p=clamp(pitch,limits.minPitch,limits.maxPitch);
   // Exported parent chain (all metres):
   // 50 YawGimbal [.565,1.195,.365] -> 51 PitchCradle [0,.095,0]
   // -> 12 Body [0,-.045,.025] -> 38 muzzle [0,.048,.445].
@@ -83,6 +96,7 @@ export function flightMuzzle(m,{yaw=m?.heading??0,pitch=0}={}){
 }
 /** Unit launch vector from the SAME articulated transform as flightMuzzle. */
 export function flightDirection(m,{yaw=m?.heading??0,pitch=0}={}){
-  const rel=localYaw(m,yaw),p=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const rel=localYaw(m,yaw),limits=flightRepeaterPitchLimits(m);
+  const p=clamp(pitch,limits.minPitch,limits.maxPitch);
   return flightTransform(m,Math.sin(rel)*Math.cos(p),Math.sin(p),Math.cos(rel)*Math.cos(p));
 }
