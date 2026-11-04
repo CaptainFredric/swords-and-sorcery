@@ -281,6 +281,91 @@ def clear_sword(rig, check: SwordCheck, action) -> list:
     return fixes
 
 
+HELMET = ("HelmetShell", "Visor", "HelmetJaw", "Crest")
+FACE_CLEARANCE = 0.03     # metres the blade keeps from the helmet when it passes the face
+
+
+def blade_to_helmet(rig, frame: float) -> tuple[float, np.ndarray]:
+    """How near the blade comes to the helmet at `frame` (metres), and which way from the helmet it lies there."""
+    set_frame(frame)
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    blade = evaluated(bpy.data.objects["HeroSword"], depsgraph)
+    helmet = np.concatenate([evaluated(bpy.data.objects[n], depsgraph) for n in HELMET])
+    d = np.linalg.norm(blade[:, None, :] - helmet[None, ::3, :], axis=2)
+    i, j = np.unravel_index(np.argmin(d), d.shape)
+    away = blade[i] - helmet[::3][j]
+    return float(d[i, j]), away / (np.linalg.norm(away) or 1.0)
+
+
+def clear_face(rig, action, margin: float = FACE_CLEARANCE) -> dict:
+    """Where a stroke's blade passes through or against the helmet (GuardCut_1's forehand brings the guard up past the
+    visor), swing the sword arm forward from the shoulder, away from the face, by the least angle that keeps `margin`
+    from it: eased in and out over the span and keyed on every frame of it (in whichever rotation the bone is keyed),
+    so the stroke keeps its line and only passes clear. Searched on a copy; the action is changed only by a turn that
+    clears."""
+    assign(rig, action)
+    start, end = (int(x) for x in action.frame_range)
+    near = {f: blade_to_helmet(rig, f) for f in np.arange(start, end + 0.01, 0.5)}
+    close = [f for f, (d, _) in near.items() if d < margin]
+    if not close:
+        return {"result": "clear"}
+    lo, hi = math.floor(min(close)), math.ceil(max(close))
+    # (keyed and checked every half frame, as the game samples the clip between its frames)
+    window = [float(f) for f in np.arange(max(start + 1, lo - 3), min(end - 1, hi + 3) + 0.01, 0.5)]
+    ease = {f: 1.0 if lo <= f <= hi else 0.5 - 0.5 * math.cos(math.pi * (1 - min(abs(f - lo), abs(f - hi)) / 4))
+            for f in window}
+    shoulder = rig.pose.bones["upper_arm.R"]
+    channel = "rotation_quaternion" if shoulder.rotation_mode == "QUATERNION" else "rotation_euler"
+    # (the arm as authored at each frame of the window, and which way from the helmet the blade lies there)
+    # (out from the helmet's middle through the sword hand: steady, where the nearest points inside the helmet are not)
+    authored, away = {}, {}
+    for f in window:
+        set_frame(f)
+        authored[f] = shoulder.matrix.copy()
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        middle = np.concatenate([evaluated(bpy.data.objects[n], depsgraph) for n in HELMET]).mean(0)
+        out = np.array(rig.matrix_world @ rig.pose.bones["hand.R"].head) - middle
+        away[f] = out / (np.linalg.norm(out) or 1.0)
+
+    def apply(target, degrees: float):
+        assign(rig, target)
+        for f in window:
+            set_frame(f)
+            hand = np.array(rig.matrix_world @ rig.pose.bones["hand.R"].head)
+            joint = np.array(rig.matrix_world @ shoulder.head)
+            axis = np.cross(hand - joint, away[f])
+            axis = rig.matrix_world.inverted().to_3x3() @ Vector(tuple(axis / (np.linalg.norm(axis) or 1.0)))
+            turn = (Matrix.Translation(shoulder.head) @ Quaternion(axis.normalized(), math.radians(degrees * ease[f])).to_matrix().to_4x4()
+                    @ Matrix.Translation(-shoulder.head))
+            shoulder.matrix = turn @ authored[f]
+            bpy.context.view_layer.update()
+            shoulder.keyframe_insert(channel, frame=f, group="upper_arm.R")
+
+    def worst(target) -> float:
+        assign(rig, target)
+        return min(blade_to_helmet(rig, f)[0] for f in window)
+
+    def trial(degrees: float) -> float:
+        copy = action.copy()
+        apply(copy, degrees)
+        result = worst(copy)
+        bpy.data.actions.remove(copy)
+        return result
+
+    lo_deg, hi_deg = 0.0, 24.0
+    if trial(hi_deg) < margin:
+        assign(rig, action)
+        return {"span": (lo, hi), "result": f"even {hi_deg:.0f} deg does not clear it; left as authored"}
+    for _ in range(7):
+        mid = (lo_deg + hi_deg) / 2
+        if trial(mid) >= margin:
+            hi_deg = mid
+        else:
+            lo_deg = mid
+    apply(action, hi_deg)
+    return {"span": (lo, hi), "fix": f"sword arm {hi_deg:.1f} deg forward from the shoulder", "nearest": round(worst(action), 3)}
+
+
 def report_sword(check: "SwordCheck") -> dict:
     out = {}
     for action in bpy.data.actions:
@@ -449,6 +534,8 @@ def fit_motion(rig, fix: bool = True, search: bool = True) -> dict:
         report["swordFixes"] = {}
         for name in report["swordBefore"]:
             report["swordFixes"][name] = clear_sword(rig, check, bpy.data.actions[name])
+        # the forehand that crosses the face: clear of the helmet (the kit's blade cut through it there)
+        report["faceFixes"] = {name: clear_face(rig, bpy.data.actions[name]) for name in ("GuardCut_1",)}
         report["swordAfter"] = report_sword(check)
     assign(rig, idle)
     set_frame(1)

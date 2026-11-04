@@ -98,6 +98,28 @@ validators, `scripts/test-spellblade-*.py`).
      to 15 cm so four fingers fit between its collars), where the forearm meets it: the palm against the grip on the
      elbow's side, the knuckles over it, the fingers wrapped round its far side from the guard down, the thumb locked
      over them. The spell hand is open and cupped, its fingers splayed. Their colours are Rodin's own gauntlet texels.
+     Each lame wraps right round its finger's lower corners, so from the palm (first person's magic hand at rest is palm
+     up, showing its rune) every finger reads as plate framing a narrow strip of the glove's leather.
+   - **Elbows and knees** (`joints.py`), remodelled as articulated plate. Rodin's were one continuous skinned surface:
+     the poleyn, its wing, the strap above and the band below (at the elbow, the vambrace's rim) all lay across the
+     joint, so a deep bend crumpled the poleyn, crossed the straps and folded the inside of the elbow through itself,
+     and no weighting of that surface helps (above). Each joint is cut out between two cuts across its limbs and built
+     again from rigid pieces, each on one bone:
+     - a padded ball under the plates, in three overlapping shells (on the upper limb, the cop, the lower limb);
+     - the cop's plate where Rodin's was: the poleyn, a faceted lozenge ridged down its middle, rimmed, its lames
+       under its two ends (each on its limb, sliding out from beneath it as the knee bends); at the elbow a couter;
+     - on the knee's outer side the poleyn's fan, on its inner side a plain boss, both on the cop and centred on the
+       hinge, so they turn in their own plane over the ball's sides;
+     - a ring over each cut, rigid on its limb: at the knee the leather strap above and the pale band below, at the
+       elbow a band above and the vambrace's pale rim below.
+     Every shell, plate and lame is a surface of revolution about the joint's hinge, so turned about the hinge it stays
+     on its own surface: pieces on neighbouring bones slide over and under one another and never part or pass through,
+     and nothing is skinned across the joint (blending the cop with the limbs shrank a padded sleeve by 18 % at 100°,
+     30 % at 130°, and left the plates standing off it). The hinge is square to both limbs: the normal of their plane
+     where the rest pose is bent (the left elbow, 74°), the actions' own bend axis squared to them where it is straight.
+     Sizes come from the limb itself, measured before the cut: each ring from the cannon's reach in sixteen directions
+     round it, the ball from where the cuts lie, the poleyn from where Rodin's own plate was. Colours are the leg's own
+     texels: the steel, the pale rims, the strap's leather, two dark slates for the padding's quilting.
      `client/game/spellHand.mjs` turns the spell hand's fingers in game: open to throw a spell, a fist to clench,
      sprint or dash, closed on the hilt in two-handed strikes.
    - The cape and tabard move onto the tabard chains that the runtime's spring cloth drives (Rodin had the cape on the
@@ -121,9 +143,12 @@ validators, `scripts/test-spellblade-*.py`).
      keys. Keys that clear are left as authored. The largest turns are in Stagger (33°), Dash (31°) and Death's first
      key (30°).
    - **Sword and body:** any frame where the blade still passes through the body or off hand gets the kit's
-     follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up). One span
-     remains: `GuardCut_1` frames 16.5 to 19, where the blade grazes the side of the helmet and its crest (the kit's
-     own blade cut through its breastplate and right pauldron there).
+     follow-through search (one smoothing arm key, the smallest that clears it without speeding the blade up).
+   - **Sword and face** (`clear_face`): `GuardCut_1`'s forehand brought the guard up through the visor (frames 14 to
+     19; the kit's own blade cut through its breastplate and right pauldron there). The sword arm swings forward from
+     the shoulder, out from the helmet's middle through the sword hand, by the least angle that keeps the blade 3 cm
+     from the helmet (16.7°), eased in and out over the span and keyed every half frame, so the cut keeps its line and
+     only passes clear. No action's blade now meets the body or the floor.
 4. **Look** (`look.py`). Rodin's one material becomes the materials the runtime looks for:
    - `GameBody`: every armour part and the sword. `plateEnvironment.mjs` gives this material a soft sky to reflect and
      raises its metalness by 1.25, so its metalness is cut to a sixth here; `steelSheen.mjs` hardens it in game.
