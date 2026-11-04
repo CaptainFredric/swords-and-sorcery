@@ -15,6 +15,7 @@ import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { guardTargets } from './fpGuardPose.mjs';
 
 // What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
@@ -800,7 +801,7 @@ export class WeaponView {
       flightCockpit: this.flightCockpit,
     });
 
-    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
+    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash', guardOverRest: !this.concurrent && !this.flightCockpit });
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {
@@ -823,7 +824,10 @@ export class WeaponView {
     this.lastPoseState = pose.state;
 
     if (this.visualKind === 'production' && this.productionInstance) {
-      let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
+      // (an ordinary held Guard is the arm solver's from Idle (fpGuardPose.mjs): the authored upright Guard clip under it
+      // would show for a moment as the guard eased off)
+      let plan = resolveFirstPersonAnimationPlan(pose.state === 'guard' && !this.concurrent && !this.flightCockpit
+        ? { ...pose, state: 'idle' } : pose, this, timeSec);
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
@@ -918,7 +922,14 @@ export class WeaponView {
             { bone: 'forearm.R', axis: [0, 1, 0], angle: 0.25 * Math.min(1, Math.max(0, (this.parryUntil - timeSec) / 0.3)), space: 'local' },
           ] : []),
         ],
-        solve: combo || jab || away.sword || away.hand ? (bones) => {
+        solve: combo || jab || away.sword || away.hand || guardArm > 1e-3 ? (bones) => {
+          // the held Guard: the sword low on the right and raised across toward the space above the magic hand,
+          // which comes up in front, open and ready (fpGuardPose.mjs); a strike or the gauntlet takes the arms back
+          if (guardArm > 1e-3 && !this.flightCockpit) {
+            const ward = guardTargets(timeSec, guardArm);
+            solveSwordArm(bones, ward.arm, guardArm);
+            if (!jab) solveArm(bones, FIRST_PERSON_OFF_ARM, ward.off, guardArm * swordOffhand);
+          }
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);

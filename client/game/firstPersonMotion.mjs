@@ -26,9 +26,9 @@ export const FP_MOTION = Object.freeze({
   magicArmDrop: 0.12,
   // the magic hand turned a little outward, open and ready, instead of a clawed fist seen from above
   magicForearmTwist: 0.4,
-  // the guard: the sword arm brought in toward the middle of the view in a protective ward (the blade held diagonally
-  // across the body, not sagging into the lower screen or obscuring the crosshair)
-  guardInward: 0.22,
+  // the guard's old nudges, kept at nothing: the held Guard is placed by the arm solver now (fpGuardPose.mjs), the
+  // sword low on the right with the blade raised across toward the magic hand, clear of the crosshair
+  guardInward: 0,
   guardDrop: 0.0,
   guardAcross: 0.0,
   guardBlendRate: 14,  // how quickly the arm comes in and goes back (per second)
@@ -205,7 +205,7 @@ export class FirstPersonMotion {
    *   state: the first-person pose state ('idle', 'attack', 'guard', 'cast', 'dash')
    * @returns {{weapon:{x,y,z,rx,ry,rz}, camera:{y,pitch,roll,yaw}, fov:number, pump:number, neutral:number}}
    */
-  step({ dt, speed: rawSpeed = 0, grounded = true, yaw = 0, pitch = 0, state = 'idle', dashing = false, concurrent = false }) {
+  step({ dt, speed: rawSpeed = 0, grounded = true, yaw = 0, pitch = 0, state = 'idle', dashing = false, concurrent = false, guardOverRest = false }) {
     const h = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
     // a dash moves far faster than any gait; it has its own pose, so gait motion reads it as a sprint
     const speed = Math.max(0, Math.min(SPRINT.speed, Number.isFinite(rawSpeed) ? rawSpeed : 0));
@@ -243,8 +243,9 @@ export class FirstPersonMotion {
     this.camera.pitch.step(h);
     this.camera.roll.step(h);
 
-    // the relaxed neutral pose fades out while an action owns the arms
-    const neutralTarget = state === 'idle' ? 1 : 0;
+    // the relaxed neutral pose fades out while an action owns the arms (an ordinary held Guard is placed over it by the
+    // arm solver, so it stays, and the arms come straight home from the guard to it)
+    const neutralTarget = state === 'idle' || (state === 'guard' && guardOverRest) ? 1 : 0;
     this.neutral += (neutralTarget - this.neutral) * (1 - Math.exp(-h * (neutralTarget ? 6 : 16)));
 
     // Keep a quarter of the stride carriage under concurrent action poses. Ease ownership changes

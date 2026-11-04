@@ -782,6 +782,29 @@ function openStrike(room, player, strike, nowSec) {
 }
 
 /**
+ * A grounded Fight-and-Flight pilot's Guard. The apparatus stands round its rider (braces either side, pan, rear plate,
+ * crossmembers), so a blade aimed at a guarding pilot usually met a brace first and was taken by the machine, and the
+ * pilot's Guard never came into it. A blade that meets one of those parts within the pilot's defensive reach (`reach`
+ * from the line of their body, `low` to `high` above their feet), from inside their guard cone, is met by the pilot's
+ * Guard instead: blocked, parried or breaking it at the ordinary cost. Nothing else changes: the rotor overhead, parts
+ * out of reach, blows from outside the cone, a pilot not guarding and an airborne machine (whose rider cannot guard)
+ * all stay the machine's, as before.
+ */
+export const PILOT_GUARD = Object.freeze({ reach: 0.85, low: 0.45, high: 1.85, parts: Object.freeze(['braceL', 'braceR', 'main']) });
+
+export function pilotGuardTakes(room, attacker, met, atSec) {
+  const machine = room.fightFlight;
+  if (!machine?.grounded || !met?.solid?.componentId || !String(met.solid.id ?? '').startsWith('fight-flight-')) return null;
+  if (!PILOT_GUARD.parts.includes(met.solid.componentId)) return null;
+  const pilot = room.players.get(machine.operatorId);
+  if (!pilot?.alive || !pilot.guarding || pilot.id === attacker.id || areAllies(room, attacker.id, pilot.id)) return null;
+  if (!isInGuardCone(pilot, attacker, atSec)) return null;
+  const feet = transformFor(pilot, atSec).position;
+  const y = Math.max(feet.y + PILOT_GUARD.low, Math.min(feet.y + PILOT_GUARD.high, met.point.y));
+  return Math.hypot(met.point.x - feet.x, met.point.y - y, met.point.z - feet.z) <= PILOT_GUARD.reach ? pilot : null;
+}
+
+/**
  * Carry a live strike's sweep on to `nowSec`: it meets a body, meets something solid, or runs out (a miss). A slam
  * (Sundering) that meets a body goes on through: unless it was parried, it is carried on down into the ground, where
  * its rupture catches whoever stands on its line, the knight it struck among them.
@@ -833,6 +856,14 @@ function sweepStrike(room, player, nowSec, world) {
       continue;
     }
     if (met?.kind === 'solid') {
+      // a grounded pilot's Guard meets a blade on the apparatus within their defensive reach (PILOT_GUARD)
+      const metAt = Number.isFinite(met.stepFraction) ? prevSampled + (at - prevSampled) * met.stepFraction : at;
+      const pilot = pilotGuardTakes(room, player, met, metAt);
+      if (pilot) {
+        landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, pilot, metAt, nowSec, met, window.contact);
+        if (player.attackSweep === live) player.attackSweep = null;
+        return;
+      }
       player.attackSweep = null;
       if (met.solid.componentId) {
         const quality = aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z))) * 180/Math.PI);
