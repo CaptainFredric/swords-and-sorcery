@@ -23,7 +23,21 @@ export class SoFisticationRenderer {
   if(this.loadingPromise)return this.loadingPromise;
   if(this.disposed||this.error)return Promise.resolve(false);this.loading=true;
   this.loadingPromise=new Promise(resolve=>{
-  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892'),gltf=>{
+  const loader=new GLTFLoader();
+  const latest=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb?v=bab81d9861a80e83');
+  const fallback=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892');
+  const failed=error=>{this.error=true;this.loading=false;resolve(false);
+    console.error('SoFistication authored asset failed to load',error);};
+  const received=(gltf,articulated)=>{
+   if(articulated&&(!gltf.scene.getObjectByName('Upper_Ram_Lift')||
+      !gltf.scene.getObjectByName('Upper_Elevation_Pivot')||
+      !gltf.scene.getObjectByName('Hydraulic_Lift_Stage1_Mid'))){
+    console.error('SO-FIST-ICATION GLB is missing one or more authored hydraulic pivots; using rollback');
+    this.destroyMeshes(gltf.scene);
+    loader.load(fallback,g=>received(g,false),undefined,failed);
+    return;
+   }
+   this.authoredElevation=articulated;
    if(this.disposed){this.destroyMeshes(gltf.scene);resolve(false);return;}
    this.model=gltf.scene;this.model.scale.setScalar(SO_FIST_SCALE);this.group.add(this.model);
    const sky=new Uint8Array(32*16*4);for(let y=0;y<16;y++)for(let x=0;x<32;x++)sky.set([...(y<8?[192,203,211]:[94,89,76]),255],(y*32+x)*4);
@@ -55,11 +69,18 @@ export class SoFisticationRenderer {
    // New elevation pivots are deliberately NOT controlled by an animation
    // clip. Capture their rests once: additive per-frame lifting would drift.
    this.liftRest=new Map(['Upper_Ram_Lift','Upper_Elevation_Pivot',
-     'Hydraulic_Lift_Stage1_Mid','Ram_Assembly'].flatMap(name=>{
+     'Hydraulic_Lift_Stage1_Mid','Elevation_Pitch_Barrels_Lower',
+     'Elevation_Pitch_Rods_Upper','Ram_Assembly'].flatMap(name=>{
     const o=this.nodes.get(name);return o?[[name,{position:o.position.clone(),rotation:o.rotation.clone()}]]:[];
    }));
    this.loading=false;resolve(true);
-  },undefined,error=>{this.error=true;this.loading=false;resolve(false);console.error('SoFistication authored asset failed to load',error);});
+  };
+  loader.load(latest,g=>received(g,true),undefined,error=>{
+   // Existing installations must remain playable before the two new GLBs
+   // are committed. Never silently claim full 3D articulation on rollback.
+   console.warn('SO-FIST-ICATION new hydraulic GLB unavailable; using v2.7 visual fallback',error);
+   loader.load(fallback,g=>received(g,false),undefined,failed);
+  });
   });return this.loadingPromise;
  }
  update(now,b){
@@ -94,9 +115,9 @@ export class SoFisticationRenderer {
    this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>!k.startsWith('Wheel_'),{additive:true,weight:Math.max(0,weight)});
   }
   this.animation.end();
-  // The current source remains the v2.7 production GLB. Argon's authored
-  // elevation nodes are supported when that deliverable is supplied; until
-  // then animate the legacy ram as an interim visual only.
+  // Source-backed hydraulics: the Stage 1 rods climb half the upper saddle
+  // travel, and the pitched rods rotate coaxially with the rear trunnion.
+  // Rollback v2.7 keeps the preexisting fitted hinge approximation.
   const lift=(b.ramLiftY??0)/SO_FIST_SCALE,tilt=b.ramElevPitch??0;
   const upper=this.nodes.get('Upper_Ram_Lift');
   if(upper){
@@ -105,6 +126,16 @@ export class SoFisticationRenderer {
    if(pivot)pivot.rotation.x=(this.liftRest.get('Upper_Elevation_Pivot')?.rotation.x??0)-tilt;
    const stage=this.nodes.get('Hydraulic_Lift_Stage1_Mid');
    if(stage)stage.position.y=(this.liftRest.get('Hydraulic_Lift_Stage1_Mid')?.position.y??0)+lift*.5;
+   // Closed-form cylinder alignment from the delivered Argon handoff.
+   // These objects are independent of the Ram_Assembly strike animation.
+   const theta=tilt,dy0=.135,dz0=.695;
+   const dy=(.385+dy0*Math.cos(theta)+dz0*Math.sin(theta))-.250;
+   const dz=(-.560-dy0*Math.sin(theta)+dz0*Math.cos(theta))-(-.245);
+   const beta0=Math.atan2(.270,.380),deltaBeta=Math.atan2(dy,dz)-beta0;
+   const lowerPitch=this.nodes.get('Elevation_Pitch_Barrels_Lower');
+   if(lowerPitch)lowerPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Barrels_Lower')?.rotation.x??0)-deltaBeta;
+   const upperPitch=this.nodes.get('Elevation_Pitch_Rods_Upper');
+   if(upperPitch)upperPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Rods_Upper')?.rotation.x??0)+theta-deltaBeta;
   }else{
    const ram=this.nodes.get('Ram_Assembly');
    if(ram){
@@ -131,11 +162,13 @@ export class SoFisticationRenderer {
   const ring=this.nodes.get('Wrist_Resonator_Ring');
   if(broken&&!this.debris){
    this.group.updateMatrixWorld(true);this.debris=new THREE.Group();const bounds=new THREE.Box3().setFromObject(fist),center=bounds.getCenter(new THREE.Vector3());this.debris.position.copy(center);
-   for(const part of [fist,ring]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
+   for(const part of [fist]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
    this.scene.add(this.debris);this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+bounds.getSize(new THREE.Vector3()).y/2;this.debrisHeading=b.heading;this.brokenAt=b.fistBrokenAt??now;
   }
   fist.visible=!broken&&b.fistMounted!==false;
-  ring.visible=!broken;
+  // The bayonet collar remains visibly attached to the piston when the
+  // fist is destroyed or launched, so the exposed striker never looks hollow.
+  if(ring)ring.visible=true;
   const remote=b.detachedFist;
   if(remote&&['flying','falling','resting'].includes(remote.state)){
    if(!this.detachedVisual&&fist){
