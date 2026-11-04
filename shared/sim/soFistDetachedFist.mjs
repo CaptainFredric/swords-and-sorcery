@@ -6,8 +6,8 @@ import {areAllies} from '../src/teams.mjs';
 import {structureWorld,structureForSolid,damageStructure} from './structures.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
-import {soFistStriker} from './soFistGeometry.mjs';
-import {SO_FIST_LIFT} from './soFistElevation.mjs';
+import {soFistStriker,soFistFrame,soFistPose,SO_FIST_SCALE} from './soFistGeometry.mjs';
+import {SO_FIST_LIFT,soFistUpperPoint} from './soFistElevation.mjs';
 import {damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
@@ -74,10 +74,14 @@ export function requestLongArmToJaw(room,b,p,now){
  if(b.strikeAt!=null&&now-b.strikeAt<4)return 'Wait for the forward piston to return.';
  // Launch from the actual fully attached striker in the new lifted/pitched
  // frame; the old piston-only fallback becomes active on the very next tick.
- const head=soFistStriker(b,now),axis=head.axes[2],
-  // The detached body's center begins exactly where the attached mesh stood.
-  // Spawning a half-fist ahead would teleport it through nearby targets.
-  origin={x:head.center[0],y:head.center[1],z:head.center[2]};
+ const head=soFistStriker(b,now),axis=head.axes[2];
+ // The authored fist COM is [0,.015,.215] in the fist/socket frame, whose
+ // neutral carriage world origin is [0,.365,.520] authored metres. The old
+ // OBB center was ~8 cm off and caused a sideways teleport at launch.
+ const pose=soFistPose(b,now);
+ const com=soFistUpperPoint(soFistFrame(b),b,
+   [0,.380*SO_FIST_SCALE,.735*SO_FIST_SCALE+pose.offset]);
+ const origin={x:com[0],y:com[1],z:com[2]};
  const velocity={x:axis[0]*RAM_FIST.speed,y:axis[1]*RAM_FIST.speed,z:axis[2]*RAM_FIST.speed};
  const home=b.fistHome??{x:b.spawnX??b.x,y:b.spawnY??b.y,z:b.spawnZ??b.z};
  b.fistHome=home;
