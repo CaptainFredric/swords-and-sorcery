@@ -166,6 +166,9 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .flight-metric b { font-size: 11px; font-variant-numeric: tabular-nums; color: #f5eedc; line-height: 1.1; }
 .flight-metric small { font-size: 8px; color: #a8a08c; line-height: 1; }
 .flight-metric.skill b.active { color: #ffcf68; text-shadow: 0 0 6px rgba(255, 207, 104, .7); }
+.flight-metric.skill b { display: inline-flex; align-items: center; gap: 4px; max-width: 170px; }
+.flight-metric.skill b svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: currentColor; stroke-width: 1.7; fill: none; }
+.flight-metric.skill b span { overflow-wrap: anywhere; }
 .flight-bar-wrap { display: flex; align-items: center; gap: 4px; }
 .flight-bar-wrap progress { width: 48px; height: 6px; border-radius: 2px; }
 .flight-metric.hull progress { accent-color: #e65245; }

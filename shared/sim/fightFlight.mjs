@@ -4,7 +4,8 @@
 import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
@@ -91,6 +92,8 @@ export function mountFightFlight(room,m,player,now=0){
   // Do not imprison the rider in machinery with no safe way to exit.
   if(!fightFlightExit(room,m,player))return false;
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
+  // The Armory loadout belongs to the new pilot; physical cooldown remains.
+  m.skill={...m.skill,id:equippedFightFlightSkill(player).id};
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
   m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
   player.flightInputAt=null;player.ejectionFallExempt=false;
@@ -179,7 +182,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     }
   }
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
-  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
+  // Keep the real articulated crossbow tracking between shots. Solving only
+  // on the firing frame made the bolts accurate but the weapon appear idle.
+  const tracking=op&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id)?
+    updateNarrowTracking(room,m,op,now):null;
+  const crossbow=tracking?.aim??flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
   m.crossbowAimLimited=Boolean(crossbow.limited);
   m.crossbowReachableAim=crossbow.reachableAimPoint??null;
@@ -216,7 +223,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
-  const training=practiceFlightRun(room,m);
+  const training=practiceFlightRun(room,m)&&!fightFlightSkillActive(m,now,ASCENSION.id);
   if(training){m.flightCharge=Math.max(m.flightCharge,2.1);m.rotorPowered=true;}
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
@@ -311,7 +318,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       }
     }
     m.velocity.y+=(targetY-m.velocity.y)*response;
-    if(!training)m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
+    if(!training&&!fightFlightSkillActive(m,now,ASCENSION.id))
+      m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
   }else if(!m.grounded){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
