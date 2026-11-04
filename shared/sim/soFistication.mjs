@@ -30,18 +30,26 @@ const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==fal
 function stepRamElevation(room,b,dt,now,world){
  const p=room.players.get(b.operatorId);
  const input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
- if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&
-   !b.ramElevPitch&&!(input.pitch>0))return;
+ if(!b.ramLiftY&&!(input.ramRaise||input.crouch||input.ramPitchUp||input.ramPitchDown)&&
+   !b.ramElevPitch)return;
  const startLift=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
- const nextLift=clamp(startLift+
+ const startPitch=b.ramElevPitch??0;
+ let nextLift=clamp(startLift+
   ((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
     input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),
   0,SO_FIST_LIFT.maxRise);
- const desiredPitch=clamp(input.pitch??0,0,
-   soFistAllowedPitch({...b,ramLiftY:nextLift}));
- const startPitch=b.ramElevPitch??0;
+ // Camera pitch is only the operator's LOOK. Hydraulic pitch is an explicit
+ // held command, with the angle maintained after the operator lets go.
+ const pitchIntent=Number(Boolean(input.ramPitchUp))-Number(Boolean(input.ramPitchDown));
+ const allowed=soFistAllowedPitch({...b,ramLiftY:nextLift});
+ const desiredPitch=clamp(startPitch+pitchIntent*SO_FIST_LIFT.pitchRate*dt,0,allowed);
  const nextPitch=startPitch+clamp(desiredPitch-startPitch,
   -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
+ // A high-pitched ram cannot lower its saddle through the trunnion. Retract
+ // its pitch at the physical rate and limit the vertical descent accordingly.
+ const neededLift=SO_FIST_LIFT.maxRise*clamp(
+  (nextPitch-SO_FIST_LIFT.lowPitch)/(SO_FIST_LIFT.maxPitch-SO_FIST_LIFT.lowPitch),0,1);
+ nextLift=Math.max(nextLift,Math.min(startLift,neededLift));
  const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
  if(Math.abs(deltaLift)+Math.abs(deltaPitch)<1e-9)return;
  const machineSolids=[
