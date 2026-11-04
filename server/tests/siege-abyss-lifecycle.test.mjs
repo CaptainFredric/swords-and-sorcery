@@ -16,7 +16,7 @@ function room(){
 }
 test('flight that actually passes beneath abyssY is destroyed, removed, rider defeated and Practice can build anew',()=>{
  const r=room(),p=r.addPlayer({id:'pilot',token:'p',name:'pilot'},0);
- p.position={x:0,y:0,z:0};p.spawnProtectionUntil=0;
+ p.position={x:0,y:0,z:-4};p.spawnProtectionUntil=0;
  const m=createFightFlight({x:0,y:0,z:-5,heading:0,id:'fall-1'});
  r.fightFlight=m;
  assert.equal(mountFightFlight(r,m,p,0),true);
