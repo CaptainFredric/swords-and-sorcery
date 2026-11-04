@@ -167,7 +167,13 @@ def cut_joint(obj, f, spec, side) -> dict:
     inside = (up < spec["up"]) & (down < spec["down"]) & (np.minimum(ru, rl) < LIMB) & (share > 0.5)
     if not inside.any():
         return {"cutFaces": 0}
-    removed = cut(obj, inside)
+    # (a face goes if any corner of it lies in the joint, so what stays ends wholly past the cut, under its ring, with
+    # no sliver of the old plates reaching back into the joint)
+    touching = np.zeros(len(co), bool)
+    for p in obj.data.polygons:
+        if inside[list(p.vertices)].any():
+            touching[list(p.vertices)] = True
+    removed = cut(obj, touching)
     # the cannons either side: wholly their own bone near the cut
     co, up, down, ru, rl, share = _limb_vertices(obj, f, spec, side)
     weights, _ = _weights(obj)
@@ -269,7 +275,8 @@ def ring(b: Builder, prof, width: float, tone: str, bone: str, edge: str | None 
     edges (in `edge`'s tone, if given), and an inner face `thick` inside it."""
     def loop(at, out):
         return [b.vert(_round(prof, at, k, out=out), bone) for k in range(SIDES)]
-    a, z = -width / 2, width / 2
+    # (centred a little past the cut, over the cannon's cut edge)
+    a, z = 0.01 - width / 2, 0.01 + width / 2
     outer = [loop(a, lift + thick * 0.4), loop(a + 0.008, lift + thick), loop(z - 0.008, lift + thick), loop(z, lift + thick * 0.4)]
     inner = [loop(a, lift - thick * 0.3), loop(z, lift - thick * 0.3)]
     n = 0
