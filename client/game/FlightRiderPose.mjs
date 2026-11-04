@@ -18,7 +18,7 @@ export class FlightRiderPose{
   if(!m||!grips)return;
   if(this.id!==m.id||now-(this.lastAt??now)>.25){this.id=m.id;this.weight=0;}this.lastAt=now;
   this.saved=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
-  const pelvis=this.bones.get('pelvis');if(pelvis&&grips.pelvis){pelvis.position.copy(pelvis.parent.worldToLocal(grips.pelvis.clone()));pelvis.updateMatrixWorld(true);}
+  const pelvis=this.bones.get('pelvis');if(pelvis&&pelvis.parent&&grips.pelvis){pelvis.position.copy(pelvis.parent.worldToLocal(grips.pelvis.clone()));pelvis.updateMatrixWorld(true);}
   const wanted=m.offensiveRun?1:0;this.weight+=(wanted-this.weight)*(1-Math.exp(-Math.max(0,dt)*10));
   const age=Math.max(0,now-(m.runAnimationStartedAt??now));
   // Entry contains recovery too; keep the deliberate mid-clip hold while held.
@@ -30,7 +30,7 @@ export class FlightRiderPose{
   for(const track of this.tracks){
    if(!/^(spine|chest|neck|head|clavicle|upper_arm|forearm|hand)/.test(track.bone))continue;
    if(priority&&/\.[R]$/.test(track.bone))continue;
-   const name=clean(track.bone),bone=this.bones.get(name),rest=this.rest.get(name);if(!bone||!rest)continue;
+   const name=clean(track.bone),bone=this.bones.get(name),rest=this.rest.get(name);if(!bone||!rest||!bone.parent)continue;
    // Source rotation deltas are anatomical world axes, not target bone axes.
    // Parent world rotations are accounted for once, preserving production bases.
    const align=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI);
@@ -68,10 +68,11 @@ export class FlightRiderPose{
    if(delta.length()>length&&vertical>0)settle=Math.max(settle,vertical-Math.sqrt(Math.max(0,length*length-horizontalSq)));
   }
   this.harnessSettle=settle;
-  if(pelvis&&settle>0){const at=pelvis.getWorldPosition(new THREE.Vector3()).addScaledVector(up,-Math.min(.15,settle));pelvis.position.copy(pelvis.parent.worldToLocal(at));pelvis.updateMatrixWorld(true);}
+  if(pelvis&&pelvis.parent&&settle>0){const at=pelvis.getWorldPosition(new THREE.Vector3()).addScaledVector(up,-Math.min(.15,settle));pelvis.position.copy(pelvis.parent.worldToLocal(at));pelvis.updateMatrixWorld(true);}
   for(const {side,foot,q,end}of targets){
-   this.legs.leg(side,end,forward);foot.quaternion.copy(foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));foot.updateMatrixWorld(true);
+   if(this.legs?.leg)this.legs.leg(side,end,forward);
+   if(foot&&foot.parent){foot.quaternion.copy(foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));foot.updateMatrixWorld(true);}
   }
-  this.arms.applyFlight(grips,priority);
+  this.arms?.applyFlight?.(grips,priority);
  }
 }

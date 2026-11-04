@@ -581,7 +581,8 @@ export class TouchControls {
           dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
           dashBtn.classList.toggle('flight-dash-active', offensiveActive);
           dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
-          dashBtn.querySelector('span').textContent='DASH';
+          const dashSpan=dashBtn.querySelector('span');
+          if(dashSpan&&dashSpan.textContent!=='DASH')dashSpan.textContent='DASH';
           const status=dashBtn.querySelector('.touch-status');
           if(status)status.textContent=spool==='SPINUP'?'SPIN 450':spool==='ASCENT'?'LIFT':
             dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';

@@ -17,7 +17,7 @@ const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null&&
 const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCondition(b).canSiege;
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 // Ordinary coupled volley, distinct from the heavy-first atomic Skill command.
-export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&b.skill?.phase!=='primed'&&
+export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&b.skill?.id==='boltToTheOccasion'&&b.skill?.phase==='idle'&&
  supported(b)&&b.state==='LOADED'&&b.mainBoltLoaded&&ready(b,now)&&
  !b.pendingCoupledFromUpper&&!busy(b));
 

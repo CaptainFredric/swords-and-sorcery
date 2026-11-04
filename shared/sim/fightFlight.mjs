@@ -93,12 +93,16 @@ export function mountFightFlight(room,m,player,now=0){
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
   m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
+  m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.practiceDashRefilling=false;
+  m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=Number.isFinite(m.heading)?m.heading:0;
+  m.runGroundPhase=null;m.runGroundReleased=false;m.runGroundLaunchReady=false;
   player.flightInputAt=null;player.ejectionFallExempt=false;
   player.operatingFightFlightId=m.id;
   player.position=fightFlightOperator(m);player.velocity={x:0,y:0,z:0};
   player.guarding=false;player.guardHeld=false;player.guardButton=false;
   player.attackHeld=false;player.attackButton=false;player.attackActive=false;
-  player.input={...player.input,forward:0,right:0,jump:false,flightRise:false,flightLower:false,sprint:false,crouch:false,attack:false,guard:false,yaw:m.heading,pitch:0};
+  player.input={...player.input,forward:0,right:0,jump:false,flightRise:false,flightLower:false,sprint:false,crouch:false,attack:false,guard:false,yaw:Number.isFinite(m.heading)?m.heading:0,pitch:0};
   room.events.push({type:'fightFlightMounted',machineId:m.id,playerId:player.id,at:now});
   return true;
 }
@@ -149,14 +153,18 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const op=m.operatorId?room.players.get(m.operatorId):null;
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
-  const yaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
+  const rawYaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
+  const yaw=Number.isFinite(rawYaw)?rawYaw:(Number.isFinite(m.heading)?m.heading:0);
   // The first .36s of genuine propulsion retains the heading captured at the
   // press. Once released into steering, angular velocity builds and brakes
   // under bounded angular acceleration; even a 180-degree reticle change
   // cannot reverse a heavy machine instantly.
-  const steeringYaw=m.runGroundPhase||
-    m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:yaw;
-  const delta=Math.atan2(Math.sin(steeringYaw-m.heading),Math.cos(steeringYaw-m.heading));
+  const steeringYaw=(m.runGroundPhase||(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec))
+    ?(Number.isFinite(m.runCommitHeading)?m.runCommitHeading:yaw)
+    :yaw;
+  const safeHeading=Number.isFinite(m.heading)?m.heading:0;
+  const safeSteeringYaw=Number.isFinite(steeringYaw)?steeringYaw:safeHeading;
+  const delta=Math.atan2(Math.sin(safeSteeringYaw-safeHeading),Math.cos(safeSteeringYaw-safeHeading));
   if(!m.terminalDive){
     if(m.runGroundPhase){
       m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
@@ -178,6 +186,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       m.runTurnSpeed=0;
     }
   }
+  if(!Number.isFinite(m.heading))m.heading=safeHeading;
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
   const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;

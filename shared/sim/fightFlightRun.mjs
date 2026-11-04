@@ -38,7 +38,7 @@ export function requestFlightDash(room,m,p,held,now){
  }
  if(before)return true;
  m.flightDashStartedAt=now;
- m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:m.heading;
+ m.runCommitHeading=Number.isFinite(p.input?.yaw)?p.input.yaw:(Number.isFinite(m.heading)?m.heading:0);
  const aimPitch=clamp(Number.isFinite(p.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
  // Level launches physically dive; upward initial intent remains controllable.
