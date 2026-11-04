@@ -3369,7 +3369,7 @@ export class GameRuntime {
       const isFirstPerson=blend<.002;
       // The collision-swept rotor may pitch through 90 degrees, but the
       // operator's camera must not follow its GLB visor node underground.
-      const ground=surfaceHeightAt(m.x,m.z,m.y,this.activeWorld);
+      const ground=this.activeWorld?surfaceHeightAt(m.x,m.z,m.y,this.activeWorld):null;
       const stable=stableFlightCockpitEye(m,
         this.flightRenderer.getMountedCameraPosition('sight'),ground);
       const eye=new THREE.Vector3(stable.x,stable.y,stable.z);
@@ -3539,7 +3539,7 @@ export class GameRuntime {
       this.flightCameraMotion?.reset();
       const m=this.localAuth?.operatingFightFlightId?this.latestSnapshot?.fightFlight:null;
       if(m){
-        const ground=surfaceHeightAt(m.x,m.z,m.y,this.activeWorld);
+        const ground=this.activeWorld?surfaceHeightAt(m.x,m.z,m.y,this.activeWorld):null;
         const eye=stableFlightCockpitEye(m,null,ground);
         this.camera.position.set(eye.x,eye.y,eye.z);
         const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
