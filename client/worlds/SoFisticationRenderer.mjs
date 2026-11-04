@@ -51,6 +51,12 @@ export class SoFisticationRenderer {
    });
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
    this.animation=new MachineAnimationComposition(this.model,gltf.animations);
+   // New elevation pivots are deliberately NOT controlled by an animation
+   // clip. Capture their rests once: additive per-frame lifting would drift.
+   this.liftRest=new Map(['Upper_Ram_Lift','Upper_Elevation_Pivot',
+     'Hydraulic_Lift_Stage1_Mid','Ram_Assembly'].flatMap(name=>{
+    const o=this.nodes.get(name);return o?[[name,{position:o.position.clone(),rotation:o.rotation.clone()}]]:[];
+   }));
    this.loading=false;resolve(true);
   },undefined,error=>{this.error=true;this.loading=false;resolve(false);console.error('SoFistication authored asset failed to load',error);});
   });return this.loadingPromise;
@@ -93,14 +99,17 @@ export class SoFisticationRenderer {
   const lift=(b.ramLiftY??0)/SO_FIST_SCALE,tilt=b.ramElevPitch??0;
   const upper=this.nodes.get('Upper_Ram_Lift');
   if(upper){
-   upper.position.y+=lift;
+   upper.position.y=(this.liftRest.get('Upper_Ram_Lift')?.position.y??0)+lift;
    const pivot=this.nodes.get('Upper_Elevation_Pivot');
-   if(pivot)pivot.rotation.x-=tilt;
+   if(pivot)pivot.rotation.x=(this.liftRest.get('Upper_Elevation_Pivot')?.rotation.x??0)-tilt;
    const stage=this.nodes.get('Hydraulic_Lift_Stage1_Mid');
-   if(stage)stage.position.y+=lift*.5;
+   if(stage)stage.position.y=(this.liftRest.get('Hydraulic_Lift_Stage1_Mid')?.position.y??0)+lift*.5;
   }else{
    const ram=this.nodes.get('Ram_Assembly');
-   if(ram){ram.position.y+=lift;ram.rotation.x-=tilt;}
+   if(ram){
+    ram.position.y=(this.liftRest.get('Ram_Assembly')?.position.y??0)+lift;
+    ram.rotation.x=(this.liftRest.get('Ram_Assembly')?.rotation.x??0)-tilt;
+   }
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
@@ -115,7 +124,7 @@ export class SoFisticationRenderer {
   if(remote&&['flying','falling','resting'].includes(remote.state)){
    if(!this.detachedVisual&&fist){
     this.group.updateMatrixWorld(true);
-    const clone=fist.clone(true);
+    const clone=fist.clone(true);clone.visible=true;
     fist.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
     const center=new THREE.Box3().setFromObject(fist).getCenter(new THREE.Vector3());
     this.detachedOffset=center.sub(clone.position);
