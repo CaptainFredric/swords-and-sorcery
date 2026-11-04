@@ -349,11 +349,43 @@ export function* vigilBars(rand = Math.random) {
   }
 }
 
+// A newly programmed, synthesized brass-and-strings treatment of the public-
+// domain Ride of the Valkyries motif (Wagner, Die Walküre, Act III). NO sample,
+// recording or twentieth-century orchestral arrangement is redistributed.
+// The nine eighth-note units per bar keep the characteristic galloping pulse.
+export const VALKYRIES=Object.freeze({name:'valkyrie',bpm:280,beatsPerBar:9,hall:.38,scale:'D minor / D major'});
+const VALKYRIE_CALLS=Object.freeze([
+ [['A4',0,1.5],['D5',1.5,1.5],['F5',3,2.5],['E5',6,1],['D5',7,2]],
+ [['A4',0,1.5],['D5',1.5,1.5],['F5',3,2.5],['G5',6,1],['A5',7,2]],
+ [['A4',0,1.5],['D5',1.5,1.5],['F#5',3,2.5],['E5',6,1],['D5',7,2]],
+ [['G4',0,1.5],['C#5',1.5,1.5],['E5',3,2.5],['F#5',6,1],['A5',7,2]],
+]);
+export function* valkyrieBars(){
+ let index=0;
+ while(true){
+  const i=index++%VALKYRIE_CALLS.length;
+  const events=[];
+  // The brass states the riding call immediately; strong low strings keep
+  // motion under the accelerating rotor without overwhelming battle SFX.
+  for(const [pitch,beat,beats] of VALKYRIE_CALLS[i]){
+   events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats,vel:1.12,layer:0,pan:-.12});
+   events.push({inst:'strings',midi:noteToMidi(pitch)-12,beat,beats:Math.min(1.5,beats),vel:1.3,layer:0,pan:.15});
+  }
+  for(let beat=0;beat<9;beat+=1.5){
+   const major=beat===0||beat===4.5;
+   events.push({inst:major?'war':'dum',beat,beats:.55,vel:major?.86:.38,layer:0});
+   events.push({inst:'strings',midi:noteToMidi(major?'D3':'A3'),beat,beats:.75,vel:.9,layer:0,pan:.25});
+  }
+  yield {piece:'valkyrie',section:'riding-call',index:i,chord:i===2?'D':'Dm',events};
+ }
+}
+
 export const PIECES = Object.freeze({
   hall: { ...HALL, bars: hallBars },
   battle: { ...BATTLE, bars: battleBars },
   march: { ...MARCH, bars: marchBars },
   vigil: { ...VIGIL, bars: vigilBars },
+  valkyrie: { ...VALKYRIES, bars: valkyrieBars },
 });
 
 // what each arena fights to: one of its pieces per match, the same for everyone in it (more maps, more music)

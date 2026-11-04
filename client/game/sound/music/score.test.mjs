@@ -185,3 +185,23 @@ test('Spells & Chivalry taken up: strings swell from B-flat into D major on the 
   const end = Math.max(...swell.events.map((event) => event.beat + event.beats));
   assert.ok(end < 7);
 });
+
+// Wagner's underlying composition is public-domain; this game scores it
+// directly with its own procedural instruments, never shipping a recording.
+test('Ascension Valkyries cue starts brass immediately in nine-pulse gallop and loops safely',async()=>{
+ const {PIECES,VALKYRIES,valkyrieBars}=await import('./score.mjs');
+ assert.equal(PIECES.valkyrie.bpm,280);
+ assert.equal(VALKYRIES.beatsPerBar,9);
+ const bars=take(valkyrieBars(),12);
+ assert.equal(bars.length,12);
+ for(const bar of bars){
+  assert.ok(bar.events.some(e=>e.inst==='horn'&&e.beat===0),'no intro silence');
+  assert.ok(bar.events.some(e=>e.inst==='war'),'war drum supports the gallop');
+  for(const e of bar.events){
+   assert.ok(e.beat>=0&&e.beats>0&&e.beat+e.beats<=9,'events fit the measure');
+   assert.ok(Number.isFinite(e.vel)&&e.vel>0);
+   assert.ok(INSTRUMENT_LEVELS[e.inst]>0,'uses authored synthesis only');
+  }
+ }
+ assert.deepEqual(bars[0].events,bars[4].events,'stable recurring motif, no unbounded song state');
+});
