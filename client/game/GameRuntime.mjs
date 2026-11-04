@@ -3518,6 +3518,7 @@ export class GameRuntime {
       this.frameFailureStreak=0;
     }catch(error){
       this.frameFailureStreak=(this.frameFailureStreak??0)+1;
+      this.frameRecoveryCount=(this.frameRecoveryCount??0)+1;
       const at=performance.now();
       if(at-(this.lastFrameFailureLogAt??-Infinity)>2500){
         this.lastFrameFailureLogAt=at;
