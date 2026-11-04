@@ -370,7 +370,8 @@ export class TouchControls {
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
+      jump: this.ramMounted?Boolean(this.jumpHeld):
+        this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
       sprint: this.flightMounted ? false : this.ramMounted
