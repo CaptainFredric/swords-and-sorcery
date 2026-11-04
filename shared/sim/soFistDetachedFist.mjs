@@ -51,7 +51,7 @@ export function requestLongArmToJaw(room,b,p,now){
     y:head.center[1]+axis[1]*head.size[2]/2,
     z:head.center[2]+axis[2]*head.size[2]/2};
  const velocity={x:axis[0]*RAM_FIST.speed,y:axis[1]*RAM_FIST.speed,z:axis[2]*RAM_FIST.speed};
- const home=b.fistHome??{x:b.spawnX??b.x,z:b.spawnZ??b.z};
+ const home=b.fistHome??{x:b.spawnX??b.x,y:b.spawnY??b.y,z:b.spawnZ??b.z};
  b.fistHome=home;
  b.detachedFist={state:'flying',position:origin,velocity,launchedAt:now,
    traveled:0,ownerId:p.id,home:{...home},impactCount:0,
@@ -110,7 +110,8 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
  const f=b.detachedFist;
  if(f.state==='abyss'){
   const home=f.home??b.fistHome;
-  if(home&&!b.operatorId&&Math.hypot(b.x-home.x,b.z-home.z)<=SO_FIST_LIFT.recoveryRadius){
+  if(home&&!b.operatorId&&Math.hypot(b.x-home.x,b.z-home.z)<=SO_FIST_LIFT.recoveryRadius&&
+    Math.abs(b.y-(home.y??b.y))<=1.5){
    f.state='recovering';f.recoverAt=now+SO_FIST_LIFT.recoveryCooldown;
    b.fistRecoveryUntil=f.recoverAt;b.speed=0;b.charging=false;
    event(room,b,'recoveryStarted',now,{readyAt:f.recoverAt,hp:b.components.Fist.health});

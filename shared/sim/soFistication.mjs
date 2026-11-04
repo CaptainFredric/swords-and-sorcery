@@ -49,7 +49,7 @@ function stepRamElevation(room,b,dt,now,world){
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
  detachedFist:null,fistRecoveryUntil:0,
- fistHome:{x:overrides.x??0,z:overrides.z??0},...overrides};}
+ fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
 function stationClear(b,world,extra=[]){

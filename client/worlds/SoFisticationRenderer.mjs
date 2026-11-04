@@ -179,7 +179,8 @@ export class SoFisticationRenderer {
   const b=this.presentationData;if(!b||b.mode==='DESTROYED'||(b.health??0)<=0)return null;
   let node=null;
   if(componentId==='hull'&&(b.health??0)>0)node=this.nodes?.get?.('Chassis')??this.group;
-  else if(componentId==='Fist'&&(b.components?.Fist?.health??0)>0)node=this.nodes?.get?.('Armored_Fist');
+  else if(componentId==='Fist'&&(b.components?.Fist?.health??0)>0&&b.fistMounted!==false)
+   node=this.nodes?.get?.('Armored_Fist');
   else if(this.wheels){
     const index=SO_FIST_WHEELS.findIndex(w=>w.id===componentId);
     if(index>=0&&(b.components?.[componentId]?.health??0)>0)node=this.wheels[index]?.o;
