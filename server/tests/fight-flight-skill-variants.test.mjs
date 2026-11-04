@@ -288,3 +288,22 @@ test('Ordinary camera movement during repeated fire never retargets a nearer opp
  assert.notEqual(m.skill.targetId,offAxis.id);
  assert.ok(m.shotSeq>=2);
 });
+
+test('Real chassis turning toward an off-target third-person camera does not interrupt in-arc lock fire',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ requestFightFlightSkill(room,m,pilot,1);
+ pilot.input.yaw=.58; // 33 degrees: machine will physically turn, target remains within 50-degree turret stop.
+ pilot.input.pitch=0;
+ requestFightFlightFire(room,m,pilot,true,1.01);
+ const dt=1/30;
+ for(let i=1;i<=14;i++){
+   const now=1.01+i*dt;
+   stepFightFlight(room,m,dt,now);
+   stepFightFlightWeapons(room,m,dt,now);
+ }
+ assert.ok(m.heading>.4,'the actual machine turned to face the displaced camera');
+ assert.equal(m.skill.targetId,enemy.id,'same target stays selected while machine rotates');
+ assert.equal(m.skill.trackingState,'locked','mechanical arc still includes the target');
+ assert.ok(m.shotSeq>=3,'held Fire keeps spawning physical bolts through chassis rotation');
+ assert.ok(m.crossbowYaw<m.heading-.2,'gimbal genuinely counter-traverses toward enemy');
+});
