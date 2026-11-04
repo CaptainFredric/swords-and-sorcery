@@ -8,6 +8,7 @@ import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
 import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
+import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -56,8 +57,8 @@ export class SoFisticationRenderer {
  }
  update(now,b){
   this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
-  if(!b){this.clearDebris();return;}
-  if(this.id!==b.id){this.id=b.id;this.clearDebris();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
+  if(!b){this.clearDebris();this.clearDetachedVisual();return;}
+  if(this.id!==b.id){this.id=b.id;this.clearDebris();this.clearDetachedVisual();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
   if(this.debris)this.debris.visible=!b.wreckVisualExpired;
   if(b.wreckVisualExpired)return;
   this.load();const frame=soFistFrame(b);
@@ -86,6 +87,21 @@ export class SoFisticationRenderer {
    this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>!k.startsWith('Wheel_'),{additive:true,weight:Math.max(0,weight)});
   }
   this.animation.end();
+  // The current source remains the v2.7 production GLB. Argon's authored
+  // elevation nodes are supported when that deliverable is supplied; until
+  // then animate the legacy ram as an interim visual only.
+  const lift=(b.ramLiftY??0)/SO_FIST_SCALE,tilt=b.ramElevPitch??0;
+  const upper=this.nodes.get('Upper_Ram_Lift');
+  if(upper){
+   upper.position.y+=lift;
+   const pivot=this.nodes.get('Upper_Elevation_Pivot');
+   if(pivot)pivot.rotation.x-=tilt;
+   const stage=this.nodes.get('Hydraulic_Lift_Stage1_Mid');
+   if(stage)stage.position.y+=lift*.5;
+  }else{
+   const ram=this.nodes.get('Ram_Assembly');
+   if(ram){ram.position.y+=lift;ram.rotation.x-=tilt;}
+  }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
   if(broken&&!this.debris){
@@ -93,7 +109,21 @@ export class SoFisticationRenderer {
    for(const part of [fist,ring]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
    this.scene.add(this.debris);this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+bounds.getSize(new THREE.Vector3()).y/2;this.debrisHeading=b.heading;this.brokenAt=b.fistBrokenAt??now;
   }
-  fist.visible=ring.visible=!broken;
+  fist.visible=!broken&&b.fistMounted!==false;
+  ring.visible=!broken;
+  const remote=b.detachedFist;
+  if(remote&&['flying','falling','resting'].includes(remote.state)){
+   if(!this.detachedVisual&&fist){
+    this.group.updateMatrixWorld(true);
+    const clone=fist.clone(true);
+    fist.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
+    const center=new THREE.Box3().setFromObject(fist).getCenter(new THREE.Vector3());
+    this.detachedOffset=center.sub(clone.position);
+    this.detachedVisual=clone;this.scene.add(clone);
+   }
+   if(this.detachedVisual)this.detachedVisual.position.set(
+    remote.position.x,remote.position.y,remote.position.z).sub(this.detachedOffset);
+  }else this.clearDetachedVisual();
   if(this.debris){const age=Math.max(0,Math.min(1.1,now-this.brokenAt));this.debris.position.copy(this.debrisStart);this.debris.position.y=Math.max(this.debrisGround,this.debrisStart.y+1.2*age-4.9*age*age);this.debris.position.x-=Math.sin(this.debrisHeading)*age*.75;this.debris.position.z-=Math.cos(this.debrisHeading)*age*.75;}
   this.group.updateMatrixWorld(true);
   for(const event of this.pendingHits.filter(e=>e.at<=now)){
@@ -149,7 +179,8 @@ export class SoFisticationRenderer {
   this.group.updateMatrixWorld(true);
   return node.getWorldPosition(new THREE.Vector3());
  }
+ clearDetachedVisual(){if(this.detachedVisual){this.scene.remove(this.detachedVisual);this.detachedVisual=null;this.detachedOffset=null;}}
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
- dispose(){this.disposed=true;this.clearDebris();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}
+ dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}
 }
