@@ -18,6 +18,7 @@ function setup(){
  p.alive=true;p.prowess=100;p.ultimate='chivalry';p.ultimateState=null;p.spawnProtectionUntil=0;
  const m=createFightFlight({x:0,y:8,z:0,heading:0,id:'valkyrie-original'});
  m.operatorId=p.id;m.grounded=false;m.mode='AIRBORNE';m.velocity={x:0,y:0,z:-4};
+ m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25};
  p.operatingFightFlightId=m.id;p.position={x:0,y:8,z:0};p.input={yaw:0,pitch:0,jump:false,crouch:false,forward:0,right:0};
  room.fightFlight=m;
  const cmd=(type,down,t)=>applyRoomCommand(room,p,{type,down},t);
@@ -207,4 +208,45 @@ test('Committed dive blocked by substantial world masonry explodes at contact ra
  assert.ok(s.m.terminalDive.resolvedAt-s.m.terminalDive.startedAt<2.5,'physical contact resolves promptly');
  assert.equal(s.room.flightBurnZones.length,1);
  assert.equal(s.room.flightBurnZones[0].point.y,0,'ground aftermath cannot hover at wall impact altitude');
+});
+
+test('Fire Away and Narrow cannot trigger terminal, including when Chivalry is full',()=>{
+ for(const id of ['fireAwayImRightHere','narrowToOne']){
+  const s=setup();s.m.skill={id,phase:'active',activeUntil:15,readyAt:25};
+  assert.deepEqual(s.cmd('flightDash',true,1),{});
+  assert.deepEqual(s.cmd('flightUltimateHold',true,1.01),{});
+  stepTerminalPreparation(s.room,s.m,1.02);stepTerminalPreparation(s.room,s.m,2.2);
+  assert.equal(s.m.terminalPrep,null,id+' must not prime the Dive');
+  assert.equal(s.m.terminalDive,null);
+  assert.equal(s.p.prowess,100);
+  assert.equal(s.m.terminalDiveSpent,false);
+ }
+});
+test('Unactivated or expired Ascension refuses the terminal chord without spending Chivalry',()=>{
+ for(const state of [{phase:'idle',activeUntil:null},{phase:'active',activeUntil:.9}]){
+  const s=setup();Object.assign(s.m.skill,state);
+  s.cmd('flightDash',true,1);s.cmd('flightUltimateHold',true,1.01);
+  stepTerminalPreparation(s.room,s.m,1.02);stepTerminalPreparation(s.room,s.m,2.2);
+  assert.equal(s.m.terminalDive,null);assert.equal(s.m.terminalDiveSpent,false);assert.equal(s.p.prowess,100);
+ }
+});
+test('Rotor destruction, Skill ending, or early chord release cancels one-second Ascension preparation',()=>{
+ for(const invalid of ['rotor','skill','release']){
+  const s=setup();s.cmd('flightDash',true,1);s.cmd('flightUltimateHold',true,1.04);
+  stepTerminalPreparation(s.room,s.m,1.04);assert.ok(s.m.terminalPrep);
+  if(invalid==='rotor')s.m.rotorHP=0;
+  else if(invalid==='skill')s.m.skill.phase='idle';
+  else s.cmd('flightDash',false,1.15);
+  stepTerminalPreparation(s.room,s.m,1.15);stepTerminalPreparation(s.room,s.m,2.3);
+  assert.equal(s.m.terminalDive,null);assert.equal(s.m.terminalPrep,null);
+  assert.equal(s.p.prowess,100);assert.equal(s.m.terminalDiveSpent,false);
+ }
+});
+test('One full Ascension chord does not duplicate commitment or reset rotor velocity',()=>{
+ const s=setup();s.m.velocity.y=-7;
+ commit(s);
+ assert.equal(s.m.velocity.y,-7);
+ stepTerminalPreparation(s.room,s.m,2.12);
+ assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
+ assert.equal(s.m.skill.id,'doNotStopMyAscension');
 });

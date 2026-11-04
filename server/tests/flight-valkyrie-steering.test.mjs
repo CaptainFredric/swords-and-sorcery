@@ -250,6 +250,7 @@ test('Airborne Dash drives a falling craft immediately with full Chivalry and no
 
 test('Moving Dash still accepts a deliberate Chivalry terminal chord during the meter reserve',()=>{
   const s=setup({y:25});s.p.ultimate='chivalry';s.p.prowess=100;
+  s.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25};
   requestFlightDash(s.room,s.m,s.p,true,0);
   stepFlightRun(s.room,s.m,DT,DT);stepFightFlight(s.room,s.m,DT,DT);
   assert.equal(s.m.offensiveRun,true);

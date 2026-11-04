@@ -92,6 +92,8 @@ try{
  await evaluate("document.querySelector('#player-name').value='Terminal Valkyrie flight probe';document.querySelector('#armory-button').click()");
  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]'))"),'Chivalry armory choice');
  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click()");
+ await until(()=>evaluate("Boolean(document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension armory option');
+ await evaluate("document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click()");
  await evaluate("document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
  await until(()=>evaluate("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'Practice entry');
  await evaluate("document.querySelector('#practice-mode').click()");
@@ -152,6 +154,10 @@ try{
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
 
+ // Real mounted Skill input, not an injected server phase: activate Ascension
+ // before attempting terminal Valkyrie. Other loadouts may never commit it.
+ await tap('U');
+ await until(()=>evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot?.fightFlight?.skill;return s?.id==='doNotStopMyAscension'&&s.phase==='active';})()"),'authoritative Ascension Skill activation',70);
  // Practice's actual Ready Ultimate control supplies a legitimate full Chivalry meter.
  await evaluate("document.querySelector('#practice-ultimate').click()");
  await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p?.prowess>=100;})()"),'ready unspent Chivalry in Practice',100);
@@ -164,6 +170,7 @@ try{
  await evaluate("(() => {const samples=window.__terminalPitchTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
  await down('E');await down('R');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalPrep)"),'visible one-second terminal chord preparation',100);
+ assert.equal(await evaluate("window.__ssRuntime.latestSnapshot.fightFlight.skill.id"),'doNotStopMyAscension');
  const prep=await evaluate(flightState);
  assert.equal(prep.machine.terminalDiveSpent,false,'preparation must not pre-consume final dive');
  assert.ok(prep.player.prowess>=100,'precommit meter must remain unspent');
