@@ -6,6 +6,9 @@ import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
 import { MountedSwordArm } from './mountedSwordArm.mjs';
+import { GESTURE_ARMS, PALM_REACH } from './spellbladeGestures.mjs';
+import { solveArm } from './swordArmIK.mjs';
+import { SPELL_HAND } from './spellHand.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
@@ -22,6 +25,9 @@ const _qp = new THREE.Quaternion();
 const _qpInv = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
 // the turn about a level `axis` through `pivot` (root space, radians, the smaller way round) that brings `point` down
 // to `height`, or as low as it can go if it cannot reach
@@ -88,6 +94,9 @@ export class SpellbladeAnimator {
       const arm = this.bones.get(limb);
       if (plate && arm) this.pauldrons.push({ plate, arm, rest: plate.quaternion.clone(), share: () => COP_SHARE });
     }
+    // the finger lames' rest turns (the modelled cup), read as the model loads
+    this.fingerRest = new Map();
+    for (const [name, bone] of this.bones) if (/^(finger_|thumb_)/.test(name)) this.fingerRest.set(bone, bone.quaternion.clone());
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
@@ -126,6 +135,101 @@ export class SpellbladeAnimator {
       rotate: (name, axis, angle) => this.#rotateInRootSpace(this.bone(name), axis, angle),
       shift: (name, offset) => this.#offsetInRootSpace(this.bone(name), offset),
     };
+    // the character layer (spellbladeSecondary + spellbladeGestures): set for each frame by setCharacter, applied over
+    // whatever pose ran last (on foot, or a machine's), its own changes undone at the start of the next frame
+    this.character = null;
+    this.characterSaved = new Map();
+    this.characterApi = {
+      ...this.boneApi,
+      rotate: (name, axis, angle) => this.#rotateInRootSpace(this.bone(name), axis, angle, this.characterSaved),
+      shift: (name, offset) => this.#offsetInRootSpace(this.bone(name), offset, this.characterSaved),
+    };
+  }
+
+  /**
+   * This frame's character layer: { turns (root-space turns: the body's weight and momentum), gesture (a gesture's
+   * pose, spellbladeGestures.gesturePose, or null) }, or null. Applied last, so it never changes what a clip, a solver
+   * or a machine's pose decided: it only adds to it.
+   */
+  setCharacter(layer) {
+    this.character = layer ?? null;
+  }
+
+  #restoreCharacter() {
+    for (const [bone, saved] of this.characterSaved) {
+      bone.quaternion.copy(saved.q);
+      bone.position.copy(saved.p);
+    }
+    this.characterSaved.clear();
+  }
+
+  #applyCharacter() {
+    const layer = this.character;
+    const gesture = layer?.gesture && layer.gesture.weight > 1e-3 ? layer.gesture : null;
+    const turns = layer?.turns ?? [];
+    if (!turns.length && !gesture) return;
+    this.root.updateMatrixWorld(true);
+    _rootInv.copy(this.root.matrixWorld).invert();
+    this.root.getWorldQuaternion(_rootQuatInv).invert();
+    const api = this.characterApi;
+    for (const { bone, axis, angle } of turns) api.rotate(bone, axis, angle);
+    if (!gesture) return;
+    const w = gesture.weight;
+    for (const { bone, axis, angle } of gesture.turns ?? []) api.rotate(bone, axis, angle * w);
+    if (gesture.legs) this.#liftLegs(gesture.legs, w);
+    if (gesture.hand) {
+      // the palm's centre where the gesture puts it (from the head), the wrist a hand's length back along the fingers
+      const { side, at, aim, palm } = gesture.hand;
+      const head = api.position('head');
+      const fingers = unit(aim);
+      const centre = [head[0] + at[0], head[1] + at[1], head[2] + at[2]];
+      const wrist = centre.map((v, i) => v - fingers[i] * PALM_REACH);
+      solveArm(api, GESTURE_ARMS[side], { wrist, aim: fingers, roll: unit(palm) }, w);
+      if (gesture.hand.open) this.#flattenHand(side, w);
+    }
+    if (gesture.strike) {
+      // the fist up off what it holds and down onto it again
+      const { side, lift, reach } = gesture.strike;
+      const chain = GESTURE_ARMS[side];
+      const at = api.position(chain.wrist);
+      solveArm(api, chain, { wrist: [at[0], at[1] + lift, at[2] - reach] }, w);
+    }
+    this.#followPauldrons();
+  }
+
+  // a hand's fingers straightened out of whatever curl they hold (each lame's own x turn is its curl: rodin/hands.py),
+  // toward SPELL_HAND.open, by `w`
+  #flattenHand(side, w) {
+    const joints = [...SPELL_HAND.fingers.map((f) => [`finger_${f}_`, 'finger']), ['thumb_', 'thumb']];
+    for (const [prefix, kind] of joints) {
+      for (let k = 0; k < 3; k += 1) {
+        const bone = this.bone(`${prefix}${k + 1}.${side}`);
+        if (!bone) continue;
+        // (the curl about x now, from the bone's own rest: unwound to the open hand's)
+        const rest = this.fingerRest?.get(bone) ?? null;
+        if (!rest) continue;
+        _q.copy(rest).invert().multiply(bone.quaternion);
+        const curl = 2 * Math.atan2(_q.x, _q.w);
+        const want = SPELL_HAND.open[kind][k];
+        this.#rotateLocal(bone, [1, 0, 0], (want - curl) * w, this.characterSaved);
+      }
+    }
+  }
+
+  // the flight L-sit: each knee straightened by `knee` of its bend, then the thigh lifted `hip` forward
+  #liftLegs({ hip = 0, knee = 0 }, w) {
+    const api = this.characterApi;
+    for (const side of ['L', 'R']) {
+      const top = api.position(`thigh.${side}`);
+      const middle = api.position(`shin.${side}`);
+      const bottom = api.position(`foot.${side}`);
+      const upper = top.map((v, i) => middle[i] - v);
+      const lower = middle.map((v, i) => bottom[i] - v);
+      const hinge = cross(upper, lower);
+      const bend = Math.acos(Math.max(-1, Math.min(1, dot(unit(upper), unit(lower)))));
+      if (Math.hypot(...hinge) > 1e-6 && bend > 1e-3) api.rotate(`shin.${side}`, unit(hinge), -bend * knee * w);
+      api.rotate(`thigh.${side}`, [1, 0, 0], hip * w);
+    }
   }
 
   #followPauldrons() {
@@ -146,6 +250,8 @@ export class SpellbladeAnimator {
   }
 
   apply(plan, dt = 0) {
+    // (the character layer's changes first: it was applied last)
+    this.#restoreCharacter();
     this.flightRider.restore();
     this.restoreRamArms();if(!plan?.ramMounted)this.siege.releaseStanding();
     if(plan?.mounted){
@@ -182,6 +288,7 @@ export class SpellbladeAnimator {
       this.activeClip = locomotion?.clip ?? this.activeClip;
       this.composition.apply(layers, step);
       this.#applyProcedural(plan.motion);
+      if (!plan.ramMounted && !plan.flightMounted) this.#applyCharacter();
       this.#followPauldrons();
       this.cloth?.apply(step);
       this.onPose?.(plan);
@@ -265,13 +372,15 @@ export class SpellbladeAnimator {
     this.mixer.update(0);
     this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
+    // (a machine's pose comes after this: its own apply* draws the character layer over it)
+    if (!plan.ramMounted && !plan.flightMounted) this.#applyCharacter();
     this.#followPauldrons();
     this.cloth?.apply(step);
     this.onPose?.(plan);
     return true;
   }
 
-  applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
+  applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);this.#applyCharacter();}
   // combat: { attackAge, guarding, yawOffset } for the mounted sword arm (mountedSwordArm.mjs), which takes the sword
   // arm from the riding pose while a strike or the guard has it
   applyFightFlight(grips, priority = false, machine = null, now = 0, dt = 1/60, combat = null){
@@ -281,12 +390,13 @@ export class SpellbladeAnimator {
     _rootInv.copy(this.root.matrixWorld).invert();
     this.root.getWorldQuaternion(_rootQuatInv).invert();
     this.mountedSword.apply(combat, now, dt);
+    this.#applyCharacter();
     this.#followPauldrons();
   }
   applyRam(station){
     this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
     this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);
-    this.ramPose.apply(station);this.#followPauldrons();
+    this.ramPose.apply(station);this.#applyCharacter();this.#followPauldrons();
   }
   restoreRamArms(){for(const [b,t]of this.ramArms??[]){b.quaternion.copy(t.q);b.position.copy(t.p);}this.ramArms=null;}
   releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}
@@ -297,12 +407,13 @@ export class SpellbladeAnimator {
     return null;
   }
 
-  #touch(bone) {
-    if (!this.touched.has(bone)) this.touched.set(bone, { q: bone.quaternion.clone(), p: bone.position.clone() });
+  #touch(bone, into = this.touched) {
+    if (!into.has(bone)) into.set(bone, { q: bone.quaternion.clone(), p: bone.position.clone() });
   }
 
   /** Fully reset all touched bones, compositional tracks, fading actions, and mixer channels to clean baseline. */
   reset() {
+    this.#restoreCharacter();
     this.#restoreTouched();
     if (this.composing) {
       this.composition.release(0);
@@ -331,7 +442,7 @@ export class SpellbladeAnimator {
   }
 
   // rotate a bone about an axis given in the character's root space, through the bone's own pivot
-  #rotateInRootSpace(bone, axis, angle) {
+  #rotateInRootSpace(bone, axis, angle, into = this.touched) {
     if (!bone?.parent || Math.abs(angle) < 1e-5) return;
     _axis.set(axis[0], axis[1], axis[2]);
     if (_axis.lengthSq() < 1e-10) return;
@@ -341,17 +452,17 @@ export class SpellbladeAnimator {
     _qpInv.copy(_qp).invert();
     _q.setFromAxisAngle(_axis, angle);
     // local' = P^-1 * R * P * local
-    this.#touch(bone);
+    this.#touch(bone, into);
     bone.quaternion.premultiply(_qp).premultiply(_q).premultiply(_qpInv);
     bone.updateMatrixWorld(true);
   }
 
   // rotate a bone about one of its own axes (a joint's own bend or twist, whatever the pose around it)
-  #rotateLocal(bone, axis, angle) {
+  #rotateLocal(bone, axis, angle, into = this.touched) {
     if (!bone || Math.abs(angle) < 1e-5) return;
     _axis.set(axis[0], axis[1], axis[2]);
     if (_axis.lengthSq() < 1e-10) return;
-    this.#touch(bone);
+    this.#touch(bone, into);
     _q.setFromAxisAngle(_axis.normalize(), angle);
     bone.quaternion.multiply(_q);
     bone.updateMatrixWorld(true);
@@ -512,9 +623,9 @@ export class SpellbladeAnimator {
   }
 
   // move a bone by a root-space offset (metres), converted into its parent's space
-  #offsetInRootSpace(bone, offset) {
+  #offsetInRootSpace(bone, offset, into = this.touched) {
     if (!bone?.parent) return;
-    this.#touch(bone);
+    this.#touch(bone, into);
     _m.multiplyMatrices(_rootInv, bone.parent.matrixWorld).invert();
     _origin.set(0, 0, 0).applyMatrix4(_m);
     _v.set(offset[0], offset[1], offset[2]).applyMatrix4(_m).sub(_origin);
@@ -524,6 +635,7 @@ export class SpellbladeAnimator {
 
   dispose() {
     this.siege.dispose();
+    this.#restoreCharacter();
     this.#restoreTouched();
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);

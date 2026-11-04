@@ -23,6 +23,8 @@ import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
+import { GestureLayer } from './spellbladeGestures.mjs';
+import { SecondaryMotion } from './spellbladeSecondary.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -352,6 +354,8 @@ export class RemotePlayers {
     this.now = now;
     this.scene = scene;
     this.localId = localId;
+    // what each machine's operator is doing, by operator id (GameRuntime sets it each frame): see gestureMachines
+    this.machineContext = new Map();
     // told each time a knight's foot comes down: (id, position, heavy 0..1), from the gait clip's own stride
     this.onFootstep = null;
     this.rigs = new Map();
@@ -640,6 +644,60 @@ export class RemotePlayers {
     shell.root.visible = true;
   }
 
+  /** A kill: that knight nods at his work, once the strike that won it is done (every observer has the event). */
+  nod(id, at) {
+    const shell = this.rigs.get(id) ?? (id && (id === this.localId || id === this.self?.root.userData.playerId) ? this.self : null);
+    if (!shell) return;
+    const d = shell.root.userData;
+    (d.gestures ??= new GestureLayer()).nod(at);
+  }
+
+  // what a knight is doing, as its gestures need to know it (spellbladeGestures.mjs)
+  #gestureContext(pb, d, state, serverNow, recovering) {
+    const machine = pb.operatingFightFlightId ? 'flight' : pb.operatingBallistaId ? 'ballista' : pb.operatingRamId ? 'ram' : null;
+    const m = machine ? this.machineContext?.get(pb.id) ?? null : null;
+    const speed = Math.hypot(pb.velocity?.x ?? 0, pb.velocity?.z ?? 0);
+    const struck = d.reactions?.some((r) => r.kind !== 'land' && serverNow - r.at < 0.5);
+    const fighting = ['attack', 'guard', 'cast', 'dash', 'stagger', 'brace', 'vortex'].includes(state)
+      || Boolean(pb.attackActive || pb.guarding || pb.ultimateState || recovering || struck);
+    if (fighting) d.lastCombatAt = serverNow;
+    return {
+      dead: !pb.alive || state === 'dead',
+      staggered: state === 'stagger' || Boolean(recovering),
+      attacking: state === 'attack' || Boolean(pb.attackActive),
+      guarding: state === 'guard' || Boolean(pb.guarding),
+      casting: state === 'cast' || (pb.castEndsAt ?? 0) > serverNow,
+      dashing: state === 'dash',
+      ultimate: Boolean(pb.ultimateState) || state === 'brace' || state === 'vortex',
+      ejecting: Boolean(m?.ejecting),
+      moving: speed > 0.8 || Boolean(m?.moving),
+      sprinting: state === 'sprint',
+      airborne: machine === 'flight' ? Boolean(m?.airborne) : state === 'air',
+      machine,
+      flightIntense: Boolean(m?.intense),
+      machineBusy: Boolean(m?.busy),
+      machineFiring: Boolean(m?.firing),
+      machineReloading: Boolean(m?.reloading),
+      machineCritical: Boolean(m?.critical),
+      lastCombatAt: d.lastCombatAt ?? -Infinity,
+    };
+  }
+
+  // the character layer for this frame: { turns (secondary motion), gesture (or null) }
+  #character(pb, shell, d, state, serverNow, recovering) {
+    d.gestures ??= new GestureLayer();
+    d.secondary ??= new SecondaryMotion();
+    d.playerId = pb.id;
+    const context = this.#gestureContext(pb, d, state, serverNow, recovering);
+    // (timed by the server's clock, so a knight drawn again after a while hidden starts afresh rather than lurching)
+    const since = Number.isFinite(d.characterAt) ? serverNow - d.characterAt : Infinity;
+    d.characterAt = serverNow;
+    const still = context.dead || context.staggered || state === 'vortex';
+    const turns = d.secondary.update(since, { at: shell.root.position, yaw: shell.root.rotation.y, riding: Boolean(context.machine), still });
+    const gesture = pb.id ? d.gestures.update(pb.id, serverNow, context) : null;
+    return { turns, gesture };
+  }
+
   // a knight's body, placed and facing, is posed for this frame: what it is doing, a Vortex's spin, its blade's fire,
   // its plate's steel, its sway. id: whose (null: my own body, which makes no sounds of its own here)
   #pose(id, shell, pb, serverNow, nowMs, dt) {
@@ -735,6 +793,8 @@ export class RemotePlayers {
       if(!pb.attackActive&&!pb.guarding)Object.assign(plan,{flightMounted:true,clip:'Idle',layers:null,concurrent:null});
       else plan.flightMounted=true;
     }
+    // the character layer: the weight of the body in motion, and now and then a gesture (drawn over the pose, last)
+    shell.visualInstance?.animator?.setCharacter?.(this.#character(pb, shell, d, state, serverNow, recovering));
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
     const gait = shell.visualInstance?.animator?.gaitPhase;
