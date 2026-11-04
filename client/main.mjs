@@ -397,7 +397,10 @@ function syncSoundscape() {
   const screen = router.current;
   const inArena = screen === null;
   const soundtrack = settings.get('audio.soundtrack');
-  const overridePiece = (soundtrack && soundtrack !== 'adaptive' && PIECES[soundtrack]) ? soundtrack : null;
+  // The Valkyrie score is reserved for the irreversible sacrifice, even
+  // when an older settings profile persisted it as an explicit soundtrack.
+  const overridePiece = (soundtrack && soundtrack !== 'adaptive' &&
+    soundtrack !== 'valkyrie' && PIECES[soundtrack]) ? soundtrack : null;
 
   if (!challengeCard.classList.contains('hidden')) {
     music.play(null);
