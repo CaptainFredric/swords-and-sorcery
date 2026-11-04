@@ -5,7 +5,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication
   stepSoFistication,fireSoFistication,primeSoFistSkill,
   damageSoFistication} from '../../shared/sim/soFistication.mjs';
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
-import {SO_FIST_LIFT,soFistAllowedPitch} from '../../shared/sim/soFistElevation.mjs';
+import {SO_FIST_LIFT,soFistAllowedPitch,soFistUpperPoint} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw,RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
@@ -162,10 +162,12 @@ test('A raised physical piston can strike an airborne machine component instead 
 test('launched physical fist begins at the attached gauntlet center without muzzle teleportation',()=>{
  const s=setup('longArmToTheJaw');
  s.b.ramLiftY=.9;s.b.ramElevPitch=.55;
- const expected=soFistStriker(s.b,1);
+ const expected=soFistUpperPoint(soFistFrame(s.b),s.b,
+   [0,.380*SO_FIST_SCALE,.735*SO_FIST_SCALE]);
  assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
  for(let i=0;i<3;i++)
-  assert.ok(Math.abs(s.b.detachedFist.position[['x','y','z'][i]]-expected.center[i])<1e-6);
+  assert.ok(Math.abs(s.b.detachedFist.position[['x','y','z'][i]]-expected[i])<1e-6,
+    'fist is launched from the actual delivered COM locator on the pitched muzzle');
  assert.ok(s.b.detachedFist.velocity.y>0,
    'raised muzzle launches along real elevated piston axis');
 });
