@@ -46,6 +46,7 @@ const chrome = spawn(chromeBin, [
 ], { stdio: 'ignore' });
 
 let ws;
+const browserErrors = [];
 let seq = 0;
 const pending = new Map();
 
@@ -119,6 +120,8 @@ try {
 
   ws.onmessage = e => {
     const m = JSON.parse(String(e.data));
+    if (m.method === 'Runtime.exceptionThrown') browserErrors.push(m.params?.exceptionDetails?.exception?.description ?? m.params?.exceptionDetails?.text ?? 'uncaught exception');
+    if (m.method === 'Inspector.targetCrashed') browserErrors.push('Chrome renderer target crashed');
     if (!m.id) return;
     const item = pending.get(m.id);
     if (!item) return;
@@ -134,11 +137,11 @@ try {
 
   await until(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"), 'Menu ready');
 
-  // Configure loadout: Chivalry as Ultimate, Sunder prepared as alternate test
-  await evaluate(`
-    document.querySelector('#player-name').value = 'MobilePilot';
-    document.querySelector('#solo-button').click();
-  `);
+  // Actual mobile terminal acceptance needs the canonical equipment selected
+  // BEFORE mounting (the server locks the equipped Skill to the operator).
+  await evaluate("document.querySelector('#player-name').value='MobilePilot';document.querySelector('#armory-button').click()");
+  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]') && document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension and Chivalry armory options');
+  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click();document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'Practice entry');
   await evaluate("document.querySelector('#practice-mode').click()");
@@ -519,6 +522,86 @@ try {
   })()`);
   assert.equal(editorClosed, true, 'Touch layout editor closed cleanly on Done');
 
+  // Unlike a superficial two-button state check, this drives REAL mobile
+  // PointerEvents into the ordinary mounted input controller and then awaits
+  // authoritative simulation. It runs last: the irreversible Dive destroys
+  // its own rotor, so it cannot be followed by control-layout assertions.
+  await evaluate(`(() => {
+    const rt=window.__ssRuntime;
+    rt.touch.setActive(true);rt.input.enabled=true;
+    window.__mobileValkyrieTrace=[];
+    window.__mobileValkyrieErrors=[];
+    window.addEventListener('error',e=>window.__mobileValkyrieErrors.push('error: '+(e.message??'unknown')));
+    window.addEventListener('unhandledrejection',e=>window.__mobileValkyrieErrors.push('rejection: '+String(e.reason)));
+    for(const canvas of document.querySelectorAll('canvas')){
+      canvas.addEventListener('webglcontextlost',()=>window.__mobileValkyrieErrors.push('WebGL context lost'));
+    }
+    let frames=0;
+    const sample=()=>{
+      const m=rt.latestSnapshot?.fightFlight,p=rt.localAuth;
+      if(m?.terminalPrep||m?.terminalDive||m?.offensiveRun){
+        const t={prep:m.terminalPrep?.phase??null,spent:Boolean(m.terminalDiveSpent),
+          dive:Boolean(m.terminalDive),resolved:Boolean(m.terminalDive?.resolved),
+          prowess:p?.prowess,skill:m.skill?.id,mode:m.mode,rotor:m.rotorHP};
+        const last=window.__mobileValkyrieTrace.at(-1);
+        if(!last||Object.keys(t).some(k=>t[k]!==last[k]))window.__mobileValkyrieTrace.push(t);
+      }
+      if(++frames<3000)requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  })()`);
+
+  // The rail's real Rise touch lifts us far enough to survive a one-second
+  // held chord, even on the software-rendered GPU used in CI.
+  await evaluate(`(() => {
+    const rail=document.querySelector('.touch-flight-rail'),r=rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:271,
+      pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+8}));
+  })()`);
+  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.y>4)"),'powered ascent before real mobile Valkyrie',200,150);
+  await evaluate(`(() => {
+    const rail=document.querySelector('.touch-flight-rail'),r=rail.getBoundingClientRect();
+    rail.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:271,
+      pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+8}));
+  })()`);
+  // Activate the equipped machine Skill through its actual right-thumb button.
+  await evaluate(`(() => {
+    const b=document.querySelector('.touch-siegeSkill'),r=b.getBoundingClientRect();
+    for(const type of ['pointerdown','pointerup'])b.dispatchEvent(new PointerEvent(type,
+      {bubbles:true,pointerId:272,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
+  })()`);
+  await until(()=>evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot?.fightFlight?.skill;return s?.id==='doNotStopMyAscension'&&s.phase==='active';})()"),'activated authoritative Ascension from mobile Skill',120,150);
+  await evaluate("document.querySelector('#practice-ultimate').click()");
+  await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p.prowess>=100;})()"),'full unspent Chivalry ready on mobile',120,150);
+  const beforeDive=await evaluate("(() => {const m=window.__ssRuntime.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP};})()");
+  assert.ok(beforeDive.y>2&&beforeDive.charge>0&&beforeDive.rotor>0);
+
+  await evaluate(`(() => {
+    for(const [selector,id] of [['.touch-dash',273],['.touch-ultimate',274]]){
+      const b=document.querySelector(selector),r=b.getBoundingClientRect();
+      b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:id,
+        pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
+    }
+  })()`);
+  await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.prep==='holding')"),'real mobile Dash+Ultimate one-second preparation',150,150);
+  await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.dive&&s.spent)"),'mobile terminal dive committed once',150,150);
+  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive?.resolved===true"),'mobile terminal impact resolved',150,150);
+  const mobileValkyrie=await evaluate("({before:window.__mobileValkyrieTrace[0],trace:window.__mobileValkyrieTrace,errors:window.__mobileValkyrieErrors,final:{mode:window.__ssRuntime.latestSnapshot.fightFlight.mode,spent:window.__ssRuntime.latestSnapshot.fightFlight.terminalDiveSpent}})");
+  await evaluate(`(() => {
+    for(const [selector,id] of [['.touch-dash',273],['.touch-ultimate',274]]){
+      const b=document.querySelector(selector),r=b.getBoundingClientRect();
+      b.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:id,
+        pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
+    }
+  })()`);
+  assert.equal(mobileValkyrie.before?.spent,false,'precommit touch frame does not consume Chivalry');
+  assert.equal(mobileValkyrie.final.spent,true);
+  assert.equal(mobileValkyrie.final.mode,'DESTROYED');
+  assert.deepEqual(mobileValkyrie.errors,[],'no JS errors or WebGL context loss');
+  assert.deepEqual(browserErrors,[],'no Chrome unhandled exception or renderer crash');
+  await writeFile(path.join(evidenceDir,'mobile-valkyrie-terminal.json'),JSON.stringify(mobileValkyrie,null,2));
+  await captureScreenshot('mobile-flight-valkyrie-terminal-aftermath.png');
+  console.log('[PASS] Full real mobile Valkyrie chord, terminal impact and clean browser state');
   console.log('[PASS] All verification scenarios passed successfully!');
 
 } catch (err) {
