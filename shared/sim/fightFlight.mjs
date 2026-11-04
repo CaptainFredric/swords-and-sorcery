@@ -195,7 +195,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // on the firing frame made the bolts accurate but the weapon appear idle.
   const tracking=op&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id)?
     updateNarrowTracking(room,m,op,now):null;
-  const crossbow=tracking?.aim??flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
+  const crossbow=tracking?.aim??tracking?.followAim??
+    flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
   m.crossbowAimLimited=Boolean(crossbow.limited);
   m.crossbowReachableAim=crossbow.reachableAimPoint??null;

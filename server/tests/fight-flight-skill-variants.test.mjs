@@ -307,3 +307,18 @@ test('Real chassis turning toward an off-target third-person camera does not int
  assert.ok(m.shotSeq>=3,'held Fire keeps spawning physical bolts through chassis rotation');
  assert.ok(m.crossbowYaw<m.heading-.2,'gimbal genuinely counter-traverses toward enemy');
 });
+
+test('Visible selected target keeps the crossbow joints tracking even while shots are paused',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ requestFightFlightSkill(room,m,pilot,1);
+ enemy.position={x:40,y:0,z:-2}; // visible, but outside the ±50-degree hard stop
+ pilot.input.yaw=-2.1; // look well away; the independent turret must still follow its selected body
+ const tracking=updateNarrowTracking(room,m,pilot,1.1);
+ assert.equal(tracking.aim,null);
+ assert.ok(tracking.followAim,'the crossbow receives a real, clamped tracking pose');
+ stepFightFlight(room,m,1/30,1.12);
+ assert.equal(m.skill.targetId,enemy.id);
+ assert.equal(m.skill.trackingState,'outOfTraverse');
+ assert.ok(Math.abs(m.crossbowYaw-m.heading)>.3,'physical gimbal reaches toward enemy, not camera look');
+ assert.equal(m.shotSeq,0);
+});

@@ -141,10 +141,15 @@ export function updateNarrowTracking(room,m,operator,now){
   const inTraverse=Boolean(visible&&distance<=MAX_RANGE&&
     bodyPoints(target,predicted).some(point=>!flightRepeaterAim(m,{siegeTarget:point}).limited));
   const aim=inTraverse?exposedShot(room,m,operator,target,now,solids):null;
+  // Even if armour, cover or the joint stop prevents a *shot*, the real
+  // articulated crossbow continues following the visible locked body.
+  // The follow aim is presentation only: firing still requires `aim`.
+  const followAim=visible?flightRepeaterAim(m,{siegeTarget:{
+    x:predicted.x,y:predicted.y+postureOf(target).height*.56,z:predicted.z}}):null;
   skill.targetVisible=visible;
   skill.targetInTraverse=inTraverse;
   skill.noClearShot=Boolean(target&&inTraverse&&!aim);
   skill.trackingState=!target?'acquiring':!visible?'sightLost':!inTraverse?'outOfTraverse':
     !aim?'noClearShot':'locked';
-  return {targetId:target?.id??null,visible,inTraverse,aim};
+  return {targetId:target?.id??null,visible,inTraverse,aim,followAim};
 }
