@@ -7,6 +7,7 @@ import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation} from './flightDashPresentation.mjs';
+import {stableFlightCockpitEye,finiteFlightLook} from './flightCameraSafety.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
@@ -3353,13 +3354,24 @@ export class GameRuntime {
       // after release, landing or interruption without modifying input yaw/pitch.
       const blend=this.siegeView==='third'?1:dash.thirdBlend;
       const isFirstPerson=blend<.002;
-      const eye=this.flightRenderer.getMountedCameraPosition('sight')??new THREE.Vector3(m.x,m.y+1.52,m.z);
+      // The collision-swept rotor may pitch through 90 degrees, but the
+      // operator's camera must not follow its GLB visor node underground.
+      const ground=surfaceHeightAt(m.x,m.z,m.y,this.activeWorld);
+      const stable=stableFlightCockpitEye(m,
+        this.flightRenderer.getMountedCameraPosition('sight'),ground);
+      const eye=new THREE.Vector3(stable.x,stable.y,stable.z);
+      const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      const third=new THREE.Vector3(m.x+Math.sin(this.input.yaw)*distance,
-        m.y+3.05-Math.sin(this.input.pitch)*distance,m.z+Math.cos(this.input.yaw)*distance);
+      const third=new THREE.Vector3(m.x+Math.sin(look.yaw)*distance,
+        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(look.yaw)*distance);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
+      // World collision clipping must not undo the cockpit's floor clearance,
+      // particularly as the third-person boom returns during repeated Dashes.
+      if(![target.x,target.y,target.z].every(Number.isFinite))target.copy(eye);
+      target.y=Math.max(target.y,m.y+1.10,
+        Number.isFinite(ground)?ground+.88:-Infinity);
       if (isFirstPerson) {
         this.camera.position.copy(target);
         if (motion.offset) {
@@ -3368,9 +3380,10 @@ export class GameRuntime {
           this.camera.position.y += motion.offset.y;
           this.camera.position.z += motion.offset.x * sinH + motion.offset.z * cosH;
         }
-        const lookPitch = this.input.pitch + (motion.pitch ?? 0);
-        const lookRoll = motion.roll ?? 0;
-        this.camera.rotation.set(lookPitch, this.input.yaw, lookRoll, 'YXZ');
+        const lookPitch=Math.max(-1.45,Math.min(1.45,
+          look.pitch+(Number.isFinite(motion.pitch)?motion.pitch:0)));
+        const lookRoll=Number.isFinite(motion.roll)?motion.roll:0;
+        this.camera.rotation.set(lookPitch,look.yaw,lookRoll,'YXZ');
         this.siegeCamera = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
         const deltaYaw = Math.atan2(Math.sin(this.input.yaw - (m.heading ?? 0)), Math.cos(this.input.yaw - (m.heading ?? 0)));
         const rootPitch = Number.isFinite(m.runPitch) ? m.runPitch : 0;
@@ -3396,7 +3409,7 @@ export class GameRuntime {
         this.hud.setFlightSight?.(null);
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
-        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;
@@ -3996,8 +4009,12 @@ export class GameRuntime {
   }
 
   #setFov(fov) {
-    if (Math.abs(this.camera.fov - fov) < 1e-3) return;
-    this.camera.fov = fov;
+    // One corrupt animation/snapshot value must not poison the perspective
+    // matrix and turn every subsequent frame black.
+    const baseline=Number.isFinite(this.view?.fov)?this.view.fov:75;
+    const safe=Math.max(45,Math.min(120,Number.isFinite(fov)?fov:baseline));
+    if (Math.abs(this.camera.fov-safe) < 1e-3) return;
+    this.camera.fov=safe;
     this.camera.updateProjectionMatrix();
   }
 
