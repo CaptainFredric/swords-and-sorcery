@@ -3320,7 +3320,8 @@ export class GameRuntime {
       const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(wanted.yaw,wanted.pitch);
       const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
       this.flightSiegeTarget={x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance};
-      return {...wanted,siegeTarget:this.flightSiegeTarget,mounted:true};
+      return {...wanted,siegeTarget:this.flightSiegeTarget,
+        viewFov:this.camera.fov,viewAspect:this.camera.aspect,mounted:true};
     }
     const b=this.latestSnapshot?.bibyeBallista;
     if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};

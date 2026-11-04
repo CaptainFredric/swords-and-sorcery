@@ -17,7 +17,7 @@ const EXPLANATIONS={
  coldHowTouching:'Skill activates Bolt I proximity frost detonation until the next real Bolt II release. No homing or added damage.',
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
  fireAwayRightHere:'For 3.5 seconds, the repeater can fire borrowed bolts. Reloading repays those debts first; release Fire to stabilize hover.',
-  narrowToOne:'Lock a single visible enemy. Hold Fire to strike exposed regions within the crossbow’s real traverse. Losing sight and firing ends the lock; landing permits a new target.',
+  narrowToOne:'Aim the reticle at one exposed enemy and press Skill to lock. Hold Fire for physical bolts aimed at reachable openings, even while swinging your sword. No clear shot fires forward; a target lost from view or firing without a lock ends the Skill (24s cooldown). Land and press Skill to change targets.',
   doNotStopMyAscension:'Until your next repeater bolt, rotor Dash uses flight charge instead of prowess, at the Rise rate. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 export function siegeArmoryView(choice){
