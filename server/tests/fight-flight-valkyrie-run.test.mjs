@@ -44,19 +44,26 @@ test('Releasing after the powered minimum ends the run without stopping momentum
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)>0,'release does not zero accumulated real momentum');
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)<=speed+.1);
 });
-test('Ready Chivalry reserves prowess, not motion, during a responsive airborne Dash',()=>{
+test('Only activated Ascension reserves full Chivalry; other Skills use normal prowess Dash',()=>{
  const {room,m,p}=setup();p.prowess=100;p.ultimate='chivalry';
+ // No hidden terminal Dash benefit on default Fire Away.
  requestFlightDash(room,m,p,true,1);
  stepFlightRun(room,m,1/30,1.04);
- assert.equal(m.offensiveRun,true,'the first physics tick begins powered Dash');
- assert.equal(p.prowess,100,'reserve remains for an intentional terminal chord');
- stepFlightRun(room,m,1/30,1.2);
- assert.equal(m.offensiveRun,true,'Dash remains continuous through a human input stagger');
- assert.equal(p.prowess,100,'Chivalry stays ready inside the chord window');
- stepFlightRun(room,m,1/30,1.34);
  assert.equal(m.offensiveRun,true);
- assert.ok(p.prowess<100,'ordinary Dash starts spending prowess after the reserve');
- assert.equal(m.terminalDiveSpent,false,'Dash alone is never terminal');
+ assert.ok(p.prowess<100,'Fire Away does not reserve Chivalry');
+ requestFlightDash(room,m,p,false,1.05);
+ const other=setup();other.p.prowess=100;other.p.ultimate='chivalry';
+ other.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25};
+ const {room:ascRoom,m:ascMachine,p:ascPilot}=other;
+ requestFlightDash(ascRoom,ascMachine,ascPilot,true,1);
+ stepFlightRun(ascRoom,ascMachine,1/30,1.04);
+ assert.equal(ascMachine.offensiveRun,true);
+ assert.equal(ascPilot.prowess,100,'activated Ascension preserves full Chivalry');
+ stepFlightRun(ascRoom,ascMachine,1/30,1.2);
+ assert.equal(ascMachine.offensiveRun,true);
+ assert.equal(ascPilot.prowess,100,'Ascension spends charge instead');
+ assert.ok(ascMachine.flightCharge<100);
+ assert.equal(ascMachine.terminalDiveSpent,false,'Dash alone remains nonterminal');
 });
 test('Already ACTIVE Chivalry retains an ordinary midair dash without extra Ultimate expense',()=>{
  const {room,m,p}=setup();p.ultimate='chivalry';p.prowess=62;

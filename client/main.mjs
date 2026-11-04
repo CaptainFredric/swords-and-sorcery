@@ -405,7 +405,16 @@ function syncSoundscape() {
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    const piece = fighting ? (overridePiece ?? fightPieceFor(latestSnapshot)) : (overridePiece ?? null);
+    const flight=latestSnapshot?.fightFlight;
+    const yours=Boolean(flight&&runtime?.playerId&&
+      (flight.operatorId===runtime.playerId||flight.terminalDive?.operatorId===runtime.playerId));
+    const ascensionActive=flight?.skill?.id==='doNotStopMyAscension'&&flight.skill.phase==='active';
+    const valkyrie=Boolean(fighting&&yours&&(
+      (ascensionActive&&flight.offensiveRun)||flight.terminalPrep?.phase==='holding'||
+      (flight.terminalDive&&!flight.terminalDive.resolved)));
+    // The ride is a temporary, player-specific cue. It overrides an otherwise
+    // fixed soundtrack only during this deliberately equipped machine action.
+    const piece=valkyrie?'valkyrie':fighting?(overridePiece??fightPieceFor(latestSnapshot)):(overridePiece??null);
     music.play(piece);
     if ((fighting || overridePiece) && runtime) {
       music.setIntensity(runtime.musicHeat({ cap: latestSnapshot?.mode === 'PRACTICE' ? 1 : 2 }));

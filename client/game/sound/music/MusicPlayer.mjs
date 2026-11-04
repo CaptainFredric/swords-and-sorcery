@@ -94,7 +94,7 @@ export class MusicPlayer {
     if (!this.engine.running) return;
     const want = this.engine.musicOn ? this.wanted : null;
     if ((this.cue?.name ?? null) === want) return;
-    if (this.cue) this.#fadeOut(this.cue, 2);
+    if (this.cue) this.#fadeOut(this.cue, (want==='valkyrie'||this.cue.name==='valkyrie') ? 0.3 : 2);
     this.cue = want ? this.#start(want) : null;
     if (this.cue && !this.timer && !this.engine.offline) {
       this.timer = setInterval(() => this.scheduleUntil(this.engine.now + LOOKAHEAD), TICK_MS);
@@ -106,9 +106,9 @@ export class MusicPlayer {
     const now = this.engine.now;
     const bus = this.#bus(piece.hall);
     bus.gain.setValueAtTime(0.0001, now);
-    bus.gain.exponentialRampToValueAtTime(1, now + 1.5);
+    bus.gain.exponentialRampToValueAtTime(1, now + (name==='valkyrie' ? 0.15 : 1.5));
     this.intensity = this.pendingIntensity;
-    return { name, piece, bus, bars: piece.bars(this.rand), nextBarAt: now + 0.2, voices: [] };
+    return { name, piece, bus, bars: piece.bars(this.rand), nextBarAt: now + (name==='valkyrie' ? 0.04 : 0.2), voices: [] };
   }
 
   #fadeOut(cue, seconds) {

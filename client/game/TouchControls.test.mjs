@@ -718,6 +718,8 @@ test('mobile Valkyrie requires intentional simultaneous holding of Dash and Ulti
     grounded: false,
     terminalDive: null,
     terminalDiveSpent: false,
+    flightCharge: 90,
+    skill: { id: 'doNotStopMyAscension', phase: 'active', activeUntil: null },
   };
   const { input, controls, send } = setup(flightPlayer);
   input.mountedFlight = true;
@@ -729,6 +731,12 @@ test('mobile Valkyrie requires intentional simultaneous holding of Dash and Ulti
   // 1. Initial eligible state
   controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
   assert.equal(controls.valkyrieEligible, true);
+  flightMachine.skill.id='fireAwayImRightHere';
+  controls.update(flightPlayer,10,{snapshot:{fightFlight:flightMachine}});
+  assert.equal(controls.valkyrieEligible,false,'Fire Away no longer grants the terminal chord');
+  flightMachine.skill.id='doNotStopMyAscension';
+  controls.update(flightPlayer,10,{snapshot:{fightFlight:flightMachine}});
+  assert.equal(controls.valkyrieEligible,true);
 
   // Press Ultimate touch button ALONE: MUST NOT synthesize Dash!
   send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 42 });
