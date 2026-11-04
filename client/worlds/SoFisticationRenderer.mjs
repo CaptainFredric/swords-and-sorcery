@@ -108,7 +108,7 @@ export class SoFisticationRenderer {
   if(!b){this.clearDebris();this.clearDetachedVisual();return;}
   if(this.id!==b.id){this.id=b.id;this.clearDebris();this.clearDetachedVisual();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
   if(this.debris)this.debris.visible=!b.wreckVisualExpired;
-  if(b.wreckVisualExpired)return;
+  if(b.wreckVisualExpired){this.clearDetachedVisual();this.clearDebris();return;}
   this.load();const frame=soFistFrame(b);
   this.group.position.set(b.position?.x??b.x,b.position?.y??b.y,b.position?.z??b.z);
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
