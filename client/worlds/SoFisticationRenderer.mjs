@@ -83,6 +83,26 @@ export class SoFisticationRenderer {
   });
   });return this.loadingPromise;
  }
+ loadDetached(){
+  if(this.disposed||this.detachedTemplate||this.detachedLoading||this.detachedUnavailable)return;
+  this.detachedLoading=true;
+  // Separate standalone asset: the launcher and pickup share one authored
+  // COM/cuff frame. A legacy fist clone remains a visual fallback until the
+  // binary handoff is installed alongside the upgraded main machine.
+  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-detached-fist.glb?v=5e7802eacdb8ff25'),gltf=>{
+   this.detachedLoading=false;
+   if(this.disposed){this.destroyMeshes(gltf.scene);return;}
+   if(!gltf.scene.getObjectByName('fist_projectile_body_center')){
+    console.warn('SO-FIST-ICATION standalone fist lacks its COM locator; using model clone');
+    this.detachedUnavailable=true;this.destroyMeshes(gltf.scene);return;
+   }
+   this.detachedTemplate=gltf.scene;
+   this.clearDetachedVisual();
+  },undefined,error=>{
+   this.detachedLoading=false;this.detachedUnavailable=true;
+   console.warn('SO-FIST-ICATION detached-fist GLB unavailable; using the attached-fist mesh',error);
+  });
+ }
  update(now,b){
   this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
   if(!b){this.clearDebris();this.clearDetachedVisual();return;}
@@ -171,16 +191,23 @@ export class SoFisticationRenderer {
   if(ring)ring.visible=true;
   const remote=b.detachedFist;
   if(remote&&['flying','falling','resting'].includes(remote.state)){
+   if(!this.detachedTemplate&&!this.detachedUnavailable)this.loadDetached();
    if(!this.detachedVisual&&fist){
-    this.group.updateMatrixWorld(true);
-    const clone=fist.clone(true);clone.visible=true;
-    fist.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
-    const center=new THREE.Box3().setFromObject(fist).getCenter(new THREE.Vector3());
-    // World-space pivot at the fitted fist center: the gauntlet can tumble
-    // without orbiting the launch point or inheriting chassis movement.
+    // Both GLBs have the same named center locator. Rebase the standalone
+    // origin onto the authoritative swept-body center rather than spawning
+    // from the rear coupling socket or cloning chassis world transforms.
+    const root=this.detachedTemplate?this.detachedTemplate.clone(true):fist.clone(true);
+    root.visible=true;root.position.set(0,0,0);root.quaternion.identity();
+    root.scale.setScalar(SO_FIST_SCALE);
+    root.updateMatrixWorld(true);
+    const anchor=root.getObjectByName('fist_projectile_body_center');
+    const com=anchor?anchor.getWorldPosition(new THREE.Vector3()):
+      new THREE.Vector3(0,.015*SO_FIST_SCALE,.215*SO_FIST_SCALE);
+    root.position.sub(com);
     const pivot=new THREE.Group();pivot.name='DetachedRamFist';
-    clone.position.sub(center);pivot.add(clone);
-    pivot.position.copy(center);this.detachedVisual=pivot;this.scene.add(pivot);
+    pivot.add(root);pivot.updateMatrixWorld(true);
+    this.detachedRestHeight=-new THREE.Box3().setFromObject(pivot).min.y;
+    this.detachedVisual=pivot;this.scene.add(pivot);
     const ring=new THREE.Mesh(new THREE.RingGeometry(.53,.64,36),
       new THREE.MeshBasicMaterial({color:0xd0b77d,side:THREE.DoubleSide,
         transparent:true,opacity:.52,depthWrite:false}));
@@ -188,16 +215,28 @@ export class SoFisticationRenderer {
     ring.visible=false;this.scene.add(ring);this.fistPickupRing=ring;
    }
    if(this.detachedVisual){
-    this.detachedVisual.position.set(remote.position.x,remote.position.y,remote.position.z);
-    const spin=remote.spin??{x:0,y:0,z:0};
-    this.detachedVisual.quaternion.setFromEuler(new THREE.Euler(
-      spin.x??0,spin.y??0,spin.z??0,'XYZ'));
+    const resting=remote.state==='resting';
+    const groundY=remote.position.y-RAM_FIST.groundRadius;
+    this.detachedVisual.position.set(remote.position.x,
+      resting?groundY+this.detachedRestHeight:remote.position.y,remote.position.z);
+    // Preserve the launch orientation independently of later steering on the
+    // carriage. Tumble about the modeled COM, not the bayonet coupling.
+    const originFrame=soFistFrame({...b,heading:remote.launchHeading??b.heading});
+    const basis=new THREE.Matrix4().makeBasis(...originFrame.axes.map(a=>new THREE.Vector3(...a)));
+    const orientation=new THREE.Quaternion().setFromRotationMatrix(basis);
+    if(!resting){
+      orientation.multiply(new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1,0,0),-(remote.launchPitch??0)));
+      const spin=remote.spin??{x:0,y:0,z:0};
+      orientation.multiply(new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(spin.x??0,spin.y??0,spin.z??0,'XYZ')));
+    }
+    this.detachedVisual.quaternion.copy(orientation);
     if(this.fistPickupRing){
-     this.fistPickupRing.visible=remote.state==='resting';
-     if(this.fistPickupRing.visible){
-      this.fistPickupRing.position.set(remote.position.x,
-       remote.position.y-RAM_FIST.radius+.04,remote.position.z);
-      this.fistPickupRing.material.opacity=.42+.15*(1+Math.sin(now*3))*.5;
+     this.fistPickupRing.visible=resting;
+     if(resting){
+      this.fistPickupRing.position.set(remote.position.x,groundY+.04,remote.position.z);
+      this.fistPickupRing.material.opacity=.42+.075*(1+Math.sin(now*3));
      }
     }
    }
@@ -268,5 +307,5 @@ export class SoFisticationRenderer {
  }
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
- dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}
+ dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);if(this.detachedTemplate)this.destroyMeshes(this.detachedTemplate);this.environment?.dispose();}
 }
