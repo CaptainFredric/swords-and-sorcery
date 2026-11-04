@@ -8,7 +8,7 @@ import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
 import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
-import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
+import {SO_FIST_LIFT,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
 import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
@@ -148,14 +148,11 @@ export class SoFisticationRenderer {
    if(stage)stage.position.y=(this.liftRest.get('Hydraulic_Lift_Stage1_Mid')?.position.y??0)+lift*.5;
    // Closed-form cylinder alignment from the delivered Argon handoff.
    // These objects are independent of the Ram_Assembly strike animation.
-   const theta=tilt,dy0=.135,dz0=.695;
-   const dy=(.385+dy0*Math.cos(theta)+dz0*Math.sin(theta))-.250;
-   const dz=(-.560-dy0*Math.sin(theta)+dz0*Math.cos(theta))-(-.245);
-   const beta0=Math.atan2(.270,.380),deltaBeta=Math.atan2(dy,dz)-beta0;
+   const cylinders=soFistPitchCylinderPose(tilt);
    const lowerPitch=this.nodes.get('Elevation_Pitch_Barrels_Lower');
-   if(lowerPitch)lowerPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Barrels_Lower')?.rotation.x??0)-deltaBeta;
+   if(lowerPitch)lowerPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Barrels_Lower')?.rotation.x??0)+cylinders.barrelX;
    const upperPitch=this.nodes.get('Elevation_Pitch_Rods_Upper');
-   if(upperPitch)upperPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Rods_Upper')?.rotation.x??0)+theta-deltaBeta;
+   if(upperPitch)upperPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Rods_Upper')?.rotation.x??0)+cylinders.rodX;
   }else{
    const ram=this.nodes.get('Ram_Assembly');
    if(ram){
