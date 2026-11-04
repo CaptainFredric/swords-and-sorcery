@@ -13,4 +13,5 @@ Rendered from the third-person sources (Blender, Eevee, a neutral sky) and captu
 | `in-game-elbows.jpg` | In game: a held Guard, two points of a strike and a cast. |
 | `guardcut1-before-after.jpg` | `GuardCut_1`, frames 14, 15.5, 17 and 19, front and side: top `main` (the guard up through the visor), bottom this branch (the arm 16.7° further forward; the blade 3 cm off the helmet throughout). |
 | `fp-magic-hand-before-after.jpg` | First person, the magic hand at rest (palm up, its rune shown): left `main`, right this branch, its finger lames wrapped round to frame the leather. |
-| `mounted-strike-sight.jpg` | The Fight-and-Flight sight through a mounted strike's follow-through (430 to 740 ms): top `main`, bottom this branch, the arm held further from the eye. |
+| `mounted-strike-sight.jpg` | The Fight-and-Flight sight through a mounted strike (430 to 740 ms): top `main`, the rider's own third-person forearm and gauntlet filling the view; bottom this branch, first person's own sword arm, drawn in its own pass as on foot. |
+| `mounted-sight-rest-guard-outside.jpg` | This branch: the sight at rest (the sword low at the right), the mounted Guard (twice), and the same rider from outside mid-strike, his real arm and sword drawn for everyone else. |

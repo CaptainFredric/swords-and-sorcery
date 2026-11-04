@@ -304,8 +304,11 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
     if (shell.fallbackRig?.head) shell.fallbackRig.head.visible = !want;
     if (shell.fallbackRig?.torso) shell.fallbackRig.torso.visible = !want;
     if (shell.fallbackRig?.legs) shell.fallbackRig.legs.visible = !want;
+    // (and the sword arm and its sword: from the rider's own eyes first person draws its own, in its own pass, as on
+    // foot; the third-person forearm and gauntlet, far thicker, filled the sight in every cut. The left gauntlet stays:
+    // it holds the repeater's grip, and first person keeps its magic hand away in the cockpit)
     shell.root.traverse((n) => {
-      if (['head', 'HelmetJaw', 'HelmetShell', 'Visor', 'Crest', 'Breastplate', 'Pauldron', 'TabardFront', 'TabardBack', 'Greave', 'Boot'].some(k => n.name?.includes(k))) {
+      if (['head', 'HelmetJaw', 'HelmetShell', 'Visor', 'Crest', 'Breastplate', 'Pauldron', 'TabardFront', 'TabardBack', 'Greave', 'Boot', 'GauntletR', 'HeroSword'].some(k => n.name?.includes(k))) {
         n.visible = !want;
       }
     });

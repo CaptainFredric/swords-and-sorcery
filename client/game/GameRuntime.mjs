@@ -101,9 +101,9 @@ import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
-// the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons and body are hidden from his own
-// eyes (setCockpitHeadHidden); what is left near the lens is his arm, which a deeper clip cut open into hollow rings as
-// it swung past. Short of the upper arm at the frame's edge (about 9 cm), so the arm is drawn whole.
+// the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
+// from his own eyes (setCockpitHeadHidden; first person draws its own sword arm); what is left near the lens is his left
+// arm on the repeater's grip, which a deeper clip cut open.
 const FLIGHT_SIGHT_NEAR = 0.12;
 
 // the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
@@ -3793,9 +3793,11 @@ export class GameRuntime {
       if (mounted) outside = true;
       this.weapon.setFlightCockpit?.({ active: isFpFlight, concurrent: combatActionPolicy(this.localAuth, serverNow).concurrent });
       this.weapon.group.visible = !outside;
-      // The seated production rider supplies the actual hands and sword.
-      // A second camera-locked weapon obscures the cockpit and duplicates the grip.
-      if (isFpFlight) this.weapon.group.visible = false;
+      // In the sight the sword arm is first person's own, drawn in its own pass and framed as on foot (its cockpit rest
+      // sits low at the right; its magic hand stays away, the rider's own left hand holding the repeater). The rider's
+      // third-person sword arm and sword are hidden from his own eyes (setCockpitHeadHidden), so nothing is doubled;
+      // everyone else, and every outside view, sees the rider's real arm.
+      if (isFpFlight) this.weapon.group.visible = true;
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,

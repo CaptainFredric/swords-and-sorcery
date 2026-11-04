@@ -23,23 +23,9 @@ export const MOUNTED_SWORD = Object.freeze({
   yawLimit: 70 * Math.PI / 180,
   // the elbow's pole in root space: out to the right and down
   pole: Object.freeze([0.6, -0.7, 0.35]),
-  // the arm keeps its bones this far from the eye (metres): the rider's forearm and gauntlet are much thicker than the
-  // first-person arms the path was tuned for, so where the path brings them in front of the sight (a cut's
-  // follow-through across the bottom of the view) the fist's goal is pushed out from the eye, at most `push`
-  clearance: 0.3,
-  push: 0.12,
 });
 
 const _v = new THREE.Vector3();
-const _eye = new THREE.Vector3();
-const sanitize = (name) => name.replace(/[[\].:/]/g, '');
-
-// the nearest point to `p` on the segment a-b (arrays)
-function nearestOnSegment(p, a, b) {
-  const ab = b.map((v, i) => v - a[i]);
-  const t = Math.max(0, Math.min(1, ab.reduce((s, v, i) => s + v * (p[i] - a[i]), 0) / (ab.reduce((s, v) => s + v * v, 0) || 1)));
-  return a.map((v, i) => v + ab[i] * t);
-}
 
 /**
  * The third-person sword chain for this model, measured from it at rest: the blade's direction (`aim`) and its width
@@ -118,30 +104,9 @@ export class MountedSwordArm {
     this.chain ??= measureSwordChain(this.root);
     if (!this.chain) return false;
     const head = this.api.position('head');
-    const eye = _eye.set(...head).add(new THREE.Vector3(...MOUNTED_SWORD.eye));
+    const eye = new THREE.Vector3(...head).add(new THREE.Vector3(...MOUNTED_SWORD.eye));
     const yaw = Math.max(-MOUNTED_SWORD.yawLimit, Math.min(MOUNTED_SWORD.yawLimit, combat?.yawOffset ?? 0));
-    const target = fromEye(this.last, eye, yaw);
-    // solved, and where the arm's bones come nearer the eye than `clearance`, solved again with the fist's goal pushed
-    // out from the eye along the way the nearest bone lies (the arm as the riding pose left it, restored between)
-    const bones = [this.chain.shoulder, this.chain.elbow, this.chain.wrist].map((n) => this.root.getObjectByName(sanitize(n))).filter(Boolean);
-    const start = bones.map((b) => b.quaternion.clone());
-    const e = eye.toArray();
-    let pushed = 0;
-    for (let pass = 0; pass < 3; pass += 1) {
-      if (pass) bones.forEach((b, i) => { b.quaternion.copy(start[i]); b.updateMatrixWorld(true); });
-      solveArm(this.api, this.chain, target, this.weight);
-      const S = this.api.position(this.chain.shoulder);
-      const E = this.api.position(this.chain.elbow);
-      const W = this.api.position(this.chain.wrist);
-      const near = [nearestOnSegment(e, S, E), nearestOnSegment(e, E, W)]
-        .map((p) => [p, Math.hypot(p[0] - e[0], p[1] - e[1], p[2] - e[2])]).sort((a, b) => a[1] - b[1])[0];
-      const short = MOUNTED_SWORD.clearance - near[1];
-      if (short <= 0.005 || pushed >= MOUNTED_SWORD.push) break;
-      const step = Math.min(short * 1.2, MOUNTED_SWORD.push - pushed);
-      target.wrist = target.wrist.map((v, i) => v + ((near[0][i] - e[i]) / (near[1] || 1)) * step);
-      pushed += step;
-    }
-    this.pushed = pushed;
+    solveArm(this.api, this.chain, fromEye(this.last, eye, yaw), this.weight);
     return true;
   }
 }
