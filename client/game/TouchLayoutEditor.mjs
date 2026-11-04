@@ -122,8 +122,9 @@ export class TouchLayoutEditor {
     window.addEventListener('pointercancel', this.#onPointerUp, true);
   }
 
-  open(mode = null) {
+  open(mode = null,{resumeArena=false}={}) {
     if(this.active){this.setMode(mode??this.mode);return;}
+    this.resumeArenaAfterClose=Boolean(resumeArena);
     // Load the latest saved overrides each time the editor opens. The
     // preview is always the same computed layout the player will use.
     this.layouts=loadTouchLayout();
@@ -154,9 +155,10 @@ export class TouchLayoutEditor {
     this.setMode(this.mode);
   }
 
-  close() {
+  close({resumeArena=this.resumeArenaAfterClose}={}) {
     if(!this.active)return;
     this.active = false;
+    this.resumeArenaAfterClose=false;
     document.body.classList.remove('touch-layout-editor-open');
     this.selectedAction = null;
     this.dragPointerId = null;
@@ -173,7 +175,9 @@ export class TouchLayoutEditor {
       layer.classList.remove('touch-layout-detached');
       this.previewParent=null;this.previewNextSibling=null;
     }
-    this.touchControls.setActive(Boolean(this.touchControls.input?.touchFocus));
+    if(resumeArena&&this.touchControls.input?.touch)
+      this.touchControls.input.requestPointerLock();
+    else this.touchControls.setActive(Boolean(this.touchControls.input?.touchFocus));
   }
 
   setMode(mode) {

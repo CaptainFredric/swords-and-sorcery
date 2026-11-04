@@ -1337,7 +1337,10 @@ $('#pause-practice-back').addEventListener('click', () => {
   pausePracticeButton.focus();
 });
 $('#practice-drawer-close')?.addEventListener('click', () => closePracticeDrawer());
-$('#pause-edit-controls')?.addEventListener('click', () => { closePause({ resumeArena: false }); runtime?.editTouchLayout(); });
+$('#pause-edit-controls')?.addEventListener('click', () => {
+  closePause({ resumeArena: false });
+  runtime?.editTouchLayout(null,{resumeArena:true});
+});
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
@@ -1371,9 +1374,12 @@ const settingsPanel = new SettingsPanel({
   registry,
   device: () => (touchUi ? 'touch' : 'desktop'),
   onOpenTouchEditor: () => {
-    // The Settings sheet must not sit behind the new layout workshop.
+    // Settings sometimes opens FROM the Arena Menu. Clear its actual pause
+    // state, not just the visible sheet, before previewing real controls.
     settingsPanel.close();
-    ensureRuntime();runtime?.editTouchLayout();
+    const resumeArena=Boolean(latestSnapshot?.roomState==='PLAYING');
+    if(paused)closePause({resumeArena:false});
+    ensureRuntime();runtime?.editTouchLayout(null,{resumeArena});
   },
 });
 settings.onChange((change) => {
