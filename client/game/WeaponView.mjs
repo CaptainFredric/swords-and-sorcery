@@ -44,6 +44,7 @@ import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
 import { jabKick, jabTarget } from './gauntletJab.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
+import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
 import { createGaleOrb } from './galeOrb.mjs';
 
 function damp(value, target, amount) {
@@ -870,6 +871,13 @@ export class WeaponView {
       const jab = jabTarget(timeSec - this.jabAt);
       const jabbed = jabKick(timeSec - this.jabAt);
       if (jabbed > 0) motion.camera.pitch -= 0.012 * jabbed;
+      // the spell hand's fingers: drawn in as the spell gathers, flung open to throw it, a fist to clench, and closed
+      // on the hilt when the magic hand takes the sword's lower grip (spellHand.mjs)
+      const onGrip = combo ? (combo.offHand?.weight ?? 0) * combo.weight * swordOffhand : 0;
+      this.spellHand = easeSpellHand(this.spellHand, {
+        open: gesture.thrust,
+        fist: Math.max(onGrip, clenchPulse(timeSec - this.clenchAt), 0.4 * gesture.draw),
+      }, dt);
       if (!this.castReleased && timeSec >= this.castStartedAt + this.castGather) {
         this.castReleased = true;
         this.motion.release();
@@ -895,6 +903,7 @@ export class WeaponView {
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
           ...clenchRotations(timeSec - this.clenchAt),
+          ...spellHandTurns(this.spellHand),
           // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
           // pull against each other)
           ...(combo ? counterRotations(combo.counter, combo.weight * swordOffhand * (1 - (combo.offHand?.weight ?? 0))) : []),

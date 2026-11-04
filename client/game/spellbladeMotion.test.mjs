@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEATH_REST, REACTIONS, airborneLegFlex, bladeTravel, deathRest, deathSlump, gaitTime, landingStrength, localPushDirection, pruneReactions,
-  reactionEnvelope, reactionPose, sorceryLevel,
+  DEATH_REST, LOOK_POSE, REACTIONS, airborneLegFlex, bladeTravel, deathRest, deathSlump, gaitTime, landingStrength, localPushDirection,
+  lookTurns, pruneReactions, reactionEnvelope, reactionPose, sorceryLevel,
 } from './spellbladeMotion.mjs';
 
 function close(actual, expected, epsilon = 1e-9) {
@@ -184,4 +184,19 @@ test('a held knockdown sits him on the ground until the hold ends, then the ordi
   assert.deepEqual(nonlethalRecovery(duration, duration, hold).pelvis, [0, 0, 0]);
   // without a hold it is the old buckle-and-brace, feet planted
   assert.deepEqual(nonlethalRecovery(.8).pelvis, [0, 0, 0]);
+});
+
+test('a knight looks where it aims: the head (and a little of the neck) take the pitch, clamped, level adds nothing', () => {
+  assert.deepEqual(lookTurns(0), []);
+  assert.deepEqual(lookTurns(Number.NaN), []);
+  const up = lookTurns(0.5);
+  const head = up.find((t) => t.bone === 'head');
+  const neck = up.find((t) => t.bone === 'neck');
+  close(head.angle, 0.5 * LOOK_POSE.head);
+  close(neck.angle, 0.5 * LOOK_POSE.neck);
+  assert.deepEqual(head.axis, [1, 0, 0]);
+  // looking down tips it the other way; the sky or the feet never wrench the neck past its limits
+  assert.ok(lookTurns(-0.5).find((t) => t.bone === 'head').angle < 0);
+  close(lookTurns(3).find((t) => t.bone === 'head').angle, LOOK_POSE.limit);
+  close(lookTurns(-3).find((t) => t.bone === 'neck').angle, -LOOK_POSE.limit / 2);
 });
