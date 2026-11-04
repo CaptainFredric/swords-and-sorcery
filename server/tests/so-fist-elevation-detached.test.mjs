@@ -5,7 +5,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication
   stepSoFistication,fireSoFistication,primeSoFistSkill,
   damageSoFistication} from '../../shared/sim/soFistication.mjs';
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
-import {SO_FIST_LIFT,soFistAllowedPitch,soFistUpperPoint} from '../../shared/sim/soFistElevation.mjs';
+import {SO_FIST_LIFT,soFistAllowedPitch,soFistUpperPoint,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw,RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
@@ -343,4 +343,24 @@ test('launched gauntlet retains the original machine heading and pitch independe
  s.b.heading=-.9;s.b.ramElevPitch=0;
  assert.ok(Math.abs(f.launchHeading-.4)<1e-8);
  assert.ok(Math.abs(f.launchPitch-.7)<1e-8);
+});
+
+test('Argon pitch cylinder barrels and rods remain exactly coaxial from 0 to 50 degrees',()=>{
+ const beta0=Math.atan2(.270,.380);
+ for(let degrees=0;degrees<=50;degrees++){
+  const angle=degrees*Math.PI/180;
+  const p=soFistPitchCylinderPose(angle);
+  // The upper rod lives under a rotating trunnion (-angle). Its own local
+  // correction exactly reproduces the independently rotated lower barrel.
+  assert.ok(Math.abs((p.rodX-angle)-p.barrelX)<1e-11);
+  const normalized=[p.axisY/p.length,p.axisZ/p.length];
+  const lowerAxis=[Math.sin(beta0-p.barrelX),Math.cos(beta0-p.barrelX)];
+  assert.ok(Math.hypot(normalized[0]-lowerAxis[0],normalized[1]-lowerAxis[1])<1e-11,
+    'lower barrel axis points to upper rod clevis at '+degrees+' degrees');
+  assert.ok(.870-p.length>=.115-1e-6,
+    'pitch cylinder overlap drops below safe minimum at '+degrees+' degrees');
+ }
+ const peak=soFistPitchCylinderPose(50*Math.PI/180);
+ assert.ok(Math.abs(peak.barrelX+.9155)<.0001);
+ assert.ok(Math.abs(peak.rodX+.0428)<.0001);
 });
