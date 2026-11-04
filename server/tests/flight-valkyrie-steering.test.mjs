@@ -286,3 +286,28 @@ test('Grounded Dash reuses an already-spinning 450 RPM rotor with no additional 
   assert.equal(s.m.offensiveRun,true,'physical motor speed allows immediate launch');
   assert.ok(s.m.y>0);
 });
+
+test('Walking off a ledge during E spin-up cannot latch Dash in a frozen SPINUP state',()=>{
+  const s=setup({practice:true,y:0});Object.assign(s.m,{
+    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
+  });
+  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,3);
+  assert.equal(s.m.runGroundPhase,'SPINUP');
+  // A real cliff makes the machine airborne before the rotor reaches 450.
+  s.m.grounded=false;s.m.y=8;s.m.mode='FALLING';s.m.velocity.y=-7;
+  frames(s,1);
+  assert.equal(s.m.runGroundPhase,null);
+  assert.equal(s.m.offensiveRun,true,'airborne Dash engages instead of waiting for grounded RPM');
+  assert.ok(s.m.velocity.y<0,'falling momentum continues');
+});
+
+test('Crouch during grounded E rotor spin-up does not trap the wind-up',()=>{
+  const s=setup({practice:true,y:0});Object.assign(s.m,{
+    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
+  });
+  s.p.input.crouch=true;
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  frames(s,9);
+  assert.ok(s.m.rotorRPM>200,'Dash engages rotor despite the lower/crouch input');
+  assert.equal(s.m.rotorBrakeHeld,false);
+});
