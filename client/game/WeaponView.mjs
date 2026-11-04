@@ -15,6 +15,7 @@ import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { guardTargets } from './fpGuardPose.mjs';
 
 // What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
@@ -800,7 +801,7 @@ export class WeaponView {
       flightCockpit: this.flightCockpit,
     });
 
-    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
+    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash', guardOverRest: !this.concurrent });
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {
@@ -823,7 +824,10 @@ export class WeaponView {
     this.lastPoseState = pose.state;
 
     if (this.visualKind === 'production' && this.productionInstance) {
-      let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
+      // (an ordinary held Guard is the arm solver's from Idle (fpGuardPose.mjs): the authored upright Guard clip under it
+      // would show for a moment as the guard eased off)
+      let plan = resolveFirstPersonAnimationPlan(pose.state === 'guard' && !this.concurrent
+        ? { ...pose, state: 'idle' } : pose, this, timeSec);
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
@@ -862,6 +866,9 @@ export class WeaponView {
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
       this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
       const guardArm = this.guardBlend * (combo ? 0 : 1);
+      // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
+      // has it)
+      const cockpitRest = 1 - Math.max(combo ? combo.weight : 0, guardArm);
       const guardIn = FP_MOTION.guardInward * guardArm;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
@@ -907,18 +914,26 @@ export class WeaponView {
           // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
           // pull against each other)
           ...(combo ? counterRotations(combo.counter, combo.weight * swordOffhand * (1 - (combo.offHand?.weight ?? 0))) : []),
+          // the cockpit's resting carriage of the sword arm, given up while a strike or the guard has the arm (their own
+          // paths are tuned from the eye: carried on top of them the backhand came through the camera)
           ...(this.flightCockpit ? [
-            { bone: 'upper_arm.R', axis: [0, 1, 0], angle: -0.16 },
-            { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.18 },
-            { bone: 'hand.R', axis: [1, 0, 0], angle: -0.14, space: 'local' },
-            { bone: 'hand.R', axis: [0, 0, 1], angle: -0.22, space: 'local' },
-            { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.10 * (this.guardBlend * (combo ? 0 : 1)) },
-            { bone: 'hand.R', axis: [0, 0, 1], angle: 0.32 * (this.guardBlend * (combo ? 0 : 1)), space: 'local' },
+            { bone: 'upper_arm.R', axis: [0, 1, 0], angle: -0.16 * cockpitRest },
+            { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.18 * cockpitRest },
+            { bone: 'hand.R', axis: [1, 0, 0], angle: -0.14 * cockpitRest, space: 'local' },
+            { bone: 'hand.R', axis: [0, 0, 1], angle: -0.22 * cockpitRest, space: 'local' },
             { bone: 'hand.R', axis: [1, 0, 0], angle: -0.32 * Math.min(1, Math.max(0, (this.parryUntil - timeSec) / 0.3)), space: 'local' },
             { bone: 'forearm.R', axis: [0, 1, 0], angle: 0.25 * Math.min(1, Math.max(0, (this.parryUntil - timeSec) / 0.3)), space: 'local' },
           ] : []),
         ],
-        solve: combo || jab || away.sword || away.hand ? (bones) => {
+        solve: combo || jab || away.sword || away.hand || guardArm > 1e-3 ? (bones) => {
+          // the held Guard: the sword low on the right and raised across toward the space above the magic hand,
+          // which comes up in front, open and ready (fpGuardPose.mjs); a strike or the gauntlet takes the arms back
+          if (guardArm > 1e-3) {
+            const ward = guardTargets(timeSec, guardArm);
+            solveSwordArm(bones, ward.arm, guardArm);
+            // (in the cockpit the magic hand keeps the controls)
+            if (!jab && !this.flightCockpit) solveArm(bones, FIRST_PERSON_OFF_ARM, ward.off, guardArm * swordOffhand);
+          }
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
@@ -936,9 +951,9 @@ export class WeaponView {
       // the body carries the arms into each cut
       const body = combo ? combo.body.map((v) => v * combo.weight) : [0, 0, 0];
       this.productionOffset.position.set(
-        w.x + body[0] + (this.flightCockpit ? 0.14 : 0),
-        w.y + body[1] + (this.flightCockpit ? -0.12 : 0),
-        w.z + body[2] + (this.flightCockpit ? 0.06 : 0),
+        w.x + body[0] + (this.flightCockpit ? 0.14 * cockpitRest : 0),
+        w.y + body[1] + (this.flightCockpit ? -0.12 * cockpitRest : 0),
+        w.z + body[2] + (this.flightCockpit ? 0.06 * cockpitRest : 0),
       );
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
       // Sundering: the heat in my steel; off balance: the arms sway as I fight to keep my feet (the aim never does)

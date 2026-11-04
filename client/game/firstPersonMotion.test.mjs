@@ -180,10 +180,10 @@ test('Chivalry upper body actions retain restrained Sprint carriage and cadence'
   assert.ok(Math.abs(after.weapon.y - dash.weapon.y) < .015, 'Dash handoff has no gait reset');
 });
 
-test('first-person Guard parameters maintain an elevated protective diagonal ward without sagging or crosshair obstruction', () => {
-  assert.ok(FP_MOTION.guardInward > 0.15 && FP_MOTION.guardInward < 0.35, `guardInward ${FP_MOTION.guardInward} brings arm comfortably across torso`);
-  assert.equal(FP_MOTION.guardDrop, 0, 'guardDrop is zero so the blade does not sag into the bottom screen margin');
-  assert.equal(FP_MOTION.guardAcross, 0, 'guardAcross is zero to preserve the authored high diagonal wrist line');
-  assert.ok(FP_MOTION.guardBlendRate >= 12, 'guard raises quickly and smoothly into protective ward');
+test('first-person Guard: the old nudges stay at nothing (the arm solver places the Guard: fpGuardPose.mjs), and it comes up quickly', () => {
+  assert.equal(FP_MOTION.guardInward, 0);
+  assert.equal(FP_MOTION.guardDrop, 0);
+  assert.equal(FP_MOTION.guardAcross, 0);
+  assert.ok(FP_MOTION.guardBlendRate >= 12, 'guard raises quickly and smoothly into its ward');
 });
 

@@ -611,8 +611,10 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         "steelLight": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.45) & (c.mean(1) < 0.62)),
         "steel": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.32) & (c.mean(1) < 0.42)),
         "steelDark": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.2) & (c.mean(1) < 0.28)),
-        "glove": _texel_of(gauntlet, lambda c, p: (c.mean(1) > 0.09) & (c.mean(1) < 0.16)),
-        "brass": swatch_uv("brass"),
+        # (the palm, the gaps between the lames and the padded heel: brown leather, as the bracers and belt are; Rodin's
+        # near-black glove tone read, from the palm side, as a thin black glove rather than a gauntlet)
+        "glove": swatch_uv("leather"),
+        "brass": swatch_uv("brass"), "brassLight": swatch_uv("brassLight"), "brassDark": swatch_uv("brassDark"),
     }
     report["hands"] = build_hands(rig, {"L": gauntlet, "R": objects["Gauntlet.R"]}, objects["HeroSword"], palette,
                                   swatch_uv)
