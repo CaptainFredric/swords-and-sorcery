@@ -359,6 +359,7 @@ export class RemotePlayers {
     // lands on that moment as it is seen
     this.machineContext = new Map();
     this.machineLag = { ballista: 0, ram: 0 };
+    this.machineHeading = {};
     // told each time a knight's foot comes down: (id, position, heavy 0..1), from the gait clip's own stride
     this.onFootstep = null;
     this.rigs = new Map();
@@ -724,7 +725,9 @@ export class RemotePlayers {
     const since = Number.isFinite(d.characterAt) ? serverNow - d.characterAt : Infinity;
     d.characterAt = serverNow;
     const still = context.dead || context.staggered || state === 'vortex';
-    const turns = d.secondary.update(since, { at: shell.root.position, yaw: shell.root.rotation.y, riding: Boolean(context.machine), still });
+    // (on a machine, the machine's heading: it is the machine that turns under him)
+    const heading = context.machine ? this.machineHeading?.[context.machine] : null;
+    const turns = d.secondary.update(since, { at: shell.root.position, yaw: Number.isFinite(heading) ? heading : shell.root.rotation.y, riding: Boolean(context.machine), still });
     // the ballista's bolt loosed: the seated knight takes its recoil (from its authoritative firing time, as the machine
     // is drawn)
     if (context.machine === 'ballista' && Number.isFinite(context.firedAt) && !still) {

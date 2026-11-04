@@ -3613,6 +3613,13 @@ export class GameRuntime {
         ballista: lag(this.world?.biByeLlista?.presentationData?.poseTime),
         ram: lag(this.world?.soFistication?.presentationData?.poseTime),
       };
+      // (and which way each machine faces as it is drawn: its operator's body leans and banks with the machine's
+      // turning, not with his own yaw, which a seat holds still)
+      this.remotePlayers.machineHeading = {
+        ballista: this.world?.biByeLlista?.presentationData?.heading,
+        ram: this.world?.soFistication?.presentationData?.heading,
+        flight: this.flightRenderer?.state?.heading ?? this.latestSnapshot?.fightFlight?.heading,
+      };
     }
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
