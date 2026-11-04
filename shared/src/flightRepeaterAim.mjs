@@ -27,13 +27,24 @@ export function inverseTransform(m,wx,wy,wz){
   const y=wy*cp+rz*sp,z=-wy*sp+rz*cp;
   return {x,y,z};
 }
+// Solve in all four elevation quadrants. At steep rotor/chassis attitudes,
+// a forward visor target lies behind the LOCAL crossbow pivot, and reaching it
+// requires >90-degree positive cradle elevation. atan2(y,hypot(x,z)) silently
+// folds that angle back below 90 and sends the solver toward the wrong side.
+// Account for that sign before solving the actual moving muzzle.
+function localElevationAngles(x,y,z){
+  const behind=z<0;
+  const elevation=Math.atan2(y,behind?-Math.hypot(x,z):Math.hypot(x,z));
+  const direction=Math.abs(elevation)>Math.PI/2?-1:1;
+  return {yaw:Math.atan2(x*direction,z*direction),pitch:elevation};
+}
 export function solveConvergence(m,target){
   const relTarget={x:target.x-(m?.x??0),y:target.y-(m?.y??0),z:target.z-(m?.z??0)};
   const loc=inverseTransform(m,relTarget.x,relTarget.y,relTarget.z);
   // GLB node 50 pivot, not the old v2.6 body pivot.
   const px=.565,py=1.290,pz=.365;
-  let rel=Math.atan2(loc.x-px,loc.z-pz);
-  let p=Math.atan2(loc.y-py,Math.hypot(loc.x-px,loc.z-pz));
+  const initial=localElevationAngles(loc.x-px,loc.y-py,loc.z-pz);
+  let rel=initial.yaw,p=initial.pitch;
   // Fixed-point convergence uses the *moving* muzzle. At very short range
   // physical stops may make the camera ray unreachable; that is reported below.
   for(let iter=0;iter<8;iter++){
@@ -42,8 +53,8 @@ export function solveConvergence(m,target){
     const my=py+.003*Math.cos(p)+.470*Math.sin(p);
     const mz=pz+along*Math.cos(rel);
     const vx=loc.x-mx,vy=loc.y-my,vz=loc.z-mz;
-    rel=Math.atan2(vx,vz);
-    p=Math.atan2(vy,Math.hypot(vx,vz));
+    const solved=localElevationAngles(vx,vy,vz);
+    rel=solved.yaw;p=solved.pitch;
   }
   rel=clamp(rel,-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
   const limits=flightRepeaterPitchLimits(m);
