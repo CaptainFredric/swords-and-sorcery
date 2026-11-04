@@ -104,7 +104,9 @@ test('Terminal epicenter outweighs edge damage, creates finite burning ground an
  const s=setup();commit(s);
  const close=s.room.addPlayer({id:'close',token:'close',name:'Close'},0);
  const edge=s.room.addPlayer({id:'edge',token:'edge',name:'Edge'},0);
- for(const p of [close,edge]){p.alive=true;p.spawnProtectionUntil=0;}
+ for(const p of [close,edge]){p.alive=true;p.spawnProtectionUntil=0;p.health=500;}
+ // The new full-condition blast can kill ordinary 100-HP targets outright.
+ // Preserve survivors here to assert that the lingering ground fire hurts.
  close.position={x:1,y:0,z:0};edge.position={x:7,y:0,z:0};
  s.m.x=0;s.m.y=0;s.m.z=0;s.m.grounded=true;
  s.m.terminalDive.impactAt=2.15;
