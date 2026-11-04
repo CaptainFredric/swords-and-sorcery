@@ -3343,7 +3343,12 @@ export class GameRuntime {
     if(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight){
       const m=this.latestSnapshot.fightFlight;
       this.flightCameraMotion ??= new FlightCameraMotion();
-      const motion=this.flightCameraMotion.update(dt,m,this.view.cameraMotion);
+      const rawMotion=this.flightCameraMotion.update(dt,m,this.view.cameraMotion);
+      const motionValues=[rawMotion?.offset?.x,rawMotion?.offset?.y,rawMotion?.offset?.z,
+        rawMotion?.pitch,rawMotion?.roll];
+      const motion=motionValues.every(Number.isFinite)?rawMotion:
+        {offset:{x:0,y:0,z:0},pitch:0,roll:0};
+      if(motion!==rawMotion)this.flightCameraMotion.reset();
       const dash=this.flightDashPresentation.update(dt,m,{
         eligible:this.playing&&this.localAuth.alive&&m.operatorId===this.playerId,
         cameraMotion:this.view.cameraMotion,
