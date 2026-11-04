@@ -114,6 +114,9 @@ test('Guard and cover never become fictional damage: only real exposed regions q
 test('Visor can see over a parapet even when the lower crossbow muzzle has NO CLEAR SHOT',()=>{
  const {room,m,pilot,enemy}=setup('narrowToOne');
  room.world.solids.push({id:'parapet',center:[0,.8,-10],size:[12,1.6,1]});
+ // The torso is hidden: point the actual acquisition reticle at the
+ // exposed top of the head, as the Skill requires.
+ pilot.input.pitch=.01;
  assert.equal(requestFightFlightSkill(room,m,pilot,1),null);
  assert.equal(m.skill.targetId,enemy.id,'the enemy head is visible over cover');
  assert.equal(m.skill.trackingState,'noClearShot','the weapon does not fire through the wall');
