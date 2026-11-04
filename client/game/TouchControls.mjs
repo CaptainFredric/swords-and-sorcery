@@ -253,7 +253,10 @@ export class TouchControls {
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
         const element = action === 'stick' ? this.stickBase : this.buttons[action];
-        if (element) applyLayoutItem(element, mode!=='onFoot'?{...placement,custom:true}:placement);
+        // All pages render from the SAME versioned preset + player overrides.
+        // Do not let old CSS on-foot values silently replace newly shipped
+        // default coordinates or sizes when the save contains no custom flag.
+        if (element) applyLayoutItem(element,{...placement,custom:true});
       }
     }
     if (layouts.opacity !== undefined) {
