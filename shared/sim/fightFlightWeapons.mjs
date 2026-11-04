@@ -48,10 +48,12 @@ function release(room,m,p,now){
     if(tracking?.invalid){
       endFightFlightSkill(room,m,now,'targetLost');tracking=null;
     }else if(!tracking?.targetId)breakNarrow='noTarget';
-    else if(!tracking.visible)breakNarrow='sightLost';
-    // If visible but every exposed path is guarded, out of traverse or
-    // blocked, the ordinary player-directed bolt still fires. No invented
-    // homing path, and the target lock survives this blocked shot.
+    else if(!tracking.aim){
+      // A locked target is not permission to fire through cover, guard,
+      // or mechanical joint limits. Do not waste ammo on a manual reticle
+      // shot and make the Skill appear broken; resume when the path clears.
+      return false;
+    }
   }
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;

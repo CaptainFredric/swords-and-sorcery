@@ -237,6 +237,15 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.flightTargetMarker=document.createElement('div');
+    this.flightTargetMarker.className='flight-target-marker';
+    this.flightTargetMarker.hidden=true;
+    this.flightTargetMarker.setAttribute('role','status');
+    this.flightTargetMarker.innerHTML=
+      '<div class="flight-target-brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'+
+      '<strong class="flight-target-name"></strong><small class="flight-target-state"></small>'+
+      '<span class="flight-target-pointer" aria-hidden="true"></span>';
+    this.root.append(this.flightTargetMarker);
     this.preparedSelector = null;
     // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
     // keep their own place: the touch layout has no ability tiles)
@@ -767,6 +776,24 @@ export class HUD {
     const s=view.secondary,p=view.primary,d=s&&p?Math.hypot(s.x-p.x,s.y-p.y):0;
     secondary.hidden=!(d>=10&&d<=90);
     if(!secondary.hidden)secondary.style.transform=`translate(${s.x}px,${s.y}px)`;
+  }
+
+  setFlightTargetMarker(marker) {
+    const element=this.flightTargetMarker;
+    if(!element)return;
+    element.hidden=!marker;
+    if(!marker)return;
+    element.style.left=`${(marker.x*100).toFixed(2)}%`;
+    element.style.top=`${(marker.y*100).toFixed(2)}%`;
+    element.dataset.state=marker.state??'locked';
+    element.dataset.clamped=marker.clamped?'true':'false';
+    element.style.setProperty('--target-angle',`${Number.isFinite(marker.angle)?marker.angle:0}deg`);
+    const state=marker.state==='noClearShot'?'NO CLEAR SHOT':
+      marker.state==='outOfTraverse'?'OUT OF ARC':
+      marker.state==='sightLost'?'SIGNAL LOST':'LOCKED';
+    element.querySelector('.flight-target-name').textContent=marker.name??'TARGET';
+    element.querySelector('.flight-target-state').textContent=state;
+    element.setAttribute('aria-label',`${marker.name??'Target'}: ${state}`);
   }
 
   setFlightSight(sight) {

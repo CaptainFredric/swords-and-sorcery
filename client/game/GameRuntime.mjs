@@ -30,6 +30,7 @@ import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPas
 import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
 import { computeRivalWaypoint } from '../tutorial/rivalWaypoint.mjs';
 import { projectToScreen } from '../ui/screenProjection.mjs';
+import {flightTargetMarkerView} from '../ui/flightTargetMarkerView.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -3957,6 +3958,11 @@ export class GameRuntime {
       this.#showCondition(this.socket.serverNow());
       this.hud.ballistaControls = { bindings: this.input.bindings, touch: Boolean(this.touch), view: this.siegeView };
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
+      // Server-authoritative one-target lock, projected after the mounted
+      // camera has settled. The marker follows the ENEMY, not the reticle,
+      // in either cockpit or third-person view.
+      this.hud.setFlightTargetMarker?.(flightTargetMarkerView(
+        this.localAuth,this.latestSnapshot,this.camera,{THREE}));
       if (this.latestSnapshot.mode === 'BREAKTHROUGH' && this.latestSnapshot.objective?.position) {
         const pos = this.latestSnapshot.objective.position;
         const projected = projectToScreen(pos, this.camera, { heightOffset: 2.2, THREE });
