@@ -90,6 +90,7 @@ export class TouchControls {
     this.flightRailPointer = null;
     this.jumpHeld = false;
     this.jumpUntil = 0;
+    this.ramLowerHeld = false;
     this.layouts = loadTouchLayout();
     this.previewMode = null;
 
@@ -278,7 +279,7 @@ export class TouchControls {
     // current player state. None of these preview presses reach gameplay.
     if(mode){
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
-        ram?['attack','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
+        ram?['attack','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
         ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','interact','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
@@ -353,6 +354,7 @@ export class TouchControls {
     this.viewGesture = null;
     this.jumpHeld = false;
     this.jumpUntil = 0;
+    this.ramLowerHeld = false;
     this.buttons.sprint.classList.remove('on');
     this.buttons.crouch?.classList.remove('on');
   }
@@ -368,13 +370,16 @@ export class TouchControls {
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
+      jump: this.ramMounted?Boolean(this.jumpHeld):
+        this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
       sprint: this.flightMounted ? false : this.ramMounted
         ? Boolean(this.chargeHeld || (moveAllowed && this.stickState.sprint))
         : Boolean(moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false))),
-      crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) : this.flightMounted ? false : Boolean(this.crouchLatched),
+      crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) :
+        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld):
+        Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
     return result;
@@ -633,7 +638,7 @@ export class TouchControls {
           flightSkillId==='doNotStopMyAscension'?'CHARGE':'ACTIVE'):
           remaining>0?Math.ceil(remaining)+'s':flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
-        button.setAttribute('aria-label',`${flight?flightSkillName:ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':'Beat to the Punch'):'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
         if (flight) {
           const firing = Boolean(fb?.lastShotAt && (serverNow - fb.lastShotAt) < 0.16) || this.input?.flightFireHeld;
           button.classList.toggle('firing', firing);
@@ -945,7 +950,7 @@ export class TouchControls {
     }
     // crouch toggles only for a deliberate tap: pressed on the button and lifted soon after, without sliding off it (a
     // finger passing over it while steering or looking belongs to the stick or the view, and never reaches it at all)
-    if (action === 'crouch' && !this.flightMounted && !this.inspectionFlight && this.crouchTap?.id === event.pointerId) {
+    if (action === 'crouch' && !this.ramMounted && !this.flightMounted && !this.inspectionFlight && this.crouchTap?.id === event.pointerId) {
       const point = gamePoint(event, this.layer);
       const tap = this.crouchTap;
       this.crouchTap = null;
@@ -1081,6 +1086,7 @@ export class TouchControls {
       this.buttons.sprint.classList.toggle('on', this.sprintLatched);
     }
     if (action === 'crouch' && (this.inspectionFlight || this.flightMounted)) { this.flightCrouchHeld=true; return; }
+    if (action === 'crouch'&&this.ramMounted){this.ramLowerHeld=true;return;}
     if (action === 'crouch') {
       const point = gamePoint(event, this.layer);
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
@@ -1123,6 +1129,8 @@ export class TouchControls {
       }
     }
     if (action === 'jump') this.jumpHeld = false;
+    if(action==='crouch'&&this.ramMounted)
+      this.ramLowerHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='crouch'&&(this.inspectionFlight || this.flightMounted))this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
   }

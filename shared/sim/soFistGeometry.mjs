@@ -1,5 +1,6 @@
 import {SIEGE_SKILLS} from './siegeSkills.mjs';
 import {biByeRootFrame} from './biByeComponents.mjs';
+import {soFistUpperBox,soFistUpperPoint,soFistUpperAxes} from './soFistElevation.mjs';
 import {boxWorld,orientedBoxHit} from '../src/orientedBox.mjs';
 export const SO_FIST_SCALE=2.85;
 // Authored native dimensions. All world geometry, steering and operator locators
@@ -70,13 +71,18 @@ export function soFistWheelSteering(b){
 export const soFistFrame=b=>biByeRootFrame(b);
 export function soFistVolumes(b,now=b?.poseTime??0){
  if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return[];const root=soFistFrame(b),pose=soFistPose(b,now),out=[];
- const add=(id,center,size,material='timber',native=false)=>{if(!native){center=center.map(fit);size=size.map(fit);}return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,center:boxWorld(root,center),axes:root.axes,size});};
+ const add=(id,center,size,material='timber',native=false,upper=false)=>{
+  if(!native){center=center.map(fit);size=size.map(fit);}
+  const box=upper?soFistUpperBox(root,b,center,size):{center:boxWorld(root,center),axes:root.axes,size};
+  return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,...box});
+ };
  const native=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true);
+ const upperNative=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true,true);
  // Physical framing is separate from the cylinder and drivetrain. The open
  // timber structure must not turn back into one large opaque damage box.
  for(const side of [-1,1]){
-  native('hull',[side*.18,.19,-.10],[.18,.16,1.40]);native('hull',[side*.30,.55,-.10],[.18,.18,1.39]);
-  native('hull',[side*.30,.343,.58],[.10,.55,.09]);native('hull',[side*.30,.40,-.77],[.10,.66,.09]);
+  native('hull',[side*.18,.19,-.10],[.18,.16,1.40]);upperNative('hull',[side*.30,.55,-.10],[.18,.18,1.39]);
+  upperNative('hull',[side*.30,.343,.58],[.10,.55,.09]);native('hull',[side*.30,.40,-.77],[.10,.66,.09]);
   native('hull',[side*.215,.30,-.90],[.045,.265,.075],'metal');
   native('hull',[side*.29,.385,.575],[.055,.29,.055],'metal');
  }
@@ -84,12 +90,14 @@ export function soFistVolumes(b,now=b?.poseTime??0){
  for(const z of [.58,-.14,-.77])native('hull',[0,.155,z],[.75,.105,.10]);
  for(const [z,span]of [[.325,.86],[-.82,.74]])native('hull',[0,.165,z],[span,.055,.055],'metal');
  native('hull',[0,.209,-.915],[.56,.034,.388]);
- for(const side of [-1,1]){native('hull',[side*.265,.36,-1.05],[.055,.32,.065],'metal');native('hull',[side*.268,.542,-.875],[.06,.06,.37]);}
+ for(const side of [-1,1]){native('hull',[side*.265,.36,-1.05],[.055,.32,.065],'metal');upperNative('hull',[side*.268,.542,-.875],[.06,.06,.37]);}
  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],unit=a=>{const d=Math.hypot(...a);return a.map(v=>v/d);};
  const brace=(a,b,width)=>{
   const delta=b.map((v,i)=>v-a[i]),forward=unit(delta),right=unit(cross([0,1,0],forward)),up=cross(forward,right);
-  native('hull',a.map((v,i)=>(v+b[i])/2),[width,width,Math.hypot(...delta)]);
-  out.at(-1).axes=[right,up,forward].map(axis=>boxWorld(root,axis,true));
+  upperNative('hull',a.map((v,i)=>(v+b[i])/2),[width,width,Math.hypot(...delta)]);
+  const upperAxes=soFistUpperAxes(root,b);
+  out.at(-1).axes=[right,up,forward].map(axis=>
+   upperAxes[0].map((_,i)=>upperAxes.reduce((n,col,j)=>n+axis[j]*col[i],0)));
  };
  for(const side of [-1,1]){
   for(const z of [.48,-.14,-.65])brace([side*.18,.18,z],[side*.30,.55,z],.09);
@@ -97,12 +105,18 @@ export function soFistVolumes(b,now=b?.poseTime??0){
  }
  native('Drive',[0,.385,-.56],[.53,.252,.224],'metal');
  for(const [i,w]of SO_FIST_WHEELS.entries()){add(w.id,[w.pivot[0],w.pivot[1]+(b.wheelOffsets?.[i]??0),w.pivot[2]],[.144*SO_FIST_SCALE,w.radius*2,w.radius*2],'timber',true);if(i<2){const a=soFistWheelSteering(b)[i],c=Math.cos(a),s=Math.sin(a);out.at(-1).axes=[root.axes[0].map((v,k)=>v*c-root.axes[2][k]*s),root.axes[1],root.axes[0].map((v,k)=>v*s+root.axes[2][k]*c)];}}
- if((b.components?.Fist?.health??500)>0)add('Fist',[-.02845,.3849, .7288].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.5283,.4824,.4444].map(n=>n*SO_FIST_SCALE),'metal',true);
- add('Piston',[0,.967,-.262+pose.offset*2.65/SO_FIST_SCALE],[.88,.88,3.228],'metal');return out;
+ if((b.components?.Fist?.health??500)>0&&b.fistMounted!==false)
+   add('Fist',[-.02845,.3849,.7288].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.5283,.4824,.4444].map(n=>n*SO_FIST_SCALE),'metal',true,true);
+ add('Piston',[0,.967,-.262+pose.offset*2.65/SO_FIST_SCALE],[.88,.88,3.228],'metal',false,true);
+ return out;
 }
 export function soFistStriker(b,now){
  const pose=soFistPose(b,now);
- return b.components.Fist.health>0?soFistVolumes(b,now).find(v=>v.componentId==='Fist'):{componentId:'Piston',axes:soFistFrame(b).axes,center:boxWorld(soFistFrame(b),[0,fit(.965),fit(1.347-.06)+pose.offset]),size:[.848,.848,.12].map(fit)};
+ return b.components.Fist.health>0&&b.fistMounted!==false?
+  soFistVolumes(b,now).find(v=>v.componentId==='Fist'):
+  {componentId:'Piston',axes:soFistUpperAxes(soFistFrame(b),b),
+   center:soFistUpperPoint(soFistFrame(b),b,[0,fit(.965),fit(1.347-.06)+pose.offset]),
+   size:[.848,.848,.12].map(fit)};
 }
 export function soFistFirstHit(b,start,end,now,grow=0){let best=null;for(const box of soFistVolumes(b,now)){const h=orientedBoxHit(start,end,box,grow);if(h&&(!best||h.t<best.t))best=h;}return best;}
 export function soFistSolids(b){return soFistVolumes(b).map(v=>({...v,kind:'siege-chassis'}));}

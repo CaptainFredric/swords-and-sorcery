@@ -1361,7 +1361,7 @@ function applySettings() {
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
 }
-const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:'beatToThePunch',fightFlight:settings.get('loadout.fightFlightSkill')});
+const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
   settings.get('loadout.preparedSpells'),siegeSelections());
 const settingsPanel = new SettingsPanel({
@@ -1391,7 +1391,7 @@ settings.onChange((change) => {
     transmitLoadout();
     renderArmory();
   }
-  if (change.id === 'loadout.bibyeSkill' || change.id === 'loadout.fightFlightSkill') { transmitLoadout(); renderArmory(); }
+  if (change.id === 'loadout.bibyeSkill' || change.id === 'loadout.soFistSkill' || change.id === 'loadout.fightFlightSkill') { transmitLoadout(); renderArmory(); }
   if (change.id === 'audio.soundtrack') {
     syncSoundscape();
   }
@@ -1487,6 +1487,7 @@ $('#armory-siege-machines').addEventListener('click',event=>{
   const button=event.target.closest('[data-siege-skill]');
   if(!button||button.disabled)return;
   const setting=button.dataset.siegeMachine==='biBye'?'loadout.bibyeSkill':
+    button.dataset.siegeMachine==='soFist'?'loadout.soFistSkill':
     button.dataset.siegeMachine==='fightFlight'?'loadout.fightFlightSkill':null;
   if(setting)settings.set(setting,button.dataset.siegeSkill);
 });

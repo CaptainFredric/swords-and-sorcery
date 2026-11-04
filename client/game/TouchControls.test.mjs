@@ -1267,3 +1267,23 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
  assert.ok(Number.isFinite(coldCoupled.yaw)&&Number.isFinite(coldCoupled.pitch),
    'Cold preserves the actual coupled command aim, not just its action name');
 });
+
+test('ram touch RAISE and LOWER are truly held controls and never latch after release',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:3.1},operatingRamId:'ram'};
+ const {controls,send}=setup(p);
+ assert.equal(controls.ramMounted,true);
+ assert.equal(controls.movement().jump,false);
+ assert.equal(controls.movement().crouch,false);
+ send('pointerdown',600,300,{action:'jump',pointerId:85});
+ assert.equal(controls.movement().jump,true,'held mounted Jump drives hydraulic raise');
+ send('pointerdown',550,300,{action:'crouch',pointerId:86});
+ assert.equal(controls.movement().crouch,true,'held mounted Lower drives lowering');
+ send('pointerup',600,300,{action:'jump',pointerId:85});
+ assert.equal(controls.movement().jump,false);
+ assert.equal(controls.movement().crouch,true);
+ send('pointerup',550,300,{action:'crouch',pointerId:86});
+ assert.equal(controls.movement().crouch,false,'ram Lower is not a crouch toggle');
+ send('pointerdown',600,300,{action:'crouch',pointerId:87});
+ controls.reset();
+ assert.equal(controls.movement().crouch,false,'mount reset never leaves lower latched');
+});
