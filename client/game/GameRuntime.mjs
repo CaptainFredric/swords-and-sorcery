@@ -1293,7 +1293,12 @@ export class GameRuntime {
   }
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
+    const wasPlaying=this.playing;
     this.playing = Boolean(playing) && !this.worldError;
+    // A match ending while the layout workshop is open must not strand
+    // its full-screen preview and modal suppression over the next menu.
+    if(wasPlaying&&!this.playing&&this.touchLayoutEditor?.active)
+      this.touchLayoutEditor.close();
     if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();

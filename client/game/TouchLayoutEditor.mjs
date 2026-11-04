@@ -84,6 +84,9 @@ export class TouchLayoutEditor {
       this.layouts.opacity = val;
       if (this.opacityOutput) this.opacityOutput.textContent = `${Math.round(val * 100)}%`;
       this.touchControls.setCustomOpacity(val);
+      // Opacity is a user edit, not a transient visual preview. Persist it
+      // just like geometry even if the browser suspends the editor mid-session.
+      saveTouchLayout(this.layouts);
     });
 
     for(const [key,slider]of [['size',this.sizeSlider],['width',this.widthSlider],['height',this.heightSlider]]){
