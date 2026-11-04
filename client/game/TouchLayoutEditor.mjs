@@ -253,8 +253,9 @@ export class TouchLayoutEditor {
     event.stopPropagation();
 
     const delta={x:event.clientX-this.dragStart.pointerX,y:event.clientY-this.dragStart.pointerY};
-    const mapped=this.touchControls.layer.classList.contains('touch-layout-detached')?delta:
-      (screenTurn?.vector(delta.x,delta.y)??delta);
+    // Whether the preview is in the live HUD or temporarily reparented to
+    // the game shell, pointer deltas must follow the SAME rotated game frame.
+    const mapped=screenTurn?.vector(delta.x,delta.y)??delta;
     const dx=mapped.x,dy=mapped.y;
     const orig = this.dragStart.placement;
     const activeLayout=layoutForMode(this.layouts,this.mode);
