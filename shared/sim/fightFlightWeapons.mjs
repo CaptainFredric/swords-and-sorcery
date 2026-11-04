@@ -35,22 +35,23 @@ function validOperator(room,m,p){return Boolean(m&&p?.alive&&room.players.get(p.
   m.mode!=='DESTROYED'&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);}
 function release(room,m,p,now){
   if(!validOperator(room,m,p)||now+1e-8<(m.nextShotAt??0))return false;
-  // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
-  // explicitly permitted exception when sword combat is integrated.
+  // Narrow to One delegates the bolter to its own targeting mechanism while
+  // the pilot fights with a sword. Guard remains exclusive except in Chivalry.
   const swordBusy=Boolean(p.attackActive||p.attackSweep||p.attackHeld||p.attackQueued||
     now+1e-8<(p.attackRestartAt??-Infinity));
-  if((swordBusy||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
-  let tracking=null;
-  if(fightFlightSkillActive(m,now,NARROW_TO_ONE.id)){
+  const concurrent=combatActionPolicy(p,now).concurrent;
+  const narrow=fightFlightSkillActive(m,now,NARROW_TO_ONE.id);
+  if((p.guarding&&!concurrent)||(swordBusy&&!concurrent&&!narrow))return false;
+  let tracking=null,breakNarrow=null;
+  if(narrow){
     tracking=updateNarrowTracking(room,m,p,now);
-    if(tracking?.invalid){endFightFlightSkill(room,m,now,'targetLost');return false;}
-    if(tracking?.targetId&&!tracking.visible){
-      // Only a genuine shot attempt with the lock out of sight breaks the Skill.
-      endFightFlightSkill(room,m,now,'sightLost');return false;
-    }
-    // A locked enemy with no exposed trajectory cannot be hit by this Skill.
-    // Before acquisition, retain the ordinary manually aimed crossbow.
-    if(tracking?.targetId&&!tracking.aim)return false;
+    if(tracking?.invalid){
+      endFightFlightSkill(room,m,now,'targetLost');tracking=null;
+    }else if(!tracking?.targetId)breakNarrow='noTarget';
+    else if(!tracking.visible)breakNarrow='sightLost';
+    // If visible but every exposed path is guarded, out of traverse or
+    // blocked, the ordinary player-directed bolt still fires. No invented
+    // homing path, and the target lock survives this blocked shot.
   }
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
@@ -77,6 +78,8 @@ function release(room,m,p,now){
     point:origin,ammo:m.ammo,borrowed,ammoDebt:m.ammoDebt??0,at:now});
   // Only an actual spawned bolt cancels Ascension: no ghost presses or empty clicks.
   if(fightFlightSkillActive(m,now,ASCENSION.id))endFightFlightSkill(room,m,now,'boltFired');
+  if(breakNarrow&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id))
+    endFightFlightSkill(room,m,now,breakNarrow);
   return true;
 }
 export function requestFightFlightFire(room,m,p,down,now){

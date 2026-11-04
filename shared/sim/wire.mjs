@@ -372,6 +372,10 @@ export function applyRoomCommand(room, player, message, time) {
         guard: Boolean(message.guard),
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
+        viewFov: player.operatingFightFlightId&&Number.isFinite(message.viewFov)?
+          Math.max(50,Math.min(110,message.viewFov)):78,
+        viewAspect: player.operatingFightFlightId&&Number.isFinite(message.viewAspect)?
+          Math.max(.65,Math.min(2.8,message.viewAspect)):16/9,
       };
       return {};
     }
@@ -522,7 +526,12 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'siegeSkill': {
       const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
-      const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?
+      const delta=a=>Math.atan2(Math.sin(a),Math.cos(a));
+      const aim=player.operatingFightFlightId&&Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)&&
+        Math.abs(delta(message.yaw-(player.input?.yaw??player.yaw)))<.35&&
+        Math.abs(message.pitch-(player.input?.pitch??player.pitch))<.35?
+        {yaw:message.yaw,pitch:message.pitch}:null;
+      const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time,aim):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?
         (b.skill?.id==='coldHowTouching'?requestColdHowTouching(room,b,player,time):
          requestBiByeHeavySkill(room,b,player,time,biByeTargetAim)):'Operate a siege machine to use its Skill.';
       return reason?{rejected:reason}:{};
