@@ -12,6 +12,7 @@ import {damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
+import {skillOperator} from './siegeSkills.mjs';
 
 export const RAM_FIST=Object.freeze({speed:23,gravity:17,radius:.62,
   falloffStart:12,falloffEnd:36,closeDamage:125,farDamage:55,
@@ -36,30 +37,35 @@ function hasPickupLine(room,b,position){
  }
  return true;
 }
-function validRamOperator(room,b,p){return Boolean(b&&p?.alive&&b.operatorId===p.id&&
-  p.operatingRamId===b.id&&room.players.get(p.id)===p&&b.health>0&&!b.retired);}
+function validRamOperator(room,b,p,now){
+ return Boolean(p&&room.players.get(p.id)===p&&skillOperator(room,b,p,now));
+}
 const event=(room,b,action,at,extra={})=>room.events.push({type:'soFistDetachedFist',machineId:b.id,action,at,...extra});
 const fistDamage=distance=>Math.round(RAM_FIST.closeDamage+
   (RAM_FIST.farDamage-RAM_FIST.closeDamage)*
   clamp((distance-RAM_FIST.falloffStart)/(RAM_FIST.falloffEnd-RAM_FIST.falloffStart),0,1));
 export function requestLongArmToJaw(room,b,p,now){
- if(!validRamOperator(room,b,p))return 'Operate SO-FIST-ICATION first.';
- if(b.skill?.id!=='longArmToTheJaw')return 'Equip Long Arm to the Jaw first.';
- if((b.components?.Fist?.health??0)<=0)return 'The armored fist is destroyed. The exposed piston still punches.';
+ if(!validRamOperator(room,b,p,now))return 'The SO-FIST-ICATION operator is unavailable.';
  const f=b.detachedFist;
  if(f?.state==='resting'){
   if(hypot({x:b.x,y:b.y,z:b.z},f.position)>SO_FIST_LIFT.pickupRadius)
    return 'Drive the carriage beside your fist to retrieve it.';
   if(!hasPickupLine(room,b,f.position))
    return 'The fist is obstructed. Drive around the obstacle before retrieving it.';
-  b.detachedFist=null;b.fistMounted=true;
-  b.skill.phase='idle';b.skill.readyAt=now+SO_FIST_LIFT.recoveryCooldown;
+  b.detachedFist=null;b.fistMounted=b.components.Fist.health>0;
+  b.skill.phase='idle';
+  b.skill.readyAt=Math.max(b.skill.readyAt??0,
+    now+SO_FIST_LIFT.recoveryCooldown);
   event(room,b,'retrieved',now,{hp:b.components.Fist.health,readyAt:b.skill.readyAt});
   return null;
  }
  if(f?.state==='abyss')return 'Return to the original deployment site, then leave the ram for recovery.';
  if(f?.state==='recovering')return 'The ram is undergoing unoccupied fist recovery.';
  if(f)return 'The fist is still airborne.';
+ if(b.skill?.id!=='longArmToTheJaw')return 'Equip Long Arm to the Jaw first.';
+ if(b.fistMounted===false)return 'The fist is not attached.';
+ if((b.components?.Fist?.health??0)<=0)
+  return 'The armored fist is destroyed. The exposed piston still punches.';
  if(now+1e-8<(b.skill?.readyAt??0))return 'Long Arm to the Jaw is recovering.';
  if(b.strikeAt!=null&&now-b.strikeAt<4)return 'Wait for the forward piston to return.';
  // Launch from the actual fully attached striker in the new lifted/pitched

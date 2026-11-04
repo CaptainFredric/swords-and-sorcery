@@ -241,3 +241,49 @@ test('moving the ram out of the home recovery area cancels the timer, not an ins
  assert.ok(s.b.detachedFist.recoverAt>initial,'full delay restarts after disruption');
  assert.equal(s.b.components.Fist.health,174);
 });
+
+test('a second rider with Beat to the Punch can collect a fist thrown by Long Arm',()=>{
+ const s=setup('longArmToTheJaw');s.b.components.Fist.health=236;
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ s.b.detachedFist.state='resting';
+ s.b.detachedFist.position={x:0,y:RAM_FIST.radius,z:-1.5};
+ assert.equal(dismountSoFistication(s.room,s.b,s.p,{at:2}),true);
+ s.p.position={x:20,y:0,z:20};
+ const p=s.room.addPlayer({id:'second',token:'second',name:'Second'},0);
+ p.siegeLoadout={...p.siegeLoadout,soFist:'beatToThePunch'};
+ p.position=soFistEntry(s.b,s.room.world);
+ assert.equal(mountSoFistication(s.room,s.b,p,2.1),true);
+ assert.equal(s.b.skill.id,'beatToThePunch');
+ assert.equal(primeSoFistSkill(s.room,s.b,p,2.2),null);
+ assert.equal(s.b.detachedFist,null);
+ assert.equal(s.b.fistMounted,true);
+ assert.equal(s.b.components.Fist.health,236);
+ assert.ok(s.b.skill.readyAt>=26.2);
+});
+test('recovery cannot be boarded at expiration before authoritative state completion',()=>{
+ const s=setup('longArmToTheJaw');
+ primeSoFistSkill(s.room,s.b,s.p,1);
+ s.b.detachedFist.state='recovering';s.b.detachedFist.recoverAt=10;
+ s.b.fistRecoveryUntil=10;
+ dismountSoFistication(s.room,s.b,s.p,{at:2});
+ s.p.position=soFistEntry(s.b,s.room.world);
+ assert.equal(mountSoFistication(s.room,s.b,s.p,10),false);
+ stepSoFistication(s.room,s.b,1/30,10.01,s.room.world);
+ assert.equal(s.b.detachedFist,null);
+ assert.equal(mountSoFistication(s.room,s.b,s.p,10.02),true);
+});
+test('Long Arm routes physical impacts into Fight-and-Flight components',()=>{
+ const s=setup('longArmToTheJaw');
+ s.room.fightFlight=createFightFlight({id:'projectile-target',
+   x:0,y:0,z:-5,heading:0});
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ for(let i=1;i<=45&&s.b.detachedFist.state==='flying';i++)
+  stepSoFistication(s.room,s.b,1/60,1+i/60,s.room.world);
+ const hit=s.room.events.find(e=>e.type==='soFistDetachedFist'&&
+   e.action==='impact'&&e.kind==='flight');
+ const component=s.room.events.find(e=>e.type==='fightFlightComponentHit'&&
+   e.source==='long-arm-to-the-jaw');
+ assert.ok(hit&&component,'physical apparatus component is struck');
+ assert.equal(component.component,hit.componentId);
+ assert.ok(component.damage>=0);
+});

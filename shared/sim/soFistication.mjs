@@ -98,7 +98,7 @@ export function soFistExit(room,b,p,extras=[]){
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId||
-   (b.detachedFist?.state==='recovering'&&now<(b.fistRecoveryUntil??Infinity)))return false;
+   b.detachedFist?.state==='recovering')return false;
  if(b.team&&p.team!==b.team)return false;
  if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(room.objectiveState?.phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
@@ -125,7 +125,11 @@ export function fireSoFistication(room,b,now){
  room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;
 }
 export function primeSoFistSkill(room,b,p,now){
- if(b?.skill?.id==='longArmToTheJaw')return requestLongArmToJaw(room,b,p,now);
+ // Retrieval is a physical interaction with a recoverable fist, regardless
+ // of which technique the CURRENT rider has equipped. Otherwise swapping
+ // from Long Arm to Beat after a throw can permanently strand the gauntlet.
+ if(b?.detachedFist?.state==='resting'||b?.skill?.id==='longArmToTheJaw')
+  return requestLongArmToJaw(room,b,p,now);
  if(!skillOperator(room,b,p,now)||!hasFist(b)||b.components.Drive.health<=0)return 'The fist and drive must be functioning.';
  if(!primeSiegeSkill(b,now))return 'Beat to the Punch is cooling down or already primed.';
  b.skill.chassisDamage=0;b.skill.failureThreshold=sampleRamFailure(room);
