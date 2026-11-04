@@ -105,7 +105,7 @@ test('Offensive machine pitch counter-stabilizes the physical turret, while reta
   const m=createFightFlight({heading:0});m.runPitch=.3;
   const aim=flightRepeaterAim(m,{yaw:0,pitch:0});
   assert.ok(Math.abs(flightDirection(m,aim).y)<1e-9,'horizontal reticle stays level when crossbow can compensate');
-  const limit=flightRepeaterAim(m,{yaw:Math.PI,pitch:1});
+  const limit=flightRepeaterAim(m,{yaw:Math.PI,pitch:2});
   assert.ok(Math.abs(limit.yaw-FLIGHT_REPEATER.maxTraverse)<1e-8);
   assert.ok(Math.abs(limit.pitch-(FLIGHT_REPEATER.maxPitch+m.runPitch))<1e-8,
     'chassis tilt expands real cradle compensation, not the horizontal traverse');
