@@ -17,6 +17,19 @@ export function soFistAllowedPitch(b){
  return SO_FIST_LIFT.lowPitch+(SO_FIST_LIFT.maxPitch-SO_FIST_LIFT.lowPitch)*
    clamp(lift/SO_FIST_LIFT.pitchClearanceRise,0,1);
 }
+// Physically coaxial lower pitch barrels and upper rods. Both carry the
+// original 35.3948-degree axis: the upper rods undo their parent trunnion
+// rotation, then follow the lower barrels about the same rear pin axis.
+// Derived directly from the delivered Argon glTF manifest, in radians.
+export function soFistPitchCylinderPose(angle){
+ const theta=clamp(angle??0,0,SO_FIST_LIFT.maxPitch);
+ const dy=(.385+.135*Math.cos(theta)+.695*Math.sin(theta))-.250;
+ const dz=(-.560-.135*Math.sin(theta)+.695*Math.cos(theta))-(-.245);
+ const beta0=Math.atan2(.270,.380);
+ const deltaBeta=Math.atan2(dy,dz)-beta0;
+ return {barrelX:-deltaBeta,rodX:theta-deltaBeta,
+   axisY:dy,axisZ:dz,length:Math.hypot(dy,dz)};
+}
 export function soFistUpperAxes(root,b){
  const t=clamp(b?.ramElevPitch??0,0,SO_FIST_LIFT.maxPitch),c=Math.cos(t),s=Math.sin(t);
  return [root.axes[0],
