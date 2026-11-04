@@ -37,7 +37,9 @@ export function advanceValkyrieRitual(g,p,now){
  // The slight corner overshoot is allowed; skipping a checkpoint is not.
  if(deviation>RITUAL_TOLERANCE*1.7 || t+0.13<g.segmentProgress)return null;
  let index=g.index,segmentProgress=Math.max(g.segmentProgress,t);
- if(distance(p,b)<=RITUAL_TOLERANCE){
+ // Require the thumb to reach the actual end of the segment. A merely
+ // nearby intermediate point must not auto-advance and skip the next turn.
+ if(t>=.94&&distance(p,b)<=RITUAL_TOLERANCE){
    index+=1;segmentProgress=0;
  }
  return {...g,index,segmentProgress,completed:index===VALKYRIE_RITUAL_POINTS.length-1,last:[p.x,p.y]};
