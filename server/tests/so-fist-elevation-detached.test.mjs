@@ -5,7 +5,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication
   stepSoFistication,fireSoFistication,primeSoFistSkill,
   damageSoFistication} from '../../shared/sim/soFistication.mjs';
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
-import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
+import {SO_FIST_LIFT,soFistAllowedPitch} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw,RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
@@ -314,4 +314,31 @@ test('Long Arm routes physical impacts into Fight-and-Flight components',()=>{
  assert.ok(hit&&component,'physical apparatus component is struck');
  assert.equal(component.component,hit.componentId);
  assert.ok(component.damage>=0);
+});
+
+test('Argon GLB physics fit uses separate COM sphere and lower-surface clearance',()=>{
+ assert.ok(RAM_FIST.radius>=.970,'swept projectile must cover measured GLB COM radial extent');
+ assert.ok(RAM_FIST.groundRadius>=.673,'ground collision uses measured lower cuff instead of spherical envelope');
+ assert.ok(RAM_FIST.groundRadius<RAM_FIST.radius,
+  'larger swept collision sphere must not cause a level muzzle to touch the ground immediately');
+});
+test('Argon trunnion allows maximum pitch above 0.220 local lift, not only at maximum hydraulic extension',()=>{
+ const b={ramLiftY:0};
+ assert.ok(Math.abs(soFistAllowedPitch(b)-SO_FIST_LIFT.lowPitch)<1e-9);
+ b.ramLiftY=SO_FIST_LIFT.pitchClearanceRise;
+ assert.ok(Math.abs(soFistAllowedPitch(b)-SO_FIST_LIFT.maxPitch)<1e-9);
+ b.ramLiftY=SO_FIST_LIFT.maxRise;
+ assert.ok(Math.abs(soFistAllowedPitch(b)-SO_FIST_LIFT.maxPitch)<1e-9);
+});
+test('launched gauntlet retains the original machine heading and pitch independently of subsequent carriage steering',()=>{
+ const s=setup('longArmToTheJaw');
+ s.b.ramLiftY=SO_FIST_LIFT.maxRise;
+ s.b.ramElevPitch=.7;s.b.heading=.4;
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ const f=s.b.detachedFist;
+ assert.ok(Math.abs(f.launchHeading-.4)<1e-8);
+ assert.ok(Math.abs(f.launchPitch-.7)<1e-8);
+ s.b.heading=-.9;s.b.ramElevPitch=0;
+ assert.ok(Math.abs(f.launchHeading-.4)<1e-8);
+ assert.ok(Math.abs(f.launchPitch-.7)<1e-8);
 });
