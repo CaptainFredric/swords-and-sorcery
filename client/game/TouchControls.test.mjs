@@ -1262,5 +1262,8 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
  assert.equal(controls.buttons.siegeBoth.dataset.volley,'coupled');
  send('pointerdown',550,100,{action:'siegeBoth',pointerId:86});
  send('pointerup',550,100,{action:'siegeBoth',pointerId:86});
- assert.deepEqual(messages.pop(),{type:'bibyeCoupledFire'});
+ const coldCoupled=messages.pop();
+ assert.equal(coldCoupled.type,'bibyeCoupledFire');
+ assert.ok(Number.isFinite(coldCoupled.yaw)&&Number.isFinite(coldCoupled.pitch),
+   'Cold preserves the actual coupled command aim, not just its action name');
 });
