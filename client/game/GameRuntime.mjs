@@ -1336,12 +1336,17 @@ export class GameRuntime {
     if(auth?.operatingFightFlightId&&!wasMounted){
       this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
-      this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
+      const heading=snapshot.fightFlight?.heading;
+      this.input.yaw=Number.isFinite(heading)?heading:(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=0;
       this.flightVoState?.delete(auth.id);
       this.scenes?.tranquilizerReset?.(auth.id);
     }
     if(auth?.operatingRamId&&!wasMounted){
-      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
+      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
+      const heading=snapshot.soFistication?.heading;
+      this.input.yaw=Number.isFinite(heading)?heading:(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=0;
     }
     if (auth?.operatingBallistaId && !wasMounted) {
       this.siegeView = 'third';
@@ -1349,18 +1354,25 @@ export class GameRuntime {
       this.input.releaseInputs();
       this.weapon.setAttack(false);
       this.weapon.setGuard(false);
-      this.input.yaw = snapshot.bibyeBallista.yaw;
-      this.input.pitch = snapshot.bibyeBallista.pitch;
+      const yaw = snapshot.bibyeBallista?.yaw;
+      const pitch = snapshot.bibyeBallista?.pitch;
+      this.input.yaw = Number.isFinite(yaw) ? yaw : (Number.isFinite(auth.yaw) ? auth.yaw : (Number.isFinite(this.input.yaw) ? this.input.yaw : 0));
+      this.input.pitch = Number.isFinite(pitch) ? pitch : 0;
     }
     if (auth?.operatingBallistaId && wasMounted && previousSiege?.focusRevision !== snapshot.bibyeBallista?.focusRevision) {
-      this.input.yaw = snapshot.bibyeBallista.yaw;
-      this.input.pitch = snapshot.bibyeBallista.pitch;
+      const yaw = snapshot.bibyeBallista?.yaw;
+      const pitch = snapshot.bibyeBallista?.pitch;
+      if (Number.isFinite(yaw)) this.input.yaw = yaw;
+      if (Number.isFinite(pitch)) this.input.pitch = pitch;
     }
     if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId && !auth?.operatingFightFlightId)) {
       this.flightDashPresentation.reset();
       this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
-      if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
+      if (auth) {
+        if (Number.isFinite(auth.yaw)) this.input.yaw = auth.yaw;
+        if (Number.isFinite(auth.pitch)) this.input.pitch = auth.pitch;
+      }
       this.flightVoState?.delete(auth?.id ?? this.playerId);
       this.scenes?.tranquilizerReset?.(auth?.id ?? this.playerId);
     }
@@ -3837,16 +3849,22 @@ export class GameRuntime {
         voState.wasFastNear = isFastNear;
       }
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
-      if(driver?.root?.visible){
+      if(driver?.root?.visible && Number.isFinite(flightPose.x) && Number.isFinite(flightPose.y) && Number.isFinite(flightPose.z)){
         driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);
         // The fitted Spellblade pitches with the worn apparatus, including the
         // committed Valkyrie dive; his arm IK continues targeting its real grip.
         // The character faces -Z while the authored chassis faces +Z, so their
         // forward/downward local pitch signs are opposite.
-        driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
+        driver.root.rotation.set(-(flightPose.runPitch??0),Number.isFinite(flightPose.heading)?flightPose.heading:0,0,'YXZ');
         const driverPlayer = flightPose.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightPose.operatorId);
         const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
-        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
+        if(this.flightRenderer.model){
+          try{
+            driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
+          }catch(_e){
+            // Procedural IK error must never stall the render loop
+          }
+        }
       }
     }
     this.#mountedView(dt);
