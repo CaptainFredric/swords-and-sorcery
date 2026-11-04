@@ -31,7 +31,8 @@ async function command(method,params={}){
 }
 async function evalPage(expression){
   const d=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
-  if(d.exceptionDetails)throw Error(d.exceptionDetails.text);
+  if(d.exceptionDetails)throw Error(d.exceptionDetails.exception?.description ??
+    d.exceptionDetails.exception?.value ?? d.exceptionDetails.text);
   return d.result?.value;
 }
 async function snap(name){

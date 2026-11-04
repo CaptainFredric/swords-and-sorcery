@@ -67,6 +67,9 @@ test('carousel displays the existing primary action in every deployment, focus a
  b.skill.phase='primed';
  assert.equal(view().primary.label,'BOLT I');assert.equal(view().secondary,'skill','priming supersedes ordinary coupling');
  b.skill.phase='releasing';assert.equal(view().secondary,null,'shot commitment closes extra actions');
+ b.skill.id='coldHowTouching';b.skill.phase='idle';
+ assert.equal(view().secondary,'coupled','Cold still permits the ordinary independent coupled mechanism');
+ b.skill.id='boltToTheOccasion';
  b.skill.phase='idle';b.mainBoltLoaded=false;assert.equal(view().secondary,null,'unready heavy cannot show BOTH');
  b.mainBoltLoaded=true;b.upperPending=true;assert.equal(view().secondary,null,'unready upper cannot show BOTH');
 });

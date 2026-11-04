@@ -222,6 +222,12 @@ registry
   .defineSetting({
     id: 'loadout.bibyeSkill', section: 'loadout', label: 'Bi-Bye-llista Skill', type: 'choice', default: 'boltToTheOccasion',
     options: [{value:'boltToTheOccasion',label:'Bolt to the Occasion'},{value:'coldHowTouching',label:'Cold, How Touching'}]
+  })
+  .defineSetting({
+    id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: 'fireAwayRightHere',
+    options: [{value:'fireAwayRightHere',label:"Fire Away? I'm Right Here."},
+      {value:'narrowToOne',label:'Narrow to One'},
+      {value:'doNotStopMyAscension',label:'Do Not Stop My Ascension!'}]
   });
 
 registry

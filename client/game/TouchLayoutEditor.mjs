@@ -96,9 +96,17 @@ export class TouchLayoutEditor {
         if(!Number.isFinite(value))return;
         item[key]=value;
         item.custom=true; // defaults also become real resized touch targets
-        if(key==='size'&&item.type==='stick')item.size=Math.max(80,Math.min(172,value));
+        const viewport={
+          width:this.touchControls.layer.clientWidth||window.innerWidth,
+          height:this.touchControls.layer.clientHeight||window.innerHeight,
+        };
+        // Applying bounds on resize is as important as applying them on drag:
+        // growing a large stick close to a safe-area edge must not hide its rim.
+        layout[this.selectedAction]=clampPlacement(item,viewport);
+        const actual=layout[this.selectedAction][key];
         const output=slider.parentElement?.querySelector('output');
-        if(output)output.textContent=(item[key]??value)+'px';
+        if(output)output.textContent=actual+'px';
+        slider.value=String(actual);
         this.applyCurrent();
         saveTouchLayout(this.layouts);
       });

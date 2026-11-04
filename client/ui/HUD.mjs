@@ -349,7 +349,8 @@ export class HUD {
       const debt = this.flightPanel.querySelector('[data-flight-debt]');
       debt.textContent = siege.debt > 0 ? `-${siege.debt}` : '';
       const skill = this.flightPanel.querySelector('[data-flight-skill]');
-      skill.textContent = siege.skillText;
+      skill.innerHTML = iconSvg(siege.skillIcon) + '<span>' + siege.skillText + '</span>';
+      skill.title = siege.skillName;
       skill.classList.toggle('active', Boolean(siege.skillActive));
       const warn = this.flightPanel.querySelector('[data-flight-warning]');
       warn.hidden = !siege.warning;
