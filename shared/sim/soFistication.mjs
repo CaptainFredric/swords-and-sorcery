@@ -33,7 +33,7 @@ function stepRamElevation(room,b,dt,now,world){
  if(!b.ramLiftY&&!(input.ramRaise||input.crouch||input.ramPitchUp||input.ramPitchDown)&&
    !b.ramElevPitch)return;
  const startLift=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
- const startPitch=b.ramElevPitch??0;
+ const startPitch=clamp(b.ramElevPitch??0,0,SO_FIST_LIFT.maxPitch);
  let nextLift=clamp(startLift+
   ((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
     input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),
@@ -43,8 +43,8 @@ function stepRamElevation(room,b,dt,now,world){
  const pitchIntent=Number(Boolean(input.ramPitchUp))-Number(Boolean(input.ramPitchDown));
  const allowed=soFistAllowedPitch({...b,ramLiftY:nextLift});
  const desiredPitch=clamp(startPitch+pitchIntent*SO_FIST_LIFT.pitchRate*dt,0,allowed);
- const nextPitch=startPitch+clamp(desiredPitch-startPitch,
-  -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
+ const nextPitch=clamp(startPitch+clamp(desiredPitch-startPitch,
+  -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt),0,SO_FIST_LIFT.maxPitch);
  // A high-pitched ram cannot lower its saddle through the trunnion. Retract
  // its pitch at the physical rate and limit the vertical descent accordingly.
  const neededLift=SO_FIST_LIFT.pitchClearanceRise*clamp(
@@ -82,7 +82,7 @@ function stepRamElevation(room,b,dt,now,world){
   current=candidate;
  }
  b.ramLiftY=current.ramLiftY??startLift;
- b.ramElevPitch=current.ramElevPitch??startPitch;
+ b.ramElevPitch=clamp(current.ramElevPitch??startPitch,0,SO_FIST_LIFT.maxPitch);
  if(blocked){
   if(now-(b.ramLiftBlockedAt??-Infinity)>.25)
    room.events.push({type:'soFistElevationBlocked',machineId:b.id,at:now});
