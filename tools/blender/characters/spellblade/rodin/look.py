@@ -25,6 +25,8 @@ from pathlib import Path
 import bpy
 import numpy as np
 
+from tools.blender.characters.spellblade.rodin.forge import paint_swatches
+
 SIZE = {"RodinDiffuse": 1024, "RodinMetalRough": 256}
 QUALITY = {"RodinDiffuse": 85, "RodinMetalRough": 85}      # WebP
 GAMMA, GAIN = 0.8, 1.12          # diffuse lift: rgb ** GAMMA * GAIN
@@ -86,9 +88,10 @@ def build_look(work: Path) -> dict:
 
     diffuse = _resized(diffuse_node.image, "RodinDiffuse")
     diffuse[..., :3] = np.clip(diffuse[..., :3] ** GAMMA * GAIN, 0.0, 1.0)
-    diffuse_node.image = _finish(diffuse_node.image, "RodinDiffuse", diffuse, work, "sRGB")
     metal = _resized(metal_node.image, "RodinMetalRough")
     metal[..., 2] *= METAL_SCALE                     # glTF: metalness in blue, roughness in green
+    paint_swatches(diffuse, metal, METAL_SCALE)      # the forged sword's colours (forge.py)
+    diffuse_node.image = _finish(diffuse_node.image, "RodinDiffuse", diffuse, work, "sRGB")
     metal_node.image = _finish(metal_node.image, "RodinMetalRough", metal, work, "Non-Color")
     # the normal map goes, with the node that read it
     map_node = next(l.from_node for l in links if l.to_socket == bsdf.inputs["Normal"])

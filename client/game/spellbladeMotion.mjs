@@ -281,6 +281,23 @@ export function crouchPose(amount, moving = false) {
   };
 }
 
+// Where a knight looks (third person): the head takes part of its aim's pitch and the neck a little more, so others see
+// where it looks, and the helmet (rigid on the head, the gorget under it) tips on its neck instead of riding the
+// shoulders. Clamped, so a knight aiming at the sky or its feet keeps a natural neck.
+export const LOOK_POSE = Object.freeze({ head: 0.42, neck: 0.14, limit: 0.42 });
+
+export function lookTurns(pitch) {
+  const p = Number.isFinite(pitch) ? pitch : 0;
+  const clamp = (v, limit) => Math.max(-limit, Math.min(limit, v));
+  const head = clamp(p * LOOK_POSE.head, LOOK_POSE.limit);
+  if (Math.abs(head) < 1e-3) return [];
+  // (about the knight's own axes: +x is its right, and it faces -z; a positive turn looks up)
+  return [
+    { bone: 'neck', axis: [1, 0, 0], angle: clamp(p * LOOK_POSE.neck, LOOK_POSE.limit / 2) },
+    { bone: 'head', axis: [1, 0, 0], angle: head },
+  ];
+}
+
 // A guarding knight (third person): the sword arm brought in across the body toward the middle and a little lower, the
 // blade held across rather than upright at the side (as the first person's guard is). `amount` 0..1 eases in and out.
 // (the arm comes in and down from the Guard clip's raised sword; the wrist turns the blade in across the chest)

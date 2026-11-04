@@ -26,6 +26,7 @@ from tools.blender.characters.spellblade.rodin.fit import fit_rodin  # noqa: E40
 from tools.blender.characters.spellblade.rodin.look import build_look  # noqa: E402
 from tools.blender.characters.spellblade.rodin.motion import fit_motion  # noqa: E402
 from tools.blender.characters.spellblade.rodin.parts import build_parts  # noqa: E402
+from tools.blender.characters.spellblade.rodin.rigid import bake_pauldrons  # noqa: E402
 
 ARCHIVE = ROOT / "assets/source/rodin"
 STAGES = ("fit", "parts", "motion", "look")
@@ -53,6 +54,8 @@ def main() -> None:
         motion = fit_motion(rig, fix=os.environ.get("RODIN_MOTION_FIX", "1") != "0",
                             search=os.environ.get("RODIN_MOTION_SEARCH", "1") != "0")
         print("RODIN_MOTION", json.dumps(motion))
+        # (after the motion fixes, which key the arms: each pauldron follows its arm as the runtime turns it)
+        print("RODIN_PAULDRONS", json.dumps({"keys": bake_pauldrons(rig)}))
     if stop >= 3:
         print("RODIN_LOOK", json.dumps(build_look(args.work)))
     args.out.parent.mkdir(parents=True, exist_ok=True)

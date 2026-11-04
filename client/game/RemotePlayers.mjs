@@ -14,7 +14,7 @@ import {
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
-import { airborneLegFlex, crouchPose, guardTurns, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+import { airborneLegFlex, crouchPose, guardTurns, landingStrength, lookTurns, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { STEEL_RIPPLE, createSteelSheen } from './steelSheen.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
@@ -717,7 +717,9 @@ export class RemotePlayers {
       recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration,hold:pb.presentationRecovery.hold ?? 0} : null,
       crouch: crouch.flex,
       // the gauntlet's jab, if one is under way, and the crouch's lean
-      extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
+      extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity)),
+        // and the head looks where the knight aims
+        ...(state === 'stagger' ? [] : lookTurns(shell.root.userData.pitch))],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
     if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});

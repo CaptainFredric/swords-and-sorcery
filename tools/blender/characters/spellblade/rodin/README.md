@@ -48,11 +48,15 @@ validators, `scripts/test-spellblade-*.py`).
      (`SorceryAccent`) rides with it.
 2. **Parts** (`parts.py`). The game finds parts by name (the sword's finish and stowed copy, cloth dye, the banner's
    emblem, the cockpit hiding all but the gauntlets), so each face goes to one part:
-   - `HeroSword`: the sword alone, its blade and crossguard. Rodin fused the fist onto the guard over a stub of leather
-     grip; the fist, that stub and the fingers lying over the guard (dark leather: the sword's brass and steel are
-     never that dark) stay with `Gauntlet.R`. The sword gets a grip of its own, 11 cm of leather along the blade's
-     centreline seated in the guard, and a brass pommel (`complete_sword`), so on the ballista, cut by Sunder or drawn
-     in the tutorial it is a whole sword. In the hand the grip runs through the fist and the pommel shows below it.
+   - `HeroSword`: the sword alone. Rodin fused the fist onto the guard over a stub of leather grip; the fist, that stub
+     and the fingers lying over the guard (dark leather: the sword's brass and steel are never that dark) stay with
+     `Gauntlet.R`. Rodin's own blade, a flat slab 22 cm across with a pale tan guard, is then replaced by the forged
+     sword (`forge.py`) on the same grip axis, guard, flat and reach (1.30 m from the guard): a ridged blade with
+     bevelled edges, a short ricasso and a long chisel point; a straight brass guard with blocked, pyramid-capped ends;
+     a diamond frame over the blade's root holding a red gem proud on both faces; dark leather between brass collars,
+     and a faceted brass pommel below the fist. Its colours are nine swatches painted into the atlas's one free square
+     (`SWATCH_REGION`, checked free at build time; painted by `look.py` after the lift), so it stays in `GameBody`, with
+     its sky reflection and Steel sheen, at no extra draw call. 139 faces in place of Rodin's 2,112.
    - `TabardBack`: the cape. Below 1.35 m it hangs free of the body as one surface, found by cutting the mesh there and
      keeping the red component behind the body.
    - `TabardFront`: the front tabard, found the same way below the belt (1.0 m).
@@ -61,9 +65,25 @@ validators, `scripts/test-spellblade-*.py`).
    - Everything else by the bone that carries most of it: `Breastplate`, `Pauldron`, `Gauntlet`, `Greave`, `Boot`.
 
    Weight fixes come with the split:
-   - The helmet is rigid on the head (Rodin had its lower half on the chest, so a turned head sheared the visor). Across
-     its edge it eases onto the body's own weights, 6 cm either side, so the pauldrons and collar it touches stretch a
-     little instead of tearing (11.6 cm on a 4 cm edge in Dash before).
+   - **Rigid armour** (`rigid.py`). Rodin spread each limb's weights in long gradients (a vambrace a third on the upper
+     arm, a cuirass half on the hips), so plates sheared and stretched like cloth when anything bent. Now each plate
+     rides the bone that carries it, bending only in a band at each joint, where the dark underlayer is: at the waist,
+     chest, elbows, wrists, knees and ankles a plane through the joint, halving the angle between its bones, divides the weight a
+     vertex has on that joint's two sides (bands 5 to 10 cm: Rodin's triangles run to 4 cm, and a narrower band became
+     one hard step). Weight on any other bone is left alone, so the waist never takes an armpit off its arm.
+   - **Pauldrons.** Each pauldron is one plate on a bone of its own (`pauldron.L/R`: its upper arm's rest, on the
+     clavicle) that follows its arm part of the way, as `client/game/pauldronFollow.mjs` turns it in game (0.6, rising
+     to 0.95 for an arm raised overhead); `bake_pauldrons` keys the same into every action after the motion fixes.
+     Rodin had the left plate half on the arm and the right a fifth, so the two moved differently and an arm raised
+     overhead slid out from under its plate. The plate is the shoulder's faces from 12 cm inside the joint down to its
+     rim (where the arm is wholly the arm's: 24 and 20 cm down the arm), easing onto the body's weights over 9 cm at
+     its edge with the collar; both halves of a vertex Rodin split along a UV seam move as one.
+   - **The helmet** is wholly the head's, to its very edge (Rodin had its lower half on the chest, so a turned head
+     sheared the visor, dragged the collar and shoulders with it, and read as stuck to the neck). Nothing else rides the
+     head: the body's head and neck weights go to the chest. It turns over the collar on its own, up to 47 degrees in
+     Dash, and a dark gorget (`add_neck`: from inside the collar up into the helmet, following its opening and closed at
+     the top) rides chest, neck and head and fills whatever opens between them. In game the head also takes part of the
+     knight's aim pitch (`lookTurns`).
    - The cape and tabard move onto the tabard chains that the runtime's spring cloth drives (Rodin had the cape on the
      chest, so leaning into a dash swung it out like a plank): the anchor bone above, blending onto the first cloth bone
      just below the cut and onto the second around the middle.
