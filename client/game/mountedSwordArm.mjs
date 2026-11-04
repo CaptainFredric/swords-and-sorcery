@@ -11,8 +11,10 @@ import { solveArm } from './swordArmIK.mjs';
 // carried from the eye into the rider's body at his own size and turned to where he aims, and solved on his real arm.
 // From inside, a mounted strike looks as a strike on foot does; from outside, a cut made in front of a seated knight.
 export const MOUNTED_SWORD = Object.freeze({
-  // the eye in the head bone's root-space neighbourhood: forward of it and a little up (the visor)
-  eye: Object.freeze([0, 0.07, -0.1]),
+  // the eye, from the head bone in root space: where the machine's sight puts the rider's view (measured in game: the
+  // sight camera sits 3 cm under the head bone and 23 cm ahead of it). The path is built round the eye that sees it,
+  // so from the sight a mounted strike is framed as a strike on foot is, never across the lens.
+  eye: Object.freeze([0, -0.03, -0.23]),
   // first-person arms are drawn at 83 % of the knight's (rodin/fp_arms.py): his reach is that much longer
   scale: 1 / 0.826,
   // how fast the solver takes the arm and gives it back (per second, as an exponential approach)

@@ -100,8 +100,10 @@ import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
-// the mounted Fight-and-Flight sight's near clip (metres): past the rider's own shoulder plates, short of his fist
-const FLIGHT_SIGHT_NEAR = 0.35;
+// the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons and body are hidden from his own
+// eyes (setCockpitHeadHidden); what is left near the lens is his arm, which a deeper clip cut open into hollow rings as
+// it swung past. Short of the upper arm at the frame's edge (about 9 cm), so the arm is drawn whole.
+const FLIGHT_SIGHT_NEAR = 0.12;
 
 // the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
 // crisp where you fight instead of soft over the whole arena
