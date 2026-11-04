@@ -4,7 +4,7 @@ import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun} from '../../shared/sim/fightFlightRun.mjs';
 import {setFlightUltimateHold,stepTerminalPreparation,advanceTerminalFlight,
-  resolveTerminalFlight,stepFlightBurnZones,TERMINAL} from '../../shared/sim/fightFlightTerminal.mjs';
+  resolveTerminalFlight,stepFlightBurnZones,TERMINAL,terminalBlastProfile,terminalRadialDamage} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {killPlayer} from '../../shared/sim/combat.mjs';
 import {damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
@@ -114,11 +114,13 @@ test('Terminal epicenter outweighs edge damage, creates finite burning ground an
  assert.equal(edge.kills,0,'intentional terminal self-defeat is not a prior enemy knockback kill');
  assert.equal(s.m.health,0);assert.equal(s.m.terminalDiveSpent,true);
  assert.equal(s.room.flightBurnZones.length,1);
- const zones=s.room.flightBurnZones;assert.equal(zones[0].expiresAt-zones[0].startedAt,TERMINAL.fireDuration);
+ const zones=s.room.flightBurnZones;
+ assert.ok(zones[0].expiresAt-zones[0].startedAt>=TERMINAL.minFireDuration);
+ assert.ok(zones[0].expiresAt-zones[0].startedAt<=TERMINAL.maxFireDuration);
  const before=close.health;
  stepFlightBurnZones(s.room,2.75);
  assert.ok(close.health<before,'burning ground applies actual ongoing damage');
- stepFlightBurnZones(s.room,10);
+ stepFlightBurnZones(s.room,20);
  assert.equal(s.room.flightBurnZones.length,0);
 });
 test('Chord is owned by the actual pilot, and a spent lifecycle cannot be armed again',()=>{
@@ -249,4 +251,61 @@ test('One full Ascension chord does not duplicate commitment or reset rotor velo
  stepTerminalPreparation(s.room,s.m,2.12);
  assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
  assert.equal(s.m.skill.id,'doNotStopMyAscension');
+});
+
+test('complete mobile ritual spends Chivalry immediately but only with valid airborne Ascension',()=>{
+ const s=setup();
+ const before=s.m.rotorAngularVelocity;
+ assert.deepEqual(s.cmd('flightTerminalRitual',undefined,1),{});
+ assert.ok(s.m.terminalDive,'server commits the actual terminal dive');
+ assert.equal(s.p.prowess,0,'real one-use Ultimate meter consumed');
+ assert.equal(s.m.terminalDiveSpent,true);
+ assert.equal(s.m.rotorAngularVelocity,before,'no invented rotor spin');
+ assert.ok(s.m.terminalDive.blastProfile.damage>TERMINAL.explosionDamage);
+ assert.ok(s.cmd('flightTerminalRitual',undefined,1.01).rejected);
+ assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
+ const foe=s.room.addPlayer({id:'outsider',token:'o',name:'Outsider'},0);
+ foe.alive=true;foe.prowess=100;foe.ultimate='chivalry';
+ assert.ok(applyRoomCommand(s.room,foe,{type:'flightTerminalRitual',radius:999,damage:999},2).rejected,
+   'unmounted sender cannot spoof damage or activate another pilot machine');
+});
+test('different craft conditions change the locked blast and burn profile without impact-time manipulation',()=>{
+ const pristine=setup(),damaged=setup();
+ const a=terminalBlastProfile(pristine.m);
+ damaged.m.health=65;damaged.m.rotorHP=10;damaged.m.braceLHP=0;
+ damaged.m.braceRHP=5;damaged.m.flightCharge=8;
+ const b=terminalBlastProfile(damaged.m);
+ assert.ok(a.condition>b.condition&&a.radius>b.radius&&a.damage>b.damage);
+ assert.ok(a.fireRadius>b.fireRadius&&a.fireDuration>b.fireDuration&&a.fireTickDamage>b.fireTickDamage);
+ assert.equal(a.radius,TERMINAL.maxBlastRadius);
+ assert.equal(a.damage,TERMINAL.maxBlastDamage);
+ assert.ok(terminalRadialDamage(a.damage,0,a.radius)>terminalRadialDamage(a.damage,a.radius*.7,a.radius));
+ assert.equal(terminalRadialDamage(a.damage,a.radius,a.radius),0,'zero edge damage');
+ assert.ok(terminalRadialDamage(a.damage,a.radius*.5,a.radius)<a.damage*.5,
+  'superlinear falloff makes epicenter disproportionately devastating');
+ assert.deepEqual(pristine.cmd('flightTerminalRitual',undefined,2),{});
+ const committed=pristine.m.terminalDive.blastProfile;
+ pristine.m.health=1;pristine.m.rotorHP=0;pristine.m.braceLHP=0;
+ pristine.m.braceRHP=0;pristine.m.flightCharge=0;
+ pristine.m.grounded=true;pristine.m.y=0;pristine.m.terminalDive.impactAt=2.1;
+ assert.equal(resolveTerminalFlight(pristine.room,pristine.m,2.1),true);
+ const blast=pristine.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
+ assert.equal(blast.radius,committed.radius,'commit state determines later blast');
+ assert.equal(blast.damage,committed.damage);
+ assert.equal(pristine.room.flightBurnZones[0].radius,committed.fireRadius);
+});
+test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor or spent chassis',()=>{
+ for(const kind of ['ground','skill','rotor','meter','spent','inactive']){
+  const s=setup();
+  if(kind==='ground')s.m.grounded=true;
+  if(kind==='skill')s.m.skill.id='narrowToOne';
+  if(kind==='rotor')s.m.rotorHP=0;
+  if(kind==='meter')s.p.prowess=99;
+  if(kind==='spent')s.m.terminalDiveSpent=true;
+  if(kind==='inactive')s.m.skill.phase='idle';
+  const response=s.cmd('flightTerminalRitual',undefined,1);
+  assert.ok(response.rejected,kind+' cannot pass server authorization');
+  assert.equal(s.p.prowess,kind==='meter'?99:100);
+  assert.equal(s.m.terminalDive,null);
+ }
 });
