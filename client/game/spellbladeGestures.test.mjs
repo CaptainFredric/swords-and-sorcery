@@ -354,3 +354,29 @@ test('two gestures share a body where they can: a hand stays at the brow while t
   }
   assert.ok(both > 30, `together for ${both} frames`);
 });
+
+test('observers agree: two clients watching one knight, at different frame rates, lags and join times, see the same gestures', () => {
+  // the knight's own state over a minute, as the snapshots tell every observer: on foot, then at the ram firing every
+  // 4.2 s, then flying; a kill at 20 s, a bolt through two at 33 s
+  const at = (t) => (t < 15 ? { machine: null, moving: t % 6 > 3 }
+    : t < 30 ? { machine: 'ram', ramStrikeAt: 15 + Math.floor((t - 15) / 4.2) * 4.2, ramStrikeKey: `ram:${15 + Math.floor((t - 15) / 4.2) * 4.2}`, ramRelease: 0.68 }
+      : { machine: 'flight', airborne: true, moving: true });
+  const watch = (fps, lag, from) => {
+    const layer = new GestureLayer();
+    const starts = new Map();
+    let nodded = false, appraised = false;
+    for (let t = from; t < 60; t += 1 / fps) {
+      const now = t - lag;
+      if (!nodded && now >= 20) { layer.nod(20); nodded = true; }
+      if (!appraised && now >= 33) { layer.appraise(33, 'bibye-bolt-77', 0.3); appraised = true; }
+      for (const pose of layer.update('knight-7', now, at(now))) if (!starts.has(pose.kind + ':' + Math.round(layer.active.find((a) => a.kind === pose.kind)?.at * 10))) starts.set(pose.kind + ':' + Math.round(layer.active.find((a) => a.kind === pose.kind)?.at * 10), true);
+    }
+    return [...starts.keys()].filter((k) => Number(k.split(':')[1]) / 10 >= from + 1).sort();
+  };
+  const a = watch(60, 0.05, 0);
+  const b = watch(30, 0.12, 0);
+  const c = watch(144, 0.0, 9.3);   // joined late: agrees on everything after it arrived
+  assert.ok(a.length >= 5 && a.some((k) => k.startsWith("thump")) && a.some((k) => k.startsWith("appraise")) && a.some((k) => k.startsWith("nod")), a.join());
+  assert.deepEqual(b, a);
+  assert.deepEqual(c, a.filter((k) => Number(k.split(':')[1]) / 10 >= 10.3));
+});
