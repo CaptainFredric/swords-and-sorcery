@@ -1329,6 +1329,14 @@ export class GameRuntime {
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.playerId);
     const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
+    const previousFlightId=this.localAuth?.operatingFightFlightId??null;
+    const currentFlightId=auth?.alive?auth.operatingFightFlightId??null:null;
+    if(previousFlightId!==currentFlightId){
+      // A different operator/machine lifecycle must not inherit the previous
+      // machine's cockpit camera springs or pending third-person Dash boom.
+      this.flightCameraMotion?.reset();
+      this.flightDashPresentation.reset();
+    }
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
