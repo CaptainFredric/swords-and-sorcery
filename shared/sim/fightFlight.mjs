@@ -268,7 +268,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
-  m.rotorBrakeHeld=Boolean(descend&&m.grounded);
+  // Ground Dash spin-up has priority over the ordinary crouch/lower brake.
+  m.rotorBrakeHeld=Boolean(descend&&m.grounded&&m.runGroundPhase!=='SPINUP');
   const maxOmega=Math.PI*15;
   const desiredOmega=spinning&&!m.rotorBrakeHeld?maxOmega:0;
   const acceleration=desiredOmega>m.rotorAngularVelocity?m.rotorSpinupAcceleration:m.rotorSpindownAcceleration;
