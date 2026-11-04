@@ -4,7 +4,7 @@ import {mountFightFlight,dismountFightFlight,FIGHT_FLIGHT} from './fightFlight.m
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
-import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
+import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
@@ -467,6 +467,12 @@ export function applyRoomCommand(room, player, message, time) {
     case 'flightDash': {
       const ok=requestFlightDash(room,room.fightFlight,player,Boolean(message.down),time);
       return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
+    }
+    case 'flightTerminalRitual': {
+      // All requirements are host-side. Gesture coordinates are deliberately
+      // *not* trusted; clients can never supply damage, HP or blast radius.
+      const ok=requestTerminalRitual(room,room.fightFlight,player,time);
+      return ok?{}:{rejected:'Terminal Dive needs an airborne intact rotor, active Ascension and a full ready Chivalry.'};
     }
     // the ultimate's key (a full prowess meter): the brace begins
     case 'ultimate':
