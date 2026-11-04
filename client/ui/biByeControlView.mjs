@@ -42,7 +42,7 @@ export function biByeCombatView(b,now){
  const primed=b?.skill?.id==='boltToTheOccasion'&&b.skill.phase==='primed';
  const mainCoupled=b?.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&!primed;
  const secondary=primed&&biByeCombinedReady(b,now)?'skill':
-  !primed&&b?.mode==='DEPLOYED'&&b.weaponFocus==='UPPER'&&
+  !primed&&b?.skill?.phase!=='releasing'&&b?.mode==='DEPLOYED'&&b.weaponFocus==='UPPER'&&
   !b.upperPending&&!b.upperQueued&&!b.pendingCoupledFromUpper&&
   canBiByeCouple(b,now)?'coupled':null;
  return {

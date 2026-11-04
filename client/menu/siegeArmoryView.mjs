@@ -16,13 +16,16 @@ const EXPLANATIONS={
  boltToTheOccasion:'Prime independent heavy aiming, then release Bolt II on a second Skill press. Bolt I may fire in between.',
  coldHowTouching:'Skill activates Bolt I proximity frost detonation until the next real Bolt II release. No homing or added damage.',
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
- fireAwayRightHere:'The flying repeater borrows from its finite ammunition supply, paid back through its normal mechanism.'
+ fireAwayRightHere:'For 3.5 seconds, the repeater can fire borrowed bolts. Reloading repays those debts first; release Fire to stabilize hover.',
+  narrowToOne:'Lock a single visible enemy. Hold Fire to strike exposed regions within the crossbow’s real traverse. Losing sight and firing ends the lock; landing permits a new target.',
+  doNotStopMyAscension:'Until your next actual repeater bolt, rotor Dash spends flight charge at the ordinary Rise rate instead of prowess. Empty charge ends the Dash.'
 };
 export function siegeArmoryView(choice){
  const selected=normalizeSiegeLoadout(choice);
  return MACHINES.map(machine=>({...machine,skills:SIEGE_SKILL_OPTIONS[machine.id].map(id=>({
   id,name:SIEGE_SKILL_NAMES[id],line:EXPLANATIONS[id],
   ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:{}),
+   ...(machine.id==='fightFlight'?{icon:id==='fireAwayRightHere'?'fireAway':id}:{}),
   equipped:selected[machine.id]===id
  }))}));
 }

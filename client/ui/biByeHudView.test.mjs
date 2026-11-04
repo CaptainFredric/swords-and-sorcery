@@ -12,7 +12,13 @@ test('mounted controls use rebound keys or touch labels', () => {
   const operator = { ...local, operatingBallistaId: b.id };
   const desktop = biByeHudView(operator, { bibyeBallista: b }, 0, { bindings: { attack: ['KeyF'], deploy: ['KeyH'], siegeView: ['KeyJ'], interact: ['KeyK'] } });
   assert.match(desktop.controls, /LMB Bolt I.*RMB prime\/fire II.*\[H\] Deploy.*\[J\] View.*\[K\] Leave/);
-  assert.equal(biByeHudView(operator, { bibyeBallista: b }, 0, { touch: true }).controls, 'SIEGE VIEW · VIEW ↑ zoom · BOLT I · SKILL II');
+  assert.equal(biByeHudView(operator, { bibyeBallista: b }, 0, { touch: true }).controls,
+    'SIEGE VIEW · VIEW ↑ zoom · BOLT I · SKILL II',
+    'mobile unprimed has just Bolt I; do not advertise a nonexistent BOTH');
+  const primed={...b,skill:{id:'boltToTheOccasion',phase:'primed'},
+    mainBoltLoaded:true,coupling:'INDEPENDENT'};
+  assert.match(biByeHudView(operator,{bibyeBallista:primed},0,{touch:true}).controls,
+    /BOLT I · SKILL II · BOTH$/,'priming legitimately exposes the separate volley');
 });
 
 test('mounted HUD names structural faults and makes unsupported siege unavailable', async()=>{

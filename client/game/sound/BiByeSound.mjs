@@ -22,6 +22,7 @@ export function biByeRecipe(kind,rand=Math.random){
   upperCatch:[noise(2850,.025,.15),thud(310,.065,.16)],
   release:[noise(1500,.04,.17),thud(180,.06,.13)],
   steamRelease:[noise(3100,.36,.52,0,'bandpass',1.3),noise(4400,.26,.35,.02,'highpass'),thud(90,.22,.42)],
+  ramVent:[noise(2700,.23,.28,.055,'bandpass',.7),noise(5200,.17,.13,.065,'highpass')],
   frost:[noise(2300,.3,.33),noise(5400,.12,.12),ring(rand,1100,{decay:.38,gain:.055,partials:3})],
   siegeImpact:[...wood,noise(2200,.09,.38),thud(72,.35,.55)],
  };
@@ -30,13 +31,15 @@ export function biByeRecipe(kind,rand=Math.random){
 // Two seconds of wood rumble and irregular metal contact, with no engine tone.
 // The closed seam and bounded sample amplitude permit quiet continuous looping.
 export function biByeLoopSamples(kind,rate=22050,seconds=2,rand=Math.random){
- const result=new Float32Array(Math.floor(rate*seconds));let low=0;
+ const length=Math.floor(rate*seconds);
+ const overlap=kind==='pressure'?Math.min(Math.floor(rate*.04),Math.floor(length/4)):0;
+ const result=new Float32Array(length+overlap);let low=0;
  for(let i=0;i<result.length;i++){
   const t=i/rate,white=rand()*2-1;low=.94*low+.06*white;
   const freq=kind==='roll'?6:kind==='recock'?14:kind==='ratchet'?22:kind==='pressure'?28:9;
   const phase=(t*freq)%1;
   const contact=Math.exp(-phase*(kind==='roll'?24:kind==='pressure'?18:kind==='ratchet'?55:45));
-  const seam=Math.min(1,i/(rate*.02),(result.length-1-i)/(rate*.02));
+  const seam=kind==='pressure'?1:Math.min(1,i/(rate*.02),(result.length-1-i)/(rate*.02));
   if(kind==='roll'){
     result[i]=seam*(low*.28+contact*Math.sin(2*Math.PI*91*t)*.12);
   }else if(kind==='ratchet'){
@@ -46,7 +49,15 @@ export function biByeLoopSamples(kind,rate=22050,seconds=2,rand=Math.random){
   }else{
     result[i]=seam*contact*(white*.12+Math.sin(2*Math.PI*(kind==='recock'?850:430)*t)*.08);
   }
- }return result;
+ }
+ // Wrap the extra tail into the head with constant-power overlap. At the
+ // boundary, the final sample continues into its actual next noise sample;
+ // neither end fades to silence when the buffer repeats.
+ for(let i=0;i<overlap;i++){
+  const phase=i/overlap*Math.PI/2;
+  result[i]=result[length+i]*Math.cos(phase)+result[i]*Math.sin(phase);
+ }
+ return overlap?result.subarray(0,length):result;
 }
 export class BiByeSound {
  constructor(engine){this.engine=engine;this.loops=new Map();this.ones=[];this.seen=new Set();this.buffers=new Map();this.active=false;this.last=null;this.nextCreak=0;this.settleAt=null;}

@@ -431,11 +431,32 @@ try {
   await evaluate("document.querySelector('#resume-game').click()");
   assert.equal(await evaluate("document.querySelector('#pause-menu').classList.contains('hidden')"),true,'Resume closes Pause');
 
-  // Open Touch Layout Editor
-  await evaluate(`(() => {
-    window.__ssRuntime.editTouchLayout('flight');
+  // An active combat finger must be released before workshop mode. This
+  // reproduces opening Settings with Bolt still firing, not a fake state edit.
+  const pendingFire=await evaluate(`(() => {
+    const rt=window.__ssRuntime,bolt=rt.touch.buttons.siegeWeapon,
+      rect=bolt.getBoundingClientRect();
+    rt.touch.setActive(true);rt.input.enabled=true;
+    bolt.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:240,
+      pointerType:'touch',clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}));
+    return {owned:rt.touch.held.has(240),firing:rt.input.flightFireSources.size};
   })()`);
+  assert.equal(pendingFire.owned,true,'real Bolt finger is owned before edit mode');
+  assert.ok(pendingFire.firing>0,'repeater is actually firing before workshop opens');
+
+  // Open Touch Layout Editor. The controller AND pointer ownership reset.
+  await evaluate(`window.__ssRuntime.editTouchLayout('flight')`);
   await sleep(300);
+  const editorSafety=await evaluate(`(() => {
+    const rt=window.__ssRuntime,bolt=rt.touch.buttons.siegeWeapon,
+      rect=bolt.getBoundingClientRect();
+    bolt.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:241,
+      pointerType:'touch',clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}));
+    return {held:rt.touch.held.size,fire:rt.input.flightFireSources.size,
+      stick:!!rt.touch.stick,active:rt.touchLayoutEditor.active};
+  })()`);
+  assert.deepEqual(editorSafety,{held:0,fire:0,stick:false,active:true},
+    'editing a control cannot carry old fire or create a new held gameplay action');
 
   const editorCheck = await evaluate(`(() => {
     const tle = document.querySelector('.touch-layout-editor');
