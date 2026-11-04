@@ -14,7 +14,11 @@ import {fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs
 import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {skillOperator} from './siegeSkills.mjs';
 
-export const RAM_FIST=Object.freeze({speed:23,gravity:17,radius:.62,
+// Measured from the delivered standalone GLB: 0.34052 local radius from
+// its COM, and 0.23627 local COM-to-lowest-vertex. Use a wide swept sphere
+// against obstacles and actual bottom height against the ground.
+export const RAM_FIST=Object.freeze({speed:23,gravity:17,radius:.971,
+  groundRadius:.6734,
   falloffStart:12,falloffEnd:36,closeDamage:125,farDamage:55,
   horizontalDamping:.15,flightTimeout:8,
   maxSubstep:1/90,maxTravelStep:.26,wallRestitution:.14});
@@ -78,6 +82,7 @@ export function requestLongArmToJaw(room,b,p,now){
  const home=b.fistHome??{x:b.spawnX??b.x,y:b.spawnY??b.y,z:b.spawnZ??b.z};
  b.fistHome=home;
  b.detachedFist={state:'flying',position:origin,velocity,launchedAt:now,
+   launchHeading:b.heading??0,launchPitch:b.ramElevPitch??0,
    traveled:0,ownerId:p.id,home:{...home},impactCount:0,
    spin:{x:0,y:0,z:0},angularVelocity:{x:6.8,y:1.1,z:.7},
    healthAtLaunch:b.components.Fist.health};
@@ -100,16 +105,16 @@ function hitWall(room,start,end,world){
 // below. Small ballistic substeps resolve ramp transitions and ledge edges.
 function hitGround(start,end,world){
  if(end.y>=start.y-1e-9)return null;
- const horizon=Math.max(start.y,end.y)+RAM_FIST.radius+.04;
+ const horizon=Math.max(start.y,end.y)+RAM_FIST.groundRadius+.04;
  const a=surfaceHeightAt(start.x,start.z,horizon,world);
  const b=surfaceHeightAt(end.x,end.z,horizon,world);
  if(b==null)return null;
- const initial=a==null?null:start.y-RAM_FIST.radius-a;
- const final=end.y-RAM_FIST.radius-b;
+ const initial=a==null?null:start.y-RAM_FIST.groundRadius-a;
+ const final=end.y-RAM_FIST.groundRadius-b;
  if(final>0||initial!=null&&initial<-.025)return null;
  const t=initial==null?1:clamp(initial/(initial-final||1),0,1);
  const center=point(start,end,t);
- return {t,kind:'ground',point:[center.x,b+RAM_FIST.radius,center.z],normal:[0,1,0]};
+ return {t,kind:'ground',point:[center.x,b+RAM_FIST.groundRadius,center.z],normal:[0,1,0]};
 }
 function hitActors(room,b,start,end){
  let best=null;
