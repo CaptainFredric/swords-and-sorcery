@@ -6,6 +6,7 @@ import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.m
 import {killPlayer} from '../../shared/sim/combat.mjs';
 import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {practiceFightFlight} from '../../shared/sim/practiceFightFlight.mjs';
+import {practiceSiegeCommand} from '../../shared/sim/practiceSiege.mjs';
 
 const ground={id:'floor',center:[0,-.1,0],size:[70,.2,70],y:0};
 function room(){
@@ -38,6 +39,7 @@ test('flight that actually passes beneath abyssY is destroyed, removed, rider de
  fresh.position={x:0,y:0,z:0};
  assert.deepEqual(practiceFightFlight(r,fresh,'build',4),{});
  assert.notEqual(r.fightFlight.id,'fall-1');
+ assert.equal(r.fightFlight.ownerId,'rebuild','builder owns replacement apparatus');
 });
 test('alive aircraft over an abyss is not destroyed until it crosses the kill plane',()=>{
  const r=room(),m=createFightFlight({id:'hover',x:500,y:-11.9,z:500});
@@ -86,4 +88,22 @@ test('terminal Dive lost to abyss does not detonate in midair or defer respawn',
  assert.equal(p.alive,false);
  assert.ok(p.respawnAt<10,'ordinary abyss respawn is not delayed by unresolved terminal dive');
  assert.equal(r.events.some(e=>e.type==='fightFlightTerminalExplosion'),false);
+});
+
+test('builder ownerId is serialized separately from temporary operator for every Practice machine type',()=>{
+  for(const type of ['bi-bye-llista','so-fist-ication','fight-and-flight']){
+    const r=room(),p=r.addPlayer({id:'builder',token:'builder',name:'Builder'},0);
+    p.position={x:0,y:0,z:0};
+    const result=type==='fight-and-flight'?practiceFightFlight(r,p,'build',1):
+      practiceSiegeCommand(r,p,'build',type,1);
+    assert.deepEqual(result,{},'Practice constructs '+type);
+    const field=type==='fight-and-flight'?'fightFlight':type==='bi-bye-llista'?'biByeLlista':'soFistication';
+    const state=r[field];
+    assert.equal(state.ownerId,'builder','construction ownership is recorded for '+type);
+    assert.equal(state.operatorId,null,'ownership must not claim somebody mounted '+type);
+    const wire=serializeSnapshot(r,1);
+    const replica=type==='fight-and-flight'?wire.fightFlight:
+      type==='bi-bye-llista'?wire.bibyeBallista:wire.soFistication;
+    assert.equal(replica.ownerId,'builder','owner survives network serialization for '+type);
+  }
 });
