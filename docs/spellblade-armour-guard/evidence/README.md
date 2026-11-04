@@ -13,3 +13,5 @@ against `main` at 6a6e244a (the model promoted in #360).
 | `flight-sight-strikes-before.jpg` | Fight-and-Flight sight view, mounted strikes before the eye fix: the forearm cut open by the near clip. |
 | `flight-sight-strikes-after.jpg` | The same after: strikes framed as on foot, the arm drawn whole, then the mounted Guard. |
 | `flight-mounted-strikes-outside.jpg` | The same mounted strikes and Guard seen from outside (front and side). |
+| `ballista-magic-hand-grip-before-after.jpg` | Bi-Bye-llista operator, top before: the magic hand open beside its handle; bottom after: closed round it. |
+| `sofistication-hands-after.jpg` | SO-FIST-ICATION operator after: both gauntlets closed on the handlebars. |

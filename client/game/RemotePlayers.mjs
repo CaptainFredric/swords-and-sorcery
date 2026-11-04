@@ -697,7 +697,8 @@ export class RemotePlayers {
 
     d.spellHand = easeSpellHand(d.spellHand, {
       open: state === 'cast' || state === 'stagger' ? 1 : 0,
-      fist: ['sprint', 'dash', 'sunder', 'vortex'].includes(state) ? 1 : 0,
+      // (and closed on a machine's controls)
+      fist: ['sprint', 'dash', 'sunder', 'vortex'].includes(state) || (pb.alive && (pb.operatingFightFlightId || pb.operatingRamId)) ? 1 : 0,
     }, dt);
     const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
