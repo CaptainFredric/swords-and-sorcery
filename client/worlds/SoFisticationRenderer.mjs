@@ -108,8 +108,23 @@ export class SoFisticationRenderer {
   }else{
    const ram=this.nodes.get('Ram_Assembly');
    if(ram){
-    ram.position.y=(this.liftRest.get('Ram_Assembly')?.position.y??0)+lift;
-    ram.rotation.x=(this.liftRest.get('Ram_Assembly')?.rotation.x??0)-tilt;
+    // The legacy GLB is animated around its authored object origin, but the
+    // hydraulic hinge is offset. Preserve the animation's independent stroke,
+    // then rigidly transform the assembly about the SAME fitted trunnion used
+    // by the authoritative world OBBs. All calculations occur in the ram's
+    // actual parent frame, so neither model scale nor chassis pitch can skew it.
+    this.group.updateMatrixWorld(true);
+    const hinge=new THREE.Vector3(...SO_FIST_LIFT.pivot).multiplyScalar(1/SO_FIST_SCALE);
+    const pivotWorld=this.model.localToWorld(hinge.clone());
+    const liftedWorld=this.model.localToWorld(hinge.clone().add(new THREE.Vector3(0,lift,0)));
+    const center=ram.parent.worldToLocal(pivotWorld);
+    const uplift=ram.parent.worldToLocal(liftedWorld).sub(center);
+    const axisWorld=this.model.localToWorld(new THREE.Vector3(1,0,0)).sub(
+      this.model.localToWorld(new THREE.Vector3(0,0,0))).normalize();
+    const axis=axisWorld.transformDirection(ram.parent.matrixWorld.clone().invert());
+    const delta=new THREE.Quaternion().setFromAxisAngle(axis,-tilt);
+    ram.position.sub(center).applyQuaternion(delta).add(center).add(uplift);
+    ram.quaternion.premultiply(delta);
    }
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
