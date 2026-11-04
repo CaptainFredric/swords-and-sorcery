@@ -1287,3 +1287,54 @@ test('ram touch RAISE and LOWER are truly held controls and never latch after re
  controls.reset();
  assert.equal(controls.movement().crouch,false,'mount reset never leaves lower latched');
 });
+
+
+test('ram mobile Raise/Lower holds lift until a deliberate outward swipe switches to pitch',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {input,controls,send}=setup(p);
+ input.mountedRam=true;input.touch=controls;
+ controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
+   components:{Fist:{health:500}},skill:{id:'longArmToTheJaw',phase:'idle',readyAt:0}}}});
+ assert.equal(controls.buttons.jump.querySelector('span').textContent,'RAISE');
+ assert.equal(controls.buttons.crouch.querySelector('span').textContent,'LOWER');
+ send('pointerdown',650,240,{action:'jump',pointerId:110});
+ let state=input.movement();
+ assert.equal(state.ramRaise,true);
+ assert.equal(state.ramPitchUp,false);
+ send('pointermove',650,220,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramRaise,true,'small thumb drift remains lift');
+ send('pointermove',650,165,{target:controls.layer,pointerId:110});
+ state=input.movement();
+ assert.equal(state.ramRaise,false);
+ assert.equal(state.ramPitchUp,true);
+ send('pointermove',720,95,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramPitchUp,true,'moving farther from the button retains pitch');
+ send('pointerup',720,95,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramPitchUp,false);
+ assert.equal(input.movement().ramRaise,false);
+ send('pointerdown',650,240,{action:'crouch',pointerId:111});
+ assert.equal(input.movement().crouch,true);
+ send('pointermove',650,305,{target:controls.layer,pointerId:111});
+ state=input.movement();
+ assert.equal(state.crouch,false);
+ assert.equal(state.ramPitchDown,true);
+ send('pointercancel',650,305,{target:controls.layer,pointerId:111});
+ assert.equal(input.movement().ramPitchDown,false);
+ assert.equal(input.movement().crouch,false);
+ controls.dispose();
+});
+
+test('ram sliding over Raise/Lower from a look gesture never acquires either hydraulic control',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {controls,input,send}=setup(p);
+ input.mountedRam=true;input.touch=controls;
+ controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
+   components:{Fist:{health:500}},skill:{id:'beatToThePunch',phase:'idle',readyAt:0}}}});
+ send('pointerdown',550,250,{target:controls.layer,pointerId:112});
+ send('pointermove',650,175,{target:controls.buttons.jump,pointerId:112});
+ assert.equal(input.movement().ramRaise,false);
+ assert.equal(input.movement().ramPitchUp,false);
+ assert.equal(input.movement().crouch,false);
+ send('pointerup',650,175,{target:controls.layer,pointerId:112});
+ controls.dispose();
+});
