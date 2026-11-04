@@ -354,12 +354,15 @@ export function* vigilBars(rand = Math.random) {
 // recording or twentieth-century orchestral arrangement is redistributed.
 // The nine eighth-note units per bar keep the characteristic galloping pulse.
 export const VALKYRIES=Object.freeze({name:'valkyrie',bpm:280,beatsPerBar:9,hall:.38,scale:'D minor / D major'});
+// Compact D-minor transposition of the original public-domain ascending
+// arpeggio and echo motif: D–A–D–F–D–F, alternating with a higher answer.
+// The famous call must be recognizable from its pitches, not merely 9/8 drums.
 const VALKYRIE_CALLS=Object.freeze([
- [['A4',0,1.5],['D5',1.5,1.5],['F5',3,2.5],['E5',6,1],['D5',7,2]],
- [['A4',0,1.5],['D5',1.5,1.5],['F5',3,2.5],['G5',6,1],['A5',7,2]],
- [['A4',0,1.5],['D5',1.5,1.5],['F#5',3,2.5],['E5',6,1],['D5',7,2]],
- [['G4',0,1.5],['C#5',1.5,1.5],['E5',3,2.5],['F#5',6,1],['A5',7,2]],
-]);
+ ['D4','A3','D4','F4','D4','F4','D4','F4'],
+ ['A4','F4','A4','F4','A4','C5','A4','D5'],
+ ['A4','D5','F5','D5','F5','D5','F5','A5'],
+ ['F5','A5','F5','A5','C6','A5','D6','A5'],
+].map(line=>line.map((note,i)=>[note,[0,1.5,3,4,5,6,7,8][i],i<2?1.5:1])));
 export function* valkyrieBars(){
  let index=0;
  while(true){
@@ -376,7 +379,7 @@ export function* valkyrieBars(){
    events.push({inst:major?'war':'dum',beat,beats:.55,vel:major ? 0.86 : 0.38,layer:0});
    events.push({inst:'strings',midi:noteToMidi(major?'D3':'A3'),beat,beats:.75,vel:.9,layer:0,pan:.25});
   }
-  yield {piece:'valkyrie',section:'riding-call',index:i,chord:i===2?'D':'Dm',events};
+  yield {piece:'valkyrie',section:'riding-call',index:i,chord:'Dm',events};
  }
 }
 
