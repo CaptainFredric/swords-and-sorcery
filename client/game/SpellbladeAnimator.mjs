@@ -5,6 +5,7 @@ import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
+import { MountedSwordArm } from './mountedSwordArm.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
@@ -271,7 +272,17 @@ export class SpellbladeAnimator {
   }
 
   applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
-  applyFightFlight(grips, priority = false, machine = null, now = 0, dt = 1/60){this.flightRider.apply(grips,machine,now,priority,dt);this.#followPauldrons();}
+  // combat: { attackAge, guarding, yawOffset } for the mounted sword arm (mountedSwordArm.mjs), which takes the sword
+  // arm from the riding pose while a strike or the guard has it
+  applyFightFlight(grips, priority = false, machine = null, now = 0, dt = 1/60, combat = null){
+    this.flightRider.apply(grips,machine,now,priority,dt);
+    this.mountedSword ??= new MountedSwordArm(this.root, this.boneApi);
+    this.root.updateMatrixWorld(true);
+    _rootInv.copy(this.root.matrixWorld).invert();
+    this.root.getWorldQuaternion(_rootQuatInv).invert();
+    this.mountedSword.apply(combat, now, dt);
+    this.#followPauldrons();
+  }
   applyRam(station){
     this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
     this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);

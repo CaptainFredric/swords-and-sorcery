@@ -100,6 +100,9 @@ import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
+// the mounted Fight-and-Flight sight's near clip (metres): past the rider's own shoulder plates, short of his fist
+const FLIGHT_SIGHT_NEAR = 0.35;
+
 // the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
 // crisp where you fight instead of soft over the whole arena
 const SHADOW_REACH = 16;
@@ -3348,7 +3351,14 @@ export class GameRuntime {
     return {...wanted,...aim,siegeTarget,mounted:true};
   }
 
+  flightSightNear(sight) {
+    this.cameraNear ??= this.camera.near;
+    const near = sight ? Math.max(this.cameraNear, FLIGHT_SIGHT_NEAR) : this.cameraNear;
+    if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }
+  }
+
   #mountedView(dt) {
+    if(!(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight))this.flightSightNear(false);
     if(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight){
       const m=this.latestSnapshot.fightFlight;
       this.flightCameraMotion ??= new FlightCameraMotion();
@@ -3386,6 +3396,9 @@ export class GameRuntime {
       if(![target.x,target.y,target.z].every(Number.isFinite))target.copy(eye);
       target.y=Math.max(target.y,m.y+1.10,
         Number.isFinite(ground)?ground+.88:-Infinity);
+      // From the mounted sight the rider's own shoulder plates come within a span of the eye as the sword arm comes
+      // up (a knight sees his blade and fist, not the inside of his pauldron): nothing nearer than this is drawn.
+      this.flightSightNear(isFirstPerson);
       if (isFirstPerson) {
         this.camera.position.copy(target);
         if (motion.offset) {
@@ -3930,7 +3943,13 @@ export class GameRuntime {
         const attacking = Boolean(driverPlayer?.attackActive || (flightPose.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
         if(this.flightRenderer.model){
           try{
-            driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt);
+            // (the sword arm's strike or guard, timed from the chain's start and turned to where the rider aims)
+            const combat = {
+              attackAge: driverPlayer?.attackActive && Number.isFinite(driverPlayer.attackStartedAt) ? serverNow - driverPlayer.attackStartedAt : null,
+              guarding: Boolean(driverPlayer?.guarding),
+              yawOffset: Number.isFinite(driverPlayer?.yaw) && Number.isFinite(flightPose.heading) ? Math.atan2(Math.sin(driverPlayer.yaw - flightPose.heading), Math.cos(driverPlayer.yaw - flightPose.heading)) : 0,
+            };
+            driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips(), attacking || driverPlayer?.guarding, flightPose, serverNow, dt, combat);
           }catch(_e){
             // Procedural IK error must never stall the render loop
           }
