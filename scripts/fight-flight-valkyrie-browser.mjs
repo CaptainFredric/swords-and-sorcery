@@ -211,7 +211,7 @@ try{
      y:m?.y,grounded:m?.grounded,run:m?.offensiveRun,
      phase:m?.runGroundPhase,runPitch:m?.runPitch,fov:c.fov,
      matrix:c.projectionMatrix.elements.slice(),view:r.siegeView,
-     input:r.input.enabled};
+     input:r.input.enabled,recoveries:r.frameRecoveryCount??0};
  })()`;
  for(let cycle=0;cycle<3;cycle++){
    await evaluate("document.querySelector('#practice-ultimate').click()");
@@ -259,8 +259,29 @@ try{
  assert.ok(afterFault.input,'recovering the visual camera must not disable gameplay');
  await screenshot('08-visual-failure-recovered');
 
+ // Verify a REAL thrown client render exception no longer kills the RAF loop.
+ // A once-only GLB camera-node error used to strand the visual callback:
+ // authoritative host ticks kept moving, but the game image froze.
+ const prior=await evaluate(cameraProbe);
+ await evaluate(`(() => {
+   const r=window.__ssRuntime, renderer=r.flightRenderer;
+   const original=renderer.getMountedCameraPosition.bind(renderer);
+   renderer.getMountedCameraPosition=(...args)=>{
+     renderer.getMountedCameraPosition=original;
+     throw new Error('Injected once-only Valkyrie camera locator error');
+   };
+ })()`);
+ await sleep(350);
+ const afterException=await evaluate(cameraProbe);
+ assert.ok(afterException.recoveries>prior.recoveries,'injected visual failure hit recovery path');
+ assert.ok(afterException.frame>prior.frame+5,'visual renderer keeps presenting after a thrown camera exception');
+ assert.ok(afterException.position.every(Number.isFinite)&&afterException.matrix.every(Number.isFinite),
+   'fallback cockpit position/projection remains valid');
+ assert.ok(afterException.input,'render exception must not release controls or stop simulation');
+ await screenshot('09-throwing-camera-recovers-without-reload');
+
  const trace=await evaluate("window.__valkyrieTrace??[]");
- const result={before,mounted,flying,ready,committed,curved,recovered,repeatCamera,afterFault,trace,
+ const result={before,mounted,flying,ready,committed,curved,recovered,repeatCamera,afterFault,afterException,trace,
   travelMetres:recovered.machine.runTravel,
   turnRadians:Math.atan2(Math.sin(curved.machine.heading-startHeading),Math.cos(curved.machine.heading-startHeading)),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
