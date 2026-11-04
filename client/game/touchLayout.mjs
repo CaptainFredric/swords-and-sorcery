@@ -322,9 +322,32 @@ function migrateLegacyLayout(parsed){
   }
   return result;
 }
-export function loadTouchLayout(storage=globalThis.localStorage){
+// Browsers embedded in third-party frames may reject localStorage. Preserve
+// edits in this tab and report durable-save failure rather than silently
+// discarding edits when the workshop reopens.
+const sessionLayouts=new WeakMap();
+let deniedStorageCache=null;
+function resolveStorage(explicit){
+  if(explicit!==undefined)return explicit;
+  try{return globalThis.localStorage;}catch{return null;}
+}
+function cachedState(store){
+  return store&&typeof store==='object'?sessionLayouts.get(store):deniedStorageCache;
+}
+function cacheState(store,state){
+  if(store&&typeof store==='object')sessionLayouts.set(store,state);
+  else deniedStorageCache=state;
+}
+export function loadTouchLayout(storage=undefined){
   try{
-    const raw=storage?.getItem?.('ss-touch-layout');
+    const store=resolveStorage(storage);
+    let raw=null,readSucceeded=false;
+    try{raw=store?.getItem?.('ss-touch-layout')??null;readSucceeded=Boolean(store?.getItem);}
+    catch{}
+    const cache=cachedState(store);
+    // A genuine missing/cleared key is respected. Fall back to memory only
+    // when persistent writes/reads are unavailable.
+    if(!raw&&(!readSucceeded||cache?.persisted===false))raw=cache?.value??null;
     if(!raw)return defaultLayouts();
     const parsed=JSON.parse(raw);
     if(!parsed||typeof parsed!=='object')return defaultLayouts();
@@ -338,7 +361,7 @@ export function loadTouchLayout(storage=globalThis.localStorage){
     return migrateLegacyLayout(parsed);
   }catch{return defaultLayouts();}
 }
-export function saveTouchLayout(layout,storage=globalThis.localStorage){
+export function saveTouchLayout(layout,storage=undefined){
   try{
     const presets=Object.fromEntries(PAGES.map(mode=>[mode,safeSide(layout.presets?.[mode])]));
     const overrides={};
@@ -351,12 +374,21 @@ export function saveTouchLayout(layout,storage=globalThis.localStorage){
         if(patch)overrides[mode][action]=patch;
       }
     }
-    storage?.setItem?.('ss-touch-layout',JSON.stringify({
+    const value=JSON.stringify({
       schemaVersion:TOUCH_LAYOUT_SCHEMA_VERSION,presets,overrides,
       opacity:Number.isFinite(layout.opacity)?layout.opacity:DEFAULT_OPACITY,
       handedness:safeSide(layout.handedness),
-    }));
-  }catch{}
+    });
+    const store=resolveStorage(storage);
+    let persisted=false;
+    try{
+      if(typeof store?.setItem==='function'){
+        store.setItem('ss-touch-layout',value);persisted=true;
+      }
+    }catch{}
+    cacheState(store,{value,persisted});
+    return persisted;
+  }catch{return false;}
 }
 
 export function clearLayoutItem(element){
