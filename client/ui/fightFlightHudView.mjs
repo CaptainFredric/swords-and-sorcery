@@ -1,5 +1,6 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {SIEGE_SKILL_NAMES} from '../../shared/src/siegeLoadout.mjs';
+import {ascensionValkyrieReady} from '../../shared/sim/fightFlightSkill.mjs';
 // Fight-and-Flight Gate A: authoritative resources, airborne posture and real control hints.
 const key=(bindings,action,fallback)=>[...new Set((bindings?.[action]??[])
   .map(code=>code.replace(/^Key/,'').replace(/Left$|Right$/g,'').replace(/^Space$/,'SPACE')))].join('/')||fallback;
@@ -20,12 +21,13 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     skill.trackingState==='noClearShot'?'NO CLEAR SHOT':
     skill.trackingState==='sightLost'?'SIGHT LOST':
     skill.trackingState==='locked'?'TARGET LOCKED':'ACQUIRING':
-    variant==='doNotStopMyAscension'&&active?'CHARGE DASH':
+    variant==='doNotStopMyAscension'&&active?'CHARGE DASH · VALKYRIE READY WHEN FULL':
     active?'FIRE AWAY '+Math.max(0,skill.activeUntil-now).toFixed(1)+'s':
     now<(skill.readyAt??0)?Math.ceil(skill.readyAt-now)+'s':'READY';
   const debt=Math.max(0,m.ammoDebt??0),reserve=Math.max(0,m.ammo??0);
   const readiness=skillName.toUpperCase()+' · '+skillState;
   const preparing=m.terminalPrep?.phase==='holding';
+  const diveReady=ascensionValkyrieReady(m,player,now);
   const terminal=Boolean(m.terminalDive&&!m.terminalDive.resolved);
   const commitment=preparing?'VALKYRIE DIVE · HOLD DASH + ULTIMATE '+Math.max(0,(m.terminalPrep.until-now)).toFixed(1)+'s':terminal?'VALKYRIE DIVE · COMMITTED':' ';
   const grounded=terminal?'TERMINAL DESCENT':preparing?'VALKYRIE PREPARING':supported?(m.crouched?'CROUCHED':'GROUNDED'):m.mode==='FALLING'?'ROTOR LOST':m.mode==='LANDING'?'DESCENDING':'AIRBORNE';
@@ -37,6 +39,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   else if (preparing) warning = 'VALKYRIE PREPARING · ' + Math.max(0, (m.terminalPrep.until - now)).toFixed(1) + 's';
   else if (active&&variant==='narrowToOne'&&skill.trackingState==='noClearShot') warning = 'NO CLEAR SHOT · GUARD, COVER OR TRAVERSE';
   else if (active&&variant==='narrowToOne'&&skill.trackingState==='sightLost') warning = 'TARGET OUT OF SIGHT · FIRING ENDS LOCK';
+  else if (variant==='doNotStopMyAscension'&&active&&diveReady) warning='VALKYRIE AVAILABLE · HOLD DASH + ULTIMATE 1s';
   else if (!supported && charge < 15) warning = 'LOW FLIGHT CHARGE';
   else if (m.crossbowAimLimited) warning = 'AIM OUTSIDE CROSSBOW ARC · MUZZLE PATH DIFFERS';
 

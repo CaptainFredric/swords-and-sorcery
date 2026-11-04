@@ -4,6 +4,7 @@ import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import {ascensionValkyrieReady} from '../../shared/sim/fightFlightSkill.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
@@ -593,7 +594,7 @@ export class TouchControls {
           const status=dashBtn.querySelector('.touch-status');
           if(status)status.textContent=spool==='SPINUP'?'SPIN 450':spool==='ASCENT'?'LIFT':
             dashNoRotor?'ROTOR':dashNoProwess&&!offensiveActive?'METER':'';
-          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' :
+          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate for one second to commit Ascension Valkyrie Dive' :
             spool==='SPINUP'?'Spooling rotor to 450 RPM for ground Dash':
             spool==='ASCENT'?'Taking off for ground Dash':
             dashNoRotor?'Rotor destroyed':dashNoProwess?'Dash requires Prowess':
@@ -601,7 +602,7 @@ export class TouchControls {
             dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
-        const valkyrieReady = flight && !fb?.terminalDive && !fb?.terminalDiveSpent && (fb?.rotorHP ?? 0) > 0 && local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100;
+        const valkyrieReady = flight && ascensionValkyrieReady(fb,local,serverNow);
         this.valkyrieEligible = valkyrieReady;
         const uBtn = this.buttons.ultimate;
         if (uBtn) {

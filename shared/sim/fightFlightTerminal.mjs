@@ -1,7 +1,7 @@
-// Terminal Valkyrie Dive: deliberate Dash+ready-Chivalry held commitment.
+// Terminal Valkyrie Dive: active Ascension + ready Chivalry + held Dash/Ultimate.
 // Actual moving machine, one expenditure per lifecycle, one outcome at real impact.
 // Both input state and destruction are authoritative; no client damage or teleports.
-import {PROWESS} from '../src/prowess.mjs';
+import {ascensionValkyrieReady} from './fightFlightSkill.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
@@ -14,8 +14,7 @@ export const TERMINAL=Object.freeze({holdSec:1,timeout:5,maxSpeed:25,
   gravity:18,burnPerSec:10,explosionRadius:8,explosionDamage:105,
   fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.55});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const ready=(m,p)=>Boolean(m&&!m.terminalDive&&!m.terminalDiveSpent&&m.rotorHP>0&&
-  p?.alive&&p.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full);
+const ready=(m,p,now)=>ascensionValkyrieReady(m,p,now);
 const operator=(room,m,p)=>Boolean(m&&m.mode!=='DESTROYED'&&m.health>0&&
   p?.alive&&room.players.get(p.id)===p&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);
 export function setFlightUltimateHold(room,m,p,down,now){
@@ -35,19 +34,22 @@ export function stepTerminalPreparation(room,m,now){
  if(!m||m.retired||m.mode==='DESTROYED'||m.terminalDive)return;
  const p=room.players.get(m.operatorId);
  const both=Boolean(operator(room,m,p)&&!m.grounded&&m.flightDashHeld&&m.flightUltimateHeld);
- if(!both||!ready(m,p)){
+ if(!both||!ready(m,p,now)){
   if(m.terminalPrep){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
   return;
  }
  if(!m.terminalPrep){
   m.terminalPrep={phase:'holding',startedAt:Math.max(m.flightDashStartedAt??now,m.flightUltimateDownAt??now),until:now+TERMINAL.holdSec};
   m.flightUltimateChordAttempted=true;
+  // The charged rotor stays powered through commitment; never reset velocity
+  // or emit an ordinary Dash release in the pre-commit tick.
+  m.rotorPowered=true;
   m.offensiveRun=false;
   room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,operatorId:p.id,action:'started',until:m.terminalPrep.until,at:now});
  }
  if(now+1e-8<m.terminalPrep.until)return;
  // Validate again before irrevocably spending the actual ready Chivalry.
- if(!ready(m,p))return;
+ if(!ready(m,p,now))return;
  p.prowess=0;
  m.terminalDiveSpent=true;
  m.terminalDive={operatorId:p.id,startedAt:now,expiresAt:now+TERMINAL.timeout,

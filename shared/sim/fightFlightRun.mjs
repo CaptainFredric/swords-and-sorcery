@@ -4,7 +4,7 @@ import {PROWESS} from '../src/prowess.mjs';
 import {activeUltimate} from '../src/ultimates.mjs';
 import {tryDash} from './combat.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
-import {fightFlightSkillActive,ASCENSION} from './fightFlightSkill.mjs';
+import {fightFlightSkillActive,ASCENSION,ascensionValkyrieReady} from './fightFlightSkill.mjs';
 import {FIGHT_FLIGHT} from './fightFlight.mjs';
 export const VALKYRIE_RUN=Object.freeze({
   drainPerSec:42,practiceRefillPerSec:70,speed:18,
@@ -108,7 +108,7 @@ export function stepFlightRun(room,m,dt,now){
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
  // Reserve Chivalry's full meter briefly for a deliberate Dash+Ultimate
  // chord, without withholding propulsion during the decision window.
- const chordReserve=Boolean(p?.ultimate==='chivalry'&&!p.ultimateState&&(p.prowess??0)>=PROWESS.full&&
+ const chordReserve=Boolean(ascensionValkyrieReady(m,p,now)&&
    m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
  const ascension=fightFlightSkillActive(m,now,ASCENSION.id);

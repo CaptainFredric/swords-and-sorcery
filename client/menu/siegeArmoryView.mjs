@@ -18,7 +18,7 @@ const EXPLANATIONS={
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
  fireAwayRightHere:'For 3.5 seconds, the repeater can fire borrowed bolts. Reloading repays those debts first; release Fire to stabilize hover.',
   narrowToOne:'Lock a single visible enemy. Hold Fire to strike exposed regions within the crossbow’s real traverse. Losing sight and firing ends the lock; landing permits a new target.',
-  doNotStopMyAscension:'Until your next actual repeater bolt, rotor Dash spends flight charge at the ordinary Rise rate instead of prowess. Empty charge ends the Dash.'
+  doNotStopMyAscension:'Until your next repeater bolt, rotor Dash uses flight charge instead of prowess, at the Rise rate. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 export function siegeArmoryView(choice){
  const selected=normalizeSiegeLoadout(choice);
