@@ -507,6 +507,36 @@ try {
   // The independent Ballista edit must not alter a visible flight action.
   assert.ok(await evaluate("window.__ssRuntime.touchLayoutEditor.layouts.flight.siegeSkill.size!==74"));
 
+  // The stencil has its OWN workshop hit-target, saved position and size;
+  // moving it does not change any ordinary mounted action placement.
+  const stencilEditor=await evaluate(`(() => {
+    const rt=window.__ssRuntime,editor=rt.touchLayoutEditor;
+    const before=editor.layouts.flight.jump.right;
+    const surface=rt.touch.valkyrieStencil;
+    const grip=surface.querySelector('.touch-valkyrie-grip');
+    const rect=grip.getBoundingClientRect();
+    const x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+    grip.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,
+      pointerId:256,pointerType:'touch',clientX:x,clientY:y}));
+    window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,cancelable:true,
+      pointerId:256,pointerType:'touch',clientX:x-30,clientY:y-12}));
+    window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,
+      pointerId:256,pointerType:'touch',clientX:x-30,clientY:y-12}));
+    const slider=document.querySelector('.tle-controls [data-action="size"]');
+    slider.value='220';slider.dispatchEvent(new Event('input',{bubbles:true}));
+    return {selected:editor.selectedAction,
+      size:editor.layouts.flight.valkyrieStencil.size,
+      moved:editor.layouts.flight.valkyrieStencil.right!==14,
+      jumpUnchanged:editor.layouts.flight.jump.right===before,
+      visible:!surface.hidden,width:surface.getBoundingClientRect().width};
+  })()`);
+  assert.equal(stencilEditor.selected,'valkyrieStencil','the stencil can be individually grabbed');
+  assert.equal(stencilEditor.size,220,'the stencil scales independently from the buttons');
+  assert.ok(stencilEditor.moved,'stencil can be dragged without moving ordinary controls');
+  assert.ok(stencilEditor.jumpUnchanged,'custom rune placement cannot alter Jump');
+  assert.ok(stencilEditor.visible&&stencilEditor.width>180,
+    'the new stencil is visible and has the true resized touch area');
+
   // Capture Touch Layout Editor screenshot
   await captureScreenshot('mobile-flight-touch-editor.png');
 
@@ -576,24 +606,56 @@ try {
   const beforeDive=await evaluate("(() => {const m=window.__ssRuntime.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP};})()");
   assert.ok(beforeDive.y>2&&beforeDive.charge>0&&beforeDive.rotor>0);
 
-  await evaluate(`(() => {
-    for(const [selector,id] of [['.touch-dash',273],['.touch-ultimate',274]]){
-      const b=document.querySelector(selector),r=b.getBoundingClientRect();
-      b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:id,
-        pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
+  await until(()=>evaluate("(() => {const rt=window.__ssRuntime;return rt.touch.valkyrieEligible && !rt.touch.valkyrieStencil.hidden;})()"),
+    'stencil appears only while real terminal input is eligible',100,150);
+  // The actual pointer originates from the same physical position, but the
+  // buttons are deliberately hidden before tracing: all eight checkpoints
+  // belong to the independent stencil, not to the button targets.
+  const drawn=await evaluate(`(() => {
+    const rt=window.__ssRuntime,touch=rt.touch,
+      stencil=touch.valkyrieStencil,r=stencil.getBoundingClientRect();
+    const points=[[201,127],[201,45],[112,143],[92,47],
+      [201,127],[169,15],[102,8],[39,30]];
+    const pt=p=>({x:r.left+p[0]/240*r.width,y:r.top+p[1]/240*r.height});
+    const event=(kind,p)=>{
+      const v=pt(p);
+      touch.layer.dispatchEvent(new PointerEvent(kind,{
+        bubbles:true,cancelable:true,pointerId:273,pointerType:'touch',
+        clientX:v.x,clientY:v.y}));
+    };
+    for(const key of ['jump','dash','ultimate'])touch.buttons[key].hidden=true;
+    const beforeSources={dash:rt.input.flightDashSources.size,
+      ultimate:rt.input.flightUltimateSources.size};
+    event('pointerdown',points[0]);
+    const stages=[];
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i];
+      for(const t of [.3,.65,1]){
+        event('pointermove',[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);
+      }
+      stages.push({checkpoint:i,index:touch.ritual?.index,
+        progress:touch.ritual?.index==null?null:
+          (touch.ritual.index+touch.ritual.segmentProgress)/7});
     }
+    const complete=touch.ritual?.completed??false;
+    event('pointerup',points.at(-1));
+    return {beforeSources,stages,complete,held:touch.held.size,
+      afterSources:{dash:rt.input.flightDashSources.size,
+        ultimate:rt.input.flightUltimateSources.size}};
   })()`);
-  await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.prep==='holding')"),'real mobile Dash+Ultimate one-second preparation',150,150);
+  assert.ok(drawn.complete,'full Dagaz and halo trace must complete on the real touch layer');
+  assert.equal(drawn.stages.at(-1).index,7,'final halo checkpoint reached');
+  assert.ok(drawn.stages[3].progress>.4&&drawn.stages[6].progress>=1,
+    'the rune becomes progressively brighter through the final halo');
+  assert.deepEqual(drawn.beforeSources,{dash:0,ultimate:0},
+    'stencil does not require a simulated held Dash or Ultimate');
+  assert.deepEqual(drawn.afterSources,{dash:0,ultimate:0},
+    'ritual never presses underlying buttons, including hidden ones');
+  await captureScreenshot('mobile-flight-valkyrie-stencil-complete.png');
   await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.dive&&s.spent)"),'mobile terminal dive committed once',150,150);
   await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive?.resolved===true"),'mobile terminal impact resolved',150,150);
   const mobileValkyrie=await evaluate("({before:window.__mobileValkyrieTrace[0],trace:window.__mobileValkyrieTrace,errors:window.__mobileValkyrieErrors,final:{mode:window.__ssRuntime.latestSnapshot.fightFlight.mode,spent:window.__ssRuntime.latestSnapshot.fightFlight.terminalDiveSpent}})");
-  await evaluate(`(() => {
-    for(const [selector,id] of [['.touch-dash',273],['.touch-ultimate',274]]){
-      const b=document.querySelector(selector),r=b.getBoundingClientRect();
-      b.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:id,
-        pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
-    }
-  })()`);
+
   assert.equal(mobileValkyrie.before?.spent,false,'precommit touch frame does not consume Chivalry');
   assert.equal(mobileValkyrie.final.spent,true);
   assert.equal(mobileValkyrie.final.mode,'DESTROYED');
@@ -601,7 +663,7 @@ try {
   assert.deepEqual(browserErrors,[],'no Chrome unhandled exception or renderer crash');
   await writeFile(path.join(evidenceDir,'mobile-valkyrie-terminal.json'),JSON.stringify(mobileValkyrie,null,2));
   await captureScreenshot('mobile-flight-valkyrie-terminal-aftermath.png');
-  console.log('[PASS] Full real mobile Valkyrie chord, terminal impact and clean browser state');
+  console.log('[PASS] Full real mobile Dagaz stencil, terminal impact and clean browser state');
   console.log('[PASS] All verification scenarios passed successfully!');
 
 } catch (err) {
