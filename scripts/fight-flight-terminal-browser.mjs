@@ -167,14 +167,19 @@ try{
  assert.ok(beforeChord.machine.y>.5,'must be airborne at terminal input');
  // Observe rendered Spellblade frames across a subsecond terminal dive.
  // Sparse Chrome debugger polls otherwise miss an entire genuine animation.
- await evaluate("(() => {const samples=window.__terminalPitchTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
+ await evaluate("(() => {const samples=window.__terminalPitchTrace=[],prepSamples=window.__terminalPrepTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalPrep?.phase==='holding')prepSamples.push({phase:m.terminalPrep.phase,remaining:m.terminalPrep.until-(r?.latestSnapshot?.serverTime??0),spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth?.prowess,skill:m.skill?.id});if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
  await down('E');await down('R');
- await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalPrep)"),'visible one-second terminal chord preparation',100);
- assert.equal(await evaluate("window.__ssRuntime.latestSnapshot.fightFlight.skill.id"),'doNotStopMyAscension');
- const prep=await evaluate(flightState);
- assert.equal(prep.machine.terminalDiveSpent,false,'preparation must not pre-consume final dive');
- assert.ok(prep.player.prowess>=100,'precommit meter must remain unspent');
- await screenshot('04-terminal-preparing');
+ // Record preparation at the render-frame where it occurs. A CDP inspection
+ // can take longer than the entire one-second chord on a software GPU;
+ // reading the *later* current snapshot would report a legitimately committed
+ // dive and falsely call it an early spend (the former flaky crash-gate test).
+ await until(()=>evaluate("Boolean(window.__terminalPrepTrace?.length)"),'rendered one-second terminal chord preparation',100);
+ const prep=await evaluate("window.__terminalPrepTrace[0]");
+ assert.equal(prep.skill,'doNotStopMyAscension');
+ assert.equal(prep.spent,false,'preparation must not pre-consume final dive');
+ assert.ok(prep.prowess>=100,'precommit meter must remain unspent');
+ assert.ok(prep.remaining>0,'the full one-second preparation must be observed');
+ await screenshot('04-terminal-sequence');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),'real one-second Valkyrie commitment',160);
  const pitchEvidence=await until(()=>evaluate("(() => {const trace=window.__terminalPitchTrace??[],m=window.__ssRuntime?.latestSnapshot?.fightFlight,found=trace.find(s=>s.visible&&s.pitch>.3&&Math.abs(s.rider+s.pitch)<.12);return found?{observed:true,...found}:m?.terminalDive?.resolved?{observed:false,resolved:true}:null;})()"),'rendered Spellblade pitch during physical terminal dive',150);
  assert.equal(pitchEvidence.observed,true,'a real visible rider frame must match chassis pitch, not merely the server state');
