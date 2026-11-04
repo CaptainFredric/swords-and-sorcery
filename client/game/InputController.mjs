@@ -133,6 +133,8 @@ export class InputController {
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
+    // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
+    if(this.mountedRam&&action==='dash')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
