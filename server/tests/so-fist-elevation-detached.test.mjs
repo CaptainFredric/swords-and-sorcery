@@ -6,6 +6,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
 import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw} from '../../shared/sim/soFistDetachedFist.mjs';
+import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
 
 function setup(skill='beatToThePunch'){
  const room=new Room('LIFT',{mode:'PRACTICE'});room.state='PLAYING';
@@ -107,4 +108,23 @@ test('Abyss recovery requires original spawn, dismount, machine lockout, full co
  assert.equal(s.b.fistMounted,true);
  assert.equal(s.b.components.Fist.health,197,'the lost fist was not repaired');
  assert.equal(mountSoFistication(s.room,s.b,s.p,28),true);
+});
+
+test('A raised physical piston can strike an airborne machine component instead of an invisible ground hitbox',()=>{
+ const s=setup();
+ const angle=50*Math.PI/180;
+ s.b.ramLiftY=SO_FIST_LIFT.maxRise;s.b.ramElevPitch=angle;
+ s.p.input={forward:0,right:0,yaw:0,pitch:angle};
+ s.b.strikeAt=0;s.b.strikeOperatorId=s.p.id;
+ const terminal=soFistStriker(s.b,.80);
+ const aircraft=s.room.fightFlight=createFightFlight({
+   id:'low-flyer',x:terminal.center[0],y:terminal.center[1]-.5,
+   z:terminal.center[2],heading:0
+ });
+ const health=aircraft.health,rotor=aircraft.rotorHP;
+ for(let i=1;i<=17;i++)stepSoFistication(s.room,s.b,1/30,.55+i/30,s.room.world);
+ assert.ok(aircraft.health<health||aircraft.rotorHP<rotor||
+   aircraft.braceLHP<80||aircraft.braceRHP<80,
+   'the rotated physical piston overlaps and damages a real flight component');
+ assert.ok(s.b.strokeMachines.includes(aircraft.id));
 });

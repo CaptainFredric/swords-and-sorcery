@@ -16,6 +16,7 @@ import {sampleTransform} from './history.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
 import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
+import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 import {SO_FIST_LIFT,soFistAllowedPitch} from './soFistElevation.mjs';
 import {requestLongArmToJaw,stepDetachedRamFist} from './soFistDetachedFist.mjs';
@@ -250,6 +251,37 @@ const p=room.players.get(b.operatorId);
      const oldOffset=soFistPose(b,now-dt).offset;
      b.strokeLimit=Math.max(oldOffset,oldOffset+(stroke.offset-oldOffset)*first.t-.002);
      b.strokeBlockedAt=now;}}
+ }
+ // An elevated piston can really punch a low-flying Fight-and-Flight.
+ // Component routing is authoritative: hitting the rotor damages the rotor,
+ // not an imaginary total-machine health box.
+ const flyer=room.fightFlight;
+ if(flyer&&flyer.health>0&&!flyer.retired&&stroke.active&&
+    !(b.strokeMachines??[]).includes(flyer.id)){
+  const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);let first=null;
+  for(const box of fightFlightHitVolumes(flyer)){
+   const size=box.size.map((v,i)=>v+
+    head.axes.reduce((n,axis,j)=>n+
+      Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
+   const hit=orientedBoxHit(old.center,head.center,{...box,size});
+   if(hit&&(!first||hit.t<first.t))first=hit;
+  }
+  if(first){
+   const armored=hasFist(b),damage=armored?110:75+
+      15*clamp(stroke.velocity/12.6,0,1);
+   if(damageFightFlight(room,flyer,damage,b.strikeOperatorId,
+      'so-fist',now,{componentId:first.box.componentId,
+        point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){
+    b.strokeMachines??=[];b.strokeMachines.push(flyer.id);
+    const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+    recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),
+      normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',
+      point:{x:first.point[0],y:first.point[1],z:first.point[2]}});
+    const oldOffset=soFistPose(b,now-dt).offset;
+    b.strokeLimit=Math.max(oldOffset,oldOffset+
+      (stroke.offset-oldOffset)*first.t-.002);b.strokeBlockedAt=now;
+   }
+  }
  }
  const budget=b.structureChargeBudget;
  if(budget){const def=world.structures?.find(v=>v.id===budget.id),head=soFistStriker(b,now);if(!def||!(world.solids??[]).some(v=>def.solidIds.includes(v.id)&&Math.hypot(...head.center.map((n,i)=>Math.max(0,Math.abs(n-v.center[i])-v.size[i]/2-head.size[i]/2)))<1))b.structureChargeBudget=null;}
