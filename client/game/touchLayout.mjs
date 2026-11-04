@@ -285,7 +285,14 @@ function legacyPage(mode,saved,side){
       .filter(layout=>layout[action])
       .map(layout=>({patch:placementPatch(item,layout[action])}))
       .sort((a,b)=>Object.keys(a.patch??{}).length-Object.keys(b.patch??{}).length)[0];
-    if(reference?.patch)result[action]=mergePlacement(base[action],reference.patch);
+    // Legacy right-handed Crouch had one historical factory coordinate
+    // also used by an explicitly edited button. Preserve that position when
+    // the save actually marked Crouch custom (the unmarked preset migrates).
+    const provenance=mode==='onFoot'&&side==='right'&&action==='crouch'&&
+      item.custom===true&&reference?.patch==null?
+        placementPatch(item,base[action]):null;
+    const patch=reference?.patch??provenance;
+    if(patch)result[action]=mergePlacement(base[action],patch);
   }
   return result;
 }
