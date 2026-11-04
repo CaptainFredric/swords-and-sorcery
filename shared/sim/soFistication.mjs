@@ -47,7 +47,7 @@ function stepRamElevation(room,b,dt,now,world){
   -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
  // A high-pitched ram cannot lower its saddle through the trunnion. Retract
  // its pitch at the physical rate and limit the vertical descent accordingly.
- const neededLift=SO_FIST_LIFT.maxRise*clamp(
+ const neededLift=SO_FIST_LIFT.pitchClearanceRise*clamp(
   (nextPitch-SO_FIST_LIFT.lowPitch)/(SO_FIST_LIFT.maxPitch-SO_FIST_LIFT.lowPitch),0,1);
  nextLift=Math.max(nextLift,Math.min(startLift,neededLift));
  const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
