@@ -373,7 +373,7 @@ export function* valkyrieBars(){
   }
   for(let beat=0;beat<9;beat+=1.5){
    const major=beat===0||beat===4.5;
-   events.push({inst:major?'war':'dum',beat,beats:.55,vel:major?.86:.38,layer:0});
+   events.push({inst:major?'war':'dum',beat,beats:.55,vel:major ? 0.86 : 0.38,layer:0});
    events.push({inst:'strings',midi:noteToMidi(major?'D3':'A3'),beat,beats:.75,vel:.9,layer:0,pan:.25});
   }
   yield {piece:'valkyrie',section:'riding-call',index:i,chord:i===2?'D':'Dm',events};

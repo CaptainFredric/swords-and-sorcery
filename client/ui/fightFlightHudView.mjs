@@ -21,7 +21,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     skill.trackingState==='noClearShot'?'NO CLEAR SHOT':
     skill.trackingState==='sightLost'?'SIGHT LOST':
     skill.trackingState==='locked'?'TARGET LOCKED':'ACQUIRING':
-    variant==='doNotStopMyAscension'&&active?'CHARGE DASH · VALKYRIE READY WHEN FULL':
+    variant==='doNotStopMyAscension'&&active?'CHARGE DASH':
     active?'FIRE AWAY '+Math.max(0,skill.activeUntil-now).toFixed(1)+'s':
     now<(skill.readyAt??0)?Math.ceil(skill.readyAt-now)+'s':'READY';
   const debt=Math.max(0,m.ammoDebt??0),reserve=Math.max(0,m.ammo??0);
