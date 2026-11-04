@@ -33,7 +33,7 @@ test('SO-FIST-ICATION lift and pitch move the REAL piston hitbox, not its wheels
  const s=setup(),rest=soFistStriker(s.b,0);
  const wheel=soFistVolumes(s.b,0).find(v=>v.componentId==='Wheel_FL').center.slice();
  const seat=soFistEntry(s.b,s.room.world);
- step(s,2,{ramRaise:true,pitch:42*Math.PI/180});
+ step(s,2,{ramRaise:true,ramPitchUp:true,pitch:-.8});
  assert.ok(s.b.ramLiftY>=SO_FIST_LIFT.nominalRise);
  assert.ok(s.b.ramLiftY<=SO_FIST_LIFT.maxRise);
  assert.ok(s.b.ramElevPitch>35*Math.PI/180);
@@ -45,7 +45,7 @@ test('SO-FIST-ICATION lift and pitch move the REAL piston hitbox, not its wheels
  assert.ok(raised.axes[2][1]>.5,'forward striking axis points upward');
 });
 test('Elevating makes a charge inefficient and the regular piston still fires while raised',()=>{
- const s=setup();step(s,2,{ramRaise:true,pitch:.5});
+ const s=setup();step(s,2,{ramRaise:true,ramPitchUp:true});
  assert.equal(s.b.charging,false);
  assert.equal(fireSoFistication(s.room,s.b,2.2),true);
  assert.ok(soFistStriker(s.b,2.85).axes[2][1]>0);
@@ -53,6 +53,34 @@ test('Elevating makes a charge inefficient and the regular piston still fires wh
  assert.equal(fireSoFistication(s.room,s.b,6.3),true);
  assert.equal(soFistStriker(s.b,6.9).componentId,'Piston',
    'destroying the glove does not destroy the striker');
+});
+test('ram hydraulic controls do not follow camera pitch and preserve their held mechanical angle',()=>{
+ const s=setup();
+ step(s,1,{pitch:1.1});
+ assert.equal(s.b.ramElevPitch,0,'looking toward a bridge must not elevate the weapon');
+ step(s,2,{ramRaise:true},1);
+ assert.ok(s.b.ramLiftY>=SO_FIST_LIFT.nominalRise);
+ assert.equal(s.b.ramElevPitch,0,'lifting the assembly does not automatically tilt the front');
+ step(s,1,{ramPitchUp:true,pitch:-.9},3);
+ const elevated=s.b.ramElevPitch;
+ assert.ok(elevated>35*Math.PI/180,'explicit pitch-up drives the rear trunnion');
+ step(s,.5,{pitch:1.3},4);
+ assert.ok(Math.abs(s.b.ramElevPitch-elevated)<1e-6,
+   'releasing controls holds front angle despite operator looking around');
+ step(s,1,{ramPitchDown:true},4.5);
+ assert.ok(s.b.ramElevPitch<.05,'pitch-down retracts the same physical joint');
+});
+test('lowering a fully tilted ram retracts its pitch as necessary instead of forcing through its frame',()=>{
+ const s=setup();
+ step(s,2,{ramRaise:true,ramPitchUp:true});
+ assert.ok(s.b.ramElevPitch>SO_FIST_LIFT.lowPitch);
+ step(s,.2,{crouch:true},2);
+ assert.ok(s.b.ramLiftY>=0);
+ assert.ok(s.b.ramElevPitch<=SO_FIST_LIFT.maxPitch);
+ step(s,2,{crouch:true},2.2);
+ assert.ok(s.b.ramLiftY<.03,'lowering eventually returns the saddle to its rest');
+ assert.ok(s.b.ramElevPitch<=SO_FIST_LIFT.lowPitch+.001,
+   'saddle cannot enter the low position with a forbidden high pitch');
 });
 test('Long Arm launches once, then exposes the weaker piston without restoring glove HP',()=>{
  const s=setup('longArmToTheJaw');
