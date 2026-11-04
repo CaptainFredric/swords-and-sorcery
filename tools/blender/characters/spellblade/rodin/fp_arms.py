@@ -34,6 +34,11 @@ from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 ARM_BONES = ("upper_arm", "forearm", "hand")
+FINGER_BONES = ("finger", "thumb")    # the gauntlets' finger bones (hands.py: finger_<name>_<n>, thumb_<n>), carried as their hand
+
+
+def _finger(name: str) -> bool:
+    return name.split(".")[0].split("_")[0] in FINGER_BONES
 
 
 def parse_args() -> argparse.Namespace:
@@ -191,6 +196,9 @@ def main() -> None:
     tp_rig = bpy.data.objects["SpellbladeRig"]
     tp_rest = {b.name: np.array(b.matrix_local) for b in tp_rig.data.bones}
     tp_length = {b.name: b.length for b in tp_rig.data.bones}
+    tp_fingers = [{"name": b.name, "head": np.array(b.head_local), "tail": np.array(b.tail_local),
+                   "z": np.array(b.z_axis), "parent": b.parent.name, "connect": b.use_connect}
+                  for b in tp_rig.data.bones if _finger(b.name)]
     tp_sockets = {"socket_sword": ("hand.R", np.array(tp_rig.data.bones["socket_sword"].head_local)),
                   "socket_sorcery": ("hand.L", np.array(tp_rig.data.bones["socket_sorcery"].head_local))}
     for name in ("Gauntlet.L", "Gauntlet.R", "HeroSword"):
@@ -219,9 +227,26 @@ def main() -> None:
         return fp_rest[bone] @ np.diag([scale, along, scale, 1.0]) @ np.linalg.inv(tp_rest[bone])
 
     carries = {f"{p}.{s}": carry(f"{p}.{s}") for p in ARM_BONES for s in "LR"}
+    # the finger bones, carried with their hand onto the first-person rig (their weights come across unchanged)
+    fingers = tp_fingers
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    for finger in fingers:
+        side = finger["name"].split(".")[1]
+        to_fp = carries[f"hand.{side}"]
+        carries[finger["name"]] = to_fp
+        bone = rig.data.edit_bones.new(finger["name"])
+        bone.head = Vector(tuple((to_fp @ np.append(finger["head"], 1.0))[:3]))
+        bone.tail = Vector(tuple((to_fp @ np.append(finger["tail"], 1.0))[:3]))
+        bone.align_roll(Vector(tuple(to_fp[:3, :3] @ finger["z"])).normalized())
+        bone.parent = rig.data.edit_bones[finger["parent"]]
+        bone.use_connect = finger["connect"]
+        bone.use_deform = True
+    bpy.ops.object.mode_set(mode="OBJECT")
+    report_fingers = sorted(f["name"] for f in fingers)
     with bpy.data.libraries.load(str(args.third_person), link=False) as (source, target):
         target.meshes = ["Gauntlet.L", "Gauntlet.R", "HeroSword"]
-    report = {"grip": grip_report}
+    report = {"grip": grip_report, "fingers": report_fingers}
     for mesh, name in zip(target.meshes, ("Arm.L", "Arm.R", "HeroSword")):
         side = "R" if name != "Arm.L" else "L"
         obj = bpy.data.objects.new(name, mesh)
@@ -237,7 +262,7 @@ def main() -> None:
             w: dict[str, float] = {}
             for g in vertex.groups:
                 bone = groups[g.group]
-                if bone.split(".")[0] not in ARM_BONES:     # shoulder and chest: the first-person upper arm
+                if bone.split(".")[0] not in ARM_BONES and not _finger(bone):   # shoulder and chest: the upper arm
                     bone = f"upper_arm.{side}"
                 w[bone] = w.get(bone, 0.0) + g.weight
             total = sum(w.values()) or 1.0

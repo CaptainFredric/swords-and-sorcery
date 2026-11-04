@@ -35,6 +35,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
+from tools.blender.characters.spellblade.rodin.hands import build_hands
 from tools.blender.characters.spellblade.rodin.forge import check_region_free, forge, swatch_uv
 from tools.blender.characters.spellblade.rodin.rigid import (HELMET_PARTS, add_pauldron_bones, body_off_head,
                                                              harden_joints, pauldron_weights)
@@ -586,5 +587,17 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
     report["sword"] = forge_sword(objects["HeroSword"], fit, marks,
                                   [obj for name, obj in objects.items() if name != "HeroSword"])
     report["sword"]["turnedDegrees"] = turned
+    # the hands, remodelled as articulated gauntlets (hands.py), coloured from Rodin's own gauntlet plates
+    gauntlet = objects["Gauntlet.L"]
+    grey = lambda c: (c.max(1) - c.min(1)) < 0.07                                    # noqa: E731
+    palette = {
+        "steelLight": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.45) & (c.mean(1) < 0.62)),
+        "steel": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.32) & (c.mean(1) < 0.42)),
+        "steelDark": _texel_of(gauntlet, lambda c, p: grey(c) & (c.mean(1) > 0.2) & (c.mean(1) < 0.28)),
+        "glove": _texel_of(gauntlet, lambda c, p: (c.mean(1) > 0.09) & (c.mean(1) < 0.16)),
+        "brass": swatch_uv("brass"),
+    }
+    report["hands"] = build_hands(rig, {"L": gauntlet, "R": objects["Gauntlet.R"]}, objects["HeroSword"], palette,
+                                  swatch_uv)
     report["parts"] = {name: len(obj.data.polygons) for name, obj in objects.items()}
     return report

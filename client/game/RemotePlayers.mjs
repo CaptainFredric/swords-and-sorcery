@@ -22,6 +22,7 @@ import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
+import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -694,6 +695,10 @@ export class RemotePlayers {
     const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
     d.guardAmount = (d.guardAmount ?? 0) + ((pb.guarding && state !== 'stagger' && state !== 'dead' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
 
+    d.spellHand = easeSpellHand(d.spellHand, {
+      open: state === 'cast' || state === 'stagger' ? 1 : 0,
+      fist: ['sprint', 'dash', 'sunder', 'vortex'].includes(state) ? 1 : 0,
+    }, dt);
     const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
@@ -719,7 +724,9 @@ export class RemotePlayers {
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity)),
         // and the head looks where the knight aims
-        ...(state === 'stagger' ? [] : lookTurns(shell.root.userData.pitch))],
+        ...(state === 'stagger' ? [] : lookTurns(shell.root.userData.pitch)),
+        // the spell hand opens to throw, closes to run, dash or bring the sword down with both hands
+        ...spellHandTurns(d.spellHand)],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
     if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});

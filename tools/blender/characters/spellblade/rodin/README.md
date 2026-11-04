@@ -84,6 +84,18 @@ validators, `scripts/test-spellblade-*.py`).
      Dash, and a dark gorget (`add_neck`: from inside the collar up into the helmet, following its opening and closed at
      the top) rides chest, neck and head and fills whatever opens between them. In game the head also takes part of the
      knight's aim pitch (`lookTurns`).
+   - **The hands** (`hands.py`), remodelled. Rodin's hands were lumps: the spell hand one frozen cup, the sword hand a
+     fist sculpted round the guard, beside the grip rather than round it, and the rig had one bone per hand. Both are
+     cut away at the wrist and rebuilt as plate gauntlets: every finger three overlapping steel lames over a dark
+     glove, each lame rigid on a bone of its own (`finger_<index|middle|ring|little>_<1|2|3>` and `thumb_<1|2|3>`,
+     per side; a positive turn about a lame's x curls it toward the palm); the back of the hand one plate with a
+     raised knuckle guard and a padded heel, on the hand bone; and a flared, brass-rimmed cuff on the forearm over the
+     cut, sized from the vambrace's own surface. The sword hand is built round the forged sword's real grip (lengthened
+     to 15 cm so four fingers fit between its collars), where the forearm meets it: the palm against the grip on the
+     elbow's side, the knuckles over it, the fingers wrapped round its far side from the guard down, the thumb locked
+     over them. The spell hand is open and cupped, its fingers splayed. Their colours are Rodin's own gauntlet texels.
+     `client/game/spellHand.mjs` turns the spell hand's fingers in game: open to throw a spell, a fist to clench,
+     sprint or dash, closed on the hilt in two-handed strikes.
    - The cape and tabard move onto the tabard chains that the runtime's spring cloth drives (Rodin had the cape on the
      chest, so leaning into a dash swung it out like a plank): the anchor bone above, blending onto the first cloth bone
      just below the cut and onto the second around the middle.
@@ -129,6 +141,9 @@ across the bone and stretched along it to the first-person rig's lengths. The so
 hands. Rodin's blade is longer and broader than the kit's, so in two swings it crossed the open off hand: there the
 left arm drops out of its path by the least turn that clears it, eased in and out (`clear_off_hand`: 35° over frames
 12.5 to 17.6 of `Slash_1`, 5° over the first frames of `Slash_2`).
+
+The gauntlets' finger bones come across with their hands (the same carry, so the first-person fist closes round the
+first-person grip as the third-person one does), with their weights unchanged.
 
 ## Emblems (`emblems.py`)
 

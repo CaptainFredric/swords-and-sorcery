@@ -50,7 +50,7 @@ GUARD_END = (0.056, 0.064, 0.054)        # end block: width, depth along the bla
 GUARD_CAP = 0.034                        # the end blocks' pyramid caps
 DIAMOND = (0.095, 0.050, 0.070, 0.056)   # the frame: up the blade, down toward the grip, half width, thickness
 GEM = 0.62                               # the gem's size as a share of the frame
-GRIP = (0.125, 0.025, 0.031, 0.013)      # length, radius, collar radius, collar length
+GRIP = (0.15, 0.025, 0.031, 0.013)       # length (a fist of four fingers between the collars), radius, collars
 POMMEL = (0.043, 0.032, 0.05)            # belt radius, height above the belt, below it
 SIDES = 8
 
