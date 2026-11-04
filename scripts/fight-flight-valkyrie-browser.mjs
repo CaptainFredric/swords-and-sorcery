@@ -266,9 +266,10 @@ try{
  // frames, client input, or the server's authoritative physics.
  const beforeFault=await evaluate(cameraProbe);
  await evaluate("window.__ssRuntime.flightCameraMotion.posVel.y=NaN");
- await sleep(250);
- const afterFault=await evaluate(cameraProbe);
- assert.ok(afterFault.frame>beforeFault.frame+4,'camera recovers after invalid spring');
+ // (counted in frames drawn, not a fixed 250 ms: a software-rendered CI runner sometimes draws fewer than the five
+ // render calls, two a frame, that the old wait expected; a camera that stopped drawing still fails after 4 s)
+ const afterFault=await until(async()=>{const probe=await evaluate(cameraProbe);return probe.frame>beforeFault.frame+4?probe:null;},
+   'camera recovers after invalid spring',40);
  assert.ok(afterFault.position.every(Number.isFinite)&&afterFault.matrix.every(Number.isFinite),
    'invalid camera springs must never cause a persistent black projection');
  assert.ok(afterFault.input,'recovering the visual camera must not disable gameplay');
