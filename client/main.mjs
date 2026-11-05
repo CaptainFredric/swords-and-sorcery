@@ -603,7 +603,9 @@ function renderLobby() {
     const canSwitch = ['BREAKTHROUGH','HIGH_GROUNDS'].includes(message.mode) && message.roomState === 'WAITING';
     switchTeamBtn.classList.toggle('hidden', !canSwitch);
     const meInLobby = (message.players ?? []).find((p) => p.id === socket.playerId);
-    switchTeamBtn.textContent = meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS';
+    switchTeamBtn.textContent = message.mode==='HIGH_GROUNDS'
+      ? (meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO AZURE' : 'SWITCH TO CRIMSON')
+      : (meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS');
   }
   copyLinkButton.classList.toggle('hidden', !view.action.visible);
   copyLinkButton.classList.toggle('primary-command', view.action.primary);
