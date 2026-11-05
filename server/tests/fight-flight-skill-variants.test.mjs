@@ -340,3 +340,64 @@ test('Visible selected target keeps the crossbow joints tracking even while shot
  assert.ok(Math.abs(m.crossbowYaw-m.heading)>.3,'physical gimbal reaches toward enemy, not camera look');
  assert.equal(m.shotSeq,0);
 });
+
+test('Soft targeting is sticky through small camera motion, but switches after sustained deliberate look at another enemy',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ const other=foe(room,'second',-4,-14);
+ requestFightFlightSkill(room,m,pilot,1);
+ assert.equal(m.skill.targetId,enemy.id);
+ assert.equal(m.skill.lockedOnce,false);
+ pilot.input.yaw=.035;updateNarrowTracking(room,m,pilot,1.03);
+ assert.equal(m.skill.targetId,enemy.id,'small camera drift cannot lose the highlighted foe');
+ pilot.input.yaw=Math.atan2(4,14);
+ updateNarrowTracking(room,m,pilot,1.04);
+ assert.equal(m.skill.targetId,enemy.id,'another enemy is only a pending target at first glance');
+ updateNarrowTracking(room,m,pilot,1.10);
+ assert.equal(m.skill.targetId,enemy.id,'do not flip targets during a brief flick');
+ updateNarrowTracking(room,m,pilot,1.18);
+ assert.equal(m.skill.targetId,other.id,'holding a more centered second target deliberately switches preview');
+ assert.equal(m.skill.lockedOnce,false);
+ assert.deepEqual(room.events.filter(e=>e.type==='fightFlightTargetPreview').map(e=>e.targetId),
+   [enemy.id,other.id]);
+ assert.equal(room.events.some(e=>e.type==='fightFlightTargetLock'),false,
+   'reticle movement is never hard lock');
+ assert.equal(m.shotSeq,0);
+ requestFightFlightFire(room,m,pilot,true,1.2);
+ assert.equal(m.shotSeq,1);
+ assert.equal(m.skill.lockedOnce,true);
+ assert.equal(room.events.filter(e=>e.type==='fightFlightTargetLock').at(-1).targetId,other.id);
+ pilot.input.yaw=0;updateNarrowTracking(room,m,pilot,1.3);
+ assert.equal(m.skill.targetId,other.id,'after firing, gaze cannot redirect the bolt system');
+ assert.equal(m.skill.trackingState,'locked');
+});
+
+test('Narrow scanning can begin with an empty reticle and later find an eligible enemy without another Skill press',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ pilot.input.yaw=2;
+ requestFightFlightSkill(room,m,pilot,1);
+ assert.equal(m.skill.targetId,null);
+ requestFightFlightFire(room,m,pilot,true,1.01);
+ assert.equal(m.shotSeq,0,'Fire before a valid preview must not discharge or end the skill');
+ pilot.input.yaw=0;
+ stepFightFlightSkill(room,m,1.12);
+ assert.equal(m.skill.targetId,enemy.id,'server updates preview as the pilot looks at a foe');
+ assert.equal(m.skill.trackingState,'preview');
+ stepFightFlightWeapons(room,m,1/30,1.2);
+ assert.equal(m.shotSeq,1,'already-held Fire commits the first attainable physical shot');
+ assert.equal(m.skill.lockedOnce,true);
+});
+
+test('Soft preview never targets a teammate or enemy hidden behind opaque structure',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ const teammate=foe(room,'teammate',0,-10);
+ // Teams are assigned explicitly so this remains correct outside FFA.
+ pilot.team='red';teammate.team='red';enemy.team='blue';
+ requestFightFlightSkill(room,m,pilot,1);
+ assert.equal(m.skill.targetId,enemy.id,'teammate in front does not steal soft selection');
+ const first=m.skill.targetId;
+ room.world.solids.push({id:'wall',center:[0,2,-14],size:[12,6,2]});
+ m.skill.targetId=null; m.skill.lastPreviewId=null;
+ stepFightFlightSkill(room,m,1.1);
+ assert.equal(m.skill.targetId,null,'opaque wall cannot create a fresh preview through masonry');
+ assert.ok(first);
+});
