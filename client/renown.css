@@ -100,6 +100,9 @@
 }
 
 
+#armory-menu {--banner-width:min(530px,46cqw);}
+@container app (max-height:500px){#armory-menu {--banner-width:min(490px,56cqw);}}
+@container app (max-width:640px){#armory-menu {--banner-left:12px;--banner-width:calc(100cqw - 24px);}}
 /* Armory ledger repair: a broad, tall standard with a permanent crown,
    accessible internal scrolling and no letter-by-letter tab breaking. */
 #armory-menu .armory-inner {
