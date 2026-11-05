@@ -150,6 +150,15 @@ export function slotChance(c) {
   return c.dead ? 0 : c.machine ? 0.42 : 0.4;
 }
 
+// Ranged contact can be shrugged off theatrically, but never causes protection, damage suppression or a new input.
+// Only direct projectile contacts qualify: no sword blows, fire-over-time ticks, falls or machine collisions.
+const BRUSH_SOURCES = new Set(['fireball', 'frostfire', 'bibye-siege', 'bibye-conditioning',
+  'fight-flight-repeater', 'gauntlet', 'rupture']);
+export function isBrushImpact(event) {
+  return Number.isFinite(event?.at) && BRUSH_SOURCES.has(event.source) &&
+    ((event.type === 'damage' && event.amount > 0 && !event.ongoing) || event.type === 'block');
+}
+
 // a small seeded generator (mulberry32) and a string hash (FNV-1a), so every client draws the same numbers
 export function hash(text) {
   let h = 2166136261;
