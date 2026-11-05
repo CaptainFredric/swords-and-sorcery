@@ -32,7 +32,7 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
         m.skill.lockedOnce=false;m.skill.targetId=null;
         m.skill.lastPreviewId=null;m.skill.pendingTargetId=null;
         m.skill.pendingSince=null;
-        updateNarrowTracking(room,m,p,now);
+        updateNarrowTracking(room,m,p,now,aim);
         return null;
       }
     }
@@ -47,7 +47,7 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     trackingState:chosen===NARROW_TO_ONE?'acquiring':null,
     lastPreviewId:null,pendingTargetId:null,pendingSince:null,
     wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity};
-  if(chosen===NARROW_TO_ONE)updateNarrowTracking(room,m,p,now);
+  if(chosen===NARROW_TO_ONE)updateNarrowTracking(room,m,p,now,aim);
   room.events.push({type:'siegeSkill',machineId:m.id,skill:chosen.id,
     action:'activated',at:now,until:m.skill.activeUntil});
   return null;
