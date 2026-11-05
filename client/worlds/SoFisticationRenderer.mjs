@@ -17,6 +17,30 @@ import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 // flat top of the console between the handlebars, 15 cm ahead of the right grip and 20 cm in from it, at the grips'
 // height. Measured on the production model by casting down onto it around the grip.
 const OPERATOR_CASING=Object.freeze([SO_FIST_STATION.rightHand[0]+.2,SO_FIST_STATION.rightHand[1]-.01,SO_FIST_STATION.rightHand[2]+.15]);
+// Procedural failure representation until a source-authored fractured-fist GLB exists.
+function brokenFistParts(size){
+ const root=new THREE.Group();root.name='BrokenFistArmorAndHardware';
+ const shell=new THREE.MeshStandardMaterial({color:0x807b72,metalness:.83,roughness:.42,flatShading:true});
+ const edge=new THREE.MeshStandardMaterial({color:0x363a39,metalness:.68,roughness:.62,flatShading:true});
+ const steel=new THREE.MeshStandardMaterial({color:0xb5b3a5,metalness:.91,roughness:.32});
+ const x=Math.max(.45,size.x),y=Math.max(.38,size.y),z=Math.max(.55,size.z);
+ const add=(geometry,material,position,rotation=[0,0,0])=>{
+  const mesh=new THREE.Mesh(geometry,material);mesh.position.set(...position);
+  mesh.rotation.set(...rotation);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);
+ };
+ add(new THREE.CylinderGeometry(x*.09,x*.12,z*.82,9),steel,[0,-y*.06,0],[Math.PI/2,0,0]);
+ for(const sign of [-1,1]){
+  add(new THREE.CylinderGeometry(x*.135,x*.135,y*.5,9),edge,[sign*x*.17,-y*.08,0],[0,0,sign*.16]);
+  add(new THREE.BoxGeometry(x*.39,y*.13,z*.58),shell,[sign*x*.27,y*.29,-z*.13],[sign*.16,sign*.20,sign*.32]);
+  add(new THREE.TetrahedronGeometry(Math.min(x,y,z)*.24,0),steel,[sign*x*.48,y*.05,sign*z*.24],[.2,sign*.4,.35]);
+ }
+ add(new THREE.BoxGeometry(x*.63,y*.10,z*.30),shell,[x*.10,-y*.33,z*.28],[.42,.14,-.38]);
+ const sparks=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',
+  new THREE.Float32BufferAttribute([-.2,.12,0,.12,.42,.19,.1,-.08,.2,.36,.24,.33,-.24,0,.06,-.43,.22,-.07],3)),
+  new THREE.LineBasicMaterial({color:0xffce7f,transparent:true,opacity:.85}));
+ sparks.visible=false;root.add(sparks);
+ return {root,sparks};
+}
 export class SoFisticationRenderer {
  constructor(scene){
   this.scene=scene;this.group=everywhere(new THREE.Group());this.group.name='SoFistication';this.group.visible=false;scene.add(this.group);
@@ -109,7 +133,7 @@ export class SoFisticationRenderer {
  }
  update(now,b){
   this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
-  if(!b){this.clearDebris();this.clearDetachedVisual();return;}
+  if(!b||b.retired){this.clearDebris();this.clearDetachedVisual();return;}
   if(this.id!==b.id){this.id=b.id;this.clearDebris();this.clearDetachedVisual();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
   if(this.debris)this.debris.visible=!b.wreckVisualExpired;
   if(b.wreckVisualExpired){this.clearDetachedVisual();this.clearDebris();return;}
@@ -181,12 +205,19 @@ export class SoFisticationRenderer {
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
-  if(broken&&!this.debris){
-   this.group.updateMatrixWorld(true);this.debris=new THREE.Group();const bounds=new THREE.Box3().setFromObject(fist),center=bounds.getCenter(new THREE.Vector3());this.debris.position.copy(center);
-   for(const part of [fist]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
-   this.scene.add(this.debris);this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+bounds.getSize(new THREE.Vector3()).y/2;this.debrisHeading=b.heading;this.brokenAt=b.fistBrokenAt??now;
+  if(broken&&!this.debris&&fist){
+   this.group.updateMatrixWorld(true);
+   const bounds=new THREE.Box3().setFromObject(fist);
+   const center=bounds.getCenter(new THREE.Vector3());
+   const remote=b.detachedFist?.state==='destroyed'?b.detachedFist:null;
+   if(remote?.position)center.set(remote.position.x,remote.position.y,remote.position.z);
+   const damage=brokenFistParts(bounds.getSize(new THREE.Vector3()));
+   this.debris=damage.root;this.debrisSparks=damage.sparks;this.scene.add(this.debris);
+   this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+Math.max(.3,bounds.getSize(new THREE.Vector3()).y*.24);
+   this.debrisHeading=remote?.launchHeading??b.heading;this.brokenAt=b.fistBrokenAt??now;
   }
-  fist.visible=!broken&&b.fistMounted!==false;
+  if(!broken&&this.debris)this.clearDebris();
+  if(fist)fist.visible=!broken&&b.fistMounted!==false;
   // The bayonet collar remains visibly attached to the piston when the
   // fist is destroyed or launched, so the exposed striker never looks hollow.
   if(ring)ring.visible=true;
@@ -242,7 +273,14 @@ export class SoFisticationRenderer {
     }
    }
   }else this.clearDetachedVisual();
-  if(this.debris){const age=Math.max(0,Math.min(1.1,now-this.brokenAt));this.debris.position.copy(this.debrisStart);this.debris.position.y=Math.max(this.debrisGround,this.debrisStart.y+1.2*age-4.9*age*age);this.debris.position.x-=Math.sin(this.debrisHeading)*age*.75;this.debris.position.z-=Math.cos(this.debrisHeading)*age*.75;}
+  if(this.debris){
+   const age=Math.max(0,Math.min(1.1,now-this.brokenAt));
+   this.debris.position.copy(this.debrisStart);
+   this.debris.position.y=Math.max(this.debrisGround,this.debrisStart.y+1.2*age-4.9*age*age);
+   this.debris.position.x-=Math.sin(this.debrisHeading)*age*.75;
+   this.debris.position.z-=Math.cos(this.debrisHeading)*age*.75;
+   if(this.debrisSparks)this.debrisSparks.visible=age<.22;
+  }
   this.group.updateMatrixWorld(true);
   for(const event of this.pendingHits.filter(e=>e.at<=now)){
    const local=event.pointLocal?.slice();
@@ -306,7 +344,14 @@ export class SoFisticationRenderer {
    this.fistPickupRing=null;
   }
  }
- clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
+ clearDebris(){
+  if(this.debris){
+   this.scene.remove(this.debris);const materials=new Set();
+   this.debris.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat())if(m)materials.add(m);});
+   for(const m of materials)m.dispose();this.debris=null;
+  }
+  this.debrisSparks=null;
+ }
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
  dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);if(this.detachedTemplate)this.destroyMeshes(this.detachedTemplate);this.environment?.dispose();}
 }
