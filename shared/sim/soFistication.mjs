@@ -233,7 +233,7 @@ const p=room.players.get(b.operatorId);
  const driver=room.players.get(b.operatorId),input=driver&&(driver.staggerUntil??0)<=now?driver.input??{}:{};
  const failed=SO_FIST_WHEELS.filter(w=>b.components[w.id].health<=0),canDrive=failed.length<3&&!['L','R'].some(s=>failed.filter(w=>w.id.endsWith(s)).length>=2),driveScale=canDrive?(1-failed.length*.22)*(b.components.Drive.health<=0?.45:1):0;
  const reverseSkill=soFistReverseChargeAvailable(b)&&input.forward<-.25;
-  const chargeHeld=Boolean(driver&&input.sprint&&((input.forward??0)>.25||reverseSkill)&&driveScale>0&&
+  const chargeHeld=Boolean(driver&&input.sprint&&((input.forward??0)>=0||reverseSkill)&&driveScale>0&&
    (b.ramLiftY??0)<.15);
 
  if(!chargeHeld)b.chargeSpent=false;
@@ -442,7 +442,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,health:target.health,maxHealth:target.maxHealth??b.maxHealth,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;b.fistMounted=false;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
