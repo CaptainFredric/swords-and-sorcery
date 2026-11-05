@@ -711,7 +711,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'chargeDefeat',
     text: 'I CHARRRRRGE YOU! With defeat!!',
     trigger: 'charge', order: 3,
-    priority: 'normal', rarity: 0.4, cooldown: 60,
+    priority: 'normal', rarity: 0.14, cooldown: 120,
     section: 'Battle & Abilities',
     credits: { title: 'Charged with Defeat', description: 'While charging or rapidly closing on an enemy.', note: 'The accusation is delivered personally.' },
     voice: { drive: 2.5, rmsDb: -15, semitones: -4, formants: 0.6, chest: 3 }, file: 'IChargeYouDefeat.mp3',
