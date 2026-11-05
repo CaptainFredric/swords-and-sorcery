@@ -392,8 +392,10 @@ export class MenuScene {
       if(isRepositioning){
         // Two deliberate, slow retreating steps while the Armory standard
         // enters (and reversed on exit). Never start a sword flourish mid-step.
-        // The same authored Run clip is slowed to the short displacement.
-        plan.rate=.55;
+        // Reverse the shared Run gait while retreating, so his feet truly
+        // step BACKWARD rather than moonwalk toward the gate; forward again
+        // on leaving Armory. SpellbladeAnimator wraps negative gait phases.
+        plan.rate=this.armoryActive?-.55:.55;
       } else if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
