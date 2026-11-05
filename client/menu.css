@@ -808,3 +808,110 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .armory-tabs {min-width:0;max-width:100%;display:flex;flex-wrap:wrap;gap:4px}
 .armory-tabs button {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
 .banner-panel .controls-grid {grid-template-columns:minmax(80px,96px) minmax(0,1fr)}
+
+/* CASTLEWARD paired game-mode standards
+   Solo and Open Rooms share one large activity/list standard and one narrower
+   detail/creation standard. Both widths are shell-relative, not viewport-relative,
+   because the client can rotate its game shell independently on mobile. */
+#solo-menu,
+#rooms-menu {
+  --banner-width: min(520px, 42cqw);
+}
+#solo-menu > .side-screen-inner,
+#rooms-menu > .side-screen-inner {
+  --banner-width: min(520px, 42cqw);
+  width: var(--banner-width);
+  min-width: 0;
+}
+#solo-menu > .companion-banner,
+#rooms-menu > .companion-banner {
+  --hem: 32px;
+  left: auto;
+  right: clamp(18px, 3.5cqw, 48px);
+  width: min(370px, 32cqw);
+  min-width: 0;
+  max-width: calc(100cqw - 24px);
+}
+/* The right standard gets its own brass rod; the section's default rod belongs
+   to the left standard. Both fittings remain outside the clipped cloth. */
+#solo-menu::before,
+#rooms-menu::before {
+  content: "";
+  display: block;
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: calc(clamp(18px, 3.5cqw, 48px) - 22px);
+  width: calc(min(370px, 32cqw) + 44px);
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(#f2d692, #b98a3e 55%, #6f5122);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
+}
+#solo-menu .companion-return,
+#rooms-menu .companion-return { display: none; }
+#solo-menu .companion-banner .banner-scroll,
+#rooms-menu .companion-banner .banner-scroll {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#solo-menu .companion-banner :is(.game-input, .mode-choice, .lobby-config),
+#rooms-menu .companion-banner :is(.game-input, .mode-choice, .lobby-config) {
+  min-width: 0;
+  max-width: 100%;
+}
+@container app (max-width: 900px) {
+  #solo-menu,
+  #rooms-menu { --banner-width: min(450px, 45cqw); }
+  #solo-menu > .side-screen-inner,
+  #rooms-menu > .side-screen-inner {
+    --banner-width: min(450px, 45cqw);
+    width: var(--banner-width);
+  }
+  #solo-menu > .companion-banner,
+  #rooms-menu > .companion-banner {
+    right: 18px;
+    width: min(360px, 43cqw);
+  }
+  #solo-menu::before,
+  #rooms-menu::before {
+    right: -4px;
+    width: calc(min(360px, 43cqw) + 44px);
+  }
+}
+@container app (max-width: 640px) {
+  #solo-menu,
+  #rooms-menu { --banner-left: 12px; --banner-width: calc(100cqw - 24px); }
+  #solo-menu > .side-screen-inner,
+  #rooms-menu > .side-screen-inner,
+  #solo-menu > .companion-banner,
+  #rooms-menu > .companion-banner {
+    --banner-width: calc(100cqw - 24px);
+    left: 12px;
+    right: auto;
+    width: calc(100cqw - 24px);
+    max-width: calc(100cqw - 24px);
+  }
+  #solo-menu::before,
+  #rooms-menu::before {
+    left: -10px;
+    right: auto;
+    width: calc(100cqw + 20px);
+  }
+  #solo-menu[data-panel="list"] > .companion-banner,
+  #rooms-menu[data-panel="list"] > .companion-banner,
+  #solo-menu[data-panel="details"] > .side-screen-inner,
+  #rooms-menu[data-panel="details"] > .side-screen-inner {
+    display: none;
+  }
+  #solo-menu[data-panel="list"]::before,
+  #rooms-menu[data-panel="list"]::before,
+  #solo-menu[data-panel="details"]::after,
+  #rooms-menu[data-panel="details"]::after {
+    display: none;
+  }
+  #solo-menu .companion-return,
+  #rooms-menu .companion-return {
+    display: inline-flex;
+  }
+}
