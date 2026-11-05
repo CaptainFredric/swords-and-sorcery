@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { acceptWebSocket } from './websocket.mjs';
+import { acceptWebSocket, encodeJsonFrame } from './websocket.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { Matchmaker } from './rooms/Matchmaker.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
@@ -91,7 +91,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const url = new URL(req.url || '/', 'http://localhost');
     if (url.pathname === '/health') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-      res.end(JSON.stringify({ ok: true, rooms: roomManager.rooms.size, simulation: scheduler.stats() }));
+      res.end(JSON.stringify({ ok: true, rooms: roomManager.rooms.size, simulation: {
+        ...scheduler.stats(), skippedSnapshots: [...sessions].reduce((sum, session) => sum + (session.peer.skippedSnapshots ?? 0), 0),
+      } }));
       return;
     }
     const filePath = resolveStaticFile(ROOT, url.pathname);
@@ -141,7 +143,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   }
 
   function broadcastRoom(room, message) {
-    for (const session of sessions) if (session.roomCode === room.code && !session.peer.closed) send(session, message);
+    // The old path JSON-serialized this entire combat snapshot once per client.
+    // Serialize and frame once; slow peers discard stale snapshots, not events.
+    const packet = encodeJsonFrame(message);
+    const isSnapshot = message?.type === 'snapshot';
+    for (const session of sessions) {
+      if (session.roomCode === room.code && !session.peer.closed)
+        session.peer.sendPrepared(packet, isSnapshot);
+    }
   }
 
   function broadcastLobby(room) {
