@@ -279,3 +279,33 @@ test('reserved bonus restores a damaged rotor at expiry and does not multiply pe
  assert.ok(Math.abs(sum(machineSteelParts(x.m,'flight'))-before-11)<1e-7);
  assert.equal(x.m.rotorHP,45);
 });
+
+test('ram Steel does not secretly repair a detached fist; reattachment retains existing HP',()=>{
+ const x=setup('ram');
+ x.m.components.Fist.health=137;
+ x.m.fistMounted=false;
+ x.m.detachedFist={state:'resting',position:{x:0,y:1,z:0},healthAtLaunch:137};
+ assert.equal(machineSteelParts(x.m,'ram').some(p=>p.id==='Fist'),false,
+   'a detached projectile is not a warded carriage part');
+ assert.equal(beginSiegeSteel(x.room,x.m,'ram',x.p,1),true);
+ stepSiegeSteel(x.room,x.m,6);
+ stepSiegeSteel(x.room,x.m,11);
+ assert.equal(x.m.components.Fist.health,137,'magic may protect carriage, not repair remote fist');
+ assert.equal(x.m.detachedFist.healthAtLaunch,137);
+ x.m.fistMounted=true;x.m.detachedFist=null;
+ assert.equal(x.m.components.Fist.health,137,'retrieving a fist adds no HP');
+});
+test('ram Steel can repair damaged but still attached fist without resurrecting a destroyed one',()=>{
+ const x=setup('ram');
+ x.m.components.Fist.health=440;
+ assert.equal(beginSiegeSteel(x.room,x.m,'ram',x.p,1),true);
+ stepSiegeSteel(x.room,x.m,6);
+ assert.ok(x.m.components.Fist.health>440,'legitimate attached fist receives finite ward repair');
+ assert.ok(x.m.components.Fist.health<=x.m.components.Fist.maxHealth);
+ const y=setup('ram');
+ y.m.components.Fist.health=0;
+ assert.equal(beginSiegeSteel(y.room,y.m,'ram',y.p,1),true);
+ stepSiegeSteel(y.room,y.m,6);
+ stepSiegeSteel(y.room,y.m,11);
+ assert.equal(y.m.components.Fist.health,0,'Steel cannot recreate a destroyed component');
+});
