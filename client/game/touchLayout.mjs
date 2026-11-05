@@ -100,11 +100,16 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   valkyrieStencil:{right:14,bottom:80,size:200,type:'stencil'},
 });
 const MOUNTED_ACTIONS = Object.freeze({
-  attack:{right:14,bottom:20,size:76},
-  siegeSkill:{right:90,bottom:112,size:64},
-  siegeBoth:{right:14,bottom:112,size:64},
-  siegeWeapon:{right:14,bottom:190,size:56},
-  deploy:{right:90,bottom:190,size:56},
+  // SO-FIST-ICATION: combat below, side-by-side hydraulics above.
+  attack:{right:14,bottom:18,size:76},
+  siegeSkill:{right:100,bottom:22,size:64},
+  spell:{right:184,bottom:20,size:52},
+  jump:{right:14,bottom:112,size:54},
+  crouch:{right:80,bottom:112,size:54},
+  // Inactive for ram; legacy mounted fallbacks.
+  siegeBoth:{right:14,bottom:194,size:56},
+  siegeWeapon:{right:82,bottom:194,size:56},
+  deploy:{right:154,bottom:194,size:56},
 });
 
 // Bi-Bye-llista only. Fixed positions prevent the conditional BOTH control from

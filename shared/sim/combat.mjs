@@ -2459,7 +2459,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       // At 30Hz multiplayer advances one frame. A throttled solo browser can
       // skip wall-clock seconds while still delivering fixed 1/30s host ticks.
       // Catch up ONLY the committed machine's physical trajectory; never allow
-      // its five-second fuse to outrun its actual displacement.
+      // the physical charge to be skipped by a stalled browser host.
       const frames=terminalFlightSteps(dive,nowSec,dt);
       for(let i=0;i<frames&&!dive.resolved;i++){
         const physicsNow=dive.startedAt+(dive.simulatedSec??0)+dt;
