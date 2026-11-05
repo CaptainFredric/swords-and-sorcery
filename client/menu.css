@@ -1027,3 +1027,139 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #solo-menu .banner-panel :is(h2,button) {
   overflow-wrap: anywhere;
 }
+
+
+/* --- Paired heraldic standards: one decision banner, one rules banner. ---
+   Every panel scrolls INSIDE its cloth and can never reach the finial bar. */
+#breakthrough-menu, #private-menu { --banner-width:min(510px,42cqw); }
+#breakthrough-menu > .side-screen-inner,
+#private-menu > .side-screen-inner {
+  --banner-width:min(510px,42cqw);width:var(--banner-width);min-width:0;
+}
+#breakthrough-menu > .companion-banner,
+#private-menu > .companion-banner {
+  --hem:32px;left:auto;right:clamp(18px,3.5cqw,48px);
+  width:min(410px,34cqw);max-width:calc(100cqw - 24px);min-width:0;
+}
+#breakthrough-menu .companion-banner .banner-scroll,
+#private-menu .companion-banner .banner-scroll { min-width:0; }
+#breakthrough-menu .companion-banner :is(.game-input,.vote-row,.mode-choice),
+#private-menu .companion-banner :is(.game-input,.lobby-config,.mode-choice) {
+  min-width:0;max-width:100%;
+}
+#breakthrough-menu .mettle-companion .vote-row {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:7px;
+  padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid #e9d7ac29;
+}
+#breakthrough-menu .mettle-companion .vote-row > span {
+  display:block;min-width:0;grid-column:1/-1;color:#e9c984;
+  font:800 10px/1.3 var(--font-script);letter-spacing:.16em;
+}
+#breakthrough-menu .mettle-companion .vote-row > button {
+  justify-self:start;min-width:0;max-width:100%;font-size:clamp(12px,1.18cqw,17px);
+  line-height:1.12;overflow-wrap:normal;text-wrap:balance;white-space:normal;
+}
+#breakthrough-menu .mettle-companion .vote-row {
+  display:flex;align-items:center;flex-wrap:wrap;
+}
+#breakthrough-menu .mettle-companion .vote-row > span {flex:0 0 100%;}
+#breakthrough-menu .mettle-companion .vote-chip small { font:600 10px/1.1 var(--font-script); }
+#breakthrough-menu .mettle-order-note {border-top:1px solid #e9d7ac38;padding-top:9px;}
+#breakthrough-menu .mettle-options,
+#private-menu .private-options {display:none;}
+#private-menu .private-mode-tabs {margin:4px 0 12px;}
+#private-menu .private-mode-tabs button {min-height:42px;padding:9px 10px;}
+#private-menu .private-settings-form {
+  margin:4px 0 12px;padding:0;border:0;gap:12px;
+}
+#private-menu .private-settings-form label {font-size:11px;}
+#private-menu .private-settings-form input[type=number] {font-variant-numeric:tabular-nums;}
+#private-menu #private-create-right {display:none;}
+#private-menu .private-rule-foot {padding-top:8px;border-top:1px solid #e9d7ac38;}
+
+/* A forged rod instead of a featureless rounded yellow capsule:
+   squared iron/brass ferrules, thin highlight and dark undercut. */
+.menu-screen::after,.side-screen::after,.lobby-screen::after,
+#solo-menu::before,#rooms-menu::before,
+#breakthrough-menu::before,#private-menu::before {
+  top:5px;height:12px;border:1px solid #704718;border-radius:2px;
+  background:
+    linear-gradient(90deg,#8e652b 0%,#e4ba65 1.2%,#926528 2.3%,transparent 2.4%,
+      transparent 97.6%,#926528 97.7%,#e4ba65 98.8%,#8e652b 100%),
+    linear-gradient(180deg,#f1d28c 0%,#d2a457 22%,#8c642b 64%,#c59a4e 82%,#674720 100%);
+  box-shadow:inset 0 1px 0 #f8e1a6aa,inset 0 -2px 0 #58381780,0 3px 6px #0007;
+}
+#breakthrough-menu::before,#private-menu::before {
+  content:"";display:block;position:absolute;z-index:2;
+  right:calc(clamp(18px,3.5cqw,48px) - 22px);
+  width:calc(min(410px,34cqw) + 44px);
+}
+/* Headings begin well BELOW the rod. The left and right cloth have the
+   same crown padding, even on short landscape screens. */
+#solo-menu > .banner-panel .banner-scroll,
+#rooms-menu > .banner-panel .banner-scroll,
+#breakthrough-menu > .banner-panel .banner-scroll,
+#private-menu > .banner-panel .banner-scroll {
+  padding-top:43px;
+}
+#solo-menu .companion-banner .eyebrow,
+#rooms-menu .companion-banner .eyebrow,
+#breakthrough-menu .companion-banner .eyebrow,
+#private-menu .companion-banner .eyebrow {
+  margin-bottom:8px;line-height:1.3;overflow-wrap:normal;
+}
+#solo-menu .companion-banner h2,
+#rooms-menu .companion-banner h2,
+#breakthrough-menu .companion-banner h2,
+#private-menu .companion-banner h2 {line-height:1.08;text-wrap:balance;}
+@container app (max-width:900px) {
+  #breakthrough-menu,#private-menu {--banner-width:min(440px,45cqw);}
+  #breakthrough-menu > .side-screen-inner,
+  #private-menu > .side-screen-inner {
+    --banner-width:min(440px,45cqw);width:var(--banner-width);
+  }
+  #breakthrough-menu > .companion-banner,
+  #private-menu > .companion-banner {right:18px;width:min(360px,43cqw);}
+  #breakthrough-menu::before,#private-menu::before {
+    right:-4px;width:calc(min(360px,43cqw) + 44px);
+  }
+}
+@container app (max-height:500px) {
+  #solo-menu > .banner-panel .banner-scroll,
+  #rooms-menu > .banner-panel .banner-scroll,
+  #breakthrough-menu > .banner-panel .banner-scroll,
+  #private-menu > .banner-panel .banner-scroll {padding-top:27px;}
+  #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;}
+  #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 7px;}
+  #private-menu .private-settings-form {gap:6px;}
+}
+@container app (max-width:640px) {
+  #breakthrough-menu,#private-menu {
+    --banner-left:12px;--banner-width:calc(100cqw - 24px);
+  }
+  #breakthrough-menu > .side-screen-inner,
+  #private-menu > .side-screen-inner,
+  #breakthrough-menu > .companion-banner,
+  #private-menu > .companion-banner {
+    --banner-width:calc(100cqw - 24px);
+    left:12px;right:auto;width:calc(100cqw - 24px);
+    max-width:calc(100cqw - 24px);
+  }
+  #breakthrough-menu::before,#private-menu::before {
+    left:-10px;right:auto;width:calc(100cqw + 20px);
+  }
+  #breakthrough-menu[data-panel="list"] > .companion-banner,
+  #private-menu[data-panel="list"] > .companion-banner,
+  #breakthrough-menu[data-panel="details"] > .side-screen-inner,
+  #private-menu[data-panel="details"] > .side-screen-inner {display:none;}
+  #breakthrough-menu[data-panel="list"]::before,
+  #private-menu[data-panel="list"]::before,
+  #breakthrough-menu[data-panel="details"]::after,
+  #private-menu[data-panel="details"]::after {display:none;}
+  #breakthrough-menu .companion-return,
+  #private-menu .companion-return {display:inline-flex;}
+  #breakthrough-menu .mettle-options,
+  #private-menu .private-options {display:block;}
+  #private-menu #private-create-right {display:block;}
+  #breakthrough-menu .mettle-companion .vote-row > button {font-size:14px;}
+}
