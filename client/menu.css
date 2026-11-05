@@ -892,3 +892,13 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 }
 
 #rooms-menu .companion-banner [hidden], #solo-menu .companion-banner [hidden] { display: none !important; }
+
+#rooms-menu { --banner-width: min(515px, 47cqw); }
+#solo-menu { --banner-width: min(445px, 40cqw); }
+.lobby-readonly dl { display: grid; gap: 6px; margin: 8px 0 14px; }
+.lobby-readonly dl>div { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 12px; border-bottom: 1px solid rgba(201,156,82,.22); padding: 5px 0; }
+.lobby-readonly dt { font: 800 10px/1.3 var(--font-script); color: #e7c47c; letter-spacing: .1em; }
+.lobby-readonly dd { min-width: 0; margin: 0; font: 700 12px/1.4 var(--font-script); overflow-wrap: anywhere; }
+@container app (max-width:850px) {
+  #rooms-menu, #solo-menu { --banner-left:12px; --banner-width:calc(100cqw - 24px); }
+}
