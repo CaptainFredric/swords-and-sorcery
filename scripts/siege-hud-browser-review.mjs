@@ -72,8 +72,8 @@ async function render(machine,phase='attached') {
       local.operatingRamId=ram.id;
       const fist=ram.components.Fist;
       fist.health='${phase}'==='destroyed'?0:'${phase}'==='attached'?235:135;
-      ram.health='${phase}'==='damaged'?620:1400;
-      ram.fistMounted='${phase}'==='attached'||'${phase}'==='damaged';
+      ram.health='${phase}'==='attached'?1400:620;
+      ram.fistMounted=['attached','damaged','reattached'].includes('${phase}');
       ram.detachedFist=ram.fistMounted?null:{state:'${phase}'==='destroyed'?'resting':'${phase}'==='recovering'?'recovering':'flying'};
       state.soFistication={...ram,components:{...ram.components,Fist:{...fist}}};
     }
@@ -114,7 +114,7 @@ try {
     r.hud.update=()=>{};
   })()`);
   const result={};
-  for(const phase of ['attached','damaged','launched','recovering','destroyed','attached']){
+  for(const phase of ['attached','damaged','launched','recovering','reattached','destroyed']){
     await render('ram',phase);
     const d=await evaluate(probe);result['ram-'+phase]=d;
     assert.equal(d.kind,'ram');
@@ -126,6 +126,7 @@ try {
     assert.match(d.pitch,/30°/);
     assert.equal(d.componentState,phase==='destroyed'?'destroyed':
       ['launched','recovering'].includes(phase)?'detached':'attached');
+    if(phase==='reattached')assert.equal(d.part,'135/500','reconnection preserves remaining fist HP');
     if(phase==='damaged'){assert.equal(d.machine,'620/1400');assert.equal(d.part,'135/500');}
     await sleep(410);await capture('ram-'+phase);
   }
