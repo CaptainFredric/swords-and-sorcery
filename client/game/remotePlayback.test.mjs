@@ -38,3 +38,22 @@ test('respawn discards old corpse positions and outdated network snapshots are i
   history=appendRemoteSample(history,actor(-200),5.00,190);
   assert.equal(history.at(-1).player.position.x,10);
 });
+
+test('extended packet loss catches playback up rather than leaving opponents seconds behind', () => {
+  let clock=advanceRemotePlaybackClock(null,10,0);
+  clock=advanceRemotePlaybackClock(clock,12,1/60);
+  assert.ok(clock>11.8 && clock<12,'old interpolated pose no longer lingers for seconds');
+  let history=appendRemoteSample([],actor(0),10,1000);
+  history=appendRemoteSample(history,actor(15),12,3000);
+  assert.equal(history.length,1,'never interpolate a player through unobserved walls');
+});
+
+test('teleport discontinuity resets history but a legitimate fast Dash remains continuous', () => {
+  let history=appendRemoteSample([],actor(0),5,1000);
+  history=appendRemoteSample(history,actor(1),5+1/30,1033);
+  assert.equal(history.length,2);
+  history=appendRemoteSample(history,actor(31),5+2/30,1066);
+  assert.equal(history.length,1,'large single-tick displacement must not draw a cross-map slide');
+  history=appendRemoteSample(history,actor(33),5+3/30,1099);
+  assert.equal(history.length,2,'a fast ~60m/s Dash interval remains a continuous path');
+});
