@@ -366,6 +366,11 @@ function route(screenId) {
   // every screen change finds the front door with its banner up (back from a match too), the Herald folded away
   presentation.reset(nowSec());
   heraldPanel?.close({ restore: false });
+  if(previous!==screenId) {
+    if(screenId===SCREEN_IDS.SOLO_MENU)soloMenu.dataset.panel='list';
+    if(screenId===SCREEN_IDS.BREAKTHROUGH_MENU)breakthroughMenu.dataset.panel='list';
+    if(screenId===SCREEN_IDS.PRIVATE_MENU)privateMenu.dataset.panel='list';
+  }
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
   else router.show(screenId);
   const menuBacked = isMenuBackedScreen(screenId);
@@ -780,6 +785,7 @@ roomList.addEventListener('click', event => {
   selectedPublicCode = row.dataset.code;
   roomCreateForm.hidden = true;
   roomsMenu.dataset.panel = 'details';
+  roomsMenu.querySelector('.rooms-companion .banner-scroll').scrollTop=0;
   renderPublicRooms();
 });
 $('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
@@ -1107,7 +1113,10 @@ $('#mettle-modes')?.addEventListener('click', event => {
   if (!chosen) return;
   menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
   showBreakthroughArena();
-  if($('#game-shell').clientWidth<=640)breakthroughMenu.dataset.panel='details';
+  if($('#game-shell').clientWidth<=640){
+    breakthroughMenu.dataset.panel='details';
+    breakthroughMenu.querySelector('.mettle-companion .banner-scroll').scrollTop=0;
+  }
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1339,6 +1348,7 @@ function chooseSoloActivity(id) {
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   soloMenu.dataset.panel='details';
+  soloMenu.querySelector('.solo-companion .banner-scroll').scrollTop=0;
 }
 for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
@@ -1351,7 +1361,10 @@ $('#solo-launch').addEventListener('click',()=>{
 });
 // On portrait/compact shells the second hanging standard is a distinct
 // page; on desktop both remain visible. The existing choice IDs are shared.
-$('#mettle-configure')?.addEventListener('click',()=>{breakthroughMenu.dataset.panel='details';});
+$('#mettle-configure')?.addEventListener('click',()=>{
+ breakthroughMenu.dataset.panel='details';
+ breakthroughMenu.querySelector('.mettle-companion .banner-scroll').scrollTop=0;
+});
 $('#mettle-list-return')?.addEventListener('click',()=>{breakthroughMenu.dataset.panel='list';});
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
@@ -1428,12 +1441,17 @@ privateModes.addEventListener('click',event=>{
  const mode=event.target.closest?.('[data-private-mode]')?.dataset.privateMode;
  if(!mode)return;
  choosePrivateMode(mode);
- if(matchMedia('(max-width:640px)').matches||$('#game-shell').clientWidth<=640)
+ if($('#game-shell').clientWidth<=640){
    privateMenu.dataset.panel='details';
+   privateMenu.querySelector('.private-companion .banner-scroll').scrollTop=0;
+ }
 });
 privateRoomForm.addEventListener('input',refreshPrivateSummary);
 privateRoomForm.addEventListener('change',refreshPrivateSummary);
-$('#private-configure').addEventListener('click',()=>{privateMenu.dataset.panel='details';});
+$('#private-configure').addEventListener('click',()=>{
+ privateMenu.dataset.panel='details';
+ privateMenu.querySelector('.private-companion .banner-scroll').scrollTop=0;
+});
 $('#private-list-return').addEventListener('click',()=>{privateMenu.dataset.panel='list';});
 function createConfiguredPrivate(){
  const f=readPrivateFields();
