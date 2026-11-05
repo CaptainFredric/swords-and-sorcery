@@ -104,6 +104,8 @@ export class SpellbladeAnimator {
     // eyes) turns with the head from it
     root.updateMatrixWorld(true);
     this.headRest = this.bone('head') ? this.bone('head').getWorldQuaternion(new THREE.Quaternion()).premultiply(root.getWorldQuaternion(new THREE.Quaternion()).invert()) : null;
+    // (and the chest's: a hand placed from the chest, brushing the breastplate, stays on it however he leans)
+    this.chestRest = this.bone('chest') ? this.bone('chest').getWorldQuaternion(new THREE.Quaternion()).premultiply(root.getWorldQuaternion(new THREE.Quaternion()).invert()) : null;
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
@@ -219,16 +221,18 @@ export class SpellbladeAnimator {
       const w = g.weight;
       if (g.legs) this.#liftLegs(g.legs, w);
       if (g.hand) {
-        // the palm's centre where the gesture puts it (from the head), the wrist a hand's length back along the fingers
-        // (in the head's own frame, when it asks: the hand turns with the helmet as it scans)
-        const turn = g.hand.frame === 'head' ? this.#headTurn() : null;
+        // the palm's centre where the gesture puts it (from the head, or the chest), the wrist a hand's length back
+        // along the fingers (in that bone's own frame, when it asks: the hand turns with the helmet as it scans, and
+        // with the chest as he leans, so a brush stays on the breastplate at a run)
+        const fromChest = g.hand.frame === 'chest';
+        const turn = fromChest ? this.#chestTurn() : g.hand.frame === 'head' ? this.#headTurn() : null;
         const along = (v) => (turn ? _v.set(v[0], v[1], v[2]).applyQuaternion(turn).toArray() : v);
         const { side } = g.hand;
         const at = along(g.hand.at);
         const fingers = unit(along(g.hand.aim));
         const palm = unit(along(g.hand.palm));
-        const head = api.position('head');
-        const centre = [head[0] + at[0], head[1] + at[1], head[2] + at[2]];
+        const origin = api.position(fromChest ? 'chest' : 'head');
+        const centre = [origin[0] + at[0], origin[1] + at[1], origin[2] + at[2]];
         const wrist = centre.map((v, i) => v - fingers[i] * PALM_REACH);
         solveArm(api, pins?.[side] ? { ...GESTURE_ARMS[side], pole: pins[side].pole } : GESTURE_ARMS[side], { wrist, aim: fingers, roll: palm }, w);
         if (g.hand.open) this.#flattenHand(side, w);
@@ -312,6 +316,14 @@ export class SpellbladeAnimator {
     if (!head || !this.headRest) return null;
     head.getWorldQuaternion(_q).premultiply(_rootQuatInv);
     return _q.multiply(_bq.copy(this.headRest).invert()).clone();
+  }
+
+  // the chest's turn from its rest, in root space
+  #chestTurn() {
+    const chest = this.bone('chest');
+    if (!chest || !this.chestRest) return null;
+    chest.getWorldQuaternion(_q).premultiply(_rootQuatInv);
+    return _q.multiply(_bq.copy(this.chestRest).invert()).clone();
   }
 
   // a hand's fingers straightened out of whatever curl they hold (each lame's own x turn is its curl: rodin/hands.py),
