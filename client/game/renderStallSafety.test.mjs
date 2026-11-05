@@ -15,8 +15,9 @@ test('normal rendering retains every intended control and its identity',()=>{
 
 test('frozen WebGL cannot keep pushing a player or mounted machine over a ledge',()=>{
   const neutral=movementIntentDuringRenderStall(input,2000,1500);
-  for(const key of ['forward','right','jump','sprint','crouch','flightRise',
-    'flightLower','ramRaise','ramPitchUp','ramPitchDown'])assert.equal(neutral[key],0,key);
+  for(const key of ['forward','right']) assert.equal(neutral[key],0,key);
+  for(const key of ['jump','sprint','crouch','flightRise','flightLower',
+    'ramRaise','ramPitchUp','ramPitchDown']) assert.equal(neutral[key],false,key);
   assert.equal(neutral.yaw,input.yaw);
   assert.equal(neutral.pitch,input.pitch);
   assert.equal(neutral.attack,true,'combat actions remain owned by their existing protocol');
