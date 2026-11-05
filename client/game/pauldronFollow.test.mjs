@@ -22,5 +22,6 @@ test('every joint cop follows its own limb half way, each named as the model nam
   const cops = new Map(COPS);
   assert.equal(cops.get('elbowL'), 'forearmL');
   assert.equal(cops.get('kneeR'), 'shinR');
+  assert.equal(cops.get('ankleL'), 'footL');
   assert.equal(new Set(COPS.map(([cop]) => cop)).size, COPS.length);
 });

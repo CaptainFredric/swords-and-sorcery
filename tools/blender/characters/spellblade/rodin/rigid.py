@@ -6,7 +6,7 @@ Rodin's autorig spread each limb's weights in long gradients and tied the head, 
   bone of its own, which shares its upper arm's rest and parent and turns part of the way with the arm (0.6, rising to
   0.95 for an arm raised overhead), baked into every action by `bake_pauldrons`. Rodin had the left one half on the
   arm and the right one a fifth, so the two moved differently and a raised arm slid out from under its plate.
-- **Elbows and knees** (`add_cop_bones`, `share_cops`): each joint has a cop, a bone with its lower limb's rest on its
+- **Elbows, knees and ankles** (`add_cop_bones`, `share_cops`): each joint has a cop, a bone with its lower limb's rest on its
   upper limb, turned half as far as the lower limb. The part of a vertex's weight its two limb bones share equally
   goes to the cop, so a bending joint holds its depth instead of pinching in (linear skinning averages two bones'
   transforms; half the turn, taken whole, does not). Rodin's gradients stay, so no plate stretches more for it.
@@ -16,6 +16,14 @@ Rodin's autorig spread each limb's weights in long gradients and tied the head, 
   cannons either side, up to each cut.
 - **Body against head** (`body_off_head`): nothing but the helmet rides the head; the body's head and neck weights go
   to the chest, so a turned head no longer drags the collar and shoulders.
+- **Sabatons** (`sabaton_weights`): each boot's sole, heel and toe are wholly the foot's below the ankle, easing onto
+  Rodin's own gradient (with the ankle's cop sharing the bend, as at the knee) over the strapped cuff above. Rodin spread
+  the shin's weight down into the heel and the sole, so a leaning shin dragged the heel in and bent the toe cap. The
+  right ankle bends far more than the left in every stance: Rodin's model (and the kit's rest on it) stands with the
+  left shin already leaning 16 degrees forward and the right upright, so the same stance (both shins leaning about 30
+  degrees over flat feet in Idle, the rear one 55 in Guard) turns the right foot two to four times as far from its rest.
+  The cuff keeps Rodin's gradient: made rigid on the foot below a band through the cop, the strap's front folded into
+  the instep at those bends and opened slivers either side of it.
 """
 from __future__ import annotations
 
@@ -26,9 +34,10 @@ import numpy as np
 from mathutils import Quaternion
 from mathutils.kdtree import KDTree
 
-# each elbow's and knee's cop: (upper limb, lower limb, cop)
+# each elbow's, knee's and ankle's cop: (upper limb, lower limb, cop)
 JOINTS = [joint for s in "LR" for joint in ((f"upper_arm.{s}", f"forearm.{s}", f"elbow.{s}"),
-                                             (f"thigh.{s}", f"shin.{s}", f"knee.{s}"))]
+                                             (f"thigh.{s}", f"shin.{s}", f"knee.{s}"),
+                                             (f"shin.{s}", f"foot.{s}", f"ankle.{s}"))]
 COP_SHARE = 0.5           # how far a cop turns with the limb below it (client/game/SpellbladeAnimator.mjs: the same)
 PAULDRON_REACH = 0.30     # metres from the shoulder joint: nothing further is pauldron
 PAULDRON_INNER = -0.12    # metres back along the arm from the shoulder joint (toward the neck): the plate's inner limit
@@ -36,6 +45,7 @@ PAULDRON_EDGE = 0.12      # metres from the pauldron's edge with the body over w
 UPPER_ARM_EDGE = 0.06     # below the rim the upper arm becomes wholly the arm's over this much
 MIN_WEIGHT = 0.02
 HELMET_PARTS = ("Visor", "Crest", "HelmetJaw", "HelmetShell")
+SABATON_ANKLE = (-0.035, 0.005)   # metres above the ankle's pivot over which a boot eases from wholly its foot's onto its own gradient
 
 
 def smoothstep(edge0: float, edge1: float, x):
@@ -268,3 +278,23 @@ def bake_pauldrons(rig) -> int:
     rig.animation_data.action = saved[0]
     scene.frame_set(saved[1])
     return written
+
+
+def sabaton_weights(rig, boot, side: str) -> dict:
+    """The boot wholly its foot's below the ankle, easing onto its own weights (Rodin's, the cop sharing them) above it
+    (the module notes)."""
+    ankle = float((rig.matrix_world @ rig.data.bones[f"foot.{side}"].head_local).z)
+    foot = f"foot.{side}"
+    names = {g.index: g.name for g in boot.vertex_groups}
+    group = boot.vertex_groups.get(foot) or boot.vertex_groups.new(name=foot)
+    rigid = 0
+    for v in boot.data.vertices:
+        keep = float(smoothstep(*SABATON_ANKLE, (boot.matrix_world @ v.co).z - ankle))
+        own = {names[g.group]: g.weight for g in v.groups}
+        w = _clean({name: weight * keep for name, weight in own.items()} | {foot: own.get(foot, 0.0) * keep + 1 - keep})
+        for g in list(v.groups):
+            boot.vertex_groups[g.group].remove([v.index])
+        for name, weight in w.items():
+            (boot.vertex_groups.get(name) or boot.vertex_groups.new(name=name)).add([v.index], weight, "REPLACE")
+        rigid += list(w) == [foot]
+    return {"wholeOnFoot": rigid, "of": len(boot.data.vertices), "ankle": round(ankle, 3)}

@@ -21,6 +21,8 @@ import { guardTargets } from './fpGuardPose.mjs';
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
 // reveal are played (drawSword, revealHand); an action that needs one before it is out brings it out quickly.
 const QUICK_DRAW_SEC = 0.32;
+// seconds for the cockpit's sword-arm rest to give way to a strike or the Guard, and to come back after it
+const COCKPIT_REST_EASE = 0.16;
 const QUICK_REVEAL_SEC = 0.3;
 // the magic hand: down out of sight; raised palm up, its rune shown, a little above and in from where it rests; at rest
 // (the first-person Idle's own, measured from the rig: where the reveal hands back to it)
@@ -865,10 +867,16 @@ export class WeaponView {
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
       this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
-      const guardArm = this.guardBlend * (combo ? 0 : 1);
+      // (a strike has the arms; as it lets go of them, the guard takes them in step: gated on the strike's being there
+      // at all, a guard raised during a cut's way home snapped on, 23 cm in a frame, the moment the cut was gone)
+      const guardArm = this.guardBlend * (combo ? 1 - combo.weight : 1);
       // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
       // has it)
-      const cockpitRest = 1 - Math.max(combo ? combo.weight : 0, guardArm);
+      // (in the cockpit the sword arm rests a little low and out; eased in and out, so a strike, the Guard and the
+      // rest flow into one another rather than the arm jumping as a strike begins and ends)
+      const cockpitRestWant = this.flightCockpit ? 1 - Math.max(combo ? combo.weight : 0, guardArm) : 0;
+      this.cockpitRestShown = approach(this.cockpitRestShown ?? cockpitRestWant, cockpitRestWant, dt / COCKPIT_REST_EASE);
+      const cockpitRest = this.cockpitRestShown * this.cockpitRestShown * (3 - 2 * this.cockpitRestShown);
       const guardIn = FP_MOTION.guardInward * guardArm;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
@@ -1064,8 +1072,9 @@ export class WeaponView {
         const previous = this.comboLetGo ? null : this.comboSource;
         this.comboHandover = previous ? { from: previous, at: timeSec } : null;
         // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
-        // a dash it takes a beat to take hold of them
-        const fadeIn = !previous && stateBefore !== 'idle';
+        // a dash it takes a beat to take hold of them, and so it does from the flight cockpit's own resting carriage
+        // (taken at once, the arm jumped 12 cm into the cut)
+        const fadeIn = !previous && (stateBefore !== 'idle' || this.flightCockpit);
         // (a chain begun Sundering is slams to its end, as the server swings it; one that follows straight on from a
         // slam, both hands still on the grip, carries on from there with them: they never leave the sword between)
         const onGrip = Boolean(previous?.slam) && (this.comboShown?.offHand?.weight ?? 0) > 0.5;
@@ -1077,7 +1086,9 @@ export class WeaponView {
       }
       const source = this.comboSource;
       this.comboLast = { since: timeSec - startedAt, at: timeSec };
-      const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / 0.1)) : 1;
+      // (in the cockpit, over the time its carriage takes to give way, so the two hand over as one movement)
+      const fadeFor = this.flightCockpit ? COCKPIT_REST_EASE : 0.1;
+      const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / fadeFor)) : 1;
       return this.#comboShow(source.pose(timeSec), timeSec, weight);
     }
     if (!this.comboSource) return null;
