@@ -189,13 +189,13 @@ function exposedShot(room,m,operator,target,now,solids){
 // Before the first real bolt: sticky, continuously refreshed soft preview.
 // After that bolt: the selected target remains exclusive until termination or
 // an explicit grounded retarget. Camera motion never steers an active lock.
-export function updateNarrowTracking(room,m,operator,now,aim=null){
+export function updateNarrowTracking(room,m,operator,now,previewAim=null){
   const skill=m.skill;
   if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne')return null;
   if(skill.wasGrounded===false&&m.grounded&&skill.lockedOnce)
     skill.retargetReadyAt=now+RETARGET_LANDING_SEC;
   skill.wasGrounded=Boolean(m.grounded);
-  if(!skill.lockedOnce)narrowAcquireTarget(room,m,operator,now,aim);
+  if(!skill.lockedOnce)narrowAcquireTarget(room,m,operator,now,previewAim);
   const target=skill.targetId?room.players.get(skill.targetId):null;
   if(skill.lockedOnce&&skill.targetId&&!targetOnline(target))
     return {invalid:true,reason:'targetLost'};
