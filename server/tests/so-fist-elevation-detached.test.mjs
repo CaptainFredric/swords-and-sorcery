@@ -481,3 +481,27 @@ test('server-normalized mounted input never turns hydraulics into Jump/Crouch',(
  assert.equal(q.p.input.crouch,false);
  assert.equal(q.b.operatorId,q.p.id);
 });
+
+test('rearward charge sweeps terrain instead of teleporting through a solid wall',()=>{
+ const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+ q.room.world.solids=[{id:'reverse-wall',center:[0,2,9],size:[14,4,.5]}];
+ primeSoFistSkill(q.room,q.b,q.p,0);
+ step(q,3,{forward:-1,sprint:true});
+ assert.ok(q.b.z<9.1,'reverse carriage must stay on collision side of obstruction');
+ assert.ok(Number.isFinite(q.b.speed)&&Math.abs(q.b.speed)<13,'collision and rebound remain bounded');
+ assert.ok(q.b.health>0,'wall contact is not a free magical fist blast');
+});
+test('reverse-charge server simulation is deterministic for identical inputs and seeded failures',()=>{
+ const simulate=()=>{
+  const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+  primeSoFistSkill(q.room,q.b,q.p,0);
+  step(q,.5,{forward:1,sprint:true});
+  step(q,.6,{forward:-1,sprint:true},.5);
+  step(q,.5,{forward:-1,right:.35,sprint:true},1.1);
+  return {x:q.b.x,z:q.b.z,heading:q.b.heading,speed:q.b.speed,
+    pressure:q.b.pressure,direction:q.b.chargeDirection,debt:q.b.skill.debt,
+    lift:q.b.ramLiftY,pitch:q.b.ramElevPitch};
+ };
+ assert.deepEqual(simulate(),simulate(),
+   'two independent authoritative rooms with same inputs must yield equal states');
+});
