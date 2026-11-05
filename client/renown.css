@@ -180,3 +180,8 @@
   #armory-menu .armory-tabs {margin:4px 0 7px}
   #armory-menu .armory-scroll-hint {margin:4px 0 0;padding-top:5px}
 }
+
+/* Match the armory rod's section-level custom width to its inner cloth. */
+#armory-menu { --banner-width:min(510px,46cqw); }
+@container app (max-width:760px) { #armory-menu { --banner-width:min(460px,53cqw); } }
+@container app (max-width:600px) { #armory-menu { --banner-width:calc(100cqw - 24px); } }
