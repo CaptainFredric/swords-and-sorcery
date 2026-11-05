@@ -12,6 +12,7 @@ import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { Matchmaker } from './rooms/Matchmaker.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
 import { createFixedTickScheduler } from './fixedTickScheduler.mjs';
+import { expireStaleMovementInputs } from './staleInputs.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
@@ -476,6 +477,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const time = Number.isFinite(explicitTime) ? explicitTime : now();
     for (const room of roomManager.rooms.values()) {
       if (room.humanActorCount() === 0) continue;
+      expireStaleMovementInputs(room, time);
       stepBotControllers(room, time, room.world);
       stepPracticeActors(room, time, room.world);
       stepRoom(room, 1 / TICK_RATE, time, room.world);
