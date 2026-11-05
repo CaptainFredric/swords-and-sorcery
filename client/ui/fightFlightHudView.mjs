@@ -33,7 +33,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   const diveReady=ascensionValkyrieReady(m,player,now);
   const terminal=Boolean(m.terminalDive&&!m.terminalDive.resolved);
   const commitment=preparing?'VALKYRIE DIVE · HOLD DASH + ULTIMATE '+Math.max(0,(m.terminalPrep.until-now)).toFixed(1)+'s':terminal?'VALKYRIE DIVE · COMMITTED':' ';
-  const grounded=terminal?'TERMINAL DESCENT':preparing?'VALKYRIE PREPARING':supported?(m.crouched?'CROUCHED':'GROUNDED'):m.mode==='FALLING'?'ROTOR LOST':m.mode==='LANDING'?'DESCENDING':'AIRBORNE';
+  const grounded=terminal?'TERMINAL DESCENT':preparing?'VALKYRIE PREPARING':rotor<=0?'ROTOR LOST':supported?(m.crouched?'CROUCHED':'GROUNDED'):m.mode==='FALLING'?'FALLING':m.mode==='LANDING'?'DESCENDING':'AIRBORNE';
   const controls=touch?'STICK MOVE · HOLD BOLT · '+skillName.toUpperCase()+' · RISE · LOWER · TAP EJECT · HOLD TO BRAKE'
     :key(bindings,'jump','SPACE')+' '+(supported?'TAKE OFF':'ASCEND')+' · '+key(bindings,'crouch','C')+' '+(supported?'CROUCH':'DESCEND')+ ' · '+'LMB REPEATER · RMB SWORD · '+key(bindings,'dash','E')+' FLIGHT DASH · '+key(bindings,'ultimate','R')+' ULTIMATE · '+key(bindings,'siegeSkill','U')+' SKILL · '+key(bindings,'interact','T')+' EJECT / HOLD BRAKE · '+key(bindings,'siegeView','V')+' VIEW';
   let warning = '';
