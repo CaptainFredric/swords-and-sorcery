@@ -754,6 +754,8 @@ export class RemotePlayers {
       turns.push(...recoilTurns(serverNow - context.machineLag - context.firedAt));
     }
     const gestures = pb.id ? d.gestures.update(pb.id, serverNow, context) : [];
+    // (a gesture that shows his sorcery brightens the palm's runes)
+    d.gestureGlow = gestures.reduce((m, g) => Math.max(m, (g.glow ?? 0) * g.weight), 0);
     return { turns, gestures };
   }
 
@@ -945,7 +947,7 @@ export class RemotePlayers {
       shell.fallbackRig.userData.accentMaterial.emissiveIntensity = accentIntensity;
     } else {
       // the visor keeps its read (and flares for spawn protection); the gauntlet runes follow the palm sorcery
-      const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
+      const sorcery = Math.max(shell.visualInstance?.sorceryLevel?.() ?? 0, shell.root.userData.gestureGlow ?? 0);
       setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
     }
     if (pb.team && this.latestSnapshot?.players) {
