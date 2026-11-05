@@ -95,23 +95,26 @@ try {
     assert.equal(v.players,6,'two real Chromium clients plus four bot actors');
     assert.equal(v.renderer,'HighGroundsRenderer');
   }
+  const samples=[];
+  // Control one focused browser at a time. Two independent Chromium windows
+  // cannot both hold desktop pointer lock simultaneously; exercising them
+  // sequentially still verifies both live multiplayer perspectives.
   for(const b of [host,guest]){
     await b.send('Page.bringToFront');
     await b.evaluate('window.focus()');
     await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
     await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
+    await b.key('W','rawKeyDown');
+    await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
+      b.label+' real W key reaches input controller',70);
+    for(let n=0;n<7;n++){
+      await sleep(275);
+      const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
+      samples.push(sample);
+    }
+    await b.key('W','keyUp');
   }
-  await host.key('W','rawKeyDown');
-  await guest.key('W','rawKeyDown');
-  const samples=[];
-  for(let n=0;n<12;n++){
-    await sleep(275);
-    const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
-    samples.push(sample);
-  }
-  await host.key('W','keyUp');
-  await guest.key('W','keyUp');
   const after=[await host.evaluate(summary),await guest.evaluate(summary)];
   for(let i=0;i<2;i++){
     assert.ok(after[i].tick>before[i].tick+10,'server simulation advanced independently of rendering');
@@ -125,9 +128,11 @@ try {
     assert.ok(s.auth&&Object.values(s.auth).every(Number.isFinite),'no corrupt network position');
     assert.ok(s.client&&Object.values(s.client).every(Number.isFinite),'no corrupt local prediction');
   }
-  const moved=samples.some(pair=>pair.some((p,i)=>
-    p.auth&&before[i].auth&&Math.hypot(p.auth.x-before[i].auth.x,p.auth.z-before[i].auth.z)>.5));
-  assert.ok(moved,'real held movement must advance at least one client on the authoritative server');
+  const movedByClient=[0,1].map(i=>Math.max(0,...samples.map(pair=>
+    pair[i].auth&&before[i].auth?
+      Math.hypot(pair[i].auth.x-before[i].auth.x,pair[i].auth.z-before[i].auth.z):0)));
+  const moved=movedByClient.every(value=>value>.5);
+  assert.ok(moved,'both independent browsers must advance real authoritative positions under keyboard input');
   await host.screenshot('six-player-high-grounds');
   await guest.screenshot('second-perspective-high-grounds');
   const health=await(await fetch(url+'/health')).json();
@@ -141,7 +146,7 @@ try {
     participants:6,world:result.world,
     renderedFrames:after.map((v,i)=>v.frameCount-before[i].frameCount),
     simulatedTicks:after[0].tick-before[0].tick,
-    moved,p95PredictionError:p95,maxRenderFrameGapMs:after.map(v=>v.maxFrameGapMs),
+    moved,movedByClient,p95PredictionError:p95,maxRenderFrameGapMs:after.map(v=>v.maxFrameGapMs),
     skippedServerTicks:health.simulation.skippedSteps
   }));
 }catch(e){
