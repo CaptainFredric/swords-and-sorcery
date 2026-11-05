@@ -82,10 +82,19 @@
 .siege-armory-heading .armory-slot { margin: 0; }
 .siege-armory-card > p:not(.armory-slot) { margin: 9px 0 5px; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
 .siege-armory-facts { color: var(--heraldry-brass-light); font: 700 11px/1.4 var(--font-script); }
-.siege-armory-card .spell-card { grid-template-columns: 1fr auto; min-height: 56px; }
+.siege-armory-card .spell-card { grid-template-columns: minmax(0,1fr) auto; min-height: 56px; }
 .siege-armory-card .spell-card small { grid-column: 1 / -1; }
 .siege-armory-card .spell-card:disabled { opacity: 1; cursor: default; }
 .siege-armory-card .spell-card:disabled:hover { background: linear-gradient(180deg,var(--heraldry-iron-light),var(--heraldry-iron)); }
 @container app (max-width: 480px) { .armory-tabs button { padding: 9px 3px; font-size: 12px; letter-spacing: 0; } }
 
 .siege-armory-mark svg { width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round; }
+
+/* The long siege apparatus and Skill titles cannot claim more than the
+   hanging-cloth page's actual text column, including landscape phones. */
+.siege-armory-card,.siege-armory-heading,.siege-armory-card .spell-card {min-width:0;max-width:100%}
+.siege-armory-heading > :not(.siege-armory-mark) {flex:1 1 auto;min-width:0;max-width:100%}
+.siege-armory-heading h4,.siege-armory-card :is(p,small,.spell-name,.siege-armory-facts),
+.siege-announcement p,.heraldry-ledger > div {
+ min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;line-height:1.18
+}

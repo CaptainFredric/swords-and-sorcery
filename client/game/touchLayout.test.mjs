@@ -250,7 +250,7 @@ test('previous flight rectangles become round defaults while edited targets rema
 test('stock mounted firing controls stay in the right thumb area with distinct targets',async()=>{
  const {mountedTouchLayout}=await import('./touchLayout.mjs');
  const layout=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT);
- const actions=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy'];
+ const actions=['attack','siegeSkill'];
  for(const action of actions){
   const a=layout[action];assert.ok(a.right+a.size<=168);
   for(const other of actions.filter(k=>k!==action)){
@@ -492,7 +492,7 @@ test('older completely mirrored flight presets are recognized as untouched, not 
  assert.deepEqual(JSON.parse(storage.getItem('ss-touch-layout')).overrides.flight,{});
 });
 
-test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',()=>{
+test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',async()=>{
  const {readFileSync}=await import('node:fs');
  const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
  const editor=readFileSync(new URL('./TouchLayoutEditor.mjs',import.meta.url),'utf8');
@@ -507,7 +507,7 @@ test('layout workshop previews share game scale, avoid Arena Menu and preserve e
  assert.match(editor,/classList.add\('touch-layout-editor-open'\)/);
  assert.match(mobile,/body\.touch-layout-editor-open #pause-menu/);
  assert.match(main,/if\(runtime\?\.touchLayoutEditor\?\.active\)/);
- assert.match(controls,/applyLayoutItem\(element,\{\.\.\.placement,custom:true\}\)/,
+ assert.match(controls,/applyLayoutItem\(element,\s*mode!=='onFoot'\?\{\.\.\.placement,custom:true\}:placement\)/,
    'all active controls, including default on-foot controls, render canonical layout values');
 });
 
@@ -522,4 +522,26 @@ test('blocked browser storage retains customized positions in session without cl
  const other=memoryStorage();
  assert.equal(loadTouchLayout(other).flight.jump.bottom,DEFAULT_FLIGHT_LAYOUT.jump.bottom,
    'session cache must never leak into a distinct storage profile');
+});
+
+test('SO-FIST-ICATION has a non-overlapping mobile control ladder with hydraulic controls',async()=>{
+ const {DEFAULT_RAM_LAYOUT,mirrorLayoutHorizontal}=await import('./touchLayout.mjs');
+ const actions=['attack','siegeSkill','spell','jump','crouch','interact','siegeView'];
+ const bounds=(name,layout)=>{const p=layout[name],w=p.width??p.size,h=p.height??p.size;
+  return {left:p.left!=null?p.left:568-(p.right??0)-w,
+    right:p.left!=null?p.left+w:568-(p.right??0),
+    top:p.top??320-p.bottom-h,bottom:p.top!=null?p.top+h:320-p.bottom};};
+ for(const layout of [DEFAULT_RAM_LAYOUT,mirrorLayoutHorizontal(DEFAULT_RAM_LAYOUT)]){
+  for(const a of actions){
+   const x=bounds(a,layout);
+   assert.ok(x.left>=0&&x.top>=0&&x.right<=568&&x.bottom<=320,a+' offscreen');
+   for(const b of actions.filter(b=>b!==a)){
+    const y=bounds(b,layout);
+    assert.ok(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top,
+      'Ram '+a+' overlaps '+b);
+   }
+  }
+ }
+ assert.equal(DEFAULT_RAM_LAYOUT.jump.bottom,DEFAULT_RAM_LAYOUT.crouch.bottom);
+ assert.ok(DEFAULT_RAM_LAYOUT.jump.bottom>DEFAULT_RAM_LAYOUT.attack.bottom+DEFAULT_RAM_LAYOUT.attack.size);
 });

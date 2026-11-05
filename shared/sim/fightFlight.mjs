@@ -156,7 +156,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const op=m.operatorId?room.players.get(m.operatorId):null;
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
-  const rawYaw=m.terminalDive?m.terminalDive.heading:Number.isFinite(input.yaw)?input.yaw:m.heading;
+  const terminalPiloted=Boolean(m.terminalDive&&op?.alive&&op.operatingFightFlightId===m.id);
+  const rawYaw=m.terminalDive?(terminalPiloted&&Number.isFinite(input.yaw)?input.yaw:m.heading):Number.isFinite(input.yaw)?input.yaw:m.heading;
   const yaw=Number.isFinite(rawYaw)?rawYaw:(Number.isFinite(m.heading)?m.heading:0);
   // The first .36s of genuine propulsion retains the heading captured at the
   // press. Once released into steering, angular velocity builds and brakes
@@ -168,7 +169,15 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const safeHeading=Number.isFinite(m.heading)?m.heading:0;
   const safeSteeringYaw=Number.isFinite(steeringYaw)?steeringYaw:safeHeading;
   const delta=Math.atan2(Math.sin(safeSteeringYaw-safeHeading),Math.cos(safeSteeringYaw-safeHeading));
-  if(!m.terminalDive){
+  if(m.terminalDive){
+    const age=m.terminalDive.simulatedSec??0;
+    const fade=Math.max(0,Math.min(1,(age-3)/11));
+    const rate=2.8*(1-fade)+.18*fade,acceleration=10*(1-fade)+.75*fade;
+    const target=terminalPiloted?Math.max(-rate,Math.min(rate,delta*2.6)):0;
+    m.runTurnSpeed=Math.max(-rate,Math.min(rate,(m.runTurnSpeed??0)+
+      Math.max(-acceleration*dt,Math.min(acceleration*dt,target-(m.runTurnSpeed??0)))));
+    m.heading+=Math.max(-Math.abs(delta),Math.min(Math.abs(delta),m.runTurnSpeed*dt));
+  }else{
     if(m.runGroundPhase){
       m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
     }else if(m.offensiveRun){
@@ -377,13 +386,24 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     // movement rather than phasing the 2.6m-high chassis into masonry.
     if(!collisionFree(candidate,solids,h)){
       if(m.terminalDive){
-        // A terminal attack wedged against a genuine solid must resolve at the
-        // contact, rather than silently hovering until a distant timeout.
-        // A glancing obstruction is not sufficient; require either a real
-        // high-energy strike or sustained physical resistance under thrust.
-        m.terminalDive.blockedContactSec=(m.terminalDive.blockedContactSec??0)+step;
-        if(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)>4.5||m.terminalDive.blockedContactSec>=.24)
-          m.terminalDive.impactAt=now;
+        // Rotor blades can cut infantry without detonating; glancing chassis
+        // scrapes should slide. Measure the blocked NORMAL component instead
+        // of treating all high-speed tangential movement as a crash.
+        const slideX=collisionFree({x:candidate.x,y:candidate.y,z:previous.z},solids,h);
+        const slideZ=collisionFree({x:previous.x,y:candidate.y,z:candidate.z},solids,h);
+        const horizontal=Math.hypot(m.velocity.x,m.velocity.z);
+        const normal=slideX&&!slideZ?Math.abs(m.velocity.z):
+          slideZ&&!slideX?Math.abs(m.velocity.x):
+          slideX&&slideZ?Math.min(Math.abs(m.velocity.x),Math.abs(m.velocity.z)):horizontal;
+        const direct=normal>=Math.max(6.5,horizontal*.58);
+        // Collision resolution zeroes the normal velocity on each frame.
+        // A real head-on jam therefore has SMALL measured speed on later
+        // frames, despite continued terminal engine thrust. Accumulate
+        // contact where the blocked axis still dominates the movement.
+        const bearingBlocked=normal>=Math.max(.22,horizontal*.35);
+        m.terminalDive.blockedContactSec=bearingBlocked?
+          (m.terminalDive.blockedContactSec??0)+step:0;
+        if(direct||m.terminalDive.blockedContactSec>=.42)m.terminalDive.impactAt=now;
       }
       if(m.offensiveRun||m.runGroundPhase){
         m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;
@@ -417,7 +437,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         if(Math.abs(candidate.x-box.center[0])>FIGHT_FLIGHT.radius+box.size[0]/2||
            Math.abs(candidate.z-box.center[2])>FIGHT_FLIGHT.radius+box.size[2]/2)continue;
         const bottom=box.center[1]-box.size[1]/2;
-        if(previous.y+h<=bottom+.05&&candidate.y+h>bottom){candidate.y=bottom-h-.02;m.velocity.y=Math.min(0,m.velocity.y);m.lastImpactAt=now;break;}
+        if(previous.y+h<=bottom+.05&&candidate.y+h>bottom){
+          if(m.terminalDive&&m.velocity.y>5)m.terminalDive.impactAt=now;
+          candidate.y=bottom-h-.02;m.velocity.y=Math.min(0,m.velocity.y);m.lastImpactAt=now;break;
+        }
       }
     }
     m.x=candidate.x;m.y=candidate.y;m.z=candidate.z;
