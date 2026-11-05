@@ -12,6 +12,11 @@ import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim,flightTra
 
 const MAX_RANGE=FLIGHT_REPEATER.speed*FLIGHT_REPEATER.lifespan;
 const RETARGET_LANDING_SEC=.45;
+// Screen-space fractions of the half-viewport, not world-distance bubbles.
+// Acquire with a forgiving cone; switch requires a closer look at somebody
+// ELSE for a short dwell so two overlapping silhouettes cannot chatter.
+export const NARROW_PREVIEW=Object.freeze({acquireRadius:.48,switchRadius:.36,
+  switchMargin:.16,switchDwell:.12});
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rayPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
 const cylinder=(p,at=p.position)=>({x:at.x,y:at.y-FLIGHT_REPEATER.radius,z:at.z,
@@ -51,33 +56,84 @@ export function narrowTargetVisible(room,m,target,solids=obstacles(room)){
   const start=visor(m);
   return bodyPoints(target).some(point=>!blocked(room,start,point,solids));
 }
-// The reticle is a choice, not a proximity sensor. Use the actual server-side
-// visor and body cylinder; near misses or bodies hidden behind machinery fail.
+// Screen-space targeting only chooses candidates; camera aim never directly
+// steers a shot at an enemy. This uses the authenticated server-side player
+// view, never client-supplied target IDs or client-computed damage.
+function angularScore(point,source,frame){
+ const dx=point.x-source.x,dy=point.y-source.y,dz=point.z-source.z;
+ const dist=Math.hypot(dx,dy,dz);
+ if(dist<.001||dist>MAX_RANGE)return Infinity;
+ const yaw=Math.atan2(-dx,-dz);
+ const yawError=Math.atan2(Math.sin(yaw-frame.yaw),Math.cos(yaw-frame.yaw));
+ const pitchError=Math.asin(clamp(dy/dist,-1,1))-frame.pitch;
+ if(Math.abs(yawError)>=Math.PI/2||Math.abs(pitchError)>=Math.PI/2)return Infinity;
+ const vertical=Math.tan(frame.fov/2);
+ return Math.hypot(Math.tan(yawError)/(vertical*frame.aspect),
+   Math.tan(pitchError)/vertical);
+}
+function reticleDistance(source,frame,p){
+ const h=postureOf(p).height;
+ return Math.min(...[.27,.52,.75,.93].map(v=>
+   angularScore({x:p.position.x,y:p.position.y+h*v,z:p.position.z},source,frame)));
+}
+function previewCandidates(room,m,operator,aim){
+ const frame=aimFrame(operator,aim),source=visor(m),solids=obstacles(room),out=[];
+ for(const p of room.players.values()){
+  if(!p?.alive||p.connected===false||p.id===operator.id||
+    areAllies(room,operator.id,p.id)||!p.position)continue;
+  const score=reticleDistance(source,frame,p);
+  if(score>1.6)continue; // allow incumbent scoring when looking slightly away
+  const visible=narrowTargetVisible(room,m,p,solids);
+  out.push({p,score,visible});
+ }
+ out.sort((a,b)=>a.score-b.score||
+   String(a.p.id).localeCompare(String(b.p.id)));
+ return out;
+}
 export function narrowAcquireTarget(room,m,operator,now,aim=null){
-  const skill=m.skill;
-  if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne')return null;
-  if(skill.targetId&&(!m.grounded||!(now>=(skill.retargetReadyAt??Infinity))))return null;
-  const frame=aimFrame(operator,aim),source=visor(m),c=Math.cos(frame.pitch);
-  const end={x:source.x-Math.sin(frame.yaw)*c*MAX_RANGE,
-    y:source.y+Math.sin(frame.pitch)*MAX_RANGE,
-    z:source.z-Math.cos(frame.yaw)*c*MAX_RANGE};
-  const solids=obstacles(room),hits=[];
-  for(const p of room.players.values()){
-    if(!p?.alive||p.id===operator.id||areAllies(room,operator.id,p.id)||!p.position)continue;
-    const hit=sweptSegmentCylinderHit(source,end,cylinder(p));
-    if(!hit)continue;
-    const point=rayPoint(source,end,hit.t);
-    if(blocked(room,source,point,solids)||!narrowTargetVisible(room,m,p,solids))continue;
-    hits.push({p,t:hit.t});
+ const skill=m.skill;
+ if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne'||skill.lockedOnce)return null;
+ const options=previewCandidates(room,m,operator,aim);
+ const previous=skill.targetId?room.players.get(skill.targetId):null;
+ const valid=Boolean(previous?.alive&&previous.connected!==false&&
+   !areAllies(room,operator.id,previous.id)&&previous.position&&
+   Math.hypot(previous.position.x-m.x,previous.position.y-m.y,
+     previous.position.z-m.z)<=MAX_RANGE);
+ if(!valid)skill.targetId=null;
+ const incumbent=options.find(entry=>entry.p.id===skill.targetId);
+ const best=options.find(entry=>entry.visible&&entry.score<=
+   (skill.targetId?NARROW_PREVIEW.switchRadius:NARROW_PREVIEW.acquireRadius));
+ if(!skill.targetId){
+  skill.pendingTargetId=null;skill.pendingSince=null;
+  if(best)skill.targetId=best.p.id; // immediate initial soft acquisition
+ }else if(best&&best.p.id!==skill.targetId&&
+   best.score+NARROW_PREVIEW.switchMargin<(incumbent?.score??Infinity)){
+  if(skill.pendingTargetId!==best.p.id){
+   skill.pendingTargetId=best.p.id;skill.pendingSince=now;
+  }else if(now-(skill.pendingSince??now)>=NARROW_PREVIEW.switchDwell){
+   skill.targetId=best.p.id;skill.pendingTargetId=null;skill.pendingSince=null;
   }
-  hits.sort((a,b)=>a.t-b.t||String(a.p.id).localeCompare(String(b.p.id)));
-  const selected=hits[0]?.p;
-  if(!selected)return null;
-  skill.targetId=selected.id;skill.lockedOnce=true;skill.retargetReadyAt=Infinity;
-  skill.wasGrounded=Boolean(m.grounded);
-  room.events.push({type:'fightFlightTargetLock',machineId:m.id,operatorId:operator.id,targetId:selected.id,at:now});
-  updateNarrowTracking(room,m,operator,now);
-  return selected.id;
+ }else{skill.pendingTargetId=null;skill.pendingSince=null;}
+ if(skill.targetId!==skill.lastPreviewId){
+  skill.lastPreviewId=skill.targetId;
+  if(skill.targetId)room.events.push({type:'fightFlightTargetPreview',
+    machineId:m.id,operatorId:operator.id,targetId:skill.targetId,at:now});
+ }
+ return skill.targetId;
+}
+// Only a REAL spawned bolt hard-locks the highlighted target. A preview is
+// allowed to change with deliberate aim, but the final lock cannot drift as
+// the third-person camera or player turns away.
+export function narrowCommitLock(room,m,operator,now){
+ const skill=m.skill;
+ if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne'||skill.lockedOnce||
+   !skill.targetId)return false;
+ skill.lockedOnce=true;skill.retargetReadyAt=Infinity;
+ skill.pendingTargetId=null;skill.pendingSince=null;
+ skill.wasGrounded=Boolean(m.grounded);
+ room.events.push({type:'fightFlightTargetLock',
+   machineId:m.id,operatorId:operator.id,targetId:skill.targetId,at:now});
+ return true;
 }
 function predictedPosition(m,target){
   const t=Math.hypot(target.position.x-m.x,target.position.y-m.y,target.position.z-m.z)/FLIGHT_REPEATER.speed;
@@ -121,20 +177,22 @@ function exposedShot(room,m,operator,target,now,solids){
   }
   return null;
 }
-// Never change targets automatically. Landing only grants a new deliberate
-// reticle press, and a missing opening never makes an ordinary shot magical.
+// Before the first real bolt: sticky, continuously refreshed soft preview.
+// After that bolt: the selected target remains exclusive until termination or
+// an explicit grounded retarget. Camera motion never steers an active lock.
 export function updateNarrowTracking(room,m,operator,now){
   const skill=m.skill;
   if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne')return null;
-  if(skill.wasGrounded===false&&m.grounded)skill.retargetReadyAt=now+RETARGET_LANDING_SEC;
+  if(skill.wasGrounded===false&&m.grounded&&skill.lockedOnce)
+    skill.retargetReadyAt=now+RETARGET_LANDING_SEC;
   skill.wasGrounded=Boolean(m.grounded);
+  if(!skill.lockedOnce)narrowAcquireTarget(room,m,operator,now);
   const target=skill.targetId?room.players.get(skill.targetId):null;
-  if(skill.targetId&&(!target?.alive||target.connected===false))
+  if(skill.lockedOnce&&skill.targetId&&(!target?.alive||target.connected===false))
     return {invalid:true,reason:'targetLost'};
   const solids=obstacles(room);
-  // Camera aim selects a target only at Skill activation. Once locked, actual
-  // crossbow traverse/elevation and physical visibility control tracking.
-  // This deliberately works in third-person when the camera looks elsewhere.
+  // Once locked, actual crossbow traverse/elevation and physical visibility
+  // control tracking. Before lock, the camera only nominates the preview.
   const visible=Boolean(target&&narrowTargetVisible(room,m,target,solids));
   const predicted=target?predictedPosition(m,target):null;
   const distance=target?Math.hypot(target.position.x-m.x,target.position.y-m.y,target.position.z-m.z):Infinity;
@@ -150,6 +208,7 @@ export function updateNarrowTracking(room,m,operator,now){
   skill.targetInTraverse=inTraverse;
   skill.noClearShot=Boolean(target&&inTraverse&&!aim);
   skill.trackingState=!target?'acquiring':!visible?'sightLost':!inTraverse?'outOfTraverse':
-    !aim?'noClearShot':'locked';
-  return {targetId:target?.id??null,visible,inTraverse,aim,followAim};
+    !aim?'noClearShot':skill.lockedOnce?'locked':'preview';
+  return {targetId:target?.id??null,visible,inTraverse,aim,followAim,
+    locked:Boolean(skill.lockedOnce)};
 }
