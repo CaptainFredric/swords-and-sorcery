@@ -22,7 +22,7 @@ export const TOUCH = Object.freeze({
  * @param {number} dy (px, +y down the screen)
  * @returns {{forward:number, right:number, magnitude:number, sprint:boolean, knob:{x:number,y:number}}}
  */
-export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOUCH.deadZone, sprintActive = false } = {}) {
+export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOUCH.deadZone, sprintActive = false, reverseSprint = false } = {}) {
   const distance = Math.hypot(dx, dy);
   const clamped = Math.min(distance, radius);
   const unitX = distance > 1e-6 ? dx / distance : 0;
@@ -34,7 +34,11 @@ export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOU
   const magnitude = Math.min(1, (raw - deadZone) / (TOUCH.fullAt - deadZone));
   const forward = -unitY * magnitude;
   const right = unitX * magnitude;
-  const sprint = raw >= (sprintActive ? TOUCH.sprintReleaseAt : TOUCH.sprintAt) && -unitY >= (sprintActive ? TOUCH.sprintReleaseForward : TOUCH.sprintForward);
+  // Ordinary reverse is slow; Skill-enabled reverse charging uses the same
+  // push threshold and release hysteresis as forward charging.
+  const longitudinal = reverseSprint ? Math.abs(unitY) : -unitY;
+  const sprint = raw >= (sprintActive ? TOUCH.sprintReleaseAt : TOUCH.sprintAt) &&
+    longitudinal >= (sprintActive ? TOUCH.sprintReleaseForward : TOUCH.sprintForward);
   return { forward, right, magnitude, sprint, knob };
 }
 

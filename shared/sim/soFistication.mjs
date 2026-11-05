@@ -24,19 +24,22 @@ import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
+export const soFistReverseChargeAvailable=b=>Boolean(b&&!b.retired&&b.health>0&&
+  b.skill?.id==='beatToThePunch'&&b.skill.phase==='primed');
 // The rear deck does not rise. Only the upper saddle pivots, independently
 // of the existing animated ram stroke; the collision boxes use these same
 // authoritative fields.
 function stepRamElevation(room,b,dt,now,world){
  const p=room.players.get(b.operatorId);
  const input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
- if(!b.ramLiftY&&!(input.ramRaise||input.crouch||input.ramPitchUp||input.ramPitchDown)&&
+ if(!b.ramLiftY&&!(input.ramRaise||input.ramLower||input.crouch||input.ramPitchUp||input.ramPitchDown)&&
    !b.ramElevPitch)return;
  const startLift=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
  const startPitch=clamp(b.ramElevPitch??0,0,SO_FIST_LIFT.maxPitch);
- let nextLift=clamp(startLift+
-  ((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
-    input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),
+ const lowering=Boolean(input.ramLower||input.crouch);
+  let nextLift=clamp(startLift+
+   ((input.ramRaise&&!lowering)?SO_FIST_LIFT.riseRate*dt:
+     lowering?-SO_FIST_LIFT.lowerRate*dt:0),
   0,SO_FIST_LIFT.maxRise);
  // Camera pitch is only the operator's LOOK. Hydraulic pitch is an explicit
  // held command, with the angle maintained after the operator lets go.
@@ -89,7 +92,7 @@ function stepRamElevation(room,b,dt,now,world){
   b.ramLiftBlockedAt=now;
  }
 }
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
  detachedFist:null,fistRecoveryUntil:0,
  fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
@@ -229,13 +232,13 @@ const p=room.players.get(b.operatorId);
  if(b.operatorId&&(!p?.alive||p.operatingRamId!==b.id||p.connected===false&&p.actorKind==='human'))dismountSoFistication(room,b,p,{force:true});
  const driver=room.players.get(b.operatorId),input=driver&&(driver.staggerUntil??0)<=now?driver.input??{}:{};
  const failed=SO_FIST_WHEELS.filter(w=>b.components[w.id].health<=0),canDrive=failed.length<3&&!['L','R'].some(s=>failed.filter(w=>w.id.endsWith(s)).length>=2),driveScale=canDrive?(1-failed.length*.22)*(b.components.Drive.health<=0?.45:1):0;
- const reverseSkill=b.skill?.phase==='primed'&&input.forward<0;
- const chargeHeld=Boolean(driver&&input.sprint&&(input.forward>=0||reverseSkill)&&driveScale>0&&
+ const reverseSkill=soFistReverseChargeAvailable(b)&&input.forward<-.25;
+  const chargeHeld=Boolean(driver&&input.sprint&&((input.forward??0)>=0||reverseSkill)&&driveScale>0&&
    (b.ramLiftY??0)<.15);
 
  if(!chargeHeld)b.chargeSpent=false;
  if(chargeHeld&&!b.chargeSpent&&b.pressure>=25)b.charging=true;
- if(!chargeHeld)b.charging=false;
+ if(!chargeHeld){b.charging=false;b.chargeDirection=0;}
  if(b.charging){b.pressure=Math.max(0,b.pressure-(4+.07*b.speed*b.speed)*(1+failed.length*.18+(b.components.Drive.health<=0?.5:0))*dt);if(b.pressure<=0){b.charging=false;b.chargeSpent=true;}}
  else b.pressure=Math.min(100,b.pressure+(Math.abs(b.speed)>6?5:13)*(b.components.Drive.health<=0?.5:1)*dt);
  if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.debt+=debt;}
@@ -244,6 +247,8 @@ const p=room.players.get(b.operatorId);
  const reversing=target*b.speed<0;
  const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
+  // Actual momentum sign, not the newly requested direction during braking.
+  b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
  const travelSpeed=b.speed+(b.recoilVelocity??0);
@@ -283,6 +288,8 @@ const p=room.players.get(b.operatorId);
   resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(travelSpeed)/SO_FIST_WHEELS[w].radius;}
  }
+ // Reflect AFTER-contact momentum in the network snapshot, including rebounds.
+ b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  if(Math.abs(travelSpeed)<.001&&soFistPose(b,now).active)resolveSoFistContacts(room,b,{...b},dt,now,now-dt,dt);
  const other=room.biByeLlista,stroke=soFistPose(b,now);
  if(other&&other.health>0&&stroke.active&&!(b.strokeMachines??[]).includes(other.id)){
@@ -435,9 +442,9 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  const ward=mitigateSiegeSteel(room,b,amount,source,now,{componentId,point});
  amount=ward.amount;
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
- room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
+ room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,health:target.health,maxHealth:target.maxHealth??b.maxHealth,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;

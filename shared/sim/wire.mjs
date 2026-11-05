@@ -5,7 +5,7 @@ import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
-import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
+import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
@@ -250,7 +250,15 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     flightBurnZones:room.flightBurnZones??[],
     fightFlight:room.fightFlight?{...room.fightFlight,position:{x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z}}:null,
     soFistRevision:room.soFistRevision??0,
-    soFistication:room.soFistication?{...room.soFistication,skill:{...room.soFistication.skill,failureThreshold:undefined},position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+    soFistication:room.soFistication?{...room.soFistication,skill:{...room.soFistication.skill,failureThreshold:undefined},position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},
+      // All health and charge presentation comes from server-owned components.
+      fistHealth:room.soFistication.components?.Fist?.health??0,
+      fistMaxHealth:room.soFistication.components?.Fist?.maxHealth??0,
+      fistState:room.soFistication.components?.Fist?.health<=0?'destroyed':
+        room.soFistication.detachedFist?.state??(room.soFistication.fistMounted?'attached':'absent'),
+      drivePressure:room.soFistication.pressure,
+      reverseChargeAvailable:soFistReverseChargeAvailable(room.soFistication),
+      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
@@ -367,13 +375,15 @@ export function applyRoomCommand(room, player, message, time) {
         siegeTarget:(player.operatingBallistaId||player.operatingFightFlightId)&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
-        jump: Boolean(message.jump),
+        // The ram never consumes generic Jump/Crouch input.
+        jump: Boolean(!player.operatingRamId&&message.jump),
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
         sprint: Boolean(message.sprint),
-        crouch: Boolean(message.crouch),
+        crouch: Boolean(!player.operatingRamId&&message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
+        ramLower: Boolean(player.operatingRamId&&message.ramLower),
         ramPitchUp: Boolean(player.operatingRamId&&message.ramPitchUp),
         ramPitchDown: Boolean(player.operatingRamId&&message.ramPitchDown),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),

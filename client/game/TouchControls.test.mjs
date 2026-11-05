@@ -1006,20 +1006,24 @@ test('flight rail cannot retain input across mount loss, focus reset or another 
 });
 
 
-test('the joystick extension follows the forward thumb, resets and never impersonates authoritative Sprint', () => {
-  const {controls,send}=setup({alive:true,spell:'fireball',position:{x:0,y:0,z:0}});
-  const states=[];
-  controls.motionGuide.style.setProperty=(name,value)=>{if(name==='--motion-push')states.push(Number(value));};
-  send('pointerdown',110,400,{target:controls.layer,pointerId:77});
-  send('pointermove',110,371,{target:controls.layer,pointerId:77});
-  assert.ok(states.at(-1)>.4 && states.at(-1)<.6,'detent climbs in proportion to thumb movement');
-  assert.equal(controls.motionGuide.dataset.motion,'idle','thumb intent does not claim Sprinting');
-  assert.equal(controls.motionGuide.classList.contains('forward'),true);
-  send('pointermove',160,400,{target:controls.layer,pointerId:77});
-  assert.equal(controls.motionGuide.classList.contains('forward'),false,'sideways steering is not a forward push');
-  send('pointerup',160,400,{target:controls.layer,pointerId:77});
-  assert.equal(states.at(-1),0,'release springs the detent back into the joystick');
-  assert.equal(controls.motionGuide.classList.contains('approaching'),false);
+test('the existing joystick communicates charge approach without a second yellow sliding tab',()=>{
+ const {controls,send}=setup({alive:true,spell:'fireball',position:{x:0,y:0,z:0}});
+ const writes=[];
+ controls.motionGuide.style.setProperty=(name,value)=>writes.push([name,value]);
+ send('pointerdown',110,400,{target:controls.layer,pointerId:77});
+ send('pointermove',110,350,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),true,
+   'thumb near the rim indicates charge intent');
+ assert.equal(controls.motionGuide.dataset.motion,'idle',
+   'client thumb intent never claims authoritative Sprint');
+ assert.equal(writes.some(([name])=>name==='--motion-push'),false,
+   'the removed independent detent is never driven');
+ send('pointermove',160,400,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),false,
+   'sideways steering is not a forward push');
+ send('pointerup',160,400,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),false);
+ controls.dispose();
 });
 
 test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, hides on illegal spell or destroyed machine', () => {
@@ -1327,60 +1331,74 @@ test('Bi-Bye-llista real pointer events keep the one Skill control and server-co
    'Cold preserves the actual coupled command aim, not just its action name');
 });
 
-test('ram touch RAISE and LOWER are truly held controls and never latch after release',()=>{
- const p={alive:true,spell:'fireball',position:{x:0,y:0,z:3.1},operatingRamId:'ram'};
- const {controls,send}=setup(p);
- assert.equal(controls.ramMounted,true);
- assert.equal(controls.movement().jump,false);
- assert.equal(controls.movement().crouch,false);
- send('pointerdown',600,300,{action:'jump',pointerId:85});
- assert.equal(controls.movement().jump,true,'held mounted Jump drives hydraulic raise');
- send('pointerdown',550,300,{action:'crouch',pointerId:86});
- assert.equal(controls.movement().crouch,true,'held mounted Lower drives lowering');
- send('pointerup',600,300,{action:'jump',pointerId:85});
- assert.equal(controls.movement().jump,false);
- assert.equal(controls.movement().crouch,true);
- send('pointerup',550,300,{action:'crouch',pointerId:86});
- assert.equal(controls.movement().crouch,false,'ram Lower is not a crouch toggle');
- send('pointerdown',600,300,{action:'crouch',pointerId:87});
- controls.reset();
- assert.equal(controls.movement().crouch,false,'mount reset never leaves lower latched');
+test('ram Raise/Lower hold pitch; swiping outward changes ONLY that pointer to lift',()=>{
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+  const {input,controls,send}=setup(p);input.mountedRam=true;input.touch=controls;
+  controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
+    components:{Fist:{health:500}},skill:{id:'beatToThePunch',phase:'idle',readyAt:0}}}});
+  send('pointerdown',650,240,{action:'jump',pointerId:110});
+  let state=input.movement();
+  assert.equal(state.ramPitchUp,true);
+  assert.equal(state.ramRaise,false);
+  assert.equal(state.jump,false,'Raise cannot become a personal Hop');
+  send('pointermove',650,220,{target:controls.layer,pointerId:110});
+  assert.equal(input.movement().ramPitchUp,true,'small drift keeps pitch');
+  send('pointermove',650,165,{target:controls.layer,pointerId:110});
+  state=input.movement();
+  assert.equal(state.ramRaise,true,'outward swipe lifts upper assembly');
+  assert.equal(state.ramPitchUp,false);
+  send('pointermove',720,95,{target:controls.buttons.interact,pointerId:110});
+  assert.equal(input.movement().ramRaise,true,'off-button holding keeps original pointer');
+  send('pointerup',720,95,{target:controls.layer,pointerId:110});
+  assert.equal(input.movement().ramRaise,false);
+  assert.equal(input.movement().ramPitchUp,false);
+  send('pointerdown',650,240,{action:'crouch',pointerId:111});
+  assert.equal(input.movement().ramPitchDown,true);
+  assert.equal(input.movement().crouch,false);
+  send('pointermove',650,305,{target:controls.layer,pointerId:111});
+  assert.equal(input.movement().ramLower,true);
+  assert.equal(input.movement().ramPitchDown,false);
+  send('pointercancel',650,305,{target:controls.layer,pointerId:111});
+  assert.equal(input.movement().ramLower,false);
+  controls.dispose();
 });
 
+test('ram simultaneous hydraulic fingers remain independent; reset releases both',()=>{
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+  const {input,controls,send}=setup(p);input.mountedRam=true;input.touch=controls;
+  send('pointerdown',620,200,{action:'jump',pointerId:120});
+  send('pointerdown',630,340,{action:'crouch',pointerId:121});
+  assert.equal(input.movement().ramPitchUp,true);
+  assert.equal(input.movement().ramPitchDown,true);
+  send('pointermove',620,155,{target:controls.layer,pointerId:120});
+  assert.equal(input.movement().ramRaise,true);
+  assert.equal(input.movement().ramPitchDown,true);
+  send('pointerup',630,340,{target:controls.layer,pointerId:121});
+  assert.equal(input.movement().ramPitchDown,false);
+  assert.equal(input.movement().ramRaise,true);
+  controls.reset();
+  assert.equal(input.movement().ramRaise,false);
+  assert.equal(input.movement().ramPitchUp,false);
+  controls.dispose();
+});
 
-test('ram mobile Raise/Lower holds lift until a deliberate outward swipe switches to pitch',()=>{
- const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
- const {input,controls,send}=setup(p);
- input.mountedRam=true;input.touch=controls;
- controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
-   components:{Fist:{health:500}},skill:{id:'longArmToTheJaw',phase:'idle',readyAt:0}}}});
- assert.equal(controls.buttons.jump.querySelector('span').textContent,'RAISE');
- assert.equal(controls.buttons.crouch.querySelector('span').textContent,'LOWER');
- send('pointerdown',650,240,{action:'jump',pointerId:110});
- let state=input.movement();
- assert.equal(state.ramRaise,true);
- assert.equal(state.ramPitchUp,false);
- send('pointermove',650,220,{target:controls.layer,pointerId:110});
- assert.equal(input.movement().ramRaise,true,'small thumb drift remains lift');
- send('pointermove',650,165,{target:controls.layer,pointerId:110});
- state=input.movement();
- assert.equal(state.ramRaise,false);
- assert.equal(state.ramPitchUp,true);
- send('pointermove',720,95,{target:controls.layer,pointerId:110});
- assert.equal(input.movement().ramPitchUp,true,'moving farther from the button retains pitch');
- send('pointerup',720,95,{target:controls.layer,pointerId:110});
- assert.equal(input.movement().ramPitchUp,false);
- assert.equal(input.movement().ramRaise,false);
- send('pointerdown',650,240,{action:'crouch',pointerId:111});
- assert.equal(input.movement().crouch,true);
- send('pointermove',650,305,{target:controls.layer,pointerId:111});
- state=input.movement();
- assert.equal(state.crouch,false);
- assert.equal(state.ramPitchDown,true);
- send('pointercancel',650,305,{target:controls.layer,pointerId:111});
- assert.equal(input.movement().ramPitchDown,false);
- assert.equal(input.movement().crouch,false);
- controls.dispose();
+test('overlapping customized Leave never steals a Raise press or ejects the operator',()=>{
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+  const {input,controls,send}=setup(p);input.mountedRam=true;input.touch=controls;
+  const messages=[];input.socket.send=m=>messages.push(m);
+  controls.buttons.jump.getBoundingClientRect=()=>({left:580,right:690,top:150,bottom:290});
+  controls.buttons.crouch.getBoundingClientRect=()=>({left:580,right:690,top:310,bottom:430});
+  // The topmost DOM element is the misplaced Leave button, but the finger
+  // is physically inside Raise's customized rectangle.
+  send('pointerdown',630,220,{action:'interact',pointerId:130});
+  assert.equal(input.movement().ramPitchUp,true);
+  assert.equal(input.movement().jump,false);
+  send('pointermove',630,170,{action:'interact',pointerId:130,target:controls.layer});
+  assert.equal(input.movement().ramRaise,true);
+  send('pointerup',630,170,{action:'interact',pointerId:130,target:controls.layer});
+  assert.equal(input.movement().ramRaise,false);
+  assert.equal(messages.some(m=>m.type==='siegeOperate'),false,'Raise cannot dismount');
+  controls.dispose();
 });
 
 test('ram sliding over Raise/Lower from a look gesture never acquires either hydraulic control',()=>{
@@ -1395,5 +1413,32 @@ test('ram sliding over Raise/Lower from a look gesture never acquires either hyd
  assert.equal(input.movement().ramPitchUp,false);
  assert.equal(input.movement().crouch,false);
  send('pointerup',650,175,{target:controls.layer,pointerId:112});
+ controls.dispose();
+});
+
+test('one customized charge stick expands bidirectionally only for actual Beat authorization',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {controls,input,send}=setup(p);input.mountedRam=true;input.touch=controls;
+ const snapshot=available=>({soFistication:{id:'ram',health:1400,pressure:47,
+   drivePressure:47,reverseChargeAvailable:available,charging:available,
+   chargeDirection:available?-1:0,components:{Fist:{health:500}},
+   skill:{id:'beatToThePunch',phase:available?'primed':'cooldown',readyAt:0}}});
+ controls.update(p,10,{snapshot:snapshot(false)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),false);
+ controls.update(p,10,{snapshot:snapshot(true)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),true);
+ assert.equal(controls.stickShell.getAttribute('viewBox'),'0 0 112 212');
+ send('pointerdown',120,400,{target:controls.layer,pointerId:137});
+ send('pointermove',120,480,{target:controls.layer,pointerId:137});
+ assert.ok(input.movement().forward<-.9,'the existing stick maps its lower channel to reverse');
+ assert.equal(input.movement().sprint,true,'Skill unlocks actual backward charging input');
+ controls.update(p,11,{snapshot:snapshot(false)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),false);
+ assert.equal(controls.stickShell.getAttribute('viewBox'),'0 0 112 162');
+ assert.equal(input.movement().sprint,false,
+   'expiration immediately withdraws reverse charge without a new finger event');
+ assert.ok(input.movement().forward<0,'regular slow reverse remains available');
+ send('pointerup',120,480,{target:controls.layer,pointerId:137});
+ assert.equal(input.movement().forward,0);
  controls.dispose();
 });

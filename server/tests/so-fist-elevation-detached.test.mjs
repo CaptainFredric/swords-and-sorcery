@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication,
   stepSoFistication,fireSoFistication,primeSoFistSkill,
-  damageSoFistication} from '../../shared/sim/soFistication.mjs';
+  damageSoFistication,soFistReverseChargeAvailable} from '../../shared/sim/soFistication.mjs';
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
 import {SO_FIST_LIFT,soFistAllowedPitch,soFistUpperPoint,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw,RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
+import {endSiegeSkill} from '../../shared/sim/siegeSkills.mjs';
+import {serializeSnapshot,applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 function setup(skill='beatToThePunch'){
  const room=new Room('LIFT',{mode:'PRACTICE'});room.state='PLAYING';
@@ -363,4 +365,143 @@ test('Argon pitch cylinder barrels and rods remain exactly coaxial from 0 to 50 
  const peak=soFistPitchCylinderPose(50*Math.PI/180);
  assert.ok(Math.abs(peak.barrelX+.9155)<.0001);
  assert.ok(Math.abs(peak.rodX+.0428)<.0001);
+});
+
+test('ram-only held pitch and hydraulic lift operate independently without dismount',()=>{
+ const q=setup(),initial=soFistStriker(q.b,0);
+ assert.equal(q.b.operatorId,q.p.id);
+ step(q,.35,{ramPitchUp:true});
+ const angle=q.b.ramElevPitch;
+ assert.ok(angle>0,'hold Raise tilts the front of the ram');
+ assert.equal(q.b.ramLiftY,0,'no swipe cannot lift entire assembly');
+ step(q,.8,{ramRaise:true},.35);
+ assert.ok(q.b.ramLiftY>0,'outward Raise swipe lifts the assembly');
+ assert.ok(Math.abs(q.b.ramElevPitch-angle)<.001,'lift cannot also command pitch');
+ const upperY=q.b.ramLiftY;
+ step(q,.2,{ramLower:true},1.15);
+ assert.ok(q.b.ramLiftY<upperY,'swipe Down lowers hydraulic assembly');
+ assert.equal(q.b.operatorId,q.p.id,'none of these held inputs dismounts');
+ assert.ok(soFistStriker(q.b,1.35).center[1]>initial.center[1]);
+});
+test('Beat to the Punch permits real backward charge with acceleration and drive pressure',()=>{
+ const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+ assert.equal(soFistReverseChargeAvailable(q.b),false);
+ assert.equal(primeSoFistSkill(q.room,q.b,q.p,0),null);
+ assert.equal(soFistReverseChargeAvailable(q.b),true);
+ step(q,1,{forward:-1,sprint:true});
+ assert.ok(q.b.speed< -4,'Skill reverse drives rearward rather than animating UI');
+ assert.ok(q.b.speed> -10,'mass prevents instant peak speed');
+ assert.ok(q.b.pressure<100,'rearward charge consumes actual drive pressure');
+ assert.equal(q.b.chargeDirection,-1);
+ assert.ok(q.b.z>0,'reverse movement is physically simulated');
+ assert.ok(q.b.skill.debt>0,'reverse charge incurs its Skill debt');
+});
+test('Beat reverse momentum cannot flip instantly and returns to ordinary reverse on Skill end',()=>{
+ const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+ primeSoFistSkill(q.room,q.b,q.p,0);
+ q.b.speed=9;
+ step(q,.2,{forward:-1,sprint:true});
+ assert.ok(q.b.speed>0,'rearward demand first brakes existing forward momentum');
+ assert.equal(q.b.chargeDirection,1,'charge direction reports actual motion while braking');
+ step(q,2,{forward:-1,sprint:true},.2);
+ assert.ok(q.b.speed<0,'sustained demand eventually reverses momentum');
+ endSiegeSkill(q.b,2.2);
+ assert.equal(soFistReverseChargeAvailable(q.b),false);
+ step(q,.2,{forward:-1,sprint:true},2.2);
+ assert.equal(q.b.charging,false);
+ assert.equal(q.b.chargeDirection,0);
+ assert.ok(q.b.speed<0,'Skill end cannot teleport the machine back to zero speed');
+});
+test('ordinary reverse remains constrained; reverse Skill does not invent a rear-facing fist',()=>{
+ const q=setup();step(q,2,{forward:-1,sprint:true});
+ assert.ok(q.b.speed<=0&&q.b.speed>=-2.51);
+ assert.equal(q.b.charging,false);
+ assert.equal(soFistStriker(q.b,2).componentId,'Fist');
+ assert.equal(q.b.chargeDirection,0);
+});
+test('detached fist HP is preserved; destroyed resting fist cannot be retrieved',()=>{
+ const q=setup('longArmToTheJaw');
+ q.b.components.Fist.health=187;
+ assert.equal(primeSoFistSkill(q.room,q.b,q.p,1),null);
+ assert.equal(q.b.detachedFist.healthAtLaunch,187);
+ q.b.detachedFist.state='resting';
+ q.b.detachedFist.position={x:q.b.x,y:.68,z:q.b.z-1};
+ assert.equal(primeSoFistSkill(q.room,q.b,q.p,2),null);
+ assert.equal(q.b.components.Fist.health,187,'retrieval has no repair');
+ assert.equal(q.b.fistMounted,true);
+ assert.equal(primeSoFistSkill(q.room,q.b,q.p,27),null);
+ assert.equal(q.b.detachedFist.healthAtLaunch,187);
+ q.b.components.Fist.health=0;
+ q.b.detachedFist.state='resting';
+ assert.match(primeSoFistSkill(q.room,q.b,q.p,28),/destroyed/i);
+ assert.equal(q.b.detachedFist.state,'destroyed');
+ assert.equal(q.b.fistMounted,false);
+ assert.equal(q.b.components.Fist.health,0);
+ assert.equal(soFistStriker(q.b,28).componentId,'Piston',
+   'exposed piston remains usable while the fist cannot be recovered');
+});
+test('component destruction emits authoritative health and does not regenerate on subsequent ticks',()=>{
+ const q=setup();
+ q.b.components.Fist.health=8;
+ assert.equal(damageSoFistication(q.room,q.b,90,'enemy','sword',.5,{componentId:'Fist'}),true);
+ assert.equal(q.b.components.Fist.health,0);
+ const destroyed=q.room.events.find(e=>e.type==='soFistComponentDestroyed');
+ assert.equal(destroyed?.machineId,q.b.id);
+ assert.equal(destroyed?.health,0);
+ assert.equal(q.room.events.find(e=>e.type==='soFistDamaged'&&e.componentId==='Fist')?.health,0);
+ assert.equal(soFistStriker(q.b,.5).componentId,'Piston');
+ step(q,1,{});
+ assert.equal(q.b.components.Fist.health,0,'no passive repair or recovery loophole');
+});
+test('snapshots expose unambiguous physical ram state and reverse-charge authorization',()=>{
+ const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+ primeSoFistSkill(q.room,q.b,q.p,0);
+ step(q,.3,{forward:-1,sprint:true});
+ const m=serializeSnapshot(q.room,.3,q.p.id).soFistication;
+ assert.equal(m.id,q.b.id);
+ assert.equal(m.type,'so-fist-ication');
+ assert.equal(m.fistHealth,q.b.components.Fist.health);
+ assert.equal(m.fistMaxHealth,q.b.components.Fist.maxHealth);
+ assert.equal(m.fistState,'attached');
+ assert.equal(m.drivePressure,q.b.pressure);
+ assert.equal(m.reverseChargeAvailable,true);
+ assert.equal(m.chargeDirection,q.b.chargeDirection);
+ assert.ok(Number.isFinite(m.ramLiftY)&&Number.isFinite(m.ramElevPitch));
+ endSiegeSkill(q.b,.3);
+ assert.equal(serializeSnapshot(q.room,.3,q.p.id).soFistication.reverseChargeAvailable,false);
+});
+test('server-normalized mounted input never turns hydraulics into Jump/Crouch',()=>{
+ const q=setup();
+ const result=applyRoomCommand(q.room,q.p,{type:'input',forward:0,ramRaise:true,ramLower:true,ramPitchUp:true,ramPitchDown:false,jump:true,crouch:true,seq:1},1);
+ assert.ok(!result?.rejected);
+ assert.equal(q.p.input.ramRaise,true);
+ assert.equal(q.p.input.ramLower,true);
+ assert.equal(q.p.input.ramPitchUp,true);
+ assert.equal(q.p.input.jump,false);
+ assert.equal(q.p.input.crouch,false);
+ assert.equal(q.b.operatorId,q.p.id);
+});
+
+test('rearward charge sweeps terrain instead of teleporting through a solid wall',()=>{
+ const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+ q.room.world.solids=[{id:'reverse-wall',center:[0,2,9],size:[14,4,.5]}];
+ primeSoFistSkill(q.room,q.b,q.p,0);
+ step(q,3,{forward:-1,sprint:true});
+ assert.ok(q.b.z<9.1,'reverse carriage must stay on collision side of obstruction');
+ assert.ok(Number.isFinite(q.b.speed)&&Math.abs(q.b.speed)<13,'collision and rebound remain bounded');
+ assert.ok(q.b.health>0,'wall contact is not a free magical fist blast');
+});
+test('reverse-charge server simulation is deterministic for identical inputs and seeded failures',()=>{
+ const simulate=()=>{
+  const q=setup();q.room.siegeSkillRandom=()=>1-1e-12;
+  primeSoFistSkill(q.room,q.b,q.p,0);
+  step(q,.5,{forward:1,sprint:true});
+  step(q,.6,{forward:-1,sprint:true},.5);
+  step(q,.5,{forward:-1,right:.35,sprint:true},1.1);
+  return {x:q.b.x,z:q.b.z,heading:q.b.heading,speed:q.b.speed,
+    pressure:q.b.pressure,direction:q.b.chargeDirection,debt:q.b.skill.debt,
+    lift:q.b.ramLiftY,pitch:q.b.ramElevPitch};
+ };
+ assert.deepEqual(simulate(),simulate(),
+   'two independent authoritative rooms with same inputs must yield equal states');
 });

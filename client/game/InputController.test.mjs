@@ -709,40 +709,53 @@ test('UPPER-focus coupled control sends one camera ray, not the primed combined 
  input.mountedBallista=false;input.siegeCoupled();assert.equal(calls.length,2);
 });
 
-test('ram E/C lift the upper frame; RMB changes only their intent to pitch and never Guards',()=>{
- const {input,down,up,calls}=setup();
- input.socket.dash=()=>calls.push(['dash']);
- input.mountedRam=true;
- down('KeyE');
- assert.equal(input.movement().ramRaise,true);
- assert.equal(input.movement().ramPitchUp,false);
- up('KeyE');
- down('KeyC');
- assert.equal(input.movement().crouch,true);
- assert.equal(input.movement().ramPitchDown,false);
- up('KeyC');
- down('Mouse2');
- assert.equal(input.ramPitchModifierHeld,true);
- down('KeyE');
- assert.equal(input.movement().ramRaise,false);
- assert.equal(input.movement().ramPitchUp,true);
- assert.equal(input.movement().guard,false);
- assert.equal(calls.some(x=>x[0]==='guard'||x[0]==='dash'),false,
-   'ram hydraulic Raise must not also send Guard or ordinary Dash');
- up('KeyE');
- down('KeyC');
- assert.equal(input.movement().crouch,false);
- assert.equal(input.movement().ramPitchDown,true);
- up('Mouse2');
- assert.equal(input.movement().ramPitchDown,false);
- assert.equal(input.movement().crouch,true);
- up('KeyC');
- down('Mouse2');down('KeyE');
- input.releaseInputs();
- assert.equal(input.ramPitchModifierHeld,false);
- assert.equal(input.movement().ramPitchUp,false);
- input.mountedRam=false;
- assert.equal(input.movement().ramPitchUp,false);
- input.dispose();
+test('ram E/C pitch by default; RMB+E/C lifts without Dash, Guard, Jump or Crouch',()=>{
+  const {input,down,up,calls}=setup(),sent=[];
+  input.socket.dash=()=>calls.push(['dash']);input.socket.send=m=>sent.push(m);
+  input.mountedRam=true;
+  down('KeyE');let move=input.movement();
+  assert.equal(move.ramPitchUp,true);
+  assert.equal(move.ramRaise,false);
+  assert.equal(move.jump,false);
+  up('KeyE');
+  down('KeyC');move=input.movement();
+  assert.equal(move.ramPitchDown,true);
+  assert.equal(move.ramLower,false);
+  assert.equal(move.crouch,false);
+  up('KeyC');
+  down('Mouse2');
+  assert.equal(input.ramPitchModifierHeld,true);
+  down('KeyE');move=input.movement();
+  assert.equal(move.ramRaise,true);
+  assert.equal(move.ramPitchUp,false);
+  up('KeyE');
+  down('KeyC');move=input.movement();
+  assert.equal(move.ramLower,true);
+  assert.equal(move.ramPitchDown,false);
+  up('Mouse2');move=input.movement();
+  assert.equal(move.ramPitchDown,true);
+  assert.equal(move.ramLower,false);
+  assert.equal(move.guard,false);
+  assert.equal(calls.some(x=>x[0]==='guard'||x[0]==='dash'),false);
+  assert.equal(sent.some(x=>x.type==='siegeOperate'),false);
+  up('KeyC');
+  input.releaseInputs();
+  assert.equal(input.ramPitchModifierHeld,false);
+  input.mountedRam=false;
+  assert.equal(input.movement().ramPitchDown,false);
+  input.dispose();
+});
+
+test('custom E/C hydraulic action bindings remain mounted-only and cannot dismount',()=>{
+  const {input,down,up,calls}=setup();
+  input.configure({bindings:{...input.bindings,dash:['KeyR'],crouch:['KeyT']}});
+  input.mountedRam=true;down('KeyR');
+  assert.equal(input.movement().ramPitchUp,true);
+  assert.equal(input.movement().jump,false);
+  assert.equal(calls.some(x=>x[0]==='dash'),false);
+  up('KeyR');down('Mouse2');down('KeyT');
+  assert.equal(input.movement().ramLower,true);
+  assert.equal(input.movement().crouch,false);
+  up('KeyT');up('Mouse2');input.mountedRam=false;input.dispose();
 });
 

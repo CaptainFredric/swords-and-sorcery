@@ -95,8 +95,8 @@ export class TouchControls {
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
-    // An owned Raise/Lower finger may switch to pitch by swiping outward.
-    // Sliding onto a button from elsewhere never initiates hydraulics.
+    // Raise/Lower fingers tilt their front by default. An outward swipe
+    // commits that same pointer to upper hydraulic lift until release.
     this.ramTiltGestures = new Map();
     this.layouts = loadTouchLayout();
     this.previewMode = null;
@@ -105,7 +105,10 @@ export class TouchControls {
     this.layer.className = 'touch-controls';
     this.layer.innerHTML = `
       <div class="touch-stick">
-        <svg class="touch-stick-shell" viewBox="0 0 112 162" preserveAspectRatio="none" aria-hidden="true"><path d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 1 1 24 60Z"/></svg>
+        <svg class="touch-stick-shell" viewBox="0 0 112 162" preserveAspectRatio="none" aria-hidden="true">
+          <path class="touch-cavity-normal" d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 1 1 24 60Z"/>
+          <path class="touch-cavity-reverse" d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 0 1 88 152V196Q88 210 74 210H38Q24 210 24 196V152A56 56 0 0 1 24 60Z"/>
+        </svg>
         <div class="touch-stick-knob"></div>
         <div class="touch-motion-guide" data-motion="idle" aria-hidden="true">
           <span class="touch-motion-label"></span>
@@ -185,6 +188,8 @@ export class TouchControls {
       this.layer.append(this.touchDebug);
     }
     this.stickBase = this.layer.querySelector('.touch-stick');
+    this.stickShell = this.layer.querySelector('.touch-stick-shell');
+    this.ramReverseAvailable = false;
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
     this.flightRail = this.layer.querySelector('.touch-flight-rail');
     this.flightRailThumb = this.layer.querySelector('.touch-flight-rail-thumb');
@@ -403,22 +408,26 @@ export class TouchControls {
     const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
-    const pitchUp=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.pitch);
-    const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.pitch);
+    const pitchUp=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&!g.lift);
+    const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&!g.lift);
+    const raise=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.lift);
+    const lower=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.lift);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.ramMounted?Boolean(this.jumpHeld&&!pitchUp):
+      jump: this.ramMounted?false:
         this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
+      ramRaise: Boolean(this.ramMounted && raise),
+      ramLower: Boolean(this.ramMounted && lower),
       ramPitchUp: Boolean(this.ramMounted && pitchUp),
       ramPitchDown: Boolean(this.ramMounted && pitchDown),
       sprint: this.flightMounted ? false : this.ramMounted
         ? Boolean(this.chargeHeld || (moveAllowed && this.stickState.sprint))
         : Boolean(moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false))),
       crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) :
-        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld&&!pitchDown):
+        this.flightMounted ? false : this.ramMounted?false:
         Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
@@ -578,6 +587,19 @@ export class TouchControls {
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;this.ballistaMounted=ballista;
       this.flightMounted=flight;this.mounted=mounted;
+      const reverseAvailable=Boolean(ram&&rb?.reverseChargeAvailable);
+      if(this.ramReverseAvailable!==reverseAvailable){
+        this.ramReverseAvailable=reverseAvailable;
+        this.stickBase.classList.toggle('reverse-charge-available',reverseAvailable);
+        this.stickShell?.setAttribute('viewBox',reverseAvailable?'0 0 112 212':'0 0 112 162');
+        // A held thumb may not move on the exact frame the Skill expires:
+        // recalculate its sprint intent immediately with the new permission.
+        if(this.stick)this.#moveStick({clientX:this.stick.lastClientX??this.stick.clientX,
+          clientY:this.stick.lastClientY??this.stick.clientY});
+      }
+      const drivePressure=String(Math.max(0,Math.min(1,(rb?.drivePressure??rb?.pressure??0)/100)));
+      this.motionGuide.style.setProperty('--drive-pressure',drivePressure);
+      this.stickBase.style.setProperty('--drive-pressure',drivePressure);
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-ballista',ballista);
@@ -599,21 +621,24 @@ export class TouchControls {
       this.layer.classList.toggle('airborne', airborne);
       if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
       if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
-      const frontUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='jump');
-      const frontDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='crouch');
-      this.buttons.jump.querySelector('span').textContent=ram?(frontUp?'FRONT UP':'RAISE'):'JUMP';
-      this.buttons.crouch.querySelector('span').textContent=ram?(frontDown?'FRONT DOWN':'LOWER'):'CROUCH';
-      this.buttons.jump.setAttribute('aria-label',frontUp?'Tilting the ram front upward':
-        ram?'Hold to raise ram; swipe up while held to tilt front upward':'Jump');
-      this.buttons.crouch.setAttribute('aria-label',frontDown?'Tilting the ram front downward':
-        ram?'Hold to lower ram; swipe down while held to tilt front downward':'Crouch');
+      const liftUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.lift&&g.action==='jump');
+      const liftDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.lift&&g.action==='crouch');
+      this.buttons.jump.querySelector('span').textContent=ram?(liftUp?'LIFT UP':'RAISE'):'JUMP';
+      this.buttons.crouch.querySelector('span').textContent=ram?(liftDown?'LIFT DOWN':'LOWER'):'CROUCH';
+      this.buttons.jump.setAttribute('aria-label',liftUp?'Raising entire hydraulic assembly':
+        ram?'Hold to tilt front upward; swipe upward while held to lift upper assembly':'Jump');
+      this.buttons.crouch.setAttribute('aria-label',liftDown?'Lowering entire hydraulic assembly':
+        ram?'Hold to tilt front downward; swipe downward while held to lower upper assembly':'Crouch');
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       // After mount transitions (which reset held controls), paint the real
       // server-confirmed movement state without a one-frame false idle flash.
       this.#setMotionIndicator(touchMotionIndicator(local, snapshot, {
-        active: this.active, inspectionFlight: this.inspectionFlight,
-      }));
+         active: this.active, inspectionFlight: this.inspectionFlight,
+       }));
+      this.motionGuide.dataset.chargeDirection=String(ram&&rb?.charging?(rb?.chargeDirection??0):0);
+      this.motionLabel.textContent=ram&&rb?.charging&&rb?.chargeDirection<0
+        ?'CHARGING · REVERSE':TOUCH_MOTION_LABELS[this.motionGuide.dataset.motion]??'';
 
       if (flight) {
         this.buttons.attack?.setAttribute('aria-label','Sword attack');
@@ -951,7 +976,23 @@ export class TouchControls {
     // #ritualEnd instead of firing Dash/Ultimate accidentally.
     if (this.#ritualStart(event)) return;
     const isMouse = event.pointerType === 'mouse';
-    const button = event.target.closest?.('[data-action]');
+    let button = event.target.closest?.('[data-action]');
+    // Favor the real hydraulic touch rectangle if customized controls overlap
+    // the Leave button: no hydraulic press may become a dismount.
+    if(this.ramMounted&&!isMouse&&button?.dataset.action==='interact'){
+      const x=event.clientX,y=event.clientY;
+      const hydraulic=[this.buttons.jump,this.buttons.crouch].filter(b=>{
+        if(b.hidden)return false;
+        const rect=b.getBoundingClientRect?.();
+        return rect&&x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom;
+      });
+      if(hydraulic.length){
+        button=hydraulic.sort((a,b)=>{
+          const dist=q=>{const v=q.getBoundingClientRect();return Math.hypot(x-(v.left+v.right)/2,y-(v.top+v.bottom)/2);};
+          return dist(a)-dist(b);
+        })[0];
+      }
+    }
     if (button) {
       event.preventDefault();
       // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
@@ -972,7 +1013,12 @@ export class TouchControls {
     // The ring is a real touch target. It does not float when pressed; a
     // resized/fullscreen mobile viewport cannot teleport the player's control.
     const onStick = event.target.closest?.('.touch-stick');
-    if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
+    // The shell extends outside the ring, including on user-mirrored layouts.
+    // A fresh press on either portion of that SAME channel owns the stick.
+    const shell=this.stickShell?.getBoundingClientRect?.();
+    const inShell=Boolean(shell&&event.clientX>=shell.left&&event.clientX<=shell.right&&
+      event.clientY>=shell.top&&event.clientY<=shell.bottom);
+    if (onStick || inShell || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
       && point.y >= 0 && point.y <= this.layer.clientHeight)) {
       // If the browser lost a previous finger's release, a fresh press on the visible
       // ring can reclaim movement instead of leaving the joystick stranded.
@@ -1015,13 +1061,14 @@ export class TouchControls {
     }
     if(this.ramMounted&&this.ramTiltGestures.has(event.pointerId)){
       const gesture=this.ramTiltGestures.get(event.pointerId);
-      const point=gamePoint(event,this.layer);
-      // Deliberate outward swipe (in the same direction as the button's
-      // purpose), not an accidental few-pixel thumb drift.
-      if(!gesture.pitch&&(gesture.action==='jump'?
-        gesture.y-point.y>=32:point.y-gesture.y>=32)){
-        gesture.pitch=true;
-        this.buttons[gesture.action]?.classList.add('ram-pitch');
+      // Physical displacement survives layout resizing. ScreenTurn supplies
+      // game-space orientation on sideways phones, as for the movement stick.
+      const delta=screenTurn?.vector(event.clientX-gesture.clientX,
+        event.clientY-gesture.clientY)??{x:event.clientX-gesture.clientX,y:event.clientY-gesture.clientY};
+      const vertical=gesture.action==='jump'?-delta.y:delta.y;
+      if(!gesture.lift&&vertical>=32&&vertical>Math.abs(delta.x)*1.15){
+        gesture.lift=true;
+        this.buttons[gesture.action]?.classList.add('ram-lift');
       }
       return;
     }
@@ -1155,7 +1202,8 @@ export class TouchControls {
       this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
-    if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {
+    const gatedAction=this.ramMounted&&(action==='jump'||action==='crouch')?'move':action;
+    if (!this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
       this.deniedButtons.add(event.pointerId);
       return;
     }
@@ -1221,7 +1269,8 @@ export class TouchControls {
       else this.input.dash();
     }
     if(this.ramMounted&&(action==='jump'||action==='crouch')){
-      this.ramTiltGestures.set(event.pointerId,{action,...gamePoint(event,this.layer),pitch:false});
+      this.ramTiltGestures.set(event.pointerId,{action,clientX:event.clientX,clientY:event.clientY,lift:false});
+      return; // ram controls cannot also emit ordinary Jump/Crouch
     }
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
@@ -1258,9 +1307,10 @@ export class TouchControls {
   }
 
   #release(action, pointerId, cancelled=false) {
-    if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-pitch');
+    if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-lift');
     if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
-    this.#gateHeld(action, false, `touch-button:${pointerId}`);
+    this.#gateHeld(this.ramMounted&&(action==='jump'||action==='crouch')?'move':action,
+      false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
@@ -1394,19 +1444,19 @@ export class TouchControls {
     // Use client-space deltas rather than gamePoint()/getBoundingClientRect() for
     // steering. The latter is useful for picking a touch zone, but a fullscreen
     // resize or transformed mobile shell can change its dimensions mid-gesture.
+    this.stick.lastClientX=event.clientX;
+    this.stick.lastClientY=event.clientY;
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
     const radius=(this.stickBase.getBoundingClientRect?.()?.width||112)/2;
     const vector = stickVector(delta.x, delta.y, {radius:Math.max(40,radius),
-      deadZone:this.mounted?.06:TOUCH.deadZone,sprintActive:this.stickSprintRequested});
+      deadZone:this.mounted?.06:TOUCH.deadZone,sprintActive:this.stickSprintRequested,
+      reverseSprint:Boolean(this.ramMounted&&this.ramReverseAvailable)});
     this.stickSprintRequested = !this.flightMounted && vector.sprint;
-    // The detent physically travels up the cavity as the joystick is pushed.
-    // Its position represents thumb intent; the arrows/label show confirmed action.
-    const forwardPush = !this.flightMounted ? Math.max(0, Math.min(1, -vector.knob.y / Math.max(40,radius))) : 0;
-    this.motionGuide.style.setProperty('--motion-push', forwardPush.toFixed(3));
-    this.motionGuide.classList.toggle('forward', forwardPush > .2);
-    this.motionGuide.classList.toggle('approaching', !this.flightMounted && vector.magnitude >= .78 && vector.forward >= .55);
+    // No yellow slider; the existing label reflects server-owned charge.
+    this.motionGuide.classList.toggle('approaching', !this.flightMounted && vector.magnitude >= .78 && (vector.forward >= .55 ||
+      (this.ramMounted&&this.ramReverseAvailable&&vector.forward<=-.55)));
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick');
     this.stickState = { forward: vector.forward, right: vector.right, sprint };
@@ -1423,7 +1473,6 @@ export class TouchControls {
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
     this.motionGuide.classList.remove('approaching', 'forward');
-    this.motionGuide.style.setProperty('--motion-push', '0');
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {

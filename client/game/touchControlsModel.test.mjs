@@ -85,3 +85,13 @@ test('sprint and ram charge both use hysteresis without accidental diagonal acce
   assert.equal(stickVector(0,-radius * .82,{sprintActive:true}).sprint,false);
   assert.equal(stickVector(radius * .8,-radius * .8).sprint,false,'a broad diagonal does not trigger Sprint');
 });
+
+test('Skill-only reverse charge uses the existing stick sprint threshold and hysteresis',()=>{
+  const radius=TOUCH.stickRadius;
+  assert.equal(stickVector(0,radius).sprint,false,'ordinary reverse never charges');
+  assert.equal(stickVector(0,radius,{reverseSprint:true}).sprint,true);
+  assert.equal(stickVector(0,radius*.86,{reverseSprint:true,sprintActive:true}).sprint,true);
+  assert.equal(stickVector(0,radius*.80,{reverseSprint:true,sprintActive:true}).sprint,false);
+  assert.equal(stickVector(radius*.8,radius*.8,{reverseSprint:true}).sprint,false,'diagonal cannot charge');
+  assert.equal(stickVector(0,-radius,{reverseSprint:true}).sprint,true,'forward remains available');
+});
