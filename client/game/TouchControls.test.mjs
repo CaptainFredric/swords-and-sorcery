@@ -1415,3 +1415,30 @@ test('ram sliding over Raise/Lower from a look gesture never acquires either hyd
  send('pointerup',650,175,{target:controls.layer,pointerId:112});
  controls.dispose();
 });
+
+test('one customized charge stick expands bidirectionally only for actual Beat authorization',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {controls,input,send}=setup(p);input.mountedRam=true;input.touch=controls;
+ const snapshot=available=>({soFistication:{id:'ram',health:1400,pressure:47,
+   drivePressure:47,reverseChargeAvailable:available,charging:available,
+   chargeDirection:available?-1:0,components:{Fist:{health:500}},
+   skill:{id:'beatToThePunch',phase:available?'primed':'cooldown',readyAt:0}}});
+ controls.update(p,10,{snapshot:snapshot(false)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),false);
+ controls.update(p,10,{snapshot:snapshot(true)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),true);
+ assert.equal(controls.stickShell.getAttribute('viewBox'),'0 0 112 212');
+ send('pointerdown',120,400,{target:controls.layer,pointerId:137});
+ send('pointermove',120,480,{target:controls.layer,pointerId:137});
+ assert.ok(input.movement().forward<-.9,'the existing stick maps its lower channel to reverse');
+ assert.equal(input.movement().sprint,true,'Skill unlocks actual backward charging input');
+ controls.update(p,11,{snapshot:snapshot(false)});
+ assert.equal(controls.stickBase.classList.contains('reverse-charge-available'),false);
+ assert.equal(controls.stickShell.getAttribute('viewBox'),'0 0 112 162');
+ assert.equal(input.movement().sprint,false,
+   'expiration immediately withdraws reverse charge without a new finger event');
+ assert.ok(input.movement().forward<0,'regular slow reverse remains available');
+ send('pointerup',120,480,{target:controls.layer,pointerId:137});
+ assert.equal(input.movement().forward,0);
+ controls.dispose();
+});
