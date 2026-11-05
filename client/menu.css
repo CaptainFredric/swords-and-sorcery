@@ -56,7 +56,10 @@
 /* the brass rod every banner hangs from */
 .menu-screen::after, .side-screen::after, .lobby-screen::after {
   content: ""; position: absolute; z-index: 2; top: 12px; left: calc(var(--banner-left) - 22px); width: calc(var(--banner-width) + 44px); height: 9px;
-  border-radius: 5px; background: linear-gradient(#f2d692, #b98a3e 55%, #6f5122); box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
+  border: 1px solid #714718; border-radius: 2px;
+  background: linear-gradient(90deg,#6f4421 0 7px,#e1c587 8px 15px,transparent 16px calc(100% - 16px),#e1c587 calc(100% - 15px) calc(100% - 8px),#6f4421 calc(100% - 7px)),
+    linear-gradient(180deg,#ffe5a3 0%,#c99d52 31%,#8a602f 66%,#5a391c 100%);
+  box-shadow: inset 0 1px 0 #fff0b899,inset 0 -1px 0 #29170599,0 2px 4px #0009;
 }
 .banner-panel {
   position: absolute; top: 16px; left: var(--banner-left); width: var(--banner-width); max-height: calc(100% - 16px);
@@ -844,9 +847,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   right: calc(clamp(18px, 3.5cqw, 48px) - 22px);
   width: calc(min(370px, 32cqw) + 44px);
   height: 9px;
-  border-radius: 5px;
-  background: linear-gradient(#f2d692, #b98a3e 55%, #6f5122);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
+  border:1px solid #714718; border-radius:2px;
+  background: linear-gradient(90deg,#6f4421 0 7px,#e1c587 8px 15px,transparent 16px calc(100% - 16px),#e1c587 calc(100% - 15px) calc(100% - 8px),#6f4421 calc(100% - 7px)),
+    linear-gradient(180deg,#ffe5a3,#c99d52 31%,#8a602f 66%,#5a391c);
+  box-shadow:inset 0 1px 0 #fff0b899,inset 0 -1px 0 #29170599,0 2px 4px #0009;
 }
 #solo-menu .companion-return,
 #rooms-menu .companion-return { display: none; }
@@ -1026,4 +1030,153 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #rooms-menu .banner-panel :is(h2,.room-row,button),
 #solo-menu .banner-panel :is(h2,button) {
   overflow-wrap: anywhere;
+}
+
+
+/* November 2026 paired configuration standards. The primary cloth lists
+   activities, while the secondary standard carries editable match settings. */
+#breakthrough-menu,#private-menu { --banner-width:min(520px,42cqw); }
+#breakthrough-menu > .breakthrough-inner,
+#private-menu > .private-inner {
+  --banner-width:min(520px,42cqw);
+  width:var(--banner-width);
+  min-width:0;
+}
+#breakthrough-menu > .mettle-companion,
+#private-menu > .private-companion {
+  --hem:32px;
+  left:auto;
+  right:clamp(18px,3.5cqw,48px);
+  width:min(370px,32cqw);
+  min-width:0;
+  max-width:calc(100cqw - 24px);
+}
+#breakthrough-menu::before,#private-menu::before {
+  content:"";
+  display:block;
+  position:absolute;
+  z-index:2;
+  top:12px;
+  right:calc(clamp(18px,3.5cqw,48px) - 22px);
+  width:calc(min(370px,32cqw) + 44px);
+  height:9px;
+  border:1px solid #714718;
+  border-radius:2px;
+  background:linear-gradient(90deg,#6f4421 0 7px,#e1c587 8px 15px,transparent 16px calc(100% - 16px),#e1c587 calc(100% - 15px) calc(100% - 8px),#6f4421 calc(100% - 7px)),
+    linear-gradient(180deg,#ffe5a3,#c99d52 31%,#8a602f 66%,#5a391c);
+  box-shadow:inset 0 1px 0 #fff0b899,inset 0 -1px 0 #29170599,0 2px 4px #0009;
+}
+#breakthrough-menu .companion-return,#private-menu .companion-return {display:none}
+#breakthrough-menu .mettle-mobile-configure,
+#private-menu .private-mobile-configure,
+#private-menu .private-details-create {display:none}
+#breakthrough-menu .mettle-companion .banner-scroll,
+#private-menu .private-companion .banner-scroll {min-width:0;overflow-wrap:anywhere}
+#breakthrough-menu .mettle-companion :is(.vote-row,.vote-chip,.mode-choice),
+#private-menu .private-companion :is(.game-input,.mode-choice,.lobby-config) {min-width:0;max-width:100%}
+#breakthrough-menu .mettle-companion .vote-row {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:stretch;
+  gap:6px;
+  margin:0 0 13px;
+}
+#breakthrough-menu .mettle-companion .vote-row > span {
+  grid-column:1 / -1;
+  display:block;
+  min-width:0;
+  padding-bottom:3px;
+}
+#breakthrough-menu .mettle-companion .vote-chip {
+  min-width:0;
+  white-space:normal;
+  line-height:1.12;
+  overflow-wrap:normal;
+  text-wrap:balance;
+  font-size:clamp(12px,1.13cqw,16px);
+}
+#breakthrough-menu .mettle-companion .vote-chip small {display:block;font-size:.65em;margin-top:3px}
+#breakthrough-menu .mettle-settings-intro {margin-bottom:12px}
+#breakthrough-menu .mettle-companion .mode-choice {min-height:53px}
+#breakthrough-menu .mettle-companion .mode-choice span {font-size:17px}
+#private-menu .private-modes {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#private-menu .private-modes button {min-width:0;min-height:40px;overflow-wrap:normal;text-wrap:balance}
+#private-menu .private-modes button:first-child {grid-column:1 / -1}
+#private-menu .private-mode-description {min-height:3em;margin-bottom:12px}
+#private-menu .private-inner .mode-choice {min-height:54px}
+#private-menu #create-room {margin-top:8px}
+#private-menu .private-room-config {margin:0;padding:0;border:0;gap:12px}
+#private-menu .private-rules-summary {
+  margin:13px 0 2px;
+  padding:10px;
+  border:1px solid rgba(201,156,82,.38);
+  background:rgba(23,18,14,.42);
+  color:#f1dfae;
+  font-size:12px;
+  line-height:1.5;
+}
+#private-menu .private-settings-intro {margin-bottom:12px}
+/* All headings and first controls start BELOW the rod, including when
+   the top-right companion is exposed as its own page on a narrow phone. */
+#solo-menu .banner-scroll,
+#rooms-menu .banner-scroll,
+#private-menu .banner-scroll,
+#breakthrough-menu .banner-scroll {padding-top:46px}
+#solo-menu .companion-banner .banner-scroll,
+#rooms-menu .companion-banner .banner-scroll,
+#private-menu .companion-banner .banner-scroll,
+#breakthrough-menu .companion-banner .banner-scroll {padding-top:48px}
+#solo-menu .companion-banner .eyebrow,
+#rooms-menu .companion-banner .eyebrow,
+#private-menu .companion-banner .eyebrow,
+#breakthrough-menu .companion-banner .eyebrow {
+  line-height:1.35; min-height:1.35em; letter-spacing:.15em;
+}
+.banner-panel:has(> .banner-scroll) .banner-scroll {flex:1 1 auto;max-width:100%}
+@container app (max-width:900px) {
+  #breakthrough-menu,#private-menu {--banner-width:min(450px,45cqw)}
+  #breakthrough-menu > .breakthrough-inner,#private-menu > .private-inner {
+    --banner-width:min(450px,45cqw);width:var(--banner-width);
+  }
+  #breakthrough-menu > .mettle-companion,#private-menu > .private-companion {
+    right:18px;width:min(360px,43cqw);
+  }
+  #breakthrough-menu::before,#private-menu::before {
+    right:-4px;width:calc(min(360px,43cqw) + 44px);
+  }
+}
+@container app (max-width:640px) {
+  #breakthrough-menu,#private-menu {--banner-left:12px;--banner-width:calc(100cqw - 24px)}
+  #breakthrough-menu > .breakthrough-inner,#breakthrough-menu > .mettle-companion,
+  #private-menu > .private-inner,#private-menu > .private-companion {
+    --banner-width:calc(100cqw - 24px);
+    left:12px;right:auto;width:calc(100cqw - 24px);max-width:calc(100cqw - 24px);
+  }
+  #breakthrough-menu::before,#private-menu::before {
+    left:-10px;right:auto;width:calc(100cqw + 20px);
+  }
+  #breakthrough-menu[data-panel="list"] > .mettle-companion,
+  #private-menu[data-panel="list"] > .private-companion,
+  #breakthrough-menu[data-panel="details"] > .breakthrough-inner,
+  #private-menu[data-panel="details"] > .private-inner {display:none}
+  #breakthrough-menu[data-panel="details"]::after,
+  #private-menu[data-panel="details"]::after,
+  #breakthrough-menu[data-panel="list"]::before,
+  #private-menu[data-panel="list"]::before {display:none}
+  #breakthrough-menu .companion-return,#private-menu .companion-return {display:inline-flex}
+  #breakthrough-menu .mettle-mobile-configure,
+  #private-menu .private-mobile-configure,
+  #private-menu .private-details-create {display:block}
+  #private-menu .private-details-create {margin-top:12px}
+  #breakthrough-menu .mettle-companion .vote-chip {font-size:15px}
+  #private-menu .private-modes {grid-template-columns:repeat(3,minmax(0,1fr))}
+  #private-menu .private-modes button:first-child {grid-column:auto}
+  #solo-menu .banner-scroll,#rooms-menu .banner-scroll,
+  #breakthrough-menu .banner-scroll,#private-menu .banner-scroll {padding-top:42px}
+}
+/* No tiny landscape phone should cut off a creation button: content scrolls
+   within the cloth and stays reachable above its decorative hem. */
+@container app (max-height:500px) {
+ #solo-menu .banner-scroll,#rooms-menu .banner-scroll,
+ #breakthrough-menu .banner-scroll,#private-menu .banner-scroll {padding-top:35px}
 }
