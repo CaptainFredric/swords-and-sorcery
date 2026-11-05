@@ -135,6 +135,7 @@ export class Room {
     }
     this.state = 'WAITING';
     this.players = new Map();
+    this.hostOwnerId = null; // kept through the reconnect grace period
     this.projectiles = new Map();
     this.ruptures = [];
     this.events = [];
@@ -205,7 +206,21 @@ export class Room {
     return this.world.spawnPoints[index % this.world.spawnPoints.length];
   }
 
+  /** Whether a new human may enter, independent of bot-filled team seats. */
+  joinError() {
+    if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS].includes(this.mode)
+      && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room does not accept invitations.';
+    if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
+    if (this.mode === GAME_MODES.PRACTICE && this.sharedPractice)
+      return this.players.size < 8 ? null : 'Room is full.';
+    const capacity = this.policy.teamMode ? (this.policy.teamSize ?? 3) * 2 : 8;
+    return this.humanActorCount() < capacity ? null : 'Room is full.';
+  }
+
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
+    const joinFailure = this.joinError();
+    // Solo and duel creation have their own controlled actor counts and are never public joins.
+    if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
     let assigned = null;
     if (this.policy.teamMode) {
       const teamSize = this.policy.teamSize ?? 3;
@@ -253,6 +268,7 @@ export class Room {
     player.startingUltimate = player.ultimate;
     player.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
     this.players.set(id, player);
+    if (!this.hostOwnerId) this.hostOwnerId = id;
     if(this.sharedPractice&&!this.sharedPracticeHostId)this.sharedPracticeHostId=id;
     this.emptySince = null;
     return player;
@@ -420,9 +436,12 @@ export class Room {
     return true;
   }
 
-  // the longest-standing connected Spellblade (shown in the lobby; it grants no powers)
+  // Disconnects do not reassign ownership until the grace period expires.
   hostId() {
-    return [...this.players.values()].find(p => p.actorKind === 'human' && p.connected)?.id ?? null;
+    if (this.hostOwnerId && this.players.has(this.hostOwnerId)) return this.hostOwnerId;
+    this.hostOwnerId = [...this.players.values()].find(p => p.actorKind === 'human' && p.connected)?.id
+      ?? [...this.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
+    return this.hostOwnerId;
   }
 
   #beginCountdown(nowSec) {
@@ -447,7 +466,7 @@ export class Room {
 
   /** Private waiting rooms belong to their longest-standing connected human. */
   configureRoom(playerId, patch, nowSec) {
-    if (!this.isPrivate || this.state !== 'WAITING' || playerId !== this.hostId()) return 'Only the room host may change settings before the countdown.';
+    if (this.state !== 'WAITING' || playerId !== this.hostId() || !this.players.get(playerId)?.connected) return 'Only the room host may change settings before the countdown.';
     const settings = roomSettings(this, patch);
     if (settings.error) return settings.error;
     if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(settings.mode) ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
@@ -487,7 +506,7 @@ export class Room {
   }
 
   swapPlayers(playerId, firstId, secondId, nowSec) {
-    if (!this.isPrivate || !this.policy.teamMode || this.state !== 'WAITING' || playerId !== this.hostId()) return 'Only the host may arrange teams before the countdown.';
+    if (!this.policy.teamMode || this.state !== 'WAITING' || playerId !== this.hostId() || !this.players.get(playerId)?.connected) return 'Only the host may arrange teams before the countdown.';
     const first=this.players.get(firstId),second=this.players.get(secondId);
     if(!first || !second || first.id===second.id || first.team===second.team)return 'Choose two Spellblades on opposite sides.';
     [first.team,second.team]=[second.team,first.team];
@@ -684,6 +703,7 @@ export class Room {
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
+    if (this.hostOwnerId === id) this.hostOwnerId = null;
     if(this.sharedPractice&&this.sharedPracticeHostId===id)
       this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
     this.rematchVotes.delete(id);
@@ -765,6 +785,7 @@ export class Room {
         }
         if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
         this.players.delete(id);
+        if (this.hostOwnerId === id) this.hostOwnerId = null;
         this.rematchVotes.delete(id);
         expiredHuman = true;
       }
