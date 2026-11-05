@@ -98,3 +98,78 @@
 .siege-announcement p,.heraldry-ledger > div {
  min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;line-height:1.18
 }
+
+
+/* Armory ledger repair: a broad, tall standard with a permanent crown,
+   accessible internal scrolling and no letter-by-letter tab breaking. */
+#armory-menu .armory-inner {
+  --banner-width:min(530px,46cqw);
+  width:var(--banner-width);
+  top:10px;height:calc(100% - 12px);max-height:calc(100% - 12px);
+  padding:37px 25px calc(var(--hem) + 9px);
+  overflow:hidden;
+}
+#armory-menu .armory-inner::before {inset:8px 8px calc(var(--hem) + 8px);}
+#armory-menu .armory-tabs {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:2px;margin:5px 0 11px;flex-shrink:0;min-width:0;
+}
+#armory-menu .armory-tabs button {
+  display:grid;place-items:center;min-width:0;width:100%;max-width:100%;
+  padding:11px 3px;min-height:50px;
+  font:400 clamp(12px,1.15cqw,16px)/1.14 var(--font-inscription);
+  letter-spacing:0;overflow-wrap:normal;word-break:keep-all;
+  white-space:normal;text-wrap:balance;hyphens:none;
+}
+#armory-menu .armory-scroll {
+  display:block;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  flex:1 1 0;min-height:0;max-height:100%;scrollbar-width:thin;
+  padding:0 9px 14px 0;scroll-padding-top:10px;
+}
+#armory-menu .armory-scroll :is(.spell-card,.siege-armory-card,.cloth-detail,.mastery-feat,.emblem-card) {
+  min-width:0;max-width:100%;
+}
+#armory-menu .armory-scroll :is(h3,h4,p,small,strong,.spell-name,.mastery-feat-title,
+  .mastery-condition,.mastery-flavor,.mastery-copy,.emblem-detail) {
+  max-width:100%;min-width:0;white-space:normal;
+  word-break:normal;overflow-wrap:break-word;hyphens:none;
+  line-height:1.35;
+}
+#armory-menu .armory-scroll :is(.spell-card,.mastery-feat,.cloth-detail) {overflow:visible;}
+#armory-menu .armory-scroll-hint {
+  margin:7px 0 0;min-width:0;
+  padding:8px 0 1px;min-height:28px;
+  background:linear-gradient(180deg,#76221c,#692019);
+  border-top:1px solid #e1c17a88;z-index:1;
+}
+#armory-menu .cloth-choices {gap:8px;}
+#armory-menu .cloth-card {align-items:center;}
+#armory-menu .cloth-card strong {font-size:clamp(12px,1.12cqw,15px);line-height:1.25;}
+#armory-menu .emblem-card > span:last-child {min-width:0;flex:1;}
+#armory-menu .mastery-feat-heading {flex-wrap:wrap;align-items:start;}
+#armory-menu .mastery-feat-title {flex:1 1 170px;min-width:0;}
+@container app (max-height:500px){
+  #armory-menu .armory-inner {
+    --banner-width:min(490px,56cqw);
+    top:8px;height:calc(100% - 9px);max-height:calc(100% - 9px);
+    padding:23px 20px calc(var(--hem) + 3px);
+  }
+  #armory-menu .armory-inner .back-button {margin-bottom:4px;}
+  #armory-menu .armory-tabs {margin:3px 0 6px;}
+  #armory-menu .armory-tabs button {min-height:36px;font-size:clamp(10px,1.08cqw,14px);padding:5px 2px;}
+  #armory-menu .armory-scroll-hint {margin-top:3px;min-height:21px;padding:4px 0;}
+}
+@container app (max-width:640px){
+  #armory-menu .armory-inner {
+    --banner-width:calc(100cqw - 24px);width:var(--banner-width);
+    left:12px;padding-left:21px;padding-right:21px;
+  }
+  #armory-menu .armory-tabs button {font-size:clamp(10px,2.3cqw,13px);}
+  #armory-menu .cloth-choices {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #armory-menu .emblem-card {gap:5px;}
+}
+@container app (max-width:400px){
+  #armory-menu .armory-inner {padding-left:15px;padding-right:15px;}
+  #armory-menu .armory-tabs button {font-size:10px;letter-spacing:-.02em;padding:6px 1px;}
+  #armory-menu .cloth-choices {grid-template-columns:minmax(0,1fr);}
+}
