@@ -133,6 +133,7 @@ export function narrowCommitLock(room,m,operator,now){
  if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne'||skill.lockedOnce||
    !skill.targetId)return false;
  skill.lockedOnce=true;skill.retargetReadyAt=Infinity;
+ skill.trackingState='locked'; // immediate HUD feedback on the firing tick
  skill.pendingTargetId=null;skill.pendingSince=null;
  skill.wasGrounded=Boolean(m.grounded);
  room.events.push({type:'fightFlightTargetLock',
