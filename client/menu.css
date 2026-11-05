@@ -915,3 +915,50 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
     display: inline-flex;
   }
 }
+
+/* Compact room docket in the secondary banner. The room rules are paired
+   name/value entries, not eight independent blocks of vertically stacked text. */
+#rooms-menu .room-selected-info {
+  margin: 12px 0 14px;
+  min-width: 0;
+  font: 500 13px/1.4 var(--font-script);
+  color: rgba(234, 220, 182, .83);
+}
+#rooms-menu .room-selected-info dl { margin: 0; display: grid; gap: 0; }
+#rooms-menu .room-selected-info dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 100px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(234, 220, 182, .19);
+}
+#rooms-menu .room-selected-info dt {
+  min-width: 0;
+  color: var(--heraldry-brass-light);
+  font: 800 10px/1.25 var(--font-script);
+  letter-spacing: .11em;
+  overflow-wrap: anywhere;
+}
+#rooms-menu .room-selected-info dd {
+  min-width: 0;
+  margin: 0;
+  color: #f1e4c2;
+  font: 700 13px/1.3 var(--font-script);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+#rooms-menu .room-row.selected,
+#rooms-menu .room-row[aria-pressed="true"] {
+  border-color: var(--heraldry-brass-light);
+  background: linear-gradient(180deg, rgba(91, 65, 38, .98), rgba(48, 35, 27, .98));
+  box-shadow: inset 3px 0 var(--heraldry-brass-light);
+}
+@container app (min-width: 641px) {
+  /* The left standard already has the editable name. On a phone the list
+     vanishes in details view, so keep the right-hand name field there. */
+  #solo-menu .solo-companion > .banner-scroll > label[for="solo-right-name"],
+  #solo-menu #solo-right-name,
+  #rooms-menu .rooms-companion > .banner-scroll > label[for="rooms-right-name"],
+  #rooms-menu #rooms-right-name { display: none; }
+}
