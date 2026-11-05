@@ -270,5 +270,5 @@ test('Narrow target preview ticks quietly and hard-locks with a separate click o
  const hard={type:'fightFlightTargetLock',machineId:machine.id,operatorId:'pilot',targetId:'enemy',at:1.1};
  audio.event(hard,machine,1.1);
  assert.equal(heard.filter(x=>x.recipe?.tag==='targetLock').length,1,'real fired lock sounds distinct');
- assert.ok(flightRecipe('targetPreview',()=>.5).length<flightRecipe('targetLock',()=>.5).length);
+ assert.ok(flightRecipe('targetPreview',()=>.5).layers.length<flightRecipe('targetLock',()=>.5).layers.length);
 });
