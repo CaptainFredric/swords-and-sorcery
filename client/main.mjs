@@ -373,10 +373,19 @@ function route(screenId) {
   menuScene?.setVisible(menuBacked);
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU, { immediate: previous !== screenId });
+  const leavingArmory=previous===SCREEN_IDS.ARMORY&&screenId!==SCREEN_IDS.ARMORY;
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
+    { immediate: previous !== screenId&&!leavingArmory });
   if (menuBacked && previous !== screenId) {
-    menuScene?.resetCanonicalHeroState({ immediate: true });
+    menuScene?.resetCanonicalHeroState({ immediate: !leavingArmory });
+    // A fresh screen starts at its heading, even after a previous panel was
+    // scrolled down. This keeps the banner pole off section headings.
+    for(const scroll of [soloMenu,roomsMenu,breakthroughMenu,privateMenu]){
+      if(scroll===null||!scroll||scroll.classList.contains('hidden'))continue;
+      scroll.querySelectorAll('.banner-scroll').forEach(el=>{el.scrollTop=0;});
+    }
   }
+  menuScene?.setArmoryPresentation(screenId===SCREEN_IDS.ARMORY);
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
