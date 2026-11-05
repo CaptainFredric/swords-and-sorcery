@@ -409,10 +409,10 @@ test('two casual brushes occur after the first ranged hit, persist through more 
   assert.equal(a.brush(10 + BRUSH_REST - 1, 'another-projectile'), false, 'respect rest');
   const underFire = { ...idle, guarding: true, sprinting: true, moving: true, struck: true, staggered: true };
   assert.equal(canStart('brush', underFire), true);
-  const start = a.update('knight', 10.45, underFire);
-  assert.equal(start[0]?.kind, 'brush');
+  a.update('knight', 10.45, underFire); // starts here at zero animation weight
+  assert.equal(a.update('knight', 10.62, underFire)[0]?.kind, 'brush');
   const frames = [];
-  for (let t = 10.46; t < 12.1; t += 0.04) {
+  for (let t = 10.66; t < 12.1; t += 0.04) {
     const current = a.update('knight', t, underFire).find((p) => p.kind === 'brush');
     if (current) frames.push([t, current]);
   }
