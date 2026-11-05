@@ -16,7 +16,16 @@ export function arenaOptions(mode, selected) {
 export function lobbyControls(message, localId) {
   if (message.roomState !== 'WAITING' || !['FFA','BREAKTHROUGH','HIGH_GROUNDS'].includes(message.mode)) return '';
   const host = message.hostId === localId;
-  if (!host) return '<p class="small-copy">The room host sets the battlefield and match rules. You may inspect them before readying.</p>';
+  if (!host) {
+    const teams=message.mode!=='FFA';
+    return `<div class="lobby-readonly"><p class="small-copy">The room host sets these rules:</p>
+      <dl><div><dt>MODE</dt><dd>${message.mode.replaceAll('_',' ')}</dd></div>
+      <div><dt>ARENA</dt><dd>${escape(WORLD_NAMES[message.worldId]??message.worldId)}</dd></div>
+      <div><dt>TIME</dt><dd>${Math.round((message.matchSeconds??360)/60)} MIN</dd></div>
+      ${teams?`<div><dt>TEAMS</dt><dd>${message.teamSize??3}V${message.teamSize??3}</dd></div>
+        <div><dt>BOT SKILL</dt><dd>${escape((message.botSkill??'knight').toUpperCase())}</dd></div>`
+        :`<div><dt>FIRST TO</dt><dd>${message.scoreToWin??10}</dd></div>`}</dl></div>`;
+  }
   const team = message.mode !== 'FFA';
   const fields = `<form class="lobby-config" novalidate>
     <label>MODE<select name="mode" class="game-input">
