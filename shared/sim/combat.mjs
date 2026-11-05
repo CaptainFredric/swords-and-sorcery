@@ -2276,10 +2276,6 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // balance comes back once nothing has shaken it for a moment; an ultimate braces, commits and runs its course
     drainStagger(player.stagger, dt, nowSec);
     stepUltimate(room, player, nowSec);
-    if (nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC && nowSec >= (player.coreRegenPausedUntil ?? -Infinity) && player.health < GAME.maxHealth) {
-      player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
-    }
-
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
     player.sprinting = resolveSprint({
@@ -2297,6 +2293,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if (player.sprinting) {
       player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
       player.lastGuardDrainAt = nowSec;
+    }
+    // Resolve sprint before healing, using the simulation's true sprint state (not world velocity).
+    if (!player.sprinting && nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC
+      && nowSec >= (player.coreRegenPausedUntil ?? -Infinity) && player.health < GAME.maxHealth) {
+      player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
     }
 
     // (bracing into an ultimate, a knight moves only a little: the startup is exposed)
