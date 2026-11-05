@@ -1454,12 +1454,21 @@ $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menu
   teamSize: menuController.breakthroughSize(),
   worldId: menuController.breakthroughArena(),
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
-$('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value, {
-  team: menuController.breakthroughTeam(),
-  botSkill: menuController.breakthroughSkill(),
-  teamSize: menuController.breakthroughSize(),
-  worldId: menuController.breakthroughArena(),
-}), SCREEN_IDS.BREAKTHROUGH_MENU));
+$('#breakthrough-create-private')?.addEventListener('click', () => {
+  // Private siege rooms should pass through the same rule review as every
+  // other private mode. Preserve the battle orders already chosen in Mettle.
+  const arena=menuController.breakthroughArena();
+  privateModeSelected=arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  renderPrivateMode();
+  const f=privateForm.elements;
+  f.worldId.value=arena;
+  f.teamSize.value=String(menuController.breakthroughSize());
+  f.team.value=menuController.breakthroughTeam();
+  f.botSkill.value=menuController.breakthroughSkill();
+  renderPrivateMode({reset:false});
+  privateMenu.dataset.panel='list';
+  route(SCREEN_IDS.PRIVATE_MENU);
+});
 function startBotDuel() {
   if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
   ensureRuntime();
