@@ -1077,6 +1077,12 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #private-menu .private-settings-form label {font-size:11px;}
 #private-menu .private-settings-form input[type=number] {font-variant-numeric:tabular-nums;}
 #private-menu #private-create-right {display:none;}
+@container app (min-width:641px){
+  #breakthrough-menu .mettle-companion label[for="breakthrough-right-name"],
+  #breakthrough-menu #breakthrough-right-name,
+  #private-menu .private-companion label[for="private-right-name"],
+  #private-menu #private-right-name {display:none;}
+}
 #private-menu .private-rule-foot {padding-top:8px;border-top:1px solid #e9d7ac38;}
 
 /* A forged rod instead of a featureless rounded yellow capsule:
