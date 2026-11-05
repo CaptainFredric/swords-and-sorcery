@@ -224,7 +224,7 @@ export function scheduledGesture(id, now, c) {
 // is untouched: damage, staggering and Guard still resolve normally. Melee, attacks, death and machine controls win.
 function brushAllowed(c) {
   return !c.dead && !c.machine && !c.attacking && !c.casting && !c.dashing && !c.ultimate &&
-    !c.ejecting && !c.meleeStruck;
+    !c.ejecting && !c.machineStruck && !c.meleeStruck;
 }
 function refuseAllowed(c) {
   return !c.dead && !c.machine && !c.attacking && !c.casting && !c.dashing && !c.ultimate &&
