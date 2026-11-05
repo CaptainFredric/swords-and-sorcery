@@ -25,3 +25,36 @@
   .mastery-feat { padding: 9px; }
   .mastery-feat-heading { flex-wrap: wrap; gap: 3px 8px; }
 }
+
+/* Mastery records are prose, not fixed-height plaques: long task names and
+   all requirement lines must wrap inside the Armory's scrolling viewport. */
+#armory-menu #armory-challenges {min-width:0;max-width:100%;padding-bottom:24px}
+#armory-menu .mastery-intro,
+#armory-menu .mastery-family,
+#armory-menu .mastery-feat {min-width:0;max-width:100%;height:auto;overflow:visible}
+#armory-menu .mastery-family-title,
+#armory-menu .mastery-feat-title,
+#armory-menu .mastery-condition,
+#armory-menu .mastery-copy,
+#armory-menu .mastery-flavor,
+#armory-menu .mastery-reward,
+#armory-menu .mastery-progress-count {
+  min-width:0;max-width:100%;white-space:normal;
+  overflow-wrap:anywhere;word-break:normal;line-height:1.5;
+}
+#armory-menu .mastery-feat-heading {
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;gap:6px 12px;
+}
+#armory-menu .mastery-feat-state {
+  max-width:110px;min-width:0;text-align:right;white-space:normal;
+  overflow-wrap:anywhere;line-height:1.5;
+}
+#armory-menu .mastery-feat-title {font-size:clamp(13px,1.15cqw,16px)}
+#armory-menu .mastery-feat {padding:12px;margin-top:9px}
+#armory-menu .mastery-feat .mastery-progress {max-width:100%}
+@container app (max-width:600px) {
+  #armory-menu .mastery-feat {padding:10px}
+  #armory-menu .mastery-feat-heading {grid-template-columns:minmax(0,1fr) auto}
+  #armory-menu .mastery-feat-state {max-width:78px}
+}
