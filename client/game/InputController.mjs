@@ -631,29 +631,31 @@ export class InputController {
       for (const code of this.keys) if (MOVE_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
     }
     const moving = action => (this.bindings[action] ?? []).some(code => this.keys.has(code) && !this.blockedKeys.has(code));
-    // E/C work as ordinary lift controls. RMB changes their held meaning to
-    // front-up/front-down pitch, without turning the camera into a hydraulic lever.
-    const ramPitchMode=Boolean(this.mountedRam&&this.ramPitchModifierHeld);
+    // E/C tilt the front; RMB+E/C lift the independent upper saddle.
+    // Never route mounted hydraulics to personal Dash, Jump or Crouch.
+    const ramLiftMode=Boolean(this.mountedRam&&this.ramPitchModifierHeld);
     const ramUpKey=moving('dash'),ramDownKey=moving('crouch');
     return {
       forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
       right: moveAllowed ? (moving('right') ? 1 : 0) - (moving('left') ? 1 : 0) + (touch?.right ?? 0) : 0,
-      jump: (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
+      jump: !this.mountedRam && (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
       // Flight rail uses distinct held inputs: never recast Rise as Jump or Lower as Crouch.
       // Only forward live, mounted, authorized touch input to the authoritative host.
       flightRise: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightRise),
       flightLower: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightLower),
       ramRaise: Boolean(this.enabled && this.mountedRam && moveAllowed &&
-        ((!ramPitchMode&&ramUpKey)||touch?.jump||touch?.flightRise)),
-      ramPitchUp: Boolean(this.enabled && this.mountedRam && moveAllowed &&
-        ((ramPitchMode&&ramUpKey)||touch?.ramPitchUp)),
-      ramPitchDown: Boolean(this.enabled && this.mountedRam && moveAllowed &&
-        ((ramPitchMode&&ramDownKey)||touch?.ramPitchDown)),
+         ((ramLiftMode&&ramUpKey)||touch?.ramRaise)),
+       ramLower: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+         ((ramLiftMode&&ramDownKey)||touch?.ramLower)),
+       ramPitchUp: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+         ((!ramLiftMode&&ramUpKey)||touch?.ramPitchUp)),
+       ramPitchDown: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+         ((!ramLiftMode&&ramDownKey)||touch?.ramPitchDown)),
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
       // server's rule (it cannot stand up under something)
-      crouch: ((!ramPitchMode&&this.held('crouch')) || Boolean(touch?.crouch)) &&
+      crouch: !this.mountedRam && (this.held('crouch') || Boolean(touch?.crouch)) &&
         this.allowAction?.('crouch', false) !== false,
       // what is held, beside the presses themselves (a Blazing Vortex is steered by it: the attack for its fire, the
       // guard for its blade; on a touch screen, the same two buttons)

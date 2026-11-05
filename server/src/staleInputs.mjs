@@ -15,7 +15,7 @@ export function expireStaleMovementInputs(room, nowSec, leaseSec = INPUT_LEASE_S
     // has its own existing command semantics.
     Object.assign(player.input, {
       forward:0,right:0,jump:false,sprint:false,crouch:false,
-      flightRise:false,flightLower:false,ramRaise:false,
+      flightRise:false,flightLower:false,ramRaise:false,ramLower:false,
       ramPitchUp:false,ramPitchDown:false,
     });
     player.lastMovementInputAt = null; // one expiry per silent interval

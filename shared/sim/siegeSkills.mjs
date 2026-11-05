@@ -4,7 +4,7 @@ export const SIEGE_SKILLS=Object.freeze({
  coldHowTouching:Object.freeze({cooldown:24}),
  longArmToTheJaw:Object.freeze({cooldown:24}),
  beatToThePunch:Object.freeze({
-  cooldown:24,chassisTrigger:35,reverseSpeed:8,reverseDebt:1.5,
+  cooldown:24,chassisTrigger:35,reverseSpeed:11.5,reverseDebt:1.5,
   initialHazard:.0025,growthRate:.0012,shudder:.008,shudderGrowth:.00055,maxShudder:.032,
  }),
 });
