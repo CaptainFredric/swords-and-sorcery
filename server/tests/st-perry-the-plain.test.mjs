@@ -589,7 +589,7 @@ test('Case 17: Save-failure retry recovery and duplicate event idempotence on th
   const profileMsg = await next('profile');
 
   // Create room
-  ws.send(JSON.stringify({ type: 'createRoom', name: 'RetryKnight', mode: 'PRACTICE' }));
+  ws.send(JSON.stringify({ type: 'createRoom', name: 'RetryKnight' }));
   const joined = await next('joined');
   const room = game.roomManager.findByCode(joined.roomCode);
   const player = room.players.get(joined.playerId);
