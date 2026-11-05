@@ -2,6 +2,12 @@ import {SIEGE_SKILLS} from '../../shared/sim/siegeSkills.mjs';
 
 export function siegeSkillControlLabel(b,now){
  const s=b?.skill;if(!s)return 'SKILL';
+ // A grounded fist belongs to the apparatus, not the current rider's
+ // chosen technique; any operator must be able to collect it.
+ if(b.detachedFist?.state==='resting')return 'PICK UP';
+ if(b.detachedFist?.state==='abyss')return 'RETURN';
+ if(b.detachedFist?.state==='recovering')
+  return Math.ceil(Math.max(0,(b.fistRecoveryUntil??now)-now))+'s';
  const remaining=Math.max(0,(s.readyAt??0)-now);
  if(s.id==='coldHowTouching')
   return s.phase==='active'?'ACTIVE':remaining>0?`${Math.ceil(remaining)}s`:'ACTIVATE';

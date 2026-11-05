@@ -3,6 +3,9 @@
 import {boxWorld} from '../src/orientedBox.mjs';
 export const SO_FIST_LIFT=Object.freeze({
  scale:2.85, maxRise: .480*2.85, nominalRise:.440*2.85,
+ // Argon's model clears the full 50-degree pitch envelope once the lift has
+ // risen 0.220 authored metres; lower positions permit proportionally less.
+ pitchClearanceRise:.220*2.85,
  lowPitch:20*Math.PI/180, maxPitch:50*Math.PI/180,
  riseRate:.70, lowerRate:.86, pitchRate:38*Math.PI/180,
  pivot:Object.freeze([0,.385*2.85,-.560*2.85]),
@@ -12,7 +15,20 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export function soFistAllowedPitch(b){
  const lift=clamp(b?.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
  return SO_FIST_LIFT.lowPitch+(SO_FIST_LIFT.maxPitch-SO_FIST_LIFT.lowPitch)*
-   lift/SO_FIST_LIFT.maxRise;
+   clamp(lift/SO_FIST_LIFT.pitchClearanceRise,0,1);
+}
+// Physically coaxial lower pitch barrels and upper rods. Both carry the
+// original 35.3948-degree axis: the upper rods undo their parent trunnion
+// rotation, then follow the lower barrels about the same rear pin axis.
+// Derived directly from the delivered Argon glTF manifest, in radians.
+export function soFistPitchCylinderPose(angle){
+ const theta=clamp(angle??0,0,SO_FIST_LIFT.maxPitch);
+ const dy=(.385+.135*Math.cos(theta)+.695*Math.sin(theta))-.250;
+ const dz=(-.560-.135*Math.sin(theta)+.695*Math.cos(theta))-(-.245);
+ const beta0=Math.atan2(.270,.380);
+ const deltaBeta=Math.atan2(dy,dz)-beta0;
+ return {barrelX:-deltaBeta,rodX:theta-deltaBeta,
+   axisY:dy,axisZ:dz,length:Math.hypot(dy,dz)};
 }
 export function soFistUpperAxes(root,b){
  const t=clamp(b?.ramElevPitch??0,0,SO_FIST_LIFT.maxPitch),c=Math.cos(t),s=Math.sin(t);

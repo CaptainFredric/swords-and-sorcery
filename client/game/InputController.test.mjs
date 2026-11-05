@@ -708,3 +708,41 @@ test('UPPER-focus coupled control sends one camera ray, not the primed combined 
  input.siegeBoth();assert.deepEqual(calls[1],{type:'bibyeCombinedFire'});
  input.mountedBallista=false;input.siegeCoupled();assert.equal(calls.length,2);
 });
+
+test('ram E/C lift the upper frame; RMB changes only their intent to pitch and never Guards',()=>{
+ const {input,down,up,calls}=setup();
+ input.socket.dash=()=>calls.push(['dash']);
+ input.mountedRam=true;
+ down('KeyE');
+ assert.equal(input.movement().ramRaise,true);
+ assert.equal(input.movement().ramPitchUp,false);
+ up('KeyE');
+ down('KeyC');
+ assert.equal(input.movement().crouch,true);
+ assert.equal(input.movement().ramPitchDown,false);
+ up('KeyC');
+ down('Mouse2');
+ assert.equal(input.ramPitchModifierHeld,true);
+ down('KeyE');
+ assert.equal(input.movement().ramRaise,false);
+ assert.equal(input.movement().ramPitchUp,true);
+ assert.equal(input.movement().guard,false);
+ assert.equal(calls.some(x=>x[0]==='guard'||x[0]==='dash'),false,
+   'ram hydraulic Raise must not also send Guard or ordinary Dash');
+ up('KeyE');
+ down('KeyC');
+ assert.equal(input.movement().crouch,false);
+ assert.equal(input.movement().ramPitchDown,true);
+ up('Mouse2');
+ assert.equal(input.movement().ramPitchDown,false);
+ assert.equal(input.movement().crouch,true);
+ up('KeyC');
+ down('Mouse2');down('KeyE');
+ input.releaseInputs();
+ assert.equal(input.ramPitchModifierHeld,false);
+ assert.equal(input.movement().ramPitchUp,false);
+ input.mountedRam=false;
+ assert.equal(input.movement().ramPitchUp,false);
+ input.dispose();
+});
+

@@ -62,6 +62,8 @@ export const ICONS = Object.freeze({
   ram: RAM_GAUNTLET,
   // A pale clock face and dark hands remain visible above the fist; the
   // lower rim breaks around its raised knuckles.
+  // Detachable armored fist accelerating away from its exposed steel piston.
+  longArmToTheJaw: '<path d="M2 12h6M3 8h5M4 16h4" stroke="currentColor" fill="none" stroke-width="1.8"/><path d="m7 8 2 4-2 4" fill="none" stroke="currentColor" stroke-width="1.1"/><g transform="translate(8 2) scale(.66)">' + RAM_GAUNTLET + '</g>',
   beatToThePunch: '<g stroke-width="1.15" stroke-linejoin="round"><path d="M7 13a8 8 0 1 1 13 1l-2 .5-1-2-2 3-2-1-2 1z" fill="#e8d7ac" stroke="currentColor"/><path d="M14 2v2M21 9h-2M7 9h2M14 5v4l3-2M18.5 3.5l-1 1M9.5 3.5l1 1" fill="none" stroke="#343b3d" stroke-linecap="square"/><circle cx="14" cy="9" r=".7" fill="#343b3d" stroke="none"/><path d="m20 16 2-1 .5 2-2 1z" fill="#e8d7ac" stroke="none"/></g><g transform="translate(0 8) scale(.68)"><g transform="rotate(25 12 12)">' + RAM_GAUNTLET + '</g></g>',
   siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
   siegeSkill: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
