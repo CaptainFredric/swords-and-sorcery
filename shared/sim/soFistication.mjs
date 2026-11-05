@@ -288,6 +288,8 @@ const p=room.players.get(b.operatorId);
   resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(travelSpeed)/SO_FIST_WHEELS[w].radius;}
  }
+ // Reflect AFTER-contact momentum in the network snapshot, including rebounds.
+ b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  if(Math.abs(travelSpeed)<.001&&soFistPose(b,now).active)resolveSoFistContacts(room,b,{...b},dt,now,now-dt,dt);
  const other=room.biByeLlista,stroke=soFistPose(b,now);
  if(other&&other.health>0&&stroke.active&&!(b.strokeMachines??[]).includes(other.id)){
