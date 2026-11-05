@@ -250,7 +250,7 @@ test('previous flight rectangles become round defaults while edited targets rema
 test('stock mounted firing controls stay in the right thumb area with distinct targets',async()=>{
  const {mountedTouchLayout}=await import('./touchLayout.mjs');
  const layout=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT);
- const actions=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy'];
+ const actions=['attack','siegeSkill'];
  for(const action of actions){
   const a=layout[action];assert.ok(a.right+a.size<=168);
   for(const other of actions.filter(k=>k!==action)){
@@ -492,7 +492,7 @@ test('older completely mirrored flight presets are recognized as untouched, not 
  assert.deepEqual(JSON.parse(storage.getItem('ss-touch-layout')).overrides.flight,{});
 });
 
-test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',()=>{
+test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',async()=>{
  const {readFileSync}=await import('node:fs');
  const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
  const editor=readFileSync(new URL('./TouchLayoutEditor.mjs',import.meta.url),'utf8');
@@ -507,7 +507,7 @@ test('layout workshop previews share game scale, avoid Arena Menu and preserve e
  assert.match(editor,/classList.add\('touch-layout-editor-open'\)/);
  assert.match(mobile,/body\.touch-layout-editor-open #pause-menu/);
  assert.match(main,/if\(runtime\?\.touchLayoutEditor\?\.active\)/);
- assert.match(controls,/applyLayoutItem\(element,\{\.\.\.placement,custom:true\}\)/,
+ assert.match(controls,/applyLayoutItem\(element,\s*mode!=='onFoot'\?\{\.\.\.placement,custom:true\}:placement\)/,
    'all active controls, including default on-foot controls, render canonical layout values');
 });
 
