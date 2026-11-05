@@ -147,7 +147,11 @@ export class GameSocket {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(message));
   }
 
-  createRoom(name) { this.send({ type: 'createRoom', name }); }
+  createRoom(name,settings=null,team=null) {
+    this.send({type:'createRoom',name,
+      ...(settings?{settings}:{}),
+      ...(['ATTACKERS','DEFENDERS'].includes(team)?{team}:{})});
+  }
   createSharedPracticeRoom(name,worldId='castleward') { this.send({type:'createSharedPracticeRoom',name,worldId}); }
   createBreakthroughRoom(name, team = null, botSkill = null, teamSize = null, worldId = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}), ...(teamSize ? { teamSize } : {}), ...(worldId ? { worldId } : {}) }); }
 

@@ -1,4 +1,5 @@
 import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
+import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
@@ -359,6 +360,10 @@ function tourAllowed() {
   return viewOptions(settings).pixelRatioCap > 1.1 && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 }
 
+function resetCompanionCrown(root){
+  const scroller=root?.querySelector?.('.companion-banner .banner-scroll');
+  if(scroller)scroller.scrollTop=0;
+}
 function route(screenId) {
   armoryFeedback.cancel();
   renown?.route(screenId);
@@ -373,12 +378,29 @@ function route(screenId) {
   menuScene?.setVisible(menuBacked);
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU, { immediate: previous !== screenId });
+  const crossingArmory=previous===SCREEN_IDS.ARMORY||screenId===SCREEN_IDS.ARMORY;
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
+    {immediate:previous!==screenId&&!crossingArmory});
+  menuScene?.setArmoryPresentation(screenId === SCREEN_IDS.ARMORY,
+    {immediate:previous!==screenId&&!crossingArmory});
   if (menuBacked && previous !== screenId) {
-    menuScene?.resetCanonicalHeroState({ immediate: true });
+    // A stage reset must not teleport him during the Armory sidestep or
+    // erase his return walk. It still resets spell/ultimate presentations.
+    menuScene?.resetCanonicalHeroState({immediate:!crossingArmory});
   }
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
+  // Old companion scroll offsets used to bury OPEN ROOMS / CHOSEN PURSUIT
+  // beneath the rod when a banner was reopened.
+  if(previous!==screenId){
+    const bannerId={
+      [SCREEN_IDS.SOLO_MENU]:'solo-menu',
+      [SCREEN_IDS.ROOMS_MENU]:'rooms-menu',
+      [SCREEN_IDS.BREAKTHROUGH_MENU]:'breakthrough-menu',
+      [SCREEN_IDS.PRIVATE_MENU]:'private-menu',
+    }[screenId];
+    if(bannerId)resetCompanionCrown(document.getElementById(bannerId));
+  }
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
@@ -771,6 +793,7 @@ roomList.addEventListener('click', event => {
   selectedPublicCode = row.dataset.code;
   roomCreateForm.hidden = true;
   roomsMenu.dataset.panel = 'details';
+  resetCompanionCrown(roomsMenu);
   renderPublicRooms();
 });
 $('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
@@ -790,6 +813,7 @@ function syncPublicRoomForm() {
 roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
 $('#raise-room').addEventListener('click', () => {
   roomCreateForm.hidden = false;
+  resetCompanionCrown(roomsMenu);
   roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
   syncPublicRoomForm();
   roomsMenu.dataset.panel='details';
@@ -984,7 +1008,9 @@ function showPauseSection(section) {
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#breakthrough-button')?.addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.BREAKTHROUGH_MENU); });
+$('#breakthrough-button')?.addEventListener('click', () => {
+  showMenuError(''); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
+});
 $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
@@ -992,7 +1018,10 @@ $('#quick-join').addEventListener('click', () => runMenuAction(
   menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#solo-button').addEventListener('click', () => { showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
-$('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
+$('#private-button').addEventListener('click', () => {
+  showMenuError(''); privateMenu.dataset.panel='list';
+  route(SCREEN_IDS.PRIVATE_MENU);
+});
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
@@ -1098,6 +1127,9 @@ $('#mettle-modes')?.addEventListener('click', event => {
   if (!chosen) return;
   menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
   showBreakthroughArena();
+  if(document.querySelector('#game-shell')?.clientWidth<=640){
+    breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
+  }
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1145,6 +1177,79 @@ breakthroughRival?.addEventListener('click', (event) => {
   showBreakthroughRival();
 });
 showBreakthroughRival();
+$('#mettle-options')?.addEventListener('click',()=>{
+  breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
+});
+$('#mettle-list-return')?.addEventListener('click',()=>{
+  breakthroughMenu.dataset.panel='list';
+});
+
+// Private rooms use the same server-validated rules as Open Rooms, but
+// start from a deliberately simple Free-for-All instead of a huge siege CTA.
+let privateModeSelected='FFA';
+const privateForm=$('#private-settings-form');
+const privateChoices=$('#private-mode');
+function privateFields(){
+  const f=privateForm.elements;
+  return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
+    teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value};
+}
+function renderPrivateMode({reset=true}={}){
+  const mode=privateModeSelected,teamMode=mode!=='FFA';
+  for(const button of privateChoices.querySelectorAll('[data-private-mode]')){
+    const on=button.dataset.privateMode===mode;
+    button.classList.toggle('selected',on);
+    button.setAttribute('aria-pressed',String(on));
+  }
+  const f=privateForm.elements;
+  const defaults=PRIVATE_MODE_DEFAULTS[mode];
+  const oldArena=reset?defaults.worldId:f.worldId.value;
+  // Rebuilding a live <select> on every numeric keystroke can steal the
+  // user's focus, particularly on mobile. Refill only when mode changes.
+  if(reset||!f.worldId.options.length)
+    f.worldId.innerHTML=arenaOptions(mode,oldArena);
+  if(reset){
+    f.minutes.value=defaults.minutes;
+    if(teamMode){
+      f.teamSize.value=defaults.teamSize;
+      f.team.value=defaults.team;
+      f.botSkill.value=defaults.botSkill;
+    }else f.scoreToWin.value=defaults.scoreToWin;
+  }
+  privateForm.querySelector('[data-private-score]').hidden=teamMode;
+  for(const attr of ['size','team','bot'])
+    privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode;
+  const note=mode==='FFA'?'Every Spellblade for themselves. First to ten.':
+    mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
+    'Both armies attack and recapture outposts high above the abyss.';
+  $('#private-mode-copy').textContent=note;
+  const result=privateRoomPreview(mode,privateFields());
+  $('#private-rule-summary').textContent=result.ok?result.summary:
+    'CHECK THE ROOM RULES · '+result.error;
+  privateMenu.dataset.mode=mode;
+}
+privateChoices.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-private-mode]');
+  if(!button)return;
+  privateModeSelected=privateMode(button.dataset.privateMode);
+  renderPrivateMode();
+  if(document.querySelector('#game-shell')?.clientWidth<=640){
+    privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
+  }
+});
+privateForm.addEventListener('input',()=>renderPrivateMode({reset:false}));
+privateForm.addEventListener('change',()=>renderPrivateMode({reset:false}));
+$('#private-options')?.addEventListener('click',()=>{
+  privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
+});
+$('#private-list-return')?.addEventListener('click',()=>{privateMenu.dataset.panel='list';});
+renderPrivateMode();
+function createConfiguredPrivate(){
+  const preview=privateRoomPreview(privateModeSelected,privateFields());
+  if(!preview.ok){showMenuError(preview.error);privateMenu.dataset.panel='details';return;}
+  runMenuAction(menuController.createPrivate(nameInput.value,preview.settings,preview.team),SCREEN_IDS.PRIVATE_MENU);
+}
+privateForm.addEventListener('submit',event=>{event.preventDefault();createConfiguredPrivate();});
 function offerTutorial() {
   if (!tutorialProgress.shouldOfferFirstRun({params:new URLSearchParams(location.search)})) return;
   tutorialOffer.hidden = false;
@@ -1329,6 +1434,7 @@ function chooseSoloActivity(id) {
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   soloMenu.dataset.panel='details';
+  resetCompanionCrown(soloMenu);
 }
 for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
@@ -1348,19 +1454,28 @@ $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menu
   teamSize: menuController.breakthroughSize(),
   worldId: menuController.breakthroughArena(),
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
-$('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value, {
-  team: menuController.breakthroughTeam(),
-  botSkill: menuController.breakthroughSkill(),
-  teamSize: menuController.breakthroughSize(),
-  worldId: menuController.breakthroughArena(),
-}), SCREEN_IDS.BREAKTHROUGH_MENU));
+$('#breakthrough-create-private')?.addEventListener('click', () => {
+  // Private siege rooms should pass through the same rule review as every
+  // other private mode. Preserve the battle orders already chosen in Mettle.
+  const arena=menuController.breakthroughArena();
+  privateModeSelected=arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  renderPrivateMode();
+  const f=privateForm.elements;
+  f.worldId.value=arena;
+  f.teamSize.value=String(menuController.breakthroughSize());
+  f.team.value=menuController.breakthroughTeam();
+  f.botSkill.value=menuController.breakthroughSkill();
+  renderPrivateMode({reset:false});
+  privateMenu.dataset.panel='list';
+  route(SCREEN_IDS.PRIVATE_MENU);
+});
 function startBotDuel() {
   if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
   ensureRuntime();
   runtime.requestPointerLock();
 }
-$('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
-$('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
+$('#create-room').addEventListener('click',createConfiguredPrivate);
+$('#private-create-right').addEventListener('click',createConfiguredPrivate);
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });

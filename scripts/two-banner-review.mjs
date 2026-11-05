@@ -96,6 +96,57 @@ try{
   await waitFor(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo desktop');
   await inspect('#solo-menu','solo-desktop');
   await capture('03-desktop-solo');
+
+  // Mettle is deliberately two documents: choose the battle at left, alter
+  // the real game settings on the smaller banner at right.
+  await evaluate("document.querySelector('#solo-back').click();document.querySelector('#breakthrough-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"),'Mettle desktop');
+  const mettle=await inspect('#breakthrough-menu','mettle-desktop');
+  assert.ok(mettle.leftVisible&&mettle.rightVisible,'both Mettle standards visible at desktop');
+  const controlsRight=await evaluate("['breakthrough-size','breakthrough-arena','breakthrough-team','breakthrough-rival'].every(id=>document.getElementById(id).closest('.mettle-companion'))");
+  assert.ok(controlsRight,'battle settings actually live in the smaller right standard');
+  await capture('04-desktop-mettle');
+  await evaluate("document.querySelector('#breakthrough-back').click();document.querySelector('#private-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#private-menu').classList.contains('hidden')"),'Private desktop');
+  const priv=await inspect('#private-menu','private-desktop');
+  assert.ok(priv.leftVisible&&priv.rightVisible,'two private standards side by side');
+  assert.equal(await evaluate("document.querySelector('#private-mode [aria-pressed=true]')?.dataset.privateMode"),'FFA');
+  const defaultRules=await evaluate("document.querySelector('#private-rule-summary').textContent");
+  assert.match(defaultRules,/FIRST TO 10.*6 MIN/i,'private defaults to Free-for-All score and time');
+  assert.equal(await evaluate("document.querySelector('#create-breakthrough-room')"),null,'old huge siege create action is gone');
+  await capture('05-desktop-private');
+
+  // The fixed Armory crown and bottom scroll cue must not occlude cards.
+  await evaluate("document.querySelector('#private-back').click();document.querySelector('#armory-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')"),'Armory desktop');
+  const armoryGeometry=await evaluate(`(() => {
+    const panel=document.querySelector('#armory-menu .armory-inner'),
+      tabs=panel.querySelector('.armory-tabs'),body=panel.querySelector('.armory-scroll'),
+      foot=panel.querySelector('.armory-scroll-hint');
+    const box=el=>{const b=el.getBoundingClientRect();return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,height:b.height};};
+    return {panel:box(panel),tabs:box(tabs),body:box(body),foot:box(foot),
+      panelWidth:panel.clientWidth,tabsOverflow:tabs.scrollWidth-tabs.clientWidth,
+      bodyOverflow:body.scrollWidth-body.clientWidth,
+      goal:window.__ssMenu?.targetPosition?.x??null};
+  })()`);
+  evidence['armory-desktop']=armoryGeometry;
+  assert.ok(armoryGeometry.panelWidth>=440,'Armory extends wider than original narrow standard');
+  assert.ok(armoryGeometry.tabsOverflow<=3,'Armory tabs must never exceed their cloth');
+  assert.ok(armoryGeometry.bodyOverflow<=3,'Armory content has no horizontal bleed');
+  assert.ok(armoryGeometry.tabs.bottom<=armoryGeometry.body.top+3,'tabs do not overlap scrolling text');
+  assert.ok(armoryGeometry.body.bottom<=armoryGeometry.foot.top+3,'scrolling cards end above the footer');
+  assert.ok(armoryGeometry.foot.bottom<armoryGeometry.panel.bottom-27,'scroll cue remains above the stepped hem');
+  assert.ok(armoryGeometry.goal<-.6,'Spellblade sidesteps screen-right in rotated stage coordinates');
+  await capture('06-desktop-armory-combat');
+  for(const [section,label] of [['heraldry','07-desktop-armory-heraldry'],['challenges','08-desktop-armory-challenges']]){
+    await evaluate("document.querySelector('#armory-"+section+"-tab').click()");
+    await sleep(100);
+    const overflow=await evaluate("document.querySelector('#armory-menu .armory-scroll').scrollWidth-document.querySelector('#armory-menu .armory-scroll').clientWidth");
+    assert.ok(overflow<=3,section+' text bleeds past scrolling column');
+    await capture(label);
+  }
+  await evaluate("document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo before mobile');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});
   await sleep(500);
   await inspect('#solo-menu','solo-mobile-list');
@@ -114,6 +165,60 @@ try{
   await capture('07-mobile-room-details');
   await evaluate("document.querySelector('#raise-room').click()");
   await capture('08-mobile-room-create');
+
+  await evaluate("document.querySelector('#rooms-back').click();document.querySelector('#private-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='list'"),'Private mobile mode picker');
+  let mobilePrivate=await inspect('#private-menu','private-mobile-list');
+  assert.ok(mobilePrivate.leftVisible&&!mobilePrivate.rightVisible,'mobile private starts with mode tabs and Create');
+  await capture('09-mobile-private-modes');
+  await evaluate("document.querySelector('#private-mode [data-private-mode=BREAKTHROUGH]').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private mobile rules');
+  mobilePrivate=await inspect('#private-menu','private-mobile-details');
+  assert.ok(!mobilePrivate.leftVisible&&mobilePrivate.rightVisible,'mobile private settings are reachable');
+  assert.equal(await evaluate("document.querySelector('#private-settings-form [name=teamSize]').value"),'3');
+  await capture('10-mobile-private-rules');
+  await evaluate("document.querySelector('#private-list-return').click();document.querySelector('#private-back').click();document.querySelector('#breakthrough-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='list'"),'Mettle mobile mode picker');
+  const mobileMettle=await inspect('#breakthrough-menu','mettle-mobile-list');
+  assert.ok(mobileMettle.leftVisible&&!mobileMettle.rightVisible);
+  await capture('11-mobile-mettle-modes');
+  await evaluate("document.querySelector('#mettle-options').click()");
+  await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='details'"),'Mettle mobile orders');
+  const mobileOrders=await inspect('#breakthrough-menu','mettle-mobile-details');
+  assert.ok(!mobileOrders.leftVisible&&mobileOrders.rightVisible);
+  await capture('12-mobile-mettle-orders');
+
+  // End-to-end real private room creation through the UI. Validate server
+  // output rather than accepting a merely decorative rules selector.
+  await evaluate("document.querySelector('#mettle-list-return').click();document.querySelector('#breakthrough-back').click();document.querySelector('#private-button').click()");
+  await evaluate("document.querySelector('#private-mode [data-private-mode=FFA]').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private FFA creation options');
+  await evaluate(`(() => {
+    const f=document.querySelector('#private-settings-form').elements;
+    f.scoreToWin.value='17';f.minutes.value='9';
+    f.scoreToWin.dispatchEvent(new Event('input',{bubbles:true}));
+    f.minutes.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('#private-create-right').click();
+  })()`);
+  await waitFor(()=>evaluate("!document.querySelector('#lobby').classList.contains('hidden')"),'real custom private FFA lobby',220);
+  const createdLobby=await evaluate(`(() => {
+    const fields=document.querySelector('#lobby-settings form.lobby-config')?.elements;
+    return {
+      mode:document.querySelector('#lobby-mode')?.textContent??'',
+      selectedMode:fields?.mode?.value??'',
+      score:fields?.scoreToWin?.value??'',
+      minutes:fields?.minutes?.value??'',
+      code:document.querySelector('#lobby-code')?.textContent??''
+    };
+  })()`);
+  assert.match(createdLobby.mode,/FREE.FOR.ALL/i,'server recognized private Free-for-All');
+  assert.equal(createdLobby.selectedMode,'FFA');
+  assert.equal(createdLobby.score,'17','server persisted first-to-17');
+  assert.equal(createdLobby.minutes,'9','server persisted nine-minute custom room');
+  assert.equal(createdLobby.code.trim().length,5);
+  evidence['private-host-created']=createdLobby;
+  await capture('13-mobile-private-created-lobby');
+
   assert.ok(errors.length===0,'Uncaught browser exceptions: '+errors.join(' | '));
   await writeFile(output+'/report.json',JSON.stringify({hostedRoom:hosted.roomCode,evidence,errors},null,2));
   console.log('[TWO BANNER REVIEW PASSED]',Object.keys(evidence));

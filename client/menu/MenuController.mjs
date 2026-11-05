@@ -165,8 +165,8 @@ export class MenuController {
     return this.#withName(rawName, name => this.socket.startInspectionPractice(name, this.soloArena()));
   }
 
-  createPrivate(rawName) {
-    return this.#withName(rawName, (name) => this.socket.createRoom(name));
+  createPrivate(rawName,settings=null,team=null) {
+    return this.#withName(rawName, (name) => this.socket.createRoom(name,settings,team));
   }
 
   joinPrivate(rawCode, rawName) {
