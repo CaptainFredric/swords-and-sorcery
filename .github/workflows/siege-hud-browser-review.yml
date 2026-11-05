@@ -1,0 +1,51 @@
+name: Siege HUD desktop/mobile Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/ui/HUD.mjs'
+      - 'client/ui/machineGaugeView.mjs'
+      - 'client/siege-hud.css'
+      - 'client/index.html'
+      - 'scripts/siege-hud-browser-review.mjs'
+      - '.github/workflows/siege-hud-browser-review.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-siege-hud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start actual game server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs >/tmp/siege-hud-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/siege-hud-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify gauges in real HUD DOM and capture screenshots
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/siege-hud-browser-review.mjs
+      - name: Save screenshot evidence and computed layout results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: siege-hud-review
+          path: output/playwright/siege-hud-review/
+          retention-days: 7
