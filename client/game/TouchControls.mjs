@@ -95,6 +95,9 @@ export class TouchControls {
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
+    // An owned Raise/Lower finger may switch to pitch by swiping outward.
+    // Sliding onto a button from elsewhere never initiates hydraulics.
+    this.ramTiltGestures = new Map();
     this.layouts = loadTouchLayout();
     this.previewMode = null;
 
@@ -387,6 +390,7 @@ export class TouchControls {
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
+    this.ramTiltGestures.clear();
     this.buttons.sprint.classList.remove('on');
     this.buttons.crouch?.classList.remove('on');
   }
@@ -399,18 +403,22 @@ export class TouchControls {
     const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
+    const pitchUp=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.pitch);
+    const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.pitch);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.ramMounted?Boolean(this.jumpHeld):
+      jump: this.ramMounted?Boolean(this.jumpHeld&&!pitchUp):
         this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
+      ramPitchUp: Boolean(this.ramMounted && pitchUp),
+      ramPitchDown: Boolean(this.ramMounted && pitchDown),
       sprint: this.flightMounted ? false : this.ramMounted
         ? Boolean(this.chargeHeld || (moveAllowed && this.stickState.sprint))
         : Boolean(moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false))),
       crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) :
-        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld):
+        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld&&!pitchDown):
         Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
@@ -582,7 +590,7 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?flightSkillIcon:ram?'beatToThePunch':biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -591,8 +599,14 @@ export class TouchControls {
       this.layer.classList.toggle('airborne', airborne);
       if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
       if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
-      this.buttons.jump.querySelector('span').textContent='JUMP';
-      this.buttons.crouch.querySelector('span').textContent='CROUCH';
+      const frontUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='jump');
+      const frontDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='crouch');
+      this.buttons.jump.querySelector('span').textContent=ram?(frontUp?'FRONT UP':'RAISE'):'JUMP';
+      this.buttons.crouch.querySelector('span').textContent=ram?(frontDown?'FRONT DOWN':'LOWER'):'CROUCH';
+      this.buttons.jump.setAttribute('aria-label',frontUp?'Tilting the ram front upward':
+        ram?'Hold to raise ram; swipe up while held to tilt front upward':'Jump');
+      this.buttons.crouch.setAttribute('aria-label',frontDown?'Tilting the ram front downward':
+        ram?'Hold to lower ram; swipe down while held to tilt front downward':'Crouch');
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       // After mount transitions (which reset held controls), paint the real
@@ -918,7 +932,11 @@ export class TouchControls {
   #down = (event) => {
     this.touchDebugEvent = 'down';
     if (!this.active) return;
-    if(this.#ritualStart(event))return;
+    // A pointer owns the action it STARTED on. A thumb sliding across Dash
+    // cannot be promoted from a look, stick, rail, or other held gesture.
+    // Distinct fingers can still press Dash and Ultimate together.
+    if (this.held.has(event.pointerId) || this.stick?.id === event.pointerId ||
+        this.look?.id === event.pointerId || this.flightRailPointer === event.pointerId) return;
     if (event.target.closest?.('.touch-flight-rail') && this.flightMounted) {
       event.preventDefault();
       if (this.flightRailPointer !== null) return;
@@ -988,6 +1006,18 @@ export class TouchControls {
       const gesture = this.preparedTouch;
       gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
       this.#showPreparedTouch();
+      return;
+    }
+    if(this.ramMounted&&this.ramTiltGestures.has(event.pointerId)){
+      const gesture=this.ramTiltGestures.get(event.pointerId);
+      const point=gamePoint(event,this.layer);
+      // Deliberate outward swipe (in the same direction as the button's
+      // purpose), not an accidental few-pixel thumb drift.
+      if(!gesture.pitch&&(gesture.action==='jump'?
+        gesture.y-point.y>=32:point.y-gesture.y>=32)){
+        gesture.pitch=true;
+        this.buttons[gesture.action]?.classList.add('ram-pitch');
+      }
       return;
     }
     if (this.stick?.id === event.pointerId) {
@@ -1185,6 +1215,9 @@ export class TouchControls {
       if (this.input.mountedFlight || this.flightMounted) this.input.flightDash(true, `touch:${event.pointerId}`);
       else this.input.dash();
     }
+    if(this.ramMounted&&(action==='jump'||action==='crouch')){
+      this.ramTiltGestures.set(event.pointerId,{action,...gamePoint(event,this.layer),pitch:false});
+    }
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightHop?.();
@@ -1220,6 +1253,7 @@ export class TouchControls {
   }
 
   #release(action, pointerId, cancelled=false) {
+    if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-pitch');
     if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(action, false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;

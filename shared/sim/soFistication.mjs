@@ -28,21 +28,64 @@ const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==fal
 // of the existing animated ram stroke; the collision boxes use these same
 // authoritative fields.
 function stepRamElevation(room,b,dt,now,world){
- const p=room.players.get(b.operatorId),input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
- if(!b.ramLiftY&&!(input.ramRaise||input.crouch)&&!b.ramElevPitch&&!(input.pitch>0))return;
- const amount=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
- const nextLift=clamp(amount+((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
-   input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),0,SO_FIST_LIFT.maxRise);
- const desiredPitch=clamp(input.pitch??0,0,soFistAllowedPitch({...b,ramLiftY:nextLift}));
- const oldPitch=b.ramElevPitch??0;
- const pitch=oldPitch+clamp(desiredPitch-oldPitch,
-   -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt);
- const candidate={...b,ramLiftY:nextLift,ramElevPitch:pitch};
- // The lifting assembly may not tunnel through masonry or a deployed ballista.
- // If the desired pose is blocked, retain the last physically valid pose.
- if(soFistClear(candidate,world,getBiByeSolids(room.biByeLlista))){
-  b.ramLiftY=nextLift;b.ramElevPitch=pitch;
- }else{
+ const p=room.players.get(b.operatorId);
+ const input=p?.alive&&p.operatingRamId===b.id?p.input??{}:{};
+ if(!b.ramLiftY&&!(input.ramRaise||input.crouch||input.ramPitchUp||input.ramPitchDown)&&
+   !b.ramElevPitch)return;
+ const startLift=clamp(b.ramLiftY??0,0,SO_FIST_LIFT.maxRise);
+ const startPitch=clamp(b.ramElevPitch??0,0,SO_FIST_LIFT.maxPitch);
+ let nextLift=clamp(startLift+
+  ((input.ramRaise&&!input.crouch)?SO_FIST_LIFT.riseRate*dt:
+    input.crouch?-SO_FIST_LIFT.lowerRate*dt:0),
+  0,SO_FIST_LIFT.maxRise);
+ // Camera pitch is only the operator's LOOK. Hydraulic pitch is an explicit
+ // held command, with the angle maintained after the operator lets go.
+ const pitchIntent=Number(Boolean(input.ramPitchUp))-Number(Boolean(input.ramPitchDown));
+ const allowed=soFistAllowedPitch({...b,ramLiftY:nextLift});
+ const desiredPitch=clamp(startPitch+pitchIntent*SO_FIST_LIFT.pitchRate*dt,0,allowed);
+ const nextPitch=clamp(startPitch+clamp(desiredPitch-startPitch,
+  -SO_FIST_LIFT.pitchRate*dt,SO_FIST_LIFT.pitchRate*dt),0,SO_FIST_LIFT.maxPitch);
+ // A high-pitched ram cannot lower its saddle through the trunnion. Retract
+ // its pitch at the physical rate and limit the vertical descent accordingly.
+ const neededLift=SO_FIST_LIFT.pitchClearanceRise*clamp(
+  (nextPitch-SO_FIST_LIFT.lowPitch)/(SO_FIST_LIFT.maxPitch-SO_FIST_LIFT.lowPitch),0,1);
+ nextLift=Math.max(nextLift,Math.min(startLift,neededLift));
+ const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
+ if(Math.abs(deltaLift)+Math.abs(deltaPitch)<1e-9)return;
+ const machineSolids=[
+  ...biByeHitVolumes(room.biByeLlista,now),
+  ...fightFlightHitVolumes(room.fightFlight)
+ ];
+ const actors=[...room.players.values()].filter(other=>
+   other.alive&&other.id!==b.operatorId).map(other=>{
+    const height=postureOf(other).height;
+    return {center:[other.position.x,other.position.y+height/2,other.position.z],
+      size:[.9,height,.9]};
+   });
+ // A rapidly advanced server tick must not let the hydraulics skip thin
+ // masonry, a flying rotor, or an exposed player's hitbox.
+ const steps=Math.max(1,Math.ceil(Math.abs(deltaLift)/.04),
+  Math.ceil(Math.abs(deltaPitch)/(.025)));
+ let current={...b},blocked=false;
+ for(let i=1;i<=steps;i++){
+  const fraction=i/steps;
+  const candidate={...b,ramLiftY:startLift+deltaLift*fraction,
+    ramElevPitch:startPitch+deltaPitch*fraction};
+  const upper=soFistVolumes(candidate,now).filter(box=>box.upper);
+  const prior=soFistVolumes(current,now).filter(box=>box.upper);
+  const playerEntered=upper.some((box,j)=>actors.some(body=>
+   machineryOverlap(box,body)&&
+   !(prior[j]&&machineryOverlap(prior[j],body))));
+  if(playerEntered||!soFistClear(candidate,world,machineSolids)){
+   blocked=true;break;
+  }
+  current=candidate;
+ }
+ b.ramLiftY=current.ramLiftY??startLift;
+ b.ramElevPitch=clamp(current.ramElevPitch??startPitch,0,SO_FIST_LIFT.maxPitch);
+ if(blocked){
+  if(now-(b.ramLiftBlockedAt??-Infinity)>.25)
+   room.events.push({type:'soFistElevationBlocked',machineId:b.id,at:now});
   b.ramLiftBlockedAt=now;
  }
 }
@@ -63,7 +106,7 @@ export function soFistExit(room,b,p,extras=[]){
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId||
-   (b.detachedFist?.state==='recovering'&&now<(b.fistRecoveryUntil??Infinity)))return false;
+   b.detachedFist?.state==='recovering')return false;
  if(b.team&&p.team!==b.team)return false;
  if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(room.objectiveState?.phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
@@ -90,7 +133,11 @@ export function fireSoFistication(room,b,now){
  room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;
 }
 export function primeSoFistSkill(room,b,p,now){
- if(b?.skill?.id==='longArmToTheJaw')return requestLongArmToJaw(room,b,p,now);
+ // Retrieval is a physical interaction with a recoverable fist, regardless
+ // of which technique the CURRENT rider has equipped. Otherwise swapping
+ // from Long Arm to Beat after a throw can permanently strand the gauntlet.
+ if(b?.detachedFist?.state==='resting'||b?.skill?.id==='longArmToTheJaw')
+  return requestLongArmToJaw(room,b,p,now);
  if(!skillOperator(room,b,p,now)||!hasFist(b)||b.components.Drive.health<=0)return 'The fist and drive must be functioning.';
  if(!primeSiegeSkill(b,now))return 'Beat to the Punch is cooling down or already primed.';
  b.skill.chassisDamage=0;b.skill.failureThreshold=sampleRamFailure(room);
@@ -376,6 +423,9 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
 export function damageSoFistication(room,b,amount,attackerId,source,now,{componentId='hull',point=null}={}){
  if(!b||b.retired||b.health<=0||!Number.isFinite(amount)||!(amount>0))return false;
  if(componentId!=='hull'&&componentId!=='Piston'&&!b.components[componentId])return false;
+ // The fist is not a hittable component of the carriage while in flight,
+ // resting on the ground or being recovered from the abyss.
+ if(componentId==='Fist'&&!hasFist(b))return false;
  if(room.mode!=='PRACTICE'&&(b.operatorId===attackerId||areAllies(room,b.operatorId,attackerId)||b.team&&room.players.get(attackerId)?.team===b.team))return false;
  const component=b.components[componentId],target=component??b;if(target.health<=0)return false;
  const old=target.health;

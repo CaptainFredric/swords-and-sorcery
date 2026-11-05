@@ -251,6 +251,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
       impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
       builtAt:room.biByeLlista.builtAt,
+      ownerId:room.biByeLlista.ownerId??null,
       id: room.biByeLlista.id,
       position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
       x: room.biByeLlista.x,
@@ -367,6 +368,8 @@ export function applyRoomCommand(room, player, message, time) {
         sprint: Boolean(message.sprint),
         crouch: Boolean(message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
+        ramPitchUp: Boolean(player.operatingRamId&&message.ramPitchUp),
+        ramPitchDown: Boolean(player.operatingRamId&&message.ramPitchDown),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
         attack: Boolean(message.attack),

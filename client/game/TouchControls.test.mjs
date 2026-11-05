@@ -1164,6 +1164,65 @@ test('Practice Tools cancels held vehicle gestures without an operate, reset or 
  }
 });
 
+test('Flight Dash sends on touch-down, remains held off-button, and releases on lift',()=>{
+ const p={alive:true,spell:'steel',prowess:100,position:{x:0,y:0,z:0},operatingFightFlightId:'f'};
+ const {input,controls,send}=setup(p);
+ input.mountedFlight=true;input.touch=controls;
+ const sent=[];input.socket.send=packet=>sent.push(packet);
+ controls.update(p,10,{snapshot:{fightFlight:{id:'f',health:250,rotorHP:100,grounded:false}}});
+ send('pointerdown',710,205,{action:'dash',pointerId:71});
+ assert.deepEqual(sent,[{type:'flightDash',down:true}],
+   'a ready mounted Dash begins on the initial touch, without waiting for move/up');
+ assert.equal(input.flightDashSources.has('touch:71'),true);
+ send('pointermove',530,110,{target:controls.layer,pointerId:71});
+ assert.deepEqual(sent,[{type:'flightDash',down:true}],
+   'sliding the same holding finger away maintains Dash without a second request');
+ assert.equal(input.flightDashSources.has('touch:71'),true);
+ send('pointerup',530,110,{target:controls.layer,pointerId:71});
+ assert.deepEqual(sent,[{type:'flightDash',down:true},{type:'flightDash',down:false}]);
+ assert.equal(input.flightDashSources.size,0);
+ controls.dispose();
+});
+
+test('sliding an existing finger onto Dash never activates it; a fresh tap does',()=>{
+ for(const mounted of [false,true]){
+  const p={alive:true,spell:'fireball',prowess:100,position:{x:0,y:0,z:0},
+    ...(mounted?{operatingFightFlightId:'f'}:{})};
+  const {input,controls,calls,send}=setup(p);
+  input.touch=controls;
+  const sent=[];
+  if(mounted){
+   input.mountedFlight=true;
+   input.socket.send=packet=>sent.push(packet);
+   controls.update(p,10,{snapshot:{fightFlight:{id:'f',health:250,rotorHP:100,grounded:false}}});
+  }
+  // A gesture started in the look region belongs to look even when its
+  // physical path crosses the Dash button.
+  send('pointerdown',525,250,{target:controls.layer,pointerId:80});
+  send('pointermove',710,205,{target:controls.buttons.dash,pointerId:80});
+  assert.equal(sent.length,0);
+  assert.equal(calls.filter(([action])=>action==='dash').length,0);
+  // Even a duplicate pointerdown with that already-owned ID must not steal
+  // ownership (some embedded touch browsers can synthesize duplicate events).
+  send('pointerdown',710,205,{action:'dash',pointerId:80});
+  assert.equal(sent.length,0);
+  assert.equal(calls.filter(([action])=>action==='dash').length,0);
+  send('pointerup',710,205,{target:controls.layer,pointerId:80});
+  send('pointerdown',710,205,{action:'dash',pointerId:81});
+  if(mounted){
+   assert.deepEqual(sent,[{type:'flightDash',down:true}]);
+   send('pointercancel',750,210,{target:controls.layer,pointerId:81});
+   assert.deepEqual(sent,[{type:'flightDash',down:true},{type:'flightDash',down:false}]);
+  }else{
+   assert.equal(calls.filter(([action])=>action==='dash').length,1,
+     'ordinary Spellblade Dash also executes on press rather than release');
+   send('pointerup',750,210,{target:controls.layer,pointerId:81});
+   assert.equal(calls.filter(([action])=>action==='dash').length,1);
+  }
+  controls.dispose();
+ }
+});
+
 test('held flight Dash aims off its button without releasing propulsion or another finger',()=>{
  const p={alive:true,spell:'steel',prowess:100,position:{x:0,y:0,z:0},operatingFightFlightId:'f'};
  const {input,controls,send}=setup(p);input.mountedFlight=true;input.touch=controls;
@@ -1286,4 +1345,55 @@ test('ram touch RAISE and LOWER are truly held controls and never latch after re
  send('pointerdown',600,300,{action:'crouch',pointerId:87});
  controls.reset();
  assert.equal(controls.movement().crouch,false,'mount reset never leaves lower latched');
+});
+
+
+test('ram mobile Raise/Lower holds lift until a deliberate outward swipe switches to pitch',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {input,controls,send}=setup(p);
+ input.mountedRam=true;input.touch=controls;
+ controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
+   components:{Fist:{health:500}},skill:{id:'longArmToTheJaw',phase:'idle',readyAt:0}}}});
+ assert.equal(controls.buttons.jump.querySelector('span').textContent,'RAISE');
+ assert.equal(controls.buttons.crouch.querySelector('span').textContent,'LOWER');
+ send('pointerdown',650,240,{action:'jump',pointerId:110});
+ let state=input.movement();
+ assert.equal(state.ramRaise,true);
+ assert.equal(state.ramPitchUp,false);
+ send('pointermove',650,220,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramRaise,true,'small thumb drift remains lift');
+ send('pointermove',650,165,{target:controls.layer,pointerId:110});
+ state=input.movement();
+ assert.equal(state.ramRaise,false);
+ assert.equal(state.ramPitchUp,true);
+ send('pointermove',720,95,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramPitchUp,true,'moving farther from the button retains pitch');
+ send('pointerup',720,95,{target:controls.layer,pointerId:110});
+ assert.equal(input.movement().ramPitchUp,false);
+ assert.equal(input.movement().ramRaise,false);
+ send('pointerdown',650,240,{action:'crouch',pointerId:111});
+ assert.equal(input.movement().crouch,true);
+ send('pointermove',650,305,{target:controls.layer,pointerId:111});
+ state=input.movement();
+ assert.equal(state.crouch,false);
+ assert.equal(state.ramPitchDown,true);
+ send('pointercancel',650,305,{target:controls.layer,pointerId:111});
+ assert.equal(input.movement().ramPitchDown,false);
+ assert.equal(input.movement().crouch,false);
+ controls.dispose();
+});
+
+test('ram sliding over Raise/Lower from a look gesture never acquires either hydraulic control',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingRamId:'ram'};
+ const {controls,input,send}=setup(p);
+ input.mountedRam=true;input.touch=controls;
+ controls.update(p,10,{snapshot:{soFistication:{id:'ram',health:1400,
+   components:{Fist:{health:500}},skill:{id:'beatToThePunch',phase:'idle',readyAt:0}}}});
+ send('pointerdown',550,250,{target:controls.layer,pointerId:112});
+ send('pointermove',650,175,{target:controls.buttons.jump,pointerId:112});
+ assert.equal(input.movement().ramRaise,false);
+ assert.equal(input.movement().ramPitchUp,false);
+ assert.equal(input.movement().crouch,false);
+ send('pointerup',650,175,{target:controls.layer,pointerId:112});
+ controls.dispose();
 });

@@ -10,3 +10,11 @@ test('ram prompt belongs to its actual rear operator station and uses rebound co
  assert.match(view.controls,/lift.*lower/);
  b.health=0;assert.equal(soFistHudView(op,snapshot,0),null);
 });
+
+test('ram HUD shows unboardable recovery and physically obstructed elevation',()=>{
+ const b=createSoFistication(),local={id:'p',alive:true,position:{x:0,y:0,z:3}};
+ b.detachedFist={state:'recovering'};b.fistRecoveryUntil=30;
+ assert.match(soFistHudView(local,{soFistication:b},5).status,/BOARDING LOCKED/);
+ b.detachedFist=null;b.operatorId='p';b.ramLiftBlockedAt=6;
+ assert.match(soFistHudView({...local,operatingRamId:b.id},{soFistication:b},6.1).status,/LIFT OBSTRUCTED/);
+});
