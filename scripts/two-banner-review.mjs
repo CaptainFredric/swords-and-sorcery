@@ -187,6 +187,32 @@ try{
   const mobileOrders=await inspect('#breakthrough-menu','mettle-mobile-details');
   assert.ok(!mobileOrders.leftVisible&&mobileOrders.rightVisible);
   await capture('12-mobile-mettle-orders');
+
+  // End-to-end real private room creation through the UI. Validate server
+  // output rather than accepting a merely decorative rules selector.
+  await evaluate("document.querySelector('#mettle-list-return').click();document.querySelector('#breakthrough-back').click();document.querySelector('#private-button').click()");
+  await evaluate("document.querySelector('#private-mode [data-private-mode=FFA]').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private FFA creation options');
+  await evaluate(`(() => {
+    const f=document.querySelector('#private-settings-form').elements;
+    f.scoreToWin.value='17';f.minutes.value='9';
+    f.scoreToWin.dispatchEvent(new Event('input',{bubbles:true}));
+    f.minutes.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('#private-create-right').click();
+  })()`);
+  await waitFor(()=>evaluate("!document.querySelector('#lobby').classList.contains('hidden')"),'real custom private FFA lobby',220);
+  const createdLobby=await evaluate(`(() => ({
+    mode:document.querySelector('#lobby-mode')?.textContent??'',
+    settings:document.querySelector('#lobby-settings')?.textContent??'',
+    code:document.querySelector('#lobby-code')?.textContent??''
+  }))()`);
+  assert.match(createdLobby.mode,/FREE.FOR.ALL/i,'server recognized private Free-for-All');
+  assert.match(createdLobby.settings,/17/,'server persisted first-to-17');
+  assert.match(createdLobby.settings,/9/,'server persisted nine-minute custom room');
+  assert.equal(createdLobby.code.trim().length,5);
+  evidence['private-host-created']=createdLobby;
+  await capture('13-mobile-private-created-lobby');
+
   assert.ok(errors.length===0,'Uncaught browser exceptions: '+errors.join(' | '));
   await writeFile(output+'/report.json',JSON.stringify({hostedRoom:hosted.roomCode,evidence,errors},null,2));
   console.log('[TWO BANNER REVIEW PASSED]',Object.keys(evidence));
