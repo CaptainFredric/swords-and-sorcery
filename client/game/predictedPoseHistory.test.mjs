@@ -25,3 +25,18 @@ test('history bounds its memory and refuses stale epochs, jumps and impossible t
   recordPredictedPose(poses,0.01,{x:Infinity,y:0,z:0});
   assert.equal(poses.length,1,'invalid physics is not stored');
 });
+
+test('30 Hz snapshots between 60 Hz render frames compare against extrapolated same-time movement', () => {
+  const poses=[];
+  for(let i=0;i<3;i++) recordPredictedPose(poses,100+i/60,{x:i*.125,y:0,z:0});
+  const snapshot=predictedPoseAt(poses,100+3/60);
+  assert.ok(snapshot,'next server tick is within 1 render interval of prediction');
+  assert.ok(Math.abs(snapshot.x-.375)<1e-7,'do not invent a .125 m drift from packet arrival');
+  assert.equal(predictedPoseAt(poses,100+.2),null,'never extrapolate over real network stalls');
+});
+
+test('one prediction sample cannot extrapolate an unknown Dash or knockback trajectory', () => {
+ const poses=[];
+ recordPredictedPose(poses,5,{x:1,y:0,z:0});
+ assert.equal(predictedPoseAt(poses,5.025),null);
+});
