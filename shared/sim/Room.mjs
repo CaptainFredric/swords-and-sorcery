@@ -478,6 +478,7 @@ export class Room {
     this.policy = { ...getModePolicy(settings.mode), matchSeconds: settings.matchSeconds,
       ...(settings.teamSize ? {teamSize:settings.teamSize,botCount:settings.teamSize*2-1} : {}) };
     this.scoreToWin = settings.scoreToWin;
+    if (settings.botSkill) this.setBotSkill(settings.botSkill);
     this.worldId = settings.worldId; this.world = world;
     this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
     this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS ? createObjectiveState(world.objectives ?? []) : null;
