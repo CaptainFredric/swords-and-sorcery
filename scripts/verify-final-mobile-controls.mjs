@@ -612,8 +612,11 @@ try {
   // buttons are deliberately hidden before tracing: all eight checkpoints
   // belong to the independent stencil, not to the button targets.
   const drawn=await evaluate(`(() => {
-    const rt=window.__ssRuntime,touch=rt.touch,
-      stencil=touch.valkyrieStencil,r=stencil.getBoundingClientRect();
+    const rt=window.__ssRuntime,touch=rt.touch;
+    // Practice tools temporarily suspend touch while interacting with the
+    // toolbox. Restore actual arena focus before attempting a real trace.
+    touch.setActive(true);rt.input.enabled=true;
+    const stencil=touch.valkyrieStencil,r=stencil.getBoundingClientRect();
     const points=[[201,127],[201,45],[112,143],[92,47],
       [201,127],[169,15],[102,8],[39,30]];
     const pt=p=>({x:r.left+p[0]/240*r.width,y:r.top+p[1]/240*r.height});
@@ -639,7 +642,7 @@ try {
     }
     const complete=touch.ritual?.completed??false;
     event('pointerup',points.at(-1));
-    return {beforeSources,stages,complete,held:touch.held.size,
+    return {beforeSources,stages,complete,active:touch.active,angle:rt.screenTurn?.angle,held:touch.held.size,
       afterSources:{dash:rt.input.flightDashSources.size,
         ultimate:rt.input.flightUltimateSources.size}};
   })()`);
