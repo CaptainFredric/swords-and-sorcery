@@ -1067,6 +1067,8 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #breakthrough-menu .mettle-order-note {border-top:1px solid #e9d7ac38;padding-top:9px;}
 #breakthrough-menu .mettle-options,
 #private-menu .private-options {display:none;}
+#breakthrough-menu .companion-return,
+#private-menu .companion-return {display:none;}
 #private-menu .private-mode-tabs {margin:4px 0 12px;}
 #private-menu .private-mode-tabs button {min-height:42px;padding:9px 10px;}
 #private-menu .private-settings-form {
