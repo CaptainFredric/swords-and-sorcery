@@ -401,3 +401,20 @@ test('Soft preview never targets a teammate or enemy hidden behind opaque struct
  assert.equal(m.skill.targetId,null,'opaque wall cannot create a fresh preview through masonry');
  assert.ok(first);
 });
+
+test('Training dummies remain valid soft and hard targets despite intentionally disconnected server actors',()=>{
+ const {room,m,pilot,enemy}=setup('narrowToOne');
+ enemy.position={x:40,y:0,z:0};
+ const dummy=room.addServerActor({id:'training-target',name:'Training Target',actorKind:'dummy'},0);
+ dummy.position={x:0,y:0,z:-17};dummy.alive=true;
+ assert.equal(dummy.connected,false,'server actors never have a client connection');
+ requestFightFlightSkill(room,m,pilot,1);
+ assert.equal(m.skill.targetId,dummy.id,'soft acquisition sees server-controlled dummies');
+ assert.equal(m.skill.lockedOnce,false);
+ requestFightFlightFire(room,m,pilot,true,1.12);
+ assert.equal(m.skill.lockedOnce,true);
+ assert.equal(m.skill.targetId,dummy.id);
+ stepFightFlightSkill(room,m,1.3);
+ assert.equal(m.skill.phase,'active','a bot having no socket cannot invalidate its lock');
+ assert.equal(m.skill.targetId,dummy.id);
+});
