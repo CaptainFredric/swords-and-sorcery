@@ -11,6 +11,7 @@ import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { Matchmaker } from './rooms/Matchmaker.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
+import { createFixedTickScheduler } from './fixedTickScheduler.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
@@ -84,12 +85,13 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   let lastSeekBroadcastAt = 0;
   let tickTimer = null;
   const now = () => performance.now() / 1000;
+  const scheduler = createFixedTickScheduler({ step: (at, publish) => tick(at, publish), rate: TICK_RATE });
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
     if (url.pathname === '/health') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-      res.end(JSON.stringify({ ok: true, rooms: roomManager.rooms.size }));
+      res.end(JSON.stringify({ ok: true, rooms: roomManager.rooms.size, simulation: scheduler.stats() }));
       return;
     }
     const filePath = resolveStaticFile(ROOT, url.pathname);
@@ -461,7 +463,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     send(session, { type: 'hello', serverTime: now() });
   });
 
-  function tick(explicitTime = null) {
+  function tick(explicitTime = null, publishSnapshot = true) {
     const time = Number.isFinite(explicitTime) ? explicitTime : now();
     for (const room of roomManager.rooms.values()) {
       if (room.humanActorCount() === 0) continue;
@@ -528,6 +530,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         }
       }
       if (events.length) broadcastRoom(room, { type: 'events', events });
+      if (!publishSnapshot) continue;
       if (room.mode === 'PRACTICE' && room.stPerryState) {
         for (const session of sessions) {
           if (session.roomCode === room.code && !session.peer.closed) {
@@ -603,7 +606,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         server.once('error', reject);
         server.listen(port, host, () => {
           server.off('error', reject);
-          tickTimer = setInterval(tick, 1000 / TICK_RATE);
+          tickTimer = setInterval(() => scheduler.run(now()), 1000 / TICK_RATE);
           resolve();
         });
       });
