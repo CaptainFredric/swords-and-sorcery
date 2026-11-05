@@ -67,9 +67,9 @@
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
         <button id="seek-duel" class="menu-command primary-command"><span>SEEK A DUEL</span><small>Match with another player, one on one</small></button>
-        <button id="breakthrough-button" class="menu-command"><span>BREAKTHROUGH</span><small>3v3 siege battle at Bastion Breach</small></button>
+        <button id="breakthrough-button" class="menu-command"><span>MODES OF METTLE</span><small>Breakthrough, High Grounds and other battles</small></button>
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Browse public matches</small></button>
-        <button id="solo-button" class="menu-command"><span>SOLO</span><small>3v3 Breakthrough, Bot Duel or practice</small></button>
+        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Bot Duel, practice and training tools</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
         <!-- the quieter doors -->
         <div class="command-pair">
@@ -183,20 +183,8 @@
         <input id="solo-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy">Fight one rival or train at your own pace.</p>
-        <div id="solo-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Arena">
-          <span>ARENA</span>
-          <button type="button" class="vote-chip" role="radio" data-arena="castleward">CASTLEWARD</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="ruined-keep">THE RUINED KEEP</button>
-        </div>
-        <div id="solo-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Rival">
-          <span>RIVAL</span>
-          <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
-          <button type="button" class="vote-chip" role="radio" data-skill="knight">KNIGHT</button>
-          <button type="button" class="vote-chip" role="radio" data-skill="champion">CHAMPION</button>
-          <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
-        </div>
-        <p class="panel-copy solo-rival-note" id="solo-rival-note" aria-live="polite"></p>
-        <button id="bot-duel" class="mode-choice primary-command">
+
+        <button id="bot-duel" class="mode-choice selected-activity" aria-pressed="true">
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
         </button>
@@ -217,13 +205,40 @@
           <small>Local sandbox · fly camera, dummies and frame stepping</small>
         </button>
       </div></div>
+      <div class="banner-panel companion-banner solo-companion"><div class="banner-scroll">
+        <button id="solo-list-return" class="back-button companion-return" type="button">← ACTIVITIES</button>
+        <p class="eyebrow">YOUR CHOSEN PURSUIT</p>
+        <h2 id="solo-selected-title">BOT DUEL</h2>
+        <p id="solo-selected-note" class="panel-copy">First to ten against a selected rival.</p>
+        <label class="field-label" for="solo-right-name">SPELLBLADE NAME</label>
+        <input id="solo-right-name" data-name-copy class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <div id="solo-arena-wrap">        <div id="solo-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Arena">
+          <span>ARENA</span>
+          <button type="button" class="vote-chip" role="radio" data-arena="castleward">CASTLEWARD</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="ruined-keep">THE RUINED KEEP</button>
+        </div>
+</div>
+        <div id="solo-rival-wrap">        <div id="solo-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Rival">
+          <span>RIVAL</span>
+          <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
+          <button type="button" class="vote-chip" role="radio" data-skill="knight">KNIGHT</button>
+          <button type="button" class="vote-chip" role="radio" data-skill="champion">CHAMPION</button>
+          <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
+        </div>
+        <p class="panel-copy solo-rival-note" id="solo-rival-note" aria-live="polite"></p></div>
+        <button id="solo-launch" class="mode-choice primary-command" type="button"><span>START BOT DUEL</span><small>Enter the arena</small></button>
+      </div></div>
     </section>
 
     <section id="breakthrough-menu" class="side-screen hidden">
       <div class="side-screen-inner banner-panel breakthrough-inner"><div class="banner-scroll">
         <button class="back-button" id="breakthrough-back">← BACK</button>
-        <p class="eyebrow">TEAM BATTLE</p>
-        <h2>BREAKTHROUGH</h2>
+        <p class="eyebrow">COMPETITIVE &amp; TEAM BATTLES</p>
+        <h2>MODES OF METTLE</h2>
+        <div id="mettle-modes" class="mode-filters" role="group" aria-label="Battle mode">
+          <button type="button" data-mettle-mode="BREAKTHROUGH" class="selected">BREAKTHROUGH</button>
+          <button type="button" data-mettle-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+        </div>
         <p class="scenario-subtitle" id="breakthrough-scenario-subtitle">BASTION BREACH</p>
 
         <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
@@ -273,7 +288,7 @@
       </div></div>
     </section>
 
-    <section id="rooms-menu" class="side-screen hidden">
+    <section id="rooms-menu" class="side-screen hidden" data-panel="list">
       <div class="side-screen-inner banner-panel rooms-inner"><div class="banner-scroll">
         <button class="back-button" id="rooms-back">← BACK</button>
         <p class="eyebrow">OPEN ROOMS</p>
@@ -281,9 +296,38 @@
         <label class="field-label" for="rooms-name">SPELLBLADE NAME</label>
         <input id="rooms-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
+        <div id="room-filters" class="mode-filters" role="group" aria-label="Filter rooms by game mode">
+          <button type="button" data-mode="ALL" class="selected">ALL</button>
+          <button type="button" data-mode="FFA">FREE-FOR-ALL</button>
+          <button type="button" data-mode="BREAKTHROUGH">BREAKTHROUGH</button>
+          <button type="button" data-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+        </div>
         <div id="room-list" class="room-list" aria-live="polite"><p class="room-empty">Looking for open rooms…</p></div>
-        <button id="quick-join" class="mode-choice"><span>QUICK JOIN</span><small>Walk into the busiest room, or raise one</small></button>
-        <button id="raise-room" class="mode-choice primary-command"><span>RAISE A PUBLIC ROOM</span><small>Anyone can walk in, even mid-match</small></button>
+      </div></div>
+      <div class="banner-panel companion-banner rooms-companion"><div class="banner-scroll">
+        <button id="rooms-list-return" class="back-button companion-return" type="button">← ROOM LIST</button>
+        <p class="eyebrow">OPEN ROOMS</p>
+        <h2 id="room-right-title">SELECTED ROOM</h2>
+        <label class="field-label" for="rooms-right-name">SPELLBLADE NAME</label>
+        <input id="rooms-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="error-copy" data-menu-error aria-live="polite"></p>
+        <div id="room-selected-info" class="room-selected-info">Choose a room from the list to see its rules.</div>
+        <button id="room-join" class="mode-choice primary-command" type="button" disabled><span>JOIN SELECTED ROOM</span></button>
+        <div class="private-divider"><span>OR</span></div>
+        <button id="quick-join" class="mode-choice" type="button"><span>QUICK JOIN</span><small>Find a populated room in the selected mode</small></button>
+        <button id="raise-room" class="mode-choice" type="button"><span>CREATE PUBLIC ROOM</span><small>Choose its rules before opening the doors</small></button>
+        <form id="room-create-form" class="lobby-config" hidden>
+          <label>MODE<select name="mode" class="game-input">
+            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option>
+          </select></label>
+          <label>ARENA<select name="worldId" class="game-input"></select></label>
+          <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
+          <label>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
+          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-bot-field hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">SPELLBLADE</option></select></label>
+          <button type="submit" class="join-button">RAISE PUBLIC ROOM</button>
+          <button type="button" id="room-create-cancel" class="back-button">CANCEL</button>
+        </form>
       </div></div>
     </section>
 
