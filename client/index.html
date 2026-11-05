@@ -246,6 +246,13 @@
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy" id="breakthrough-panel-copy">A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.</p>
 
+        <button id="mettle-configure" class="mode-choice mettle-mobile-configure" type="button"><span>CONFIGURE MATCH</span><small>Battlefield, sides, players and rivals</small></button>
+      </div></div>
+      <div class="banner-panel companion-banner mettle-companion"><div class="banner-scroll">
+        <button id="mettle-list-return" class="back-button companion-return" type="button">← MODES</button>
+        <p class="eyebrow">YOUR BATTLE PLAN</p>
+        <h2>MATCH SETUP</h2>
+        <p class="panel-copy mettle-settings-intro">Choose your battlefield and company. The default is a 3v3 siege with Knight rivals.</p>
         <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
           <span>BATTLE SIZE</span>
           <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
@@ -332,23 +339,57 @@
       </div></div>
     </section>
 
-    <section id="private-menu" class="side-screen hidden">
-      <div class="side-screen-inner banner-panel"><div class="banner-scroll">
+    <section id="private-menu" class="side-screen hidden" data-panel="list">
+      <div class="side-screen-inner banner-panel private-inner"><div class="banner-scroll">
         <button class="back-button" id="private-back">← BACK</button>
         <p class="eyebrow">PRIVATE MATCH</p>
-        <h2>PRIVATE MATCH</h2>
+        <h2>RAISE A ROOM</h2>
         <label class="field-label" for="private-name">SPELLBLADE NAME</label>
         <input id="private-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
-        <p class="panel-copy">Create a room or join with a five-character code.</p>
-        <button id="create-breakthrough-room" class="mode-choice primary-command"><span>CREATE BREAKTHROUGH ROOM</span><small>3v3 siege at Bastion Breach · bots fill open slots</small></button>
-        <button id="create-room" class="mode-choice"><span>CREATE FREE-FOR-ALL ROOM</span><small>Start a private Castleward match</small></button>
+        <p class="panel-copy">Choose your battle, set the rules, then invite friends with a five-character code.</p>
+        <div id="private-modes" class="mode-filters private-modes" role="group" aria-label="Private match game mode">
+          <button type="button" data-private-mode="FFA" class="selected" aria-pressed="true">FREE-FOR-ALL</button>
+          <button type="button" data-private-mode="BREAKTHROUGH" aria-pressed="false">BREAKTHROUGH</button>
+          <button type="button" data-private-mode="HIGH_GROUNDS" aria-pressed="false">HIGH GROUNDS</button>
+        </div>
+        <p id="private-mode-description" class="panel-copy private-mode-description">Every Spellblade for themselves. First to ten by default.</p>
+        <button id="private-configure" class="mode-choice private-mobile-configure" type="button"><span>ROOM SPECIFICATIONS</span><small>Choose battlefield, duration and victory rules</small></button>
+        <button id="create-room" class="mode-choice primary-command" type="button"><span>CREATE ROOM</span><small>Raise your private match with these rules</small></button>
         <div class="private-divider"><span>OR JOIN</span></div>
         <label class="field-label" for="room-code">ROOM CODE</label>
         <div class="join-row">
           <input id="room-code" class="game-input room-input" maxlength="5" autocomplete="off" placeholder="ABCD2" />
           <button id="join-room" class="join-button">JOIN</button>
         </div>
+      </div></div>
+      <div class="banner-panel companion-banner private-companion"><div class="banner-scroll">
+        <button id="private-list-return" class="back-button companion-return" type="button">← PRIVATE MATCH</button>
+        <p class="eyebrow">YOUR ROOM'S RULES</p>
+        <h2>SPECIFICATIONS</h2>
+        <p class="panel-copy private-settings-intro">These settings are shown to invited players and applied by the server.</p>
+        <form id="private-room-config" class="lobby-config private-room-config" aria-label="Private room specifications">
+          <label>ARENA<select name="worldId" class="game-input"></select></label>
+          <label data-private-score>FIRST TO · KILLS
+            <input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10" />
+          </label>
+          <label>MATCH TIME · MINUTES
+            <input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6" />
+          </label>
+          <label data-private-team hidden>BATTLE SIZE
+            <select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option></select>
+          </label>
+          <label data-private-bot hidden>BOT DIFFICULTY
+            <select name="botSkill" class="game-input">
+              <option value="squire">SQUIRE</option>
+              <option value="knight" selected>KNIGHT</option>
+              <option value="champion">CHAMPION</option>
+              <option value="spellblade">THE SPELLBLADE</option>
+            </select>
+          </label>
+        </form>
+        <p id="private-rules-summary" class="panel-copy private-rules-summary" aria-live="polite">FREE-FOR-ALL · CASTLEWARD · FIRST TO 10 · 6 MIN</p>
+        <button id="private-config-create" class="mode-choice primary-command private-details-create" type="button"><span>CREATE ROOM</span><small>Use these specifications</small></button>
       </div></div>
     </section>
 
