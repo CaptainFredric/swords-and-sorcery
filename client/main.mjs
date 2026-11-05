@@ -1059,7 +1059,13 @@ const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const chosen = menuController.breakthroughArena();
+  const mode = chosen==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
+    button.classList.toggle('selected',button.dataset.mettleMode===mode);
+    button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
+  }
   for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
+    chip.hidden = (mode==='HIGH_GROUNDS') !== (chip.dataset.arena==='high-grounds');
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
@@ -1078,6 +1084,12 @@ function showBreakthroughArena() {
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
+$('#mettle-modes')?.addEventListener('click', event => {
+  const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
+  if (!chosen) return;
+  menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+  showBreakthroughArena();
+});
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
   if (!chip) return;
@@ -1317,6 +1329,9 @@ $('#solo-launch').addEventListener('click',()=>{
   if(soloActivity==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+});
+$('#breakthrough-find-public')?.addEventListener('click', () => {
+  openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
 $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value, {
   team: menuController.breakthroughTeam(),
