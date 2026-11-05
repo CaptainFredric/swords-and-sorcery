@@ -592,6 +592,10 @@ export class TouchControls {
         this.ramReverseAvailable=reverseAvailable;
         this.stickBase.classList.toggle('reverse-charge-available',reverseAvailable);
         this.stickShell?.setAttribute('viewBox',reverseAvailable?'0 0 112 212':'0 0 112 162');
+        // A held thumb may not move on the exact frame the Skill expires:
+        // recalculate its sprint intent immediately with the new permission.
+        if(this.stick)this.#moveStick({clientX:this.stick.lastClientX??this.stick.clientX,
+          clientY:this.stick.lastClientY??this.stick.clientY});
       }
       const drivePressure=String(Math.max(0,Math.min(1,(rb?.drivePressure??rb?.pressure??0)/100)));
       this.motionGuide.style.setProperty('--drive-pressure',drivePressure);
@@ -1440,6 +1444,8 @@ export class TouchControls {
     // Use client-space deltas rather than gamePoint()/getBoundingClientRect() for
     // steering. The latter is useful for picking a touch zone, but a fullscreen
     // resize or transformed mobile shell can change its dimensions mid-gesture.
+    this.stick.lastClientX=event.clientX;
+    this.stick.lastClientY=event.clientY;
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
