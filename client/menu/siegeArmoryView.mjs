@@ -18,7 +18,7 @@ const EXPLANATIONS={
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
  longArmToTheJaw:'Fire the actual fist into the world. The exposed piston keeps working. Drive to the grounded fist, press Skill to retrieve, then recover for 24s. If lost to the abyss, return to deployment and dismount for locked, 24s restoration at the same fist HP.',
  fireAwayRightHere:'For 3.5 seconds, the repeater can fire borrowed bolts. Reloading repays those debts first; release Fire to stabilize hover.',
-  narrowToOne:'Aim at one exposed enemy and press Skill to lock. Hold Fire to shoot it even after looking away, including in third person: the repeater tracks independently within its real crossbow traverse. Obstruction or joint limits pause shots without wasting ammunition. Land and press Skill to change targets; firing without a lock ends the Skill (24s cooldown).',
+  narrowToOne:'Press Skill to scan. Your reticle softly marks the exposed enemy closest to where you look and stays with them until you deliberately look at another. Fire the first real bolt to hard-lock that foe; hold Fire to keep shooting while looking elsewhere, even in third person. The repeating crossbow independently follows only within its mechanical turning arc and never fires through cover or guards. Land, settle, and press Skill to pick another target. The 24s cooldown starts when the Skill ends.',
   doNotStopMyAscension:'Until your next repeater bolt, rotor Dash uses flight charge instead of prowess, at the Rise rate. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 export function siegeArmoryView(choice){
