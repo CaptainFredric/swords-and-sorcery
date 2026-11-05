@@ -90,6 +90,10 @@ export class GameSocket {
       }
     }
     if (message.type === 'joined') {
+      if (this.roomCode !== message.roomCode) {
+        this.latestSnapshot = null;
+        this.snapshotReceivedAt = 0;
+      }
       this.playerId = message.playerId;
       this.token = message.token;
       this.roomCode = message.roomCode;
