@@ -112,16 +112,16 @@ export class MenuController {
     return { ok: true, name };
   }
 
-  quickPlay(rawName) {
-    return this.#withName(rawName, (name) => this.socket.quickPlay(name));
+  quickPlay(rawName, mode = 'FFA') {
+    return this.#withName(rawName, (name) => this.socket.quickPlay(name, mode));
   }
 
   seekDuel(rawName) {
     return this.#withName(rawName, (name) => this.socket.seekDuel(name));
   }
 
-  createPublic(rawName) {
-    return this.#withName(rawName, (name) => this.socket.createPublicRoom(name));
+  createPublic(rawName, settings = {}) {
+    return this.#withName(rawName, (name) => this.socket.createPublicRoom(name, settings));
   }
 
   botDuel(rawName) {
