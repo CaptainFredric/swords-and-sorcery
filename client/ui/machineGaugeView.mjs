@@ -1,9 +1,11 @@
 // Pure presentation of authoritative siege-machine health. Never owns damage, repair or recovery.
+import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
+import { FIGHT_FLIGHT } from '../../shared/sim/fightFlight.mjs';
 const positive = value => Number.isFinite(value) && value > 0;
 const amount = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, value) : fallback;
 const fraction = (health, maxHealth) => maxHealth > 0 ? Math.max(0, Math.min(100, 100 * health / maxHealth)) : 0;
 
-export function machineGaugeView(local, snapshot) {
+export function machineGaugeView(local, snapshot, now = 0) {
   if (!local?.alive || !snapshot) return null;
   let machine, kind, title;
   if (local.operatingRamId && snapshot.soFistication?.id === local.operatingRamId) {
@@ -19,12 +21,17 @@ export function machineGaugeView(local, snapshot) {
   const view = {
     id: machine.id, kind, title,
     health, maxHealth, percent: fraction(health, maxHealth),
-    component: null, pressure: null, pitch: null, context: '',
+    component: null, pressure: null, pitch: null, piston: '', context: '',
   };
   if (kind === 'ram') {
     const pressure = amount(machine.pressure);
     view.pressure = { value: pressure, max: 100, percent: fraction(pressure, 100) };
     view.pitch = Number.isFinite(machine.ramElevPitch) ? machine.ramElevPitch * 180 / Math.PI : 0;
+    const timing = soFistTiming(machine);
+    const age = machine.strikeAt == null ? timing.cycle : Math.max(0, now - machine.strikeAt);
+    view.piston = age < timing.release ? 'PISTON · WINDING' :
+      age < timing.peak ? 'PISTON · RELEASED' :
+      age < timing.cycle ? 'PISTON · RESETTING' : 'PISTON · READY';
     const fist = machine.components?.Fist;
     if (fist) {
       const fistHealth = amount(fist.health);
@@ -43,9 +50,8 @@ export function machineGaugeView(local, snapshot) {
       view.context = context;
     }
   } else if (kind === 'flight' && Number.isFinite(machine.rotorHP)) {
-    // Rotor HP is its own component pool; the flight simulation's configured cap
-    // is 100, unless a future authoritative rotor maximum is transmitted.
-    const maxRotor = positive(machine.maxRotorHP) ? machine.maxRotorHP : 100;
+    // Read the component cap from transmitted state or the simulation config.
+    const maxRotor = positive(machine.maxRotorHP) ? machine.maxRotorHP : FIGHT_FLIGHT.rotorHP;
     const rotorHealth = amount(machine.rotorHP);
     view.component = { label: 'ROTOR', health: rotorHealth, maxHealth: maxRotor,
       percent: fraction(rotorHealth, maxRotor), state: rotorHealth <= 0 ? 'destroyed' : 'attached' };
