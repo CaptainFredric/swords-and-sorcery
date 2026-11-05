@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  APPRAISE_CHANCE, FADE_OUT, GESTURES, GestureLayer, HARD, JOIN, NOD_WAIT, SLOT, THUMP_CHANCE, THUMP_REST, bodyClaims,
-  canStart, drawn, envelope, flightIntense, gestureMachines, gesturePose, regionOf, scheduledGesture, slotGesture, thumpBeats,
+  APPRAISE_CHANCE, BRUSH_CHANCE, BRUSH_REST, FADE_OUT, GESTURES, GestureLayer, HARD, JOIN, NOD_WAIT, SLOT, THUMP_CHANCE, THUMP_REST, bodyClaims,
+  canStart, drawn, envelope, flightIntense, gestureMachines, gesturePose, isBrushImpact, regionOf, scheduledGesture, slotGesture, thumpBeats,
 } from './spellbladeGestures.mjs';
 
 const idle = Object.freeze({ machine: null, moving: false });
@@ -50,7 +50,7 @@ test('each place has its own gestures: on foot a look or a yawn; the L-sit only 
     for (const id of ids) for (let s = 0; s < 3000; s += 1) { const g = slotGesture(id, s, c); if (g) seen.add(g.kind); }
     return [...seen].sort();
   };
-  assert.deepEqual(kinds(idle), ['look', 'yawn']);
+  assert.deepEqual(kinds(idle), ['look', 'refuse', 'yawn']);
   assert.deepEqual(kinds({ machine: 'ballista' }), ['frustration', 'glance', 'look', 'shade', 'yawn']);
   assert.deepEqual(kinds({ machine: 'ram' }), ['frustration', 'glance', 'look', 'yawn']);
   assert.deepEqual(kinds({ machine: 'flight' }), ['glance', 'look', 'lsit']);
@@ -99,7 +99,10 @@ test('each action claims only the body it needs, so gestures go on beside the fi
   // the moments that want the whole body at once
   for (const key of ['dead', 'struck', 'staggered', 'dashing', 'ultimate', 'ejecting', 'machineStruck']) {
     assert.equal(bodyClaims({ ...idle, [key]: true }).critical, true, key);
-    for (const kind of Object.keys(GESTURES)) assert.equal(canStart(kind, { ...idle, [key]: true }), false, `${key}: ${kind}`);
+    for (const kind of Object.keys(GESTURES)) {
+      if (kind === 'brush' && ['struck', 'staggered'].includes(key)) continue; // projectile brushing is the exception
+      assert.equal(canStart(kind, { ...idle, [key]: true }), false, `${key}: ${kind}`);
+    }
   }
 });
 
@@ -379,4 +382,62 @@ test('observers agree: two clients watching one knight, at different frame rates
   assert.ok(a.length >= 5 && a.some((k) => k.startsWith("thump")) && a.some((k) => k.startsWith("appraise")) && a.some((k) => k.startsWith("nod")), a.join());
   assert.deepEqual(b, a);
   assert.deepEqual(c, a.filter((k) => Number(k.split(':')[1]) / 10 >= 10.3));
+});
+
+
+test('brush-off eligibility distinguishes direct projectiles from melee, periodic damage and machine impacts', () => {
+  const impact = { type: 'damage', source: 'fireball', amount: 30, at: 10 };
+  assert.equal(isBrushImpact(impact), true);
+  assert.equal(isBrushImpact({ ...impact, source: 'bibye-siege' }), true);
+  assert.equal(isBrushImpact({ ...impact, source: 'fight-flight-repeater' }), true);
+  assert.equal(isBrushImpact({ ...impact, source: 'frostfire' }), true);
+  assert.equal(isBrushImpact({ type: 'block', source: 'fireball', at: 10 }), true);
+  for (const source of ['sword', 'burn', 'abyss', 'so-fist', 'wall-impact']) {
+    assert.equal(isBrushImpact({ ...impact, source }), false, source);
+  }
+  assert.equal(isBrushImpact({ ...impact, ongoing: true }), false);
+  assert.equal(isBrushImpact({ ...impact, amount: 0 }), false);
+});
+
+test('two casual brushes occur after the first ranged hit, persist through more ranged fire and a held Guard', () => {
+  const key = Array.from({ length: 200 }, (_, i) => 'brush-hit-' + i).find((k) => drawn('brush:' + k) < BRUSH_CHANCE);
+  assert.ok(key);
+  const a = new GestureLayer();
+  assert.equal(a.brush(10, key), true);
+  assert.equal(a.brush(10, key), false, 'same impact once');
+  assert.equal(a.brush(10.2, 'later-projectile'), false, 'no new lottery during a volley');
+  assert.equal(a.brush(10 + BRUSH_REST - 1, 'another-projectile'), false, 'respect rest');
+  const underFire = { ...idle, guarding: true, sprinting: true, moving: true, struck: true, staggered: true };
+  assert.equal(canStart('brush', underFire), true);
+  a.update('knight', 10.45, underFire); // starts here at zero animation weight
+  assert.equal(a.update('knight', 10.62, underFire)[0]?.kind, 'brush');
+  const frames = [];
+  for (let t = 10.66; t < 12.1; t += 0.04) {
+    const current = a.update('knight', t, underFire).find((p) => p.kind === 'brush');
+    if (current) frames.push([t, current]);
+  }
+  assert.ok(frames.filter(([, p]) => p.weight > 0.75).length > 12, 'reaction stays visible through sustained projectile contact');
+  const chestX = frames.map(([, p]) => p.hand?.at?.[0]).filter(Number.isFinite);
+  assert.ok(Math.max(...chestX) - Math.min(...chestX) > 0.12, 'two breastplate swipes are visible');
+  assert.equal(a.brush(23, 'new-chance') || a.lastBrushAttemptAt === 23, true, 'later contact may be reconsidered');
+});
+
+test('a real sword contact, attack, or death ends a brush; the dismissive palm works while moving or quietly guarding', () => {
+  assert.equal(canStart('refuse', { ...idle, guarding: true, moving: true, sprinting: true }), true);
+  assert.equal(canStart('refuse', { ...idle, guarding: true, underAttack: true }), false);
+  assert.equal(canStart('refuse', { ...idle, attacking: true }), false);
+  assert.equal(canStart('refuse', { machine: 'flight' }), false);
+  const refused = gesturePose({ kind: 'refuse', age: 0.9, seconds: GESTURES.refuse.seconds });
+  assert.equal(refused.hand.side, 'L');
+  assert.equal(refused.hand.open, true);
+  assert.ok(refused.turns.some((u) => u.bone === 'head'), 'helmet actively shakes no');
+  const key = Array.from({ length: 200 }, (_, i) => 'other-hit-' + i).find((k) => drawn('brush:' + k) < BRUSH_CHANCE);
+  const a = new GestureLayer();
+  a.brush(10, key);
+  a.update('knight', 10.6, { ...idle, guarding: true, struck: true });
+  assert.ok(a.update('knight', 10.9, { ...idle, guarding: true, struck: true }).some((p) => p.kind === 'brush'));
+  const sword = { ...idle, guarding: true, meleeStruck: true };
+  a.update('knight', 11, sword);
+  assert.ok(!a.update('knight', 11 + FADE_OUT + 0.01, sword).some((p) => p.kind === 'brush'));
+  assert.deepEqual(a.update('knight', 12, { ...idle, dead: true }), []);
 });
