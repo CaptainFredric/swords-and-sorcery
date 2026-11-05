@@ -1,5 +1,18 @@
 name: Open Rooms and Solo dual-banner browser acceptance
 on:
+  push:
+    paths:
+      - 'client/index.html'
+      - 'client/main.mjs'
+      - 'client/menu.css'
+      - 'client/mobile.css'
+      - 'client/menu/**'
+      - 'client/network/**'
+      - 'shared/sim/Room.mjs'
+      - 'shared/sim/RoomManager.mjs'
+      - 'server/src/server.mjs'
+      - 'scripts/room-menu-browser.mjs'
+      - '.github/workflows/room-menu-browser.yml'
   pull_request:
     paths:
       - 'client/index.html'
