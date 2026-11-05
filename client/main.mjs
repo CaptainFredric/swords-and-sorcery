@@ -793,6 +793,7 @@ roomList.addEventListener('click', event => {
   selectedPublicCode = row.dataset.code;
   roomCreateForm.hidden = true;
   roomsMenu.dataset.panel = 'details';
+  resetCompanionCrown(roomsMenu);
   renderPublicRooms();
 });
 $('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
@@ -812,6 +813,7 @@ function syncPublicRoomForm() {
 roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
 $('#raise-room').addEventListener('click', () => {
   roomCreateForm.hidden = false;
+  resetCompanionCrown(roomsMenu);
   roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
   syncPublicRoomForm();
   roomsMenu.dataset.panel='details';
@@ -1175,7 +1177,7 @@ breakthroughRival?.addEventListener('click', (event) => {
 });
 showBreakthroughRival();
 $('#mettle-options')?.addEventListener('click',()=>{
-  breakthroughMenu.dataset.panel='details';
+  breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
 });
 $('#mettle-list-return')?.addEventListener('click',()=>{
   breakthroughMenu.dataset.panel='list';
@@ -1235,7 +1237,9 @@ privateChoices.addEventListener('click',event=>{
 });
 privateForm.addEventListener('input',()=>renderPrivateMode({reset:false}));
 privateForm.addEventListener('change',()=>renderPrivateMode({reset:false}));
-$('#private-options')?.addEventListener('click',()=>{privateMenu.dataset.panel='details';});
+$('#private-options')?.addEventListener('click',()=>{
+  privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
+});
 $('#private-list-return')?.addEventListener('click',()=>{privateMenu.dataset.panel='list';});
 renderPrivateMode();
 function createConfiguredPrivate(){
@@ -1428,6 +1432,7 @@ function chooseSoloActivity(id) {
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   soloMenu.dataset.panel='details';
+  resetCompanionCrown(soloMenu);
 }
 for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
