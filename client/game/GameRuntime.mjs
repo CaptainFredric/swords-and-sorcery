@@ -666,6 +666,17 @@ export class GameRuntime {
     this.resizeObserver?.observe(container);
     // local inspection only: /?debug exposes the runtime to the console
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = this;
+    // Input delivery must not depend on Three.js completing a draw. A heavy
+    // multiplayer scene may still accept keyboard/touch events and timers
+    // while WebGL produces too few frames to drive the old send loop.
+    // The existing render-driven send still forwards fast transitions.
+    this.networkInputTimer=setInterval(()=>{
+      if(this.socket.playingLocally||!this.playing||!this.localAuth?.alive
+        ||!this.input?.enabled||this.inspectionFree
+        ||(typeof document!=='undefined'&&document.hidden))return;
+      const wanted={...this.input.movement(),flight:Boolean(this.spellbladeFlight)};
+      sendMovementInput(this.socket,this.#mountedIntent(wanted),performance.now(),this);
+    },50);
     requestAnimationFrame((t) => this.#frame(t));
   }
 
@@ -4206,6 +4217,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
     this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
     clearTimeout(this.appealCut);
