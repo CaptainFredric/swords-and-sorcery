@@ -1006,20 +1006,24 @@ test('flight rail cannot retain input across mount loss, focus reset or another 
 });
 
 
-test('the joystick extension follows the forward thumb, resets and never impersonates authoritative Sprint', () => {
-  const {controls,send}=setup({alive:true,spell:'fireball',position:{x:0,y:0,z:0}});
-  const states=[];
-  controls.motionGuide.style.setProperty=(name,value)=>{if(name==='--motion-push')states.push(Number(value));};
-  send('pointerdown',110,400,{target:controls.layer,pointerId:77});
-  send('pointermove',110,371,{target:controls.layer,pointerId:77});
-  assert.ok(states.at(-1)>.4 && states.at(-1)<.6,'detent climbs in proportion to thumb movement');
-  assert.equal(controls.motionGuide.dataset.motion,'idle','thumb intent does not claim Sprinting');
-  assert.equal(controls.motionGuide.classList.contains('forward'),true);
-  send('pointermove',160,400,{target:controls.layer,pointerId:77});
-  assert.equal(controls.motionGuide.classList.contains('forward'),false,'sideways steering is not a forward push');
-  send('pointerup',160,400,{target:controls.layer,pointerId:77});
-  assert.equal(states.at(-1),0,'release springs the detent back into the joystick');
-  assert.equal(controls.motionGuide.classList.contains('approaching'),false);
+test('the existing joystick communicates charge approach without a second yellow sliding tab',()=>{
+ const {controls,send}=setup({alive:true,spell:'fireball',position:{x:0,y:0,z:0}});
+ const writes=[];
+ controls.motionGuide.style.setProperty=(name,value)=>writes.push([name,value]);
+ send('pointerdown',110,400,{target:controls.layer,pointerId:77});
+ send('pointermove',110,350,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),true,
+   'thumb near the rim indicates charge intent');
+ assert.equal(controls.motionGuide.dataset.motion,'idle',
+   'client thumb intent never claims authoritative Sprint');
+ assert.equal(writes.some(([name])=>name==='--motion-push'),false,
+   'the removed independent detent is never driven');
+ send('pointermove',160,400,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),false,
+   'sideways steering is not a forward push');
+ send('pointerup',160,400,{target:controls.layer,pointerId:77});
+ assert.equal(controls.motionGuide.classList.contains('approaching'),false);
+ controls.dispose();
 });
 
 test('mounted Sheathe in Steel: visible only when legal, shows STEEL and WARD, hides on illegal spell or destroyed machine', () => {
