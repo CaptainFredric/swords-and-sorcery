@@ -545,7 +545,7 @@ export class MenuScene {
     this.armoryActive=entering;
     this.armoryReturning=leaving;
     if(entering){
-      this.targetPosition.set(.95,0,-.48);
+      this.targetPosition.set(-.95,0,-.48);
       this.targetYaw=Math.PI-.32;
     }else if(!this.breakthroughActive){
       this.targetPosition.set(0,0,0);
