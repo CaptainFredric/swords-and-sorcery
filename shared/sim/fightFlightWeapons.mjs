@@ -13,7 +13,7 @@ import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
 import {fightFlightSkillActive,endFightFlightSkill,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
-import {updateNarrowTracking} from './fightFlightTracking.mjs';
+import {updateNarrowTracking,narrowCommitLock} from './fightFlightTracking.mjs';
 
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
 export {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
@@ -42,18 +42,17 @@ function release(room,m,p,now){
   const concurrent=combatActionPolicy(p,now).concurrent;
   const narrow=fightFlightSkillActive(m,now,NARROW_TO_ONE.id);
   if((p.guarding&&!concurrent)||(swordBusy&&!concurrent&&!narrow))return false;
-  let tracking=null,breakNarrow=null;
+  let tracking=null;
   if(narrow){
     tracking=updateNarrowTracking(room,m,p,now);
     if(tracking?.invalid){
-      endFightFlightSkill(room,m,now,'targetLost');tracking=null;
-    }else if(!tracking?.targetId)breakNarrow='noTarget';
-    else if(!tracking.aim){
-      // A locked target is not permission to fire through cover, guard,
-      // or mechanical joint limits. Do not waste ammo on a manual reticle
-      // shot and make the Skill appear broken; resume when the path clears.
+      endFightFlightSkill(room,m,now,'targetLost');
       return false;
     }
+    // The first shot is the lock commit, not an unassigned ordinary bolt.
+    // A bad angle, cover, empty scan or temporarily obstructed muzzle never
+    // wastes a round or burns the Skill. Held Fire can resume on clearance.
+    if(!tracking?.targetId||!tracking.aim)return false;
   }
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
@@ -78,10 +77,12 @@ function release(room,m,p,now){
     bornAt:now,dist:0,radius:FLIGHT_REPEATER.radius});
   room.events.push({type:'fightFlightBoltReleased',machineId:m.id,projectileId:id,operatorId:p.id,
     point:origin,ammo:m.ammo,borrowed,ammoDebt:m.ammoDebt??0,at:now});
+  // Commit a tracked target AFTER a physical bolt actually exists. The
+  // machine's independent gimbal then keeps this one hard-locked foe even
+  // when the pilot's camera or sword aim moves away.
+  if(narrow)narrowCommitLock(room,m,p,now);
   // Only an actual spawned bolt cancels Ascension: no ghost presses or empty clicks.
   if(fightFlightSkillActive(m,now,ASCENSION.id))endFightFlightSkill(room,m,now,'boltFired');
-  if(breakNarrow&&fightFlightSkillActive(m,now,NARROW_TO_ONE.id))
-    endFightFlightSkill(room,m,now,breakNarrow);
   return true;
 }
 export function requestFightFlightFire(room,m,p,down,now){

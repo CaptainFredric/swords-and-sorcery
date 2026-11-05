@@ -54,9 +54,47 @@ test('Narrow HUD calls out mechanical traverse and target loss instead of blamin
    skill:{id:'narrowToOne',phase:'active',targetId:'enemy',trackingState:'outOfTraverse'}};
  const out=fightFlightHudView(p,{fightFlight:m},1);
  assert.equal(out.skillText,'OUT OF ARC');
- assert.match(out.warning,/TURN MACHINE/);
+ assert.match(out.warning,/CROSSBOW ARC/);
+ m.skill.lockedOnce=true;
+ assert.match(fightFlightHudView(p,{fightFlight:m},1).warning,/TURN MACHINE/);
  m.skill.trackingState='sightLost';
  assert.match(fightFlightHudView(p,{fightFlight:m},1).warning,/FIRE PAUSED/);
  m.skill.trackingState='locked';
  assert.equal(fightFlightHudView(p,{fightFlight:m},1).skillText,'TARGET LOCKED');
+});
+
+test('Narrow HUD separates marked preview from hard target lock',()=>{
+ const p={id:'pilot',alive:true,operatingFightFlightId:'f',
+   siegeLoadout:{fightFlight:'narrowToOne'}};
+ const m={id:'f',grounded:false,mode:'AIRBORNE',health:250,rotorHP:75,
+   flightCharge:70,skill:{id:'narrowToOne',phase:'active',targetId:'enemy',
+     lockedOnce:false,trackingState:'preview'}};
+ let view=fightFlightHudView(p,{fightFlight:m},10);
+ assert.equal(view.skillText,'TARGET MARKED · FIRE TO LOCK');
+ assert.match(view.warning,/FIRE TO LOCK/);
+ assert.equal(view.targetLocked,false);
+ m.skill.lockedOnce=true;m.skill.trackingState='locked';
+ view=fightFlightHudView(p,{fightFlight:m},10);
+ assert.equal(view.skillText,'TARGET LOCKED');
+ assert.equal(view.targetLocked,true);
+ m.skill.targetId=null;m.skill.lockedOnce=false;m.skill.trackingState='acquiring';
+ view=fightFlightHudView(p,{fightFlight:m},10);
+ assert.match(view.warning,/LOOK AT AN ENEMY/);
+});
+test('Broken rotor does not leave a permanent DESCENDING warning over the game',()=>{
+ const p={id:'pilot',alive:true,operatingFightFlightId:'f'};
+ const m={id:'f',grounded:false,mode:'FALLING',rotorHP:0,rotorRPM:0,
+   health:200,flightCharge:0};
+ let v=fightFlightHudView(p,{fightFlight:m},8);
+ assert.match(v.title,/ROTOR LOST/);
+ assert.equal(v.warning,'','no endless rotor-loss banner or DESCENDING text');
+ assert.doesNotMatch(v.status,/DESCENDING/);
+ m.grounded=false;m.mode='LANDING';
+ v=fightFlightHudView(p,{fightFlight:m},9);
+ assert.match(v.title,/ROTOR LOST/);
+ assert.doesNotMatch(v.title,/DESCENDING/,'rotor-loss must override ordinary landing descent');
+ m.grounded=true;m.mode='GROUNDED';
+ v=fightFlightHudView(p,{fightFlight:m},15);
+ assert.equal(v.warning,'','rotor remains lost, but landing cannot keep a DESCENDING alert');
+ assert.match(v.title,/ROTOR LOST/);
 });

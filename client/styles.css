@@ -616,6 +616,11 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
 .flight-target-name { display:block; max-width:112px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; }
 .flight-target-state { display:block; color:#99c4b5; font-size:8px; letter-spacing:.08em; }
 .flight-target-marker[data-state="locked"] { color:#bde3cd; }
+.flight-target-marker[data-state="preview"] { color:#e6cc92; opacity:.91; }
+.flight-target-marker[data-state="preview"] .flight-target-brackets i {
+  border-style:dashed; border-color:#e6cc92;
+}
+.flight-target-marker[data-state="preview"] .flight-target-state { color:#f4dbac; }
 .flight-target-marker[data-state="outOfTraverse"],
 .flight-target-marker[data-state="noClearShot"] { color:#e4b779; }
 .flight-target-marker[data-state="outOfTraverse"] .flight-target-state,

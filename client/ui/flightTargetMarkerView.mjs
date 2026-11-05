@@ -15,5 +15,6 @@ export function flightTargetMarkerView(local,snapshot,camera,{THREE}={}){
   });
   if(!projected)return null;
   return {...projected,targetId:target.id,name:String(target.name??'SPELLBLADE').slice(0,48),
-    state:skill.trackingState??'locked'};
+    state:skill.lockedOnce===false?'preview':skill.trackingState??'locked',
+    previewDetail:skill.lockedOnce===false?skill.trackingState??'preview':null};
 }

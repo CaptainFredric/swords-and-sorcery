@@ -684,7 +684,7 @@ export class TouchControls {
 
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
-        const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':'ACQUIRE'):
+        const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':skill.trackingState==='preview'?'MARKED':'ACQUIRE'):
           flightSkillId==='doNotStopMyAscension'?'CHARGE':'ACTIVE'):
           remaining>0?Math.ceil(remaining)+'s':flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;

@@ -20,6 +20,12 @@ export function flightRecipe(kind, rand=Math.random){
     boltRelease,
     // Short double metallic latch: the gimbal finds and catches one target.
     // Entirely synthesized; distinct from the repeater bolt-release snap.
+    // A quiet single latch for a change of soft highlight. The distinctive
+    // double click below plays only when the first bolt commits hard lock.
+    targetPreview: [
+      noise(2550,.014,.075,0,'highpass',1.4),
+      {type:'tone',wave:'triangle',freq:710,slideTo:605,attack:.001,decay:.030,gain:.045,at:.004},
+    ],
     targetLock: [
       noise(3400,.022,.19,0,'highpass',1.2),
       {type:'tone',wave:'triangle',freq:660,slideTo:460,attack:.001,decay:.055,gain:.12,at:.009},
@@ -296,7 +302,9 @@ export class FlightSound {
     let kind = null;
     const targetPoint = event.point ? { ...m, position: event.point } : m;
 
-    if (event.type === 'fightFlightTargetLock') {
+    if (event.type === 'fightFlightTargetPreview') {
+      kind = 'targetPreview';
+    } else if (event.type === 'fightFlightTargetLock') {
       kind = 'targetLock';
     } else if (event.type === 'fightFlightBoltReleased') {
       kind = 'boltRelease';
