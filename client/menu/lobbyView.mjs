@@ -8,6 +8,7 @@ export const WORLD_NAMES = Object.freeze({
   'bastion-breach': 'Bastion Breach',
   'blackbell-foundry': 'Blackbell Foundry',
   'outerworks': 'The Outerworks',
+  'high-grounds': 'The High Grounds',
 });
 
 
@@ -19,7 +20,8 @@ export function modeLabel(mode) {
   if (mode === 'BOT_DUEL') return 'BOT DUEL';
   if (mode === 'PRACTICE') return 'PRACTICE YARD';
   if (mode === 'DUEL') return 'DUEL';
-  if (mode === 'BREAKTHROUGH') return 'BREAKTHROUGH · 3V3';
+  if (mode === 'BREAKTHROUGH') return 'BREAKTHROUGH';
+  if (mode === 'HIGH_GROUNDS') return 'HIGH GROUNDS';
   return 'FREE-FOR-ALL';
 }
 
@@ -33,7 +35,7 @@ function connectedHumans(message) {
 }
 
 export function lobbyStateText(message, serverNow = 0) {
-  if (message.mode === 'BREAKTHROUGH') {
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode)) {
     if (message.roomState === 'COUNTDOWN') return 'SIEGE STARTING…';
     if (message.roomState === 'REMATCH_COUNTDOWN') return 'NEXT ROUND STARTING…';
     return `RALLYING SPELLBLADES · ${message.teamSize ?? 3}V${message.teamSize ?? 3}`;
@@ -59,7 +61,7 @@ export function lobbyStateText(message, serverNow = 0) {
 }
 
 function playerStatus(message, player) {
-  if (message.mode === 'BREAKTHROUGH') {
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode)) {
     const side = player.team === 'DEFENDERS' ? 'DEFENDERS' : 'ATTACKERS';
     if (player.actorKind === 'bot') return `${side} · BOT · OPEN SEAT`;
     if (!player.connected) return `${side} · RECONNECTING`;
@@ -80,7 +82,7 @@ function playerStatus(message, player) {
 export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {} } = {}) {
   const ffa = message.mode === 'FFA';
   const botDuel = message.mode === 'BOT_DUEL';
-  const breakthrough = message.mode === 'BREAKTHROUGH';
+  const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode);
   const waiting = message.roomState === 'WAITING';
   const me = (message.players ?? []).find((p) => p.id === localId);
   const players = (message.players ?? []).map((player) => ({
@@ -108,7 +110,7 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     action = { visible: true, label: counting ? 'ARENA FOCUSED' : 'START BOT DUEL', primary: true, disabled: counting };
   }
 
-  const votes = ffa && message.votes && waiting
+  const votes = false && ffa && message.votes && waiting
     ? [
       {
         key: 'world',
@@ -149,7 +151,7 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
 
   return {
     world: worldLabel(message.worldId),
-    mode: message.mode === 'BREAKTHROUGH' ? `BREAKTHROUGH · ${message.teamSize ?? 3}V${message.teamSize ?? 3}` : modeLabel(message.mode),
+    mode: breakthrough ? `${modeLabel(message.mode)} · ${message.teamSize ?? 3}V${message.teamSize ?? 3}` : modeLabel(message.mode),
     state: lobbyStateText(message, serverNow),
     players,
     ready,
@@ -167,10 +169,17 @@ export function roomRows(rooms = []) {
     if (room.state === 'PLAYING') status = Number.isFinite(room.secondsLeft) ? `FIGHTING · ${clock(room.secondsLeft)} LEFT` : 'FIGHTING';
     return {
       code: room.code,
+      mode: modeLabel(room.mode),
+      modeId: room.mode ?? 'FFA',
       world: WORLD_NAMES[room.worldId] ?? room.worldId,
       players: `${room.players}/${room.capacity ?? 8}`,
       status,
       scoreToWin: room.scoreToWin,
+      matchSeconds: room.matchSeconds,
+      teamSize: room.teamSize,
+      botSkill: room.botSkill,
+      capacity: room.capacity ?? 8,
+      secondsLeft: room.secondsLeft,
     };
   });
 }
