@@ -13,7 +13,8 @@ import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
 import {FlightSound} from './sound/FlightSound.mjs';
-import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
+import {soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
+import { playerMovementWorld } from '../../shared/sim/playerMovementWorld.mjs';
 import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { gestureMachines } from './spellbladeGestures.mjs';
@@ -3741,14 +3742,20 @@ export class GameRuntime {
           this.localState.position = { ...this.localAuth.position };
         }
       } else {
-        const ramSolids=soFistSolids(this.latestSnapshot?.soFistication);
-        const movementWorld=ramSolids.length?{...this.activeWorld,solids:[...(this.activeWorld.solids??[]),...ramSolids]}:this.activeWorld;
-        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, movementWorld);
+        this.movementWorld = playerMovementWorld(this.activeWorld, {
+          ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
+        });
+        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.movementWorld);
       }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
-      // predict the server's body separation so pressing into an opponent does not rubber-band
-      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
+      // Separation uses the host's *current* bodies, not the deliberately delayed visual shells.
+      // Pushing against a 100-ms-old rendering sample creates a false collision every frame.
+      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
+        const peers=(this.latestSnapshot?.players??[]).filter(p=>p.id!==this.playerId&&p.alive!==false&&!p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId)
+          .map(p=>({id:p.id,...p.position}));
+        separateLocal(this.localState.position,peers,this.movementWorld??this.activeWorld,{crouched:this.localState.crouched});
+      }
       // my own jump: now and then a grunt with it
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
