@@ -360,6 +360,10 @@ function tourAllowed() {
   return viewOptions(settings).pixelRatioCap > 1.1 && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 }
 
+function resetCompanionCrown(root){
+  const scroller=root?.querySelector?.('.companion-banner .banner-scroll');
+  if(scroller)scroller.scrollTop=0;
+}
 function route(screenId) {
   armoryFeedback.cancel();
   renown?.route(screenId);
@@ -386,6 +390,17 @@ function route(screenId) {
   }
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
+  // Old companion scroll offsets used to bury OPEN ROOMS / CHOSEN PURSUIT
+  // beneath the rod when a banner was reopened.
+  if(previous!==screenId){
+    const bannerId={
+      [SCREEN_IDS.SOLO_MENU]:'solo-menu',
+      [SCREEN_IDS.ROOMS_MENU]:'rooms-menu',
+      [SCREEN_IDS.BREAKTHROUGH_MENU]:'breakthrough-menu',
+      [SCREEN_IDS.PRIVATE_MENU]:'private-menu',
+    }[screenId];
+    if(bannerId)resetCompanionCrown(document.getElementById(bannerId));
+  }
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
