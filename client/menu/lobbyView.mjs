@@ -1,5 +1,5 @@
 // What the lobby banner shows for a room: the state line, who is in it, the Ready button, the invite or bot-duel
-// action and the arena/score votes. Pure (lobby message in, view data out) so every rule can be tested.
+// action and host-selected rules. Pure (lobby message in, view data out) so every rule can be tested.
 
 export const WORLD_NAMES = Object.freeze({
   castleward: 'Castleward',
@@ -62,7 +62,10 @@ export function lobbyStateText(message, serverNow = 0) {
 
 function playerStatus(message, player) {
   if (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode)) {
-    const side = player.team === 'DEFENDERS' ? 'DEFENDERS' : 'ATTACKERS';
+    // High Grounds has two invading sides; neither is the defending faction.
+    const side = message.mode === 'HIGH_GROUNDS'
+      ? player.team === 'DEFENDERS' ? 'CRIMSON' : 'AZURE'
+      : player.team === 'DEFENDERS' ? 'DEFENDERS' : 'ATTACKERS';
     if (player.actorKind === 'bot') return `${side} · BOT · OPEN SEAT`;
     if (!player.connected) return `${side} · RECONNECTING`;
     return player.lobbyReady ? `${side} · READY` : side;
@@ -110,32 +113,6 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     action = { visible: true, label: counting ? 'ARENA FOCUSED' : 'START BOT DUEL', primary: true, disabled: counting };
   }
 
-  const votes = false && ffa && message.votes && waiting
-    ? [
-      {
-        key: 'world',
-        label: 'ARENA',
-        options: Object.entries(message.votes.world?.counts ?? {}).map(([value, count]) => ({
-          value, label: WORLD_NAMES[value] ?? value, count, chosen: message.votes.world.chosen === value, mine: myVotes.world === value,
-        })),
-      },
-      {
-        key: 'score',
-        label: 'FIRST TO',
-        options: Object.entries(message.votes.score?.counts ?? {}).map(([value, count]) => ({
-          value: Number(value), label: value, count, chosen: Number(message.votes.score.chosen) === Number(value), mine: Number(myVotes.score) === Number(value),
-        })),
-      },
-      {
-        key: 'time',
-        label: 'MATCH TIME',
-        options: Object.entries(message.votes.time?.counts ?? {}).map(([value, count]) => ({
-          value: Number(value), label: clock(Number(value)), count, chosen: Number(message.votes.time.chosen) === Number(value), mine: Number(myVotes.time) === Number(value),
-        })),
-      },
-    ]
-    : [];
-
   let footer = 'Solo session.';
   if (ffa) footer = message.isPrivate === false
     ? 'A public room: anyone can walk in, even mid-match.'
@@ -144,8 +121,12 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     ? 'Get ready. The duel begins after the countdown.'
     : 'Press Start Bot Duel when ready. A short countdown follows.';
   if (breakthrough) {
-    const mySide = me?.team === 'DEFENDERS' ? 'Defenders' : 'Attackers';
-    footer = `Your side: ${mySide}. Empty ${message.teamSize ?? 3}v${message.teamSize ?? 3} slots are filled by bots; friends joining by code replace bots.`;
+    const mySide = message.mode === 'HIGH_GROUNDS'
+      ? me?.team === 'DEFENDERS' ? 'Crimson' : 'Azure'
+      : me?.team === 'DEFENDERS' ? 'Defenders' : 'Attackers';
+    footer = message.mode === 'HIGH_GROUNDS'
+      ? `Your side: ${mySide}. Both sides capture territory; open seats can be filled by joining Spellblades.`
+      : `Your side: ${mySide}. Empty ${message.teamSize ?? 3}v${message.teamSize ?? 3} slots are filled by bots; friends joining by code replace bots.`;
   }
   if (message.mode === 'DUEL') footer = 'A matchmade duel. First to five.';
 
@@ -156,7 +137,7 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     players,
     ready,
     action,
-    votes,
+    votes: [],
     footer,
   };
 }
