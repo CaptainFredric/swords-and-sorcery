@@ -3,7 +3,7 @@
 **Recorded:** 2026-11-04  
 **Status:** Creator-directed design archive and exploration, **not implemented gameplay, approved balance numbers, recorded voice, or a mandate to build every suggestion**. Distinguish the creator's direction below from optional design recommendations. Preserve the fast-paced 3D combat system rather than replacing it with elaborate cutscenes.
 
-This record consolidates three recent proposals: **timed wave-based Renown Trials**, **a two-wall 5v5 siege with a sunset deadline** (provisionally called *Restless Day*), and **a small battle royale with a shrinking psychological boundary** (provisionally *Battle Royalty*). Neither proposed name is finalized. References: [Renowner worldbuilding](renown-renowner-worldbuilding.md), [3D asset roadmap](../art/castleward-3d-asset-roadmap.md), and [existing Breakthrough objectives](../../shared/sim/objectives.mjs).
+This record consolidates three recent proposals: **timed wave-based Renown Trials**, **a two-wall 5v5 siege with a sunset deadline** (provisionally called *Restless Day*), and **Edge of Victory**, a small battle royale with a shrinking psychological boundary. *Edge of Victory* is the creator-selected mode name; *Restless Day* remains provisional. References: [Renowner worldbuilding](renown-renowner-worldbuilding.md), [3D asset roadmap](../art/castleward-3d-asset-roadmap.md), and [existing Breakthrough objectives](../../shared/sim/objectives.mjs).
 
 ## Shared character premise: the Rightful Renowner
 
@@ -100,7 +100,7 @@ These are character/dialogue concepts, **not existing recordings**. Keep the ton
 - Keep the two wall phases distinct: an exposed transport problem first, and a shorter, more contested courtyard assault second.
 - Balance a fortified five-player defense and a tough final monument against the full sundown clock; the total duration remains undecided.
 
-## Mode C — small battle royale (title undecided; *Battle Royalty* suggested, not accepted)
+## Mode C — Edge of Victory (small battle royale)
 
 ### Creator's direction
 
@@ -130,7 +130,7 @@ These concepts should **remain distinct**:
 | --- | --- | --- |
 | Renown Trials | Beat increasingly demanding waves under strict time | Rising execution risk if overdue; Renowner issues verdict |
 | Restless Day | Physical 5v5 ladder assault through two walls before sundown | Destroy Renowner → defenders surrender; sundown → attackers sleep |
-| Small battle royale | Eliminate the other scattered knights while scavenging | Psychological refusal to retreat compresses the fighting |
+| Edge of Victory (battle royale) | Eliminate the other scattered knights while scavenging | Psychological refusal to retreat compresses the fighting |
 
 **Existing game:** `shared/src/modes.mjs` currently declares FFA, BOT_DUEL, PRACTICE, DUEL, BREAKTHROUGH and HIGH_GROUNDS, **not** these proposed modes. Breakthrough already offers sequential team objectives, and existing bots, combat, structures, and siege systems may be useful foundations. Do not misrepresent that as the new ladder/sundown/Renowner/battle-royale logic already working.
 
