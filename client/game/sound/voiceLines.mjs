@@ -730,7 +730,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I confront my foes head on!',
     // most of all as he rams in Steel (the sentence demonstrated); now and then charging, or the first blow of a fight
     trigger: { steelCharge: 5, charge: 1, engage: 0.5 },
-    priority: 'normal', rarity: 0.18, cooldown: 120,
+    priority: 'normal', rarity: 0.1, cooldown: 120,
     section: 'Challenges & Pursuit',
     credits: { title: 'Head On', description: 'When charging straight at an opponent, most of all dashing at one in Steel.', note: 'Other orientations have been rejected.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'ConfrontHeadOn.mp3',
