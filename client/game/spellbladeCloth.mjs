@@ -24,10 +24,13 @@ export const CLOTH_CHAINS = Object.freeze({
     share: Object.freeze([0.55, 0.65]),
     swingLimits: Object.freeze([-0.1, 0.75]),
     sideLimit: 0.32,
-    drag: 0.032,
+    // (the air trails it 24 degrees behind a run and 35 behind a sprint, inside its limit so it can still swing; the
+    // spring is a heavy cloth's, settling after one overshoot. At 0.032 and 26 it trailed 14 behind a run, 8 as he
+    // leaned into it, and read as pinned to his back)
+    drag: 0.055,
     length: 0.42,
-    stiffness: 26,
-    damping: 5,
+    stiffness: 20,
+    damping: 5.4,
     hang: 0.85,
     tiltLag: 0.14,
     turnLag: 0.11,

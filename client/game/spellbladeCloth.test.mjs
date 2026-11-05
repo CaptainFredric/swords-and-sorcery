@@ -15,9 +15,10 @@ test('cloth stays on the animated pose when the character stands still', () => {
   }
 });
 
-test('running forward trails the back banner behind (a little, at a steady pace) and keeps the front tabard off the legs', () => {
+test('running forward trails the back banner well behind him (at a steady pace, inside its limit) and keeps the front tabard off the legs', () => {
   const state = run(createClothState(), 2.5, () => ({ forward: 6, right: 0 }));
-  assert.ok(state.chains.back.swing > 0.12 && state.chains.back.swing < 0.3, `back banner should trail a little, got ${state.chains.back.swing}`);
+  // (clearly free of his back, about 19 degrees at 6 m/s, with room left to swing before its limit)
+  assert.ok(state.chains.back.swing > 0.25 && state.chains.back.swing < 0.45, `back banner should trail clearly, got ${state.chains.back.swing}`);
   assert.ok(state.chains.back.swing <= CLOTH_CHAINS.back.swingLimits[1]);
   assert.ok(state.chains.front.swing <= CLOTH_CHAINS.front.swingLimits[1] + 1e-9);
 });
