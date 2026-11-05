@@ -37,6 +37,9 @@ function parts(m,kind){
   }else{
     all.push({id:'hull',owner:m,key:'health',maximum:m.maxHealth??(kind==='bibye'?650:1400),rank:6});
     for(const [id,c] of Object.entries(m.components??{})){
+      // A launched or abyss-bound fist is no longer a warded carriage part.
+      // Recovery preserves its HP; it never turns into remote/free repair.
+      if(kind==='ram'&&id==='Fist'&&m.fistMounted===false)continue;
       const rank=/drive/i.test(id)?0:/fist/i.test(id)?1:/stabilizer/i.test(id)?2:/wheel/i.test(id)?3:4;
       all.push({id,owner:c,key:'health',maximum:c.maxHealth??c.health,rank});
     }
