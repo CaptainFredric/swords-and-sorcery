@@ -41,6 +41,7 @@ import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
+import { movementIntentDuringRenderStall } from './renderStallSafety.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -674,8 +675,11 @@ export class GameRuntime {
       if(this.socket.playingLocally||!this.playing||!this.localAuth?.alive
         ||!this.input?.enabled||this.inspectionFree
         ||(typeof document!=='undefined'&&document.hidden))return;
-      const wanted={...this.input.movement(),flight:Boolean(this.spellbladeFlight)};
-      sendMovementInput(this.socket,this.#mountedIntent(wanted),performance.now(),this);
+      const now=performance.now();
+      const wanted=movementIntentDuringRenderStall({
+        ...this.input.movement(),flight:Boolean(this.spellbladeFlight),
+      },now,this.lastFrameAt);
+      sendMovementInput(this.socket,this.#mountedIntent(wanted),now,this);
     },50);
     requestAnimationFrame((t) => this.#frame(t));
   }
