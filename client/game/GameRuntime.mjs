@@ -40,6 +40,7 @@ import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs'
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
+import { advancePredictedMovement } from './predictMovement.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -3773,7 +3774,7 @@ export class GameRuntime {
         this.movementWorld = playerMovementWorld(this.activeWorld, {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
-        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.movementWorld);
+        this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
       }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
