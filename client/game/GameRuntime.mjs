@@ -35,6 +35,7 @@ import { projectToScreen } from '../ui/screenProjection.mjs';
 import {flightTargetMarkerView} from '../ui/flightTargetMarkerView.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
+import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
@@ -649,6 +650,7 @@ export class GameRuntime {
     this.playing = false;
     this.predictionError = 0;
     this.predictionHistory = [];
+    this.lastSeparationKey = null;
     this.cameraKick = 0;
     this.fps = 60;
     this.lastPingAt = 0;
@@ -718,6 +720,7 @@ export class GameRuntime {
       this.worldError = null;
       this.localState = null;
       this.predictionHistory = [];
+      this.lastSeparationKey = null;
       // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
       this.effects.warm(this.renderer, this.scene);
       return true;
@@ -790,6 +793,7 @@ export class GameRuntime {
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
     this.localState=null;this.localAuth=null;this.deathCam=null;
     this.predictionHistory=[];
+    this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
@@ -3775,10 +3779,12 @@ export class GameRuntime {
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // Separation uses the host's *current* bodies, not the deliberately delayed visual shells.
       // Pushing against a 100-ms-old rendering sample creates a false collision every frame.
-      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
+      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
+        && shouldPredictSeparation(this.lastSeparationKey,this.latestSnapshot)) {
         const peers=(this.latestSnapshot?.players??[]).filter(p=>p.id!==this.playerId&&p.alive!==false&&!p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId)
           .map(p=>({id:p.id,...p.position}));
         separateLocal(this.localState.position,peers,this.movementWorld??this.activeWorld,{crouched:this.localState.crouched});
+        this.lastSeparationKey=separationTickKey(this.latestSnapshot);
       }
       if (!this.localAuth?.operatingBallistaId&&!this.localAuth?.operatingRamId&&!this.localAuth?.operatingFightFlightId)
         recordPredictedPose(this.predictionHistory,serverNow,this.localState.position);
