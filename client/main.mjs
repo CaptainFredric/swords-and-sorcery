@@ -684,10 +684,22 @@ socket.on('duelFound', () => {
 $('#seek-cancel').addEventListener('click', () => socket.cancelSeek());
 $('#seek-bot').addEventListener('click', () => socket.seekBotDuel());
 
-// --- open rooms: public rooms anyone can walk into ---
+// --- Open Rooms: one browser across all server-supported public battle modes ---
 let roomsTimer = null;
-function openRooms() {
+let publicRooms = [];
+let roomFilter = 'ALL';
+let selectedPublicCode = null;
+const roomCreateForm = $('#room-create-form');
+const roomSelectedInfo = $('#room-selected-info');
+const roomJoinButton = $('#room-join');
+const roomFilters = $('#room-filters');
+
+function openRooms(mode = 'ALL') {
   showMenuError('');
+  roomFilter = ['ALL','FFA','BREAKTHROUGH','HIGH_GROUNDS'].includes(mode) ? mode : 'ALL';
+  roomsMenu.dataset.panel = 'list';
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
   route(SCREEN_IDS.ROOMS_MENU);
   socket.listRooms();
   clearInterval(roomsTimer);
@@ -696,17 +708,99 @@ function openRooms() {
     else clearInterval(roomsTimer);
   }, 3000);
 }
+
+function renderPublicRooms() {
+  for (const filter of roomFilters.querySelectorAll('[data-mode]')) {
+    const active = filter.dataset.mode === roomFilter;
+    filter.classList.toggle('selected', active);
+    filter.setAttribute('aria-pressed', String(active));
+  }
+  const visible = publicRooms.filter(room => roomFilter === 'ALL' || room.modeId === roomFilter);
+  const selected = visible.find(room => room.code === selectedPublicCode) ?? visible[0] ?? null;
+  selectedPublicCode = selected?.code ?? null;
+  roomList.innerHTML = visible.length
+    ? visible.map(row => `<button type="button" class="room-row${row.code===selectedPublicCode?' selected':''}" data-code="${escapeHtml(row.code)}"
+        aria-pressed="${row.code===selectedPublicCode?'true':'false'}">
+        <b>${escapeHtml(row.mode)}</b><span>${escapeHtml(row.players)}</span>
+        <em>${escapeHtml(row.world)} · ${escapeHtml(row.status)}</em>
+        <i>${row.scoreToWin!==null&&row.scoreToWin!==undefined?'FIRST TO '+row.scoreToWin:row.teamSize+'V'+row.teamSize}</i>
+      </button>`).join('')
+    : '<p class="room-empty">No joinable rooms match this filter. Create one in the chosen mode.</p>';
+  $('#room-right-title').textContent = selected ? 'SELECTED ROOM' : 'NO ROOM SELECTED';
+  roomSelectedInfo.innerHTML = selected
+    ? `<dl>
+      <div><dt>ROOM</dt><dd>${escapeHtml(selected.code)}</dd></div>
+      <div><dt>MODE</dt><dd>${escapeHtml(selected.mode)}</dd></div>
+      <div><dt>ARENA</dt><dd>${escapeHtml(selected.world)}</dd></div>
+      <div><dt>SPELLBLADES</dt><dd>${escapeHtml(selected.players)}</dd></div>
+      <div><dt>STATUS</dt><dd>${escapeHtml(selected.status)}</dd></div>
+      <div><dt>TIME LIMIT</dt><dd>${Number.isFinite(selected.matchSeconds)?Math.round(selected.matchSeconds/60)+' MIN':'UNTIMED'}</dd></div>
+      ${selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
+        `<div><dt>TEAMS</dt><dd>${selected.teamSize}V${selected.teamSize}</dd></div><div><dt>BOT SKILL</dt><dd>${escapeHtml((selected.botSkill??'knight').toUpperCase())}</dd></div>`}
+      </dl>`
+    : 'Select a room from the list, or raise a new public room.';
+  roomJoinButton.disabled = !selected;
+  const quick = $('#quick-join small');
+  if (quick) quick.textContent = roomFilter === 'ALL' ? 'Find an active match, or create Free-for-All'
+    : `Join an active ${roomFilter.replaceAll('_',' ')} match, or create one`;
+}
 socket.on('roomList', ({ rooms }) => {
-  const rows = roomRows(rooms);
-  roomList.innerHTML = rows.length
-    ? rows.map((row) => `<button class="room-row" data-code="${escapeHtml(row.code)}"><b>${escapeHtml(row.world)}</b><span>${row.players}</span><em>${escapeHtml(row.status)}</em><i>FIRST TO ${row.scoreToWin ?? 10}</i></button>`).join('')
-    : '<p class="room-empty">No open rooms right now. Raise one and others can walk in.</p>';
+  publicRooms = roomRows(rooms ?? []);
+  renderPublicRooms();
 });
-roomList.addEventListener('click', (event) => {
+roomFilters.addEventListener('click', event => {
+  const btn = event.target.closest?.('[data-mode]');
+  if (!btn) return;
+  roomFilter = btn.dataset.mode;
+  selectedPublicCode = null;
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
+});
+roomList.addEventListener('click', event => {
   const row = event.target.closest?.('.room-row');
-  if (row) runMenuAction(menuController.joinPrivate(row.dataset.code, nameInput.value), SCREEN_IDS.ROOMS_MENU);
+  if (!row) return;
+  selectedPublicCode = row.dataset.code;
+  roomCreateForm.hidden = true;
+  roomsMenu.dataset.panel = 'details';
+  renderPublicRooms();
+});
+$('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; });
+roomJoinButton.addEventListener('click', () => {
+  if (selectedPublicCode) runMenuAction(menuController.joinPrivate(selectedPublicCode, nameInput.value), SCREEN_IDS.ROOMS_MENU);
 });
 
+function syncPublicRoomForm() {
+  const mode=roomCreateForm.elements.mode.value;
+  const team=mode!=='FFA';
+  roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
+  roomCreateForm.querySelector('[data-score-field]').hidden=team;
+  roomCreateForm.querySelector('[data-team-field]').hidden=!team;
+  roomCreateForm.querySelector('[data-bot-field]').hidden=!team;
+  roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
+}
+roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
+$('#raise-room').addEventListener('click', () => {
+  roomCreateForm.hidden = false;
+  roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
+  syncPublicRoomForm();
+  roomsMenu.dataset.panel='details';
+  $('#room-right-title').textContent='CREATE PUBLIC ROOM';
+});
+$('#room-create-cancel').addEventListener('click', () => {
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
+});
+roomCreateForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const f=roomCreateForm.elements,mode=f.mode.value,minutes=Number(f.minutes.value),score=Number(f.scoreToWin.value);
+  if (!Number.isFinite(minutes)||minutes<1||minutes>30||(mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
+    showMenuError('Choose a time from 1 to 30 minutes and a valid Free-for-All score.');
+    return;
+  }
+  const settings={mode,worldId:f.worldId.value,matchSeconds:Math.round(minutes*60),
+    ...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
+  runMenuAction(menuController.createPublic(nameInput.value,settings),SCREEN_IDS.ROOMS_MENU);
+});
 // the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
 let endHeardFor = null;
 function soundTheEnd(snapshot) {
@@ -885,8 +979,8 @@ $('#breakthrough-button')?.addEventListener('click', () => { showMenuError(''); 
 $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
-$('#quick-join').addEventListener('click', () => runMenuAction(menuController.quickPlay(nameInput.value), SCREEN_IDS.ROOMS_MENU));
-$('#raise-room').addEventListener('click', () => runMenuAction(menuController.createPublic(nameInput.value), SCREEN_IDS.ROOMS_MENU));
+$('#quick-join').addEventListener('click', () => runMenuAction(
+  menuController.quickPlay(nameInput.value,roomFilter==='ALL'?'FFA':roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#solo-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
