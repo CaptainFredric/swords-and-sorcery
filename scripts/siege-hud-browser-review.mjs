@@ -71,7 +71,7 @@ async function render(machine,phase='attached') {
     if('${machine}'==='ram'){
       local.operatingRamId=ram.id;
       const fist=ram.components.Fist;
-      fist.health='${phase}'==='damaged'?135:'${phase}'==='destroyed'?0:235;
+      fist.health='${phase}'==='destroyed'?0:'${phase}'==='attached'?235:135;
       ram.health='${phase}'==='damaged'?620:1400;
       ram.fistMounted='${phase}'==='attached'||'${phase}'==='damaged';
       ram.detachedFist=ram.fistMounted?null:{state:'${phase}'==='destroyed'?'resting':'${phase}'==='recovering'?'recovering':'flying'};
@@ -109,6 +109,7 @@ try {
       bb:bbM.createBiByeLlista({id:'hud-test-bb',x:0,y:0,z:0,baseYaw:0}),
       flight:flightM.createFightFlight({id:'hud-test-flight'})
     };
+    r.__gaugeFixture.ram.ramElevPitch=Math.PI/6;
     r.__updateGaugeHud=r.hud.update.bind(r.hud);
     r.hud.update=()=>{};
   })()`);
