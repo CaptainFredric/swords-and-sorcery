@@ -36,6 +36,7 @@ import numpy as np
 from mathutils import Matrix, Vector
 
 from tools.blender.characters.spellblade.rodin.hands import build_hands
+from tools.blender.characters.spellblade.rodin.joints import build_joint, hinge_of
 from tools.blender.characters.spellblade.rodin.forge import check_region_free, forge, swatch_uv
 from tools.blender.characters.spellblade.rodin.rigid import (HELMET_PARTS, add_cop_bones, add_pauldron_bones, body_off_head,
                                                              pauldron_weights, share_cops)
@@ -618,5 +619,22 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
     }
     report["hands"] = build_hands(rig, {"L": gauntlet, "R": objects["Gauntlet.R"]}, objects["HeroSword"], palette,
                                   swatch_uv)
+    # the elbows and knees, remodelled as articulated plate (joints.py), in the colours already on the leg: its pale
+    # rims, the strap's leather and the dark slate under the plates
+    greave = objects["Greave.L"]
+    slate = lambda c: c[:, 2] >= c[:, 0]                                                # noqa: E731
+    palette.update({
+        "rim": _texel_of(greave, lambda c, p: (c.mean(1) > 0.62) & (c[:, 0] >= c[:, 2])),
+        "strap": _texel_of(greave, lambda c, p: (c[:, 0] - c[:, 2] > 0.08) & (c.mean(1) > 0.18) & (c.mean(1) < 0.36)),
+        # (the padding's quilting: two dark slates a step apart, not the plates' paler grey, which under the game's
+        # light banded the joints like stripes)
+        "padding": _texel_of(greave, lambda c, p: (c.mean(1) < 0.15) & slate(c)),
+        "quilt": _texel_of(greave, lambda c, p: (c.mean(1) >= 0.15) & (c.mean(1) < 0.19) & slate(c)),
+    })
+    report["joints"] = {}
+    for kind, side, carriers in (("knee", "L", ("Greave.L", "Boot.L")), ("knee", "R", ("Greave.R", "Boot.R")),
+                                 ("elbow", "L", ("Gauntlet.L", "Pauldron.L")), ("elbow", "R", ("Gauntlet.R", "Pauldron.R"))):
+        report["joints"][f"{kind}.{side}"] = build_joint(rig, [objects[n] for n in carriers], kind, side,
+                                                         hinge_of(rig, kind, side), palette)
     report["parts"] = {name: len(obj.data.polygons) for name, obj in objects.items()}
     return report

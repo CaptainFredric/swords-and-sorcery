@@ -120,13 +120,13 @@ def lame(b: Builder, start, direction, up, length: float, width: float, height: 
     d = unit(direction)
     u = unit(np.asarray(up, float) - d * (np.asarray(up, float) @ d))
     s = np.cross(d, u)
-    # (a forged plate: a raised ridge down its back, its two faces lit differently, its sides wrapping well down round
-    # the finger, so it reads as plate from the palm too; only a strip of the dark glove under it, on the palm side,
-    # and between the lames; a padded heel is all glove)
-    section = [(0.52, 0.05), (0.36, 0.42), (0.0, 0.6), (-0.36, 0.42), (-0.52, 0.05), (-0.46, -0.36), (-0.3, -0.5),
-               (0.3, -0.5), (0.46, -0.36)]
+    # (a forged plate: a raised ridge down its back, its two faces lit differently, its sides wrapping right round
+    # the finger's lower corners, so from the palm (where first person sees the magic hand at rest, palm up to show its
+    # rune) each finger is plate framing a narrow strip of the glove's leather; a padded heel is all glove)
+    section = [(0.52, 0.05), (0.36, 0.42), (0.0, 0.6), (-0.36, 0.42), (-0.52, 0.05), (-0.46, -0.36), (-0.22, -0.5),
+               (0.22, -0.5), (0.46, -0.36)]
     tones = ["glove"] * len(section) if glove else \
-        ["steel", "steelLight", "steel", "steelDark", "steelDark", "glove", "glove", "glove", "steel"]
+        ["steel", "steelLight", "steel", "steelDark", "steelDark", "steelDark", "glove", "steelDark", "steel"]
     n = len(section)
     start = np.asarray(start, float)
 

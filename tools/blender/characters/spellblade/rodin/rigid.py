@@ -11,7 +11,9 @@ Rodin's autorig spread each limb's weights in long gradients and tied the head, 
   goes to the cop, so a bending joint holds its depth instead of pinching in (linear skinning averages two bones'
   transforms; half the turn, taken whole, does not). Rodin's gradients stay, so no plate stretches more for it.
   Narrowing the gradients toward rigid plates was tried: the stretch it took off the plates' middles it put, harder,
-  on the plates the bands crossed (Rodin's armour has little but plate), so it was dropped.
+  on the plates the bands crossed (Rodin's armour has little but plate), so it was dropped. The joints themselves are
+  now cut out and rebuilt as rigid articulated plate on these cops (joints.py); the shared weights remain on the
+  cannons either side, up to each cut.
 - **Body against head** (`body_off_head`): nothing but the helmet rides the head; the body's head and neck weights go
   to the chest, so a turned head no longer drags the collar and shoulders.
 """
