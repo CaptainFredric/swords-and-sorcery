@@ -115,5 +115,8 @@ try{
   cdp?.close();
   for(const ws of clients)try{ws.close();}catch{}
   chrome?.kill('SIGTERM');
-  await rm(profile,{recursive:true,force:true});
+  // Chromium can still flush its profile after SIGTERM; tolerate this cleanup race.
+  await rm(profile,{recursive:true,force:true,maxRetries:12,retryDelay:250}).catch(error => {
+    console.warn('Temporary Chrome profile cleanup warning:',error.message);
+  });
 }
