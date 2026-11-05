@@ -127,7 +127,16 @@ try{
     return {panel:box(panel),tabs:box(tabs),body:box(body),foot:box(foot),
       panelWidth:panel.clientWidth,tabsOverflow:tabs.scrollWidth-tabs.clientWidth,
       bodyOverflow:body.scrollWidth-body.clientWidth,
-      goal:window.__ssMenu?.targetPosition?.x??null};
+      goal:(() => {
+        const menu=window.__ssMenu;
+        if(!menu?.shotTo||!menu?.targetPosition||!menu?.stage)return null;
+        const yaw=menu.stage.rotation.y,c=Math.cos(yaw),sin=Math.sin(yaw);
+        const local=menu.targetPosition;
+        const x=local.x*c+local.z*sin,z=-local.x*sin+local.z*c;
+        const {camera,target}=menu.shotTo;
+        const fx=target[0]-camera[0],fz=target[2]-camera[2],l=Math.hypot(fx,fz);
+        return {stageX:local.x,stageZ:local.z,screenRight:(x*-fz+z*fx)/l};
+      })()};
   })()`);
   evidence['armory-desktop']=armoryGeometry;
   assert.ok(armoryGeometry.panelWidth>=440,'Armory extends wider than original narrow standard');
@@ -136,7 +145,7 @@ try{
   assert.ok(armoryGeometry.tabs.bottom<=armoryGeometry.body.top+3,'tabs do not overlap scrolling text');
   assert.ok(armoryGeometry.body.bottom<=armoryGeometry.foot.top+3,'scrolling cards end above the footer');
   assert.ok(armoryGeometry.foot.bottom<armoryGeometry.panel.bottom-27,'scroll cue remains above the stepped hem');
-  assert.ok(armoryGeometry.goal<-.6,'Spellblade sidesteps screen-right in rotated stage coordinates');
+  assert.ok(armoryGeometry.goal?.screenRight>.6,'Spellblade sidesteps screen-right in camera coordinates, independent of stage rotation');
   await capture('06-desktop-armory-combat');
   for(const [section,label] of [['heraldry','07-desktop-armory-heraldry'],['challenges','08-desktop-armory-challenges']]){
     await evaluate("document.querySelector('#armory-"+section+"-tab').click()");
