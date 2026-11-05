@@ -982,7 +982,7 @@ $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(
   menuController.quickPlay(nameInput.value,roomFilter==='ALL'?'FFA':roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#solo-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.SOLO_MENU); });
+$('#solo-button').addEventListener('click', () => { showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
@@ -1283,7 +1283,41 @@ function startTutorial() {
   tutorialSession.start();
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
-$('#tutorial-mode').addEventListener('click',startTutorial);
+// Solo: left banner chooses an activity; right banner owns relevant options and launch.
+let soloActivity = 'bot-duel';
+const soloChoices = Object.freeze({
+  'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
+  'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
+  'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
+  'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
+  'inspection-mode': ['INSPECTION YARD','Local inspection tools, free camera and frame stepping.'],
+});
+function chooseSoloActivity(id) {
+  if (!Object.hasOwn(soloChoices,id)) return;
+  soloActivity=id;
+  for(const choice of Object.keys(soloChoices)) {
+    const button=$('#'+choice);
+    const active=choice===id;
+    button.classList.toggle('selected-activity',active);
+    button.setAttribute('aria-pressed',String(active));
+  }
+  const [title,note]=soloChoices[id];
+  $('#solo-selected-title').textContent=title;
+  $('#solo-selected-note').textContent=note;
+  $('#solo-arena-wrap').hidden=id==='tutorial-mode';
+  $('#solo-rival-wrap').hidden=id!=='bot-duel';
+  $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
+  soloMenu.dataset.panel='details';
+}
+for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
+$('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
+$('#solo-launch').addEventListener('click',()=>{
+  if(soloActivity==='tutorial-mode') return startTutorial();
+  if(soloActivity==='bot-duel') return startBotDuel();
+  if(soloActivity==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+});
 $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value, {
   team: menuController.breakthroughTeam(),
   botSkill: menuController.breakthroughSkill(),
@@ -1298,15 +1332,9 @@ $('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
 function startBotDuel() {
   if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
-  // Use this deliberate click to focus the arena. Joined/readiness still owns the countdown.
-  // If the browser refuses Pointer Lock, the existing Start Bot Duel button remains a fallback.
   ensureRuntime();
   runtime.requestPointerLock();
 }
-$('#bot-duel').addEventListener('click', startBotDuel);
-$('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
-$('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
-$('#shared-practice-mode')?.addEventListener('click',()=>runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU));
 $('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
