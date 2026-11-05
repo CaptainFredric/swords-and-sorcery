@@ -114,7 +114,7 @@ export function practiceSiegeCommand(room,player,action,machine,now){
  if(action==='dismantle'){
   room[field]=null;room.events.push({type:ram?'soFistDismantled':'bibyeDismantled',machineId:old.id,...(!ram?{ballistaId:old.id}:{}),at:now});
  }else{
-  const b=plan.b;Object.assign(b,{id:`${ram?'sofist':'bibye'}-${room.code}-${room[revision]}`,builtAt:now,...(!ram?{smallBoltReadyAt:now}:{})});
+  const b=plan.b;Object.assign(b,{id:`${ram?'sofist':'bibye'}-${room.code}-${room[revision]}`,ownerId:player.id,builtAt:now,...(!ram?{smallBoltReadyAt:now}:{})});
   room[field]=b;room.bibyeProjectiles??=new Map();
   room.events.push({type:ram?'soFistConstructed':'bibyeConstructed',machineId:b.id,...(!ram?{ballistaId:b.id}:{}),rebuild:Boolean(old),point:{x:b.x,y:b.y,z:b.z},at:now});
  }
