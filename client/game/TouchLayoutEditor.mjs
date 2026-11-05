@@ -44,6 +44,7 @@ export class TouchLayoutEditor {
           <button type="button" class="tle-btn" data-action="preset-left">LEFT-HANDED</button>
           <button type="button" class="tle-btn" data-action="reset">RESET DEFAULT</button>
           <button type="button" class="tle-btn primary" data-action="done">DONE</button>
+          <span class="tle-storage-warning" data-storage-status hidden>SESSION ONLY · BROWSER STORAGE UNAVAILABLE</span>
         </div>
       </div>
       <div class="tle-hint">DRAG to move · SELECT to resize · FLIGHT: drag the small MOVE ᛞ handle to position the independent Terminal Dive stencil · DONE saves each machine</div>
@@ -84,6 +85,9 @@ export class TouchLayoutEditor {
       this.layouts.opacity = val;
       if (this.opacityOutput) this.opacityOutput.textContent = `${Math.round(val * 100)}%`;
       this.touchControls.setCustomOpacity(val);
+      // Opacity is a user edit, not a transient visual preview. Persist it
+      // just like geometry even if the browser suspends the editor mid-session.
+      this.#persistLayout();
     });
 
     for(const [key,slider]of [['size',this.sizeSlider],['width',this.widthSlider],['height',this.heightSlider]]){
@@ -108,7 +112,7 @@ export class TouchLayoutEditor {
         if(output)output.textContent=actual+'px';
         slider.value=String(actual);
         this.applyCurrent();
-        saveTouchLayout(this.layouts);
+        this.#persistLayout();
       });
     }
 
@@ -119,8 +123,16 @@ export class TouchLayoutEditor {
     window.addEventListener('pointercancel', this.#onPointerUp, true);
   }
 
-  open(mode = null) {
+  open(mode = null,{resumeArena=false}={}) {
+    if(this.active){this.setMode(mode??this.mode);return;}
+    this.resumeArenaAfterClose=Boolean(resumeArena);
+    // Load the latest saved overrides each time the editor opens. The
+    // preview is always the same computed layout the player will use.
+    this.layouts=loadTouchLayout();
+    this.opacitySlider.value=String(Math.round(this.layouts.opacity*100));
+    if(this.opacityOutput)this.opacityOutput.textContent=this.opacitySlider.value+'%';
     this.active = true;
+    document.body.classList.add('touch-layout-editor-open');
     this.mode = mode ?? (this.touchControls.flightMounted ? 'flight':
       this.touchControls.ramMounted?'ram':this.touchControls.ballistaMounted?'ballista':'onFoot');
     this.selectedAction=null;
@@ -132,21 +144,31 @@ export class TouchLayoutEditor {
     if(!layer.getClientRects?.()?.length){
       this.previewParent=layer.parentNode;
       this.previewNextSibling=layer.nextSibling;
-      document.body.appendChild(layer);
+      // Preserve the game's container queries, safe-area variables and
+      // control scale. Reparenting to body changes the coordinate system
+      // and makes buttons visibly shrink or jump after editing.
+      const shell=this.previewParent?.closest?.('#game-shell')??
+        document.querySelector('#game-shell')??document.body;
+      shell.appendChild(layer);
       layer.classList.add('touch-layout-detached');
     }
     this.touchControls.layer.classList.add('touch-layout-editing');
     this.setMode(this.mode);
+    this.#persistLayout(); // Verify storage availability and migrate old saves.
+
   }
 
-  close() {
+  close({resumeArena=this.resumeArenaAfterClose}={}) {
+    if(!this.active)return;
     this.active = false;
+    this.resumeArenaAfterClose=false;
+    document.body.classList.remove('touch-layout-editor-open');
     this.selectedAction = null;
     this.dragPointerId = null;
     this.root.classList.add('hidden');
     this.touchControls.layer.classList.remove('touch-layout-editing');
     this.#clearSelectionHighlight();
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
     this.touchControls.previewEditMode(null);
     const layer=this.touchControls.layer;
     if(this.previewParent){
@@ -156,7 +178,9 @@ export class TouchLayoutEditor {
       layer.classList.remove('touch-layout-detached');
       this.previewParent=null;this.previewNextSibling=null;
     }
-    this.touchControls.setActive(Boolean(this.touchControls.input?.touchFocus));
+    if(resumeArena&&this.touchControls.input?.touch)
+      this.touchControls.input.requestPointerLock();
+    else this.touchControls.setActive(Boolean(this.touchControls.input?.touchFocus));
   }
 
   setMode(mode) {
@@ -178,20 +202,31 @@ export class TouchLayoutEditor {
   resetCurrentMode() {
     const defaults={onFoot:DEFAULT_ON_FOOT_LAYOUT,flight:DEFAULT_FLIGHT_LAYOUT,
       ballista:DEFAULT_BALLISTA_LAYOUT,ram:DEFAULT_RAM_LAYOUT};
+    this.layouts.presets??={};
+    this.layouts.presets[this.mode]='right';
     this.layouts[this.mode]=structuredClone(defaults[this.mode]);
     this.setMode(this.mode);
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
   }
 
   applyPreset(handedness) {
     this.layouts.handedness=handedness;
+    this.layouts.presets??={};
+    this.layouts.presets[this.mode]=handedness;
     const defaults={onFoot:DEFAULT_ON_FOOT_LAYOUT,flight:DEFAULT_FLIGHT_LAYOUT,
       ballista:DEFAULT_BALLISTA_LAYOUT,ram:DEFAULT_RAM_LAYOUT};
     const chosen=handedness==='left'?mirrorLayoutHorizontal(defaults[this.mode]):
       structuredClone(defaults[this.mode]);
     this.layouts[this.mode]=chosen; // do not destroy edits on other pages
     this.setMode(this.mode);
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
+  }
+
+  #persistLayout() {
+    const persisted=saveTouchLayout(this.layouts);
+    const status=this.root.querySelector('[data-storage-status]');
+    if(status)status.hidden=persisted;
+    return persisted;
   }
 
   applyCurrent() {
@@ -236,8 +271,9 @@ export class TouchLayoutEditor {
     event.stopPropagation();
 
     const delta={x:event.clientX-this.dragStart.pointerX,y:event.clientY-this.dragStart.pointerY};
-    const mapped=this.touchControls.layer.classList.contains('touch-layout-detached')?delta:
-      (screenTurn?.vector(delta.x,delta.y)??delta);
+    // Whether the preview is in the live HUD or temporarily reparented to
+    // the game shell, pointer deltas must follow the SAME rotated game frame.
+    const mapped=screenTurn?.vector(delta.x,delta.y)??delta;
     const dx=mapped.x,dy=mapped.y;
     const orig = this.dragStart.placement;
     const activeLayout=layoutForMode(this.layouts,this.mode);
@@ -264,7 +300,7 @@ export class TouchLayoutEditor {
     event.stopPropagation();
     this.dragPointerId = null;
     this.dragStart = null;
-    saveTouchLayout(this.layouts);
+    this.#persistLayout();
   };
 
   #syncDimensionSliders(placement) {

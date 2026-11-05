@@ -616,14 +616,23 @@ html.turn-typing .rotate-prompt { display: none !important; }
    focus-lost event must not hide controls while someone drags a layout item. */
 .touch-controls.touch-layout-editing {
   display:block !important;position:absolute;inset:0;z-index:59;
-  pointer-events:auto;touch-action:none;--s:var(--ts,1);
+  pointer-events:auto;touch-action:none;
+  /* Reuse the live --s from .active and the same game-shell container rules.
+     Overriding it here used to change physical target size on editor open. */
 }
 @container app (min-height:560px) {
   .touch-controls.touch-layout-editing:not(.touch-flight) {
     --s:calc(1.18 * var(--ts,1)); /* match the live on-foot/siege HUD */
   }
 }
-.touch-controls.touch-layout-detached {position:fixed !important;inset:0 !important;z-index:59 !important;}
+.touch-controls.touch-layout-detached {position:absolute !important;inset:0 !important;z-index:59 !important;}
+/* The layout editor owns the screen: no Arena Menu, Settings modal or
+   background Practice tools card can obscure its first-frame preview. */
+body.touch-layout-editor-open #pause-menu,
+body.touch-layout-editor-open #settings,
+body.touch-layout-editor-open #practice-overlay {
+  visibility:hidden !important;pointer-events:none !important;
+}
 .touch-layout-editor {
   position: fixed;
   inset: 0;
@@ -795,3 +804,8 @@ html.turn-typing .rotate-prompt { display: none !important; }
  .touch-ui .hud.ballista-mounted .hud-status-stack { top:calc(var(--safe-t) + 85px); left:calc(var(--safe-l) + 180px); right:calc(var(--safe-r) + 116px); }
 }
 .touch-ui:has(.touch-flight .motion-mirrored) .bottom-hud { left:calc(var(--safe-l) + 120px); }
+
+/* Inform the player when the browser cannot retain touch edits after reload. */
+.tle-storage-warning { color:#f0bf7a; font:800 9px/1.3 system-ui,sans-serif;
+  letter-spacing:.04em; text-shadow:0 1px 2px #000; }
+.tle-storage-warning[hidden] { display:none !important; }

@@ -208,67 +208,192 @@ export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   return clamped;
 }
 
-// Old saved default layouts used the centerline above the joystick for Crouch.
-// Migrate only that exact unmodified location; preserve deliberate custom layouts.
-function migrateCrouchPosition(onFoot) {
-  const crouch = onFoot?.crouch;
-  if (!crouch || crouch.custom || crouch.left !== 90 || crouch.bottom !== 196) return onFoot;
-  return { ...onFoot, crouch: { ...crouch, left: 190, bottom: 187 } };
-}
-
-// Ensure saved flight layouts preserve custom positioning while migrating missing controls.
-function migrateFlightLayout(flight) {
-  if (!flight) return clonePlacements(DEFAULT_FLIGHT_LAYOUT);
-  const matches=(a,b)=>a&&b&&Object.keys(b).every(k=>a[k]===b[k])&&Object.keys(a).every(k=>k==='custom'||k in b);
-  // The old handedness preset marked every control custom. Migrate only the
-  // complete unedited preset; individual edited controls remain untouched.
-  const oldMirror=mirrorLayoutHorizontal(LEGACY_FLIGHT_LAYOUT);
-  const previousMirror=mirrorLayoutHorizontal(PREVIOUS_FLIGHT_LAYOUT);
-  const outgoingMirror=mirrorLayoutHorizontal(OUTGOING_FLIGHT_LAYOUT);
-  if(Object.keys(outgoingMirror).every(k=>matches(flight[k],outgoingMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
-  if(Object.keys(previousMirror).every(k=>matches(flight[k],previousMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
-  if(Object.keys(oldMirror).every(k=>matches(flight[k],oldMirror[k])))return mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
-  const migrated=clonePlacements(DEFAULT_FLIGHT_LAYOUT);
-  for(const [key,item] of Object.entries(flight)){
-    const legacy=LEGACY_FLIGHT_LAYOUT[key];
-    const untouched=!item.custom&&(legacy&&matches(item,legacy)||
-      matches(item,PREVIOUS_FLIGHT_LAYOUT[key])||matches(item,OUTGOING_FLIGHT_LAYOUT[key]));
-    if(!untouched)migrated[key]=item;
+// V2 stores only user-authored DIFFERENCES. Current presets, not the
+// browser's old full-layout snapshot, remain the source of truth.
+export const TOUCH_LAYOUT_SCHEMA_VERSION=2;
+const PAGES=['onFoot','flight','ballista','ram'];
+const defaultsForPage=mode=>mode==='flight'?DEFAULT_FLIGHT_LAYOUT:
+  mode==='ballista'?DEFAULT_BALLISTA_LAYOUT:
+  mode==='ram'?DEFAULT_RAM_LAYOUT:DEFAULT_ON_FOOT_LAYOUT;
+const safeSide=side=>side==='left'?'left':'right';
+const baseForPage=(mode,side='right')=>clonePlacements(
+  safeSide(side)==='left'?mirrorLayoutHorizontal(defaultsForPage(mode)):defaultsForPage(mode));
+const defaultPresets=()=>Object.fromEntries(PAGES.map(mode=>[mode,'right']));
+const defaultLayouts=()=>({
+  ...Object.fromEntries(PAGES.map(mode=>[mode,baseForPage(mode)])),
+  presets:defaultPresets(),opacity:DEFAULT_OPACITY,handedness:'right',
+});
+const has=(item,field)=>Object.prototype.hasOwnProperty.call(item??{},field);
+const finiteField=(item,field)=>has(item,field)&&Number.isFinite(item[field]);
+function placementPatch(item,base){
+  if(!item||typeof item!=='object')return null;
+  const patch={};
+  // Horizontal/vertical anchors are exclusive pairs. A saved left anchor
+  // must remove the default right anchor when defaults evolve.
+  for(const pair of [['left','right'],['top','bottom']]){
+    const key=pair.find(k=>finiteField(item,k));
+    if(key&&(key!==pair.find(k=>finiteField(base,k))||item[key]!==base?.[key]))patch[key]=item[key];
   }
-  return migrated;
+  for(const key of ['size','width','height'])
+    if(finiteField(item,key)&&item[key]!==base?.[key])patch[key]=item[key];
+  return Object.keys(patch).length?patch:null;
 }
-
-export function loadTouchLayout(storage = globalThis.localStorage) {
-  try {
-    const raw = storage?.getItem?.('ss-touch-layout');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        onFoot: migrateCrouchPosition(parsed.onFoot ?? clonePlacements(DEFAULT_ON_FOOT_LAYOUT)),
-        flight: migrateFlightLayout(parsed.flight),
-        ballista:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
-          parsed.handedness==='left'?'left':'right','biBye'),...(parsed.ballista??{})},
-        ram:{...mountedTouchLayout(parsed.onFoot??clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
-          parsed.handedness==='left'?'left':'right'),...(parsed.ram??{})},
-        opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : DEFAULT_OPACITY,
-        handedness: parsed.handedness === 'left' ? 'left' : 'right',
-      };
+function mergePlacement(base,patch){
+  const next={...base,...patch};
+  if(has(patch,'left'))delete next.right;
+  if(has(patch,'right'))delete next.left;
+  if(has(patch,'top'))delete next.bottom;
+  if(has(patch,'bottom'))delete next.top;
+  if(patch&&Object.keys(patch).length)next.custom=true;
+  return next;
+}
+function hydratePage(mode,side,overrides={}){
+  const base=baseForPage(mode,side),page=clonePlacements(base);
+  if(!overrides||typeof overrides!=='object')return page;
+  for(const [action,patch]of Object.entries(overrides))
+    if(base[action]&&patch&&typeof patch==='object')page[action]=mergePlacement(base[action],patch);
+  return page;
+}
+// A previous handedness preset labeled ALL positions "custom". That flag
+// does not distinguish a user edit from a historical factory position.
+const OLD_ON_FOOT_LAYOUT=Object.freeze({
+  ...DEFAULT_ON_FOOT_LAYOUT,crouch:{left:90,bottom:196,size:50},
+});
+const legacyCandidates=mode=>mode==='flight'?
+  [DEFAULT_FLIGHT_LAYOUT,OUTGOING_FLIGHT_LAYOUT,PREVIOUS_FLIGHT_LAYOUT,LEGACY_FLIGHT_LAYOUT]:
+  mode==='onFoot'?[DEFAULT_ON_FOOT_LAYOUT,OLD_ON_FOOT_LAYOUT]:
+  [defaultsForPage(mode)];
+function legacySide(mode,items){
+  // Global handedness belonged to whichever page was last edited; infer
+  // each page's handedness from its actual mirrored anchors instead.
+  const stock=defaultsForPage(mode),mirrored=mirrorLayoutHorizontal(stock);
+  let right=0,left=0;
+  for(const [action,placement]of Object.entries(items??{})){
+    if(!placement||!stock[action])continue;
+    const axis=['left','right'].find(k=>finiteField(placement,k));
+    if(!axis)continue;
+    if(axis===['left','right'].find(k=>finiteField(stock[action],k)))right++;
+    if(axis===['left','right'].find(k=>finiteField(mirrored[action],k)))left++;
+  }
+  return left>right?'left':'right';
+}
+function legacyPage(mode,saved,side){
+  const base=baseForPage(mode,side);
+  if(!saved||typeof saved!=='object')return base;
+  const candidates=legacyCandidates(mode).map(layout=>side==='left'?mirrorLayoutHorizontal(layout):layout);
+  const result=clonePlacements(base);
+  for(const [action,item]of Object.entries(saved)){
+    if(!base[action]||!item||typeof item!=='object')continue;
+    // Match each historical control to the nearest stock version. Keep
+    // only actual differences, so unrelated old dimensions cannot stick.
+    const reference=candidates
+      .filter(layout=>layout[action])
+      .map(layout=>({patch:placementPatch(item,layout[action])}))
+      .sort((a,b)=>Object.keys(a.patch??{}).length-Object.keys(b.patch??{}).length)[0];
+    // Legacy right-handed Crouch had one historical factory coordinate
+    // also used by an explicitly edited button. Preserve that position when
+    // the save actually marked Crouch custom (the unmarked preset migrates).
+    const provenance=mode==='onFoot'&&side==='right'&&action==='crouch'&&
+      item.custom===true&&reference?.patch==null?
+        placementPatch(item,base[action]):null;
+    const patch=reference?.patch??provenance;
+    if(patch){
+      const merged=mergePlacement(base[action],patch);
+      // An older explicitly drawn rectangle had no circular "size" field.
+      // Do not invent one during the one-time legacy migration. On the next
+      // save only the edited rectangle dimensions become V2 overrides.
+      if(item.custom===true&&!has(item,'size')&&finiteField(item,'width')&&
+        finiteField(item,'height'))delete merged.size;
+      result[action]=merged;
     }
-  } catch {}
-  return {
-    onFoot: clonePlacements(DEFAULT_ON_FOOT_LAYOUT),
-    flight: clonePlacements(DEFAULT_FLIGHT_LAYOUT),
-    ballista: clonePlacements(DEFAULT_BALLISTA_LAYOUT),
-    ram: clonePlacements(DEFAULT_RAM_LAYOUT),
-    opacity: DEFAULT_OPACITY,
-    handedness: 'right',
-  };
+  }
+  return result;
 }
-
-export function saveTouchLayout(layout, storage = globalThis.localStorage) {
-  try {
-    storage?.setItem?.('ss-touch-layout', JSON.stringify(layout));
-  } catch {}
+function migrateLegacyLayout(parsed){
+  const presets=defaultPresets();
+  const result={presets,opacity:Number.isFinite(parsed.opacity)?parsed.opacity:DEFAULT_OPACITY,
+    handedness:safeSide(parsed.handedness)};
+  const originalOnFoot=parsed.onFoot??DEFAULT_ON_FOOT_LAYOUT;
+  for(const mode of PAGES){
+    let saved=parsed[mode];
+    if((mode==='ballista'||mode==='ram')&&!saved){
+      // Before each siege machine had its own page, deliberate on-foot
+      // edits inherited into mounted controls. Copy, do not alias, them.
+      const onFoot=legacyPage('onFoot',originalOnFoot,legacySide('onFoot',originalOnFoot));
+      saved=mountedTouchLayout(onFoot,parsed.handedness,mode==='ballista'?'biBye':'generic');
+    }
+    presets[mode]=legacySide(mode,saved);
+    result[mode]=legacyPage(mode,saved,presets[mode]);
+  }
+  return result;
+}
+// Browsers embedded in third-party frames may reject localStorage. Preserve
+// edits in this tab and report durable-save failure rather than silently
+// discarding edits when the workshop reopens.
+const sessionLayouts=new WeakMap();
+let deniedStorageCache=null;
+function resolveStorage(explicit){
+  if(explicit!==undefined)return explicit;
+  try{return globalThis.localStorage;}catch{return null;}
+}
+function cachedState(store){
+  return store&&typeof store==='object'?sessionLayouts.get(store):deniedStorageCache;
+}
+function cacheState(store,state){
+  if(store&&typeof store==='object')sessionLayouts.set(store,state);
+  else deniedStorageCache=state;
+}
+export function loadTouchLayout(storage=undefined){
+  try{
+    const store=resolveStorage(storage);
+    let raw=null,readSucceeded=false;
+    try{raw=store?.getItem?.('ss-touch-layout')??null;readSucceeded=Boolean(store?.getItem);}
+    catch{}
+    const cache=cachedState(store);
+    // A genuine missing/cleared key is respected. Fall back to memory only
+    // when persistent writes/reads are unavailable.
+    if(!raw&&(!readSucceeded||cache?.persisted===false))raw=cache?.value??null;
+    if(!raw)return defaultLayouts();
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object')return defaultLayouts();
+    if(parsed.schemaVersion===TOUCH_LAYOUT_SCHEMA_VERSION){
+      const presets=Object.fromEntries(PAGES.map(mode=>[mode,safeSide(parsed.presets?.[mode])]));
+      return {...Object.fromEntries(PAGES.map(mode=>[
+        mode,hydratePage(mode,presets[mode],parsed.overrides?.[mode])])),
+        presets,opacity:Number.isFinite(parsed.opacity)?parsed.opacity:DEFAULT_OPACITY,
+        handedness:safeSide(parsed.handedness)};
+    }
+    return migrateLegacyLayout(parsed);
+  }catch{return defaultLayouts();}
+}
+export function saveTouchLayout(layout,storage=undefined){
+  try{
+    const presets=Object.fromEntries(PAGES.map(mode=>[mode,safeSide(layout.presets?.[mode])]));
+    const overrides={};
+    for(const mode of PAGES){
+      const base=baseForPage(mode,presets[mode]);
+      overrides[mode]={};
+      for(const [action,item]of Object.entries(layout[mode]??{})){
+        if(!base[action])continue;
+        const patch=placementPatch(item,base[action]);
+        if(patch)overrides[mode][action]=patch;
+      }
+    }
+    const value=JSON.stringify({
+      schemaVersion:TOUCH_LAYOUT_SCHEMA_VERSION,presets,overrides,
+      opacity:Number.isFinite(layout.opacity)?layout.opacity:DEFAULT_OPACITY,
+      handedness:safeSide(layout.handedness),
+    });
+    const store=resolveStorage(storage);
+    let persisted=false;
+    try{
+      if(typeof store?.setItem==='function'){
+        store.setItem('ss-touch-layout',value);persisted=true;
+      }
+    }catch{}
+    cacheState(store,{value,persisted});
+    return persisted;
+  }catch{return false;}
 }
 
 export function clearLayoutItem(element){

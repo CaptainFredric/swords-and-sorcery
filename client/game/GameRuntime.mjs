@@ -1280,8 +1280,9 @@ export class GameRuntime {
     this.#shadowDetail();
   }
 
-  editTouchLayout(mode) {
+  editTouchLayout(mode,{resumeArena=false}={}) {
     if (!this.touch) this.enableTouch();
+    const restoreFocus=Boolean(resumeArena||(this.playing&&this.input.touchFocus));
     // Controller sources and TouchControls' own pointer ownership are two
     // different state machines. Clear BOTH before the editor can capture
     // touches, or an old held Bolt/joystick can be reasserted by window events.
@@ -1289,11 +1290,16 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.input.releaseFocus();
     this.touch?.setActive(true); // the real controls are the edit preview
-    this.touchLayoutEditor?.open(mode);
+    this.touchLayoutEditor?.open(mode,{resumeArena:restoreFocus});
   }
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
+    const wasPlaying=this.playing;
     this.playing = Boolean(playing) && !this.worldError;
+    // A match ending while the layout workshop is open must not strand
+    // its full-screen preview and modal suppression over the next menu.
+    if(wasPlaying&&!this.playing&&this.touchLayoutEditor?.active)
+      this.touchLayoutEditor.close({resumeArena:false});
     if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();

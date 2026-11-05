@@ -1280,6 +1280,7 @@ function togglePracticeDrawer() {
 }
 
 function openPause(section = 'main') {
+  if(runtime?.touchLayoutEditor?.active)return; // editing is a modal control state
   if (latestSnapshot?.roomState !== 'PLAYING' || paused) return;
   if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
@@ -1339,7 +1340,10 @@ $('#pause-practice-back').addEventListener('click', () => {
   pausePracticeButton.focus();
 });
 $('#practice-drawer-close')?.addEventListener('click', () => closePracticeDrawer());
-$('#pause-edit-controls')?.addEventListener('click', () => { closePause({ resumeArena: false }); runtime?.editTouchLayout(); });
+$('#pause-edit-controls')?.addEventListener('click', () => {
+  closePause({ resumeArena: false });
+  runtime?.editTouchLayout(null,{resumeArena:true});
+});
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
@@ -1372,7 +1376,14 @@ const settingsPanel = new SettingsPanel({
   store: settings,
   registry,
   device: () => (touchUi ? 'touch' : 'desktop'),
-  onOpenTouchEditor: () => { ensureRuntime(); runtime?.editTouchLayout(); },
+  onOpenTouchEditor: () => {
+    // Settings sometimes opens FROM the Arena Menu. Clear its actual pause
+    // state, not just the visible sheet, before previewing real controls.
+    settingsPanel.close();
+    const resumeArena=Boolean(latestSnapshot?.roomState==='PLAYING');
+    if(paused)closePause({resumeArena:false});
+    ensureRuntime();runtime?.editTouchLayout(null,{resumeArena});
+  },
 });
 settings.onChange((change) => {
   applySettings();
@@ -1611,6 +1622,11 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
+  if(runtime?.touchLayoutEditor?.active){
+    event.preventDefault();event.stopPropagation();
+    runtime.touchLayoutEditor.close();
+    return;
+  }
   if (creditsPanel.isOpen) {
     creditsPanel.close();
     return;

@@ -382,3 +382,144 @@ test('joystick safe bounds use its resized center while rectangular bounds use f
  const valid=clampPlacement({right:14,bottom:80,width:122,height:62},viewport);
  assert.equal(valid.right,14,'ordinary Bolt remains at intended right edge');
 });
+
+test('versioned saves contain only user overrides, never old defaults or a frozen entire page',async()=>{
+ const {TOUCH_LAYOUT_SCHEMA_VERSION}=await import('./touchLayout.mjs');
+ const storage=memoryStorage(),layout=loadTouchLayout(storage);
+ layout.flight.siegeWeapon.width=150;
+ layout.flight.attack.bottom=76;
+ layout.ballista.siegeSkill.size=93;
+ layout.onFoot.jump.right=31;
+ layout.opacity=.71;
+ saveTouchLayout(layout,storage);
+ const stored=JSON.parse(storage.getItem('ss-touch-layout'));
+ assert.equal(stored.schemaVersion,TOUCH_LAYOUT_SCHEMA_VERSION);
+ assert.deepEqual(stored.overrides.flight.siegeWeapon,{width:150},
+   'moving or resizing one field must not freeze unrelated default geometry');
+ assert.deepEqual(stored.overrides.flight.attack,{bottom:76});
+ assert.deepEqual(stored.overrides.ballista.siegeSkill,{size:93});
+ assert.deepEqual(stored.overrides.onFoot.jump,{right:31});
+ assert.equal(stored.overrides.flight.dash,undefined,'untouched buttons are not saved at all');
+ assert.equal(stored.opacity,.71);
+ const next=loadTouchLayout(storage);
+ assert.equal(next.flight.siegeWeapon.width,150);
+ assert.equal(next.flight.siegeWeapon.bottom,DEFAULT_FLIGHT_LAYOUT.siegeWeapon.bottom);
+ assert.equal(next.flight.attack.width,DEFAULT_FLIGHT_LAYOUT.attack.width);
+ assert.ok(next.flight.practiceTools,'a new or omitted default action survives without a saved record');
+});
+
+test('presets, left-handed mirrored pages and individual edits persist independently',async()=>{
+ const {DEFAULT_RAM_LAYOUT,DEFAULT_BALLISTA_LAYOUT}=await import('./touchLayout.mjs');
+ const storage=memoryStorage(),layouts=loadTouchLayout(storage);
+ layouts.presets.flight='left';
+ layouts.flight=mirrorLayoutHorizontal(DEFAULT_FLIGHT_LAYOUT);
+ layouts.flight.attack.width=147;
+ layouts.flight.attack.custom=true;
+ layouts.ballista.siegeSkill.right=72;
+ layouts.ballista.siegeSkill.custom=true;
+ saveTouchLayout(layouts,storage);
+ const stored=JSON.parse(storage.getItem('ss-touch-layout'));
+ assert.equal(stored.presets.flight,'left');
+ assert.deepEqual(stored.overrides.flight.attack,{width:147});
+ assert.equal(stored.overrides.flight.dash,undefined,'mirrored preset is not mistaken for thirteen user overrides');
+ const loaded=loadTouchLayout(storage);
+ assert.equal(loaded.flight.attack.left,DEFAULT_FLIGHT_LAYOUT.attack.right);
+ assert.equal(loaded.flight.attack.width,147);
+ assert.equal(loaded.flight.dash.left,DEFAULT_FLIGHT_LAYOUT.dash.right);
+ assert.equal(loaded.ballista.siegeSkill.right,72);
+ assert.deepEqual(loaded.ram,DEFAULT_RAM_LAYOUT,'unrelated machine defaults remain pristine');
+ assert.equal(loaded.ballista.attack.right,DEFAULT_BALLISTA_LAYOUT.attack.right);
+});
+
+test('legacy unedited full layout snapshots migrate to the newest flight and on-foot presets',()=>{
+ const storage=memoryStorage();
+ const outgoing={
+   stick:{left:82,bottom:91,size:112,type:'stick'},
+   guard:{right:88,bottom:12,size:64},
+   attack:{right:14,bottom:12,size:64},
+   siegeWeapon:{right:88,bottom:84,size:64},
+   jump:{right:14,bottom:84,size:60},
+   siegeSkill:{right:88,bottom:154,size:60},
+   dash:{right:14,bottom:154,size:60},
+   spell:{right:88,bottom:220,size:54},
+   ultimate:{right:14,bottom:220,size:54},
+ };
+ storage.setItem('ss-touch-layout',JSON.stringify({
+   onFoot:{...DEFAULT_ON_FOOT_LAYOUT,crouch:{left:90,bottom:196,size:50}},
+   flight:outgoing,handedness:'right'
+ }));
+ const loaded=loadTouchLayout(storage);
+ for(const action of Object.keys(outgoing))
+   assert.deepEqual(loaded.flight[action],DEFAULT_FLIGHT_LAYOUT[action],
+     action+' adopts its newest default despite the old complete snapshot');
+ assert.deepEqual(loaded.onFoot.crouch,DEFAULT_ON_FOOT_LAYOUT.crouch);
+ saveTouchLayout(loaded,storage);
+ const next=JSON.parse(storage.getItem('ss-touch-layout'));
+ assert.deepEqual(next.overrides.flight,{});
+ assert.deepEqual(next.overrides.onFoot,{});
+});
+
+test('a legacy change to just button size survives while its old placement updates to modern defaults',()=>{
+ const storage=memoryStorage();
+ storage.setItem('ss-touch-layout',JSON.stringify({
+  flight:{attack:{right:14,bottom:12,size:77,custom:true}},
+ }));
+ const loaded=loadTouchLayout(storage);
+ assert.equal(loaded.flight.attack.size,77);
+ assert.equal(loaded.flight.attack.bottom,DEFAULT_FLIGHT_LAYOUT.attack.bottom);
+ assert.equal(loaded.flight.attack.width,DEFAULT_FLIGHT_LAYOUT.attack.width);
+ saveTouchLayout(loaded,storage);
+ assert.deepEqual(JSON.parse(storage.getItem('ss-touch-layout')).overrides.flight.attack,{size:77});
+});
+
+test('older completely mirrored flight presets are recognized as untouched, not intentional edits',()=>{
+ const storage=memoryStorage();
+ storage.setItem('ss-touch-layout',JSON.stringify({
+   handedness:'left',flight:{
+     stick:{right:82,bottom:91,size:112,type:'stick',custom:true},
+     attack:{left:14,bottom:12,size:64,custom:true},
+     siegeWeapon:{left:88,bottom:84,size:64,custom:true},
+     dash:{left:14,bottom:154,size:60,custom:true},
+     jump:{left:14,bottom:84,size:60,custom:true},
+   },
+ }));
+ const loaded=loadTouchLayout(storage);
+ assert.equal(loaded.presets.flight,'left');
+ assert.equal(loaded.flight.attack.left,DEFAULT_FLIGHT_LAYOUT.attack.right);
+ assert.equal(loaded.flight.attack.width,DEFAULT_FLIGHT_LAYOUT.attack.width);
+ assert.equal(loaded.flight.siegeWeapon.left,DEFAULT_FLIGHT_LAYOUT.siegeWeapon.right);
+ saveTouchLayout(loaded,storage);
+ assert.deepEqual(JSON.parse(storage.getItem('ss-touch-layout')).overrides.flight,{});
+});
+
+test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',()=>{
+ const {readFileSync}=await import('node:fs');
+ const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
+ const editor=readFileSync(new URL('./TouchLayoutEditor.mjs',import.meta.url),'utf8');
+ const main=readFileSync(new URL('../main.mjs',import.meta.url),'utf8');
+ const controls=readFileSync(new URL('./TouchControls.mjs',import.meta.url),'utf8');
+ assert.match(mobile,/touch-layout-detached\s*\{position:absolute !important/);
+ const editorStyle=mobile.slice(mobile.indexOf('.touch-controls.touch-layout-editing {'),
+   mobile.indexOf('@container app (min-height:560px)',mobile.indexOf('.touch-controls.touch-layout-editing {')));
+ assert.doesNotMatch(editorStyle,/--s\s*:/,'editor must not replace live computed CSS scale');
+ assert.match(editor,/closest\?\.\('#game-shell'\)/);
+ assert.match(editor,/screenTurn\?\.vector\(delta.x,delta.y\)/);
+ assert.match(editor,/classList.add\('touch-layout-editor-open'\)/);
+ assert.match(mobile,/body\.touch-layout-editor-open #pause-menu/);
+ assert.match(main,/if\(runtime\?\.touchLayoutEditor\?\.active\)/);
+ assert.match(controls,/applyLayoutItem\(element,\{\.\.\.placement,custom:true\}\)/,
+   'all active controls, including default on-foot controls, render canonical layout values');
+});
+
+test('blocked browser storage retains customized positions in session without claiming persistence',()=>{
+ const blocked={getItem(){throw Error('denied')},setItem(){throw Error('denied')}};
+ const initial=loadTouchLayout(blocked);
+ initial.flight.jump.bottom=191;
+ assert.equal(saveTouchLayout(initial,blocked),false,'durable save must report the denial');
+ const restored=loadTouchLayout(blocked);
+ assert.equal(restored.flight.jump.bottom,191,'tab-local layout must not vanish on reopening editor');
+ assert.equal(restored.flight.attack.width,DEFAULT_FLIGHT_LAYOUT.attack.width);
+ const other=memoryStorage();
+ assert.equal(loadTouchLayout(other).flight.jump.bottom,DEFAULT_FLIGHT_LAYOUT.jump.bottom,
+   'session cache must never leak into a distinct storage profile');
+});
