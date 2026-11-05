@@ -1406,6 +1406,10 @@ export class GameRuntime {
     if (!this.localState) {
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
+      this.localState.grounded = Boolean(auth.grounded);
+      this.localState.jumpHeld = Boolean(auth.jumpHeld);
+      if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
+      this.localState.sprintBlend = auth.sprintBlend ?? 0;
       if (auth.impulse) this.localState.impulse = { ...auth.impulse };
       this.localState.crouched = Boolean(auth.crouched);
       this.localState.dashReadyAt = auth.dashReadyAt;
@@ -1415,6 +1419,9 @@ export class GameRuntime {
       if (auth.operatingBallistaId||auth.operatingRamId||auth.operatingFightFlightId) {
         this.predictionError = 0;
         this.localState.position = { ...auth.position };
+        this.localState.grounded = Boolean(auth.grounded);
+        this.localState.jumpHeld = Boolean(auth.jumpHeld);
+        if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
         this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };
         this.localState.impulse = { x: 0, z: 0 };
         this.localState.crouched = false;
@@ -1428,6 +1435,10 @@ export class GameRuntime {
         if (!auth.alive || error > 2.2) {
           this.localState.position = { ...auth.position };
           this.localState.velocity = { ...auth.velocity };
+          this.localState.grounded = Boolean(auth.grounded);
+          this.localState.jumpHeld = Boolean(auth.jumpHeld);
+          if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
+          this.localState.sprintBlend = auth.sprintBlend ?? 0;
           this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
           this.localState.crouched = Boolean(auth.crouched);
         } else {
