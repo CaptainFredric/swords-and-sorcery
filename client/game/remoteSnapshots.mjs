@@ -12,8 +12,15 @@ export function appendRemoteSample(history, player, serverTime, at) {
     last.player = player;
     return history;
   }
-  // A life transition is a presentation discontinuity, not a 12-m interpolation.
-  const next = last && last.player.alive !== player.alive ? [] : history;
+  // A life transition, a large authoritative teleport, or a long missing
+  // snapshot window is not a physical path we can safely interpolate through.
+  // Keep ordinary Dash and high-speed mounted travel continuous.
+  const gap = last ? serverTime-last.serverTime : 0;
+  const distance = last ? Math.hypot(player.position.x-last.player.position.x,
+    player.position.y-last.player.position.y,player.position.z-last.player.position.z) : 0;
+  const discontinuity = last && (last.player.alive !== player.alive
+    || gap > .45 || distance > Math.max(4.5,55*gap));
+  const next = discontinuity ? [] : history;
   next.push({ at, serverTime, player });
   while (next.length > 5) next.shift();
   return next;
@@ -24,7 +31,7 @@ export function appendRemoteSample(history, player, serverTime, at) {
 export function advanceRemotePlaybackClock(previous, latest, dt, delay = REMOTE_PLAYBACK_DELAY_SEC) {
   if (!Number.isFinite(latest)) return previous;
   const target = latest - delay;
-  if (!Number.isFinite(previous) || latest < previous - 1) return target;
+  if (!Number.isFinite(previous) || latest < previous - 1 || target-previous > .35) return target;
   const step = Math.max(0, Math.min(0.05, dt));
   const projected = previous + step;
   const correction = Math.max(-0.004, Math.min(0.004, (target - projected) * 0.12));
