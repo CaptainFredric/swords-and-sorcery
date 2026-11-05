@@ -1,7 +1,7 @@
 // Authoritative machine Skill state. Equipment is personal; cooldowns,
 // actual repeater debt and shared resources stay with Fight-and-Flight.
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
-import {updateNarrowTracking,narrowAcquireTarget} from './fightFlightTracking.mjs';
+import {updateNarrowTracking} from './fightFlightTracking.mjs';
 export const FIRE_AWAY=Object.freeze({
   id:'fireAwayImRightHere',name:"Fire Away? I'm Right Here.",duration:3.5,cooldown:24,
 });
@@ -22,11 +22,17 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     return chosen===FIRE_AWAY?'Operate Fight-and-Flight to use Fire Away.':'Operate Fight-and-Flight to use '+chosen.name+'.';
   if(m.skill?.phase==='active'){
     if(chosen===NARROW_TO_ONE&&m.skill.id===NARROW_TO_ONE.id){
-      // A fresh press selects one explicit reticle target. Midair target
-      // switching is prohibited; a true, settled landing authorizes it.
+      // During soft acquisition the Skill stays on while gaze chooses a
+      // candidate. Pressing Skill twice must never fabricate a lock.
+      if(!m.skill.lockedOnce){updateNarrowTracking(room,m,p,now);return null;}
+      // Keep the deliberate grounded retarget from the original skill: a
+      // locked airborne target cannot be silently replaced by camera aim.
       updateNarrowTracking(room,m,p,now);
-      if(!m.skill.targetId||(m.grounded&&now>=(m.skill.retargetReadyAt??Infinity))){
-        narrowAcquireTarget(room,m,p,now,aim);
+      if(m.grounded&&now>=(m.skill.retargetReadyAt??Infinity)){
+        m.skill.lockedOnce=false;m.skill.targetId=null;
+        m.skill.lastPreviewId=null;m.skill.pendingTargetId=null;
+        m.skill.pendingSince=null;
+        updateNarrowTracking(room,m,p,now);
         return null;
       }
     }
@@ -39,11 +45,9 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     activeUntil:chosen.duration==null?null:now+chosen.duration,startedAt:now,
     borrowed:0,targetId:null,lockedOnce:false,targetVisible:false,targetInTraverse:false,noClearShot:false,
     trackingState:chosen===NARROW_TO_ONE?'acquiring':null,
+    lastPreviewId:null,pendingTargetId:null,pendingSince:null,
     wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity};
-  if(chosen===NARROW_TO_ONE){
-    narrowAcquireTarget(room,m,p,now,aim);
-    updateNarrowTracking(room,m,p,now);
-  }
+  if(chosen===NARROW_TO_ONE)updateNarrowTracking(room,m,p,now);
   room.events.push({type:'siegeSkill',machineId:m.id,skill:chosen.id,
     action:'activated',at:now,until:m.skill.activeUntil});
   return null;
@@ -66,6 +70,8 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
   if(!m||m.skill?.phase!=='active')return false;
   const skill=m.skill.id;
   m.skill.phase='idle';m.skill.activeUntil=0;m.skill.targetId=null;
+  m.skill.lockedOnce=false;m.skill.lastPreviewId=null;
+  m.skill.pendingTargetId=null;m.skill.pendingSince=null;
   // A sustained lock must never have completed its cooldown before it ends.
   if(skill===NARROW_TO_ONE.id)m.skill.readyAt=now+NARROW_TO_ONE.cooldown;
   m.skill.targetVisible=false;m.skill.targetInTraverse=false;m.skill.noClearShot=false;m.skill.trackingState=null;
