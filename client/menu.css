@@ -890,3 +890,5 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #rooms-menu .mode-filters { margin: 6px 0 9px; }
   #rooms-menu .room-row { min-height: 49px; }
 }
+
+#rooms-menu .companion-banner [hidden], #solo-menu .companion-banner [hidden] { display: none !important; }
