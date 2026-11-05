@@ -86,7 +86,11 @@ function previewCandidates(room,m,operator,aim){
   if(!targetOnline(p)||p.id===operator.id||
     areAllies(room,operator.id,p.id)||!p.position)continue;
   const score=reticleDistance(source,frame,p);
-  if(score>1.6)continue; // allow incumbent scoring when looking slightly away
+  // Avoid a 20-point masonry/guard raycast for every distant/off-reticle
+  // player on every 30Hz multiplayer tick. Keep the old incumbent eligible
+  // for hysteresis even while it has drifted outside the acquisition cone.
+  const incumbent=p.id===m.skill?.targetId;
+  if(score>(incumbent?1.6:NARROW_PREVIEW.acquireRadius))continue;
   const visible=narrowTargetVisible(room,m,p,solids);
   out.push({p,score,visible});
  }
