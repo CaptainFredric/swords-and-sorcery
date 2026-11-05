@@ -24,7 +24,10 @@ export class FightFlightRenderer{
     // Ground fire is authoritative aftermath, not part of the wreck model:
     // it remains visible after the apparatus disappears.
     this.burnRoot=everywhere(new THREE.Group());this.scene.add(this.burnRoot);
-    this.burnGeometry=new THREE.RingGeometry(.48,1,32);this.burnZones=new Map();
+    this.burnGeometry=new THREE.RingGeometry(.48,1,32);
+    this.burnCoreGeometry=new THREE.CircleGeometry(1,32);
+    this.burnFlameGeometry=new THREE.ConeGeometry(.18,.72,3);
+    this.burnZones=new Map();
   }
   load(){
     if(this.pending||this.disposed)return this.pending??Promise.resolve(false);
@@ -217,19 +220,59 @@ export class FightFlightRenderer{
     for(const zone of zones??[]){
       if(!zone?.point||!(now<zone.expiresAt))continue;
       active.add(zone.id);
-      let mesh=this.burnZones.get(zone.id);
-      if(!mesh){
-        mesh=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({color:0x9e421d,transparent:true,opacity:.53,depthWrite:false,side:THREE.DoubleSide}));
-        mesh.rotation.x=-Math.PI/2;mesh.renderOrder=1;this.burnRoot.add(mesh);this.burnZones.set(zone.id,mesh);
+      let visual=this.burnZones.get(zone.id);
+      if(!visual){
+        const group=new THREE.Group();
+        const edge=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({
+          color:0xd45c28,transparent:true,opacity:.44,depthWrite:false,
+          side:THREE.DoubleSide}));
+        edge.rotation.x=-Math.PI/2;edge.renderOrder=2;
+        group.add(edge);
+        // Low-poly ember disc and flame tongues make the lingering AoE
+        // unmistakably HOT without an expensive particle cloud or an opaque
+        // hazard decal hiding duelists. Its server radius is unchanged.
+        const core=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
+          color:0xa13816,transparent:true,opacity:.13,depthWrite:false,
+          side:THREE.DoubleSide}));
+        core.rotation.x=-Math.PI/2;core.position.y=-.012;core.renderOrder=1;
+        group.add(core);
+        const flames=[];
+        for(let i=0;i<10;i++){
+          const mesh=new THREE.Mesh(this.burnFlameGeometry,new THREE.MeshBasicMaterial({
+            color:i%3===0?0xffcc62:i%2?0xf58131:0xedaf4a,
+            transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}));
+          mesh.rotation.y=i*2.4;mesh.renderOrder=3;
+          group.add(mesh);flames.push(mesh);
+        }
+        visual={group,edge,core,flames};
+        this.burnRoot.add(group);this.burnZones.set(zone.id,visual);
       }
       const duration=Math.max(.1,zone.expiresAt-zone.startedAt);
-      const remaining=Math.max(0,(zone.expiresAt-now)/duration);
-      mesh.material.opacity=.16+.36*remaining;
-      mesh.position.set(zone.point.x,zone.point.y+.055,zone.point.z);
-      mesh.scale.setScalar(zone.radius??4);
+      const remaining=Math.max(0,Math.min(1,(zone.expiresAt-now)/duration));
+      const radius=Number.isFinite(zone.radius)?zone.radius:4;
+      const pulse=Math.sin(now*8)*.06;
+      visual.edge.material.opacity=(.18+.30*remaining)*(1+pulse);
+      visual.edge.scale.setScalar(radius);
+      visual.core.material.opacity=.045+.11*remaining;
+      visual.core.scale.setScalar(radius*.97);
+      visual.group.position.set(zone.point.x,zone.point.y+.055,zone.point.z);
+      for(let i=0;i<visual.flames.length;i++){
+        const flame=visual.flames[i];
+        const theta=i*Math.PI*2/visual.flames.length;
+        const distance=radius*(.24+.48*((i*7)%11)/11);
+        const flicker=.74+.26*Math.sin(now*11+i*2.6);
+        const height=(.38+.075*radius)*flicker;
+        flame.position.set(Math.sin(theta)*distance,height*.46,
+          Math.cos(theta)*distance);
+        flame.scale.set(.6+radius*.055,height/.72,.6+radius*.055);
+        flame.material.opacity=(.22+.5*remaining)*flicker;
+      }
     }
-    for(const [id,mesh] of this.burnZones)if(!active.has(id)){
-      mesh.removeFromParent();mesh.material.dispose();this.burnZones.delete(id);
+    for(const [id,visual] of this.burnZones)if(!active.has(id)){
+      visual.group.removeFromParent();
+      visual.edge.material.dispose();visual.core.material.dispose();
+      for(const flame of visual.flames)flame.material.dispose();
+      this.burnZones.delete(id);
     }
   }
   getOperatorGrips(){return this.animation?.grips()??null;}
@@ -284,6 +327,7 @@ export class FightFlightRenderer{
     this.boltGeometry.dispose();this.boltMaterial.dispose();
     disposeQuarrelDetail(this.quarrelDetail);
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
-    this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();this.burnGeometry.dispose();
+    this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
+    this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();
     this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();for(const mat of [o.material].flat())mat?.dispose();}});}
 }

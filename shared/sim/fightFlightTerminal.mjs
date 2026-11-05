@@ -12,9 +12,35 @@ import {blastSoFistication} from './soFistication.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
 export const TERMINAL=Object.freeze({holdSec:1,timeout:5,maxSpeed:25,
   gravity:18,burnPerSec:10,explosionRadius:8,explosionDamage:105,
-  fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.55});
+  fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.55,
+  minBlastRadius:6,maxBlastRadius:13,minBlastDamage:75,maxBlastDamage:210,
+  minFireRadius:3.5,maxFireRadius:7,minFireDuration:7,maxFireDuration:12,
+  minFireTick:4,maxFireTick:9,blastFalloffPower:1.5});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const ready=(m,p,now)=>ascensionValkyrieReady(m,p,now);
+const healthFraction=(hp,max)=>clamp((Number.isFinite(hp)?hp:0)/max,0,1);
+/** Snapshot the actual machine's physical integrity at COMMIT, not impact:
+ * terminal self-burning must not paradoxically shrink its final blast.
+ * Damaged rotor, braces or hull reduce yield; practice refills do not. */
+export function terminalBlastProfile(m){
+ const condition=clamp(
+   .46*healthFraction(m?.health,m?.maxHealth||250)
+   +.23*healthFraction(m?.rotorHP,100)
+   +.105*healthFraction(m?.braceLHP,80)
+   +.105*healthFraction(m?.braceRHP,80)
+   +.10*healthFraction(m?.flightCharge,m?.maxFlightCharge||100),0,1);
+ const lerp=(a,b)=>a+(b-a)*condition;
+ return {
+   condition,
+   radius:lerp(TERMINAL.minBlastRadius,TERMINAL.maxBlastRadius),
+   damage:lerp(TERMINAL.minBlastDamage,TERMINAL.maxBlastDamage),
+   fireRadius:lerp(TERMINAL.minFireRadius,TERMINAL.maxFireRadius),
+   fireDuration:lerp(TERMINAL.minFireDuration,TERMINAL.maxFireDuration),
+   fireTickDamage:lerp(TERMINAL.minFireTick,TERMINAL.maxFireTick),
+ };
+}
+export const terminalRadialDamage=(damage,distance,radius)=>
+  radius>0?Math.max(0,Math.round(damage*Math.max(0,1-distance/radius)**TERMINAL.blastFalloffPower)):0;
 const operator=(room,m,p)=>Boolean(m&&m.mode!=='DESTROYED'&&m.health>0&&
   p?.alive&&room.players.get(p.id)===p&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);
 export function setFlightUltimateHold(room,m,p,down,now){
@@ -50,9 +76,15 @@ export function stepTerminalPreparation(room,m,now){
  if(now+1e-8<m.terminalPrep.until)return;
  // Validate again before irrevocably spending the actual ready Chivalry.
  if(!ready(m,p,now))return;
+ commitTerminalDive(room,m,p,now);
+}
+function commitTerminalDive(room,m,p,now){
+ if(!operator(room,m,p)||m.grounded||!ready(m,p,now))return false;
  p.prowess=0;
  m.terminalDiveSpent=true;
+ const blastProfile=terminalBlastProfile(m);
  m.terminalDive={operatorId:p.id,startedAt:now,expiresAt:now+TERMINAL.timeout,
+  blastProfile,
   heading:m.heading,impactAt:null,resolved:false,chargeAtCommit:m.flightCharge,
   // LocalHost may deliver fewer than 30 callbacks per wall-clock second in a
   // saturated browser. The dive's finite TIMEOUT must represent simulated
@@ -62,7 +94,16 @@ export function stepTerminalPreparation(room,m,now){
  m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;
  room.events.push({type:'fightFlightTerminalCommitted',machineId:m.id,operatorId:p.id,
    trajectory:{x:m.x,y:m.y,z:m.z,heading:m.heading,velocity:{...m.velocity}},
-   expiresAt:m.terminalDive.expiresAt,at:now});
+   expiresAt:m.terminalDive.expiresAt,blastProfile,at:now});
+ return true;
+}
+/** A valid mobile Dagaz + halo gesture commits directly. The host still
+ * checks the same full Ascension/Chivalry/rotor/charge/airborne requirements
+ * as the held Dash+Ultimate chord. No client-provided power or radius accepted.
+ */
+export function requestTerminalRitual(room,m,p,now){
+ if(!operator(room,m,p)||m.grounded||!ready(m,p,now))return false;
+ return commitTerminalDive(room,m,p,now);
 }
 export function terminalFlightSteps(dive,now,dt){
  // Preserve real 30 Hz physics under a throttled solo/browser host without
@@ -109,19 +150,21 @@ export function resolveTerminalFlight(room,m,now){
  d.resolved=true;d.resolvedAt=now;
  const point={x:m.x,y:m.y,z:m.z};
  const reason=d.impactAt!=null?'impact':m.grounded?'landing':'timeout';
+ const blastProfile=d.blastProfile??terminalBlastProfile(m);
+ const {radius,damage,fireRadius,fireDuration,fireTickDamage}=blastProfile;
  room.events.push({type:'fightFlightTerminalExplosion',machineId:m.id,operatorId:d.operatorId,
-   point,radius:TERMINAL.explosionRadius,reason,at:now});
+   point,radius,damage,condition:blastProfile.condition,reason,at:now});
  for(const p of room.players.values()){
    if(!p.alive||p.id===d.operatorId||areAllies(room,d.operatorId,p.id))continue;
    const dy=clamp((p.position.y+.9)-point.y,-6,6);
    const dist=Math.hypot(p.position.x-point.x,dy,p.position.z-point.z);
-   if(dist>TERMINAL.explosionRadius||occluded(room,point,p))continue;
-   const raw=Math.max(0,Math.round(TERMINAL.explosionDamage*(1-dist/TERMINAL.explosionRadius)**1.3));
+   if(dist>radius||occluded(room,point,p))continue;
+   const raw=terminalRadialDamage(damage,dist,radius);
    if(raw>0)applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
  }
  // Use established per-component blast allocations for both siege engines;
  // destructible masonry is damaged at its actual nearest exposed surface.
- const blast={point,radius:TERMINAL.explosionRadius,damage:TERMINAL.explosionDamage};
+ const blast={point,radius,damage};
  if(room.biByeLlista)blastBiByeLlista(room,room.biByeLlista,blast,d.operatorId,'fight-flight-terminal',now,room.world?.solids??[]);
  if(room.soFistication)blastSoFistication(room,room.soFistication,blast,d.operatorId,'fight-flight-terminal',now);
  const usedStructures=new Set();
@@ -130,11 +173,11 @@ export function resolveTerminalFlight(room,m,now){
    if(!id||usedStructures.has(id)||!Array.isArray(solid.center)||!Array.isArray(solid.size))continue;
    const delta=solid.center.map((v,i)=>Math.max(0,Math.abs(v-[point.x,point.y,point.z][i])-solid.size[i]/2));
    const distance=Math.hypot(...delta);
-   if(distance>=TERMINAL.explosionRadius)continue;
+   if(distance>=radius)continue;
    const cover=(room.world?.solids??[]).some(other=>other.id!==solid.id&&
      segmentAabbHit([point.x,point.y+.6,point.z],solid.center,other)?.t<.98);
    if(cover)continue;
-   const amount=TERMINAL.explosionDamage*(1-distance/TERMINAL.explosionRadius)**1.3;
+   const amount=terminalRadialDamage(damage,distance,radius);
    if(damageStructureSolid(room,solid,amount,d.operatorId,'fight-flight-terminal',now,{point}))usedStructures.add(id);
  }
  const pilot=room.players.get(d.operatorId);
@@ -158,10 +201,10 @@ export function resolveTerminalFlight(room,m,now){
  const floor=surfaceHeightAt(point.x,point.z,point.y+1,room.world);
  // A detonation over an abyss or far above any surface has no burning GROUND.
  // Never create a hovering damage zone at its airborne explosion coordinates.
- if(floor!=null&&point.y-floor<=TERMINAL.explosionRadius){
+ if(floor!=null&&point.y-floor<=radius){
    const firePoint={x:point.x,y:floor,z:point.z};
-   room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:TERMINAL.fireRadius,
-     startedAt:now,expiresAt:now+TERMINAL.fireDuration,nextTickAt:now+TERMINAL.fireInterval});
+   room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:fireRadius,
+     tickDamage:fireTickDamage,startedAt:now,expiresAt:now+fireDuration,nextTickAt:now+TERMINAL.fireInterval});
  }
  return true;
 }
@@ -172,9 +215,14 @@ export function stepFlightBurnZones(room,now){
    zone.nextTickAt=now+TERMINAL.fireInterval;
    for(const p of room.players.values()){
      if(!p.alive||areAllies(room,zone.sourceId,p.id))continue;
-     if(Math.hypot(p.position.x-zone.point.x,p.position.z-zone.point.z)>zone.radius||
-       Math.abs(p.position.y-zone.point.y)>1.5||occluded(room,zone.point,p))continue;
-     applyDamage(room,zone.sourceId,p.id,TERMINAL.fireTickDamage,'fight-flight-burning-ground',now,null,{ultimate:true,ongoing:true});
+     const distance=Math.hypot(p.position.x-zone.point.x,p.position.z-zone.point.z);
+     if(distance>zone.radius||Math.abs(p.position.y-zone.point.y)>1.5||occluded(room,zone.point,p))continue;
+     const lifetime=Math.max(.001,zone.expiresAt-zone.startedAt);
+     const age=clamp((now-zone.startedAt)/lifetime,0,1);
+     const spatial=Math.max(0,1-distance/zone.radius);
+     const temporal=Math.max(.35,1-.65*age);
+     const amount=Math.max(1,Math.round((zone.tickDamage??TERMINAL.fireTickDamage)*spatial**.65*temporal));
+     applyDamage(room,zone.sourceId,p.id,amount,'fight-flight-burning-ground',now,null,{ultimate:true,ongoing:true});
    }
  }
  room.flightBurnZones=room.flightBurnZones.filter(z=>now<z.expiresAt);

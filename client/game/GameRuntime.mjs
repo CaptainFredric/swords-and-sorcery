@@ -1607,10 +1607,18 @@ export class GameRuntime {
         if(event.trajectory){const at=event.trajectory;this.effects.sparks(at,0xe4a44c,9);}
       }
       if(event.type==='fightFlightTerminalExplosion'&&event.point){
-        this.effects.impact(event.point,{spell:'fireball',radius:Math.min(event.radius??8,8),ground:event.point.y});
-        this.effects.groundShock(event.point,{radius:Math.min(event.radius??8,8)});
+        const radius=Math.max(2,Math.min(13,Number.isFinite(event.radius)?event.radius:8));
+        const power=Math.max(0,Math.min(1,Number.isFinite(event.condition)?event.condition:.5));
+        // The host has already computed the real blast radius from the
+        // machine's integrity at commitment. Do NOT clamp back to old 8 m.
+        // Derive the world ring from the actual settled burn zone, if any;
+        // an impact high above the void must not draw a phantom ground disc.
+        const zone=this.latestSnapshot?.flightBurnZones?.find?.(z=>z.id===event.machineId+'-burn');
+        this.effects.impact(event.point,{spell:'fireball',radius,ground:zone?.point?.y??null});
+        if(zone)this.effects.groundShock(zone.point,{radius:zone.radius});
+        this.effects.sparks(event.point,0xffbd72,Math.round(20+22*power));
         this.effects.splinters(event.point,16);
-        this.#play(fireballImpactRecipe(),event.point,1);
+        this.#play(fireballImpactRecipe(),event.point,.85+.35*power);
       }
       if (event.type === 'siegeSteelOn') {
         const machine = this.#siegeMachine(event.machineId);

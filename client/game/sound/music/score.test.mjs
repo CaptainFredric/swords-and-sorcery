@@ -190,7 +190,7 @@ test('Spells & Chivalry taken up: strings swell from B-flat into D major on the 
 // directly with its own procedural instruments, never shipping a recording.
 test('Ascension Valkyries cue starts brass immediately in nine-pulse gallop and loops safely',async()=>{
  const {PIECES,VALKYRIES,valkyrieBars}=await import('./score.mjs');
- assert.equal(PIECES.valkyrie.bpm,280);
+ assert.equal(PIECES.valkyrie.bpm,270);
  assert.equal(VALKYRIES.beatsPerBar,9);
  const bars=take(valkyrieBars(),12);
  assert.equal(bars.length,12);

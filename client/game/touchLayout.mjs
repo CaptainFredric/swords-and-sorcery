@@ -95,6 +95,9 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   spell:{right:154,bottom:214,size:50},
   siegeView:{right:14,top:6,size:36},
   interact:{right:60,top:6,size:36},
+  // Visual stencil overlays the right-hand controls, but owns an independent
+  // draggable/resizable hit region. No real button is a path checkpoint.
+  valkyrieStencil:{right:14,bottom:80,size:200,type:'stencil'},
 });
 const MOUNTED_ACTIONS = Object.freeze({
   attack:{right:14,bottom:20,size:76},
@@ -171,10 +174,12 @@ export function clampPlacement(item, viewport = { width: 800, height: 450 }) {
   const clamped = { ...item, custom: true };
   const safeMargin = 4;
   const stick = item.type === 'stick';
+  const stencil=item.type==='stencil';
 
   if (clamped.size !== undefined) {
-    clamped.size = Math.max(stick ? 80 : MIN_BUTTON_SIZE,
-      Math.min(stick ? 172 : MAX_BUTTON_SIZE, Number(clamped.size) || (stick ? 112 : 50)));
+    clamped.size = Math.max(stick ? 80 : stencil ? 155 : MIN_BUTTON_SIZE,
+      Math.min(stick ? 172 : stencil ? 300 : MAX_BUTTON_SIZE,
+        Number(clamped.size) || (stick ? 112 : stencil ? 200 : 50)));
   }
   if (clamped.width !== undefined) {
     clamped.width = Math.max(36, Math.min(160, Number(clamped.width) || 36));
@@ -297,7 +302,8 @@ export function applyLayoutItem(element, placement, scale = 1) {
   }
 
   if (placement.size !== undefined) {
-    element.style.setProperty(placement.type==='stick'?'--stick-size':'--size', `${placement.size}px`);
+    element.style.setProperty(placement.type==='stick'?'--stick-size':
+      placement.type==='stencil'?'--stencil-size':'--size', `${placement.size}px`);
   }
   if (placement.width !== undefined) {
     element.style.width = `calc(${placement.width}px * var(--s))`;

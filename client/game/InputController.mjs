@@ -589,6 +589,12 @@ export class InputController {
     const held=this.flightUltimateSources.size>0;
     if(was!==held&&this.mountedFlight)this.socket?.send?.({type:'flightUltimateHold',down:held});
   }
+  flightTerminalRitual() {
+    // The overlay is only a gesture recognizer. The host owns the cost,
+    // eligibility, once-per-machine flag and irrevocable terminal lifecycle.
+    if(this.enabled&&this.mountedFlight)
+      this.socket?.send?.({type:'flightTerminalRitual'});
+  }
   flightDash(down,source='touch') {
     if(down&&(!this.enabled||!this.mountedFlight))return;
     const was=this.flightDashSources.size>0;
