@@ -19,12 +19,13 @@ export const FIRST_PERSON_SWORD_ARM = Object.freeze({
 });
 
 // the first-person magic arm when it joins the sword's grip (the heavy third strike): it aims the hand's fingers (its
-// own y) and lies its palm (its own z) against the grip, exactly; the elbow stays out to the left, well apart from
-// the sword arm's
+// own y) and lies its palm (its own z) against the grip, exactly; the elbow hangs down and out to the left, well apart
+// from the sword arm's (pointed more out than down, the elbow of a hand raised to the hilt came up under the eye and
+// filled a corner of the view with the joint's plates)
 export const FIRST_PERSON_OFF_ARM = Object.freeze({
   shoulder: 'upper_arm.L', elbow: 'forearm.L', wrist: 'hand.L', grip: 'hand.L',
   aim: Object.freeze([0, 1, 0]), roll: Object.freeze([0, 0, 1]),
-  pole: Object.freeze([-0.85, -0.5, 0.1]), exactRoll: true,
+  pole: Object.freeze([-0.55, -0.83, 0.05]), exactRoll: true,
 });
 
 // the third-person Spellblade (menu flourishes): its blade (0.94 m) in the grip socket, the elbows out and down
