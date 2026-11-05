@@ -37,6 +37,14 @@ export const THUMP_REST = 6;           // seconds after a thump before another (
 export const THUMP_JOIN = 0.2;         // a thump seen late (latency) joins up to this far in, still on the piston's beat
 export const BRUSH_CHANCE = 0.26;      // a wounded knight occasionally treats the impact as dust on his cuirass
 export const BRUSH_REST = 12;          // a burst of projectile hits is one opportunity, not repeated lottery rolls
+// the brush's path in the chest's frame (metres from the chest bone, the knight's axes: +x his right, +y up, -z ahead):
+// each stroke from `from` to `to` over the plate, the palm's centre `palm` off it, lifted `lift` between strokes (and
+// `touch` of that at each stroke's ends); `strokes`: each stroke's start and end (seconds into the gesture)
+export const BRUSH = Object.freeze({ from: [0.08, 0.0], to: [-0.13, -0.1], palm: 0.04, lift: 0.05, touch: 0.15,
+  strokes: Object.freeze([Object.freeze([0.36, 0.62]), Object.freeze([0.92, 1.18])]) });
+// the breastplate's front (z, from the chest bone) across his chest, measured on the model: 28 cm ahead of the chest
+// bone in the middle, falling back toward his sides
+export const breastplateFront = (x) => -0.278 + 1.2 * x * x;
 
 import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
 
@@ -119,7 +127,7 @@ export function bodyClaims(c) {
 // each gesture's share of a slot's draw. Within a pool the draw ignores what he is doing that moment; whether it shows
 // is then the body's affair (bodyClaims) and `when` (also from authoritative state).
 export const POOLS = Object.freeze({
-  foot: Object.freeze({ look: 3, yawn: 1.2, refuse: 0.75 }),
+  foot: Object.freeze({ look: 3, yawn: 1.2, refuse: 0.75, palm: 1.1, neck: 0.9 }),
   ballista: Object.freeze({ look: 2, glance: 2, shade: 1.6, frustration: 1, yawn: 0.5 }),
   ram: Object.freeze({ look: 2, glance: 2, frustration: 1.2, yawn: 0.4 }),
   flight: Object.freeze({ look: 2, glance: 1.4, lsit: 1.6 }),
@@ -133,6 +141,9 @@ export const GESTURES = Object.freeze({
   glance: Object.freeze({ seconds: 1.9, needs: ['head'], likes: [] }),
   yawn: Object.freeze({ seconds: 2.7, needs: ['armL'], likes: ['head', 'torso'], when: (c) => !c.sprinting && !c.airborne }),
   refuse: Object.freeze({ seconds: 2.1, needs: ['armL', 'head'], likes: ['torso'], when: (c) => !c.machine }),
+  // the concept's own pose: steel in one hand, sorcery in the other (the palm's runes brighten while he regards it)
+  palm: Object.freeze({ seconds: 3.0, needs: ['armL'], likes: ['head'], when: (c) => !c.machine && !c.sprinting && !c.airborne }),
+  neck: Object.freeze({ seconds: 1.9, needs: ['head'], likes: ['torso'], when: (c) => !c.sprinting }),
   frustration: Object.freeze({ seconds: 2.9, needs: ['armR'], likes: ['head', 'torso'],
     // (more likely while the machine makes him wait)
     bias: (c) => (c.machineReloading ? 3 : 1) }),
@@ -140,6 +151,8 @@ export const GESTURES = Object.freeze({
   lsit: Object.freeze({ seconds: 3.4, needs: ['legs'], likes: [], when: (c) => Boolean(c.airborne) }),
   // reactions (never drawn: an event starts them)
   nod: Object.freeze({ seconds: 1.0, needs: ['head'], likes: ['torso'], reaction: true }),
+  // back on his feet after a stagger: one short shake of the helmet to clear it
+  clear: Object.freeze({ seconds: 0.9, needs: ['head'], likes: [], reaction: true }),
   brush: Object.freeze({ seconds: 1.85, needs: ['armL'], likes: ['head', 'torso'], reaction: true }),
   appraise: Object.freeze({ seconds: 2.7, needs: ['head'], likes: ['torso'], reaction: true }),
   thump: Object.freeze({ seconds: 1.2, needs: ['armR'], likes: ['head', 'torso'], reaction: true }),
@@ -279,7 +292,8 @@ export function thumpBeats(release) {
  * - turns: [{ bone, axis, angle }] root-space turns added to the pose (at full strength: scale by weight);
  * - hand: { side, at, aim, palm, open, frame }: a hand's palm centre, relative to the head bone, its fingers along `aim`
  *   and its palm facing `palm`; `open`: the fingers straightened out of whatever grip they had (flat, to shade the eyes);
- *   frame 'head': all three in the head's frame (the hand turns with the helmet), else the knight's;
+ *   frame 'head': all three in the head's frame (the hand turns with the helmet); frame 'chest': relative to the chest
+ *   bone and in its frame (the hand stays on the breastplate as he leans); else the head's place in the knight's frame;
  * - strike: { side, reach, lift }: the fist taken `reach` (0..1) of the way from where its machine holds it to the
  *   machine's casing (the animator has the casing from the machine's pose), raised `lift` metres above that line; at
  *   reach 1 and lift 0 it is on the casing;
@@ -326,27 +340,62 @@ export function gesturePose(g) {
       return { turns, weight: envelope(age, seconds, 0.1, 0.2) };
     }
     case 'brush': {
-      // Two dismissive swipes across the chest plate. Nothing about the hit was remarkable, apparently.
-      // The palm passes down and across the cuirass twice, with a slight glance at the alleged dust.
-      const first = hump(age, 0.40, 0.84);
-      const second = hump(age, 0.97, 1.41);
-      const wipe = first + second;
-      const regard = smooth(age / 0.35) * (1 - smooth((age - 1.52) / 0.25));
-      head(-5 * DEG * regard, 0);
-      return { turns, hand: {
-        side: 'L', at: [-0.06 + wipe * 0.15, -0.35 - wipe * 0.035, -0.25],
-        aim: [0.2, -0.8, -0.55], palm: [0, 0, -1], open: true,
-      }, weight: envelope(age, seconds, 0.25, 0.30) };
+      // "Dust." Two casual brushes of the off hand across the breastplate: palm on the plate, from the middle of his
+      // chest out to his left and down, lifted back between; one glance down at the alleged dust on the first and
+      // straight back up for the second, as though nothing had happened. In the chest's frame, so the hand stays on
+      // the plate at a run or behind his Guard.
+      const [[a1, b1], [a2, b2]] = BRUSH.strokes;
+      let u, lift;
+      if (age < a1) { u = 0; lift = 1; }
+      else if (age < b1) { u = smooth((age - a1) / (b1 - a1)); lift = BRUSH.touch * (1 - Math.sin(Math.PI * u)); }
+      else if (age < a2) { const v = smooth((age - b1) / (a2 - b1)); u = 1 - v; lift = Math.max(BRUSH.touch, Math.sin(Math.PI * v)); }
+      else if (age < b2) { u = smooth((age - a2) / (b2 - a2)); lift = BRUSH.touch * (1 - Math.sin(Math.PI * u)); }
+      else { u = 1; lift = smooth((age - b2) / 0.25); }
+      const x = BRUSH.from[0] + (BRUSH.to[0] - BRUSH.from[0]) * u;
+      const y = BRUSH.from[1] + (BRUSH.to[1] - BRUSH.from[1]) * u;
+      const z = breastplateFront(x) - BRUSH.palm - BRUSH.lift * lift;
+      const regard = smooth(age / 0.25) * (1 - smooth((age - 0.72) / 0.3));
+      head(-18 * DEG * regard, -6 * DEG * regard);
+      turns.push({ bone: 'chest', axis: [0, 1, 0], angle: 3 * DEG });
+      // (the fingers across his chest toward his right, flicking down a little as each stroke goes out)
+      const aim = [0.88, 0.47 - 0.3 * u, 0];
+      return { turns, hand: { side: 'L', frame: 'chest', at: [x, y, z], aim, palm: [0, 0, 1], open: true },
+        weight: envelope(age, seconds, 0.25, 0.30) };
     }
     case 'refuse': {
-      // One palm comes forward in quiet refusal while the helmet shakes no twice; the rest of the fight goes on.
+      // "No." One hand up and out before him, palm to whoever it is and fingers up, the elbow soft, while the helmet
+      // shakes no twice and the hand gives a small wag with it; then back to whatever he was doing.
       const out = smooth(age / 0.35) * (1 - smooth((age - 1.58) / 0.40));
       const shake = hump(age, 0.4, 1.55) * Math.sin((age - 0.4) * Math.PI * 3.6);
-      head(0, 14 * DEG * shake);
+      head(-2 * DEG * out, 14 * DEG * shake);
       return { turns, hand: {
-        side: 'L', at: [-0.19, -0.16, -0.33 - out * 0.24],
-        aim: [0, 1, 0], palm: [0, 0, -1], open: true,
+        side: 'L', at: [-0.3 - 0.015 * shake, -0.3, -0.38 - out * 0.2],
+        aim: [0.08, 1, -0.05], palm: [0.05, 0, -1], open: true,
       }, weight: envelope(age, seconds, 0.30, 0.35) };
+    }
+    case 'palm': {
+      // the concept sheet's pose: the off hand comes up before him, palm up and fingers a little open, the runes on
+      // it brightening as he regards it (glow), a small turn of the wrist; then down again, unhurried
+      const up = smooth(age / 0.55) * (1 - smooth((age - 2.35) / 0.55));
+      const turn = Math.sin(age * 2.2) * 0.12 * up;
+      head(-20 * DEG * up, 22 * DEG * up);
+      return { turns, hand: { side: 'L', frame: 'chest', at: [-0.34, 0.0 + 0.03 * up, -0.4 - 0.04 * up],
+        aim: [-0.25 + turn, 0.12, -1], palm: [turn * 0.5, 1, 0.12], open: true },
+      glow: smooth((age - 0.45) / 0.5) * (1 - smooth((age - 2.2) / 0.45)), weight: envelope(age, seconds, 0.35, 0.5) };
+    }
+    case 'neck': {
+      // a roll of the neck in the helmet, the shoulders settling with it: down, round to one side, up and back
+      const a = Math.min(1, p / 0.85) * Math.PI * 2;
+      const r = Math.sin(Math.min(1, p / 0.85) * Math.PI);
+      head(-14 * DEG * r * Math.cos(a / 2), 10 * DEG * side * r * Math.sin(a), 9 * DEG * side * r * Math.sin(a));
+      turns.push({ bone: 'chest', axis: [1, 0, 0], angle: 2.5 * DEG * r });
+      return { turns, weight: w };
+    }
+    case 'clear': {
+      // one short shake to clear his head: twice, quick and small
+      const shake = Math.sin(Math.min(1, age / 0.6) * Math.PI * 4) * (1 - smooth(age / 0.6));
+      head(-3 * DEG, 9 * DEG * shake);
+      return { turns, weight: envelope(age, seconds, 0.1, 0.2) };
     }
     case 'appraise': {
       // the bolt through two of them: he looks out where it went (data.bearing, radians to his left), and along the
@@ -442,6 +491,7 @@ export class GestureLayer {
     this.seen = new Set();     // reactions already answered (by their key)
     this.lastThumpAt = -Infinity;
     this.lastBrushAttemptAt = -Infinity;
+    this.staggered = false;   // staggered the frame before (back on his feet: a shake of the head)
     this.lastAt = null;
   }
 
@@ -527,6 +577,9 @@ export class GestureLayer {
     if (c.dead) { this.active = []; this.pending = []; return []; }
     const { claims, critical } = bodyClaims(c);
     if (critical) this.pending = this.pending.filter((r) => r.kind === 'brush' && brushAllowed(c));
+    // back on his feet after a stagger (authoritative state, so every observer sees it)
+    if (this.staggered && !c.staggered && !c.dead) this.#react({ kind: 'clear', at: now, until: now + 0.6, side: 1 });
+    this.staggered = Boolean(c.staggered);
     // the ram's fist going out (its authoritative strike time, from the snapshot): perhaps a thump along with it
     if (c.machine === 'ram' && Number.isFinite(c.ramStrikeAt)) this.thump(c.ramStrikeAt + (c.machineLag ?? 0), c.ramStrikeKey, c.ramRelease);
     // finished ones go

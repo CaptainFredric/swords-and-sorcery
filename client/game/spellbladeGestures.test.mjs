@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  APPRAISE_CHANCE, BRUSH_CHANCE, BRUSH_REST, FADE_OUT, GESTURES, GestureLayer, HARD, JOIN, NOD_WAIT, SLOT, THUMP_CHANCE, THUMP_REST, bodyClaims,
-  canStart, drawn, envelope, flightIntense, gestureMachines, gesturePose, isBrushImpact, regionOf, scheduledGesture, slotGesture, thumpBeats,
+  APPRAISE_CHANCE, BRUSH, BRUSH_CHANCE, BRUSH_REST, FADE_OUT, GESTURES, GestureLayer, HARD, JOIN, NOD_WAIT, SLOT, THUMP_CHANCE, THUMP_REST, bodyClaims,
+  breastplateFront, canStart, drawn, envelope, flightIntense, gestureMachines, gesturePose, isBrushImpact, regionOf, scheduledGesture, slotGesture, thumpBeats,
 } from './spellbladeGestures.mjs';
 
 const idle = Object.freeze({ machine: null, moving: false });
@@ -44,17 +44,19 @@ test('gestures are occasional: roughly one every 20 to 50 seconds, on foot or on
   }
 });
 
-test('each place has its own gestures: on foot a look or a yawn; the L-sit only from the flying machine, aloft', () => {
+test('each place has its own gestures: on foot a look, a yawn, a refusal, the palm or a neck roll; the L-sit only from the flying machine, aloft', () => {
   const kinds = (c) => {
     const seen = new Set();
     for (const id of ids) for (let s = 0; s < 3000; s += 1) { const g = slotGesture(id, s, c); if (g) seen.add(g.kind); }
     return [...seen].sort();
   };
-  assert.deepEqual(kinds(idle), ['look', 'refuse', 'yawn']);
+  assert.deepEqual(kinds(idle), ['look', 'neck', 'palm', 'refuse', 'yawn']);
   assert.deepEqual(kinds({ machine: 'ballista' }), ['frustration', 'glance', 'look', 'shade', 'yawn']);
   assert.deepEqual(kinds({ machine: 'ram' }), ['frustration', 'glance', 'look', 'yawn']);
   assert.deepEqual(kinds({ machine: 'flight' }), ['glance', 'look', 'lsit']);
   assert.equal(canStart('yawn', { ...idle, moving: true, sprinting: true }), false);
+  assert.equal(canStart('palm', { ...idle, moving: true, sprinting: true }), false);
+  assert.equal(canStart('palm', { machine: 'flight' }), false);
   assert.equal(canStart('lsit', { machine: 'flight', airborne: false }), false);
   assert.equal(canStart('lsit', { machine: 'flight', airborne: true }), true);
 });
@@ -440,4 +442,40 @@ test('a real sword contact, attack, or death ends a brush; the dismissive palm w
   a.update('knight', 11, sword);
   assert.ok(!a.update('knight', 11 + FADE_OUT + 0.01, sword).some((p) => p.kind === 'brush'));
   assert.deepEqual(a.update('knight', 12, { ...idle, dead: true }), []);
+});
+
+test('the brush lies on the breastplate: the palm toward the plate, its centre a gauntlet off it, twice across', () => {
+  const pose = (age) => gesturePose({ kind: 'brush', age, seconds: GESTURES.brush.seconds });
+  let crossings = 0, wasLeft = false;
+  for (let age = 0; age <= GESTURES.brush.seconds; age += 0.01) {
+    const { hand } = pose(age);
+    assert.equal(hand.frame, 'chest');
+    assert.ok(hand.palm[2] > 0.9, 'the palm faces the plate');
+    // never into the plate: the palm's centre stays at least the gauntlet's depth off its front
+    assert.ok(hand.at[2] <= breastplateFront(hand.at[0]) - BRUSH.palm + 1e-9, `into the plate at ${age.toFixed(2)} s`);
+    const left = hand.at[0] < (BRUSH.from[0] + BRUSH.to[0]) / 2;
+    const onPlate = hand.at[2] > breastplateFront(hand.at[0]) - BRUSH.palm - 0.01;
+    if (onPlate && left && !wasLeft) crossings += 1;
+    wasLeft = left;
+  }
+  assert.equal(crossings, 2, 'two strokes across the plate, on it');
+});
+
+test('the palm pose brightens his sorcery while he regards it, and lets it go again', () => {
+  const at = (age) => gesturePose({ kind: 'palm', age, seconds: GESTURES.palm.seconds });
+  assert.ok(at(1.4).glow > 0.9);
+  assert.ok(at(0).glow < 0.05 && at(GESTURES.palm.seconds).glow < 0.05);
+  assert.ok(at(1.4).hand.palm[1] > 0.9, 'palm up');
+});
+
+test('back on his feet after a stagger he shakes his head clear, once', () => {
+  const layer = new GestureLayer();
+  const c = { moving: false };
+  layer.update('k', 10, { ...c, staggered: true });
+  layer.update('k', 10.5, { ...c, staggered: true });
+  const kinds = layer.update('k', 10.6, c).map((g) => g.kind);
+  const later = layer.update('k', 10.9, c).map((g) => g.kind);
+  assert.ok(kinds.includes('clear') || later.includes('clear'));
+  layer.update('k', 12, c);
+  assert.ok(!layer.update('k', 12.1, c).some((g) => g.kind === 'clear'), 'once, not again while he stands');
 });
