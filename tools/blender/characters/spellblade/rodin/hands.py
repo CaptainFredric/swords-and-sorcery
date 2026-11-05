@@ -32,6 +32,10 @@ HAND_PARTS = ("hand", "finger", "thumb")          # (bone-name prefixes that mak
 # metres
 LAME = {"width": 0.035, "height": 0.04}       # a finger's lames: chunky plate, not a painted glove
 THUMB = {"width": 0.038, "height": 0.043}
+# the open spell hand's lames, a size up: first person sees that hand open and close up, where the fist's size read as
+# thin dark sticks (the fist keeps LAME: its fingers lie side by side round the grip)
+SPELL_LAME = {"width": 0.041, "height": 0.045}
+SPELL_THUMB = {"width": 0.043, "height": 0.047}
 SPELL = {  # the open spell hand, in its hand bone's frame (y along the hand, palm toward +z, thumb toward -x)
     "palm": (0.12, 0.134, 0.054),            # length, width, height of the back plate
     "lengths": (0.05, 0.036, 0.031),
@@ -208,10 +212,10 @@ def spell_hand(b: Builder, rig, side: str) -> list:
         d = rot(back, -SPELL["spread"] * (1.5 - i)) @ along
         scale = SPELL["scale"][name]
         points, ups = curled(knuckles + across * offset, d, back, [l * scale for l in SPELL["lengths"]], SPELL["curls"])
-        bones += finger(b, f"finger_{name}", side, points, ups, LAME["width"], LAME["height"], hand)
+        bones += finger(b, f"finger_{name}", side, points, ups, SPELL_LAME["width"], SPELL_LAME["height"], hand)
     points, ups = curled(world(SPELL["thumbBase"]), vec(SPELL["thumbDirection"]), vec(SPELL["thumbBack"]),
                          SPELL["thumbLengths"], SPELL["thumbCurls"])
-    bones += finger(b, "thumb", side, points, ups, THUMB["width"], THUMB["height"], hand)
+    bones += finger(b, "thumb", side, points, ups, SPELL_THUMB["width"], SPELL_THUMB["height"], hand)
     return bones
 
 
@@ -377,8 +381,9 @@ def build_hands(rig, gauntlets: dict, sword, palette: dict, swatch) -> dict:
     wrist = np.array(rig.matrix_world @ rig.data.bones["forearm.L"].tail_local)
     elbow = np.array(rig.matrix_world @ rig.data.bones["forearm.L"].head_local)
     toward = unit(elbow - wrist)
-    seat, radius = _ring_near(left, wrist, toward, 0.0, 0.06, "forearm.L")
-    cuff(b, seat, toward, radius + 0.006, "L")
+    # (the cuff closes over the vambrace's end (arms.py): sized to its outside)
+    seat, radius = _ring_near(left, wrist, toward, 0.0, 0.06, "forearm.L", share=90)
+    cuff(b, seat, toward, radius + 0.005, "L")
     report["L"]["faces"] = b.finish()
     report["L"]["cuffRadius"] = round(radius, 3)
     # the sword hand: Rodin's hand, and the forearm's last few centimetres inside the new fist, go
@@ -397,10 +402,8 @@ def build_hands(rig, gauntlets: dict, sword, palette: dict, swatch) -> dict:
     bones += fist
     toward = unit(elbow - (grip["centre"] - F * CUT))
     end = grip["centre"] - F * CUT
-    # (the sword arm's vambrace carries proud plates near the wrist: its cuff is sized to the arm itself, not them,
-    # or seen from behind it hides the fist)
-    seat, radius = _ring_near(right, end, toward, 0.0, 0.06, "forearm.R", share=35)
-    cuff(b, seat, toward, radius + 0.004, "R")
+    seat, radius = _ring_near(right, end, toward, 0.0, 0.06, "forearm.R", share=90)
+    cuff(b, seat, toward, radius + 0.005, "R")
     report["R"]["faces"] = b.finish()
     report["R"]["cuffRadius"] = round(radius, 3)
     make_bones(rig, bones)

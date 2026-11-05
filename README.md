@@ -20,6 +20,8 @@ This is a playable pre alpha under active development.
 | Practice Yard | Untimed training with configurable dummies |
 | Inspection Yard | Local Practice with freeze, single step and consecutive frame playback |
 
+**Proposed future modes (design archive; not yet implemented):** [Renown Trials, *Restless Day* two-wall siege, and *Edge of Victory* battle royale](docs/ideas/proposed-game-modes-2026-11-04.md). These notes preserve the creator's ideas, dialogue, and open balance questions without changing the live mode list.
+
 Solo modes use the browser's local authoritative simulation, even while multiplayer is online. A remote server connection cannot take over an active local session. Multiplayer uses the authoritative Render server. Both hosts use the same shared combat, movement and collision rules at 30 Hz.
 
 Initial browser assets still require connectivity. Multiplayer may need time to wake after inactivity; solo play does not wait for remote match hosting. Locally generated accomplishments remain distinct from server verified multiplayer Renown.

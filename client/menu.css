@@ -427,7 +427,7 @@ html[data-turn] .turn-only { display: block !important; }
 .armory-blade small { color: rgba(234, 220, 182, .7); font: 500 12px/1.35 var(--font-script); }
 .armory-spells { display: grid; gap: 8px; }
 .spell-card {
-  position: relative; display: grid; grid-template-columns: 30px 1fr auto; column-gap: 8px; row-gap: 3px; align-items: center; width: 100%;
+  position: relative; display: grid; grid-template-columns: 30px minmax(0,1fr) auto; column-gap: 8px; row-gap: 3px; align-items: center; width: 100%;
   padding: 10px 12px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 2px; background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron));
   color: var(--heraldry-cream); text-align: left; cursor: pointer; transition: border-color .14s ease, transform .14s ease;
 }
@@ -438,7 +438,7 @@ html[data-turn] .turn-only { display: block !important; }
 .spell-card[data-spell="frostfire"] .spell-mark { color: #8fdcff; }
 .spell-card[data-spell="gale"] .spell-mark { color: #e6eee3; }
 .spell-card[data-spell="steel"] .spell-mark { color: #d8e1ea; }
-.spell-card .spell-name { font: 400 18px/1 var(--font-inscription); letter-spacing: .06em; }
+.spell-card .spell-name { font: 400 18px/1.12 var(--font-inscription); letter-spacing: .06em; }
 .spell-card i { font: 800 9px/1 var(--font-script); letter-spacing: .18em; font-style: normal; color: #b9dca8; }
 .spell-card small { grid-column: 2 / 4; color: rgba(234, 220, 182, .78); font: 500 12px/1.35 var(--font-script); }
 .spell-card em { grid-column: 2 / 4; color: rgba(236, 201, 127, .85); font: 700 11px/1.3 var(--font-script); font-style: normal; letter-spacing: .03em; }
@@ -797,119 +797,14 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #menu h1 { font-size:24px; white-space:normal; letter-spacing:.015em; }
 }
 
-
-/* Two independent hanging standards: choices on the left, detail/configuration on the right. */
-#rooms-menu .rooms-inner { --banner-width: min(515px, 47cqw); width: var(--banner-width); }
-#solo-menu > .side-screen-inner { --banner-width: min(445px, 40cqw); width: var(--banner-width); }
-#rooms-menu .companion-banner, #solo-menu .companion-banner {
-  --banner-width: min(355px, 31cqw);
-  left: auto; right: clamp(18px, 4cqw, 64px);
-  width: var(--banner-width);
-  max-height: calc(100% - 16px);
+/* Prevent narrow Armory and manual banners from expanding their grid tracks
+   under long spell names, equipment notes, translations and control labels. */
+.armory-inner,.armory-scroll,.armory-spells,.armory-blade,.spell-card {min-width:0;max-width:100%}
+.spell-card > :is(.spell-name,small,em,i),
+.armory-blade > :is(b,small),.armory-slot,.armory-note,
+.banner-panel .controls-grid :is(span,b),.banner-panel .rules-copy {
+ min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal;white-space:normal
 }
-#rooms-menu::before, #solo-menu::before {
-  content: ''; position: absolute; z-index: 2; top: 12px;
-  right: calc(clamp(18px,4cqw,64px) - 22px);
-  width: calc(min(355px, 31cqw) + 44px); height: 9px;
-  border-radius: 3px; background: linear-gradient(#f2d692,#b98a3e 55%,#6f5122);
-  box-shadow: 0 3px 6px rgba(0,0,0,.45);
-}
-#rooms-menu .banner-scroll, #solo-menu .banner-scroll { min-height: 0; }
-#rooms-menu .rooms-inner .banner-scroll { display: flex; flex-direction: column; }
-#rooms-menu .room-list { max-height: none; flex: 1 1 auto; min-height: 84px; overflow-y: auto; }
-#rooms-menu .room-row { min-height: 62px; grid-template-areas: 'world count' 'status first'; }
-#rooms-menu .room-row.selected, #rooms-menu .room-row[aria-pressed="true"] {
-  background: linear-gradient(180deg,#76572d,#433322); border-color: #f1dfae;
-  box-shadow: inset 3px 0 #e7c47c;
-}
-#rooms-menu .room-row b { font-size: 16px; overflow-wrap: anywhere; }
-#rooms-menu .room-row em { overflow-wrap: anywhere; }
-#rooms-menu .room-selected-info { color: #eadcb8; margin: 8px 0 16px; font: 500 13px/1.45 var(--font-script); }
-#rooms-menu .room-selected-info dl { display: grid; gap: 7px; margin: 0; }
-#rooms-menu .room-selected-info dl>div { display: grid; grid-template-columns: 87px minmax(0,1fr); gap: 9px; border-bottom: 1px solid rgba(201,156,82,.3); padding: 3px 0 7px; }
-#rooms-menu .room-selected-info dt { color: var(--heraldry-brass-light); font-size: 10px; letter-spacing: .12em; }
-#rooms-menu .room-selected-info dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-#rooms-menu .room-selected-info + .mode-choice { margin-top: 4px; }
-#rooms-menu #room-create-form { display: grid; gap: 9px; margin: 8px 0 10px; }
-#rooms-menu #room-create-form[hidden] { display: none !important; }
-#rooms-menu #room-create-form label { display: grid; gap: 4px; color: #e7c47c; font: 800 11px/1.25 var(--font-script); letter-spacing: .08em; }
-#rooms-menu #room-create-form label[hidden] { display: none !important; }
-#rooms-menu #room-create-form .game-input { width: 100%; min-width: 0; }
-#rooms-menu #room-create-form button { min-height: 44px; }
-#rooms-menu #room-join:disabled { opacity: .45; cursor: not-allowed; }
-#solo-menu .selected-activity { background: linear-gradient(180deg,#76572d,#433322); border-color: #f1dfae; }
-#solo-menu .solo-companion [id$="-wrap"][hidden] { display: none !important; }
-#solo-menu .solo-companion .vote-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 16px; }
-#solo-menu .solo-companion .vote-row > span { flex-basis: 100%; color: #e7c47c; font-size: 11px; letter-spacing: .12em; }
-#solo-menu .solo-companion .vote-chip { flex: 1 1 auto; min-height: 39px; }
-#solo-menu #solo-launch { margin-top: 18px; min-height: 56px; }
-#rooms-menu .companion-return, #solo-menu .companion-return { display: none; }
-#rooms-menu .mode-filters, #breakthrough-menu .mode-filters {
-  display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 14px;
-}
-#rooms-menu .mode-filters button, #breakthrough-menu .mode-filters button {
-  flex: 1 1 auto; min-height: 38px; padding: 7px 10px;
-  border: 1px solid rgba(201,156,82,.62); border-radius: 2px;
-  background: #392822; color: #f1dfae;
-  font: 800 11px/1.25 var(--font-script); letter-spacing: .08em; cursor: pointer;
-}
-#rooms-menu .mode-filters button.selected, #breakthrough-menu .mode-filters button.selected {
-  background: #dfc28a; color: #38271c; border-color: #f1dfae;
-}
-#rooms-menu .room-row:focus-visible, #solo-menu .mode-choice:focus-visible,
-#rooms-menu .mode-filters button:focus-visible, #breakthrough-menu .mode-filters button:focus-visible {
-  outline: 2px solid #f1dfae; outline-offset: 2px;
-}
-#rooms-menu .companion-banner .mode-choice, #solo-menu .companion-banner .mode-choice {
-  white-space: normal; overflow-wrap: anywhere;
-}
-#rooms-menu .companion-banner .game-input, #solo-menu .companion-banner .game-input { width: 100%; min-width: 0; }
-
-@container app (max-width: 850px) {
-  #rooms-menu::before, #solo-menu::before { display: none; }
-  #rooms-menu .rooms-inner, #solo-menu > .side-screen-inner,
-  #rooms-menu .companion-banner, #solo-menu .companion-banner {
-    --banner-left: 12px; --banner-width: calc(100cqw - 24px);
-    left: var(--banner-left); right: auto; width: var(--banner-width);
-    top: 12px; max-height: calc(100% - 12px);
-  }
-  #rooms-menu[data-panel="list"] .rooms-companion,
-  #rooms-menu[data-panel="details"] .rooms-inner,
-  #solo-menu[data-panel="list"] .solo-companion,
-  #solo-menu[data-panel="details"] > .side-screen-inner { display: none; }
-  #rooms-menu .companion-return, #solo-menu .companion-return { display: block; }
-  #rooms-menu .room-list { max-height: unset; }
-  #rooms-menu .banner-scroll, #solo-menu .banner-scroll {
-    padding: 20px 22px 12px; max-height: 100%; overflow-y: auto;
-  }
-  #rooms-menu .mode-filters button { font-size: 10px; padding: 7px; }
-  #solo-menu .solo-companion .vote-chip { min-height: 44px; }
-}
-@container app (max-height: 500px) {
-  #rooms-menu .banner-scroll, #solo-menu .banner-scroll { padding-top: 10px; }
-  #rooms-menu .mode-filters { margin: 6px 0 9px; }
-  #rooms-menu .room-row { min-height: 49px; }
-}
-
-#rooms-menu .companion-banner [hidden], #solo-menu .companion-banner [hidden] { display: none !important; }
-
-#rooms-menu { --banner-width: min(515px, 47cqw); }
-#solo-menu { --banner-width: min(445px, 40cqw); }
-.lobby-readonly dl { display: grid; gap: 6px; margin: 8px 0 14px; }
-.lobby-readonly dl>div { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 12px; border-bottom: 1px solid rgba(201,156,82,.22); padding: 5px 0; }
-.lobby-readonly dt { font: 800 10px/1.3 var(--font-script); color: #e7c47c; letter-spacing: .1em; }
-.lobby-readonly dd { min-width: 0; margin: 0; font: 700 12px/1.4 var(--font-script); overflow-wrap: anywhere; }
-@container app (max-width:850px) {
-  #rooms-menu, #solo-menu { --banner-left:12px; --banner-width:calc(100cqw - 24px); }
-}
-
-
-/* The secondary standard needs its own visible brass hanger as well as the main rod. */
-@container app (min-width: 851px) {
-  #rooms-menu .companion-banner::after, #solo-menu .companion-banner::after {
-    content: ''; position: absolute; z-index: 6; top: 0; left: 0; right: 0;
-    height: 8px; pointer-events: none; border-radius: 3px;
-    background: linear-gradient(#f2d692, #bc903f 56%, #6f5122);
-    box-shadow: 0 3px 6px rgba(0,0,0,.4);
-  }
-}
+.armory-tabs {min-width:0;max-width:100%;display:flex;flex-wrap:wrap;gap:4px}
+.armory-tabs button {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.banner-panel .controls-grid {grid-template-columns:minmax(80px,96px) minmax(0,1fr)}

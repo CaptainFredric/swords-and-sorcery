@@ -35,6 +35,8 @@ export const APPRAISE_CHANCE = 0.65;   // the share of two-knight bolts he stops
 export const THUMP_CHANCE = 0.4;       // the share of the ram's strikes he thumps along with
 export const THUMP_REST = 6;           // seconds after a thump before another (he is pleased, not a metronome)
 export const THUMP_JOIN = 0.2;         // a thump seen late (latency) joins up to this far in, still on the piston's beat
+export const BRUSH_CHANCE = 0.26;      // a wounded knight occasionally treats the impact as dust on his cuirass
+export const BRUSH_REST = 12;          // a burst of projectile hits is one opportunity, not repeated lottery rolls
 
 import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
 
@@ -117,7 +119,7 @@ export function bodyClaims(c) {
 // each gesture's share of a slot's draw. Within a pool the draw ignores what he is doing that moment; whether it shows
 // is then the body's affair (bodyClaims) and `when` (also from authoritative state).
 export const POOLS = Object.freeze({
-  foot: Object.freeze({ look: 3, yawn: 1.2 }),
+  foot: Object.freeze({ look: 3, yawn: 1.2, refuse: 0.75 }),
   ballista: Object.freeze({ look: 2, glance: 2, shade: 1.6, frustration: 1, yawn: 0.5 }),
   ram: Object.freeze({ look: 2, glance: 2, frustration: 1.2, yawn: 0.4 }),
   flight: Object.freeze({ look: 2, glance: 1.4, lsit: 1.6 }),
@@ -130,6 +132,7 @@ export const GESTURES = Object.freeze({
   look: Object.freeze({ seconds: 2.2, needs: ['head'], likes: ['torso'] }),
   glance: Object.freeze({ seconds: 1.9, needs: ['head'], likes: [] }),
   yawn: Object.freeze({ seconds: 2.7, needs: ['armL'], likes: ['head', 'torso'], when: (c) => !c.sprinting && !c.airborne }),
+  refuse: Object.freeze({ seconds: 2.1, needs: ['armL', 'head'], likes: ['torso'], when: (c) => !c.machine }),
   frustration: Object.freeze({ seconds: 2.9, needs: ['armR'], likes: ['head', 'torso'],
     // (more likely while the machine makes him wait)
     bias: (c) => (c.machineReloading ? 3 : 1) }),
@@ -137,6 +140,7 @@ export const GESTURES = Object.freeze({
   lsit: Object.freeze({ seconds: 3.4, needs: ['legs'], likes: [], when: (c) => Boolean(c.airborne) }),
   // reactions (never drawn: an event starts them)
   nod: Object.freeze({ seconds: 1.0, needs: ['head'], likes: ['torso'], reaction: true }),
+  brush: Object.freeze({ seconds: 1.85, needs: ['armL'], likes: ['head', 'torso'], reaction: true }),
   appraise: Object.freeze({ seconds: 2.7, needs: ['head'], likes: ['torso'], reaction: true }),
   thump: Object.freeze({ seconds: 1.2, needs: ['armR'], likes: ['head', 'torso'], reaction: true }),
 });
@@ -144,6 +148,15 @@ export const GESTURES = Object.freeze({
 /** The chance that a slot holds a gesture. */
 export function slotChance(c) {
   return c.dead ? 0 : c.machine ? 0.42 : 0.4;
+}
+
+// Ranged contact can be shrugged off theatrically, but never causes protection, damage suppression or a new input.
+// Only direct projectile contacts qualify: no sword blows, fire-over-time ticks, falls or machine collisions.
+const BRUSH_SOURCES = new Set(['fireball', 'frostfire', 'bibye-siege', 'bibye-conditioning',
+  'fight-flight-repeater', 'gauntlet', 'rupture']);
+export function isBrushImpact(event) {
+  return Number.isFinite(event?.at) && BRUSH_SOURCES.has(event.source) &&
+    ((event.type === 'damage' && event.amount > 0 && !event.ongoing) || event.type === 'block');
 }
 
 // a small seeded generator (mulberry32) and a string hash (FNV-1a), so every client draws the same numbers
@@ -207,11 +220,31 @@ export function scheduledGesture(id, now, c) {
   return null;
 }
 
-/** May a gesture of this kind start now, by the body's claims and its own condition? */
+// An armored knight does not abandon the brush-off for another projectile hit, even a heavy one. Combat authority
+// is untouched: damage, staggering and Guard still resolve normally. Melee, attacks, death and machine controls win.
+function brushAllowed(c) {
+  return !c.dead && !c.machine && !c.attacking && !c.casting && !c.dashing && !c.ultimate &&
+    !c.ejecting && !c.machineStruck && !c.meleeStruck;
+}
+function refuseAllowed(c) {
+  return !c.dead && !c.machine && !c.attacking && !c.casting && !c.dashing && !c.ultimate &&
+    !c.ejecting && !c.struck && !c.staggered && !c.underAttack;
+}
+function regionBlocked(kind, region, c, claims) {
+  if (claims[region] !== HARD) return false;
+  // A quiet Guard may keep the sword raised while the free hand brushes or dismisses. Projectile flinches
+  // never reclaim the brushing hand, but a melee blow or committed attack does.
+  if (region === 'armL' && ((kind === 'brush' && brushAllowed(c)) ||
+    (kind === 'refuse' && c.guarding && refuseAllowed(c)))) return false;
+  return true;
+}
+/** May a gesture start now? The exceptional gestures borrow one guarded arm without changing real combat. */
 export function canStart(kind, c, claims = bodyClaims(c).claims) {
   const g = GESTURES[kind];
   if (!g || c.dead) return false;
-  if (g.needs.some((r) => claims[r] === HARD)) return false;
+  if (kind === 'brush' && !brushAllowed(c)) return false;
+  if (kind === 'refuse' && !refuseAllowed(c)) return false;
+  if (g.needs.some((r) => regionBlocked(kind, r, c, claims))) return false;
   return g.when ? Boolean(g.when(c)) : true;
 }
 
@@ -291,6 +324,29 @@ export function gesturePose(g) {
       head(-14 * DEG * (first + second), 0);
       turns.push({ bone: 'chest', axis: [1, 0, 0], angle: 4 * DEG * Math.sin(p * Math.PI) });
       return { turns, weight: envelope(age, seconds, 0.1, 0.2) };
+    }
+    case 'brush': {
+      // Two dismissive swipes across the chest plate. Nothing about the hit was remarkable, apparently.
+      // The palm passes down and across the cuirass twice, with a slight glance at the alleged dust.
+      const first = hump(age, 0.40, 0.84);
+      const second = hump(age, 0.97, 1.41);
+      const wipe = first + second;
+      const regard = smooth(age / 0.35) * (1 - smooth((age - 1.52) / 0.25));
+      head(-5 * DEG * regard, 0);
+      return { turns, hand: {
+        side: 'L', at: [-0.06 + wipe * 0.15, -0.35 - wipe * 0.035, -0.25],
+        aim: [0.2, -0.8, -0.55], palm: [0, 0, -1], open: true,
+      }, weight: envelope(age, seconds, 0.25, 0.30) };
+    }
+    case 'refuse': {
+      // One palm comes forward in quiet refusal while the helmet shakes no twice; the rest of the fight goes on.
+      const out = smooth(age / 0.35) * (1 - smooth((age - 1.58) / 0.40));
+      const shake = hump(age, 0.4, 1.55) * Math.sin((age - 0.4) * Math.PI * 3.6);
+      head(0, 14 * DEG * shake);
+      return { turns, hand: {
+        side: 'L', at: [-0.19, -0.16, -0.33 - out * 0.24],
+        aim: [0, 1, 0], palm: [0, 0, -1], open: true,
+      }, weight: envelope(age, seconds, 0.30, 0.35) };
     }
     case 'appraise': {
       // the bolt through two of them: he looks out where it went (data.bearing, radians to his left), and along the
@@ -385,6 +441,7 @@ export class GestureLayer {
     this.lastStarted = null;   // the scheduled gesture last started (its start time)
     this.seen = new Set();     // reactions already answered (by their key)
     this.lastThumpAt = -Infinity;
+    this.lastBrushAttemptAt = -Infinity;
     this.lastAt = null;
   }
 
@@ -404,6 +461,16 @@ export class GestureLayer {
     if (!Number.isFinite(at) || this.seen.has(`nod:${at}`)) return false;
     this.#remember(`nod:${at}`);
     return this.#react({ kind: 'nod', at, until: at + NOD_WAIT, side: 1 });
+  }
+
+  /** The first projectile impact in a burst may provoke two deliberately casual breastplate brushes. */
+  brush(at, key) {
+    if (!Number.isFinite(at) || this.seen.has(`brush:${key}`)) return false;
+    this.#remember(`brush:${key}`);
+    if (at - this.lastBrushAttemptAt < BRUSH_REST) return false;
+    this.lastBrushAttemptAt = at;
+    if (drawn(`brush:${key}`) >= BRUSH_CHANCE) return false;
+    return this.#react({ kind: 'brush', at: at + 0.42, until: at + 1.55, side: 1 });
   }
 
   /**
@@ -459,7 +526,7 @@ export class GestureLayer {
     this.lastAt = now;
     if (c.dead) { this.active = []; this.pending = []; return []; }
     const { claims, critical } = bodyClaims(c);
-    if (critical) this.pending = [];
+    if (critical) this.pending = this.pending.filter((r) => r.kind === 'brush' && brushAllowed(c));
     // the ram's fist going out (its authoritative strike time, from the snapshot): perhaps a thump along with it
     if (c.machine === 'ram' && Number.isFinite(c.ramStrikeAt)) this.thump(c.ramStrikeAt + (c.machineLag ?? 0), c.ramStrikeKey, c.ramRelease);
     // finished ones go
@@ -468,7 +535,9 @@ export class GestureLayer {
     // gives the body back, and does not resume
     for (const a of this.active) {
       const spec = GESTURES[a.kind];
-      const lost = critical || spec.needs.some((r) => claims[r] === HARD) || (a.pool && a.pool !== poolOf(c));
+      const incompatible = a.kind === 'brush' ? !brushAllowed(c) : a.kind === 'refuse' ? !refuseAllowed(c) : critical;
+      const lost = incompatible || spec.needs.some((r) => regionBlocked(a.kind, r, c, claims)) ||
+        (a.pool && a.pool !== poolOf(c));
       if (lost && !a.fading) a.fading = { at: now };
     }
     // reactions, once the body is free for them (they outrank what is only incidental)

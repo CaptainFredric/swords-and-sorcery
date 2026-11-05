@@ -14,10 +14,11 @@ export function pauldronFollow(turn) {
   return PAULDRON_FOLLOW + (PAULDRON_RAISED_FOLLOW - PAULDRON_FOLLOW) * t * t * (3 - 2 * t);
 }
 
-// Each elbow's and knee's cop (the model's elbow and knee bones, tools/blender/characters/spellblade/rodin/rigid.py and
-// segments.py): its limb's rest on its parent, turned half as far as the limb, carrying the couter or poleyn plate
-// between the plates either side, and the padding under the cuts between them.
+// Each elbow's, knee's and ankle's cop (the model's elbow, knee and ankle bones, tools/blender/characters/spellblade/
+// rodin/rigid.py and segments.py): its limb's rest on its parent, turned half as far as the limb, carrying the couter or
+// poleyn plate between the plates either side and the padding under the cuts between them, and at the ankle the boot's
+// strapped cuff between the sabaton and the greave. (A model without them has none: each is looked up by name.)
 export const COP_SHARE = 0.5;
 export const COPS = Object.freeze([
-  ['elbowL', 'forearmL'], ['elbowR', 'forearmR'], ['kneeL', 'shinL'], ['kneeR', 'shinR'],
+  ['elbowL', 'forearmL'], ['elbowR', 'forearmR'], ['kneeL', 'shinL'], ['kneeR', 'shinR'], ['ankleL', 'footL'], ['ankleR', 'footR'],
 ].map(Object.freeze));

@@ -10,18 +10,18 @@ import {applyDamage,killPlayer} from './combat.mjs';
 import {blastBiByeLlista} from './biByeLlista.mjs';
 import {blastSoFistication} from './soFistication.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
-export const TERMINAL=Object.freeze({holdSec:1,timeout:5,maxSpeed:25,
-  gravity:18,burnPerSec:10,explosionRadius:8,explosionDamage:105,
-  fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.55,
+export const TERMINAL=Object.freeze({holdSec:1,timeout:18,maxSpeed:31,
+  gravity:18,burnPerSec:4,burnRampPerSec:1.7,chargeBurnPerSec:3.2,chargeBurnRamp:.65,
+  explosionRadius:8,explosionDamage:105,
+  fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.42,fireIntervalEnd:2.1,
   minBlastRadius:6,maxBlastRadius:13,minBlastDamage:75,maxBlastDamage:210,
   minFireRadius:3.5,maxFireRadius:7,minFireDuration:7,maxFireDuration:12,
   minFireTick:4,maxFireTick:9,blastFalloffPower:1.5});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const ready=(m,p,now)=>ascensionValkyrieReady(m,p,now);
 const healthFraction=(hp,max)=>clamp((Number.isFinite(hp)?hp:0)/max,0,1);
-/** Snapshot the actual machine's physical integrity at COMMIT, not impact:
- * terminal self-burning must not paradoxically shrink its final blast.
- * Damaged rotor, braces or hull reduce yield; practice refills do not. */
+/** Condition is evaluated at IMPACT. Every extra second of rotor pursuit
+ * trades continuing pressure for a weaker eventual area blast. */
 export function terminalBlastProfile(m){
  const condition=clamp(
    .46*healthFraction(m?.health,m?.maxHealth||250)
@@ -91,7 +91,8 @@ function commitTerminalDive(room,m,p,now){
   // travel, not expire while its chassis has barely moved.
   simulatedSec:0,lastWallStepAt:now};
  m.flightUltimateHeld=false;m.flightDashHeld=false;m.offensiveRun=false;
- m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;
+ m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;m.runTurnSpeed=0;
+ m.rotorPowered=true; // The blades still fight until the drive burns out.
  room.events.push({type:'fightFlightTerminalCommitted',machineId:m.id,operatorId:p.id,
    trajectory:{x:m.x,y:m.y,z:m.z,heading:m.heading,velocity:{...m.velocity}},
    expiresAt:m.terminalDive.expiresAt,blastProfile,at:now});
@@ -115,23 +116,44 @@ export function terminalFlightSteps(dive,now,dt){
 export function advanceTerminalFlight(room,m,dt,now){
  const dive=m?.terminalDive;if(!dive||dive.resolved)return;
  dive.simulatedSec=(dive.simulatedSec??0)+dt;
- const t=dive.simulatedSec;
- if(m.rotorHP>0){
-   // Do not snap direction to a target. Increase forward momentum from the
-   // heading at commitment; the player cannot arbitrarily steer this trajectory.
-   const speed=Math.min(TERMINAL.maxSpeed,12+9*t);
-   const fx=-Math.sin(dive.heading),fz=-Math.cos(dive.heading);
-   m.velocity.x+=(fx*speed-m.velocity.x)*Math.min(1,dt*2.6);
-   m.velocity.z+=(fz*speed-m.velocity.z)*Math.min(1,dt*2.6);
- }else{
-   m.velocity.x*=Math.exp(-dt*.1);m.velocity.z*=Math.exp(-dt*.1);
- }
- m.velocity.y=Math.max(-25,m.velocity.y-TERMINAL.gravity*dt);
- m.runPitch=Math.min(1.03,(m.runPitch??.34)+dt*.65);
- m.health=m.health>0?Math.max(1,m.health-dt*(TERMINAL.burnPerSec+6*t)):0;
- m.flightCharge=Math.max(0,m.flightCharge-4*dt);
+ const t=dive.simulatedSec,pilot=room.players.get(dive.operatorId);
+ const hasPilot=Boolean(pilot?.alive&&m.operatorId===pilot.id);
+ const failure=clamp((t-4.5)/9,0,1);
+ const charged=Boolean(m.rotorHP>0&&m.health>0&&m.flightCharge>0);
+ const speed=Math.min(TERMINAL.maxSpeed,15+1.55*t);
+ const fx=-Math.sin(m.heading),fz=-Math.cos(m.heading);
+ const responsiveness=charged?2.55-failure*.9:1.3;
+ m.velocity.x+=(fx*speed-m.velocity.x)*Math.min(1,dt*responsiveness);
+ m.velocity.z+=(fz*speed-m.velocity.z)*Math.min(1,dt*responsiveness);
+ // Positive look pitch ascends; trim decays while the overheated mechanism
+ // loses lift. An exhausted engine falls rather than detonating in thin air.
+ const pitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?clamp(pilot.input.pitch,-.8,.65):0;
+ const trim=pitch*3.8*(1-failure);
+ const targetVy=charged?trim-.15-failure*13:-Math.min(25,5+2*t);
+ m.velocity.y+=clamp(targetVy-m.velocity.y,-15,15)*Math.min(1,dt*(charged?2.1:2.7));
+ m.velocity.y=Math.max(-25,m.velocity.y);
+ m.runPitch=Math.min(1.14,.35+.043*t+.28*failure);
+ m.health=Math.max(0,m.health-dt*(TERMINAL.burnPerSec+TERMINAL.burnRampPerSec*t));
+ m.flightCharge=Math.max(0,m.flightCharge-dt*(TERMINAL.chargeBurnPerSec+TERMINAL.chargeBurnRamp*t));
+ m.rotorPowered=charged&&m.health>0&&m.flightCharge>0;
  m.mode='TERMINAL';
 }
+function terminalOutsideWorld(m,world){
+ if(!world)return false;
+ if(Number.isFinite(world.abyssY)&&m.y<=world.abyssY)return true;
+ // Map-wide bounds, not the support directly below the aircraft: bridging a
+ // legitimate abyss must never count as leaving the arena.
+ const floors=(world.floors??[]).filter(f=>Array.isArray(f?.center)&&Array.isArray(f?.size));
+ if(!floors.length)return false;
+ const minX=Math.min(...floors.map(f=>f.center[0]-f.size[0]/2))-32;
+ const maxX=Math.max(...floors.map(f=>f.center[0]+f.size[0]/2))+32;
+ const minZ=Math.min(...floors.map(f=>f.center[2]-f.size[2]/2))-32;
+ const maxZ=Math.max(...floors.map(f=>f.center[2]+f.size[2]/2))+32;
+ return m.x<minX||m.x>maxX||m.z<minZ||m.z>maxZ;
+}
+export const terminalFireInterval=age=>TERMINAL.fireInterval+
+ (TERMINAL.fireIntervalEnd-TERMINAL.fireInterval)*clamp(age,0,1)**2;
+
 function occluded(room,from,p){
  const end=[p.position.x,p.position.y+.9,p.position.z];
  return (room.world?.solids??[]).some(b=>{
@@ -143,17 +165,18 @@ function occluded(room,from,p){
 export function resolveTerminalFlight(room,m,now){
  const d=m?.terminalDive;
  if(!d||d.resolved)return false;
- // Finish on real collision, after five simulated flight seconds, or an
- // independent long wall-clock failsafe if the entire room becomes unresponsive.
- // The wall failsafe is intentionally not the normal detonation mechanism.
- if(!m.grounded&&d.impactAt==null&&(d.simulatedSec??0)<TERMINAL.timeout&&now<d.expiresAt+30)return false;
+ // Structural impact, landing or genuine departure from the authored map.
+ // Neither a wall-clock fuse nor an arbitrary flight duration detonates midair.
+ const outside=terminalOutsideWorld(m,room.world);
+ if(!m.grounded&&d.impactAt==null&&!outside)return false;
  d.resolved=true;d.resolvedAt=now;
  const point={x:m.x,y:m.y,z:m.z};
- const reason=d.impactAt!=null?'impact':m.grounded?'landing':'timeout';
- const blastProfile=d.blastProfile??terminalBlastProfile(m);
+ const reason=d.impactAt!=null?'impact':m.grounded?'landing':'out-of-bounds';
+ const blastProfile=terminalBlastProfile(m);
+ d.impactBlastProfile=blastProfile;
  const {radius,damage,fireRadius,fireDuration,fireTickDamage}=blastProfile;
  room.events.push({type:'fightFlightTerminalExplosion',machineId:m.id,operatorId:d.operatorId,
-   point,radius,damage,condition:blastProfile.condition,reason,at:now});
+   point,radius,damage,condition:blastProfile.condition,fireDuration,fireRadius,reason,at:now});
  for(const p of room.players.values()){
    if(!p.alive||p.id===d.operatorId||areAllies(room,d.operatorId,p.id))continue;
    const dy=clamp((p.position.y+.9)-point.y,-6,6);
@@ -212,13 +235,13 @@ export function stepFlightBurnZones(room,now){
  room.flightBurnZones??=[];
  for(const zone of room.flightBurnZones){
    if(now+1e-8<zone.nextTickAt||now>=zone.expiresAt)continue;
-   zone.nextTickAt=now+TERMINAL.fireInterval;
+   const lifetime=Math.max(.001,zone.expiresAt-zone.startedAt);
+   const age=clamp((now-zone.startedAt)/lifetime,0,1);
+   zone.nextTickAt=now+terminalFireInterval(age);
    for(const p of room.players.values()){
      if(!p.alive||areAllies(room,zone.sourceId,p.id))continue;
      const distance=Math.hypot(p.position.x-zone.point.x,p.position.z-zone.point.z);
      if(distance>zone.radius||Math.abs(p.position.y-zone.point.y)>1.5||occluded(room,zone.point,p))continue;
-     const lifetime=Math.max(.001,zone.expiresAt-zone.startedAt);
-     const age=clamp((now-zone.startedAt)/lifetime,0,1);
      const spatial=Math.max(0,1-distance/zone.radius);
      const temporal=Math.max(.35,1-.65*age);
      const amount=Math.max(1,Math.round((zone.tickDamage??TERMINAL.fireTickDamage)*spatial**.65*temporal));

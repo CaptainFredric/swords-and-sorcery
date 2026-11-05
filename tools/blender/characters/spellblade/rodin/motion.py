@@ -13,6 +13,9 @@ Rodin's proportions is where the feet land and where the longer sword reaches:
 - Sword, body: wherever the blade still passes through the body or the off hand, the smallest single arm key that
   clears it (searched as the kit's followthrough.py does) is added inside that span. Contact and end frames are not
   keyed there.
+- Head: Idle carried the helmet rolled 6 degrees to one side and dipped 5 (every other action holds it within about 2
+  degrees of level), so at rest the knight looked askance at the floor. One fixed turn of its head keys levels the
+  loop's mean and lifts it a little (`HEAD_REST`); the head's own motion over the loop is kept.
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ import math
 
 import bpy
 import numpy as np
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 from mathutils.bvhtree import BVHTree
 
 STANDING = ("Idle", "Guard", "Run", "Sprint", "Slash_1", "Slash_2", "Slash_3", "Cast", "Stagger",
@@ -502,6 +505,38 @@ class SwordCarry:
 
 
 AIRBORNE = ("Air",)
+HEAD_REST = {"Idle": 2.0}   # the helmet's mean pitch above level from the chest in these actions (degrees), no roll
+
+
+def level_head(rig, action, lift: float) -> dict:
+    """The head's mean turn from the chest over the action made level, lifted by `lift` degrees, its yaw kept, by one
+    fixed turn of every head key in the head's own frame (post_multiply). Returns the mean before and after (degrees:
+    pitch, roll, yaw)."""
+    rest = {name: rig.data.bones[name].matrix_local.to_3x3() for name in ("chest", "head")}
+
+    def mean_turn() -> Quaternion:
+        start, end = map(int, action.frame_range)
+        total = np.zeros(4)
+        for frame in range(start, end + 1):
+            set_frame(frame)
+            chest = rig.pose.bones["chest"].matrix.to_3x3() @ rest["chest"].inverted()
+            head = rig.pose.bones["head"].matrix.to_3x3() @ rest["head"].inverted()
+            q = np.array((chest.inverted() @ head).to_quaternion())
+            total += q if q @ total >= 0 else -q
+        return Quaternion(total / np.linalg.norm(total))
+
+    def degrees(q: Quaternion) -> list:
+        e = q.to_euler("YXZ")
+        return [round(math.degrees(a), 1) for a in (e.x, e.y, e.z)]
+
+    assign(rig, action)
+    before = mean_turn()
+    target = Euler((math.radians(lift), 0.0, before.to_euler("YXZ").z), "YXZ").to_quaternion()
+    # (a turn c after the head's own, seen from the armature, is r = R⁻¹ c R in the head's rest frame R)
+    c = before.inverted() @ target
+    R = rest["head"].to_quaternion()
+    post_multiply(action, "head", R.inverted() @ c @ R)
+    return {"before": degrees(before), "after": degrees(mean_turn())}
 
 
 def fit_motion(rig, fix: bool = True, search: bool = True) -> dict:
@@ -524,6 +559,7 @@ def fit_motion(rig, fix: bool = True, search: bool = True) -> dict:
     report["planted"] = {name: plant(rig, bpy.data.actions[name], sole) for name in (*STANDING, "Death")}
     report["swing"] = {f"{name}.{side}": lift_swing(rig, bpy.data.actions[name], side, phase, bpy.data.objects[f"Boot.{side}"])
                        for name, swings in SWINGS.items() for side, phase in swings}
+    report["head"] = {name: level_head(rig, bpy.data.actions[name], lift) for name, lift in HEAD_REST.items()}
 
     if fix:
         carry = SwordCarry(rig)

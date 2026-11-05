@@ -28,6 +28,26 @@ export class FightFlightRenderer{
     this.burnCoreGeometry=new THREE.CircleGeometry(1,32);
     this.burnFlameGeometry=new THREE.ConeGeometry(.18,.72,3);
     this.burnZones=new Map();
+    // Persistent aftershock visuals are separate from the craft mesh: they
+    // continue rising after the pilot and apparatus have been destroyed.
+    this.haloRoot=everywhere(new THREE.Group());this.scene.add(this.haloRoot);
+    this.haloGeometry=new THREE.TorusGeometry(1,.115,7,48);
+    this.halos=[];
+    this.trailRoot=everywhere(new THREE.Group());this.scene.add(this.trailRoot);
+    this.smokeGeometry=new THREE.IcosahedronGeometry(1,1);
+    this.smokePuffs=Array.from({length:14},(_,i)=>{
+      const cloud=new THREE.Mesh(this.smokeGeometry,new THREE.MeshBasicMaterial({
+        color:i%3===0?0x34312f:0x202120,transparent:true,opacity:0,
+        depthWrite:false,side:THREE.DoubleSide}));
+      cloud.visible=false;cloud.renderOrder=5;this.trailRoot.add(cloud);return cloud;
+    });
+    this.trailFlameGeometry=new THREE.ConeGeometry(.13,.52,5);
+    this.trailFlames=Array.from({length:6},(_,i)=>{
+      const flame=new THREE.Mesh(this.trailFlameGeometry,new THREE.MeshBasicMaterial({
+        color:i%2?0xffac49:0xd64c22,transparent:true,opacity:0,depthWrite:false,
+        side:THREE.DoubleSide}));
+      flame.visible=false;flame.renderOrder=6;this.trailRoot.add(flame);return flame;
+    });
   }
   load(){
     if(this.pending||this.disposed)return this.pending??Promise.resolve(false);
@@ -102,6 +122,8 @@ export class FightFlightRenderer{
   update(now,m,projectiles=[],snapshotTime=now,zones=[],aim=null,operator=null){
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
+    this.drawTerminalSmoke(now,m);
+    this.drawTerminalHalos(now);
     if(this.state?.id!==m?.id){this.pendingHits=[];this.lastMode=null;for(const e of this.modelMaterials)e.times=[-Infinity,-Infinity];}
     this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&!m.wreckVisualExpired);
     // High Grounds (including remote team production) does not pass through
@@ -214,6 +236,75 @@ export class FightFlightRenderer{
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),dir);
     }
     for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
+  }
+  // The glowing capelike cloth leads a deterministic ribbon of dark smoke.
+  // Pooling the meshes avoids allocating particle objects every render frame.
+  drawTerminalSmoke(now,m){
+    const diving=Boolean(m?.terminalDive&&!m.terminalDive.resolved&&
+      m.mode!=='DESTROYED'&&!m.retired);
+    const age=diving?m.terminalDive.simulatedSec??0:0;
+    const intensity=Math.max(0,Math.min(1,(age+.75)/5));
+    const heading=m?.heading??0;
+    const backward={x:Math.sin(heading),z:Math.cos(heading)};
+    const side={x:Math.cos(heading),z:-Math.sin(heading)};
+    const speed=Math.hypot(m?.velocity?.x??0,m?.velocity?.z??0);
+    for(let i=0;i<this.smokePuffs.length;i++){
+      const puff=this.smokePuffs[i];puff.visible=diving;
+      if(!diving)continue;
+      const phase=((now*.53+i/this.smokePuffs.length)%1+1)%1;
+      const trail=.2+phase*(2.6+speed*.3);
+      const drift=Math.sin(i*2.399+now*.45)*phase*.9;
+      puff.position.set(m.x+backward.x*(.75+trail)+side.x*drift,
+        m.y+1.24+phase*(.7+intensity*1.9)+Math.sin(i*1.37)*.15,
+        m.z+backward.z*(.75+trail)+side.z*drift);
+      puff.scale.setScalar(.15+phase*(.62+intensity*.65));
+      puff.material.opacity=(.10+.25*intensity)*(1-phase)**.8;
+    }
+    for(let i=0;i<this.trailFlames.length;i++){
+      const flame=this.trailFlames[i];flame.visible=diving;
+      if(!diving)continue;
+      const phase=(i+.5)/this.trailFlames.length;
+      const flicker=.7+.3*Math.sin(now*16+i*2.6);
+      flame.position.set(m.x+backward.x*(.52+phase*.65)+side.x*Math.sin(i*2.2)*.22,
+        m.y+1.01+phase*.47,m.z+backward.z*(.52+phase*.65)+side.z*Math.sin(i*2.2)*.22);
+      flame.scale.set(.65,.56+intensity*.82,.65);
+      flame.material.opacity=(.25+.55*intensity)*flicker;
+      flame.rotation.set(-.3*Math.sin(heading),i*.73,.25*Math.cos(heading));
+    }
+  }
+  spawnTerminalHalo(point,startedAt,duration){
+    if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
+    const lifetime=Math.max(1,Math.min(15,Number(duration)||7));
+    const group=new THREE.Group();
+    const rings=[0,1].map(i=>{
+      const ring=new THREE.Mesh(this.haloGeometry,new THREE.MeshBasicMaterial({
+        color:i?0xbbb9b5:0x85898b,transparent:true,opacity:.3,depthWrite:false,
+        side:THREE.DoubleSide}));
+      ring.rotation.x=-Math.PI/2;ring.renderOrder=4;
+      group.add(ring);return ring;
+    });
+    this.haloRoot.add(group);
+    this.halos.push({group,rings,point,startedAt,duration:lifetime});
+  }
+  drawTerminalHalos(now){
+    for(const effect of [...this.halos]){
+      const age=Math.max(0,(now-effect.startedAt)/effect.duration);
+      if(age>=1){
+        effect.group.removeFromParent();
+        for(const ring of effect.rings)ring.material.dispose();
+        this.halos.splice(this.halos.indexOf(effect),1);
+        continue;
+      }
+      // The last transparent traces vanish exactly when the fire's server
+      // lifetime ends. The upward drifting torus echoes the drawn halo.
+      const radius=.8+age*8.1;
+      effect.group.position.set(effect.point.x,effect.point.y+.65+age*5.2,effect.point.z);
+      effect.rings.forEach((ring,i)=>{
+        ring.scale.setScalar(radius*(i?1.07:1));
+        ring.material.opacity=(i?.13:.31)*(1-age)**1.35;
+        ring.rotation.z=Math.sin(now*.17+i)*.045;
+      });
+    }
   }
   drawBurnZones(zones,now){
     const active=new Set();
@@ -329,5 +420,11 @@ export class FightFlightRenderer{
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();
+    this.drawTerminalHalos(Infinity);
+    this.haloRoot.removeFromParent();this.haloGeometry.dispose();
+    this.trailRoot.removeFromParent();
+    for(const puff of this.smokePuffs)puff.material.dispose();
+    for(const flame of this.trailFlames)flame.material.dispose();
+    this.smokeGeometry.dispose();this.trailFlameGeometry.dispose();
     this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();for(const mat of [o.material].flat())mat?.dispose();}});}
 }

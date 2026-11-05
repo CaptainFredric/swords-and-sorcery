@@ -13,7 +13,8 @@ import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
 import {FlightSound} from './sound/FlightSound.mjs';
-import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
+import {soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
+import { playerMovementWorld } from '../../shared/sim/playerMovementWorld.mjs';
 import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { gestureMachines } from './spellbladeGestures.mjs';
@@ -34,9 +35,12 @@ import { projectToScreen } from '../ui/screenProjection.mjs';
 import {flightTargetMarkerView} from '../ui/flightTargetMarkerView.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
+import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
+import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
+import { advancePredictedMovement } from './predictMovement.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -646,6 +650,8 @@ export class GameRuntime {
     this.running = true;
     this.playing = false;
     this.predictionError = 0;
+    this.predictionHistory = [];
+    this.lastSeparationKey = null;
     this.cameraKick = 0;
     this.fps = 60;
     this.lastPingAt = 0;
@@ -660,6 +666,17 @@ export class GameRuntime {
     this.resizeObserver?.observe(container);
     // local inspection only: /?debug exposes the runtime to the console
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = this;
+    // Input delivery must not depend on Three.js completing a draw. A heavy
+    // multiplayer scene may still accept keyboard/touch events and timers
+    // while WebGL produces too few frames to drive the old send loop.
+    // The existing render-driven send still forwards fast transitions.
+    this.networkInputTimer=setInterval(()=>{
+      if(this.socket.playingLocally||!this.playing||!this.localAuth?.alive
+        ||!this.input?.enabled||this.inspectionFree
+        ||(typeof document!=='undefined'&&document.hidden))return;
+      const wanted={...this.input.movement(),flight:Boolean(this.spellbladeFlight)};
+      sendMovementInput(this.socket,this.#mountedIntent(wanted),performance.now(),this);
+    },50);
     requestAnimationFrame((t) => this.#frame(t));
   }
 
@@ -714,6 +731,8 @@ export class GameRuntime {
       this.camera.updateProjectionMatrix();
       this.worldError = null;
       this.localState = null;
+      this.predictionHistory = [];
+      this.lastSeparationKey = null;
       // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
       this.effects.warm(this.renderer, this.scene);
       return true;
@@ -785,6 +804,8 @@ export class GameRuntime {
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
     this.localState=null;this.localAuth=null;this.deathCam=null;
+    this.predictionHistory=[];
+    this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
@@ -1403,8 +1424,13 @@ export class GameRuntime {
     if (!auth) return;
     this.weapon.reconcileCast(auth, this.socket.serverNow());
     if (!this.localState) {
+      this.predictionHistory=[];
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
+      this.localState.grounded = Boolean(auth.grounded);
+      this.localState.jumpHeld = Boolean(auth.jumpHeld);
+      if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
+      this.localState.sprintBlend = auth.sprintBlend ?? 0;
       if (auth.impulse) this.localState.impulse = { ...auth.impulse };
       this.localState.crouched = Boolean(auth.crouched);
       this.localState.dashReadyAt = auth.dashReadyAt;
@@ -1412,27 +1438,42 @@ export class GameRuntime {
       this.input.pitch = auth.pitch;
     } else {
       if (auth.operatingBallistaId||auth.operatingRamId||auth.operatingFightFlightId) {
+        this.predictionHistory=[];
         this.predictionError = 0;
         this.localState.position = { ...auth.position };
+        this.localState.grounded = Boolean(auth.grounded);
+        this.localState.jumpHeld = Boolean(auth.jumpHeld);
+        if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
         this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };
         this.localState.impulse = { x: 0, z: 0 };
         this.localState.crouched = false;
         this.localState.sprinting = false;
       } else {
-        const dx = auth.position.x - this.localState.position.x;
-        const dy = auth.position.y - this.localState.position.y;
-        const dz = auth.position.z - this.localState.position.z;
+        // The snapshot was simulated before this frame's predicted position.
+        // Comparing two different moments causes artificial corrections on
+        // every ordinary stride even when client physics agrees perfectly.
+        const compared = predictedPoseAt(this.predictionHistory, snapshot.serverTime) ?? this.localState.position;
+        const dx = auth.position.x - compared.x;
+        const dy = auth.position.y - compared.y;
+        const dz = auth.position.z - compared.z;
         const error = Math.hypot(dx, dy, dz);
         this.predictionError = error;
         if (!auth.alive || error > 2.2) {
+          this.predictionHistory=[];
           this.localState.position = { ...auth.position };
           this.localState.velocity = { ...auth.velocity };
+          this.localState.grounded = Boolean(auth.grounded);
+          this.localState.jumpHeld = Boolean(auth.jumpHeld);
+          if (auth.dashDir) this.localState.dashDir = { ...auth.dashDir };
+          this.localState.sprintBlend = auth.sprintBlend ?? 0;
           this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
           this.localState.crouched = Boolean(auth.crouched);
         } else {
-          this.localState.position.x += dx * 0.11;
-          this.localState.position.y += dy * 0.16;
-          this.localState.position.z += dz * 0.11;
+          // Correct the actual same-time discrepancy, not the normal distance
+          // traveled while the authoritative packet was in flight.
+          this.localState.position.x += dx * 0.23;
+          this.localState.position.y += dy * 0.27;
+          this.localState.position.z += dz * 0.23;
           // (carried by another's gust: its push is the host's to say, not something I can foresee)
           if (auth.impulse && this.socket.serverNow() < (this.windOnMeUntil ?? -Infinity)) this.localState.impulse = { ...auth.impulse };
         }
@@ -1624,12 +1665,13 @@ export class GameRuntime {
       if(event.type==='fightFlightTerminalExplosion'&&event.point){
         const radius=Math.max(2,Math.min(13,Number.isFinite(event.radius)?event.radius:8));
         const power=Math.max(0,Math.min(1,Number.isFinite(event.condition)?event.condition:.5));
-        // The host has already computed the real blast radius from the
-        // machine's integrity at commitment. Do NOT clamp back to old 8 m.
+        // Damage and radius are authoritative and reflect the craft's
+        // remaining physical integrity at actual impact.
         // Derive the world ring from the actual settled burn zone, if any;
         // an impact high above the void must not draw a phantom ground disc.
         const zone=this.latestSnapshot?.flightBurnZones?.find?.(z=>z.id===event.machineId+'-burn');
         this.effects.impact(event.point,{spell:'fireball',radius,ground:zone?.point?.y??null});
+        this.flightRenderer.spawnTerminalHalo(event.point,event.at??this.socket.serverNow(),event.fireDuration??7);
         if(zone)this.effects.groundShock(zone.point,{radius:zone.radius});
         this.effects.sparks(event.point,0xffbd72,Math.round(20+22*power));
         this.effects.splinters(event.point,16);
@@ -3740,14 +3782,24 @@ export class GameRuntime {
           this.localState.position = { ...this.localAuth.position };
         }
       } else {
-        const ramSolids=soFistSolids(this.latestSnapshot?.soFistication);
-        const movementWorld=ramSolids.length?{...this.activeWorld,solids:[...(this.activeWorld.solids??[]),...ramSolids]}:this.activeWorld;
-        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, movementWorld);
+        this.movementWorld = playerMovementWorld(this.activeWorld, {
+          ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
+        });
+        this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
       }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
-      // predict the server's body separation so pressing into an opponent does not rubber-band
-      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
+      // Separation uses the host's *current* bodies, not the deliberately delayed visual shells.
+      // Pushing against a 100-ms-old rendering sample creates a false collision every frame.
+      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
+        && shouldPredictSeparation(this.lastSeparationKey,this.latestSnapshot)) {
+        const peers=(this.latestSnapshot?.players??[]).filter(p=>p.id!==this.playerId&&p.alive!==false&&!p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId)
+          .map(p=>({id:p.id,...p.position}));
+        separateLocal(this.localState.position,peers,this.movementWorld??this.activeWorld,{crouched:this.localState.crouched});
+        this.lastSeparationKey=separationTickKey(this.latestSnapshot);
+      }
+      if (!this.localAuth?.operatingBallistaId&&!this.localAuth?.operatingRamId&&!this.localAuth?.operatingFightFlightId)
+        recordPredictedPose(this.predictionHistory,serverNow,this.localState.position);
       // my own jump: now and then a grunt with it
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
@@ -4165,6 +4217,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
     this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
     clearTimeout(this.appealCut);

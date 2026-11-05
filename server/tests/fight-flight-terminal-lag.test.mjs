@@ -35,34 +35,33 @@ test('One ordinary 30Hz host tick remains one physical step; stalls never spawn 
   assert.equal(terminalFlightSteps(m.terminalDive,8.5+1/30,1/30),1);
 });
 
-test('A six-second LocalHost wall-clock stall cannot detonate a dive in midair before physical ground contact',()=>{
-  const {room,m}=startDive({altitude:1.7});
+test('A wall-clock stall advances physical motion but cannot trigger an airborne fuse',()=>{
+  const {room,m}=startDive({altitude:12});
+  room.world.floors[0].size=[1000,.2,1000]; // keep off-map loss independent of real ground impact
   const committed={x:m.x,y:m.y,z:m.z};
-  // Deliberately jump past the nominal wall-clock expiration while delivering
-  // only ONE fixed 1/30s room update: the actual Chrome failure mode.
   stepRoom(room,1/30,8.5,room.world);
-  assert.equal(m.terminalDive.resolved,true,'the catch-up trajectory meets actual ground');
-  assert.ok(m.terminalDive.impactAt!=null,'actual physical contact, not expired wall time');
-  assert.ok(m.terminalDive.simulatedSec<=2,'should resolve on descent, not an arbitrary fuse');
-  assert.equal(m.mode,'DESTROYED');
-  assert.equal(m.y,0);
-  assert.ok(Math.hypot(m.x-committed.x,m.z-committed.z)>.1,'the machine travels under momentum');
+  assert.equal(m.terminalDive.resolved,false,'physical trajectory still has altitude');
+  assert.ok(m.terminalDive.simulatedSec>1,'bounded catch-up advances actual flight');
+  assert.ok(Math.hypot(m.x-committed.x,m.z-committed.z)>.1);
+  assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,0);
+  for(let t=10;t<=21&&!m.terminalDive.resolved;t+=1.5)stepRoom(room,1/30,t,room.world);
+  assert.equal(m.terminalDive.resolved,true,'eventual ground collision ends the burning run');
+  assert.ok(m.terminalDive.impactAt!=null);
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
-  assert.equal(room.flightBurnZones.length,1);
-  assert.equal(room.flightBurnZones[0].point.y,0);
 });
 
-test('A genuine bottomless trajectory still resolves after bounded simulated flight rather than wall-clock expiry',()=>{
+test('An airborne bottomless run has no expiry explosion until leaving the kill plane',()=>{
   const {room,m}=startDive({floor:false,altitude:250});
   stepRoom(room,1/30,8.5,room.world);
-  assert.equal(m.terminalDive.resolved,false,'no phantom impact on non-existent ground');
+  assert.equal(m.terminalDive.resolved,false);
   assert.ok(m.terminalDive.simulatedSec>1);
-  for(let t=10;t<=15&&!m.terminalDive.resolved;t+=1.5)
-    stepRoom(room,1/30,t,room.world);
-  assert.equal(m.terminalDive.resolved,true,'still enforces finite simulated timeout');
-  assert.equal(m.terminalDive.impactAt,null);
+  for(let t=10;t<=17&&!m.terminalDive.resolved;t+=1.5)stepRoom(room,1/30,t,room.world);
+  assert.equal(m.terminalDive.resolved,false,'there is no arbitrary five-second fuse');
+  m.y=room.world.abyssY-1;
+  stepRoom(room,1/30,20,room.world);
+  assert.equal(m.terminalDive.resolved,true,'out-of-bounds resolves the terminal outcome');
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
-  assert.equal(room.flightBurnZones.length,0,'an explosion above a bottomless abyss cannot leave hovering ground fire');
+  assert.equal(room.flightBurnZones.length,0,'no phantom ground fire beyond the abyss');
 });
 
 test('A pilot dying during a throttled dive cannot respawn before its eventual physical outcome',()=>{

@@ -1,4 +1,5 @@
 import { clearExpiredSession } from './sessionState.mjs';
+import { ServerClock } from './serverClock.mjs';
 
 // The game server: the page's own host (the Render server serves the client and runs the game), unless the page
 // names another. A static copy of the client (GitHub Pages) names the game server with <meta name="ss-game-server">.
@@ -21,6 +22,7 @@ export class GameSocket {
     this.roomCode = null;
     this.latestSnapshot = null;
     this.snapshotReceivedAt = 0;
+    this.serverClock = new ServerClock();
     this.pingMs = 0;
     this.intentionalClose = false;
     this.reconnectTimer = null;
@@ -115,6 +117,7 @@ export class GameSocket {
     if (message.type === 'snapshot') {
       this.latestSnapshot = message;
       this.snapshotReceivedAt = performance.now();
+      this.serverClock.observe(message.serverTime, this.snapshotReceivedAt);
     }
     if (message.type === 'pong' && Number.isFinite(message.sentAt)) {
       this.pingMs = Math.round(performance.now() - message.sentAt);
@@ -203,8 +206,7 @@ export class GameSocket {
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {
-    if (!this.latestSnapshot) return 0;
-    return this.latestSnapshot.serverTime + (performance.now() - this.snapshotReceivedAt) / 1000;
+    return this.serverClock.now(performance.now());
   }
 
   close({ clearSession = false } = {}) {
@@ -222,6 +224,7 @@ export class GameSocket {
       this.token = null;
       this.roomCode = null;
       this.latestSnapshot = null;
+      this.serverClock.reset();
       try {
         localStorage.removeItem('ss-session-token');
         localStorage.removeItem('ss-room-code');

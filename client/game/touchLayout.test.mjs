@@ -523,3 +523,25 @@ test('blocked browser storage retains customized positions in session without cl
  assert.equal(loadTouchLayout(other).flight.jump.bottom,DEFAULT_FLIGHT_LAYOUT.jump.bottom,
    'session cache must never leak into a distinct storage profile');
 });
+
+test('SO-FIST-ICATION has a non-overlapping mobile control ladder with hydraulic controls',async()=>{
+ const {DEFAULT_RAM_LAYOUT,mirrorLayoutHorizontal}=await import('./touchLayout.mjs');
+ const actions=['attack','siegeSkill','spell','jump','crouch','interact','siegeView'];
+ const bounds=(name,layout)=>{const p=layout[name],w=p.width??p.size,h=p.height??p.size;
+  return {left:p.left!=null?p.left:568-(p.right??0)-w,
+    right:p.left!=null?p.left+w:568-(p.right??0),
+    top:p.top??320-p.bottom-h,bottom:p.top!=null?p.top+h:320-p.bottom};};
+ for(const layout of [DEFAULT_RAM_LAYOUT,mirrorLayoutHorizontal(DEFAULT_RAM_LAYOUT)]){
+  for(const a of actions){
+   const x=bounds(a,layout);
+   assert.ok(x.left>=0&&x.top>=0&&x.right<=568&&x.bottom<=320,a+' offscreen');
+   for(const b of actions.filter(b=>b!==a)){
+    const y=bounds(b,layout);
+    assert.ok(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top,
+      'Ram '+a+' overlaps '+b);
+   }
+  }
+ }
+ assert.equal(DEFAULT_RAM_LAYOUT.jump.bottom,DEFAULT_RAM_LAYOUT.crouch.bottom);
+ assert.ok(DEFAULT_RAM_LAYOUT.jump.bottom>DEFAULT_RAM_LAYOUT.attack.bottom+DEFAULT_RAM_LAYOUT.attack.size);
+});
