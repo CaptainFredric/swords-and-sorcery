@@ -374,9 +374,15 @@ function route(screenId) {
   menuScene?.setVisible(menuBacked);
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU, { immediate: previous !== screenId });
+  const crossingArmory=previous===SCREEN_IDS.ARMORY||screenId===SCREEN_IDS.ARMORY;
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
+    {immediate:previous!==screenId&&!crossingArmory});
+  menuScene?.setArmoryPresentation(screenId === SCREEN_IDS.ARMORY,
+    {immediate:previous!==screenId&&!crossingArmory});
   if (menuBacked && previous !== screenId) {
-    menuScene?.resetCanonicalHeroState({ immediate: true });
+    // A stage reset must not teleport him during the Armory sidestep or
+    // erase his return walk. It still resets spell/ultimate presentations.
+    menuScene?.resetCanonicalHeroState({immediate:!crossingArmory});
   }
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
