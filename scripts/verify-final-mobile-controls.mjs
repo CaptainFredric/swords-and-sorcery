@@ -643,6 +643,9 @@ try {
       afterSources:{dash:rt.input.flightDashSources.size,
         ultimate:rt.input.flightUltimateSources.size}};
   })()`);
+  if(!drawn.complete)console.log('[MOBILE RITUAL TRACE DIAGNOSTIC]',JSON.stringify({
+    ...drawn,stencilReady:await evaluate("window.__ssRuntime.touch.valkyrieEligible")
+  }));
   assert.ok(drawn.complete,'full Dagaz and halo trace must complete on the real touch layer');
   assert.equal(drawn.stages.at(-1).index,7,'final halo checkpoint reached');
   assert.ok(drawn.stages[3].progress>.4&&drawn.stages[6].progress>=1,

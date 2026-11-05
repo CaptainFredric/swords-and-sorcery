@@ -37,6 +37,7 @@ test('One ordinary 30Hz host tick remains one physical step; stalls never spawn 
 
 test('A wall-clock stall advances physical motion but cannot trigger an airborne fuse',()=>{
   const {room,m}=startDive({altitude:12});
+  room.world.floors[0].size=[1000,.2,1000]; // keep off-map loss independent of real ground impact
   const committed={x:m.x,y:m.y,z:m.z};
   stepRoom(room,1/30,8.5,room.world);
   assert.equal(m.terminalDive.resolved,false,'physical trajectory still has altitude');

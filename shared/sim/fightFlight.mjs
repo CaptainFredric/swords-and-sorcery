@@ -396,9 +396,14 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
           slideZ&&!slideX?Math.abs(m.velocity.x):
           slideX&&slideZ?Math.min(Math.abs(m.velocity.x),Math.abs(m.velocity.z)):horizontal;
         const direct=normal>=Math.max(6.5,horizontal*.58);
-        m.terminalDive.blockedContactSec=normal>=3?
+        // Collision resolution zeroes the normal velocity on each frame.
+        // A real head-on jam therefore has SMALL measured speed on later
+        // frames, despite continued terminal engine thrust. Accumulate
+        // contact where the blocked axis still dominates the movement.
+        const bearingBlocked=normal>=Math.max(.22,horizontal*.35);
+        m.terminalDive.blockedContactSec=bearingBlocked?
           (m.terminalDive.blockedContactSec??0)+step:0;
-        if(direct||m.terminalDive.blockedContactSec>=.45)m.terminalDive.impactAt=now;
+        if(direct||m.terminalDive.blockedContactSec>=.42)m.terminalDive.impactAt=now;
       }
       if(m.offensiveRun||m.runGroundPhase){
         m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;m.runGroundPhase=null;
