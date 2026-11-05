@@ -632,8 +632,8 @@ export class TouchControls {
          active: this.active, inspectionFlight: this.inspectionFlight,
        }));
       this.motionGuide.dataset.chargeDirection=String(ram&&rb?.charging?(rb?.chargeDirection??0):0);
-      if(ram&&rb?.charging&&rb?.chargeDirection<0)
-        this.motionLabel.textContent='CHARGING · REVERSE';
+      this.motionLabel.textContent=ram&&rb?.charging&&rb?.chargeDirection<0
+        ?'CHARGING · REVERSE':TOUCH_MOTION_LABELS[this.motionGuide.dataset.motion]??'';
 
       if (flight) {
         this.buttons.attack?.setAttribute('aria-label','Sword attack');
@@ -1008,7 +1008,12 @@ export class TouchControls {
     // The ring is a real touch target. It does not float when pressed; a
     // resized/fullscreen mobile viewport cannot teleport the player's control.
     const onStick = event.target.closest?.('.touch-stick');
-    if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
+    // The shell extends outside the ring, including on user-mirrored layouts.
+    // A fresh press on either portion of that SAME channel owns the stick.
+    const shell=this.stickShell?.getBoundingClientRect?.();
+    const inShell=Boolean(shell&&event.clientX>=shell.left&&event.clientX<=shell.right&&
+      event.clientY>=shell.top&&event.clientY<=shell.bottom);
+    if (onStick || inShell || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
       && point.y >= 0 && point.y <= this.layer.clientHeight)) {
       // If the browser lost a previous finger's release, a fresh press on the visible
       // ring can reclaim movement instead of leaving the joystick stranded.
@@ -1051,11 +1056,12 @@ export class TouchControls {
     }
     if(this.ramMounted&&this.ramTiltGestures.has(event.pointerId)){
       const gesture=this.ramTiltGestures.get(event.pointerId);
-      const point=gamePoint(event,this.layer);
-      // Deliberate outward swipe (in the same direction as the button's
-      // purpose), not an accidental few-pixel thumb drift.
-      const vertical=gesture.action==='jump'?gesture.y-point.y:point.y-gesture.y;
-      if(!gesture.lift&&vertical>=32&&vertical>Math.abs(point.x-gesture.x)*1.15){
+      // Physical displacement survives layout resizing. ScreenTurn supplies
+      // game-space orientation on sideways phones, as for the movement stick.
+      const delta=screenTurn?.vector(event.clientX-gesture.clientX,
+        event.clientY-gesture.clientY)??{x:event.clientX-gesture.clientX,y:event.clientY-gesture.clientY};
+      const vertical=gesture.action==='jump'?-delta.y:delta.y;
+      if(!gesture.lift&&vertical>=32&&vertical>Math.abs(delta.x)*1.15){
         gesture.lift=true;
         this.buttons[gesture.action]?.classList.add('ram-lift');
       }
@@ -1191,7 +1197,8 @@ export class TouchControls {
       this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
-    if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {
+    const gatedAction=this.ramMounted&&(action==='jump'||action==='crouch')?'move':action;
+    if (!this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
       this.deniedButtons.add(event.pointerId);
       return;
     }
@@ -1257,7 +1264,7 @@ export class TouchControls {
       else this.input.dash();
     }
     if(this.ramMounted&&(action==='jump'||action==='crouch')){
-      this.ramTiltGestures.set(event.pointerId,{action,...gamePoint(event,this.layer),lift:false});
+      this.ramTiltGestures.set(event.pointerId,{action,clientX:event.clientX,clientY:event.clientY,lift:false});
       return; // ram controls cannot also emit ordinary Jump/Crouch
     }
     if (action === 'jump') {
@@ -1297,7 +1304,8 @@ export class TouchControls {
   #release(action, pointerId, cancelled=false) {
     if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-lift');
     if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
-    this.#gateHeld(action, false, `touch-button:${pointerId}`);
+    this.#gateHeld(this.ramMounted&&(action==='jump'||action==='crouch')?'move':action,
+      false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
