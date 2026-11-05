@@ -94,3 +94,15 @@
 @media (prefers-reduced-motion: reduce) {
   .machine-component, .machine-health-fill, .drive-housing-fill, .machine-pitch-line::after { transition: none !important; }
 }
+
+/* The challenger's own name remains the headline; Squires are visibly subordinate. */
+.challenge-names #challenge-you { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: min(44cqw, 520px); }
+.challenge-names #challenge-you > span { display: block; overflow-wrap: anywhere; }
+.challenge-names #challenge-squires { color: #b9b9b5; font: 800 clamp(11px, 1.8cqw, 17px)/1.2 'Alegreya Sans', sans-serif; letter-spacing: .14em; text-shadow: none; }
+.challenge-names #challenge-squires[hidden] { display: none; }
+.challenge-names #challenge-foe { max-width: min(35cqw, 380px); overflow-wrap: anywhere; }
+@container app (max-width: 540px) {
+  .challenge-names #challenge-you { max-width: 38cqw; }
+  .challenge-names #challenge-squires { font-size: 10px; }
+  .challenge-names #challenge-foe { font-size: clamp(17px, 4cqw, 27px); }
+}
