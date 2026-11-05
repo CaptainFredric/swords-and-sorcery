@@ -70,6 +70,7 @@ export function requestLongArmToJaw(room,b,p,now){
  }
  if(f?.state==='abyss')return 'Return to the original deployment site, then leave the ram for recovery.';
  if(f?.state==='recovering')return 'The ram is undergoing unoccupied fist recovery.';
+ if(f?.state==='destroyed')return 'The fist is destroyed and cannot be recovered.';
  if(f)return 'The fist is still airborne.';
  if(b.skill?.id!=='longArmToTheJaw')return 'Equip Long Arm to the Jaw first.';
  if(b.fistMounted===false)return 'The fist is not attached.';
