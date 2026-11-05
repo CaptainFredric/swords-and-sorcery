@@ -173,15 +173,21 @@ test('spells and dash reject use during cooldown', () => {
   assert.equal(tryDash(room, 'a', { x: 1, z: 0 }, 25.01), true);
 });
 
-test('health regeneration begins after five seconds without damage at 20 hp/s', () => {
+test('health regeneration begins after six seconds without damage at 10 hp/s and pauses when sprinting', () => {
   const room = playingRoom();
   const b = room.players.get('b');
   b.health = 50;
   b.lastDamageAt = 10;
-  stepRoom(room, 1, 14.99, openWorld);
+  stepRoom(room, 1, 15.99, openWorld);
   assert.equal(b.health, 50);
-  stepRoom(room, 1, 15.5, openWorld);
-  assert.equal(b.health, 70);
+  stepRoom(room, 1, 16.5, openWorld);
+  assert.equal(b.health, 60);
+  b.input.sprint = true; b.input.forward = 1;
+  stepRoom(room, 0.5, 17, openWorld);
+  assert.equal(b.health, 60, 'actual sprinting prevents passive healing');
+  b.input.sprint = false; b.input.forward = 0;
+  stepRoom(room, 0.5, 18, openWorld);
+  assert.equal(b.health, 65, 'standing permits healing without needing full stamina');
 });
 
 test('beginning an attack cancels spawn protection', () => {
