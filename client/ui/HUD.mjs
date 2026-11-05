@@ -243,7 +243,8 @@ export class HUD {
     this.machineGauge.hidden = true;
     this.machineGauge.setAttribute('role','meter');
     this.machineGauge.innerHTML =
-      '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+
+      '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
+      '<small class="machine-piston" data-machine-piston></small>'+
       '<div class="machine-health-assembly">'+
         '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div></div>'+
@@ -365,12 +366,13 @@ export class HUD {
     const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
-    const gauge = machineGaugeView(local, snapshot);
+    const gauge = machineGaugeView(local, snapshot, serverNow);
     this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram');
     this.machineGauge.hidden = !gauge;
     this.driveHousing.hidden = !gauge?.pressure;
     if (gauge) {
       const el = this.machineGauge;
+      el.classList.toggle('gauge-new', el.dataset.machineId !== String(gauge.id));
       el.dataset.kind = gauge.kind;
       el.dataset.machineId = String(gauge.id);
       el.dataset.component = gauge.component ? gauge.component.label : 'none';
@@ -380,6 +382,10 @@ export class HUD {
         machineGaugeNumber(gauge.health) + '/' + machineGaugeNumber(gauge.maxHealth);
       el.querySelector('[data-machine-fill]').style.width = gauge.percent.toFixed(2) + '%';
       el.querySelector('[data-machine-context]').textContent = gauge.context;
+      el.querySelector('[data-machine-piston]').textContent = gauge.piston;
+      el.setAttribute('aria-valuemin', '0');
+      el.setAttribute('aria-valuemax', String(gauge.maxHealth));
+      el.setAttribute('aria-valuenow', String(gauge.health));
       el.setAttribute('aria-label', gauge.title + ' ' +
         machineGaugeNumber(gauge.health) + ' of ' + machineGaugeNumber(gauge.maxHealth) + ' HP');
       if (gauge.component) {
