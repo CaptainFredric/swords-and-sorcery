@@ -38,6 +38,7 @@ import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
+import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -647,6 +648,7 @@ export class GameRuntime {
     this.running = true;
     this.playing = false;
     this.predictionError = 0;
+    this.predictionHistory = [];
     this.cameraKick = 0;
     this.fps = 60;
     this.lastPingAt = 0;
@@ -715,6 +717,7 @@ export class GameRuntime {
       this.camera.updateProjectionMatrix();
       this.worldError = null;
       this.localState = null;
+      this.predictionHistory = [];
       // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
       this.effects.warm(this.renderer, this.scene);
       return true;
@@ -786,6 +789,7 @@ export class GameRuntime {
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
     this.localState=null;this.localAuth=null;this.deathCam=null;
+    this.predictionHistory=[];
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
@@ -1404,6 +1408,7 @@ export class GameRuntime {
     if (!auth) return;
     this.weapon.reconcileCast(auth, this.socket.serverNow());
     if (!this.localState) {
+      this.predictionHistory=[];
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
       this.localState.grounded = Boolean(auth.grounded);
@@ -1417,6 +1422,7 @@ export class GameRuntime {
       this.input.pitch = auth.pitch;
     } else {
       if (auth.operatingBallistaId||auth.operatingRamId||auth.operatingFightFlightId) {
+        this.predictionHistory=[];
         this.predictionError = 0;
         this.localState.position = { ...auth.position };
         this.localState.grounded = Boolean(auth.grounded);
@@ -1427,12 +1433,17 @@ export class GameRuntime {
         this.localState.crouched = false;
         this.localState.sprinting = false;
       } else {
-        const dx = auth.position.x - this.localState.position.x;
-        const dy = auth.position.y - this.localState.position.y;
-        const dz = auth.position.z - this.localState.position.z;
+        // The snapshot was simulated before this frame's predicted position.
+        // Comparing two different moments causes artificial corrections on
+        // every ordinary stride even when client physics agrees perfectly.
+        const compared = predictedPoseAt(this.predictionHistory, snapshot.serverTime) ?? this.localState.position;
+        const dx = auth.position.x - compared.x;
+        const dy = auth.position.y - compared.y;
+        const dz = auth.position.z - compared.z;
         const error = Math.hypot(dx, dy, dz);
         this.predictionError = error;
         if (!auth.alive || error > 2.2) {
+          this.predictionHistory=[];
           this.localState.position = { ...auth.position };
           this.localState.velocity = { ...auth.velocity };
           this.localState.grounded = Boolean(auth.grounded);
@@ -1442,9 +1453,11 @@ export class GameRuntime {
           this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
           this.localState.crouched = Boolean(auth.crouched);
         } else {
-          this.localState.position.x += dx * 0.11;
-          this.localState.position.y += dy * 0.16;
-          this.localState.position.z += dz * 0.11;
+          // Correct the actual same-time discrepancy, not the normal distance
+          // traveled while the authoritative packet was in flight.
+          this.localState.position.x += dx * 0.23;
+          this.localState.position.y += dy * 0.27;
+          this.localState.position.z += dz * 0.23;
           // (carried by another's gust: its push is the host's to say, not something I can foresee)
           if (auth.impulse && this.socket.serverNow() < (this.windOnMeUntil ?? -Infinity)) this.localState.impulse = { ...auth.impulse };
         }
@@ -3767,6 +3780,8 @@ export class GameRuntime {
           .map(p=>({id:p.id,...p.position}));
         separateLocal(this.localState.position,peers,this.movementWorld??this.activeWorld,{crouched:this.localState.crouched});
       }
+      if (!this.localAuth?.operatingBallistaId&&!this.localAuth?.operatingRamId&&!this.localAuth?.operatingFightFlightId)
+        recordPredictedPose(this.predictionHistory,serverNow,this.localState.position);
       // my own jump: now and then a grunt with it
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
