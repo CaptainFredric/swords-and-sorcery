@@ -1186,7 +1186,10 @@ function renderPrivateMode({reset=true}={}){
   const f=privateForm.elements;
   const defaults=PRIVATE_MODE_DEFAULTS[mode];
   const oldArena=reset?defaults.worldId:f.worldId.value;
-  f.worldId.innerHTML=arenaOptions(mode,oldArena);
+  // Rebuilding a live <select> on every numeric keystroke can steal the
+  // user's focus, particularly on mobile. Refill only when mode changes.
+  if(reset||!f.worldId.options.length)
+    f.worldId.innerHTML=arenaOptions(mode,oldArena);
   if(reset){
     f.minutes.value=defaults.minutes;
     if(teamMode){
