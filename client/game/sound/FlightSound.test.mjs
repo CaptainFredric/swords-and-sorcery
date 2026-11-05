@@ -103,7 +103,7 @@ test('terminal Valkyrie dive sequence produces prep, commit, and detonation soun
 
 test('all flight sound recipes and sample buffers produce valid finite waveforms', () => {
   const tags = [
-    'targetLock', 'boltRelease', 'impactPlayer', 'impactGuard', 'impactParry', 'impactBrace',
+    'targetPreview', 'targetLock', 'boltRelease', 'impactPlayer', 'impactGuard', 'impactParry', 'impactBrace',
     'impactRotor', 'impactWall', 'impactGround', 'impactSiege', 'takeoff',
     'landingLight', 'landingHeavy', 'rotorCollision', 'rotorFailure',
     'braceDestroyed', 'offensiveRun', 'valkyriePrep', 'valkyrieCommit', 'valkyrieExplosion'
@@ -257,4 +257,18 @@ test('Narrow to One acquisition makes one crisp mechanical click, not a bolt dis
  assert.equal(heard.some(x=>x.recipe?.tag==='boltRelease'),false);
  assert.ok(clicks[0].recipe.layers.some(x=>x.type==='noise'&&x.decay<.03));
  assert.ok(clicks[0].recipe.layers.some(x=>x.type==='tone'));
+});
+
+test('Narrow target preview ticks quietly and hard-locks with a separate click on first bolt',()=>{
+ const {audio,heard}=setup();
+ audio.update(machine,opt);
+ const preview={type:'fightFlightTargetPreview',machineId:machine.id,operatorId:'pilot',targetId:'enemy',at:1};
+ audio.event(preview,machine,1);
+ audio.event(preview,machine,1);
+ assert.equal(heard.filter(x=>x.recipe?.tag==='targetPreview').length,1,'preview deduplicates');
+ assert.equal(heard.filter(x=>x.recipe?.tag==='targetLock').length,0,'preview cannot announce hard lock');
+ const hard={type:'fightFlightTargetLock',machineId:machine.id,operatorId:'pilot',targetId:'enemy',at:1.1};
+ audio.event(hard,machine,1.1);
+ assert.equal(heard.filter(x=>x.recipe?.tag==='targetLock').length,1,'real fired lock sounds distinct');
+ assert.ok(flightRecipe('targetPreview',()=>.5).length<flightRecipe('targetLock',()=>.5).length);
 });
