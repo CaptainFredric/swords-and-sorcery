@@ -67,7 +67,7 @@ let stage='startup';
 async function waitFor(fn,label,attempts=180){stage=label;for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome timed out: '+label);}
 
 let host=null,guest=null;
-const summary="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,p=r?.localAuth,q=r?.localState,f=window.__frameProbe;return {playing:r?.playing??false,room:s?.roomCode,mode:s?.mode,world:s?.worldId,state:s?.roomState,tick:s?.tick,players:s?.players?.length,auth:p?.position,client:q?.position,grounded:p?.grounded,correction:r?.predictionError,fps:r?.fps,renderer:r?.world?.constructor?.name,frameCount:f?.count,maxFrameGapMs:f?.maxGap,finiteCamera:Number.isFinite(r?.camera?.position?.y)};})()";
+const summary="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,p=r?.localAuth,q=r?.localState,f=window.__frameProbe;return {playing:r?.playing??false,room:s?.roomCode,mode:s?.mode,world:s?.worldId,state:s?.roomState,tick:s?.tick,players:s?.players?.length,auth:p?.position,client:q?.position,grounded:p?.grounded,correction:r?.predictionError,fps:r?.fps,renderer:r?.world?.constructor?.name,inputEnabled:r?.input?.enabled,frameCount:f?.count,maxFrameGapMs:f?.maxGap,finiteCamera:Number.isFinite(r?.camera?.position?.y)};})()";
 try {
   host=await connectBrowser('host',9268);
   guest=await connectBrowser('guest',9269);
@@ -100,6 +100,7 @@ try {
     await b.evaluate('window.focus()');
     await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
     await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
+    await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
   }
   await host.key('W','rawKeyDown');
   await guest.key('W','rawKeyDown');
@@ -124,6 +125,9 @@ try {
     assert.ok(s.auth&&Object.values(s.auth).every(Number.isFinite),'no corrupt network position');
     assert.ok(s.client&&Object.values(s.client).every(Number.isFinite),'no corrupt local prediction');
   }
+  const moved=samples.some(pair=>pair.some((p,i)=>
+    p.auth&&before[i].auth&&Math.hypot(p.auth.x-before[i].auth.x,p.auth.z-before[i].auth.z)>.5));
+  assert.ok(moved,'real held movement must advance at least one client on the authoritative server');
   await host.screenshot('six-player-high-grounds');
   await guest.screenshot('second-perspective-high-grounds');
   const health=await(await fetch(url+'/health')).json();
@@ -131,10 +135,13 @@ try {
     errors:browsers.flatMap(b=>b.errors)};
   await writeFile(out+'/result.json',JSON.stringify(result,null,2));
   assert.equal(result.errors.length,0,'browser runtime has no uncaught JS errors');
+  const errors=samples.flatMap(pair=>pair.map(p=>p.correction)).filter(Number.isFinite).sort((a,b)=>a-b);
+  const p95=errors.length?errors[Math.floor((errors.length-1)*.95)]:null;
   console.log('[MULTIPLAYER CHROME ACCEPTED]',JSON.stringify({
     participants:6,world:result.world,
     renderedFrames:after.map((v,i)=>v.frameCount-before[i].frameCount),
     simulatedTicks:after[0].tick-before[0].tick,
+    moved,p95PredictionError:p95,maxRenderFrameGapMs:after.map(v=>v.maxFrameGapMs),
     skippedServerTicks:health.simulation.skippedSteps
   }));
 }catch(e){
