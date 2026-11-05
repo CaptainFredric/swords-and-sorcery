@@ -37,7 +37,7 @@ test('High Grounds uses team lobby readiness and displays its own identity', () 
   const view=lobbyView(message,{localId:'a'});
   assert.equal(view.mode,'HIGH GROUNDS · 2V2');
   assert.equal(view.ready.visible,true);
-  assert.match(view.players[0].status,/ATTACKERS/);
+  assert.match(view.players[0].status,/AZURE/);
   assert.match(view.world,/HIGH GROUNDS/);
 });
 
