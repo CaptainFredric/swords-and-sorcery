@@ -456,6 +456,13 @@ setInterval(syncSoundscape, 500);
 
 // --- the countdown card: a worthy challenger, and the arena gate that opens onto the match ---
 const challengeCard = $('#challenge-card');
+// Reuse the battle-start nameplate for every combatant's self-important
+// perspective. This never appears in the persistent gameplay HUD.
+const challengeName = document.createElement('span');
+const challengeSquires = document.createElement('small');
+challengeSquires.id = 'challenge-squires';
+challengeSquires.hidden = true;
+$('#challenge-you').replaceChildren(challengeName, challengeSquires);
 const arenaGate = $('#arena-gate');
 let countdownTimer = null;
 let lastCountdownValue = null;
@@ -467,7 +474,9 @@ function showChallenge(message) {
   const appearing = challengeCard.classList.contains('hidden');
   const copy = challengeCopy({ mode: message.mode, players: message.players ?? [], localId: socket.playerId, worldId: message.worldId, scoreToWin: message.scoreToWin, teamSize: message.teamSize ?? 3 });
   $('#challenge-kicker').textContent = copy.kicker;
-  $('#challenge-you').textContent = copy.you;
+  challengeName.textContent = copy.you;
+  challengeSquires.textContent = copy.squires ?? '';
+  challengeSquires.hidden = !copy.squires;
   $('#challenge-foe').textContent = copy.foe;
   $('#challenge-copy').textContent = copy.copy;
   challengeCard.classList.remove('hidden');
