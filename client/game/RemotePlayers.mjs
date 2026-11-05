@@ -1,4 +1,4 @@
-import { appendRemoteSample } from './remoteSnapshots.mjs';
+import { advanceRemotePlaybackClock, appendRemoteSample, remoteSamplePair } from './remoteSnapshots.mjs';
 import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import * as THREE from 'three';
@@ -13,7 +13,7 @@ import {
   setRemoteVisualPlan,
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
-import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
+import { castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 import { airborneLegFlex, crouchPose, guardTurns, landingStrength, lookTurns, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { STEEL_RIPPLE, createSteelSheen } from './steelSheen.mjs';
@@ -367,6 +367,8 @@ export class RemotePlayers {
     this.onFootstep = null;
     this.rigs = new Map();
     this.samples = new Map();
+    this.playbackClock = null;
+    this.lastPlaybackFrameAt = null;
     this.pendingCasts = new Map();
     this.nextRigIndex = 0;
   }
@@ -578,23 +580,14 @@ export class RemotePlayers {
   }
 
   update(nowMs, dt = 0) {
-    const renderTime = nowMs - 100;
+    const frameDt = dt > 0 ? dt : this.lastPlaybackFrameAt === null ? 0 : (nowMs - this.lastPlaybackFrameAt) / 1000;
+    this.lastPlaybackFrameAt = nowMs;
+    this.playbackClock = advanceRemotePlaybackClock(this.playbackClock, this.latestSnapshot?.serverTime, frameDt);
+    const renderTime = this.playbackClock;
     for (const [id, shell] of this.rigs) {
-      const samples = this.samples.get(id) ?? [];
-      if (!samples.length) continue;
-
-      let a = samples[0];
-      let b = samples[samples.length - 1];
-      for (let i = 0; i < samples.length - 1; i += 1) {
-        if (samples[i].at <= renderTime && samples[i + 1].at >= renderTime) {
-          a = samples[i];
-          b = samples[i + 1];
-          break;
-        }
-      }
-
-      const span = Math.max(1, b.at - a.at);
-      const t = Math.max(0, Math.min(1, (renderTime - a.at) / span));
+      const pair = remoteSamplePair(this.samples.get(id) ?? [], renderTime);
+      if (!pair) continue;
+      const {a,b,t} = pair;
       const pa = a.player;
       const pb = b.player;
       shell.root.position.set(
@@ -609,7 +602,7 @@ export class RemotePlayers {
       shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
       shell.root.userData.crouched = Boolean(pb.crouched);
 
-      this.#pose(id, shell, pb, bufferedServerTime(a, b, renderTime), nowMs, dt);
+      this.#pose(id, shell, pb, renderTime, nowMs, dt);
     }
   }
 
@@ -999,6 +992,8 @@ export class RemotePlayers {
     }
     this.rigs.clear();
     this.samples.clear();
+    this.playbackClock = null;
+    this.lastPlaybackFrameAt = null;
     this.pendingCasts.clear();
   }
 }

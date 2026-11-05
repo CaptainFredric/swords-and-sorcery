@@ -1,0 +1,61 @@
+name: Multiplayer reliability two-client Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'server/src/server.mjs'
+      - 'server/src/fixedTickScheduler.mjs'
+      - 'server/src/websocket.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'shared/sim/playerMovementWorld.mjs'
+      - 'shared/src/collision.mjs'
+      - 'shared/src/movement.mjs'
+      - 'shared/src/separation.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/game/RemotePlayers.mjs'
+      - 'client/game/remoteSnapshots.mjs'
+      - 'client/game/predictedPoseHistory.mjs'
+      - 'client/network/GameSocket.mjs'
+      - 'scripts/multiplayer-reliability-browser.mjs'
+      - '.github/workflows/multiplayer-reliability-browser.yml'
+permissions:
+  contents: read
+jobs:
+  multiplayer-webgl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start authoritative game server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs >/tmp/castleward-multiplayer.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/castleward-multiplayer.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify two rendered clients and four bots in real High Grounds
+        env:
+          MULTIPLAYER_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/multiplayer-reliability-browser.mjs
+      - name: Upload screenshots and frame/simulation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiplayer-reliability-browser
+          path: output/playwright/multiplayer-reliability/
+          retention-days: 7

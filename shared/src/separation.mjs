@@ -44,7 +44,11 @@ function tryMove(position, dx, dz, world, height = POSTURES.standing.height) {
     height,
   );
   const ground = world ? surfaceHeightAt(moved.x, moved.z, position.y, world) : position.y;
-  if (ground === null || position.y - ground > SEPARATION.maxDrop) return false;
+  // Separation is a sideways shove, not permission to jump up into a raised
+  // bridge or move off an abyss lip. A collision pushing us back is NOT a
+  // successful half-push: let the other body take the available space.
+  if (ground === null || Math.abs(position.y - ground) > SEPARATION.maxDrop) return false;
+  if ((moved.x - position.x) * dx + (moved.z - position.z) * dz <= 1e-7) return false;
   position.x = moved.x;
   position.z = moved.z;
   return true;

@@ -1,5 +1,6 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
-import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
+import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
+import { playerMovementWorld } from './playerMovementWorld.mjs';
 import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
@@ -11,7 +12,7 @@ import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {stepSoFistication,dismountSoFistication,soFistOperator,damageSoFistication,blastSoFistication} from './soFistication.mjs';
-import {soFistVolumes,soFistSolids,soFistFirstHit} from './soFistGeometry.mjs';
+import {soFistVolumes,soFistFirstHit} from './soFistGeometry.mjs';
 import {resolveWorldImpact} from './worldImpact.mjs';
 import { biByeHitVolumes, biByeFirstHit } from './biByeComponents.mjs';
 import {
@@ -47,7 +48,7 @@ import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
 import { stepHighGrounds, availableHighGroundsSpawns } from './highGroundsMode.mjs';
-import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista } from './biByeLlista.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -2183,8 +2184,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   world = structureWorld(world, room.structures);
   room.world = world;
   markTornGround(room);
-  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),...fightFlightSolids(room.fightFlight)];
-  const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
+  const effectiveWorld = playerMovementWorld(world, {ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight});
 
   for (const player of room.players.values()) {
     const isFrozenActor = Boolean(room.inspectionFrozenActors?.has(player.id));

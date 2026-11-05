@@ -139,6 +139,10 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       arenaReady: Boolean(p.arenaReady),
       position: p.position,
       velocity: p.velocity,
+      grounded: Boolean(p.grounded),
+      jumpHeld: Boolean(p.jumpHeld),
+      dashDir: p.dashDir ? { ...p.dashDir } : null,
+      sprintBlend: p.sprintBlend ?? 0,
       impulse: p.impulse ?? { x: 0, z: 0 },
       yaw: p.yaw,
       pitch: p.pitch,
@@ -355,6 +359,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'vote': return room.vote(player.id,message.key,message.value) ? {lobby:true} : {rejected:'Choose a valid setting before the countdown.'};
     case 'arenaReady': return { lobby: room.setArenaReady(player.id, Boolean(message.ready), time) };
     case 'input': {
+      player.lastMovementInputAt = time;
       if(player.operatingFightFlightId)player.flightInputAt=time;
       player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
       player.input = {

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_MESSAGE_BYTES = 64 * 1024;
+export const MAX_SNAPSHOT_QUEUE_BYTES = 192 * 1024;
 
 function makeFrame(payload, opcode = 0x1) {
   const data = Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload));
@@ -22,11 +23,14 @@ function makeFrame(payload, opcode = 0x1) {
   return Buffer.concat([header, data]);
 }
 
+export function encodeJsonFrame(value) { return makeFrame(JSON.stringify(value), 0x1); }
+
 export class WebSocketPeer {
   constructor(socket) {
     this.socket = socket;
     this.buffer = Buffer.alloc(0);
     this.closed = false;
+    this.skippedSnapshots = 0;
     this.onMessage = () => {};
     this.onClose = () => {};
     socket.on('data', (chunk) => this.#consume(chunk));
@@ -35,9 +39,25 @@ export class WebSocketPeer {
     socket.on('error', () => this.#closed());
   }
 
+  sendPrepared(frame, isSnapshot = false) {
+    if (this.closed || this.socket.destroyed) return false;
+    // Obsolete position updates must not queue ahead of newer authoritative
+    // state on a congested connection. Never discard reliable events/commands.
+    if (isSnapshot && (this.socket.writableNeedDrain || this.socket.writableLength >= MAX_SNAPSHOT_QUEUE_BYTES)) {
+      this.skippedSnapshots++;
+      return false;
+    }
+    this.socket.write(frame);
+    return true;
+  }
+
   sendJson(value) {
-    if (this.closed || this.socket.destroyed) return;
-    this.socket.write(makeFrame(JSON.stringify(value), 0x1));
+    if (this.closed || this.socket.destroyed) return false;
+    if (value?.type === 'snapshot' && (this.socket.writableNeedDrain || this.socket.writableLength >= MAX_SNAPSHOT_QUEUE_BYTES)) {
+      this.skippedSnapshots++;
+      return false;
+    }
+    return this.sendPrepared(encodeJsonFrame(value), false);
   }
 
   close() {
