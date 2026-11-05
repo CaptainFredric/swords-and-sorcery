@@ -7,7 +7,7 @@ function harness() {
   const socket = {
     startInspectionPractice: (name, world) => calls.push(['inspection', name, world]),
     quickPlay: (name) => calls.push(['quickPlay', name]),
-    createRoom: (name) => calls.push(['createRoom', name]),
+    createRoom: (name, settings) => calls.push(['createRoom', name, settings]),
     joinRoom: (code, name) => calls.push(['joinRoom', code, name]),
     startSolo: (mode, name, worldId, botSkill) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : [])]),
   };
@@ -51,7 +51,7 @@ test('menu actions normalize names once and persist the accepted identity', () =
   assert.equal(result.ok, true);
   assert.equal(result.name.length, 18);
   assert.equal(result.name, 'The Long Spellblad');
-  assert.deepEqual(calls, [['createRoom', 'The Long Spellblad']]);
+  assert.deepEqual(calls, [['createRoom', 'The Long Spellblad', {}]]);
   assert.equal(store.get('ss-player-name'), 'The Long Spellblad');
 });
 
@@ -87,4 +87,13 @@ test('inspection keeps name validation and the chosen solo arena', () => {
   controller.chooseSoloArena('ruined-keep');
   assert.equal(controller.inspectionPractice(' Inspector ').ok, true);
   assert.deepEqual(calls, [['inspection', 'Inspector', 'ruined-keep']]);
+});
+
+test('Private room creation forwards exact user-chosen server rules instead of hard-coded Breakthrough or FFA',()=>{
+ const {controller,calls}=harness();
+ const settings={mode:'HIGH_GROUNDS',worldId:'high-grounds',teamSize:2,botSkill:'champion',matchSeconds:600};
+ assert.equal(controller.createPrivate('  A Builder  ',settings).ok,true);
+ assert.deepEqual(calls,[['createRoom','A Builder',settings]]);
+ assert.deepEqual(settings,{mode:'HIGH_GROUNDS',worldId:'high-grounds',
+   teamSize:2,botSkill:'champion',matchSeconds:600});
 });
