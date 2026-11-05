@@ -720,6 +720,7 @@ function renderPublicRooms() {
   const visible = publicRooms.filter(room => roomFilter === 'ALL' || room.modeId === roomFilter);
   const selected = visible.find(room => room.code === selectedPublicCode) ?? visible[0] ?? null;
   selectedPublicCode = selected?.code ?? null;
+  const previousScroll = roomList.scrollTop;
   roomList.innerHTML = visible.length
     ? visible.map(row => `<button type="button" class="room-row${row.code===selectedPublicCode?' selected':''}" data-code="${escapeHtml(row.code)}"
         aria-pressed="${row.code===selectedPublicCode?'true':'false'}">
@@ -728,6 +729,7 @@ function renderPublicRooms() {
         <i>${row.scoreToWin!==null&&row.scoreToWin!==undefined?'FIRST TO '+row.scoreToWin:row.teamSize+'V'+row.teamSize}</i>
       </button>`).join('')
     : '<p class="room-empty">No joinable rooms match this filter. Create one in the chosen mode.</p>';
+  roomList.scrollTop = previousScroll;
   const creating = !roomCreateForm.hidden;
   $('#room-right-title').textContent = creating ? 'CREATE PUBLIC ROOM' : selected ? 'SELECTED ROOM' : 'NO ROOM SELECTED';
   roomSelectedInfo.hidden = creating;
@@ -771,7 +773,7 @@ roomList.addEventListener('click', event => {
   roomsMenu.dataset.panel = 'details';
   renderPublicRooms();
 });
-$('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; });
+$('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
 roomJoinButton.addEventListener('click', () => {
   if (selectedPublicCode) runMenuAction(menuController.joinPrivate(selectedPublicCode, nameInput.value), SCREEN_IDS.ROOMS_MENU);
 });
