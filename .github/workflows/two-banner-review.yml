@@ -1,0 +1,56 @@
+name: Castleward two-banner desktop/mobile visual review
+on:
+  push:
+    paths:
+      - 'scripts/two-banner-review.mjs'
+      - 'client/index.html'
+      - 'client/menu.css'
+      - 'client/main.mjs'
+      - 'client/menu/**'
+      - '.github/workflows/two-banner-review.yml'
+  pull_request:
+    paths:
+      - 'scripts/two-banner-review.mjs'
+      - 'client/index.html'
+      - 'client/menu.css'
+      - 'client/main.mjs'
+      - 'client/menu/**'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start the authoritative Castleward server
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/two-banner-server.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/two-banner-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Capture real desktop and mobile banners
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/two-banner-review.mjs
+      - name: Save menu screenshots and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleward-two-banners
+          path: output/playwright/two-banners/
+          retention-days: 7

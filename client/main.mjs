@@ -600,16 +600,18 @@ function renderLobby() {
   startMatchButton.disabled = view.ready.disabled;
   const switchTeamBtn = $('#switch-team');
   if (switchTeamBtn) {
-    const canSwitch = message.mode === 'BREAKTHROUGH' && message.roomState === 'WAITING';
+    const canSwitch = ['BREAKTHROUGH','HIGH_GROUNDS'].includes(message.mode) && message.roomState === 'WAITING';
     switchTeamBtn.classList.toggle('hidden', !canSwitch);
     const meInLobby = (message.players ?? []).find((p) => p.id === socket.playerId);
-    switchTeamBtn.textContent = meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS';
+    switchTeamBtn.textContent = message.mode==='HIGH_GROUNDS'
+      ? (meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO AZURE' : 'SWITCH TO CRIMSON')
+      : (meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS');
   }
   copyLinkButton.classList.toggle('hidden', !view.action.visible);
   copyLinkButton.classList.toggle('primary-command', view.action.primary);
   copyLinkButton.disabled = view.action.disabled;
   if (!copyLinkButton.dataset.flash) copyLinkButton.textContent = view.action.label;
-  stableLobbyMarkup(lobbyVotes, (message.isPrivate === true ? [] : view.votes).map((row) => `<div class="vote-row"><span>${row.label}</span>${row.options.map((option) => `<button class="vote-chip${option.chosen ? ' chosen' : ''}${option.mine ? ' mine' : ''}" data-key="${row.key}" data-value="${escapeHtml(String(option.value))}">${escapeHtml(String(option.label))}<b class="tally" data-count="${option.count}" aria-label="${option.count} ${option.count === 1 ? 'vote' : 'votes'}">${option.count}</b></button>`).join('')}</div>`).join(''));
+  stableLobbyMarkup(lobbyVotes, ''); // Creator-hosted rules replace majority voting.
   stableLobbyMarkup($('#lobby-settings'), lobbyControls(message, socket.playerId));
   lobbyCopy.textContent = view.footer;
 }
@@ -636,22 +638,14 @@ function updateLobby(message) {
 // the auto-start clock ticks without new messages
 setInterval(() => { if (router.current === SCREEN_IDS.LOBBY) renderLobby(); }, 500);
 
-lobbyVotes.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('.vote-chip');
-  if (!chip) return;
-  const key = chip.dataset.key;
-  const value = key === 'world' ? chip.dataset.value : Number(chip.dataset.value);
-  myVotes = { ...myVotes, [key]: value };
-  socket.vote(key, value);
-  renderLobby();
-});
-
 $('#lobby-settings').addEventListener('change', event => {
   if (event.target.name !== 'mode') return;
-  const form=event.target.form,team=event.target.value==='BREAKTHROUGH';
+  const form=event.target.form,team=event.target.value!=='FFA';
   form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
   form.querySelector('[data-score-field]').hidden=team;
   form.querySelector('[data-team-field]').hidden=!team;
+  form.querySelector('[data-bot-field]').hidden=!team;
+  form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
 });
 $('#lobby-settings').addEventListener('submit', event => {
   event.preventDefault();
@@ -664,15 +658,12 @@ $('#lobby-settings').addEventListener('submit', event => {
   const minutes=Number(form.elements.minutes.value),score=Number(form.elements.scoreToWin.value);
   const mode=form.elements.mode?.value??latestLobby.mode;
   if(!form.elements.minutes.value||!Number.isFinite(minutes)||minutes<1||minutes>30 || (mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
-    $('#lobby-error').textContent='Choose 1 to 100 kills and a match time from 1 to 30 minutes.';
+    $('#lobby-error').textContent='Choose a valid match time (1–30 minutes) and, for Free-for-All, a score (1–100).';
     return;
   }
-  if(latestLobby.isPrivate===true)socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(form.elements.teamSize.value)})}});
-  else {
-    myVotes.score=score;myVotes.time=Math.round(minutes*60);
-    socket.vote('score',myVotes.score);socket.vote('time',myVotes.time);
-    renderLobby();
-  }
+  socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,
+    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:
+    {teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -695,10 +686,22 @@ socket.on('duelFound', () => {
 $('#seek-cancel').addEventListener('click', () => socket.cancelSeek());
 $('#seek-bot').addEventListener('click', () => socket.seekBotDuel());
 
-// --- open rooms: public rooms anyone can walk into ---
+// --- Open Rooms: one browser across all server-supported public battle modes ---
 let roomsTimer = null;
-function openRooms() {
+let publicRooms = [];
+let roomFilter = 'ALL';
+let selectedPublicCode = null;
+const roomCreateForm = $('#room-create-form');
+const roomSelectedInfo = $('#room-selected-info');
+const roomJoinButton = $('#room-join');
+const roomFilters = $('#room-filters');
+
+function openRooms(mode = 'ALL') {
   showMenuError('');
+  roomFilter = ['ALL','FFA','BREAKTHROUGH','HIGH_GROUNDS'].includes(mode) ? mode : 'ALL';
+  roomsMenu.dataset.panel = 'list';
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
   route(SCREEN_IDS.ROOMS_MENU);
   socket.listRooms();
   clearInterval(roomsTimer);
@@ -707,17 +710,106 @@ function openRooms() {
     else clearInterval(roomsTimer);
   }, 3000);
 }
+
+function renderPublicRooms() {
+  for (const filter of roomFilters.querySelectorAll('[data-mode]')) {
+    const active = filter.dataset.mode === roomFilter;
+    filter.classList.toggle('selected', active);
+    filter.setAttribute('aria-pressed', String(active));
+  }
+  const visible = publicRooms.filter(room => roomFilter === 'ALL' || room.modeId === roomFilter);
+  const selected = visible.find(room => room.code === selectedPublicCode) ?? visible[0] ?? null;
+  selectedPublicCode = selected?.code ?? null;
+  const previousScroll = roomList.scrollTop;
+  roomList.innerHTML = visible.length
+    ? visible.map(row => `<button type="button" class="room-row${row.code===selectedPublicCode?' selected':''}" data-code="${escapeHtml(row.code)}"
+        aria-pressed="${row.code===selectedPublicCode?'true':'false'}">
+        <b>${escapeHtml(row.mode)}</b><span>${escapeHtml(row.players)}</span>
+        <em>${escapeHtml(row.world)} · ${escapeHtml(row.status)}</em>
+        <i>${row.scoreToWin!==null&&row.scoreToWin!==undefined?'FIRST TO '+row.scoreToWin:row.teamSize+'V'+row.teamSize}</i>
+      </button>`).join('')
+    : '<p class="room-empty">No joinable rooms match this filter. Create one in the chosen mode.</p>';
+  roomList.scrollTop = previousScroll;
+  const creating = !roomCreateForm.hidden;
+  $('#room-right-title').textContent = creating ? 'CREATE PUBLIC ROOM' : selected ? 'SELECTED ROOM' : 'NO ROOM SELECTED';
+  roomSelectedInfo.hidden = creating;
+  roomJoinButton.hidden = creating;
+  $('#quick-join').hidden = creating;
+  $('#raise-room').hidden = creating;
+  roomSelectedInfo.innerHTML = selected
+    ? `<dl>
+      <div><dt>ROOM</dt><dd>${escapeHtml(selected.code)}</dd></div>
+      <div><dt>MODE</dt><dd>${escapeHtml(selected.mode)}</dd></div>
+      <div><dt>ARENA</dt><dd>${escapeHtml(selected.world)}</dd></div>
+      <div><dt>SPELLBLADES</dt><dd>${escapeHtml(selected.players)}</dd></div>
+      <div><dt>STATUS</dt><dd>${escapeHtml(selected.status)}</dd></div>
+      <div><dt>TIME LIMIT</dt><dd>${Number.isFinite(selected.matchSeconds)?Math.round(selected.matchSeconds/60)+' MIN':'UNTIMED'}</dd></div>
+      ${selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
+        `<div><dt>TEAMS</dt><dd>${selected.teamSize}V${selected.teamSize}</dd></div><div><dt>BOT SKILL</dt><dd>${escapeHtml((selected.botSkill??'knight').toUpperCase())}</dd></div>`}
+      </dl>`
+    : 'Select a room from the list, or raise a new public room.';
+  roomJoinButton.disabled = !selected;
+  const quick = $('#quick-join small');
+  if (quick) quick.textContent = roomFilter === 'ALL' ? 'Find an active match, or create Free-for-All'
+    : `Join an active ${roomFilter.replaceAll('_',' ')} match, or create one`;
+}
 socket.on('roomList', ({ rooms }) => {
-  const rows = roomRows(rooms);
-  roomList.innerHTML = rows.length
-    ? rows.map((row) => `<button class="room-row" data-code="${escapeHtml(row.code)}"><b>${escapeHtml(row.world)}</b><span>${row.players}</span><em>${escapeHtml(row.status)}</em><i>FIRST TO ${row.scoreToWin ?? 10}</i></button>`).join('')
-    : '<p class="room-empty">No open rooms right now. Raise one and others can walk in.</p>';
+  publicRooms = roomRows(rooms ?? []);
+  renderPublicRooms();
 });
-roomList.addEventListener('click', (event) => {
+roomFilters.addEventListener('click', event => {
+  const btn = event.target.closest?.('[data-mode]');
+  if (!btn) return;
+  roomFilter = btn.dataset.mode;
+  selectedPublicCode = null;
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
+});
+roomList.addEventListener('click', event => {
   const row = event.target.closest?.('.room-row');
-  if (row) runMenuAction(menuController.joinPrivate(row.dataset.code, nameInput.value), SCREEN_IDS.ROOMS_MENU);
+  if (!row) return;
+  selectedPublicCode = row.dataset.code;
+  roomCreateForm.hidden = true;
+  roomsMenu.dataset.panel = 'details';
+  renderPublicRooms();
+});
+$('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
+roomJoinButton.addEventListener('click', () => {
+  if (selectedPublicCode) runMenuAction(menuController.joinPrivate(selectedPublicCode, nameInput.value), SCREEN_IDS.ROOMS_MENU);
 });
 
+function syncPublicRoomForm() {
+  const mode=roomCreateForm.elements.mode.value;
+  const team=mode!=='FFA';
+  roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
+  roomCreateForm.querySelector('[data-score-field]').hidden=team;
+  roomCreateForm.querySelector('[data-team-field]').hidden=!team;
+  roomCreateForm.querySelector('[data-bot-field]').hidden=!team;
+  roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
+}
+roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
+$('#raise-room').addEventListener('click', () => {
+  roomCreateForm.hidden = false;
+  roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
+  syncPublicRoomForm();
+  roomsMenu.dataset.panel='details';
+  renderPublicRooms();
+});
+$('#room-create-cancel').addEventListener('click', () => {
+  roomCreateForm.hidden = true;
+  renderPublicRooms();
+});
+roomCreateForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const f=roomCreateForm.elements,mode=f.mode.value,minutes=Number(f.minutes.value),score=Number(f.scoreToWin.value);
+  if (!Number.isFinite(minutes)||minutes<1||minutes>30||(mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
+    showMenuError('Choose a time from 1 to 30 minutes and a valid Free-for-All score.');
+    return;
+  }
+  const settings={mode,worldId:f.worldId.value,matchSeconds:Math.round(minutes*60),
+    ...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
+  runMenuAction(menuController.createPublic(nameInput.value,settings),SCREEN_IDS.ROOMS_MENU);
+});
 // the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
 let endHeardFor = null;
 function soundTheEnd(snapshot) {
@@ -896,10 +988,10 @@ $('#breakthrough-button')?.addEventListener('click', () => { showMenuError(''); 
 $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
-$('#quick-join').addEventListener('click', () => runMenuAction(menuController.quickPlay(nameInput.value), SCREEN_IDS.ROOMS_MENU));
-$('#raise-room').addEventListener('click', () => runMenuAction(menuController.createPublic(nameInput.value), SCREEN_IDS.ROOMS_MENU));
+$('#quick-join').addEventListener('click', () => runMenuAction(
+  menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#solo-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.SOLO_MENU); });
+$('#solo-button').addEventListener('click', () => { showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
@@ -976,7 +1068,13 @@ const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const chosen = menuController.breakthroughArena();
+  const mode = chosen==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
+    button.classList.toggle('selected',button.dataset.mettleMode===mode);
+    button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
+  }
   for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
+    chip.hidden = (mode==='HIGH_GROUNDS') !== (chip.dataset.arena==='high-grounds');
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
@@ -995,6 +1093,12 @@ function showBreakthroughArena() {
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
+$('#mettle-modes')?.addEventListener('click', event => {
+  const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
+  if (!chosen) return;
+  menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+  showBreakthroughArena();
+});
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
   if (!chip) return;
@@ -1200,7 +1304,44 @@ function startTutorial() {
   tutorialSession.start();
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
-$('#tutorial-mode').addEventListener('click',startTutorial);
+// Solo: left banner chooses an activity; right banner owns relevant options and launch.
+let soloActivity = 'bot-duel';
+const soloChoices = Object.freeze({
+  'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
+  'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
+  'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
+  'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
+  'inspection-mode': ['INSPECTION YARD','Local inspection tools, free camera and frame stepping.'],
+});
+function chooseSoloActivity(id) {
+  if (!Object.hasOwn(soloChoices,id)) return;
+  soloActivity=id;
+  for(const choice of Object.keys(soloChoices)) {
+    const button=$('#'+choice);
+    const active=choice===id;
+    button.classList.toggle('selected-activity',active);
+    button.setAttribute('aria-pressed',String(active));
+  }
+  const [title,note]=soloChoices[id];
+  $('#solo-selected-title').textContent=title;
+  $('#solo-selected-note').textContent=note;
+  $('#solo-arena-wrap').hidden=id==='tutorial-mode';
+  $('#solo-rival-wrap').hidden=id!=='bot-duel';
+  $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
+  soloMenu.dataset.panel='details';
+}
+for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
+$('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
+$('#solo-launch').addEventListener('click',()=>{
+  if(soloActivity==='tutorial-mode') return startTutorial();
+  if(soloActivity==='bot-duel') return startBotDuel();
+  if(soloActivity==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+});
+$('#breakthrough-find-public')?.addEventListener('click', () => {
+  openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
+});
 $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value, {
   team: menuController.breakthroughTeam(),
   botSkill: menuController.breakthroughSkill(),
@@ -1215,15 +1356,9 @@ $('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
 function startBotDuel() {
   if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
-  // Use this deliberate click to focus the arena. Joined/readiness still owns the countdown.
-  // If the browser refuses Pointer Lock, the existing Start Bot Duel button remains a fallback.
   ensureRuntime();
   runtime.requestPointerLock();
 }
-$('#bot-duel').addEventListener('click', startBotDuel);
-$('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
-$('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
-$('#shared-practice-mode')?.addEventListener('click',()=>runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU));
 $('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
@@ -1981,7 +2116,8 @@ socket.on('joined', (message) => {
     drawnFor = message.roomCode;
     if (!tutorialSession && message.mode !== 'TUTORIAL') sound.play(unsheatheRecipe(), { gain: 0.95 });
   }
-  latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
+  if (latestLobby?.roomCode !== message.roomCode) latestSnapshot = null;
+  latestLobby = message;
   currentRoomState = message.roomState;
   // a seeker moved into a bot duel while already in the arena is ready at once (no second click)
   if (message.mode === 'BOT_DUEL' && runtime?.input?.enabled) socket.arenaReady(true);
@@ -1990,7 +2126,7 @@ socket.on('joined', (message) => {
     route(SCREEN_IDS.PLAYING);
     hud.hide();
   } else {
-    updateLobby({ ...message, players: latestLobby?.players ?? [] });
+    updateLobby(message);
     route(SCREEN_IDS.LOBBY);
     hud.hide();
   }

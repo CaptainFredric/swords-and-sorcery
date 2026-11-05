@@ -1,4 +1,5 @@
-import { ARENAS, GAME_MODES } from '../src/modes.mjs';
+import { ARENAS, GAME_MODES, publicRoomMode, getModePolicy } from '../src/modes.mjs';
+import { roomSettings } from '../src/roomSettings.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
@@ -27,6 +28,7 @@ export class RoomManager {
   }
 
   createPrivateRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+    // Retain legacy/internal fixtures (including Shattered Keep); network custom rooms are validated separately.
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
@@ -40,8 +42,25 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
+  /** All custom rooms share the same validated rules, whether visible in Open Rooms or invited by code. */
+  createCustomRoom({ isPrivate = true, mode = GAME_MODES.FFA, worldId, scoreToWin, matchSeconds, teamSize, botSkill } = {}, nowSec = 0) {
+    if (!publicRoomMode(mode)) throw new Error('That game mode does not support custom rooms.');
+    const baseline = { mode: GAME_MODES.FFA, worldId: WORLD_IDS.CASTLEWARD, scoreToWin: 10, policy: getModePolicy(GAME_MODES.FFA) };
+    const settings = roomSettings(baseline, { mode, ...(worldId ? { worldId } : {}),
+      ...(scoreToWin !== undefined ? { scoreToWin } : {}),
+      ...(matchSeconds !== undefined ? { matchSeconds } : {}),
+      ...(teamSize !== undefined ? { teamSize } : {}),
+      ...(botSkill !== undefined ? { botSkill } : {}) });
+    if (settings.error) throw new Error(settings.error);
+    const room = this.#createRoom({ isPrivate: Boolean(isPrivate), mode, worldId: settings.worldId, teamSize: settings.teamSize }, nowSec);
+    room.scoreToWin = settings.scoreToWin;
+    room.policy.matchSeconds = settings.matchSeconds;
+    if (room.policy.teamMode) room.setBotSkill(settings.botSkill);
+    return room;
+  }
+
   createBreakthroughRoom(nowSec = 0, isPrivate = true, worldId = WORLD_IDS.BASTION_BREACH, { teamSize = null } = {}) {
-    return this.#createRoom({ isPrivate, mode: worldId === WORLD_IDS.HIGH_GROUNDS ? GAME_MODES.HIGH_GROUNDS : GAME_MODES.BREAKTHROUGH, worldId, teamSize }, nowSec);
+    return this.createCustomRoom({ isPrivate, mode: worldId === WORLD_IDS.HIGH_GROUNDS ? GAME_MODES.HIGH_GROUNDS : GAME_MODES.BREAKTHROUGH, worldId, ...(teamSize ? { teamSize } : {}) }, nowSec);
   }
 
   // a matchmade one-on-one: never listed, never joinable by code or Quick Play
@@ -63,40 +82,31 @@ export class RoomManager {
     return room;
   }
 
-  quickPlay(nowSec = 0) {
-    for (const room of this.rooms.values()) {
-      if (!room.isPrivate
-        && room.mode === GAME_MODES.FFA
-        && ARENAS.includes(room.worldId)
-        && ['WAITING', 'COUNTDOWN', 'PLAYING'].includes(room.state)
-        && room.players.size < 8) return room;
-    }
-    return this.createPublicRoom(nowSec);
+  /** Prefer a populated compatible room; never silently switch the player's selected mode. */
+  quickPlay(nowSec = 0, mode = GAME_MODES.FFA) {
+    if (mode !== 'ALL' && !publicRoomMode(mode)) throw new Error('Choose an available public game mode.');
+    const rooms = [...this.rooms.values()].filter(room => !room.isPrivate && publicRoomMode(room.mode)
+      && (mode === 'ALL' || room.mode === mode) && room.joinError() === null);
+    rooms.sort((a, b) => b.humanCount() - a.humanCount() || a.createdAt - b.createdAt);
+    return rooms[0] ?? this.createCustomRoom({ isPrivate: false, mode: mode === 'ALL' ? GAME_MODES.FFA : mode }, nowSec);
   }
 
-  /** Public free-for-all rooms with space, for the open rooms list. */
+  /** Joinable public rooms across all supported modes; bots do not consume human capacity. */
   listPublicRooms(nowSec = 0) {
     const list = [];
     for (const room of this.rooms.values()) {
-      if (room.isPrivate || room.mode !== GAME_MODES.FFA || room.state === 'FINISHED') continue;
-      const humans = room.humanCount();
-      if (humans === 0 || room.players.size >= 8) continue;
-      const left = room.state === 'PLAYING' && room.matchStartedAt !== null
-        ? Math.max(0, Math.round(room.matchStartedAt + (room.policy.matchSeconds ?? 0) - nowSec))
-        : null;
-      list.push({
-        code: room.code,
-        worldId: room.worldId,
-        state: room.state,
-        players: humans,
-        capacity: 8,
-        scoreToWin: room.scoreToWin,
-        secondsLeft: left,
-      });
+      if (room.isPrivate || room.humanCount() === 0 || room.joinError()) continue;
+      const humans = room.humanActorCount();
+      const capacity = room.policy.teamMode ? (room.policy.teamSize ?? 3) * 2 : 8;
+      const left = room.state === 'PLAYING' && room.matchStartedAt !== null && Number.isFinite(room.policy.matchSeconds)
+        ? Math.max(0, Math.round(room.matchStartedAt + room.policy.matchSeconds - nowSec)) : null;
+      list.push({ code: room.code, mode: room.mode, worldId: room.worldId, state: room.state,
+        players: humans, capacity, teamSize: room.policy.teamSize ?? null,
+        scoreToWin: room.scoreToWin, matchSeconds: room.policy.matchSeconds,
+        botSkill: room.botSkill, secondsLeft: left });
     }
-    // rooms still gathering first, then the busiest
-    const order = { WAITING: 0, COUNTDOWN: 1, REMATCH_COUNTDOWN: 2, PLAYING: 3 };
-    return list.sort((a, b) => (order[a.state] ?? 9) - (order[b.state] ?? 9) || b.players - a.players);
+    const order = { WAITING: 0, COUNTDOWN: 1, PLAYING: 2 };
+    return list.sort((a,b) => (order[a.state] ?? 9) - (order[b.state] ?? 9) || b.players - a.players);
   }
 
   findByCode(code) {

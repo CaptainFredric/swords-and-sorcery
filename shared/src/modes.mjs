@@ -21,7 +21,7 @@ export function arenaOrDefault(worldId) {
 }
 
 
-// what a room's players may vote on before a match (majority of connected Spellblades; a tie keeps the current)
+// Legacy voting constants remain for old clients; custom rooms use creator-hosted rules.
 export const VOTE_OPTIONS = Object.freeze({
   world: ARENAS,
   score: Object.freeze([5, 10, 15]),
@@ -42,7 +42,7 @@ const POLICIES = Object.freeze({
     countdownSec: 3,
     // no host gate: the match starts when every Spellblade is ready, or on its own this long after a second arrives
     readyCheck: true,
-    votes: true,
+    votes: false,
   }),
   [GAME_MODES.BOT_DUEL]: Object.freeze({
     id: GAME_MODES.BOT_DUEL,
@@ -118,3 +118,12 @@ export function getModePolicy(id) {
   if (!policy) throw new Error(`Unknown game mode: ${id}`);
   return policy;
 }
+
+// One place for modes exposed by the public-room browser and its server-side join policy.
+// Adding a mode here opts it in only after it has an authoritative simulation and arenas.
+export const PUBLIC_ROOM_MODES = Object.freeze({
+  [GAME_MODES.FFA]: Object.freeze({ name: 'FREE-FOR-ALL', arenas: ARENAS, capacity: 8, teamMode: false, joinMidMatch: true }),
+  [GAME_MODES.BREAKTHROUGH]: Object.freeze({ name: 'BREAKTHROUGH', arenas: BREAKTHROUGH_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
+  [GAME_MODES.HIGH_GROUNDS]: Object.freeze({ name: 'HIGH GROUNDS', arenas: HIGH_GROUNDS_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
+});
+export function publicRoomMode(id) { return PUBLIC_ROOM_MODES[id] ?? null; }

@@ -26,18 +26,19 @@ test('each Spellblade marks themselves ready; the button says where they stand',
   assert.equal(publicView.ready.pressed, false);
 });
 
-test('votes show counts, the choice that would apply and my own pick', () => {
-  const message = {
-    mode: 'FFA', roomState: 'WAITING', players: [human('a'), human('b')],
-    votes: { world: { counts: { castleward: 1, 'shattered-keep': 1 }, chosen: 'castleward' }, score: { counts: { 5: 2, 10: 0, 15: 0 }, chosen: 5 }, time: { counts: {270:2,360:0}, chosen:270} },
-  };
-  const view = lobbyView(message, { localId: 'a', myVotes: { world: 'shattered-keep', score: 5, time:270 } });
-  const [world, score, time] = view.votes;
-  assert.deepEqual(time.options.map(o=>[o.label,o.chosen,o.mine]),[['4:30',true,true],['6:00',false,false]]);
-  assert.equal(world.label, 'ARENA');
-  assert.deepEqual(world.options.map((o) => [o.label, o.count, o.chosen, o.mine]), [['Castleward', 1, true, false], ['The Shattered Keep', 1, false, true]]);
-  assert.deepEqual(score.options.map((o) => [o.value, o.chosen]), [[5, true], [10, false], [15, false]]);
-  assert.deepEqual(lobbyView({ ...message, roomState: 'PLAYING' }).votes, [], 'no voting mid-match');
+test('lobby has no conflicting public voting controls', () => {
+  const message={ mode:'FFA',roomState:'WAITING',players:[human('a'),human('b')],
+    votes:{world:{counts:{castleward:2},chosen:'castleward'}} };
+  assert.deepEqual(lobbyView(message,{localId:'a'}).votes,[]);
+});
+test('High Grounds uses team lobby readiness and displays its own identity', () => {
+  const message={mode:'HIGH_GROUNDS',roomState:'WAITING',teamSize:2,worldId:'high-grounds',isPrivate:false,
+    players:[human('a',{team:'ATTACKERS'}),human('b',{team:'DEFENDERS'})]};
+  const view=lobbyView(message,{localId:'a'});
+  assert.equal(view.mode,'HIGH GROUNDS · 2V2');
+  assert.equal(view.ready.visible,true);
+  assert.match(view.players[0].status,/AZURE/);
+  assert.match(view.world,/HIGH GROUNDS/);
 });
 
 test('duels and bot duels keep their own wording and actions', () => {

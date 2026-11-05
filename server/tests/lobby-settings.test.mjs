@@ -18,13 +18,29 @@ test('private host can edit compatible arena, mode, score and clock while guests
   assert.equal(r.mode,'BREAKTHROUGH');assert.equal(r.worldId,'outerworks');assert.equal(r.players.size,4);
 });
 
-test('custom public votes use actual typed choices and apply at the next match',()=>{
-  const r=room(false);
-  assert.equal(r.vote('host','score',23),true);assert.equal(r.vote('guest','time',270),true);
-  assert.equal(r.vote('host','score',1.1),false);assert.equal(r.vote('host','time',Infinity),false);
-  assert.equal(r.tallyVotes().score.counts[23],1);
-  r.startMatch(5);assert.equal(r.scoreToWin,23);assert.equal(r.policy.matchSeconds,270);
+test('creator controls public rules; guests cannot vote or configure',()=>{
+  const r=room(false),host=r.players.get('host'),guest=r.players.get('guest');
+  assert.equal(serializeLobby(r).votes,null);
+  assert.ok(applyRoomCommand(r,guest,{type:'configureRoom',settings:{scoreToWin:23}},1).rejected);
+  assert.ok(applyRoomCommand(r,guest,{type:'vote',key:'score',value:23},1).rejected);
+  assert.equal(applyRoomCommand(r,host,{type:'configureRoom',settings:{scoreToWin:23,matchSeconds:270}},1).lobby,true);
+  assert.equal(r.scoreToWin,23);assert.equal(r.policy.matchSeconds,270);
+  assert.equal(r.vote('host','score',5),false);
 });
+
+test('brief host disconnect does not transfer settings authority',()=>{
+  const r=room(false),host=r.players.get('host'),guest=r.players.get('guest');
+  r.disconnectPlayer('host',2);
+  assert.equal(r.hostId(),'host');
+  assert.ok(applyRoomCommand(r,guest,{type:'configureRoom',settings:{scoreToWin:25}},3).rejected);
+  assert.equal(r.reconnectPlayer('host',4)?.id,'host');
+  assert.equal(r.hostId(),'host');
+  assert.equal(applyRoomCommand(r,host,{type:'configureRoom',settings:{scoreToWin:25}},5).lobby,true);
+  r.disconnectPlayer('host',6);r.tick(22);
+  assert.equal(r.hostId(),'guest');
+  assert.equal(applyRoomCommand(r,guest,{type:'configureRoom',settings:{scoreToWin:30}},23).lobby,true);
+});
+
 
 test('bots keep human seats open and host can swap real team positions',()=>{
   const r=room(),host=r.players.get('host');

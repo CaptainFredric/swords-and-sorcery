@@ -41,7 +41,8 @@ export function serializeLobby(room) {
     scoreToWin: room.scoreToWin,
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
-    votes: room.policy.votes ? room.tallyVotes() : null,
+    botSkill: room.botSkill,
+    votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,

@@ -241,14 +241,17 @@ export class GameLink {
     if (this.pendingAction && this.pendingAction.method === method && JSON.stringify(this.pendingAction.args) === JSON.stringify(args)) {
       return;
     }
-    this.pendingAction = { method, args };
+    // Only the most recent distinct action is sent after the shared connection opens.
+    // Without identity tracking, an earlier waiter could consume and clear a later action.
+    const request = { method, args };
+    this.pendingAction = request;
 
     const connected = await this.ensureConnected();
-    const action = this.pendingAction;
+    if (this.pendingAction !== request) return;
     this.pendingAction = null;
 
     if (!connected) {
-      if (action?.method === method) {
+      if (request.method === method) {
         if (method === 'seekDuel') {
           this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
           this.hosting = 'local';
@@ -264,11 +267,9 @@ export class GameLink {
       return;
     }
 
-    if (action && action.method === method) {
-      if (this.hosting === 'local') this.local.leaveRoom();
-      this.hosting = 'remote';
-      this.remote[method](...args);
-    }
+    if (this.hosting === 'local') this.local.leaveRoom();
+    this.hosting = 'remote';
+    this.remote[method](...args);
   }
 
   leaveRoom() {

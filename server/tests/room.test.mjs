@@ -131,7 +131,7 @@ test('a lone Spellblade cannot start; if the first to arrive leaves, the room si
   room.setReady('a', true, 0);
   assert.equal(room.state, 'WAITING', 'one ready Spellblade cannot start a match');
   add(room, 'b'); add(room, 'c'); room.disconnectPlayer('a', 1);
-  assert.equal(room.hostId(), 'b');
+  assert.equal(room.hostId(), 'a', 'temporary disconnect preserves creator ownership');
   assert.equal(room.setReady('a', true, 1), false, 'a disconnected Spellblade has no say');
   room.setReady('b', true, 1);
   assert.equal(room.state, 'WAITING');
@@ -159,24 +159,17 @@ test('with two or more Spellblades the match starts on its own after a short wai
   assert.equal(privateRoom.autoStartAt, null, 'the wait resets when it drops back to one');
 });
 
-test('arena and score are majority votes; a tie keeps what the room has; they apply when the match starts', () => {
+test('public room settings are controlled by the creator, never majority votes', () => {
   const room = new Room('VOTE2', { isPrivate: false, worldId: 'castleward' });
   add(room, 'a'); add(room, 'b'); add(room, 'c');
-  assert.equal(room.vote('a', 'world', 'ruined-keep'), true);
-  assert.equal(room.vote('b', 'world', 'ruined-keep'), true);
-  assert.equal(room.vote('c', 'world', 'castleward'), true);
-  assert.equal(room.vote('a', 'score', 5), true);
-  assert.equal(room.vote('b', 'score', 15), true);
-  assert.equal(room.vote('a', 'world', 'the-moon'), false, 'only offered choices count');
-  assert.equal(room.vote('a', 'score', 101), false);
-  const tally = room.tallyVotes();
-  assert.equal(tally.world.chosen, 'ruined-keep');
-  assert.equal(tally.score.chosen, 10, 'a 1-1 tie keeps the current score');
-  readyAll(room, 0); room.tick(3.1);
-  assert.equal(room.state, 'PLAYING');
-  assert.equal(room.worldId, 'ruined-keep');
-  assert.equal(room.scoreToWin, 10);
-  assert.equal(room.vote('a', 'score', 5), false, 'no voting mid-match');
+  assert.equal(room.vote('a','world','ruined-keep'),false);
+  assert.equal(room.vote('b','score',15),false);
+  assert.match(room.configureRoom('b',{scoreToWin:5},0),/host/i);
+  assert.equal(room.configureRoom('a',{worldId:'ruined-keep',scoreToWin:15},0),null);
+  readyAll(room,1);room.tick(4.1);
+  assert.equal(room.state,'PLAYING');
+  assert.equal(room.worldId,'ruined-keep');
+  assert.equal(room.scoreToWin,15);
 });
 
 test('a matchmade duel counts down five seconds once both duellists are in, and a duellist who leaves forfeits', () => {

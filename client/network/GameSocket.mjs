@@ -92,6 +92,10 @@ export class GameSocket {
       }
     }
     if (message.type === 'joined') {
+      if (this.roomCode !== message.roomCode) {
+        this.latestSnapshot = null;
+        this.snapshotReceivedAt = 0;
+      }
       this.playerId = message.playerId;
       this.token = message.token;
       this.roomCode = message.roomCode;
@@ -147,7 +151,7 @@ export class GameSocket {
   createSharedPracticeRoom(name,worldId='castleward') { this.send({type:'createSharedPracticeRoom',name,worldId}); }
   createBreakthroughRoom(name, team = null, botSkill = null, teamSize = null, worldId = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}), ...(teamSize ? { teamSize } : {}), ...(worldId ? { worldId } : {}) }); }
 
-  quickPlay(name) { this.send({ type: 'quickPlay', name }); }
+  quickPlay(name, mode = 'FFA') { this.send({ type: 'quickPlay', name, mode }); }
   startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}), ...(team ? { team } : {}), ...(teamSize ? { teamSize } : {}) }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
   startMatch() { this.send({ type: 'startMatch' }); }
@@ -192,7 +196,7 @@ export class GameSocket {
   cancelSeek() { this.send({ type: 'cancelSeek' }); }
   seekBotDuel() { this.send({ type: 'seekBotDuel' }); }
   listRooms() { this.send({ type: 'listRooms' }); }
-  createPublicRoom(name) { this.send({ type: 'createPublicRoom', name }); }
+  createPublicRoom(name, settings = {}) { this.send({ type: 'createPublicRoom', name, settings }); }
   ready(ready) { this.send({ type: 'ready', ready: Boolean(ready) }); }
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }

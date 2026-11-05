@@ -418,3 +418,18 @@ test('Scenario 14: Repeat online actions rapidly: no duplicate WebSockets or roo
   assert.equal(connects.length, 1, 'exactly one connection was attempted');
   assert.equal(quickPlays.length, 1, 'exactly one room command was sent');
 });
+
+test('competing distinct room actions while connecting send exactly the latest intent', async () => {
+  const remote = fakeRemote({ answers: 'hang' });
+  const timers = fakeTimers();
+  const local = new LocalHost({ every: () => 1, cancel: () => {}, later: (fn) => fn() });
+  const link = new GameLink({ remote, local, timers });
+  const first = link.quickPlay('Aden','FFA');
+  const second = link.createPublicRoom('Aden',{mode:'BREAKTHROUGH',worldId:'outerworks'});
+  remote.pending.resolve();
+  await Promise.all([first,second]);
+  assert.equal(remote.calls.filter(c => c[0]==='connect').length,1);
+  assert.equal(remote.calls.filter(c => c[0]==='quickPlay').length,0,'superseded quick join must not run');
+  assert.deepEqual(remote.calls.filter(c => c[0]==='createPublicRoom'),
+    [['createPublicRoom','Aden',{mode:'BREAKTHROUGH',worldId:'outerworks'}]]);
+});

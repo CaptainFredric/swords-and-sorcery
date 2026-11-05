@@ -141,7 +141,8 @@ test('the rarer grunts, the likelier charge, the battle\'s opening line, and the
   // Charged with Defeat: the charge's likelier line, tried first
   const charge = linesFor('k', ['charge']).map((say) => say.line);
   assert.equal(charge[0], 'chargeDefeat');
-  assert.ok(voiceLine('chargeDefeat').rarity >= 0.3);
+  assert.equal(voiceLine('chargeDefeat').rarity, 0.14);
+  assert.equal(voiceLine('chargeDefeat').cooldown, 120);
   // May the Best Man Win: one of the lines for any battle beginning
   assert.deepEqual(Object.keys(voiceLine('bestManWin').triggers), ['battleBegins']);
   const runtime = readFileSync(new URL('../GameRuntime.mjs', import.meta.url), 'utf8');

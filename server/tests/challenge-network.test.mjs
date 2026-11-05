@@ -25,7 +25,7 @@ test('server settles a short Duel feat once from private combat facts including 
   await game.start();const sockets=[];
   t.after(async()=>{sockets.forEach(s=>s.close());await game.stop();fs.rmSync(dir,{recursive:true,force:true});});
   async function connect(){const ws=new WebSocket(`ws://127.0.0.1:${game.address().port}/ws`);sockets.push(ws);const next=inbox(ws);await new Promise(r=>ws.addEventListener('open',r,{once:true}));ws.send(JSON.stringify({type:'profileHello'}));const profile=await next('profile');return {ws,next,token:profile.token};}
-  const a=await connect();a.ws.send(JSON.stringify({type:'createRoom',name:'A',mode:'DUEL'}));const joined=await a.next('joined');
+  const a=await connect();a.ws.send(JSON.stringify({type:'createRoom',name:'A'}));const joined=await a.next('joined');
   const b=await connect();b.ws.send(JSON.stringify({type:'joinRoom',name:'B',code:joined.roomCode}));const other=await b.next('joined');
   const room=game.roomManager.findByCode(joined.roomCode);
   room.mode='DUEL';room.startMatch(game.now());room.scoreToWin=1;

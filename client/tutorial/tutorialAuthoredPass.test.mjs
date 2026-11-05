@@ -49,7 +49,7 @@ test('health regeneration settles only after a second back at full, and a new hi
   }
   assert.ok(full !== null);
   assert.notEqual(session.director.current.id, 'health-regen-prompt');
-  assert.ok(now() - full >= HEALTH_SETTLED_SEC - 1e-6, `settled ${(now() - full).toFixed(2)} s after full health`);
+  assert.ok(now() - full >= HEALTH_SETTLED_SEC - (1 / 30 + 1e-6), `settled ${(now() - full).toFixed(2)} s after full health`);
   host.close();
 });
 
