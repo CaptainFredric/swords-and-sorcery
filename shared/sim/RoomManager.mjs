@@ -48,12 +48,13 @@ export class RoomManager {
     const settings = roomSettings(baseline, { mode, ...(worldId ? { worldId } : {}),
       ...(scoreToWin !== undefined ? { scoreToWin } : {}),
       ...(matchSeconds !== undefined ? { matchSeconds } : {}),
-      ...(teamSize !== undefined ? { teamSize } : {}) });
+      ...(teamSize !== undefined ? { teamSize } : {}),
+      ...(botSkill !== undefined ? { botSkill } : {}) });
     if (settings.error) throw new Error(settings.error);
     const room = this.#createRoom({ isPrivate: Boolean(isPrivate), mode, worldId: settings.worldId, teamSize: settings.teamSize }, nowSec);
     room.scoreToWin = settings.scoreToWin;
     room.policy.matchSeconds = settings.matchSeconds;
-    if (room.policy.teamMode) room.setBotSkill(botSkill);
+    if (room.policy.teamMode) room.setBotSkill(settings.botSkill);
     return room;
   }
 
