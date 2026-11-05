@@ -808,3 +808,148 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .armory-tabs {min-width:0;max-width:100%;display:flex;flex-wrap:wrap;gap:4px}
 .armory-tabs button {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
 .banner-panel .controls-grid {grid-template-columns:minmax(80px,96px) minmax(0,1fr)}
+
+
+/* --- Open Rooms / Solo: two independent hanging standards ---------------------------------------
+   The listing and the selected action must NEVER stack on the same absolute
+   coordinates at desktop widths. A narrow shell shows one full-width banner
+   at a time; "data-panel" is controlled by the real menu navigation. */
+#rooms-menu, #solo-menu {
+  --dual-banner-left: clamp(18px, 3.5cqw, 56px);
+  --dual-banner-right: clamp(18px, 3.5cqw, 56px);
+  --dual-list-width: min(420px, calc((100cqw - 98px) / 2));
+  --dual-detail-width: min(388px, calc((100cqw - 98px) / 2));
+  --banner-left: var(--dual-banner-left);
+  --banner-width: var(--dual-list-width);
+}
+#rooms-menu > .side-screen-inner, #solo-menu > .side-screen-inner {
+  --banner-width: var(--dual-list-width);
+  left: var(--dual-banner-left);
+  width: var(--dual-list-width);
+  max-width: none;
+  min-width: 0;
+}
+#rooms-menu > .companion-banner, #solo-menu > .companion-banner {
+  --banner-width: var(--dual-detail-width);
+  left: auto;
+  right: var(--dual-banner-right);
+  width: var(--dual-detail-width);
+  max-width: none;
+  min-width: 0;
+  top: 40px;
+  max-height: calc(100% - 48px);
+}
+/* A second brass rod, behind the smaller right-hand standard. */
+#rooms-menu::before, #solo-menu::before {
+  content: "";
+  display: block;
+  position: absolute;
+  z-index: 2;
+  top: 36px;
+  right: calc(var(--dual-banner-right) - 18px);
+  width: calc(var(--dual-detail-width) + 36px);
+  height: 8px;
+  border-radius: 5px;
+  background: linear-gradient(#f2d692, #b98a3e 55%, #6f5122);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
+  pointer-events: none;
+}
+#rooms-menu .banner-scroll, #solo-menu .banner-scroll {
+  min-width: 0;
+}
+#rooms-menu .companion-return, #solo-menu .companion-return {
+  display: none;
+}
+#rooms-menu :is(.mode-filters, .lobby-config), #solo-menu :is(.mode-filters, .lobby-config) {
+  min-width: 0;
+}
+.mode-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 3px 0 14px;
+}
+.mode-filters button {
+  padding: 7px 9px;
+  border: 1px solid rgba(201,156,82,.45);
+  border-radius: 2px;
+  background: rgba(31,24,22,.63);
+  color: var(--heraldry-cream);
+  font: 700 11px/1.15 var(--font-script);
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.mode-filters button:hover, .mode-filters button:focus-visible {
+  border-color: var(--heraldry-brass-light);
+}
+.mode-filters button.selected, .mode-filters button[aria-pressed="true"] {
+  background: linear-gradient(#ecd397,#b98a3e);
+  border-color: var(--heraldry-brass-light);
+  color: #291b13;
+}
+.room-selected-info {
+  padding: 12px 10px;
+  margin: 4px 0 16px;
+  min-height: 56px;
+  border: 1px solid rgba(201,156,82,.32);
+  background: rgba(22,18,15,.34);
+  color: var(--heraldry-cream);
+  font: 500 13px/1.45 var(--font-script);
+  overflow-wrap: anywhere;
+}
+#room-list .room-row.selected,
+#room-list .room-row[aria-pressed="true"] {
+  border-color: var(--heraldry-brass-light);
+  background: linear-gradient(180deg,rgba(100,71,44,.95),rgba(44,36,29,.95));
+  box-shadow: inset 3px 0 0 var(--heraldry-brass-light);
+}
+.lobby-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(201,156,82,.4);
+}
+.lobby-config[hidden], .lobby-config [hidden] { display: none !important; }
+.lobby-config label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--heraldry-brass-light);
+  font: 700 11px/1.25 var(--font-script);
+  letter-spacing: .08em;
+}
+.lobby-config .game-input { width: 100%; min-width: 0; }
+.lobby-config :is(button, select, input) { max-width: 100%; }
+#rooms-menu .banner-panel :is(h2,.room-row,button),
+#solo-menu .banner-panel :is(h2,button) {
+  overflow-wrap: anywhere;
+}
+@container app (max-width: 640px) {
+  #rooms-menu, #solo-menu {
+    --dual-banner-left: 12px;
+    --dual-banner-right: 12px;
+    --dual-list-width: calc(100cqw - 24px);
+    --dual-detail-width: calc(100cqw - 24px);
+    --banner-left: 12px;
+    --banner-width: calc(100cqw - 24px);
+  }
+  #rooms-menu > .side-screen-inner, #solo-menu > .side-screen-inner,
+  #rooms-menu > .companion-banner, #solo-menu > .companion-banner {
+    left: 12px;
+    right: auto;
+    top: 16px;
+    width: calc(100cqw - 24px);
+    max-width: calc(100cqw - 24px);
+    max-height: calc(100cqh - 24px);
+  }
+  #rooms-menu[data-panel="list"] > .companion-banner,
+  #solo-menu[data-panel="list"] > .companion-banner,
+  #rooms-menu[data-panel="details"] > .side-screen-inner,
+  #solo-menu[data-panel="details"] > .side-screen-inner { display: none !important; }
+  #rooms-menu::before, #solo-menu::before { display: none; }
+  #rooms-menu .companion-return, #solo-menu .companion-return { display: inline-flex; }
+  #rooms-menu .banner-scroll, #solo-menu .banner-scroll { padding: 22px 20px 16px; }
+  .room-list { max-height: min(44cqh, 460px); }
+}
