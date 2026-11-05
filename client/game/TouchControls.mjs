@@ -15,6 +15,9 @@ import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeCon
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
+import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,RITUAL_UNIT,
+  ritualStartNear,createValkyrieRitual,advanceValkyrieRitual,ritualFraction }
+  from './terminalDiveGesture.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -83,6 +86,7 @@ export class TouchControls {
     this.stickSprintRequested = false;
     this.sprintLatched = false;this.chargeHeld=false;
     this.valkyrieTouchLatched = new Map();
+    this.ritual=null;
     this.flightRiseHeld = false;
     this.flightLowerHeld = false;
     this.flightRiseSources = new Set();
@@ -91,6 +95,9 @@ export class TouchControls {
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
+    // An owned Raise/Lower finger may switch to pitch by swiping outward.
+    // Sliding onto a button from elsewhere never initiates hydraulics.
+    this.ramTiltGestures = new Map();
     this.layouts = loadTouchLayout();
     this.previewMode = null;
 
@@ -119,6 +126,28 @@ export class TouchControls {
           <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
+    // A physically distinct transparent stencil lies *over* the controls,
+    // but receives no pointer events. TouchControls itself owns a pointer
+    // whose START falls near the stencil's lower-right rune waypoint.
+    this.valkyrieStencil=document.createElement('div');
+    this.valkyrieStencil.className='touch-valkyrie-stencil';
+    this.valkyrieStencil.dataset.action='valkyrieStencil';
+    this.valkyrieStencil.hidden=true;
+    this.valkyrieStencil.setAttribute('aria-label','Terminal Dive: trace Dagaz rune, then halo');
+    this.valkyrieStencil.innerHTML=`
+      <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+        <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
+        ${VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>{
+          const a=VALKYRIE_RITUAL_POINTS[i];
+          return `<path class="touch-valkyrie-segment ritual-stage-${i}"
+            d="M${a[0]} ${a[1]} L${p[0]} ${p[1]}"/>`;
+        }).join('')}
+        <text class="touch-valkyrie-glyph" x="151" y="112">ᛞ</text>
+      </svg>
+      <span class="touch-valkyrie-grip" title="Drag to move the Terminal Dive stencil">MOVE ᛞ</span>`;
+    this.layer.append(this.valkyrieStencil);
+    this.valkyrieLines=VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>
+      this.valkyrieStencil.querySelector('.ritual-stage-'+i));
     this.galeGesture = null;
     this.galeHoldTimer = null;
     this.galeIndicator = document.createElement('div');
@@ -190,11 +219,13 @@ export class TouchControls {
     this.onWindowStickMove = (event) => {
       if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
       if (this.flightRailPointer === event.pointerId && !this.layer.contains?.(event.target)) this.#moveFlightRail(event);
-      if (this.held.has(event.pointerId) && !this.layer.contains?.(event.target)) this.#move(event);
+      if ((this.held.has(event.pointerId)||this.ritual?.pointerId===event.pointerId)
+        && !this.layer.contains?.(event.target)) this.#move(event);
     };
     this.onWindowStickEnd = (event) => {
       if ((this.stick?.id === event.pointerId || this.flightRailPointer === event.pointerId ||
-        this.held.has(event.pointerId)) && !this.layer.contains?.(event.target)) this.#up(event);
+        this.held.has(event.pointerId)||this.ritual?.pointerId===event.pointerId)
+        && !this.layer.contains?.(event.target)) this.#up(event);
     };
     window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
     window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
@@ -249,14 +280,12 @@ export class TouchControls {
     // The motion well is a child of the stick: edited, moved, or mirrored
     // joystick placements carry the feedback with them automatically.
     this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
-    for(const element of [this.stickBase,...Object.values(this.buttons)])clearLayoutItem(element);
+    for(const element of [this.stickBase,this.valkyrieStencil,...Object.values(this.buttons)])clearLayoutItem(element);
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
-        const element = action === 'stick' ? this.stickBase : this.buttons[action];
-        // All pages render from the SAME versioned preset + player overrides.
-        // Do not let old CSS on-foot values silently replace newly shipped
-        // default coordinates or sizes when the save contains no custom flag.
-        if (element) applyLayoutItem(element,{...placement,custom:true});
+        const element = action === 'stick' ? this.stickBase :
+          action === 'valkyrieStencil' ? this.valkyrieStencil : this.buttons[action];
+        if (element) applyLayoutItem(element, mode!=='onFoot'?{...placement,custom:true}:placement);
       }
     }
     if (layouts.opacity !== undefined) {
@@ -289,6 +318,8 @@ export class TouchControls {
         button.hidden=!visible.includes(action);
       this.layer.classList.toggle('mounted-steel-available',mounted);
     }
+    this.valkyrieStencil.hidden=activeMode!=='flight';
+    this.valkyrieStencil.classList.toggle('preview',Boolean(mode)&&flight);
     this.applyLayout(this.layouts);
   }
 
@@ -319,6 +350,7 @@ export class TouchControls {
   }
 
   reset() {
+    this.#clearValkyrieRitual();
     this.#setMotionIndicator('idle');
     this.input.onAimCancelled?.();
     if (this.galeGesture?.mode !== 'balanced' && this.galeGesture) this.input.selectGaleMode?.('balanced');
@@ -358,6 +390,7 @@ export class TouchControls {
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
+    this.ramTiltGestures.clear();
     this.buttons.sprint.classList.remove('on');
     this.buttons.crouch?.classList.remove('on');
   }
@@ -370,18 +403,22 @@ export class TouchControls {
     const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
+    const pitchUp=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.pitch);
+    const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.pitch);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.ramMounted?Boolean(this.jumpHeld):
+      jump: this.ramMounted?Boolean(this.jumpHeld&&!pitchUp):
         this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
+      ramPitchUp: Boolean(this.ramMounted && pitchUp),
+      ramPitchDown: Boolean(this.ramMounted && pitchDown),
       sprint: this.flightMounted ? false : this.ramMounted
         ? Boolean(this.chargeHeld || (moveAllowed && this.stickState.sprint))
         : Boolean(moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false))),
       crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) :
-        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld):
+        this.flightMounted ? false : this.ramMounted?Boolean(this.ramLowerHeld&&!pitchDown):
         Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
@@ -553,7 +590,7 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['siegeSkill',flight?flightSkillIcon:ram?'beatToThePunch':biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -562,8 +599,14 @@ export class TouchControls {
       this.layer.classList.toggle('airborne', airborne);
       if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
       if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
-      this.buttons.jump.querySelector('span').textContent='JUMP';
-      this.buttons.crouch.querySelector('span').textContent='CROUCH';
+      const frontUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='jump');
+      const frontDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.pitch&&g.action==='crouch');
+      this.buttons.jump.querySelector('span').textContent=ram?(frontUp?'FRONT UP':'RAISE'):'JUMP';
+      this.buttons.crouch.querySelector('span').textContent=ram?(frontDown?'FRONT DOWN':'LOWER'):'CROUCH';
+      this.buttons.jump.setAttribute('aria-label',frontUp?'Tilting the ram front upward':
+        ram?'Hold to raise ram; swipe up while held to tilt front upward':'Jump');
+      this.buttons.crouch.setAttribute('aria-label',frontDown?'Tilting the ram front downward':
+        ram?'Hold to lower ram; swipe down while held to tilt front downward':'Crouch');
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       // After mount transitions (which reset held controls), paint the real
@@ -610,8 +653,10 @@ export class TouchControls {
             dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
-        const valkyrieReady = flight && ascensionValkyrieReady(fb,local,serverNow);
+        const valkyrieReady = flight && !fb?.grounded && ascensionValkyrieReady(fb,local,serverNow);
         this.valkyrieEligible = valkyrieReady;
+        this.valkyrieStencil.hidden=!valkyrieReady;
+        if(!valkyrieReady)this.#clearValkyrieRitual();
         const uBtn = this.buttons.ultimate;
         if (uBtn) {
           const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
@@ -628,6 +673,8 @@ export class TouchControls {
         if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
         this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
         this.valkyrieEligible = false;
+        this.valkyrieStencil.hidden=true;
+        this.#clearValkyrieRitual();
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'flight-spinning', 'valkyrie-prep');
         this.buttons.dash.querySelector('span').textContent='DASH';
@@ -807,9 +854,89 @@ export class TouchControls {
     this.layer.remove();
   }
 
+  #ritualPoint(event) {
+    const element=this.valkyrieStencil;
+    const rect=element?.getBoundingClientRect?.();
+    if(!rect||!(rect.width>0&&rect.height>0))return null;
+    // ScreenTurn may rotate the canvas without rotating the handset screen.
+    const width=element.clientWidth||rect.width,height=element.clientHeight||rect.height;
+    const point=touchLayerPoint(event.clientX,event.clientY,rect,{width,height},
+      screenTurn?.angle??0);
+    if(!point)return null;
+    return {x:point.x/width*RITUAL_UNIT,y:point.y/height*RITUAL_UNIT};
+  }
+
+  #paintValkyrieRitual() {
+    const g=this.ritual;
+    const progress=g&&!g.invalid?ritualFraction(g):0;
+    this.valkyrieStencil?.style?.setProperty('--ritual-progress',String(progress));
+    this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g&&!g.invalid));
+    this.valkyrieStencil?.classList?.toggle('complete',Boolean(g?.completed));
+    for(let i=0;i<this.valkyrieLines.length;i++){
+      const line=this.valkyrieLines[i];if(!line)continue;
+      const amount=g&&!g.invalid?
+        i<g.index?1:i===g.index?g.segmentProgress:0:0;
+      line.style.strokeOpacity=String(.05+.95*amount);
+      line.style.strokeWidth=String(2+2.4*amount);
+    }
+  }
+  #clearValkyrieRitual() {
+    this.ritual=null;
+    if(this.valkyrieStencil)this.#paintValkyrieRitual();
+  }
+  #ritualStart(event) {
+    if(event.pointerType==='mouse'||!this.flightMounted||
+      !this.valkyrieEligible||this.ritual||
+      this.layer.classList.contains('touch-layout-editing'))return false;
+    const point=this.#ritualPoint(event);
+    if(!ritualStartNear(point))return false;
+    event.preventDefault();
+    try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
+    this.ritual={...createValkyrieRitual(event.pointerId,performance.now()),
+      startedOnJump:event.target.closest?.('[data-action]')?.dataset.action==='jump',
+      startPoint:point,invalid:false};
+    this.#paintValkyrieRitual();
+    return true;
+  }
+  #ritualMove(event) {
+    const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
+    event.preventDefault();
+    if(g.invalid||g.completed)return true;
+    const at=this.#ritualPoint(event);
+    const next=advanceValkyrieRitual(g,at,performance.now());
+    if(!next){g.invalid=true;this.#paintValkyrieRitual();return true;}
+    this.ritual=next;
+    this.#paintValkyrieRitual();
+    if(next.completed){
+      // A completed physical trace has a SINGLE authoritative effect.
+      // Do not simulate any of the underlying button touches or fake a
+      // Dash+Ultimate chord: the host rechecks full meter and active Ascension.
+      this.input.flightTerminalRitual?.();
+    }
+    return true;
+  }
+  #ritualEnd(event) {
+    const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
+    event.preventDefault();
+    // Keep ordinary Jump taps usable even when the stencil overlays Jump.
+    // Drawing the rune NEVER hops or fires the other underlying buttons.
+    if(event.type==='pointerup'&&g.startedOnJump&&!g.invalid&&!g.completed&&
+       g.index===0&&g.segmentProgress<.08&&
+       performance.now()-g.startedAt<230){
+      this.input.flightHop?.();
+    }
+    this.#clearValkyrieRitual();
+    return true;
+  }
+
   #down = (event) => {
     this.touchDebugEvent = 'down';
     if (!this.active) return;
+    // A pointer owns the action it STARTED on. A thumb sliding across Dash
+    // cannot be promoted from a look, stick, rail, or other held gesture.
+    // Distinct fingers can still press Dash and Ultimate together.
+    if (this.held.has(event.pointerId) || this.stick?.id === event.pointerId ||
+        this.look?.id === event.pointerId || this.flightRailPointer === event.pointerId) return;
     if (event.target.closest?.('.touch-flight-rail') && this.flightMounted) {
       event.preventDefault();
       if (this.flightRailPointer !== null) return;
@@ -853,6 +980,7 @@ export class TouchControls {
   };
 
   #move = (event) => {
+    if(this.#ritualMove(event))return;
     if (this.flightRailPointer === event.pointerId) { this.#moveFlightRail(event); return; }
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) return;
     if(this.viewGesture?.id===event.pointerId){
@@ -878,6 +1006,18 @@ export class TouchControls {
       const gesture = this.preparedTouch;
       gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
       this.#showPreparedTouch();
+      return;
+    }
+    if(this.ramMounted&&this.ramTiltGestures.has(event.pointerId)){
+      const gesture=this.ramTiltGestures.get(event.pointerId);
+      const point=gamePoint(event,this.layer);
+      // Deliberate outward swipe (in the same direction as the button's
+      // purpose), not an accidental few-pixel thumb drift.
+      if(!gesture.pitch&&(gesture.action==='jump'?
+        gesture.y-point.y>=32:point.y-gesture.y>=32)){
+        gesture.pitch=true;
+        this.buttons[gesture.action]?.classList.add('ram-pitch');
+      }
       return;
     }
     if (this.stick?.id === event.pointerId) {
@@ -912,6 +1052,7 @@ export class TouchControls {
 
   #up = (event) => {
     this.touchDebugEvent = event.type;
+    if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
     if(event.type!=='pointerup'&&(this.look?.id===event.pointerId||this.viewGesture?.id===event.pointerId||this.aim?.has(event.pointerId)))this.input.onAimCancelled?.();
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
@@ -1074,6 +1215,9 @@ export class TouchControls {
       if (this.input.mountedFlight || this.flightMounted) this.input.flightDash(true, `touch:${event.pointerId}`);
       else this.input.dash();
     }
+    if(this.ramMounted&&(action==='jump'||action==='crouch')){
+      this.ramTiltGestures.set(event.pointerId,{action,...gamePoint(event,this.layer),pitch:false});
+    }
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightHop?.();
@@ -1109,6 +1253,7 @@ export class TouchControls {
   }
 
   #release(action, pointerId, cancelled=false) {
+    if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-pitch');
     if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(action, false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;

@@ -55,7 +55,7 @@ export function practiceFightFlight(room,player,action,now){
     return {};
   }
   body.id='fight-flight-'+room.code+'-'+room.fightFlightRevision;body.lifecycleId=body.id;
-  body.team=player.team;body.builtAt=now;room.fightFlight=body;
+  body.team=player.team;body.ownerId=player.id;body.builtAt=now;room.fightFlight=body;
   room.events.push({type:'fightFlightConstructed',machineId:body.id,rebuild:Boolean(old),point:{x:body.x,y:body.y,z:body.z},at:now});
   return {};
 }

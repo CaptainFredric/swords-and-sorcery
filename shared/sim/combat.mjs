@@ -1,5 +1,6 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
+import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
@@ -2479,6 +2480,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if (room.biByeLlista && (!isOthersFreeze || room.biByeLlista.operatorId === activeActorId)) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
   }
+  // Run AFTER vehicle physics, BEFORE damage/projectiles/Steel. Removing a
+  // machine beyond abyssY here avoids zombie Practice build/rebuild slots and
+  // guarantees later systems never operate an out-of-world chassis.
+  if(!isOthersFreeze)lostSiegeMachines(room,nowSec,killPlayer);
   // One shared authoritative repair clock per machine; never per pilot or
   // per rendered frame. Damage entrypoints also use the same ward object.
   if(room.fightFlight)stepSiegeSteel(room,room.fightFlight,nowSec);

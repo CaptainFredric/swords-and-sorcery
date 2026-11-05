@@ -82,6 +82,9 @@ export function requestHighGroundsMachine(room, player, type, now) {
   machine.id = type + '-' + room.code + '-' + room[revision];
   if (type === 'fight-and-flight') machine.lifecycleId = machine.id;
   machine.builtAt = now;
+  // Ownership belongs to the builder, not to whichever player later mounts.
+  // This identity is the prerequisite for future per-player, per-type quotas.
+  machine.ownerId = player.id;
   room[field] = machine;
   if (type === 'bi-bye-llista') room.bibyeProjectiles ??= new Map();
   if (type === 'fight-and-flight') room.fightFlightProjectiles ??= new Map();

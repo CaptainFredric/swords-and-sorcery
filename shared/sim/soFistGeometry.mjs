@@ -74,7 +74,7 @@ export function soFistVolumes(b,now=b?.poseTime??0){
  const add=(id,center,size,material='timber',native=false,upper=false)=>{
   if(!native){center=center.map(fit);size=size.map(fit);}
   const box=upper?soFistUpperBox(root,b,center,size):{center:boxWorld(root,center),axes:root.axes,size};
-  return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,...box});
+  return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,upper,...box});
  };
  const native=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true);
  const upperNative=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true,true);

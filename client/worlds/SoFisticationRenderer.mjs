@@ -8,7 +8,8 @@ import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
 import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
-import {SO_FIST_LIFT} from '../../shared/sim/soFistElevation.mjs';
+import {SO_FIST_LIFT,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
+import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -22,7 +23,21 @@ export class SoFisticationRenderer {
   if(this.loadingPromise)return this.loadingPromise;
   if(this.disposed||this.error)return Promise.resolve(false);this.loading=true;
   this.loadingPromise=new Promise(resolve=>{
-  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892'),gltf=>{
+  const loader=new GLTFLoader();
+  const latest=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb?v=bab81d9861a80e83');
+  const fallback=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892');
+  const failed=error=>{this.error=true;this.loading=false;resolve(false);
+    console.error('SoFistication authored asset failed to load',error);};
+  const received=(gltf,articulated)=>{
+   if(articulated&&(!gltf.scene.getObjectByName('Upper_Ram_Lift')||
+      !gltf.scene.getObjectByName('Upper_Elevation_Pivot')||
+      !gltf.scene.getObjectByName('Hydraulic_Lift_Stage1_Mid'))){
+    console.error('SO-FIST-ICATION GLB is missing one or more authored hydraulic pivots; using rollback');
+    this.destroyMeshes(gltf.scene);
+    loader.load(fallback,g=>received(g,false),undefined,failed);
+    return;
+   }
+   this.authoredElevation=articulated;
    if(this.disposed){this.destroyMeshes(gltf.scene);resolve(false);return;}
    this.model=gltf.scene;this.model.scale.setScalar(SO_FIST_SCALE);this.group.add(this.model);
    const sky=new Uint8Array(32*16*4);for(let y=0;y<16;y++)for(let x=0;x<32;x++)sky.set([...(y<8?[192,203,211]:[94,89,76]),255],(y*32+x)*4);
@@ -54,19 +69,46 @@ export class SoFisticationRenderer {
    // New elevation pivots are deliberately NOT controlled by an animation
    // clip. Capture their rests once: additive per-frame lifting would drift.
    this.liftRest=new Map(['Upper_Ram_Lift','Upper_Elevation_Pivot',
-     'Hydraulic_Lift_Stage1_Mid','Ram_Assembly'].flatMap(name=>{
+     'Hydraulic_Lift_Stage1_Mid','Elevation_Pitch_Barrels_Lower',
+     'Elevation_Pitch_Rods_Upper','Ram_Assembly'].flatMap(name=>{
     const o=this.nodes.get(name);return o?[[name,{position:o.position.clone(),rotation:o.rotation.clone()}]]:[];
    }));
    this.loading=false;resolve(true);
-  },undefined,error=>{this.error=true;this.loading=false;resolve(false);console.error('SoFistication authored asset failed to load',error);});
+  };
+  loader.load(latest,g=>received(g,true),undefined,error=>{
+   // Existing installations must remain playable before the two new GLBs
+   // are committed. Never silently claim full 3D articulation on rollback.
+   console.warn('SO-FIST-ICATION new hydraulic GLB unavailable; using v2.7 visual fallback',error);
+   loader.load(fallback,g=>received(g,false),undefined,failed);
+  });
   });return this.loadingPromise;
+ }
+ loadDetached(){
+  if(this.disposed||this.detachedTemplate||this.detachedLoading||this.detachedUnavailable)return;
+  this.detachedLoading=true;
+  // Separate standalone asset: the launcher and pickup share one authored
+  // COM/cuff frame. A legacy fist clone remains a visual fallback until the
+  // binary handoff is installed alongside the upgraded main machine.
+  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-detached-fist.glb?v=5e7802eacdb8ff25'),gltf=>{
+   this.detachedLoading=false;
+   if(this.disposed){this.destroyMeshes(gltf.scene);return;}
+   if(!gltf.scene.getObjectByName('fist_projectile_body_center')){
+    console.warn('SO-FIST-ICATION standalone fist lacks its COM locator; using model clone');
+    this.detachedUnavailable=true;this.destroyMeshes(gltf.scene);return;
+   }
+   this.detachedTemplate=gltf.scene;
+   this.clearDetachedVisual();
+  },undefined,error=>{
+   this.detachedLoading=false;this.detachedUnavailable=true;
+   console.warn('SO-FIST-ICATION detached-fist GLB unavailable; using the attached-fist mesh',error);
+  });
  }
  update(now,b){
   this.presentationData=b;this.group.visible=Boolean(b&&!b.retired&&!b.wreckVisualExpired);
   if(!b){this.clearDebris();this.clearDetachedVisual();return;}
   if(this.id!==b.id){this.id=b.id;this.clearDebris();this.clearDetachedVisual();this.pendingHits=[];for(const entry of this.materials)entry.hitTimes=[-Infinity,-Infinity];}
   if(this.debris)this.debris.visible=!b.wreckVisualExpired;
-  if(b.wreckVisualExpired)return;
+  if(b.wreckVisualExpired){this.clearDetachedVisual();this.clearDebris();return;}
   this.load();const frame=soFistFrame(b);
   this.group.position.set(b.position?.x??b.x,b.position?.y??b.y,b.position?.z??b.z);
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
@@ -93,9 +135,9 @@ export class SoFisticationRenderer {
    this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>!k.startsWith('Wheel_'),{additive:true,weight:Math.max(0,weight)});
   }
   this.animation.end();
-  // The current source remains the v2.7 production GLB. Argon's authored
-  // elevation nodes are supported when that deliverable is supplied; until
-  // then animate the legacy ram as an interim visual only.
+  // Source-backed hydraulics: the Stage 1 rods climb half the upper saddle
+  // travel, and the pitched rods rotate coaxially with the rear trunnion.
+  // Rollback v2.7 keeps the preexisting fitted hinge approximation.
   const lift=(b.ramLiftY??0)/SO_FIST_SCALE,tilt=b.ramElevPitch??0;
   const upper=this.nodes.get('Upper_Ram_Lift');
   if(upper){
@@ -104,34 +146,97 @@ export class SoFisticationRenderer {
    if(pivot)pivot.rotation.x=(this.liftRest.get('Upper_Elevation_Pivot')?.rotation.x??0)-tilt;
    const stage=this.nodes.get('Hydraulic_Lift_Stage1_Mid');
    if(stage)stage.position.y=(this.liftRest.get('Hydraulic_Lift_Stage1_Mid')?.position.y??0)+lift*.5;
+   // Closed-form cylinder alignment from the delivered Argon handoff.
+   // These objects are independent of the Ram_Assembly strike animation.
+   const cylinders=soFistPitchCylinderPose(tilt);
+   const lowerPitch=this.nodes.get('Elevation_Pitch_Barrels_Lower');
+   if(lowerPitch)lowerPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Barrels_Lower')?.rotation.x??0)+cylinders.barrelX;
+   const upperPitch=this.nodes.get('Elevation_Pitch_Rods_Upper');
+   if(upperPitch)upperPitch.rotation.x=(this.liftRest.get('Elevation_Pitch_Rods_Upper')?.rotation.x??0)+cylinders.rodX;
   }else{
    const ram=this.nodes.get('Ram_Assembly');
    if(ram){
-    ram.position.y=(this.liftRest.get('Ram_Assembly')?.position.y??0)+lift;
-    ram.rotation.x=(this.liftRest.get('Ram_Assembly')?.rotation.x??0)-tilt;
+    // The legacy GLB is animated around its authored object origin, but the
+    // hydraulic hinge is offset. Preserve the animation's independent stroke,
+    // then rigidly transform the assembly about the SAME fitted trunnion used
+    // by the authoritative world OBBs. All calculations occur in the ram's
+    // actual parent frame, so neither model scale nor chassis pitch can skew it.
+    this.group.updateMatrixWorld(true);
+    const hinge=new THREE.Vector3(...SO_FIST_LIFT.pivot).multiplyScalar(1/SO_FIST_SCALE);
+    const pivotWorld=this.model.localToWorld(hinge.clone());
+    const liftedWorld=this.model.localToWorld(hinge.clone().add(new THREE.Vector3(0,lift,0)));
+    const center=ram.parent.worldToLocal(pivotWorld);
+    const uplift=ram.parent.worldToLocal(liftedWorld).sub(center);
+    const axisWorld=this.model.localToWorld(new THREE.Vector3(1,0,0)).sub(
+      this.model.localToWorld(new THREE.Vector3(0,0,0))).normalize();
+    const axis=axisWorld.transformDirection(ram.parent.matrixWorld.clone().invert());
+    const delta=new THREE.Quaternion().setFromAxisAngle(axis,-tilt);
+    ram.position.sub(center).applyQuaternion(delta).add(center).add(uplift);
+    ram.quaternion.premultiply(delta);
    }
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;
   const ring=this.nodes.get('Wrist_Resonator_Ring');
   if(broken&&!this.debris){
    this.group.updateMatrixWorld(true);this.debris=new THREE.Group();const bounds=new THREE.Box3().setFromObject(fist),center=bounds.getCenter(new THREE.Vector3());this.debris.position.copy(center);
-   for(const part of [fist,ring]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
+   for(const part of [fist]){const mesh=part.clone();part.matrixWorld.decompose(mesh.position,mesh.quaternion,mesh.scale);if(mesh.scale.x<SO_FIST_SCALE*.1)mesh.scale.setScalar(SO_FIST_SCALE);mesh.position.sub(center);mesh.visible=true;this.debris.add(mesh);}
    this.scene.add(this.debris);this.debrisStart=center;this.debrisGround=(b.position?.y??b.y)+bounds.getSize(new THREE.Vector3()).y/2;this.debrisHeading=b.heading;this.brokenAt=b.fistBrokenAt??now;
   }
   fist.visible=!broken&&b.fistMounted!==false;
-  ring.visible=!broken;
+  // The bayonet collar remains visibly attached to the piston when the
+  // fist is destroyed or launched, so the exposed striker never looks hollow.
+  if(ring)ring.visible=true;
   const remote=b.detachedFist;
   if(remote&&['flying','falling','resting'].includes(remote.state)){
+   if(!this.detachedTemplate&&!this.detachedUnavailable)this.loadDetached();
    if(!this.detachedVisual&&fist){
-    this.group.updateMatrixWorld(true);
-    const clone=fist.clone(true);clone.visible=true;
-    fist.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
-    const center=new THREE.Box3().setFromObject(fist).getCenter(new THREE.Vector3());
-    this.detachedOffset=center.sub(clone.position);
-    this.detachedVisual=clone;this.scene.add(clone);
+    // Both GLBs have the same named center locator. Rebase the standalone
+    // origin onto the authoritative swept-body center rather than spawning
+    // from the rear coupling socket or cloning chassis world transforms.
+    const root=this.detachedTemplate?this.detachedTemplate.clone(true):fist.clone(true);
+    root.visible=true;root.position.set(0,0,0);root.quaternion.identity();
+    root.scale.setScalar(SO_FIST_SCALE);
+    root.updateMatrixWorld(true);
+    const anchor=root.getObjectByName('fist_projectile_body_center');
+    const com=anchor?anchor.getWorldPosition(new THREE.Vector3()):
+      new THREE.Vector3(0,.015*SO_FIST_SCALE,.215*SO_FIST_SCALE);
+    root.position.sub(com);
+    const pivot=new THREE.Group();pivot.name='DetachedRamFist';
+    pivot.add(root);pivot.updateMatrixWorld(true);
+    this.detachedRestHeight=-new THREE.Box3().setFromObject(pivot).min.y;
+    this.detachedVisual=pivot;this.scene.add(pivot);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.53,.64,36),
+      new THREE.MeshBasicMaterial({color:0xd0b77d,side:THREE.DoubleSide,
+        transparent:true,opacity:.52,depthWrite:false}));
+    ring.rotation.x=-Math.PI/2;ring.name='FistPickupFootprint';
+    ring.visible=false;this.scene.add(ring);this.fistPickupRing=ring;
    }
-   if(this.detachedVisual)this.detachedVisual.position.set(
-    remote.position.x,remote.position.y,remote.position.z).sub(this.detachedOffset);
+   if(this.detachedVisual){
+    const resting=remote.state==='resting';
+    const groundY=remote.position.y-RAM_FIST.groundRadius;
+    this.detachedVisual.position.set(remote.position.x,
+      resting?groundY+this.detachedRestHeight:remote.position.y,remote.position.z);
+    // Preserve the launch orientation independently of later steering on the
+    // carriage. Tumble about the modeled COM, not the bayonet coupling.
+    const originFrame=soFistFrame({...b,heading:remote.launchHeading??b.heading});
+    const basis=new THREE.Matrix4().makeBasis(...originFrame.axes.map(a=>new THREE.Vector3(...a)));
+    const orientation=new THREE.Quaternion().setFromRotationMatrix(basis);
+    if(!resting){
+      orientation.multiply(new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1,0,0),-(remote.launchPitch??0)));
+      const spin=remote.spin??{x:0,y:0,z:0};
+      orientation.multiply(new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(spin.x??0,spin.y??0,spin.z??0,'XYZ')));
+    }
+    this.detachedVisual.quaternion.copy(orientation);
+    if(this.fistPickupRing){
+     this.fistPickupRing.visible=resting;
+     if(resting){
+      this.fistPickupRing.position.set(remote.position.x,groundY+.04,remote.position.z);
+      this.fistPickupRing.material.opacity=.42+.075*(1+Math.sin(now*3));
+     }
+    }
+   }
   }else this.clearDetachedVisual();
   if(this.debris){const age=Math.max(0,Math.min(1.1,now-this.brokenAt));this.debris.position.copy(this.debrisStart);this.debris.position.y=Math.max(this.debrisGround,this.debrisStart.y+1.2*age-4.9*age*age);this.debris.position.x-=Math.sin(this.debrisHeading)*age*.75;this.debris.position.z-=Math.cos(this.debrisHeading)*age*.75;}
   this.group.updateMatrixWorld(true);
@@ -189,8 +294,15 @@ export class SoFisticationRenderer {
   this.group.updateMatrixWorld(true);
   return node.getWorldPosition(new THREE.Vector3());
  }
- clearDetachedVisual(){if(this.detachedVisual){this.scene.remove(this.detachedVisual);this.detachedVisual=null;this.detachedOffset=null;}}
+ clearDetachedVisual(){
+  if(this.detachedVisual){this.scene.remove(this.detachedVisual);this.detachedVisual=null;}
+  if(this.fistPickupRing){
+   this.scene.remove(this.fistPickupRing);
+   this.fistPickupRing.geometry.dispose();this.fistPickupRing.material.dispose();
+   this.fistPickupRing=null;
+  }
+ }
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
- dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}
+ dispose(){this.disposed=true;this.clearDebris();this.clearDetachedVisual();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);if(this.detachedTemplate)this.destroyMeshes(this.detachedTemplate);this.environment?.dispose();}
 }

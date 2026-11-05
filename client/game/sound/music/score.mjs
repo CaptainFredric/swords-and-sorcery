@@ -349,37 +349,60 @@ export function* vigilBars(rand = Math.random) {
   }
 }
 
-// A newly programmed, synthesized brass-and-strings treatment of the public-
-// domain Ride of the Valkyries motif (Wagner, Die Walküre, Act III). NO sample,
-// recording or twentieth-century orchestral arrangement is redistributed.
-// The nine eighth-note units per bar keep the characteristic galloping pulse.
-export const VALKYRIES=Object.freeze({name:'valkyrie',bpm:280,beatsPerBar:9,hall:.38,scale:'D minor / D major'});
-// Compact D-minor transposition of the original public-domain ascending
-// arpeggio and echo motif: D–A–D–F–D–F, alternating with a higher answer.
-// The famous call must be recognizable from its pitches, not merely 9/8 drums.
-const VALKYRIE_CALLS=Object.freeze([
- ['D4','A3','D4','F4','D4','F4','D4','F4'],
- ['A4','F4','A4','F4','A4','C5','A4','D5'],
- ['A4','D5','F5','D5','F5','D5','F5','A5'],
- ['F5','A5','F5','A5','C6','A5','D6','A5'],
-].map(line=>line.map((note,i)=>[note,[0,1.5,3,4,5,6,7,8][i],i<2?1.5:1])));
+// Original synthesis, no third-party recording or arrangement: the recognizable
+// public-domain Wagner Riding Call uses its ascending arpeggio, accented
+// dotted-eighth/sixteenth gallop, answering brass and racing string ostinato.
+// 9 eighth-note subdivisions/bar: BPM measures EIGHTHS, not quarter notes.
+export const VALKYRIES=Object.freeze({name:'valkyrie',bpm:270,beatsPerBar:9,hall:.52,scale:'A minor / C major'});
+// Each [pitch, eighth-note position, eighth-note duration, articulation].
+// The famous E-A-E-A-C call is the actual leitmotif's interval contour;
+// unlike the prior evenly-spaced eight-note scale, the dot-sixteenth snap
+// returns insistently throughout each 9/8 group.
+const VALKYRIE_PHRASES=Object.freeze([
+ [['E4',0,.5],['A4',.5,1.5],['E4',2,.75],['A4',2.75,.25],
+  ['C5',3,1.5],['A4',4.5,.75],['C5',5.25,.25],['A4',5.5,1.5],['C5',7,2]],
+ [['E4',0,.5],['A4',.5,1.5],['C5',2,.75],['E5',2.75,.25],
+  ['C5',3,1.5],['E5',4.5,.75],['G5',5.25,.25],['E5',5.5,1.5],['A5',7,2]],
+ [['E5',0,.5],['A5',.5,1.5],['E5',2,.75],['A5',2.75,.25],
+  ['C6',3,1.5],['A5',4.5,.75],['C6',5.25,.25],['A5',5.5,1.5],['C6',7,2]],
+ [['G5',0,.5],['C6',.5,1.5],['G5',2,.75],['C6',2.75,.25],
+  ['E6',3,1.5],['C6',4.5,.75],['E6',5.25,.25],['C6',5.5,1.5],['G5',7,2]],
+]);
+const VALKYRIE_BASS=['A2','E2','A2','G2'];
 export function* valkyrieBars(){
  let index=0;
  while(true){
-  const i=index++%VALKYRIE_CALLS.length;
+  const i=index++%VALKYRIE_PHRASES.length;
   const events=[];
-  // The brass states the riding call immediately; strong low strings keep
-  // motion under the accelerating rotor without overwhelming battle SFX.
-  for(const [pitch,beat,beats] of VALKYRIE_CALLS[i]){
-   events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats,vel:1.12,layer:0,pan:-.12});
-   events.push({inst:'strings',midi:noteToMidi(pitch)-12,beat,beats:Math.min(1.5,beats),vel:1.3,layer:0,pan:.15});
+  // The trombone call needs a clear STRONG first onset, shorter offbeats,
+  // and brass responses in another register, never an undifferentiated unison.
+  for(const [pitch,beat,beats] of VALKYRIE_PHRASES[i]){
+   const weak=beats<.6;
+   events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats:beats*.94,
+     vel:weak?.89:1.45,layer:0,pan:-.20});
+   if(beat===.5||beat===3||beat===7)
+     events.push({inst:'horn',midi:noteToMidi(pitch)-12,beat:beat+.055,
+       beats:Math.min(beats,1.25),vel:.65,layer:0,pan:.34});
   }
-  for(let beat=0;beat<9;beat+=1.5){
-   const major=beat===0||beat===4.5;
-   events.push({inst:major?'war':'dum',beat,beats:.55,vel:major ? 0.86 : 0.38,layer:0});
-   events.push({inst:'strings',midi:noteToMidi(major?'D3':'A3'),beat,beats:.75,vel:.9,layer:0,pan:.25});
+  // Two alternating triplets of rushing violin figures surround the brass
+  // rather than playing exactly the same melody as the horns.
+  const arpeggio=i%2?['E4','G4','B4']:['A3','C4','E4'];
+  for(let beat=0;beat<9;beat+=.5){
+   const note=arpeggio[Math.floor(beat*2)%3];
+   events.push({inst:'strings',midi:noteToMidi(note)+12,beat,beats:.38,
+     vel:.55,layer:0,pan:.35});
   }
-  yield {piece:'valkyrie',section:'riding-call',index:i,chord:'Dm',events};
+  // Horse's gallop: a downbeat followed by shorter offbeats, with the
+  // accented dotted/sixteenth melody deliberately different above it.
+  for(let beat=0;beat<9;beat+=3){
+   const root=VALKYRIE_BASS[i];
+   events.push({inst:'strings',midi:noteToMidi(root),beat,beats:1.6,
+     vel:.95,layer:0,pan:-.16});
+   events.push({inst:'war',beat,beats:.65,vel:beat===0?.9:.62,layer:0});
+   events.push({inst:'dum',beat:beat+2,beats:.45,vel:.38,layer:0});
+  }
+  yield {piece:'valkyrie',section:'wagner-riding-call',index:i,
+    chord:i===1?'Em':i===3?'C':'Am',events};
  }
 }
 

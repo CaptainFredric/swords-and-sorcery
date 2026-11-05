@@ -47,7 +47,7 @@ export class TouchLayoutEditor {
           <span class="tle-storage-warning" data-storage-status hidden>SESSION ONLY · BROWSER STORAGE UNAVAILABLE</span>
         </div>
       </div>
-      <div class="tle-hint">DRAG to move · SELECT to resize · JOYSTICK sizes change real input reach · DONE saves each machine separately</div>
+      <div class="tle-hint">DRAG to move · SELECT to resize · FLIGHT: drag the small MOVE ᛞ handle to position the independent Terminal Dive stencil · DONE saves each machine</div>
     `;
 
     document.body.appendChild(this.root);
@@ -253,7 +253,8 @@ export class TouchLayoutEditor {
     if(!placement)return;
     this.#syncDimensionSliders(placement);
     if(this.selectedName)this.selectedName.textContent=action==='stick'?'MOVEMENT JOYSTICK':
-      action==='siegeWeapon'?'BOLT CONTROL':action.toUpperCase();
+      action==='siegeWeapon'?'BOLT CONTROL':action==='valkyrieStencil'?
+      'VALKYRIE STENCIL':action.toUpperCase();
 
     const rect = button.getBoundingClientRect();
     this.dragStart = {
@@ -312,8 +313,10 @@ export class TouchLayoutEditor {
       slider.disabled=!visible;
       if(!visible)continue;
       const size=placement[key]??placement.size??60;
-      slider.min=key==='size'&&placement.type==='stick'?'80':key==='size'?'36':key==='width'?'36':'30';
-      slider.max=key==='size'&&placement.type==='stick'?'172':key==='size'?'110':key==='width'?'160':'96';
+      slider.min=key==='size'&&placement.type==='stick'?'80':
+        key==='size'&&placement.type==='stencil'?'155':key==='size'?'36':key==='width'?'36':'30';
+      slider.max=key==='size'&&placement.type==='stick'?'172':
+        key==='size'&&placement.type==='stencil'?'300':key==='size'?'110':key==='width'?'160':'96';
       slider.value=String(size);
       const output=slider.parentElement?.querySelector('output');
       if(output)output.textContent=size+'px';

@@ -53,6 +53,8 @@ export class InputController {
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
+    // Right mouse is a hydraulic pitch modifier only while operating the ram.
+    this.ramPitchModifierHeld = false;
     this._mountedFlight = false;
     this.flightFireSources = new Set();
     this.flightDashSources = new Set();
@@ -131,6 +133,8 @@ export class InputController {
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
+    // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
+    if(this.mountedRam&&action==='dash')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -284,6 +288,9 @@ export class InputController {
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseDown(code);return;
     }
+    if(this.mountedRam&&code==='Mouse2'){
+      this.ramPitchModifierHeld=true;return;
+    }
     if (this.blockedKeys.has(code)) return;
     const action = this.actionOf.get(code);
     if (action && this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action) === false) {
@@ -301,6 +308,9 @@ export class InputController {
     }
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseUp(code);return;
+    }
+    if(code==='Mouse2'&&this.ramPitchModifierHeld){
+      this.ramPitchModifierHeld=false;return;
     }
     this.blockedKeys.delete(code);
     if (!this.keys.delete(code)) return;
@@ -415,6 +425,7 @@ export class InputController {
   }
 
   releaseInputs() {
+    this.ramPitchModifierHeld=false;
     // Losing pointer lock or backgrounding a touch arena must not leave a remote
     // machine's repeating trigger latched. A release is legitimate even after
     // `enabled` has already become false.
@@ -578,6 +589,12 @@ export class InputController {
     const held=this.flightUltimateSources.size>0;
     if(was!==held&&this.mountedFlight)this.socket?.send?.({type:'flightUltimateHold',down:held});
   }
+  flightTerminalRitual() {
+    // The overlay is only a gesture recognizer. The host owns the cost,
+    // eligibility, once-per-machine flag and irrevocable terminal lifecycle.
+    if(this.enabled&&this.mountedFlight)
+      this.socket?.send?.({type:'flightTerminalRitual'});
+  }
   flightDash(down,source='touch') {
     if(down&&(!this.enabled||!this.mountedFlight))return;
     const was=this.flightDashSources.size>0;
@@ -614,6 +631,10 @@ export class InputController {
       for (const code of this.keys) if (MOVE_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
     }
     const moving = action => (this.bindings[action] ?? []).some(code => this.keys.has(code) && !this.blockedKeys.has(code));
+    // E/C work as ordinary lift controls. RMB changes their held meaning to
+    // front-up/front-down pitch, without turning the camera into a hydraulic lever.
+    const ramPitchMode=Boolean(this.mountedRam&&this.ramPitchModifierHeld);
+    const ramUpKey=moving('dash'),ramDownKey=moving('crouch');
     return {
       forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
       right: moveAllowed ? (moving('right') ? 1 : 0) - (moving('left') ? 1 : 0) + (touch?.right ?? 0) : 0,
@@ -623,12 +644,17 @@ export class InputController {
       flightRise: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightRise),
       flightLower: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightLower),
       ramRaise: Boolean(this.enabled && this.mountedRam && moveAllowed &&
-        (moving('dash')||touch?.jump||touch?.flightRise)),
+        ((!ramPitchMode&&ramUpKey)||touch?.jump||touch?.flightRise)),
+      ramPitchUp: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+        ((ramPitchMode&&ramUpKey)||touch?.ramPitchUp)),
+      ramPitchDown: Boolean(this.enabled && this.mountedRam && moveAllowed &&
+        ((ramPitchMode&&ramDownKey)||touch?.ramPitchDown)),
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
       // server's rule (it cannot stand up under something)
-      crouch: (this.held('crouch') || Boolean(touch?.crouch)) && this.allowAction?.('crouch', false) !== false,
+      crouch: ((!ramPitchMode&&this.held('crouch')) || Boolean(touch?.crouch)) &&
+        this.allowAction?.('crouch', false) !== false,
       // what is held, beside the presses themselves (a Blazing Vortex is steered by it: the attack for its fire, the
       // guard for its blade; on a touch screen, the same two buttons)
       attack: this.gateHeldAction('attack', this.attackHeld, 'logical', false),
