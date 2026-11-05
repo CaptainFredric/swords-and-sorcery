@@ -1,6 +1,7 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {highGroundsHudView} from './highGroundsHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
+import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
@@ -237,6 +238,25 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.machineGauge = document.createElement('div');
+    this.machineGauge.className = 'machine-gauge';
+    this.machineGauge.hidden = true;
+    this.machineGauge.setAttribute('role','meter');
+    this.machineGauge.innerHTML =
+      '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+
+      '<div class="machine-health-assembly">'+
+        '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
+        '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div></div>'+
+        '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
+        '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
+      '</div><small class="machine-gauge-context" data-machine-context></small>';
+    this.root.append(this.machineGauge);
+    this.driveHousing = document.createElement('div');
+    this.driveHousing.className = 'drive-housing';
+    this.driveHousing.hidden = true;
+    this.driveHousing.innerHTML = '<div class="drive-housing-head"><b>DRIVE PRESSURE</b><output data-drive-value></output></div>'+
+      '<div class="drive-housing-track"><div class="drive-housing-fill" data-drive-fill></div></div>';
+    this.root.append(this.driveHousing);
     this.flightTargetMarker=document.createElement('div');
     this.flightTargetMarker.className='flight-target-marker';
     this.flightTargetMarker.hidden=true;
@@ -345,8 +365,42 @@ export class HUD {
     const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
+    const gauge = machineGaugeView(local, snapshot);
+    this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram');
+    this.machineGauge.hidden = !gauge;
+    this.driveHousing.hidden = !gauge?.pressure;
+    if (gauge) {
+      const el = this.machineGauge;
+      el.dataset.kind = gauge.kind;
+      el.dataset.machineId = String(gauge.id);
+      el.dataset.component = gauge.component ? gauge.component.label : 'none';
+      el.dataset.componentState = gauge.component?.state ?? 'none';
+      el.querySelector('[data-machine-name]').textContent = gauge.title;
+      el.querySelector('[data-machine-hp]').textContent =
+        machineGaugeNumber(gauge.health) + '/' + machineGaugeNumber(gauge.maxHealth);
+      el.querySelector('[data-machine-fill]').style.width = gauge.percent.toFixed(2) + '%';
+      el.querySelector('[data-machine-context]').textContent = gauge.context;
+      el.setAttribute('aria-label', gauge.title + ' ' +
+        machineGaugeNumber(gauge.health) + ' of ' + machineGaugeNumber(gauge.maxHealth) + ' HP');
+      if (gauge.component) {
+        el.querySelector('[data-component-name]').textContent = gauge.component.label;
+        el.querySelector('[data-component-hp]').textContent =
+          machineGaugeNumber(gauge.component.health) + '/' + machineGaugeNumber(gauge.component.maxHealth);
+        el.querySelector('[data-component-fill]').style.width = gauge.component.percent.toFixed(2) + '%';
+      }
+      if (gauge.kind === 'ram') {
+        const pitch = Math.round(gauge.pitch);
+        el.querySelector('[data-ram-pitch]').textContent = (pitch > 0 ? '+' : '') + pitch + '°';
+        el.style.setProperty('--ram-pitch', Math.max(-10, Math.min(50, gauge.pitch)).toFixed(2) + 'deg');
+      }
+      if (gauge.pressure) {
+        this.driveHousing.querySelector('[data-drive-value]').textContent =
+          machineGaugeNumber(gauge.pressure.value) + '/' + machineGaugeNumber(gauge.pressure.max);
+        this.driveHousing.querySelector('[data-drive-fill]').style.width = gauge.pressure.percent.toFixed(2) + '%';
+      }
+    }
     const isFlight = Boolean(siege?.isFlight);
-    this.ballistaPanel.hidden = !siege || isFlight;
+    this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
     this.flightPanel.hidden = !siege || !isFlight;
     if (siege && !isFlight) {
       this.ballistaPanel.querySelector('strong').textContent = siege.title;
