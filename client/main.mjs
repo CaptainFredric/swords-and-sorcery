@@ -726,7 +726,12 @@ function renderPublicRooms() {
         <i>${row.scoreToWin!==null&&row.scoreToWin!==undefined?'FIRST TO '+row.scoreToWin:row.teamSize+'V'+row.teamSize}</i>
       </button>`).join('')
     : '<p class="room-empty">No joinable rooms match this filter. Create one in the chosen mode.</p>';
-  $('#room-right-title').textContent = selected ? 'SELECTED ROOM' : 'NO ROOM SELECTED';
+  const creating = !roomCreateForm.hidden;
+  $('#room-right-title').textContent = creating ? 'CREATE PUBLIC ROOM' : selected ? 'SELECTED ROOM' : 'NO ROOM SELECTED';
+  roomSelectedInfo.hidden = creating;
+  roomJoinButton.hidden = creating;
+  $('#quick-join').hidden = creating;
+  $('#raise-room').hidden = creating;
   roomSelectedInfo.innerHTML = selected
     ? `<dl>
       <div><dt>ROOM</dt><dd>${escapeHtml(selected.code)}</dd></div>
@@ -784,7 +789,7 @@ $('#raise-room').addEventListener('click', () => {
   roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
   syncPublicRoomForm();
   roomsMenu.dataset.panel='details';
-  $('#room-right-title').textContent='CREATE PUBLIC ROOM';
+  renderPublicRooms();
 });
 $('#room-create-cancel').addEventListener('click', () => {
   roomCreateForm.hidden = true;
@@ -980,7 +985,7 @@ $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_M
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(
-  menuController.quickPlay(nameInput.value,roomFilter==='ALL'?'FFA':roomFilter),SCREEN_IDS.ROOMS_MENU));
+  menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#solo-button').addEventListener('click', () => { showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
