@@ -444,7 +444,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,health:target.health,maxHealth:target.maxHealth??b.maxHealth,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;b.fistMounted=false;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
