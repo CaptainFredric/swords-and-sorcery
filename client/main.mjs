@@ -600,7 +600,7 @@ function renderLobby() {
   startMatchButton.disabled = view.ready.disabled;
   const switchTeamBtn = $('#switch-team');
   if (switchTeamBtn) {
-    const canSwitch = message.mode === 'BREAKTHROUGH' && message.roomState === 'WAITING';
+    const canSwitch = ['BREAKTHROUGH','HIGH_GROUNDS'].includes(message.mode) && message.roomState === 'WAITING';
     switchTeamBtn.classList.toggle('hidden', !canSwitch);
     const meInLobby = (message.players ?? []).find((p) => p.id === socket.playerId);
     switchTeamBtn.textContent = meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS';
@@ -609,7 +609,7 @@ function renderLobby() {
   copyLinkButton.classList.toggle('primary-command', view.action.primary);
   copyLinkButton.disabled = view.action.disabled;
   if (!copyLinkButton.dataset.flash) copyLinkButton.textContent = view.action.label;
-  stableLobbyMarkup(lobbyVotes, (message.isPrivate === true ? [] : view.votes).map((row) => `<div class="vote-row"><span>${row.label}</span>${row.options.map((option) => `<button class="vote-chip${option.chosen ? ' chosen' : ''}${option.mine ? ' mine' : ''}" data-key="${row.key}" data-value="${escapeHtml(String(option.value))}">${escapeHtml(String(option.label))}<b class="tally" data-count="${option.count}" aria-label="${option.count} ${option.count === 1 ? 'vote' : 'votes'}">${option.count}</b></button>`).join('')}</div>`).join(''));
+  stableLobbyMarkup(lobbyVotes, ''); // Creator-hosted rules replace majority voting.
   stableLobbyMarkup($('#lobby-settings'), lobbyControls(message, socket.playerId));
   lobbyCopy.textContent = view.footer;
 }
@@ -636,22 +636,14 @@ function updateLobby(message) {
 // the auto-start clock ticks without new messages
 setInterval(() => { if (router.current === SCREEN_IDS.LOBBY) renderLobby(); }, 500);
 
-lobbyVotes.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('.vote-chip');
-  if (!chip) return;
-  const key = chip.dataset.key;
-  const value = key === 'world' ? chip.dataset.value : Number(chip.dataset.value);
-  myVotes = { ...myVotes, [key]: value };
-  socket.vote(key, value);
-  renderLobby();
-});
-
 $('#lobby-settings').addEventListener('change', event => {
   if (event.target.name !== 'mode') return;
-  const form=event.target.form,team=event.target.value==='BREAKTHROUGH';
+  const form=event.target.form,team=event.target.value!=='FFA';
   form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
   form.querySelector('[data-score-field]').hidden=team;
   form.querySelector('[data-team-field]').hidden=!team;
+  form.querySelector('[data-bot-field]').hidden=!team;
+  form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
 });
 $('#lobby-settings').addEventListener('submit', event => {
   event.preventDefault();
@@ -664,15 +656,12 @@ $('#lobby-settings').addEventListener('submit', event => {
   const minutes=Number(form.elements.minutes.value),score=Number(form.elements.scoreToWin.value);
   const mode=form.elements.mode?.value??latestLobby.mode;
   if(!form.elements.minutes.value||!Number.isFinite(minutes)||minutes<1||minutes>30 || (mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
-    $('#lobby-error').textContent='Choose 1 to 100 kills and a match time from 1 to 30 minutes.';
+    $('#lobby-error').textContent='Choose a valid match time (1–30 minutes) and, for Free-for-All, a score (1–100).';
     return;
   }
-  if(latestLobby.isPrivate===true)socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(form.elements.teamSize.value)})}});
-  else {
-    myVotes.score=score;myVotes.time=Math.round(minutes*60);
-    socket.vote('score',myVotes.score);socket.vote('time',myVotes.time);
-    renderLobby();
-  }
+  socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,
+    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:
+    {teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -1981,7 +1970,8 @@ socket.on('joined', (message) => {
     drawnFor = message.roomCode;
     if (!tutorialSession && message.mode !== 'TUTORIAL') sound.play(unsheatheRecipe(), { gain: 0.95 });
   }
-  latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
+  if (latestLobby?.roomCode !== message.roomCode) latestSnapshot = null;
+  latestLobby = message;
   currentRoomState = message.roomState;
   // a seeker moved into a bot duel while already in the arena is ready at once (no second click)
   if (message.mode === 'BOT_DUEL' && runtime?.input?.enabled) socket.arenaReady(true);
@@ -1990,7 +1980,7 @@ socket.on('joined', (message) => {
     route(SCREEN_IDS.PLAYING);
     hud.hide();
   } else {
-    updateLobby({ ...message, players: latestLobby?.players ?? [] });
+    updateLobby(message);
     route(SCREEN_IDS.LOBBY);
     hud.hide();
   }
