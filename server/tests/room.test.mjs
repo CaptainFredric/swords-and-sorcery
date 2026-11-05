@@ -131,7 +131,7 @@ test('a lone Spellblade cannot start; if the first to arrive leaves, the room si
   room.setReady('a', true, 0);
   assert.equal(room.state, 'WAITING', 'one ready Spellblade cannot start a match');
   add(room, 'b'); add(room, 'c'); room.disconnectPlayer('a', 1);
-  assert.equal(room.hostId(), 'b');
+  assert.equal(room.hostId(), 'a', 'temporary disconnect preserves creator ownership');
   assert.equal(room.setReady('a', true, 1), false, 'a disconnected Spellblade has no say');
   room.setReady('b', true, 1);
   assert.equal(room.state, 'WAITING');
