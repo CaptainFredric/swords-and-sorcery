@@ -136,7 +136,7 @@ try{
   assert.ok(armoryGeometry.tabs.bottom<=armoryGeometry.body.top+3,'tabs do not overlap scrolling text');
   assert.ok(armoryGeometry.body.bottom<=armoryGeometry.foot.top+3,'scrolling cards end above the footer');
   assert.ok(armoryGeometry.foot.bottom<armoryGeometry.panel.bottom-27,'scroll cue remains above the stepped hem');
-  assert.ok(armoryGeometry.goal>.6,'Spellblade has a real step-right Armory destination');
+  assert.ok(armoryGeometry.goal<-.6,'Spellblade sidesteps screen-right in rotated stage coordinates');
   await capture('06-desktop-armory-combat');
   for(const [section,label] of [['heraldry','07-desktop-armory-heraldry'],['challenges','08-desktop-armory-challenges']]){
     await evaluate("document.querySelector('#armory-"+section+"-tab').click()");
