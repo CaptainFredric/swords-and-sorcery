@@ -48,7 +48,7 @@ test('Narrow to One acquires one actual enemy but never fires without a held tri
  assert.equal(requestFightFlightFire(room,m,pilot,true,1.3),true);
  assert.equal(m.shotSeq,1);
  assert.equal(m.skill.lockedOnce,true,'first real bolt commits the target');
- assert.equal(m.skill.trackingState,'preview','tracking refreshes on the next simulation tick');
+ assert.equal(m.skill.trackingState,'locked','hard-lock HUD updates on the firing tick');
  assert.equal(room.events.filter(e=>e.type==='fightFlightTargetLock').length,1);
  assert.equal(room.fightFlightProjectiles.size,1);
 });
