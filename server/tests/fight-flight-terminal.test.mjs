@@ -4,7 +4,7 @@ import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun} from '../../shared/sim/fightFlightRun.mjs';
 import {setFlightUltimateHold,stepTerminalPreparation,advanceTerminalFlight,
-  resolveTerminalFlight,stepFlightBurnZones,TERMINAL,terminalBlastProfile,terminalRadialDamage} from '../../shared/sim/fightFlightTerminal.mjs';
+  resolveTerminalFlight,stepFlightBurnZones,TERMINAL,terminalBlastProfile,terminalRadialDamage,terminalFireInterval} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {killPlayer} from '../../shared/sim/combat.mjs';
 import {damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
@@ -271,7 +271,7 @@ test('complete mobile ritual spends Chivalry immediately but only with valid air
  assert.ok(applyRoomCommand(s.room,foe,{type:'flightTerminalRitual',radius:999,damage:999},2).rejected,
    'unmounted sender cannot spoof damage or activate another pilot machine');
 });
-test('different craft conditions change the locked blast and burn profile without impact-time manipulation',()=>{
+test('craft condition at collision changes the final blast and burn profile',()=>{
  const pristine=setup(),damaged=setup();
  const a=terminalBlastProfile(pristine.m);
  damaged.m.health=65;damaged.m.rotorHP=10;damaged.m.braceLHP=0;
@@ -292,9 +292,9 @@ test('different craft conditions change the locked blast and burn profile withou
  pristine.m.grounded=true;pristine.m.y=0;pristine.m.terminalDive.impactAt=2.1;
  assert.equal(resolveTerminalFlight(pristine.room,pristine.m,2.1),true);
  const blast=pristine.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
- assert.equal(blast.radius,committed.radius,'commit state determines later blast');
- assert.equal(blast.damage,committed.damage);
- assert.equal(pristine.room.flightBurnZones[0].radius,committed.fireRadius);
+ assert.ok(blast.radius<committed.radius,'fire damage lowers impact blast radius');
+ assert.ok(blast.damage<committed.damage,'impact power reflects the surviving craft');
+ assert.ok(pristine.room.flightBurnZones[0].radius<committed.fireRadius);
 });
 test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor or spent chassis',()=>{
  for(const kind of ['ground','skill','rotor','meter','spent','inactive']){
@@ -310,4 +310,56 @@ test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor
   assert.equal(s.p.prowess,kind==='meter'?99:100);
   assert.equal(s.m.terminalDive,null);
  }
+});
+
+test('Terminal Dive keeps its moving rotor and allows early steering before heat destroys control',()=>{
+ const s=setup();commit(s);
+ s.m.y=100;s.p.position.y=100;s.p.input.yaw=1.15;
+ const initial=s.m.heading,initialHp=s.m.health;
+ for(let i=0;i<45;i++){
+   const time=2.11+i/30;
+   advanceTerminalFlight(s.room,s.m,1/30,time);
+   stepFightFlight(s.room,s.m,1/30,time,s.room.world);
+ }
+ assert.ok(s.m.heading>initial+.06,'real player yaw can steer the burning run');
+ assert.ok(s.m.health<initialHp,'machine loses hull integrity during flight');
+ assert.ok(s.m.rotorAngularVelocity>0,'powered rotor keeps spinning');
+ assert.equal(resolveTerminalFlight(s.room,s.m,4),false,'no fixed fuse in empty air');
+ const earlyHp=s.m.health;
+ for(let i=0;i<180;i++){
+   const time=4+i/30;
+   s.p.input.yaw=s.m.heading+.4;
+   advanceTerminalFlight(s.room,s.m,1/30,time);
+   stepFightFlight(s.room,s.m,1/30,time,s.room.world);
+ }
+ assert.ok(s.m.health<earlyHp);
+ assert.equal(resolveTerminalFlight(s.room,s.m,11),false,'loss of control does not spontaneously explode');
+ assert.ok(s.m.terminalDive.simulatedSec>5,'extended run is not the old 5s dive');
+});
+test('terminal ground flames pulse frequently early and grow progressively quieter',()=>{
+ assert.ok(terminalFireInterval(0)<terminalFireInterval(.5));
+ assert.ok(terminalFireInterval(.5)<terminalFireInterval(.95));
+ const s=setup();commit(s);
+ s.m.y=0;s.m.grounded=true;s.m.terminalDive.impactAt=3;
+ assert.equal(resolveTerminalFlight(s.room,s.m,3),true);
+ const z=s.room.flightBurnZones[0];
+ assert.ok(z);
+ const before=z.nextTickAt;
+ stepFlightBurnZones(s.room,before+.01);
+ const early=z.nextTickAt-before;
+ const middle=z.startedAt+(z.expiresAt-z.startedAt)*.6;
+ stepFlightBurnZones(s.room,middle);
+ const later=z.nextTickAt-middle;
+ assert.ok(later>early,'actual authoritative zone ticks less often with age');
+ stepFlightBurnZones(s.room,z.expiresAt+.01);
+ assert.equal(s.room.flightBurnZones.length,0);
+});
+test('the craft detonates once after crossing the authored arena edge',()=>{
+ const s=setup();commit(s);
+ s.m.x=165;s.m.y=20;s.m.z=0;s.m.grounded=false;
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
+ const event=s.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
+ assert.equal(event.reason,'out-of-bounds');
+ assert.equal(s.room.flightBurnZones.length,0);
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.3),false);
 });
