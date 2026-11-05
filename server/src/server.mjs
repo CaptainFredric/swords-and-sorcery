@@ -170,6 +170,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
 
   function joinNew(session, room, name, team = null) {
     const player = createNetworkPlayer(session, room, name, team);
+    if (room.policy.teamMode) room.provisionModeActors(now());
     attachPlayer(session, room, player);
   }
 
@@ -346,14 +347,18 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       send(session, { type: 'roomList', rooms: roomManager.listPublicRooms(time), serverTime: time });
       return;
     }
-    if (message.type === 'createPublicRoom' && !session.roomCode) {
-      const room = roomManager.createPublicRoom(time);
-      joinNew(session, room, message.name);
+    if (['createPublicRoom','createRoom','createBreakthroughRoom','quickPlay','joinRoom'].includes(message.type) && session.roomCode) {
+      send(session, { type: 'error', message: 'Leave your current room before joining another.' });
       return;
     }
-    if (message.type === 'createRoom' && !session.roomCode) {
-      const room = roomManager.createPrivateRoom(time);
-      joinNew(session, room, message.name);
+    if ((message.type === 'createPublicRoom' || message.type === 'createRoom') && !session.roomCode) {
+      try {
+        const settings = message.settings && typeof message.settings === 'object' && !Array.isArray(message.settings)
+          ? message.settings : {};
+        const room = roomManager.createCustomRoom({ ...settings, isPrivate: message.type === 'createRoom',
+          mode: message.mode ?? settings.mode ?? GAME_MODES.FFA }, time);
+        joinNew(session, room, message.name);
+      } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }
     if(message.type==='createSharedPracticeRoom'&&!session.roomCode){
@@ -380,8 +385,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'quickPlay' && !session.roomCode) {
-      const room = roomManager.quickPlay(time);
-      joinNew(session, room, message.name);
+      try {
+        const room = roomManager.quickPlay(time, message.mode ?? GAME_MODES.FFA);
+        joinNew(session, room, message.name);
+      } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }
     if (message.type === 'startSolo' && !session.roomCode) {
@@ -412,10 +419,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     }
     if (message.type === 'joinRoom' && !session.roomCode) {
       const room = roomManager.findByCode(message.code);
-      if (!room) { send(session, { type: 'error', message: 'Room not found' }); return; }
-      if(room.mode!==GAME_MODES.FFA&&room.mode!==GAME_MODES.BREAKTHROUGH&&room.mode!==GAME_MODES.HIGH_GROUNDS&&!(room.mode===GAME_MODES.PRACTICE&&room.sharedPractice)){
-        send(session,{type:'error',message:'Room is not joinable'});return;
-      }
+      if (!room) { send(session, { type: 'error', message: 'That room no longer exists. Refresh Open Rooms.' }); return; }
+      const joinFailure = room.joinError();
+      if (joinFailure) { send(session, { type: 'error', message: joinFailure }); return; }
       try { joinNew(session, room, message.name); } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }
