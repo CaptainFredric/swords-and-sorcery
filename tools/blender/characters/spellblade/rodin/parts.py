@@ -9,8 +9,8 @@ cockpit, where only the gauntlets stay in view). Each face goes to one part:
   axis, guard, reach and flat: blade, guard, gem, grip and pommel, so stowed, dropped or cut it is a whole sword.
 - TabardBack: the cape, the one surface that hangs free of the body below the shoulders (found by cutting the mesh at
   CAPE_CUT and keeping the cloth component behind the body). Rodin draped it off the left shoulder, slanting further
-  left toward the hem, so in game it hung pinned to his left: it is straightened onto the spine (`_cape_shift`), as the
-  concept's back view hangs it, and its chain placed on it there.
+  left toward the hem, so in game it hung pinned to his left: it is brought onto the spine below its top (`_cape_shift`,
+  its top left tucked under the breastplate's cowl), as the concept's back view hangs it, and its chain placed on it.
 - TabardFront: the front tabard, found the same way below the belt (TABARD_CUT).
 - The helmet: everything above HELMET_CUT, and the visor and rim below it inside the helmet's footprint. Visor (its
   glowing glass, from Rodin's emissive map), Crest (the red plume), HelmetJaw (the face guard below the eyes) and
@@ -166,12 +166,15 @@ def _chain_weights(z, top: float, joint: float, bones: tuple[str, str, str]) -> 
     return out
 
 
-CAPE_CENTRE = (0.5, 1.22)   # heights (m) over which the cape's middle is measured, and above which the shift holds
+CAPE_CENTRE = (0.5, 1.22)   # heights (m) over which the cape's middle is measured
+CAPE_TUCK = (1.32, 1.0)     # its top stays where Rodin tucked it, under the cowl, easing to the full shift below
 
 
 def _cape_shift(co: np.ndarray, vertices: np.ndarray):
-    """How far the cape moves across (x, toward his right) at each height to hang straight down his spine: a line
-    through the middles of its height bands, negated; the cowl above CAPE_CENTRE moves with the top band."""
+    """How far the cape moves across (x, toward his right) at each height to hang down his spine: a line through the
+    middles of its height bands, negated, eased to nothing at its top. (The cowl over his upper back is the
+    breastplate's; the banner's top is a ragged cut tucked behind it, so moved whole, that edge came out from under the
+    cowl and read as a rip.)"""
     z, x = co[vertices, 2], co[vertices, 0]
     mids = []
     for height in np.linspace(*CAPE_CENTRE, 6):
@@ -180,7 +183,10 @@ def _cape_shift(co: np.ndarray, vertices: np.ndarray):
             mids.append((height, (x[band].min() + x[band].max()) / 2))
     heights, middles = np.array(mids).T
     slope, offset = np.polyfit(heights, middles, 1)
-    return lambda height: -(slope * np.minimum(height, CAPE_CENTRE[1]) + offset)
+    def ease(height):
+        t = np.clip((np.asarray(height, float) - CAPE_TUCK[0]) / (CAPE_TUCK[1] - CAPE_TUCK[0]), 0.0, 1.0)
+        return t * t * (3 - 2 * t)
+    return lambda height: -(slope * np.minimum(height, CAPE_CENTRE[1]) + offset) * ease(height)
 
 
 def _place_chain(rig, mesh_co: np.ndarray, members: np.ndarray, names: tuple[str, str], top: float, joint: float,
