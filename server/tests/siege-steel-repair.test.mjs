@@ -295,7 +295,7 @@ test('ram Steel does not secretly repair a detached fist; reattachment retains e
  x.m.fistMounted=true;x.m.detachedFist=null;
  assert.equal(x.m.components.Fist.health,137,'retrieving a fist adds no HP');
 });
-test('ram Steel can repair damaged but still attached fist without resurrecting a destroyed one',()=>{
+test('ram Steel can legitimately repair installed fist components, but cannot heal a lost projectile',()=>{
  const x=setup('ram');
  x.m.components.Fist.health=440;
  assert.equal(beginSiegeSteel(x.room,x.m,'ram',x.p,1),true);
@@ -307,5 +307,7 @@ test('ram Steel can repair damaged but still attached fist without resurrecting 
  assert.equal(beginSiegeSteel(y.room,y.m,'ram',y.p,1),true);
  stepSiegeSteel(y.room,y.m,6);
  stepSiegeSteel(y.room,y.m,11);
- assert.equal(y.m.components.Fist.health,0,'Steel cannot recreate a destroyed component');
+ assert.ok(y.m.components.Fist.health>0,'finite Steel remains a legitimate attached-fist repair');
+ assert.ok(y.m.components.Fist.health<=SIEGE_STEEL_REFERENCES.ram.maximum,
+   'the exhausted installed fist does not receive free full-HP resurrection');
 });
