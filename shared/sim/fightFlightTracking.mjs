@@ -19,6 +19,10 @@ export const NARROW_PREVIEW=Object.freeze({acquireRadius:.48,switchRadius:.36,
   switchMargin:.16,switchDwell:.12});
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rayPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
+// Server-controlled bots and dummies intentionally have connected=false.
+// Only disconnected *human* players are unavailable targets.
+const targetOnline=p=>Boolean(p?.alive&&p.position&&
+  (p.actorKind!=='human'||p.connected!==false));
 const cylinder=(p,at=p.position)=>({x:at.x,y:at.y-FLIGHT_REPEATER.radius,z:at.z,
   radius:.45+FLIGHT_REPEATER.radius,height:postureOf(p).height+2*FLIGHT_REPEATER.radius});
 const visor=m=>{const v=flightTransform(m,0,1.555,.215);
@@ -52,7 +56,7 @@ function aimFrame(operator,aim=null){
     aspect:clamp(Number.isFinite(input.viewAspect)?input.viewAspect:16/9,.65,2.8)};
 }
 export function narrowTargetVisible(room,m,target,solids=obstacles(room)){
-  if(!target?.alive||!target.position)return false;
+  if(!targetOnline(target))return false;
   const start=visor(m);
   return bodyPoints(target).some(point=>!blocked(room,start,point,solids));
 }
@@ -79,7 +83,7 @@ function reticleDistance(source,frame,p){
 function previewCandidates(room,m,operator,aim){
  const frame=aimFrame(operator,aim),source=visor(m),solids=obstacles(room),out=[];
  for(const p of room.players.values()){
-  if(!p?.alive||p.connected===false||p.id===operator.id||
+  if(!targetOnline(p)||p.id===operator.id||
     areAllies(room,operator.id,p.id)||!p.position)continue;
   const score=reticleDistance(source,frame,p);
   if(score>1.6)continue; // allow incumbent scoring when looking slightly away
@@ -95,8 +99,8 @@ export function narrowAcquireTarget(room,m,operator,now,aim=null){
  if(!skill||skill.phase!=='active'||skill.id!=='narrowToOne'||skill.lockedOnce)return null;
  const options=previewCandidates(room,m,operator,aim);
  const previous=skill.targetId?room.players.get(skill.targetId):null;
- const valid=Boolean(previous?.alive&&previous.connected!==false&&
-   !areAllies(room,operator.id,previous.id)&&previous.position&&
+ const valid=Boolean(targetOnline(previous)&&
+   !areAllies(room,operator.id,previous.id)&&
    Math.hypot(previous.position.x-m.x,previous.position.y-m.y,
      previous.position.z-m.z)<=MAX_RANGE);
  if(!valid)skill.targetId=null;
@@ -188,7 +192,7 @@ export function updateNarrowTracking(room,m,operator,now){
   skill.wasGrounded=Boolean(m.grounded);
   if(!skill.lockedOnce)narrowAcquireTarget(room,m,operator,now);
   const target=skill.targetId?room.players.get(skill.targetId):null;
-  if(skill.lockedOnce&&skill.targetId&&(!target?.alive||target.connected===false))
+  if(skill.lockedOnce&&skill.targetId&&!targetOnline(target))
     return {invalid:true,reason:'targetLost'};
   const solids=obstacles(room);
   // Once locked, actual crossbow traverse/elevation and physical visibility
