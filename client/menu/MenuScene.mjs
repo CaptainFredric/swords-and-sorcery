@@ -18,6 +18,7 @@ import { createGaleOrb } from '../game/galeOrb.mjs';
 import { Effects } from '../game/Effects.mjs';
 import { ArmoryShowcase, armoryGestureMotion } from './ArmoryShowcase.mjs';
 import { hasShowcase } from './showcaseSheets.mjs';
+import { armoryRetreatTarget } from './armoryStageMotion.mjs';
 import { MenuCaption } from './menuCaption.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
 
@@ -398,7 +399,7 @@ export class MenuScene {
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
       let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
       if(isRepositioning&&(this.armoryActive||this.armoryReturning))
-        plan={...plan,rate:.65}; // deliberate backward sidestep, not sprint cadence
+        plan={...plan,rate:this.armoryActive?-.55:.55}; // retreat gait in reverse, forward on return
       if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
@@ -545,7 +546,8 @@ export class MenuScene {
     this.armoryActive=entering;
     this.armoryReturning=leaving;
     if(entering){
-      this.targetPosition.set(-.95,0,-.48);
+      const step = armoryRetreatTarget(MENU_SHOTS.armory, this.stage.rotation.y);
+      this.targetPosition.set(step.x, step.y, step.z);
       this.targetYaw=Math.PI-.32;
     }else if(!this.breakthroughActive){
       this.targetPosition.set(0,0,0);
