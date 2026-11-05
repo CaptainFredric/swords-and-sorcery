@@ -19,13 +19,28 @@ export function countdownSeconds(countdownEndsAt, serverNow) {
 export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward', scoreToWin = 10, teamSize = 3 } = {}) {
   const world = worldName(worldId);
   const me = players.find((p) => p.id === localId);
-  if (mode === 'BREAKTHROUGH') {
-    const defending = me?.team === 'DEFENDERS';
+  // A team is an arrangement of supporting Squires, not a replacement for
+  // the local Spellblade's name. Count the roster, never the living actors:
+  // individual deaths must not make the introduction flicker.
+  const teamMode = mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS' ||
+    (me?.team && !['FFA', 'DUEL', 'BOT_DUEL', 'PRACTICE'].includes(mode));
+  if (teamMode && me?.team) {
+    const roster = players.filter(p => p?.id != null && p.actorKind !== 'dummy');
+    const allies = roster.filter(p => p.id !== localId && p.team === me.team).length;
+    const rivals = roster.filter(p => p.id !== localId && p.team !== me.team).length;
+    const defending = me.team === 'DEFENDERS';
+    const objective = mode === 'BREAKTHROUGH'
+      ? (defending ? 'Defend' : 'Capture') + ' ' +
+        (worldId === 'bastion-breach' ? 'the Outer Gate' : 'the first objective')
+      : 'Claim the rival outposts';
     return {
-      kicker: defending ? 'BREAKTHROUGH · DEFEND THE BASTION' : 'BREAKTHROUGH · SIEGE ASSAULT',
-      you: defending ? 'DEFENDERS' : 'ATTACKERS',
-      foe: defending ? 'ATTACKERS' : 'DEFENDERS',
-      copy: `${world} · ${defending ? 'Defend' : 'Capture'} ${worldId === 'bastion-breach' ? 'the Outer Gate' : 'the first objective'} (${teamSize}v${teamSize})`,
+      kicker: mode === 'BREAKTHROUGH'
+        ? (defending ? 'BREAKTHROUGH · DEFEND THE BASTION' : 'BREAKTHROUGH · SIEGE ASSAULT')
+        : 'THE HIGH GROUNDS · TAKE THE HEIGHTS',
+      you: me.name || 'YOU',
+      squires: allies ? '& ' + allies + ' ' + (allies === 1 ? 'SQUIRE' : 'SQUIRES') : '',
+      foe: 'VS. ' + rivals + ' ' + (rivals === 1 ? 'RIVAL' : 'RIVALS'),
+      copy: world + ' · ' + objective + ' (' + teamSize + 'v' + teamSize + ')',
     };
   }
   const others = players.filter((p) => p.id !== localId && p.actorKind !== 'dummy');
