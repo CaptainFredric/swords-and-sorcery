@@ -15,8 +15,10 @@ export function roomSettings(current, patch) {
   const scoreToWin = mode === 'FFA' ? (patch.scoreToWin ?? (!changedMode ? current.scoreToWin : defaults.scoreToWin)) : null;
   const matchSeconds = patch.matchSeconds ?? (!changedMode ? current.policy.matchSeconds : defaults.matchSeconds);
   const teamSize = (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS') ? (patch.teamSize ?? (!changedMode ? current.policy.teamSize : 3)) : null;
+  const botSkill = (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS') ? (patch.botSkill ?? (!changedMode ? current.botSkill : 'knight')) : null;
   if (mode === 'FFA' && !validRoomNumber('score', scoreToWin)) return { error: 'First to must be a whole number from 1 to 100.' };
   if (!validRoomNumber('time', matchSeconds)) return { error: 'Match time must be from 1 to 30 minutes.' };
   if (teamSize !== null && ![2, 3].includes(teamSize)) return { error: 'Choose 2v2 or 3v3.' };
-  return { mode, worldId, scoreToWin, matchSeconds, teamSize };
+  if (botSkill !== null && !['squire', 'knight', 'champion', 'spellblade'].includes(botSkill)) return { error: 'Choose an available bot difficulty.' };
+  return { mode, worldId, scoreToWin, matchSeconds, teamSize, botSkill };
 }
