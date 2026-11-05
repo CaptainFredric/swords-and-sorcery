@@ -902,3 +902,14 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 @container app (max-width:850px) {
   #rooms-menu, #solo-menu { --banner-left:12px; --banner-width:calc(100cqw - 24px); }
 }
+
+
+/* The secondary standard needs its own visible brass hanger as well as the main rod. */
+@container app (min-width: 851px) {
+  #rooms-menu .companion-banner::after, #solo-menu .companion-banner::after {
+    content: ''; position: absolute; z-index: 6; top: 0; left: 0; right: 0;
+    height: 8px; pointer-events: none; border-radius: 3px;
+    background: linear-gradient(#f2d692, #bc903f 56%, #6f5122);
+    box-shadow: 0 3px 6px rgba(0,0,0,.4);
+  }
+}
