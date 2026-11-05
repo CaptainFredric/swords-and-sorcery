@@ -93,6 +93,7 @@ export class MenuScene {
     this.dragStart = { x: 0, y: 0, yaw: 0, pitch: 0 };
     this.targetPosition = new THREE.Vector3(0, 0, 0);
     this.breakthroughActive = false;
+    this.armoryActive = false;
     this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
     this.frameHandle = null;
@@ -337,7 +338,13 @@ export class MenuScene {
     const settled = shotSettled({ to: this.shotTo, duration: this.shotDuration, elapsed: this.shotElapsed });
     if (this.touringWanted && !this.touring && this.tour?.ready && settled) this.#startTouring();
     if (!this.touring) {
-      this.characterRoot.position.lerp(this.targetPosition, 0.08);
+      // Crossing the Armory threshold is a short readable walk, not a
+      // teleport or a sliding model. Slower settling leaves time for feet.
+      this.characterRoot.position.lerp(this.targetPosition,
+        this.armoryActive || this.armoryReturning ? Math.min(1,dt*3.4) : .08);
+      if(this.armoryReturning &&
+        this.characterRoot.position.distanceToSquared(this.targetPosition)<.0016)
+        this.armoryReturning=false;
       this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
       this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
     }
@@ -387,6 +394,8 @@ export class MenuScene {
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
       let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
+      if(isRepositioning&&(this.armoryActive||this.armoryReturning))
+        plan={...plan,rate:.65}; // deliberate backward sidestep, not sprint cadence
       if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
@@ -522,6 +531,28 @@ export class MenuScene {
     this.framingFrom = this.framing;
     this.framingTo = to;
     this.framingAge = 0;
+  }
+
+  // A small side/backward walk clears the newly widened Armory banner. This
+  // changes stage-space position only; the preview's existing spell, blade
+  // and ultimate animations still own the Spellblade's pose.
+  setArmoryPresentation(active,{immediate=false}={}){
+    const entering=Boolean(active);
+    const leaving=this.armoryActive&&!entering;
+    this.armoryActive=entering;
+    this.armoryReturning=leaving;
+    if(entering){
+      this.targetPosition.set(.95,0,-.48);
+      this.targetYaw=Math.PI-.32;
+    }else if(!this.breakthroughActive){
+      this.targetPosition.set(0,0,0);
+      this.targetYaw=Math.PI-.22;
+    }
+    if(immediate||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches){
+      this.characterRoot.position.copy(this.targetPosition);
+      this.characterRoot.rotation.set(0,this.targetYaw,0);
+      this.armoryReturning=false;
+    }
   }
 
   setBreakthroughPresentation(active, { immediate = false } = {}) {
