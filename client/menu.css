@@ -962,3 +962,68 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #rooms-menu .rooms-companion > .banner-scroll > label[for="rooms-right-name"],
   #rooms-menu #rooms-right-name { display: none; }
 }
+
+/* Integrated from PR #379: filter controls, room detail surface and validated public-room forms. */
+.mode-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 3px 0 14px;
+}
+.mode-filters button {
+  padding: 7px 9px;
+  border: 1px solid rgba(201,156,82,.45);
+  border-radius: 2px;
+  background: rgba(31,24,22,.63);
+  color: var(--heraldry-cream);
+  font: 700 11px/1.15 var(--font-script);
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.mode-filters button:hover, .mode-filters button:focus-visible {
+  border-color: var(--heraldry-brass-light);
+}
+.mode-filters button.selected, .mode-filters button[aria-pressed="true"] {
+  background: linear-gradient(#ecd397,#b98a3e);
+  border-color: var(--heraldry-brass-light);
+  color: #291b13;
+}
+.room-selected-info {
+  padding: 12px 10px;
+  margin: 4px 0 16px;
+  min-height: 56px;
+  border: 1px solid rgba(201,156,82,.32);
+  background: rgba(22,18,15,.34);
+  color: var(--heraldry-cream);
+  font: 500 13px/1.45 var(--font-script);
+  overflow-wrap: anywhere;
+}
+#room-list .room-row.selected,
+#room-list .room-row[aria-pressed="true"] {
+  border-color: var(--heraldry-brass-light);
+  background: linear-gradient(180deg,rgba(100,71,44,.95),rgba(44,36,29,.95));
+  box-shadow: inset 3px 0 0 var(--heraldry-brass-light);
+}
+.lobby-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(201,156,82,.4);
+}
+.lobby-config[hidden], .lobby-config [hidden] { display: none !important; }
+.lobby-config label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--heraldry-brass-light);
+  font: 700 11px/1.25 var(--font-script);
+  letter-spacing: .08em;
+}
+.lobby-config .game-input { width: 100%; min-width: 0; }
+.lobby-config :is(button, select, input) { max-width: 100%; }
+#rooms-menu .banner-panel :is(h2,.room-row,button),
+#solo-menu .banner-panel :is(h2,button) {
+  overflow-wrap: anywhere;
+}
