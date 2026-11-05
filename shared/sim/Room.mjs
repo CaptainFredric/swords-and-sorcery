@@ -209,7 +209,7 @@ export class Room {
   /** Whether a new human may enter, independent of bot-filled team seats. */
   joinError() {
     if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS].includes(this.mode)
-      && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room does not accept invitations.';
+      && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room is not joinable by invitation.';
     if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
     if (this.mode === GAME_MODES.PRACTICE && this.sharedPractice)
       return this.players.size < 8 ? null : 'Room is full.';
