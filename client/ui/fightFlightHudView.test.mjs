@@ -89,7 +89,12 @@ test('Broken rotor does not leave a permanent DESCENDING warning over the game',
  assert.match(v.title,/ROTOR LOST/);
  assert.equal(v.warning,'','no endless rotor-loss banner or DESCENDING text');
  assert.doesNotMatch(v.status,/DESCENDING/);
+ m.grounded=false;m.mode='LANDING';
+ v=fightFlightHudView(p,{fightFlight:m},9);
+ assert.match(v.title,/ROTOR LOST/);
+ assert.doesNotMatch(v.title,/DESCENDING/,'rotor-loss must override ordinary landing descent');
  m.grounded=true;m.mode='GROUNDED';
  v=fightFlightHudView(p,{fightFlight:m},15);
  assert.equal(v.warning,'','rotor remains lost, but landing cannot keep a DESCENDING alert');
+ assert.match(v.title,/ROTOR LOST/);
 });
