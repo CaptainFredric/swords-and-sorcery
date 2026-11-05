@@ -492,7 +492,7 @@ test('older completely mirrored flight presets are recognized as untouched, not 
  assert.deepEqual(JSON.parse(storage.getItem('ss-touch-layout')).overrides.flight,{});
 });
 
-test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',()=>{
+test('layout workshop previews share game scale, avoid Arena Menu and preserve editor-only orientation mapping',async()=>{
  const {readFileSync}=await import('node:fs');
  const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
  const editor=readFileSync(new URL('./TouchLayoutEditor.mjs',import.meta.url),'utf8');
