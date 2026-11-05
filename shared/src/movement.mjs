@@ -251,7 +251,15 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   state.position.y += state.velocity.y * dt;
 
   const ground = surfaceHeightAt(state.position.x, state.position.z, Math.max(beforeY, state.position.y), world);
-  if (ground !== null && state.position.y <= ground && state.velocity.y <= 0) {
+  // A grounded knight must follow an actual declining ramp. Previously, any
+  // downhill step left the feet above the new surface, marked the body airborne,
+  // and induced repeated gravity/landing corrections along long slopes.
+  // This is limited to a small supported drop: real ledges, broken bridges,
+  // knockback launches and jumps remain airborne.
+  const downhillContact = previous.grounded && !jumpPressed && state.velocity.y <= 0
+    && ground !== null && beforeY >= ground
+    && beforeY - ground <= 0.65;
+  if (ground !== null && (state.position.y <= ground || downhillContact) && state.velocity.y <= 0) {
     state.position.y = ground;
     state.velocity.y = 0;
     state.grounded = true;
