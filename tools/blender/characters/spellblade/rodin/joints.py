@@ -35,20 +35,22 @@ from tools.blender.characters.spellblade.rodin.hands import Builder, unit
 # the hinge (degrees toward the upper limb, toward the lower) and its width as a share of the limb's; ring: the width of
 # each ring along its limb; wing: the poleyn's fan (radius, or None)
 JOINTS = {
-    "knee": {"upper": "thigh", "lower": "shin", "cop": "knee", "up": 0.075, "down": 0.155,
+    "knee": {"upper": "thigh", "lower": "shin", "cop": "knee", "up": 0.05, "down": 0.09,
              "cap": {"toward_upper": 24, "toward_lower": 30, "width": 0.9, "lift": 0.004, "ridge": 0.012},
              # the lames under the poleyn: (from, to) degrees round the hinge from the joint's point, toward each limb
              "lames": {"upper": (4, 30), "lower": (6, 38)},
-             "rings": {"upper": ("strap", 0.046), "lower": ("rim", 0.05)}, "wing": 0.075},
-    "elbow": {"upper": "upper_arm", "lower": "forearm", "cop": "elbow", "up": 0.075, "down": 0.04, "lames": None,
+             "rings": {"upper": ("strap", 0.04), "lower": ("rim", 0.04)}, "wing": 0.05},
+    "elbow": {"upper": "upper_arm", "lower": "forearm", "cop": "elbow", "up": 0.05, "down": 0.04, "lames": None,
               "cap": {"toward_upper": 44, "toward_lower": 48, "width": 0.7, "lift": 0.006, "ridge": 0.01},
-              "rings": {"upper": ("steelDark", 0.04), "lower": ("rim", 0.046)}, "wing": 0.05},
+              "rings": {"upper": ("steelDark", 0.034), "lower": ("rim", 0.034)}, "wing": None},
 }
 SIDES = 16                 # facets round a ring or the sleeve
 SLEEVE = {"rings": 9, "inset": 0.88, "reach": 0.035}   # its radius as a share of the cut's, how far inside each cut
 BALL_COP = 80              # degrees either side of the joint's point the cop's shell of the padded ball reaches
 RING = {"lift": 0.009, "thick": 0.011}                 # rings stand off the cannon, and are this thick
 NEAR = 0.06                # cannon vertices within this of a cut become wholly their limb's
+BALL_INSET = 0.8           # the padded ball's reach across the limb, as a share of the limb's: it lies inside the cannons
+PLATE_SHARE = 0.8          # the cop plate's width at most this share of the ball's
 LIMB = 0.26                # nothing further than this from the limb's axis is part of it
 
 
@@ -219,8 +221,12 @@ def profile(objs, f, axis, at: float, spec, side) -> dict:
         co, up, down, ru, rl, share = _limb_vertices(obj, f, spec, side)
         along = (co - f["C"]) @ axis
         radial = ru if axis is f["u"] else rl
-        # (the cannon that stays, just past the cut: what the ring has to cover)
-        pts.append(co[(along > at) & (along < at + 0.03) & (radial < LIMB) & (share > 0.3)])
+        # (the cannon that stays, just past the cut: what the ring has to cover; its own limb's surface only, as at a
+        # bent elbow the other limb's plates lie within reach of the cut and swelled the ring out to them)
+        weights, _ = _weights(obj)
+        limb = f"{spec['upper'] if axis is f['u'] else spec['lower']}.{side}"
+        own = np.array([w.get(limb, 0.0) for w in weights])
+        pts.append(co[(along > at) & (along < at + 0.03) & (radial < LIMB) & (own > 0.5)])
     pts = np.concatenate(pts)
     rel = pts - f["C"]
     x, y = rel @ across, rel @ front
@@ -286,12 +292,15 @@ def ring(b: Builder, prof, width: float, tone: str, bone: str, edge: str | None 
             m = (k + 1) % SIDES
             b.face([outer[j][k], outer[j][m], outer[j + 1][m], outer[j + 1][k]], tones[j])
             n += 1
+    # (and the cannon's open end closed under it, down to inside the padded ball, so nothing shows into the limb)
+    plug = [b.vert(_round(prof, a, k, scale=BALL_INSET * 0.9), bone) for k in range(SIDES)]
     for k in range(SIDES):
         m = (k + 1) % SIDES
         b.face([inner[1][k], inner[1][m], inner[0][m], inner[0][k]], "padding")
         b.face([inner[0][k], inner[0][m], outer[0][m], outer[0][k]], edge or tone)
         b.face([outer[3][k], outer[3][m], inner[1][m], inner[1][k]], edge or tone)
-        n += 3
+        b.face([plug[k], plug[m], inner[0][m], inner[0][k]], "padding")
+        n += 4
     return n
 
 
@@ -392,7 +401,7 @@ def wing(b: Builder, f, spec, plate, half: float, ball_radius: float, bone: str,
     out = o if outer else -o
     end = plate["middle"] + (half if out @ h > 0 else -half)
     hub = C + h * end - out * (0.02 if outer else 0.03)
-    big = spec["wing"] if outer else ball_radius * 0.42
+    big = spec["wing"] if outer else ball_radius * 0.34
     angles = [2 * math.pi * k / 18 for k in range(18)]
     def reach(a):
         if not outer:
@@ -498,7 +507,8 @@ def ball(b: Builder, f, spec, plate, bones, radius: float, half: float) -> int:
     behind the joint, where the bend only folds them further over each other. Quilted: rings of it a shade lighter."""
     upper, cop, lower = bones
     profile = lambda inset: (lambda q, tau: max(0.004, radius * math.sqrt(max(0.0, 1 - abs(q) ** 2.4)) - inset))
-    quilt = lambda i, j, S, A: "quilt" if j % 2 else "padding"
+    # (one dark tone: quilted in stripes round the hinge, it read from the side as a striped ball)
+    quilt = lambda i, j, S, A: "padding"
     d = math.radians
     count = shell(b, f, half, plate["middle"], (-d(BALL_COP), d(BALL_COP)), profile(0.008), cop, quilt, rim=None,
                   thick=0.012, steps=(9, 13))
@@ -522,11 +532,14 @@ def build_joint(rig, parts: list, kind: str, side: str, hinge_local, palette: di
     b = Builder(parts[0], palette)
     # the padded ball the plates lie on: its radius reaches each cannon's cut (so it tucks inside them under the strap
     # and band), its half-width the limb's across the hinge; the cop plate lies on it
-    reach = lambda prof, at: float(np.sqrt(np.median(prof["radii"]) ** 2 + at ** 2))
+    reach = lambda prof, at: float(np.sqrt((BALL_INSET * np.median(prof["radii"])) ** 2 + at ** 2))
     ball_radius = min(reach(upper_prof, spec["up"]), reach(lower_prof, spec["down"]))
-    half = min(np.max(np.abs(upper_prof["radii"] * np.cos(2 * np.pi * (np.arange(SIDES) + 0.5) / SIDES))),
-               np.max(np.abs(lower_prof["radii"] * np.cos(2 * np.pi * (np.arange(SIDES) + 0.5) / SIDES))))
-    old = {**old, "radius": max(ball_radius + 0.012, min(old["radius"], ball_radius + 0.03))}
+    half = BALL_INSET * min(np.max(np.abs(upper_prof["radii"] * np.cos(2 * np.pi * (np.arange(SIDES) + 0.5) / SIDES))),
+                            np.max(np.abs(lower_prof["radii"] * np.cos(2 * np.pi * (np.arange(SIDES) + 0.5) / SIDES))))
+    # (the cop plate where Rodin's was, but no wider than the joint and close over the ball: Rodin's poleyn, measured
+    # wider than the knee, made each knee read as a great ball)
+    old = {**old, "radius": max(ball_radius + 0.012, min(old["radius"], ball_radius + 0.022)),
+           "half": min(old["half"], PLATE_SHARE * float(half) / spec["cap"]["width"])}
     plate = cap(b, f, spec, old, cop)
     faces = plate["faces"]
     faces += ball(b, f, spec, plate, (upper, cop, lower), ball_radius, float(half))

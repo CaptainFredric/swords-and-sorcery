@@ -29,11 +29,8 @@ export const CLOTH_GRID_SPECS = Object.freeze({
     drag: 1.4,
     width: 1, shear: 0.3, bend: 0.25,
     colliders: Object.freeze(['torso', 'hips', 'thigh.L', 'thigh.R', 'shin.L', 'shin.R']),
-    // the share of his own motion the cloth feels (1: all of it, a loose cloth; 0: none, carried rigidly with him).
-    // A turn felt by half swings the hem out behind it (13 cm on a quick about-face, against 4 cm when it felt under a
-    // third, and read as bolted on) and it settles with one overshoot; feeling more of a stop than this, the hem swung
-    // to and fro three times before it settled
-    inertia: Object.freeze({ move: 0.55, turn: 0.5 }),
+    // the share of his own motion the cloth feels (1: all of it, a loose cloth; 0: none, carried rigidly with him)
+    inertia: Object.freeze({ move: 0.55, turn: 0.3 }),
     // how near his body (m) each row may come from where it hangs at rest: the cape against his back, then his legs
     reach: Object.freeze([0, 0.02, 0.03, 0.05, 0.07]),
     // how high (m) above where it hangs from any node may rise (or each row's, as a list)

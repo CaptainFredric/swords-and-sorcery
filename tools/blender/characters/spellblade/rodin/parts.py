@@ -8,7 +8,9 @@ cockpit, where only the gauntlets stay in view). Each face goes to one part:
   gauntlet. Rodin's own blade (a broad flat slab) is then replaced by the forged sword (forge.py) on the same grip
   axis, guard, reach and flat: blade, guard, gem, grip and pommel, so stowed, dropped or cut it is a whole sword.
 - TabardBack: the cape, the one surface that hangs free of the body below the shoulders (found by cutting the mesh at
-  CAPE_CUT and keeping the cloth component behind the body).
+  CAPE_CUT and keeping the cloth component behind the body). Rodin draped it off the left shoulder, slanting further
+  left toward the hem, so in game it hung pinned to his left: it is straightened onto the spine (`_cape_shift`), as the
+  concept's back view hangs it, and its chain placed on it there.
 - TabardFront: the front tabard, found the same way below the belt (TABARD_CUT).
 - The helmet: everything above HELMET_CUT, and the visor and rim below it inside the helmet's footprint. Visor (its
   glowing glass, from Rodin's emissive map), Crest (the red plume), HelmetJaw (the face guard below the eyes) and
@@ -162,6 +164,23 @@ def _chain_weights(z, top: float, joint: float, bones: tuple[str, str, str]) -> 
         w = {anchor: a, first: (1 - a) * (1 - l), second: (1 - a) * l}
         out.append({k: v for k, v in w.items() if v > 1e-4})
     return out
+
+
+CAPE_CENTRE = (0.5, 1.22)   # heights (m) over which the cape's middle is measured, and above which the shift holds
+
+
+def _cape_shift(co: np.ndarray, vertices: np.ndarray):
+    """How far the cape moves across (x, toward his right) at each height to hang straight down his spine: a line
+    through the middles of its height bands, negated; the cowl above CAPE_CENTRE moves with the top band."""
+    z, x = co[vertices, 2], co[vertices, 0]
+    mids = []
+    for height in np.linspace(*CAPE_CENTRE, 6):
+        band = np.abs(z - height) < 0.05
+        if band.sum() > 6:
+            mids.append((height, (x[band].min() + x[band].max()) / 2))
+    heights, middles = np.array(mids).T
+    slope, offset = np.polyfit(heights, middles, 1)
+    return lambda height: -(slope * np.minimum(height, CAPE_CENTRE[1]) + offset)
 
 
 def _place_chain(rig, mesh_co: np.ndarray, members: np.ndarray, names: tuple[str, str], top: float, joint: float,
@@ -517,6 +536,11 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         "TabardFront": (front_faces, 0.94, ("pelvis", "tabard_front_01", "tabard_front_02")),
     }
     report = {}
+    # (the cape straightened onto the spine before its chain is placed on it; its mesh follows once it is split off,
+    # so the collar and pauldron it was welded to stay where they are)
+    cape_vertices = np.unique(faces.verts[cape_faces])
+    cape_shift = _cape_shift(co, cape_vertices)
+    co[cape_vertices, 0] += cape_shift(co[cape_vertices, 2])
     for name, (members, top, bones) in chains.items():
         vertices = np.unique(faces.verts[members])
         hem = float(co[vertices, 2].min())
@@ -584,6 +608,14 @@ def build_parts(rig: bpy.types.Object, fit, archive: Path) -> dict:
         objects[name] = obj
     mesh.name = mesh.data.name = PART_ORDER[-1]
     objects[PART_ORDER[-1]] = mesh
+    cape = objects["TabardBack"].data
+    cape_co = np.empty(len(cape.vertices) * 3)
+    cape.vertices.foreach_get("co", cape_co)
+    cape_co = cape_co.reshape(-1, 3)
+    cape_co[:, 0] += cape_shift(cape_co[:, 2])
+    cape.vertices.foreach_set("co", cape_co.ravel())
+    cape.update()
+    report["TabardBack"]["centred"] = [round(float(cape_shift(z)), 3) for z in (CAPE_CENTRE[1], CAPE_CENTRE[0])]
     for name, obj in objects.items():
         obj.data.attributes.remove(obj.data.attributes["rodin_part"])
         # (a part keeps only the groups that carry it)
