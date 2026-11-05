@@ -110,3 +110,30 @@ test('real WebSocket public team creation, browsing, host rules, bot replacement
   assert.notEqual(highJoined.roomCode,owner.roomCode);
   assert.equal(highJoined.worldId,'high-grounds');
 });
+
+test('custom private creation supports FFA first-to and time, 2v2 siege and High Grounds without becoming public',()=>{
+ const manager=new RoomManager();
+ const ffa=manager.createCustomRoom({isPrivate:true,mode:'FFA',worldId:'castleward',
+   scoreToWin:17,matchSeconds:480},0);
+ assert.equal(ffa.isPrivate,true);
+ assert.equal(ffa.mode,'FFA');
+ assert.equal(ffa.scoreToWin,17);
+ assert.equal(ffa.policy.matchSeconds,480);
+ const siege=manager.createCustomRoom({isPrivate:true,mode:'BREAKTHROUGH',
+   worldId:'blackbell-foundry',teamSize:2,botSkill:'champion',matchSeconds:600},0);
+ assert.equal(siege.isPrivate,true);
+ assert.equal(siege.mode,'BREAKTHROUGH');
+ assert.equal(siege.worldId,'blackbell-foundry');
+ assert.equal(siege.policy.teamSize,2);
+ assert.equal(siege.policy.matchSeconds,600);
+ assert.equal(siege.botSkill,'champion');
+ const high=manager.createCustomRoom({isPrivate:true,mode:'HIGH_GROUNDS',
+   worldId:'high-grounds',teamSize:3,botSkill:'knight',matchSeconds:720},0);
+ assert.equal(high.mode,'HIGH_GROUNDS');
+ assert.equal(high.isPrivate,true);
+ assert.equal(high.worldId,'high-grounds');
+ for(const room of [ffa,siege,high])room.addPlayer({id:'player-'+room.code,
+   token:'tok-'+room.code,name:'Founder'},0);
+ assert.equal(manager.listPublicRooms(1).length,0,'private codes never appear in public listings');
+ assert.throws(()=>manager.createCustomRoom({isPrivate:true,mode:'HIGH_GROUNDS',worldId:'castleward'},0),/arena/i);
+});

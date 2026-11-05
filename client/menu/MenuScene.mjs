@@ -93,6 +93,8 @@ export class MenuScene {
     this.dragStart = { x: 0, y: 0, yaw: 0, pitch: 0 };
     this.targetPosition = new THREE.Vector3(0, 0, 0);
     this.breakthroughActive = false;
+    this.armoryActive = false;
+    this.armoryRetreatUntil = -Infinity;
     this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
     this.frameHandle = null;
@@ -387,7 +389,12 @@ export class MenuScene {
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
       let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
-      if (performance) {
+      if(isRepositioning){
+        // Two deliberate, slow retreating steps while the Armory standard
+        // enters (and reversed on exit). Never start a sword flourish mid-step.
+        // The same authored Run clip is slowed to the short displacement.
+        plan.rate=.55;
+      } else if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
           extra: performance.rotations,
@@ -405,7 +412,8 @@ export class MenuScene {
         plan.motion = { extra: pose.rotations };
       }
       let armoryEffect=null;
-      if (this.armoryPreview && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      if (this.armoryPreview && !isRepositioning &&
+        !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
         const elapsed = Math.max(0, this.clock - this.armoryPreview.started);
         const id = this.armoryPreview.id;
         let gesture = armoryPose(id, elapsed);
@@ -543,7 +551,29 @@ export class MenuScene {
     this.ensureSwordVisible();
   }
 
-  ensureSwordVisible() {
+  /**
+   * On entering the Armory he backs away from the left standard, taking a
+   * couple of short diagonal steps to screen-right while staying visible
+   * for ordinary sword/spell/Ultimate previews. Returning restores the
+   * canonical menu position; the transition never teleports or adds a
+   * second character rig, including if the player exits midway through it.
+   */
+  setArmoryPresentation(active){
+    this.armoryActive=Boolean(active);
+    if(!active)return; // setBreakthroughPresentation already authored the exit target
+    const reduced=Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+    // In the menu camera +world X appears to screen-left, so -X backs
+    // away to the screen-right. +Z retreats slightly toward the gate.
+    this.targetPosition.set(-.86,0,.46);
+    this.targetYaw=Math.PI-.22;
+    this.targetPitch=0;
+    if(reduced){
+      this.characterRoot.position.copy(this.targetPosition);
+      this.characterRoot.rotation.set(0,this.targetYaw,0);
+    }
+  }
+
+    ensureSwordVisible() {
     if (this.assetInstance?.root) {
       this.assetInstance.root.traverse((object) => {
         if (/^HeroSword/i.test(object.name)) {

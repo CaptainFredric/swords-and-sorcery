@@ -96,6 +96,22 @@ try{
   await waitFor(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo desktop');
   await inspect('#solo-menu','solo-desktop');
   await capture('03-desktop-solo');
+
+  // The new paired standards: only the activity/mode stays on the left,
+  // while the right-hand standard owns its actual multiplayer settings.
+  await evaluate("document.querySelector('#solo-back').click();document.querySelector('#private-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#private-menu').classList.contains('hidden')"),'Private desktop');
+  await inspect('#private-menu','private-desktop-ffa');
+  await capture('03a-desktop-private-ffa');
+  await evaluate("document.querySelector('#private-modes [data-private-mode=BREAKTHROUGH]').click()");
+  const team=await evaluate("(() => {const f=document.querySelector('#private-room-config');return {mode:document.querySelector('#private-modes .selected').dataset.privateMode,scoreHidden:f.querySelector('[data-private-score]').hidden,teamHidden:f.querySelector('[data-private-team]').hidden,arena:f.elements.worldId.value};})()");
+  assert.deepEqual(team,{mode:'BREAKTHROUGH',scoreHidden:true,teamHidden:false,arena:'bastion-breach'});
+  await capture('03b-desktop-private-team');
+  await evaluate("document.querySelector('#private-back').click();document.querySelector('#breakthrough-button').click()");
+  await waitFor(()=>evaluate("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"),'Mettle desktop');
+  await inspect('#breakthrough-menu','mettle-desktop');
+  await capture('03c-desktop-mettle');
+  await evaluate("document.querySelector('#breakthrough-back').click();document.querySelector('#solo-button').click()");
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});
   await sleep(500);
   await inspect('#solo-menu','solo-mobile-list');
@@ -114,6 +130,23 @@ try{
   await capture('07-mobile-room-details');
   await evaluate("document.querySelector('#raise-room').click()");
   await capture('08-mobile-room-create');
+
+  await evaluate("document.querySelector('#rooms-back').click();document.querySelector('#private-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='list'"),'Private mobile list');
+  await inspect('#private-menu','private-mobile-list');
+  await capture('09-mobile-private-list');
+  await evaluate("document.querySelector('#private-configure').click()");
+  await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private mobile rules');
+  await inspect('#private-menu','private-mobile-rules');
+  await capture('10-mobile-private-rules');
+  await evaluate("document.querySelector('#private-list-return').click();document.querySelector('#private-back').click();document.querySelector('#breakthrough-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='list'"),'Mettle mobile modes');
+  await inspect('#breakthrough-menu','mettle-mobile-list');
+  await capture('11-mobile-mettle-list');
+  await evaluate("document.querySelector('#mettle-configure').click()");
+  await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='details'"),'Mettle mobile setup');
+  await inspect('#breakthrough-menu','mettle-mobile-rules');
+  await capture('12-mobile-mettle-rules');
   assert.ok(errors.length===0,'Uncaught browser exceptions: '+errors.join(' | '));
   await writeFile(output+'/report.json',JSON.stringify({hostedRoom:hosted.roomCode,evidence,errors},null,2));
   console.log('[TWO BANNER REVIEW PASSED]',Object.keys(evidence));

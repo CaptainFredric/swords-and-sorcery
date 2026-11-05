@@ -366,6 +366,11 @@ function route(screenId) {
   // every screen change finds the front door with its banner up (back from a match too), the Herald folded away
   presentation.reset(nowSec());
   heraldPanel?.close({ restore: false });
+  if(previous!==screenId) {
+    if(screenId===SCREEN_IDS.SOLO_MENU)soloMenu.dataset.panel='list';
+    if(screenId===SCREEN_IDS.BREAKTHROUGH_MENU)breakthroughMenu.dataset.panel='list';
+    if(screenId===SCREEN_IDS.PRIVATE_MENU)privateMenu.dataset.panel='list';
+  }
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
   else router.show(screenId);
   const menuBacked = isMenuBackedScreen(screenId);
@@ -373,10 +378,19 @@ function route(screenId) {
   menuScene?.setVisible(menuBacked);
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU, { immediate: previous !== screenId });
+  const leavingArmory=previous===SCREEN_IDS.ARMORY&&screenId!==SCREEN_IDS.ARMORY;
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
+    { immediate: previous !== screenId&&!leavingArmory });
   if (menuBacked && previous !== screenId) {
-    menuScene?.resetCanonicalHeroState({ immediate: true });
+    menuScene?.resetCanonicalHeroState({ immediate: !leavingArmory });
+    // A fresh screen starts at its heading, even after a previous panel was
+    // scrolled down. This keeps the banner pole off section headings.
+    for(const scroll of [soloMenu,roomsMenu,breakthroughMenu,privateMenu]){
+      if(scroll===null||!scroll||scroll.classList.contains('hidden'))continue;
+      scroll.querySelectorAll('.banner-scroll').forEach(el=>{el.scrollTop=0;});
+    }
   }
+  menuScene?.setArmoryPresentation(screenId===SCREEN_IDS.ARMORY);
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
@@ -771,6 +785,7 @@ roomList.addEventListener('click', event => {
   selectedPublicCode = row.dataset.code;
   roomCreateForm.hidden = true;
   roomsMenu.dataset.panel = 'details';
+  roomsMenu.querySelector('.rooms-companion .banner-scroll').scrollTop=0;
   renderPublicRooms();
 });
 $('#rooms-list-return').addEventListener('click', () => { roomsMenu.dataset.panel = 'list'; roomCreateForm.hidden = true; renderPublicRooms(); });
@@ -1098,6 +1113,10 @@ $('#mettle-modes')?.addEventListener('click', event => {
   if (!chosen) return;
   menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
   showBreakthroughArena();
+  if($('#game-shell').clientWidth<=640){
+    breakthroughMenu.dataset.panel='details';
+    breakthroughMenu.querySelector('.mettle-companion .banner-scroll').scrollTop=0;
+  }
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1329,6 +1348,7 @@ function chooseSoloActivity(id) {
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   soloMenu.dataset.panel='details';
+  soloMenu.querySelector('.solo-companion .banner-scroll').scrollTop=0;
 }
 for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
@@ -1339,6 +1359,13 @@ $('#solo-launch').addEventListener('click',()=>{
   if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
 });
+// On portrait/compact shells the second hanging standard is a distinct
+// page; on desktop both remain visible. The existing choice IDs are shared.
+$('#mettle-configure')?.addEventListener('click',()=>{
+ breakthroughMenu.dataset.panel='details';
+ breakthroughMenu.querySelector('.mettle-companion .banner-scroll').scrollTop=0;
+});
+$('#mettle-list-return')?.addEventListener('click',()=>{breakthroughMenu.dataset.panel='list';});
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
@@ -1359,8 +1386,94 @@ function startBotDuel() {
   ensureRuntime();
   runtime.requestPointerLock();
 }
-$('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
-$('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
+// Private Match is a real server-validated custom room, not two hard-coded
+// buttons. Its default is FFA; the companion banner edits this mode's rules.
+const privateRoomForm=$('#private-room-config');
+const privateModes=$('#private-modes');
+const privateDefaults={
+  FFA:{worldId:'castleward',scoreToWin:10,minutes:6,teamSize:3,botSkill:'knight'},
+  BREAKTHROUGH:{worldId:'bastion-breach',scoreToWin:10,minutes:5,teamSize:3,botSkill:'knight'},
+  HIGH_GROUNDS:{worldId:'high-grounds',scoreToWin:10,minutes:12,teamSize:3,botSkill:'knight'},
+};
+const privateSaved=Object.fromEntries(Object.entries(privateDefaults).map(([key,value])=>[key,{...value}]));
+let privateMode='FFA';
+function readPrivateFields(){
+ const f=privateRoomForm.elements;
+ return {worldId:f.worldId.value,scoreToWin:Number(f.scoreToWin.value),
+   minutes:Number(f.minutes.value),teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value};
+}
+function refreshPrivateSummary(){
+ const f=readPrivateFields();
+ const name=privateMode==='FFA'?'FREE-FOR-ALL':privateMode==='HIGH_GROUNDS'?'HIGH GROUNDS':'BREAKTHROUGH';
+ const world=privateRoomForm.elements.worldId.selectedOptions?.[0]?.textContent??f.worldId;
+ $('#private-rules-summary').textContent=[name,world,
+   privateMode==='FFA'?'FIRST TO '+f.scoreToWin:f.teamSize+'V'+f.teamSize,
+   f.minutes+' MIN',...(privateMode==='FFA'?[]:[f.botSkill.toUpperCase()+' BOTS'])].join(' · ');
+}
+function choosePrivateMode(mode,{remember=true}={}){
+ if(!Object.hasOwn(privateDefaults,mode))return;
+ if(remember)privateSaved[privateMode]=readPrivateFields();
+ privateMode=mode;
+ const f=privateRoomForm.elements,chosen=privateSaved[mode];
+ f.worldId.innerHTML=arenaOptions(mode,null);
+ f.worldId.value=chosen.worldId;
+ if(!f.worldId.value)f.worldId.selectedIndex=0;
+ f.scoreToWin.value=chosen.scoreToWin;
+ f.minutes.value=chosen.minutes;
+ f.teamSize.value=chosen.teamSize;
+ f.botSkill.value=chosen.botSkill;
+ privateRoomForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
+ privateRoomForm.querySelector('[data-private-team]').hidden=mode==='FFA';
+ privateRoomForm.querySelector('[data-private-bot]').hidden=mode==='FFA';
+ $('#private-mode-description').textContent=mode==='FFA'
+   ?'Every Spellblade for themselves. First to ten by default.'
+   :mode==='HIGH_GROUNDS'
+     ?'Both armies attack, contesting footholds across bridges and the abyss.'
+     :'Attackers breach successive objectives; Defenders defend the stronghold.';
+ for(const button of privateModes.querySelectorAll('[data-private-mode]')){
+   const on=button.dataset.privateMode===mode;
+   button.classList.toggle('selected',on);
+   button.setAttribute('aria-pressed',String(on));
+ }
+ refreshPrivateSummary();
+}
+privateModes.addEventListener('click',event=>{
+ const mode=event.target.closest?.('[data-private-mode]')?.dataset.privateMode;
+ if(!mode)return;
+ choosePrivateMode(mode);
+ if($('#game-shell').clientWidth<=640){
+   privateMenu.dataset.panel='details';
+   privateMenu.querySelector('.private-companion .banner-scroll').scrollTop=0;
+ }
+});
+privateRoomForm.addEventListener('input',refreshPrivateSummary);
+privateRoomForm.addEventListener('change',refreshPrivateSummary);
+// Enter in an editable specification must create through the same validated
+// action as the button, never perform the browser's native form navigation.
+privateRoomForm.addEventListener('submit',event=>{
+ event.preventDefault();
+ createConfiguredPrivate();
+});
+$('#private-configure').addEventListener('click',()=>{
+ privateMenu.dataset.panel='details';
+ privateMenu.querySelector('.private-companion .banner-scroll').scrollTop=0;
+});
+$('#private-list-return').addEventListener('click',()=>{privateMenu.dataset.panel='list';});
+function createConfiguredPrivate(){
+ const f=readPrivateFields();
+ if(!Number.isFinite(f.minutes)||f.minutes<1||f.minutes>30||
+   (privateMode==='FFA'&&(!Number.isInteger(f.scoreToWin)||f.scoreToWin<1||f.scoreToWin>100))){
+   showMenuError('Choose 1–30 minutes and a first-to score from 1–100.');
+   return;
+ }
+ const settings={mode:privateMode,worldId:f.worldId,matchSeconds:Math.round(f.minutes*60),
+   ...(privateMode==='FFA'?{scoreToWin:f.scoreToWin}:
+     {teamSize:f.teamSize,botSkill:f.botSkill})};
+ runMenuAction(menuController.createPrivate(nameInput.value,settings),SCREEN_IDS.PRIVATE_MENU);
+}
+$('#create-room').addEventListener('click',createConfiguredPrivate);
+$('#private-config-create').addEventListener('click',createConfiguredPrivate);
+choosePrivateMode('FFA',{remember:false});
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });
