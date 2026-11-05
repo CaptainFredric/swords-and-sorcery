@@ -1098,6 +1098,7 @@ $('#mettle-modes')?.addEventListener('click', event => {
   if (!chosen) return;
   menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
   showBreakthroughArena();
+  if($('#game-shell').clientWidth<=640)breakthroughMenu.dataset.panel='details';
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1339,6 +1340,10 @@ $('#solo-launch').addEventListener('click',()=>{
   if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
 });
+// On portrait/compact shells the second hanging standard is a distinct
+// page; on desktop both remain visible. The existing choice IDs are shared.
+$('#mettle-configure')?.addEventListener('click',()=>{breakthroughMenu.dataset.panel='details';});
+$('#mettle-list-return')?.addEventListener('click',()=>{breakthroughMenu.dataset.panel='list';});
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
@@ -1359,8 +1364,83 @@ function startBotDuel() {
   ensureRuntime();
   runtime.requestPointerLock();
 }
-$('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
-$('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
+// Private Match is a real server-validated custom room, not two hard-coded
+// buttons. Its default is FFA; the companion banner edits this mode's rules.
+const privateRoomForm=$('#private-room-config');
+const privateModes=$('#private-modes');
+const privateDefaults={
+  FFA:{worldId:'castleward',scoreToWin:10,minutes:6,teamSize:3,botSkill:'knight'},
+  BREAKTHROUGH:{worldId:'bastion-breach',scoreToWin:10,minutes:5,teamSize:3,botSkill:'knight'},
+  HIGH_GROUNDS:{worldId:'high-grounds',scoreToWin:10,minutes:12,teamSize:3,botSkill:'knight'},
+};
+const privateSaved=Object.fromEntries(Object.entries(privateDefaults).map(([key,value])=>[key,{...value}]));
+let privateMode='FFA';
+function readPrivateFields(){
+ const f=privateRoomForm.elements;
+ return {worldId:f.worldId.value,scoreToWin:Number(f.scoreToWin.value),
+   minutes:Number(f.minutes.value),teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value};
+}
+function refreshPrivateSummary(){
+ const f=readPrivateFields();
+ const name=privateMode==='FFA'?'FREE-FOR-ALL':privateMode==='HIGH_GROUNDS'?'HIGH GROUNDS':'BREAKTHROUGH';
+ const world=privateRoomForm.elements.worldId.selectedOptions?.[0]?.textContent??f.worldId;
+ $('#private-rules-summary').textContent=[name,world,
+   privateMode==='FFA'?'FIRST TO '+f.scoreToWin:f.teamSize+'V'+f.teamSize,
+   f.minutes+' MIN',...(privateMode==='FFA'?[]:[f.botSkill.toUpperCase()+' BOTS'])].join(' · ');
+}
+function choosePrivateMode(mode,{remember=true}={}){
+ if(!Object.hasOwn(privateDefaults,mode))return;
+ if(remember)privateSaved[privateMode]=readPrivateFields();
+ privateMode=mode;
+ const f=privateRoomForm.elements,chosen=privateSaved[mode];
+ f.worldId.innerHTML=arenaOptions(mode,null);
+ f.worldId.value=chosen.worldId;
+ if(!f.worldId.value)f.worldId.selectedIndex=0;
+ f.scoreToWin.value=chosen.scoreToWin;
+ f.minutes.value=chosen.minutes;
+ f.teamSize.value=chosen.teamSize;
+ f.botSkill.value=chosen.botSkill;
+ privateRoomForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
+ privateRoomForm.querySelector('[data-private-team]').hidden=mode==='FFA';
+ privateRoomForm.querySelector('[data-private-bot]').hidden=mode==='FFA';
+ $('#private-mode-description').textContent=mode==='FFA'
+   ?'Every Spellblade for themselves. First to ten by default.'
+   :mode==='HIGH_GROUNDS'
+     ?'Both armies attack, contesting footholds across bridges and the abyss.'
+     :'Attackers breach successive objectives; Defenders defend the stronghold.';
+ for(const button of privateModes.querySelectorAll('[data-private-mode]')){
+   const on=button.dataset.privateMode===mode;
+   button.classList.toggle('selected',on);
+   button.setAttribute('aria-pressed',String(on));
+ }
+ refreshPrivateSummary();
+}
+privateModes.addEventListener('click',event=>{
+ const mode=event.target.closest?.('[data-private-mode]')?.dataset.privateMode;
+ if(!mode)return;
+ choosePrivateMode(mode);
+ if(matchMedia('(max-width:640px)').matches||$('#game-shell').clientWidth<=640)
+   privateMenu.dataset.panel='details';
+});
+privateRoomForm.addEventListener('input',refreshPrivateSummary);
+privateRoomForm.addEventListener('change',refreshPrivateSummary);
+$('#private-configure').addEventListener('click',()=>{privateMenu.dataset.panel='details';});
+$('#private-list-return').addEventListener('click',()=>{privateMenu.dataset.panel='list';});
+function createConfiguredPrivate(){
+ const f=readPrivateFields();
+ if(!Number.isFinite(f.minutes)||f.minutes<1||f.minutes>30||
+   (privateMode==='FFA'&&(!Number.isInteger(f.scoreToWin)||f.scoreToWin<1||f.scoreToWin>100))){
+   showMenuError('Choose 1–30 minutes and a first-to score from 1–100.');
+   return;
+ }
+ const settings={mode:privateMode,worldId:f.worldId,matchSeconds:Math.round(f.minutes*60),
+   ...(privateMode==='FFA'?{scoreToWin:f.scoreToWin}:
+     {teamSize:f.teamSize,botSkill:f.botSkill})};
+ runMenuAction(menuController.createPrivate(nameInput.value,settings),SCREEN_IDS.PRIVATE_MENU);
+}
+$('#create-room').addEventListener('click',createConfiguredPrivate);
+$('#private-config-create').addEventListener('click',createConfiguredPrivate);
+choosePrivateMode('FFA',{remember:false});
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });
