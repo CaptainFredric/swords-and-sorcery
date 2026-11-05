@@ -144,8 +144,9 @@ test('Breakthrough HUD view and Challenge/Gate copy communicate role and objecti
   assert.equal(hudDef.progressPct, 42);
 
   const cCopy = challengeCopy({ mode: 'BREAKTHROUGH', players: snap0.players, localId: 'def', worldId: 'bastion-breach' });
-  assert.equal(cCopy.you, 'DEFENDERS');
-  assert.equal(cCopy.foe, 'ATTACKERS');
+  assert.equal(cCopy.you, 'Defender', 'battle intro keeps the local Spellblade name');
+  assert.equal(cCopy.squires, '', 'a one-player side has no extra Squires');
+  assert.equal(cCopy.foe, 'VS. 1 RIVAL');
   const gCopy = arenaGateCopy({ mode: 'BREAKTHROUGH', worldId: 'bastion-breach', team: 'ATTACKERS' });
   assert.equal(gCopy.title, 'BASTION BREACH');
   assert.match(gCopy.sub, /CAPTURE THE OUTER GATE/);

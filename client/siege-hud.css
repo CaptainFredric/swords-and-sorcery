@@ -1,0 +1,116 @@
+/* Reusable siege instrumentation: health lives below the sightline, pressure by personal stamina. */
+.machine-gauge {
+  position: absolute; z-index: 12; left: 50%; bottom: 16px;
+  transform: translateX(-50%); width: min(410px, calc(100% - 230px));
+  pointer-events: none; color: #f5e8c5; font-family: 'Alegreya Sans', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.machine-gauge[hidden], .drive-housing[hidden] { display: none !important; }
+.machine-health-assembly { display: flex; align-items: stretch; isolation: isolate; }
+.machine-health-main {
+  flex: 1 1 auto; min-width: 0; padding: 5px 7px 6px;
+  background: linear-gradient(#413d2c, #191c19);
+  border: 2px solid #927543; outline: 1px solid #29231a;
+  box-shadow: inset 0 1px #cfaa5a, 0 3px 10px #0009;
+}
+.machine-health-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; white-space: nowrap; }
+.machine-health-head b { overflow: hidden; text-overflow: ellipsis; font: 900 10px/1.1 'Alegreya Sans', sans-serif; letter-spacing: .08em; }
+.machine-health-head output { font: 800 11px/1.1 'Alegreya Sans', sans-serif; white-space: nowrap; }
+.machine-health-track { position: relative; height: 11px; margin-top: 4px; overflow: hidden; border: 1px solid #5c4825; background: #14120c; }
+.machine-health-fill {
+  height: 100%; width: var(--machine-health, 100%); transition: width .14s linear;
+  background: linear-gradient(#f7db70 0%, #d7aa35 52%, #98711b 100%);
+  box-shadow: inset 0 1px #fff3a7a8, 0 0 7px #edbb4877;
+}
+.machine-gauge[data-kind="flight"] .machine-health-main { border-color: #a09373; }
+.machine-gauge[data-kind="ballista"] .machine-health-main { border-color: #8b7353; }
+.machine-component {
+  flex: 0 0 112px; position: relative; margin-left: -1px; padding: 5px 7px 6px;
+  background: linear-gradient(#50565a, #292f34);
+  border: 2px solid #858e94; outline: 1px solid #13171a;
+  box-shadow: inset 0 1px #bec6c9, 0 3px 9px #0008;
+  transform: translate(0, 0) rotate(0); transform-origin: left top;
+  opacity: 1; transition: transform .34s cubic-bezier(.19,.68,.4,1), opacity .34s;
+}
+.machine-component::before, .machine-component::after {
+  content: ''; position: absolute; top: 50%; height: 4px; width: 4px;
+  background: #c2c5c5; border: 1px solid #272c30; border-radius: 50%; transform: translateY(-50%);
+}
+.machine-component::before { left: 1px; } .machine-component::after { right: 1px; }
+.machine-component .machine-health-head b { font-size: 9px; }
+.machine-component .machine-health-head output { font-size: 9px; }
+.machine-component .machine-health-track { border-color: #353b40; height: 9px; }
+.machine-component .machine-health-fill { background: linear-gradient(#c3ced2, #6a7a84); box-shadow: inset 0 1px #ffffff6e; }
+.machine-gauge.gauge-new .machine-component { transition: none !important; }
+.machine-piston {
+  display: none; position: absolute; bottom: calc(100% + 3px); right: 0;
+  color: #f2d797; background: rgba(24, 25, 19, .68);
+  border-bottom: 1px solid #927543; padding: 2px 5px;
+  font-size: 9px; font-weight: 900; letter-spacing: .07em;
+}
+.machine-gauge[data-kind="ram"] .machine-piston { display: block; }
+.machine-gauge[data-component="none"] .machine-component { display: none; }
+.machine-gauge[data-component-state="detached"] .machine-component { transform: translateX(60px) rotate(-7deg); opacity: 0; }
+.machine-gauge[data-component-state="destroyed"] .machine-component { transform: translate(28px, 58px) rotate(28deg); opacity: 0; }
+.machine-gauge-context {
+  display: block; margin-top: 3px; min-height: 12px; text-align: right;
+  color: #dfd6c4; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-shadow: 0 1px 4px #000;
+}
+.machine-gauge-context:empty { visibility: hidden; }
+.machine-pitch { display: none; position: absolute; bottom: calc(100% + 3px); left: 0; align-items: center; gap: 7px; color: #e8d3a0; font-size: 10px; font-weight: 900; }
+.machine-gauge[data-kind="ram"] .machine-pitch { display: flex; }
+.machine-pitch-line { width: 38px; height: 13px; border-bottom: 1px solid #9d8a67; position: relative; }
+.machine-pitch-line::after {
+  content: ''; position: absolute; left: 2px; bottom: 0; width: 34px; border-top: 2px solid #e0b866;
+  transform: rotate(var(--ram-pitch, 0deg)); transform-origin: 0 50%; transition: transform .12s linear;
+}
+.drive-housing {
+  position: absolute; z-index: 11; top: 89px; left: 22px; width: 250px;
+  padding: 4px 7px 6px; border: 2px solid #7e6d52;
+  box-shadow: inset 0 1px #c3a56b; background: linear-gradient(#33342d, #171a1a);
+  color: #e4cf9f; pointer-events: none;
+}
+.drive-housing-head { display: flex; justify-content: space-between; align-items: center; font: 900 9px/1.2 'Alegreya Sans', sans-serif; letter-spacing: .1em; }
+.drive-housing output { font-size: 11px; }
+.drive-housing-track { height: 9px; margin-top: 4px; border: 1px solid #64553c; background: #10110e; position: relative; overflow: hidden; }
+.drive-housing-track::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 23%, #18181490 23% 25%); }
+.drive-housing-fill { width: var(--drive-pressure, 0%); height: 100%; background: linear-gradient(#f4d58b, #a98037); transition: width .12s linear; }
+.hud.ram-mounted .bottom-hud { position: absolute; inset: 16px auto auto 22px; width: 250px; display: block; }
+.hud.ram-mounted .bottom-hud .health-block { width: 100%; }
+.hud.ram-mounted .guard-block { display: block !important; position: static; margin-top: 7px; width: 100%; transform: none; opacity: 1 !important; }
+.hud.ram-mounted .guard-track { height: 4px; margin-top: 2px; }
+.hud.ram-mounted .guard-block span { display: none; }
+.hud.ram-mounted .abilities { display: none; }
+.hud.ram-mounted .ballista-hud { display: none; }
+.hud.flight-mounted .flight-metric.hull { display: none; }
+@container app (max-width: 780px) {
+  .machine-gauge { width: min(335px, 52%); bottom: calc(var(--safe-b, 0px) + 10px); }
+  .machine-component { flex-basis: 89px; padding-inline: 4px; }
+  .machine-health-head b { font-size: 8px; letter-spacing: .02em; }
+  .machine-health-head output { font-size: 9px; }
+  .hud.ram-mounted .bottom-hud { top: calc(var(--safe-t, 0px) + 9px); left: calc(var(--safe-l, 0px) + 9px); width: min(162px, 30%); }
+  .drive-housing { top: calc(var(--safe-t, 0px) + 78px); left: calc(var(--safe-l, 0px) + 9px); width: min(162px, 30%); }
+}
+@container app (max-width: 540px) {
+  .machine-gauge { width: min(220px, 48%); bottom: calc(var(--safe-b, 0px) + 10px); }
+  .machine-component { flex-basis: 68px; }
+  .machine-component .machine-health-head { display: block; }
+  .machine-component .machine-health-head output { display: block; font-size: 8px; }
+  .machine-health-track { height: 9px; }
+  .machine-pitch { font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .machine-component, .machine-health-fill, .drive-housing-fill, .machine-pitch-line::after { transition: none !important; }
+}
+
+/* The challenger's own name remains the headline; Squires are visibly subordinate. */
+.challenge-names #challenge-you { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: min(44cqw, 520px); }
+.challenge-names #challenge-you > span { display: block; overflow-wrap: anywhere; }
+.challenge-names #challenge-squires { color: #b9b9b5; font: 800 clamp(11px, 1.8cqw, 17px)/1.2 'Alegreya Sans', sans-serif; letter-spacing: .14em; text-shadow: none; }
+.challenge-names #challenge-squires[hidden] { display: none; }
+.challenge-names #challenge-foe { max-width: min(35cqw, 380px); overflow-wrap: anywhere; }
+@container app (max-width: 540px) {
+  .challenge-names #challenge-you { max-width: 38cqw; }
+  .challenge-names #challenge-squires { font-size: 10px; }
+  .challenge-names #challenge-foe { font-size: clamp(17px, 4cqw, 27px); }
+}
