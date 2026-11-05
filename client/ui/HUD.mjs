@@ -788,7 +788,10 @@ export class HUD {
     element.dataset.state=marker.state??'locked';
     element.dataset.clamped=marker.clamped?'true':'false';
     element.style.setProperty('--target-angle',`${Number.isFinite(marker.angle)?marker.angle:0}deg`);
-    const state=marker.state==='noClearShot'?'NO CLEAR SHOT':
+    const state=marker.state==='preview'?
+      marker.previewDetail==='noClearShot'?'MARKED · NO SHOT':
+      marker.previewDetail==='outOfTraverse'?'MARKED · OUT OF ARC':'FIRE TO LOCK':
+      marker.state==='noClearShot'?'NO CLEAR SHOT':
       marker.state==='outOfTraverse'?'OUT OF ARC':
       marker.state==='sightLost'?'SIGNAL LOST':'LOCKED';
     element.querySelector('.flight-target-name').textContent=marker.name??'TARGET';
