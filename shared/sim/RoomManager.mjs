@@ -28,7 +28,8 @@ export class RoomManager {
   }
 
   createPrivateRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
-    return this.createCustomRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId }, nowSec);
+    // Retain legacy/internal fixtures (including Shattered Keep); network custom rooms are validated separately.
+    return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
   createSharedPracticeRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
@@ -38,7 +39,7 @@ export class RoomManager {
   }
 
   createPublicRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
-    return this.createCustomRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
+    return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
   /** All custom rooms share the same validated rules, whether visible in Open Rooms or invited by code. */
