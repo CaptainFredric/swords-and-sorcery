@@ -1127,8 +1127,9 @@ $('#mettle-modes')?.addEventListener('click', event => {
   if (!chosen) return;
   menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
   showBreakthroughArena();
-  if(document.querySelector('#game-shell')?.clientWidth<=640)
-    breakthroughMenu.dataset.panel='details';
+  if(document.querySelector('#game-shell')?.clientWidth<=640){
+    breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
+  }
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1232,8 +1233,9 @@ privateChoices.addEventListener('click',event=>{
   if(!button)return;
   privateModeSelected=privateMode(button.dataset.privateMode);
   renderPrivateMode();
-  if(document.querySelector('#game-shell')?.clientWidth<=640)
-    privateMenu.dataset.panel='details';
+  if(document.querySelector('#game-shell')?.clientWidth<=640){
+    privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
+  }
 });
 privateForm.addEventListener('input',()=>renderPrivateMode({reset:false}));
 privateForm.addEventListener('change',()=>renderPrivateMode({reset:false}));
