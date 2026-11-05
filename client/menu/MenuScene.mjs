@@ -336,7 +336,10 @@ export class MenuScene {
     const t = nowMs / 1000;
     // the round begins once the camera has settled on him at the front door (never from the establishing shot)
     const settled = shotSettled({ to: this.shotTo, duration: this.shotDuration, elapsed: this.shotElapsed });
-    if (this.touringWanted && !this.touring && this.tour?.ready && settled) this.#startTouring();
+    // Complete the Armory's return walk before the autonomous courtyard
+    // tour takes ownership of the model's world transform.
+    if (this.touringWanted && !this.touring && this.tour?.ready && settled &&
+        !this.armoryReturning) this.#startTouring();
     if (!this.touring) {
       // Crossing the Armory threshold is a short readable walk, not a
       // teleport or a sliding model. Slower settling leaves time for feet.
@@ -409,8 +412,8 @@ export class MenuScene {
       } else {
         const pose = idlePose(moment);
         // raise the guard, then breathe in its hold
-        if (pose.clip === 'Guard') plan = { clip: 'Guard', loop: false, time: Math.min(moment.elapsed, 1.8) };
-        if (pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
+        if (!isRepositioning && pose.clip === 'Guard') plan = { clip: 'Guard', loop: false, time: Math.min(moment.elapsed, 1.8) };
+        if (!isRepositioning && pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
         plan.motion = { extra: pose.rotations };
       }
       let armoryEffect=null;
