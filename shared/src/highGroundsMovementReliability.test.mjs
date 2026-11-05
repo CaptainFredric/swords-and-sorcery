@@ -39,3 +39,17 @@ test('high bridge supports fast movement but an intentional abyss beyond the dec
   }
   assert.ok(state.position.y<7&&!state.grounded,'abyss remains a legitimate hazard');
 });
+
+test('descending an actual High Grounds slope does not detach feet every step', () => {
+  let state=createMovementState({x:-38,y:12,z:-65}),t=0;
+  assert.equal(surfaceHeightAt(-38,-65,12.1,HIGH_GROUNDS),12);
+  for(let i=0;i<90;i++){
+    t+=1/30;
+    state=movePlayer(state,{forward:1,right:0,yaw:0,jump:false,sprint:false,crouch:false},
+      1/30,t,HIGH_GROUNDS);
+    const ground=surfaceHeightAt(state.position.x,state.position.z,state.position.y+.65,HIGH_GROUNDS);
+    assert.ok(state.grounded,'feet must follow traversable downhill ramp at step '+i);
+    assert.ok(ground!==null&&Math.abs(state.position.y-ground)<.02,'no hover-then-snap descent at step '+i);
+  }
+  assert.ok(state.position.y<8,'character actually descended the high ramp');
+});
