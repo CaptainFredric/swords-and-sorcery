@@ -12,7 +12,8 @@ test('server time does not jump backward when late snapshots arrive in bursts', 
   assert.ok(later>=first,'clock is monotonic');
   clock.observe(100+2/30,1130); // fast burst
   assert.ok(clock.now(1130)>=later);
-  assert.ok(clock.now(1200)>clock.now(1130));
+  const previous=clock.now(1130);
+  assert.ok(clock.now(1200)>previous);
 });
 
 test('a restarted server resets the epoch without carrying the previous monotonic floor', () => {
