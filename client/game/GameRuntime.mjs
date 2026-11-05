@@ -1624,12 +1624,13 @@ export class GameRuntime {
       if(event.type==='fightFlightTerminalExplosion'&&event.point){
         const radius=Math.max(2,Math.min(13,Number.isFinite(event.radius)?event.radius:8));
         const power=Math.max(0,Math.min(1,Number.isFinite(event.condition)?event.condition:.5));
-        // The host has already computed the real blast radius from the
-        // machine's integrity at commitment. Do NOT clamp back to old 8 m.
+        // Damage and radius are authoritative and reflect the craft's
+        // remaining physical integrity at actual impact.
         // Derive the world ring from the actual settled burn zone, if any;
         // an impact high above the void must not draw a phantom ground disc.
         const zone=this.latestSnapshot?.flightBurnZones?.find?.(z=>z.id===event.machineId+'-burn');
         this.effects.impact(event.point,{spell:'fireball',radius,ground:zone?.point?.y??null});
+        this.flightRenderer.spawnTerminalHalo(event.point,event.at??this.socket.serverNow(),event.fireDuration??7);
         if(zone)this.effects.groundShock(zone.point,{radius:zone.radius});
         this.effects.sparks(event.point,0xffbd72,Math.round(20+22*power));
         this.effects.splinters(event.point,16);
