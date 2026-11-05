@@ -99,6 +99,19 @@ button, input { touch-action: manipulation; }
 .touch-stick { --stick-size:112px;position: absolute; left: calc(var(--safe-l) + 118px); top: calc(100% - var(--safe-b) - 110px); width: var(--stick-size); height: var(--stick-size); margin: calc(var(--stick-size) * -.5) 0 0 calc(var(--stick-size) * -.5); border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .38); background: radial-gradient(circle, rgba(20, 21, 17, .16), rgba(20, 21, 17, .4)); opacity: .5; pointer-events: auto; touch-action: none; transition: opacity .12s ease; }
 .touch-stick.held { opacity: 1; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
+/* One continuous front/rear charge cavity, extended only during Beat to
+   the Punch's authoritative reverse window. Travels with edited joystick. */
+.touch-stick-shell .touch-cavity-reverse { display:none; }
+.touch-stick.reverse-charge-available .touch-stick-shell { height:calc(100% + 100px); }
+.touch-stick.reverse-charge-available .touch-cavity-normal { display:none; }
+.touch-stick.reverse-charge-available .touch-cavity-reverse { display:block; }
+.touch-stick.reverse-charge-available .touch-motion-guide::after {
+ content:'↓';position:absolute;left:50%;top:calc(100% + 96px);
+ transform:translateX(-50%);font:800 20px/1 system-ui;pointer-events:none;
+ color:var(--motion-tint);opacity:.7;text-shadow:0 0 5px #141511;
+}
+.touch-stick.reverse-charge-available.motion-active .touch-motion-guide::after { opacity:1; }
+
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--stick-size) * .447); height: calc(var(--stick-size) * .447); margin: calc(var(--stick-size) * -.2235) 0 0 calc(var(--stick-size) * -.2235); border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
 /* One outline joins the circle and its forward channel. The guide inside it
@@ -153,24 +166,8 @@ button, input { touch-action: manipulation; }
   border:0; background:none; box-shadow:none;
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-/* This small detent moves with the actual joystick push, not with server state.
-   The animated arrows and SPRINTING/CHARGING label remain authoritative. */
-.touch-motion-well::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  width: 18px;
-  height: 8px;
-  border-radius: 4px;
-  transform: translate(-50%, calc(var(--motion-push, 0) * -47px));
-  background: linear-gradient(#f0dcad, #a48149);
-  border: 1px solid rgba(255, 239, 199, .62);
-  box-shadow: 0 0 5px rgba(222, 186, 110, .30);
-  opacity: 0;
-  pointer-events: none;
-}
-.touch-stick.held .touch-motion-guide.forward .touch-motion-well::after { opacity: .85; }
+/* A single pressure/charge indication. No sliding yellow detent. */
+.touch-motion-well::after { content:none; }
 .touch-motion-well svg {
   position: absolute;
   top: 49px;
