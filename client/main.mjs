@@ -1448,6 +1448,12 @@ privateModes.addEventListener('click',event=>{
 });
 privateRoomForm.addEventListener('input',refreshPrivateSummary);
 privateRoomForm.addEventListener('change',refreshPrivateSummary);
+// Enter in an editable specification must create through the same validated
+// action as the button, never perform the browser's native form navigation.
+privateRoomForm.addEventListener('submit',event=>{
+ event.preventDefault();
+ createConfiguredPrivate();
+});
 $('#private-configure').addEventListener('click',()=>{
  privateMenu.dataset.panel='details';
  privateMenu.querySelector('.private-companion .banner-scroll').scrollTop=0;
