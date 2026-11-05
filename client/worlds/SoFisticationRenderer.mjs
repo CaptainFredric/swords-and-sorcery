@@ -13,6 +13,10 @@ import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
+// Where the operator's right fist comes down on the machine (a thump as its fist goes out, spellbladeGestures.mjs): the
+// flat top of the console between the handlebars, 15 cm ahead of the right grip and 20 cm in from it, at the grips'
+// height. Measured on the production model by casting down onto it around the grip.
+const OPERATOR_CASING=Object.freeze([SO_FIST_STATION.rightHand[0]+.2,SO_FIST_STATION.rightHand[1]-.01,SO_FIST_STATION.rightHand[2]+.15]);
 export class SoFisticationRenderer {
  constructor(scene){
   this.scene=scene;this.group=everywhere(new THREE.Group());this.group.name='SoFistication';this.group.visible=false;scene.add(this.group);
@@ -277,7 +281,7 @@ export class SoFisticationRenderer {
  getOperatorStation(now=0){
   const b=this.presentationData;if(!b)return null;const frame=soFistFrame(b),point=p=>new THREE.Vector3(...boxWorld(frame,p));
   const pose=soFistPose(b,now),recoil=pose.active?Math.max(0,pose.velocity)/14:Math.max(0,1-Math.abs(pose.age-soFistTiming(b).peak)/.25)*.4;
-  return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
+  return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['casing',point(OPERATOR_CASING)],['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
  }
  getOperatorGrips(){const station=this.getOperatorStation(this.presentationData?.poseTime??0);return station?{left:station.leftHand,right:station.rightHand}:null;}
  getComponentWorldPosition(componentId){

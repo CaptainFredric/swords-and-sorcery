@@ -1464,6 +1464,15 @@ export class GameRuntime {
     for (const event of events) {
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
+      // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
+      // events; one reaction per bolt)
+      if(event.type==='bibyeBoltImpact'&&event.hitKind==='player'&&event.landed&&event.ownerId&&event.projectileId){
+        this.boltsLanded ??= new Map();
+        const hits=(this.boltsLanded.get(event.projectileId)?.hits??0)+1;
+        this.boltsLanded.set(event.projectileId,{hits,at:event.at});
+        for(const [id,b] of this.boltsLanded)if((event.at??0)-b.at>10)this.boltsLanded.delete(id);
+        if(hits===2)this.remotePlayers?.appraise?.(event.ownerId,Number.isFinite(event.at)?event.at:this.socket.serverNow(),event.projectileId,event.point);
+      }
       if(event.type==='fightFlightBoltReleased'){
         if(event.operatorId===this.playerId)this.hud.recoilCrosshair?.();
         const op = event.operatorId ?? this.latestSnapshot?.fightFlight?.operatorId;
@@ -3607,7 +3616,25 @@ export class GameRuntime {
     }
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // (what each machine's operator is doing, for his gestures: spellbladeGestures.mjs)
-    if (this.remotePlayers) this.remotePlayers.machineContext = gestureMachines(this.latestSnapshot, this.socket.serverNow());
+    if (this.remotePlayers) {
+      const serverNow = this.socket.serverNow();
+      this.gestureMemory ??= new Map();
+      this.remotePlayers.machineContext = gestureMachines(this.latestSnapshot, serverNow, this.gestureMemory);
+      // (how far behind the server's clock each machine was drawn last frame: a reaction keyed to its moment lands on
+      // that moment as it is seen)
+      const lag = (at) => (Number.isFinite(at) ? Math.max(0, Math.min(0.3, serverNow - at)) : 0);
+      this.remotePlayers.machineLag = {
+        ballista: lag(this.world?.biByeLlista?.presentationData?.poseTime),
+        ram: lag(this.world?.soFistication?.presentationData?.poseTime),
+      };
+      // (and which way each machine faces as it is drawn: its operator's body leans and banks with the machine's
+      // turning, not with his own yaw, which a seat holds still)
+      this.remotePlayers.machineHeading = {
+        ballista: this.world?.biByeLlista?.presentationData?.heading,
+        ram: this.world?.soFistication?.presentationData?.heading,
+        flight: this.flightRenderer?.state?.heading ?? this.latestSnapshot?.fightFlight?.heading,
+      };
+    }
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
       this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();

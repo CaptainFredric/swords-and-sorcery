@@ -1051,6 +1051,10 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
             damage,
             point: hit.point,
             hitKind: 'player',
+            // (for presentation: whose bolt, which knight it has run through, and whether the blow landed)
+            ownerId: projectile.ownerId,
+            pierce: projectile.pierceCount,
+            landed: Boolean(landed),
             at: nowSec,
           });
 

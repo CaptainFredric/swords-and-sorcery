@@ -53,6 +53,9 @@ const _m = new THREE.Matrix4();
 const _rootInv = new THREE.Matrix4();
 const _rootQuatInv = new THREE.Quaternion();
 const _bq = new THREE.Quaternion();
+// a hammer fist on a casing: the wrist's first goal this far above the surface (metres; about how far the gauntlet
+// reaches below its wrist, aimed down and forward); the fist's own lowest plate then sets it exactly (#fistLowest)
+const STRIKE_HEEL = 0.185;
 
 function clampActionTime(action, time, loop) {
   const duration = Math.max(0.0001, action.getClip().duration || 0.0001);
@@ -97,6 +100,10 @@ export class SpellbladeAnimator {
     // the finger lames' rest turns (the modelled cup), read as the model loads
     this.fingerRest = new Map();
     for (const [name, bone] of this.bones) if (/^(finger_|thumb_)/.test(name)) this.fingerRest.set(bone, bone.quaternion.clone());
+    // the helmet's rest turn in root space, read as the model loads: a gesture's hand placed from the head (shading the
+    // eyes) turns with the head from it
+    root.updateMatrixWorld(true);
+    this.headRest = this.bone('head') ? this.bone('head').getWorldQuaternion(new THREE.Quaternion()).premultiply(root.getWorldQuaternion(new THREE.Quaternion()).invert()) : null;
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
@@ -147,9 +154,9 @@ export class SpellbladeAnimator {
   }
 
   /**
-   * This frame's character layer: { turns (root-space turns: the body's weight and momentum), gesture (a gesture's
-   * pose, spellbladeGestures.gesturePose, or null) }, or null. Applied last, so it never changes what a clip, a solver
-   * or a machine's pose decided: it only adds to it.
+   * This frame's character layer: { turns (root-space turns: the body's weight, momentum and a machine's recoil),
+   * gestures (spellbladeGestures poses, any number, each already weighted region by region) }, or null. Applied last,
+   * so it never changes what a clip, a solver or a machine's pose decided: it only adds to it.
    */
   setCharacter(layer) {
     this.character = layer ?? null;
@@ -163,38 +170,148 @@ export class SpellbladeAnimator {
     this.characterSaved.clear();
   }
 
-  #applyCharacter() {
+  // each hand where a machine's pose put it (root space): its wrist, which way its fingers and palm lie, and which way
+  // its elbow hangs, so the hand can be put back on its control after the body moves under it
+  #handPins() {
+    const api = this.characterApi;
+    const pins = {};
+    for (const side of ['L', 'R']) {
+      const chain = GESTURE_ARMS[side];
+      if (!this.bone(chain.wrist)) continue;
+      const S = api.position(chain.shoulder);
+      const E = api.position(chain.elbow);
+      const W = api.position(chain.wrist);
+      const line = unit(W.map((v, i) => v - S[i]));
+      const out = E.map((v, i) => v - S[i]);
+      const along = dot(out, line);
+      pins[side] = {
+        wrist: W, aim: api.direction(chain.grip, chain.aim), roll: api.direction(chain.grip, chain.roll),
+        pole: unit(out.map((v, i) => v - line[i] * along)),
+      };
+    }
+    return pins;
+  }
+
+  /**
+   * Apply the character layer. pinned: the hands are on a machine's controls (handPins taken before the layer), and
+   * stay there as the trunk moves (the arms take it at the elbows), unless a gesture takes one off. casing: where on
+   * the machine a fist may come down (world), for a strike.
+   */
+  #applyCharacter({ pinned = false, casing = null } = {}) {
     const layer = this.character;
-    const gesture = layer?.gesture && layer.gesture.weight > 1e-3 ? layer.gesture : null;
+    const gestures = (layer?.gestures ?? []).filter((g) => g && g.weight > 1e-3);
     const turns = layer?.turns ?? [];
-    if (!turns.length && !gesture) return;
+    if (!turns.length && !gestures.length) return;
     this.root.updateMatrixWorld(true);
     _rootInv.copy(this.root.matrixWorld).invert();
     this.root.getWorldQuaternion(_rootQuatInv).invert();
     const api = this.characterApi;
+    const pins = pinned ? this.#handPins() : null;
     for (const { bone, axis, angle } of turns) api.rotate(bone, axis, angle);
-    if (!gesture) return;
-    const w = gesture.weight;
-    for (const { bone, axis, angle } of gesture.turns ?? []) api.rotate(bone, axis, angle * w);
-    if (gesture.legs) this.#liftLegs(gesture.legs, w);
-    if (gesture.hand) {
-      // the palm's centre where the gesture puts it (from the head), the wrist a hand's length back along the fingers
-      const { side, at, aim, palm } = gesture.hand;
-      const head = api.position('head');
-      const fingers = unit(aim);
-      const centre = [head[0] + at[0], head[1] + at[1], head[2] + at[2]];
-      const wrist = centre.map((v, i) => v - fingers[i] * PALM_REACH);
-      solveArm(api, GESTURE_ARMS[side], { wrist, aim: fingers, roll: unit(palm) }, w);
-      if (gesture.hand.open) this.#flattenHand(side, w);
+    for (const g of gestures) for (const { bone, axis, angle } of g.turns ?? []) api.rotate(bone, axis, angle * g.weight);
+    // the hands back on their controls
+    if (pins) {
+      for (const [side, pin] of Object.entries(pins)) {
+        solveArm(api, { ...GESTURE_ARMS[side], pole: pin.pole }, { wrist: pin.wrist, aim: pin.aim, roll: pin.roll }, 1);
+      }
     }
-    if (gesture.strike) {
-      // the fist up off what it holds and down onto it again
-      const { side, lift, reach } = gesture.strike;
-      const chain = GESTURE_ARMS[side];
-      const at = api.position(chain.wrist);
-      solveArm(api, chain, { wrist: [at[0], at[1] + lift, at[2] - reach] }, w);
+    for (const g of gestures) {
+      const w = g.weight;
+      if (g.legs) this.#liftLegs(g.legs, w);
+      if (g.hand) {
+        // the palm's centre where the gesture puts it (from the head), the wrist a hand's length back along the fingers
+        // (in the head's own frame, when it asks: the hand turns with the helmet as it scans)
+        const turn = g.hand.frame === 'head' ? this.#headTurn() : null;
+        const along = (v) => (turn ? _v.set(v[0], v[1], v[2]).applyQuaternion(turn).toArray() : v);
+        const { side } = g.hand;
+        const at = along(g.hand.at);
+        const fingers = unit(along(g.hand.aim));
+        const palm = unit(along(g.hand.palm));
+        const head = api.position('head');
+        const centre = [head[0] + at[0], head[1] + at[1], head[2] + at[2]];
+        const wrist = centre.map((v, i) => v - fingers[i] * PALM_REACH);
+        solveArm(api, pins?.[side] ? { ...GESTURE_ARMS[side], pole: pins[side].pole } : GESTURE_ARMS[side], { wrist, aim: fingers, roll: palm }, w);
+        if (g.hand.open) this.#flattenHand(side, w);
+      }
+      if (g.strike && casing) {
+        // the fist off what it holds, up, and down onto the machine's casing: its heel (the little finger's side) on
+        // the surface, the wrist just above and behind it, the palm turned in
+        const { side, reach = 0, lift = 0 } = g.strike;
+        const chain = pins?.[side] ? { ...GESTURE_ARMS[side], pole: pins[side].pole } : GESTURE_ARMS[side];
+        const from = api.position(chain.wrist);
+        const onto = _v.set(casing.x, casing.y, casing.z).applyMatrix4(_rootInv).toArray();
+        const wristOn = [onto[0] + (side === 'R' ? 0.02 : -0.02), onto[1] + STRIKE_HEEL, onto[2] + 0.035];
+        const goal = from.map((v, i) => v + (wristOn[i] - v) * reach + (i === 1 ? lift : 0));
+        const aimNow = api.direction(chain.grip, chain.aim);
+        const rollNow = api.direction(chain.grip, chain.roll);
+        const hammer = { aim: [0, -0.55, -0.83], roll: [side === 'R' ? -1 : 1, 0, 0] };
+        const mix = (a, b) => unit(a.map((v, i) => v + (b[i] - v) * reach));
+        const target = { wrist: goal, aim: mix(aimNow, hammer.aim), roll: mix(rollNow, hammer.roll) };
+        solveArm(api, chain, target, w);
+        // then the fist's own lowest plate put on the casing (lift above it), whatever angle the arm meets it at: the
+        // wrist's goal moved by what is left, and solved again (only near full weight, where the blow lands)
+        if (w > 0.98 && reach > 0.5) {
+          const low = this.#fistLowest(side);
+          if (low !== null) {
+            const short = (onto[1] + lift * reach) - low;
+            if (Math.abs(short) > 0.002) solveArm(api, chain, { ...target, wrist: goal.map((v, i) => (i === 1 ? v + short * reach : v)) }, 1);
+          }
+        }
+      }
     }
     this.#followPauldrons();
+  }
+
+  // the lowest point of a fist (root space y), from its gauntlet's own surface: the hand's and fingers' plates, and the
+  // cuff on the forearm just behind them (in a downward blow its rim can be lowest), each read once into its own bone's
+  // frame (the fist they are in when first asked) and carried with that bone from then on
+  #fistLowest(side) {
+    const hand = this.bone(`hand.${side}`);
+    const forearm = this.bone(`forearm.${side}`);
+    if (!hand || !forearm) return null;
+    if (!this.fistPoints?.[side]) {
+      let mesh = null;
+      this.root.traverse((o) => { if (o.isSkinnedMesh && o.name === `Gauntlet${side}`) mesh = o; });
+      if (!mesh) return null;
+      const bones = mesh.skeleton.bones;
+      const skin = mesh.geometry.attributes.skinIndex;
+      const weight = mesh.geometry.attributes.skinWeight;
+      const toHand = hand.matrixWorld.clone().invert();
+      const toForearm = forearm.matrixWorld.clone().invert();
+      const wrist = hand.getWorldPosition(new THREE.Vector3());
+      const sets = { hand: [], forearm: [] };
+      for (let i = 0; i < skin.count; i += 1) {
+        let best = 0;
+        let most = -1;
+        for (let k = 0; k < 4; k += 1) if (weight.getComponent(i, k) > most) { most = weight.getComponent(i, k); best = skin.getComponent(i, k); }
+        const name = bones[best]?.name ?? '';
+        if (/^(hand|finger|thumb)/.test(name)) {
+          if (i % 3) continue;
+          mesh.getVertexPosition(i, _s).applyMatrix4(mesh.matrixWorld);
+          sets.hand.push(_s.clone().applyMatrix4(toHand));
+        } else if (/^forearm/.test(name)) {
+          // (the cuff and the vambrace's end: all of the forearm within a hand's length of the wrist)
+          mesh.getVertexPosition(i, _s).applyMatrix4(mesh.matrixWorld);
+          if (_s.distanceTo(wrist) < 0.2) sets.forearm.push(_s.clone().applyMatrix4(toForearm));
+        }
+      }
+      (this.fistPoints ??= {})[side] = [[hand, sets.hand], [forearm, sets.forearm]];
+    }
+    let low = Infinity;
+    for (const [bone, points] of this.fistPoints[side]) {
+      bone.updateMatrixWorld(true);
+      _m.multiplyMatrices(_rootInv, bone.matrixWorld);
+      for (const p of points) low = Math.min(low, _v.copy(p).applyMatrix4(_m).y);
+    }
+    return Number.isFinite(low) ? low : null;
+  }
+
+  // how far the helmet has turned from its rest, in root space (this frame's pose and turns)
+  #headTurn() {
+    const head = this.bone('head');
+    if (!head || !this.headRest) return null;
+    head.getWorldQuaternion(_q).premultiply(_rootQuatInv);
+    return _q.multiply(_bq.copy(this.headRest).invert()).clone();
   }
 
   // a hand's fingers straightened out of whatever curl they hold (each lame's own x turn is its curl: rodin/hands.py),
@@ -216,19 +333,32 @@ export class SpellbladeAnimator {
     }
   }
 
-  // the flight L-sit: each knee straightened by `knee` of its bend, then the thigh lifted `hip` forward
-  #liftLegs({ hip = 0, knee = 0 }, w) {
+  // the flight L-sit: each leg straightened by `lift` of its bend and laid along its `dir` (root space), then its knee
+  // bent `knee` radians about its own hinge (a kick)
+  #liftLegs({ lift = 0, dir = {}, knee = {} }, w) {
     const api = this.characterApi;
+    const share = Math.max(0, Math.min(1, lift * w));
+    if (share < 1e-3) return;
     for (const side of ['L', 'R']) {
       const top = api.position(`thigh.${side}`);
       const middle = api.position(`shin.${side}`);
       const bottom = api.position(`foot.${side}`);
-      const upper = top.map((v, i) => middle[i] - v);
-      const lower = middle.map((v, i) => bottom[i] - v);
+      const upper = middle.map((v, i) => v - top[i]);
+      const lower = bottom.map((v, i) => v - middle[i]);
       const hinge = cross(upper, lower);
       const bend = Math.acos(Math.max(-1, Math.min(1, dot(unit(upper), unit(lower)))));
-      if (Math.hypot(...hinge) > 1e-6 && bend > 1e-3) api.rotate(`shin.${side}`, unit(hinge), -bend * knee * w);
-      api.rotate(`thigh.${side}`, [1, 0, 0], hip * w);
+      if (Math.hypot(...hinge) > 1e-6 && bend > 1e-3) api.rotate(`shin.${side}`, unit(hinge), -bend * share);
+      const want = dir[side];
+      if (want) {
+        const foot = api.position(`foot.${side}`);
+        const now = unit(foot.map((v, i) => v - top[i]));
+        const goal = unit(now.map((v, i) => v + (unit(want)[i] - v) * share));
+        const axis = cross(now, goal);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot(now, goal))));
+        if (Math.hypot(...axis) > 1e-6 && angle > 1e-4) api.rotate(`thigh.${side}`, unit(axis), angle);
+      }
+      // (the shin's own -x is its bend: rodin/rigid.py's knees)
+      if (knee[side]) api.rotate(`shin.${side}`, api.direction(`shin.${side}`, [-1, 0, 0]), knee[side] * share);
     }
   }
 
@@ -288,7 +418,8 @@ export class SpellbladeAnimator {
       this.activeClip = locomotion?.clip ?? this.activeClip;
       this.composition.apply(layers, step);
       this.#applyProcedural(plan.motion);
-      if (!plan.ramMounted && !plan.flightMounted) this.#applyCharacter();
+      // (a machine's own pose applies it after its own, on the machine's path)
+      if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
       this.#followPauldrons();
       this.cloth?.apply(step);
       this.onPose?.(plan);
@@ -373,14 +504,15 @@ export class SpellbladeAnimator {
     this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
     // (a machine's pose comes after this: its own apply* draws the character layer over it)
-    if (!plan.ramMounted && !plan.flightMounted) this.#applyCharacter();
+    // (a machine's own pose applies it after its own, on the machine's path)
+      if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
     this.#followPauldrons();
     this.cloth?.apply(step);
     this.onPose?.(plan);
     return true;
   }
 
-  applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);this.#applyCharacter();}
+  applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);this.#applyCharacter({pinned:true,casing:grips?.casing??null});}
   // combat: { attackAge, guarding, yawOffset } for the mounted sword arm (mountedSwordArm.mjs), which takes the sword
   // arm from the riding pose while a strike or the guard has it
   applyFightFlight(grips, priority = false, machine = null, now = 0, dt = 1/60, combat = null){
@@ -390,13 +522,13 @@ export class SpellbladeAnimator {
     _rootInv.copy(this.root.matrixWorld).invert();
     this.root.getWorldQuaternion(_rootQuatInv).invert();
     this.mountedSword.apply(combat, now, dt);
-    this.#applyCharacter();
+    this.#applyCharacter({ pinned: true });
     this.#followPauldrons();
   }
   applyRam(station){
     this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
     this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);
-    this.ramPose.apply(station);this.#applyCharacter();this.#followPauldrons();
+    this.ramPose.apply(station);this.#applyCharacter({pinned:true,casing:station?.casing??null});this.#followPauldrons();
   }
   restoreRamArms(){for(const [b,t]of this.ramArms??[]){b.quaternion.copy(t.q);b.position.copy(t.p);}this.ramArms=null;}
   releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}

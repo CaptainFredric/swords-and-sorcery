@@ -65,3 +65,16 @@ test('riding, all of it is halved; a teleport or a reappearance is not a lurch',
   // still (dead, spun by a Vortex): nothing
   assert.deepEqual(new SecondaryMotion().update(dt, { at: { x: 0, z: 0 }, yaw: 0, still: true }), []);
 });
+
+test('a loosed bolt jolts the seated knight back and lets him settle: nothing before it, nothing left after', async () => {
+  const { RECOIL, recoilTurns } = await import('./spellbladeSecondary.mjs');
+  assert.deepEqual(recoilTurns(-0.01), []);
+  assert.deepEqual(recoilTurns(RECOIL.seconds + 0.01), []);
+  const at = (t, bone) => recoilTurns(t).find((u) => u.bone === bone).angle;
+  // the chest back first, the helmet a beat after it, then a little forward as he settles
+  assert.ok(at(0.07, 'chest') > 0.9 * RECOIL.chest);
+  assert.ok(at(0.03, 'head') < at(0.11, 'head'));
+  assert.ok(at(0.4, 'head') < 0, 'settling forward');
+  for (let t = 0; t <= RECOIL.seconds; t += 0.01) for (const u of recoilTurns(t)) assert.ok(Math.abs(u.angle) <= 4 * Math.PI / 180, `${u.bone} ${t}`);
+  assert.ok(Math.abs(at(RECOIL.seconds - 0.01, 'chest')) < 0.15 * RECOIL.chest, 'all but gone by its end');
+});

@@ -10,6 +10,9 @@ import { withClearBoltHidden, withClearNearBoltsHidden, biByeDamageFlash, biByeA
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb?v=d696b66892a96c0a';
 
+// the chassis point the operator's right fist comes down on, in the ballista's own frame (getOperatorGrips)
+const OPERATOR_CASING=Object.freeze([-0.38,0.942,-1.24]);
+
 /**
  * Bi-Bye-llista (Two-Bolt Ballista) Mobile Siege Engine Renderer.
  * Integrates the authored Argon v4.1 production GLB asset (65 nodes, 46 meshes,
@@ -427,7 +430,12 @@ export class BiByeLlistaRenderer {
   getOperatorGrips(){
     this.group.updateMatrixWorld(true);
     const point=name=>this.nodes.get(name)?.getWorldPosition(new THREE.Vector3());
-    return {left:point('hand_L_steering_grip'),right:point('hand_R_traverse_grip'),lever:point('hand_R_fire_lever_grip')};
+    return {left:point('hand_L_steering_grip'),right:point('hand_R_traverse_grip'),lever:point('hand_R_fire_lever_grip'),
+      // where the operator's right fist comes down on the machine (his frustration with it, spellbladeGestures.mjs): the
+      // chassis top just outboard of the traverse wheel, 10 cm to his right of its grip, 20 cm ahead and 32 cm below,
+      // with a clear way down to it from the grip (the deck under the wheel itself is behind the wheel). Measured on the
+      // production model by casting down onto it; the seat is fixed to the carriage, so it holds as it traverses
+      casing:this.group.localToWorld(new THREE.Vector3(...OPERATOR_CASING))};
   }
 
   getOperatorStationWorldPosition(outVec = new THREE.Vector3()) {
