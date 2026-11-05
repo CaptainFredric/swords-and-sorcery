@@ -52,7 +52,12 @@ export function requestLongArmToJaw(room,b,p,now){
  if(!validRamOperator(room,b,p,now))return 'The SO-FIST-ICATION operator is unavailable.';
  const f=b.detachedFist;
  if(f?.state==='resting'){
-  if(hypot({x:b.x,y:b.y,z:b.z},f.position)>SO_FIST_LIFT.pickupRadius)
+   if((b.components?.Fist?.health??0)<=0){
+    f.state='destroyed';b.fistMounted=false;
+    event(room,b,'destroyed',now,{hp:0});
+    return 'The fist is destroyed. Recovery cannot repair it.';
+   }
+   if(hypot({x:b.x,y:b.y,z:b.z},f.position)>SO_FIST_LIFT.pickupRadius)
    return 'Drive the carriage beside your fist to retrieve it.';
   if(!hasPickupLine(room,b,f.position))
    return 'The fist is obstructed. Drive around the obstacle before retrieving it.';
@@ -186,8 +191,12 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
    Math.hypot(b.x-home.x,b.z-home.z)<=SO_FIST_LIFT.recoveryRadius&&
    Math.abs(b.y-(home.y??b.y))<=1.5);
  };
- if(f.state==='abyss'){
-  if(parked()){
+ if((b.components?.Fist?.health??0)<=0){
+   if(f.state!=='destroyed'){f.state='destroyed';b.fistMounted=false;event(room,b,'destroyed',now,{hp:0});}
+   return;
+  }
+  if(f.state==='abyss'){
+   if(parked()){
    f.state='recovering';f.recoverAt=now+SO_FIST_LIFT.recoveryCooldown;
    b.fistRecoveryUntil=f.recoverAt;b.speed=0;b.charging=false;
    event(room,b,'recoveryStarted',now,
