@@ -37,3 +37,21 @@ test('HUD and runtime connect the lock marker to actual enemy world projection',
  assert.match(rt,/flightTargetMarkerView\(/);
  assert.match(rt,/setFlightTargetMarker\?\.\(/);
 });
+
+test('Unfired Narrow candidate has an independent dashed FIRE TO LOCK marker, not a false hard lock',()=>{
+ const marked={...snapshot('preview')};
+ marked.fightFlight={...marked.fightFlight,skill:{
+   ...marked.fightFlight.skill,lockedOnce:false,trackingState:'preview'}};
+ const view=flightTargetMarkerView(local,marked,camera);
+ assert.equal(view.targetId,'enemy');
+ assert.equal(view.state,'preview');
+ assert.equal(view.previewDetail,'preview');
+ const off=flightTargetMarkerView(local,marked,{...camera,yaw:1.1});
+ assert.equal(off.targetId,'enemy','soft selection survives looking away until another foe is deliberately chosen');
+ const css=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
+ const hud=readFileSync(new URL('./HUD.mjs',import.meta.url),'utf8');
+ assert.match(css,/data-state="preview"/);
+ assert.match(hud,/FIRE TO LOCK/);
+ marked.fightFlight.skill.lockedOnce=true;marked.fightFlight.skill.trackingState='locked';
+ assert.equal(flightTargetMarkerView(local,marked,camera).state,'locked');
+});
