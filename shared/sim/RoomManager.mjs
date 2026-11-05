@@ -83,10 +83,11 @@ export class RoomManager {
 
   /** Prefer a populated compatible room; never silently switch the player's selected mode. */
   quickPlay(nowSec = 0, mode = GAME_MODES.FFA) {
-    if (!publicRoomMode(mode)) throw new Error('Choose an available public game mode.');
-    const rooms = [...this.rooms.values()].filter(room => !room.isPrivate && room.mode === mode && room.joinError() === null);
+    if (mode !== 'ALL' && !publicRoomMode(mode)) throw new Error('Choose an available public game mode.');
+    const rooms = [...this.rooms.values()].filter(room => !room.isPrivate && publicRoomMode(room.mode)
+      && (mode === 'ALL' || room.mode === mode) && room.joinError() === null);
     rooms.sort((a, b) => b.humanCount() - a.humanCount() || a.createdAt - b.createdAt);
-    return rooms[0] ?? this.createCustomRoom({ isPrivate: false, mode }, nowSec);
+    return rooms[0] ?? this.createCustomRoom({ isPrivate: false, mode: mode === 'ALL' ? GAME_MODES.FFA : mode }, nowSec);
   }
 
   /** Joinable public rooms across all supported modes; bots do not consume human capacity. */
