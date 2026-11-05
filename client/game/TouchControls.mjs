@@ -945,6 +945,11 @@ export class TouchControls {
       this.#moveFlightRail(event);
       return;
     }
+    // The ritual is a gesture on the independent stencil. Its first point
+    // can coincide with Jump, so offer it before ordinary button dispatch.
+    // Unrelated taps still fall through; brief Jump taps are restored in
+    // #ritualEnd instead of firing Dash/Ultimate accidentally.
+    if (this.#ritualStart(event)) return;
     const isMouse = event.pointerType === 'mouse';
     const button = event.target.closest?.('[data-action]');
     if (button) {
