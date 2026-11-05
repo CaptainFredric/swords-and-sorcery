@@ -111,6 +111,18 @@ button, input { touch-action: manipulation; }
  color:var(--motion-tint);opacity:.7;text-shadow:0 0 5px #141511;
 }
 .touch-stick.reverse-charge-available.motion-active .touch-motion-guide::after { opacity:1; }
+/* Never invent an additional gauge: server pressure shades the same charge
+   channel's arrows/edge, regardless of forward/reverse direction. */
+.touch-controls.touch-ram .touch-stick.motion-active .touch-stick-shell path {
+ opacity:calc(.4 + var(--drive-pressure, 1) * .6);
+}
+.touch-controls.touch-ram .touch-motion-guide.active .touch-motion-well svg {
+ opacity:calc(.32 + var(--drive-pressure, 1) * .68);
+}
+.touch-controls.touch-ram .touch-motion-guide[data-charge-direction="-1"]::after {
+ opacity:1;text-shadow:0 0 9px #e6c46a;
+}
+
 
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--stick-size) * .447); height: calc(var(--stick-size) * .447); margin: calc(var(--stick-size) * -.2235) 0 0 calc(var(--stick-size) * -.2235); border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
