@@ -201,14 +201,20 @@ try{
     document.querySelector('#private-create-right').click();
   })()`);
   await waitFor(()=>evaluate("!document.querySelector('#lobby').classList.contains('hidden')"),'real custom private FFA lobby',220);
-  const createdLobby=await evaluate(`(() => ({
-    mode:document.querySelector('#lobby-mode')?.textContent??'',
-    settings:document.querySelector('#lobby-settings')?.textContent??'',
-    code:document.querySelector('#lobby-code')?.textContent??''
-  }))()`);
+  const createdLobby=await evaluate(`(() => {
+    const fields=document.querySelector('#lobby-settings form.lobby-config')?.elements;
+    return {
+      mode:document.querySelector('#lobby-mode')?.textContent??'',
+      selectedMode:fields?.mode?.value??'',
+      score:fields?.scoreToWin?.value??'',
+      minutes:fields?.minutes?.value??'',
+      code:document.querySelector('#lobby-code')?.textContent??''
+    };
+  })()`);
   assert.match(createdLobby.mode,/FREE.FOR.ALL/i,'server recognized private Free-for-All');
-  assert.match(createdLobby.settings,/17/,'server persisted first-to-17');
-  assert.match(createdLobby.settings,/9/,'server persisted nine-minute custom room');
+  assert.equal(createdLobby.selectedMode,'FFA');
+  assert.equal(createdLobby.score,'17','server persisted first-to-17');
+  assert.equal(createdLobby.minutes,'9','server persisted nine-minute custom room');
   assert.equal(createdLobby.code.trim().length,5);
   evidence['private-host-created']=createdLobby;
   await capture('13-mobile-private-created-lobby');
