@@ -593,8 +593,9 @@ export class TouchControls {
         this.stickBase.classList.toggle('reverse-charge-available',reverseAvailable);
         this.stickShell?.setAttribute('viewBox',reverseAvailable?'0 0 112 212':'0 0 112 162');
       }
-      this.motionGuide.style.setProperty('--drive-pressure',
-        String(Math.max(0,Math.min(1,(rb?.drivePressure??rb?.pressure??0)/100))));
+      const drivePressure=String(Math.max(0,Math.min(1,(rb?.drivePressure??rb?.pressure??0)/100)));
+      this.motionGuide.style.setProperty('--drive-pressure',drivePressure);
+      this.stickBase.style.setProperty('--drive-pressure',drivePressure);
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-ballista',ballista);
