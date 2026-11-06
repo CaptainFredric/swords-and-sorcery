@@ -80,7 +80,7 @@ try{
     const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};};
     return {crest:rect(crest),title:rect(title),source:crest.getAttribute('src')};
   })()`);
-  assert.match(boot.source,/grimoirelee\\.svg$/);
+  assert.ok(boot.source.endsWith('/grimoirelee.svg'), 'loading crest uses the canonical artwork');
   assert.ok(boot.crest.w>=88 && boot.title.y>=boot.crest.y+boot.crest.h,
     'desktop: enlarged loading crest and title must not overlap');
   evidence['boot-desktop']=boot;
