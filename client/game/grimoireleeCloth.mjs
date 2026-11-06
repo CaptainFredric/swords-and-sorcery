@@ -23,7 +23,7 @@ function markImage() {
 // Map each texture pixel back to its physical location on the cloth. The two
 // cape UV islands are rotated/cut in the atlas, so drawing in raw UV-space
 // would bend the book and sword. Interpolating positions avoids that distortion.
-function clothCoordinates(geometry, size) {
+function clothCoordinates(geometry, size, flipY) {
   const position = geometry.getAttribute('position');
   const uv = geometry.getAttribute('uv');
   if (!position || !uv) throw new Error('Cape lacks position or UV attributes');
@@ -38,7 +38,9 @@ function clothCoordinates(geometry, size) {
   for (let t = 0; t + 2 < count; t += 3) {
     const ids = [t, t + 1, t + 2].map(i => indices ? indices.getX(i) : i);
     const corners = ids.map(i => ({
-      u: uv.getX(i) * (size - 1), v: (1 - uv.getY(i)) * (size - 1),
+      // GLTFLoader sets flipY=false (its UV origin is upper-left); kit textures
+      // may use the opposite convention. Match the material's actual upload mode.
+      u: uv.getX(i) * (size - 1), v: (flipY ? 1 - uv.getY(i) : uv.getY(i)) * (size - 1),
       px: position.getX(i), py: position.getY(i),
     }));
     const [a, b, c] = corners;
@@ -78,7 +80,7 @@ async function compose(mesh, base) {
   ctx.drawImage(original, 0, 0, size, size);
   const pixels = ctx.getImageData(0, 0, size, size);
   const data = pixels.data;
-  const coords = clothCoordinates(mesh.geometry, size);
+  const coords = clothCoordinates(mesh.geometry, size, base.flipY);
   const { x, y, covered, xMin, xMax, yMin, yMax } = coords;
   const width = xMax - xMin, height = yMax - yMin;
   if (!Number.isFinite(width) || width < 0.01 || height < 0.01) throw new Error('Invalid cloth UV geometry');

@@ -154,6 +154,26 @@ try{
     assert.ok(overflow<=3,section+' text bleeds past scrolling column');
     await capture(label);
   }
+  // Grimoirelee review: rotate the real GLB to expose the actual back cloth.
+  // An unlocked personal herald remains selectable as a PREVIEW, even on
+  // fresh profiles, without granting the achievement.
+  await evaluate("document.querySelector('#armory-heraldry-tab').click()");
+  await evaluate("document.querySelector('#armory-emblems [data-emblem=grimoirelee]').click()");
+  await sleep(1700);
+  assert.equal(await evaluate("document.querySelector('#emblem-name').textContent"),'Grimoirelee');
+  await capture('07b-desktop-grimoirelee-back');
+  // Both offset rear viewpoints expose the banner plane; the Armory camera is
+  // oblique to the front-door camera, so the stock rear turn can read edge-on.
+  await evaluate("window.__ssMenu.targetYaw += 1.0");
+  await sleep(1100);
+  await capture('07b2-desktop-grimoirelee-back-offset-right');
+  await evaluate("window.__ssMenu.targetYaw -= 2.0");
+  await sleep(1200);
+  await capture('07b3-desktop-grimoirelee-back-offset-left');
+  await evaluate("document.querySelector('#armory-emblems [data-emblem=seize_thy_slayer]').click()");
+  await sleep(1100);
+  assert.equal(await evaluate("document.querySelector('#emblem-name').textContent"),'Seize Thy Slayer');
+  await capture('07c-desktop-earned-back-preview');
   await evaluate("document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
   await waitFor(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo before mobile');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});
