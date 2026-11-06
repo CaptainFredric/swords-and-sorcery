@@ -146,9 +146,10 @@ test('changing Armory sections starts their shared scroll at the top while the c
   assert.equal(controller.section, 'kit');
 });
 
-test('heraldry: the trident is always carried or carriable; an earned emblem can be carried; a locked one cannot', async () => {
+test('heraldry: Grimoirelee and legacy trident IDs share the default; an earned emblem can be carried; a locked one cannot', async () => {
   const { heraldryView } = await import('./renownView.mjs');
-  assert.equal(heraldryView(null, 'trident', true).status, 'Carried');
+  assert.equal(heraldryView(null, 'grimoirelee', true).status, 'Carried');
+  assert.equal(heraldryView(null, 'trident', true).emblem.id, 'grimoirelee');
   const fresh = { emblem: 'trident', emblems: ['trident'] };
   const locked = heraldryView(fresh, 'seize_thy_slayer', true);
   assert.equal(locked.status, 'Locked');
@@ -159,11 +160,11 @@ test('heraldry: the trident is always carried or carriable; an earned emblem can
   assert.equal(earned.disabled, false);
   assert.equal(heraldryView({ ...fresh, emblems: ['trident', 'seize_thy_slayer'] }, 'seize_thy_slayer', false).disabled, true);
   assert.equal(heraldryView({ emblem: 'seize_thy_slayer', emblems: ['trident', 'seize_thy_slayer'] }, 'seize_thy_slayer', true).label, 'CARRIED');
-  // (an unknown preview falls back to the trident)
-  assert.equal(heraldryView(fresh, 'dragon', true).emblem.id, 'trident');
+  // (an unknown preview falls back to Grimoirelee)
+  assert.equal(heraldryView(fresh, 'dragon', true).emblem.id, 'grimoirelee');
 });
 
-test('Mutual Mortality is a named, unequippable preview with no banner art or substituted trident', async () => {
+test('Mutual Mortality is a named, unequippable preview with no banner art or substituted Grimoirelee', async () => {
   const {heraldryView}=await import('./renownView.mjs');
   const {EMBLEMS,ownedEmblems}=await import('../../shared/src/heraldry.mjs');
   const profile={emblem:'trident',emblems:['trident','mutual_mortality']};
@@ -175,7 +176,7 @@ test('Mutual Mortality is a named, unequippable preview with no banner art or su
   assert.match(view.hint,/From Challenges/);
   assert.equal(EMBLEMS.mutual_mortality.art,null);
   assert.deepEqual(EMBLEMS.mutual_mortality.banners,{});
-  assert.deepEqual(ownedEmblems({completed:{mutual_mortality:123}}),['trident']);
+  assert.deepEqual(ownedEmblems({completed:{mutual_mortality:123}}),['grimoirelee']);
   const nodes=new Map(),calls=[];
   const doc={querySelector(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);},createElement:element};
   const controller=new RenownController({socket:{status:'offline',remote:{},on(){}},document:doc,storage:{getItem(){return null;}},scene:()=>({setCloth(){},setEmblem(id){calls.push(['emblem',id]);},showBanner(value){calls.push(['banner',value]);}})});
@@ -184,6 +185,6 @@ test('Mutual Mortality is a named, unequippable preview with no banner art or su
   assert.equal(card.children[0].children.length,0);
   assert.equal(card.children[0].textContent,'ART PENDING');
   card.handlers.click();
-  assert.deepEqual(calls.slice(-2),[['emblem','trident'],['banner',false]]);
+  assert.deepEqual(calls.slice(-2),[['emblem','grimoirelee'],['banner',false]]);
   assert.equal(doc.querySelector('#emblem-action').disabled,true);
 });
