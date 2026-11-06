@@ -162,6 +162,14 @@ try{
   await sleep(1700);
   assert.equal(await evaluate("document.querySelector('#emblem-name').textContent"),'Grimoirelee');
   await capture('07b-desktop-grimoirelee-back');
+  // Both offset rear viewpoints expose the banner plane; the Armory camera is
+  // oblique to the front-door camera, so the stock rear turn can read edge-on.
+  await evaluate("window.__ssMenu.targetYaw += 1.0");
+  await sleep(1100);
+  await capture('07b2-desktop-grimoirelee-back-offset-right');
+  await evaluate("window.__ssMenu.targetYaw -= 2.0");
+  await sleep(1200);
+  await capture('07b3-desktop-grimoirelee-back-offset-left');
   await evaluate("document.querySelector('#armory-emblems [data-emblem=seize_thy_slayer]').click()");
   await sleep(1100);
   assert.equal(await evaluate("document.querySelector('#emblem-name').textContent"),'Seize Thy Slayer');
