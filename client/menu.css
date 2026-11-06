@@ -87,6 +87,7 @@
 @keyframes banner-content { from { opacity: 0; transform: translateY(-6px); } }
 
 .crest { display: block; width: 52px; height: 62px; margin: 0 auto 10px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+.grimoirelee-crest { width: 64px; height: 86px; max-width: 100%; object-fit: contain; }
 .crest-field { fill: var(--heraldry-crimson-deep); }
 .crest-border { fill: none; stroke: var(--heraldry-brass); stroke-width: 3; }
 .crest-charge { fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
