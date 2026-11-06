@@ -1598,3 +1598,24 @@ test('Dagaz retains progress after accidental off-path thumb movement and resume
  e.send('pointercancel',b[0],b[1],{pointerId:303,target:e.controls.layer});
  e.controls.dispose();
 });
+
+test('browser implicit child pointer-capture transfer does not cancel a held Dagaz finger',()=>{
+ const e=valkyrieFlightFixture(),points=e.controls.valkyrieGeometry.points,sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ e.send('pointerdown',points[0][0],points[0][1],{action:'jump',pointerId:432});
+ assert.ok(e.controls.ritual);
+ // Native pointer capture moves from the pressed child to the layer;
+ // losing the child's implicit capture bubbles through the layer.
+ e.send('lostpointercapture',points[0][0],points[0][1],{
+   target:e.controls.buttons.jump,pointerId:432});
+ assert.ok(e.controls.ritual,'implicit capture transfer must NOT release the rune');
+ const a=points[0],b=points[1];
+ e.send('pointermove',a[0]+(b[0]-a[0])*.5,a[1]+(b[1]-a[1])*.5,{
+   target:e.controls.layer,pointerId:432});
+ assert.ok(Number(e.controls.valkyrieInk.style.strokeDasharray.split(' ')[0])>.01,
+   'first real pointermove must illuminate the path after transfer');
+ e.send('lostpointercapture',b[0],b[1],{target:e.controls.layer,pointerId:432});
+ assert.equal(e.controls.ritual,null,'loss of the layer\'s own capture terminates gesture');
+ assert.deepEqual(sent,[],'neither event may synthesize an Ultimate or Dash');
+ e.controls.dispose();
+});
