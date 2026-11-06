@@ -3,12 +3,19 @@ import {SIEGE_SKILL_NAMES,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../..
 // Static 2D heraldic marks: presentation only, never a 3D model or asset fetch.
 const MACHINES=Object.freeze([
  {id:'biBye',name:'BI-BYE-LLISTA',mark:'II',icon:'heavyBolt',subtitle:'TWO BOWS · ONE BAD IDEA',
-  line:'A traveling frost-conditioning bolt followed by a massive physical siege bolt.',
+  preview:'A traveling frost-conditioning bolt followed by a massive physical siege bolt.',
+  line:`A traveling frost-conditioning bolt followed by a massive physical siege bolt.
+
+Castleward's engineers saw no need to settle for a single warning shot. The smaller bolt subjects the enemy to a most inconvenient cold. The larger bolt supplies the conclusion, and, rather generously, enough force to make further argument unnecessary.`,
   facts:'650 hull · Bolt I: 18 frost / 2 m · Bolt II: 85 physical'},
  {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'A MOST FORCEFUL ARGUMENT',
-  line:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
+  preview:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
+  line:`A charging, piston-driven battering ram capable of delivering a mechanical uppercut.
+
+The engineers of Castleward discovered that a siege engine could have all the subtlety of a clenched fist—and built precisely that. Elevate the carriage, align the piston, and teach a wall how to receive a proper introduction. The detachable gauntlet ensures the enemy may still appreciate the machine's reach from a distance.`,
   facts:'Armored piston · charging drive · counterattack Skill'},
  {id:'fightFlight',name:'FIGHT-AND-FLIGHT',mark:'FLIGHT',icon:'flightDash',subtitle:'A DIFFERENT KIND OF HIGH GROUND',
+  preview:'Why choose to Fight or Flee? When you could be Free?',
   line:`*Why choose to Fight or Flee? When you could be Free?*
 
 ...To do both at the same time. And get away with it.

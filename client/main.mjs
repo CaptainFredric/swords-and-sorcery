@@ -1747,15 +1747,23 @@ function renderArmory() {
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
   renderPreparedArmory();
   const siegeFocus=document.activeElement?.dataset?.siegeSkill;
+  const expandedSiegeStories=new Set([...$('#armory-siege-machines').querySelectorAll('details[data-siege-story][open]')]
+    .map(el=>el.dataset.siegeStory));
   $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
     <article class="siege-armory-card">
       <div class="siege-armory-heading">
         <span class="siege-armory-mark" aria-hidden="true">${m.icon?iconSvg(m.icon):m.mark}</span>
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
-      <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
-        ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
-      </div><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
+      <p class="siege-armory-preview">${escapeHtml(m.preview)}</p>
+      <details class="siege-armory-story" data-siege-story="${m.id}" ${expandedSiegeStories.has(m.id)?'open':''}>
+        <summary aria-label="Story of Siege for ${escapeHtml(m.name)}">
+          <span>STORY OF SIEGE</span><span class="siege-story-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
+          ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
+        </div>
+      </details><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
       <p class="armory-slot">SIEGE SKILL · U</p>
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
         ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
