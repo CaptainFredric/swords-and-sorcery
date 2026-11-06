@@ -1728,7 +1728,7 @@ function renderArmory() {
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
       <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
-        ${m.line.split(/\\n\\s*\\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\\*([^*]+)\\*/g,'<em>$1</em>')}</p>`).join('')}
+        ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
       </div><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
       <p class="armory-slot">SIEGE SKILL · U</p>
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
