@@ -39,6 +39,10 @@ const SPELL_WORDS = Object.freeze({
 
 // and each ultimate
 const ULTIMATE_WORDS = Object.freeze({
+  one_hit_of_wonders: {
+    mark: '✦', line: 'Simple Sunder: a spinning sword strike and rock-breaking slam. Earn Fire, Frost, Gale and Lightning separately from real spell encounters.',
+    facts: () => '40 PHYSICAL · +13 FIRE · +11 FROST · +8 GALE · +12 LIGHTNING · FULL GALE: AERIAL · FULL LIGHTNING: BLINK',
+  },
   sunder: {
     mark: '⚒',
     line: 'Every sword strike becomes a crushing downward blow. Hits interrupt actions, split the ground, and hammer through Guard.',

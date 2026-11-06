@@ -224,9 +224,15 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
+      oneHitInfusions: { ...(p.oneHitInfusions ?? {fire:0,frost:0,gale:0,lightning:0}) },
+      shaken: p.shaken ? { ...p.shaken } : null,
+      electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,
+      practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
       ultimate: p.ultimate ?? null,
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
+        ...(p.ultimateState.oneHit ? { oneHit: { ...p.ultimateState.oneHit, tiers: { ...p.ultimateState.oneHit.tiers } } } : {}),
+        ...(Number.isFinite(p.ultimateState.teleportHoldAt) ? { teleportHoldAt: p.ultimateState.teleportHoldAt } : {}),
         // (a Vortex: where its blade is, how fast it turns, and what the knight has steered it to)
         ...(p.ultimateState.angle !== undefined ? {
           angle: p.ultimateState.angle, angleAt: p.ultimateState.angleAt, rate: p.ultimateState.rate, emphasis: p.ultimateState.emphasis ?? 0,
@@ -242,6 +248,16 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       operatingBallistaId: p.operatingBallistaId ?? null,
       operatingRamId: p.operatingRamId ?? null,
       operatingFightFlightId: p.operatingFightFlightId ?? null,
+    })),
+    oneHitWaves: (room.oneHitWaves ?? []).map(w => ({
+      id:w.id, ownerId:w.ownerId, position:{...w.position}, direction:{...w.direction},
+      bornAt:w.bornAt, tiers:{...w.tiers},
+    })),
+    oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
+      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, until:z.until,
+    })),
+    lineConductWires: (room.lineConductWires ?? []).map(w => ({
+      id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity, ...(p.corePhase ? { corePhase: p.corePhase, armedAt: p.armedAt ?? null, detonateAt: p.detonateAt ?? null } : {}) })),
     structures: room.structures,

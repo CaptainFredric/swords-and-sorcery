@@ -19,6 +19,11 @@ import { POSTURES } from './body.mjs';
 import { STEEL } from './steel.mjs';
 
 export const SPELLS = Object.freeze({
+  line_of_conduct: Object.freeze({
+    id: 'line_of_conduct', label: 'Line of Conduct', short: 'Conduct',
+    kind: 'line', cooldownSec: 6, gatherSec: 0.45,
+    directDamage: 20, edgeDamage: 12, windResist: 99,
+  }),
   fireball: Object.freeze({
     id: 'fireball',
     label: 'Fireball',

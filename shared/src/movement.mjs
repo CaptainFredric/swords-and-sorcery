@@ -107,7 +107,12 @@ export function resolveSprint({ wantsSprint, forward = 0, right = 0, grounded = 
 export function locomotionSpeed(state) {
   const blend = Math.max(0, Math.min(1, Number(state.sprintBlend) || 0));
   // eased out: quick to get going, slower to reach the top end
-  const eased = 1 - (1 - blend) * (1 - blend);
+  // Shaken suppresses ONLY the sprint advantage; ordinary walking remains unchanged.
+  const shaken = state.shaken;
+  const elapsed = shaken ? Math.max(0, (state.shakenNow ?? shaken.at) - shaken.at) : 3;
+  const recovery = Math.min(1, elapsed / 3);
+  const shakenFactor = shaken ? Math.max(0, Math.min(1, 1 - (shaken.severity ?? 1) * (1 - recovery))) : 1;
+  const eased = (1 - (1 - blend) * (1 - blend)) * shakenFactor;
   // (spinning in a Blazing Vortex, the pace is the spin's own: state.whirl, shared/src/ultimates.mjs)
   const base = state.whirl ? state.whirl.speed : MOVEMENT.runSpeed + (SPRINT.speed - MOVEMENT.runSpeed) * eased;
   const scale = Number.isFinite(state.speedScale) ? Math.max(0, state.speedScale) : 1;

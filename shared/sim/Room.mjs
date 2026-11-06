@@ -1,4 +1,5 @@
 import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
+import { emptyInfusions } from '../src/oneHitInfusions.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import { createStructureState } from './structures.mjs';
 import { dismountFightFlight } from './fightFlight.mjs';
@@ -77,6 +78,12 @@ function freshCombatState(spawn, nowSec = 0) {
     stagger: freshStagger(),
     prowess: 0,
     ultimateState: null,
+    oneHitInfusions: emptyInfusions(),
+    oneHitSeenUses: {},
+    practiceOneHit: null,
+    shaken: null,
+    electricalBacklash: null,
+    oneHitFrostSlow: null,
     ultimateLockedUntil: -Infinity,
     recoverUntil: -Infinity,
     dizzyUntil: -Infinity,
@@ -137,6 +144,9 @@ export class Room {
     this.players = new Map();
     this.hostOwnerId = null; // kept through the reconnect grace period
     this.projectiles = new Map();
+    this.oneHitWaves = [];
+    this.oneHitBurnZones = [];
+    this.lineConductWires = [];
     this.ruptures = [];
     this.events = [];
     this.countdownEndsAt = null;
