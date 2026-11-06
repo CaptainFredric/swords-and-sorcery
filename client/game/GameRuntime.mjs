@@ -312,7 +312,7 @@ export class GameRuntime {
       this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
     };
     this.effects = new Effects(this.scene, this.camera);
-    this.oneHitEffects = new OneHitLiveEffects(this.scene);
+    this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -4274,6 +4274,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.structuresRenderer?.dispose();
     this.world?.dispose?.();
+    this.oneHitEffects?.dispose();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();
     this.weapon.dispose();

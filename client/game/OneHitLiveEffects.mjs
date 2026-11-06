@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createConductDischarge } from './ConductVisuals.mjs';
+import { createConductDischarge, ConductHandEffects } from './ConductVisuals.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -13,14 +13,17 @@ const v=p=>new THREE.Vector3(p.x,p.y,p.z);
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 
 export class OneHitLiveEffects {
-  constructor(scene) {
+  constructor(scene,remotePlayers=null) {
     this.scene=scene;
+    this.remotePlayers=remotePlayers;
     this.root=new THREE.Group();
     this.root.name='One Hit of Wonders (presentation only)';
     scene.add(this.root);
     this.transients=[];
     this.waves=new Map();
     this.auras=new Map();
+    this.conductHands=new Map();
+    this.visualClock=0;
   }
   #add(mesh,ttl,velocity=null,spin=0) {
     if(this.transients.length>=185){
@@ -124,6 +127,7 @@ export class OneHitLiveEffects {
   }
   update(dt,snapshot){
     const frame=clamp(Number(dt)||0,0,.06);
+    this.visualClock+=frame;
     for(let i=this.transients.length-1;i>=0;i--){
       const t=this.transients[i];t.life-=frame;
       if(t.life<=0){this.#discard(t.mesh);this.transients.splice(i,1);continue;}
@@ -171,6 +175,34 @@ export class OneHitLiveEffects {
     for(const [id,mesh] of this.waves)if(!tracked.has(id)){
       this.#discard(mesh);this.waves.delete(id);
     }
+    // Third-person Spellblades use the SAME actual left Sorcery hand socket.
+    // A local first-person hand uses WeaponView's own socket-attached emitter.
+    // Do not synthesize remote visual positions from networked feet.
+    const electrified=new Set();
+    for(const player of snapshot?.players??[]){
+      if(!player.alive||player.operatingBallistaId||player.operatingRamId||player.operatingFightFlightId)continue;
+      const casting=player.castingSpell==='line_of_conduct' &&
+        (snapshot.serverTime??0)<(player.castEndsAt??0);
+      if(player.spell!=='line_of_conduct'&&!casting)continue;
+      const shell=player.id===this.remotePlayers?.localId
+        ?this.remotePlayers.self:this.remotePlayers?.rigs?.get(player.id);
+      const socket=shell?.visualInstance?.sockets?.sorcery;
+      if(!socket)continue;
+      electrified.add(player.id);
+      let entry=this.conductHands.get(player.id);
+      if(entry?.socket!==socket){
+        entry?.effect.dispose();
+        entry={socket,effect:new ConductHandEffects(socket)};
+        this.conductHands.set(player.id,entry);
+      }
+      const progress=casting?clamp(((snapshot.serverTime??0)-(player.castStartedAt??0))/
+        Math.max(.01,(player.castEndsAt??0)-(player.castStartedAt??0)),0,1):0;
+      entry.effect.update(this.visualClock,{equipped:true,charging:casting,progress});
+    }
+    for(const [id,entry] of this.conductHands){
+      if(electrified.has(id))continue;
+      entry.effect.dispose();this.conductHands.delete(id);
+    }
     const charging=new Set();
     for(const player of snapshot?.players??[]){
       const state=player.ultimateState;
@@ -207,7 +239,8 @@ export class OneHitLiveEffects {
     for(const t of this.transients)this.#discard(t.mesh);
     for(const g of this.waves.values())this.#discard(g);
     for(const g of this.auras.values())this.#discard(g);
-    this.transients=[];this.waves.clear();this.auras.clear();
+    for(const entry of this.conductHands.values())entry.effect.dispose();
+    this.transients=[];this.waves.clear();this.auras.clear();this.conductHands.clear();
     this.root.parent?.remove(this.root);
   }
 }
