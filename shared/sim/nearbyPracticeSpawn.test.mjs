@@ -28,3 +28,10 @@ test('uses the initiating human even when inspecting a dummy and ignores the dum
   const pos=nearbyPracticeSpawn(r,'human','dummy');
   assert.equal(pos.z,-3);
 });
+
+test('director free-camera summons near its grounded viewpoint rather than the distant Spellblade',()=>{
+  const r=room();r.inspectionEnabled=true;
+  const p=nearbyPracticeSpawn(r,'human',null,{x:8,y:14,z:6,yaw:0});
+  assert(p);assert.ok(Math.hypot(p.x-8,p.z-6)<=4);
+  assert.ok(Math.hypot(p.x,p.z)>5);
+});
