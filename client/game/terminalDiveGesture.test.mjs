@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildValkyrieRitualGeometry,createValkyrieRitual,advanceValkyrieRitual,
   ritualFraction,ritualDistanceFraction,ritualStartNear,pointInRitualStencil,
-  VALKYRIE_RITUAL_POINTS,RITUAL_UNIT,RITUAL_HALO_STEPS,
+  VALKYRIE_RITUAL_POINTS,RITUAL_UNIT,RITUAL_HALO_STEPS,RITUAL_TIMEOUT_MS,
 } from './terminalDiveGesture.mjs';
 
 const pt=([x,y])=>({x,y});
@@ -64,8 +64,10 @@ test('wrong-way, jumping across the X, and late traces never activate',()=>{
   'skipping to Ascend does not silently complete intermediate steps');
  const first=advanceValkyrieRitual(g,pt(custom.points[1]),100);
  assert.equal(first.index,1);
+ assert.ok(advanceValkyrieRitual(first,pt(custom.points[2]),18000),
+   'slow trace remains valid after 12 seconds');
  assert.equal(advanceValkyrieRitual(first,{x:400,y:400},120),null);
- assert.equal(advanceValkyrieRitual(first,pt(custom.points[2]),13000),null,'time-out cancels');
+ assert.equal(advanceValkyrieRitual(first,pt(custom.points[2]),RITUAL_TIMEOUT_MS+1000),null,'time-out cancels');
 });
 
 test('legacy stencil mapping and default fixture remain stable for old replay adapters',()=>{
