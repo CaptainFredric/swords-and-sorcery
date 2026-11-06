@@ -145,7 +145,10 @@ try {
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'Practice entry');
   await evaluate("document.querySelector('#practice-mode').click()");
-  await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing)"), 'Practice loaded');
+  // An arena may still have a UI focus transition while the authoritative
+  // Practice snapshot is already PLAYING. Test server state, not a transient
+  // client presentation flag (matching mobile-practice-browser.mjs).
+  await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.latestSnapshot?.roomState === 'PLAYING')"), 'Practice loaded');
 
   // Spawn Fight-and-Flight
   await evaluate(`
