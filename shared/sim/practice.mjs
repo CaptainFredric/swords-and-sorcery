@@ -150,6 +150,7 @@ export function resetPracticePlayer(room, playerId, nowSec) {
     }
   }
   resetActorAtSpawn(player, spawn, nowSec);
+  player.prowess=PROWESS.full;
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
   return true;
 }
@@ -178,19 +179,22 @@ export function configurePracticeOneHit(room,playerId,message,nowSec=0) {
     player.oneHitSeenUses={};
   }else{
     const stages=normalizeInfusions(player.practiceOneHit?.stages??player.oneHitInfusions);
+    // Editing a tier must never silently re-check the "preserve between
+    // casts" option. The user controls retention independently of strength.
+    const retain=player.practiceOneHit?.enabled??true;
     if(action==='preset'){
-      if(message.preset==='reset')player.practiceOneHit={enabled:true,stages:emptyInfusions()};
+      if(message.preset==='reset')player.practiceOneHit={enabled:retain,stages:emptyInfusions()};
       else if(Object.hasOwn(ONE_HIT_PRESETS,String(message.preset)))
-        player.practiceOneHit={enabled:true,stages:{...ONE_HIT_PRESETS[message.preset]}};
+        player.practiceOneHit={enabled:retain,stages:{...ONE_HIT_PRESETS[message.preset]}};
       else return false;
     }else if(action==='level'){
       if(!Object.hasOwn(stages,String(message.element)))return false;
       stages[message.element]=Math.max(0,Math.min(2,Math.trunc(Number(message.tier)||0)));
-      player.practiceOneHit={enabled:true,stages};
+      player.practiceOneHit={enabled:retain,stages};
     }else if(action==='enabled'){
       player.practiceOneHit={enabled:Boolean(message.enabled),stages};
     }else if(action==='aerial'){
-      if(!player.practiceOneHit?.enabled)player.practiceOneHit={enabled:true,stages};
+      if(!player.practiceOneHit)player.practiceOneHit={enabled:retain,stages};
       player.practiceOneHit.stages.gale=2;
       const ground=surfaceHeightAt(player.position.x,player.position.z,player.position.y,room.world);
       player.position={...player.position,y:Math.max(player.position.y,(ground??player.position.y)+5)};
@@ -206,7 +210,7 @@ export function configurePracticeOneHit(room,playerId,message,nowSec=0) {
   }
   player.prowess=PROWESS.full;
   room.events.push({type:'practiceOneHitConfigured',playerId,stages:{...(
-    player.practiceOneHit?.enabled?player.practiceOneHit.stages:player.oneHitInfusions)},
+    player.practiceOneHit?.stages??player.oneHitInfusions)},
     enabled:Boolean(player.practiceOneHit?.enabled),at:nowSec});
   return true;
 }

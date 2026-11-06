@@ -145,14 +145,29 @@ export function stepFlightRun(room,m,dt,now){
    }else if(chordReserve){
      // Real momentum and steering continue; only prowess spend waits.
      m.practiceDashRefilling=false;
-   }else if(practice&&m.practiceDashRefilling){
-     p.prowess=clamp((p.prowess??0)+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
-     if(p.prowess>=PROWESS.full){m.practiceDashRefilling=false;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});}
+   }else if(practice){
+     // Keep the old cyclic Practice dash pacing, but give it a MACHINE-LOCAL
+     // training energy pool. The player's full personal Ultimate is reserved
+     // for Chivalry/Valkyrie and never drains (or fights an automatic refill).
+     m.practiceDashEnergy??=PROWESS.full;
+     if(m.practiceDashRefilling){
+       m.practiceDashEnergy=clamp(m.practiceDashEnergy+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
+       if(m.practiceDashEnergy>=PROWESS.full){
+         m.practiceDashRefilling=false;
+         room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilled',at:now});
+       }
+     }else{
+       m.practiceDashEnergy=clamp(m.practiceDashEnergy-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
+       if(m.practiceDashEnergy<=0){
+         m.practiceDashRefilling=true;
+         room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});
+       }
+     }
    }else{
      p.prowess=clamp((p.prowess??0)-VALKYRIE_RUN.drainPerSec*dt,0,PROWESS.full);
      if(p.prowess<=0){
-       if(practice){m.practiceDashRefilling=true;room.events.push({type:'fightFlightPracticeDash',machineId:m.id,operatorId:p.id,action:'refilling',at:now});}
-       else{m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});}
+       m.runAnimationEndedAt=now;m.offensiveRun=false;m.flightDashHeld=false;
+       room.events.push({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:now});
      }
    }
  }

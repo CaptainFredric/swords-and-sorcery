@@ -675,7 +675,7 @@ test('in the Practice Yard the ultimate\'s key readies it and calls it, again an
     const spec = ULTIMATES[ultimate];
     let now = 9;
     for (let round = 0; round < 3; round += 1) {
-      assert.equal(a.prowess, 0, 'the yard earns no prowess');
+      assert.equal(a.prowess, PROWESS.full, 'Practice Ultimate stays fully charged');
       assert.equal(tryUltimate(room, 'a', now), true, `${ultimate}, round ${round + 1}: the key alone`);
       assert.equal(a.ultimateState.id, ultimate);
       // (never one on top of another: while it runs, the key does nothing)
@@ -698,7 +698,7 @@ test('in the Practice Yard the ultimate\'s key readies it and calls it, again an
   assert.equal(a.ultimateState, null);
   assert.equal(tryUltimate(room, 'a', 9.4), false);
   assert.equal(tryUltimate(room, 'a', 9.3 + vortex.lockoutSec + 0.1), true);
-  // the yard's own button still readies it (for whoever likes the button)
+  // The old ready command is backward compatible, though the UI button was removed.
   const other = yard('sunder');
   assert.equal(readyPracticeUltimate(other.room, 'a'), true);
   assert.equal(other.a.prowess, PROWESS.full);

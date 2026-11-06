@@ -19,6 +19,7 @@ function battle(mode='FFA'){
   room.addPlayer({id:'a',token:'aa',name:'Swords'},0);
   room.addPlayer({id:'b',token:'bb',name:'Sorcery'},0);
   room.setReady('a',true,0);room.setReady('b',true,0);room.tick(3.1);
+  if(mode==='PRACTICE')room.state='PLAYING'; // custom yard fixture without auto-start
   const a=room.players.get('a'),b=room.players.get('b');
   a.ultimate='one_hit_of_wonders';
   a.position={x:0,y:0,z:0};b.position={x:1.8,y:0,z:0};
@@ -59,6 +60,8 @@ test('Practice settings are server-owned and disallowed in PvP rooms',()=>{
   const normal=battle();
   assert.equal(configurePracticeOneHit(normal.room,'a',{action:'preset',preset:'full'},9),false);
   const {room,a}=battle('PRACTICE');
+  assert.deepEqual(applyRoomCommand(room,a,{type:'practiceOneHit',action:'preset',preset:'gale'},9),{});
+  assert.equal(a.practiceOneHit.stages.gale,2);
   assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'gale'},9),true);
   assert.equal(a.practiceOneHit.stages.gale,2);
   assert.equal(a.practiceOneHit.stages.fire,0);
@@ -69,6 +72,38 @@ test('Practice settings are server-owned and disallowed in PvP rooms',()=>{
   assert.ok(a.position.y>=5);
   assert.equal(configurePracticeOneHit(room,'a',{action:'natural'},9),true);
   assert.equal(a.practiceOneHit,null);
+});
+test('Manual Practice tiers apply once when retention is unchecked and keep applying when checked',()=>{
+  const {room,a}=battle('PRACTICE');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'full'},9),true);
+  assert.equal(configurePracticeOneHit(room,'a',{action:'enabled',enabled:false},9),true);
+  assert.equal(a.practiceOneHit.enabled,false);
+  assert.equal(configurePracticeOneHit(room,'a',{action:'level',element:'fire',tier:1},9),true);
+  assert.equal(a.practiceOneHit.enabled,false,'changing tier cannot silently re-enable persistence');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'full'},9),true);
+  assert.equal(a.practiceOneHit.enabled,false,'changing preset cannot silently re-enable persistence');
+  assert.equal(tryUltimate(room,'a',9.1),true);
+  // ALL FULL includes Full Lightning: the physical attack is held until
+  // Ultimate is released, rather than committing on its startup timer.
+  assert.equal(releaseOneHitCharge(room,'a',9.2),true);
+  ticks(room,9.2,32);
+  assert.equal(room.events.find(e=>e.type==='oneHitCommitted')?.tiers.fire,2);
+  assert.equal(a.practiceOneHit,null,'one-shot tiers reset only after a real commit');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'gale'},12),true);
+  assert.equal(a.practiceOneHit.stages.gale,2);
+  assert.equal(a.practiceOneHit.stages.fire,0);
+  a.ultimateState=null;a.recoverUntil=-Infinity;
+  assert.equal(tryUltimate(room,'a',12.1),true);
+  ticks(room,12.1,32);
+  assert.equal(a.practiceOneHit.stages.gale,2,'infinite manual preset survives a real commit');
+});
+test('Human Practice resource stays fully charged in snapshots even after Ultimate commitment',()=>{
+  const {room,a}=battle('PRACTICE');
+  assert.equal(a.prowess,PROWESS.full,'new Practice actor starts full');
+  assert.equal(tryUltimate(room,'a',9),true);
+  ticks(room,9,35);
+  assert.equal(a.prowess,PROWESS.full);
+  assert.equal(serializeSnapshot(room,11,'a').players.find(p=>p.id==='a').prowess,PROWESS.full);
 });
 test('Line of Conduct hits through actual shared spell casting and grants one stage per spell use',()=>{
   const {room,a,b}=battle();

@@ -1753,15 +1753,23 @@ function renderArmory() {
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
   renderPreparedArmory();
   const siegeFocus=document.activeElement?.dataset?.siegeSkill;
+  const expandedSiegeStories=new Set([...$('#armory-siege-machines').querySelectorAll('details[data-siege-story][open]')]
+    .map(el=>el.dataset.siegeStory));
   $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
     <article class="siege-armory-card">
       <div class="siege-armory-heading">
         <span class="siege-armory-mark" aria-hidden="true">${m.icon?iconSvg(m.icon):m.mark}</span>
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
-      <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
-        ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
-      </div><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
+      <p class="siege-armory-preview">${escapeHtml(m.preview)}</p>
+      <details class="siege-armory-story" data-siege-story="${m.id}" ${expandedSiegeStories.has(m.id)?'open':''}>
+        <summary aria-label="Story of Siege for ${escapeHtml(m.name)}">
+          <span>STORY OF SIEGE</span><span class="siege-story-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
+          ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
+        </div>
+      </details><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
       <p class="armory-slot">SIEGE SKILL · U</p>
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
         ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
@@ -1962,6 +1970,12 @@ rematchButton.addEventListener('click', () => {
 $('#leave').addEventListener('click', () => returnToMenu());
 
 let preparingSiege=false;
+// The page receives 30Hz snapshots. Do not overwrite an unacknowledged user's
+// selection with the PREVIOUS snapshot, making the control appear inoperative.
+const pendingOneHitTiers=new Map();
+function pendingOneHitTier(element,tier){
+  pendingOneHitTiers.set(element,{tier:String(tier),until:performance.now()+2200});
+}
 function updateInspectionControls() {
   const machineChoice=$('#practice-hostile-machine')?.value;
   const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
@@ -2007,16 +2021,23 @@ function updateInspectionControls() {
   if(oneHitPanel){
     const self=latestSnapshot?.players?.find(p=>p.id===socket.playerId);
     oneHitPanel.hidden=self?.ultimate!=='one_hit_of_wonders';
-    const levels=self?.practiceOneHit?.enabled?self.practiceOneHit.stages:self?.oneHitInfusions;
+    const levels=self?.practiceOneHit?.stages??self?.oneHitInfusions;
     for(const select of oneHitPanel.querySelectorAll('[data-one-hit-element]')){
-      const level=String(levels?.[select.dataset.oneHitElement]??0);
-      if(select.value!==level)select.value=level;
+      const element=select.dataset.oneHitElement;
+      const level=String(levels?.[element]??0);
+      const pending=pendingOneHitTiers.get(element);
+      if(pending && (level===pending.tier||performance.now()>=pending.until))
+        pendingOneHitTiers.delete(element);
+      const shown=pendingOneHitTiers.get(element)?.tier??level;
+      if(select.value!==shown)select.value=shown;
     }
     const unlimited=$('#practice-one-hit-unlimited');
     if(unlimited)unlimited.checked=Boolean(self?.practiceOneHit?.enabled);
     const status=$('#practice-one-hit-status');
-    if(status)status.textContent=self?.practiceOneHit?.enabled?
-      'Infinite testing · selected stages persist after each Ultimate.':
+    if(status)status.textContent=self?.practiceOneHit?
+      (self.practiceOneHit.enabled
+        ? 'Manual tiers · selected stages persist after every cast.'
+        : 'Manual tiers · selected stages apply once, then return to natural acquisition.'):
       'Natural acquisition · land or receive actual elemental spells to gain tiers.';
   }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
@@ -2135,14 +2156,17 @@ $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSp
 $('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
 $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
-// the yard earns no prowess: this readies the ultimate to try
-$('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
+// Practice Ultimate is always charged by authoritative room state.
+// No Ready Ultimate button or extra activation is needed.
 const practiceOneHit=$('#practice-one-hit');
 practiceOneHit?.addEventListener('change',event=>{
   const target=event.target;
-  if(target?.dataset?.oneHitElement)socket.practiceOneHit?.({
-    action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
-  });
+  if(target?.dataset?.oneHitElement){
+    pendingOneHitTier(target.dataset.oneHitElement,target.value);
+    socket.practiceOneHit?.({
+      action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
+    });
+  }
   else if(target?.id==='practice-one-hit-unlimited')socket.practiceOneHit?.({
     action:'enabled',enabled:target.checked,
   });
@@ -2150,8 +2174,22 @@ practiceOneHit?.addEventListener('change',event=>{
 practiceOneHit?.addEventListener('click',event=>{
   const button=event.target.closest?.('button');
   if(!button)return;
-  if(button.dataset.oneHitPreset)socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
-  else if(button.dataset.oneHitAction)socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+  if(button.dataset.oneHitPreset){
+    const values=({
+      simple:{fire:0,frost:0,gale:0,lightning:0},
+      reset:{fire:0,frost:0,gale:0,lightning:0},
+      partial:{fire:1,frost:1,gale:1,lightning:1},
+      full:{fire:2,frost:2,gale:2,lightning:2},
+      gale:{fire:0,frost:0,gale:2,lightning:0},
+      'gale-lightning':{fire:0,frost:0,gale:2,lightning:2},
+    })[button.dataset.oneHitPreset];
+    if(values)for(const [element,tier]of Object.entries(values))pendingOneHitTier(element,tier);
+    socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
+  }else if(button.dataset.oneHitAction){
+    if(button.dataset.oneHitAction==='natural')pendingOneHitTiers.clear();
+    if(button.dataset.oneHitAction==='aerial')pendingOneHitTier('gale',2);
+    socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+  }
 });
 
 $('#practice-leave').addEventListener('click', () => returnToMenu());

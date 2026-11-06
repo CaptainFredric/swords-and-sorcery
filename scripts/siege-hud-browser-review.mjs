@@ -155,14 +155,16 @@ try {
   await sleep(320); // font wrapping and caption ResizeObserver settle at mobile width
   for(const kind of ['ram','ballista','flight']){
     await render(kind,'attached');
-    await sleep(240); // including the CSS transition into the subtitle-clearance lane
+    await sleep(240); // final font wrapping; subtitles stay in the lane ABOVE the bottom-anchored gauge
     const measure=await evaluate(probe);
     result['mobile-'+kind]=measure;
     assert.equal(measure.gaugeOutsideViewport,false,kind+' gauge stays within portrait screen');
     assert.equal(measure.captionVisible,true,'the long test subtitle is actually showing');
     assert.equal(measure.captionOverlap,false,kind+' gauge must never cover an active subtitle');
-    assert.ok(measure.gaugeRect.bottom <= measure.captionRect.top - 6,
-      kind+' keeps a visible gap above the subtitle');
+    assert.ok(measure.captionRect.bottom <= measure.gaugeRect.top - 6,
+      kind+' keeps a visible gap below the subtitle and ABOVE the bottom-anchored gauge');
+    assert.ok(measure.gaugeRect.bottom >= 844 - 35,
+      kind+' docks its machine health toward the physical bottom safe area');
     await capture(kind+'-mobile-caption-clearance');
   }
   result.mobile=result['mobile-ram'];

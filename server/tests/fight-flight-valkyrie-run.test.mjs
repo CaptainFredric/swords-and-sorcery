@@ -32,6 +32,17 @@ test('Held Dash spends operator prowess over ~2.4s and actually accelerates forw
  assert.equal(p.prowess,0);assert.equal(m.offensiveRun,false);
  assert.equal(m.terminalDiveSpent,false);
 });
+test('Practice flight uses an independent dash reserve and never spends the full personal Ultimate',()=>{
+ const {room,m,p}=setup();p.prowess=100;p.ultimate='chivalry';
+ requestFlightDash(room,m,p,true,1);
+ for(let i=1;i<=20;i++)stepFlightRun(room,m,1/30,1+i/30);
+ assert.equal(p.prowess,100,'Chivalry remains charged');
+ assert.ok(m.practiceDashEnergy<100,'training dash has its own finite budget');
+ assert.ok(m.practiceDashEnergy>60);
+ for(let i=21;i<=110;i++)stepFlightRun(room,m,1/30,1+i/30);
+ assert.equal(p.prowess,100,'refilling the dash never refills or drains personal prowess');
+ assert.ok(Number.isFinite(m.practiceDashEnergy));
+});
 test('Releasing after the powered minimum ends the run without stopping momentum or draining more prowess',()=>{
  const {room,m,p}=setup();p.prowess=100;p.ultimate='sunder';
  assert.equal(requestFlightDash(room,m,p,true,1),true);
@@ -44,13 +55,14 @@ test('Releasing after the powered minimum ends the run without stopping momentum
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)>0,'release does not zero accumulated real momentum');
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)<=speed+.1);
 });
-test('Only activated Ascension reserves full Chivalry; other Skills use normal prowess Dash',()=>{
+test('Practice retains full Chivalry, while Ascension uses flight charge',()=>{
  const {room,m,p}=setup();p.prowess=100;p.ultimate='chivalry';
  // No hidden terminal Dash benefit on default Fire Away.
  requestFlightDash(room,m,p,true,1);
  stepFlightRun(room,m,1/30,1.04);
  assert.equal(m.offensiveRun,true);
- assert.ok(p.prowess<100,'Fire Away does not reserve Chivalry');
+ assert.equal(p.prowess,100,'Practice keeps personal Chivalry charged');
+ assert.ok(m.practiceDashEnergy<100,'Fire Away uses separate Practice dash reserve');
  requestFlightDash(room,m,p,false,1.05);
  const other=setup();other.p.prowess=100;other.p.ultimate='chivalry';
  other.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25};

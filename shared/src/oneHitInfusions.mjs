@@ -33,10 +33,13 @@ export function creditOneHitEncounter(player, element, spellUseKey) {
 }
 
 export function oneHitCommit(player) {
-  const stages = normalizeInfusions(player.practiceOneHit?.enabled ? player.practiceOneHit.stages : player.oneHitInfusions);
+  // Manual tiers affect at least the next cast, even when their "retain between
+  // casts" switch is OFF. That switch only governs what happens after commit.
+  const stages = normalizeInfusions(player.practiceOneHit?.stages ?? player.oneHitInfusions);
   if (!player.practiceOneHit?.enabled) {
     player.oneHitInfusions = emptyInfusions();
     player.oneHitSeenUses = {};
+    player.practiceOneHit = null;
   }
   return stages;
 }

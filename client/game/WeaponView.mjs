@@ -3,6 +3,7 @@ import { guardedBracePose, guardedComboPose, guardedRecoveryPose } from './fpGua
 import { createChivalryLink } from './chivalryLink.mjs';
 import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
+import { ConductHandEffects, CONDUCT_YELLOW } from './ConductVisuals.mjs';
 import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
 import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
@@ -275,6 +276,9 @@ export class WeaponView {
     this.magicLight.intensity = 1.0;
     this.magicLight.color = new THREE.Color(SPELLBLADE_PALETTE.magic);
     this.magicAnchor.add(this.magicLight);
+    // This marker is reparented from the fallback model into the authored
+    // Sorcery socket when the production knight loads. The arcs follow both.
+    this.conductHand=new ConductHandEffects(this.magicLight);
     this.palmLight = everywhere(new THREE.PointLight(SPELLBLADE_PALETTE.magic, 0, 2.1, 2));
     camera.add(this.palmLight);
 
@@ -1021,6 +1025,7 @@ export class WeaponView {
       // (at rest a faint ember: a hand's breadth from the fingers, at more it lit the whole gauntlet a pale blue)
       this.magicLight.intensity = (0.04 + 2.6 * level + 1.8 * wake) * away.rune;
       this.#chargeGlow(gesture, timeSec);
+      this.#updateConductHand(timeSec);
       // (the hand on a burning sword is lit by it)
       if (fire > 0.01) {
         this.magicLight.color.setHex(0xff8a3c);
@@ -1076,6 +1081,7 @@ export class WeaponView {
     }
     const wake = away.wake ?? 0;
     this.magicLight.intensity = (pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale)) * away.rune + 1.8 * wake;
+    this.#updateConductHand(timeSec);
     return motion;
   }
 
@@ -1150,11 +1156,34 @@ export class WeaponView {
     return null;
   }
 
+  #updateConductHand(timeSec) {
+    const liveSpell=this.combatPlayer?.castingSpell ??
+      (this.combatPlayer?.spell ?? this.castSpell);
+    const casting=this.castSpell==='line_of_conduct' &&
+      !this.castReleased && timeSec < this.castStartedAt+this.castGather;
+    const equipped=liveSpell==='line_of_conduct' &&
+      !this.flightCockpit && this.equipment.hand !== 'away';
+    this.conductHand?.update(timeSec,{
+      equipped,charging:casting,
+      progress:casting ? Math.max(0,Math.min(1,(timeSec-this.castStartedAt)/Math.max(.01,this.castGather))) : 0,
+    });
+    if(equipped||casting){
+      this.magicLight.color.setHex(CONDUCT_YELLOW.body);
+      this.magicLight.intensity+=.55+(casting?.9:0);
+    }
+  }
+
   // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour
   #chargeGlow(gesture, timeSec) {
     const color = SPELL_GLOW[this.castSpell] ?? SPELL_GLOW.fireball;
     this.magicLight.color.setHex(gesture.draw > 0.01 ? SPELL_LIGHT[this.castSpell] ?? color : SPELLBLADE_PALETTE.magic);
     if (!this.chargeOrb) return;
+    // The electrical strands are an elongated charged bolt, not the round
+    // Fireball/orb fallback that the generic spell factory would otherwise use.
+    if(this.castSpell==='line_of_conduct'){
+      this.chargeOrb.visible=false;
+      return;
+    }
     this.chargeOrb.visible = gesture.draw > 0.02;
     if (!this.chargeOrb.visible) return;
     const flicker = 1 + Math.sin(timeSec * 38) * 0.08;
@@ -1200,6 +1229,7 @@ export class WeaponView {
 
   dispose() {
     this.disposed = true;
+    this.conductHand?.dispose();
     this.palmLight.removeFromParent();
     this.chivalryLink?.dispose();
     this.chargeElemental?.removeFromParent();

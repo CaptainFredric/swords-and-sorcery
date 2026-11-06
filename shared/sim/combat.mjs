@@ -1955,6 +1955,7 @@ function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
     if(!player.practiceOneHit?.enabled) {
       player.oneHitInfusions={fire:0,frost:0,gale:0,lightning:0};
       player.oneHitSeenUses={};
+      player.practiceOneHit=null;
     }
   }
   if(Number.isFinite(state.teleportHoldAt) && state.teleportReleased)
@@ -2134,8 +2135,7 @@ export function tryUltimate(room, playerId, nowSec) {
   if (practising(room, player)) player.prowess = PROWESS.full;
   if ((player.prowess ?? 0) < PROWESS.full) return false;
   const ultimate = ultimateFor(player.ultimate);
-  const plannedTiers=normalizeInfusions(player.practiceOneHit?.enabled?
-    player.practiceOneHit.stages:player.oneHitInfusions);
+  const plannedTiers=normalizeInfusions(player.practiceOneHit?.stages ?? player.oneHitInfusions);
   if(ultimate.id==='one_hit_of_wonders' && !oneHitForm(player.grounded,plannedTiers))return false;
   player.ultimateInterruptionBy = null;
   player.ultimateInterruptionAt = null;
@@ -2857,6 +2857,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   if(!room.freezeProjectiles) stepOneHitWorld(room,dt,nowSec,world);
   stepFlightBurnZones(room,nowSec);
+  // The actual resource is always full for living (or respawning) human
+  // trainees; active Ultimate state still prevents reactivation. This runs
+  // AFTER vehicle/terminal physics so a consumed terminal chord is never
+  // mistaken for another start within the same simulation frame.
+  if(room.mode===GAME_MODES.PRACTICE && !room.localTutorial){
+    for(const trainee of room.players.values())
+      if(trainee.actorKind==='human')trainee.prowess=PROWESS.full;
+  }
   room.tickNumber += 1;
   return room.events;
 }

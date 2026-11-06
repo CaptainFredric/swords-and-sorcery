@@ -81,6 +81,35 @@
 .siege-armory-heading h4 { margin: 3px 0; font: 400 22px/1 var(--font-inscription); color: #f1e4c2; }
 .siege-armory-heading .armory-slot { margin: 0; }
 .siege-armory-card > p:not(.armory-slot) { margin: 9px 0 5px; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
+/* The synopsis is always visible; the authored lore unfolds on demand.
+   Native details/summary is keyboard operable and survives skill re-renders. */
+.siege-armory-preview {
+  margin: 9px 0 3px !important;
+  color: var(--heraldry-cream);
+  font: 500 12px/1.4 var(--font-script);
+}
+.siege-armory-story { width: 100%; min-width: 0; margin: 7px 0 9px; }
+.siege-armory-story summary {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 8px; padding: 7px 9px;
+  border: 1px solid rgba(201,156,82,.40);
+  background: rgba(32,26,20,.6);
+  color: var(--heraldry-brass-light);
+  font: 800 10px/1.2 var(--font-script);
+  letter-spacing: .09em; list-style: none; cursor: pointer;
+}
+.siege-armory-story summary::-webkit-details-marker { display: none; }
+.siege-armory-story summary:focus-visible {
+  outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px;
+}
+.siege-story-chevron { font: 900 19px/1 var(--font-script); transition: transform .16s ease; }
+.siege-armory-story[open] .siege-story-chevron { transform: rotate(180deg); }
+.siege-armory-story[open] summary { background: rgba(99,67,35,.18); }
+.siege-armory-story .siege-armory-description {
+  padding: 8px 9px 3px;
+  border: 1px solid rgba(201,156,82,.22); border-top: 0;
+  background: rgba(13,12,10,.3);
+}
 /* Longform machine lore belongs to the existing scrollable Armory cloth,
    never to a fixed-height or clipping description box. */
 .siege-armory-description {min-width:0;max-width:100%;}
