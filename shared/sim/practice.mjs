@@ -7,6 +7,8 @@ import { recordTransform } from './history.mjs';
 import { stepBotControllers } from './BotController.mjs';
 import { BOT_PROFILES } from './botBehavior.mjs';
 import { PROWESS } from '../src/prowess.mjs';
+import { surfaceHeightAt } from '../src/collision.mjs';
+import { emptyInfusions, normalizeInfusions, ONE_HIT_PRESETS } from '../src/oneHitInfusions.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 import { setupStPerry, stepStPerry, cleanupStPerry, isCanonizationUnlocked } from './StPerry.mjs';
@@ -159,6 +161,53 @@ export function readyPracticeUltimate(room, playerId) {
   if (!player) return false;
   if (player.actorKind !== 'human' && !room.inspectionEnabled) return false;
   player.prowess = PROWESS.full;
+  return true;
+}
+
+// Practice configurator is a normal server/local-host command. Never trusted in PvP.
+export function configurePracticeOneHit(room,playerId,message,nowSec=0) {
+  if(!isPractice(room))return false;
+  const player=room.players.get(playerId);
+  if(!player || !player.alive || (player.actorKind !== 'human' &&
+    !(room.inspectionEnabled && player.id === room.inspectionControlId)))return false;
+  if(player.ultimate!=='one_hit_of_wonders')return false;
+  const action=message.action;
+  if(action==='natural') {
+    player.practiceOneHit=null;
+    player.oneHitInfusions=emptyInfusions();
+    player.oneHitSeenUses={};
+  }else{
+    const stages=normalizeInfusions(player.practiceOneHit?.stages??player.oneHitInfusions);
+    if(action==='preset'){
+      if(message.preset==='reset')player.practiceOneHit={enabled:true,stages:emptyInfusions()};
+      else if(Object.hasOwn(ONE_HIT_PRESETS,String(message.preset)))
+        player.practiceOneHit={enabled:true,stages:{...ONE_HIT_PRESETS[message.preset]}};
+      else return false;
+    }else if(action==='level'){
+      if(!Object.hasOwn(stages,String(message.element)))return false;
+      stages[message.element]=Math.max(0,Math.min(2,Math.trunc(Number(message.tier)||0)));
+      player.practiceOneHit={enabled:true,stages};
+    }else if(action==='enabled'){
+      player.practiceOneHit={enabled:Boolean(message.enabled),stages};
+    }else if(action==='aerial'){
+      if(!player.practiceOneHit?.enabled)player.practiceOneHit={enabled:true,stages};
+      player.practiceOneHit.stages.gale=2;
+      const ground=surfaceHeightAt(player.position.x,player.position.z,player.position.y,room.world);
+      player.position={...player.position,y:Math.max(player.position.y,(ground??player.position.y)+5)};
+      player.velocity={x:0,y:0,z:0};player.grounded=false;player.jumpHeld=false;
+      player.input={...player.input,jump:false};
+    }else if(action==='grounded'){
+      const ground=surfaceHeightAt(player.position.x,player.position.z,player.position.y+10,room.world);
+      if(ground!==null){
+        player.position={...player.position,y:ground};player.velocity={x:0,y:0,z:0};
+        player.grounded=true;player.jumpHeld=false;player.input={...player.input,jump:false};
+      }
+    }else return false;
+  }
+  player.prowess=PROWESS.full;
+  room.events.push({type:'practiceOneHitConfigured',playerId,stages:{...(
+    player.practiceOneHit?.enabled?player.practiceOneHit.stages:player.oneHitInfusions)},
+    enabled:Boolean(player.practiceOneHit?.enabled),at:nowSec});
   return true;
 }
 

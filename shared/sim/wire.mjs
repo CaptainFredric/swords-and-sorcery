@@ -15,9 +15,9 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
-import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -367,6 +367,7 @@ export function applyRoomCommand(room, player, message, time) {
   // Gate B3: only the named Chivalry Ultimate may start aboard the flying
   // apparatus; other Ultimates retain their standard unmounted restrictions.
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
+  if(mounted && message.type==='oneHitRelease')return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -517,6 +518,8 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingFightFlightId&&(room.fightFlight?.flightDashHeld||room.fightFlight?.terminalPrep||room.fightFlight?.terminalDive))
         return {rejected:'Release Dash before activating ordinary Chivalry.'};
       tryUltimate(room, player.id, time); return {};
+    case 'oneHitRelease':
+      releaseOneHitCharge(room,player.id,time); return {};
     case 'flightUltimateHold': {
       const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
       if(result.rejected)return {rejected:result.rejected};
@@ -560,6 +563,8 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceReadyUltimate':
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
+    case 'practiceOneHit':
+      return configurePracticeOneHit(room,player.id,message,time) ? {} : {rejected:PRACTICE_REJECTED};
     case 'practiceSetDummyMode':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };

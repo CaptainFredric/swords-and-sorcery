@@ -28,7 +28,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'siegeSkill','ultimate','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','oneHitRelease','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
@@ -912,6 +912,8 @@ export class LocalHost {
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate() { this.#command({ type: 'ultimate' }); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
+  oneHitRelease() { this.#command({type:'oneHitRelease'}); }
+  practiceOneHit(options={}) { this.#command({type:'practiceOneHit',...options}); }
   siegeOperate() { this.#command({ type: 'siegeOperate' }); }
   bibyeOperate() { this.#command({ type: 'bibyeOperate' }); }
   bibyeFire(weapon = 'MAIN') { this.#command({ type: 'bibyeFire', weapon }); }

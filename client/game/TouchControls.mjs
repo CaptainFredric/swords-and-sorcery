@@ -1411,7 +1411,7 @@ export class TouchControls {
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(false, `touch:${pointerId}`);
-      }
+      } else if(!cancelled) this.input.ultimateRelease?.();
     }
     if (action === 'jump') this.jumpHeld = false;
     if(action==='crouch'&&this.ramMounted)

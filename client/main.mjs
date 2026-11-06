@@ -1736,7 +1736,7 @@ function renderArmory() {
   const focusSpell = document.activeElement?.dataset?.spell;
   const focusUltimate = document.activeElement?.dataset?.ultimate;
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
-  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', coreflagration: 'Coreflagration', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')] ?? SPELLS[settings.get('loadout.spell')]?.label} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
+  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', coreflagration: 'Coreflagration', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel', line_of_conduct: 'Line of Conduct' })[settings.get('loadout.spell')] ?? SPELLS[settings.get('loadout.spell')]?.label} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
@@ -1997,6 +1997,22 @@ function updateInspectionControls() {
   if(sharedInvite)sharedInvite.classList.toggle('hidden',!shared);
   const codeLabel=$('#shared-practice-code');
   if(codeLabel&&shared)codeLabel.textContent=latestSnapshot.roomCode??socket.roomCode??'';
+  const oneHitPanel=$('#practice-one-hit');
+  if(oneHitPanel){
+    const self=latestSnapshot?.players?.find(p=>p.id===socket.playerId);
+    oneHitPanel.hidden=self?.ultimate!=='one_hit_of_wonders';
+    const levels=self?.practiceOneHit?.enabled?self.practiceOneHit.stages:self?.oneHitInfusions;
+    for(const select of oneHitPanel.querySelectorAll('[data-one-hit-element]')){
+      const level=String(levels?.[select.dataset.oneHitElement]??0);
+      if(select.value!==level)select.value=level;
+    }
+    const unlimited=$('#practice-one-hit-unlimited');
+    if(unlimited)unlimited.checked=Boolean(self?.practiceOneHit?.enabled);
+    const status=$('#practice-one-hit-status');
+    if(status)status.textContent=self?.practiceOneHit?.enabled?
+      'Infinite testing · selected stages persist after each Ultimate.':
+      'Natural acquisition · land or receive actual elemental spells to gain tiers.';
+  }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
   const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
   const aloneNotice = $('#shared-practice-alone');
@@ -2115,6 +2131,23 @@ $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpaw
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
+const practiceOneHit=$('#practice-one-hit');
+practiceOneHit?.addEventListener('change',event=>{
+  const target=event.target;
+  if(target?.dataset?.oneHitElement)socket.practiceOneHit?.({
+    action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
+  });
+  else if(target?.id==='practice-one-hit-unlimited')socket.practiceOneHit?.({
+    action:'enabled',enabled:target.checked,
+  });
+});
+practiceOneHit?.addEventListener('click',event=>{
+  const button=event.target.closest?.('button');
+  if(!button)return;
+  if(button.dataset.oneHitPreset)socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
+  else if(button.dataset.oneHitAction)socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+});
+
 $('#practice-leave').addEventListener('click', () => returnToMenu());
 
 const perryDialogue = $('#perry-dialogue');

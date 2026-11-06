@@ -2126,7 +2126,7 @@ export function tryUltimate(room, playerId, nowSec) {
   player.ultimateInterruptionSource = null;
   player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec,
     commitAt: nowSec + ((ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning===2)?3600000:
-      (ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning>=1?.36:ultimate.startupSec)),
+      (ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning >= 1 ? 0.36 : ultimate.startupSec)),
     until: null,
     ...(ultimate.id==='one_hit_of_wonders'?{preparedTiers:plannedTiers,
       ...(plannedTiers.lightning===2?{teleportHoldAt:nowSec}:{} )}:{}),
