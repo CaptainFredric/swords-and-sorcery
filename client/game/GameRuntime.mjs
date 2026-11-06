@@ -405,7 +405,8 @@ export class GameRuntime {
         this.syncInspection();
       },
       stageSpawnDummy: (kind) => {
-        socket.practiceSpawnDummy?.(kind || 'PASSIVE');
+        socket.practiceSpawnDummy?.(kind || 'PASSIVE', this.inspectionFree && this.flyPose
+          ? { ...this.flyPose.position, yaw: this.flyPose.yaw } : null);
         this.inspectionTools?.setFeedback(`DUMMY SPAWNED: ${kind || 'PASSIVE'}`);
       },
       stageRemoveDummy: () => {
