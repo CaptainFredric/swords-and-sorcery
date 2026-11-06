@@ -270,7 +270,7 @@ test('prowess: earned by fighting, kept through a death, never for an ultimate\'
   assert.equal(a.prowess, PROWESS.full);
   const practice = duel({ mode: 'PRACTICE' });
   applyDamage(practice.room, 'a', 'b', 30, 'sword', 10);
-  assert.equal(practice.a.prowess ?? 0, 0);
+  assert.equal(practice.a.prowess, PROWESS.full, 'Practice starts charged but earns no Prowess from damage');
 });
 
 test('Sundering, every strike is a slam into the ground, aimed level; an ordinary chop never ruptures it', () => {

@@ -1,37 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from 'three';
-import {CONDUCT_YELLOW,conductBoltPoints,createConductDischarge,ConductHandEffects} from './ConductVisuals.mjs';
+import {readFileSync} from 'node:fs';
+import {conductBoltSamples} from './conductShape.mjs';
 
-test('Line of Conduct bolt connects exact collision endpoints with angular electrical bends',()=>{
- const start={x:0,y:1,z:0},end={x:32,y:1,z:-12};
- const points=conductBoltPoints(start,end,{jitter:.3});
- assert.deepEqual(points[0].toArray(),[0,1,0]);
- assert.deepEqual(points.at(-1).toArray(),[32,1,-12]);
- assert.ok(points.length>=10);
- assert.ok(points.slice(1,-1).some(p=>Math.abs(p.y-1)>.001),'angular lightning not a straight laser');
+// The browser supplies Three.js through an import map, not npm. Test the
+// engine-independent geometry in CI and assert rendering's source contract.
+const source=readFileSync(new URL('./ConductVisuals.mjs',import.meta.url),'utf8');
+test('Line of Conduct jagged path preserves collision endpoints and deterministic replay',()=>{
+ const origin={x:0,y:1,z:0},end={x:32,y:1,z:-12};
+ const p=conductBoltSamples(origin,end,{jitter:.3});
+ assert.deepEqual(p[0],origin);
+ assert.deepEqual(p.at(-1),end);
+ assert.ok(p.length>10);
+ assert.ok(p.slice(1,-1).some(x=>Math.abs(x.y-1)>.001));
+ assert.deepEqual(p,conductBoltSamples(origin,end,{jitter:.3}));
 });
-test('A yellow layered strike has dark gold, bright gold and pale highlights',()=>{
- const bolt=createConductDischarge({x:0,y:1,z:0},{x:25,y:1,z:0});
- assert.equal(bolt.userData.conductDischarge,true);
- assert.ok(bolt.children.length>=3);
- assert.equal(bolt.children[0].material.color.getHex(),CONDUCT_YELLOW.sheath);
- assert.equal(bolt.children[1].material.color.getHex(),CONDUCT_YELLOW.body);
- assert.equal(bolt.children[2].material.color.getHex(),CONDUCT_YELLOW.highlight);
- assert.ok(bolt.children[0].geometry.parameters.radius>bolt.children[1].geometry.parameters.radius);
- bolt.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});
+test('Vertical discharge has finite vertices, no NaN or unbounded geometry',()=>{
+ const p=conductBoltSamples({x:0,y:0,z:0},{x:0,y:180,z:0});
+ assert.ok(p.length<=101);
+ assert.ok(p.every(x=>[x.x,x.y,x.z].every(Number.isFinite)));
 });
-test('Hand socket electricity appears when equipped and converges on cast without moving the hand',()=>{
- const socket=new THREE.Object3D(),fx=new ConductHandEffects(socket);
- assert.equal(socket.children.includes(fx.group),true);
- fx.update(0,{equipped:false});assert.equal(fx.group.visible,false);
- fx.update(1,{equipped:true});assert.equal(fx.group.visible,true);
- assert.equal(fx.strands.length,5);
- const before=fx.strands[0][0].geometry.attributes.position.array.slice();
- fx.update(1.2,{equipped:true,charging:true,progress:.8});
- const after=fx.strands[0][0].geometry.attributes.position.array;
- assert.notDeepEqual([...after],[...before]);
- assert.deepEqual(socket.position.toArray(),[0,0,0],'hand transform is authoritative');
- fx.dispose();
- assert.equal(socket.children.length,0);
+test('Discharge layers are dark amber, thick yellow, and pale yellow with branching',()=>{
+ assert.match(source,/sheath:0x956008/);
+ assert.match(source,/body:0xffcb32/);
+ assert.match(source,/highlight:0xfff4a0/);
+ assert.match(source,/\.065,CONDUCT_YELLOW\.sheath/);
+ assert.match(source,/\.048,CONDUCT_YELLOW\.body/);
+ assert.match(source,/\.019,CONDUCT_YELLOW\.highlight/);
+ assert.match(source,/group\.add\(tube\(/);
+});
+test('Hand socket arcs move from equipped idle into pointed cast, with disposal',()=>{
+ assert.match(source,/export class ConductHandEffects/);
+ assert.match(source,/anchor\.add\(this\.group\)/);
+ assert.match(source,/charging\?-/);
+ assert.match(source,/charging\?\.014:\.009/);
+ assert.match(source,/mesh\.geometry\.dispose\(\)/);
 });

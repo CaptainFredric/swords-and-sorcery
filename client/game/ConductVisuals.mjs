@@ -1,3 +1,4 @@
+import { conductBoltSamples } from './conductShape.mjs';
 import * as THREE from 'three';
 
 // Yellow electrical palette: a dark amber sheath, bright gold body and
@@ -29,26 +30,8 @@ function stableJitter(n,t=0){
 }
 // A continuous broken conductor. Ends are never displaced, so the line stops
 // exactly at the authoritative world collision, not on an invented point.
-export function conductBoltPoints(origin,end,{time=0,jitter=.14}={}){
-  const start=vec(origin),finish=vec(end);
-  const length=start.distanceTo(finish);
-  if(length<=.0001)return [start,finish];
-  const axis=finish.clone().sub(start).normalize();
-  const side=new THREE.Vector3(0,1,0).cross(axis).normalize();
-  if(side.lengthSq()<.02)side.set(1,0,0);
-  const up=new THREE.Vector3().crossVectors(axis,side).normalize();
-  const count=clamp(Math.ceil(length/1.8),7,100);
-  const points=[start];
-  for(let i=1;i<count;i++){
-    const t=i/count;
-    const point=start.clone().lerp(finish,t);
-    const envelope=Math.sin(Math.PI*t);
-    point.addScaledVector(side,jitter*envelope*stableJitter(i,time));
-    point.addScaledVector(up,jitter*.72*envelope*stableJitter(i+31,time));
-    points.push(point);
-  }
-  points.push(finish);
-  return points;
+export function conductBoltPoints(origin,end,options={}) {
+  return conductBoltSamples(origin,end,options).map(p=>new THREE.Vector3(p.x,p.y,p.z));
 }
 export function createConductDischarge(origin,end){
   const group=new THREE.Group();

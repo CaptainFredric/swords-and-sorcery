@@ -55,13 +55,14 @@ test('Releasing after the powered minimum ends the run without stopping momentum
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)>0,'release does not zero accumulated real momentum');
  assert.ok(Math.hypot(m.velocity.x,m.velocity.z)<=speed+.1);
 });
-test('Only activated Ascension reserves full Chivalry; other Skills use normal prowess Dash',()=>{
+test('Practice retains full Chivalry, while Ascension uses flight charge',()=>{
  const {room,m,p}=setup();p.prowess=100;p.ultimate='chivalry';
  // No hidden terminal Dash benefit on default Fire Away.
  requestFlightDash(room,m,p,true,1);
  stepFlightRun(room,m,1/30,1.04);
  assert.equal(m.offensiveRun,true);
- assert.ok(p.prowess<100,'Fire Away does not reserve Chivalry');
+ assert.equal(p.prowess,100,'Practice keeps personal Chivalry charged');
+ assert.ok(m.practiceDashEnergy<100,'Fire Away uses separate Practice dash reserve');
  requestFlightDash(room,m,p,false,1.05);
  const other=setup();other.p.prowess=100;other.p.ultimate='chivalry';
  other.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:25};

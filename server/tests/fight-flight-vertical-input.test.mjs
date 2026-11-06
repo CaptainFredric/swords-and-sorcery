@@ -119,13 +119,15 @@ test('Mounted Hop works both on ground and in powered flight, without free infin
  assert.ok(applyRoomCommand(damaged.room,damaged.p,{type:'flightHop'},2).rejected,
    'a destroyed rotor cannot perform powered aerial hops');
 });
-test('Prowess-powered Dash accelerates a rotor-equipped machine and pitches forward without consuming dive',()=>{
+test('Practice reserve-powered Dash accelerates a rotor-equipped machine and pitches forward without consuming dive',()=>{
  const {room,m,p}=setup();
  step(room,m,0,45,{flightRise:true});p.prowess=100;p.ultimate='sunder';
  assert.deepEqual(applyRoomCommand(room,p,{type:'flightDash',down:true},1.5),{});
  for(let i=1;i<=18;i++){const t=1.5+i*DT;stepFlightRun(room,m,DT,t);send(room,p,t,{flightRise:false});stepFightFlight(room,m,DT,t);}
  assert.ok(m.offensiveRun&&m.runPitch>.1&&Math.hypot(m.velocity.x,m.velocity.z)>8);
- assert.ok(p.prowess>0&&p.prowess<100);assert.equal(m.terminalDiveSpent,false);
+ assert.equal(p.prowess,100,'Ultimate stays charged in Practice');
+ assert.ok(m.practiceDashEnergy>0&&m.practiceDashEnergy<100);
+ assert.equal(m.terminalDiveSpent,false);
  assert.deepEqual(applyRoomCommand(room,p,{type:'flightDash',down:false},2.11),{});
  stepFlightRun(room,m,DT,2.12);
  assert.equal(m.flightDashHeld,false);

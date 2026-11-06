@@ -19,6 +19,7 @@ function battle(mode='FFA'){
   room.addPlayer({id:'a',token:'aa',name:'Swords'},0);
   room.addPlayer({id:'b',token:'bb',name:'Sorcery'},0);
   room.setReady('a',true,0);room.setReady('b',true,0);room.tick(3.1);
+  if(mode==='PRACTICE')room.state='PLAYING'; // custom yard fixture without auto-start
   const a=room.players.get('a'),b=room.players.get('b');
   a.ultimate='one_hit_of_wonders';
   a.position={x:0,y:0,z:0};b.position={x:1.8,y:0,z:0};
