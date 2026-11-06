@@ -1230,7 +1230,8 @@ export class TouchControls {
     // lostpointercapture for the child when the first move is processed.
     // That is a transfer, NOT a finger release; synthetic PointerEvent tests
     // do not reproduce it. Only loss of the layer's own capture ends input.
-    if(event.type==='lostpointercapture'&&event.target!==this.layer)return;
+    if(event.type==='lostpointercapture'&&event.target!==this.layer&&
+      this.ritual?.pointerId===event.pointerId)return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
