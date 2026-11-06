@@ -6,7 +6,7 @@ third-person actions and eight first-person actions, the sockets, the review cam
 changes, and the actions are refitted to its proportions.
 
 It replaces the armour kit (`../kit/`). The kit matched the concept's parts one by one but stayed blocky; Rodin's model
-reads as the concept itself: the helmet's T visor and crest, the scarf, the long banner with its trident, the heavy
+reads as the concept itself: the helmet's T visor and crest, the scarf, the long banner with the formerly baked trident (now replaced at runtime by Grimoirelee), the heavy
 sword with its red gem.
 
 ## Run it
@@ -193,3 +193,7 @@ earlier cape texture).
   server test allows 0.8 MB); first person 9,378 triangles and 0.52 MB.
 - **Bytes:** `tools/blender/common/gltf_quantize.py` stores normals, texture coordinates and skin weights as normalized
   integers (`KHR_mesh_quantization`, read natively by three.js). Positions stay floats.
+
+### Institutional Grimoirelee after the 2026 insignia approval
+
+The official mark is `client/assets/heraldry/grimoirelee.svg`. On live pre-promotion models, the app paints the **front and default back** with `client/game/grimoireleeCloth.mjs` using the cloth geometry's UV atlas; earned back-banner textures still take precedence. `emblems.py` also regenerates `grimoirelee-cape.jpg` from the exact master when building a new source. Historical Trident structural node names are left intact for rig/socket compatibility.
