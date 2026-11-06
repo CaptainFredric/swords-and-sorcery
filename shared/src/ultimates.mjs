@@ -116,7 +116,8 @@ export const ULTIMATES = Object.freeze({
     startupMove: 0.65,
     startupStagger: 1.5,
     projectileChivalryGateSec: 0.72,
-  }),  // One Hit of Wonders: committed physical Simple Sunder plus independently earned elemental layers.
+  }),
+  // One Hit of Wonders: committed physical Simple Sunder plus independently earned elemental layers.
   // Full Lightning can hold before commit; Full Gale allows an aerial form.
   one_hit_of_wonders: Object.freeze({
     id: 'one_hit_of_wonders', label: 'One Hit of Wonders', short: 'Wonders',
