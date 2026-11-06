@@ -982,85 +982,97 @@ export class TouchControls {
   }
 
   #paintValkyrieRitual() {
-    const g=this.ritual;
-    const progress=g&&!g.invalid?ritualFraction(g):0;
+    const g=this.ritual??this.ritualVisual;
+    const progress=g?ritualDistanceFraction(g):0;
     this.valkyrieStencil?.style?.setProperty('--ritual-progress',String(progress));
-    this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g&&!g.invalid));
+    this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g));
     this.valkyrieStencil?.classList?.toggle('complete',Boolean(g?.completed));
+    if(this.valkyrieInk?.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
+    if(this.valkyrieStatus&&g&&!g.completed)
+      this.valkyrieStatus.textContent=`ᛞ · TRACE ${Math.round(progress*100)}%`;
     for(let i=0;i<this.valkyrieLines.length;i++){
       const line=this.valkyrieLines[i];if(!line)continue;
-      const amount=g&&!g.invalid?
-        i<g.index?1:i===g.index?g.segmentProgress:0:0;
+      const amount=g?i<g.index?1:i===g.index?g.segmentProgress:0:0;
       line.style.strokeOpacity=String(.05+.95*amount);
       line.style.strokeWidth=String(2+2.4*amount);
     }
   }
   #clearValkyrieRitual() {
     this.ritual=null;
+    this.ritualVisual=null;
+    if(this.ritualGlowTimer!==null){
+      clearTimeout(this.ritualGlowTimer);this.ritualGlowTimer=null;
+    }
     if(this.valkyrieStencil)this.#paintValkyrieRitual();
   }
   #ritualStart(event) {
     if(event.pointerType==='mouse'||!this.flightMounted||
-      !this.valkyrieEligible||this.ritual||
+      !this.valkyriePreview||this.ritual||
       this.layer.classList.contains('touch-layout-editing'))return false;
-    // Only a finger which actually STARTS on Jump may begin this chord.
-    // Proximity alone stole ordinary Chivalry/Ultimate taps in tight layouts.
-    const startAction=event.target.closest?.('[data-action]')?.dataset.action;
-    if(startAction!=='jump')return false;
+    // Only Jump can start Dagaz. The other buttons must remain actionable.
+    if(event.target.closest?.('[data-action]')?.dataset.action!=='jump')return false;
+    this.#syncValkyrieGeometry();
     const point=this.#ritualPoint(event);
-    if(!ritualStartNear(point,this.valkyrieGeometry?.points))return false;
+    const jumpRect=this.buttons.jump?.getBoundingClientRect?.();
+    const tolerance=Math.max(39,Math.min(75,(jumpRect?.width??60)*.6+10));
+    if(!ritualStartNear(point,this.valkyrieGeometry?.points,tolerance))return false;
+    this.#clearValkyrieRitual();
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
-      this.valkyrieGeometry.points),
-      startedOnJump:event.target.closest?.('[data-action]')?.dataset.action==='jump',
-      startPoint:point,invalid:false};
+      this.valkyrieGeometry.points),startedOnJump:true,startPoint:point};
     this.#paintValkyrieRitual();
     return true;
   }
   #ritualMove(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
-    if(g.invalid||g.completed)return true;
-    const at=this.#ritualPoint(event);
-    if(!at){g.invalid=true;this.#paintValkyrieRitual();return true;}
-    // Interpolate pointer movement so a low-frequency mobile browser can
-    // advance across short halo arcs without silently skipping checkpoints.
+    if(g.completed)return true;
+    const at=this.#ritualPoint(event);if(!at)return true;
     const start=g.last??[at.x,at.y];
-    const total=Math.hypot(at.x-start[0],at.y-start[1]);
-    const steps=Math.max(1,Math.min(48,Math.ceil(total/9)));
-    let next=g;
-    const now=performance.now();
+    const length=Math.hypot(at.x-start[0],at.y-start[1]);
+    const steps=Math.max(1,Math.min(64,Math.ceil(length/7)));
+    let next=g;const now=performance.now();
     for(let i=1;i<=steps;i++){
       const point={x:start[0]+(at.x-start[0])*i/steps,
         y:start[1]+(at.y-start[1])*i/steps};
       const advanced=advanceValkyrieRitual(next,point,now);
-      if(!advanced){next=null;break;}
+      if(!advanced)break; // Straying off-path must not erase prior progress.
       next=advanced;
       if(next.completed)break;
     }
-    if(!next){g.invalid=true;this.#paintValkyrieRitual();return true;}
     this.ritual=next;
     this.#paintValkyrieRitual();
     if(next.completed){
-      // A completed physical trace has a SINGLE authoritative effect.
-      // Do not simulate any of the underlying button touches or fake a
-      // Dash+Ultimate chord: the host rechecks full meter and active Ascension.
-      this.input.flightTerminalRitual?.();
+      if(this.valkyrieEligible){
+        this.valkyrieStatus.textContent='ᛞ · VALKYRIE!';
+        // The authoritative host independently checks and spends the cost.
+        this.input.flightTerminalRitual?.();
+      }else{
+        this.valkyrieStatus.textContent='ᛞ · '+(this.valkyrieReason||'NOT READY');
+      }
     }
     return true;
   }
   #ritualEnd(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
-    // Keep ordinary Jump taps usable even when the stencil overlays Jump.
-    // Drawing the rune NEVER hops or fires the other underlying buttons.
-    if(event.type==='pointerup'&&g.startedOnJump&&!g.invalid&&!g.completed&&
+    if(event.type==='pointerup'&&g.startedOnJump&&!g.completed&&
        g.index===0&&g.segmentProgress<.08&&
        performance.now()-g.startedAt<230){
       this.input.flightHop?.();
     }
-    this.#clearValkyrieRitual();
+    // Show the partial or complete stroke briefly AFTER the thumb lifts.
+    this.ritual=null;this.ritualVisual=g;
+    this.#paintValkyrieRitual();
+    if(this.ritualGlowTimer!==null)clearTimeout(this.ritualGlowTimer);
+    this.ritualGlowTimer=setTimeout(()=>{
+      this.ritualGlowTimer=null;this.ritualVisual=null;
+      this.#paintValkyrieRitual();
+      if(this.valkyrieStatus&&!this.ritual)
+        this.valkyrieStatus.textContent=this.valkyrieEligible?
+          'ᛞ · TRACE FROM JUMP':'ᛞ · '+(this.valkyrieReason||'NOT READY');
+    },850);
     return true;
   }
 
