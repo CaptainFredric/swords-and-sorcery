@@ -228,6 +228,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       shaken: p.shaken ? { ...p.shaken } : null,
       electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,
       practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
+      oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
+      oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
       ultimate: p.ultimate ?? null,
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,

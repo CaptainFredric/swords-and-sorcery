@@ -4067,6 +4067,10 @@ export class GameRuntime {
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
+    if(this.localState){
+      this.localState.shaken=this.localAuth?.shaken??null;
+      this.localState.shakenNow=this.socket.serverNow();
+    }
 
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)

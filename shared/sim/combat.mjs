@@ -289,7 +289,8 @@ export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}
   player.guardAuto = Boolean(guarding) && auto;
   if (guarding && room.state !== 'PLAYING') return false;
   if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || nowSec < (player.guardBrokenUntil ?? -Infinity)
-    || ultimateStartup(player, nowSec) || vortexing(player, nowSec))) return false;
+    || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
+      (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active'))) return false;
   if (player.guarding === Boolean(guarding)) return true;
   player.guarding = Boolean(guarding);
   if (guarding) {
@@ -343,7 +344,9 @@ function resumeHeldActions(room, player, nowSec, dt) {
 
 // both hands are the Vortex's while it spins, and for a moment after it ends (its recovery): no spell, no fist
 function handsTaken(player, nowSec) {
-  return Boolean(vortexing(player, nowSec)) || nowSec < (player.recoverUntil ?? -Infinity);
+  return Boolean(vortexing(player, nowSec)) ||
+    (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState?.phase==='active') ||
+    nowSec < (player.recoverUntil ?? -Infinity);
 }
 
 // the Practice Yard lets abilities be used again after a moment, their real cooldowns still shown (practiceRecast.mjs)
@@ -359,7 +362,8 @@ function practising(room, player) {
 
 export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
-  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec)) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
+    (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active')) return false;
   const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
@@ -1894,11 +1898,17 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
     const clear=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
     if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1)target.position=next;
   }
+  const struck=[];
   for(const target of room.players.values()) {
     const distance=Math.hypot(target.position.x-caster.position.x,target.position.z-caster.position.z);
-    if(distance<=radius && Math.abs(target.position.y-caster.position.y)<2.6)
-      oneHitTouch(room,caster,target,tiers,nowSec,world,{distance});
+    if(distance<=radius && Math.abs(target.position.y-caster.position.y)<2.6 &&
+      oneHitTouch(room,caster,target,tiers,nowSec,world,{distance}))struck.push(target.id);
   }
+  // Reuse the game's actual rupture simulation and its visible fissure events.
+  // The same enemy is never dealt the full decisive strike twice by its fissure.
+  const before=room.ruptures?.length??0;
+  groundStrike(room,caster,2,{point:{...caster.position},floor:{y:caster.position.y}},nowSec,world);
+  if((room.ruptures?.length??0)>before)room.ruptures.at(-1).caught.push(...struck);
   if(tiers.fire===2)(room.oneHitBurnZones??=[]).push({
     id:`oh-burn:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...caster.position},
     radius:4.6,nextAt:nowSec+.5,until:nowSec+4,
@@ -1908,7 +1918,7 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
 }
 function oneHitTeleport(room,player,state,nowSec) {
   const hold=Math.max(0,nowSec-(state.teleportHoldAt??nowSec));
-  const distance=oneHitTeleportReach(hold);
+  const distance=Math.max(.65,oneHitTeleportReach(hold));
   const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
   const aerial=(!player.grounded && state.preparedTiers?.gale===2);
   const dx=-Math.sin(yaw)*Math.cos(aerial?pitch:0),
@@ -2051,8 +2061,13 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       else if(distance<=.18 && !wire.inside.has(target.id)){
         wire.inside.add(target.id);
         const power=Math.max(0,(wire.until-nowSec));
-        applyDamage(room,wire.ownerId,target.id,(3+12*power),'line_of_conduct',nowSec,null,
+        const hit=applyDamage(room,wire.ownerId,target.id,(3+12*power),'line_of_conduct',nowSec,null,
           {ongoing:true,infusionCastKey:wire.id});
+        if(hit)for(const actor of [caster,target]){
+          if(creditOneHitEncounter(actor,'lightning',wire.id))
+            room.events.push({type:'oneHitInfusion',playerId:actor.id,element:'lightning',
+              tier:actor.oneHitInfusions.lightning,at:nowSec});
+        }
       }
     }
   }
