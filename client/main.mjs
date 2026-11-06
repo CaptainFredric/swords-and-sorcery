@@ -1138,9 +1138,8 @@ const mettleActivation = createRepeatActivation({
   select: chosen => {
     menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
     showBreakthroughArena();
-    if(document.querySelector('#game-shell')?.clientWidth<=640){
-      breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
-    }
+    // On a narrow display keep the tabs visible for the second tap.
+    // Battle orders remain accessible through the dedicated options button.
   },
   activate: () => playMettleBots(),
 });
@@ -1211,9 +1210,8 @@ const privateActivation = createRepeatActivation({
   select: mode => {
     privateModeSelected=privateMode(mode);
     renderPrivateMode();
-    if(document.querySelector('#game-shell')?.clientWidth<=640){
-      privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
-    }
+    // Do not hide the mode tabs before the user can tap the chosen mode again.
+    // ROOM RULES explicitly opens the companion banner on phones.
   },
   activate: () => createConfiguredPrivate(),
 });
@@ -1456,8 +1454,13 @@ function chooseSoloActivity(id) {
   $('#solo-arena-wrap').hidden=id==='tutorial-mode';
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
-  soloMenu.dataset.panel='details';
-  resetCompanionCrown(soloMenu);
+  // Desktop has both banners side by side. On phones, leave the activity
+  // choices accessible until the user taps again; REVIEW SETTINGS opens the
+  // separate right banner without interfering with second-tap launch.
+  if(document.querySelector('#game-shell')?.clientWidth>640){
+    soloMenu.dataset.panel='details';
+    resetCompanionCrown(soloMenu);
+  }
 }
 function launchSoloActivity(id) {
   if(id==='tutorial-mode') { startTutorial(); return true; }
@@ -1474,6 +1477,9 @@ const soloActivation = createRepeatActivation({
 });
 for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>soloActivation.choose(id));
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
+$('#solo-details')?.addEventListener('click',()=>{
+  soloMenu.dataset.panel='details';resetCompanionCrown(soloMenu);
+});
 $('#solo-launch').addEventListener('click',()=>soloActivation.run());
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');

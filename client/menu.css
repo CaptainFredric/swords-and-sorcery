@@ -814,6 +814,11 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .armory-tabs button {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
 .banner-panel .controls-grid {grid-template-columns:minmax(80px,96px) minmax(0,1fr)}
 
+.solo-options { display: none; } /* The right companion is already visible on desktop. */
+@container app (max-width: 640px) {
+  #solo-menu .solo-options { display: block; }
+}
+
 /* CASTLEWARD paired game-mode standards
    Solo and Open Rooms share one large activity/list standard and one narrower
    detail/creation standard. Both widths are shell-relative, not viewport-relative,

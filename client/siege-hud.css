@@ -1,6 +1,6 @@
 /* Reusable siege instrumentation: health lives below the sightline, pressure by personal stamina. */
 .machine-gauge {
-  position: absolute; z-index: 12; left: 50%; bottom: 16px;
+  position: absolute; z-index: 12; left: 50%; bottom: 24px;
   transform: translateX(-50%); width: min(410px, calc(100% - 230px));
   pointer-events: none; color: #f5e8c5; font-family: 'Alegreya Sans', sans-serif;
   font-variant-numeric: tabular-nums;
@@ -84,7 +84,7 @@
 .hud.ram-mounted .ballista-hud { display: none; }
 .hud.flight-mounted .flight-metric.hull { display: none; }
 @container app (max-width: 780px) {
-  .machine-gauge { width: min(335px, 52%); bottom: calc(var(--safe-b, 0px) + 10px); }
+  .machine-gauge { width: min(335px, 52%); bottom: calc(var(--safe-b, 0px) + 18px); }
   .machine-component { flex-basis: 89px; padding-inline: 4px; }
   .machine-health-head b { font-size: 8px; letter-spacing: .02em; }
   .machine-health-head output { font-size: 9px; }
@@ -92,12 +92,23 @@
   .drive-housing { top: calc(var(--safe-t, 0px) + 78px); left: calc(var(--safe-l, 0px) + 9px); width: min(162px, 30%); }
 }
 @container app (max-width: 540px) {
-  .machine-gauge { width: min(220px, 48%); bottom: calc(var(--safe-b, 0px) + 10px); }
+  .machine-gauge { width: min(220px, 48%); }
   .machine-component { flex-basis: 68px; }
   .machine-component .machine-health-head { display: block; }
   .machine-component .machine-health-head output { display: block; font-size: 8px; }
   .machine-health-track { height: 9px; }
   .machine-pitch { font-size: 8px; }
+}
+/* Touch captions occupy the foot of the view instead of the desktop subtitle
+   lane (112px). Reserve a small stable lane for them beneath every mounted
+   machine's shared gauge. Extra-long captions expand that reservation by their
+   actual rendered height; it never affects ordinary infantry or desktop HUD. */
+.touch-ui .machine-gauge {
+  bottom: calc(var(--safe-b, 0px) + 72px + max(0px, calc(var(--machine-caption-height, 0px) - 46px)));
+  transition: bottom .16s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .touch-ui .machine-gauge { transition: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .machine-component, .machine-health-fill, .drive-housing-fill, .machine-pitch-line::after { transition: none !important; }
