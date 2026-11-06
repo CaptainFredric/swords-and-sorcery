@@ -9,7 +9,23 @@ const MACHINES=Object.freeze([
   line:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
   facts:'Armored piston · charging drive · counterattack Skill'},
  {id:'fightFlight',name:'FIGHT-AND-FLIGHT',mark:'FLIGHT',icon:'flightDash',subtitle:'A DIFFERENT KIND OF HIGH GROUND',
-  line:'A wearable flying apparatus with a sword rotor and a repeating crossbow.',
+  line:`*Why choose to Fight or Flee? When you could be Free?*
+
+...To do both at the same time. And get away with it.
+
+This perilous contraption, made possible only through the ambitious aspirations of Castleward's infamous engineers, was conceived to eliminate the meddlesome matter of having to choose between retreating and enjoying the thrill of battle just one last time.
+
+Now, you can enjoy the thrill of battle while ensuring that *they* cannot retreat from it.
+
+Fire your repeating crossbow at those who are far. Dash into foes who are too close with your aptly placed Rotor-Blades. Prove that the only safe existence for your enemies is non-existence.
+
+Or yourself.
+
+It is not a dove. Nor does it mean mutual mortality.
+
+It is simply doom.
+
+And it is nigh-unreachable.`,
   facts:'Finite flight charge · rotor integrity · repeating bolts'}
 ]);
 const EXPLANATIONS={
