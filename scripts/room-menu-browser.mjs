@@ -90,7 +90,11 @@ try{
   await click('#solo-list-return');
   await shot('05-mobile-solo-activities');
   await click('#practice-mode');
-  assert.ok(await check("document.querySelector('#solo-menu').dataset.panel==='details'"));
+  assert.ok(await check("document.querySelector('#solo-menu').dataset.panel==='list'"),
+    'mobile keeps activities visible after first selection so the same button can launch on second tap');
+  await click('#solo-details');
+  assert.ok(await check("document.querySelector('#solo-menu').dataset.panel==='details'"),
+    'REVIEW SETTINGS opens the companion settings banner explicitly');
   await shot('06-mobile-solo-activity-detail');
   await click('#solo-list-return');await click('#solo-back');await click('#quick-play');
   await until(()=>check("document.querySelectorAll('#room-list .room-row').length===3"),'mobile rooms');
