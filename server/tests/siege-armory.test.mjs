@@ -24,6 +24,24 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.equal(v[1].skills[0].equipped,true);
  assert.equal(v[2].skills.length,3);
 });
+test('Fight-and-Flight Armory preserves the full authored lore with paragraphs and emphasis',()=>{
+ const view=siegeArmoryView({fightFlight:'doNotStopMyAscension'});
+ const flight=view.find(m=>m.id==='fightFlight');
+ const paragraphs=flight.line.split(/\n\s*\n/);
+ assert.equal(paragraphs.length,9,'all nine paragraphs are retained, without the old short description');
+ assert.equal(paragraphs[0],'*Why choose to Fight or Flee? When you could be Free?*');
+ assert.equal(paragraphs[1],'...To do both at the same time. And get away with it.');
+ assert.match(paragraphs[2],/Castleward's infamous engineers/);
+ assert.match(paragraphs[3],/\*they\* cannot retreat from it/);
+ assert.match(paragraphs[4],/Rotor-Blades.*non-existence\./);
+ assert.equal(paragraphs[5],'Or yourself.');
+ assert.equal(paragraphs[6],'It is not a dove. Nor does it mean mutual mortality.');
+ assert.equal(paragraphs[7],'It is simply doom.');
+ assert.equal(paragraphs[8],'And it is nigh-unreachable.');
+ const client=readFileSync(new URL('../../client/main.mjs',import.meta.url),'utf8');
+ assert.match(client,/siege-armory-description/,'long-form Armory prose is rendered as paragraphs');
+ assert.match(client,/escapeHtml\(paragraph\)/,'authored prose is escaped before italics are rendered');
+});
 test('Registry and stored personal Skill survive reload and reject invented values',()=>{
  const memory=new Map(),storage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
  const a=new SettingsStore({registry,storage});
