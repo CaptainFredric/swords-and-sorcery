@@ -470,7 +470,7 @@ export class WeaponView {
    * slamPose), so that the slam drives down out of it as the brace ends, with no step between. commitAt: when the
    * brace ends (this view's clock, seconds). Called again (the host's own word for when it ends), it only corrects that.
    */
-  brace(commitAt, { startupSec = ULTIMATES.sunder.startupSec, lead = ULTIMATES.sunder.firstSlamLead } = {}) {
+  brace(commitAt, { startupSec = ULTIMATES.sunder.startupSec, lead = ULTIMATES.sunder.firstSlamLead, oneHit = false } = {}) {
     const now = this.now();
     if (this.bracing && !this.bracing.committed) {
       this.bracing.commitAt = commitAt;
@@ -484,7 +484,7 @@ export class WeaponView {
     this.#comboDone();
     this.attackButton = button;
     this.guard = false;
-    this.bracing = { at: now, commitAt, startupSec, lead, from, committed: false, heldUntil: null };
+    this.bracing = { at: now, commitAt, startupSec, lead, from, committed: false, heldUntil: null, oneHit };
   }
 
   /** The brace is broken off (interrupted, or the host never took the key): the arms come back to rest. */
@@ -499,6 +499,19 @@ export class WeaponView {
     const brace = this.bracing;
     if (!brace || brace.committed || timeSec < brace.commitAt) return;
     brace.committed = true;
+    if (brace.oneHit) {
+      // One Hit is a SINGLE authored physical stroke, independent of the
+      // held Attack button. This is presentation only; the server already
+      // resolves the decisive hit at its commitment frame.
+      const startedAt=brace.commitAt-brace.lead;
+      this.swordChain.begin(startedAt);
+      this.swordChain.release();
+      this.comboSource={chainAt:startedAt,fadeIn:false,slam:true,
+        pose:t=>slamPose(t-startedAt)};
+      this.comboHandover=null;this.comboLetGo=null;this.comboBroken=false;
+      this.bracing=null;
+      return;
+    }
     if (!this.attackButton) {
       brace.heldUntil = timeSec + 0.12;
       return;
@@ -519,6 +532,12 @@ export class WeaponView {
     const ease = (t) => { const s = Math.max(0, Math.min(1, t)); return s * s * (3 - 2 * s); };
     const share = Math.max(0, Math.min(1, 1 - (brace.commitAt - timeSec) / brace.startupSec));
     let pose = slamPose(brace.lead * ease(brace.committed ? 1 : share));
+    if(brace.oneHit){
+      const spinShare=Math.min(1,share/.78);
+      const spin=vortexStartupPose(spinShare,spinShare*Math.PI*2);
+      if(share<.78)pose=spin;
+      else pose=blendPoses(spin,pose,ease((share-.78)/.22));
+    }
     // taking over from a swing that was under way: a short hand-over, never a jump
     const takeover = (timeSec - brace.at) / 0.16;
     if (brace.from?.raw && takeover < 1) pose = blendPoses(brace.from, pose, takeover);

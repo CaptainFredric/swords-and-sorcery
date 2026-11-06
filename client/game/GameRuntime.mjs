@@ -1512,6 +1512,13 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.oneHitEffects?.event(event);
+      if(event.type==='oneHitCommitted'&&event.playerId===this.playerId){
+        // Especially important for Full Lightning: the sword must come down
+        // on arrival rather than playing a second startup after the teleport.
+        this.weapon.brace(this.presentationNow()/1000,{
+          startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
+        });
+      }
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
       // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
@@ -3125,6 +3132,16 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.playerId;
+    if(event.ultimate==='one_hit_of_wonders'){
+      this.#play(sunderDropRecipe(),me?null:this.#bodyPosition(event.playerId),me?1:.75);
+      if(me){
+        this.weapon.brace(this.presentationNow()/1000+(event.commitAt-this.socket.serverNow()),{
+          startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
+        });
+        this.hud.flashText('ONE HIT OF WONDERS','sunder',1400);
+      }
+      return;
+    }
     // (a fresh use: its one line, whichever of his ultimate's lines has the turn)
     const voice = this.ultimateLines.begin(event.playerId, event.ultimate);
     // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
