@@ -40,6 +40,12 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           REQUIRE_SPELLBLADE_GLBS: '1'
         run: node scripts/capture-public-arena.mjs
+      - name: Capture Armory and touch menus even if unrelated arena checks fail
+        if: always()
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/two-banner-review.mjs
       - name: Preserve every screenshot and browser report
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,4 +54,5 @@ jobs:
           path: |
             public-game-*.png
             public-game-browser-report.json
+            output/playwright/two-banners/
           retention-days: 7
