@@ -646,6 +646,24 @@ try {
       id:0,x:p.x,y:p.y,radiusX:7,radiusY:7,force:.75}]:[]});
   };
   assert.ok(geometry.visibleButtons,'all four physical ritual controls remain visible');
+  await evaluate(`(() => {
+    const t=window.__ssRuntime.touch;
+    window.__nativeDagazLog=[];
+    for(const type of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture']){
+      t.layer.addEventListener(type,e=>{
+        if(window.__nativeDagazLog.length>180)return;
+        const r=t.layer.getBoundingClientRect();
+        window.__nativeDagazLog.push({
+          type,id:e.pointerId,target:e.target?.dataset?.action??e.target?.className??'',
+          screen:[Math.round(e.clientX),Math.round(e.clientY)],
+          rect:[r.left,r.top,r.width,r.height],
+          local:[t.ritual?.last?.[0],t.ritual?.last?.[1]],
+          ritual:t.ritual?{index:t.ritual.index,segment:t.ritual.segmentProgress,
+            completed:t.ritual.completed}:null,
+        });
+      },true);
+    }
+  })()`);
   await nativeTouch('touchStart',geometry.points[0]);
   await sleep(45);
   const initial=await evaluate("({active:Boolean(window.__ssRuntime.touch.ritual),firstTarget:window.__ssRuntime.touch.ritual?.startedOnJump,progress:window.__ssRuntime.touch.valkyrieInk?.style.strokeDasharray})");
@@ -671,6 +689,17 @@ try {
         progress:Number(t.valkyrieInk?.style.strokeDasharray?.split(' ')[0])||0,
         displayed:t.valkyrieStatus?.textContent};
     })()`);
+    if(!(stage.progress>previous)){
+      const diagnostics=await evaluate(`(() => {
+        const t=window.__ssRuntime.touch,r=t.layer.getBoundingClientRect();
+        return {active:t.active,eligible:t.valkyrieEligible,preview:t.valkyriePreview,
+          pointer:t.ritual?.pointerId,trace:t.ritual,ink:t.valkyrieInk?.style.strokeDasharray,
+          geometry:t.valkyrieGeometry?.points?.slice(0,5),angle:window.__ssRuntime.screenTurn?.angle,
+          layer:{width:t.layer.clientWidth,height:t.layer.clientHeight,
+            rect:[r.left,r.top,r.width,r.height]},events:window.__nativeDagazLog?.slice(-48)};
+      })()`);
+      console.log('[NATIVE DAGAZ STAGE FAILURE]',JSON.stringify({i,stage,previous,diagnostics}));
+    }
     assert.ok(stage.progress>previous,
       'real native touch must brighten the path continuously at checkpoint '+i+
       ' (prior '+previous+', current '+stage.progress+')');
