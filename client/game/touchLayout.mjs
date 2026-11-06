@@ -95,9 +95,8 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   spell:{right:154,bottom:214,size:50},
   siegeView:{right:14,top:6,size:36},
   interact:{right:60,top:6,size:36},
-  // Visual stencil overlays the right-hand controls, but owns an independent
-  // draggable/resizable hit region. No real button is a path checkpoint.
-  valkyrieStencil:{right:14,bottom:80,size:200,type:'stencil'},
+  // The Dagaz ink is derived from these button rectangles. It must NEVER
+  // carry an independent stale coordinate/size when a player edits controls.
 });
 const MOUNTED_ACTIONS = Object.freeze({
   // SO-FIST-ICATION: combat below, side-by-side hydraulics above.
