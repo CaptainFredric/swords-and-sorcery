@@ -32,6 +32,6 @@ test('master, app icon and world standard use the identical approved vector cont
   assert.equal(contours(icon), contours(master));
   assert.equal(contours(standard), contours(master));
   assert.equal((contours(master).match(/M\d+,\d+/g) ?? []).length, 16);
-  assert.match(master, /viewBox="250 75 520 880"/);
+  assert.match(master, /viewBox="120 70 700 1120"/);
   assert.equal(EMBLEMS.grimoirelee.art, '/client/assets/heraldry/grimoirelee.svg');
 });
