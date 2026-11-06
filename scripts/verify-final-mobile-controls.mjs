@@ -686,7 +686,7 @@ try {
     const stage=await evaluate(`(() => {
       const t=window.__ssRuntime.touch;
       return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
-        progress:Number(t.valkyrieInk?.style.strokeDasharray?.split(' ')[0])||0,
+        progress:Number.parseFloat(t.valkyrieInk?.style.strokeDasharray)||0,
         displayed:t.valkyrieStatus?.textContent};
     })()`);
     if(!(stage.progress>previous)){
