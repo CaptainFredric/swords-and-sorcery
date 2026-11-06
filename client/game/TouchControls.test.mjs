@@ -1512,9 +1512,10 @@ test('unequipped/uncosted rune stays faint and cannot steal ordinary Jump',()=>{
  assert.equal(e.controls.valkyrieStencil.hidden,false,'equipped Ascension reveals faint guide');
  assert.equal(e.controls.valkyrieStencil.classList.contains('unready'),true);
  e.send('pointerdown',718,420,{action:'jump',pointerId:245});
- assert.equal(e.controls.ritual,null,'unready guide cannot initiate a terminal ritual');
- assert.deepEqual(sent,[{type:'flightHop'}]);
+ assert.ok(e.controls.ritual,'visible unready guide accepts a drawn trace');
+ assert.deepEqual(sent,[],'even an unready preview does not send terminal commands');
  e.send('pointerup',718,420,{action:'jump',pointerId:245});
+ assert.deepEqual(sent,[{type:'flightHop'}],'ordinary short Jump is preserved');
  e.m.skill.id='fireAwayImRightHere';e.update();
  assert.equal(e.controls.valkyrieStencil.hidden,true,'other Skills have no Valkyrie guide');
  e.controls.dispose();
@@ -1544,5 +1545,56 @@ test('a brief actual Jump tap remains a Jump even while the eligible rune is vis
  e.send('pointerdown',718,420,{action:'jump',pointerId:248});
  e.send('pointerup',718,420,{action:'jump',pointerId:248});
  assert.deepEqual(sent,[{type:'flightHop'}]);
+ e.controls.dispose();
+});
+
+test('visible but unready Dagaz visibly tracks every part of a human swipe without spending Chivalry',()=>{
+ const e=valkyrieFlightFixture(),sent=[];e.input.socket.send=m=>sent.push(m);
+ e.m.skill.phase='idle';e.p.prowess=45;e.update();
+ const points=e.controls.valkyrieGeometry.points;
+ e.send('pointerdown',points[0][0],points[0][1],{action:'jump',pointerId:302});
+ assert.ok(e.controls.ritual,'tracing must not require having already activated Ascension');
+ let previous=0;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i];
+  // A real finger does not hit every waypoint with pixel-perfect accuracy.
+  for(const t of [.2,.43,.72,1]){
+   const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+   const offset=t===1?0:4;
+   e.send('pointermove',a[0]+dx*t-dy/len*offset,
+    a[1]+dy*t+dx/len*offset,{pointerId:302,target:e.controls.layer});
+  }
+  const progress=Number(e.controls.valkyrieInk.style.strokeDasharray.split(' ')[0]);
+  assert.ok(progress>previous,'stroke must illuminate continuously at checkpoint '+i);
+  assert.match(e.controls.valkyrieStatus.textContent,/TRACE|CHIVALRY|ASCENSION/);
+  previous=progress;
+ }
+ assert.equal(e.controls.ritual.completed,true,'the complete gesture may be drawn as a preview');
+ assert.equal(previous,1);
+ assert.deepEqual(sent,[],'unready complete geometry cannot bypass the authoritative host');
+ assert.match(e.controls.valkyrieStatus.textContent,/ACTIVATE ASCENSION/);
+ e.send('pointerup',points.at(-1)[0],points.at(-1)[1],{pointerId:302,target:e.controls.layer});
+ assert.equal(e.controls.ritual,null);
+ assert.ok(Number(e.controls.valkyrieInk.style.strokeDasharray.split(' ')[0])>.99,
+   'completion glow remains visible immediately after release');
+ e.controls.dispose();
+});
+
+test('Dagaz retains progress after accidental off-path thumb movement and resumes in order',()=>{
+ const e=valkyrieFlightFixture(),points=e.controls.valkyrieGeometry.points;
+ const events=[];e.input.socket.send=m=>events.push(m);
+ e.send('pointerdown',points[0][0],points[0][1],{action:'jump',pointerId:303});
+ const a=points[0],b=points[1];
+ e.send('pointermove',a[0]+(b[0]-a[0])*.5,a[1]+(b[1]-a[1])*.5,
+   {pointerId:303,target:e.controls.layer});
+ const before=e.controls.ritual.index+e.controls.ritual.segmentProgress;
+ assert.ok(before>.1);
+ e.send('pointermove',10,10,{pointerId:303,target:e.controls.layer});
+ assert.ok(e.controls.ritual,'off-path sample must not permanently invalidate a trace');
+ assert.ok(e.controls.ritual.index+e.controls.ritual.segmentProgress>=before);
+ e.send('pointermove',b[0],b[1],{pointerId:303,target:e.controls.layer});
+ assert.equal(e.controls.ritual.index,1,'pointer should recover on the intended next checkpoint');
+ assert.equal(events.length,0);
+ e.send('pointercancel',b[0],b[1],{pointerId:303,target:e.controls.layer});
  e.controls.dispose();
 });
