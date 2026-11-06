@@ -7,7 +7,7 @@ import { appUrl } from '../appUrl.mjs';
 const cache = new WeakMap(); // original texture -> (geometry -> generated atlas Promise)
 let markPromise;
 const MARK_URL = '/client/assets/heraldry/grimoirelee.svg';
-const MARK_ASPECT = 520 / 880;
+const MARK_ASPECT = 700 / 1120; // canonical master SVG viewBox
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 function markImage() {
@@ -125,7 +125,7 @@ async function compose(mesh, base) {
     height * .68, width * .76 / MARK_ASPECT);
   const markW = markH * MARK_ASPECT;
   // Pre-rasterize the one master SVG, including the two negative-space blade scars.
-  const mw = 520, mh = 880;
+  const mw = 350, mh = 560; // half-resolution sampling at the master 700:1120 aspect
   const stamp = document.createElement('canvas');
   stamp.width = mw; stamp.height = mh;
   const sc = stamp.getContext('2d', { willReadFrequently: true });
