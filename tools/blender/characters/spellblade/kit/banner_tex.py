@@ -1,9 +1,11 @@
 """banner_tex.py out.png -- tabard (left half) + back banner (right half) atlas, 1024x1024.
 Drawn at physical scale (1000 px/m) then fitted to each half; colours are the albedos that render as the concept's
 cloth colours under the game's menu light (see kit.py FRONT)."""
-import sys, json, math
+import sys, json, math, re
+from pathlib import Path
+import xml.etree.ElementTree as ET
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageChops
 
 FRONT = (0.727, 0.671, 0.474)
 def s2l(c): c = c / 255; return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
@@ -11,10 +13,28 @@ def l2s(c): c = min(1.0, max(0.0, c)); return 12.92 * c if c <= 0.0031308 else 1
 def alb(rgb): return tuple(int(round(255 * l2s(s2l(c) / f))) for c, f in zip(rgb, FRONT))
 RED, RED_D, CREAM, CREAM_D = alb((104, 44, 48)), alb((78, 32, 36)), alb((172, 136, 114)), alb((140, 108, 92))
 SPEC = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else None
+MASTER = Path(__file__).resolve().parents[5] / "client/assets/heraldry/grimoirelee.svg"
+
+
+def official_mark(width, height):
+    """Rasterize the approved master SVG contours (including all cutouts) without reillustrating."""
+    doc = ET.parse(MASTER).getroot()
+    path = doc.find(".//{http://www.w3.org/2000/svg}g/{http://www.w3.org/2000/svg}path")
+    if path is None:
+        raise RuntimeError("Grimoirelee master contour is missing")
+    result = Image.new("1", (width, height), 0)
+    for subpath in re.findall(r"M([^Z]+)Z", path.attrib["d"]):
+        coords = [(int(x), int(y)) for x, y in re.findall(r"(-?\d+),(-?\d+)", subpath)]
+        poly = [((x - 250) * width / 520, (y - 75) * height / 880) for x, y in coords]
+        island = Image.new("1", (width, height), 0)
+        ImageDraw.Draw(island).polygon(poly, fill=1)
+        result = ImageChops.logical_xor(result, island)  # even-odd holes and scratches
+    return result
+
 
 
 def panel(W, H, hem, trident, seed):
-    """W,H metres; hem: list of (half-width limit, bottom depth) steps from outside in; trident: dict of depths."""
+    """W,H metres; hem: list of (half-width limit, bottom depth) steps from outside in; trident: legacy positioning/depth spec."""
     k = 1000.0
     w, h = int(W * k), int(H * k)
     im = Image.new("RGB", (w, h), RED); d = ImageDraw.Draw(im)
@@ -49,20 +69,15 @@ def panel(W, H, hem, trident, seed):
     line = np.array((np.asarray(inner) > 0) & ~(np.asarray(inner2) > 0))
     line[: int(bw) + 6, int(bw) + 5: w - int(bw) - 5] = False
     arr[line] = RED_D
-    # trident
-    tr = Image.new("L", (w, h), 0); td = ImageDraw.Draw(tr)
-    cx = w / 2; T = trident
-    sw = 0.0075 * k
-    td.rectangle((cx - sw, T["tip"] * k + 0.04 * k, cx + sw, T["foot"] * k), fill=255)                         # shaft
-    td.polygon([(cx, T["tip"] * k), (cx - 0.030 * k, T["tip"] * k + 0.055 * k), (cx - sw, T["tip"] * k + 0.047 * k),
-                (cx + sw, T["tip"] * k + 0.047 * k), (cx + 0.030 * k, T["tip"] * k + 0.055 * k)], fill=255)      # head
-    for sgn in (-1, 1):
-        bx, by = cx, T["branch"] * k
-        ox, oy = cx + sgn * T["span"] * k, T["prong"] * k
-        td.line([(bx, by), (ox, oy + 0.02 * k)], fill=255, width=int(2 * sw))
-        td.rectangle((min(ox, ox - sgn * 2 * sw), oy, max(ox, ox - sgn * 2 * sw), oy + 0.03 * k), fill=255)
-        td.polygon([(ox - sgn * sw, oy - 0.028 * k), (ox + sgn * 0.8 * sw, oy + 0.004 * k), (ox - sgn * 2.8 * sw, oy + 0.004 * k)], fill=255)
-    td.polygon([(cx, T["foot"] * k + 0.03 * k), (cx - 0.018 * k, T["foot"] * k - 0.004 * k), (cx + 0.018 * k, T["foot"] * k - 0.004 * k)], fill=255)
+    # Grimoirelee comes from the same approved master as menus/world banners.
+    # Keep the builder's physical panel scale and its carefully authored stepped border.
+    T = trident  # historical panel-position schema; not a trident design any more
+    mark_width = int(min((W - 0.08) * k, H * 0.5 * k * (520 / 880)))
+    mark_height = int(mark_width * 880 / 520)
+    mark = official_mark(mark_width, mark_height)
+    tr = Image.new("1", (w, h), 0)
+    tr.paste(mark, (int((w - mark_width) / 2),
+                    int((T["tip"] + T["foot"]) * k / 2 - mark_height / 2)))
     tm = np.asarray(tr) > 0
     arr[tm] = CREAM
     # cloth wear: vertical weave streaks, soft blotches, darker bottom
