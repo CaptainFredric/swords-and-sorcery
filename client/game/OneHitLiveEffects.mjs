@@ -13,9 +13,10 @@ const v=p=>new THREE.Vector3(p.x,p.y,p.z);
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 
 export class OneHitLiveEffects {
-  constructor(scene,remotePlayers=null) {
+  constructor(scene,remotePlayers=null,weapon=null) {
     this.scene=scene;
     this.remotePlayers=remotePlayers;
+    this.weapon=weapon;
     this.root=new THREE.Group();
     this.root.name='One Hit of Wonders (presentation only)';
     scene.add(this.root);
@@ -123,7 +124,18 @@ export class OneHitLiveEffects {
   event(event){
     if(event.type==='oneHitImpact')this.#burst(event.point,event.tiers);
     if(event.type==='oneHitTeleport')this.#flash(event.to,event.tiers);
-    if(event.type==='lineConductDischarge')this.#conduct(event.origin,event.end);
+    if(event.type==='lineConductDischarge'){
+      // The wire's far endpoint is authoritative, but its visible source
+      // emerges from the REAL Sorcery socket rather than the server's
+      // abstract eye position. Falls back to eye while the model loads.
+      const shell=event.playerId===this.remotePlayers?.localId
+        ?this.remotePlayers.self:this.remotePlayers?.rigs?.get(event.playerId);
+      const thirdHand=shell?.visualInstance?.sockets?.sorcery;
+      const source=event.playerId===this.remotePlayers?.localId
+        ?(this.weapon?.magicLight??thirdHand):thirdHand;
+      const origin=source?.getWorldPosition?.(new THREE.Vector3());
+      this.#conduct(origin?{x:origin.x,y:origin.y,z:origin.z}:event.origin,event.end);
+    }
   }
   update(dt,snapshot){
     const frame=clamp(Number(dt)||0,0,.06);
