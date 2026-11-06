@@ -924,9 +924,17 @@ export class TouchControls {
     if(!geometry)return;
     const key=[width,height,...geometry.points.flatMap(p=>p.map(v=>Math.round(v)))].join(',');
     if(key===this.valkyrieGeometryKey)return;
-    // Moving the controls during a held trace never teleports that pointer
-    // onto a different waypoint or silently commits a terminal attack.
-    if(this.ritual)this.#clearValkyrieRitual();
+    if(this.ritual){
+      // Buttons can pulse/scale a fraction of a pixel as they animate.
+      // Freeze the path under an active thumb; cancel only a meaningful
+      // resize, rotation or deliberate workshop relocation.
+      const prev=this.valkyrieGeometry;
+      const materiallyMoved=width!==prev?.width||height!==prev?.height||
+        geometry.points.slice(0,4).some((p,i)=>Math.hypot(
+          p[0]-prev.points[i][0],p[1]-prev.points[i][1])>12);
+      if(!materiallyMoved)return;
+      this.#clearValkyrieRitual();
+    }
     this.valkyrieGeometryKey=key;
     this.valkyrieGeometry=geometry;
     this.valkyrieStencil.querySelector('svg')?.setAttribute('viewBox',
@@ -967,6 +975,10 @@ export class TouchControls {
     if(event.pointerType==='mouse'||!this.flightMounted||
       !this.valkyrieEligible||this.ritual||
       this.layer.classList.contains('touch-layout-editing'))return false;
+    // Only a finger which actually STARTS on Jump may begin this chord.
+    // Proximity alone stole ordinary Chivalry/Ultimate taps in tight layouts.
+    const startAction=event.target.closest?.('[data-action]')?.dataset.action;
+    if(startAction!=='jump')return false;
     const point=this.#ritualPoint(event);
     if(!ritualStartNear(point,this.valkyrieGeometry?.points))return false;
     event.preventDefault();
