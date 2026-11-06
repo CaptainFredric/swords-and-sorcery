@@ -5,7 +5,7 @@ Keep three things distinct: (1) the authored emblem and its flavor, (2) the prop
 
 **Gameplay sources of truth:** `shared/src/heraldry.mjs`, `shared/src/challenges.mjs`, `shared/sim/challenges.mjs`, relevant server tests and profile settlement. A design appearing here does not automatically become selectable.
 
-**Visual language:** cream/pale-gold silhouettes on deep crimson cloth, bold angular forms, clean negative space, stepped banner hem, legible at gameplay distance; the precise physical interaction matters more than tiny decorative detail. The Castleward trident still marks the standard front tabard and institutional banners. Personal back-banner heralds may differ. A proposed replacement for the *Swords & Sorcery* main logo is a **separate branding decision** and must not silently replace the game's in-world heralds.
+**Visual language:** cream/pale-gold silhouettes on deep crimson cloth, bold angular forms, clean negative space, stepped banner hem, legible at gameplay distance; the precise physical interaction matters more than tiny decorative detail. The **approved Grimoirelee** sword-and-open-grimoire is Castleward's official institutional insignia: default front tabard, default back banner, menu crest and world standards. Earned heraldry still replaces only the *personal back* emblem and is never lost by this branding update.
 
 ## Design and implementation inventory
 
@@ -102,3 +102,11 @@ The intended post-rotor repeater is not hypothetical: `shared/sim/fightFlightWea
 A strong Castleward herald need not be a static fantasy noun (sword, dragon, skull). The best designs **depict a specific, physically plausible action**, often one that inverts the object’s normal role: shield as an uppercut, a gauntlet holding a blade, a sword cutting a spell, or mutually destructive weapon contacts. Titles and flavor should contribute a **different** layer—wordplay, character, or consequences—without merely explaining the picture. Reject “symbolic” claims unsupported by anything visible.
 
 **Review checklist:** clear first-glance silhouette at small size; action and contact point physically legible; meaningful detail at large size; consistent crimson/cream heraldic art direction; no unapproved invented unlocks; authoritative proof before player-facing achievement claims; all earned rewards persist correctly in multiplayer and solo.
+
+## Official Grimoirelee source and compatibility (November 2026)
+
+- Approved reference: the supplied 1024×1024 crimson-and-gold Grimoirelee artwork. Treat its silhouette, diagonal scars, central blade groove, open-book crossguard and bookmark as immutable art direction.
+- Production **editable master**: `client/assets/heraldry/grimoirelee.svg` (faithful traced contours and even-odd negative spaces). `grimoirelee-app-icon.svg` and `grimoirelee-standard.svg` reuse exactly those contours. Existing character portrait app images are intentionally retained as character portraits/fallbacks.
+- In-game default cloth: `client/game/grimoireleeCloth.mjs` remaps the approved image into the original UV atlas at runtime without moving rigs or changing earned textures. The Blender kit and Rodin emblem source scripts use the same SVG for future asset promotions. Rebuilding GLBs is **not required** for the runtime replacement.
+- Save/network policy: `trident` is a **legacy identifier** which resolves to `grimoirelee` when read or selected. It is not offered as another Armory choice. Earned emblem IDs, challenge completion records, unlock checks, and selected personal heralds retain their original meaning. Do not bulk-delete or rename saved profile fields.
+- Rebuild verification: inspect third-person front and rear cloth, dye variations and earned swaps in the actual browser and check mobile menus/world banners before merging. Older baked GLBs may contain the old art internally, which the runtime overlay must conceal.
