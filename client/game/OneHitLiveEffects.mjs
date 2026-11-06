@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createConductDischarge } from './ConductVisuals.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -111,22 +112,10 @@ export class OneHitLiveEffects {
       this.#ring(pp,color,Number(tiers[id])===2?1.7:1.1,.5,.6,true);
   }
   #conduct(origin,end){
-    const p0=v(origin),p1=v(end),length=p0.distanceTo(p1);
-    if(length<.05)return;
-    const direction=p1.clone().sub(p0).normalize();
-    const right=new THREE.Vector3(0,1,0).cross(direction).normalize();
-    if(right.length()<.05)right.set(1,0,0);
-    const points=[p0];
-    const n=clamp(Math.ceil(length/2),3,42);
-    for(let i=1;i<n;i++){
-      const pos=p0.clone().lerp(p1,i/n).addScaledVector(right,
-        Math.sin(i*13.7)*Math.min(.14,length*.01));
-      points.push(pos);
-    }
-    points.push(p1);
-    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
-      new THREE.LineBasicMaterial({color:0xd4bfff,transparent:true,opacity:.9,depthWrite:false}));
-    this.#add(line,1.05);
+    // Exact authoritative endpoints, bright jagged multi-tone yellow on
+    // discharge, then a soft one-second suspended remnant.
+    const bolt=createConductDischarge(origin,end);
+    this.#add(bolt,1.04);
   }
   event(event){
     if(event.type==='oneHitImpact')this.#burst(event.point,event.tiers);
@@ -140,6 +129,14 @@ export class OneHitLiveEffects {
       if(t.life<=0){this.#discard(t.mesh);this.transients.splice(i,1);continue;}
       const ratio=t.life/t.ttl;
       if(t.mesh.material?.opacity!==undefined)t.mesh.material.opacity=Math.min(t.mesh.material.opacity,ratio);
+      if(t.mesh.userData?.conductDischarge){
+        const elapsed=1-ratio;
+        for(const strand of t.mesh.children){
+          const start=strand.userData.conductOpacity??1;
+          strand.material.opacity=start*(elapsed<.14 ? 1 : Math.pow(Math.max(0,ratio),1.25));
+          strand.scale.setScalar(elapsed<.14?1:Math.max(.36,ratio));
+        }
+      }
       if(t.mesh.userData?.oneHitSlab){
         const slab=t.mesh.userData.oneHitSlab,elapsed=1-ratio;
         const rise=Math.min(1,elapsed/.12);
