@@ -575,6 +575,24 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 .touch-valkyrie-stencil[hidden] {display:none !important;}
 .touch-valkyrie-stencil.unready {opacity:.13;}
+.touch-valkyrie-stencil.unready.drawing {opacity:calc(.31 + var(--ritual-progress) * .69);}
+.touch-valkyrie-ink {
+  fill:none;stroke:#fff3bc;stroke-width:5.5;
+  stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:0 1;stroke-dashoffset:0;
+  filter:drop-shadow(0 0 5px #ffbd6b) drop-shadow(0 0 2px #ffe3a3);
+  pointer-events:none;
+}
+.touch-valkyrie-status {
+  position:absolute;min-width:140px;max-width:230px;box-sizing:border-box;
+  padding:4px 7px;border:1px solid #e1c78488;border-radius:4px;
+  background:rgba(15,20,21,.83);color:#ffe7ac;
+  text-align:center;font:800 10px/1.2 system-ui;
+  letter-spacing:.04em;text-shadow:0 1px 2px #000;pointer-events:none;
+}
+.touch-valkyrie-stencil:not(.drawing) .touch-valkyrie-status {opacity:.85;}
+.touch-valkyrie-stencil.drawing .touch-valkyrie-status {opacity:1;}
+
 .touch-valkyrie-stencil.preview {opacity:.5;}
 .touch-valkyrie-stencil svg {display:block;width:100%;height:100%;pointer-events:none;overflow:hidden;}
 .touch-valkyrie-ghost {

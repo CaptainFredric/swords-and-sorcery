@@ -2,7 +2,8 @@
 // These checkpoints are projected from the live Flight buttons, not a second
 // independently positioned touch control. All input remains server-authoritative.
 export const RITUAL_UNIT=240; // legacy fixture scale; no longer a screen target
-export const RITUAL_TOLERANCE=27;
+export const RITUAL_TOLERANCE=39; // physical thumb tolerance, in game-layer pixels
+export const RITUAL_TIMEOUT_MS=90000; // 18 waypoints across tiny phone controls; slow devices must not cancel halo
 export const RITUAL_HALO_STEPS=12;
 export const VALKYRIE_RUNE_ACTIONS=Object.freeze(['jump','ultimate','dash','siegeSkill','jump']);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -55,12 +56,28 @@ export const createValkyrieRitual=(pointerId,now,points=VALKYRIE_RITUAL_POINTS)=
 export const ritualFraction=g=>g?.points?.length>1?
  (g.index+g.segmentProgress)/(g.points.length-1):0;
 
+/** Illuminate the ACTUAL amount of path traversed, not an equally weighted
+ * waypoint count. The long Dagaz strokes and short halo arcs have different
+ * lengths, so index / count made the glow appear disconnected from the thumb. */
+export function ritualDistanceFraction(g){
+ if(!g?.points?.length||g.points.length<2)return 0;
+ let total=0,passed=0;
+ for(let i=0;i<g.points.length-1;i++){
+  const a=g.points[i],b=g.points[i+1];
+  const len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  total+=len;
+  if(i<g.index)passed+=len;
+  else if(i===g.index)passed+=len*Math.max(0,Math.min(1,g.segmentProgress??0));
+ }
+ return total>0?Math.max(0,Math.min(1,passed/total)):0;
+}
+
 // A single captured pointer must traverse checkpoints in order. Sampling the
 // actual path (not just its endpoints) prevents a single diagonal from
 // completing the rune and forbids jumping across a halo arc.
 export function advanceValkyrieRitual(g,p,now){
  if(!g||g.completed||!Number.isFinite(p?.x)||!Number.isFinite(p?.y)||
-   !Number.isFinite(now)||now-g.startedAt>12000)return null;
+   !Number.isFinite(now)||now-g.startedAt>RITUAL_TIMEOUT_MS)return null;
  const points=g.points??VALKYRIE_RITUAL_POINTS;
  const a=points[g.index],b=points[g.index+1];
  if(!a||!b)return null;
