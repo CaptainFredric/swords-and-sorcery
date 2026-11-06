@@ -1964,6 +1964,12 @@ rematchButton.addEventListener('click', () => {
 $('#leave').addEventListener('click', () => returnToMenu());
 
 let preparingSiege=false;
+// The page receives 30Hz snapshots. Do not overwrite an unacknowledged user's
+// selection with the PREVIOUS snapshot, making the control appear inoperative.
+const pendingOneHitTiers=new Map();
+function pendingOneHitTier(element,tier){
+  pendingOneHitTiers.set(element,{tier:String(tier),until:performance.now()+2200});
+}
 function updateInspectionControls() {
   const machineChoice=$('#practice-hostile-machine')?.value;
   const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
@@ -2011,8 +2017,13 @@ function updateInspectionControls() {
     oneHitPanel.hidden=self?.ultimate!=='one_hit_of_wonders';
     const levels=self?.practiceOneHit?.stages??self?.oneHitInfusions;
     for(const select of oneHitPanel.querySelectorAll('[data-one-hit-element]')){
-      const level=String(levels?.[select.dataset.oneHitElement]??0);
-      if(select.value!==level)select.value=level;
+      const element=select.dataset.oneHitElement;
+      const level=String(levels?.[element]??0);
+      const pending=pendingOneHitTiers.get(element);
+      if(pending && (level===pending.tier||performance.now()>=pending.until))
+        pendingOneHitTiers.delete(element);
+      const shown=pendingOneHitTiers.get(element)?.tier??level;
+      if(select.value!==shown)select.value=shown;
     }
     const unlimited=$('#practice-one-hit-unlimited');
     if(unlimited)unlimited.checked=Boolean(self?.practiceOneHit?.enabled);
@@ -2144,9 +2155,12 @@ $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy
 const practiceOneHit=$('#practice-one-hit');
 practiceOneHit?.addEventListener('change',event=>{
   const target=event.target;
-  if(target?.dataset?.oneHitElement)socket.practiceOneHit?.({
-    action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
-  });
+  if(target?.dataset?.oneHitElement){
+    pendingOneHitTier(target.dataset.oneHitElement,target.value);
+    socket.practiceOneHit?.({
+      action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
+    });
+  }
   else if(target?.id==='practice-one-hit-unlimited')socket.practiceOneHit?.({
     action:'enabled',enabled:target.checked,
   });
@@ -2154,8 +2168,22 @@ practiceOneHit?.addEventListener('change',event=>{
 practiceOneHit?.addEventListener('click',event=>{
   const button=event.target.closest?.('button');
   if(!button)return;
-  if(button.dataset.oneHitPreset)socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
-  else if(button.dataset.oneHitAction)socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+  if(button.dataset.oneHitPreset){
+    const values=({
+      simple:{fire:0,frost:0,gale:0,lightning:0},
+      reset:{fire:0,frost:0,gale:0,lightning:0},
+      partial:{fire:1,frost:1,gale:1,lightning:1},
+      full:{fire:2,frost:2,gale:2,lightning:2},
+      gale:{fire:0,frost:0,gale:2,lightning:0},
+      'gale-lightning':{fire:0,frost:0,gale:2,lightning:2},
+    })[button.dataset.oneHitPreset];
+    if(values)for(const [element,tier]of Object.entries(values))pendingOneHitTier(element,tier);
+    socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
+  }else if(button.dataset.oneHitAction){
+    if(button.dataset.oneHitAction==='natural')pendingOneHitTiers.clear();
+    if(button.dataset.oneHitAction==='aerial')pendingOneHitTier('gale',2);
+    socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+  }
 });
 
 $('#practice-leave').addEventListener('click', () => returnToMenu());

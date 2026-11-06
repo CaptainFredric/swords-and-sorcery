@@ -59,6 +59,8 @@ test('Practice settings are server-owned and disallowed in PvP rooms',()=>{
   const normal=battle();
   assert.equal(configurePracticeOneHit(normal.room,'a',{action:'preset',preset:'full'},9),false);
   const {room,a}=battle('PRACTICE');
+  assert.deepEqual(applyRoomCommand(room,a,{type:'practiceOneHit',action:'preset',preset:'gale'},9),{});
+  assert.equal(a.practiceOneHit.stages.gale,2);
   assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'gale'},9),true);
   assert.equal(a.practiceOneHit.stages.gale,2);
   assert.equal(a.practiceOneHit.stages.fire,0);
