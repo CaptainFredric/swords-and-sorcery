@@ -5,7 +5,7 @@
 
 The cape (TabardBack, material CapeBanner) is laid out in the body atlas. client/game/emblemBanner.mjs swaps the cape
 material's map for an emblem's texture (shared/src/heraldry.mjs, banners.CapeBanner), so each emblem texture is the
-atlas with the cape alone kept: its painted trident replaced by the emblem, everything outside the cape's UV islands a
+atlas with the cape alone kept: its old painted charge replaced by the emblem, everything outside the cape's UV islands a
 flat grey that costs almost nothing to store.
 
 On the cape's outer face each texel is placed back on the cloth (its position across and down the cape), so the
@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import bpy
@@ -24,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[5]
 HERE = Path(__file__).resolve().parent
 # emblem id: (its mark, the cape texture heraldry.mjs names for it)
 EMBLEMS = {
+    "grimoirelee": (ROOT / "client/assets/heraldry/grimoirelee.svg", "grimoirelee-cape.jpg"),
     "seize_thy_slayer": (ROOT / "client/assets/heraldry/seize-thy-slayer.png", "seize-thy-slayer-cape.jpg"),
     "st_perry_the_plain": (HERE / "emblem-st-perry-the-plain.png", "st-perry-the-plain-cape.jpg"),
 }
@@ -39,7 +42,46 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def load_svg_rgba(path: Path) -> np.ndarray:
+    """Rasterize official vector contours in Blender's Python without installing SVG/Pillow addons.
+
+    Input uses the approved artwork's unmodified 520x880 viewBox and even-odd
+    holes (sword groove, two scars, page linework, bookmark diamond).
+    Return bottom-up float32 RGBA, like bpy.data.images.
+    """
+    root = ET.parse(path).getroot()
+    svg_path = root.find(".//{http://www.w3.org/2000/svg}g/{http://www.w3.org/2000/svg}path")
+    if svg_path is None:
+        raise ValueError("Official Grimoirelee vector path not found")
+    width, height = 520, 880
+    mask = np.zeros((height, width), dtype=bool)
+    for fragment in re.findall(r"M([^Z]+)Z", svg_path.attrib["d"]):
+        points = np.array([(int(x) - 250, int(y) - 75)
+                           for x, y in re.findall(r"(-?\d+),(-?\d+)", fragment)], dtype=np.float64)
+        if len(points) < 3:
+            continue
+        low = max(0, int(np.floor(points[:, 1].min())))
+        high = min(height, int(np.ceil(points[:, 1].max())))
+        for row in range(low, high):
+            scan_y = row + .5
+            xs = []
+            for a, b in zip(points, np.roll(points, -1, axis=0)):
+                if (a[1] <= scan_y < b[1]) or (b[1] <= scan_y < a[1]):
+                    xs.append(a[0] + (scan_y - a[1]) * (b[0] - a[0]) / (b[1] - a[1]))
+            xs.sort()
+            for left, right in zip(xs[::2], xs[1::2]):
+                x0, x1 = max(0, int(np.ceil(left))), min(width, int(np.ceil(right)))
+                if x1 > x0:
+                    mask[row, x0:x1] ^= True
+    out = np.zeros((height, width, 4), dtype=np.float32)
+    out[..., :3] = np.array([0.90, 0.78, 0.53], dtype=np.float32)
+    out[..., 3] = mask
+    return out[::-1].copy()  # Blender stores its image bottom row first
+
+
 def load_rgba(path: Path) -> np.ndarray:
+    if path.suffix.lower() == ".svg":
+        return load_svg_rgba(path)
     image = bpy.data.images.load(str(path), check_existing=False)
     width, height = image.size
     pixels = np.empty(width * height * 4, dtype=np.float32)

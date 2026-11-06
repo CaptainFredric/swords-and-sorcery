@@ -1,23 +1,20 @@
-// The emblem a Spellblade carries on his back banner (the large cloth behind him). The trident is Castleward's own
-// symbol and every knight's from the start; it stays on the front tabard, the castle's banners and every small surface
-// whatever is chosen here. An earned emblem is shown only where it has room to read: the back banner, and its card in
-// the Armory. Each earned emblem is unlocked by one challenge (shared/src/challenges.mjs), and owned once that
-// challenge is complete: the profile's completed feats are the record, nothing else is stored for it.
-//
-// banners: the emblem's back-banner texture for each kind of banner cloth a model may have, by its material's name:
-//   KitBanner: the kit's banner atlas with the emblem on the back banner's half (the front tabard's half unchanged);
-//   CapeBanner: the Rodin Spellblade's cape, laid out in its body atlas: that atlas with the cape alone kept and its trident
-//   replaced by the emblem (made by tools/blender/characters/spellblade/rodin/emblems.py).
+// Castleward's institutional mark is Grimoirelee. Earned heralds remain personal back-banner choices.
+// Legacy profile/wire value 'trident' is a compatibility alias, never a separate selectable mark.
+// Model-specific earned and default banner textures are indexed by material name.
 
 import { CHALLENGE_PREVIEWS } from './challenges.mjs';
 
-export const DEFAULT_EMBLEM = 'trident';
+export const DEFAULT_EMBLEM = 'grimoirelee';
+export const LEGACY_EMBLEM = 'trident';
+export const canonicalEmblemId = (id) => id === LEGACY_EMBLEM ? DEFAULT_EMBLEM : id;
 
 const emblem = (id, name, description, { flavor = null, challenge = null, banners = {}, art = null, available = true } = {}) =>
   Object.freeze({ id, name, description, flavor, challenge, banners: Object.freeze({ ...banners }), art, available });
 
 export const EMBLEMS = Object.freeze({
-  trident: emblem('trident', 'Castleward Trident', 'The castle\'s own sign, worn by every knight of the yard.'),
+  grimoirelee: emblem('grimoirelee', 'Grimoirelee', 'Castleward’s sword conjured from an open grimoire, worn by every knight of the yard.', {
+    art: '/client/assets/heraldry/grimoirelee.svg',
+  }),
   seize_thy_slayer: emblem('seize_thy_slayer', 'Seize Thy Slayer', 'A gauntlet closed on a burning blade.', {
     flavor: 'Leverage comes with an edge.',
     challenge: 'seize_thy_slayer',
@@ -43,10 +40,10 @@ export const EMBLEMS = Object.freeze({
   }),
 });
 
-export function isEmblem(id) { return typeof id === 'string' && Object.hasOwn(EMBLEMS, id); }
-export function emblemChoice(id) { return isEmblem(id) ? EMBLEMS[id] : EMBLEMS[DEFAULT_EMBLEM]; }
+export function isEmblem(id) { return typeof id === 'string' && Object.hasOwn(EMBLEMS, canonicalEmblemId(id)); }
+export function emblemChoice(id) { return isEmblem(id) ? EMBLEMS[canonicalEmblemId(id)] : EMBLEMS[DEFAULT_EMBLEM]; }
 
-/** The emblems a profile's completed challenges have earned (the trident always). */
+/** The emblems a profile's completed challenges have earned (Grimoirelee always). */
 export function ownedEmblems(challenges) {
   const completed = challenges?.completed ?? {};
   return Object.values(EMBLEMS).filter((e) => e.available && (!e.challenge || Boolean(completed[e.challenge]))).map((e) => e.id);
