@@ -335,7 +335,7 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
       }
       if (upgradeRemoteVisual(shell, instance, generation)) {
         instance.setCloth(shell.cloth ?? 'crimson');
-        instance.setEmblem?.(shell.emblem ?? 'trident');
+        instance.setEmblem?.(shell.emblem ?? 'grimoirelee');
         if (shell.cockpitHeadHidden) {
           shell.lastHeadMeshConfigured = false;
           shell.setCockpitHeadHidden(true);
@@ -511,7 +511,7 @@ export class RemotePlayers {
       if(!player.operatingRamId)shell.visualInstance?.animator?.releaseRam();
     shell.cloth = player.cloth ?? 'crimson';
       shell.visualInstance?.setCloth(shell.cloth);
-      shell.emblem = player.emblem ?? 'trident';
+      shell.emblem = player.emblem ?? 'grimoirelee';
       shell.visualInstance?.setEmblem?.(shell.emblem);
       const d = shell.root.userData;
 
@@ -643,7 +643,7 @@ export class RemotePlayers {
     if(!player.operatingRamId)shell.visualInstance?.animator?.releaseRam();
     shell.cloth = player.cloth ?? 'crimson';
     shell.visualInstance?.setCloth(shell.cloth);
-    shell.emblem = player.emblem ?? 'trident';
+    shell.emblem = player.emblem ?? 'grimoirelee';
     shell.visualInstance?.setEmblem?.(shell.emblem);
     if (!visible || !at?.position) {
       if (shell.root.visible) shell.vortexBlade?.set(0, nowMs / 1000, { swinging: false });
