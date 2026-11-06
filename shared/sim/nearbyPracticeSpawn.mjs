@@ -3,13 +3,20 @@
 import { resolvePlayerWorld, surfaceHeightAt } from '../src/collision.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 
-export function nearbyPracticeSpawn(room, playerId, excludeId = null) {
-  const anchor = room?.players?.get(playerId)
+export function nearbyPracticeSpawn(room, playerId, excludeId = null, inspectionReference = null) {
+  let anchor = room?.players?.get(playerId)
     ?? [...(room?.players?.values?.() ?? [])].find(player => player.actorKind === 'human');
   if (!anchor?.position || !Number.isFinite(anchor.yaw)) return null;
   const world = playerMovementWorld(room.world, {
     ballista: room.biByeLlista, ram: room.soFistication, flight: room.fightFlight,
   });
+  const camera = inspectionReference;
+  if (room.inspectionEnabled && camera && [camera.x, camera.y, camera.z, camera.yaw].every(Number.isFinite)) {
+    // The local director's free camera can be high above the arena; anchor to
+    // the highest real supporting floor below it before searching around it.
+    const floor = surfaceHeightAt(camera.x, camera.z, camera.y + 1, world);
+    if (floor !== null) anchor = { position: { x: camera.x, y: floor, z: camera.z }, yaw: camera.yaw };
+  }
   const others = [...room.players.values()].filter(p => p.id !== excludeId && p.alive && p.position);
   const angles = [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2,
     3 * Math.PI / 4, -3 * Math.PI / 4, Math.PI];
