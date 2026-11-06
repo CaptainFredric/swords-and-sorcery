@@ -70,6 +70,31 @@ test('Practice settings are server-owned and disallowed in PvP rooms',()=>{
   assert.equal(configurePracticeOneHit(room,'a',{action:'natural'},9),true);
   assert.equal(a.practiceOneHit,null);
 });
+test('Manual Practice tiers apply once when retention is unchecked and keep applying when checked',()=>{
+  const {room,a}=battle('PRACTICE');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'full'},9),true);
+  assert.equal(configurePracticeOneHit(room,'a',{action:'enabled',enabled:false},9),true);
+  assert.equal(a.practiceOneHit.enabled,false);
+  assert.equal(tryUltimate(room,'a',9.1),true);
+  ticks(room,9.1,32);
+  assert.equal(room.events.find(e=>e.type==='oneHitCommitted')?.tiers.fire,2);
+  assert.equal(a.practiceOneHit,null,'one-shot tiers reset only after a real commit');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'gale'},12),true);
+  assert.equal(a.practiceOneHit.stages.gale,2);
+  assert.equal(a.practiceOneHit.stages.fire,0);
+  a.ultimateState=null;a.recoverUntil=-Infinity;
+  assert.equal(tryUltimate(room,'a',12.1),true);
+  ticks(room,12.1,32);
+  assert.equal(a.practiceOneHit.stages.gale,2,'infinite manual preset survives a real commit');
+});
+test('Human Practice resource stays fully charged in snapshots even after Ultimate commitment',()=>{
+  const {room,a}=battle('PRACTICE');
+  assert.equal(a.prowess,PROWESS.full,'new Practice actor starts full');
+  assert.equal(tryUltimate(room,'a',9),true);
+  ticks(room,9,35);
+  assert.equal(a.prowess,PROWESS.full);
+  assert.equal(serializeSnapshot(room,11,'a').players.find(p=>p.id==='a').prowess,PROWESS.full);
+});
 test('Line of Conduct hits through actual shared spell casting and grants one stage per spell use',()=>{
   const {room,a,b}=battle();
   a.spell='line_of_conduct';

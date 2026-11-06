@@ -150,6 +150,7 @@ export function resetPracticePlayer(room, playerId, nowSec) {
     }
   }
   resetActorAtSpawn(player, spawn, nowSec);
+  player.prowess=PROWESS.full;
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
   return true;
 }

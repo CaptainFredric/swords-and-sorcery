@@ -2001,7 +2001,7 @@ function updateInspectionControls() {
   if(oneHitPanel){
     const self=latestSnapshot?.players?.find(p=>p.id===socket.playerId);
     oneHitPanel.hidden=self?.ultimate!=='one_hit_of_wonders';
-    const levels=self?.practiceOneHit?.enabled?self.practiceOneHit.stages:self?.oneHitInfusions;
+    const levels=self?.practiceOneHit?.stages??self?.oneHitInfusions;
     for(const select of oneHitPanel.querySelectorAll('[data-one-hit-element]')){
       const level=String(levels?.[select.dataset.oneHitElement]??0);
       if(select.value!==level)select.value=level;
@@ -2009,8 +2009,10 @@ function updateInspectionControls() {
     const unlimited=$('#practice-one-hit-unlimited');
     if(unlimited)unlimited.checked=Boolean(self?.practiceOneHit?.enabled);
     const status=$('#practice-one-hit-status');
-    if(status)status.textContent=self?.practiceOneHit?.enabled?
-      'Infinite testing · selected stages persist after each Ultimate.':
+    if(status)status.textContent=self?.practiceOneHit?
+      (self.practiceOneHit.enabled
+        ? 'Manual tiers · selected stages persist after every cast.'
+        : 'Manual tiers · selected stages apply once, then return to natural acquisition.'):
       'Natural acquisition · land or receive actual elemental spells to gain tiers.';
   }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
@@ -2129,8 +2131,8 @@ $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSp
 $('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
 $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
-// the yard earns no prowess: this readies the ultimate to try
-$('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
+// Practice Ultimate is always charged by authoritative room state.
+// No Ready Ultimate button or extra activation is needed.
 const practiceOneHit=$('#practice-one-hit');
 practiceOneHit?.addEventListener('change',event=>{
   const target=event.target;
