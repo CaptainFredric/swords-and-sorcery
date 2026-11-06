@@ -154,6 +154,7 @@ export class InputController {
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
+    else if (action === 'ultimate') this.ultimateRelease();
     else if (RELEASE[action]) RELEASE[action](this);
     else if (!PRESS[action]) this.onAction(action, false);
   }
@@ -537,6 +538,10 @@ export class InputController {
     if (!this.enabled || this.allowAction?.('ultimate') === false) return;
     this.socket.ultimate?.();
     this.onUltimateLocal?.();
+  }
+
+  ultimateRelease() {
+    if(!this.mountedFlight)this.socket.oneHitRelease?.();
   }
 
   dash() {

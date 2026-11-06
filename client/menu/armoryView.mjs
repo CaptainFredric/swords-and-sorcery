@@ -10,6 +10,11 @@ import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 
 // how each spell reads in the Armory: what it is like, then plainly what it does
 const SPELL_WORDS = Object.freeze({
+  line_of_conduct: {
+    mark:'ϟ',
+    line:'A lightning line whose direct damage diminishes over distance; dangerous conduction persists briefly along the path.',
+    facts:(s)=>`20 close → 12 extreme · ${s.cooldownSec}s cooldown`,
+  },
   fireball: {
     mark: '✦',
     line: 'Explodes on impact and burns enemies caught near the blast.',
@@ -39,6 +44,10 @@ const SPELL_WORDS = Object.freeze({
 
 // and each ultimate
 const ULTIMATE_WORDS = Object.freeze({
+  one_hit_of_wonders: {
+    mark: '✦', line: 'Simple Sunder: a spinning sword strike and rock-breaking slam. Earn Fire, Frost, Gale and Lightning separately from real spell encounters.',
+    facts: () => '40 PHYSICAL · +13 FIRE · +11 FROST · +8 GALE · +12 LIGHTNING · FULL GALE: AERIAL · FULL LIGHTNING: BLINK',
+  },
   sunder: {
     mark: '⚒',
     line: 'Every sword strike becomes a crushing downward blow. Hits interrupt actions, split the ground, and hammer through Guard.',

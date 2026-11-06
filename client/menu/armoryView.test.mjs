@@ -18,11 +18,11 @@ test('the Armory lists every spell from the shared table, marks the one carried,
   for (const spell of view.spells) assert.ok(spell.line.length > 20, `${spell.id} has words`);
 });
 
-test('the Armory offers both ultimates, marks the one carried, and says plainly what each does', async () => {
+test('the Armory offers the original ultimates and One Hit of Wonders with its own identity', async () => {
   const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
   const view = armoryView('fireball', 'vortex');
   assert.deepEqual(view.ultimates.map((u) => u.id), Object.keys(ULTIMATES));
-  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex', 'chivalry'], 'three ultimate identities');
+  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex', 'chivalry', 'one_hit_of_wonders'], 'four ultimate identities');
   assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');
@@ -40,8 +40,12 @@ test('Chivalry\'s prepared spells in the Armory: a slot for each key, the starti
   assert.equal(slots[1].previous, null, 'the starting spell stays where it is');
   assert.equal(slots[1].next, null);
   // a slot turns among its own spell and any other unprepared spells
-  assert.deepEqual(new Set([slots[0].previous, slots[0].next]), new Set(['steel', 'coreflagration']));
-  assert.deepEqual(new Set([slots[2].previous, slots[2].next]), new Set(['steel', 'coreflagration']));
+  // New spells enter the same carousel; exact neighbours can change as spells are added.
+  for(const slot of [slots[0],slots[2]]) {
+    assert.ok(slot.previous && slot.next && slot.previous!==slot.next);
+    assert.ok(['steel','coreflagration','line_of_conduct'].includes(slot.previous));
+    assert.ok(['steel','coreflagration','line_of_conduct'].includes(slot.next));
+  }
   for (const slot of slots) assert.ok(slot.mark && slot.name === SPELLS[slot.id].label.toUpperCase());
   // an outside starting spell takes the last slot, as the shared rule says
   assert.deepEqual(preparedArmoryView('steel', ['fireball', 'frostfire', 'gale']).map((s) => s.id), ['fireball', 'frostfire', 'steel']);

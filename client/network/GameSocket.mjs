@@ -192,6 +192,8 @@ export class GameSocket {
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate() { this.send({ type: 'ultimate' }); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
+  oneHitRelease() { this.send({ type: 'oneHitRelease' }); }
+  practiceOneHit(options={}) { this.send({type:'practiceOneHit',...options}); }
   dash(direction) { this.send({ type: 'dash', direction }); }
   rematch() { this.send({ type: 'rematch' }); }
   switchTeam(team = null) { this.send({ type: 'switchTeam', team }); }

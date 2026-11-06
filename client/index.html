@@ -596,6 +596,32 @@
           <button id="practice-remove">REMOVE DUMMY</button>
           <h3>ULTIMATE</h3>
           <button id="practice-ultimate">READY ULTIMATE</button>
+          <details class="practice-siege" id="practice-one-hit" hidden>
+            <summary>ONE HIT OF WONDERS · INFINITE TESTING</summary>
+            <p>Practice only. Each element independently progresses from None to Partial to Full.</p>
+            <div class="one-hit-practice-levels">
+              <label>FIRE <select data-one-hit-element="fire"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              <label>FROST <select data-one-hit-element="frost"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              <label>GALE <select data-one-hit-element="gale"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              <label>LIGHTNING <select data-one-hit-element="lightning"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+            </div>
+            <div class="one-hit-practice-presets">
+              <button type="button" data-one-hit-preset="simple">SIMPLE SUNDER</button>
+              <button type="button" data-one-hit-preset="partial">ALL PARTIAL</button>
+              <button type="button" data-one-hit-preset="full">ALL FULL</button>
+              <button type="button" data-one-hit-preset="gale">FULL GALE</button>
+              <button type="button" data-one-hit-preset="gale-lightning">GALE + LIGHTNING</button>
+              <button type="button" data-one-hit-preset="reset">RESET INFUSIONS</button>
+            </div>
+            <label class="one-hit-unlimited"><input id="practice-one-hit-unlimited" type="checkbox" checked> PRESERVE SELECTED INFUSIONS BETWEEN CASTS</label>
+            <div class="one-hit-practice-presets">
+              <button type="button" data-one-hit-action="grounded">GROUNDED TEST</button>
+              <button type="button" data-one-hit-action="aerial">AERIAL TEST</button>
+              <button type="button" data-one-hit-action="natural">NATURAL SPELL-HIT ACQUISITION</button>
+            </div>
+            <small id="practice-one-hit-status" role="status">Practice configurations do not affect multiplayer matches.</small>
+          </details>
+
           <details class="practice-siege">
             <summary>SIEGE MACHINATIONS</summary>
             <label class="siege-machine-choice">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option><option value="fight-and-flight">FIGHT-AND-FLIGHT</option></select></label>

@@ -118,6 +118,11 @@ export const SPELLS = Object.freeze({
     core: Object.freeze({ initialDamage: 5, fuseSec: 0.6, parryRegenPauseSec: 1.5, parryKnockSpeed: 13, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
     burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
   }),
+  line_of_conduct: Object.freeze({
+    id: 'line_of_conduct', label: 'Line of Conduct', short: 'Conduct',
+    kind: 'line', cooldownSec: 6, gatherSec: 0.45,
+    directDamage: 20, edgeDamage: 12, windResist: 99,
+  }),
 });
 
 // Spells no knight carries: thrown by something else, and from there a spell like any other (it flies, meets the
@@ -139,6 +144,7 @@ export const CONJURED = Object.freeze({
     id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 26, windResist: 1,
     directDamage: 15, edgeDamage: 9, radius: 2.2, shove: 0.85, size: 1.08,
   }),
+
 });
 
 export const DEFAULT_SPELL = 'fireball';

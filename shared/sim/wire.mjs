@@ -15,9 +15,9 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
-import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -224,9 +224,18 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
+      oneHitInfusions: { ...(p.oneHitInfusions ?? {fire:0,frost:0,gale:0,lightning:0}) },
+      shaken: p.shaken ? { ...p.shaken } : null,
+      electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,
+      practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
+      oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
+      oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
       ultimate: p.ultimate ?? null,
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
+        ...(p.ultimateState.oneHit ? { oneHit: { ...p.ultimateState.oneHit, tiers: { ...p.ultimateState.oneHit.tiers } } } : {}),
+        ...(Number.isFinite(p.ultimateState.teleportHoldAt) ? { teleportHoldAt: p.ultimateState.teleportHoldAt } : {}),
+        ...(p.ultimateState.preparedTiers ? { preparedTiers:{...p.ultimateState.preparedTiers} } : {}),
         // (a Vortex: where its blade is, how fast it turns, and what the knight has steered it to)
         ...(p.ultimateState.angle !== undefined ? {
           angle: p.ultimateState.angle, angleAt: p.ultimateState.angleAt, rate: p.ultimateState.rate, emphasis: p.ultimateState.emphasis ?? 0,
@@ -242,6 +251,16 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       operatingBallistaId: p.operatingBallistaId ?? null,
       operatingRamId: p.operatingRamId ?? null,
       operatingFightFlightId: p.operatingFightFlightId ?? null,
+    })),
+    oneHitWaves: (room.oneHitWaves ?? []).map(w => ({
+      id:w.id, ownerId:w.ownerId, position:{...w.position}, direction:{...w.direction},
+      bornAt:w.bornAt, tiers:{...w.tiers},
+    })),
+    oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
+      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, until:z.until,
+    })),
+    lineConductWires: (room.lineConductWires ?? []).map(w => ({
+      id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity, ...(p.corePhase ? { corePhase: p.corePhase, armedAt: p.armedAt ?? null, detonateAt: p.detonateAt ?? null } : {}) })),
     structures: room.structures,
@@ -351,6 +370,7 @@ export function applyRoomCommand(room, player, message, time) {
   // Gate B3: only the named Chivalry Ultimate may start aboard the flying
   // apparatus; other Ultimates retain their standard unmounted restrictions.
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
+  if(mounted && message.type==='oneHitRelease')return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -501,6 +521,8 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingFightFlightId&&(room.fightFlight?.flightDashHeld||room.fightFlight?.terminalPrep||room.fightFlight?.terminalDive))
         return {rejected:'Release Dash before activating ordinary Chivalry.'};
       tryUltimate(room, player.id, time); return {};
+    case 'oneHitRelease':
+      releaseOneHitCharge(room,player.id,time); return {};
     case 'flightUltimateHold': {
       const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
       if(result.rejected)return {rejected:result.rejected};
@@ -544,6 +566,8 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceReadyUltimate':
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
+    case 'practiceOneHit':
+      return configurePracticeOneHit(room,player.id,message,time) ? {} : {rejected:PRACTICE_REJECTED};
     case 'practiceSetDummyMode':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };

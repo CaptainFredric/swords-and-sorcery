@@ -209,11 +209,12 @@ registry
       { value: 'frostfire', label: 'Frostfire' },
       { value: 'gale', label: 'Gale Garner' },
       { value: 'steel', label: 'Sheathe in Steel' },
+      { value: 'line_of_conduct', label: 'Line of Conduct' },
     ],
   })
   .defineSetting({
     id: 'loadout.ultimate', section: 'loadout', label: 'Ultimate', type: 'choice', default: 'sunder',
-    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }],
+    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }, { value: 'one_hit_of_wonders', label: 'One Hit of Wonders' }],
   })
   .defineSetting({
     id: 'loadout.preparedSpells', section: 'loadout', label: 'Prepared spells', type: 'array', default: DEFAULT_PREPARED_SPELLS,

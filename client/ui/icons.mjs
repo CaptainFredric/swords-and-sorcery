@@ -13,6 +13,11 @@ const CARRIAGE_WHEEL='<circle cx="12" cy="12" r="9" fill="none" stroke="#dfc89c"
 const RAM_GAUNTLET='<g stroke-linejoin="round" stroke-width="1"><path d="M6 15h13l2 7H4z" fill="#aa9064" stroke="currentColor"/><path d="M7 18h11M8 20h9" stroke="#4a4134" fill="none"/><path d="M5 7V4l2-1h2l1 1V3l2-1h2l1 2 1-1h2l1 2h2l1 2v6l-4 5H8l-4-5V9z" fill="#606d76" stroke="currentColor"/><path d="M6 5h3v6H6zM10 4h4v7h-4zM15 5h3v6h-3zM19 7h2v5h-2z" fill="#c5cbd0" stroke="#30393f"/><path d="M9 12h11l-3 4h-6z" fill="#929fa8" stroke="#30393f"/><path d="m4 9 3-1 6 4-2 4-4-1-3-3z" fill="#b5bfc5" stroke="#30393f"/><path d="m7 10 3 2" fill="none" stroke="#5c6870"/></g>';
 
 export const ICONS = Object.freeze({
+  // Lightning in a narrow conducting wire; a broken zigzag, not a Fireball.
+  line_of_conduct: '<path d="m4 4 6 3-3 4 9 4-4 5M3 12l4-1M16 15l5-2M11 2l-1 5" stroke-width="1.7" fill="none"/>',
+  // One ordinary-sized sword spins down into fractured stone; orbiting stars
+  // hint at optional infusions, not a permanently four-element explosion.
+  one_hit_of_wonders: '<path d="m11 3 2-1 1 11-2 4-2-4 1-10z" fill="currentColor" stroke="none"/><path d="M7 6h10M3 17l4-2 4 3 4-2 6 2M2 10c2-5 17-6 20 1M20 8l2 3-4 1M5 3l.8 2M19 4l-.8 2" fill="none"/>',
   attack: '<path d="m19 2 2 2-10 12-3-3z" fill="currentColor" stroke="none"/><path d="m6 12 6 6M8 16l-4 5-2-2 5-4"/>',
   guard: '<path d="m12 2 8 3-1 9-7 8-7-8-1-9z"/><path d="M12 5v12M7 7l1 6 4 4"/>',
   fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',

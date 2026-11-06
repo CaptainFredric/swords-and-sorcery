@@ -27,6 +27,7 @@ import { getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
+import { OneHitLiveEffects } from './OneHitLiveEffects.mjs';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
 import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
@@ -63,6 +64,7 @@ import {
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
+import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -310,6 +312,7 @@ export class GameRuntime {
       this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
     };
     this.effects = new Effects(this.scene, this.camera);
+    this.oneHitEffects = new OneHitLiveEffects(this.scene);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -1508,6 +1511,19 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.oneHitEffects?.event(event);
+      if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
+        const earned=event.tier===2?'FULL':'PARTIAL';
+        this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
+          'sunder',1300);
+      }
+      if(event.type==='oneHitCommitted'&&event.playerId===this.playerId){
+        // Especially important for Full Lightning: the sword must come down
+        // on arrival rather than playing a second startup after the teleport.
+        this.weapon.brace(this.presentationNow()/1000,{
+          startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
+        });
+      }
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
       // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
@@ -3121,6 +3137,16 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.playerId;
+    if(event.ultimate==='one_hit_of_wonders'){
+      this.#play(sunderDropRecipe(),me?null:this.#bodyPosition(event.playerId),me?1:.75);
+      if(me){
+        this.weapon.brace(this.presentationNow()/1000+(event.commitAt-this.socket.serverNow()),{
+          startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
+        });
+        this.hud.flashText('ONE HIT OF WONDERS','sunder',1400);
+      }
+      return;
+    }
     // (a fresh use: its one line, whichever of his ultimate's lines has the turn)
     const voice = this.ultimateLines.begin(event.playerId, event.ultimate);
     // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
@@ -3727,7 +3753,8 @@ export class GameRuntime {
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
-      const whirl = ultimateWhirl(this.localAuth, serverNow);
+      const whirl = ultimateWhirl(this.localAuth, serverNow) ??
+        oneHitGlide(this.localAuth,MOVEMENT.runSpeed);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
       const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
       const moveInput = reeling
@@ -4067,6 +4094,11 @@ export class GameRuntime {
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
+    this.oneHitEffects?.update(dt,this.latestSnapshot);
+    if(this.localState){
+      this.localState.shaken=this.localAuth?.shaken??null;
+      this.localState.shakenNow=this.socket.serverNow();
+    }
 
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
