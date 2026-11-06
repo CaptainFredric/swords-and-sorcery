@@ -79,7 +79,10 @@ test('Manual Practice tiers apply once when retention is unchecked and keep appl
   assert.equal(configurePracticeOneHit(room,'a',{action:'enabled',enabled:false},9),true);
   assert.equal(a.practiceOneHit.enabled,false);
   assert.equal(tryUltimate(room,'a',9.1),true);
-  ticks(room,9.1,32);
+  // ALL FULL includes Full Lightning: the physical attack is held until
+  // Ultimate is released, rather than committing on its startup timer.
+  assert.equal(releaseOneHitCharge(room,'a',9.2),true);
+  ticks(room,9.2,32);
   assert.equal(room.events.find(e=>e.type==='oneHitCommitted')?.tiers.fire,2);
   assert.equal(a.practiceOneHit,null,'one-shot tiers reset only after a real commit');
   assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'gale'},12),true);
