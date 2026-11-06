@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildValkyrieRitualGeometry,createValkyrieRitual,advanceValkyrieRitual,
-  ritualFraction,ritualStartNear,pointInRitualStencil,
+  ritualFraction,ritualDistanceFraction,ritualStartNear,pointInRitualStencil,
   VALKYRIE_RITUAL_POINTS,RITUAL_UNIT,RITUAL_HALO_STEPS,
 } from './terminalDiveGesture.mjs';
 
@@ -76,4 +76,19 @@ test('legacy stencil mapping and default fixture remain stable for old replay ad
  assert.ok(Math.hypot(normalized.x-start[0],normalized.y-start[1])<1e-6);
  assert.equal(ritualStartNear(normalized),true);
  assert.equal(pointInRitualStencil({x:10,y:10},{left:0,top:0,width:0,height:100}),null);
+});
+
+test('trace illumination is proportional to actual painted length, not equally sized checkpoints',()=>{
+ const points=[[0,0],[0,120],[20,120],[20,140]];
+ const initial=createValkyrieRitual(8,1,points);
+ assert.equal(ritualDistanceFraction(initial),0);
+ const halfway=advanceValkyrieRitual(initial,{x:0,y:60},100);
+ assert.ok(halfway);
+ assert.ok(Math.abs(ritualDistanceFraction(halfway)-.375)<.0001,
+   'half the 120 px stroke paints 60 of the 160 physical pixels');
+ assert.ok(Math.abs(ritualFraction(halfway)-1/6)<.0001,
+   'the old waypoint-index fraction would underreport the long stroke');
+ const first=advanceValkyrieRitual(halfway,{x:0,y:120},110);
+ assert.equal(first.index,1);
+ assert.ok(Math.abs(ritualDistanceFraction(first)-.75)<.0001);
 });
