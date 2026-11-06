@@ -17,7 +17,7 @@ import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, 
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
   buildValkyrieRitualGeometry,ritualStartNear,createValkyrieRitual,
-  advanceValkyrieRitual,ritualFraction }
+  advanceValkyrieRitual,ritualDistanceFraction }
   from './terminalDiveGesture.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -88,6 +88,10 @@ export class TouchControls {
     this.sprintLatched = false;this.chargeHeld=false;
     this.valkyrieTouchLatched = new Map();
     this.ritual=null;
+    this.ritualVisual=null;
+    this.ritualGlowTimer=null;
+    this.valkyrieReason='';
+    this.valkyriePreview=false;
     this.valkyrieGeometry=null;
     this.valkyrieGeometryKey='';
     this.flightRiseHeld = false;
@@ -143,14 +147,18 @@ export class TouchControls {
     this.valkyrieStencil.innerHTML=`
       <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="none">
         <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
+        <path class="touch-valkyrie-ink" pathLength="1" d="${VALKYRIE_RITUAL_PATH}"/>
         ${VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>{
           const a=VALKYRIE_RITUAL_POINTS[i];
           return `<path class="touch-valkyrie-segment ritual-stage-${i}"
             d="M${a[0]} ${a[1]} L${p[0]} ${p[1]}"/>`;
         }).join('')}
         <text class="touch-valkyrie-glyph" x="151" y="112">ᛞ</text>
-      </svg>`;
+      </svg>
+      <span class="touch-valkyrie-status" role="status" aria-live="polite"></span>`;
     this.layer.append(this.valkyrieStencil);
+    this.valkyrieInk=this.valkyrieStencil.querySelector('.touch-valkyrie-ink');
+    this.valkyrieStatus=this.valkyrieStencil.querySelector('.touch-valkyrie-status');
     this.valkyrieLines=VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>
       this.valkyrieStencil.querySelector('.ritual-stage-'+i));
     this.galeGesture = null;
@@ -690,11 +698,25 @@ export class TouchControls {
           !fb?.retired&&!fb?.terminalDive&&!fb?.terminalDiveSpent&&
           fb?.skill?.id==='doNotStopMyAscension');
         this.valkyrieEligible=valkyrieReady;
+        this.valkyriePreview=valkyriePreview;
+        this.valkyrieReason=valkyrieReady?'READY':
+          fb?.terminalDiveSpent?'ALREADY USED':
+          !fb?.rotorHP?'ROTOR DAMAGED':
+          !fb?.flightCharge?'RECHARGE ROTOR':
+          fb?.skill?.phase!=='active'?'ACTIVATE ASCENSION':
+          fb?.grounded?'BECOME AIRBORNE':
+          local.ultimate!=='chivalry'?'EQUIP CHIVALRY':
+          local.ultimateState?'CHIVALRY IN USE':
+          (local.prowess??0)<100?'FILL CHIVALRY METER':'NOT READY';
         this.valkyrieStencil.hidden=!(valkyriePreview||this.previewMode==='flight');
         this.valkyrieStencil.classList.toggle('ready',valkyrieReady);
         this.valkyrieStencil.classList.toggle('unready',!valkyrieReady);
         this.#syncValkyrieGeometry();
-        if(!valkyrieReady)this.#clearValkyrieRitual();
+        // The visible preview must remain traceable even before it can fire.
+        if(!valkyriePreview&&this.previewMode!=='flight')this.#clearValkyrieRitual();
+        else if(!this.ritual&&!this.ritualVisual)
+          this.valkyrieStatus.textContent=valkyrieReady?'ᛞ · TRACE FROM JUMP':
+            'ᛞ · '+this.valkyrieReason;
         const uBtn = this.buttons.ultimate;
         if (uBtn) {
           const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
@@ -711,6 +733,7 @@ export class TouchControls {
         if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
         this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
         this.valkyrieEligible=false;
+        this.valkyriePreview=false;
         this.valkyrieStencil.hidden=this.previewMode!=='flight';
         this.valkyrieStencil.classList.toggle('ready',false);
         this.valkyrieStencil.classList.toggle('unready',true);
@@ -940,6 +963,11 @@ export class TouchControls {
     this.valkyrieStencil.querySelector('svg')?.setAttribute('viewBox',
       `0 0 ${width} ${height}`);
     this.valkyrieStencil.querySelector('.touch-valkyrie-ghost')?.setAttribute('d',geometry.path);
+    this.valkyrieInk?.setAttribute('d',geometry.path);
+    if(this.valkyrieStatus?.style){
+      this.valkyrieStatus.style.left=`${Math.max(8,Math.min(width-230,geometry.center[0]-115))}px`;
+      this.valkyrieStatus.style.top=`${Math.max(7,geometry.center[1]-87)}px`;
+    }
     const glyph=this.valkyrieStencil.querySelector('.touch-valkyrie-glyph');
     glyph?.setAttribute('x',String(geometry.center[0]));
     glyph?.setAttribute('y',String(geometry.center[1]+8));
@@ -954,85 +982,97 @@ export class TouchControls {
   }
 
   #paintValkyrieRitual() {
-    const g=this.ritual;
-    const progress=g&&!g.invalid?ritualFraction(g):0;
+    const g=this.ritual??this.ritualVisual;
+    const progress=g?ritualDistanceFraction(g):0;
     this.valkyrieStencil?.style?.setProperty('--ritual-progress',String(progress));
-    this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g&&!g.invalid));
+    this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g));
     this.valkyrieStencil?.classList?.toggle('complete',Boolean(g?.completed));
+    if(this.valkyrieInk?.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
+    if(this.valkyrieStatus&&g&&!g.completed)
+      this.valkyrieStatus.textContent=`ᛞ · TRACE ${Math.round(progress*100)}%`;
     for(let i=0;i<this.valkyrieLines.length;i++){
       const line=this.valkyrieLines[i];if(!line)continue;
-      const amount=g&&!g.invalid?
-        i<g.index?1:i===g.index?g.segmentProgress:0:0;
+      const amount=g?i<g.index?1:i===g.index?g.segmentProgress:0:0;
       line.style.strokeOpacity=String(.05+.95*amount);
       line.style.strokeWidth=String(2+2.4*amount);
     }
   }
   #clearValkyrieRitual() {
     this.ritual=null;
+    this.ritualVisual=null;
+    if(this.ritualGlowTimer!==null){
+      clearTimeout(this.ritualGlowTimer);this.ritualGlowTimer=null;
+    }
     if(this.valkyrieStencil)this.#paintValkyrieRitual();
   }
   #ritualStart(event) {
     if(event.pointerType==='mouse'||!this.flightMounted||
-      !this.valkyrieEligible||this.ritual||
+      !this.valkyriePreview||this.ritual||
       this.layer.classList.contains('touch-layout-editing'))return false;
-    // Only a finger which actually STARTS on Jump may begin this chord.
-    // Proximity alone stole ordinary Chivalry/Ultimate taps in tight layouts.
-    const startAction=event.target.closest?.('[data-action]')?.dataset.action;
-    if(startAction!=='jump')return false;
+    // Only Jump can start Dagaz. The other buttons must remain actionable.
+    if(event.target.closest?.('[data-action]')?.dataset.action!=='jump')return false;
+    this.#syncValkyrieGeometry();
     const point=this.#ritualPoint(event);
-    if(!ritualStartNear(point,this.valkyrieGeometry?.points))return false;
+    const jumpRect=this.buttons.jump?.getBoundingClientRect?.();
+    const tolerance=Math.max(39,Math.min(75,(jumpRect?.width??60)*.6+10));
+    if(!ritualStartNear(point,this.valkyrieGeometry?.points,tolerance))return false;
+    this.#clearValkyrieRitual();
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
-      this.valkyrieGeometry.points),
-      startedOnJump:event.target.closest?.('[data-action]')?.dataset.action==='jump',
-      startPoint:point,invalid:false};
+      this.valkyrieGeometry.points),startedOnJump:true,startPoint:point};
     this.#paintValkyrieRitual();
     return true;
   }
   #ritualMove(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
-    if(g.invalid||g.completed)return true;
-    const at=this.#ritualPoint(event);
-    if(!at){g.invalid=true;this.#paintValkyrieRitual();return true;}
-    // Interpolate pointer movement so a low-frequency mobile browser can
-    // advance across short halo arcs without silently skipping checkpoints.
+    if(g.completed)return true;
+    const at=this.#ritualPoint(event);if(!at)return true;
     const start=g.last??[at.x,at.y];
-    const total=Math.hypot(at.x-start[0],at.y-start[1]);
-    const steps=Math.max(1,Math.min(48,Math.ceil(total/9)));
-    let next=g;
-    const now=performance.now();
+    const length=Math.hypot(at.x-start[0],at.y-start[1]);
+    const steps=Math.max(1,Math.min(64,Math.ceil(length/7)));
+    let next=g;const now=performance.now();
     for(let i=1;i<=steps;i++){
       const point={x:start[0]+(at.x-start[0])*i/steps,
         y:start[1]+(at.y-start[1])*i/steps};
       const advanced=advanceValkyrieRitual(next,point,now);
-      if(!advanced){next=null;break;}
+      if(!advanced)break; // Straying off-path must not erase prior progress.
       next=advanced;
       if(next.completed)break;
     }
-    if(!next){g.invalid=true;this.#paintValkyrieRitual();return true;}
     this.ritual=next;
     this.#paintValkyrieRitual();
     if(next.completed){
-      // A completed physical trace has a SINGLE authoritative effect.
-      // Do not simulate any of the underlying button touches or fake a
-      // Dash+Ultimate chord: the host rechecks full meter and active Ascension.
-      this.input.flightTerminalRitual?.();
+      if(this.valkyrieEligible){
+        this.valkyrieStatus.textContent='ᛞ · VALKYRIE!';
+        // The authoritative host independently checks and spends the cost.
+        this.input.flightTerminalRitual?.();
+      }else{
+        this.valkyrieStatus.textContent='ᛞ · '+(this.valkyrieReason||'NOT READY');
+      }
     }
     return true;
   }
   #ritualEnd(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
-    // Keep ordinary Jump taps usable even when the stencil overlays Jump.
-    // Drawing the rune NEVER hops or fires the other underlying buttons.
-    if(event.type==='pointerup'&&g.startedOnJump&&!g.invalid&&!g.completed&&
+    if(event.type==='pointerup'&&g.startedOnJump&&!g.completed&&
        g.index===0&&g.segmentProgress<.08&&
        performance.now()-g.startedAt<230){
       this.input.flightHop?.();
     }
-    this.#clearValkyrieRitual();
+    // Show the partial or complete stroke briefly AFTER the thumb lifts.
+    this.ritual=null;this.ritualVisual=g;
+    this.#paintValkyrieRitual();
+    if(this.ritualGlowTimer!==null)clearTimeout(this.ritualGlowTimer);
+    this.ritualGlowTimer=setTimeout(()=>{
+      this.ritualGlowTimer=null;this.ritualVisual=null;
+      this.#paintValkyrieRitual();
+      if(this.valkyrieStatus&&!this.ritual)
+        this.valkyrieStatus.textContent=this.valkyrieEligible?
+          'ᛞ · TRACE FROM JUMP':'ᛞ · '+(this.valkyrieReason||'NOT READY');
+    },850);
     return true;
   }
 
@@ -1185,6 +1225,13 @@ export class TouchControls {
   };
 
   #up = (event) => {
+    // Real touchscreens implicitly capture a pointer on the original child
+    // button. Moving that capture to the controls layer can emit a bubbling
+    // lostpointercapture for the child when the first move is processed.
+    // That is a transfer, NOT a finger release; synthetic PointerEvent tests
+    // do not reproduce it. Only loss of the layer's own capture ends input.
+    if(event.type==='lostpointercapture'&&event.target!==this.layer&&
+      this.ritual?.pointerId===event.pointerId)return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();

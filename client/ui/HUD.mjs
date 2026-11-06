@@ -252,6 +252,11 @@ export class HUD {
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
       '</div><small class="machine-gauge-context" data-machine-context></small>';
     this.root.append(this.machineGauge);
+    // Track real wrapping as subtitles change, including multi-beat lines and
+    // changes in viewport width. The health gauge reserves the measured room.
+    this.captionResize = globalThis.ResizeObserver
+      ? new ResizeObserver(() => this.#syncMachineCaptionClearance()) : null;
+    this.captionResize?.observe(this.subtitleLine);
     this.driveHousing = document.createElement('div');
     this.driveHousing.className = 'drive-housing';
     this.driveHousing.hidden = true;
@@ -368,7 +373,9 @@ export class HUD {
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
     const gauge = machineGaugeView(local, snapshot, serverNow);
     this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram');
+    const gaugeVisibilityChanged = this.machineGauge.hidden !== !gauge;
     this.machineGauge.hidden = !gauge;
+    if (gaugeVisibilityChanged) this.#syncMachineCaptionClearance();
     this.driveHousing.hidden = !gauge?.pressure;
     if (gauge) {
       const el = this.machineGauge;
@@ -747,6 +754,12 @@ export class HUD {
     this.flashTimer = setTimeout(() => { this.flash.className = 'status-flash'; }, duration);
   }
 
+  #syncMachineCaptionClearance() {
+    const visible = !this.machineGauge?.hidden && this.subtitleLine?.classList.contains('show');
+    const height = visible ? Math.ceil(this.subtitleLine.getBoundingClientRect().height) : 0;
+    this.machineGauge?.style.setProperty('--machine-caption-height', height + 'px');
+  }
+
   /**
    * A Spellblade's words as he says them: `delay` seconds from now, for as long as he says them (and a breath after).
    * name: whose they are (none for my own); a new line takes the place of the last. cues: a line said a beat at a time
@@ -774,8 +787,15 @@ export class HUD {
       line.append(words);
       line.classList.toggle('mine', !name);
       line.classList.add('show');
-      this.subtitleHide = setTimeout(() => line.classList.remove('show'), (seconds + 0.9) * 1000);
-      this.subtitleCues = cues.map((cue) => setTimeout(() => { words.textContent = cue.text; }, Math.max(0, cue.at) * 1000));
+      this.#syncMachineCaptionClearance();
+      this.subtitleHide = setTimeout(() => {
+        line.classList.remove('show');
+        this.#syncMachineCaptionClearance();
+      }, (seconds + 0.9) * 1000);
+      this.subtitleCues = cues.map((cue) => setTimeout(() => {
+        words.textContent = cue.text;
+        this.#syncMachineCaptionClearance();
+      }, Math.max(0, cue.at) * 1000));
     }, Math.max(0, delay) * 1000);
   }
 
@@ -800,6 +820,7 @@ export class HUD {
       clearTimeout(this.subtitleHide);
       this.#clearCues();
       line.classList.remove('show');
+      this.#syncMachineCaptionClearance();
       this.subtitleSpeaker = null;
     }
   }

@@ -80,7 +80,7 @@ try{
     const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};};
     return {crest:rect(crest),title:rect(title),source:crest.getAttribute('src')};
   })()`);
-  assert.match(boot.source,/grimoirelee\\.svg$/);
+  assert.ok(boot.source.endsWith('/grimoirelee.svg'), 'loading crest uses the canonical artwork');
   assert.ok(boot.crest.w>=88 && boot.title.y>=boot.crest.y+boot.crest.h,
     'desktop: enlarged loading crest and title must not overlap');
   evidence['boot-desktop']=boot;
@@ -208,7 +208,11 @@ try{
   await sleep(500);
   await inspect('#solo-menu','solo-mobile-list');
   await capture('04-mobile-solo-list');
-  await evaluate("document.querySelector('#bot-duel').click()");
+  await evaluate("document.querySelector('#practice-mode').click()");
+  assert.equal(await evaluate("document.querySelector('#solo-menu').dataset.panel"),'list',
+    'the first tap keeps the activity available for a second tap');
+  assert.equal(await evaluate("document.querySelector('#practice-mode').getAttribute('aria-pressed')"),'true');
+  await evaluate("document.querySelector('#solo-details').click()");
   await waitFor(()=>evaluate("document.querySelector('#solo-menu').dataset.panel==='details'"),'Solo mobile details');
   await inspect('#solo-menu','solo-mobile-details');
   await capture('05-mobile-solo-details');
@@ -229,6 +233,9 @@ try{
   assert.ok(mobilePrivate.leftVisible&&!mobilePrivate.rightVisible,'mobile private starts with mode tabs and Create');
   await capture('09-mobile-private-modes');
   await evaluate("document.querySelector('#private-mode [data-private-mode=BREAKTHROUGH]').click()");
+  assert.equal(await evaluate("document.querySelector('#private-menu').dataset.panel"),'list',
+    'first private-mode tap leaves the selected tab reachable for a second tap');
+  await evaluate("document.querySelector('#private-options').click()");
   await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private mobile rules');
   mobilePrivate=await inspect('#private-menu','private-mobile-details');
   assert.ok(!mobilePrivate.leftVisible&&mobilePrivate.rightVisible,'mobile private settings are reachable');
@@ -239,6 +246,9 @@ try{
   const mobileMettle=await inspect('#breakthrough-menu','mettle-mobile-list');
   assert.ok(mobileMettle.leftVisible&&!mobileMettle.rightVisible);
   await capture('11-mobile-mettle-modes');
+  await evaluate("document.querySelector('#mettle-modes [data-mettle-mode=HIGH_GROUNDS]').click()");
+  assert.equal(await evaluate("document.querySelector('#breakthrough-menu').dataset.panel"),'list',
+    'first Mettle tap leaves the tabs reachable for a second tap');
   await evaluate("document.querySelector('#mettle-options').click()");
   await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='details'"),'Mettle mobile orders');
   const mobileOrders=await inspect('#breakthrough-menu','mettle-mobile-details');
@@ -249,14 +259,17 @@ try{
   // output rather than accepting a merely decorative rules selector.
   await evaluate("document.querySelector('#mettle-list-return').click();document.querySelector('#breakthrough-back').click();document.querySelector('#private-button').click()");
   await evaluate("document.querySelector('#private-mode [data-private-mode=FFA]').click()");
+  await evaluate("document.querySelector('#private-options').click()");
   await waitFor(()=>evaluate("document.querySelector('#private-menu').dataset.panel==='details'"),'Private FFA creation options');
   await evaluate(`(() => {
     const f=document.querySelector('#private-settings-form').elements;
     f.scoreToWin.value='17';f.minutes.value='9';
     f.scoreToWin.dispatchEvent(new Event('input',{bubbles:true}));
     f.minutes.dispatchEvent(new Event('input',{bubbles:true}));
-    document.querySelector('#private-create-right').click();
   })()`);
+  // Exactly the selected mode's second tap now uses CREATE ROOM,
+  // preserving the edited settings through the real authoritative host.
+  await evaluate("document.querySelector('#private-list-return').click();document.querySelector('#private-mode [data-private-mode=FFA]').click()");
   await waitFor(()=>evaluate("!document.querySelector('#lobby').classList.contains('hidden')"),'real custom private FFA lobby',220);
   const createdLobby=await evaluate(`(() => {
     const fields=document.querySelector('#lobby-settings form.lobby-config')?.elements;
@@ -275,6 +288,23 @@ try{
   assert.equal(createdLobby.code.trim().length,5);
   evidence['private-host-created']=createdLobby;
   await capture('13-mobile-private-created-lobby');
+
+  // Genuine immediate repeated taps, using the real Solo and Mettle handlers.
+  await evaluate("document.querySelector('#lobby-leave').click();document.querySelector('#solo-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#solo-menu').dataset.panel==='list'"),'Solo repeat entry');
+  await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#practice-mode').click()");
+  await waitFor(()=>evaluate("window.__ssRuntime?.latestSnapshot?.mode==='PRACTICE' && !document.querySelector('#hud').classList.contains('hidden')"),
+    'repeat-click launched real Practice',220);
+  evidence['solo-repeat-launch']='PRACTICE';
+  await capture('14-mobile-solo-repeat-launched');
+
+  await evaluate("document.querySelector('#practice-leave').click();document.querySelector('#breakthrough-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#breakthrough-menu').dataset.panel==='list'"),'Mettle repeat entry');
+  await evaluate("document.querySelector('#mettle-modes [data-mettle-mode=BREAKTHROUGH]').click();document.querySelector('#mettle-modes [data-mettle-mode=BREAKTHROUGH]').click()");
+  await waitFor(()=>evaluate("window.__ssRuntime?.latestSnapshot?.mode==='BREAKTHROUGH' && !document.querySelector('#hud').classList.contains('hidden')"),
+    'repeat-click launched real Mettle battle',220);
+  evidence['mettle-repeat-launch']='BREAKTHROUGH';
+  await capture('15-mobile-mettle-repeat-launched');
 
   assert.ok(errors.length===0,'Uncaught browser exceptions: '+errors.join(' | '));
   await writeFile(output+'/report.json',JSON.stringify({hostedRoom:hosted.roomCode,evidence,errors},null,2));

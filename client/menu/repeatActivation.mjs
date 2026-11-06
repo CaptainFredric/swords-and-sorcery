@@ -2,18 +2,14 @@
 // The first choice is always a selection, even if it was preselected by saved UI state.
 export function createRepeatActivation({ selected, select, activate, canActivate = () => true }) {
   let armed = null;
-  let armedAt = -Infinity;
   let pending = false;
   return {
-    choose(id, now = Date.now()) {
+    choose(id) {
       if (pending) return false;
-      if (id === armed && id === selected()) {
-        // A quick mouse double-click or touch double-tap must not launch accidentally.
-        if (now - armedAt < 300) return false;
-        return this.run();
-      }
+      // The second real click/tap is itself the requested launch gesture.
+      // Do not suppress quick consecutive presses as accidental double-clicks.
+      if (id === armed && id === selected()) return this.run();
       armed = id;
-      armedAt = now;
       select(id);
       return true;
     },
@@ -23,7 +19,7 @@ export function createRepeatActivation({ selected, select, activate, canActivate
       if (result !== false) pending = true;
       return result;
     },
-    reset() { armed = null; armedAt = -Infinity; pending = false; },
+    reset() { armed = null; pending = false; },
     release() { pending = false; },
     get pending() { return pending; },
   };

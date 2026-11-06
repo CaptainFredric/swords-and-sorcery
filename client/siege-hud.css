@@ -99,6 +99,16 @@
   .machine-health-track { height: 9px; }
   .machine-pitch { font-size: 8px; }
 }
+/* Machine gauges remain at the physical bottom on touch devices too.
+   Mounted subtitles now occupy their own lane above the health instrument,
+   keeping the lowest safe-area pixels for the siege HP rather than captions. */
+.touch-ui .machine-gauge {
+  bottom: calc(var(--safe-b, 0px) + 2px);
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .touch-ui .machine-gauge { transition: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .machine-component, .machine-health-fill, .drive-housing-fill, .machine-pitch-line::after { transition: none !important; }
 }

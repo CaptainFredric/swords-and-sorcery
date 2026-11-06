@@ -59,6 +59,10 @@ const probe=`(() => {
     gaugeRect:box(root),playerRect:box(player),staminaRect:box(stamina),driveRect:box(drive),
     scoreRect:box(info),gaugeDisplay:getComputedStyle(root).display,
     pressureDisplay:getComputedStyle(drive).display,
+    captionVisible:document.querySelector('#subtitle')?.classList.contains('show') ?? false,
+    captionRect:box(document.querySelector('#subtitle')),
+    captionOverlap:document.querySelector('#subtitle')?.classList.contains('show')
+      ? overlap(box(root),box(document.querySelector('#subtitle'))) : false,
     playerOverlapsStamina:overlap(box(player),box(stamina)),
     gaugeOutsideViewport:box(root).left < -2 || box(root).right > innerWidth+2};
 })()`;
@@ -140,11 +144,28 @@ try {
   assert.equal(result.flight.machine,'180/250');
   assert.equal(result.flight.part,'44/100');
   await capture('flight');
+  await evaluate("window.__ssRuntime.hud.subtitle({text:'Nothing can stand before a proper siege, so long as the knight operating it remembers to look where he is going.',name:'SIEGE ENGINEER',seconds:35})");
+  await sleep(180);
+  const desktopCaption=await evaluate(probe);
+  assert.equal(desktopCaption.captionOverlap,false,'desktop subtitle must not overlap siege health');
+  await capture('flight-desktop-caption-clearance');
   await command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});
   await sleep(300);
-  await render('ram','attached');
-  result.mobile=await evaluate(probe);
-  assert.equal(result.mobile.gaugeOutsideViewport,false,'mobile portrait machine health stays on screen');
+  await evaluate("document.body.classList.add('touch-ui')");
+  await sleep(320); // font wrapping and caption ResizeObserver settle at mobile width
+  for(const kind of ['ram','ballista','flight']){
+    await render(kind,'attached');
+    await sleep(240); // including the CSS transition into the subtitle-clearance lane
+    const measure=await evaluate(probe);
+    result['mobile-'+kind]=measure;
+    assert.equal(measure.gaugeOutsideViewport,false,kind+' gauge stays within portrait screen');
+    assert.equal(measure.captionVisible,true,'the long test subtitle is actually showing');
+    assert.equal(measure.captionOverlap,false,kind+' gauge must never cover an active subtitle');
+    assert.ok(measure.gaugeRect.bottom <= measure.captionRect.top - 6,
+      kind+' keeps a visible gap above the subtitle');
+    await capture(kind+'-mobile-caption-clearance');
+  }
+  result.mobile=result['mobile-ram'];
   await capture('ram-mobile-portrait');
   await writeFile(output+'/result.json',JSON.stringify({result,errors},null,2));
   assert.deepEqual(errors,[],'no uncaught page errors');
