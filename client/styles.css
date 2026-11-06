@@ -131,6 +131,66 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .practice-tools .practice-leave { margin-top: 0; color: #ffc9b6; }
 @container app (max-height: 500px) { .practice-tools { top: 10px; width: 224px; max-height: calc(100% - 20px); padding: 8px 10px; } .practice-tools h3 { margin-top: 5px; } .practice-tools button { min-height: 25px; padding: 4px 3px; } }
 
+/* One Hit of Wonders testing lives in the existing collapsible Practice drawer.
+ * Each independently controlled tier remains usable on a narrow touch screen. */
+.practice-tools #practice-one-hit[hidden] { display: none !important; }
+.practice-tools #practice-one-hit {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 5px 0;
+  padding: 6px 5px;
+  border: 1px solid rgba(236,201,127,.4);
+  border-radius: 3px;
+  background: rgba(16,10,8,.24);
+  font: 9px/1.45 var(--font-inscription, Georgia, serif);
+  color: #e9dbbb;
+}
+.practice-tools #practice-one-hit > summary {
+  cursor: pointer;
+  color: #f6d994;
+  font-weight: 800;
+  letter-spacing: .03em;
+  font-size: 9px;
+  padding: 3px 0;
+}
+.practice-tools #practice-one-hit p { margin: 6px 0; color: #e9dbbb; font-size: 9px; }
+.one-hit-practice-levels { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; }
+.one-hit-practice-levels label { min-width: 0; font: 700 9px/1.5 var(--font-inscription, Georgia, serif); }
+.one-hit-practice-levels select {
+  display: block; width: 100%; min-width: 0; padding: 5px 2px;
+  margin-top: 2px; color: #f4e3bf; background: #481d17;
+  border: 1px solid rgba(236,201,127,.5); border-radius: 2px;
+  font: 700 9px var(--font-inscription, Georgia, serif);
+}
+.one-hit-practice-presets {
+  display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3px;
+  margin: 8px 0;
+}
+.practice-tools .one-hit-practice-presets button {
+  min-width: 0; width: 100%; padding: 5px 3px;
+  border: 1px solid rgba(236,201,127,.34);
+  background: rgba(236,201,127,.05);
+  text-align: center; line-height: 1.25;
+  font-size: 8px; letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.practice-tools .one-hit-unlimited {
+  display: flex; align-items: center; gap: 5px;
+  margin: 8px 0; line-height: 1.35; cursor: pointer;
+}
+.practice-tools .one-hit-unlimited input {
+  accent-color: #edc880; flex: 0 0 auto; width: 13px; height: 13px;
+}
+.practice-tools #practice-one-hit-status {
+  display: block; margin-top: 7px; min-height: 22px;
+  color: #f0ddb1; font-size: 8px; line-height: 1.35;
+}
+@media (max-width: 600px) {
+  .practice-tools #practice-one-hit { padding: 5px 4px; }
+  .one-hit-practice-levels select { font-size: 10px; min-height: 29px; }
+  .practice-tools .one-hit-practice-presets button { min-height: 30px; }
+}
+
 /* Inspection controls share the Practice palette and remain available on small screens. */
 .practice-tools #inspection-status { grid-column: 1 / -1; color: #eadcb6; font-size: 9px; }
 .practice-tools button:disabled { opacity: .4; cursor: default; }
