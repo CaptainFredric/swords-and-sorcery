@@ -1917,7 +1917,7 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...caster.position},
     tiers:{...tiers},form:'ground',radius,at:nowSec});
 }
-function oneHitTeleport(room,player,state,nowSec) {
+function oneHitTeleport(room,player,state,nowSec,world=room.world) {
   const hold=Math.max(0,nowSec-(state.teleportHoldAt??nowSec));
   const distance=Math.max(.65,oneHitTeleportReach(hold));
   const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
@@ -1928,17 +1928,17 @@ function oneHitTeleport(room,player,state,nowSec) {
   const target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
   const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];
   let t=1;
-  for(const box of room.world?.solids??[]) {
+  for(const box of world?.solids??[]) {
     const hit=segmentAabbHit(a,b,box);
     if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(distance,.01)));
   }
   const next={x:origin.x+(target.x-origin.x)*t,y:origin.y+(target.y-origin.y)*t,
     z:origin.z+(target.z-origin.z)*t};
-  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,room.world?.solids??[]);
+  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
   // A physical wall, abyss or invalid floor never becomes a blink-through shortcut.
   if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return;
   if(!aerial) {
-    const surface=surfaceHeightAt(next.x,next.z,next.y,room.world);
+    const surface=surfaceHeightAt(next.x,next.z,next.y,world);
     if(surface===null || Math.abs(surface-next.y)>2) return;
     next.y=surface;player.grounded=true;
   }else player.grounded=false;
@@ -1947,7 +1947,7 @@ function oneHitTeleport(room,player,state,nowSec) {
   room.events.push({type:'oneHitTeleport',playerId:player.id,from:origin,to:{...next},
     tiers:{...state.preparedTiers},at:nowSec});
 }
-function commitOneHitAttack(room,player,state,nowSec) {
+function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
   const tiers=state.preparedTiers ?? oneHitCommit(player);
   // Consume only when commitment actually occurs. Practice presets remain
   // selected for repeated casts; ordinary infusions reset at this point.
@@ -1958,13 +1958,13 @@ function commitOneHitAttack(room,player,state,nowSec) {
     }
   }
   if(Number.isFinite(state.teleportHoldAt) && state.teleportReleased)
-    oneHitTeleport(room,player,state,nowSec);
+    oneHitTeleport(room,player,state,nowSec,world);
   const form=oneHitForm(player.grounded,tiers);
   state.oneHit={tiers,form,startedAt:nowSec,hit:false,
     waveAt:form==='aerial'?nowSec+(state.teleportReleased?0:ONE_HIT_AERIAL_DURATION):null,
     vortexLastAt:nowSec,vortexTicks:{}};
   if(form==='ground') {
-    oneHitSlam(room,player,tiers,nowSec,room.world);
+    oneHitSlam(room,player,tiers,nowSec,world);
     state.oneHit.hit=true;
   }else if(form==='aerial'&&state.teleportReleased) {
     oneHitLaunchWave(room,player,tiers,nowSec);
@@ -2174,7 +2174,7 @@ export function tryUltimate(room, playerId, nowSec) {
 
 // an ultimate's course, each tick: interrupted before its commit point (charge kept, a short lockout), committed (the
 // charge spent), or run out
-function stepUltimate(room, player, nowSec) {
+function stepUltimate(room, player, nowSec, world=room.world) {
   const state = player.ultimateState;
   if (!state) return;
   const ultimate = ultimateFor(state.id);
@@ -2187,7 +2187,7 @@ function stepUltimate(room, player, nowSec) {
       player.prowess = 0;
       state.phase = 'active';
       state.until = state.commitAt + ultimate.activeSec;
-      if (ultimate.id === 'one_hit_of_wonders') commitOneHitAttack(room,player,state,nowSec);
+      if (ultimate.id === 'one_hit_of_wonders') commitOneHitAttack(room,player,state,nowSec,world);
       // (a Vortex's blade starts round from where the knight faces as it commits, balanced)
       if (ultimate.spin) {
         state.angle = player.yaw;
@@ -2615,7 +2615,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
     // balance comes back once nothing has shaken it for a moment; an ultimate braces, commits and runs its course
     drainStagger(player.stagger, dt, nowSec);
-    stepUltimate(room, player, nowSec);
+    stepUltimate(room, player, nowSec, world);
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
     player.sprinting = resolveSprint({

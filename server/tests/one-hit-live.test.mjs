@@ -15,6 +15,7 @@ const world={
 
 function battle(mode='FFA'){
   const room=new Room('WONDR',{mode});
+  room.world=world;
   room.addPlayer({id:'a',token:'aa',name:'Swords'},0);
   room.addPlayer({id:'b',token:'bb',name:'Sorcery'},0);
   room.setReady('a',true,0);room.setReady('b',true,0);room.tick(3.1);
