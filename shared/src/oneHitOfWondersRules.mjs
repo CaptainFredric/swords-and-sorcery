@@ -47,10 +47,10 @@ export function oneHitAttackForm({ grounded, galeTier = 0 }) {
 }
 
 export function oneHitPostArrivalWindup({ form, lightningTier = 0, teleported = false }) {
-  if (form !== 'aerial') return null; // Ground animation timing belongs to its own action.
-  return teleported && Number(lightningTier) >= 2
-    ? ONE_HIT_RULES.postTeleportWindupSec
-    : ONE_HIT_RULES.aerialWindupSec;
+  if (form !== 'aerial' && form !== 'ground') return null;
+  // Both grounded slams and aerial waves discharge immediately after the teleport.
+  if (teleported && Number(lightningTier) >= 2) return ONE_HIT_RULES.postTeleportWindupSec;
+  return form === 'aerial' ? ONE_HIT_RULES.aerialWindupSec : null;
 }
 
 // No arbitrary maximum range: fast initial gain and sharply diminishing returns.
