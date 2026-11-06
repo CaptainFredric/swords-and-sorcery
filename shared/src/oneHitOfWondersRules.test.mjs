@@ -43,7 +43,7 @@ test('full-Lightning teleported aerial slash skips SECOND windup', () => {
   assert.equal(oneHitPostArrivalWindup({ form:'aerial', lightningTier: 2, teleported: true }), 0);
   assert.equal(oneHitPostArrivalWindup({ form:'aerial', lightningTier: 2, teleported: false }), ONE_HIT_RULES.aerialWindupSec);
   assert.equal(oneHitPostArrivalWindup({ form:'aerial', lightningTier: 1, teleported: false }), ONE_HIT_RULES.aerialWindupSec);
-  assert.equal(oneHitPostArrivalWindup({ form:'ground', lightningTier: 2, teleported: true }), null);
+  assert.equal(oneHitPostArrivalWindup({ form:'ground', lightningTier: 2, teleported: true }), 0);
 });
 
 test('charged teleport has no maximum range and sharply diminishing reach per second', () => {
