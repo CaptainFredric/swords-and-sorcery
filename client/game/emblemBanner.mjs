@@ -3,7 +3,7 @@ import { appUrl } from '../appUrl.mjs';
 import { DEFAULT_EMBLEM, emblemChoice } from '../../shared/src/heraldry.mjs';
 
 // The emblem on a knight's back banner (shared/src/heraldry.mjs), laid on the back banner (TabardBack) alone: the front
-// tabard keeps the trident. Each kind of banner cloth has its own texture for an emblem, by its material's name: the
+// tabard carries Castleward's Grimoirelee. Each kind of banner cloth has its own texture for an emblem, by its material's name: the
 // kit's banner atlas (KitBanner: the front tabard on its left half, the back banner on its right, the emblem on the
 // right half only) or a cape with a texture of its own (CapeBanner). A back banner of any other cloth carries no emblem
 // (nothing is changed on it).
@@ -39,7 +39,7 @@ export function createEmblemBanner(root) {
       if (['KitBanner', 'CapeBanner'].includes(material?.name) && material.map) banners.push({ material, base: material.map, cloth: material.name });
     }
   });
-  let wanted = DEFAULT_EMBLEM;
+  let wanted = null; // first set must apply even when the chosen emblem is the default
   return {
     set(id) {
       const emblem = emblemChoice(id);
