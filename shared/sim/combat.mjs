@@ -21,6 +21,10 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
+import { oneHitTeleportReach, lineOfConductDamage } from '../src/oneHitOfWondersRules.mjs';
+import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
+  oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
+  shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions } from '../src/oneHitInfusions.mjs';
 import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
@@ -120,6 +124,10 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   // balance found again; an ultimate still bracing or active is over (the prowess earned is kept)
   player.stagger = freshStagger();
   player.ultimateState = null;
+  // Infusions and Prowess deliberately persist across ordinary deaths.
+  player.shaken = null;
+  player.electricalBacklash = null;
+  player.oneHitFrostSlow = null;
   player.damageTakenThisLife = 0;
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
@@ -408,7 +416,11 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   recordSpellUse(player, spell, nowSec, practice);
   player.castEndsAt = nowSec + spell.gatherSec;
   const policy = combatActionPolicy(player, nowSec);
-  player.pendingSpell = { spell: spell.id, direction: normalize3(direction), ...(policy.concurrent ? { ultimate: true } : {}) };
+  player.pendingSpell = { spell: spell.id, direction: normalize3(direction),
+    ...(spell.id === 'line_of_conduct' ? { origin: {
+      x: player.position.x, y: player.position.y + postureOf(player).eye - 0.1, z: player.position.z,
+    } } : {}),
+    ...(policy.concurrent ? { ultimate: true } : {}) };
   if (!policy.concurrent) {
     player.guarding = false;
     stopSwordChain(player, {}, room, nowSec);
@@ -1067,6 +1079,18 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     return guardResult.kind === 'guardBreak' ? 'guardBreak' : 'block';
   }
 
+  // Reactive Lightning from an aerial sword wave interrupts only a REAL
+  // would-connect melee blow. Misses and normal Guard interactions do not trigger it.
+  const charge = oneHitBacklashRemaining(target.electricalBacklash, nowSec);
+  if (charge > 0) {
+    target.electricalBacklash = null;
+    stopSwordChain(attacker, {}, room, nowSec);
+    applyDamage(room, target.id, attacker.id, charge, 'electrical_backlash', nowSec, null,
+      { ultimate: true, ongoing: true });
+    room.events.push({type:'oneHitBacklash',attackerId:target.id,victimId:attacker.id,
+      amount:charge,at:nowSec});
+    return 'backlash';
+  }
   const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * physical.impact);
   // (the chop, and every Sundering slam, comes down heavily enough to lift)
   const push = { x: g.direction.x * shove, y: strikeIndex === 2 || sunder ? 0.8 : 0.2, z: g.direction.z * shove };
@@ -1213,7 +1237,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
-  minDamage = null, skipSteel = false, ongoing = false,
+  minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1240,6 +1264,19 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
   if (taken > 0) victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + taken;
+  // Only successfully applied ordinary elemental spell uses count. One source use
+  // counts once for each participant, regardless of AoE victims, burn or DoT ticks.
+  const element = !ultimate && !ongoing ? elementForSpell(source) : null;
+  if (element && taken > 0) {
+    const key = infusionCastKey || `${source}:${attackerId}:${nowSec}`;
+    const caster = room.players.get(attackerId);
+    for (const participant of [caster, victim]) {
+      if (creditOneHitEncounter(participant, element, key)) {
+        room.events.push({ type: 'oneHitInfusion', playerId: participant.id, element,
+          tier: participant.oneHitInfusions[element], at: nowSec });
+      }
+    }
+  }
   // Only the locally staged Tutorial Rival survives until its final fight begins.
   // Contact, damage events, afflictions and physical response still resolve normally.
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
@@ -1363,6 +1400,11 @@ function spawnSpell(room, player, nowSec, world) {
   const pending = player.pendingSpell;
   if (!pending) return;
   const spell = spellFor(pending.spell);
+  if (spell.kind === 'line') {
+    dischargeLineOfConduct(room, player, pending, nowSec, world);
+    player.pendingSpell = null; player.castEndsAt = 0;
+    return;
+  }
   if (spell.kind === 'cone') {
     releaseGale(room, player, spell, nowSec, world);
     return;
@@ -1484,6 +1526,10 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     }
     if (pressure <= 0.01 || sheltered(at) || gust.caught.includes(target.id)) continue;
     gust.caught.push(target.id);
+    if (creditOneHitEncounter(player, 'gale', `gale:${player.id}:${gust.bornAt}`))
+      room.events.push({type:'oneHitInfusion',playerId:player.id,element:'gale',tier:player.oneHitInfusions.gale,at:nowSec});
+    if (creditOneHitEncounter(target, 'gale', `gale:${player.id}:${gust.bornAt}`))
+      room.events.push({type:'oneHitInfusion',playerId:target.id,element:'gale',tier:target.oneHitInfusions.gale,at:nowSec});
     let shove = galeShove(spell, origin, direction, at, pressure);
     if (guarded) {
       guardChallengeContact(room, target, player, nowSec);
@@ -1580,6 +1626,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount, clean: exposure >= CLEAN_CONTACT.spell, ultimate,
       rawDamage: bare > 0 ? spell.directDamage + (spell.edgeDamage - spell.directDamage) * (1 - Math.min(1, bare)) ** 2 : 0,
+      infusionCastKey: projectile.id,
       contactFacts: challengeContact(room.players.get(projectile.ownerId), nowSec, {
         ordinaryProjectile: !spell.conjured && !spell.kind,
         prepared: preparedSpellMember(room.players.get(projectile.ownerId), spell.id), projectileId: projectile.id,
@@ -1627,6 +1674,7 @@ function coreflagrationBurst(room, projectile, point, nowSec, damage, final = fa
         ordinaryProjectile: true, prepared: preparedSpellMember(room.players.get(projectile.ownerId), spell.id),
         projectileId: projectile.id,
       }),
+      infusionCastKey: projectile.id,
     });
     if (hit && final && player.alive) {
       player.burn = {
@@ -1704,7 +1752,11 @@ function stepAfflictions(room, player, nowSec) {
     applyDamage(room, burn.attackerId, player.id, burn.perLick, 'burn', nowSec, null, { ultimate: Boolean(burn.ultimate) });
   }
   if (player.chill && nowSec >= player.chill.until) player.chill = null;
-  player.speedScale = chillScale(player.chill, nowSec);
+  if (player.oneHitFrostSlow && nowSec >= player.oneHitFrostSlow.until) player.oneHitFrostSlow = null;
+  if (player.shaken && nowSec >= player.shaken.at + 3) player.shaken = null;
+  if (player.electricalBacklash && oneHitBacklashRemaining(player.electricalBacklash, nowSec) <= 0)
+    player.electricalBacklash = null;
+  player.speedScale = chillScale(player.chill, nowSec) * (player.oneHitFrostSlow ? 0.65 : 1);
 }
 
 function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {}) {
@@ -1785,6 +1837,268 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
  * The ultimate key: a knight with a full prowess meter begins to brace into their ultimate (its startup). The charge
  * is spent only at the commit point (stepUltimate); staggered or killed before it, they keep it.
  */
+
+// Shared room-authoritative One Hit implementation. This intentionally uses
+// Castleward's normal applyDamage / Steel / team rules, not Argon's isolated state.
+function oneHitVisible(room, caster, target, world) {
+  if (!target.alive || target.id === caster.id || areAllies(room,caster.id,target.id) ||
+      target.spawnProtectionUntil > (room.oneHitNow ?? -Infinity)) return false;
+  const a=[caster.position.x,caster.position.y+1,caster.position.z];
+  const b=[target.position.x,target.position.y+1,target.position.z];
+  return !(world?.solids ?? []).some(box=>segmentAabbHit(a,b,box));
+}
+function oneHitTouch(room,caster,target,tiers,nowSec,world,{aerial=false,distance=0}={}) {
+  room.oneHitNow=nowSec;
+  if(!oneHitVisible(room,caster,target,world))return false;
+  if (target.guarding && isInGuardCone(target,caster,nowSec)) {
+    target.guardStamina=Math.max(0,target.guardStamina-40);
+    target.lastGuardDrainAt=nowSec;
+    if(target.guardStamina <= 0) breakGuard(target,0.4,nowSec);
+    room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
+    return false;
+  }
+  const base=aerial?36:ONE_HIT_BASE_DAMAGE;
+  const falloff=aerial?Math.max(.45,1-distance/40):1;
+  const damage=oneHitDamage(tiers,base)*falloff;
+  const dx=target.position.x-caster.position.x,dz=target.position.z-caster.position.z;
+  const d=Math.hypot(dx,dz)||1;
+  const contact=applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
+    {x:dx/d*3.4,y:0.6,z:dz/d*3.4},{ultimate:true,rawDamage:damage});
+  if (!contact) return false;
+  applyOneHitShaken(target,nowSec, distance < 1.9 ? 1 : .6);
+  if(tiers.fire >= 1 && target.alive) {
+    target.burn={attackerId:caster.id,perLick:2,licksLeft:4,
+      interval:.5,nextAt:nowSec+.5,until:nowSec+2,ultimate:true};
+  }
+  if(tiers.frost >= 1 && target.alive) {
+    const frozen=tiers.frost===2;
+    target.oneHitFrostSlow={until:nowSec+(frozen?3.8:2.5)};
+    if(frozen)target.oneHitFrozenUntil=nowSec+.9;
+  }
+  if(aerial && tiers.lightning >= 1 && target.alive)
+    target.electricalBacklash={at:nowSec,initial:12,sourceId:caster.id};
+  return true;
+}
+function oneHitSlam(room,caster,tiers,nowSec,world) {
+  const radius=tiers.fire===2?4.6:ONE_HIT_GROUND_RADIUS;
+  // Full Gale draws enemies toward the destination, then the same decisive
+  // contact tests run exactly once. No second base-damage hit from a vortex.
+  if(tiers.gale===2)for(const target of room.players.values()) {
+    if(target.id===caster.id||!target.alive||areAllies(room,caster.id,target.id))continue;
+    const dx=caster.position.x-target.position.x,dz=caster.position.z-target.position.z;
+    const d=Math.hypot(dx,dz);
+    if(d>6.8||d<.1||Math.abs(target.position.y-caster.position.y)>3)continue;
+    const travel=Math.min(2.8,Math.max(0,d-1));
+    const next={...target.position,x:target.position.x+dx/d*travel,
+      z:target.position.z+dz/d*travel};
+    const clear=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
+    if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1)target.position=next;
+  }
+  for(const target of room.players.values()) {
+    const distance=Math.hypot(target.position.x-caster.position.x,target.position.z-caster.position.z);
+    if(distance<=radius && Math.abs(target.position.y-caster.position.y)<2.6)
+      oneHitTouch(room,caster,target,tiers,nowSec,world,{distance});
+  }
+  if(tiers.fire===2)(room.oneHitBurnZones??=[]).push({
+    id:`oh-burn:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...caster.position},
+    radius:4.6,nextAt:nowSec+.5,until:nowSec+4,
+  });
+  room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...caster.position},
+    tiers:{...tiers},form:'ground',radius,at:nowSec});
+}
+function oneHitTeleport(room,player,state,nowSec) {
+  const hold=Math.max(0,nowSec-(state.teleportHoldAt??nowSec));
+  const distance=oneHitTeleportReach(hold);
+  const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
+  const aerial=(!player.grounded && state.preparedTiers?.gale===2);
+  const dx=-Math.sin(yaw)*Math.cos(aerial?pitch:0),
+    dy=aerial?Math.sin(pitch):0,dz=-Math.cos(yaw)*Math.cos(aerial?pitch:0);
+  const origin={...player.position};
+  const target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
+  const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];
+  let t=1;
+  for(const box of room.world?.solids??[]) {
+    const hit=segmentAabbHit(a,b,box);
+    if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(distance,.01)));
+  }
+  const next={x:origin.x+(target.x-origin.x)*t,y:origin.y+(target.y-origin.y)*t,
+    z:origin.z+(target.z-origin.z)*t};
+  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,room.world?.solids??[]);
+  // A physical wall, abyss or invalid floor never becomes a blink-through shortcut.
+  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return;
+  if(!aerial) {
+    const surface=surfaceHeightAt(next.x,next.z,next.y,room.world);
+    if(surface===null || Math.abs(surface-next.y)>2) return;
+    next.y=surface;player.grounded=true;
+  }else player.grounded=false;
+  player.position=next;
+  player.velocity={x:0,y:Math.min(0,player.velocity?.y??0),z:0};
+  room.events.push({type:'oneHitTeleport',playerId:player.id,from:origin,to:{...next},
+    tiers:{...state.preparedTiers},at:nowSec});
+}
+function commitOneHitAttack(room,player,state,nowSec) {
+  const tiers=state.preparedTiers ?? oneHitCommit(player);
+  // Consume only when commitment actually occurs. Practice presets remain
+  // selected for repeated casts; ordinary infusions reset at this point.
+  if(state.preparedTiers) {
+    if(!player.practiceOneHit?.enabled) {
+      player.oneHitInfusions={fire:0,frost:0,gale:0,lightning:0};
+      player.oneHitSeenUses={};
+    }
+  }
+  if(Number.isFinite(state.teleportHoldAt) && state.teleportReleased)
+    oneHitTeleport(room,player,state,nowSec);
+  const form=oneHitForm(player.grounded,tiers);
+  state.oneHit={tiers,form,startedAt:nowSec,hit:false,
+    waveAt:form==='aerial'?nowSec+(state.teleportReleased?0:ONE_HIT_AERIAL_DURATION):null,
+    vortexLastAt:nowSec,vortexTicks:{}};
+  if(form==='ground') {
+    oneHitSlam(room,player,tiers,nowSec,room.world);
+    state.oneHit.hit=true;
+  }else if(form==='aerial'&&state.teleportReleased) {
+    oneHitLaunchWave(room,player,tiers,nowSec);
+    state.oneHit.hit=true;
+  }
+  room.events.push({type:'oneHitCommitted',playerId:player.id,tiers:{...tiers},form,at:nowSec});
+}
+function oneHitLaunchWave(room,player,tiers,nowSec) {
+  const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
+  const direction={x:-Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),z:-Math.cos(yaw)*Math.cos(pitch)};
+  const wave={id:`oh-wave:${player.id}:${nowSec}`,ownerId:player.id,
+    position:{x:player.position.x,y:player.position.y+1,z:player.position.z},
+    direction,tiers:{...tiers},bornAt:nowSec,distance:0,hitIds:[]};
+  (room.oneHitWaves??=[]).push(wave);
+  room.events.push({type:'oneHitWave',playerId:player.id,waveId:wave.id,
+    origin:{...wave.position},direction,tiers:{...tiers},at:nowSec});
+}
+function stepOneHitActor(room,player,dt,nowSec,world) {
+  const state=player.ultimateState;
+  const action=state?.phase==='active'&&state.id==='one_hit_of_wonders'?state.oneHit:null;
+  if(!action||action.form!=='aerial'||action.hit||!player.alive)return;
+  // The first .85 seconds are modest, at most TWO 5-damage contacts per enemy.
+  if(nowSec<action.waveAt && nowSec-action.vortexLastAt>=.28) {
+    action.vortexLastAt=nowSec;
+    for(const target of room.players.values()) {
+      if(target.id===player.id||!target.alive)continue;
+      const count=action.vortexTicks[target.id]??0;
+      if(count>=2||Math.hypot(target.position.x-player.position.x,target.position.y-player.position.y,
+        target.position.z-player.position.z)>3.2)continue;
+      room.oneHitNow=nowSec;
+      if(!oneHitVisible(room,player,target,world))continue;
+      action.vortexTicks[target.id]=count+1;
+      applyDamage(room,player.id,target.id,5,'one_hit_vortex',nowSec,null,{ultimate:true,ongoing:true});
+    }
+  }
+  if(nowSec>=action.waveAt){
+    oneHitLaunchWave(room,player,action.tiers,nowSec);
+    action.hit=true;
+  }
+}
+function stepOneHitWorld(room,dt,nowSec,world) {
+  for(const wave of room.oneHitWaves??[]) {
+    const caster=room.players.get(wave.ownerId);
+    if(!caster)continue;
+    const old={...wave.position},speed=wave.tiers.lightning?48:28;
+    const step=Math.min(Math.max(0,22-wave.distance),speed*dt);
+    const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
+    let stop=1;
+    for(const box of world?.solids??[]) {
+      const hit=segmentAabbHit([old.x,old.y,old.z],[next.x,next.y,next.z],box);
+      if(hit)stop=Math.min(stop,hit.t);
+    }
+    for(const target of room.players.values()){
+      if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id||areAllies(room,caster.id,target.id))continue;
+      const center={x:target.position.x,y:target.position.y+1,z:target.position.z};
+      const v={x:next.x-old.x,y:next.y-old.y,z:next.z-old.z};
+      const lenSq=v.x*v.x+v.y*v.y+v.z*v.z||1;
+      const frac=Math.max(0,Math.min(stop,((center.x-old.x)*v.x+(center.y-old.y)*v.y+(center.z-old.z)*v.z)/lenSq));
+      const near={x:old.x+frac*v.x,y:old.y+frac*v.y,z:old.z+frac*v.z};
+      if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.9)continue;
+      wave.hitIds.push(target.id);
+      oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,distance:wave.distance+step*frac});
+    }
+    wave.position={x:old.x+(next.x-old.x)*stop,y:old.y+(next.y-old.y)*stop,z:old.z+(next.z-old.z)*stop};
+    wave.distance+=step*stop;
+    if(stop<1)wave.distance=22;
+  }
+  room.oneHitWaves=(room.oneHitWaves??[]).filter(w=>w.distance<22);
+  for(const zone of room.oneHitBurnZones??[]) {
+    if(nowSec < zone.nextAt)continue;
+    zone.nextAt+=.5;
+    for(const target of room.players.values()){
+      if(!target.alive||target.id===zone.ownerId||areAllies(room,zone.ownerId,target.id))continue;
+      if(Math.hypot(target.position.x-zone.position.x,target.position.z-zone.position.z)>zone.radius)continue;
+      applyDamage(room,zone.ownerId,target.id,3,'one_hit_ground_fire',nowSec,null,
+        {ultimate:true,ongoing:true});
+    }
+  }
+  room.oneHitBurnZones=(room.oneHitBurnZones??[]).filter(z=>nowSec<z.until);
+  for(const wire of room.lineConductWires??[]) {
+    if(nowSec>=wire.until)continue;
+    const caster=room.players.get(wire.ownerId);
+    if(!caster)continue;
+    for(const target of room.players.values()) {
+      if(!target.alive||target.id===wire.ownerId||areAllies(room,wire.ownerId,target.id))continue;
+      const center={x:target.position.x,y:target.position.y+1,z:target.position.z};
+      const dx=wire.end.x-wire.origin.x,dy=wire.end.y-wire.origin.y,dz=wire.end.z-wire.origin.z;
+      const lenSq=dx*dx+dy*dy+dz*dz||1;
+      const t=Math.max(0,Math.min(1,((center.x-wire.origin.x)*dx+(center.y-wire.origin.y)*dy+
+        (center.z-wire.origin.z)*dz)/lenSq));
+      const near={x:wire.origin.x+dx*t,y:wire.origin.y+dy*t,z:wire.origin.z+dz*t};
+      const distance=Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z);
+      wire.inside??=new Set();
+      if(distance>.36)wire.inside.delete(target.id);
+      else if(distance<=.18 && !wire.inside.has(target.id)){
+        wire.inside.add(target.id);
+        const power=Math.max(0,(wire.until-nowSec));
+        applyDamage(room,wire.ownerId,target.id,(3+12*power),'line_of_conduct',nowSec,null,
+          {ongoing:true,infusionCastKey:wire.id});
+      }
+    }
+  }
+  room.lineConductWires=(room.lineConductWires??[]).filter(w=>nowSec<w.until);
+}
+function dischargeLineOfConduct(room,player,pending,nowSec,world) {
+  const origin={...pending.origin};
+  const direction=normalize3(pending.direction);
+  const reach=240,end={x:origin.x+direction.x*reach,
+    y:origin.y+direction.y*reach,z:origin.z+direction.z*reach};
+  let wall=1;
+  for(const box of world?.solids??[]){
+    const hit=segmentAabbHit([origin.x,origin.y,origin.z],[end.x,end.y,end.z],box);
+    if(hit)wall=Math.min(wall,hit.t);
+  }
+  const stop={x:origin.x+(end.x-origin.x)*wall,y:origin.y+(end.y-origin.y)*wall,
+    z:origin.z+(end.z-origin.z)*wall};
+  const wire={id:`conduct:${player.id}:${room.tickNumber}`,ownerId:player.id,
+    origin,end:stop,until:nowSec+1,inside:new Set()};
+  (room.lineConductWires??=[]).push(wire);
+  for(const target of room.players.values()){
+    if(!target.alive||target.id===player.id||areAllies(room,player.id,target.id))continue;
+    const center={x:target.position.x,y:target.position.y+1,z:target.position.z};
+    const ab={x:stop.x-origin.x,y:stop.y-origin.y,z:stop.z-origin.z};
+    const lenSq=ab.x**2+ab.y**2+ab.z**2||1;
+    const t=Math.max(0,Math.min(1,((center.x-origin.x)*ab.x+(center.y-origin.y)*ab.y+
+      (center.z-origin.z)*ab.z)/lenSq));
+    const near={x:origin.x+ab.x*t,y:origin.y+ab.y*t,z:origin.z+ab.z*t};
+    if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.7)continue;
+    wire.inside.add(target.id);
+    const dist=t*Math.sqrt(lenSq);
+    applyDamage(room,player.id,target.id,lineOfConductDamage(dist),'line_of_conduct',nowSec,
+      null,{infusionCastKey:wire.id});
+  }
+  room.events.push({type:'lineConductDischarge',playerId:player.id,origin,end:stop,at:nowSec});
+}
+export function releaseOneHitCharge(room,playerId,nowSec) {
+  const player=room.players.get(playerId),state=player?.ultimateState;
+  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup'||
+     !Number.isFinite(state.teleportHoldAt)||state.teleportReleased)return false;
+  state.teleportReleased=true;
+  state.commitAt=nowSec;
+  stepUltimate(room,player,nowSec);
+  return true;
+}
+
 export function tryUltimate(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
@@ -1804,10 +2118,19 @@ export function tryUltimate(room, playerId, nowSec) {
   if (practising(room, player)) player.prowess = PROWESS.full;
   if ((player.prowess ?? 0) < PROWESS.full) return false;
   const ultimate = ultimateFor(player.ultimate);
+  const plannedTiers=normalizeInfusions(player.practiceOneHit?.enabled?
+    player.practiceOneHit.stages:player.oneHitInfusions);
+  if(ultimate.id==='one_hit_of_wonders' && !oneHitForm(player.grounded,plannedTiers))return false;
   player.ultimateInterruptionBy = null;
   player.ultimateInterruptionAt = null;
   player.ultimateInterruptionSource = null;
-  player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt: nowSec + ultimate.startupSec, until: null };
+  player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec,
+    commitAt: nowSec + ((ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning===2)?3600000:
+      (ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning>=1?.36:ultimate.startupSec)),
+    until: null,
+    ...(ultimate.id==='one_hit_of_wonders'?{preparedTiers:plannedTiers,
+      ...(plannedTiers.lightning===2?{teleportHoldAt:nowSec}:{} )}:{}),
+  };
   // the brace: sword and guard put up, the knight gathers himself. Whatever the sword was doing is over there and
   // then: the ultimate has the knight from this moment. A button still held is still held (Sunder's first slam is its:
   // it comes as the brace ends, not after the old chain's own recovery); a Vortex takes both hands and keeps no press
@@ -1848,6 +2171,7 @@ function stepUltimate(room, player, nowSec) {
       player.prowess = 0;
       state.phase = 'active';
       state.until = state.commitAt + ultimate.activeSec;
+      if (ultimate.id === 'one_hit_of_wonders') commitOneHitAttack(room,player,state,nowSec);
       // (a Vortex's blade starts round from where the knight faces as it commits, balanced)
       if (ultimate.spin) {
         state.angle = player.yaw;
@@ -2291,7 +2615,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // (torn ground breaks a sprint outright: the speed it had built goes with it)
     if (player.tornGround) player.sprintBlend = 0;
     if (player.sprinting) {
-      player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
+      player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt *
+        shakenSprintFactor(player.shaken,nowSec));
       player.lastGuardDrainAt = nowSec;
     }
     // Resolve sprint before healing, using the simulation's true sprint state (not world velocity).
@@ -2305,7 +2630,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
     const whirl = ultimateWhirl(player, nowSec);
-    const input = staggered
+    player.shakenNow=nowSec;
+    const frozen=nowSec < (player.oneHitFrozenUntil??-Infinity);
+    const input = frozen ? { forward:0,right:0,jump:false,sprint:false,yaw:player.yaw,pitch:player.pitch }
+      : staggered
       ? { forward: 0, right: 0, jump: false, crouch: Boolean(player.input?.crouch), yaw: player.yaw, pitch: player.pitch }
       : bracing
         ? { ...player.input, forward: (player.input?.forward ?? 0) * bracing.startupMove, right: (player.input?.right ?? 0) * bracing.startupMove, jump: false, sprint: false }
@@ -2445,6 +2773,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if (player.gauntlet && nowSec + 1e-9 >= player.gauntlet.landAt) landGauntlet(room, player, nowSec, world);
     // a Vortex's blade goes round, and its embers leave
     if (player.ultimateState?.angle !== undefined) stepVortex(room, player, dt, nowSec, world);
+    stepOneHitActor(room,player,dt,nowSec,world);
   }
 
   stepRuptures(room, nowSec);
@@ -2510,6 +2839,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       }
     }
   }
+  if(!room.freezeProjectiles) stepOneHitWorld(room,dt,nowSec,world);
   stepFlightBurnZones(room,nowSec);
   room.tickNumber += 1;
   return room.events;
