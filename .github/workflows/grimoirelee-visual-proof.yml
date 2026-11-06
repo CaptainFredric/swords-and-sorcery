@@ -1,0 +1,51 @@
+name: Grimoirelee visual proof
+on:
+  pull_request:
+    paths:
+      - 'client/assets/heraldry/grimoirelee*.svg'
+      - 'client/game/grimoireleeCloth.mjs'
+      - 'client/game/emblemBanner.mjs'
+      - 'client/index.html'
+      - '.github/workflows/grimoirelee-visual-proof.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Launch game without unrelated siege test gate
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/grimoirelee-server.log 2>&1 &
+          for attempt in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/grimoirelee-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Capture menu crest, Spellblade and gameplay in real Chrome
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          REQUIRE_SPELLBLADE_GLBS: '1'
+        run: node scripts/capture-public-arena.mjs
+      - name: Preserve every screenshot and browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grimoirelee-real-browser
+          path: |
+            public-game-*.png
+            public-game-browser-report.json
+          retention-days: 7
