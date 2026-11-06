@@ -3,6 +3,7 @@
 // independently positioned touch control. All input remains server-authoritative.
 export const RITUAL_UNIT=240; // legacy fixture scale; no longer a screen target
 export const RITUAL_TOLERANCE=39; // physical thumb tolerance, in game-layer pixels
+export const RITUAL_TIMEOUT_MS=90000; // 18 waypoints across tiny phone controls; slow devices must not cancel halo
 export const RITUAL_HALO_STEPS=12;
 export const VALKYRIE_RUNE_ACTIONS=Object.freeze(['jump','ultimate','dash','siegeSkill','jump']);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -76,7 +77,7 @@ export function ritualDistanceFraction(g){
 // completing the rune and forbids jumping across a halo arc.
 export function advanceValkyrieRitual(g,p,now){
  if(!g||g.completed||!Number.isFinite(p?.x)||!Number.isFinite(p?.y)||
-   !Number.isFinite(now)||now-g.startedAt>12000)return null;
+   !Number.isFinite(now)||now-g.startedAt>RITUAL_TIMEOUT_MS)return null;
  const points=g.points??VALKYRIE_RITUAL_POINTS;
  const a=points[g.index],b=points[g.index+1];
  if(!a||!b)return null;
