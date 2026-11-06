@@ -991,6 +991,11 @@ export class Room {
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
       player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
       Object.assign(player, freshCombatState(spawn, nowSec));
+      // startMatch resets all actor combat state, including Prowess. Restore
+      // Practice's fully charged personal Ultimate BEFORE the first snapshot,
+      // not one server tick later, without charging bots or normal matches.
+      if(this.mode===GAME_MODES.PRACTICE && player.actorKind==='human')
+        player.prowess=PROWESS.full;
       i += 1;
     }
     this.projectiles.clear();
