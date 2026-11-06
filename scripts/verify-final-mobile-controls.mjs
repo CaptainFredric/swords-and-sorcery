@@ -615,71 +615,85 @@ try {
 
   await until(()=>evaluate("(() => {const rt=window.__ssRuntime;return rt.touch.valkyrieEligible && !rt.touch.valkyrieStencil.hidden;})()"),
     'stencil appears only while real terminal input is eligible',100,150);
-  // Real Flight buttons remain VISIBLE; the rune is mapped through the
-  // touch-layer inverse ScreenTurn transform. The first finger starts on
-  // Jump itself and crosses Chivalry, Dash and Ascension in order.
-  const drawn=await evaluate(`(() => {
+  // Native touchscreen CDP events, NOT JS-dispatched synthetic PointerEvents.
+  // In the previous acceptance, a test deliberately set the pointer target,
+  // skipping actual hit-testing and browser pointer capture. That hid the
+  // player's inability to begin/progress the rune on physical touchscreens.
+  const geometry=await evaluate(`(() => {
     const rt=window.__ssRuntime,touch=rt.touch;
     touch.setActive(true);rt.input.enabled=true;
     touch.update(rt.localAuth,rt.latestSnapshot?.serverTime??0,
       {snapshot:rt.latestSnapshot});
     const points=touch.valkyrieGeometry?.points;
-    if(!points)return {complete:false,error:'No projected geometry'};
-    const r=touch.layer.getBoundingClientRect(),w=touch.layer.clientWidth,
-      h=touch.layer.clientHeight,angle=rt.screenTurn?.angle??0;
-    const pt=p=>angle===90?
-      {x:r.left+r.width-p[1]/h*r.width,y:r.top+p[0]/w*r.height}:
-      angle===-90?
-      {x:r.left+p[1]/h*r.width,y:r.top+r.height-p[0]/w*r.height}:
-      {x:r.left+p[0]/w*r.width,y:r.top+p[1]/h*r.height};
-    const event=(kind,p,target=touch.layer)=>{
-      const v=pt(p);
-      target.dispatchEvent(new PointerEvent(kind,{
-        bubbles:true,cancelable:true,pointerId:273,pointerType:'touch',
-        clientX:v.x,clientY:v.y}));
-      return v;
-    };
-    const beforeSources={dash:rt.input.flightDashSources.size,
-      ultimate:rt.input.flightUltimateSources.size};
-    event('pointerdown',points[0],touch.buttons.jump);
-    const stages=[];
-    for(let i=1;i<points.length;i++){
-      const a=points[i-1],b=points[i];
-      for(const t of [.2,.4,.6,.8,1])
-        event('pointermove',[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);
-      stages.push({checkpoint:i,index:touch.ritual?.index,
-        progress:touch.ritual?.index==null?null:
-          (touch.ritual.index+touch.ritual.segmentProgress)/(points.length-1)});
-    }
-    const complete=touch.ritual?.completed??false;
-    window.__dagazLastScreen=pt(points.at(-1));
-    return {beforeSources,stages,complete,active:touch.active,
-      angle,held:touch.held.size,checkpointCount:points.length,
-      projectedCenters:points.slice(0,5),
+    const r=touch.layer.getBoundingClientRect();
+    return {points,angle:rt.screenTurn?.angle??0,
+      rect:{left:r.left,top:r.top,width:r.width,height:r.height},
+      width:touch.layer.clientWidth,height:touch.layer.clientHeight,
       visibleButtons:['jump','ultimate','dash','siegeSkill'].every(k=>!touch.buttons[k].hidden),
-      afterSources:{dash:rt.input.flightDashSources.size,
+      beforeSources:{dash:rt.input.flightDashSources.size,
         ultimate:rt.input.flightUltimateSources.size}};
   })()`);
-  if(!drawn.complete)console.log('[MOBILE RITUAL TRACE DIAGNOSTIC]',JSON.stringify({
-    ...drawn,stencilReady:await evaluate("window.__ssRuntime.touch.valkyrieEligible")
-  }));
-  assert.ok(drawn.visibleButtons,'all four physical ritual buttons stay visible');
-  assert.ok(drawn.complete,'full Dagaz and halo trace must complete across actual Flight buttons');
-  assert.equal(drawn.stages.at(-1).index,drawn.checkpointCount-1,
-    'final halo checkpoint reached, closing the ring');
-  assert.ok(drawn.stages[3].progress>.15&&drawn.stages.at(-1).progress>=1,
-    'the rune becomes progressively brighter through a closed halo');
-  assert.deepEqual(drawn.beforeSources,{dash:0,ultimate:0},
-    'the gesture does not require synthesized Dash/Ultimate presses');
+  assert.ok(geometry?.points?.length>12,'actual live Dagaz geometry is present');
+  const nativePoint=([x,y])=>{
+    const {rect:r,width:w,height:h,angle}=geometry;
+    if(angle===90)return {x:r.left+r.width-y/h*r.width,y:r.top+x/w*r.height};
+    if(angle===-90)return {x:r.left+y/h*r.width,y:r.top+r.height-x/w*r.height};
+    return {x:r.left+x/w*r.width,y:r.top+y/h*r.height};
+  };
+  const nativeTouch=async(type,point)=>{
+    const p=point?nativePoint(point):null;
+    await send('Input.dispatchTouchEvent',{type,touchPoints:p?[{
+      id:0,x:p.x,y:p.y,radiusX:7,radiusY:7,force:.75}]:[]});
+  };
+  assert.ok(geometry.visibleButtons,'all four physical ritual controls remain visible');
+  await nativeTouch('touchStart',geometry.points[0]);
+  await sleep(45);
+  const initial=await evaluate("({active:Boolean(window.__ssRuntime.touch.ritual),firstTarget:window.__ssRuntime.touch.ritual?.startedOnJump,progress:window.__ssRuntime.touch.valkyrieInk?.style.strokeDasharray})");
+  assert.ok(initial.active&&initial.firstTarget,
+    'a TRUE Chrome touch at the visible Jump target must capture the Dagaz pointer');
+  const stages=[];
+  let previous=0;
+  for(let i=1;i<geometry.points.length;i++){
+    const a=geometry.points[i-1],b=geometry.points[i];
+    for(const t of [.22,.48,.75,1]){
+      // Humanlike finger movement with a small perpendicular wobble.
+      const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1;
+      const wobble=t===1?0:3;
+      await nativeTouch('touchMove',[
+        a[0]+dx*t-dy/length*wobble,
+        a[1]+dy*t+dx/length*wobble,
+      ]);
+      await sleep(14);
+    }
+    const stage=await evaluate(`(() => {
+      const t=window.__ssRuntime.touch;
+      return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
+        progress:Number(t.valkyrieInk?.style.strokeDasharray?.split(' ')[0])||0,
+        displayed:t.valkyrieStatus?.textContent};
+    })()`);
+    assert.ok(stage.progress>previous,
+      'real native touch must brighten the path continuously at checkpoint '+i+
+      ' (prior '+previous+', current '+stage.progress+')');
+    stages.push(stage);
+    previous=stage.progress;
+    if(i===4)await captureScreenshot('mobile-flight-valkyrie-partial-glow.png');
+  }
+  const complete=stages.at(-1)?.complete??false;
+  const afterSources=await evaluate("({dash:window.__ssRuntime.input.flightDashSources.size,ultimate:window.__ssRuntime.input.flightUltimateSources.size})");
+  const drawn={beforeSources:geometry.beforeSources,afterSources,stages,complete,
+    angle:geometry.angle,visibleButtons:geometry.visibleButtons,
+    checkpointCount:geometry.points.length};
+  if(!drawn.complete)console.log('[NATIVE MOBILE RITUAL DIAGNOSTIC]',JSON.stringify(drawn));
+  assert.ok(complete,'a REAL native touch must complete Dagaz + closed halo');
+  assert.equal(stages.at(-1).index,geometry.points.length-1,
+    'the native finger reaches the final complete halo checkpoint');
+  assert.equal(stages.at(-1).progress,1,
+    'the actual displayed ink fills all 100% of the traced path');
+  assert.deepEqual(drawn.beforeSources,{dash:0,ultimate:0});
   assert.deepEqual(drawn.afterSources,{dash:0,ultimate:0},
-    'crossing real buttons with the captured finger does not press them');
+    'native captured finger does not inadvertently press its crossed buttons');
   await captureScreenshot('mobile-flight-valkyrie-stencil-complete.png');
-  await evaluate(`(() => {
-    const rt=window.__ssRuntime,p=window.__dagazLastScreen;
-    rt.touch.layer.dispatchEvent(new PointerEvent('pointerup',{
-      bubbles:true,cancelable:true,pointerId:273,pointerType:'touch',
-      clientX:p.x,clientY:p.y}));
-  })()`);
+  await nativeTouch('touchEnd',null);
   await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.dive&&s.spent)"),'mobile terminal dive committed once',150,150);
   await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive?.resolved===true"),'mobile terminal impact resolved',150,150);
   const mobileValkyrie=await evaluate("({before:window.__mobileValkyrieTrace[0],trace:window.__mobileValkyrieTrace,errors:window.__mobileValkyrieErrors,final:{mode:window.__ssRuntime.latestSnapshot.fightFlight.mode,spent:window.__ssRuntime.latestSnapshot.fightFlight.terminalDiveSpent}})");
