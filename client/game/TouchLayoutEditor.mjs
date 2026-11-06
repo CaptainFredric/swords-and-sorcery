@@ -47,7 +47,7 @@ export class TouchLayoutEditor {
           <span class="tle-storage-warning" data-storage-status hidden>SESSION ONLY · BROWSER STORAGE UNAVAILABLE</span>
         </div>
       </div>
-      <div class="tle-hint">DRAG to move · SELECT to resize · FLIGHT: drag the small MOVE ᛞ handle to position the independent Terminal Dive stencil · DONE saves each machine</div>
+      <div class="tle-hint">DRAG to move · SELECT to resize · FLIGHT: the translucent ᛞ automatically follows Jump, Chivalry, Dash and Ascension · DONE saves each machine</div>
     `;
 
     document.body.appendChild(this.root);
