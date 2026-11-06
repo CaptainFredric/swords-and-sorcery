@@ -9,14 +9,6 @@
 // (`startupStagger`: stagger from blows during it goes up by this much). Current tuning (provisional).
 
 export const ULTIMATES = Object.freeze({
-  // One Hit of Wonders: committed physical Simple Sunder plus independently earned elemental layers.
-  // Full Lightning can hold before commit; Full Gale allows an aerial form.
-  one_hit_of_wonders: Object.freeze({
-    id: 'one_hit_of_wonders', label: 'One Hit of Wonders', short: 'Wonders',
-    startupSec: 0.92, activeSec: 1.65, lockoutSec: 2.5,
-    startupMove: 0.35, startupStagger: 1.5,
-    recoverSec: 0.35, spin: true,
-  }),
   // Sunder All That Rusts: for a while, every blow the Spellblade lands is the most forceful it could be. The sword
   // strikes at an elevated level, with the greatest physical force (the shove, the weight on a guard, the stagger),
   // a guard pays for two blows at once, and every strike is a slam: the sword comes down from overhead, driven along an
@@ -124,7 +116,15 @@ export const ULTIMATES = Object.freeze({
     startupMove: 0.65,
     startupStagger: 1.5,
     projectileChivalryGateSec: 0.72,
+  }),  // One Hit of Wonders: committed physical Simple Sunder plus independently earned elemental layers.
+  // Full Lightning can hold before commit; Full Gale allows an aerial form.
+  one_hit_of_wonders: Object.freeze({
+    id: 'one_hit_of_wonders', label: 'One Hit of Wonders', short: 'Wonders',
+    startupSec: 0.92, activeSec: 1.65, lockoutSec: 2.5,
+    startupMove: 0.35, startupStagger: 1.5,
+    recoverSec: 0.35, spin: true,
   }),
+
 });
 
 export const DEFAULT_ULTIMATE = 'sunder';

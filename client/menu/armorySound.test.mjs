@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { ARMORY_CUE_GAIN, ARMORY_CUE_IDS, ARMORY_CUE_LATE_SEC, createArmoryCues, playArmorySound } from './armorySound.mjs';
+import { ARMORY_CUE_GAIN, ARMORY_CUE_IDS, ARMORY_CUE_LATE_SEC, armoryCueFor, createArmoryCues, playArmorySound } from './armorySound.mjs';
 import { armoryView } from './armoryView.mjs';
 
 // The Armory's identity cues are rendered assets (tools/audio/armory_cues.py). What can be checked here is that
@@ -70,7 +70,9 @@ const pan = (sound, from, to) => { const [l, r] = sound.channels.map((c) => rms(
 test('every card in the Armory has its own cue: each spell and each ultimate, Chivalry included', () => {
   const view = armoryView('fireball');
   const cards = [...view.spells, ...view.ultimates].map((card) => card.id);
-  for (const id of cards) assert.ok(ARMORY_CUE_IDS.includes(id), `${id} has a cue`);
+  for (const id of cards) assert.ok(armoryCueFor(id), `${id} has a playable cue`);
+  assert.equal(armoryCueFor('one_hit_of_wonders'),'sunder');
+  assert.equal(armoryCueFor('line_of_conduct'),'frostfire');
   assert.equal(new Set(ARMORY_CUE_IDS).size, ARMORY_CUE_IDS.length);
 });
 

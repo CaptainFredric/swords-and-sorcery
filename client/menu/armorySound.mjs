@@ -5,6 +5,13 @@ import { appUrl } from '../appUrl.mjs';
 
 export const ARMORY_CUE_BASE = 'client/assets/armory/';
 export const ARMORY_CUE_IDS = Object.freeze(['fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex', 'chivalry', 'coreflagration']);
+// Temporary selection-cue fallbacks for newly added abilities, until their
+// separate rendered AAC/WAV assets have been authored and supplied.
+export const ARMORY_CUE_FALLBACKS=Object.freeze({
+  one_hit_of_wonders:'sunder',
+  line_of_conduct:'frostfire',
+});
+export const armoryCueFor=id=>ARMORY_CUE_IDS.includes(id)?id:(ARMORY_CUE_FALLBACKS[id]??null);
 // how loud they sit on the UI bus, beside the menu music (the files themselves are all at one loudness)
 export const ARMORY_CUE_GAIN = 3;
 // a press made before its cue was decoded (straight after the Armory opened) is still heard if it is ready this soon
@@ -58,13 +65,14 @@ export function loadArmoryCues(sound) {
  * heard (muted, effects or master at zero, audio not running, no such cue).
  */
 export function playArmorySound(sound, id, { cues = null, now = () => globalThis.performance?.now?.() ?? Date.now() } = {}) {
-  if (!ARMORY_CUE_IDS.includes(id) || !sound?.running) return null;
+  const audioId=armoryCueFor(id);
+  if (!audioId || !sound?.running) return null;
   if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) return null;
   const bank = cues ?? sharedCues(sound);
   let handle = null;
   let stopped = false;
   const start = () => {
-    const buffer = bank.get(id);
+    const buffer = bank.get(audioId);
     if (buffer && !stopped) handle = sound.playBuffer(buffer, { bus: 'ui', gain: ARMORY_CUE_GAIN, reverb: 0.05 });
     return handle;
   };

@@ -235,6 +235,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
         ...(p.ultimateState.oneHit ? { oneHit: { ...p.ultimateState.oneHit, tiers: { ...p.ultimateState.oneHit.tiers } } } : {}),
         ...(Number.isFinite(p.ultimateState.teleportHoldAt) ? { teleportHoldAt: p.ultimateState.teleportHoldAt } : {}),
+        ...(p.ultimateState.preparedTiers ? { preparedTiers:{...p.ultimateState.preparedTiers} } : {}),
         // (a Vortex: where its blade is, how fast it turns, and what the knight has steered it to)
         ...(p.ultimateState.angle !== undefined ? {
           angle: p.ultimateState.angle, angleAt: p.ultimateState.angleAt, rate: p.ultimateState.rate, emphasis: p.ultimateState.emphasis ?? 0,
