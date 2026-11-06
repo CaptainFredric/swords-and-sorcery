@@ -1,5 +1,6 @@
 import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
+import { createRepeatActivation } from './menu/repeatActivation.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
@@ -949,6 +950,7 @@ function returnToMenu({ then = null } = {}) {
   socket.leaveRoom();
   socket.disconnect?.();
   putAwayMatch();
+  soloActivation.reset(); mettleActivation.reset(); privateActivation.reset();
   route(SCREEN_IDS.MAIN_MENU);
   then?.();
 }
@@ -1018,7 +1020,7 @@ function showPauseSection(section) {
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#breakthrough-button')?.addEventListener('click', () => {
-  showMenuError(''); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
+  mettleActivation.reset(); showMenuError(''); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
 });
 $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
@@ -1026,9 +1028,9 @@ $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(
   menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#solo-button').addEventListener('click', () => { showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
+$('#solo-button').addEventListener('click', () => { soloActivation.reset(); showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => {
-  showMenuError(''); privateMenu.dataset.panel='list';
+  privateActivation.reset(); showMenuError(''); privateMenu.dataset.panel='list';
   route(SCREEN_IDS.PRIVATE_MENU);
 });
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
@@ -1131,14 +1133,20 @@ function showBreakthroughArena() {
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
+const mettleActivation = createRepeatActivation({
+  selected: () => menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH',
+  select: chosen => {
+    menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+    showBreakthroughArena();
+    if(document.querySelector('#game-shell')?.clientWidth<=640){
+      breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
+    }
+  },
+  activate: () => playMettleBots(),
+});
 $('#mettle-modes')?.addEventListener('click', event => {
   const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
-  if (!chosen) return;
-  menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
-  showBreakthroughArena();
-  if(document.querySelector('#game-shell')?.clientWidth<=640){
-    breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
-  }
+  if (chosen) mettleActivation.choose(chosen);
 });
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
@@ -1198,6 +1206,17 @@ $('#mettle-list-return')?.addEventListener('click',()=>{
 let privateModeSelected='FFA';
 const privateForm=$('#private-settings-form');
 const privateChoices=$('#private-mode');
+const privateActivation = createRepeatActivation({
+  selected: () => privateModeSelected,
+  select: mode => {
+    privateModeSelected=privateMode(mode);
+    renderPrivateMode();
+    if(document.querySelector('#game-shell')?.clientWidth<=640){
+      privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
+    }
+  },
+  activate: () => createConfiguredPrivate(),
+});
 function privateFields(){
   const f=privateForm.elements;
   return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
@@ -1239,12 +1258,7 @@ function renderPrivateMode({reset=true}={}){
 }
 privateChoices.addEventListener('click',event=>{
   const button=event.target.closest?.('[data-private-mode]');
-  if(!button)return;
-  privateModeSelected=privateMode(button.dataset.privateMode);
-  renderPrivateMode();
-  if(document.querySelector('#game-shell')?.clientWidth<=640){
-    privateMenu.dataset.panel='details';resetCompanionCrown(privateMenu);
-  }
+  if(button)privateActivation.choose(privateMode(button.dataset.privateMode));
 });
 privateForm.addEventListener('input',()=>renderPrivateMode({reset:false}));
 privateForm.addEventListener('change',()=>renderPrivateMode({reset:false}));
@@ -1255,10 +1269,10 @@ $('#private-list-return')?.addEventListener('click',()=>{privateMenu.dataset.pan
 renderPrivateMode();
 function createConfiguredPrivate(){
   const preview=privateRoomPreview(privateModeSelected,privateFields());
-  if(!preview.ok){showMenuError(preview.error);privateMenu.dataset.panel='details';return;}
-  runMenuAction(menuController.createPrivate(nameInput.value,preview.settings,preview.team),SCREEN_IDS.PRIVATE_MENU);
+  if(!preview.ok){showMenuError(preview.error);privateMenu.dataset.panel='details';return false;}
+  return runMenuAction(menuController.createPrivate(nameInput.value,preview.settings,preview.team),SCREEN_IDS.PRIVATE_MENU);
 }
-privateForm.addEventListener('submit',event=>{event.preventDefault();createConfiguredPrivate();});
+privateForm.addEventListener('submit',event=>{event.preventDefault();privateActivation.run();});
 function offerTutorial() {
   if (!tutorialProgress.shouldOfferFirstRun({params:new URLSearchParams(location.search)})) return;
   tutorialOffer.hidden = false;
@@ -1445,28 +1459,39 @@ function chooseSoloActivity(id) {
   soloMenu.dataset.panel='details';
   resetCompanionCrown(soloMenu);
 }
-for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>chooseSoloActivity(id));
-$('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
-$('#solo-launch').addEventListener('click',()=>{
-  if(soloActivity==='tutorial-mode') return startTutorial();
-  if(soloActivity==='bot-duel') return startBotDuel();
-  if(soloActivity==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
-  if(soloActivity==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
-  if(soloActivity==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+function launchSoloActivity(id) {
+  if(id==='tutorial-mode') { startTutorial(); return true; }
+  if(id==='bot-duel') return startBotDuel();
+  if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(id==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  return false;
+}
+const soloActivation = createRepeatActivation({
+  selected: () => soloActivity,
+  select: chooseSoloActivity,
+  activate: launchSoloActivity,
 });
+for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>soloActivation.choose(id));
+$('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
+$('#solo-launch').addEventListener('click',()=>soloActivation.run());
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
-$('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value, {
-  team: menuController.breakthroughTeam(),
-  botSkill: menuController.breakthroughSkill(),
-  teamSize: menuController.breakthroughSize(),
-  worldId: menuController.breakthroughArena(),
-}), SCREEN_IDS.BREAKTHROUGH_MENU));
+function playMettleBots() {
+  return runMenuAction(menuController.breakthrough(nameInput.value, {
+    team: menuController.breakthroughTeam(),
+    botSkill: menuController.breakthroughSkill(),
+    teamSize: menuController.breakthroughSize(),
+    worldId: menuController.breakthroughArena(),
+  }), SCREEN_IDS.BREAKTHROUGH_MENU);
+}
+$('#breakthrough-play-bots')?.addEventListener('click', () => mettleActivation.run());
 $('#breakthrough-create-private')?.addEventListener('click', () => {
   // Private siege rooms should pass through the same rule review as every
   // other private mode. Preserve the battle orders already chosen in Mettle.
   const arena=menuController.breakthroughArena();
+  privateActivation.reset();
   privateModeSelected=arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
   renderPrivateMode();
   const f=privateForm.elements;
@@ -1479,12 +1504,13 @@ $('#breakthrough-create-private')?.addEventListener('click', () => {
   route(SCREEN_IDS.PRIVATE_MENU);
 });
 function startBotDuel() {
-  if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
+  if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return false;
   ensureRuntime();
   runtime.requestPointerLock();
+  return true;
 }
-$('#create-room').addEventListener('click',createConfiguredPrivate);
-$('#private-create-right').addEventListener('click',createConfiguredPrivate);
+$('#create-room').addEventListener('click',()=>privateActivation.run());
+$('#private-create-right').addEventListener('click',()=>privateActivation.run());
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });
@@ -2427,6 +2453,8 @@ socket.on('resumeFailed', () => {
 });
 
 socket.on('error', (message) => {
+  // The host rejected the request: allow correction and an intentional retry.
+  soloActivation.release(); mettleActivation.release(); privateActivation.release();
   const errorText = message.message || 'Could not enter that match.';
   if (router.current === SCREEN_IDS.LOBBY && socket.roomCode) { $('#lobby-error').textContent=errorText; return; }
   if (!shouldRouteSocketError(socket.roomCode, latestSnapshot)) {

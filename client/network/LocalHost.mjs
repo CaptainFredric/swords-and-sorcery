@@ -882,7 +882,7 @@ export class LocalHost {
   ready(ready) { this.#command({ type: 'ready', ready: Boolean(ready) }); }
   arenaReady(ready) { this.#command({ type: 'arenaReady', ready: Boolean(ready) }); }
   practiceResetPlayer() { this.#command({ type: 'practiceResetPlayer' }); }
-  practiceSpawnDummy(mode = 'PASSIVE') { this.#command({ type: 'practiceSpawnDummy', mode }); }
+  practiceSpawnDummy(mode = 'PASSIVE', inspectionReference = null) { this.#command({ type: 'practiceSpawnDummy', mode, inspectionReference }); }
   practiceRemoveDummy() { this.#command({ type: 'practiceRemoveDummy' }); }
   practiceSetDummyMode(mode) { this.#command({ type: 'practiceSetDummyMode', mode }); }
   practicePerryAnswer(answer) { this.#command({ type: 'practicePerryAnswer', answer }); }

@@ -14,6 +14,7 @@ def alb(rgb): return tuple(int(round(255 * l2s(s2l(c) / f))) for c, f in zip(rgb
 RED, RED_D, CREAM, CREAM_D = alb((104, 44, 48)), alb((78, 32, 36)), alb((172, 136, 114)), alb((140, 108, 92))
 SPEC = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else None
 MASTER = Path(__file__).resolve().parents[5] / "client/assets/heraldry/grimoirelee.svg"
+MARK_BOX = tuple(float(v) for v in ET.parse(MASTER).getroot().attrib["viewBox"].split())
 
 
 def official_mark(width, height):
@@ -25,7 +26,8 @@ def official_mark(width, height):
     result = Image.new("1", (width, height), 0)
     for subpath in re.findall(r"M([^Z]+)Z", path.attrib["d"]):
         coords = [(int(x), int(y)) for x, y in re.findall(r"(-?\d+),(-?\d+)", subpath)]
-        poly = [((x - 250) * width / 520, (y - 75) * height / 880) for x, y in coords]
+        poly = [((x - MARK_BOX[0]) * width / MARK_BOX[2],
+                 (y - MARK_BOX[1]) * height / MARK_BOX[3]) for x, y in coords]
         island = Image.new("1", (width, height), 0)
         ImageDraw.Draw(island).polygon(poly, fill=1)
         result = ImageChops.logical_xor(result, island)  # even-odd holes and scratches
@@ -72,8 +74,8 @@ def panel(W, H, hem, trident, seed):
     # Grimoirelee comes from the same approved master as menus/world banners.
     # Keep the builder's physical panel scale and its carefully authored stepped border.
     T = trident  # historical panel-position schema; not a trident design any more
-    mark_width = int(min((W - 0.08) * k, H * 0.5 * k * (520 / 880)))
-    mark_height = int(mark_width * 880 / 520)
+    mark_width = int(min((W - 0.08) * k, H * 0.5 * k * (MARK_BOX[2] / MARK_BOX[3])))
+    mark_height = int(mark_width * MARK_BOX[3] / MARK_BOX[2])
     mark = official_mark(mark_width, mark_height)
     tr = Image.new("1", (w, h), 0)
     tr.paste(mark, (int((w - mark_width) / 2),

@@ -12,6 +12,7 @@ import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 import { setupStPerry, stepStPerry, cleanupStPerry, isCanonizationUnlocked } from './StPerry.mjs';
 import { dismountBiByeLlista } from './biByeLlista.mjs';
 import {stepPracticeSiegeOperators} from './practiceSiegeOperators.mjs';
+import { nearbyPracticeSpawn } from './nearbyPracticeSpawn.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -161,11 +162,23 @@ export function readyPracticeUltimate(room, playerId) {
   return true;
 }
 
-export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, nowSec = 0, playerId = null) {
+export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, nowSec = 0, playerId = null, inspectionReference = null) {
   if (!isPractice(room) || !VALID_DUMMY_MODES.has(mode)) return null;
   if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room, playerId)) return null;
   const existing = findPracticeDummy(room);
   if (existing) {
+    // Explicitly selecting a dummy control recalls the SAME authoritative actor.
+    // Combat impacts and normal mode changes never call this repositioning path.
+    const near = nearbyPracticeSpawn(room, playerId, existing.id, inspectionReference);
+    if (near) {
+      if (existing.operatingBallistaId && room.biByeLlista) dismountBiByeLlista(room.biByeLlista, existing, nowSec);
+      if (existing.operatingRamId && room.soFistication)
+        dismountSoFistication(room, room.soFistication, existing, { force: true });
+      if (existing.operatingFightFlightId && room.fightFlight)
+        dismountFightFlight(room, room.fightFlight, existing, { force: true });
+      resetActorAtSpawn(existing, near, nowSec);
+      room.events.push({ type: 'practiceDummyRepositioned', playerId: existing.id, at: nowSec });
+    }
     if (!setPracticeDummyMode(room, mode, nowSec, playerId)) return null;
     return existing;
   }
@@ -177,6 +190,8 @@ export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, no
   }, nowSec);
   dummy.practiceMode = PRACTICE_DUMMY_MODES.PASSIVE;
   dummy.ai = null;
+  const near = nearbyPracticeSpawn(room, playerId, dummy.id, inspectionReference);
+  if (near) resetActorAtSpawn(dummy, near, nowSec);
   if (!setPracticeDummyMode(room, mode, nowSec, playerId)) return null;
   room.events.push({ type: 'practiceDummySpawned', playerId: dummy.id, mode: dummy.practiceMode, at: nowSec });
   return dummy;

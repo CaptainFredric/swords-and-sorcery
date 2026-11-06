@@ -71,6 +71,34 @@ try{
   await send('Page.navigate',{url:url+'/?debug'});
   await waitFor(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'main menu',180);
 
+  // Show the actual loading overlay markup after the first load, so that
+  // both responsive boot layouts can be inspected without racing page startup.
+  const boot=await evaluate(`(() => {
+    const veil=document.querySelector('#loading-veil');
+    veil.style.transition='none';veil.classList.remove('done');
+    const crest=veil.querySelector('.crest'), title=veil.querySelector('.loading-title');
+    const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};};
+    return {crest:rect(crest),title:rect(title),source:crest.getAttribute('src')};
+  })()`);
+  assert.match(boot.source,/grimoirelee\\.svg$/);
+  assert.ok(boot.crest.w>=88 && boot.title.y>=boot.crest.y+boot.crest.h,
+    'desktop: enlarged loading crest and title must not overlap');
+  evidence['boot-desktop']=boot;
+  await capture('00-desktop-loading-crest');
+  await send('Emulation.setDeviceMetricsOverride',{width:402,height:870,deviceScaleFactor:1,mobile:true});
+  const mobileBoot=await evaluate(`(() => {
+    const veil=document.querySelector('#loading-veil'), crest=veil.querySelector('.crest'),title=veil.querySelector('.loading-title');
+    const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};};
+    return {crest:rect(crest),title:rect(title)};
+  })()`);
+  assert.ok(mobileBoot.crest.x>=0 && mobileBoot.title.y>=mobileBoot.crest.y+mobileBoot.crest.h
+    && mobileBoot.title.x>=0 && mobileBoot.title.x+mobileBoot.title.w<=402,
+    'mobile: loading emblem/title are visible and non-overlapping');
+  evidence['boot-mobile']=mobileBoot;
+  await capture('00-mobile-loading-crest');
+  await send('Emulation.clearDeviceMetricsOverride');
+  await evaluate("document.querySelector('#loading-veil').classList.add('done')");
+
   // A real public room, created through the authoritative protocol, populates the room browser.
   const host=new WebSocket(url.replace(/^http/,'ws')+'/ws');
   await new Promise((resolve,reject)=>{host.onopen=resolve;host.onerror=reject;});

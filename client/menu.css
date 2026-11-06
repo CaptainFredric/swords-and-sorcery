@@ -240,13 +240,17 @@
 /* --- loading: crest, name and a brass thread of progress -------------------------------------------------------- */
 .loading-veil { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 45%, #2a1d15, #120c09 70%); color: var(--heraldry-cream); transition: opacity .7s ease, visibility 0s linear .7s; }
 .loading-veil.done { opacity: 0; visibility: hidden; pointer-events: none; }
-.loading-inner { display: grid; justify-items: center; gap: 12px; }
-.loading-inner .crest { width: 64px; height: 76px; margin: 0; animation: crest-glow 2.4s ease-in-out infinite; }
-.loading-title { margin: 0; font: 400 clamp(26px, 3.2cqw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }
+.loading-inner { display: grid; justify-items: center; gap: clamp(5px, 1.5cqh, 12px); width: min(94cqw, 620px); box-sizing: border-box; padding: 12px; max-height: calc(100cqh - 24px); }
+.loading-inner .crest { width: clamp(88px, 18cqw, 152px); height: clamp(108px, 29cqh, 220px); margin: 0; object-fit: contain; animation: crest-glow 2.4s ease-in-out infinite; }
+.loading-title { margin: clamp(4px, 1.2cqh, 12px) 0 0; font: 400 clamp(26px, 3.2cqw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }
 .loading-title span { color: var(--heraldry-brass-light); }
 .loading-bar { width: min(260px, 60cqw); height: 3px; background: rgba(201, 156, 82, .2); overflow: hidden; }
 .loading-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #9a7336, var(--heraldry-brass-light)); transition: transform .25s ease-out; }
 .loading-copy { margin: 0; color: rgba(234, 220, 182, .7); font: 500 13px/1 var(--font-script); letter-spacing: .08em; }
+@media (max-height: 390px) {
+  .loading-inner .crest { width: min(26cqw, 120px); height: min(27cqh, 120px); }
+  .loading-title { margin-top: 0; }
+}
 @keyframes crest-glow { 50% { filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); } }
 
 /* --- arena menu and match end share the heraldry --------------------------------------------------------------- */

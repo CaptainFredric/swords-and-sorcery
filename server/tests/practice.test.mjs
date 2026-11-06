@@ -66,6 +66,32 @@ test('practice owns at most one dummy and can switch its mode', () => {
   assert.equal(dummies[0].practiceMode, 'GUARDING');
 });
 
+test('summon recalls the same dummy near the human after moving or being defeated', () => {
+  const { room, human } = makePracticeRoom();
+  // Use a controlled platform to isolate placement from a particular arena's floor plan.
+  room.world = { ...room.world, floors: [{ center: [0, -0.5, 0], size: [40, 1, 40], y: 0 }], ramps: [], solids: [] };
+  human.position = { x: 0, y: 0, z: 0 };
+  human.yaw = 0;
+  const dummy = spawnPracticeDummy(room, 'PASSIVE', 1, human.id);
+  assert.ok(dummy);
+  assert.ok(Math.abs(dummy.position.z + 3) < 0.05, 'initial summon is ahead of player');
+  const previous = { ...dummy.position };
+  human.position = { x: 5, y: 0, z: 5 };
+  human.yaw = Math.PI / 2;
+  dummy.alive = false; dummy.health = 0; dummy.respawnAt = 99;
+  const recalled = spawnPracticeDummy(room, 'GUARDING', 2, human.id);
+  assert.equal(recalled, dummy, 'recall reuses the authoritative actor');
+  assert.equal(dummy.alive, true);
+  assert.equal(dummy.health, 100);
+  assert.equal(dummy.practiceMode, 'GUARDING');
+  assert.notDeepEqual(dummy.position, previous);
+  assert.ok(Math.hypot(dummy.position.x - 5, dummy.position.z - 5) <= 4.05);
+  assert.equal([...room.players.values()].filter(p => p.actorKind === 'dummy').length, 1);
+  const held = { ...dummy.position };
+  assert.equal(setPracticeDummyMode(room, 'PASSIVE', 3, human.id), true);
+  assert.deepEqual(dummy.position, held, 'changing mode alone does not teleport the dummy');
+});
+
 test('practice dummy modes are explicit and invalid modes are rejected', () => {
   const { room } = makePracticeRoom();
   assert.deepEqual(new Set(Object.values(PRACTICE_DUMMY_MODES)), new Set(['PASSIVE', 'GUARDING', 'FIGHTS_BACK', 'SORCERY', 'MELEE', 'RUNNER', 'ULTIMATE_KNIGHT', 'ST_PERRY', 'CANONIZATION']));

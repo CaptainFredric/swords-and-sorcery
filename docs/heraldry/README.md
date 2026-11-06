@@ -105,7 +105,7 @@ A strong Castleward herald need not be a static fantasy noun (sword, dragon, sku
 
 ## Official Grimoirelee source and compatibility (November 2026)
 
-- Approved reference: the supplied 1024×1024 crimson-and-gold Grimoirelee artwork. Treat its silhouette, diagonal scars, central blade groove, open-book crossguard and bookmark as immutable art direction.
+- Approved reference: the supplied November 6, 2026, 1004×1262 crimson-and-gold Grimoirelee artwork. Treat its silhouette, diagonal scars, central blade groove, open-book crossguard and bookmark as immutable art direction.
 - Production **editable master**: `client/assets/heraldry/grimoirelee.svg` (faithful traced contours and even-odd negative spaces). `grimoirelee-app-icon.svg` and `grimoirelee-standard.svg` reuse exactly those contours. Existing character portrait app images are intentionally retained as character portraits/fallbacks.
 - In-game default cloth: `client/game/grimoireleeCloth.mjs` remaps the approved image into the original UV atlas at runtime without moving rigs or changing earned textures. The Blender kit and Rodin emblem source scripts use the same SVG for future asset promotions. Rebuilding GLBs is **not required** for the runtime replacement.
 - Save/network policy: `trident` is a **legacy identifier** which resolves to `grimoirelee` when read or selected. It is not offered as another Armory choice. Earned emblem IDs, challenge completion records, unlock checks, and selected personal heralds retain their original meaning. Do not bulk-delete or rename saved profile fields.
