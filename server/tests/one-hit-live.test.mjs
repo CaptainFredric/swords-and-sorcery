@@ -78,6 +78,10 @@ test('Manual Practice tiers apply once when retention is unchecked and keep appl
   assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'full'},9),true);
   assert.equal(configurePracticeOneHit(room,'a',{action:'enabled',enabled:false},9),true);
   assert.equal(a.practiceOneHit.enabled,false);
+  assert.equal(configurePracticeOneHit(room,'a',{action:'level',element:'fire',tier:1},9),true);
+  assert.equal(a.practiceOneHit.enabled,false,'changing tier cannot silently re-enable persistence');
+  assert.equal(configurePracticeOneHit(room,'a',{action:'preset',preset:'full'},9),true);
+  assert.equal(a.practiceOneHit.enabled,false,'changing preset cannot silently re-enable persistence');
   assert.equal(tryUltimate(room,'a',9.1),true);
   // ALL FULL includes Full Lightning: the physical attack is held until
   // Ultimate is released, rather than committing on its startup timer.
