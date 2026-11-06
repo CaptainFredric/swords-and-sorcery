@@ -27,6 +27,7 @@ import { getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
+import { OneHitLiveEffects } from './OneHitLiveEffects.mjs';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
 import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
@@ -310,6 +311,7 @@ export class GameRuntime {
       this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
     };
     this.effects = new Effects(this.scene, this.camera);
+    this.oneHitEffects = new OneHitLiveEffects(this.scene);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -1508,6 +1510,7 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.oneHitEffects?.event(event);
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
       // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
@@ -4067,6 +4070,7 @@ export class GameRuntime {
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
+    this.oneHitEffects?.update(dt,this.latestSnapshot);
     if(this.localState){
       this.localState.shaken=this.localAuth?.shaken??null;
       this.localState.shakenNow=this.socket.serverNow();
