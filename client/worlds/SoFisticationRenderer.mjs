@@ -10,6 +10,7 @@ import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
 import {SO_FIST_LIFT,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
 import {RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
+import {authoredHierarchyIssues,RAM_REQUIRED_PARENTS,FIST_REQUIRED_PARENTS} from './soFistAssetHierarchy.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -57,10 +58,9 @@ export class SoFisticationRenderer {
   const failed=error=>{this.error=true;this.loading=false;resolve(false);
     console.error('SoFistication authored asset failed to load',error);};
   const received=(gltf,articulated)=>{
-   if(articulated&&(!gltf.scene.getObjectByName('Upper_Ram_Lift')||
-      !gltf.scene.getObjectByName('Upper_Elevation_Pivot')||
-      !gltf.scene.getObjectByName('Hydraulic_Lift_Stage1_Mid'))){
-    console.error('SO-FIST-ICATION GLB is missing one or more authored hydraulic pivots; using rollback');
+   const hierarchyIssues=articulated?authoredHierarchyIssues(gltf.scene,RAM_REQUIRED_PARENTS):[];
+   if(hierarchyIssues.length){
+    console.error('SO-FIST-ICATION GLB hierarchy mismatch; using rollback',hierarchyIssues);
     this.destroyMeshes(gltf.scene);
     loader.load(fallback,g=>received(g,false),undefined,failed);
     return;
@@ -120,8 +120,9 @@ export class SoFisticationRenderer {
   new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-detached-fist.glb?v=5e7802eacdb8ff25'),gltf=>{
    this.detachedLoading=false;
    if(this.disposed){this.destroyMeshes(gltf.scene);return;}
-   if(!gltf.scene.getObjectByName('fist_projectile_body_center')){
-    console.warn('SO-FIST-ICATION standalone fist lacks its COM locator; using model clone');
+   const fistIssues=authoredHierarchyIssues(gltf.scene,FIST_REQUIRED_PARENTS);
+   if(fistIssues.length){
+    console.warn('SO-FIST-ICATION standalone fist hierarchy mismatch; using model clone',fistIssues);
     this.detachedUnavailable=true;this.destroyMeshes(gltf.scene);return;
    }
    this.detachedTemplate=gltf.scene;
