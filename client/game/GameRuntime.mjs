@@ -1512,6 +1512,11 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.oneHitEffects?.event(event);
+      if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
+        const earned=event.tier===2?'FULL':'PARTIAL';
+        this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
+          'sunder',1300);
+      }
       if(event.type==='oneHitCommitted'&&event.playerId===this.playerId){
         // Especially important for Full Lightning: the sword must come down
         // on arrival rather than playing a second startup after the teleport.
