@@ -57,7 +57,7 @@ def load_svg_rgba(path: Path) -> np.ndarray:
     mask = np.zeros((height, width), dtype=bool)
     for fragment in re.findall(r"M([^Z]+)Z", svg_path.attrib["d"]):
         points = np.array([(int(x) - 250, int(y) - 75)
-                           for x, y in re.findall(r"(-?\\d+),(-?\\d+)", fragment)], dtype=np.float64)
+                           for x, y in re.findall(r"(-?\d+),(-?\d+)", fragment)], dtype=np.float64)
         if len(points) < 3:
             continue
         low = max(0, int(np.floor(points[:, 1].min())))
