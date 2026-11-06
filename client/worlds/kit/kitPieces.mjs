@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { appUrl } from '../../appUrl.mjs';
 import { FacetBuilder, KIT_PALETTE as P, shadeColor } from './facetKit.mjs';
 
 // Pieces of the environment kit. Each writes faceted triangles into a batch of builders (one per material) so a
@@ -213,7 +214,7 @@ export function brazier(batch, rand, { x, y = 0, z }) {
 
 let heraldryTexture = null;
 
-/** The Spellblade's arms: crimson field, cream border with a stepped hem, brass trident. Shared by every banner. */
+/** The Spellblade's arms: crimson field, cream border with a stepped hem, gold Grimoirelee. Shared by every banner. */
 export function heraldry() {
   if (heraldryTexture) return heraldryTexture;
   const canvas = document.createElement('canvas');
@@ -234,16 +235,14 @@ export function heraldry() {
   g.lineTo(64, 238); g.lineTo(96, 238); g.lineTo(96, 222); g.lineTo(128, 222); g.lineTo(128, 236);
   g.lineTo(100, 236); g.lineTo(100, 252); g.lineTo(28, 252); g.lineTo(28, 236); g.lineTo(0, 236); g.closePath();
   g.fill();
-  // trident
-  g.fillStyle = '#d4a653';
-  g.fillRect(60, 70, 8, 120);
-  g.fillRect(38, 96, 52, 8);
-  g.fillRect(38, 66, 8, 38);
-  g.fillRect(82, 66, 8, 38);
-  for (const x of [42, 64, 86]) {
-    g.beginPath(); g.moveTo(x - 7, 70); g.lineTo(x, 52); g.lineTo(x + 7, 70); g.closePath(); g.fill();
-  }
-  g.fillRect(54, 186, 20, 8);
+  // Stamp the single approved source; do not re-draw a lookalike for world banners.
+  // CanvasTexture keeps the exact existing cloth atlas layout and stepped border.
+  const insignia = new Image();
+  insignia.onload = () => {
+    g.drawImage(insignia, 19, 45, 90, 153);
+    heraldryTexture.needsUpdate = true;
+  };
+  insignia.src = appUrl('/client/assets/heraldry/grimoirelee.svg');
   heraldryTexture = new THREE.CanvasTexture(canvas);
   heraldryTexture.colorSpace = THREE.SRGBColorSpace;
   heraldryTexture.anisotropy = 4;
