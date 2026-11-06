@@ -186,7 +186,7 @@ export class MenuScene {
       this.assetInstance = instance;
       this.visualKind = 'production';
       instance.setCloth(this.cloth ?? 'crimson');
-      instance.setEmblem?.(this.emblem ?? 'trident');
+      instance.setEmblem?.(this.emblem ?? 'grimoirelee');
       this.characterRoot.add(instance.root);
       instance.root.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; } });
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
