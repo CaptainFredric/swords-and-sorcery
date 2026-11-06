@@ -55,6 +55,19 @@ export class OneHitLiveEffects {
       rock.position.set(p.x+Math.cos(angle)*.5,p.y+.1,p.z+Math.sin(angle)*.5);
       this.#add(rock,1.05,vel,3+i%4);
     }
+    // Argon's crater study: slabs are physical *displaced ground*, present
+    // even when none of the four elemental tracks has been acquired.
+    for(let i=0;i<16;i++){
+      const a=i*Math.PI*2/16+(i%2)*.085,dist=1.7+(.5*(i%4));
+      const slab=new THREE.Mesh(new THREE.DodecahedronGeometry(1,0),
+        new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,
+          flatShading:true,roughness:.9}));
+      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04);
+      slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
+      slab.rotation.set(Math.sin(a)*.33,a,Math.cos(a)*.4);
+      slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09};
+      this.#add(slab,1.55);
+    }
     this.#ring({x:p.x,y:p.y+.07,z:p.z},0xa09a8e,2.4,.9,.75);
     for(const [element,color] of ELEMENTS){
       const tier=clamp(Number(tiers[element])||0,0,2);
@@ -63,6 +76,23 @@ export class OneHitLiveEffects {
       this.#ring({x:p.x,y:p.y+.15,z:p.z},color,reach,.62,tier===2?.85:.52);
       for(let i=0;i<n;i++){
         const a=i*2*Math.PI/n,dist=.5+(i%3)*reach/3;
+        if(element==='lightning'){
+          // Narrow, branching electrical forks instead of arbitrary glowing
+          // particles; the Full tier has stronger, longer discharges.
+          const far=dist*(tier===2?1.4:1),fork=[];
+          for(let j=0;j<6;j++){
+            const t=j/5,zig=((j%2)*2-1)*(.14+(tier===2?.1:0));
+            fork.push(new THREE.Vector3(
+              p.x+Math.sin(a)*far*t+Math.cos(a)*zig,
+              p.y+.15+t*(tier===2?1.2:.65),
+              p.z+Math.cos(a)*far*t-Math.sin(a)*zig));
+          }
+          const bolt=new THREE.Line(new THREE.BufferGeometry().setFromPoints(fork),
+            new THREE.LineBasicMaterial({color,transparent:true,
+              opacity:tier===2?.95:.65,depthWrite:false}));
+          this.#add(bolt,tier===2?.65:.4);
+          continue;
+        }
         const obj=element==='frost'?new THREE.ConeGeometry(.13,tier===2?1.3:.6,5):
           element==='fire'?new THREE.ConeGeometry(.13,tier===2?.8:.48,5):
           element==='gale'?new THREE.TorusGeometry(.3,.035,4,14):
@@ -110,6 +140,13 @@ export class OneHitLiveEffects {
       if(t.life<=0){this.#discard(t.mesh);this.transients.splice(i,1);continue;}
       const ratio=t.life/t.ttl;
       if(t.mesh.material?.opacity!==undefined)t.mesh.material.opacity=Math.min(t.mesh.material.opacity,ratio);
+      if(t.mesh.userData?.oneHitSlab){
+        const slab=t.mesh.userData.oneHitSlab,elapsed=1-ratio;
+        const rise=Math.min(1,elapsed/.12);
+        const sink=Math.max(0,(elapsed-.64)/.36);
+        t.mesh.position.y=slab.groundY+(slab.topY-slab.groundY)*
+          Math.pow(rise,.45)*(1-Math.min(1,sink));
+      }
       if(t.velocity){
         t.mesh.position.addScaledVector(t.velocity,frame);
         t.velocity.y-=10*frame;
