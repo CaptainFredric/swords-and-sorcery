@@ -1442,3 +1442,107 @@ test('one customized charge stick expands bidirectionally only for actual Beat a
  assert.equal(input.movement().forward,0);
  controls.dispose();
 });
+
+function valkyrieFlightFixture(){
+ const p={alive:true,operatingFightFlightId:'flight-rune',ultimate:'chivalry',
+   prowess:100,position:{x:0,y:4,z:0}};
+ const m={id:'flight-rune',health:250,rotorHP:100,grounded:false,
+   terminalDive:null,terminalDiveSpent:false,flightCharge:90,
+   skill:{id:'doNotStopMyAscension',phase:'active',activeUntil:100}};
+ const env=setup(p);
+ env.input.mountedFlight=true;env.input.touch=env.controls;
+ env.controls.layer.getBoundingClientRect=()=>({left:0,top:0,width:800,height:600});
+ const positions={
+  jump:[718,420],ultimate:[718,340],dash:[636,420],siegeSkill:[636,340],
+ };
+ for(const [action,[x,y]]of Object.entries(positions))
+  env.controls.buttons[action].getBoundingClientRect=()=>({
+   left:x-28,top:y-28,width:56,height:56,right:x+28,bottom:y+28});
+ const update=()=>env.controls.update(p,10,{snapshot:{fightFlight:m}});
+ update();
+ return {...env,p,m,positions,update};
+}
+
+test('Dagaz overlays ACTUAL Jump → Chivalry → Dash → Ascension buttons and a CLOSED halo',()=>{
+ const e=valkyrieFlightFixture();
+ assert.equal(e.controls.valkyrieEligible,true);
+ assert.equal(e.controls.valkyrieStencil.hidden,false);
+ assert.equal(e.controls.valkyrieStencil.classList.contains('ready'),true);
+ const points=e.controls.valkyrieGeometry?.points;
+ assert.deepEqual(points.slice(0,5),[
+  [718,420],[718,340],[636,420],[636,340],[718,420]]);
+ assert.equal(points.length,18,'five rune waypoints and a full halo loop');
+ assert.ok(Math.hypot(points[5][0]-points.at(-1)[0],
+   points[5][1]-points.at(-1)[1])<1e-5);
+ assert.equal(e.controls.valkyrieStencil.querySelector('svg').getAttribute('viewBox'),'0 0 800 600');
+ e.controls.dispose();
+});
+
+test('one REAL continuous Dagaz pointer draws all stages and sends exactly one terminal command',()=>{
+ const e=valkyrieFlightFixture();
+ const sent=[];e.input.socket.send=message=>sent.push(message);
+ const points=e.controls.valkyrieGeometry.points;
+ e.send('pointerdown',points[0][0],points[0][1],{action:'jump',pointerId:243});
+ assert.ok(e.controls.ritual,'first touch is captured at the actual Jump button');
+ assert.equal(e.controls.held.size,0,'rune does not also press an ordinary button');
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i];
+  for(const t of [.2,.4,.6,.8,1]){
+   e.send('pointermove',a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,
+     {target:e.controls.layer,pointerId:243});
+  }
+  assert.equal(e.controls.ritual?.index,i,'checkpoint '+i+' reached');
+ }
+ assert.equal(e.controls.ritual.completed,true);
+ assert.equal(e.controls.valkyrieStencil.classList.contains('complete'),true);
+ assert.deepEqual(sent,[{type:'flightTerminalRitual'}],
+   'no underlying Jump, Dash, Ultimate or Skill action may fire during the rune');
+ e.send('pointerup',points.at(-1)[0],points.at(-1)[1],{
+   target:e.controls.layer,pointerId:243});
+ assert.equal(e.controls.ritual,null);
+ assert.deepEqual(sent,[{type:'flightTerminalRitual'}],'release does not duplicate activation');
+ e.controls.dispose();
+});
+
+test('unequipped/uncosted rune stays faint and cannot steal ordinary Jump',()=>{
+ const e=valkyrieFlightFixture();
+ const sent=[];e.input.socket.send=message=>sent.push(message);
+ e.m.skill.phase='idle';e.update();
+ assert.equal(e.controls.valkyrieEligible,false);
+ assert.equal(e.controls.valkyrieStencil.hidden,false,'equipped Ascension reveals faint guide');
+ assert.equal(e.controls.valkyrieStencil.classList.contains('unready'),true);
+ e.send('pointerdown',718,420,{action:'jump',pointerId:245});
+ assert.equal(e.controls.ritual,null,'unready guide cannot initiate a terminal ritual');
+ assert.deepEqual(sent,[{type:'flightHop'}]);
+ e.send('pointerup',718,420,{action:'jump',pointerId:245});
+ e.m.skill.id='fireAwayImRightHere';e.update();
+ assert.equal(e.controls.valkyrieStencil.hidden,true,'other Skills have no Valkyrie guide');
+ e.controls.dispose();
+});
+
+test('button relocation reprojects Dagaz and aborts stale incomplete traces safely',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ e.send('pointerdown',718,420,{action:'jump',pointerId:251});
+ assert.ok(e.controls.ritual);
+ // The left-handed user moves only Jump in the Flight editor.
+ e.controls.buttons.jump.getBoundingClientRect=()=>({
+   left:44,top:366,width:56,height:56,right:100,bottom:422});
+ e.controls.applyLayout(e.controls.layouts);
+ assert.equal(e.controls.ritual,null,'moving the buttons must cancel a stale gesture');
+ assert.deepEqual(e.controls.valkyrieGeometry.points[0],[72,394]);
+ assert.deepEqual(e.controls.valkyrieGeometry.points[1],[718,340],
+   'other controls keep their actual positions');
+ e.send('pointerup',718,420,{target:e.controls.layer,pointerId:251});
+ assert.equal(sent.some(m=>m.type==='flightTerminalRitual'),false);
+ e.controls.dispose();
+});
+
+test('a brief actual Jump tap remains a Jump even while the eligible rune is visible',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ e.send('pointerdown',718,420,{action:'jump',pointerId:248});
+ e.send('pointerup',718,420,{action:'jump',pointerId:248});
+ assert.deepEqual(sent,[{type:'flightHop'}]);
+ e.controls.dispose();
+});

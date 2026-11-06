@@ -15,8 +15,9 @@ import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeCon
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
-import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,RITUAL_UNIT,
-  ritualStartNear,createValkyrieRitual,advanceValkyrieRitual,ritualFraction }
+import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
+  buildValkyrieRitualGeometry,ritualStartNear,createValkyrieRitual,
+  advanceValkyrieRitual,ritualFraction }
   from './terminalDiveGesture.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -87,6 +88,8 @@ export class TouchControls {
     this.sprintLatched = false;this.chargeHeld=false;
     this.valkyrieTouchLatched = new Map();
     this.ritual=null;
+    this.valkyrieGeometry=null;
+    this.valkyrieGeometryKey='';
     this.flightRiseHeld = false;
     this.flightLowerHeld = false;
     this.flightRiseSources = new Set();
@@ -129,16 +132,16 @@ export class TouchControls {
           <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
-    // A physically distinct transparent stencil lies *over* the controls,
-    // but receives no pointer events. TouchControls itself owns a pointer
-    // whose START falls near the stencil's lower-right rune waypoint.
+    // A read-only, full-layer ink overlay connects the ACTUAL four Flight
+    // buttons. It never becomes a fifth movable control or intercepts taps.
+    // The original Jump finger is captured by the existing touch layer.
     this.valkyrieStencil=document.createElement('div');
     this.valkyrieStencil.className='touch-valkyrie-stencil';
     this.valkyrieStencil.dataset.action='valkyrieStencil';
     this.valkyrieStencil.hidden=true;
     this.valkyrieStencil.setAttribute('aria-label','Terminal Dive: trace Dagaz rune, then halo');
     this.valkyrieStencil.innerHTML=`
-      <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="none">
         <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
         ${VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>{
           const a=VALKYRIE_RITUAL_POINTS[i];
@@ -146,8 +149,7 @@ export class TouchControls {
             d="M${a[0]} ${a[1]} L${p[0]} ${p[1]}"/>`;
         }).join('')}
         <text class="touch-valkyrie-glyph" x="151" y="112">ᛞ</text>
-      </svg>
-      <span class="touch-valkyrie-grip" title="Drag to move the Terminal Dive stencil">MOVE ᛞ</span>`;
+      </svg>`;
     this.layer.append(this.valkyrieStencil);
     this.valkyrieLines=VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>
       this.valkyrieStencil.querySelector('.ritual-stage-'+i));
@@ -274,6 +276,7 @@ export class TouchControls {
   /** The buttons' size as a share of their natural size (a setting). */
   setScale(scale) {
     this.layer.style.setProperty('--ts', String(scale));
+    this.#syncValkyrieGeometry();
   }
 
   applyLayout(layouts = this.layouts) {
@@ -288,14 +291,15 @@ export class TouchControls {
     for(const element of [this.stickBase,this.valkyrieStencil,...Object.values(this.buttons)])clearLayoutItem(element);
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
-        const element = action === 'stick' ? this.stickBase :
-          action === 'valkyrieStencil' ? this.valkyrieStencil : this.buttons[action];
+        if(action==='valkyrieStencil')continue; // obsolete saved overlay anchor
+        const element = action === 'stick' ? this.stickBase : this.buttons[action];
         if (element) applyLayoutItem(element, mode!=='onFoot'?{...placement,custom:true}:placement);
       }
     }
     if (layouts.opacity !== undefined) {
       this.setCustomOpacity(layouts.opacity);
     }
+    this.#syncValkyrieGeometry();
   }
 
   setCustomOpacity(opacity) {
@@ -678,9 +682,18 @@ export class TouchControls {
             dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
-        const valkyrieReady = flight && !fb?.grounded && ascensionValkyrieReady(fb,local,serverNow);
-        this.valkyrieEligible = valkyrieReady;
-        this.valkyrieStencil.hidden=!valkyrieReady;
+        const valkyrieReady=flight&&!fb?.grounded&&ascensionValkyrieReady(fb,local,serverNow);
+        // The rune is faintly previewed whenever Ascension is equipped, so
+        // users can FIND the combination before the meter/Skill is ready.
+        // Only a fully ready server-eligible state captures a ritual pointer.
+        const valkyriePreview=Boolean(flight&&local.alive&&fb?.health>0&&
+          !fb?.retired&&!fb?.terminalDive&&!fb?.terminalDiveSpent&&
+          fb?.skill?.id==='doNotStopMyAscension');
+        this.valkyrieEligible=valkyrieReady;
+        this.valkyrieStencil.hidden=!(valkyriePreview||this.previewMode==='flight');
+        this.valkyrieStencil.classList.toggle('ready',valkyrieReady);
+        this.valkyrieStencil.classList.toggle('unready',!valkyrieReady);
+        this.#syncValkyrieGeometry();
         if(!valkyrieReady)this.#clearValkyrieRitual();
         const uBtn = this.buttons.ultimate;
         if (uBtn) {
@@ -697,8 +710,10 @@ export class TouchControls {
         const atkLabel = this.buttons.attack?.querySelector('span');
         if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
         this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
-        this.valkyrieEligible = false;
-        this.valkyrieStencil.hidden=true;
+        this.valkyrieEligible=false;
+        this.valkyrieStencil.hidden=this.previewMode!=='flight';
+        this.valkyrieStencil.classList.toggle('ready',false);
+        this.valkyrieStencil.classList.toggle('unready',true);
         this.#clearValkyrieRitual();
         this.buttons.guard?.classList.remove('airborne-forbidden');
         this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'flight-spinning', 'valkyrie-prep');
@@ -879,16 +894,63 @@ export class TouchControls {
     this.layer.remove();
   }
 
+  // Build the actual button-to-button path in the same coordinate frame used
+  // by mobile pointer events, including ScreenTurn and user-customized buttons.
+  #syncValkyrieGeometry() {
+    const width=this.layer.clientWidth,height=this.layer.clientHeight;
+    if(!(width>0&&height>0)||!this.buttons)return;
+    const layerRect=this.layer.getBoundingClientRect?.();
+    const layout=this.layouts?.flight??{};
+    const centers={};
+    for(const action of ['jump','ultimate','dash','siegeSkill']){
+      const rect=this.buttons[action]?.getBoundingClientRect?.();
+      let point=null;
+      if(rect&&rect.width>0&&rect.height>0&&layerRect?.width>0&&layerRect?.height>0){
+        point=touchLayerPoint(rect.left+rect.width/2,rect.top+rect.height/2,
+          layerRect,{width,height},screenTurn?.angle??0);
+      }
+      // Headless tests and a one-frame pre-layout pass use saved button
+      // positions; the real browser always measures the live rectangles.
+      if(!point){
+        const p=layout[action];
+        if(!p)return;
+        const w=p.width??p.size??56,h=p.height??p.size??56;
+        point={x:Number.isFinite(p.left)?p.left+w/2:width-(p.right??14)-w/2,
+          y:Number.isFinite(p.top)?p.top+h/2:height-(p.bottom??140)-h/2};
+      }
+      centers[action]=point;
+    }
+    const geometry=buildValkyrieRitualGeometry(centers,{width,height});
+    if(!geometry)return;
+    const key=[width,height,...geometry.points.flatMap(p=>p.map(v=>Math.round(v)))].join(',');
+    if(key===this.valkyrieGeometryKey)return;
+    if(this.ritual){
+      // Buttons can pulse/scale a fraction of a pixel as they animate.
+      // Freeze the path under an active thumb; cancel only a meaningful
+      // resize, rotation or deliberate workshop relocation.
+      const prev=this.valkyrieGeometry;
+      const materiallyMoved=width!==prev?.width||height!==prev?.height||
+        geometry.points.slice(0,4).some((p,i)=>Math.hypot(
+          p[0]-prev.points[i][0],p[1]-prev.points[i][1])>12);
+      if(!materiallyMoved)return;
+      this.#clearValkyrieRitual();
+    }
+    this.valkyrieGeometryKey=key;
+    this.valkyrieGeometry=geometry;
+    this.valkyrieStencil.querySelector('svg')?.setAttribute('viewBox',
+      `0 0 ${width} ${height}`);
+    this.valkyrieStencil.querySelector('.touch-valkyrie-ghost')?.setAttribute('d',geometry.path);
+    const glyph=this.valkyrieStencil.querySelector('.touch-valkyrie-glyph');
+    glyph?.setAttribute('x',String(geometry.center[0]));
+    glyph?.setAttribute('y',String(geometry.center[1]+8));
+    for(let i=0;i<this.valkyrieLines.length;i++){
+      const a=geometry.points[i],b=geometry.points[i+1],line=this.valkyrieLines[i];
+      if(a&&b&&line)line.setAttribute('d',`M${a.join(' ')} L${b.join(' ')}`);
+    }
+  }
+
   #ritualPoint(event) {
-    const element=this.valkyrieStencil;
-    const rect=element?.getBoundingClientRect?.();
-    if(!rect||!(rect.width>0&&rect.height>0))return null;
-    // ScreenTurn may rotate the canvas without rotating the handset screen.
-    const width=element.clientWidth||rect.width,height=element.clientHeight||rect.height;
-    const point=touchLayerPoint(event.clientX,event.clientY,rect,{width,height},
-      screenTurn?.angle??0);
-    if(!point)return null;
-    return {x:point.x/width*RITUAL_UNIT,y:point.y/height*RITUAL_UNIT};
+    return gamePoint(event,this.layer);
   }
 
   #paintValkyrieRitual() {
@@ -913,11 +975,16 @@ export class TouchControls {
     if(event.pointerType==='mouse'||!this.flightMounted||
       !this.valkyrieEligible||this.ritual||
       this.layer.classList.contains('touch-layout-editing'))return false;
+    // Only a finger which actually STARTS on Jump may begin this chord.
+    // Proximity alone stole ordinary Chivalry/Ultimate taps in tight layouts.
+    const startAction=event.target.closest?.('[data-action]')?.dataset.action;
+    if(startAction!=='jump')return false;
     const point=this.#ritualPoint(event);
-    if(!ritualStartNear(point))return false;
+    if(!ritualStartNear(point,this.valkyrieGeometry?.points))return false;
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
-    this.ritual={...createValkyrieRitual(event.pointerId,performance.now()),
+    this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
+      this.valkyrieGeometry.points),
       startedOnJump:event.target.closest?.('[data-action]')?.dataset.action==='jump',
       startPoint:point,invalid:false};
     this.#paintValkyrieRitual();
@@ -928,7 +995,22 @@ export class TouchControls {
     event.preventDefault();
     if(g.invalid||g.completed)return true;
     const at=this.#ritualPoint(event);
-    const next=advanceValkyrieRitual(g,at,performance.now());
+    if(!at){g.invalid=true;this.#paintValkyrieRitual();return true;}
+    // Interpolate pointer movement so a low-frequency mobile browser can
+    // advance across short halo arcs without silently skipping checkpoints.
+    const start=g.last??[at.x,at.y];
+    const total=Math.hypot(at.x-start[0],at.y-start[1]);
+    const steps=Math.max(1,Math.min(48,Math.ceil(total/9)));
+    let next=g;
+    const now=performance.now();
+    for(let i=1;i<=steps;i++){
+      const point={x:start[0]+(at.x-start[0])*i/steps,
+        y:start[1]+(at.y-start[1])*i/steps};
+      const advanced=advanceValkyrieRitual(next,point,now);
+      if(!advanced){next=null;break;}
+      next=advanced;
+      if(next.completed)break;
+    }
     if(!next){g.invalid=true;this.#paintValkyrieRitual();return true;}
     this.ritual=next;
     this.#paintValkyrieRitual();

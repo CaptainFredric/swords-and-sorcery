@@ -563,53 +563,40 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-flight-rail[data-intent="rise"] { color:#fff1bd; }
 .touch-flight-rail[data-intent="lower"] { color:#b9dce6; }
 @container app (max-height:340px) { .touch-controls.touch-flight { --s:calc(.88 * var(--ts,1)); } }
-/* Independent Dagaz-then-halo ritual: a faint etched stencil ABOVE the
-   physical Flight buttons but not part of their hitboxes. The first touch near
-   its lower-right waypoint is handled by the controls layer itself.
-   Size/anchor are saved in the Flight page of the controls workshop. */
+/* Dagaz is ink projected across REAL Flight controls, not another button.
+   SVG is full-layer and pointer transparent; every waypoint follows the
+   player-edited Jump / Chivalry / Dash / Ascension rectangles. */
 .touch-valkyrie-stencil {
-  --stencil-size:200px;--ritual-progress:0;
-  position:absolute;right:calc(var(--safe-r) + 14px * var(--s));
-  bottom:calc(var(--safe-b) + 80px * var(--s));
-  width:calc(var(--stencil-size) * var(--s));
-  height:calc(var(--stencil-size) * var(--s));
+  --ritual-progress:0;
+  position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;
   z-index:22;pointer-events:none;touch-action:none;
-  opacity:calc(.16 + var(--ritual-progress) * .74);
-  transition:opacity .09s linear;
-  filter:drop-shadow(0 0 calc(2px + 10px * var(--ritual-progress)) rgba(252,194,103,.48));
+  opacity:calc(.26 + var(--ritual-progress) * .74);
+  transition:opacity .1s linear;
 }
 .touch-valkyrie-stencil[hidden] {display:none !important;}
-.touch-valkyrie-stencil svg {width:100%;height:100%;overflow:visible;pointer-events:none;}
+.touch-valkyrie-stencil.unready {opacity:.13;}
+.touch-valkyrie-stencil.preview {opacity:.5;}
+.touch-valkyrie-stencil svg {display:block;width:100%;height:100%;pointer-events:none;overflow:hidden;}
 .touch-valkyrie-ghost {
-  fill:none;stroke:#ddceac;stroke-width:1.8;
-  stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:3.6 5.5;
+  fill:none;stroke:#ffe4a5;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 6;
+  filter:drop-shadow(0 0 3px rgba(252,194,103,.6));
 }
+.touch-valkyrie-stencil.unready .touch-valkyrie-ghost {stroke-dasharray:2 8;}
 .touch-valkyrie-segment {
-  fill:none;stroke:#ffe4a2;stroke-width:2;
+  fill:none;stroke:#ffe8b4;stroke-width:2;
   stroke-opacity:.05;stroke-linejoin:round;stroke-linecap:round;
+  filter:drop-shadow(0 0 4px rgba(255,220,150,.65));
 }
 .touch-valkyrie-glyph {
-  font:22px/1 serif;fill:#f9d895;opacity:calc(.2 + var(--ritual-progress) * .65);
-  text-anchor:middle;filter:drop-shadow(0 0 4px #f8d580);
+  font:bold 22px/1 serif;fill:#f9d895;
+  opacity:calc(.25 + var(--ritual-progress) * .65);
+  text-anchor:middle;filter:drop-shadow(0 0 3px #d2a751);
 }
-.touch-valkyrie-stencil.drawing .touch-valkyrie-ghost {stroke-dasharray:none;stroke:#e0ad6b;}
-.touch-valkyrie-stencil.complete {
-  opacity:1;filter:drop-shadow(0 0 18px #ffe3a3);
-}
-.touch-valkyrie-grip {display:none;pointer-events:none;}
-/* The small grip is the only editable touch target; the stencil's huge
-   transparent interior NEVER steals taps from the editable real buttons. */
-.touch-controls.touch-layout-editing .touch-valkyrie-stencil {
-  opacity:.65;outline:1px dashed #efd49b99;border-radius:8px;
-}
-.touch-controls.touch-layout-editing .touch-valkyrie-grip {
-  display:grid;place-items:center;position:absolute;top:5px;left:5px;
-  min-width:53px;height:28px;padding:0 5px;
-  font:bold 10px/1 system-ui;letter-spacing:.07em;
-  color:#261b12;background:#f2cb80;border:1px solid #fff0c7;
-  border-radius:3px;pointer-events:auto;touch-action:none;
-  cursor:grab;box-shadow:0 2px 10px #0009;
-}
+.touch-valkyrie-stencil.drawing .touch-valkyrie-ghost {stroke-dasharray:none;stroke:#f2d29b;}
+.touch-valkyrie-stencil.complete .touch-valkyrie-segment {filter:drop-shadow(0 0 9px #ffe3a3);}
+.touch-valkyrie-stencil.complete {opacity:1;}
+
 @media(prefers-reduced-motion:reduce){
   .touch-valkyrie-stencil{transition:none;filter:none;}
 }
