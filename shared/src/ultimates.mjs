@@ -123,7 +123,7 @@ export const ULTIMATES = Object.freeze({
     id: 'one_hit_of_wonders', label: 'One Hit of Wonders', short: 'Wonders',
     startupSec: 0.92, activeSec: 1.65, lockoutSec: 2.5,
     startupMove: 0.35, startupStagger: 1.5,
-    recoverSec: 0.35, spin: true,
+    recoverSec: 0.35, spin: false,
   }),
 
 });
