@@ -537,7 +537,8 @@ export function applyRoomCommand(room, player, message, time) {
     case 'practiceSpawnDummy':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };
-      return spawnPracticeDummy(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+      return spawnPracticeDummy(room, message.mode, time, player.id,
+        room.inspectionEnabled ? message.inspectionReference : null) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceRemoveDummy':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may remove dummies.'};
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
