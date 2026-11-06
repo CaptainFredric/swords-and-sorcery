@@ -81,6 +81,22 @@
 .siege-armory-heading h4 { margin: 3px 0; font: 400 22px/1 var(--font-inscription); color: #f1e4c2; }
 .siege-armory-heading .armory-slot { margin: 0; }
 .siege-armory-card > p:not(.armory-slot) { margin: 9px 0 5px; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
+/* Longform machine lore belongs to the existing scrollable Armory cloth,
+   never to a fixed-height or clipping description box. */
+.siege-armory-description {min-width:0;max-width:100%;}
+.siege-armory-description > p {
+  margin:9px 0 5px;
+  font:500 13px/1.42 var(--font-script);
+  color:var(--heraldry-cream);
+  white-space:normal;overflow-wrap:break-word;
+}
+.siege-armory-description-long > p {margin:0 0 12px;line-height:1.5;}
+.siege-armory-description-long > p:first-child {
+  color:var(--heraldry-brass-light);font-style:italic;
+  font-weight:700;letter-spacing:.015em;
+}
+.siege-armory-description > p:last-child {margin-bottom:9px;}
+.siege-armory-description em {font-style:italic;color:var(--heraldry-brass-light);}
 .siege-armory-facts { color: var(--heraldry-brass-light); font: 700 11px/1.4 var(--font-script); }
 .siege-armory-card .spell-card { grid-template-columns: minmax(0,1fr) auto; min-height: 56px; }
 .siege-armory-card .spell-card small { grid-column: 1 / -1; }
