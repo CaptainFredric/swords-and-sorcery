@@ -1,25 +1,7 @@
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
-import { DEFAULT_EMBLEM, EMBLEMS, ownedEmblems } from '../../shared/src/heraldry.mjs';
+import { DEFAULT_EMBLEM, EMBLEMS, canonicalEmblemId, ownedEmblems } from '../../shared/src/heraldry.mjs';
 import { heraldryView, renownView, rewardText } from './renownView.mjs';
 import { appUrl } from '../appUrl.mjs';
-
-const SVG = 'http://www.w3.org/2000/svg';
-// the Castleward trident, for its heraldry card
-function tridentMark(doc) {
-  if (typeof doc.createElementNS !== 'function') {
-    const glyph = doc.createElement('span');
-    glyph.textContent = 'Ψ';
-    return glyph;
-  }
-  const svg = doc.createElementNS(SVG, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 34');
-  svg.setAttribute('aria-hidden', 'true');
-  const path = doc.createElementNS(SVG, 'path');
-  path.setAttribute('fill', '#e8cfa0');
-  path.setAttribute('d', 'M11 9h2v25h-2zM12 1l3.5 6h-7zM4 11h2v6c0 2.2 2.4 3.6 6 3.6s6-1.4 6-3.6v-6h2v6c0 3.6-3.3 5.6-8 5.6s-8-2-8-5.6zM5 6l2.6 5H2.4zM19 6l2.6 5h-5.2z');
-  svg.appendChild(path);
-  return svg;
-}
 
 export class RenownController {
   constructor({ socket, scene, spell = () => null, document: doc = document, storage = localStorage }) {
@@ -121,7 +103,7 @@ export class RenownController {
         this.render();
       }, 8000);
     });
-    // the heraldry: the trident and each earned emblem, previewed on his back banner (he turns to show it)
+    // the heraldry: Grimoirelee and each earned emblem, previewed on his back banner (he turns to show it)
     this.emblemCards = doc.querySelector('#armory-emblems');
     this.emblemLabels = new Map();
     const previewEmblem = (id) => {
@@ -145,7 +127,7 @@ export class RenownController {
       } else if (!emblem.available) {
         mark.className += ' pending';
         mark.textContent = 'ART PENDING';
-      } else mark.appendChild(tridentMark(doc));
+      } else mark.textContent = '✥';
       const words = doc.createElement('span');
       const name = doc.createElement('strong');
       name.textContent = emblem.name;
@@ -269,7 +251,7 @@ export class RenownController {
     this.scene()?.setEmblem?.(section === 'heraldry' && available ? this.emblemPreview : this.carriedEmblem());
     if (section !== 'heraldry' || !available) this.scene()?.showBanner?.(false);
   }
-  carriedEmblem() { return EMBLEMS[this.profile?.emblem] ? this.profile.emblem : DEFAULT_EMBLEM; }
+  carriedEmblem() { const id = canonicalEmblemId(this.profile?.emblem); return EMBLEMS[id] ? id : DEFAULT_EMBLEM; }
   online() { return this.socket.status === 'online' && this.socket.remote.profileReady; }
   route(screen) {
     const entering = screen === 'ARMORY' && !this.inArmory;
