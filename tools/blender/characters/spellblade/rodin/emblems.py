@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
 def load_svg_rgba(path: Path) -> np.ndarray:
     """Rasterize official vector contours in Blender's Python without installing SVG/Pillow addons.
 
-    Input uses the approved artwork's unmodified 520x880 viewBox and even-odd
+    Input reads the approved artwork's current canonical viewBox and even-odd
     holes (sword groove, two scars, page linework, bookmark diamond).
     Return bottom-up float32 RGBA, like bpy.data.images.
     """
@@ -53,10 +53,11 @@ def load_svg_rgba(path: Path) -> np.ndarray:
     svg_path = root.find(".//{http://www.w3.org/2000/svg}g/{http://www.w3.org/2000/svg}path")
     if svg_path is None:
         raise ValueError("Official Grimoirelee vector path not found")
-    width, height = 520, 880
+    x_origin, y_origin, raw_width, raw_height = map(float, root.attrib['viewBox'].split())
+    width, height = round(raw_width), round(raw_height)
     mask = np.zeros((height, width), dtype=bool)
     for fragment in re.findall(r"M([^Z]+)Z", svg_path.attrib["d"]):
-        points = np.array([(int(x) - 250, int(y) - 75)
+        points = np.array([(float(x) - x_origin, float(y) - y_origin)
                            for x, y in re.findall(r"(-?\d+),(-?\d+)", fragment)], dtype=np.float64)
         if len(points) < 3:
             continue
