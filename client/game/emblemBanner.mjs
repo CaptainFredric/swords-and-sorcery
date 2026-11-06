@@ -34,7 +34,13 @@ export function createEmblemBanner(root) {
     if (!object.isMesh || !['TabardFront', 'TabardBack'].includes(object.name)) return;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
-      if (!['KitBanner', 'CapeBanner'].includes(material?.name) || !material.map) continue;
+      // Rodin's front cloth uses GameBody; its cape uses CapeBanner.
+      // The kit uses KitBanner on both. Cloth dye already isolated both materials
+      // per Spellblade, so replacing a front map cannot repaint armor.
+      const supported = object.name === 'TabardFront'
+        ? ['GameBody', 'KitBanner']
+        : ['CapeBanner', 'KitBanner'];
+      if (!supported.includes(material?.name) || !material.map) continue;
       const record = { mesh: object, material, base: material.map, cloth: material.name };
       if (object.name === 'TabardFront') fronts.push(record);
       else banners.push(record);
