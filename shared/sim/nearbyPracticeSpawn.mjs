@@ -25,7 +25,7 @@ export function nearbyPracticeSpawn(room, playerId, excludeId = null) {
       const resolved = resolvePlayerWorld({ x, y, z }, 0.48, world.solids ?? [], 1.8);
       if (Math.hypot(resolved.x - x, resolved.z - z) > 0.03) continue;
       if (others.some(p => Math.abs(p.position.y - y) < 2 && Math.hypot(p.position.x - x, p.position.z - z) < 1.15)) continue;
-      return { x, y, z, yaw: Math.atan2(anchor.position.x - x, anchor.position.z - z) };
+      return { x, y, z, yaw: Math.atan2(x - anchor.position.x, z - anchor.position.z) };
     }
   }
   return null; // Never force a dummy through scenery or off the playable surface.
