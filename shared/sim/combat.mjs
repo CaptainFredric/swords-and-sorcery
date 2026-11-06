@@ -24,7 +24,8 @@ import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import { oneHitTeleportReach, lineOfConductDamage } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
-  shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions } from '../src/oneHitInfusions.mjs';
+  shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
+  oneHitGlide } from '../src/oneHitInfusions.mjs';
 import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
@@ -2644,7 +2645,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // (spinning in a Vortex, they move at its pace and fall slowly, as they have steered it: no sprint, no crouch)
     steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
-    const whirl = ultimateWhirl(player, nowSec);
+    const whirl = ultimateWhirl(player, nowSec) ?? oneHitGlide(player,MOVEMENT.runSpeed);
     player.shakenNow=nowSec;
     const frozen=nowSec < (player.oneHitFrozenUntil??-Infinity);
     const input = frozen ? { forward:0,right:0,jump:false,sprint:false,yaw:player.yaw,pitch:player.pitch }

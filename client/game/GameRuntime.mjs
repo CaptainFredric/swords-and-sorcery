@@ -64,6 +64,7 @@ import {
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
+import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -3730,7 +3731,8 @@ export class GameRuntime {
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
-      const whirl = ultimateWhirl(this.localAuth, serverNow);
+      const whirl = ultimateWhirl(this.localAuth, serverNow) ??
+        oneHitGlide(this.localAuth,MOVEMENT.runSpeed);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
       const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
       const moveInput = reeling
