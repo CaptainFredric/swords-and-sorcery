@@ -2515,8 +2515,8 @@ function respawnPlayer(room, player, nowSec, world) {
     const currentPhase = room.objectiveState?.phase ?? 0;
     if (room.mode === 'HIGH_GROUNDS') spawnPoints = availableHighGroundsSpawns(room, player, allSpawns);
     const matching = allSpawns.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === currentPhase));
-    if (matching.length && room.mode !== 'HIGH_GROUNDS' && room.mode !== 'RESTLESS_DAY') spawnPoints = matching;
-    else if (room.mode !== 'HIGH_GROUNDS' && room.mode !== 'RESTLESS_DAY') {
+    if (matching.length && room.mode !== 'HIGH_GROUNDS' && !custom?.length) spawnPoints = matching;
+    else if (room.mode !== 'HIGH_GROUNDS' && !custom?.length) {
       const anyTeamSpawns = allSpawns.filter((s) => s.team === player.team);
       if (anyTeamSpawns.length) spawnPoints = anyTeamSpawns;
     }
@@ -2546,7 +2546,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if (room.state !== 'PLAYING') return room.events;
 
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
-  else stepObjectives(room, dt, nowSec);
+  else if(!modeCall(room,'ownsTeamObjectives'))stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
   // Preserve the world argument for ordinary and custom/test combat worlds.
   // Only objective phase transitions deliberately replace it with canonical geometry.
@@ -2559,10 +2559,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   // Always compose from canonical structure geometry; do not feed the last
   // frame's dynamic ladder rails into the next structural rebuild.
-  if(room.mode==='RESTLESS_DAY'&&room.worldId===WORLD_IDS.RESTLESS_DAY)
-    world=getWorld(WORLD_IDS.RESTLESS_DAY);
+  world = modeCall(room, 'baseWorld', world) ?? world;
   world = structureWorld(world, room.structures);
-  world = withRestlessLadders(world,room.restlessDay);
+  world = modeCall(room, 'composeWorld', world) ?? world;
   if (room.edgeOfVictory) world = { ...world, edgeBoundary: {
     center: room.edgeOfVictory.center, radius: room.edgeOfVictory.radius } };
   room.world = world;

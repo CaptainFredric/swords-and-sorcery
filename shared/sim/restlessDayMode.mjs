@@ -1,7 +1,7 @@
 // Restless Day's authoritative rules; shared with dedicated server and solo host.
 // No exhaustion modifier, no overtime, no objective-capture fallback.
 import { TEAMS } from '../src/teams.mjs';
-import { segmentAabbHit } from '../src/collision.mjs';
+import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 export const RESTLESS_DAY_RULES=Object.freeze({
   matchSec:780,renownerHP:1650,ladderHP:190,replaceSec:18,carrySpeed:.65,
   interactRange:3.8,placementRange:5.6,swordRange:8.4,attackCooldown:4.2,
@@ -75,7 +75,7 @@ export function restlessCarryClear(world,position,yaw){
  if(!world||!position||!Number.isFinite(yaw))return false;
  const dx=-Math.sin(yaw),dz=-Math.cos(yaw);
  const radius=.32;
- for(let t=-1.9;t<=3.5;t+=.45){
+ for(let t=-1.9;t<=3.55;t+=.45){
    const x=position.x+dx*t,z=position.z+dz*t,y=position.y+1.45;
    for(const b of world.solids??[]){
      if(!b?.center||!b?.size)continue;
@@ -92,14 +92,15 @@ export function restlessCarryClear(world,position,yaw){
 /** Post-step position correction only for occupied ladder carriers. Returns
  * true when the proposed step is blocked by the physical carried beam. */
 export function constrainRestlessCarry(state,from,world,yaw){
- if(!state?.restlessCarrying)return false;
+ if(!state?.restlessCarrying && !from?.restlessCarrying)return false;
+ state.restlessCarrying = state.restlessCarrying ?? from?.restlessCarrying;
  if(restlessCarryClear(world,state.position,yaw))return false;
  state.position={...from};
  state.velocity.x=0;state.velocity.z=0;
  state.sprinting=false;state.sprintBlend=0;
  return true;
 }
-function ladderReach(l,p){
+export function ladderReach(l,p){
  const foot=dist(l.position,p.position);
  if(l.state!=='deployed'||!Number.isInteger(l.wall))return foot;
  const w=walls[l.wall];
@@ -118,9 +119,16 @@ export function interactRestlessLadder(room,player,now){
    return {rejected:'An attacking Spellblade on foot must handle the ladder.'};
  const held=s.ladders.find(l=>l.holderId===player.id);
  if(held){
+   if(!restlessCarryClear(room.world,player.position,player.yaw??0))
+     return {rejected:'The ladder cannot be placed inside stonework.'};
    const placement=wallForPlacement(player);
-   if(!placement||!(placement.index<=s.phase))
-     return {rejected:'Carry the ladder to the foot of the active curtain wall.'};
+   if(!placement||!(placement.index<=s.phase)){
+     const supported=surfaceHeightAt(player.position.x,player.position.z,player.position.y+.1,room.world);
+     if(supported===null||Math.abs(supported-player.position.y)>.8)
+       return {rejected:'Set down the ladder only on supported ground.'};
+     dropLadder(room,held,now);
+     return {};
+   }
    const {index,w}=placement;
    if(Math.abs(player.position.y)>.6)
      return {rejected:'Place the ladder from level, supported ground.'};
@@ -132,8 +140,8 @@ export function interactRestlessLadder(room,player,now){
    const lipZ=w.z-(index===0?1.8:1.9);
    const lipObstruction=(room.world.solids??[]).some(box=>{
      if(!box.center||!box.size)return false;
-     return Math.abs(player.position.x-box.center[0])<=box.size[0]/2+.55
-       &&Math.abs(lipZ-box.center[2])<=box.size[2]/2+.55
+     return Math.abs(player.position.x-box.center[0])<=box.size[0]/2+.05
+       &&Math.abs(lipZ-box.center[2])<=box.size[2]/2+.05
        &&box.center[1]+box.size[1]/2>w.height+.3
        &&box.center[1]-box.size[1]/2<w.height+1.8;
    });
@@ -161,7 +169,8 @@ export function interactRestlessLadder(room,player,now){
  player.attackHeld=false;player.attackActive=false;player.attackSweep=null;
  player.restlessCarrying=near.id;player.speedScale=RESTLESS_DAY_RULES.carrySpeed;
  // A loaded carrier cannot sprint, dash, swing or cast as though unencumbered.
- player.sprinting=false;player.input={...player.input,sprint:false};
+ player.sprinting=false;player.dashUntil=Math.min(player.dashUntil??now,now);
+ player.dashRam=null;player.input={...player.input,sprint:false,attack:false,guard:false,jump:false};
  room.events.push({type:'restlessLadderPicked',ladderId:near.id,playerId:player.id,at:now});
  return {};
 }
@@ -300,6 +309,9 @@ export function restlessnessStep(room,dt,now,{damage}={}){
  if(s.phase===1&&attackers.some(p=>p.position.z>24&&p.position.y<8.1)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
+ // After both curtains have been breached, do not strand the two dedicated
+ // carrier bots with a ladder they can no longer deploy usefully.
+ if(s.phase===2)for(const l of s.ladders)if(l.state==='carrying')dropLadder(room,l,now);
  // Two designated ladder-carrier bots use the same authoritative interaction as humans.
  for(const bot of attackers.filter(p=>p.actorKind==='bot'&&(p.rivalIndex??5)<2)){
    const held=s.ladders.find(l=>l.holderId===bot.id);
@@ -343,9 +355,10 @@ function botGoal(room,actor){
  const s=room.restlessDay;if(!s)return null;
  const i=actor.rivalIndex??0;
  if(actor.team===TEAMS.DEFENDERS){
-   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-22}:{x:(i===3?-9:9),y:7,z:22};
-   if(s.phase===1)return {x:(i-2)*5,y:7,z:23};
-   return {x:(i-2)*4,y:0,z:49};
+   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-23.4}
+     :{x:(i===3?-7:7),y:7,z:22.8};
+   if(s.phase===1)return {x:(i-2)*8,y:7,z:22.8};
+   return {x:(i-2)*6,y:0,z:47};
  }
  const own=s.ladders.find(l=>l.holderId===actor.id);
  const wall=walls[Math.min(1,s.phase)];
@@ -360,17 +373,22 @@ function botGoal(room,actor){
        :{x:deploy.position.x,y:0,z:wall.baseZ};
    }
    const previous=s.ladders[(actor.rivalIndex??0)%2];
-   if(previous?.state==='deployed'&&previous.wall<s.phase)
+   if(i<2&&previous?.state==='deployed'&&previous.wall<s.phase)
      return {x:previous.position.x,y:walls[previous.wall].height,z:walls[previous.wall].z};
    const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
      ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
    if(loose)return {...loose.position};
-   return {x:(i%2?10:-10),y:0,z:wall.baseZ};
+   return {x:(i%2?6:-6),y:0,z:wall.baseZ};
  }
  return {x:0,y:0,z:55};
 }
 export const RESTLESS_DAY_HANDLER=Object.freeze({
- init:(room)=>{room.restlessDay=newState(room.world);},
+ ownsTeamObjectives:()=>true,
+ botOccupation:(room,actor)=>actor.restlessCarrying?'carry':null,
+ baseWorld:(room)=>room.restlessDayCanonicalWorld,
+ composeWorld:(room,world)=>withRestlessLadders(world,room.restlessDay),
+ beforeSpawns:(room)=>{if(room.restlessDay)room.restlessDay.phase=0;},
+ init:(room)=>{room.restlessDayCanonicalWorld=room.world;room.restlessDay=newState(room.world);},
  reset:(room,now)=>{room.restlessDay=newState(room.world);
    for(const p of room.players.values()){p.restlessAsleep=false;p.restlessCarrying=null;p.speedScale=1;}
    room.restlessDay.deadline=now+room.policy.matchSeconds;

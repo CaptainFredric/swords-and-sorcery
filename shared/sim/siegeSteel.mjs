@@ -110,7 +110,14 @@ export function endSiegeSteel(room,m,now,reason='destroyed'){
 }
 function heal(room,m,ward,amount,phase,now){
   if(!(amount>EPS))return 0;
-  const eligible=parts(m,ward.kind).filter(x=>x.owner[x.key]>EPS&&x.owner[x.key]<x.maximum-EPS);
+  const eligible=parts(m,ward.kind).filter(x=>
+    x.owner[x.key]<x.maximum-EPS&&(
+      x.owner[x.key]>EPS||
+      // An installed SO-FIST-ICATION gauntlet remains physically attached
+      // even at zero component HP. The finite Steel ward may restart it;
+      // detached fists are already excluded by parts() above.
+      (ward.kind==='ram'&&x.id==='Fist'&&m.fistMounted!==false)
+    ));
   eligible.sort((a,b)=>{
     const ac=a.owner[a.key]/a.maximum,bc=b.owner[b.key]/b.maximum;
     const critical=(ac<=.35?0:1)-(bc<=.35?0:1);
