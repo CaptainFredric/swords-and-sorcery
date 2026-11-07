@@ -300,6 +300,9 @@ export function restlessnessStep(room,dt,now,{damage}={}){
  if(s.phase===1&&attackers.some(p=>p.position.z>24&&p.position.y<8.1)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
+ // After both curtains have been breached, do not strand the two dedicated
+ // carrier bots with a ladder they can no longer deploy usefully.
+ if(s.phase===2)for(const l of s.ladders)if(l.state==='carrying')dropLadder(room,l,now);
  // Two designated ladder-carrier bots use the same authoritative interaction as humans.
  for(const bot of attackers.filter(p=>p.actorKind==='bot'&&(p.rivalIndex??5)<2)){
    const held=s.ladders.find(l=>l.holderId===bot.id);
