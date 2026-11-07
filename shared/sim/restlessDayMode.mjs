@@ -75,7 +75,7 @@ export function restlessCarryClear(world,position,yaw){
  if(!world||!position||!Number.isFinite(yaw))return false;
  const dx=-Math.sin(yaw),dz=-Math.cos(yaw);
  const radius=.32;
- for(let t=-1.9;t<=3.5;t+=.45){
+ for(let t=-1.9;t<=3.55;t+=.45){
    const x=position.x+dx*t,z=position.z+dz*t,y=position.y+1.45;
    for(const b of world.solids??[]){
      if(!b?.center||!b?.size)continue;
@@ -92,14 +92,15 @@ export function restlessCarryClear(world,position,yaw){
 /** Post-step position correction only for occupied ladder carriers. Returns
  * true when the proposed step is blocked by the physical carried beam. */
 export function constrainRestlessCarry(state,from,world,yaw){
- if(!state?.restlessCarrying)return false;
+ if(!state?.restlessCarrying && !from?.restlessCarrying)return false;
+ state.restlessCarrying = state.restlessCarrying ?? from?.restlessCarrying;
  if(restlessCarryClear(world,state.position,yaw))return false;
  state.position={...from};
  state.velocity.x=0;state.velocity.z=0;
  state.sprinting=false;state.sprintBlend=0;
  return true;
 }
-function ladderReach(l,p){
+export function ladderReach(l,p){
  const foot=dist(l.position,p.position);
  if(l.state!=='deployed'||!Number.isInteger(l.wall))return foot;
  const w=walls[l.wall];
@@ -132,8 +133,8 @@ export function interactRestlessLadder(room,player,now){
    const lipZ=w.z-(index===0?1.8:1.9);
    const lipObstruction=(room.world.solids??[]).some(box=>{
      if(!box.center||!box.size)return false;
-     return Math.abs(player.position.x-box.center[0])<=box.size[0]/2+.55
-       &&Math.abs(lipZ-box.center[2])<=box.size[2]/2+.55
+     return Math.abs(player.position.x-box.center[0])<=box.size[0]/2+.05
+       &&Math.abs(lipZ-box.center[2])<=box.size[2]/2+.05
        &&box.center[1]+box.size[1]/2>w.height+.3
        &&box.center[1]-box.size[1]/2<w.height+1.8;
    });

@@ -25,7 +25,7 @@ import {preparedSpellMember} from '../src/preparedSpells.mjs';
 import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { modeCall, modeSnapshot } from './modeRuntime.mjs';
-import { interactRestlessLadder } from './restlessDayMode.mjs';
+import { interactRestlessLadder, ladderReach } from './restlessDayMode.mjs';
 
 export function serializeLobby(room) {
   return {
@@ -618,7 +618,7 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'siegeOperate': {
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
-         && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&Math.hypot(l.position.x-player.position.x,l.position.z-player.position.z)<3.8)))
+         && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);
       if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
