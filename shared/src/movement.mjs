@@ -1,5 +1,6 @@
 import { resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
 import { CROUCH, postureOf, roomToStand } from './body.mjs';
+import { edgeLimitPoint } from './edgeBoundary.mjs';
 
 export const MOVEMENT = Object.freeze({
   runSpeed: 7.5,
@@ -169,6 +170,8 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     state.position.x += state.velocity.x * dt;
     state.position.y += state.velocity.y * dt;
     state.position.z += state.velocity.z * dt;
+    if (world.edgeBoundary) state.position = edgeLimitPoint(state.position,
+      world.edgeBoundary.center, world.edgeBoundary.radius, MOVEMENT.playerRadius);
     state.grounded = false;
     return state;
   }
@@ -238,6 +241,10 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     state.position.z += travelZ / substeps;
     const wanted={...state.position};
     state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? [], postureOf(state).height);
+    // Constrain *each* collision sweep subdivision. A fast dash cannot step outside
+    // the legal disk and skip across its edge before the authoritative correction.
+    if (world.edgeBoundary) state.position = edgeLimitPoint(state.position,
+      world.edgeBoundary.center, world.edgeBoundary.radius, MOVEMENT.playerRadius);
     if(previous.worldImpact){
       const dx=state.position.x-wanted.x,dz=state.position.z-wanted.z,length=Math.hypot(dx,dz);
       if(length>1e-5){
