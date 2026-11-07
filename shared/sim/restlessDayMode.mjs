@@ -33,14 +33,23 @@ export function withRestlessLadders(world,state){
  if(!state||world.id!=='restless-day')return world;
  // Replace, never accumulate dynamic geometry in repeated host/prediction updates.
  const ramps=(world.ramps??[]).filter(r=>!String(r.id).startsWith('siege-ladder-'));
+ const solids=(world.solids??[]).filter(b=>!String(b.id).startsWith('siege-ladder-'));
  for(const l of state.ladders??[]){
    if(l.state!=='deployed'||!Number.isInteger(l.wall))continue;
    const w=walls[l.wall],z0=w.baseZ,z1=w.z;
    ramps.push({id:'siege-ladder-'+l.id,axis:'z',minX:l.position.x-1.3,
       maxX:l.position.x+1.3,minZ:Math.min(z0,z1),maxZ:Math.max(z0,z1),
       startY:l.wall===1?w.height:0,endY:l.wall===1?0:w.height});
+   // Six narrow, slope-following forged rails. Centre remains unobstructed for climbing.
+   for(let side of [-1,1])for(let i=0;i<6;i++){
+     const t=(i+.5)/6, length=Math.abs(z1-z0);
+     const y=l.wall===1?w.height*(1-t):w.height*t;
+     solids.push({id:'siege-ladder-'+l.id+'-'+side+'-'+i,
+       center:[l.position.x+side*1.39,y-.29,z0+(z1-z0)*t],
+       size:[.22,.34,length/6+.04],material:'iron'});
+   }
  }
- return {...world,ramps};
+ return {...world,ramps,solids};
 }
 function wallForPlacement(p){
  return walls.map((w,index)=>({index,w,d:Math.abs(p.position.z-w.baseZ)}))
@@ -167,6 +176,15 @@ export function restlessnessStep(room,dt,now,{damage}={}){
  if(s.phase===1&&attackers.some(p=>p.position.z>29&&p.position.y<1.2)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
+ // Two designated ladder-carrier bots use the same authoritative interaction as humans.
+ for(const bot of attackers.filter(p=>p.actorKind==='bot'&&(p.rivalIndex??5)<2)){
+   const held=s.ladders.find(l=>l.holderId===bot.id);
+   if(held){if(wallForPlacement(bot)&&wallForPlacement(bot).index<=s.phase)interactRestlessLadder(room,bot,now);}
+   else if(!bot.restlessCarrying){
+     const l=s.ladders[bot.rivalIndex??0];
+     if(l?.state==='available'&&dist(bot.position,l.position)<2.7)interactRestlessLadder(room,bot,now);
+   }
+ }
  stepStatue(room,s,dt,now,damage);
 }
 function onTime(room,now){
@@ -207,7 +225,8 @@ function botGoal(room,actor){
      const z=actor.position.z<wall.z-3?wall.baseZ:wall.z+5;
      return {x:deploy.position.x,y:z===wall.baseZ?0:wall.height,z};
    }
-   const loose=s.ladders.find(l=>l.state==='available');
+   const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
+     ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
    if(loose)return {...loose.position};
    return {x:(i%2?10:-10),y:0,z:wall.baseZ};
  }
@@ -220,8 +239,8 @@ export const RESTLESS_DAY_HANDLER=Object.freeze({
    room.events.push({type:'restlessDaylightStarted',deadline:room.restlessDay.deadline,at:now,
      subtitle:"If I ever sleep, I'll surrender. Let this be a restless day."});},
  step:restlessnessStep,onTime,onStructureDamage,
- spawn:(room,player,spawns)=>spawns.filter(s=>s.team===player.team&&(
-   player.team===TEAMS.DEFENDERS?s.phase===0:s.phase<=(room.restlessDay?.phase??0))),
+ spawn:(room,player,spawns)=>spawns.filter(point=>point.team===player.team&&(
+   player.team===TEAMS.DEFENDERS?point.phase===0:point.phase===(room.restlessDay?.phase??0))),
  botGoal,
  command:(room,player,message,now)=>message.type==='restlessLadder'
    ?interactRestlessLadder(room,player,now):null,
