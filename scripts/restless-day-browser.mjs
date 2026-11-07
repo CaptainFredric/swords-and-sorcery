@@ -82,18 +82,18 @@ try{
  assert.ok(climbed.player.position.y>5.45,'the real player failed to reach battlement height');
  await shot('05-real-outer-climb');
  // Stage a wall-top retrieval and second-wall carry to isolate that lifecycle.
- await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+ await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:6,z:-24};a.velocity={x:0,y:0,z:0};a.yaw=0;
-  r.socket.local.room.restlessDay.phase=1;r.input.interact();return true;})()");
+  r.socket.local.room.restlessDay.phase=1;r.input.interact();return true;})()`);
  await until(async()=>{const s=await evaluate(state);return s.player?.carrying==='ladder-a'?s:null;},'retrieve ladder from battlement');
- await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
-  a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()");
+ await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+  a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()`);
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.wall===1&&s.ladders?.[0]?.state==='deployed'?s:null;},'second curtain deployed');
  await shot('06-inner-curtain');
- await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+ await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
   window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);
-  return true;})()");
+  return true;})()`);
  const innerClimbed=await until(async()=>{const s=await evaluate(state);
   return s.player?.position.z>22.6&&s.player?.position.y>6.4?s:null;
  },'player climbs inner incline and exits onto second battlement',105);
