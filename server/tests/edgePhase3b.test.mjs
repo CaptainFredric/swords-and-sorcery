@@ -131,7 +131,7 @@ test('stationary correction is bounded and never deals boundary damage',()=>{
 test('obstacles and cliff edges invalidate unsafe inward corrective steps',()=>{
   const {room,pilot}=fixture(6);
   pilot.position={x:8.2,y:0,z:0};
-  room.world.solids=[{id:'inside-wall',center:[7.7,.9,0],size:[.1,1.8,10]}];
+  room.world.solids=[{id:'inside-wall',center:[8.02,.9,0],size:[.14,1.8,10]}];
   const blocked=edgeSafeFootPoint(room,pilot,pilot.position,room.world,{stepLimit:.38});
   assert.equal(blocked,null,'a nearby collision prevents phasing across the wall');
   room.world.solids=[];
