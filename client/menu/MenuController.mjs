@@ -153,6 +153,10 @@ export class MenuController {
 
 
 
+  renownTrials(rawName) {
+    return this.#withName(rawName, (name) => this.socket.startSolo('RENOWN_TRIALS', name, this.soloArena()));
+  }
+
   practice(rawName) {
     return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, this.soloArena()));
   }
