@@ -217,7 +217,7 @@ export function restlessnessStep(room,dt,now,{damage}={}){
    }
  }
  const attackers=[...room.players.values()].filter(p=>p.alive&&p.team===TEAMS.ATTACKERS);
- if(s.phase===0&&attackers.some(p=>p.position.z>-18&&p.position.y<1.2)){
+ if(s.phase===0&&attackers.some(p=>p.position.z>-22&&p.position.y<7.1)){
    s.phase=1;room.events.push({type:'restlessCurtainBreached',wall:'outer',phase:1,at:now});
  }
  if(!s.lastLightAnnounced&&s.deadline-now<=60&&s.deadline>now){
@@ -225,7 +225,7 @@ export function restlessnessStep(room,dt,now,{damage}={}){
    room.events.push({type:'restlessLastLight',at:now,
      subtitle:'Whether they win or they lose, I will rest just fine.'});
  }
- if(s.phase===1&&attackers.some(p=>p.position.z>29&&p.position.y<1.2)){
+ if(s.phase===1&&attackers.some(p=>p.position.z>24&&p.position.y<8.1)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
  // Two designated ladder-carrier bots use the same authoritative interaction as humans.
