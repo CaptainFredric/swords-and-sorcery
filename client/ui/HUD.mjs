@@ -760,13 +760,13 @@ export class HUD {
   #syncMachineCaptionClearance() {
     const mounted=!this.machineGauge?.hidden;
     const gaugeHeight=mounted
-      ?Math.ceil(this.machineGauge.getBoundingClientRect().height):0;
+      ?Math.ceil(this.machineGauge?.getBoundingClientRect?.()?.height??0):0;
     const height=mounted?Math.max(30,gaugeHeight):0;
-    this.root.style.setProperty('--siege-gauge-height',height+'px');
+    this.root?.style?.setProperty?.('--siege-gauge-height',height+'px');
     // Keep this informational height for inspector/screenshots; captions are
     // outside the health assembly rather than lifting the assembly itself.
-    const captionHeight=this.subtitleLine?.classList.contains('show')
-      ?Math.ceil(this.subtitleLine.getBoundingClientRect().height):0;
+    const captionHeight=this.subtitleLine?.classList?.contains('show')
+      ?Math.ceil(this.subtitleLine?.getBoundingClientRect?.()?.height??0):0;
     this.machineGauge?.style.setProperty('--machine-caption-height',captionHeight+'px');
   }
 
