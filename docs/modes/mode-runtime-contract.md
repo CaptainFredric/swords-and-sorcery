@@ -10,7 +10,7 @@ This is an **opt-in extension** of existing Castleward room/combat, *not* a repl
 
 1. Declare an exact id in `shared/src/modes.mjs` (`GAME_MODES`), its policy, and a dedicated arena list if applicable. `teamMode`, `teamSize`, `timed`, `matchSeconds`, `scored`, `respawnSec`, `autoStart`, `allowRematchVote`, `botCount` use existing policy semantics. `fixedTeamSize:true` disallows overriding the declared team count; `privateCustomRoom:true` allows private rooms without listing a not-yet-validated mode in `PUBLIC_ROOM_MODES`. Public matchmaking is a **separate opt-in** via `PUBLIC_ROOM_MODES` after verification.
 2. Register the authoritative world in `shared/worlds/registry.mjs`, with real supported collision floors, ramps, solids, enemy/team spawns and optional `structures` (`solidIds` matching the actual world solids). Use `client/worlds/WorldRendererFactory.mjs` to select the correct client visual module, and add the renderer to GameRuntime's renderer table. The client's visual mesh does **not** define authoritative collisions.
-3. Create `shared/sim/<newMode>Mode.mjs`, export a frozen `HANDLER` object, and add `[GAME_MODES.NEW_MODE, NEW_HANDLER]` to the static `handlers` registry in `modeRuntime.mjs`. Import only a module already present. Do not create placeholder imports of future modes.
+3. Create `shared/sim/<newMode>Mode.mjs`, export a frozen `HANDLER` object, and add `[GAME_MODES.NEW_MODE, defineModeHandler(GAME_MODES.NEW_MODE, NEW_HANDLER)]` to the static `handlers` registry in `modeRuntime.mjs`. Eager registration checks each hook name against the exported `MODE_HOOKS` contract and rejects non-callable or misspelled functions. Import only a module already present. Do not create placeholder imports of future modes.
 4. Add a small pure UI adapter (for instance `client/ui/restlessDayHudView.mjs`) for the mode-specific `snapshot.modeState`. Maintain events/voice in the runtime's event consumer. No gameplay-authoritative calculations in the client renderer.
 5. Add server tests for room creation, player limits, real physics/navigation, reset, commands, structure/time ordering and snapshot serialization; add a separate real-browser acceptance suite and preserve failure artifacts.
 
@@ -60,7 +60,7 @@ Example *Restless Day* event keys: `restlessDaylightStarted`, `restlessLastLight
 
 **Edge of Victory:** own arena shrink/resolve boundary, player count and last-knight-standing logic; use ordinary movement plus a narrowly scoped outward-displacement constraint. Do not reuse Restless Day objective capture/clock. The boundary is **psychological refusal**, not damage fog or an orc.
 
-Both authors: make a separate feature branch + draft PR; consume this exact contract only after checking it against the latest integration branch head. Cross-branch work must be merged/reconciled deliberately; never force-push another developer's branch.
+Both authors: make a separate feature branch + draft PR; consume this exact contract only after checking it against the latest integration branch head. The PR #402 conversation comment publishes the exact handoff SHA and is the shared coordination point. Cross-branch work must be merged/reconciled deliberately; never force-push another developer's branch.
 
 ## 6. Verification status and known barriers (November 7, 2026)
 
