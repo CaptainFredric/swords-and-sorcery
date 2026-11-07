@@ -18,7 +18,8 @@ export const TERMINAL=Object.freeze({holdSec:1,timeout:18,maxSpeed:31,
   minFireRadius:3.5,maxFireRadius:7,minFireDuration:7,maxFireDuration:12,
   minFireTick:4,maxFireTick:9,blastFalloffPower:1.5});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const ready=(m,p,now)=>ascensionValkyrieReady(m,p,now);
+const ready=(room,m,p,now)=>ascensionValkyrieReady(m,p,now,{
+ practice:room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial});
 const healthFraction=(hp,max)=>clamp((Number.isFinite(hp)?hp:0)/max,0,1);
 /** Condition is evaluated at IMPACT. Every extra second of rotor pursuit
  * trades continuing pressure for a weaker eventual area blast. */
@@ -60,7 +61,7 @@ export function stepTerminalPreparation(room,m,now){
  if(!m||m.retired||m.mode==='DESTROYED'||m.terminalDive)return;
  const p=room.players.get(m.operatorId);
  const both=Boolean(operator(room,m,p)&&!m.grounded&&m.flightDashHeld&&m.flightUltimateHeld);
- if(!both||!ready(m,p,now)){
+ if(!both||!ready(room,m,p,now)){
   if(m.terminalPrep){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
   return;
  }
@@ -75,11 +76,11 @@ export function stepTerminalPreparation(room,m,now){
  }
  if(now+1e-8<m.terminalPrep.until)return;
  // Validate again before irrevocably spending the actual ready Chivalry.
- if(!ready(m,p,now))return;
+ if(!ready(room,m,p,now))return;
  commitTerminalDive(room,m,p,now);
 }
 function commitTerminalDive(room,m,p,now){
- if(!operator(room,m,p)||m.grounded||!ready(m,p,now))return false;
+ if(!operator(room,m,p)||m.grounded||!ready(room,m,p,now))return false;
  p.prowess=0;
  m.terminalDiveSpent=true;
  const blastProfile=terminalBlastProfile(m);
@@ -103,7 +104,7 @@ function commitTerminalDive(room,m,p,now){
  * as the held Dash+Ultimate chord. No client-provided power or radius accepted.
  */
 export function requestTerminalRitual(room,m,p,now){
- if(!operator(room,m,p)||m.grounded||!ready(m,p,now))return false;
+ if(!operator(room,m,p)||m.grounded||!ready(room,m,p,now))return false;
  return commitTerminalDive(room,m,p,now);
 }
 export function terminalFlightSteps(dive,now,dt){
