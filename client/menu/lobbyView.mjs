@@ -41,6 +41,11 @@ export function lobbyStateText(message, serverNow = 0) {
     if (message.roomState === 'REMATCH_COUNTDOWN') return 'NEXT ROUND STARTING…';
     return `RALLYING SPELLBLADES · ${message.teamSize ?? 3}V${message.teamSize ?? 3}`;
   }
+  if (message.mode === 'EDGE_OF_VICTORY') {
+    if (message.roomState === 'COUNTDOWN') return 'THE KNIGHTS ENTER THE BATTLEGROUND…';
+    if (message.roomState === 'REMATCH_COUNTDOWN') return 'ANOTHER LAST STAND APPROACHES…';
+    return 'AWAITING KNIGHTS · LAST ONE STANDING';
+  }
   if (message.mode === 'BOT_DUEL') {
     if (message.roomState === 'COUNTDOWN') return 'BOT DUEL STARTING…';
     if (message.roomState === 'WAITING') return 'ENTER THE ARENA WHEN READY';
@@ -75,7 +80,7 @@ function playerStatus(message, player) {
   if (player.actorKind === 'dummy') return 'TRAINING DUMMY';
   if (!player.connected) return 'RECONNECTING';
   if (message.mode === 'BOT_DUEL') return player.arenaReady ? 'READY' : 'FOCUS ARENA';
-  if (message.mode === 'FFA') return player.lobbyReady ? 'READY' : 'NOT READY';
+  if (message.mode === 'FFA' || message.mode === 'EDGE_OF_VICTORY') return player.lobbyReady ? 'READY' : 'NOT READY';
   return 'IN THE ROOM';
 }
 
@@ -85,6 +90,7 @@ function playerStatus(message, player) {
  */
 export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {} } = {}) {
   const ffa = message.mode === 'FFA';
+  const edge = message.mode === 'EDGE_OF_VICTORY';
   const botDuel = message.mode === 'BOT_DUEL';
   const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode);
   const waiting = message.roomState === 'WAITING';
@@ -99,16 +105,16 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
   }));
 
   const ready = {
-    visible: ffa || (breakthrough && waiting),
+    visible: ffa || edge || (breakthrough && waiting),
     pressed: Boolean(me?.lobbyReady),
-    label: breakthrough
+    label: edge ? (me?.lobbyReady ? 'READY · THE LAST STAND AWAITS' : 'READY FOR THE LAST STAND') : breakthrough
       ? (me?.lobbyReady ? 'READY · WAITING FOR ALLIES' : 'START SIEGE · READY')
       : (me?.lobbyReady ? 'READY · WAITING FOR OTHERS' : 'I AM READY'),
     disabled: !waiting,
   };
 
   let action = { visible: false, label: '', primary: false, disabled: false };
-  if ((ffa || breakthrough) && message.isPrivate !== false) action = { visible: true, label: 'COPY INVITE LINK', primary: false, disabled: false };
+  if ((ffa || edge || breakthrough) && message.isPrivate !== false) action = { visible: true, label: 'COPY INVITE LINK', primary: false, disabled: false };
   if (botDuel) {
     const counting = message.roomState === 'COUNTDOWN';
     action = { visible: true, label: counting ? 'ARENA FOCUSED' : 'START BOT DUEL', primary: true, disabled: counting };
@@ -118,6 +124,7 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
   if (ffa) footer = message.isPrivate === false
     ? 'A public room: anyone can walk in, even mid-match.'
     : 'Share the room code. The match starts when everyone is ready.';
+  if (edge) footer = 'No second lives. The battlefield contracts, and retreat is beneath your Spellblade.';
   if (botDuel) footer = message.roomState === 'COUNTDOWN'
     ? 'Get ready. The duel begins after the countdown.'
     : 'Press Start Bot Duel when ready. A short countdown follows.';
