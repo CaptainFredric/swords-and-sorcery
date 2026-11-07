@@ -775,7 +775,7 @@ function renderPublicRooms() {
       <div><dt>SPELLBLADES</dt><dd>${escapeHtml(selected.players)}</dd></div>
       <div><dt>STATUS</dt><dd>${escapeHtml(selected.status)}</dd></div>
       <div><dt>TIME LIMIT</dt><dd>${Number.isFinite(selected.matchSeconds)?Math.round(selected.matchSeconds/60)+' MIN':'UNTIMED'}</dd></div>
-      ${selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
+      ${selected.mode==='EDGE_OF_VICTORY'?'<div><dt>VICTORY</dt><dd>LAST KNIGHT STANDING</dd></div>':selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
         `<div><dt>TEAMS</dt><dd>${selected.teamSize}V${selected.teamSize}</dd></div><div><dt>BOT SKILL</dt><dd>${escapeHtml((selected.botSkill??'knight').toUpperCase())}</dd></div>`}
       </dl>`
     : 'Select a room from the list, or raise a new public room.';
@@ -856,7 +856,7 @@ function soundTheEnd(snapshot) {
   recordMatchResult({
     winnerId: won ? socket.playerId : snapshot.winnerId,
     players: snapshot.players,
-    isScored: !['PRACTICE', 'RENOWN_TRIALS'].includes(snapshot.mode) && !snapshot.tutorial,
+    isScored: !['PRACTICE', 'RENOWN_TRIALS', 'EDGE_OF_VICTORY'].includes(snapshot.mode) && !snapshot.tutorial,
   });
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
