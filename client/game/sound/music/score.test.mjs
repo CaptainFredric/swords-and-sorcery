@@ -186,22 +186,29 @@ test('Spells & Chivalry taken up: strings swell from B-flat into D major on the 
   assert.ok(end < 7);
 });
 
-// Wagner's underlying composition is public-domain; this game scores it
-// directly with its own procedural instruments, never shipping a recording.
-test('Ascension Valkyries cue starts brass immediately in nine-pulse gallop and loops safely',async()=>{
+test('Valkyrie is a restrained original D-minor Castleward cue with eight-bar development',async()=>{
  const {PIECES,VALKYRIES,valkyrieBars}=await import('./score.mjs');
- assert.equal(PIECES.valkyrie.bpm,270);
- assert.equal(VALKYRIES.beatsPerBar,9);
- const bars=take(valkyrieBars(),12);
- assert.equal(bars.length,12);
+ assert.equal(PIECES.valkyrie.bpm,216);
+ assert.equal(VALKYRIES.beatsPerBar,6);
+ assert.equal(VALKYRIES.scale,'D minor');
+ const bars=take(valkyrieBars(),16);
+ assert.equal(bars.length,16);
+ assert.deepEqual(bars.slice(0,8).map(b=>b.chord),
+   ['Dm','Bb','Gm','A','Dm','C','Bb','A']);
  for(const bar of bars){
-  assert.ok(bar.events.some(e=>e.inst==='horn'&&e.beat===0),'no intro silence');
-  assert.ok(bar.events.some(e=>e.inst==='war'),'war drum supports the gallop');
-  for(const e of bar.events){
-   assert.ok(e.beat>=0&&e.beats>0&&e.beat+e.beats<=9,'events fit the measure');
-   assert.ok(Number.isFinite(e.vel)&&e.vel>0);
-   assert.ok(INSTRUMENT_LEVELS[e.inst]>0,'uses authored synthesis only');
-  }
+   assert.ok(bar.events.some(e=>e.inst==='horn'&&e.beat===0),'low brass starts the sacrifice');
+   assert.ok(bar.events.some(e=>e.inst==='war'),'war drums supply weight');
+   assert.ok(bar.events.some(e=>e.inst==='strings'),'bowed harmonies unify the score');
+   assert.ok(bar.events.some(e=>e.inst==='lute'),'Castleward hall timbre persists');
+   for(const e of bar.events){
+     assert.ok(e.beat>=0&&e.beats>0&&e.beat<6,'event onset stays in the bar');
+     assert.ok(e.beat+e.beats<=6.01||e.inst==='drone',
+       'only the shared drone sustains beyond the current bar');
+     assert.ok(Number.isFinite(e.vel)&&e.vel>0);
+     assert.ok(INSTRUMENT_LEVELS[e.inst]>0,'uses known authored synthesis only');
+   }
  }
- assert.deepEqual(bars[0].events,bars[4].events,'stable recurring motif, no unbounded song state');
+ assert.ok(bars.slice(4,8).some(b=>b.events.some(e=>e.inst==='choir')),
+   'voices join the concluding oath');
+ assert.deepEqual(bars[0].events,bars[8].events,'eight-bar motif loops without growing state');
 });
