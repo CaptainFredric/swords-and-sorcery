@@ -89,7 +89,34 @@ test('zero-award verdict is distinct from pending settlement; a disconnected acc
   assert.equal(pendingTrialAward(none.room,none.event), null);
   assert.equal(none.row.status,'NOT_AWARDED');
   const left = preparedRoom('x', 1, 10);
-  left.room.players.get('knight').connected = false;
+  left.room.players.get('knight').profileToken = null;
   assert.equal(pendingTrialAward(left.room,left.event),null);
   assert.equal(left.row.status,'UNAVAILABLE');
+});
+
+test('legitimate wave award remains payable through disconnect and run-bound identity', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),'trial-disconnect-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const store=new ProfileStore(dir);
+  const {token}=store.open();
+  const {room,event,row}=preparedRoom(token,1,12);
+  room.renownTrial.profileToken=token;
+  room.players.get('knight').connected=false;
+  const award=pendingTrialAward(room,event);
+  assert.ok(award);
+  assert.equal(commitTrialAward(store,award).balance,12);
+  assert.equal(row.status,'SETTLED');
+  // The player may disappear after the server has already bound the run.
+  const another=preparedRoom(token,2,14);
+  another.room.renownTrial.profileToken=token;
+  another.room.players.clear();
+  const pending=pendingTrialAward(another.room,another.event);
+  assert.ok(pending);
+  assert.equal(commitTrialAward(store,pending).balance,26);
+  const forged=preparedRoom(token,3,16);
+  const other=store.open().token;
+  forged.room.renownTrial.profileToken=token;
+  forged.room.players.get('knight').profileToken=other;
+  assert.equal(pendingTrialAward(forged.room,forged.event),null);
+  assert.equal(forged.row.status,'UNAVAILABLE');
 });
