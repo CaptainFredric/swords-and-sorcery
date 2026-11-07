@@ -1,0 +1,57 @@
+name: Edge of Victory desktop/mobile Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'shared/src/edgeBoundary.mjs'
+      - 'shared/sim/edgeOfVictory.mjs'
+      - 'shared/sim/edgeSiegeDismount.mjs'
+      - 'shared/sim/soFistication.mjs'
+      - 'shared/sim/biByeLlista.mjs'
+      - 'shared/sim/fightFlight.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'client/worlds/EdgeBoundaryRenderer.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/main.mjs'
+      - 'client/index.html'
+      - 'scripts/edge-victory-browser.mjs'
+      - '.github/workflows/edge-victory-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start real local authoritative Castleward server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node --experimental-websocket server/src/server.mjs > /tmp/edge-game.log 2>&1 &
+          for attempt in $(seq 1 100); do
+            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/edge-game.log
+          exit 1
+      - name: Locate real Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify psychological boundary, real movement, machine dismount and mobile viewport
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+        run: node --experimental-websocket scripts/edge-victory-browser.mjs
+      - name: Save actual Chrome screenshots, acceptance measurements and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-of-victory-phase3b-browser
+          path: output/playwright/edge-of-victory/
+          retention-days: 7
