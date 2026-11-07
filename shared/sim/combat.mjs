@@ -2167,7 +2167,7 @@ export function tryUltimate(room, playerId, nowSec) {
     player.velocity.y = hop;
     player.grounded = false;
   }
-  room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), at: nowSec });
+  room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), ...(player.ultimateState.preparedTiers ? { preparedTiers: { ...player.ultimateState.preparedTiers } } : {}), at: nowSec });
   recordChallengeFact(room, { type: 'ultimateStart', playerId, ultimate: ultimate.id, at: nowSec });
   return true;
 }

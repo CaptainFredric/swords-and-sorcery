@@ -157,6 +157,8 @@ export const VOICE_TAGS = Object.freeze({
   // --- the ultimate
   sunderInvoked: { rank: 100, delay: 0.05, cry: true, about: 'Sunder All That Rusts invoked: its cry' },
   chivalryInvoked: { rank: 100, delay: 0.05, cry: true, about: 'Spells & Chivalry invoked: its cry' },
+  allNaturalDisasterBase: { rank: 100, delay: 0.05, about: 'All-Natural Disaster invoked without elemental infusion' },
+  allNaturalDisasterInfused: { rank: 100, delay: 0.05, about: 'All-Natural Disaster invoked with elemental infusion' },
   ultimateActive: { rank: 5, delay: 1.1, about: 'an ultimate taking hold' },
   sunderSentence: { rank: 30, about: 'the first slam of a Sunder driven into the ground (the sentence, a word to a slam, may begin)' },
   vortexSpin: { rank: 20, delay: 0.3, about: 'Blazing Vortex at full spin (once, as it takes hold)' },
@@ -2280,6 +2282,33 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     section: 'Battle & Abilities',
     credits: { title: 'My Favorite Wind', description: 'Forcibly displaced by another knight\'s Gale.', note: 'His cooperation was entirely involuntary.' },
     file: 'OhMyFavoriteWind.mp3',
+  },
+  // --- All-Natural Disaster (one_hit_of_wonders)
+  {
+    id: 'allNaturalDisasterBaseShelter',
+    text: 'Even shelter itself shall seek shelter from me!',
+    trigger: 'allNaturalDisasterBase',
+    priority: 'high', rarity: 0.7, cooldown: 120,
+    section: 'Battle & Abilities',
+    credits: {
+      title: 'Shelter Seeks Shelter',
+      description: 'Occasionally, when invoking All-Natural Disaster without any elemental infusion.',
+      note: 'Shelter has not confirmed this.',
+    },
+    file: 'Even Shelter Itself!.mp3',
+  },
+  {
+    id: 'allNaturalDisasterInfusedColorful',
+    text: 'A most colorful catas-trophy!',
+    trigger: 'allNaturalDisasterInfused',
+    priority: 'high', rarity: 0.7, cooldown: 120,
+    section: 'Battle & Abilities',
+    credits: {
+      title: 'A Most Colorful Catastrophe',
+      description: 'Occasionally, when invoking All-Natural Disaster with at least one partial or full elemental infusion.',
+      note: 'No trophy has been awarded.',
+    },
+    file: 'MostColorfulCatasTrophy.mp3',
   },
 ]);
 
