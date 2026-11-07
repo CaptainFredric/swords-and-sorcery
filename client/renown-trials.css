@@ -107,3 +107,54 @@
 @media (prefers-reduced-motion: reduce) {
   .renown-trial-hud .trial-sword { transition: none; }
 }
+
+/* The very modest opponent and even more modest coin are procedural silhouettes,
+   deliberately NOT misrepresented as Argon's authored 3D animation clips. */
+.renown-trial-hud .trial-knight {
+  position: absolute;
+  left: 0; bottom: 22px; width: 29px; height: 58px;
+  background: linear-gradient(110deg,#94989d,#373d46 65%,#6f7279);
+  clip-path: polygon(30% 0,68% 0,85% 14%,81% 29%,100% 36%,90% 58%,73% 58%,88% 100%,50% 100%,42% 66%,30% 100%,0 100%,17% 56%,6% 47%,12% 31%,25% 27%);
+  transform-origin: 55% 93%;
+  transition: transform .33s ease;
+  filter: drop-shadow(0 1px 2px #000);
+}
+.renown-trial-hud[data-cue="KNIGHTING"] .trial-knight,
+.renown-trial-hud[data-cue="RECEIVE_COMPENSATION"] .trial-knight {
+  transform: rotate(19deg) translateY(3px);
+}
+.renown-trial-hud[data-cue="SWORD_EVADED"] .trial-knight,
+.renown-trial-hud[data-cue="I_HAVE_SURPASSED_JUDGEMENT"] .trial-knight {
+  transform: translateX(-10px);
+}
+.renown-trial-hud[data-cue="SWORD_EXECUTION"] .trial-knight,
+.renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-knight,
+.renown-trial-hud[data-cue="LATE_COIN"] .trial-knight {
+  transform: rotate(-83deg) translate(-5px, 7px);
+}
+.renown-trial-hud .trial-coin {
+  position: absolute;
+  bottom: 16px; left: 56px; z-index: 3;
+  height: 7px; width: 7px; border-radius: 50%;
+  border: 1px solid #f3d78e;
+  background: radial-gradient(circle at 30% 30%,#fbe0a1,#a78237 75%);
+  box-shadow: 0 0 2px #b98a32;
+  opacity: 0;
+}
+.renown-trial-hud[data-cue="REWARD_COIN"] .trial-coin,
+.renown-trial-hud[data-cue="CONSOLATION_COIN"] .trial-coin,
+.renown-trial-hud[data-cue="CONSOLATION_REACTION"] .trial-coin,
+.renown-trial-hud[data-cue="LATE_COIN"] .trial-coin { opacity: 1; }
+.renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-coin {
+  opacity: 1;
+  animation: trial-coin-strike .32s ease-in forwards;
+}
+@keyframes trial-coin-strike {
+  0% { transform: translate(0,0) scale(.7); }
+  70% { transform: translate(-31px,-25px) scale(1); }
+  100% { transform: translate(-53px,-30px) scale(.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .renown-trial-hud .trial-knight { transition: none; }
+  .renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-coin { animation: none; transform: translate(-53px,-30px); }
+}
