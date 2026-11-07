@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { serializeSnapshot, applyRoomCommand } from '../../shared/sim/wire.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
+import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { GAME_MODES } from '../../shared/src/modes.mjs';
 
 function createTrial() {
@@ -57,4 +58,20 @@ test('ceremony refuses combat input, and rematch removes all previous wave bots'
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'bot').length, 0);
   room.tick(17);
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'bot').length, 1);
+});
+
+test('real trial bots select the human target and navigate inside Castleward geometry', () => {
+  const {room,player}=createTrial();
+  const bot=room.players.get(room.renownTrial.wave.enemyIds[0]);
+  const initial={...bot.position};
+  // Test the production controller with a stable random source, then advance
+  // the real world simulation; no dummy or scripted movement substitution.
+  for(let t=5;t<6;t+=0.1) {
+    stepBotControllers(room,t,room.world,{random:()=>0.5});
+    stepRoom(room,0.1,t,room.world);
+  }
+  assert.equal(bot.ai?.targetId,player.id);
+  assert.ok(Number.isFinite(bot.position.x)&&Number.isFinite(bot.position.z));
+  assert.ok(Math.hypot(bot.position.x-initial.x,bot.position.z-initial.z)>0.05,
+    'trial bot must take an actual movement step toward its target');
 });
