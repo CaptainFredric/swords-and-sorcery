@@ -124,6 +124,10 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.createPublicRoom(name, settings));
   }
 
+  edgeOfVictory(rawName) {
+    return this.#withName(rawName,(name)=>this.socket.startSolo('EDGE_OF_VICTORY',name,'ruined-keep',this.botSkill()));
+  }
+
   botDuel(rawName) {
     return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena(), this.botSkill()));
   }

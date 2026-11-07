@@ -25,6 +25,7 @@ import {preparedSpellMember} from '../src/preparedSpells.mjs';
 import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen, serializeRenownTrial } from './renownTrials.mjs';
+import { edgeSnapshot } from './edgeOfVictory.mjs';
 
 export function serializeLobby(room) {
   return {
@@ -43,6 +44,7 @@ export function serializeLobby(room) {
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
     botSkill: room.botSkill,
+    edgeOfVictory: edgeSnapshot(room),
     votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -86,6 +88,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     suddenDeath: room.suddenDeath,
     renownTrial: room.mode === GAME_MODES.RENOWN_TRIALS ? serializeRenownTrial(room, nowSec) : null,
     overtime: Boolean(room.overtime),
+    edgeOfVictory: edgeSnapshot(room),
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
       scores: { ...room.highGrounds.scores },
