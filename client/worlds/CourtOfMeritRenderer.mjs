@@ -18,6 +18,7 @@ const PALETTE = Object.freeze({
   brass: 0xc49a4a,
   brassDark: 0x82632b,
   iron: 0x3d444b,
+  ironDark: 0x24282c,
   crimson: 0x8a2327,
   crimsonGold: 0xb5363c,
   flame: 0xff9030,
@@ -44,6 +45,18 @@ function cylinder(parent, radiusTop, radiusBottom, height, segments, where, m) {
   return mesh;
 }
 
+function pipe(parent, from, to, radius, m, segments = 8) {
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
+  const v = new THREE.Vector3().subVectors(b, a);
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, v.length(), segments), m);
+  mesh.position.copy(a.add(b).multiplyScalar(0.5));
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.normalize());
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
 export class CourtOfMeritRenderer {
   constructor(scene) {
     this.scene = scene;
@@ -54,6 +67,8 @@ export class CourtOfMeritRenderer {
     this.banners = [];
     this.materials = [];
     this.geometries = [];
+    this.coinVisuals = [];
+    this.lastTrialState = null;
 
     scene.background = new THREE.Color(this.lighting.background);
     scene.fog = new THREE.FogExp2(this.lighting.fog.color, this.lighting.fog.density);
@@ -71,8 +86,11 @@ export class CourtOfMeritRenderer {
     const stoneDarkM = this.#registerMat(mat(PALETTE.stoneDark, 0.85));
     const marbleM = this.#registerMat(mat(PALETTE.marble, 0.45, 0.05));
     const brassM = this.#registerMat(mat(PALETTE.brass, 0.35, 0.75));
+    const brassDarkM = this.#registerMat(mat(PALETTE.brassDark, 0.45, 0.65));
     const ironM = this.#registerMat(mat(PALETTE.iron, 0.5, 0.6));
+    const ironDarkM = this.#registerMat(mat(PALETTE.ironDark, 0.55, 0.65));
     const crimsonM = this.#registerMat(mat(PALETTE.crimson, 0.75));
+    const crimsonGoldM = this.#registerMat(mat(PALETTE.crimsonGold, 0.65, 0.1));
     const flameM = this.#registerMat(new THREE.MeshBasicMaterial({ color: PALETTE.flame }));
 
     // 1. Arena Floors
@@ -122,7 +140,7 @@ export class CourtOfMeritRenderer {
       } else if (kind === 'podium') {
         box(this.group, s.size, s.center, brassM);
       } else if (kind === 'renowner-body') {
-        this.#buildRenownerEffigy(s.center, s.size, ironM, brassM, crimsonM);
+        this.#buildRenownerEffigy(s.center, s.size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM);
       } else if (kind === 'brazier') {
         this.#buildBrazier(s.center, s.size, ironM, flameM);
       } else if (kind === 'balustrade') {
@@ -154,31 +172,84 @@ export class CourtOfMeritRenderer {
     // 6. Sally Portcullis Grates
     for (const [x, z, rot] of [[-18.5, 0, Math.PI / 2], [18.5, 0, Math.PI / 2], [0, -18.5, 0]]) {
       for (let bar = -2.8; bar <= 2.8; bar += 0.45) {
-        const b = box(this.group, [0.06, 3.8, 0.06], [x + (rot ? 0 : bar), 1.9, z + (rot ? bar : 0)], ironM);
+        box(this.group, [0.06, 3.8, 0.06], [x + (rot ? 0 : bar), 1.9, z + (rot ? bar : 0)], ironM);
       }
       box(this.group, [rot ? 0.15 : 6.0, 0.15, rot ? 6.0 : 0.15], [x, 3.6, z], ironM);
     }
   }
 
-  #buildRenownerEffigy(center, size, ironM, brassM, crimsonM) {
+  #buildRenownerEffigy(center, size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM) {
     const [cx, cy, cz] = center;
-    // Monumental enthroned Rightful Renowner
-    // Throne back & armrests
-    box(this.group, [2.2, 3.4, 0.5], [cx, cy + 0.6, cz + 0.5], ironM);
-    box(this.group, [0.35, 1.2, 1.4], [cx - 0.9, cy - 0.4, cz], brassM);
-    box(this.group, [0.35, 1.2, 1.4], [cx + 0.9, cy - 0.4, cz], brassM);
+    const monument = new THREE.Group();
+    monument.name = 'Rightful Renowner Martial Colossus';
+    monument.position.set(cx, cy, cz);
+    this.group.add(monument);
+    this.monument = monument;
 
-    // Effigy torso, mantle & crown
-    box(this.group, [1.4, 1.8, 0.9], [cx, cy, cz], ironM);
-    box(this.group, [1.6, 1.9, 0.4], [cx, cy, cz - 0.3], crimsonM);
-    box(this.group, [0.75, 0.75, 0.75], [cx, cy + 1.25, cz], ironM);
-    cylinder(this.group, 0.45, 0.38, 0.4, 8, [cx, cy + 1.75, cz], brassM);
+    // Imposing standing posture in fluted full plate armor
+    // Greaves & Sabatons planted wide on dais
+    box(monument, [0.45, 1.4, 0.65], [-0.55, -1.0, 0.05], ironM);
+    box(monument, [0.45, 1.4, 0.65], [0.55, -1.0, 0.05], ironM);
+    box(monument, [0.52, 0.35, 0.85], [-0.55, -1.5, -0.1], ironDarkM);
+    box(monument, [0.52, 0.35, 0.85], [0.55, -1.5, -0.1], ironDarkM);
 
-    // Forged coin hopper chute extending forward
-    const chute = box(this.group, [1.2, 0.35, 1.2], [cx, cy - 0.8, cz - 0.8], brassM);
-    chute.rotation.x = 0.2;
-    // Brass dispense tray at the feet
-    box(this.group, [1.6, 0.22, 1.1], [cx, cy - 1.2, cz - 1.2], brassM);
+    // Segmented Faulds and Tassets
+    box(monument, [1.5, 0.6, 1.05], [0, -0.3, 0], brassDarkM);
+    box(monument, [0.65, 0.75, 0.25], [-0.45, -0.5, -0.5], brassM);
+    box(monument, [0.65, 0.75, 0.25], [0.45, -0.5, -0.5], brassM);
+
+    // Fluted heavy cuirass (torso) with brass heraldic eagle ribbing
+    box(monument, [1.6, 1.7, 1.15], [0, 0.65, 0], ironM);
+    box(monument, [1.35, 1.5, 0.2], [0, 0.65, -0.6], brassM);
+
+    // Towering Greathelm with slotted iron visor
+    box(monument, [0.85, 1.0, 0.95], [0, 1.9, 0], ironM);
+    box(monument, [0.75, 0.14, 0.15], [0, 1.95, -0.48], ironDarkM); // visor slit
+    box(monument, [0.92, 0.22, 1.02], [0, 2.35, 0], brassM); // crown crest
+    box(monument, [0.18, 0.75, 1.1], [0, 2.8, 0.1], crimsonGoldM); // flowing heraldic crest
+
+    // Massive fluted Pauldrons spanning 2.8m
+    for (const side of [-1, 1]) {
+      const p = box(monument, [0.65, 1.35, 0.85], [side * 1.15, 1.1, 0], ironM);
+      p.rotation.z = side * -0.15;
+      const rim = box(monument, [0.72, 0.3, 0.92], [side * 1.2, 1.45, 0], brassM);
+      rim.rotation.z = side * -0.15;
+    }
+
+    // Heavy Gauntlets resting on Greatsword Hilt
+    box(monument, [0.35, 0.35, 0.45], [-0.22, 0.75, -0.75], ironDarkM);
+    box(monument, [0.35, 0.35, 0.45], [0.22, 0.75, -0.75], ironDarkM);
+
+    // Monumental Articulated Greatsword — point driven into the stone floor
+    const sword = new THREE.Group();
+    sword.name = 'Renowner Greatsword of Judgment';
+    sword.position.set(0, 0.75, -0.75);
+    monument.add(sword);
+    this.sword = sword;
+
+    // Crossguard & Pommel
+    box(sword, [1.8, 0.18, 0.22], [0, 0, 0], brassM);
+    pipe(sword, [0, 0, 0], [0, 0.75, 0], 0.09, brassDarkM);
+    cylinder(sword, 0.16, 0.16, 0.18, 8, [0, 0.82, 0], brassM); // pommel
+
+    // Massive double-edged execution blade (4.2m tall, reaching dais floor at y = -2.2)
+    box(sword, [0.38, 3.2, 0.08], [0, -1.6, 0], ironM);
+    box(sword, [0.12, 3.0, 0.10], [0, -1.6, 0], brassM); // fuller
+    const swordTip = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.75, 4), ironM);
+    swordTip.rotation.y = Math.PI / 4;
+    swordTip.position.set(0, -3.55, 0);
+    sword.add(swordTip);
+
+    // Mechanical Brass Coin Hopper & Angled Dispense Chute
+    // Rear hopper reservoir behind belt
+    box(monument, [1.1, 0.9, 0.75], [0, 0.35, 0.65], brassDarkM);
+    // Forward chute angled down 30 deg facing recipient at dais center
+    const chute = box(monument, [0.75, 0.28, 1.2], [0, 0.1, -0.75], brassM);
+    chute.rotation.x = -0.32;
+
+    // Solemn brass payout receiving tray on the ceremonial dais
+    box(monument, [1.5, 0.22, 1.0], [0, -1.6, -1.8], brassM);
+    box(monument, [1.3, 0.08, 0.8], [0, -1.5, -1.8], crimsonM); // velvet lining
   }
 
   #buildBrazier(center, size, ironM, flameM) {
@@ -204,6 +275,10 @@ export class CourtOfMeritRenderer {
     this.braziers.push(flameMesh);
   }
 
+  setTrialState(snapshot) {
+    this.lastTrialState = snapshot?.renownTrial ?? null;
+  }
+
   update(serverNow = 0) {
     // Dynamic brazier flame flicker
     for (let i = 0; i < this.braziers.length; i++) {
@@ -216,6 +291,21 @@ export class CourtOfMeritRenderer {
     for (let i = 0; i < this.banners.length; i++) {
       const ban = this.banners[i];
       ban.rotation.x = Math.sin(serverNow * 1.5 + i * 1.2) * 0.06;
+    }
+
+    // Articulated judgment presentation
+    const ceremony = this.lastTrialState?.ceremony;
+    if (ceremony && this.sword) {
+      if (ceremony.kind === 'execution') {
+        const t = Math.max(0, Math.min(1, (serverNow - ceremony.startedAt) / (ceremony.endsAt - ceremony.startedAt)));
+        // Sword lift and downstroke reaching player position
+        const swing = Math.sin(t * Math.PI);
+        this.sword.rotation.x = swing * 0.85;
+      } else {
+        this.sword.rotation.x = 0;
+      }
+    } else if (this.sword) {
+      this.sword.rotation.x = 0;
     }
   }
 
