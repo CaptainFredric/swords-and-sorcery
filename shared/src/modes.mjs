@@ -97,7 +97,7 @@ const POLICIES = Object.freeze({
     openingPeaceSec: 2,
   }),
   [GAME_MODES.RESTLESS_DAY]: Object.freeze({
-    id:GAME_MODES.RESTLESS_DAY,teamMode:true,teamSize:5,minHumansToStart:1,
+    id:GAME_MODES.RESTLESS_DAY,teamMode:true,teamSize:5,fixedTeamSize:true,privateCustomRoom:true,minHumansToStart:1,
     botCount:9,scored:false,timed:true,scoreToWin:null,matchSeconds:780,
     respawnSec:5,autoStart:true,allowRematchVote:true,countdownSec:3,
     openingPeaceSec:2,
