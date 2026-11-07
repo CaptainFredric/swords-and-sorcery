@@ -973,8 +973,8 @@ export class Room {
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
-        if (!this.objectiveState) continue;
-        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
+        if (!this.objectiveState && this.mode !== GAME_MODES.RESTLESS_DAY) continue;
+        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState?.phase ?? 0)) continue;
         const ram = createSoFistication({ ...emplacement, emplacementId: emplacement.id, id: `${emplacement.id}-${this.soFistRevision}` });
         const pose = soFistTerrainPose(ram, this.world);
         if (pose && soFistClear({ ...ram, ...pose }, this.world, [], {operatorStation:true})) this.soFistication = Object.assign(ram, pose);
