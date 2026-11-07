@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createConductDischarge, updateConductDischarge, ConductHandEffects } from './ConductVisuals.mjs';
+import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -115,11 +115,11 @@ export class OneHitLiveEffects {
     for(const [id,color] of ELEMENTS)if(Number(tiers?.[id])>0)
       this.#ring(pp,color,Number(tiers[id])===2?1.7:1.1,.5,.6,true);
   }
-  #conduct(origin,end){
-    // Exact authoritative endpoints, bright jagged multi-tone yellow on
-    // discharge, then a soft one-second suspended remnant.
-    const bolt=createConductDischarge(origin,end);
-    this.#add(bolt,1.04);
+  #conduct(origin,end,handOrigin=null){
+    // The server's origin and endpoint govern BOTH the flash and the dangerous
+    // one-second wire. A short hand connection is purely cosmetic.
+    const bolt=createConductDischarge(origin,end,{handOrigin});
+    this.#add(bolt,1);
   }
   event(event){
     if(event.type==='oneHitImpact')this.#burst(event.point,event.tiers);
@@ -134,7 +134,8 @@ export class OneHitLiveEffects {
       const source=event.playerId===this.remotePlayers?.localId
         ?(this.weapon?.magicLight??thirdHand):thirdHand;
       const origin=source?.getWorldPosition?.(new THREE.Vector3());
-      this.#conduct(origin?{x:origin.x,y:origin.y,z:origin.z}:event.origin,event.end);
+      this.#conduct(event.origin,event.end,
+        origin?{x:origin.x,y:origin.y,z:origin.z}:null);
     }
   }
   update(dt,snapshot){
@@ -146,19 +147,9 @@ export class OneHitLiveEffects {
       const ratio=t.life/t.ttl;
       if(t.mesh.material?.opacity!==undefined)t.mesh.material.opacity=Math.min(t.mesh.material.opacity,ratio);
       if(t.mesh.userData?.conductDischarge){
-        const elapsed=1-ratio;
-        // The conducting bolt shoots OUTWARD from the active Sorcery palm
-        // rather than presenting a static full-length beam on the first frame.
-        if(elapsed<.17)updateConductDischarge(t.mesh,elapsed/.17);
-        else if(!t.mesh.userData.conductFullyExtended){
-          updateConductDischarge(t.mesh,1);
-          t.mesh.userData.conductFullyExtended=true;
-        }
-        for(const strand of t.mesh.children){
-          const start=strand.userData.conductOpacity??1;
-          strand.material.opacity=start*(elapsed<.14 ? 1 : Math.pow(Math.max(0,ratio),1.25));
-          strand.scale.setScalar(elapsed<.14?1:Math.max(.36,ratio));
-        }
+        // Reveal without rebuilding geometry. Fade the heavy impact while a
+        // separate narrow line remains at the exact collision coordinates.
+        updateConductAppearance(t.mesh,t.ttl-t.life);
       }
       if(t.mesh.userData?.oneHitSlab){
         const slab=t.mesh.userData.oneHitSlab,elapsed=1-ratio;
