@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
+import {stepBotControllers} from '../../shared/sim/BotController.mjs';
+import {stepRoom} from '../../shared/sim/combat.mjs';
 import {GAME_MODES, getModePolicy, publicRoomMode} from '../../shared/src/modes.mjs';
 import {WORLD_IDS, getWorld} from '../../shared/worlds/registry.mjs';
 import {TEAMS} from '../../shared/src/teams.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {damageStructure} from '../../shared/sim/structures.mjs';
-import {damageRestlessLadder,withRestlessLadders,restlessnessStep,RESTLESS_DAY_RULES} from '../../shared/sim/restlessDayMode.mjs';
+import {damageRestlessLadder,withRestlessLadders,restlessnessStep,restlessCarryClear,constrainRestlessCarry,RESTLESS_DAY_RULES} from '../../shared/sim/restlessDayMode.mjs';
 import {movePlayer,createMovementState} from '../../shared/src/movement.mjs';
 import {surfaceHeightAt} from '../../shared/src/collision.mjs';
 
@@ -153,4 +155,70 @@ test('Forward spawn choices and the battle phase reset correctly',()=>{
  room.startMatch(40);
  assert.equal(room.restlessDay.phase,0);
  assert.ok(attacker.position.z<-40,'rematch begins from staging field');
+});
+
+test('Physical carrying refuses to clip stone, and the same correction works after actual movePlayer motion',()=>{
+ const {room,attacker}=match();
+ assert.equal(restlessCarryClear(room.world,{x:-6,y:0,z:-43},Math.PI),true);
+ assert.equal(restlessCarryClear(room.world,{x:-6,y:0,z:-28},Math.PI),false);
+ const before={x:-6,y:0,z:-29};
+ const carrying={...createMovementState(before),restlessCarrying:'ladder-a',
+   speedScale:RESTLESS_DAY_RULES.carrySpeed};
+ const moved=movePlayer(carrying,{forward:1,right:0,yaw:Math.PI,jump:false,sprint:false},1/30,15,room.world);
+ assert.equal(constrainRestlessCarry(moved,before,room.world,Math.PI),true);
+ assert.deepEqual(moved.position,before,'the carried beam blocks movement beyond its own clearance');
+ assert.equal(moved.velocity.x,0);
+ assert.equal(moved.velocity.z,0);
+});
+test('Deployed ladders retain cached geometry identity for bot routing and client prediction',()=>{
+ const {room}=match();
+ room.restlessDay.ladders[0].state='deployed';
+ room.restlessDay.ladders[0].wall=0;
+ room.restlessDay.ladders[0].position={x:-6,y:0,z:-31};
+ const first=withRestlessLadders(room.world,room.restlessDay);
+ const again=withRestlessLadders(first,room.restlessDay);
+ assert.strictEqual(first,again,'same authoritative deployment cannot invalidate the route graph at 30Hz');
+ assert.ok(first.navigation.nodes.some(n=>n.id==='rd-ladder-ladder-a-0.5'));
+ assert.ok(first.ramps.some(r=>r.id==='siege-ladder-ladder-a'));
+});
+test('Both ladders can be retrieved at the wall-walk and carried to the second curtain',()=>{
+ const {room,attacker}=match();
+ const l=room.restlessDay.ladders[0];
+ l.state='deployed';l.wall=0;l.position={x:-6,y:0,z:-31};
+ attacker.position={x:-6,y:6,z:-24};attacker.yaw=0;
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},20).rejected,undefined);
+ assert.equal(l.state,'carrying');
+ assert.equal(l.holderId,attacker.id);
+ attacker.position={x:-6,y:0,z:14};attacker.yaw=Math.PI;
+ room.restlessDay.phase=1;
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},21).rejected,undefined);
+ assert.equal(l.state,'deployed');
+ assert.equal(l.wall,1);
+ const slope=withRestlessLadders(room.world,room.restlessDay);
+ assert.equal(surfaceHeightAt(-6,20.1,8,slope),7);
+});
+test('Deadline arbitrates before a direct structural hit and preserves the intact Renowner',()=>{
+ const {room,attacker}=match();
+ const deadline=room.restlessDay.deadline;
+ const hp=room.structures.entities['rightful-renowner'].health;
+ assert.equal(damageStructure(room,'rightful-renowner',9999,attacker.id,'sword',deadline,{raw:true}),false);
+ assert.equal(room.structures.entities['rightful-renowner'].health,hp);
+ assert.equal(room.winnerTeam,TEAMS.DEFENDERS);
+ assert.equal(room.finishReason,'sundown');
+ assert.equal(room.events.filter(e=>e.type==='matchEnded').length,1);
+});
+test('Real authoritative 5v5 movement simulation advances attackers without falling through ground',()=>{
+ const {room}=match(0);room.peace=null;
+ const bots=[...room.players.values()].filter(p=>p.actorKind==='bot'&&p.team===TEAMS.ATTACKERS);
+ const before=new Map(bots.map(p=>[p.id,{...p.position}]));
+ for(let i=1;i<=120;i++){
+   const now=i/30;
+   stepBotControllers(room,now,room.world,{random:()=>.72});
+   stepRoom(room,1/30,now,room.world);
+ }
+ const advanced=bots.filter(p=>p.position.z-before.get(p.id).z>2);
+ assert.ok(advanced.length>=1,'at least one attacking bot must advance across the physical field');
+ for(const p of room.players.values())assert.ok(p.position.y>-1.1,
+   `${p.id} sank through terrain at ${JSON.stringify(p.position)}`);
+ assert.equal(room.players.size,10);
 });
