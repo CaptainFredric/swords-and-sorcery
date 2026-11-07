@@ -37,8 +37,8 @@ const solids=[
   ...[-22,-9,9,22].map((x,i)=>solid('inner-merlon-'+i,x,7.68,20.33,1.8,1.36,.76)),
   // Two tactically different approaches: exposed field, then tight barricaded court.
   solid('outer-breastwork-left',-14,.8,-37,5,1.6,1.1,'timber'),
-  solid('outer-breastwork-right',15,.8,-38,4,1.6,1.1,'timber'),
-  solid('outer-earthwork-left',-7,.7,-52,3.6,1.4,1.2,'timber'),
+  solid('outer-breastwork-right',21,.8,-38,4,1.6,1.1,'timber'),
+  solid('outer-earthwork-left',-16,.7,-52,3.6,1.4,1.2,'timber'),
   solid('outer-earthwork-right',7,.7,-52,3.6,1.4,1.2,'timber'),
   // Staging area supply wagons & logistics
   solid('staging-wagon-west',-21,1.1,-84,3.2,2.2,5.0,'timber'),

@@ -119,6 +119,8 @@ export function interactRestlessLadder(room,player,now){
    return {rejected:'An attacking Spellblade on foot must handle the ladder.'};
  const held=s.ladders.find(l=>l.holderId===player.id);
  if(held){
+   if(!restlessCarryClear(room.world,player.position,player.yaw??0))
+     return {rejected:'The ladder cannot be placed inside stonework.'};
    const placement=wallForPlacement(player);
    if(!placement||!(placement.index<=s.phase)){
      const supported=surfaceHeightAt(player.position.x,player.position.z,player.position.y+.1,room.world);

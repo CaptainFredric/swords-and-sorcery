@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { RESTLESS_DAY_WORLD } from '../../shared/worlds/restlessDay.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
+import { FacetBuilder, facetMesh } from './kit/facetKit.mjs';
+import { createBatch } from './kit/kitPieces.mjs';
 
 export const RESTLESS_DAY_LIGHTING = Object.freeze({
   cameraFar: 310,
@@ -71,6 +73,74 @@ function rampMesh(parent, ramp, mat) {
   parent.add(mesh);
 }
 
+function addBatchBlock(builder, dimensions, center, color, { chamfer = 0.04, jitter = 0.0, rotY = 0, bottom = true } = {}) {
+  const [sx, sy, sz] = dimensions;
+  const [cx, cy, cz] = center;
+  builder.block({
+    cx,
+    cy: cy - sy / 2,
+    cz,
+    sx,
+    sy,
+    sz,
+    rotY,
+    chamfer,
+    jitter,
+    color,
+    bottom,
+    rand: () => 0.5,
+    shade: 0,
+  });
+}
+
+function addBatchCylinder(builder, { cx, cy, cz, rTop, rBot, height, segments = 10, color, rotX = 0, rotZ = 0 }) {
+  const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+  const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
+
+  function transform(x, y, z) {
+    const dy = y, dz = z;
+    const y_ = dy * cosX - dz * sinX;
+    const z_ = dy * sinX + dz * cosX;
+    const dx = x;
+    const x_ = dx * cosZ - y_ * sinZ;
+    const fy = dx * sinZ + y_ * cosZ;
+    return [cx + x_, cy + fy, cz + z_];
+  }
+
+  const y0 = -height / 2;
+  const y1 = height / 2;
+
+  for (let i = 0; i < segments; i++) {
+    const a0 = (i / segments) * Math.PI * 2;
+    const a1 = ((i + 1) / segments) * Math.PI * 2;
+    const x0Top = Math.cos(a0) * rTop, z0Top = Math.sin(a0) * rTop;
+    const x1Top = Math.cos(a1) * rTop, z1Top = Math.sin(a1) * rTop;
+    const x0Bot = Math.cos(a0) * rBot, z0Bot = Math.sin(a0) * rBot;
+    const x1Bot = Math.cos(a1) * rBot, z1Bot = Math.sin(a1) * rBot;
+
+    const p0Top = transform(x0Top, y1, z0Top);
+    const p1Top = transform(x1Top, y1, z1Top);
+    const p0Bot = transform(x0Bot, y0, z0Bot);
+    const p1Bot = transform(x1Bot, y0, z1Bot);
+
+    builder.quad(p0Bot, p1Bot, p1Top, p0Top, color);
+    const pTopCenter = transform(0, y1, 0);
+    builder.tri(pTopCenter, p1Top, p0Top, color);
+    const pBotCenter = transform(0, y0, 0);
+    builder.tri(pBotCenter, p0Bot, p1Bot, color);
+  }
+}
+
+function addBatchPipe(builder, from, to, radius, color, segments = 8) {
+  const [x0, y0, z0] = from, [x1, y1, z1] = to;
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  const len = Math.hypot(dx, dy, dz) || 0.001;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+  const rotZ = Math.atan2(dx, dy);
+  const rotX = -Math.atan2(dz, Math.hypot(dx, dy));
+  addBatchCylinder(builder, { cx, cy, cz, rTop: radius, rBot: radius, height: len, segments, color, rotX, rotZ });
+}
+
 export class RestlessDayRenderer {
   constructor(scene) {
     this.scene = scene;
@@ -99,18 +169,53 @@ export class RestlessDayRenderer {
       flame: new THREE.MeshBasicMaterial({ color: PALETTE.flame }),
     };
 
+    this.batchMaterials = {
+      stone: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.78, metalness: 0.05 }),
+      ground: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.88, metalness: 0.0 }),
+      wood: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.75, metalness: 0.02 }),
+      metal: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.75 }),
+      cloth: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.80, metalness: 0.0 }),
+    };
+
     this.structureMeshes = new Map();
     this.flameMeshes = [];
     this.torchLights = [];
 
-    this.#buildFloors();
-    this.#buildSolidsAndCurtains();
+    // Cache light references
+    this.sunLight = null;
+    this.hemiLight = null;
+    this.originalSunColor = null;
+    this.originalSunIntensity = undefined;
+    this.originalSunPos = null;
+    this.originalHemiColor = null;
+    this.originalHemiIntensity = undefined;
+    this.originalBackground = null;
+    this.originalFogColor = null;
+    this.originalFogDensity = undefined;
+    this.#cacheLights();
+
+    // Procedural facet batching
+    const batch = createBatch();
+    this.#buildFloors(batch);
+    this.#buildSolidsAndCurtains(batch);
     this.#buildRamps();
-    this.#buildMusteringGround();
-    this.#buildExposedApproach();
-    this.#buildInnerCourt();
-    this.#buildFinalCourtAndColonnade();
+    this.#buildMusteringGround(batch);
+    this.#buildExposedApproach(batch);
+    this.#buildInnerCourt(batch);
+    this.#buildFinalCourtAndColonnade(batch);
     this.#buildMonument();
+
+    // Generate unified meshes per material channel to minimize draw calls
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      const mat = this.batchMaterials[name] ?? this.materials.stone;
+      const m = facetMesh(builder, mat, {
+        castShadow: name !== 'ground',
+        receiveShadow: true,
+        name: `restless-facet-${name}`,
+      });
+      this.group.add(m);
+    }
 
     this.ladders = new Map();
     this.lastMode = null;
@@ -124,33 +229,66 @@ export class RestlessDayRenderer {
     scene.add(this.group);
   }
 
-  #buildFloors() {
-    for (const floor of RESTLESS_DAY_WORLD.floors) {
-      const mat = floor.material === 'timber' ? this.materials.timber
-        : floor.id === 'field' ? this.materials.turf
-        : floor.id === 'final-court' ? this.materials.stoneLight
-        : this.materials.stone;
-      box(this.group, floor.size, floor.center, mat);
+  #cacheLights() {
+    if (!this.scene) return;
+    this.scene.traverse((obj) => {
+      if (obj.isDirectionalLight && !this.sunLight) this.sunLight = obj;
+      if (obj.isHemisphereLight && !this.hemiLight) this.hemiLight = obj;
+    });
+    if (this.sunLight) {
+      this.originalSunColor = this.sunLight.color.clone();
+      this.originalSunIntensity = this.sunLight.intensity;
+      this.originalSunPos = this.sunLight.position.clone();
     }
-    // Churned soil tracks for siege machinery
-    box(this.group, [4.4, 0.02, 34], [-4, 0.01, -73], this.materials.earth);
-    box(this.group, [4.2, 0.02, 34], [15, 0.01, -73], this.materials.earth);
+    if (this.hemiLight) {
+      this.originalHemiColor = this.hemiLight.color.clone();
+      this.originalHemiIntensity = this.hemiLight.intensity;
+    }
+    if (this.scene.background?.isColor) {
+      this.originalBackground = this.scene.background.clone();
+    }
+    if (this.scene.fog?.color) {
+      this.originalFogColor = this.scene.fog.color.clone();
+      this.originalFogDensity = this.scene.fog.density;
+    }
   }
 
-  #buildSolidsAndCurtains() {
+  #buildFloors(batch) {
+    for (const floor of RESTLESS_DAY_WORLD.floors) {
+      const color = floor.material === 'timber' ? PALETTE.timber
+        : floor.id === 'field' ? PALETTE.turf
+        : floor.id === 'final-court' ? PALETTE.stoneLight
+        : PALETTE.stone;
+      const channel = floor.material === 'timber' ? batch.wood
+        : (floor.id === 'field' ? batch.ground : batch.stone);
+      addBatchBlock(channel, floor.size, floor.center, color, { chamfer: 0.02 });
+    }
+    // Churned soil tracks for siege machinery
+    addBatchBlock(batch.ground, [4.4, 0.02, 34], [-4, 0.01, -73], PALETTE.earth, { chamfer: 0 });
+    addBatchBlock(batch.ground, [4.2, 0.02, 34], [15, 0.01, -73], PALETTE.earth, { chamfer: 0 });
+  }
+
+  #buildSolidsAndCurtains(batch) {
     for (const solid of RESTLESS_DAY_WORLD.solids) {
       if (solid.id === 'renowner-body') continue;
-      const mat = this.materials[solid.material] ?? this.materials.stone;
-      const m = box(this.group, solid.size, solid.center, mat);
       if (solid.id === 'outer-gate' || solid.id === 'inner-gate') {
+        // Gates are destructible structures, keep as separate meshes
+        const mat = this.materials[solid.material] ?? this.materials.timber;
+        const m = box(this.group, solid.size, solid.center, mat);
         this.structureMeshes.set(solid.id, m);
-        // Architectural gate arch framing
+
+        // Architectural gate arch framing batched into stone
         const h = solid.size[1], z = solid.center[2], w = solid.size[0];
-        box(this.group, [w + 1.2, 0.7, solid.size[2] + 0.4], [0, h + 0.35, z], this.materials.stoneDark);
-        // Flanking pilasters
-        box(this.group, [0.8, h, solid.size[2] + 0.3], [-w / 2 - 0.4, h / 2, z], this.materials.stoneDark);
-        box(this.group, [0.8, h, solid.size[2] + 0.3], [w / 2 + 0.4, h / 2, z], this.materials.stoneDark);
+        addBatchBlock(batch.stone, [w + 1.2, 0.7, solid.size[2] + 0.4], [0, h + 0.35, z], PALETTE.stoneDark);
+        addBatchBlock(batch.stone, [0.8, h, solid.size[2] + 0.3], [-w / 2 - 0.4, h / 2, z], PALETTE.stoneDark);
+        addBatchBlock(batch.stone, [0.8, h, solid.size[2] + 0.3], [w / 2 + 0.4, h / 2, z], PALETTE.stoneDark);
+        continue;
       }
+
+      const color = PALETTE[solid.material] ?? PALETTE.stone;
+      const channel = solid.material === 'timber' ? batch.wood
+        : (solid.material === 'brass' ? batch.metal : (solid.material === 'iron' ? batch.metal : batch.stone));
+      addBatchBlock(channel, solid.size, solid.center, color);
     }
 
     // Outer curtain architectural enhancement (corbels & machicolations)
@@ -160,8 +298,7 @@ export class RestlessDayRenderer {
       const zOffset = isOuter ? -1.1 : 1.25;
       for (let x = -22; x <= 22; x += 3.2) {
         if (Math.abs(x) < 3.2) continue; // skip above gate
-        // Projecting stone corbel bracket
-        box(this.group, [0.45, 0.7, 0.55], [x, h - 0.35, zWall + zOffset], this.materials.stoneDark);
+        addBatchBlock(batch.stone, [0.45, 0.7, 0.55], [x, h - 0.35, zWall + zOffset], PALETTE.stoneDark);
       }
     }
   }
@@ -172,36 +309,30 @@ export class RestlessDayRenderer {
     }
   }
 
-  #buildMusteringGround() {
-    const parent = new THREE.Group();
-    parent.name = 'Mustering Ground Staging';
-    this.group.add(parent);
-
+  #buildMusteringGround(batch) {
     // Staging wagons with spoke wheels
     const makeWagon = (x, z, yaw) => {
-      const wGrp = new THREE.Group();
-      wGrp.position.set(x, 0, z);
-      wGrp.rotation.y = yaw;
-      parent.add(wGrp);
       // Bed and sideboards
-      box(wGrp, [2.4, 0.28, 4.4], [0, 0.95, 0], this.materials.timber);
-      box(wGrp, [0.12, 0.75, 4.4], [-1.15, 1.4, 0], this.materials.timber);
-      box(wGrp, [0.12, 0.75, 4.4], [1.15, 1.4, 0], this.materials.timber);
-      box(wGrp, [2.4, 0.75, 0.12], [0, 1.4, -2.15], this.materials.timber);
+      addBatchBlock(batch.wood, [2.4, 0.28, 4.4], [x, 0.95, z], PALETTE.timber, { rotY: yaw });
+      addBatchBlock(batch.wood, [0.12, 0.75, 4.4], [x - 1.15, 1.4, z], PALETTE.timber, { rotY: yaw });
+      addBatchBlock(batch.wood, [0.12, 0.75, 4.4], [x + 1.15, 1.4, z], PALETTE.timber, { rotY: yaw });
+      addBatchBlock(batch.wood, [2.4, 0.75, 0.12], [x, 1.4, z - 2.15], PALETTE.timber, { rotY: yaw });
       // Wheels
       for (const [wx, wz] of [[-1.3, -1.4], [1.3, -1.4], [-1.3, 1.4], [1.3, 1.4]]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.18, 12), this.materials.iron);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(wx, 0.55, wz);
-        wheel.castShadow = true;
-        wGrp.add(wheel);
-        pipe(wGrp, [wx, 0.55, wz], [wx > 0 ? 0.9 : -0.9, 0.55, wz], 0.08, this.materials.timberDark);
+        addBatchCylinder(batch.metal, {
+          cx: x + wx, cy: 0.55, cz: z + wz,
+          rTop: 0.55, rBot: 0.55, height: 0.18, segments: 10,
+          color: PALETTE.iron, rotZ: Math.PI / 2
+        });
+        addBatchPipe(batch.wood, [x + wx, 0.55, z + wz], [x + (wx > 0 ? 0.9 : -0.9), 0.55, z + wz], 0.08, PALETTE.timberDark);
       }
       // Supplies inside: barrels and canvas
-      box(wGrp, [1.6, 0.65, 2.2], [0, 1.35, -0.6], this.materials.canvasDark);
-      const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.85, 10), this.materials.timberDark);
-      b1.position.set(0.5, 1.45, 1.1);
-      wGrp.add(b1);
+      addBatchBlock(batch.cloth, [1.6, 0.65, 2.2], [x, 1.35, z - 0.6], PALETTE.canvasDark, { rotY: yaw });
+      addBatchCylinder(batch.wood, {
+        cx: x + 0.5, cy: 1.45, cz: z + 1.1,
+        rTop: 0.38, rBot: 0.38, height: 0.85, segments: 8,
+        color: PALETTE.timberDark
+      });
     };
 
     makeWagon(-21, -84, 0.15);
@@ -209,23 +340,24 @@ export class RestlessDayRenderer {
 
     // Ammunition shot pyramids
     const makeShotPyramid = (x, z) => {
-      box(parent, [1.8, 0.15, 1.8], [x, 0.08, z], this.materials.timberDark);
+      addBatchBlock(batch.wood, [1.8, 0.15, 1.8], [x, 0.08, z], PALETTE.timberDark);
       const r = 0.22;
-      const sphereGeo = new THREE.SphereGeometry(r, 7, 6);
       for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 3; col++) {
-          const ball = new THREE.Mesh(sphereGeo, this.materials.stoneDark);
-          ball.position.set(x + (row - 1) * r * 1.9, 0.15 + r, z + (col - 1) * r * 1.9);
-          ball.castShadow = true;
-          parent.add(ball);
+          addBatchCylinder(batch.stone, {
+            cx: x + (row - 1) * r * 1.9, cy: 0.15 + r, cz: z + (col - 1) * r * 1.9,
+            rTop: r * 0.8, rBot: r * 0.8, height: r * 1.6, segments: 6,
+            color: PALETTE.stoneDark
+          });
         }
       }
       for (let row = 0; row < 2; row++) {
         for (let col = 0; col < 2; col++) {
-          const ball = new THREE.Mesh(sphereGeo, this.materials.stoneDark);
-          ball.position.set(x + (row - 0.5) * r * 1.9, 0.15 + r * 2.6, z + (col - 0.5) * r * 1.9);
-          ball.castShadow = true;
-          parent.add(ball);
+          addBatchCylinder(batch.stone, {
+            cx: x + (row - 0.5) * r * 1.9, cy: 0.15 + r * 2.6, cz: z + (col - 0.5) * r * 1.9,
+            rTop: r * 0.8, rBot: r * 0.8, height: r * 1.6, segments: 6,
+            color: PALETTE.stoneDark
+          });
         }
       }
     };
@@ -235,17 +367,11 @@ export class RestlessDayRenderer {
 
     // Military wedge pavilions / canvas tents on outer flanks
     const makeTent = (x, z, yaw) => {
-      const tGrp = new THREE.Group();
-      tGrp.position.set(x, 0, z);
-      tGrp.rotation.y = yaw;
-      parent.add(tGrp);
-      box(tGrp, [3.6, 2.4, 4.8], [0, 1.2, 0], this.materials.canvas);
-      // Ridge beam & poles
-      pipe(tGrp, [0, 2.45, -2.4], [0, 2.45, 2.4], 0.07, this.materials.timberDark);
-      pipe(tGrp, [0, 0, -2.4], [0, 2.8, -2.4], 0.06, this.materials.timberDark);
-      pipe(tGrp, [0, 0, 2.4], [0, 2.8, 2.4], 0.06, this.materials.timberDark);
-      // Crest pennant
-      box(tGrp, [0.04, 0.45, 0.9], [0, 2.6, 2.0], this.materials.crimson);
+      addBatchBlock(batch.cloth, [3.6, 2.4, 4.8], [x, 1.2, z], PALETTE.canvas, { rotY: yaw, chamfer: 0.08 });
+      addBatchPipe(batch.wood, [x, 2.45, z - 2.4], [x, 2.45, z + 2.4], 0.07, PALETTE.timberDark);
+      addBatchPipe(batch.wood, [x, 0, z - 2.4], [x, 2.8, z - 2.4], 0.06, PALETTE.timberDark);
+      addBatchPipe(batch.wood, [x, 0, z + 2.4], [x, 2.8, z + 2.4], 0.06, PALETTE.timberDark);
+      addBatchBlock(batch.cloth, [0.04, 0.45, 0.9], [x, 2.6, z + 2.0], PALETTE.crimson, { rotY: yaw });
     };
 
     makeTent(-22, -92, 0.2);
@@ -253,44 +379,41 @@ export class RestlessDayRenderer {
 
     // Ladder staging trestles at z=-68
     for (const lx of [-10, 10]) {
-      box(parent, [2.6, 0.35, 0.7], [lx, 0.18, -69.8], this.materials.timberDark);
-      box(parent, [0.35, 0.55, 0.35], [lx - 1.0, 0.28, -69.8], this.materials.iron);
-      box(parent, [0.35, 0.55, 0.35], [lx + 1.0, 0.28, -69.8], this.materials.iron);
+      addBatchBlock(batch.wood, [2.6, 0.35, 0.7], [lx, 0.18, -69.8], PALETTE.timberDark);
+      addBatchBlock(batch.metal, [0.35, 0.55, 0.35], [lx - 1.0, 0.28, -69.8], PALETTE.iron);
+      addBatchBlock(batch.metal, [0.35, 0.55, 0.35], [lx + 1.0, 0.28, -69.8], PALETTE.iron);
     }
   }
 
-  #buildExposedApproach() {
-    const parent = new THREE.Group();
-    parent.name = 'Exposed Approach Defenses';
-    this.group.add(parent);
-
+  #buildExposedApproach(batch) {
     // Wicker gabions and angled stakes on flanks
     const makeGabion = (x, z, h = 1.3) => {
-      const g = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, h, 10), this.materials.timberDark);
-      g.position.set(x, h / 2, z);
-      g.castShadow = true;
-      parent.add(g);
-      // Earth top
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 10), this.materials.earth);
-      top.position.set(x, h + 0.04, z);
-      parent.add(top);
+      addBatchCylinder(batch.wood, {
+        cx: x, cy: h / 2, cz: z,
+        rTop: 0.48, rBot: 0.48, height: h, segments: 8,
+        color: PALETTE.timberDark
+      });
+      addBatchCylinder(batch.ground, {
+        cx: x, cy: h + 0.04, cz: z,
+        rTop: 0.42, rBot: 0.42, height: 0.08, segments: 8,
+        color: PALETTE.earth
+      });
     };
 
     makeGabion(-18, -37);
     makeGabion(-10.5, -37);
     makeGabion(12, -38);
     makeGabion(18, -38);
-    makeGabion(-9.5, -52);
-    makeGabion(9.5, -52);
+    makeGabion(-16, -52);
+    makeGabion(7, -52);
 
     // Defensive stakes (abatis) angled forward toward attackers
     const makeStake = (x, z, yaw, pitch = 0.55) => {
       const len = 2.4;
-      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.11, len, 6), this.materials.timber);
-      s.rotation.set(pitch, yaw, 0, 'YXZ');
-      s.position.set(x, (len / 2) * Math.sin(pitch), z);
-      s.castShadow = true;
-      parent.add(s);
+      const topY = len * Math.sin(pitch);
+      const topZ = z + len * Math.cos(pitch) * Math.cos(yaw);
+      const topX = x - len * Math.cos(pitch) * Math.sin(yaw);
+      addBatchPipe(batch.wood, [x, 0, z], [topX, topY, topZ], 0.08, PALETTE.timber);
     };
 
     for (let i = 0; i < 4; i++) {
@@ -299,43 +422,33 @@ export class RestlessDayRenderer {
     }
   }
 
-  #buildInnerCourt() {
-    const parent = new THREE.Group();
-    parent.name = 'Contested Inner Court';
-    this.group.add(parent);
-
+  #buildInnerCourt(batch) {
     // Ruined siege forge lean-to on west
-    box(parent, [3.8, 0.25, 3.2], [-20, 2.8, 2], this.materials.timber);
-    pipe(parent, [-21.6, 0, 0.5], [-21.6, 2.8, 0.5], 0.12, this.materials.timberDark);
-    pipe(parent, [-18.4, 0, 0.5], [-18.4, 2.8, 0.5], 0.12, this.materials.timberDark);
+    addBatchBlock(batch.wood, [3.8, 0.25, 3.2], [-20, 2.8, 2], PALETTE.timber);
+    addBatchPipe(batch.wood, [-21.6, 0, 0.5], [-21.6, 2.8, 0.5], 0.12, PALETTE.timberDark);
+    addBatchPipe(batch.wood, [-18.4, 0, 0.5], [-18.4, 2.8, 0.5], 0.12, PALETTE.timberDark);
 
     // Anvil
-    box(parent, [0.8, 0.65, 0.8], [-20, 0.32, 2], this.materials.timberDark);
-    box(parent, [0.55, 0.4, 0.75], [-20, 0.85, 2], this.materials.iron);
+    addBatchBlock(batch.wood, [0.8, 0.65, 0.8], [-20, 0.32, 2], PALETTE.timberDark);
+    addBatchBlock(batch.metal, [0.55, 0.4, 0.75], [-20, 0.85, 2], PALETTE.iron);
 
     // Masonry piles on east
-    box(parent, [2.4, 0.6, 1.8], [20, 0.3, 4], this.materials.stoneDark);
-    box(parent, [1.6, 0.5, 1.4], [20.4, 0.85, 4.2], this.materials.stoneLight);
+    addBatchBlock(batch.stone, [2.4, 0.6, 1.8], [20, 0.3, 4], PALETTE.stoneDark);
+    addBatchBlock(batch.stone, [1.6, 0.5, 1.4], [20.4, 0.85, 4.2], PALETTE.stoneLight);
   }
 
-  #buildFinalCourtAndColonnade() {
-    const parent = new THREE.Group();
-    parent.name = 'Renowner Monumental Colonnade';
-    this.group.add(parent);
-
+  #buildFinalCourtAndColonnade(batch) {
     // Triumphal Columns flanking the ceremonial approach
     const makeColumn = (x, z) => {
       const h = 4.8;
-      // Base plinth
-      box(parent, [2.2, 0.6, 2.2], [x, 0.3, z], this.materials.stoneDark);
-      // Fluted cylindrical column
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, h, 14), this.materials.stoneLight);
-      col.position.set(x, h / 2 + 0.6, z);
-      col.castShadow = true;
-      parent.add(col);
-      // Ornate brass capital
-      box(parent, [2.2, 0.45, 2.2], [x, h + 0.82, z], this.materials.brass);
-      box(parent, [2.4, 0.25, 2.4], [x, h + 1.15, z], this.materials.stoneDark);
+      addBatchBlock(batch.stone, [2.2, 0.6, 2.2], [x, 0.3, z], PALETTE.stoneDark);
+      addBatchCylinder(batch.stone, {
+        cx: x, cy: h / 2 + 0.6, cz: z,
+        rTop: 0.85, rBot: 0.95, height: h, segments: 12,
+        color: PALETTE.stoneLight
+      });
+      addBatchBlock(batch.metal, [2.2, 0.45, 2.2], [x, h + 0.82, z], PALETTE.brass);
+      addBatchBlock(batch.stone, [2.4, 0.25, 2.4], [x, h + 1.15, z], PALETTE.stoneDark);
     };
 
     makeColumn(-15, 48);
@@ -344,33 +457,33 @@ export class RestlessDayRenderer {
     makeColumn(15, 64);
 
     // Entablature beams connecting colonnade
-    box(parent, [2.0, 0.7, 16.0], [-15, 6.4, 56], this.materials.stoneDark);
-    box(parent, [2.0, 0.7, 16.0], [15, 6.4, 56], this.materials.stoneDark);
+    addBatchBlock(batch.stone, [2.0, 0.7, 16.0], [-15, 6.4, 56], PALETTE.stoneDark);
+    addBatchBlock(batch.stone, [2.0, 0.7, 16.0], [15, 6.4, 56], PALETTE.stoneDark);
 
     // Brass coin inlays in the ceremonial court
-    const coinGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.04, 16);
     for (let cz = 48; cz <= 66; cz += 6) {
       for (const cx of [-6, 0, 6]) {
         if (cz === 54 && cx === 0) continue; // under dais
-        const c = new THREE.Mesh(coinGeo, this.materials.brass);
-        c.position.set(cx, 0.02, cz);
-        c.receiveShadow = true;
-        parent.add(c);
+        addBatchCylinder(batch.metal, {
+          cx, cy: 0.02, cz,
+          rTop: 0.65, rBot: 0.65, height: 0.04, segments: 10,
+          color: PALETTE.brass
+        });
       }
     }
 
     // Ceremonial Braziers flanking the dais
     const makeBrazier = (x, z) => {
-      const bGrp = new THREE.Group();
-      bGrp.position.set(x, 0.75, z);
-      parent.add(bGrp);
-      box(bGrp, [0.9, 0.7, 0.9], [0, 0.35, 0], this.materials.stoneDark);
-      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.45, 0.45, 8), this.materials.iron);
-      bowl.position.set(0, 0.9, 0);
-      bGrp.add(bowl);
+      addBatchBlock(batch.stone, [0.9, 0.7, 0.9], [x, 0.35 + 0.75, z], PALETTE.stoneDark);
+      addBatchCylinder(batch.metal, {
+        cx: x, cy: 0.9 + 0.75, cz: z,
+        rTop: 0.65, rBot: 0.45, height: 0.45, segments: 8,
+        color: PALETTE.iron
+      });
+      // Flickering flame cone kept as animated mesh
       const fire = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.6, 6), this.materials.flame);
-      fire.position.set(0, 1.3, 0);
-      bGrp.add(fire);
+      fire.position.set(x, 1.3 + 0.75, z);
+      this.group.add(fire);
       this.flameMeshes.push(fire);
     };
 
@@ -378,6 +491,18 @@ export class RestlessDayRenderer {
     makeBrazier(4.8, 52);
     makeBrazier(-4.8, 60);
     makeBrazier(4.8, 60);
+
+    // Heraldic Gonfalons
+    for (const x of [-21, 21]) {
+      addBatchPipe(batch.metal, [x, 6, -24], [x, 10.2, -24], 0.11, PALETTE.iron);
+      addBatchBlock(batch.cloth, [2.2, 1.5, 0.1], [x + 1.1, 8.8, -24], PALETTE.crimson);
+      addBatchPipe(batch.metal, [x, 7, 22], [x, 11.2, 22], 0.11, PALETTE.iron);
+      addBatchBlock(batch.cloth, [2.2, 1.5, 0.1], [x + 1.1, 9.8, 22], PALETTE.crimsonGold);
+    }
+
+    // Receiving tray velvet and brass lip
+    addBatchBlock(batch.metal, [1.45, 0.28, 0.95], [0, 1.45, 52.6], PALETTE.brass);
+    addBatchBlock(batch.cloth, [1.25, 0.12, 0.75], [0, 1.55, 52.6], PALETTE.crimson);
   }
 
   #buildMonument() {
@@ -424,20 +549,9 @@ export class RestlessDayRenderer {
     tip.castShadow = true;
     sword.add(tip);
 
-    // Mechanical Coin Dispenser & Gilded Receiving Tray
-    box(parent, [1.2, 1.4, 0.8], [0, 2.2, -0.9], this.materials.brassDark); // rear coin reservoir
-    pipe(parent, [0, 1.5, -0.8], [0, 1.2, 0.8], 0.18, this.materials.brass); // feed chute
-    // The solemn, modest receiving tray:
-    box(this.group, [1.45, 0.28, 0.95], [0, 1.45, 52.6], this.materials.brass);
-    box(this.group, [1.25, 0.12, 0.75], [0, 1.55, 52.6], this.materials.crimson); // velvet lining
-
-    // Crimson Heraldic Gonfalons
-    for (const x of [-21, 21]) {
-      pipe(this.group, [x, 6, -24], [x, 10.2, -24], 0.11, this.materials.iron);
-      box(this.group, [2.2, 1.5, 0.1], [x + 1.1, 8.8, -24], this.materials.crimson);
-      pipe(this.group, [x, 7, 22], [x, 11.2, 22], 0.11, this.materials.iron);
-      box(this.group, [2.2, 1.5, 0.1], [x + 1.1, 9.8, 22], this.materials.crimsonGold);
-    }
+    // Mechanical Coin Dispenser & Gilded Feed Chute
+    box(parent, [1.2, 1.4, 0.8], [0, 2.2, -0.9], this.materials.brassDark);
+    pipe(parent, [0, 1.5, -0.8], [0, 1.2, 0.8], 0.18, this.materials.brass);
   }
 
   #replaceLadders(list) {
@@ -531,10 +645,15 @@ export class RestlessDayRenderer {
   }
 
   #updateSundownAtmosphere(now) {
+    if (!this.sunLight || !this.hemiLight) {
+      this.#cacheLights();
+    }
+
     const totalSec = 780;
-    const remaining = Number.isFinite(this.lastMode?.daylightRemaining)
-      ? this.lastMode.daylightRemaining
-      : totalSec;
+    const deadline = this.lastMode?.deadline;
+    const remaining = Number.isFinite(deadline)
+      ? Math.max(0, deadline - now)
+      : (Number.isFinite(this.lastMode?.daylightRemaining) ? this.lastMode.daylightRemaining : totalSec);
     const progress = Math.min(1, Math.max(0, 1 - remaining / totalSec));
 
     // Dynamic color interpolation
@@ -563,20 +682,19 @@ export class RestlessDayRenderer {
       this.scene.fog.density = 0.0017 + progress * 0.0015;
     }
 
-    // Traverse scene lights to update sun position and intensity
-    this.scene.traverse((obj) => {
-      if (obj.isDirectionalLight) {
-        obj.color.copy(sunColor);
-        obj.intensity = 2.25 - progress * 0.45;
-        // Sun dips lower toward the horizon
-        const sx = -55 - progress * 20;
-        const sy = 70 - progress * 52;
-        const sz = -25 + progress * 10;
-        obj.position.set(sx, sy, sz);
-      } else if (obj.isHemisphereLight) {
-        obj.color.copy(hemiSky);
-      }
-    });
+    // Direct property update on cached lights without per-frame scene.traverse
+    if (this.sunLight) {
+      this.sunLight.color.copy(sunColor);
+      this.sunLight.intensity = 2.25 - progress * 0.45;
+      const sx = -55 - progress * 20;
+      const sy = 70 - progress * 52;
+      const sz = -25 + progress * 10;
+      this.sunLight.position.set(sx, sy, sz);
+    }
+
+    if (this.hemiLight) {
+      this.hemiLight.color.copy(hemiSky);
+    }
 
     // Flickering braziers
     const flicker = 1.0 + Math.sin(now * 8) * 0.15 + Math.cos(now * 13) * 0.1;
@@ -607,8 +725,28 @@ export class RestlessDayRenderer {
 
   dispose() {
     this.biByeLlista?.dispose();
+
+    // Restore cached lights to original baseline
+    if (this.sunLight) {
+      if (this.originalSunColor) this.sunLight.color.copy(this.originalSunColor);
+      if (this.originalSunIntensity !== undefined) this.sunLight.intensity = this.originalSunIntensity;
+      if (this.originalSunPos) this.sunLight.position.copy(this.originalSunPos);
+    }
+    if (this.hemiLight && this.originalHemiColor) {
+      this.hemiLight.color.copy(this.originalHemiColor);
+      if (this.originalHemiIntensity !== undefined) this.hemiLight.intensity = this.originalHemiIntensity;
+    }
+    if (this.scene.background?.isColor && this.originalBackground) {
+      this.scene.background.copy(this.originalBackground);
+    }
+    if (this.scene.fog && this.originalFogColor) {
+      this.scene.fog.color.copy(this.originalFogColor);
+      this.scene.fog.density = this.originalFogDensity;
+    }
+
     this.scene.remove(this.group);
     this.group.traverse(x => x.geometry?.dispose?.());
-    for (const mat of Object.values(this.materials)) mat.dispose();
+    for (const mat of Object.values(this.materials)) mat.dispose?.();
+    for (const mat of Object.values(this.batchMaterials)) mat.dispose?.();
   }
 }
