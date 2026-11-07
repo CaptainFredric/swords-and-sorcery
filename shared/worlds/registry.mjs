@@ -6,6 +6,7 @@ import { BASTION_BREACH } from './bastionBreach.mjs';
 import { BLACKBELL_FOUNDRY } from './blackbellFoundry.mjs';
 import { OUTERWORKS } from './outerworks.mjs';
 import { HIGH_GROUNDS } from './highGrounds.mjs';
+import { RESTLESS_DAY_WORLD } from './restlessDay.mjs';
 
 export const WORLD_IDS = Object.freeze({
   SHATTERED_KEEP: 'shattered-keep',
@@ -16,6 +17,7 @@ export const WORLD_IDS = Object.freeze({
   BLACKBELL_FOUNDRY: 'blackbell-foundry',
   OUTERWORKS: 'outerworks',
   HIGH_GROUNDS: 'high-grounds',
+  RESTLESS_DAY: 'restless-day',
 });
 
 const WORLDS = new Map([
@@ -27,6 +29,7 @@ const WORLDS = new Map([
   [WORLD_IDS.BLACKBELL_FOUNDRY, BLACKBELL_FOUNDRY],
   [WORLD_IDS.OUTERWORKS, OUTERWORKS],
   [WORLD_IDS.HIGH_GROUNDS, HIGH_GROUNDS],
+  [WORLD_IDS.RESTLESS_DAY, RESTLESS_DAY_WORLD],
 ]);
 
 

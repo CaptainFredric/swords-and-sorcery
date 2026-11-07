@@ -12,6 +12,7 @@ import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { highGroundsBotGoal } from './highGroundsMode.mjs';
+import {modeCall} from './modeRuntime.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -814,6 +815,12 @@ function patrol(actor, ai, nowSec, random, world) {
  * objective -> immediate danger -> useful ally support -> enemy pursuit -> reposition
  */
 function selectTeamGoal(room, actor, ai, nowSec) {
+  if(room.mode==='RESTLESS_DAY'){
+    const goalPos=modeCall(room,'botGoal',actor);
+    const enemy=foesOf(room,actor,['human','bot']).filter(p=>distance2d(actor,p)<6.5)
+      .sort((a,b)=>distance2d(actor,a)-distance2d(actor,b))[0]??null;
+    return {target:enemy,goalPos,holdRing:false};
+  }
   if (room.mode === 'HIGH_GROUNDS') {
     const goalPos = highGroundsBotGoal(room, actor);
     const enemy = foesOf(room, actor).filter(p => distance2d(actor, p) < 9)
@@ -1009,7 +1016,7 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (room.mode === 'HIGH_GROUNDS') {
+    if (room.mode === 'RESTLESS_DAY' || room.mode === 'HIGH_GROUNDS') {
       target = teamGoal.target;
       ai.targetId = target?.id ?? null;
     } else if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
@@ -1024,6 +1031,23 @@ export function stepBotControllers(
     }
 
     if (!target) {
+      // The Restless Day monument is not a humanoid foe: attacking bots must
+      // actually swing at its shared structure collision, not idle beside it.
+      if(room.mode==='RESTLESS_DAY'&&actor.team===TEAMS.ATTACKERS&&
+        (room.restlessDay?.phase??0)>=2&&room.structures?.entities?.['rightful-renowner']?.health>0){
+        const monument={position:room.restlessDay.renowner.position};
+        const distance=distance2d(actor,monument);
+        if(distance<5.5){
+          ai.patrol=null;
+          actor.input.yaw=yawToward(actor,monument);actor.yaw=actor.input.yaw;
+          actor.input.forward=distance>3.65?1:0;actor.input.right=0;actor.input.sprint=false;
+          if(distance<4.7&&!actor.attackHeld&&nowSec>=(ai.nextThinkAt??0)&&beginAttack(room,actor.id,nowSec)){
+            ai.attackReleaseAt=nowSec+1.95;
+            ai.nextThinkAt=nowSec+2.2;
+          }
+          continue;
+        }
+      }
       if (teamGoal.goalPos) {
         ai.patrol = null;
         // A bot standing directly *under* a canopy site has not arrived.
@@ -1035,7 +1059,14 @@ export function stepBotControllers(
           : distance2d(actor, { position: teamGoal.goalPos });
         const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
         if (!closeEnough) {
-          const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
+          // Once at a deployed ladder, take its actual incline directly: planar
+          // navigation otherwise treats the solid wall as a route to avoid.
+          const ladder = room.mode==='RESTLESS_DAY'
+            ?room.restlessDay?.ladders?.find(l=>l.state==='deployed'&&
+              Math.abs(actor.position.x-l.position.x)<2.5&&
+              Math.abs(actor.position.z-l.position.z)<12) : null;
+          const way = ladder&&actor.team===TEAMS.ATTACKERS&&actor.position.z<teamGoal.goalPos.z
+            ?teamGoal.goalPos:wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
           const aimAt = way ?? teamGoal.goalPos;
           actor.input.yaw = yawToward(actor, { position: aimAt });
           actor.yaw = actor.input.yaw;

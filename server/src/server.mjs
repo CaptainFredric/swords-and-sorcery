@@ -23,7 +23,7 @@ import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY]);
 const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
@@ -417,7 +417,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           return;
         }
       }
-      const resolvedWorld = message.mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds' : message.mode === GAME_MODES.BREAKTHROUGH
+      const resolvedWorld = message.mode === GAME_MODES.RESTLESS_DAY ? 'restless-day' : message.mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds' : message.mode === GAME_MODES.BREAKTHROUGH
         ? (BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach')
         : arenaOrDefault(message.worldId);
       const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });

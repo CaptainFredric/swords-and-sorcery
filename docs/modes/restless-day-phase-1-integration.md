@@ -1,0 +1,56 @@
+# Castleward game mode integration — Restless Day (phase 1)
+
+Development branch: `feat/restless-day-phase-1-20261107`. **Draft PR only; do not merge or deploy.**
+
+## Source of truth
+
+Creator-authored mode descriptions remain in `docs/ideas/proposed-game-modes-2026-11-04.md` and `docs/ideas/renown-renowner-worldbuilding.md`. In particular, Renown Trials uses the *same monument* but may have different rules; never make its gameplay inherit the Restless Day victory conditions. **Restless Day's name, sundown duration, monument HP, ladder HP, attack cooldown and replacement delay are provisional playtest values.**
+
+## Registering another authoritative mode
+
+- `shared/src/modes.mjs`: register the id, policy, dedicated arena collection; keep public matchmaking gated until lifecycle/win condition passes.
+- `shared/worlds/registry.mjs`: register the distinct world geometry and spawn points. Render it with `client/worlds/WorldRendererFactory.mjs` and the runtime's `WORLD_RENDERERS`.
+- `shared/sim/modeRuntime.mjs`: import an existing handler module and insert `[GAME_MODES.NEW_MODE, NEW_MODE_HANDLER]` into the local map. **Never import future missing modules.**
+- Handler contract is a frozen object of optional functions. `modeCall(room, hook, ...args)` passes the room first. Hook names:
+  - `init(room)`: initialize state on room creation and mode configuration.
+  - `reset(room, matchStartSec)`: reset all mode state, rewards, actors and timers on each match/rematch after standard combat resets.
+  - `step(room, dt, nowSec, {damage})`: advance authoritative simulations after ordinary combat/physics; `damage` is ordinary `applyDamage` and enforces normal protection.
+  - `onTime(room, nowSec)`: return **true** if a mode exclusively owns clock handling even when not expired; return false/undefined to inherit existing time rules.
+  - `onStructureDamage(room, id, nowSec)`: react to a validated structural damage event; protect against duplicate endings.
+  - `spawn(room, player, allSpawns)`: return preferred valid spawn-point array for authoritative respawn.
+  - `botGoal(room, actor)`: return a real (x,y,z) world destination or null. Hook from the shared bot AI rather than cloning it.
+  - `command(room, actor, message, nowSec)`: validate mode-specific commands. Return rejected responses when illegal.
+  - `serialize(room, nowSec)`: return safe, serializable mode state (for `snapshot.modeState`). This is the **sole** client source for timed objective progress.
+- Rendered HUD hooks belong in dedicated pure modules such as `client/ui/restlessDayHudView.mjs`, not in authoritative simulation modules.
+- Existing modes retain their legacy `Room`, `stepObjectives`, `stepHighGrounds` and HUD paths. New modes must remain isolated.
+
+## Current playable scope
+
+- 5 attackers versus 5 defenders, with bot seats and room join/replacement. Private match and Modes of Mettle solo-with-bots selection, no new public matchmaking queue.
+- Two uninterrupted defensive curtain lines with actual stone collision, **destructible reinforced timber gates**, separate walkable defensive ramparts and rear ramps. Attacking infantry must climb ladders or open the gatehouses with structural damage.
+- Two authoritative metal siege ladders: available / carrying / deployed / broken, placement validation, climbable height-field ramps, collision rails, damage through world sword/spell hits, delayed recovery when broken.
+- The Rightful Renowner remains fixed on a podium. The statue's hitbox is an ordinary destructible structure; sword and spell contact uses Castleward collision rules. The placeholder model can turn and make telegraphed downstrokes/sweeps and occasionally launch collision-resolved Renown coin projectiles; it is **not** the final Argon asset.
+- No fatigue effects, countdown to sundown from match start, instant defending win and attacker sleep at the strict deadline, immediate attacker win on pre-deadline statue destruction, and reset-on-rematch.
+- HUD displays daylight, Renowner HP, breached-wall phase and ladder states. Client prediction rebuilds from authoritative deployed ladder geometry, not a decorative ramp.
+
+## Known gaps / follow-up priority
+
+1. **Real browser 5v5 playtest required.** Geometry/physics are authored, but this connector session cannot launch the actual Three.js browser or run local repo tests. Test at 30Hz in solo and several real browsers, especially mobile controls, collision between ladder and curtain, navigation routes and performance.
+2. **Argon's Renowner model/animations not yet available here.** Procedural low-poly articulated placeholder preserves expected dimensions. Replace the visual without changing server structure IDs or state contract. Destruction still needs authored shattering effects and final sound.
+3. **Machine integration is partial.** The map now places the existing Bi-Bye-llista and SO-FIST-ICATION as native emplacements rather than imitations, alongside breakable timber gates. SO-FIST-ICATION initial clearance and machine-vs-gate damage require real in-game testing. Fight-and-Flight mode-specific spawner and siege balance are not implemented; reuse its native physics/health rather than making an imitation.
+4. **Bot pathing and ladder-tactical tuning require live tests.** Two attacking bots can pick/place ladders through authoritative interaction. Deliberate combat, better escort, retry and obstruction navigation should be tuned in real matches.
+5. **Pavises/shield-bash interactions**, detailed surrender choreography, final recorded VO, bespoke collapse animation and extended audiovisual polishing remain future work, not claimed complete.
+6. **Deadline resolution** uses authoritative timestamps (damage must register strictly before deadline). Contact sub-tick times for sword swings have not yet been plumbed through all structure damage paths; test cases cover exact timestamp ordering, not network latency rewind.
+7. **Collision/visual accuracy** on wall lip and stair gradients, and mobile interaction button label, still require hands-on verification. Do not expose to public matchmaking until tested.
+
+## Manual acceptance sequence
+
+Enter Modes of Mettle → Restless Day → Play with Bots. The mode starts on the dedicated two-wall map, with one human and nine bots. Walk to a free ladder and press the existing **Interact / E** control (or the touch equivalent); carry it slowly to the outer wall, interact again to deploy and climb. Cross into the inner yard, relocate the ladder to the inner wall and climb again. Destroy the Renowner with actual combat before sunset: victory to attackers. Rematch, allow the deadline to expire: immediate defeat/sleep to attackers. As defenders, repel both ladders; after a delay they must be recoverable, not permanently gone. Verify separate Breakthrough and High Grounds still launch and synchronize.
+
+## Dialogue candidates (unrecorded)
+
+- Initial: “If I ever sleep, I'll surrender. Let this be a restless day.”
+- At fading daylight: “Whether they win or they lose, I will rest just fine.”
+- Defeat: “I'm too tired for this.”
+
+Preserve the transition from swagger to acceptance to ordinary exhaustion. Subtitle events are not proof of recorded VO.
