@@ -4,7 +4,7 @@ import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun} from '../../shared/sim/fightFlightRun.mjs';
 import {setFlightUltimateHold,stepTerminalPreparation,advanceTerminalFlight,
-  resolveTerminalFlight,stepFlightBurnZones,TERMINAL,terminalBlastProfile,terminalRadialDamage,terminalFireInterval} from '../../shared/sim/fightFlightTerminal.mjs';
+  resolveTerminalFlight,stepFlightBurnZones,TERMINAL,terminalBlastProfile,terminalRadialDamage,terminalFireInterval,requestTerminalRitual} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {killPlayer} from '../../shared/sim/combat.mjs';
 import {damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
@@ -49,6 +49,22 @@ test('Dash and Ultimate chord takes a real one-second unspent-Chivalry commitmen
  assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
  stepTerminalPreparation(s.room,s.m,2.9);
  assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
+});
+test('Practice permanently full Prowess never blocks server-authoritative Valkyrie on an in-tick drain',()=>{
+ const s=setup();
+ s.p.prowess=0; // rotor Dash consumed energy AFTER the previous refill
+ assert.equal(requestTerminalRitual(s.room,s.m,s.p,1.2),true,
+   'the server derives infinite Practice readiness from room mode');
+ assert.equal(s.m.terminalDiveSpent,true);
+ assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalCommitted').length,1);
+ assert.equal(requestTerminalRitual(s.room,s.m,s.p,1.3),false,'still once per machine');
+ const pvp=setup();pvp.room.mode='BOT_DUEL';pvp.p.prowess=0;
+ assert.equal(requestTerminalRitual(pvp.room,pvp.m,pvp.p,1.2),false,
+   'the Practice exception cannot activate in normal matches');
+ const active=setup();active.p.prowess=0;
+ active.p.ultimateState={id:'chivalry',phase:'active',until:10};
+ assert.equal(requestTerminalRitual(active.room,active.m,active.p,1.2),false,
+   'an active Chivalry Ultimate still blocks Valkyrie in Practice');
 });
 test('Early release cancels preparation without spending any Ultimate or terminal opportunity',()=>{
  const s=setup();
