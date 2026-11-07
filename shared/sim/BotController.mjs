@@ -1031,6 +1031,23 @@ export function stepBotControllers(
     }
 
     if (!target) {
+      // The Restless Day monument is not a humanoid foe: attacking bots must
+      // actually swing at its shared structure collision, not idle beside it.
+      if(room.mode==='RESTLESS_DAY'&&actor.team===TEAMS.ATTACKERS&&
+        (room.restlessDay?.phase??0)>=2&&room.structures?.entities?.['rightful-renowner']?.health>0){
+        const monument={position:room.restlessDay.renowner.position};
+        const distance=distance2d(actor,monument);
+        if(distance<5.5){
+          ai.patrol=null;
+          actor.input.yaw=yawToward(actor,monument);actor.yaw=actor.input.yaw;
+          actor.input.forward=distance>3.65?1:0;actor.input.right=0;actor.input.sprint=false;
+          if(distance<4.7&&!actor.attackHeld&&nowSec>=(ai.nextThinkAt??0)&&beginAttack(room,actor.id,nowSec)){
+            ai.attackReleaseAt=nowSec+1.95;
+            ai.nextThinkAt=nowSec+2.2;
+          }
+          continue;
+        }
+      }
       if (teamGoal.goalPos) {
         ai.patrol = null;
         // A bot standing directly *under* a canopy site has not arrived.
