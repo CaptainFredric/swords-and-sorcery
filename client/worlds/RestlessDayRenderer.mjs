@@ -112,7 +112,10 @@ export class RestlessDayRenderer{
       pipe(grp,[-1.25,y,z],[1.25,y,z],.095,this.materials.brass);
     }
     grp.position.set(l.position.x,l.position.y,l.position.z);
-    if(!deployed)grp.rotation.x=l.state==='carrying'?-.33:Math.PI/2;
+    if(!deployed){
+      grp.rotation.x=l.state==='carrying'?-1.2:Math.PI/2;
+      grp.rotation.y=l.state==='carrying'?(l.heading??0):0;
+    }
     this.group.add(grp);this.ladders.set(l.id,grp);
   }
  }
