@@ -24,6 +24,7 @@ import { spellFor } from '../src/spells.mjs';
 import {preparedSpellMember} from '../src/preparedSpells.mjs';
 import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { edgeSnapshot } from './edgeOfVictory.mjs';
 
 export function serializeLobby(room) {
   return {
@@ -42,6 +43,7 @@ export function serializeLobby(room) {
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
     botSkill: room.botSkill,
+    edgeOfVictory: edgeSnapshot(room),
     votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -84,6 +86,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
     overtime: Boolean(room.overtime),
+    edgeOfVictory: edgeSnapshot(room),
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
       scores: { ...room.highGrounds.scores },
