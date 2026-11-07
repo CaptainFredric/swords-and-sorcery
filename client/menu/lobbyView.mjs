@@ -9,6 +9,7 @@ export const WORLD_NAMES = Object.freeze({
   'blackbell-foundry': 'Blackbell Foundry',
   'outerworks': 'The Outerworks',
   'high-grounds': 'The High Grounds',
+  'restless-day':'Restless Day',
 });
 
 
@@ -22,6 +23,7 @@ export function modeLabel(mode) {
   if (mode === 'DUEL') return 'DUEL';
   if (mode === 'BREAKTHROUGH') return 'BREAKTHROUGH';
   if (mode === 'HIGH_GROUNDS') return 'HIGH GROUNDS';
+  if (mode === 'RESTLESS_DAY') return 'RESTLESS DAY';
   return 'FREE-FOR-ALL';
 }
 
@@ -35,7 +37,7 @@ function connectedHumans(message) {
 }
 
 export function lobbyStateText(message, serverNow = 0) {
-  if (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode)) {
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode)) {
     if (message.roomState === 'COUNTDOWN') return 'SIEGE STARTING…';
     if (message.roomState === 'REMATCH_COUNTDOWN') return 'NEXT ROUND STARTING…';
     return `RALLYING SPELLBLADES · ${message.teamSize ?? 3}V${message.teamSize ?? 3}`;
@@ -61,7 +63,7 @@ export function lobbyStateText(message, serverNow = 0) {
 }
 
 function playerStatus(message, player) {
-  if (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode)) {
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode)) {
     // High Grounds has two invading sides; neither is the defending faction.
     const side = message.mode === 'HIGH_GROUNDS'
       ? player.team === 'DEFENDERS' ? 'CRIMSON' : 'AZURE'
@@ -85,7 +87,7 @@ function playerStatus(message, player) {
 export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {} } = {}) {
   const ffa = message.mode === 'FFA';
   const botDuel = message.mode === 'BOT_DUEL';
-  const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(message.mode);
+  const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode);
   const waiting = message.roomState === 'WAITING';
   const me = (message.players ?? []).find((p) => p.id === localId);
   const players = (message.players ?? []).map((player) => ({
@@ -124,7 +126,9 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     const mySide = message.mode === 'HIGH_GROUNDS'
       ? me?.team === 'DEFENDERS' ? 'Crimson' : 'Azure'
       : me?.team === 'DEFENDERS' ? 'Defenders' : 'Attackers';
-    footer = message.mode === 'HIGH_GROUNDS'
+    footer = message.mode === 'RESTLESS_DAY'
+      ? `Your side: ${mySide}. Five attackers carry ladders to destroy the Renowner before sunset; defenders protect it until sundown.`
+      : message.mode === 'HIGH_GROUNDS'
       ? `Your side: ${mySide}. Both sides capture territory; open seats can be filled by joining Spellblades.`
       : `Your side: ${mySide}. Empty ${message.teamSize ?? 3}v${message.teamSize ?? 3} slots are filled by bots; friends joining by code replace bots.`;
   }
