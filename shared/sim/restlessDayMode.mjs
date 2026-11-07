@@ -123,12 +123,57 @@ function swordTouches(s,p,t){
  const k=clamp(u.reduce((n,x,i)=>n+x*v[i],0)/(v.reduce((n,x)=>n+x*x,0)||1),0,1);
  return Math.hypot(...center.map((x,i)=>x-a[i]-k*v[i]))<1.2;
 }
+function launchCoin(room,s,target,now){
+ const r=s.renowner,origin={x:r.position.x,y:5.2,z:r.position.z};
+ const aim={x:target.position.x-origin.x,y:target.position.y+1.1-origin.y,z:target.position.z-origin.z};
+ const norm=Math.hypot(aim.x,aim.y,aim.z)||1,speed=16;
+ const coin={id:`renown-${Math.floor(now*1000)}`,position:origin,
+   velocity:{x:aim.x/norm*speed,y:aim.y/norm*speed,z:aim.z/norm*speed},bornAt:now};
+ r.coinProjectiles.push(coin);
+ room.events.push({type:'renownerCoinLaunched',projectile:{...coin},at:now});
+}
+function stepCoins(room,s,dt,now,damage){
+ const coins=s.renowner.coinProjectiles??[];
+ const remain=[];
+ for(const coin of coins){
+  if(now-coin.bornAt>2.6)continue;
+  const from=coin.position;
+  const to={x:from.x+coin.velocity.x*dt,y:from.y+coin.velocity.y*dt,z:from.z+coin.velocity.z*dt};
+  const a=[from.x,from.y,from.z],b=[to.x,to.y,to.z];
+  const solidHit=(room.world.solids??[]).filter(x=>x.id!=='renowner-body'&&x.id!=='renowner-podium')
+    .map(box=>segmentAabbHit(a,b,box)).filter(Boolean).sort((x,y)=>x.t-y.t)[0]??null;
+  const hits=[];
+  for(const player of room.players.values()){
+   if(!player.alive||player.team!==TEAMS.ATTACKERS)continue;
+   const pos={x:player.position.x,y:player.position.y+1.0,z:player.position.z};
+   const d={x:to.x-from.x,y:to.y-from.y,z:to.z-from.z};
+   const v={x:pos.x-from.x,y:pos.y-from.y,z:pos.z-from.z};
+   const u=clamp((v.x*d.x+v.y*d.y+v.z*d.z)/(d.x*d.x+d.y*d.y+d.z*d.z||1),0,1);
+   if(Math.hypot(v.x-u*d.x,v.y-u*d.y,v.z-u*d.z)<.85)hits.push({player,t:u});
+  }
+  hits.sort((x,y)=>x.t-y.t);
+  if(hits[0]&&(!solidHit||hits[0].t<=solidHit.t)){
+   damage?.(room,null,hits[0].player.id,16,'renowner-coin',now);
+   room.events.push({type:'renownerCoinHit',targetId:hits[0].player.id,at:now});
+  }else if(solidHit){
+   room.events.push({type:'renownerCoinImpact',point:solidHit.point,at:now});
+  }else{
+   coin.position=to;remain.push(coin);
+  }
+ }
+ s.renowner.coinProjectiles=remain;
+}
 function stepStatue(room,s,dt,now,damage){
  const r=s.renowner;
  const targets=[...room.players.values()].filter(p=>p.alive&&p.team===TEAMS.ATTACKERS
     &&dist(p.position,r.position)<=RESTLESS_DAY_RULES.swordRange);
  if(r.attack){
-   if(now>=r.attack.contactAt&&now<=r.attack.contactAt+.25){
+   if(r.attack.type==='coin'&&now>=r.attack.contactAt&&!r.attack.fired){
+     const target=room.players.get(r.attack.targetId);
+     if(target?.alive)launchCoin(room,s,target,now);
+     r.attack.fired=true;
+   }
+   if(r.attack.type!=='coin'&&now>=r.attack.contactAt&&now<=r.attack.contactAt+.25){
      for(const p of targets){
        if(r.attack.hit.includes(p.id)||!swordTouches(s,p,now))continue;
        const segment=strikeGeometry(s,now);
@@ -144,8 +189,9 @@ function stepStatue(room,s,dt,now,damage){
  }else if(targets.length&&now>=r.nextAttackAt){
    const target=targets.sort((a,b)=>dist(a.position,r.position)-dist(b.position,r.position))[0];
    r.yaw=Math.atan2(target.position.x-r.position.x,target.position.z-r.position.z);
-   r.attack={type:Math.floor(now/RESTLESS_DAY_RULES.attackCooldown)%3===0?'sweep':'downstroke',
-     startedAt:now,contactAt:now+1.05,hit:[]};
+   r.attacksMade=(r.attacksMade??0)+1;
+   r.attack={type:r.attacksMade%4===0?'coin':r.attacksMade%3===0?'sweep':'downstroke',
+     startedAt:now,contactAt:now+1.05,targetId:target.id,fired:false,hit:[]};
    room.events.push({type:'renownerSwordWarn',attack:r.attack.type,yaw:r.yaw,at:now});
  }
 }
@@ -187,6 +233,7 @@ export function restlessnessStep(room,dt,now,{damage}={}){
    }
  }
  stepStatue(room,s,dt,now,damage);
+ stepCoins(room,s,dt,now,damage);
 }
 function onTime(room,now){
  const s=room.restlessDay;
