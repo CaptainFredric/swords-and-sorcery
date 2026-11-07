@@ -158,9 +158,17 @@ export function edgeCollectSpells(room, nowSec) {
   if (!state || room.state !== 'PLAYING') return;
   for (const pickup of state.pickups) {
     if (!pickup.available || !isSpell(pickup.spell)) continue;
+    if(!edgeInside(pickup.position,state.center,state.radius,.4)){
+      pickup.available=false;
+      room.events.push({type:'edgePickupExpired',pickupId:pickup.id,at:nowSec});
+      continue;
+    }
     for (const player of edgeAlive(room)) {
       if (Math.hypot(player.position.x - pickup.position.x, player.position.z - pickup.position.z) > state.config.pickupRange
-        || Math.abs(player.position.y - pickup.position.y) > 2.2) continue;
+        || Math.abs(player.position.y - pickup.position.y) > 1.4) continue;
+      if ((room.world?.solids??[]).some(box=>segmentAabbHit(
+        [player.position.x,player.position.y+.8,player.position.z],
+        [pickup.position.x,pickup.position.y+.8,pickup.position.z],box)))continue;
       pickup.available = false; pickup.collectedBy = player.id;
       player.spell = pickup.spell;
       // The collected spell becomes the selected spell in the existing three-slot system.
