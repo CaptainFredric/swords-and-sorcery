@@ -343,9 +343,10 @@ function botGoal(room,actor){
  const s=room.restlessDay;if(!s)return null;
  const i=actor.rivalIndex??0;
  if(actor.team===TEAMS.DEFENDERS){
-   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-22}:{x:(i===3?-9:9),y:7,z:22};
-   if(s.phase===1)return {x:(i-2)*5,y:7,z:23};
-   return {x:(i-2)*4,y:0,z:49};
+   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-23.4}
+     :{x:(i===3?-7:7),y:7,z:22.8};
+   if(s.phase===1)return {x:(i-2)*8,y:7,z:22.8};
+   return {x:(i-2)*6,y:0,z:47};
  }
  const own=s.ladders.find(l=>l.holderId===actor.id);
  const wall=walls[Math.min(1,s.phase)];
@@ -360,12 +361,12 @@ function botGoal(room,actor){
        :{x:deploy.position.x,y:0,z:wall.baseZ};
    }
    const previous=s.ladders[(actor.rivalIndex??0)%2];
-   if(previous?.state==='deployed'&&previous.wall<s.phase)
+   if(i<2&&previous?.state==='deployed'&&previous.wall<s.phase)
      return {x:previous.position.x,y:walls[previous.wall].height,z:walls[previous.wall].z};
    const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
      ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
    if(loose)return {...loose.position};
-   return {x:(i%2?10:-10),y:0,z:wall.baseZ};
+   return {x:(i%2?6:-6),y:0,z:wall.baseZ};
  }
  return {x:0,y:0,z:55};
 }
