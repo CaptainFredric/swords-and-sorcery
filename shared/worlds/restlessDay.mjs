@@ -17,9 +17,9 @@ const floors=[
   floor('renowner-dais',0,56,10,10,.75),
 ];
 const ramps=[
-  ramp('outer-west-defender',-22,-17,-21,-8,6,0),
-  ramp('outer-east-defender',17,22,-21,-8,6,0),
-  ramp('inner-east-defender',17,22,25,39,7,0),
+  ramp('outer-west-defender',-22,-17,-22,-8,6,0),
+  ramp('outer-east-defender',17,22,-22,-8,6,0),
+  ramp('inner-east-defender',17,22,24,39,7,0),
 ];
 const solids=[
   solid('boundary-west',-28.2,3,-9,1.6,6,180),
