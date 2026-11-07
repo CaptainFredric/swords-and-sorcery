@@ -140,8 +140,10 @@ test('with the reticle on a foe close in front, the foe is seen over the knight,
 test('the game shows my own body, and not the helm\'s arms, exactly while the view is outside it; and sends the reticle\'s aim', async () => {
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('./GameRuntime.mjs', import.meta.url), 'utf8');
-  // out only for a committed Vortex (the host's word for it), eased each frame
-  assert.match(source, /this\.chase = stepChase\(this\.chase \?\? 0, chaseWanted\(this\.localAuth, serverNow\), dt\);/);
+  // Vortex's continuous chase remains in place; Disaster adds only a temporary
+  // authoritative cinematic window, with the SAME camera interpolation.
+  assert.match(source, /chaseWanted\(this\.localAuth, serverNow\) \|\| cinematic, dt\);/);
+  assert.match(source, /disasterCameraWanted\(this\.localAuth, serverNow\)/);
   // the arms and the body are each other's opposite, by the view's own word for where it is
   assert.match(source, /outside = out\.thirdPerson;/);
   assert.match(source, /this\.weapon\.group\.visible = !outside;/);
