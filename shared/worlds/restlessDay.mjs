@@ -26,10 +26,12 @@ const solids=[
   solid('boundary-east',28.2,3,-9,1.6,6,180),
   solid('boundary-rear',0,3,82,57,6,1.4),
   // Structural curtain stones: complete collision from ground to battlement.
-  solid('outer-curtain-west',-12,3,-24,24,6,2.2),
-  solid('outer-curtain-east',12,3,-24,24,6,2.2),
-  solid('inner-curtain-west',-12,3.5,22,24,7,2.5),
-  solid('inner-curtain-east',12,3.5,22,24,7,2.5),
+  solid('outer-curtain-west',-13.5,3,-24,21,6,2.2),
+  solid('outer-curtain-east',13.5,3,-24,21,6,2.2),
+  solid('outer-gate',0,3,-24,6,6,2.2,'timber'),
+  solid('inner-curtain-west',-13.5,3.5,22,21,7,2.5),
+  solid('inner-curtain-east',13.5,3.5,22,21,7,2.5),
+  solid('inner-gate',0,3.5,22,6,7,2.5,'timber'),
   ...[-23,-11,11,23].map((x,i)=>solid('outer-merlon-'+i,x,6.58,-24,1.5,1.16,2.2)),
   ...[-22,-9,9,22].map((x,i)=>solid('inner-merlon-'+i,x,7.68,22,1.8,1.36,2.5)),
   // Two tactically different approaches: exposed field, then tight barricaded court.
@@ -57,8 +59,19 @@ for(const w of walls)for(const x of [-10,10])for(const z of [w.approachZ,w.z,w.l
   nodes.push({id:'rd-wall-'+w.id+'-'+x+'-'+z,x,y:z===w.z?w.height:0,z});
 export const RESTLESS_DAY_WORLD=Object.freeze({
   id:'restless-day',name:'Restless Day',floors,ramps,solids,spawnPoints,walls,
-  structures:Object.freeze([{id:'rightful-renowner',name:'The Rightful Renowner',
-    profile:'renowner',team:TEAMS.DEFENDERS,solidIds:['renowner-body']}]),
+  structures:Object.freeze([
+    {id:'outer-gate',name:'Outer gate',profile:'reinforcedTimber',team:TEAMS.DEFENDERS,solidIds:['outer-gate']},
+    {id:'inner-gate',name:'Inner gate',profile:'reinforcedTimber',team:TEAMS.DEFENDERS,solidIds:['inner-gate']},
+    {id:'rightful-renowner',name:'The Rightful Renowner',
+      profile:'renowner',team:TEAMS.DEFENDERS,solidIds:['renowner-body']},
+  ]),
+  // Existing machine instances, not a mode-specific mechanical imitation.
+  ballistaEmplacement:Object.freeze({id:'restless-ballista',x:15,y:0,z:-77,
+    baseYaw:Math.PI,team:TEAMS.ATTACKERS,interactRadius:3.2}),
+  siegeEmplacements:Object.freeze([
+    {id:'restless-ram',type:'so-fist-ication',team:TEAMS.ATTACKERS,phases:[0,1,2],
+      x:-4,y:0,z:-76,heading:Math.PI},
+  ]),
   navigation:Object.freeze({nodes}),
   bounds:Object.freeze({minX:-28,maxX:28,minZ:-105,maxZ:82}),abyssY:-28,
   restlessDay:Object.freeze({renowner:{x:0,y:1.4,z:56},ladders:[
