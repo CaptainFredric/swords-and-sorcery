@@ -109,9 +109,9 @@ export function stepFlightRun(room,m,dt,now){
  const preparing=Boolean(m.terminalPrep?.phase==='holding');
  // Reserve Chivalry's full meter briefly for a deliberate Dash+Ultimate
  // chord, without withholding propulsion during the decision window.
- const chordReserve=Boolean(ascensionValkyrieReady(m,p,now)&&
-   m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const practice=room.mode==='PRACTICE'&&p?.actorKind==='human'&&!room.localTutorial;
+ const chordReserve=Boolean(ascensionValkyrieReady(m,p,now,{practice})&&
+   m.flightDashStartedAt!=null&&now-m.flightDashStartedAt<VALKYRIE_RUN.chargeGraceSec);
  const ascension=fightFlightSkillActive(m,now,ASCENSION.id);
  let running=valid&&!activeChivalry&&!preparing;
  // Training meters cycle without dropping the held propulsion state. This
