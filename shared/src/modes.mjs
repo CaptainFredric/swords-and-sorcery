@@ -15,10 +15,11 @@ export const GAME_MODES = Object.freeze({
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
+export const RENOWN_ARENAS = Object.freeze(['court-of-merit', 'castleward']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RENOWN_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 

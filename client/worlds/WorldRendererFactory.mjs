@@ -10,6 +10,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'blackbell-foundry': 'blackbell-foundry',
   'outerworks': 'outerworks',
   'high-grounds': 'high-grounds',
+  'court-of-merit': 'court-of-merit',
 });
 
 
