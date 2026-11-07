@@ -155,3 +155,23 @@ test('an Edge rival seeks the next useful spell or steps inward, never outward',
   assert.equal(wanted?.purpose,'pickup');
   assert.equal(wanted.x,3);
 });
+
+
+test('a knight overtaken on the east gallery steps off toward a real lower floor',()=>{
+  const {room,pilot}=fixture(6);
+  room.world.floors=[
+    {id:'ward',center:[0,-.1,0],size:[40,.2,40],y:0},
+    {id:'gallery',center:[10.6,2.45,0],size:[1.6,.3,10],y:2.6}
+  ];
+  pilot.position={x:10.55,y:2.6,z:0};
+  pilot.grounded=true;
+  let wentAirborne=false;
+  for(let i=0;i<8;i++){
+    edgeConstrainActor(room,pilot,{...pilot.position},1+i/30,room.world);
+    if(!pilot.grounded){wentAirborne=true;break;}
+  }
+  assert.equal(wentAirborne,true,'elevated fighters are allowed to leave the gallery on foot');
+  assert.ok(pilot.position.y>2.5,'gravity, not teleportation, must lower the knight');
+  assert.ok(pilot.position.x<9.8,'the new position crosses to a genuinely lower support surface');
+  assert.equal(pilot.health,100);
+});
