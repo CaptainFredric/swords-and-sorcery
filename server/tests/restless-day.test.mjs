@@ -33,7 +33,7 @@ test('Restless Day has a dedicated collision-matched two-curtain map and 5v5 cap
  assert.equal(room.players.size,10);
  assert.equal([...room.players.values()].filter(p=>p.team===TEAMS.ATTACKERS).length,5);
  assert.equal([...room.players.values()].filter(p=>p.team===TEAMS.DEFENDERS).length,5);
- assert.equal(room.objectiveState,undefined);
+ assert.equal(room.objectiveState,null);
  assert.equal(room.policy.scored,false);
  assert.equal(room.policy.teamSize,5);
 });
