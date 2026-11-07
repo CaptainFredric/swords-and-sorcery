@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {PRIVATE_MODES,PRIVATE_MODE_DEFAULTS,privateRoomPreview} from './privateRoomRules.mjs';
 
 test('Private creation defaults to Free-for-All and a six-minute first-to-ten room',()=>{
- assert.deepEqual(PRIVATE_MODES,['FFA','BREAKTHROUGH','HIGH_GROUNDS']);
+ assert.deepEqual(PRIVATE_MODES,['FFA','BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY']);
  const p=privateRoomPreview('FFA');
  assert.equal(p.ok,true);
  assert.deepEqual({mode:p.settings.mode,world:p.settings.worldId,score:p.settings.scoreToWin,
@@ -19,6 +19,9 @@ test('Mode changes use compatible arenas and team defaults',()=>{
  assert.equal(h.ok,true);assert.equal(h.settings.worldId,'high-grounds');
  assert.equal(h.settings.matchSeconds,720);
  assert.equal(h.settings.teamSize,3);
+  const r=privateRoomPreview('RESTLESS_DAY');
+  assert.equal(r.ok,true);assert.equal(r.settings.worldId,'restless-day');
+  assert.equal(r.settings.teamSize,5);assert.equal(r.settings.matchSeconds,780);
  for(const mode of PRIVATE_MODES)assert.equal(PRIVATE_MODE_DEFAULTS[mode].minutes>0,true);
 });
 test('Private host chooses real limits, world, skill and side rather than cosmetic-only controls',()=>{
