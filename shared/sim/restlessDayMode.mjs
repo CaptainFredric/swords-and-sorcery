@@ -372,7 +372,11 @@ function botGoal(room,actor){
 }
 export const RESTLESS_DAY_HANDLER=Object.freeze({
  ownsTeamObjectives:()=>true,
- init:(room)=>{room.restlessDay=newState(room.world);},
+ botOccupation:(room,actor)=>actor.restlessCarrying?'carry':null,
+ baseWorld:(room)=>room.restlessDayCanonicalWorld,
+ composeWorld:(room,world)=>withRestlessLadders(world,room.restlessDay),
+ beforeSpawns:(room)=>{if(room.restlessDay)room.restlessDay.phase=0;},
+ init:(room)=>{room.restlessDayCanonicalWorld=room.world;room.restlessDay=newState(room.world);},
  reset:(room,now)=>{room.restlessDay=newState(room.world);
    for(const p of room.players.values()){p.restlessAsleep=false;p.restlessCarrying=null;p.speedScale=1;}
    room.restlessDay.deadline=now+room.policy.matchSeconds;
