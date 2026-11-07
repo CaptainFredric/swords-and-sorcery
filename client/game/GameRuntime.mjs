@@ -1516,6 +1516,15 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.oneHitEffects?.event(event);
+      if(event.type==='edgeVoluntaryDismount'){
+        // The knight chooses to leave: a brief, readable settled gesture
+        // with no recorded dialogue, death camera or extra control lock.
+        this.remotePlayers?.nod?.(event.playerId,event.at+.16);
+        if(event.playerId===this.playerId)
+          this.hud.flashText('ON FOOT · THE FIGHT CONTINUES','sunder',850);
+      }
+      if(event.type==='edgeSpellCollected'&&event.playerId===this.playerId)
+        this.hud.flashText('SPELL FOUND · '+String(event.spell).toUpperCase(),'sunder',1050);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
         this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
