@@ -60,7 +60,7 @@ export function setFlightUltimateHold(room,m,p,down,now){
 export function stepTerminalPreparation(room,m,now){
  if(!m||m.retired||m.mode==='DESTROYED'||m.terminalDive)return;
  const p=room.players.get(m.operatorId);
- const both=Boolean(operator(room,m,p)&&!m.grounded&&m.flightDashHeld&&m.flightUltimateHeld);
+ const both=Boolean(operator(room,m,p)&&m.flightDashHeld&&m.flightUltimateHeld);
  if(!both||!ready(room,m,p,now)){
   if(m.terminalPrep){m.terminalPrep=null;room.events.push({type:'fightFlightTerminalPrep',machineId:m.id,action:'cancelled',at:now});}
   return;
@@ -80,7 +80,7 @@ export function stepTerminalPreparation(room,m,now){
  commitTerminalDive(room,m,p,now);
 }
 function commitTerminalDive(room,m,p,now){
- if(!operator(room,m,p)||m.grounded||!ready(room,m,p,now))return false;
+ if(!operator(room,m,p)||!ready(room,m,p,now))return false;
  p.prowess=0;
  m.terminalDiveSpent=true;
  const blastProfile=terminalBlastProfile(m);
@@ -91,20 +91,29 @@ function commitTerminalDive(room,m,p,now){
   // saturated browser. The dive's finite TIMEOUT must represent simulated
   // travel, not expire while its chassis has barely moved.
   simulatedSec:0,lastWallStepAt:now};
+ const launchedFromGround=Boolean(m.grounded);
  m.flightUltimateHeld=false;m.flightDashHeld=false;m.offensiveRun=false;
+ m.runGroundPhase=null;m.runGroundLaunchReady=false;m.runStopRequested=false;
  m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;m.runTurnSpeed=0;
+ // A standing machine can commit directly. Give its rotor a physical launch,
+ // not a teleport or an arbitrary airborne prerequisite. Forward collision
+ // remains active: a wall or a badly steered descent can still be disastrous.
+ if(launchedFromGround){
+  m.grounded=false;m.crouched=false;m.takeoffAt=now;
+  m.velocity.y=Math.max(m.velocity.y,4.5);
+ }
  m.rotorPowered=true; // The blades still fight until the drive burns out.
  room.events.push({type:'fightFlightTerminalCommitted',machineId:m.id,operatorId:p.id,
    trajectory:{x:m.x,y:m.y,z:m.z,heading:m.heading,velocity:{...m.velocity}},
-   expiresAt:m.terminalDive.expiresAt,blastProfile,at:now});
+   expiresAt:m.terminalDive.expiresAt,blastProfile,launchedFromGround,at:now});
  return true;
 }
-/** A valid mobile Dagaz + halo gesture commits directly. The host still
- * checks the same full Ascension/Chivalry/rotor/charge/airborne requirements
- * as the held Dash+Ultimate chord. No client-provided power or radius accepted.
+/** A valid mobile Dagaz + reversible crossbar commits on finger release.
+ * Both ground and air use identical host-owned Ascension/Chivalry/rotor,
+ * charge and one-use checks. No client-provided damage or energy accepted.
  */
 export function requestTerminalRitual(room,m,p,now){
- if(!operator(room,m,p)||m.grounded||!ready(room,m,p,now))return false;
+ if(!operator(room,m,p)||!ready(room,m,p,now))return false;
  return commitTerminalDive(room,m,p,now);
 }
 export function terminalFlightSteps(dive,now,dt){
