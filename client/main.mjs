@@ -672,9 +672,9 @@ setInterval(() => { if (router.current === SCREEN_IDS.LOBBY) renderLobby(); }, 5
 
 $('#lobby-settings').addEventListener('change', event => {
   if (event.target.name !== 'mode') return;
-  const form=event.target.form,team=event.target.value!=='FFA';
+  const form=event.target.form,team=event.target.value==='BREAKTHROUGH'||event.target.value==='HIGH_GROUNDS';
   form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
-  form.querySelector('[data-score-field]').hidden=team;
+  form.querySelector('[data-score-field]').hidden=event.target.value!=='FFA';
   form.querySelector('[data-team-field]').hidden=!team;
   form.querySelector('[data-bot-field]').hidden=!team;
   form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
@@ -813,9 +813,9 @@ roomJoinButton.addEventListener('click', () => {
 
 function syncPublicRoomForm() {
   const mode=roomCreateForm.elements.mode.value;
-  const team=mode!=='FFA';
+  const team=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
   roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
-  roomCreateForm.querySelector('[data-score-field]').hidden=team;
+  roomCreateForm.querySelector('[data-score-field]').hidden=mode!=='FFA';
   roomCreateForm.querySelector('[data-team-field]').hidden=!team;
   roomCreateForm.querySelector('[data-bot-field]').hidden=!team;
   roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
@@ -1221,7 +1221,7 @@ function privateFields(){
     teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value};
 }
 function renderPrivateMode({reset=true}={}){
-  const mode=privateModeSelected,teamMode=mode!=='FFA';
+  const mode=privateModeSelected,teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
   for(const button of privateChoices.querySelectorAll('[data-private-mode]')){
     const on=button.dataset.privateMode===mode;
     button.classList.toggle('selected',on);
@@ -1242,10 +1242,11 @@ function renderPrivateMode({reset=true}={}){
       f.botSkill.value=defaults.botSkill;
     }else f.scoreToWin.value=defaults.scoreToWin;
   }
-  privateForm.querySelector('[data-private-score]').hidden=teamMode;
+  privateForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
   for(const attr of ['size','team','bot'])
     privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode;
-  const note=mode==='FFA'?'Every Spellblade for themselves. First to ten.':
+  const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
+    mode==='FFA'?'Every Spellblade for themselves. First to ten.':
     mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
     'Both armies attack and recapture outposts high above the abyss.';
   $('#private-mode-copy').textContent=note;
@@ -1434,6 +1435,7 @@ function startTutorial() {
 let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
+  'edge-of-victory-mode': ['EDGE OF VICTORY','Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
   'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
   'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
   'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
@@ -1451,7 +1453,7 @@ function chooseSoloActivity(id) {
   const [title,note]=soloChoices[id];
   $('#solo-selected-title').textContent=title;
   $('#solo-selected-note').textContent=note;
-  $('#solo-arena-wrap').hidden=id==='tutorial-mode';
+  $('#solo-arena-wrap').hidden=id==='tutorial-mode'||id==='edge-of-victory-mode';
   $('#solo-rival-wrap').hidden=id!=='bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   // Desktop has both banners side by side. On phones, leave the activity
@@ -1465,6 +1467,7 @@ function chooseSoloActivity(id) {
 function launchSoloActivity(id) {
   if(id==='tutorial-mode') { startTutorial(); return true; }
   if(id==='bot-duel') return startBotDuel();
+  if(id==='edge-of-victory-mode') return runMenuAction(menuController.edgeOfVictory(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
