@@ -371,6 +371,7 @@ function botGoal(room,actor){
  return {x:0,y:0,z:55};
 }
 export const RESTLESS_DAY_HANDLER=Object.freeze({
+ ownsTeamObjectives:()=>true,
  init:(room)=>{room.restlessDay=newState(room.world);},
  reset:(room,now)=>{room.restlessDay=newState(room.world);
    for(const p of room.players.values()){p.restlessAsleep=false;p.restlessCarrying=null;p.speedScale=1;}
