@@ -1,4 +1,4 @@
-import { resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
+import { resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from './collision.mjs';
 import { CROUCH, postureOf, roomToStand } from './body.mjs';
 import { edgeLimitPoint } from './edgeBoundary.mjs';
 
@@ -144,7 +144,12 @@ function edgeSafeProjectedPosition(prior, proposed, world, height) {
   const legal=edgeLimitPoint(proposed,world.edgeBoundary.center,
     world.edgeBoundary.radius,MOVEMENT.playerRadius);
   const checked=resolvePlayerWorld(legal,MOVEMENT.playerRadius,world.solids??[],height);
-  if(Math.hypot(checked.x-legal.x,checked.z-legal.z)<.025)return legal;
+  const pathBlocked=(world.solids??[]).some(box=>{
+    const hit=segmentAabbHit([prior.x,prior.y+.9,prior.z],
+      [legal.x,legal.y+.9,legal.z],box);
+    return hit && hit.t>.001 && hit.t<.999;
+  });
+  if(Math.hypot(checked.x-legal.x,checked.z-legal.z)<.025&&!pathBlocked)return legal;
   // A wall behind a convex ring segment is still a wall; stop this substep,
   // allowing the next input tick to choose a legal inward/tangential route.
   return {...prior,y:proposed.y};
