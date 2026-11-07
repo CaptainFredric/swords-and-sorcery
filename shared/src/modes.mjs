@@ -7,6 +7,7 @@ export const GAME_MODES = Object.freeze({
   // objective-based team battle (attackers advance through sequential objectives)
   BREAKTHROUGH: 'BREAKTHROUGH',
   HIGH_GROUNDS: 'HIGH_GROUNDS',
+  RENOWN_TRIALS: 'RENOWN_TRIALS',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
@@ -71,6 +72,14 @@ const POLICIES = Object.freeze({
     autoStart: true,
     allowRematchVote: false,
     countdownSec: 3,
+  }),
+  [GAME_MODES.RENOWN_TRIALS]: Object.freeze({
+    id: GAME_MODES.RENOWN_TRIALS,
+    minHumansToStart: 1,
+    botCount: 0, // the authoritative wave director spawns real bots itself
+    scored: false, timed: false, prowess: true,
+    scoreToWin: null, matchSeconds: null,
+    autoStart: true, allowRematchVote: true, countdownSec: 3,
   }),
   [GAME_MODES.DUEL]: Object.freeze({
     id: GAME_MODES.DUEL,
