@@ -156,18 +156,19 @@ export class RuinedKeepRenderer {
         rand,
         shade: 0.16,
       });
-      // scattered fallen ashlar and slate rubble on the slope
+      // scattered fallen ashlar and slate rubble embedded into the slope tread
       if (rand() < 0.7) {
+        const rSy = 0.06 + rand() * 0.04;
         batch.stone.block({
           cx: cx + (rand() - 0.5) * (width * 0.7),
-          cy: top - 0.02,
+          cy: top - rSy + 0.01,
           cz: zMid + (rand() - 0.5) * 0.1,
           sx: 0.28 + rand() * 0.2,
-          sy: 0.08 + rand() * 0.08,
+          sy: rSy,
           sz: 0.25 + rand() * 0.2,
           rotY: (rand() - 0.5) * 0.6,
           chamfer: 0.04,
-          jitter: 0.02,
+          jitter: 0.01,
           color: rand() < 0.5 ? P.stoneLight : P.slate,
           rand,
         });

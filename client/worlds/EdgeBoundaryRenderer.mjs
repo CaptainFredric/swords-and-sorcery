@@ -31,7 +31,7 @@ function drawGroundRing(object, world, center, radius, pattern) {
   let count = 0;
   if (!Number.isFinite(radius) || radius <= 0) { object.geometry.setDrawRange(0, 0); return; }
 
-  // 1. Perimeter ring segments
+  // 1. Perimeter ring segments (restrained engraved brass track)
   for (let i = 0; i < SEGMENTS; i++) {
     if (i % pattern.every >= pattern.on) continue;
     const a = TAU * i / SEGMENTS, b = TAU * (i + 1) / SEGMENTS;
@@ -44,14 +44,6 @@ function drawGroundRing(object, world, center, radius, pattern) {
     data[off] = ax; data[off + 1] = ay + 0.045; data[off + 2] = az;
     data[off + 3] = bx; data[off + 4] = by + 0.045; data[off + 5] = bz;
     count++;
-
-    // 2. Shimmering vertical ward staves rising from the boundary
-    if (i % 6 === 0 && (count + 1) * 2 <= MAX_VERTS) {
-      const staffOff = count * 6;
-      data[staffOff] = ax; data[staffOff + 1] = ay + 0.045; data[staffOff + 2] = az;
-      data[staffOff + 3] = ax; data[staffOff + 4] = ay + 0.58; data[staffOff + 5] = az;
-      count++;
-    }
   }
 
   // 3. Heraldic compass tick glyphs at 8 compass directions
@@ -81,7 +73,7 @@ function makePickup(spell) {
   const tint = SPELL_COLOURS[spell] ?? BRASS;
   const geometries = [], materials = [];
 
-  // Ground plinth: stays visible as an arena landmark even after collection
+  // Ground plinth: low floor ornament (total height 0.18m) so it never obstructs combat motion or spells
   const plinth = new THREE.Group();
   group.add(plinth);
 
@@ -91,24 +83,17 @@ function makePickup(spell) {
   const brassMat = new THREE.MeshStandardMaterial({ color: BRASS, metalness: 0.72, roughness: 0.35 });
   materials.push(brassMat);
 
-  const baseGeo = new THREE.CylinderGeometry(0.52, 0.58, 0.14, 8);
+  const baseGeo = new THREE.CylinderGeometry(0.52, 0.58, 0.10, 8);
   geometries.push(baseGeo);
   const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
-  baseMesh.position.y = 0.07;
+  baseMesh.position.y = 0.05;
   baseMesh.receiveShadow = true;
   plinth.add(baseMesh);
 
-  const shaftGeo = new THREE.BoxGeometry(0.54, 0.22, 0.54);
-  geometries.push(shaftGeo);
-  const shaftMesh = new THREE.Mesh(shaftGeo, stoneMat);
-  shaftMesh.position.y = 0.25;
-  shaftMesh.receiveShadow = true;
-  plinth.add(shaftMesh);
-
-  const capitalGeo = new THREE.BoxGeometry(0.64, 0.08, 0.64);
+  const capitalGeo = new THREE.BoxGeometry(0.60, 0.04, 0.60);
   geometries.push(capitalGeo);
   const capitalMesh = new THREE.Mesh(capitalGeo, brassMat);
-  capitalMesh.position.y = 0.40;
+  capitalMesh.position.y = 0.12;
   capitalMesh.receiveShadow = true;
   plinth.add(capitalMesh);
 
@@ -118,10 +103,10 @@ function makePickup(spell) {
   });
   materials.push(runeMat);
 
-  const runeDishGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.03, 12);
+  const runeDishGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.02, 12);
   geometries.push(runeDishGeo);
   const runeDish = new THREE.Mesh(runeDishGeo, runeMat);
-  runeDish.position.y = 0.45;
+  runeDish.position.y = 0.15;
   plinth.add(runeDish);
 
   // Floating spell orb: consumed on collection

@@ -60,6 +60,12 @@ export function edgeSafeFootPoint(room, actor, desired, world = room.world, { st
     // the descent, not an instant vertical teleport. A true abyss remains closed.
     const drop = Boolean(actor.grounded && feet!==null && old.y-feet>.65);
     if(actor.grounded && (feet===null || feet>old.y+.5 || old.y-feet>3.3))return null;
+    if (actor.grounded && !drop) {
+      const footR = clearance * 0.55;
+      for (const [fx, fz] of [[-footR, 0], [footR, 0], [0, -footR], [0, footR]]) {
+        if (surfaceHeightAt(x + fx, z + fz, old.y + 1.4, world) === null) return null;
+      }
+    }
     if (actor.grounded) {
       for (const t of [.25,.5,.75]) {
         const tx=old.x+(x-old.x)*t,tz=old.z+(z-old.z)*t;
