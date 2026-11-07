@@ -22,6 +22,7 @@ export function modeLabel(mode) {
   if (mode === 'DUEL') return 'DUEL';
   if (mode === 'BREAKTHROUGH') return 'BREAKTHROUGH';
   if (mode === 'HIGH_GROUNDS') return 'HIGH GROUNDS';
+  if (mode === 'EDGE_OF_VICTORY') return 'EDGE OF VICTORY';
   return 'FREE-FOR-ALL';
 }
 
