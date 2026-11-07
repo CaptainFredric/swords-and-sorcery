@@ -195,6 +195,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,
+      restlessAsleep:Boolean(p.restlessAsleep),
+      restlessCarrying:p.restlessCarrying??null,
       kills: p.kills,
       deaths: p.deaths,
       parries: p.parries,
@@ -405,7 +407,7 @@ export function applyRoomCommand(room, player, message, time) {
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
-        sprint: Boolean(message.sprint),
+        sprint: Boolean(message.sprint)&&!player.restlessCarrying,
         crouch: Boolean(!player.operatingRamId&&message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
         ramLower: Boolean(player.operatingRamId&&message.ramLower),
