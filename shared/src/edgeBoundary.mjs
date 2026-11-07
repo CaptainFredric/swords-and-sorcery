@@ -17,6 +17,30 @@ export function edgeLimitPoint(point, center, radius, clearance = 0) {
  * It is deliberately conservative for multi-piece siege machines, and never
  * replaces those machines' existing terrain/occupant collision solvers.
  */
+/** Stops a *teleport trajectory* at the legal circle, unlike a radial
+ * projection of the destination, which could change the spell's intended ray.
+ * Null means no legal endpoint exists along the requested sweep.
+ */
+export function edgeClipTeleport(from,to,edge,clearance=0) {
+  if(!edge)return {...to};
+  const {center,radius}=edge,limit=Math.max(0,radius-clearance-.035);
+  const inside=p=>edgeInside(p,center,limit,0);
+  if(inside(to))return {...to};
+  const dx=to.x-from.x,dz=to.z-from.z;
+  const ox=from.x-center.x,oz=from.z-center.z;
+  const a=dx*dx+dz*dz,b=2*(ox*dx+oz*dz),c=ox*ox+oz*oz-limit*limit;
+  const discriminant=b*b-4*a*c;
+  if(a<1e-10||discriminant<0)return null;
+  const roots=[(-b-Math.sqrt(discriminant))/(2*a),(-b+Math.sqrt(discriminant))/(2*a)]
+    .filter(t=>t>=0&&t<=1).sort((u,v)=>u-v);
+  const t=roots.length ? (inside(from)?roots.at(-1):roots[0]) : null;
+  if(t===null)return null;
+  const fraction=Math.max(0,t-.025/Math.sqrt(a));
+  const target={x:from.x+dx*fraction,y:from.y+(to.y-from.y)*fraction,
+    z:from.z+dz*fraction};
+  return inside(target)?target:null;
+}
+
 export function edgeFootprintOvershoot(volumes, center, radius, margin = 0) {
   if (!center || !Number.isFinite(radius)) return 0;
   let overflow = -Infinity;
