@@ -4,6 +4,8 @@ import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
+import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
+import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation} from './flightDashPresentation.mjs';
@@ -205,6 +207,7 @@ export class GameRuntime {
     if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
     this.scene = new THREE.Scene();
+    this.edgeRenderer = new EdgeBoundaryRenderer(this.scene);
     this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.flightRenderer=new FightFlightRenderer(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
@@ -3816,7 +3819,9 @@ export class GameRuntime {
         }
       } else {
         const edge=this.latestSnapshot?.mode==='EDGE_OF_VICTORY'?this.latestSnapshot?.edgeOfVictory:null;
-        const predictionWorld=edge ? {...this.activeWorld,edgeBoundary:{center:edge.center,radius:edge.radius}} : this.activeWorld;
+        const predictionWorld=edge ? {...this.activeWorld,edgeBoundary:{
+          center:edge.center,radius:edgePresentedRadius(edge,serverNow,this.latestSnapshot?.serverTime??serverNow)
+        }} : this.activeWorld;
         this.movementWorld = playerMovementWorld(predictionWorld, {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
@@ -3960,6 +3965,9 @@ export class GameRuntime {
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
+    this.edgeRenderer.update(this.latestSnapshot?.mode==='EDGE_OF_VICTORY'
+      ? this.latestSnapshot?.edgeOfVictory : null,this.activeWorld,this.socket.serverNow(),
+      this.latestSnapshot?.serverTime??this.socket.serverNow());
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
@@ -4283,6 +4291,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.structuresRenderer?.dispose();
     this.world?.dispose?.();
+    this.edgeRenderer.dispose();
     this.oneHitEffects?.dispose();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();
