@@ -171,3 +171,24 @@ test('the last provisional wave completes a run without spawning wave 13', () =>
   stepRenownTrial(r, 3 + RENOWN_TRIAL_TUNING.ceremonySec.timely + 0.01);
   assert.equal(r.results[0].reason, 'renown-trial-completed');
 });
+
+test('temporary disconnect pauses both wave deadline and ceremony without deciding verdict', () => {
+  const r = room(); const wave = startWave(r);
+  const human = r.players.get('human');
+  human.connected = false;
+  const initialDeadline = wave.deadlineAt;
+  stepRenownTrial(r, wave.startedAt + 15, () => { throw Error('Must not roll while disconnected'); });
+  assert.equal(r.renownTrial.phase, RENOWN_TRIAL_PHASES.WAVE_ACTIVE);
+  assert.equal(wave.deadlineAt, initialDeadline + 15);
+  assert.equal(renownTrialCombatOpen(r), false);
+  human.connected = true;
+  stepRenownTrial(r, wave.startedAt + 16);
+  assert.equal(renownTrialCombatOpen(r), true);
+  defeatWave(r);
+  stepRenownTrial(r, wave.startedAt + 17, () => { throw Error('Timely clear must not roll'); });
+  const ceremonyEnds = r.renownTrial.ceremony.endsAt;
+  human.connected = false;
+  stepRenownTrial(r, wave.startedAt + 24);
+  assert.ok(r.renownTrial.ceremony.endsAt > ceremonyEnds);
+  assert.equal(r.renownTrial.phase, RENOWN_TRIAL_PHASES.JUDGMENT);
+});
