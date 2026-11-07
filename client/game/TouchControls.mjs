@@ -690,7 +690,8 @@ export class TouchControls {
             dashGrounded?'Hold Dash to spin up and take off':'Hold Dash for Prowess-powered offensive run');
         }
 
-        const valkyrieReady=flight&&!fb?.grounded&&ascensionValkyrieReady(fb,local,serverNow);
+        const practiceValkyrie=snapshot?.mode==='PRACTICE'&&!snapshot?.tutorial&&local.actorKind==='human';
+        const valkyrieReady=flight&&!fb?.grounded&&ascensionValkyrieReady(fb,local,serverNow,{practice:practiceValkyrie});
         // The rune is faintly previewed whenever Ascension is equipped, so
         // users can FIND the combination before the meter/Skill is ready.
         // Only a fully ready server-eligible state captures a ritual pointer.
@@ -707,7 +708,7 @@ export class TouchControls {
           fb?.grounded?'BECOME AIRBORNE':
           local.ultimate!=='chivalry'?'EQUIP CHIVALRY':
           local.ultimateState?'CHIVALRY IN USE':
-          (local.prowess??0)<100?'FILL CHIVALRY METER':'NOT READY';
+          (!practiceValkyrie&&(local.prowess??0)<100)?'FILL CHIVALRY METER':'NOT READY';
         this.valkyrieStencil.hidden=!(valkyriePreview||this.previewMode==='flight');
         this.valkyrieStencil.classList.toggle('ready',valkyrieReady);
         this.valkyrieStencil.classList.toggle('unready',!valkyrieReady);
