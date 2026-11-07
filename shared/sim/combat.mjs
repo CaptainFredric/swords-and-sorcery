@@ -37,6 +37,7 @@ import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { eliminateEdgePlayer, edgeConstrainActor, stepEdgeOfVictory } from './edgeOfVictory.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -1392,6 +1393,11 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   } else {
     victim.deaths += 1;
   }
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    // A defeated knight is eliminated, never placed on a respawn clock.
+    victim.respawnAt = Infinity;
+    eliminateEdgePlayer(room, victimId, nowSec);
+  }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
   const death = { type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
@@ -2508,6 +2514,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepDefeatVoices(room, nowSec);
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) stepEdgeOfVictory(room, nowSec, world);
+  if (room.state !== 'PLAYING') return room.events;
 
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
   else stepObjectives(room, dt, nowSec);
@@ -2522,6 +2530,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     world = room.world;
   }
   world = structureWorld(world, room.structures);
+  if (room.edgeOfVictory) world = { ...world, edgeBoundary: {
+    center: room.edgeOfVictory.center, radius: room.edgeOfVictory.radius } };
   room.world = world;
   markTornGround(room);
   const effectiveWorld = playerMovementWorld(world, {ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight});
@@ -2577,7 +2587,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
     if (!player.alive) {
-      if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
+      if (room.mode !== GAME_MODES.EDGE_OF_VICTORY && nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
       else if(player.deathFlight){
         // A lethal piston strike leaves real momentum in the defeated body.
         // Reuse normal gravity, substepped world collision and shove damping;
@@ -2723,6 +2733,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.flight = moved.flight;
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
+    if (room.mode === GAME_MODES.EDGE_OF_VICTORY && !player.operatingRamId && !player.operatingFightFlightId && !player.operatingBallistaId)
+      edgeConstrainActor(room, player, from, nowSec, effectiveWorld);
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
       if (dashing) ramThrough(room, player, from, nowSec, world);
@@ -2857,6 +2869,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   if(!room.freezeProjectiles) stepOneHitWorld(room,dt,nowSec,world);
   stepFlightBurnZones(room,nowSec);
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) stepEdgeOfVictory(room, nowSec, world);
   // The actual resource is always full for living (or respawning) human
   // trainees; active Ultimate state still prevents reactivation. This runs
   // AFTER vehicle/terminal physics so a consumed terminal chord is never
