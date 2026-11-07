@@ -4,6 +4,8 @@ import { resolvePlayerWorld, surfaceHeightAt } from '../src/collision.mjs';
 import { MOVEMENT } from '../src/movement.mjs';
 import { isSpell } from '../src/spells.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
+import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
+export { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
 
 export const EDGE_CONFIG = Object.freeze({
   center: Object.freeze({ x: 0, z: -1 }),
@@ -39,23 +41,6 @@ export function edgeRadiusAt(elapsed, stages = EDGE_CONFIG.stages) {
 
 export function edgeNextStage(elapsed, stages = EDGE_CONFIG.stages) {
   return stages.find((stage) => stage.second > elapsed + 1e-6)?.second ?? null;
-}
-
-export function edgeInside(point, center, radius, clearance = 0) {
-  return Math.hypot(point.x - center.x, point.z - center.z) <= radius - clearance + 1e-6;
-}
-
-/** Radial projection onto a convex playable disk.
- * A segment between two points in the disk remains inside the disk, so this
- * validates the entire movement sweep (including dash substeps), not only a final teleported pose.
- * The tangential component survives instead of denying a diagonal input wholesale.
- */
-export function edgeLimitPoint(point, center, radius, clearance = 0) {
-  const limit = Math.max(0, radius - clearance);
-  const dx = point.x - center.x, dz = point.z - center.z;
-  const d = Math.hypot(dx, dz);
-  if (d <= limit || d < 1e-9) return { ...point };
-  return { ...point, x: center.x + dx * limit / d, z: center.z + dz * limit / d };
 }
 
 /** Find an actual supported, unoccupied spot. Do not invent a floor under a cliff.
