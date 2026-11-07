@@ -27,17 +27,17 @@ Creator-authored mode descriptions remain in `docs/ideas/proposed-game-modes-202
 ## Current playable scope
 
 - 5 attackers versus 5 defenders, with bot seats and room join/replacement. Private match and Modes of Mettle solo-with-bots selection, no new public matchmaking queue.
-- Two uninterrupted, solid stone curtain walls and separate walkable defensive ramparts. Attacking infantry needs climbing access.
+- Two uninterrupted defensive curtain lines with actual stone collision, **destructible reinforced timber gates**, separate walkable defensive ramparts and rear ramps. Attacking infantry must climb ladders or open the gatehouses with structural damage.
 - Two authoritative metal siege ladders: available / carrying / deployed / broken, placement validation, climbable height-field ramps, collision rails, damage through world sword/spell hits, delayed recovery when broken.
-- The Rightful Renowner remains fixed on a podium. The statue's hitbox is an ordinary destructible structure; sword and spell contact uses Castleward collision rules. The placeholder model can turn and make telegraphed downstrokes/sweeps; it is **not** the final Argon asset.
+- The Rightful Renowner remains fixed on a podium. The statue's hitbox is an ordinary destructible structure; sword and spell contact uses Castleward collision rules. The placeholder model can turn and make telegraphed downstrokes/sweeps and occasionally launch collision-resolved Renown coin projectiles; it is **not** the final Argon asset.
 - No fatigue effects, countdown to sundown from match start, instant defending win and attacker sleep at the strict deadline, immediate attacker win on pre-deadline statue destruction, and reset-on-rematch.
 - HUD displays daylight, Renowner HP, breached-wall phase and ladder states. Client prediction rebuilds from authoritative deployed ladder geometry, not a decorative ramp.
 
 ## Known gaps / follow-up priority
 
 1. **Real browser 5v5 playtest required.** Geometry/physics are authored, but this connector session cannot launch the actual Three.js browser or run local repo tests. Test at 30Hz in solo and several real browsers, especially mobile controls, collision between ladder and curtain, navigation routes and performance.
-2. **Argon's Renowner model/animations not yet available here.** Procedural low-poly articulated placeholder preserves expected dimensions. Replace the visual without changing server structure IDs or state contract. Coin projectile not implemented.
-3. **Machine integration is partial.** Existing siege system core remains available but this map does not yet assign a mode-specific Bi-Bye-llista, SO-FIST-ICATION or Fight-and-Flight spawner. Implement actual shared machine spawning, restrictions and impact tests; never counterfeit machine behavior.
+2. **Argon's Renowner model/animations not yet available here.** Procedural low-poly articulated placeholder preserves expected dimensions. Replace the visual without changing server structure IDs or state contract. Destruction still needs authored shattering effects and final sound.
+3. **Machine integration is partial.** The map now places the existing Bi-Bye-llista and SO-FIST-ICATION as native emplacements rather than imitations, alongside breakable timber gates. SO-FIST-ICATION initial clearance and machine-vs-gate damage require real in-game testing. Fight-and-Flight mode-specific spawner and siege balance are not implemented; reuse its native physics/health rather than making an imitation.
 4. **Bot pathing and ladder-tactical tuning require live tests.** Two attacking bots can pick/place ladders through authoritative interaction. Deliberate combat, better escort, retry and obstruction navigation should be tuned in real matches.
 5. **Pavises/shield-bash interactions**, detailed surrender choreography, final recorded VO, bespoke collapse animation and extended audiovisual polishing remain future work, not claimed complete.
 6. **Deadline resolution** uses authoritative timestamps (damage must register strictly before deadline). Contact sub-tick times for sword swings have not yet been plumbed through all structure damage paths; test cases cover exact timestamp ordering, not network latency rewind.
