@@ -1,7 +1,7 @@
 // Restless Day's authoritative rules; shared with dedicated server and solo host.
 // No exhaustion modifier, no overtime, no objective-capture fallback.
 import { TEAMS } from '../src/teams.mjs';
-import { segmentAabbHit } from '../src/collision.mjs';
+import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 export const RESTLESS_DAY_RULES=Object.freeze({
   matchSec:780,renownerHP:1650,ladderHP:190,replaceSec:18,carrySpeed:.65,
   interactRange:3.8,placementRange:5.6,swordRange:8.4,attackCooldown:4.2,
@@ -119,8 +119,13 @@ export function interactRestlessLadder(room,player,now){
  const held=s.ladders.find(l=>l.holderId===player.id);
  if(held){
    const placement=wallForPlacement(player);
-   if(!placement||!(placement.index<=s.phase))
-     return {rejected:'Carry the ladder to the foot of the active curtain wall.'};
+   if(!placement||!(placement.index<=s.phase)){
+     const supported=surfaceHeightAt(player.position.x,player.position.z,player.position.y+.1,room.world);
+     if(supported===null||Math.abs(supported-player.position.y)>.8)
+       return {rejected:'Set down the ladder only on supported ground.'};
+     dropLadder(room,held,now);
+     return {};
+   }
    const {index,w}=placement;
    if(Math.abs(player.position.y)>.6)
      return {rejected:'Place the ladder from level, supported ground.'};
@@ -161,7 +166,8 @@ export function interactRestlessLadder(room,player,now){
  player.attackHeld=false;player.attackActive=false;player.attackSweep=null;
  player.restlessCarrying=near.id;player.speedScale=RESTLESS_DAY_RULES.carrySpeed;
  // A loaded carrier cannot sprint, dash, swing or cast as though unencumbered.
- player.sprinting=false;player.input={...player.input,sprint:false};
+ player.sprinting=false;player.dashUntil=Math.min(player.dashUntil??now,now);
+ player.dashRam=null;player.input={...player.input,sprint:false,attack:false,guard:false,jump:false};
  room.events.push({type:'restlessLadderPicked',ladderId:near.id,playerId:player.id,at:now});
  return {};
 }
