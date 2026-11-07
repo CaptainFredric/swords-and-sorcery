@@ -72,9 +72,11 @@ try{
  await send('Page.enable');await send('Runtime.enable');
  await send('Page.navigate',{url:base+'/?debug'});
  await until(()=>evalInBrowser("document.querySelector('#loading-veil')?.classList.contains('done')"),'loaded Castleward menu',180);
- await evalInBrowser("document.querySelector('#player-name').value='Siege probe';document.querySelector('#solo-button').click()");
+ await evalInBrowser("document.querySelector('#player-name').value='Siege probe';document.querySelector('#armory-button').click()");
+ await until(()=>evalInBrowser("Boolean(document.querySelector('#armory-ultimates [data-ultimate=one_hit_of_wonders]'))"),'One Hit Armory option');
+ await evalInBrowser("document.querySelector('#armory-ultimates [data-ultimate=one_hit_of_wonders]').click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
  await until(()=>evalInBrowser("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'solo Practice entry');
- await evalInBrowser("document.querySelector('#practice-mode').click()");
+ await evalInBrowser("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch').click()");
  await until(async()=>{const s=await snap();return s?.mode==='PRACTICE'&&s?.room&&s?.roomState==='PLAYING';},'real local Practice session',160);
  // Commands the room refuses come back as socket errors; keep them as evidence.
  await evalInBrowser("window.__practiceRejections=[];window.__ssRuntime.socket.on('error',m=>window.__practiceRejections.push(m?.message??String(m)))");
@@ -101,6 +103,41 @@ try{
  assert.equal(practicePanel.inert,false);
  assert.equal(practicePanel.expanded,true);
  assert.ok(practicePanel.buttonCount>10,'The complete Practice toolset is accessible');
+ stage='One Hit settings, presets and authoritative confirmation';
+ assert.equal(await evalInBrowser("document.querySelector('#practice-ready-ultimate')===null"),true);
+ assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.ultimate"),'one_hit_of_wonders');
+ assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.prowess"),100);
+ await evalInBrowser(`(() => {
+   const panel=document.querySelector('#practice-one-hit');panel.open=true;
+   const gale=panel.querySelector('[data-one-hit-element="gale"]');
+   const fire=panel.querySelector('[data-one-hit-element="fire"]');
+   gale.value='2';gale.dispatchEvent(new Event('change',{bubbles:true}));
+   fire.value='1';fire.dispatchEvent(new Event('change',{bubbles:true}));
+ })()`);
+ const applied=await until(()=>evalInBrowser(`(() => {
+   const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
+   return p?.practiceOneHit?.stages?.gale===2&&p.practiceOneHit.stages.fire===1&&p.practiceOneHit.stages.frost===0;
+ })()`),'authoritative One Hit tier selectors',100);
+ assert.equal(applied,true);
+ assert.equal(await evalInBrowser("document.querySelector('[data-one-hit-element=gale]').value"),'2');
+ await evalInBrowser("document.querySelector('#practice-one-hit-unlimited').click()");
+ assert.equal(await until(()=>evalInBrowser(`(() => {
+   const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
+   return p?.practiceOneHit?.enabled===false;
+ })()`),'retention checkbox acknowledged'),true);
+ await evalInBrowser("document.querySelector('[data-one-hit-preset=full]').click()");
+ assert.equal(await until(()=>evalInBrowser(`(() => {
+   const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
+   return p?.practiceOneHit?.stages?.lightning===2&&p.practiceOneHit.stages.frost===2
+     &&p.practiceOneHit.enabled===false;
+ })()`),'full preset preserves checkbox'),true);
+ await shot('one-hit-full-preset');
+ await evalInBrowser("document.querySelector('[data-one-hit-preset=simple]').click()");
+ assert.equal(await until(()=>evalInBrowser(`(() => {
+   const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
+   return p?.practiceOneHit?.stages?.lightning===0&&p.practiceOneHit.stages.gale===0;
+ })()`),'simple preset resets tiers'),true);
+ assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.prowess"),100);
  await shot('pause-practice-tools');
  await evalInBrowser("document.querySelector('#pause-practice-back').click()");
  assert.equal(await evalInBrowser("document.querySelector('#practice-overlay').inert"),true);
