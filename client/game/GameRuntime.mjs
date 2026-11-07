@@ -1681,7 +1681,6 @@ export class GameRuntime {
         else if(event.action==='cancelled')this.hud.flashText('VALKYRIE DIVE CANCELLED','',700);
       }
       if(event.type==='fightFlightTerminalCommitted'){
-        if(event.operatorId===this.playerId)this.hud.flashText('VALKYRIE DIVE · NO TURNING BACK','',1800);
         if(event.trajectory){const at=event.trajectory;this.effects.sparks(at,0xe4a44c,9);}
       }
       if(event.type==='fightFlightTerminalExplosion'&&event.point){
