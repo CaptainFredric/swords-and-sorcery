@@ -3482,6 +3482,7 @@ export class GameRuntime {
       this.#setFov(this.view.fov+dash.fov);
       // Keep the chosen mode intact. The temporary boom recovers to that mode
       // after release, landing or interruption without modifying input yaw/pitch.
+      const terminal=Boolean(m.terminalDive&&!m.terminalDive.resolved);
       const blend=this.siegeView==='third'?1:dash.thirdBlend;
       const isFirstPerson=blend<.002;
       // The collision-swept rotor may pitch through 90 degrees, but the
@@ -3493,8 +3494,12 @@ export class GameRuntime {
       const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      const third=new THREE.Vector3(m.x+Math.sin(look.yaw)*distance,
-        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(look.yaw)*distance);
+      // During the terminal run the boom follows the real heavy chassis
+      // heading, not the far-ahead reticle. Keep its blades and rider framed
+      // through the increasingly unstable turn; aim inputs remain untouched.
+      const chaseYaw=terminal&&Number.isFinite(m.heading)?m.heading:look.yaw;
+      const third=new THREE.Vector3(m.x+Math.sin(chaseYaw)*distance,
+        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(chaseYaw)*distance);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
       // World collision clipping must not undo the cockpit's floor clearance,
@@ -3542,7 +3547,14 @@ export class GameRuntime {
         this.hud.setFlightSight?.(null);
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
-        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
+        if(terminal){
+          // A genuine third-person pursuit shot of the diving machine; the
+          // view tracks its torso while server-owned pitch/steering can still
+          // drive it straight into a wall. Never rotate the player's controls.
+          const lookAt=new THREE.Vector3(m.x,m.y+1.65,m.z);
+          this.siegeCamera.quaternion.setFromRotationMatrix(
+            new THREE.Matrix4().lookAt(this.siegeCamera.position,lookAt,new THREE.Vector3(0,1,0)));
+        }else this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;
