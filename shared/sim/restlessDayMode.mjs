@@ -220,6 +220,11 @@ export function restlessnessStep(room,dt,now,{damage}={}){
  if(s.phase===0&&attackers.some(p=>p.position.z>-18&&p.position.y<1.2)){
    s.phase=1;room.events.push({type:'restlessCurtainBreached',wall:'outer',phase:1,at:now});
  }
+ if(!s.lastLightAnnounced&&s.deadline-now<=60&&s.deadline>now){
+   s.lastLightAnnounced=true;
+   room.events.push({type:'restlessLastLight',at:now,
+     subtitle:'Whether they win or they lose, I will rest just fine.'});
+ }
  if(s.phase===1&&attackers.some(p=>p.position.z>29&&p.position.y<1.2)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
@@ -260,7 +265,7 @@ function botGoal(room,actor){
  const s=room.restlessDay;if(!s)return null;
  const i=actor.rivalIndex??0;
  if(actor.team===TEAMS.DEFENDERS){
-   if(s.phase===0)return {x:(i-2)*6,y:6,z:-22};
+   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-22}:{x:(i===3?-9:9),y:7,z:22};
    if(s.phase===1)return {x:(i-2)*5,y:7,z:23};
    return {x:(i-2)*4,y:0,z:49};
  }
@@ -270,8 +275,11 @@ function botGoal(room,actor){
    if(own)return {x:clamp(own.position.x,-19,19),y:0,z:wall.baseZ};
    const deploy=s.ladders.find(l=>l.state==='deployed'&&l.wall===s.phase);
    if(deploy){
-     const z=actor.position.z<wall.z-3?wall.baseZ:wall.z+5;
-     return {x:deploy.position.x,y:z===wall.baseZ?0:wall.height,z};
+     const atFoot=Math.abs(actor.position.z-wall.baseZ)<3.2
+       &&Math.abs(actor.position.x-deploy.position.x)<3.2;
+     const ascending=atFoot||(actor.position.y>.6&&actor.position.z<wall.z+2);
+     return ascending?{x:deploy.position.x,y:wall.height,z:wall.z+2.2}
+       :{x:deploy.position.x,y:0,z:wall.baseZ};
    }
    const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
      ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
