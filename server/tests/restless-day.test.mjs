@@ -96,7 +96,7 @@ test('Daylight has no fatigue; exact sundown defeats attackers without overtime'
  room.tick(deadline-1e-3);
  assert.equal(room.state,'PLAYING');
  assert.equal(attacker.guardStamina,stamina);
- assert.equal(attacker.restlessAsleep,undefined);
+ assert.equal(attacker.restlessAsleep,false);
  room.tick(deadline);
  assert.equal(room.state,'FINISHED');
  assert.equal(room.winnerTeam,TEAMS.DEFENDERS);
