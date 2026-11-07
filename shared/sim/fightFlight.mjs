@@ -468,8 +468,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
           fightFlightEdgeVolumes({...m,x:candidate.x,y:candidate.y,z:candidate.z}),world.edgeBoundary)){
       m.edgeBlocked=true;
       if(m.terminalDive&&!m.terminalDive.resolved) {
-        // Irreversible: the dive hits the boundary and resolves its OWN defeat.
-        m.terminalDive.impactAt=now;
+        // The limit is a decision, not a wall: never explode ON an invisible
+        // boundary. Keep the terminal attack committed and descending; its
+        // real world contact or terminal timeout still owns detonation/defeat.
+        m.terminalDive.edgeConstrainedAt=now;
       } else {
         m.edgeAutoLand=true;m.flightDashHeld=false;m.offensiveRun=false;
       }

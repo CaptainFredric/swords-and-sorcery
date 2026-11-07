@@ -69,15 +69,22 @@ const FLOORS = [
   // the Gallery on the east curtain, and the stair's landing that joins it
   floor('gallery', [10.2, 13.35], [-13.3, 13.3], KEEP_GALLERY_Y, 'stone'),
   floor('landing', [8.25, 10.3], [-13.3, -8.5], KEEP_GALLERY_Y, 'stone'),
-  // the tops of the three heaps a knight can stand on (the masonry under each is what shows)
+  // the tops of the heaps a knight can stand on (the masonry under each is what shows)
   floor('gate-rubble-top', [-2.2, 2.2], [-13.2, -11.4], 1.0, 'stone', { draw: false }),
   floor('hall-rubble-top', [6.4, 9.0], [4.4, 6.6], 1.3, 'stone', { draw: false }),
   floor('scaffold-top', [-7.4, -4.4], [-0.9, 0.9], 1.2, 'timber', { draw: false }),
+  floor('toppled-wall-breach-apex', [-0.8, 0.8], [-6.4, -6.2], 0.45, 'stone', { draw: false }),
+  floor('breach-rubble-top', [-9.5, -7.8], [-9.6, -8.6], 1.1, 'stone', { draw: false }),
 ];
 
 const RAMPS = [
   // the Gallery stair, climbing south from the Ward
   { id: 'gallery-stair', ...STAIR, startY: KEEP_GALLERY_Y, endY: 0, axis: 'z', steps: true },
+  // Walkable rubble ramp steps across the central toppled wall breach for fluid final-ring combat
+  { id: 'toppled-wall-ramp-south', minX: -0.8, maxX: 0.8, minZ: -7.2, maxZ: -6.3, startY: 0, endY: 0.45, axis: 'z' },
+  { id: 'toppled-wall-ramp-north', minX: -0.8, maxX: 0.8, minZ: -6.3, maxZ: -5.4, startY: 0.45, endY: 0, axis: 'z' },
+  // Prototype walkable slope for shield-sledding from the west breach down into the ward
+  { id: 'breach-rubble-ramp', minX: -9.5, maxX: -7.8, minZ: -8.6, maxZ: -5.0, startY: 1.1, endY: 0, axis: 'z' },
 ];
 
 const SOLIDS = [
@@ -129,8 +136,10 @@ const SOLIDS = [
   solid('crawl-roof', [-9.2, -7.8], [1.35, 2.5], [0.9, 4.8], { kind: 'fallen-roof', material: 'timber' }),
   solid('crawl-rubble', [-7.8, -6.3], [0, 2.5], [0.9, 4.8], { kind: 'rubble' }),
 
-  // --- the Ward: a toppled wall, column drums, the gatehouse's rubble, the siege scaffold
-  solid('toppled-wall', [-2.8, 1.4], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
+  // --- the Ward: a toppled wall split for final-ring cross combat, column drums, gatehouse rubble, siege scaffold
+  solid('toppled-wall-west', [-2.8, -0.8], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
+  solid('toppled-wall-east', [0.8, 1.4], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
+  solid('breach-ramp-core', [-9.5, -7.8], [0, 0.5], [-8.6, -7.0], { kind: 'rubble' }),
   solid('column-drums-west', [-7.2, -5.8], [0, 0.9], [-8.4, -7.0], { kind: 'drums' }),
   solid('column-drums-east', [3.6, 5.0], [0, 0.8], [-3.6, -2.2], { kind: 'drums' }),
   solid('gate-rubble', [-2.2, 2.2], [0, 1.0], [-13.3, -11.4], { kind: 'rubble' }),
@@ -170,9 +179,9 @@ export const RUINED_KEEP = Object.freeze({
   // where bots find their way (shared/sim/botNav.mjs); the Crawl is no way for a bot (it does not crouch)
   navigation: Object.freeze({
     nodes: Object.freeze([
-      nav('ward', 0, 0, -9), nav('ward-west', -5.5, 0, -4), nav('ward-east', 5.5, 0, -6.5), nav('ward-southwest', -6.5, 0, -11),
+      nav('ward', 0, 0, -9), nav('ward-breach', 0, 0.45, -6.3), nav('ward-west', -5.5, 0, -4), nav('ward-east', 5.5, 0, -6.5), nav('ward-southwest', -6.5, 0, -11),
       nav('ward-southeast', 5.5, 0, -11), nav('ward-north', 0, 0, -1.5), nav('ward-northeast', 7, 0, -1.2),
-      nav('breach', -9.3, 0, -6.5), nav('terrace', -11.2, 0, -6.5), nav('terrace-north', -11.2, 0, -3.8), nav('terrace-south', -11.2, 0, -9.3),
+      nav('breach', -9.3, 0, -6.5), nav('breach-ramp', -8.65, 0.55, -6.8), nav('terrace', -11.2, 0, -6.5), nav('terrace-north', -11.2, 0, -3.8), nav('terrace-south', -11.2, 0, -9.3),
       nav('hall-gap', 0, 0, 1.2), nav('side-door', 9.2, 0, 1.2), nav('east-aisle', 9.6, 0, 5.5), nav('hall', -2, 0, 6.5), nav('hall-east', 7.8, 0, 8.5),
       nav('hall-west', -7.8, 0, 7), nav('hall-northwest', -7.8, 0, 11.5), nav('hall-northeast', 7.8, 0, 11.5), nav('hall-centre', 2.5, 0, 8),
       nav('dais', 0, 0.6, 11.8),

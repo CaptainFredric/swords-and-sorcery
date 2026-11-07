@@ -1,6 +1,6 @@
 // Edge of Victory: authoritative VOLUNTARY machine abandonment.
 // Never invoke the destruction/ejection paths to solve a rule of chivalry.
-import { edgeInside, edgeFootprintInside } from '../src/edgeBoundary.mjs';
+import { edgeInside, edgeFootprintInside, edgeRadiusAt } from '../src/edgeBoundary.mjs';
 import { MOVEMENT } from '../src/movement.mjs';
 import { resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from '../src/collision.mjs';
 import { dismountSoFistication, soFistExit } from './soFistication.mjs';
@@ -8,9 +8,9 @@ import { soFistSolids } from './soFistGeometry.mjs';
 import { dismountBiByeLlista, getBiByeOperatorTransform, getBiByeSolids } from './biByeLlista.mjs';
 import { dismountFightFlight, fightFlightExit, fightFlightEdgeVolumes, fightFlightSolids } from './fightFlight.mjs';
 
-function legalExit(room, operator, point) {
+function legalExit(room, operator, point, requiredRadius=room.edgeOfVictory.radius) {
   const edge = room.edgeOfVictory;
-  if (!point || !edgeInside(point,edge.center,edge.radius,MOVEMENT.playerRadius+.07)) return false;
+  if (!point || !edgeInside(point,edge.center,Math.min(edge.radius,requiredRadius),MOVEMENT.playerRadius+.07)) return false;
   const ground = surfaceHeightAt(point.x,point.z,point.y+1.1,room.world);
   if(ground===null || Math.abs(ground-point.y)>.3)return false;
   const walls = room.world?.solids??[];
@@ -32,7 +32,7 @@ function legalExit(room, operator, point) {
   return true;
 }
 
-function ballistaExit(room,b,p) {
+function ballistaExit(room,b,p,requiredRadius=room.edgeOfVictory.radius) {
   const f={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
   const side={x:Math.cos(b.heading),z:-Math.sin(b.heading)};
   const station=getBiByeOperatorTransform(b).position;
@@ -43,7 +43,7 @@ function ballistaExit(room,b,p) {
     const y=surfaceHeightAt(x,z,station.y+1.1,room.world);
     if(y===null||Math.abs(y-station.y)>1.0)continue;
     const exit={x,y,z};
-    if(legalExit(room,p,exit))return exit;
+    if(legalExit(room,p,exit,requiredRadius))return exit;
   }
   return null;
 }
@@ -62,12 +62,17 @@ export function edgeHandleMountedOperators(room,nowSec){
   const edge=room.edgeOfVictory;
   if(!edge || room.state!=='PLAYING')return;
   const {center,radius}=edge;
+  // Exit BEFORE the last safe landing patch is consumed by the advancing
+  // ring. Flight needs a longer horizon to descend through real terrain.
+  const expectedAt=(seconds)=>edgeRadiusAt(Math.max(0,nowSec-edge.startedAt)+seconds,
+    edge.config.stages);
+  const nearRadius=expectedAt(1.2),flightRadius=expectedAt(3.0);
   const ram=room.soFistication;
   if(ram?.operatorId){
     const op=room.players.get(ram.operatorId);
-    const conflict=Boolean(ram.edgeBlocked)||!edgeFootprintInside(soFistSolids(ram),center,radius,.02);
+    const conflict=Boolean(ram.edgeBlocked)||!edgeFootprintInside(soFistSolids(ram),center,nearRadius,.02);
     if(op?.alive && conflict){
-      const exit=soFistExit(room,ram,op,[],p=>legalExit(room,op,p));
+      const exit=soFistExit(room,ram,op,[],p=>legalExit(room,op,p,nearRadius));
       if(exit){
         const speed=ram.speed,recoil=ram.recoilVelocity;
         if(dismountSoFistication(room,ram,op,{exit,at:nowSec})){
@@ -83,9 +88,9 @@ export function edgeHandleMountedOperators(room,nowSec){
   const ballista=room.biByeLlista;
   if(ballista?.operatorId){
     const op=room.players.get(ballista.operatorId);
-    const conflict=Boolean(ballista.edgeBlocked)||!edgeFootprintInside(getBiByeSolids(ballista),center,radius,.02);
+    const conflict=Boolean(ballista.edgeBlocked)||!edgeFootprintInside(getBiByeSolids(ballista),center,nearRadius,.02);
     if(op?.alive && conflict){
-      const exit=ballistaExit(room,ballista,op);
+      const exit=ballistaExit(room,ballista,op,nearRadius);
       if(exit){
         const speed=ballista.speed;
         if(dismountBiByeLlista(ballista,op,false,room.world,nowSec)){
@@ -105,7 +110,7 @@ export function edgeHandleMountedOperators(room,nowSec){
   if(flight?.operatorId){
     const op=room.players.get(flight.operatorId);
     const conflict=Boolean(flight.edgeBlocked)||flight.edgeAutoLand||
-      !edgeFootprintInside(fightFlightEdgeVolumes(flight),center,radius,.02);
+      !edgeFootprintInside(fightFlightEdgeVolumes(flight),center,flightRadius,.02);
     if(op?.alive && conflict){
       if(flight.terminalDive && !flight.terminalDive.resolved){
         // In particular: never cancel Valkyrie by "helpfully" unmounting.
@@ -114,7 +119,7 @@ export function edgeHandleMountedOperators(room,nowSec){
       }
       // An airborne pilot must physically descend to a supported landing.
       if(!flight.grounded){flight.edgeAutoLand=true;return;}
-      const exit=fightFlightExit(room,flight,op,p=>legalExit(room,op,p));
+      const exit=fightFlightExit(room,flight,op,p=>legalExit(room,op,p,flightRadius));
       if(exit && dismountFightFlight(room,flight,op,{at:nowSec,exit})){
         flight.edgeAutoLand=false;flight.edgeBlocked=false;flight.edgeRestricted=false;
         announce(room,op,flight,'fight-and-flight',nowSec);
