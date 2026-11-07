@@ -21,6 +21,7 @@ import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
 import { createHighGroundsState, availableHighGroundsSpawns, finishHighGroundsOnTime } from './highGroundsMode.mjs';
 import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
+import { createEdgeOfVictoryState, edgeSpawnOrder, eliminateEdgePlayer, updateEdgeSurvivors } from './edgeOfVictory.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -171,6 +172,7 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
+    this.edgeOfVictory = null;
     this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(this.world) : null;
     if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
@@ -195,6 +197,10 @@ export class Room {
   }
 
   initialSpawnFor(player, index = 0, nowSec = 0) {
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      const places = edgeSpawnOrder(this.world, 4);
+      if (places.length) return places[index % places.length];
+    }
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
       if (this.mode === GAME_MODES.HIGH_GROUNDS) {
@@ -219,6 +225,10 @@ export class Room {
 
   /** Whether a new human may enter, independent of bot-filled team seats. */
   joinError() {
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      if (!['WAITING', 'COUNTDOWN'].includes(this.state)) return 'A battle in progress cannot accept new competitors.';
+      return this.players.size < 4 ? null : 'Room is full.';
+    }
     if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS].includes(this.mode)
       && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room is not joinable by invitation.';
     if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
@@ -249,7 +259,7 @@ export class Room {
         if (replaceableBot) this.players.delete(replaceableBot.id);
       }
     } else {
-      if (this.players.size >= 8) {
+      if (this.players.size >= (this.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) {
         throw new Error('Room is full');
       }
     }
@@ -290,7 +300,7 @@ export class Room {
 
   addServerActor({ id, name, actorKind, spell = null, ultimate = null, team = null }, nowSec) {
     if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
-    if (this.players.size >= 8) throw new Error('Room is full');
+    if (this.players.size >= (this.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
     const assigned = this.policy.teamMode ? assignTeam(this, team) : null;
     const spawn = this.initialSpawnFor({ team: assigned }, this.players.size, nowSec);
@@ -322,6 +332,19 @@ export class Room {
   }
 
   provisionModeActors(nowSec) {
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      const target = 4;
+      let serial = 1;
+      while (this.players.size < target) {
+        while (this.players.has('edge-bot-' + this.code + '-' + serial)) serial++;
+        const actor = this.addServerActor({ id: 'edge-bot-' + this.code + '-' + serial,
+          name: 'Rival ' + serial, actorKind: 'bot' }, nowSec);
+        actor.rivalIndex = serial;
+        this.#skilled(actor);
+        serial++;
+      }
+      return;
+    }
     if (this.mode === GAME_MODES.BOT_DUEL) {
       const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
       for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
@@ -483,7 +506,7 @@ export class Room {
     if (this.state !== 'WAITING' || playerId !== this.hostId() || !this.players.get(playerId)?.connected) return 'Only the room host may change settings before the countdown.';
     const settings = roomSettings(this, patch);
     if (settings.error) return settings.error;
-    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(settings.mode) ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
+    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(settings.mode) ? settings.teamSize * 2 : settings.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) return 'Too many Spellblades for that team size.';
     const world = getWorld(settings.worldId);
     const previousMode=this.mode;
     // Everything is validated before actors or geometry change.
@@ -495,6 +518,7 @@ export class Room {
     if (settings.botSkill) this.setBotSkill(settings.botSkill);
     this.worldId = settings.worldId; this.world = world;
     this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
+    this.edgeOfVictory = null;
     this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS ? createObjectiveState(world.objectives ?? []) : null;
     if (this.objectiveState && typeof world.forObjective === 'function') this.world = world.forObjective(this.objectiveState);
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
@@ -718,6 +742,7 @@ export class Room {
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'forfeit');
     if (this.hostOwnerId === id) this.hostOwnerId = null;
     if(this.sharedPractice&&this.sharedPracticeHostId===id)
       this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
@@ -800,6 +825,7 @@ export class Room {
         }
         if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
         this.players.delete(id);
+        if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'disconnected');
         if (this.hostOwnerId === id) this.hostOwnerId = null;
         this.rematchVotes.delete(id);
         expiredHuman = true;
@@ -939,6 +965,7 @@ export class Room {
     resetChallengeTracking(this);
     this.#applyVotes();
     this.state = 'PLAYING';
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) this.provisionModeActors(nowSec);
     this.matchStartedAt = nowSec;
     this.countdownEndsAt = null;
     this.winnerId = null;
@@ -1000,6 +1027,8 @@ export class Room {
     }
     this.projectiles.clear();
     this.ruptures = [];
+    this.edgeOfVictory = this.mode === GAME_MODES.EDGE_OF_VICTORY ? createEdgeOfVictoryState(this.world, nowSec) : null;
+    if (this.edgeOfVictory) updateEdgeSurvivors(this, nowSec);
     for (const player of this.players.values()) player.lobbyReady = false;
     // (a mode that asks for it opens in peace: its bots start nothing for a few seconds, or until a player does)
     beginPeace(this, nowSec, this.policy.openingPeaceSec ?? 0);
@@ -1041,7 +1070,7 @@ export class Room {
     const connectedIds = [...this.players.values()]
       .filter((p) => p.actorKind === 'human' && p.connected)
       .map((p) => p.id);
-    const minForRematch = this.policy.teamMode ? 1 : 2;
+    const minForRematch = this.policy.teamMode || (this.mode === GAME_MODES.EDGE_OF_VICTORY && this.policy.minHumansToStart === 1) ? 1 : 2;
     const unanimous = connectedIds.length >= minForRematch && connectedIds.every((id) => this.rematchVotes.has(id));
     if (!unanimous) return false;
     for (const p of this.players.values()) Object.assign(p, scoreFields());
