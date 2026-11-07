@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fightFlightRun.mjs';
-import {stepTerminalPreparation} from '../../shared/sim/fightFlightTerminal.mjs';
+import {stepTerminalPreparation,requestTerminalRitual} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 const DT=1/30;
@@ -311,4 +311,41 @@ test('Crouch during grounded E rotor spin-up does not trap the wind-up',()=>{
   frames(s,9);
   assert.ok(s.m.rotorRPM>200,'Dash engages rotor despite the lower/crouch input');
   assert.equal(s.m.rotorBrakeHeld,false);
+});
+
+test('grounded Valkyrie rune commits with full Ascension/Chivalry and physically launches',()=>{
+ const s=setup({y:0});
+ Object.assign(s.m,{y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,
+  rotorAngularVelocity:0,rotorRPM:0,velocity:{x:0,y:0,z:0}});
+ s.p.ultimate='chivalry';s.p.prowess=100;
+ s.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:0};
+ assert.equal(requestTerminalRitual(s.room,s.m,s.p,0),true);
+ assert.equal(s.m.terminalDiveSpent,true);
+ assert.equal(s.p.prowess,0,'the full personal Ultimate is spent exactly once');
+ assert.equal(s.m.grounded,false,'ground launch is server-authoritative');
+ assert.ok(s.m.velocity.y>=4.5,'the rotor actually launches upward');
+ assert.equal(s.m.rotorPowered,true,'rotor turns through the terminal launch');
+ assert.equal(s.m.mode,'TERMINAL');
+ assert.equal(requestTerminalRitual(s.room,s.m,s.p,.01),false,'no second terminal commitment');
+ stepFightFlight(s.room,s.m,DT,DT);
+ assert.ok(s.m.y>0,'physics, not a teleport, lifts the chassis from the floor');
+});
+
+test('grounded Dash + Ultimate still requires its original full one-second hold',()=>{
+ const s=setup({y:0});
+ Object.assign(s.m,{y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,
+  rotorAngularVelocity:0,rotorRPM:0,velocity:{x:0,y:0,z:0}});
+ s.p.ultimate='chivalry';s.p.prowess=100;
+ s.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null,readyAt:0};
+ requestFlightDash(s.room,s.m,s.p,true,0);
+ s.m.flightUltimateHeld=true;s.m.flightUltimateDownAt=0;
+ stepTerminalPreparation(s.room,s.m,0);
+ assert.equal(s.m.terminalPrep?.phase,'holding');
+ stepTerminalPreparation(s.room,s.m,.9);
+ assert.equal(s.m.terminalDive,null,'the chord cannot shorten the sacrifice');
+ stepTerminalPreparation(s.room,s.m,1.01);
+ assert.ok(s.m.terminalDive,'the full chord commits while still standing');
+ assert.ok(s.m.velocity.y>0);
+ assert.equal(s.m.flightDashHeld,false);
+ assert.equal(s.m.runGroundPhase,null);
 });
