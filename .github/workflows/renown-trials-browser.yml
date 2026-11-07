@@ -1,0 +1,66 @@
+name: Renown Trials actual Chrome combat and settlement
+on:
+  push:
+    paths:
+      - 'shared/sim/renownTrials.mjs'
+      - 'shared/sim/Room.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'shared/src/modes.mjs'
+      - 'server/src/ProfileStore.mjs'
+      - 'server/src/renownTrialSettlement.mjs'
+      - 'server/src/server.mjs'
+      - 'client/network/GameLink.mjs'
+      - 'client/network/LocalHost.mjs'
+      - 'client/main.mjs'
+      - 'client/ui/HUD.mjs'
+      - 'client/ui/renownTrialsView.mjs'
+      - 'scripts/renown-trials-browser.mjs'
+      - '.github/workflows/renown-trials-browser.yml'
+  pull_request:
+    paths:
+      - 'shared/sim/renownTrials.mjs'
+      - 'shared/sim/Room.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'shared/src/modes.mjs'
+      - 'server/src/ProfileStore.mjs'
+      - 'server/src/renownTrialSettlement.mjs'
+      - 'server/src/server.mjs'
+      - 'client/network/GameLink.mjs'
+      - 'client/network/LocalHost.mjs'
+      - 'client/main.mjs'
+      - 'client/ui/HUD.mjs'
+      - 'client/ui/renownTrialsView.mjs'
+      - 'scripts/renown-trials-browser.mjs'
+      - '.github/workflows/renown-trials-browser.yml'
+permissions:
+  contents: read
+jobs:
+  live-trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Locate headless Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Exercise real Three.js battle, two real sword kills, overtime and wallet receipt
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node --experimental-websocket scripts/renown-trials-browser.mjs
+      - name: Retain proof screenshots and observed result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleward-renown-trials-chrome
+          path: output/playwright/renown-trials/
+          retention-days: 7

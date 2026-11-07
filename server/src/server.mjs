@@ -3,6 +3,7 @@ import { eligibleChallengeParticipant } from './challengeSettlement.mjs';
 import { applySavedLoadout } from './savedLoadout.mjs';
 import http from 'node:http';
 import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
+import { pendingTrialAward, commitTrialAward } from './renownTrialSettlement.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,6 +83,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   const sessions = new Set();
   const sessionsById = new Map();
   const pendingRewards = new Map();
+  const pendingTrialRewards = new Map();
   const pendingPrestige = new Map();
   let lastSeekBroadcastAt = 0;
   let tickTimer = null;
@@ -405,6 +407,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'startSolo' && !session.roomCode) {
+      if (message.mode === GAME_MODES.RENOWN_TRIALS && !session.profileToken) {
+        send(session, { type: 'error', message: 'Connect your Renown profile before starting server-hosted Renown Trials.' });
+        return;
+      }
       if (!SOLO_MODES.has(message.mode)) {
         send(session, { type: 'error', message: 'Unknown solo mode' });
         return;
@@ -493,7 +499,15 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       const events = room.events.splice(0);
       for (const event of events) {
         if (event.type === 'matchStarted') room.rewardMatchId = crypto.randomUUID();
-        if (event.type === 'matchEnded' && room.rewardMatchId) {
+        if (event.type === 'renownTrialWaveCleared') {
+          // The award has already been validated and computed in authoritative
+          // simulation. Never use client messages or presentation cues to mint it.
+          const pending = pendingTrialAward(room, event);
+          if (pending && !pendingTrialRewards.has(pending.receiptId)) {
+            pendingTrialRewards.set(pending.receiptId, pending);
+          }
+        }
+        if (event.type === 'matchEnded' && room.rewardMatchId && room.mode !== GAME_MODES.RENOWN_TRIALS) {
           for (const player of room.players.values()) {
             if (!player.profileToken) continue;
             const key = `${room.rewardMatchId}:${profileStore.key(player.profileToken)}`;
@@ -558,6 +572,22 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         }
       } else {
         broadcastRoom(room, serializeSnapshot(room, time));
+      }
+    }
+    // Process trial wave awards without waiting for a finished match: execution
+    // on a later wave can never erase already committed earlier receipts.
+    for (const [receiptId, award] of pendingTrialRewards) {
+      if (time < award.retryAt) continue;
+      try {
+        const profile = commitTrialAward(profileStore, award);
+        pendingTrialRewards.delete(receiptId);
+        publishProfile(award.token, profile, { trialAwardId: receiptId });
+      } catch {
+        award.retryAt = time + 5;
+        award.attempts += 1;
+        for (const session of sessions) if (session.profileToken === award.token)
+          send(session, { type: 'profileError',
+            message: 'Trial Renown is pending: wallet storage is unavailable; settlement will retry.' });
       }
     }
     for (const [key, reward] of pendingRewards) {

@@ -169,11 +169,13 @@ function beginJudgment(room, state, nowSec) {
   state.ceremony = {
     id: ceremonyId, kind, startedAt: nowSec,
     endsAt: nowSec + RENOWN_TRIAL_TUNING.ceremonySec[kind],
+    lethalApplied: false,
   };
   state.phase = RENOWN_TRIAL_PHASES.JUDGMENT;
   room.events.push({ type: 'renownTrialCeremonyStarted',
-    runId: state.runId, waveIndex: state.waveIndex, ceremonyId,
-    verdict: wave.verdict, variant: wave.variant, at: nowSec });
+    runId: state.runId, waveIndex: state.waveIndex, ceremonyId, at: nowSec });
+  // Identity only: the verdict is revealed through authoritative cue snapshots,
+  // not an early event that spoils the apparent successful sword evasion.
 }
 function finishWave(room, state, nowSec, random) {
   const wave = state.wave;
@@ -224,6 +226,11 @@ export function beginRenownTrial(room, nowSec) {
   const player = [...room.players.values()].find((p) => p.actorKind === 'human');
   if (!player) throw new Error('A Renown Trial needs one Spellblade');
   room.renownTrial = {
+    // Set room.trialMaxWaves=null for an explicitly endless trial; 12 is only
+    // the provisional standalone playtest setting, never a structural limit.
+    maxWaves: room.trialMaxWaves === null ? null
+      : (Number.isSafeInteger(room.trialMaxWaves) && room.trialMaxWaves > 0
+        ? room.trialMaxWaves : RENOWN_TRIAL_TUNING.maxWaves),
     runId: `${room.code}:${room.tickNumber}:${Math.floor(nowSec * 1000)}`,
     playerId: player.id,
     phase: RENOWN_TRIAL_PHASES.PREPARING,
@@ -246,7 +253,12 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
   const state = room.renownTrial;
   if (!state || room.state !== 'PLAYING') return;
   const player = trialPlayer(room, state);
-  if (!player || !player.alive) { stopRun(room, state, nowSec, 'defeated'); return; }
+  if (!player || (!player.alive
+    && !(state.phase === RENOWN_TRIAL_PHASES.JUDGMENT
+      && state.wave?.verdict === RENOWNER_VERDICTS.EXECUTION
+      && state.ceremony?.lethalApplied))) {
+    stopRun(room, state, nowSec, 'defeated'); return;
+  }
   const elapsedSinceTick = Math.max(0, nowSec - (state.lastStepAt ?? nowSec));
   state.lastStepAt = nowSec;
   if (player.connected === false) {
@@ -284,10 +296,31 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
     }
     return;
   }
+  if (state.phase === RENOWN_TRIAL_PHASES.JUDGMENT) {
+    const cue = ceremonyCue(state, nowSec);
+    const lethalTime = state.ceremony.startedAt
+      + (state.ceremony.kind === 'sword' ? 1.7 : 9.3);
+    if (state.wave.verdict === RENOWNER_VERDICTS.EXECUTION
+      && !state.ceremony.lethalApplied && nowSec >= lethalTime) {
+      // The actual consequence occurs at CONTACT, before the reset/late coin.
+      // No generic kill/death event is emitted: it would interrupt the scene,
+      // apply ordinary respawn logic or play a conventional defeat chorus.
+      state.ceremony.lethalApplied = true;
+      player.health = 0;
+      player.alive = false;
+      player.respawnAt = Infinity;
+      player.velocity = { x: 0, y: 0, z: 0 };
+      room.events.push({
+        type: 'renownTrialExecutionImpact', ceremonyId: state.ceremony.id,
+        playerId: player.id, cue: state.ceremony.kind === 'sword' ? 'SWORD_EXECUTION' : 'COIN_RETALIATION',
+        at: lethalTime,
+      });
+    }
+  }
   if (state.phase === RENOWN_TRIAL_PHASES.JUDGMENT && nowSec >= state.ceremony.endsAt) {
     if (state.wave.verdict === RENOWNER_VERDICTS.EXECUTION) {
       stopRun(room, state, nowSec, 'executed');
-    } else if (state.waveIndex >= RENOWN_TRIAL_TUNING.maxWaves) {
+    } else if (state.maxWaves !== null && state.waveIndex >= state.maxWaves) {
       stopRun(room, state, nowSec, 'completed');
     } else {
       state.phase = RENOWN_TRIAL_PHASES.TRANSITION;
@@ -305,9 +338,17 @@ export function serializeRenownTrial(room, nowSec) {
   const wave = state.wave;
   const overtimeSec = wave ? Math.max(0, (wave.endedAt ?? nowSec) - wave.deadlineAt) : 0;
   const active = state.phase === RENOWN_TRIAL_PHASES.WAVE_ACTIVE || state.phase === RENOWN_TRIAL_PHASES.WAVE_OVERTIME;
+  const cue = state.ceremony ? ceremonyCue(state, nowSec) : null;
+  const ceremonyKind = state.ceremony?.kind;
+  const verdictRevealed = !state.ceremony || (
+    ceremonyKind === 'timely' ? ['KNIGHTING', 'REWARD_COIN'].includes(cue)
+      : ceremonyKind === 'coin' ? ['CONSOLATION_COIN', 'CONSOLATION_REACTION'].includes(cue)
+        : ceremonyKind === 'retaliation' ? cue === 'COIN_RETALIATION'
+          : ceremonyKind === 'sword' ? cue !== 'SWORD_RAISE' : true
+  );
   return {
     runId: state.runId, phase: state.phase, waveIndex: state.waveIndex,
-    maxWaves: RENOWN_TRIAL_TUNING.maxWaves,
+    maxWaves: state.maxWaves,
     remaining: wave?.remaining ?? 0, totalEnemies: wave?.count ?? 0,
     difficulty: wave?.difficulty ?? 0, startedAt: wave?.startedAt ?? null,
     deadlineAt: wave?.deadlineAt ?? null, deadlineSec: wave?.deadlineSec ?? null,
@@ -317,16 +358,20 @@ export function serializeRenownTrial(room, nowSec) {
     potentialReward: wave?.baseRenown ?? 0,
     waveReward: wave?.reward ?? 0,
     clearTimeSec: wave?.elapsedSec ?? null,
-    verdict: active ? null : wave?.verdict ?? null,
-    variant: active ? null : wave?.variant ?? null,
+    verdict: active || !verdictRevealed ? null : wave?.verdict ?? null,
+    variant: active || !verdictRevealed ? null : wave?.variant ?? null,
     ceremony: state.ceremony ? {
       id: state.ceremony.id, kind: state.ceremony.kind,
       startedAt: state.ceremony.startedAt, endsAt: state.ceremony.endsAt,
-      cue: ceremonyCue(state, nowSec),
+      cue,
+      lethalApplied: state.ceremony.lethalApplied,
+      // Reveal no final execution variant until the actual physical reversal.
+      kind: verdictRevealed ? state.ceremony.kind : null,
     } : null,
     transitionAt: state.transitionAt, endedAt: state.endedAt,
     termination: state.termination,
     // One entry per completed wave; values are explicitly provisional and UNSETTLED.
-    ledger: state.ledger.map((r) => ({ ...r })),
+    ledger: state.ledger.map((r) => (r.wave === state.waveIndex && !verdictRevealed
+      ? { ...r, verdict: null } : { ...r })),
   };
 }

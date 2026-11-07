@@ -35,7 +35,13 @@ const cueCopy = Object.freeze({
 export function renownTrialsView(snapshot, serverNow) {
   const trial = snapshot?.mode === 'RENOWN_TRIALS' ? snapshot.renownTrial : null;
   if (!trial) return { visible: false };
-  const ledgerTotal = (trial.ledger ?? []).reduce((sum, row) => sum + (row.reward ?? 0), 0);
+  const ledger = trial.ledger ?? [];
+  const settled = ledger.reduce((sum, row) => sum + (row.status === 'SETTLED' ? row.reward ?? 0 : 0), 0);
+  const pending = ledger.reduce((sum, row) => sum + (['PENDING', 'UNSETTLED'].includes(row.status) ? row.reward ?? 0 : 0), 0);
+  const unavailable = ledger.reduce((sum, row) => sum + (row.status === 'UNAVAILABLE' ? row.reward ?? 0 : 0), 0);
+  const ledgerSummary = [`SETTLED ${settled}`,
+    ...(pending ? [`PENDING ${pending}`] : []),
+    ...(unavailable ? [`UNAVAILABLE ${unavailable}`] : [])].join(' · ');
   if (ACTIVE.has(trial.phase)) {
     const overtime = trial.phase === 'WAVE_OVERTIME';
     const elapsed = trial.startedAt === null ? 0 : Math.max(0, serverNow - trial.startedAt);
@@ -47,7 +53,7 @@ export function renownTrialsView(snapshot, serverNow) {
       details: overtime
         ? `JUDGMENT RISK: ${Math.round((trial.executionChance ?? 0) * 100)}% · FIGHT ON`
         : `TARGET ${fixedClock(trial.deadlineSec)} · BASE REWARD ${trial.potentialReward}`,
-      footer: `RUN LEDGER ${ledgerTotal} · UNSETTLED`,
+      footer: `RENOWN · ${ledgerSummary}`, 
       stage: 'COMBAT', line: '',
     };
   }
@@ -56,8 +62,11 @@ export function renownTrialsView(snapshot, serverNow) {
     const content = cueCopy[cue] ?? { label: 'THE JUDGMENT', note: 'A solemn determination is in progress.' };
     const resolved = ['REWARD_COIN', 'NO_REWARD', 'CONSOLATION_COIN',
       'CONSOLATION_REACTION', 'SWORD_EXECUTION', 'LATE_COIN', 'COIN_RETALIATION'].includes(cue);
+    const current = ledger.find(entry => entry.wave === trial.waveIndex);
+    const rewardStatus = current?.status ?? 'UNSETTLED';
     const accounting = trial.verdict === 'AWARD'
-      ? `WAVE AWARD ${trial.waveReward} · UNSETTLED`
+      ? `WAVE REWARD ${trial.waveReward} · ${rewardStatus.replaceAll('_', ' ')}`
+      : trial.verdict === null ? 'THE JUDGMENT CONTINUES'
       : 'NO WAVE RENOWN AWARDED';
     const cleared = Number.isFinite(trial.clearTimeSec)
       ? ` · CLEARED IN ${fixedClock(trial.clearTimeSec)} / ${fixedClock(trial.deadlineSec)}` : '';
@@ -83,7 +92,7 @@ export function renownTrialsView(snapshot, serverNow) {
       title: trial.phase === 'PREPARING' ? 'PREPARE TO PROVE YOUR WORTH' : `WAVE ${trial.waveIndex} CLEARED`,
       details: trial.phase === 'PREPARING'
         ? 'The trial begins shortly.' : `Next wave: ${trial.waveIndex + 1}`,
-      clock: '', footer: `RUN LEDGER ${ledgerTotal} · UNSETTLED`,
+      clock: '', footer: `RENOWN · ${ledgerSummary}`,
       stage: 'TRANSITION', line: '',
     };
   }
@@ -91,7 +100,7 @@ export function renownTrialsView(snapshot, serverNow) {
     visible: true, ceremony: false, overtime: false,
     header: 'RENOWN TRIALS', title: trial.termination === 'completed' ? 'TRIAL COMPLETED' : 'THE RUN HAS ENDED',
     clock: '', details: `Last wave: ${trial.waveIndex}`,
-    footer: `RUN LEDGER ${ledgerTotal} · NOT SETTLED TO PROFILE`,
+    footer: `RENOWN · ${ledgerSummary}`, 
     stage: 'DONE', line: '',
   };
 }

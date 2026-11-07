@@ -858,6 +858,9 @@ function soundTheEnd(snapshot) {
     players: snapshot.players,
     isScored: !['PRACTICE', 'RENOWN_TRIALS', 'EDGE_OF_VICTORY'].includes(snapshot.mode) && !snapshot.tutorial,
   });
+  // An institutional execution completes its own ceremony; generic defeat
+  // music/voice cannot drown out the absurdly modest last coin.
+  if (snapshot.mode === 'RENOWN_TRIALS' && !won) return;
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
@@ -879,10 +882,12 @@ function updateEnd(snapshot) {
     const finished = trial?.termination === 'completed';
     winnerTitle.textContent = finished ? 'TRIAL COMPLETED' : 'JUDGMENT DELIVERED';
     const entries = trial?.ledger ?? [];
-    const total = entries.reduce((sum, item) => sum + (item.reward ?? 0), 0);
+    const settled = entries.reduce((sum, item) => sum + (item.status === 'SETTLED' ? item.reward ?? 0 : 0), 0);
+    const pending = entries.reduce((sum, item) => sum + (['PENDING','UNSETTLED'].includes(item.status) ? item.reward ?? 0 : 0), 0);
+    const unavailable = entries.reduce((sum, item) => sum + (item.status === 'UNAVAILABLE' ? item.reward ?? 0 : 0), 0);
     finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RENOWN TRIALS · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
-      + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} PROVISIONAL RENOWN</strong><em>${escapeHtml(entry.verdict)}</em></div>`).join('')
-      + `<p class="panel-copy">RUN LEDGER: ${total} · UNSETTLED · NOT YET ADDED TO YOUR PROFILE</p>`;
+      + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} RENOWN</strong><em>${escapeHtml(entry.verdict)} · ${escapeHtml(entry.status ?? 'UNSETTLED')}</em></div>`).join('')
+      + `<p class="panel-copy">SETTLED TO PROFILE: ${settled} · PENDING: ${pending} · UNAVAILABLE: ${unavailable}</p>`;
     seekAnotherButton.classList.add('hidden');
     rematchButton.classList.remove('hidden');
     rematchButton.textContent = 'TRY THE TRIAL AGAIN';

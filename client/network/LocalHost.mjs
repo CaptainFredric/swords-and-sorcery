@@ -421,6 +421,11 @@ export class LocalHost {
     this.#validateInspectionActor();
     const events = room.events.splice(0).filter(event => !(this.inspectionControlUsed && event.type === 'prestigeChallengeCompleted'));
     for (const event of events) {
+      if (room.mode === GAME_MODES.RENOWN_TRIALS && event.type === 'renownTrialWaveCleared') {
+        const row = room.renownTrial?.ledger?.find(item => item.id === `${event.runId}:w${event.waveIndex}`);
+        if (row) row.status = row.reward > 0 ? 'UNAVAILABLE' : 'NOT_AWARDED';
+        // Local simulation is a legitimate unranked fight, never a wallet.
+      }
       if (event.type === 'prestigeChallengeCompleted') {
         this.#completePrestigeChallenge(event, events, time);
       }

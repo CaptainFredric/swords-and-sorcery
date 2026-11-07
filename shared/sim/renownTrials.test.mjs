@@ -192,3 +192,62 @@ test('temporary disconnect pauses both wave deadline and ceremony without decidi
   assert.ok(r.renownTrial.ceremony.endsAt > ceremonyEnds);
   assert.equal(r.renownTrial.phase, RENOWN_TRIAL_PHASES.JUDGMENT);
 });
+
+test('simultaneous final rival kill and Spellblade death is a defeat, with no judgment roll or payout', () => {
+  const r=room();startWave(r);
+  let draws=0;
+  r.players.get('human').alive=false;
+  defeatWave(r);
+  stepRenownTrial(r,8,()=>{draws++;return 0;});
+  assert.equal(draws,0);
+  assert.equal(r.renownTrial.phase,'TERMINATED');
+  assert.equal(r.renownTrial.ledger.length,0);
+  assert.equal(r.results[0].reason,'renown-trial-defeated');
+});
+test('fatal sword impact is authoritative and emitted once before the sword resets', () => {
+  const r=room();const wave=startWave(r);
+  defeatWave(r);
+  const cleared=wave.deadlineAt+5;
+  stepRenownTrial(r,cleared,()=>0);
+  const hidden=serializeRenownTrial(r,cleared);
+  assert.equal(hidden.verdict,null);
+  assert.equal(hidden.variant,null);
+  assert.equal(hidden.ceremony.kind,null);
+  assert.equal(hidden.ledger.at(-1).verdict,null);
+  stepRenownTrial(r,cleared+1.8);
+  assert.equal(r.players.get('human').alive,false);
+  assert.equal(r.players.get('human').health,0);
+  stepRenownTrial(r,cleared+2.4);
+  assert.equal(r.events.filter(e=>e.type==='renownTrialExecutionImpact').length,1);
+  assert.equal(serializeRenownTrial(r,cleared+2.4).verdict,'EXECUTION');
+  stepRenownTrial(r,cleared+6.7);
+  assert.equal(r.results.length,1);
+  assert.equal(r.results[0].reason,'renown-trial-executed');
+});
+test('coin execution is concealed throughout apparent evasion and kills at coin impact only', () => {
+  const r=room();const wave=startWave(r);
+  defeatWave(r);
+  const cleared=wave.deadlineAt+7;
+  const weights=overtimeVerdictWeights(7);
+  stepRenownTrial(r,cleared,()=>weights.execution*.75);
+  for(const offset of [0.2,2.1,4.0,6.0,8.8]){
+    const view=serializeRenownTrial(r,cleared+offset);
+    assert.equal(view.variant,null);
+    assert.equal(view.verdict,null);
+    assert.equal(r.players.get('human').alive,true);
+  }
+  stepRenownTrial(r,cleared+9.4);
+  assert.equal(r.players.get('human').alive,false);
+  assert.equal(serializeRenownTrial(r,cleared+9.4).variant,'retaliation');
+  assert.equal(r.events.filter(e=>e.type==='renownTrialExecutionImpact').length,1);
+  stepRenownTrial(r,cleared+11.3);
+  assert.equal(r.results[0].reason,'renown-trial-executed');
+});
+test('wave ceiling is configurable and can explicitly be endless without changing escalation', () => {
+  const r=room();r.trialMaxWaves=null;startWave(r);
+  assert.equal(r.renownTrial.maxWaves,null);
+  assert.equal(serializeRenownTrial(r,2).maxWaves,null);
+  const finite=room();finite.trialMaxWaves=24;startWave(finite);
+  assert.equal(finite.renownTrial.maxWaves,24);
+  assert.equal(trialWavePlan(25).count,4);
+});
