@@ -18,6 +18,7 @@ export function pendingTrialAward(room, event) {
       || row.reward !== state.wave.reward) return null;
   // Reject an event whose numeric award exceeds the authoritative wave formula.
   // MatchId, award and participant identity all come from the server simulation.
+  if (row.status === 'SETTLED' || row.status === 'NOT_AWARDED') return null;
   const plan = trialWavePlan(row.wave);
   if (row.reward > timelyWaveReward(plan, 0)) return null;
   if (row.reward === 0) {
