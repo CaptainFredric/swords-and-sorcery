@@ -39,6 +39,18 @@
         ]
       }
     ],
+    "allNaturalDisasterBaseShelter": [
+      {
+        "file": "all-natural-disaster-base-shelter-1",
+        "seconds": 3.44
+      }
+    ],
+    "allNaturalDisasterInfusedColorful": [
+      {
+        "file": "all-natural-disaster-infused-colorful-1",
+        "seconds": 2.46
+      }
+    ],
     "almostThere": [
       {
         "file": "almost-there-1",
@@ -1737,6 +1749,8 @@
     "theOnlyRetreat": "2026-11-02",
     "thenLetMeHaveIt": "2026-11-02",
     "theyAreRuiningTheColor": "2026-11-02",
-    "youMayNoLonger": "2026-11-02"
+    "youMayNoLonger": "2026-11-02",
+    "allNaturalDisasterBaseShelter": "2026-11-07",
+    "allNaturalDisasterInfusedColorful": "2026-11-07"
   }
 }
