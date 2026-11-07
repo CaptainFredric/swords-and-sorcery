@@ -957,6 +957,9 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
+    // An optional mode can reset transient spawn progression before players
+    // and replacement bots are assigned their starting positions.
+    modeCall(this,'beforeSpawns',nowSec);
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(getWorld(this.worldId)) : null;
@@ -989,7 +992,6 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
-    if(this.mode===GAME_MODES.RESTLESS_DAY&&this.restlessDay)this.restlessDay.phase=0;
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
