@@ -214,7 +214,7 @@ registry
   })
   .defineSetting({
     id: 'loadout.ultimate', section: 'loadout', label: 'Ultimate', type: 'choice', default: 'sunder',
-    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }, { value: 'one_hit_of_wonders', label: 'One Hit of Wonders' }],
+    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }, { value: 'one_hit_of_wonders', label: 'All-Natural Disaster' }],
   })
   .defineSetting({
     id: 'loadout.preparedSpells', section: 'loadout', label: 'Prepared spells', type: 'array', default: DEFAULT_PREPARED_SPELLS,
