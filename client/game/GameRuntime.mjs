@@ -42,6 +42,7 @@ import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
+import { renownTrialControlsLocked } from './trialControlPolicy.mjs';
 import { movementIntentDuringRenderStall } from './renderStallSafety.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
@@ -1380,8 +1381,7 @@ export class GameRuntime {
       this.flightCameraMotion?.reset();
       this.flightDashPresentation.reset();
     }
-    const trialPhase = snapshot.mode === 'RENOWN_TRIALS' ? snapshot.renownTrial?.phase : null;
-    const trialLocked = Boolean(trialPhase && !['WAVE_ACTIVE','WAVE_OVERTIME'].includes(trialPhase));
+    const trialLocked = renownTrialControlsLocked(snapshot);
     if (trialLocked && !this.trialControlsLocked) {
       // One authoritative phase transition releases every held keyboard/touch
       // button; no pre-judgment attack remains queued into the next wave.
