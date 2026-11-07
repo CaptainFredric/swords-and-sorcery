@@ -298,9 +298,10 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
   }
   if (state.phase === RENOWN_TRIAL_PHASES.JUDGMENT) {
     const cue = ceremonyCue(state, nowSec);
+    const lethalTime = state.ceremony.startedAt
+      + (state.ceremony.kind === 'sword' ? 1.7 : 9.3);
     if (state.wave.verdict === RENOWNER_VERDICTS.EXECUTION
-      && !state.ceremony.lethalApplied
-      && (cue === 'SWORD_EXECUTION' || cue === 'COIN_RETALIATION')) {
+      && !state.ceremony.lethalApplied && nowSec >= lethalTime) {
       // The actual consequence occurs at CONTACT, before the reset/late coin.
       // No generic kill/death event is emitted: it would interrupt the scene,
       // apply ordinary respawn logic or play a conventional defeat chorus.
@@ -311,7 +312,8 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
       player.velocity = { x: 0, y: 0, z: 0 };
       room.events.push({
         type: 'renownTrialExecutionImpact', ceremonyId: state.ceremony.id,
-        playerId: player.id, cue, at: nowSec,
+        playerId: player.id, cue: state.ceremony.kind === 'sword' ? 'SWORD_EXECUTION' : 'COIN_RETALIATION',
+        at: lethalTime,
       });
     }
   }
