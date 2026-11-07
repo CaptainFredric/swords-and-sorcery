@@ -59,13 +59,18 @@ export function renownTrialsView(snapshot, serverNow) {
     const accounting = trial.verdict === 'AWARD'
       ? `WAVE AWARD ${trial.waveReward} · UNSETTLED`
       : 'NO WAVE RENOWN AWARDED';
-    const footer = resolved ? accounting : 'THE VERDICT IS BEING DELIVERED';
+    const cleared = Number.isFinite(trial.clearTimeSec)
+      ? ` · CLEARED IN ${fixedClock(trial.clearTimeSec)} / ${fixedClock(trial.deadlineSec)}` : '';
+    const footer = resolved ? accounting + cleared : 'THE VERDICT IS BEING DELIVERED';
+    const spokenLine = cue === 'CONSOLATION_REACTION'
+      ? (trial.waveIndex % 2 === 0 ? 'Priceless. I would never purchase this.' : "It's worth more in spirit.")
+      : content.line ?? '';
     return {
       visible: true, ceremony: true, overtime: false,
       header: `THE RIGHTFUL RENOWNER · WAVE ${trial.waveIndex}`,
       title: content.label, details: content.note,
       clock: '', footer, stage: cue ?? 'SOLEMN_JUDGMENT',
-      line: content.line ?? '',
+      line: spokenLine,
       // The real authored GLB and clips have not been verified. Treat this as
       // a temporary ceremonial representation, not an animation implementation.
       placeholder: true, kind,
