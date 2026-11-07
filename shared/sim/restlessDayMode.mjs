@@ -36,7 +36,7 @@ export function withRestlessLadders(world,state){
  const solids=(world.solids??[]).filter(b=>!String(b.id).startsWith('siege-ladder-'));
  for(const l of state.ladders??[]){
    if(l.state!=='deployed'||!Number.isInteger(l.wall))continue;
-   const w=walls[l.wall],z0=w.baseZ,z1=w.z;
+   const w=walls[l.wall],z0=w.baseZ,z1=w.z-(l.wall===0?1.8:1.9);
    ramps.push({id:'siege-ladder-'+l.id,axis:'z',minX:l.position.x-1.3,
       maxX:l.position.x+1.3,minZ:Math.min(z0,z1),maxZ:Math.max(z0,z1),
       startY:0,endY:w.height});
