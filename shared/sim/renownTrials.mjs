@@ -93,6 +93,13 @@ function stopRun(room, state, nowSec, reason) {
   state.phase = reason === 'completed' ? RENOWN_TRIAL_PHASES.COMPLETED : RENOWN_TRIAL_PHASES.TERMINATED;
   state.endedAt = nowSec;
   state.termination = reason;
+  if (reason === 'executed') {
+    const player = trialPlayer(room, state);
+    if (player) {
+      player.health = 0; player.alive = false; player.respawnAt = Infinity;
+      player.attackHeld = false; player.guarding = false;
+    }
+  }
   room.events.push({ type: 'renownTrialEnded', runId: state.runId, waveIndex: state.waveIndex, reason, at: nowSec });
   room.finish(reason === 'completed' ? state.playerId : null, nowSec, 'renown-trial-' + reason);
 }
@@ -100,7 +107,7 @@ function beginWave(room, state, nowSec) {
   const player = trialPlayer(room, state);
   if (!player?.alive) { stopRun(room, state, nowSec, 'defeated'); return; }
   for (const [id, p] of room.players) {
-    if (p.actorKind === 'bot' && p.trialRunId === state.runId) room.players.delete(id);
+    if (p.actorKind === 'bot' && p.trialRunId) room.players.delete(id);
   }
   // Remove leftover attacks so an earlier wave cannot strike a newly spawned opponent.
   room.projectiles.clear();
