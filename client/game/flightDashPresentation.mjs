@@ -16,10 +16,14 @@ export class FlightDashPresentation{
   constructor(){this.reset();}
   reset(){this.machine=null;this.wasRunning=false;this.startedAt=Infinity;this.elapsed=Infinity;this.release=1;this.strength=0;this.thirdBlend=0;}
   update(dt,m,{eligible=false,cameraMotion=1}={}){
-    const valid=Boolean(eligible&&m?.id&&m?.operatorId&&m?.health>0&&m?.rotorHP>0&&!m.terminalDive);
+    const terminal=Boolean(m?.terminalDive&&!m.terminalDive.resolved);
+    const valid=Boolean(eligible&&m?.id&&m?.operatorId&&
+      (m.health>0||terminal)&&(m.rotorHP>0||terminal));
     if(!valid){this.reset();return {started:false,strength:0,fov:0,pullback:0,thirdBlend:0};}
     if(this.machine!==m.id){this.reset();this.machine=m.id;}
-    const running=Boolean(m.offensiveRun);
+    // The irreversible Valkyrie shares the ordinary Dash chase-camera
+    // language, even when launched from the ground or after rotor burnout.
+    const running=Boolean(m.offensiveRun||terminal);
     const started=running&&!this.wasRunning;
     if(started){this.elapsed=0;this.release=1;}
     if(this.wasRunning&&!running)this.release=1;
@@ -30,6 +34,8 @@ export class FlightDashPresentation{
     this.thirdBlend+=((running?1:0)-this.thirdBlend)*(1-Math.exp(-step*(running?13:11)));
     this.wasRunning=running;
     const scaled=this.strength*clamp01(cameraMotion);
-    return {started,strength:scaled,fov:scaled*FLIGHT_DASH_VIEW.fovDegrees,pullback:this.thirdBlend*FLIGHT_DASH_VIEW.thirdPersonPullback,thirdBlend:this.thirdBlend};
+    return {started,strength:scaled,fov:scaled*FLIGHT_DASH_VIEW.fovDegrees+(terminal?2.5:0),
+      pullback:this.thirdBlend*(FLIGHT_DASH_VIEW.thirdPersonPullback+(terminal?.95:0)),
+      thirdBlend:this.thirdBlend};
   }
 }
