@@ -143,7 +143,7 @@ export class TouchControls {
     this.valkyrieStencil.className='touch-valkyrie-stencil';
     this.valkyrieStencil.dataset.action='valkyrieStencil';
     this.valkyrieStencil.hidden=true;
-    this.valkyrieStencil.setAttribute('aria-label','Terminal Dive: trace Dagaz rune, then halo');
+    this.valkyrieStencil.setAttribute('aria-label','Terminal Dive: trace Dagaz, diagonally rise, sweep across and back, release to commit');
     this.valkyrieStencil.innerHTML=`
       <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="none">
         <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
@@ -691,7 +691,7 @@ export class TouchControls {
         }
 
         const practiceValkyrie=snapshot?.mode==='PRACTICE'&&!snapshot?.tutorial&&local.actorKind==='human';
-        const valkyrieReady=flight&&!fb?.grounded&&ascensionValkyrieReady(fb,local,serverNow,{practice:practiceValkyrie});
+        const valkyrieReady=flight&&ascensionValkyrieReady(fb,local,serverNow,{practice:practiceValkyrie});
         // The rune is faintly previewed whenever Ascension is equipped, so
         // users can FIND the combination before the meter/Skill is ready.
         // Only a fully ready server-eligible state captures a ritual pointer.
@@ -705,7 +705,6 @@ export class TouchControls {
           !fb?.rotorHP?'ROTOR DAMAGED':
           !fb?.flightCharge?'RECHARGE ROTOR':
           fb?.skill?.phase!=='active'?'ACTIVATE ASCENSION':
-          fb?.grounded?'BECOME AIRBORNE':
           local.ultimate!=='chivalry'?'EQUIP CHIVALRY':
           local.ultimateState?'CHIVALRY IN USE':
           (!practiceValkyrie&&(local.prowess??0)<100)?'FILL CHIVALRY METER':'NOT READY';
@@ -963,7 +962,7 @@ export class TouchControls {
     this.valkyrieGeometry=geometry;
     this.valkyrieStencil.querySelector('svg')?.setAttribute('viewBox',
       `0 0 ${width} ${height}`);
-    this.valkyrieStencil.querySelector('.touch-valkyrie-ghost')?.setAttribute('d',geometry.path);
+    this.valkyrieStencil.querySelector('.touch-valkyrie-ghost')?.setAttribute('d',geometry.guidePath);
     this.valkyrieInk?.setAttribute('d',geometry.path);
     if(this.valkyrieStatus?.style){
       this.valkyrieStatus.style.left=`${Math.max(8,Math.min(width-230,geometry.center[0]-115))}px`;
@@ -988,11 +987,18 @@ export class TouchControls {
     this.valkyrieStencil?.style?.setProperty('--ritual-progress',String(progress));
     this.valkyrieStencil?.classList?.toggle('drawing',Boolean(g));
     this.valkyrieStencil?.classList?.toggle('complete',Boolean(g?.completed));
-    if(this.valkyrieInk?.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
+    if(this.valkyrieInk){
+      this.valkyrieInk.setAttribute('d',g?.variant==='left-first'
+        ?this.valkyrieGeometry?.reversePath??VALKYRIE_RITUAL_PATH
+        :this.valkyrieGeometry?.path??VALKYRIE_RITUAL_PATH);
+      if(this.valkyrieInk.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
+    }
     if(this.valkyrieStatus&&g&&!g.completed)
       this.valkyrieStatus.textContent=`ᛞ · TRACE ${Math.round(progress*100)}%`;
     for(let i=0;i<this.valkyrieLines.length;i++){
       const line=this.valkyrieLines[i];if(!line)continue;
+      const points=g?.points??this.valkyrieGeometry?.points;
+      if(points?.[i]&&points?.[i+1])line.setAttribute('d',`M${points[i].join(' ')} L${points[i+1].join(' ')}`);
       const amount=g?i<g.index?1:i===g.index?g.segmentProgress:0:0;
       line.style.strokeOpacity=String(.05+.95*amount);
       line.style.strokeWidth=String(2+2.4*amount);
@@ -1021,7 +1027,7 @@ export class TouchControls {
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
-      this.valkyrieGeometry.points),startedOnJump:true,startPoint:point};
+      this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),startedOnJump:true,startPoint:point};
     this.#paintValkyrieRitual();
     return true;
   }
@@ -1044,15 +1050,8 @@ export class TouchControls {
     }
     this.ritual=next;
     this.#paintValkyrieRitual();
-    if(next.completed){
-      if(this.valkyrieEligible){
-        this.valkyrieStatus.textContent='ᛞ · VALKYRIE!';
-        // The authoritative host independently checks and spends the cost.
-        this.input.flightTerminalRitual?.();
-      }else{
-        this.valkyrieStatus.textContent='ᛞ · '+(this.valkyrieReason||'NOT READY');
-      }
-    }
+    if(next.completed)this.valkyrieStatus.textContent=this.valkyrieEligible?
+      'ᛞ · RELEASE TO COMMIT':'ᛞ · '+(this.valkyrieReason||'NOT READY');
     return true;
   }
   #ritualEnd(event) {
@@ -1062,6 +1061,12 @@ export class TouchControls {
        g.index===0&&g.segmentProgress<.08&&
        performance.now()-g.startedAt<230){
       this.input.flightHop?.();
+    }
+    // The final horizontal sweep merely ARMS the ritual. Only a deliberate
+    // release commits, never pointercancel, loss of focus or a partial trace.
+    if(event.type==='pointerup'&&g.completed&&this.valkyrieEligible){
+      this.input.flightTerminalRitual?.();
+      this.valkyrieStatus.textContent='ᛞ · VALKYRIE!';
     }
     // Show the partial or complete stroke briefly AFTER the thumb lifts.
     this.ritual=null;this.ritualVisual=g;
