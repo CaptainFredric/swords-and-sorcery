@@ -996,6 +996,27 @@ export function stepBotControllers(
     const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
 
+    // Dedicated modes can reserve a bot's hands for a physical objective.
+    // Use the existing pathfinder and movement input, not a teleport or a
+    // separate movement system. This also prevents melee/cast AI from
+    // silently bypassing the carrier's server-side equipment restrictions.
+    if(modeCall(room,'botOccupation',actor)==='carry'){
+      if(actor.attackHeld)endAttack(room,actor.id,nowSec);
+      if(actor.guarding)setGuard(room,actor.id,false,nowSec);
+      const destination=modeCall(room,'botGoal',actor);
+      if(destination){
+        const route=wayToward(world,actor,{position:destination},ai,nowSec);
+        const aim=route??destination;
+        actor.input.yaw=yawToward(actor,{position:aim});
+        actor.yaw=actor.input.yaw;
+        actor.input.forward=Math.hypot(actor.position.x-destination.x,actor.position.z-destination.z)>1?1:0;
+        actor.input.right=0;actor.input.jump=false;actor.input.sprint=false;
+      }else{
+        actor.input.forward=0;actor.input.right=0;actor.input.sprint=false;
+      }
+      continue;
+    }
+
     const teamGoal = selectTeamGoal(room, actor, ai, nowSec);
     let target = ai.targetId ? room.players.get(ai.targetId) : null;
     if (target && room.policy?.teamMode && areAllies(room, actor, target)) {
