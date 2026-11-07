@@ -1042,7 +1042,14 @@ export function stepBotControllers(
           : distance2d(actor, { position: teamGoal.goalPos });
         const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
         if (!closeEnough) {
-          const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
+          // Once at a deployed ladder, take its actual incline directly: planar
+          // navigation otherwise treats the solid wall as a route to avoid.
+          const ladder = room.mode==='RESTLESS_DAY'
+            ?room.restlessDay?.ladders?.find(l=>l.state==='deployed'&&
+              Math.abs(actor.position.x-l.position.x)<2.5&&
+              Math.abs(actor.position.z-l.position.z)<12) : null;
+          const way = ladder&&actor.team===TEAMS.ATTACKERS&&actor.position.z<teamGoal.goalPos.z
+            ?teamGoal.goalPos:wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
           const aimAt = way ?? teamGoal.goalPos;
           actor.input.yaw = yawToward(actor, { position: aimAt });
           actor.yaw = actor.input.yaw;
