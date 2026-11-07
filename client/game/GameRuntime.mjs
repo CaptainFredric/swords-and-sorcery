@@ -96,6 +96,7 @@ import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
 import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 import { HighGroundsRenderer } from '../worlds/HighGroundsRenderer.mjs';
+import { CourtOfMeritRenderer } from '../worlds/CourtOfMeritRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -132,6 +133,7 @@ const WORLD_RENDERERS = Object.freeze({
   'blackbell-foundry': BlackbellFoundryRenderer,
   'outerworks': OuterworksRenderer,
   'high-grounds': HighGroundsRenderer,
+  'court-of-merit': CourtOfMeritRenderer,
 });
 
 
