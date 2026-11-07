@@ -1463,7 +1463,7 @@ function valkyrieFlightFixture(){
  return {...env,p,m,positions,update};
 }
 
-test('Dagaz overlays ACTUAL Jump → Chivalry → Dash → Ascension buttons and a CLOSED halo',()=>{
+test('Dagaz overlays actual Flight buttons, diagonal return, stem and single crossbar',()=>{
  const e=valkyrieFlightFixture();
  assert.equal(e.controls.valkyrieEligible,true);
  assert.equal(e.controls.valkyrieStencil.hidden,false);
@@ -1471,9 +1471,11 @@ test('Dagaz overlays ACTUAL Jump → Chivalry → Dash → Ascension buttons and
  const points=e.controls.valkyrieGeometry?.points;
  assert.deepEqual(points.slice(0,5),[
   [718,420],[718,340],[636,420],[636,340],[718,420]]);
- assert.equal(points.length,18,'five rune waypoints and a full halo loop');
- assert.ok(Math.hypot(points[5][0]-points.at(-1)[0],
-   points[5][1]-points.at(-1)[1])<1e-5);
+ assert.equal(points.length,10,'five rune waypoints, diagonal return, stem and one crossbar');
+ assert.deepEqual(points[5],[677,380]);
+ assert.ok(points[6][1]<340,'the vertical stem ends above the upper button gap');
+ assert.equal(points[7][1],points[9][1],'the final sweep stays horizontal');
+ assert.notDeepEqual(points[7],points[9],'there is no closed halo');
  assert.equal(e.controls.valkyrieStencil.querySelector('svg').getAttribute('viewBox'),'0 0 800 600');
  e.controls.dispose();
 });
@@ -1495,12 +1497,53 @@ test('one REAL continuous Dagaz pointer draws all stages and sends exactly one t
  }
  assert.equal(e.controls.ritual.completed,true);
  assert.equal(e.controls.valkyrieStencil.classList.contains('complete'),true);
- assert.deepEqual(sent,[{type:'flightTerminalRitual'}],
-   'no underlying Jump, Dash, Ultimate or Skill action may fire during the rune');
+ assert.deepEqual(sent,[],'drawing alone cannot spend Chivalry');
  e.send('pointerup',points.at(-1)[0],points.at(-1)[1],{
    target:e.controls.layer,pointerId:243});
  assert.equal(e.controls.ritual,null);
- assert.deepEqual(sent,[{type:'flightTerminalRitual'}],'release does not duplicate activation');
+ assert.deepEqual(sent,[{type:'flightTerminalRitual'}],
+   'only finger release authorizes the single terminal command');
+ e.controls.dispose();
+});
+
+
+test('left-first horizontal sweep arms the same Valkyrie and cancellation cannot commit',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ const points=e.controls.valkyrieGeometry.reversePoints;
+ const draw=(id)=>{
+   e.send('pointerdown',points[0][0],points[0][1],{action:'jump',pointerId:id});
+   for(let i=1;i<points.length;i++){
+     const a=points[i-1],b=points[i];
+     for(const t of [.25,.5,.75,1])e.send('pointermove',
+       a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,
+       {target:e.controls.layer,pointerId:id});
+   }
+   assert.equal(e.controls.ritual?.variant,'left-first');
+   assert.equal(e.controls.ritual?.completed,true);
+   assert.deepEqual(sent,[]);
+ };
+ draw(402);
+ e.send('pointercancel',points.at(-1)[0],points.at(-1)[1],{target:e.controls.layer,pointerId:402});
+ assert.equal(e.controls.ritual,null);
+ assert.deepEqual(sent,[],'a canceled completed gesture must never spend the Ultimate');
+ draw(403);
+ e.send('pointerup',points.at(-1)[0],points.at(-1)[1],{target:e.controls.layer,pointerId:403});
+ assert.deepEqual(sent,[{type:'flightTerminalRitual'}]);
+ e.controls.dispose();
+});
+
+test('a grounded Fight-and-Flight with active Ascension and full Chivalry may draw Valkyrie',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ e.m.grounded=true;e.m.y=0;e.p.position.y=0;e.update();
+ assert.equal(e.controls.valkyrieEligible,true,'airborne status is no longer a prerequisite');
+ assert.equal(e.controls.valkyrieReason,'READY');
+ const [x,y]=e.controls.valkyrieGeometry.points[0];
+ e.send('pointerdown',x,y,{action:'jump',pointerId:403});
+ assert.ok(e.controls.ritual);
+ e.send('pointercancel',x,y,{target:e.controls.layer,pointerId:403});
+ assert.deepEqual(sent,[]);
  e.controls.dispose();
 });
 
