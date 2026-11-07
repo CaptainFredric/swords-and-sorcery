@@ -117,7 +117,21 @@ try{
  const applied=await until(()=>evalInBrowser(`(() => {
    const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
    return p?.practiceOneHit?.stages?.gale===2&&p.practiceOneHit.stages.fire===1&&p.practiceOneHit.stages.frost===0;
- })()`),'authoritative One Hit tier selectors',100);
+ })()`),'authoritative One Hit tier selectors',100).catch(async err=>{
+   const diagnostic=await evalInBrowser(`(() => {
+     const rt=window.__ssRuntime,s=rt.latestSnapshot,p=s?.players?.find(p=>p.id===rt.socket.playerId);
+     return {mode:s?.mode,playerId:rt.socket.playerId,actorId:rt.localAuth?.id,
+      ultimate:rt.localAuth?.ultimate,alive:rt.localAuth?.alive,
+      practiceOneHit:p?.practiceOneHit,levels:p?.oneHitInfusions,
+      actualRoomUltimate:rt.socket.local?.room?.players?.get(rt.localAuth?.id)?.ultimate,
+      actualRoomOneHit:rt.socket.local?.room?.players?.get(rt.localAuth?.id)?.practiceOneHit,
+      rejection:window.__practiceRejections,
+      selectors:[...document.querySelectorAll('#practice-one-hit [data-one-hit-element]')]
+        .map(q=>[q.dataset.oneHitElement,q.value]),status:document.querySelector('#practice-one-hit-status')?.textContent};
+   })()`);
+   console.error('[ONE HIT PRACTICE TIER DIAGNOSTIC]',JSON.stringify(diagnostic));
+   throw err;
+ });
  assert.equal(applied,true);
  assert.equal(await evalInBrowser("document.querySelector('[data-one-hit-element=gale]').value"),'2');
  await evalInBrowser("document.querySelector('#practice-one-hit-unlimited').click()");
