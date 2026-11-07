@@ -39,11 +39,11 @@ export function withRestlessLadders(world,state){
    const w=walls[l.wall],z0=w.baseZ,z1=w.z;
    ramps.push({id:'siege-ladder-'+l.id,axis:'z',minX:l.position.x-1.3,
       maxX:l.position.x+1.3,minZ:Math.min(z0,z1),maxZ:Math.max(z0,z1),
-      startY:l.wall===1?w.height:0,endY:l.wall===1?0:w.height});
+      startY:0,endY:w.height});
    // Six narrow, slope-following forged rails. Centre remains unobstructed for climbing.
    for(let side of [-1,1])for(let i=0;i<6;i++){
      const t=(i+.5)/6, length=Math.abs(z1-z0);
-     const y=l.wall===1?w.height*(1-t):w.height*t;
+     const y=w.height*t;
      solids.push({id:'siege-ladder-'+l.id+'-'+side+'-'+i,
        center:[l.position.x+side*1.39,y-.29,z0+(z1-z0)*t],
        size:[.22,.34,length/6+.04],material:'iron'});
