@@ -340,24 +340,22 @@
 .subtitle b { margin-right: 8px; color: #e6c47c; font: 800 11px/1 var(--font-script, system-ui, sans-serif); letter-spacing: .16em; text-transform: uppercase; }
 .subtitle.mine span { color: #fff3d6; }
 .touch-ui .subtitle { bottom: calc(var(--safe-b, 0px) + 16px); max-width: min(440px, 44cqw); padding: 4px 10px 5px; font-size: 14px; }
-/* While operating a siege machine, place subtitles ABOVE the health
- * instrumentation, not behind it. Ordinary combat and menus are unaffected.
- * Gauge height varies by machine/width, hence a conservative caption gap. */
+/* Ram has two raised instrument badges: context and PISTON READY. */
+.hud.ram-mounted {--siege-label-clearance:44px;}
+/* Only mounted captions move: sit precisely above the real measured hull
+ * and fist assembly. Normal Spellblade captions retain their own position.
+ * A dynamic pixel height avoids overlap on narrow devices, broken pistons,
+ * and localizations that wrap health labels. */
 .hud.ballista-mounted #subtitle {
-  bottom: calc(var(--safe-b, 0px) + 88px);
-  max-width: min(650px, 76cqw);
-  z-index: 15;
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + var(--siege-label-clearance, 28px) + 8px);
+  max-width:min(650px,76cqw);z-index:15;
 }
 .touch-ui .hud.ballista-mounted #subtitle {
-  bottom: calc(var(--safe-b, 0px) + 85px);
-  max-width: min(500px, 66cqw);
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + var(--siege-label-clearance, 28px) + 6px);
+  max-width:min(500px,66cqw);
 }
 @container app (max-height: 420px) {
-  .hud.ballista-mounted #subtitle {
-    bottom: calc(var(--safe-b, 0px) + 71px);
-    font-size: 13px;
-    line-height: 1.2;
-  }
+  .hud.ballista-mounted #subtitle {font-size:13px;line-height:1.2;}
 }
 /* the front door's: what he says out on his round, under the fight (right of the banner, where it is framed) */
 .subtitle.menu-caption { left: 68%; bottom: 9%; z-index: 3; }

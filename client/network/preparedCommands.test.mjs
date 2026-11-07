@@ -111,3 +111,35 @@ test('atomic slot cast carries current aim through socket and local authority', 
   assert.equal(local.player.spell,'frostfire'); assert.equal(local.player.pendingSpell.spell,'frostfire');
   assert.equal(local.player.yaw,Math.PI/2); link.leaveRoom();
 });
+
+test('One Hit Practice settings reach authoritative LocalHost through the real GameLink transport',()=>{
+ const local=new LocalHost({every:()=>1,cancel:()=>{},later:()=>{}});
+ const commands=[];
+ const remote={on:()=>{},practiceOneHit:command=>commands.push(['practice',command]),
+   oneHitRelease:()=>commands.push(['release'])};
+ const link=new GameLink({remote,local});
+ local.loadout('fireball','one_hit_of_wonders');
+ link.hosting='local';
+ link.startSolo('PRACTICE','One Hit trainee');
+ local.room.startMatch(local.now());
+ assert.equal(local.player.ultimate,'one_hit_of_wonders');
+ link.practiceOneHit({action:'level',element:'gale',tier:2});
+ assert.equal(local.player.practiceOneHit?.stages?.gale,2,
+   'the actual game link reaches LocalHost instead of silently omitting the method');
+ link.practiceOneHit({action:'preset',preset:'full'});
+ assert.equal(local.player.practiceOneHit.stages.lightning,2);
+ link.practiceOneHit({action:'enabled',enabled:false});
+ assert.equal(local.player.practiceOneHit.enabled,false);
+ link.hosting='remote';
+ link.practiceOneHit({action:'level',element:'fire',tier:1});
+ link.oneHitRelease();
+ assert.deepEqual(commands,[['practice',{action:'level',element:'fire',tier:1}],['release']],
+   'the same forwarded methods work with online authoritative rooms');
+ const wire=Object.create(GameSocket.prototype),sent=[];
+ wire.send=message=>sent.push(message);
+ wire.practiceOneHit({action:'level',element:'frost',tier:2});
+ wire.oneHitRelease();
+ assert.deepEqual(sent,[{type:'practiceOneHit',action:'level',element:'frost',tier:2},
+   {type:'oneHitRelease'}]);
+ local.close();
+});

@@ -63,6 +63,19 @@ const probe=`(() => {
     captionRect:box(document.querySelector('#subtitle')),
     captionOverlap:document.querySelector('#subtitle')?.classList.contains('show')
       ? overlap(box(root),box(document.querySelector('#subtitle'))) : false,
+    raisedBadgeOverlap:(()=>{
+      const captions=document.querySelector('#subtitle');
+      if(!captions?.classList.contains('show'))return false;
+      return [...root.querySelectorAll('.machine-piston,.machine-gauge-context')]
+        .some(el=>el.textContent?.trim()&&getComputedStyle(el).display!=='none'&&
+          overlap(box(el),box(captions)));
+    })(),
+    pistonContextOverlap:(()=>{
+      const piston=root.querySelector('.machine-piston'),
+        context=root.querySelector('.machine-gauge-context');
+      return getComputedStyle(piston).display!=='none'&&context.textContent.trim()&&
+        overlap(box(piston),box(context));
+    })(),
     playerOverlapsStamina:overlap(box(player),box(stamina)),
     gaugeOutsideViewport:box(root).left < -2 || box(root).right > innerWidth+2};
 })()`;
@@ -161,6 +174,8 @@ try {
     assert.equal(measure.gaugeOutsideViewport,false,kind+' gauge stays within portrait screen');
     assert.equal(measure.captionVisible,true,'the long test subtitle is actually showing');
     assert.equal(measure.captionOverlap,false,kind+' gauge must never cover an active subtitle');
+    assert.equal(measure.raisedBadgeOverlap,false,kind+' raised instrument badges must not cover subtitles');
+    assert.equal(measure.pistonContextOverlap,false,kind+' piston badge must not overlap condition label');
     assert.ok(measure.captionRect.bottom <= measure.gaugeRect.top - 6,
       kind+' keeps a visible gap below the subtitle and ABOVE the bottom-anchored gauge');
     assert.ok(measure.gaugeRect.bottom >= 844 - 35,

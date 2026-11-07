@@ -257,6 +257,9 @@ export class HUD {
     this.captionResize = globalThis.ResizeObserver
       ? new ResizeObserver(() => this.#syncMachineCaptionClearance()) : null;
     this.captionResize?.observe(this.subtitleLine);
+    // Health is anchored to the bottom safe area. Its ACTUAL wrapped height,
+    // not a guessed number, reserves a separate subtitle lane above it.
+    this.captionResize?.observe(this.machineGauge);
     this.driveHousing = document.createElement('div');
     this.driveHousing.className = 'drive-housing';
     this.driveHousing.hidden = true;
@@ -755,9 +758,16 @@ export class HUD {
   }
 
   #syncMachineCaptionClearance() {
-    const visible = !this.machineGauge?.hidden && this.subtitleLine?.classList.contains('show');
-    const height = visible ? Math.ceil(this.subtitleLine.getBoundingClientRect().height) : 0;
-    this.machineGauge?.style.setProperty('--machine-caption-height', height + 'px');
+    const mounted=!this.machineGauge?.hidden;
+    const gaugeHeight=mounted
+      ?Math.ceil(this.machineGauge?.getBoundingClientRect?.()?.height??0):0;
+    const height=mounted?Math.max(30,gaugeHeight):0;
+    this.root?.style?.setProperty?.('--siege-gauge-height',height+'px');
+    // Keep this informational height for inspector/screenshots; captions are
+    // outside the health assembly rather than lifting the assembly itself.
+    const captionHeight=this.subtitleLine?.classList?.contains('show')
+      ?Math.ceil(this.subtitleLine?.getBoundingClientRect?.()?.height??0):0;
+    this.machineGauge?.style.setProperty('--machine-caption-height',captionHeight+'px');
   }
 
   /**
