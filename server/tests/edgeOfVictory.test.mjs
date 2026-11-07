@@ -43,12 +43,19 @@ test('pickups are authoritative single-owner acquisitions in existing spell slot
 
 test('outward refusal never deals damage; inward directions remain available', () => {
   const room = makeMatch(), knight = room.players.get('knight');
+  room.world = { floors:[{ center:[0,-.1,0], size:[100,.2,100], y:0 }], ramps:[],solids:[],navigation:{nodes:[]} };
   room.edgeOfVictory.radius = 7;
   knight.position = { x: 12, y: 0, z: -1 };
-  const before = knight.health;
-  edgeConstrainActor(room, knight, { x: 6, y: 0, z: -1 }, 10);
-  assert.ok(Math.hypot(knight.position.x, knight.position.z + 1) <= 7);
-  assert.equal(knight.health, before);
+  knight.grounded = true;
+  const health = knight.health;
+  for (let tick=0; tick<32; tick++) {
+    const prior={...knight.position};
+    edgeConstrainActor(room,knight,prior,10+tick/30,room.world);
+    assert.ok(Math.hypot(knight.position.x-prior.x,knight.position.z-prior.z)<=.381,
+      'a stationary correction is a controlled inward step, not a teleport');
+  }
+  assert.ok(Math.hypot(knight.position.x,knight.position.z+1)<=7-.45+.001);
+  assert.equal(knight.health,health);
 });
 
 test('one survivor wins immediately, regardless of ordinary FFA score', () => {
