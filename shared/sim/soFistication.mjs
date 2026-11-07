@@ -263,7 +263,7 @@ const p=room.players.get(b.operatorId);
   // A knight's conviction is not a collision, and must never do impact damage.
    if(b.operatorId&&world?.edgeBoundary&&pose&&
        !edgeMachineProgressAllowed(soFistSolids(b),soFistSolids({...next,...pose}),world.edgeBoundary)){
-     b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;b.speed=0;break;
+     b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;break;
    }
    if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
    if(pose&&b.speed>4.2){
