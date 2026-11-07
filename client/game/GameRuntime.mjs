@@ -3815,7 +3815,9 @@ export class GameRuntime {
           this.localState.position = { ...this.localAuth.position };
         }
       } else {
-        this.movementWorld = playerMovementWorld(this.activeWorld, {
+        const edge=this.latestSnapshot?.mode==='EDGE_OF_VICTORY'?this.latestSnapshot?.edgeOfVictory:null;
+        const predictionWorld=edge ? {...this.activeWorld,edgeBoundary:{center:edge.center,radius:edge.radius}} : this.activeWorld;
+        this.movementWorld = playerMovementWorld(predictionWorld, {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
         this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
