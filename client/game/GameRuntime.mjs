@@ -3,6 +3,7 @@ import { flyStep, inspectionSpawn, inspectionViews, levelCamera, focusOnSubject,
 import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
+import {withRestlessLadders} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
@@ -96,6 +97,7 @@ import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
 import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 import { HighGroundsRenderer } from '../worlds/HighGroundsRenderer.mjs';
+import {RestlessDayRenderer} from '../worlds/RestlessDayRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -132,6 +134,7 @@ const WORLD_RENDERERS = Object.freeze({
   'blackbell-foundry': BlackbellFoundryRenderer,
   'outerworks': OuterworksRenderer,
   'high-grounds': HighGroundsRenderer,
+  'restless-day': RestlessDayRenderer,
 });
 
 
@@ -736,7 +739,7 @@ export class GameRuntime {
       this.worldId = worldId;
       // Avoid near-clip scenery on an actual 234 m battlefield, without
       // spending the extra depth range in smaller arenas.
-      this.camera.far = worldId === 'high-grounds' ? 340 : 180;
+      this.camera.far = worldId === 'high-grounds' ? 340 : worldId === 'restless-day' ? 310 : 180;
       this.camera.updateProjectionMatrix();
       this.worldError = null;
       this.localState = null;
@@ -1350,6 +1353,7 @@ export class GameRuntime {
     else if (snapshot.worldId === 'bastion-breach')
       this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
     this.activeWorld = structureWorld(this.activeWorld, snapshot.structures);
+    this.activeWorld = withRestlessLadders(this.activeWorld, snapshot.modeState);
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     const previousSiege = this.latestSnapshot?.bibyeBallista;
     if (previousSiege && previousSiege.id !== snapshot.bibyeBallista?.id) {
@@ -1360,6 +1364,7 @@ export class GameRuntime {
     }
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
     this.latestSnapshot = snapshot;
+    this.world?.setRestlessDayState?.(snapshot.modeState,snapshot);
     if (this.socket.inspectionAvailable) {
       if (this.inspectionSequence?.active) {
         this.#processInspectionSequence(snapshot.tick, snapshot.serverTime ?? this.socket.serverNow());
@@ -3794,7 +3799,7 @@ export class GameRuntime {
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
-      this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
+      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow);
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       if (this.latestSnapshot?.objective) {
@@ -3815,7 +3820,7 @@ export class GameRuntime {
           this.localState.position = { ...this.localAuth.position };
         }
       } else {
-        this.movementWorld = playerMovementWorld(this.activeWorld, {
+        this.movementWorld = playerMovementWorld(withRestlessLadders(this.activeWorld,this.latestSnapshot?.modeState), {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
         this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
@@ -3981,7 +3986,20 @@ export class GameRuntime {
     const flightOperator=flightState?.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightState?.operatorId);
     this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
-    this.world?.update?.(timeSec, this.camera);
+    this.world?.update?.(this.socket.serverNow(), this.camera);
+    // A shared match clock, not client frame count, controls the entire sundown arc.
+    if(this.latestSnapshot?.mode==='RESTLESS_DAY'){
+      const deadline=this.latestSnapshot?.modeState?.deadline;
+      const length=Math.max(1,this.latestSnapshot?.matchSeconds??780);
+      if(Number.isFinite(deadline)){
+        const daylight=Math.max(0,Math.min(1,(deadline-this.socket.serverNow())/length));
+        const elevation=.02+1.05*daylight;
+        this.sunOffset.set(-38*Math.cos(elevation),38*Math.sin(elevation),-14).setLength(40);
+        this.sun.intensity=.22+daylight*2;
+        this.hemi.intensity=.62+daylight*1.15;
+        this.scene.background?.setHex?.(daylight<.1?0x617286:daylight<.35?0xa9a9b3:0xb8d0df);
+      }
+    }
     const ramPose=this.world?.soFistication?.presentationData;
     if(ramPose?.operatorId){
       const driver=ramPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(ramPose.operatorId);
