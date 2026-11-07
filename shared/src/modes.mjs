@@ -8,6 +8,7 @@ export const GAME_MODES = Object.freeze({
   BREAKTHROUGH: 'BREAKTHROUGH',
   HIGH_GROUNDS: 'HIGH_GROUNDS',
   RENOWN_TRIALS: 'RENOWN_TRIALS',
+  EDGE_OF_VICTORY: 'EDGE_OF_VICTORY',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
@@ -15,10 +16,12 @@ export const GAME_MODES = Object.freeze({
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
+// Compact geometry with scattered spawns, cover, elevation, and a navigable inner keep.
+export const EDGE_OF_VICTORY_ARENAS = Object.freeze(['ruined-keep']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 
@@ -96,6 +99,11 @@ const POLICIES = Object.freeze({
     // a duellist who leaves forfeits
     forfeit: true,
   }),
+  [GAME_MODES.EDGE_OF_VICTORY]: Object.freeze({
+    id: GAME_MODES.EDGE_OF_VICTORY, minHumansToStart: 2, botCount: 2,
+    scored: false, timed: false, scoreToWin: null, matchSeconds: 300,
+    autoStart: false, readyCheck: true, allowRematchVote: true, countdownSec: 3,
+  }),
   [GAME_MODES.HIGH_GROUNDS]: Object.freeze({
     id: GAME_MODES.HIGH_GROUNDS, teamMode: true, teamSize: 3,
     minHumansToStart: 1, botCount: 5, scored: false, timed: true,
@@ -134,5 +142,6 @@ export const PUBLIC_ROOM_MODES = Object.freeze({
   [GAME_MODES.FFA]: Object.freeze({ name: 'FREE-FOR-ALL', arenas: ARENAS, capacity: 8, teamMode: false, joinMidMatch: true }),
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({ name: 'BREAKTHROUGH', arenas: BREAKTHROUGH_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
   [GAME_MODES.HIGH_GROUNDS]: Object.freeze({ name: 'HIGH GROUNDS', arenas: HIGH_GROUNDS_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
+  [GAME_MODES.EDGE_OF_VICTORY]: Object.freeze({ name: 'EDGE OF VICTORY', arenas: EDGE_OF_VICTORY_ARENAS, capacity: 4, teamMode: false, joinMidMatch: false }),
 });
 export function publicRoomMode(id) { return PUBLIC_ROOM_MODES[id] ?? null; }
