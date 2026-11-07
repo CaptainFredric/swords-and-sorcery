@@ -1,6 +1,5 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {SIEGE_SKILL_NAMES} from '../../shared/src/siegeLoadout.mjs';
-import {ascensionValkyrieReady} from '../../shared/src/flightTerminalPolicy.mjs';
 // Fight-and-Flight Gate A: authoritative resources, airborne posture and real control hints.
 const key=(bindings,action,fallback)=>[...new Set((bindings?.[action]??[])
   .map(code=>code.replace(/^Key/,'').replace(/Left$|Right$/g,'').replace(/^Space$/,'SPACE')))].join('/')||fallback;
@@ -30,8 +29,6 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   const debt=Math.max(0,m.ammoDebt??0),reserve=Math.max(0,m.ammo??0);
   const readiness=skillName.toUpperCase()+' · '+skillState;
   const preparing=m.terminalPrep?.phase==='holding';
-  const diveReady=ascensionValkyrieReady(m,player,now,{
-     practice:snapshot?.mode==='PRACTICE'&&!snapshot?.tutorial&&player.actorKind==='human'});
   const terminal=Boolean(m.terminalDive&&!m.terminalDive.resolved);
   const commitment=preparing?'VALKYRIE DIVE · HOLD DASH + ULTIMATE '+Math.max(0,(m.terminalPrep.until-now)).toFixed(1)+'s':terminal?'VALKYRIE DIVE · COMMITTED':' ';
   const grounded=terminal?'TERMINAL DESCENT':preparing?'VALKYRIE PREPARING':rotor<=0?'ROTOR LOST':supported?(m.crouched?'CROUCHED':'GROUNDED'):m.mode==='FALLING'?'FALLING':m.mode==='LANDING'?'DESCENDING':'AIRBORNE';
@@ -52,7 +49,6 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     warning = skill.lockedOnce?'LOCK HELD · TARGET BEHIND COVER · FIRE PAUSED':'TARGET HIDDEN · LOOK FOR AN OPENING';
   else if (active&&variant==='narrowToOne'&&!skill.targetId) warning = 'NARROW TO ONE · LOOK AT AN ENEMY TO MARK';
   else if (active&&variant==='narrowToOne'&&!skill.lockedOnce) warning = 'TARGET MARKED · FIRE TO LOCK';
-  else if (variant==='doNotStopMyAscension'&&active&&diveReady) warning='VALKYRIE AVAILABLE · HOLD DASH + ULTIMATE 1s';
   else if (!supported && charge < 15) warning = 'LOW FLIGHT CHARGE';
   else if (m.crossbowAimLimited) warning = 'AIM OUTSIDE CROSSBOW ARC · MUZZLE PATH DIFFERS';
 

@@ -349,60 +349,65 @@ export function* vigilBars(rand = Math.random) {
   }
 }
 
-// Original synthesis, no third-party recording or arrangement: the recognizable
-// public-domain Wagner Riding Call uses its ascending arpeggio, accented
-// dotted-eighth/sixteenth gallop, answering brass and racing string ostinato.
-// 9 eighth-note subdivisions/bar: BPM measures EIGHTHS, not quarter notes.
-export const VALKYRIES=Object.freeze({name:'valkyrie',bpm:270,beatsPerBar:9,hall:.52,scale:'A minor / C major'});
-// Each [pitch, eighth-note position, eighth-note duration, articulation].
-// The famous E-A-E-A-C call is the actual leitmotif's interval contour;
-// unlike the prior evenly-spaced eight-note scale, the dot-sixteenth snap
-// returns insistently throughout each 9/8 group.
-const VALKYRIE_PHRASES=Object.freeze([
- [['E4',0,.5],['A4',.5,1.5],['E4',2,.75],['A4',2.75,.25],
-  ['C5',3,1.5],['A4',4.5,.75],['C5',5.25,.25],['A4',5.5,1.5],['C5',7,2]],
- [['E4',0,.5],['A4',.5,1.5],['C5',2,.75],['E5',2.75,.25],
-  ['C5',3,1.5],['E5',4.5,.75],['G5',5.25,.25],['E5',5.5,1.5],['A5',7,2]],
- [['E5',0,.5],['A5',.5,1.5],['E5',2,.75],['A5',2.75,.25],
-  ['C6',3,1.5],['A5',4.5,.75],['C6',5.25,.25],['A5',5.5,1.5],['C6',7,2]],
- [['G5',0,.5],['C6',.5,1.5],['G5',2,.75],['C6',2.75,.25],
-  ['E6',3,1.5],['C6',4.5,.75],['E6',5.25,.25],['C6',5.5,1.5],['G5',7,2]],
+// THE LAST WING — Castleward's original Valkyrie passage, in the same
+// D-minor harmonic world as Steel at the Gate and The Keep Holds.
+// An iron oath, not a bright arcade victory jingle: broad low-brass calls,
+// bowed harmonic weight, measured war drums, and a gathering men's choir.
+// Six eighth-note pulses to a bar; BPM measures the eighth-note pulse.
+export const VALKYRIES=Object.freeze({
+ name:'valkyrie',bpm:216,beatsPerBar:6,hall:.46,scale:'D minor',
+});
+const VALKYRIE_CHORDS=Object.freeze(['Dm','Bb','Gm','A','Dm','C','Bb','A']);
+// [pitch, onset eighth, duration eighths]. The two four-bar strains
+// answer each other, resolving only after the entire eight-bar oath.
+const VALKYRIE_CALL=Object.freeze([
+ [['D4',0,2],['A4',2,1],['D5',3,3]],
+ [['F4',0,2],['Bb4',2,1],['D5',3,2.8]],
+ [['G4',0,1.5],['Bb4',1.5,1.5],['D5',3,3]],
+ [['C#5',0,2],['A4',2,1],['E5',3,2.8]],
+ [['D5',0,1.5],['F5',1.5,1.5],['A5',3,2.8]],
+ [['G5',0,2],['E5',2,1],['C5',3,3]],
+ [['Bb4',0,2],['D5',2,1],['F5',3,2.8]],
+ [['E5',0,1.5],['C#5',1.5,1.5],['D5',3,2.8]],
 ]);
-const VALKYRIE_BASS=['A2','E2','A2','G2'];
 export function* valkyrieBars(){
  let index=0;
  while(true){
-  const i=index++%VALKYRIE_PHRASES.length;
-  const events=[];
-  // The trombone call needs a clear STRONG first onset, shorter offbeats,
-  // and brass responses in another register, never an undifferentiated unison.
-  for(const [pitch,beat,beats] of VALKYRIE_PHRASES[i]){
-   const weak=beats<.6;
-   events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats:beats*.94,
-     vel:weak?.89:1.45,layer:0,pan:-.20});
-   if(beat===.5||beat===3||beat===7)
-     events.push({inst:'horn',midi:noteToMidi(pitch)-12,beat:beat+.055,
-       beats:Math.min(beats,1.25),vel:.65,layer:0,pan:.34});
+  const i=index++%VALKYRIE_CHORDS.length;
+  const chord=VALKYRIE_CHORDS[i],voicing=CHORDS[chord],events=[];
+  const lift=i>=4?1.12:1;
+  // The underlying bowed string harmony gives this its Castleward texture.
+  events.push({inst:'strings',midi:voicing.choir,beat:0,beats:5.95,
+    vel:.72*lift,layer:0,pan:.10,swell:.55,release:.85,from:.22});
+  // A deliberately restrained hoofbeat: no sixteenth-note synthesizer
+  // chatter. The heavier second strain adds a second drum accent.
+  events.push({inst:'war',beat:0,beats:.6,vel:i%4===0?.90:.73,layer:0});
+  events.push({inst:'dum',beat:2,beats:.5,vel:.31,layer:0});
+  events.push({inst:'war',beat:3,beats:.58,vel:i>=4?.66:.48,layer:0});
+  events.push({inst:'dum',beat:5,beats:.4,vel:.27,layer:0});
+  // Sparse lute on each half-bar ties the sacrifice to the game's hall and
+  // battle scores. Its plucks should be felt under the low brass.
+  events.push({inst:'lute',midi:voicing.lute[0],beat:0,beats:1.8,vel:.42,layer:0,pan:-.25});
+  events.push({inst:'lute',midi:voicing.lute[1],beat:3,beats:1.8,vel:.29,layer:0,pan:-.25});
+  for(const [pitch,beat,beats] of VALKYRIE_CALL[i])
+   events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats,
+     vel:(i>=4?.96:.82)*lift,layer:0,pan:-.18});
+  // Only the later call has an answering horn, not constant bright unison.
+  if(i>=4){
+   const answer=VALKYRIE_CALL[i].at(-1);
+   events.push({inst:'horn',midi:noteToMidi(answer[0])-12,beat:3.12,
+     beats:2.6,vel:.48,layer:0,pan:.25});
   }
-  // Two alternating triplets of rushing violin figures surround the brass
-  // rather than playing exactly the same melody as the horns.
-  const arpeggio=i%2?['E4','G4','B4']:['A3','C4','E4'];
-  for(let beat=0;beat<9;beat+=.5){
-   const note=arpeggio[Math.floor(beat*2)%3];
-   events.push({inst:'strings',midi:noteToMidi(note)+12,beat,beats:.38,
-     vel:.55,layer:0,pan:.35});
-  }
-  // Horse's gallop: a downbeat followed by shorter offbeats, with the
-  // accented dotted/sixteenth melody deliberately different above it.
-  for(let beat=0;beat<9;beat+=3){
-   const root=VALKYRIE_BASS[i];
-   events.push({inst:'strings',midi:noteToMidi(root),beat,beats:1.6,
-     vel:.95,layer:0,pan:-.16});
-   events.push({inst:'war',beat,beats:.65,vel:beat===0?.9:.62,layer:0});
-   events.push({inst:'dum',beat:beat+2,beats:.45,vel:.38,layer:0});
-  }
-  yield {piece:'valkyrie',section:'wagner-riding-call',index:i,
-    chord:i===1?'Em':i===3?'C':'Am',events};
+  // Low, slow voices arrive as the last charge becomes an irrevocable oath.
+  if(i===2||i===3||i>=5)
+   events.push({inst:'choir',midi:voicing.choir,beat:0,beats:5.9,
+     vel:i>=6?.77:.58,layer:0,pan:0,attack:.45,release:.8});
+  // One genuine sustained low D through each four-bar phrase.
+  if(i===0||i===4)
+   events.push({inst:'drone',midi:noteToMidi('D2'),beat:0,
+     beats:24,vel:1.0,layer:0,pan:0,attack:.8,release:1.3});
+  yield {piece:'valkyrie',section:i<4?'last-wing-call':'last-wing-answer',
+    index:i,chord,events};
  }
 }
 
