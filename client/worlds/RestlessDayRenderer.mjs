@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { RESTLESS_DAY_WORLD } from '../../shared/worlds/restlessDay.mjs';
+import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
+import { BiByeMotion } from './biByeMotion.mjs';
 
 // Procedural placeholder only. Argon's verified Renowner GLB can replace the
 // torso rig without changing server hitboxes, pedestal, or animation events.
@@ -45,14 +47,18 @@ export class RestlessDayRenderer{
    crimson:material(0x9c3336),stoneLight:material(0xd2c9ad),
   };
   for(const floor of RESTLESS_DAY_WORLD.floors)box(this.group,floor.size,floor.center,this.materials[floor.material]??this.materials.stone);
+  this.structureMeshes=new Map();
   for(const solid of RESTLESS_DAY_WORLD.solids){
    if(solid.id==='renowner-body')continue; // articulated visual has same game dimensions
-   box(this.group,solid.size,solid.center,this.materials[solid.material]??this.materials.stone);
+   const m=box(this.group,solid.size,solid.center,this.materials[solid.material]??this.materials.stone);
+   if(solid.id==='outer-gate'||solid.id==='inner-gate')this.structureMeshes.set(solid.id,m);
   }
   for(const r of RESTLESS_DAY_WORLD.ramps)rampMesh(this.group,r,this.materials.stone);
   this.#buildMonument();
   this.ladders=new Map();
   this.lastMode=null;this.lastLadderKey='';
+  this.biByeLlista=null;this.biByeMotion=new BiByeMotion();
+  this.biByeRoomCode=null;this.biByePresentationOptions=null;
   scene.add(this.group);
  }
  #buildMonument(){
@@ -112,13 +118,27 @@ export class RestlessDayRenderer{
  }
  setRestlessDayState(state,snapshot=null){
   this.lastMode=state;this.lastServerTime=snapshot?.serverTime??0;
+  for(const [id,m] of this.structureMeshes)
+    m.visible=(snapshot?.structures?.entities?.[id]?.health??1)>0;
   this.#replaceLadders(state?.ladders??[]);
   if(this.monument){
     this.monument.visible=(state?.renowner?.health??1)>0;
     this.monument.rotation.y=state?.renowner?.yaw??Math.PI;
   }
  }
+ setBiByeState(snapshot,serverNow=snapshot?.serverTime,options={}){
+  if(snapshot?.bibyeBallista&&!this.biByeLlista)this.biByeLlista=new BiByeLlistaRenderer(this.scene);
+  if(this.biByeRoomCode!==snapshot?.roomCode){this.biByeRoomCode=snapshot?.roomCode;this.biByeMotion=new BiByeMotion();}
+  if((snapshot?.bibyeRevision??0)<this.biByeMotion.revision)return;
+  this.biByePresentationOptions=options;
+  this.biByeMotion.push(snapshot?.bibyeBallista??null,snapshot?.bibyeProjectiles??[],
+    snapshot?.serverTime??serverNow,snapshot?.bibyeRevision??0);
+  this.biByeServerTime=serverNow;
+ }
  update(now){
+  const view=this.biByeMotion.sample(this.biByeServerTime??now,
+    this.biByePresentationOptions?.local,this.biByePresentationOptions?.frozen);
+  this.biByeLlista?.update(view.clock,view.ballista,view.projectiles);
   const attack=this.lastMode?.renowner?.attack;
   if(attack){
     const t=Math.max(0,(now-attack.startedAt));
@@ -128,6 +148,7 @@ export class RestlessDayRenderer{
   }else{this.sword.rotation.x=0;this.sword.rotation.y=0;}
  }
  dispose(){
+  this.biByeLlista?.dispose();
   this.scene.remove(this.group);
   this.group.traverse(x=>x.geometry?.dispose?.());
   for(const mat of Object.values(this.materials))mat.dispose();
