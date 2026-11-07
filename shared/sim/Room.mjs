@@ -199,6 +199,10 @@ export class Room {
   initialSpawnFor(player, index = 0, nowSec = 0) {
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
+      if(this.mode===GAME_MODES.RESTLESS_DAY){
+        const available=modeCall(this,'spawn',player,this.world.spawnPoints);
+        if(available?.length)return available[index%available.length];
+      }
       if (this.mode === GAME_MODES.HIGH_GROUNDS) {
         // A match begins in the home camp, beside the team's siege foundry (its controls show only within reach of
         // it): starting at the forward camp, 38 m up the road, nobody ever saw the foundry. Respawns still go
@@ -987,6 +991,7 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
+    if(this.mode===GAME_MODES.RESTLESS_DAY&&this.restlessDay)this.restlessDay.phase=0;
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
