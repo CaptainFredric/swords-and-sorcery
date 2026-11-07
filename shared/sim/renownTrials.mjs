@@ -229,7 +229,7 @@ export function beginRenownTrial(room, nowSec) {
     phase: RENOWN_TRIAL_PHASES.PREPARING,
     waveIndex: 0, wave: null, ledger: [], ceremony: null,
     transitionAt: nowSec + RENOWN_TRIAL_TUNING.introSec,
-    endedAt: null, termination: null,
+    lastStepAt: nowSec, endedAt: null, termination: null,
   };
   room.events.push({ type: 'renownTrialPreparing', runId: room.renownTrial.runId, at: nowSec });
   return room.renownTrial;
@@ -237,6 +237,7 @@ export function beginRenownTrial(room, nowSec) {
 
 export function renownTrialCombatOpen(room) {
   return room.renownTrial
+    && room.players.get(room.renownTrial.playerId)?.connected !== false
     && (room.renownTrial.phase === RENOWN_TRIAL_PHASES.WAVE_ACTIVE
       || room.renownTrial.phase === RENOWN_TRIAL_PHASES.WAVE_OVERTIME);
 }
@@ -246,6 +247,24 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
   if (!state || room.state !== 'PLAYING') return;
   const player = trialPlayer(room, state);
   if (!player || !player.alive) { stopRun(room, state, nowSec, 'defeated'); return; }
+  const elapsedSinceTick = Math.max(0, nowSec - (state.lastStepAt ?? nowSec));
+  state.lastStepAt = nowSec;
+  if (player.connected === false) {
+    // A temporary network outage cannot turn an otherwise timely clear into
+    // overtime while the knight cannot issue commands. Likewise do not skip
+    // the ceremony or its transition during the reconnect grace period.
+    if (state.wave && (state.phase === RENOWN_TRIAL_PHASES.WAVE_ACTIVE
+      || state.phase === RENOWN_TRIAL_PHASES.WAVE_OVERTIME)) {
+      state.wave.startedAt += elapsedSinceTick;
+      state.wave.deadlineAt += elapsedSinceTick;
+    }
+    if (state.transitionAt !== null) state.transitionAt += elapsedSinceTick;
+    if (state.ceremony) {
+      state.ceremony.startedAt += elapsedSinceTick;
+      state.ceremony.endsAt += elapsedSinceTick;
+    }
+    return;
+  }
   if (state.phase === RENOWN_TRIAL_PHASES.PREPARING || state.phase === RENOWN_TRIAL_PHASES.TRANSITION) {
     if (nowSec >= state.transitionAt) beginWave(room, state, nowSec);
     return;
