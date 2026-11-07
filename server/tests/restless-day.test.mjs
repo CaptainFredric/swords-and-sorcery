@@ -58,7 +58,7 @@ test('The ladder carries a real walkable slope into both rampart floors',()=>{
   assert.equal(surfaceHeightAt(l.position.x,zEnd,8,world),height);
   let actor={...createMovementState({x:l.position.x,y:0,z:zStart}),speedScale:1,grounded:true};
   const input={forward:1,right:0,yaw:Math.PI,sprint:false,jump:false,crouch:false};
-  for(let t=0;t<100;t++)actor=movePlayer(actor,input,1/30,22+t/30,world);
+  for(let t=0;t<100&&actor.position.z<zEnd;t++)actor=movePlayer(actor,input,1/30,22+t/30,world);
   assert.ok(actor.position.z>zEnd-.5,`walk climbed ${wall} to ${actor.position.z}`);
   assert.ok(actor.position.y>=height-.6,`walk reached wall ${wall} height ${actor.position.y}`);
   // Retrieve on the same side before testing the next wall.
