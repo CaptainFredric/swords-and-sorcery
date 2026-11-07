@@ -28,7 +28,8 @@ test('Discharge layers are dark amber, thick yellow, and pale yellow with branch
  assert.match(source,/\.065,CONDUCT_YELLOW\.sheath/);
  assert.match(source,/\.048,CONDUCT_YELLOW\.body/);
  assert.match(source,/\.019,CONDUCT_YELLOW\.highlight/);
- assert.match(source,/group\.add\(tube\(/);
+ assert.match(source,/group\.add\(branch\)/);
+ assert.match(source,/group\.add\(mesh\)/);
 });
 test('Hand socket arcs move from equipped idle into pointed cast, with disposal',()=>{
  assert.match(source,/export class ConductHandEffects/);
