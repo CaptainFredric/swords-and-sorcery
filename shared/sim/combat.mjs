@@ -1,7 +1,7 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
-import {withRestlessLadders,damageRestlessLadder} from './restlessDayMode.mjs';
+import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
@@ -2527,6 +2527,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     room.world = bastionBreachForObjective(room.objectiveState, nowSec);
     world = room.world;
   }
+  // Always compose from canonical structure geometry; do not feed the last
+  // frame's dynamic ladder rails into the next structural rebuild.
+  if(room.mode==='RESTLESS_DAY'&&room.worldId===WORLD_IDS.RESTLESS_DAY)
+    world=getWorld(WORLD_IDS.RESTLESS_DAY);
   world = structureWorld(world, room.structures);
   world = withRestlessLadders(world,room.restlessDay);
   room.world = world;
@@ -2728,6 +2732,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.yaw = input.yaw ?? player.yaw;
       player.pitch = input.pitch ?? player.pitch;
       player.flight = moved.flight;
+      if(player.restlessCarrying)constrainRestlessCarry(player,from,effectiveWorld,player.yaw);
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
