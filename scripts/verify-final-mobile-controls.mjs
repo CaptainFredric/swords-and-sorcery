@@ -532,17 +532,16 @@ try {
       moved:JSON.stringify(editor.layouts.flight.jump)!==JSON.stringify(before.jump),
       size:editor.layouts.flight.jump.size,
       dashUnchanged:JSON.stringify(editor.layouts.flight.dash)===JSON.stringify(before.dash),
-      pathStart:geom?.points?.[0],haloClosed:Boolean(geom&&
-        Math.hypot(geom.points[5][0]-geom.points.at(-1)[0],
-          geom.points[5][1]-geom.points.at(-1)[1])<.01),
+      pathStart:geom?.points?.[0],crossbarComplete:Boolean(geom&&geom.points.length===10&&
+        geom.points[7][1]===geom.points[9][1]&&geom.points[7][0]!==geom.points[9][0]),
       previewVisible:!rt.touch.valkyrieStencil.hidden};
   })()`);
   assert.equal(stencilEditor.selected,'jump','edit the real Jump button, not an independent rune');
   assert.equal(stencilEditor.size,68,'Jump can still be resized in the Flight editor');
   assert.ok(stencilEditor.moved&&stencilEditor.dashUnchanged,
     'customizing Jump preserves the other buttons');
-  assert.ok(stencilEditor.haloClosed&&stencilEditor.previewVisible,
-    'the displayed Dagaz auto-aligns and has a closed halo in Flight preview');
+  assert.ok(stencilEditor.crossbarComplete&&stencilEditor.previewVisible,
+    'the displayed Dagaz follows edited buttons with one horizontal crossbar');
 
   // Capture Touch Layout Editor screenshot
   await captureScreenshot('mobile-flight-touch-editor.png');
@@ -633,7 +632,7 @@ try {
       beforeSources:{dash:rt.input.flightDashSources.size,
         ultimate:rt.input.flightUltimateSources.size}};
   })()`);
-  assert.ok(geometry?.points?.length>12,'actual live Dagaz geometry is present');
+  assert.equal(geometry?.points?.length,10,'Dagaz, diagonal return, stem and one crossbar');
   const nativePoint=([x,y])=>{
     const {rect:r,width:w,height:h,angle}=geometry;
     if(angle===90)return {x:r.left+r.width-y/h*r.width,y:r.top+x/w*r.height};
@@ -713,15 +712,18 @@ try {
     angle:geometry.angle,visibleButtons:geometry.visibleButtons,
     checkpointCount:geometry.points.length};
   if(!drawn.complete)console.log('[NATIVE MOBILE RITUAL DIAGNOSTIC]',JSON.stringify(drawn));
-  assert.ok(complete,'a REAL native touch must complete Dagaz + closed halo');
+  assert.ok(complete,'a REAL native touch must complete Dagaz and the single crossbar');
   assert.equal(stages.at(-1).index,geometry.points.length-1,
-    'the native finger reaches the final complete halo checkpoint');
+    'the native finger reaches the far end of the crossbar');
   assert.equal(stages.at(-1).progress,1,
     'the actual displayed ink fills all 100% of the traced path');
   assert.deepEqual(drawn.beforeSources,{dash:0,ultimate:0});
   assert.deepEqual(drawn.afterSources,{dash:0,ultimate:0},
     'native captured finger does not inadvertently press its crossed buttons');
   await captureScreenshot('mobile-flight-valkyrie-stencil-complete.png');
+  // A completed trace arms the Dive; only touchEnd transmits commitment.
+  const beforeRelease=await evaluate("window.__ssRuntime.latestSnapshot?.fightFlight?.terminalDiveSpent===true");
+  assert.equal(beforeRelease,false,'drawing alone cannot commit');
   await nativeTouch('touchEnd',null);
   await until(()=>evaluate("window.__mobileValkyrieTrace?.some(s=>s.dive&&s.spent)"),'mobile terminal dive committed once',150,150);
   await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive?.resolved===true"),'mobile terminal impact resolved',150,150);
