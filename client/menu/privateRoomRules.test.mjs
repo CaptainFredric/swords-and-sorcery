@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {PRIVATE_MODES,PRIVATE_MODE_DEFAULTS,privateRoomPreview} from './privateRoomRules.mjs';
 
 test('Private creation defaults to Free-for-All and a six-minute first-to-ten room',()=>{
- assert.deepEqual(PRIVATE_MODES,['FFA','BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY']);
+ assert.deepEqual(PRIVATE_MODES,['FFA','BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY','EDGE_OF_VICTORY']);
  const p=privateRoomPreview('FFA');
  assert.equal(p.ok,true);
  assert.deepEqual({mode:p.settings.mode,world:p.settings.worldId,score:p.settings.scoreToWin,

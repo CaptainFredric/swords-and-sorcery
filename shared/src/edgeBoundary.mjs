@@ -69,7 +69,15 @@ export function edgeMachineProgressAllowed(before,after,edge,margin=.02) {
   return next <= Math.max(0,old)+1e-5;
 }
 
-export function edgeRadiusAt(elapsed, stages) {
+export const DEFAULT_EDGE_STAGES = Object.freeze([
+  Object.freeze({ second: 0, radius: 18 }),
+  Object.freeze({ second: 75, radius: 15 }),
+  Object.freeze({ second: 150, radius: 11 }),
+  Object.freeze({ second: 225, radius: 8 }),
+  Object.freeze({ second: 290, radius: 6.5 }),
+]);
+
+export function edgeRadiusAt(elapsed, stages = DEFAULT_EDGE_STAGES) {
   const t = Math.max(0, elapsed);
   if (!stages?.length) return Infinity;
   if (t <= stages[0].second) return stages[0].radius;
@@ -93,6 +101,6 @@ export function edgePresentedRadius(edge, serverNow, receivedAt = serverNow) {
   return edgeRadiusAt(predictedTime - edge.startedAt, edge.stages);
 }
 
-export function edgeNextStage(elapsed, stages) {
+export function edgeNextStage(elapsed, stages = DEFAULT_EDGE_STAGES) {
   return stages?.find((stage) => stage.second > Math.max(0,elapsed) + 1e-6)?.second ?? null;
 }
