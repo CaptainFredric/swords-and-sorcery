@@ -12,6 +12,7 @@ import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { highGroundsBotGoal } from './highGroundsMode.mjs';
+import {modeCall} from './modeRuntime.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -814,6 +815,12 @@ function patrol(actor, ai, nowSec, random, world) {
  * objective -> immediate danger -> useful ally support -> enemy pursuit -> reposition
  */
 function selectTeamGoal(room, actor, ai, nowSec) {
+  if(room.mode==='RESTLESS_DAY'){
+    const goalPos=modeCall(room,'botGoal',actor);
+    const enemy=foesOf(room,actor,['human','bot']).filter(p=>distance2d(actor,p)<6.5)
+      .sort((a,b)=>distance2d(actor,a)-distance2d(actor,b))[0]??null;
+    return {target:enemy,goalPos,holdRing:false};
+  }
   if (room.mode === 'HIGH_GROUNDS') {
     const goalPos = highGroundsBotGoal(room, actor);
     const enemy = foesOf(room, actor).filter(p => distance2d(actor, p) < 9)
@@ -1009,7 +1016,7 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (room.mode === 'HIGH_GROUNDS') {
+    if (room.mode === 'RESTLESS_DAY' || room.mode === 'HIGH_GROUNDS') {
       target = teamGoal.target;
       ai.targetId = target?.id ?? null;
     } else if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
