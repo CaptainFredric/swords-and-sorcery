@@ -240,7 +240,7 @@ test('Sprint plus Guard sword and spell keeps authored gait with a restrained Sp
   assert.equal(resumed.layers.posture.overlay.clip,'Sprint');
 });
 
-test('All-Natural Disaster poses the third-person sword through the actual strike contact, not Idle',()=>{
+test('All-Natural Disaster poses the third-person sword through the actual strike contact, not Idle',async()=>{
   const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
   const base={alive:true,velocity:{x:0,y:0,z:0},staggerUntil:0};
   const charging={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',commitAt:10.92,preparedTiers:{lightning:0}}};
