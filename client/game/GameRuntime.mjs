@@ -677,7 +677,7 @@ export class GameRuntime {
     // while WebGL produces too few frames to drive the old send loop.
     // The existing render-driven send still forwards fast transitions.
     this.networkInputTimer=setInterval(()=>{
-      if(this.socket.playingLocally||!this.playing||!this.localAuth?.alive
+      if(this.socket.playingLocally||this.trialControlsLocked||!this.playing||!this.localAuth?.alive
         ||!this.input?.enabled||this.inspectionFree
         ||(typeof document!=='undefined'&&document.hidden))return;
       const now=performance.now();
@@ -1380,6 +1380,17 @@ export class GameRuntime {
       this.flightCameraMotion?.reset();
       this.flightDashPresentation.reset();
     }
+    const trialPhase = snapshot.mode === 'RENOWN_TRIALS' ? snapshot.renownTrial?.phase : null;
+    const trialLocked = Boolean(trialPhase && !['WAVE_ACTIVE','WAVE_OVERTIME'].includes(trialPhase));
+    if (trialLocked && !this.trialControlsLocked) {
+      // One authoritative phase transition releases every held keyboard/touch
+      // button; no pre-judgment attack remains queued into the next wave.
+      this.input.releaseInputs();
+      this.weapon.setAttack(false);
+      this.weapon.setGuard(false);
+      this.weapon.cancelCast();
+    }
+    this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
@@ -1467,7 +1478,7 @@ export class GameRuntime {
         const dz = auth.position.z - compared.z;
         const error = Math.hypot(dx, dy, dz);
         this.predictionError = error;
-        if (!auth.alive || error > 2.2) {
+        if (!auth.alive || this.trialControlsLocked || error > 2.2) {
           this.predictionHistory=[];
           this.localState.position = { ...auth.position };
           this.localState.velocity = { ...auth.velocity };
@@ -3748,7 +3759,7 @@ export class GameRuntime {
       // (a guided look, where something asks for one: the tutorial turning the Spellblade's head; the player's own look
       // always wins)
       this.viewGuide?.(dt, this.input);
-      const wanted = this.inspectionFree
+      const wanted = this.inspectionFree || this.trialControlsLocked
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
         : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
@@ -3814,6 +3825,14 @@ export class GameRuntime {
         if (this.localAuth.position) {
           this.localState.position = { ...this.localAuth.position };
         }
+      } else if (this.trialControlsLocked) {
+        // Ceremonial pose belongs entirely to the server. Prediction cannot
+        // drift through an authoritative freeze or outrun an execution.
+        this.predictionHistory = [];
+        this.localState.position = { ...this.localAuth.position };
+        this.localState.velocity = {x:0,y:0,z:0};
+        this.localState.impulse = {x:0,z:0};
+        this.localState.sprinting = false;
       } else {
         this.movementWorld = playerMovementWorld(this.activeWorld, {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
@@ -3824,7 +3843,8 @@ export class GameRuntime {
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // Separation uses the host's *current* bodies, not the deliberately delayed visual shells.
       // Pushing against a 100-ms-old rendering sample creates a false collision every frame.
-      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
+      if (!this.trialControlsLocked
+        && !(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
         && shouldPredictSeparation(this.lastSeparationKey,this.latestSnapshot)) {
         const peers=(this.latestSnapshot?.players??[]).filter(p=>p.id!==this.playerId&&p.alive!==false&&!p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId)
           .map(p=>({id:p.id,...p.position}));
