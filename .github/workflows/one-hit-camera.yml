@@ -1,0 +1,55 @@
+name: All-Natural Disaster third-person Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/oneHitCamera.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/game/RemotePlayers.mjs'
+      - 'client/game/spellbladePose.mjs'
+      - 'client/game/spellbladeAnimationPlan.mjs'
+      - 'shared/src/ultimates.mjs'
+      - 'client/settings/settingsRegistry.mjs'
+      - 'client/index.html'
+      - 'scripts/one-hit-camera-browser.mjs'
+      - '.github/workflows/one-hit-camera.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-disaster:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start game server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/disaster-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/disaster-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Enter Practice and verify the real cinematic camera
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/one-hit-camera-browser.mjs
+      - name: Preserve actual third-person and restored first-person screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-natural-disaster-camera
+          path: output/playwright/all-natural-disaster/
+          retention-days: 7
