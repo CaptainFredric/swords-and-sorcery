@@ -40,7 +40,7 @@ import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen } from './renownTrials.mjs';
 import { eliminateEdgePlayer, edgeConstrainActor, stepEdgeOfVictory } from './edgeOfVictory.mjs';
 import { edgeHandleMountedOperators } from './edgeSiegeDismount.mjs';
-import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
+import { edgeInside, edgeLimitPoint, edgeClipTeleport } from '../src/edgeBoundary.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -1937,21 +1937,31 @@ function oneHitTeleport(room,player,state,nowSec,world=room.world) {
   const dx=-Math.sin(yaw)*Math.cos(aerial?pitch:0),
     dy=aerial?Math.sin(pitch):0,dz=-Math.cos(yaw)*Math.cos(aerial?pitch:0);
   const origin={...player.position};
-  const target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
+  let target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
+  if(room.edgeOfVictory){
+    // The Full-Lightning blink follows its original ray and never tunnels
+    // through the psychological boundary.
+    target=edgeClipTeleport(origin,target,room.edgeOfVictory,MOVEMENT.playerRadius);
+    if(!target)return false;
+  }
   const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];
   let t=1;
-  for(const box of world?.solids??[]) {
+  const teleportWorld = room.edgeOfVictory
+    ? playerMovementWorld(world,{ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight})
+    : world;
+  for(const box of teleportWorld?.solids??[]) {
     const hit=segmentAabbHit(a,b,box);
     if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(distance,.01)));
   }
   const next={x:origin.x+(target.x-origin.x)*t,y:origin.y+(target.y-origin.y)*t,
     z:origin.z+(target.z-origin.z)*t};
-  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
+  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,teleportWorld?.solids??[]);
   // A physical wall, abyss or invalid floor never becomes a blink-through shortcut.
-  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return;
+  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return false;
+  if(room.edgeOfVictory && !edgeInside(next,room.edgeOfVictory.center,room.edgeOfVictory.radius,MOVEMENT.playerRadius)) return false;
   if(!aerial) {
     const surface=surfaceHeightAt(next.x,next.z,next.y,world);
-    if(surface===null || Math.abs(surface-next.y)>2) return;
+    if(surface===null || Math.abs(surface-next.y)>2) return false;
     next.y=surface;player.grounded=true;
   }else player.grounded=false;
   player.position=next;
