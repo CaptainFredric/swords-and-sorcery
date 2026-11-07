@@ -255,7 +255,7 @@ export class HUD {
     this.trialPanel.innerHTML =
       '<small class="trial-header" data-trial-header></small>' +
       '<div class="trial-monument" aria-hidden="true">' +
-        '<i class="trial-statue"></i><i class="trial-sword"></i><i class="trial-pedestal"></i>' +
+        '<i class="trial-knight"></i><i class="trial-statue"></i><i class="trial-sword"></i><i class="trial-pedestal"></i><i class="trial-coin"></i>' +
       '</div>' +
       '<strong class="trial-title" data-trial-title></strong>' +
       '<output class="trial-clock" data-trial-clock></output>' +

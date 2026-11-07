@@ -18,13 +18,18 @@ export function pendingTrialAward(room, event) {
       || row.reward !== state.wave.reward) return null;
   // Reject an event whose numeric award exceeds the authoritative wave formula.
   // MatchId, award and participant identity all come from the server simulation.
+  if (row.status === 'SETTLED' || row.status === 'NOT_AWARDED') return null;
   const plan = trialWavePlan(row.wave);
   if (row.reward > timelyWaveReward(plan, 0)) return null;
   if (row.reward === 0) {
     row.status = 'NOT_AWARDED';
     return null;
   }
-  if (!player?.profileToken || player.actorKind !== 'human' || !player.connected) {
+  const token = state.profileToken ?? player?.profileToken;
+  // A lost connection does not invalidate an already-authoritative clear.
+  // The identity remains locked to this run even during reconnect grace.
+  if (!token || (player && player.actorKind !== 'human')
+    || (state.profileToken && player?.profileToken && player.profileToken !== state.profileToken)) {
     row.status = 'UNAVAILABLE';
     return null;
   }
@@ -32,7 +37,7 @@ export function pendingTrialAward(room, event) {
   row.receiptId = receiptId;
   row.status = 'PENDING';
   return {
-    receiptId, token: player.profileToken, amount: row.reward, wave: row.wave,
+    receiptId, token, amount: row.reward, wave: row.wave,
     ledger: row, retryAt: 0, attempts: 0,
   };
 }

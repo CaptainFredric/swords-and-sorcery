@@ -7,6 +7,7 @@ import { BLACKBELL_FOUNDRY } from './blackbellFoundry.mjs';
 import { OUTERWORKS } from './outerworks.mjs';
 import { HIGH_GROUNDS } from './highGrounds.mjs';
 import { RESTLESS_DAY_WORLD } from './restlessDay.mjs';
+import { COURT_OF_MERIT } from './courtOfMerit.mjs';
 
 export const WORLD_IDS = Object.freeze({
   SHATTERED_KEEP: 'shattered-keep',
@@ -18,6 +19,7 @@ export const WORLD_IDS = Object.freeze({
   OUTERWORKS: 'outerworks',
   HIGH_GROUNDS: 'high-grounds',
   RESTLESS_DAY: 'restless-day',
+  COURT_OF_MERIT: 'court-of-merit',
 });
 
 const WORLDS = new Map([
@@ -30,6 +32,7 @@ const WORLDS = new Map([
   [WORLD_IDS.OUTERWORKS, OUTERWORKS],
   [WORLD_IDS.HIGH_GROUNDS, HIGH_GROUNDS],
   [WORLD_IDS.RESTLESS_DAY, RESTLESS_DAY_WORLD],
+  [WORLD_IDS.COURT_OF_MERIT, COURT_OF_MERIT],
 ]);
 
 

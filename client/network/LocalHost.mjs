@@ -152,7 +152,12 @@ export class LocalHost {
     }
     this.#stop();
     const time = this.now();
-    const resolvedWorld = tutorial ? 'greener-pastures' : mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep' : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds' : (mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach')) : arenaOrDefault(worldId));
+    const resolvedWorld = tutorial ? 'greener-pastures'
+      : mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep'
+      : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds'
+      : mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach'))
+      : mode === GAME_MODES.RENOWN_TRIALS ? (worldId === 'castleward' ? 'castleward' : 'court-of-merit')
+      : arenaOrDefault(worldId);
     const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
     room.localTutorial = tutorial;
     if (!this.profile && this.storage) {

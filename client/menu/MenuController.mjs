@@ -1,4 +1,4 @@
-import { arenaOrDefault } from '../../shared/src/modes.mjs';
+import { arenaOrDefault, RENOWN_ARENAS } from '../../shared/src/modes.mjs';
 import { botSkillId } from '../../shared/sim/botSkill.mjs';
 
 const MAX_NAME_LENGTH = 18;
@@ -33,6 +33,18 @@ export class MenuController {
   chooseSoloArena(worldId) {
     const arena = arenaOrDefault(worldId);
     this.storage?.setItem?.('ss-solo-arena', arena);
+    return arena;
+  }
+
+  /** The arena chosen for Renown Trials (remembered; Court of Merit by default). */
+  renownArena() {
+    const saved = this.storage?.getItem?.('ss-renown-arena');
+    return RENOWN_ARENAS?.includes(saved) ? saved : 'court-of-merit';
+  }
+
+  chooseRenownArena(worldId) {
+    const arena = RENOWN_ARENAS?.includes(worldId) ? worldId : 'court-of-merit';
+    this.storage?.setItem?.('ss-renown-arena', arena);
     return arena;
   }
 
@@ -157,8 +169,11 @@ export class MenuController {
 
 
 
-  renownTrials(rawName) {
-    return this.#withName(rawName, (name) => this.socket.startSolo('RENOWN_TRIALS', name, this.soloArena()));
+  renownTrials(rawName, options = null) {
+    const arena = (typeof options === 'object' && options?.worldId)
+      ? (RENOWN_ARENAS?.includes(options.worldId) ? options.worldId : 'court-of-merit')
+      : (typeof options === 'string' && RENOWN_ARENAS?.includes(options) ? options : this.renownArena());
+    return this.#withName(rawName, (name) => this.socket.startSolo('RENOWN_TRIALS', name, arena));
   }
 
   practice(rawName) {
