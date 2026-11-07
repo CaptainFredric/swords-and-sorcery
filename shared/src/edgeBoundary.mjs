@@ -1,15 +1,61 @@
-/** Shared by authoritative simulation and client-side prediction. */
+/** Edge of Victory's geometry. All functions are pure and shared by browser prediction and authority. */
+/** The ring denotes a knight's conviction; it never applies damage. */
 export function edgeInside(point, center, radius, clearance = 0) {
   return Math.hypot(point.x - center.x, point.z - center.z) <= radius - clearance + 1e-6;
 }
 
-/** Projection onto a convex battle disk. Endpoints AND their connecting sweep
- * remain inside; sideways motion is preserved even against the boundary.
- */
+/** A convex disk contains the whole straight segment between any two legal points. */
 export function edgeLimitPoint(point, center, radius, clearance = 0) {
   const limit = Math.max(0, radius - clearance);
   const dx = point.x - center.x, dz = point.z - center.z;
   const distance = Math.hypot(dx, dz);
   if (distance <= limit || distance < 1e-9) return { ...point };
   return { ...point, x: center.x + dx * limit / distance, z: center.z + dz * limit / distance };
+}
+
+/** A real volume's four extreme horizontal corners; handles rotated OBBs and AABBs.
+ * It is deliberately conservative for multi-piece siege machines, and never
+ * replaces those machines' existing terrain/occupant collision solvers.
+ */
+export function edgeFootprintInside(volumes, center, radius, margin = 0) {
+  if (!center || !Number.isFinite(radius)) return true;
+  for (const box of volumes ?? []) {
+    if (!box?.center || !box?.size) continue;
+    const axes = box.axes ?? [[1,0,0],[0,1,0],[0,0,1]];
+    const ex = axes.reduce((sum, axis, i) => sum + Math.abs(axis[0]) * box.size[i] / 2, 0);
+    const ez = axes.reduce((sum, axis, i) => sum + Math.abs(axis[2]) * box.size[i] / 2, 0);
+    for (const sx of [-1,1]) for (const sz of [-1,1]) {
+      if (!edgeInside({ x:box.center[0] + sx * ex, z:box.center[2] + sz * ez },
+        center, radius, margin)) return false;
+    }
+  }
+  return true;
+}
+
+export function edgeRadiusAt(elapsed, stages) {
+  const t = Math.max(0, elapsed);
+  if (!stages?.length) return Infinity;
+  if (t <= stages[0].second) return stages[0].radius;
+  for (let i = 1; i < stages.length; i++) {
+    if (t > stages[i].second) continue;
+    const a = stages[i-1], b = stages[i];
+    const f = (t-a.second) / (b.second-a.second);
+    return a.radius + (b.radius-a.radius)*f;
+  }
+  return stages.at(-1).radius;
+}
+
+/** Predict display AND foot controls against the same absolute match clock.
+ * Client serverNow is a synchronized server clock; cap extrapolation to one
+ * snapshot latency to avoid large correction after connection stalls.
+ */
+export function edgePresentedRadius(edge, serverNow, receivedAt = serverNow) {
+  if (!edge) return null;
+  if (!Array.isArray(edge.stages) || !Number.isFinite(edge.startedAt)) return edge.radius;
+  const predictedTime = Math.min(serverNow, receivedAt + 0.15);
+  return edgeRadiusAt(predictedTime - edge.startedAt, edge.stages);
+}
+
+export function edgeNextStage(elapsed, stages) {
+  return stages?.find((stage) => stage.second > Math.max(0,elapsed) + 1e-6)?.second ?? null;
 }
