@@ -356,7 +356,10 @@ test('10. some sort of error: the defeat screen\'s, never an ordinary fall; neve
   // the defeat screen is the only place a lost match is spoken of (main.mjs soundTheEnd: the one who lost it)
   const raisers = [runtime, ...['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', './voiceWatch.mjs'].map(source)];
   for (const text of raisers) assert.doesNotMatch(text, /['`]matchLost['`]/);
-  assert.match(main, /if \(won\) return;\n\s+for \(const say of linesFor\(socket\.playerId, \['matchLost'\]\)\) \{\n\s+const said = voice\.say\(/);
+  // A scripted Renowner execution uses its own stage and must not summon
+  // ordinary defeat-screen banter. All OTHER lost matches keep this line.
+  assert.match(main, /if \(won \|\| snapshot\.mode === 'RENOWN_TRIALS'\) return;\n\s+for \(const say of linesFor\(socket\.playerId, \['matchLost'\]\)\) \{\n\s+const said = voice\.say\(/);
+  assert.match(main, /if \(snapshot\.mode === 'RENOWN_TRIALS' && !won\) return;/);
   // (written out on the defeat screen itself, beat by beat: the arena's HUD, with its subtitle, is put away with the match)
   assert.match(main, /const endCaption = new MenuCaption\(endScreen, \{ place: 'end-caption' \}\);/);
   assert.match(main, /const plan = captionPlan\(say\.line, \{ beats: said\.beats \}\);\n\s+if \(plan\) endCaption\.show\(\{ text: plan\.text, delay: said\.delay \+ plan\.after/);
