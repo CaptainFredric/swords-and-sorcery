@@ -17,9 +17,10 @@ const floors=[
   floor('renowner-dais',0,56,10,10,.75),
 ];
 const ramps=[
-  ramp('outer-west-defender',-22,-17,-22,-8,6,0),
-  ramp('outer-east-defender',17,22,-22,-8,6,0),
-  ramp('inner-east-defender',17,22,24,39,7,0),
+  ramp('outer-west-defender',-22,-17,-22.5,-8,6,0),
+  ramp('outer-east-defender',17,22,-22.5,-8,6,0),
+  ramp('inner-east-defender',17,22,23.9,39,7,0),
+  ramp('renowner-dais-approach',-4.4,4.4,50.2,52.0,0,.75),
 ];
 const solids=[
   solid('boundary-west',-28.2,3,-9,1.6,6,180),
@@ -32,8 +33,8 @@ const solids=[
   solid('inner-curtain-west',-13.5,3.5,22,21,7,2.5),
   solid('inner-curtain-east',13.5,3.5,22,21,7,2.5),
   solid('inner-gate',0,3.5,22,6,7,2.5,'timber'),
-  ...[-23,-11,11,23].map((x,i)=>solid('outer-merlon-'+i,x,6.58,-24,1.5,1.16,2.2)),
-  ...[-22,-9,9,22].map((x,i)=>solid('inner-merlon-'+i,x,7.68,22,1.8,1.36,2.5)),
+  ...[-23,-11,11,23].map((x,i)=>solid('outer-merlon-'+i,x,6.58,-25.37,1.5,1.16,.7)),
+  ...[-22,-9,9,22].map((x,i)=>solid('inner-merlon-'+i,x,7.68,20.33,1.8,1.36,.76)),
   // Two tactically different approaches: exposed field, then tight barricaded court.
   solid('outer-breastwork-left',-14,.8,-37,5,1.6,1.1,'timber'),
   solid('outer-breastwork-right',15,.8,-38,4,1.6,1.1,'timber'),
@@ -50,14 +51,27 @@ const spawnPoints=[
   ...[-15,-7,0,7,15].map(x=>spawn(x,-5,TEAMS.ATTACKERS,1)),
   ...[-15,-7,0,7,15].map(x=>spawn(x,35,TEAMS.ATTACKERS,2)),
   ...[-15,0,15].map(x=>({...spawn(x,-24,TEAMS.DEFENDERS,0),y:6})),
-  ...[-9,9].map(x=>({...spawn(x,22,TEAMS.DEFENDERS,0),y:7})),
+  ...[-7,7].map(x=>({...spawn(x,22.8,TEAMS.DEFENDERS,0),y:7})),
 ];
+// Navigational nodes reflect *supported* surfaces; no ground-level node is
+// allowed inside a curtain wall. Static components are intentionally isolated
+// until an attacker deploys a ladder or destroys a gate. Dynamic links are
+// generated from the authoritative geometry in withRestlessLadders().
 const nodes=[];
-for(const z of [-87,-65,-45,-33,-29,-24,-18,-9,5,14,18,22,29,40,52,65]){
-  for(const x of [-18,-9,0,9,18])nodes.push({id:'rd-nav-'+x+'-'+z,x,y:0,z});
+const node=(x,y,z,id)=>nodes.push({id:id??'rd-'+x+'-'+y+'-'+z,x,y,z});
+for(const z of [-90,-76,-62,-48,-35,-29])
+  for(const x of [-19,0,19])node(x,0,z);
+for(const z of [-16,-3,10,15])
+  for(const x of [-19,0,19])node(x,0,z);
+for(const z of [35,46,65])
+  for(const x of [-19,0,19])node(x,0,z);
+node(0,0,50.2);node(0,.375,51.1);node(0,.75,52);
+for(const x of [-19,0,19])node(x,6,-23.4,'rd-outer-walk-'+x);
+for(const x of [-19,0,19])node(x,7,22.8,'rd-inner-walk-'+x);
+for(const x of [-19,19]){ // two rear approaches to the outer battlement
+  node(x,0,-8.3);node(x,3,-15.25);node(x,6,-22.5);
 }
-for(const w of walls)for(const x of [-10,10])for(const z of [w.approachZ,w.z,w.landingZ])
-  nodes.push({id:'rd-wall-'+w.id+'-'+x+'-'+z,x,y:z===w.z?w.height:0,z});
+node(19,0,38.8);node(19,3.5,31.4);node(19,7,23.9);
 export const RESTLESS_DAY_WORLD=Object.freeze({
   id:'restless-day',name:'Restless Day',floors,ramps,solids,spawnPoints,walls,
   structures:Object.freeze([
