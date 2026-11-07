@@ -1973,8 +1973,16 @@ let preparingSiege=false;
 // The page receives 30Hz snapshots. Do not overwrite an unacknowledged user's
 // selection with the PREVIOUS snapshot, making the control appear inoperative.
 const pendingOneHitTiers=new Map();
+let pendingOneHitRetention=null;
 function pendingOneHitTier(element,tier){
-  pendingOneHitTiers.set(element,{tier:String(tier),until:performance.now()+2200});
+  // Dropdowns are native controls. A 30Hz snapshot must not undo the user's
+  // selected option while its change command is still crossing the socket.
+  pendingOneHitTiers.set(element,{tier:String(tier),until:performance.now()+6500});
+}
+function practiceOneHitCommand(command){
+  const status=$('#practice-one-hit-status');
+  if(status){status.textContent='APPLYING PRACTICE INFUSIONS…';status.dataset.pending='true';}
+  socket.practiceOneHit(command);
 }
 function updateInspectionControls() {
   const machineChoice=$('#practice-hostile-machine')?.value;
@@ -2032,13 +2040,21 @@ function updateInspectionControls() {
       if(select.value!==shown)select.value=shown;
     }
     const unlimited=$('#practice-one-hit-unlimited');
-    if(unlimited)unlimited.checked=Boolean(self?.practiceOneHit?.enabled);
+    const serverRetention=Boolean(self?.practiceOneHit?.enabled);
+    if(pendingOneHitRetention &&
+      (pendingOneHitRetention.value===serverRetention||performance.now()>pendingOneHitRetention.until))
+      pendingOneHitRetention=null;
+    if(unlimited)unlimited.checked=pendingOneHitRetention?.value??serverRetention;
     const status=$('#practice-one-hit-status');
-    if(status)status.textContent=self?.practiceOneHit?
-      (self.practiceOneHit.enabled
-        ? 'Manual tiers · selected stages persist after every cast.'
-        : 'Manual tiers · selected stages apply once, then return to natural acquisition.'):
-      'Natural acquisition · land or receive actual elemental spells to gain tiers.';
+    if(status){
+      const pending=pendingOneHitTiers.size>0||Boolean(pendingOneHitRetention);
+      status.dataset.pending=String(pending);
+      status.textContent=pending?'APPLYING PRACTICE INFUSIONS…':
+        self?.practiceOneHit?self.practiceOneHit.enabled?
+          'APPLIED · selected infusion tiers persist across casts.':
+          'APPLIED · selected infusion tiers apply to the next cast only.':
+          'NATURAL · real elemental spell hits determine infusion tiers.';
+    }
   }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
   const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
@@ -2163,13 +2179,14 @@ practiceOneHit?.addEventListener('change',event=>{
   const target=event.target;
   if(target?.dataset?.oneHitElement){
     pendingOneHitTier(target.dataset.oneHitElement,target.value);
-    socket.practiceOneHit?.({
+    practiceOneHitCommand({
       action:'level',element:target.dataset.oneHitElement,tier:Number(target.value),
     });
   }
-  else if(target?.id==='practice-one-hit-unlimited')socket.practiceOneHit?.({
-    action:'enabled',enabled:target.checked,
-  });
+  else if(target?.id==='practice-one-hit-unlimited'){
+    pendingOneHitRetention={value:target.checked,until:performance.now()+6500};
+    practiceOneHitCommand({action:'enabled',enabled:target.checked});
+  }
 });
 practiceOneHit?.addEventListener('click',event=>{
   const button=event.target.closest?.('button');
@@ -2184,11 +2201,11 @@ practiceOneHit?.addEventListener('click',event=>{
       'gale-lightning':{fire:0,frost:0,gale:2,lightning:2},
     })[button.dataset.oneHitPreset];
     if(values)for(const [element,tier]of Object.entries(values))pendingOneHitTier(element,tier);
-    socket.practiceOneHit?.({action:'preset',preset:button.dataset.oneHitPreset});
+    practiceOneHitCommand({action:'preset',preset:button.dataset.oneHitPreset});
   }else if(button.dataset.oneHitAction){
     if(button.dataset.oneHitAction==='natural')pendingOneHitTiers.clear();
     if(button.dataset.oneHitAction==='aerial')pendingOneHitTier('gale',2);
-    socket.practiceOneHit?.({action:button.dataset.oneHitAction});
+    practiceOneHitCommand({action:button.dataset.oneHitAction});
   }
 });
 
