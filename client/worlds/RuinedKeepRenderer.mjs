@@ -71,7 +71,7 @@ export class RuinedKeepRenderer {
     });
     scatterGroundDetail(batch, { floors: world.floors, solids: world.solids, seed: 9191 });
     this.#debris(batch);
-    for (const ramp of world.ramps) this.#stair(batch, rand, ramp);
+    for (const ramp of world.ramps) this.#ramp(batch, rand, ramp);
     for (const solid of world.solids) this.#solid(batch, rand, solid);
     this.#exterior(batch, rand);
     this.#skirts(batch, rand);
@@ -120,6 +120,57 @@ export class RuinedKeepRenderer {
         if (inside || !floor || floor.y > 0.1) continue;
         const r = 0.05 + rand() * 0.1;
         batch.ground.lump({ cx: x, cy: floor.y + r * 0.15, cz: z, rx: r, ry: r * 0.45, rz: r * (0.6 + rand() * 0.4), color: rand() < 0.25 ? P.slate : rand() < 0.5 ? P.stoneDark : P.stone, rand, shade: 0.22, squash: 0.3 });
+      }
+    }
+  }
+
+  #ramp(batch, rand, ramp) {
+    if (ramp.steps) return this.#stair(batch, rand, ramp);
+    return this.#rubbleSlope(batch, rand, ramp);
+  }
+
+  // a sloping rubble ramp (prototype for shield-sledding runs and breach crossings)
+  #rubbleSlope(batch, rand, ramp) {
+    const rise = ramp.endY - ramp.startY;
+    const count = Math.max(3, Math.round(Math.abs(ramp.maxZ - ramp.minZ) / 0.55));
+    const run = (ramp.maxZ - ramp.minZ) / count;
+    const width = ramp.maxX - ramp.minX;
+    const cx = (ramp.minX + ramp.maxX) / 2;
+    for (let i = 0; i < count; i += 1) {
+      const z0 = ramp.minZ + i * run;
+      const zMid = z0 + run / 2;
+      const t = (zMid - ramp.minZ) / (ramp.maxZ - ramp.minZ);
+      const top = ramp.startY + rise * t;
+      const h = Math.max(0.08, top);
+      // foundational stepped stone block
+      batch.stone.block({
+        cx: cx + (rand() - 0.5) * 0.04,
+        cy: 0,
+        cz: zMid,
+        sx: width - 0.04,
+        sy: h,
+        sz: run + 0.02,
+        chamfer: 0.05,
+        jitter: 0.02,
+        color: rand() < 0.4 ? P.stoneDark : P.stone,
+        rand,
+        shade: 0.16,
+      });
+      // scattered fallen ashlar and slate rubble on the slope
+      if (rand() < 0.7) {
+        batch.stone.block({
+          cx: cx + (rand() - 0.5) * (width * 0.7),
+          cy: top - 0.02,
+          cz: zMid + (rand() - 0.5) * 0.1,
+          sx: 0.28 + rand() * 0.2,
+          sy: 0.08 + rand() * 0.08,
+          sz: 0.25 + rand() * 0.2,
+          rotY: (rand() - 0.5) * 0.6,
+          chamfer: 0.04,
+          jitter: 0.02,
+          color: rand() < 0.5 ? P.stoneLight : P.slate,
+          rand,
+        });
       }
     }
   }
@@ -277,6 +328,21 @@ export class RuinedKeepRenderer {
       return;
     }
     batch.stone.block({ cx, cy: top, cz, sx, sy: 0.45, sz, chamfer: 0.08, jitter: 0.01, color: STONE.light, rand });
+    // Gothic arch springers and broken vaulting ribs reaching outward
+    for (const [dx, dz] of [[0.38, 0], [-0.38, 0], [0, 0.38], [0, -0.38]]) {
+      batch.stone.block({
+        cx: cx + dx * 0.6,
+        cy: top + 0.22,
+        cz: cz + dz * 0.6,
+        sx: dx !== 0 ? 0.32 : 0.22,
+        sy: 0.26,
+        sz: dz !== 0 ? 0.32 : 0.22,
+        chamfer: 0.04,
+        jitter: 0.01,
+        color: STONE.mid,
+        rand,
+      });
+    }
   }
 
   // the roof still standing: rafters and tie beams seen from below, slates above, its southern edge torn
