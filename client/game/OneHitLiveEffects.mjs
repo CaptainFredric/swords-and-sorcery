@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createConductDischarge, ConductHandEffects } from './ConductVisuals.mjs';
+import { createConductDischarge, updateConductDischarge, ConductHandEffects } from './ConductVisuals.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -147,6 +147,13 @@ export class OneHitLiveEffects {
       if(t.mesh.material?.opacity!==undefined)t.mesh.material.opacity=Math.min(t.mesh.material.opacity,ratio);
       if(t.mesh.userData?.conductDischarge){
         const elapsed=1-ratio;
+        // The conducting bolt shoots OUTWARD from the active Sorcery palm
+        // rather than presenting a static full-length beam on the first frame.
+        if(elapsed<.17)updateConductDischarge(t.mesh,elapsed/.17);
+        else if(!t.mesh.userData.conductFullyExtended){
+          updateConductDischarge(t.mesh,1);
+          t.mesh.userData.conductFullyExtended=true;
+        }
         for(const strand of t.mesh.children){
           const start=strand.userData.conductOpacity??1;
           strand.material.opacity=start*(elapsed<.14 ? 1 : Math.pow(Math.max(0,ratio),1.25));
