@@ -1108,23 +1108,27 @@ const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const chosen = menuController.breakthroughArena();
-  const mode = chosen==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  const mode = chosen==='restless-day'?'RESTLESS_DAY':chosen==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
   for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
     button.classList.toggle('selected',button.dataset.mettleMode===mode);
     button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
   }
   for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
-    chip.hidden = (mode==='HIGH_GROUNDS') !== (chip.dataset.arena==='high-grounds');
+    chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
+  $('#breakthrough-size').hidden=mode==='RESTLESS_DAY';
+  $('#breakthrough-find-public').hidden=mode==='RESTLESS_DAY';
   if (breakthroughSubtitle) {
     breakthroughSubtitle.textContent = chosen === 'outerworks' ? 'THE OUTERWORKS'
-      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : 'BASTION BREACH';
+      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
-    breakthroughCopy.textContent = chosen === 'outerworks'
+    breakthroughCopy.textContent = chosen === 'restless-day'
+      ? 'Five attackers carry two heavy metal ladders across the field, breach both castle walls, and destroy the Rightful Renowner before sundown. Defend the institution—or make it to bed.'
+      : chosen === 'outerworks'
       ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
       : chosen === 'high-grounds'
         ? 'Both armies attack. Capture and recapture five footholds across colossal flowering trees, great bridges and an abyss. Hold territory to earn points; treetop lanes and the main siege road offer different ways through.'
@@ -1134,9 +1138,9 @@ function showBreakthroughArena() {
   }
 }
 const mettleActivation = createRepeatActivation({
-  selected: () => menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH',
+  selected: () => menuController.breakthroughArena()==='restless-day'?'RESTLESS_DAY':menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH',
   select: chosen => {
-    menuController.chooseBreakthroughArena(chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+    menuController.chooseBreakthroughArena(chosen==='RESTLESS_DAY'?'restless-day':chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
     showBreakthroughArena();
     // On a narrow display keep the tabs visible for the second tap.
     // Battle orders remain accessible through the dedicated options button.
@@ -1244,9 +1248,10 @@ function renderPrivateMode({reset=true}={}){
   }
   privateForm.querySelector('[data-private-score]').hidden=teamMode;
   for(const attr of ['size','team','bot'])
-    privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode;
+    privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY');
   const note=mode==='FFA'?'Every Spellblade for themselves. First to ten.':
     mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
+    mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
     'Both armies attack and recapture outposts high above the abyss.';
   $('#private-mode-copy').textContent=note;
   const result=privateRoomPreview(mode,privateFields());
@@ -1498,11 +1503,11 @@ $('#breakthrough-create-private')?.addEventListener('click', () => {
   // other private mode. Preserve the battle orders already chosen in Mettle.
   const arena=menuController.breakthroughArena();
   privateActivation.reset();
-  privateModeSelected=arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  privateModeSelected=arena==='restless-day'?'RESTLESS_DAY':arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
   renderPrivateMode();
   const f=privateForm.elements;
   f.worldId.value=arena;
-  f.teamSize.value=String(menuController.breakthroughSize());
+  f.teamSize.value=arena==='restless-day'?'5':String(menuController.breakthroughSize());
   f.team.value=menuController.breakthroughTeam();
   f.botSkill.value=menuController.breakthroughSkill();
   renderPrivateMode({reset:false});
