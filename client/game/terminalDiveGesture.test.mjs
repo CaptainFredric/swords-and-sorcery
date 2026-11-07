@@ -44,8 +44,9 @@ test('mirrored or player-customized buttons move the rune, diagonal and single c
  assert.equal(buildValkyrieRitualGeometry({},{}),null);
 });
 
-function trace(points,other=null){
- let g=createValkyrieRitual(12,1,points,other);
+function trace(route){
+ let g=createValkyrieRitual(12,1,custom.points,custom.reversePoints);
+ const points=route;
  for(let i=1;i<points.length;i++){
   const a=points[i-1],b=points[i];
   for(const t of [.25,.5,.75,1]){
@@ -59,11 +60,11 @@ function trace(points,other=null){
  return g;
 }
 test('one pointer may sweep right first or left first, and completes once',()=>{
- const right=trace(custom.points,custom.reversePoints);
+ const right=trace(custom.points);
  assert.equal(right.variant,'right-first');
  assert.equal(right.completed,true);
  assert.equal(ritualDistanceFraction(right),1);
- const left=trace(custom.reversePoints,custom.points);
+ const left=trace(custom.reversePoints);
  assert.equal(left.variant,'left-first');
  assert.equal(left.completed,true);
  assert.equal(ritualDistanceFraction(left),1);
