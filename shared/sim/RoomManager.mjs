@@ -4,7 +4,7 @@ import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY]);
 
 export function generateRoomCode(random = Math.random) {
   let code = '';
@@ -68,7 +68,7 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.DUEL, worldId }, nowSec);
   }
 
-  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : WORLD_IDS.CASTLEWARD), { teamSize = null } = {}) {
+  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : mode === GAME_MODES.RESTLESS_DAY ? WORLD_IDS.RESTLESS_DAY : WORLD_IDS.CASTLEWARD), { teamSize = null } = {}) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
     return this.#createRoom({ isPrivate: true, mode, worldId, teamSize }, nowSec);
   }
