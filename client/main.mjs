@@ -857,12 +857,13 @@ function soundTheEnd(snapshot) {
   recordMatchResult({
     winnerId: won ? socket.playerId : snapshot.winnerId,
     players: snapshot.players,
-    isScored: snapshot.mode !== 'PRACTICE' && !snapshot.tutorial,
+    isScored: !['PRACTICE', 'RENOWN_TRIALS'].includes(snapshot.mode) && !snapshot.tutorial,
   });
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
-  if (won) return;
+  // Do not speak an ordinary defeat quip over the Renowner's solemn verdict.
+  if (won || snapshot.mode === 'RENOWN_TRIALS') return;
   for (const say of linesFor(socket.playerId, ['matchLost'])) {
     const said = voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true });
     if (!said) continue;
@@ -874,6 +875,21 @@ function soundTheEnd(snapshot) {
 
 function updateEnd(snapshot) {
   soundTheEnd(snapshot);
+  if (snapshot.mode === 'RENOWN_TRIALS') {
+    const trial = snapshot.renownTrial;
+    const finished = trial?.termination === 'completed';
+    winnerTitle.textContent = finished ? 'TRIAL COMPLETED' : 'JUDGMENT DELIVERED';
+    const entries = trial?.ledger ?? [];
+    const total = entries.reduce((sum, item) => sum + (item.reward ?? 0), 0);
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RENOWN TRIALS · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
+      + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} PROVISIONAL RENOWN</strong><em>${escapeHtml(entry.verdict)}</em></div>`).join('')
+      + `<p class="panel-copy">RUN LEDGER: ${total} · UNSETTLED · NOT YET ADDED TO YOUR PROFILE</p>`;
+    seekAnotherButton.classList.add('hidden');
+    rematchButton.classList.remove('hidden');
+    rematchButton.textContent = 'TRY THE TRIAL AGAIN';
+    rematchCopy.textContent = 'A new run begins at the first wave.';
+    return;
+  }
   if (snapshot.mode === 'HIGH_GROUNDS') {
     const me = snapshot.players.find(p => p.id === socket.playerId);
     const scores = snapshot.highGrounds?.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
@@ -1434,6 +1450,7 @@ function startTutorial() {
 let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
+  'renown-trials-mode': ['RENOWN TRIALS','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment.'], 
   'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
   'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
   'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
@@ -1465,6 +1482,7 @@ function chooseSoloActivity(id) {
 function launchSoloActivity(id) {
   if(id==='tutorial-mode') { startTutorial(); return true; }
   if(id==='bot-duel') return startBotDuel();
+  if(id==='renown-trials-mode') return runMenuAction(menuController.renownTrials(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);

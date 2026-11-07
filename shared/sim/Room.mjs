@@ -8,6 +8,7 @@ import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistCl
 import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
+import { beginRenownTrial, stepRenownTrial } from './renownTrials.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
@@ -142,6 +143,7 @@ export class Room {
       this.bibyeProjectiles = null;
     }
     this.state = 'WAITING';
+    this.renownTrial = null;
     this.players = new Map();
     this.hostOwnerId = null; // kept through the reconnect grace period
     this.projectiles = new Map();
@@ -231,7 +233,7 @@ export class Room {
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
     const joinFailure = this.joinError();
     // Solo and duel creation have their own controlled actor counts and are never public joins.
-    if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
+    if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE, GAME_MODES.RENOWN_TRIALS].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
     let assigned = null;
     if (this.policy.teamMode) {
       const teamSize = this.policy.teamSize ?? 3;
@@ -933,6 +935,8 @@ export class Room {
         }
       }
     }
+    if (this.mode === GAME_MODES.RENOWN_TRIALS && this.state === 'PLAYING')
+      stepRenownTrial(this, nowSec);
   }
 
   startMatch(nowSec) {
@@ -982,6 +986,11 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
+    // A rematch must never revive, retain or count bots from the prior run.
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) {
+      for (const [id, actor] of this.players)
+        if (actor.actorKind === 'bot' && actor.trialRunId) this.players.delete(id);
+    }
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
@@ -1003,6 +1012,7 @@ export class Room {
     for (const player of this.players.values()) player.lobbyReady = false;
     // (a mode that asks for it opens in peace: its bots start nothing for a few seconds, or until a player does)
     beginPeace(this, nowSec, this.policy.openingPeaceSec ?? 0);
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) beginRenownTrial(this, nowSec);
     this.events.push({ type: 'matchStarted', at: nowSec });
   }
 
@@ -1041,7 +1051,7 @@ export class Room {
     const connectedIds = [...this.players.values()]
       .filter((p) => p.actorKind === 'human' && p.connected)
       .map((p) => p.id);
-    const minForRematch = this.policy.teamMode ? 1 : 2;
+    const minForRematch = this.policy.teamMode || this.mode === GAME_MODES.RENOWN_TRIALS ? 1 : 2;
     const unanimous = connectedIds.length >= minForRematch && connectedIds.every((id) => this.rematchVotes.has(id));
     if (!unanimous) return false;
     for (const p of this.players.values()) Object.assign(p, scoreFields());

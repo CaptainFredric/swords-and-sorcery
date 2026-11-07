@@ -1,5 +1,6 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {highGroundsHudView} from './highGroundsHudView.mjs';
+import { renownTrialsView } from './renownTrialsView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
@@ -238,6 +239,24 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.trialPanel = document.createElement('div');
+    this.trialPanel.className = 'renown-trial-hud';
+    this.trialPanel.id = 'renown-trial-hud';
+    this.trialPanel.hidden = true;
+    this.trialPanel.setAttribute('role', 'status');
+    this.trialPanel.setAttribute('aria-live', 'polite');
+    this.trialPanel.innerHTML =
+      '<small class="trial-header" data-trial-header></small>' +
+      '<div class="trial-monument" aria-hidden="true">' +
+        '<i class="trial-statue"></i><i class="trial-sword"></i><i class="trial-pedestal"></i>' +
+      '</div>' +
+      '<strong class="trial-title" data-trial-title></strong>' +
+      '<output class="trial-clock" data-trial-clock></output>' +
+      '<small class="trial-details" data-trial-details></small>' +
+      '<q class="trial-line" data-trial-line hidden></q>' +
+      '<small class="trial-footer" data-trial-footer></small>' +
+      '<small class="trial-asset-warning" data-trial-placeholder hidden>Provisional ceremonial staging · authored 3D asset pending</small>';
+    this.root.append(this.trialPanel);
     this.machineGauge = document.createElement('div');
     this.machineGauge.className = 'machine-gauge';
     this.machineGauge.hidden = true;
@@ -451,6 +470,24 @@ export class HUD {
       controls.hidden = Boolean(siege.touch);
       controls.textContent = siege.controls;
     }
+    const trialView = renownTrialsView(snapshot, serverNow);
+    this.trialPanel.hidden = !trialView.visible;
+    if (trialView.visible) {
+      this.trialPanel.classList.toggle('ceremony', trialView.ceremony);
+      this.trialPanel.classList.toggle('overtime', trialView.overtime);
+      this.trialPanel.dataset.cue = trialView.stage;
+      for (const [selector, value] of [
+        ['[data-trial-header]', trialView.header],
+        ['[data-trial-title]', trialView.title],
+        ['[data-trial-clock]', trialView.clock],
+        ['[data-trial-details]', trialView.details],
+        ['[data-trial-footer]', trialView.footer],
+      ]) this.trialPanel.querySelector(selector).textContent = value;
+      const spoken = this.trialPanel.querySelector('[data-trial-line]');
+      spoken.hidden = !trialView.line;
+      spoken.textContent = trialView.line || '';
+      this.trialPanel.querySelector('[data-trial-placeholder]').hidden = !trialView.placeholder;
+    }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {
       this.duelScore.classList.toggle('hidden', !duel);
@@ -461,7 +498,7 @@ export class HUD {
       }
     }
     const btView = snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
-    this.matchInfo.classList.toggle('hidden', btView.visible);
+    this.matchInfo.classList.toggle('hidden', btView.visible || snapshot.mode === 'RENOWN_TRIALS');
     this.breakthroughHud.classList.toggle('hidden', !btView.visible);
     if (btView.visible) {
       this.breakthroughHud.dataset.team = btView.team;
@@ -487,7 +524,8 @@ export class HUD {
     }
 
     this.deathCard.classList.toggle('hidden', local.alive);
-    if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
+    if (!local.alive) this.deathTimer.textContent = snapshot.mode === 'RENOWN_TRIALS'
+      ? 'RUN ENDED' : Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
 
   setPreparedSelector(view) {

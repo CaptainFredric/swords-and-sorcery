@@ -37,6 +37,7 @@ import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { renownTrialCombatOpen } from './renownTrials.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -1358,7 +1359,10 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
-  victim.respawnAt = nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
+  // A Renown Trial has one life and finite wave enemies. Dead rivals cannot
+  // respawn to make a cleared wave impossible; the player ends the run instead.
+  victim.respawnAt = room.mode === GAME_MODES.RENOWN_TRIALS
+    ? Infinity : nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
   const diver=room.fightFlight;
   if(diver?.terminalDive&&!diver.terminalDive.resolved&&diver.terminalDive.operatorId===victim.id){
     victim.terminalRespawnDeferredFor=diver.id;
@@ -2508,6 +2512,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepDefeatVoices(room, nowSec);
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
+  // An ongoing wave uses wholly ordinary Spellblade combat. Preparation and
+  // the Renowner ceremony do not advance combat, hazards or input physics.
+  if (room.mode === GAME_MODES.RENOWN_TRIALS && !renownTrialCombatOpen(room)) return room.events;
 
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
   else stepObjectives(room, dt, nowSec);
