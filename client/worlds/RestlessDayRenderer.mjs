@@ -56,7 +56,7 @@ export class RestlessDayRenderer{
   for(const r of RESTLESS_DAY_WORLD.ramps)rampMesh(this.group,r,this.materials.stone);
   this.#buildMonument();
   this.ladders=new Map();
-  this.lastMode=null;this.lastLadderKey='';
+  this.lastMode=null;this.lastLadderKey='';this.coinVisuals=new Map();
   this.biByeLlista=null;this.biByeMotion=new BiByeMotion();
   this.biByeRoomCode=null;this.biByePresentationOptions=null;
   scene.add(this.group);
@@ -121,6 +121,17 @@ export class RestlessDayRenderer{
   for(const [id,m] of this.structureMeshes)
     m.visible=(snapshot?.structures?.entities?.[id]?.health??1)>0;
   this.#replaceLadders(state?.ladders??[]);
+  const active=new Set();
+  for(const coin of state?.renowner?.coinProjectiles??[]){
+    active.add(coin.id);
+    let mesh=this.coinVisuals.get(coin.id);
+    if(!mesh){mesh=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.08,12),this.materials.brass);
+      mesh.rotation.x=Math.PI/2;mesh.castShadow=true;this.group.add(mesh);this.coinVisuals.set(coin.id,mesh);}
+    mesh.position.set(coin.position.x,coin.position.y,coin.position.z);
+  }
+  for(const [id,mesh]of this.coinVisuals)if(!active.has(id)){
+    mesh.geometry.dispose();this.group.remove(mesh);this.coinVisuals.delete(id);
+  }
   if(this.monument){
     this.monument.visible=(state?.renowner?.health??1)>0;
     this.monument.rotation.y=state?.renowner?.yaw??Math.PI;
@@ -139,6 +150,7 @@ export class RestlessDayRenderer{
   const view=this.biByeMotion.sample(this.biByeServerTime??now,
     this.biByePresentationOptions?.local,this.biByePresentationOptions?.frozen);
   this.biByeLlista?.update(view.clock,view.ballista,view.projectiles);
+  for(const coin of this.coinVisuals.values())coin.rotation.y+=.1;
   const attack=this.lastMode?.renowner?.attack;
   if(attack){
     const t=Math.max(0,(now-attack.startedAt));
