@@ -499,6 +499,7 @@ export class GameRuntime {
     // when each of the two was last pressed: of the two held together, the one pressed last has the hands
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
+      if (this.trialControlsLocked) { this.weapon.setAttack(false); return; }
       if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId) {
         return;
       }
@@ -512,6 +513,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
+      if (this.trialControlsLocked) { this.weapon.setGuard(false); return; }
       if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (held && this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded && !combatActionPolicy(this.localAuth, this.socket.serverNow()).concurrent)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
@@ -524,6 +526,7 @@ export class GameRuntime {
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
+      if (this.trialControlsLocked) return;
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
       const mounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
       // Preserve mounted casting restrictions. Only legitimate personal Steel
@@ -584,6 +587,7 @@ export class GameRuntime {
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
     this.input.onGauntletLocal = () => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
@@ -591,6 +595,7 @@ export class GameRuntime {
     };
     // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
     this.input.onUltimateLocal = () => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const me = this.localAuth;
@@ -615,6 +620,7 @@ export class GameRuntime {
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
@@ -1382,7 +1388,7 @@ export class GameRuntime {
       this.flightDashPresentation.reset();
     }
     const trialLocked = renownTrialControlsLocked(snapshot);
-    if (trialLocked && !this.trialControlsLocked) {
+    if (trialLocked !== Boolean(this.trialControlsLocked)) {
       // One authoritative phase transition releases every held keyboard/touch
       // button; no pre-judgment attack remains queued into the next wave.
       this.input.releaseInputs();
