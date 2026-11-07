@@ -523,7 +523,11 @@ export class HUD {
       this.objectiveWaypoint.classList.add('hidden');
     }
 
-    this.deathCard.classList.toggle('hidden', local.alive);
+    // The Renowner's contact impact has its own lethal presentation. Do not
+    // cover the ceremony with the ordinary respawn/death panel.
+    const trialJudgment = snapshot.mode === 'RENOWN_TRIALS'
+      && snapshot.renownTrial?.phase === 'JUDGMENT';
+    this.deathCard.classList.toggle('hidden', local.alive || trialJudgment);
     if (!local.alive) this.deathTimer.textContent = snapshot.mode === 'RENOWN_TRIALS'
       ? 'RUN ENDED' : Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
