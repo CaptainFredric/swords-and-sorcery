@@ -74,11 +74,12 @@ try{
  await shot('04-ladder-deployed');
  // Movement packets are genuine; this walks up the live 30Hz server ramp.
  await evaluate("(()=>{const r=window.__ssRuntime;window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);return true;})()");
- await sleep(2800);
+ const climbed=await until(async()=>{const s=await evaluate(state);
+  return s.player?.position.z>-23.8&&s.player?.position.y>5.45?s:null;
+ },'player climbs outer incline and reaches walkable wall top',105);
  await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
- const climbed=await evaluate(state);
- assert.ok(climbed.player.position.z>-26.2,'a real player did not cross the lower ladder ramp');
- assert.ok(climbed.player.position.y>4.8,'the real player failed to reach battlement height');
+ assert.ok(climbed.player.position.z>-23.8,'a real player did not exit the lower ladder onto the battlement');
+ assert.ok(climbed.player.position.y>5.45,'the real player failed to reach battlement height');
  await shot('05-real-outer-climb');
  // Stage a wall-top retrieval and second-wall carry to isolate that lifecycle.
  await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
@@ -89,6 +90,15 @@ try{
   a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()");
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.wall===1&&s.ladders?.[0]?.state==='deployed'?s:null;},'second curtain deployed');
  await shot('06-inner-curtain');
+ await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+  a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
+  window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);
+  return true;})()");
+ const innerClimbed=await until(async()=>{const s=await evaluate(state);
+  return s.player?.position.z>22.6&&s.player?.position.y>6.4?s:null;
+ },'player climbs inner incline and exits onto second battlement',105);
+ await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
+ await shot('06b-inner-battlement-climb');
  // Structural damage is a staged authority assertion, not a player's sword hit.
  const destroyed=await evaluate(`(async()=>{const r=window.__ssRuntime,room=r.socket.local.room;
   const {damageStructure}=await import('/shared/sim/structures.mjs');
@@ -118,10 +128,11 @@ try{
    sleeping:[...room.players.values()].filter(p=>p.team==='ATTACKERS'&&p.restlessAsleep).length};})()`);
  assert.equal(sundown.reason,'sundown');assert.equal(sundown.sleeping,5);
  await shot('09-staged-sundown');
- await writeFile(output+'/result.json',JSON.stringify({entered,climbed,botMoved:moved.length,destroyed,recovery,sundown,errors},null,2));
+ await writeFile(output+'/result.json',JSON.stringify({entered,climbed,innerClimbed,botMoved:moved.length,destroyed,recovery,sundown,errors},null,2));
  if(errors.length)throw Error('Browser exceptions: '+errors.slice(0,4).join(' / '));
  console.log('[RESTLESS DAY BROWSER ACCEPTED]',JSON.stringify({actors:entered.players,botMoved:moved.length,climbed:climbed.player.position,recovery,sundown}));
 }catch(e){
+ await evaluate("if(window.__restlessDrive)clearInterval(window.__restlessDrive);true").catch(()=>{});
  console.error('[RESTLESS DAY BROWSER FAILED]',stage,e.stack??String(e));
  if(ws)await shot('failure').catch(()=>{});
  await writeFile(output+'/failure.json',JSON.stringify({stage,error:String(e),exceptions:errors},null,2));
