@@ -100,7 +100,7 @@ export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'EDGE_OF_VICTORY') {
     const edge=snapshot.edgeOfVictory;
     const left=edge?.nextStageAt===null?'FINAL BATTLEGROUND':Math.max(0,Math.ceil((edge?.nextStageAt??serverNow)-serverNow))+'s TO CONTRACTION';
-    return 'EDGE OF VICTORY · '+(edge?.playersRemaining??snapshot.players?.filter(p=>p.alive).length??0)+' KNIGHTS REMAIN · '+left;
+    return 'EDGE OF VICTORY · '+(edge?.playersRemaining??snapshot.players?.filter(p=>p.alive).length??0)+' REMAIN · '+Math.round(edge?.radius??0)+'m BOUNDARY · '+left;
   }
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
   const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
@@ -395,6 +395,12 @@ export class HUD {
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    if (snapshot?.mode === 'EDGE_OF_VICTORY' && local.alive && snapshot.edgeOfVictory?.pickups?.length) {
+      const nearby = snapshot.edgeOfVictory.pickups.filter(p=>p.available&&p.kind==='spell')
+        .map(p=>({...p,distance:Math.hypot(p.position.x-local.position.x,p.position.z-local.position.z)}))
+        .sort((a,b)=>a.distance-b.distance)[0];
+      if(nearby && nearby.distance<22) this.matchInfo.textContent += ' · '+nearby.spell.toUpperCase()+' '+Math.round(nearby.distance)+'m';
+    }
     const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
