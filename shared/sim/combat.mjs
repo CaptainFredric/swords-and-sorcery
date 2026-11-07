@@ -2529,10 +2529,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   // Always compose from canonical structure geometry; do not feed the last
   // frame's dynamic ladder rails into the next structural rebuild.
-  if(room.mode==='RESTLESS_DAY'&&room.worldId===WORLD_IDS.RESTLESS_DAY)
-    world=getWorld(WORLD_IDS.RESTLESS_DAY);
-  world = structureWorld(world, room.structures);
-  world = withRestlessLadders(world,room.restlessDay);
+  world=modeCall(room,'baseWorld',world)??world;
+  world=structureWorld(world,room.structures);
+  world=modeCall(room,'composeWorld',world)??world;
   room.world = world;
   markTornGround(room);
   const effectiveWorld = playerMovementWorld(world, {ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight});
