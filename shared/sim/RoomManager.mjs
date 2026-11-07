@@ -44,7 +44,7 @@ export class RoomManager {
 
   /** All custom rooms share the same validated rules, whether visible in Open Rooms or invited by code. */
   createCustomRoom({ isPrivate = true, mode = GAME_MODES.FFA, worldId, scoreToWin, matchSeconds, teamSize, botSkill } = {}, nowSec = 0) {
-    if (!publicRoomMode(mode) && !(isPrivate && mode === GAME_MODES.RESTLESS_DAY))
+    if (!publicRoomMode(mode) && !(isPrivate && getModePolicy(mode).privateCustomRoom))
       throw new Error('That game mode is not available for this room type.');
     const baseline = { mode: GAME_MODES.FFA, worldId: WORLD_IDS.CASTLEWARD, scoreToWin: 10, policy: getModePolicy(GAME_MODES.FFA) };
     const settings = roomSettings(baseline, { mode, ...(worldId ? { worldId } : {}),
