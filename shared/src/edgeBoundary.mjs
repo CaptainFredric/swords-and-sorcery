@@ -17,19 +17,32 @@ export function edgeLimitPoint(point, center, radius, clearance = 0) {
  * It is deliberately conservative for multi-piece siege machines, and never
  * replaces those machines' existing terrain/occupant collision solvers.
  */
-export function edgeFootprintInside(volumes, center, radius, margin = 0) {
-  if (!center || !Number.isFinite(radius)) return true;
+export function edgeFootprintOvershoot(volumes, center, radius, margin = 0) {
+  if (!center || !Number.isFinite(radius)) return 0;
+  let overflow = -Infinity;
   for (const box of volumes ?? []) {
     if (!box?.center || !box?.size) continue;
     const axes = box.axes ?? [[1,0,0],[0,1,0],[0,0,1]];
     const ex = axes.reduce((sum, axis, i) => sum + Math.abs(axis[0]) * box.size[i] / 2, 0);
     const ez = axes.reduce((sum, axis, i) => sum + Math.abs(axis[2]) * box.size[i] / 2, 0);
     for (const sx of [-1,1]) for (const sz of [-1,1]) {
-      if (!edgeInside({ x:box.center[0] + sx * ex, z:box.center[2] + sz * ez },
-        center, radius, margin)) return false;
+      overflow = Math.max(overflow,Math.hypot(
+        box.center[0]+sx*ex-center.x,box.center[2]+sz*ez-center.z)-radius+margin);
     }
   }
-  return true;
+  return overflow;
+}
+export function edgeFootprintInside(volumes,center,radius,margin=0) {
+  return edgeFootprintOvershoot(volumes,center,radius,margin) <= 1e-6;
+}
+/** No machine can advance farther outward through the boundary. If contraction
+ * already overtook it, inward travel is still allowed so it can return.
+ */
+export function edgeMachineProgressAllowed(before,after,edge,margin=.02) {
+  if (!edge) return true;
+  const old = edgeFootprintOvershoot(before,edge.center,edge.radius,margin);
+  const next = edgeFootprintOvershoot(after,edge.center,edge.radius,margin);
+  return next <= Math.max(0,old)+1e-5;
 }
 
 export function edgeRadiusAt(elapsed, stages) {
