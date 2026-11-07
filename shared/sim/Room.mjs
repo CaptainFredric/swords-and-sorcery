@@ -986,6 +986,11 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
+    // A rematch must never revive, retain or count bots from the prior run.
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) {
+      for (const [id, actor] of this.players)
+        if (actor.actorKind === 'bot' && actor.trialRunId) this.players.delete(id);
+    }
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
