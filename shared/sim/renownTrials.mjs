@@ -233,6 +233,8 @@ export function beginRenownTrial(room, nowSec) {
         ? room.trialMaxWaves : RENOWN_TRIAL_TUNING.maxWaves),
     runId: `${room.code}:${room.tickNumber}:${Math.floor(nowSec * 1000)}`,
     playerId: player.id,
+    // Server-authorized identity, bound at run creation; never serialized.
+    profileToken: player.profileToken ?? null,
     phase: RENOWN_TRIAL_PHASES.PREPARING,
     waveIndex: 0, wave: null, ledger: [], ceremony: null,
     transitionAt: nowSec + RENOWN_TRIAL_TUNING.introSec,
