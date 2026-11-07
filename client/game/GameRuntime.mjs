@@ -1517,6 +1517,14 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      if(['restlessDaylightStarted','restlessLastLight','restlessSundown'].includes(event.type)
+        &&event.subtitle)this.#subtitle({line:event.subtitle,speaker:this.playerId,seconds:3.4});
+      if(event.type==='restlessSundown')this.hud.flashText('SUNDOWN · THE ATTACKERS SLEEP','gold',2500);
+      if(event.type==='renownerDestroyed'){
+        this.effects.wallClang?.({x:0,y:4,z:56});
+        this.hud.flashText('THE RIGHTFUL RENOWNER FALLS · SURRENDER','gold',2700);
+      }
+      if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
       this.oneHitEffects?.event(event);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
