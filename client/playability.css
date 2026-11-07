@@ -340,16 +340,18 @@
 .subtitle b { margin-right: 8px; color: #e6c47c; font: 800 11px/1 var(--font-script, system-ui, sans-serif); letter-spacing: .16em; text-transform: uppercase; }
 .subtitle.mine span { color: #fff3d6; }
 .touch-ui .subtitle { bottom: calc(var(--safe-b, 0px) + 16px); max-width: min(440px, 44cqw); padding: 4px 10px 5px; font-size: 14px; }
+/* Ram has two raised instrument badges: context and PISTON READY. */
+.hud.ram-mounted {--siege-label-clearance:44px;}
 /* Only mounted captions move: sit precisely above the real measured hull
  * and fist assembly. Normal Spellblade captions retain their own position.
  * A dynamic pixel height avoids overlap on narrow devices, broken pistons,
  * and localizations that wrap health labels. */
 .hud.ballista-mounted #subtitle {
-  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + 19px);
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + var(--siege-label-clearance, 28px) + 8px);
   max-width:min(650px,76cqw);z-index:15;
 }
 .touch-ui .hud.ballista-mounted #subtitle {
-  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + 13px);
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + var(--siege-label-clearance, 28px) + 6px);
   max-width:min(500px,66cqw);
 }
 @container app (max-height: 420px) {
