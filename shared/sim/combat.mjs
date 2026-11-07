@@ -1,5 +1,7 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
+import {modeCall} from './modeRuntime.mjs';
+import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
@@ -898,6 +900,7 @@ function sweepStrike(room, player, nowSec, world) {
           damage,player.id,'sword',nowSec,
           {componentId:met.solid.componentId,point:met.point,material:met.solid.material});
       }
+      if(String(met.solid.id??'').startsWith('siege-ladder-'))damageRestlessLadder(room,met.solid.id.split('-').slice(2,4).join('-'),swordDamage({level:DAMAGE_LEVELS.normal}),player.id,nowSec);
       damageStructureSolid(room,met.solid,swordDamage({quality:aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z)))*180/Math.PI),level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{point:met.point});
       // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
       const offAim = Math.acos(Math.max(-1, Math.min(1, met.direction.x * frame.forward.x + met.direction.y * frame.forward.y + met.direction.z * frame.forward.z))) * 180 / Math.PI;
@@ -1837,7 +1840,8 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
     if(hits.length){
       const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
       if (projectile.spell === 'coreflagration' && hit.kind === 'player' && coreflagrationParry(room, projectile, hit.player, nowSec)) { projectile.position = { ...point }; continue; }
-      if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,projectile.spell==='coreflagration'?spellFor(projectile.spell).core.initialDamage:spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
+      if(hit.kind==='world'&&hit.box&&String(hit.box.id??'').startsWith('siege-ladder-'))damageRestlessLadder(room,hit.box.id.split('-').slice(2,4).join('-'),spellFor(projectile.spell).directDamage??30,projectile.ownerId,nowSec);
+       if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,projectile.spell==='coreflagration'?spellFor(projectile.spell).core.initialDamage:spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
       if (projectile.spell === 'coreflagration') armCoreflagration(room, projectile, point, nowSec, hit.kind !== 'player');
       else explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
       continue;
@@ -2189,7 +2193,7 @@ export function tryUltimate(room, playerId, nowSec) {
     player.velocity.y = hop;
     player.grounded = false;
   }
-  room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), at: nowSec });
+  room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), ...(player.ultimateState.preparedTiers ? { preparedTiers: { ...player.ultimateState.preparedTiers } } : {}), at: nowSec });
   recordChallengeFact(room, { type: 'ultimateStart', playerId, ultimate: ultimate.id, at: nowSec });
   return true;
 }
@@ -2506,11 +2510,13 @@ function respawnPlayer(room, player, nowSec, world) {
   if (allSpawns.length === 0) throw new Error(`World ${room.worldId ?? 'unknown'} has no spawn points`);
   let spawnPoints = allSpawns;
   if (room.policy?.teamMode && player.team) {
+    const custom=modeCall(room,'spawn',player,allSpawns);
+    if(custom?.length)spawnPoints=custom;
     const currentPhase = room.objectiveState?.phase ?? 0;
     if (room.mode === 'HIGH_GROUNDS') spawnPoints = availableHighGroundsSpawns(room, player, allSpawns);
     const matching = allSpawns.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === currentPhase));
-    if (matching.length && room.mode !== 'HIGH_GROUNDS') spawnPoints = matching;
-    else if (room.mode !== 'HIGH_GROUNDS') {
+    if (matching.length && room.mode !== 'HIGH_GROUNDS' && room.mode !== 'RESTLESS_DAY') spawnPoints = matching;
+    else if (room.mode !== 'HIGH_GROUNDS' && room.mode !== 'RESTLESS_DAY') {
       const anyTeamSpawns = allSpawns.filter((s) => s.team === player.team);
       if (anyTeamSpawns.length) spawnPoints = anyTeamSpawns;
     }
@@ -2551,7 +2557,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     room.world = bastionBreachForObjective(room.objectiveState, nowSec);
     world = room.world;
   }
+  // Always compose from canonical structure geometry; do not feed the last
+  // frame's dynamic ladder rails into the next structural rebuild.
+  if(room.mode==='RESTLESS_DAY'&&room.worldId===WORLD_IDS.RESTLESS_DAY)
+    world=getWorld(WORLD_IDS.RESTLESS_DAY);
   world = structureWorld(world, room.structures);
+  world = withRestlessLadders(world,room.restlessDay);
   if (room.edgeOfVictory) world = { ...world, edgeBoundary: {
     center: room.edgeOfVictory.center, radius: room.edgeOfVictory.radius } };
   room.world = world;
@@ -2753,6 +2764,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.yaw = input.yaw ?? player.yaw;
       player.pitch = input.pitch ?? player.pitch;
       player.flight = moved.flight;
+      if(player.restlessCarrying)constrainRestlessCarry(player,from,effectiveWorld,player.yaw);
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
     if (room.mode === GAME_MODES.EDGE_OF_VICTORY && !player.operatingRamId && !player.operatingFightFlightId && !player.operatingBallistaId)
@@ -2903,6 +2915,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     for(const trainee of room.players.values())
       if(trainee.actorKind==='human')trainee.prowess=PROWESS.full;
   }
+  modeCall(room,'step',dt,nowSec,{damage:applyDamage});
   room.tickNumber += 1;
   return room.events;
 }

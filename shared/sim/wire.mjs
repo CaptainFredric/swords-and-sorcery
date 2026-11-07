@@ -26,6 +26,8 @@ import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen, serializeRenownTrial } from './renownTrials.mjs';
 import { edgeSnapshot } from './edgeOfVictory.mjs';
+import { modeCall, modeSnapshot } from './modeRuntime.mjs';
+import { interactRestlessLadder } from './restlessDayMode.mjs';
 
 export function serializeLobby(room) {
   return {
@@ -89,6 +91,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     renownTrial: room.mode === GAME_MODES.RENOWN_TRIALS ? serializeRenownTrial(room, nowSec) : null,
     overtime: Boolean(room.overtime),
     edgeOfVictory: edgeSnapshot(room),
+    modeState: modeSnapshot(room,nowSec),
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
       scores: { ...room.highGrounds.scores },
@@ -197,6 +200,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,
+      restlessAsleep:Boolean(p.restlessAsleep),
+      restlessCarrying:p.restlessCarrying??null,
       kills: p.kills,
       deaths: p.deaths,
       parries: p.parries,
@@ -368,6 +373,8 @@ export function applyRoomCommand(room, player, message, time) {
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
+  if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
+  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
   const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
   const mounted=groundSiege||flightSiege;
@@ -409,11 +416,11 @@ export function applyRoomCommand(room, player, message, time) {
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         // The ram never consumes generic Jump/Crouch input.
-        jump: Boolean(!player.operatingRamId&&message.jump),
+        jump: Boolean(!player.operatingRamId&&!player.restlessCarrying&&message.jump),
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
-        sprint: Boolean(message.sprint),
+        sprint: Boolean(message.sprint)&&!player.restlessCarrying,
         crouch: Boolean(!player.operatingRamId&&message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
         ramLower: Boolean(player.operatingRamId&&message.ramLower),
@@ -623,6 +630,9 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
+      if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
+         && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&Math.hypot(l.position.x-player.position.x,l.position.z-player.position.z)<3.8)))
+        return interactRestlessLadder(room,player,time);
       if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);

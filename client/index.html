@@ -252,6 +252,7 @@
         <div id="mettle-modes" class="mode-filters" role="group" aria-label="Battle mode">
           <button type="button" data-mettle-mode="BREAKTHROUGH" class="selected">BREAKTHROUGH</button>
           <button type="button" data-mettle-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+          <button type="button" data-mettle-mode="RESTLESS_DAY">RESTLESS DAY</button>
         </div>
         <p class="scenario-subtitle" id="breakthrough-scenario-subtitle">BASTION BREACH</p>
         <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
@@ -290,6 +291,7 @@
           <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
           <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
           <button type="button" class="vote-chip" role="radio" data-arena="high-grounds">THE HIGH GROUNDS</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="restless-day">RESTLESS DAY</button>
         </div>
 
 
@@ -348,7 +350,7 @@
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
           <label>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
-          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option><option value="5">5V5</option></select></label>
           <label data-bot-field hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">SPELLBLADE</option></select></label>
           <button type="submit" class="join-button">RAISE PUBLIC ROOM</button>
           <button type="button" id="room-create-cancel" class="back-button">CANCEL</button>
@@ -369,7 +371,8 @@
           <button type="button" class="selected" aria-pressed="true" data-private-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" aria-pressed="false" data-private-mode="BREAKTHROUGH">BREAKTHROUGH</button>
           <button type="button" aria-pressed="false" data-private-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
-           <button type="button" aria-pressed="false" data-private-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
+          <button type="button" aria-pressed="false" data-private-mode="RESTLESS_DAY">RESTLESS DAY</button>
+          <button type="button" aria-pressed="false" data-private-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <p class="panel-copy" id="private-mode-copy">Every Spellblade for themselves. First to ten.</p>
         <button id="private-options" class="mode-choice private-options" type="button">

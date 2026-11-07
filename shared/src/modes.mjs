@@ -7,6 +7,7 @@ export const GAME_MODES = Object.freeze({
   // objective-based team battle (attackers advance through sequential objectives)
   BREAKTHROUGH: 'BREAKTHROUGH',
   HIGH_GROUNDS: 'HIGH_GROUNDS',
+  RESTLESS_DAY: 'RESTLESS_DAY',
   RENOWN_TRIALS: 'RENOWN_TRIALS',
   EDGE_OF_VICTORY: 'EDGE_OF_VICTORY',
 });
@@ -16,12 +17,12 @@ export const GAME_MODES = Object.freeze({
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
-// Compact geometry with scattered spawns, cover, elevation, and a navigable inner keep.
+export const RESTLESS_DAY_ARENAS = Object.freeze(['restless-day']);
 export const EDGE_OF_VICTORY_ARENAS = Object.freeze(['ruined-keep']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RESTLESS_DAY_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 
@@ -110,6 +111,12 @@ const POLICIES = Object.freeze({
     scoreToWin: null, matchSeconds: 720, respawnSec: 5,
     autoStart: true, allowRematchVote: true, countdownSec: 3,
     openingPeaceSec: 2,
+  }),
+  [GAME_MODES.RESTLESS_DAY]: Object.freeze({
+    id:GAME_MODES.RESTLESS_DAY,teamMode:true,teamSize:5,minHumansToStart:1,
+    botCount:9,scored:false,timed:true,scoreToWin:null,matchSeconds:780,
+    respawnSec:5,autoStart:true,allowRematchVote:true,countdownSec:3,
+    openingPeaceSec:2,
   }),
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({
     id: GAME_MODES.BREAKTHROUGH,
