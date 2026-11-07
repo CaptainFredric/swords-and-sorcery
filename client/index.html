@@ -190,6 +190,10 @@
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
         </button>
+        <button id="edge-of-victory-mode" class="mode-choice" type="button">
+          <span>EDGE OF VICTORY</span>
+          <small>Four knights · discover spells · no retreat · one survivor</small>
+        </button>
         <button id="practice-mode" class="mode-choice">
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
@@ -317,6 +321,7 @@
           <button type="button" data-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" data-mode="BREAKTHROUGH">BREAKTHROUGH</button>
           <button type="button" data-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+           <button type="button" data-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <div id="room-list" class="room-list" aria-live="polite"><p class="room-empty">Looking for open rooms…</p></div>
       </div></div>
@@ -334,7 +339,7 @@
         <button id="raise-room" class="mode-choice" type="button"><span>CREATE PUBLIC ROOM</span><small>Choose its rules before opening the doors</small></button>
         <form id="room-create-form" class="lobby-config" hidden>
           <label>MODE<select name="mode" class="game-input">
-            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option>
+            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option><option value="EDGE_OF_VICTORY">EDGE OF VICTORY</option>
           </select></label>
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
@@ -360,6 +365,7 @@
           <button type="button" class="selected" aria-pressed="true" data-private-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" aria-pressed="false" data-private-mode="BREAKTHROUGH">BREAKTHROUGH</button>
           <button type="button" aria-pressed="false" data-private-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+           <button type="button" aria-pressed="false" data-private-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <p class="panel-copy" id="private-mode-copy">Every Spellblade for themselves. First to ten.</p>
         <button id="private-options" class="mode-choice private-options" type="button">
