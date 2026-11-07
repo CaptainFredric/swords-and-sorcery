@@ -27,13 +27,13 @@ test('Full-Lightning teleport clips along its ray, not a sideways redirected end
 });
 test('whole vehicle footprint, not chassis center, decides legality',()=>{
   const box=x=>[{center:[x,1,0],size:[5,2,4]}];
-  assert.ok(edgeInside({x:5,z:0},center,8));
-  assert.equal(edgeFootprintInside(box(5),center,8),false);
+  assert.ok(edgeInside({x:5.8,z:0},center,8));
+  assert.equal(edgeFootprintInside(box(5.8),center,8),false);
   assert.equal(edgeFootprintInside(box(0),center,8),true);
   const edge={center,radius:8};
-  assert.equal(edgeMachineProgressAllowed(box(5),box(4.9),edge),true,
+  assert.equal(edgeMachineProgressAllowed(box(5.8),box(5.7),edge),true,
     'an already-outside carriage may move inward');
-  assert.equal(edgeMachineProgressAllowed(box(5),box(5.1),edge),false,
+  assert.equal(edgeMachineProgressAllowed(box(5.8),box(5.9),edge),false,
     'an already-outside carriage cannot advance farther outward');
 });
 test('presented client ring and movement radius share the authoritative clock',()=>{
