@@ -69,6 +69,11 @@ export function interactRestlessLadder(room,player,now){
    const {index,w}=placement;
    if(Math.abs(player.position.y)>.6)
      return {rejected:'Place the ladder from level, supported ground.'};
+   // A ladder placed through an empty gateway has no curtain to bear its weight.
+   const curtain=(room.world.solids??[]).some(b=>String(b.id??'').startsWith(w.id+'-curtain')
+     &&player.position.x>b.center[0]-b.size[0]/2+.8
+     &&player.position.x<b.center[0]+b.size[0]/2-.8);
+   if(!curtain)return {rejected:'Use an intact stone curtain, not the gate opening.'};
    const other=s.ladders.find(l=>l!==held&&l.state==='deployed'&&l.wall===index
      &&Math.abs(l.position.x-player.position.x)<2.8);
    if(other)return {rejected:'Give the other ladder clearance.'};
@@ -234,7 +239,9 @@ export function restlessnessStep(room,dt,now,{damage}={}){
    if(held){if(wallForPlacement(bot)&&wallForPlacement(bot).index<=s.phase)interactRestlessLadder(room,bot,now);}
    else if(!bot.restlessCarrying){
      const l=s.ladders[bot.rivalIndex??0];
-     if(l?.state==='available'&&dist(bot.position,l.position)<2.7)interactRestlessLadder(room,bot,now);
+     if(l&&['available','deployed'].includes(l.state)
+       &&(l.state!=='deployed'||l.wall<s.phase)
+       &&dist(bot.position,l.position)<2.7)interactRestlessLadder(room,bot,now);
    }
  }
  stepStatue(room,s,dt,now,damage);
@@ -281,6 +288,9 @@ function botGoal(room,actor){
      return ascending?{x:deploy.position.x,y:wall.height,z:wall.z+2.2}
        :{x:deploy.position.x,y:0,z:wall.baseZ};
    }
+   const previous=s.ladders[(actor.rivalIndex??0)%2];
+   if(previous?.state==='deployed'&&previous.wall<s.phase)
+     return {x:previous.position.x,y:walls[previous.wall].height,z:previous.position.z};
    const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
      ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
    if(loose)return {...loose.position};
