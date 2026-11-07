@@ -24,6 +24,7 @@ test('Discharge layers are dark amber, thick yellow, and pale yellow with branch
  assert.match(source,/sheath:0x956008/);
  assert.match(source,/body:0xffcb32/);
  assert.match(source,/highlight:0xfff4a0/);
+ assert.match(source,/\.081,CONDUCT_YELLOW\.sheath/);
  assert.match(source,/\.065,CONDUCT_YELLOW\.sheath/);
  assert.match(source,/\.048,CONDUCT_YELLOW\.body/);
  assert.match(source,/\.019,CONDUCT_YELLOW\.highlight/);
@@ -32,7 +33,25 @@ test('Discharge layers are dark amber, thick yellow, and pale yellow with branch
 test('Hand socket arcs move from equipped idle into pointed cast, with disposal',()=>{
  assert.match(source,/export class ConductHandEffects/);
  assert.match(source,/anchor\.add\(this\.group\)/);
- assert.match(source,/charging\?-/);
- assert.match(source,/charging\?\.014:\.009/);
+ assert.match(source,/conductPhase=charging\?'gathering':'equipped'/);
+ assert.match(source,/idle\.lerp\(spear,\.26\+\.74\*gather\)/);
+ assert.match(source,/charging\?\.023:\.018/);
  assert.match(source,/mesh\.geometry\.dispose\(\)/);
+ assert.match(source,/updateConductDischarge\(group,\.015\)/,
+   'new bolt starts at the Sorcery hand before firing outward');
+});
+
+test('Line of Conduct travels down the arc to the authoritative endpoint and uses multitone hand charge',()=>{
+ assert.match(source,/export function updateConductDischarge/);
+ assert.match(source,/group\.userData\.spine=points/);
+ assert.match(source,/mesh\.userData\.conductRadius=radius/);
+ assert.match(source,/branch\.visible=fraction>=branch\.userData\.conductFrom/);
+ assert.match(source,/CONDUCT_YELLOW\.sheath/);
+ assert.match(source,/CONDUCT_YELLOW\.body/);
+ assert.match(source,/CONDUCT_YELLOW\.highlight/);
+ const effects=readFileSync(new URL('./OneHitLiveEffects.mjs',import.meta.url),'utf8');
+ assert.match(effects,/updateConductDischarge\(t\.mesh,elapsed\/\.17\)/);
+ assert.match(effects,/updateConductDischarge\(t\.mesh,1\)/);
+ assert.match(effects,/this\.weapon\?\.magicLight|this\.weapon\?\.magicLight|this\.weapon\.magicLight/,
+   'discharge source must remain attached to the actual magic hand');
 });
