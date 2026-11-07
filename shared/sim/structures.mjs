@@ -38,6 +38,9 @@ export function damageStructure(room, id, amount, attackerId, source, now, { poi
   const attacker = room.players.get(attackerId);
   if (!def || !state || state.health <= 0 || room.state !== 'PLAYING' || !attacker || !Number.isFinite(amount) || amount <= 0) return false;
   if (def.team && attacker.team === def.team) return false;
+  // Mode-local authoritative termination arbitration: no post-sundown
+  // structure mutation, even if the call bypasses the ordinary room tick.
+  if(modeCall(room,'beforeStructureDamage',id,now)===false)return false;
   const profile = STRUCTURE_PROFILES[def.profile];
   const scale = source === 'sword' ? profile.sword : source === 'bibye-siege' ? profile.heavy : source === 'bibye-conditioning' ? profile.upper : profile.spell;
   const damage = raw ? amount : amount * scale;
