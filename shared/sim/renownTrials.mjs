@@ -119,7 +119,7 @@ function beginWave(room, state, nowSec) {
     ...plan, startedAt: nowSec, deadlineAt: nowSec + plan.deadlineSec,
     endedAt: null, elapsedSec: null, overtimeSec: 0, reward: 0,
     verdict: null, variant: null, remaining: plan.count, defeated: 0,
-    enemyIds: [],
+    executionChance: 0, enemyIds: [],
   };
   for (let i = 0; i < plan.count; i += 1) {
     const spec = plan.rivals[i];
@@ -181,6 +181,7 @@ function finishWave(room, state, nowSec, random) {
   wave.endedAt = nowSec;
   wave.elapsedSec = Math.max(0, nowSec - wave.startedAt);
   wave.overtimeSec = Math.max(0, wave.elapsedSec - wave.deadlineSec);
+  wave.executionChance = wave.overtimeSec > 0 ? overtimeVerdictWeights(wave.overtimeSec).execution : 0;
   state.phase = RENOWN_TRIAL_PHASES.WAVE_CLEARED;
   if (wave.overtimeSec > 0) {
     const judgment = drawRenownerVerdict(wave.overtimeSec, random);
@@ -201,6 +202,18 @@ function finishWave(room, state, nowSec, random) {
     });
   }
   state.phase = RENOWN_TRIAL_PHASES.AWARD_PENDING;
+  // Prevent movement or held attacks from carrying across the locked ceremony.
+  const player = trialPlayer(room, state);
+  if (player?.input) {
+    player.input = { ...player.input, forward: 0, right: 0, jump: false, sprint: false };
+    player.sprinting = false;
+    player.attackHeld = false;
+    player.attackButton = false;
+    player.attackQueued = false;
+    player.guardHeld = false;
+    player.guardButton = false;
+    player.guarding = false;
+  }
   room.events.push({ type: 'renownTrialWaveCleared', runId: state.runId,
     waveIndex: state.waveIndex, elapsedSec: wave.elapsedSec,
     overtimeSec: wave.overtimeSec, award: wave.reward, at: nowSec });
@@ -244,6 +257,7 @@ export function stepRenownTrial(room, nowSec, random = Math.random) {
     if (state.wave.remaining === 0) { finishWave(room, state, nowSec, random); return; }
     if (nowSec > state.wave.deadlineAt) {
       state.wave.overtimeSec = nowSec - state.wave.deadlineAt;
+      state.wave.executionChance = overtimeVerdictWeights(state.wave.overtimeSec).execution;
       if (state.phase !== RENOWN_TRIAL_PHASES.WAVE_OVERTIME) {
         state.phase = RENOWN_TRIAL_PHASES.WAVE_OVERTIME;
         room.events.push({ type: 'renownTrialOvertimeStarted', waveIndex: state.waveIndex, at: nowSec });
@@ -279,9 +293,11 @@ export function serializeRenownTrial(room, nowSec) {
     difficulty: wave?.difficulty ?? 0, startedAt: wave?.startedAt ?? null,
     deadlineAt: wave?.deadlineAt ?? null, deadlineSec: wave?.deadlineSec ?? null,
     timeLeftSec: active ? Math.max(0, wave.deadlineAt - nowSec) : 0,
-    overtimeSec, executionChance: active && overtimeSec > 0 ? overtimeVerdictWeights(overtimeSec).execution : null,
+    overtimeSec, executionChance: active && overtimeSec > 0
+      ? overtimeVerdictWeights(overtimeSec).execution : null,
     potentialReward: wave?.baseRenown ?? 0,
     waveReward: wave?.reward ?? 0,
+    clearTimeSec: wave?.elapsedSec ?? null,
     verdict: active ? null : wave?.verdict ?? null,
     variant: active ? null : wave?.variant ?? null,
     ceremony: state.ceremony ? {
