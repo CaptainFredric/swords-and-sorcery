@@ -9,6 +9,7 @@ import {WORLD_IDS, getWorld} from '../../shared/worlds/registry.mjs';
 import {TEAMS} from '../../shared/src/teams.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {damageStructure} from '../../shared/sim/structures.mjs';
+import {beginSiegeSteel,stepSiegeSteel,SIEGE_STEEL_REFERENCES} from '../../shared/sim/siegeSteel.mjs';
 import {damageRestlessLadder,withRestlessLadders,restlessnessStep,restlessCarryClear,constrainRestlessCarry,RESTLESS_DAY_RULES} from '../../shared/sim/restlessDayMode.mjs';
 import {movePlayer,createMovementState} from '../../shared/src/movement.mjs';
 import {surfaceHeightAt} from '../../shared/src/collision.mjs';
@@ -221,4 +222,40 @@ test('Real authoritative 5v5 movement simulation advances attackers without fall
  for(const p of room.players.values())assert.ok(p.position.y>-1.1,
    `${p.id} sank through terrain at ${JSON.stringify(p.position)}`);
  assert.equal(room.players.size,10);
+});
+
+test('Restless Day native ram can repair its attached zero-HP gauntlet without resurrection budget exploits',()=>{
+ const {room,attacker}=match();
+ const ram=room.soFistication;
+ assert.ok(ram,'an actual SO-FIST-ICATION machine must spawn at its declared emplacement');
+ ram.operatorId=attacker.id;
+ attacker.operatingRamId=ram.id;
+ ram.fistMounted=true;
+ ram.components.Fist.health=0;
+ assert.equal(beginSiegeSteel(room,ram,'ram',attacker,20),true);
+ stepSiegeSteel(room,ram,25);
+ assert.ok(ram.components.Fist.health>0,'attached fist is not permanently removed from Steel repair eligibility');
+ assert.ok(ram.components.Fist.health<=SIEGE_STEEL_REFERENCES.ram.maximum,'healing obeys finite repair budget');
+});
+
+test('A loaded carrier can safely set a ladder down and reclaim it without dying',()=>{
+ const {room,attacker}=match();
+ const ladder=room.restlessDay.ladders[0];
+ attacker.position={x:ladder.position.x,y:0,z:ladder.position.z};
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},20).rejected,undefined);
+ assert.equal(ladder.state,'carrying');
+ const input=applyRoomCommand(room,attacker,{type:'input',attack:true,guard:true,sprint:true,jump:true,yaw:Math.PI},20.1);
+ assert.equal(input.rejected,undefined);
+ assert.equal(attacker.input.attack,false);
+ assert.equal(attacker.input.guard,false);
+ assert.equal(attacker.input.sprint,false);
+ assert.equal(attacker.input.jump,false);
+ attacker.position={x:-10,y:0,z:-51};
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},21).rejected,undefined);
+ assert.equal(ladder.state,'available');
+ assert.equal(ladder.holderId,null);
+ assert.equal(attacker.restlessCarrying,null);
+ assert.equal(attacker.speedScale,1);
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},22).rejected,undefined);
+ assert.equal(ladder.holderId,attacker.id);
 });

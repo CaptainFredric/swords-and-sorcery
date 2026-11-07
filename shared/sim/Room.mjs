@@ -117,7 +117,7 @@ export class Room {
     this.sharedPracticeHostId=null;
     this.mode = mode;
     this.policy = { ...getModePolicy(mode) };
-    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3) && this.mode !== GAME_MODES.RESTLESS_DAY) {
+    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3) && !this.policy.fixedTeamSize) {
       this.policy.teamSize = teamSize;
       this.policy.botCount = teamSize * 2 - 1;
     }
@@ -173,7 +173,7 @@ export class Room {
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
     this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(this.world) : null;
-    if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS && this.mode !== GAME_MODES.RESTLESS_DAY) {
+    if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS && !modeCall(this,'ownsTeamObjectives')) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
@@ -199,10 +199,8 @@ export class Room {
   initialSpawnFor(player, index = 0, nowSec = 0) {
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
-      if(this.mode===GAME_MODES.RESTLESS_DAY){
-        const available=modeCall(this,'spawn',player,this.world.spawnPoints);
-        if(available?.length)return available[index%available.length];
-      }
+      const customSpawns=modeCall(this,'spawn',player,this.world.spawnPoints);
+      if(customSpawns?.length)return customSpawns[index%customSpawns.length];
       if (this.mode === GAME_MODES.HIGH_GROUNDS) {
         // A match begins in the home camp, beside the team's siege foundry (its controls show only within reach of
         // it): starting at the forward camp, 38 m up the road, nobody ever saw the foundry. Respawns still go
@@ -501,7 +499,7 @@ export class Room {
     if (settings.botSkill) this.setBotSkill(settings.botSkill);
     this.worldId = settings.worldId; this.world = world;
     this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
-    this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS && settings.mode !== GAME_MODES.RESTLESS_DAY ? createObjectiveState(world.objectives ?? []) : null;
+    this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS && !modeCall(this,'ownsTeamObjectives') ? createObjectiveState(world.objectives ?? []) : null;
     if (this.objectiveState && typeof world.forObjective === 'function') this.world = world.forObjective(this.objectiveState);
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
@@ -959,10 +957,13 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
+    // An optional mode can reset transient spawn progression before players
+    // and replacement bots are assigned their starting positions.
+    modeCall(this,'beforeSpawns',nowSec);
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(getWorld(this.worldId)) : null;
-      this.objectiveState = (this.mode === GAME_MODES.HIGH_GROUNDS || this.mode === GAME_MODES.RESTLESS_DAY) ? null : createObjectiveState(this.world.objectives ?? []);
+      this.objectiveState = (this.mode === GAME_MODES.HIGH_GROUNDS || modeCall(this,'ownsTeamObjectives')) ? null : createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
         this.world = template.forObjective(this.objectiveState, nowSec);
@@ -991,7 +992,6 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
-    if(this.mode===GAME_MODES.RESTLESS_DAY&&this.restlessDay)this.restlessDay.phase=0;
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;

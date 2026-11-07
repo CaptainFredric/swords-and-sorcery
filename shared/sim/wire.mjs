@@ -415,8 +415,8 @@ export function applyRoomCommand(room, player, message, time) {
         ramPitchDown: Boolean(player.operatingRamId&&message.ramPitchDown),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
-        attack: Boolean(message.attack),
-        guard: Boolean(message.guard),
+        attack: Boolean(message.attack)&&!player.restlessCarrying,
+        guard: Boolean(message.guard)&&!player.restlessCarrying,
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
         viewFov: player.operatingFightFlightId&&Number.isFinite(message.viewFov)?
