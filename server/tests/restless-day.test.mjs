@@ -237,3 +237,25 @@ test('Restless Day native ram can repair its attached zero-HP gauntlet without r
  assert.ok(ram.components.Fist.health>0,'attached fist is not permanently removed from Steel repair eligibility');
  assert.ok(ram.components.Fist.health<=SIEGE_STEEL_REFERENCES.ram.maximum,'healing obeys finite repair budget');
 });
+
+test('A loaded carrier can safely set a ladder down and reclaim it without dying',()=>{
+ const {room,attacker}=match();
+ const ladder=room.restlessDay.ladders[0];
+ attacker.position={x:ladder.position.x,y:0,z:ladder.position.z};
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},20).rejected,undefined);
+ assert.equal(ladder.state,'carrying');
+ const input=applyRoomCommand(room,attacker,{type:'input',attack:true,guard:true,sprint:true,jump:true,yaw:Math.PI},20.1);
+ assert.equal(input.rejected,undefined);
+ assert.equal(attacker.input.attack,false);
+ assert.equal(attacker.input.guard,false);
+ assert.equal(attacker.input.sprint,false);
+ assert.equal(attacker.input.jump,false);
+ attacker.position={x:-10,y:0,z:-51};
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},21).rejected,undefined);
+ assert.equal(ladder.state,'available');
+ assert.equal(ladder.holderId,null);
+ assert.equal(attacker.restlessCarrying,null);
+ assert.equal(attacker.speedScale,1);
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},22).rejected,undefined);
+ assert.equal(ladder.holderId,attacker.id);
+});
