@@ -94,7 +94,7 @@ export class RestlessDayRenderer{
     if(l.state==='broken')continue;
     const grp=new THREE.Group();grp.name='Metal siege ladder '+l.id;
     const deployed=l.state==='deployed',w=deployed?RESTLESS_DAY_WORLD.walls[l.wall]:null;
-    const z0=deployed?w.approachZ:0,z1=deployed?w.z-z0:7.4;
+    const z0=deployed?w.approachZ:0,z1=deployed?w.z-(l.wall===0?1.8:1.9)-z0:7.4;
     const y1=deployed?w.height:.3;
     const end0=[0,.15,deployed?z0-l.position.z:0];
     const end1=[0,y1,deployed?z1:7.4];
