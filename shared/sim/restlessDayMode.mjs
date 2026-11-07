@@ -24,7 +24,7 @@ function newState(world){
 const aliveCarrier=(room,id)=>room.players.get(id)?.alive&&room.players.get(id)?.team===TEAMS.ATTACKERS;
 function dropLadder(room,l,now){
  const p=room.players.get(l.holderId);
- if(p)p.restlessCarrying=null;
+ if(p){p.restlessCarrying=null;p.speedScale=1;}
  l.position=p?.position?{...p.position}:{...l.position};
  l.state='available';l.holderId=null;l.wall=null;
  room.events.push({type:'restlessLadderDropped',ladderId:l.id,at:now});
@@ -87,6 +87,7 @@ export function interactRestlessLadder(room,player,now){
    &&dist(near.position,player.position)>2.0)
    return {rejected:'Recover the deployed ladder at its base or battlement.'};
  near.state='carrying';near.holderId=player.id;near.wall=null;
+ player.attackHeld=false;player.attackActive=false;player.attackSweep=null;
  player.restlessCarrying=near.id;player.speedScale=RESTLESS_DAY_RULES.carrySpeed;
  // A loaded carrier cannot sprint, dash, swing or cast as though unencumbered.
  player.sprinting=false;player.input={...player.input,sprint:false};
@@ -235,6 +236,7 @@ function botGoal(room,actor){
 export const RESTLESS_DAY_HANDLER=Object.freeze({
  init:(room)=>{room.restlessDay=newState(room.world);},
  reset:(room,now)=>{room.restlessDay=newState(room.world);
+   for(const p of room.players.values()){p.restlessAsleep=false;p.restlessCarrying=null;p.speedScale=1;}
    room.restlessDay.deadline=now+room.policy.matchSeconds;
    room.events.push({type:'restlessDaylightStarted',deadline:room.restlessDay.deadline,at:now,
      subtitle:"If I ever sleep, I'll surrender. Let this be a restless day."});},
