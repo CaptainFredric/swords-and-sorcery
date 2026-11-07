@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
+import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {GAME_MODES, getModePolicy, publicRoomMode} from '../../shared/src/modes.mjs';
 import {WORLD_IDS, getWorld} from '../../shared/worlds/registry.mjs';
 import {TEAMS} from '../../shared/src/teams.mjs';
@@ -121,4 +122,35 @@ test('Rematch resets ladders, statue, sun and serialized mode state',()=>{
  assert.equal(room.structures.entities['rightful-renowner'].health,1650);
  snap=serializeSnapshot(room,45,attacker.id);
  assert.equal(snap.modeState.daylightRemaining,room.policy.matchSeconds);
+});
+
+test('Private Restless Day is creatable without prematurely opening public matchmaking',()=>{
+ const manager=new RoomManager();
+ const privateRoom=manager.createCustomRoom({isPrivate:true,mode:GAME_MODES.RESTLESS_DAY},0);
+ assert.equal(privateRoom.worldId,'restless-day');
+ assert.equal(privateRoom.policy.teamSize,5);
+ assert.equal(privateRoom.isPrivate,true);
+ assert.throws(()=>manager.createCustomRoom({isPrivate:false,mode:GAME_MODES.RESTLESS_DAY},0));
+});
+test('Gates are physical reinforced barriers, and a real ballista is spawned',()=>{
+ const {room,attacker}=match();
+ assert.ok(room.biByeLlista,'native ballista instantiated');
+ assert.ok(room.world.solids.some(s=>s.id==='outer-gate'));
+ assert.equal(damageStructure(room,'outer-gate',6000,attacker.id,'so-fist-ication',20),true);
+ assert.equal(room.structures.entities['outer-gate'].health,0);
+ assert.equal(damageStructure(room,'inner-gate',6000,attacker.id,'so-fist-ication',21),true);
+ assert.equal(room.structures.entities['inner-gate'].health,0);
+});
+test('Forward spawn choices and the battle phase reset correctly',()=>{
+ const {room,attacker}=match();
+ const s=room.restlessDay;
+ s.phase=1;
+ const forward=room.initialSpawnFor(attacker,0,20);
+ assert.ok(forward.z>-20&&forward.z<20);
+ s.phase=2;
+ const final=room.initialSpawnFor(attacker,0,30);
+ assert.ok(final.z>=29);
+ room.startMatch(40);
+ assert.equal(room.restlessDay.phase,0);
+ assert.ok(attacker.position.z<-40,'rematch begins from staging field');
 });
