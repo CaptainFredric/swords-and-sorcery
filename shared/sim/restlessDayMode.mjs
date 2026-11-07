@@ -29,27 +29,75 @@ function dropLadder(room,l,now){
  l.state='available';l.holderId=null;l.wall=null;
  room.events.push({type:'restlessLadderDropped',ladderId:l.id,at:now});
 }
+// Shared by client prediction and the authoritative server. Stable identities
+// prevent O(nodes^2) bot graph recomputation on every 30 Hz simulation tick.
+const ladderBase=new WeakMap();
+const ladderVariants=new WeakMap();
 export function withRestlessLadders(world,state){
  if(!state||world.id!=='restless-day')return world;
- // Replace, never accumulate dynamic geometry in repeated host/prediction updates.
- const ramps=(world.ramps??[]).filter(r=>!String(r.id).startsWith('siege-ladder-'));
- const solids=(world.solids??[]).filter(b=>!String(b.id).startsWith('siege-ladder-'));
- for(const l of state.ladders??[]){
-   if(l.state!=='deployed'||!Number.isInteger(l.wall))continue;
+ const base=ladderBase.get(world)??world;
+ const placed=(state.ladders??[]).filter(l=>l.state==='deployed'&&Number.isInteger(l.wall));
+ if(!placed.length)return base;
+ const key=placed.map(l=>`${l.id}:${l.wall}:${l.position.x.toFixed(2)}`).sort().join('|');
+ let variants=ladderVariants.get(base);
+ if(!variants)ladderVariants.set(base,variants=new Map());
+ if(variants.has(key))return variants.get(key);
+ const ramps=[...(base.ramps??[])],solids=[...(base.solids??[])];
+ const nodes=[...(base.navigation?.nodes??[])];
+ for(const l of placed){
    const w=walls[l.wall],z0=w.baseZ,z1=w.z-(l.wall===0?1.8:1.9);
    ramps.push({id:'siege-ladder-'+l.id,axis:'z',minX:l.position.x-1.3,
-      maxX:l.position.x+1.3,minZ:Math.min(z0,z1),maxZ:Math.max(z0,z1),
-      startY:0,endY:w.height});
-   // Six narrow, slope-following forged rails. Centre remains unobstructed for climbing.
-   for(let side of [-1,1])for(let i=0;i<6;i++){
-     const t=(i+.5)/6, length=Math.abs(z1-z0);
-     const y=w.height*t;
-     solids.push({id:'siege-ladder-'+l.id+'-'+side+'-'+i,
-       center:[l.position.x+side*1.39,y-.29,z0+(z1-z0)*t],
+      maxX:l.position.x+1.3,minZ:z0,maxZ:z1,startY:0,endY:w.height});
+   // Thin continuous side rails give real carried equipment a collision
+   // silhouette without turning its climbable centre into a solid barrier.
+   for(const side of [-1,1])for(let i=0;i<6;i++){
+     const t=(i+.5)/6,length=z1-z0;
+     solids.push({id:`siege-ladder-${l.id}-${side}-${i}`,
+       center:[l.position.x+side*1.39,w.height*t-.29,z0+length*t],
        size:[.22,.34,length/6+.04],material:'iron'});
    }
+   for(const t of [0,.25,.5,.75,1]){
+     nodes.push({id:`rd-ladder-${l.id}-${t}`,x:l.position.x,
+       y:w.height*t,z:z0+(z1-z0)*t});
+   }
  }
- return {...world,ramps,solids};
+ const result={...base,ramps,solids,
+   navigation:{...base.navigation,nodes}}; 
+ ladderBase.set(result,base);
+ if(variants.size>16)variants.delete(variants.keys().next().value);
+ variants.set(key,result);
+ return result;
+}
+
+/** A 5.4 m forged ladder projects beyond the knight's shoulders and cannot
+ * be dragged through the stone. Check the entire swept beam at body radius. */
+export function restlessCarryClear(world,position,yaw){
+ if(!world||!position||!Number.isFinite(yaw))return false;
+ const dx=-Math.sin(yaw),dz=-Math.cos(yaw);
+ const radius=.32;
+ for(let t=-1.9;t<=3.5;t+=.45){
+   const x=position.x+dx*t,z=position.z+dz*t,y=position.y+1.45;
+   for(const b of world.solids??[]){
+     if(!b?.center||!b?.size)continue;
+     const [cx,cy,cz]=b.center,[sx,sy,sz]=b.size;
+     // Use a conservative beam cross-section; the operator's own movement
+     // collider is handled separately by the standard movement system.
+     if(Math.abs(y-cy)<=sy/2+radius&&
+        Math.abs(x-cx)<=sx/2+radius&&Math.abs(z-cz)<=sz/2+radius)
+       return false;
+   }
+ }
+ return true;
+}
+/** Post-step position correction only for occupied ladder carriers. Returns
+ * true when the proposed step is blocked by the physical carried beam. */
+export function constrainRestlessCarry(state,from,world,yaw){
+ if(!state?.restlessCarrying)return false;
+ if(restlessCarryClear(world,state.position,yaw))return false;
+ state.position={...from};
+ state.velocity.x=0;state.velocity.z=0;
+ state.sprinting=false;state.sprintBlend=0;
+ return true;
 }
 function wallForPlacement(p){
  return walls.map((w,index)=>({index,w,d:Math.abs(p.position.z-w.baseZ)}))
