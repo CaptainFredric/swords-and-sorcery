@@ -107,6 +107,7 @@ import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
+import { disasterCameraWanted } from './oneHitCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
 // the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
@@ -1329,7 +1330,7 @@ export class GameRuntime {
     // its full-screen preview and modal suppression over the next menu.
     if(wasPlaying&&!this.playing&&this.touchLayoutEditor?.active)
       this.touchLayoutEditor.close({resumeArena:false});
-    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
+    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.chase=0;this.chaseOut=0;this.chaseAim=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();
   }
@@ -3143,7 +3144,7 @@ export class GameRuntime {
         this.weapon.brace(this.presentationNow()/1000+(event.commitAt-this.socket.serverNow()),{
           startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
         });
-        this.hud.flashText('ONE HIT OF WONDERS','sunder',1400);
+        this.hud.flashText('ALL-NATURAL DISASTER','sunder',1400);
       }
       return;
     }
@@ -3887,9 +3888,15 @@ export class GameRuntime {
       this.#foretellClang(timeSec);
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
       const motion = this.view.cameraMotion;
-      // a Blazing Vortex, committed: the view eases out behind and above me (vortexCamera.mjs) and back in as it ends.
-      // It looks where I look, as ever (the body spins, the view does not); the helm's own sway stays in the helm
-      this.chase = stepChase(this.chase ?? 0, chaseWanted(this.localAuth, serverNow), dt);
+      // A Blazing Vortex holds the chase camera through its spin. All-Natural
+      // Disaster uses that same collision-checked shot only for its sword
+      // turn, decisive impact, and (for Full Gale) the delayed aerial wave.
+      // Never switch view modes in settings, rotate the player's actual aim,
+      // or hold the camera out during Full Lightning's indefinite charge.
+      // Existing death/inspection/mounted views retain priority.
+      const cinematic = !this.inspectionFree && disasterCameraWanted(this.localAuth, serverNow);
+      this.chase = stepChase(this.chase ?? 0,
+        chaseWanted(this.localAuth, serverNow) || cinematic, dt);
       const helm = 1 - this.chase * this.chase * (3 - 2 * this.chase);
       this.camera.rotation.y = this.input.yaw + view.camera.yaw * motion * helm;
       this.camera.position.y -= view.camera.y * (1 - motion);
