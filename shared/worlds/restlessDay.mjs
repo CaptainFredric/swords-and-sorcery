@@ -49,7 +49,8 @@ const spawnPoints=[
   ...[-16,-8,0,8,16].map(x=>spawn(x,-90,TEAMS.ATTACKERS,0)),
   ...[-15,-7,0,7,15].map(x=>spawn(x,-5,TEAMS.ATTACKERS,1)),
   ...[-15,-7,0,7,15].map(x=>spawn(x,35,TEAMS.ATTACKERS,2)),
-  ...[-16,-8,0,8,16].map(x=>spawn(x,69,TEAMS.DEFENDERS,0)),
+  ...[-15,0,15].map(x=>({...spawn(x,-24,TEAMS.DEFENDERS,0),y:6})),
+  ...[-9,9].map(x=>({...spawn(x,22,TEAMS.DEFENDERS,0),y:7})),
 ];
 const nodes=[];
 for(const z of [-87,-65,-45,-33,-29,-24,-18,-9,5,14,18,22,29,40,52,65]){
