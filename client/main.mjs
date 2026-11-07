@@ -857,12 +857,13 @@ function soundTheEnd(snapshot) {
   recordMatchResult({
     winnerId: won ? socket.playerId : snapshot.winnerId,
     players: snapshot.players,
-    isScored: snapshot.mode !== 'PRACTICE' && !snapshot.tutorial,
+    isScored: !['PRACTICE', 'RENOWN_TRIALS'].includes(snapshot.mode) && !snapshot.tutorial,
   });
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
-  if (won) return;
+  // Do not speak an ordinary defeat quip over the Renowner's solemn verdict.
+  if (won || snapshot.mode === 'RENOWN_TRIALS') return;
   for (const say of linesFor(socket.playerId, ['matchLost'])) {
     const said = voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true });
     if (!said) continue;
