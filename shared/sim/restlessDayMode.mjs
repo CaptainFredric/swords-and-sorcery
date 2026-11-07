@@ -209,7 +209,8 @@ export function restlessnessStep(room,dt,now,{damage}={}){
      if(!aliveCarrier(room,l.holderId))dropLadder(room,l,now);
      else{
        const p=room.players.get(l.holderId);
-       l.position={...p.position};
+       l.position={x:p.position.x,y:p.position.y+1.4,z:p.position.z};
+      l.heading=p.yaw??0;
        p.speedScale=RESTLESS_DAY_RULES.carrySpeed;
        p.sprinting=false;
      }
