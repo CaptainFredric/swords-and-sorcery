@@ -319,7 +319,10 @@ test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor
   if(kind==='ground')s.m.grounded=true;
   if(kind==='skill')s.m.skill.id='narrowToOne';
   if(kind==='rotor')s.m.rotorHP=0;
-  if(kind==='meter')s.p.prowess=99;
+  if(kind==='meter'){
+   s.room.mode='BOT_DUEL'; // Full-meter veto remains mandatory outside Practice
+   s.p.prowess=99;
+  }
   if(kind==='spent')s.m.terminalDiveSpent=true;
   if(kind==='inactive')s.m.skill.phase='idle';
   const response=s.cmd('flightTerminalRitual',undefined,1);
