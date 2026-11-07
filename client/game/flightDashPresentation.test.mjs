@@ -11,7 +11,7 @@ test('real offensive run causes one short smooth pullback and FOV widening, neve
   assert.equal(close,0,'a held long Dash does not hold a perpetual zoom');
   assert.ok(FLIGHT_DASH_VIEW.duration<1);
 });
-test('release, collision interruption or terminal dive cancels the pulse quickly',()=>{
+test('release or collision interruption cancels the ordinary Dash pulse quickly',()=>{
  const v=new FlightDashPresentation(),m=machine({offensiveRun:true});
  for(let i=0;i<11;i++)tick(v,m);
  const before=v.strength;assert.ok(before>.6);
@@ -20,7 +20,8 @@ test('release, collision interruption or terminal dive cancels the pulse quickly
  assert.ok(v.strength<before*.12);
  assert.equal(tick(v,m).started,false);
  m.offensiveRun=true;assert.equal(tick(v,m).started,true);
- m.terminalDive={};assert.deepEqual(tick(v,m),{started:false,strength:0,fov:0,pullback:0,thirdBlend:0});
+ m.terminalDive={resolved:false};const terminal=tick(v,m);
+ assert.ok(terminal.thirdBlend>0,'terminal dive retains the physical third-person boom');
 });
 test('never triggers for unmounted spectators, dead pilots, destroyed rotors, or a new operator',()=>{
  const v=new FlightDashPresentation(),m=machine({offensiveRun:true});
@@ -49,4 +50,21 @@ test('held run keeps the third person boom after the transient FOV accent ends',
  assert.ok(f.thirdBlend>.99);assert.ok(f.pullback>1);assert.equal(f.fov,0);
  m.offensiveRun=false;for(let i=0;i<40;i++)f=tick(v,m);
  assert.ok(f.thirdBlend<.01);assert.ok(f.pullback<.02);
+});
+
+test('an active Valkyrie keeps a pursuit camera even when rotor condition decays',()=>{
+ const v=new FlightDashPresentation(),m=machine({
+  terminalDive:{resolved:false},offensiveRun:false,health:250,rotorHP:100,
+ });
+ let frame;
+ for(let i=0;i<150;i++)frame=tick(v,m);
+ assert.ok(frame.thirdBlend>.99,'terminal commitment never abandons the chase camera');
+ assert.ok(frame.pullback>FLIGHT_DASH_VIEW.thirdPersonPullback,
+   'the terminal chase pulls behind the actual chassis');
+ assert.ok(frame.fov>=2,'the terminal chase keeps modest danger emphasis');
+ m.rotorHP=0;m.health=0;
+ assert.ok(tick(v,m).thirdBlend>.99,'damage cannot force a surprise cockpit return');
+ m.terminalDive.resolved=true;
+ for(let i=0;i<40;i++)frame=tick(v,m);
+ assert.ok(frame.thirdBlend<.01,'terminal resolution returns to the saved view');
 });
