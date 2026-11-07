@@ -1169,7 +1169,7 @@ export class WeaponView {
     });
     if(equipped||casting){
       this.magicLight.color.setHex(CONDUCT_YELLOW.body);
-      this.magicLight.intensity+=.55+(casting?.9:0);
+      this.magicLight.intensity+=.18+(casting?.48:0);
     }
   }
 
