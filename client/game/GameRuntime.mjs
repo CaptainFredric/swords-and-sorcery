@@ -3,7 +3,7 @@ import { flyStep, inspectionSpawn, inspectionViews, levelCamera, focusOnSubject,
 import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
-import {withRestlessLadders} from '../../shared/sim/restlessDayMode.mjs';
+import {withRestlessLadders,constrainRestlessCarry} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
@@ -3834,7 +3834,12 @@ export class GameRuntime {
         this.movementWorld = playerMovementWorld(withRestlessLadders(this.activeWorld,this.latestSnapshot?.modeState), {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
+        const beforeCarry={...this.localState.position};
+        this.localState.restlessCarrying=this.localAuth?.restlessCarrying??null;
+        if(this.localState.restlessCarrying){moveInput.jump=false;moveInput.sprint=false;}
         this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
+        if(this.localState.restlessCarrying)
+          constrainRestlessCarry(this.localState,beforeCarry,this.movementWorld,this.input.yaw);
       }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
