@@ -35,6 +35,7 @@ test('server trial settlement commits atomically, repeats do not duplicate, surv
   assert.ok(award?.receiptId.startsWith('trial-wave:'));
   assert.equal(commitTrialAward(store, award).balance, 12);
   assert.equal(first.row.status, 'SETTLED');
+  assert.equal(pendingTrialAward(first.room,first.event),null,'replayed clear event cannot reopen a settled wave');
   assert.equal(commitTrialAward(store, award).balance, 12);
   store = new ProfileStore(dir);
   assert.equal(store.open(token).profile.balance, 12);
