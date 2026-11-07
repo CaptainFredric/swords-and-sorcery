@@ -55,16 +55,19 @@ export function edgeSafeFootPoint(room, actor, desired, world = room.world, { st
     if (requireInside && !edgeInside(to,center,radius,clearance)) return null;
     if (newR > oldR+1e-4 && !edgeInside(old,center,radius,clearance)) return null;
     const feet = surfaceHeightAt(x,z,old.y+1.4,world);
-    // Grounded actors cannot cross holes, unsupported stair gaps or cliff edges.
-    if (actor.grounded && (feet === null || Math.abs(feet-old.y)> .5)) return null;
+    // A contraction may catch a knight on the east gallery. Walking off a
+    // supported ledge into a REAL lower floor is legal; normal gravity handles
+    // the descent, not an instant vertical teleport. A true abyss remains closed.
+    const drop = Boolean(actor.grounded && feet!==null && old.y-feet>.65);
+    if(actor.grounded && (feet===null || feet>old.y+.5 || old.y-feet>3.3))return null;
     if (actor.grounded) {
       for (const t of [.25,.5,.75]) {
         const tx=old.x+(x-old.x)*t,tz=old.z+(z-old.z)*t;
         const floor=surfaceHeightAt(tx,tz,old.y+1.4,world);
-        if (floor===null || Math.abs(floor-old.y)>.55) return null;
+        if(floor===null || floor>old.y+.55 || old.y-floor>3.3)return null;
       }
     }
-    const y = actor.grounded ? feet : old.y;
+    const y = actor.grounded && !drop ? feet : old.y;
     const posed = {x,y,z};
     const resolved = resolvePlayerWorld(posed,clearance,solids,1.8);
     if (Math.hypot(resolved.x-x,resolved.z-z)>.025) return null;
@@ -74,7 +77,7 @@ export function edgeSafeFootPoint(room, actor, desired, world = room.world, { st
     for (const solid of world?.solids??[]) {
       if (segmentAabbHit([old.x,old.y+.9,old.z],[x,y+.9,z],solid)) return null;
     }
-    return posed;
+    return {...posed,edgeLeaveLedge:drop};
   };
   const dx=target.x-old.x,dz=target.z-old.z,distance=Math.hypot(dx,dz);
   if (distance < 1e-5) return validate(target.x,target.z);
@@ -215,7 +218,10 @@ export function edgeConstrainActor(room, actor, oldPosition, nowSec, world = roo
     if (edgeInside(before, center, radius, clearance)) actor.position = { ...before };
     return true;
   }
-  actor.position = spot;
+  actor.position = {x:spot.x,y:spot.y,z:spot.z};
+  if(spot.edgeLeaveLedge){
+    actor.grounded=false;actor.velocity.y=Math.min(0,actor.velocity?.y??0);
+  }
   const nx = actor.position.x - center.x, nz = actor.position.z - center.z;
   const length = Math.hypot(nx, nz) || 1;
   const radialSpeed = ((actor.velocity?.x ?? 0) * nx + (actor.velocity?.z ?? 0) * nz) / length;
