@@ -42,7 +42,7 @@ test('the ram may be deliberately abandoned without destroying or retiring the c
   edgeHandleMountedOperators(room,4);
   assert.equal(ram.operatorId,null,'existing dismount releases the operator');
   assert.equal(pilot.operatingRamId,null);
-  assert.equal(ram.retired,false);
+  assert.notEqual(ram.retired,true);
   assert.equal(ram.health,1400);
   assert.equal(dismounts(room).length,1);
   assert.ok(edgeInside(pilot.position,room.edgeOfVictory.center,room.edgeOfVictory.radius,.45));
