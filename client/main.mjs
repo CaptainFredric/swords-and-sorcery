@@ -676,7 +676,7 @@ $('#lobby-settings').addEventListener('change', event => {
   form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
   form.querySelector('[data-score-field]').hidden=event.target.value!=='FFA';
   form.querySelector('[data-team-field]').hidden=!team;
-  form.querySelector('[data-bot-field]').hidden=!team;
+  form.querySelector('[data-bot-field]').hidden=!(team||event.target.value==='EDGE_OF_VICTORY');
   form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
 });
 $('#lobby-settings').addEventListener('submit', event => {
@@ -694,8 +694,7 @@ $('#lobby-settings').addEventListener('submit', event => {
     return;
   }
   socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,
-    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:
-    {teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
+    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:form.elements.botSkill.value}:{teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -817,7 +816,7 @@ function syncPublicRoomForm() {
   roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
   roomCreateForm.querySelector('[data-score-field]').hidden=mode!=='FFA';
   roomCreateForm.querySelector('[data-team-field]').hidden=!team;
-  roomCreateForm.querySelector('[data-bot-field]').hidden=!team;
+  roomCreateForm.querySelector('[data-bot-field]').hidden=!(team||mode==='EDGE_OF_VICTORY');
   roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
 }
 roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
@@ -841,7 +840,7 @@ roomCreateForm.addEventListener('submit', event => {
     return;
   }
   const settings={mode,worldId:f.worldId.value,matchSeconds:Math.round(minutes*60),
-    ...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
+    ...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:f.botSkill.value}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
   runMenuAction(menuController.createPublic(nameInput.value,settings),SCREEN_IDS.ROOMS_MENU);
 });
 // the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
@@ -1236,13 +1235,14 @@ function renderPrivateMode({reset=true}={}){
     f.worldId.innerHTML=arenaOptions(mode,oldArena);
   if(reset){
     f.minutes.value=defaults.minutes;
-    if(teamMode){
-      f.teamSize.value=defaults.teamSize;
-      f.team.value=defaults.team;
+    if(teamMode||mode==='EDGE_OF_VICTORY'){
+      if(teamMode)f.teamSize.value=defaults.teamSize;
+      if(teamMode)f.team.value=defaults.team;
       f.botSkill.value=defaults.botSkill;
     }else f.scoreToWin.value=defaults.scoreToWin;
   }
   privateForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
+  privateForm.querySelector('[data-private-bot]').hidden=!(teamMode||mode==='EDGE_OF_VICTORY');
   for(const attr of ['size','team','bot'])
     privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode;
   const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
