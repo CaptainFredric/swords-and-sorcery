@@ -99,6 +99,13 @@ export function constrainRestlessCarry(state,from,world,yaw){
  state.sprinting=false;state.sprintBlend=0;
  return true;
 }
+function ladderReach(l,p){
+ const foot=dist(l.position,p.position);
+ if(l.state!=='deployed'||!Number.isInteger(l.wall))return foot;
+ const w=walls[l.wall];
+ const top=Math.hypot(p.position.x-l.position.x,p.position.y-w.height,p.position.z-w.z);
+ return Math.min(foot,top);
+}
 function wallForPlacement(p){
  return walls.map((w,index)=>({index,w,d:Math.abs(p.position.z-w.baseZ)}))
    .filter(v=>v.d<=RESTLESS_DAY_RULES.placementRange&&Math.abs(p.position.x)<=20)
@@ -122,6 +129,15 @@ export function interactRestlessLadder(room,player,now){
      &&player.position.x>b.center[0]-b.size[0]/2+.8
      &&player.position.x<b.center[0]+b.size[0]/2-.8);
    if(!curtain)return {rejected:'Use an intact stone curtain, not the gate opening.'};
+   const lipZ=w.z-(index===0?1.8:1.9);
+   const lipObstruction=(room.world.solids??[]).some(box=>{
+     if(!box.center||!box.size)return false;
+     return Math.abs(player.position.x-box.center[0])<=box.size[0]/2+.55
+       &&Math.abs(lipZ-box.center[2])<=box.size[2]/2+.55
+       &&box.center[1]+box.size[1]/2>w.height+.3
+       &&box.center[1]-box.size[1]/2<w.height+1.8;
+   });
+   if(lipObstruction)return {rejected:'The battlement lip must be clear of stonework.'};
    const other=s.ladders.find(l=>l!==held&&l.state==='deployed'&&l.wall===index
      &&Math.abs(l.position.x-player.position.x)<2.8);
    if(other)return {rejected:'Give the other ladder clearance.'};
@@ -132,13 +148,15 @@ export function interactRestlessLadder(room,player,now){
    return {};
  }
  const near=s.ladders.filter(l=>['available','deployed'].includes(l.state))
-   .sort((a,b)=>dist(a.position,player.position)-dist(b.position,player.position))[0];
- if(!near||dist(near.position,player.position)>RESTLESS_DAY_RULES.interactRange)
+   .sort((a,b)=>ladderReach(a,player)-ladderReach(b,player))[0];
+ if(!near||ladderReach(near,player)>RESTLESS_DAY_RULES.interactRange)
    return {rejected:'Approach one of the two siege ladders.'};
  if(near.state==='deployed'&&near.wall!==null
    &&Math.abs(player.position.y-walls[near.wall].height)>.8
-   &&dist(near.position,player.position)>2.0)
+   &&ladderReach(near,player)>2.0)
    return {rejected:'Recover the deployed ladder at its base or battlement.'};
+ if(!restlessCarryClear(room.world,player.position,player.yaw??0))
+   return {rejected:'The ladder cannot be shouldered inside stonework.'};
  near.state='carrying';near.holderId=player.id;near.wall=null;
  player.attackHeld=false;player.attackActive=false;player.attackSweep=null;
  player.restlessCarrying=near.id;player.speedScale=RESTLESS_DAY_RULES.carrySpeed;
@@ -258,7 +276,7 @@ export function restlessnessStep(room,dt,now,{damage}={}){
      else{
        const p=room.players.get(l.holderId);
        l.position={x:p.position.x,y:p.position.y+1.4,z:p.position.z};
-      l.heading=p.yaw??0;
+      if(restlessCarryClear(room.world,p.position,p.yaw??0))l.heading=p.yaw??0;
        p.speedScale=RESTLESS_DAY_RULES.carrySpeed;
        p.sprinting=false;
      }
@@ -290,7 +308,7 @@ export function restlessnessStep(room,dt,now,{damage}={}){
      const l=s.ladders[bot.rivalIndex??0];
      if(l&&['available','deployed'].includes(l.state)
        &&(l.state!=='deployed'||l.wall<s.phase)
-       &&dist(bot.position,l.position)<2.7)interactRestlessLadder(room,bot,now);
+       &&ladderReach(l,bot)<2.7)interactRestlessLadder(room,bot,now);
    }
  }
  stepStatue(room,s,dt,now,damage);
@@ -308,6 +326,10 @@ function onTime(room,now){
    room.finish(TEAMS.DEFENDERS,s.deadline,'sundown');
  }
  return true; // handled: never enter Breakthrough overtime logic
+}
+function beforeStructureDamage(room,id,now){
+ if(room.restlessDay&&now>=room.restlessDay.deadline){onTime(room,now);return false;}
+ return true;
 }
 function onStructureDamage(room,id,now){
  if(id!=='rightful-renowner'||room.structures?.entities[id]?.health>0||
@@ -328,7 +350,7 @@ function botGoal(room,actor){
  const own=s.ladders.find(l=>l.holderId===actor.id);
  const wall=walls[Math.min(1,s.phase)];
  if(s.phase<2){
-   if(own)return {x:clamp(own.position.x,-19,19),y:0,z:wall.baseZ};
+   if(own)return {x:actor.rivalIndex%2===0?-6:6,y:0,z:wall.baseZ};
    const deploy=s.ladders.find(l=>l.state==='deployed'&&l.wall===s.phase);
    if(deploy){
      const atFoot=Math.abs(actor.position.z-wall.baseZ)<3.2
@@ -339,7 +361,7 @@ function botGoal(room,actor){
    }
    const previous=s.ladders[(actor.rivalIndex??0)%2];
    if(previous?.state==='deployed'&&previous.wall<s.phase)
-     return {x:previous.position.x,y:walls[previous.wall].height,z:previous.position.z};
+     return {x:previous.position.x,y:walls[previous.wall].height,z:walls[previous.wall].z};
    const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
      ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
    if(loose)return {...loose.position};
@@ -354,7 +376,7 @@ export const RESTLESS_DAY_HANDLER=Object.freeze({
    room.restlessDay.deadline=now+room.policy.matchSeconds;
    room.events.push({type:'restlessDaylightStarted',deadline:room.restlessDay.deadline,at:now,
      subtitle:"If I ever sleep, I'll surrender. Let this be a restless day."});},
- step:restlessnessStep,onTime,onStructureDamage,
+ step:restlessnessStep,onTime,beforeStructureDamage,onStructureDamage,
  spawn:(room,player,spawns)=>spawns.filter(point=>point.team===player.team&&(
    player.team===TEAMS.DEFENDERS?point.phase===0:point.phase===(room.restlessDay?.phase??0))),
  botGoal,
