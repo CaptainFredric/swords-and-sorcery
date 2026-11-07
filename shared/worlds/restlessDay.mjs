@@ -60,14 +60,18 @@ const spawnPoints=[
 const nodes=[];
 const node=(x,y,z,id)=>nodes.push({id:id??'rd-'+x+'-'+y+'-'+z,x,y,z});
 for(const z of [-90,-76,-62,-48,-35,-29])
-  for(const x of [-19,0,19])node(x,0,z);
+  for(const x of [-19,-9,0,9,19])node(x,0,z);
 for(const z of [-16,-3,10,15])
-  for(const x of z===-16?[-12,0,12]:[-19,0,19])node(x,0,z);
-for(const z of [39,46,65])
-  for(const x of [-19,0,19])node(x,0,z);
+  for(const x of z===-16?[-12,-6,0,6,12]:[-19,-9,0,9,19])node(x,0,z);
+for(const z of [39,46,55,65])
+  for(const x of [-19,-9,0,9,19]){
+    // A real solid brass podium occupies the central 5.6 m at z=55.
+    if(z===55&&x===0)continue;
+    node(x,0,z);
+  }
 node(0,0,50.2);node(0,.375,51.1);node(0,.75,52);
-for(const x of [-19,0,19])node(x,6,-23.4,'rd-outer-walk-'+x);
-for(const x of [-19,0,19])node(x,7,22.8,'rd-inner-walk-'+x);
+for(const x of [-19,-9,0,9,19])node(x,6,-23.4,'rd-outer-walk-'+x);
+for(const x of [-19,-9,0,9,19])node(x,7,22.8,'rd-inner-walk-'+x);
 for(const x of [-19,19]){ // two rear approaches to the outer battlement
   node(x,0,-8.3);node(x,3,-15.25);node(x,6,-22.5);
 }
