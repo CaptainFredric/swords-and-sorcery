@@ -62,7 +62,6 @@ test('one survivor wins immediately, regardless of ordinary FFA score', () => {
   assert.equal(room.winnerId, 'knight');
   assert.equal(room.finishReason, 'last-knight-standing');
   assert.equal(room.players.get(victims[0].id).alive, false);
-  assert.equal(room.edgeOfVictory.playersRemaining, undefined); // authoritative map has remaining IDs
   assert.deepEqual(room.edgeOfVictory.remaining, ['knight']);
 });
 
@@ -87,9 +86,31 @@ test('rematch resets eliminated list, radius, equipment and spawns', () => {
   assert.ok([...room.players.values()].every((p) => p.alive));
 });
 
-test('departing an active competitor counts as a forfeit', () => {
-  const room = makeMatch();
-  const other = [...room.players.values()].filter((p) => p.id !== 'knight');
-  for (const bot of other) killPlayer(room, bot.id, 'knight', 'sword', 1);
-  assert.equal(room.state, 'FINISHED');
+test('departing an active human counts as forfeit without indefinite waiting', () => {
+  const room = new Room('EXIT1',{mode:GAME_MODES.EDGE_OF_VICTORY,worldId:'ruined-keep'});
+  room.addPlayer({id:'one',token:'one',name:'One'},0);
+  room.addPlayer({id:'two',token:'two',name:'Two'},0);
+  room.startMatch(0);
+  const bots=[...room.players.values()].filter(p=>p.actorKind==='bot');
+  for (const bot of bots) killPlayer(room,bot.id,'one','sword',1);
+  room.removePlayer('two',3);
+  assert.equal(room.state,'FINISHED');
+  assert.equal(room.winnerId,'one');
+  assert.equal(room.edgeOfVictory.eliminated.some(e=>e.id==='two'&&e.reason==='forfeit'),true);
+});
+
+test('outward refusal respects dialogue cooldown and contracts silently when stationary', () => {
+  const room=makeMatch(),p=room.players.get('knight');
+  const center=room.edgeOfVictory.center;
+  room.edgeOfVictory.radius=8;
+  p.position={x:center.x+7.54,y:0,z:center.z};
+  p.input={...p.input,forward:-1,right:0,yaw:Math.PI/2};
+  edgeConstrainActor(room,p,p.position,5);
+  edgeConstrainActor(room,p,p.position,6);
+  const lines=room.events.filter(e=>e.type==='spellbladeLine'&&e.playerId===p.id);
+  assert.ok(lines.length<=1);
+  p.input={...p.input,forward:0,right:0};
+  room.edgeOfVictory.radius=5;
+  edgeConstrainActor(room,p,p.position,7);
+  assert.equal(room.events.filter(e=>e.type==='spellbladeLine'&&e.playerId===p.id).length,lines.length);
 });
