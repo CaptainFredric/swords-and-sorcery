@@ -4,6 +4,8 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
   // a Blazing Vortex (lit, or spinning): the knight is the spin
   if (player.ultimateState?.id === 'vortex') return 'vortex';
+  // The elemental Disaster is a single committed sword stroke, not idle locomotion.
+  if (player.ultimateState?.id === 'one_hit_of_wonders') return 'one-hit';
   // bracing into Sunder: the sword going up overhead, from the moment its key is pressed
   if (player.ultimateState?.id === 'sunder' && player.ultimateState.phase === 'startup' && serverNow < (player.ultimateState.commitAt ?? -Infinity)) return 'brace';
   if (combatActionPolicy(player, serverNow).concurrent && player.attackActive) return 'attack';
