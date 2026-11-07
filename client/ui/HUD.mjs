@@ -96,6 +96,11 @@ export function breakthroughHudView(local, snapshot, serverNow) {
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.tutorial) return 'GREENER PASTURES  ·  TUTORIAL';
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
+  if (snapshot?.mode === 'EDGE_OF_VICTORY') {
+    const edge=snapshot.edgeOfVictory;
+    const left=edge?.nextStageAt===null?'FINAL BATTLEGROUND':Math.max(0,Math.ceil((edge?.nextStageAt??serverNow)-serverNow))+'s TO CONTRACTION';
+    return 'EDGE OF VICTORY · '+(edge?.playersRemaining??snapshot.players?.filter(p=>p.alive).length??0)+' KNIGHTS REMAIN · '+left;
+  }
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
   const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
   const elapsed = Math.max(0, serverNow - startedAt);
@@ -487,7 +492,8 @@ export class HUD {
     }
 
     this.deathCard.classList.toggle('hidden', local.alive);
-    if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
+    if (!local.alive) this.deathTimer.textContent = snapshot?.mode === 'EDGE_OF_VICTORY'
+      ? 'ELIMINATED · WATCH THE FINAL KNIGHTS' : Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
 
   setPreparedSelector(view) {
@@ -1030,6 +1036,12 @@ export class HUD {
       this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
 
+    }
+    if (snapshot.mode === 'EDGE_OF_VICTORY') {
+      const ordered=[...snapshot.players].sort((a,b)=>Number(b.alive)-Number(a.alive)||b.kills-a.kills);
+      this.scoreboard.innerHTML='<h3>EDGE OF VICTORY · LAST KNIGHT STANDING</h3>'+ordered.map(p=>
+        '<div><span>'+escapeHtml(p.name)+'</span><b>'+(p.alive?'STANDING':'ELIMINATED')+'</b><em>'+p.kills+' K</em></div>').join('');
+      return;
     }
     const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     this.scoreboard.innerHTML = `<h3>SCOREBOARD</h3>${sorted.map((p) => `<div><span>${escapeHtml(p.name)}</span><b>${p.kills}</b><em>${p.deaths} deaths</em></div>`).join('')}`;
