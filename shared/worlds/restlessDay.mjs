@@ -62,8 +62,8 @@ const node=(x,y,z,id)=>nodes.push({id:id??'rd-'+x+'-'+y+'-'+z,x,y,z});
 for(const z of [-90,-76,-62,-48,-35,-29])
   for(const x of [-19,0,19])node(x,0,z);
 for(const z of [-16,-3,10,15])
-  for(const x of [-19,0,19])node(x,0,z);
-for(const z of [35,46,65])
+  for(const x of z===-16?[-12,0,12]:[-19,0,19])node(x,0,z);
+for(const z of [39,46,65])
   for(const x of [-19,0,19])node(x,0,z);
 node(0,0,50.2);node(0,.375,51.1);node(0,.75,52);
 for(const x of [-19,0,19])node(x,6,-23.4,'rd-outer-walk-'+x);
