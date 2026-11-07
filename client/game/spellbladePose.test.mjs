@@ -92,3 +92,13 @@ test('a knight in a Blazing Vortex is the spin (lit or spinning), unless felled 
   assert.deepEqual(level, levelLater, 'held: the same frame all the way through');
   assert.equal(resolveSpellbladeAnimationPlan({ state: 'vortex', player: lit, serverNow: 10.8 }).clip, 'Slash_1', 'level before the spin takes hold');
 });
+
+test('All-Natural Disaster is a visible one-hit sword action, prioritized over ordinary locomotion',()=>{
+  const startup={...base,velocity:{x:0,y:0,z:4},ultimateState:{id:'one_hit_of_wonders',phase:'startup',commitAt:10.92}};
+  const active={...startup,velocity:{x:0,y:3,z:0},ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57}};
+  assert.equal(resolveSpellbladeState(startup,10.5),'one-hit');
+  assert.equal(resolveSpellbladeState(active,11.1),'one-hit');
+  assert.equal(resolveSpellbladeState({...active,staggerUntil:12},11.1),'stagger');
+  assert.equal(resolveSpellbladeState({...active,alive:false},11.1),'dead');
+  assert.equal(resolveSpellbladeState({...base,ultimateState:null},11.1),'idle');
+});

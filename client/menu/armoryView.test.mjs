@@ -18,12 +18,14 @@ test('the Armory lists every spell from the shared table, marks the one carried,
   for (const spell of view.spells) assert.ok(spell.line.length > 20, `${spell.id} has words`);
 });
 
-test('the Armory offers the original ultimates and One Hit of Wonders with its own identity', async () => {
+test('the Armory offers the original ultimates and All-Natural Disaster with its own identity', async () => {
   const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
   const view = armoryView('fireball', 'vortex');
   assert.deepEqual(view.ultimates.map((u) => u.id), Object.keys(ULTIMATES));
   assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex', 'chivalry', 'one_hit_of_wonders'], 'four ultimate identities');
   assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
+  const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
+  assert.equal(disaster.name,'ALL-NATURAL DISASTER');
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');
   assert.match(vortex.line, /^Spin through enemies with your blade and aimed fire\./);

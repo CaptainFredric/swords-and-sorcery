@@ -239,3 +239,22 @@ test('Sprint plus Guard sword and spell keeps authored gait with a restrained Sp
   assert.equal(resumed.layers.sword.clip,'Guard');
   assert.equal(resumed.layers.posture.overlay.clip,'Sprint');
 });
+
+test('All-Natural Disaster poses the third-person sword through the actual strike contact, not Idle',async()=>{
+  const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
+  const base={alive:true,velocity:{x:0,y:0,z:0},staggerUntil:0};
+  const charging={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',commitAt:10.92,preparedTiers:{lightning:0}}};
+  const started=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(charging,10),player:charging,serverNow:10});
+  const near=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(charging,10.9),player:charging,serverNow:10.9});
+  const committed={...charging,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'ground'}}};
+  const contact=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(committed,10.92),player:committed,serverNow:10.92});
+  const follow=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(committed,11.2),player:committed,serverNow:11.2});
+  assert.equal(started.clip,'Slash_3');
+  assert.equal(near.clip,'Slash_3');
+  assert.ok(near.time>started.time,'windup advances as the commit nears');
+  assert.equal(contact.clip,'Slash_3');
+  assert.ok(contact.time>=near.time,'no snap backwards at contact');
+  assert.ok(follow.time>contact.time && follow.time<.64,'strike follows through');
+  const charge={...charging,ultimateState:{...charging.ultimateState,commitAt:3_600_010,preparedTiers:{lightning:2},teleportHoldAt:10}};
+  assert.ok(resolveSpellbladeAnimationPlan({state:'one-hit',player:charge,serverNow:30}).time < contact.time,'charge pose holds until release');
+});

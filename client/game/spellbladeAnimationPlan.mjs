@@ -2,6 +2,7 @@ import { concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
+import { disasterWindupSec } from './oneHitCamera.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -81,6 +82,23 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const vortex = player.ultimateState ?? {};
     const lighting = vortex.phase === 'startup' && serverNow < finite(vortex.commitAt, serverNow) - VORTEX_HELD.levelBefore;
     return lighting ? fixed('Slash_3', VORTEX_HELD.raised) : fixed('Slash_1', VORTEX_HELD.level);
+  }
+
+  // All-Natural Disaster: the authored body's sword winds up while the
+  // camera reveals its turn, then Slash_3 crosses its actual contact pose
+  // exactly at the authoritative commitment time (ground or in the air).
+  // The indefinite Full Lightning hold retains the raised stance, not a
+  // looping attack; release commits the strike as normal.
+  if (state === 'one-hit') {
+    const action=player.ultimateState ?? {};
+    const windup=disasterWindupSec(action);
+    if (action.phase==='startup') {
+      const remaining=finite(action.commitAt,serverNow)-serverNow;
+      const share=Math.max(0,Math.min(1,1-remaining/windup));
+      return fixed('Slash_3', SLAM_CONTACT * (0.18 + 0.82 * share));
+    }
+    const elapsed=Math.max(0,serverNow-finite(action.commitAt,serverNow));
+    return fixed('Slash_3',Math.min(SLASH_DURATIONS[2]-.01,SLAM_CONTACT + elapsed * .75));
   }
 
   // the brace into Sunder: the opening of the slam's own swing (the sword taken up overhead), played through the
