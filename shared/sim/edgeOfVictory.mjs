@@ -166,39 +166,40 @@ export function edgeConstrainActor(room, actor, oldPosition, nowSec, world = roo
   if (!state || room.state !== 'PLAYING' || !actor?.alive) return false;
   const center = state.center, radius = state.radius;
   const before = oldPosition ?? actor.position;
-  if (edgeInside(actor.position, center, radius, clearance)) return false;
-  const wanted = edgeLimitPoint(actor.position, center, radius, clearance + 0.04);
-  const spot = safeEdgePoint({ ...wanted, y: actor.position.y }, world, center, radius, clearance);
-  if (!spot) {
-    // A navigability failure cannot justify propelling the actor through a wall.
-    // Retain the last valid position while the next simulation step resolves the obstruction.
-    if (edgeInside(before, center, radius, clearance)) actor.position = { ...before };
-    return true;
-  }
-  const hadLegalStartingPoint = edgeInside(before, center, radius, clearance);
-  const wasOutsideByContraction = !hadLegalStartingPoint;
-  actor.position = { x: spot.x, y: actor.position.y, z: spot.z };
-  // When contraction has passed an idle knight, bring the feet to valid ground.
-  if (wasOutsideByContraction && actor.grounded) actor.position.y = spot.y;
   const dx = actor.position.x - center.x, dz = actor.position.z - center.z;
   const norm = Math.hypot(dx, dz) || 1;
-  const radialSpeed = (actor.velocity.x * dx + actor.velocity.z * dz) / norm;
-  if (radialSpeed > 0) {
-    actor.velocity.x -= radialSpeed * dx / norm;
-    actor.velocity.z -= radialSpeed * dz / norm;
-  }
+  const atEdge = norm >= radius - clearance - 0.25;
   const f = Math.max(-1, Math.min(1, actor.input?.forward ?? 0));
   const r = Math.max(-1, Math.min(1, actor.input?.right ?? 0));
   const yaw = actor.input?.yaw ?? actor.yaw ?? 0;
   const intendedX = -Math.sin(yaw) * f + Math.cos(yaw) * r;
   const intendedZ = -Math.cos(yaw) * f - Math.sin(yaw) * r;
   const attemptedRetreat = (intendedX * dx + intendedZ * dz) / norm > 0.18;
-  if (!wasOutsideByContraction && attemptedRetreat
+  const forcedOutside = !edgeInside(before, center, radius, clearance);
+  // Shared movePlayer may already have projected the motion inside the circle.
+  // Detect the *input* against the edge, not merely an illegal end position.
+  if (atEdge && attemptedRetreat && !forcedOutside
       && nowSec - (actor.edgeLastRefusalAt ?? -Infinity) >= state.config.refusalCooldownSec) {
     actor.edgeLastRefusalAt = nowSec;
     const text = EDGE_REFUSALS[(actor.edgeRefusalCount ?? 0) % EDGE_REFUSALS.length];
     actor.edgeRefusalCount = (actor.edgeRefusalCount ?? 0) + 1;
-    room.events.push({ type: 'spellbladeLine', playerId: actor.id, speaker: actor.name, text, at: nowSec });
+    room.events.push({ type: 'spellbladeLine', playerId: actor.id,
+      speaker: actor.name, text, at: nowSec });
+  }
+  if (edgeInside(actor.position, center, radius, clearance)) return false;
+  const wanted = edgeLimitPoint(actor.position, center, radius, clearance + 0.04);
+  const spot = safeEdgePoint({ ...wanted, y: actor.position.y }, world, center, radius, clearance);
+  if (!spot) {
+    if (edgeInside(before, center, radius, clearance)) actor.position = { ...before };
+    return true;
+  }
+  actor.position = { x: spot.x, y: forcedOutside && actor.grounded ? spot.y : actor.position.y, z: spot.z };
+  const nx = actor.position.x - center.x, nz = actor.position.z - center.z;
+  const length = Math.hypot(nx, nz) || 1;
+  const radialSpeed = ((actor.velocity?.x ?? 0) * nx + (actor.velocity?.z ?? 0) * nz) / length;
+  if (radialSpeed > 0) {
+    actor.velocity.x -= radialSpeed * nx / length;
+    actor.velocity.z -= radialSpeed * nz / length;
   }
   return true;
 }
