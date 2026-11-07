@@ -9,6 +9,7 @@ import {WORLD_IDS, getWorld} from '../../shared/worlds/registry.mjs';
 import {TEAMS} from '../../shared/src/teams.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {damageStructure} from '../../shared/sim/structures.mjs';
+import {beginSiegeSteel,stepSiegeSteel,SIEGE_STEEL_REFERENCES} from '../../shared/sim/siegeSteel.mjs';
 import {damageRestlessLadder,withRestlessLadders,restlessnessStep,restlessCarryClear,constrainRestlessCarry,RESTLESS_DAY_RULES} from '../../shared/sim/restlessDayMode.mjs';
 import {movePlayer,createMovementState} from '../../shared/src/movement.mjs';
 import {surfaceHeightAt} from '../../shared/src/collision.mjs';
@@ -221,4 +222,18 @@ test('Real authoritative 5v5 movement simulation advances attackers without fall
  for(const p of room.players.values())assert.ok(p.position.y>-1.1,
    `${p.id} sank through terrain at ${JSON.stringify(p.position)}`);
  assert.equal(room.players.size,10);
+});
+
+test('Restless Day native ram can repair its attached zero-HP gauntlet without resurrection budget exploits',()=>{
+ const {room,attacker}=match();
+ const ram=room.soFistication;
+ assert.ok(ram,'an actual SO-FIST-ICATION machine must spawn at its declared emplacement');
+ ram.operatorId=attacker.id;
+ attacker.operatingRamId=ram.id;
+ ram.fistMounted=true;
+ ram.components.Fist.health=0;
+ assert.equal(beginSiegeSteel(room,ram,'ram',attacker,20),true);
+ stepSiegeSteel(room,ram,25);
+ assert.ok(ram.components.Fist.health>0,'attached fist is not permanently removed from Steel repair eligibility');
+ assert.ok(ram.components.Fist.health<=SIEGE_STEEL_REFERENCES.ram.maximum,'healing obeys finite repair budget');
 });
