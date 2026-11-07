@@ -39,6 +39,8 @@ import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen } from './renownTrials.mjs';
 import { eliminateEdgePlayer, edgeConstrainActor, stepEdgeOfVictory } from './edgeOfVictory.mjs';
+import { edgeHandleMountedOperators } from './edgeSiegeDismount.mjs';
+import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -2521,7 +2523,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // An ongoing wave uses wholly ordinary Spellblade combat. Preparation and
   // the Renowner ceremony do not advance combat, hazards or input physics.
   if (room.mode === GAME_MODES.RENOWN_TRIALS && !renownTrialCombatOpen(room)) return room.events;
-  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) stepEdgeOfVictory(room, nowSec, world);
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    stepEdgeOfVictory(room, nowSec, world);
+    edgeHandleMountedOperators(room, nowSec);
+  }
   if (room.state !== 'PLAYING') return room.events;
 
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
@@ -2876,7 +2881,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   if(!room.freezeProjectiles) stepOneHitWorld(room,dt,nowSec,world);
   stepFlightBurnZones(room,nowSec);
-  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) stepEdgeOfVictory(room, nowSec, world);
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    stepEdgeOfVictory(room, nowSec, world);
+    edgeHandleMountedOperators(room, nowSec);
+  }
   // The actual resource is always full for living (or respawning) human
   // trainees; active Ultimate state still prevents reactivation. This runs
   // AFTER vehicle/terminal physics so a consumed terminal chord is never
