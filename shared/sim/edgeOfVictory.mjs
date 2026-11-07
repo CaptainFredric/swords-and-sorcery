@@ -1,11 +1,14 @@
 // Edge of Victory: an authoritative battle-royale rule, not a damaging storm.
 // All balance numbers below are provisional, intentionally confined to one place.
-import { resolvePlayerWorld, surfaceHeightAt } from '../src/collision.mjs';
+import { resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from '../src/collision.mjs';
+import { getBiByeSolids } from './biByeLlista.mjs';
+import { soFistSolids } from './soFistGeometry.mjs';
+import { fightFlightSolids } from './fightFlight.mjs';
 import { MOVEMENT } from '../src/movement.mjs';
 import { isSpell } from '../src/spells.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
-import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
-export { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
+import { edgeInside, edgeLimitPoint, edgeRadiusAt, edgeNextStage } from '../src/edgeBoundary.mjs';
+export { edgeInside, edgeLimitPoint, edgeRadiusAt, edgeNextStage } from '../src/edgeBoundary.mjs';
 
 export const EDGE_CONFIG = Object.freeze({
   center: Object.freeze({ x: 0, z: -1 }),
@@ -27,52 +30,61 @@ export const EDGE_REFUSALS = Object.freeze([
   'No, I must get closer. I will not leave this place.',
 ]);
 
-export function edgeRadiusAt(elapsed, stages = EDGE_CONFIG.stages) {
-  const time = Math.max(0, elapsed);
-  if (time <= stages[0].second) return stages[0].radius;
-  for (let i = 1; i < stages.length; i += 1) {
-    if (time > stages[i].second) continue;
-    const prior = stages[i - 1], next = stages[i];
-    const progress = (time - prior.second) / (next.second - prior.second);
-    return prior.radius + (next.radius - prior.radius) * progress;
-  }
-  return stages.at(-1).radius; // stable fighting area: never contracts to a point
-}
-
-export function edgeNextStage(elapsed, stages = EDGE_CONFIG.stages) {
-  return stages.find((stage) => stage.second > elapsed + 1e-6)?.second ?? null;
-}
-
-/** Find an actual supported, unoccupied spot. Do not invent a floor under a cliff.
- * Uses nearby corrections first; navigational waypoints are a last-resort fallback.
+/**
+ * The ordinary world collision contract remains authoritative. Corrections
+ * never introduce an imaginary support surface or cross a solid between feet
+ * positions. For sudden contraction, cover the distance over multiple ticks,
+ * rather than snapping a knight several metres through a wall.
  */
-function safeEdgePoint(wanted, world, center, radius, clearance) {
-  const candidate = edgeLimitPoint(wanted, center, radius, clearance + 0.08);
-  const solids = world?.solids ?? [];
-  const check = (point) => {
-    if (!edgeInside(point, center, radius, clearance)) return null;
-    const ground = surfaceHeightAt(point.x, point.z, point.y + 1.5, world);
-    if (ground === null || !Number.isFinite(ground)) return null;
-    const pos = { x: point.x, y: ground, z: point.z };
-    const resolved = resolvePlayerWorld(pos, clearance, solids);
-    if (Math.hypot(resolved.x - pos.x, resolved.z - pos.z) > 0.045) return null;
-    return pos;
+export function edgeSafeFootPoint(room, actor, desired, world = room.world, { stepLimit = .38, requireInside = false } = {}) {
+  const edge = room.edgeOfVictory;
+  if (!edge || !actor?.position) return null;
+  const clearance = MOVEMENT.playerRadius;
+  const old = actor.position, solids = [
+    ...(world?.solids??[]), ...getBiByeSolids(room.biByeLlista),
+    ...soFistSolids(room.soFistication), ...fightFlightSolids(room.fightFlight),
+    ...[...room.players.values()].filter(p=>p.alive&&p.id!==actor.id)
+      .map(p=>({center:[p.position.x,p.position.y+.9,p.position.z],size:[.94,1.8,.94]})),
+  ];
+  const radius = edge.radius, center = edge.center;
+  const target = edgeLimitPoint(desired,center,radius,clearance+.06);
+  const oldR = Math.hypot(old.x-center.x,old.z-center.z);
+  const validate = (x,z) => {
+    const to = { x, y: old.y, z };
+    const newR = Math.hypot(x-center.x,z-center.z);
+    if (requireInside && !edgeInside(to,center,radius,clearance)) return null;
+    if (newR > oldR+1e-4 && !edgeInside(old,center,radius,clearance)) return null;
+    const feet = surfaceHeightAt(x,z,old.y+1.4,world);
+    // Grounded actors cannot cross holes, unsupported stair gaps or cliff edges.
+    if (actor.grounded && (feet === null || Math.abs(feet-old.y)> .5)) return null;
+    if (actor.grounded) {
+      for (const t of [.25,.5,.75]) {
+        const tx=old.x+(x-old.x)*t,tz=old.z+(z-old.z)*t;
+        const floor=surfaceHeightAt(tx,tz,old.y+1.4,world);
+        if (floor===null || Math.abs(floor-old.y)>.55) return null;
+      }
+    }
+    const y = actor.grounded ? feet : old.y;
+    const posed = {x,y,z};
+    const resolved = resolvePlayerWorld(posed,clearance,solids,1.8);
+    if (Math.hypot(resolved.x-x,resolved.z-z)>.025) return null;
+    // Only permanent wall volumes block a walk-to-exit route. A mounted
+    // machine's own hull surrounds its operator station and is dealt with
+    // by that machine's separately validated exit contract.
+    for (const solid of world?.solids??[]) {
+      if (segmentAabbHit([old.x,old.y+.9,old.z],[x,y+.9,z],solid)) return null;
+    }
+    return posed;
   };
-  const near = check(candidate);
-  if (near) return near;
-  // Backtrack toward the arena center, avoiding geometry and keeping a connected path where possible.
-  for (let i = 1; i <= 24; i += 1) {
-    const fraction = i / 25;
-    const trial = { x: candidate.x + (center.x - candidate.x) * fraction,
-      y: wanted.y, z: candidate.z + (center.z - candidate.z) * fraction };
-    const safe = check(trial);
-    if (safe) return safe;
-  }
-  const nav = (world?.navigation?.nodes ?? []).filter((p) => edgeInside(p, center, radius, clearance + 0.15))
-    .sort((a, b) => Math.hypot(a.x - candidate.x, a.z - candidate.z) - Math.hypot(b.x - candidate.x, b.z - candidate.z));
-  for (const point of nav) {
-    const safe = check(point);
-    if (safe) return safe;
+  const dx=target.x-old.x,dz=target.z-old.z,distance=Math.hypot(dx,dz);
+  if (distance < 1e-5) return validate(target.x,target.z);
+  const step = Math.min(distance,stepLimit);
+  const heading = Math.atan2(dz,dx);
+  // Try the most direct inward progress first; fan out around obstacles.
+  for (const degrees of [0,20,-20,40,-40,65,-65,90,-90]) {
+    const a=heading+degrees*Math.PI/180;
+    const point=validate(old.x+Math.cos(a)*step,old.z+Math.sin(a)*step);
+    if (point) return point;
   }
   return null;
 }
@@ -163,7 +175,7 @@ export function edgeCollectSpells(room, nowSec) {
 
 export function edgeConstrainActor(room, actor, oldPosition, nowSec, world = room.world, clearance = MOVEMENT.playerRadius) {
   const state = room.edgeOfVictory;
-  if (!state || room.state !== 'PLAYING' || !actor?.alive) return false;
+  if (!state || room.state !== 'PLAYING' || !actor?.alive || actor.operatingBallistaId || actor.operatingRamId || actor.operatingFightFlightId) return false;
   const center = state.center, radius = state.radius;
   const before = oldPosition ?? actor.position;
   const dx = actor.position.x - center.x, dz = actor.position.z - center.z;
@@ -179,6 +191,7 @@ export function edgeConstrainActor(room, actor, oldPosition, nowSec, world = roo
   // Shared movePlayer may already have projected the motion inside the circle.
   // Detect the *input* against the edge, not merely an illegal end position.
   if (atEdge && attemptedRetreat && !forcedOutside
+      && nowSec - (actor.lastKnockbackAt ?? -Infinity) > .6
       && nowSec - (actor.edgeLastRefusalAt ?? -Infinity) >= state.config.refusalCooldownSec) {
     actor.edgeLastRefusalAt = nowSec;
     const text = EDGE_REFUSALS[(actor.edgeRefusalCount ?? 0) % EDGE_REFUSALS.length];
@@ -187,13 +200,14 @@ export function edgeConstrainActor(room, actor, oldPosition, nowSec, world = roo
       speaker: actor.name, text, at: nowSec });
   }
   if (edgeInside(actor.position, center, radius, clearance)) return false;
-  const wanted = edgeLimitPoint(actor.position, center, radius, clearance + 0.04);
-  const spot = safeEdgePoint({ ...wanted, y: actor.position.y }, world, center, radius, clearance);
+  const spot = edgeSafeFootPoint(room, actor, actor.position, world, {stepLimit: .38});
   if (!spot) {
+    // Never choose an unverified fallback through architecture or an abyss.
+    // Remain alive and try again on the next tick, including after contraction.
     if (edgeInside(before, center, radius, clearance)) actor.position = { ...before };
     return true;
   }
-  actor.position = { x: spot.x, y: forcedOutside && actor.grounded ? spot.y : actor.position.y, z: spot.z };
+  actor.position = spot;
   const nx = actor.position.x - center.x, nz = actor.position.z - center.z;
   const length = Math.hypot(nx, nz) || 1;
   const radialSpeed = ((actor.velocity?.x ?? 0) * nx + (actor.velocity?.z ?? 0) * nz) / length;
@@ -212,7 +226,8 @@ export function stepEdgeOfVictory(room, nowSec, world = room.world) {
   const next = edgeNextStage(elapsed, state.config.stages);
   state.radius = newRadius;
   state.nextStageAt = next === null ? null : state.startedAt + next;
-  for (const player of edgeAlive(room)) edgeConstrainActor(room, player, player.position, nowSec, world);
+  for (const player of edgeAlive(room)) if (!player.operatingRamId && !player.operatingBallistaId && !player.operatingFightFlightId)
+    edgeConstrainActor(room, player, player.position, nowSec, world);
   edgeCollectSpells(room, nowSec);
   updateEdgeSurvivors(room, nowSec);
 }
@@ -222,6 +237,7 @@ export function edgeSnapshot(room) {
   if (!state) return null;
   return {
     phase: state.phase, center: { ...state.center }, radius: state.radius,
+    startedAt: state.startedAt, stages: state.config.stages,
     nextStageAt: state.nextStageAt, remaining: [...state.remaining],
     playersRemaining: state.remaining.length, eliminated: state.eliminated.map((p) => ({ ...p })),
     winnerId: state.winnerId,
