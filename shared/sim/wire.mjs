@@ -403,7 +403,7 @@ export function applyRoomCommand(room, player, message, time) {
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         // The ram never consumes generic Jump/Crouch input.
-        jump: Boolean(!player.operatingRamId&&message.jump),
+        jump: Boolean(!player.operatingRamId&&!player.restlessCarrying&&message.jump),
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
