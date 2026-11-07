@@ -20,6 +20,7 @@ import { STEEL_RIPPLE, createSteelSheen } from './steelSheen.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
+import { disasterBodyTurn } from './oneHitCamera.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
@@ -778,6 +779,10 @@ export class RemotePlayers {
       shell.root.rotation.y = d.yaw + vortexWindup(spin, serverNow) - held * levelled * levelled * (3 - 2 * levelled);
       d.vortexTurn = null;
     } else {
+      // The Disaster's full-body turn ends at 2π, facing precisely where
+      // the authoritative strike is aimed. The camera never inherits it.
+      if (pb.ultimateState?.id === 'one_hit_of_wonders')
+        shell.root.rotation.y = d.yaw + disasterBodyTurn(pb.ultimateState, serverNow);
       d.vortexTurn = null;
     }
 
