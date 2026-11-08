@@ -117,7 +117,10 @@ try {
   await until(()=>room.renownTrial.phase==='WAVE_OVERTIME','live overtime without forced defeat');
   assert.equal(room.state,'PLAYING');
   assert.ok(room.renownTrial.wave.overtimeSec>0);
-  const overtimeHUD=await evaluate("document.querySelector('#renown-trial-hud')?.textContent");
+  const overtimeHUD = await until(async () => {
+    const text = await evaluate("document.querySelector('#renown-trial-hud')?.textContent");
+    return /OVERTIME/.test(text) ? text : null;
+  }, 'client HUD displays OVERTIME');
   assert.match(overtimeHUD,/OVERTIME/);
   await shot('03-overtime-combat');
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:780,deviceScaleFactor:1,mobile:true});
