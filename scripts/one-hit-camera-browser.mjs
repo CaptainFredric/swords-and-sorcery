@@ -161,6 +161,7 @@ try {
           const isCinematic = (chase > 0.18 || dist > 1.70) && (bodyVisible || !handsVisible);
           if (isCinematic && !outsideSnapSample) {
             outsideSnapSample = sample;
+            try { window.__disasterStrikeDataUrl = r.renderer?.domElement?.toDataURL?.('image/png'); } catch {}
           }
 
           if (started && !a.ultimateState && chase < 0.15 && handsVisible) {
@@ -211,10 +212,6 @@ try {
     return evaluate("Boolean(window.__ssRuntime?.localAuth?.ultimateState)");
   }, 'authoritative Ultimate started', 12000).catch(() => {});
 
-  // Wait brief moment during windup to snap the strike
-  await sleep(400);
-  await snap('02-third-person-disaster-strike').catch(() => {});
-
   const outcome = await evaluate("window.__disasterOutcome");
   assert.ok(outcome?.ok, 'Disaster cinematic completed successfully: ' + JSON.stringify(outcome));
   assert.ok(outcome.peakChase > 0.18 || outcome.peakDist > 1.70, 'Third-person chase engaged: ' + JSON.stringify(outcome));
@@ -222,6 +219,12 @@ try {
   evidence.outside = outcome.outsideSample;
   evidence.restored = outcome.restoredSample;
   await snap('03-first-person-restored');
+  const strikeDataUrl = await evaluate("window.__disasterStrikeDataUrl").catch(() => null);
+  if (strikeDataUrl && strikeDataUrl.startsWith('data:image/png')) {
+    await writeFile(output + '/02-third-person-disaster-strike.png', Buffer.from(strikeDataUrl.split(',')[1], 'base64')).catch(() => {});
+  } else {
+    await snap('02-third-person-disaster-strike').catch(() => {});
+  }
   assert.equal(outcome.restoredSample.ultimate, 'one_hit_of_wonders', 'ability remains equipped');
   await writeFile(output+'/result.json', JSON.stringify(evidence, null, 2)+'\n');
   console.log('[DISASTER CAMERA CHROME PASS]', JSON.stringify(evidence));
