@@ -68,33 +68,34 @@ async function swordDefeat(room, player, bot) {
   for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
     syncBotGeometry();
     player.attackRestartAt = -Infinity;
+    player.staggerUntil = -Infinity;
+    player.recoverUntil = -Infinity;
 
-    // 1. Send real player attack from browser
+    // 1. Dispatch real player attack from browser
     await evaluate('window.__ssLink.attack(true), true');
 
-    // 2. Diagnose server receives Attack
+    // 2. Wait until server receives Attack and starts chain
     await until(() => {
       syncBotGeometry();
-      return player.attackButton || player.attackActive || player.attackHeld;
-    }, 'server receives attack input', 50);
+      return player.attackActive;
+    }, 'server receives attack and activates chain', 50);
 
-    // 3. Advance authoritative combat tick, register sword-contact interval,
-    // and check target geometry until defeat or strike completion
-    const attackStartedAt = player.attackStartedAt;
+    // 3. Synchronize with authoritative combat tick and sword-contact interval (player.attackSweep)
+    // while continuously checking and verifying target geometry until defeat or strike end
+    const startedAt = player.attackStartedAt;
     await until(() => {
       syncBotGeometry();
       if (!bot.alive || bot.health <= 0) return true;
       const nowSec = room.timeSec ?? server.now();
-      // Strike contact window has swept through or chain ended
-      return (!player.attackActive && nowSec > attackStartedAt + 0.45) ||
-        (player.attackNextStrike > 0 && nowSec > attackStartedAt + 0.45);
-    }, 'authoritative combat tick advance and contact interval', 60);
+      return (!player.attackActive && nowSec > startedAt + 0.45) ||
+             (player.attackNextStrike > 0 && player.attackSweep === null && nowSec > startedAt + 0.45);
+    }, 'authoritative combat tick advance and contact interval', 80);
 
     // 4. Release attack cleanly
     await evaluate('window.__ssLink.attack(false), true');
     await until(() => !player.attackButton, 'attack release registered', 40);
 
-    // Wait until chain clears for next attempt if not defeated
+    // If still alive, wait for chain to reset before retrying
     if (bot.alive && player.attackActive) {
       await until(() => !player.attackActive, 'attack chain reset', 40);
     }
