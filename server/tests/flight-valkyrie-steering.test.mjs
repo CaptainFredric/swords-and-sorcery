@@ -386,12 +386,7 @@ test('Late committed Valkyrie deteriorates in BOTH turning and upward thrust',()
   terminalFrames(late,10);
   assert.ok(earlyTurn>late.m.runTurnSpeed*4,'late yaw is much slower, not locked');
   assert.ok(late.m.runTurnSpeed>0&&late.m.runTurnSpeed<=.18+1e-6);
-  assert.ok(earlyClimb>5&&late.m.velocity.y<0,
-    'overheated rotor can no longer sustain a climb: '+JSON.stringify({
-      earlyClimb,lateVelocityY:late.m.velocity.y,
-      latePitch:late.m.runFlightPitch,lateCharged:late.m.flightCharge,
-      lateSimulatedSec:late.m.terminalDive?.simulatedSec,
-      lateGrounded:late.m.grounded}));
+  assert.ok(earlyClimb>5&&late.m.velocity.y<0,'overheated rotor can no longer sustain a climb');
   assert.ok(late.m.health<250,'dangerous deterioration still burns remaining hull');
   assert.equal(late.m.terminalDive.resolved,false,'no artificial timed explosion');
 });
