@@ -108,15 +108,19 @@ try {
     await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
     await sleep(200);
+    const startPos = await b.evaluate("(() => { const p = window.__ssRuntime?.localAuth?.position; return p ? { x: p.x, z: p.z } : null; })()");
     await b.key('W','rawKeyDown');
     await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
       b.label+' real W key reaches input controller',70);
-    for(let n=0;n<7;n++){
+    for(let n=0;n<12;n++){
       await sleep(275);
       const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
       samples.push(sample);
+      const curr = await b.evaluate("(() => { const p = window.__ssRuntime?.localAuth?.position; return p ? { x: p.x, z: p.z } : null; })()");
+      if (curr && startPos && Math.hypot(curr.x - startPos.x, curr.z - startPos.z) > 0.8 && n >= 4) break;
     }
     await b.key('W','keyUp');
+    await sleep(200);
   }
   const after=[await host.evaluate(summary),await guest.evaluate(summary)];
   for(let i=0;i<2;i++){
@@ -135,8 +139,9 @@ try {
   const movedByClient=[0,1].map(i=>Math.max(0,...allObservations.map(pair=>
     pair[i].auth&&before[i].auth?
       Math.hypot(pair[i].auth.x-before[i].auth.x,pair[i].auth.z-before[i].auth.z):0)));
+  console.log('[MULTIPLAYER MOVED BY CLIENT]', movedByClient);
   const moved=movedByClient.every(value=>value>.5);
-  assert.ok(moved,'both independent browsers must advance real authoritative positions under keyboard input');
+  assert.ok(moved,'both independent browsers must advance real authoritative positions under keyboard input: ' + JSON.stringify(movedByClient));
   await host.screenshot('six-player-high-grounds');
   await guest.screenshot('second-perspective-high-grounds');
   const health=await(await fetch(url+'/health')).json();
