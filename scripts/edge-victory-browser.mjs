@@ -83,14 +83,14 @@ try{
     +"return true;})()");
   const before=await until(async()=>{const x=await probe();return x.edge<8.5&&x.player?.x>6.5?x:null;},
     'authoritative small battleground',120);
-  await evalPage("window.focus(); document.body.focus(); window.__ssRuntime.input.keys.add('KeyW'); true;");
   await cdp.send('Input.dispatchKeyEvent',
     {type:'rawKeyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
-  await pause(750);
+  const after=await until(async()=>{
+    const x=await probe();
+    return (x.player?.x-before.player.x)>.08 ? x : null;
+  },'real keyboard forward movement',100);
   await cdp.send('Input.dispatchKeyEvent',
     {type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
-  await evalPage("window.__ssRuntime.input.keys.delete('KeyW'); true;");
-  const after=await probe();
   const attempted=after.player.x-before.player.x;
   assert.ok(attempted>.08,'real keyboard input must cause forward movement');
   assert.ok(Math.hypot(after.player.x,after.player.z+1)<=after.edge-.38,
