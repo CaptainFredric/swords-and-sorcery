@@ -45,7 +45,11 @@ test('A wall-clock stall advances physical motion but cannot trigger an airborne
   assert.ok(Math.hypot(m.x-committed.x,m.z-committed.z)>.1);
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,0);
   for(let t=10;t<=21&&!m.terminalDive.resolved;t+=1.5)stepRoom(room,1/30,t,room.world);
-  assert.equal(m.terminalDive.resolved,true,'eventual ground collision ends the burning run');
+  assert.equal(m.terminalDive.resolved,true,
+    'eventual ground collision ends the burning run: '+JSON.stringify({
+      simulatedSec:m.terminalDive.simulatedSec,altitude:m.y,positionZ:m.z,
+      velocityY:m.velocity.y,charge:m.flightCharge,grounded:m.grounded,
+      impactAt:m.terminalDive.impactAt,outsideBounds:Math.abs(m.z)>500}));
   assert.ok(m.terminalDive.impactAt!=null);
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
 });
