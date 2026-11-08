@@ -543,7 +543,7 @@ const segments = [
 ];
 
 export const TUTORIAL_SEGMENTS = Object.freeze(segments.map((segment, index) => Object.freeze({
-  required: true, enabled: true, checkpoint: false, entryCondition: null, branches: Object.freeze([]),
+  required: true, enabled: true, checkpoint: false, entryCondition: null,
   retry: Object.freeze({ behavior: 'checkpoint', clearProjectiles: true, resetRivalPhase: true }),
   cleanup: Object.freeze(['segment-caption']),
   ...segment,
@@ -583,7 +583,7 @@ export function tutorialRouteSegments(route = TUTORIAL_SEGMENTS, { omitSegments 
     }, chapter, segment.id, presentation)));
     const scene = segment.scene ?? {};
     compiled.push(Object.freeze({
-      required: true, enabled: true, checkpoint: false, entryCondition: null,
+      required: true, checkpoint: false, entryCondition: null,
       retry: Object.freeze({ behavior: 'checkpoint', clearProjectiles: true, resetRivalPhase: true }),
       cleanup: Object.freeze(['segment-caption']),
       ...segment,

@@ -363,7 +363,7 @@ export function serializeRenownTrial(room, nowSec) {
     verdict: active || !verdictRevealed ? null : wave?.verdict ?? null,
     variant: active || !verdictRevealed ? null : wave?.variant ?? null,
     ceremony: state.ceremony ? {
-      id: state.ceremony.id, kind: state.ceremony.kind,
+      id: state.ceremony.id,
       startedAt: state.ceremony.startedAt, endsAt: state.ceremony.endsAt,
       cue,
       lethalApplied: state.ceremony.lethalApplied,

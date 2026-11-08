@@ -29,7 +29,10 @@ const base = `http://127.0.0.1:${port}`;
 try {
   const health = await fetch(`${base}/health`);
   assert.equal(health.status, 200);
-  assert.deepEqual(await health.json(), { ok: true, rooms: 0 });
+  const healthData = await health.json();
+  assert.equal(healthData.ok, true);
+  assert.equal(healthData.rooms, 0);
+  assert.ok(healthData.simulation, 'health must report scheduler simulation stats');
 
   const index = await fetch(`${base}/`);
   assert.equal(index.status, 200);
