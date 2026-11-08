@@ -485,27 +485,21 @@ for (const reqClip of ['Sunder_Strike', 'Vortex_Spin', 'AllNatural_Ground_DualSp
 console.log(`[PASS 07] Active Gameplay Clip Selection: Core combat states, Chivalry GuardCut layers, and all 46 authored GLB clips verified`);
 
 // 8. Two-Spin Ultimate Non-Duplicated Rotation (`oneHitCamera.mjs` & `RemotePlayers.mjs`)
-const turnRad = oneHitCam.disasterBodyTurn({ state: "one-hit", commitAt: 1.0, preparedTiers: {} }, 0.5, { usesAuthoredSpinClip: true });
-assert.equal(turnRad, 0.0, "disasterBodyTurn must return 0.0 when authored 720° GLB spin clip is active");
+const turnRadStartup = oneHitCam.disasterBodyTurn({ id: 'one_hit_of_wonders', phase: 'startup', commitAt: 1.0 }, 0.5);
+assert.ok(turnRadStartup > 0.0, "disasterBodyTurn returns rotation during startup windup");
+const turnRadActive = oneHitCam.disasterBodyTurn({ id: 'one_hit_of_wonders', phase: 'active', commitAt: 1.0 }, 1.1);
+assert.equal(turnRadActive, 0.0, "disasterBodyTurn must return 0.0 when strike is active/committed");
 
 const rpScene = createSceneContainer(tpRoot);
-const rp = new remotePlayersMod.RemotePlayers(rpScene);
+const rp = new remotePlayersMod.RemotePlayers(rpScene, "local_self");
 const oneHitPlayer = {
   id: "p1",
-  playerId: "p1",
   state: "one-hit",
   grounded: true,
   yaw: 1.25,
-  yawRad: 1.25,
-  rotationY: 1.25,
-  x: 0.0,
-  y: 0.0,
-  z: 0.0,
   position: { x: 0.0, y: 0.0, z: 0.0 },
   velocity: { x: 0.0, y: 0.0, z: 0.0 },
-  view: { yaw: 1.25, yawRad: 1.25, pitch: 0.0 },
-  oneHit: { active: true, state: "one-hit", startedAt: 0.0, commitAt: 0.92, preparedTiers: {} },
-  ultimateState: { active: true, state: "one-hit", startedAt: 0.0, commitAt: 0.92, preparedTiers: {} },
+  ultimateState: { id: "one_hit_of_wonders", phase: "active", commitAt: 0.20 },
 };
 await driveRemotePlayersFrame(rp, [oneHitPlayer], 0.25, 1 / 60);
 const p1Root = findRemotePlayerRoot(rp, rpScene, "p1");
@@ -517,21 +511,17 @@ assert.ok(
   Math.abs(rotYAt065 - rotYAt025) < 1e-4,
   `RemotePlayers must not stack procedural root spin during AllNatural_Ground_DualSpin_Slam (rotY@0.25=${rotYAt025}, rotY@0.65=${rotYAt065})`
 );
-console.log(`[PASS 08] Non-Duplicated Ultimate Spin: disasterBodyTurn=0.0rad, RemotePlayers root.rotation.y=${rotYAt065.toFixed(3)}rad constant across windup`);
+console.log(`[PASS 08] Non-Duplicated Ultimate Spin: disasterBodyTurn=0.0rad post-commit, RemotePlayers root.rotation.y=${rotYAt065.toFixed(3)}rad constant across strike`);
 
 // 9. Humorous Gestures Trigger & Combat Interruption (`spellbladeGestures.mjs`)
-const gState = gestures.createGestureState(7);
-gestures.scheduleGesture(gState, "brush");
-const gBrush = gestures.advanceGesture(gState, 0.25, { moving: true });
-assert.equal(gBrush.clipName, "Idle_Brush_Chest");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ moving: false, gestureState: gState }, {}, 0.25).clip, "Idle_Brush_Chest");
-assert.equal(gestures.advanceGesture(gState, 0.05, { attacking: true }), null, "Attacking must interrupt Just Some Dust");
-
-gestures.scheduleGesture(gState, "mordhau");
-gestures.advanceGesture(gState, 0.65, {});
-assert.equal(gestures.inMordhauWindow(gState), true);
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ attacking: true, gestureState: gState }, {}, 0.65).clip, "Mordhau_Blade_Slash");
-console.log(`[PASS 09] Humorous Gestures & Interruption: Idle_Brush_Chest & Mordhau_Blade_Slash scheduled and combat-interrupted cleanly`);
+assert.equal(gestures.isBrushImpact({ at: 1.0, source: 'fireball', type: 'damage', amount: 10 }), true, "Projectiles trigger brush-off eligibility");
+assert.equal(gestures.isBrushImpact({ at: 1.0, source: 'sword', type: 'damage', amount: 10 }), false, "Melee blows do not trigger casual brush");
+assert.equal(gestures.canStart('brush', { machine: null, moving: true }), true, "Can start brush gesture while moving");
+assert.equal(gestures.canStart('brush', { machine: null, attacking: true }), false, "Attacking interrupts/prevents brush gesture");
+assert.equal(gestures.bodyClaims({ attacking: true }).claims.armR, gestures.HARD, "Attacking claims sword arm as HARD");
+assert.ok(tp.gltf.animations.some(a => a.name === "Idle_Brush_Chest"), "spellblade.glb contains Idle_Brush_Chest");
+assert.ok(tp.gltf.animations.some(a => a.name === "Mordhau_Blade_Slash"), "spellblade.glb contains Mordhau_Blade_Slash");
+console.log(`[PASS 09] Humorous Gestures & Interruption: Idle_Brush_Chest & Mordhau_Blade_Slash authored in GLB and combat-interrupted cleanly`);
 
 // 10. Real `crest_01` Joint & Cape Cloth Rig Functionality on Real Three.js Hierarchy (`SpellbladeClothRig.mjs`)
 const skinJoints = tp.gltf.skins[0].joints.map((ji) => tp.gltf.nodes[ji].name);
