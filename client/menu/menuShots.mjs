@@ -24,9 +24,9 @@ export const MENU_SHOTS = Object.freeze({
   // Breakthrough deployment banner: wider view framing the Spellblade angled toward battle plan
   breakthrough: shot([2.1, 1.4, -0.4], [0.1, 2.9, 13.0], 43),
   // Connected Siege Workshop in the engineering courtyard
-  siege: shot([6.0, 1.85, 0.8], [7.5, 1.1, 5.0], 42),
+  siege: shot([13.2, 1.75, -5.5], [14.6, 1.15, 0.0], 40),
   // Siege Workshop with machine inspector open on the right
-  siegeInspect: shot([6.85, 1.85, 0.8], [7.95, 1.1, 5.0], 42),
+  siegeInspect: shot([13.6, 1.75, -5.5], [14.9, 1.15, 0.0], 40),
   // Heraldry Chamber framing the Spellblade and his back banner / cape
   heraldry: shot([0.65, 1.45, 1.6], [-0.62, 0.95, 5.5], 38),
 });

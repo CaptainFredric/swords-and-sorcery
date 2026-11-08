@@ -2031,8 +2031,8 @@ function renderSiegeWorkshop(machineId = 'soFist') {
 
 function navigateToArmorySection(region, { preserveInspector = false, immediate = false } = {}) {
   if (!['kit', 'siege', 'heraldry', 'challenges'].includes(region)) region = 'kit';
-  if (region !== 'challenges') {
-    armoryLocation.previousRegion = armoryLocation.region !== 'challenges' ? armoryLocation.region : 'kit';
+  if (armoryLocation.region !== 'challenges') {
+    armoryLocation.previousRegion = armoryLocation.region;
   }
   armoryLocation.region = region;
   saveArmoryLocation(armoryLocation);
@@ -2066,6 +2066,7 @@ function navigateToArmorySection(region, { preserveInspector = false, immediate 
     menuScene?.setSiegeWorkshop(false);
     menuScene?.setHeraldryChamber(false);
     menuScene?.setArmoryPresentation(true, { immediate });
+    renown?.selectSection('kit');
     updatePlaques();
     if (preserveInspector && armoryLocation.inspectorOpen) {
       openInspector(armoryLocation.category, armoryLocation.highlightedItem);

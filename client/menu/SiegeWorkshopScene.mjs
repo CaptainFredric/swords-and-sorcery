@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 
-export const WORKSHOP_POSITION = Object.freeze([7.5, 0, 5.0]);
+export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
 // Asset paths for canonical lightweight machine previews
 const MACHINE_ASSETS = Object.freeze({
@@ -404,13 +404,13 @@ export class SiegeWorkshopScene {
     // Adjust position/scale offsets per machine proportions
     if (id === 'soFist') {
       this.machinePivot.position.set(0, 0, 0);
-      this.machinePivot.scale.setScalar(0.92);
+      this.machinePivot.scale.setScalar(1.5);
     } else if (id === 'biBye') {
       this.machinePivot.position.set(0, 0, 0);
-      this.machinePivot.scale.setScalar(0.95);
+      this.machinePivot.scale.setScalar(0.78);
     } else if (id === 'fightFlight') {
-      this.machinePivot.position.set(0, 0.35, 0);
-      this.machinePivot.scale.setScalar(1.0);
+      this.machinePivot.position.set(0, 0.2, 0);
+      this.machinePivot.scale.setScalar(0.82);
     }
   }
 

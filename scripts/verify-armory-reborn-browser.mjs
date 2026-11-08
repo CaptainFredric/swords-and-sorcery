@@ -390,6 +390,14 @@ try {
   await evaluate("document.querySelector('#armory-back').click()");
   await sleep(600);
 
+  const backToKitFromHeraldry = await evaluate(`(() => {
+    const heading = document.querySelector('#armory-heading')?.textContent;
+    const kitVisible = !document.querySelector('#armory-kit')?.classList.contains('hidden');
+    return { heading, kitVisible };
+  })()`);
+  assert.match(backToKitFromHeraldry.heading, /THE SPELLBLADE'S KIT/);
+  assert.equal(backToKitFromHeraldry.kitVisible, true);
+
   // ----------------------------------------------------
   // JOURNEY E: Challenge Ledger
   // ----------------------------------------------------
@@ -411,6 +419,14 @@ try {
   // Close Challenges
   await evaluate("document.querySelector('#challenges-close-btn').click()");
   await sleep(500);
+
+  const afterChallengesClose = await evaluate(`(() => {
+    const heading = document.querySelector('#armory-heading')?.textContent;
+    const kitVisible = !document.querySelector('#armory-kit')?.classList.contains('hidden');
+    return { heading, kitVisible };
+  })()`);
+  assert.match(afterChallengesClose.heading, /THE SPELLBLADE'S KIT/);
+  assert.equal(afterChallengesClose.kitVisible, true);
 
   // ----------------------------------------------------
   // JOURNEY F: Landscape Mobile
