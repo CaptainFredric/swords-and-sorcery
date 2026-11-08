@@ -107,6 +107,7 @@ try {
     await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
     await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
+    await sleep(200);
     await b.key('W','rawKeyDown');
     await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
       b.label+' real W key reaches input controller',70);
@@ -130,7 +131,8 @@ try {
     assert.ok(s.auth&&Object.values(s.auth).every(Number.isFinite),'no corrupt network position');
     assert.ok(s.client&&Object.values(s.client).every(Number.isFinite),'no corrupt local prediction');
   }
-  const movedByClient=[0,1].map(i=>Math.max(0,...samples.map(pair=>
+  const allObservations=[...samples, after];
+  const movedByClient=[0,1].map(i=>Math.max(0,...allObservations.map(pair=>
     pair[i].auth&&before[i].auth?
       Math.hypot(pair[i].auth.x-before[i].auth.x,pair[i].auth.z-before[i].auth.z):0)));
   const moved=movedByClient.every(value=>value>.5);

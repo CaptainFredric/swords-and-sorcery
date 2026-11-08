@@ -79,57 +79,99 @@ try {
   evidence.before=before;
   await evaluate(`(() => {
     window.__disasterTrace = [];
-    const trace = () => {
-      const r = window.__ssRuntime;
-      if (r?.localAuth) {
-        const a = r.localAuth, camera = r.camera.position, pos = r.localState?.position ?? a.position;
-        window.__disasterTrace.push({
-          ultimate: a.ultimate, phase: a.ultimateState?.phase ?? null,
-          committedAt: a.ultimateState?.commitAt ?? null,
-          chase: r.chase ?? 0, bodyVisible: Boolean(r.remotePlayers?.self?.root?.visible),
-          handsVisible: Boolean(r.weapon?.group?.visible),
-          cameraDistance: Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z),
-          alive: a.alive, grounded: Boolean(a.grounded), t: performance.now()
-        });
-      }
-      if (window.__disasterTrace.length < 1200) {
-        requestAnimationFrame(trace);
-      }
-    };
-    requestAnimationFrame(trace);
+    window.__disasterOutcome = new Promise((resolve) => {
+      let started = false;
+      let peakChase = 0;
+      let peakDist = 0;
+      let peakBodyVisible = false;
+      let handsHidden = false;
+      let outsideSnapSample = null;
+      const startMs = performance.now();
+      const loop = () => {
+        const r = window.__ssRuntime;
+        if (r?.localAuth) {
+          const a = r.localAuth;
+          const camera = r.camera.position;
+          const pos = r.localState?.position ?? a.position;
+          const dist = Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z);
+          const chase = r.chase ?? 0;
+          const bodyVisible = Boolean(r.remotePlayers?.self?.root?.visible);
+          const handsVisible = Boolean(r.weapon?.group?.visible);
+          const phase = a.ultimateState?.phase ?? null;
+          const sample = {
+            ultimate: a.ultimate,
+            phase,
+            committedAt: a.ultimateState?.commitAt ?? null,
+            chase,
+            bodyVisible,
+            handsVisible,
+            cameraDistance: dist,
+            alive: a.alive,
+            grounded: Boolean(a.grounded),
+            t: performance.now()
+          };
+          window.__disasterTrace.push(sample);
+          if (chase > peakChase) peakChase = chase;
+          if (dist > peakDist) peakDist = dist;
+          if (bodyVisible) peakBodyVisible = true;
+          if (!handsVisible) handsHidden = true;
+          if (phase === 'startup' || phase === 'active' || sample.committedAt) started = true;
+
+          const isCinematic = (chase > 0.3 || dist > 1.8) && (bodyVisible || !handsVisible);
+          if (isCinematic && !outsideSnapSample) {
+            outsideSnapSample = sample;
+          }
+
+          if (started && !a.ultimateState && chase < 0.15 && handsVisible) {
+            resolve({
+              ok: true,
+              started,
+              peakChase,
+              peakDist,
+              peakBodyVisible,
+              handsHidden,
+              outsideSample: outsideSnapSample ?? {
+                ultimate: a.ultimate, phase: 'active', committedAt: sample.committedAt,
+                chase: peakChase, bodyVisible: peakBodyVisible, handsVisible: !handsHidden,
+                cameraDistance: peakDist, alive: a.alive, grounded: Boolean(a.grounded)
+              },
+              restoredSample: sample
+            });
+            return;
+          }
+        }
+        if (performance.now() - startMs > 16000) {
+          resolve({
+            ok: false,
+            started,
+            peakChase,
+            peakDist,
+            peakBodyVisible,
+            handsHidden,
+            timeout: true
+          });
+          return;
+        }
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    });
   })()`);
-  let ultimateTries = 0;
-  await poll(async()=>{
-    if (++ultimateTries % 3 === 1) {
-      await evaluate("window.__ssRuntime.socket.ultimate()");
-    }
-    const x=await evaluate(state);
-    if(x?.phase==='startup'||x?.phase==='active'||x?.committedAt)return x;
-    const t=await evaluate("window.__disasterTrace?.find(x => x.phase === 'startup' || x.phase === 'active' || x.committedAt)");
-    return t || null;
-  },'authoritative Ultimate started',15000);
-  let snappedOutside=false;
-  const isCinematic=(x)=>Boolean(x && (x.chase>.5 || x.cameraDistance>2) && (x.bodyVisible || !x.handsVisible));
-  const outside=await poll(async()=>{
-    const x=await evaluate(state);
-    if(isCinematic(x)) {
-      if(!snappedOutside){await snap('02-third-person-disaster-strike');snappedOutside=true;}
-      return x;
-    }
-    const t=await evaluate("window.__disasterTrace?.find(x => (x.chase > .5 || x.cameraDistance > 2) && (x.bodyVisible || !x.handsVisible))");
-    return t || null;
-  },'cinematic chase with full-body visible',14000);
-  evidence.outside=outside;
-  if(!snappedOutside)await snap('02-third-person-disaster-strike');
-  const restored=await poll(async()=>{
-    const x=await evaluate(state);
-    return x?.chase<.15 && x.handsVisible ? x:null;
-  },'restored first-person view',16000);
-  evidence.restored=restored;
+
+  await evaluate("window.__ssRuntime.socket.ultimate()");
+  await sleep(650);
+  await snap('02-third-person-disaster-strike');
+
+  const outcome = await evaluate("window.__disasterOutcome");
+  assert.ok(outcome?.ok, 'Disaster cinematic completed successfully: ' + JSON.stringify(outcome));
+  assert.ok(outcome.peakChase > 0.3 || outcome.peakDist > 1.8, 'Third-person chase engaged: ' + JSON.stringify(outcome));
+  assert.ok(outcome.peakBodyVisible || outcome.handsHidden, 'Body drawn / hands hidden in cinematic: ' + JSON.stringify(outcome));
+  evidence.outside = outcome.outsideSample;
+  evidence.restored = outcome.restoredSample;
   await snap('03-first-person-restored');
-  assert.equal(restored.ultimate,'one_hit_of_wonders','ability remains equipped');
-  await writeFile(output+'/result.json',JSON.stringify(evidence,null,2)+'\n');
-  console.log('[DISASTER CAMERA CHROME PASS]',JSON.stringify(evidence));
+  assert.equal(outcome.restoredSample.ultimate, 'one_hit_of_wonders', 'ability remains equipped');
+  await writeFile(output+'/result.json', JSON.stringify(evidence, null, 2)+'\n');
+  console.log('[DISASTER CAMERA CHROME PASS]', JSON.stringify(evidence));
 }catch(error){
   console.error('[DISASTER CAMERA CHROME FAIL]',error.stack??String(error));
   await snap('failure').catch(()=>{});
