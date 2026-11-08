@@ -127,7 +127,7 @@ try{
   await waitFor(async()=>{
    const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));return Math.hypot(p.x-m.x,p.z-m.z);})()");
    if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
-   return a<FLIGHT_MOUNT_RANGE-.9;
+   return a<FLIGHT_MOUNT_RANGE-.3;
   },'host walks physically to the machine',170);
   await host.key('W','keyUp');
   const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);

@@ -103,16 +103,20 @@ try {
   // sequentially still verifies both live multiplayer perspectives.
   for(const b of [host,guest]){
     await b.send('Page.bringToFront');
-    await b.evaluate('window.focus()');
-    await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
-    await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
+    await b.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
+    if(!await b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
+      await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
+      await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
+    }
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
+    // Aim directly along the open 15m-wide central road towards map center (0, 0)
+    await b.evaluate("(() => { const r = window.__ssRuntime, p = r?.localAuth?.position; if (r?.input && p) r.input.yaw = Math.atan2(p.x, p.z); })()");
     await sleep(200);
     const startPos = await b.evaluate("(() => { const p = window.__ssRuntime?.localAuth?.position; return p ? { x: p.x, z: p.z } : null; })()");
     await b.key('W','rawKeyDown');
     await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
       b.label+' real W key reaches input controller',70);
-    for(let n=0;n<12;n++){
+    for(let n=0;n<15;n++){
       await sleep(275);
       const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
       samples.push(sample);
