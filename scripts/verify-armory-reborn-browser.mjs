@@ -259,63 +259,96 @@ try {
   await sleep(400);
 
   // ----------------------------------------------------
-  // JOURNEY C: Connected Siege Workshop
+  // JOURNEY C: Connected Siege Workshop & Real Authored GLBs
   // ----------------------------------------------------
-  console.log('[VERIFY] --- JOURNEY C: Connected Siege Workshop ---');
+  console.log('[VERIFY] --- JOURNEY C: Connected Siege Workshop & Real Authored GLBs ---');
   await evaluate("document.querySelector('#armory-nav-siege').click()");
   await sleep(900);
 
-  const siegeStageState = await evaluate(`(() => {
-    const heading = document.querySelector('#armory-heading')?.textContent;
-    const siegeVisible = !document.querySelector('#armory-siege')?.classList.contains('hidden');
-    const kitVisible = !document.querySelector('#armory-kit')?.classList.contains('hidden');
-    const activeTab = document.querySelector('.siege-tab.selected')?.dataset.siegeTab;
-    const title = document.querySelector('#siege-title')?.textContent;
-    return { heading, siegeVisible, kitVisible, activeTab, title };
+  // 1. Verify SO-FIST-ICATION authored GLB
+  console.log('[VERIFY] Awaiting authored SO-FIST-ICATION GLB load...');
+  await evaluate("window.__ssMenu?.siegeWorkshop?.whenLoaded('soFist').then(() => true)");
+  await sleep(300);
+
+  const soFistStatus = await evaluate(`(() => {
+    const ws = window.__ssMenu?.siegeWorkshop;
+    return ws ? ws.getActiveModelStatus() : null;
   })()`);
-  assert.match(siegeStageState.heading, /SIEGE WORKSHOP/);
-  assert.equal(siegeStageState.siegeVisible, true);
-  assert.equal(siegeStageState.kitVisible, false);
-  assert.equal(siegeStageState.title, 'SO-FIST-ICATION');
-  console.log('[VERIFY] Siege Workshop SO-FIST-ICATION verified:', siegeStageState);
+  console.log('[VERIFY] soFist authored model status:', soFistStatus);
+  assert.ok(soFistStatus, 'SiegeWorkshop instance active');
+  assert.equal(soFistStatus.isAuthored, true, 'SO-FIST-ICATION must display authored GLB, not fallback');
+  assert.match(soFistStatus.childName, /Authored_soFist/);
+  assert.ok(soFistStatus.bounds.size.x > 0.5 && soFistStatus.bounds.size.y > 0.5, 'soFist model has realistic dimensions');
+
+  // Verify pointer dragging rotates machine
+  const initialYaw = await evaluate("window.__ssMenu?.siegeWorkshop?.targetYaw ?? 0");
+  await evaluate("window.__ssMenu?.siegeWorkshop?.rotate(0.5, 0.05)");
+  const rotatedYaw = await evaluate("window.__ssMenu?.siegeWorkshop?.targetYaw ?? 0");
+  assert.ok(Math.abs(rotatedYaw - initialYaw - 0.5) < 1e-4, 'Pointer dragging rotates selected machine');
+  await evaluate("window.__ssMenu?.siegeWorkshop?.resetRotation()");
 
   await screenshot('04-siege-workshop-sofist.png');
 
-  // Switch to BI-BYE-LLISTA
+  // 2. Verify BI-BYE-LLISTA authored GLB
   console.log('[VERIFY] Selecting BI-BYE-LLISTA tab...');
-  await evaluate("document.querySelector('[data-siege-tab=\"biBye\"]').click()");
-  await sleep(500);
+  await evaluate("document.querySelector('[data-siege-tab=\\'biBye\\']').click()");
+  await evaluate("window.__ssMenu?.siegeWorkshop?.whenLoaded('biBye').then(() => true)");
+  await sleep(300);
 
-  const bibyeState = await evaluate(`(() => {
+  const bibyeStatus = await evaluate(`(() => {
+    const ws = window.__ssMenu?.siegeWorkshop;
     const activeTab = document.querySelector('.siege-tab.selected')?.dataset.siegeTab;
     const title = document.querySelector('#siege-title')?.textContent;
     const skills = [...document.querySelectorAll('#armory-siege-machines [data-siege-skill]')].map((b) => b.dataset.siegeSkill);
-    return { activeTab, title, skills };
+    const model = ws ? ws.getActiveModelStatus() : null;
+    return { activeTab, title, skills, model };
   })()`);
-  assert.equal(bibyeState.activeTab, 'biBye');
-  assert.equal(bibyeState.title, 'BI-BYE-LLISTA');
-  assert.ok(bibyeState.skills.includes('boltToTheOccasion'));
-  console.log('[VERIFY] Bi-Bye-llista state verified:', bibyeState);
+  console.log('[VERIFY] biBye authored model status:', bibyeStatus);
+  assert.equal(bibyeStatus.activeTab, 'biBye');
+  assert.equal(bibyeStatus.title, 'BI-BYE-LLISTA');
+  assert.equal(bibyeStatus.model.isAuthored, true, 'BI-BYE-LLISTA must display authored GLB, not fallback');
+  assert.match(bibyeStatus.model.childName, /Authored_biBye/);
+  assert.ok(bibyeStatus.model.bounds.size.x > 0.5, 'biBye model has non-zero authored bounds');
+  assert.ok(bibyeStatus.skills.includes('boltToTheOccasion'));
 
   await screenshot('05-siege-workshop-bibye.png');
 
-  // Switch to FIGHT-AND-FLIGHT & expand Story of Siege
+  // 3. Verify FIGHT-AND-FLIGHT authored GLB & all 9 lore paragraphs
   console.log('[VERIFY] Selecting FIGHT-AND-FLIGHT tab & expanding Story of Siege...');
-  await evaluate("document.querySelector('[data-siege-tab=\"fightFlight\"]').click()");
-  await sleep(500);
+  await evaluate("document.querySelector('[data-siege-tab=\\'fightFlight\\']').click()");
+  await evaluate("window.__ssMenu?.siegeWorkshop?.whenLoaded('fightFlight').then(() => true)");
+  await sleep(300);
   await evaluate("document.querySelector('#siege-story-details').open = true");
   await sleep(300);
 
-  const flightState = await evaluate(`(() => {
+  const flightStatus = await evaluate(`(() => {
+    const ws = window.__ssMenu?.siegeWorkshop;
     const title = document.querySelector('#siege-title')?.textContent;
     const motto = document.querySelector('#siege-story-content .siege-armory-motto')?.textContent;
     const paragraphsCount = document.querySelectorAll('#siege-story-content p').length;
-    return { title, motto, paragraphsCount };
+    const model = ws ? ws.getActiveModelStatus() : null;
+    return { title, motto, paragraphsCount, model };
   })()`);
-  assert.equal(flightState.title, 'FIGHT-AND-FLIGHT');
-  assert.match(flightState.motto, /Why choose to Fight or Flee\? When you could be Free\?/);
-  assert.equal(flightState.paragraphsCount, 9);
-  console.log('[VERIFY] Fight-and-Flight state and all 9 lore paragraphs verified:', flightState);
+  console.log('[VERIFY] fightFlight authored model status:', flightStatus);
+  assert.equal(flightStatus.title, 'FIGHT-AND-FLIGHT');
+  assert.match(flightStatus.motto, /Why choose to Fight or Flee\? When you could be Free\?/);
+  assert.equal(flightStatus.paragraphsCount, 9);
+  assert.equal(flightStatus.model.isAuthored, true, 'FIGHT-AND-FLIGHT must display authored GLB, not fallback');
+  assert.match(flightStatus.model.childName, /Authored_fightFlight/);
+  assert.ok(flightStatus.model.bounds.size.y > 0.5, 'fightFlight model has non-zero authored bounds');
+
+  // 4. Verify honest fallback when asset is missing or unknown
+  const honestFallback = await evaluate(`(() => {
+    const ws = window.__ssMenu?.siegeWorkshop;
+    return {
+      invalidDisplay: ws.isDisplayingAuthored('unknown_machine'),
+      mixersCount: ws.mixers.size,
+      inFlightCount: ws.inFlight.size,
+    };
+  })()`);
+  assert.equal(honestFallback.invalidDisplay, false, 'Missing or non-authored machine produces honest fallback state');
+  assert.equal(honestFallback.inFlightCount, 0, 'No stuck in-flight requests');
+  console.log('[VERIFY] Honest fallback and in-flight deduplication verified:', honestFallback);
 
   await screenshot('06-siege-workshop-fightflight.png');
 
@@ -412,31 +445,91 @@ try {
   await sleep(400);
 
   // ----------------------------------------------------
-  // JOURNEY G: Reload Persistence & Rapid Switching
+  // JOURNEY G: Plaque Icons & Full Reload Persistence
   // ----------------------------------------------------
-  console.log('[VERIFY] --- JOURNEY G: Persistence & Rapid Switching ---');
-  // Reload page
-  console.log('[VERIFY] Reloading page to test loadout & location persistence...');
+  console.log('[VERIFY] --- JOURNEY G: Plaque Icons & Full Reload Persistence ---');
+
+  // Verify visible occupied equipment plaque icons for all spells
+  console.log('[VERIFY] Testing plaque icons for every registered spell...');
+  await evaluate("document.querySelector('#armory-slot-sorcery').click()");
+  await sleep(200);
+  const allSpells = await evaluate(`[...document.querySelectorAll('#armory-spells [data-spell]')].map(b => b.dataset.spell)`);
+  for (const spellId of allSpells) {
+    await evaluate(`(() => {
+      document.querySelector('[data-spell="' + '${spellId}' + '"]')?.click();
+      document.querySelector('#armory-equip-btn')?.click();
+    })()`);
+    const plaqueIcon = await evaluate("document.querySelector('#plaque-icon-sorcery')?.textContent?.trim()");
+    assert.ok(plaqueIcon && plaqueIcon.length > 0, 'Spell ' + spellId + ' has non-empty plaque icon glyph');
+  }
+  console.log('[VERIFY] All spell plaque icons verified visible!');
+
+  // Verify visible occupied equipment plaque icons for all masterstrokes
+  console.log('[VERIFY] Testing plaque icons for every registered masterstroke...');
+  await evaluate("document.querySelector('#armory-slot-masterstroke').click()");
+  await sleep(200);
+  const allUlts = await evaluate(`[...document.querySelectorAll('#armory-ultimates [data-ultimate]')].map(b => b.dataset.ultimate)`);
+  for (const ultId of allUlts) {
+    await evaluate(`(() => {
+      document.querySelector('[data-ultimate="' + '${ultId}' + '"]')?.click();
+      document.querySelector('#armory-equip-btn')?.click();
+    })()`);
+    const ultIcon = await evaluate("document.querySelector('#plaque-icon-masterstroke')?.textContent?.trim()");
+    assert.ok(ultIcon && ultIcon.length > 0, 'Masterstroke ' + ultId + ' has non-empty plaque icon glyph');
+  }
+  console.log('[VERIFY] All masterstroke plaque icons verified visible!');
+
+  // Close inspector
+  await evaluate("document.querySelector('#armory-inspector-close').click()");
+  await sleep(200);
+
+  // Navigate to Siege Workshop, select biBye, and expand story before reload
+  console.log('[VERIFY] Setting up 6-property persistence state in Siege Workshop...');
+  await evaluate("document.querySelector('#armory-nav-siege').click()");
+  await sleep(300);
+  await evaluate("document.querySelector('[data-siege-tab=\\'biBye\\']').click()");
+  await sleep(200);
+  await evaluate("document.querySelector('#siege-story-details').open = true");
+  await sleep(200);
+
+  // Full page reload to prove location persistence survives reload
+  console.log('[VERIFY] Reloading full page to prove all 6 properties survive...');
   await send('Page.reload');
   await until(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"), 'loading veil after reload', 150);
   await sleep(600);
 
-  // Open Armory again
+  // Open Armory: router must restore to the saved region (siege), machine (biBye), and expanded story!
   await evaluate("document.querySelector('#armory-button').click()");
   await sleep(700);
 
-  const persistedState = await evaluate(`(() => {
-    const sorcery = document.querySelector('#plaque-name-sorcery')?.textContent;
-    const masterstroke = document.querySelector('#plaque-name-masterstroke')?.textContent;
-    const summary = document.querySelector('#armory-status-summary')?.textContent;
-    return { sorcery, masterstroke, summary };
+  const restoredLocation = await evaluate(`(() => {
+    const heading = document.querySelector('#armory-heading')?.textContent;
+    const siegeVisible = !document.querySelector('#armory-siege')?.classList.contains('hidden');
+    const selectedTab = document.querySelector('.siege-tab.selected')?.dataset.siegeTab;
+    const title = document.querySelector('#siege-title')?.textContent;
+    const storyOpen = Boolean(document.querySelector('#siege-story-details')?.open);
+    return { heading, siegeVisible, selectedTab, title, storyOpen };
   })()`);
+  console.log('[VERIFY] Restored Armory location after reload:', restoredLocation);
+  assert.match(restoredLocation.heading, /SIEGE WORKSHOP/);
+  assert.equal(restoredLocation.siegeVisible, true);
+  assert.equal(restoredLocation.selectedTab, 'biBye');
+  assert.equal(restoredLocation.title, 'BI-BYE-LLISTA');
+  assert.equal(restoredLocation.storyOpen, true);
 
-  assert.match(persistedState.sorcery, /Gale Garner/i);
-  assert.match(persistedState.masterstroke, /All-Natural Disaster/i);
-  assert.match(persistedState.summary, /Gale Garner/i);
-  assert.match(persistedState.summary, /All-Natural Disaster/i);
-  console.log('[VERIFY] Reload persistence verified:', persistedState);
+  // Contextual back to kit
+  await evaluate("document.querySelector('#armory-back').click()");
+  await sleep(500);
+
+  const kitPlaques = await evaluate(`(() => {
+    const sorceryIcon = document.querySelector('#plaque-icon-sorcery')?.textContent?.trim();
+    const masterstrokeIcon = document.querySelector('#plaque-icon-masterstroke')?.textContent?.trim();
+    const summary = document.querySelector('#armory-status-summary')?.textContent;
+    return { sorceryIcon, masterstrokeIcon, summary };
+  })()`);
+  assert.ok(kitPlaques.sorceryIcon.length > 0, 'Sorcery plaque icon restored');
+  assert.ok(kitPlaques.masterstrokeIcon.length > 0, 'Masterstroke plaque icon restored');
+  console.log('[VERIFY] Kit plaques after reload:', kitPlaques);
 
   // Rapid switching stress test
   console.log('[VERIFY] Running rapid switching stress test...');

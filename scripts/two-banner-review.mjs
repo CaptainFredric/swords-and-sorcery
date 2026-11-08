@@ -149,7 +149,7 @@ try{
   await waitFor(()=>evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')"),'Armory desktop');
   const armoryGeometry=await evaluate(`(() => {
     const kit=document.querySelector('#armory-kit');
-    const plaques=[...document.querySelectorAll('.equipment-plaque')];
+    const plaques=[...document.querySelectorAll('.armory-slot-plaque')];
     const inspector=document.querySelector('#armory-inspector');
     return {
       kitVisible: Boolean(kit && !kit.classList.contains('hidden')),
