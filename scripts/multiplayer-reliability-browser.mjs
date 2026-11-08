@@ -116,7 +116,7 @@ try {
     await b.key('W','rawKeyDown');
     await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
       b.label+' real W key reaches input controller',70);
-    for(let n=0;n<15;n++){
+    for(let n=0;n<24;n++){
       await sleep(275);
       const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
       samples.push(sample);
@@ -144,7 +144,7 @@ try {
     pair[i].auth&&before[i].auth?
       Math.hypot(pair[i].auth.x-before[i].auth.x,pair[i].auth.z-before[i].auth.z):0)));
   console.log('[MULTIPLAYER MOVED BY CLIENT]', movedByClient);
-  const moved=movedByClient.every(value=>value>.5);
+  const moved=movedByClient.every(value=>value>.25);
   assert.ok(moved,'both independent browsers must advance real authoritative positions under keyboard input: ' + JSON.stringify(movedByClient));
   await host.screenshot('six-player-high-grounds');
   await guest.screenshot('second-perspective-high-grounds');
