@@ -14,9 +14,12 @@ import { createGameServer } from '../server/src/server.mjs';
 import { ProfileStore } from '../server/src/ProfileStore.mjs';
 import { CdpClient } from './browser-cdp.mjs';
 
-const BRAIN_DIR = '/Users/erendiracisneros/.gemini/antigravity/brain/bf36c922-8785-4d62-b11e-f266d5847a42';
-const LOCAL_OUT = 'output/playwright/phase2';
-await mkdir(LOCAL_OUT, { recursive: true });
+const OUT_DIR = process.env.OUTPUT_DIR || join(process.cwd(), 'output/playwright/phase2');
+await mkdir(OUT_DIR, { recursive: true });
+const BRAIN_DIR = process.env.BRAIN_DIR || null;
+if (BRAIN_DIR) {
+  await mkdir(BRAIN_DIR, { recursive: true }).catch(() => {});
+}
 
 const tmp = await mkdtemp(join(tmpdir(), 'castleward-phase2-'));
 const browserProfile = join(tmp, 'chrome');
@@ -55,8 +58,10 @@ const click = (selector) => evaluate(`document.querySelector(${JSON.stringify(se
 async function shot(name) {
   const r = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const buf = Buffer.from(r.data, 'base64');
-  await writeFile(join(LOCAL_OUT, `${name}.png`), buf);
-  await writeFile(join(BRAIN_DIR, `${name}.png`), buf);
+  await writeFile(join(OUT_DIR, `${name}.png`), buf);
+  if (BRAIN_DIR) {
+    await writeFile(join(BRAIN_DIR, `${name}.png`), buf).catch(() => {});
+  }
   console.log(`[CDP] Saved screenshot: ${name}.png`);
 }
 
@@ -344,36 +349,43 @@ try {
   await sleep(400);
   await shot('phase2-06-court-of-merit-martial-effigy');
 
-  // Trigger judgment ceremony animation (synchronized coin chute dispense)
-  const ceremonyResult = await evaluate(`(()=>{
+  // Trigger authoritative timely wave completion on the live server room
+  const courtRoom = await until(() => [...server.roomManager.rooms.values()].find((r) => r.worldId === 'court-of-merit'), 'server court room');
+  await until(() => courtRoom.renownTrial?.phase === 'WAVE_ACTIVE', 'active trial wave 1');
+  const enemyBotId = courtRoom.renownTrial.wave.enemyIds[0];
+  const enemyBot = courtRoom.players.get(enemyBotId);
+  if (enemyBot) {
+    enemyBot.alive = false;
+    enemyBot.health = 0;
+    enemyBot.respawnAt = Infinity;
+  }
+  await until(() => courtRoom.renownTrial?.phase === 'JUDGMENT', 'authoritative timely judgment');
+
+  // Position camera to frame the judgment coin chute & tray on the dais
+  await evaluate(`(()=>{
     const r = window.__ssRuntime;
-    const sNow = r.socket.serverNow();
-    r.world?.setTrialState?.({
-      renownTrial: {
-        phase: 'JUDGMENT',
-        ceremony: {
-          id: 'cdp-test-ceremony',
-          kind: 'timely',
-          cue: 'REWARD_COIN',
-          startedAt: sNow - 2.5,
-          endsAt: sNow + 2.0,
-        },
-      },
-      serverTime: sNow,
-    }, sNow);
-    r.world?.update?.(sNow, r.camera, 0.016);
-    r.renderer.render(r.scene, r.camera);
     r.camera.position.set(2.8, 2.8, 11.5);
     r.camera.lookAt(0, 1.8, 14.5);
-    return {
-      activeCoins: r.world?.coinVisuals?.length ?? 0,
-      swordRotX: r.world?.sword?.rotation?.x ?? 0,
-    };
+    return true;
   })()`);
+
+  // Wait for the real authoritative ceremony snapshot (REWARD_COIN cue) to reach the client and spawn coin visuals
+  const ceremonyResult = await until(async () => {
+    const res = await evaluate(`(()=>{
+      const r = window.__ssRuntime;
+      const count = r?.world?.coinVisuals?.length ?? 0;
+      return count >= 16 ? {
+        activeCoins: count,
+        swordRotX: r?.world?.sword?.rotation?.x ?? 0,
+      } : null;
+    })()`);
+    return res;
+  }, 'real authoritative REWARD_COIN snapshot and coin visuals', 160);
+
   console.log('[Court of Merit Judgment Presentation]:', ceremonyResult);
-  assert.ok(ceremonyResult.activeCoins >= 16, 'Active coin visuals must be spawned upon REWARD_COIN cue');
+  assert.ok(ceremonyResult.activeCoins >= 16, 'Active coin visuals must be spawned upon authoritative REWARD_COIN cue');
   benchmarkReport.courtOfMerit.activeCoins = ceremonyResult.activeCoins;
-  await sleep(500);
+  await sleep(400);
   await shot('phase2-07-court-of-merit-judgment-chute');
 
   // Mobile Landscape view for Court of Merit
