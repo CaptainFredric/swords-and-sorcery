@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fightFlightRun.mjs';
-import {stepTerminalPreparation,requestTerminalRitual} from '../../shared/sim/fightFlightTerminal.mjs';
+import {stepTerminalPreparation,requestTerminalRitual,advanceTerminalFlight} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 const DT=1/30;
@@ -348,4 +348,60 @@ test('grounded Dash + Ultimate still requires its original full one-second hold'
  assert.ok(s.m.velocity.y>0);
  assert.equal(s.m.flightDashHeld,false);
  assert.equal(s.m.runGroundPhase,null);
+});
+
+function terminalSetup({y=120,pitch=0,yaw=0}={}){
+  const s=setup({y});
+  s.p.ultimate='chivalry';s.p.prowess=100;
+  s.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null};
+  s.p.input.pitch=pitch;s.p.input.yaw=yaw;
+  assert.equal(requestTerminalRitual(s.room,s.m,s.p,0),true);
+  return s;
+}
+function terminalFrames(s,count){
+  for(let i=0;i<count;i++){
+    s.now+=DT;
+    advanceTerminalFlight(s.room,s.m,DT,s.now);
+    stepFightFlight(s.room,s.m,DT,s.now,s.room.world);
+  }
+}
+test('Early committed Valkyrie has ordinary Dash-equivalent turn and climb authority',()=>{
+  const s=terminalSetup({pitch:.8,yaw:Math.PI/2});
+  assert.equal(s.m.terminalDive.simulatedSec,0);
+  terminalFrames(s,18);
+  assert.ok(s.m.heading>.6,'full Dash angular acceleration gives responsive early turns');
+  assert.ok(s.m.velocity.y>8,'positive reticle pitch produces real ascent, not a tiny trim');
+  assert.ok(s.m.y>120,'the chassis actually climbs through the world');
+  assert.ok(s.m.runFlightPitch>.75,'replicated pitch remains player controlled');
+  assert.ok(s.m.runPitch<.1,'climbing changes the third-person craft attitude');
+  assert.ok(s.m.runTurnSpeed<=VALKYRIE_RUN.turnRate+1e-6);
+  assert.ok(s.m.rotorAngularVelocity>0,'rotor remains physically powered');
+});
+test('Late committed Valkyrie deteriorates in BOTH turning and upward thrust',()=>{
+  const early=terminalSetup({pitch:VALKYRIE_RUN.pitchLimit,yaw:Math.PI/2});
+  terminalFrames(early,10);
+  const earlyTurn=early.m.runTurnSpeed,earlyClimb=early.m.velocity.y;
+  const late=terminalSetup({y:250,pitch:VALKYRIE_RUN.pitchLimit,yaw:Math.PI/2});
+  late.m.terminalDive.simulatedSec=15;
+  terminalFrames(late,10);
+  assert.ok(earlyTurn>late.m.runTurnSpeed*4,'late yaw is much slower, not locked');
+  assert.ok(late.m.runTurnSpeed>0&&late.m.runTurnSpeed<=.18+1e-6);
+  assert.ok(earlyClimb>5&&late.m.velocity.y<0,'overheated rotor can no longer sustain a climb');
+  assert.ok(late.m.health<250,'dangerous deterioration still burns remaining hull');
+  assert.equal(late.m.terminalDive.resolved,false,'no artificial timed explosion');
+});
+test('Committed Valkyrie ascends on initial ground activation with matching pitch rules',()=>{
+  // The terminal commitment is valid from support without a Dash spin-up.
+  // Recreate an actual grounded launch instead of claiming this airborne test covers it.
+  const ground=setup({y:0});
+  ground.m.grounded=true;ground.m.mode='GROUNDED';ground.m.velocity.y=0;
+  ground.p.ultimate='chivalry';ground.p.prowess=100;
+  ground.m.skill={id:'doNotStopMyAscension',phase:'active',activeUntil:null};
+  ground.p.input.pitch=.85;
+  assert.equal(requestTerminalRitual(ground.room,ground.m,ground.p,0),true);
+  assert.ok(ground.m.velocity.y>=4.5&&ground.m.terminalDive.launchedFromGround);
+  terminalFrames(ground,12);
+  assert.ok(ground.m.y>0.3,'real vertical displacement comes from velocity');
+  assert.ok(ground.m.velocity.y>6,'look pitch still works from the ground');
+  assert.equal(ground.m.terminalDive.resolved,false);
 });

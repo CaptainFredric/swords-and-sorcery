@@ -272,7 +272,7 @@ test('One full Ascension chord does not duplicate commitment or reset rotor velo
  assert.equal(s.m.skill.id,'doNotStopMyAscension');
 });
 
-test('complete mobile ritual spends Chivalry immediately but only with valid airborne Ascension',()=>{
+test('complete mobile ritual spends Chivalry immediately with valid Ascension',()=>{
  const s=setup();
  const before=s.m.rotorAngularVelocity;
  assert.deepEqual(s.cmd('flightTerminalRitual',undefined,1),{});
@@ -288,6 +288,18 @@ test('complete mobile ritual spends Chivalry immediately but only with valid air
  assert.ok(applyRoomCommand(s.room,foe,{type:'flightTerminalRitual',radius:999,damage:999},2).rejected,
    'unmounted sender cannot spoof damage or activate another pilot machine');
 });
+test('The same authorized ritual launches from the ground without an airborne gate',()=>{
+ const s=setup();s.m.grounded=true;s.m.mode='GROUNDED';s.m.y=0;
+ s.m.velocity.y=0;s.p.position.y=0;s.p.input.pitch=.9;
+ assert.equal(requestTerminalRitual(s.room,s.m,s.p,1),true);
+ assert.equal(s.m.terminalDive.launchedFromGround,true);
+ assert.equal(s.m.grounded,false);
+ assert.ok(s.m.velocity.y>=4.5,'physical takeoff replaces teleportation');
+ advanceTerminalFlight(s.room,s.m,1/30,1+1/30);
+ assert.ok(s.m.velocity.y>4.5,'looking up immediately commands genuine additional climb');
+ assert.equal(s.m.terminalDiveSpent,true);
+});
+
 test('craft condition at collision changes the final blast and burn profile',()=>{
  const pristine=setup(),damaged=setup();
  const a=terminalBlastProfile(pristine.m);
@@ -313,10 +325,9 @@ test('craft condition at collision changes the final blast and burn profile',()=
  assert.ok(blast.damage<committed.damage,'impact power reflects the surviving craft');
  assert.ok(pristine.room.flightBurnZones[0].radius<committed.fireRadius);
 });
-test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor or spent chassis',()=>{
- for(const kind of ['ground','skill','rotor','meter','spent','inactive']){
+test('stencil cannot bypass skill, full meter, destroyed rotor or spent chassis',()=>{
+ for(const kind of ['skill','rotor','meter','spent','inactive']){
   const s=setup();
-  if(kind==='ground')s.m.grounded=true;
   if(kind==='skill')s.m.skill.id='narrowToOne';
   if(kind==='rotor')s.m.rotorHP=0;
   if(kind==='meter'){
