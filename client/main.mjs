@@ -1079,6 +1079,25 @@ soloArena.addEventListener('click', (event) => {
   showSoloArena();
 });
 showSoloArena();
+const renownArenaEl = $('#renown-arena');
+function showRenownArena() {
+  if (!renownArenaEl) return;
+  const chosen = menuController.renownArena();
+  for (const chip of renownArenaEl.querySelectorAll('[data-renown-arena]')) {
+    const on = chip.dataset.renownArena === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+if (renownArenaEl) {
+  renownArenaEl.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-renown-arena]');
+    if (!chip) return;
+    menuController.chooseRenownArena(chip.dataset.renownArena);
+    showRenownArena();
+  });
+}
+showRenownArena();
 // the Bot Duel's rival: how well it plays (the same knight, better or worse at the game)
 const soloRival = $('#solo-rival');
 const RIVAL_NOTES = Object.freeze({
@@ -1473,8 +1492,14 @@ function chooseSoloActivity(id) {
   const [title,note]=soloChoices[id];
   $('#solo-selected-title').textContent=title;
   $('#solo-selected-note').textContent=note;
-  $('#solo-arena-wrap').hidden=id==='tutorial-mode';
-  $('#solo-rival-wrap').hidden=id!=='bot-duel';
+  const isRenown = id === 'renown-trials-mode';
+  $('#solo-arena-wrap').hidden = id === 'tutorial-mode' || isRenown;
+  const renownWrap = $('#renown-arena-wrap');
+  if (renownWrap) {
+    renownWrap.hidden = !isRenown;
+    if (isRenown) showRenownArena();
+  }
+  $('#solo-rival-wrap').hidden = id !== 'bot-duel';
   $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
   // Desktop has both banners side by side. On phones, leave the activity
   // choices accessible until the user taps again; REVIEW SETTINGS opens the
@@ -1487,7 +1512,7 @@ function chooseSoloActivity(id) {
 function launchSoloActivity(id) {
   if(id==='tutorial-mode') { startTutorial(); return true; }
   if(id==='bot-duel') return startBotDuel();
-  if(id==='renown-trials-mode') return runMenuAction(menuController.renownTrials(nameInput.value),SCREEN_IDS.SOLO_MENU);
+  if(id==='renown-trials-mode') return runMenuAction(menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena() }),SCREEN_IDS.SOLO_MENU);
   if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
