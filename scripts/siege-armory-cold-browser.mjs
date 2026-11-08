@@ -55,9 +55,12 @@ try{
  await evaluate("document.querySelector('#armory-button').click()");
  await until(()=>evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')"),'actual Armory page');
  await evaluate("document.querySelector('#armory-siege-tab').click()");
- const before=await evaluate("(() => ({selected:document.querySelector('#armory-siege-tab').getAttribute('aria-pressed'),section:!document.querySelector('#armory-siege').classList.contains('hidden'),names:[...document.querySelectorAll('#armory-siege .siege-armory-heading h4')].map(e=>e.textContent),alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
- assert.equal(before.selected,'true');assert.equal(before.section,true);assert.equal(before.alternatives,2);
- assert.deepEqual(before.names,['BI-BYE-LLISTA','SO-FIST-ICATION','FIGHT-AND-FLIGHT']);
+ const before=await evaluate("(() => ({selected:document.querySelector('#armory-siege-tab').getAttribute('aria-pressed'),section:!document.querySelector('#armory-siege').classList.contains('hidden'),names:[...document.querySelectorAll('#armory-siege .siege-machine-nav button')].map(e=>e.textContent)}))()");
+ assert.equal(before.selected,'true');assert.equal(before.section,true);
+ assert.deepEqual(before.names,['SO-FIST-ICATION','BI-BYE-LLISTA','FIGHT-AND-FLIGHT']);
+ await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
+ const biByeState=await evaluate("(() => ({title:document.querySelector('#siege-title').textContent,alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
+ assert.equal(biByeState.title,'BI-BYE-LLISTA');assert.equal(biByeState.alternatives,2);
  await screenshot('01-siege-armory');
  await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').getAttribute('aria-checked')"),'true');
