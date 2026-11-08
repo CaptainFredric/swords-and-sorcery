@@ -140,8 +140,11 @@ try {
   // Actual mobile terminal acceptance needs the canonical equipment selected
   // BEFORE mounting (the server locks the equipped Skill to the operator).
   await evaluate("document.querySelector('#player-name').value='MobilePilot';document.querySelector('#armory-button').click()");
-  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]') && document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension and Chivalry armory options');
-  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click();document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
+  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]'))"),'Chivalry armory option');
+  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click(); document.querySelector('#armory-equip-btn')?.click();");
+  await evaluate("document.querySelector('[data-armory-tab=\"siege\"]')?.click(); document.querySelector('[data-siege-tab=\"fightFlight\"]')?.click();");
+  await until(()=>evaluate("Boolean(document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension armory option');
+  await evaluate("document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click(); document.querySelector('#armory-back').click(); document.querySelector('#solo-button').click()");
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'Practice entry');
   // Solo's dual-banner menu separates selection from launch. Selecting the

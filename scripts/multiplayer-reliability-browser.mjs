@@ -80,6 +80,8 @@ try {
   await waitFor(()=>host.evaluate("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"),
     'Breakthrough map chooser',100);
   await host.evaluate("document.querySelector('[data-arena=high-grounds]').click();document.querySelector('#breakthrough-create-private').click()");
+  await waitFor(()=>host.evaluate("!document.querySelector('#private-menu').classList.contains('hidden')"),'Private menu for host',100);
+  await host.evaluate("document.querySelector('#create-room').click()");
   const roomCode=await waitFor(()=>host.evaluate("window.__ssLink?.roomCode"),'host creates a real 3v3 High Grounds lobby',120);
   await guest.evaluate("document.querySelector('#player-name').value='Crimson Browser';document.querySelector('#private-button').click()");
   await guest.evaluate("document.querySelector('#private-name').value='Crimson Browser';const code=document.querySelector('#room-code');code.value="+JSON.stringify(roomCode)+";code.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#join-room').click()");

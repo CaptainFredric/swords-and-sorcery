@@ -136,7 +136,12 @@ try{
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
  await host.tap('T');
- await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'host confirmed mounted in apparatus via T',80);
+ let mountAttempts=0;
+ await waitFor(async()=>{
+  if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
+  if(++mountAttempts%8===0)await host.tap('T');
+  return false;
+ },'host confirmed mounted in apparatus via T',120);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');

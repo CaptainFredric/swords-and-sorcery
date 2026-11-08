@@ -76,14 +76,46 @@ try {
   await poll(async()=>{const v=await evaluate(state);return v?.ultimate==='one_hit_of_wonders'&&v.alive&&await evaluate("!document.querySelector('#hud').classList.contains('hidden')")},'local Practice Ultimate',45000);
   const before=await evaluate(state);assert.ok(before.chase<.1);
   evidence.before=before;
+  await evaluate(`(() => {
+    window.__disasterTrace = [];
+    const trace = () => {
+      const r = window.__ssRuntime;
+      if (r?.localAuth) {
+        const a = r.localAuth, camera = r.camera.position, pos = r.localState?.position ?? a.position;
+        window.__disasterTrace.push({
+          ultimate: a.ultimate, phase: a.ultimateState?.phase ?? null,
+          committedAt: a.ultimateState?.commitAt ?? null,
+          chase: r.chase ?? 0, bodyVisible: Boolean(r.remotePlayers?.self?.root?.visible),
+          handsVisible: Boolean(r.weapon?.group?.visible),
+          cameraDistance: Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z),
+          alive: a.alive, t: performance.now()
+        });
+      }
+      if (window.__disasterTrace.length < 900) {
+        requestAnimationFrame(trace);
+      }
+    };
+    requestAnimationFrame(trace);
+  })()`);
   await evaluate("window.__ssRuntime.socket.ultimate()");
-  await poll(async()=>{const x=await evaluate(state);return x?.phase==='startup'||x?.phase==='active'},'authoritative Ultimate started');
+  await poll(async()=>{
+    const x=await evaluate(state);
+    if(x?.phase==='startup'||x?.phase==='active')return x;
+    const t=await evaluate("window.__disasterTrace?.find(x => x.phase === 'startup' || x.phase === 'active')");
+    return t || null;
+  },'authoritative Ultimate started');
+  let snappedOutside=false;
   const outside=await poll(async()=>{
     const x=await evaluate(state);
-    return x?.chase>.72 && x.bodyVisible && !x.handsVisible && x.cameraDistance>2 ? x : null;
+    if(x?.chase>.72 && x.bodyVisible && !x.handsVisible && x.cameraDistance>2) {
+      if(!snappedOutside){await snap('02-third-person-disaster-strike');snappedOutside=true;}
+      return x;
+    }
+    const t=await evaluate("window.__disasterTrace?.find(x => x.chase > .72 && x.bodyVisible && !x.handsVisible && x.cameraDistance > 2)");
+    return t || null;
   },'cinematic chase with full-body visible',14000);
   evidence.outside=outside;
-  await snap('02-third-person-disaster-strike');
+  if(!snappedOutside)await snap('02-third-person-disaster-strike');
   const restored=await poll(async()=>{
     const x=await evaluate(state);
     return x?.chase<.08 && x.handsVisible ? x:null;
