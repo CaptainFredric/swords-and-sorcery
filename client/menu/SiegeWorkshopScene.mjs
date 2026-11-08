@@ -31,6 +31,7 @@ export class SiegeWorkshopScene {
     this.targetPitch = 0;
 
     this.cache = new Map();
+    this.inFlight = new Map();
     this.mixers = new Map();
     this.loader = new GLTFLoader();
 
@@ -286,6 +287,7 @@ export class SiegeWorkshopScene {
     knuckles.position.set(0, 2.35, -1.15);
     soFistFallback.add(knuckles);
 
+    soFistFallback.userData = { isAuthored: false, machineId: 'soFist' };
     this.fallbacks.set('soFist', soFistFallback);
 
     // Fallback 2: BI-BYE-LLISTA (Twin-bolt mobile carriage)
@@ -336,6 +338,7 @@ export class SiegeWorkshopScene {
     bolt2.position.set(0.08, 1.15, -0.3);
     biByeFallback.add(bolt2);
 
+    biByeFallback.userData = { isAuthored: false, machineId: 'biBye' };
     this.fallbacks.set('biBye', biByeFallback);
 
     // Fallback 3: FIGHT-AND-FLIGHT (Wearable harness, repeater, twin-sword rotor)
@@ -375,6 +378,7 @@ export class SiegeWorkshopScene {
     rotorBlade2.castShadow = true;
     flightFallback.add(rotorBlade2);
 
+    flightFallback.userData = { isAuthored: false, machineId: 'fightFlight' };
     this.fallbacks.set('fightFlight', flightFallback);
   }
 
