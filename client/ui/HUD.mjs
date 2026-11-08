@@ -1,5 +1,6 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {highGroundsHudView} from './highGroundsHudView.mjs';
+import {restlessDayHudView} from './restlessDayHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
@@ -104,6 +105,7 @@ export function matchInfoText(snapshot, serverNow) {
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
   const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
+  if (snapshot?.mode === 'RESTLESS_DAY') return `RESTLESS DAY · DAYLIGHT REMAINING · ${clockStr}`;
   if (snapshot?.mode === 'HIGH_GROUNDS') return `THE HIGH GROUNDS · TERRITORY · ${clockStr}`;
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
@@ -460,7 +462,7 @@ export class HUD {
         this.duelScore.setAttribute('aria-label', `You ${duel.mine}, ${duel.rival} ${duel.theirs}`);
       }
     }
-    const btView = snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
+    const btView = snapshot.mode==='RESTLESS_DAY'?restlessDayHudView(local,snapshot,serverNow):snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
     this.matchInfo.classList.toggle('hidden', btView.visible);
     this.breakthroughHud.classList.toggle('hidden', !btView.visible);
     if (btView.visible) {
@@ -471,16 +473,16 @@ export class HUD {
       this.breakthroughHud.querySelector('[data-bt-phase]').textContent = btView.phaseLabel;
       this.breakthroughHud.querySelector('[data-bt-clock]').textContent = btView.clock;
       this.breakthroughHud.querySelector('[data-bt-name]').textContent = btView.objectiveName;
-      this.breakthroughHud.querySelector('[data-bt-state]').textContent = btView.mode==='high-grounds'
-        ? `${btView.stateLabel}${btView.progressPct?' ·'+btView.progressPct+'%':''}`
+      this.breakthroughHud.querySelector('[data-bt-state]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
+        ? `${btView.stateLabel}${btView.mode==='high-grounds'&&btView.progressPct?' ·'+btView.progressPct+'%':''}`
         : `${btView.stateLabel} ·${btView.progressPct}%`;
       this.breakthroughHud.querySelector('[data-bt-fill]').style.width = `${btView.progressPct}%`;
-      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = btView.mode==='high-grounds'
+      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
         ? btView.directive : `${btView.directive} · [V] Mark`;
       const counts = [];
       if (btView.attackersCount > 0) counts.push(`▲ ${btView.attackersCount} ATT`);
       if (btView.defendersCount > 0) counts.push(`⛨ ${btView.defendersCount} DEF`);
-      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = btView.mode==='high-grounds'
+      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
         ? btView.footer : counts.join(' · ') || (btView.distanceMeters !== null ? `${btView.distanceMeters}m away` : '');
     } else {
       this.objectiveWaypoint.classList.add('hidden');
@@ -1020,14 +1022,14 @@ export class HUD {
   setScoreboard(snapshot, visible) {
     this.scoreboard.classList.toggle('hidden', !visible);
     if (!visible) return;
-    if (snapshot.mode === 'BREAKTHROUGH' || snapshot.mode === 'HIGH_GROUNDS') {
+    if (snapshot.mode === 'BREAKTHROUGH' || snapshot.mode === 'HIGH_GROUNDS' || snapshot.mode === 'RESTLESS_DAY') {
       const attackers = snapshot.players.filter((p) => p.team === 'ATTACKERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const defenders = snapshot.players.filter((p) => p.team === 'DEFENDERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const renderTeam = (title, list, cls) => `<h4 class="sb-team-head ${cls}">${title}</h4>` + list.map((p) =>
         `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
       ).join('');
-      const worldTitle = snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
-      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      const worldTitle = snapshot.mode === 'RESTLESS_DAY' ? 'RESTLESS DAY' : snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
+      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'RESTLESS_DAY' ? 'SIEGE' : snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
 
     }

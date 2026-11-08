@@ -1,8 +1,10 @@
+import { modeCall } from './modeRuntime.mjs';
 // Map contract: structures name existing solidIds, a material profile and owning team.
 // Health belongs to the room. Failed collider IDs are removed from every world consumer.
 export const STRUCTURE_PROFILES = Object.freeze({
   timber: Object.freeze({ health: 240, sword: .6, spell: .8, heavy: 1.4, upper: .5, piston: 220, exposed: 110, charge: 160 }),
   reinforcedTimber: Object.freeze({ health: 600, sword: .45, spell: .6, heavy: 1.8, upper: .35, piston: 240, exposed: 120, charge: 180 }),
+  renowner:Object.freeze({health:1650,sword:.75,spell:1,heavy:1.35,upper:.65,piston:240,exposed:110,charge:160}),
 });
 const variants = new WeakMap();
 const bases = new WeakMap();
@@ -36,6 +38,9 @@ export function damageStructure(room, id, amount, attackerId, source, now, { poi
   const attacker = room.players.get(attackerId);
   if (!def || !state || state.health <= 0 || room.state !== 'PLAYING' || !attacker || !Number.isFinite(amount) || amount <= 0) return false;
   if (def.team && attacker.team === def.team) return false;
+  // Mode-local authoritative termination arbitration: no post-sundown
+  // structure mutation, even if the call bypasses the ordinary room tick.
+  if(modeCall(room,'beforeStructureDamage',id,now)===false)return false;
   const profile = STRUCTURE_PROFILES[def.profile];
   const scale = source === 'sword' ? profile.sword : source === 'bibye-siege' ? profile.heavy : source === 'bibye-conditioning' ? profile.upper : profile.spell;
   const damage = raw ? amount : amount * scale;
@@ -49,6 +54,7 @@ export function damageStructure(room, id, amount, attackerId, source, now, { poi
   }
   room.events.push({ type: 'structureDamaged', structureId: id, name: def.name, health: state.health, maxHealth: state.maxHealth,
     amount: before - state.health, attackerId, source, point, destroyed: state.health === 0, at: now });
+  modeCall(room,'onStructureDamage',id,now);
   return true;
 }
 export function damageStructureSolid(room, solid, amount, attackerId, source, now, options) {

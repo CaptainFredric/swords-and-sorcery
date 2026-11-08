@@ -1,0 +1,58 @@
+name: Restless Day real Chrome staged acceptance
+on:
+  pull_request:
+    paths:
+      - 'shared/worlds/restlessDay.mjs'
+      - 'shared/sim/restlessDayMode.mjs'
+      - 'shared/sim/modeRuntime.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'shared/sim/botNav.mjs'
+      - 'shared/sim/Room.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'client/worlds/RestlessDayRenderer.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/main.mjs'
+      - 'client/index.html'
+      - 'scripts/restless-day-browser.mjs'
+      - '.github/workflows/restless-day-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-restless-day:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start real game server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs >/tmp/restless-day-game.log 2>&1 &
+          for attempt in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/restless-day-game.log
+          exit 1
+      - name: Find Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Live 5v5 browser and staged interaction acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+        run: node scripts/restless-day-browser.mjs
+      - name: Upload screenshots and precise stage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restless-day-chrome-staged
+          path: output/playwright/restless-day/
+          retention-days: 7

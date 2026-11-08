@@ -5,6 +5,7 @@ import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
 import { navGraph, routeBetween, runClear } from '../../shared/sim/botNav.mjs';
 import { getWorld, WORLD_IDS } from '../../shared/worlds/registry.mjs';
+import { withRestlessLadders } from '../../shared/sim/restlessDayMode.mjs';
 
 // How bots find their way (shared/sim/botNav.mjs), and the contract every world keeps for it: waypoints all joined up,
 // every spawn on the way, and a knight who spawns standing clear of anything solid, on ground.
@@ -39,7 +40,15 @@ for (const world of WORLDS) {
   if (!world.navigation) continue;
 
   test(`${world.id}: the waypoints are all joined up, and every spawn can reach one straight`, () => {
-    const graph = navGraph(world);
+    // Intact Restless Day curtains MUST split the map. Valid test topology is
+    // the actual occupied siege state: two deployed, walkable ladders. Requiring
+    // a route through an untouched gate would silently permit wall bypasses.
+    const walkable = world.id==='restless-day'
+      ?withRestlessLadders(world,{ladders:[
+          {id:'ladder-a',state:'deployed',wall:0,position:{x:-6,y:0,z:-31}},
+          {id:'ladder-b',state:'deployed',wall:1,position:{x:6,y:0,z:14}},
+        ]}):world;
+    const graph = navGraph(walkable);
     const seen = new Set([0]);
     const queue = [0];
     while (queue.length) {
@@ -48,9 +57,9 @@ for (const world of WORLDS) {
     const cut = graph.nodes.filter((_, i) => !seen.has(i)).map((node) => node.id);
     assert.deepEqual(cut, [], 'waypoints cut off from the rest');
     for (const spawn of world.spawnPoints) {
-      assert.ok(graph.nodes.some((node) => runClear(world, spawn, node)), `spawn (${spawn.x}, ${spawn.z}) is off the way`);
+      assert.ok(graph.nodes.some((node) => runClear(walkable, spawn, node)), `spawn (${spawn.x}, ${spawn.z}) is off the way`);
       for (const other of world.spawnPoints) {
-        assert.ok(runClear(world, spawn, other) || routeBetween(world, spawn, other),
+        assert.ok(runClear(walkable, spawn, other) || routeBetween(walkable, spawn, other),
           `no way from (${spawn.x}, ${spawn.z}) to (${other.x}, ${other.z})`);
       }
     }
