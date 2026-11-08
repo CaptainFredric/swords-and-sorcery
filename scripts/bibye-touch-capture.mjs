@@ -89,7 +89,7 @@ try{
   const solo=document.querySelector('#solo-menu');if(solo&&!solo.classList.contains('hidden'))return true;
   document.querySelector('#solo-button')?.click();return false;
  })()`),'Solo menu');
- await evalPage(`document.querySelector('#practice-mode').click()`);
+ await evalPage(`document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()`);
  await until(()=>evalPage(`Boolean(window.__ssRuntime?.localAuth&&window.__ssRuntime?.latestSnapshot)`),'Practice Yard',220);
  await evalPage(`(() => {
   const r=window.__ssRuntime;r.enableTouch();r.touch.setActive(true);
