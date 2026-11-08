@@ -73,7 +73,7 @@ const FLOORS = [
   floor('gate-rubble-top', [-2.2, 2.2], [-13.2, -11.4], 1.0, 'stone', { draw: false }),
   floor('hall-rubble-top', [6.4, 9.0], [4.4, 6.6], 1.3, 'stone', { draw: false }),
   floor('scaffold-top', [-7.4, -4.4], [-0.9, 0.9], 1.2, 'timber', { draw: false }),
-  floor('toppled-wall-breach-apex', [-0.8, 0.8], [-6.4, -6.2], 0.45, 'stone', { draw: false }),
+  floor('toppled-wall-breach-apex', [-0.75, 0.85], [-6.4, -6.2], 0.45, 'stone', { draw: false }),
   floor('breach-rubble-top', [-9.5, -7.8], [-9.6, -8.6], 1.1, 'stone', { draw: false }),
 ];
 
@@ -81,8 +81,8 @@ const RAMPS = [
   // the Gallery stair, climbing south from the Ward
   { id: 'gallery-stair', ...STAIR, startY: KEEP_GALLERY_Y, endY: 0, axis: 'z', steps: true },
   // Walkable rubble ramp steps across the central toppled wall breach for fluid final-ring combat
-  { id: 'toppled-wall-ramp-south', minX: -0.8, maxX: 0.8, minZ: -7.2, maxZ: -6.3, startY: 0, endY: 0.45, axis: 'z' },
-  { id: 'toppled-wall-ramp-north', minX: -0.8, maxX: 0.8, minZ: -6.3, maxZ: -5.4, startY: 0.45, endY: 0, axis: 'z' },
+  { id: 'toppled-wall-ramp-south', minX: -0.75, maxX: 0.85, minZ: -7.2, maxZ: -6.3, startY: 0, endY: 0.45, axis: 'z' },
+  { id: 'toppled-wall-ramp-north', minX: -0.75, maxX: 0.85, minZ: -6.3, maxZ: -5.4, startY: 0.45, endY: 0, axis: 'z' },
   // Prototype walkable slope for shield-sledding from the west breach down into the ward
   { id: 'breach-rubble-ramp', minX: -9.5, maxX: -7.8, minZ: -8.6, maxZ: -5.0, startY: 1.1, endY: 0, axis: 'z' },
 ];
@@ -137,8 +137,8 @@ const SOLIDS = [
   solid('crawl-rubble', [-7.8, -6.3], [0, 2.5], [0.9, 4.8], { kind: 'rubble' }),
 
   // --- the Ward: a toppled wall split for final-ring cross combat, column drums, gatehouse rubble, siege scaffold
-  solid('toppled-wall-west', [-2.8, -0.8], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
-  solid('toppled-wall-east', [0.8, 1.4], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
+  solid('toppled-wall-west', [-2.8, -0.75], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
+  solid('toppled-wall-east', [0.85, 1.4], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
   solid('breach-ramp-core', [-9.5, -7.8], [0, 0.5], [-8.6, -7.0], { kind: 'rubble' }),
   solid('column-drums-west', [-7.2, -5.8], [0, 0.9], [-8.4, -7.0], { kind: 'drums' }),
   solid('column-drums-east', [3.6, 5.0], [0, 0.8], [-3.6, -2.2], { kind: 'drums' }),

@@ -75,6 +75,7 @@ try{
   // Drive feet with genuine CDP keyboard input rather than editing a snapshot.
   await evalPage("(() => {const rt=window.__ssRuntime,room=rt.socket.local.room,"
     +"p=room.players.get(rt.playerId);"
+    +"rt.input.enabled=true;rt.input.pointerLocked=true;"
     +"room.edgeOfVictory.startedAt=rt.socket.serverNow()-230;"
     +"p.position={x:7,y:0,z:-1};p.velocity={x:0,y:0,z:0};"
     +"p.spawnProtectionUntil=Infinity;rt.input.yaw=-Math.PI/2;rt.input.pitch=0;"
