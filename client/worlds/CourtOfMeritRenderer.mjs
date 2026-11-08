@@ -69,6 +69,18 @@ export class CourtOfMeritRenderer {
     this.geometries = [];
     this.coinVisuals = [];
     this.lastTrialState = null;
+    this.lastServerNow = 0;
+    this.lastCeremonyId = null;
+    this.handledCues = new Set();
+
+    this.coinGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.024, 10);
+    this.geometries.push(this.coinGeo);
+    this.goldCoinMat = this.#registerMat(new THREE.MeshStandardMaterial({
+      color: 0xdaa520, roughness: 0.3, metalness: 0.85,
+    }));
+    this.lethalCoinMat = this.#registerMat(new THREE.MeshStandardMaterial({
+      color: 0xff3322, emissive: 0xaa1100, emissiveIntensity: 0.85, roughness: 0.25, metalness: 0.9,
+    }));
 
     scene.background = new THREE.Color(this.lighting.background);
     scene.fog = new THREE.FogExp2(this.lighting.fog.color, this.lighting.fog.density);
@@ -275,11 +287,86 @@ export class CourtOfMeritRenderer {
     this.braziers.push(flameMesh);
   }
 
-  setTrialState(snapshot) {
-    this.lastTrialState = snapshot?.renownTrial ?? null;
+  #spawnCoins(count, isLethal = false) {
+    const coinMat = isLethal ? this.lethalCoinMat : this.goldCoinMat;
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(this.coinGeo, coinMat);
+      mesh.castShadow = true;
+      mesh.position.set(
+        (Math.random() - 0.5) * 0.35,
+        3.65 + (Math.random() - 0.5) * 0.05,
+        14.85 + (Math.random() - 0.5) * 0.1
+      );
+      mesh.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      );
+      this.group.add(mesh);
+      const vx = (Math.random() - 0.5) * (isLethal ? 3.0 : 0.8);
+      const vy = isLethal ? (Math.random() * 1.5 - 0.5) : (0.4 + Math.random() * 0.8);
+      const vz = isLethal ? -(14.0 + Math.random() * 6.0) : -(1.8 + Math.random() * 1.6);
+      this.coinVisuals.push({
+        mesh,
+        vx, vy, vz,
+        rotVx: (Math.random() - 0.5) * 12,
+        rotVy: (Math.random() - 0.5) * 12,
+        rotVz: (Math.random() - 0.5) * 12,
+        age: 0,
+        isLethal,
+      });
+    }
   }
 
-  update(serverNow = 0) {
+  setTrialState(snapshot, serverNow = null) {
+    this.lastTrialState = snapshot?.renownTrial ?? null;
+    if (serverNow !== null) {
+      this.lastServerNow = serverNow;
+    } else if (snapshot?.serverTime != null) {
+      this.lastServerNow = snapshot.serverTime;
+    }
+
+    const ceremony = this.lastTrialState?.ceremony;
+    if (!ceremony) {
+      this.lastCeremonyId = null;
+      return;
+    }
+
+    if (ceremony.id !== this.lastCeremonyId) {
+      this.lastCeremonyId = ceremony.id;
+      this.handledCues.clear();
+    }
+
+    const cue = ceremony.cue;
+    if (cue && !this.handledCues.has(cue)) {
+      this.handledCues.add(cue);
+      if (cue === 'REWARD_COIN') {
+        this.#spawnCoins(18, false);
+      } else if (cue === 'CONSOLATION_COIN') {
+        this.#spawnCoins(8, false);
+      } else if (cue === 'LATE_COIN') {
+        this.#spawnCoins(1, false);
+      } else if (cue === 'COIN_RETALIATION') {
+        this.#spawnCoins(24, true);
+      }
+      // NO_REWARD spawns 0 coins
+    }
+  }
+
+  triggerJudgmentPresentation(verdict, reward = 0) {
+    if (verdict === 'EXECUTION' || verdict === 'SWORD') {
+      if (this.sword) this.sword.rotation.x = 0.95;
+    } else if (verdict === 'COIN_RETALIATION') {
+      this.#spawnCoins(24, true);
+    } else if (verdict === 'COMMENDED' || verdict === 'COIN' || reward > 0) {
+      this.#spawnCoins(18, false);
+    }
+  }
+
+  update(timeSec = 0, camera = null, dt = 0.016) {
+    const serverNow = this.lastServerNow || timeSec;
+    const stepDt = typeof dt === 'number' && dt > 0 && dt < 0.2 ? dt : 0.016;
+
     // Dynamic brazier flame flicker
     for (let i = 0; i < this.braziers.length; i++) {
       const b = this.braziers[i];
@@ -295,22 +382,94 @@ export class CourtOfMeritRenderer {
 
     // Articulated judgment presentation
     const ceremony = this.lastTrialState?.ceremony;
-    if (ceremony && this.sword) {
-      if (ceremony.kind === 'execution') {
-        const t = Math.max(0, Math.min(1, (serverNow - ceremony.startedAt) / (ceremony.endsAt - ceremony.startedAt)));
-        // Sword lift and downstroke reaching player position
-        const swing = Math.sin(t * Math.PI);
-        this.sword.rotation.x = swing * 0.85;
+    if (this.sword) {
+      if (ceremony) {
+        const cue = ceremony.cue;
+        const elapsed = Math.max(0, serverNow - ceremony.startedAt);
+        if (cue === 'SWORD_RAISE') {
+          const progress = Math.min(1, elapsed / 1.7);
+          this.sword.rotation.x = -progress * 1.6;
+          this.sword.position.y = 0.75 + progress * 0.45;
+        } else if (cue === 'SWORD_EXECUTION') {
+          const sub = elapsed - 1.7;
+          const down = Math.min(1, Math.max(0, sub) / 0.35);
+          const impactVibe = down >= 1 ? Math.exp(-(sub - 0.35) * 5) * Math.sin((sub - 0.35) * 40) * 0.06 : 0;
+          this.sword.rotation.x = -1.6 + down * 2.55 + impactVibe;
+          this.sword.position.y = 1.2 - down * 0.65;
+        } else if (cue === 'SWORD_EVADED') {
+          this.sword.rotation.x = 0.95;
+          this.sword.position.y = 0.55;
+        } else if (cue === 'I_HAVE_SURPASSED_JUDGEMENT') {
+          this.sword.rotation.x = 0.4;
+          this.sword.position.y = 0.65;
+        } else if (cue === 'SWORD_RESET') {
+          this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 2.5);
+          this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 2.5);
+        } else if (cue === 'KNIGHTING') {
+          const k = Math.sin(Math.min(1, Math.max(0, elapsed - 1.1) / 1.2) * Math.PI);
+          this.sword.rotation.x = -0.45 * k;
+        } else {
+          this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 3.5);
+          this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 3.5);
+        }
       } else {
-        this.sword.rotation.x = 0;
+        this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 3.5);
+        this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 3.5);
       }
-    } else if (this.sword) {
-      this.sword.rotation.x = 0;
+    }
+
+    // Synchronized Coin Physics
+    for (let i = this.coinVisuals.length - 1; i >= 0; i--) {
+      const c = this.coinVisuals[i];
+      c.age += stepDt;
+      c.vy -= 9.8 * stepDt;
+      c.mesh.position.x += c.vx * stepDt;
+      c.mesh.position.y += c.vy * stepDt;
+      c.mesh.position.z += c.vz * stepDt;
+      c.mesh.rotation.x += c.rotVx * stepDt;
+      c.mesh.rotation.y += c.rotVy * stepDt;
+      c.mesh.rotation.z += c.rotVz * stepDt;
+
+      const px = c.mesh.position.x;
+      const py = c.mesh.position.y;
+      const pz = c.mesh.position.z;
+
+      // Tray collision at y ~ 2.28 in world coordinates
+      if (!c.isLethal && py <= 2.28 && Math.abs(px) <= 0.65 && pz >= 13.9 && pz <= 14.9) {
+        c.mesh.position.y = 2.28;
+        c.vy = -c.vy * 0.22;
+        c.vx *= 0.6;
+        c.vz *= 0.6;
+        c.rotVx *= 0.5;
+        c.rotVy *= 0.5;
+        c.rotVz *= 0.5;
+      } else if (py <= 0.8 && pz >= 12.0) {
+        // Dais collision
+        c.mesh.position.y = 0.8;
+        c.vy = -c.vy * 0.25;
+        c.vx *= 0.6;
+        c.vz *= 0.6;
+      } else if (py <= 0.0) {
+        // Arena floor collision
+        c.mesh.position.y = 0.0;
+        c.vy = -c.vy * 0.25;
+        c.vx *= 0.6;
+        c.vz *= 0.6;
+      }
+
+      if (c.age > 5.0) {
+        this.group.remove(c.mesh);
+        this.coinVisuals.splice(i, 1);
+      }
     }
   }
 
   dispose() {
     this.scene.remove(this.group);
+    for (const c of this.coinVisuals) {
+      this.group.remove(c.mesh);
+    }
+    this.coinVisuals.length = 0;
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     this.group.traverse((obj) => {

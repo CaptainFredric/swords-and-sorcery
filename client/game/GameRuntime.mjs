@@ -4024,6 +4024,7 @@ export class GameRuntime {
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
+    this.world?.setTrialState?.(this.latestSnapshot, this.socket.serverNow());
     this.edgeRenderer.update(this.latestSnapshot?.mode==='EDGE_OF_VICTORY'
       ? this.latestSnapshot?.edgeOfVictory : null,this.activeWorld,this.socket.serverNow(),
       this.latestSnapshot?.serverTime??this.socket.serverNow());

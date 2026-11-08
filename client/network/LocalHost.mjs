@@ -33,7 +33,7 @@ const INSPECTION_ACTIONS = new Set([
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RENOWN_TRIALS, GAME_MODES.EDGE_OF_VICTORY]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.RENOWN_TRIALS, GAME_MODES.EDGE_OF_VICTORY]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
 export const SOLO_PROFILE_KEY = 'ss-solo-profile-cache';
 
@@ -153,6 +153,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const resolvedWorld = tutorial ? 'greener-pastures'
+      : mode === GAME_MODES.RESTLESS_DAY ? 'restless-day'
       : mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep'
       : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds'
       : mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach'))
