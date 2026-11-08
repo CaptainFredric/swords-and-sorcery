@@ -4062,7 +4062,7 @@ export class GameRuntime {
     const flightOperator=flightState?.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightState?.operatorId);
     this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
-    this.world?.update?.(this.socket.serverNow(), this.camera);
+    this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // A shared match clock, not client frame count, controls the entire sundown arc.
     if(this.latestSnapshot?.mode==='RESTLESS_DAY'){
       const deadline=this.latestSnapshot?.modeState?.deadline;

@@ -43,25 +43,66 @@ async function swordDefeat(room, player, bot) {
   // Set up reproducible standing contact without replacing combat resolution:
   // the live browser's sword command must actually kill the server's bot.
   room.inspectionFrozenActors = new Set([bot.id]);
-  bot.health=1;
-  bot.guardStamina=0;
-  bot.guarding=false;
-  bot.spawnProtectionUntil=-Infinity;
-  for(let attempt=0;attempt<5 && bot.alive;attempt++) {
-    const yaw=player.yaw;
-    bot.position = {
-      x:player.position.x-Math.sin(yaw)*1.45,
-      y:player.position.y,
-      z:player.position.z-Math.cos(yaw)*1.45,
-    };
-    bot.velocity = {x:0,y:0,z:0};
-    await evaluate('window.__ssLink.attack(true), true');
-    await sleep(1100);
-    await evaluate('window.__ssLink.attack(false), true');
-    await sleep(100);
+  bot.health = 1;
+  bot.guardStamina = 0;
+  bot.guarding = false;
+  bot.spawnProtectionUntil = -Infinity;
+  player.alive = true;
+  player.health = 100;
+  player.spawnProtectionUntil = -Infinity;
+  player.staggerUntil = -Infinity;
+  player.recoverUntil = -Infinity;
+  if (player.position.y < -1) {
+    player.position = { x: 0, y: 0, z: -5 };
+    player.velocity = { x: 0, y: 0, z: 0 };
   }
-  assert.equal(bot.alive,false,'Real sword input must defeat the actual server Spellblade');
-  assert.ok(player.kills>0,'Real combat must credit a kill');
+
+  function syncBotGeometry() {
+    const yaw = player.yaw;
+    bot.position = {
+      x: player.position.x - Math.sin(yaw) * 1.45,
+      y: player.position.y,
+      z: player.position.z - Math.cos(yaw) * 1.45,
+    };
+    bot.velocity = { x: 0, y: 0, z: 0 };
+    const nowSec = room.timeSec ?? server.now();
+    bot.history = [
+      { at: nowSec - 1, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+      { at: nowSec + 1, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+    ];
+  }
+
+  for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
+    syncBotGeometry();
+    player.attackRestartAt = -Infinity;
+    player.staggerUntil = -Infinity;
+    player.recoverUntil = -Infinity;
+
+    // Dispatch real player attack from browser
+    await evaluate('window.__ssLink.attack(true), true');
+
+    // Synchronize with authoritative combat tick and sword-contact interval
+    const startSec = room.timeSec ?? server.now();
+    for (let t = 0; t < 50 && bot.alive; t++) {
+      syncBotGeometry();
+      if (!bot.alive || bot.health <= 0) break;
+      const nowSec = room.timeSec ?? server.now();
+      if ((player.attackNextStrike > 0 || !player.attackActive) && nowSec > startSec + 0.45 && player.attackSweep === null) {
+        break;
+      }
+      await sleep(40);
+    }
+
+    // Cleanly release real player attack from browser
+    await evaluate('window.__ssLink.attack(false), true');
+    for (let t = 0; t < 30 && player.attackButton; t++) await sleep(30);
+    if (bot.alive && player.attackActive) {
+      for (let t = 0; t < 30 && player.attackActive; t++) await sleep(30);
+    }
+  }
+
+  assert.equal(bot.alive, false, 'Real sword input must defeat the actual server Spellblade');
+  assert.ok(player.kills > 0, 'Real combat must credit a kill');
   room.inspectionFrozenActors.clear();
 }
 try {
@@ -97,6 +138,7 @@ try {
   await until(()=>room.renownTrial?.phase==='WAVE_ACTIVE','live first wave');
   assert.equal(room.renownTrial.wave.count,1);
   assert.equal(room.players.size,2);
+  room.inspectionFrozenActors = new Set(room.renownTrial.wave.enemyIds);
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
   await shot('01-live-wave');
   const enemy=room.players.get(room.renownTrial.wave.enemyIds[0]);
@@ -110,6 +152,7 @@ try {
   await until(()=>room.renownTrial.waveIndex===2 && room.renownTrial.phase==='WAVE_ACTIVE',
     'second wave after nonfatal ceremony',150);
   const second=room.renownTrial.wave;
+  room.inspectionFrozenActors = new Set(second.enemyIds);
   // Force the server's test deadline into the past. The production director
   // still runs at 30Hz and the client's combat remains real and controllable.
   second.startedAt=server.now()-second.deadlineSec-5;
@@ -117,13 +160,18 @@ try {
   await until(()=>room.renownTrial.phase==='WAVE_OVERTIME','live overtime without forced defeat');
   assert.equal(room.state,'PLAYING');
   assert.ok(room.renownTrial.wave.overtimeSec>0);
-  const overtimeHUD=await evaluate("document.querySelector('#renown-trial-hud')?.textContent");
+  const overtimeHUD = await until(async () => {
+    const text = await evaluate("document.querySelector('#renown-trial-hud')?.textContent");
+    return /OVERTIME/.test(text) ? text : null;
+  }, 'client HUD displays OVERTIME');
   assert.match(overtimeHUD,/OVERTIME/);
   await shot('03-overtime-combat');
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:780,deviceScaleFactor:1,mobile:true});
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
   await shot('04-mobile-overtime-hud');
   await cdp.send('Emulation.clearDeviceMetricsOverride');
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await sleep(200);
   const secondEnemy=room.players.get(second.enemyIds[0]);
   await swordDefeat(room,player,secondEnemy);
   await until(()=>room.renownTrial.phase==='JUDGMENT','single late verdict after last kill');

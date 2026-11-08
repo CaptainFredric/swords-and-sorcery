@@ -363,9 +363,17 @@ export class CourtOfMeritRenderer {
     }
   }
 
-  update(timeSec = 0, camera = null, dt = 0.016) {
+  update(timeSec = 0, camera = null, dt = null) {
     const serverNow = this.lastServerNow || timeSec;
-    const stepDt = typeof dt === 'number' && dt > 0 && dt < 0.2 ? dt : 0.016;
+    let stepDt;
+    if (typeof dt === 'number' && dt > 0 && dt < 0.5) {
+      stepDt = dt;
+    } else if (typeof this.lastFrameTimeSec === 'number' && timeSec > this.lastFrameTimeSec) {
+      stepDt = Math.min(0.1, Math.max(0.001, timeSec - this.lastFrameTimeSec));
+    } else {
+      stepDt = 0.016;
+    }
+    this.lastFrameTimeSec = timeSec;
 
     // Dynamic brazier flame flicker
     for (let i = 0; i < this.braziers.length; i++) {

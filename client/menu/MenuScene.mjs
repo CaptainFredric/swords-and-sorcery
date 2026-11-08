@@ -487,7 +487,7 @@ export class MenuScene {
     // the menu's effects (the round's fights and the showcases alike: the round leaves them to the menu)
     this.effects?.update(dt);
 
-    this.world.update(t, this.camera);
+    this.world.update(t, this.camera, dt);
     this.renderer.render(this.scene, this.camera);
   };
 
