@@ -47,8 +47,15 @@ async function swordDefeat(room, player, bot) {
   bot.guardStamina = 0;
   bot.guarding = false;
   bot.spawnProtectionUntil = -Infinity;
+  player.alive = true;
+  player.health = 100;
+  player.spawnProtectionUntil = -Infinity;
   player.staggerUntil = -Infinity;
   player.recoverUntil = -Infinity;
+  if (player.position.y < -1) {
+    player.position = { x: 0, y: 0, z: -5 };
+    player.velocity = { x: 0, y: 0, z: 0 };
+  }
 
   function syncBotGeometry() {
     const yaw = player.yaw;
@@ -131,6 +138,7 @@ try {
   await until(()=>room.renownTrial?.phase==='WAVE_ACTIVE','live first wave');
   assert.equal(room.renownTrial.wave.count,1);
   assert.equal(room.players.size,2);
+  room.inspectionFrozenActors = new Set(room.renownTrial.wave.enemyIds);
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
   await shot('01-live-wave');
   const enemy=room.players.get(room.renownTrial.wave.enemyIds[0]);
@@ -144,6 +152,7 @@ try {
   await until(()=>room.renownTrial.waveIndex===2 && room.renownTrial.phase==='WAVE_ACTIVE',
     'second wave after nonfatal ceremony',150);
   const second=room.renownTrial.wave;
+  room.inspectionFrozenActors = new Set(second.enemyIds);
   // Force the server's test deadline into the past. The production director
   // still runs at 30Hz and the client's combat remains real and controllable.
   second.startedAt=server.now()-second.deadlineSec-5;
