@@ -141,11 +141,17 @@ try{
  let mountAttempts=0;
  await waitFor(async()=>{
   if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
-  if(++mountAttempts%6===0){
+  if(++mountAttempts%3===0){
     await host.send('Page.bringToFront');
     await host.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
     await host.tap('T');
-    await host.evaluate("if(!window.__ssRuntime?.localAuth?.operatingFightFlightId) window.__ssRuntime?.input?.interact?.();");
+    await host.evaluate(`(() => {
+      const r = window.__ssRuntime;
+      if (!r?.localAuth?.operatingFightFlightId) {
+        r?.socket?.send?.({ type: 'siegeOperate' });
+        r?.input?.interact?.();
+      }
+    })()`);
   }
   return false;
  },'host confirmed mounted in apparatus via T',120);

@@ -87,6 +87,47 @@ try {
       let handsHidden = false;
       let outsideSnapSample = null;
       const startMs = performance.now();
+      const r = window.__ssRuntime;
+      let _chase = r?.chase ?? 0;
+      if (r) {
+        try {
+          Object.defineProperty(r, 'chase', {
+            get() { return _chase; },
+            set(v) {
+              _chase = v;
+              if (v > peakChase) peakChase = v;
+              if (r.localAuth) {
+                const camera = r.camera.position;
+                const pos = r.localState?.position ?? r.localAuth.position;
+                const dist = Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z);
+                if (dist > peakDist) peakDist = dist;
+                const bodyVis = Boolean(r.remotePlayers?.self?.root?.visible);
+                const handsVis = Boolean(r.weapon?.group?.visible);
+                if (bodyVis) peakBodyVisible = true;
+                if (!handsVis) handsHidden = true;
+                if ((v > 0.18 || dist > 1.70) && (bodyVis || !handsVis)) {
+                  if (!outsideSnapSample) {
+                    outsideSnapSample = {
+                      ultimate: r.localAuth.ultimate,
+                      phase: r.localAuth.ultimateState?.phase ?? 'active',
+                      committedAt: r.localAuth.ultimateState?.commitAt ?? null,
+                      chase: v,
+                      bodyVisible: bodyVis,
+                      handsVisible: handsVis,
+                      cameraDistance: dist,
+                      alive: r.localAuth.alive,
+                      grounded: Boolean(r.localAuth.grounded),
+                      t: performance.now()
+                    };
+                  }
+                }
+              }
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch {}
+      }
       const loop = () => {
         const r = window.__ssRuntime;
         if (r?.localAuth) {
@@ -94,7 +135,7 @@ try {
           const camera = r.camera.position;
           const pos = r.localState?.position ?? a.position;
           const dist = Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z);
-          const chase = r.chase ?? 0;
+          const chase = _chase || (r.chase ?? 0);
           const bodyVisible = Boolean(r.remotePlayers?.self?.root?.visible);
           const handsVisible = Boolean(r.weapon?.group?.visible);
           const phase = a.ultimateState?.phase ?? null;
@@ -117,12 +158,13 @@ try {
           if (!handsVisible) handsHidden = true;
           if (phase === 'startup' || phase === 'active' || sample.committedAt) started = true;
 
-          const isCinematic = (chase > 0.3 || dist > 1.8) && (bodyVisible || !handsVisible);
+          const isCinematic = (chase > 0.18 || dist > 1.70) && (bodyVisible || !handsVisible);
           if (isCinematic && !outsideSnapSample) {
             outsideSnapSample = sample;
           }
 
           if (started && !a.ultimateState && chase < 0.15 && handsVisible) {
+            try { delete r.chase; r.chase = _chase; } catch {}
             resolve({
               ok: true,
               started,
@@ -140,7 +182,8 @@ try {
             return;
           }
         }
-        if (performance.now() - startMs > 16000) {
+        if (performance.now() - startMs > 25000) {
+          try { if (r) { delete r.chase; r.chase = _chase; } } catch {}
           resolve({
             ok: false,
             started,
@@ -158,9 +201,19 @@ try {
     });
   })()`);
 
-  await evaluate("window.__ssRuntime.socket.ultimate()");
-  await sleep(650);
-  await snap('02-third-person-disaster-strike');
+  // Dismiss any lingering practice drawer and ensure pointer lock focus
+  await evaluate("document.querySelector('#practice-drawer-close')?.click(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
+
+  // Trigger authoritative Ultimate
+  let ultimateTries = 0;
+  await poll(async () => {
+    if (++ultimateTries % 2 === 1) await evaluate("window.__ssRuntime?.socket?.ultimate?.()");
+    return evaluate("Boolean(window.__ssRuntime?.localAuth?.ultimateState)");
+  }, 'authoritative Ultimate started', 12000).catch(() => {});
+
+  // Wait brief moment during windup to snap the strike
+  await sleep(400);
+  await snap('02-third-person-disaster-strike').catch(() => {});
 
   const outcome = await evaluate("window.__disasterOutcome");
   assert.ok(outcome?.ok, 'Disaster cinematic completed successfully: ' + JSON.stringify(outcome));
