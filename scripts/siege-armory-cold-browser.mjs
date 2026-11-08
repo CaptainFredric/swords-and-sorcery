@@ -23,7 +23,7 @@ async function until(fn,label,tries=100){
 }
 function send(method,params={}){
  const id=++seq,p=new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>{pending.delete(id);reject(Error(method+' timed out'));},11000);
+  const timer=setTimeout(()=>{pending.delete(id);reject(Error(method+' timed out'));},25000);
   pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
  });ws.send(JSON.stringify({id,method,params}));return p;
 }
