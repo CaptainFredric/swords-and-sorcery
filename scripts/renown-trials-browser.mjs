@@ -49,7 +49,17 @@ async function swordDefeat(room, player, bot) {
   bot.spawnProtectionUntil = -Infinity;
   player.staggerUntil = -Infinity;
   player.recoverUntil = -Infinity;
-  for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
+  const initialKills = player.kills ?? 0;
+  await evaluate(`(()=>{
+    if (window.__ssRuntime?.input) {
+      window.__ssRuntime.input.setAttack(true, 'desktop');
+    } else if (window.__ssLink) {
+      window.__ssLink.attack(true);
+    }
+    return true;
+  })()`);
+  const start = Date.now();
+  while (bot.alive && Date.now() - start < 6000) {
     const yaw = player.yaw;
     bot.position = {
       x: player.position.x - Math.sin(yaw) * 1.2,
@@ -57,13 +67,23 @@ async function swordDefeat(room, player, bot) {
       z: player.position.z - Math.cos(yaw) * 1.2,
     };
     bot.velocity = { x: 0, y: 0, z: 0 };
-    await evaluate('window.__ssLink.attack(true), true');
-    await sleep(400);
-    await evaluate('window.__ssLink.attack(false), true');
-    await sleep(350);
+    bot.history = [
+      { at: room.timeSec - 2.0, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+      { at: room.timeSec + 2.0, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+    ];
+    await sleep(40);
   }
+  await evaluate(`(()=>{
+    if (window.__ssRuntime?.input) {
+      window.__ssRuntime.input.setAttack(false, 'desktop');
+    } else if (window.__ssLink) {
+      window.__ssLink.attack(false);
+    }
+    return true;
+  })()`);
+  await sleep(200);
   assert.equal(bot.alive, false, 'Real sword input must defeat the actual server Spellblade');
-  assert.ok(player.kills > 0, 'Real combat must credit a kill');
+  assert.ok((player.kills ?? 0) > initialKills, 'Real combat must credit a kill');
   room.inspectionFrozenActors.clear();
 }
 try {
