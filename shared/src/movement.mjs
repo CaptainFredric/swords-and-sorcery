@@ -1,5 +1,6 @@
-import { resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
+import { resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from './collision.mjs';
 import { CROUCH, postureOf, roomToStand } from './body.mjs';
+import { edgeLimitPoint } from './edgeBoundary.mjs';
 
 export const MOVEMENT = Object.freeze({
   runSpeed: 7.5,
@@ -136,6 +137,24 @@ export function tryStartDash(state, direction, nowSec) {
   return true;
 }
 
+/** Shared prediction/authority: a boundary projection may never put the
+ * knight inside a castle wall after the ordinary collision pass. */
+function edgeSafeProjectedPosition(prior, proposed, world, height) {
+  if (!world?.edgeBoundary) return proposed;
+  const legal=edgeLimitPoint(proposed,world.edgeBoundary.center,
+    world.edgeBoundary.radius,MOVEMENT.playerRadius);
+  const checked=resolvePlayerWorld(legal,MOVEMENT.playerRadius,world.solids??[],height);
+  const pathBlocked=(world.solids??[]).some(box=>{
+    const hit=segmentAabbHit([prior.x,prior.y+.9,prior.z],
+      [legal.x,legal.y+.9,legal.z],box);
+    return hit && hit.t>.001 && hit.t<.999;
+  });
+  if(Math.hypot(checked.x-legal.x,checked.z-legal.z)<.025&&!pathBlocked)return legal;
+  // A wall behind a convex ring segment is still a wall; stop this substep,
+  // allowing the next input tick to choose a legal inward/tangential route.
+  return {...prior,y:proposed.y};
+}
+
 export function movePlayer(previous, input, dt, nowSec, world) {
   const state = {
     ...previous,
@@ -166,9 +185,12 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     state.velocity.y = (fy * f + up) * speed;
     state.velocity.z = (fz * f + rz * r) * speed;
 
+    const prior={...state.position};
     state.position.x += state.velocity.x * dt;
     state.position.y += state.velocity.y * dt;
     state.position.z += state.velocity.z * dt;
+    if(world.edgeBoundary)state.position=edgeSafeProjectedPosition(prior,state.position,
+      world,postureOf(state).height);
     state.grounded = false;
     return state;
   }
@@ -234,10 +256,15 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   const startX = state.position.x;
   const startZ = state.position.z;
   for (let i = 0; i < substeps; i += 1) {
+    const prior={...state.position};
     state.position.x += travelX / substeps;
     state.position.z += travelZ / substeps;
     const wanted={...state.position};
     state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? [], postureOf(state).height);
+    // Constrain *each* collision sweep subdivision. A fast dash cannot step outside
+    // the legal disk and skip across its edge before the authoritative correction.
+    if (world.edgeBoundary) state.position = edgeSafeProjectedPosition(prior,state.position,
+      world,postureOf(state).height);
     if(previous.worldImpact){
       const dx=state.position.x-wanted.x,dz=state.position.z-wanted.z,length=Math.hypot(dx,dz);
       if(length>1e-5){

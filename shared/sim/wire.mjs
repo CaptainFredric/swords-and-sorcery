@@ -24,6 +24,8 @@ import { spellFor } from '../src/spells.mjs';
 import {preparedSpellMember} from '../src/preparedSpells.mjs';
 import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { renownTrialCombatOpen, serializeRenownTrial } from './renownTrials.mjs';
+import { edgeSnapshot } from './edgeOfVictory.mjs';
 import { modeCall, modeSnapshot } from './modeRuntime.mjs';
 import { interactRestlessLadder, ladderReach } from './restlessDayMode.mjs';
 
@@ -44,6 +46,7 @@ export function serializeLobby(room) {
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
     botSkill: room.botSkill,
+    edgeOfVictory: edgeSnapshot(room),
     votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -85,7 +88,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     winnerTeam: room.winnerTeam ?? null,
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
+    renownTrial: room.mode === GAME_MODES.RENOWN_TRIALS ? serializeRenownTrial(room, nowSec) : null,
     overtime: Boolean(room.overtime),
+    edgeOfVictory: edgeSnapshot(room),
     modeState: modeSnapshot(room,nowSec),
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
@@ -359,6 +364,14 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
  * command is not allowed here, or {} for nothing more.
  */
 export function applyRoomCommand(room, player, message, time) {
+  // Do not move or attack through the monument's verdict, but preserve
+  // rematch, metadata and noncombat room messages.
+  if (room.mode === GAME_MODES.RENOWN_TRIALS && room.state === 'PLAYING'
+    && !renownTrialCombatOpen(room)
+    && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
+      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease',
+      'flightDash','flightHop','flightUltimateHold','siegeOperate',
+      'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
   if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};

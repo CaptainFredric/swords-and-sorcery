@@ -1,3 +1,4 @@
+import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {createSiegeSkill,primeSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS,integratedRamHazard,sampleRamFailure} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
 import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
@@ -103,9 +104,9 @@ function stationClear(b,world,extra=[]){
  const frame=soFistFrame(b),body={center:boxWorld(frame,[SO_FIST_STATION.rider[0],SO_FIST_STATION.rider[1]+.9,SO_FIST_STATION.rider[2]]),size:[.9,1.8,.9],axes:frame.axes};
  return Math.hypot(hit.x-at.x,hit.z-at.z)<.015&&!([...(world.solids??[]),...extra].some(s=>machineryOverlap(body,s)));
 }
-export function soFistExit(room,b,p,extras=[]){
+export function soFistExit(room,b,p,extras=[],accept=()=>true){
  const frame=soFistFrame(b),solids=[...(room.world.solids??[]),...soFistSolids(b),...getBiByeSolids(room.biByeLlista),...extras,...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
- for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015)return candidate;}return null;
+ for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015&&accept(candidate))return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId||
@@ -196,7 +197,7 @@ function pinsPlayer(room,next,world,obstacles){
 }
 export function stepSoFistication(room,b,dt,now,world=room.world){
  if(!b||b.retired)return;if(b.health<=0){stepSiegeWreck(room,b,now);return;}
- b.poseTime=now;stepDetachedRamFist(room,b,dt,now,world);
+ b.poseTime=now;b.edgeBlocked=false;stepDetachedRamFist(room,b,dt,now,world);
  stepRamElevation(room,b,dt,now,world);
  stepSoFistSkill(room,b,now);
  // Sweep the real striking surface against architecture before sampling contacts.
@@ -259,7 +260,12 @@ const p=room.players.get(b.operatorId);
   const rearZ=SO_FIST_WHEELS[2].pivot[2];
   const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*travelSpeed*sub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*travelSpeed*sub,heading};const pose=soFistTerrainPose(next,world);
   const obstacles=getBiByeSolids(room.biByeLlista);
-  if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
+  // A knight's conviction is not a collision, and must never do impact damage.
+   if(b.operatorId&&world?.edgeBoundary&&pose&&
+       !edgeMachineProgressAllowed(soFistSolids(b),soFistSolids({...next,...pose}),world.edgeBoundary)){
+     b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;break;
+   }
+   if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
    if(pose&&b.speed>4.2){
     const head=soFistStriker(b,now),end=soFistStriker({...next,...pose},now);
     const extent=[0,1,2].map(i=>head.axes.reduce((sum,axis,j)=>sum+Math.abs(axis[i])*head.size[j],0));

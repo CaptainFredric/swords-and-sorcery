@@ -162,6 +162,36 @@ export class ProfileStore {
         completion: amount > 0 ? 20 : 0, victory: amount === 30 ? 10 : 0, challengeAmount, challenges: newlyCompleted },
     });
   }
+  /**
+   * Settle one SERVER-VALIDATED Renown Trials wave in the existing wallet.
+   * The receipt is minted by the server from its UUID match id + wave index;
+   * no message, animation or local-host callback may invoke this path.
+   * Synchronous read/write and atomic rename make the receipt + balance one
+   * durable transaction. Retries return the persisted profile without paying.
+   */
+  settleTrialWave(token, receiptId, amount, { wave = null } = {}) {
+    if (typeof receiptId !== 'string'
+      || !/^trial-wave:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:w[1-9][0-9]*$/.test(receiptId))
+      throw new Error('Invalid trial reward receipt');
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 5000)
+      throw new Error('Invalid trial wave reward');
+    const prior = this.read(token);
+    if (prior.receipts.includes(receiptId)) return this.view(prior);
+    const balance = prior.balance + amount;
+    if (!Number.isSafeInteger(balance) || balance < 0)
+      throw new Error('Invalid trial wave balance');
+    return this.write(token, {
+      ...prior,
+      balance,
+      receipts: [...prior.receipts, receiptId],
+      lastReward: {
+        matchId: receiptId, amount, reason: 'renown-trial',
+        completion: amount, victory: 0, challengeAmount: 0,
+        challenges: [], wave: Number.isSafeInteger(wave) && wave > 0 ? wave : null,
+      },
+    });
+  }
+
   purchase(token, id) {
     const current = this.read(token);
     if (!Object.hasOwn(CLOTH, id)) throw new Error('Unknown cloth');

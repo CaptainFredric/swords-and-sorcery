@@ -5,6 +5,8 @@ import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
 import {withRestlessLadders,constrainRestlessCarry} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
+import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
+import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation} from './flightDashPresentation.mjs';
@@ -43,6 +45,7 @@ import { InputController } from './InputController.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
+import { renownTrialControlsLocked } from './trialControlPolicy.mjs';
 import { movementIntentDuringRenderStall } from './renderStallSafety.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { TouchLayoutEditor } from './TouchLayoutEditor.mjs';
@@ -98,6 +101,7 @@ import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs
 import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 import { HighGroundsRenderer } from '../worlds/HighGroundsRenderer.mjs';
 import {RestlessDayRenderer} from '../worlds/RestlessDayRenderer.mjs';
+import { CourtOfMeritRenderer } from '../worlds/CourtOfMeritRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -135,6 +139,7 @@ const WORLD_RENDERERS = Object.freeze({
   'outerworks': OuterworksRenderer,
   'high-grounds': HighGroundsRenderer,
   'restless-day': RestlessDayRenderer,
+  'court-of-merit': CourtOfMeritRenderer,
 });
 
 
@@ -208,6 +213,7 @@ export class GameRuntime {
     if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
     this.scene = new THREE.Scene();
+    this.edgeRenderer = new EdgeBoundaryRenderer(this.scene);
     this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.flightRenderer=new FightFlightRenderer(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
@@ -501,6 +507,7 @@ export class GameRuntime {
     // when each of the two was last pressed: of the two held together, the one pressed last has the hands
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
+      if (this.trialControlsLocked) { this.weapon.setAttack(false); return; }
       if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId) {
         return;
       }
@@ -514,6 +521,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
+      if (this.trialControlsLocked) { this.weapon.setGuard(false); return; }
       if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (held && this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded && !combatActionPolicy(this.localAuth, this.socket.serverNow()).concurrent)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
@@ -526,6 +534,7 @@ export class GameRuntime {
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
+      if (this.trialControlsLocked) return;
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
       const mounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
       // Preserve mounted casting restrictions. Only legitimate personal Steel
@@ -586,6 +595,7 @@ export class GameRuntime {
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
     this.input.onGauntletLocal = () => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
@@ -593,6 +603,7 @@ export class GameRuntime {
     };
     // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
     this.input.onUltimateLocal = () => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const me = this.localAuth;
@@ -617,6 +628,7 @@ export class GameRuntime {
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
+      if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
@@ -680,7 +692,7 @@ export class GameRuntime {
     // while WebGL produces too few frames to drive the old send loop.
     // The existing render-driven send still forwards fast transitions.
     this.networkInputTimer=setInterval(()=>{
-      if(this.socket.playingLocally||!this.playing||!this.localAuth?.alive
+      if(this.socket.playingLocally||this.trialControlsLocked||!this.playing||!this.localAuth?.alive
         ||!this.input?.enabled||this.inspectionFree
         ||(typeof document!=='undefined'&&document.hidden))return;
       const now=performance.now();
@@ -1385,6 +1397,16 @@ export class GameRuntime {
       this.flightCameraMotion?.reset();
       this.flightDashPresentation.reset();
     }
+    const trialLocked = renownTrialControlsLocked(snapshot);
+    if (trialLocked !== Boolean(this.trialControlsLocked)) {
+      // One authoritative phase transition releases every held keyboard/touch
+      // button; no pre-judgment attack remains queued into the next wave.
+      this.input.releaseInputs();
+      this.weapon.setAttack(false);
+      this.weapon.setGuard(false);
+      this.weapon.cancelCast();
+    }
+    this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
@@ -1472,7 +1494,7 @@ export class GameRuntime {
         const dz = auth.position.z - compared.z;
         const error = Math.hypot(dx, dy, dz);
         this.predictionError = error;
-        if (!auth.alive || error > 2.2) {
+        if (!auth.alive || this.trialControlsLocked || error > 2.2) {
           this.predictionHistory=[];
           this.localState.position = { ...auth.position };
           this.localState.velocity = { ...auth.velocity };
@@ -1526,6 +1548,15 @@ export class GameRuntime {
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
       this.oneHitEffects?.event(event);
+      if(event.type==='edgeVoluntaryDismount'){
+        // The knight chooses to leave: a brief, readable settled gesture
+        // with no recorded dialogue, death camera or extra control lock.
+        this.remotePlayers?.nod?.(event.playerId,event.at+.16);
+        if(event.playerId===this.playerId)
+          this.hud.flashText('ON FOOT · THE FIGHT CONTINUES','sunder',850);
+      }
+      if(event.type==='edgeSpellCollected'&&event.playerId===this.playerId)
+        this.hud.flashText('SPELL FOUND · '+String(event.spell).toUpperCase(),'sunder',1050);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
         this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
@@ -3775,7 +3806,7 @@ export class GameRuntime {
       // (a guided look, where something asks for one: the tutorial turning the Spellblade's head; the player's own look
       // always wins)
       this.viewGuide?.(dt, this.input);
-      const wanted = this.inspectionFree
+      const wanted = this.inspectionFree || this.trialControlsLocked
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
         : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
@@ -3841,8 +3872,21 @@ export class GameRuntime {
         if (this.localAuth.position) {
           this.localState.position = { ...this.localAuth.position };
         }
+      } else if (this.trialControlsLocked) {
+        // Ceremonial pose belongs entirely to the server. Prediction cannot
+        // drift through an authoritative freeze or outrun an execution.
+        this.predictionHistory = [];
+        this.localState.position = { ...this.localAuth.position };
+        this.localState.velocity = {x:0,y:0,z:0};
+        this.localState.impulse = {x:0,z:0};
+        this.localState.sprinting = false;
       } else {
-        this.movementWorld = playerMovementWorld(withRestlessLadders(this.activeWorld,this.latestSnapshot?.modeState), {
+        const edge=this.latestSnapshot?.mode==='EDGE_OF_VICTORY'?this.latestSnapshot?.edgeOfVictory:null;
+        const baseWorld=withRestlessLadders(this.activeWorld,this.latestSnapshot?.modeState);
+        const predictionWorld=edge ? {...baseWorld,edgeBoundary:{
+          center:edge.center,radius:edgePresentedRadius(edge,serverNow,this.latestSnapshot?.serverTime??serverNow)
+        }} : baseWorld;
+        this.movementWorld = playerMovementWorld(predictionWorld, {
           ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
         });
         const beforeCarry={...this.localState.position};
@@ -3856,7 +3900,8 @@ export class GameRuntime {
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // Separation uses the host's *current* bodies, not the deliberately delayed visual shells.
       // Pushing against a 100-ms-old rendering sample creates a false collision every frame.
-      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
+      if (!this.trialControlsLocked
+        && !(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)
         && shouldPredictSeparation(this.lastSeparationKey,this.latestSnapshot)) {
         const peers=(this.latestSnapshot?.players??[]).filter(p=>p.id!==this.playerId&&p.alive!==false&&!p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId)
           .map(p=>({id:p.id,...p.position}));
@@ -3990,6 +4035,10 @@ export class GameRuntime {
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
+    this.world?.setTrialState?.(this.latestSnapshot, this.socket.serverNow());
+    this.edgeRenderer.update(this.latestSnapshot?.mode==='EDGE_OF_VICTORY'
+      ? this.latestSnapshot?.edgeOfVictory : null,this.activeWorld,this.socket.serverNow(),
+      this.latestSnapshot?.serverTime??this.socket.serverNow());
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
@@ -4326,6 +4375,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.structuresRenderer?.dispose();
     this.world?.dispose?.();
+    this.edgeRenderer.dispose();
     this.oneHitEffects?.dispose();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();

@@ -9,7 +9,7 @@ function harness() {
     quickPlay: (name) => calls.push(['quickPlay', name]),
     createRoom: (name) => calls.push(['createRoom', name]),
     joinRoom: (code, name) => calls.push(['joinRoom', code, name]),
-    startSolo: (mode, name, worldId, botSkill) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : [])]),
+    startSolo: (mode, name, worldId, botSkill) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : []), ...(worldId && mode === 'RENOWN_TRIALS' ? [worldId] : [])]),
   };
   const store = new Map();
   const storage = {
@@ -87,4 +87,24 @@ test('inspection keeps name validation and the chosen solo arena', () => {
   controller.chooseSoloArena('ruined-keep');
   assert.equal(controller.inspectionPractice(' Inspector ').ok, true);
   assert.deepEqual(calls, [['inspection', 'Inspector', 'ruined-keep']]);
+});
+
+test('Renown Trials arena is chosen and remembered: court-of-merit by default or castleward fallback', () => {
+  const { controller, calls, store } = harness();
+  assert.equal(controller.renownArena(), 'court-of-merit');
+  assert.equal(controller.chooseRenownArena('castleward'), 'castleward');
+  assert.equal(store.get('ss-renown-arena'), 'castleward');
+  assert.equal(controller.renownArena(), 'castleward');
+
+  // Launching Renown Trials respects the explicit or remembered choice
+  controller.renownTrials('MeritSeeker');
+  assert.deepEqual(calls.at(-1), ['startSolo', 'RENOWN_TRIALS', 'MeritSeeker', 'castleward']);
+
+  // Reset to Court of Merit
+  assert.equal(controller.chooseRenownArena('court-of-merit'), 'court-of-merit');
+  controller.renownTrials('MeritSeeker');
+  assert.deepEqual(calls.at(-1), ['startSolo', 'RENOWN_TRIALS', 'MeritSeeker', 'court-of-merit']);
+
+  // Rejects invalid arena names and falls back to court-of-merit
+  assert.equal(controller.chooseRenownArena('outerworks'), 'court-of-merit');
 });

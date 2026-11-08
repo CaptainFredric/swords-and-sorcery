@@ -1,3 +1,4 @@
+import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 // Fight-and-Flight: server-authoritative Gate A locomotion. One actual machine per lifecycle.
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
 // Flight charge (power supply) and spinning rotor energy remain separate.
@@ -57,7 +58,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
-export function fightFlightExit(room,m,player){
+export function fightFlightExit(room,m,player,accept=()=>true){
   if(!m||m.mode==='DESTROYED')return null;
   const world=room.world,solids=extraSolids(room,m);
   if(m.terminalDive&&!m.terminalDive.resolved)return null;
@@ -72,12 +73,17 @@ export function fightFlightExit(room,m,player){
     if(!airborne&&(landing==null||Math.abs(y-m.y)>1))continue;
     if(airborne&&landing!=null&&y<landing+.25)continue;
     const point={x,y,z};
-    if(!collisionFree(point,solids,1.8,.45))continue;
+    if(!collisionFree(point,solids,1.8,.45)||!accept(point))continue;
     if(solids.some(s=>segmentAabbHit([m.x,m.y+1,m.z],[x,y+1,z],s)))continue;
     if([...room.players.values()].some(p=>p.alive&&p.id!==player?.id&&Math.hypot(p.position.x-x,p.position.z-z)<1))continue;
     return point;
   }
   return null;
+}
+export function fightFlightEdgeVolumes(m){
+  if(!m)return[];
+  return [...fightFlightSolids(m),{id:'rotor-footprint',center:[m.x,m.y+2.0,m.z],
+    size:[FIGHT_FLIGHT.rotorRadius*2,.14,FIGHT_FLIGHT.rotorRadius*2]}];
 }
 export function mountFightFlight(room,m,player,now=0){
   if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0||!player?.alive)return false;
@@ -359,6 +365,20 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       if(descend&&m.velocity.y<-.3)m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
   }else{m.velocity.y=0;m.flightCharge=cap(m.flightCharge+dt*7,0,m.maxFlightCharge);}
+  if(m.edgeAutoLand&&!m.terminalDive){
+    m.flightDashHeld=false;m.offensiveRun=false;m.runGroundPhase=null;m.runStopRequested=true;
+    if(!m.grounded){
+      // Fly inward over real terrain, descend and leave from a legal station.
+      // No airborne ejection or invented fall-damage exemption.
+      m.verticalIntent='LOWER';
+      const center=world?.edgeBoundary?.center??{x:m.x,z:m.z};
+      const dx=center.x-m.x,dz=center.z-m.z,length=Math.hypot(dx,dz)||1;
+      m.velocity.x=dx/length*Math.min(3.2,length*2);
+      m.velocity.z=dz/length*Math.min(3.2,length*2);
+      m.velocity.y=Math.min(m.velocity.y,-1.8);
+    }
+  }
+  m.edgeBlocked=false;
   const solids=extraSolids(room,m,world);
   const steps=Math.max(1,Math.ceil(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)*dt/.25));
   const h=m.crouched?FIGHT_FLIGHT.crouchHeight:FIGHT_FLIGHT.height;
@@ -442,6 +462,23 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
           candidate.y=bottom-h-.02;m.velocity.y=Math.min(0,m.velocity.y);m.lastImpactAt=now;break;
         }
       }
+    }
+    if(m.operatorId&&world?.edgeBoundary&&
+       !edgeMachineProgressAllowed(fightFlightEdgeVolumes({...m,x:previous.x,y:previous.y,z:previous.z}),
+          fightFlightEdgeVolumes({...m,x:candidate.x,y:candidate.y,z:candidate.z}),world.edgeBoundary)){
+      m.edgeBlocked=true;
+      if(m.terminalDive&&!m.terminalDive.resolved) {
+        // The limit is a decision, not a wall: never explode ON an invisible
+        // boundary. Keep the terminal attack committed and descending; its
+        // real world contact or terminal timeout still owns detonation/defeat.
+        m.terminalDive.edgeConstrainedAt=now;
+      } else {
+        m.edgeAutoLand=true;m.flightDashHeld=false;m.offensiveRun=false;
+      }
+      candidate.x=previous.x;candidate.z=previous.z;
+      const dx=m.x-world.edgeBoundary.center.x,dz=m.z-world.edgeBoundary.center.z;
+      const normal=Math.hypot(dx,dz)||1,outward=(m.velocity.x*dx+m.velocity.z*dz)/normal;
+      if(outward>0){m.velocity.x-=outward*dx/normal;m.velocity.z-=outward*dz/normal;}
     }
     m.x=candidate.x;m.y=candidate.y;m.z=candidate.z;
     if(m.grounded&&floor!==null&&m.y>floor+.05)m.grounded=false;

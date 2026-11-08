@@ -11,6 +11,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'outerworks': 'outerworks',
   'high-grounds': 'high-grounds',
   'restless-day': 'restless-day',
+  'court-of-merit': 'court-of-merit',
 });
 
 

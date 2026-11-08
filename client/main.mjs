@@ -672,11 +672,11 @@ setInterval(() => { if (router.current === SCREEN_IDS.LOBBY) renderLobby(); }, 5
 
 $('#lobby-settings').addEventListener('change', event => {
   if (event.target.name !== 'mode') return;
-  const form=event.target.form,team=event.target.value!=='FFA';
+  const form=event.target.form,team=event.target.value==='BREAKTHROUGH'||event.target.value==='HIGH_GROUNDS';
   form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
-  form.querySelector('[data-score-field]').hidden=team;
+  form.querySelector('[data-score-field]').hidden=event.target.value!=='FFA';
   form.querySelector('[data-team-field]').hidden=!team;
-  form.querySelector('[data-bot-field]').hidden=!team;
+  form.querySelector('[data-bot-field]').hidden=!(team||event.target.value==='EDGE_OF_VICTORY');
   form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
 });
 $('#lobby-settings').addEventListener('submit', event => {
@@ -694,8 +694,7 @@ $('#lobby-settings').addEventListener('submit', event => {
     return;
   }
   socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,
-    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:
-    {teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
+    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:form.elements.botSkill.value}:{teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -776,7 +775,7 @@ function renderPublicRooms() {
       <div><dt>SPELLBLADES</dt><dd>${escapeHtml(selected.players)}</dd></div>
       <div><dt>STATUS</dt><dd>${escapeHtml(selected.status)}</dd></div>
       <div><dt>TIME LIMIT</dt><dd>${Number.isFinite(selected.matchSeconds)?Math.round(selected.matchSeconds/60)+' MIN':'UNTIMED'}</dd></div>
-      ${selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
+      ${selected.mode==='EDGE_OF_VICTORY'?'<div><dt>VICTORY</dt><dd>LAST KNIGHT STANDING</dd></div>':selected.scoreToWin!==null&&selected.scoreToWin!==undefined?`<div><dt>FIRST TO</dt><dd>${selected.scoreToWin} KILLS</dd></div>`:
         `<div><dt>TEAMS</dt><dd>${selected.teamSize}V${selected.teamSize}</dd></div><div><dt>BOT SKILL</dt><dd>${escapeHtml((selected.botSkill??'knight').toUpperCase())}</dd></div>`}
       </dl>`
     : 'Select a room from the list, or raise a new public room.';
@@ -813,11 +812,11 @@ roomJoinButton.addEventListener('click', () => {
 
 function syncPublicRoomForm() {
   const mode=roomCreateForm.elements.mode.value;
-  const team=mode!=='FFA';
+  const team=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
   roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
-  roomCreateForm.querySelector('[data-score-field]').hidden=team;
+  roomCreateForm.querySelector('[data-score-field]').hidden=mode!=='FFA';
   roomCreateForm.querySelector('[data-team-field]').hidden=!team;
-  roomCreateForm.querySelector('[data-bot-field]').hidden=!team;
+  roomCreateForm.querySelector('[data-bot-field]').hidden=!(team||mode==='EDGE_OF_VICTORY');
   roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
 }
 roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
@@ -841,7 +840,7 @@ roomCreateForm.addEventListener('submit', event => {
     return;
   }
   const settings={mode,worldId:f.worldId.value,matchSeconds:Math.round(minutes*60),
-    ...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
+    ...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:f.botSkill.value}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
   runMenuAction(menuController.createPublic(nameInput.value,settings),SCREEN_IDS.ROOMS_MENU);
 });
 // the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
@@ -857,12 +856,16 @@ function soundTheEnd(snapshot) {
   recordMatchResult({
     winnerId: won ? socket.playerId : snapshot.winnerId,
     players: snapshot.players,
-    isScored: snapshot.mode !== 'PRACTICE' && !snapshot.tutorial,
+    isScored: !['PRACTICE', 'RENOWN_TRIALS', 'EDGE_OF_VICTORY'].includes(snapshot.mode) && !snapshot.tutorial,
   });
+  // An institutional execution completes its own ceremony; generic defeat
+  // music/voice cannot drown out the absurdly modest last coin.
+  if (snapshot.mode === 'RENOWN_TRIALS' && !won) return;
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
-  if (won) return;
+  // Do not speak an ordinary defeat quip over the Renowner's solemn verdict.
+  if (won || snapshot.mode === 'RENOWN_TRIALS') return;
   for (const say of linesFor(socket.playerId, ['matchLost'])) {
     const said = voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true });
     if (!said) continue;
@@ -874,6 +877,23 @@ function soundTheEnd(snapshot) {
 
 function updateEnd(snapshot) {
   soundTheEnd(snapshot);
+  if (snapshot.mode === 'RENOWN_TRIALS') {
+    const trial = snapshot.renownTrial;
+    const finished = trial?.termination === 'completed';
+    winnerTitle.textContent = finished ? 'TRIAL COMPLETED' : 'JUDGMENT DELIVERED';
+    const entries = trial?.ledger ?? [];
+    const settled = entries.reduce((sum, item) => sum + (item.status === 'SETTLED' ? item.reward ?? 0 : 0), 0);
+    const pending = entries.reduce((sum, item) => sum + (['PENDING','UNSETTLED'].includes(item.status) ? item.reward ?? 0 : 0), 0);
+    const unavailable = entries.reduce((sum, item) => sum + (item.status === 'UNAVAILABLE' ? item.reward ?? 0 : 0), 0);
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RENOWN TRIALS · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
+      + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} RENOWN</strong><em>${escapeHtml(entry.verdict)} · ${escapeHtml(entry.status ?? 'UNSETTLED')}</em></div>`).join('')
+      + `<p class="panel-copy">SETTLED TO PROFILE: ${settled} · PENDING: ${pending} · UNAVAILABLE: ${unavailable}</p>`;
+    seekAnotherButton.classList.add('hidden');
+    rematchButton.classList.remove('hidden');
+    rematchButton.textContent = 'TRY THE TRIAL AGAIN';
+    rematchCopy.textContent = 'A new run begins at the first wave.';
+    return;
+  }
   if (snapshot.mode === 'HIGH_GROUNDS') {
     const me = snapshot.players.find(p => p.id === socket.playerId);
     const scores = snapshot.highGrounds?.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
@@ -1058,6 +1078,25 @@ soloArena.addEventListener('click', (event) => {
   showSoloArena();
 });
 showSoloArena();
+const renownArenaEl = $('#renown-arena');
+function showRenownArena() {
+  if (!renownArenaEl) return;
+  const chosen = menuController.renownArena();
+  for (const chip of renownArenaEl.querySelectorAll('[data-renown-arena]')) {
+    const on = chip.dataset.renownArena === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+if (renownArenaEl) {
+  renownArenaEl.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-renown-arena]');
+    if (!chip) return;
+    menuController.chooseRenownArena(chip.dataset.renownArena);
+    showRenownArena();
+  });
+}
+showRenownArena();
 // the Bot Duel's rival: how well it plays (the same knight, better or worse at the game)
 const soloRival = $('#solo-rival');
 const RIVAL_NOTES = Object.freeze({
@@ -1225,7 +1264,7 @@ function privateFields(){
     teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value};
 }
 function renderPrivateMode({reset=true}={}){
-  const mode=privateModeSelected,teamMode=mode!=='FFA';
+  const mode=privateModeSelected,teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
   for(const button of privateChoices.querySelectorAll('[data-private-mode]')){
     const on=button.dataset.privateMode===mode;
     button.classList.toggle('selected',on);
@@ -1240,18 +1279,21 @@ function renderPrivateMode({reset=true}={}){
     f.worldId.innerHTML=arenaOptions(mode,oldArena);
   if(reset){
     f.minutes.value=defaults.minutes;
-    if(teamMode){
-      f.teamSize.value=defaults.teamSize;
-      f.team.value=defaults.team;
+    if(teamMode||mode==='EDGE_OF_VICTORY'){
+      if(teamMode)f.teamSize.value=defaults.teamSize;
+      if(teamMode)f.team.value=defaults.team;
       f.botSkill.value=defaults.botSkill;
     }else f.scoreToWin.value=defaults.scoreToWin;
   }
-  privateForm.querySelector('[data-private-score]').hidden=teamMode;
+  privateForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
+  privateForm.querySelector('[data-private-bot]').hidden=!(teamMode||mode==='EDGE_OF_VICTORY');
   for(const attr of ['size','team','bot'])
     privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY');
-  const note=mode==='FFA'?'Every Spellblade for themselves. First to ten.':
-    mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
+  const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
     mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
+    mode==='FFA'?'Every Spellblade for themselves. First to ten.':
+    mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
+    'Both armies attack and recapture outposts high above the abyss.';
     'Both armies attack and recapture outposts high above the abyss.';
   $('#private-mode-copy').textContent=note;
   const result=privateRoomPreview(mode,privateFields());
@@ -1439,6 +1481,8 @@ function startTutorial() {
 let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
+  'renown-trials-mode': ['RENOWN TRIALS','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment.'], 
+  'edge-of-victory-mode': ['EDGE OF VICTORY','Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
   'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
   'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
   'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
@@ -1456,20 +1500,28 @@ function chooseSoloActivity(id) {
   const [title,note]=soloChoices[id];
   $('#solo-selected-title').textContent=title;
   $('#solo-selected-note').textContent=note;
-  $('#solo-arena-wrap').hidden=id==='tutorial-mode';
-  $('#solo-rival-wrap').hidden=id!=='bot-duel';
-  $('#solo-launch span').textContent=id==='tutorial-mode'?'BEGIN TUTORIAL':id==='bot-duel'?'START BOT DUEL':'ENTER '+title;
+  const isRenown = id === 'renown-trials-mode';
+  $('#solo-arena-wrap').hidden = id === 'tutorial-mode' || id === 'edge-of-victory-mode' || isRenown;
+  const renownWrap = $('#renown-arena-wrap');
+  if (renownWrap) {
+    renownWrap.hidden = !isRenown;
+    if (isRenown) showRenownArena();
+  }
+  $('#solo-rival-wrap').hidden = id !== 'bot-duel';
+  $('#solo-launch span').textContent = id === 'tutorial-mode' ? 'BEGIN TUTORIAL' : id === 'bot-duel' ? 'START BOT DUEL' : 'ENTER ' + title;
   // Desktop has both banners side by side. On phones, leave the activity
   // choices accessible until the user taps again; REVIEW SETTINGS opens the
   // separate right banner without interfering with second-tap launch.
-  if(document.querySelector('#game-shell')?.clientWidth>640){
-    soloMenu.dataset.panel='details';
+  if (document.querySelector('#game-shell')?.clientWidth > 640) {
+    soloMenu.dataset.panel = 'details';
     resetCompanionCrown(soloMenu);
   }
 }
 function launchSoloActivity(id) {
-  if(id==='tutorial-mode') { startTutorial(); return true; }
-  if(id==='bot-duel') return startBotDuel();
+  if (id === 'tutorial-mode') { startTutorial(); return true; }
+  if (id === 'bot-duel') return startBotDuel();
+  if (id === 'renown-trials-mode') return runMenuAction(menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena() }), SCREEN_IDS.SOLO_MENU);
+  if(id==='edge-of-victory-mode') return runMenuAction(menuController.edgeOfVictory(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='inspection-mode') return runMenuAction(menuController.inspectionPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);

@@ -33,7 +33,7 @@ const INSPECTION_ACTIONS = new Set([
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.RENOWN_TRIALS, GAME_MODES.EDGE_OF_VICTORY]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
 export const SOLO_PROFILE_KEY = 'ss-solo-profile-cache';
 
@@ -152,7 +152,13 @@ export class LocalHost {
     }
     this.#stop();
     const time = this.now();
-    const resolvedWorld = tutorial ? 'greener-pastures' : mode === GAME_MODES.RESTLESS_DAY ? 'restless-day' : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds' : (mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach')) : arenaOrDefault(worldId));
+    const resolvedWorld = tutorial ? 'greener-pastures'
+      : mode === GAME_MODES.RESTLESS_DAY ? 'restless-day'
+      : mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep'
+      : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds'
+      : mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach'))
+      : mode === GAME_MODES.RENOWN_TRIALS ? (worldId === 'castleward' ? 'castleward' : 'court-of-merit')
+      : arenaOrDefault(worldId);
     const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
     room.localTutorial = tutorial;
     if (!this.profile && this.storage) {
@@ -408,7 +414,7 @@ export class LocalHost {
       }
     }
 
-    stepBotControllers(room, time, room.world);
+    stepBotControllers(room, time, room.world, room.mode===GAME_MODES.EDGE_OF_VICTORY ? {targetKinds:['human','bot']} : {});
     if (this.sessionController) this.sessionController.beforeStep(time);
     else if (!this.inspectionControlId) stepPracticeActors(room, time, room.world);
     if (this.inputSampler && this.player && !this.inspectionFrozen) {
@@ -421,6 +427,11 @@ export class LocalHost {
     this.#validateInspectionActor();
     const events = room.events.splice(0).filter(event => !(this.inspectionControlUsed && event.type === 'prestigeChallengeCompleted'));
     for (const event of events) {
+      if (room.mode === GAME_MODES.RENOWN_TRIALS && event.type === 'renownTrialWaveCleared') {
+        const row = room.renownTrial?.ledger?.find(item => item.id === `${event.runId}:w${event.waveIndex}`);
+        if (row) row.status = row.reward > 0 ? 'UNAVAILABLE' : 'NOT_AWARDED';
+        // Local simulation is a legitimate unranked fight, never a wallet.
+      }
       if (event.type === 'prestigeChallengeCompleted') {
         this.#completePrestigeChallenge(event, events, time);
       }

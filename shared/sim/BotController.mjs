@@ -1,3 +1,4 @@
+import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../src/combat.mjs';
@@ -975,6 +976,35 @@ function selectTeamGoal(room, actor, ai, nowSec) {
  * yard's opponents press less). How well each plays is its own (botSkill.mjs); the room's opening peace (peace.mjs)
  * holds every one of them off a fight until it ends.
  */
+/**
+ * Edge's opponents remain ordinary Castleward bots. Between encounters they
+ * seek actual world pickups and move inward before the boundary overtakes
+ * them; no stat boost, navigation teleport or new combat system.
+ */
+export function edgeBotGoal(room, actor, targetKinds = ['human','bot']) {
+  const edge=room.edgeOfVictory;
+  if(!edge||!actor?.alive)return null;
+  const {center,radius}=edge;
+  const rivals=[...room.players.values()].filter(p=>p.id!==actor.id && p.alive &&
+    targetKinds.includes(p.actorKind) && (p.actorKind!=='human'||p.connected));
+  if(rivals.some(p=>Math.hypot(p.position.x-actor.position.x,p.position.z-actor.position.z)<6))return null;
+  const distance=Math.hypot(actor.position.x-center.x,actor.position.z-center.z);
+  if(distance>radius-2.2){
+    return {x:center.x+(actor.position.x-center.x)/Math.max(.01,distance)*Math.max(0,radius-4),
+      y:actor.position.y,z:center.z+(actor.position.z-center.z)/Math.max(.01,distance)*Math.max(0,radius-4),
+      purpose:'inward'};
+  }
+  const pickups=(edge.pickups??[]).filter(p=>p.available&&p.kind==='spell'&&
+    !actor.preparedSpells?.includes(p.spell) &&
+    edgeInside(p.position,center,radius,1) &&
+    Math.abs(p.position.y-actor.position.y)<1.2);
+  pickups.sort((a,b)=>Math.hypot(a.position.x-actor.position.x,a.position.z-actor.position.z)-
+    Math.hypot(b.position.x-actor.position.x,b.position.z-actor.position.z));
+  const pickup=pickups[0];
+  return pickup && Math.hypot(pickup.position.x-actor.position.x,pickup.position.z-actor.position.z)<12
+    ? {...pickup.position,purpose:'pickup'} : null;
+}
+
 export function stepBotControllers(
   room,
   nowSec,
@@ -995,6 +1025,25 @@ export function stepBotControllers(
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
+    if (room.edgeOfVictory) {
+      const goal=edgeBotGoal(room,actor,targetKinds);
+      if(goal){
+        const waypoint=wayToward(world,actor,{position:goal},ai,nowSec)??goal;
+        const edge=room.edgeOfVictory;
+        const legal=edgeLimitPoint(waypoint,edge.center,edge.radius,1.1);
+        const distance=Math.hypot(actor.position.x-goal.x,actor.position.z-goal.z);
+        if(distance>.85){
+          actor.input.yaw=yawToward(actor,{position:legal});
+          actor.yaw=actor.input.yaw;
+          actor.input.forward=1;actor.input.right=0;
+          actor.input.sprint=distance>5 && (actor.guardStamina??100)>BOT_SPRINT_STAMINA_RESERVE;
+          actor.input.jump=false;
+        }else{
+          actor.input.forward=0;actor.input.right=0;actor.input.sprint=false;
+        }
+        continue;
+      }
+    }
 
     // Dedicated modes can reserve a bot's hands for a physical objective.
     // Use the existing pathfinder and movement input, not a teleport or a

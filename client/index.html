@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="client/tutorial.css" />
   <link rel="stylesheet" href="client/mobile.css" />
   <link rel="stylesheet" href="client/renown.css" />
+<link rel="stylesheet" href="client/renown-trials.css" />
   <link rel="stylesheet" href="client/ui/preparedSpells.css" />
   <link rel="stylesheet" href="client/chivalry.css" />
   <link rel="stylesheet" href="client/siege-hud.css" />
@@ -190,6 +191,13 @@
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
         </button>
+        <button id="renown-trials-mode" class="mode-choice" type="button">
+          <span>RENOWN TRIALS</span>
+          <small>Timed waves · earn prestige or face the Rightful Renowner</small>
+        </button>
+        <button id="edge-of-victory-mode" class="mode-choice" type="button">
+          <span>EDGE OF VICTORY</span>
+          <small>Four knights · discover spells · no retreat · one survivor</small>
         <button id="practice-mode" class="mode-choice">
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
@@ -224,6 +232,13 @@
           <button type="button" class="vote-chip" role="radio" data-arena="ruined-keep">THE RUINED KEEP</button>
         </div>
 </div>
+        <div id="renown-arena-wrap" hidden>
+          <div id="renown-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
+            <span>BATTLEFIELD</span>
+            <button type="button" class="vote-chip mine" role="radio" data-renown-arena="court-of-merit">COURT OF MERIT</button>
+            <button type="button" class="vote-chip" role="radio" data-renown-arena="castleward">CASTLEWARD</button>
+          </div>
+        </div>
         <div id="solo-rival-wrap">        <div id="solo-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Rival">
           <span>RIVAL</span>
           <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
@@ -319,6 +334,7 @@
           <button type="button" data-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" data-mode="BREAKTHROUGH">BREAKTHROUGH</button>
           <button type="button" data-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
+           <button type="button" data-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <div id="room-list" class="room-list" aria-live="polite"><p class="room-empty">Looking for open rooms…</p></div>
       </div></div>
@@ -336,7 +352,7 @@
         <button id="raise-room" class="mode-choice" type="button"><span>CREATE PUBLIC ROOM</span><small>Choose its rules before opening the doors</small></button>
         <form id="room-create-form" class="lobby-config" hidden>
           <label>MODE<select name="mode" class="game-input">
-            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option>
+            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option><option value="EDGE_OF_VICTORY">EDGE OF VICTORY</option>
           </select></label>
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
@@ -363,6 +379,7 @@
           <button type="button" aria-pressed="false" data-private-mode="BREAKTHROUGH">BREAKTHROUGH</button>
           <button type="button" aria-pressed="false" data-private-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
           <button type="button" aria-pressed="false" data-private-mode="RESTLESS_DAY">RESTLESS DAY</button>
+          <button type="button" aria-pressed="false" data-private-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <p class="panel-copy" id="private-mode-copy">Every Spellblade for themselves. First to ten.</p>
         <button id="private-options" class="mode-choice private-options" type="button">

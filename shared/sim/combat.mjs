@@ -39,6 +39,10 @@ import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { renownTrialCombatOpen } from './renownTrials.mjs';
+import { eliminateEdgePlayer, edgeConstrainActor, stepEdgeOfVictory } from './edgeOfVictory.mjs';
+import { edgeHandleMountedOperators } from './edgeSiegeDismount.mjs';
+import { edgeInside, edgeLimitPoint, edgeClipTeleport } from '../src/edgeBoundary.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -1361,7 +1365,10 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
-  victim.respawnAt = nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
+  // A Renown Trial has one life and finite wave enemies. Dead rivals cannot
+  // respawn to make a cleared wave impossible; the player ends the run instead.
+  victim.respawnAt = room.mode === GAME_MODES.RENOWN_TRIALS
+    ? Infinity : nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
   const diver=room.fightFlight;
   if(diver?.terminalDive&&!diver.terminalDive.resolved&&diver.terminalDive.operatorId===victim.id){
     victim.terminalRespawnDeferredFor=diver.id;
@@ -1394,6 +1401,11 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
     }
   } else {
     victim.deaths += 1;
+  }
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    // A defeated knight is eliminated, never placed on a respawn clock.
+    victim.respawnAt = Infinity;
+    eliminateEdgePlayer(room, victimId, nowSec);
   }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
@@ -1929,21 +1941,31 @@ function oneHitTeleport(room,player,state,nowSec,world=room.world) {
   const dx=-Math.sin(yaw)*Math.cos(aerial?pitch:0),
     dy=aerial?Math.sin(pitch):0,dz=-Math.cos(yaw)*Math.cos(aerial?pitch:0);
   const origin={...player.position};
-  const target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
+  let target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
+  if(room.edgeOfVictory){
+    // The Full-Lightning blink follows its original ray and never tunnels
+    // through the psychological boundary.
+    target=edgeClipTeleport(origin,target,room.edgeOfVictory,MOVEMENT.playerRadius);
+    if(!target)return false;
+  }
   const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];
   let t=1;
-  for(const box of world?.solids??[]) {
+  const teleportWorld = room.edgeOfVictory
+    ? playerMovementWorld(world,{ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight})
+    : world;
+  for(const box of teleportWorld?.solids??[]) {
     const hit=segmentAabbHit(a,b,box);
     if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(distance,.01)));
   }
   const next={x:origin.x+(target.x-origin.x)*t,y:origin.y+(target.y-origin.y)*t,
     z:origin.z+(target.z-origin.z)*t};
-  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
+  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,teleportWorld?.solids??[]);
   // A physical wall, abyss or invalid floor never becomes a blink-through shortcut.
-  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return;
+  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return false;
+  if(room.edgeOfVictory && !edgeInside(next,room.edgeOfVictory.center,room.edgeOfVictory.radius,MOVEMENT.playerRadius)) return false;
   if(!aerial) {
     const surface=surfaceHeightAt(next.x,next.z,next.y,world);
-    if(surface===null || Math.abs(surface-next.y)>2) return;
+    if(surface===null || Math.abs(surface-next.y)>2) return false;
     next.y=surface;player.grounded=true;
   }else player.grounded=false;
   player.position=next;
@@ -2514,6 +2536,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepDefeatVoices(room, nowSec);
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
+  // An ongoing wave uses wholly ordinary Spellblade combat. Preparation and
+  // the Renowner ceremony do not advance combat, hazards or input physics.
+  if (room.mode === GAME_MODES.RENOWN_TRIALS && !renownTrialCombatOpen(room)) return room.events;
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    stepEdgeOfVictory(room, nowSec, world);
+    edgeHandleMountedOperators(room, nowSec);
+  }
+  if (room.state !== 'PLAYING') return room.events;
 
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
   else if(!modeCall(room,'ownsTeamObjectives'))stepObjectives(room, dt, nowSec);
@@ -2529,9 +2559,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   // Always compose from canonical structure geometry; do not feed the last
   // frame's dynamic ladder rails into the next structural rebuild.
-  world=modeCall(room,'baseWorld',world)??world;
-  world=structureWorld(world,room.structures);
-  world=modeCall(room,'composeWorld',world)??world;
+  world = modeCall(room, 'baseWorld', world) ?? world;
+  world = structureWorld(world, room.structures);
+  world = modeCall(room, 'composeWorld', world) ?? world;
+  if (room.edgeOfVictory) world = { ...world, edgeBoundary: {
+    center: room.edgeOfVictory.center, radius: room.edgeOfVictory.radius } };
   room.world = world;
   markTornGround(room);
   const effectiveWorld = playerMovementWorld(world, {ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight});
@@ -2587,7 +2619,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
     if (!player.alive) {
-      if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
+      if (room.mode !== GAME_MODES.EDGE_OF_VICTORY && nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
       else if(player.deathFlight){
         // A lethal piston strike leaves real momentum in the defeated body.
         // Reuse normal gravity, substepped world collision and shove damping;
@@ -2734,6 +2766,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       if(player.restlessCarrying)constrainRestlessCarry(player,from,effectiveWorld,player.yaw);
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
+    if (room.mode === GAME_MODES.EDGE_OF_VICTORY && !player.operatingRamId && !player.operatingFightFlightId && !player.operatingBallistaId)
+      edgeConstrainActor(room, player, from, nowSec, effectiveWorld);
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
       if (dashing) ramThrough(room, player, from, nowSec, world);
@@ -2868,6 +2902,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   if(!room.freezeProjectiles) stepOneHitWorld(room,dt,nowSec,world);
   stepFlightBurnZones(room,nowSec);
+  if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
+    stepEdgeOfVictory(room, nowSec, world);
+    edgeHandleMountedOperators(room, nowSec);
+  }
   // The actual resource is always full for living (or respawning) human
   // trainees; active Ultimate state still prevents reactivation. This runs
   // AFTER vehicle/terminal physics so a consumed terminal chord is never
