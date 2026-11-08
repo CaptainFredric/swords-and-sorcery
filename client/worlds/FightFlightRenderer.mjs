@@ -402,7 +402,12 @@ export class FightFlightRenderer{
       const remaining=Math.max(0,Math.min(1,(zone.expiresAt-now)/duration));
       const extinguish=Math.min(1,remaining/.16);
       const radius=Number.isFinite(zone.radius)?Math.max(.1,zone.radius):4;
-      const pulse=1+.12*remaining*Math.sin(now*(8+2*remaining));
+      // The brightening flare forecasts the next ACTUAL server fire tick.
+      // Those ticks become less frequent with age; a constant strobe would
+      // imply damage pulses that the authoritative fire no longer delivers.
+      const untilTick=(zone.nextTickAt??Infinity)-now;
+      const nextPulse=untilTick>=0&&untilTick<.16?1-untilTick/.16:0;
+      const pulse=1+.08*remaining*Math.sin(now*5)+.24*remaining*nextPulse;
       visual.group.position.set(zone.point.x,zone.point.y+.038,zone.point.z);
       visual.scar.scale.set(radius,1,radius);
       visual.core.material.opacity=.35*extinguish;
