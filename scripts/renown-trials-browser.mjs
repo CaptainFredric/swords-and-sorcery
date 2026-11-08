@@ -43,25 +43,25 @@ async function swordDefeat(room, player, bot) {
   // Set up reproducible standing contact without replacing combat resolution:
   // the live browser's sword command must actually kill the server's bot.
   room.inspectionFrozenActors = new Set([bot.id]);
-  bot.health=1;
-  bot.guardStamina=0;
-  bot.guarding=false;
-  bot.spawnProtectionUntil=-Infinity;
-  for(let attempt=0;attempt<5 && bot.alive;attempt++) {
-    const yaw=player.yaw;
+  bot.health = 1;
+  bot.guardStamina = 0;
+  bot.guarding = false;
+  bot.spawnProtectionUntil = -Infinity;
+  for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
+    const yaw = player.yaw;
     bot.position = {
-      x:player.position.x-Math.sin(yaw)*1.45,
-      y:player.position.y,
-      z:player.position.z-Math.cos(yaw)*1.45,
+      x: player.position.x - Math.sin(yaw) * 1.2,
+      y: player.position.y,
+      z: player.position.z - Math.cos(yaw) * 1.2,
     };
-    bot.velocity = {x:0,y:0,z:0};
+    bot.velocity = { x: 0, y: 0, z: 0 };
     await evaluate('window.__ssLink.attack(true), true');
-    await sleep(1100);
+    await sleep(400);
     await evaluate('window.__ssLink.attack(false), true');
-    await sleep(100);
+    await sleep(350);
   }
-  assert.equal(bot.alive,false,'Real sword input must defeat the actual server Spellblade');
-  assert.ok(player.kills>0,'Real combat must credit a kill');
+  assert.equal(bot.alive, false, 'Real sword input must defeat the actual server Spellblade');
+  assert.ok(player.kills > 0, 'Real combat must credit a kill');
   room.inspectionFrozenActors.clear();
 }
 try {
