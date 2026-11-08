@@ -1691,11 +1691,13 @@ export class GameRuntime {
         // Derive the world ring from the actual settled burn zone, if any;
         // an impact high above the void must not draw a phantom ground disc.
         const zone=this.latestSnapshot?.flightBurnZones?.find?.(z=>z.id===event.machineId+'-burn');
-        this.effects.impact(event.point,{spell:'fireball',radius,ground:zone?.point?.y??null});
-        this.flightRenderer.spawnTerminalHalo(event.point,event.at??this.socket.serverNow(),event.fireDuration??7);
-        if(zone)this.effects.groundShock(zone.point,{radius:zone.radius});
-        this.effects.sparks(event.point,0xffbd72,Math.round(20+22*power));
-        this.effects.splinters(event.point,16);
+        this.effects.valkyrieDetonation(event.point,{
+          radius,condition:power,ground:zone?.point?.y??null
+        });
+        // The aftershock is distinct from the damaging one-frame blast;
+        // ground flame remains a separate host-owned hazard in the snapshot.
+        this.flightRenderer.spawnTerminalHalo(event.point,
+          event.at??this.socket.serverNow(),event.fireDuration??7,radius,power);
         this.#play(fireballImpactRecipe(),event.point,.85+.35*power);
       }
       if (event.type === 'siegeSteelOn') {
