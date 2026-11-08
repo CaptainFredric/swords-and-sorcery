@@ -71,33 +71,26 @@ async function swordDefeat(room, player, bot) {
     player.staggerUntil = -Infinity;
     player.recoverUntil = -Infinity;
 
-    // 1. Dispatch real player attack from browser
+    // Dispatch real player attack from browser
     await evaluate('window.__ssLink.attack(true), true');
 
-    // 2. Wait until server receives Attack and starts chain
-    await until(() => {
+    // Synchronize with authoritative combat tick and sword-contact interval
+    const startSec = room.timeSec ?? server.now();
+    for (let t = 0; t < 50 && bot.alive; t++) {
       syncBotGeometry();
-      return player.attackActive;
-    }, 'server receives attack and activates chain', 50);
-
-    // 3. Synchronize with authoritative combat tick and sword-contact interval (player.attackSweep)
-    // while continuously checking and verifying target geometry until defeat or strike end
-    const startedAt = player.attackStartedAt;
-    await until(() => {
-      syncBotGeometry();
-      if (!bot.alive || bot.health <= 0) return true;
+      if (!bot.alive || bot.health <= 0) break;
       const nowSec = room.timeSec ?? server.now();
-      return (!player.attackActive && nowSec > startedAt + 0.45) ||
-             (player.attackNextStrike > 0 && player.attackSweep === null && nowSec > startedAt + 0.45);
-    }, 'authoritative combat tick advance and contact interval', 80);
+      if ((player.attackNextStrike > 0 || !player.attackActive) && nowSec > startSec + 0.45 && player.attackSweep === null) {
+        break;
+      }
+      await sleep(40);
+    }
 
-    // 4. Release attack cleanly
+    // Cleanly release real player attack from browser
     await evaluate('window.__ssLink.attack(false), true');
-    await until(() => !player.attackButton, 'attack release registered', 40);
-
-    // If still alive, wait for chain to reset before retrying
+    for (let t = 0; t < 30 && player.attackButton; t++) await sleep(30);
     if (bot.alive && player.attackActive) {
-      await until(() => !player.attackActive, 'attack chain reset', 40);
+      for (let t = 0; t < 30 && player.attackActive; t++) await sleep(30);
     }
   }
 
