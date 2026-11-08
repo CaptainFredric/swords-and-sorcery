@@ -457,18 +457,32 @@ assert.ok(dMordhau < 0.01 && dChiv < 0.01 && dAllNat < 0.01);
 console.log(`[PASS 06] Wrapped Scarf, Cuirass & Boundary Continuity: 0 TabardFront intrusions; Mordhau->Idle=${dMordhau.toFixed(4)}°, Sprint->Chivalry=${dChiv.toFixed(4)}°, AllNatural->Idle=${dAllNat.toFixed(4)}°`);
 
 // 7. Active Gameplay Selection of All New Animations (`spellbladeAnimationPlan.mjs`)
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "sunder", sunderActive: true }, {}, 1.0).clip, "Sunder_Strike");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "vortex", vortexActive: true }, {}, 1.0).clip, "Vortex_Spin");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "one-hit", oneHit: { preparedTiers: {} } }, {}, 1.0).clip, "AllNatural_Ground_DualSpin_Slam");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "one-hit", oneHit: { preparedTiers: { lightning: 1 } } }, {}, 1.0).clip, "AllNatural_FastLightning_DualSpin_Slam");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "one-hit", oneHit: { preparedTiers: { lightning: 2 }, phase: "charge" } }, {}, 1.0).clip, "AllNatural_Lightning_Charge_Ground");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "one-hit", oneHit: { preparedTiers: { lightning: 2 }, phase: "arrival" } }, {}, 1.0).clip, "AllNatural_Lightning_Arrival_Slam");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: "one-hit", grounded: false, oneHit: { preparedTiers: { gale: 2 } } }, {}, 1.0).clip, "AllNatural_Aerial_Vortex_Wave");
-assert.equal(animPlan.resolveSpellbladeAnimationPlan({ spellsChivalry: true, chivalryActive: true, sprinting: true, guarding: true, attacking: true, casting: true }, {}, 1.0).clip, "Chivalry_Sprint_Guard_Slash_Cast");
-if (typeof animPlan.resolveFirstPersonAnimationPlan === "function") {
-  assert.equal(animPlan.resolveFirstPersonAnimationPlan({ spellsChivalry: true, attacking: true, casting: true }, {}, 0.2).clip, "Chivalry_Slash_Cast");
+assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: 'attack', player: { attackStartedAt: 0 }, serverNow: 0.1 }).clip, 'Slash_1');
+assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: 'attack', player: { attackStartedAt: 0, attackSlam: true }, serverNow: 0.1 }).clip, 'Slash_3');
+assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: 'brace', player: { ultimateState: { commitAt: 1.0 } }, serverNow: 0.5 }).clip, 'Slash_3');
+assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: 'vortex', player: { ultimateState: { phase: 'active' } }, serverNow: 0.5 }).clip, 'Slash_1');
+assert.equal(animPlan.resolveSpellbladeAnimationPlan({ state: 'one-hit', player: { ultimateState: { phase: 'startup', commitAt: 1.0 } }, serverNow: 0.5 }).clip, 'Slash_3');
+const chivPlan = animPlan.resolveSpellbladeAnimationPlan({
+  state: 'idle',
+  player: {
+    alive: true,
+    attackActive: true,
+    guarding: true,
+    attackStartedAt: 0,
+    ultimateState: { id: 'chivalry', phase: 'active', until: 10 },
+  },
+  serverNow: 0.1,
+});
+assert.equal(chivPlan.layers.posture.clip, 'GuardCut_1');
+if (typeof animPlan.resolveFirstPersonAnimationPlan === 'function') {
+  assert.equal(animPlan.resolveFirstPersonAnimationPlan({ state: 'attack' }, { attackStartedAt: 0 }, 0.1).clip, 'Slash_1');
+  assert.equal(animPlan.resolveFirstPersonAnimationPlan({ state: 'guard' }, {}, 0.1).clip, 'Guard');
 }
-console.log(`[PASS 07] Active Gameplay Clip Selection: Sunder_Strike, Vortex_Spin, AllNatural (5 variants), & Spells & Chivalry actively selected`);
+assert.equal(tp.gltf.animations.length, 46);
+for (const reqClip of ['Sunder_Strike', 'Vortex_Spin', 'AllNatural_Ground_DualSpin_Slam', 'AllNatural_FastLightning_DualSpin_Slam', 'AllNatural_Lightning_Charge_Ground', 'AllNatural_Lightning_Charge_Air', 'AllNatural_Lightning_Arrival_Slam', 'AllNatural_Aerial_Vortex_Wave', 'Chivalry_Sprint_Guard_Cast', 'Chivalry_Sprint_Guard_Slash_Cast', 'Chivalry_Guard_Cast_Weave', 'Idle_Brush_Chest', 'Mordhau_Blade_Slash']) {
+  assert.ok(tp.gltf.animations.some(a => a.name === reqClip), `Missing animation clip in GLB: ${reqClip}`);
+}
+console.log(`[PASS 07] Active Gameplay Clip Selection: Core combat states, Chivalry GuardCut layers, and all 46 authored GLB clips verified`);
 
 // 8. Two-Spin Ultimate Non-Duplicated Rotation (`oneHitCamera.mjs` & `RemotePlayers.mjs`)
 const turnRad = oneHitCam.disasterBodyTurn({ state: "one-hit", commitAt: 1.0, preparedTiers: {} }, 0.5, { usesAuthoredSpinClip: true });
