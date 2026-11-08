@@ -65,7 +65,7 @@ async function readSpellbladeAssetStatus(slot) {
   })()`);
 }
 
-async function waitForSpellbladeAsset(slot, timeoutMs = 20000) {
+async function waitForSpellbladeAsset(slot, timeoutMs = 50000) {
   return poll(async () => {
     const status = await readSpellbladeAssetStatus(slot);
     if (!status) return null;

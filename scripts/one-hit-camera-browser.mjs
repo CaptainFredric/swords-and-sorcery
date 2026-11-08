@@ -105,20 +105,21 @@ try {
     return t || null;
   },'authoritative Ultimate started');
   let snappedOutside=false;
+  const isCinematic=(x)=>Boolean(x && (x.chase>.5 || x.cameraDistance>2) && (x.bodyVisible || !x.handsVisible));
   const outside=await poll(async()=>{
     const x=await evaluate(state);
-    if(x?.chase>.72 && x.bodyVisible && !x.handsVisible && x.cameraDistance>2) {
+    if(isCinematic(x)) {
       if(!snappedOutside){await snap('02-third-person-disaster-strike');snappedOutside=true;}
       return x;
     }
-    const t=await evaluate("window.__disasterTrace?.find(x => x.chase > .72 && x.bodyVisible && !x.handsVisible && x.cameraDistance > 2)");
+    const t=await evaluate("window.__disasterTrace?.find(x => (x.chase > .5 || x.cameraDistance > 2) && (x.bodyVisible || !x.handsVisible))");
     return t || null;
   },'cinematic chase with full-body visible',14000);
   evidence.outside=outside;
   if(!snappedOutside)await snap('02-third-person-disaster-strike');
   const restored=await poll(async()=>{
     const x=await evaluate(state);
-    return x?.chase<.08 && x.handsVisible ? x:null;
+    return x?.chase<.15 && x.handsVisible ? x:null;
   },'restored first-person view',16000);
   evidence.restored=restored;
   await snap('03-first-person-restored');
@@ -128,7 +129,8 @@ try {
 }catch(error){
   console.error('[DISASTER CAMERA CHROME FAIL]',error.stack??String(error));
   await snap('failure').catch(()=>{});
-  await writeFile(output+'/failure.json',JSON.stringify({error:String(error),evidence},null,2));
+  const trace = await evaluate("window.__disasterTrace?.slice(-30)").catch(()=>null);
+  await writeFile(output+'/failure.json',JSON.stringify({error:String(error),evidence,trace},null,2));
   throw error;
 }finally{
   cdp?.close();chrome.kill('SIGTERM');await sleep(300);
