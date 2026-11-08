@@ -1233,7 +1233,7 @@ export class Effects {
     // A brilliant, brief core erupts into several overlapping, opaque lobes.
     // Keep the fiery heart much narrower than the server's radial blast: the
     // thin expanding pressure front above is the honest damage-radius cue.
-    for(let i=0,n=this.#many(12);i<n;i++){
+    for(let i=0,n=this.#many(Math.round(7+5*power));i<n;i++){
       const a=i*Math.PI*2/n+0.3*(i%3),r=reach*(.035+.12*(i%4)/4);
       const flame=new THREE.Mesh(this.blastGeometry,i%3?hot.billow:hot.ember);
       flame.position.copy(center).add(new THREE.Vector3(Math.cos(a)*r,.16+reach*.025*(i%3),Math.sin(a)*r));
@@ -1245,7 +1245,7 @@ export class Effects {
     }
     // Dark smoke boils upward *after* the white-hot flash. It does not leave
     // a permanent opaque sphere hiding surviving players or their targets.
-    for(let i=0,n=this.#many(16);i<n;i++){
+    for(let i=0,n=this.#many(Math.round(9+7*power));i<n;i++){
       const a=i*2.399963,r=reach*(.07+.17*(i%5)/5);
       const where={x:point.x+Math.cos(a)*r,y:point.y+.15+(i%4)*.21,z:point.z+Math.sin(a)*r};
       this.#dust(where,{size:2.4+reach*.16+(i%3)*.4,life:.75+(i%4)*.16,
@@ -1254,7 +1254,7 @@ export class Effects {
           Math.sin(a)*(1.4+reach*.16))});
     }
     // The rotor/chassis disintegrates in incandescent, ballistic fragments.
-    for(let i=0,n=this.#many(25);i<n;i++){
+    for(let i=0,n=this.#many(Math.round(12+13*power));i<n;i++){
       const a=i*2.399963,up=.45+(.19*(i%6)),speed=reach*(.85+(i%5)*.1);
       const spark=new THREE.Mesh(this.hotSparkGeometry,
         this.#basicMaterial(i%4===0?0xffdf95:i%3===0?0xc64d20:0xff9a3d));
