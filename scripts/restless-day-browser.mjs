@@ -66,38 +66,50 @@ try{
  assert.ok(moved.length>=1,'at least one live bot should be moving');
  // Stage the local knight beside its real initial ladder. Only positioning is
  // assisted; pickup and placement go through the actual Interact input path.
- await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);a.position={x:-10,y:0,z:-68};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()");
+ await evaluate(`(()=>{
+   const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+   r.input.enabled=true;r.input.pointerLocked=true;
+   a.position={x:-10,y:0,z:-68};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
+   if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
+   r.input.interact();
+   return true;
+ })()`);
  await until(async()=>{const s=await evaluate(state);return s.player?.carrying==='ladder-a'?s:null;},'ladder pickup through real Interact');
  await shot('03-ladder-carried');
- await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);a.position={x:-6,y:0,z:-31};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()");
+ await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);a.position={x:-6,y:0,z:-31};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}r.input.interact();return true;})()");
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.state==='deployed'?s:null;},'outer ladder deployed');
  await shot('04-ladder-deployed');
  // Movement packets are genuine; this walks up the live 30Hz server ramp.
- await evaluate("(()=>{const r=window.__ssRuntime;window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);return true;})()");
+ await evaluate("(()=>{const r=window.__ssRuntime;r.input.keys.add('KeyW');r.input.yaw=Math.PI;window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);return true;})()");
  const climbed=await until(async()=>{const s=await evaluate(state);
   return s.player?.position.z>-23.8&&s.player?.position.y>5.45?s:null;
  },'player climbs outer incline and reaches walkable wall top',105);
- await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
+ await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.input.keys.delete('KeyW');window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
  assert.ok(climbed.player.position.z>-23.8,'a real player did not exit the lower ladder onto the battlement');
  assert.ok(climbed.player.position.y>5.45,'the real player failed to reach battlement height');
  await shot('05-real-outer-climb');
  // Stage a wall-top retrieval and second-wall carry to isolate that lifecycle.
  await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:6,z:-24};a.velocity={x:0,y:0,z:0};a.yaw=0;
+  if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
   r.socket.local.room.restlessDay.phase=1;r.input.interact();return true;})()`);
  await until(async()=>{const s=await evaluate(state);return s.player?.carrying==='ladder-a'?s:null;},'retrieve ladder from battlement');
  await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
-  a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;r.input.interact();return true;})()`);
+  a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
+  if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
+  r.input.interact();return true;})()`);
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.wall===1&&s.ladders?.[0]?.state==='deployed'?s:null;},'second curtain deployed');
  await shot('06-inner-curtain');
  await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
+  if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
+  r.input.keys.add('KeyW');r.input.yaw=Math.PI;
   window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);
   return true;})()`);
  const innerClimbed=await until(async()=>{const s=await evaluate(state);
   return s.player?.position.z>22.6&&s.player?.position.y>6.4?s:null;
  },'player climbs inner incline and exits onto second battlement',105);
- await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
+ await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.input.keys.delete('KeyW');window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
  await shot('06b-inner-battlement-climb');
  // Structural damage is a staged authority assertion, not a player's sword hit.
  const destroyed=await evaluate(`(async()=>{const r=window.__ssRuntime,room=r.socket.local.room;
