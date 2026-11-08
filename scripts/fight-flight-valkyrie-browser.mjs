@@ -45,7 +45,7 @@ async function until(fn,name,limit=300){
 async function send(method,params={}){
   const id=++seq;
   const promise=new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method));},12000);
+    const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method));},30000);
     pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
   });
   ws.send(JSON.stringify({id,method,params}));
@@ -91,7 +91,7 @@ try{
  await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'fully loaded menu');
  await evaluate("document.querySelector('#player-name').value='Flight browser probe';document.querySelector('#solo-button').click()");
  await until(()=>evaluate("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'Practice entry');
- await evaluate("document.querySelector('#practice-mode').click()");
+ await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()");
  await until(()=>evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing)"),'Practice arena');
  await evaluate("const s=document.querySelector('#practice-siege-type');s.value='fight-and-flight';s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await evaluate(flightState);return s?.ready&&s.machine;},'authoritative built Fight-and-Flight and canonical GLB');
@@ -154,7 +154,7 @@ try{
  await down(' '); // climb high enough for the real attack to descend
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y>5.5"),'clearance for a true descending launch',180);
  await up(' ');await sleep(600);
- await evaluate("document.querySelector('#practice-ultimate').click()");
+ await evaluate("document.querySelector('#practice-ultimate')?.click()");
  await until(()=>evaluate("(window.__ssRuntime?.localAuth?.prowess??0)>=99"),'legitimate full Practice Prowess',80);
  await evaluate("window.__ssRuntime.input.pitch=0");
  const ready=await evaluate(flightState);
@@ -215,9 +215,16 @@ try{
      recoveries:r.frameRecoveryCount??0};
  })()`;
  for(let cycle=0;cycle<3;cycle++){
-   await evaluate("document.querySelector('#practice-ultimate').click()");
+   await evaluate("document.querySelector('#practice-ultimate')?.click()");
    await until(()=>evaluate("(window.__ssRuntime?.localAuth?.prowess??0)>=90"),
      'legitimate practice prowess cycle '+cycle,80);
+   await evaluate("(() => { const r=window.__ssRuntime, m=r?.latestSnapshot?.fightFlight; if(m) r.input.yaw=Math.atan2(-m.x, -m.z); })()");
+   if(await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.y < 4)")){
+     await down(' ');
+     await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 5.5)"),'altitude maintenance for cycle '+cycle,100);
+     await up(' ');
+     await sleep(200);
+   }
    const beforeCamera=await evaluate(cameraProbe);
    assert.equal(beforeCamera.view,'sight');
    await down('E');

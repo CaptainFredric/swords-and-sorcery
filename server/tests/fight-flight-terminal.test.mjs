@@ -313,10 +313,10 @@ test('craft condition at collision changes the final blast and burn profile',()=
  assert.ok(blast.damage<committed.damage,'impact power reflects the surviving craft');
  assert.ok(pristine.room.flightBurnZones[0].radius<committed.fireRadius);
 });
-test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor or spent chassis',()=>{
- for(const kind of ['ground','skill','rotor','meter','spent','inactive']){
+test('stencil command cannot bypass skill, charge, full meter, destroyed rotor or spent chassis',()=>{
+ for(const kind of ['charge','skill','rotor','meter','spent','inactive']){
   const s=setup();
-  if(kind==='ground')s.m.grounded=true;
+  if(kind==='charge')s.m.flightCharge=0;
   if(kind==='skill')s.m.skill.id='narrowToOne';
   if(kind==='rotor')s.m.rotorHP=0;
   if(kind==='meter'){
@@ -330,6 +330,17 @@ test('stencil command cannot bypass skill, airborne, full meter, destroyed rotor
   assert.equal(s.p.prowess,kind==='meter'?99:100);
   assert.equal(s.m.terminalDive,null);
  }
+});
+
+test('stencil command permits authoritative ground launch without airborne prerequisite',()=>{
+ const s=setup();
+ s.m.grounded=true;
+ s.m.y=0;
+ const response=s.cmd('flightTerminalRitual',undefined,1);
+ assert.deepEqual(response,{});
+ assert.ok(s.m.terminalDive,'server commits terminal dive directly from ground');
+ assert.equal(s.m.grounded,false);
+ assert.ok(s.m.velocity.y>=4.5);
 });
 
 test('Terminal Dive keeps its moving rotor and allows early steering before heat destroys control',()=>{

@@ -81,7 +81,7 @@ try{
  }
  await host.evaluate("document.querySelector('#player-name').value='Practice Host';document.querySelector('#solo-button').click()");
  await waitFor(()=>host.evaluate("!document.querySelector('#shared-practice-mode').disabled"),'shared Practice mode',80);
- await host.evaluate("document.querySelector('#shared-practice-mode').click()");
+ await host.evaluate("document.querySelector('#shared-practice-mode').click(); document.querySelector('#solo-launch')?.click() || document.querySelector('#shared-practice-mode').click()");
  const hostRoom=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&s?.roomCode&&r.localAuth?.id?{code:s.roomCode,id:r.localAuth.id,mode:s.mode}:null;})()"),'host actual network Practice room');
  assert.equal(hostRoom.mode,'PRACTICE');
  await host.screenshot('shared-room-created');
@@ -188,7 +188,7 @@ try{
  await waitFor(()=>guest.evaluate("Boolean((window.__flightSwordTrace??[]).some(s=>s.attack&&/^Slash_[123]$/.test(s.clip??'')))"),
    'real remote Spellblade sword animation agrees with attack state',110);
  // Prepare *personal* Prowess using the real Practice action, not state editing.
- await host.evaluate("document.querySelector('#practice-ultimate').click()");
+ await host.evaluate("document.querySelector('#practice-ultimate')?.click()");
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
    'real host Prowess readiness replicated',100);
  await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});

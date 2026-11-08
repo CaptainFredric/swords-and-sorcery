@@ -607,7 +607,7 @@ try {
       {bubbles:true,pointerId:272,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
   })()`);
   await until(()=>evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot?.fightFlight?.skill;return s?.id==='doNotStopMyAscension'&&s.phase==='active';})()"),'activated authoritative Ascension from mobile Skill',120,150);
-  await evaluate("document.querySelector('#practice-ultimate').click()");
+  await evaluate("document.querySelector('#practice-ultimate')?.click()");
   await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p.prowess>=100;})()"),'full unspent Chivalry ready on mobile',120,150);
   const beforeDive=await evaluate("(() => {const r=window.__ssRuntime,m=r.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP,spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth.prowess};})()");
   assert.ok(beforeDive.y>2&&beforeDive.charge>0&&beforeDive.rotor>0);

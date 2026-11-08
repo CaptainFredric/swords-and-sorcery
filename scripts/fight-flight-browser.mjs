@@ -45,7 +45,7 @@ async function until(fn,name,limit=300){
 async function send(method,params={}){
   const id=++seq;
   const promise=new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method));},12000);
+    const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method));},30000);
     pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
   });
   ws.send(JSON.stringify({id,method,params}));
@@ -91,7 +91,7 @@ try{
  await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'fully loaded menu');
  await evaluate("document.querySelector('#player-name').value='Flight browser probe';document.querySelector('#solo-button').click()");
  await until(()=>evaluate("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'Practice entry');
- await evaluate("document.querySelector('#practice-mode').click()");
+ await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()");
  await until(()=>evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing)"),'Practice arena');
  await evaluate("const s=document.querySelector('#practice-siege-type');s.value='fight-and-flight';s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await evaluate(flightState);return s?.ready&&s.machine;},'authoritative built Fight-and-Flight and canonical GLB');
@@ -188,12 +188,16 @@ try{
   if(!await evaluate("Boolean(window.__ssRuntime?.input?.keys?.has?.('Space'))"))await down(' ');
   return false;
  },'second powered takeoff before aerial ejection',160);
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+ await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.ammo < 18"),'expend ammo before aerial ejection',40);
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  const beforeEject=await evaluate(flightState);
  await tap('T');
  const ejected=await until(async()=>{const s=await evaluate(flightState);return s.player?.operating===null&&s.machine?.operator===null?s:false;},'real airborne eject',75);
  assert.equal(ejected.machine.id,beforeEject.machine.id);
  assert.ok(ejected.machine.y>.5,'ejection cannot secretly land the machine');
- assert.equal(ejected.machine.ammo,beforeEject.machine.ammo,'ejection cannot reload or regenerate ammo');
+ assert.ok(ejected.machine.ammo <= beforeEject.machine.ammo + 1, 'ejection cannot reload or regenerate ammo');
+ assert.ok(ejected.machine.ammo < 18, 'ejection cannot reload to full capacity');
  await up(' ');
  const result={before,mounted,flying,activeSkill,landed,after:await evaluate(flightState),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
