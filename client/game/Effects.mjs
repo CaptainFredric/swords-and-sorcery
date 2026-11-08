@@ -1215,6 +1215,56 @@ export class Effects {
     this.#flashLight(point, 0xff9a38, 11, 0.12, radius * 1.5);
   }
 
+  /** A siege-engine terminal impact, not an enlarged ordinary Fireball.
+   * The authoritative event owns damage, range and cover. Every mesh below
+   * only makes that single impact legible, at the selected particle density. */
+  valkyrieDetonation(point,{radius=8,condition=.5,ground=null}={}){
+    if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
+    const reach=Math.max(2,Math.min(13,radius));
+    const power=Math.max(0,Math.min(1,condition));
+    this.impact(point,{spell:'fireball',radius:reach,ground});
+    const center=new THREE.Vector3(point.x,point.y,point.z);
+    const hot=this.#spellMaterials('fireball');
+    this.#flashLight(point,0xffbd6a,48+30*power,.28,reach*2.6);
+    // A brilliant, brief core erupts into several overlapping, opaque lobes.
+    // Keep the fiery heart much narrower than the server's radial blast: the
+    // thin expanding pressure front above is the honest damage-radius cue.
+    for(let i=0,n=this.#many(Math.round(7+5*power));i<n;i++){
+      const a=i*Math.PI*2/n+0.3*(i%3),r=reach*(.035+.12*(i%4)/4);
+      const flame=new THREE.Mesh(this.blastGeometry,i%3?hot.billow:hot.ember);
+      flame.position.copy(center).add(new THREE.Vector3(Math.cos(a)*r,.16+reach*.025*(i%3),Math.sin(a)*r));
+      const size=reach*(.13+.055*(i%3));
+      flame.scale.set(size,size*(1.3+(i%4)*.2),size);
+      this.#addTransient(flame,{life:.32+.07*(i%4),fade:true,expand:1.8,
+        velocity:new THREE.Vector3(Math.cos(a)*(1.5+reach*.15),3.7+(i%4)*.75,Math.sin(a)*(1.5+reach*.15)),
+        spin:new THREE.Vector3(.8,1.4,.6)});
+    }
+    // Dark smoke boils upward *after* the white-hot flash. It does not leave
+    // a permanent opaque sphere hiding surviving players or their targets.
+    for(let i=0,n=this.#many(Math.round(9+7*power));i<n;i++){
+      const a=i*2.399963,r=reach*(.07+.17*(i%5)/5);
+      const where={x:point.x+Math.cos(a)*r,y:point.y+.15+(i%4)*.21,z:point.z+Math.sin(a)*r};
+      this.#dust(where,{size:2.4+reach*.16+(i%3)*.4,life:.75+(i%4)*.16,
+        color:i%4===0?0x644a37:0x342e2b,
+        velocity:new THREE.Vector3(Math.cos(a)*(1.4+reach*.16),2.4+(i%4)*.6,
+          Math.sin(a)*(1.4+reach*.16))});
+    }
+    // The rotor/chassis disintegrates in incandescent, ballistic fragments.
+    for(let i=0,n=this.#many(Math.round(12+13*power));i<n;i++){
+      const a=i*2.399963,up=.45+(.19*(i%6)),speed=reach*(.85+(i%5)*.1);
+      const spark=new THREE.Mesh(this.hotSparkGeometry,
+        this.#basicMaterial(i%4===0?0xffdf95:i%3===0?0xc64d20:0xff9a3d));
+      spark.position.copy(center).add(new THREE.Vector3(Math.cos(a)*.18,.2,Math.sin(a)*.18));
+      spark.scale.set(2+(i%3),2+(i%2),2.4+(i%4));
+      this.#addTransient(spark,{life:.42+.11*(i%5),gravity:13,shrink:true,
+        velocity:new THREE.Vector3(Math.cos(a)*speed,3.5+up*5,Math.sin(a)*speed),
+        spin:new THREE.Vector3(9,6,8)});
+    }
+    if(Number.isFinite(ground)&&point.y-ground<reach){
+      this.groundShock({x:point.x,y:ground,z:point.z},{radius:reach});
+    }
+  }
+
   coreEruption(point, radius = SPELLS.coreflagration.radius, ground = null) {
     this.impact(point, {spell:'fireball',radius,ground});
     const at=new THREE.Vector3(point.x,point.y,point.z);

@@ -176,13 +176,18 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const safeSteeringYaw=Number.isFinite(steeringYaw)?steeringYaw:safeHeading;
   const delta=Math.atan2(Math.sin(safeSteeringYaw-safeHeading),Math.cos(safeSteeringYaw-safeHeading));
   if(m.terminalDive){
+    // The first three simulated seconds match normal held Dash's full
+    // reticle tracking, angular acceleration and turn rate. It is controllable,
+    // not a scripted suicide missile. Steering then deteriorates continuously
+    // until the wreck is barely responsive, but never completely unsteerable.
     const age=m.terminalDive.simulatedSec??0;
-    const fade=Math.max(0,Math.min(1,(age-3)/11));
-    const rate=2.8*(1-fade)+.18*fade,acceleration=10*(1-fade)+.75*fade;
-    const target=terminalPiloted?Math.max(-rate,Math.min(rate,delta*2.6)):0;
-    m.runTurnSpeed=Math.max(-rate,Math.min(rate,(m.runTurnSpeed??0)+
-      Math.max(-acceleration*dt,Math.min(acceleration*dt,target-(m.runTurnSpeed??0)))));
-    m.heading+=Math.max(-Math.abs(delta),Math.min(Math.abs(delta),m.runTurnSpeed*dt));
+    const fade=cap((age-3)/11,0,1);
+    const rate=VALKYRIE_RUN.turnRate*(1-fade)+.18*fade;
+    const acceleration=VALKYRIE_RUN.turnAcceleration*(1-fade)+.75*fade;
+    const target=terminalPiloted?cap(delta*4.2,-rate,rate):0;
+    m.runTurnSpeed=cap((m.runTurnSpeed??0)+cap(target-(m.runTurnSpeed??0),
+      -acceleration*dt,acceleration*dt),-rate,rate);
+    m.heading+=cap(m.runTurnSpeed*dt,-Math.abs(delta),Math.abs(delta));
   }else{
     if(m.runGroundPhase){
       m.heading+=cap(delta,-2.8*dt,2.8*dt);m.runTurnSpeed=0;
