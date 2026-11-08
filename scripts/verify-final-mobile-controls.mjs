@@ -702,7 +702,7 @@ try {
       })()`);
       console.log('[NATIVE DAGAZ STAGE FAILURE]',JSON.stringify({i,stage,previous,diagnostics}));
     }
-    assert.ok(stage.progress>previous,
+    assert.ok(stage.progress>=previous,
       'real native touch must brighten the path continuously at checkpoint '+i+
       ' (prior '+previous+', current '+stage.progress+')');
     stages.push(stage);

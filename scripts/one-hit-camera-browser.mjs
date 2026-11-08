@@ -44,7 +44,8 @@ const state=`(() => {
     chase:r.chase??0,bodyVisible:Boolean(r.remotePlayers?.self?.root?.visible),
     handsVisible:Boolean(r.weapon?.group?.visible),
     cameraDistance:Math.hypot(camera.x-pos.x,camera.y-pos.y,camera.z-pos.z),
-    alive:a.alive
+    alive:a.alive,
+    grounded:Boolean(a.grounded)
   };
 })()`;
 try {
@@ -73,7 +74,7 @@ try {
   await evaluate("document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
   await poll(()=>evaluate("!document.querySelector('#solo-menu')?.classList.contains('hidden')"),'Solo activities');
   await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()");
-  await poll(async()=>{const v=await evaluate(state);return v?.ultimate==='one_hit_of_wonders'&&v.alive&&await evaluate("!document.querySelector('#hud').classList.contains('hidden')")},'local Practice Ultimate',45000);
+  await poll(async()=>{const v=await evaluate(state);return v?.ultimate==='one_hit_of_wonders'&&v.alive&&v.grounded&&await evaluate("!document.querySelector('#hud').classList.contains('hidden')")},'local Practice Ultimate grounded',45000);
   const before=await evaluate(state);assert.ok(before.chase<.1);
   evidence.before=before;
   await evaluate(`(() => {
@@ -88,22 +89,25 @@ try {
           chase: r.chase ?? 0, bodyVisible: Boolean(r.remotePlayers?.self?.root?.visible),
           handsVisible: Boolean(r.weapon?.group?.visible),
           cameraDistance: Math.hypot(camera.x - pos.x, camera.y - pos.y, camera.z - pos.z),
-          alive: a.alive, t: performance.now()
+          alive: a.alive, grounded: Boolean(a.grounded), t: performance.now()
         });
       }
-      if (window.__disasterTrace.length < 900) {
+      if (window.__disasterTrace.length < 1200) {
         requestAnimationFrame(trace);
       }
     };
     requestAnimationFrame(trace);
   })()`);
-  await evaluate("window.__ssRuntime.socket.ultimate()");
+  let ultimateTries = 0;
   await poll(async()=>{
+    if (++ultimateTries % 3 === 1) {
+      await evaluate("window.__ssRuntime.socket.ultimate()");
+    }
     const x=await evaluate(state);
-    if(x?.phase==='startup'||x?.phase==='active')return x;
-    const t=await evaluate("window.__disasterTrace?.find(x => x.phase === 'startup' || x.phase === 'active')");
+    if(x?.phase==='startup'||x?.phase==='active'||x?.committedAt)return x;
+    const t=await evaluate("window.__disasterTrace?.find(x => x.phase === 'startup' || x.phase === 'active' || x.committedAt)");
     return t || null;
-  },'authoritative Ultimate started');
+  },'authoritative Ultimate started',15000);
   let snappedOutside=false;
   const isCinematic=(x)=>Boolean(x && (x.chase>.5 || x.cameraDistance>2) && (x.bodyVisible || !x.handsVisible));
   const outside=await poll(async()=>{

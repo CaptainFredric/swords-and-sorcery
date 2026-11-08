@@ -135,11 +135,25 @@ try{
   if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
+ await host.send('Page.bringToFront');
+ await host.evaluate("window.focus()");
+ if(!await host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
+   await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+   await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ }
  await host.tap('T');
  let mountAttempts=0;
  await waitFor(async()=>{
   if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
-  if(++mountAttempts%8===0)await host.tap('T');
+  if(++mountAttempts%6===0){
+    await host.send('Page.bringToFront');
+    await host.evaluate("window.focus()");
+    if(!await host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
+      await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+      await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+    }
+    await host.tap('T');
+  }
   return false;
  },'host confirmed mounted in apparatus via T',120);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
