@@ -24,14 +24,17 @@ export class FightFlightRenderer{
     // Ground fire is authoritative aftermath, not part of the wreck model:
     // it remains visible after the apparatus disappears.
     this.burnRoot=everywhere(new THREE.Group());this.scene.add(this.burnRoot);
-    this.burnGeometry=new THREE.RingGeometry(.48,1,32);
-    this.burnCoreGeometry=new THREE.CircleGeometry(1,32);
-    this.burnFlameGeometry=new THREE.ConeGeometry(.18,.72,3);
+    this.burnGeometry=new THREE.RingGeometry(.94,1,48);
+    this.burnCoreGeometry=new THREE.CircleGeometry(1,48);
+    this.burnFlameGeometry=new THREE.ConeGeometry(.18,.72,5);
+    this.burnSmokeGeometry=new THREE.IcosahedronGeometry(1,1);
+    this.burnCrackGeometry=new THREE.PlaneGeometry(1,.06);
     this.burnZones=new Map();
     // Persistent aftershock visuals are separate from the craft mesh: they
     // continue rising after the pilot and apparatus have been destroyed.
     this.haloRoot=everywhere(new THREE.Group());this.scene.add(this.haloRoot);
-    this.haloGeometry=new THREE.TorusGeometry(1,.115,7,48);
+    this.haloGeometry=new THREE.TorusGeometry(1,.085,7,56);
+    this.blastCoreGeometry=new THREE.IcosahedronGeometry(1,2);
     this.halos=[];
     this.trailRoot=everywhere(new THREE.Group());this.scene.add(this.trailRoot);
     this.smokeGeometry=new THREE.IcosahedronGeometry(1,1);
@@ -272,38 +275,72 @@ export class FightFlightRenderer{
       flame.rotation.set(-.3*Math.sin(heading),i*.73,.25*Math.cos(heading));
     }
   }
-  spawnTerminalHalo(point,startedAt,duration){
+  // A short-lived 3D aftershock; the brighter fireball and heavy shrapnel
+  // come from Effects.valkyrieDetonation. This never creates a damage zone.
+  spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5){
     if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
-    const lifetime=Math.max(1,Math.min(15,Number(duration)||7));
+    const radius=Math.max(2,Math.min(13,blastRadius));
+    const power=Math.max(0,Math.min(1,condition));
+    const lifetime=Math.min(5,Math.max(2.6,(Number(duration)||7)*.45));
     const group=new THREE.Group();
+    group.position.set(point.x,point.y,point.z);
+    const core=new THREE.Mesh(this.blastCoreGeometry,new THREE.MeshBasicMaterial({
+      color:0xffce75,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,
+      depthWrite:false}));
+    group.add(core);
     const rings=[0,1].map(i=>{
       const ring=new THREE.Mesh(this.haloGeometry,new THREE.MeshBasicMaterial({
-        color:i?0xbbb9b5:0x85898b,transparent:true,opacity:.3,depthWrite:false,
-        side:THREE.DoubleSide}));
-      ring.rotation.x=-Math.PI/2;ring.renderOrder=4;
-      group.add(ring);return ring;
+        color:i?0x65605b:0xf6a14a,transparent:true,opacity:.5,
+        depthWrite:false,side:THREE.DoubleSide}));
+      ring.rotation.x=i?0:-Math.PI/2;
+      ring.renderOrder=4;group.add(ring);return ring;
+    });
+    const smoke=Array.from({length:12},(_,i)=>{
+      const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
+        color:i%4===0?0x6c4939:i%3===0?0x433a35:0x262827,
+        transparent:true,opacity:0,depthWrite:false}));
+      cloud.renderOrder=5;group.add(cloud);return cloud;
     });
     this.haloRoot.add(group);
-    this.halos.push({group,rings,point,startedAt,duration:lifetime});
+    this.halos.push({group,core,rings,smoke,startedAt,duration:lifetime,radius,power});
+    // An event lost during a lag spike must never accumulate unbounded VFX.
+    while(this.halos.length>5){
+      const old=this.halos.shift();
+      old.group.removeFromParent();
+      old.group.traverse(node=>{if(node.isMesh)node.material.dispose();});
+    }
   }
   drawTerminalHalos(now){
     for(const effect of [...this.halos]){
-      const age=Math.max(0,(now-effect.startedAt)/effect.duration);
-      if(age>=1){
-        effect.group.removeFromParent();
-        for(const ring of effect.rings)ring.material.dispose();
+      const elapsed=Math.max(0,now-effect.startedAt);
+      const {group,core,rings,smoke,radius,duration,power}=effect;
+      if(elapsed>=duration){
+        group.removeFromParent();
+        group.traverse(node=>{if(node.isMesh)node.material.dispose();});
         this.halos.splice(this.halos.indexOf(effect),1);
         continue;
       }
-      // The last transparent traces vanish exactly when the fire's server
-      // lifetime ends. The upward drifting torus echoes the drawn halo.
-      const radius=.8+age*8.1;
-      effect.group.position.set(effect.point.x,effect.point.y+.65+age*5.2,effect.point.z);
-      effect.rings.forEach((ring,i)=>{
-        ring.scale.setScalar(radius*(i?1.07:1));
-        ring.material.opacity=(i?.13:.31)*(1-age)**1.35;
-        ring.rotation.z=Math.sin(now*.17+i)*.045;
-      });
+      const shock=Math.min(1,elapsed/.72),ease=1-(1-shock)**3;
+      core.visible=elapsed<.36;
+      core.scale.setScalar(radius*(.12+.29*shock));
+      core.material.opacity=.8*(1-Math.min(1,elapsed/.36))**2;
+      rings[0].visible=elapsed<1.1;
+      rings[0].scale.setScalar(radius*(.11+.89*ease));
+      rings[0].material.opacity=.48*(1-Math.min(1,elapsed/1.1))**1.4;
+      rings[1].visible=elapsed<1.7;
+      rings[1].scale.setScalar(radius*(.09+.57*Math.min(1,elapsed/1.4)));
+      rings[1].material.opacity=.31*(1-Math.min(1,elapsed/1.7));
+      rings[1].rotation.y=elapsed*.5;
+      for(let i=0;i<smoke.length;i++){
+        const puff=smoke[i],angle=i*2.399963;
+        const drift=radius*(.06+.3*Math.min(1,elapsed/2.4))*(.7+.3*(i%4)/3);
+        puff.position.set(Math.cos(angle)*drift,
+          .35+elapsed*(1.15+.27*(i%5))+.2*(i%3),
+          Math.sin(angle)*drift);
+        puff.scale.setScalar(radius*(.085+.075*(i%4)/3)+elapsed*(.25+.1*(i%3)));
+        puff.material.opacity=(.16+.1*power)*(1-elapsed/duration)**1.5*
+          Math.min(1,elapsed/.35);
+      }
     }
   }
   drawBurnZones(zones,now){
@@ -314,55 +351,92 @@ export class FightFlightRenderer{
       let visual=this.burnZones.get(zone.id);
       if(!visual){
         const group=new THREE.Group();
-        const edge=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({
-          color:0xd45c28,transparent:true,opacity:.44,depthWrite:false,
-          side:THREE.DoubleSide}));
-        edge.rotation.x=-Math.PI/2;edge.renderOrder=2;
-        group.add(edge);
-        // Low-poly ember disc and flame tongues make the lingering AoE
-        // unmistakably HOT without an expensive particle cloud or an opaque
-        // hazard decal hiding duelists. Its server radius is unchanged.
+        const scar=new THREE.Group();group.add(scar);
+        // The near-black, charred earth remains visible beneath the flames,
+        // while the thin glowing rim marks the EXACT authoritative radius.
         const core=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
-          color:0xa13816,transparent:true,opacity:.13,depthWrite:false,
-          side:THREE.DoubleSide}));
-        core.rotation.x=-Math.PI/2;core.position.y=-.012;core.renderOrder=1;
-        group.add(core);
+          color:0x170f0c,transparent:true,opacity:.36,depthWrite:false,
+          polygonOffset:true,polygonOffsetFactor:-2,side:THREE.DoubleSide}));
+        core.rotation.x=-Math.PI/2;core.renderOrder=1;scar.add(core);
+        const glow=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
+          color:0xcc480c,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,
+          depthWrite:false,side:THREE.DoubleSide}));
+        glow.rotation.x=-Math.PI/2;glow.position.y=.009;glow.renderOrder=2;scar.add(glow);
+        const edge=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({
+          color:0xff8e38,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,
+          depthWrite:false,side:THREE.DoubleSide}));
+        edge.rotation.x=-Math.PI/2;edge.position.y=.02;edge.renderOrder=3;scar.add(edge);
+        const cracks=[];
+        for(let i=0;i<11;i++){
+          const angle=i*2.399963,distance=.13+.057*(i%8);
+          const crack=new THREE.Mesh(this.burnCrackGeometry,new THREE.MeshBasicMaterial({
+            color:i%3===0?0xffa844:0xc64617,transparent:true,opacity:.5,
+            blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+          crack.position.set(Math.cos(angle)*distance,.028,Math.sin(angle)*distance);
+          crack.rotation.set(-Math.PI/2,0,angle);
+          crack.scale.set(.17+.075*(i%4),.72,1);
+          crack.renderOrder=4;scar.add(crack);cracks.push(crack);
+        }
         const flames=[];
-        for(let i=0;i<10;i++){
+        for(let i=0;i<20;i++){
           const mesh=new THREE.Mesh(this.burnFlameGeometry,new THREE.MeshBasicMaterial({
-            color:i%3===0?0xffcc62:i%2?0xf58131:0xedaf4a,
-            transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}));
-          mesh.rotation.y=i*2.4;mesh.renderOrder=3;
+            color:i%5===0?0xffed9a:i%3===0?0xffb045:i%2?0xed6124:0xff872f,
+            transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}));
+          mesh.rotation.y=i*2.4;mesh.renderOrder=5;
           group.add(mesh);flames.push(mesh);
         }
-        visual={group,edge,core,flames};
+        const soot=[];
+        for(let i=0;i<9;i++){
+          const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
+            color:i%3===0?0x5d4e42:0x322b29,transparent:true,opacity:0,
+            depthWrite:false,side:THREE.DoubleSide}));
+          cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
+        }
+        // One small, unshadowed firelight per active authoritative zone.
+        const light=new THREE.PointLight(0xff702b,1.0,13,2);
+        light.position.y=.6;group.add(light);
+        visual={group,scar,edge,core,glow,cracks,flames,soot,light};
         this.burnRoot.add(group);this.burnZones.set(zone.id,visual);
       }
       const duration=Math.max(.1,zone.expiresAt-zone.startedAt);
       const remaining=Math.max(0,Math.min(1,(zone.expiresAt-now)/duration));
-      const radius=Number.isFinite(zone.radius)?zone.radius:4;
-      const pulse=Math.sin(now*8)*.06;
-      visual.edge.material.opacity=(.18+.30*remaining)*(1+pulse);
-      visual.edge.scale.setScalar(radius);
-      visual.core.material.opacity=.045+.11*remaining;
-      visual.core.scale.setScalar(radius*.97);
-      visual.group.position.set(zone.point.x,zone.point.y+.055,zone.point.z);
+      const extinguish=Math.min(1,remaining/.16);
+      const radius=Number.isFinite(zone.radius)?Math.max(.1,zone.radius):4;
+      const pulse=1+.12*remaining*Math.sin(now*(8+2*remaining));
+      visual.group.position.set(zone.point.x,zone.point.y+.038,zone.point.z);
+      visual.scar.scale.set(radius,1,radius);
+      visual.core.material.opacity=.35*extinguish;
+      visual.glow.material.opacity=(.05+.13*remaining)*pulse*extinguish;
+      visual.edge.material.opacity=(.22+.43*remaining)*pulse*extinguish;
+      for(const [i,crack] of visual.cracks.entries())
+        crack.material.opacity=(.16+.5*remaining)*(1+.18*Math.sin(now*3+i))*extinguish;
       for(let i=0;i<visual.flames.length;i++){
-        const flame=visual.flames[i];
-        const theta=i*Math.PI*2/visual.flames.length;
-        const distance=radius*(.24+.48*((i*7)%11)/11);
-        const flicker=.74+.26*Math.sin(now*11+i*2.6);
-        const height=(.38+.075*radius)*flicker;
-        flame.position.set(Math.sin(theta)*distance,height*.46,
-          Math.cos(theta)*distance);
-        flame.scale.set(.6+radius*.055,height/.72,.6+radius*.055);
-        flame.material.opacity=(.22+.5*remaining)*flicker;
+        const flame=visual.flames[i],angle=i*2.399963;
+        const distance=radius*(.18+.64*((i*7)%19)/19);
+        const flicker=.71+.29*Math.sin(now*(9+(i%5))+.88*i);
+        const height=(.47+.09*radius)*flicker*(.32+.68*remaining)*extinguish;
+        flame.position.set(Math.sin(angle)*distance,height*.46,
+          Math.cos(angle)*distance);
+        flame.rotation.y=angle+Math.sin(now*1.5+i)*.13;
+        flame.scale.set(.7+radius*.04,height/.72,.7+radius*.04);
+        flame.material.opacity=(.2+.58*remaining)*flicker*extinguish;
       }
+      for(let i=0;i<visual.soot.length;i++){
+        const cloud=visual.soot[i],angle=i*2.399963;
+        const phase=((now*.38+i/visual.soot.length)%1+1)%1;
+        const distance=radius*(.19+.45*((i*5)%13)/13);
+        cloud.position.set(Math.sin(angle)*distance+.25*Math.sin(now+i),
+          .18+phase*(.95+radius*.21),
+          Math.cos(angle)*distance+.25*Math.cos(now+i));
+        cloud.scale.setScalar(.17+phase*(.33+radius*.035));
+        cloud.material.opacity=.19*remaining*(1-phase)**1.4*extinguish;
+      }
+      visual.light.intensity=1.2*remaining*extinguish*(.92+.08*Math.sin(now*11));
+      visual.light.distance=radius*2.2;
     }
     for(const [id,visual] of this.burnZones)if(!active.has(id)){
       visual.group.removeFromParent();
-      visual.edge.material.dispose();visual.core.material.dispose();
-      for(const flame of visual.flames)flame.material.dispose();
+      visual.group.traverse(node=>{if(node.isMesh)node.material.dispose();});
       this.burnZones.delete(id);
     }
   }
@@ -420,8 +494,9 @@ export class FightFlightRenderer{
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();
+    this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);
-    this.haloRoot.removeFromParent();this.haloGeometry.dispose();
+    this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
     this.trailRoot.removeFromParent();
     for(const puff of this.smokePuffs)puff.material.dispose();
     for(const flame of this.trailFlames)flame.material.dispose();
