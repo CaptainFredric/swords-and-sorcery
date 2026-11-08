@@ -40,8 +40,9 @@ test('Mounted Flight preserves the desktop E ability tile while other siege mach
  assert.doesNotMatch(css,/\.ballista-mounted \.abilities \{ display: none; \}/);
  assert.match(hud,/inFlight\?'FLIGHT DASH':'DASH'/);
  assert.match(hud,/iconSvg\(dashFace\)/);
- const siege=armory.slice(armory.indexOf("$('#armory-siege-machines').innerHTML="),
-   armory.indexOf('if(siegeFocus)'));
+ const siegeStart = armory.search(/\$\(['"]#armory-siege-machines['"]\)\.innerHTML\s*=/);
+ const siegeEnd = armory.indexOf('if(siegeFocus)') !== -1 ? armory.indexOf('if(siegeFocus)') : armory.indexOf("$('#siege-ctrl-desktop')");
+ const siege = siegeStart !== -1 && siegeEnd !== -1 ? armory.slice(siegeStart, siegeEnd) : '';
  assert.ok(siege.length>0);
  assert.doesNotMatch(siege,/iconSvg\(skill\.icon\)/,
    'Siege Skill cards retain their names and descriptions without oversized icons');
