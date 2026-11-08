@@ -56,4 +56,27 @@ test('loadArmoryLocation and saveArmoryLocation roundtrip state via storage', ()
   assert.equal(restored.region, 'heraldry');
   assert.equal(restored.highlightedItem, 'cobalt');
   assert.equal(restored.inspectorOpen, false);
+
+  // Test single argument saveArmoryLocation(state) using globalThis.localStorage
+  const origLocal = globalThis.localStorage;
+  try {
+    globalThis.localStorage = storage;
+    saveArmoryLocation({
+      region: 'siege',
+      category: 'technique',
+      inspectorOpen: true,
+      highlightedItem: 'castleward_longsword',
+      siegeMachine: 'biBye',
+      siegeStoryExpanded: true,
+    });
+    const restoredSingle = loadArmoryLocation(storage);
+    assert.equal(restoredSingle.region, 'siege');
+    assert.equal(restoredSingle.category, 'technique');
+    assert.equal(restoredSingle.inspectorOpen, true);
+    assert.equal(restoredSingle.highlightedItem, 'castleward_longsword');
+    assert.equal(restoredSingle.siegeMachine, 'biBye');
+    assert.equal(restoredSingle.siegeStoryExpanded, true);
+  } finally {
+    globalThis.localStorage = origLocal;
+  }
 });

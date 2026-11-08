@@ -47,7 +47,15 @@ export function loadArmoryLocation(storage = globalThis.localStorage) {
   }
 }
 
-export function saveArmoryLocation(storage = globalThis.localStorage, state = {}) {
+export function saveArmoryLocation(first, second) {
+  let storage = globalThis.localStorage;
+  let state = first;
+  if (first && typeof first.setItem === 'function') {
+    storage = first;
+    state = second;
+  } else if (second !== undefined && second !== null) {
+    state = second;
+  }
   try {
     const normalized = normalizeArmoryLocation(state);
     storage?.setItem?.(STORAGE_KEY_LOCATION, JSON.stringify(normalized));
