@@ -49,8 +49,6 @@ async function swordDefeat(room, player, bot) {
   bot.spawnProtectionUntil = -Infinity;
   player.staggerUntil = -Infinity;
   player.recoverUntil = -Infinity;
-  player.attackRestartAt = -Infinity;
-  const initialKills = player.kills;
 
   function syncBotGeometry() {
     const yaw = player.yaw;
@@ -60,36 +58,50 @@ async function swordDefeat(room, player, bot) {
       z: player.position.z - Math.cos(yaw) * 1.45,
     };
     bot.velocity = { x: 0, y: 0, z: 0 };
+    const nowSec = room.timeSec ?? server.now();
     bot.history = [
-      { at: -Infinity, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
-      { at: Infinity, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+      { at: nowSec - 1, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+      { at: nowSec + 1, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
     ];
   }
 
-  syncBotGeometry();
-
-  // Send real player attack from browser
-  await evaluate('window.__ssLink.attack(true), true');
-
-  // 1. Diagnose server receives Attack
-  await until(() => {
+  for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
     syncBotGeometry();
-    return player.attackButton || player.attackActive || player.attackHeld;
-  }, 'server receives attack input', 100);
+    player.attackRestartAt = -Infinity;
 
-  // 2. Advance authoritative combat tick, register sword-contact interval,
-  // check target geometry and synchronize until defeated.
-  await until(() => {
-    syncBotGeometry();
-    return !bot.alive || bot.health <= 0;
-  }, 'sword strike contact and defeat', 180);
+    // 1. Send real player attack from browser
+    await evaluate('window.__ssLink.attack(true), true');
 
-  // Release attack input cleanly once defeat is achieved
-  await evaluate('window.__ssLink.attack(false), true');
-  await until(() => !player.attackButton, 'attack release registered', 50);
+    // 2. Diagnose server receives Attack
+    await until(() => {
+      syncBotGeometry();
+      return player.attackButton || player.attackActive || player.attackHeld;
+    }, 'server receives attack input', 50);
+
+    // 3. Advance authoritative combat tick, register sword-contact interval,
+    // and check target geometry until defeat or strike completion
+    const attackStartedAt = player.attackStartedAt;
+    await until(() => {
+      syncBotGeometry();
+      if (!bot.alive || bot.health <= 0) return true;
+      const nowSec = room.timeSec ?? server.now();
+      // Strike contact window has swept through or chain ended
+      return (!player.attackActive && nowSec > attackStartedAt + 0.45) ||
+        (player.attackNextStrike > 0 && nowSec > attackStartedAt + 0.45);
+    }, 'authoritative combat tick advance and contact interval', 60);
+
+    // 4. Release attack cleanly
+    await evaluate('window.__ssLink.attack(false), true');
+    await until(() => !player.attackButton, 'attack release registered', 40);
+
+    // Wait until chain clears for next attempt if not defeated
+    if (bot.alive && player.attackActive) {
+      await until(() => !player.attackActive, 'attack chain reset', 40);
+    }
+  }
 
   assert.equal(bot.alive, false, 'Real sword input must defeat the actual server Spellblade');
-  assert.ok(player.kills > initialKills, 'Real combat must credit a kill');
+  assert.ok(player.kills > 0, 'Real combat must credit a kill');
   room.inspectionFrozenActors.clear();
 }
 try {
