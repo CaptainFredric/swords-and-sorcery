@@ -49,7 +49,10 @@ async function swordDefeat(room, player, bot) {
   bot.spawnProtectionUntil = -Infinity;
   player.staggerUntil = -Infinity;
   player.recoverUntil = -Infinity;
-  for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
+  player.attackRestartAt = -Infinity;
+  const initialKills = player.kills;
+
+  function syncBotGeometry() {
     const yaw = player.yaw;
     bot.position = {
       x: player.position.x - Math.sin(yaw) * 1.45,
@@ -57,13 +60,36 @@ async function swordDefeat(room, player, bot) {
       z: player.position.z - Math.cos(yaw) * 1.45,
     };
     bot.velocity = { x: 0, y: 0, z: 0 };
-    await evaluate('window.__ssLink.attack(true), true');
-    await sleep(1200);
-    await evaluate('window.__ssLink.attack(false), true');
-    await sleep(150);
+    bot.history = [
+      { at: -Infinity, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+      { at: Infinity, position: { ...bot.position }, yaw: bot.yaw, pitch: 0, crouched: false },
+    ];
   }
+
+  syncBotGeometry();
+
+  // Send real player attack from browser
+  await evaluate('window.__ssLink.attack(true), true');
+
+  // 1. Diagnose server receives Attack
+  await until(() => {
+    syncBotGeometry();
+    return player.attackButton || player.attackActive || player.attackHeld;
+  }, 'server receives attack input', 100);
+
+  // 2. Advance authoritative combat tick, register sword-contact interval,
+  // check target geometry and synchronize until defeated.
+  await until(() => {
+    syncBotGeometry();
+    return !bot.alive || bot.health <= 0;
+  }, 'sword strike contact and defeat', 180);
+
+  // Release attack input cleanly once defeat is achieved
+  await evaluate('window.__ssLink.attack(false), true');
+  await until(() => !player.attackButton, 'attack release registered', 50);
+
   assert.equal(bot.alive, false, 'Real sword input must defeat the actual server Spellblade');
-  assert.ok(player.kills > 0, 'Real combat must credit a kill');
+  assert.ok(player.kills > initialKills, 'Real combat must credit a kill');
   room.inspectionFrozenActors.clear();
 }
 try {
