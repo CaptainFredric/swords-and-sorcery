@@ -34,11 +34,14 @@ import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmospher
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
-import { armoryView, preparedArmoryView } from './menu/armoryView.mjs';
+import { armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
 import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
+import { loadArmoryLocation, saveArmoryLocation } from './menu/armoryLocation.mjs';
+import { CLOTH } from '../shared/src/cosmetics.mjs';
+import { GAME } from '../shared/src/combat.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -382,15 +385,23 @@ function route(screenId) {
   const crossingArmory=previous===SCREEN_IDS.ARMORY||screenId===SCREEN_IDS.ARMORY;
   menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
     {immediate:previous!==screenId&&!crossingArmory});
-  menuScene?.setArmoryPresentation(screenId === SCREEN_IDS.ARMORY,
-    {immediate:previous!==screenId&&!crossingArmory});
+  if (screenId === SCREEN_IDS.ARMORY) {
+    navigateToArmorySection(armoryLocation.region || 'kit', {
+      preserveInspector: Boolean(armoryLocation.inspectorOpen),
+      immediate: previous !== screenId && !crossingArmory,
+    });
+  } else {
+    menuScene?.setArmoryPresentation(false, { immediate: previous !== screenId && !crossingArmory });
+    menuScene?.setSiegeWorkshop(false);
+    menuScene?.setHeraldryChamber(false);
+  }
   if (menuBacked && previous !== screenId) {
     // A stage reset must not teleport him during the Armory sidestep or
     // erase his return walk. It still resets spell/ultimate presentations.
     menuScene?.resetCanonicalHeroState({immediate:!crossingArmory});
   }
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
-  if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
+  if (menuBacked && veilLifted && previous !== screenId && screenId !== SCREEN_IDS.ARMORY) menuScene?.setShot(screenId);
   // Old companion scroll offsets used to bury OPEN ROOMS / CHOSEN PURSUIT
   // beneath the rod when a banner was reopened.
   if(previous!==screenId){
@@ -1794,52 +1805,357 @@ $('#end-armory').addEventListener('click', () => {
   }
 });
 
-// --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
-function renderArmory() {
-  const focusSpell = document.activeElement?.dataset?.spell;
-  const focusUltimate = document.activeElement?.dataset?.ultimate;
+// --- the Armory: The Spellblade's Kit, Masterstrokes, Siege Workshop and Heraldic Chamber ---
+let armoryLocation = loadArmoryLocation();
+
+function updatePlaques() {
+  const currentSpellId = settings.get('loadout.spell');
+  const currentUltId = settings.get('loadout.ultimate');
+  const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
+  const cloth = CLOTH[currentClothId] || CLOTH.crimson;
+  const view = armoryView(currentSpellId, currentUltId);
+  const technique = SWORD_TECHNIQUES[0];
+
+  const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
+  const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
+
+  const techIcon = $('#plaque-icon-technique');
+  if (techIcon) techIcon.textContent = technique.mark;
+  const techName = $('#plaque-name-technique');
+  if (techName) techName.textContent = technique.name;
+
+  const sorceryIcon = $('#plaque-icon-sorcery');
+  if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
+  const sorceryName = $('#plaque-name-sorcery');
+  if (sorceryName) sorceryName.textContent = SPELLS[currentSpellId]?.label || equippedSpell.name;
+
+  const masterstrokeIcon = $('#plaque-icon-masterstroke');
+  if (masterstrokeIcon) masterstrokeIcon.textContent = equippedUlt.mark;
+  const masterstrokeName = $('#plaque-name-masterstroke');
+  if (masterstrokeName) masterstrokeName.textContent = ULTIMATES[currentUltId]?.label || equippedUlt.name;
+
+  const heraldryIcon = $('#plaque-icon-heraldry');
+  if (heraldryIcon) heraldryIcon.textContent = cloth.mark || '✥';
+  const heraldryName = $('#plaque-name-heraldry');
+  if (heraldryName) heraldryName.textContent = cloth.name;
+
+  const summary = `Equipped: ${technique.name} · ${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.label || equippedUlt.name} · ${cloth.name}`;
+  const summaryEl = $('#armory-status-summary');
+  if (summaryEl) summaryEl.textContent = summary;
+
+  // Semantic/backward-compatible elements
+  const equippedEl = $('#armory-equipped');
+  if (equippedEl) equippedEl.textContent = `${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.short ?? 'Sunder'}`;
+  const bladeNameEl = $('#armory-blade-name');
+  if (bladeNameEl) bladeNameEl.textContent = technique.name;
+  const bladeFactsEl = $('#armory-blade-facts');
+  if (bladeFactsEl) bladeFactsEl.textContent = typeof technique.facts === 'function' ? technique.facts(GAME) : technique.facts;
+}
+
+function renderInspectorLists() {
+  const currentSpell = settings.get('loadout.spell');
+  const currentUlt = settings.get('loadout.ultimate');
+
+  const techContainer = $('#armory-techniques');
+  if (techContainer) {
+    techContainer.innerHTML = SWORD_TECHNIQUES.map((tech) => {
+      const isEquipped = tech.status === 'EQUIPPED';
+      const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
+      const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
+      const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
+        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (isInTraining ? '<i class="training-tag">IN TRAINING</i>' : '')}
+        <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
+    }).join('');
+  }
+
+  const spellsContainer = $('#armory-spells');
+  if (spellsContainer) {
+    const view = armoryView(currentSpell, currentUlt);
+    spellsContainer.innerHTML = view.spells.map((spell) => {
+      const isSelected = spell.id === armoryLocation.highlightedItem && armoryLocation.category === 'sorcery';
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
+        <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
+        <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`;
+    }).join('');
+  }
+
+  const ultimatesContainer = $('#armory-ultimates');
+  if (ultimatesContainer) {
+    const view = armoryView(currentSpell, currentUlt);
+    ultimatesContainer.innerHTML = view.ultimates.map((u) => {
+      const isSelected = u.id === armoryLocation.highlightedItem && armoryLocation.category === 'masterstroke';
+      return `<button type="button" class="spell-card ultimate-card${isSelected ? ' selected' : ''}${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
+        <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
+        <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`;
+    }).join('');
+  }
+}
+
+function updateInspectorDetailCard() {
+  const cat = armoryLocation.category;
+  const id = armoryLocation.highlightedItem;
+  const equipBtn = $('#armory-equip-btn');
+  const preparedRoot = $('#armory-prepared');
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
-  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', coreflagration: 'Coreflagration', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel', line_of_conduct: 'Line of Conduct' })[settings.get('loadout.spell')] ?? SPELLS[settings.get('loadout.spell')]?.label} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
-  $('#armory-blade-name').textContent = view.blade.name;
-  $('#armory-blade-facts').textContent = view.blade.facts;
-  $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
-    <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
-    <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`).join('');
-  $('#armory-ultimates').innerHTML = view.ultimates.map((u) => `<button type="button" class="spell-card ultimate-card${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
-    <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
-    <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
-  renderPreparedArmory();
-  const siegeFocus=document.activeElement?.dataset?.siegeSkill;
-  const expandedSiegeStories=new Set([...$('#armory-siege-machines').querySelectorAll('details[data-siege-story][open]')]
-    .map(el=>el.dataset.siegeStory));
-  $('#armory-siege-machines').innerHTML=siegeArmoryView(siegeSelections()).map(m=>`
+
+  if (cat === 'technique') {
+    const tech = SWORD_TECHNIQUES.find((t) => t.id === id) || SWORD_TECHNIQUES[0];
+    const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
+    $('#inspector-card-mark').textContent = tech.mark;
+    $('#inspector-card-name').textContent = tech.name;
+    $('#inspector-card-desc').textContent = tech.line;
+    $('#inspector-card-facts').textContent = factsText;
+    $('#inspector-card-lore').textContent = tech.lore;
+    if (tech.disabled || tech.status === 'IN TRAINING') {
+      $('#inspector-card-status').textContent = 'IN TRAINING';
+      if (equipBtn) {
+        equipBtn.disabled = true;
+        equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
+      }
+    } else {
+      $('#inspector-card-status').textContent = 'EQUIPPED';
+      if (equipBtn) {
+        equipBtn.disabled = true;
+        equipBtn.textContent = 'EQUIPPED';
+      }
+    }
+    if (preparedRoot) preparedRoot.classList.add('hidden');
+  } else if (cat === 'sorcery') {
+    const spell = view.spells.find((s) => s.id === id) || view.spells[0];
+    const isEquipped = settings.get('loadout.spell') === spell.id;
+    $('#inspector-card-mark').textContent = spell.mark;
+    $('#inspector-card-name').textContent = spell.name;
+    $('#inspector-card-desc').textContent = spell.line;
+    $('#inspector-card-facts').textContent = spell.facts;
+    $('#inspector-card-lore').textContent = spell.lore || '';
+    $('#inspector-card-status').textContent = isEquipped ? 'EQUIPPED' : 'AVAILABLE';
+    if (equipBtn) {
+      equipBtn.disabled = isEquipped;
+      equipBtn.textContent = isEquipped ? 'EQUIPPED' : 'EQUIP';
+    }
+    if (preparedRoot) preparedRoot.classList.add('hidden');
+  } else if (cat === 'masterstroke') {
+    const ult = view.ultimates.find((u) => u.id === id) || view.ultimates[0];
+    const isEquipped = settings.get('loadout.ultimate') === ult.id;
+    $('#inspector-card-mark').textContent = ult.mark;
+    $('#inspector-card-name').textContent = ult.name;
+    $('#inspector-card-desc').textContent = ult.line;
+    $('#inspector-card-facts').textContent = ult.facts;
+    $('#inspector-card-lore').textContent = ult.lore || '';
+    $('#inspector-card-status').textContent = isEquipped ? 'EQUIPPED' : 'AVAILABLE';
+    if (equipBtn) {
+      equipBtn.disabled = isEquipped;
+      equipBtn.textContent = isEquipped ? 'EQUIPPED' : 'EQUIP';
+    }
+    if (ult.id === 'chivalry') {
+      renderPreparedArmory();
+      if (preparedRoot) preparedRoot.classList.remove('hidden');
+    } else {
+      if (preparedRoot) preparedRoot.classList.add('hidden');
+    }
+  }
+}
+
+function highlightInspectorItem(category, itemId) {
+  armoryLocation.category = category;
+  armoryLocation.highlightedItem = itemId;
+  saveArmoryLocation(armoryLocation);
+  renderInspectorLists();
+  updateInspectorDetailCard();
+}
+
+function openInspector(category, itemId = null) {
+  armoryLocation.inspectorOpen = true;
+  armoryLocation.category = category;
+  if (!itemId) {
+    if (category === 'technique') itemId = 'castleward_longsword';
+    else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
+    else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
+  }
+  armoryLocation.highlightedItem = itemId;
+  saveArmoryLocation(armoryLocation);
+
+  const inspector = $('#armory-inspector');
+  if (inspector) inspector.classList.remove('closed');
+
+  const titles = {
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Masterful stances and weapon abilities for the Castleward longsword.' },
+    sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
+    masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Spend built Prowess to unleash a battle-turning technique.' },
+  };
+  const t = titles[category] || titles.sorcery;
+  $('#inspector-category').textContent = t.cat;
+  $('#inspector-title').textContent = t.title;
+  $('#inspector-subtitle').textContent = t.sub;
+
+  $('#inspector-list-technique').classList.toggle('hidden', category !== 'technique');
+  $('#inspector-list-sorcery').classList.toggle('hidden', category !== 'sorcery');
+  $('#inspector-list-masterstroke').classList.toggle('hidden', category !== 'masterstroke');
+
+  menuScene?.setArmoryInspector(true);
+
+  renderInspectorLists();
+  updateInspectorDetailCard();
+
+  if (category === 'sorcery') {
+    menuScene?.showSpell(itemId);
+  }
+}
+
+function closeInspector({ immediate = false } = {}) {
+  armoryLocation.inspectorOpen = false;
+  saveArmoryLocation(armoryLocation);
+  const inspector = $('#armory-inspector');
+  if (inspector) inspector.classList.add('closed');
+  menuScene?.setArmoryInspector(false, { immediate });
+  menuScene?.showSpell(settings.get('loadout.spell'));
+  const backBtn = $('#armory-back');
+  if (backBtn && armoryLocation.region === 'kit') backBtn.textContent = '← MAIN MENU';
+}
+
+function renderSiegeWorkshop(machineId = 'soFist') {
+  armoryLocation.siegeMachine = machineId;
+  saveArmoryLocation(armoryLocation);
+
+  for (const tab of document.querySelectorAll('[data-siege-tab]')) {
+    const isCurrent = tab.dataset.siegeTab === machineId;
+    tab.classList.toggle('selected', isCurrent);
+    tab.setAttribute('aria-pressed', String(isCurrent));
+  }
+
+  menuScene?.siegeWorkshop?.selectMachine(machineId);
+
+  const selections = siegeSelections();
+  const machines = siegeArmoryView(selections);
+  const m = machines.find((item) => item.id === machineId) || machines[0];
+
+  $('#siege-title').textContent = m.name;
+  $('#siege-subtitle').textContent = m.subtitle;
+  $('#siege-overview-text').textContent = m.overview || m.preview;
+  $('#siege-facts-pill').textContent = m.facts;
+
+  const attacksList = $('#siege-attacks-list');
+  if (attacksList) {
+    attacksList.innerHTML = (m.attacks || []).map((atk) => `<div class="siege-attack-card">
+      <div class="siege-attack-head">
+        <strong>${escapeHtml(atk.name)}</strong>
+        <small>${escapeHtml(atk.facts)}</small>
+      </div>
+      <p>${escapeHtml(atk.line)}</p>
+    </div>`).join('');
+  }
+
+  const expandedSiegeStories = new Set([...$('#armory-siege-machines').querySelectorAll('details[data-siege-story][open]')].map((el) => el.dataset.siegeStory));
+  $('#armory-siege-machines').innerHTML = `
     <article class="siege-armory-card">
-      <div class="siege-armory-heading">
-        <span class="siege-armory-mark" aria-hidden="true">${m.icon?iconSvg(m.icon):m.mark}</span>
+      <div class="siege-armory-heading visual-hidden">
+        <span class="siege-armory-mark">${m.icon ? iconSvg(m.icon) : m.mark}</span>
         <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
       </div>
-      <p class="siege-armory-preview">${escapeHtml(m.preview)}</p>
-      <details class="siege-armory-story" data-siege-story="${m.id}" ${expandedSiegeStories.has(m.id)?'open':''}>
+      <p class="siege-armory-preview visual-hidden">${escapeHtml(m.preview)}</p>
+      <details class="siege-armory-story visual-hidden" data-siege-story="${m.id}" ${expandedSiegeStories.has(m.id) ? 'open' : ''}>
         <summary aria-label="Story of Siege for ${escapeHtml(m.name)}">
           <span>STORY OF SIEGE</span><span class="siege-story-chevron" aria-hidden="true">⌄</span>
         </summary>
-        <div class="siege-armory-description${m.id==='fightFlight'?' siege-armory-description-long':''}">
-          ${m.line.split(/\n\s*\n/).map((paragraph,i)=>`<p${i===0&&m.id==='fightFlight'?' class="siege-armory-motto"':''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('')}
+        <div class="siege-armory-description${m.id === 'fightFlight' ? ' siege-armory-description-long' : ''}">
+          ${m.line.split(/\n\s*\n/).map((paragraph, i) => `<p${i === 0 && m.id === 'fightFlight' ? ' class="siege-armory-motto"' : ''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('')}
         </div>
-      </details><small class="siege-armory-facts">${escapeHtml(m.facts)}</small>
-      <p class="armory-slot">SIEGE SKILL · U</p>
+      </details>
+      <small class="siege-armory-facts visual-hidden">${escapeHtml(m.facts)}</small>
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
-        ${m.skills.map(skill=>`<button type="button" class="spell-card${skill.equipped?' equipped':''}"
-          role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}"
-          data-siege-skill="${skill.id}" ${m.skills.length===1?'disabled':''}>
-          <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped?'<i>EQUIPPED</i>':''}
+        ${m.skills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
+          <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
           <small>${skill.line}</small></button>`).join('')}
       </div>
-    </article>`).join('');
-  if(siegeFocus)document.querySelector(`[data-siege-skill="${siegeFocus}"]`)?.focus({preventScroll:true});
-  if (focusSpell) document.querySelector(`[data-spell="${focusSpell}"]`)?.focus({ preventScroll: true });
-  if (focusUltimate) document.querySelector(`[data-ultimate="${focusUltimate}"]`)?.focus({ preventScroll: true });
+    </article>
+  `;
+
+  $('#siege-ctrl-desktop').textContent = m.controls?.desktop || 'Standard vehicle movement';
+  $('#siege-ctrl-touch').textContent = m.controls?.touch || 'Touch movement stick & aim';
+
+  const details = $('#siege-story-details');
+  if (details) {
+    details.dataset.siegeStory = m.id;
+    details.open = Boolean(armoryLocation.siegeStoryExpanded);
+  }
+  $('#siege-story-content').innerHTML = `
+    <div class="siege-armory-description${m.id === 'fightFlight' ? ' siege-armory-description-long' : ''}">
+      ${m.line.split(/\n\s*\n/).map((paragraph, i) => `<p${i === 0 && m.id === 'fightFlight' ? ' class="siege-armory-motto"' : ''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('')}
+    </div>
+  `;
 }
+
+function navigateToArmorySection(region, { preserveInspector = false, immediate = false } = {}) {
+  if (!['kit', 'siege', 'heraldry', 'challenges'].includes(region)) region = 'kit';
+  if (armoryLocation.region !== 'challenges') {
+    armoryLocation.previousRegion = armoryLocation.region;
+  }
+  armoryLocation.region = region;
+  saveArmoryLocation(armoryLocation);
+
+  $('#armory-kit')?.classList.toggle('hidden', region !== 'kit');
+  $('#armory-siege')?.classList.toggle('hidden', region !== 'siege');
+  $('#armory-heraldry')?.classList.toggle('hidden', region !== 'heraldry');
+  $('#armory-challenges-view')?.classList.toggle('hidden', region !== 'challenges');
+  $('#armory-challenges')?.classList.toggle('hidden', region !== 'challenges');
+
+  const headings = {
+    kit: "THE SPELLBLADE'S KIT — ARMORY",
+    siege: 'SIEGE WORKSHOP — ARMORY',
+    heraldry: 'HERALDIC CHAMBER — ARMORY',
+    challenges: 'CHALLENGE LEDGER — ARMORY',
+  };
+  $('#armory-heading').textContent = headings[region] || headings.kit;
+
+  const backBtn = $('#armory-back');
+  if (backBtn) {
+    backBtn.textContent = region === 'kit' && !armoryLocation.inspectorOpen ? '← MAIN MENU' : '← BACK';
+  }
+
+  $('#armory-kit-tab')?.setAttribute('aria-pressed', String(region === 'kit'));
+  $('#armory-siege-tab')?.setAttribute('aria-pressed', String(region === 'siege'));
+  $('#armory-heraldry-tab')?.setAttribute('aria-pressed', String(region === 'heraldry'));
+  $('#armory-challenges-tab')?.setAttribute('aria-pressed', String(region === 'challenges'));
+  $('#armory-challenges-tab')?.classList.toggle('selected', region === 'challenges');
+
+  if (region === 'kit') {
+    menuScene?.setSiegeWorkshop(false);
+    menuScene?.setHeraldryChamber(false);
+    menuScene?.setArmoryPresentation(true, { immediate });
+    renown?.selectSection('kit');
+    updatePlaques();
+    if (preserveInspector && armoryLocation.inspectorOpen) {
+      openInspector(armoryLocation.category, armoryLocation.highlightedItem);
+    } else {
+      closeInspector({ immediate });
+    }
+  } else if (region === 'siege') {
+    closeInspector({ immediate });
+    menuScene?.setArmoryPresentation(false);
+    menuScene?.setHeraldryChamber(false);
+    menuScene?.setSiegeWorkshop(true, { machineId: armoryLocation.siegeMachine, immediate });
+    renderSiegeWorkshop(armoryLocation.siegeMachine);
+  } else if (region === 'heraldry') {
+    closeInspector({ immediate });
+    menuScene?.setArmoryPresentation(false);
+    menuScene?.setSiegeWorkshop(false);
+    menuScene?.setHeraldryChamber(true, { immediate });
+    renown?.selectSection('heraldry');
+  } else if (region === 'challenges') {
+    closeInspector({ immediate });
+    challenges?.render();
+  }
+}
+
+function renderArmory() {
+  updatePlaques();
+  renderInspectorLists();
+  updateInspectorDetailCard();
+  renderPreparedArmory();
+  renderSiegeWorkshop(armoryLocation.siegeMachine);
+}
+
 function renderPreparedArmory() {
   const root = $('#armory-prepared');
   const chivalry = settings.get('loadout.ultimate') === 'chivalry';
@@ -1847,50 +2163,151 @@ function renderPreparedArmory() {
   if (!chivalry) return;
   const starting = settings.get('loadout.spell');
   const prepared = normalizePreparedSpells(starting, settings.get('loadout.preparedSpells'));
-  // the three slots as the Armory's own cards: the key, the spell's mark and name; the starting spell fixed (★), the
-  // others changed one way or the other
   const change = (slot, to, way, label) => to ? `<button type="button" class="prepared-turn" data-prepared-slot="${slot.slot}" data-prepared-to="${to}" data-way="${way}" aria-label="Slot ${slot.key}: ${label} ${escapeHtml(SPELLS[to].label)}">${way === 'previous' ? '‹' : '›'}</button>` : '';
   root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, tap Q to cast. Hold Q briefly, then press 1, 2 or 3 to choose and cast (Q can be let go first). During startup, choosing only preselects. The starting spell is marked ★.</p>'
     + '<div class="prepared-slots">' + preparedArmoryView(starting, prepared).map((slot) => `<div class="prepared-slot spell-card${slot.starting ? ' equipped' : ''}" data-spell="${slot.id}">
       <kbd>${slot.key}</kbd><span class="spell-mark">${slot.mark}</span><span class="spell-name">${escapeHtml(slot.name)}</span>
       ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';
 }
-$('#armory-siege-machines').addEventListener('click',event=>{
-  const button=event.target.closest('[data-siege-skill]');
-  if(!button||button.disabled)return;
-  const setting=button.dataset.siegeMachine==='biBye'?'loadout.bibyeSkill':
-    button.dataset.siegeMachine==='soFist'?'loadout.soFistSkill':
-    button.dataset.siegeMachine==='fightFlight'?'loadout.fightFlightSkill':null;
-  if(setting)settings.set(setting,button.dataset.siegeSkill);
+
+$('#armory-slot-technique').addEventListener('click', () => openInspector('technique'));
+$('#armory-slot-sorcery').addEventListener('click', () => openInspector('sorcery'));
+$('#armory-slot-masterstroke').addEventListener('click', () => openInspector('masterstroke'));
+$('#armory-slot-heraldry').addEventListener('click', () => navigateToArmorySection('heraldry'));
+$('#armory-nav-siege').addEventListener('click', () => navigateToArmorySection('siege'));
+$('#armory-inspector-close').addEventListener('click', () => closeInspector());
+
+$('#armory-equip-btn').addEventListener('click', () => {
+  const cat = armoryLocation.category;
+  const id = armoryLocation.highlightedItem;
+  if (cat === 'sorcery') {
+    settings.set('loadout.spell', id);
+    playArmorySound(sound, id);
+    menuScene?.showSpell(id);
+    renderArmory();
+    updateInspectorDetailCard();
+  } else if (cat === 'masterstroke') {
+    settings.set('loadout.ultimate', id);
+    playArmorySound(sound, id);
+    if (menuScene?.performs?.(id)) {
+      // showcase performs it
+    } else {
+      menuScene?.previewArmory(id);
+    }
+    renderArmory();
+    updateInspectorDetailCard();
+  }
 });
-$('#armory-prepared').addEventListener('click', event => {
+
+$('#armory-techniques').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-technique]');
+  if (!button) return;
+  highlightInspectorItem('technique', button.dataset.technique);
+});
+
+$('#armory-spells').addEventListener('click', (event) => {
+  const card = event.target.closest('[data-spell]');
+  if (!card) return;
+  const spellId = card.dataset.spell;
+  highlightInspectorItem('sorcery', spellId);
+  armoryFeedback.select(spellId, settings.get('loadout.spell'), () => {});
+});
+
+$('#armory-ultimates').addEventListener('click', (event) => {
+  const card = event.target.closest('[data-ultimate]');
+  if (!card) return;
+  const ultId = card.dataset.ultimate;
+  highlightInspectorItem('masterstroke', ultId);
+  armoryFeedback.select(ultId, settings.get('loadout.ultimate'), () => {});
+});
+
+$('#armory-prepared').addEventListener('click', (event) => {
   const button = event.target.closest('[data-prepared-to]');
   if (!button) return;
   const slot = Number(button.dataset.preparedSlot);
   const to = button.dataset.preparedTo;
-  // (a deliberate press: the spell is heard and shown, as any Armory card is; the starting spell stays equipped)
   armoryFeedback.select(to, to, () => {});
   settings.set('loadout.preparedSpells', replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, to));
   document.querySelector(`[data-prepared-slot="${slot}"][data-way="${button.dataset.way}"]`)?.focus({ preventScroll: true });
 });
-renderArmory();
-$('#armory-ultimates').addEventListener('click', (event) => {
-  const card = event.target.closest('[data-ultimate]');
-  if (card) armoryFeedback.select(card.dataset.ultimate, settings.get('loadout.ultimate'), (id) => settings.set('loadout.ultimate', id));
+
+$('#armory-siege-machines').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-siege-skill]');
+  if (!button || button.disabled) return;
+  const setting = button.dataset.siegeMachine === 'biBye' ? 'loadout.bibyeSkill' :
+    button.dataset.siegeMachine === 'soFist' ? 'loadout.soFistSkill' :
+    button.dataset.siegeMachine === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
+  if (setting) {
+    settings.set(setting, button.dataset.siegeSkill);
+    renderSiegeWorkshop(armoryLocation.siegeMachine);
+  }
 });
+
+document.querySelector('.siege-machine-nav')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-siege-tab]');
+  if (!button) return;
+  renderSiegeWorkshop(button.dataset.siegeTab);
+});
+
+$('#siege-story-details')?.addEventListener('toggle', (event) => {
+  armoryLocation.siegeStoryExpanded = event.target.open;
+  saveArmoryLocation(armoryLocation);
+});
+
+$('#armory-challenges-tab')?.addEventListener('click', () => {
+  if (armoryLocation.region === 'challenges') {
+    navigateToArmorySection(armoryLocation.previousRegion || 'kit');
+  } else {
+    navigateToArmorySection('challenges');
+  }
+});
+
+$('#challenges-close-btn')?.addEventListener('click', () => {
+  navigateToArmorySection(armoryLocation.previousRegion || 'kit');
+});
+
+$('#armory-reset-hero')?.addEventListener('click', () => menuScene?.resetHeroOrientation());
+$('#heraldry-reset-hero')?.addEventListener('click', () => menuScene?.resetHeroOrientation());
+$('#siege-reset-view')?.addEventListener('click', () => menuScene?.resetSiegeMachineOrientation());
+
+$('#armory-kit')?.addEventListener('dblclick', (e) => {
+  if (!e.target.closest('.armory-slot-plaque, #armory-inspector, button')) {
+    menuScene?.resetHeroOrientation();
+  }
+});
+
+$('#armory-siege')?.addEventListener('dblclick', (e) => {
+  if (!e.target.closest('.siege-inspector, button, nav')) {
+    menuScene?.resetSiegeMachineOrientation();
+  }
+});
+
 $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
-for (const id of ['armory-kit-tab', 'armory-siege-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
-  armoryFeedback.cancel();
-  menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
+
+for (const id of ['armory-kit-tab', 'armory-siege-tab', 'armory-heraldry-tab']) {
+  $('#' + id)?.addEventListener('click', () => {
+    armoryFeedback.cancel();
+    const section = id.replace('armory-', '').replace('-tab', '');
+    navigateToArmorySection(section);
+  });
+}
+
+$('#armory-back').addEventListener('click', () => {
+  if (armoryLocation.region === 'challenges') {
+    navigateToArmorySection(armoryLocation.previousRegion || 'kit');
+  } else if (armoryLocation.inspectorOpen) {
+    closeInspector();
+  } else if (armoryLocation.region !== 'kit') {
+    navigateToArmorySection('kit');
+  } else {
+    route(SCREEN_IDS.MAIN_MENU);
+  }
 });
-$('#armory-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
-$('#armory-spells').addEventListener('click', (event) => {
-  const card = event.target.closest('[data-spell]');
-  if (card) armoryFeedback.select(card.dataset.spell, settings.get('loadout.spell'), (id) => settings.set('loadout.spell', id));
-});
+
+renderArmory();
 
 // the sound and music switches (M and N unless rebound; the same switches sit in the arena menu for touch screens)
 function renderSoundToggles() {
@@ -2002,7 +2419,23 @@ document.addEventListener('keydown', event => {
     presentation.showMenu(nowSec());
     return;
   }
-  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
+  if (router.current === SCREEN_IDS.ARMORY) {
+    if (armoryLocation.region === 'challenges') {
+      navigateToArmorySection(armoryLocation.previousRegion || 'kit');
+      return;
+    }
+    if (armoryLocation.inspectorOpen) {
+      closeInspector();
+      return;
+    }
+    if (armoryLocation.region !== 'kit') {
+      navigateToArmorySection('kit');
+      return;
+    }
+    route(SCREEN_IDS.MAIN_MENU);
+    return;
+  }
+  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     returnToMenu();

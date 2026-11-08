@@ -55,9 +55,12 @@ try{
  await evaluate("document.querySelector('#armory-button').click()");
  await until(()=>evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')"),'actual Armory page');
  await evaluate("document.querySelector('#armory-siege-tab').click()");
- const before=await evaluate("(() => ({selected:document.querySelector('#armory-siege-tab').getAttribute('aria-pressed'),section:!document.querySelector('#armory-siege').classList.contains('hidden'),names:[...document.querySelectorAll('#armory-siege .siege-armory-heading h4')].map(e=>e.textContent),alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
- assert.equal(before.selected,'true');assert.equal(before.section,true);assert.equal(before.alternatives,2);
- assert.deepEqual(before.names,['BI-BYE-LLISTA','SO-FIST-ICATION','FIGHT-AND-FLIGHT']);
+ const before=await evaluate("(() => ({selected:document.querySelector('#armory-siege-tab').getAttribute('aria-pressed'),section:!document.querySelector('#armory-siege').classList.contains('hidden'),names:[...document.querySelectorAll('#armory-siege .siege-machine-nav button')].map(e=>e.textContent)}))()");
+ assert.equal(before.selected,'true');assert.equal(before.section,true);
+ assert.deepEqual(before.names,['SO-FIST-ICATION','BI-BYE-LLISTA','FIGHT-AND-FLIGHT']);
+ await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
+ const biByeState=await evaluate("(() => ({title:document.querySelector('#siege-title').textContent,alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
+ assert.equal(biByeState.title,'BI-BYE-LLISTA');assert.equal(biByeState.alternatives,2);
  await screenshot('01-siege-armory');
  await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').getAttribute('aria-checked')"),'true');
@@ -69,7 +72,7 @@ try{
  await evaluate("document.querySelector('#armory-back').click()");
  await evaluate("document.querySelector('#player-name').value='Cold browser probe';document.querySelector('#solo-button').click()");
  await until(()=>evaluate("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'Practice menu');
- await evaluate("document.querySelector('#practice-mode').click()");
+ await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()");
  await until(async()=>{const s=await evaluate(state);return s?.mode==='PRACTICE'&&s?.me?.id?s:false;},'local Practice session',150);
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await evaluate(state);return s?.ballista?s:false;},'real ballista built',80);
