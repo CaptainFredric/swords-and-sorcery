@@ -3,18 +3,41 @@ import {SIEGE_SKILL_NAMES,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../..
 // Static 2D heraldic marks: presentation only, never a 3D model or asset fetch.
 const MACHINES=Object.freeze([
  {id:'biBye',name:'BI-BYE-LLISTA',mark:'II',icon:'heavyBolt',subtitle:'TWO BOWS · ONE BAD IDEA',
+  overview:'Long-range twin-bolt mobile siege artillery. Deploys ground outriggers to align its massive physical bolt, preceded by an inconvenient frost-conditioning shot.',
   preview:'A traveling frost-conditioning bolt followed by a massive physical siege bolt.',
   line:`A traveling frost-conditioning bolt followed by a massive physical siege bolt.
 
 Castleward's engineers saw no need to settle for a single warning shot. The smaller bolt subjects the enemy to a most inconvenient cold. The larger bolt supplies the conclusion, and, rather generously, enough force to make further argument unnecessary.`,
-  facts:'650 hull · Bolt I: 18 frost / 2 m · Bolt II: 85 physical'},
+  facts:'650 hull · Bolt I: 18 frost / 2 m · Bolt II: 85 physical',
+  attacks:[
+   {name:'BOLT I · FROST CONDITIONING',icon:'frostBolt',line:'Rapid-fire conditioning bolt that drenches targets in sudden glacial cold, slowing their advance.',facts:'18 frost / 2 m reach'},
+   {name:'BOLT II · SIEGE CONCLUSION',icon:'boltII',line:'Massive high-velocity physical bolt engineered to dismantle stone defenses and armored formations.',facts:'85 physical impact'},
+   {name:'OUTRIGGER ANCHOR',icon:'deploy',line:'Deploy stabilizer legs for heavy bolt alignment, or pack them away for 6-wheel mobile repositioning.',facts:'Required for Bolt II alignment'}
+  ],
+  controls:{
+   desktop:'[W/A/S/D] Steer carriage · [R] Deploy / Pack outriggers · [Left Click] Bolt I · [Right Click / Space] Bolt II · [Tab] Weapon focus toggle · [U / Q] Skill · [F] Dismount',
+   touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
+  }
+ },
  {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'A MOST FORCEFUL ARGUMENT',
+  overview:'Piston-driven elevating battering ram. Combines heavy mobile carriage protection with an armored steel gauntlet capable of delivering mechanical uppercuts.',
   preview:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
   line:`A charging, piston-driven battering ram capable of delivering a mechanical uppercut.
 
 The engineers of Castleward discovered that a siege engine could have all the subtlety of a clenched fist—and built precisely that. Elevate the carriage, align the piston, and teach a wall how to receive a proper introduction. The detachable gauntlet ensures the enemy may still appreciate the machine's reach from a distance.`,
-  facts:'Armored piston · charging drive · counterattack Skill'},
+  facts:'Armored piston · charging drive · counterattack Skill',
+  attacks:[
+   {name:'RECIPROCATING PISTON',icon:'ram',line:'Hydraulic steel ram stroke that fractures gatehouse masonry and knocks opposing combatants off their feet.',facts:'Heavy physical blunt impact'},
+   {name:'CARRIAGE ELEVATION',icon:'rise',line:'Elevate or lower the articulated carriage to target high stone battlements or low gate portals.',facts:'Adjustable vertical strike angle'},
+   {name:'RAMMING CHARGE',icon:'dash',line:'Accelerate the mobile carriage to full forward drive, battering through obstacles and barricades.',facts:'High chassis momentum'}
+  ],
+  controls:{
+   desktop:'[W/A/S/D] Steer & accelerate · [Left Click / Space] Ram charge & strike · [E] Elevate / Lower piston · [U / Q] Skill · [F] Dismount',
+   touch:'Left Stick: Drive ram · ATTACK: Charge strike · ELEVATE: Raise/Lower carriage · SKILL: Skill · DISMOUNT'
+  }
+ },
  {id:'fightFlight',name:'FIGHT-AND-FLIGHT',mark:'FLIGHT',icon:'flightDash',subtitle:'A DIFFERENT KIND OF HIGH GROUND',
+  overview:'Personal twin-blade aerial apparatus. Eliminates the awkward choice between tactical retreat and glorious combat by enabling both simultaneously.',
   preview:'Why choose to Fight or Flee? When you could be Free?',
   line:`*Why choose to Fight or Flee? When you could be Free?*
 
@@ -33,7 +56,17 @@ It is not a dove. Nor does it mean mutual mortality.
 It is simply doom.
 
 And it is nigh-unreachable.`,
-  facts:'Finite flight charge · rotor integrity · repeating bolts'}
+  facts:'Finite flight charge · rotor integrity · repeating bolts',
+  attacks:[
+   {name:'REPEATING CROSSBOW',icon:'repeater',line:'Fires continuous sequences of high-speed quarrels from an integral rotary hopper.',facts:'14-bolt capacity · rapid cycling'},
+   {name:'ROTOR-BLADE DASH',icon:'flightDash',line:'Spinning counter-rotating twin sword blades serve as both lift system and high-speed melee weapon.',facts:'High blade contact damage'},
+   {name:'VERTICAL ASCENSION',icon:'rise',line:'Ascend rapidly into castle airspace or hover quietly above hostile ground engagement zones.',facts:'Uses rechargeable flight meter'}
+  ],
+  controls:{
+   desktop:'[W/A/S/D] Flight pitch & yaw · [Space] Rise · [Shift / C] Descend · [Left Click] Fire repeater · [Right Click] Rotor Dash · [U / Q] Skill · [F] Eject',
+   touch:'Left Stick: Flight direction · RISE / DESCEND: Altitude · FIRE: Crossbow repeater · DASH: Rotor strike · SKILL: Skill · EJECT'
+  }
+ }
 ]);
 const EXPLANATIONS={
  boltToTheOccasion:'Prime independent heavy aiming, then release Bolt II on a second Skill press. Bolt I may fire in between.',

@@ -423,9 +423,388 @@ html[data-turn] .turn-only { display: block !important; }
   .setting-text small { display: none; }
 }
 
-/* --- the Armory: a brass-edged command on the front door's banner, and his kit on a banner of its own ------------ */
+/* --- the Armory Reborn: character-centered equipment stage, sliding inspector, and connected workshop --- */
 
-.armory-inner { --banner-width: min(400px, 40cqw); }
+.armory-stage-screen {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 10;
+}
+
+/* Stage Header Bar */
+.armory-stage-header {
+  position: absolute; top: 0; left: 0; right: 0; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px clamp(16px, 3.5vw, 40px); z-index: 25; pointer-events: auto;
+  border-bottom: 1px solid rgba(201, 156, 82, .45);
+  background: linear-gradient(180deg, rgba(22, 18, 15, .92) 0%, rgba(22, 18, 15, .72) 70%, rgba(22, 18, 15, 0) 100%);
+  backdrop-filter: blur(6px);
+}
+.armory-stage-header .back-button {
+  margin: 0; padding: 7px 16px; font-size: 13px; letter-spacing: .12em;
+}
+.armory-header-center {
+  flex: 1; text-align: center; min-width: 0; padding: 0 12px;
+}
+.armory-header-center h2 {
+  margin: 0; font: 400 clamp(16px, 1.8vw, 22px)/1.1 var(--font-inscription);
+  color: #f6ecce; letter-spacing: .1em; text-transform: uppercase;
+  text-shadow: 0 2px 4px rgba(0,0,0,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.armory-header-actions {
+  display: flex; align-items: center; gap: 10px;
+}
+.armory-ledger-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 6px 14px;
+  border: 1px solid rgba(201, 156, 82, .65); border-radius: 3px;
+  background: linear-gradient(180deg, #4d3826 0%, #281c13 100%);
+  color: var(--heraldry-cream); font: 700 12px/1 var(--font-script); letter-spacing: .12em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(0,0,0,.4);
+  cursor: pointer; transition: all .14s ease;
+}
+.armory-ledger-btn:hover {
+  border-color: var(--heraldry-brass-light); filter: brightness(1.15); transform: translateY(-1px);
+}
+.armory-ledger-btn:active { transform: translateY(1px); }
+.armory-ledger-btn svg { width: 16px; height: 16px; fill: none; stroke: var(--heraldry-brass-light); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.armory-renown-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  border: 1px solid rgba(201, 156, 82, .4); border-radius: 3px;
+  background: rgba(30, 24, 20, .85); color: var(--heraldry-brass-light);
+  font: 700 11px/1 var(--font-script); letter-spacing: .1em;
+}
+.armory-renown-pill .renown-mark { font-size: 14px; color: var(--heraldry-brass-light); }
+
+/* Main Armory Kit Stage & Surrounding Plaques */
+.armory-kit-stage {
+  position: absolute; inset: 0; pointer-events: none; z-index: 10;
+}
+
+.armory-slot-plaque {
+  position: absolute; pointer-events: auto; cursor: pointer;
+  display: flex; align-items: center; gap: 12px;
+  width: clamp(140px, 15vw, 175px); min-height: 72px; padding: 10px 14px;
+  background: linear-gradient(160deg, #3a4349 0%, #22282d 45%, #161b1e 100%);
+  border: 1px solid rgba(201, 156, 82, .6); border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), inset 0 -2px 0 rgba(0, 0, 0, .6), 0 6px 18px rgba(0, 0, 0, .55), 0 0 10px rgba(201, 156, 82, .12);
+  color: var(--heraldry-cream); text-align: left;
+  transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s ease, box-shadow .18s ease, filter .14s ease;
+}
+.armory-slot-plaque:hover {
+  transform: scale(1.04); border-color: var(--heraldry-brass-light);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 8px 24px rgba(0, 0, 0, .65), 0 0 18px rgba(236, 201, 127, .45);
+}
+.armory-slot-plaque:active { transform: scale(.98); }
+.armory-slot-plaque.active {
+  border-color: #ffe094;
+  box-shadow: inset 0 0 10px rgba(236, 201, 127, .35), 0 0 24px rgba(236, 201, 127, .65);
+}
+.armory-slot-plaque .plaque-corner {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: #c3ae80; box-shadow: 0 1px 1px #000;
+}
+.armory-slot-plaque .plaque-corner.top-left { top: 4px; left: 4px; }
+.armory-slot-plaque .plaque-corner.top-right { top: 4px; right: 4px; }
+.armory-slot-plaque .plaque-corner.bottom-left { bottom: 4px; left: 4px; }
+.armory-slot-plaque .plaque-corner.bottom-right { bottom: 4px; right: 4px; }
+
+.armory-slot-plaque .plaque-icon {
+  flex: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; background: rgba(12, 15, 17, .6); border: 1px solid rgba(201, 156, 82, .3);
+  color: var(--heraldry-brass-light);
+}
+.armory-slot-plaque .plaque-icon svg { width: 22px; height: 22px; }
+.armory-slot-plaque .plaque-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.armory-slot-plaque .plaque-label {
+  font: 800 10px/1 var(--font-script); color: var(--heraldry-brass-light); letter-spacing: .16em;
+}
+.armory-slot-plaque .plaque-name {
+  font: 400 14px/1.2 var(--font-inscription); color: #f6ecd2; letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Plaque Positions around the Spellblade */
+.slot-technique {
+  top: 48%; left: max(24px, 12vw); transform: translateY(-50%);
+}
+.slot-technique:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+.slot-sorcery {
+  top: 48%; right: max(24px, 12vw); transform: translateY(-50%);
+}
+.slot-sorcery:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+.slot-masterstroke {
+  top: 76px; left: 50%; transform: translateX(-50%);
+}
+.slot-masterstroke:hover {
+  transform: translateX(-50%) scale(1.04);
+}
+.slot-heraldry {
+  top: 76px; right: max(24px, 12vw);
+}
+
+/* Right-Edge Navigation: SIEGE -> */
+.armory-nav-siege-btn {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  pointer-events: auto; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+  background: linear-gradient(135deg, #7a221b 0%, #4c1410 100%);
+  border: 1px solid var(--heraldry-brass); border-radius: 4px;
+  color: var(--heraldry-cream); font: 800 13px/1 var(--font-script); letter-spacing: .18em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 4px 14px rgba(0,0,0,.6), 0 0 12px rgba(122,34,27,.4);
+  transition: all .16s ease; z-index: 10;
+}
+.armory-nav-siege-btn:hover {
+  border-color: var(--heraldry-brass-light); filter: brightness(1.15);
+  transform: translateY(-50%) translateX(4px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 6px 20px rgba(0,0,0,.7), 0 0 18px rgba(236,201,127,.5);
+}
+.armory-nav-siege-btn:active { transform: translateY(-50%) translateX(1px); }
+.armory-nav-siege-btn .nav-arrow { font-size: 16px; color: var(--heraldry-brass-light); }
+
+/* Armory Kit Footer */
+.armory-kit-footer {
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(0deg, rgba(16, 12, 10, .85) 0%, rgba(16, 12, 10, 0) 100%);
+  z-index: 10; pointer-events: none;
+}
+.armory-status-summary {
+  color: rgba(234, 220, 182, .88); font: 600 12px/1.3 var(--font-script); letter-spacing: .06em;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8); max-width: 65%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.armory-stage-controls {
+  display: flex; align-items: center; gap: 12px; pointer-events: auto;
+}
+.armory-reset-btn {
+  padding: 5px 12px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 3px;
+  background: rgba(30, 24, 20, .8); color: var(--heraldry-brass-light);
+  font: 700 10px/1 var(--font-script); letter-spacing: .12em; cursor: pointer;
+  transition: all .14s ease;
+}
+.armory-reset-btn:hover { border-color: var(--heraldry-brass-light); background: rgba(50, 40, 30, .9); color: #fff; }
+
+/* Sliding Equipment Inspector (Right Side) */
+.armory-inspector {
+  position: absolute; top: 56px; right: 0; bottom: 0; width: min(440px, 44vw);
+  z-index: 20; pointer-events: auto;
+  transform: translateX(0);
+  transition: transform .32s cubic-bezier(.16, 1, .3, 1);
+}
+.armory-inspector.closed {
+  transform: translateX(105%); pointer-events: none;
+}
+.armory-inspector .inspector-inner {
+  height: 100%; border-radius: 0; border-right: none;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, .75);
+  display: flex; flex-direction: column; overflow: hidden;
+  padding: 20px 24px calc(var(--hem) + 16px);
+}
+.inspector-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(201, 156, 82, .35);
+  flex-shrink: 0;
+}
+.inspector-category {
+  margin: 0 0 4px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em;
+}
+.inspector-header h3 {
+  margin: 0 0 4px; font: 400 20px/1.1 var(--font-inscription); color: #f5eed8; letter-spacing: .06em;
+}
+.inspector-subtitle {
+  margin: 0; font: 500 11.5px/1.35 var(--font-script); color: rgba(234, 220, 182, .75);
+}
+.inspector-close {
+  flex: none; width: 32px; height: 32px; border: 1px solid rgba(201, 156, 82, .45); border-radius: 3px;
+  background: rgba(40, 30, 22, .7); color: var(--heraldry-cream);
+  font: 700 16px/1 var(--font-script); cursor: pointer; transition: all .14s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.inspector-close:hover { border-color: var(--heraldry-brass-light); background: rgba(70, 48, 30, .9); }
+
+.inspector-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--heraldry-brass) rgba(34,29,25,.35);
+  padding: 0 4px 8px 0; display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Item Card Detail View in Inspector */
+.inspector-item-card {
+  padding: 14px 16px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(42, 33, 26, .9) 0%, rgba(26, 20, 16, .95) 100%);
+  display: flex; flex-direction: column; gap: 8px; margin-top: 6px;
+}
+.inspector-card-heading {
+  display: flex; align-items: center; gap: 10px;
+}
+.inspector-card-mark {
+  font-size: 26px; color: #ffa35a; width: 32px; text-align: center;
+}
+.inspector-card-heading h4 {
+  margin: 0; font: 400 19px/1.1 var(--font-inscription); color: #f6edd4; letter-spacing: .06em;
+}
+.inspector-card-status {
+  font: 800 9.5px/1 var(--font-script); letter-spacing: .16em; color: #b9dca8; text-transform: uppercase;
+}
+.inspector-card-status.in-training {
+  color: #e5b072;
+}
+.inspector-card-desc {
+  margin: 0; font: 500 12.5px/1.35 var(--font-script); color: rgba(234, 220, 182, .88);
+}
+.inspector-card-facts {
+  margin: 0; font: 700 11.5px/1.3 var(--font-script); color: rgba(236, 201, 127, .95); letter-spacing: .03em;
+}
+.inspector-card-lore {
+  margin: 4px 0 0; font: 500 11px/1.4 var(--font-script); color: rgba(234, 220, 182, .65); font-style: italic;
+  border-top: 1px solid rgba(201, 156, 82, .2); padding-top: 6px;
+}
+.inspector-card-action {
+  margin-top: 8px;
+}
+#armory-equip-btn.equipped {
+  background: #3a4a35; border-color: #6a9a5a; color: #d0f0c0; cursor: default;
+}
+
+/* Connected Siege Workshop Screen */
+.armory-siege-stage {
+  position: absolute; inset: 0; pointer-events: none; z-index: 10;
+}
+.siege-machine-nav {
+  position: absolute; top: 68px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; z-index: 15; pointer-events: auto;
+}
+.siege-tab {
+  padding: 8px 18px; border: 1px solid rgba(201, 156, 82, .55); border-radius: 3px;
+  background: linear-gradient(180deg, #383028 0%, #1c1814 100%);
+  color: rgba(234, 220, 182, .8); font: 800 11.5px/1 var(--font-script); letter-spacing: .16em;
+  cursor: pointer; transition: all .14s ease;
+}
+.siege-tab:hover {
+  border-color: var(--heraldry-brass-light); color: #fff; filter: brightness(1.15);
+}
+.siege-tab.selected {
+  background: linear-gradient(180deg, #7a221b 0%, #46130f 100%);
+  border-color: var(--heraldry-brass-light); color: var(--heraldry-cream);
+  box-shadow: 0 0 14px rgba(236, 201, 127, .35), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+.siege-viewport-controls {
+  position: absolute; bottom: 16px; left: 24px;
+  display: flex; align-items: center; gap: 12px; pointer-events: auto; z-index: 15;
+}
+
+/* Siege Inspector Panel */
+.siege-inspector {
+  position: absolute; top: 56px; right: 0; bottom: 0; width: min(440px, 44vw);
+  z-index: 15; pointer-events: auto; display: flex; flex-direction: column;
+  padding: 20px 24px calc(var(--hem) + 16px);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, .75);
+}
+.siege-inspector-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--heraldry-brass) rgba(34,29,25,.35);
+  padding: 0 4px 8px 0; display: flex; flex-direction: column; gap: 14px;
+}
+.siege-header {
+  margin-bottom: 6px; padding-bottom: 10px; border-bottom: 1px solid rgba(201, 156, 82, .35);
+}
+.siege-badge {
+  display: inline-block; padding: 2px 8px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 2px;
+  background: rgba(30, 24, 20, .8); color: var(--heraldry-brass-light);
+  font: 800 9px/1 var(--font-script); letter-spacing: .2em; margin-bottom: 6px;
+}
+.siege-header h3 {
+  margin: 0 0 4px; font: 400 22px/1.1 var(--font-inscription); color: #f6edd4; letter-spacing: .06em;
+}
+.siege-subtitle {
+  margin: 0; font: 600 11.5px/1.3 var(--font-script); color: var(--heraldry-brass-light); letter-spacing: .1em;
+}
+.siege-overview-text {
+  margin: 0 0 8px; font: 500 12.5px/1.4 var(--font-script); color: rgba(234, 220, 182, .9);
+}
+.siege-facts-pill {
+  display: inline-block; padding: 4px 8px; background: rgba(18, 14, 12, .6);
+  border: 1px solid rgba(201, 156, 82, .3); border-radius: 2px;
+  color: rgba(236, 201, 127, .9); font: 700 10.5px/1 var(--font-script); letter-spacing: .04em;
+}
+.siege-attacks-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+}
+.siege-attack-card {
+  padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .35); border-radius: 2px;
+  background: rgba(28, 22, 18, .7); display: flex; flex-direction: column; gap: 2px;
+}
+.siege-attack-card strong {
+  color: #f1e4c2; font: 400 14px/1.2 var(--font-inscription); letter-spacing: .04em;
+}
+.siege-attack-card small {
+  color: rgba(234, 220, 182, .75); font: 500 11px/1.3 var(--font-script);
+}
+.siege-attack-card em {
+  color: rgba(236, 201, 127, .85); font: 700 10.5px/1 var(--font-script); font-style: normal;
+}
+.siege-controls-box {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+  border: 1px solid rgba(201, 156, 82, .35); border-radius: 2px; background: rgba(28, 22, 18, .7);
+}
+.siege-controls-row {
+  display: grid; grid-template-columns: 80px 1fr; gap: 8px; align-items: baseline;
+  font: 500 11px/1.35 var(--font-script); color: rgba(234, 220, 182, .85);
+}
+.siege-controls-row strong {
+  font: 800 10px/1 var(--font-script); color: var(--heraldry-brass-light); letter-spacing: .12em;
+}
+
+/* Heraldry Chamber Stage */
+.armory-heraldry-stage {
+  position: absolute; inset: 0; pointer-events: none; z-index: 10;
+}
+.heraldry-stage-controls {
+  position: absolute; bottom: 16px; left: 24px;
+  display: flex; align-items: center; gap: 12px; pointer-events: auto; z-index: 15;
+}
+.heraldry-inspector {
+  position: absolute; top: 56px; right: 0; bottom: 0; width: min(440px, 44vw);
+  z-index: 15; pointer-events: auto; display: flex; flex-direction: column;
+  padding: 20px 24px calc(var(--hem) + 16px);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, .75);
+}
+.heraldry-header {
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(201, 156, 82, .35);
+}
+.heraldry-header h3 {
+  margin: 0 0 8px; font: 400 20px/1.1 var(--font-inscription); color: #f6edd4; letter-spacing: .06em;
+}
+
+/* Challenge Ledger Stage */
+.armory-challenges-stage {
+  position: absolute; inset: 0; pointer-events: auto; z-index: 30;
+  background: rgba(12, 10, 8, .6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 40px 24px;
+}
+.challenges-panel-inner {
+  position: relative; width: 100%; max-width: 820px; height: calc(100% - 40px);
+  max-height: 720px; display: flex; flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0,0,0,.85);
+}
+.challenges-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(201, 156, 82, .35);
+  flex-shrink: 0;
+}
+.challenges-header h2 {
+  margin: 0; font: 400 24px/1.1 var(--font-inscription); color: #f6edd4; letter-spacing: .06em;
+}
+.challenges-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--heraldry-brass) rgba(34,29,25,.35);
+  padding: 0 6px 12px 0;
+}
+
+/* Shared Spell/Tech/Ultimate Cards */
 .armory-slot { margin: 14px 0 6px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em; }
 .armory-blade { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid rgba(201, 156, 82, .35); background: rgba(34, 29, 25, .55); }
 .armory-blade b { font: 400 17px/1.1 var(--font-inscription); color: #f1e4c2; }
@@ -448,14 +827,57 @@ html[data-turn] .turn-only { display: block !important; }
 .spell-card small { grid-column: 2 / 4; color: rgba(234, 220, 182, .78); font: 500 12px/1.35 var(--font-script); }
 .spell-card em { grid-column: 2 / 4; color: rgba(236, 201, 127, .85); font: 700 11px/1.3 var(--font-script); font-style: normal; letter-spacing: .03em; }
 .spell-card.equipped { border-color: var(--heraldry-brass-light); box-shadow: 0 0 0 1px rgba(236, 201, 127, .35), 0 0 18px rgba(236, 201, 127, .12) inset; }
+.spell-card.selected-inspect { border-color: #ffd685; box-shadow: 0 0 12px rgba(236, 201, 127, .4); }
 .spell-card[data-spell="frostfire"].equipped { box-shadow: 0 0 0 1px rgba(143, 220, 255, .4), 0 0 18px rgba(143, 220, 255, .12) inset; }
+.spell-card[disabled] { opacity: .65; cursor: not-allowed; }
 .armory-note { margin-top: 12px; }
 
+/* Visual hidden utility */
+.visual-hidden {
+  position: absolute !important; width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: -1px !important; overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important;
+}
+
+/* Landscape Mobile Responsiveness */
 @container app (max-height: 500px) {
-  .armory-inner { --banner-width: min(380px, 50cqw); }
-  .armory-slot { margin: 8px 0 4px; }
-  .spell-card { padding: 7px 10px; }
-  .spell-card small { font-size: 11px; }
+  .armory-stage-header { height: 44px; padding: 4px clamp(12px, 2.5vw, 24px); }
+  .armory-stage-header .back-button { padding: 4px 10px; font-size: 11px; }
+  .armory-stage-header h2 { font-size: 14px; }
+  .armory-ledger-btn { min-height: 30px; padding: 4px 10px; font-size: 10px; }
+  .armory-renown-pill { height: 28px; padding: 0 8px; font-size: 9.5px; }
+
+  .armory-slot-plaque {
+    width: clamp(108px, 16vw, 130px); min-height: 52px; padding: 6px 10px; gap: 8px;
+  }
+  .armory-slot-plaque .plaque-icon { width: 26px; height: 26px; }
+  .armory-slot-plaque .plaque-icon svg { width: 16px; height: 16px; }
+  .armory-slot-plaque .plaque-label { font-size: 8.5px; }
+  .armory-slot-plaque .plaque-name { font-size: 11.5px; }
+
+  .slot-technique { left: max(12px, 5vw); }
+  .slot-sorcery { right: max(12px, 5vw); }
+  .slot-masterstroke { top: 52px; }
+  .slot-heraldry { top: 52px; right: max(12px, 5vw); }
+
+  .armory-nav-siege-btn { padding: 8px 12px; font-size: 11px; right: 10px; }
+
+  .armory-inspector, .siege-inspector, .heraldry-inspector {
+    top: 44px; width: min(390px, 50vw); padding: 14px 16px calc(var(--hem) + 10px);
+  }
+  .inspector-header h3, .siege-header h3 { font-size: 16px; }
+
+  .siege-machine-nav { top: 50px; }
+  .siege-tab { padding: 5px 12px; font-size: 9.5px; }
+
+  .armory-kit-footer { padding: 6px 16px; }
+  .armory-status-summary { font-size: 10px; max-width: 55%; }
+  .turn-hint { font-size: 8px; }
+  .armory-reset-btn { padding: 3px 8px; font-size: 8.5px; }
+
+  .spell-card { padding: 6px 8px; }
+  .spell-card .spell-name { font-size: 14px; }
+  .spell-card small { font-size: 10px; }
 }
 
 /* --- the credits and the voice library: opened from a quiet button in the settings' footer ----------------------- */

@@ -17,8 +17,18 @@ export const MENU_SHOTS = Object.freeze({
   lobby: shot([0.6, 2.4, -2.4], [2.15, 3.0, 13.52], 44),
   // the Armory: close on the Spellblade and the spell in his palm, still on the right third
   armory: shot([0.9, 1.55, 1.6], [-0.55, 1.3, 7.42], 40),
+  // Centered Spellblade for the redesigned character-centered Armory
+  armoryCenter: shot([0.2, 1.45, 1.5], [-1.0, 0.95, 5.5], 38),
+  // Armory with sliding inspector open: character recomposed smoothly toward screen left
+  armoryInspect: shot([0.78, 1.45, 1.5], [-0.48, 0.95, 5.5], 38),
   // Breakthrough deployment banner: wider view framing the Spellblade angled toward battle plan
   breakthrough: shot([2.1, 1.4, -0.4], [0.1, 2.9, 13.0], 43),
+  // Connected Siege Workshop in the engineering courtyard
+  siege: shot([6.0, 1.85, 0.8], [7.5, 1.1, 5.0], 42),
+  // Siege Workshop with machine inspector open on the right
+  siegeInspect: shot([6.85, 1.85, 0.8], [7.95, 1.1, 5.0], 42),
+  // Heraldry Chamber framing the Spellblade and his back banner / cape
+  heraldry: shot([0.65, 1.45, 1.6], [-0.62, 0.95, 5.5], 38),
 });
 
 const SCREEN_SHOTS = Object.freeze({
@@ -29,7 +39,9 @@ const SCREEN_SHOTS = Object.freeze({
   PRIVATE_MENU: 'private',
   HOW_TO_PLAY: 'how',
   LOBBY: 'lobby',
-  ARMORY: 'armory',
+  ARMORY: 'armoryCenter',
+  SIEGE_WORKSHOP: 'siege',
+  HERALDRY_CHAMBER: 'heraldry',
 });
 
 /** The shot for a screen id (or a shot name); anything unknown gets the front door. */

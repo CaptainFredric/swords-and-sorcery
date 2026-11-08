@@ -21,6 +21,7 @@ import { hasShowcase } from './showcaseSheets.mjs';
 import { armoryRetreatTarget } from './armoryStageMotion.mjs';
 import { MenuCaption } from './menuCaption.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
+import { SiegeWorkshopScene } from './SiegeWorkshopScene.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
 // where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
@@ -95,6 +96,8 @@ export class MenuScene {
     this.targetPosition = new THREE.Vector3(0, 0, 0);
     this.breakthroughActive = false;
     this.armoryActive = false;
+    this.siegeActive = false;
+    this.heraldryActive = false;
     this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
     this.frameHandle = null;
@@ -122,6 +125,7 @@ export class MenuScene {
 
     // the whole of Castleward, drawn with the environment kit, at its late-afternoon light
     this.world = new CastlewardRenderer(this.scene);
+    this.siegeWorkshop = new SiegeWorkshopScene(this.scene);
     const light = CASTLEWARD_LIGHTING;
     this.scene.add(new THREE.HemisphereLight(light.hemisphere.skyColor, light.hemisphere.groundColor, light.hemisphere.intensity));
     const sun = new THREE.DirectionalLight(light.sun.color, light.sun.intensity);
@@ -314,6 +318,14 @@ export class MenuScene {
   #pointerMove = (event) => {
     if (!this.dragging || this.touring) return;
     const point = gamePoint(event);
+    if (this.siegeActive) {
+      const dx = point.x - this.dragStart.x;
+      const dy = point.y - this.dragStart.y;
+      this.siegeWorkshop?.rotate(dx * 0.009, dy * 0.004);
+      this.dragStart.x = point.x;
+      this.dragStart.y = point.y;
+      return;
+    }
     this.targetYaw = this.dragStart.yaw + (point.x - this.dragStart.x) * 0.009;
     this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.12, 0.12);
   };
@@ -321,6 +333,10 @@ export class MenuScene {
   #pointerUp = () => { this.dragging = false; };
 
   #resetView = () => {
+    if (this.siegeActive) {
+      this.siegeWorkshop?.resetRotation();
+      return;
+    }
     this.targetYaw = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
     this.targetPitch = 0;
   };
@@ -368,6 +384,7 @@ export class MenuScene {
     }
     if (this.galeOrb?.visible) this.galeOrb.userData.update(t);
     if (this.armoryElemental?.visible) this.armoryElemental.userData.update(t);
+    if (this.siegeActive) this.siegeWorkshop?.update(dt);
 
     // the presentation eased toward what is wanted: the camera recomposes as the banner moves, not after it
     this.#stepFraming(dt);
@@ -537,27 +554,71 @@ export class MenuScene {
     this.framingAge = 0;
   }
 
-  // A small side/backward walk clears the newly widened Armory banner. This
-  // changes stage-space position only; the preview's existing spell, blade
-  // and ultimate animations still own the Spellblade's pose.
-  setArmoryPresentation(active,{immediate=false}={}){
-    const entering=Boolean(active);
-    const leaving=this.armoryActive&&!entering;
-    this.armoryActive=entering;
-    this.armoryReturning=leaving;
-    if(entering){
-      const step = armoryRetreatTarget(MENU_SHOTS.armory, this.stage.rotation.y);
-      this.targetPosition.set(step.x, step.y, step.z);
-      this.targetYaw=Math.PI-.32;
-    }else if(!this.breakthroughActive){
-      this.targetPosition.set(0,0,0);
-      this.targetYaw=Math.PI-.22;
+  // The Spellblade stands centered as the centerpiece of the Armory.
+  // Clicking an equipment slot opens the right-side inspector and smoothly
+  // recomposes the camera to shift him leftward without disruptive rotation.
+  setArmoryPresentation(active, { immediate = false } = {}) {
+    const entering = Boolean(active);
+    const leaving = this.armoryActive && !entering;
+    this.armoryActive = entering;
+    this.armoryReturning = leaving;
+    if (entering) {
+      this.targetPosition.set(0, 0, 0);
+      this.targetYaw = Math.PI - 0.22;
+      this.setShot('armoryCenter', { duration: immediate ? 0.01 : 0.65 });
+      this.siegeActive = false;
+      this.siegeWorkshop?.setVisible(false);
+    } else if (!this.breakthroughActive && !this.siegeActive) {
+      this.targetPosition.set(0, 0, 0);
+      this.targetYaw = Math.PI - 0.22;
     }
-    if(immediate||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches){
+    if (immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
       this.characterRoot.position.copy(this.targetPosition);
-      this.characterRoot.rotation.set(0,this.targetYaw,0);
-      this.armoryReturning=false;
+      this.characterRoot.rotation.set(0, this.targetYaw, 0);
+      this.armoryReturning = false;
     }
+  }
+
+  setArmoryInspector(open, { immediate = false } = {}) {
+    if (!this.armoryActive) return;
+    const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 0.45;
+    this.setShot(open ? 'armoryInspect' : 'armoryCenter', { duration });
+  }
+
+  setSiegeWorkshop(active, { machineId = 'soFist', inspectorOpen = false, immediate = false } = {}) {
+    const entering = Boolean(active);
+    this.siegeActive = entering;
+    this.siegeWorkshop?.setVisible(entering);
+    if (entering) {
+      this.armoryActive = false;
+      this.targetPosition.set(0, 0, 0);
+      if (machineId) this.siegeWorkshop?.selectMachine(machineId);
+      const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 1.05;
+      this.setShot(inspectorOpen ? 'siegeInspect' : 'siege', { duration });
+    }
+  }
+
+  setHeraldryChamber(active, { immediate = false } = {}) {
+    const entering = Boolean(active);
+    this.heraldryActive = entering;
+    if (entering) {
+      this.targetPosition.set(0, 0, 0);
+      this.targetYaw = Math.PI - 0.35;
+      const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 0.65;
+      this.setShot('heraldry', { duration });
+      this.showBanner(true);
+    } else {
+      this.showBanner(false);
+    }
+  }
+
+  resetHeroOrientation() {
+    this.targetYaw = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
+    this.targetPitch = 0;
+  }
+
+  resetSiegeMachineOrientation() {
+    this.siegeWorkshop?.resetRotation();
   }
 
   setBreakthroughPresentation(active, { immediate = false } = {}) {
@@ -888,6 +949,7 @@ export class MenuScene {
     this.previewBitGeometry?.dispose();
     this.previewBitMaterial?.dispose();
     this.armorySteel?.dispose();
+    this.siegeWorkshop?.dispose();
     this.armoryElemental?.removeFromParent();
     this.armoryElemental?.userData.dispose?.();
     this.armoryElemental = null;

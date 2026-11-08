@@ -110,69 +110,280 @@
       <p class="yard-inscription" data-yard-inscription aria-hidden="true">CASTLEWARD <span>·</span> THE YARD</p>
     </section>
 
-    <section id="armory-menu" class="side-screen hidden">
-      <div class="side-screen-inner banner-panel armory-inner">
-        <button class="back-button" id="armory-back">← BACK</button>
-        <p class="eyebrow">THE SPELLBLADE'S KIT</p>
-        <h2>ARMORY</h2>
-        <nav class="armory-tabs" aria-label="Armory sections">
+    <section id="armory-menu" class="armory-stage-screen hidden">
+      <!-- Armory Stage Header: contextual navigation and ledger access -->
+      <header class="armory-stage-header">
+        <button class="back-button" id="armory-back" type="button">← BACK</button>
+        <div class="armory-header-center">
+          <h2 id="armory-heading">THE SPELLBLADE'S KIT — ARMORY</h2>
+        </div>
+        <div class="armory-header-actions">
+          <button type="button" id="armory-challenges-tab" class="armory-ledger-btn" aria-pressed="false" aria-controls="armory-challenges">
+            <svg class="ledger-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h12a3 3 0 0 1 3 3v15H6a3 3 0 0 1-3-3V3z"/><path d="M6 3v15a1 1 0 0 0 1 1h12"/><path d="M8 8h7M8 12h5"/></svg>
+            <span>CHALLENGES</span>
+          </button>
+          <div id="armory-renown-pill" class="armory-renown-pill" title="Current Renown balance">
+            <span class="renown-mark">✥</span>
+            <span id="renown-balance-header">0 RENOWN</span>
+          </div>
+        </div>
+        <!-- Semantic tabs preserved for screen readers and automated test harnesses -->
+        <nav class="armory-tabs visual-hidden" aria-label="Armory sections">
           <button type="button" id="armory-kit-tab" aria-pressed="true" aria-controls="armory-kit">COMBAT KIT</button>
           <button type="button" id="armory-siege-tab" aria-pressed="false" aria-controls="armory-siege">SIEGE</button>
           <button type="button" id="armory-heraldry-tab" aria-pressed="false" aria-controls="armory-heraldry">HERALDRY</button>
-          <button type="button" id="armory-challenges-tab" aria-pressed="false" aria-controls="armory-challenges">CHALLENGES</button>
         </nav>
-        <div class="armory-scroll" tabindex="0" aria-label="Armory choices">
-        <div id="armory-kit">
-        <p class="armory-slot">BLADE</p>
-        <div class="armory-blade"><b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small></div>
-        <p class="armory-slot">SPELL OR WARD · Q</p>
-        <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
-        <p class="armory-slot">ULTIMATE · R</p>
-        <div id="armory-ultimates" class="armory-spells" role="radiogroup" aria-label="Ultimate"></div>
-        <div id="armory-prepared" class="hidden"></div>
-        <p class="panel-copy armory-note">Equipped for your next match.</p>
-        </div>
-        <div id="armory-siege" class="hidden">
-          <div class="siege-announcement">
-            <h3>SIEGE IN PRODUCTION!</h3>
-            <p>The fourth wall still stands. Once breached, more uncreations, and the peculiar things they can do, shall be unveiled. For now, these machines are operational.</p>
+      </header>
+
+      <!-- 1. The Main Armory: The Spellblade's Kit Stage -->
+      <div id="armory-kit" class="armory-kit-stage">
+        <!-- Surrounding Equipment Plaques -->
+        <button type="button" id="armory-slot-technique" class="armory-slot-plaque slot-technique" data-slot="technique" aria-label="Select Technique">
+          <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
+          <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
+          <span class="plaque-icon" id="plaque-icon-technique" aria-hidden="true"></span>
+          <div class="plaque-text">
+            <span class="plaque-label">TECHNIQUE</span>
+            <strong class="plaque-name" id="plaque-name-technique">Castleward longsword</strong>
           </div>
-          <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
-          <p class="panel-copy">Your Skill selection travels with you. Cooldowns and ammunition remain with each machine.</p>
-        </div>
-        <div id="armory-heraldry" class="hidden">
-          <div class="heraldry-ledger">
-            <div><small>YOUR RENOWN</small><strong id="renown-balance">CONNECTING…</strong></div>
-            <div><small>COLLECTION</small><strong id="renown-collection">0 / 6</strong></div>
+        </button>
+
+        <button type="button" id="armory-slot-sorcery" class="armory-slot-plaque slot-sorcery" data-slot="sorcery" aria-label="Select Sorcery">
+          <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
+          <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
+          <span class="plaque-icon" id="plaque-icon-sorcery" aria-hidden="true"></span>
+          <div class="plaque-text">
+            <span class="plaque-label">SORCERY</span>
+            <strong class="plaque-name" id="plaque-name-sorcery">Fireball</strong>
           </div>
-          <p class="armory-slot">CHOOSE YOUR STANDARD</p>
-          <div id="armory-cloths" class="cloth-choices" role="radiogroup" aria-label="Preview cloth"></div>
-          <div class="cloth-detail">
-            <h3 id="cloth-name"></h3>
-            <p id="cloth-description"></p>
-            <p id="cloth-hint"></p>
-            <progress id="cloth-progress" max="1" value="0" aria-label="Renown toward selected standard"></progress>
-            <button id="cloth-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+        </button>
+
+        <button type="button" id="armory-slot-masterstroke" class="armory-slot-plaque slot-masterstroke" data-slot="masterstroke" aria-label="Select Masterstroke">
+          <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
+          <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
+          <span class="plaque-icon" id="plaque-icon-masterstroke" aria-hidden="true"></span>
+          <div class="plaque-text">
+            <span class="plaque-label">MASTERSTROKE</span>
+            <strong class="plaque-name" id="plaque-name-masterstroke">Sunder All That Rusts</strong>
           </div>
-          <p class="armory-slot">CHOOSE YOUR HERALDRY</p>
-          <div id="armory-emblems" class="cloth-choices emblem-choices" role="radiogroup" aria-label="Preview heraldry"></div>
-          <div class="cloth-detail emblem-detail">
-            <h3 id="emblem-name"></h3>
-            <p id="emblem-description"></p>
-            <p id="emblem-flavor"></p>
-            <p id="emblem-hint"></p>
-            <button id="emblem-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+        </button>
+
+        <button type="button" id="armory-slot-heraldry" class="armory-slot-plaque slot-heraldry" data-slot="heraldry" aria-label="Open Heraldic Chamber">
+          <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
+          <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
+          <span class="plaque-icon" id="plaque-icon-heraldry" aria-hidden="true"></span>
+          <div class="plaque-text">
+            <span class="plaque-label">HERALDRY</span>
+            <strong class="plaque-name" id="plaque-name-heraldry">Grimoirelee</strong>
           </div>
-          <p id="renown-status" role="status"></p>
-          <details class="renown-rules">
-            <summary>EARNING RENOWN</summary>
-            <p><b>20</b> Complete a match <span>+10 for victory</span></p>
-            <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
-          </details>
+        </button>
+
+        <!-- Right edge navigation control to connected Siege Workshop -->
+        <button type="button" id="armory-nav-siege" class="armory-nav-siege-btn" aria-label="Visit Siege Workshop">
+          <span class="nav-label">SIEGE</span>
+          <span class="nav-arrow" aria-hidden="true">→</span>
+        </button>
+
+        <!-- Bottom status strip and rotation hint -->
+        <div class="armory-kit-footer">
+          <div class="armory-status-summary" id="armory-status-summary">
+            Equipped: Castleward Longsword · Fireball · Sunder All That Rusts · Crimson Cloth
+          </div>
+          <div class="armory-stage-controls">
+            <span class="turn-hint">DRAG TO TURN · DOUBLE-CLICK TO RESET</span>
+            <button type="button" id="armory-reset-hero" class="armory-reset-btn" aria-label="Reset hero orientation">RESET VIEW</button>
+          </div>
         </div>
-        <div id="armory-challenges" class="hidden"></div>
+
+        <!-- Backwards-compatible blade info elements for tests -->
+        <div class="visual-hidden" aria-hidden="true">
+          <b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small>
         </div>
-        <p class="armory-scroll-hint">SCROLL FOR SPELLS, ULTIMATES AND STANDARDS ↓</p>
+      </div>
+
+      <!-- Sliding Equipment Inspector (right side) -->
+      <aside id="armory-inspector" class="armory-inspector closed" aria-label="Equipment Inspector">
+        <div class="inspector-inner banner-panel">
+          <header class="inspector-header">
+            <div>
+              <p class="inspector-category" id="inspector-category">SORCERY</p>
+              <h3 id="inspector-title">CHOOSE SPELL OR WARD</h3>
+              <p class="inspector-subtitle" id="inspector-subtitle">The Spellblade ordinarily equips one spell or ward for battle.</p>
+            </div>
+            <button type="button" id="armory-inspector-close" class="inspector-close" aria-label="Close Inspector">✕</button>
+          </header>
+
+          <div class="inspector-scroll armory-scroll" tabindex="0">
+            <!-- Technique list -->
+            <div id="inspector-list-technique" class="inspector-list hidden">
+              <p class="armory-slot">AVAILABLE TECHNIQUES</p>
+              <div id="armory-techniques" class="armory-spells" role="radiogroup" aria-label="Sword Techniques"></div>
+            </div>
+
+            <!-- Sorcery list -->
+            <div id="inspector-list-sorcery" class="inspector-list">
+              <p class="armory-slot">AVAILABLE SPELLS & WARDS</p>
+              <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
+            </div>
+
+            <!-- Masterstroke list -->
+            <div id="inspector-list-masterstroke" class="inspector-list hidden">
+              <p class="armory-slot">AVAILABLE MASTERSTROKES</p>
+              <div id="armory-ultimates" class="armory-spells" role="radiogroup" aria-label="Masterstroke"></div>
+            </div>
+
+            <!-- Inspector Item Detail Card -->
+            <section class="inspector-item-card" id="inspector-item-card">
+              <div class="inspector-card-heading">
+                <span class="inspector-card-mark" id="inspector-card-mark">✦</span>
+                <div>
+                  <h4 id="inspector-card-name">FIREBALL</h4>
+                  <span class="inspector-card-status" id="inspector-card-status">EQUIPPED</span>
+                </div>
+              </div>
+              <p class="inspector-card-desc" id="inspector-card-desc"></p>
+              <p class="inspector-card-facts" id="inspector-card-facts"></p>
+              <p class="inspector-card-lore" id="inspector-card-lore"></p>
+
+              <!-- Prepared spells (for Chivalry) -->
+              <div id="armory-prepared" class="hidden"></div>
+
+              <!-- Authoritative Equip action -->
+              <div class="inspector-card-action">
+                <button type="button" id="armory-equip-btn" class="wide-button primary-command">EQUIP</button>
+              </div>
+            </section>
+          </div>
+          <p class="armory-scroll-hint">SCROLL FOR DETAILS ↓</p>
+        </div>
+      </aside>
+
+      <!-- 2. The Connected Siege Workshop Stage -->
+      <div id="armory-siege" class="armory-siege-stage hidden">
+        <!-- Compatibility announcement preserved for tests -->
+        <div class="siege-announcement visual-hidden" aria-hidden="true">
+          <h3>SIEGE IN PRODUCTION!</h3>
+          <p>The fourth wall still stands. Once breached, more uncreations, and the peculiar things they can do, shall be unveiled. For now, these machines are operational.</p>
+        </div>
+
+        <!-- Machine Tabs -->
+        <nav class="siege-machine-nav" aria-label="Siege Machine Selection">
+          <button type="button" class="siege-tab selected" data-siege-tab="soFist" aria-pressed="true">SO-FIST-ICATION</button>
+          <button type="button" class="siege-tab" data-siege-tab="biBye" aria-pressed="false">BI-BYE-LLISTA</button>
+          <button type="button" class="siege-tab" data-siege-tab="fightFlight" aria-pressed="false">FIGHT-AND-FLIGHT</button>
+        </nav>
+
+        <!-- Workshop Drag Controls Hint -->
+        <div class="siege-viewport-controls">
+          <span class="turn-hint">DRAG TO INSPECT MACHINE · DOUBLE-CLICK TO RESET</span>
+          <button type="button" id="siege-reset-view" class="armory-reset-btn" aria-label="Reset machine angle">RESET VIEW</button>
+        </div>
+
+        <!-- Right-side Siege Inspector Panel -->
+        <aside class="siege-inspector banner-panel" aria-label="Machine Inspector">
+          <div class="siege-inspector-scroll armory-scroll" tabindex="0">
+            <header class="siege-header">
+              <span class="siege-badge" id="siege-badge">SIEGE MACHINE</span>
+              <h3 id="siege-title">SO-FIST-ICATION</h3>
+              <p class="siege-subtitle" id="siege-subtitle">A MOST FORCEFUL ARGUMENT</p>
+            </header>
+
+            <section class="siege-section">
+              <h4 class="armory-slot">OVERVIEW</h4>
+              <p class="siege-overview-text" id="siege-overview-text"></p>
+              <small class="siege-facts-pill" id="siege-facts-pill"></small>
+            </section>
+
+            <section class="siege-section">
+              <h4 class="armory-slot">ABILITIES & ATTACKS</h4>
+              <div id="siege-attacks-list" class="siege-attacks-list"></div>
+
+              <h4 class="armory-slot">SIEGE SKILL · U</h4>
+              <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
+            </section>
+
+            <section class="siege-section">
+              <h4 class="armory-slot">CONTROLS</h4>
+              <div class="siege-controls-box">
+                <div class="siege-controls-row"><strong>DESKTOP</strong><span id="siege-ctrl-desktop"></span></div>
+                <div class="siege-controls-row"><strong>TOUCH</strong><span id="siege-ctrl-touch"></span></div>
+              </div>
+            </section>
+
+            <section class="siege-section">
+              <details class="siege-armory-story" data-siege-story="soFist" id="siege-story-details">
+                <summary aria-label="Story of Siege">
+                  <span>STORY OF SIEGE</span><span class="siege-story-chevron" aria-hidden="true">⌄</span>
+                </summary>
+                <div id="siege-story-content" class="siege-story-content"></div>
+              </details>
+            </section>
+          </div>
+          <p class="armory-scroll-hint">SCROLL FOR ALL THREE SIEGE MACHINES ↓</p>
+        </aside>
+      </div>
+
+      <!-- 3. The Heraldry Chamber Stage -->
+      <div id="armory-heraldry" class="armory-heraldry-stage hidden">
+        <div class="heraldry-stage-controls">
+          <span class="turn-hint">DRAG TO INSPECT KNIGHT & HERALDRY · DOUBLE-CLICK TO RESET</span>
+          <button type="button" id="heraldry-reset-hero" class="armory-reset-btn" aria-label="Reset hero view">RESET VIEW</button>
+        </div>
+
+        <aside class="heraldry-inspector banner-panel" aria-label="Heraldry Chamber">
+          <div class="heraldry-scroll armory-scroll" tabindex="0">
+            <header class="heraldry-header">
+              <p class="armory-slot">HERALDIC CHAMBER</p>
+              <h3>WAR COATS & STANDARDS</h3>
+              <div class="heraldry-ledger">
+                <div><small>YOUR RENOWN</small><strong id="renown-balance">CONNECTING…</strong></div>
+                <div><small>COLLECTION</small><strong id="renown-collection">0 / 6</strong></div>
+              </div>
+            </header>
+
+            <p class="armory-slot">CHOOSE YOUR STANDARD</p>
+            <div id="armory-cloths" class="cloth-choices" role="radiogroup" aria-label="Preview cloth"></div>
+            <div class="cloth-detail">
+              <h3 id="cloth-name"></h3>
+              <p id="cloth-description"></p>
+              <p id="cloth-hint"></p>
+              <progress id="cloth-progress" max="1" value="0" aria-label="Renown toward selected standard"></progress>
+              <button id="cloth-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+            </div>
+
+            <p class="armory-slot">CHOOSE YOUR HERALDRY</p>
+            <div id="armory-emblems" class="cloth-choices emblem-choices" role="radiogroup" aria-label="Preview heraldry"></div>
+            <div class="cloth-detail emblem-detail">
+              <h3 id="emblem-name"></h3>
+              <p id="emblem-description"></p>
+              <p id="emblem-flavor"></p>
+              <p id="emblem-hint"></p>
+              <button id="emblem-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+            </div>
+            <p id="renown-status" role="status"></p>
+            <details class="renown-rules">
+              <summary>EARNING RENOWN</summary>
+              <p><b>20</b> Complete a match <span>+10 for victory</span></p>
+              <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
+            </details>
+          </div>
+          <p class="armory-scroll-hint">SCROLL FOR STANDARDS AND HERALDRY ↓</p>
+        </aside>
+      </div>
+
+      <!-- 4. The Challenge Ledger Screen -->
+      <div id="armory-challenges-view" class="armory-challenges-stage hidden">
+        <div class="challenges-panel-inner banner-panel">
+          <header class="challenges-header">
+            <div>
+              <p class="armory-slot">PERMANENT MASTERY</p>
+              <h2>CHALLENGE LEDGER</h2>
+            </div>
+            <button type="button" id="challenges-close-btn" class="inspector-close" aria-label="Close Challenges">✕</button>
+          </header>
+          <div id="armory-challenges" class="armory-scroll challenges-scroll" tabindex="0"></div>
+          <p class="armory-scroll-hint">SCROLL FOR CHALLENGES ↓</p>
+        </div>
       </div>
     </section>
 
