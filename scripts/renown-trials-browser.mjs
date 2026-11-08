@@ -51,15 +51,19 @@ async function swordDefeat(room, player, bot) {
   player.recoverUntil = -Infinity;
   const initialKills = player.kills ?? 0;
   await evaluate(`(()=>{
-    if (window.__ssRuntime?.input) {
-      window.__ssRuntime.input.setAttack(true, 'desktop');
-    } else if (window.__ssLink) {
+    const r = window.__ssRuntime;
+    if (r?.input) {
+      r.input.enabled = true;
+      r.input.pointerLocked = true;
+      r.input.setAttack(true, 'desktop');
+    }
+    if (window.__ssLink) {
       window.__ssLink.attack(true);
     }
     return true;
   })()`);
   const start = Date.now();
-  while (bot.alive && Date.now() - start < 6000) {
+  while (bot.alive && Date.now() - start < 8000) {
     const yaw = player.yaw;
     bot.position = {
       x: player.position.x - Math.sin(yaw) * 1.2,
@@ -74,9 +78,11 @@ async function swordDefeat(room, player, bot) {
     await sleep(40);
   }
   await evaluate(`(()=>{
-    if (window.__ssRuntime?.input) {
-      window.__ssRuntime.input.setAttack(false, 'desktop');
-    } else if (window.__ssLink) {
+    const r = window.__ssRuntime;
+    if (r?.input) {
+      r.input.setAttack(false, 'desktop');
+    }
+    if (window.__ssLink) {
       window.__ssLink.attack(false);
     }
     return true;
@@ -120,6 +126,14 @@ try {
   assert.equal(room.renownTrial.wave.count,1);
   assert.equal(room.players.size,2);
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
+  await evaluate(`(()=>{
+    const r = window.__ssRuntime;
+    if (r?.input) {
+      r.input.enabled = true;
+      r.input.pointerLocked = true;
+    }
+    return true;
+  })()`);
   await shot('01-live-wave');
   const enemy=room.players.get(room.renownTrial.wave.enemyIds[0]);
   await swordDefeat(room,player,enemy);
