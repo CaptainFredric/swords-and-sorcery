@@ -1755,10 +1755,12 @@ function updatePlaques() {
   const currentSpellId = settings.get('loadout.spell');
   const currentUltId = settings.get('loadout.ultimate');
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
-  const spell = SPELLS[currentSpellId] || SPELLS.fireball;
-  const ultimate = ULTIMATES[currentUltId] || ULTIMATES.sunder;
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
+  const view = armoryView(currentSpellId, currentUltId);
   const technique = SWORD_TECHNIQUES[0];
+
+  const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
+  const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
   const techIcon = $('#plaque-icon-technique');
   if (techIcon) techIcon.textContent = technique.mark;
@@ -1766,31 +1768,31 @@ function updatePlaques() {
   if (techName) techName.textContent = technique.name;
 
   const sorceryIcon = $('#plaque-icon-sorcery');
-  if (sorceryIcon) sorceryIcon.textContent = spell.mark;
+  if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
   const sorceryName = $('#plaque-name-sorcery');
-  if (sorceryName) sorceryName.textContent = spell.label;
+  if (sorceryName) sorceryName.textContent = SPELLS[currentSpellId]?.label || equippedSpell.name;
 
   const masterstrokeIcon = $('#plaque-icon-masterstroke');
-  if (masterstrokeIcon) masterstrokeIcon.textContent = ultimate.mark;
+  if (masterstrokeIcon) masterstrokeIcon.textContent = equippedUlt.mark;
   const masterstrokeName = $('#plaque-name-masterstroke');
-  if (masterstrokeName) masterstrokeName.textContent = ultimate.label;
+  if (masterstrokeName) masterstrokeName.textContent = ULTIMATES[currentUltId]?.label || equippedUlt.name;
 
   const heraldryIcon = $('#plaque-icon-heraldry');
   if (heraldryIcon) heraldryIcon.textContent = cloth.mark || '✥';
   const heraldryName = $('#plaque-name-heraldry');
   if (heraldryName) heraldryName.textContent = cloth.name;
 
-  const summary = `Equipped: ${technique.name} · ${spell.label} · ${ultimate.label} · ${cloth.name}`;
+  const summary = `Equipped: ${technique.name} · ${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.label || equippedUlt.name} · ${cloth.name}`;
   const summaryEl = $('#armory-status-summary');
   if (summaryEl) summaryEl.textContent = summary;
 
   // Semantic/backward-compatible elements
   const equippedEl = $('#armory-equipped');
-  if (equippedEl) equippedEl.textContent = `${spell.label} · ${ultimate.short ?? 'Sunder'}`;
+  if (equippedEl) equippedEl.textContent = `${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.short ?? 'Sunder'}`;
   const bladeNameEl = $('#armory-blade-name');
   if (bladeNameEl) bladeNameEl.textContent = technique.name;
   const bladeFactsEl = $('#armory-blade-facts');
-  if (bladeFactsEl) bladeFactsEl.textContent = technique.facts;
+  if (bladeFactsEl) bladeFactsEl.textContent = typeof technique.facts === 'function' ? technique.facts(GAME) : technique.facts;
 }
 
 function renderInspectorLists() {
