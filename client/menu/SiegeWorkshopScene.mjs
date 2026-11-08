@@ -398,7 +398,7 @@ export class SiegeWorkshopScene {
     } else {
       const fallback = this.fallbacks.get(id);
       if (fallback) this.machinePivot.add(fallback);
-      this.#loadAuthored(id);
+      this.loadAuthored(id);
     }
 
     // Adjust position/scale offsets per machine proportions
@@ -414,51 +414,102 @@ export class SiegeWorkshopScene {
     }
   }
 
-  #loadAuthored(id) {
+  loadAuthored(id) {
+    if (this.cache.has(id)) return Promise.resolve(this.cache.get(id));
+    if (this.inFlight.has(id)) return this.inFlight.get(id);
+
     const assetPath = MACHINE_ASSETS[id];
-    if (!assetPath) return;
+    if (!assetPath) return Promise.resolve(null);
 
-    this.loader.load(
-      appUrl(assetPath),
-      (gltf) => {
-        const model = gltf.scene;
-        model.name = `Authored_${id}`;
+    const promise = new Promise((resolve) => {
+      this.loader.load(
+        appUrl(assetPath),
+        (gltf) => {
+          const model = gltf.scene;
+          model.name = `Authored_${id}`;
 
-        // Configure shadows and PBR properties
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              child.material.envMapIntensity = 0.8;
+          // Configure shadows and PBR properties
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              if (child.material) {
+                child.material.envMapIntensity = 0.8;
+              }
             }
+          });
+
+          // Measure bounding box for scale/centering verification
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          model.userData = {
+            isAuthored: true,
+            machineId: id,
+            bounds: {
+              size: { x: size.x, y: size.y, z: size.z },
+              center: { x: center.x, y: center.y, z: center.z },
+            },
+          };
+
+          // Setup subtle idle animation if present (deduplicate mixer)
+          if (this.mixers.has(id)) {
+            this.mixers.get(id).stopAllAction();
+            this.mixers.delete(id);
           }
-        });
-
-        // Setup subtle idle animation if present
-        if (gltf.animations?.length > 0) {
-          const mixer = new THREE.AnimationMixer(model);
-          const idleClip = gltf.animations.find((c) => /idle|travel/i.test(c.name)) || gltf.animations[0];
-          if (idleClip) mixer.clipAction(idleClip).play();
-          this.mixers.set(id, mixer);
-        }
-
-        this.cache.set(id, model);
-
-        // If still active machine, swap out fallback
-        if (this.activeMachineId === id) {
-          while (this.machinePivot.children.length > 0) {
-            this.machinePivot.remove(this.machinePivot.children[0]);
+          if (gltf.animations?.length > 0) {
+            const mixer = new THREE.AnimationMixer(model);
+            const idleClip = gltf.animations.find((c) => /idle|travel/i.test(c.name)) || gltf.animations[0];
+            if (idleClip) mixer.clipAction(idleClip).play();
+            this.mixers.set(id, mixer);
           }
-          this.machinePivot.add(model);
+
+          this.cache.set(id, model);
+          this.inFlight.delete(id);
+
+          // If still active machine, swap out fallback
+          if (this.activeMachineId === id) {
+            while (this.machinePivot.children.length > 0) {
+              this.machinePivot.remove(this.machinePivot.children[0]);
+            }
+            this.machinePivot.add(model);
+          }
+          resolve(model);
+        },
+        undefined,
+        (err) => {
+          this.inFlight.delete(id);
+          // Fallback remains active honestly
+          console.warn(`SiegeWorkshop: GLTF asset load error for ${id}; procedural model active`, err);
+          resolve(null);
         }
-      },
-      undefined,
-      (err) => {
-        // Fallback remains active seamlessly
-        console.warn(`SiegeWorkshop: GLTF asset load error for ${id}; procedural model active`, err);
-      }
-    );
+      );
+    });
+
+    this.inFlight.set(id, promise);
+    return promise;
+  }
+
+  whenLoaded(id = this.activeMachineId) {
+    if (this.cache.has(id)) return Promise.resolve(this.cache.get(id));
+    if (this.inFlight.has(id)) return this.inFlight.get(id);
+    return this.loadAuthored(id);
+  }
+
+  isDisplayingAuthored(id = this.activeMachineId) {
+    const child = this.machinePivot.children[0];
+    return Boolean(child?.userData?.isAuthored && child.userData.machineId === id);
+  }
+
+  getActiveModelStatus() {
+    const child = this.machinePivot.children[0];
+    return {
+      id: this.activeMachineId,
+      isAuthored: this.isDisplayingAuthored(),
+      childName: child?.name ?? null,
+      bounds: child?.userData?.bounds ?? null,
+      hasMixer: this.mixers.has(this.activeMachineId),
+    };
   }
 
   rotate(deltaYaw, deltaPitch = 0) {
@@ -486,6 +537,7 @@ export class SiegeWorkshopScene {
 
   dispose() {
     this.root.removeFromParent();
+    for (const mixer of this.mixers.values()) mixer.stopAllAction();
     for (const model of this.cache.values()) {
       model.traverse((child) => {
         if (child.isMesh) {
@@ -496,6 +548,7 @@ export class SiegeWorkshopScene {
       });
     }
     this.cache.clear();
+    this.inFlight.clear();
     this.mixers.clear();
   }
 }
