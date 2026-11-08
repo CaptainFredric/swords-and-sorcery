@@ -148,8 +148,13 @@ export function advanceTerminalFlight(room,m,dt,now){
  const pitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?
    clamp(pilot.input.pitch,-VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit):0;
  const climb=VALKYRIE_RUN.speed*Math.sin(pitch)*(1-fade);
- const launchLift=dive.launchedFromGround&&t<.55?4.5*(1-t/.55):0;
- const targetVy=charged?Math.max(launchLift,climb-.15-failure*13):
+ const groundTakeoff=dive.launchedFromGround&&t<.55;
+ const launchLift=groundTakeoff?4.5*(1-t/.55):0;
+ const poweredVy=climb-.15-failure*13;
+ // A grounded takeoff has brief positive lift ONLY during the launch.
+ // Outside that window negative poweredVy must remain negative: otherwise
+ // Math.max(0,poweredVy) would silently suppress all descending flight.
+ const targetVy=charged?(groundTakeoff?Math.max(launchLift,poweredVy):poweredVy):
    -Math.min(25,5+2*t);
  const verticalResponse=charged?
    VALKYRIE_RUN.acceleration*(1-fade)+2.1*fade:2.7;
