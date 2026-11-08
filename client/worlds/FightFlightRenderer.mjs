@@ -393,7 +393,7 @@ export class FightFlightRenderer{
           cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
         }
         // One small, unshadowed firelight per active authoritative zone.
-        const light=new THREE.PointLight(0xff702b,1.0,13,2);
+        const light=everywhere(new THREE.PointLight(0xff702b,1.0,13,2));
         light.position.y=.6;group.add(light);
         visual={group,scar,edge,core,glow,cracks,flames,soot,light};
         this.burnRoot.add(group);this.burnZones.set(zone.id,visual);
