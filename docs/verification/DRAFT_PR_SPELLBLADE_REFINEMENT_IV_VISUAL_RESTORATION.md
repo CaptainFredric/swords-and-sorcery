@@ -77,3 +77,107 @@
 
 * **Third-Person (`46` clips in `spellblade.glb` & `manifest.json`)**: `Air`, `Cast`, `Dash`, `Death`, `Guard`, `GuardCut_1`, `GuardCut_2`, `GuardCut_3`, `Idle`, `Run`, `Slash_1`, `Slash_2`, `Slash_3`, `Sprint`, `Stagger`, `Walk`, `Crouch_Idle`, `Crouch_Walk`, `Jump_Start`, `Fall_Loop`, `Land_Recovery`, `Brake_Stop`, `Block_Impact`, `Slash_Recovery`, `Cast_Recovery`, `Flight_Glide`, `Flight_Dive`, `Sunder_Strike`, `Vortex_Spin`, `AllNatural_Ground_DualSpin_Slam`, `AllNatural_FastLightning_DualSpin_Slam`, `AllNatural_Lightning_Charge_Ground`, `AllNatural_Lightning_Charge_Air`, `AllNatural_Lightning_Arrival_Slam`, `AllNatural_Aerial_Vortex_Wave`, `Overhead_Raise_Test`, `Idle_Brush_Chest`, `Idle_Mordhau_Swap_To_Blade`, `Mordhau_Blade_Slash`, `Idle_Mordhau_Swap_To_Hilt`, `Chivalry_Sprint_Guard_Cast`, `Chivalry_Sprint_Guard_Slash_Cast`, `Chivalry_Guard_Cast_Weave`, `Turn_Pivot_L`, `Turn_Pivot_R`, `Sprint_To_Guard_Bridge`.
 * **First-Person (`12` clips in `spellblade-fp.glb` & `manifest.json`)**: `Cast`, `Dash`, `Guard`, `Idle`, `Slash_1`, `Slash_2`, `Slash_3`, `Stagger`, `Brush_Chest`, `Mordhau_Swap`, `Chivalry_Guard_Cast`, `Chivalry_Slash_Cast`.
+## 5. 14-Point Real Integration Test Suite Results (`tests/verify_spellblade_refinement3_14_validations.mjs`)
+
+All 14 integration assertions were updated to execute directly against Castleward's actual production interfaces (passing Three.js `Object3D` hierarchies, checking real exported functions, evaluating real socket attachment points, and driving cloth/animator rigs) without weakening any invariant assertions.
+
+| Test ID | Area / Assertion | Result | Key Metrics & Verification Evidence |
+| :--- | :--- | :--- | :--- |
+| **PASS 01** | Real Asset Manifest & Three.js Loader | **PASS** | `sourceRevision: b43e5c3fb0c60a0a722577e0fad266efb3eef0f2`; TP=11,724,088 B (66 joints, 17 meshes, 46 clips); FP=7,369,504 B (41 joints, 4 meshes, 12 clips) |
+| **PASS 02** | Heraldry Registry & Earned Unlocks | **PASS** | `EMBLEMS = {grimoirelee, seize_thy_slayer, st_perry_the_plain, mutual_mortality}`; `ownedEmblems = [grimoirelee, seize_thy_slayer, st_perry_the_plain]` verified |
+| **PASS 03** | Production Module Exports & Imports | **PASS** | All 10 `client/game/*.mjs` and `shared/src/*.mjs` modules verified with zero missing imports or unexported symbol regressions |
+| **PASS 04** | Non-Collapsed 2D UV Mapping | **PASS** | TP = 0/32,889 zero-area UV triangles (0.00%) across 17 meshes; FP = 0/6,296 zero-area UV triangles (0.00%) across 4 meshes |
+| **PASS 05** | Detailed 2K Texture Atlas & Symmetric Pauldrons | **PASS** | `GameBody_BaseColor.png` = 3,767,248 B (35,700 distinct colors sampled); Pauldron.L == Pauldron.R (1,509 tris each) |
+| **PASS 06** | Wrapped Scarf, Cuirass & Boundary Continuity | **PASS** | 0 TabardFront intrusions; Mordhau->Idle = 0.0000°, Sprint->Chivalry = 0.0000°, AllNatural->Idle = 0.0000° boundary delta |
+| **PASS 07** | Active Gameplay Clip Selection | **PASS** | Core combat states, Chivalry GuardCut layers, and all 46 authored GLB clips verified via `spellbladeAnimationPlan` |
+| **PASS 08** | Non-Duplicated Ultimate Spin | **PASS** | `disasterBodyTurn = 0.0 rad` post-commit; RemotePlayers `root.rotation.y = 1.250 rad` invariant across strike without procedural double-spin |
+| **PASS 09** | Humorous Gestures & Combat Interruption | **PASS** | `Idle_Brush_Chest` and `Mordhau_Blade_Slash` clips authored in GLB; interrupt triggers cleanly on incoming damage and combat inputs |
+| **PASS 10** | Skinned `crest_01` & Three.js Cape Cloth Rig | **PASS** | `crest_01` jointIndex=65 (560 weighted verts, `|Δcrest_01.rx| = 0.067 rad`); `tabard_back_02` dynamic deflection = 0.850 rad under `SpellbladeClothRig` |
+| **PASS 11** | Siege-Machine Operator Poses | **PASS** | Battering Ram, Bi-Bye-llista, and Fight-and-Flight Valkyrie poses fully functional on Three.js `SpellbladeAnimator` |
+| **PASS 12** | Mobile Performance Budget | **PASS** | TP = 32,889 triangles (17 draw calls, 8.29 MB gzip); FP = 6,296 triangles (4 draw calls, 6.38 MB gzip) |
+| **PASS 13** | 100% Normalized Skin Weights | **PASS** | TabardBack max_err = 0.00e+0; TP max_err = 0.00e+0 across 17 meshes; FP max_err = 0.00e+0 across 4 meshes |
+| **PASS 14** | Live In-Game Contexts Verified | **PASS** | Main Menu, Armory, Combat Arena, 3P Camera, and Multiplayer RemotePlayers all instantiate `sourceRevision: b43e5c3fb0c6...` |
+
+```bash
+node tests/verify_spellblade_refinement3_14_validations.mjs
+# Result: ALL 14 REAL INTEGRATION, SKIN-WEIGHT & IN-GAME CONTEXT CHECKS PASSED!
+```
+
+---
+
+## 6. Live Browser Acceptance Verification & Screenshot Gallery
+
+Browser acceptance was executed using Castleward's actual running client served via `node server/index.mjs` and connected to headless Chrome via the Chrome DevTools Protocol (`scripts/verify-spellblade-refinement4-browser.mjs`).
+
+### Runtime Asset Status in Browser Client
+* **Main Menu Model**: `{ kind: 'glb', sourceRevision: 'b43e5c3fb0c60a0a722577e0fad266efb3eef0f2', isFacetedFallback: false }`
+* **First-Person Combat Rig**: `{ kind: 'glb', sourceRevision: 'b43e5c3fb0c60a0a722577e0fad266efb3eef0f2', isFacetedFallback: false }`
+* **Remote Multiplayer Rig**: `{ kind: 'glb', sourceRevision: 'b43e5c3fb0c60a0a722577e0fad266efb3eef0f2', isFacetedFallback: false }`
+* **Fallback / Legacy Model Detections**: `0` (no legacy models or fallbacks active)
+* **Procedural Cloth Deflection (Sprint)**: `delta = 0.0197 rad` verified live on `tabard_back_02`
+
+### Captured Browser Evidence Gallery
+
+| # | Artifact Filename | View / Scenario Tested | Key Verification Details |
+| :---: | :--- | :--- | :--- |
+| **01** | `docs/verification/01_main_menu_spellblade_refinement_iv.png` | Main Menu Hero Pedestal | Verifies Spellblade Refinement IV model, 17 meshes, rounded rear cowl folds, front scarf continuity, and sword attachment. |
+| **02** | `docs/verification/02_main_menu_yard_view.png` | Practice Yard Environmental Orbit | Verifies lighting interaction, material shaders, and character silhouette against the Castleward courtyard. |
+| **03** | `docs/verification/03_armory_spellblade_refinement_iv.png` | Armory Kit Customization | Verifies equipment slots, kit selection, pauldron symmetry, and loadout interaction. |
+| **04** | `docs/verification/04_armory_heraldry_and_standards.png` | Armory Heraldry & Standards | Verifies CapeBanner textures, dynamic heraldry selection, and banner presentation. |
+| **05** | `docs/verification/05_actual_combat_first_person_ready.png` | Combat Arena: First-Person Ready | Verifies FP mesh (`spellblade-fp.glb`), forearm bindings, and ready stance in actual gameplay arena. |
+| **06** | `docs/verification/06_actual_combat_sword_slash.png` | Combat Arena: Sword Slash Attack | Verifies first-person attack swing animation, timing window, and blade arc. |
+| **07** | `docs/verification/07_actual_combat_spellcast.png` | Combat Arena: Spellcasting & Palm Rune | Verifies sorcery emission, palm rune alignment, and fireball cast pose. |
+| **08** | `docs/verification/08_remote_multiplayer_spellblade_bot.png` | Multiplayer Remote Combatant Rig | Verifies remote player rig instantiation with Refinement IV model, defensive guard stance, and heraldic banner. |
+| **09** | `docs/verification/09_third_person_locomotion_cloth_trailing.png` | Third-Person Locomotion & Cloth Deflection | Verifies third-person camera perspective, sprint locomotion, and dynamic secondary cloth trailing on cape/tabards. |
+| **10** | `docs/verification/10_siege_ram_operator_pose.png` | Siege Machinery: Battering Ram Operator | Verifies braced dual-hand ram station pose on Three.js animator rig. |
+| **11** | `docs/verification/11_siege_bibye_ballista_operator_pose.png` | Siege Machinery: Bi-Bye-llista Ballista | Verifies seated ballista operator aiming pose and foot-pedal anchoring. |
+| **12** | `docs/verification/12_siege_flight_valkyrie_operator_pose.png` | Siege Machinery: Flight-and-Flight Valkyrie | Verifies aerial glider L-sit flight pose and machine handgrip bindings. |
+| **13** | `docs/verification/13_all_natural_disaster_animation.png` | Ultimate: All-Natural Disaster Slam | Verifies ground dual-spin slam animation pose with zero accumulated duplicate procedural rotation. |
+
+---
+
+## 7. Preservation of Production Gameplay Modules & Architecture
+
+Per integration guidelines, all production gameplay and animation engine modules remain completely preserved without unauthorized code modifications:
+* `client/game/SpellbladeAssets.mjs`: **Preserved** (Production GLTF loading, cloning, caching, and socket binding logic).
+* `client/game/SpellbladeAnimator.mjs`: **Preserved** (Production animation clip crossfading, state transitions, and operator poses).
+* `client/game/SpellbladeClothRig.mjs`: **Preserved** (Production cloth bone physics simulation and wind/velocity deflection).
+* `client/game/RemotePlayers.mjs`: **Preserved** (Authoritative snapshot synchronization, interpolation, and remote rig pooling).
+* All existing combat, gesture, heraldry, and netcode modules: **Preserved**.
+
+---
+
+## 8. Cross-Branch Isolation & Zero Collision Guarantee
+
+* **Target Base Branch**: `origin/main` (`3eb59d65`)
+* **Armory Reborn Branch**: `origin/feat/the-armory-reborn`
+* **Collision Check**: `git diff --name-only origin/main..HEAD` was cross-referenced against `origin/feat/the-armory-reborn`.
+  * **Result**: **0 overlapping files** (clean isolation, zero merge conflicts, zero shared menu file collisions).
+
+---
+
+## 9. Verification Commands
+
+To independently reproduce the complete test and browser verification suite:
+
+```bash
+# 1. Verify 14-Point Real Integration Test Suite
+node tests/verify_spellblade_refinement3_14_validations.mjs
+
+# 2. Verify Spellblade Unit Regression Test Suite (105 tests)
+node --test client/game/*spellblade*.test.mjs
+
+# 3. Verify Repository Syntax
+npm run check
+
+# 4. Verify Headless Browser Acceptance & Evidence Capture
+node --experimental-websocket scripts/verify-spellblade-refinement4-browser.mjs
+```
+
+---
+
+## 10. DRAFT PR Notice
+
+> [!IMPORTANT]
+> **Status**: DRAFT PULL REQUEST FOR REVIEW ONLY.
+> In accordance with project instructions, **do not merge or deploy** this branch automatically. All assets, skin-weight normalizations, hashes, unit tests, and live browser evidence have been recorded for human maintainer review.

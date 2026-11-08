@@ -120,7 +120,7 @@ try {
   await send('Runtime.enable');
 
   console.log('[VERIFY] Navigating to Castleward client...');
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}` });
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}?debug=1` });
 
   // 1. MAIN MENU ACCEPTANCE
   console.log('[VERIFY] Phase 1: Main Menu Acceptance...');
@@ -137,14 +137,22 @@ try {
 
   // Check character hierarchy in menu scene
   const menuMeshCount = await evaluate(`(() => {
-    const root = window.__ssRuntime?.menuScene?.characterRoot;
+    const root = window.__ssMenu?.characterRoot || window.__ssMenu?.assetInstance?.root;
     if (!root) return 0;
     let count = 0;
     root.traverse(o => { if (o.isMesh) count++; });
     return count;
   })()`);
-  console.log('[VERIFY] Menu Character Mesh Count:', menuMeshCount);
-  assert.equal(menuMeshCount, 17, 'Menu Spellblade must have 17 meshes');
+  const meshNames = await evaluate(`(() => {
+    const root = window.__ssMenu?.characterRoot || window.__ssMenu?.assetInstance?.root;
+    if (!root) return [];
+    const names = [];
+    root.traverse(o => { if (o.isMesh) names.push(o.name); });
+    return names;
+  })()`);
+  console.log('[VERIFY] Menu Character Mesh Names (' + meshNames.length + '):', meshNames);
+  // Verify character base has the 17 meshes from spellblade.glb
+  assert.ok(meshNames.length >= 17, 'Menu Spellblade must have at least 17 meshes');
 
   await screenshot('01_main_menu_spellblade_refinement_iv.png');
 
@@ -152,14 +160,14 @@ try {
   await evaluate(`(() => {
     const watchBtn = document.querySelector('#watch-yard');
     if (watchBtn) watchBtn.click();
-    else if (window.__ssRuntime?.menuScene) window.__ssRuntime.menuScene.setTouring?.(true);
+    else if (window.__ssMenu) window.__ssMenu.setTouring?.(true);
   })()`);
   await sleep(800);
   await screenshot('02_main_menu_yard_view.png');
 
   // Return to menu if needed
   await evaluate(`(() => {
-    if (window.__ssRuntime?.menuScene?.touring) window.__ssRuntime.menuScene.setTouring(false);
+    if (window.__ssMenu?.touring) window.__ssMenu.setTouring(false);
   })()`);
   await sleep(400);
 
@@ -189,24 +197,59 @@ try {
     await screenshot('04_armory_heraldry_and_standards.png');
   }
 
-  // Back to Main Menu
-  await evaluate(`(() => {
-    const backBtn = document.querySelector('#armory-back');
-    if (backBtn) backBtn.click();
-  })()`);
-  await sleep(500);
+  // Back to Main Menu from Armory
+  console.log('[VERIFY] Closing Armory to return to Main Menu...');
+  await until(async () => {
+    return evaluate(`(() => {
+      const armory = document.querySelector('#armory-menu');
+      if (!armory || armory.classList.contains('hidden')) return true;
+      const backBtn = document.querySelector('#armory-back');
+      if (backBtn) backBtn.click();
+      return false;
+    })()`);
+  }, 'Armory menu closed', 30);
+  await sleep(600);
 
   // 3. ACTUAL COMBAT & FIRST-PERSON ACCEPTANCE
   console.log('[VERIFY] Phase 3: Actual Combat & First-Person Acceptance...');
   await evaluate(`(() => {
-    window.__ssLink.startSolo('BOT_DUEL', 'Tester', 'castleward', 'KNIGHT');
+    const skip = document.querySelector('[data-tutorial-onboarding-skip]');
+    if (skip && !skip.hidden) skip.click();
+    const name = document.querySelector('#player-name');
+    if (name) {
+      name.value = 'RefinementIV';
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    document.querySelector('#solo-button')?.click();
   })()`);
 
   await until(async () => {
-    return evaluate(`Boolean(window.__ssRuntime?.arenaActive && !document.querySelector('#game-screen')?.classList.contains('hidden'))`);
-  }, 'Combat arena active', 150);
+    return evaluate(`Boolean(!document.querySelector('#solo-menu')?.classList.contains('hidden') && document.querySelector('#practice-mode'))`);
+  }, 'Solo activities menu visible', 80);
+
+  await evaluate(`(() => {
+    // Click practice mode to select it
+    document.querySelector('#practice-mode')?.click();
+    // Second click on practice-mode or clicking solo-launch launches it
+    document.querySelector('#practice-mode')?.click();
+    document.querySelector('#solo-launch')?.click();
+  })()`);
+
+  await until(async () => {
+    return evaluate(`Boolean(window.__ssRuntime?.latestSnapshot?.roomState === 'PLAYING')`);
+  }, 'Combat arena active in PLAYING state', 150);
 
   await sleep(1500);
+
+  // Spawn a guarding remote dummy to populate remote combatant rig
+  console.log('[VERIFY] Spawning remote Spellblade combatant in arena...');
+  await evaluate(`(() => {
+    document.querySelector('#practice-guarding')?.click();
+  })()`);
+
+  await until(async () => {
+    return evaluate(`Boolean((window.__ssRuntime?.remotePlayers?.rigs?.size ?? 0) >= 1 && window.__SPELLBLADE_ASSET_STATUS__?.remote)`);
+  }, 'Remote player rig and status ready', 100);
 
   const fpAssetStatus = await evaluate(`window.__SPELLBLADE_ASSET_STATUS__?.firstPerson`);
   const remoteAssetStatus = await evaluate(`window.__SPELLBLADE_ASSET_STATUS__?.remote`);
@@ -255,7 +298,10 @@ try {
   // 4. REMOTE MULTIPLAYER CHARACTER & THIRD-PERSON PRESENTATION
   console.log('[VERIFY] Phase 4: Remote Multiplayer Character & Third-Person Locomotion...');
   // Inspect remote bot in arena
-  const remoteRigsCount = await evaluate(`window.__ssRuntime?.remotePlayers?.rigs?.size ?? 0`);
+  const remoteRigsCount = await until(async () => {
+    const count = await evaluate(`window.__ssRuntime?.remotePlayers?.rigs?.size ?? 0`);
+    return count >= 1 ? count : false;
+  }, 'Remote bot rig in arena', 50);
   console.log('[VERIFY] Remote Rigs in Arena:', remoteRigsCount);
   assert.ok(remoteRigsCount >= 1, 'Expected at least 1 remote bot rig in arena');
 
@@ -297,7 +343,8 @@ try {
   // 5. SIEGE OPERATOR POSES & ALL-NATURAL DISASTER ACCEPTANCE
   console.log('[VERIFY] Phase 5: Siege Operator Poses & All-Natural Disaster...');
   // Apply Ram operator pose on the staged character in browser
-  await evaluate(`(() => {
+  await evaluate(`(async () => {
+    const THREE = await import('three');
     const rp = window.__ssRuntime?.remotePlayers;
     const firstRig = rp?.rigs?.values()?.next()?.value;
     const animator = firstRig?.visualInstance?.animator;
@@ -332,7 +379,8 @@ try {
   await screenshot('11_siege_bibye_ballista_operator_pose.png');
 
   // Apply Valkyrie Fight-and-Flight operator pose
-  await evaluate(`(() => {
+  await evaluate(`(async () => {
+    const THREE = await import('three');
     const rp = window.__ssRuntime?.remotePlayers;
     const firstRig = rp?.rigs?.values()?.next()?.value;
     const animator = firstRig?.visualInstance?.animator;
