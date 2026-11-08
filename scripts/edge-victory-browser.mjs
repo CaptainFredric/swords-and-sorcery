@@ -76,18 +76,20 @@ try{
   await evalPage("(() => {const rt=window.__ssRuntime,room=rt.socket.local.room,"
     +"p=room.players.get(rt.playerId);"
     +"rt.input.enabled=true;rt.input.pointerLocked=true;"
-    +"room.edgeOfVictory.startedAt=rt.socket.serverNow()-230;"
-    +"p.position={x:7,y:0,z:-1};p.velocity={x:0,y:0,z:0};"
+    +"room.edgeOfVictory.startedAt=rt.socket.serverNow()-226;"
+    +"p.position={x:6.7,y:0,z:-1};p.velocity={x:0,y:0,z:0};"
     +"p.spawnProtectionUntil=Infinity;rt.input.yaw=-Math.PI/2;rt.input.pitch=0;"
     +"if(rt.localState){rt.localState.position={...p.position};rt.localState.velocity={x:0,y:0,z:0};}"
     +"return true;})()");
   const before=await until(async()=>{const x=await probe();return x.edge<8.5&&x.player?.x>6.5?x:null;},
     'authoritative small battleground',120);
+  await evalPage("window.focus(); document.body.focus(); window.__ssRuntime.input.keys.add('KeyW'); true;");
   await cdp.send('Input.dispatchKeyEvent',
     {type:'rawKeyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
   await pause(750);
   await cdp.send('Input.dispatchKeyEvent',
     {type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
+  await evalPage("window.__ssRuntime.input.keys.delete('KeyW'); true;");
   const after=await probe();
   const attempted=after.player.x-before.player.x;
   assert.ok(attempted>.08,'real keyboard input must cause forward movement');
