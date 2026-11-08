@@ -47,6 +47,8 @@ async function swordDefeat(room, player, bot) {
   bot.guardStamina = 0;
   bot.guarding = false;
   bot.spawnProtectionUntil = -Infinity;
+  player.staggerUntil = -Infinity;
+  player.recoverUntil = -Infinity;
   for (let attempt = 0; attempt < 8 && bot.alive; attempt++) {
     const yaw = player.yaw;
     bot.position = {
@@ -127,6 +129,8 @@ try {
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
   await shot('04-mobile-overtime-hud');
   await cdp.send('Emulation.clearDeviceMetricsOverride');
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await sleep(200);
   const secondEnemy=room.players.get(second.enemyIds[0]);
   await swordDefeat(room,player,secondEnemy);
   await until(()=>room.renownTrial.phase==='JUDGMENT','single late verdict after last kill');
