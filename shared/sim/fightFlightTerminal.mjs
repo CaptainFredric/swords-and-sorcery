@@ -2,6 +2,7 @@
 // Actual moving machine, one expenditure per lifecycle, one outcome at real impact.
 // Both input state and destruction are authoritative; no client damage or teleports.
 import {ascensionValkyrieReady} from '../src/flightTerminalPolicy.mjs';
+import {VALKYRIE_RUN} from './fightFlightRun.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
@@ -90,7 +91,7 @@ function commitTerminalDive(room,m,p,now){
   // LocalHost may deliver fewer than 30 callbacks per wall-clock second in a
   // saturated browser. The dive's finite TIMEOUT must represent simulated
   // travel, not expire while its chassis has barely moved.
-  simulatedSec:0,lastWallStepAt:now};
+  simulatedSec:0,lastWallStepAt:now,launchedFromGround:Boolean(m.grounded)};
  const launchedFromGround=Boolean(m.grounded);
  m.flightUltimateHeld=false;m.flightDashHeld=false;m.offensiveRun=false;
  m.runGroundPhase=null;m.runGroundLaunchReady=false;m.runStopRequested=false;
@@ -129,20 +130,35 @@ export function advanceTerminalFlight(room,m,dt,now){
  const t=dive.simulatedSec,pilot=room.players.get(dive.operatorId);
  const hasPilot=Boolean(pilot?.alive&&m.operatorId===pilot.id);
  const failure=clamp((t-4.5)/9,0,1);
+ // Full normal-Dash handling lasts three simulated seconds. The same fade
+ // subsequently reduces both horizontal and vertical authority, rather than
+ // making early yaw responsive while upward flight remains nearly impossible.
+ const fade=clamp((t-3)/11,0,1);
  const charged=Boolean(m.rotorHP>0&&m.health>0&&m.flightCharge>0);
- const speed=Math.min(TERMINAL.maxSpeed,15+1.55*t);
+ const speed=Math.min(TERMINAL.maxSpeed,VALKYRIE_RUN.speed+1.2*t);
  const fx=-Math.sin(m.heading),fz=-Math.cos(m.heading);
- const responsiveness=charged?2.55-failure*.9:1.3;
- m.velocity.x+=(fx*speed-m.velocity.x)*Math.min(1,dt*responsiveness);
- m.velocity.z+=(fz*speed-m.velocity.z)*Math.min(1,dt*responsiveness);
- // Positive look pitch ascends; trim decays while the overheated mechanism
- // loses lift. An exhausted engine falls rather than detonating in thin air.
- const pitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?clamp(pilot.input.pitch,-.8,.65):0;
- const trim=pitch*3.8*(1-failure);
- const targetVy=charged?trim-.15-failure*13:-Math.min(25,5+2*t);
- m.velocity.y+=clamp(targetVy-m.velocity.y,-15,15)*Math.min(1,dt*(charged?2.1:2.7));
- m.velocity.y=Math.max(-25,m.velocity.y);
- m.runPitch=Math.min(1.14,.35+.043*t+.28*failure);
+ const responsiveness=charged?
+   VALKYRIE_RUN.acceleration*(1-fade)+(2.55-failure*.9)*fade:1.3;
+ const horizontalResponse=1-Math.exp(-dt*responsiveness);
+ m.velocity.x+=(fx*speed-m.velocity.x)*horizontalResponse;
+ m.velocity.z+=(fz*speed-m.velocity.z)*horizontalResponse;
+ // Follow the same live look-pitch limits and 18m/s flight vector as ordinary
+ // Dash. Looking up can CLIMB immediately. Heat gradually robs that climb
+ // authority; failed rotors/empty charge still fall under real-world collision.
+ const pitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?
+   clamp(pilot.input.pitch,-VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit):0;
+ const climb=VALKYRIE_RUN.speed*Math.sin(pitch)*(1-fade);
+ const launchLift=dive.launchedFromGround&&t<.55?4.5*(1-t/.55):0;
+ const targetVy=charged?Math.max(launchLift,climb-.15-failure*13):
+   -Math.min(25,5+2*t);
+ const verticalResponse=charged?
+   VALKYRIE_RUN.acceleration*(1-fade)+2.1*fade:2.7;
+ m.velocity.y+=(targetVy-m.velocity.y)*(1-Math.exp(-dt*verticalResponse));
+ m.velocity.y=clamp(m.velocity.y,-25,VALKYRIE_RUN.speed);
+ // A climbing pilot actually tips the visible craft upward. The familiar
+ // increasing terminal nose-down attitude returns as pitch authority fades.
+ m.runFlightPitch=pitch*(1-fade);
+ m.runPitch=clamp(.35+.043*t+.28*failure-.85*m.runFlightPitch,-.55,1.14);
  m.health=Math.max(0,m.health-dt*(TERMINAL.burnPerSec+TERMINAL.burnRampPerSec*t));
  m.flightCharge=Math.max(0,m.flightCharge-dt*(TERMINAL.chargeBurnPerSec+TERMINAL.chargeBurnRamp*t));
  m.rotorPowered=charged&&m.health>0&&m.flightCharge>0;
