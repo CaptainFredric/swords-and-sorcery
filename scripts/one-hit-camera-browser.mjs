@@ -42,7 +42,7 @@ const control=`(() => {
   const rt=${rt},host=rt.socket.local.player;
   return {enabled:rt.input.enabled,locked:!!document.pointerLockElement,
     held:rt.input.keys.has('KeyR'),grounded:host.grounded,y:host.position.y,tiers:host.practiceOneHit?.stages,
-    now:rt.socket.serverNow(),recover:host.recoverUntil,stagger:host.staggerUntil};
+    now:rt.socket.serverNow(),recover:host.recoverUntil,stagger:host.staggerUntil,wave:rt.input.oneHitWaveId};
 })()`;
 async function focusArena(){
   if(await evaluate(`${rt}.input.enabled`))return;
@@ -61,7 +61,11 @@ async function focusArena(){
 async function play(name,{preset='simple',aerial=false,hold=false,lightning=false,interrupt=false}={}){
   await poll(()=>evaluate(`(() => {
     const rt=${rt},host=rt.socket.local.player,now=rt.socket.serverNow();
-    return !host.ultimateState&&now>=Math.max(host.recoverUntil??0,host.ultimateLockedUntil??0);
+    // The same physical key detonates a previous live wave. A camera that
+    // has returned to first person does not imply the wave has expired.
+    return !host.ultimateState&&!rt.input.oneHitWaveId&&
+      !rt.socket.local.room.oneHitWaves?.some(w=>w.ownerId===host.id)&&
+      now>=Math.max(host.recoverUntil??0,host.ultimateLockedUntil??0);
   })()`),name+' recovery finished');
   await focusArena();
   await evaluate(`(() => {
@@ -146,7 +150,7 @@ try{
       if(run && run.frames.length<3000){
         const chase=rt.chase??0, body=!!rt.remotePlayers.self?.root.visible, hands=rt.weapon.group.visible;
         run.frames.push({now:rt.socket.serverNow(),phase:a?.phase,commitAt:a?.commitAt,
-          holding:a?.phase==='startup'&&Number.isFinite(a?.teleportHoldAt),chase,body,hands,
+          holding:a?.phase==='startup'&&Number.isFinite(a?.teleportHoldAt),chase,body,hands,wave:rt.input.oneHitWaveId,
           restored:!a&&chase<.05&&hands&&!body&&
             run.events.some(e=>e.type==='oneHitCommitted'||e.type==='ultimateInterrupted')});
       }
