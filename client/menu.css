@@ -586,6 +586,20 @@ html[data-turn] .turn-only { display: block !important; }
 }
 .armory-reset-btn:hover { border-color: var(--heraldry-brass-light); background: rgba(50, 40, 30, .9); color: #fff; }
 
+#armory-inspector-categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+#armory-inspector-categories button[aria-pressed="true"] { border-color: var(--heraldry-brass-light); }
+.heraldry-inspector { left: auto; max-height: none; overflow: hidden; }
+.heraldry-inspector .heraldry-scroll { overflow: auto; overflow-wrap: anywhere; }
+@container app (max-width: 640px) {
+  #armory-menu .armory-inspector, #armory-menu .heraldry-inspector { width: min(100%, 440px); }
+}
+
 /* Sliding Equipment Inspector (Right Side) */
 .armory-inspector {
   position: absolute; top: 56px; right: 0; bottom: 0; width: min(440px, 44vw);
@@ -597,7 +611,7 @@ html[data-turn] .turn-only { display: block !important; }
   transform: translateX(105%); pointer-events: none;
 }
 .armory-inspector .inspector-inner {
-  height: 100%; border-radius: 0; border-right: none;
+  position: relative; inset: auto; width: 100%; height: 100%; max-height: none; border-radius: 0; border-right: none;
   box-shadow: -8px 0 32px rgba(0, 0, 0, .75);
   display: flex; flex-direction: column; overflow: hidden;
   padding: 20px 24px calc(var(--hem) + 16px);
@@ -673,8 +687,8 @@ html[data-turn] .turn-only { display: block !important; }
   position: absolute; inset: 0; pointer-events: none; z-index: 10;
 }
 .siege-machine-nav {
-  position: absolute; top: 68px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; z-index: 15; pointer-events: auto;
+  position: absolute; top: 68px; right: 20px; left: min(490px, 51%); justify-content: center;
+  display: flex; flex-wrap: wrap; gap: 6px; z-index: 15; pointer-events: auto;
 }
 .siege-tab {
   padding: 8px 18px; border: 1px solid rgba(201, 156, 82, .55); border-radius: 3px;
@@ -865,6 +879,9 @@ html[data-turn] .turn-only { display: block !important; }
   .armory-inspector, .siege-inspector, .heraldry-inspector {
     top: 44px; width: min(390px, 50vw); padding: 14px 16px calc(var(--hem) + 10px);
   }
+  .armory-inspector { padding: 0; }
+  .armory-inspector .inspector-inner { padding: 12px 14px calc(var(--hem) + 9px); }
+  .inspector-header { margin-bottom: 6px; padding-bottom: 6px; }
   .inspector-header h3, .siege-header h3 { font-size: 16px; }
 
   .siege-machine-nav { top: 50px; }
@@ -1603,3 +1620,5 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #private-menu #private-create-right {display:block;}
   #breakthrough-menu .mettle-companion .vote-row > button {font-size:14px;}
 }
+
+#breakthrough-menu [hidden], #breakthrough-menu[data-solo-mode="true"]::before { display: none !important; }
