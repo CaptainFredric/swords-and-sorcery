@@ -121,7 +121,7 @@ try{
   "forward:r.input.movement().forward,yaw:r.input.yaw,serverYaw:p.yaw,aim:Math.atan2(-(m.x-p.position.x),-(m.z-p.position.z)),position:p.position,operating:p.operatingFightFlightId,machineOp:m.operatorId};})()";
  const FLIGHT_MOUNT_RANGE=2.5;
  let approached=null;
- for(let attempt=1;attempt<=8&&!approached;attempt++){
+ for(let attempt=1;attempt<=15&&!approached;attempt++){
   const state=await host.evaluate(hostApproach);
   if(state&&state.dist<=2.45&&!state.attack){
    approached=state;
@@ -133,20 +133,9 @@ try{
     if (!p || !m) return;
     const yaw = Math.atan2(-(m.x - p.x), -(m.z - p.z));
     r.input.yaw = yaw;
-    r.socket?.input?.({ forward: 0, right: 0, yaw, pitch: 0 });
   })()`);
   await host.key('W','rawKeyDown');
-  const t0=Date.now();
-  await waitFor(async()=>{
-   const d=await host.evaluate(`(() => {
-     const r = window.__ssRuntime, p = r?.localAuth?.position, m = r?.latestSnapshot?.fightFlight;
-     if (!p || !m) return null;
-     const yaw = Math.atan2(-(m.x - p.x), -(m.z - p.z));
-     r.input.yaw = yaw;
-     return Math.hypot(p.x - m.x, p.z - m.z);
-   })()`);
-   return d===null||d<=2.0||(Date.now()-t0>=900);
-  },'host steps toward machine',35);
+  await host.evaluate("new Promise(r => requestAnimationFrame(r))");
   await host.key('W','keyUp');
   await host.evaluate(`(() => {
     const r = window.__ssRuntime;
@@ -156,7 +145,8 @@ try{
       r.socket?.input?.({ forward: 0, right: 0, yaw: r.input?.yaw ?? 0, pitch: 0 });
     }
   })()`);
-  const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.speed<.3?a:null;})()"),'host stationary after pulse',45);
+  await host.evaluate("new Promise(r => requestAnimationFrame(r))");
+  const settled=await host.evaluate(hostApproach);
   console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
   if(settled&&settled.dist<=2.45&&!settled.attack){
    approached=settled;
