@@ -205,6 +205,9 @@ try {
   // Dismiss any lingering practice drawer and ensure pointer lock focus
   await evaluate("document.querySelector('#practice-drawer-close')?.click(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
 
+  // Render warm-up frames so practice shaders are compiled before triggering timed ultimate
+  await evaluate("new Promise(res => { let f = 0; const c = () => { if (++f > 12) res(); else requestAnimationFrame(c); }; requestAnimationFrame(c); })");
+
   // Trigger authoritative Ultimate
   let ultimateTries = 0;
   await poll(async () => {

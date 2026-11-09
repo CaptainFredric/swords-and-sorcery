@@ -125,9 +125,9 @@ try{
   await host.key('W','rawKeyDown');
   let samples=0;
   await waitFor(async()=>{
-   const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));return Math.hypot(p.x-m.x,p.z-m.z);})()");
+   const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;const yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));r.input.yaw=yaw;r.socket?.input?.({ forward: 1, right: 0, yaw, pitch: 0 });return Math.hypot(p.x-m.x,p.z-m.z);})()");
    if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
-   return a<FLIGHT_MOUNT_RANGE-.3;
+   return a<1.6;
   },'host walks physically to the machine',170);
   await host.key('W','keyUp');
   await host.evaluate(`(() => {
@@ -140,7 +140,7 @@ try{
   })()`);
   const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
   console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
-  if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
+  if(settled.dist<1.9&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
  await host.send('Page.bringToFront');
