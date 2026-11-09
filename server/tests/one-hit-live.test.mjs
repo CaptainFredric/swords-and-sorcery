@@ -6,6 +6,7 @@ import { configurePracticeOneHit } from '../../shared/sim/practice.mjs';
 import { applyRoomCommand,serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { lineOfConductDamage } from '../../shared/src/oneHitOfWondersRules.mjs';
+import { oneHitDamage } from '../../shared/src/oneHitInfusions.mjs';
 
 const world={
   floors:[{id:'ground',center:[0,-.1,0],size:[200,.2,200],y:0}],
@@ -41,7 +42,13 @@ test('zero-infusion Ultimate is a usable real room attack, Shaken and physical r
   assert.ok(room.events.some(e=>e.type==='rupture'), 'real Castleward rupture simulation');
   assert.ok(room.events.some(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b'));
   assert.ok(b.shaken,'physical status without elemental tiers');
+  assert.equal(b.health,52,'48 direct damage; the same target is not hit again by its rupture');
   assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0});
+});
+test('first-tier elemental contributions remain additive to the 48 base',()=>{
+  assert.equal(oneHitDamage({fire:0,frost:0,gale:0,lightning:0}),48);
+  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),92);
+  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),92);
 });
 test('full-Lightning Ultimate holds and releases the strike immediately',()=>{
   const {room,a}=battle();
