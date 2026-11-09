@@ -175,6 +175,11 @@ export class BastionBreachRenderer {
       if (isTimber) palisade(batch, rand, sol);
       else if (/rubble/.test(sol.id)) masonry(batch, rand, sol, { style: 'rubble', coping: false });
       else if (/breastwork|footing/.test(sol.id)) masonry(batch, rand, sol, { style: 'drystone' });
+      else if (Number.isFinite(sol.drawTo)) {
+        // a raised walk's base stops a step under the walk (so a ramp's top never catches it): drawn up to the walk
+        const bottom = sol.center[1] - sol.size[1] / 2;
+        masonry(batch, rand, { ...sol, center: [sol.center[0], (bottom + sol.drawTo) / 2, sol.center[2]], size: [sol.size[0], sol.drawTo - bottom, sol.size[2]] }, { coping: false });
+      }
       else masonry(batch, rand, sol, { merlons: /^wall-(south|west|east)/.test(sol.id) && sol.size[1] >= 4.4 || sol.id === 'gallery-parapet-east' });
     }
     const { flames, glows } = drawWorldProps(batch, rand, BASTION_BREACH.props);
