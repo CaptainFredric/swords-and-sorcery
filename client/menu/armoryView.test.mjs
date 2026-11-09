@@ -63,14 +63,12 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.match(core.line, /burning stone/);
 });
 
-test('the Armory provides the authoritative sword technique slot with longsword and in-training candidates', () => {
+test('the longsword is equipment and the two Sword Techniques are training previews', () => {
   const view = armoryView('fireball');
-  assert.ok(Array.isArray(view.techniques));
-  assert.equal(view.techniques.length, 3);
-  const blade = view.techniques.find((t) => t.id === 'castleward_longsword');
-  assert.ok(blade.equipped);
-  assert.equal(blade.disabled, false);
-  assert.match(blade.facts, /Three-strike combo/);
+  assert.equal(view.techniques.length, 2);
+  assert.match(view.blade.name, /longsword/i);
+  assert.match(view.blade.facts, /Three-strike combo/);
+  assert.ok(view.techniques.every(technique => !technique.equipped));
 
   const riposte = view.techniques.find((t) => t.id === 'rigid_riposte');
   assert.equal(riposte.disabled, true);

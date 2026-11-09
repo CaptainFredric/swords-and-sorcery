@@ -7,6 +7,7 @@ function host(available) {
   const calls = [];
   const remote = {
     calls, ws:null, roomCode:null,
+    deliver(type,payload) { handlers.get('*')?.({type,payload}); },
     on(type,callback) { handlers.set(type,callback); },
     connect() {
       calls.push(['connect']);
@@ -50,4 +51,33 @@ test('other Solo modes continue launching locally without waking multiplayer', (
   assert.equal(link.playingLocally,true);
   assert.equal(remote.calls.some(x=>x[0]==='connect'),false);
   assert.equal(local.calls[0][1],'PRACTICE');
+});
+
+test('only a legacy server refusal of the pending trial starts a local rehearsal', async () => {
+  const { link, remote, local } = host(true);
+  const notices = [];
+  link.on('notice', ({ text }) => notices.push(text));
+  await link.startSolo('RENOWN_TRIALS', 'Knight', 'court-of-merit');
+  remote.deliver('error', { message: 'Unknown solo mode' });
+  assert.equal(link.playingLocally, true);
+  assert.deepEqual(local.calls.at(-1).slice(0, 4), ['startSolo', 'RENOWN_TRIALS', 'Knight', 'court-of-merit']);
+  assert.match(notices[0], /Renown rewards are unavailable/);
+});
+
+test('a profile error keeps the requested rewarded run visible as a failure', async () => {
+  const { link, remote, local } = host(true);
+  const errors = [];
+  link.on('error', ({ message }) => errors.push(message));
+  await link.startSolo('RENOWN_TRIALS', 'Knight', 'court-of-merit');
+  remote.deliver('error', { message: 'Connect your Renown profile' });
+  assert.equal(local.calls.length, 0);
+  assert.deepEqual(errors, ['Connect your Renown profile']);
+});
+
+test('rehearsal launches without opening a server connection', () => {
+  const { link, remote, local } = host(true);
+  link.startRenownRehearsal('Knight', 'castleward');
+  assert.equal(link.playingLocally, true);
+  assert.equal(remote.calls.some(([name]) => name === 'connect'), false);
+  assert.deepEqual(local.calls.at(-1).slice(0, 4), ['startSolo', 'RENOWN_TRIALS', 'Knight', 'castleward']);
 });

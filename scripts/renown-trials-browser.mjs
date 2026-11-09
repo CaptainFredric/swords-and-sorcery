@@ -128,7 +128,7 @@ try {
   await click('#solo-button');
   await evaluate("document.querySelector('#player-name').value='Trial Knight',true");
   await click('#renown-trials-mode');
-  assert.equal(await evaluate("document.querySelector('#solo-selected-title')?.textContent"),'RENOWN TRIALS');
+  assert.equal(await evaluate("document.querySelector('#solo-selected-title')?.textContent"),'RAMPAGE TO RENOWN');
   await click('#renown-trials-mode'); // second activation launches actual selected pursuit
   await until(()=>evaluate("window.__ssLink?.hosting==='remote' && window.__ssLink?.roomCode"),
     'server-authored trial join',240);

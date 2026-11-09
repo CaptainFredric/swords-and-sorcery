@@ -8,21 +8,8 @@ import { STEEL_RAM } from '../../shared/src/steelRam.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 
-// Authoritative selectable sword techniques extension point.
-// Selectable techniques like Rigid Riposte and Whirl Like the Wind remain in training,
-// while the Castleward longsword serves as the default blade technique.
+// Preview only until their authoritative controls and contact rules ship.
 export const SWORD_TECHNIQUES = Object.freeze([
-  {
-    id: 'castleward_longsword',
-    name: 'Castleward longsword',
-    mark: '⚔',
-    icon: 'attack',
-    line: 'Three-strike combo · guard and parry.',
-    facts: (g) => `Three-strike combo · ${g.swordGlance} to ${g.swordDamage} damage · guard and parry`,
-    lore: "The standard issue sidearm of Castleward's defenders. Tempered high-carbon steel, balanced for one or two hands, equally capable of a glancing cut or a decisive downward finish.",
-    status: 'EQUIPPED',
-    disabled: false,
-  },
   {
     id: 'rigid_riposte',
     name: 'Rigid Riposte',
@@ -114,7 +101,7 @@ const ULTIMATE_WORDS = Object.freeze({
   },
 });
 
-export function armoryView(equipped, ultimate = 'sunder', technique = 'castleward_longsword') {
+export function armoryView(equipped, ultimate = 'sunder') {
   return {
     blade: {
       name: 'Castleward longsword',
@@ -130,7 +117,7 @@ export function armoryView(equipped, ultimate = 'sunder', technique = 'castlewar
       lore: tech.lore,
       status: tech.status,
       disabled: tech.disabled,
-      equipped: tech.id === technique || (technique === 'castleward_longsword' && tech.id === 'castleward_longsword'),
+      equipped: false,
     })),
     spells: Object.values(SPELLS).map((spell) => {
       const words = SPELL_WORDS[spell.id] ?? { mark: '◆', line: '', facts: () => `${spell.cooldownSec} s`, lore: '' };

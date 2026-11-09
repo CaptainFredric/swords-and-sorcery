@@ -19,6 +19,7 @@ test('Two genuine socket clients join one authoritative Shared Practice room and
  const game=createGameServer({port:0,host:'127.0.0.1'});await game.start();const sockets=[];
  try{
   const host=await connect(game,sockets);
+  host.send({type:'loadout',spell:'gale',ultimate:'one_hit_of_wonders',preparedSpells:['fireball','gale','steel']});
   host.send({type:'createSharedPracticeRoom',name:'Host',worldId:'castleward'});
   const joined=await host.wait(m=>m.type==='joined');
   assert.equal(joined.mode,'PRACTICE');assert.equal(joined.sharedPractice,true);
@@ -26,11 +27,19 @@ test('Two genuine socket clients join one authoritative Shared Practice room and
   const room=game.roomManager.findByCode(joined.roomCode);
   assert.equal(room.mode,'PRACTICE');assert.equal(room.state,'PLAYING');
   const guest=await connect(game,sockets);
+  guest.send({type:'loadout',spell:'frostfire',ultimate:'chivalry',preparedSpells:['frostfire','steel','coreflagration']});
   guest.send({type:'joinRoom',code:joined.roomCode,name:'Guest'});
   const second=await guest.wait(m=>m.type==='joined');
   assert.equal(second.mode,'PRACTICE');assert.equal(second.sharedPractice,true);
   assert.equal(second.players.filter(p=>p.actorKind==='human').length,2);
   assert.equal(room.humanCount(),2);
+  const snapshot=await guest.wait(m=>m.type==='snapshot'&&m.players.some(p=>p.id===second.playerId));
+  const kit=id=>{
+    const p=snapshot.players.find(p=>p.id===id);
+    return [p.spell,p.ultimate,p.preparedSpells];
+  };
+  assert.deepEqual(kit(joined.playerId),['gale','one_hit_of_wonders',['fireball','gale','steel']]);
+  assert.deepEqual(kit(second.playerId),['frostfire','chivalry',['frostfire','steel','coreflagration']]);
   guest.send({type:'practiceSetDummyMode',mode:'GUARDING'});
   assert.match((await guest.wait(m=>m.type==='error')).message,/host/i);
   host.send({type:'practiceSetDummyMode',mode:'GUARDING'});

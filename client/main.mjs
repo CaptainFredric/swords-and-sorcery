@@ -896,7 +896,7 @@ function updateEnd(snapshot) {
     const settled = entries.reduce((sum, item) => sum + (item.status === 'SETTLED' ? item.reward ?? 0 : 0), 0);
     const pending = entries.reduce((sum, item) => sum + (['PENDING','UNSETTLED'].includes(item.status) ? item.reward ?? 0 : 0), 0);
     const unavailable = entries.reduce((sum, item) => sum + (item.status === 'UNAVAILABLE' ? item.reward ?? 0 : 0), 0);
-    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RENOWN TRIALS · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RAMPAGE TO RENOWN · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
       + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} RENOWN</strong><em>${escapeHtml(entry.verdict)} · ${escapeHtml(entry.status ?? 'UNSETTLED')}</em></div>`).join('')
       + `<p class="panel-copy">SETTLED TO PROFILE: ${settled} · PENDING: ${pending} · UNAVAILABLE: ${unavailable}</p>`;
     seekAnotherButton.classList.add('hidden');
@@ -1089,17 +1089,16 @@ soloArena.addEventListener('click', (event) => {
   showSoloArena();
 });
 showSoloArena();
-const renownArenaEl = $('#renown-arena');
+const renownArenaControls = [$('#renown-arena'), $('#mettle-renown-arena')].filter(Boolean);
 function showRenownArena() {
-  if (!renownArenaEl) return;
   const chosen = menuController.renownArena();
-  for (const chip of renownArenaEl.querySelectorAll('[data-renown-arena]')) {
+  for (const chip of document.querySelectorAll('[data-renown-arena]')) {
     const on = chip.dataset.renownArena === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
 }
-if (renownArenaEl) {
+for (const renownArenaEl of renownArenaControls) {
   renownArenaEl.addEventListener('click', (event) => {
     const chip = event.target.closest?.('[data-renown-arena]');
     if (!chip) return;
@@ -1154,11 +1153,26 @@ showBreakthroughSize();
 
 const breakthroughArena = $('#breakthrough-arena');
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
+let mettleSoloMode = null;
+const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
+  : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const chosen = menuController.breakthroughArena();
-  const mode = chosen==='restless-day'?'RESTLESS_DAY':chosen==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
+  const mode = selectedMettleMode();
+  const solo = mode === 'RENOWN_TRIALS' || mode === 'EDGE_OF_VICTORY';
+  const renown = mode === 'RENOWN_TRIALS';
+  breakthroughMenu.dataset.soloMode = solo ? 'true' : 'false';
+  breakthroughMenu.querySelector('.mettle-companion').hidden = solo;
+  $('#mettle-options').hidden = solo;
+  $('#mettle-renown-arena').hidden = !renown;
+  $('#mettle-renown-rehearse').hidden = !renown;
+  $('#breakthrough-create-private').hidden = solo;
+  const launch = $('#breakthrough-play-bots');
+  launch.querySelector('span').textContent = renown ? 'BEGIN REWARDED TRIAL' : solo ? 'ENTER EDGE OF VICTORY' : 'PLAY WITH BOTS';
+  launch.querySelector('small').textContent = renown ? 'Solo waves on the server with account Renown' : solo
+    ? 'Solo · last knight standing against three rivals' : 'Launch a team battle, with bots filling open slots';
   for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
     button.classList.toggle('selected',button.dataset.mettleMode===mode);
     button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
@@ -1170,13 +1184,15 @@ function showBreakthroughArena() {
     chip.setAttribute('aria-checked', String(on));
   }
   $('#breakthrough-size').hidden=mode==='RESTLESS_DAY';
-  $('#breakthrough-find-public').hidden=mode==='RESTLESS_DAY';
+  $('#breakthrough-find-public').hidden=solo||mode==='RESTLESS_DAY';
   if (breakthroughSubtitle) {
-    breakthroughSubtitle.textContent = chosen === 'outerworks' ? 'THE OUTERWORKS'
+    breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : chosen === 'outerworks' ? 'THE OUTERWORKS'
       : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
-    breakthroughCopy.textContent = chosen === 'restless-day'
+    breakthroughCopy.textContent = renown
+      ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
+      : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'
       ? 'Five attackers carry two heavy metal ladders across the field, breach both castle walls, and destroy the Rightful Renowner before sundown. Defend the institution—or make it to bed.'
       : chosen === 'outerworks'
       ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
@@ -1188,9 +1204,10 @@ function showBreakthroughArena() {
   }
 }
 const mettleActivation = createRepeatActivation({
-  selected: () => menuController.breakthroughArena()==='restless-day'?'RESTLESS_DAY':menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH',
+  selected: selectedMettleMode,
   select: chosen => {
-    menuController.chooseBreakthroughArena(chosen==='RESTLESS_DAY'?'restless-day':chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+    mettleSoloMode = ['RENOWN_TRIALS', 'EDGE_OF_VICTORY'].includes(chosen) ? chosen : null;
+    if (!mettleSoloMode) menuController.chooseBreakthroughArena(chosen==='RESTLESS_DAY'?'restless-day':chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
     showBreakthroughArena();
     // On a narrow display keep the tabs visible for the second tap.
     // Battle orders remain accessible through the dedicated options button.
@@ -1492,7 +1509,7 @@ function startTutorial() {
 let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
-  'renown-trials-mode': ['RENOWN TRIALS','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment.'], 
+  'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment.'],
   'edge-of-victory-mode': ['EDGE OF VICTORY','Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
   'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
   'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
@@ -1553,6 +1570,8 @@ $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
 function playMettleBots() {
+  if (mettleSoloMode === 'RENOWN_TRIALS') return runMenuAction(menuController.renownTrials(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
+  if (mettleSoloMode === 'EDGE_OF_VICTORY') return runMenuAction(menuController.edgeOfVictory(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
   return runMenuAction(menuController.breakthrough(nameInput.value, {
     team: menuController.breakthroughTeam(),
     botSkill: menuController.breakthroughSkill(),
@@ -1561,6 +1580,8 @@ function playMettleBots() {
   }), SCREEN_IDS.BREAKTHROUGH_MENU);
 }
 $('#breakthrough-play-bots')?.addEventListener('click', () => mettleActivation.run());
+$('#mettle-renown-rehearse').addEventListener('click', () => runMenuAction(
+  menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena(), rehearsal: true }), SCREEN_IDS.BREAKTHROUGH_MENU));
 $('#breakthrough-create-private')?.addEventListener('click', () => {
   // Private siege rooms should pass through the same rule review as every
   // other private mode. Preserve the battle orders already chosen in Mettle.
@@ -1730,6 +1751,8 @@ function applySettings() {
 const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
   settings.get('loadout.preparedSpells'),siegeSelections());
+// Seed the solo host from the same validated settings the Armory displays, including after reload.
+transmitLoadout();
 const settingsPanel = new SettingsPanel({
   root: $('#settings'),
   store: settings,
@@ -1814,15 +1837,14 @@ function updatePlaques() {
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
   const view = armoryView(currentSpellId, currentUltId);
-  const technique = SWORD_TECHNIQUES[0];
 
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
   const techIcon = $('#plaque-icon-technique');
-  if (techIcon) techIcon.textContent = technique.mark;
+  if (techIcon) techIcon.textContent = '⚔';
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = technique.name;
+  if (techName) techName.textContent = 'None equipped';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
@@ -1839,7 +1861,7 @@ function updatePlaques() {
   const heraldryName = $('#plaque-name-heraldry');
   if (heraldryName) heraldryName.textContent = cloth.name;
 
-  const summary = `Equipped: ${technique.name} · ${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.label || equippedUlt.name} · ${cloth.name}`;
+  const summary = `Equipped: ${view.blade.name} · ${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.label || equippedUlt.name} · ${cloth.name}`;
   const summaryEl = $('#armory-status-summary');
   if (summaryEl) summaryEl.textContent = summary;
 
@@ -1847,9 +1869,9 @@ function updatePlaques() {
   const equippedEl = $('#armory-equipped');
   if (equippedEl) equippedEl.textContent = `${SPELLS[currentSpellId]?.label || equippedSpell.name} · ${ULTIMATES[currentUltId]?.short ?? 'Sunder'}`;
   const bladeNameEl = $('#armory-blade-name');
-  if (bladeNameEl) bladeNameEl.textContent = technique.name;
+  if (bladeNameEl) bladeNameEl.textContent = view.blade.name;
   const bladeFactsEl = $('#armory-blade-facts');
-  if (bladeFactsEl) bladeFactsEl.textContent = typeof technique.facts === 'function' ? technique.facts(GAME) : technique.facts;
+  if (bladeFactsEl) bladeFactsEl.textContent = view.blade.facts;
 }
 
 function renderInspectorLists() {
@@ -1969,7 +1991,7 @@ function openInspector(category, itemId = null) {
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
-    if (category === 'technique') itemId = 'castleward_longsword';
+    if (category === 'technique') itemId = SWORD_TECHNIQUES[0].id;
     else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
     else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
   }
@@ -1977,7 +1999,11 @@ function openInspector(category, itemId = null) {
   saveArmoryLocation(armoryLocation);
 
   const inspector = $('#armory-inspector');
-  if (inspector) inspector.classList.remove('closed');
+  inspector.classList.remove('closed');
+  inspector.inert = false;
+  for (const button of inspector.querySelectorAll('[data-inspector-category]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.inspectorCategory === category));
+  }
 
   const titles = {
     technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Masterful stances and weapon abilities for the Castleward longsword.' },
@@ -2007,7 +2033,9 @@ function closeInspector({ immediate = false } = {}) {
   armoryLocation.inspectorOpen = false;
   saveArmoryLocation(armoryLocation);
   const inspector = $('#armory-inspector');
-  if (inspector) inspector.classList.add('closed');
+  if (inspector.contains(document.activeElement)) $('#armory-slot-' + armoryLocation.category)?.focus({ preventScroll: true });
+  inspector.classList.add('closed');
+  inspector.inert = true;
   menuScene?.setArmoryInspector(false, { immediate });
   menuScene?.showSpell(settings.get('loadout.spell'));
   const backBtn = $('#armory-back');
@@ -2176,6 +2204,24 @@ $('#armory-slot-masterstroke').addEventListener('click', () => openInspector('ma
 $('#armory-slot-heraldry').addEventListener('click', () => navigateToArmorySection('heraldry'));
 $('#armory-nav-siege').addEventListener('click', () => navigateToArmorySection('siege'));
 $('#armory-inspector-close').addEventListener('click', () => closeInspector());
+$('#armory-inspector-categories').addEventListener('click', event => {
+  const category = event.target.closest('[data-inspector-category]')?.dataset.inspectorCategory;
+  if (category === 'heraldry') navigateToArmorySection('heraldry');
+  else if (category) openInspector(category);
+});
+let heraldryBackdropDown = null;
+menuSpellblade.addEventListener('pointerdown', event => {
+  heraldryBackdropDown = { x: event.clientX, y: event.clientY };
+});
+menuSpellblade.addEventListener('pointercancel', () => { heraldryBackdropDown = null; });
+menuSpellblade.addEventListener('click', event => {
+  const down = heraldryBackdropDown;
+  heraldryBackdropDown = null;
+  if (router.current !== SCREEN_IDS.ARMORY || armoryLocation.region !== 'heraldry' ||
+      event.target.tagName !== 'CANVAS' || !down || Math.hypot(event.clientX-down.x,event.clientY-down.y)>8) return;
+  navigateToArmorySection('kit');
+  $('#armory-slot-heraldry').focus({ preventScroll: true });
+});
 
 $('#armory-equip-btn').addEventListener('click', () => {
   const cat = armoryLocation.category;

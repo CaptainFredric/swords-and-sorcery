@@ -1,8 +1,8 @@
 import { concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
-import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
-import { disasterWindupSec } from './oneHitCamera.mjs';
+import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -31,10 +31,25 @@ const SLAM_CONTACT = SWORD_STRIKE_TIMES[2] - SWORD_CHAIN.starts[2];
 // along the aim); it comes down level this long before the spin takes hold
 const VORTEX_HELD = Object.freeze({ raised: Math.max(0, SLAM_CONTACT - 0.16), level: SWORD_STRIKE_TIMES[0], levelBefore: 0.5 });
 
+// An alternate chain loads a little later into each cut and relaxes sooner.
+// The offset and its slope go to zero at each contact window and chain seam.
+export function swordPresentationTime(elapsed,style=0) {
+  if(!style||elapsed<=0||elapsed>=ATTACK_CYCLE)return elapsed;
+  const slot=elapsed<SWORD_CHAIN.starts[1]?0:elapsed<SWORD_CHAIN.starts[2]?1:2;
+  const first=SWORD_CHAIN.starts[slot],last=SWORD_CHAIN.starts[slot+1]??ATTACK_CYCLE;
+  const contact=SWORD_STRIKE_TIMES[slot],early=contact-MELEE_CONTACT.window.early,late=contact+MELEE_CONTACT.window.late;
+  if(elapsed>=early&&elapsed<=late)return elapsed;
+  const winding=elapsed<early;
+  const start=winding?first:late,span=winding?early-first:last-late;
+  const t=(elapsed-start)/span,shape=16*t*t*(1-t)*(1-t);
+  return elapsed+(winding?-1:1)*shape*Math.min(.048,span*.19)*Math.max(0,Math.min(1,style));
+}
+
 function attackPlan(player, serverNow) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
-  const cycle = elapsed % ATTACK_CYCLE;
+  const age = elapsed % ATTACK_CYCLE;
+  const cycle = swordPresentationTime(age,player?.attackSlam||player?.attackChivalry||player?.concurrent?0:player?.attackPresentation);
 
   // a chain begun Sundering: every strike is the heavy one's slam, each timed to its own contact
   if (player?.attackSlam) {
@@ -93,9 +108,14 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const action=player.ultimateState ?? {};
     const windup=disasterWindupSec(action);
     if (action.phase==='startup') {
+      if(disasterHolding(action)&&player.grounded===false){
+        return {...fixed('AllNatural_Lightning_Charge_Air',serverNow-action.teleportHoldAt,true),
+          requiredClip:true,fallback:'Slash_3',fallbackTime:SLAM_CONTACT*.18};
+      }
       const remaining=finite(action.commitAt,serverNow)-serverNow;
       const share=Math.max(0,Math.min(1,1-remaining/windup));
-      return fixed('Slash_3', SLAM_CONTACT * (0.18 + 0.82 * share));
+      const beforeContact=action.groundRelease?SLAM_CONTACT-1/30:SLAM_CONTACT;
+      return fixed('Slash_3',Math.min(beforeContact,SLAM_CONTACT*(.18+.82*share)));
     }
     const elapsed=Math.max(0,serverNow-finite(action.commitAt,serverNow));
     return fixed('Slash_3',Math.min(SLASH_DURATIONS[2]-.01,SLAM_CONTACT + elapsed * .75));

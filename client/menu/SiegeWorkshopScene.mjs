@@ -17,6 +17,9 @@ export class SiegeWorkshopScene {
     this.root = new THREE.Group();
     this.root.name = 'SiegeWorkshop';
     this.root.position.set(...WORKSHOP_POSITION);
+    // The yard terrain is at y=0. Keep the apron and its supported preview
+    // above that surface so the two depth buffers never compete.
+    this.root.position.y += 0.035;
     this.root.visible = false;
     this.parentScene.add(this.root);
 

@@ -6,6 +6,7 @@ import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {observeAcceptanceWire} from './browser-acceptance-wire.mjs';
+import {launchAcceptanceChrome} from './acceptance-chrome.mjs';
 const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -24,20 +25,14 @@ try {
 }
 const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium');
 const browsers=[];
-async function connectBrowser(label,port){
+async function connectBrowser(label){
  const profile=await mkdtemp(join(tmpdir(),'castleward-shared-'+label+'-'));
- const child=spawn(chromeBin,[
-  '--headless=new','--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader',
-  '--disable-background-timer-throttling','--disable-renderer-backgrounding',
-  '--disable-backgrounding-occluded-windows',
-  '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
-  '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ const {child,target}=launchAcceptanceChrome(chromeBin,profile,join(out,label+'-chrome.log'),
+   process.env.CI ? {width:800,height:450} : {});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
  b.wire=observeAcceptanceWire(label);
- const debuggerTarget=await waitFor(async()=>{
-  const res=await fetch('http://127.0.0.1:'+port+'/json/list');
-  return (await res.json()).find(t=>t.type==='page');
- },'debugger ready',180);
+ stage=label+' Chrome debugger startup';
+ const debuggerTarget=await target();
  b.ws=new WebSocket(debuggerTarget.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{b.ws.onopen=resolve;b.ws.onerror=reject;});
  b.ws.onmessage=e=>{const packet=JSON.parse(String(e.data));
@@ -56,7 +51,10 @@ async function connectBrowser(label,port){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');
+ if(process.env.CI)await b.send('Emulation.setDeviceMetricsOverride',
+   {width:800,height:450,deviceScaleFactor:.5,mobile:false});
+ await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -111,8 +109,8 @@ async function focusArena(browser) {
 }
 let host=null,guest=null;
 try{
- host=await connectBrowser('host',9263);
- guest=await connectBrowser('guest',9264);
+ host=await connectBrowser('host');
+ guest=await connectBrowser('guest');
  // __ssRuntime exists only AFTER entering a match. The prior check waited
  // for an impossible pre-match runtime socket, then timed out after minutes.
  // The actual menu reports the GameLink status through this public UI element.
@@ -189,6 +187,7 @@ try{
     clientTime: runtime.socket.serverNow() });
    return seq;
   })()`), 'host reaches flight mount range and sends neutral input', 80);
+  console.log('[SHARED STOP COMMAND]',JSON.stringify({seq:stopSequence,wire:host.wire.state}));
   approached = await waitFor(() => host.evaluate(`(() => {
    const runtime = window.__ssRuntime;
    const player = runtime.localAuth;

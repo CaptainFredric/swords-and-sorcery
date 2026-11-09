@@ -6,6 +6,7 @@ import { configurePracticeOneHit } from '../../shared/sim/practice.mjs';
 import { applyRoomCommand,serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { lineOfConductDamage } from '../../shared/src/oneHitOfWondersRules.mjs';
+import { oneHitDamage } from '../../shared/src/oneHitInfusions.mjs';
 
 const world={
   floors:[{id:'ground',center:[0,-.1,0],size:[200,.2,200],y:0}],
@@ -41,14 +42,35 @@ test('zero-infusion Ultimate is a usable real room attack, Shaken and physical r
   assert.ok(room.events.some(e=>e.type==='rupture'), 'real Castleward rupture simulation');
   assert.ok(room.events.some(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b'));
   assert.ok(b.shaken,'physical status without elemental tiers');
+  assert.equal(b.health,54,'46 direct damage; the same target is not hit again by its rupture');
   assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0});
+});
+test('first-tier elemental contributions remain additive to the 46 base',()=>{
+  assert.equal(oneHitDamage({fire:0,frost:0,gale:0,lightning:0}),46);
+  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),90);
+  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
+});
+test('ordinary and first tier Lightning taps keep their authoritative startup independent of voice length',()=>{
+  for(const [lightning,startup] of [[0,.92],[1,.36]]){
+    const {room,a}=battle();
+    a.prowess=PROWESS.full;
+    a.oneHitInfusions.lightning=lightning;
+    assert.equal(tryUltimate(room,'a',9),true);
+    assert.equal(a.ultimateState.commitAt,9+startup);
+    stepRoom(room,1/30,9+startup-.001,world);
+    assert.equal(a.ultimateState.phase,'startup');
+    stepRoom(room,1/30,9+startup,world);
+    assert.equal(a.ultimateState.phase,'active');
+    assert.ok(room.events.some(e=>e.type==='oneHitImpact'&&e.playerId==='a'));
+  }
 });
 test('full-Lightning Ultimate holds and releases the strike immediately',()=>{
   const {room,a}=battle();
   a.prowess=PROWESS.full;
   a.oneHitInfusions.lightning=2;
   assert.equal(tryUltimate(room,'a',9),true);
-  assert.ok(a.ultimateState.commitAt > 1000,'server does not auto-trigger while held');
+  stepRoom(room,1/30,9.2,world);
+  assert.equal(a.ultimateState.phase,'startup','server does not auto-trigger while held');
   assert.equal(releaseOneHitCharge(room,'a',9.25),true);
   assert.equal(a.ultimateState.phase,'active');
   assert.equal(a.prowess,0);
@@ -128,4 +150,172 @@ test('Aerial Ultimate with full Gale starts a modest vortex then launches one tr
   const launched=room.events.filter(e=>e.type==='oneHitWave');
   assert.equal(launched.length,1);
   assert.equal(room.events.find(e=>e.type==='oneHitCommitted')?.form,'aerial');
+});
+
+test('aerial wall impact carries all four tiers, affects new exposed targets and never strikes twice or through stone',()=>{
+  const {room,a,b}=battle();
+  const add=(id,z,x)=>{
+    room.addPlayer({id,token:id,name:id},9);
+    const knight=room.players.get(id);
+    knight.position={x,y:0,z};knight.spawnProtectionUntil=0;knight.grounded=true;
+    return knight;
+  };
+  const splash=add('splash',1.5,6.35);
+  const sheltered=add('sheltered',1.5,7.2);
+  const protectedKnight=add('protected',-1.7,6.3);
+  protectedKnight.spawnProtectionUntil=12;
+  b.position={x:4.8,y:0,z:0};
+  const withWall={...world,solids:[{id:'wall',center:[7,1,0],size:[.4,3,10]}]};
+  const tiers={fire:2,frost:2,gale:2,lightning:2};
+  room.oneHitWaves=[{id:'wall-wave',ownerId:a.id,position:{x:4,y:1,z:0},
+    direction:{x:1,y:0,z:0},tiers,bornAt:9,distance:4,hitIds:[]}];
+  a.position={x:8,y:0,z:0}; // caster's new position must not govern projectile LOS
+  for(let i=0;i<6;i++)stepRoom(room,1/30,9+i/30,withWall);
+  const impacts=room.events.filter(e=>e.type==='oneHitImpact');
+  assert.equal(impacts.length,1);
+  assert.equal(impacts[0].impactId,'wall-wave');
+  assert.equal(impacts[0].form,'aerial');
+  assert.ok(Math.abs(impacts[0].point.x-6.8)<1e-6);
+  assert.deepEqual(impacts[0].tiers,tiers);
+  assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b').length,1);
+  assert.equal(splash.health,100,'splash carries effects without another direct HP hit');
+  assert.ok(splash.oneHitFrozenUntil>9&&splash.electricalBacklash?.initial===12&&splash.burn);
+  assert.ok(splash.lastKnockbackAt>=9&&splash.lastKnockbackBy===a.id&&splash.shaken);
+  assert.equal(sheltered.burn,null);
+  assert.equal(sheltered.oneHitFrozenUntil,undefined);
+  assert.equal(protectedKnight.burn,null);
+  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===4.6&&z.bornAt<z.until));
+  for(let i=6;i<140;i++)stepRoom(room,1/30,9+i/30,withWall);
+  assert.equal(sheltered.health,100);
+  assert.equal(room.oneHitBurnZones.length,0);
+});
+
+test('aerial terrain contact is real, one-sided, and does not turn a range expiry into a bomb',()=>{
+  const {room,a,b}=battle();
+  b.position={x:35,y:0,z:0};
+  const tiers={fire:2,frost:0,gale:2,lightning:0};
+  const base={ownerId:a.id,tiers,bornAt:9,hitIds:[]};
+  room.oneHitWaves=[
+    {...base,id:'landing',position:{x:3,y:.9,z:0},direction:{x:.8,y:-.6,z:0},distance:2},
+    {...base,id:'expiry',position:{x:10,y:5,z:0},direction:{x:1,y:0,z:0},distance:21.6},
+  ];
+  ticks(room,9,10);
+  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['landing']);
+  assert.ok(Math.abs(room.oneHitBurnZones[0].position.y)<1e-8);
+  assert.equal(room.oneHitBurnZones.length,1);
+});
+
+test('an incoming aerial blade spends directional Guard only once and does not reapply terminal frost',()=>{
+  const {room,a,b}=battle();
+  b.position={x:5.5,y:0,z:0};
+  b.input.yaw=b.yaw=Math.PI/2;
+  b.history=[];
+  b.guardHeld=true;b.guarding=true;b.guardStartedAt=8;
+  const wall={...world,solids:[{id:'wall',center:[6.6,1,0],size:[.2,3,8]}]};
+  room.oneHitWaves=[{id:'guarded-wave',ownerId:a.id,position:{x:4.5,y:1,z:0},
+    direction:{x:1,y:0,z:0},tiers:{fire:0,frost:2,gale:2,lightning:1},bornAt:9,distance:4.5,hitIds:[]}];
+  for(let i=0;i<6;i++)stepRoom(room,1/30,9+i/30,wall);
+  assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
+  assert.equal(b.health,100);
+  assert.equal(b.oneHitFrozenUntil,undefined);
+});
+
+test('an ordinary Disaster tap keeps the original windup and the 46 point contact',()=>{
+  const {room,a,b}=battle();
+  a.prowess=PROWESS.full;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const scheduled=a.ultimateState.commitAt;
+  applyRoomCommand(room,a,{type:'oneHitRelease'},9.08);
+  stepRoom(room,1/30,scheduled-.02,world);
+  assert.equal(b.health,100);
+  stepRoom(room,1/30,scheduled,world);
+  assert.equal(b.health,54);
+  assert.equal(a.ultimateState.commitAt,scheduled);
+});
+
+test('holding ordinary Disaster briefly keeps it interruptible and release commits from current position',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const ready=a.ultimateState.commitAt;
+  stepRoom(room,1/30,ready+.08,world);
+  assert.equal(a.ultimateState.phase,'startup');
+  assert.equal(room.events.some(e=>e.type==='oneHitImpact'),false);
+  const held=serializeSnapshot(room,ready+.08).players.find(p=>p.id===a.id).ultimateState.groundRelease;
+  assert.equal(held.readyAt,ready);
+  assert.ok(held.until-ready<=.36 && held.until>ready+.08);
+  a.position.x=-.7;
+  applyRoomCommand(room,a,{type:'oneHitRelease'},ready+.12);
+  const impact=room.events.find(e=>e.type==='oneHitImpact');
+  assert.ok(Math.abs(impact.at-(ready+.12))<1e-9);
+  assert.equal(impact.point.x,-.7);
+  applyRoomCommand(room,a,{type:'oneHitRelease'},ready+.14);
+  assert.equal(room.events.filter(e=>e.type==='oneHitImpact').length,1);
+});
+
+test('ordinary hold has a short deadline; losing input cancels held Lightning and never fires it',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  a.oneHitInfusions.lightning=1;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const ready=a.ultimateState.commitAt;
+  stepRoom(room,1/30,ready+.05,world);
+  assert.equal(a.ultimateState.phase,'startup');
+  stepRoom(room,1/30,ready+.36,world);
+  assert.equal(a.ultimateState.phase,'active');
+
+  const held=battle();
+  held.a.prowess=PROWESS.full;
+  held.a.oneHitInfusions.lightning=2;
+  applyRoomCommand(held.room,held.a,{type:'ultimate',held:true},9);
+  applyRoomCommand(held.room,held.a,{type:'oneHitRelease',cancel:true},9.1);
+  assert.equal(held.a.ultimateState,null);
+  assert.equal(held.a.prowess,PROWESS.full);
+  assert.equal(held.room.events.some(e=>e.type==='oneHitTeleport'||e.type==='oneHitImpact'),false);
+});
+
+test('manual Disaster detonation consumes exactly one owned wave at its current position without another decisive hit',()=>{
+  const {room,a,b}=battle();
+  const position={x:7,y:1,z:0};
+  const tiers={fire:2,frost:2,gale:2,lightning:1};
+  b.position={x:7.8,y:0,z:0};
+  for(const [id,x,z] of [['already',6.2,0],['sheltered',7.8,1.5]]){
+    room.addPlayer({id,name:id,token:id},9);
+    const player=room.players.get(id);
+    player.position={x,y:0,z};
+    player.spawnProtectionUntil=0;
+  }
+  room.world={...world,solids:[{id:'screen',center:[7.4,1,1],size:[2,3,.2]}]};
+  room.oneHitWaves=[{id:'live',ownerId:a.id,position:{...position},direction:{x:1,y:0,z:0},tiers,bornAt:9,distance:7,hitIds:['already']}];
+  applyRoomCommand(room,b,{type:'oneHitDetonate',waveId:'live'},9.2);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'stale'},9.2);
+  assert.equal(room.oneHitWaves.length,1);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'live',position:{x:100,y:0,z:0}},9.2);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'live'},9.2);
+  assert.equal(room.oneHitWaves.length,0);
+  const impacts=room.events.filter(e=>e.type==='oneHitImpact');
+  assert.equal(impacts.length,1);
+  assert.equal(impacts[0].cause,'manual');
+  assert.equal(impacts[0].impactId,'live');
+  assert.deepEqual(impacts[0].point,position);
+  assert.deepEqual(impacts[0].tiers,tiers);
+  assert.equal(b.health,100,'terminal contact is not another decisive HP hit');
+  assert.ok(b.oneHitFrozenUntil>9.2 && b.burn && b.shaken);
+  assert.equal(room.players.get('already').burn,null);
+  assert.equal(room.players.get('sheltered').burn,null);
+  assert.ok(room.oneHitBurnZones.some(z=>z.id==='live:fire'));
+});
+
+test('Full Lightning released while queued behind a cast does not get stuck in an indefinite hold',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  a.oneHitInfusions.lightning=2;
+  a.pendingSpell={spell:'fireball'};
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  assert.equal(a.ultimateState,null);
+  applyRoomCommand(room,a,{type:'oneHitRelease'},9.03);
+  a.pendingSpell=null;
+  stepRoom(room,1/30,9.06,world);
+  assert.equal(a.ultimateState.phase,'active');
+  assert.ok(room.events.some(e=>e.type==='oneHitImpact'));
 });

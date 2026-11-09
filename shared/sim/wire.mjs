@@ -15,7 +15,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
@@ -65,6 +65,7 @@ export function serializeLobby(room) {
 }
 
 export function serializeSnapshot(room, nowSec, recipientId = null) {
+  const disasterWaves=new Map((room.oneHitWaves??[]).map(w=>[w.ownerId,w.id]));
   return {
     type: 'snapshot',
     tick: room.tickNumber,
@@ -171,6 +172,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       ...(p.presentationRecovery ? { presentationRecovery: {...p.presentationRecovery} } : {}),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
+      attackPresentation: p.attackActive&&!p.attackSlam&&!p.attackChivalry&&
+        Number.isInteger(p.attackChainSerial)&&p.attackChainSerial%2===0 ? 1 : 0,
       attackNextStrike: p.attackNextStrike,
       // how many of the chain's strikes are committed (each swing seen beginning: the breath behind it leads it)
       attackCommitted: p.attackCommitted ?? 0,
@@ -241,10 +244,12 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
       oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
       ultimate: p.ultimate ?? null,
+      ...(disasterWaves.has(p.id)?{oneHitWaveId:disasterWaves.get(p.id)}:{}),
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
         ...(p.ultimateState.oneHit ? { oneHit: { ...p.ultimateState.oneHit, tiers: { ...p.ultimateState.oneHit.tiers } } } : {}),
         ...(Number.isFinite(p.ultimateState.teleportHoldAt) ? { teleportHoldAt: p.ultimateState.teleportHoldAt } : {}),
+        ...(p.ultimateState.groundRelease ? { groundRelease: {...p.ultimateState.groundRelease} } : {}),
         ...(p.ultimateState.preparedTiers ? { preparedTiers:{...p.ultimateState.preparedTiers} } : {}),
         // (a Vortex: where its blade is, how fast it turns, and what the knight has steered it to)
         ...(p.ultimateState.angle !== undefined ? {
@@ -267,7 +272,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       bornAt:w.bornAt, tiers:{...w.tiers},
     })),
     oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
-      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, until:z.until,
+      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, bornAt:z.bornAt, until:z.until,
     })),
     lineConductWires: (room.lineConductWires ?? []).map(w => ({
       id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,
@@ -368,8 +373,9 @@ export function applyRoomCommand(room, player, message, time) {
   // rematch, metadata and noncombat room messages.
   if (room.mode === GAME_MODES.RENOWN_TRIALS && room.state === 'PLAYING'
     && !renownTrialCombatOpen(room)
+    && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
-      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease',
+      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
@@ -390,7 +396,7 @@ export function applyRoomCommand(room, player, message, time) {
   // Gate B3: only the named Chivalry Ultimate may start aboard the flying
   // apparatus; other Ultimates retain their standard unmounted restrictions.
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
-  if(mounted && message.type==='oneHitRelease')return {};
+  if(mounted&&message.type==='oneHitRelease'&&message.cancel!==true)return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -540,9 +546,11 @@ export function applyRoomCommand(room, player, message, time) {
       // into a normal Ultimate activation or spend its reserved meter.
       if(player.operatingFightFlightId&&(room.fightFlight?.flightDashHeld||room.fightFlight?.terminalPrep||room.fightFlight?.terminalDive))
         return {rejected:'Release Dash before activating ordinary Chivalry.'};
-      tryUltimate(room, player.id, time); return {};
+      tryUltimate(room,player.id,time,{held:message.held===true}); return {};
     case 'oneHitRelease':
-      releaseOneHitCharge(room,player.id,time); return {};
+      releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true}); return {};
+    case 'oneHitDetonate':
+      detonateOneHitWave(room,player.id,message.waveId,time); return {};
     case 'flightUltimateHold': {
       const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
       if(result.rejected)return {rejected:result.rejected};
