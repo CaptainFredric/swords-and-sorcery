@@ -130,28 +130,43 @@ try{
    return a<FLIGHT_MOUNT_RANGE-.3;
   },'host walks physically to the machine',170);
   await host.key('W','keyUp');
+  await host.evaluate(`(() => {
+    const r = window.__ssRuntime;
+    if (r) {
+      r.input?.keys?.delete?.('KeyW');
+      r.input?.keys?.delete?.('ArrowUp');
+      r.socket?.input?.({ forward: 0, right: 0, yaw: r.input?.yaw ?? 0, pitch: 0 });
+    }
+  })()`);
   const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
   console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
   if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
  await host.send('Page.bringToFront');
- await host.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
+ await host.evaluate(`(() => {
+   window.focus();
+   const r = window.__ssRuntime;
+   r?.requestPointerLock?.();
+   r?.input?.requestPointerLock?.();
+   r?.socket?.send?.({ type: 'siegeOperate' });
+   r?.input?.interact?.();
+ })()`);
  await host.tap('T');
  let mountAttempts=0;
  await waitFor(async()=>{
   if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
   if(++mountAttempts%3===0){
     await host.send('Page.bringToFront');
-    await host.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
-    await host.tap('T');
     await host.evaluate(`(() => {
+      window.focus();
       const r = window.__ssRuntime;
-      if (!r?.localAuth?.operatingFightFlightId) {
-        r?.socket?.send?.({ type: 'siegeOperate' });
-        r?.input?.interact?.();
-      }
+      r?.requestPointerLock?.();
+      r?.input?.requestPointerLock?.();
+      r?.socket?.send?.({ type: 'siegeOperate' });
+      r?.input?.interact?.();
     })()`);
+    await host.tap('T');
   }
   return false;
  },'host confirmed mounted in apparatus via T',120);

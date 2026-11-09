@@ -294,8 +294,10 @@ try{
      throw new Error('Injected once-only Valkyrie camera locator error');
    };
  })()`);
- await sleep(350);
- const afterException=await evaluate(cameraProbe);
+ const afterException=await until(async()=>{
+  const probe=await evaluate(cameraProbe);
+  return (probe.recoveries>prior.recoveries && probe.frame>prior.frame+5)?probe:null;
+ },'visual renderer keeps presenting after a thrown camera exception',40);
  assert.ok(afterException.recoveries>prior.recoveries,'injected visual failure hit recovery path');
  assert.ok(afterException.frame>prior.frame+5,'visual renderer keeps presenting after a thrown camera exception');
  assert.ok(afterException.position.every(Number.isFinite)&&afterException.matrix.every(Number.isFinite),
