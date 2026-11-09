@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 
-const SEGMENTS = 144, TAU = Math.PI * 2;
-const MAX_VERTS = SEGMENTS * 8;
+const SEGMENTS = 160, TAU = Math.PI * 2;
+// a ribbon of two triangles per segment, and eight heraldic shields of six triangles each (plus their charge)
+const MAX_TRIS = SEGMENTS * 2 + 8 * 12;
 const BRASS = 0xbfa165;
 const STONE_PLINTH = 0x6e685c;
 const SPELL_COLOURS = Object.freeze({
@@ -15,57 +16,78 @@ const SPELL_COLOURS = Object.freeze({
   gale: 0x80c7ad,
 });
 
-const line = (opacity) => {
+// The boundary is inlaid in the ground: a flat brass band that follows the floor (a hand's breadth wide, never
+// raised, never solid) with a heraldic shield at each of the eight compass points, its point toward the centre.
+// The coming stage's line is a fainter, broken band. Seen from a knight's eye it reads as metalwork in the paving,
+// not as light or a wall.
+const ribbon = (opacity, color = BRASS) => {
   const geometry = new THREE.BufferGeometry();
-  const buffer = new Float32Array(MAX_VERTS * 3);
+  const buffer = new Float32Array(MAX_TRIS * 9);
   geometry.setAttribute('position', new THREE.BufferAttribute(buffer, 3).setUsage(THREE.DynamicDrawUsage));
   geometry.setDrawRange(0, 0);
-  const material = new THREE.LineBasicMaterial({ color: BRASS, transparent: true, opacity, depthWrite: false });
-  const object = new THREE.LineSegments(geometry, material);
+  const material = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const object = new THREE.Mesh(geometry, material);
   object.renderOrder = 5;
+  object.frustumCulled = false;
   return object;
 };
 
 function drawGroundRing(object, world, center, radius, pattern) {
   const attr = object.geometry.getAttribute('position'), data = attr.array;
-  let count = 0;
+  let tris = 0;
+  const tri = (a, b, c) => {
+    if (tris >= MAX_TRIS) return;
+    data.set(a, tris * 9); data.set(b, tris * 9 + 3); data.set(c, tris * 9 + 6);
+    tris++;
+  };
   if (!Number.isFinite(radius) || radius <= 0) { object.geometry.setDrawRange(0, 0); return; }
+  const half = pattern.width / 2;
+  const lift = 0.03;
+  const ground = (x, z) => surfaceHeightAt(x, z, 100, world);
 
-  // 1. Perimeter ring segments (restrained engraved brass track)
+  // 1. The band: each segment a quad on the ground, left out where the floor steps (a stair, a heap, a wall's foot)
   for (let i = 0; i < SEGMENTS; i++) {
     if (i % pattern.every >= pattern.on) continue;
     const a = TAU * i / SEGMENTS, b = TAU * (i + 1) / SEGMENTS;
-    const ax = center.x + Math.cos(a) * radius, az = center.z + Math.sin(a) * radius;
-    const bx = center.x + Math.cos(b) * radius, bz = center.z + Math.sin(b) * radius;
-    const ay = surfaceHeightAt(ax, az, 100, world), by = surfaceHeightAt(bx, bz, 100, world);
+    const [ca, sa, cb, sb] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b)];
+    const ay = ground(center.x + ca * radius, center.z + sa * radius);
+    const by = ground(center.x + cb * radius, center.z + sb * radius);
     if (ay === null || by === null || Math.abs(ay - by) > 0.28) continue;
-    if ((count + 1) * 2 > MAX_VERTS) break;
-    const off = count * 6;
-    data[off] = ax; data[off + 1] = ay + 0.045; data[off + 2] = az;
-    data[off + 3] = bx; data[off + 4] = by + 0.045; data[off + 5] = bz;
-    count++;
+    const p = (c, s, r, y) => [center.x + c * r, y + lift, center.z + s * r];
+    const ai = p(ca, sa, radius - half, ay), ao = p(ca, sa, radius + half, ay);
+    const bi = p(cb, sb, radius - half, by), bo = p(cb, sb, radius + half, by);
+    tri(ai, ao, bo); tri(ai, bo, bi);
   }
 
-  // 3. Heraldic compass tick glyphs at 8 compass directions
-  for (let k = 0; k < 8; k++) {
-    if ((count + 1) * 2 > MAX_VERTS) break;
-    const ca = (TAU * k) / 8;
-    const rIn = radius - 0.35, rOut = radius + 0.35;
-    const x0 = center.x + Math.cos(ca) * rIn, z0 = center.z + Math.sin(ca) * rIn;
-    const x1 = center.x + Math.cos(ca) * rOut, z1 = center.z + Math.sin(ca) * rOut;
-    const y0 = surfaceHeightAt(x0, z0, 100, world);
-    const y1 = surfaceHeightAt(x1, z1, 100, world);
-    if (y0 !== null && y1 !== null && Math.abs(y0 - y1) <= 0.3) {
-      const tickOff = count * 6;
-      data[tickOff] = x0; data[tickOff + 1] = y0 + 0.05; data[tickOff + 2] = z0;
-      data[tickOff + 3] = x1; data[tickOff + 4] = y1 + 0.05; data[tickOff + 5] = z1;
-      count++;
+  // 2. A heraldic shield at each compass point, just inside the band: a heater shield's outline with a chevron
+  if (pattern.shields) {
+    for (let k = 0; k < 8; k++) {
+      const angle = (TAU * k) / 8;
+      const c = Math.cos(angle), sn = Math.sin(angle);
+      const r0 = radius - half - 0.12;
+      const y = ground(center.x + c * (r0 - 0.35), center.z + sn * (r0 - 0.35));
+      const yOut = ground(center.x + c * r0, center.z + sn * r0);
+      if (y === null || yOut === null || Math.abs(y - yOut) > 0.2) continue;
+      // local frame: u along the ring (tangent), v toward the centre
+      const at = (u, v) => [center.x + c * (r0 - v) - sn * u, y + lift + 0.002, center.z + sn * (r0 - v) + c * u];
+      const w = 0.3, h = 0.62;
+      const top = [at(-w, 0), at(w, 0)];
+      const mid = [at(-w, h * 0.45), at(w, h * 0.45)];
+      const point = at(0, h);
+      tri(top[0], top[1], mid[1]); tri(top[0], mid[1], mid[0]);
+      tri(mid[0], mid[1], point);
+      // its chevron, a hair above (drawn in the same brass: the shield reads by its outline against the stone)
+      const cw = w * 0.7;
+      tri(at(-cw, h * 0.28), at(0, h * 0.12), at(0, h * 0.2));
+      tri(at(cw, h * 0.28), at(0, h * 0.2), at(0, h * 0.12));
     }
   }
 
   attr.needsUpdate = true;
-  object.geometry.setDrawRange(0, count * 2);
-  object.geometry.computeBoundingSphere();
+  object.geometry.setDrawRange(0, tris * 3);
 }
 
 function makePickup(spell) {
@@ -152,8 +174,8 @@ export class EdgeBoundaryRenderer {
   constructor(scene) {
     this.scene=scene;
     this.group=new THREE.Group();
-    this.active=line(.69);
-    this.next=line(.2);
+    this.active=ribbon(.82);
+    this.next=ribbon(.3);
     this.group.add(this.active,this.next);
     this.pickups=new Map();
     this.scene.add(this.group);
@@ -164,11 +186,11 @@ export class EdgeBoundaryRenderer {
     this.group.visible=active;
     if(!active)return;
     const radius=edgePresentedRadius(edge,serverNow,receivedAt);
-    drawGroundRing(this.active,world,edge.center,radius,{every:4,on:3});
+    drawGroundRing(this.active,world,edge.center,radius,{every:1,on:1,width:.16,shields:true});
     const nextStage=edge.stages?.find(s=>s.second > serverNow-(edge.startedAt??serverNow)+.005);
     const nextRadius=nextStage?.radius??null;
     if(nextRadius!==null&&nextRadius<radius-.03)
-      drawGroundRing(this.next,world,edge.center,nextRadius,{every:6,on:2});
+      drawGroundRing(this.next,world,edge.center,nextRadius,{every:5,on:2,width:.08,shields:false});
     else this.next.geometry.setDrawRange(0,0);
     const seen=new Set();
     for (const pickup of edge.pickups ?? []) {

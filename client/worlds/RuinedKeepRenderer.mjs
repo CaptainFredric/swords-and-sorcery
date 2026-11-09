@@ -73,6 +73,10 @@ export class RuinedKeepRenderer {
     this.#debris(batch);
     for (const ramp of world.ramps) this.#ramp(batch, rand, ramp);
     for (const solid of world.solids) this.#solid(batch, rand, solid);
+    // a step of rubble is a floor, not a solid (a knight strides onto it): drawn as the heap that fills it
+    for (const floor of world.floors.filter((f) => f.rubble)) {
+      this.#rubble(batch, rand, { center: [floor.center[0], floor.y / 2, floor.center[2]], size: [floor.size[0], floor.y, floor.size[2]] });
+    }
     this.#exterior(batch, rand);
     this.#skirts(batch, rand);
     this.#landscape(batch, rand);

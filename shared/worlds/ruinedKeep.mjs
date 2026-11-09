@@ -50,7 +50,8 @@ const STAIR = Object.freeze({ minX: 8.3, maxX: 10.2, minZ: -8.6, maxZ: -3.2 });
 const PROPS = Object.freeze([
   { kind: 'barrel', x: 7.55, z: -11.4 }, { kind: 'barrel', x: 7.5, z: -12.2, tilt: 0.12 },
   { kind: 'crate', x: 7.55, z: -10.3, turn: 0.15 },
-  { kind: 'crate', x: -3.7, z: -0.25, turn: -0.2 }, { kind: 'crate', x: -3.7, z: 0.45, turn: 0.1, stack: true },
+  // (stacked by the gate's rubble against the south curtain: the final ring's middle is left clear for blades)
+  { kind: 'crate', x: -3.45, z: -12.9, turn: -0.2 }, { kind: 'crate', x: -2.65, z: -12.95, turn: 0.1, stack: true },
   { kind: 'sacks', x: -7.2, z: -12.7 },
   { kind: 'woodpile', x: -8.75, z: -11.9, length: 2.2 },
   { kind: 'rack', x: -8.95, z: 8.6, facing: Math.PI / 2 },
@@ -71,10 +72,13 @@ const FLOORS = [
   floor('landing', [8.25, 10.3], [-13.3, -8.5], KEEP_GALLERY_Y, 'stone'),
   // the tops of the heaps a knight can stand on (the masonry under each is what shows)
   floor('gate-rubble-top', [-2.2, 2.2], [-13.2, -11.4], 1.0, 'stone', { draw: false }),
-  floor('hall-rubble-top', [6.4, 9.0], [4.4, 6.6], 1.3, 'stone', { draw: false }),
+  floor('hall-rubble-top', [6.4, 9.0], [4.4, 6.0], 1.3, 'stone', { draw: false }),
   floor('scaffold-top', [-7.4, -4.4], [-0.9, 0.9], 1.2, 'timber', { draw: false }),
   floor('toppled-wall-breach-apex', [-0.75, 0.85], [-6.4, -6.2], 0.45, 'stone', { draw: false }),
   floor('breach-rubble-top', [-9.5, -7.8], [-9.6, -8.6], 1.1, 'stone', { draw: false }),
+  // the rubble at the Breach's north jamb: a step (no taller than a stride, so it stops nobody), drawn as the heap
+  // it is. The terrace's north end steps inward over it when Edge of Victory's ring closes past the Breach.
+  floor('breach-rubble-north', [-10.4, -8.8], [-4.4, -3.3], 0.6, 'stone', { draw: false, rubble: true }),
 ];
 
 const RAMPS = [
@@ -98,7 +102,6 @@ const SOLIDS = [
   solid('west-curtain-north', [-9.8, -9.2], [0, 3.4], [-3.5, 1.2], { kind: 'ruin' }),
   // rubble spilled at the Breach's jambs (low: a knight is not stopped short at the gap)
   solid('breach-rubble-south', [-10.4, -8.6], [0, 0.9], [-9.8, -8.6], { kind: 'rubble' }),
-  solid('breach-rubble-north', [-10.4, -8.8], [0, 0.7], [-4.4, -3.3], { kind: 'rubble' }),
   // the terrace: walls at each end, and the lip along its edge (the gap between the lips: the crumbled edge)
   solid('terrace-south-return', [-13.2, -9.8], [0, 2.4], [-11.0, -10.4], { kind: 'ruin' }),
   solid('terrace-north-return', [-13.2, -9.8], [0, 2.0], [-2.6, -2.0], { kind: 'ruin' }),
@@ -131,7 +134,9 @@ const SOLIDS = [
   solid('hall-roof', [-9.2, 10.2], [6.0, 6.6], [7.2, 13.3], { kind: 'roof' }),
   // the fallen half: a roof beam across the floor, a heap of masonry in the east aisle
   solid('fallen-beam', [1.0, 4.4], [0, 0.6], [4.8, 5.4], { kind: 'beam', material: 'timber' }),
-  solid('hall-rubble', [6.4, 9.0], [0, 1.3], [4.4, 6.6], { kind: 'rubble' }),
+  // (its north foot stops short of the pillar by more than a body: whoever stands north of it when Edge of Victory's
+  // ring closes can still walk in, between the two)
+  solid('hall-rubble', [6.4, 9.0], [0, 1.3], [4.4, 6.0], { kind: 'rubble' }),
   // the Crawl: the west aisle choked by fallen roof, a gap under it 1.35 m high (a crouch fits; standing does not)
   solid('crawl-roof', [-9.2, -7.8], [1.35, 2.5], [0.9, 4.8], { kind: 'fallen-roof', material: 'timber' }),
   solid('crawl-rubble', [-7.8, -6.3], [0, 2.5], [0.9, 4.8], { kind: 'rubble' }),
@@ -141,7 +146,8 @@ const SOLIDS = [
   solid('toppled-wall-east', [0.85, 1.4], [0, 2.4], [-6.6, -6.0], { kind: 'ruin' }),
   solid('breach-ramp-core', [-9.5, -7.8], [0, 0.5], [-8.6, -7.0], { kind: 'rubble' }),
   solid('column-drums-west', [-7.2, -5.8], [0, 0.9], [-8.4, -7.0], { kind: 'drums' }),
-  solid('column-drums-east', [3.6, 5.0], [0, 0.8], [-3.6, -2.2], { kind: 'drums' }),
+  // (rolled off the final ring: Edge of Victory's last circle is a duelling floor)
+  solid('column-drums-east', [5.4, 6.8], [0, 0.8], [-5.8, -4.4], { kind: 'drums' }),
   solid('gate-rubble', [-2.2, 2.2], [0, 1.0], [-13.3, -11.4], { kind: 'rubble' }),
   solid('siege-scaffold', [-7.4, -4.4], [0, 1.2], [-0.9, 0.9], { kind: 'scaffold', material: 'timber' }),
   // its two back poles stand up past the deck against the hall's wall (solid: a blade rings off them)
