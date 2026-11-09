@@ -37,6 +37,18 @@ export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
   return nowSec >= state.commitAt && nowSec < Math.min(state.until ?? Infinity, state.commitAt + post);
 }
 
+// A slow renderer can miss the entire server-timed reveal. Give a newly
+// observed commit a short visible beat while its authoritative action is live.
+// Count rendered time so one stalled frame cannot consume the whole beat.
+export function stepDisasterReveal(previous, player, nowSec, dt, chase) {
+  const action = player?.alive && player.ultimateState;
+  if (action?.id !== 'one_hit_of_wonders' || action.phase !== 'active' ||
+      !Number.isFinite(action.commitAt) || nowSec < action.commitAt || nowSec >= action.until) return null;
+  const commitAt = action.commitAt;
+  if (previous?.commitAt !== commitAt) return { commitAt, remaining: chase < .55 ? .25 : 0 };
+  return { commitAt, remaining: Math.max(0, previous.remaining - dt - 1e-9) };
+}
+
 // A complete visual revolution finishes at the contact frame, returning
 // exactly to the actor's real facing. No rotation feeds back into server aim.
 export function disasterBodyTurn(state, nowSec) {

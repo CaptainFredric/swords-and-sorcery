@@ -27,7 +27,7 @@ export function observeAcceptanceWire(label) {
     try { packet = JSON.parse(params.response.payloadData); } catch { return; }
     if (!sent && packet.type === 'joined') {
       socketId = params.requestId;
-      playerId = packet.playerId;
+      playerId = wire.playerId = packet.playerId;
     }
     if (params.requestId !== socketId) return;
 

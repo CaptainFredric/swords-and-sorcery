@@ -113,7 +113,7 @@ import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
-import { disasterCameraWanted, disasterHolding } from './oneHitCamera.mjs';
+import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
@@ -831,7 +831,7 @@ export class GameRuntime {
     this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
-    this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
+    this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
@@ -3473,6 +3473,7 @@ export class GameRuntime {
 
   // the view is in the helm (fallen, or between matches): no chase, and my own body is not drawn
   #viewInHelm(nowMs, dt) {
+    this.disasterReveal = null;
     if (!this.chase && !this.remotePlayers.self?.root.visible) return;
     this.chase = 0;
     this.chaseOut = 0;
@@ -3978,7 +3979,10 @@ export class GameRuntime {
       // turn, decisive impact, and (for Full Gale) the delayed aerial wave.
       // Full Lightning holds this collision-checked view while the player aims.
       // Existing death/inspection/mounted views retain priority.
-      const cinematic = !this.inspectionFree && disasterCameraWanted(this.localAuth, serverNow);
+      this.disasterReveal = this.inspectionFree ? null
+        : stepDisasterReveal(this.disasterReveal, this.localAuth, serverNow, dt, this.chase);
+      const cinematic = !this.inspectionFree &&
+        (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0);
       this.chase = stepChase(this.chase ?? 0,
         chaseWanted(this.localAuth, serverNow) || cinematic, dt);
       const helm = 1 - this.chase * this.chase * (3 - 2 * this.chase);
