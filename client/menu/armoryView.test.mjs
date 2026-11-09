@@ -62,3 +62,23 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.match(core.facts, /5 first burst · 20 final blast · 6 burn · 5s cooldown/);
   assert.match(core.line, /burning stone/);
 });
+
+test('the Armory provides the authoritative sword technique slot with longsword and in-training candidates', () => {
+  const view = armoryView('fireball');
+  assert.ok(Array.isArray(view.techniques));
+  assert.equal(view.techniques.length, 3);
+  const blade = view.techniques.find((t) => t.id === 'castleward_longsword');
+  assert.ok(blade.equipped);
+  assert.equal(blade.disabled, false);
+  assert.match(blade.facts, /Three-strike combo/);
+
+  const riposte = view.techniques.find((t) => t.id === 'rigid_riposte');
+  assert.equal(riposte.disabled, true);
+  assert.equal(riposte.status, 'IN TRAINING');
+  assert.match(riposte.line, /Rigid Riposte|forward sword thrust/i);
+
+  const whirl = view.techniques.find((t) => t.id === 'whirl_wind');
+  assert.equal(whirl.disabled, true);
+  assert.equal(whirl.status, 'IN TRAINING');
+  assert.match(whirl.line, /Whirl Like the Wind|360°/i);
+});

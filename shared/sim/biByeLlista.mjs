@@ -1,3 +1,4 @@
+import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
 import {earliestFrostProximity} from './biByeProximity.mjs';
@@ -664,6 +665,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   if(ballista?.retired)return;
   if (!ballista) return;
   ballista.poseTime = nowSec;
+  ballista.edgeBlocked = false;
   const previousPose = {...ballista};
   if(!ballista.terrainInitialized){const initial=biByeTerrainPose(ballista,biByeTerrainContext(world,ballista));if(initial)Object.assign(ballista,initial);ballista.terrainInitialized=true;}
 
@@ -743,6 +745,11 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
           let moved=false;
           for(const h of [heading,ballista.heading]){
             const candidate={...ballista,heading:h,x:ballista.x-Math.sin(h)*distance,z:ballista.z-Math.cos(h)*distance};
+            if (ballista.operatorId && world?.edgeBoundary &&
+                !edgeMachineProgressAllowed(getBiByeSolids(ballista),getBiByeSolids(candidate),world.edgeBoundary)) {
+              ballista.edgeBlocked=true;
+              continue;
+            }
             const contact=biByeTerrainPose(candidate,ctx);if(!contact)continue;
             Object.assign(candidate,contact);
             if(Math.abs(candidate.y-ballista.y)>.07||!biByeTerrainClear(candidate,ctx))continue;
@@ -777,6 +784,12 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     const slices=Math.max(1,Math.ceil(Math.hypot(impulse.x,impulse.z)*dt/.05));
     for(let i=0;i<slices;i++){
       const next={...ballista,x:ballista.x+impulse.x*dt/slices,z:ballista.z+impulse.z*dt/slices};
+        if(ballista.operatorId && world?.edgeBoundary &&
+            !edgeMachineProgressAllowed(getBiByeSolids(ballista),getBiByeSolids(next),world.edgeBoundary)) {
+          ballista.edgeBlocked=true;
+          ballista.externalVelocity={x:0,z:0};
+          break;
+        }
       const pose=biByeTerrainPose(next,ctx);
       if(!pose||Math.abs(pose.y-ballista.y)>.07)break;
       const proposed={...next,...pose};

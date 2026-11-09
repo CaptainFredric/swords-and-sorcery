@@ -758,7 +758,7 @@ export class RemotePlayers {
   #pose(id, shell, pb, serverNow, nowMs, dt) {
     const localTime = nowMs / 1000;
     const d = shell.root.userData;
-    const state = resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
+    const state = pb.restlessAsleep ? 'dead' : resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
     // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
     const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
     const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.angle);
@@ -968,7 +968,7 @@ export class RemotePlayers {
         shell.badgeKey = badgeKey;
       }
       if (shell.teamBadge) {
-        if (!pb.alive) {
+        if (!pb.alive || pb.restlessAsleep) {
           shell.teamBadge.visible = false;
         } else {
           const mePos = local?.position;

@@ -24,6 +24,10 @@ import { spellFor } from '../src/spells.mjs';
 import {preparedSpellMember} from '../src/preparedSpells.mjs';
 import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { renownTrialCombatOpen, serializeRenownTrial } from './renownTrials.mjs';
+import { edgeSnapshot } from './edgeOfVictory.mjs';
+import { modeCall, modeSnapshot } from './modeRuntime.mjs';
+import { interactRestlessLadder, ladderReach } from './restlessDayMode.mjs';
 
 export function serializeLobby(room) {
   return {
@@ -42,6 +46,7 @@ export function serializeLobby(room) {
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
     botSkill: room.botSkill,
+    edgeOfVictory: edgeSnapshot(room),
     votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -83,7 +88,10 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     winnerTeam: room.winnerTeam ?? null,
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
+    renownTrial: room.mode === GAME_MODES.RENOWN_TRIALS ? serializeRenownTrial(room, nowSec) : null,
     overtime: Boolean(room.overtime),
+    edgeOfVictory: edgeSnapshot(room),
+    modeState: modeSnapshot(room,nowSec),
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
       scores: { ...room.highGrounds.scores },
@@ -192,6 +200,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,
+      restlessAsleep:Boolean(p.restlessAsleep),
+      restlessCarrying:p.restlessCarrying??null,
       kills: p.kills,
       deaths: p.deaths,
       parries: p.parries,
@@ -354,7 +364,17 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
  * command is not allowed here, or {} for nothing more.
  */
 export function applyRoomCommand(room, player, message, time) {
+  // Do not move or attack through the monument's verdict, but preserve
+  // rematch, metadata and noncombat room messages.
+  if (room.mode === GAME_MODES.RENOWN_TRIALS && room.state === 'PLAYING'
+    && !renownTrialCombatOpen(room)
+    && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
+      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease',
+      'flightDash','flightHop','flightUltimateHold','siegeOperate',
+      'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
+  if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
+  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
   const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
   const mounted=groundSiege||flightSiege;
@@ -396,11 +416,11 @@ export function applyRoomCommand(room, player, message, time) {
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         // The ram never consumes generic Jump/Crouch input.
-        jump: Boolean(!player.operatingRamId&&message.jump),
+        jump: Boolean(!player.operatingRamId&&!player.restlessCarrying&&message.jump),
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
-        sprint: Boolean(message.sprint),
+        sprint: Boolean(message.sprint)&&!player.restlessCarrying,
         crouch: Boolean(!player.operatingRamId&&message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
         ramLower: Boolean(player.operatingRamId&&message.ramLower),
@@ -408,8 +428,8 @@ export function applyRoomCommand(room, player, message, time) {
         ramPitchDown: Boolean(player.operatingRamId&&message.ramPitchDown),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
-        attack: Boolean(message.attack),
-        guard: Boolean(message.guard),
+        attack: Boolean(message.attack)&&!player.restlessCarrying,
+        guard: Boolean(message.guard)&&!player.restlessCarrying,
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
         viewFov: player.operatingFightFlightId&&Number.isFinite(message.viewFov)?
@@ -610,6 +630,9 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
+      if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
+         && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
+        return interactRestlessLadder(room,player,time);
       if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);

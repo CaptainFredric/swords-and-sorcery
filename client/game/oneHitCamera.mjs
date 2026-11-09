@@ -22,12 +22,13 @@ export function disasterWindupSec(state) {
 export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
   const state = player?.alive ? player.ultimateState : null;
   if (state?.id !== 'one_hit_of_wonders' || !Number.isFinite(state.commitAt) || !Number.isFinite(nowSec)) return false;
+  const post = state.oneHit?.form === 'aerial' ? rules.aerialAfterSec : rules.groundAfterSec;
   if (state.phase === 'startup') {
     const left = state.commitAt - nowSec;
-    return left > 0 && left <= Math.min(rules.beforeCommitSec, disasterWindupSec(state));
+    if (left > 0 && left <= Math.min(rules.beforeCommitSec, disasterWindupSec(state))) return true;
+    return nowSec >= state.commitAt && nowSec < state.commitAt + post;
   }
   if (state.phase !== 'active') return false;
-  const post = state.oneHit?.form === 'aerial' ? rules.aerialAfterSec : rules.groundAfterSec;
   return nowSec >= state.commitAt && nowSec < Math.min(state.until ?? Infinity, state.commitAt + post);
 }
 

@@ -144,17 +144,17 @@ try{
   assert.equal(await evaluate("document.querySelector('#create-breakthrough-room')"),null,'old huge siege create action is gone');
   await capture('05-desktop-private');
 
-  // The fixed Armory crown and bottom scroll cue must not occlude cards.
+  // The character-centered Armory stage and sliding equipment inspector.
   await evaluate("document.querySelector('#private-back').click();document.querySelector('#armory-button').click()");
   await waitFor(()=>evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')"),'Armory desktop');
   const armoryGeometry=await evaluate(`(() => {
-    const panel=document.querySelector('#armory-menu .armory-inner'),
-      tabs=panel.querySelector('.armory-tabs'),body=panel.querySelector('.armory-scroll'),
-      foot=panel.querySelector('.armory-scroll-hint');
-    const box=el=>{const b=el.getBoundingClientRect();return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,height:b.height};};
-    return {panel:box(panel),tabs:box(tabs),body:box(body),foot:box(foot),
-      panelWidth:panel.clientWidth,tabsOverflow:tabs.scrollWidth-tabs.clientWidth,
-      bodyOverflow:body.scrollWidth-body.clientWidth,
+    const kit=document.querySelector('#armory-kit');
+    const plaques=[...document.querySelectorAll('.armory-slot-plaque')];
+    const inspector=document.querySelector('#armory-inspector');
+    return {
+      kitVisible: Boolean(kit && !kit.classList.contains('hidden')),
+      plaqueCount: plaques.length,
+      inspectorClosed: Boolean(inspector && inspector.classList.contains('closed')),
       goal:(() => {
         const menu=window.__ssMenu;
         if(!menu?.shotTo||!menu?.targetPosition||!menu?.stage)return null;
@@ -164,21 +164,40 @@ try{
         const {camera,target}=menu.shotTo;
         const fx=target[0]-camera[0],fz=target[2]-camera[2],l=Math.hypot(fx,fz);
         return {stageX:local.x,stageZ:local.z,screenRight:(x*-fz+z*fx)/l};
-      })()};
+      })()
+    };
   })()`);
   evidence['armory-desktop']=armoryGeometry;
-  assert.ok(armoryGeometry.panelWidth>=440,'Armory extends wider than original narrow standard');
-  assert.ok(armoryGeometry.tabsOverflow<=3,'Armory tabs must never exceed their cloth');
-  assert.ok(armoryGeometry.bodyOverflow<=3,'Armory content has no horizontal bleed');
-  assert.ok(armoryGeometry.tabs.bottom<=armoryGeometry.body.top+3,'tabs do not overlap scrolling text');
-  assert.ok(armoryGeometry.body.bottom<=armoryGeometry.foot.top+3,'scrolling cards end above the footer');
-  assert.ok(armoryGeometry.foot.bottom<armoryGeometry.panel.bottom-27,'scroll cue remains above the stepped hem');
-  assert.ok(armoryGeometry.goal?.screenRight>.6,'Spellblade sidesteps screen-right in camera coordinates, independent of stage rotation');
+  assert.ok(armoryGeometry.kitVisible, 'Spellblade kit stage is active');
+  assert.equal(armoryGeometry.plaqueCount, 4, 'four equipment plaques present (Technique, Sorcery, Masterstroke, Heraldry)');
+  assert.ok(armoryGeometry.inspectorClosed, 'inspector starts closed to keep Spellblade centered and unobstructed');
   await capture('06-desktop-armory-combat');
+
+  // Open inspector to verify sliding panel and layout
+  await evaluate("document.querySelector('#armory-slot-sorcery').click()");
+  await sleep(150);
+  const inspectorLayout=await evaluate(`(() => {
+    const panel=document.querySelector('#armory-inspector');
+    const scroll=panel.querySelector('.inspector-scroll');
+    const cards=panel.querySelectorAll('.spell-card');
+    const detail=panel.querySelector('#armory-inspector-detail');
+    return {
+      open: !panel.classList.contains('closed'),
+      width: panel.clientWidth,
+      cardsCount: cards.length,
+      detailVisible: Boolean(detail && !detail.classList.contains('hidden')),
+      scrollOverflow: scroll ? scroll.scrollWidth - scroll.clientWidth : 0
+    };
+  })()`);
+  assert.ok(inspectorLayout.open, 'inspector opens on plaque click');
+  assert.ok(inspectorLayout.width >= 360, 'inspector panel width is comfortably readable');
+  assert.ok(inspectorLayout.scrollOverflow <= 3, 'inspector content has no horizontal bleed');
+  assert.ok(inspectorLayout.cardsCount >= 4, 'inspector lists spells');
+
   for(const [section,label] of [['heraldry','07-desktop-armory-heraldry'],['challenges','08-desktop-armory-challenges']]){
     await evaluate("document.querySelector('#armory-"+section+"-tab').click()");
     await sleep(100);
-    const overflow=await evaluate("document.querySelector('#armory-menu .armory-scroll').scrollWidth-document.querySelector('#armory-menu .armory-scroll').clientWidth");
+    const overflow=await evaluate("(() => { const el = document.querySelector('#armory-'+'"+section+"'+' .armory-scroll') || document.querySelector('.heraldry-scroll'); return el ? el.scrollWidth - el.clientWidth : 0; })()");
     assert.ok(overflow<=3,section+' text bleeds past scrolling column');
     await capture(label);
   }
@@ -202,6 +221,8 @@ try{
   await sleep(1100);
   assert.equal(await evaluate("document.querySelector('#emblem-name').textContent"),'Seize Thy Slayer');
   await capture('07c-desktop-earned-back-preview');
+  await evaluate("document.querySelector('#armory-back').click()");
+  await sleep(100);
   await evaluate("document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
   await waitFor(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo before mobile');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});

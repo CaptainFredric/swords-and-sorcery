@@ -21,3 +21,17 @@ export function conductBoltSamples(origin,end,{time=0,jitter:amount=.14}={}){
   }
   points.push({...end});return points;
 }
+
+// The authoritative wire remains dangerous for one second. These cosmetic
+// phases preserve that full world-space path; only intensity and width change.
+export const CONDUCT_VISUAL=Object.freeze({
+  travelSec:.16,impactFadeSec:.32,wireEndSec:1,
+});
+export function conductVisualPhase(seconds){
+  const t=Number.isFinite(seconds)?Math.max(0,seconds):0;
+  const growth=clamp(t/CONDUCT_VISUAL.travelSec,0,1);
+  const impact=t<=.14?1:clamp((CONDUCT_VISUAL.impactFadeSec-t)/.18,0,1);
+  const residual=clamp((t-CONDUCT_VISUAL.travelSec)/.07,0,1)*
+    clamp((CONDUCT_VISUAL.wireEndSec-t)/.20,0,1);
+  return {growth,impact,residual};
+}

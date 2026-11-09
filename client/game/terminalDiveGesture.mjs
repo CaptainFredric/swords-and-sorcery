@@ -3,7 +3,7 @@
 // Waypoints follow the actual editable Flight buttons in game-layer space.
 export const RITUAL_UNIT=240; // legacy stencil adapter only
 export const RITUAL_TOLERANCE=39;
-export const RITUAL_TIMEOUT_MS=45000;
+export const RITUAL_TIMEOUT_MS=90000;
 export const RITUAL_HALO_STEPS=0; // kept for older diagnostics; the halo is gone
 export const VALKYRIE_RUNE_ACTIONS=Object.freeze(['jump','ultimate','dash','siegeSkill','jump']);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -99,7 +99,7 @@ export function advanceValkyrieRitual(g,p,now){
  const deviation=Math.hypot(p.x-(a[0]+t*dx),p.y-(a[1]+t*dy));
  if(deviation>RITUAL_TOLERANCE*1.55||t+.13<g.segmentProgress)return null;
  let index=g.index,segmentProgress=Math.max(g.segmentProgress,t);
- if(t>=.94&&distance(p,b)<=RITUAL_TOLERANCE){index+=1;segmentProgress=0;}
+ if(t>=.90&&distance(p,b)<=RITUAL_TOLERANCE){index+=1;segmentProgress=0;}
  return {...g,points,variant,index,segmentProgress,
   completed:index===points.length-1,last:[p.x,p.y]};
 }

@@ -175,6 +175,11 @@ export class GameLink {
 
   /** Solo has its own host regardless of the multiplayer connection's availability. */
   startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
+    // Only a server-controlled trial may deposit permanent Renown. The same
+    // simulation can rehearse locally when offline, without wallet authority.
+    if (mode === 'RENOWN_TRIALS') {
+      return this.#online('startSolo', [mode, name, worldId, botSkill, team, teamSize]);
+    }
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.disconnect();
     this.hosting = 'local';
@@ -252,6 +257,12 @@ export class GameLink {
 
     if (!connected) {
       if (request.method === method) {
+        if (method === 'startSolo' && args[0] === 'RENOWN_TRIALS') {
+          this.#emit('notice', { text: 'Trial hosted locally: Renown rewards are unavailable without the server.' });
+          this.hosting = 'local';
+          this.local.startSolo(args[0], args[1], args[2], args[3], false, args[4], args[5]);
+          return;
+        }
         if (method === 'seekDuel') {
           this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
           this.hosting = 'local';

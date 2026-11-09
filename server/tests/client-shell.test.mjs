@@ -45,7 +45,7 @@ test('front-door copy identifies Castleward instead of the retired default Keep 
 
 test('front-door copy stays player-facing instead of exposing implementation notes or forced medieval jargon', async () => {
   const html = await read('client/index.html');
-  const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="lobby"'));
+  const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="lobby"')).replace(/<!--[\s\S]*?-->/g, '');
 
   assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
   assert.match(menuSlice, /Browse public matches/i);

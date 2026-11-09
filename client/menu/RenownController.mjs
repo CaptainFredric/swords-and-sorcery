@@ -231,6 +231,7 @@ export class RenownController {
     this.section = section;
     for (const id of ['kit', 'siege', 'heraldry', 'challenges']) {
       this.doc.querySelector(`#armory-${id}`)?.classList.toggle('hidden', id !== section);
+      this.doc.querySelector(`#armory-${id}-view`)?.classList.toggle('hidden', id !== section);
       this.doc.querySelector(`#armory-${id}-tab`)?.setAttribute('aria-pressed', String(id === section));
     }
     const hints={
@@ -272,6 +273,8 @@ export class RenownController {
   render() {
     const view = renownView(this.profile, this.preview, this.online());
     this.doc.querySelector('#renown-balance').textContent = this.profile ? String(view.balance) : '…';
+    const headerBalance = this.doc.querySelector('#renown-balance-header');
+    if (headerBalance) headerBalance.textContent = this.profile ? `${view.balance} RENOWN` : '0 RENOWN';
     this.doc.querySelector('#renown-collection').textContent = view.collection;
     for (const button of this.cards.children) {
       const id = button.dataset.cloth, item = CLOTH[id];

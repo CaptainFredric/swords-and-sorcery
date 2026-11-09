@@ -4,7 +4,15 @@ import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS]);
+const SOLO_MODES = new Set([
+  GAME_MODES.BOT_DUEL,
+  GAME_MODES.PRACTICE,
+  GAME_MODES.BREAKTHROUGH,
+  GAME_MODES.HIGH_GROUNDS,
+  GAME_MODES.RESTLESS_DAY,
+  GAME_MODES.RENOWN_TRIALS,
+  GAME_MODES.EDGE_OF_VICTORY,
+]);
 
 export function generateRoomCode(random = Math.random) {
   let code = '';
@@ -44,7 +52,8 @@ export class RoomManager {
 
   /** All custom rooms share the same validated rules, whether visible in Open Rooms or invited by code. */
   createCustomRoom({ isPrivate = true, mode = GAME_MODES.FFA, worldId, scoreToWin, matchSeconds, teamSize, botSkill } = {}, nowSec = 0) {
-    if (!publicRoomMode(mode)) throw new Error('That game mode does not support custom rooms.');
+    if (!publicRoomMode(mode) && !(isPrivate && getModePolicy(mode).privateCustomRoom))
+      throw new Error('That game mode is not available for this room type.');
     const baseline = { mode: GAME_MODES.FFA, worldId: WORLD_IDS.CASTLEWARD, scoreToWin: 10, policy: getModePolicy(GAME_MODES.FFA) };
     const settings = roomSettings(baseline, { mode, ...(worldId ? { worldId } : {}),
       ...(scoreToWin !== undefined ? { scoreToWin } : {}),
@@ -55,7 +64,7 @@ export class RoomManager {
     const room = this.#createRoom({ isPrivate: Boolean(isPrivate), mode, worldId: settings.worldId, teamSize: settings.teamSize }, nowSec);
     room.scoreToWin = settings.scoreToWin;
     room.policy.matchSeconds = settings.matchSeconds;
-    if (room.policy.teamMode) room.setBotSkill(settings.botSkill);
+    if (room.policy.teamMode || mode === GAME_MODES.EDGE_OF_VICTORY) room.setBotSkill(settings.botSkill);
     return room;
   }
 
@@ -68,9 +77,21 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.DUEL, worldId }, nowSec);
   }
 
-  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : WORLD_IDS.CASTLEWARD), { teamSize = null } = {}) {
+  createSoloRoom(mode, nowSec = 0, worldId = null, { teamSize = null } = {}) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
-    return this.#createRoom({ isPrivate: true, mode, worldId, teamSize }, nowSec);
+    const defaultWorld = mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH
+      : mode === GAME_MODES.RESTLESS_DAY ? WORLD_IDS.RESTLESS_DAY
+      : mode === GAME_MODES.EDGE_OF_VICTORY ? WORLD_IDS.RUINED_KEEP
+      : WORLD_IDS.CASTLEWARD;
+    const resolvedWorld = worldId || defaultWorld;
+    const room = this.#createRoom({ isPrivate: true, mode, worldId: resolvedWorld, teamSize }, nowSec);
+    if (mode === GAME_MODES.EDGE_OF_VICTORY) {
+      room.policy.minHumansToStart = 1;
+      room.policy.autoStart = true;
+      room.policy.readyCheck = false;
+      room.policy.botCount = 3;
+    }
+    return room;
   }
 
   #createRoom({ isPrivate, mode, worldId, teamSize = null }, nowSec) {
@@ -97,7 +118,7 @@ export class RoomManager {
     for (const room of this.rooms.values()) {
       if (room.isPrivate || room.humanCount() === 0 || room.joinError()) continue;
       const humans = room.humanActorCount();
-      const capacity = room.policy.teamMode ? (room.policy.teamSize ?? 3) * 2 : 8;
+      const capacity = room.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : room.policy.teamMode ? (room.policy.teamSize ?? 3) * 2 : 8;
       const left = room.state === 'PLAYING' && room.matchStartedAt !== null && Number.isFinite(room.policy.matchSeconds)
         ? Math.max(0, Math.round(room.matchStartedAt + room.policy.matchSeconds - nowSec)) : null;
       list.push({ code: room.code, mode: room.mode, worldId: room.worldId, state: room.state,

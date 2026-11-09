@@ -74,7 +74,7 @@ try{
  await until(()=>evalInBrowser("document.querySelector('#loading-veil')?.classList.contains('done')"),'loaded Castleward menu',180);
  await evalInBrowser("document.querySelector('#player-name').value='Siege probe';document.querySelector('#armory-button').click()");
  await until(()=>evalInBrowser("Boolean(document.querySelector('#armory-ultimates [data-ultimate=one_hit_of_wonders]'))"),'One Hit Armory option');
- await evalInBrowser("document.querySelector('#armory-ultimates [data-ultimate=one_hit_of_wonders]').click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
+ await evalInBrowser("document.querySelector('#armory-ultimates [data-ultimate=one_hit_of_wonders]').click();document.querySelector('#armory-equip-btn')?.click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
  await until(()=>evalInBrowser("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'solo Practice entry');
  await evalInBrowser("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch').click()");
  await until(async()=>{const s=await snap();return s?.mode==='PRACTICE'&&s?.room&&s?.roomState==='PLAYING';},'real local Practice session',160);

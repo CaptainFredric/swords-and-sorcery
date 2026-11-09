@@ -1,5 +1,7 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {highGroundsHudView} from './highGroundsHudView.mjs';
+import { renownTrialsView } from './renownTrialsView.mjs';
+import {restlessDayHudView} from './restlessDayHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
@@ -96,6 +98,11 @@ export function breakthroughHudView(local, snapshot, serverNow) {
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.tutorial) return 'GREENER PASTURES  ·  TUTORIAL';
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
+  if (snapshot?.mode === 'EDGE_OF_VICTORY') {
+    const edge=snapshot.edgeOfVictory;
+    const left=edge?.nextStageAt===null?'FINAL BATTLEGROUND':Math.max(0,Math.ceil((edge?.nextStageAt??serverNow)-serverNow))+'s TO CONTRACTION';
+    return 'EDGE OF VICTORY · '+(edge?.playersRemaining??snapshot.players?.filter(p=>p.alive).length??0)+' REMAIN · '+Math.round(edge?.radius??0)+'m BOUNDARY · '+left;
+  }
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
   const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
   const elapsed = Math.max(0, serverNow - startedAt);
@@ -104,6 +111,7 @@ export function matchInfoText(snapshot, serverNow) {
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
   const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
+  if (snapshot?.mode === 'RESTLESS_DAY') return `RESTLESS DAY · DAYLIGHT REMAINING · ${clockStr}`;
   if (snapshot?.mode === 'HIGH_GROUNDS') return `THE HIGH GROUNDS · TERRITORY · ${clockStr}`;
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
@@ -238,6 +246,24 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.trialPanel = document.createElement('div');
+    this.trialPanel.className = 'renown-trial-hud';
+    this.trialPanel.id = 'renown-trial-hud';
+    this.trialPanel.hidden = true;
+    this.trialPanel.setAttribute('role', 'status');
+    this.trialPanel.setAttribute('aria-live', 'polite');
+    this.trialPanel.innerHTML =
+      '<small class="trial-header" data-trial-header></small>' +
+      '<div class="trial-monument" aria-hidden="true">' +
+        '<i class="trial-knight"></i><i class="trial-statue"></i><i class="trial-sword"></i><i class="trial-pedestal"></i><i class="trial-coin"></i>' +
+      '</div>' +
+      '<strong class="trial-title" data-trial-title></strong>' +
+      '<output class="trial-clock" data-trial-clock></output>' +
+      '<small class="trial-details" data-trial-details></small>' +
+      '<q class="trial-line" data-trial-line hidden></q>' +
+      '<small class="trial-footer" data-trial-footer></small>' +
+      '<small class="trial-asset-warning" data-trial-placeholder hidden>Provisional ceremonial staging · authored 3D asset pending</small>';
+    this.root.append(this.trialPanel);
     this.machineGauge = document.createElement('div');
     this.machineGauge.className = 'machine-gauge';
     this.machineGauge.hidden = true;
@@ -371,6 +397,12 @@ export class HUD {
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    if (snapshot?.mode === 'EDGE_OF_VICTORY' && local.alive && snapshot.edgeOfVictory?.pickups?.length) {
+      const nearby = snapshot.edgeOfVictory.pickups.filter(p=>p.available&&p.kind==='spell')
+        .map(p=>({...p,distance:Math.hypot(p.position.x-local.position.x,p.position.z-local.position.z)}))
+        .sort((a,b)=>a.distance-b.distance)[0];
+      if(nearby && nearby.distance<22) this.matchInfo.textContent += ' · '+nearby.spell.toUpperCase()+' '+Math.round(nearby.distance)+'m';
+    }
     const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
@@ -451,6 +483,24 @@ export class HUD {
       controls.hidden = Boolean(siege.touch);
       controls.textContent = siege.controls;
     }
+    const trialView = renownTrialsView(snapshot, serverNow);
+    this.trialPanel.hidden = !trialView.visible;
+    if (trialView.visible) {
+      this.trialPanel.classList.toggle('ceremony', trialView.ceremony);
+      this.trialPanel.classList.toggle('overtime', trialView.overtime);
+      this.trialPanel.dataset.cue = trialView.stage;
+      for (const [selector, value] of [
+        ['[data-trial-header]', trialView.header],
+        ['[data-trial-title]', trialView.title],
+        ['[data-trial-clock]', trialView.clock],
+        ['[data-trial-details]', trialView.details],
+        ['[data-trial-footer]', trialView.footer],
+      ]) this.trialPanel.querySelector(selector).textContent = value;
+      const spoken = this.trialPanel.querySelector('[data-trial-line]');
+      spoken.hidden = !trialView.line;
+      spoken.textContent = trialView.line || '';
+      this.trialPanel.querySelector('[data-trial-placeholder]').hidden = !trialView.placeholder;
+    }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {
       this.duelScore.classList.toggle('hidden', !duel);
@@ -460,8 +510,8 @@ export class HUD {
         this.duelScore.setAttribute('aria-label', `You ${duel.mine}, ${duel.rival} ${duel.theirs}`);
       }
     }
-    const btView = snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
-    this.matchInfo.classList.toggle('hidden', btView.visible);
+    const btView = snapshot.mode==='RESTLESS_DAY'?restlessDayHudView(local,snapshot,serverNow):snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
+    this.matchInfo.classList.toggle('hidden', btView.visible || snapshot.mode === 'RENOWN_TRIALS');
     this.breakthroughHud.classList.toggle('hidden', !btView.visible);
     if (btView.visible) {
       this.breakthroughHud.dataset.team = btView.team;
@@ -471,23 +521,29 @@ export class HUD {
       this.breakthroughHud.querySelector('[data-bt-phase]').textContent = btView.phaseLabel;
       this.breakthroughHud.querySelector('[data-bt-clock]').textContent = btView.clock;
       this.breakthroughHud.querySelector('[data-bt-name]').textContent = btView.objectiveName;
-      this.breakthroughHud.querySelector('[data-bt-state]').textContent = btView.mode==='high-grounds'
-        ? `${btView.stateLabel}${btView.progressPct?' ·'+btView.progressPct+'%':''}`
+      this.breakthroughHud.querySelector('[data-bt-state]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
+        ? `${btView.stateLabel}${btView.mode==='high-grounds'&&btView.progressPct?' ·'+btView.progressPct+'%':''}`
         : `${btView.stateLabel} ·${btView.progressPct}%`;
       this.breakthroughHud.querySelector('[data-bt-fill]').style.width = `${btView.progressPct}%`;
-      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = btView.mode==='high-grounds'
+      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
         ? btView.directive : `${btView.directive} · [V] Mark`;
       const counts = [];
       if (btView.attackersCount > 0) counts.push(`▲ ${btView.attackersCount} ATT`);
       if (btView.defendersCount > 0) counts.push(`⛨ ${btView.defendersCount} DEF`);
-      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = btView.mode==='high-grounds'
+      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = (btView.mode==='high-grounds'||btView.mode==='restless-day')
         ? btView.footer : counts.join(' · ') || (btView.distanceMeters !== null ? `${btView.distanceMeters}m away` : '');
     } else {
       this.objectiveWaypoint.classList.add('hidden');
     }
 
-    this.deathCard.classList.toggle('hidden', local.alive);
-    if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
+    // The Renowner's contact impact has its own lethal presentation. Do not
+    // cover the ceremony with the ordinary respawn/death panel.
+    const trialJudgment = snapshot.mode === 'RENOWN_TRIALS'
+      && snapshot.renownTrial?.phase === 'JUDGMENT';
+    this.deathCard.classList.toggle('hidden', local.alive || trialJudgment);
+    if (!local.alive) this.deathTimer.textContent = snapshot.mode === 'RENOWN_TRIALS'
+      ? 'RUN ENDED' : snapshot?.mode === 'EDGE_OF_VICTORY'
+      ? 'ELIMINATED · WATCH THE FINAL KNIGHTS' : Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
 
   setPreparedSelector(view) {
@@ -1020,16 +1076,22 @@ export class HUD {
   setScoreboard(snapshot, visible) {
     this.scoreboard.classList.toggle('hidden', !visible);
     if (!visible) return;
-    if (snapshot.mode === 'BREAKTHROUGH' || snapshot.mode === 'HIGH_GROUNDS') {
+    if (snapshot.mode === 'BREAKTHROUGH' || snapshot.mode === 'HIGH_GROUNDS' || snapshot.mode === 'RESTLESS_DAY') {
       const attackers = snapshot.players.filter((p) => p.team === 'ATTACKERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const defenders = snapshot.players.filter((p) => p.team === 'DEFENDERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const renderTeam = (title, list, cls) => `<h4 class="sb-team-head ${cls}">${title}</h4>` + list.map((p) =>
         `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
       ).join('');
-      const worldTitle = snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
-      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      const worldTitle = snapshot.mode === 'RESTLESS_DAY' ? 'RESTLESS DAY' : snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
+      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'RESTLESS_DAY' ? 'SIEGE' : snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
 
+    }
+    if (snapshot.mode === 'EDGE_OF_VICTORY') {
+      const ordered=[...snapshot.players].sort((a,b)=>Number(b.alive)-Number(a.alive)||b.kills-a.kills);
+      this.scoreboard.innerHTML='<h3>EDGE OF VICTORY · LAST KNIGHT STANDING</h3>'+ordered.map(p=>
+        '<div><span>'+escapeHtml(p.name)+'</span><b>'+(p.alive?'STANDING':'ELIMINATED')+'</b><em>'+p.kills+' K</em></div>').join('');
+      return;
     }
     const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     this.scoreboard.innerHTML = `<h3>SCOREBOARD</h3>${sorted.map((p) => `<div><span>${escapeHtml(p.name)}</span><b>${p.kills}</b><em>${p.deaths} deaths</em></div>`).join('')}`;

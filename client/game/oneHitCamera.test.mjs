@@ -13,6 +13,7 @@ test('All-Natural Disaster is named in its canonical user-facing entry without c
 test('ordinary ground slam: third-person during body turn and impact, then first-person again while Ultimate still active',()=>{
   assert.equal(disasterCameraWanted(player(startup(10)),8),false);
   assert.equal(disasterCameraWanted(player(startup(10)),9.3),true);
+  assert.equal(disasterCameraWanted(player(startup(10)),10.05),true,'snapshot latency past commit retains cinematic until transition');
   assert.equal(disasterCameraWanted(player(active(10)),10.1),true);
   assert.equal(disasterCameraWanted(player(active(10)),10+DISASTER_CAMERA.groundAfterSec+.01),false);
   assert.equal(disasterCameraWanted(player(active(10)),11.6),false);

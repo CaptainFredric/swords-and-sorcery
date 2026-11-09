@@ -1,3 +1,4 @@
+import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../src/combat.mjs';
@@ -12,6 +13,7 @@ import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { highGroundsBotGoal } from './highGroundsMode.mjs';
+import {modeCall} from './modeRuntime.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -814,6 +816,12 @@ function patrol(actor, ai, nowSec, random, world) {
  * objective -> immediate danger -> useful ally support -> enemy pursuit -> reposition
  */
 function selectTeamGoal(room, actor, ai, nowSec) {
+  if(room.mode==='RESTLESS_DAY'){
+    const goalPos=modeCall(room,'botGoal',actor);
+    const enemy=foesOf(room,actor,['human','bot']).filter(p=>distance2d(actor,p)<6.5)
+      .sort((a,b)=>distance2d(actor,a)-distance2d(actor,b))[0]??null;
+    return {target:enemy,goalPos,holdRing:false};
+  }
   if (room.mode === 'HIGH_GROUNDS') {
     const goalPos = highGroundsBotGoal(room, actor);
     const enemy = foesOf(room, actor).filter(p => distance2d(actor, p) < 9)
@@ -968,6 +976,35 @@ function selectTeamGoal(room, actor, ai, nowSec) {
  * yard's opponents press less). How well each plays is its own (botSkill.mjs); the room's opening peace (peace.mjs)
  * holds every one of them off a fight until it ends.
  */
+/**
+ * Edge's opponents remain ordinary Castleward bots. Between encounters they
+ * seek actual world pickups and move inward before the boundary overtakes
+ * them; no stat boost, navigation teleport or new combat system.
+ */
+export function edgeBotGoal(room, actor, targetKinds = ['human','bot']) {
+  const edge=room.edgeOfVictory;
+  if(!edge||!actor?.alive)return null;
+  const {center,radius}=edge;
+  const rivals=[...room.players.values()].filter(p=>p.id!==actor.id && p.alive &&
+    targetKinds.includes(p.actorKind) && (p.actorKind!=='human'||p.connected));
+  if(rivals.some(p=>Math.hypot(p.position.x-actor.position.x,p.position.z-actor.position.z)<6))return null;
+  const distance=Math.hypot(actor.position.x-center.x,actor.position.z-center.z);
+  if(distance>radius-2.2){
+    return {x:center.x+(actor.position.x-center.x)/Math.max(.01,distance)*Math.max(0,radius-4),
+      y:actor.position.y,z:center.z+(actor.position.z-center.z)/Math.max(.01,distance)*Math.max(0,radius-4),
+      purpose:'inward'};
+  }
+  const pickups=(edge.pickups??[]).filter(p=>p.available&&p.kind==='spell'&&
+    !actor.preparedSpells?.includes(p.spell) &&
+    edgeInside(p.position,center,radius,1) &&
+    Math.abs(p.position.y-actor.position.y)<1.2);
+  pickups.sort((a,b)=>Math.hypot(a.position.x-actor.position.x,a.position.z-actor.position.z)-
+    Math.hypot(b.position.x-actor.position.x,b.position.z-actor.position.z));
+  const pickup=pickups[0];
+  return pickup && Math.hypot(pickup.position.x-actor.position.x,pickup.position.z-actor.position.z)<12
+    ? {...pickup.position,purpose:'pickup'} : null;
+}
+
 export function stepBotControllers(
   room,
   nowSec,
@@ -988,6 +1025,46 @@ export function stepBotControllers(
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
+    if (room.edgeOfVictory) {
+      const goal=edgeBotGoal(room,actor,targetKinds);
+      if(goal){
+        const waypoint=wayToward(world,actor,{position:goal},ai,nowSec)??goal;
+        const edge=room.edgeOfVictory;
+        const legal=edgeLimitPoint(waypoint,edge.center,edge.radius,1.1);
+        const distance=Math.hypot(actor.position.x-goal.x,actor.position.z-goal.z);
+        if(distance>.85){
+          actor.input.yaw=yawToward(actor,{position:legal});
+          actor.yaw=actor.input.yaw;
+          actor.input.forward=1;actor.input.right=0;
+          actor.input.sprint=distance>5 && (actor.guardStamina??100)>BOT_SPRINT_STAMINA_RESERVE;
+          actor.input.jump=false;
+        }else{
+          actor.input.forward=0;actor.input.right=0;actor.input.sprint=false;
+        }
+        continue;
+      }
+    }
+
+    // Dedicated modes can reserve a bot's hands for a physical objective.
+    // Use the existing pathfinder and movement input, not a teleport or a
+    // separate movement system. This also prevents melee/cast AI from
+    // silently bypassing the carrier's server-side equipment restrictions.
+    if(modeCall(room,'botOccupation',actor)==='carry'){
+      if(actor.attackHeld)endAttack(room,actor.id,nowSec);
+      if(actor.guarding)setGuard(room,actor.id,false,nowSec);
+      const destination=modeCall(room,'botGoal',actor);
+      if(destination){
+        const route=wayToward(world,actor,{position:destination},ai,nowSec);
+        const aim=route??destination;
+        actor.input.yaw=yawToward(actor,{position:aim});
+        actor.yaw=actor.input.yaw;
+        actor.input.forward=Math.hypot(actor.position.x-destination.x,actor.position.z-destination.z)>1?1:0;
+        actor.input.right=0;actor.input.jump=false;actor.input.sprint=false;
+      }else{
+        actor.input.forward=0;actor.input.right=0;actor.input.sprint=false;
+      }
+      continue;
+    }
 
     const teamGoal = selectTeamGoal(room, actor, ai, nowSec);
     let target = ai.targetId ? room.players.get(ai.targetId) : null;
@@ -1009,7 +1086,7 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (room.mode === 'HIGH_GROUNDS') {
+    if (room.mode === 'RESTLESS_DAY' || room.mode === 'HIGH_GROUNDS') {
       target = teamGoal.target;
       ai.targetId = target?.id ?? null;
     } else if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
@@ -1024,6 +1101,23 @@ export function stepBotControllers(
     }
 
     if (!target) {
+      // The Restless Day monument is not a humanoid foe: attacking bots must
+      // actually swing at its shared structure collision, not idle beside it.
+      if(room.mode==='RESTLESS_DAY'&&actor.team===TEAMS.ATTACKERS&&
+        (room.restlessDay?.phase??0)>=2&&room.structures?.entities?.['rightful-renowner']?.health>0){
+        const monument={position:room.restlessDay.renowner.position};
+        const distance=distance2d(actor,monument);
+        if(distance<5.5){
+          ai.patrol=null;
+          actor.input.yaw=yawToward(actor,monument);actor.yaw=actor.input.yaw;
+          actor.input.forward=distance>3.65?1:0;actor.input.right=0;actor.input.sprint=false;
+          if(distance<4.7&&!actor.attackHeld&&nowSec>=(ai.nextThinkAt??0)&&beginAttack(room,actor.id,nowSec)){
+            ai.attackReleaseAt=nowSec+1.95;
+            ai.nextThinkAt=nowSec+2.2;
+          }
+          continue;
+        }
+      }
       if (teamGoal.goalPos) {
         ai.patrol = null;
         // A bot standing directly *under* a canopy site has not arrived.
@@ -1035,7 +1129,14 @@ export function stepBotControllers(
           : distance2d(actor, { position: teamGoal.goalPos });
         const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
         if (!closeEnough) {
-          const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
+          // Once at a deployed ladder, take its actual incline directly: planar
+          // navigation otherwise treats the solid wall as a route to avoid.
+          const ladder = room.mode==='RESTLESS_DAY'
+            ?room.restlessDay?.ladders?.find(l=>l.state==='deployed'&&
+              Math.abs(actor.position.x-l.position.x)<2.5&&
+              Math.abs(actor.position.z-l.position.z)<12) : null;
+          const way = ladder&&actor.team===TEAMS.ATTACKERS&&actor.position.z<teamGoal.goalPos.z
+            ?teamGoal.goalPos:wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
           const aimAt = way ?? teamGoal.goalPos;
           actor.input.yaw = yawToward(actor, { position: aimAt });
           actor.yaw = actor.input.yaw;

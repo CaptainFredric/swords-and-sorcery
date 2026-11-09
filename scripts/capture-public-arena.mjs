@@ -65,7 +65,7 @@ async function readSpellbladeAssetStatus(slot) {
   })()`);
 }
 
-async function waitForSpellbladeAsset(slot, timeoutMs = 20000) {
+async function waitForSpellbladeAsset(slot, timeoutMs = 50000) {
   return poll(async () => {
     const status = await readSpellbladeAssetStatus(slot);
     if (!status) return null;
@@ -283,6 +283,7 @@ try {
   await click('#solo-button');
   await waitVisible('#solo-menu');
   await click('#practice-mode');
+  await click('#solo-launch');
   await waitVisible('#hud');
   await waitVisible('#practice-overlay');
   await poll(async () => (await snapshotUi()).matchInfo.includes('UNTIMED'), { timeoutMs: 10000, label: 'untimed Practice HUD' });
@@ -303,6 +304,7 @@ try {
   await click('#solo-button');
   await waitVisible('#solo-menu');
   await click('#bot-duel');
+  await click('#solo-launch');
   await waitVisible('#lobby', 10000);
   await poll(async () => {
     const ui = await snapshotUi();

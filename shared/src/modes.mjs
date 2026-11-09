@@ -7,6 +7,9 @@ export const GAME_MODES = Object.freeze({
   // objective-based team battle (attackers advance through sequential objectives)
   BREAKTHROUGH: 'BREAKTHROUGH',
   HIGH_GROUNDS: 'HIGH_GROUNDS',
+  RESTLESS_DAY: 'RESTLESS_DAY',
+  RENOWN_TRIALS: 'RENOWN_TRIALS',
+  EDGE_OF_VICTORY: 'EDGE_OF_VICTORY',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
@@ -14,10 +17,13 @@ export const GAME_MODES = Object.freeze({
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
+export const RESTLESS_DAY_ARENAS = Object.freeze(['restless-day']);
+export const EDGE_OF_VICTORY_ARENAS = Object.freeze(['ruined-keep']);
+export const RENOWN_ARENAS = Object.freeze(['court-of-merit', 'castleward']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RESTLESS_DAY_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId) || RENOWN_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 
@@ -72,6 +78,14 @@ const POLICIES = Object.freeze({
     allowRematchVote: false,
     countdownSec: 3,
   }),
+  [GAME_MODES.RENOWN_TRIALS]: Object.freeze({
+    id: GAME_MODES.RENOWN_TRIALS,
+    minHumansToStart: 1,
+    botCount: 0, // the authoritative wave director spawns real bots itself
+    scored: false, timed: false, prowess: true,
+    scoreToWin: null, matchSeconds: null,
+    autoStart: true, allowRematchVote: true, countdownSec: 3,
+  }),
   [GAME_MODES.DUEL]: Object.freeze({
     id: GAME_MODES.DUEL,
     minHumansToStart: 2,
@@ -87,12 +101,23 @@ const POLICIES = Object.freeze({
     // a duellist who leaves forfeits
     forfeit: true,
   }),
+  [GAME_MODES.EDGE_OF_VICTORY]: Object.freeze({
+    id: GAME_MODES.EDGE_OF_VICTORY, minHumansToStart: 2, botCount: 2,
+    scored: false, timed: false, scoreToWin: null, matchSeconds: 300,
+    autoStart: false, readyCheck: true, allowRematchVote: true, countdownSec: 3,
+  }),
   [GAME_MODES.HIGH_GROUNDS]: Object.freeze({
     id: GAME_MODES.HIGH_GROUNDS, teamMode: true, teamSize: 3,
     minHumansToStart: 1, botCount: 5, scored: false, timed: true,
     scoreToWin: null, matchSeconds: 720, respawnSec: 5,
     autoStart: true, allowRematchVote: true, countdownSec: 3,
     openingPeaceSec: 2,
+  }),
+  [GAME_MODES.RESTLESS_DAY]: Object.freeze({
+    id:GAME_MODES.RESTLESS_DAY,teamMode:true,teamSize:5,fixedTeamSize:true,privateCustomRoom:true,minHumansToStart:1,
+    botCount:9,scored:false,timed:true,scoreToWin:null,matchSeconds:780,
+    respawnSec:5,autoStart:true,allowRematchVote:true,countdownSec:3,
+    openingPeaceSec:2,
   }),
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({
     id: GAME_MODES.BREAKTHROUGH,
@@ -125,5 +150,6 @@ export const PUBLIC_ROOM_MODES = Object.freeze({
   [GAME_MODES.FFA]: Object.freeze({ name: 'FREE-FOR-ALL', arenas: ARENAS, capacity: 8, teamMode: false, joinMidMatch: true }),
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({ name: 'BREAKTHROUGH', arenas: BREAKTHROUGH_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
   [GAME_MODES.HIGH_GROUNDS]: Object.freeze({ name: 'HIGH GROUNDS', arenas: HIGH_GROUNDS_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
+  [GAME_MODES.EDGE_OF_VICTORY]: Object.freeze({ name: 'EDGE OF VICTORY', arenas: EDGE_OF_VICTORY_ARENAS, capacity: 4, teamMode: false, joinMidMatch: false }),
 });
 export function publicRoomMode(id) { return PUBLIC_ROOM_MODES[id] ?? null; }

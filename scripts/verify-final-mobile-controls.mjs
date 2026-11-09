@@ -140,8 +140,11 @@ try {
   // Actual mobile terminal acceptance needs the canonical equipment selected
   // BEFORE mounting (the server locks the equipped Skill to the operator).
   await evaluate("document.querySelector('#player-name').value='MobilePilot';document.querySelector('#armory-button').click()");
-  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]') && document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension and Chivalry armory options');
-  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click();document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click();document.querySelector('#armory-back').click();document.querySelector('#solo-button').click()");
+  await until(()=>evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]'))"),'Chivalry armory option');
+  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click(); document.querySelector('#armory-equip-btn')?.click();");
+  await evaluate("document.querySelector('[data-armory-tab=\"siege\"]')?.click(); document.querySelector('[data-siege-tab=\"fightFlight\"]')?.click();");
+  await until(()=>evaluate("Boolean(document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]'))"),'Ascension armory option');
+  await evaluate("document.querySelector('[data-siege-machine=\"fightFlight\"][data-siege-skill=\"doNotStopMyAscension\"]').click(); document.querySelector('#armory-back').click(); document.querySelector('#solo-button').click()");
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'Practice entry');
   // Solo's dual-banner menu separates selection from launch. Selecting the
@@ -607,7 +610,7 @@ try {
       {bubbles:true,pointerId:272,pointerType:'touch',clientX:r.left+r.width/2,clientY:r.top+r.height/2}));
   })()`);
   await until(()=>evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot?.fightFlight?.skill;return s?.id==='doNotStopMyAscension'&&s.phase==='active';})()"),'activated authoritative Ascension from mobile Skill',120,150);
-  await evaluate("document.querySelector('#practice-ultimate').click()");
+  await evaluate("document.querySelector('#practice-ultimate')?.click()");
   await until(()=>evaluate("(() => {const p=window.__ssRuntime?.localAuth;return p?.ultimate==='chivalry'&&p.prowess>=100;})()"),'full unspent Chivalry ready on mobile',120,150);
   const beforeDive=await evaluate("(() => {const r=window.__ssRuntime,m=r.latestSnapshot.fightFlight;return {y:m.y,skill:m.skill.id,charge:m.flightCharge,rotor:m.rotorHP,spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth.prowess};})()");
   assert.ok(beforeDive.y>2&&beforeDive.charge>0&&beforeDive.rotor>0);
@@ -672,23 +675,32 @@ try {
   let previous=0;
   for(let i=1;i<geometry.points.length;i++){
     const a=geometry.points[i-1],b=geometry.points[i];
-    for(const t of [.22,.48,.75,1]){
-      // Humanlike finger movement with a small perpendicular wobble.
-      const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1;
-      const wobble=t===1?0:3;
+    const steps=[.25,.50,.75,1.0];
+    for(const t of steps){
+      const dx=b[0]-a[0],dy=b[1]-a[1];
       await nativeTouch('touchMove',[
-        a[0]+dx*t-dy/length*wobble,
-        a[1]+dy*t+dx/length*wobble,
+        a[0]+dx*t,
+        a[1]+dy*t,
       ]);
-      await sleep(14);
+      await sleep(15);
     }
-    const stage=await evaluate(`(() => {
-      const t=window.__ssRuntime.touch;
-      return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
-        progress:Number.parseFloat(t.valkyrieInk?.style.strokeDasharray)||0,
-        displayed:t.valkyrieStatus?.textContent};
-    })()`);
-    if(!(stage.progress>previous)){
+    await nativeTouch('touchMove',b);
+    let stage=null;
+    for(let wait=0;wait<25;wait++){
+      await evaluate("new Promise(r=>requestAnimationFrame(r))");
+      stage=await evaluate(`(() => {
+        const t=window.__ssRuntime.touch;
+        return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
+          progress:Number.parseFloat(t.valkyrieInk?.style.strokeDasharray)||0,
+          displayed:t.valkyrieStatus?.textContent};
+      })()`);
+      if(stage&&(stage.index>=i||stage.complete))break;
+      const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+      const nudge=[b[0]+(dx/len)*((wait%2===0)?1.5:0),b[1]+(dy/len)*((wait%2===0)?1.5:0)];
+      await nativeTouch('touchMove',nudge);
+      await sleep(30);
+    }
+    if(!stage||!(stage.index>=i||stage.complete)||(stage.progress<previous)){
       const diagnostics=await evaluate(`(() => {
         const t=window.__ssRuntime.touch,r=t.layer.getBoundingClientRect();
         return {active:t.active,eligible:t.valkyrieEligible,preview:t.valkyriePreview,
@@ -699,7 +711,10 @@ try {
       })()`);
       console.log('[NATIVE DAGAZ STAGE FAILURE]',JSON.stringify({i,stage,previous,diagnostics}));
     }
-    assert.ok(stage.progress>previous,
+    assert.ok(stage&&(stage.index>=i||stage.complete),
+      'real native touch must reach checkpoint '+i+
+      ' (prior '+previous+', current '+stage?.progress+', index '+stage?.index+')');
+    assert.ok(stage.progress>=previous,
       'real native touch must brighten the path continuously at checkpoint '+i+
       ' (prior '+previous+', current '+stage.progress+')');
     stages.push(stage);

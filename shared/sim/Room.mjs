@@ -8,6 +8,7 @@ import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistCl
 import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
+import { beginRenownTrial, stepRenownTrial } from './renownTrials.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
@@ -19,8 +20,10 @@ import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
+import { modeCall } from './modeRuntime.mjs';
 import { createHighGroundsState, availableHighGroundsSpawns, finishHighGroundsOnTime } from './highGroundsMode.mjs';
 import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
+import { createEdgeOfVictoryState, edgeSpawnOrder, eliminateEdgePlayer, updateEdgeSurvivors } from './edgeOfVictory.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -116,7 +119,7 @@ export class Room {
     this.sharedPracticeHostId=null;
     this.mode = mode;
     this.policy = { ...getModePolicy(mode) };
-    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3)) {
+    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3) && !this.policy.fixedTeamSize) {
       this.policy.teamSize = teamSize;
       this.policy.botCount = teamSize * 2 - 1;
     }
@@ -142,6 +145,7 @@ export class Room {
       this.bibyeProjectiles = null;
     }
     this.state = 'WAITING';
+    this.renownTrial = null;
     this.players = new Map();
     this.hostOwnerId = null; // kept through the reconnect grace period
     this.projectiles = new Map();
@@ -171,8 +175,9 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
+    this.edgeOfVictory = null;
     this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(this.world) : null;
-    if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS) {
+    if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS && !modeCall(this,'ownsTeamObjectives')) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
@@ -180,6 +185,7 @@ export class Room {
       else if (this.worldId === WORLD_IDS.BASTION_BREACH)
         this.world = bastionBreachForObjective(this.objectiveState);
     }
+    modeCall(this,'init');
   }
 
   /** How well this room's bots play (a Bot Duel's rival): one of BOT_SKILLS, the Knight's otherwise. */
@@ -195,8 +201,14 @@ export class Room {
   }
 
   initialSpawnFor(player, index = 0, nowSec = 0) {
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      const places = edgeSpawnOrder(this.world, 4);
+      if (places.length) return places[index % places.length];
+    }
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
+      const customSpawns=modeCall(this,'spawn',player,this.world.spawnPoints);
+      if(customSpawns?.length)return customSpawns[index%customSpawns.length];
       if (this.mode === GAME_MODES.HIGH_GROUNDS) {
         // A match begins in the home camp, beside the team's siege foundry (its controls show only within reach of
         // it): starting at the forward camp, 38 m up the road, nobody ever saw the foundry. Respawns still go
@@ -219,7 +231,11 @@ export class Room {
 
   /** Whether a new human may enter, independent of bot-filled team seats. */
   joinError() {
-    if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS].includes(this.mode)
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      if (!['WAITING', 'COUNTDOWN'].includes(this.state)) return 'A battle in progress cannot accept new competitors.';
+      return this.players.size < 4 ? null : 'Room is full.';
+    }
+    if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY].includes(this.mode)
       && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room is not joinable by invitation.';
     if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
     if (this.mode === GAME_MODES.PRACTICE && this.sharedPractice)
@@ -231,7 +247,7 @@ export class Room {
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
     const joinFailure = this.joinError();
     // Solo and duel creation have their own controlled actor counts and are never public joins.
-    if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
+    if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE, GAME_MODES.RENOWN_TRIALS].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
     let assigned = null;
     if (this.policy.teamMode) {
       const teamSize = this.policy.teamSize ?? 3;
@@ -249,7 +265,7 @@ export class Room {
         if (replaceableBot) this.players.delete(replaceableBot.id);
       }
     } else {
-      if (this.players.size >= 8) {
+      if (this.players.size >= (this.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) {
         throw new Error('Room is full');
       }
     }
@@ -290,7 +306,8 @@ export class Room {
 
   addServerActor({ id, name, actorKind, spell = null, ultimate = null, team = null }, nowSec) {
     if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
-    if (this.players.size >= 8) throw new Error('Room is full');
+    const maxCapacity = this.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : (this.policy.teamMode ? 2 * (this.policy.teamSize ?? 3) : 8);
+    if (this.players.size >= maxCapacity) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
     const assigned = this.policy.teamMode ? assignTeam(this, team) : null;
     const spawn = this.initialSpawnFor({ team: assigned }, this.players.size, nowSec);
@@ -322,6 +339,19 @@ export class Room {
   }
 
   provisionModeActors(nowSec) {
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) {
+      const target = 4;
+      let serial = 1;
+      while (this.players.size < target) {
+        while (this.players.has('edge-bot-' + this.code + '-' + serial)) serial++;
+        const actor = this.addServerActor({ id: 'edge-bot-' + this.code + '-' + serial,
+          name: 'Rival ' + serial, actorKind: 'bot' }, nowSec);
+        actor.rivalIndex = serial;
+        this.#skilled(actor);
+        serial++;
+      }
+      return;
+    }
     if (this.mode === GAME_MODES.BOT_DUEL) {
       const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
       for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
@@ -483,7 +513,7 @@ export class Room {
     if (this.state !== 'WAITING' || playerId !== this.hostId() || !this.players.get(playerId)?.connected) return 'Only the room host may change settings before the countdown.';
     const settings = roomSettings(this, patch);
     if (settings.error) return settings.error;
-    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(settings.mode) ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
+    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(settings.mode) ? settings.teamSize * 2 : settings.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) return 'Too many Spellblades for that team size.';
     const world = getWorld(settings.worldId);
     const previousMode=this.mode;
     // Everything is validated before actors or geometry change.
@@ -495,7 +525,8 @@ export class Room {
     if (settings.botSkill) this.setBotSkill(settings.botSkill);
     this.worldId = settings.worldId; this.world = world;
     this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
-    this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS ? createObjectiveState(world.objectives ?? []) : null;
+    this.edgeOfVictory = null;
+    this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS && !modeCall(this,'ownsTeamObjectives') ? createObjectiveState(world.objectives ?? []) : null;
     if (this.objectiveState && typeof world.forObjective === 'function') this.world = world.forObjective(this.objectiveState);
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
@@ -504,6 +535,7 @@ export class Room {
     this.flightBurnZones=[];
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
+    modeCall(this,'init');
     this.botsProvisioned=false;this.autoStartAt=null;
     let index=0;
     const assigned={ATTACKERS:0,DEFENDERS:0};
@@ -718,6 +750,7 @@ export class Room {
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'forfeit');
     if (this.hostOwnerId === id) this.hostOwnerId = null;
     if(this.sharedPractice&&this.sharedPracticeHostId===id)
       this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
@@ -800,6 +833,7 @@ export class Room {
         }
         if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
         this.players.delete(id);
+        if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'disconnected');
         if (this.hostOwnerId === id) this.hostOwnerId = null;
         this.rematchVotes.delete(id);
         expiredHuman = true;
@@ -860,7 +894,9 @@ export class Room {
       && this.policy.timed
       && !this.suddenDeath
       && this.matchStartedAt !== null) {
-      if (this.mode === GAME_MODES.HIGH_GROUNDS) {
+      if (modeCall(this,'onTime',nowSec)) {
+        // Dedicated mode handles deadline; no Breakthrough overtime.
+      } else if (this.mode === GAME_MODES.HIGH_GROUNDS) {
         if (nowSec >= this.matchStartedAt + this.policy.matchSeconds) finishHighGroundsOnTime(this, nowSec);
       } else if (this.policy.teamMode) {
         const timeExpired = nowSec >= this.matchStartedAt + this.policy.matchSeconds;
@@ -933,12 +969,15 @@ export class Room {
         }
       }
     }
+    if (this.mode === GAME_MODES.RENOWN_TRIALS && this.state === 'PLAYING')
+      stepRenownTrial(this, nowSec);
   }
 
   startMatch(nowSec) {
     resetChallengeTracking(this);
     this.#applyVotes();
     this.state = 'PLAYING';
+    if (this.mode === GAME_MODES.EDGE_OF_VICTORY) this.provisionModeActors(nowSec);
     this.matchStartedAt = nowSec;
     this.countdownEndsAt = null;
     this.winnerId = null;
@@ -950,10 +989,13 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
+    // An optional mode can reset transient spawn progression before players
+    // and replacement bots are assigned their starting positions.
+    modeCall(this,'beforeSpawns',nowSec);
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(getWorld(this.worldId)) : null;
-      this.objectiveState = this.mode === GAME_MODES.HIGH_GROUNDS ? null : createObjectiveState(this.world.objectives ?? []);
+      this.objectiveState = (this.mode === GAME_MODES.HIGH_GROUNDS || modeCall(this,'ownsTeamObjectives')) ? null : createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
         this.world = template.forObjective(this.objectiveState, nowSec);
@@ -968,8 +1010,8 @@ export class Room {
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
-        if (!this.objectiveState) continue;
-        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
+        if (!this.objectiveState && this.mode !== GAME_MODES.RESTLESS_DAY) continue;
+        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState?.phase ?? 0)) continue;
         const ram = createSoFistication({ ...emplacement, emplacementId: emplacement.id, id: `${emplacement.id}-${this.soFistRevision}` });
         const pose = soFistTerrainPose(ram, this.world);
         if (pose && soFistClear({ ...ram, ...pose }, this.world, [], {operatorStation:true})) this.soFistication = Object.assign(ram, pose);
@@ -982,6 +1024,12 @@ export class Room {
       this.biByeRevision = (this.biByeRevision ?? 0) + 1;
       this.bibyeProjectiles = new Map();
     }
+    // A rematch must never revive, retain or count bots from the prior run.
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) {
+      for (const [id, actor] of this.players)
+        if (actor.actorKind === 'bot' && actor.trialRunId) this.players.delete(id);
+    }
+    if (this.mode === GAME_MODES.RESTLESS_DAY && this.restlessDay) this.restlessDay.phase = 0;
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
@@ -1000,9 +1048,13 @@ export class Room {
     }
     this.projectiles.clear();
     this.ruptures = [];
+    this.edgeOfVictory = this.mode === GAME_MODES.EDGE_OF_VICTORY ? createEdgeOfVictoryState(this.world, nowSec) : null;
+    if (this.edgeOfVictory) updateEdgeSurvivors(this, nowSec);
     for (const player of this.players.values()) player.lobbyReady = false;
     // (a mode that asks for it opens in peace: its bots start nothing for a few seconds, or until a player does)
     beginPeace(this, nowSec, this.policy.openingPeaceSec ?? 0);
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) beginRenownTrial(this, nowSec);
+    modeCall(this,'reset',nowSec);
     this.events.push({ type: 'matchStarted', at: nowSec });
   }
 
@@ -1023,6 +1075,7 @@ export class Room {
   }
 
   finish(winnerId, nowSec, reason = 'score') {
+    if(this.state==='FINISHED')return;
     this.state = 'FINISHED';
     this.winnerId = winnerId;
     if (this.policy.teamMode) {
@@ -1041,7 +1094,7 @@ export class Room {
     const connectedIds = [...this.players.values()]
       .filter((p) => p.actorKind === 'human' && p.connected)
       .map((p) => p.id);
-    const minForRematch = this.policy.teamMode ? 1 : 2;
+    const minForRematch = this.policy.teamMode || (this.mode === GAME_MODES.RENOWN_TRIALS || (this.mode === GAME_MODES.EDGE_OF_VICTORY && this.policy.minHumansToStart === 1)) ? 1 : 2;
     const unanimous = connectedIds.length >= minForRematch && connectedIds.every((id) => this.rematchVotes.has(id));
     if (!unanimous) return false;
     for (const p of this.players.values()) Object.assign(p, scoreFields());

@@ -73,8 +73,8 @@ const probe=`(() => {
     pistonContextOverlap:(()=>{
       const piston=root.querySelector('.machine-piston'),
         context=root.querySelector('.machine-gauge-context');
-      return getComputedStyle(piston).display!=='none'&&context.textContent.trim()&&
-        overlap(box(piston),box(context));
+      return Boolean(piston && context && getComputedStyle(piston).display!=='none' &&
+        context.textContent.trim() && overlap(box(piston),box(context)));
     })(),
     playerOverlapsStamina:overlap(box(player),box(stamina)),
     gaugeOutsideViewport:box(root).left < -2 || box(root).right > innerWidth+2};

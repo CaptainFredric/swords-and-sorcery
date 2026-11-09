@@ -5,6 +5,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {observeAcceptanceWire} from './browser-acceptance-wire.mjs';
 const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -32,6 +33,7 @@ async function connectBrowser(label,port){
   '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
+ b.wire=observeAcceptanceWire(label);
  const debuggerTarget=await waitFor(async()=>{
   const res=await fetch('http://127.0.0.1:'+port+'/json/list');
   return (await res.json()).find(t=>t.type==='page');
@@ -39,6 +41,7 @@ async function connectBrowser(label,port){
  b.ws=new WebSocket(debuggerTarget.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{b.ws.onopen=resolve;b.ws.onerror=reject;});
  b.ws.onmessage=e=>{const packet=JSON.parse(String(e.data));
+  b.wire.observe(packet);
   if(packet.method==='Runtime.exceptionThrown')b.errors.push(packet.params?.exceptionDetails?.text??'unknown');
   const next=b.pending.get(packet.id);if(!next)return;
   b.pending.delete(packet.id);if(packet.error)next.reject(Error(packet.error.message));else next.resolve(packet.result);
@@ -53,7 +56,7 @@ async function connectBrowser(label,port){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -64,7 +67,48 @@ async function connectBrowser(label,port){
 // Initial debugger probe must not depend upon a connected WebSocket. Used for
 // every wait, not only startup, so the error names the step that stalled.
 let stage='startup';
-async function waitFor(fn,label,attempts=180){stage=label;for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome timed out: '+label);}
+async function waitFor(fn, label, attempts = 180) {
+ stage = label;
+ console.log('[ACCEPTANCE WAIT]', new Date().toISOString(), label);
+ for (let i = 0; i < attempts; i++) {
+  try {
+   const result = await fn();
+   if (result) {
+    console.log('[ACCEPTANCE OBSERVED]', new Date().toISOString(), label);
+    return result;
+   }
+  } catch {}
+  await sleep(100);
+ }
+ throw Error('Chrome timed out: ' + label);
+}
+// Switching Chrome clients can release pointer lock. Click the visible
+// Resume button or the arena canvas, never a fixed point over the menu.
+async function focusArena(browser) {
+ await browser.send('Page.bringToFront');
+ const target = await browser.evaluate(`(() => {
+  window.focus();
+  const runtime = window.__ssRuntime;
+  if (!runtime?.localAuth) return { leftRoom: true };
+  if (runtime.input.enabled) return { enabled: true };
+  const pause = document.querySelector('#pause-menu');
+  const element = pause && !pause.classList.contains('hidden')
+   ? document.querySelector('#resume-game') : runtime.renderer.domElement;
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const hit = document.elementFromPoint(x, y);
+  return { x, y, clickable: element.contains(hit), hit: hit?.id || hit?.tagName };
+ })()`);
+ assert.ok(!target.leftRoom, browser.label + ' is still in the room');
+ if (target.enabled) return;
+ assert.ok(target.clickable, browser.label + ' arena focus blocked by ' + target.hit);
+ for (const type of ['mousePressed', 'mouseReleased']) {
+  await browser.send('Input.dispatchMouseEvent', { type, x: target.x, y: target.y, button: 'left', clickCount: 1 });
+ }
+ await waitFor(() => browser.evaluate('Boolean(window.__ssRuntime?.input?.enabled)'),
+  browser.label + ' gameplay focus', 80);
+}
 let host=null,guest=null;
 try{
  host=await connectBrowser('host',9263);
@@ -81,7 +125,7 @@ try{
  }
  await host.evaluate("document.querySelector('#player-name').value='Practice Host';document.querySelector('#solo-button').click()");
  await waitFor(()=>host.evaluate("!document.querySelector('#shared-practice-mode').disabled"),'shared Practice mode',80);
- await host.evaluate("document.querySelector('#shared-practice-mode').click()");
+ await host.evaluate("document.querySelector('#shared-practice-mode').click(); document.querySelector('#solo-launch')?.click() || document.querySelector('#shared-practice-mode').click()");
  const hostRoom=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&s?.roomCode&&r.localAuth?.id?{code:s.roomCode,id:r.localAuth.id,mode:s.mode}:null;})()"),'host actual network Practice room');
  assert.equal(hostRoom.mode,'PRACTICE');
  await host.screenshot('shared-room-created');
@@ -105,47 +149,78 @@ try{
  console.log('[SHARED FRAMES] machine built',JSON.stringify({host:builtFrames,guest:await guest.frames()}));
  await waitFor(async()=>(await host.frames()).count>=builtFrames.count+3,'host draws frames with the machine built',180);
  console.log('[SHARED FRAMES] host drawing',JSON.stringify({host:await host.frames(),guest:await guest.frames()}));
- await host.send('Page.bringToFront');
- await host.evaluate("window.focus()");
- await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
- await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
- // Walk up as a player does: hold W and keep steering at the machine, then
- // let go. With one aim before walking, a CI host that had read <2.2 m was
- // 9.4 m away once stopped: off-line, it passes beside the 1.4 m chassis
- // instead of stopping against it, and CDP samples are seconds apart there.
- // The settled stop must satisfy mountFightFlight itself: within 2.5 m and no
- // active attack. Overshooting means walking back, as a player would.
- const hostApproach="(() => {const r=window.__ssRuntime,p=r?.localAuth,m=r?.latestSnapshot?.fightFlight;if(!p||!m)return null;"+
-  "return {dist:Math.hypot(p.position.x-m.x,p.position.z-m.z),speed:Math.hypot(p.velocity?.x??0,p.velocity?.z??0),attack:Boolean(p.attackActive),"+
-  "forward:r.input.movement().forward,yaw:r.input.yaw,serverYaw:p.yaw,aim:Math.atan2(-(m.x-p.position.x),-(m.z-p.position.z)),position:p.position,operating:p.operatingFightFlightId,machineOp:m.operatorId};})()";
- const FLIGHT_MOUNT_RANGE=2.5;
- let approached=null;
- for(let attempt=1;attempt<=3&&!approached;attempt++){
-  await host.key('W','rawKeyDown');
-  let samples=0;
-  await waitFor(async()=>{
-   const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));return Math.hypot(p.x-m.x,p.z-m.z);})()");
-   if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
-   return a<FLIGHT_MOUNT_RANGE-.9;
-  },'host walks physically to the machine',170);
-  await host.key('W','keyUp');
-  const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
-  console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
-  if(settled.dist<FLIGHT_MOUNT_RANGE-.1&&!settled.attack)approached=settled;
+ await focusArena(host);
+ // Keep keyboard locomotion on the real client-to-server path, but limit the
+ // approach to partial-stick speed. On software Chrome a full-speed input can
+ // remain active on the server for seconds before the next browser frame.
+ await host.evaluate(`(() => {
+  const runtime = window.__ssRuntime;
+  const input = runtime.input;
+  const movement = input.movement;
+  const approach = window.__sharedApproach = { stopping: false };
+  approach.restore = () => { input.movement = movement; };
+  input.movement = function () {
+   const intent = movement.call(this);
+   const player = runtime.localAuth;
+   const machine = runtime.latestSnapshot?.fightFlight;
+   if (intent.forward <= 0 || !player || !machine) return intent;
+   const dx = machine.x - player.position.x;
+   const dz = machine.z - player.position.z;
+   if (approach.stopping || Math.hypot(dx, dz) <= 1.8) {
+    approach.stopping = true;
+    return { ...intent, forward: 0 };
+   }
+   return { ...intent, yaw: Math.atan2(-dx, -dz), forward: 0.14 };
+  };
+ })()`);
+ let approached;
+ try {
+  await host.key('W', 'rawKeyDown');
+  // Acknowledge a packet that actually went over the socket. A renderer-side
+  // prediction of the next input sequence can stall on a slow runner.
+  const stopSequence = await waitFor(() => host.evaluate(`(() => {
+   const runtime = window.__ssRuntime;
+   const player = runtime.localAuth;
+   const machine = runtime.latestSnapshot?.fightFlight;
+   if (!player || !machine || Math.hypot(player.position.x - machine.x, player.position.z - machine.z) > 1.8) return null;
+   window.__sharedApproach.stopping = true;
+   const seq = ++runtime.sequence;
+   runtime.socket.input({ ...runtime.input.movement(), forward: 0, right: 0, seq,
+    clientTime: runtime.socket.serverNow() });
+   return seq;
+  })()`), 'host reaches flight mount range and sends neutral input', 80);
+  approached = await waitFor(() => host.evaluate(`(() => {
+   const runtime = window.__ssRuntime;
+   const player = runtime.localAuth;
+   const machine = runtime.latestSnapshot?.fightFlight;
+   const stopSequence = ${stopSequence};
+   if (!player || !machine || player.lastInputSeq < stopSequence) return null;
+   const distance = Math.hypot(player.position.x - machine.x, player.position.z - machine.z);
+   const speed = Math.hypot(player.velocity.x, player.velocity.z);
+   if (distance > 2.45 || speed > 0.05 || player.attackActive) return null;
+   return { distance, speed, stopSequence, acknowledged: player.lastInputSeq };
+  })()`), 'host authoritative stop within flight mount range', 35);
+ } finally {
+  await host.key('W', 'keyUp');
+  await host.evaluate("window.__sharedApproach.restore(); delete window.__sharedApproach");
  }
- assert.ok(approached,'host stopped within flight mount range without an active attack');
+ console.log('[SHARED HOST SETTLED]', JSON.stringify(approached));
+ // Interact is a toggle. One real press, then wait for the server to confirm.
+ stage = 'host T mount dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host T mount');
  await host.tap('T');
- await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'host confirmed mounted in apparatus via T',80);
+ await waitFor(() => host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),
+   'host confirmed mounted in apparatus via T', 45);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
+ stage = 'mounted host and guest screenshots';
+ console.log('[ACCEPTANCE RENDER]', JSON.stringify({ host: await host.frames(), guest: await guest.frames() }));
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
  const start=await guest.evaluate("(() => {const r=window.__ssRuntime;return {...r.localAuth.position};})()");
- await guest.send('Page.bringToFront');
- await guest.evaluate("window.focus()");
- await guest.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
- await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'guest gameplay focus');
+ await focusArena(guest);
+ guest.wire.watchMovement();
+ stage = 'guest W dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'guest W down');
  await guest.key('W','rawKeyDown');
  await waitFor(async()=>{
   await guest.evaluate("new Promise(r=>requestAnimationFrame(r))");
@@ -160,13 +235,7 @@ try{
   return host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()");
  },'host observes guest melee action',110);
  await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- await host.send('Page.bringToFront');
- await host.evaluate("window.focus()");
- if (!await host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")) {
-  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
-  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
-  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
- }
+ await focusArena(host);
  const currentHostShots=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq??0");
  if(currentHostShots===0){
   await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
@@ -187,14 +256,16 @@ try{
  assert.equal(await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq"),beforeSwordShot,'mounted RMB sword must not fire repeating crossbow');
  await waitFor(()=>guest.evaluate("Boolean((window.__flightSwordTrace??[]).some(s=>s.attack&&/^Slash_[123]$/.test(s.clip??'')))"),
    'real remote Spellblade sword animation agrees with attack state',110);
- // Prepare *personal* Prowess using the real Practice action, not state editing.
- await host.evaluate("document.querySelector('#practice-ultimate').click()");
+ // Shared Practice supplies personal Prowess through its normal rules.
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
    'real host Prowess readiness replicated',100);
+ stage = 'host Space ascent dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host Space ascent');
  await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>1.2&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
-   'guest observes actual rotor-powered vertical flight',170);
+ const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>4.5&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
+   'guest observes actual rotor-powered vertical flight',180);
  await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await host.evaluate("if(window.__ssRuntime?.input)window.__ssRuntime.input.pitch=0;");
  await guest.evaluate("(() => {window.__flightMotionTrace=[];let frames=0;function frame(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p)window.__flightMotionTrace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);})()");
  await host.key('E','rawKeyDown');
  const run=await waitFor(()=>guest.evaluate("(() => {const trace=window.__flightMotionTrace??[];return trace.find(s=>s.run&&s.pitch>.08&&s.speed>4)??null;})()"),
@@ -203,6 +274,8 @@ try{
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun===false"),
    'remote Dash release stops offensive run',100);
  const beforeEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId};})()");
+ stage = 'host T ejection dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host T ejection');
  await host.tap('T');
  const ejected=await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"'),trace=window.__flightMotionTrace??[];const falling=trace.find(f=>f.ejected&&!f.grounded&&f.y>.2);return m?.operatorId===null&&p?.operatingFightFlightId==null&&falling?{y:falling.y,ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId,shotSeq:m.shotSeq}:null;})()"),
    'guest captures real airborne ejection before subsequent landing',140);
@@ -218,7 +291,7 @@ try{
  },'ejected Spellblade physically lands in shared room',180);
  await guest.screenshot('guest-flight-landing');
  const livePlayers=await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,operating:p.operatingFightFlightId,grounded:p.grounded}))");
- const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt};})()");
+ const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?{id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt}:{id:null,operatorId:null,shotSeq:0,ammo:0,ammoDebt:0};})()");
  // Leaving as guest must not disturb the host's active authoritative room.
  await guest.evaluate("document.querySelector('#practice-leave').click()");
  await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').length===1"),
@@ -238,7 +311,7 @@ try{
  console.error('[SHARED PRACTICE CHROME FAILED]','last wait: '+stage,e.stack??String(e));
  const hostDiag=await host?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
  const guestDiag=await guest?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
- await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
+ await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostWire:host?.wire.state,guestWire:guest?.wire.state,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
  throw e;
