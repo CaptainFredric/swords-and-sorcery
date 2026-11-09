@@ -20,6 +20,10 @@ export function planOneHitTeleport({ origin, yaw, pitch, aerial, holdSec, world,
     const hit=segmentAabbHit(a,b,box);
     if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(rayLength,.01)));
   }
+  if(aerial){
+    const ground=oneHitWorldContact(origin,target,{floors:world.floors,ramps:world.ramps});
+    if(ground)t=Math.min(t,Math.max(0,ground.t-.12/Math.max(rayLength,.01)));
+  }
   const end=oneHitAlong(origin,target,t);
   const resolved=resolvePlayerWorld(end,MOVEMENT.playerRadius,solids);
   if(Math.hypot(resolved.x-end.x,resolved.z-end.z)>.1 ||

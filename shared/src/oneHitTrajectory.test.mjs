@@ -23,3 +23,16 @@ test('rising ramp can terminate an approaching horizontal wave; floor is not a c
   assert.equal(result.t,.5);
   assert.equal(oneHitWorldContact({x:0,y:-1,z:0},{x:0,y:1,z:0},terrain),null);
 });
+
+test('a long downward Lightning release stops above real terrain and leaves unsupported air alone',()=>{
+  const cast={origin:{x:0,y:2.5,z:0},yaw,pitch:-.50,aerial:true,holdSec:1.8};
+  const field=planOneHitTeleport({...cast,world});
+  assert.ok(field.legal && field.end.y>0 && field.end.y<.1);
+  assert.ok(field.end.x>4 && field.end.x<5);
+  const unsupported=planOneHitTeleport({...cast,world:{solids:[]}});
+  assert.ok(unsupported.legal && unsupported.end.y<0 && unsupported.end.x>field.end.x);
+  const ramp={axis:'x',minX:1,maxX:8,minZ:-2,maxZ:2,startY:0,endY:2};
+  const rising=planOneHitTeleport({...cast,world:{...world,ramps:[ramp]}});
+  assert.ok(rising.legal && rising.end.x<field.end.x);
+  assert.ok(rising.end.y>(rising.end.x-1)*2/7);
+});

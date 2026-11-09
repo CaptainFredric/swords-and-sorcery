@@ -4,6 +4,7 @@ import { SPELLS } from './spells.mjs';
 // This does not register or activate the Ultimate or the new Line of Conduct spell.
 export const ONE_HIT_RULES = Object.freeze({
   aerialWindupSec: 0.85,
+  groundReleaseWindowSec: 0.32,
   // After a full-Lightning teleport, the discharge has no SECOND wind-up.
   postTeleportWindupSec: 0,
   // Held teleport visual aura does not continually expand or inflict damage.

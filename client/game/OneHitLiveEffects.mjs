@@ -34,6 +34,7 @@ export class OneHitLiveEffects {
     scene.add(this.root);
     this.transients=[];
     this.waves=new Map();
+    this.resolvedWaves=new Map();
     this.auras=new Map();
     this.zones=new Map();
     this.statuses=new Map();
@@ -44,7 +45,10 @@ export class OneHitLiveEffects {
     this.root.add(this.reticle);
     this.conductHands=new Map();
     this.visualClock=0;
+    this.density=1;
   }
+  setDensity(density) { this.density=clamp(Number(density)||.45,.45,1); }
+  #detail(count) { return Math.max(2,Math.round(count*this.density)); }
   #add(mesh,ttl,velocity=null,spin=0) {
     if(this.transients.length>=185){
       const old=this.transients.shift();this.#discard(old.mesh);
@@ -80,14 +84,15 @@ export class OneHitLiveEffects {
   }
   #burst(point,tiers={},form='ground',normal=null) {
     const p=v(point),ground=form==='ground'||normal?.[1]>.6;
-    if(ground)for(let i=0;i<18;i++){
-      const a=i*TAU/18,span=1.4+(i%5)*.45,size=.11+(i%5)*.05;
+    const rocks=this.#detail(18),slabs=this.#detail(12);
+    if(ground)for(let i=0;i<rocks;i++){
+      const a=i*TAU/rocks,span=1.4+(i%5)*.45,size=.11+(i%5)*.05;
       const velocity=new THREE.Vector3(Math.cos(a)*span,1.65+(i%4)*.68,Math.sin(a)*span);
       this.#particle(STONE_SHAPE,STONE,p.clone().add(new THREE.Vector3(Math.cos(a)*.65,.12,Math.sin(a)*.65)),
         [size,size*.85,size],.85,{velocity,gravity:10,spin:3,opacity:1});
     }
-    if(ground&&form==='ground')for(let i=0;i<12;i++){
-      const a=i*TAU/12+(i%2)*.085,dist=1.4+.47*(i%4);
+    if(ground&&form==='ground')for(let i=0;i<slabs;i++){
+      const a=i*TAU/slabs+(i%2)*.085,dist=1.4+.47*(i%4);
       const slab=new THREE.Mesh(STONE_SHAPE,new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,roughness:.9}));
       slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04);
       slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
@@ -102,7 +107,7 @@ export class OneHitLiveEffects {
     if(tiers.fire){
       const full=tiers.fire===2;
       this.#particle(EMBER,0xffedaf,p.clone().add(new THREE.Vector3(0,.48,0)),[.48,.62,.48],.17,{grow:1.8});
-      for(let i=0;i<(full?18:10);i++){
+      for(let i=0;i<this.#detail(full?18:10);i++){
         const a=i*2.39996,r=.45+(i%4)*.19;
         const outward=new THREE.Vector3(Math.cos(a),.22+(i%6)*.11,Math.sin(a));
         const start=p.clone().addScaledVector(outward,r);
@@ -114,20 +119,21 @@ export class OneHitLiveEffects {
           {velocity:new THREE.Vector3(Math.cos(a)*.65,.95,Math.sin(a)*.65),grow:1.6,opacity:.34});
       }
     }
-    if(tiers.frost)for(let i=0;i<(tiers.frost===2?11:6);i++){
+    if(tiers.frost)for(let i=0;i<this.#detail(tiers.frost===2?11:6);i++){
       const a=i*2.39996,dir=new THREE.Vector3(Math.cos(a),.64+(i%3)*.34,Math.sin(a));
       const shard=this.#particle(SHARD,i%3===0?0xe8fdff:0x7ed7f5,p.clone().addScaledVector(dir,.48),
         [.11+(i%3)*.035,.48+(i%4)*.25,.14],.75+(i%3)*.1,
         {velocity:dir.clone().multiplyScalar(2),gravity:4,spin:1.7,opacity:.78});
       shard.quaternion.setFromUnitVectors(Y,dir.normalize());
     }
-    if(tiers.gale)for(let i=0;i<(tiers.gale===2?5:3);i++){
+    if(tiers.gale)for(let i=0;i<this.#detail(tiers.gale===2?5:3);i++){
       const arc=this.#particle(SWEEP,i%2?0xedfff0:0x7de5aa,p.clone().add(new THREE.Vector3(0,.36+i*.18,0)),
         [.68+i*.095,.68+i*.095,.33],.43+i*.065,{grow:1.72,spin:6-i*.6,opacity:.52});
       arc.rotation.set(1.22+i*.12,i*.86,.24*i);
     }
-    if(tiers.lightning)for(let i=0;i<(tiers.lightning===2?8:4);i++){
-      const a=i*TAU/(tiers.lightning===2?8:4);
+    const forks=this.#detail(tiers.lightning===2?8:4);
+    if(tiers.lightning)for(let i=0;i<forks;i++){
+      const a=i*TAU/forks;
       this.#fork(p.clone().add(new THREE.Vector3(0,.18,0)),new THREE.Vector3(Math.cos(a),.16+(i%3)*.3,Math.sin(a)),
         2+(i%4)*.46, .21+(i%4)*.06);
     }
@@ -165,7 +171,7 @@ export class OneHitLiveEffects {
       coals.material.opacity=.17+.24*left;
       rim.material.opacity=.28+.36*left;
       tongues.material.opacity=.36+.47*left;
-      tongues.count=7+Math.ceil(left*12);
+      tongues.count=7+Math.ceil(left*12*this.density);
       for(let i=0;i<tongues.count;i++){
         const a=i*2.39996,r=zone.radius*(.19+((i*7)%18)/24);
         const gust=.77+.23*Math.sin(now*11+i*3);
@@ -240,7 +246,15 @@ export class OneHitLiveEffects {
     this.#add(bolt,1);
   }
   event(event){
-    if(event.type==='oneHitImpact')this.#burst(event.point,event.tiers,event.form,event.normal);
+    if(event.type==='oneHitImpact'){
+      if(event.impactId){
+        if(this.resolvedWaves.has(event.impactId))return;
+        this.resolvedWaves.set(event.impactId,this.visualClock+2);
+        const old=this.waves.get(event.impactId);
+        if(old){this.#discard(old);this.waves.delete(event.impactId);}
+      }
+      this.#burst(event.point,event.tiers,event.form,event.normal);
+    }
     if(event.type==='oneHitTeleport')this.#flash(event.to,event.tiers);
     if(event.type==='lineConductDischarge'){
       // The wire's far endpoint is authoritative, but its visible source
@@ -289,7 +303,9 @@ export class OneHitLiveEffects {
       } else if(t.mesh.geometry?.type==='TorusGeometry')t.mesh.scale.setScalar(1+(1-ratio)*.65);
     }
     const tracked=new Set();
+    for(const [id,until] of this.resolvedWaves)if(this.visualClock>=until)this.resolvedWaves.delete(id);
     for(const wave of snapshot?.oneHitWaves??[]){
+      if(this.resolvedWaves.has(wave.id))continue;
       tracked.add(wave.id);
       let mesh=this.waves.get(wave.id);
       if(!mesh){
@@ -393,7 +409,7 @@ export class OneHitLiveEffects {
     for(const e of this.statuses.values())this.#discard(e.root);
     this.#discard(this.reticle);this.zones.clear();this.statuses.clear();
     for(const entry of this.conductHands.values())entry.effect.dispose();
-    this.transients=[];this.waves.clear();this.auras.clear();this.conductHands.clear();
+    this.transients=[];this.waves.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();
     this.root.parent?.remove(this.root);
   }
 }

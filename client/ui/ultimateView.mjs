@@ -15,6 +15,16 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
   const ultimate = ultimateFor(local?.ultimate);
   const charge = Math.max(0, Math.min(1, (local?.prowess ?? 0) / PROWESS.full));
   const state = local?.ultimateState;
+  if (local?.alive && local.oneHitWaveId && !local.operatingFightFlightId && !local.operatingRamId &&
+    !local.operatingBallistaId && !local.restlessCarrying)
+    return {state:'active',charge:1,label:'IN FLIGHT',word:'DETONATE',ultimate};
+  if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'){
+    if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TO TELEPORT',word:'RELEASE',ultimate};
+    if(state.groundRelease&&serverNow>=state.groundRelease.readyAt&&serverNow<state.groundRelease.until){
+      const left=state.groundRelease.until-serverNow;
+      return {state:'bracing',charge:1,label:left.toFixed(1),word:'RELEASE',ultimate};
+    }
+  }
   if (state?.phase === 'active' && serverNow < state.until) {
     const left = state.until - serverNow;
     const emphasis = state.id === 'vortex' ? vortexTune(state.emphasis).kind : null;

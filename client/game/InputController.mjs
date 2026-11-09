@@ -10,7 +10,6 @@ const PRESS = {
   spell: (input) => input.cast(),
   dash: (input) => input.dash(),
   gauntlet: (input) => input.gauntlet(),
-  ultimate: (input) => input.ultimate(),
   interact: (input) => input.interact(),
   deploy: (input) => input.deploy(),
   siegeSkill: (input) => input.siegeSkill(),
@@ -39,6 +38,9 @@ export class InputController {
     this.clearTimer = clearTimer;
     this.attackSources = new Set();
     this.guardSources = new Set();
+    this.ultimateSources = new Set();
+    this.ultimateGesture = null;
+    this.oneHitWaveId = null;
     this.prepared = { visible: false };
     this.preparedGesture = null;
     this.preparedConsumedKeys = new Set();
@@ -138,6 +140,7 @@ export class InputController {
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
+    else if (action === 'ultimate') this.ultimate(code);
     else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
     else if (PRESS[action]) PRESS[action](this);
     else if (!RELEASE[action]) this.onAction(action, true);
@@ -154,7 +157,7 @@ export class InputController {
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
-    else if (action === 'ultimate') this.ultimateRelease();
+    else if (action === 'ultimate') this.ultimateRelease(code);
     else if (RELEASE[action]) RELEASE[action](this);
     else if (!PRESS[action]) this.onAction(action, false);
   }
@@ -427,6 +430,9 @@ export class InputController {
 
   releaseInputs() {
     this.ramPitchModifierHeld=false;
+    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel:true});
+    this.ultimateSources.clear();
+    this.ultimateGesture=null;
     // Losing pointer lock or backgrounding a touch arena must not leave a remote
     // machine's repeating trigger latched. A release is legitimate even after
     // `enabled` has already become false.
@@ -533,15 +539,26 @@ export class InputController {
     this.onGauntletLocal();
   }
 
-  // the ultimate's key (the host decides whether the meter is full)
-  ultimate() {
+  // Each physical press is one gesture even with two rebound inputs held.
+  ultimate(source='direct') {
     if (!this.enabled || this.allowAction?.('ultimate') === false) return;
-    this.socket.ultimate?.();
+    const busy=this.ultimateSources.size>0;
+    this.ultimateSources.add(source);
+    if(busy)return;
+    if(this.oneHitWaveId){
+      this.ultimateGesture='detonate';
+      this.socket.oneHitDetonate?.(this.oneHitWaveId);
+      return;
+    }
+    this.ultimateGesture='charge';
+    this.socket.ultimate?.({held:true});
     this.onUltimateLocal?.();
   }
 
-  ultimateRelease() {
-    if(!this.mountedFlight)this.socket.oneHitRelease?.();
+  ultimateRelease(source='direct',cancel=false) {
+    if(!this.ultimateSources.delete(source)||this.ultimateSources.size)return;
+    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel});
+    this.ultimateGesture=null;
   }
 
   dash() {

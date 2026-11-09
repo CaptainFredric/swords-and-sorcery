@@ -50,7 +50,7 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'setInputSampler', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
+  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'oneHitDetonate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'highGroundsBuild', 'ping', 'send'];
 const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 

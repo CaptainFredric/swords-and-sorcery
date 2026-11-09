@@ -137,15 +137,7 @@ test('Rule 5: High priority respects state-level interruptions and does not spea
   assert.equal(blocked, null, 'does not talk over another active state-priority line');
 });
 
-test('Rule 9: Attack startup timing is preserved without delaying combat for audio alignment', () => {
-  // All-Natural Disaster base startup remains 0.92s
-  assert.equal(ULTIMATES.one_hit_of_wonders.startupSec, 0.92, 'base startup is 0.92s');
-
-  // Combat startup logic remains intact in combat.mjs
-  assert.match(combat, /commitAt: nowSec \+ \(\(ultimate\.id==='one_hit_of_wonders' && plannedTiers\.lightning===2\)\?3600000:/);
-  assert.match(combat, /\(ultimate\.id==='one_hit_of_wonders' && plannedTiers\.lightning >= 1 \? 0\.36 : ultimate\.startupSec\)\)/);
-
-  // Audio files have natural lengths; punchline continues into aftermath as documented
+test('Rule 9: The colorful line can continue into the combat aftermath', () => {
   const colorful = manifest.lines.allNaturalDisasterInfusedColorful[0];
-  assert.ok(colorful.seconds > 0.92, 'audio length exceeds startup without altering combat frames');
+  assert.ok(colorful.seconds > ULTIMATES.one_hit_of_wonders.startupSec, 'audio length exceeds base startup');
 });

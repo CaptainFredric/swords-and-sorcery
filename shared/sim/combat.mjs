@@ -23,7 +23,7 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
-import { lineOfConductDamage } from '../src/oneHitOfWondersRules.mjs';
+import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
@@ -2017,13 +2017,13 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
     action.hit=true;
   }
 }
-// The wave pierces bodies. Only solid terrain terminates it; running out of
-// range dissipates it. Terminal splash can afflict new targets but contributes
+// The wave pierces bodies. Terrain contact or an intentional second press
+// ends it; running out of range dissipates it. Splash contributes
 // no second decisive hit, even on targets who spent Guard on the moving blade.
 function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
   const radius=2.2;
-  const origin={x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06};
-  const guardSource={x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z};
+  const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
+  const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
   for(const target of room.players.values()) {
     const center=oneHitChest(target);
     if(wave.hitIds.includes(target.id)||Math.hypot(center.x-origin.x,center.y-origin.y,center.z-origin.z)>radius||
@@ -2043,7 +2043,21 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
       oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec);
   }
   room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point,
-    normal:contact.normal,direction:wave.direction,tiers:{...wave.tiers},form:'aerial',radius,at:nowSec});
+    cause:contact?'terrain':'manual',normal:contact?.normal??null,direction:wave.direction,
+    tiers:{...wave.tiers},form:'aerial',radius,at:nowSec});
+}
+
+export function detonateOneHitWave(room,playerId,waveId,nowSec) {
+  const player=room.players.get(playerId);
+  if(room.state!=='PLAYING'||!player?.alive||room.freezeProjectiles||
+    player.operatingBallistaId||player.operatingRamId||player.operatingFightFlightId||player.restlessCarrying||
+    typeof waveId!=='string')return false;
+  const waves=room.oneHitWaves??[];
+  const index=waves.findIndex(w=>w.id===waveId&&w.ownerId===playerId);
+  if(index<0)return false;
+  const [wave]=waves.splice(index,1);
+  oneHitWaveImpact(room,player,wave,{...wave.position},null,nowSec,structureWorld(room.world,room.structures));
+  return true;
 }
 
 function stepOneHitWorld(room,dt,nowSec,world) {
@@ -2150,17 +2164,33 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   }
   room.events.push({type:'lineConductDischarge',playerId:player.id,origin,end:stop,at:nowSec});
 }
-export function releaseOneHitCharge(room,playerId,nowSec) {
+export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false}={}) {
   const player=room.players.get(playerId),state=player?.ultimateState;
-  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup'||
-     !Number.isFinite(state.teleportHoldAt)||state.teleportReleased)return false;
-  state.teleportReleased=true;
-  state.commitAt=nowSec;
-  stepUltimate(room,player,nowSec);
+  if(room.state!=='PLAYING'||!player?.alive)return false;
+  if(!state&&player.ultimate==='one_hit_of_wonders'&&player.disasterWantedHeld&&
+     nowSec<(player.ultimateWantedUntil??-Infinity)){
+    if(cancel){player.ultimateWantedUntil=-Infinity;player.disasterWantedHeld=false;}
+    else player.disasterWantedReleased=true;
+    return true;
+  }
+  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup')return false;
+  if(!state.groundRelease&&!Number.isFinite(state.teleportHoldAt))return false;
+  if(cancel)return interruptUltimate(room,player,nowSec);
+  if(Number.isFinite(state.teleportHoldAt)){
+    if(state.teleportReleased)return false;
+    state.teleportReleased=true;
+    state.commitAt=nowSec;
+  }else{
+    const {readyAt}=state.groundRelease;
+    state.groundRelease=null;
+    if(nowSec<readyAt)return true; // ordinary tap: original windup still owns the commit
+    state.commitAt=nowSec;
+  }
+  stepUltimate(room,player,nowSec,structureWorld(room.world,room.structures));
   return true;
 }
 
-export function tryUltimate(room, playerId, nowSec) {
+export function tryUltimate(room, playerId, nowSec, {held=false,released=false}={}) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
@@ -2171,7 +2201,11 @@ export function tryUltimate(room, playerId, nowSec) {
   // is kept a moment, and taken as soon as it is free (stepRoom), rather than lost
   if (player.gauntlet || (player.pendingSpell && ultimateFor(player.ultimate).id !== 'chivalry')) {
     const full = (player.prowess ?? 0) >= PROWESS.full || practising(room, player);
-    if (full) player.ultimateWantedUntil = nowSec + ULTIMATE_PRESS_KEPT_SEC;
+    if(full){
+      player.ultimateWantedUntil=nowSec+ULTIMATE_PRESS_KEPT_SEC;
+      player.disasterWantedHeld=held&&player.ultimate==='one_hit_of_wonders';
+      player.disasterWantedReleased=false;
+    }
     return false;
   }
   // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
@@ -2184,17 +2218,23 @@ export function tryUltimate(room, playerId, nowSec) {
   player.ultimateInterruptionBy = null;
   player.ultimateInterruptionAt = null;
   player.ultimateInterruptionSource = null;
-  player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec,
-    commitAt: nowSec + ((ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning===2)?3600000:
-      (ultimate.id==='one_hit_of_wonders' && plannedTiers.lightning >= 1 ? 0.36 : ultimate.startupSec)),
+  const isDisaster=ultimate.id==='one_hit_of_wonders';
+  const teleport=isDisaster&&plannedTiers.lightning===2;
+  const commitAt=nowSec+(teleport?3600000:isDisaster&&plannedTiers.lightning===1?.36:ultimate.startupSec);
+  player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt,
     until: null,
-    ...(ultimate.id==='one_hit_of_wonders'?{preparedTiers:plannedTiers,
-      ...(plannedTiers.lightning===2?{teleportHoldAt:nowSec}:{} )}:{}),
+    ...(isDisaster?{preparedTiers:plannedTiers}:{}),
+    ...(teleport?{teleportHoldAt:nowSec}:{}),
+    ...(isDisaster&&held&&!released&&player.grounded&&!teleport?{
+      groundRelease:{readyAt:commitAt,until:commitAt+ONE_HIT_RULES.groundReleaseWindowSec},
+    }:{}),
   };
   // the brace: sword and guard put up, the knight gathers himself. Whatever the sword was doing is over there and
   // then: the ultimate has the knight from this moment. A button still held is still held (Sunder's first slam is its:
   // it comes as the brace ends, not after the old chain's own recovery); a Vortex takes both hands and keeps no press
   player.ultimateWantedUntil = -Infinity;
+  player.disasterWantedHeld=false;
+  player.disasterWantedReleased=false;
   const heldAttack = Boolean(player.attackHeld || player.attackQueued || player.input?.attack) && !ultimate.spin;
   player.guardHeld = player.guardHeld || player.guarding || Boolean(player.input?.guard);
   player.guarding = false;
@@ -2213,6 +2253,7 @@ export function tryUltimate(room, playerId, nowSec) {
   }
   room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), ...(player.ultimateState.preparedTiers ? { preparedTiers: { ...player.ultimateState.preparedTiers } } : {}), at: nowSec });
   recordChallengeFact(room, { type: 'ultimateStart', playerId, ultimate: ultimate.id, at: nowSec });
+  if(teleport&&released)releaseOneHitCharge(room,playerId,nowSec);
   return true;
 }
 
@@ -2226,6 +2267,16 @@ function stepUltimate(room, player, nowSec, world=room.world) {
     if (!player.alive || nowSec < player.staggerUntil) {
       interruptUltimate(room, player, nowSec);
       return;
+    }
+    if(state.id==='one_hit_of_wonders'&&(state.groundRelease||Number.isFinite(state.teleportHoldAt))&&
+       (player.operatingBallistaId||player.operatingRamId||player.operatingFightFlightId||player.restlessCarrying)){
+      interruptUltimate(room,player,nowSec);
+      return;
+    }
+    if(state.groundRelease&&nowSec+1e-9>=state.commitAt){
+      if(player.grounded&&nowSec+1e-9<state.groundRelease.until)return;
+      state.groundRelease=null;
+      state.commitAt=nowSec;
     }
     if (nowSec + 1e-9 >= state.commitAt) {
       player.prowess = 0;
@@ -2653,7 +2704,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
     // the ultimate's key, kept while the hand was busy: taken now if it is free
-    if (nowSec < (player.ultimateWantedUntil ?? -Infinity) && !player.pendingSpell && !player.gauntlet) tryUltimate(room, player.id, nowSec);
+    if(nowSec<(player.ultimateWantedUntil??-Infinity)&&!player.pendingSpell&&!player.gauntlet)
+      tryUltimate(room,player.id,nowSec,{held:player.disasterWantedHeld,released:player.disasterWantedReleased});
 
     if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind === 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     // a gust still blowing catches whoever it reaches now

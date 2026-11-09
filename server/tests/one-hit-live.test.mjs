@@ -50,12 +50,27 @@ test('first-tier elemental contributions remain additive to the 46 base',()=>{
   assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),90);
   assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
 });
+test('ordinary and first tier Lightning taps keep their authoritative startup independent of voice length',()=>{
+  for(const [lightning,startup] of [[0,.92],[1,.36]]){
+    const {room,a}=battle();
+    a.prowess=PROWESS.full;
+    a.oneHitInfusions.lightning=lightning;
+    assert.equal(tryUltimate(room,'a',9),true);
+    assert.equal(a.ultimateState.commitAt,9+startup);
+    stepRoom(room,1/30,9+startup-.001,world);
+    assert.equal(a.ultimateState.phase,'startup');
+    stepRoom(room,1/30,9+startup,world);
+    assert.equal(a.ultimateState.phase,'active');
+    assert.ok(room.events.some(e=>e.type==='oneHitImpact'&&e.playerId==='a'));
+  }
+});
 test('full-Lightning Ultimate holds and releases the strike immediately',()=>{
   const {room,a}=battle();
   a.prowess=PROWESS.full;
   a.oneHitInfusions.lightning=2;
   assert.equal(tryUltimate(room,'a',9),true);
-  assert.ok(a.ultimateState.commitAt > 1000,'server does not auto-trigger while held');
+  stepRoom(room,1/30,9.2,world);
+  assert.equal(a.ultimateState.phase,'startup','server does not auto-trigger while held');
   assert.equal(releaseOneHitCharge(room,'a',9.25),true);
   assert.equal(a.ultimateState.phase,'active');
   assert.equal(a.prowess,0);
@@ -203,4 +218,104 @@ test('an incoming aerial blade spends directional Guard only once and does not r
   assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
   assert.equal(b.health,100);
   assert.equal(b.oneHitFrozenUntil,undefined);
+});
+
+test('an ordinary Disaster tap keeps the original windup and the 46 point contact',()=>{
+  const {room,a,b}=battle();
+  a.prowess=PROWESS.full;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const scheduled=a.ultimateState.commitAt;
+  applyRoomCommand(room,a,{type:'oneHitRelease'},9.08);
+  stepRoom(room,1/30,scheduled-.02,world);
+  assert.equal(b.health,100);
+  stepRoom(room,1/30,scheduled,world);
+  assert.equal(b.health,54);
+  assert.equal(a.ultimateState.commitAt,scheduled);
+});
+
+test('holding ordinary Disaster briefly keeps it interruptible and release commits from current position',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const ready=a.ultimateState.commitAt;
+  stepRoom(room,1/30,ready+.08,world);
+  assert.equal(a.ultimateState.phase,'startup');
+  assert.equal(room.events.some(e=>e.type==='oneHitImpact'),false);
+  const held=serializeSnapshot(room,ready+.08).players.find(p=>p.id===a.id).ultimateState.groundRelease;
+  assert.equal(held.readyAt,ready);
+  assert.ok(held.until-ready<=.36 && held.until>ready+.08);
+  a.position.x=-.7;
+  applyRoomCommand(room,a,{type:'oneHitRelease'},ready+.12);
+  const impact=room.events.find(e=>e.type==='oneHitImpact');
+  assert.ok(Math.abs(impact.at-(ready+.12))<1e-9);
+  assert.equal(impact.point.x,-.7);
+  applyRoomCommand(room,a,{type:'oneHitRelease'},ready+.14);
+  assert.equal(room.events.filter(e=>e.type==='oneHitImpact').length,1);
+});
+
+test('ordinary hold has a short deadline; losing input cancels held Lightning and never fires it',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  a.oneHitInfusions.lightning=1;
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  const ready=a.ultimateState.commitAt;
+  stepRoom(room,1/30,ready+.05,world);
+  assert.equal(a.ultimateState.phase,'startup');
+  stepRoom(room,1/30,ready+.36,world);
+  assert.equal(a.ultimateState.phase,'active');
+
+  const held=battle();
+  held.a.prowess=PROWESS.full;
+  held.a.oneHitInfusions.lightning=2;
+  applyRoomCommand(held.room,held.a,{type:'ultimate',held:true},9);
+  applyRoomCommand(held.room,held.a,{type:'oneHitRelease',cancel:true},9.1);
+  assert.equal(held.a.ultimateState,null);
+  assert.equal(held.a.prowess,PROWESS.full);
+  assert.equal(held.room.events.some(e=>e.type==='oneHitTeleport'||e.type==='oneHitImpact'),false);
+});
+
+test('manual Disaster detonation consumes exactly one owned wave at its current position without another decisive hit',()=>{
+  const {room,a,b}=battle();
+  const position={x:7,y:1,z:0};
+  const tiers={fire:2,frost:2,gale:2,lightning:1};
+  b.position={x:7.8,y:0,z:0};
+  for(const [id,x,z] of [['already',6.2,0],['sheltered',7.8,1.5]]){
+    room.addPlayer({id,name:id,token:id},9);
+    const player=room.players.get(id);
+    player.position={x,y:0,z};
+    player.spawnProtectionUntil=0;
+  }
+  room.world={...world,solids:[{id:'screen',center:[7.4,1,1],size:[2,3,.2]}]};
+  room.oneHitWaves=[{id:'live',ownerId:a.id,position:{...position},direction:{x:1,y:0,z:0},tiers,bornAt:9,distance:7,hitIds:['already']}];
+  applyRoomCommand(room,b,{type:'oneHitDetonate',waveId:'live'},9.2);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'stale'},9.2);
+  assert.equal(room.oneHitWaves.length,1);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'live',position:{x:100,y:0,z:0}},9.2);
+  applyRoomCommand(room,a,{type:'oneHitDetonate',waveId:'live'},9.2);
+  assert.equal(room.oneHitWaves.length,0);
+  const impacts=room.events.filter(e=>e.type==='oneHitImpact');
+  assert.equal(impacts.length,1);
+  assert.equal(impacts[0].cause,'manual');
+  assert.equal(impacts[0].impactId,'live');
+  assert.deepEqual(impacts[0].point,position);
+  assert.deepEqual(impacts[0].tiers,tiers);
+  assert.equal(b.health,100,'terminal contact is not another decisive HP hit');
+  assert.ok(b.oneHitFrozenUntil>9.2 && b.burn && b.shaken);
+  assert.equal(room.players.get('already').burn,null);
+  assert.equal(room.players.get('sheltered').burn,null);
+  assert.ok(room.oneHitBurnZones.some(z=>z.id==='live:fire'));
+});
+
+test('Full Lightning released while queued behind a cast does not get stuck in an indefinite hold',()=>{
+  const {room,a}=battle();
+  a.prowess=PROWESS.full;
+  a.oneHitInfusions.lightning=2;
+  a.pendingSpell={spell:'fireball'};
+  applyRoomCommand(room,a,{type:'ultimate',held:true},9);
+  assert.equal(a.ultimateState,null);
+  applyRoomCommand(room,a,{type:'oneHitRelease'},9.03);
+  a.pendingSpell=null;
+  stepRoom(room,1/30,9.06,world);
+  assert.equal(a.ultimateState.phase,'active');
+  assert.ok(room.events.some(e=>e.type==='oneHitImpact'));
 });

@@ -828,7 +828,7 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
-    this.localState=null;this.localAuth=null;this.deathCam=null;
+    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
@@ -1301,6 +1301,7 @@ export class GameRuntime {
         this.#resize();
       }
       this.effects?.setDensity(this.view.particles ?? 1);
+      this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
     if (input) {
@@ -1321,6 +1322,7 @@ export class GameRuntime {
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
+    this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
@@ -1409,6 +1411,9 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
+    this.weapon.attackPresentation=auth?.attackPresentation??0;
+    this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
+      !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
