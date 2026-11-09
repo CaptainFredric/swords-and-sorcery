@@ -140,7 +140,7 @@ try{
   const runtime = window.__ssRuntime;
   const input = runtime.input;
   const movement = input.movement;
-  const approach = window.__sharedApproach = { stopSequence: null };
+  const approach = window.__sharedApproach = { stopping: false };
   approach.restore = () => { input.movement = movement; };
   input.movement = function () {
    const intent = movement.call(this);
@@ -149,8 +149,8 @@ try{
    if (intent.forward <= 0 || !player || !machine) return intent;
    const dx = machine.x - player.position.x;
    const dz = machine.z - player.position.z;
-   if (approach.stopSequence !== null || Math.hypot(dx, dz) <= 1.8) {
-    approach.stopSequence ??= runtime.sequence + 1;
+   if (approach.stopping || Math.hypot(dx, dz) <= 1.8) {
+    approach.stopping = true;
     return { ...intent, forward: 0 };
    }
    return { ...intent, yaw: Math.atan2(-dx, -dz), forward: 0.14 };
@@ -159,17 +159,30 @@ try{
  let approached;
  try {
   await host.key('W', 'rawKeyDown');
+  // Acknowledge a packet that actually went over the socket. A renderer-side
+  // prediction of the next input sequence can stall on a slow runner.
+  const stopSequence = await waitFor(() => host.evaluate(`(() => {
+   const runtime = window.__ssRuntime;
+   const player = runtime.localAuth;
+   const machine = runtime.latestSnapshot?.fightFlight;
+   if (!player || !machine || Math.hypot(player.position.x - machine.x, player.position.z - machine.z) > 1.8) return null;
+   window.__sharedApproach.stopping = true;
+   const seq = ++runtime.sequence;
+   runtime.socket.input({ ...runtime.input.movement(), forward: 0, right: 0, seq,
+    clientTime: runtime.socket.serverNow() });
+   return seq;
+  })()`), 'host reaches flight mount range and sends neutral input', 80);
   approached = await waitFor(() => host.evaluate(`(() => {
    const runtime = window.__ssRuntime;
    const player = runtime.localAuth;
    const machine = runtime.latestSnapshot?.fightFlight;
-   const stopSequence = window.__sharedApproach.stopSequence;
-   if (!player || !machine || stopSequence === null || player.lastInputSeq < stopSequence) return null;
+   const stopSequence = ${stopSequence};
+   if (!player || !machine || player.lastInputSeq < stopSequence) return null;
    const distance = Math.hypot(player.position.x - machine.x, player.position.z - machine.z);
    const speed = Math.hypot(player.velocity.x, player.velocity.z);
    if (distance > 2.45 || speed > 0.05 || player.attackActive) return null;
    return { distance, speed, stopSequence, acknowledged: player.lastInputSeq };
-  })()`), 'host authoritative stop within flight mount range', 80);
+  })()`), 'host authoritative stop within flight mount range', 35);
  } finally {
   await host.key('W', 'keyUp');
   await host.evaluate("window.__sharedApproach.restore(); delete window.__sharedApproach");
