@@ -51,7 +51,10 @@ async function connectBrowser(label){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');
+ if(process.env.CI)await b.send('Emulation.setDeviceMetricsOverride',
+   {width:800,height:450,deviceScaleFactor:.5,mobile:false});
+ await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -184,6 +187,7 @@ try{
     clientTime: runtime.socket.serverNow() });
    return seq;
   })()`), 'host reaches flight mount range and sends neutral input', 80);
+  console.log('[SHARED STOP COMMAND]',JSON.stringify({seq:stopSequence,wire:host.wire.state}));
   approached = await waitFor(() => host.evaluate(`(() => {
    const runtime = window.__ssRuntime;
    const player = runtime.localAuth;

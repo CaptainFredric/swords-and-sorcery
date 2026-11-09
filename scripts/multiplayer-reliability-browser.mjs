@@ -130,6 +130,8 @@ try {
     b.wire.watchMovement();
     const actor=game?.roomManager.findByCode(roomCode)?.players.get(b.wire.playerId);
     b.authority = () => actor ? {ack:actor.lastInputSeq,forward:actor.input.forward,position:{...actor.position}} : null;
+    const start=b.authority()?.position??b.wire.state.position;
+    const distance=position=>Math.hypot(position.x-start.x,position.z-start.z);
     stage = b.label+' W dispatch';
     console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W down');
     try {
@@ -142,7 +144,10 @@ try {
           b.serverFirstAck=actual;
           console.log('[ACCEPTANCE SERVER ACK]',b.label,JSON.stringify(actual));
         }
-        if (b.wire.movement.peak > 0.25 || b.wire.state?.roomState === 'FINISHED') return b.wire.movement;
+        if (actor && actor.alive && b.serverFirstAck && distance(actual.position)>.25)
+          return {peak:distance(actual.position),ack:actual.ack};
+        if (!actor && b.wire.movement.peak > 0.25) return b.wire.movement;
+        if (b.wire.state?.roomState === 'FINISHED') return {peak:0};
         return null;
       }, b.label+' acknowledged W changes authoritative position', 180);
       assert.ok(movement.peak > 0.25, b.label+' match finished before confirmed W displacement');
@@ -152,6 +157,11 @@ try {
       console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W up');
     }
   }
+  // Drain any render-bound receive backlog after both real keys are up.
+  // Server movement alone is insufficient: each browser must observe its ack
+  // and authoritative displacement through the ordinary snapshot stream.
+  await waitFor(()=>[host,guest].every(b=>b.wire.movement.peak>.25),
+    'both Chrome clients receive authoritative W displacement',450);
   const after=await waitFor(async()=>{
     const pair=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
     samples.push(pair);

@@ -38,21 +38,43 @@ async function snap(name){
 const key=type=>cdp.send('Input.dispatchKeyEvent',{type,key:'r',code:'KeyR',windowsVirtualKeyCode:82});
 const observed=expression=>evaluate(`window.__disasterRun?.${expression}`);
 const rt='window.__ssRuntime';
+const control=`(() => {
+  const rt=${rt},host=rt.socket.local.player;
+  return {enabled:rt.input.enabled,locked:!!document.pointerLockElement,
+    held:rt.input.keys.has('KeyR'),grounded:host.grounded,y:host.position.y,tiers:host.practiceOneHit?.stages,
+    now:rt.socket.serverNow(),recover:host.recoverUntil,stagger:host.staggerUntil};
+})()`;
+async function focusArena(){
+  if(await evaluate(`${rt}.input.enabled`))return;
+  await cdp.send('Page.bringToFront');
+  const xy=await evaluate(`(() => {
+    const menu=document.querySelector('#pause-menu');
+    const target=menu&&!menu.classList.contains('hidden')
+      ? document.querySelector('#resume-game') : ${rt}.renderer.domElement;
+    const b=target.getBoundingClientRect();
+    return {x:b.x+b.width*.5,y:b.y+b.height*.5};
+  })()`);
+  for(const type of ['mousePressed','mouseReleased'])
+    await cdp.send('Input.dispatchMouseEvent',{type,...xy,button:'left',clickCount:1});
+  await poll(()=>evaluate(`${rt}.input.enabled`),'real arena focus');
+}
 async function play(name,{preset='simple',aerial=false,hold=false,lightning=false,interrupt=false}={}){
   await poll(()=>evaluate(`(() => {
     const rt=${rt},host=rt.socket.local.player,now=rt.socket.serverNow();
     return !host.ultimateState&&now>=Math.max(host.recoverUntil??0,host.ultimateLockedUntil??0);
   })()`),name+' recovery finished');
+  await focusArena();
   await evaluate(`(() => {
     const rt=${rt}, host=rt.socket.local.player;
     document.querySelector('[data-one-hit-preset=${preset}]').click();
     document.querySelector('[data-one-hit-action=${aerial?'aerial':'grounded'}]').click();
     // Allow time for the actual live loop even when SwiftShader is slow.
-    if(${aerial}&&!host.grounded)host.position.y+=5;
+    if(${aerial}&&!host.grounded)host.position.y+=12;
     rt.input.pitch=${aerial?-.25:0};
-    window.__disasterRun={name:${JSON.stringify(name)},frames:[],events:[]};
+    window.__disasterRun={name:${JSON.stringify(name)},frames:[],events:[],keys:[]};
   })()`);
   await poll(()=>evaluate(`${rt}.localAuth?.grounded===${!aerial}`),name+' staging');
+  console.log('[DISASTER INPUT READY]',name,JSON.stringify(await evaluate(control)));
   if(hold||lightning)await key('rawKeyDown');
   else await Promise.all([key('rawKeyDown'),key('keyUp')]);
   if(lightning){
@@ -109,16 +131,11 @@ try{
   await poll(()=>evaluate(`${rt}?.localAuth?.ultimate==='one_hit_of_wonders' &&
     document.querySelector('#arena-gate').classList.contains('hidden')`),'equipped local Practice',45000);
   await click('#practice-drawer-close');
-  await cdp.send('Page.bringToFront');
-  const xy=await evaluate(`(() => {
-    const b=${rt}.renderer.domElement.getBoundingClientRect();
-    return {x:b.x+b.width*.5,y:b.y+b.height*.5};
-  })()`);
-  for(const type of ['mousePressed','mouseReleased'])
-    await cdp.send('Input.dispatchMouseEvent',{type,...xy,button:'left',clickCount:1});
-  await poll(()=>evaluate(`${rt}.input.enabled`),'real arena focus');
   await evaluate(`(() => {
     const rt=${rt};
+    for(const type of ['keydown','keyup'])document.addEventListener(type,event=>{
+      if(event.code==='KeyR')window.__disasterRun?.keys.push({type,repeat:event.repeat,...${control}});
+    });
     rt.socket.on('events',batch=>{
       const run=window.__disasterRun;
       if(run)run.events.push(...batch.events.filter(e=>e.playerId===rt.playerId&&
@@ -149,7 +166,8 @@ try{
 }catch(error){
   console.error('[DISASTER CAMERA FAIL]',stage,error.stack);
   const trace=await observed('valueOf()').catch(()=>null);
-  await writeFile(join(output,'failure.json'),JSON.stringify({stage,error:String(error),trace,evidence},null,2));
+  const lastControl=await evaluate(control).catch(()=>null);
+  await writeFile(join(output,'failure.json'),JSON.stringify({stage,error:String(error),trace,lastControl,evidence},null,2));
   throw error;
 }finally{
   cdp?.close();chrome.child.kill('SIGTERM');await sleep(400);
