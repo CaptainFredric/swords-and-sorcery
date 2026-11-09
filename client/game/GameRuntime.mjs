@@ -4088,7 +4088,7 @@ export class GameRuntime {
         this.sunOffset.set(-38*Math.cos(elevation),38*Math.sin(elevation),-14).setLength(40);
         this.sun.intensity=.22+daylight*2;
         this.hemi.intensity=.62+daylight*1.15;
-        this.scene.background?.setHex?.(daylight<.1?0x617286:daylight<.35?0xa9a9b3:0xb8d0df);
+        // (the sky's, the fog's and the light's colours are the world renderer's, blended on the same clock)
       }
     }
     const ramPose=this.world?.soFistication?.presentationData;
