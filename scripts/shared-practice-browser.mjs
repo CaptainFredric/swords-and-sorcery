@@ -143,12 +143,34 @@ try{
   if(settled.dist<1.9&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
- await waitFor(async()=>{
-  const mounted=await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)");
-  if(mounted)return true;
+ await host.send('Page.bringToFront');
+ await host.evaluate("window.focus()");
+ // Send one legitimate mount command, await authoritative acknowledgment
+ let mounted = false;
+ for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) {
+   console.log(`[SHARED PRACTICE RETRY MOUNT] retry ${attempt} after timeout/rejection diagnostic`);
+  }
   await host.evaluate("window.__ssRuntime?.socket?.siegeOperate?.()");
-  return false;
- },'host confirmed mounted in apparatus via T',120);
+  try {
+   mounted = await waitFor(async () => {
+    return host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)");
+   }, 'host confirmed mounted in apparatus', 45);
+   if (mounted) break;
+  } catch (e) {
+   const diag = await host.evaluate(`(() => {
+    const r = window.__ssRuntime, p = r?.localAuth, m = r?.latestSnapshot?.fightFlight;
+    return {
+     pos: p?.position,
+     dist: m && p?.position ? Math.hypot(m.x - p.position.x, m.z - p.position.z) : null,
+     operating: p?.operatingFightFlightId,
+     machineOperator: m?.operatorId,
+    };
+   })()`);
+   console.warn('[SHARED MOUNT DIAGNOSTIC]', JSON.stringify(diag));
+  }
+ }
+ assert.ok(mounted, 'host confirmed mounted in apparatus via T');
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');

@@ -681,15 +681,23 @@ try {
         a[0]+dx*t,
         a[1]+dy*t,
       ]);
-      await sleep(14);
+      await sleep(35);
     }
-    const stage=await evaluate(`(() => {
-      const t=window.__ssRuntime.touch;
-      return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
-        progress:Number.parseFloat(t.valkyrieInk?.style.strokeDasharray)||0,
-        displayed:t.valkyrieStatus?.textContent};
-    })()`);
-    if(!(stage.progress>previous)){
+    await nativeTouch('touchMove',b);
+    await sleep(35);
+    let stage=null;
+    for(let wait=0;wait<20;wait++){
+      stage=await evaluate(`(() => {
+        const t=window.__ssRuntime.touch;
+        return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
+          progress:Number.parseFloat(t.valkyrieInk?.style.strokeDasharray)||0,
+          displayed:t.valkyrieStatus?.textContent};
+      })()`);
+      if(stage&&(stage.index>=i||stage.complete))break;
+      await nativeTouch('touchMove',b);
+      await sleep(30);
+    }
+    if(!(stage.progress>=previous)){
       const diagnostics=await evaluate(`(() => {
         const t=window.__ssRuntime.touch,r=t.layer.getBoundingClientRect();
         return {active:t.active,eligible:t.valkyrieEligible,preview:t.valkyriePreview,

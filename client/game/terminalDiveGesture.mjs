@@ -99,7 +99,7 @@ export function advanceValkyrieRitual(g,p,now){
  const deviation=Math.hypot(p.x-(a[0]+t*dx),p.y-(a[1]+t*dy));
  if(deviation>RITUAL_TOLERANCE*1.55||t+.13<g.segmentProgress)return null;
  let index=g.index,segmentProgress=Math.max(g.segmentProgress,t);
- if(t>=.94&&distance(p,b)<=RITUAL_TOLERANCE){index+=1;segmentProgress=0;}
+ if(t>=.90&&distance(p,b)<=RITUAL_TOLERANCE){index+=1;segmentProgress=0;}
  return {...g,points,variant,index,segmentProgress,
   completed:index===points.length-1,last:[p.x,p.y]};
 }
