@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {emptyInfusions,creditOneHitEncounter,oneHitCommit,oneHitForm,oneHitDamage,
   applyOneHitShaken,shakenSprintFactor,oneHitBacklashRemaining,oneHitTeleportDistance,normalizeInfusions,
   ONE_HIT_PRESETS} from './oneHitInfusions.mjs';
+import { GAME } from './combat.mjs';
+import { RUPTURE } from './rupture.mjs';
 
 test('one qualifying spell use advances once, independent of victims and lingering ticks', () => {
  const p={oneHitInfusions:emptyInfusions()};
@@ -15,10 +17,11 @@ test('one qualifying spell use advances once, independent of victims and lingeri
  assert.equal(p.oneHitInfusions.frost,0);
 });
 test('zero, partial and full tiers have exactly one direct damage contribution per element',()=>{
- assert.equal(oneHitDamage({}),40);
- assert.equal(oneHitDamage({fire:1}),53);
- assert.equal(oneHitDamage({fire:2}),53);
- assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),84);
+ assert.equal(oneHitDamage({}),46);
+ assert.equal(oneHitDamage({}),GAME.swordElevated+RUPTURE.damage,'simple Disaster matches one Sunder strike and its rupture');
+ assert.equal(oneHitDamage({fire:1}),59);
+ assert.equal(oneHitDamage({fire:2}),59);
+ assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
 });
 test('airborne requires full Gale and cannot switch forms just from a Frost or Fire infusion',()=>{
  assert.equal(oneHitForm(false,emptyInfusions()),null);
