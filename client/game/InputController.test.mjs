@@ -26,6 +26,20 @@ function setup({ useHostTimers = false } = {}) {
 const chivalry = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', until: 20 }, spellReadyById: { gale: 14 }, chivalryProjectileReadyAt: 0 };
 
+test('a key released after pointer lock is lost cancels the Ultimate before the change event arrives', () => {
+  const { input, down, up, send } = setup();
+  const releases = [];
+  input.socket.oneHitRelease = options => releases.push(options);
+  down('KeyR');
+  up('KeyR');
+  down('KeyR');
+  document.pointerLockElement = null;
+  assert.equal(input.enabled, true, 'pointerlockchange is still queued');
+  up('KeyR');
+  send('pointerlockchange');
+  assert.deepEqual(releases, [{ cancel: false }, { cancel: true }]);
+});
+
 test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
   const {input}=setup(),sent=[];
   input.socket.send=message=>sent.push(message);

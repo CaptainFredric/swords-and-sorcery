@@ -157,7 +157,10 @@ export class InputController {
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
-    else if (action === 'ultimate') this.ultimateRelease(code);
+    else if (action === 'ultimate') {
+      // A keyup can arrive after Chrome drops the lock but before its change event.
+      this.ultimateRelease(code, !this.touchFocus && document.pointerLockElement !== this.element);
+    }
     else if (RELEASE[action]) RELEASE[action](this);
     else if (!PRESS[action]) this.onAction(action, false);
   }
