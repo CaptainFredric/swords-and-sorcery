@@ -3,7 +3,7 @@
 import { oneHitDecisiveDamage, oneHitAttackForm, oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
 
 export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning']);
-export const ONE_HIT_BASE_DAMAGE = 40;
+export const ONE_HIT_BASE_DAMAGE = 48;
 export const ONE_HIT_GROUND_RADIUS = 3.4;
 export const ONE_HIT_AERIAL_DURATION = 0.85;
 export const ONE_HIT_SHAKEN_SECONDS = 3;
