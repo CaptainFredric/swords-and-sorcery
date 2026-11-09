@@ -70,14 +70,24 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
   await focusArena();
   await evaluate(`(() => {
     const rt=${rt}, host=rt.socket.local.player;
+    // The preceding teleport can leave us away from the supported test yard.
+    document.querySelector('#practice-reset').click();
     document.querySelector('[data-one-hit-preset=${preset}]').click();
-    document.querySelector('[data-one-hit-action=${aerial?'aerial':'grounded'}]').click();
-    // Allow time for the actual live loop even when SwiftShader is slow.
-    if(${aerial}&&!host.grounded)host.position.y+=12;
+    if(${aerial}){
+      // Stage in the real key event so CDP delays before dispatch cannot
+      // spend the entire fall. The game still processes the key normally.
+      const stage=event=>{
+        if(event.code!=='KeyR')return;
+        document.removeEventListener('keydown',stage,true);
+        document.querySelector('[data-one-hit-action=aerial]').click();
+        if(!host.grounded)host.position.y+=5;
+      };
+      document.addEventListener('keydown',stage,true);
+    }
     rt.input.pitch=${aerial?-.25:0};
     window.__disasterRun={name:${JSON.stringify(name)},frames:[],events:[],keys:[]};
   })()`);
-  await poll(()=>evaluate(`${rt}.localAuth?.grounded===${!aerial}`),name+' staging');
+  await poll(()=>evaluate(`${rt}.localAuth?.grounded`),name+' supported reset');
   console.log('[DISASTER INPUT READY]',name,JSON.stringify(await evaluate(control)));
   if(hold||lightning)await key('rawKeyDown');
   else await Promise.all([key('rawKeyDown'),key('keyUp')]);
@@ -86,6 +96,7 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
     if(interrupt){
       assert.ok(await evaluate('Boolean(document.pointerLockElement)'));
       await evaluate('document.exitPointerLock()');
+      await poll(()=>evaluate('!document.pointerLockElement'),name+' browser lock exited');
     }
     await key('keyUp');
   }
