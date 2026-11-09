@@ -675,7 +675,8 @@ try {
   let previous=0;
   for(let i=1;i<geometry.points.length;i++){
     const a=geometry.points[i-1],b=geometry.points[i];
-    for(const t of [.22,.48,.75,1]){
+    const steps=[.18,.38,.58,.78,.92,1.0];
+    for(const t of steps){
       const dx=b[0]-a[0],dy=b[1]-a[1];
       await nativeTouch('touchMove',[
         a[0]+dx*t,
@@ -686,7 +687,7 @@ try {
     await nativeTouch('touchMove',b);
     await sleep(35);
     let stage=null;
-    for(let wait=0;wait<20;wait++){
+    for(let wait=0;wait<25;wait++){
       stage=await evaluate(`(() => {
         const t=window.__ssRuntime.touch;
         return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
@@ -694,10 +695,12 @@ try {
           displayed:t.valkyrieStatus?.textContent};
       })()`);
       if(stage&&(stage.index>=i||stage.complete))break;
-      await nativeTouch('touchMove',b);
-      await sleep(30);
+      const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+      const nudge=[b[0]+(dx/len)*((wait%2===0)?1.5:0),b[1]+(dy/len)*((wait%2===0)?1.5:0)];
+      await nativeTouch('touchMove',nudge);
+      await sleep(35);
     }
-    if(!(stage.progress>=previous)){
+    if(!stage||!(stage.index>=i||stage.complete)||(stage.progress<previous)){
       const diagnostics=await evaluate(`(() => {
         const t=window.__ssRuntime.touch,r=t.layer.getBoundingClientRect();
         return {active:t.active,eligible:t.valkyrieEligible,preview:t.valkyriePreview,
@@ -708,6 +711,9 @@ try {
       })()`);
       console.log('[NATIVE DAGAZ STAGE FAILURE]',JSON.stringify({i,stage,previous,diagnostics}));
     }
+    assert.ok(stage&&(stage.index>=i||stage.complete),
+      'real native touch must reach checkpoint '+i+
+      ' (prior '+previous+', current '+stage?.progress+', index '+stage?.index+')');
     assert.ok(stage.progress>=previous,
       'real native touch must brighten the path continuously at checkpoint '+i+
       ' (prior '+previous+', current '+stage.progress+')');

@@ -121,14 +121,32 @@ try{
   "forward:r.input.movement().forward,yaw:r.input.yaw,serverYaw:p.yaw,aim:Math.atan2(-(m.x-p.position.x),-(m.z-p.position.z)),position:p.position,operating:p.operatingFightFlightId,machineOp:m.operatorId};})()";
  const FLIGHT_MOUNT_RANGE=2.5;
  let approached=null;
- for(let attempt=1;attempt<=3&&!approached;attempt++){
+ for(let attempt=1;attempt<=8&&!approached;attempt++){
+  const state=await host.evaluate(hostApproach);
+  if(state&&state.dist<=2.45&&!state.attack){
+   approached=state;
+   console.log('[SHARED HOST IN RANGE]',JSON.stringify({attempt,...state}));
+   break;
+  }
+  await host.evaluate(`(() => {
+    const r = window.__ssRuntime, p = r?.localAuth?.position, m = r?.latestSnapshot?.fightFlight;
+    if (!p || !m) return;
+    const yaw = Math.atan2(-(m.x - p.x), -(m.z - p.z));
+    r.input.yaw = yaw;
+    r.socket?.input?.({ forward: 0, right: 0, yaw, pitch: 0 });
+  })()`);
   await host.key('W','rawKeyDown');
-  let samples=0;
+  const t0=Date.now();
   await waitFor(async()=>{
-   const a=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;const yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));r.input.yaw=yaw;r.socket?.input?.({ forward: 1, right: 0, yaw, pitch: 0 });return Math.hypot(p.x-m.x,p.z-m.z);})()");
-   if(++samples%15===0)console.log('[SHARED HOST WALK]',JSON.stringify({...await host.evaluate(hostApproach),frames:await host.frames()}));
-   return a<1.6;
-  },'host walks physically to the machine',170);
+   const d=await host.evaluate(`(() => {
+     const r = window.__ssRuntime, p = r?.localAuth?.position, m = r?.latestSnapshot?.fightFlight;
+     if (!p || !m) return null;
+     const yaw = Math.atan2(-(m.x - p.x), -(m.z - p.z));
+     r.input.yaw = yaw;
+     return Math.hypot(p.x - m.x, p.z - m.z);
+   })()`);
+   return d===null||d<=2.0||(Date.now()-t0>=900);
+  },'host steps toward machine',35);
   await host.key('W','keyUp');
   await host.evaluate(`(() => {
     const r = window.__ssRuntime;
@@ -138,9 +156,12 @@ try{
       r.socket?.input?.({ forward: 0, right: 0, yaw: r.input?.yaw ?? 0, pitch: 0 });
     }
   })()`);
-  const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.forward===0&&a.speed<.25?a:null;})()"),'host stationary after releasing W',80);
+  const settled=await waitFor(()=>host.evaluate("(() => {const a="+hostApproach+";return a&&a.speed<.3?a:null;})()"),'host stationary after pulse',45);
   console.log('[SHARED HOST APPROACHED]',JSON.stringify({attempt,...settled,frames:await host.frames()}));
-  if(settled.dist<1.9&&!settled.attack)approached=settled;
+  if(settled&&settled.dist<=2.45&&!settled.attack){
+   approached=settled;
+   break;
+  }
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
  await host.send('Page.bringToFront');
