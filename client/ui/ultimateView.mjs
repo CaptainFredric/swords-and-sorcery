@@ -19,7 +19,7 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
     !local.operatingBallistaId && !local.restlessCarrying)
     return {state:'active',charge:1,label:'IN FLIGHT',word:'DETONATE',ultimate};
   if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'){
-    if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TO TELEPORT',word:'RELEASE',ultimate};
+    if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TELEPORT',word:'RELEASE',ultimate};
     if(state.groundRelease&&serverNow>=state.groundRelease.readyAt&&serverNow<state.groundRelease.until){
       const left=state.groundRelease.until-serverNow;
       return {state:'bracing',charge:1,label:left.toFixed(1),word:'RELEASE',ultimate};

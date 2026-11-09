@@ -105,7 +105,7 @@ async function press(touch,down){
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[at]});
   }else await cdp.send('Input.dispatchKeyEvent',{type:down?'rawKeyDown':'keyUp',key:'r',code:'KeyR',windowsVirtualKeyCode:82});
 }
-async function captureAirHold(label){
+async function captureAirHold(){
   const clip='AllNatural_Lightning_Charge_Air';
   const probe=`() => {
     const rt=${runtime},instance=rt.remotePlayers.self?.visualInstance,animator=instance?.animator;
@@ -113,7 +113,7 @@ async function captureAirHold(label){
     return {clip:animator?.activeClip,time:animator?.activeAction?.time,
       root:root?.position.toArray(),rootRotation:root?.quaternion.toArray(),
       pelvis:pelvis?.position.toArray(),hand:hand?.quaternion.toArray(),socket:instance?.sockets.sword?.name,
-      feet:rt.localAuth.position, yaw:rt.input.yaw,hostYaw:rt.localAuth.yaw,
+      feet:rt.localAuth.position, hostFeet:rt.socket.local.player?.position, yaw:rt.input.yaw,hostYaw:rt.localAuth.yaw,
       cameraYaw:rt.camera.rotation.y,roll:rt.camera.rotation.z,outside:rt.inspectionBodyOutside,
       elapsed:rt.socket.serverNow()-rt.localAuth.ultimateState.teleportHoldAt};
   }`;
@@ -136,13 +136,11 @@ async function captureAirHold(label){
   })()`);
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:640,y:370});
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:700,y:370});
-  await snap(label+'-airborne-hold');
   const samples=[first,...await ev('window.__airProbe')];
   const last=samples.at(-1);
   const turn=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
   const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
   const wraps=samples.slice(1).filter((s,i)=>samples[i].time-s.time>.4).length;
-  await writeFile(join(output,'authored-air.json'),JSON.stringify({clip,wraps,samples},null,2)+'\n');
   const phases=samples.map(s=>s.time);
   assert.ok(last.elapsed>=1.68&&wraps>=1&&Math.min(...phases)<.10&&Math.max(...phases)>.72,
     'the hold spans two periods and the rendered loop covers the full phase');
@@ -175,14 +173,18 @@ async function scenario(url,label,touch,enhanced){
   }
   // Match the exact downward aim for the two captures. Cast/release still
   // travel through actual desktop or touch events and authoritative movement.
+  if(verifyAir)await ev(`import('./client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())`);
   await ev(`${runtime}.input.pitch=-.50`);
   const stage=await ev(`new Promise(resolve => {
     const rt=${runtime},host=rt.socket.local?.player;
     document.querySelector('[data-one-hit-action=aerial]').click();
+    // Only the dedicated loop test needs extra initial altitude to allow for
+    // a cold third person render. Subsequent movement and casts are live.
+    if(${verifyAir}&&host&&!host.grounded)host.position.y+=5;
     const end=performance.now()+1500;
     const sample=()=>{
       const p=rt.localAuth;
-      if(p?.position.y>2.8&&!p.grounded)resolve({ok:true,y:p.position.y});
+      if(p?.position.y>${verifyAir?6:2.8}&&!p.grounded)resolve({ok:true,y:p.position.y});
       else if(performance.now()>end)resolve({ok:false,pose:p?.position,grounded:p?.grounded,host:host?.position});
       else requestAnimationFrame(sample);
     };
@@ -195,29 +197,29 @@ async function scenario(url,label,touch,enhanced){
       tiers:${actor}.practiceOneHit, pose:${actor}.position,recovers:${actor}.recoverUntil})`));
     throw e;
   });
-  const air=verifyAir?await captureAirHold(label):null;
-  if(air)await ev(`(() => {
+  if(verifyAir)await ev(`(() => {
     const socket=${runtime}.socket;
     window.__airReleaseEvents=[];
     socket.on('events',batch=>window.__airReleaseEvents.push(...batch.events.filter(e=>[
       'oneHitCommitted','oneHitTeleport','oneHitWave','oneHitImpact','ultimateInterrupted',
     ].includes(e.type))));
   })()`);
+  const air=verifyAir?await captureAirHold():null;
   await press(touch,false);
   await until(()=>ev(`${actor}?.ultimateState?.oneHit?.form==='aerial'`),'aerial commitment').catch(async error=>{
-    console.error(await ev(`({authoritative:${runtime}.socket.local?.player?.position,
+    console.error(JSON.stringify({last:air?.samples.at(-1),state:await ev(`({authoritative:${runtime}.socket.local?.player?.position,
       input:${runtime}.input.pitch,pose:${actor}?.position,action:${actor}?.ultimateState,health:${actor}?.health,
-      events:window.__airReleaseEvents})`));
+      events:window.__airReleaseEvents})`)},null,2));
     throw error;
   });
   if(air)air.release=await until(()=>ev(`(() => {
     const rt=${runtime},clip=rt.remotePlayers.self?.visualInstance?.animator?.activeClip;
     return clip==='Slash_3'&&rt.chase>.5?{clip,chase:rt.chase}:null;
   })()`),'release transitions to provisional slam');
-  if(enhanced){
+  if(enhanced&&!air){
     await until(()=>ev(`${runtime}?.oneHitEffects.zones.size>0 && ${runtime}.oneHitEffects.transients.length>12`),'aerial eruption and ground zone',4000);
     await snap(label+'-aerial-impact');
-  }else await snap(label+'-aerial-release');
+  }else if(!air)await snap(label+'-aerial-release');
   if(air){
     air.recovered=await until(()=>ev(`!${actor}.ultimateState && ${runtime}.chase<.03 && ${runtime}.weapon.group.visible`),
       'release returns to first person');
