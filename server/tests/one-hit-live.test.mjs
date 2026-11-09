@@ -129,3 +129,71 @@ test('Aerial Ultimate with full Gale starts a modest vortex then launches one tr
   assert.equal(launched.length,1);
   assert.equal(room.events.find(e=>e.type==='oneHitCommitted')?.form,'aerial');
 });
+
+test('aerial wall impact carries all four tiers, affects new exposed targets and never strikes twice or through stone',()=>{
+  const {room,a,b}=battle();
+  const add=(id,z,x)=>{
+    room.addPlayer({id,token:id,name:id},9);
+    const knight=room.players.get(id);
+    knight.position={x,y:0,z};knight.spawnProtectionUntil=0;knight.grounded=true;
+    return knight;
+  };
+  const splash=add('splash',1.5,6.35);
+  const sheltered=add('sheltered',1.5,7.2);
+  const protectedKnight=add('protected',-1.7,6.3);
+  protectedKnight.spawnProtectionUntil=12;
+  b.position={x:4.8,y:0,z:0};
+  const withWall={...world,solids:[{id:'wall',center:[7,1,0],size:[.4,3,10]}]};
+  const tiers={fire:2,frost:2,gale:2,lightning:2};
+  room.oneHitWaves=[{id:'wall-wave',ownerId:a.id,position:{x:4,y:1,z:0},
+    direction:{x:1,y:0,z:0},tiers,bornAt:9,distance:4,hitIds:[]}];
+  a.position={x:8,y:0,z:0}; // caster's new position must not govern projectile LOS
+  for(let i=0;i<6;i++)stepRoom(room,1/30,9+i/30,withWall);
+  const impacts=room.events.filter(e=>e.type==='oneHitImpact');
+  assert.equal(impacts.length,1);
+  assert.equal(impacts[0].impactId,'wall-wave');
+  assert.equal(impacts[0].form,'aerial');
+  assert.ok(Math.abs(impacts[0].point.x-6.8)<1e-6);
+  assert.deepEqual(impacts[0].tiers,tiers);
+  assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b').length,1);
+  assert.equal(splash.health,100,'splash carries effects without another direct HP hit');
+  assert.ok(splash.oneHitFrozenUntil>9&&splash.electricalBacklash?.initial===12&&splash.burn);
+  assert.ok(splash.lastKnockbackAt>=9&&splash.lastKnockbackBy===a.id&&splash.shaken);
+  assert.equal(sheltered.burn,null);
+  assert.equal(sheltered.oneHitFrozenUntil,undefined);
+  assert.equal(protectedKnight.burn,null);
+  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===4.6&&z.bornAt<z.until));
+  for(let i=6;i<140;i++)stepRoom(room,1/30,9+i/30,withWall);
+  assert.equal(sheltered.health,100);
+  assert.equal(room.oneHitBurnZones.length,0);
+});
+
+test('aerial terrain contact is real, one-sided, and does not turn a range expiry into a bomb',()=>{
+  const {room,a,b}=battle();
+  b.position={x:35,y:0,z:0};
+  const tiers={fire:2,frost:0,gale:2,lightning:0};
+  const base={ownerId:a.id,tiers,bornAt:9,hitIds:[]};
+  room.oneHitWaves=[
+    {...base,id:'landing',position:{x:3,y:.9,z:0},direction:{x:.8,y:-.6,z:0},distance:2},
+    {...base,id:'expiry',position:{x:10,y:5,z:0},direction:{x:1,y:0,z:0},distance:21.6},
+  ];
+  ticks(room,9,10);
+  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['landing']);
+  assert.ok(Math.abs(room.oneHitBurnZones[0].position.y)<1e-8);
+  assert.equal(room.oneHitBurnZones.length,1);
+});
+
+test('an incoming aerial blade spends directional Guard only once and does not reapply terminal frost',()=>{
+  const {room,a,b}=battle();
+  b.position={x:5.5,y:0,z:0};
+  b.input.yaw=b.yaw=Math.PI/2;
+  b.history=[];
+  b.guardHeld=true;b.guarding=true;b.guardStartedAt=8;
+  const wall={...world,solids:[{id:'wall',center:[6.6,1,0],size:[.2,3,8]}]};
+  room.oneHitWaves=[{id:'guarded-wave',ownerId:a.id,position:{x:4.5,y:1,z:0},
+    direction:{x:1,y:0,z:0},tiers:{fire:0,frost:2,gale:2,lightning:1},bornAt:9,distance:4.5,hitIds:[]}];
+  for(let i=0;i<6;i++)stepRoom(room,1/30,9+i/30,wall);
+  assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
+  assert.equal(b.health,100);
+  assert.equal(b.oneHitFrozenUntil,undefined);
+});

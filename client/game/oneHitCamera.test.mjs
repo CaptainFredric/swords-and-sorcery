@@ -23,14 +23,14 @@ test('aerial Gale variant stays visible through the delayed travelling wave and 
   assert.equal(disasterCameraWanted(player(active(10,'aerial')),11.18),true);
   assert.equal(disasterCameraWanted(player(active(10,'aerial')),11.22),false);
 });
-test('partial lightning gets an abbreviated lead; full lightning indefinite charge does not leave the helm until release',()=>{
+test('partial lightning gets an abbreviated lead; full lightning retains an aimable chase view through charge and release',()=>{
   const partial=startup(10,{lightning:1});
   assert.equal(disasterWindupSec(partial),.36);
   assert.equal(disasterCameraWanted(player(partial),9.5),false);
   assert.equal(disasterCameraWanted(player(partial),9.75),true);
   const held=startup(3_600_010,{lightning:2});
   held.teleportHoldAt=10;
-  assert.equal(disasterCameraWanted(player(held),25),false);
+  assert.equal(disasterCameraWanted(player(held),25),true);
   assert.equal(disasterCameraWanted(player(active(25)),25.01),true,'release triggers cinematic');
 });
 test('interruption, loss of life, another Ultimate, and match reset never retain the cinematic',()=>{

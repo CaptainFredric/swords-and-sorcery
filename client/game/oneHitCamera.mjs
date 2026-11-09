@@ -13,10 +13,14 @@ const clamp01 = n => Math.max(0, Math.min(1, n));
 const smooth = x => { const t=clamp01(x); return t*t*(3-2*t); };
 
 // Ordinary windup: 0.92 s. Partial Lightning shortens it to .36 s.
-// Full Lightning holds indefinitely until the release message commits; it
-// should NOT lock the player into a cinematic during that indefinite hold.
+// Full Lightning stays in the aimable chase view until release.
 export function disasterWindupSec(state) {
   return (state?.preparedTiers?.lightning ?? 0) >= 1 ? 0.36 : ULTIMATES.one_hit_of_wonders.startupSec;
+}
+
+export function disasterHolding(state) {
+  return state?.id==='one_hit_of_wonders' && state.phase==='startup' &&
+    state.preparedTiers?.lightning===2 && Number.isFinite(state.teleportHoldAt);
 }
 
 export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
@@ -24,6 +28,7 @@ export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
   if (state?.id !== 'one_hit_of_wonders' || !Number.isFinite(state.commitAt) || !Number.isFinite(nowSec)) return false;
   const post = state.oneHit?.form === 'aerial' ? rules.aerialAfterSec : rules.groundAfterSec;
   if (state.phase === 'startup') {
+    if (disasterHolding(state)) return true;
     const left = state.commitAt - nowSec;
     if (left > 0 && left <= Math.min(rules.beforeCommitSec, disasterWindupSec(state))) return true;
     return nowSec >= state.commitAt && nowSec < state.commitAt + post;
@@ -35,7 +40,7 @@ export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
 // A complete visual revolution finishes at the contact frame, returning
 // exactly to the actor's real facing. No rotation feeds back into server aim.
 export function disasterBodyTurn(state, nowSec) {
-  if (state?.id !== 'one_hit_of_wonders' || state.phase !== 'startup') return 0;
+  if (state?.id !== 'one_hit_of_wonders' || state.phase !== 'startup' || disasterHolding(state)) return 0;
   const left = state.commitAt - nowSec;
   const duration = disasterWindupSec(state);
   if (!Number.isFinite(left) || left > duration || left <= 0) return 0;

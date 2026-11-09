@@ -23,7 +23,7 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
-import { oneHitTeleportReach, lineOfConductDamage } from '../src/oneHitOfWondersRules.mjs';
+import { lineOfConductDamage } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
@@ -42,7 +42,8 @@ import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen } from './renownTrials.mjs';
 import { eliminateEdgePlayer, edgeConstrainActor, stepEdgeOfVictory } from './edgeOfVictory.mjs';
 import { edgeHandleMountedOperators } from './edgeSiegeDismount.mjs';
-import { edgeInside, edgeLimitPoint, edgeClipTeleport } from '../src/edgeBoundary.mjs';
+import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
+import { oneHitAlong, oneHitWorldContact, planOneHitTeleport } from '../src/oneHitTrajectory.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import {operatedSiegeSteelMachine,beginSiegeSteel,stepSiegeSteel} from './siegeSteel.mjs';
@@ -1861,51 +1862,62 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
 
 // Shared room-authoritative One Hit implementation. This intentionally uses
 // Castleward's normal applyDamage / Steel / team rules, not Argon's isolated state.
-function oneHitVisible(room, caster, target, world) {
+function oneHitVisible(room, caster, target, world, nowSec, origin) {
   if (!target.alive || target.id === caster.id || areAllies(room,caster.id,target.id) ||
-      target.spawnProtectionUntil > (room.oneHitNow ?? -Infinity)) return false;
-  const a=[caster.position.x,caster.position.y+1,caster.position.z];
-  const b=[target.position.x,target.position.y+1,target.position.z];
-  return !(world?.solids ?? []).some(box=>segmentAabbHit(a,b,box));
+      target.spawnProtectionUntil > nowSec) return false;
+  return !oneHitWorldContact(origin,oneHitChest(target),world);
 }
-function oneHitTouch(room,caster,target,tiers,nowSec,world,{aerial=false,distance=0}={}) {
-  room.oneHitNow=nowSec;
-  if(!oneHitVisible(room,caster,target,world))return false;
-  if (target.guarding && isInGuardCone(target,caster,nowSec)) {
-    target.guardStamina=Math.max(0,target.guardStamina-40);
-    target.lastGuardDrainAt=nowSec;
-    if(target.guardStamina <= 0) breakGuard(target,0.4,nowSec);
-    room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
-    return false;
-  }
-  const base=aerial?36:ONE_HIT_BASE_DAMAGE;
-  const falloff=aerial?Math.max(.45,1-distance/40):1;
-  const damage=oneHitDamage(tiers,base)*falloff;
-  const dx=target.position.x-caster.position.x,dz=target.position.z-caster.position.z;
-  const d=Math.hypot(dx,dz)||1;
-  const contact=applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
-    {x:dx/d*3.4,y:0.6,z:dz/d*3.4},{ultimate:true,rawDamage:damage});
-  if (!contact) return false;
-  applyOneHitShaken(target,nowSec, distance < 1.9 ? 1 : .6);
-  if(tiers.fire >= 1 && target.alive) {
-    target.burn={attackerId:caster.id,perLick:2,licksLeft:4,
-      interval:.5,nextAt:nowSec+.5,until:nowSec+2,ultimate:true};
-  }
-  if(tiers.frost >= 1 && target.alive) {
+
+function oneHitGuard(room,caster,target,origin,nowSec) {
+  if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
+  target.guardStamina=Math.max(0,target.guardStamina-40);
+  target.lastGuardDrainAt=nowSec;
+  if(target.guardStamina<=0)breakGuard(target,.4,nowSec);
+  room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
+  return true;
+}
+
+function oneHitAfflict(caster,target,tiers,nowSec,{aerial=false,shaken=0}={}) {
+  if(!target.alive)return;
+  if(shaken)applyOneHitShaken(target,nowSec,shaken);
+  if(tiers.fire>=1)target.burn={attackerId:caster.id,perLick:2,licksLeft:4,
+    interval:.5,nextAt:nowSec+.5,until:nowSec+2,ultimate:true};
+  if(tiers.frost>=1) {
     const frozen=tiers.frost===2;
     target.oneHitFrostSlow={until:nowSec+(frozen?3.8:2.5)};
     if(frozen)target.oneHitFrozenUntil=nowSec+.9;
   }
-  if(aerial && tiers.lightning >= 1 && target.alive)
-    target.electricalBacklash={at:nowSec,initial:12,sourceId:caster.id};
+  if(aerial&&tiers.lightning>=1)target.electricalBacklash={at:nowSec,initial:12,sourceId:caster.id};
+}
+
+const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
+function oneHitTouch(room,caster,target,tiers,nowSec,world,{
+  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,
+}={}) {
+  if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
+  processed?.push(target.id); // Guard also spends this wave's single contact.
+  const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
+  if(oneHitGuard(room,caster,target,incoming,nowSec))return false;
+  const falloff=aerial?Math.max(.45,1-distance/40):1;
+  const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
+  const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
+  const d=Math.hypot(dx,dz)||1;
+  if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
+    {x:dx/d*3.4,y:.6,z:dz/d*3.4},{ultimate:true,rawDamage:damage}))return false;
+  oneHitAfflict(caster,target,tiers,nowSec,{aerial,shaken:distance<1.9?1:.6});
   return true;
+}
+function oneHitBurnZone(room,caster,id,position,nowSec) {
+  (room.oneHitBurnZones??=[]).push({
+    id,ownerId:caster.id,position,radius:4.6,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+4,
+  });
 }
 function oneHitSlam(room,caster,tiers,nowSec,world) {
   const radius=tiers.fire===2?4.6:ONE_HIT_GROUND_RADIUS;
   // Full Gale draws enemies toward the destination, then the same decisive
   // contact tests run exactly once. No second base-damage hit from a vortex.
   if(tiers.gale===2)for(const target of room.players.values()) {
-    if(target.id===caster.id||!target.alive||areAllies(room,caster.id,target.id))continue;
+    if(!oneHitVisible(room,caster,target,world,nowSec,oneHitChest(caster)))continue;
     const dx=caster.position.x-target.position.x,dz=caster.position.z-target.position.z;
     const d=Math.hypot(dx,dz);
     if(d>6.8||d<.1||Math.abs(target.position.y-caster.position.y)>3)continue;
@@ -1913,7 +1925,8 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
     const next={...target.position,x:target.position.x+dx/d*travel,
       z:target.position.z+dz/d*travel};
     const clear=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
-    if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1)target.position=next;
+    if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1 &&
+      !oneHitWorldContact(oneHitChest(target),{...next,y:next.y+1},world))target.position=next;
   }
   const struck=[];
   for(const target of room.players.values()) {
@@ -1926,48 +1939,21 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   const before=room.ruptures?.length??0;
   groundStrike(room,caster,2,{point:{...caster.position},floor:{y:caster.position.y}},nowSec,world);
   if((room.ruptures?.length??0)>before)room.ruptures.at(-1).caught.push(...struck);
-  if(tiers.fire===2)(room.oneHitBurnZones??=[]).push({
-    id:`oh-burn:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...caster.position},
-    radius:4.6,nextAt:nowSec+.5,until:nowSec+4,
-  });
+  if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...caster.position},nowSec);
   room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...caster.position},
     tiers:{...tiers},form:'ground',radius,at:nowSec});
 }
 function oneHitTeleport(room,player,state,nowSec,world=room.world) {
-  const hold=Math.max(0,nowSec-(state.teleportHoldAt??nowSec));
-  const distance=Math.max(.65,oneHitTeleportReach(hold));
-  const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
-  const aerial=(!player.grounded && state.preparedTiers?.gale===2);
-  const dx=-Math.sin(yaw)*Math.cos(aerial?pitch:0),
-    dy=aerial?Math.sin(pitch):0,dz=-Math.cos(yaw)*Math.cos(aerial?pitch:0);
   const origin={...player.position};
-  let target={x:origin.x+dx*distance,y:origin.y+dy*distance,z:origin.z+dz*distance};
-  if(room.edgeOfVictory){
-    // The Full-Lightning blink follows its original ray and never tunnels
-    // through the psychological boundary.
-    target=edgeClipTeleport(origin,target,room.edgeOfVictory,MOVEMENT.playerRadius);
-    if(!target)return false;
-  }
-  const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];
-  let t=1;
-  const teleportWorld = room.edgeOfVictory
-    ? playerMovementWorld(world,{ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight})
-    : world;
-  for(const box of teleportWorld?.solids??[]) {
-    const hit=segmentAabbHit(a,b,box);
-    if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(distance,.01)));
-  }
-  const next={x:origin.x+(target.x-origin.x)*t,y:origin.y+(target.y-origin.y)*t,
-    z:origin.z+(target.z-origin.z)*t};
-  const collision=resolvePlayerWorld(next,MOVEMENT.playerRadius,teleportWorld?.solids??[]);
-  // A physical wall, abyss or invalid floor never becomes a blink-through shortcut.
-  if(Math.hypot(collision.x-next.x,collision.z-next.z)>.1) return false;
-  if(room.edgeOfVictory && !edgeInside(next,room.edgeOfVictory.center,room.edgeOfVictory.radius,MOVEMENT.playerRadius)) return false;
-  if(!aerial) {
-    const surface=surfaceHeightAt(next.x,next.z,next.y,world);
-    if(surface===null || Math.abs(surface-next.y)>2) return false;
-    next.y=surface;player.grounded=true;
-  }else player.grounded=false;
+  const aerial=!player.grounded&&state.preparedTiers?.gale===2;
+  const teleportWorld=room.edgeOfVictory
+    ?playerMovementWorld(world,{ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight})
+    :world;
+  const plan=planOneHitTeleport({origin,yaw:player.input?.yaw??player.yaw,pitch:player.input?.pitch??player.pitch,
+    aerial,holdSec:nowSec-(state.teleportHoldAt??nowSec),world,solids:teleportWorld.solids,edge:room.edgeOfVictory});
+  if(!plan.legal)return false;
+  const next=plan.end;
+  player.grounded=!aerial;
   player.position=next;
   player.velocity={x:0,y:Math.min(0,player.velocity?.y??0),z:0};
   room.events.push({type:'oneHitTeleport',playerId:player.id,from:origin,to:{...next},
@@ -2021,8 +2007,7 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
       const count=action.vortexTicks[target.id]??0;
       if(count>=2||Math.hypot(target.position.x-player.position.x,target.position.y-player.position.y,
         target.position.z-player.position.z)>3.2)continue;
-      room.oneHitNow=nowSec;
-      if(!oneHitVisible(room,player,target,world))continue;
+      if(!oneHitVisible(room,player,target,world,nowSec,oneHitChest(player)))continue;
       action.vortexTicks[target.id]=count+1;
       applyDamage(room,player.id,target.id,5,'one_hit_vortex',nowSec,null,{ultimate:true,ongoing:true});
     }
@@ -2032,42 +2017,75 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
     action.hit=true;
   }
 }
+// The wave pierces bodies. Only solid terrain terminates it; running out of
+// range dissipates it. Terminal splash can afflict new targets but contributes
+// no second decisive hit, even on targets who spent Guard on the moving blade.
+function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
+  const radius=2.2;
+  const origin={x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06};
+  const guardSource={x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z};
+  for(const target of room.players.values()) {
+    const center=oneHitChest(target);
+    if(wave.hitIds.includes(target.id)||Math.hypot(center.x-origin.x,center.y-origin.y,center.z-origin.z)>radius||
+      !oneHitVisible(room,caster,target,world,nowSec,origin)||oneHitGuard(room,caster,target,guardSource,nowSec))continue;
+    oneHitAfflict(caster,target,wave.tiers,nowSec,{aerial:true,shaken:.6});
+    const scale=staggerShove(target.stagger);
+    shoveBody(target,{x:wave.direction.x*2.2*scale,y:.35,z:wave.direction.z*2.2*scale});
+    target.lastKnockbackAt=nowSec;
+    target.lastKnockbackBy=caster.id;
+    target.lastKnockbackSource='one_hit_wave_impact';
+    target.lastAttackerId=caster.id;
+  }
+  if(wave.tiers.fire===2) {
+    const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
+    if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
+      !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec);
+  }
+  room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point,
+    normal:contact.normal,direction:wave.direction,tiers:{...wave.tiers},form:'aerial',radius,at:nowSec});
+}
+
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
-    if(!caster)continue;
-    const old={...wave.position},speed=wave.tiers.lightning?48:28;
+    if(!caster){wave.distance=22;continue;}
+    const old=wave.position,speed=wave.tiers.lightning?48:28;
     const step=Math.min(Math.max(0,22-wave.distance),speed*dt);
+    if(step<=0)continue;
     const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
-    let stop=1;
-    for(const box of world?.solids??[]) {
-      const hit=segmentAabbHit([old.x,old.y,old.z],[next.x,next.y,next.z],box);
-      if(hit)stop=Math.min(stop,hit.t);
-    }
+    const contact=oneHitWorldContact(old,next,world);
+    const stop=contact?.t??1;
     for(const target of room.players.values()){
-      if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id||areAllies(room,caster.id,target.id))continue;
-      const center={x:target.position.x,y:target.position.y+1,z:target.position.z};
-      const v={x:next.x-old.x,y:next.y-old.y,z:next.z-old.z};
-      const lenSq=v.x*v.x+v.y*v.y+v.z*v.z||1;
-      const frac=Math.max(0,Math.min(stop,((center.x-old.x)*v.x+(center.y-old.y)*v.y+(center.z-old.z)*v.z)/lenSq));
-      const near={x:old.x+frac*v.x,y:old.y+frac*v.y,z:old.z+frac*v.z};
+      if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id)continue;
+      const center=oneHitChest(target);
+      const frac=Math.max(0,Math.min(stop,((center.x-old.x)*wave.direction.x+
+        (center.y-old.y)*wave.direction.y+(center.z-old.z)*wave.direction.z)/step));
+      const near=oneHitAlong(old,next,frac);
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.9)continue;
-      wave.hitIds.push(target.id);
-      oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,distance:wave.distance+step*frac});
+      const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
+      oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
+        distance:wave.distance+step*frac,processed:wave.hitIds});
     }
-    wave.position={x:old.x+(next.x-old.x)*stop,y:old.y+(next.y-old.y)*stop,z:old.z+(next.z-old.z)*stop};
+    wave.position=oneHitAlong(old,next,stop);
     wave.distance+=step*stop;
-    if(stop<1)wave.distance=22;
+    if(contact){
+      oneHitWaveImpact(room,caster,wave,wave.position,contact,nowSec,world);
+      wave.distance=22;
+    }
   }
   room.oneHitWaves=(room.oneHitWaves??[]).filter(w=>w.distance<22);
   for(const zone of room.oneHitBurnZones??[]) {
-    if(nowSec < zone.nextAt)continue;
+    if(nowSec<zone.nextAt||zone.nextAt>zone.until)continue;
     zone.nextAt+=.5;
+    const caster=room.players.get(zone.ownerId);
+    if(!caster)continue;
+    const origin={...zone.position,y:zone.position.y+.08};
     for(const target of room.players.values()){
-      if(!target.alive||target.id===zone.ownerId||areAllies(room,zone.ownerId,target.id))continue;
-      if(Math.hypot(target.position.x-zone.position.x,target.position.z-zone.position.z)>zone.radius)continue;
-      applyDamage(room,zone.ownerId,target.id,3,'one_hit_ground_fire',nowSec,null,
-        {ultimate:true,ongoing:true});
+      if(Math.abs(target.position.y-zone.position.y)>1.25||
+        Math.hypot(target.position.x-zone.position.x,target.position.z-zone.position.z)>zone.radius||
+        !oneHitVisible(room,caster,target,world,nowSec,origin))continue;
+      applyDamage(room,zone.ownerId,target.id,3,'one_hit_ground_fire',nowSec,null,{ultimate:true,ongoing:true});
     }
   }
   room.oneHitBurnZones=(room.oneHitBurnZones??[]).filter(z=>nowSec<z.until);
