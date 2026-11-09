@@ -128,6 +128,7 @@ export class LocalHost {
       this.roomCode = message.roomCode;
     }
     if (message.type === 'snapshot') {
+      if (message.renownTrial) message.renownTrial.rehearsal = true;
       this.latestSnapshot = message;
       this.snapshotReceivedAt = performance.now();
     }
