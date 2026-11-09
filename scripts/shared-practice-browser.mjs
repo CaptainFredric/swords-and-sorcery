@@ -225,9 +225,10 @@ try{
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
    'real host Prowess readiness replicated',100);
  await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>1.2&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
-   'guest observes actual rotor-powered vertical flight',170);
+ const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>4.5&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
+   'guest observes actual rotor-powered vertical flight',180);
  await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await host.evaluate("if(window.__ssRuntime?.input)window.__ssRuntime.input.pitch=0;");
  await guest.evaluate("(() => {window.__flightMotionTrace=[];let frames=0;function frame(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p)window.__flightMotionTrace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);})()");
  await host.key('E','rawKeyDown');
  const run=await waitFor(()=>guest.evaluate("(() => {const trace=window.__flightMotionTrace??[];return trace.find(s=>s.run&&s.pitch>.08&&s.speed>4)??null;})()"),
