@@ -309,8 +309,15 @@ try{
 }catch(e){
  console.error('[SHARED PRACTICE CHROME FAILED]','last wait: '+stage,e.stack??String(e));
  const hostDiag=await host?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
+ // Tell a server that stopped publishing from a page that stopped reading:
+ // the server's own tick and skip counts, and each page's socket and snapshot age.
+ const socketDiag="(() => {const l=window.__ssRuntime?.socket,r=l?.remote;return r?{link:l.status,hosting:l.hosting,readyState:r.ws?.readyState??null,snapshotAgeMs:Math.round(performance.now()-r.snapshotReceivedAt),staleSnapshotsSkipped:r.staleSnapshotsSkipped??null,snapshotServerTime:r.latestSnapshot?.serverTime??null,serverNow:r.serverNow()}:null;})()";
+ const serverHealth=await fetch(url+'/health',{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).catch(error=>String(error));
+ const hostSocket=await host?.evaluate(socketDiag).catch(()=>null);
+ const guestSocket=await guest?.evaluate(socketDiag).catch(()=>null);
+ console.error('[SHARED SERVER AT FAILURE]',JSON.stringify({serverHealth,hostSocket,guestSocket}));
  const guestDiag=await guest?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
- await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostWire:host?.wire.state,guestWire:guest?.wire.state,hostDiag,guestDiag},null,2));
+ await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostWire:host?.wire.state,guestWire:guest?.wire.state,serverHealth,hostSocket,guestSocket,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
  throw e;

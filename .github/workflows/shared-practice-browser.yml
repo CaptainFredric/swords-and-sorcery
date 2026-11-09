@@ -48,6 +48,15 @@ jobs:
           SHARED_PRACTICE_URL: http://127.0.0.1:3001
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
         run: node scripts/shared-practice-browser.mjs
+      - name: Record the game server's state
+        if: always()
+        shell: bash
+        run: |
+          out=output/playwright/shared-practice
+          mkdir -p "$out"
+          cp /tmp/shared-practice.log "$out/server.log" || true
+          curl -fsS --max-time 5 http://127.0.0.1:3001/health > "$out/server-health.json" || echo '"server not answering"' > "$out/server-health.json"
+          cat "$out/server-health.json"
       - name: Upload two-client screenshots and authoritative state
         if: always()
         uses: actions/upload-artifact@v4
