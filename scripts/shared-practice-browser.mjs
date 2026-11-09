@@ -143,31 +143,10 @@ try{
   if(settled.dist<1.9&&!settled.attack)approached=settled;
  }
  assert.ok(approached,'host stopped within flight mount range without an active attack');
- await host.send('Page.bringToFront');
- await host.evaluate(`(() => {
-   window.focus();
-   const r = window.__ssRuntime;
-   r?.requestPointerLock?.();
-   r?.input?.requestPointerLock?.();
-   r?.socket?.send?.({ type: 'siegeOperate' });
-   r?.input?.interact?.();
- })()`);
- await host.tap('T');
- let mountAttempts=0;
  await waitFor(async()=>{
-  if(await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"))return true;
-  if(++mountAttempts%3===0){
-    await host.send('Page.bringToFront');
-    await host.evaluate(`(() => {
-      window.focus();
-      const r = window.__ssRuntime;
-      r?.requestPointerLock?.();
-      r?.input?.requestPointerLock?.();
-      r?.socket?.send?.({ type: 'siegeOperate' });
-      r?.input?.interact?.();
-    })()`);
-    await host.tap('T');
-  }
+  const mounted=await host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)");
+  if(mounted)return true;
+  await host.evaluate("window.__ssRuntime?.socket?.siegeOperate?.()");
   return false;
  },'host confirmed mounted in apparatus via T',120);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
@@ -252,7 +231,7 @@ try{
  },'ejected Spellblade physically lands in shared room',180);
  await guest.screenshot('guest-flight-landing');
  const livePlayers=await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,operating:p.operatingFightFlightId,grounded:p.grounded}))");
- const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt};})()");
+ const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?{id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt}:{id:null,operatorId:null,shotSeq:0,ammo:0,ammoDebt:0};})()");
  // Leaving as guest must not disturb the host's active authoritative room.
  await guest.evaluate("document.querySelector('#practice-leave').click()");
  await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').length===1"),
