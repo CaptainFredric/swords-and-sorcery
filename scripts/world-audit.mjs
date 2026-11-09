@@ -114,7 +114,9 @@ export function floodWorld(world, { starts = world.spawnPoints ?? [], cell = AUD
       if (ground === null) {
         if (bodyClear(x, z, c.y)) leaks.push({ x, z, y: c.y, kind: 'walk', fx: c.x, fz: c.z });
         else if (bodyClear(x, z, c.y, AUDIT.crouchHeight)) leaks.push({ x, z, y: c.y, kind: 'crouch', fx: c.x, fz: c.z });
-        else if (bodyClear(x, z, c.y + AUDIT.jumpPeak, AUDIT.bodyHeight - 0.3)) leaks.push({ x, z, y: c.y, kind: 'jump', fx: c.x, fz: c.z });
+        // (a hop over a lip into nothing; a hop that lands on a slope or step above is a landing, not a leak)
+        else if (bodyClear(x, z, c.y + AUDIT.jumpPeak, AUDIT.bodyHeight - 0.3)
+          && surfaceHeightAt(x, z, c.y + AUDIT.jumpPeak, world) === null) leaks.push({ x, z, y: c.y, kind: 'jump', fx: c.x, fz: c.z });
         continue;
       }
       if (!bodyClear(x, z, ground)) continue;
@@ -123,13 +125,19 @@ export function floodWorld(world, { starts = world.spawnPoints ?? [], cell = AUD
       push(i, j, ground, queue[q]);
     }
   }
-  // head clipping: standing under a floor slab lower than a body
+  // head clipping: standing under a floor slab, or a ramp's slope, lower than a body
   const headClips = [];
   for (const c of cells.values()) {
     for (const f of world.floors ?? []) {
       const under = f.center[1] - f.size[1] / 2;
       if (under <= c.y + 0.2 || under >= c.y + AUDIT.bodyHeight) continue;
       if (Math.abs(c.x - f.center[0]) <= f.size[0] / 2 && Math.abs(c.z - f.center[2]) <= f.size[2] / 2) { headClips.push({ x: c.x, z: c.z, y: c.y, floor: f.id }); break; }
+    }
+    for (const r of world.ramps ?? []) {
+      if (c.x < r.minX || c.x > r.maxX || c.z < r.minZ || c.z > r.maxZ) continue;
+      const t = r.axis === 'z' ? (c.z - r.minZ) / (r.maxZ - r.minZ) : (c.x - r.minX) / (r.maxX - r.minX);
+      const surface = r.startY + (r.endY - r.startY) * t;
+      if (surface > c.y + 0.7 && surface < c.y + AUDIT.bodyHeight) { headClips.push({ x: c.x, z: c.z, y: c.y, floor: r.id }); break; }
     }
   }
   return { cells, leaks: dedupeLeaks(leaks), headClips, cell, bounds: b, nx, nz, bodyClear, startCells, keyOf, cx, cz };
