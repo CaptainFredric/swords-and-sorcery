@@ -31,19 +31,47 @@ const lerp = (a, b, t) => a + (b - a) * t;
  * underfoot the whole way that it could walk (up no more than a step at a time, down no more than a short drop),
  * arriving at `to`'s level.
  */
+// a solid's reach across the ground and up (oriented boxes by their extents), worked out once per solid
+const REACH = new WeakMap();
+function reachOf(box) {
+  let r = REACH.get(box);
+  if (r) return r;
+  const half = (i) => (box.axes ? box.axes.reduce((sum, axis, k) => sum + Math.abs(axis[i]) * box.size[k] / 2, 0) : box.size[i] / 2);
+  const [hx, hy, hz] = [half(0), half(1), half(2)];
+  r = { x0: box.center[0] - hx, x1: box.center[0] + hx, y0: box.center[1] - hy, y1: box.center[1] + hy, z0: box.center[2] - hz, z1: box.center[2] + hz };
+  REACH.set(box, r);
+  return r;
+}
+
+/** The solids that could stand anywhere along a run (its box, a body's width aside and a head's height up). */
+function solidsAlong(solids, from, to, nav) {
+  const pad = nav.halfWidth + 0.05;
+  const x0 = Math.min(from.x, to.x) - pad, x1 = Math.max(from.x, to.x) + pad;
+  const z0 = Math.min(from.z, to.z) - pad, z1 = Math.max(from.z, to.z) + pad;
+  const top = Math.max(...nav.heights);
+  const y0 = Math.min(from.y, to.y) + Math.min(...nav.heights) - 0.05, y1 = Math.max(from.y, to.y) + top + 0.05;
+  return solids.filter((box) => {
+    if (!box?.center || !box?.size) return false;
+    const r = reachOf(box);
+    return r.x1 >= x0 && r.x0 <= x1 && r.z1 >= z0 && r.z0 <= z1 && r.y1 >= y0 && r.y0 <= y1;
+  });
+}
+
 export function runClear(world, from, to, nav = NAV) {
   const dx = to.x - from.x;
   const dz = to.z - from.z;
   const length = Math.hypot(dx, dz);
   if (length < 1e-6) return true;
   const side = { x: -dz / length, z: dx / length };
-  if (world?.solids?.length) {
+  // (only what stands near the run can stop it: the same answer as testing every solid, for far fewer rays)
+  const near = world?.solids?.length ? solidsAlong(world.solids, from, to, nav) : [];
+  if (near.length) {
     for (const height of nav.heights) {
       for (const offset of [0, -nav.halfWidth, nav.halfWidth]) {
         const origin = [from.x + side.x * offset, from.y + height, from.z + side.z * offset];
         const direction = [dx, to.y - from.y, dz];
         const range = Math.hypot(dx, to.y - from.y, dz);
-        if (findSwordWorldHit(origin, direction, range, world.solids)) return false;
+        if (findSwordWorldHit(origin, direction, range, near)) return false;
       }
     }
   }
@@ -100,13 +128,15 @@ export function routeBetween(world, from, to, nav = NAV) {
   const graph = navGraph(world, nav);
   if (!graph) return null;
   const { nodes, links } = graph;
-  const near = (point) => nodes.map((node, i) => ({ i, cost: Math.hypot(node.x - point.x, node.z - point.z) }))
+  // a route starts at a waypoint the bot can run to, and ends at one from which the target can be run to (in that
+  // direction: a ledge a bot could drop from is no start for a bot below it)
+  const near = (point, outward) => nodes.map((node, i) => ({ i, cost: Math.hypot(node.x - point.x, node.z - point.z) }))
     .filter(({ cost }) => cost <= nav.linkReach * 1.5)
     .sort((a, b) => a.cost - b.cost)
-    .filter(({ i }) => runClear(world, point, nodes[i], nav) || runClear(world, nodes[i], point, nav));
-  const starts = near(from);
+    .filter(({ i }) => (outward ? runClear(world, point, nodes[i], nav) : runClear(world, nodes[i], point, nav)));
+  const starts = near(from, true);
   if (!starts.length) return null;
-  const ends = new Map(near(to).map(({ i, cost }) => [i, cost]));
+  const ends = new Map(near(to, false).map(({ i, cost }) => [i, cost]));
   if (!ends.size) return null;
   // Dijkstra: a handful of waypoints, so a plain scan for the nearest open one does
   const cost = new Array(nodes.length).fill(Infinity);
