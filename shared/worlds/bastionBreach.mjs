@@ -156,6 +156,12 @@ const SOLIDS = [
   solid('gatehouse-flank-east-front', [7.575, 9], [0, 5.5], [9.8, 11.28], { kind: 'flank' }),
   solid('gallery-base-south', [9, 16.5], [0, BASTION_GALLERY_Y - 0.65], [8, 16], { kind: 'gallery-base', drawTo: BASTION_GALLERY_Y }),
   solid('gallery-base-north', [14, 16.5], [0, BASTION_GALLERY_Y - 0.65], [16, 22], { kind: 'gallery-base', drawTo: BASTION_GALLERY_Y }),
+  // stepped footings under the gallery's stair (each a body's rise under the slope): nobody walks in beneath it
+  ...Array.from({ length: Math.ceil(9 / 0.4) }, (_, i) => {
+    const z0 = -1 + i * 0.4, z1 = Math.min(8, z0 + 0.4), slope = BASTION_GALLERY_Y / 9;
+    const top = (z0 + 1) * slope - 0.45 * slope - 0.1;
+    return top < 0.3 ? null : solid(`gallery-stair-footing-${i}`, [10, 13.5], [0, top], [z0, z1], { kind: 'stair-footing' });
+  }).filter(Boolean),
 
   // Gallery Parapets
   solid('gallery-parapet-east', [14.8, 15.5], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.2], [8, 22]),
