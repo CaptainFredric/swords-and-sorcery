@@ -126,6 +126,9 @@ try {
   }
   const expect = how.world ?? how.arena ?? how.renown;
   await until(() => evaluate(`(()=>{const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.roomState==='PLAYING'&&s?.worldId==='${expect}'})()`), 'live match', 120000);
+  // an optional staged setup, named in the output (SS_SETUP: JS run in the page once the match is live, e.g. to wind
+  // Edge of Victory's clock to a later ring); never used for the default before/after captures
+  if (process.env.SS_SETUP) { await evaluate(process.env.SS_SETUP); await sleep(1500); }
   // the camera override and per-frame accounting (installed once; renders still come from the game's own loop)
   await evaluate(`(()=>{const r=window.__ssRuntime,R=r.renderer;R.info.autoReset=false;
     const render=R.render.bind(R);window.__cap={view:null,frames:0,calls:0,tris:0,dts:[],last:performance.now()};
@@ -146,7 +149,7 @@ try {
         heapMB:performance.memory?+(performance.memory.usedJSHeapSize/1048576).toFixed(1):null,
         pixelRatio:R.getPixelRatio(),size:[R.domElement.width,R.domElement.height]}})()`);
   };
-  const metrics = { worldId, mobile, url: base, at: new Date().toISOString(), playerView: await measure(5000), views: {} };
+  const metrics = { worldId, mobile, url: base, at: new Date().toISOString(), staged: process.env.SS_SETUP ?? null, playerView: await measure(5000), views: {} };
   await shot('00-player');
   const views = VIEWS[worldId] ?? [['overview', [40, 40, -40], [0, 0, 0]]];
   for (const [i, [name, from, to]] of views.entries()) {

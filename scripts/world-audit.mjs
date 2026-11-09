@@ -421,6 +421,53 @@ export function auditEdgeStages(world = getWorld(WORLD_IDS.RUINED_KEEP), config 
   });
 }
 
+/**
+ * When the ring closes to a stage's radius, every knight still standing outside it must be able to come back in
+ * without ever stepping outward (the boundary forbids that). From each place reachable at the previous stage that
+ * lies outside the new ring, search moves that never increase the distance to the centre (falls included); a place
+ * from which no such way reaches inside is a trap. Returns, per stage, how many places were outside and how many of
+ * them are traps (with a few examples).
+ */
+export function edgeInwardTraps(world = getWorld(WORLD_IDS.RUINED_KEEP), config = EDGE_CONFIG) {
+  const { center } = config;
+  const out = [];
+  const dist = (x, z) => Math.hypot(x - center.x, z - center.z);
+  for (let k = 1; k < config.stages.length; k += 1) {
+    const before = config.stages[k - 1].radius - config.playerClearance;
+    const after = config.stages[k].radius - config.playerClearance;
+    const flood = floodWorld(world, { limit: (x, z) => dist(x, z) <= before });
+    const outside = [...flood.cells.entries()].filter(([, c]) => dist(c.x, c.z) > after);
+    const byIJ = new Map();
+    for (const [key, c] of flood.cells) { const ij = `${c.i},${c.j}`; if (!byIJ.has(ij)) byIJ.set(ij, []); byIJ.get(ij).push(key); }
+    // a cell is safe if inside, or if some neighbour no further out (a run, or a drop) is safe: settle by distance
+    const safe = new Set([...flood.cells.entries()].filter(([, c]) => dist(c.x, c.z) <= after).map(([key]) => key));
+    const order = outside.sort((a, b) => dist(a[1].x, a[1].z) - dist(b[1].x, b[1].z));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [key, c] of order) {
+        if (safe.has(key)) continue;
+        const r = dist(c.x, c.z);
+        for (let di = -1; di <= 1 && !safe.has(key); di += 1) for (let dj = -1; dj <= 1; dj += 1) {
+          if (!di && !dj) continue;
+          for (const n of byIJ.get(`${c.i + di},${c.j + dj}`) ?? []) {
+            const m = flood.cells.get(n);
+            if (!safe.has(n) || dist(m.x, m.z) > r + 1e-6) continue;
+            // up no more than a step; down any drop (the knight steps or falls inward)
+            if (m.y > c.y + 0.66) continue;
+            if (!flood.bodyClear(m.x, m.z, Math.max(m.y, c.y))) continue;
+            safe.add(key); changed = true; break;
+          }
+          if (safe.has(key)) break;
+        }
+      }
+    }
+    const traps = order.filter(([key]) => !safe.has(key)).map(([, c]) => ({ x: +c.x.toFixed(2), y: +c.y.toFixed(2), z: +c.z.toFixed(2) }));
+    out.push({ second: config.stages[k].second, radius: config.stages[k].radius, outside: order.length, traps: traps.length, examples: cluster(traps).slice(0, 5) });
+  }
+  return out;
+}
+
 export function allWorlds() {
   // Greener Pastures is a tutorial run of over a kilometre: audited only when named
   return Object.values(WORLD_IDS).map(getWorld).filter((w) => w.id !== GREENER_PASTURES.id);
