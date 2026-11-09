@@ -676,12 +676,10 @@ try {
   for(let i=1;i<geometry.points.length;i++){
     const a=geometry.points[i-1],b=geometry.points[i];
     for(const t of [.22,.48,.75,1]){
-      // Humanlike finger movement with a small perpendicular wobble.
-      const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1;
-      const wobble=t===1?0:3;
+      const dx=b[0]-a[0],dy=b[1]-a[1];
       await nativeTouch('touchMove',[
-        a[0]+dx*t-dy/length*wobble,
-        a[1]+dy*t+dx/length*wobble,
+        a[0]+dx*t,
+        a[1]+dy*t,
       ]);
       await sleep(14);
     }
