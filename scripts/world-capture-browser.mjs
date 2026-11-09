@@ -72,7 +72,9 @@ const VIEWS = JSON.parse(process.env.SS_VIEWS ?? 'null') ?? {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const profile = await mkdtemp(join(tmpdir(), 'ss-world-capture-'));
 const size = mobile ? [844, 390] : [1280, 800];
-const chrome = spawn(chromeBin, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--use-angle=metal', '--enable-gpu',
+// SS_PERF=1: frames are not held to the display's refresh, so frame times measure the work, not vsync
+const perfFlags = process.env.SS_PERF ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [];
+const chrome = spawn(chromeBin, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--use-angle=metal', '--enable-gpu', ...perfFlags,
   '--ignore-gpu-blocklist', '--remote-allow-origins=*', `--window-size=${size[0]},${size[1]}`, `--remote-debugging-port=${port}`,
   `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 let cdp;
@@ -102,6 +104,8 @@ try {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: size[0], height: size[1], deviceScaleFactor: 2, mobile: true, screenOrientation: { type: 'landscapePrimary', angle: 90 } });
     await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   }
+  // SS_CPU_THROTTLE=4: the page's main thread runs this many times slower (a phone's CPU, roughly)
+  if (Number(process.env.SS_CPU_THROTTLE) > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.SS_CPU_THROTTLE) });
   await cdp.send('Page.navigate', { url: `${base}/?debug` });
   await until(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"), 'menu', 90000);
   await evaluate(`(()=>{const o=document.querySelector('[data-tutorial-onboarding-skip]');if(o&&o.offsetParent)o.click();
@@ -149,7 +153,8 @@ try {
         heapMB:performance.memory?+(performance.memory.usedJSHeapSize/1048576).toFixed(1):null,
         pixelRatio:R.getPixelRatio(),size:[R.domElement.width,R.domElement.height]}})()`);
   };
-  const metrics = { worldId, mobile, url: base, at: new Date().toISOString(), staged: process.env.SS_SETUP ?? null, playerView: await measure(5000), views: {} };
+  const metrics = { worldId, mobile, url: base, at: new Date().toISOString(), staged: process.env.SS_SETUP ?? null,
+    perf: Boolean(process.env.SS_PERF), cpuThrottle: Number(process.env.SS_CPU_THROTTLE) || 1, playerView: await measure(5000), views: {} };
   await shot('00-player');
   const views = VIEWS[worldId] ?? [['overview', [40, 40, -40], [0, 0, 0]]];
   for (const [i, [name, from, to]] of views.entries()) {
