@@ -112,11 +112,19 @@ export function floodWorld(world, { starts = world.spawnPoints ?? [], cell = AUD
       if (limit && !limit(x, z)) continue;
       const ground = surfaceHeightAt(x, z, c.y, world);
       if (ground === null) {
+        // (stepping over a wall's top onto floor beyond it is a drop, not a void: look one cell further)
+        const overWall = surfaceHeightAt(cx(i + di), cz(j + dj), c.y, world) !== null
+          && !bodyClear(x, z, c.y - 0.5, AUDIT.crouchHeight);
+        if (overWall) continue;
         if (bodyClear(x, z, c.y)) leaks.push({ x, z, y: c.y, kind: 'walk', fx: c.x, fz: c.z });
         else if (bodyClear(x, z, c.y, AUDIT.crouchHeight)) leaks.push({ x, z, y: c.y, kind: 'crouch', fx: c.x, fz: c.z });
-        // (a hop over a lip into nothing; a hop that lands on a slope or step above is a landing, not a leak)
+        // (a hop over a lip into nothing: past the lip, a cell with no ground under it and room for a body all the way
+        // down. A hop onto a slope or step above is a landing; a hop over a wall onto floor beyond it is a drop.)
         else if (bodyClear(x, z, c.y + AUDIT.jumpPeak, AUDIT.bodyHeight - 0.3)
-          && surfaceHeightAt(x, z, c.y + AUDIT.jumpPeak, world) === null) leaks.push({ x, z, y: c.y, kind: 'jump', fx: c.x, fz: c.z });
+          && surfaceHeightAt(x, z, c.y + AUDIT.jumpPeak, world) === null) {
+          const bx = cx(i + di), bz = cz(j + dj);
+          if (surfaceHeightAt(bx, bz, c.y + AUDIT.jumpPeak, world) === null && bodyClear(bx, bz, c.y)) leaks.push({ x, z, y: c.y, kind: 'jump', fx: c.x, fz: c.z });
+        }
         continue;
       }
       if (!bodyClear(x, z, ground)) continue;
