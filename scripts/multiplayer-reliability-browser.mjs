@@ -5,6 +5,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {observeAcceptanceWire} from './browser-acceptance-wire.mjs';
 const url=(process.env.MULTIPLAYER_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/multiplayer-reliability';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -32,6 +33,7 @@ async function connectBrowser(label,port){
   '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
+ b.wire=observeAcceptanceWire(label);
  const debuggerTarget=await waitFor(async()=>{
   const res=await fetch('http://127.0.0.1:'+port+'/json/list');
   return (await res.json()).find(t=>t.type==='page');
@@ -39,6 +41,7 @@ async function connectBrowser(label,port){
  b.ws=new WebSocket(debuggerTarget.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{b.ws.onopen=resolve;b.ws.onerror=reject;});
  b.ws.onmessage=e=>{const packet=JSON.parse(String(e.data));
+  b.wire.observe(packet);
   if(packet.method==='Runtime.exceptionThrown')b.errors.push(packet.params?.exceptionDetails?.text??'unknown');
   const next=b.pending.get(packet.id);if(!next)return;
   b.pending.delete(packet.id);if(packet.error)next.reject(Error(packet.error.message));else next.resolve(packet.result);
@@ -53,7 +56,7 @@ async function connectBrowser(label,port){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -64,7 +67,21 @@ async function connectBrowser(label,port){
 // Initial debugger probe must not depend upon a connected WebSocket. Used for
 // every wait, not only startup, so the error names the step that stalled.
 let stage='startup';
-async function waitFor(fn,label,attempts=180){stage=label;for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome timed out: '+label);}
+async function waitFor(fn, label, attempts = 180) {
+ stage = label;
+ console.log('[ACCEPTANCE WAIT]', new Date().toISOString(), label);
+ for (let i = 0; i < attempts; i++) {
+  try {
+   const result = await fn();
+   if (result) {
+    console.log('[ACCEPTANCE OBSERVED]', new Date().toISOString(), label);
+    return result;
+   }
+  } catch {}
+  await sleep(100);
+ }
+ throw Error('Chrome timed out: ' + label);
+}
 
 let host=null,guest=null;
 const summary="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,p=r?.localAuth,q=r?.localState,f=window.__frameProbe;return {playing:r?.playing??false,room:s?.roomCode,mode:s?.mode,world:s?.worldId,state:s?.roomState,tick:s?.tick,players:s?.players?.length,auth:p?.position,client:q?.position,grounded:p?.grounded,correction:r?.predictionError,fps:r?.fps,renderer:r?.world?.constructor?.name,inputEnabled:r?.input?.enabled,frameCount:f?.count,maxFrameGapMs:f?.maxGap,finiteCamera:Number.isFinite(r?.camera?.position?.y)};})()";
@@ -90,7 +107,7 @@ try {
   await guest.evaluate("window.__ssLink.ready(true)");
   await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.roomState==='PLAYING'"), 'host real rendered match',220);
   await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.roomState==='PLAYING'"), 'guest real rendered match',220);
-  const before=[await host.evaluate(summary),await guest.evaluate(summary)];
+  const before=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
   for(const v of before){
     assert.equal(v.mode,'HIGH_GROUNDS');
     assert.equal(v.world,'high-grounds');
@@ -98,9 +115,9 @@ try {
     assert.equal(v.renderer,'HighGroundsRenderer');
   }
   const samples=[];
-  // Control one focused browser at a time. Two independent Chromium windows
-  // cannot both hold desktop pointer lock simultaneously; exercising them
-  // sequentially still verifies both live multiplayer perspectives.
+  const movedByClient=[];
+  // The match advances during slow CDP evaluations. Check displacement on
+  // the wire and release W as soon as the authoritative assertion is met.
   for(const b of [host,guest]){
     await b.send('Page.bringToFront');
     await b.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
@@ -109,24 +126,33 @@ try {
       await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
     }
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
-    // Aim directly along the open 15m-wide central road towards map center (0, 0)
+    // Aim directly along the open 15m-wide central road towards map center (0, 0).
     await b.evaluate("(() => { const r = window.__ssRuntime, p = r?.localAuth?.position; if (r?.input && p) r.input.yaw = Math.atan2(p.x, p.z); })()");
-    await sleep(200);
-    const startPos = await b.evaluate("(() => { const p = window.__ssRuntime?.localAuth?.position; return p ? { x: p.x, z: p.z } : null; })()");
-    await b.key('W','rawKeyDown');
-    await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
-      b.label+' real W key reaches input controller',70);
-    for(let n=0;n<24;n++){
-      await sleep(275);
-      const sample=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
-      samples.push(sample);
-      const curr = await b.evaluate("(() => { const p = window.__ssRuntime?.localAuth?.position; return p ? { x: p.x, z: p.z } : null; })()");
-      if (curr && startPos && Math.hypot(curr.x - startPos.x, curr.z - startPos.z) > 0.8 && n >= 4) break;
+    assert.equal(b.wire.state?.roomState, 'PLAYING', b.label+' must begin W while the match is live');
+    assert.ok(b.wire.state?.position, b.label+' has an authoritative starting position');
+    b.wire.watchMovement();
+    stage = b.label+' W dispatch';
+    console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W down');
+    try {
+      await b.key('W','rawKeyDown');
+      await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
+        b.label+' real W key reaches input controller',70);
+      const movement = await waitFor(() => {
+        if (b.wire.movement.peak > 0.25 || b.wire.state?.roomState === 'FINISHED') return b.wire.movement;
+        return null;
+      }, b.label+' acknowledged W changes authoritative position', 180);
+      assert.ok(movement.peak > 0.25, b.label+' match finished before confirmed W displacement');
+      movedByClient.push(movement.peak);
+    } finally {
+      await b.key('W','keyUp');
+      console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W up');
     }
-    await b.key('W','keyUp');
-    await sleep(200);
   }
-  const after=[await host.evaluate(summary),await guest.evaluate(summary)];
+  const after=await waitFor(async()=>{
+    const pair=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
+    samples.push(pair);
+    return pair.every((v,i)=>v.tick>before[i].tick+10&&v.frameCount>before[i].frameCount+2)?pair:null;
+  },'both render frames and observe advancing server ticks after W release',25);
   for(let i=0;i<2;i++){
     assert.ok(after[i].tick>before[i].tick+10,'server simulation advanced independently of rendering');
     assert.ok(after[i].frameCount>before[i].frameCount+2,'browser still renders live WebGL frames');
@@ -139,10 +165,6 @@ try {
     assert.ok(s.auth&&Object.values(s.auth).every(Number.isFinite),'no corrupt network position');
     assert.ok(s.client&&Object.values(s.client).every(Number.isFinite),'no corrupt local prediction');
   }
-  const allObservations=[...samples, after];
-  const movedByClient=[0,1].map(i=>Math.max(0,...allObservations.map(pair=>
-    pair[i].auth&&before[i].auth?
-      Math.hypot(pair[i].auth.x-before[i].auth.x,pair[i].auth.z-before[i].auth.z):0)));
   console.log('[MULTIPLAYER MOVED BY CLIENT]', movedByClient);
   const moved=movedByClient.every(value=>value>.25);
   assert.ok(moved,'both independent browsers must advance real authoritative positions under keyboard input: ' + JSON.stringify(movedByClient));
@@ -165,7 +187,7 @@ try {
 }catch(e){
   console.error('[MULTIPLAYER CHROME FAILED]',stage,e.stack??String(e));
   await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),
-    browsers:browsers.map(b=>({label:b.label,errors:b.errors}))},null,2));
+    browsers:browsers.map(b=>({label:b.label,errors:b.errors,wire:b.wire.state,forward:b.wire.forward,movement:b.wire.movement}))},null,2));
   if(host)await host.screenshot('failure').catch(()=>{});
   if(guest)await guest.screenshot('failure').catch(()=>{});
   throw e;

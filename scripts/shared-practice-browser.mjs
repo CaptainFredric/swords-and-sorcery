@@ -5,6 +5,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {observeAcceptanceWire} from './browser-acceptance-wire.mjs';
 const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -32,6 +33,7 @@ async function connectBrowser(label,port){
   '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
+ b.wire=observeAcceptanceWire(label);
  const debuggerTarget=await waitFor(async()=>{
   const res=await fetch('http://127.0.0.1:'+port+'/json/list');
   return (await res.json()).find(t=>t.type==='page');
@@ -39,6 +41,7 @@ async function connectBrowser(label,port){
  b.ws=new WebSocket(debuggerTarget.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{b.ws.onopen=resolve;b.ws.onerror=reject;});
  b.ws.onmessage=e=>{const packet=JSON.parse(String(e.data));
+  b.wire.observe(packet);
   if(packet.method==='Runtime.exceptionThrown')b.errors.push(packet.params?.exceptionDetails?.text??'unknown');
   const next=b.pending.get(packet.id);if(!next)return;
   b.pending.delete(packet.id);if(packet.error)next.reject(Error(packet.error.message));else next.resolve(packet.result);
@@ -53,7 +56,7 @@ async function connectBrowser(label,port){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -64,7 +67,21 @@ async function connectBrowser(label,port){
 // Initial debugger probe must not depend upon a connected WebSocket. Used for
 // every wait, not only startup, so the error names the step that stalled.
 let stage='startup';
-async function waitFor(fn,label,attempts=180){stage=label;for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome timed out: '+label);}
+async function waitFor(fn, label, attempts = 180) {
+ stage = label;
+ console.log('[ACCEPTANCE WAIT]', new Date().toISOString(), label);
+ for (let i = 0; i < attempts; i++) {
+  try {
+   const result = await fn();
+   if (result) {
+    console.log('[ACCEPTANCE OBSERVED]', new Date().toISOString(), label);
+    return result;
+   }
+  } catch {}
+  await sleep(100);
+ }
+ throw Error('Chrome timed out: ' + label);
+}
 // Switching Chrome clients can release pointer lock. Click the visible
 // Resume button or the arena canvas, never a fixed point over the menu.
 async function focusArena(browser) {
@@ -189,14 +206,21 @@ try{
  }
  console.log('[SHARED HOST SETTLED]', JSON.stringify(approached));
  // Interact is a toggle. One real press, then wait for the server to confirm.
+ stage = 'host T mount dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host T mount');
  await host.tap('T');
  await waitFor(() => host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),
    'host confirmed mounted in apparatus via T', 45);
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"');return Boolean(rig?.root?.visible);})()"),'guest renders host occupant in apparatus',100);
+ stage = 'mounted host and guest screenshots';
+ console.log('[ACCEPTANCE RENDER]', JSON.stringify({ host: await host.frames(), guest: await guest.frames() }));
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
  const start=await guest.evaluate("(() => {const r=window.__ssRuntime;return {...r.localAuth.position};})()");
  await focusArena(guest);
+ guest.wire.watchMovement();
+ stage = 'guest W dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'guest W down');
  await guest.key('W','rawKeyDown');
  await waitFor(async()=>{
   await guest.evaluate("new Promise(r=>requestAnimationFrame(r))");
@@ -235,6 +259,8 @@ try{
  // Shared Practice supplies personal Prowess through its normal rules.
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
    'real host Prowess readiness replicated',100);
+ stage = 'host Space ascent dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host Space ascent');
  await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
  const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>4.5&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
    'guest observes actual rotor-powered vertical flight',180);
@@ -248,6 +274,8 @@ try{
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun===false"),
    'remote Dash release stops offensive run',100);
  const beforeEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId};})()");
+ stage = 'host T ejection dispatch';
+ console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host T ejection');
  await host.tap('T');
  const ejected=await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"'),trace=window.__flightMotionTrace??[];const falling=trace.find(f=>f.ejected&&!f.grounded&&f.y>.2);return m?.operatorId===null&&p?.operatingFightFlightId==null&&falling?{y:falling.y,ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId,shotSeq:m.shotSeq}:null;})()"),
    'guest captures real airborne ejection before subsequent landing',140);
@@ -283,7 +311,7 @@ try{
  console.error('[SHARED PRACTICE CHROME FAILED]','last wait: '+stage,e.stack??String(e));
  const hostDiag=await host?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight,input:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);
  const guestDiag=await guest?.evaluate("(() => ({frames:window.__frameProbe?{count:window.__frameProbe.count,sinceLastMs:Math.round(performance.now()-window.__frameProbe.last)}:null,localAuth:window.__ssRuntime?.localAuth,fightFlight:window.__ssRuntime?.latestSnapshot?.fightFlight}))()").catch(()=>null);
- await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostDiag,guestDiag},null,2));
+ await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),hostErrors:host?.errors,guestErrors:guest?.errors,hostWire:host?.wire.state,guestWire:guest?.wire.state,hostDiag,guestDiag},null,2));
  if(host)await host.screenshot('failure').catch(()=>{});
  if(guest)await guest.screenshot('failure').catch(()=>{});
  throw e;
