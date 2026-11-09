@@ -682,14 +682,12 @@ try {
         a[0]+dx*t,
         a[1]+dy*t,
       ]);
-      await evaluate("new Promise(r=>requestAnimationFrame(r))");
-      await sleep(40);
+      await sleep(15);
     }
     await nativeTouch('touchMove',b);
-    await evaluate("new Promise(r=>requestAnimationFrame(r))");
-    await sleep(40);
     let stage=null;
-    for(let wait=0;wait<35;wait++){
+    for(let wait=0;wait<25;wait++){
+      await evaluate("new Promise(r=>requestAnimationFrame(r))");
       stage=await evaluate(`(() => {
         const t=window.__ssRuntime.touch;
         return {index:t.ritual?.index,complete:Boolean(t.ritual?.completed),
@@ -700,8 +698,7 @@ try {
       const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
       const nudge=[b[0]+(dx/len)*((wait%2===0)?1.5:0),b[1]+(dy/len)*((wait%2===0)?1.5:0)];
       await nativeTouch('touchMove',nudge);
-      await evaluate("new Promise(r=>requestAnimationFrame(r))");
-      await sleep(60);
+      await sleep(30);
     }
     if(!stage||!(stage.index>=i||stage.complete)||(stage.progress<previous)){
       const diagnostics=await evaluate(`(() => {

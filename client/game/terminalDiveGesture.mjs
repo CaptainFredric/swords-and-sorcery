@@ -3,7 +3,7 @@
 // Waypoints follow the actual editable Flight buttons in game-layer space.
 export const RITUAL_UNIT=240; // legacy stencil adapter only
 export const RITUAL_TOLERANCE=39;
-export const RITUAL_TIMEOUT_MS=45000;
+export const RITUAL_TIMEOUT_MS=90000;
 export const RITUAL_HALO_STEPS=0; // kept for older diagnostics; the halo is gone
 export const VALKYRIE_RUNE_ACTIONS=Object.freeze(['jump','ultimate','dash','siegeSkill','jump']);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
