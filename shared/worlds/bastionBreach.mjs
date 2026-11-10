@@ -148,6 +148,21 @@ const SOLIDS = [
   // Upper Arch Wall & Winch Housing (Static, Always active, overhead clearance Y = 3.940m)
   solid('gatehouse-arch-overhead', [-1.696, 1.696], [3.940, 8.636], [7.000, 10.600]),
 
+  // --- The gatehouse's flanks: masonry from the breach curtain back to the sanctum on both sides of the passage
+  // (the ground there was an open pit a knight walked into and fell from), and the base under the east gallery's
+  // walk (it stops a step under the walk, so the ramp's top runs onto it without catching; drawn up to the walk)
+  solid('gatehouse-flank-west', [-15, -4], [0, 5.5], [9.8, 16], { kind: 'flank' }),
+  solid('gatehouse-flank-east', [4, 9], [0, 5.5], [11.28, 16], { kind: 'flank' }),
+  solid('gatehouse-flank-east-front', [7.575, 9], [0, 5.5], [9.8, 11.28], { kind: 'flank' }),
+  solid('gallery-base-south', [9, 16.5], [0, BASTION_GALLERY_Y - 0.65], [8, 16], { kind: 'gallery-base', drawTo: BASTION_GALLERY_Y }),
+  solid('gallery-base-north', [14, 16.5], [0, BASTION_GALLERY_Y - 0.65], [16, 22], { kind: 'gallery-base', drawTo: BASTION_GALLERY_Y }),
+  // stepped footings under the gallery's stair (each a body's rise under the slope): nobody walks in beneath it
+  ...Array.from({ length: Math.ceil(9 / 0.4) }, (_, i) => {
+    const z0 = -1 + i * 0.4, z1 = Math.min(8, z0 + 0.4), slope = BASTION_GALLERY_Y / 9;
+    const top = (z0 + 1) * slope - 0.45 * slope - 0.1;
+    return top < 0.3 ? null : solid(`gallery-stair-footing-${i}`, [10, 13.5], [0, top], [z0, z1], { kind: 'stair-footing' });
+  }).filter(Boolean),
+
   // Gallery Parapets
   solid('gallery-parapet-east', [14.8, 15.5], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.2], [8, 22]),
   solid('gallery-parapet-west', [8.8, 9.4], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.1], [9, 15]),
@@ -269,19 +284,19 @@ const NAVIGATION_NODES = Object.freeze([
   nav('breach-north', 0, 0, 15),
 
   // East Flank Gallery
-  nav('ramp-foot', 11.5, 0, 0),
-  nav('ramp-mid', 11.5, 1.25, 4),
+  nav('ramp-foot', 11.5, 0.28, 0),
+  nav('ramp-mid', 11.5, 1.39, 4),
   nav('gallery-mid', 11.5, BASTION_GALLERY_Y, 12),
   nav('gallery-end', 11.5, BASTION_GALLERY_Y, 18),
 
   // Inner Sanctum (Objective 2)
   nav('sanctum-entry', 0, 0, 18),
   nav('sanctum-aisle-w', -7.5, 0, 24),
-  nav('sanctum-west', -5, 0, 25),
+  nav('sanctum-west', -5, 0.15, 25),
   nav('sanctum-center', 0, 0.3, 25),
-  nav('sanctum-east', 5, 0, 25),
+  nav('sanctum-east', 5, 0.15, 25),
   nav('sanctum-aisle-e', 7.5, 0, 24),
-  nav('sanctum-rear', 0, 0, 30),
+  nav('sanctum-rear', 0, 0.15, 30),
 
   // Defender Base
   nav('def-base-west', -4, 0, 34),
