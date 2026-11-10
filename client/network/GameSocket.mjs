@@ -10,7 +10,26 @@ export function gameServerUrl(doc = globalThis.document, loc = globalThis.locati
   return `${scheme}//${loc.host}/ws`;
 }
 
+// The server sends every snapshot as JSON that opens with its type, and each
+// one carries the whole room. One-off news (hits, mounts, kills) travels in
+// separate messages that are never skipped.
+const SNAPSHOT_PREFIX = '{"type":"snapshot"';
+
+// Run `run` as its own task, after the messages already queued for the page.
+// A MessageChannel is not throttled in background tabs, unlike setTimeout.
+function taskPoster(run) {
+  if (typeof MessageChannel !== 'function') return () => setTimeout(run, 0);
+  const channel = new MessageChannel();
+  channel.port1.onmessage = run;
+  channel.port1.unref?.();
+  return () => channel.port2.postMessage(null);
+}
+
 export class GameSocket {
+  #pendingSnapshot = null;
+  #snapshotFlushQueued = false;
+  #postSnapshotFlush = null;
+
   constructor({ storage = globalThis.localStorage } = {}) {
     this.storage = storage;
     this.ws = null;
@@ -22,6 +41,8 @@ export class GameSocket {
     this.roomCode = null;
     this.latestSnapshot = null;
     this.snapshotReceivedAt = 0;
+    // Snapshots the page was too busy to handle before a newer one arrived.
+    this.staleSnapshotsSkipped = 0;
     this.serverClock = new ServerClock();
     this.pingMs = 0;
     this.intentionalClose = false;
@@ -80,9 +101,41 @@ export class GameSocket {
     return this.connectPromise;
   }
 
+  // The server already drops stale snapshots for a connection that backs up,
+  // but the browser reads the socket promptly and queues every message for
+  // the page. A page that falls behind (software WebGL, a slow phone, a long
+  // frame) would otherwise work through each old snapshot in turn, and the
+  // lag grows for as long as it stays behind: 44 s in one CI run. Keep only
+  // the newest snapshot and handle it once the queued messages are read.
   #message(event) {
+    const receivedAt = performance.now();
+    if (typeof event.data === 'string' && event.data.startsWith(SNAPSHOT_PREFIX)) {
+      if (this.#pendingSnapshot) this.staleSnapshotsSkipped++;
+      this.#pendingSnapshot = { data: event.data, receivedAt };
+      if (!this.#snapshotFlushQueued) {
+        this.#snapshotFlushQueued = true;
+        (this.#postSnapshotFlush ??= taskPoster(() => {
+          this.#snapshotFlushQueued = false;
+          this.#flushSnapshot();
+        }))();
+      }
+      return;
+    }
+    // Everything else keeps its place after the snapshots sent before it.
+    this.#flushSnapshot();
+    this.#handle(event.data, receivedAt);
+  }
+
+  #flushSnapshot() {
+    const pending = this.#pendingSnapshot;
+    if (!pending) return;
+    this.#pendingSnapshot = null;
+    this.#handle(pending.data, pending.receivedAt);
+  }
+
+  #handle(data, receivedAt) {
     let message;
-    try { message = JSON.parse(event.data); } catch { return; }
+    try { message = JSON.parse(data); } catch { return; }
     if (message.type === 'profile') {
       this.profileReady = true;
       if (message.token) {
@@ -116,7 +169,11 @@ export class GameSocket {
     }
     if (message.type === 'snapshot') {
       this.latestSnapshot = message;
-      this.snapshotReceivedAt = performance.now();
+      this.snapshotReceivedAt = receivedAt;
+      // Tell the server which snapshot this page has read, so it never fills
+      // the connection with more than the page can keep up with.
+      if (Number.isFinite(message.tick) && typeof message.roomCode === 'string')
+        this.send({ type: 'snapshotAck', tick: message.tick, roomCode: message.roomCode });
       this.serverClock.observe(message.serverTime, this.snapshotReceivedAt);
     }
     if (message.type === 'pong' && Number.isFinite(message.sentAt)) {
@@ -127,6 +184,7 @@ export class GameSocket {
   }
 
   #closed() {
+    this.#flushSnapshot();
     this.profileReady = false;
     this.emit('connection', { connected: false });
     if (this.intentionalClose) return;
@@ -218,6 +276,7 @@ export class GameSocket {
 
   close({ clearSession = false } = {}) {
     this.intentionalClose = true;
+    this.#pendingSnapshot = null;
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     this.connectPromise = null;
