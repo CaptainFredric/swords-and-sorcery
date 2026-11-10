@@ -56,7 +56,7 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
-import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
+import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
@@ -3339,7 +3339,10 @@ export class GameRuntime {
     const victim = this.#bodyPosition(event.targetId);
     const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
     if (event.targetId !== me) {
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
+      // (the way the attacker's blade was going as it met: his aim and the cut, as the server swept it)
+      const aim = event.playerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.playerId);
+      const travel = aim && Number.isFinite(aim.yaw) ? cutTravel(strike, aim.yaw, aim.pitch ?? 0) : null;
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker });
       this.remotePlayers.flashHit(event.targetId);
     }
     // a Sundering blow: its weight made felt and seen (a deep whump under the hit, heavier sparks and a shock ring)
@@ -3382,7 +3385,10 @@ export class GameRuntime {
     }
     // (a guard a ram broke caves in within the ram's own sound and sparks: #steelRam)
     if (point && event.defenderId !== me && !event.ram) {
-      this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry });
+      // (the blade met the guard where it met the body: the server's point; sparks scrape on along the cut's way)
+      const aim = event.attackerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.attackerId);
+      const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
+      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
     }
     const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;

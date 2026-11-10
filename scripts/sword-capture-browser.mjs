@@ -75,7 +75,7 @@ try {
   await poll(() => evaluate('Boolean(window.__ssLink?.playingLocally && window.__ssRuntime?.playing && window.__ssRuntime?.localAuth)', 5000), 'inspection practice running', 120000);
   await sleep(1200);
   await evaluate("document.querySelector('#practice-drawer-close')?.click()");
-  const dummy = flag('--dummy');
+  const dummy = flag('--dummy') || flag('--dummy-guard');
   if (dummy) {
     await evaluate("window.__ssLink.practiceSpawnDummy('PASSIVE')");
     await sleep(600);
@@ -84,7 +84,13 @@ try {
   await evaluate(`(() => {
     const rt = window.__ssRuntime, link = window.__ssLink, me = rt.localAuth;
     const dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy');
-    if (dummy) link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x, y: me.position.y, z: me.position.z - 1.9 }, vitals: true, ai: false });
+    if (dummy) {
+      link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x, y: me.position.y, z: me.position.z - 1.9 }, vitals: { refill: true }, ai: { suspended: true } });
+      if (${flag('--dummy-guard')}) link.stageInspectionActor({ actorId: dummy.id, pose: 'guard' });
+      // (kept on his feet: his vitals refilled as each chain begins, so ten chains land on him)
+      // (a guarding dummy keeps the stamina his guard has left: it is meant to break)
+      window.__dummyRefill = setInterval(() => link.stageInspectionActor({ actorId: dummy.id, vitals: ${flag('--dummy-guard')} ? { health: 100 } : { refill: true } }), 2080);
+    }
     rt.input.yaw = 0; rt.input.pitch = 0;
     link.stageInspectionActor({ actorId: rt.playerId, position: dummy ? 'face_target' : undefined });
     rt.setInspectionSplit(${size.split});
@@ -93,7 +99,8 @@ try {
     const c = { x: p.x - 1.35, y: p.y + 1.65, z: p.z - 1.9 };
     rt.flyPose = { position: c, yaw: Math.atan2(-(p.x - c.x), -(p.z - c.z)), pitch: Math.atan2(p.y + 1.15 - c.y, Math.hypot(p.x - c.x, p.z - c.z)) };
     rt.syncInspection();
-    rt.setInspectionUiMode('clean');
+    // (the canvas is recorded without the page's own overlays either way; on a phone the touch buttons must stay)
+    rt.setInspectionUiMode(${size.mobile} ? 'gameplay' : 'clean');
   })()`);
   // real input: focus the canvas (pointer lock, as a player clicks in), then the button
   await cdp.send('Page.bringToFront');
@@ -102,9 +109,17 @@ try {
     for (const type of ['mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, ...centre, button: 'left', clickCount: 1 });
     // (a word sent to the page while its pointer lock is changing can go unanswered: let it settle first)
     await sleep(1200);
+    if (process.env.CAPTURE_DEBUG) {
+      for (let k = 0; k < 6; k += 1) {
+        const r = await cdp.send('Runtime.evaluate', { expression: 'JSON.stringify({en: window.__ssRuntime.input.enabled, lock: !!document.pointerLockElement, fps: window.__ssRuntime.fps, vis: document.visibilityState})', returnByValue: true }, 3000).catch((e) => ({ error: e.message }));
+        console.log('[DEBUG]', k, JSON.stringify(r.result?.value ?? r.error));
+        await sleep(700);
+      }
+    }
     await poll(() => evaluate('window.__ssRuntime.input.enabled', 4000), 'input enabled');
   }
   // the authoritative timeline and the frames' clock, recorded in the page
+  stage = 'timeline'; if (process.env.CAPTURE_DEBUG) console.log('[STAGE] timeline');
   await evaluate(`(() => {
     const rt = window.__ssRuntime;
     window.__swordRun = { events: [], frames: [] };
@@ -113,11 +128,12 @@ try {
     requestAnimationFrame(tick);
   })()`);
   // the canvas recorded in the page: a WebM at the render rate, and a JPEG every third frame for the GIF and sheet
+  stage = 'recorder'; if (process.env.CAPTURE_DEBUG) console.log('[STAGE] recorder');
   await evaluate(`(() => {
     const rt = window.__ssRuntime, canvas = rt.renderer.domElement;
     const rec = window.__swordRec = { chunks: [], stills: [], n: 0, on: true };
     const stream = canvas.captureStream(60);
-    rec.recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 9e6 });
+    rec.recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 4e6 });
     rec.recorder.ondataavailable = (e) => { if (e.data.size) rec.chunks.push(e.data); };
     rec.recorder.start(250);
     const w = ${size.split ? 960 : 844}, h = Math.round(w * canvas.height / canvas.width);
@@ -152,6 +168,7 @@ try {
     };
     requestAnimationFrame(grab);
   })()`);
+  stage = 'hold'; if (process.env.CAPTURE_DEBUG) console.log('[STAGE] hold');
   const pressedAt = Date.now() / 1000;
   if (size.mobile) {
     const button = await evaluate("(() => { const b = document.querySelector('[data-action=attack]')?.getBoundingClientRect(); return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null; })()");
@@ -165,15 +182,21 @@ try {
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...centre, button: 'left', buttons: 0, clickCount: 1 });
   }
   await sleep(1400);
+  stage = 'collect'; if (process.env.CAPTURE_DEBUG) console.log('[STAGE] collect');
   // the recording and its stills, out of the page
   await evaluate(`(async () => { const rec = window.__swordRec; rec.on = false; rec.recorder.stop(); await new Promise((r) => setTimeout(r, 400)); })()`);
   const toBase64 = "(blob) => new Promise((r) => { const f = new FileReader(); f.onload = () => r(String(f.result).split(',')[1]); f.readAsDataURL(blob); })";
-  const webm = await evaluate(`(async () => (${toBase64})(new Blob(window.__swordRec.chunks, { type: 'video/webm' })))()`);
-  await writeFile(join(out, `${label}.webm`), Buffer.from(webm, 'base64'));
+  // (in slices: a whole recording is too large for one reply)
+  const bytes = await evaluate(`(() => { window.__swordRec.blob = new Blob(window.__swordRec.chunks, { type: 'video/webm' }); return window.__swordRec.blob.size; })()`);
+  const parts = [];
+  for (let from = 0; from < bytes; from += 2_000_000) {
+    parts.push(Buffer.from(await evaluate(`(async () => (${toBase64})(window.__swordRec.blob.slice(${from}, ${from + 2_000_000})))()`, 60000), 'base64'));
+  }
+  await writeFile(join(out, `${label}.webm`), Buffer.concat(parts));
   const stillCount = await evaluate('window.__swordRec.stills.length');
   const frames = [];
   for (let i = 0; i < stillCount; i += 20) {
-    const batch = await evaluate(`(async () => Promise.all(window.__swordRec.stills.slice(${i}, ${i + 20}).map(async (s) => ({ at: s.at, contact: s.contact, data: await (${toBase64})(s.blob) }))))()`);
+    const batch = await evaluate(`(async () => Promise.all(window.__swordRec.stills.slice(${i}, ${i + 20}).map(async (s) => ({ at: s.at, contact: s.contact, data: await (${toBase64})(s.blob) }))))()`, 60000);
     frames.push(...batch);
   }
   const run = await evaluate('window.__swordRun');

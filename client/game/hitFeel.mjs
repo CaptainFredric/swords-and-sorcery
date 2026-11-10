@@ -1,7 +1,23 @@
 // How a landed blow should feel: where its burst appears, how long the attacker's swing freezes, how hard the view
 // kicks. Pure, so it can be tested; GameRuntime plays the result.
 
+import { aimFrame, bladeDirection } from '../../shared/src/blade.mjs';
+
 const CHEST = 1.2;
+
+/**
+ * Which way the blade was travelling as it met (a unit world vector), from the attacker's aim and the cut (0 forehand,
+ * 1 backhand, 2 the chop): the server's own blade (shared/src/blade.mjs) at its contact, a hair either side. Sparks are
+ * thrown along it, the slash's arc drawn across it: a blow seen going the way it went.
+ */
+export function cutTravel(kind = 0, yaw = 0, pitch = 0) {
+  const frame = aimFrame(yaw, pitch);
+  const a = bladeDirection(kind, -0.004, frame);
+  const b = bladeDirection(kind, 0.004, frame);
+  const d = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+  const l = Math.hypot(d.x, d.y, d.z) || 1;
+  return { x: d.x / l, y: d.y / l, z: d.z / l };
+}
 
 /** Where a blow lands: the victim's chest, pulled a little toward the attacker so the burst sits on the armour. */
 export function impactPoint(victim, attacker) {
@@ -35,6 +51,22 @@ export function hitstopSeconds({ strike = 0, kill = false, quality = 1 } = {}) {
 export function hitKick({ strike = 0, kill = false, quality = 1 } = {}) {
   if (kill) return 1;
   return (strike >= 2 ? 0.8 : 0.5) * (0.5 + 0.5 * clamp01(quality));
+}
+
+/**
+ * The attacker's body seen from outside holds still for an instant as his blow lands (as the first-person arms do),
+ * then catches back up with his chain before its next swing: the time his body is shown at, `now` seconds, a blow
+ * having landed at `stop.at` and held `stop.hold`. Only the body's pose is held: no contact, no timing of the server's.
+ */
+export const BODY_HITSTOP = Object.freeze({ catchUp: 0.16 });
+export function hitstopShownAt(now, stop) {
+  if (!stop || !Number.isFinite(stop.at) || !(stop.hold > 0)) return now;
+  const e = now - stop.at;
+  if (e <= 0) return now;
+  if (e < stop.hold) return stop.at;
+  const span = stop.hold + BODY_HITSTOP.catchUp;
+  if (e < span) return stop.at + (e - stop.hold) * (span / BODY_HITSTOP.catchUp);
+  return now;
 }
 
 /** Whether a blow reads as glancing (a scrape across the armour rather than a clean cut): the low end of the range. */
