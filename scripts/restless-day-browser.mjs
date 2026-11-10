@@ -66,10 +66,16 @@ try{
  assert.ok(moved.length>=1,'at least one live bot should be moving');
  // Stage the local knight beside its real initial ladder. Only positioning is
  // assisted; pickup and placement go through the actual Interact input path.
- await evaluate(`(()=>{
-   const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
+ // The attacking bots shoulder both ladders within seconds of the start, so a
+ // bot already carrying ladder-a is staged to set it down (the mode's own rule).
+ await evaluate(`(async()=>{
+   const {setDownRestlessLadder}=await import('/shared/sim/restlessDayMode.mjs');
+   const r=window.__ssRuntime,room=r.socket.local.room,la=room.restlessDay.ladders.find(l=>l.id==='ladder-a');
+   const holder=la?.holderId&&room.players.get(la.holderId);
+   if(holder&&holder.id!==r.playerId)setDownRestlessLadder(room,holder,r.socket.serverNow());
+   const a=room.players.get(r.playerId);
    r.input.enabled=true;r.input.pointerLocked=true;
-   a.position={x:-10,y:0,z:-68};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
+   a.position={x:la.position.x,y:la.position.y??0,z:la.position.z};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
    if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
    r.input.interact();
    return true;
