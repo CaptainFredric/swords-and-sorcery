@@ -12,7 +12,8 @@ import { resolve } from 'node:path';
 const args = process.argv.slice(2);
 const rootAt = args.indexOf('--root');
 const root = resolve(rootAt >= 0 ? args[rootAt + 1] : '.');
-const [mode = 'RESTLESS_DAY', worldId = 'restless-day', secondsArg = '420'] = args.filter((a, i) => !a.startsWith('--') && (rootAt < 0 || i !== rootAt + 1));
+const valueAt = new Set(['--root', '--seed', '--human'].map((f) => args.indexOf(f) + 1).filter((i) => i > 0));
+const [mode = 'RESTLESS_DAY', worldId = 'restless-day', secondsArg = '420'] = args.filter((a, i) => !a.startsWith('--') && !valueAt.has(i));
 const seconds = Number(secondsArg);
 const load = (p) => import(pathToFileURL(resolve(root, p)).href);
 
@@ -20,9 +21,12 @@ const { Room } = await load('shared/sim/Room.mjs');
 const { stepRoom } = await load('shared/sim/combat.mjs');
 const { stepBotControllers } = await load('shared/sim/BotController.mjs');
 const { TEAMS } = await load('shared/src/teams.mjs');
+const { applyRoomCommand } = await load('shared/sim/wire.mjs');
 
 // a fixed random stream, the same on both checkouts
-let seed = 20261109;
+const seedAt = args.indexOf('--seed');
+let seed = seedAt >= 0 ? Number(args[seedAt + 1]) : 20261109;
+const seedGiven = seed;
 const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
 Math.random = random;
 
@@ -31,20 +35,38 @@ const human = room.addPlayer({ id: 'observer', token: 't', name: 'Observer', tea
 room.provisionModeActors(0);
 room.startMatch(1);
 const start = 1;
-const log = { mode, worldId, root, seconds, phases: [], events: {}, voidDeaths: 0, kills: 0, stuck: [], samples: [] };
+// --human idle | leave | carry: what the one human on the attacking side does (stands idle; disconnects at 60 s; picks
+// up the nearest ladder at the start and carries it toward the wall, then stands with it)
+const humanAt = args.indexOf('--human');
+const humanMode = humanAt >= 0 ? args[humanAt + 1] : 'idle';
+const log = { mode, worldId, root, seconds, seed: seedGiven, humanMode, phases: [], events: {}, voidDeaths: 0, kills: 0, stuck: [], samples: [], first: {}, blockedSec: 0 };
+const firstEvent = { restlessLadderPicked: 'firstPickup', restlessLadderPlaced: 'firstPlacement', renownerSwordWarn: 'renownerEngaged' };
 const last = new Map();
 let phase = null;
 const abyss = room.world.abyssY ?? -9;
 for (let tick = 0; tick < seconds * 30 && room.state === 'PLAYING'; tick += 1) {
   const now = start + tick / 30;
   human.input = { forward: 0, right: 0, yaw: human.yaw ?? 0, pitch: 0 };
+  if (humanMode === 'leave' && tick === 60 * 30) { human.connected = false; human.disconnectExpiresAt = now + 20; }
+  if (humanMode === 'carry' && room.restlessDay) {
+    // walk to the nearest ladder, shoulder it, carry it north (a human's wire command), then stand holding it
+    const l = room.restlessDay.ladders.reduce((b, x) => (!b || Math.hypot(x.position.x - human.position.x, x.position.z - human.position.z) < Math.hypot(b.position.x - human.position.x, b.position.z - human.position.z) ? x : b), null);
+    if (!human.restlessCarrying && l?.state === 'available' && !human.carriedOnce) {
+      const d = Math.hypot(l.position.x - human.position.x, l.position.z - human.position.z);
+      if (d < 3) { human.yaw = Math.PI; applyRoomCommand(room, human, { type: 'siegeOperate' }, now); human.carriedOnce = true; }
+      else human.input = { forward: 1, right: 0, yaw: Math.atan2(-(l.position.x - human.position.x), -(l.position.z - human.position.z)), pitch: 0 };
+    } else if (human.restlessCarrying && human.position.z < -50) human.input = { forward: 1, right: 0, yaw: Math.PI, pitch: 0 };
+  }
   // (as the server: in Edge of Victory every knight hunts every other)
   stepBotControllers(room, now, room.world, mode === 'EDGE_OF_VICTORY' ? { random, targetKinds: ['human', 'bot'] } : { random });
   stepRoom(room, 1 / 30, now, room.world);
   for (const e of room.events.splice(0)) {
     log.events[e.type] = (log.events[e.type] ?? 0) + 1;
+    if (firstEvent[e.type] && log.first[firstEvent[e.type]] === undefined) log.first[firstEvent[e.type]] = +(now - start).toFixed(1);
+    if (e.type === 'restlessCurtainBreached') log.first[e.wall === 'outer' ? 'outerBreach' : 'innerBreach'] = +(now - start).toFixed(1);
     if (e.type === 'kill' || e.type === 'playerKilled' || e.type === 'death') log.kills += 1;
   }
+  log.lastAt = +(now - start).toFixed(1);
   const current = room.restlessDay?.phase ?? room.objectiveState?.phase ?? null;
   if (current !== phase) { phase = current; log.phases.push({ phase, at: +(now - start).toFixed(1) }); }
   for (const p of room.players.values()) {
@@ -66,6 +88,9 @@ for (let tick = 0; tick < seconds * 30 && room.state === 'PLAYING'; tick += 1) {
       attackersAt: [...room.players.values()].filter((p) => p.team === TEAMS.ATTACKERS && p.alive && p.actorKind === 'bot').map((p) => Math.round(p.position.z)) });
   }
 }
-log.finish = { state: room.state, winner: room.winnerTeam ?? null, reason: room.finishReason ?? null };
+log.finish = { state: room.state, winner: room.winnerTeam ?? null, reason: room.finishReason ?? null, at: room.state === 'FINISHED' ? log.lastAt : null };
+log.siege = room.restlessDay?.siege?.stats ?? null;
+// seconds in which some living bot stood still while it had somewhere to be (the 15 s samples, summed)
+log.blockedSec = log.stuck.length * 15;
 log.stuckBots = new Set(log.stuck.map((s) => s.id)).size;
 console.log(JSON.stringify(log, null, 1));
