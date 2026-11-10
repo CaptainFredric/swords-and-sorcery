@@ -24,6 +24,7 @@
 // View space: +x right, +y up, -z ahead (the camera looks down -z).
 
 import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { aimFrame, bladeDirection } from '../../shared/src/blade.mjs';
 import { normalize } from './swordArmIK.mjs';
 
 const DEG = Math.PI / 180;
@@ -225,6 +226,8 @@ function settle(keys, restTurn, startTurn = restTurn) {
   return Object.freeze(keys.map((k) => Object.freeze(k)));
 }
 
+// the kinetic chain's delays (seconds): the body leads the hand by a beat, and the blade trails it a touch
+export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
 const [C1, C2, C3] = SWORD_STRIKE_TIMES;
 const { early: EARLY, late: LATE } = MELEE_CONTACT.window;
 const REST_TURN = quatFromFrame(leading(REST_ARM.edge, REST_ARM.blade), normalize(REST_ARM.blade));
@@ -234,7 +237,106 @@ const rest = (t, extra = {}) => key(t, REST_ARM.wrist, REST_ARM.blade, REST_ARM.
 // straight away takes over from the settle)
 export const COMBO_END = C3 + 0.55;
 
-export const COMBO = settle([
+// --- the drawn blade on the server's. At each strike's contact the blade you see passes through where the server's
+// blade is (shared/src/blade.mjs: a blade along `bladeDirection` from the eyes, along the aim at its contact), so the
+// arc drawn is the arc that is tested. The authored path is kept as it is and turned, as a whole, about the fist: one
+// turn per strike, the least that lays its blade at the contact through the server's (of the points of the server's
+// blade within the drawn one's reach, the one needing the least turn), eased in through the wind-up and out through
+// the follow-through. A turn that is the same from frame to frame cannot stall, reverse or hurry the cut: the motion
+// is the authored one, only aimed. scripts/fp-sword-audit.mjs measures how far apart the two blades are left.
+// (eased in as each cut is already driving: a side cut's cock and the heavy strike's raised, held sword are left as
+// authored, in view; out through every follow-through. The heavy strike's keys are not pre-aimed: its drive keeps the
+// authored arc, so it stays the hardest of the three)
+export const LOCK = Object.freeze({ ramps: Object.freeze([Object.freeze({ inFrom: 0.12, inTo: 0.035 }), Object.freeze({ inFrom: 0.12, inTo: 0.035 }),
+  Object.freeze({ inFrom: 0.1, inTo: 0.03, preAim: false })]), outFrom: 0.06, outTo: 0.24, near: 0.6, far: 2.2, reach: 1.1 });
+const VIEW_AIM = aimFrame(0, 0);
+/** The ordinary chain's strikes as the server swings them: each one's contact and which cut it is. */
+export const COMBO_STRIKE_KINDS = Object.freeze(SWORD_STRIKE_TIMES.map((contact, kind) => Object.freeze({ contact, kind })));
+
+// a direction in the aim's frame, as it lies in a view leaned by { pitch, roll, yaw } (radians; the camera turns YXZ)
+function unlean(v, { pitch, roll, yaw }) {
+  const rx = (p, a) => [p[0], p[1] * Math.cos(a) - p[2] * Math.sin(a), p[1] * Math.sin(a) + p[2] * Math.cos(a)];
+  const ry = (p, a) => [p[0] * Math.cos(a) + p[2] * Math.sin(a), p[1], -p[0] * Math.sin(a) + p[2] * Math.cos(a)];
+  const rz = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a), p[2]];
+  return rz(rx(ry(v, -yaw), -pitch), -roll);
+}
+// the shortest turn taking unit a to unit b, as a quaternion
+function arcTurn(a, b) {
+  const axis = cross(a, b);
+  const s = Math.hypot(...axis);
+  const angle = Math.atan2(s, dot(a, b));
+  if (s < 1e-9 || Math.abs(angle) < 1e-9) return [0, 0, 0, 1];
+  const h = Math.sin(angle / 2) / s;
+  return [axis[0] * h, axis[1] * h, axis[2] * h, Math.cos(angle / 2)];
+}
+const quatMultiply = (a, b) => [
+  a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+  a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+  a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+];
+// a turn `w` of the way from none
+const partTurn = (q, w) => normalizeQuat([q[0] * w, q[1] * w, q[2] * w, 1 + (q[3] - 1) * w]);
+
+/** The turn that lays a raw pose's blade, at its strike's contact, through the server's blade there. */
+export function contactTurn(raw, kind) {
+  const blade = rotateByQuat(raw.turn, [0, 1, 0]);
+  const fist = add(raw.wrist, scale(blade, 0.08));
+  const d = bladeDirection(kind, 0, VIEW_AIM);
+  const ray = unlean([d.x, d.y, d.z], { pitch: raw.look[0] * DEG, roll: raw.look[1] * DEG, yaw: raw.look[2] * DEG });
+  // (the drawn blade need only pass through the server's somewhere along its own length: the point needing least turn)
+  let toward = null, best = -Infinity;
+  for (let k = 0; k <= 32; k += 1) {
+    const depth = LOCK.near + (LOCK.far - LOCK.near) * (k / 32);
+    const along = sub(scale(ray, depth), fist);
+    const reach = Math.hypot(...along);
+    if (reach < 0.25 || reach > LOCK.reach) continue;
+    const option = scale(along, 1 / reach);
+    if (dot(option, blade) > best) { best = dot(option, blade); toward = option; }
+  }
+  return toward ? arcTurn(blade, toward) : [0, 0, 0, 1];
+}
+
+/**
+ * A chain's authored keys turned toward the server's blade before they are settled: each strike's keys through its
+ * window (from its approach to its follow-through, no key moved in time or added) turned by that strike's contact turn,
+ * so the path itself passes close to the server's, leaving the eased turn at run time (aimedAtServer) only a residual.
+ */
+export function preAimed(keys, strikes) {
+  const raw = settle(keys.map((k) => ({ ...k })), REST_TURN);
+  const out = keys.map((k) => ({ ...k }));
+  for (const { contact, kind } of strikes) {
+    if (LOCK.ramps[kind].preAim === false) continue;
+    const q = contactTurn(poseFrom(raw, contact), kind);
+    for (const k of out) {
+      if (k.t < contact - MELEE_CONTACT.window.early - 1e-6 || k.t > contact + MELEE_CONTACT.window.late + 1e-6) continue;
+      // (the approach is turned half as far: the cock and the raise before it stay in view, and the cut keeps its sweep)
+      const turn = k.t < contact - 0.05 ? partTurn(q, 0.5) : q;
+      k.blade = normalize(rotateByQuat(turn, k.blade));
+      k.lead = rotateByQuat(turn, k.lead);
+    }
+  }
+  return out;
+}
+
+/** A chain's keys with each strike's contact turn worked out once: (raw, time) => the raw pose, aimed. */
+export function aimedAtServer(keys, strikes) {
+  // (the blade shown at a moment is the turn keyed CHAIN.blade before it)
+  const turns = strikes.map(({ contact, kind }) => ({ contact, ramp: LOCK.ramps[kind], turn: contactTurn(poseFrom(keys, contact), kind) }));
+  return (raw, time) => {
+    let turn = [0, 0, 0, 1];
+    for (const { contact, ramp, turn: q } of turns) {
+      const dt = time - contact;
+      if (dt <= -ramp.inFrom || dt >= LOCK.outTo) continue;
+      const w = dt < -ramp.inTo ? smooth((dt + ramp.inFrom) / (ramp.inFrom - ramp.inTo))
+        : dt > LOCK.outFrom ? 1 - smooth((dt - LOCK.outFrom) / (LOCK.outTo - LOCK.outFrom)) : 1;
+      turn = quatMultiply(partTurn(q, w), turn);
+    }
+    return turn[3] > 1 - 1e-12 ? raw : { ...raw, turn: normalizeQuat(quatMultiply(turn, raw.turn)) };
+  };
+}
+
+export const COMBO = settle(preAimed([
   rest(0, { ease: 0.6 }),
   // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)... (the
   // magic arm swings down and back out of its path as it comes across, and through the backhand's load: the blade's
@@ -272,7 +374,8 @@ export const COMBO = settle([
   key(C3 - 0.3, [0.3, -0.13, -0.6], dir(-22, 62), [-0.3, 0.1, -0.95],
     { shoulder: [0, 0.12, -0.05], body: [0.02, 0.015, 0.005], look: [1.1, 1.5, 1.1], grip: 1, counter: [-0.1, -0.14, -0.12] }),
   // ...held a beat, loaded...
-  key(C3 - 0.14, [0.29, -0.11, -0.6], dir(-18, 68), [-0.25, -0.2, -0.95],
+  // (its beat held to 0.13 s before the contact: the drive down from it the quickest of the chain's three)
+  key(C3 - 0.13, [0.29, -0.11, -0.6], dir(-18, 68), [-0.25, -0.2, -0.95],
     { shoulder: [0, 0.14, -0.05], body: [0.02, 0.018, 0.01], look: [1.4, 1.6, 1.2], grip: 1, counter: [-0.1, -0.14, -0.12], ease: 0 }),
   // ...then driven down through the middle, the whole body behind it
   key(C3 - 0.07, [0.21, -0.1, -0.63], dir(-5, 63), [-0.1, -0.6, -0.8],
@@ -287,7 +390,24 @@ export const COMBO = settle([
   key(C3 + 0.38, [0.2, -0.42, -0.62], dir(8, 5), [0.3, 0.9, -0.2],
     { shoulder: [-0.06, -0.02, -0.04], body: [-0.005, -0.01, -0.004], look: [-0.3, -0.3, -0.3], counter: [0.02, 0.01, 0] }),
   rest(COMBO_END, { ease: 0 }),
-], REST_TURN);
+], COMBO_STRIKE_KINDS), REST_TURN);
+
+// each chain's keys and how they are aimed (worked out on first use: what it needs is defined further down). A chain's
+// pose, its velocity and the way home from it are all of the aimed path: a recovery leaves from what was shown.
+const AIMS = new Map();
+const aimFor = (keys) => {
+  const entry = AIMS.get(keys);
+  if (!entry) return null;
+  entry.fn ??= aimedAtServer(keys, entry.strikes);
+  return entry.fn;
+};
+/** A chain's raw pose at `time` as it is shown (its strikes aimed at the server's blade, if it has any). */
+function shownRaw(keys, time) {
+  const raw = poseFrom(keys, time);
+  const aim = aimFor(keys);
+  return aim ? aim(raw, time) : raw;
+}
+AIMS.set(COMBO, { strikes: COMBO_STRIKE_KINDS });
 
 // Sundering, every strike of the chain is a slam: the heavy strike's blow, both hands on the grip from the first,
 // each timed to its own contact, the blade biting into the ground a beat before it is hauled straight back up
@@ -374,8 +494,6 @@ export function drawPose(time) {
   return present(poseFrom(DRAW, t), t);
 }
 
-// the kinetic chain's delays (seconds): the body leads the hand by a beat, and the blade trails it a touch
-export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
 // where the magic hand comes up from to take the grip (and falls back to), relative to the grip: below and left
 const REACH_FROM = Object.freeze([-0.12, -0.2, 0.05]);
 // how far the magic arm's shoulder comes forward and in when both hands are on the sword
@@ -451,7 +569,7 @@ function present(raw, time) {
 export function comboPose(time) {
   if (!Number.isFinite(time)) return null;
   const t = Math.max(0, Math.min(COMBO_END, time));
-  return present(poseFrom(COMBO, t), t);
+  return present(shownRaw(COMBO, t), t);
 }
 
 /** The Sundering chain `time` seconds in: every strike a slam (SLAM), posed as comboPose's. */
@@ -469,18 +587,20 @@ export function slamAgainPose(time) {
 }
 
 /** Author a separate sword path with the same continuous hand frame and natural recovery as the ordinary chain. */
-export function createSwordPath(keyframes) {
+export function createSwordPath(keyframes, { strikes = null } = {}) {
   const keys = keyframes.map(({ t, wrist, blade, edge, ...motion }) => key(t, wrist, blade, edge, motion));
   const homeTurn = quatFromFrame(leading(keys[0].lead, keys[0].blade), normalize(keys[0].blade));
   const authored = settle(keys, homeTurn);
+  // (a path of the server's cuts is aimed at them as the ordinary chain is)
+  if (strikes) AIMS.set(authored, { strikes });
   const sample = (time) => Number.isFinite(time)
-    ? present(poseFrom(authored, Math.max(0, Math.min(authored.at(-1).t, time))), time) : null;
+    ? present(shownRaw(authored, Math.max(0, Math.min(authored.at(-1).t, time))), time) : null;
   return Object.freeze({
     sample,
     recover(from, elapsed, seconds = 0.3) {
       if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return sample(0);
       if (elapsed >= seconds) return sample(0);
-      const start = poseFrom(authored, from), home = poseFrom(authored, 0);
+      const start = shownRaw(authored, from), home = poseFrom(authored, 0);
       const moving = velocityAt(authored, from);
       if (dotQuat(start.turn, home.turn) < 0) home.turn = home.turn.map(v => -v);
       const zero = Object.fromEntries(Object.entries(TRACK).map(([name, pick]) => [name, pick(home).map(() => 0)]));
@@ -510,8 +630,8 @@ export const RECOVERY = Object.freeze({
 // how fast each track is moving at `time` along a chain (a short look either side)
 function velocityAt(keys, time) {
   const h = 1 / 240;
-  const a = poseFrom(keys, time - h);
-  const b = poseFrom(keys, time + h);
+  const a = shownRaw(keys, time - h);
+  const b = shownRaw(keys, time + h);
   const rate = (x, y) => x.map((v, i) => (y[i] - v) / (2 * h));
   if (dotQuat(a.turn, b.turn) < 0) b.turn = b.turn.map((v) => -v);
   return {
@@ -532,7 +652,7 @@ function recoveryKeys(from, quick, slammed) {
   const id = `${from.toFixed(4)}:${quick}:${slammed}`;
   if (recoveries.has(id)) return recoveries.get(id);
   const chain = slammed === 'again' ? SLAM_AGAIN : slammed ? SLAM : COMBO;
-  const start = poseFrom(chain, from);
+  const start = shownRaw(chain, from);
   const moving = velocityAt(chain, from);
   const seconds = quick ? RECOVERY.quickSeconds : RECOVERY.seconds;
   // (all but the magic hand's hold carry on as they were going: a reach for the grip stops as soon as there is no
