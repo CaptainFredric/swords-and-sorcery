@@ -265,8 +265,10 @@ export class RenownController {
     }
   }
   renderReward() {
-    const text = this.error && this.snapshot?.roomState === 'FINISHED' && this.profile?.lastReward?.matchId !== this.snapshot.rewardMatchId
-      ? this.error : rewardText(this.profile, this.snapshot, this.socket.playingLocally);
+    const trial = this.snapshot?.mode === 'RENOWN_TRIALS';
+    const showError = this.error && this.snapshot?.roomState === 'FINISHED'
+      && this.profile?.lastReward?.matchId !== this.snapshot.rewardMatchId;
+    const text = trial ? '' : showError ? this.error : rewardText(this.profile, this.snapshot, this.socket.playingLocally);
     const node = this.doc.querySelector('#renown-reward');
     if (node.textContent !== text) node.textContent = text;
   }

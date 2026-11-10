@@ -16,8 +16,12 @@ test('trial HUD never predicts execution before a wave clears', () => {
   const normal = renownTrialsView(sample('WAVE_ACTIVE'), 60);
   assert.equal(normal.visible, true);
   assert.equal(normal.ceremony, false);
-  assert.match(normal.title, /RIVALS REMAIN/);
-  assert.match(normal.details, /BASE REWARD/);
+  assert.equal(normal.header, 'WAVE 3/12');
+  assert.equal(normal.title, '2 RIVALS LEFT');
+  assert.equal(normal.details, '');
+  assert.equal(normal.footer, '');
+  const rehearsal = renownTrialsView(sample('WAVE_ACTIVE', { rehearsal: true }), 60);
+  assert.deepEqual(rehearsal, normal);
   assert.doesNotMatch(JSON.stringify(normal), /EXECUTION/);
   const overtime = renownTrialsView(sample('WAVE_OVERTIME', {
     overtimeSec: 11, executionChance: .28,
@@ -32,7 +36,7 @@ test('execution variation does not spoil the harmless-looking coin reversal', ()
     ceremony: { cue: 'SWORD_RAISE', kind: 'retaliation' } });
   const initial = renownTrialsView(judgment, 80);
   assert.equal(initial.ceremony, true);
-  assert.equal(initial.placeholder, true);
+  assert.match(initial.header, /JUDGMENT AT THE COURT/);
   assert.doesNotMatch(initial.title + initial.details + initial.footer, /EXECUTION|RETALIATION|COIN/);
   judgment.renownTrial.ceremony.cue = 'I_HAVE_SURPASSED_JUDGEMENT';
   assert.equal(renownTrialsView(judgment, 84).line, 'AHAHAHA! I have surpassed judgement');
@@ -50,4 +54,15 @@ test('provisional Renown is marked unsettled and not misrepresented as profile a
   assert.match(view.footer, /21.*UNSETTLED/);
   const other = renownTrialsView({ mode: 'PRACTICE' }, 80);
   assert.deepEqual(other, { visible: false });
+});
+
+test('rehearsal omits the ceremony reward ledger and discloses the limit at results', () => {
+  const rehearsal = { rehearsal: true, verdict: 'AWARD', waveReward: 21,
+    ceremony: { cue: 'REWARD_COIN', kind: 'timely' } };
+  const inCourt = renownTrialsView({ ...sample('JUDGMENT', rehearsal), worldId: 'court-of-merit' }, 80);
+  assert.match(inCourt.header, /THE RIGHTFUL RENOWNER/);
+  assert.equal(inCourt.title, 'THE TRAY OPENS');
+  assert.equal(inCourt.footer, '');
+  const done = renownTrialsView(sample('DONE', rehearsal), 88);
+  assert.match(done.footer, /NO ACCOUNT RENOWN/);
 });

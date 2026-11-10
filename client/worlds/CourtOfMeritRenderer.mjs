@@ -155,6 +155,10 @@ export class CourtOfMeritRenderer {
         this.#buildRenownerEffigy(s.center, s.size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM);
       } else if (kind === 'brazier') {
         this.#buildBrazier(s.center, s.size, ironM, flameM);
+      } else if (s.id === 'tribunal-base-west' || s.id === 'tribunal-base-east') {
+        // The dais floor already supplies the visible top face.
+        box(this.group, [s.size[0], s.size[1] - .02, s.size[2]],
+          [s.center[0], s.center[1] - .01, s.center[2]], stoneDarkM);
       } else if (kind === 'balustrade') {
         box(this.group, s.size, s.center, s.material === 'brass' ? brassM : stoneDarkM);
       } else {

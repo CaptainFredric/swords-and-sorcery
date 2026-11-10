@@ -151,3 +151,13 @@ export function idlePose(moment) {
       return { clip: null, rotations: [] };
   }
 }
+
+// A short inspection loop leaves a clear pause between blade presentations.
+export function armoryIdleMoment(seconds) {
+  const phase = Math.max(0, seconds) % 8;
+  const elapsed = phase - 2.1;
+  const duration = MOMENTS.present;
+  if (elapsed < 0 || elapsed >= duration) return null;
+  const t = elapsed / duration;
+  return { kind: 'present', t, elapsed, duration, weight: envelope(t) * .55 };
+}
