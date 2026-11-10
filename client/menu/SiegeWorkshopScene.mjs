@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
+import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
+import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -10,6 +12,35 @@ const MACHINE_ASSETS = Object.freeze({
   biBye: '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',
   fightFlight: '/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb',
 });
+
+// Match gameplay's native transforms. The two metre-based GLBs use unit scale.
+const AUTHORED_SCALE = { soFist: SO_FIST_SCALE, biBye: 1, fightFlight: 1 };
+const REST_YAW = { soFist: Math.PI - .28, biBye: 0, fightFlight: 0 };
+const IDLE_CLIP = { biBye: '01_BiBye_LoadedIdle', fightFlight: 'Posture_01_Grounded_Idle' };
+const BOUNDS_CLIPS = {
+  soFist: ['01_Ram_Strike_Full_Cycle'],
+  biBye: ['05_BiBye_Stabilizer_Deploy', '02_BiBye_TwoStage_Fire'],
+  fightFlight: ['Rotor_Spin_Cycle_1Rev'],
+};
+
+function motionBounds(model, clips, names) {
+  const bounds = new THREE.Box3().setFromObject(model);
+  const mixer = new THREE.AnimationMixer(model);
+  for (const name of names) {
+    const clip = clips.find(candidate => candidate.name === name);
+    if (!clip) continue;
+    const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+    action.play();
+    for (let sample = 0; sample <= 12; sample++) {
+      mixer.setTime(clip.duration * sample / 12);
+      bounds.union(new THREE.Box3().setFromObject(model));
+    }
+    action.stop();
+  }
+  mixer.uncacheRoot(model);
+  return bounds;
+}
 
 export class SiegeWorkshopScene {
   constructor(parentScene) {
@@ -26,10 +57,12 @@ export class SiegeWorkshopScene {
     this.activeMachineId = 'soFist';
     this.machinePivot = new THREE.Group();
     this.machinePivot.name = 'MachinePivot';
+    this.knightBounds = new THREE.Box3();
+    this.clock = 0;
     this.root.add(this.machinePivot);
 
-    this.currentYaw = 0;
-    this.targetYaw = 0;
+    this.currentYaw = REST_YAW.soFist;
+    this.targetYaw = this.currentYaw;
     this.currentPitch = 0;
     this.targetPitch = 0;
 
@@ -45,6 +78,19 @@ export class SiegeWorkshopScene {
 
   setVisible(visible) {
     this.root.visible = Boolean(visible);
+    if (visible && !this.knight && !this.knightLoading) {
+      this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
+        if (!instance) return;
+        if (this.disposed) { instance.dispose(); return; }
+        this.knight = instance;
+        this.root.add(instance.root);
+        instance.root.rotation.y = -.52;
+        instance.setCloth('crimson');
+        instance.setEmblem('grimoirelee');
+        instance.root.traverse(node => { if (node.isMesh) node.castShadow = true; });
+        this.#placeKnight();
+      }).catch(error => console.warn('Siege Workshop comparison knight unavailable', error));
+    }
   }
 
   #buildEnvironment() {
@@ -61,7 +107,7 @@ export class SiegeWorkshopScene {
     const emberMat = new THREE.MeshBasicMaterial({ color: 0xff6622 });
 
     // 1. Ground apron (paved stone flagstones for the workshop)
-    const apronGeo = new THREE.BoxGeometry(8, 0.15, 8);
+    const apronGeo = new THREE.BoxGeometry(10, 0.15, 9);
     const apron = new THREE.Mesh(apronGeo, stoneMat);
     apron.position.set(0, -0.075, 0);
     apron.receiveShadow = true;
@@ -94,8 +140,6 @@ export class SiegeWorkshopScene {
     // 3. Timber workshop shelter: heavy timber posts and lintels
     const postGeo = new THREE.BoxGeometry(0.3, 3.6, 0.3);
     const posts = [
-      [-3.6, 1.8, -3.6],
-      [3.6, 1.8, -3.6],
       [-3.6, 1.8, 3.6],
       [3.6, 1.8, 3.6],
     ];
@@ -114,12 +158,6 @@ export class SiegeWorkshopScene {
     }
 
     // Crossbeams
-    const beamFrontGeo = new THREE.BoxGeometry(7.5, 0.28, 0.28);
-    const beamFront = new THREE.Mesh(beamFrontGeo, timberDarkMat);
-    beamFront.position.set(0, 3.5, -3.6);
-    beamFront.castShadow = true;
-    env.add(beamFront);
-
     const beamBackGeo = new THREE.BoxGeometry(7.5, 0.28, 0.28);
     const beamBack = new THREE.Mesh(beamBackGeo, timberDarkMat);
     beamBack.position.set(0, 3.5, 3.6);
@@ -128,9 +166,9 @@ export class SiegeWorkshopScene {
 
     // Rafters sloping slightly
     for (let rx = -3; rx <= 3; rx += 1.5) {
-      const rafterGeo = new THREE.BoxGeometry(0.18, 0.18, 7.4);
+      const rafterGeo = new THREE.BoxGeometry(0.18, 0.18, 2.6);
       const rafter = new THREE.Mesh(rafterGeo, timberMat);
-      rafter.position.set(rx, 3.65, 0);
+      rafter.position.set(rx, 3.65, 2.3);
       rafter.castShadow = true;
       env.add(rafter);
     }
@@ -211,9 +249,9 @@ export class SiegeWorkshopScene {
     const spareWheel = new THREE.Group();
     spareWheel.add(new THREE.Mesh(wheelTireGeo, ironMat));
     spareWheel.add(new THREE.Mesh(wheelHubGeo, brassMat));
-    spareWheel.rotation.x = Math.PI / 2;
+    spareWheel.rotation.x = .16;
     spareWheel.rotation.y = 0.25;
-    spareWheel.position.set(3.3, 0.52, -1.8);
+    spareWheel.position.set(-3.4, 0.57, 3.4);
     spareWheel.castShadow = true;
     env.add(spareWheel);
 
@@ -221,19 +259,22 @@ export class SiegeWorkshopScene {
     const axleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 8);
     const axle = new THREE.Mesh(axleGeo, ironMat);
     axle.rotation.z = 0.28;
-    axle.position.set(3.4, 0.85, -1.2);
+    axle.position.set(-3.6, 0.85, 2.95);
     axle.castShadow = true;
     env.add(axle);
 
     // Hanging lantern
     const lanternGeo = new THREE.BoxGeometry(0.2, 0.3, 0.2);
     const lantern = new THREE.Mesh(lanternGeo, brassMat);
-    lantern.position.set(0, 3.2, -3.4);
+    lantern.position.set(-2.8, 3.2, 2.3);
     env.add(lantern);
 
     const lanternLight = new THREE.PointLight(0xffdd88, 1.1, 6.0);
     lanternLight.position.set(0, 3.0, -3.4);
     env.add(lanternLight);
+    const openYardLight = new THREE.DirectionalLight(0xffebd3, 1.05);
+    openYardLight.position.set(6, 5, -5);
+    env.add(openYardLight, openYardLight.target);
 
     this.root.add(env);
   }
@@ -387,7 +428,10 @@ export class SiegeWorkshopScene {
 
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
+    if (this.activeMachineId === id && this.machinePivot.children.length) return;
     this.activeMachineId = id;
+    this.currentYaw = REST_YAW[id];
+    this.resetRotation();
 
     // Clear existing model from pivot
     while (this.machinePivot.children.length > 0) {
@@ -404,17 +448,32 @@ export class SiegeWorkshopScene {
       this.loadAuthored(id);
     }
 
-    // Adjust position/scale offsets per machine proportions
-    if (id === 'soFist') {
-      this.machinePivot.position.set(0, 0, 0);
-      this.machinePivot.scale.setScalar(1.5);
-    } else if (id === 'biBye') {
-      this.machinePivot.position.set(0, 0, 0);
-      this.machinePivot.scale.setScalar(0.78);
-    } else if (id === 'fightFlight') {
-      this.machinePivot.position.set(0, 0.2, 0);
-      this.machinePivot.scale.setScalar(0.82);
-    }
+    this.machinePivot.position.y = 0;
+    this.#placeKnight();
+  }
+
+  #placeKnight() {
+    if (!this.knight) return;
+    const bounds = this.machinePivot.children[0]?.userData.motionBounds;
+    const reach = bounds ? Math.max(Math.hypot(bounds.min.x, bounds.min.z),
+      Math.hypot(bounds.max.x, bounds.max.z)) : 1.6;
+    const z = bounds ? (bounds.max.z + bounds.min.z) * .5 - .3 : 0;
+    this.knight.root.position.set(reach + .55, 0, z);
+    this.knight.root.updateWorldMatrix(true, true);
+    // The animator establishes the held sword and cape's world transforms
+    // before the first measurement. The bind pose can put them at the origin.
+    this.knightBounds.makeEmpty();
+  }
+
+  presentationBounds() {
+    const child = this.machinePivot.children[0];
+    const modelBounds = child?.userData.motionBounds;
+    this.machinePivot.updateWorldMatrix(true, false);
+    const bounds = modelBounds ? modelBounds.clone().applyMatrix4(this.machinePivot.matrixWorld)
+      : new THREE.Box3().setFromObject(this.machinePivot);
+    if (this.knight) bounds.union(this.knightBounds);
+    if (bounds.isEmpty()) return null;
+    return { min:bounds.min.toArray(), max:bounds.max.toArray() };
   }
 
   loadAuthored(id) {
@@ -442,28 +501,21 @@ export class SiegeWorkshopScene {
             }
           });
 
-          // Measure bounding box for scale/centering verification
-          const box = new THREE.Box3().setFromObject(model);
+          model.scale.setScalar(AUTHORED_SCALE[id]);
+          const resting = new THREE.Box3().setFromObject(model);
+          model.position.y -= resting.min.y;
+          model.updateMatrixWorld(true);
+          const box = motionBounds(model, gltf.animations, BOUNDS_CLIPS[id]);
           const size = box.getSize(new THREE.Vector3());
           const center = box.getCenter(new THREE.Vector3());
           model.userData = {
-            isAuthored: true,
-            machineId: id,
-            bounds: {
-              size: { x: size.x, y: size.y, z: size.z },
-              center: { x: center.x, y: center.y, z: center.z },
-            },
+            isAuthored: true, machineId: id, motionBounds: box,
+            bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
-
-          // Setup subtle idle animation if present (deduplicate mixer)
-          if (this.mixers.has(id)) {
-            this.mixers.get(id).stopAllAction();
-            this.mixers.delete(id);
-          }
-          if (gltf.animations?.length > 0) {
+          const clip = gltf.animations.find(candidate => candidate.name === IDLE_CLIP[id]);
+          if (clip) {
             const mixer = new THREE.AnimationMixer(model);
-            const idleClip = gltf.animations.find((c) => /idle|travel/i.test(c.name)) || gltf.animations[0];
-            if (idleClip) mixer.clipAction(idleClip).play();
+            mixer.clipAction(clip).play();
             this.mixers.set(id, mixer);
           }
 
@@ -476,6 +528,7 @@ export class SiegeWorkshopScene {
               this.machinePivot.remove(this.machinePivot.children[0]);
             }
             this.machinePivot.add(model);
+            this.#placeKnight();
           }
           resolve(model);
         },
@@ -511,6 +564,8 @@ export class SiegeWorkshopScene {
       isAuthored: this.isDisplayingAuthored(),
       childName: child?.name ?? null,
       bounds: child?.userData?.bounds ?? null,
+      scale: child?.scale.x ?? null,
+      knight: Boolean(this.knight),
       hasMixer: this.mixers.has(this.activeMachineId),
     };
   }
@@ -521,24 +576,42 @@ export class SiegeWorkshopScene {
   }
 
   resetRotation() {
-    this.targetYaw = 0;
+    this.targetYaw = REST_YAW[this.activeMachineId];
     this.targetPitch = 0;
   }
 
-  update(dt) {
+  update(dt, reducedMotion = false) {
     // Smooth damp towards target rotation
-    this.currentYaw += (this.targetYaw - this.currentYaw) * Math.min(1, dt * 10);
-    this.currentPitch += (this.targetPitch - this.currentPitch) * Math.min(1, dt * 10);
+    this.currentYaw += (this.targetYaw - this.currentYaw) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
+    this.currentPitch += (this.targetPitch - this.currentPitch) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
 
     this.machinePivot.rotation.y = this.currentYaw;
     this.machinePivot.rotation.x = this.currentPitch;
+    const box = this.machinePivot.children[0]?.userData.motionBounds;
+    if (box) {
+      // Pitch inspection pivots on the floor instead of sinking the wheels.
+      const floor = Math.min(box.min.y * Math.cos(this.currentPitch) - box.min.z * Math.sin(this.currentPitch),
+        box.min.y * Math.cos(this.currentPitch) - box.max.z * Math.sin(this.currentPitch));
+      this.machinePivot.position.y = Math.max(0, -floor);
+    }
+    if (!reducedMotion) this.clock += dt;
+    if (this.knight) {
+      this.knight.animator.apply({clip:'Idle',loop:true,time:this.clock},reducedMotion ? 0 : dt);
+      if (this.knightBounds.isEmpty()) {
+        // SkinnedMesh refreshes its inverse bind transform in updateMatrixWorld.
+        this.root.updateMatrixWorld(true);
+        this.knightBounds.setFromObject(this.knight.root, true);
+      }
+    }
 
     // Update active animation mixer
     const mixer = this.mixers.get(this.activeMachineId);
-    if (mixer) mixer.update(dt);
+    if (mixer && !reducedMotion) mixer.update(dt);
   }
 
   dispose() {
+    this.disposed = true;
+    this.knight?.dispose();
     this.root.removeFromParent();
     for (const mixer of this.mixers.values()) mixer.stopAllAction();
     for (const model of this.cache.values()) {

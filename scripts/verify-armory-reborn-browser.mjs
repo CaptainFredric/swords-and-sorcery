@@ -87,6 +87,23 @@ async function tap(selector,touch=false) {
   await point(...coords,touch);
 }
 
+async function dragPreview(name, touch = false) {
+  const [x, y] = await evaluate(`(() => {
+    const r=document.querySelector('[data-armory-preview="${name}"]').getBoundingClientRect();
+    return [r.x+r.width/2,r.y+r.height/2];
+  })()`);
+  if (touch) {
+    await send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{x,y}]});
+    await send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x:x+35,y:y+18}]});
+    await send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x:x+62,y:y+30}]});
+    await send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
+  } else {
+    await send('Input.dispatchMouseEvent', {type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});
+    await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:x+62,y:y+30,button:'left',buttons:1});
+    await send('Input.dispatchMouseEvent', {type:'mouseReleased',x:x+62,y:y+30,button:'left',clickCount:1});
+  }
+}
+
 async function screenshot(filename) {
   const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const filePath = join(OUT_DIR, filename);
@@ -208,6 +225,12 @@ try {
   assert.ok(galeCardState.desc.length > 5);
   console.log('[VERIFY] Gale detail verified:', galeCardState);
 
+  assert.equal(await evaluate(`(() => {
+    const panel = document.querySelector('#armory-inspector').getBoundingClientRect();
+    const preview = document.querySelector('[data-armory-preview="kit"]').getBoundingClientRect();
+    const rail = document.querySelector('#armory-inspector-categories').getBoundingClientRect();
+    return rail.right <= preview.left && preview.right <= panel.left;
+  })()`), true, 'the reserved preview does not intersect either control column');
   await screenshot('02-sorcery-inspector-open.png');
 
   // Equip Gale Garner
@@ -304,11 +327,22 @@ try {
 
   // Verify pointer dragging rotates machine
   const initialYaw = await evaluate("window.__ssMenu?.siegeWorkshop?.targetYaw ?? 0");
-  await evaluate("window.__ssMenu?.siegeWorkshop?.rotate(0.5, 0.05)");
+  await dragPreview('siege');
   const rotatedYaw = await evaluate("window.__ssMenu?.siegeWorkshop?.targetYaw ?? 0");
-  assert.ok(Math.abs(rotatedYaw - initialYaw - 0.5) < 1e-4, 'Pointer dragging rotates selected machine');
-  await evaluate("window.__ssMenu?.siegeWorkshop?.resetRotation()");
+  assert.ok(Math.abs(rotatedYaw - initialYaw) > 0.4, 'Pointer dragging rotates selected machine');
+  await tap('#siege-reset-view');
+  await until(() => evaluate('Math.abs(window.__ssMenu.siegeWorkshop.targetYaw-window.__ssMenu.siegeWorkshop.currentYaw)<.02'), 'machine reset settles');
 
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.siege-inspector-scroll > section > h4, #siege-story-details summary span:first-child')].map(el=>el.textContent)`),
+    ['SIEGE SKILLS · U', 'ABILITIES & ATTACKS', 'CONTROLS', 'OVERVIEW', 'STORY OF SIEGE']);
+  assert.equal(await evaluate('document.querySelector("#siege-story-details").open'), false);
+  const framing = await evaluate(`({
+    bounds:window.__ssMenu.siegeWorkshop.presentationBounds(),
+    camera:window.__ssMenu.presentedShot,
+    viewport:window.__ssMenu.previewFrame
+  })`);
+  assert.ok(framing.bounds.max[0] - framing.bounds.min[0] < 12, 'comparison knight bounds stay local to the ram');
+  console.log('[VERIFY] Workshop framing:', framing);
   await screenshot('04-siege-workshop-sofist.png');
 
   // 2. Verify BI-BYE-LLISTA authored GLB
@@ -479,6 +513,24 @@ try {
     return r.right<=innerWidth+1 && r.left>=0;
   })()`),true,'the whole inspector is inside the landscape viewport');
   await screenshot('10-landscape-mobile-inspector.png');
+  await send('Emulation.setTouchEmulationEnabled',{enabled:true});
+  const beforeTouch = await evaluate('window.__ssMenu.targetYaw');
+  await dragPreview('kit',true);
+  assert.ok(Math.abs(await evaluate('window.__ssMenu.targetYaw') - beforeTouch) > 0.4);
+  assert.ok(Math.abs(await evaluate('window.__ssMenu.targetPitch')) > .05);
+  await tap('#armory-reset-hero', true);
+  assert.equal(await evaluate('window.__ssMenu.targetPitch'), 0);
+  await tap('#armory-inspector-close', true);
+  await tap('#armory-nav-siege', true);
+  await tap('[data-siege-tab="biBye"]', true);
+  await sleep(650);
+  await screenshot('15-landscape-mobile-workshop.png');
+  await tap('#armory-back', true);
+  await tap('#armory-slot-heraldry', true);
+  await sleep(650);
+  await screenshot('16-landscape-mobile-heraldry.png');
+  await tap('#armory-back', true);
+  await send('Emulation.setTouchEmulationEnabled',{enabled:false});
 
   // Reset emulation metrics
   await send('Emulation.clearDeviceMetricsOverride');
@@ -598,16 +650,12 @@ try {
   await tap('[data-inspector-category="masterstroke"]');
   await until(()=>evaluate("document.querySelector('#inspector-title').textContent.includes('MASTERSTROKE')"),'category switch');
   await tap('[data-inspector-category="heraldry"]');
-  const backdrop=await evaluate(`(() => {
-    for(let y=80;y<innerHeight-50;y+=40)for(let x=innerWidth/2;x<innerWidth-40;x+=35){
-      const el=document.elementFromPoint(x,y);
-      if(el?.matches('#menu-spellblade canvas'))return [x,y];
-    }
-    return null;
-  })()`);
-  assert.ok(backdrop,'There is exposed Armory stage outside the Heraldry controls');
-  await point(...backdrop);
-  await until(()=>evaluate("!document.querySelector('#armory-kit').classList.contains('hidden')"),'backdrop returns to Kit');
+  const rearYaw = await evaluate('window.__ssMenu.targetYaw');
+  await dragPreview('heraldry');
+  assert.ok(Math.abs(await evaluate('window.__ssMenu.targetYaw') - rearYaw) > .4);
+  assert.equal(await evaluate("document.querySelector('#armory-heraldry').classList.contains('hidden')"), false);
+  await tap('#armory-back');
+  await until(()=>evaluate("!document.querySelector('#armory-kit').classList.contains('hidden')"),'Heraldry Back returns to Kit');
   assert.equal(await evaluate("document.activeElement.id"),'armory-slot-heraldry');
   await tap('#armory-slot-heraldry');
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
@@ -656,6 +704,16 @@ try {
     await until(()=>evaluate(`window.__ssLink.roomCode && window.__ssSnapshot?.mode==='${mode}' && window.__ssSnapshot.roomState==='PLAYING'`),
       `authoritative ${mode} launch`,180);
     assert.equal(await evaluate("window.__ssLink.hosting"),'local');
+    if (mode === 'RENOWN_TRIALS') {
+      await until(()=>evaluate("window.__ssSnapshot.renownTrial.phase==='WAVE_ACTIVE'"), 'rehearsal combat');
+      assert.equal(await evaluate("window.__ssSnapshot.renownTrial.rehearsal"), true);
+      assert.doesNotMatch(await evaluate("document.querySelector('#renown-trial-hud').innerText"), /REHEARSAL|ACCOUNT/);
+      // End the fixture at an authoritative defeat to check the offline results.
+      await evaluate("window.__ssLink.local.player.alive=false");
+      await until(()=>evaluate("document.querySelector('#final-scoreboard').textContent.includes('No account Renown awarded.')"), 'rehearsal results');
+      assert.equal(await evaluate("document.querySelector('#final-scoreboard .final-row')===null"), true);
+      await screenshot('14-rehearsal-results.png');
+    }
     if(touch){
       await until(()=>evaluate("document.querySelector('#arena-gate').classList.contains('hidden') && !document.querySelector('#hud').classList.contains('hidden')"),'Edge presentation ready');
       await screenshot('13-mobile-edge-of-victory.png');

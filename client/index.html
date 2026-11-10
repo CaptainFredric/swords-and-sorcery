@@ -138,8 +138,8 @@
 
       <!-- 1. The Main Armory: The Spellblade's Kit Stage -->
       <div id="armory-kit" class="armory-kit-stage">
-        <!-- Surrounding Equipment Plaques -->
-        <button type="button" id="armory-slot-technique" class="armory-slot-plaque slot-technique" data-slot="technique" aria-label="Select Technique">
+        <nav id="armory-inspector-categories" class="armory-category-rail" aria-label="Equipment categories">
+        <button type="button" id="armory-slot-technique" class="armory-slot-plaque slot-technique" data-slot="technique" data-inspector-category="technique" aria-pressed="false" aria-label="Select Technique">
           <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
           <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
           <span class="plaque-icon" id="plaque-icon-technique" aria-hidden="true"></span>
@@ -149,7 +149,7 @@
           </div>
         </button>
 
-        <button type="button" id="armory-slot-sorcery" class="armory-slot-plaque slot-sorcery" data-slot="sorcery" aria-label="Select Sorcery">
+        <button type="button" id="armory-slot-sorcery" class="armory-slot-plaque slot-sorcery" data-slot="sorcery" data-inspector-category="sorcery" aria-pressed="false" aria-label="Select Sorcery">
           <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
           <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
           <span class="plaque-icon" id="plaque-icon-sorcery" aria-hidden="true"></span>
@@ -159,7 +159,7 @@
           </div>
         </button>
 
-        <button type="button" id="armory-slot-masterstroke" class="armory-slot-plaque slot-masterstroke" data-slot="masterstroke" aria-label="Select Masterstroke">
+        <button type="button" id="armory-slot-masterstroke" class="armory-slot-plaque slot-masterstroke" data-slot="masterstroke" data-inspector-category="masterstroke" aria-pressed="false" aria-label="Select Masterstroke">
           <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
           <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
           <span class="plaque-icon" id="plaque-icon-masterstroke" aria-hidden="true"></span>
@@ -169,7 +169,7 @@
           </div>
         </button>
 
-        <button type="button" id="armory-slot-heraldry" class="armory-slot-plaque slot-heraldry" data-slot="heraldry" aria-label="Open Heraldic Chamber">
+        <button type="button" id="armory-slot-heraldry" class="armory-slot-plaque slot-heraldry" data-slot="heraldry" data-inspector-category="heraldry" aria-pressed="false" aria-label="Open Heraldic Chamber">
           <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
           <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
           <span class="plaque-icon" id="plaque-icon-heraldry" aria-hidden="true"></span>
@@ -179,19 +179,21 @@
           </div>
         </button>
 
-        <!-- Right edge navigation control to connected Siege Workshop -->
+        <!-- Separate workshop destination -->
         <button type="button" id="armory-nav-siege" class="armory-nav-siege-btn" aria-label="Visit Siege Workshop">
-          <span class="nav-label">SIEGE</span>
+          <span class="nav-label">SIEGE WORKSHOP</span>
           <span class="nav-arrow" aria-hidden="true">→</span>
         </button>
 
-        <!-- Bottom status strip and rotation hint -->
+        </nav>
+
+        <div class="armory-preview" data-armory-preview="kit" aria-label="Spellblade model preview"></div>
         <div class="armory-kit-footer">
           <div class="armory-status-summary" id="armory-status-summary">
             Equipped: Castleward Longsword · Fireball · Sunder All That Rusts · Crimson Cloth
           </div>
           <div class="armory-stage-controls">
-            <span class="turn-hint">DRAG TO TURN · DOUBLE-CLICK TO RESET</span>
+            <span class="armory-turn-hint">DRAG TO TURN</span>
             <button type="button" id="armory-reset-hero" class="armory-reset-btn" aria-label="Reset hero orientation">RESET VIEW</button>
           </div>
         </div>
@@ -200,9 +202,6 @@
         <div class="visual-hidden" aria-hidden="true">
           <b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small>
         </div>
-      </div>
-
-      <!-- Sliding Equipment Inspector (right side) -->
       <aside id="armory-inspector" class="armory-inspector closed" inert aria-label="Equipment Inspector">
         <div class="inspector-inner banner-panel">
           <header class="inspector-header">
@@ -214,12 +213,6 @@
             <button type="button" id="armory-inspector-close" class="inspector-close" aria-label="Close Inspector">✕</button>
           </header>
 
-          <nav id="armory-inspector-categories" class="mode-filters" aria-label="Equipment categories">
-            <button type="button" data-inspector-category="technique">SWORD TECHNIQUES</button>
-            <button type="button" data-inspector-category="sorcery">SORCERY</button>
-            <button type="button" data-inspector-category="masterstroke">MASTERSTROKES</button>
-            <button type="button" data-inspector-category="heraldry">HERALDRY</button>
-          </nav>
           <div class="inspector-scroll armory-scroll" tabindex="0">
             <!-- Technique list -->
             <div id="inspector-list-technique" class="inspector-list hidden">
@@ -264,6 +257,7 @@
           <p class="armory-scroll-hint">SCROLL FOR DETAILS ↓</p>
         </div>
       </aside>
+      </div>
 
       <!-- 2. The Connected Siege Workshop Stage -->
       <div id="armory-siege" class="armory-siege-stage hidden">
@@ -280,27 +274,28 @@
           <button type="button" class="siege-tab" data-siege-tab="fightFlight" aria-pressed="false">FIGHT-AND-FLIGHT</button>
         </nav>
 
-        <!-- Workshop Drag Controls Hint -->
+        <div class="armory-preview" data-armory-preview="siege" aria-label="Siege machine model preview"></div>
         <div class="siege-viewport-controls">
-          <span class="turn-hint">DRAG TO INSPECT MACHINE · DOUBLE-CLICK TO RESET</span>
+          <span class="armory-turn-hint">DRAG TO INSPECT</span>
           <button type="button" id="siege-reset-view" class="armory-reset-btn" aria-label="Reset machine angle">RESET VIEW</button>
         </div>
 
         <!-- Right-side Siege Inspector Panel -->
         <aside class="siege-inspector banner-panel" aria-label="Machine Inspector">
-          <div class="siege-inspector-scroll armory-scroll" tabindex="0">
-            <header class="siege-header">
+          <header class="siege-header">
               <span class="siege-badge" id="siege-badge">SIEGE MACHINE</span>
               <h3 id="siege-title">SO-FIST-ICATION</h3>
-              <p class="siege-subtitle" id="siege-subtitle">A MOST FORCEFUL ARGUMENT</p>
-            </header>
+              <p class="siege-subtitle" id="siege-subtitle">SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN</p>
+          </header>
+          <div class="siege-inspector-scroll armory-scroll" tabindex="0">
+            <section class="siege-section">
+              <h4 class="armory-slot">SIEGE SKILLS · U</h4>
+              <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
+            </section>
 
             <section class="siege-section">
-              <h4 class="armory-slot">ABILITIES & ATTACKS</h4>
+              <h4 class="armory-slot">ABILITIES &amp; ATTACKS</h4>
               <div id="siege-attacks-list" class="siege-attacks-list"></div>
-
-              <h4 class="armory-slot">SIEGE SKILL · U</h4>
-              <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
             </section>
 
             <section class="siege-section">
@@ -326,14 +321,15 @@
               </details>
             </section>
           </div>
-          <p class="armory-scroll-hint">SCROLL FOR ALL THREE SIEGE MACHINES ↓</p>
+          <p class="armory-scroll-hint">SCROLL FOR MACHINE DETAILS ↓</p>
         </aside>
       </div>
 
       <!-- 3. The Heraldry Chamber Stage -->
       <div id="armory-heraldry" class="armory-heraldry-stage hidden">
+        <div class="armory-preview" data-armory-preview="heraldry" aria-label="Cape and standard model preview"></div>
         <div class="heraldry-stage-controls">
-          <span class="turn-hint">DRAG TO INSPECT KNIGHT & HERALDRY · DOUBLE-CLICK TO RESET</span>
+          <span class="armory-turn-hint">DRAG TO INSPECT</span>
           <button type="button" id="heraldry-reset-hero" class="armory-reset-btn" aria-label="Reset hero view">RESET VIEW</button>
         </div>
 
@@ -452,7 +448,7 @@
         <div id="renown-arena-wrap" hidden>
           <div id="renown-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
             <span>BATTLEFIELD</span>
-            <button type="button" class="vote-chip mine" role="radio" data-renown-arena="court-of-merit">COURT OF MERIT</button>
+            <button type="button" class="vote-chip mine" role="radio" title="Recommended battlefield" data-renown-arena="court-of-merit">COURT OF MERIT <small class="trial-recommended">RECOMMENDED</small></button>
             <button type="button" class="vote-chip" role="radio" data-renown-arena="castleward">CASTLEWARD</button>
           </div>
         </div>
@@ -486,7 +482,7 @@
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy" id="breakthrough-panel-copy">Attackers capture successive objectives; Defenders fight to hold the stronghold.</p>
         <div id="mettle-renown-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Rampage battlefield" hidden>
-          <button type="button" class="vote-chip" role="radio" data-renown-arena="court-of-merit">COURT OF MERIT</button>
+          <button type="button" class="vote-chip" role="radio" title="Recommended battlefield" data-renown-arena="court-of-merit">COURT OF MERIT <small class="trial-recommended">RECOMMENDED</small></button>
           <button type="button" class="vote-chip" role="radio" data-renown-arena="castleward">CASTLEWARD</button>
         </div>
         <button id="mettle-options" class="mode-choice mettle-options" type="button">

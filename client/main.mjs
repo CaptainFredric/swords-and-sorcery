@@ -304,7 +304,7 @@ preloadSpellbladeAssets().catch(() => {});
 let menuScene = null;
 let renown = null;
 try {
-  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryPanel: $('#armory-menu .banner-panel') });
+  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryScreen: $('#armory-menu') });
   menuScene.setTourAllowed(tourAllowed());
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
@@ -897,8 +897,9 @@ function updateEnd(snapshot) {
     const pending = entries.reduce((sum, item) => sum + (['PENDING','UNSETTLED'].includes(item.status) ? item.reward ?? 0 : 0), 0);
     const unavailable = entries.reduce((sum, item) => sum + (item.status === 'UNAVAILABLE' ? item.reward ?? 0 : 0), 0);
     finalBoard.innerHTML = `<div class="bt-end-summary"><strong>RAMPAGE TO RENOWN · ${trial?.waveIndex ?? 0} WAVES</strong><small>${finished ? 'Every wave endured.' : 'The Rightful Renowner has spoken.'}</small></div>`
-      + entries.map(entry => `<div class="final-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} RENOWN</strong><em>${escapeHtml(entry.verdict)} · ${escapeHtml(entry.status ?? 'UNSETTLED')}</em></div>`).join('')
-      + `<p class="panel-copy">SETTLED TO PROFILE: ${settled} · PENDING: ${pending} · UNAVAILABLE: ${unavailable}</p>`;
+      + (trial?.rehearsal ? [] : entries).map(entry => `<div class="final-row trial-ledger-row"><b>WAVE ${Number(entry.wave)}</b><strong>${Number(entry.reward)} RENOWN</strong><em>${escapeHtml(entry.verdict)} · ${escapeHtml((entry.status ?? 'UNSETTLED').replaceAll('_', ' '))}</em></div>`).join('')
+      + (trial?.rehearsal ? '<p class="panel-copy">Offline rehearsal. No account Renown awarded.</p>'
+        : `<p class="panel-copy">SETTLED TO PROFILE: ${settled} · PENDING: ${pending} · UNAVAILABLE: ${unavailable}</p>`);
     seekAnotherButton.classList.add('hidden');
     rematchButton.classList.remove('hidden');
     rematchButton.textContent = 'TRY THE TRIAL AGAIN';
@@ -1509,7 +1510,7 @@ function startTutorial() {
 let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
-  'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment.'],
+  'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment. Offline rehearsal awards no account Renown.'],
   'edge-of-victory-mode': ['EDGE OF VICTORY','Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
   'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
   'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
@@ -2001,7 +2002,8 @@ function openInspector(category, itemId = null) {
   const inspector = $('#armory-inspector');
   inspector.classList.remove('closed');
   inspector.inert = false;
-  for (const button of inspector.querySelectorAll('[data-inspector-category]')) {
+  $('#armory-kit').classList.add('inspecting');
+  for (const button of document.querySelectorAll('[data-inspector-category]')) {
     button.setAttribute('aria-pressed', String(button.dataset.inspectorCategory === category));
   }
 
@@ -2019,7 +2021,7 @@ function openInspector(category, itemId = null) {
   $('#inspector-list-sorcery').classList.toggle('hidden', category !== 'sorcery');
   $('#inspector-list-masterstroke').classList.toggle('hidden', category !== 'masterstroke');
 
-  menuScene?.setArmoryInspector(true);
+  inspector.querySelector('.inspector-scroll').scrollTop = 0;
 
   renderInspectorLists();
   updateInspectorDetailCard();
@@ -2029,14 +2031,15 @@ function openInspector(category, itemId = null) {
   }
 }
 
-function closeInspector({ immediate = false } = {}) {
+function closeInspector() {
   armoryLocation.inspectorOpen = false;
   saveArmoryLocation(armoryLocation);
   const inspector = $('#armory-inspector');
   if (inspector.contains(document.activeElement)) $('#armory-slot-' + armoryLocation.category)?.focus({ preventScroll: true });
+  $('#armory-kit').classList.remove('inspecting');
+  for (const button of document.querySelectorAll('[data-inspector-category]')) button.setAttribute('aria-pressed', 'false');
   inspector.classList.add('closed');
   inspector.inert = true;
-  menuScene?.setArmoryInspector(false, { immediate });
   menuScene?.showSpell(settings.get('loadout.spell'));
   const backBtn = $('#armory-back');
   if (backBtn && armoryLocation.region === 'kit') backBtn.textContent = '← MAIN MENU';
@@ -2053,6 +2056,11 @@ function renderSiegeWorkshop(machineId = 'soFist') {
   }
 
   menuScene?.siegeWorkshop?.selectMachine(machineId);
+  const panel = $('#armory-siege .siege-inspector-scroll');
+  if (panel && panel.dataset.machine !== machineId) {
+    panel.dataset.machine = machineId;
+    panel.scrollTop = 0;
+  }
 
   const selections = siegeSelections();
   const machines = siegeArmoryView(selections);
@@ -2074,23 +2082,8 @@ function renderSiegeWorkshop(machineId = 'soFist') {
     </div>`).join('');
   }
 
-  const expandedSiegeStories = new Set([...$('#armory-siege-machines').querySelectorAll('details[data-siege-story][open]')].map((el) => el.dataset.siegeStory));
   $('#armory-siege-machines').innerHTML = `
     <article class="siege-armory-card">
-      <div class="siege-armory-heading visual-hidden">
-        <span class="siege-armory-mark">${m.icon ? iconSvg(m.icon) : m.mark}</span>
-        <div><p class="armory-slot">${m.subtitle}</p><h4>${m.name}</h4></div>
-      </div>
-      <p class="siege-armory-preview visual-hidden">${escapeHtml(m.preview)}</p>
-      <details class="siege-armory-story visual-hidden" data-siege-story="${m.id}" ${expandedSiegeStories.has(m.id) ? 'open' : ''}>
-        <summary aria-label="Story of Siege for ${escapeHtml(m.name)}">
-          <span>STORY OF SIEGE</span><span class="siege-story-chevron" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="siege-armory-description${m.id === 'fightFlight' ? ' siege-armory-description-long' : ''}">
-          ${m.line.split(/\n\s*\n/).map((paragraph, i) => `<p${i === 0 && m.id === 'fightFlight' ? ' class="siege-armory-motto"' : ''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('')}
-        </div>
-      </details>
-      <small class="siege-armory-facts visual-hidden">${escapeHtml(m.facts)}</small>
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
         ${m.skills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
           <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
@@ -2156,22 +2149,22 @@ function navigateToArmorySection(region, { preserveInspector = false, immediate 
     if (preserveInspector && armoryLocation.inspectorOpen) {
       openInspector(armoryLocation.category, armoryLocation.highlightedItem);
     } else {
-      closeInspector({ immediate });
+      closeInspector();
     }
   } else if (region === 'siege') {
-    closeInspector({ immediate });
+    closeInspector();
     menuScene?.setArmoryPresentation(false);
     menuScene?.setHeraldryChamber(false);
     menuScene?.setSiegeWorkshop(true, { machineId: armoryLocation.siegeMachine, immediate });
     renderSiegeWorkshop(armoryLocation.siegeMachine);
   } else if (region === 'heraldry') {
-    closeInspector({ immediate });
+    closeInspector();
     menuScene?.setArmoryPresentation(false);
     menuScene?.setSiegeWorkshop(false);
     menuScene?.setHeraldryChamber(true, { immediate });
     renown?.selectSection('heraldry');
   } else if (region === 'challenges') {
-    closeInspector({ immediate });
+    closeInspector();
     challenges?.render();
   }
 }
@@ -2198,10 +2191,6 @@ function renderPreparedArmory() {
       ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';
 }
 
-$('#armory-slot-technique').addEventListener('click', () => openInspector('technique'));
-$('#armory-slot-sorcery').addEventListener('click', () => openInspector('sorcery'));
-$('#armory-slot-masterstroke').addEventListener('click', () => openInspector('masterstroke'));
-$('#armory-slot-heraldry').addEventListener('click', () => navigateToArmorySection('heraldry'));
 $('#armory-nav-siege').addEventListener('click', () => navigateToArmorySection('siege'));
 $('#armory-inspector-close').addEventListener('click', () => closeInspector());
 $('#armory-inspector-categories').addEventListener('click', event => {
@@ -2209,20 +2198,6 @@ $('#armory-inspector-categories').addEventListener('click', event => {
   if (category === 'heraldry') navigateToArmorySection('heraldry');
   else if (category) openInspector(category);
 });
-let heraldryBackdropDown = null;
-menuSpellblade.addEventListener('pointerdown', event => {
-  heraldryBackdropDown = { x: event.clientX, y: event.clientY };
-});
-menuSpellblade.addEventListener('pointercancel', () => { heraldryBackdropDown = null; });
-menuSpellblade.addEventListener('click', event => {
-  const down = heraldryBackdropDown;
-  heraldryBackdropDown = null;
-  if (router.current !== SCREEN_IDS.ARMORY || armoryLocation.region !== 'heraldry' ||
-      event.target.tagName !== 'CANVAS' || !down || Math.hypot(event.clientX-down.x,event.clientY-down.y)>8) return;
-  navigateToArmorySection('kit');
-  $('#armory-slot-heraldry').focus({ preventScroll: true });
-});
-
 $('#armory-equip-btn').addEventListener('click', () => {
   const cat = armoryLocation.category;
   const id = armoryLocation.highlightedItem;
@@ -2347,7 +2322,9 @@ $('#armory-back').addEventListener('click', () => {
   } else if (armoryLocation.inspectorOpen) {
     closeInspector();
   } else if (armoryLocation.region !== 'kit') {
+    const source = armoryLocation.region;
     navigateToArmorySection('kit');
+    $(source === 'heraldry' ? '#armory-slot-heraldry' : '#armory-nav-siege')?.focus({ preventScroll: true });
   } else {
     route(SCREEN_IDS.MAIN_MENU);
   }

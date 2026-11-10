@@ -1,5 +1,3 @@
-/* Temporary ceremonial HUD until the Rightful Renowner 3D asset and clip contracts are supplied.
-   All interactions remain server-authoritative; this is NOT a fake GLB renderer. */
 .renown-trial-hud {
   position: absolute;
   top: max(68px, 11vh);
@@ -49,112 +47,32 @@
   font: 15px/1.35 Georgia, serif; font-style: italic;
 }
 .renown-trial-hud .trial-line[hidden] { display: none; }
-.renown-trial-hud .trial-monument { display: none; }
+.renown-trial-hud :is(.trial-clock, .trial-details, .trial-footer):empty { display: none; }
 .renown-trial-hud.ceremony {
-  top: 18%; width: min(480px, calc(100vw - 24px));
-  padding: 17px 20px 14px;
-  border-width: 2px;
-  box-shadow: inset 0 0 0 3px rgba(13, 15, 20, .9), 0 16px 70px rgba(0,0,0,.72);
+  top: auto; bottom: max(22px, 7%); width: min(430px, calc(100% - 24px));
 }
-.renown-trial-hud.ceremony .trial-monument {
-  display: grid; place-items: end center;
-  position: relative; margin: 7px auto 12px;
-  width: 118px; height: 125px;
+#hud:has(.renown-trial-hud.ceremony:not([hidden])) :is(
+  #crosshair, #pointer-hint, .bottom-hud, #kill-feed, .touch-controls, #death-card
+) { visibility: hidden; }
+.renown-trial-hud[data-cue="COMBAT"] {
+  position: static; transform: none; width: max-content; max-width: 100%;
+  padding: 5px 9px; display: flex; flex-wrap: wrap;
+  justify-content: center; align-items: baseline; gap: 4px 8px;
+  background: #1a1815df; box-shadow: 0 2px 8px #0006;
 }
-.renown-trial-hud .trial-statue {
-  position: relative; display: block; width: 50px; height: 90px;
-  background: linear-gradient(110deg, #7e7f83, #32343d 48%, #929296);
-  clip-path: polygon(27% 0, 72% 0, 88% 17%, 83% 30%, 100% 39%, 90% 57%, 78% 57%, 73% 100%, 20% 100%, 17% 57%, 7% 55%, 0 37%, 13% 30%, 13% 15%);
-  filter: drop-shadow(0 1px 2px black);
+.renown-trial-hud[data-cue="COMBAT"] :is(.trial-header, .trial-title, .trial-details, .trial-clock) {
+  font-size: 10px; line-height: 1.15; letter-spacing: .045em; margin: 0; white-space: nowrap;
 }
-.renown-trial-hud .trial-sword {
-  display: block; position: absolute; z-index: 1;
-  left: 58px; top: 0; width: 7px; height: 87px;
-  background: linear-gradient(90deg, #b9b9b6, #f2f0de 46%, #707579);
-  transform-origin: 50% 85%; transform: rotate(-17deg);
-  transition: transform .5s ease;
-}
-.renown-trial-hud .trial-sword::before {
-  content: ''; position: absolute; left: -10px; top: 66px;
-  width: 27px; height: 5px; background: #bb9c61;
-}
-.renown-trial-hud[data-cue="SWORD_RAISE"] .trial-sword { transform: rotate(-45deg); }
-.renown-trial-hud[data-cue="SWORD_EXECUTION"] .trial-sword,
-.renown-trial-hud[data-cue="SWORD_EVADED"] .trial-sword { transform: rotate(20deg); }
-.renown-trial-hud .trial-pedestal {
-  display: block; position: absolute; bottom: 0; height: 24px; width: 118px;
-  border: 2px solid #b39659; box-sizing: border-box;
-  background: linear-gradient(115deg, #66615b, #373837, #4c4b4a);
-  box-shadow: 0 4px 8px rgba(0,0,0,.45);
-}
-.renown-trial-hud .trial-pedestal::after {
-  content: ''; position: absolute; left: 50%; bottom: 4px;
-  width: 17px; height: 4px; transform: translateX(-50%);
-  border: 1px solid #bdab7e; border-radius: 0 0 6px 6px;
-  background: #17191c;
-}
-.renown-trial-hud .trial-asset-warning {
-  display: block; margin: 7px 0 0; color: #998e7c;
-  font-size: 9px; letter-spacing: .01em;
-}
-@media (max-width: 650px) {
-  .renown-trial-hud { top: 7%; width: min(320px, calc(100vw - 16px)); padding: 7px 9px; }
-  .renown-trial-hud.ceremony { top: 12%; padding: 10px 12px; }
-  .renown-trial-hud.ceremony .trial-monument { transform: scale(.82); margin: -4px auto 0; }
-  .renown-trial-hud .trial-title { font-size: 13px; }
-  .renown-trial-hud .trial-clock { font-size: 18px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .renown-trial-hud .trial-sword { transition: none; }
+@container app (max-height: 450px) {
+  .renown-trial-hud[data-cue="COMBAT"] { padding: 4px 6px; }
+  .renown-trial-hud.ceremony { bottom: 6%; padding: 8px 12px; }
 }
 
-/* The very modest opponent and even more modest coin are procedural silhouettes,
-   deliberately NOT misrepresented as Argon's authored 3D animation clips. */
-.renown-trial-hud .trial-knight {
-  position: absolute;
-  left: 0; bottom: 22px; width: 29px; height: 58px;
-  background: linear-gradient(110deg,#94989d,#373d46 65%,#6f7279);
-  clip-path: polygon(30% 0,68% 0,85% 14%,81% 29%,100% 36%,90% 58%,73% 58%,88% 100%,50% 100%,42% 66%,30% 100%,0 100%,17% 56%,6% 47%,12% 31%,25% 27%);
-  transform-origin: 55% 93%;
-  transition: transform .33s ease;
-  filter: drop-shadow(0 1px 2px #000);
+.final-row.trial-ledger-row {
+  grid-template-columns: 6.5em 1fr minmax(7.5em, auto);
+  padding-inline: 8px;
 }
-.renown-trial-hud[data-cue="KNIGHTING"] .trial-knight,
-.renown-trial-hud[data-cue="RECEIVE_COMPENSATION"] .trial-knight {
-  transform: rotate(19deg) translateY(3px);
-}
-.renown-trial-hud[data-cue="SWORD_EVADED"] .trial-knight,
-.renown-trial-hud[data-cue="I_HAVE_SURPASSED_JUDGEMENT"] .trial-knight {
-  transform: translateX(-10px);
-}
-.renown-trial-hud[data-cue="SWORD_EXECUTION"] .trial-knight,
-.renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-knight,
-.renown-trial-hud[data-cue="LATE_COIN"] .trial-knight {
-  transform: rotate(-83deg) translate(-5px, 7px);
-}
-.renown-trial-hud .trial-coin {
-  position: absolute;
-  bottom: 16px; left: 56px; z-index: 3;
-  height: 7px; width: 7px; border-radius: 50%;
-  border: 1px solid #f3d78e;
-  background: radial-gradient(circle at 30% 30%,#fbe0a1,#a78237 75%);
-  box-shadow: 0 0 2px #b98a32;
-  opacity: 0;
-}
-.renown-trial-hud[data-cue="REWARD_COIN"] .trial-coin,
-.renown-trial-hud[data-cue="CONSOLATION_COIN"] .trial-coin,
-.renown-trial-hud[data-cue="CONSOLATION_REACTION"] .trial-coin,
-.renown-trial-hud[data-cue="LATE_COIN"] .trial-coin { opacity: 1; }
-.renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-coin {
-  opacity: 1;
-  animation: trial-coin-strike .32s ease-in forwards;
-}
-@keyframes trial-coin-strike {
-  0% { transform: translate(0,0) scale(.7); }
-  70% { transform: translate(-31px,-25px) scale(1); }
-  100% { transform: translate(-53px,-30px) scale(.5); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .renown-trial-hud .trial-knight { transition: none; }
-  .renown-trial-hud[data-cue="COIN_RETALIATION"] .trial-coin { animation: none; transform: translate(-53px,-30px); }
-}
+.final-row.trial-ledger-row b { white-space: nowrap; }
+.final-row.trial-ledger-row em { text-align: right; }
+#renown-reward:empty { display: none; }
+.trial-recommended { display: block; margin-top: .15rem; font: 700 8px/1.2 var(--font-script); letter-spacing: .08em; }

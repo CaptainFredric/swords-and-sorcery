@@ -19,14 +19,10 @@ export const MENU_SHOTS = Object.freeze({
   armory: shot([0.9, 1.55, 1.6], [-0.55, 1.3, 7.42], 40),
   // Centered Spellblade for the redesigned character-centered Armory
   armoryCenter: shot([0.2, 1.45, 1.5], [-1.0, 0.95, 5.5], 38),
-  // Armory with sliding inspector open: character recomposed smoothly toward screen left
-  armoryInspect: shot([0.78, 1.45, 1.5], [-0.48, 0.95, 5.5], 38),
   // Breakthrough deployment banner: wider view framing the Spellblade angled toward battle plan
   breakthrough: shot([2.1, 1.4, -0.4], [0.1, 2.9, 13.0], 43),
   // Connected Siege Workshop in the engineering courtyard
-  siege: shot([13.2, 1.75, -5.5], [14.6, 1.15, 0.0], 40),
-  // Siege Workshop with machine inspector open on the right
-  siegeInspect: shot([13.6, 1.75, -5.5], [14.9, 1.15, 0.0], 40),
+  siege: shot([21, 3.0, -5.4], [14, 1.1, 0], 40),
   // Heraldry Chamber framing the Spellblade and his back banner / cape
   heraldry: shot([0.65, 1.45, 1.6], [-0.62, 0.95, 5.5], 38),
 });
@@ -101,4 +97,29 @@ export function aimAt(shot, subject, { share = 0.5, aspect = 16 / 9 } = {}) {
 
 export function menuMoveSeconds(from, to) {
   return Math.hypot(...from.camera.map((v,i)=>v-to.camera[i])) > 4 ? 1.05 : .85;
+}
+
+// Interruptions start from the shot currently being presented.
+export function menuTransition(from, to, seconds, reducedMotion = false) {
+  const duration = Number.isFinite(seconds) ? Math.max(.01, seconds) : menuMoveSeconds(from, to);
+  return { from, to, duration: reducedMotion ? .01 : duration, elapsed: 0 };
+}
+
+// Fit all eight corners in a reserved preview at the shot's vertical FOV.
+// Bounds use the same world metres as the authored character and machines.
+export function fitMenuSubject(shot, { min, max }, aspect, padding = 1.16) {
+  const target = min.map((v, i) => (v + max[i]) / 2);
+  const normalized = v => { const n = Math.hypot(...v); return v.map(x => x / n); };
+  const dot = (a, b) => a.reduce((sum, v, i) => sum + v * b[i], 0);
+  const back = normalized(shot.camera.map((v, i) => v - shot.target[i]));
+  const right = normalized([back[2], 0, -back[0]]);
+  const up = [-back[1] * right[2], back[2] * right[0] - back[0] * right[2], back[1] * right[0]];
+  const rise = Math.tan(shot.fov * Math.PI / 360);
+  let distance = .5;
+  for (const x of [min[0], max[0]]) for (const y of [min[1], max[1]]) for (const z of [min[2], max[2]]) {
+    const p = [x - target[0], y - target[1], z - target[2]];
+    const spread = Math.max(Math.abs(dot(p, right)) / Math.max(.1, aspect), Math.abs(dot(p, up)));
+    distance = Math.max(distance, dot(p, back) + padding * spread / rise);
+  }
+  return { camera: target.map((v, i) => v + distance * back[i]), target, fov: shot.fov };
 }

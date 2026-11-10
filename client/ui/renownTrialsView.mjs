@@ -36,7 +36,7 @@ export function renownTrialsView(snapshot, serverNow) {
   const trial = snapshot?.mode === 'RENOWN_TRIALS' ? snapshot.renownTrial : null;
   if (!trial) return { visible: false };
   const ledger = trial.ledger ?? [];
-  const label = trial.rehearsal ? 'RAMPAGE REHEARSAL' : 'RAMPAGE TO RENOWN';
+  const label = 'RAMPAGE TO RENOWN';
   const settled = ledger.reduce((sum, row) => sum + (row.status === 'SETTLED' ? row.reward ?? 0 : 0), 0);
   const pending = ledger.reduce((sum, row) => sum + (['PENDING', 'UNSETTLED'].includes(row.status) ? row.reward ?? 0 : 0), 0);
   const unavailable = ledger.reduce((sum, row) => sum + (row.status === 'UNAVAILABLE' ? row.reward ?? 0 : 0), 0);
@@ -47,14 +47,11 @@ export function renownTrialsView(snapshot, serverNow) {
     const overtime = trial.phase === 'WAVE_OVERTIME';
     return {
       visible: true, ceremony: false, overtime,
-      header: `${label} · WAVE ${trial.waveIndex}/${trial.maxWaves}`,
-      title: `${trial.remaining} / ${trial.totalEnemies} RIVALS REMAIN`,
+      header: `WAVE ${trial.waveIndex}/${trial.maxWaves}`,
+      title: `${trial.remaining} ${trial.remaining === 1 ? "RIVAL" : "RIVALS"} LEFT`,
       clock: overtime ? `OVERTIME +${fixedClock(trial.overtimeSec)}` : fixedClock(trial.timeLeftSec),
-      details: overtime
-        ? `JUDGMENT RISK: ${Math.round((trial.executionChance ?? 0) * 100)}% · FIGHT ON`
-        : trial.rehearsal ? `TARGET ${fixedClock(trial.deadlineSec)}`
-          : `TARGET ${fixedClock(trial.deadlineSec)} · BASE REWARD ${trial.potentialReward}`,
-      footer: trial.rehearsal ? 'REHEARSAL · NO ACCOUNT RENOWN' : `RENOWN · ${ledgerSummary}`,
+      details: overtime ? `JUDGMENT ${Math.round((trial.executionChance ?? 0) * 100)}%` : '',
+      footer: '',
       stage: 'COMBAT', line: '',
     };
   }
@@ -77,13 +74,11 @@ export function renownTrialsView(snapshot, serverNow) {
       : content.line ?? '';
     return {
       visible: true, ceremony: true, overtime: false,
-      header: `${trial.rehearsal ? 'REHEARSAL' : 'THE RIGHTFUL RENOWNER'} · WAVE ${trial.waveIndex}`,
-      title: content.label, details: content.note,
-      clock: '', footer, stage: cue ?? 'SOLEMN_JUDGMENT',
+      header: `${snapshot.worldId === 'court-of-merit' ? 'THE RIGHTFUL RENOWNER' : 'JUDGMENT AT THE COURT'} · WAVE ${trial.waveIndex}`,
+      title: trial.rehearsal && cue === 'REWARD_COIN' ? 'THE TRAY OPENS' : content.label, details: content.note,
+      clock: '', footer: trial.rehearsal ? '' : footer, stage: cue ?? 'SOLEMN_JUDGMENT',
       line: spokenLine,
-      // The real authored GLB and clips have not been verified. Treat this as
-      // a temporary ceremonial representation, not an animation implementation.
-      placeholder: true, kind,
+      kind,
     };
   }
   if (trial.phase === 'PREPARING' || trial.phase === 'TRANSITION') {
@@ -93,7 +88,7 @@ export function renownTrialsView(snapshot, serverNow) {
       title: trial.phase === 'PREPARING' ? 'PREPARE TO PROVE YOUR WORTH' : `WAVE ${trial.waveIndex} CLEARED`,
       details: trial.phase === 'PREPARING'
         ? 'The trial begins shortly.' : `Next wave: ${trial.waveIndex + 1}`,
-      clock: '', footer: trial.rehearsal ? 'REHEARSAL · NO ACCOUNT RENOWN' : `RENOWN · ${ledgerSummary}`,
+      clock: '', footer: '',
       stage: 'TRANSITION', line: '',
     };
   }

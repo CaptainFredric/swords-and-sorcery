@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
+import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds, menuTransition, fitMenuSubject } from './menuShots.mjs';
 import { MOMENTS, MOMENT_EVERY, REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 
 const STAGE = { x: -1.0, z: 5.5 };
@@ -79,7 +79,7 @@ test('a choice on the front door gets a brief reaction: in quickly, held, eased 
 test('the challenge card names the duel, the melee and the arena', async () => {
   const { arenaGateCopy, challengeCopy, countdownSeconds } = await import('./challengeCard.mjs');
   const duel = challengeCopy({ mode: 'BOT_DUEL', localId: 'me', players: [{ id: 'me', name: 'Aldric' }, { id: 'bot', name: 'Rival Spellblade', actorKind: 'bot' }] });
-  assert.deepEqual(duel, { kicker: 'A WORTHY CHALLENGER', you: 'Aldric', foe: 'Rival Spellblade', copy: 'Castleward · first to 10' });
+  assert.deepEqual(duel, { kicker: 'THE TRIAL AWAITS', you: 'Aldric', foe: 'VS. YOUR RIVAL', copy: 'Castleward · first to 10' });
   const melee = challengeCopy({ mode: 'FFA', localId: 'me', players: [{ id: 'me', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }] });
   assert.equal(melee.kicker, 'THE MELEE BEGINS');
   assert.equal(melee.foe, '2 RIVALS');
@@ -107,4 +107,27 @@ test('menu travel is deliberate and longer reframing gets more time',()=>{
   const h=.001;
   assert.ok((easeShot(h)-easeShot(0))/h<.0001);
   assert.ok((easeShot(1)-easeShot(1-h))/h<.0001);
+});
+
+test('Armory camera transitions keep a finite duration and resume from the presented frame', () => {
+  let presented = MENU_SHOTS.main;
+  for (const name of ['ARMORY', 'SIEGE_WORKSHOP', 'HERALDRY_CHAMBER', 'ARMORY', 'MAIN_MENU']) {
+    const to = menuShotFor(name);
+    const move = menuTransition(presented, to, name === 'ARMORY' ? { duration: .3 } : .3);
+    assert.ok(Number.isFinite(move.duration) && move.duration > 0);
+    assert.deepEqual(lerpShot(move.from, move.to, 0), presented);
+    presented = lerpShot(move.from, move.to, easeShot(.35));
+  }
+  assert.ok(menuTransition(presented, MENU_SHOTS.main, .5, true).duration <= .02);
+});
+
+test('measured viewports fit bounds without changing subject scale', () => {
+  const bounds = { min: [-3, 0, 5], max: [3, 3, 11] };
+  const wide = fitMenuSubject(MENU_SHOTS.armoryCenter, bounds, 2);
+  const narrow = fitMenuSubject(MENU_SHOTS.armoryCenter, bounds, .75);
+  const distance = s => Math.hypot(...s.camera.map((value, i) => value - s.target[i]));
+  assert.deepEqual(wide.target, [0, 1.5, 8]);
+  assert.deepEqual(narrow.target, wide.target);
+  assert.equal(narrow.fov, wide.fov);
+  assert.ok(distance(narrow) > distance(wide));
 });

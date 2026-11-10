@@ -7,9 +7,9 @@ import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
-import { MENU_SHOTS, aimAt, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
+import { MENU_SHOTS, aimAt, easeShot, lerpShot, menuShotFor, shotSettled, menuTransition, fitMenuSubject } from './menuShots.mjs';
 import { FIGHT_SHOT, mixClear } from './tour/tourCamera.mjs';
-import { REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
+import { REACTIONS, idleMoment, idlePose, reactionMoment, armoryIdleMoment } from './menuIdle.mjs';
 import { TourDirector } from './tour/TourDirector.mjs';
 import { performanceAt } from './menuReactions.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../game/swordArmIK.mjs';
@@ -18,16 +18,15 @@ import { createGaleOrb } from '../game/galeOrb.mjs';
 import { Effects } from '../game/Effects.mjs';
 import { ArmoryShowcase, armoryGestureMotion } from './ArmoryShowcase.mjs';
 import { hasShowcase } from './showcaseSheets.mjs';
-import { armoryRetreatTarget } from './armoryStageMotion.mjs';
 import { MenuCaption } from './menuCaption.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
 import { SiegeWorkshopScene } from './SiegeWorkshopScene.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
 // where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
-function layoutLeft(element) {
+function layoutOffset(element, axis = "offsetLeft") {
   let x = 0;
-  for (let node = element; node; node = node.offsetParent) x += node.offsetLeft;
+  for (let node = element; node; node = node.offsetParent) x += node[axis];
   return x;
 }
 
@@ -66,7 +65,7 @@ const SPELL_PREVIEW = Object.freeze({
 });
 
 export class MenuScene {
-  constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null, armoryPanel = null } = {}) {
+  constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null, armoryScreen = null } = {}) {
     this.container = container;
     this.onReady = onReady;
     this.sound = sound;
@@ -74,7 +73,8 @@ export class MenuScene {
     // the front door's banner, which the round's fights are framed to the right of
     this.banner = banner;
     // the Armory's panel: its ultimates are performed in the part of the screen clear of it
-    this.armoryPanel = armoryPanel;
+    this.armoryScreen = armoryScreen;
+    this.previews = [...armoryScreen?.querySelectorAll('[data-armory-preview]') ?? []];
     // the Spellblade's round (the main menu): wanted by the front door, running once his model is in
     this.tour = null;
     // what he says out on it, written out (Settings, Audio, Subtitles)
@@ -167,6 +167,12 @@ export class MenuScene {
     this.renderer.domElement.addEventListener('pointerdown', this.#pointerDown);
     globalThis.addEventListener?.('pointermove', this.#pointerMove);
     globalThis.addEventListener?.('pointerup', this.#pointerUp);
+    globalThis.addEventListener?.('pointercancel', this.#pointerUp);
+    for (const preview of this.previews) {
+      preview.addEventListener('pointerdown', this.#pointerDown);
+      preview.addEventListener('lostpointercapture', this.#pointerUp);
+      preview.addEventListener('dblclick', this.#resetView);
+    }
     this.renderer.domElement.addEventListener('dblclick', this.#resetView);
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -293,30 +299,30 @@ export class MenuScene {
   setShot(name, seconds = null) {
     const next = menuShotFor(name);
     if (next === this.shotTo) return;
-    this.shotFrom = { ...(this.presentedShot ?? this.shot) };
-    this.shotTo = next;
-    this.shotElapsed = 0;
-    this.shotDuration = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : Math.max(0.01, seconds ?? menuMoveSeconds(this.shotFrom, next));
+    const move = menuTransition(this.presentedShot ?? this.shot, next, seconds, this.#reducedMotion());
+    this.shotFrom = move.from;
+    this.shotTo = move.to;
+    this.shotElapsed = move.elapsed;
+    this.shotDuration = move.duration;
+  }
+
+  #reducedMotion() {
+    return Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
   }
 
   #pointerDown = (event) => {
-    // touch browsers do not reliably turn a double tap into dblclick
-    if (event.pointerType === 'touch') {
-      const now = performance.now();
-      if (now - (this.lastTapAt ?? -Infinity) < 320) {
-        this.#resetView();
-        this.lastTapAt = -Infinity;
-      } else {
-        this.lastTapAt = now;
-      }
-    }
+    if (this.dragging || event.button !== 0 || !event.isPrimary) return;
+    // Only the explicit preview can start an Armory drag.
+    if (!this.armoryScreen?.classList.contains('hidden') && this.armoryScreen &&
+        event.currentTarget === this.renderer.domElement) return;
+    const point = gamePoint(event);
     this.dragging = true;
-    this.dragStart = { ...gamePoint(event), yaw: this.targetYaw, pitch: this.targetPitch };
-    this.renderer.domElement.setPointerCapture?.(event.pointerId);
+    this.dragStart = { ...point, initial: point, id: event.pointerId, type: event.pointerType, yaw: this.targetYaw, pitch: this.targetPitch };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   #pointerMove = (event) => {
-    if (!this.dragging || this.touring) return;
+    if (!this.dragging || this.dragStart.id !== event.pointerId || this.touring) return;
     const point = gamePoint(event);
     if (this.siegeActive) {
       const dx = point.x - this.dragStart.x;
@@ -327,18 +333,31 @@ export class MenuScene {
       return;
     }
     this.targetYaw = this.dragStart.yaw + (point.x - this.dragStart.x) * 0.009;
-    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.12, 0.12);
+    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.28, 0.28);
   };
 
-  #pointerUp = () => { this.dragging = false; };
+  #pointerUp = event => {
+    if (!this.dragging || event.pointerId !== this.dragStart.id) return;
+    this.dragging = false;
+    if (event.type !== 'pointerup' || this.dragStart.type !== 'touch') return;
+    const point = gamePoint(event), start = this.dragStart.initial;
+    if (Math.hypot(point.x - start.x, point.y - start.y) > 8) {
+      this.lastTap = null;
+      return;
+    }
+    const now = performance.now(), last = this.lastTap;
+    if (last && now - last.now < 320 && Math.hypot(point.x - last.x, point.y - last.y) < 30) {
+      this.#resetView();
+      this.lastTap = null;
+    } else this.lastTap = { ...point, now };
+  };
 
   #resetView = () => {
     if (this.siegeActive) {
       this.siegeWorkshop?.resetRotation();
       return;
     }
-    this.targetYaw = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
-    this.targetPitch = 0;
+    this.resetHeroOrientation();
   };
 
   #frame = (nowMs) => {
@@ -356,7 +375,7 @@ export class MenuScene {
     // Complete the Armory's return walk before the autonomous courtyard
     // tour takes ownership of the model's world transform.
     if (this.touringWanted && !this.touring && this.tour?.ready && settled &&
-        !this.armoryReturning) this.#startTouring();
+        !this.armoryReturning && !this.previewFrame) this.#startTouring();
     if (!this.touring) {
       // Crossing the Armory threshold is a short readable walk, not a
       // teleport or a sliding model. Slower settling leaves time for feet.
@@ -365,8 +384,9 @@ export class MenuScene {
       if(this.armoryReturning &&
         this.characterRoot.position.distanceToSquared(this.targetPosition)<.0016)
         this.armoryReturning=false;
-      this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
-      this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
+      const turn = this.#reducedMotion() ? 1 : 1 - Math.exp(-dt * 11);
+      this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * turn;
+      this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * turn;
     }
     // A deliberate Armory choice briefly flares its identity on the live model.
     if (this.armoryPreview) {
@@ -384,7 +404,7 @@ export class MenuScene {
     }
     if (this.galeOrb?.visible) this.galeOrb.userData.update(t);
     if (this.armoryElemental?.visible) this.armoryElemental.userData.update(t);
-    if (this.siegeActive) this.siegeWorkshop?.update(dt);
+    if (this.siegeActive) this.siegeWorkshop?.update(dt, this.#reducedMotion());
 
     // the presentation eased toward what is wanted: the camera recomposes as the banner moves, not after it
     this.#stepFraming(dt);
@@ -413,11 +433,13 @@ export class MenuScene {
       const reaction = this.ready && !isRepositioning ? reactionMoment(this.reaction, this.clock) : null;
       if (this.reaction && !reaction) this.reaction = null;
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
-      const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
-      let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
+      const armory = this.armoryActive || this.heraldryActive;
+      const quiet = armory && this.#reducedMotion();
+      const moment = quiet ? null : armory ? armoryIdleMoment(this.clock - this.armoryIdleAt) : reaction ?? (this.ready ? idleMoment(this.clock) : null);
+      let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: quiet ? 0 : t });
       if(isRepositioning&&(this.armoryActive||this.armoryReturning))
         plan={...plan,rate:this.armoryActive?-.55:.55}; // retreat gait in reverse, forward on return
-      if (performance) {
+      if (performance && !armory) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
           extra: performance.rotations,
@@ -482,24 +504,12 @@ export class MenuScene {
       this.#placeCamera(lerpShot(this.shot, { camera: round.position.toArray(), target: round.target.toArray(), fov: round.fov }, k), drift.map((d) => d * (1 - k)));
     } else {
       let view = this.shot;
-      let offset = drift;
+      const shake = this.showcase?.active ? this.showcase.shakeOffset(t) : null;
       // with the banner drawn aside, the same shot turned to give him the middle of the stage (he is at his place: the
       // round is not running on this quality, or for anyone who asked for less motion)
       if (this.framing > 0) view = lerpShot(view, aimAt(view, this.#stagePoint(), { share: OBSERVE_SHARE, aspect: this.camera.aspect }), this.framing);
-      if (this.showcase?.active && this.showcase.framed > 0) {
-        // stepped back to keep the showcase in view, and shaken by what it brings down on the ground
-        const shake = this.showcase.shakeOffset(t);
-        view = lerpShot(this.shot, this.showcase.shot, easeShot(this.showcase.framed));
-        if (shake) offset = drift.map((d, i) => d + shake[i]);
-      }
-      // a showcase cut short: from wherever the camera was, eased to where it is wanted now
-      if (this.cameraRelease) {
-        this.cameraRelease.age += dt;
-        const share = this.cameraRelease.age / SHOWCASE_RELEASE_SEC;
-        view = lerpShot(this.cameraRelease.from, view, easeShot(share));
-        if (share >= 1) this.cameraRelease = null;
-      }
-      this.#placeCamera(view, offset);
+      const previewView = this.#previewCamera(view, dt);
+      this.#placeCamera(previewView, this.previewFrame ? (shake ?? [0, 0, 0]) : drift);
     }
     // the menu's effects (the round's fights and the showcases alike: the round leaves them to the menu)
     this.effects?.update(dt);
@@ -507,6 +517,50 @@ export class MenuScene {
     this.world.update(t, this.camera, dt);
     this.renderer.render(this.scene, this.camera);
   };
+
+  #previewCamera(shot, dt) {
+    const preview = this.previews.find(element => element.offsetWidth > 0 && element.offsetHeight > 0);
+    const easing = this.#reducedMotion() ? 1 : 1 - Math.exp(-dt * 14);
+    const wasFramed = Boolean(this.previewFrame);
+    let goal = shot;
+    if (preview || wasFramed) {
+      const canvas = this.renderer.domElement;
+      const width = canvas.clientWidth || 1, height = canvas.clientHeight || 1;
+      const desired = preview ? [
+        layoutOffset(preview) - layoutOffset(canvas), layoutOffset(preview, 'offsetTop') - layoutOffset(canvas, 'offsetTop'),
+        preview.clientWidth, preview.clientHeight,
+      ] : [0, 0, width, height];
+      const old = this.previewFrame ?? [0, 0, width, height];
+      const frame = desired.map((v, i) => Math.abs(v - old[i]) < .5 ? v : old[i] + (v - old[i]) * easing);
+      this.previewFrame = frame;
+      this.camera.setViewOffset(frame[2], frame[3], -frame[0], -frame[1], width, height);
+      if (!preview && frame.every((v, i) => v === desired[i])) {
+        this.previewFrame = null;
+        this.camera.clearViewOffset();
+      }
+      if (preview) {
+        const aspect = frame[2] / frame[3];
+        const reach = THREE.MathUtils.lerp(1.38, 1.05, THREE.MathUtils.clamp((aspect - 1.1) / .45, 0, 1));
+        const bounds = this.siegeActive ? this.siegeWorkshop?.presentationBounds() : {
+          min: [STAGE.x - reach, .02, STAGE.z - reach],
+          max: [STAGE.x + reach, 1.94, STAGE.z + reach],
+        };
+        if (bounds) goal = fitMenuSubject(shot, bounds, aspect, this.siegeActive ? 1.16 : 1.07);
+      }
+    }
+    // Authored showcase shots already use the preview's aspect. Fit the
+    // standing pose first, then blend into the wider action framing.
+    if (this.showcase?.active && this.showcase.framed > 0) {
+      goal = lerpShot(goal, this.showcase.shot, easeShot(this.showcase.framed));
+    }
+    if (this.cameraRelease) {
+      this.cameraRelease.age += dt;
+      const share = this.cameraRelease.age / SHOWCASE_RELEASE_SEC;
+      goal = lerpShot(this.cameraRelease.from, goal, easeShot(share));
+      if (share >= 1) this.cameraRelease = null;
+    }
+    return preview || wasFramed ? lerpShot(this.presentedShot ?? shot, goal, easing) : goal;
+  }
 
   #placeCamera(shot, drift = [0, 0, 0]) {
     this.presentedShot = { camera:[...shot.camera],target:[...shot.target],fov:shot.fov };
@@ -565,7 +619,8 @@ export class MenuScene {
     if (entering) {
       this.targetPosition.set(0, 0, 0);
       this.targetYaw = Math.PI - 0.22;
-      this.setShot('armoryCenter', { duration: immediate ? 0.01 : 0.65 });
+      this.armoryIdleAt = this.clock;
+      this.setShot('armoryCenter', immediate ? 0.01 : 0.65);
       this.siegeActive = false;
       this.siegeWorkshop?.setVisible(false);
     } else if (!this.breakthroughActive && !this.siegeActive) {
@@ -579,22 +634,17 @@ export class MenuScene {
     }
   }
 
-  setArmoryInspector(open, { immediate = false } = {}) {
-    if (!this.armoryActive) return;
-    const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 0.45;
-    this.setShot(open ? 'armoryInspect' : 'armoryCenter', { duration });
-  }
-
-  setSiegeWorkshop(active, { machineId = 'soFist', inspectorOpen = false, immediate = false } = {}) {
+  setSiegeWorkshop(active, { machineId = 'soFist', immediate = false } = {}) {
     const entering = Boolean(active);
     this.siegeActive = entering;
     this.siegeWorkshop?.setVisible(entering);
+    this.characterRoot.visible = !entering;
     if (entering) {
       this.armoryActive = false;
       this.targetPosition.set(0, 0, 0);
       if (machineId) this.siegeWorkshop?.selectMachine(machineId);
       const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 1.05;
-      this.setShot(inspectorOpen ? 'siegeInspect' : 'siege', { duration });
+      this.setShot('siege', duration);
     }
   }
 
@@ -605,7 +655,8 @@ export class MenuScene {
       this.targetPosition.set(0, 0, 0);
       this.targetYaw = Math.PI - 0.35;
       const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 0.65;
-      this.setShot('heraldry', { duration });
+      this.armoryIdleAt = this.clock;
+      this.setShot('heraldry', duration);
       this.showBanner(true);
     } else {
       this.showBanner(false);
@@ -613,7 +664,7 @@ export class MenuScene {
   }
 
   resetHeroOrientation() {
-    this.targetYaw = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
+    this.showBanner(this.heraldryActive);
     this.targetPitch = 0;
   }
 
@@ -738,7 +789,7 @@ export class MenuScene {
     const banner = this.banner;
     const canvas = this.renderer.domElement;
     if (!this.tour || !banner?.offsetWidth || canvas.clientWidth < 1) return;
-    const edge = (layoutLeft(banner) + banner.offsetWidth - layoutLeft(canvas)) / canvas.clientWidth;
+    const edge = (layoutOffset(banner) + banner.offsetWidth - layoutOffset(canvas)) / canvas.clientWidth;
     // a banner across most of a narrow screen leaves nothing clear of it: the fights take the middle. (Measured from the
     // banner's layout, which a transform never changes: its being drawn aside is the presentation's to say, not this)
     this.commandClear = edge > 0.62 ? [0.1, 0.9] : [Math.max(0.1, edge + 0.03), 0.96];
@@ -846,14 +897,8 @@ export class MenuScene {
   #showcaseView() {
     const shot = this.shotTo;
     const canvas = this.renderer.domElement;
-    const panel = this.armoryPanel;
-    let clear = [0.1, 0.97];
-    if (panel?.offsetWidth && canvas.clientWidth > 0) {
-      const edge = (layoutLeft(panel) + panel.offsetWidth - layoutLeft(canvas)) / canvas.clientWidth;
-      // (a panel across most of a narrow screen: the showcase takes the middle)
-      clear = edge > 0.7 ? [0.1, 0.97] : [Math.max(0.05, edge + 0.02), 0.97];
-    }
-    return { look: [shot.target[0] - shot.camera[0], shot.target[2] - shot.camera[2]], aspect: this.camera.aspect, clear, fov: shot.fov };
+    const aspect = this.previewFrame ? this.previewFrame[2] / this.previewFrame[3] : canvas.clientWidth / canvas.clientHeight;
+    return { look: [shot.target[0] - shot.camera[0], shot.target[2] - shot.camera[2]], aspect, clear: [.06, .94], fov: shot.fov };
   }
 
   /** How dense the effects' cosmetic particles are (the render quality: applySettings PARTICLE_DENSITY). */
@@ -960,6 +1005,12 @@ export class MenuScene {
     this.renderer.domElement.removeEventListener('pointerdown', this.#pointerDown);
     globalThis.removeEventListener?.('pointermove', this.#pointerMove);
     globalThis.removeEventListener?.('pointerup', this.#pointerUp);
+    globalThis.removeEventListener?.('pointercancel', this.#pointerUp);
+    for (const preview of this.previews) {
+      preview.removeEventListener('pointerdown', this.#pointerDown);
+      preview.removeEventListener('lostpointercapture', this.#pointerUp);
+      preview.removeEventListener('dblclick', this.#resetView);
+    }
     this.renderer.domElement.removeEventListener('dblclick', this.#resetView);
 
     if (this.assetInstance) {

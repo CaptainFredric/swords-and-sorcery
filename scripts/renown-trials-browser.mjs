@@ -21,7 +21,9 @@ async function until(fn, label, tries=160) {
   }
   throw new Error('Timed out: '+label+(last?' ('+last.message+')':''));
 }
-const out='output/playwright/renown-trials';
+const alternate = process.argv.includes('--castleward');
+const touch = process.argv.includes('--touch');
+const out = 'output/playwright/renown-trials' + (alternate ? '/castleward' : '/court');
 const tmp=await mkdtemp(join(tmpdir(),'castleward-renown-trials-'));
 const browserProfile=join(tmp,'chrome');
 const profileDir=join(tmp,'wallet');
@@ -122,6 +124,10 @@ try {
   await cdp.connect();
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  if (touch) {
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});
+    await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  }
   await cdp.send('Page.navigate',{url:base+'/?debug'});
   await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),
     'full Three.js main menu',190);
@@ -129,10 +135,17 @@ try {
   await evaluate("document.querySelector('#player-name').value='Trial Knight',true");
   await click('#renown-trials-mode');
   assert.equal(await evaluate("document.querySelector('#solo-selected-title')?.textContent"),'RAMPAGE TO RENOWN');
+  assert.equal(await evaluate("document.querySelector('#renown-arena [aria-checked=true]').dataset.renownArena"), 'court-of-merit');
+  if (alternate) await click('#renown-arena [data-renown-arena="castleward"]');
+  await shot('00-launch');
   await click('#renown-trials-mode'); // second activation launches actual selected pursuit
   await until(()=>evaluate("window.__ssLink?.hosting==='remote' && window.__ssLink?.roomCode"),
     'server-authored trial join',240);
+  await until(() => evaluate("!document.querySelector('#arena-gate').classList.contains('hidden') && document.querySelector('#arena-gate-sub').textContent==='VS. JUDGMENT'"), 'Judgment introduction');
+  await shot('00b-introduction');
   const room=await until(()=>[...server.roomManager.rooms.values()].find(r=>r.mode==='RENOWN_TRIALS'),'server trial room');
+  const battlefield = alternate ? 'castleward' : 'court-of-merit';
+  await until(() => evaluate(`window.__ssSnapshot?.worldId === '${battlefield}'`), 'requested combat world');
   const player=[...room.players.values()].find(p=>p.actorKind==='human');
   assert.equal(player.profileToken?.length,64,'trial must have a connected persistent guest identity');
   await until(()=>room.renownTrial?.phase==='WAVE_ACTIVE','live first wave');
@@ -140,6 +153,21 @@ try {
   assert.equal(room.players.size,2);
   room.inspectionFrozenActors = new Set(room.renownTrial.wave.enemyIds);
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
+  await until(() => evaluate("document.querySelector('#renown-trial-hud').dataset.cue==='COMBAT'"), 'combat ribbon');
+  const combat = await evaluate(`(() => {
+    const el=document.querySelector('#renown-trial-hud');
+    const r=el.getBoundingClientRect();
+    return { width:r.width, height:r.height, top:r.top, text:el.innerText };
+  })()`);
+  assert.ok(combat.width < 420 && combat.height < 54 && combat.top < 145, JSON.stringify(combat));
+  assert.doesNotMatch(combat.text, /RENOWN|REHEARSAL|REWARD/);
+  if (touch) {
+    assert.equal(await evaluate("document.body.classList.contains('touch-ui')"), true);
+    await until(() => evaluate("document.querySelector('#arena-gate').classList.contains('hidden')"), 'arena opened');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:422,y:195}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await until(() => evaluate("document.querySelector('.touch-controls')?.classList.contains('active')"), 'real touch focus');
+  }
   await shot('01-live-wave');
   const enemy=room.players.get(room.renownTrial.wave.enemyIds[0]);
   await swordDefeat(room,player,enemy);
@@ -148,9 +176,16 @@ try {
   const balanceAfterWave1=profileStore.open(player.profileToken).profile.balance;
   assert.ok(balanceAfterWave1>0);
   assert.equal(room.renownTrial.ledger[0].reward,balanceAfterWave1);
+  await until(() => evaluate(`(() => {
+    const r=window.__ssRuntime;
+    const court=${alternate} ? r.trialCutawayWorld : r.world;
+    return r.trialJudgmentCamera && court?.monument?.visible && court?.sword?.visible
+      && court.handledCues.has('REWARD_COIN') && court.coinVisuals.length > 0;
+  })()`), 'Court podium, sword and animated reward coins');
   await shot('02-timely-ceremony');
   await until(()=>room.renownTrial.waveIndex===2 && room.renownTrial.phase==='WAVE_ACTIVE',
     'second wave after nonfatal ceremony',150);
+  room.renownTrial.maxWaves=2;
   const second=room.renownTrial.wave;
   room.inspectionFrozenActors = new Set(second.enemyIds);
   // Force the server's test deadline into the past. The production director
@@ -166,12 +201,7 @@ try {
   }, 'client HUD displays OVERTIME');
   assert.match(overtimeHUD,/OVERTIME/);
   await shot('03-overtime-combat');
-  await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:780,deviceScaleFactor:1,mobile:true});
-  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
-  await shot('04-mobile-overtime-hud');
-  await cdp.send('Emulation.clearDeviceMetricsOverride');
-  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
-  await sleep(200);
+  if (touch) await shot('04-mobile-overtime-hud');
   const secondEnemy=room.players.get(second.enemyIds[0]);
   await swordDefeat(room,player,secondEnemy);
   await until(()=>room.renownTrial.phase==='JUDGMENT','single late verdict after last kill');
@@ -181,7 +211,10 @@ try {
     'late judgment must not erase a previously settled reward');
   const ceremonyId=room.renownTrial.ceremony.id;
   assert.equal(room.events.filter(e=>e.type==='renownTrialCeremonyStarted'&&e.ceremonyId===ceremonyId).length<=1,true);
+  await until(() => evaluate("document.querySelector('#renown-trial-hud').classList.contains('ceremony')"), 'late ceremony on screen');
   await shot('05-late-ceremony');
+  await until(() => evaluate("document.querySelector('#final-scoreboard').textContent.includes('SETTLED TO PROFILE')"), 'rewarded results');
+  await shot('06-results');
   await writeFile(join(out,'results.json'),JSON.stringify({
     verdict:room.renownTrial.wave.verdict,ceremonyId,
     firstWaveRealSwordKill:true,secondWaveRealSwordKill:true,

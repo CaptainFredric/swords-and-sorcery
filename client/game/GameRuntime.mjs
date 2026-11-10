@@ -101,7 +101,7 @@ import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs
 import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 import { HighGroundsRenderer } from '../worlds/HighGroundsRenderer.mjs';
 import {RestlessDayRenderer} from '../worlds/RestlessDayRenderer.mjs';
-import { CourtOfMeritRenderer } from '../worlds/CourtOfMeritRenderer.mjs';
+import { CourtOfMeritRenderer, COURT_OF_MERIT_LIGHTING } from '../worlds/CourtOfMeritRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -738,6 +738,7 @@ export class GameRuntime {
       const nextWorld = getWorld(worldId);
       const nextRenderer = createWorldRenderer(worldId, this.scene, WORLD_RENDERERS);
       this.world?.dispose?.();
+      this.#disposeTrialCutaway();
       this.structuresRenderer?.dispose();
       this.structuresRenderer = new StructureRenderer(this.scene, nextWorld);
       this.world = nextRenderer;
@@ -4300,6 +4301,7 @@ export class GameRuntime {
   // the world; then my own arms and sword over it, on depth cleared of the world (viewLayers.mjs), with the shadows
   // the world's pass already made
   #renderView() {
+    if (this.#renderTrialJudgment()) return;
     if(!this.socket.inspectionAvailable||(!this.inspectionFree&&!this.inspectionSplit))return this.#renderCamera(this.camera,true);
     const {width,height}=this.#viewSize();
     const views=inspectionViews(width,height,this.inspectionSplit,this.inspectionFocus);
@@ -4327,6 +4329,44 @@ export class GameRuntime {
       this.camera.aspect=actorAspect;this.camera.updateProjectionMatrix();
       this.renderer.setScissorTest(false);this.renderer.setViewport(0,0,width,height);
     }
+  }
+
+  #renderTrialJudgment() {
+    const snapshot = this.latestSnapshot;
+    if (!renownTrialControlsLocked(snapshot) || snapshot.renownTrial.phase !== 'JUDGMENT'
+      || !snapshot.renownTrial.ceremony) return false;
+
+    const { width, height } = this.#viewSize();
+    const camera = this.trialJudgmentCamera ??= new THREE.PerspectiveCamera(45, 1, 0.1, 120);
+    camera.aspect = width / height;
+    camera.position.set(2.2, 3, 6.0);
+    camera.lookAt(0, 3.8, 15.2);
+    camera.updateProjectionMatrix();
+
+    if (this.world instanceof CourtOfMeritRenderer) {
+      this.#renderCamera(camera, false);
+    } else {
+      if (!this.trialCutawayScene) {
+        const { hemisphere, sun } = COURT_OF_MERIT_LIGHTING;
+        const scene = new THREE.Scene();
+        const light = everywhere(new THREE.DirectionalLight(sun.color, sun.intensity));
+        light.position.set(...sun.position);
+        scene.add(light, everywhere(new THREE.HemisphereLight(hemisphere.skyColor, hemisphere.groundColor, hemisphere.intensity)));
+        this.trialCutawayScene = scene;
+        this.trialCutawayWorld = new CourtOfMeritRenderer(scene);
+      }
+      const now = this.socket.serverNow();
+      this.trialCutawayWorld.setTrialState(snapshot, now);
+      this.trialCutawayWorld.update(now, camera);
+      this.renderer.render(this.trialCutawayScene, camera);
+    }
+    return true;
+  }
+
+  #disposeTrialCutaway() {
+    this.trialCutawayWorld?.dispose();
+    this.trialCutawayWorld = null;
+    this.trialCutawayScene = null;
   }
 
   #renderCamera(camera, firstPerson) {
@@ -4402,6 +4442,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.structuresRenderer?.dispose();
     this.world?.dispose?.();
+    this.#disposeTrialCutaway();
     this.edgeRenderer.dispose();
     this.oneHitEffects?.dispose();
     this.remotePlayers.dispose();

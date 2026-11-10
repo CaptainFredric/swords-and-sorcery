@@ -16,9 +16,19 @@ export function countdownSeconds(countdownEndsAt, serverNow) {
   return Math.max(1, Math.ceil(countdownEndsAt - serverNow));
 }
 
+const SOLO_FOES = Object.freeze({
+  RENOWN_TRIALS: 'VS. JUDGMENT',
+  EDGE_OF_VICTORY: 'VS. THE WORLD',
+  BOT_DUEL: 'VS. YOUR RIVAL',
+  RESTLESS_DAY: 'VS. SUNDOWN',
+});
+
 export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward', scoreToWin = 10, teamSize = 3 } = {}) {
   const world = worldName(worldId);
   const me = players.find((p) => p.id === localId);
+  const you = me?.name || 'YOU';
+  const place = `${world} · first to ${scoreToWin ?? 10}`;
+  if (SOLO_FOES[mode]) return { kicker: 'THE TRIAL AWAITS', you, foe: SOLO_FOES[mode], copy: mode === 'BOT_DUEL' ? place : world };
   // A team is an arrangement of supporting Squires, not a replacement for
   // the local Spellblade's name. Count the roster, never the living actors:
   // individual deaths must not make the introduction flicker.
@@ -44,9 +54,7 @@ export function challengeCopy({ mode, players = [], localId = null, worldId = 'c
     };
   }
   const others = players.filter((p) => p.id !== localId && p.actorKind !== 'dummy');
-  const you = me?.name || 'YOU';
-  const place = `${world} · first to ${scoreToWin ?? 10}`;
-  if (mode === 'BOT_DUEL' || others.length === 1) {
+  if (others.length === 1) {
     return {
       kicker: 'A WORTHY CHALLENGER',
       you,
@@ -74,6 +82,7 @@ export function arenaGateCopy({ mode, worldId = 'castleward', scoreToWin = 10, t
         : `BREAKTHROUGH · ${teamSize}V${teamSize} SIEGE`;
     return { title, sub };
   }
-  if (mode === 'BOT_DUEL' || mode === 'DUEL') return { title, sub: `DUEL · ${first}` };
+  if (SOLO_FOES[mode]) return { title, sub: SOLO_FOES[mode] };
+  if (mode === 'DUEL') return { title, sub: `DUEL · ${first}` };
   return { title, sub: `FREE-FOR-ALL · ${first}` };
 }
