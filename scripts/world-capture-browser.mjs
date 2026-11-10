@@ -136,7 +136,7 @@ try {
   // the camera override and per-frame accounting (installed once; renders still come from the game's own loop)
   await evaluate(`(()=>{const r=window.__ssRuntime,R=r.renderer;R.info.autoReset=false;
     const render=R.render.bind(R);window.__cap={view:null,frames:0,calls:0,tris:0,dts:[],last:performance.now()};
-    R.render=(scene,camera)=>{const v=window.__cap.view;if(v&&camera===r.camera&&!(camera.layers.mask&1))return;if(v&&camera===r.camera){camera.position.set(...v.from);camera.lookAt(...v.to);
+    R.render=(scene,camera)=>{const v=window.__cap.follow?.()??window.__cap.view;if(v&&camera===r.camera&&!(camera.layers.mask&1))return;if(v&&camera===r.camera){camera.position.set(...v.from);camera.lookAt(...v.to);
       camera.far=Math.max(camera.far,400);camera.updateProjectionMatrix();camera.updateMatrixWorld();}render(scene,camera)};
     const tick=(t)=>{const c=window.__cap;c.dts.push(t-c.last);c.last=t;c.frames++;c.calls+=R.info.render.calls;c.tris+=R.info.render.triangles;R.info.reset();requestAnimationFrame(tick)};
     requestAnimationFrame(tick);return true})()`);
@@ -166,6 +166,21 @@ try {
     await shot(`${String(i + 1).padStart(2, '0')}-${name}`);
   }
   await evaluate("window.__cap.view=null;document.querySelector('#cap-clean')?.remove();true");
+  // SS_FOLLOW: a page-side function body returning {from, to} each frame (a chase camera on the live match);
+  // SS_FRAMES frames are saved SS_FRAME_MS apart into <out>/frames for a short gameplay clip
+  if (process.env.SS_FOLLOW) {
+    await mkdir(join(out, 'frames'), { recursive: true });
+    await evaluate(`window.__cap.follow=new Function(${JSON.stringify(process.env.SS_FOLLOW)});
+      if(!document.querySelector('#cap-clean')){const s=document.createElement('style');s.id='cap-clean';
+        s.textContent='body *{visibility:hidden!important}canvas{visibility:visible!important}';document.head.append(s)}true`);
+    const count = Number(process.env.SS_FRAMES ?? 60), gap = Number(process.env.SS_FRAME_MS ?? 160);
+    for (let i = 0; i < count; i++) {
+      const r = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 78 }, 60000);
+      await writeFile(join(out, 'frames', `f${String(i).padStart(4, '0')}.jpg`), Buffer.from(r.data, 'base64'));
+      await sleep(gap);
+    }
+    await evaluate("window.__cap.follow=null;document.querySelector('#cap-clean')?.remove();true");
+  }
   // where the triangles are: the world renderer's own meshes, largest first
   metrics.worldMeshes = await evaluate(`(()=>{const g=window.__ssRuntime.world?.group;const out=[];g?.traverse(o=>{if(!o.isMesh)return;
     const geo=o.geometry;const n=geo.index?geo.index.count/3:(geo.attributes.position?.count??0)/3;out.push([o.name||o.parent?.name||'?',Math.round(n*(o.isInstancedMesh?o.count:1)),o.castShadow])});

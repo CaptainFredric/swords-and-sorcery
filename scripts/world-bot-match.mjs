@@ -38,7 +38,8 @@ const abyss = room.world.abyssY ?? -9;
 for (let tick = 0; tick < seconds * 30 && room.state === 'PLAYING'; tick += 1) {
   const now = start + tick / 30;
   human.input = { forward: 0, right: 0, yaw: human.yaw ?? 0, pitch: 0 };
-  stepBotControllers(room, now, room.world, { random });
+  // (as the server: in Edge of Victory every knight hunts every other)
+  stepBotControllers(room, now, room.world, mode === 'EDGE_OF_VICTORY' ? { random, targetKinds: ['human', 'bot'] } : { random });
   stepRoom(room, 1 / 30, now, room.world);
   for (const e of room.events.splice(0)) {
     log.events[e.type] = (log.events[e.type] ?? 0) + 1;
