@@ -3,6 +3,12 @@ import {biByeRootFrame} from './biByeComponents.mjs';
 import {soFistUpperBox,soFistUpperPoint,soFistUpperAxes} from './soFistElevation.mjs';
 import {boxWorld,orientedBoxHit} from '../src/orientedBox.mjs';
 export const SO_FIST_SCALE=2.85;
+// Recovered Argon shaft bounds and exposed striker locator, in the
+// lowered/retracted model frame. Stroke, lift and pitch compose afterward.
+const PISTON_AXIS_Y=.365*SO_FIST_SCALE;
+const PISTON_BACK=(.520-1.0928)*SO_FIST_SCALE;
+const PISTON_FRONT=(.520+.104)*SO_FIST_SCALE;
+const PISTON_TIP=(.520+.092)*SO_FIST_SCALE;
 // Authored native dimensions. All world geometry, steering and operator locators
 // derive from this single scale; meshes and authority share the same frame.
 const native=p=>Object.freeze(p.map(v=>v*SO_FIST_SCALE));
@@ -107,7 +113,8 @@ export function soFistVolumes(b,now=b?.poseTime??0){
  for(const [i,w]of SO_FIST_WHEELS.entries()){add(w.id,[w.pivot[0],w.pivot[1]+(b.wheelOffsets?.[i]??0),w.pivot[2]],[.144*SO_FIST_SCALE,w.radius*2,w.radius*2],'timber',true);if(i<2){const a=soFistWheelSteering(b)[i],c=Math.cos(a),s=Math.sin(a);out.at(-1).axes=[root.axes[0].map((v,k)=>v*c-root.axes[2][k]*s),root.axes[1],root.axes[0].map((v,k)=>v*s+root.axes[2][k]*c)];}}
  if((b.components?.Fist?.health??500)>0&&b.fistMounted!==false)
    add('Fist',[-.02845,.3849,.7288].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.5283,.4824,.4444].map(n=>n*SO_FIST_SCALE),'metal',true,true);
- add('Piston',[0,.967,-.262+pose.offset*2.65/SO_FIST_SCALE],[.88,.88,3.228],'metal',false,true);
+ add('Piston',[0,PISTON_AXIS_Y,(PISTON_FRONT+PISTON_BACK)/2+pose.offset],
+   [.332*SO_FIST_SCALE,.332*SO_FIST_SCALE,PISTON_FRONT-PISTON_BACK],'metal',true,true);
  return out;
 }
 export function soFistStriker(b,now){
@@ -115,7 +122,7 @@ export function soFistStriker(b,now){
  return b.components.Fist.health>0&&b.fistMounted!==false?
   soFistVolumes(b,now).find(v=>v.componentId==='Fist'):
   {componentId:'Piston',axes:soFistUpperAxes(soFistFrame(b),b),
-   center:soFistUpperPoint(soFistFrame(b),b,[0,fit(.965),fit(1.347-.06)+pose.offset]),
+   center:soFistUpperPoint(soFistFrame(b),b,[0,PISTON_AXIS_Y,PISTON_TIP-fit(.06)+pose.offset]),
    size:[.848,.848,.12].map(fit)};
 }
 export function soFistFirstHit(b,start,end,now,grow=0){let best=null;for(const box of soFistVolumes(b,now)){const h=orientedBoxHit(start,end,box,grow);if(h&&(!best||h.t<best.t))best=h;}return best;}
