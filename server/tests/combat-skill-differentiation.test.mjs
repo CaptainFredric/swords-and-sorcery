@@ -47,7 +47,8 @@ test('combat skill differentiation: sweet-spot cut leading vs centered static vs
     assert.ok(hit1, 'strike 1 lands');
     assert.ok(hit1.point, 'authoritative physical contact point is attached to swordHit event');
     assert.ok(Math.abs(hit1.point.x - 1.7) < 0.35, `contact x near target boundary: ${hit1.point.x}`);
-    assert.ok(hit1.quality >= 0.45 && hit1.quality <= 0.55, `centered quality ~0.49: got ${hit1.quality}`);
+    // (the contact found exactly within its sweep step, as at any tick rate: 0.43; the step it fell in used to round it)
+    assert.ok(hit1.quality >= 0.4 && hit1.quality <= 0.5, `centered quality ~0.43: got ${hit1.quality}`);
     assert.equal(d.health, 76, 'first centered hit deals 24 damage');
 
     // Strike 2 lands
@@ -58,10 +59,12 @@ test('combat skill differentiation: sweet-spot cut leading vs centered static vs
     stepRoom(room, 0.01, 11.80, openWorld);
     assert.equal(d.health, 29, 'third hit deals 24 damage (total 71)');
 
-    // Combo resets and comes round for strike 4
+    // Combo resets and comes round for strike 4: held straight on, the next chain is the rising one (SWORD_CHAINS), its
+    // opening backhand judged as a backhand (22 here, where the falling chain's forehand was 23)
     stepRoom(room, 0.01, 12.09, openWorld);
     stepRoom(room, 0.01, 12.49, openWorld);
-    assert.equal(d.health, 7, 'fourth hit leaves target at 7 HP');
+    assert.equal(room.events.filter((e) => e.type === 'swordHit').at(-1).kind, 1, 'the second chain opens with the backhand');
+    assert.equal(d.health, 8, 'fourth hit leaves target at 8 HP');
     assert.equal(d.alive, true, 'target survives 4 centered hits');
 
     // Strike 5 fells

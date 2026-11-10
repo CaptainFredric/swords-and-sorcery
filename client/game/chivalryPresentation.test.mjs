@@ -53,10 +53,13 @@ test('first person fallback preserves sword and cast together while Dash remains
 });
 
 test('incapacitation and expiry return authored presentation to ordinary ownership', () => {
-  assert.equal(planFor({ ...active, alive: false }).layers, undefined);
-  assert.equal(planFor({ ...active, staggerUntil: 11 }).layers, undefined);
-  assert.equal(planFor(active, 19).layers, undefined);
-  assert.equal(planFor({ ...active, ultimateState: { ...active.ultimateState, phase: 'startup', commitAt: 11 } }).layers, undefined);
+  // (no Chivalry composition: an ordinary strike on the move is layered too, its legs keeping their gait, but it is not
+  // the ultimate's guarded presentation)
+  const ordinary = (plan) => plan.concurrent === undefined && !String(plan.layers?.sword?.clip ?? '').startsWith('GuardCut_');
+  assert.ok(ordinary(planFor({ ...active, alive: false })));
+  assert.ok(ordinary(planFor({ ...active, staggerUntil: 11 })));
+  assert.ok(ordinary(planFor(active, 19)));
+  assert.ok(ordinary(planFor({ ...active, ultimateState: { ...active.ultimateState, phase: 'startup', commitAt: 11 } })));
 });
 
 test('the three signature tell persists, then folds away completely on expiry or death', () => {

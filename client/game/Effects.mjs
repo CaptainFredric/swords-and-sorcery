@@ -689,12 +689,33 @@ export class Effects {
     glowMaterial.dispose();
   }
 
-  /** A Sundering blow landing: heavier sparks and a dull shock ring round the point, the blow's weight made visible. */
-  sunderStrike(point, dir) {
-    this.sparks(point, 0xffb060, 16);
-    this.#groundRing({ x: point.x, y: point.y, z: point.z }, 0xb8602c, 0.8, true);
-    this.#flashLight(point, 0xff9a50, 2.4, 0.12, 4);
-    void dir;
+  /**
+   * A Sundering blow landing on a body, its weight made visible without a ring: hot sparks driven down off the plate,
+   * broken plate and grit thrown out under it, and dust knocked up round the struck knight's feet (`feet`: where he
+   * stands) as the blow drives him into the ground. (The ordinary burst is drawn too, heavy: hitBurst.)
+   */
+  sunderStrike(point, dir, { feet = null } = {}) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
+    push.normalize();
+    for (let i = 0, n = this.#many(14); i < n; i += 1) {
+      const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 2 ? 0xffb060 : 0xffe2a8));
+      spark.position.copy(at);
+      const velocity = new THREE.Vector3((Math.random() - 0.5) * 3, -(2.5 + Math.random() * 3.5), (Math.random() - 0.5) * 3).addScaledVector(push, 1 + Math.random() * 1.5);
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.2, shrink: true, gravity: 9, drag: 1.6 });
+    }
+    const stones = [this.#basicMaterial(0x5a5651), this.#basicMaterial(0x7d766a)];
+    for (let i = 0, n = this.#many(8); i < n; i += 1) {
+      const chip = new THREE.Mesh(this.chipGeometry, stones[i % 2]);
+      chip.position.copy(at);
+      chip.scale.setScalar(1.2 + Math.random());
+      const velocity = push.clone().multiplyScalar(1.5 + Math.random() * 2).add(new THREE.Vector3((Math.random() - 0.5) * 3, 0.6 + Math.random() * 1.8, (Math.random() - 0.5) * 3));
+      this.#addTransient(chip, { velocity, life: 0.55 + Math.random() * 0.3, gravity: 14, spin: new THREE.Vector3(9, 11, 7), shrink: true });
+    }
+    if (feet) for (let i = 0, n = this.#many(4); i < n; i += 1) this.#dust({ x: feet.x, y: feet.y + 0.05, z: feet.z }, { size: 1.2, rise: 0.5, life: 0.55 });
+    this.#flashLight(at, 0xff9a50, 2.6, 0.12, 4);
   }
 
   splinters(point, count = 10) {
@@ -708,56 +729,83 @@ export class Effects {
   }
 
   /**
-   * A sword landing on a body: a slash arc along the stroke, a white-hot flash, hot sparks thrown along the blow and
-   * a few chips of armour. strike: combo index (2 = the heavy third strike); dir: the blow's direction (attacker to victim).
+   * A sword landing on a body, drawn the way the blade went: a crescent of light through the contact, across the view
+   * along the cut's own travel and curving round the attacker's side; a white-hot flash; hot sparks thrown on along
+   * the cut and off the struck plate; a few chips of armour. strike: the cut (0 forehand, 1 backhand, 2 the heavy
+   * chop); dir: attacker to victim on the ground; travel: the blade's way at the contact (hitFeel cutTravel; without
+   * it the cut's usual way is assumed); from: the attacker's chest, which side the arc curves round. A glancing blow
+   * (low quality) is smaller and quicker: the blade skating off rather than biting in. No ring: the blow is the cut.
    */
-  hitBurst(point, dir, { strike = 0, heavy = false, quality = 1 } = {}) {
+  hitBurst(point, dir, { strike = 0, heavy = false, quality = 1, travel = null, from = null } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
     const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
     if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
     push.normalize();
     const big = heavy || strike >= 2;
-    // a glancing blow: a smaller, quicker burst (fewer sparks), the blade skating off rather than biting in
     const bite = 0.55 + 0.45 * Math.max(0, Math.min(1, Number.isFinite(quality) ? quality : 1));
+    const side = new THREE.Vector3(-push.z, 0, push.x);
+    // the cut's way through the body (world): the server's blade's, or its usual way for the cut
+    const way = travel ? new THREE.Vector3(travel.x, travel.y, travel.z).normalize()
+      : strike >= 2 ? new THREE.Vector3(0, -1, 0) : side.clone().multiplyScalar(strike === 1 ? -1 : 1).add(new THREE.Vector3(0, strike === 1 ? 0.25 : -0.25, 0)).normalize();
 
-    // the slash: an arc facing the camera, rolled to match the stroke (right-to-left, left-to-right, overhead)
+    // the crescent, in the view's plane: its middle on the contact, its tangent along the cut as seen
+    this.camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+    const seen = Math.atan2(way.dot(up), way.dot(right));
+    const size = (big ? 1.25 : 1) * bite;
     const arc = new THREE.Mesh(this.slashGeometry, this.slashMaterial);
-    arc.position.copy(at);
-    arc.lookAt(this.camera.getWorldPosition(new THREE.Vector3()));
-    arc.rotateZ([-0.75, 0.75 + Math.PI, -Math.PI / 2][strike % 3]);
-    arc.scale.setScalar((big ? 1.25 : 1) * bite);
-    this.#addTransient(arc, { life: (big ? 0.2 : 0.15) * bite, expand: 2.6, fade: true });
+    arc.quaternion.copy(this.camera.quaternion);
+    // (the crescent's middle is its +x, its tangent there +y: turned so the tangent is the cut, curving round the
+    // attacker's side of it)
+    let theta = seen - Math.PI / 2;
+    const toward = from ? new THREE.Vector3(from.x, from.y + 1.2, from.z).sub(at) : push.clone().negate();
+    const normal = new THREE.Vector2(Math.cos(theta), Math.sin(theta));
+    if (normal.x * toward.dot(right) + normal.y * toward.dot(up) > 0) theta += Math.PI;
+    arc.rotateZ(theta);
+    arc.scale.setScalar(size);
+    const radial = right.clone().multiplyScalar(Math.cos(theta)).add(up.clone().multiplyScalar(Math.sin(theta)));
+    arc.position.copy(at).addScaledVector(radial, -0.62 * size);
+    this.#addTransient(arc, { life: (big ? 0.2 : 0.15) * bite, expand: 1.6, fade: true });
 
     const core = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xfff4dc));
     core.position.copy(at);
     core.scale.setScalar((big ? 0.75 : 0.5) * bite);
     this.#addTransient(core, { life: 0.09, expand: 3.2, shrink: true, spin: new THREE.Vector3(4, 6, 3) });
 
-    // sparks fly out of the cut to both sides and up (across the view, where they read), a few along the blow
-    const side = new THREE.Vector3(-push.z, 0, push.x);
-    for (let i = 0, n = this.#many(Math.round((big ? 28 : 18) * bite)); i < n; i += 1) {
+    // sparks: most thrown on along the cut (the edge dragging through the plate), the rest off the plate, back at the
+    // attacker and up; the heavy chop's driven down and out
+    for (let i = 0, n = this.#many(Math.round((big ? 30 : 18) * bite)); i < n; i += 1) {
       const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffcf6a : 0xfff3c4));
       spark.position.copy(at);
-      const velocity = side.clone().multiplyScalar((Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3.5))
-        .add(push.clone().multiplyScalar(0.5 + Math.random() * 2.5))
-        .add(new THREE.Vector3(0, 0.8 + Math.random() * 3.4, 0));
+      const along = i % 4 !== 0;
+      const velocity = along
+        ? way.clone().multiplyScalar(2.5 + Math.random() * 4).add(push.clone().multiplyScalar(0.4 + Math.random() * 1.4))
+          .add(new THREE.Vector3((Math.random() - 0.5) * 1.6, (Math.random() - 0.3) * 1.6, (Math.random() - 0.5) * 1.6))
+        : push.clone().multiplyScalar(-(0.8 + Math.random() * 1.8)).add(side.clone().multiplyScalar((Math.random() - 0.5) * 3))
+          .add(new THREE.Vector3(0, 0.8 + Math.random() * 2.6, 0));
       spark.lookAt(at.clone().add(velocity));
-      this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.22, shrink: true, gravity: 9, drag: 2.2 });
+      this.#addTransient(spark, { velocity, life: 0.2 + Math.random() * 0.22, shrink: true, gravity: 9, drag: 2.2 });
     }
     for (let i = 0, n = this.#many(Math.round((big ? 7 : 4) * bite)); i < n; i += 1) {
       const chip = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(i % 2 ? 0x55585c : 0x8a8f94));
       chip.position.copy(at);
-      const velocity = push.clone().multiplyScalar(1.2 + Math.random() * 1.8)
+      const velocity = push.clone().multiplyScalar(1.2 + Math.random() * 1.8).addScaledVector(way, 1 + Math.random())
         .add(new THREE.Vector3((Math.random() - 0.5) * 2.4, 1.2 + Math.random() * 2, (Math.random() - 0.5) * 2.4));
       this.#addTransient(chip, { velocity, life: 0.5 + Math.random() * 0.3, gravity: 14, spin: new THREE.Vector3(9, 11, 7), shrink: true });
     }
-    if (big) this.#groundRing(at, 0xffc47a);
+    // (a light on the plate for an instant: what makes the hit land in a dim yard)
+    this.#flashLight(at, 0xffd9a0, (big ? 2.2 : 1.4) * bite, 0.07, 3);
   }
 
-  /** The killing blow: a shockwave at the feet and embers rising off the body. */
+  /** The killing blow: dust knocked up round the feet as the body goes down, and embers rising off it (no ring). */
   killBurst(point) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
-    this.#groundRing(at, 0xff9a4a, 1.6);
+    const feet = { x: at.x, y: at.y - 1.15, z: at.z };
+    for (let i = 0, n = this.#many(6); i < n; i += 1) {
+      const angle = (i / 6) * Math.PI * 2 + Math.random() * 0.5;
+      this.#dust(feet, { size: 1.1, rise: 0.4, life: 0.6, velocity: new THREE.Vector3(Math.cos(angle) * 1.6, 0.3, Math.sin(angle) * 1.6) });
+    }
     for (let i = 0, n = this.#many(24); i < n; i += 1) {
       const ember = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       ember.position.set(at.x + (Math.random() - 0.5) * 0.6, at.y - 0.4 + Math.random() * 0.8, at.z + (Math.random() - 0.5) * 0.6);
@@ -765,23 +813,40 @@ export class Effects {
     }
   }
 
-  /** Steel meeting steel on a guard: bright blue-white sparks and a flat flash where the blades met. */
-  blockBurst(point, dir, { heavy = false, parry = false, frost = false } = {}) {
+  /**
+   * Steel meeting steel on a guard, where the blades met: a flat flash, and sparks, most thrown back off the guard at
+   * the attacker, some scraped on along the cut's way (`travel`, hitFeel cutTravel). A parry: brighter, and a thin
+   * white glint drawn along the caught blade's line for an instant. A broken guard (`heavy`): more of everything.
+   */
+  blockBurst(point, dir, { heavy = false, parry = false, frost = false, travel = null } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
-    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0).normalize();
+    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
+    push.normalize();
+    const way = travel ? new THREE.Vector3(travel.x, travel.y, travel.z).normalize() : null;
     const color = parry ? 0xbff4ff : frost ? 0x79cfff : 0xfff0c8;
     const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(color));
     flash.position.copy(at);
-    flash.scale.setScalar(parry ? 0.7 : 0.45);
+    flash.scale.setScalar(parry ? 0.7 : heavy ? 0.6 : 0.45);
     this.#addTransient(flash, { life: parry ? 0.14 : 0.08, expand: parry ? 4.5 : 3, shrink: true, spin: new THREE.Vector3(5, 3, 6) });
     for (let i = 0, n = this.#many((heavy || parry ? 24 : 14)); i < n; i += 1) {
       const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? color : frost ? 0xe8fbff : 0xffd27a));
       spark.position.copy(at);
-      // sparks fly back toward the attacker off the guard
-      const velocity = push.clone().multiplyScalar(-(1.5 + Math.random() * 3))
-        .add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3.5, (Math.random() - 0.5) * 5));
+      // (one in three scraped on along the cut, the rest back off the guard toward the attacker)
+      const velocity = way && i % 3 === 0
+        ? way.clone().multiplyScalar(2.5 + Math.random() * 3).add(new THREE.Vector3((Math.random() - 0.5) * 1.5, Math.random() * 1.5, (Math.random() - 0.5) * 1.5))
+        : push.clone().multiplyScalar(-(1.5 + Math.random() * 3)).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3.5, (Math.random() - 0.5) * 5));
       spark.lookAt(at.clone().add(velocity));
       this.#addTransient(spark, { velocity, life: 0.2 + Math.random() * 0.2, shrink: true, gravity: 9, drag: 2 });
+    }
+    if (parry) {
+      // the glint: the caught blade's line lit for an instant
+      const glint = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(0xffffff));
+      glint.position.copy(at);
+      glint.lookAt(at.clone().add(way ?? push.clone().cross(new THREE.Vector3(0, 1, 0))));
+      glint.scale.set(0.6, 0.6, 9);
+      this.#addTransient(glint, { life: 0.09, shrink: true });
+      this.#flashLight(at, 0xcfefff, 2.2, 0.08, 3.5);
     }
   }
 

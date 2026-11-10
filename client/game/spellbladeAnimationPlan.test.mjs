@@ -259,24 +259,20 @@ test('All-Natural Disaster poses the third-person sword through the actual strik
   assert.ok(resolveSpellbladeAnimationPlan({state:'one-hit',player:charge,serverNow:30}).time < contact.time,'charge pose holds until release');
 });
 
-test('alternate ordinary chains change only noncontact samples and retain all three chain transitions',()=>{
-  const player={attackStartedAt:10,attackPresentation:1};
-  const baseline={...player,attackPresentation:0};
-  for(const [strike,contact] of [0.4,1.1,1.8].entries()){
-    const at=10+contact;
-    const third=(p,t)=>resolveSpellbladeAnimationPlan({state:'attack',player:p,serverNow:t});
-    const first=(p,t)=>resolveFirstPersonAnimationPlan({state:'attack'},p,t);
-    for(const offset of [-.09,-.055,0,.06,.11]){
-      assert.deepEqual(third(player,at+offset),third(baseline,at+offset));
-      assert.deepEqual(first(player,at+offset),first(baseline,at+offset));
-    }
-    for(const offset of [-.17,.14]){
-      assert.notEqual(third(player,at+offset).time,third(baseline,at+offset).time);
-      assert.deepEqual(first(player,at+offset),third(player,at+offset));
-    }
-    const boundary=10+[0,.72,1.44][strike];
-    assert.deepEqual(third(player,boundary),third(baseline,boundary));
-  }
+test('the two chain forms: the rising chain plays its cuts in its own order, each contact frame on the server contact',()=>{
+  const authored={Slash_1:.4,Slash_2:.38,Slash_3:.36};
+  const forms=[['Slash_1','Slash_2','Slash_3'],['Slash_2','Slash_1','Slash_3']];
+  forms.forEach((clips,variant)=>{
+    const player={attackActive:true,attackStartedAt:10,attackCommitted:3,attackVariant:variant};
+    [0.4,1.1,1.8].forEach((contact,strike)=>{
+      const shown=resolveSpellbladeAnimationPlan({state:'attack',player,serverNow:10+contact});
+      assert.equal(shown.clip,clips[strike],`form ${variant} strike ${strike+1}`);
+      assert.ok(Math.abs(shown.time-authored[shown.clip])<1e-9,`form ${variant} strike ${strike+1} at its authored contact frame`);
+    });
+  });
+  // the forms differ where they are seen to: the opening cut
+  const opening=(variant)=>resolveSpellbladeAnimationPlan({state:'attack',player:{attackActive:true,attackStartedAt:10,attackCommitted:1,attackVariant:variant},serverNow:10.3});
+  assert.notEqual(opening(0).clip,opening(1).clip);
 });
 
 test('only the vetted canonical airborne Lightning hold selects its authored clip',()=>{

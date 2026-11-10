@@ -56,7 +56,7 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
-import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
+import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
@@ -73,7 +73,7 @@ import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs'
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
-import { swordDamageFor } from '../../shared/src/combat.mjs';
+import { strikeKind, swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
@@ -306,9 +306,10 @@ export class GameRuntime {
       }
     };
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
-      // (Sundering, every strike is swung as the heavy one)
+      // (Sundering, every strike is swung as the heavy one; otherwise heard as the cut it is: the rising chain opens with
+      // the backhand)
       const heavy = slam || strike >= 2;
-      this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strike }), null, 0.85);
+      this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strikeKind(this.weapon.swordChain.chain?.variant ?? 0, strike) }), null, 0.85);
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
       // (under the Sunder sentence, a word to a slam, the ordinary breath of a swing keeps quiet)
       if (!this.scenes.sentenceRunning(this.playerId, this.socket.serverNow())) this.#sayMoment(this.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
@@ -1412,7 +1413,9 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
-    this.weapon.attackPresentation=auth?.attackPresentation??0;
+    // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
+    // over to the server's if it counted the chain otherwise)
+    if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
@@ -2014,7 +2017,7 @@ export class GameRuntime {
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
       if (event.type === 'swordSwing' && event.playerId !== me) {
         const heavy = event.slam || event.strikeIndex >= 2;
-        this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
+        this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : event.kind ?? event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
         if (!this.scenes.sentenceRunning(event.playerId, event.at)) this.#sayMoment(event.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
       }
       this.#warm(event, me);
@@ -3327,7 +3330,8 @@ export class GameRuntime {
   // a sword biting into a body: burst, flash, sound and (for the attacker) hit-stop and kick
   #swordHit(event) {
     const me = this.playerId;
-    const strike = event.strikeIndex ?? 0;
+    // (which cut it was: the burst follows the blade's way through)
+    const strike = event.kind ?? event.strikeIndex ?? 0;
     // how cleanly it landed (a glancing blow skates off with a scrape) and how hard the two met
     const quality = Number.isFinite(event.quality) ? event.quality : 1;
     const impact = Number.isFinite(event.impact) ? event.impact : 0;
@@ -3335,23 +3339,27 @@ export class GameRuntime {
     const victim = this.#bodyPosition(event.targetId);
     const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
     if (event.targetId !== me) {
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
+      // (the way the attacker's blade was going as it met: his aim and the cut, as the server swept it)
+      const aim = event.playerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.playerId);
+      const travel = aim && Number.isFinite(aim.yaw) ? cutTravel(strike, aim.yaw, aim.pitch ?? 0) : null;
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker, heavy: event.level === 'elevated' });
       this.remotePlayers.flashHit(event.targetId);
     }
-    // a Sundering blow: its weight made felt and seen (a deep whump under the hit, heavier sparks and a shock ring)
+    // a Sundering blow: its weight made felt and seen (a deep whump under the hit, sparks driven down, the ground kicked up)
     if (event.level === 'elevated') {
       const mine = event.playerId === me || event.targetId === me;
       this.#play(sunderForceRecipe(), mine ? null : point, mine ? 1 : 0.8);
       // and the iron rings: the bell of it is for a knight struck, never the bare ground
       this.#play(sunderRingRecipe(), mine ? null : point, mine ? 0.9 : 0.75);
-      if (point) this.effects.sunderStrike(point, blowDirection(victim, attacker));
+      if (point) this.effects.sunderStrike(point, blowDirection(victim, attacker), { feet: victim });
       if (event.targetId === me) this.cameraKick = Math.max(this.cameraKick, 0.14);
     }
     if (event.playerId === me) {
       this.hud.hit(glancing(quality) ? 'glance' : 'hit');
       this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
-      if (point) this.bladeHeatmapDebug?.recordContact({ point, quality, damage: swordDamageFor(quality), strike, at: performance.now() });
+      if (point) this.bladeHeatmapDebug?.recordContact({ point, quality, damage: swordDamageFor(quality), strike: event.strikeIndex ?? 0, kind: strike,
+        variant: this.localAuth?.attackVariant ?? 0, outcome: event.level === 'elevated' ? 'sunder' : 'hit', heat: event.heat ?? null, at: performance.now() });
     } else if (event.targetId === me) {
       // (on hardened plate, the clang is the whole of it: #steelStruck)
       if (!(event.steel >= 0.02)) {
@@ -3370,9 +3378,17 @@ export class GameRuntime {
     const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(defender, attacker);
     const parry = event.type === 'parry';
     const heavy = event.type === 'guardBreak';
+    // (the F3 debugger: where my guarded or parried blow met the guard, as the server judged it)
+    if (event.attackerId === me && point && event.heat) {
+      this.bladeHeatmapDebug?.recordContact({ point, quality: event.quality ?? 0, strike: event.strikeIndex ?? 0, kind: event.kind ?? 0,
+        variant: this.localAuth?.attackVariant ?? 0, outcome: event.type === 'guardBreak' ? 'guardBreak' : event.type, heat: event.heat, at: performance.now() });
+    }
     // (a guard a ram broke caves in within the ram's own sound and sparks: #steelRam)
     if (point && event.defenderId !== me && !event.ram) {
-      this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry });
+      // (the blade met the guard where it met the body: the server's point; sparks scrape on along the cut's way)
+      const aim = event.attackerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.attackerId);
+      const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
+      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
     }
     const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
@@ -4288,6 +4304,7 @@ export class GameRuntime {
     this.bladeHeatmapDebug?.update({
       camera: this.camera,
       strikeIndex: this.weapon?.strike ?? 0,
+      kind: strikeKind(this.weapon?.swordChain?.chain?.variant ?? 0, this.weapon?.strike ?? 0),
       isSwinging: this.weapon?.attackHeld ?? false,
       debugVisible: this.input.debugVisible,
       nowSec: this.presentationNow() / 1000,

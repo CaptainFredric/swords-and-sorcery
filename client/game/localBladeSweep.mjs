@@ -6,7 +6,7 @@
 // can still stop it (MELEE_CONTACT.worldFollow). A Sundering slam is left to the server (the ground it splits is the
 // server's to say). Pure but for its memory, so it is tested.
 
-import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_STRIKE_TIMES, strikeKind } from '../../shared/src/combat.mjs';
 import { aimFrame, bladeDirection, sweepBlade } from '../../shared/src/blade.mjs';
 import { POSTURES, postureOf } from '../../shared/src/body.mjs';
 
@@ -39,8 +39,8 @@ export class LocalBladeSweep {
     const others = bodies.map((other) => ({ id: other.id, base: { x: other.x, y: other.y, z: other.z }, top: other.crown ?? POSTURES.standing.crown }));
     while (live.sampledTo < until - 1e-9) {
       const next = Math.min(until, live.sampledTo + STEP);
-      const from = live.direction ?? bladeDirection(live.strike, live.sampledTo - live.contact, frame);
-      const to = bladeDirection(live.strike, next - live.contact, frame);
+      const from = live.direction ?? bladeDirection(live.kind, live.sampledTo - live.contact, frame);
+      const to = bladeDirection(live.kind, next - live.contact, frame);
       const driven = live.sampledTo < live.contact + MELEE_CONTACT.worldFollow - 1e-9;
       const met = sweepBlade(eye, from, to, others, solids, { aim: frame.forward, world: driven });
       live.sampledTo = next;
@@ -62,7 +62,8 @@ export class LocalBladeSweep {
       const from = contact - MELEE_CONTACT.window.early;
       const to = contact + MELEE_CONTACT.worldFollow + STEP;
       const key = `${chain.startedAt}:${strike}`;
-      if (now >= from && now < to + 0.25 && key !== this.done) return { key, strike, contact, to, sampledTo: from, direction: null };
+      // (swept as the cut it is: the rising chain opens with the backhand)
+      if (now >= from && now < to + 0.25 && key !== this.done) return { key, strike, kind: strikeKind(chain.variant ?? 0, strike), contact, to, sampledTo: from, direction: null };
     }
     return null;
   }

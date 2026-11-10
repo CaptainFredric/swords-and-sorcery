@@ -808,6 +808,8 @@ export class WeaponView {
     this.guide?.(dt, this);
     const movingAmount = Math.min(1, speed / 7.5);
     this.#braceCommit(timeSec);
+    // (a Sundering chain, Chivalry's guarded cuts and the cockpit's keep the falling chain, as the server swings them)
+    this.swordChain.plain = Boolean(this.sunderActive || this.concurrent || this.flightCockpit);
     const chain = this.swordChain.step(timeSec);
     if (chain) this.attackStartedAt = chain.startedAt;
     const pose = resolveWeaponPose({
@@ -1085,6 +1087,23 @@ export class WeaponView {
     return motion;
   }
 
+  /**
+   * The server's word on the form of my chain under way (its snapshot: attackVariant for the chain it began at
+   * `startedAt`, on its clock). If the arms guessed otherwise (a chain the server did not count as straight on), they
+   * go over to the server's form there and then, handed over as a new chain takes over: what is drawn is what is swung.
+   */
+  adoptVariant(variant, serverStartedAt, serverToLocal = 0) {
+    const chain = this.swordChain.chain;
+    if (!chain || !Number.isInteger(variant) || chain.variant === variant) return;
+    if (!Number.isFinite(serverStartedAt) || Math.abs(serverStartedAt + serverToLocal - chain.startedAt) > 0.35) return;
+    this.swordChain.adopt(variant);
+    if (this.comboSource?.chainAt === chain.startedAt && !this.comboSource.slam) {
+      const previous = this.comboSource;
+      this.comboHandover = { from: previous, at: this.now() };
+      this.comboSource = { ...previous, variant, pose: (t) => comboPose(t - chain.startedAt, variant) };
+    }
+  }
+
   // The arms' sword path this frame, with how firmly they follow it (weight), or null when the clip has them. While a
   // chain is under way it is the chain; when it ends they come home along a way of their own (quicker and straighter
   // when it was broken off), carrying on as they were moving; a new chain takes over from wherever they were (a short
@@ -1104,20 +1123,20 @@ export class WeaponView {
         // slam, both hands still on the grip, carries on from there with them: they never leave the sword between)
         const onGrip = Boolean(previous?.slam) && (this.comboShown?.offHand?.weight ?? 0) > 0.5;
         const slam = this.sunderActive ? (onGrip ? 'again' : true) : false;
-        const chain = slam === 'again' ? slamAgainPose : slam ? slamPose : comboPose;
-        this.comboSource = { chainAt: startedAt, fadeIn, slam, style:0,
-          pose: (t,style=0) => chain(swordPresentationTime(t-startedAt,style)) };
+        // (its form, the falling chain or the rising one, is the local chain's: decided as it starts, by the server's
+        // own rule, and never changed under way unless the server says otherwise: adoptVariant)
+        const variant = slam ? 0 : this.swordChain.chain?.variant ?? 0;
+        const chain = slam === 'again' ? slamAgainPose : slam ? slamPose : (t) => comboPose(t, variant);
+        this.comboSource = { chainAt: startedAt, fadeIn, slam, variant, pose: (t) => chain(t - startedAt) };
         this.comboLetGo = null;
         this.comboBroken = false;
       }
       const source = this.comboSource;
-      const style=source.slam||this.concurrent||this.flightCockpit ? 0 : this.attackPresentation??0;
-      source.style=approach(source.style,style,.35);
-      this.comboLast = { since: swordPresentationTime(timeSec-startedAt,source.style), at: timeSec };
+      this.comboLast = { since: timeSec - startedAt, at: timeSec, variant: source.variant };
       // (in the cockpit, over the time its carriage takes to give way, so the two hand over as one movement)
       const fadeFor = this.flightCockpit ? COCKPIT_REST_EASE : 0.1;
       const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / fadeFor)) : 1;
-      return this.#comboShow(source.pose(timeSec,source.style), timeSec, weight);
+      return this.#comboShow(source.pose(timeSec), timeSec, weight);
     }
     if (!this.comboSource) return null;
     if (state !== 'idle' || this.comboLetGo) {
@@ -1128,10 +1147,10 @@ export class WeaponView {
     }
     if (this.comboSource.chainAt !== undefined && this.comboLast) {
       // the chain is over: home from where it had got to, carrying on from the last frame it was shown
-      const { since, at } = this.comboLast;
+      const { since, at, variant } = this.comboLast;
       const quick = this.comboBroken;
       const slam = this.comboSource.slam === 'again' ? 'again' : Boolean(this.comboSource.slam);
-      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick, slam }) };
+      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick, slam, variant }) };
     }
     const pose = this.comboSource.pose(timeSec);
     if (!pose) return this.#comboDone();
@@ -1144,7 +1163,7 @@ export class WeaponView {
     if (this.comboHandover) {
       const w = (timeSec - this.comboHandover.at) / 0.18;
       if (w >= 1) this.comboHandover = null;
-      else shown = blendPoses(this.comboHandover.from.pose(timeSec,this.comboHandover.from.style) ?? comboPose(0), pose, w);
+      else shown = blendPoses(this.comboHandover.from.pose(timeSec) ?? comboPose(0), pose, w);
     }
     this.comboShown = { ...shown, weight };
     return this.comboShown;

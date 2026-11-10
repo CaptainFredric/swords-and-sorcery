@@ -1,3 +1,4 @@
+import { hitstopSeconds, hitstopShownAt } from './hitFeel.mjs';
 import { advanceRemotePlaybackClock, appendRemoteSample, remoteSamplePair } from './remoteSnapshots.mjs';
 import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
@@ -447,7 +448,10 @@ export class RemotePlayers {
       const d = this.rigs.get(event.targetId)?.root.userData;
       // (and two knights crashing together throws the body harder)
       const crash = 1 + 0.35 * Math.max(0, Math.min(1, Number(event.impact) || 0));
-      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex, strength: (reaction.strength ?? 1) * crash } : reaction));
+      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.kind ?? event.strikeIndex, strength: (reaction.strength ?? 1) * crash } : reaction));
+      // the attacker's body holds the blow an instant, as his own arms do (hitFeel hitstopShownAt)
+      const a = this.rigs.get(event.playerId)?.root.userData;
+      if (a) a.hitstop = { at: event.at, hold: hitstopSeconds({ strike: event.kind ?? event.strikeIndex ?? 0, quality: event.quality ?? 1 }) };
       return;
     }
     if(event?.type==='damage'&&event.source==='bibye-conditioning')return;
@@ -817,14 +821,18 @@ export class RemotePlayers {
       // (and closed on a machine's controls)
       fist: ['sprint', 'dash', 'sunder', 'vortex'].includes(state) || (pb.alive && (pb.operatingFightFlightId || pb.operatingRamId)) ? 1 : 0,
     }, dt);
-    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil };
+    // (when he was last seen in his Guard: a chain begun straight out of it starts from the raised sword)
+    if (pb.guarding) d.guardSeenAt = serverNow;
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil, guardSeenAt: d.guardSeenAt };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);
     }
     const drawing = Number.isFinite(pb.tutorialDrawAt) && serverNow - pb.tutorialDrawAt >= 0 && serverNow - pb.tutorialDrawAt < .7;
     const recovering = pb.alive && pb.presentationRecovery && serverNow >= pb.presentationRecovery.at && serverNow < pb.presentationRecovery.at + pb.presentationRecovery.duration;
-    const plan = resolveSpellbladeAnimationPlan({ state: drawing ? 'guard' : state, player: drawing ? {...animationPlayer,guarding:true} : animationPlayer, serverNow, localTime });
+    // (an attack is shown a hair behind while its landed blow is held: hitstopShownAt; the rest of him is not)
+    const attackNow = state === 'attack' ? hitstopShownAt(serverNow, d.hitstop) : serverNow;
+    const plan = resolveSpellbladeAnimationPlan({ state: drawing ? 'guard' : state, player: drawing ? {...animationPlayer,guarding:true} : animationPlayer, serverNow: attackNow, localTime });
     if (recovering) Object.assign(plan, {clip:'Idle',time:localTime,loop:true,concurrent:null});
     if (typeof pb.tutorialSwordDrawn === 'boolean') {
       const sword = shell.visualInstance?.root?.getObjectByName('HeroSword') ?? shell.fallbackRig?.userData.sword;

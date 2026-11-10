@@ -5,7 +5,7 @@
 // opening, no counterbalance from the free gauntlet (it keeps its Guard, or its spell), the third strike in one hand,
 // each finish stopped higher and sooner, and the way home to the angled hold short.
 // The existing solver keeps the physical grip. Only presentation changes; contact clocks belong to combat.
-import { COMBO, COMBO_CONTACTS, COMBO_CYCLE, createSwordPath } from './fpSlash.mjs';
+import { COMBO, COMBO_CONTACTS, COMBO_CYCLE, COMBO_STRIKE_KINDS, createSwordPath } from './fpSlash.mjs';
 import { MELEE_CONTACT } from '../../shared/src/combat.mjs';
 
 const DEG = Math.PI / 180;
@@ -83,7 +83,7 @@ const path = createSwordPath([
   own(C2 + 0.22, [0.28, -0.15, -0.61], dir(-34, 52), [-0.1, 0.4, 0.9], { shoulder: [0.004, 0.028, -0.02], look: [0.15, 0.5, 0.45] }),
   // 3. the descending strike: raised high on the right in the one hand, a short load...
   own(C3 - 0.28, [0.29, -0.14, -0.6], dir(-20, 60), [-0.3, 0.1, -0.95], { shoulder: [0, 0.045, -0.02], look: [0.4, 0.6, 0.45] }),
-  ordinary(C3 - 0.14, { ease: 0.25 }),
+  ordinary(C3 - 0.13, { ease: 0.25 }),
   // ...then down through the middle as the ordinary third strike...
   ordinary(C3 - 0.07),
   ordinary(C3),
@@ -91,7 +91,8 @@ const path = createSwordPath([
   own(C3 + 0.09, [0.12, -0.3, -0.68], dir(10, -28), [-0.1, -0.7, 0.7], { shoulder: [-0.07, -0.02, -0.05], look: [-0.7, -0.6, -0.4] }),
   brace(COMBO_CYCLE - 0.04),
   brace(COMBO_CYCLE),
-]);
+// (aimed at the server's blade through each contact, as the ordinary chain is: the same cuts, the same arcs tested)
+], { strikes: COMBO_STRIKE_KINDS });
 
 export const guardedBracePose = () => path.sample(0);
 export const guardedComboPose = time => path.sample(time);

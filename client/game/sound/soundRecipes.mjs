@@ -145,27 +145,47 @@ export function unsheatheRecipe(rand = Math.random) {
   };
 }
 
-/** A clean parry: a high, singing ring that hangs in the air. */
+/**
+ * A clean parry: the blow caught dead on the guard's edge. A hard, bright catch (two edges striking square), the blades
+ * binding for an instant (a short grinding scrape as one pushes the other aside), and then the guard's steel left
+ * singing high over it, a clean ring with no thump of a braced arm under it (nothing gave way: that is a block's).
+ */
 export function parryRecipe(rand = Math.random) {
+  const sing = 1240 * jitter(rand, 0.03);
   return {
     layers: [
-      { type: 'noise', filter: 'highpass', freq: 4200, q: 0.9, attack: 0.001, decay: 0.025, gain: 0.5 },
-      ring(rand, 1180 * jitter(rand, 0.03), { decay: 1.1, gain: 0.22, bright: 1.2 }),
-      { type: 'tone', wave: 'sine', freq: 880, slideTo: 1760, attack: 0.01, decay: 0.3, gain: 0.12 },
+      // the catch
+      { type: 'noise', filter: 'highpass', freq: 5200 * jitter(rand, 0.08), q: 1, attack: 0.0004, decay: 0.014, gain: 0.7 },
+      { type: 'ring', partials: [{ freq: 6400 * jitter(rand, 0.04), gain: 0.1, decay: 0.07 }, { freq: 8100 * jitter(rand, 0.04), gain: 0.06, decay: 0.05 }] },
+      // the bind: edge grinding on edge as the blow is turned aside
+      { type: 'noise', filter: 'bandpass', freq: 2600 * jitter(rand, 0.1), q: 4.5, sweepTo: 4200, attack: 0.003, decay: 0.06, gain: 0.3, at: 0.008 },
+      // the guard singing on
+      ring(rand, sing, { decay: 1.25, gain: 0.24, bright: 1.35 }),
+      { ...ring(rand, sing * 1.5, { decay: 0.7, gain: 0.08, partials: 3, bright: 1.2 }), at: 0.012 },
     ],
-    reverb: 0.45,
+    reverb: 0.48,
+    hall: 0.16,
   };
 }
 
-/** A sword cutting air. */
+/**
+ * A sword cutting air, as the cut it is (0 the forehand, falling from the high right: its rush falls; 1 the backhand,
+ * rising from the low left: its rush rises; 2 the heavy chop: a deeper, wider rush with the weight of both arms behind
+ * it). The blade's edge whistles thinly along the top of each.
+ */
 export function swingRecipe(rand = Math.random, { strike = 0 } = {}) {
-  const low = (420 + strike * 60) * jitter(rand, 0.08);
-  return {
-    layers: [
-      { type: 'noise', filter: 'bandpass', freq: low, q: 1.6, sweepTo: low * (strike === 2 ? 3.4 : 4.2), attack: 0.06, decay: 0.16, gain: strike === 2 ? 0.55 : 0.42 },
-    ],
-    reverb: 0.08,
-  };
+  const heavy = strike === 2;
+  const low = (heavy ? 300 : 460) * jitter(rand, 0.08);
+  const [from, to] = strike === 1 ? [low, low * 4.6] : strike === 2 ? [low * 2.6, low * 0.9] : [low * 3.6, low * 1.15];
+  const layers = [
+    // the rush of air past the blade
+    { type: 'noise', filter: 'bandpass', freq: from, q: 1.5, sweepTo: to, attack: heavy ? 0.07 : 0.05, decay: heavy ? 0.2 : 0.15, gain: heavy ? 0.55 : 0.42 },
+    // the edge's whistle over it
+    { type: 'noise', filter: 'bandpass', freq: from * 2.4, q: 7, sweepTo: to * 2.4, attack: 0.05, decay: 0.08, gain: 0.08, at: 0.02 },
+  ];
+  // (the chop: the arms and the body behind it, a low push of air)
+  if (heavy) layers.push({ type: 'noise', filter: 'lowpass', freq: 220, q: 0.7, attack: 0.06, decay: 0.18, gain: 0.32 });
+  return { layers, reverb: 0.08 };
 }
 
 /** The gauntlet and harness shifting as an attack commits: a subtle, immediate tension in the grip and plate before the blade cuts air. */

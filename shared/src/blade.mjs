@@ -236,23 +236,28 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
     const length = blade.to - blade.from;
     let best = null;
     for (const body of bodies) {
-      const q0 = { x: body.base.x, y: body.base.y + blade.bodyRadius * 0.5, z: body.base.z };
-      const q1 = { x: body.base.x, y: body.base.y + Math.max(blade.bodyRadius * 0.5, body.top - blade.bodyRadius * 0.4), z: body.base.z };
-      let near = segmentDistance(start, end, q0, q1);
-      let along = blade.from + near.s * length;
-      if (near.distance > blade.bodyRadius + blade.radius) {
-        // (the stretch nearest the hands sweeps wider: a body pressed close beside the cut is still met)
-        if (!blade.hilt) continue;
-        const inner = add(eye, scale(direction, blade.hilt.to));
-        near = segmentDistance(start, inner, q0, q1);
-        if (near.distance > blade.bodyRadius + blade.hilt.radius) continue;
-        along = blade.from + near.s * (blade.hilt.to - blade.from);
-      }
-      if (best && along >= best.along) continue;
+      const touch = bodyTouch(eye, direction, body, blade);
+      if (!touch) continue;
+      if (best && touch.along >= best.along) continue;
       // the way from the eyes to where the blade meets them must be open (checked a hand's breadth short of the
       // contact: the far side of a knight leaning on a wall is not the wall between)
-      if (occluded(eye, add(eye, scale(direction, Math.max(0, along - 0.2))), stopping)) continue;
-      best = { kind: 'body', id: body.id, point: add(start, scale(sub(end, start), near.s)), along, direction, stepFraction: i / steps };
+      if (occluded(eye, add(eye, scale(direction, Math.max(0, touch.along - 0.2))), stopping)) continue;
+      best = { kind: 'body', id: body.id, point: touch.point, along: touch.along, direction, stepFraction: i / steps };
+    }
+    // a knight met in this step was met somewhere within it: found exactly (by halving), so where and when the blade
+    // met them never depends on where the steps happened to fall (the server's tick, the frame rate)
+    if (best?.kind === 'body') {
+      const body = bodies.find((b) => b.id === best.id);
+      let lo = (i - 1) / steps, hi = i / steps;
+      for (let n = 0; n < 14; n += 1) {
+        const mid = (lo + hi) / 2;
+        if (bodyTouch(eye, slerpDirection(fromDirection, toDirection, mid, turn), body, blade)) hi = mid; else lo = mid;
+      }
+      if (hi < i / steps) {
+        const direction = slerpDirection(fromDirection, toDirection, hi, turn);
+        const touch = bodyTouch(eye, direction, body, blade);
+        if (touch) best = { ...best, point: touch.point, along: touch.along, direction, stepFraction: hi };
+      }
     }
     // the world stops the blade only where the swing is driven
     const driven = !aim || dot(direction, aim) >= corridor;
@@ -300,6 +305,22 @@ export function bladeTouches(eye, direction, solids, blade = BLADE) {
     if (hit) touches.push({ solid, point: add(start, scale(sub(end, start), hit.t)), normal: hit.normal, along: blade.from + hit.t * length });
   }
   return touches;
+}
+
+// where a blade pointing along `direction` meets a body (an upright capsule), or null: { point, along }
+function bodyTouch(eye, direction, body, blade) {
+  const [start, end] = bladeSegment(eye, direction, blade);
+  const length = blade.to - blade.from;
+  const q0 = { x: body.base.x, y: body.base.y + blade.bodyRadius * 0.5, z: body.base.z };
+  const q1 = { x: body.base.x, y: body.base.y + Math.max(blade.bodyRadius * 0.5, body.top - blade.bodyRadius * 0.4), z: body.base.z };
+  const near = segmentDistance(start, end, q0, q1);
+  if (near.distance <= blade.bodyRadius + blade.radius) return { point: add(start, scale(sub(end, start), near.s)), along: blade.from + near.s * length };
+  // (the stretch nearest the hands sweeps wider: a body pressed close beside the cut is still met)
+  if (!blade.hilt) return null;
+  const inner = add(eye, scale(direction, blade.hilt.to));
+  const close = segmentDistance(start, inner, q0, q1);
+  if (close.distance > blade.bodyRadius + blade.hilt.radius) return null;
+  return { point: add(start, scale(sub(inner, start), close.s)), along: blade.from + close.s * (blade.hilt.to - blade.from) };
 }
 
 // a direction partway round from one unit vector to another (evenly by angle)

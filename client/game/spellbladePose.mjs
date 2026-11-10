@@ -1,4 +1,5 @@
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import { chainPresentation } from './swordChainPresentation.mjs';
 export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
@@ -13,6 +14,9 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
   if (player.guarding) return 'guard';
   if (player.attackActive) return 'attack';
   if (serverNow >= castPoseStartAt && castPoseUntil > serverNow) return 'cast';
+  // a chain the server has finished (run out, or let go) still has its last swing to play out: the heavy strike's
+  // follow-through, a let-go strike's way home
+  if (!player.attackSlam && chainPresentation(player, serverNow)?.recovering) return 'attack';
 
   const velocity = player.velocity ?? { x: 0, y: 0, z: 0 };
   if (Math.abs(velocity.y ?? 0) > 0.45) return 'air';

@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { BLADE, aimFrame, bladeDirection } from '../../shared/src/blade.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { STRIKE_HEATMAPS, qualityColor, sampleStrikeHeatmap } from '../../shared/src/bladeHeatmap.mjs';
+import { describeContact } from './swordContactReadout.mjs';
 
 export class BladeHeatmapDebug {
   constructor(scene, { enabled = false } = {}) {
@@ -153,9 +154,26 @@ export class BladeHeatmapDebug {
   /**
    * Record authoritative contact information from server swordHit event.
    */
-  recordContact({ point, quality = 1, damage = 0, strike = 0, at = performance.now() } = {}) {
+  recordContact({ point, quality = 1, damage = 0, strike = 0, kind = strike, variant = 0, outcome = 'hit', heat = null, at = performance.now() } = {}) {
     if (!point) return;
-    this.lastContact = { point, quality, damage, strike, at };
+    this.lastContact = { point, quality, damage, strike, kind, variant, outcome, heat, at };
+    this.contacts = [this.lastContact, ...(this.contacts ?? [])].slice(0, 6);
+    this.#readout();
+  }
+
+  // the last contacts, as the server judged them: which strike of which chain, which cut, how it ended, and where along
+  // the blade (hilt, the cutting stretch, the tip), how early or late in its swing, at what angle, for what damage
+  #readout() {
+    if (typeof document === 'undefined') return;
+    if (!this.panel) {
+      this.panel = document.createElement('pre');
+      this.panel.className = 'blade-heatmap-readout';
+      Object.assign(this.panel.style, { position: 'fixed', left: '12px', bottom: '96px', margin: 0, padding: '8px 10px', zIndex: 40,
+        font: '11px/1.35 ui-monospace, Menlo, monospace', color: '#f3ead2', background: 'rgba(16,12,8,0.72)', pointerEvents: 'none', whiteSpace: 'pre' });
+      document.body.append(this.panel);
+    }
+    this.panel.style.display = this.group.visible ? 'block' : 'none';
+    this.panel.textContent = ['SWORD CONTACTS (server)', ...(this.contacts ?? []).map((c) => describeContact(c))].join('\n');
   }
 
   /**
@@ -172,6 +190,7 @@ export class BladeHeatmapDebug {
   update({
     camera,
     strikeIndex = 0,
+    kind = strikeIndex,
     isSwinging = false,
     debugVisible = false,
     nowSec = 0,
@@ -183,22 +202,25 @@ export class BladeHeatmapDebug {
 
     if (!isVisible) {
       if (this.group.visible) this.group.visible = false;
+      if (this.panel) this.panel.style.display = 'none';
       return;
     }
 
     this.group.visible = true;
+    if (this.panel) this.panel.style.display = 'block';
     if (!camera) return;
 
     // Follow camera transform without rebuilding geometries
     this.cameraGroup.position.copy(camera.position);
     this.cameraGroup.quaternion.copy(camera.quaternion);
 
-    // Switch active strike ribbon visibility
+    // Switch active strike ribbon visibility (the ribbon is the cut's: the rising chain opens with the backhand's)
     const strike = Math.max(0, Math.min(2, Math.floor(strikeIndex)));
-    if (strike !== this.currentStrike) {
-      this.currentStrike = strike;
+    const cut = Math.max(0, Math.min(2, Math.floor(kind)));
+    if (cut !== this.currentStrike) {
+      this.currentStrike = cut;
       for (let s = 0; s < 3; s += 1) {
-        const active = s === strike;
+        const active = s === cut;
         this.strikeMeshes[s].visible = active;
         this.strikeWires[s].visible = active;
       }
@@ -209,7 +231,7 @@ export class BladeHeatmapDebug {
       const contactTime = attackStartedAt + (SWORD_STRIKE_TIMES[strike] ?? 0.4);
       const dt = nowSec - contactTime;
       const localFrame = aimFrame(0, 0);
-      const dir = bladeDirection(strike, dt, localFrame);
+      const dir = bladeDirection(cut, dt, localFrame);
       const pStart = { x: dir.x * BLADE.from, y: dir.y * BLADE.from, z: dir.z * BLADE.from };
       const pEnd = { x: dir.x * BLADE.to, y: dir.y * BLADE.to, z: dir.z * BLADE.to };
 
@@ -251,3 +273,4 @@ export class BladeHeatmapDebug {
     this.markerMaterial?.dispose();
   }
 }
+

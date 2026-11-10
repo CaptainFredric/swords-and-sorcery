@@ -32,6 +32,33 @@ export const SWORD_CHAIN = Object.freeze({
   restart: 0.28,
 });
 
+// The chain's two forms. Each strike of a chain is one of the sword's three cuts (`kind`: 0 the forehand, high right to
+// low left; 1 the backhand, low left rising to high right; 2 the chop, straight down): the blade swept (blade.mjs
+// bladeDirection), the contact judged (bladeHeatmap.mjs) and the body drawn by the cut, not by its place in the chain.
+// The falling chain opens with the forehand; the rising chain opens with the backhand from the low left and comes back
+// down with the forehand. Both end on the chop, and both keep the chain's timing (SWORD_STRIKE_TIMES, SWORD_CHAIN).
+export const SWORD_CHAINS = Object.freeze([
+  Object.freeze({ id: 'falling', kinds: Object.freeze([0, 1, 2]) }),
+  Object.freeze({ id: 'rising', kinds: Object.freeze([1, 0, 2]) }),
+]);
+
+/** Which cut strike `strike` of a chain of form `variant` is (0 forehand, 1 backhand, 2 chop). */
+export function strikeKind(variant, strike) {
+  return (SWORD_CHAINS[variant] ?? SWORD_CHAINS[0]).kinds[strike] ?? strike;
+}
+
+// Which form a chain takes, decided the same way by the server and by the arms ahead of it (no word needed): a chain
+// that follows straight on from one that ran its whole course (held through, or pressed again before it ended, within
+// `RUN_GRACE` of its restart) is the other form; any other chain is the falling one. So holding the button alternates
+// falling, rising, falling...; tapping afresh always opens with the forehand.
+export const CHAIN_RUN_GRACE = 0.25;
+
+/** The form of a chain begun at `startAt`, after `previous` ({ variant, restartAt }: the last chain that ran its course, or null). */
+export function nextChainVariant(previous, startAt) {
+  if (!previous || !Number.isFinite(previous.restartAt) || startAt > previous.restartAt + CHAIN_RUN_GRACE + 1e-9) return 0;
+  return ((previous.variant ?? 0) + 1) % SWORD_CHAINS.length;
+}
+
 /**
  * What a chain does next, `elapsed` seconds in: { kind: 'land', strike } (a committed strike lands), { kind: 'commit',
  * strike } (the next strike's swing would begin: it is committed if wanted, or the chain ends), or null when nothing is

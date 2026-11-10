@@ -120,3 +120,29 @@ test('the clang is as hard as the plate: fresh rings bright and long, worn is a 
     }
   }
 });
+
+// ---- the blow's way and its held instant (Phase C: ordinary impact feedback)
+import { BODY_HITSTOP, cutTravel, hitstopShownAt } from './hitFeel.mjs';
+
+test('a blow is drawn going the way its blade went: the forehand right to left, the backhand left to right, the chop down', () => {
+  // (facing -z: right is +x)
+  const fore = cutTravel(0, 0, 0), back = cutTravel(1, 0, 0), chop = cutTravel(2, 0, 0);
+  assert.ok(fore.x < -0.9 && fore.y < 0, `forehand: ${JSON.stringify(fore)}`);
+  assert.ok(back.x > 0.9 && back.y > 0, `backhand: ${JSON.stringify(back)}`);
+  assert.ok(chop.y < -0.95, `chop: ${JSON.stringify(chop)}`);
+  // and turns with the attacker
+  const turned = cutTravel(0, Math.PI / 2, 0);
+  assert.ok(Math.abs(turned.z) > 0.9);
+});
+
+test('the attacker body holds its landed blow an instant, then is back with the chain before its next swing', () => {
+  const stop = { at: 10, hold: 0.06 };
+  assert.equal(hitstopShownAt(9.9, stop), 9.9);
+  assert.equal(hitstopShownAt(10.03, stop), 10);
+  const end = 10 + stop.hold + BODY_HITSTOP.catchUp;
+  assert.ok(Math.abs(hitstopShownAt(end - 1e-9, stop) - end) < 1e-6);
+  assert.equal(hitstopShownAt(end + 0.1, stop), end + 0.1);
+  // never ahead of the chain, and caught up long before the next strike's contact (0.7 s on)
+  for (let t = 10; t < end; t += 0.01) assert.ok(hitstopShownAt(t, stop) <= t + 1e-9);
+  assert.ok(end - 10 < 0.3);
+});

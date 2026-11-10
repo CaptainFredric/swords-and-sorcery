@@ -5,7 +5,7 @@
 // arms play its recovery to the end of the cycle, where a held (or pressed again) button carries straight on into the
 // next chain. (What the arms do once a chain ends is fpSlash.mjs's recoveryPose.) Pure: times in, the chain out.
 
-import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep } from '../../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep, nextChainVariant } from '../../shared/src/combat.mjs';
 
 // the heavy third strike lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
@@ -14,9 +14,12 @@ export class LocalSwordChain {
   constructor() {
     this.held = false;
     this.queued = false;
-    // { startedAt, committed, landed } while a chain is under way
+    // { startedAt, committed, landed, variant } while a chain is under way
     this.chain = null;
     this.restartAt = -Infinity;
+    // the last chain that ran its whole course ({ variant, restartAt }): one begun straight on from it takes the other
+    // form (SWORD_CHAINS), by the server's own rule (nextChainVariant)
+    this.run = null;
   }
 
   /** Whether a chain is under way (the arms are in the combo). */
@@ -51,6 +54,7 @@ export class LocalSwordChain {
   begin(at) {
     this.held = true;
     this.restartAt = -Infinity;
+    this.run = null;
     this.#start(at);
   }
 
@@ -71,6 +75,7 @@ export class LocalSwordChain {
   cancel(now = null) {
     if (this.chain && Number.isFinite(now)) this.restartAt = Math.max(this.restartAt, nextStrikeDue(this.chain, now));
     this.chain = null;
+    this.run = null;
     this.held = false;
     this.queued = false;
   }
@@ -96,6 +101,7 @@ export class LocalSwordChain {
       } else {
         // let go: the swing under way has played out (and the next could not have begun sooner than now)
         this.chain = null;
+        this.run = null;
         this.restartAt = Math.max(this.restartAt, chain.startedAt + next.at);
         return null;
       }
@@ -104,6 +110,7 @@ export class LocalSwordChain {
       // the heavy strike's recovery is over: straight on into the next chain, or back to rest
       this.chain = null;
       this.restartAt = chain.startedAt + CHAIN_CYCLE;
+      this.run = { variant: chain.variant, restartAt: this.restartAt };
       if (this.held || this.queued) {
         this.#start(this.restartAt);
         return this.step(now);
@@ -114,8 +121,14 @@ export class LocalSwordChain {
   }
 
   #start(at) {
-    this.chain = { startedAt: at, committed: 1, landed: 0 };
+    this.chain = { startedAt: at, committed: 1, landed: 0, variant: this.plain ? 0 : nextChainVariant(this.run, at) };
+    this.run = null;
     this.queued = false;
+  }
+
+  /** Correct the form of the chain under way to the server's word for it (it is the server's to say). */
+  adopt(variant) {
+    if (this.chain && Number.isInteger(variant)) this.chain.variant = variant;
   }
 }
 

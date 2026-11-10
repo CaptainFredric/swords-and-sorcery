@@ -3,6 +3,7 @@ import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
+import { chainPresentation } from './swordChainPresentation.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -45,11 +46,12 @@ export function swordPresentationTime(elapsed,style=0) {
   return elapsed+(winding?-1:1)*shape*Math.min(.048,span*.19)*Math.max(0,Math.min(1,style));
 }
 
-function attackPlan(player, serverNow) {
+function attackPlan(player, serverNow, { guarded = false } = {}) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
   const age = elapsed % ATTACK_CYCLE;
-  const cycle = swordPresentationTime(age,player?.attackSlam||player?.attackChivalry||player?.concurrent?0:player?.attackPresentation);
+  // (the chain's form is its own clips now, swordChainPresentation.mjs: the guarded and Sundering paths keep the clock)
+  const cycle = age;
 
   // a chain begun Sundering: every strike is the heavy one's slam, each timed to its own contact
   if (player?.attackSlam) {
@@ -57,6 +59,13 @@ function attackPlan(player, serverNow) {
     return fixed('Slash_3', cycle - SWORD_STRIKE_TIMES[slot] + SLAM_CONTACT);
   }
 
+  // an ordinary chain: each strike's authored cut through its contact, linked into the next without a reset, its last
+  // swing played out after the server's chain is over (swordChainPresentation.mjs). (Spells & Chivalry's guarded cuts
+  // keep their own clips and clocks below.)
+  if (!guarded && !player?.attackChivalry && !player?.concurrent) {
+    const shown = chainPresentation(player, serverNow);
+    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}), carry: true };
+  }
   if (cycle < SLASH_DURATIONS[0]) return fixed('Slash_1', cycle);
   if (cycle < SLASH_DURATIONS[0] + SLASH_DURATIONS[1]) {
     return fixed('Slash_2', cycle - SLASH_DURATIONS[0]);
@@ -69,7 +78,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
     const still = fixed('Idle', idleTime(localTime), true);
     const guard = fixed('Guard', guardHoldTime(localTime));
-    const attack = { ...attackPlan(player, serverNow), actionKey: player.attackStartedAt };
+    const attack = { ...attackPlan(player, serverNow, { guarded: true }), actionKey: player.attackStartedAt };
     const defensive = { ...attack, clip: attack.clip.replace('Slash_', 'GuardCut_'), fallback: attack.clip };
     const cut = layers.guard ? defensive : attack;
     const cast = { ...fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), actionKey: player.castPoseStartAt };
@@ -89,7 +98,15 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
       sorcery: layers.cast ? cast : layers.guard ? layers.attack ? defensive : guard : still,
     }, concurrent: layers };
   }
-  if (state === 'attack') return attackPlan(player, serverNow);
+  if (state === 'attack') {
+    const attack = attackPlan(player, serverNow);
+    // on the move (or in the air) the legs keep their gait and only the body above them swings: a whole-body strike
+    // planted its feet while the knight ran on (every planted frame skated). Standing, the strike has the whole body.
+    const moving = locomotionState(player);
+    if (moving === 'idle' || player.attackSlam) return attack;
+    const locomotion = resolveSpellbladeAnimationPlan({ state: moving, player, serverNow, localTime });
+    return { ...locomotion, layers: { locomotion, posture: attack, sword: attack, sorcery: attack }, moving: true };
+  }
 
   // a Blazing Vortex: the sword held out level in both hands, where the forehand's blade crosses the aim (the whole
   // knight is turned round by the spin: RemotePlayers); as it is lit, raised first (the heavy strike's raise)
