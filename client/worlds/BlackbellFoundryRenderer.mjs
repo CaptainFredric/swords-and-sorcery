@@ -121,6 +121,13 @@ export class BlackbellFoundryRenderer {
     this.kit.iron = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.62, metalness: 0.3 });
     for (const sol of BLACKBELL_FOUNDRY.solids) {
       if (sol.kind === 'prop') continue;
+      if (Number.isFinite(sol.drawTo)) {
+        // a raised deck's base stops a step under the deck (a stair's top runs onto it clean): drawn up to the deck
+        const bottom = sol.center[1] - sol.size[1] / 2;
+        masonry(batch, rand, { ...sol, center: [sol.center[0], (bottom + sol.drawTo) / 2, sol.center[2]], size: [sol.size[0], sol.drawTo - bottom, sol.size[2]] }, { coping: false, color: SOOT_BRICK });
+        continue;
+      }
+      if (sol.kind === 'stair-footing') { masonry(batch, rand, sol, { coping: false, color: SOOT_BRICK }); continue; }
       if (sol.material === 'stone' || sol.material === 'brick') {
         const tall = sol.size[1] >= 4.4;
         const rubble = /rubble/.test(sol.id);

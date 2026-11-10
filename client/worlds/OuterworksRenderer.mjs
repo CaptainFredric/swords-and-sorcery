@@ -173,6 +173,12 @@ export class OuterworksRenderer {
     for (const sol of OUTERWORKS.solids) {
       if (sol.id === 'barrier-outer-palisade' || sol.id === 'portcullis-inner-gate' || sol.id === 'cover-esplanade-mantlet' || sol.id === 'cover-esplanade-cart') continue;
       if (sol.kind === 'prop') continue;
+      if (Number.isFinite(sol.drawTo)) {
+        // a raised walk's base stops a step under the walk (a ramp's top runs onto it clean): drawn up to the walk
+        const bottom = sol.center[1] - sol.size[1] / 2;
+        masonry(batch, rand, { ...sol, center: [sol.center[0], (bottom + sol.drawTo) / 2, sol.center[2]], size: [sol.size[0], sol.drawTo - bottom, sol.size[2]] }, { coping: false });
+        continue;
+      }
       const style = solidStyle(sol);
       if (style === 'palisade') palisade(batch, rand, sol);
       else if (style === 'wall') masonry(batch, rand, sol, { merlons: sol.size[1] >= 4.4 && !/^(tower-|arch-)/.test(sol.id) });

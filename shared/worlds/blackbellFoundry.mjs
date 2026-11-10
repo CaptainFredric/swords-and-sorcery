@@ -52,6 +52,8 @@ const FLOORS = [
 
   // Route 3: Upper Gantry Walkway (East, y = 2.8)
   floor('floor-gantry-east', [9.5, 15.5], [-15, 0], FOUNDRY_GANTRY_Y, 'timber'),
+  // (the ground between the camp and the gantry's stair foot, a metre the camp's floor fell short of)
+  floor('floor-gantry-foot', [9.5, 15.8], [-26.1, -24.9], 0, 'stone'),
 
   // West Forecourt Connection once Trench rises at z >= 6
   floor('floor-forecourt-west', [-16, -8.5], [6, 8], 0, 'stone'),
@@ -121,6 +123,23 @@ const PROPS = Object.freeze([
   { kind: 'standard', x: -7.2, z: 16.9, team: TEAMS.DEFENDERS }, { kind: 'standard', x: 7.2, z: 16.9, team: TEAMS.DEFENDERS },
 ].map((prop, index) => Object.freeze({ id: `bb-prop-${index}`, ...prop })));
 
+// stepped footings under the gantry's two stairs: each footing's top a body's rise under the slope above it
+function gantryFootings() {
+  const out = [];
+  for (const [id, z0, z1, y0, y1] of [['gantry-rise', -25, -15, 0, FOUNDRY_GANTRY_Y], ['gantry-fall', 0, 6, FOUNDRY_GANTRY_Y, 0]]) {
+    const slope = Math.abs(y1 - y0) / (z1 - z0);
+    const pieces = Math.ceil((z1 - z0) / 0.4);
+    for (let i = 0; i < pieces; i += 1) {
+      const a = z0 + (i / pieces) * (z1 - z0), b = z0 + ((i + 1) / pieces) * (z1 - z0);
+      const at = (z) => y0 + (y1 - y0) * (z - z0) / (z1 - z0);
+      const top = Math.min(at(a), at(b)) - 0.45 * slope - 0.1;
+      if (top < 0.3) continue;
+      out.push(solid(`${id}-footing-${i}`, [9.8, 15.8], [0, top], [a, b], { material: 'stone', kind: 'stair-footing' }));
+    }
+  }
+  return out;
+}
+
 const SOLIDS = [
   // the furnishings (above)
   ...propSolids(PROPS),
@@ -135,6 +154,19 @@ const SOLIDS = [
   solid('arch-portal-lintel', [-4.5, 4.5], [5.0, 6.5], [8.2, 9.6], { material: 'iron' }),
 
   // Furnace Hall Perimeter Walls
+  // the blast portal's flanks: brickwork from the portal wall back to the furnace hall either side of the passage
+  // (the ground there was missing: a knight walked into the gap and fell out of the world)
+  solid('portal-flank-west', [-15.5, -5], [0, 6.2], [9.8, 16], { material: 'stone' }),
+  solid('portal-flank-east', [5, 15.5], [0, 6.2], [9.8, 16], { material: 'stone' }),
+  // the gantry stands on a brick base under its deck and stepped footings under its stairs (stopping a step under
+  // each, so a knight on them never catches; drawn up to the deck): nobody walks in under it and falls
+  solid('gantry-base', [9.8, 15.8], [0, FOUNDRY_GANTRY_Y - 0.65], [-15, 0], { material: 'stone', kind: 'gantry-base', drawTo: FOUNDRY_GANTRY_Y }),
+  ...gantryFootings(),
+  // the trench's lips where nothing else edges it (its two stairs, the gap between its dividers): they stop at the
+  // yard's level, so a knight in the trench cannot walk in under the yard's paving, and a jump still carries him out
+  solid('trench-lip-entry', [-8.6, -8.4], [FOUNDRY_TRENCH_Y, 0], [-26, -24], { material: 'stone', kind: 'lip' }),
+  solid('trench-lip-gap', [-8.6, -8.4], [FOUNDRY_TRENCH_Y, 0], [-10, -6], { material: 'stone', kind: 'lip' }),
+  solid('trench-lip-exit', [-8.6, -8.4], [FOUNDRY_TRENCH_Y, 0], [2, 6], { material: 'stone', kind: 'lip' }),
   solid('wall-furnace-west', [-16.5, -15.5], [0, 6.8], [9.8, 36.5], { material: 'stone' }),
   solid('wall-furnace-east', [15.5, 16.5], [0, 6.8], [9.8, 36.5], { material: 'stone' }),
   solid('wall-furnace-north', [-16.5, 16.5], [0, 6.8], [36.5, 37.5], { material: 'stone' }),
