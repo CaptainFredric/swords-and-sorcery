@@ -25,3 +25,17 @@ test('detached fist needs actual COM and socket hierarchy',()=>{
  assert.deepEqual(authoredHierarchyIssues(scene,FIST_REQUIRED_PARENTS),
   ['Armored_Fist_Detachable -> fist_projectile_body_center']);
 });
+
+test('a chassis-bound stator, moving-side collar on the fist, or missing lift barrels selects rollback',()=>{
+ const scene=tree(RAM_REQUIRED_PARENTS);
+ for(const name of ['Arcane_Stator_Collar','Wrist_Resonator_Ring','Hydraulic_Lift_Barrels_Fixed']){
+  const node=scene.getObjectByName(name);
+  assert.ok(node,name+' is required for the live rig');
+  node.parent=null;
+ }
+ assert.deepEqual(authoredHierarchyIssues(scene,RAM_REQUIRED_PARENTS).sort(),[
+  'Lower_Wheel_Carriage -> Hydraulic_Lift_Barrels_Fixed',
+  'Ram_Assembly -> Wrist_Resonator_Ring',
+  'Upper_Elevation_Pivot -> Arcane_Stator_Collar',
+ ].sort());
+});

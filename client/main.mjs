@@ -1875,18 +1875,26 @@ function updatePlaques() {
   if (bladeFactsEl) bladeFactsEl.textContent = view.blade.facts;
 }
 
+let lastEquippedCategory = null;
+let lastEquippedItemId = null;
+
 function renderInspectorLists() {
   const currentSpell = settings.get('loadout.spell');
   const currentUlt = settings.get('loadout.ultimate');
 
   const techContainer = $('#armory-techniques');
   if (techContainer) {
-    techContainer.innerHTML = SWORD_TECHNIQUES.map((tech) => {
+    const unequipped = SWORD_TECHNIQUES.filter((t) => t.status !== 'EQUIPPED');
+    const equipped = SWORD_TECHNIQUES.filter((t) => t.status === 'EQUIPPED');
+    const sortedTechs = [...unequipped, ...equipped];
+
+    techContainer.innerHTML = sortedTechs.map((tech) => {
       const isEquipped = tech.status === 'EQUIPPED';
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
       const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
+      const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
       const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
         <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (isInTraining ? '<i class="training-tag">IN TRAINING</i>' : '')}
         <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
     }).join('');
@@ -1895,9 +1903,14 @@ function renderInspectorLists() {
   const spellsContainer = $('#armory-spells');
   if (spellsContainer) {
     const view = armoryView(currentSpell, currentUlt);
-    spellsContainer.innerHTML = view.spells.map((spell) => {
+    const unequipped = view.spells.filter((s) => !s.equipped);
+    const equipped = view.spells.find((s) => s.equipped);
+    const sortedSpells = equipped ? [...unequipped, equipped] : view.spells;
+
+    spellsContainer.innerHTML = sortedSpells.map((spell) => {
       const isSelected = spell.id === armoryLocation.highlightedItem && armoryLocation.category === 'sorcery';
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
+      const isJustEquipped = spell.equipped && lastEquippedCategory === 'sorcery' && lastEquippedItemId === spell.id;
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${spell.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
         <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
         <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`;
     }).join('');
@@ -1906,9 +1919,14 @@ function renderInspectorLists() {
   const ultimatesContainer = $('#armory-ultimates');
   if (ultimatesContainer) {
     const view = armoryView(currentSpell, currentUlt);
-    ultimatesContainer.innerHTML = view.ultimates.map((u) => {
+    const unequipped = view.ultimates.filter((u) => !u.equipped);
+    const equipped = view.ultimates.find((u) => u.equipped);
+    const sortedUlts = equipped ? [...unequipped, equipped] : view.ultimates;
+
+    ultimatesContainer.innerHTML = sortedUlts.map((u) => {
       const isSelected = u.id === armoryLocation.highlightedItem && armoryLocation.category === 'masterstroke';
-      return `<button type="button" class="spell-card ultimate-card${isSelected ? ' selected' : ''}${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
+      const isJustEquipped = u.equipped && lastEquippedCategory === 'masterstroke' && lastEquippedItemId === u.id;
+      return `<button type="button" class="spell-card ultimate-card${isSelected ? ' selected' : ''}${u.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
         <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
         <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`;
     }).join('');
@@ -1980,6 +1998,71 @@ function updateInspectorDetailCard() {
   }
 }
 
+function scrollToEquippedItem(category, { smooth = true } = {}) {
+  const inspector = $('#armory-inspector');
+  if (!inspector || inspector.classList.contains('closed')) return;
+  const scrollEl = inspector.querySelector('.inspector-scroll');
+  if (!scrollEl) return;
+
+  let listId = '#armory-spells';
+  if (category === 'masterstroke') listId = '#armory-ultimates';
+  else if (category === 'technique') listId = '#armory-techniques';
+
+  const container = inspector.querySelector(listId);
+  if (!container) return;
+
+  const equippedCard = container.querySelector('.spell-card.equipped') || container.querySelector('.spell-card:last-child');
+  if (!equippedCard) return;
+
+  const doScroll = () => {
+    const cardRect = equippedCard.getBoundingClientRect();
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const cardBottomOffset = (cardRect.bottom - scrollRect.top) + scrollEl.scrollTop;
+    const targetScrollTop = Math.max(0, cardBottomOffset - scrollEl.clientHeight + 14);
+
+    scrollEl.scrollTo({
+      top: targetScrollTop,
+      behavior: smooth ? 'smooth' : 'instant',
+    });
+  };
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(doScroll);
+  } else {
+    doScroll();
+  }
+}
+
+function equipInspectorItem(category, itemId, { animate = true } = {}) {
+  if (!itemId) return;
+  armoryLocation.category = category;
+  armoryLocation.highlightedItem = itemId;
+  saveArmoryLocation(armoryLocation);
+
+  if (category === 'sorcery') {
+    const prevSpell = settings.get('loadout.spell');
+    settings.set('loadout.spell', itemId);
+    armoryFeedback.select(itemId, prevSpell, (id) => settings.set('loadout.spell', id));
+  } else if (category === 'masterstroke') {
+    const prevUlt = settings.get('loadout.ultimate');
+    settings.set('loadout.ultimate', itemId);
+    armoryFeedback.select(itemId, prevUlt, (id) => settings.set('loadout.ultimate', id));
+  } else if (category === 'technique') {
+    const tech = SWORD_TECHNIQUES.find((t) => t.id === itemId);
+    if (!tech || tech.disabled || tech.status === 'IN TRAINING') {
+      renderInspectorLists();
+      updateInspectorDetailCard();
+      return;
+    }
+  }
+
+  lastEquippedCategory = category;
+  lastEquippedItemId = itemId;
+
+  renderArmory();
+  scrollToEquippedItem(category, { smooth: animate });
+}
+
 function highlightInspectorItem(category, itemId) {
   armoryLocation.category = category;
   armoryLocation.highlightedItem = itemId;
@@ -2021,10 +2104,9 @@ function openInspector(category, itemId = null) {
   $('#inspector-list-sorcery').classList.toggle('hidden', category !== 'sorcery');
   $('#inspector-list-masterstroke').classList.toggle('hidden', category !== 'masterstroke');
 
-  inspector.querySelector('.inspector-scroll').scrollTop = 0;
-
   renderInspectorLists();
   updateInspectorDetailCard();
+  scrollToEquippedItem(category, { smooth: false });
 
   if (category === 'sorcery') {
     menuScene?.showSpell(itemId);
@@ -2198,48 +2280,30 @@ $('#armory-inspector-categories').addEventListener('click', event => {
   if (category === 'heraldry') navigateToArmorySection('heraldry');
   else if (category) openInspector(category);
 });
-$('#armory-equip-btn').addEventListener('click', () => {
+$('#armory-equip-btn')?.addEventListener('click', () => {
   const cat = armoryLocation.category;
   const id = armoryLocation.highlightedItem;
-  if (cat === 'sorcery') {
-    settings.set('loadout.spell', id);
-    playArmorySound(sound, id);
-    menuScene?.showSpell(id);
-    renderArmory();
-    updateInspectorDetailCard();
-  } else if (cat === 'masterstroke') {
-    settings.set('loadout.ultimate', id);
-    playArmorySound(sound, id);
-    if (menuScene?.performs?.(id)) {
-      // showcase performs it
-    } else {
-      menuScene?.previewArmory(id);
-    }
-    renderArmory();
-    updateInspectorDetailCard();
-  }
+  equipInspectorItem(cat, id, { animate: false });
 });
 
 $('#armory-techniques').addEventListener('click', (event) => {
   const button = event.target.closest('[data-technique]');
   if (!button) return;
-  highlightInspectorItem('technique', button.dataset.technique);
+  equipInspectorItem('technique', button.dataset.technique);
 });
 
 $('#armory-spells').addEventListener('click', (event) => {
   const card = event.target.closest('[data-spell]');
   if (!card) return;
   const spellId = card.dataset.spell;
-  highlightInspectorItem('sorcery', spellId);
-  armoryFeedback.select(spellId, settings.get('loadout.spell'), () => {});
+  equipInspectorItem('sorcery', spellId);
 });
 
 $('#armory-ultimates').addEventListener('click', (event) => {
   const card = event.target.closest('[data-ultimate]');
   if (!card) return;
   const ultId = card.dataset.ultimate;
-  highlightInspectorItem('masterstroke', ultId);
-  armoryFeedback.select(ultId, settings.get('loadout.ultimate'), () => {});
+  equipInspectorItem('masterstroke', ultId);
 });
 
 $('#armory-prepared').addEventListener('click', (event) => {

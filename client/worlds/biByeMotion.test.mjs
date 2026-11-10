@@ -66,3 +66,14 @@ test('the grounded operator height follows terrain interpolation without pinning
  const m=new BiByeMotion();m.push({...b(0),operatorY:1},[],1);m.push({...b(.1),operatorY:1.08},[],1+1/30);const s=m.sample(1.05,true).ballista;assert.ok(s.operatorY>1&&s.operatorY<1.08);
  const empty=new BiByeMotion();empty.push(b(0),[],1);assert.equal(empty.sample(1,true).ballista.operatorY,undefined);
 });
+
+test('ram lift and pitch interpolate at the carriage pose clock while fist ownership stays discrete',()=>{
+ const m=new BiByeMotion();
+ m.push({...b(0),ramLiftY:.7,ramElevPitch:.3,fistMounted:true},[],1);
+ m.push({...b(.1),ramLiftY:.74,ramElevPitch:.34,fistMounted:false},[],1.04);
+ const pose=m.sample(1.02+1/30,true).ballista;
+ assert.ok(Math.abs(pose.ramLiftY-.72)<1e-9);
+ assert.ok(Math.abs(pose.ramElevPitch-.32)<1e-9);
+ assert.equal(pose.fistMounted,true);
+ assert.equal(m.sample(1.10,true).ballista.fistMounted,false);
+});

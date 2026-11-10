@@ -556,6 +556,7 @@ try {
     const plaqueIcon = await evaluate("document.querySelector('#plaque-icon-sorcery')?.textContent?.trim()");
     assert.ok(plaqueIcon && plaqueIcon.length > 0, 'Spell ' + spellId + ' has non-empty plaque icon glyph');
   }
+  await evaluate("document.querySelector('[data-spell=\"line_of_conduct\"]').click()");
   console.log('[VERIFY] All spell plaque icons verified visible!');
 
   // Verify visible occupied equipment plaque icons for all masterstrokes

@@ -18,7 +18,7 @@ import {SoFistSound} from './sound/SoFistSound.mjs';
 import {FlightSound} from './sound/FlightSound.mjs';
 import {soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import { playerMovementWorld } from '../../shared/sim/playerMovementWorld.mjs';
-import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
+import {ramCameraFollow,ramCameraOrbit,ramSightPoint} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { gestureMachines } from './spellbladeGestures.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
@@ -3648,7 +3648,10 @@ export class GameRuntime {
       const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
       if(ram){
         if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
-        else target.set(...boxWorld(soFistFrame(b),SO_FIST_STATION.sight));
+        else {
+          const sight = this.ramRenderer.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
+          target.set(...boxWorld(soFistFrame(b),sight));
+        }
       }
       else if (!locator) {
         // The same exported locator offsets provide a usable view during asset load/failure.

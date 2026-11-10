@@ -505,3 +505,23 @@ test('reverse-charge server simulation is deterministic for identical inputs and
  assert.deepEqual(simulate(),simulate(),
    'two independent authoritative rooms with same inputs must yield equal states');
 });
+
+test('bare piston contact follows the recovered authored striker tip through lift, pitch and stroke',()=>{
+ const {b}=setup();
+ b.fistMounted=false;
+ b.strikeAt=1;
+ for(const [rise,pitch,age] of [[0,0,0],[SO_FIST_LIFT.maxRise,.4,.4],
+   [SO_FIST_LIFT.maxRise,SO_FIST_LIFT.maxPitch,.88]]){
+  Object.assign(b,{ramLiftY:rise,ramElevPitch:pitch});
+  const stroke=age===0?0:age===.4?-.088:.445;
+  const expected=soFistUpperPoint(soFistFrame(b),b,[0,.365,.520+.092+stroke].map(n=>n*SO_FIST_SCALE));
+  const cap=soFistStriker(b,1+age);
+  const face=cap.center.map((v,i)=>v+cap.axes[2][i]*cap.size[2]/2);
+  assert.ok(Math.hypot(...face.map((v,i)=>v-expected[i]))<.001,
+    'the foremost point of the impact OBB meets the authored tip');
+  const shaft=soFistVolumes(b,1+age).find(v=>v.componentId==='Piston');
+  const shaftFront=shaft.center.map((v,i)=>v+shaft.axes[2][i]*shaft.size[2]/2);
+  const frontOverhang=shaftFront.reduce((v,n,i)=>v+(n-face[i])*cap.axes[2][i],0);
+  assert.ok(Math.abs(frontOverhang-.012*SO_FIST_SCALE)<.001,'shaft covers the cap mesh');
+ }
+});
