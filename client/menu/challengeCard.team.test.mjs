@@ -38,6 +38,6 @@ test('FFA, duel and bot duel remain distinct from team-only Squires wording', ()
   assert.equal(ffa.foe, '2 RIVALS');
   assert.equal(ffa.squires, undefined);
   const duel = challengeCopy({ mode: 'BOT_DUEL', localId: 'a', players: [roster[0], roster[3]] });
-  assert.equal(duel.foe, 'Red One');
+  assert.equal(duel.foe, 'VS. YOUR RIVAL');
   assert.equal(duel.squires, undefined);
 });

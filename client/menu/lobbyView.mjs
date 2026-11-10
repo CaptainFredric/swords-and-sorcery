@@ -9,7 +9,8 @@ export const WORLD_NAMES = Object.freeze({
   'blackbell-foundry': 'Blackbell Foundry',
   'outerworks': 'The Outerworks',
   'high-grounds': 'The High Grounds',
-  'restless-day':'Restless Day',
+  'restless-day': 'Restless Day',
+  'court-of-merit': 'The Court of Merit',
 });
 
 

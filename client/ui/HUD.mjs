@@ -254,15 +254,11 @@ export class HUD {
     this.trialPanel.setAttribute('aria-live', 'polite');
     this.trialPanel.innerHTML =
       '<small class="trial-header" data-trial-header></small>' +
-      '<div class="trial-monument" aria-hidden="true">' +
-        '<i class="trial-knight"></i><i class="trial-statue"></i><i class="trial-sword"></i><i class="trial-pedestal"></i><i class="trial-coin"></i>' +
-      '</div>' +
       '<strong class="trial-title" data-trial-title></strong>' +
       '<output class="trial-clock" data-trial-clock></output>' +
       '<small class="trial-details" data-trial-details></small>' +
       '<q class="trial-line" data-trial-line hidden></q>' +
-      '<small class="trial-footer" data-trial-footer></small>' +
-      '<small class="trial-asset-warning" data-trial-placeholder hidden>Provisional ceremonial staging · authored 3D asset pending</small>';
+      '<small class="trial-footer" data-trial-footer></small>';
     this.root.append(this.trialPanel);
     this.machineGauge = document.createElement('div');
     this.machineGauge.className = 'machine-gauge';
@@ -486,6 +482,10 @@ export class HUD {
     const trialView = renownTrialsView(snapshot, serverNow);
     this.trialPanel.hidden = !trialView.visible;
     if (trialView.visible) {
+      const combat = trialView.stage === 'COMBAT';
+      const parent = combat ? this.statusStack : this.root;
+      if (this.trialPanel.parentElement !== parent) parent.append(this.trialPanel);
+      this.trialPanel.setAttribute('aria-live', combat ? 'off' : 'polite');
       this.trialPanel.classList.toggle('ceremony', trialView.ceremony);
       this.trialPanel.classList.toggle('overtime', trialView.overtime);
       this.trialPanel.dataset.cue = trialView.stage;
@@ -499,7 +499,6 @@ export class HUD {
       const spoken = this.trialPanel.querySelector('[data-trial-line]');
       spoken.hidden = !trialView.line;
       spoken.textContent = trialView.line || '';
-      this.trialPanel.querySelector('[data-trial-placeholder]').hidden = !trialView.placeholder;
     }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {
