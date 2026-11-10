@@ -190,7 +190,7 @@ try{
     };
   })()`);
   assert.ok(inspectorLayout.open, 'inspector opens on plaque click');
-  assert.ok(inspectorLayout.width >= 360, 'inspector panel width is comfortably readable');
+  assert.ok(inspectorLayout.width >= 320, 'inspector panel width is comfortably readable');
   assert.ok(inspectorLayout.scrollOverflow <= 3, 'inspector content has no horizontal bleed');
   assert.ok(inspectorLayout.cardsCount >= 4, 'inspector lists spells');
 

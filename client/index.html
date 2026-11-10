@@ -248,13 +248,13 @@
               <!-- Prepared spells (for Chivalry) -->
               <div id="armory-prepared" class="hidden"></div>
 
-              <!-- Equip action -->
-              <div class="inspector-card-action">
-                <button type="button" id="armory-equip-btn" class="wide-button primary-command">EQUIP</button>
+              <!-- Equip action (preserved visually hidden for compatibility) -->
+              <div class="inspector-card-action visual-hidden">
+                <button type="button" id="armory-equip-btn" class="wide-button primary-command" tabindex="-1" aria-hidden="true">EQUIP</button>
               </div>
             </section>
           </div>
-          <p class="armory-scroll-hint">SCROLL FOR DETAILS ↓</p>
+          <p class="armory-scroll-hint" id="inspector-scroll-hint">SWIPE UP FOR OPTIONS · SWIPE DOWN FOR DETAILS ↓</p>
         </div>
       </aside>
       </div>
