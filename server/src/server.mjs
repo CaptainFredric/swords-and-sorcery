@@ -24,6 +24,8 @@ import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
+// Unacknowledged snapshots in flight to one client may span at most this.
+export const SNAPSHOT_ACK_WINDOW_TICKS = Math.round(0.75 * TICK_RATE);
 const SOLO_MODES = new Set([
   GAME_MODES.BOT_DUEL,
   GAME_MODES.PRACTICE,
@@ -104,6 +106,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       res.end(JSON.stringify({ ok: true, rooms: roomManager.rooms.size, simulation: {
         ...scheduler.stats(), skippedSnapshots: [...sessions].reduce((sum, session) => sum + (session.peer.skippedSnapshots ?? 0), 0),
+        unacknowledgedSnapshotsHeld: [...sessions].reduce((sum, session) => sum + (session.snapshotsHeld ?? 0), 0),
       } }));
       return;
     }
@@ -159,9 +162,33 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const packet = encodeJsonFrame(message);
     const isSnapshot = message?.type === 'snapshot';
     for (const session of sessions) {
-      if (session.roomCode === room.code && !session.peer.closed)
-        session.peer.sendPrepared(packet, isSnapshot);
+      if (session.roomCode !== room.code || session.peer.closed) continue;
+      if (isSnapshot) sendSnapshot(session, room, packet, message.tick);
+      else session.peer.sendPrepared(packet, false);
     }
+  }
+
+  // The peer only sees its own write queue, not the TCP buffers between the
+  // server and the browser. On Linux those grow to several MB: about 30 s of
+  // snapshots for a page that reads slowly, every one stale by the time it is
+  // read. A client that acknowledges snapshots gets a new one only while the
+  // unacknowledged ones span less than the window, so what it reads is recent.
+  // A client that never acknowledges is never held back.
+  function snapshotWindowOpen(session, room, tick) {
+    const sent = session.snapshotSent;
+    const ack = session.snapshotAck;
+    if (!sent || !ack || sent.roomCode !== room.code || ack.roomCode !== room.code || tick < sent.tick) return true;
+    return sent.tick - ack.tick < SNAPSHOT_ACK_WINDOW_TICKS;
+  }
+
+  function sendSnapshot(session, room, packet, tick) {
+    if (!snapshotWindowOpen(session, room, tick)) {
+      session.snapshotsHeld = (session.snapshotsHeld ?? 0) + 1;
+      return false;
+    }
+    if (!session.peer.sendPrepared(packet, true)) return false;
+    session.snapshotSent = { roomCode: room.code, tick };
+    return true;
   }
 
   function broadcastLobby(room) {
@@ -284,6 +311,13 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   }
 
   function handleMessage(session, message) {
+    // Acknowledgements follow the snapshot rate, so they don't count toward
+    // the message limit; each one only records two values.
+    if (message?.type === 'snapshotAck') {
+      if (Number.isFinite(message.tick) && typeof message.roomCode === 'string')
+        session.snapshotAck = { roomCode: message.roomCode, tick: message.tick };
+      return;
+    }
     const time = now();
     if (time - session.messageWindowStartedAt >= 1) {
       session.messageWindowStartedAt = time;
@@ -578,7 +612,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       if (room.mode === 'PRACTICE' && room.stPerryState) {
         for (const session of sessions) {
           if (session.roomCode === room.code && !session.peer.closed) {
-            send(session, serializeSnapshot(room, time, session.playerId));
+            const snapshot = serializeSnapshot(room, time, session.playerId);
+            sendSnapshot(session, room, encodeJsonFrame(snapshot), snapshot.tick);
           }
         }
       } else {

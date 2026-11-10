@@ -59,9 +59,13 @@ test('a page that fell behind handles only the newest of its queued snapshots', 
     assert.deepEqual(seen, ['snapshot 3']);
     assert.equal(socket.latestSnapshot.tick, 3);
     assert.equal(socket.staleSnapshotsSkipped, 2);
+    const acks = () => ws.sent.map(d => JSON.parse(d)).filter(m => m.type === 'snapshotAck');
+    assert.deepEqual(acks(), [{ type: 'snapshotAck', tick: 3, roomCode: 'ROOM' }],
+      'only the snapshot actually handled is acknowledged');
     ws.receive(snapshot(4));
     await nextTask();
     assert.deepEqual(seen, ['snapshot 3', 'snapshot 4'], 'a page that keeps up still sees every snapshot');
+    assert.deepEqual(acks().map(a => a.tick), [3, 4]);
     assert.equal(socket.staleSnapshotsSkipped, 2);
   } finally { restore(); }
 });

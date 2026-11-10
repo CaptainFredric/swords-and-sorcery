@@ -170,6 +170,10 @@ export class GameSocket {
     if (message.type === 'snapshot') {
       this.latestSnapshot = message;
       this.snapshotReceivedAt = receivedAt;
+      // Tell the server which snapshot this page has read, so it never fills
+      // the connection with more than the page can keep up with.
+      if (Number.isFinite(message.tick) && typeof message.roomCode === 'string')
+        this.send({ type: 'snapshotAck', tick: message.tick, roomCode: message.roomCode });
       this.serverClock.observe(message.serverTime, this.snapshotReceivedAt);
     }
     if (message.type === 'pong' && Number.isFinite(message.sentAt)) {
