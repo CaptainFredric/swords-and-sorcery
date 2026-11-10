@@ -1,13 +1,19 @@
 import * as THREE from 'three';
 import { COURT_OF_MERIT } from '../../shared/worlds/courtOfMerit.mjs';
+import { facetMesh, kitMaterials, seededRandom, shadeColor, KIT_PALETTE as K } from './kit/facetKit.mjs';
+import { createBatch, masonry, banner } from './kit/kitPieces.mjs';
+import { drawnFloors, flagstoneTexture } from './kit/surfaceTextures.mjs';
+import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.mjs';
 
-export const COURT_OF_MERIT_LIGHTING = Object.freeze({
-  cameraFar: 280,
-  background: 0x221a18,
-  fog: Object.freeze({ color: 0x362822, density: 0.003 }),
-  hemisphere: Object.freeze({ skyColor: 0xffeed6, groundColor: 0x483a30, intensity: 1.8 }),
+// (the court stands open to a late-afternoon sky over a green march: kit/backdrop.mjs)
+const COURT_BACKDROP_RADIUS = 260;
+export const COURT_OF_MERIT_LIGHTING = backdropLighting({
+  background: 0x8a7a70,
+  fog: Object.freeze({ color: 0x8a7a70, density: 0.0028 }),
+  hemisphere: Object.freeze({ skyColor: 0xffeed6, groundColor: 0x5a4a3c, intensity: 1.8 }),
   sun: Object.freeze({ color: 0xffd9a0, intensity: 2.8, position: [15, 45, -20] }),
-});
+  sky: Object.freeze({ zenith: 0x55688a, horizon: 0xe8b98a, below: 0x3a3430 }),
+}, { radius: COURT_BACKDROP_RADIUS, density: 0.0028 });
 
 const PALETTE = Object.freeze({
   stone: 0x9c9485,
@@ -94,9 +100,6 @@ export class CourtOfMeritRenderer {
   }
 
   #build() {
-    const stoneM = this.#registerMat(mat(PALETTE.stone, 0.8));
-    const stoneDarkM = this.#registerMat(mat(PALETTE.stoneDark, 0.85));
-    const marbleM = this.#registerMat(mat(PALETTE.marble, 0.45, 0.05));
     const brassM = this.#registerMat(mat(PALETTE.brass, 0.35, 0.75));
     const brassDarkM = this.#registerMat(mat(PALETTE.brassDark, 0.45, 0.65));
     const ironM = this.#registerMat(mat(PALETTE.iron, 0.5, 0.6));
@@ -104,89 +107,154 @@ export class CourtOfMeritRenderer {
     const crimsonM = this.#registerMat(mat(PALETTE.crimson, 0.75));
     const crimsonGoldM = this.#registerMat(mat(PALETTE.crimsonGold, 0.65, 0.1));
     const flameM = this.#registerMat(new THREE.MeshBasicMaterial({ color: PALETTE.flame }));
+    this.kit = kitMaterials();
+    const rand = seededRandom(1907);
+    const batch = createBatch();
 
-    // 1. Arena Floors
-    for (const f of COURT_OF_MERIT.floors) {
-      box(this.group, f.size, f.center, f.id === 'court-arena' ? marbleM : stoneM);
-    }
+    // 1. Floors: polished marble for the trial floor, dressed stone for the tribunal and the gate passages
+    this.kit.marble = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0xd9d1c2, 71), roughness: 0.42, metalness: 0.06 });
+    this.kit.paving = new THREE.MeshStandardMaterial({ map: flagstoneTexture(0xa79f90, 73), roughness: 0.8, metalness: 0.04 });
+    this.group.add(drawnFloors(COURT_OF_MERIT.floors.filter((f) => f.material === 'marble'), this.kit.marble, { name: 'court-marble', metres: 3.2 }));
+    this.group.add(drawnFloors(COURT_OF_MERIT.floors.filter((f) => f.material !== 'marble'), this.kit.paving, { name: 'court-paving' }));
+    for (const r of COURT_OF_MERIT.ramps) this.#steps(batch, rand, r);
 
-    // 2. Central Brass Compass Star Inlay in Trial Circle
+    // 2. The brass compass of the trial circle, and the ruled lines out to each gate
     const compassGroup = new THREE.Group();
     compassGroup.position.set(0, 0.015, 0);
     this.group.add(compassGroup);
-    const ringGeo = new THREE.TorusGeometry(8.0, 0.08, 6, 48);
-    this.geometries.push(ringGeo);
-    const ringMesh = new THREE.Mesh(ringGeo, brassM);
-    ringMesh.rotation.x = Math.PI / 2;
-    compassGroup.add(ringMesh);
-
-    const innerRingGeo = new THREE.TorusGeometry(4.0, 0.06, 6, 36);
-    this.geometries.push(innerRingGeo);
-    const innerRing = new THREE.Mesh(innerRingGeo, brassM);
-    innerRing.rotation.x = Math.PI / 2;
-    compassGroup.add(innerRing);
-
-    // 8-point compass star rays
+    for (const [radius, tube] of [[8.0, 0.08], [4.0, 0.06], [12.5, 0.05]]) {
+      const ringGeo = new THREE.TorusGeometry(radius, tube, 6, 64);
+      this.geometries.push(ringGeo);
+      const ring = new THREE.Mesh(ringGeo, brassM);
+      ring.rotation.x = Math.PI / 2;
+      compassGroup.add(ring);
+    }
     for (let i = 0; i < 8; i++) {
       const angle = (Math.PI * 2 * i) / 8;
       const rayLen = i % 2 === 0 ? 7.6 : 5.0;
-      const ray = box(compassGroup, [0.12, 0.03, rayLen], [
-        Math.sin(angle) * (rayLen / 2),
-        0.01,
-        Math.cos(angle) * (rayLen / 2),
-      ], brassM);
+      const ray = box(compassGroup, [0.12, 0.03, rayLen], [Math.sin(angle) * (rayLen / 2), 0.01, Math.cos(angle) * (rayLen / 2)], brassM);
       ray.rotation.y = angle;
     }
 
-    // 3. Walls, Piers, and Balustrades
+    // 3. Everything that stands, each in its own piece of the kit (and the effigy and braziers as their own groups)
     for (const s of COURT_OF_MERIT.solids) {
       const kind = s.kind ?? '';
-      if (kind === 'pillar') {
-        // Fluted column with pedestal and brass Corinthian capital
-        const [cx, cy, cz] = s.center;
-        const [sx, sy, sz] = s.size;
-        const radius = Math.min(sx, sz) * 0.42;
-        cylinder(this.group, radius, radius * 1.05, sy - 0.9, 16, [cx, cy - 0.2, cz], stoneM);
-        box(this.group, [sx, 0.5, sz], [cx, s.center[1] - sy / 2 + 0.25, cz], stoneDarkM);
-        cylinder(this.group, radius * 1.25, radius, 0.45, 12, [cx, cy + sy / 2 - 0.25, cz], brassM);
-      } else if (kind === 'podium') {
-        box(this.group, s.size, s.center, brassM);
-      } else if (kind === 'renowner-body') {
-        this.#buildRenownerEffigy(s.center, s.size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM);
-      } else if (kind === 'brazier') {
-        this.#buildBrazier(s.center, s.size, ironM, flameM);
-      } else if (kind === 'balustrade') {
-        box(this.group, s.size, s.center, s.material === 'brass' ? brassM : stoneDarkM);
-      } else {
-        box(this.group, s.size, s.center, stoneDarkM);
+      const [cx, cy, cz] = s.center;
+      const [sx, sy, sz] = s.size;
+      const y0 = cy - sy / 2;
+      if (kind === 'renowner-body') { this.#buildRenownerEffigy(s.center, s.size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM); continue; }
+      if (kind === 'brazier') { this.#buildBrazier(s.center, s.size, ironM, flameM); continue; }
+      if (kind === 'podium') { batch.metal.block({ cx, cy: y0, cz, sx, sy, sz, chamfer: 0.05, jitter: 0, color: PALETTE.brass, rand, shade: 0.04 }); continue; }
+      if (kind === 'pillar') { this.#column(batch, rand, s); continue; }
+      if (kind === 'stand-tier') { this.#tier(batch, rand, s); continue; }
+      if (kind === 'balustrade') {
+        batch.metal.block({ cx, cy: y0, cz, sx, sy: 0.12, sz, chamfer: 0.02, jitter: 0, color: PALETTE.brassDark, rand });
+        batch.metal.block({ cx, cy: y0 + sy - 0.1, cz, sx: sx + 0.06, sy: 0.1, sz, chamfer: 0.02, jitter: 0, color: PALETTE.brass, rand });
+        const along = sz >= sx;
+        const n = Math.round((along ? sz : sx) / 0.45);
+        for (let i = 0; i < n; i++) {
+          const t = (i + 0.5) / n - 0.5;
+          batch.metal.prism({ cx: cx + (along ? 0 : t * sx), cy: y0 + 0.12, cz: cz + (along ? t * sz : 0), radiusBottom: 0.06, radiusTop: 0.05, height: sy - 0.22, sides: 6, color: PALETTE.brass, rand });
+        }
+        continue;
+      }
+      if (kind === 'jury-box') {
+        // the jurors' panelled box: dark timber below a brass rail, crimson cushions along its bench
+        batch.wood.block({ cx, cy: y0, cz, sx, sy: sy - 0.1, sz, chamfer: 0.03, jitter: 0, color: K.timberDark, rand });
+        batch.metal.block({ cx, cy: y0 + sy - 0.1, cz, sx: sx + 0.08, sy: 0.1, sz: sz + 0.08, chamfer: 0.02, jitter: 0, color: PALETTE.brass, rand });
+        for (let x = cx - sx / 2 + 0.6; x < cx + sx / 2 - 0.3; x += 1.1) batch.wood.block({ cx: x, cy: y0 + 0.3, cz: cz - sz / 2 - 0.01, sx: 0.9, sy: sy - 0.7, sz: 0.04, chamfer: 0.01, jitter: 0, color: shadeColor(K.timber, 1.05), rand });
+        continue;
+      }
+      if (kind === 'dais-base') { if (s.drawTo) masonry(batch, rand, { ...s, center: [cx, (y0 + s.drawTo) / 2, cz], size: [sx, s.drawTo - y0, sz] }, { coping: true }); else masonry(batch, rand, s, { coping: false }); continue; }
+      if (kind === 'stand-back' || kind === 'curtain' || kind === 'pier' || kind === 'arch') {
+        masonry(batch, rand, s, { merlons: kind === 'curtain' || kind === 'pier', merlonHeight: 0.7 });
+        continue;
+      }
+      masonry(batch, rand, s);
+    }
+
+    // 4. The gates' portcullises, raised into their arches (each wave walks in under them)
+    for (const id of ['west-sally-arch', 'east-sally-arch', 'south-portal-arch']) {
+      const a = COURT_OF_MERIT.solids.find((x) => x.id === id);
+      const alongZ = a.size[2] > a.size[0];
+      const [ax, ay, az] = a.center;
+      const span = alongZ ? a.size[2] : a.size[0];
+      for (let t = -span / 2 + 0.25; t <= span / 2 - 0.2; t += 0.45) {
+        batch.metal.block({ cx: ax + (alongZ ? 0 : t), cy: ay - a.size[1] / 2 - 0.6, cz: az + (alongZ ? t : 0), sx: 0.07, sy: 0.6, sz: 0.07, chamfer: 0, jitter: 0, color: K.iron, rand });
       }
     }
 
-    // 4. Amphitheater Spectator Benches along Galleries
-    for (const side of [-1, 1]) {
-      const gx = side * 21;
-      for (let z = -16; z <= 16; z += 3.2) {
-        box(this.group, [2.4, 0.45, 2.6], [gx, COURT_OF_MERIT.floors[5].y + 0.25, z], stoneM);
-      }
-    }
+    // 5. Crimson banners down the north curtain behind the tribunal, and over each gate
+    const hang = (at) => {
+      const mesh = banner(batch, rand, at);
+      if (!this.bannerMaterial) { this.bannerMaterial = mesh.material; this.materials.push(mesh.material); }
+      else { mesh.material.map?.dispose?.(); mesh.material.dispose(); mesh.material = this.bannerMaterial; }
+      this.group.add(mesh);
+      this.banners.push(mesh);
+    };
+    for (const x of [-13.5, -9, 9, 13.5]) hang({ x, y: 6.2, z: 17.45, width: 1.7, height: 4.0, facing: Math.PI });
+    hang({ x: -23.45, y: 4.4, z: 6.5, width: 1.4, height: 2.6, facing: Math.PI / 2 });
+    hang({ x: 23.45, y: 4.4, z: 6.5, width: 1.4, height: 2.6, facing: -Math.PI / 2 });
+    hang({ x: -8, y: 4.9, z: -23.45, width: 1.4, height: 2.6, facing: 0 });
+    hang({ x: 8, y: 4.9, z: -23.45, width: 1.4, height: 2.6, facing: 0 });
 
-    // 5. Ceremonial Crimson Banners hung from Gallery Pillars
-    for (const side of [-1, 1]) {
-      for (const z of [-6, 6]) {
-        const bx = side * 17.6;
-        const pole = box(this.group, [0.1, 0.1, 1.4], [bx, 3.8, z], brassM);
-        pole.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-        const bannerMesh = box(this.group, [0.04, 3.2, 1.2], [bx + side * 0.05, 2.2, z], crimsonM);
-        this.banners.push(bannerMesh);
-      }
+    for (const [name, builder] of Object.entries(batch)) {
+      if (!builder.triangleCount) continue;
+      this.group.add(facetMesh(builder, this.kit[name], { castShadow: name !== 'ground', receiveShadow: true, name: `court-${name}` }));
     }
+    this.backdrop = buildBackdrop(this.group, {
+      footprint: [-25, 25, -25, 19], floorY: 0, sky: COURT_OF_MERIT_LIGHTING.sky, mood: BACKDROP_MOODS.dusk,
+      seed: 61, radius: COURT_BACKDROP_RADIUS, depth: 16, materials: this.kit,
+    });
+  }
 
-    // 6. Sally Portcullis Grates
-    for (const [x, z, rot] of [[-18.5, 0, Math.PI / 2], [18.5, 0, Math.PI / 2], [0, -18.5, 0]]) {
-      for (let bar = -2.8; bar <= 2.8; bar += 0.45) {
-        box(this.group, [0.06, 3.8, 0.06], [x + (rot ? 0 : bar), 1.9, z + (rot ? bar : 0)], ironM);
-      }
-      box(this.group, [rot ? 0.15 : 6.0, 0.15, rot ? 6.0 : 0.15], [x, 3.6, z], ironM);
+  /** A flight of steps filling its ramp (each tread's top at the slope's height there, and solid to the ground). */
+  #steps(batch, rand, ramp) {
+    const axisX = ramp.axis === 'x';
+    const length = axisX ? ramp.maxX - ramp.minX : ramp.maxZ - ramp.minZ;
+    const count = Math.max(2, Math.round(Math.abs(ramp.endY - ramp.startY) / 0.2));
+    const width = axisX ? ramp.maxZ - ramp.minZ : ramp.maxX - ramp.minX;
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      const top = ramp.startY + (ramp.endY - ramp.startY) * t;
+      const base = Math.min(ramp.startY, ramp.endY);
+      const along = (axisX ? ramp.minX : ramp.minZ) + t * length;
+      batch.stone.block({
+        cx: axisX ? along : (ramp.minX + ramp.maxX) / 2, cy: base, cz: axisX ? (ramp.minZ + ramp.maxZ) / 2 : along,
+        sx: axisX ? length / count + 0.01 : width, sy: Math.max(0.02, top - base), sz: axisX ? width : length / count + 0.01,
+        chamfer: 0.02, jitter: 0, color: shadeColor(PALETTE.marble, 0.92 + rand() * 0.08), rand, shade: 0.04,
+      });
+    }
+  }
+
+  /** A slender column of judgment: a plinth, a fluted shaft, a brass capital, all inside its own box. */
+  #column(batch, rand, s) {
+    const [cx, cy, cz] = s.center;
+    const [sx, sy, sz] = s.size;
+    const y0 = cy - sy / 2;
+    batch.stone.block({ cx, cy: y0, cz, sx, sy: 0.45, sz, chamfer: 0.05, jitter: 0, color: K.stoneDark, rand });
+    batch.stone.prism({ cx, cy: y0 + 0.45, cz, radiusBottom: sx * 0.42, radiusTop: sx * 0.37, height: sy - 0.95, sides: 12, color: PALETTE.marble, rand });
+    batch.metal.block({ cx, cy: y0 + sy - 0.5, cz, sx, sy: 0.5, sz, chamfer: 0.08, jitter: 0, color: PALETTE.brass, rand, shade: 0.04 });
+  }
+
+  /** A tier of the stands: its stone riser, a timber bench along its front, and the crowd's cushions. */
+  #tier(batch, rand, s) {
+    const [cx, cy, cz] = s.center;
+    const [sx, sy, sz] = s.size;
+    const y0 = cy - sy / 2;
+    masonry(batch, rand, s, { coping: true, color: K.stoneLight });
+    const alongZ = sz > sx;
+    const length = alongZ ? sz : sx;
+    // which side faces the floor: the side nearest the court's middle
+    const inward = alongZ ? -Math.sign(cx) : -Math.sign(cz);
+    const depth = alongZ ? sx : sz;
+    const bx = alongZ ? cx + inward * (depth / 2 - 0.35) : cx;
+    const bz = alongZ ? cz : cz + inward * (depth / 2 - 0.35);
+    batch.wood.block({ cx: bx, cy: y0 + sy, cz: bz, sx: alongZ ? 0.5 : length - 0.1, sy: 0.08, sz: alongZ ? length - 0.1 : 0.5, chamfer: 0.01, jitter: 0, color: K.timber, rand });
+    for (let u = -length / 2 + 0.7; u < length / 2 - 0.4; u += 1.3 + rand() * 0.6) {
+      if (rand() < 0.45) continue;
+      const colour = rand() < 0.5 ? PALETTE.crimson : rand() < 0.5 ? 0x274a7a : K.cream;
+      batch.cloth.block({ cx: alongZ ? bx : cx + u, cy: y0 + sy + 0.08, cz: alongZ ? cz + u : bz, sx: 0.42, sy: 0.07, sz: 0.42, chamfer: 0.02, jitter: 0, color: colour, rand });
     }
   }
 
@@ -474,6 +542,7 @@ export class CourtOfMeritRenderer {
 
   dispose() {
     this.scene.remove(this.group);
+    for (const m of Object.values(this.kit ?? {})) { m.map?.dispose?.(); m.dispose?.(); }
     for (const c of this.coinVisuals) {
       this.group.remove(c.mesh);
     }
