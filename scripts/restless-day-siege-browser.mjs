@@ -59,9 +59,12 @@ try {
       if(window.__chase&&camera===r.camera&&s){if(!(camera.layers.mask&1))return;
         const l=[...s.ladders].filter(x=>x.state!=='broken').sort((a,b)=>b.position.z-a.position.z)[0];
         const c=l&&(l.holderId?room.players.get(l.holderId)?.position:l.position);
-        if(c){const want=[c.x+7,c.y+6.5,c.z-9];cam=cam?cam.map((v,i)=>v+(want[i]-v)*0.08):want;
+        // behind and above, drawn toward the centre line so the camera never sits inside a flank tower or a roof
+        if(c){const want=[c.x*0.6,c.y+9,c.z-11];cam=cam?cam.map((v,i)=>v+(want[i]-v)*0.08):want;
           camera.position.set(...cam);camera.lookAt(c.x,c.y+1.5,c.z+2);camera.far=Math.max(camera.far,300);camera.updateProjectionMatrix();camera.updateMatrixWorld();}}
-      render(scene,camera)};return true})()`);
+      render(scene,camera)};
+    window.__chase=true;const st=document.createElement('style');st.id='cap-clean';st.textContent='body *{visibility:hidden!important}canvas{visibility:visible!important}';document.head.append(st);
+    return true})()`);
   const samples = [];
   let frame = 0;
   const startedAt = Date.now();
@@ -71,7 +74,6 @@ try {
     // the first 40 s of the siege as a clip (one frame each 400 ms), and a frame every 10 s after
     const elapsed = (Date.now() - startedAt) / 1000;
     if (elapsed < 40 || Math.round(elapsed) % 10 === 0) {
-      await evaluate(`window.__chase=true;if(!document.querySelector('#cap-clean')){const s=document.createElement('style');s.id='cap-clean';s.textContent='body *{visibility:hidden!important}canvas{visibility:visible!important}';document.head.append(s)}true`);
       const r = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 72 }, 60000);
       await writeFile(join(out, 'frames', `f${String(frame++).padStart(4, '0')}.jpg`), Buffer.from(r.data, 'base64'));
     }
