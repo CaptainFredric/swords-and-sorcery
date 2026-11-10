@@ -207,8 +207,37 @@ try {
   await shot('03-overtime-combat');
   if (touch) await shot('04-mobile-overtime-hud');
   const secondEnemy=room.players.get(second.enemyIds[0]);
+  const tick=room.tick;
+  if(verdict){
+    await evaluate(`(()=>{
+      window.__renownerCues=[];
+      window.__ssLink.on('snapshot',snapshot=>{
+        const stage=snapshot.renownTrial?.ceremony?.cue;
+        if(snapshot.renownTrial?.waveIndex===2 && stage && !window.__renownerCues.includes(stage))
+          window.__renownerCues.push(stage);
+      });
+    })()`);
+    room.tick=function(now){
+      // Pin the draw only during the test room's second-wave tick. Use the
+      // same simulation clock as the director and restore normal randomness
+      // before the next room or asynchronous operation can run.
+      const random=Math.random;
+      if(second.endedAt===null) {
+        const overtime=Math.max(0,now-second.startedAt-second.deadlineSec);
+        Math.random=()=>overtimeVerdictWeights(overtime).execution*(verdict==='sword' ? 0.25 : 0.75);
+      }
+      let result;
+      try { result=tick.call(this,now); }
+      finally { Math.random=random; }
+      const ceremony=serializeRenownTrial(this,now)?.ceremony;
+      if(ceremony?.cue && !serverCues.some(entry=>entry.cue===ceremony.cue))
+        serverCues.push({cue:ceremony.cue,at:now,alive:player.alive});
+      return result;
+    };
+  }
   await swordDefeat(room,player,secondEnemy);
-  await until(()=>room.renownTrial.phase==='JUDGMENT','single late verdict after last kill');
+  await until(()=>room.renownTrial?.phase==='JUDGMENT','single late verdict after last kill');
+  if(verdict) assert.equal(room.renownTrial.wave.variant,verdict);
   assert.equal(room.renownTrial.wave.reward,0);
   assert.equal(room.renownTrial.ledger[1].status,'NOT_AWARDED');
   assert.equal(profileStore.open(player.profileToken).profile.balance,balanceAfterWave1,

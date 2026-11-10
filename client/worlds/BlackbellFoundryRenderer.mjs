@@ -250,7 +250,6 @@ export class BlackbellFoundryRenderer {
         ringMesh,
         discMesh,
         progressMesh,
-        standardGroup,
         bannerCloth,
         finial,
         standardGroup,
