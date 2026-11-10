@@ -1,7 +1,7 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
-import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
+import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry,setDownRestlessLadder,RESTLESS_DAY_RULES} from './restlessDayMode.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
@@ -1777,7 +1777,10 @@ function stepAfflictions(room, player, nowSec) {
   if (player.shaken && nowSec >= player.shaken.at + 3) player.shaken = null;
   if (player.electricalBacklash && oneHitBacklashRemaining(player.electricalBacklash, nowSec) <= 0)
     player.electricalBacklash = null;
-  player.speedScale = chillScale(player.chill, nowSec) * (player.oneHitFrostSlow ? 0.65 : 1);
+  // (a Restless Day siege ladder on the shoulder slows its carrier too: the scale is composed here, every tick, so
+  // the carry rule must be part of it or it is lost: client prediction already applies it)
+  player.speedScale = chillScale(player.chill, nowSec) * (player.oneHitFrostSlow ? 0.65 : 1)
+    * (player.restlessCarrying ? RESTLESS_DAY_RULES.carrySpeed : 1);
 }
 
 function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {}) {
@@ -2833,7 +2836,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.yaw = input.yaw ?? player.yaw;
       player.pitch = input.pitch ?? player.pitch;
       player.flight = moved.flight;
-      if(player.restlessCarrying)constrainRestlessCarry(player,from,effectiveWorld,player.yaw);
+      if(player.restlessCarrying&&constrainRestlessCarry(player,from,effectiveWorld,player.yaw)==='jammed')
+        setDownRestlessLadder(room,player,nowSec);
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
     if (room.mode === GAME_MODES.EDGE_OF_VICTORY && !player.operatingRamId && !player.operatingFightFlightId && !player.operatingBallistaId)
