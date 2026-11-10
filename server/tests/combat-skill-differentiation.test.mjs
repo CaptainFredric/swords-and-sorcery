@@ -47,7 +47,8 @@ test('combat skill differentiation: sweet-spot cut leading vs centered static vs
     assert.ok(hit1, 'strike 1 lands');
     assert.ok(hit1.point, 'authoritative physical contact point is attached to swordHit event');
     assert.ok(Math.abs(hit1.point.x - 1.7) < 0.35, `contact x near target boundary: ${hit1.point.x}`);
-    assert.ok(hit1.quality >= 0.45 && hit1.quality <= 0.55, `centered quality ~0.49: got ${hit1.quality}`);
+    // (the contact found exactly within its sweep step, as at any tick rate: 0.43; the step it fell in used to round it)
+    assert.ok(hit1.quality >= 0.4 && hit1.quality <= 0.5, `centered quality ~0.43: got ${hit1.quality}`);
     assert.equal(d.health, 76, 'first centered hit deals 24 damage');
 
     // Strike 2 lands

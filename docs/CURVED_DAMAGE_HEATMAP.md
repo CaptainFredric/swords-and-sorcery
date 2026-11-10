@@ -167,3 +167,38 @@ In `shared/sim/combat.mjs`, when blade intersection ray-casts detect collision (
   - Verifies centered static strikes (24 dmg, 5-hit defeat), cramped hilt rushes (glancing damage $\le 20$), sweet-spot cut leading, authoritative event points, and guard stamina drain scaling.
 - **Full Test Suite**: **1,460 / 1,460 tests passing** (`npm test`).
 - **Verification Command**: `npm run verify` passed cleanly (syntax check, 1,460 tests, HTML5 export verified, headless smoke test passed on live port).
+
+---
+
+## 8. Verification, 2026-11-10 (measured, not retuned)
+
+Measured through the real sim with `scripts/sword-heatmap-measure.mjs`: a standing knight placed across every distance
+and angle off the aim the blade can reach, struck once by each cut, in both chain forms (`SWORD_CHAINS`: the falling
+chain forehand → backhand → chop, the rising chain backhand → forehand → chop). Regression tests:
+`server/tests/sword-forms-heatmap.test.mjs`.
+
+| Cut | Every reachable placement (0.8–2.75 m, ±60°) | Centred (±6°, 1.5–2.25 m) | 28–30 reached at |
+| :--- | :--- | :--- | :--- |
+| Forehand | mean 20.1; 19–21: 91, 22–24: 8, 25–27: 5, 28–30: 3 of 107 | 22.2 | ~1.85 m, the knight ~14° left of the aim, aim ~10° up (30) |
+| Backhand | mean 20.1; 91 / 8 / 6 / 2 | 21.8 | ~1.75 m, ~16° right, aim ~20° down (30) |
+| Chop | mean 21.1; 38 / 6 / 11 / 0 at level aim | 23.1 | ~1.8 m, aim ~15° above the chest (30) |
+
+- **Driven by real geometry, phase and cut direction:** reach comes from the blade's actual contact along its length
+  (hilt 19–22, cutting stretch up to 29–30, tip 19–21), phase from the contact's own moment in the sweep (early
+  19–20, peak up to 29–30, late 19–20), angle from the cut's own plane. Each strike is judged as the cut it is
+  (`strikeKind`), so the rising chain's opening backhand is judged as a backhand.
+- **Tick / frame-rate independent:** the blade's first touch on a knight is now found exactly within its sweep step
+  (`sweepBlade` halves the step), so identical placements give identical quality at 20, 30, 60 and 120 Hz (before: 4 of
+  20 placements differed by up to 0.08 quality / 1 damage between tick rates). FOV and mouse sensitivity never reach
+  the server: it judges the aim (yaw, pitch) and the bodies only.
+- **Host and clients agree:** the server, the Practice/LocalHost sim and the client's own clang prediction all run
+  `shared/src/blade.mjs`; every contact event carries its point and the judgement's breakdown (`heat`), which the F3
+  debugger reads out (form, cut, outcome, hilt/cutting/tip, early/peak/late, angle).
+- **Guard and parry use the contact:** block, parry and guard-break events carry the blade's own contact point on the
+  body (on the cutting stretch, at the body's surface) and the same breakdown.
+- **Peak reachable:** 30 is reached by every cut, so the peak was not widened. Note for the design owner: the top band
+  is earned by leading the cut (the knight off the aim into the cut's direction, the chop aimed high), and a centred
+  blow lands 22–24. Section 3's scenario A agrees with this; a target of "average 25–27, 28–30 for consistently
+  centred aim" would be a retune, proposed separately, not made here.
+- Sections 1–2's sigma and epicentre figures predate the shipped `STRIKE_HEATMAPS` table (reach normalised along the
+  cutting stretch, epicentres ±2° yaw); the table in `shared/src/bladeHeatmap.mjs` is what runs.
