@@ -12,7 +12,7 @@
 import { writeFileSync } from 'node:fs';
 import { Room } from '../shared/sim/Room.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastSpell, tryDash } from '../shared/sim/combat.mjs';
-import { SWORD_STRIKE_TIMES } from '../shared/src/combat.mjs';
+import { SWORD_STRIKE_TIMES, strikeKind } from '../shared/src/combat.mjs';
 import { serializeSnapshot } from '../shared/sim/wire.mjs';
 import { resolveSpellbladeState } from '../client/game/spellbladePose.mjs';
 import { resolveSpellbladeAnimationPlan } from '../client/game/spellbladeAnimationPlan.mjs';
@@ -38,7 +38,7 @@ const model = loadGlb(new URL('../client/assets/characters/spellblade/spellblade
 const TIP = [0.131, 1.3383, -0.1661];
 const HAND = model.byName.get('hand.R');
 const FEET = [model.byName.get('foot.L'), model.byName.get('foot.R')];
-// each ordinary strike's clip and its authored contact frame (where the blade crosses the knight's front)
+// each cut's clip and its authored contact frame (where the blade crosses the knight's front), by kind
 const CLIP_CONTACT = [{ clip: 'Slash_1', time: 0.4 }, { clip: 'Slash_2', time: 0.38 }, { clip: 'Slash_3', time: 0.36 }];
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
@@ -183,18 +183,18 @@ export function run(name, { seconds, script, defender = false }) {
     }
     previous = { pose, layers: shown.layers, frame, feet };
     frames.push(frame);
-    for (const e of room.events.splice(0)) if (e.type === 'swordSwing' && e.playerId === 'a') swings.push({ strike: e.strikeIndex, startedAt: a.attackStartedAt });
+    for (const e of room.events.splice(0)) if (e.type === 'swordSwing' && e.playerId === 'a') swings.push({ strike: e.strikeIndex, kind: e.kind ?? strikeKind(a.attackVariant ?? 0, e.strikeIndex), startedAt: a.attackStartedAt });
   }
   // every strike's contact, as shown: the blade (hand to tip) against the authored clip's own blade at its contact
-  const contacts = swings.map(({ strike, startedAt }) => {
+  const contacts = swings.map(({ strike, kind, startedAt }) => {
     const at = startedAt - t0 + SWORD_STRIKE_TIMES[strike];
     const frame = frames.reduce((best, f) => (Math.abs(f.t - at) < Math.abs(best.t - at) ? f : best), frames[0]);
-    const want = CLIP_CONTACT[strike];
+    const want = CLIP_CONTACT[kind];
     const ref = sample([{ clip: want.clip, time: want.time, weight: 1 }]);
     const blade = (p) => { const v = [p.tip[0] - p.hand[0], p.tip[1] - p.hand[1], p.tip[2] - p.hand[2]]; const l = Math.hypot(...v); return v.map((x) => x / l); };
     const shownBlade = blade(frame), refBlade = blade(ref);
     const angle = Math.acos(Math.max(-1, Math.min(1, shownBlade.reduce((s, v, i) => s + v * refBlade[i], 0)))) * 180 / Math.PI;
-    return { strike, at: +at.toFixed(3), shown: `${frame.clip}@${frame.time}`, offContactDeg: +angle.toFixed(1) };
+    return { strike, kind, at: +at.toFixed(3), shown: `${frame.clip}@${frame.time}`, offContactDeg: +angle.toFixed(1) };
   });
   return { name, frames, snaps, contacts, footSlide: plantedFrames ? +(slidingFrames / plantedFrames).toFixed(3) : 0, footSpeed: plantedFrames ? +(slideSum / plantedFrames).toFixed(2) : 0 };
 }

@@ -19,6 +19,7 @@ import {resolveWorldImpact} from './worldImpact.mjs';
 import { biByeHitVolumes, biByeFirstHit } from './biByeComponents.mjs';
 import {
   DAMAGE_LEVELS, GAME, HEALTH_REGEN, MAX_FORCE, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
+  nextChainVariant, strikeKind,
   resolveSwordVsGuard, swordDamage, swordDamageFor, swordForce,
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
@@ -166,6 +167,10 @@ function startSwordChain(player, nowSec) {
   // a chain begun Sundering is swung as slams to its end (the ground splits under them only while Sundering)
   player.attackSlam = sundering(player, nowSec);
   player.attackChivalry = combatActionPolicy(player, nowSec).concurrent;
+  // its form: straight on from a chain that ran its course, the other one; otherwise the falling chain (a Sundering
+  // chain is slams, and Chivalry's guarded cuts keep the falling one's)
+  player.attackVariant = player.attackSlam || player.attackChivalry ? 0 : nextChainVariant(player.attackRun, nowSec);
+  player.attackRun = null;
   player.attackNextStrike = 0;
   player.attackCommitted = 1;
   player.attackCommitBy = null;
@@ -192,7 +197,7 @@ function nextStrikeDue(player) {
 // keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep.
 // letGo: it ended because the button was let go (not broken off), so a late word of a press made before its end can
 // still carry it on
-function stopSwordChain(player, { keepSweep = false, letGo = false } = {}, room = null, nowSec = 0) {
+function stopSwordChain(player, { keepSweep = false, letGo = false, done = false } = {}, room = null, nowSec = 0) {
   if (!keepSweep && !letGo && (player.attackActive || player.attackSweep)) {
     recordChallengeFact(room, { type: 'swordChainInterrupted', playerId: player.id, chainId: player.attackChainId, at: nowSec });
   }
@@ -203,7 +208,9 @@ function stopSwordChain(player, { keepSweep = false, letGo = false } = {}, room 
     : null;
   // how it ended, for the body that shows it (presentation only: a chain run to its end or let go plays its last
   // swing out; one broken off gives way at once to whatever broke it)
-  if (player.attackActive) player.attackEnd = keepSweep ? 'done' : letGo ? 'letGo' : 'broken';
+  if (player.attackActive) player.attackEnd = done ? 'done' : letGo ? 'letGo' : 'broken';
+  // (a chain that ran its whole course: the next, begun straight on from it, takes the other form)
+  player.attackRun = done && player.attackActive ? { variant: player.attackVariant ?? 0, restartAt: player.attackStartedAt + SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart } : null;
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;
@@ -806,8 +813,10 @@ function openStrike(room, player, strike, nowSec) {
   // (a chain begun Sundering: the strike is a slam, whichever of the chain it is; driven into the ground while the
   // Sunder lasts, it splits it)
   const slam = Boolean(player.attackSlam);
-  player.attackSweep = { strike, sampledTo: window.from, direction: null, slam, ruptures: slam && sundering(player, nowSec), struck: null };
-  room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, ...(slam ? { slam: true } : {}), at: nowSec });
+  // (which cut it is: the blade swept, the contact judged and the swing heard by the cut, not its place in the chain)
+  const kind = slam ? SLAM_STRIKE : strikeKind(player.attackVariant ?? 0, strike);
+  player.attackSweep = { strike, kind, sampledTo: window.from, direction: null, slam, ruptures: slam && sundering(player, nowSec), struck: null };
+  room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, kind, ...(slam ? { slam: true } : {}), at: nowSec });
   // (for Seize Thy Slayer: whether a damaging spell was there to be thrown as this strike began, and what it would do)
   const spell = spellFor(player.spell);
   const castable = spell.kind !== 'ward' && !player.pendingSpell && spellReady(player, spell, nowSec, practising(room, player));
@@ -853,7 +862,7 @@ function sweepStrike(room, player, nowSec, world) {
   const flightCover=room.fightFlight?.operatorId===player.id?[]:fightFlightHitVolumes(room.fightFlight);
   const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec),
     ...soFistVolumes(room.soFistication,nowSec),...flightCover];
-  const blade = live.slam ? SLAM_STRIKE : live.strike;
+  const blade = live.slam ? SLAM_STRIKE : live.kind ?? live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
     const transform = transformFor(player, at);
@@ -881,7 +890,7 @@ function sweepStrike(room, player, nowSec, world) {
       const contactAt = Number.isFinite(met.stepFraction)
         ? prevSampled + (at - prevSampled) * met.stepFraction
         : at;
-      const outcome = landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, room.players.get(met.id), contactAt, nowSec, met, window.contact);
+      const outcome = landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, room.players.get(met.id), contactAt, nowSec, met, window.contact, blade);
       if (!live.slam || outcome === 'parry' || player.attackSweep !== live) {
         if (player.attackSweep === live) player.attackSweep = null;
         return;
@@ -894,7 +903,7 @@ function sweepStrike(room, player, nowSec, world) {
       const metAt = Number.isFinite(met.stepFraction) ? prevSampled + (at - prevSampled) * met.stepFraction : at;
       const pilot = pilotGuardTakes(room, player, met, metAt);
       if (pilot) {
-        landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, pilot, metAt, nowSec, met, window.contact);
+        landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, pilot, metAt, nowSec, met, window.contact, blade);
         if (player.attackSweep === live) player.attackSweep = null;
         return;
       }
@@ -926,7 +935,7 @@ function sweepStrike(room, player, nowSec, world) {
   if (player.attackSweep === live && live.sampledTo >= window.to - 1e-9) {
     player.attackSweep = null;
     // (a slam that went through someone and found no ground beneath was no miss)
-    if (!live.struck) room.events.push({ type: 'swordMiss', playerId: player.id, strikeIndex: live.strike, at: nowSec });
+    if (!live.struck) room.events.push({ type: 'swordMiss', playerId: player.id, strikeIndex: live.strike, kind: blade, at: nowSec });
   }
 }
 
@@ -954,7 +963,7 @@ function lethalIncomingCounter(room, defender, opponent, atSec) {
   const fromAt = Math.max(atSec, active.sampledTo, win.from);
   const toAt = Math.min(atSec + .18, win.to);
   if (!(toAt > fromAt + 1e-9)) return false;
-  const blade = active.slam ? SLAM_STRIKE : active.strike;
+  const blade = active.slam ? SLAM_STRIKE : active.kind ?? active.strike;
   const solids = [...(room.world?.solids ?? []), ...biByeHitVolumes(room.biByeLlista, atSec),
     ...soFistVolumes(room.soFistication, atSec), ...fightFlightHitVolumes(room.fightFlight)];
   const target = transformFor(defender, atSec);
@@ -985,7 +994,8 @@ function lethalIncomingCounter(room, defender, opponent, atSec) {
 }
 
 /** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
-function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = null, contactSec = null) {
+// strikeIndex: its place in the chain; kind: which cut it is (strikeKind), by which its contact is judged
+function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = null, contactSec = null, kind = strikeIndex) {
   if (target.spawnProtectionUntil > nowSec) {
     room.events.push({ type: 'swordProtected', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
     return 'protected';
@@ -1000,13 +1010,15 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   // how cleanly: continuous curved heatmap when met contact geometry is known;
   // falling back to legacy aim quality if called directly without sweep contact.
   let quality;
+  // (how it was judged, for the F3 debugger: where along the blade, how early or late, at what angle)
+  let heat = null;
   if (met && Number.isFinite(contactSec)) {
     const dt = atSec - contactSec;
     // Accurate physical contact distance along the blade ray.
     // We strictly use met.along to measure cutting node reach rather than allowing
     // center-to-center horizontal body distance to artificially promote cramped or hilt contact.
     const along = met.along;
-    const evalRes = evaluateBladeHeatmap(strikeIndex, {
+    const evalRes = evaluateBladeHeatmap(kind, {
       dt,
       along,
       point: met.point,
@@ -1017,6 +1029,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       targetTop: postureOf(targetTransform).crown,
     });
     quality = evalRes.quality;
+    heat = { along: +along.toFixed(3), reach: evalRes.reach, dt: evalRes.dt, qReach: evalRes.qReach, qPhase: evalRes.qPhase, qAngle: evalRes.qAngle };
   } else {
     const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
     quality = aimQuality(offAim);
@@ -1072,7 +1085,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       }
       gainProwess(room, target, PROWESS.parry);
       room.events.push({
-        type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel,
+        type: 'parry', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), suppressParryReel,
         ...(automaticParry?{automatic:true}:{}),
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
@@ -1086,13 +1099,13 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       breakGuard(target, (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact), nowSec);
       if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
       room.events.push({
-        type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts,
+        type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), impact: physical.impact, impacts,
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
       room.events.push({
-        type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact: physical.impact, impacts,
+        type: 'block', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), quality, impact: physical.impact, impacts,
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       staggerBy(room, target, STAGGER.gain.sword * force * STAGGER.gain.blocked * impacts, nowSec, attacker.id);
@@ -1114,7 +1127,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   }
   const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * physical.impact);
   // (the chop, and every Sundering slam, comes down heavily enough to lift)
-  const push = { x: g.direction.x * shove, y: strikeIndex === 2 || sunder ? 0.8 : 0.2, z: g.direction.z * shove };
+  const push = { x: g.direction.x * shove, y: kind === 2 || sunder ? 0.8 : 0.2, z: g.direction.z * shove };
   // hardened plate turns an ordinary blow toward a glancing one (never the shove); a cancelled Sunder is left alone
   const armour = cancelled ? { quality, strength: 0 } : steelQuality(target.steel, quality, nowSec);
   if (!cancelled) target.steel = steelTakes(target.steel, nowSec);
@@ -1137,7 +1150,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   // and it ends what they were doing, there and then (whether or not their balance has broken), and leaves them reeling
   if (empowered) interruptHitActions(room, target, attacker.id, nowSec, 'sunder');
   room.events.push({
-    type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
+    type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, kind, ...(heat ? { heat, judged: quality } : {}), quality: armour.quality, impact: physical.impact, steel: armour.strength,
     ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}),
     ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
   });
@@ -2896,7 +2909,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         const again = player.attackHeld || player.attackQueued;
         const held = player.attackHeld;
         // (its restart is the chain's own: SWORD_CHAIN.restart after the third contact, not after this tick)
-        stopSwordChain(player, { keepSweep: true }, room, nowSec);
+        stopSwordChain(player, { keepSweep: true, done: true }, room, nowSec);
         player.attackHeld = held;
         player.attackQueued = again;
       }

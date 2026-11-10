@@ -172,8 +172,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       ...(p.presentationRecovery ? { presentationRecovery: {...p.presentationRecovery} } : {}),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
-      attackPresentation: p.attackActive&&!p.attackSlam&&!p.attackChivalry&&
-        Number.isInteger(p.attackChainSerial)&&p.attackChainSerial%2===0 ? 1 : 0,
+      // (the chain's form: SWORD_CHAINS in shared/src/combat.mjs; kept after it ends, for its last swing played out)
+      attackVariant: p.attackVariant ?? 0,
       attackNextStrike: p.attackNextStrike,
       // (the chain shown after it ends: how many of its strikes landed, and whether it ran out, was let go or broken)
       attackLanded: p.attackLanded ?? 0,

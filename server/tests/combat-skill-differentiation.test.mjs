@@ -58,10 +58,12 @@ test('combat skill differentiation: sweet-spot cut leading vs centered static vs
     stepRoom(room, 0.01, 11.80, openWorld);
     assert.equal(d.health, 29, 'third hit deals 24 damage (total 71)');
 
-    // Combo resets and comes round for strike 4
+    // Combo resets and comes round for strike 4: held straight on, the next chain is the rising one (SWORD_CHAINS), its
+    // opening backhand judged as a backhand (22 here, where the falling chain's forehand was 23)
     stepRoom(room, 0.01, 12.09, openWorld);
     stepRoom(room, 0.01, 12.49, openWorld);
-    assert.equal(d.health, 7, 'fourth hit leaves target at 7 HP');
+    assert.equal(room.events.filter((e) => e.type === 'swordHit').at(-1).kind, 1, 'the second chain opens with the backhand');
+    assert.equal(d.health, 8, 'fourth hit leaves target at 8 HP');
     assert.equal(d.alive, true, 'target survives 4 centered hits');
 
     // Strike 5 fells

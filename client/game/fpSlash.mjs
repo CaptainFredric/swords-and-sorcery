@@ -409,6 +409,72 @@ function shownRaw(keys, time) {
 }
 AIMS.set(COMBO, { strikes: COMBO_STRIKE_KINDS });
 
+// The rising chain (SWORD_CHAINS[1]): the backhand first, then the forehand, then the heavy strike, on the same clock.
+//   1. from rest the blade is dropped and carried across under the hand to the low left, the body turning with it, and
+//      rises from there across to the high right (the falling chain's backhand, opening the chain);
+//   2. from the high right, where the rise has left it, straight down across to the low left: the forehand, with no
+//      cock of its own to make (the rise was it);
+//   3. the forehand's momentum is turned up out of the low left, through the front, the magic hand meeting the grip as
+//      the sword comes up high on the right, held a beat and driven down as the falling chain's heavy strike.
+export const COMBO_RISING_STRIKES = Object.freeze([Object.freeze({ contact: C1, kind: 1 }), Object.freeze({ contact: C2, kind: 0 }), Object.freeze({ contact: C3, kind: 2 })]);
+export const COMBO_RISING = settle(preAimed([
+  rest(0, { ease: 0.6 }),
+  // 1. the backhand: dropped and carried across to the low left...
+  key(C1 - 0.27, [0.24, -0.34, -0.6], dir(30, -30), [0.6, 0.7, -0.3],
+    { shoulder: [-0.06, -0.02, -0.04], body: [-0.01, -0.006, -0.004], look: [0.1, -0.5, -0.6], counter: [0.2, 0.4, 0.02] }),
+  key(C1 - 0.15, [-0.04, -0.33, -0.61], dir(68, -20), [0.7, 0.65, -0.2],
+    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.5 }),
+  // ...and rising across, through the middle at the contact, to the high right
+  key(C1 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
+    { shoulder: [-0.15, 0, -0.1], body: [-0.01, -0.005, -0.01], look: [0.1, -0.3, -0.5], counter: [0.14, 0.66, 0] }),
+  key(C1, [0.05, -0.28, -0.64], dir(-10, 35), [0.8, 0.5, 0.3],
+    { shoulder: [-0.08, 0.03, -0.11], body: [0.015, 0.005, -0.01], look: [-0.3, 1.1, 1.0], counter: [0, 0.42, -0.06] }),
+  key(C1 + LATE, [0.26, -0.15, -0.63], dir(-45, 40), [0.6, 0.35, 0.72],
+    { shoulder: [0, 0.06, -0.07], body: [0.03, 0.01, -0.005], look: [0.1, 1.4, 1.3], counter: [-0.08, -0.18, -0.1] }),
+  key(C1 + 0.22, [0.38, -0.17, -0.61], dir(-46, 38), [-0.6, -0.1, -0.75],
+    { shoulder: [0.03, 0.04, 0.02], body: [0.02, 0.008, 0.006], look: [0.4, 1.0, 1.0], counter: [-0.04, -0.06, 0] }),
+  // 2. the forehand, from where the rise has left the blade: the cock is the rise's own finish...
+  key(C2 - 0.25, [0.46, -0.25, -0.6], dir(-38, 40), [-0.8, -0.3, -0.5],
+    { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
+  key(C2 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
+    { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
+  // ...then down across the front to the low left
+  key(C2 - EARLY, [0.44, -0.2, -0.63], dir(-25, 20), [-0.75, -0.3, -0.6],
+    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
+  key(C2, [0.3, -0.24, -0.65], dir(54, -12), [-0.65, -0.45, 0.6],
+    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
+  key(C2 + LATE, [0.05, -0.27, -0.63], dir(70, -16), [-0.8, -0.5, 0.3],
+    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
+  // 3. the heavy strike: the forehand's momentum turned up out of the low left, through the front...
+  key(C2 + 0.22, [0.0, -0.26, -0.62], dir(70, -2), [0.75, 0.6, -0.2],
+    { shoulder: [-0.18, -0.01, -0.1], body: [-0.025, -0.01, -0.008], look: [0.1, -1.1, -1.3], counter: [0.5, 0.6, 0.06] }),
+  key(C2 + 0.32, [0.12, -0.17, -0.62], dir(25, 50), [0.3, 0.45, -0.85],
+    { shoulder: [-0.06, 0.06, -0.07], body: [0.005, 0.01, -0.002], look: [0.7, 0.4, 0.3], grip: 0.5, counter: [0.1, 0.1, -0.06] }),
+  // ...the magic hand on the grip as the sword comes up high on the right, held a beat, and driven down
+  key(C3 - 0.3, [0.3, -0.13, -0.6], dir(-22, 62), [-0.3, 0.1, -0.95],
+    { shoulder: [0, 0.12, -0.05], body: [0.02, 0.015, 0.005], look: [1.1, 1.5, 1.1], grip: 1, counter: [-0.1, -0.14, -0.12] }),
+  key(C3 - 0.13, [0.29, -0.11, -0.6], dir(-18, 68), [-0.25, -0.2, -0.95],
+    { shoulder: [0, 0.14, -0.05], body: [0.02, 0.018, 0.01], look: [1.4, 1.6, 1.2], grip: 1, counter: [-0.1, -0.14, -0.12], ease: 0 }),
+  key(C3 - 0.07, [0.21, -0.1, -0.63], dir(-5, 63), [-0.1, -0.6, -0.8],
+    { shoulder: [-0.04, 0.1, -0.08], body: [0.01, 0.005, -0.01], look: [0.8, 0.9, 0.6], grip: 1, counter: [-0.1, -0.14, -0.12] }),
+  key(C3, [0.11, -0.23, -0.66], dir(9, -10), [-0.2, -0.95, 0.2],
+    { shoulder: [-0.13, 0, -0.15], body: [-0.01, -0.02, -0.02], look: [-2.2, -1.6, -1.0], grip: 1, counter: [-0.05, -0.08, -0.08] }),
+  key(C3 + 0.08, [0.07, -0.48, -0.73], dir(10, -40), [-0.1, -0.7, 0.7],
+    { shoulder: [-0.18, -0.05, -0.13], body: [-0.02, -0.03, -0.02], look: [-1.8, -1.6, -1.1], grip: 0.6, counter: [0.04, 0.02, 0] }),
+  key(C3 + 0.22, [0.06, -0.56, -0.68], dir(12, -34), [0.2, 0.2, 0.95],
+    { shoulder: [-0.17, -0.06, -0.1], body: [-0.015, -0.03, -0.012], look: [-1.1, -1.1, -0.9], counter: [0.06, 0.04, 0.02], ease: 0.3 }),
+  key(C3 + 0.38, [0.2, -0.42, -0.62], dir(8, 5), [0.3, 0.9, -0.2],
+    { shoulder: [-0.06, -0.02, -0.04], body: [-0.005, -0.01, -0.004], look: [-0.3, -0.3, -0.3], counter: [0.02, 0.01, 0] }),
+  rest(COMBO_END, { ease: 0 }),
+], COMBO_RISING_STRIKES), REST_TURN);
+AIMS.set(COMBO_RISING, { strikes: COMBO_RISING_STRIKES });
+
+/** The chain of form `variant` (SWORD_CHAINS): its keys and its strikes. */
+export const CHAIN_FORMS = Object.freeze([
+  Object.freeze({ keys: COMBO, strikes: COMBO_STRIKE_KINDS }),
+  Object.freeze({ keys: COMBO_RISING, strikes: COMBO_RISING_STRIKES }),
+]);
+
 // Sundering, every strike of the chain is a slam: the heavy strike's blow, both hands on the grip from the first,
 // each timed to its own contact, the blade biting into the ground a beat before it is hauled straight back up
 // (the edge carried round with it, no turn of the hand) for the next. After the last, the heavy strike's own settle.
@@ -566,10 +632,10 @@ function present(raw, time) {
  * to itself), the view's lean { pitch, roll, yaw } in radians, the arms' root carried by the body (`body`), the
  * magic arm's counterbalance (`counter`), and which strike it is (0, 1, 2).
  */
-export function comboPose(time) {
+export function comboPose(time, variant = 0) {
   if (!Number.isFinite(time)) return null;
   const t = Math.max(0, Math.min(COMBO_END, time));
-  return present(shownRaw(COMBO, t), t);
+  return present(shownRaw((CHAIN_FORMS[variant] ?? CHAIN_FORMS[0]).keys, t), t);
 }
 
 /** The Sundering chain `time` seconds in: every strike a slam (SLAM), posed as comboPose's. */
@@ -648,10 +714,11 @@ function velocityAt(keys, time) {
 const recoveries = new Map();
 
 /** The keys of the way home from `from` seconds into a chain (built once for each place it can start from). */
-function recoveryKeys(from, quick, slammed) {
-  const id = `${from.toFixed(4)}:${quick}:${slammed}`;
+function recoveryKeys(from, quick, slammed, variant = 0) {
+  const id = `${from.toFixed(4)}:${quick}:${slammed}:${variant}`;
   if (recoveries.has(id)) return recoveries.get(id);
-  const chain = slammed === 'again' ? SLAM_AGAIN : slammed ? SLAM : COMBO;
+  const form = CHAIN_FORMS[variant] ?? CHAIN_FORMS[0];
+  const chain = slammed === 'again' ? SLAM_AGAIN : slammed ? SLAM : form.keys;
   const start = shownRaw(chain, from);
   const moving = velocityAt(chain, from);
   const seconds = quick ? RECOVERY.quickSeconds : RECOVERY.seconds;
@@ -662,7 +729,8 @@ function recoveryKeys(from, quick, slammed) {
   // (the heavy strike's own settle is its way home; a broken-off chain goes straight there, a little quicker)
   const landed = SWORD_STRIKE_TIMES.filter((contact) => from >= contact - 1e-9).length;
   // (a slam is already on its way back up from the ground: straight home from there)
-  const via = !quick && !slammed && landed >= 1 && landed <= 2 ? RECOVERY.via[landed - 1] : null;
+  // (by the cut that landed last: home from the low left after a forehand, from the high right after a backhand)
+  const via = !quick && !slammed && landed >= 1 && landed <= 2 ? RECOVERY.via[form.strikes[landed - 1].kind] : null;
   if (via) {
     // the way the edge lies at the passing point: whichever makes the least turning overall, out and home
     const one = nearerTurn(via.blade, via.lead, start.turn);
@@ -686,13 +754,13 @@ function recoveryKeys(from, quick, slammed) {
  * or null once they are at rest. quick: the chain was broken off (a parry, a wall), not let go. slam: it was a
  * Sundering chain (SLAM; 'again': a held Sunder's next, SLAM_AGAIN).
  */
-export function recoveryPose(from, elapsed, { quick = false, slam: slammed = false } = {}) {
+export function recoveryPose(from, elapsed, { quick = false, slam: slammed = false, variant = 0 } = {}) {
   if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return null;
   // after the heavy strike the chain's own settle is the way home
-  const own = slammed === 'again' ? slamAgainPose : slammed ? slamPose : comboPose;
+  const own = slammed === 'again' ? slamAgainPose : slammed ? slamPose : (t) => comboPose(t, variant);
   const end = slammed ? SLAM_END : COMBO_END;
   if (!quick && from >= C3 - 1e-9) return from + elapsed >= end ? null : own(from + elapsed);
-  const keys = recoveryKeys(Math.max(0, Math.min(end, from)), quick, slammed === 'again' ? 'again' : Boolean(slammed));
+  const keys = recoveryKeys(Math.max(0, Math.min(end, from)), quick, slammed === 'again' ? 'again' : Boolean(slammed), slammed ? 0 : variant);
   const last = keys[keys.length - 1].t;
   if (elapsed >= last) return null;
   const t = Math.max(0, elapsed);

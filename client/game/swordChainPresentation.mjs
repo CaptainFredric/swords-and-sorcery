@@ -18,7 +18,7 @@
 //
 // Nothing here changes when a blow lands: only which frame of the authored cut is shown at that moment.
 
-import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { SWORD_CHAIN, SWORD_CHAINS, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
 /** The chain's whole cycle: the third contact and the restart after it (2.08 s). */
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
@@ -34,8 +34,11 @@ export const STRIKE_CLIPS = Object.freeze({
   Slash_3: Object.freeze({ contact: 0.36, far: 0.5, linkIn: 0.1, end: 20 / 30 }),
 });
 
-// The strikes of each chain, in order (a chain is one of these; the ordinary one is 0).
-export const CHAIN_CLIPS = Object.freeze([Object.freeze(['Slash_1', 'Slash_2', 'Slash_3'])]);
+// The authored clip of each cut (0 the forehand, 1 the backhand, 2 the heavy strike), and so of each chain's strikes in
+// order (SWORD_CHAINS: the falling chain, then the rising one, which opens with the backhand from the left and comes
+// back down with the forehand from the right)
+export const KIND_CLIPS = Object.freeze(['Slash_1', 'Slash_2', 'Slash_3']);
+export const CHAIN_CLIPS = Object.freeze(SWORD_CHAINS.map((form) => Object.freeze(form.kinds.map((kind) => KIND_CLIPS[kind]))));
 
 // the cut itself, at the authored rate: this long before the contact, and after it
 const CUT = Object.freeze({ before: 0.12, after: 0.04 });

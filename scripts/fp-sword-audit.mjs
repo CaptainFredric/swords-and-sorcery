@@ -7,12 +7,10 @@
 //
 //   node scripts/fp-sword-audit.mjs [--scenario name]
 
-import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_STRIKE_TIMES, strikeKind } from '../shared/src/combat.mjs';
 import { aimFrame, bladeDirection } from '../shared/src/blade.mjs';
 import { LocalSwordChain } from '../client/game/localSwordChain.mjs';
 import { blendPoses, comboPose, recoveryPose } from '../client/game/fpSlash.mjs';
-import { swordPresentationTime } from '../client/game/spellbladeAnimationPlan.mjs';
-const fpChains = await import('../client/game/fpSwordChains.mjs').catch(() => ({}));
 
 const FPS = 120;
 const DT = 1 / FPS;
@@ -58,14 +56,13 @@ function offBlade(direction, { grip, tip }) {
  */
 class FirstPersonArms {
   constructor() { this.source = null; this.handover = null; this.last = null; this.shown = null; }
-  step(chain, now, variantFor = () => 0) {
+  step(chain, now) {
     if (chain) {
       if (this.source?.chainAt !== chain.startedAt) {
         const previous = this.source;
         this.handover = previous ? { from: previous, at: now } : null;
-        const variant = variantFor(chain);
-        const pose = fpChains.chainPose ? (t) => fpChains.chainPose(variant, t - chain.startedAt) : (t) => comboPose(swordPresentationTime(t - chain.startedAt, 0));
-        this.source = { chainAt: chain.startedAt, variant, pose };
+        const variant = chain.variant ?? 0;
+        this.source = { chainAt: chain.startedAt, variant, pose: (t) => comboPose(t - chain.startedAt, variant) };
       }
       this.last = { since: now - chain.startedAt, at: now, variant: this.source.variant };
       return this.#show(this.source.pose(now), now);
@@ -73,7 +70,7 @@ class FirstPersonArms {
     if (!this.source) return null;
     if (this.source.chainAt !== undefined && this.last) {
       const { since, at, variant } = this.last;
-      this.source = { home: true, pose: (t) => (fpChains.chainRecoveryPose ? fpChains.chainRecoveryPose(variant, since, t - at) : recoveryPose(since, t - at)) };
+      this.source = { home: true, pose: (t) => recoveryPose(since, t - at, { variant }) };
     }
     const pose = this.source.pose(now);
     if (!pose) { this.source = null; this.handover = null; return null; }
@@ -104,7 +101,7 @@ export function runFirstPerson(name, { seconds, presses }) {
     const now = t0 + i * DT;
     for (const [at, down] of presses) if (Math.abs(now - t0 - at) < DT / 2) (down ? chain.press(now) : chain.release());
     const c = chain.step(now);
-    const pose = arms.step(c, now, (ch) => (fpChains.variantForChain ? fpChains.variantForChain(ch) : 0)) ?? comboPose(0);
+    const pose = arms.step(c, now) ?? comboPose(0);
     const frame = { t: +(now - t0).toFixed(4), wrist: pose.arm.wrist, blade: pose.arm.blade };
     if (previous) {
       frame.wristStep = len(sub(pose.arm.wrist, previous.arm.wrist));
@@ -115,9 +112,9 @@ export function runFirstPerson(name, { seconds, presses }) {
       for (let strike = 0; strike < c.committed; strike += 1) {
         const dt = now - (c.startedAt + SWORD_STRIKE_TIMES[strike]);
         if (dt < -MELEE_CONTACT.window.early || dt > MELEE_CONTACT.follow) continue;
-        const kind = fpChains.strikeKind ? fpChains.strikeKind(c.variant ?? 0, strike) : strike;
+        const kind = strikeKind(c.variant ?? 0, strike);
         const d = bladeDirection(kind, dt, aimFrame(0, 0));
-        live.push({ strike, chainAt: c.startedAt, dt: +dt.toFixed(3), off: +offBlade([d.x, d.y, d.z], drawnBlade(pose)).toFixed(1) });
+        live.push({ strike, kind, variant: c.variant ?? 0, chainAt: c.startedAt, dt: +dt.toFixed(3), off: +offBlade([d.x, d.y, d.z], drawnBlade(pose)).toFixed(1) });
       }
     }
     previous = pose;

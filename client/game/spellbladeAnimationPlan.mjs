@@ -50,7 +50,8 @@ function attackPlan(player, serverNow, { guarded = false } = {}) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
   const age = elapsed % ATTACK_CYCLE;
-  const cycle = swordPresentationTime(age,player?.attackSlam||player?.attackChivalry||player?.concurrent?0:player?.attackPresentation);
+  // (the chain's form is its own clips now, swordChainPresentation.mjs: the guarded and Sundering paths keep the clock)
+  const cycle = age;
 
   // a chain begun Sundering: every strike is the heavy one's slam, each timed to its own contact
   if (player?.attackSlam) {
