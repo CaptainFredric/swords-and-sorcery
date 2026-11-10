@@ -101,6 +101,10 @@ placement, the real climb, ladder destruction and its replacement, and sundown. 
 staging change: the bots now shoulder `ladder-a` themselves, so the script has the carrying bot set it down before the
 scripted knight takes it. Before that change it failed 2 of 3 runs, once at the pickup and once at the climb. The climb
 failure was the two exit guards then closing the ladder's top, which is fixed in the guards, not the script.
+In CI's slower Chrome the guards, now contesting the exit, could also outlast the script's climb stage by fighting
+the climber. Since that stage checks the climb itself, the defenders are now staged back to the inner wall-walk just
+before it, the same kind of disclosed warp the script already uses. With that, it passed 3 of 3, two of them at
+10× CPU throttling.
 
 ## Failure attribution
 

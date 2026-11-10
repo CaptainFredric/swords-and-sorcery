@@ -85,6 +85,14 @@ try{
  await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);a.position={x:-6,y:0,z:-31};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}r.input.interact();return true;})()");
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.state==='deployed'?s:null;},'outer ladder deployed');
  await shot('04-ladder-deployed');
+ // The defending bots now guard a deployed ladder's top and fight a climber
+ // there; on a slow runner that fight can outlast this stage. The climb itself
+ // is what is checked here, so the defenders are staged back to the inner
+ // wall-walk's posts (well over the climb's few seconds from the outer walk).
+ await evaluate(`(()=>{const room=window.__ssRuntime.socket.local.room;let i=0;
+   for(const p of room.players.values())if(p.team==='DEFENDERS'&&p.alive){
+     p.position={x:[-21,-13,0,13,21][i++%5],y:7,z:22.6};p.velocity={x:0,y:0,z:0};}
+   return true;})()`);
  // Movement packets are genuine; this walks up the live 30Hz server ramp.
  await evaluate("(()=>{const r=window.__ssRuntime;r.input.keys.add('KeyW');r.input.yaw=Math.PI;window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);return true;})()");
  const climbed=await until(async()=>{const s=await evaluate(state);
