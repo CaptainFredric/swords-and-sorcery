@@ -92,6 +92,7 @@ class AnimatorEmulation {
       this.active = { clip, time: 0, weight: 1, carry: Boolean(plan.carry) };
       this.blend = { elapsed: 0, duration };
     }
+    this.active.carry = Boolean(plan.carry);
     const c = model.clips.get(clip);
     const time = plan.loop ? ((plan.time % c.duration) + c.duration) % c.duration : Math.max(0, Math.min(c.duration, plan.time ?? 0));
     this.active.time = plan.normalized ? (plan.time ?? 0) * c.duration : time;

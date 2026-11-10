@@ -64,7 +64,7 @@ function attackPlan(player, serverNow, { guarded = false } = {}) {
   // keep their own clips and clocks below.)
   if (!guarded && !player?.attackChivalry && !player?.concurrent) {
     const shown = chainPresentation(player, serverNow);
-    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}), carry: true };
+    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}), carry: Boolean(shown.swinging) };
   }
   if (cycle < SLASH_DURATIONS[0]) return fixed('Slash_1', cycle);
   if (cycle < SLASH_DURATIONS[0] + SLASH_DURATIONS[1]) {

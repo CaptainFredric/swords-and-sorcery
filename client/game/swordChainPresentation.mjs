@@ -121,7 +121,11 @@ export function chainPresentation(player, serverNow) {
     const followed = committed > slot + 1 ? true : null;
     // (begun straight out of the Guard, the sword already up: the first strike picks up at the top of its raise)
     const raised = slot === 0 && fromGuard(player, startedAt);
-    return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, raised }),
+    // (swinging: from its raise through the cut. A strike broken off then carries its motion through the fade; one
+    // held at the far end of its follow-through, or handing over to the next raise, does not: carried, it would run
+    // on into its own way home to Idle while the next strike takes over)
+    const swinging = elapsed < SWORD_STRIKE_TIMES[slot] + CUT.after;
+    return { clip: clips[slot], slot, swinging, time: strikeClipTime(clips[slot], slot, elapsed, { followed, raised }),
       ...(slot > 0 ? { blend: LINK_BLEND_SEC } : raised ? { blend: GUARD_LINK_SEC } : {}) };
   }
   // the chain is over by the server's word: its last swing played out, unless it was broken off

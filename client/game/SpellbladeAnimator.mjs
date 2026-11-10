@@ -487,6 +487,8 @@ export class SpellbladeAnimator {
       this.activeBlend = { elapsed: startProgress * duration, duration };
     }
 
+    // (whether this clip, if it is replaced now, carries its motion through the fade: the plan's word this frame)
+    this.activeCarry = Boolean(plan.carry);
     const loop = Boolean(plan.loop);
     action.enabled = true;
     action.clampWhenFinished = !loop;
