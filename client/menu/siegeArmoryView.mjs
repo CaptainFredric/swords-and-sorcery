@@ -19,7 +19,7 @@ Castleward's engineers saw no need to settle for a single warning shot. The smal
    touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
   }
  },
- {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'A MOST FORCEFUL ARGUMENT',
+ {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN',
   overview:'Piston-driven elevating battering ram. Combines heavy mobile carriage protection with an armored steel gauntlet capable of delivering mechanical uppercuts.',
   preview:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
   line:`A charging, piston-driven battering ram capable of delivering a mechanical uppercut.
@@ -36,7 +36,7 @@ The engineers of Castleward discovered that a siege engine could have all the su
    touch:'Left Stick: Drive ram · ATTACK: Charge strike · ELEVATE: Raise/Lower carriage · SKILL: Skill · DISMOUNT'
   }
  },
- {id:'fightFlight',name:'FIGHT-AND-FLIGHT',mark:'FLIGHT',icon:'flightDash',subtitle:'A DIFFERENT KIND OF HIGH GROUND',
+ {id:'fightFlight',name:'FIGHT-AND-FLIGHT',mark:'FLIGHT',icon:'flightDash',subtitle:'YOU ARE FREE TO FLEE',
   overview:'Personal twin-blade aerial apparatus. Eliminates the awkward choice between tactical retreat and glorious combat by enabling both simultaneously.',
   preview:'Why choose to Fight or Flee? When you could be Free?',
   line:`*Why choose to Fight or Flee? When you could be Free?*
