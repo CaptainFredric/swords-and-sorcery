@@ -60,10 +60,11 @@ const FLOORS = [
   floor('floor-att-camp', [-18, 18], [-58, -40], 0, 'stone'),
 
   // The Great Esplanade (Central Approach Road)
-  floor('floor-esplanade', [-18, 18], [-40, -14], 0, 'stone'),
+  // (its west edge stops at the trench's revetment: the paving no longer overhangs the trench at head height)
+  floor('floor-esplanade', [-17.2, 18], [-40, -14], 0, 'stone'),
 
   // Objective 1: The Forward Redoubt Ground
-  floor('floor-redoubt', [-18, 18], [-14, 0], 0, 'stone'),
+  floor('floor-redoubt', [-17.5, 18], [-14, 0], 0, 'stone'),
 
   // The Great Breach Passage
   floor('floor-breach', [-18, 18], [0, 6], 0, 'stone'),
@@ -74,16 +75,26 @@ const FLOORS = [
   // Inner Gatehouse Passage
   floor('floor-inner-gate', [-6, 6], [44, 48], 0, 'stone'),
 
-  // Defender Staging Camp
+  // Defender Staging Camp, and its forecourt behind the inner curtain (missing either side of the gate passage)
   floor('floor-def-base', [-18, 18], [48, 60], 0, 'stone'),
+  floor('floor-def-forecourt', [-18, 18], [41.9, 48.1], 0, 'stone'),
+  // the bailey's east edge, out to the high parapet's wall, and the foot of the parapet's north end (both missing)
+  floor('floor-bailey-east-edge', [17.9, 18.3], [-4, 44], 0, 'stone'),
+  floor('floor-parapet-north-foot', [17.9, 25], [37.9, 40.1], 0, 'stone'),
+  // the sally trench's banks beside its two ramps, at ground level on their revetments
+  floor('floor-trench-bank-south', [-24.5, -22.5], [-46, -39.5], 0, 'dirt'),
+  floor('floor-trench-bank-north', [-24.5, -22.5], [-8.5, -2], 0, 'dirt'),
 
   // Western Sally Trench (Genuinely sunken infantry corridor floor at y = -1.2)
   floor('floor-west-trench', [-25.5, -16.5], [-40.0, -8.0], OUTERWORKS_TRENCH_Y, 'dirt'),
-  floor('floor-trench-exit', [-23.0, -16.0], [-2.0, 4.0], 0, 'stone'),
+  floor('floor-trench-exit', [-24.5, -16.0], [-2.0, 4.0], 0, 'stone'),
 
   // Eastern Elevated Firing Terrace (Ballista platform) & Ramp Approach
   floor('floor-terrace-approach', [18, 25], [-40, -28], 0, 'stone'),
-  floor('floor-east-terrace', [13, 24], [-18, -4], OUTERWORKS_TERRACE_Y, 'stone'),
+  floor('floor-east-terrace', [13, 25], [-18, -4], OUTERWORKS_TERRACE_Y, 'stone'),
+  // the ground beside the terrace's ramp, out to the east wall (it was missing: a knight stepped off the ramp's side
+  // into nothing)
+  floor('floor-terrace-ramp-side', [20.9, 25], [-28.1, -17.9], 0, 'stone'),
 
   // Eastern High Parapet (Infantry catwalk)
   floor('floor-east-parapet', [19, 25.5], [-4, 38], OUTERWORKS_PARAPET_Y, 'stone'),
@@ -188,6 +199,33 @@ const SOLIDS = [
   solid('wall-south-camp', [-19, 19], [0, 4.5], [-59, -58]),
   solid('wall-west-camp', [-19, -18], [0, 4.0], [-58, -46]),
   solid('wall-east-camp', [18, 19], [0, 4.0], [-58, -40]),
+  // --- Closures: walls and bases where the floors stopped short of the walls meant to bound them (each was a fall
+  // out of the world). The bailey's west side and the sally trench's mouth; the defenders' forecourt's sides; the
+  // terrace and the high parapet on bases (a step under their walks, drawn up to them); the terrace ramp's footings;
+  // the sally trench's ramps edged by revetments and by lips at ground level (no one walks in under the paving, and
+  // a jump still carries a knight out of the trench).
+  solid('wall-west-bailey', [-19, -18], [0, 5], [4.6, 40], { kind: 'closure' }),
+  solid('trench-exit-north-wall', [-26, -18], [0, 4], [4, 4.6], { kind: 'closure' }),
+  solid('wall-west-def-forecourt', [-19, -18], [0, 4.5], [42, 48], { kind: 'closure' }),
+  solid('wall-east-def-forecourt', [18, 19], [0, 4.5], [42, 48], { kind: 'closure' }),
+  solid('terrace-base', [13, 25], [0, OUTERWORKS_TERRACE_Y - 0.65], [-18, -4], { kind: 'base', drawTo: OUTERWORKS_TERRACE_Y }),
+  solid('parapet-base', [19, 25], [0, OUTERWORKS_PARAPET_Y - 0.65], [-4, 38], { kind: 'base', drawTo: OUTERWORKS_PARAPET_Y }),
+  ...Array.from({ length: 25 }, (_, i) => {
+    const z0 = -28 + i * 0.4, slope = OUTERWORKS_TERRACE_Y / 10, top = (z0 + 28) * slope - 0.45 * slope - 0.1;
+    return top < 0.3 ? null : solid(`terrace-ramp-footing-${i}`, [13, 21], [0, top], [z0, z0 + 0.4], { kind: 'footing' });
+  }).filter(Boolean),
+  solid('trench-ramp-south-revetment', [-24.5, -22.5], [OUTERWORKS_TRENCH_Y - 0.3, 0], [-46, -39.5], { kind: 'revetment' }),
+  solid('trench-ramp-north-revetment', [-24.5, -22.5], [OUTERWORKS_TRENCH_Y - 0.3, 0], [-8.5, -2], { kind: 'revetment' }),
+  solid('trench-ramp-south-lip', [-17.5, -17.2], [OUTERWORKS_TRENCH_Y - 0.3, 0], [-46, -39.5], { kind: 'revetment' }),
+  solid('trench-ramp-north-lip', [-17.5, -17.2], [OUTERWORKS_TRENCH_Y - 0.3, 0], [-8.5, -2], { kind: 'revetment' }),
+  solid('trench-ramp-south-head', [-24.5, -18], [0, 2.5], [-46.6, -46], { kind: 'closure' }),
+  solid('wall-inner-curtain-east-end', [19, 25], [0, 5], [40, 42], { kind: 'closure' }),
+  // footings under the stair from the terrace up to the high parapet (on the terrace's paving)
+  ...Array.from({ length: 10 }, (_, i) => {
+    const z0 = -8 + i * 0.4, slope = (OUTERWORKS_PARAPET_Y - OUTERWORKS_TERRACE_Y) / 4;
+    const top = OUTERWORKS_TERRACE_Y + (z0 + 8) * slope - 0.45 * slope - 0.1;
+    return top < OUTERWORKS_TERRACE_Y + 0.3 ? null : solid(`parapet-stair-footing-${i}`, [19, 23], [OUTERWORKS_TERRACE_Y, top], [z0, z0 + 0.4], { kind: 'footing' });
+  }).filter(Boolean),
   solid('wall-east-camp-corner', [18, 25], [0, 4.0], [-41, -40]),
   solid('wall-west-trench-outer', [-26.5, -24.5], [-1.5, 4.0], [-46, 8]),
   solid('wall-west-bailey-outer', [-26.8, -26.0], [0, 5.0], [8, 44]),
@@ -347,7 +385,7 @@ const NAVIGATION_NODES = Object.freeze([
 
   // Western Sally Trench (Genuinely Sunken Infantry Flank Route)
   nav('trench-camp-approach', -14, 0, -48),
-  nav('trench-ramp-top', -20, 0, -45),
+  nav('trench-ramp-top', -20, -0.18, -45),
   nav('trench-ramp-mid', -20, -0.6, -42.5),
   nav('trench-south', -20, OUTERWORKS_TRENCH_Y, -36),
   nav('trench-corner-1', -21.5, OUTERWORKS_TRENCH_Y, -30),
@@ -360,14 +398,14 @@ const NAVIGATION_NODES = Object.freeze([
   nav('trench-flank-bailey', -15.0, 0, 6),
 
   // Eastern Elevated Firing Terrace & Ramp
-  nav('terrace-ramp-foot', 16, 0, -27),
-  nav('terrace-ramp-mid', 16, 0.6, -22),
+  nav('terrace-ramp-foot', 16, 0.12, -27),
+  nav('terrace-ramp-mid', 16, 0.72, -22),
   nav('terrace-firing-platform', 16, OUTERWORKS_TERRACE_Y, -14),
   nav('terrace-north', 16, OUTERWORKS_TERRACE_Y, -7),
 
   // Eastern High Parapet (Infantry Catwalk)
-  nav('parapet-stairs-foot', 21, OUTERWORKS_TERRACE_Y, -7),
-  nav('parapet-stairs-mid', 21, 1.8, -5),
+  nav('parapet-stairs-foot', 21, OUTERWORKS_TERRACE_Y + 0.3, -7),
+  nav('parapet-stairs-mid', 21, 2.1, -5),
   nav('parapet-south', 21.5, OUTERWORKS_PARAPET_Y, 0),
   nav('parapet-mid', 21.5, OUTERWORKS_PARAPET_Y, 14),
   nav('parapet-north', 21.5, OUTERWORKS_PARAPET_Y, 28),
