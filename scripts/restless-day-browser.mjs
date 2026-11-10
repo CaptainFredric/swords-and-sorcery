@@ -27,6 +27,11 @@ async function evaluate(expression){const r=await send('Runtime.evaluate',{expre
  return r.result?.value;}
 async function shot(file){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
  await writeFile(output+'/'+file+'.png',Buffer.from(r.data,'base64'));}
+const STAGE_DEFENDERS_IN_COURT=`(()=>{const room=window.__ssRuntime.socket.local.room;let i=0;
+ const posts=[[-11,46],[11,46],[-12,60],[12,60],[0,68]];
+ for(const p of room.players.values())if(p.team==='DEFENDERS'&&p.alive){
+  const [x,z]=posts[i++%posts.length];p.position={x,y:0,z};p.velocity={x:0,y:0,z:0};}
+ return true;})()`;
 const state=`(()=>{const r=window.__ssRuntime,s=r?.latestSnapshot,p=s?.players?.find(a=>a.id===r.playerId);
  return {room:s?.roomState,mode:s?.mode,world:s?.worldId,renderer:r?.world?.constructor?.name,
   players:s?.players?.length,player:p?{position:p.position,team:p.team,alive:p.alive,carrying:p.restlessCarrying}:null,
@@ -85,14 +90,12 @@ try{
  await evaluate("(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);a.position={x:-6,y:0,z:-31};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}r.input.interact();return true;})()");
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.state==='deployed'?s:null;},'outer ladder deployed');
  await shot('04-ladder-deployed');
- // The defending bots now guard a deployed ladder's top and fight a climber
- // there; on a slow runner that fight can outlast this stage. The climb itself
- // is what is checked here, so the defenders are staged back to the inner
- // wall-walk's posts (well over the climb's few seconds from the outer walk).
- await evaluate(`(()=>{const room=window.__ssRuntime.socket.local.room;let i=0;
-   for(const p of room.players.values())if(p.team==='DEFENDERS'&&p.alive){
-     p.position={x:[-21,-13,0,13,21][i++%5],y:7,z:22.6};p.velocity={x:0,y:0,z:0};}
-   return true;})()`);
+ // The defending bots now guard a deployed ladder's top, fight a climber there
+ // and burn a ladder nobody is on; on a slow runner either can outlast a climb
+ // stage. The climbs themselves are what is checked here, so before each one the
+ // defenders are staged back to the court's posts behind the dais, many seconds
+ // from either wall-walk and out of sight of both ladders.
+ await evaluate(STAGE_DEFENDERS_IN_COURT);
  // Movement packets are genuine; this walks up the live 30Hz server ramp.
  await evaluate("(()=>{const r=window.__ssRuntime;r.input.keys.add('KeyW');r.input.yaw=Math.PI;window.__restlessDrive=setInterval(()=>r.socket.send({type:'input',forward:1,right:0,jump:false,sprint:false,yaw:Math.PI}),35);return true;})()");
  const climbed=await until(async()=>{const s=await evaluate(state);
@@ -103,6 +106,7 @@ try{
  assert.ok(climbed.player.position.y>5.45,'the real player failed to reach battlement height');
  await shot('05-real-outer-climb');
  // Stage a wall-top retrieval and second-wall carry to isolate that lifecycle.
+ await evaluate(STAGE_DEFENDERS_IN_COURT);
  await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:6,z:-24};a.velocity={x:0,y:0,z:0};a.yaw=0;
   if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
@@ -114,6 +118,7 @@ try{
   r.input.interact();return true;})()`);
  await until(async()=>{const s=await evaluate(state);return s.ladders?.[0]?.wall===1&&s.ladders?.[0]?.state==='deployed'?s:null;},'second curtain deployed');
  await shot('06-inner-curtain');
+ await evaluate(STAGE_DEFENDERS_IN_COURT);
  await evaluate(`(()=>{const r=window.__ssRuntime,a=r.socket.local.room.players.get(r.playerId);
   a.position={x:-6,y:0,z:14};a.velocity={x:0,y:0,z:0};a.yaw=Math.PI;
   if(r.localState){r.localState.position={...a.position};r.localState.velocity={x:0,y:0,z:0};}
