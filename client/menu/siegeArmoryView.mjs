@@ -2,7 +2,7 @@ import {SIEGE_SKILL_NAMES,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../..
 
 // Static 2D heraldic marks: presentation only, never a 3D model or asset fetch.
 const MACHINES=Object.freeze([
- {id:'biBye',name:'BI-BYE-LLISTA',mark:'II',icon:'heavyBolt',subtitle:'TWO BOWS · ONE BAD IDEA',
+ {id:'biBye',name:'BI-BYE-LLISTA',mark:'II',icon:'heavyBolt',subtitle:'THE FIRST SHOT LOWERS THEIR DEFENSE...',
   overview:'Long-range twin-bolt mobile siege artillery. Deploys ground outriggers to align its massive physical bolt, preceded by an inconvenient frost-conditioning shot.',
   preview:'A traveling frost-conditioning bolt followed by a massive physical siege bolt.',
   line:`A traveling frost-conditioning bolt followed by a massive physical siege bolt.
