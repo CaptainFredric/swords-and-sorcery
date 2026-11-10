@@ -446,12 +446,25 @@ function defenderGoal(room, actor, s, siege, W) {
     const rank = mates.findIndex((p) => p.id === actor.id);
     if (rank >= 0 && rank < exits.length * 2) {
       const e = exits[rank % exits.length];
-      return { x: e.x + (rank < exits.length ? 0.9 : -0.9), y: e.y, z: e.z };
+      return { x: exitPost(e.x, rank < exits.length ? 1 : -1), y: e.y, z: e.z };
     }
   }
-  // patrol the walk's landings, changing post now and then
-  const posts = landingPoints(w).map((p) => ({ x: p.x, y: w.height, z: walkZ(w) }));
+  // patrol the walk's landings, changing post now and then (not those whose exits are guarded: a patrol there would
+  // stand on the ladder's top)
+  const all = landingPoints(w).map((p) => ({ x: p.x, y: w.height, z: walkZ(w) }));
+  const open = all.filter((p) => !exits.some((e) => Math.abs(p.x - e.x) < 3.6));
+  const posts = open.length ? open : all;
   return posts[(i + turn) % posts.length];
+}
+
+// Where a guard flanks a ladder's exit: 1.5 m to one side, inside the landing's hoarding posts. Never closer than
+// 1.35 m, so a climber (0.45 m about the body, as each guard) can always step off the ladder and fight, rather than
+// meet a wall of bodies; where one side has no room both guards stand on the open side.
+function exitPost(x, side) {
+  const [lo, hi] = RESTLESS_LANDINGS.find(([a, b]) => x >= a - 0.5 && x <= b + 0.5) ?? [x - 9, x + 9];
+  const clamp = (v) => Math.min(hi - 0.7, Math.max(lo + 0.7, v));
+  const post = clamp(x + side * 1.5);
+  return Math.abs(post - x) >= 1.35 ? post : clamp(x - side * 2.7);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

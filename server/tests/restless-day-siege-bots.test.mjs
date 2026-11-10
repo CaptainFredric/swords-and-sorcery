@@ -121,13 +121,21 @@ test('after the outer curtain falls, the last ladder over it stays while knights
   assert.deepEqual(siegeTasks(room).map((t) => [t.ladder.id, t.wall]), [[a.id, 1]], 'it moves to the inner curtain');
 });
 
-test('defenders contest the exit of a deployed ladder', () => {
-  const { room } = match();
-  const [a] = room.restlessDay.ladders;
-  Object.assign(a, { state: 'deployed', wall: 0, position: { x: 8, y: 0, z: -31 } });
-  const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS && zoneOf(p.position) === 1);
-  const goals = defenders.map((d) => siegeBotGoal(room, d));
-  assert.ok(goals.filter((g) => Math.abs(g.x - 8) < 1.2 && g.y === 6).length >= 2, JSON.stringify(goals));
+test('defenders contest the exit of a deployed ladder, flanking it without walling it off', () => {
+  for (const x of [8, -6, 4.6]) {   // a ladder mid-landing, and two near a landing's hoarding post
+    const { room } = match();
+    const [a] = room.restlessDay.ladders;
+    Object.assign(a, { state: 'deployed', wall: 0, position: { x, y: 0, z: -31 } });
+    const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS && zoneOf(p.position) === 1);
+    const guards = defenders.map((d) => siegeBotGoal(room, d)).filter((g) => g.y === 6 && Math.abs(g.x - x) < 3.2);
+    assert.ok(guards.length >= 2, JSON.stringify(guards));
+    // each guard leaves the climber room to step off (body radii 0.45 each), and stands inside the landing's posts
+    const [lo, hi] = [[4.4, 11.6], [-11.6, -4.4]].find(([p, q]) => x >= p - 0.5 && x <= q + 0.5);
+    for (const g of guards) {
+      assert.ok(Math.abs(g.x - x) >= 1.35, `guard at ${g.x} blocks the ladder at ${x}`);
+      assert.ok(g.x >= lo + 0.69 && g.x <= hi - 0.69, `guard at ${g.x} outside the landing`);
+    }
+  }
 });
 
 test('the ladder slows its carrier on the server as it does in the client\'s prediction', () => {
