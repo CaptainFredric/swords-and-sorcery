@@ -265,13 +265,29 @@ try{
    'guest observes actual rotor-powered vertical flight',180);
  await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
  await host.evaluate("if(window.__ssRuntime?.input)window.__ssRuntime.input.pitch=0;");
- await guest.evaluate("(() => {window.__flightMotionTrace=[];let frames=0;function frame(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p)window.__flightMotionTrace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);})()");
+ // Sample on every handled snapshot as well as every drawn frame: a software
+ // renderer draws about once a second, and a fall can be shorter than that.
+ await guest.evaluate("(() => {const trace=window.__flightMotionTrace=[];let frames=0;function sample(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p&&trace.length<5000)trace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});}function frame(){sample();if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);window.__ssRuntime?.socket?.on('snapshot',sample);})()");
  await host.key('E','rawKeyDown');
  const run=await waitFor(()=>guest.evaluate("(() => {const trace=window.__flightMotionTrace??[];return trace.find(s=>s.run&&s.pitch>.08&&s.speed>4)??null;})()"),
    'guest sees a moving Prowess-powered offensive flight run',140);
  await host.key('E','keyUp');
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun===false"),
    'remote Dash release stops offensive run',100);
+ // Holding Dash runs a diving attack. On a slow runner the guest takes
+ // seconds to see the run, and the dive can reach the ground before Dash is
+ // released, leaving nothing to eject from. Climb back first, judged by the
+ // host's own authoritative state.
+ stage = 'host Space climb before ejection';
+ await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ let ejectAltitude;
+ try {
+  ejectAltitude=await waitFor(()=>host.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.mode==='AIRBORNE'&&m.y>4?{y:m.y,mode:m.mode}:null;})()"),
+    'host machine airborne before ejection',120);
+ } finally {
+  await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ }
+ console.log('[SHARED EJECT ALTITUDE]',JSON.stringify(ejectAltitude));
  const beforeEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId};})()");
  stage = 'host T ejection dispatch';
  console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host T ejection');
