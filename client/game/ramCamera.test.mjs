@@ -23,3 +23,14 @@ test('neutral ram orbit is elevated and pitched toward the carriage instead of a
  const {ramCameraOrbit}=await import('./ramCamera.mjs');const p=ramCameraOrbit([0,1.45,0],0,0);
  assert.ok(p.position[1]>1.45);assert.ok(p.pitch<0);assert.equal(p.position[0],0);
 });
+
+test('the raised ram sight clears the authored trunnion without moving the grounded eye',async()=>{
+ const {ramSightPoint}=await import('./ramCamera.mjs');
+ const {SO_FIST_STATION,SO_FIST_SCALE}=await import('../../shared/sim/soFistGeometry.mjs');
+ assert.deepEqual(ramSightPoint({ramLiftY:0,ramElevPitch:0}),SO_FIST_STATION.sight);
+ const first=ramSightPoint({ramLiftY:.1,ramElevPitch:0});
+ const raised=ramSightPoint({ramLiftY:1.368,ramElevPitch:50*Math.PI/180});
+ assert.ok(first[0]>0&&first[0]<raised[0]);
+ assert.ok(raised[0]>.43*SO_FIST_SCALE,'forward ray begins beyond the widest trunnion support');
+ assert.equal(raised[2],SO_FIST_STATION.sight[2],'the viewpoint stays alongside the operator');
+});
