@@ -175,6 +175,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       attackPresentation: p.attackActive&&!p.attackSlam&&!p.attackChivalry&&
         Number.isInteger(p.attackChainSerial)&&p.attackChainSerial%2===0 ? 1 : 0,
       attackNextStrike: p.attackNextStrike,
+      // (the chain shown after it ends: how many of its strikes landed, and whether it ran out, was let go or broken)
+      attackLanded: p.attackLanded ?? 0,
+      attackEnd: p.attackEnd ?? null,
       // how many of the chain's strikes are committed (each swing seen beginning: the breath behind it leads it)
       attackCommitted: p.attackCommitted ?? 0,
       ...(p.stPerry ? {

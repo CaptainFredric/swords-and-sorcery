@@ -173,6 +173,9 @@ function startSwordChain(player, nowSec) {
   player.attackOpened = -1;
   player.attackSweep = null;
   player.attackLastChain = null;
+  // (for the body that shows it: how many of this chain's strikes have landed, and how it ended; kept after it ends)
+  player.attackLanded = 0;
+  player.attackEnd = null;
 }
 
 // when the chain under way would begin its next strike: every strike that has gone live counts (a swing broken off
@@ -198,6 +201,9 @@ function stopSwordChain(player, { keepSweep = false, letGo = false } = {}, room 
   player.attackLastChain = letGo && player.attackActive && (player.attackCommitted ?? 0) < SWORD_STRIKE_TIMES.length
     ? { startedAt: player.attackStartedAt, committed: player.attackCommitted, landed: player.attackNextStrike, endedAt: due, slam: Boolean(player.attackSlam), chainId: player.attackChainId }
     : null;
+  // how it ended, for the body that shows it (presentation only: a chain run to its end or let go plays its last
+  // swing out; one broken off gives way at once to whatever broke it)
+  if (player.attackActive) player.attackEnd = keepSweep ? 'done' : letGo ? 'letGo' : 'broken';
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;
@@ -219,6 +225,8 @@ function resumeSwordChain(player, last) {
   player.attackQueued = false;
   player.attackOpened = last.landed - 1;
   player.attackLastChain = null;
+  player.attackLanded = last.landed;
+  player.attackEnd = null;
 }
 
 export function beginAttack(room, playerId, nowSec) {
@@ -2872,6 +2880,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
           // its contact has come (the strike went live a moment before, and sweeps on a moment after)
           if ((player.attackOpened ?? -1) < step.strike) openStrike(room, player, step.strike, nowSec);
           player.attackNextStrike += 1;
+          player.attackLanded = player.attackNextStrike;
         } else if (player.attackHeld || player.attackQueued) {
           player.attackCommitted = (player.attackCommitted ?? 1) + 1;
           // (a fresh press asked for it outright; a hold may yet turn out to have been let go just before)

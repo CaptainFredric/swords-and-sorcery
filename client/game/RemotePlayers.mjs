@@ -817,7 +817,9 @@ export class RemotePlayers {
       // (and closed on a machine's controls)
       fist: ['sprint', 'dash', 'sunder', 'vortex'].includes(state) || (pb.alive && (pb.operatingFightFlightId || pb.operatingRamId)) ? 1 : 0,
     }, dt);
-    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil };
+    // (when he was last seen in his Guard: a chain begun straight out of it starts from the raised sword)
+    if (pb.guarding) d.guardSeenAt = serverNow;
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil, guardSeenAt: d.guardSeenAt };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);

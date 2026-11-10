@@ -457,7 +457,8 @@ export class SpellbladeAnimator {
     if (clip !== plan.clip) plan = { ...plan, clip, time:plan.fallbackTime??plan.time };
 
     if (this.activeAction !== action) {
-      const duration = step > 0 && this.activeAction ? blendSeconds(this.activeClip, plan.clip) : 0;
+      // (a plan may name its own hand-over: one strike's follow-through into the next one's raise)
+      const duration = step > 0 && this.activeAction ? (Number.isFinite(plan.blend) ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
       let startProgress = 0;
       if (duration > 0) {
         // every outgoing clip restarts its fade from the weight it has right now, so a switch in the middle of a
@@ -465,7 +466,8 @@ export class SpellbladeAnimator {
         const returning = this.fading.find((entry) => entry.action === action);
         if (returning) startProgress = blendProgressFor(action.getEffectiveWeight());
         this.fading = this.fading.filter((entry) => entry.action !== action);
-        this.fading.push({ action: this.activeAction });
+        // (a strike broken off mid-swing carries on through its fade, rather than stopping dead and dissolving)
+        this.fading.push({ action: this.activeAction, carry: Boolean(this.activeCarry) });
         for (const entry of this.fading) {
           entry.startWeight = entry.action.getEffectiveWeight();
           entry.elapsed = 0;
@@ -481,6 +483,7 @@ export class SpellbladeAnimator {
       action.play();
       this.activeAction = action;
       this.activeClip = plan.clip;
+      this.activeCarry = Boolean(plan.carry);
       this.activeBlend = { elapsed: startProgress * duration, duration };
     }
 
@@ -491,7 +494,10 @@ export class SpellbladeAnimator {
     const weight = Number.isFinite(plan.weight) ? plan.weight : 1;
     this.activeBlend.elapsed += step;
     const progress = this.activeBlend.duration > 0 ? this.activeBlend.elapsed / this.activeBlend.duration : 1;
-    for (const entry of this.fading) entry.elapsed += step;
+    for (const entry of this.fading) {
+      entry.elapsed += step;
+      if (entry.carry) entry.action.time = Math.min(entry.action.getClip().duration, entry.action.time + step);
+    }
     const weights = blendWeights(progress, this.fading.map((entry) => ({
       startWeight: entry.startWeight,
       progress: entry.duration > 0 ? entry.elapsed / entry.duration : 1,
