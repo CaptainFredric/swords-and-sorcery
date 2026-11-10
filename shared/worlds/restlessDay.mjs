@@ -117,8 +117,10 @@ const floors = [
 const stairs = [
   // each curtain's stairs come straight down off its walk into the yard behind it, at both ends: a knight (and a
   // ladder on his shoulder) goes down facing the way he is going, never turning against the wall
-  stair('outer-stair-west', 'z', [-20.6, -18.2], [-22.2, -13.2], 'min', 0, 6),
-  stair('outer-stair-east', 'z', [18.2, 20.6], [-22.2, -13.2], 'min', 0, 6),
+  // (the outer stairs' heads stand clear of the landings' hoarding posts: a carrier swings a 5.4 m ladder round
+  // on the walk to face down them)
+  stair('outer-stair-west', 'z', [-19, -16.6], [-22.2, -13.2], 'min', 0, 6),
+  stair('outer-stair-east', 'z', [16.6, 19], [-22.2, -13.2], 'min', 0, 6),
   stair('inner-stair-west', 'z', [-20.6, -18.2], [24.1, 34.1], 'min', 0, 7),
   stair('inner-stair-east', 'z', [18.2, 20.6], [24.1, 34.1], 'min', 0, 7),
   // the loading dock's ramp, up its west side from the bailey
@@ -155,8 +157,8 @@ const PROPS = Object.freeze([
   { kind: 'stakes', x: -21.2, z: -44.5, facing: 0, length: 3 }, { kind: 'stakes', x: 21.6, z: -46, facing: 0, length: 3 },
   // the Lower Bailey: stores by the stable range and the forge, a defender's rack by the inner gate
   { kind: 'barrel', x: -20.0, z: -2.2 }, { kind: 'barrel', x: -19.4, z: -1.8, tilt: 0.2 }, { kind: 'woodpile', x: -26.4, z: -0.6, length: 2.4, facing: Math.PI / 2 },
-  { kind: 'sacks', x: -20, z: 1.4 }, { kind: 'crate', x: 15.2, z: -12.8, turn: 0.15 },
-  { kind: 'cart', x: -15.2, z: -17.6, facing: Math.PI / 2 }, { kind: 'sacks', x: 20.0, z: 13.4 }, { kind: 'barrel', x: 24.4, z: 13.3 }, { kind: 'crate', x: 15.3, z: -13.6, turn: -0.1, stack: true },
+  { kind: 'sacks', x: -20, z: 1.4 }, { kind: 'crate', x: 23.5, z: -13.2, turn: 0.15 },
+  { kind: 'cart', x: -15.0, z: -8.0, facing: 0 }, { kind: 'sacks', x: 20.0, z: 13.4 }, { kind: 'barrel', x: 24.4, z: 13.3 }, { kind: 'crate', x: 22.7, z: -13.4, turn: -0.1, stack: true },
   { kind: 'anvil', x: 19.8, z: 4.6, facing: 0 }, { kind: 'brazier', x: 18.4, z: 5.9 }, { kind: 'ore', x: 26.2, z: 11.8 },
   { kind: 'standard', x: -5.7, z: 18.6, team: D }, { kind: 'standard', x: 5.7, z: 18.6, team: D },
   // the Court of the Renowner: braziers at the dais's corners (off its flights), defenders' standards at the gate
@@ -273,6 +275,9 @@ const spawnPoints = [
   ...[-15, -7, 0, 7, 15].map((x) => spawn(x, 35, TEAMS.ATTACKERS, 2)),
   ...[-15, 0, 15].map((x) => ({ ...spawn(x, -24, TEAMS.DEFENDERS, 0), y: 6 })),
   ...[-7, 7].map((x) => ({ ...spawn(x, 22.8, TEAMS.DEFENDERS, 0), y: 7 })),
+  // once the outer curtain has fallen the defenders return along the inner walk; once the inner has, round the dais
+  ...[-21, -13, 0, 13, 21].map((x) => ({ ...spawn(x, 22.6, TEAMS.DEFENDERS, 1), y: 7 })),
+  ...[[-11, 46], [11, 46], [-12, 60], [12, 60], [0, 68]].map(([x, z]) => spawn(x, z, TEAMS.DEFENDERS, 2)),
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -302,9 +307,9 @@ for (const s of stairs.filter((st) => !st.ramp.id.startsWith('mason-dock'))) {
   }
 }
 // the foot of each stair, on the ground beyond its low end, and its top on the walk
-node('rd-outer-stair-west-foot', -19.4, 0, -11.8); node('rd-outer-stair-east-foot', 19.4, 0, -11.8);
+node('rd-outer-stair-west-foot', -17.8, 0, -11.8); node('rd-outer-stair-east-foot', 17.8, 0, -11.8);
 node('rd-inner-stair-west-foot', -19.4, 0, 35.5); node('rd-inner-stair-east-foot', 19.4, 0, 35.5);
-node('rd-outer-stair-west-head', -19.4, 6, -23.4); node('rd-outer-stair-east-head', 19.4, 6, -23.4);
+node('rd-outer-stair-west-head', -17.8, 6, -23.4); node('rd-outer-stair-east-head', 17.8, 6, -23.4);
 node('rd-inner-stair-west-head', -19.4, 7, 22.6); node('rd-inner-stair-east-head', 19.4, 7, 22.6);
 
 node('rd-yard-dock-sw', 12.2, 0, -12.8); node('rd-yard-dock-nw', 13.2, 0, -6.9);
