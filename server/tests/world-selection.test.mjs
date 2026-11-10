@@ -53,10 +53,10 @@ test('room simulation uses each room world instead of a server-global Keep', () 
   assert.equal(keepPlayer.grounded, true);
 });
 
-test('matchmade duels take each arena in turn; Quick Play walks into a room in either; solo play takes the one chosen', () => {
+test('matchmade duels take each skirmish arena in turn; Quick Play and Solo preserve their world', () => {
   const manager = new RoomManager({ random: sequenceRandom([0.13, 0.29, 0.41, 0.53, 0.67, 0.79, 0.91]) });
-  const duels = [0, 1, 2, 3].map(() => manager.createDuelRoom(0).worldId);
-  assert.deepEqual(duels, [WORLD_IDS.CASTLEWARD, WORLD_IDS.RUINED_KEEP, WORLD_IDS.CASTLEWARD, WORLD_IDS.RUINED_KEEP]);
+  const duels = [0, 1, 2, 3, 4].map(() => manager.createDuelRoom(0).worldId);
+  assert.deepEqual(duels, [WORLD_IDS.CASTLEWARD, WORLD_IDS.RUINED_KEEP, WORLD_IDS.COURT_OF_MERIT, WORLD_IDS.BLACKBELL_FOUNDRY, WORLD_IDS.CASTLEWARD]);
   const keepRoom = manager.createPublicRoom(0, WORLD_IDS.RUINED_KEEP);
   keepRoom.addPlayer({ id: 'a', token: 'ta', name: 'A' }, 0);
   assert.equal(manager.quickPlay(0), keepRoom, 'an open room in the keep is as good as one in Castleward');

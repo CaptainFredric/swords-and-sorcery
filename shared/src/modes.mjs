@@ -14,14 +14,33 @@ export const GAME_MODES = Object.freeze({
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
 // The old greybox Shattered Keep stays only as a fixture for tests.
-export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
+export const ARENAS = Object.freeze(['castleward', 'ruined-keep', 'court-of-merit', 'blackbell-foundry']);
+export const PRACTICE_ARENAS = Object.freeze([...ARENAS, 'high-grounds']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
 export const RESTLESS_DAY_ARENAS = Object.freeze(['restless-day']);
 export const EDGE_OF_VICTORY_ARENAS = Object.freeze(['ruined-keep']);
 export const RENOWN_ARENAS = Object.freeze(['court-of-merit', 'castleward']);
 
-/** An arena by id, or Castleward for anything that is not one. */
+const MODE_ARENAS = Object.freeze({
+  [GAME_MODES.PRACTICE]: PRACTICE_ARENAS,
+  [GAME_MODES.BREAKTHROUGH]: BREAKTHROUGH_ARENAS,
+  [GAME_MODES.HIGH_GROUNDS]: HIGH_GROUNDS_ARENAS,
+  [GAME_MODES.RESTLESS_DAY]: RESTLESS_DAY_ARENAS,
+  [GAME_MODES.EDGE_OF_VICTORY]: EDGE_OF_VICTORY_ARENAS,
+  [GAME_MODES.RENOWN_TRIALS]: RENOWN_ARENAS,
+});
+
+export function arenasForMode(mode) {
+  return MODE_ARENAS[mode] ?? ARENAS;
+}
+
+export function arenaForMode(mode, worldId) {
+  const arenas = arenasForMode(mode);
+  return arenas.includes(worldId) ? worldId : arenas[0];
+}
+
+/** Legacy world validation for callers that have no mode. */
 export function arenaOrDefault(worldId) {
   return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RESTLESS_DAY_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId) || RENOWN_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }

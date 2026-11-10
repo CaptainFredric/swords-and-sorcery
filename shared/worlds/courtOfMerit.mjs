@@ -116,7 +116,7 @@ const SOLIDS = [
 
   // --- the Rightful Renowner: podium and effigy (fixed where the trial's ceremony expects it)
   solid('renowner-tribunal-podium', [-2.2, 2.2], [TRIBUNAL_SEAT_Y, TRIBUNAL_SEAT_Y + 0.6], [15.2, 17.2], { kind: 'podium', material: 'brass' }),
-  solid('renowner-tribunal-body', [-1.4, 1.4], [TRIBUNAL_SEAT_Y + 0.6, TRIBUNAL_SEAT_Y + 4.2], [15.4, 17.0], { kind: 'renowner-body', material: 'iron' }),
+  solid('renowner-tribunal-body', [-1.216, 1.216], [TRIBUNAL_SEAT_Y + 0.6, TRIBUNAL_SEAT_Y + 5.1], [15.107, 17.293], { kind: 'renowner-body', material: 'iron' }),
 
   // --- ceremonial fire: braziers on the dais, and one at the south of the floor
   solid('tribunal-brazier-left', [-5.0, -4.2], [TRIBUNAL_Y, TRIBUNAL_Y + 1.2], [12.4, 13.2], { kind: 'brazier' }),
@@ -148,6 +148,11 @@ export const COURT_OF_MERIT = Object.freeze({
     spawn(-7, 0, -8, 0, 0),
     spawn(7, 0, -8, 0, 0),
     spawn(0, TRIBUNAL_Y, 13, 0, 0),
+  ],
+  skirmishSpawns: [
+    spawn(-7, 0, -4, 0, -4), spawn(7, 0, -4, 0, -4),
+    spawn(-10, 0, 4), spawn(10, 0, 4), spawn(-9, 0, -9), spawn(9, 0, -9),
+    spawn(0, 0, 7), spawn(0, 0, -11),
   ],
   navigation: Object.freeze({
     nodes: Object.freeze([

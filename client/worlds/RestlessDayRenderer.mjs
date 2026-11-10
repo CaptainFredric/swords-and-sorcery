@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { RenownerModel } from './RenownerModel.mjs';
+import { RESTLESS_RENOWNER_SCALE } from '../../shared/worlds/renownerGeometry.mjs';
 import { RESTLESS_DAY_WORLD } from '../../shared/worlds/restlessDay.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
@@ -506,52 +508,10 @@ export class RestlessDayRenderer {
   }
 
   #buildMonument() {
-    const parent = new THREE.Group();
-    parent.name = 'The Rightful Renowner — Colossus of Bureaucracy';
-    parent.position.set(0, 1.4, 56);
-    this.group.add(parent);
-    this.monument = parent;
-
-    // Torso / Curass (heavy segmented plate)
-    box(parent, [2.45, 2.4, 1.75], [0, 2.35, 0], this.materials.iron);
-    box(parent, [2.75, 0.4, 2.1], [0, 3.64, 0], this.materials.brass);
-    box(parent, [2.35, 0.3, 1.8], [0, 1.35, 0], this.materials.brassDark);
-
-    // Ornate Gorget & Greathelm
-    box(parent, [1.75, 1.35, 1.6], [0, 4.05, 0], this.materials.iron);
-    box(parent, [1.85, 0.25, 1.75], [0, 4.65, 0], this.materials.brass);
-    // Crested helm plume / finial
-    box(parent, [0.25, 0.75, 1.2], [0, 5.15, -0.1], this.materials.crimsonGold);
-
-    // Menacing visor slit
-    const visor = box(parent, [1.6, 0.18, 0.14], [0, 4.12, 0.83], this.materials.ironRusted);
-    visor.name = 'Renowner iron visor';
-
-    // Massive Pauldrons
-    for (let side of [-1, 1]) {
-      box(parent, [0.75, 1.85, 0.85], [side * 1.45, 2.55, 0], this.materials.iron);
-      box(parent, [0.85, 0.35, 0.95], [side * 1.45, 2.85, 0], this.materials.brass);
-    }
-
-    // Articulated Greatsword
-    const sword = new THREE.Group();
-    sword.name = 'Renowner articulated sword';
-    sword.position.set(0.3, 2.9, 0.92);
-    parent.add(sword);
-    this.sword = sword;
-
-    pipe(sword, [0, 0, 0], [0, 0, 1.9], 0.14, this.materials.brass);
-    box(sword, [1.85, 0.16, 0.22], [0, 0, 1.9], this.materials.brass);
-    box(sword, [0.33, 0.22, 5.0], [0, 0, 4.1], this.materials.stoneLight);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.72, 4), this.materials.stoneLight);
-    tip.rotation.x = Math.PI / 2;
-    tip.position.z = 6.93;
-    tip.castShadow = true;
-    sword.add(tip);
-
-    // Mechanical Coin Dispenser & Gilded Feed Chute
-    box(parent, [1.2, 1.4, 0.8], [0, 2.2, -0.9], this.materials.brassDark);
-    pipe(parent, [0, 1.5, -0.8], [0, 1.2, 0.8], 0.18, this.materials.brass);
+    const {x, y, z} = RESTLESS_DAY_WORLD.restlessDay.renowner;
+    this.renowner = new RenownerModel(this.group, [x, y, z], {
+      scale: RESTLESS_RENOWNER_SCALE, carpet: false,
+    });
   }
 
   #replaceLadders(list) {
@@ -625,10 +585,6 @@ export class RestlessDayRenderer {
       }
     }
 
-    if (this.monument) {
-      this.monument.visible = (state?.renowner?.health ?? 1) > 0;
-      this.monument.rotation.y = state?.renowner?.yaw ?? Math.PI;
-    }
   }
 
   setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
@@ -710,20 +666,13 @@ export class RestlessDayRenderer {
 
     for (const coin of this.coinVisuals.values()) coin.rotation.y += 0.1;
 
-    const attack = this.lastMode?.renowner?.attack;
-    if (attack) {
-      const swing = Math.max(0, Math.min(1, (now - attack.contactAt + 0.16) / 0.4));
-      this.sword.rotation.x = attack.type === 'downstroke' ? -Math.sin(swing * Math.PI) * 1.25 : 0;
-      this.sword.rotation.y = attack.type === 'sweep' ? (swing - 0.5) * 2.3 : 0;
-    } else {
-      this.sword.rotation.x = 0;
-      this.sword.rotation.y = 0;
-    }
+    this.renowner.restless(now, this.lastMode?.renowner);
 
     this.#updateSundownAtmosphere(now);
   }
 
   dispose() {
+    this.renowner?.dispose();
     this.biByeLlista?.dispose();
 
     // Restore cached lights to original baseline

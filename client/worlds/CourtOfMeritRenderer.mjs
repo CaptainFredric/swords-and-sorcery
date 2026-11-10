@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RenownerModel } from './RenownerModel.mjs';
 import { COURT_OF_MERIT } from '../../shared/worlds/courtOfMerit.mjs';
 import { facetMesh, kitMaterials, seededRandom, shadeColor, KIT_PALETTE as K } from './kit/facetKit.mjs';
 import { createBatch, masonry, banner } from './kit/kitPieces.mjs';
@@ -24,9 +25,7 @@ const PALETTE = Object.freeze({
   brass: 0xc49a4a,
   brassDark: 0x82632b,
   iron: 0x3d444b,
-  ironDark: 0x24282c,
   crimson: 0x8a2327,
-  crimsonGold: 0xb5363c,
   flame: 0xff9030,
 });
 
@@ -45,18 +44,6 @@ function box(parent, dimensions, where, m) {
 function cylinder(parent, radiusTop, radiusBottom, height, segments, where, m) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments), m);
   mesh.position.set(...where);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  parent.add(mesh);
-  return mesh;
-}
-
-function pipe(parent, from, to, radius, m, segments = 8) {
-  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
-  const v = new THREE.Vector3().subVectors(b, a);
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, v.length(), segments), m);
-  mesh.position.copy(a.add(b).multiplyScalar(0.5));
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.normalize());
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   parent.add(mesh);
@@ -101,11 +88,7 @@ export class CourtOfMeritRenderer {
 
   #build() {
     const brassM = this.#registerMat(mat(PALETTE.brass, 0.35, 0.75));
-    const brassDarkM = this.#registerMat(mat(PALETTE.brassDark, 0.45, 0.65));
     const ironM = this.#registerMat(mat(PALETTE.iron, 0.5, 0.6));
-    const ironDarkM = this.#registerMat(mat(PALETTE.ironDark, 0.55, 0.65));
-    const crimsonM = this.#registerMat(mat(PALETTE.crimson, 0.75));
-    const crimsonGoldM = this.#registerMat(mat(PALETTE.crimsonGold, 0.65, 0.1));
     const flameM = this.#registerMat(new THREE.MeshBasicMaterial({ color: PALETTE.flame }));
     this.kit = kitMaterials();
     const rand = seededRandom(1907);
@@ -142,7 +125,10 @@ export class CourtOfMeritRenderer {
       const [cx, cy, cz] = s.center;
       const [sx, sy, sz] = s.size;
       const y0 = cy - sy / 2;
-      if (kind === 'renowner-body') { this.#buildRenownerEffigy(s.center, s.size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM); continue; }
+      if (kind === 'renowner-body') {
+        this.renowner = new RenownerModel(this.group, [cx, y0, cz], { carpet: false });
+        continue;
+      }
       if (kind === 'brazier') { this.#buildBrazier(s.center, s.size, ironM, flameM); continue; }
       if (kind === 'podium') { batch.metal.block({ cx, cy: y0, cz, sx, sy, sz, chamfer: 0.05, jitter: 0, color: PALETTE.brass, rand, shade: 0.04 }); continue; }
       if (kind === 'pillar') { this.#column(batch, rand, s); continue; }
@@ -258,80 +244,6 @@ export class CourtOfMeritRenderer {
     }
   }
 
-  #buildRenownerEffigy(center, size, ironM, ironDarkM, brassM, brassDarkM, crimsonM, crimsonGoldM) {
-    const [cx, cy, cz] = center;
-    const monument = new THREE.Group();
-    monument.name = 'Rightful Renowner Martial Colossus';
-    monument.position.set(cx, cy, cz);
-    this.group.add(monument);
-    this.monument = monument;
-
-    // Imposing standing posture in fluted full plate armor
-    // Greaves & Sabatons planted wide on dais
-    box(monument, [0.45, 1.4, 0.65], [-0.55, -1.0, 0.05], ironM);
-    box(monument, [0.45, 1.4, 0.65], [0.55, -1.0, 0.05], ironM);
-    box(monument, [0.52, 0.35, 0.85], [-0.55, -1.5, -0.1], ironDarkM);
-    box(monument, [0.52, 0.35, 0.85], [0.55, -1.5, -0.1], ironDarkM);
-
-    // Segmented Faulds and Tassets
-    box(monument, [1.5, 0.6, 1.05], [0, -0.3, 0], brassDarkM);
-    box(monument, [0.65, 0.75, 0.25], [-0.45, -0.5, -0.5], brassM);
-    box(monument, [0.65, 0.75, 0.25], [0.45, -0.5, -0.5], brassM);
-
-    // Fluted heavy cuirass (torso) with brass heraldic eagle ribbing
-    box(monument, [1.6, 1.7, 1.15], [0, 0.65, 0], ironM);
-    box(monument, [1.35, 1.5, 0.2], [0, 0.65, -0.6], brassM);
-
-    // Towering Greathelm with slotted iron visor
-    box(monument, [0.85, 1.0, 0.95], [0, 1.9, 0], ironM);
-    box(monument, [0.75, 0.14, 0.15], [0, 1.95, -0.48], ironDarkM); // visor slit
-    box(monument, [0.92, 0.22, 1.02], [0, 2.35, 0], brassM); // crown crest
-    box(monument, [0.18, 0.75, 1.1], [0, 2.8, 0.1], crimsonGoldM); // flowing heraldic crest
-
-    // Massive fluted Pauldrons spanning 2.8m
-    for (const side of [-1, 1]) {
-      const p = box(monument, [0.65, 1.35, 0.85], [side * 1.15, 1.1, 0], ironM);
-      p.rotation.z = side * -0.15;
-      const rim = box(monument, [0.72, 0.3, 0.92], [side * 1.2, 1.45, 0], brassM);
-      rim.rotation.z = side * -0.15;
-    }
-
-    // Heavy Gauntlets resting on Greatsword Hilt
-    box(monument, [0.35, 0.35, 0.45], [-0.22, 0.75, -0.75], ironDarkM);
-    box(monument, [0.35, 0.35, 0.45], [0.22, 0.75, -0.75], ironDarkM);
-
-    // Monumental Articulated Greatsword — point driven into the stone floor
-    const sword = new THREE.Group();
-    sword.name = 'Renowner Greatsword of Judgment';
-    sword.position.set(0, 0.75, -0.75);
-    monument.add(sword);
-    this.sword = sword;
-
-    // Crossguard & Pommel
-    box(sword, [1.8, 0.18, 0.22], [0, 0, 0], brassM);
-    pipe(sword, [0, 0, 0], [0, 0.75, 0], 0.09, brassDarkM);
-    cylinder(sword, 0.16, 0.16, 0.18, 8, [0, 0.82, 0], brassM); // pommel
-
-    // Massive double-edged execution blade (4.2m tall, reaching dais floor at y = -2.2)
-    box(sword, [0.38, 3.2, 0.08], [0, -1.6, 0], ironM);
-    box(sword, [0.12, 3.0, 0.10], [0, -1.6, 0], brassM); // fuller
-    const swordTip = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.75, 4), ironM);
-    swordTip.rotation.y = Math.PI / 4;
-    swordTip.position.set(0, -3.55, 0);
-    sword.add(swordTip);
-
-    // Mechanical Brass Coin Hopper & Angled Dispense Chute
-    // Rear hopper reservoir behind belt
-    box(monument, [1.1, 0.9, 0.75], [0, 0.35, 0.65], brassDarkM);
-    // Forward chute angled down 30 deg facing recipient at dais center
-    const chute = box(monument, [0.75, 0.28, 1.2], [0, 0.1, -0.75], brassM);
-    chute.rotation.x = -0.32;
-
-    // Solemn brass payout receiving tray on the ceremonial dais
-    box(monument, [1.5, 0.22, 1.0], [0, -1.6, -1.8], brassM);
-    box(monument, [1.3, 0.08, 0.8], [0, -1.5, -1.8], crimsonM); // velvet lining
-  }
-
   #buildBrazier(center, size, ironM, flameM) {
     const [cx, cy, cz] = center;
     // Tripod iron stand
@@ -356,14 +268,15 @@ export class CourtOfMeritRenderer {
   }
 
   #spawnCoins(count, isLethal = false) {
+    const mouth = this.renowner.mouth();
     const coinMat = isLethal ? this.lethalCoinMat : this.goldCoinMat;
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(this.coinGeo, coinMat);
       mesh.castShadow = true;
       mesh.position.set(
-        (Math.random() - 0.5) * 0.35,
-        3.65 + (Math.random() - 0.5) * 0.05,
-        14.85 + (Math.random() - 0.5) * 0.1
+        mouth.x + (Math.random() - 0.5) * 0.22,
+        mouth.y + (Math.random() - 0.5) * 0.05,
+        mouth.z
       );
       mesh.rotation.set(
         Math.random() * Math.PI,
@@ -421,16 +334,6 @@ export class CourtOfMeritRenderer {
     }
   }
 
-  triggerJudgmentPresentation(verdict, reward = 0) {
-    if (verdict === 'EXECUTION' || verdict === 'SWORD') {
-      if (this.sword) this.sword.rotation.x = 0.95;
-    } else if (verdict === 'COIN_RETALIATION') {
-      this.#spawnCoins(24, true);
-    } else if (verdict === 'COMMENDED' || verdict === 'COIN' || reward > 0) {
-      this.#spawnCoins(18, false);
-    }
-  }
-
   update(timeSec = 0, camera = null, dt = null) {
     const serverNow = this.lastServerNow || timeSec;
     let stepDt;
@@ -456,43 +359,8 @@ export class CourtOfMeritRenderer {
       ban.rotation.x = Math.sin(serverNow * 1.5 + i * 1.2) * 0.06;
     }
 
-    // Articulated judgment presentation
     const ceremony = this.lastTrialState?.ceremony;
-    if (this.sword) {
-      if (ceremony) {
-        const cue = ceremony.cue;
-        const elapsed = Math.max(0, serverNow - ceremony.startedAt);
-        if (cue === 'SWORD_RAISE') {
-          const progress = Math.min(1, elapsed / 1.7);
-          this.sword.rotation.x = -progress * 1.6;
-          this.sword.position.y = 0.75 + progress * 0.45;
-        } else if (cue === 'SWORD_EXECUTION') {
-          const sub = elapsed - 1.7;
-          const down = Math.min(1, Math.max(0, sub) / 0.35);
-          const impactVibe = down >= 1 ? Math.exp(-(sub - 0.35) * 5) * Math.sin((sub - 0.35) * 40) * 0.06 : 0;
-          this.sword.rotation.x = -1.6 + down * 2.55 + impactVibe;
-          this.sword.position.y = 1.2 - down * 0.65;
-        } else if (cue === 'SWORD_EVADED') {
-          this.sword.rotation.x = 0.95;
-          this.sword.position.y = 0.55;
-        } else if (cue === 'I_HAVE_SURPASSED_JUDGEMENT') {
-          this.sword.rotation.x = 0.4;
-          this.sword.position.y = 0.65;
-        } else if (cue === 'SWORD_RESET') {
-          this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 2.5);
-          this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 2.5);
-        } else if (cue === 'KNIGHTING') {
-          const k = Math.sin(Math.min(1, Math.max(0, elapsed - 1.1) / 1.2) * Math.PI);
-          this.sword.rotation.x = -0.45 * k;
-        } else {
-          this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 3.5);
-          this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 3.5);
-        }
-      } else {
-        this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, 0, stepDt * 3.5);
-        this.sword.position.y = THREE.MathUtils.lerp(this.sword.position.y, 0.75, stepDt * 3.5);
-      }
-    }
+    this.renowner.court(serverNow, ceremony, (this.lastTrialState?.waveIndex ?? 0) % 2 === 1);
 
     // Synchronized Coin Physics
     for (let i = this.coinVisuals.length - 1; i >= 0; i--) {
@@ -541,6 +409,7 @@ export class CourtOfMeritRenderer {
   }
 
   dispose() {
+    this.renowner?.dispose();
     this.scene.remove(this.group);
     for (const m of Object.values(this.kit ?? {})) { m.map?.dispose?.(); m.dispose?.(); }
     for (const c of this.coinVisuals) {

@@ -1,3 +1,11 @@
+export function worldSpawnPoints(world, mode) {
+  if (mode === 'PRACTICE' && world?.practiceSpawns?.length) return world.practiceSpawns;
+  if (['FFA', 'BOT_DUEL', 'DUEL', 'PRACTICE'].includes(mode) && world?.skirmishSpawns?.length) {
+    return world.skirmishSpawns;
+  }
+  return world?.spawnPoints ?? [];
+}
+
 export function chooseSpawn(spawnPoints, enemies, recentUse = new Map(), nowSec = 0) {
   let best = null;
   for (let i = 0; i < spawnPoints.length; i += 1) {

@@ -250,6 +250,7 @@ export class BlackbellFoundryRenderer {
         ringMesh,
         discMesh,
         progressMesh,
+        standardGroup,
         bannerCloth,
         finial,
         standardGroup,
@@ -550,6 +551,11 @@ export class BlackbellFoundryRenderer {
     const completed = Boolean(objState?.completed);
 
     for (const ring of this.objectiveRings) {
+      ring.standardGroup.visible = ring.ringMesh.visible = ring.discMesh.visible = Boolean(objState);
+      if (!objState) {
+        ring.progressMesh.visible = false;
+        continue;
+      }
       const isCurrent = !completed && ring.index === activeIdx;
       const isCaptured = completed || ring.index < activeIdx;
 

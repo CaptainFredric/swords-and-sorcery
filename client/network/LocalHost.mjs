@@ -9,7 +9,7 @@ import { stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
-import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { GAME_MODES, arenaForMode } from '../../shared/src/modes.mjs';
 import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 import { clothChoice } from '../../shared/src/cosmetics.mjs';
@@ -153,13 +153,7 @@ export class LocalHost {
     }
     this.#stop();
     const time = this.now();
-    const resolvedWorld = tutorial ? 'greener-pastures'
-      : mode === GAME_MODES.RESTLESS_DAY ? 'restless-day'
-      : mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep'
-      : mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds'
-      : mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'outerworks' ? 'outerworks' : (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach'))
-      : mode === GAME_MODES.RENOWN_TRIALS ? (worldId === 'castleward' ? 'castleward' : 'court-of-merit')
-      : arenaOrDefault(worldId);
+    const resolvedWorld = tutorial ? 'greener-pastures' : arenaForMode(mode, worldId);
     const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
     room.localTutorial = tutorial;
     if (!this.profile && this.storage) {

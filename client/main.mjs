@@ -41,6 +41,8 @@ import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { loadArmoryLocation, saveArmoryLocation } from './menu/armoryLocation.mjs';
 import { CLOTH } from '../shared/src/cosmetics.mjs';
+import { arenasForMode } from '../shared/src/modes.mjs';
+import { getWorld } from '../shared/worlds/registry.mjs';
 import { GAME } from '../shared/src/combat.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
@@ -1075,8 +1077,24 @@ $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 // the solo arena: a chip each, the chosen one lit
 const soloArena = $('#solo-arena');
+let soloActivity = 'bot-duel';
+const soloArenaMode = () => soloActivity === 'bot-duel' ? 'BOT_DUEL' : 'PRACTICE';
 function showSoloArena() {
-  const chosen = menuController.soloArena();
+  const mode = soloArenaMode();
+  const chosen = menuController.soloArena(mode);
+  const worlds = arenasForMode(mode);
+  if (soloArena.dataset.mode !== mode) {
+    soloArena.dataset.mode = mode;
+    soloArena.replaceChildren(soloArena.firstElementChild, ...worlds.map(id => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'vote-chip';
+      chip.setAttribute('role', 'radio');
+      chip.dataset.arena = id;
+      chip.textContent = getWorld(id).name.toUpperCase();
+      return chip;
+    }));
+  }
   for (const chip of soloArena.querySelectorAll('[data-arena]')) {
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
@@ -1086,7 +1104,7 @@ function showSoloArena() {
 soloArena.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
   if (!chip) return;
-  menuController.chooseSoloArena(chip.dataset.arena);
+  menuController.chooseSoloArena(chip.dataset.arena, soloArenaMode());
   showSoloArena();
 });
 showSoloArena();
@@ -1507,7 +1525,6 @@ function startTutorial() {
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
 // Solo: left banner chooses an activity; right banner owns relevant options and launch.
-let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
   'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment. Offline rehearsal awards no account Renown.'],
@@ -1520,6 +1537,7 @@ const soloChoices = Object.freeze({
 function chooseSoloActivity(id) {
   if (!Object.hasOwn(soloChoices,id)) return;
   soloActivity=id;
+  showSoloArena();
   for(const choice of Object.keys(soloChoices)) {
     const button=$('#'+choice);
     const active=choice===id;
@@ -2562,6 +2580,14 @@ function practiceOneHitCommand(command){
   socket.practiceOneHit(command);
 }
 function updateInspectionControls() {
+  const destinationWorld = latestSnapshot?.mode === 'PRACTICE' && !latestSnapshot.tutorial ? latestSnapshot.worldId : null;
+  const reposition = $('#practice-reposition');
+  if (reposition.dataset.world !== (destinationWorld ?? '')) {
+    const destinations = destinationWorld ? getWorld(destinationWorld).practiceDestinations ?? [] : [];
+    $('#practice-destination').replaceChildren(...destinations.map(point => new Option(point.name, point.id)));
+    reposition.hidden = !destinations.length;
+    reposition.dataset.world = destinationWorld ?? '';
+  }
   const machineChoice=$('#practice-hostile-machine')?.value;
   const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
   const hostileStatus=$('#practice-hostile-status');
@@ -2736,9 +2762,13 @@ $('#shared-practice-copy')?.addEventListener('click',async()=>{
   catch{$('#shared-practice-copy').textContent='ROOM CODE · '+code;}
 });
 $('#shared-practice-to-solo')?.addEventListener('click', () => {
-  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+  runMenuAction(menuController.practice(nameInput.value, latestSnapshot?.worldId), SCREEN_IDS.SOLO_MENU);
 });
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
+$('#practice-move').addEventListener('click', () => {
+  const destination = $('#practice-destination').value;
+  if (destination) socket.send({ type: 'practiceResetPlayer', destination });
+});
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
 $('#practice-guarding').addEventListener('click', () => socket.practiceSpawnDummy('GUARDING'));
 $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('FIGHTS_BACK'));

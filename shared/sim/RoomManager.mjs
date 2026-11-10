@@ -1,4 +1,4 @@
-import { ARENAS, GAME_MODES, publicRoomMode, getModePolicy } from '../src/modes.mjs';
+import { ARENAS, arenaForMode, GAME_MODES, publicRoomMode, getModePolicy } from '../src/modes.mjs';
 import { roomSettings } from '../src/roomSettings.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
@@ -41,7 +41,7 @@ export class RoomManager {
   }
 
   createSharedPracticeRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
-    const room=this.#createRoom({isPrivate:true,mode:GAME_MODES.PRACTICE,worldId},nowSec);
+    const room=this.#createRoom({isPrivate:true,mode:GAME_MODES.PRACTICE,worldId:arenaForMode(GAME_MODES.PRACTICE,worldId)},nowSec);
     room.sharedPractice=true;
     return room;
   }
@@ -79,11 +79,7 @@ export class RoomManager {
 
   createSoloRoom(mode, nowSec = 0, worldId = null, { teamSize = null } = {}) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
-    const defaultWorld = mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH
-      : mode === GAME_MODES.RESTLESS_DAY ? WORLD_IDS.RESTLESS_DAY
-      : mode === GAME_MODES.EDGE_OF_VICTORY ? WORLD_IDS.RUINED_KEEP
-      : WORLD_IDS.CASTLEWARD;
-    const resolvedWorld = worldId || defaultWorld;
+    const resolvedWorld = worldId || arenaForMode(mode);
     const room = this.#createRoom({ isPrivate: true, mode, worldId: resolvedWorld, teamSize }, nowSec);
     if (mode === GAME_MODES.EDGE_OF_VICTORY) {
       room.policy.minHumansToStart = 1;
