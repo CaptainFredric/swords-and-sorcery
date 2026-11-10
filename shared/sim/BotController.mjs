@@ -1045,6 +1045,9 @@ export function stepBotControllers(
       }
     }
 
+    // A mode may drive a bot's own hands this tick (a siege ladder lifted, carried, set up; a ladder burnt from the
+    // wall): the same inputs and interactions a player has, never a teleport. True: its inputs are set.
+    if(modeCall(room,'botAct',actor,nowSec,{ai,world,wayToward,tryCastSpell,beginAttack,endAttack}))continue;
     // Dedicated modes can reserve a bot's hands for a physical objective.
     // Use the existing pathfinder and movement input, not a teleport or a
     // separate movement system. This also prevents melee/cast AI from

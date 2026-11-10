@@ -2,6 +2,7 @@
 // No exhaustion modifier, no overtime, no objective-capture fallback.
 import { TEAMS } from '../src/teams.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
+import { coordinateSiege, siegeBotGoal, siegeBotAct } from './restlessDaySiege.mjs';
 export const RESTLESS_DAY_RULES=Object.freeze({
   matchSec:780,renownerHP:1650,ladderHP:190,replaceSec:18,carrySpeed:.65,
   interactRange:3.8,placementRange:5.6,swordRange:8.4,attackCooldown:4.2,
@@ -21,7 +22,9 @@ function newState(world){
    })),
  };
 }
-const aliveCarrier=(room,id)=>room.players.get(id)?.alive&&room.players.get(id)?.team===TEAMS.ATTACKERS;
+// (a knight who has left the match, his connection gone, puts nothing on his shoulder)
+const aliveCarrier=(room,id)=>{const p=room.players.get(id);
+ return Boolean(p?.alive&&p.team===TEAMS.ATTACKERS&&!(p.actorKind==='human'&&p.connected===false));};
 function dropLadder(room,l,now){
  const p=room.players.get(l.holderId);
  if(p){p.restlessCarrying=null;p.speedScale=1;}
@@ -90,15 +93,27 @@ export function restlessCarryClear(world,position,yaw){
  return true;
 }
 /** Post-step position correction only for occupied ladder carriers. Returns
- * true when the proposed step is blocked by the physical carried beam. */
+ * false when the step is clear, true when the carried beam blocked it (the
+ * carrier keeps his place across the ground), and 'jammed' when even there the
+ * beam cannot be held: an airborne carrier is never hung in the air by his own
+ * ladder. He keeps falling or landing as gravity has it, and a ladder that
+ * cannot ride down with him must be set down (the authority does that). */
 export function constrainRestlessCarry(state,from,world,yaw){
  if(!state?.restlessCarrying && !from?.restlessCarrying)return false;
  state.restlessCarrying = state.restlessCarrying ?? from?.restlessCarrying;
  if(restlessCarryClear(world,state.position,yaw))return false;
- state.position={...from};
+ // only the step across the ground is undone; height is the body's own
+ state.position={...from,y:state.position.y};
  state.velocity.x=0;state.velocity.z=0;
  state.sprinting=false;state.sprintBlend=0;
+ if(Math.abs(state.position.y-from.y)>1e-4&&!restlessCarryClear(world,state.position,yaw))return 'jammed';
  return true;
+}
+/** The authority sets a carried ladder down where its carrier stands. */
+export function setDownRestlessLadder(room,player,now){
+ const l=room.restlessDay?.ladders.find(x=>x.holderId===player?.id);
+ if(l)dropLadder(room,l,now);
+ return Boolean(l);
 }
 export function ladderReach(l,p){
  const foot=dist(l.position,p.position);
@@ -155,6 +170,7 @@ export function interactRestlessLadder(room,player,now){
    room.events.push({type:'restlessLadderPlaced',ladderId:held.id,wall:w.id,at:now});
    return {};
  }
+ if(s.phase>=2)return {rejected:'Both curtains have fallen; the ladders have done their work.'};
  const near=s.ladders.filter(l=>['available','deployed'].includes(l.state))
    .sort((a,b)=>ladderReach(a,player)-ladderReach(b,player))[0];
  if(!near||ladderReach(near,player)>RESTLESS_DAY_RULES.interactRange)
@@ -309,20 +325,13 @@ export function restlessnessStep(room,dt,now,{damage}={}){
  if(s.phase===1&&attackers.some(p=>p.position.z>24&&p.position.y<8.1)){
    s.phase=2;room.events.push({type:'restlessCurtainBreached',wall:'inner',phase:2,at:now});
  }
- // After both curtains have been breached, do not strand the two dedicated
- // carrier bots with a ladder they can no longer deploy usefully.
+ // After both curtains have been breached a carried ladder is set down (once:
+ // nobody may pick one up again), and the siege coordinator assigns no more.
  if(s.phase===2)for(const l of s.ladders)if(l.state==='carrying')dropLadder(room,l,now);
- // Two designated ladder-carrier bots use the same authoritative interaction as humans.
- for(const bot of attackers.filter(p=>p.actorKind==='bot'&&(p.rivalIndex??5)<2)){
-   const held=s.ladders.find(l=>l.holderId===bot.id);
-   if(held){if(wallForPlacement(bot)&&wallForPlacement(bot).index<=s.phase)interactRestlessLadder(room,bot,now);}
-   else if(!bot.restlessCarrying){
-     const l=s.ladders[bot.rivalIndex??0];
-     if(l&&['available','deployed'].includes(l.state)
-       &&(l.state!=='deployed'||l.wall<s.phase)
-       &&ladderReach(l,bot)<2.7)interactRestlessLadder(room,bot,now);
-   }
- }
+ // Which bot carries which ladder to which wall: decided afresh as the siege
+ // turns (restlessDaySiege.mjs); the bots themselves act through the shared
+ // bot brain's botAct hook with the same interact a player uses.
+ coordinateSiege(room,now);
  stepStatue(room,s,dt,now,damage);
  stepCoins(room,s,dt,now,damage);
 }
@@ -351,37 +360,6 @@ function onStructureDamage(room,id,now){
  room.events.push({type:'renownerDestroyed',at:now});
  room.finish(TEAMS.ATTACKERS,now,'renowner-destroyed');
 }
-function botGoal(room,actor){
- const s=room.restlessDay;if(!s)return null;
- const i=actor.rivalIndex??0;
- if(actor.team===TEAMS.DEFENDERS){
-   if(s.phase===0)return i<3?{x:(i-1)*12,y:6,z:-23.4}
-     :{x:(i===3?-7:7),y:7,z:22.8};
-   if(s.phase===1)return {x:(i-2)*8,y:7,z:22.8};
-   return {x:(i-2)*6,y:0,z:47};
- }
- const own=s.ladders.find(l=>l.holderId===actor.id);
- const wall=walls[Math.min(1,s.phase)];
- if(s.phase<2){
-   if(own)return {x:actor.rivalIndex%2===0?-6:6,y:0,z:wall.baseZ};
-   const deploy=s.ladders.find(l=>l.state==='deployed'&&l.wall===s.phase);
-   if(deploy){
-     const atFoot=Math.abs(actor.position.z-wall.baseZ)<3.2
-       &&Math.abs(actor.position.x-deploy.position.x)<3.2;
-     const ascending=atFoot||(actor.position.y>.6&&actor.position.z<wall.z+2);
-     return ascending?{x:deploy.position.x,y:wall.height,z:wall.z+2.2}
-       :{x:deploy.position.x,y:0,z:wall.baseZ};
-   }
-   const previous=s.ladders[(actor.rivalIndex??0)%2];
-   if(i<2&&previous?.state==='deployed'&&previous.wall<s.phase)
-     return {x:previous.position.x,y:walls[previous.wall].height,z:walls[previous.wall].z};
-   const loose=s.ladders[(actor.rivalIndex??0)%2]?.state==='available'
-     ?s.ladders[(actor.rivalIndex??0)%2]:s.ladders.find(l=>l.state==='available');
-   if(loose)return {...loose.position};
-   return {x:(i%2?6:-6),y:0,z:wall.baseZ};
- }
- return {x:0,y:0,z:55};
-}
 export const RESTLESS_DAY_HANDLER=Object.freeze({
  ownsTeamObjectives:()=>true,
  botOccupation:(room,actor)=>actor.restlessCarrying?'carry':null,
@@ -395,9 +373,19 @@ export const RESTLESS_DAY_HANDLER=Object.freeze({
    room.events.push({type:'restlessDaylightStarted',deadline:room.restlessDay.deadline,at:now,
      subtitle:"If I ever sleep, I'll surrender. Let this be a restless day."});},
  step:restlessnessStep,onTime,beforeStructureDamage,onStructureDamage,
- spawn:(room,player,spawns)=>spawns.filter(point=>point.team===player.team&&(
-   player.team===TEAMS.DEFENDERS?point.phase===0:point.phase===(room.restlessDay?.phase??0))),
- botGoal,
+ // Both sides return to the fight where it now is: attackers to the ground they
+ // have taken, defenders to what they still hold (not a fallen wall-walk they
+ // could no longer leave). A world without later defender posts keeps phase 0's.
+ spawn:(room,player,spawns)=>{
+   const phase=room.restlessDay?.phase??0;
+   const own=spawns.filter(point=>point.team===player.team);
+   if(player.team!==TEAMS.DEFENDERS)return own.filter(point=>point.phase===phase);
+   const held=own.filter(point=>point.phase===phase);
+   return held.length?held:own.filter(point=>point.phase===0);
+ },
+ // what each bot works toward, and what it does with its own hands (restlessDaySiege.mjs)
+ botGoal:(room,actor)=>siegeBotGoal(room,actor),
+ botAct:(room,actor,now,ctx)=>siegeBotAct(room,actor,now,ctx),
  command:(room,player,message,now)=>message.type==='restlessLadder'
    ?interactRestlessLadder(room,player,now):null,
  serialize:(room,now)=>room.restlessDay?{
