@@ -1,0 +1,28 @@
+Testing exported client http://127.0.0.1:62522/html/verified/?debug
+Desktop canvas target {
+  rect: { x: 0, y: 0, width: 1280, height: 657 },
+  hit: '<canvas data-engine="three.js r169" width="1280" height="657" style="display: block; width: 1280px; height: 657px;"></canvas>',
+  focused: true,
+  width: 1280,
+  height: 657
+}
+{
+  "failure": "Browser check timed out: Tutorial world",
+  "state": {
+    "result": {
+      "type": "string",
+      "value": "{\"text\":\"DRAG TO TURN · DOUBLE-CLICK TO RESET\\n← BACK\\n\\nSOLO\\n\\nPLAY ALONE\\nSPELLBLADE NAME\\n\\nFight one rival or train at your own pace.\\n\\nBOT DUEL\\nOne Spellblade · first to 10\\n \\nRAMPAGE TO RENOWN\\nTimed waves · earn prestige or face the Rightful Renowner\\n \\nEDGE OF VICTORY\\nFour knights · discover spells · no retreat · one survivor\\nPRACTICE YARD\\nUntimed training with configurable dummies\\n \\nSHARED PRACTICE YARD\\nPrivate multiplayer training · invite others with a room code\\n \\nTUTORIAL\\nGreener Pastures · movement, stamina and combat fundamentals\\n \\nINSPECTION YARD\\nLocal sandbox · fly camera, dummies and frame stepping\\n\\nYOUR CHOSEN PURSUIT\\n\\nTUTORIAL\\n\\nGreener Pastures: learn movement, stamina and combat.\\n\\nBEGIN TUTORIAL\\nEnter the arena\",\"debug\":false,\"locked\":false}"
+    }
+  },
+  "errors": [],
+  "resources": []
+}
+file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.launch-probe.mjs:62
+  throw new Error(`Browser check timed out: ${label}`);
+        ^
+
+Error: Browser check timed out: Tutorial world
+    at until (file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.launch-probe.mjs:62:9)
+    at async file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.launch-probe.mjs:136:3
+
+Node.js v24.15.0

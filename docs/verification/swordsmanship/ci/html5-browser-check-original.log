@@ -1,0 +1,22 @@
+Testing exported client http://127.0.0.1:62471/html/verified/?debug
+{
+  "failure": "Browser check timed out: Practice Yard",
+  "state": {
+    "result": {
+      "type": "string",
+      "value": "{\"text\":\"DRAG TO TURN · DOUBLE-CLICK TO RESET\\n← BACK\\n\\nSOLO\\n\\nPLAY ALONE\\nSPELLBLADE NAME\\n\\nFight one rival or train at your own pace.\\n\\nBOT DUEL\\nOne Spellblade · first to 10\\n \\nRAMPAGE TO RENOWN\\nTimed waves · earn prestige or face the Rightful Renowner\\n \\nEDGE OF VICTORY\\nFour knights · discover spells · no retreat · one survivor\\nPRACTICE YARD\\nUntimed training with configurable dummies\\n \\nSHARED PRACTICE YARD\\nPrivate multiplayer training · invite others with a room code\\n \\nTUTORIAL\\nGreener Pastures · movement, stamina and combat fundamentals\\n \\nINSPECTION YARD\\nLocal sandbox · fly camera, dummies and frame stepping\\n\\nYOUR CHOSEN PURSUIT\\n\\nPRACTICE YARD\\n\\nUntimed training with configurable dummies.\\n\\nARENA\\nCASTLEWARD\\nTHE RUINED KEEP\\nENTER PRACTICE YARD\\nEnter the arena\",\"debug\":false,\"locked\":false}"
+    }
+  },
+  "errors": [],
+  "resources": []
+}
+file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.mjs:62
+  throw new Error(`Browser check timed out: ${label}`);
+        ^
+
+Error: Browser check timed out: Practice Yard
+    at until (file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.mjs:62:9)
+    at async practice (file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.mjs:105:5)
+    at async file:///Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/practical-lalande-0e20b8/scripts/release/browser-check.mjs:110:3
+
+Node.js v24.15.0
