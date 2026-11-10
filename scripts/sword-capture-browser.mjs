@@ -77,7 +77,8 @@ try {
   await evaluate("document.querySelector('#practice-drawer-close')?.click()");
   const dummy = flag('--dummy') || flag('--dummy-guard');
   if (dummy) {
-    await evaluate("window.__ssLink.practiceSpawnDummy('PASSIVE')");
+    // (the yard's own guarding dummy keeps its guard up until it breaks; the passive one drops any guard)
+    await evaluate(`window.__ssLink.practiceSpawnDummy('${flag('--dummy-guard') ? 'GUARDING' : 'PASSIVE'}')`);
     await sleep(600);
   }
   // the knight faces down an open stretch (and the dummy, if any, 1.9 m ahead); the third-person camera beside him
@@ -85,8 +86,9 @@ try {
     const rt = window.__ssRuntime, link = window.__ssLink, me = rt.localAuth;
     const dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy');
     if (dummy) {
-      link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x, y: me.position.y, z: me.position.z - 1.9 }, vitals: { refill: true }, ai: { suspended: true } });
-      if (${flag('--dummy-guard')}) link.stageInspectionActor({ actorId: dummy.id, pose: 'guard' });
+      link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x, y: me.position.y, z: me.position.z - 1.9 }, vitals: { refill: true } });
+      // (facing me: a guard covers only what is in front of it)
+      link.stageInspectionActor({ actorId: dummy.id, position: 'face_target' });
       // (kept on his feet: his vitals refilled as each chain begins, so ten chains land on him)
       // (a guarding dummy keeps the stamina his guard has left: it is meant to break)
       window.__dummyRefill = setInterval(() => link.stageInspectionActor({ actorId: dummy.id, vitals: ${flag('--dummy-guard')} ? { health: 100 } : { refill: true } }), 2080);
@@ -123,7 +125,7 @@ try {
   await evaluate(`(() => {
     const rt = window.__ssRuntime;
     window.__swordRun = { events: [], frames: [] };
-    rt.socket.on('events', (batch) => { for (const e of batch.events) if (['swordSwing','swordHit','swordMiss','attackStarted','attackEnded','block','parry'].includes(e.type) && e.playerId === rt.playerId || e.attackerId === rt.playerId) window.__swordRun.events.push({ type: e.type, strike: e.strikeIndex, at: e.at }); });
+    rt.socket.on('events', (batch) => { for (const e of batch.events) if (['swordSwing','swordHit','swordMiss','attackStarted','attackEnded','block','parry','guardBreak'].includes(e.type) && e.playerId === rt.playerId || e.attackerId === rt.playerId) window.__swordRun.events.push({ type: e.type, strike: e.strikeIndex, at: e.at }); });
     const tick = () => { const a = rt.localAuth; window.__swordRun.frames.push({ wall: performance.now(), server: rt.socket.serverNow(), active: a?.attackActive, startedAt: a?.attackStartedAt, fps: rt.fps }); if (window.__swordRun.frames.length < 4000) requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   })()`);
