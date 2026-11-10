@@ -3342,16 +3342,16 @@ export class GameRuntime {
       // (the way the attacker's blade was going as it met: his aim and the cut, as the server swept it)
       const aim = event.playerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.playerId);
       const travel = aim && Number.isFinite(aim.yaw) ? cutTravel(strike, aim.yaw, aim.pitch ?? 0) : null;
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker });
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker, heavy: event.level === 'elevated' });
       this.remotePlayers.flashHit(event.targetId);
     }
-    // a Sundering blow: its weight made felt and seen (a deep whump under the hit, heavier sparks and a shock ring)
+    // a Sundering blow: its weight made felt and seen (a deep whump under the hit, sparks driven down, the ground kicked up)
     if (event.level === 'elevated') {
       const mine = event.playerId === me || event.targetId === me;
       this.#play(sunderForceRecipe(), mine ? null : point, mine ? 1 : 0.8);
       // and the iron rings: the bell of it is for a knight struck, never the bare ground
       this.#play(sunderRingRecipe(), mine ? null : point, mine ? 0.9 : 0.75);
-      if (point) this.effects.sunderStrike(point, blowDirection(victim, attacker));
+      if (point) this.effects.sunderStrike(point, blowDirection(victim, attacker), { feet: victim });
       if (event.targetId === me) this.cameraKick = Math.max(this.cameraKick, 0.14);
     }
     if (event.playerId === me) {

@@ -689,12 +689,33 @@ export class Effects {
     glowMaterial.dispose();
   }
 
-  /** A Sundering blow landing: heavier sparks and a dull shock ring round the point, the blow's weight made visible. */
-  sunderStrike(point, dir) {
-    this.sparks(point, 0xffb060, 16);
-    this.#groundRing({ x: point.x, y: point.y, z: point.z }, 0xb8602c, 0.8, true);
-    this.#flashLight(point, 0xff9a50, 2.4, 0.12, 4);
-    void dir;
+  /**
+   * A Sundering blow landing on a body, its weight made visible without a ring: hot sparks driven down off the plate,
+   * broken plate and grit thrown out under it, and dust knocked up round the struck knight's feet (`feet`: where he
+   * stands) as the blow drives him into the ground. (The ordinary burst is drawn too, heavy: hitBurst.)
+   */
+  sunderStrike(point, dir, { feet = null } = {}) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
+    push.normalize();
+    for (let i = 0, n = this.#many(14); i < n; i += 1) {
+      const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 2 ? 0xffb060 : 0xffe2a8));
+      spark.position.copy(at);
+      const velocity = new THREE.Vector3((Math.random() - 0.5) * 3, -(2.5 + Math.random() * 3.5), (Math.random() - 0.5) * 3).addScaledVector(push, 1 + Math.random() * 1.5);
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.2, shrink: true, gravity: 9, drag: 1.6 });
+    }
+    const stones = [this.#basicMaterial(0x5a5651), this.#basicMaterial(0x7d766a)];
+    for (let i = 0, n = this.#many(8); i < n; i += 1) {
+      const chip = new THREE.Mesh(this.chipGeometry, stones[i % 2]);
+      chip.position.copy(at);
+      chip.scale.setScalar(1.2 + Math.random());
+      const velocity = push.clone().multiplyScalar(1.5 + Math.random() * 2).add(new THREE.Vector3((Math.random() - 0.5) * 3, 0.6 + Math.random() * 1.8, (Math.random() - 0.5) * 3));
+      this.#addTransient(chip, { velocity, life: 0.55 + Math.random() * 0.3, gravity: 14, spin: new THREE.Vector3(9, 11, 7), shrink: true });
+    }
+    if (feet) for (let i = 0, n = this.#many(4); i < n; i += 1) this.#dust({ x: feet.x, y: feet.y + 0.05, z: feet.z }, { size: 1.2, rise: 0.5, life: 0.55 });
+    this.#flashLight(at, 0xff9a50, 2.6, 0.12, 4);
   }
 
   splinters(point, count = 10) {
@@ -777,10 +798,14 @@ export class Effects {
     this.#flashLight(at, 0xffd9a0, (big ? 2.2 : 1.4) * bite, 0.07, 3);
   }
 
-  /** The killing blow: a shockwave at the feet and embers rising off the body. */
+  /** The killing blow: dust knocked up round the feet as the body goes down, and embers rising off it (no ring). */
   killBurst(point) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
-    this.#groundRing(at, 0xff9a4a, 1.6);
+    const feet = { x: at.x, y: at.y - 1.15, z: at.z };
+    for (let i = 0, n = this.#many(6); i < n; i += 1) {
+      const angle = (i / 6) * Math.PI * 2 + Math.random() * 0.5;
+      this.#dust(feet, { size: 1.1, rise: 0.4, life: 0.6, velocity: new THREE.Vector3(Math.cos(angle) * 1.6, 0.3, Math.sin(angle) * 1.6) });
+    }
     for (let i = 0, n = this.#many(24); i < n; i += 1) {
       const ember = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       ember.position.set(at.x + (Math.random() - 0.5) * 0.6, at.y - 0.4 + Math.random() * 0.8, at.z + (Math.random() - 0.5) * 0.6);
