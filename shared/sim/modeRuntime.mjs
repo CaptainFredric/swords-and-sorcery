@@ -6,7 +6,7 @@ import { RESTLESS_DAY_HANDLER } from './restlessDayMode.mjs';
 
 export const MODE_HOOKS=Object.freeze([
   'ownsTeamObjectives','init','beforeSpawns','reset','baseWorld','composeWorld',
-  'step','command','spawn','botGoal','botOccupation',
+  'step','command','spawn','botGoal','botOccupation','botAct',
   'beforeStructureDamage','onStructureDamage','onTime','serialize',
 ]);
 const supported=new Set(MODE_HOOKS);
