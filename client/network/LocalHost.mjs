@@ -28,7 +28,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'siegeSkill','ultimate','oneHitRelease','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','oneHitRelease','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
@@ -128,6 +128,7 @@ export class LocalHost {
       this.roomCode = message.roomCode;
     }
     if (message.type === 'snapshot') {
+      if (message.renownTrial) message.renownTrial.rehearsal = true;
       this.latestSnapshot = message;
       this.snapshotReceivedAt = performance.now();
     }
@@ -927,9 +928,10 @@ export class LocalHost {
   }
   selectPreparedSpell(spell) { this.#command({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
-  ultimate() { this.#command({ type: 'ultimate' }); }
+  ultimate({held=false}={}) { this.#command({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease() { this.#command({type:'oneHitRelease'}); }
+  oneHitRelease({cancel=false}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitDetonate(waveId) { this.#command({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.#command({type:'practiceOneHit',...options}); }
   siegeOperate() { this.#command({ type: 'siegeOperate' }); }
   bibyeOperate() { this.#command({ type: 'bibyeOperate' }); }

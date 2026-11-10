@@ -1397,7 +1397,7 @@ export class TouchControls {
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
-      } else this.input.ultimate();
+      } else this.input.ultimate(`touch:${event.pointerId}`);
     }
     if (action === 'dash') {
       if (this.input.mountedFlight || this.flightMounted) this.input.flightDash(true, `touch:${event.pointerId}`);
@@ -1464,7 +1464,7 @@ export class TouchControls {
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(false, `touch:${pointerId}`);
-      } else if(!cancelled) this.input.ultimateRelease?.();
+      } else this.input.ultimateRelease?.(`touch:${pointerId}`,cancelled);
     }
     if (action === 'jump') this.jumpHeld = false;
     if(action==='crouch'&&this.ramMounted)

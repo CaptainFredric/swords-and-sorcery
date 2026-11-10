@@ -20,7 +20,7 @@ import { STEEL_RIPPLE, createSteelSheen } from './steelSheen.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
-import { disasterBodyTurn } from './oneHitCamera.mjs';
+import { disasterBodyTurn, disasterHolding } from './oneHitCamera.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
@@ -808,7 +808,7 @@ export class RemotePlayers {
     d.reactions = pruneReactions(d.reactions, serverNow);
 
     // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
-    d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+    d.crouchAmount = (d.crouchAmount ?? 0) + ((state !== 'dead' && (pb.crouched || (pb.grounded && disasterHolding(pb.ultimateState))) ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
     const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
     d.guardAmount = (d.guardAmount ?? 0) + ((pb.guarding && state !== 'stagger' && state !== 'dead' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
 

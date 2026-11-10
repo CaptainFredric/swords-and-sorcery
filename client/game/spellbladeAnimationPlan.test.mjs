@@ -258,3 +258,35 @@ test('All-Natural Disaster poses the third-person sword through the actual strik
   const charge={...charging,ultimateState:{...charging.ultimateState,commitAt:3_600_010,preparedTiers:{lightning:2},teleportHoldAt:10}};
   assert.ok(resolveSpellbladeAnimationPlan({state:'one-hit',player:charge,serverNow:30}).time < contact.time,'charge pose holds until release');
 });
+
+test('alternate ordinary chains change only noncontact samples and retain all three chain transitions',()=>{
+  const player={attackStartedAt:10,attackPresentation:1};
+  const baseline={...player,attackPresentation:0};
+  for(const [strike,contact] of [0.4,1.1,1.8].entries()){
+    const at=10+contact;
+    const third=(p,t)=>resolveSpellbladeAnimationPlan({state:'attack',player:p,serverNow:t});
+    const first=(p,t)=>resolveFirstPersonAnimationPlan({state:'attack'},p,t);
+    for(const offset of [-.09,-.055,0,.06,.11]){
+      assert.deepEqual(third(player,at+offset),third(baseline,at+offset));
+      assert.deepEqual(first(player,at+offset),first(baseline,at+offset));
+    }
+    for(const offset of [-.17,.14]){
+      assert.notEqual(third(player,at+offset).time,third(baseline,at+offset).time);
+      assert.deepEqual(first(player,at+offset),third(player,at+offset));
+    }
+    const boundary=10+[0,.72,1.44][strike];
+    assert.deepEqual(third(player,boundary),third(baseline,boundary));
+  }
+});
+
+test('only the vetted canonical airborne Lightning hold selects its authored clip',()=>{
+  const hold={id:'one_hit_of_wonders',phase:'startup',commitAt:3_600_010,
+    teleportHoldAt:10,preparedTiers:{lightning:2,gale:2}};
+  const plan=(grounded,serverNow)=>resolveSpellbladeAnimationPlan({
+    state:'one-hit',player:{ultimateState:hold,grounded},serverNow,
+  });
+  assert.equal(plan(false,10.3).clip,'AllNatural_Lightning_Charge_Air');
+  assert.equal(plan(false,10.3).loop,true);
+  assert.equal(plan(false,60.2).clip,'AllNatural_Lightning_Charge_Air');
+  assert.equal(plan(true,10.3).clip,'Slash_3');
+});

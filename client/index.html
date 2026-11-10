@@ -145,7 +145,7 @@
           <span class="plaque-icon" id="plaque-icon-technique" aria-hidden="true"></span>
           <div class="plaque-text">
             <span class="plaque-label">TECHNIQUE</span>
-            <strong class="plaque-name" id="plaque-name-technique">Castleward longsword</strong>
+            <strong class="plaque-name" id="plaque-name-technique">None equipped</strong>
           </div>
         </button>
 
@@ -203,7 +203,7 @@
       </div>
 
       <!-- Sliding Equipment Inspector (right side) -->
-      <aside id="armory-inspector" class="armory-inspector closed" aria-label="Equipment Inspector">
+      <aside id="armory-inspector" class="armory-inspector closed" inert aria-label="Equipment Inspector">
         <div class="inspector-inner banner-panel">
           <header class="inspector-header">
             <div>
@@ -214,6 +214,12 @@
             <button type="button" id="armory-inspector-close" class="inspector-close" aria-label="Close Inspector">✕</button>
           </header>
 
+          <nav id="armory-inspector-categories" class="mode-filters" aria-label="Equipment categories">
+            <button type="button" data-inspector-category="technique">SWORD TECHNIQUES</button>
+            <button type="button" data-inspector-category="sorcery">SORCERY</button>
+            <button type="button" data-inspector-category="masterstroke">MASTERSTROKES</button>
+            <button type="button" data-inspector-category="heraldry">HERALDRY</button>
+          </nav>
           <div class="inspector-scroll armory-scroll" tabindex="0">
             <!-- Technique list -->
             <div id="inspector-list-technique" class="inspector-list hidden">
@@ -290,12 +296,6 @@
             </header>
 
             <section class="siege-section">
-              <h4 class="armory-slot">OVERVIEW</h4>
-              <p class="siege-overview-text" id="siege-overview-text"></p>
-              <small class="siege-facts-pill" id="siege-facts-pill"></small>
-            </section>
-
-            <section class="siege-section">
               <h4 class="armory-slot">ABILITIES & ATTACKS</h4>
               <div id="siege-attacks-list" class="siege-attacks-list"></div>
 
@@ -309,6 +309,12 @@
                 <div class="siege-controls-row"><strong>DESKTOP</strong><span id="siege-ctrl-desktop"></span></div>
                 <div class="siege-controls-row"><strong>TOUCH</strong><span id="siege-ctrl-touch"></span></div>
               </div>
+            </section>
+
+            <section class="siege-section">
+              <h4 class="armory-slot">OVERVIEW</h4>
+              <p class="siege-overview-text" id="siege-overview-text"></p>
+              <small class="siege-facts-pill" id="siege-facts-pill"></small>
             </section>
 
             <section class="siege-section">
@@ -403,7 +409,7 @@
           <small>One Spellblade · first to 10</small>
         </button>
         <button id="renown-trials-mode" class="mode-choice" type="button">
-          <span>RENOWN TRIALS</span>
+          <span>RAMPAGE TO RENOWN</span>
           <small>Timed waves · earn prestige or face the Rightful Renowner</small>
         </button>
         <button id="edge-of-victory-mode" class="mode-choice" type="button">
@@ -465,23 +471,32 @@
     <section id="breakthrough-menu" class="side-screen paired-banners" data-panel="list">
       <div class="side-screen-inner banner-panel breakthrough-inner"><div class="banner-scroll">
         <button class="back-button" id="breakthrough-back">← BACK</button>
-        <p class="eyebrow">COMPETITIVE &amp; TEAM BATTLES</p>
+        <p class="eyebrow">SOLO &amp; TEAM BATTLES</p>
         <h2>MODES OF METTLE</h2>
         <div id="mettle-modes" class="mode-filters" role="group" aria-label="Battle mode">
           <button type="button" data-mettle-mode="BREAKTHROUGH" class="selected">BREAKTHROUGH</button>
           <button type="button" data-mettle-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
           <button type="button" data-mettle-mode="RESTLESS_DAY">RESTLESS DAY</button>
+          <button type="button" data-mettle-mode="RENOWN_TRIALS">RAMPAGE TO RENOWN</button>
+          <button type="button" data-mettle-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
         <p class="scenario-subtitle" id="breakthrough-scenario-subtitle">BASTION BREACH</p>
         <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
         <input id="breakthrough-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy" id="breakthrough-panel-copy">Attackers capture successive objectives; Defenders fight to hold the stronghold.</p>
+        <div id="mettle-renown-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Rampage battlefield" hidden>
+          <button type="button" class="vote-chip" role="radio" data-renown-arena="court-of-merit">COURT OF MERIT</button>
+          <button type="button" class="vote-chip" role="radio" data-renown-arena="castleward">CASTLEWARD</button>
+        </div>
         <button id="mettle-options" class="mode-choice mettle-options" type="button">
           <span>CHOOSE YOUR BATTLE ORDERS</span><small>Battlefield · sides · allies · rival difficulty</small>
         </button>
         <button id="breakthrough-play-bots" class="mode-choice primary-command" type="button">
           <span>PLAY WITH BOTS</span><small>Launch a team battle, with bots filling open slots</small>
+        </button>
+        <button id="mettle-renown-rehearse" class="mode-choice" type="button" hidden>
+          <span>REHEARSE ON THIS DEVICE</span><small>Play the solo waves without earning account Renown</small>
         </button>
         <button id="breakthrough-find-public" class="mode-choice" type="button">
           <span>BROWSE PUBLIC MATCHES</span><small>Find a battle with other Spellblades</small>

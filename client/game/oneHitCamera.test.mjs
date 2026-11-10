@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { disasterBodyTurn, disasterCameraWanted, disasterWindupSec, DISASTER_CAMERA } from './oneHitCamera.mjs';
+import { disasterBodyTurn, disasterCameraWanted, disasterWindupSec, stepDisasterReveal, DISASTER_CAMERA } from './oneHitCamera.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 
 const player = state => ({alive:true,ultimateState:state});
@@ -23,14 +23,14 @@ test('aerial Gale variant stays visible through the delayed travelling wave and 
   assert.equal(disasterCameraWanted(player(active(10,'aerial')),11.18),true);
   assert.equal(disasterCameraWanted(player(active(10,'aerial')),11.22),false);
 });
-test('partial lightning gets an abbreviated lead; full lightning indefinite charge does not leave the helm until release',()=>{
+test('partial lightning gets an abbreviated lead; full lightning retains an aimable chase view through charge and release',()=>{
   const partial=startup(10,{lightning:1});
   assert.equal(disasterWindupSec(partial),.36);
   assert.equal(disasterCameraWanted(player(partial),9.5),false);
   assert.equal(disasterCameraWanted(player(partial),9.75),true);
   const held=startup(3_600_010,{lightning:2});
   held.teleportHoldAt=10;
-  assert.equal(disasterCameraWanted(player(held),25),false);
+  assert.equal(disasterCameraWanted(player(held),25),true);
   assert.equal(disasterCameraWanted(player(active(25)),25.01),true,'release triggers cinematic');
 });
 test('interruption, loss of life, another Ultimate, and match reset never retain the cinematic',()=>{
@@ -39,6 +39,18 @@ test('interruption, loss of life, another Ultimate, and match reset never retain
   assert.equal(disasterCameraWanted(player({...startup(10),phase:'interrupted'}),9.9),false);
   assert.equal(disasterCameraWanted(player({id:'vortex',phase:'active',commitAt:10,until:20}),11),false);
   assert.equal(disasterCameraWanted(player(active(10)),12),false);
+});
+test('a late first rendered commit still gets a bounded reveal without replaying on subsequent frames',()=>{
+  const knight=player(active(10));
+  assert.equal(disasterCameraWanted(knight,11.035),false,'CI first observed active frame missed the normal window');
+  let reveal=stepDisasterReveal(null,knight,11.035,.05,0);
+  assert.ok(reveal.remaining>0);
+  for(let i=1;i<=6;i++)reveal=stepDisasterReveal(reveal,knight,11.035+i*.05,.05,0);
+  assert.equal(reveal.remaining,0);
+  assert.equal(stepDisasterReveal(reveal,knight,11.4,.05,0).remaining,0);
+  assert.equal(stepDisasterReveal(reveal,player(null),11.4,.05,0),null);
+  assert.equal(stepDisasterReveal(null,knight,11.7,.05,0),null,'stale active snapshot cannot start a reveal');
+  assert.equal(stepDisasterReveal(null,knight,10.1,.05,.8).remaining,0,'ordinary chase was already visible');
 });
 test('authored full-body turn rotates smoothly, returns to facing before contact, does not affect aim',()=>{
   const state=startup(10);

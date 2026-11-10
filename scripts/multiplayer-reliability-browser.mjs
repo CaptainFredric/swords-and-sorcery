@@ -1,43 +1,28 @@
 // Two independent real Chromium processes join the same server-authoritative
-// Practice Yard through ordinary menu and canvas interactions (no state edits).
+// High Grounds match through ordinary menu and canvas interactions.
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {createGameServer} from '../server/src/server.mjs';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {observeAcceptanceWire} from './browser-acceptance-wire.mjs';
-const url=(process.env.MULTIPLAYER_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
+import {launchAcceptanceChrome} from './acceptance-chrome.mjs';
 const out='output/playwright/multiplayer-reliability';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-
-let spawnedServer = null;
-try {
-  const res = await fetch(url + '/health');
-  if (!res.ok) throw new Error('health check not ok');
-} catch {
-  const p = new URL(url).port || '3001';
-  spawnedServer = spawn('node', ['server/src/server.mjs'], {
-    env: { ...process.env, PORT: p, HOST: '127.0.0.1' },
-    stdio: 'ignore'
-  });
-  await sleep(1500);
-}
+const external=process.env.MULTIPLAYER_BROWSER_URL;
+const game=external?null:createGameServer({host:'127.0.0.1',port:0});
+if(game)await game.start();
+const url=(external??'http://127.0.0.1:'+game.address().port).replace(/\/$/,'');
 const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium');
 const browsers=[];
-async function connectBrowser(label,port){
+async function connectBrowser(label){
  const profile=await mkdtemp(join(tmpdir(),'castleward-multi-'+label+'-'));
- const child=spawn(chromeBin,[
-  '--headless=new','--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader',
-  '--disable-background-timer-throttling','--disable-renderer-backgrounding',
-  '--disable-backgrounding-occluded-windows',
-  '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
-  '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ const {child,target}=launchAcceptanceChrome(chromeBin,profile,join(out,label+'-chrome.log'),
+   process.env.CI ? {width:800,height:450} : {});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
  b.wire=observeAcceptanceWire(label);
- const debuggerTarget=await waitFor(async()=>{
-  const res=await fetch('http://127.0.0.1:'+port+'/json/list');
-  return (await res.json()).find(t=>t.type==='page');
- },'debugger ready',180);
+ stage=label+' Chrome debugger startup';
+ const debuggerTarget=await target();
  b.ws=new WebSocket(debuggerTarget.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{b.ws.onopen=resolve;b.ws.onerror=reject;});
  b.ws.onmessage=e=>{const packet=JSON.parse(String(e.data));
@@ -56,7 +41,12 @@ async function connectBrowser(label,port){
  b.key=async(letter,type)=>b.send('Input.dispatchKeyEvent',{type,key:letter.toLowerCase(),code:'Key'+letter.toUpperCase(),windowsVirtualKeyCode:letter.toUpperCase().charCodeAt(0)});
  b.tap=async letter=>{await b.key(letter,'rawKeyDown');await sleep(100);await b.key(letter,'keyUp');};
  b.screenshot=async name=>{try{const res=await b.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+label+'-'+name+'.png',Buffer.from(res.data,'base64'));}catch(e){console.warn('[CDP SCREENSHOT SKIP] '+label+'-'+name+': '+e.message);}};
- await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');await b.send('Page.navigate',{url:url+'/?debug'});
+ await b.send('Page.enable');await b.send('Runtime.enable');await b.send('Network.enable');
+ // Preserve the desktop layout and live WebGL renderer while reducing the
+ // two framebuffer workloads on software-rendered runners.
+ if(process.env.CI)await b.send('Emulation.setDeviceMetricsOverride',
+   {width:800,height:450,deviceScaleFactor:.5,mobile:false});
+ await b.send('Page.navigate',{url:url+'/?debug'});
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  // Input packets leave only from the game's render loop, so how often each
  // browser draws is evidence for every movement step (CI renders in software).
@@ -86,8 +76,8 @@ async function waitFor(fn, label, attempts = 180) {
 let host=null,guest=null;
 const summary="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,p=r?.localAuth,q=r?.localState,f=window.__frameProbe;return {playing:r?.playing??false,room:s?.roomCode,mode:s?.mode,world:s?.worldId,state:s?.roomState,tick:s?.tick,players:s?.players?.length,auth:p?.position,client:q?.position,grounded:p?.grounded,correction:r?.predictionError,fps:r?.fps,renderer:r?.world?.constructor?.name,inputEnabled:r?.input?.enabled,frameCount:f?.count,maxFrameGapMs:f?.maxGap,finiteCamera:Number.isFinite(r?.camera?.position?.y)};})()";
 try {
-  host=await connectBrowser('host',9268);
-  guest=await connectBrowser('guest',9269);
+  host=await connectBrowser('host');
+  guest=await connectBrowser('guest');
   for(const b of [host,guest]){
     await b.evaluate("document.querySelector('#link-retry')?.click()");
     await waitFor(()=>b.evaluate("document.querySelector('[data-link-mark]')?.dataset?.tone==='online'"),
@@ -103,8 +93,8 @@ try {
   await guest.evaluate("document.querySelector('#player-name').value='Crimson Browser';document.querySelector('#private-button').click()");
   await guest.evaluate("document.querySelector('#private-name').value='Crimson Browser';const code=document.querySelector('#room-code');code.value="+JSON.stringify(roomCode)+";code.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#join-room').click()");
   await waitFor(()=>guest.evaluate("window.__ssLink?.roomCode==="+JSON.stringify(roomCode)), 'guest joins same room',150);
-  await host.evaluate("window.__ssLink.ready(true)");
-  await guest.evaluate("window.__ssLink.ready(true)");
+  stage='both clients ready';
+  await Promise.all([host.evaluate("window.__ssLink.ready(true)"),guest.evaluate("window.__ssLink.ready(true)")]);
   await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.roomState==='PLAYING'"), 'host real rendered match',220);
   await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.roomState==='PLAYING'"), 'guest real rendered match',220);
   const before=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
@@ -122,8 +112,15 @@ try {
     await b.send('Page.bringToFront');
     await b.evaluate("window.focus(); window.__ssRuntime?.requestPointerLock?.(); window.__ssRuntime?.input?.requestPointerLock?.();");
     if(!await b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)")){
-      await b.send('Input.dispatchMouseEvent',{type:'mousePressed',x:450,y:400,button:'left',clickCount:1});
-      await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:450,y:400,button:'left',clickCount:1});
+      const xy=await b.evaluate(`(() => {
+        const pause=document.querySelector('#pause-menu');
+        const element=pause&&!pause.classList.contains('hidden')
+          ? document.querySelector('#resume-game') : window.__ssRuntime.renderer.domElement;
+        const rect=element.getBoundingClientRect();
+        return {x:rect.x+rect.width*.5,y:rect.y+rect.height*.5};
+      })()`);
+      for(const type of ['mousePressed','mouseReleased'])
+        await b.send('Input.dispatchMouseEvent',{type,...xy,button:'left',clickCount:1});
     }
     await waitFor(()=>b.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),b.label+' playable focused input',90);
     // Aim directly along the open 15m-wide central road towards map center (0, 0).
@@ -131,6 +128,10 @@ try {
     assert.equal(b.wire.state?.roomState, 'PLAYING', b.label+' must begin W while the match is live');
     assert.ok(b.wire.state?.position, b.label+' has an authoritative starting position');
     b.wire.watchMovement();
+    const actor=game?.roomManager.findByCode(roomCode)?.players.get(b.wire.playerId);
+    b.authority = () => actor ? {ack:actor.lastInputSeq,forward:actor.input.forward,position:{...actor.position}} : null;
+    const start=b.authority()?.position??b.wire.state.position;
+    const distance=position=>Math.hypot(position.x-start.x,position.z-start.z);
     stage = b.label+' W dispatch';
     console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W down');
     try {
@@ -138,7 +139,15 @@ try {
       await waitFor(()=>b.evaluate("window.__ssRuntime?.input?.movement()?.forward>0.5"),
         b.label+' real W key reaches input controller',70);
       const movement = await waitFor(() => {
-        if (b.wire.movement.peak > 0.25 || b.wire.state?.roomState === 'FINISHED') return b.wire.movement;
+        const actual=b.authority();
+        if(!b.serverFirstAck && b.wire.forward && actual?.ack>=b.wire.forward.seq){
+          b.serverFirstAck=actual;
+          console.log('[ACCEPTANCE SERVER ACK]',b.label,JSON.stringify(actual));
+        }
+        if (actor && actor.alive && b.serverFirstAck && distance(actual.position)>.25)
+          return {peak:distance(actual.position),ack:actual.ack};
+        if (!actor && b.wire.movement.peak > 0.25) return b.wire.movement;
+        if (b.wire.state?.roomState === 'FINISHED') return {peak:0};
         return null;
       }, b.label+' acknowledged W changes authoritative position', 180);
       assert.ok(movement.peak > 0.25, b.label+' match finished before confirmed W displacement');
@@ -148,6 +157,11 @@ try {
       console.log('[ACCEPTANCE KEY]', new Date().toISOString(), b.label+' W up');
     }
   }
+  // Drain any render-bound receive backlog after both real keys are up.
+  // Server movement alone is insufficient: each browser must observe its ack
+  // and authoritative displacement through the ordinary snapshot stream.
+  await waitFor(()=>[host,guest].every(b=>b.wire.movement.peak>.25),
+    'both Chrome clients receive authoritative W displacement',450);
   const after=await waitFor(async()=>{
     const pair=await Promise.all([host.evaluate(summary),guest.evaluate(summary)]);
     samples.push(pair);
@@ -181,19 +195,19 @@ try {
     participants:6,world:result.world,
     renderedFrames:after.map((v,i)=>v.frameCount-before[i].frameCount),
     simulatedTicks:after[0].tick-before[0].tick,
-    moved,movedByClient,p95PredictionError:p95,maxRenderFrameGapMs:after.map(v=>v.maxFrameGapMs),
+    moved,movedByClient,serverFirstAck:browsers.map(b=>b.serverFirstAck??null),p95PredictionError:p95,maxRenderFrameGapMs:after.map(v=>v.maxFrameGapMs),
     skippedServerTicks:health.simulation.skippedSteps
   }));
 }catch(e){
   console.error('[MULTIPLAYER CHROME FAILED]',stage,e.stack??String(e));
   await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(e),
-    browsers:browsers.map(b=>({label:b.label,errors:b.errors,wire:b.wire.state,forward:b.wire.forward,movement:b.wire.movement}))},null,2));
+    browsers:browsers.map(b=>({label:b.label,errors:b.errors,wire:b.wire.state,forward:b.wire.forward,movement:b.wire.movement,server:b.authority?.(),serverFirstAck:b.serverFirstAck}))},null,2));
   if(host)await host.screenshot('failure').catch(()=>{});
   if(guest)await guest.screenshot('failure').catch(()=>{});
   throw e;
 }finally{
   for(const b of browsers){b.ws?.close();b.child.kill('SIGTERM');}
-  if(spawnedServer)spawnedServer.kill('SIGTERM');
+  if(game)await game.stop();
   await sleep(600);
   for(const b of browsers)await rm(b.profile,{recursive:true,force:true}).catch(()=>{});
 }

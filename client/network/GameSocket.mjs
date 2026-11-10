@@ -190,9 +190,10 @@ export class GameSocket {
   }
   selectPreparedSpell(spell) { this.send({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
-  ultimate() { this.send({ type: 'ultimate' }); }
+  ultimate({held=false}={}) { this.send({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease() { this.send({ type: 'oneHitRelease' }); }
+  oneHitRelease({cancel=false}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitDetonate(waveId) { this.send({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.send({type:'practiceOneHit',...options}); }
   dash(direction) { this.send({ type: 'dash', direction }); }
   rematch() { this.send({ type: 'rematch' }); }

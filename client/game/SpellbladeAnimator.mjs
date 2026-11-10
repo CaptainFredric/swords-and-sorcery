@@ -445,9 +445,16 @@ export class SpellbladeAnimator {
     // The mixer may skip an unchanged binding. Restore its underlying sample before blending the exit again.
     this.composition.restoreBase();
     const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
+    if(plan?.requiredClip&&clip!==plan.clip){
+      this.missingRequiredClips??=new Set();
+      if(!this.missingRequiredClips.has(plan.clip)){
+        this.missingRequiredClips.add(plan.clip);
+        console.warn(`Spellblade animation contract: missing "${plan.clip}"; using the provisional pose.`);
+      }
+    }
     const action = this.actions.get(clip);
     if (!action) return false;
-    if (clip !== plan.clip) plan = { ...plan, clip };
+    if (clip !== plan.clip) plan = { ...plan, clip, time:plan.fallbackTime??plan.time };
 
     if (this.activeAction !== action) {
       const duration = step > 0 && this.activeAction ? blendSeconds(this.activeClip, plan.clip) : 0;

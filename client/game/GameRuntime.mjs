@@ -113,7 +113,8 @@ import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
-import { disasterCameraWanted } from './oneHitCamera.mjs';
+import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
+import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
 // the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
@@ -827,10 +828,10 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
-    this.localState=null;this.localAuth=null;this.deathCam=null;
+    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
-    this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
+    this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
@@ -1300,6 +1301,7 @@ export class GameRuntime {
         this.#resize();
       }
       this.effects?.setDensity(this.view.particles ?? 1);
+      this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
     if (input) {
@@ -1320,6 +1322,7 @@ export class GameRuntime {
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
+    this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
@@ -1408,6 +1411,9 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
+    this.weapon.attackPresentation=auth?.attackPresentation??0;
+    this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
+      !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
@@ -3467,6 +3473,7 @@ export class GameRuntime {
 
   // the view is in the helm (fallen, or between matches): no chase, and my own body is not drawn
   #viewInHelm(nowMs, dt) {
+    this.disasterReveal = null;
     if (!this.chase && !this.remotePlayers.self?.root.visible) return;
     this.chase = 0;
     this.chaseOut = 0;
@@ -3970,10 +3977,12 @@ export class GameRuntime {
       // A Blazing Vortex holds the chase camera through its spin. All-Natural
       // Disaster uses that same collision-checked shot only for its sword
       // turn, decisive impact, and (for Full Gale) the delayed aerial wave.
-      // Never switch view modes in settings, rotate the player's actual aim,
-      // or hold the camera out during Full Lightning's indefinite charge.
+      // Full Lightning holds this collision-checked view while the player aims.
       // Existing death/inspection/mounted views retain priority.
-      const cinematic = !this.inspectionFree && disasterCameraWanted(this.localAuth, serverNow);
+      this.disasterReveal = this.inspectionFree ? null
+        : stepDisasterReveal(this.disasterReveal, this.localAuth, serverNow, dt, this.chase);
+      const cinematic = !this.inspectionFree &&
+        (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0);
       this.chase = stepChase(this.chase ?? 0,
         chaseWanted(this.localAuth, serverNow) || cinematic, dt);
       const helm = 1 - this.chase * this.chase * (3 - 2 * this.chase);
@@ -3994,10 +4003,14 @@ export class GameRuntime {
         outside = out.thirdPerson;
         // the aim the host is given while the view is out: from my own eyes to what the reticle is on, so the fire
         // lands where the reticle says
-        const forward = aimVector(this.input.yaw, this.input.pitch);
-        const far = reticleDistance(out.position, forward, { reach: this.#reach, groundAt, bodies: this.remotePlayers.bodies() });
-        const at = this.localState.position;
-        this.chaseAim = chaseAim(out.position, forward, [at.x, at.y + postureOf(this.localState).eye - 0.1, at.z], far);
+        if(disasterHolding(this.localAuth?.ultimateState)){
+          this.chaseAim=null;
+        }else{
+          const forward=aimVector(this.input.yaw,this.input.pitch);
+          const far=reticleDistance(out.position,forward,{reach:this.#reach,groundAt,bodies:this.remotePlayers.bodies()});
+          const at=this.localState.position;
+          this.chaseAim=chaseAim(out.position,forward,[at.x,at.y+postureOf(this.localState).eye-.1,at.z],far);
+        }
       } else {
         this.chaseAim = null;
         this.chaseOut = 0;
@@ -4197,7 +4210,19 @@ export class GameRuntime {
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
-    this.oneHitEffects?.update(dt,this.latestSnapshot);
+    const disasterCharge=this.localAuth?.ultimateState;
+    const disasterNow=this.socket.serverNow();
+    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&disasterHolding(disasterCharge)){
+      const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
+      const world=this.activeWorld;
+      const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,
+        ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
+      const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
+        aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
+        holdSec:disasterNow-disasterCharge.teleportHoldAt,world,solids,edge});
+      this.oneHitEffects.setChargeGuide(origin,plan);
+    }else this.oneHitEffects?.setChargeGuide(null,null);
+    this.oneHitEffects?.update(dt,this.latestSnapshot,disasterNow);
     if(this.localState){
       this.localState.shaken=this.localAuth?.shaken??null;
       this.localState.shakenNow=this.socket.serverNow();

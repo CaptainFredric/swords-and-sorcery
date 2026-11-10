@@ -50,7 +50,7 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'setInputSampler', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
+  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'oneHitDetonate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'highGroundsBuild', 'ping', 'send'];
 const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
@@ -68,6 +68,7 @@ export class GameLink {
     this.wakingTimer = null;
     this.connectPromise = null;
     this.pendingAction = null;
+    this.remoteTrial = null;
     // each host's messages reach the game only while that host is the one playing
     remote.on('*', ({ type, payload }) => this.#fromRemote(type, payload));
     local.on('*', ({ type, payload }) => { if (this.hosting === 'local') this.#emit(type, payload); });
@@ -96,6 +97,14 @@ export class GameLink {
   }
 
   #fromRemote(type, payload) {
+    if (this.remoteTrial && ['joined', 'error', 'left', 'resumeFailed'].includes(type)) {
+      const args = this.remoteTrial;
+      this.remoteTrial = null;
+      if (type === 'error' && payload.message === 'Unknown solo mode' && !this.remote.roomCode) {
+        this.#rehearseTrial(args, 'This server does not support Rampage to Renown yet.');
+        return;
+      }
+    }
     if (type === 'connection') this.#setStatus(payload.connected ? 'online' : 'offline');
     if (type === 'profile') {
       this.local.setProfileCloth(payload.profile?.equipped);
@@ -163,6 +172,7 @@ export class GameLink {
 
   disconnect() {
     this.pendingAction = null;
+    this.remoteTrial = null;
     this.connectPromise = null;
     this.timers.clearTimeout(this.wakingTimer);
     this.timers.clearTimeout(this.retryTimer);
@@ -180,10 +190,23 @@ export class GameLink {
     if (mode === 'RENOWN_TRIALS') {
       return this.#online('startSolo', [mode, name, worldId, botSkill, team, teamSize]);
     }
+    this.#startLocalSolo(mode, name, worldId, botSkill, team, teamSize);
+  }
+
+  startRenownRehearsal(name, worldId) {
+    this.#startLocalSolo('RENOWN_TRIALS', name, worldId);
+  }
+
+  #startLocalSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.disconnect();
     this.hosting = 'local';
     this.local.startSolo(mode, name, worldId, botSkill, false, team, teamSize);
+  }
+
+  #rehearseTrial(args, reason) {
+    this.#startLocalSolo(...args);
+    this.#emit('notice', { text: `${reason} Rehearsal hosted locally: Renown rewards are unavailable.` });
   }
 
   /** An explicitly local yard for pose and effect inspection, even when online. */
@@ -236,9 +259,7 @@ export class GameLink {
     }
 
     if (this.status === 'online') {
-      if (this.hosting === 'local') this.local.leaveRoom();
-      this.hosting = 'remote';
-      this.remote[method](...args);
+      this.#sendOnline(method, args);
       return;
     }
 
@@ -258,9 +279,7 @@ export class GameLink {
     if (!connected) {
       if (request.method === method) {
         if (method === 'startSolo' && args[0] === 'RENOWN_TRIALS') {
-          this.#emit('notice', { text: 'Trial hosted locally: Renown rewards are unavailable without the server.' });
-          this.hosting = 'local';
-          this.local.startSolo(args[0], args[1], args[2], args[3], false, args[4], args[5]);
+          this.#rehearseTrial(args, 'The multiplayer server could not be reached.');
           return;
         }
         if (method === 'seekDuel') {
@@ -278,8 +297,13 @@ export class GameLink {
       return;
     }
 
+    this.#sendOnline(method, args);
+  }
+
+  #sendOnline(method, args) {
     if (this.hosting === 'local') this.local.leaveRoom();
     this.hosting = 'remote';
+    this.remoteTrial = method === 'startSolo' && args[0] === 'RENOWN_TRIALS' ? args : null;
     this.remote[method](...args);
   }
 

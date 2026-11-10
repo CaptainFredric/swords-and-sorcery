@@ -65,6 +65,28 @@ async function evaluate(expression) {
   return r.result?.value;
 }
 
+async function point(x, y, touch = false) {
+  if(touch) {
+    await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  } else {
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+  }
+}
+
+async function tap(selector,touch=false) {
+  const coords=await until(()=>evaluate(`(() => {
+    const el=document.querySelector(${JSON.stringify(selector)});
+    if(!el || el.getClientRects().length===0) return null;
+    el.scrollIntoView({block:'nearest'});
+    const r=el.getBoundingClientRect();
+    const x=r.x+r.width/2,y=r.y+r.height/2;
+    return el.contains(document.elementFromPoint(x,y))?[x,y]:null;
+  })()`),`visible hit target ${selector}`,36);
+  await point(...coords,touch);
+}
+
 async function screenshot(filename) {
   const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const filePath = join(OUT_DIR, filename);
@@ -149,7 +171,7 @@ try {
 
   assert.match(kitState.heading, /THE SPELLBLADE'S KIT/);
   assert.equal(kitState.kitVisible, true);
-  assert.equal(kitState.technique, 'Castleward longsword');
+  assert.equal(kitState.technique, 'None equipped');
   assert.equal(kitState.inspectorClosed, true);
   console.log('[VERIFY] Default Kit State verified:', kitState);
 
@@ -451,7 +473,11 @@ try {
     deviceScaleFactor: 2,
     mobile: true,
   });
-  await sleep(600);
+  await sleep(750);
+  assert.equal(await evaluate(`(() => {
+    const r=document.querySelector('.inspector-inner').getBoundingClientRect();
+    return r.right<=innerWidth+1 && r.left>=0;
+  })()`),true,'the whole inspector is inside the landscape viewport');
   await screenshot('10-landscape-mobile-inspector.png');
 
   // Reset emulation metrics
@@ -566,6 +592,77 @@ try {
   const finalCheck = await evaluate("!document.querySelector('#armory-menu').classList.contains('hidden')");
   assert.equal(finalCheck, true);
   console.log('[VERIFY] Rapid switching stress test passed with zero issues!');
+
+  await tap('#armory-slot-sorcery');
+  await sleep(520);
+  await tap('[data-inspector-category="masterstroke"]');
+  await until(()=>evaluate("document.querySelector('#inspector-title').textContent.includes('MASTERSTROKE')"),'category switch');
+  await tap('[data-inspector-category="heraldry"]');
+  const backdrop=await evaluate(`(() => {
+    for(let y=80;y<innerHeight-50;y+=40)for(let x=innerWidth/2;x<innerWidth-40;x+=35){
+      const el=document.elementFromPoint(x,y);
+      if(el?.matches('#menu-spellblade canvas'))return [x,y];
+    }
+    return null;
+  })()`);
+  assert.ok(backdrop,'There is exposed Armory stage outside the Heraldry controls');
+  await point(...backdrop);
+  await until(()=>evaluate("!document.querySelector('#armory-kit').classList.contains('hidden')"),'backdrop returns to Kit');
+  assert.equal(await evaluate("document.activeElement.id"),'armory-slot-heraldry');
+  await tap('#armory-slot-heraldry');
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await until(()=>evaluate("!document.querySelector('#armory-kit').classList.contains('hidden')"),'Escape returns to Kit');
+  await tap('#armory-back');
+  await until(()=>evaluate("document.querySelector('#armory-menu').classList.contains('hidden')"),'Armory closed');
+  await evaluate(`(() => {
+    document.querySelector('[data-tutorial-onboarding-skip]')?.click();
+    const name=document.querySelector('#player-name');
+    name.value='Kit Tester';name.dispatchEvent(new Event('input',{bubbles:true}));
+  })()`);
+  await tap('#solo-button');
+  await until(()=>evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"),'Solo shown');
+  await tap('#practice-mode');
+  await tap('#solo-launch');
+  console.log('[VERIFY] Practice launch request:',await evaluate(`({
+    errors:[...document.querySelectorAll('#solo-menu .error-copy')].map(e=>e.textContent),
+    name:document.querySelector('#solo-name').value,
+    room:window.__ssLink?.roomCode
+  })`));
+  await until(()=>evaluate("window.__ssLink.roomCode && window.__ssSnapshot?.mode==='PRACTICE'"),'Practice after full reload',180);
+  const equipped=await evaluate(`window.__ssSnapshot.players.find(p=>p.id===window.__ssSnapshot.hostId)`);
+  assert.equal(equipped.spell,'line_of_conduct');
+  assert.equal(equipped.ultimate,'one_hit_of_wonders');
+  await until(()=>evaluate("document.querySelector('#arena-gate').classList.contains('hidden') && !document.querySelector('#hud').classList.contains('hidden')"),'Practice presentation ready');
+  await screenshot('11-practice-equipped-after-reload.png');
+  // The separate match pause screen controls are hidden until it is opened.
+  const leave=async()=> {
+    await evaluate("document.querySelector('#pause-leave').click()");
+    await until(()=>evaluate("!window.__ssLink.roomCode && document.querySelector('#breakthrough-button').getClientRects().length"),'return to main menu');
+  };
+  await leave();
+
+  for(const [mode,action,touch] of [['RESTLESS_DAY','#breakthrough-play-bots',false],
+    ['RENOWN_TRIALS','#mettle-renown-rehearse',false],['EDGE_OF_VICTORY','#breakthrough-play-bots',true]]) {
+    if(touch) {
+      await send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});
+      await send('Emulation.setTouchEmulationEnabled',{enabled:true});
+    }
+    await tap('#breakthrough-button',touch);
+    await tap(`[data-mettle-mode="${mode}"]`,touch);
+    if(mode!=='RESTLESS_DAY')assert.equal(await evaluate("document.querySelector('#breakthrough-create-private').hidden && document.querySelector('.mettle-companion').hidden"),true);
+    if(mode==='RENOWN_TRIALS')await screenshot('12-mettle-rampage-menu.png');
+    await tap(action,touch);
+    await until(()=>evaluate(`window.__ssLink.roomCode && window.__ssSnapshot?.mode==='${mode}' && window.__ssSnapshot.roomState==='PLAYING'`),
+      `authoritative ${mode} launch`,180);
+    assert.equal(await evaluate("window.__ssLink.hosting"),'local');
+    if(touch){
+      await until(()=>evaluate("document.querySelector('#arena-gate').classList.contains('hidden') && !document.querySelector('#hud').classList.contains('hidden')"),'Edge presentation ready');
+      await screenshot('13-mobile-edge-of-victory.png');
+    }
+    await leave();
+    console.log(`[VERIFY] Visible Modes of Mettle selection launched ${mode} and returned`);
+  }
 
   console.log('\n========================================');
   console.log('ALL ARMORY REBORN JOURNEYS VERIFIED SUCCESSFULLY!');

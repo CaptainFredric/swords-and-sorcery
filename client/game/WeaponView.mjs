@@ -11,7 +11,7 @@ import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { castGesture, castGestureRotations } from './castGesture.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { SORCERY_LIFT } from './SorceryVolume.mjs';
-import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
+import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
@@ -1105,16 +1105,19 @@ export class WeaponView {
         const onGrip = Boolean(previous?.slam) && (this.comboShown?.offHand?.weight ?? 0) > 0.5;
         const slam = this.sunderActive ? (onGrip ? 'again' : true) : false;
         const chain = slam === 'again' ? slamAgainPose : slam ? slamPose : comboPose;
-        this.comboSource = { chainAt: startedAt, fadeIn, slam, pose: (t) => chain(t - startedAt) };
+        this.comboSource = { chainAt: startedAt, fadeIn, slam, style:0,
+          pose: (t,style=0) => chain(swordPresentationTime(t-startedAt,style)) };
         this.comboLetGo = null;
         this.comboBroken = false;
       }
       const source = this.comboSource;
-      this.comboLast = { since: timeSec - startedAt, at: timeSec };
+      const style=source.slam||this.concurrent||this.flightCockpit ? 0 : this.attackPresentation??0;
+      source.style=approach(source.style,style,.35);
+      this.comboLast = { since: swordPresentationTime(timeSec-startedAt,source.style), at: timeSec };
       // (in the cockpit, over the time its carriage takes to give way, so the two hand over as one movement)
       const fadeFor = this.flightCockpit ? COCKPIT_REST_EASE : 0.1;
       const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / fadeFor)) : 1;
-      return this.#comboShow(source.pose(timeSec), timeSec, weight);
+      return this.#comboShow(source.pose(timeSec,source.style), timeSec, weight);
     }
     if (!this.comboSource) return null;
     if (state !== 'idle' || this.comboLetGo) {
@@ -1141,7 +1144,7 @@ export class WeaponView {
     if (this.comboHandover) {
       const w = (timeSec - this.comboHandover.at) / 0.18;
       if (w >= 1) this.comboHandover = null;
-      else shown = blendPoses(this.comboHandover.from.pose(timeSec) ?? comboPose(0), pose, w);
+      else shown = blendPoses(this.comboHandover.from.pose(timeSec,this.comboHandover.from.style) ?? comboPose(0), pose, w);
     }
     this.comboShown = { ...shown, weight };
     return this.comboShown;

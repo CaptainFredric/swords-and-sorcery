@@ -173,7 +173,9 @@ export class MenuController {
     const arena = (typeof options === 'object' && options?.worldId)
       ? (RENOWN_ARENAS?.includes(options.worldId) ? options.worldId : 'court-of-merit')
       : (typeof options === 'string' && RENOWN_ARENAS?.includes(options) ? options : this.renownArena());
-    return this.#withName(rawName, (name) => this.socket.startSolo('RENOWN_TRIALS', name, arena));
+    return this.#withName(rawName, (name) => options?.rehearsal
+      ? this.socket.startRenownRehearsal(name, arena)
+      : this.socket.startSolo('RENOWN_TRIALS', name, arena));
   }
 
   practice(rawName) {
