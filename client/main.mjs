@@ -2091,9 +2091,9 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Masterful stances and weapon abilities for the Castleward longsword.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Two sword techniques are in training. The Castleward longsword is already equipped.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
-    masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Spend built Prowess to unleash a battle-turning technique.' },
+    masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };
   const t = titles[category] || titles.sorcery;
   $('#inspector-category').textContent = t.cat;
