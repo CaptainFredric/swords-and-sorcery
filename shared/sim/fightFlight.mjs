@@ -16,7 +16,7 @@ export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
-  neutralStabilizeSec:1.05,neutralDescentSpeed:.4,
+  neutralStabilizeSec:1.0,neutralDescentSpeed:.4,
   neutralBobMetres:.07,neutralBobHz:1.15,
   airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
