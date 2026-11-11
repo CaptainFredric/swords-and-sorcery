@@ -5,6 +5,7 @@ import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/s
 import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fightFlightRun.mjs';
 import {stepTerminalPreparation,requestTerminalRitual,advanceTerminalFlight} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
+import {stepRoom} from '../../shared/sim/combat.mjs';
 
 const DT=1/30;
 function setup({practice=false,y=30}={}){
@@ -404,4 +405,60 @@ test('Committed Valkyrie ascends on initial ground activation with matching pitc
   assert.ok(ground.m.y>0.3,'real vertical displacement comes from velocity');
   assert.ok(ground.m.velocity.y>6,'look pitch still works from the ground');
   assert.equal(ground.m.terminalDive.resolved,false);
+});
+
+test('Terminal Valkyrie physically pitches down exactly like held Dash, then smoothly pitches up',()=>{
+  const ordinary=setup({practice:true,y:180});
+  ordinary.p.input.pitch=-.7;
+  assert.equal(requestFlightDash(ordinary.room,ordinary.m,ordinary.p,true,0),true);
+  frames(ordinary,36);
+  const terminal=terminalSetup({y:180,pitch:-.7});
+  terminalFrames(terminal,36);
+  assert.ok(ordinary.m.runPitch>1.4,'baseline Dash pitches the rotor forward/down');
+  assert.ok(terminal.m.runPitch>1.4,'terminal must retain the SAME visible forward-cutting attitude');
+  assert.ok(Math.abs(terminal.m.runPitch-ordinary.m.runPitch)<.08,
+    'terminal and Dash derive chassis pitch from the same servo');
+  assert.ok(Math.abs(terminal.m.runFlightPitch-ordinary.m.runFlightPitch)<.08,
+    'terminal and Dash share the signed smoothed flight pitch');
+  assert.ok(terminal.m.velocity.y<-4,'downward pitch physically descends');
+
+  const before=terminal.m.y,downPitch=terminal.m.runPitch;
+  terminal.p.input.pitch=.8;
+  terminalFrames(terminal,18);
+  assert.ok(terminal.m.runFlightPitch>.55,'reticle can smoothly reverse into an upward pitch');
+  assert.ok(terminal.m.velocity.y>3,'upward pitch changes authoritative motion, not only camera position');
+  assert.ok(terminal.m.runPitch<downPitch-.25,
+    'the real third-person machine pitches back out of its steep dive');
+  terminalFrames(terminal,15);
+  assert.ok(terminal.m.y>before-5,'climb recovers physical altitude after the turn');
+});
+
+test('The real 30Hz room loop retains Valkyrie angular momentum while banking and pitching',()=>{
+  const s=terminalSetup({y:180,pitch:.65,yaw:Math.PI/2});
+  let previous=s.m.heading,nonzero=0;
+  for(let i=0;i<24;i++){
+    s.now+=DT;
+    stepRoom(s.room,DT,s.now,s.room.world);
+    if(Math.abs(s.m.runTurnSpeed)>.05)nonzero++;
+    assert.ok(Math.abs(s.m.heading-previous)<.14,'turning never teleports between ticks');
+    previous=s.m.heading;
+  }
+  assert.ok(nonzero>=15,'ordinary Dash update must not reset terminal turn speed each tick');
+  assert.ok(s.m.heading>.65,'reticle steers the machine in actual game-loop integration');
+  assert.ok(s.m.runFlightPitch>.4&&s.m.velocity.y>3,
+    'room integration retains the same smoothly controlled upward flight as Dash');
+
+  const headingAtReverse=s.m.heading,poseAtReverse=s.m.runPitch;
+  s.p.input.yaw=-Math.PI/2;s.p.input.pitch=-.7;
+  for(let i=0;i<29;i++){
+    s.now+=DT;
+    stepRoom(s.room,DT,s.now,s.room.world);
+  }
+  assert.ok(s.m.heading<headingAtReverse-.12,
+    'the pilot can reverse the actual machine turn, not just rotate the camera');
+  assert.ok(s.m.runFlightPitch<-.45&&s.m.velocity.y<0,
+    'downward reticle reversal changes signed vertical momentum');
+  assert.ok(s.m.runPitch>poseAtReverse+.25,
+    'chassis progressively leans into the reversed physical dive');
+  assert.ok(!s.m.terminalDive?.resolved,'no artificial explosion interrupts free-air steering');
 });
