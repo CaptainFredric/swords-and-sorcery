@@ -6,6 +6,8 @@ import { SPELLS } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
 import { STEEL_RAM } from '../../shared/src/steelRam.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
+import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
+import { ONE_HIT_FIRST_INFUSION_DAMAGE } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 
 // Preview only until their authoritative controls and contact rules ship.
@@ -77,9 +79,10 @@ const SPELL_WORDS = Object.freeze({
 // and each ultimate (player-facing category: MASTERSTROKE)
 const ULTIMATE_WORDS = Object.freeze({
   one_hit_of_wonders: {
-    mark: '✦', line: 'Simple Sunder: a spinning sword strike and rock-breaking slam. Earn Fire, Frost, Gale and Lightning separately from real spell encounters.',
-    facts: () => '40 PHYSICAL · +13 FIRE · +11 FROST · +8 GALE · +12 LIGHTNING · FULL GALE: AERIAL · FULL LIGHTNING: BLINK',
-    lore: 'All-Natural Disaster channels multiple elemental aspects through the blade. Builds upon physical Sunder with distinct aerial and blink infusions.',
+    mark: '✦', line: 'One spinning sword strike that breaks the ground. Earn Fire, Frost, Gale and Lightning from real spell hits, and Steel by wearing Sheathe in Steel through unbroken. The strike spends them all.',
+    // (every figure read from the rules: what is printed here is what the room does)
+    facts: () => { const d = ONE_HIT_FIRST_INFUSION_DAMAGE; return `${ONE_HIT_BASE_DAMAGE} DAMAGE · FIRE +${d.fire}, WIDER AND TALLER BLAST · FROST +${d.frost}, SLOWS, HITS LATECOMERS · GALE +${d.gale}, LONG SHOVE, SLOW TURNING · LIGHTNING +${d.lightning}, SHOCKS THEIR NEXT BLOW · STEEL +${d.steel}, INTERRUPTS, CRACKS ALL ROUND · FULL STAGES ADD BURNING GROUND, FREEZE, FLIGHT, BLINK, 1 HP GUARD`; },
+    lore: 'A plain Sunder until it is fed. Each element is earned once or twice and changes the same single blow: where it reaches, whom it holds, what it leaves on the ground. What it leaves fades over four seconds, a little longer for every element in it.',
   },
   sunder: {
     mark: '⚒',

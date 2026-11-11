@@ -24,6 +24,54 @@ const M=(color,opacity=.84)=>new THREE.MeshBasicMaterial({color,transparent:true
 const v=p=>new THREE.Vector3(p.x,p.y,p.z);
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 
+// The sword wave: ONE crescent of cut air, the shape the blade left, with fainter pressure arcs trailing it. What it
+// carries changes that same body, never adds another: Steel makes it denser and darker, Fire burns along its lower
+// limb, Frost rimes its tips and inner edge. (Lightning runs along it as branches: DisasterElementEffects.waveBody.)
+// Its size is its real reach: Fire's wave catches further out, so it is drawn that much larger.
+const WAVE_ARC=75*Math.PI/180;
+function crescent(tiers,{width=.24,fade=1}={}) {
+  const steps=26,positions=[],colors=[],index=[];
+  const base=new THREE.Color(0xeef1f0),steel=new THREE.Color(0x8d959f),fire=new THREE.Color(0xff7a1c),hot=new THREE.Color(0xffc45a),
+    frost=new THREE.Color(0xbfeaff),c=new THREE.Color();
+  for(let i=0;i<=steps;i++){
+    const t=i/steps,a=-WAVE_ARC+2*WAVE_ARC*t,taper=Math.pow(Math.max(0,Math.cos(a*1.12)),.8);
+    const outer=1.25,inner=outer-(width*taper+.015),bow=.34*Math.cos(a*1.15); // (bowed forward at its middle)
+    for(const [r,edge] of [[outer,0],[inner,1]]){
+      positions.push(Math.sin(a)*r,Math.cos(a)*r-.55,bow-(edge?.07:0));
+      c.copy(base);
+      if(tiers.steel)c.lerp(steel,tiers.steel===2?.85:.6);
+      // Fire: along the lower limb, hottest at the leading edge
+      if(tiers.fire&&t<.46)c.lerp(edge?fire:hot,Math.min(1,(.46-t)/.3)*(tiers.fire===2?1:.8));
+      // Frost: the tips and the inner edge go white-blue
+      if(tiers.frost){const tip=Math.max(0,(Math.abs(t-.5)-.3)/.2);c.lerp(frost,Math.min(1,Math.max(tip,edge?.55:0))*(tiers.frost===2?1:.75));}
+      colors.push(c.r*fade,c.g*fade,c.b*fade);
+    }
+    if(i){const k=(i-1)*2;index.push(k,k+1,k+2,k+1,k+3,k+2);}
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(index);
+  return geometry;
+}
+function swordWave(tiers={}) {
+  const group=new THREE.Group(),body=new THREE.Group();
+  const dense=tiers.steel?.16:0;
+  const layer=(width,opacity,back,scale)=>{
+    const m=new THREE.Mesh(crescent(tiers,{width}),new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity,
+      depthWrite:false,side:THREE.DoubleSide}));
+    m.position.z=-back;m.scale.setScalar(scale);body.add(m);return m;
+  };
+  layer(.26,.9+dense*.5,0,1);                 // the cut itself
+  const arcs=[layer(.5,.34+dense,.28,.93),layer(.8,.17+dense*.6,.62,.84)]; // the pressure it drags
+  // (held a little off the vertical, as the blade was swung)
+  body.rotation.z=.42;
+  body.scale.setScalar((tiers.fire??0)>=1?1.5/.9:1);
+  group.add(body);
+  group.userData.breathe=clock=>{arcs.forEach((arc,i)=>{arc.position.z=-(i?.62:.28)-.05*Math.sin(clock*17+i*2);});};
+  return group;
+}
+
 export class OneHitLiveEffects {
   constructor(scene,remotePlayers=null,weapon=null) {
     this.scene=scene;
@@ -86,7 +134,7 @@ export class OneHitLiveEffects {
     for(let i=0;i<slabs;i++){
       const a=i*TAU/slabs+(i%2)*.085,dist=(1.4+.47*(i%4))*(steel===2?1.35:1);
       const slab=new THREE.Mesh(STONE_SHAPE,new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,roughness:.9}));
-      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar(steel===2?1.15:1);
+      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar((steel===2?.95:.8)*(.75+(i%5)*.1));
       slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
       slab.rotation.set(Math.sin(a)*.33,a,Math.cos(a)*.4);
       slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09+(steel?.12:0)};
@@ -117,7 +165,7 @@ export class OneHitLiveEffects {
         obj.add(coals);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
-      const left=clamp((zone.until-now)/4,0,1);
+      const left=clamp((zone.until-now)/Math.max(.01,zone.until-zone.bornAt),0,1);
       obj.children[0].material.opacity=.2+.3*left;
     }
     for(const [id,obj] of this.zones)if(!seen.has(id)){this.#discard(obj);this.zones.delete(id);}
@@ -234,14 +282,7 @@ export class OneHitLiveEffects {
       tracked.add(wave.id);
       let mesh=this.waves.get(wave.id);
       if(!mesh){
-        mesh=new THREE.Group();
-        const colors=[0xedfff1,0x83e5af,...ELEMENTS.filter(([id])=>wave.tiers?.[id]>0).map(([,color])=>color)];
-        for(let i=0;i<colors.length;i++){
-          const edge=new THREE.Mesh(SWEEP,M(colors[i],i===0?.94:i===1?.72:.64));
-          edge.scale.set(1.28-i*.095,.71-i*.052,.88);
-          edge.rotation.set(i%2?.21:-.14,.14,i*.25-.32);
-          edge.position.set(0,.03*i,-i*.16);mesh.add(edge);
-        }
+        mesh=swordWave(wave.tiers);
         this.root.add(mesh);this.waves.set(wave.id,mesh);
       }
       mesh.position.copy(wave.position);
@@ -253,7 +294,9 @@ export class OneHitLiveEffects {
       // event snaps to the authoritative point and removes the travelling mesh.
       const age=clamp(now-(snapshot?.serverTime??now),0,.018)*(wave.tiers.lightning?48:28);
       mesh.position.x+=wave.direction.x*age;mesh.position.y+=wave.direction.y*age;mesh.position.z+=wave.direction.z*age;
-      mesh.rotateZ(frame*2.25);
+      // (one blade of air, held as it was cut: its pressure arcs breathe behind it; nothing spins)
+      mesh.userData.breathe?.(this.visualClock);
+      this.elements.waveBody(wave,mesh,frame);
     }
     this.#stepZones(snapshot,now);
     this.#stepStatuses(snapshot,now);

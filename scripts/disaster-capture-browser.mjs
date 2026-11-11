@@ -11,6 +11,8 @@
 //   --hold        seconds the key is held (a Full Lightning aim is held this long; otherwise a tap)
 //   --self-conduct the player's knight is given Shocking Conduct and swings at the dummy (its discharge into him)
 //   --walk-in     the dummy is stood outside the blow and walked into its field a second later
+//   --walk-in-fast a second dummy is stood inside the blow an eighth of a second after it lands (Half Frost)
+//   --dummies "f,r;f,r" more dummies, each so many metres forward and right of the knight
 //
 // Sheets need ImageMagick (magick); frames are kept either way.
 
@@ -92,7 +94,16 @@ try {
   for (const [element, tier] of Object.entries(tiers)) await evaluate(`window.__ssLink.practiceOneHit({ action: 'level', element: ${JSON.stringify(element)}, tier: ${tier} })`);
   await evaluate("window.__ssLink.practiceOneHit({ action: 'enabled', enabled: true })");
   await poll(() => evaluate(`(() => { const s = window.__ssRuntime.localAuth?.practiceOneHit?.stages ?? {}; return ${JSON.stringify(Object.entries(tiers))}.every(([k, v]) => (s[k] ?? 0) === v); })()`, 4000), 'stages set');
+  // (--dummies "f,r;f,r": more of them, each stood so many metres forward and to the right of the knight)
+  const extra = option('--dummies', flag('--walk-in-fast') ? '12,0' : '').split(';').filter(Boolean).map((pair) => pair.split(',').map(Number));
   if (dummyMode !== 'none') { await evaluate(`window.__ssLink.practiceSpawnDummy(${JSON.stringify(dummyMode)})`); await sleep(600); }
+  // (the yard keeps one Training Dummy. For a blow with several victims, more passive actors of the same kind are
+  // put into the local room for the recording: a staging device of this script, not something a player can do)
+  if (extra.length) {
+    await evaluate(`(() => { const room = window.__ssLink.local.room, now = window.__ssLink.local.now();
+      for (let i = 0; i < ${extra.length}; i += 1) { const d = room.addServerActor({ id: 'capture-dummy-' + i, name: 'Training Dummy', actorKind: 'dummy' }, now); d.practiceMode = 'PASSIVE'; d.ai = null; d.spawnProtectionUntil = 0; } })()`);
+    await poll(() => evaluate(`window.__ssRuntime.latestSnapshot.players.filter((p) => p.actorKind === 'dummy').length >= ${extra.length + (dummyMode !== 'none' ? 1 : 0)}`, 4000), 'extra dummies in the snapshot', 8000);
+  }
   const distance = Number(option('--distance', flag('--walk-in') ? 7 : form === 'aerial' ? 7 : 1.9));
   // the knight is turned to face down the longest stretch of real floor from where he stands (the yard's spawn is
   // near an edge: a teleport or a shoved dummy must have ground to arrive on), the dummy stood on that line
@@ -109,17 +120,21 @@ try {
     }
     const yaw = best.yaw, f = { x: -Math.sin(yaw), z: -Math.cos(yaw) }, r = { x: Math.cos(yaw), z: -Math.sin(yaw) };
     window.__yard = { yaw, f, r, run: best.run };
-    const dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy');
+    const dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy' && !p.id.startsWith('capture-dummy-'));
     rt.input.yaw = yaw; rt.input.pitch = ${Number(option('--pitch', form === 'aerial' ? '-0.6' : '0'))};
     if (dummy) {
       link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x + f.x * ${distance}, y: me.position.y, z: me.position.z + f.z * ${distance} }, vitals: { refill: true } });
       link.stageInspectionActor({ actorId: dummy.id, position: 'face_target' });
     }
+    const others = rt.latestSnapshot.players.filter((p) => p.actorKind === 'dummy' && p.id.startsWith('capture-dummy-'));
+    ${JSON.stringify(extra)}.forEach(([fwd, right], i) => { const other = others[i]; if (!other) return;
+      link.stageInspectionActor({ actorId: other.id, position: { x: me.position.x + f.x * fwd + r.x * right, y: me.position.y, z: me.position.z + f.z * fwd + r.z * right }, vitals: { refill: true } }); });
+    window.__dummies = (dummy ? 1 : 0) + Math.min(others.length, ${extra.length});
     rt.setInspectionSplit(${size.split});
     const p = rt.localAuth.position;
-    // (off the knight's left and a little behind and above, looking across him and the dummy)
-    const c = { x: p.x - r.x * 5.4 - f.x * 1.6, y: p.y + ${form === 'aerial' ? 3.8 : 2.2}, z: p.z - r.z * 5.4 - f.z * 1.6 };
-    const aim = { x: p.x + f.x * 1.0, y: p.y + ${form === 'aerial' ? 3.2 : 0.7}, z: p.z + f.z * 1.0 };
+    // (behind the knight's right shoulder and well above, looking down the line of the blow: over the yard's walls)
+    const c = { x: p.x + r.x * 3.2 - f.x * 4.4, y: p.y + ${form === 'aerial' ? 3.8 : 4.2}, z: p.z + r.z * 3.2 - f.z * 4.4 };
+    const aim = { x: p.x + f.x * ${form === 'aerial' ? 1.0 : 2.4}, y: p.y + ${form === 'aerial' ? 3.2 : 0.5}, z: p.z + f.z * ${form === 'aerial' ? 1.0 : 2.4} };
     rt.flyPose = { position: c, yaw: Math.atan2(-(aim.x - c.x), -(aim.z - c.z)), pitch: Math.atan2(aim.y - c.y, Math.hypot(aim.x - c.x, aim.z - c.z)) };
     rt.syncInspection();
     rt.setInspectionUiMode(${size.mobile} ? 'gameplay' : 'clean');
@@ -198,6 +213,14 @@ try {
     }
     return cdp.send('Input.dispatchKeyEvent', { type: down ? 'rawKeyDown' : 'keyUp', key: 'r', code: 'KeyR', windowsVirtualKeyCode: 82 });
   };
+  if (flag('--walk-in-fast')) {
+    // Half Frost's longer contact: a second dummy, out of reach as the blow lands, is stood inside it an eighth of a
+    // second later (timed in the page, off the room's own impact event)
+    await evaluate(`(() => { const rt = window.__ssRuntime, link = window.__ssLink, y = window.__yard;
+      const far = rt.latestSnapshot.players.find((p) => p.id === 'capture-dummy-0');
+      rt.socket.on('events', (batch) => { if (!batch.events.some((e) => e.type === 'oneHitImpact') || window.__walked) return; window.__walked = true;
+        const me = rt.localAuth; setTimeout(() => link.stageInspectionActor({ actorId: far.id, position: { x: me.position.x + y.f.x * 2.4 - y.r.x * 1.6, y: me.position.y, z: me.position.z + y.f.z * 2.4 - y.r.z * 1.6 } }), 125); }); })()`);
+  }
   stage = 'press';
   if (flag('--self-conduct')) {
     // Shocking Conduct on the player's own knight (the status is staged on the room, as a struck knight would carry
@@ -297,6 +320,7 @@ try {
     effectsAtEnd: last?.census ?? null, dummyAtEnd: last?.dummy ?? null,
     eventTypes: Object.fromEntries(Object.entries(run.events.reduce((m, e) => { const k = e.type === 'damage' ? `damage:${e.source}` : e.type; m[k] = (m[k] ?? 0) + 1; return m; }, {})).sort()),
     decisive: run.events.filter((e) => e.type === 'damage' && e.source === 'one_hit_of_wonders').map((e) => e.amount),
+    decisiveVictims: new Set(run.events.filter((e) => e.type === 'damage' && e.source === 'one_hit_of_wonders').map((e) => e.victimId)).size,
     stillTimes: frames.map((f) => +f.at.toFixed(3)),
     worstFrameGapMs: Math.round(Math.max(0, ...run.frames.slice(1).map((f, i) => f.wall - run.frames[i].wall))),
     pageErrors,

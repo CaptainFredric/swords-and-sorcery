@@ -13,8 +13,9 @@ import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mj
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
+const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const COLOR = Object.freeze({
-  fire: [0xffb347, 0xff6a14, 0xd9360f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xf2fff4, 0xa6efc4, 0x6fd6a0],
+  fire: [0xffb347, 0xff6a14, 0xd9360f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xf6f8f7, 0xdde4e1, 0xbcc6c3],
   lightning: [0xfffbe0, 0xffe45c, 0xffc21f], steel: [0xe9edf2, 0xaab3bf, 0x77808c], dust: [0xcabba4, 0xa3927b, 0x7d6f5e],
 });
 const STONE_TINTS = [0x8a8072, 0x746b60, 0x9a9184, 0x65605a];
@@ -55,7 +56,8 @@ class ParticlePool {
       fadeIn: p.fadeIn ?? 0, rest: false,
     });
   }
-  update(dt) {
+  // clear: a point (the viewer's eye) that this pool's particles thin away from, so nothing is drawn across the lens
+  update(dt, clear = null) {
     const items = this.items;
     let n = 0;
     for (let i = 0; i < items.length; i += 1) {
@@ -93,7 +95,8 @@ class ParticlePool {
         if (tmpDir.lengthSq() > 1e-8) tmpObject.quaternion.setFromUnitVectors(UP, tmpDir.normalize());
       } else tmpObject.rotation.set(p.tilt, p.angle, p.tilt * 0.5);
       // glowing motes dim out (additive: black is nothing); stone and smoke shrink away at the end
-      const shrink = this.additive ? 1 : Math.min(1, p.life / (p.ttl * 0.2));
+      const near = clear ? Math.max(0, Math.min(1, (Math.hypot(p.x - clear.x, p.y - clear.y, p.z - clear.z) - 1.1) / 1.4)) : 1;
+      const shrink = (this.additive ? 1 : Math.min(1, p.life / (p.ttl * 0.2))) * near;
       tmpObject.scale.set(p.sx * k * shrink, p.sy * k * shrink, p.sz * k * shrink);
       tmpObject.updateMatrix();
       this.mesh.setMatrixAt(n, tmpObject.matrix);
@@ -183,7 +186,7 @@ export class DisasterElementEffects {
     this.root.name = 'All-Natural Disaster elements (presentation only)';
     parent.add(this.root);
     this.glow = new ParticlePool(this.root, new THREE.OctahedronGeometry(1, 0),
-      new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 560, { additive: true });
+      new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 900, { additive: true });
     this.rock = new ParticlePool(this.root, new THREE.DodecahedronGeometry(1, 0),
       new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.02, flatShading: true }), 240);
     this.smoke = new ParticlePool(this.root, new THREE.IcosahedronGeometry(1, 1),
@@ -207,7 +210,8 @@ export class DisasterElementEffects {
     this.gather = new Map();     // player id -> emit clocks
     this.status = new Map();     // player id -> emit clocks
     this.fireAcc = {};
-    this.waveAcc = 0;
+    this.waveAcc = {};
+    this.viewer = null;          // the viewing camera's position, when the runtime gives one
     this.clock = 0;
     this.density = 1;
   }
@@ -389,6 +393,20 @@ export class DisasterElementEffects {
       }
       for (let i = 0; i < this.#n(full ? 10 : 5); i += 1) this.#dust({ x: p.x + rand(-0.6, 0.6), y: floor + rand(0.8, 1.6), z: p.z + rand(-0.6, 0.6) }, { x: rand(-0.5, 0.5), y: rand(1.5, 3), z: rand(-0.5, 0.5) }, rand(0.35, 0.6), rand(1.2, 1.9), 0x2b211c);
     }
+    if (tiers.fire) {
+      // the explosion itself: fire thrown out through the whole of its reach, outward and upward (on the ground a
+      // dome as wide as the blow and as tall as it reaches; in the air a ball), with the stone it lifts
+      const reach = radius, tall = ground ? (event.height ?? 3.5) : radius;
+      for (let i = 0; i < this.#n(tiers.fire === 2 ? 90 : 70); i += 1) {
+        const a = rand(TAU), lift = ground ? Math.random() : rand(-1, 1), flat = Math.sqrt(Math.max(0, 1 - lift * lift)), ttl = rand(0.26, 0.42);
+        this.#mote('fire', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * flat * reach / ttl * 0.8, y: lift * tall / ttl * 0.8, z: Math.sin(a) * flat * reach / ttl * 0.8 },
+          { size: rand(0.045, 0.1), ttl, drag: 1.1, stretch: 3 });
+      }
+      for (let i = 0; i < this.#n(16); i += 1) {
+        const a = rand(TAU);
+        this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
+      }
+    }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
       const full = tiers.frost === 2;
@@ -562,10 +580,10 @@ export class DisasterElementEffects {
       entry.seen = this.clock;
       const p = zone.position, floor = p.y + 0.03;
       const inside = () => { const a = rand(TAU), r = Math.sqrt(Math.random()) * zone.radius; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      entry.flame += 230 * strength * this.density * dt;
+      entry.flame += 340 * (0.25 + 0.75 * strength) * this.density * dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
-        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.05, 0.1) * (0.55 + 0.45 * strength), ttl: rand(0.28, 0.5), stretch: 3.4, drag: 1.2 });
+        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.07, 0.13) * (0.5 + 0.5 * strength), ttl: rand(0.28, 0.5), stretch: 3.4, drag: 1.2 });
       }
       entry.ember += 26 * strength * this.density * dt;
       while (entry.ember >= 1) {
@@ -581,19 +599,37 @@ export class DisasterElementEffects {
     }
     for (const id of Object.keys(this.fireAcc)) if (this.clock - this.fireAcc[id].seen > 1) delete this.fireAcc[id];
   }
-  // the sword wave in flight: the air it tears along, and whatever it carries
-  #stepWaves(snapshot, dt) {
-    for (const wave of snapshot?.oneHitWaves ?? []) {
-      const tiers = wave.tiers ?? {};
-      const kinds = ['gale', ...['fire', 'frost', 'lightning', 'steel'].filter((k) => tiers[k] > 0)];
-      this.waveAcc += 120 * this.density * dt;
-      while (this.waveAcc >= 1) {
-        this.waveAcc -= 1;
-        const d = wave.direction, back = rand(0, 1.2);
-        this.#mote(pick(kinds), { x: wave.position.x - d.x * back + rand(-0.9, 0.9), y: wave.position.y - d.y * back + rand(-0.7, 0.7), z: wave.position.z - d.z * back + rand(-0.9, 0.9) },
-          { x: d.x * rand(6, 12), y: d.y * rand(6, 12), z: d.z * rand(6, 12) }, { size: 0.018, stretch: rand(12, 22), ttl: rand(0.18, 0.32) });
-      }
+  // The sword wave in flight. Everything here is drawn on the one wave's own body (`mesh`: its crescent, turned the
+  // way it flies): torn air streaming back off its arc, and what it carries riding the same arc (embers off its
+  // burning limb, rime off its tips, filings in its pressure, lightning branching along it). No second projectile.
+  waveBody(wave, mesh, dt) {
+    const tiers = wave.tiers ?? {};
+    const scale = (tiers.fire ?? 0) >= 1 ? 1.5 / 0.9 : 1;
+    const d = wave.direction;
+    // a point on the arc (t: 0 its lower tip, 1 its upper), in the world
+    const onArc = (t) => {
+      const a = -1.309 + 2.618 * t;
+      return mesh.localToWorld(tmpVec.set(Math.sin(a) * 1.25, Math.cos(a) * 1.25 - 0.55, 0.3 * Math.cos(a * 1.15)).applyAxisAngle(AXIS_Z, 0.42).multiplyScalar(scale)).clone();
+    };
+    const acc = (this.waveAcc[wave.id] ??= { air: 0, fire: 0, frost: 0, steel: 0, boltAt: 0, seen: 0 });
+    acc.seen = this.clock;
+    const stream = (key, perSec, fn) => { acc[key] += perSec * this.density * dt; while (acc[key] >= 1) { acc[key] -= 1; fn(); } };
+    const back = (speed) => ({ x: -d.x * speed + rand(-0.6, 0.6), y: -d.y * speed + rand(-0.6, 0.6), z: -d.z * speed + rand(-0.6, 0.6) });
+    stream('air', 70, () => this.#mote(tiers.steel ? 'steel' : 'gale', onArc(Math.random()), back(rand(4, 9)), { size: tiers.steel ? 0.02 : 0.015, stretch: rand(14, 24), ttl: rand(0.16, 0.3) }));
+    if (tiers.fire) stream('fire', tiers.fire === 2 ? 70 : 46, () => this.#mote('fire', onArc(rand(0, 0.46)), back(rand(1.5, 4)), { size: rand(0.035, 0.07), stretch: 3, ttl: rand(0.2, 0.4) }));
+    if (tiers.frost) stream('frost', tiers.frost === 2 ? 44 : 28, () => { const tip = Math.random() < 0.5 ? rand(0, 0.2) : rand(0.8, 1);
+      this.#mote('frost', onArc(tip), back(rand(0.8, 2.5)), { size: rand(0.02, 0.04), stretch: 4, ttl: rand(0.35, 0.6), gravity: 2 }); });
+    if (tiers.steel) stream('steel', tiers.steel === 2 ? 12 : 7, () => { const at = onArc(Math.random()); const v = back(rand(2, 5));
+      this.rock.spawn({ x: at.x, y: at.y, z: at.z, vx: v.x, vy: v.y, vz: v.z, sx: rand(0.03, 0.06), color: pick(COLOR.steel), ttl: 0.5, gravity: 9, spin: 12 }); });
+    if (tiers.lightning && this.clock >= acc.boltAt) {
+      // along the arc itself, tip toward tip in uneven lengths, with a branch thrown off
+      acc.boltAt = this.clock + (tiers.lightning === 2 ? 0.045 : 0.075) / this.density;
+      const from = rand(0, 0.6), to = Math.min(1, from + rand(0.25, 0.5));
+      this.#bolt(onArc(from), onArc(to), { width: tiers.lightning === 2 ? 0.03 : 0.02, ttl: 0.08, jag: 0.12, forks: 1, steps: 5 });
     }
+  }
+  #stepWaves() {
+    for (const id of Object.keys(this.waveAcc)) if (this.clock - this.waveAcc[id].seen > 0.5) delete this.waveAcc[id];
   }
 
   // --- what a knight carries --------------------------------------------------------------------------------------
@@ -713,8 +749,23 @@ export class DisasterElementEffects {
     }
   }
 
+  // Half Frost's longer contact catching a latecomer: the cold still in the blow closing on them
+  lateContact(event, snapshot) {
+    for (const id of event.targets ?? []) {
+      const player = snapshot?.players?.find((p) => p.id === id);
+      if (!player) continue;
+      const feet = this.#feet(player);
+      for (let i = 0; i < this.#n(26); i += 1) {
+        const a = rand(TAU), r = rand(1, 1.8);
+        const home = { x: feet.x, y: feet.y + rand(0.3, 1.5), z: feet.z };
+        this.#mote('frost', { x: feet.x + Math.cos(a) * r, y: home.y, z: feet.z + Math.sin(a) * r }, { x: 0, y: 0, z: 0 }, { size: rand(0.025, 0.045), stretch: 5, ttl: rand(0.25, 0.4), home, pull: 60 });
+      }
+    }
+  }
+
   event(event, snapshot) {
     if (event.type === 'oneHitImpact') this.impact(event);
+    else if (event.type === 'oneHitLateContact') this.lateContact(event, snapshot);
     else if (event.type === 'rupture') this.fracture(event);
     else if (event.type === 'oneHitBacklash') this.discharge(event, snapshot);
     else if (event.type === 'oneHitConduct') this.conduct(event, snapshot);
@@ -738,11 +789,12 @@ export class DisasterElementEffects {
     this.#stepFractures(frame);
     this.#stepFields(snapshot, now, frame);
     this.#stepFire(snapshot, now, frame);
-    this.#stepWaves(snapshot, frame);
+    this.#stepWaves();
     this.#stepStatuses(snapshot, now, frame);
-    this.glow.update(frame);
+    this.glow.update(frame, this.viewer);
     this.rock.update(frame);
-    this.smoke.update(frame);
+    // (smoke and dust thin out round the eye that is looking: standing in my own blow, I am not blinded by it)
+    this.smoke.update(frame, this.viewer);
     for (let i = this.bolts.length - 1; i >= 0; i -= 1) {
       const bolt = this.bolts[i];
       bolt.life -= frame;

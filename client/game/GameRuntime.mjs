@@ -326,6 +326,7 @@ export class GameRuntime {
     };
     this.effects = new Effects(this.scene, this.camera);
     this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers,this.weapon);
+    this.oneHitEffects.elements.viewer = this.camera.position;
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -3852,6 +3853,8 @@ export class GameRuntime {
       const wanted = this.inspectionFree || this.trialControlsLocked
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
         : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
+      // (Flash Freeze: held where I stand, as the room holds me; the look is still mine)
+      if (serverNow < (this.localAuth?.oneHitFrozenUntil ?? -Infinity)) Object.assign(wanted, { forward: 0, right: 0, jump: false, sprint: false });
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
