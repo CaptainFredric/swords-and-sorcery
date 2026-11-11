@@ -231,7 +231,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
       burningUntil: p.burn?.until ?? 0,
       // Sheathed in Steel: when it was called and until when it holds full (it wears off evenly from there)
-      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck) } : null,
+      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck), ...(p.steel.extended ? { extended: true } : {}), ...(p.steel.earning ? { earning: true } : {}) } : null,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       // the Practice Yard's recast gates (practiceRecast.mjs): the real cooldowns above are shown as they are
@@ -240,9 +240,11 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
-      oneHitInfusions: { ...(p.oneHitInfusions ?? {fire:0,frost:0,gale:0,lightning:0}) },
+      oneHitInfusions: { fire:0,frost:0,gale:0,lightning:0,steel:0, ...(p.oneHitInfusions ?? {}) },
       shaken: p.shaken ? { ...p.shaken } : null,
       electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,
+      blustered: p.blustered ? { ...p.blustered } : null,
+      oneHitField: p.oneHitField ? { ...p.oneHitField } : null,
       practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
       oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
       oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
@@ -276,6 +278,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     })),
     oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
       id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, bornAt:z.bornAt, until:z.until,
+    })),
+    oneHitFields: (room.oneHitFields ?? []).map(f => ({
+      id:f.id, ownerId:f.ownerId, position:{...f.position}, radius:f.radius, bornAt:f.bornAt, until:f.until, tiers:{...f.tiers},
     })),
     lineConductWires: (room.lineConductWires ?? []).map(w => ({
       id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,

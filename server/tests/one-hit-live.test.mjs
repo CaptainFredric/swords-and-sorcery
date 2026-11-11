@@ -43,12 +43,12 @@ test('zero-infusion Ultimate is a usable real room attack, Shaken and physical r
   assert.ok(room.events.some(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b'));
   assert.ok(b.shaken,'physical status without elemental tiers');
   assert.equal(b.health,54,'46 direct damage; the same target is not hit again by its rupture');
-  assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0});
+  assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0,steel:0});
 });
 test('first-tier elemental contributions remain additive to the 46 base',()=>{
   assert.equal(oneHitDamage({fire:0,frost:0,gale:0,lightning:0}),46);
-  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),90);
-  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
+  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),83);
+  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),83);
 });
 test('ordinary and first tier Lightning taps keep their authoritative startup independent of voice length',()=>{
   for(const [lightning,startup] of [[0,.92],[1,.36]]){

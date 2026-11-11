@@ -50,7 +50,7 @@ test('both Shared Practice sockets receive the same authoritative Disaster landi
     const [a,b]=await Promise.all([host.wait(landing),guest.wait(landing)]);
     const event=a.events.find(e=>e.type==='oneHitImpact'&&e.form==='aerial');
     assert.deepEqual(event,b.events.find(e=>e.type==='oneHitImpact'&&e.form==='aerial'));
-    assert.deepEqual(event.tiers,{fire:2,frost:2,gale:2,lightning:2});
+    assert.deepEqual(event.tiers,{fire:2,frost:2,gale:2,lightning:2,steel:2});
     assert.ok(Math.abs(event.point.y)<1e-6);
     const zones=m=>m.type==='snapshot'&&m.oneHitBurnZones?.some(z=>z.id===event.impactId+':fire');
     const [h,g]=await Promise.all([host.wait(zones),guest.wait(zones)]);

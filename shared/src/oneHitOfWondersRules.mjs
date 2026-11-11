@@ -1,4 +1,6 @@
 import { SPELLS } from './spells.mjs';
+import { STEEL_DAMAGE_RANGES } from './steel.mjs';
+import { STEEL_RAM, ramEffect } from './steelRam.mjs';
 
 // Rule foundation for the eventual server-authoritative Ultimate and its presentation.
 // This does not register or activate the Ultimate or the new Line of Conduct spell.
@@ -16,12 +18,17 @@ export const ONE_HIT_RULES = Object.freeze({
 
 // Each element's first infusion adds its minimum meaningful direct spell hit
 // ONLY to the decisive impact/wave (once per victim). Full infusion does not
-// grant another copy. Gale's outer pressure is non-damaging; the core deals 8.
+// grant another copy. Every figure is read from the rule that owns it:
+//   Fire, Frost: the edge of the blast (the least a real contact deals);
+//   Gale: the least a whole gust deals to a body it legitimately caught (its 8-point heart is its most, not its least);
+//   Lightning: Line of Conduct's long-distance floor;
+//   Steel: the least a qualifying Steel Dash ram deals, a ram at the weakest plate that still makes one.
 export const ONE_HIT_FIRST_INFUSION_DAMAGE = Object.freeze({
   fire: SPELLS.fireball.edgeDamage,
   frost: SPELLS.frostfire.edgeDamage,
-  gale: SPELLS.gale.cone.damage,
+  gale: STEEL_DAMAGE_RANGES.gale.min,
   lightning: ONE_HIT_RULES.lineOfConduct.farDamage,
+  steel: ramEffect(STEEL_RAM.minStrength).damage,
 });
 
 export function lineOfConductDamage(distanceMetres) {

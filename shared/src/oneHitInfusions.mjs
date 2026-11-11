@@ -2,13 +2,15 @@
 // This module has no visual dependencies; demos and Practice presets cannot award combat stages.
 import { oneHitDecisiveDamage, oneHitAttackForm, oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
 
-export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning']);
+export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning', 'steel']);
 export const ONE_HIT_BASE_DAMAGE = 46;
 export const ONE_HIT_GROUND_RADIUS = 3.4;
 export const ONE_HIT_AERIAL_DURATION = 0.85;
 export const ONE_HIT_SHAKEN_SECONDS = 3;
+// Shocking Conduct, Blustered and every ground field run down over the same four seconds.
+export const ONE_HIT_STATUS_SECONDS = 4;
 
-export const emptyInfusions = () => ({ fire: 0, frost: 0, gale: 0, lightning: 0 });
+export const emptyInfusions = () => ({ fire: 0, frost: 0, gale: 0, lightning: 0, steel: 0 });
 export const normalizeInfusions = (stages = {}) => Object.fromEntries(
   ONE_HIT_ELEMENTS.map(element => [element, Math.max(0, Math.min(2, Math.trunc(Number(stages?.[element]) || 0)))]));
 export const elementForSpell = spell => ({
@@ -69,7 +71,7 @@ export function applyOneHitShaken(target, nowSec, quality = 1) {
 
 export function oneHitBacklashRemaining(status, nowSec) {
   if (!status) return 0;
-  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / 4));
+  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / ONE_HIT_STATUS_SECONDS));
   return Math.max(0, status.initial * fraction);
 }
 
@@ -93,8 +95,9 @@ export function oneHitGlide(player, speed=7.5) {
 
 export const ONE_HIT_PRESETS = Object.freeze({
   simple: emptyInfusions(),
-  partial: Object.freeze({ fire: 1, frost: 1, gale: 1, lightning: 1 }),
-  full: Object.freeze({ fire: 2, frost: 2, gale: 2, lightning: 2 }),
-  gale: Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 0 }),
-  'gale-lightning': Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 2 }),
+  partial: Object.freeze({ fire: 1, frost: 1, gale: 1, lightning: 1, steel: 1 }),
+  full: Object.freeze({ fire: 2, frost: 2, gale: 2, lightning: 2, steel: 2 }),
+  gale: Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 0, steel: 0 }),
+  'gale-lightning': Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 2, steel: 0 }),
+  steel: Object.freeze({ fire: 0, frost: 0, gale: 0, lightning: 0, steel: 2 }),
 });
