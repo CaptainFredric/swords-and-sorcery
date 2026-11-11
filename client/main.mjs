@@ -1998,6 +1998,77 @@ function updateInspectorDetailCard() {
   }
 }
 
+function animateCardReorder(category, selectedItemId) {
+  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
+
+  let listId = '#armory-spells';
+  if (category === 'masterstroke') listId = '#armory-ultimates';
+  else if (category === 'technique') listId = '#armory-techniques';
+
+  const container = document.querySelector(listId);
+  if (!container) return null;
+
+  const firstPositions = new Map();
+  container.querySelectorAll('.spell-card').forEach((card) => {
+    const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+    if (id) {
+      firstPositions.set(id, card.getBoundingClientRect());
+    }
+  });
+
+  return function play() {
+    requestAnimationFrame(() => {
+      const cards = container.querySelectorAll('.spell-card');
+      const animatingCards = [];
+
+      cards.forEach((card) => {
+        const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+        const first = firstPositions.get(id);
+        if (!first) return;
+
+        const last = card.getBoundingClientRect();
+        const deltaY = first.top - last.top;
+
+        if (Math.abs(deltaY) > 1) {
+          const isSelected = id === selectedItemId;
+          card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
+          card.style.transition = 'none';
+          if (isSelected) {
+            card.classList.add('swiping-down');
+          } else {
+            card.classList.add('shifting-up');
+          }
+          animatingCards.push({ card, isSelected });
+        }
+      });
+
+      if (animatingCards.length === 0) return;
+
+      container.offsetHeight;
+
+      requestAnimationFrame(() => {
+        animatingCards.forEach(({ card, isSelected }) => {
+          if (isSelected) {
+            card.style.transition = 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.38s ease, border-color 0.28s ease';
+            card.style.transform = 'translateY(0) scale(1)';
+          } else {
+            card.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
+            card.style.transform = 'translateY(0)';
+          }
+
+          const cleanup = () => {
+            card.style.transform = '';
+            card.style.transition = '';
+            card.classList.remove('swiping-down', 'shifting-up');
+          };
+          card.addEventListener('transitionend', cleanup, { once: true });
+          setTimeout(cleanup, 450);
+        });
+      });
+    });
+  };
+}
+
 function scrollToEquippedItem(category, { smooth = true } = {}) {
   const inspector = $('#armory-inspector');
   if (!inspector || inspector.classList.contains('closed')) return;
@@ -2015,9 +2086,13 @@ function scrollToEquippedItem(category, { smooth = true } = {}) {
   if (!equippedCard) return;
 
   const doScroll = () => {
-    const cardRect = equippedCard.getBoundingClientRect();
-    const scrollRect = scrollEl.getBoundingClientRect();
-    const cardBottomOffset = (cardRect.bottom - scrollRect.top) + scrollEl.scrollTop;
+    let el = equippedCard;
+    let top = 0;
+    while (el && el !== scrollEl) {
+      top += el.offsetTop;
+      el = el.offsetParent;
+    }
+    const cardBottomOffset = top + equippedCard.offsetHeight;
     const targetScrollTop = Math.max(0, cardBottomOffset - scrollEl.clientHeight + 14);
 
     scrollEl.scrollTo({
@@ -2056,10 +2131,13 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     }
   }
 
+  const playReorder = animate ? animateCardReorder(category, itemId) : null;
+
   lastEquippedCategory = category;
   lastEquippedItemId = itemId;
 
   renderArmory();
+  playReorder?.();
   scrollToEquippedItem(category, { smooth: animate });
 }
 

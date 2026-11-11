@@ -867,6 +867,20 @@ html[data-turn] .turn-only { display: block !important; }
   animation: equipSettle 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
+.spell-card.swiping-down {
+  animation: none !important;
+  z-index: 10;
+  border-color: var(--heraldry-brass-light);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .8), 0 0 18px rgba(236, 201, 127, .65), inset 0 0 12px rgba(236, 201, 127, .25);
+  will-change: transform, box-shadow;
+}
+
+.spell-card.shifting-up {
+  animation: none !important;
+  opacity: 0.82;
+  will-change: transform;
+}
+
 .spell-card.selected-inspect { border-color: #ffd685; box-shadow: 0 0 12px rgba(236, 201, 127, .4); }
 .spell-card[data-spell="frostfire"].equipped { box-shadow: 0 0 0 1px rgba(143, 220, 255, .4), 0 0 18px rgba(143, 220, 255, .12) inset; }
 .spell-card[disabled] { opacity: .65; cursor: not-allowed; }
