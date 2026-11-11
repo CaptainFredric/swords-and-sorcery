@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import test from 'node:test';
 import { armoryView } from './armoryView.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
@@ -63,6 +65,11 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.equal(core.name, 'COREFLAGRATION');
   assert.match(core.facts, /5 first burst · 20 final blast · 6 burn · 5s cooldown/);
   assert.match(core.line, /burning stone/);
+});
+
+test('How to Play states Chivalry’s actual duration', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes(`cast together for ${ULTIMATES.chivalry.activeSec} seconds.`));
 });
 
 test('Armory facts derive All-Natural Disaster and Line of Conduct values from the shared rules', () => {
