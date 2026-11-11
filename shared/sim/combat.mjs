@@ -1272,6 +1272,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
   minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
+  killVariant = null,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1341,11 +1342,11 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
   recordPerryDamage(room, attackerId, victimId, source, nowSec, taken, healthBefore);
-  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
+  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec, killVariant);
   return true;
 }
 
-export function killPlayer(room, victimId, attackerId, source, nowSec) {
+export function killPlayer(room, victimId, attackerId, source, nowSec, killVariant = null) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive) return false;
   let credited = attackerId;
@@ -1354,6 +1355,17 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   const steeled = steelStrength(victim.steel, nowSec) > 0.005;
   // (and whether they fell spinning, or still dizzy from it)
   const spun = Boolean(vortexing(victim, nowSec)) || dizzy(victim, nowSec);
+  // Capture the actual finishing context while its attacker and the machine
+  // state still exist. Afterwards a death may dismount the victim and clear
+  // active abilities, making client-side guesses unreliable.
+  const killer=room.players.get(credited);
+  const special=killVariant||
+    (source==='fight-flight-rotor'&&room.fightFlight?.operatorId===credited&&
+     room.fightFlight?.offensiveRun?'rotorDash':null)||
+    (killer&&['sword','ram','gauntlet','fireball','burn','frostfire','gale',
+       'coreflagration','line_of_conduct'].includes(source)&&
+       combatActionPolicy(killer,nowSec).concurrent?'chivalry':null)||
+    (source==='sword'&&killer&&sundering(killer,nowSec)?'sunder':null);
   recordChallengeFact(room, { type: 'death', victimId, killerId: credited, source, at: nowSec,
     displacementSource: victim.lastKnockbackSource ?? null, displacementBy: victim.lastKnockbackBy ?? null,
     displacementAt: victim.lastKnockbackAt });
@@ -1431,7 +1443,8 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
-  const death = { type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
+  const death = { type: 'death', victimId, killerId: credited, source,
+    ...(special?{killContext:special}:{}), ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
   const vortex = spun || Boolean(room.players.get(credited) && vortexing(room.players.get(credited), nowSec)) || ['ember','vortexFire','vortexBlaze'].includes(source);
   const voicePending = playing && queueDefeatVoice(room, death, victim.position, {vortex});
   room.events.push({...death, ...(voicePending ? {voicePending:true} : {})});
@@ -1712,6 +1725,7 @@ function coreflagrationBurst(room, projectile, point, nowSec, damage, final = fa
     if (!final && projectile.coreParriedDefenderId === player.id) continue;
     // No falloff anywhere in the body-intersection radius. Sheathe in Steel and spawn protection still apply.
     const hit = applyDamage(room, projectile.ownerId, player.id, damage, spell.id, nowSec, null, {
+      killVariant:final?'coreflagration-final':'coreflagration-first',
       contactFacts: challengeContact(room.players.get(projectile.ownerId), nowSec, {
         ordinaryProjectile: true, prepared: preparedSpellMember(room.players.get(projectile.ownerId), spell.id),
         projectileId: projectile.id,
