@@ -14,7 +14,7 @@ import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mj
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
 const COLOR = Object.freeze({
-  fire: [0xffe08a, 0xff8a2e, 0xe2481f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xf2fff4, 0xa6efc4, 0x6fd6a0],
+  fire: [0xffb347, 0xff6a14, 0xd9360f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xf2fff4, 0xa6efc4, 0x6fd6a0],
   lightning: [0xfffbe0, 0xffe45c, 0xffc21f], steel: [0xe9edf2, 0xaab3bf, 0x77808c], dust: [0xcabba4, 0xa3927b, 0x7d6f5e],
 });
 const STONE_TINTS = [0x8a8072, 0x746b60, 0x9a9184, 0x65605a];
@@ -34,7 +34,7 @@ class ParticlePool {
   constructor(parent, geometry, material, capacity, { additive = false } = {}) {
     this.mesh = new THREE.InstancedMesh(geometry, material, capacity);
     this.mesh.frustumCulled = false;
-    this.mesh.count = 0;
+    this.mesh.count = 1;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.setColorAt(0, tmpColor.set(0xffffff));
     this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -102,7 +102,9 @@ class ParticlePool {
       n += 1;
     }
     items.length = n;
-    this.mesh.count = n;
+    // (never empty: one unseen instance keeps the pool drawn, so its shader is built before the first blow, not on it)
+    if (n === 0) { tmpObject.position.set(0, -1e4, 0); tmpObject.scale.setScalar(1e-6); tmpObject.updateMatrix(); this.mesh.setMatrixAt(0, tmpObject.matrix); }
+    this.mesh.count = Math.max(1, n);
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
@@ -185,9 +187,21 @@ export class DisasterElementEffects {
     this.rock = new ParticlePool(this.root, new THREE.DodecahedronGeometry(1, 0),
       new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.02, flatShading: true }), 240);
     this.smoke = new ParticlePool(this.root, new THREE.IcosahedronGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.26, depthWrite: false }), 110);
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.17, depthWrite: false }), 110);
     this.boltMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.bolts = [];
+    // (one unseen bolt, always drawn: every later bolt's material is this program, already built)
+    this.warmBolt = new THREE.Mesh(boltGeometry(boltPath(new THREE.Vector3(0, -1e4, 0), new THREE.Vector3(0, -1e4 + 0.01, 0), { forks: 0, steps: 2 }), 1e-5), this.boltMaterial);
+    this.warmBolt.frustumCulled = false;
+    this.root.add(this.warmBolt);
+    // Full Frost's standing ice: its material built (and drawn once, unseen) now, so the first field costs no shader
+    this.iceMaterial = new THREE.MeshStandardMaterial({ color: 0xbfe9ff, emissive: 0x2a6f9c, emissiveIntensity: 0.55, roughness: 0.25, metalness: 0.05,
+      transparent: true, opacity: 0.86, flatShading: true });
+    this.warmIce = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5), this.iceMaterial, 1);
+    tmpObject.position.set(0, -1e4, 0); tmpObject.scale.setScalar(1e-6); tmpObject.updateMatrix();
+    this.warmIce.setMatrixAt(0, tmpObject.matrix);
+    this.warmIce.frustumCulled = false;
+    this.root.add(this.warmIce);
     this.fields = new Map();     // field id -> { ice, emit clocks }
     this.fractures = [];         // radial fractures still running: rocks thrown where each arm's head is
     this.gather = new Map();     // player id -> emit clocks
@@ -238,7 +252,7 @@ export class DisasterElementEffects {
       color: pick(STONE_TINTS), gravity: 14, ttl, floor, spin: rand(-7, 7) });
   }
   #dust(at, velocity, size = 0.3, ttl = 0.9, color = pick(COLOR.dust)) {
-    this.smoke.spawn({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, sx: size, ttl, color, grow: 2.2, drag: 2.2, fadeIn: 0.05 });
+    this.smoke.spawn({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, sx: size, ttl, color, grow: 1.5, drag: 2.2, fadeIn: 0.05 });
   }
   #mote(element, at, velocity, { size = 0.05, ttl = 0.5, gravity = 0, align = true, stretch = 3, drag = 0, home = null, pull = 0, swirl = 0 } = {}) {
     this.glow.spawn({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, sx: size, sy: size * (align ? stretch : 1), sz: size,
@@ -348,12 +362,12 @@ export class DisasterElementEffects {
       for (let i = 0; i < rocks; i += 1) {
         const a = rand(TAU), out = rand(1.2, 5.2) * force, r = rand(0.1, 0.9);
         this.#stone({ x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }, { x: Math.cos(a) * out, y: rand(3, 8.5) * force, z: Math.sin(a) * out },
-          rand(0.06, steel === 2 ? 0.3 : 0.2), floor, rand(1.3, 2.2));
+          rand(0.05, steel === 2 ? 0.19 : 0.14), floor, rand(1.3, 2.2));
       }
       // and the dust of it, rolling outward low (in place of a drawn ring: it is the ground's own)
       for (let i = 0; i < this.#n(22); i += 1) {
         const a = i / 22 * TAU + rand(0.2), speed = rand(3.5, 6.5) * (steel ? 1.2 : 1);
-        this.#dust({ x: p.x + Math.cos(a) * 0.5, y: floor + 0.15, z: p.z + Math.sin(a) * 0.5 }, { x: Math.cos(a) * speed, y: rand(0.2, 1), z: Math.sin(a) * speed }, rand(0.3, 0.5), rand(0.8, 1.3));
+        this.#dust({ x: p.x + Math.cos(a) * 0.5, y: floor + 0.15, z: p.z + Math.sin(a) * 0.5 }, { x: Math.cos(a) * speed, y: rand(0.2, 1), z: Math.sin(a) * speed }, rand(0.22, 0.36), rand(0.8, 1.3));
       }
     } else {
       // a wave breaking on stone or in the air: chips off the face it struck
@@ -367,11 +381,11 @@ export class DisasterElementEffects {
       for (let i = 0; i < this.#n(full ? 60 : 34); i += 1) {
         const a = rand(TAU), r = rand(0.5);
         this.#mote('fire', { x: p.x + Math.cos(a) * r, y: floor + rand(0.6), z: p.z + Math.sin(a) * r }, { x: Math.cos(a) * rand(0.6), y: rand(4, full ? 11 : 8), z: Math.sin(a) * rand(0.6) },
-          { size: rand(0.06, 0.14), ttl: rand(0.35, 0.7), drag: 1.6, stretch: 2.6 });
+          { size: rand(0.05, 0.1), ttl: rand(0.35, 0.7), drag: 1.6, stretch: 3.6 });
       }
       for (let i = 0; i < this.#n(full ? 46 : 22); i += 1) {
         const a = rand(TAU), speed = rand(3, full ? radius * 2.4 : 6);
-        this.#mote('fire', { x: p.x, y: floor + 0.12, z: p.z }, { x: Math.cos(a) * speed, y: rand(0.5, 2.5), z: Math.sin(a) * speed }, { size: rand(0.04, 0.09), ttl: rand(0.3, 0.55), gravity: 5, drag: 2 });
+        this.#mote('fire', { x: p.x, y: floor + 0.12, z: p.z }, { x: Math.cos(a) * speed, y: rand(0.5, 2.5), z: Math.sin(a) * speed }, { size: rand(0.022, 0.045), ttl: rand(0.3, 0.55), gravity: 5, drag: 2, stretch: 4 });
       }
       for (let i = 0; i < this.#n(full ? 10 : 5); i += 1) this.#dust({ x: p.x + rand(-0.6, 0.6), y: floor + rand(0.8, 1.6), z: p.z + rand(-0.6, 0.6) }, { x: rand(-0.5, 0.5), y: rand(1.5, 3), z: rand(-0.5, 0.5) }, rand(0.35, 0.6), rand(1.2, 1.9), 0x2b211c);
     }
@@ -386,7 +400,7 @@ export class DisasterElementEffects {
         const a = rand(TAU);
         this.#mote('frost', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * rand(1, 3), y: rand(2, 5.5), z: Math.sin(a) * rand(1, 3) }, { size: rand(0.04, 0.08), ttl: rand(0.5, 0.8), gravity: 9, stretch: 4 });
       }
-      for (let i = 0; i < this.#n(6); i += 1) this.#dust({ x: p.x + rand(-1, 1), y: floor + 0.2, z: p.z + rand(-1, 1) }, { x: rand(-1.5, 1.5), y: 0.3, z: rand(-1.5, 1.5) }, 0.45, 1.4, 0xcfe9f5);
+      for (let i = 0; i < this.#n(6); i += 1) this.#dust({ x: p.x + rand(-1, 1), y: floor + 0.2, z: p.z + rand(-1, 1) }, { x: rand(-1.5, 1.5), y: 0.3, z: rand(-1.5, 1.5) }, 0.28, 1.2, 0xcfe9f5);
       if (!ground || !event.fieldId) this.#iceCrown(p, 1.1, full ? 9 : 6, 1.1);
     }
     if (tiers.gale) {
@@ -458,7 +472,7 @@ export class DisasterElementEffects {
           for (let k = 0; k < this.#n(count); k += 1) {
             const side = rand(-1, 1);
             this.#stone(at, { x: arm.dir.x * rand(0.5, 2.5) - arm.dir.z * side * 2, y: rand(3, f.steel === 2 ? 8 : 5.5), z: arm.dir.z * rand(0.5, 2.5) + arm.dir.x * side * 2 },
-              rand(0.07, f.steel === 2 ? 0.26 : 0.17), floor, rand(1.1, 1.8));
+              rand(0.05, f.steel === 2 ? 0.17 : 0.12), floor, rand(1.1, 1.8));
           }
           if (Math.random() < 0.6) this.#dust({ ...at, y: floor + 0.2 }, { x: arm.dir.x * 1.2, y: rand(0.6, 1.4), z: arm.dir.z * 1.2 }, 0.28, 0.9);
           this.#mote('steel', { ...at, y: floor + 0.1 }, { x: rand(-2, 2), y: rand(3, 7), z: rand(-2, 2) }, { size: 0.014, ttl: 0.3, gravity: 16, stretch: 6 });
@@ -489,11 +503,11 @@ export class DisasterElementEffects {
       const inside = (share = 1) => { const a = rand(TAU), r = Math.sqrt(Math.random()) * field.radius * share; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
       // every field: the broken ground still shifting, grit hopping and dust hanging over it
       emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), floor, 0.6); });
-      emit('haze', 5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.15 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.3, 0.5), 1.5); });
+      emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
       if (field.tiers?.frost === 2) {
         // cold coming up off the ice, and the ice itself sinking back as the field goes
         emit('cold', 20, () => { const at = inside(); this.#mote('frost', { ...at, y: floor + rand(0.05, 0.3) }, { x: rand(-0.4, 0.4), y: rand(0.3, 0.9), z: rand(-0.4, 0.4) }, { size: rand(0.02, 0.04), ttl: rand(0.6, 1), stretch: 2.5, drag: 0.8 }); });
-        emit('mist', 6, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.5, 1.6, 0xd4edf8); });
+        emit('mist', 3, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.1 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.26, 1.4, 0xd4edf8); });
         if (entry.ice) this.#poseIce(entry.ice, field, strength, now);
       }
       if (field.tiers?.lightning === 2 && this.clock >= entry.arcAt) {
@@ -512,8 +526,7 @@ export class DisasterElementEffects {
   // Full Frost's field: real ice standing out of the ground across it, tallest at the heart
   #iceField(field) {
     const count = Math.round(46 * this.density);
-    const ice = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5), new THREE.MeshStandardMaterial({ color: 0xbfe9ff, emissive: 0x2a6f9c, emissiveIntensity: 0.55,
-      roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.86, flatShading: true }), count);
+    const ice = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5), this.iceMaterial.clone(), count);
     ice.frustumCulled = false;
     ice.userData.spikes = Array.from({ length: count }, (_, i) => {
       const a = i * 2.39996, r = Math.sqrt((i + 0.5) / count) * field.radius * 0.97;
@@ -549,10 +562,10 @@ export class DisasterElementEffects {
       entry.seen = this.clock;
       const p = zone.position, floor = p.y + 0.03;
       const inside = () => { const a = rand(TAU), r = Math.sqrt(Math.random()) * zone.radius; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      entry.flame += 150 * strength * this.density * dt;
+      entry.flame += 230 * strength * this.density * dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
-        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.05, 0.1) * (0.6 + 0.4 * strength), ttl: rand(0.3, 0.55), stretch: 2.8, drag: 1.2 });
+        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.05, 0.1) * (0.55 + 0.45 * strength), ttl: rand(0.28, 0.5), stretch: 3.4, drag: 1.2 });
       }
       entry.ember += 26 * strength * this.density * dt;
       while (entry.ember >= 1) {
@@ -751,6 +764,9 @@ export class DisasterElementEffects {
     for (const entry of this.fields.values()) if (entry.ice) { entry.ice.parent?.remove(entry.ice); entry.ice.geometry.dispose(); entry.ice.material.dispose(); }
     this.fields.clear();
     this.glow.dispose(); this.rock.dispose(); this.smoke.dispose();
+    this.warmBolt.geometry.dispose();
+    this.warmIce.geometry.dispose();
+    this.iceMaterial.dispose();
     this.boltMaterial.dispose();
     this.root.parent?.remove(this.root);
   }

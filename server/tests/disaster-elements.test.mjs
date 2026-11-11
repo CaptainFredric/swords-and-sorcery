@@ -683,6 +683,25 @@ test('aerial Steel: the wave\'s own blade interrupts and restarts cooldowns; its
   assert.equal(room.oneHitFields.length, 0);
 });
 
+test('terrain: the field lies on its own level; a knight on a platform above it, or behind a wall from it, is not in it', () => {
+  const raised = { ...world,
+    floors: [...world.floors, { id: 'deck', center: [2, 2.9, 0], size: [3, .2, 3], y: 3 }],
+    solids: [{ id: 'wall', center: [0, 1.5, -2], size: [8, 3, .3] }] };
+  const { room, a, b } = battle({ tiers: { frost: 2, lightning: 1 } });
+  b.health = 1000;
+  const above = add(room, 'above', { x: 2, y: 3, z: 0 });
+  const behind = add(room, 'behind', { x: 0, y: 0, z: -2.8 });
+  const now = slam(room, 9, raised);
+  assert.equal(decisive(room, 'b').length, 1);
+  assert.equal(decisive(room, 'above').length + decisive(room, 'behind').length, 0, 'the blow itself respects height and stone');
+  run(room, now, .5, raised);
+  assert.ok(b.oneHitField, 'the struck knight on the ground is in the field');
+  assert.equal(above.oneHitField, null, 'three metres up is not');
+  assert.equal(behind.oneHitField, null, 'nor is the far side of a wall');
+  assert.equal(above.oneHitFrostSlow, null); assert.equal(behind.oneHitFrostSlow, null);
+  assert.equal(a.health, 100);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 test('Practice presets carry all five tracks and commit like the real thing', () => {
   for (const [name, stages] of Object.entries(ONE_HIT_PRESETS)) {

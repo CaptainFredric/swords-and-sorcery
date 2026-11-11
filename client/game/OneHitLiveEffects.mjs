@@ -86,7 +86,7 @@ export class OneHitLiveEffects {
     for(let i=0;i<slabs;i++){
       const a=i*TAU/slabs+(i%2)*.085,dist=(1.4+.47*(i%4))*(steel===2?1.35:1);
       const slab=new THREE.Mesh(STONE_SHAPE,new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,roughness:.9}));
-      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar(steel===2?1.4:1);
+      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar(steel===2?1.15:1);
       slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
       slab.rotation.set(Math.sin(a)*.33,a,Math.cos(a)*.4);
       slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09+(steel?.12:0)};
@@ -113,27 +113,12 @@ export class OneHitLiveEffects {
         obj=new THREE.Group();obj.position.copy(v(zone.position));
         const coals=new THREE.Mesh(new THREE.CircleGeometry(zone.radius,48),M(0x532d1a,.33));
         coals.rotation.x=-Math.PI/2;coals.position.y=.042;
-        const tongues=new THREE.InstancedMesh(EMBER,M(0xffa448,.78),19);
-        tongues.frustumCulled=false;
-        for(let i=0;i<19;i++)tongues.setColorAt(i,new THREE.Color([0xffb965,0xff742f,0xd94d26][i%3]));
-        obj.add(coals,tongues);
+        // (scorched ground only: the flames, embers and smoke on it are DisasterElementEffects', dying with the fire)
+        obj.add(coals);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
       const left=clamp((zone.until-now)/4,0,1);
-      const [coals,tongues]=obj.children;
-      coals.material.opacity=.17+.24*left;
-      tongues.material.opacity=.36+.47*left;
-      tongues.count=7+Math.ceil(left*12*this.density);
-      for(let i=0;i<tongues.count;i++){
-        // (one in three stands on the fire's edge: where it burns is read from the flames, not from a drawn line)
-        const a=i*2.39996,r=i%3===0?zone.radius*.97:zone.radius*(.19+((i*7)%18)/24);
-        const gust=.77+.23*Math.sin(now*11+i*3);
-        matrix.position.set(Math.sin(a)*r,.13+(i%4)*.09*left,Math.cos(a)*r);
-        matrix.rotation.set(.15*Math.sin(now*6+i),a,.25*Math.cos(now*7+i));
-        matrix.scale.set(.13+.15*left,(.18+.45*left)*gust,.12+.12*left);
-        matrix.updateMatrix();tongues.setMatrixAt(i,matrix.matrix);
-      }
-      tongues.instanceMatrix.needsUpdate=true;
+      obj.children[0].material.opacity=.2+.3*left;
     }
     for(const [id,obj] of this.zones)if(!seen.has(id)){this.#discard(obj);this.zones.delete(id);}
   }
