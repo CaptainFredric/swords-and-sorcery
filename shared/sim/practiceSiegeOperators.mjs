@@ -312,7 +312,13 @@ function tryHostileRemount(room,a,m,machine,ai,now,world){
    m.operatorId||mounted(a)||m.team&&m.team!==a.team||
    machine==='fight-and-flight'&&(!m.grounded||m.rotorHP<=0||m.terminalDive)||
    machine==='so-fist-ication'&&
-     ((m.components?.Drive?.health??0)<=0||m.detachedFist?.state==='recovering'))
+     ((m.components?.Drive?.health??0)<=0||
+      m.detachedFist?.state==='recovering'||
+      (()=>{const failed=['FL','FR','RL','RR'].filter(w=>
+        (m.components?.['Wheel_'+w]?.health??0)<=0);
+        return failed.length>=3||failed.includes('FL')&&failed.includes('FR')||
+          ['L','R'].some(side=>failed.filter(w=>w.endsWith(side)).length>=2);
+      })()))
    return false;
  let entry;
  if(machine==='so-fist-ication')entry=soFistEntry(m,world);
