@@ -12,6 +12,21 @@ export function flightDashEnvelope(age){
   return 0;
 }
 export const FLIGHT_DASH_VIEW=Object.freeze({fovDegrees:7.5,thirdPersonPullback:1.35,duration:ATTACK+PLATEAU+RECOVER});
+/** Shared reticle-driven third-person boom for held Dash AND Valkyrie.
+ * The aircraft may lag behind the reticle as its steering wears out; never
+ * force the camera to stare at the fuselage and hide an up/down aim command. */
+export function flightDashChasePose(machine,look,distance){
+ const yaw=look.yaw,pitch=look.pitch;
+ return {
+   position:{
+     x:machine.x+Math.sin(yaw)*distance,
+     y:machine.y+3.05-Math.sin(pitch)*distance,
+     z:machine.z+Math.cos(yaw)*distance,
+   },
+   yaw,pitch,
+ };
+}
+
 export class FlightDashPresentation{
   constructor(){this.reset();}
   reset(){this.machine=null;this.wasRunning=false;this.startedAt=Infinity;this.elapsed=Infinity;this.release=1;this.strength=0;this.thirdBlend=0;}
