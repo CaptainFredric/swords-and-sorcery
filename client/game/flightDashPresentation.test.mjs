@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FlightDashPresentation,flightDashEnvelope,FLIGHT_DASH_VIEW} from './flightDashPresentation.mjs';
+import {FlightDashPresentation,flightDashEnvelope,flightDashChasePose,FLIGHT_DASH_VIEW} from './flightDashPresentation.mjs';
 const machine=(p={})=>({id:'flight-1',operatorId:'pilot',health:250,rotorHP:100,offensiveRun:false,...p});
 const tick=(v,m,dt=1/60,motion=1)=>v.update(dt,m,{eligible:true,cameraMotion:motion});
 test('real offensive run causes one short smooth pullback and FOV widening, never continuous zoom',()=>{
@@ -67,4 +67,25 @@ test('an active Valkyrie keeps a pursuit camera even when rotor condition decays
  m.terminalDive.resolved=true;
  for(let i=0;i<40;i++)frame=tick(v,m);
  assert.ok(frame.thirdBlend<.01,'terminal resolution returns to the saved view');
+});
+
+test('terminal and ordinary Dash share free reticle-following third-person pitch and yaw',()=>{
+ const m={x:10,y:20,z:-4,heading:0};
+ const upward=flightDashChasePose(m,{yaw:1.1,pitch:.7},7);
+ const downward=flightDashChasePose(m,{yaw:1.1,pitch:-.7},7);
+ assert.equal(upward.yaw,1.1);
+ assert.equal(upward.pitch,.7);
+ assert.ok(upward.position.y<m.y,'looking up places the camera below the craft to look upward');
+ assert.ok(downward.position.y>m.y,'looking down places the camera above the craft');
+ assert.equal(upward.position.x,downward.position.x);
+ assert.equal(upward.position.z,downward.position.z);
+ const left=flightDashChasePose(m,{yaw:-.8,pitch:.7},7);
+ assert.ok(left.position.x<m.x&&upward.position.x>m.x,
+   'camera can look both directions even before a heavy craft completes its turn');
+ // The real camera uses this identical pose in BOTH modes, independent of
+ // terminalDive or m.heading; it must never substitute lookAt(machine).
+ m.terminalDive={resolved:false};
+ assert.deepEqual(flightDashChasePose(m,{yaw:1.1,pitch:.7},7),upward);
+ m.terminalDive=null;m.offensiveRun=true;
+ assert.deepEqual(flightDashChasePose(m,{yaw:1.1,pitch:.7},7),upward);
 });
