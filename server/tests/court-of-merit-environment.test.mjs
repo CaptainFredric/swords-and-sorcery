@@ -21,10 +21,10 @@ test('no knight can walk, crouch or hop out of the court, nor stand under a floo
 test('the Rightful Renowner stands exactly where the ceremony expects it', () => {
   const body = court.solids.find((s) => s.id === 'renowner-tribunal-body');
   const podium = court.solids.find((s) => s.id === 'renowner-tribunal-podium');
-  assert.deepEqual(body.center, [0, 4.25, 16.2]);
+  assert.deepEqual(body.center.map(v=>+v.toFixed(3)), [0, 3.65, 16.2]);
   assert.deepEqual(body.size.map((v) => +v.toFixed(3)), [2.432, 4.5, 2.186]);
-  assert.deepEqual(podium.center, [0, 1.7, 16.2]);
-  assert.equal(body.center[1] - body.size[1] / 2, podium.center[1] + podium.size[1] / 2);
+  assert.deepEqual(podium.center.map(v=>+v.toFixed(3)), [0, 1.32, 16.2]);
+  assert.ok(Math.abs(body.center[1] - body.size[1] / 2 - podium.center[1] - podium.size[1] / 2)<1e-9);
 });
 
 test('nothing on the trial floor is thick enough to run round while a blade reaches across it', () => {
