@@ -374,7 +374,8 @@ test('Early committed Valkyrie has ordinary Dash-equivalent turn and climb autho
   assert.ok(s.m.velocity.y>8,'positive reticle pitch produces real ascent, not a tiny trim');
   assert.ok(s.m.y>120,'the chassis actually climbs through the world');
   assert.ok(s.m.runFlightPitch>.75,'replicated pitch remains player controlled');
-  assert.ok(s.m.runPitch<.1,'climbing changes the third-person craft attitude');
+  assert.ok(s.m.runPitch>.35&&s.m.runPitch<1.05,
+    'climbing raises the Dash-style machine from its forward-cutting pitch, not a shallow custom trim');
   assert.ok(s.m.runTurnSpeed<=VALKYRIE_RUN.turnRate+1e-6);
   assert.ok(s.m.rotorAngularVelocity>0,'rotor remains physically powered');
 });
