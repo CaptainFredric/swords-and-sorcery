@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createGameServer } from '../server/src/server.mjs';
 import { ProfileStore } from '../server/src/ProfileStore.mjs';
+import { overtimeVerdictWeights, serializeRenownTrial } from '../shared/sim/renownTrials.mjs';
 import { CdpClient } from './browser-cdp.mjs';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -23,7 +24,9 @@ async function until(fn, label, tries=160) {
 }
 const alternate = process.argv.includes('--castleward');
 const touch = process.argv.includes('--touch');
-const out = 'output/playwright/renown-trials' + (alternate ? '/castleward' : '/court');
+const verdict = process.env.RENOWNER_VERDICT;
+assert.ok(!verdict || ['sword','retaliation'].includes(verdict));
+const out = 'output/playwright/renown-trials' + (alternate ? '/castleward' : '/court') + (verdict ? '-' + verdict : '');
 const tmp=await mkdtemp(join(tmpdir(),'castleward-renown-trials-'));
 const browserProfile=join(tmp,'chrome');
 const profileDir=join(tmp,'wallet');
@@ -31,6 +34,7 @@ await mkdir(out,{recursive:true});
 const profileStore=new ProfileStore(profileDir);
 const server=createGameServer({port:0,host:'127.0.0.1',profileStore});
 let chrome,cdp;
+const serverCues=[];
 async function evaluate(expression) {
   const r=await cdp.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
   if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);
@@ -179,7 +183,7 @@ try {
   await until(() => evaluate(`(() => {
     const r=window.__ssRuntime;
     const court=${alternate} ? r.trialCutawayWorld : r.world;
-    return r.trialJudgmentCamera && court?.monument?.visible && court?.sword?.visible
+    return r.trialJudgmentCamera && court?.renowner?.model?.visible && court.renowner.sword?.visible
       && court.handledCues.has('REWARD_COIN') && court.coinVisuals.length > 0;
   })()`), 'Court podium, sword and animated reward coins');
   await shot('02-timely-ceremony');
@@ -203,8 +207,37 @@ try {
   await shot('03-overtime-combat');
   if (touch) await shot('04-mobile-overtime-hud');
   const secondEnemy=room.players.get(second.enemyIds[0]);
+  const tick=room.tick;
+  if(verdict){
+    await evaluate(`(()=>{
+      window.__renownerCues=[];
+      window.__ssLink.on('snapshot',snapshot=>{
+        const stage=snapshot.renownTrial?.ceremony?.cue;
+        if(snapshot.renownTrial?.waveIndex===2 && stage && !window.__renownerCues.includes(stage))
+          window.__renownerCues.push(stage);
+      });
+    })()`);
+    room.tick=function(now){
+      // Pin the draw only during the test room's second-wave tick. Use the
+      // same simulation clock as the director and restore normal randomness
+      // before the next room or asynchronous operation can run.
+      const random=Math.random;
+      if(second.endedAt===null) {
+        const overtime=Math.max(0,now-second.startedAt-second.deadlineSec);
+        Math.random=()=>overtimeVerdictWeights(overtime).execution*(verdict==='sword' ? 0.25 : 0.75);
+      }
+      let result;
+      try { result=tick.call(this,now); }
+      finally { Math.random=random; }
+      const ceremony=serializeRenownTrial(this,now)?.ceremony;
+      if(ceremony?.cue && !serverCues.some(entry=>entry.cue===ceremony.cue))
+        serverCues.push({cue:ceremony.cue,at:now,alive:player.alive});
+      return result;
+    };
+  }
   await swordDefeat(room,player,secondEnemy);
-  await until(()=>room.renownTrial.phase==='JUDGMENT','single late verdict after last kill');
+  await until(()=>room.renownTrial?.phase==='JUDGMENT','single late verdict after last kill');
+  if(verdict) assert.equal(room.renownTrial.wave.variant,verdict);
   assert.equal(room.renownTrial.wave.reward,0);
   assert.equal(room.renownTrial.ledger[1].status,'NOT_AWARDED');
   assert.equal(profileStore.open(player.profileToken).profile.balance,balanceAfterWave1,
@@ -213,17 +246,30 @@ try {
   assert.equal(room.events.filter(e=>e.type==='renownTrialCeremonyStarted'&&e.ceremonyId===ceremonyId).length<=1,true);
   await until(() => evaluate("document.querySelector('#renown-trial-hud').classList.contains('ceremony')"), 'late ceremony on screen');
   await shot('05-late-ceremony');
+  if(verdict){
+    const cue=verdict==='sword' ? 'SWORD_EXECUTION' : 'COIN_RETALIATION';
+    const mustSee=verdict==='sword' ? [cue] : ['SWORD_EVADED',cue];
+    for(const target of mustSee){
+      await until(()=>evaluate("window.__renownerCues.includes("+JSON.stringify(target)+")"),target+' reached browser');
+      if(await evaluate("window.__ssSnapshot?.renownTrial?.ceremony?.cue==="+JSON.stringify(target)))
+        await shot(target.toLowerCase());
+    }
+    assert.equal(player.alive,false);
+  }
   await until(() => evaluate("document.querySelector('#final-scoreboard').textContent.includes('SETTLED TO PROFILE')"), 'rewarded results');
+  room.tick=tick;
   await shot('06-results');
   await writeFile(join(out,'results.json'),JSON.stringify({
-    verdict:room.renownTrial.wave.verdict,ceremonyId,
+    verdict:room.renownTrial.wave.verdict,variant:room.renownTrial.wave.variant,ceremonyId,
     firstWaveRealSwordKill:true,secondWaveRealSwordKill:true,
     overtimeContinued:true,walletBalance:balanceAfterWave1,
-    earlierAwardPreserved:true,headlessChrome:true
+    earlierAwardPreserved:true,headlessChrome:true,serverCues,
+    browserCues:await evaluate('window.__renownerCues??[]')
   },null,2));
   console.log('PASS: actual Three.js Chrome + websocket Solo, real sword defeats, two wave transitions, durable award and continuing overtime');
 }catch(error){
   console.error('RENOWN TRIALS BROWSER ACCEPTANCE FAILED:',error);
+  if(verdict) console.error('CUES',JSON.stringify({serverCues,browser:await evaluate('window.__renownerCues??[]').catch(()=>[])}));
   process.exitCode=1;
 }finally{
   cdp?.close();

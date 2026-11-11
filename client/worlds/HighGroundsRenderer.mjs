@@ -117,6 +117,7 @@ export class HighGroundsRenderer {
       const parent = new THREE.Group();
       parent.name = 'capture-' + obj.id;
       parent.position.set(obj.x, obj.y, obj.z);
+      parent.visible = false;
       this.group.add(parent);
       mesh(parent, new THREE.CylinderGeometry(.12, .17, 4.2, 7),
         this.materials.brass, [0, 2.1, 0]);
@@ -159,6 +160,7 @@ export class HighGroundsRenderer {
   setHighGroundsState(state) {
     const owners = state?.sites ?? [];
     for (const [id, standard] of this.standards) {
+      standard.parent.visible = Boolean(state);
       const updated = owners.find(s => s.id === id);
       const owner = updated ? updated.owner : HIGH_GROUNDS.objectives.find(s => s.id === id)?.initialOwner;
       standard.material = this.materials[owner === 'ATTACKERS' ? 'azure' : owner === 'DEFENDERS' ? 'crimson' : 'neutral'];

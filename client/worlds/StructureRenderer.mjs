@@ -14,6 +14,8 @@ export class StructureRenderer {
       iron: new THREE.MeshStandardMaterial({color:0x353b40,metalness:.7,roughness:.65}),
     };
     for(const def of world.structures??[]) for(const id of def.solidIds) {
+      // Restless Day presents its own destructible authored monument.
+      if(def.profile==='renowner')continue;
       const solid=world.solids.find(v=>v.id===id);if(!solid)continue;
       const root=new THREE.Group();root.position.set(...solid.center);this.group.add(root);
       const [width,height,depth]=solid.size,parts=[],cracks=[];

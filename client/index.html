@@ -441,8 +441,6 @@
         <input id="solo-right-name" data-name-copy class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <div id="solo-arena-wrap">        <div id="solo-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Arena">
           <span>ARENA</span>
-          <button type="button" class="vote-chip" role="radio" data-arena="castleward">CASTLEWARD</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="ruined-keep">THE RUINED KEEP</button>
         </div>
 </div>
         <div id="renown-arena-wrap" hidden>
@@ -825,6 +823,12 @@
           <small id="inspection-status" class="inspection-control hidden" role="status">Live · P freezes the scene</small>
           <h3>SELF</h3>
           <button id="practice-reset">RESET SELF</button>
+          <details class="practice-siege" id="practice-reposition" hidden>
+            <summary>REPOSITION</summary>
+            <label for="practice-destination">Training area</label>
+            <select id="practice-destination"></select>
+            <button id="practice-move" type="button">MOVE TO AREA</button>
+          </details>
           <h3>DUMMIES</h3>
           <button id="practice-passive">PASSIVE DUMMY</button>
           <button id="practice-guarding">GUARDING DUMMY</button>

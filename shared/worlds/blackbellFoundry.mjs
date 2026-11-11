@@ -396,6 +396,12 @@ export const BLACKBELL_FOUNDRY = Object.freeze({
   props: PROPS,
   objectives: OBJECTIVES,
   spawnPoints: SPAWN_POINTS,
+  skirmishSpawns: [
+    spawn(-4, 0, -16, 4, -5), spawn(4, 0, -5, -4, -16),
+    spawn(-5, 0, -20, 0, -10), spawn(5, 0, -21, 0, -10),
+    spawn(-4, 0, -9, 0, -10), spawn(4, 0, -12, 0, -10),
+    spawn(-4, 0, 3, 0, -10), spawn(4, 0, 4, 0, -10),
+  ],
   navigation: Object.freeze({
     nodes: NAVIGATION_NODES,
   }),

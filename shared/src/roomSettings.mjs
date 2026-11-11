@@ -1,4 +1,4 @@
-import { ARENAS, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, RESTLESS_DAY_ARENAS, EDGE_OF_VICTORY_ARENAS, getModePolicy } from './modes.mjs';
+import { arenasForMode, getModePolicy } from './modes.mjs';
 export const ROOM_LIMITS = Object.freeze({ score: [1, 100], seconds: [60, 1800] });
 export function validRoomNumber(key, value) {
   const range = key === 'score' ? ROOM_LIMITS.score : key === 'time' ? ROOM_LIMITS.seconds : null;
@@ -9,11 +9,7 @@ export function roomSettings(current, patch) {
   const mode = patch.mode ?? current.mode;
   if (!['FFA', 'BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'EDGE_OF_VICTORY'].includes(mode)) return { error: 'Choose an available battle mode.' };
   const changedMode = mode !== current.mode, defaults = getModePolicy(mode);
-  const worlds = mode === 'BREAKTHROUGH' ? BREAKTHROUGH_ARENAS
-    : mode === 'HIGH_GROUNDS' ? HIGH_GROUNDS_ARENAS
-    : mode === 'RESTLESS_DAY' ? RESTLESS_DAY_ARENAS
-    : mode === 'EDGE_OF_VICTORY' ? EDGE_OF_VICTORY_ARENAS
-    : ARENAS;
+  const worlds = arenasForMode(mode);
   const worldId = patch.worldId ?? (!changedMode && worlds.includes(current.worldId) ? current.worldId : worlds[0]);
   if (!worlds.includes(worldId)) return { error: 'That arena belongs to another mode.' };
   const scoreToWin = mode === 'FFA' ? (patch.scoreToWin ?? (!changedMode ? current.scoreToWin : defaults.scoreToWin)) : null;

@@ -586,7 +586,7 @@ export function applyRoomCommand(room, player, message, time) {
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may dismantle siege machines.'};
       return practiceBiByeCommand(room,player,'dismantle',time);
     case 'practiceResetPlayer':
-      return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
+      return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time, message.destination ?? null) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };

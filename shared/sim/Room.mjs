@@ -17,6 +17,7 @@ import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
 import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
+import { worldSpawnPoints } from './spawns.mjs';
 import { beginPeace } from './peace.mjs';
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
@@ -205,7 +206,8 @@ export class Room {
       const places = edgeSpawnOrder(this.world, 4);
       if (places.length) return places[index % places.length];
     }
-    if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
+    const spawns = worldSpawnPoints(this.world, this.mode);
+    if (!spawns.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
       const customSpawns=modeCall(this,'spawn',player,this.world.spawnPoints);
       if(customSpawns?.length)return customSpawns[index%customSpawns.length];
@@ -226,7 +228,7 @@ export class Room {
         return matching[index % matching.length];
       }
     }
-    return this.world.spawnPoints[index % this.world.spawnPoints.length];
+    return spawns[index % spawns.length];
   }
 
   /** Whether a new human may enter, independent of bot-filled team seats. */

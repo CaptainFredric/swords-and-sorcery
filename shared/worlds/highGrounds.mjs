@@ -211,6 +211,17 @@ for(const r of ramps) {
 export const HIGH_GROUNDS = Object.freeze({
   id: 'high-grounds', name: 'The High Grounds',
   floors: grounds, ramps, solids, trees, objectives, spawnPoints, props: PROPS,
+  practiceSpawns: [
+    { id:'crown', name:'Crown Span · ground level', x:0, y:0, z:4, yaw:0 },
+    { id:'crown-west', name:'Crown Span · west side', x:-4, y:0, z:4, yaw:0 },
+    { id:'crown-east', name:'Crown Span · east side', x:4, y:0, z:4, yaw:0 },
+  ],
+  practiceDestinations: [
+    { id:'crown', name:'Crown Span', x:0, y:0, z:4, yaw:0 },
+    { id:'canopy', name:'Western Canopy', x:-36, y:12, z:-5, yaw:Math.PI/2 },
+    { id:'roots', name:'Lower Root Shelf', x:15, y:-9, z:12, yaw:0 },
+    { id:'camp', name:'Azure Siege Road', x:0, y:0, z:-96, yaw:Math.PI },
+  ],
   navigation: Object.freeze({nodes}),
   bounds: Object.freeze({ minX: -78, maxX: 78, minZ: -117, maxZ: 117 }),
   abyssY: -52,

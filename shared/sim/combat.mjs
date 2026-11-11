@@ -56,7 +56,7 @@ import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBlad
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
-import { chooseSpawn } from './spawns.mjs';
+import { chooseSpawn, worldSpawnPoints } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
@@ -2596,7 +2596,7 @@ function markTornGround(room) {
 
 function respawnPlayer(room, player, nowSec, world) {
   const enemies = [...room.players.values()].filter((p) => p.id !== player.id && p.alive && areEnemies(room, player, p));
-  const allSpawns = world?.spawnPoints ?? room.world?.spawnPoints ?? [];
+  const allSpawns = worldSpawnPoints(world ?? room.world, room.mode);
   if (allSpawns.length === 0) throw new Error(`World ${room.worldId ?? 'unknown'} has no spawn points`);
   let spawnPoints = allSpawns;
   if (room.policy?.teamMode && player.team) {

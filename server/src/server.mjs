@@ -18,7 +18,7 @@ import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../share
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
-import { GAME_MODES, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { GAME_MODES, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, arenaForMode } from '../../shared/src/modes.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -419,7 +419,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if(message.type==='createSharedPracticeRoom'&&!session.roomCode){
-      const room=roomManager.createSharedPracticeRoom(time,arenaOrDefault(message.worldId));
+      const room=roomManager.createSharedPracticeRoom(time,message.worldId);
       const player=createNetworkPlayer(session,room,message.name);
       room.sharedPracticeHostId=player.id;
       room.armAutoStart(time);
@@ -465,12 +465,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           return;
         }
       }
-      const resolvedWorld = message.mode === GAME_MODES.RESTLESS_DAY ? 'restless-day'
-        : message.mode === GAME_MODES.EDGE_OF_VICTORY ? 'ruined-keep'
-        : message.mode === GAME_MODES.HIGH_GROUNDS ? 'high-grounds'
-        : message.mode === GAME_MODES.BREAKTHROUGH
-          ? (BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach')
-          : arenaOrDefault(message.worldId);
+      const resolvedWorld = arenaForMode(message.mode, message.worldId);
       const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });
 
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
