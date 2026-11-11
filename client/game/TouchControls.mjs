@@ -148,6 +148,7 @@ export class TouchControls {
       <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="none">
         <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
         <path class="touch-valkyrie-ink" pathLength="1" d="${VALKYRIE_RITUAL_PATH}"/>
+        <path class="touch-valkyrie-finger" d=""/>
         ${VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>{
           const a=VALKYRIE_RITUAL_POINTS[i];
           return `<path class="touch-valkyrie-segment ritual-stage-${i}"
@@ -158,6 +159,7 @@ export class TouchControls {
       <span class="touch-valkyrie-status" role="status" aria-live="polite"></span>`;
     this.layer.append(this.valkyrieStencil);
     this.valkyrieInk=this.valkyrieStencil.querySelector('.touch-valkyrie-ink');
+    this.valkyrieFinger=this.valkyrieStencil.querySelector('.touch-valkyrie-finger');
     this.valkyrieStatus=this.valkyrieStencil.querySelector('.touch-valkyrie-status');
     this.valkyrieLines=VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>
       this.valkyrieStencil.querySelector('.ritual-stage-'+i));
@@ -993,6 +995,13 @@ export class TouchControls {
         :this.valkyrieGeometry?.path??VALKYRIE_RITUAL_PATH);
       if(this.valkyrieInk.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
     }
+    // Follow the actual fingertip rather than displaying only a clipped ideal
+    // path. This is visual feedback, NOT an alternative completion shortcut.
+    if(this.valkyrieFinger){
+      const trail=g?.trail??[];
+      this.valkyrieFinger.setAttribute('d',trail.length?
+        'M'+trail.map(p=>p.map(v=>Math.round(v*10)/10).join(' ')).join(' L'):'');
+    }
     if(this.valkyrieStatus&&g&&!g.completed)
       this.valkyrieStatus.textContent=`ᛞ · TRACE ${Math.round(progress*100)}%`;
     for(let i=0;i<this.valkyrieLines.length;i++){
@@ -1027,26 +1036,38 @@ export class TouchControls {
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
-      this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),startedOnJump:true,startPoint:point};
+      this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),
+      startedOnJump:true,startPoint:point,trail:[[point.x,point.y]]};
     this.#paintValkyrieRitual();
     return true;
   }
   #ritualMove(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
-    if(g.completed)return true;
-    const at=this.#ritualPoint(event);if(!at)return true;
-    const start=g.last??[at.x,at.y];
-    const length=Math.hypot(at.x-start[0],at.y-start[1]);
-    const steps=Math.max(1,Math.min(64,Math.ceil(length/7)));
-    let next=g;const now=performance.now();
-    for(let i=1;i<=steps;i++){
-      const point={x:start[0]+(at.x-start[0])*i/steps,
-        y:start[1]+(at.y-start[1])*i/steps};
-      const advanced=advanceValkyrieRitual(next,point,now);
-      if(!advanced)break; // Straying off-path must not erase prior progress.
-      next=advanced;
-      if(next.completed)break;
+    // Native coalesced pointer samples capture fast diagonal and crossing
+    // strokes that browsers otherwise deliver as one enormous final move.
+    const events=typeof event.getCoalescedEvents==='function'?
+      event.getCoalescedEvents():[];
+    const samples=events.length?events:[event];
+    let next=g;
+    const now=performance.now();
+    for(const sample of samples){
+      const at=this.#ritualPoint(sample);if(!at)continue;
+      const from=next.last??[at.x,at.y];
+      const length=Math.hypot(at.x-from[0],at.y-from[1]);
+      const steps=Math.max(1,Math.min(96,Math.ceil(length/5)));
+      if(!next.completed)for(let i=1;i<=steps;i++){
+        const point={x:from[0]+(at.x-from[0])*i/steps,
+          y:from[1]+(at.y-from[1])*i/steps};
+        const advanced=advanceValkyrieRitual(next,point,now);
+        // An off-path sample should not strand the gesture: retain its actual
+        // location as the next interpolation origin, so the user can rejoin.
+        if(advanced)next=advanced;
+        if(next.completed)break;
+      }
+      const trail=[...(next.trail??[]),[at.x,at.y]];
+      if(trail.length>700)trail.splice(1,trail.length-700);
+      next={...next,last:[at.x,at.y],trail};
     }
     this.ritual=next;
     this.#paintValkyrieRitual();
@@ -1054,6 +1075,7 @@ export class TouchControls {
       'ᛞ · RELEASE TO COMMIT':'ᛞ · '+(this.valkyrieReason||'NOT READY');
     return true;
   }
+
   #ritualEnd(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
