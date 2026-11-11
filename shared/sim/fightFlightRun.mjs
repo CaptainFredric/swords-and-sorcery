@@ -20,6 +20,30 @@ export const VALKYRIE_RUN=Object.freeze({
   spinupRPM:450,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+/** Shared signed flight-pitch servo for normal Dash and terminal Valkyrie.
+ * Its actual thrust vector and replicated, collision-bearing rotor attitude
+ * follow the same smoothed reticle input, rather than disconnected animations.
+ * Normal Dash prevents a low rotor strike; terminal flight may crash after takeoff. */
+export function stepFlightPitchAttitude(m,dt,{
+ target=0,requested=target,lead=VALKYRIE_RUN.rotorAimLead,
+ engaged=true,ground=null,limitRotorToSupport=true,
+ pitchRate=VALKYRIE_RUN.pitchRate,
+}={}){
+ const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
+ const correction=engaged&&limitRotorToSupport?
+   clamp(Math.max(0,target-requested)*.49,0,.56):0;
+ m.runTrim=approach(m.runTrim??0,engaged?lead+correction:0,pitchRate*1.3);
+ m.runFlightPitch=approach(m.runFlightPitch??0,target,
+   pitchRate*(target>(m.runFlightPitch??0)?1.8:1));
+ let maxPitch=VALKYRIE_RUN.maxAttackPitch;
+ if(limitRotorToSupport&&ground!=null){
+   // GLB rotor hub y=2.185, swept blade radius=1.295 metres.
+   const radius=Math.hypot(2.185,1.295),phase=Math.atan2(1.295,2.185);
+   maxPitch=Math.min(maxPitch,Math.acos(clamp((.12-(m.y-ground))/radius,-1,1))-phase);
+ }
+ m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,Math.max(0,maxPitch));
+ return m.runFlightPitch;
+}
 export function requestFlightDash(room,m,p,held,now){
  if(!m||m.mode==='DESTROYED'||m.terminalDive||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
@@ -74,6 +98,10 @@ export function requestFlightDash(room,m,p,held,now){
 }
 export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
+ // Terminal Valkyrie has its own authoritative propulsion and turn integrator.
+ // Never run the ordinary Dash cancellation/reset path on a committed dive:
+ // that used to erase its angular velocity EVERY room tick.
+ if(m.terminalDive)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
  if(m.flightDashHeld&&!fresh){
@@ -175,7 +203,6 @@ export function stepFlightRun(room,m,dt,now){
  // signed flight pitch. Negative aim pitches the nose and thrust DOWN.
  // The initial vector is captured at the press; aim cannot retarget it until
  // the commitment expires. Practice refills never restart this phase.
- if(m.terminalDive)return; // irreversible Dive owns its own physics
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
@@ -190,28 +217,11 @@ export function stepFlightRun(room,m,dt,now){
      target=Math.max(target,-VALKYRIE_RUN.descentPitchLimit*available);
    }
  }
- const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
- // During the attack the rotor sweeps toward a full 90-degree vertical
- // cutting plane: a charged blade, not a sightseeing helicopter. Camera pitch
- // still controls the physically replicated flight vector and visual tilt.
- // Ground clearance is enforced below on the REAL collision-swept rotor.
- // If clearance suppresses downward thrust, the rotor may still pitch
- // physically into the infantry-height crosshair corridor. Its actual swept
- // blades share runPitch and must respect the separate real-ground limit.
- const requested=committed?m.runCommitPitch:livePitch;
- const clearanceCorrection=m.offensiveRun?clamp(Math.max(0,target-requested)*.49,0,.56):0;
- const rotorLead=(committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead)+clearanceCorrection;
- m.runTrim=approach(m.runTrim??0,m.offensiveRun?rotorLead:0,VALKYRIE_RUN.pitchRate*1.3);
- m.runFlightPitch=approach(m.runFlightPitch??0,target,
-   target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
- // Bound the lowest real rotor point against support while allowing a steeper
- // attack above it. GLB hub y=2.185/z=-.025, blade radius=1.32 metres.
- let maxPitch=VALKYRIE_RUN.maxAttackPitch;
- if(floor!=null){
-   const radius=Math.hypot(2.185,1.295),phase=Math.atan2(1.295,2.185);
-   maxPitch=Math.min(maxPitch,Math.acos(clamp((.12-(m.y-floor))/radius,-1,1))-phase);
- }
- m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,Math.max(0,maxPitch));
+ // Keep ordinary Dash's full rotor lean, physical pitch tracking and ground
+ // clearance behavior unchanged; terminal Valkyrie now calls this same servo.
+ stepFlightPitchAttitude(m,dt,{target,requested:committed?m.runCommitPitch:livePitch,
+   lead:committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead,
+   engaged:m.offensiveRun,ground:floor});
 
 }
 

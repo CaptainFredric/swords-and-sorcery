@@ -2,7 +2,8 @@
 // Actual moving machine, one expenditure per lifecycle, one outcome at real impact.
 // Both input state and destruction are authoritative; no client damage or teleports.
 import {ascensionValkyrieReady} from '../src/flightTerminalPolicy.mjs';
-import {VALKYRIE_RUN} from './fightFlightRun.mjs';
+import {VALKYRIE_RUN,stepFlightPitchAttitude} from './fightFlightRun.mjs';
+import {flightSupportAt} from './flightSupport.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
@@ -95,7 +96,9 @@ function commitTerminalDive(room,m,p,now){
  const launchedFromGround=Boolean(m.grounded);
  m.flightUltimateHeld=false;m.flightDashHeld=false;m.offensiveRun=false;
  m.runGroundPhase=null;m.runGroundLaunchReady=false;m.runStopRequested=false;
- m.terminalPrep=null;m.mode='TERMINAL';m.runPitch=.34;m.runTurnSpeed=0;
+ // Keep the Dash rotor lean, flight-pitch servo and existing angular momentum.
+ // Replacing them with a shallow preset caused a visible snap and dead steering.
+ m.terminalPrep=null;m.mode='TERMINAL';
  // A standing machine can commit directly. Give its rotor a physical launch,
  // not a teleport or an arbitrary airborne prerequisite. Forward collision
  // remains active: a wall or a badly steered descent can still be disastrous.
@@ -130,40 +133,44 @@ export function advanceTerminalFlight(room,m,dt,now){
  const t=dive.simulatedSec,pilot=room.players.get(dive.operatorId);
  const hasPilot=Boolean(pilot?.alive&&m.operatorId===pilot.id);
  const failure=clamp((t-4.5)/9,0,1);
- // Full normal-Dash handling lasts three simulated seconds. The same fade
- // subsequently reduces both horizontal and vertical authority, rather than
- // making early yaw responsive while upward flight remains nearly impossible.
  const fade=clamp((t-3)/11,0,1);
  const charged=Boolean(m.rotorHP>0&&m.health>0&&m.flightCharge>0);
+ // The first three seconds retain the normal Dash pitch servo and turning
+ // authority. Heat gradually narrows and slows the pilot's 3D steering;
+ // a small pitch correction remains even after the machine is nearly spent.
+ const requestedPitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?
+   clamp(pilot.input.pitch,-VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit):0;
+ const pitchAuthority=charged?1-.92*fade:0;
+ const targetPitch=requestedPitch*pitchAuthority;
+ const groundTakeoff=dive.launchedFromGround&&t<.55;
+ const floor=groundTakeoff?flightSupportAt(room.world,m.x,m.z,m.y+.75):null;
+ const flightPitch=stepFlightPitchAttitude(m,dt,{
+   target:targetPitch,requested:requestedPitch,engaged:true,
+   lead:VALKYRIE_RUN.rotorAimLead,
+   pitchRate:VALKYRIE_RUN.pitchRate*(1-.8*fade),
+   // Only the initial motorized launch gets Dash's rotor-ground clearance.
+   // After takeoff, pitching too low is a genuine collision and explosion.
+   ground:floor,limitRotorToSupport:groundTakeoff,
+ });
  const speed=Math.min(TERMINAL.maxSpeed,VALKYRIE_RUN.speed+1.2*t);
+ // Signed pitch drives ALL THREE components of the physical thrust vector.
+ // Previously the X/Z motor ignored elevation and vertical velocity used the
+ // raw reticle, so the fuselage, camera and displacement disagreed.
+ const horizontalSpeed=speed*Math.cos(flightPitch);
  const fx=-Math.sin(m.heading),fz=-Math.cos(m.heading);
  const responsiveness=charged?
    VALKYRIE_RUN.acceleration*(1-fade)+(2.55-failure*.9)*fade:1.3;
  const horizontalResponse=1-Math.exp(-dt*responsiveness);
- m.velocity.x+=(fx*speed-m.velocity.x)*horizontalResponse;
- m.velocity.z+=(fz*speed-m.velocity.z)*horizontalResponse;
- // Follow the same live look-pitch limits and 18m/s flight vector as ordinary
- // Dash. Looking up can CLIMB immediately. Heat gradually robs that climb
- // authority; failed rotors/empty charge still fall under real-world collision.
- const pitch=hasPilot&&Number.isFinite(pilot.input?.pitch)?
-   clamp(pilot.input.pitch,-VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit):0;
- const climb=VALKYRIE_RUN.speed*Math.sin(pitch)*(1-fade);
- const groundTakeoff=dive.launchedFromGround&&t<.55;
+ m.velocity.x+=(fx*horizontalSpeed-m.velocity.x)*horizontalResponse;
+ m.velocity.z+=(fz*horizontalSpeed-m.velocity.z)*horizontalResponse;
  const launchLift=groundTakeoff?4.5*(1-t/.55):0;
- const poweredVy=climb-.15-failure*13;
- // A grounded takeoff has brief positive lift ONLY during the launch.
- // Outside that window negative poweredVy must remain negative: otherwise
- // Math.max(0,poweredVy) would silently suppress all descending flight.
+ const poweredVy=speed*Math.sin(flightPitch)-.15-failure*13;
  const targetVy=charged?(groundTakeoff?Math.max(launchLift,poweredVy):poweredVy):
    -Math.min(25,5+2*t);
  const verticalResponse=charged?
    VALKYRIE_RUN.acceleration*(1-fade)+2.1*fade:2.7;
  m.velocity.y+=(targetVy-m.velocity.y)*(1-Math.exp(-dt*verticalResponse));
- m.velocity.y=clamp(m.velocity.y,-25,VALKYRIE_RUN.speed);
- // A climbing pilot actually tips the visible craft upward. The familiar
- // increasing terminal nose-down attitude returns as pitch authority fades.
- m.runFlightPitch=pitch*(1-fade);
- m.runPitch=clamp(.35+.043*t+.28*failure-.85*m.runFlightPitch,-.55,1.14);
+ m.velocity.y=clamp(m.velocity.y,-25,TERMINAL.maxSpeed);
  m.health=Math.max(0,m.health-dt*(TERMINAL.burnPerSec+TERMINAL.burnRampPerSec*t));
  m.flightCharge=Math.max(0,m.flightCharge-dt*(TERMINAL.chargeBurnPerSec+TERMINAL.chargeBurnRamp*t));
  m.rotorPowered=charged&&m.health>0&&m.flightCharge>0;
