@@ -987,14 +987,24 @@ export class HUD {
     this.crosshair.classList.remove(...Object.keys(HIT_MARKERS));
   }
 
-  addFeed(text, kind = '') {
-    const line = document.createElement('div');
-    line.className = `feed-line ${kind}`;
-    line.textContent = text;
-    this.feed.prepend(line);
-    while (this.feed.children.length > 5) this.feed.lastElementChild?.remove();
-    setTimeout(() => line.classList.add('fade'), 3400);
-    setTimeout(() => line.remove(), 4100);
+  addFeed(text, kind = '', key = null) {
+    // Keyed updates let an ongoing Blazing Vortex add each new fallen name
+    // to ONE living feed entry. Other deaths still receive independent lines.
+    let line=key?[...this.feed.children].find(node=>node.dataset?.feedKey===key):null;
+    if(!line){
+      line=document.createElement('div');
+      if(key)line.dataset.feedKey=key;
+      this.feed.prepend(line);
+    }
+    line.className=`feed-line ${kind}`;
+    line.textContent=text;
+    line.classList.remove('fade');
+    if(line.feedFadeTimer!=null)clearTimeout(line.feedFadeTimer);
+    if(line.feedRemoveTimer!=null)clearTimeout(line.feedRemoveTimer);
+    while(this.feed.children.length>5)this.feed.lastElementChild?.remove();
+    line.feedFadeTimer=setTimeout(()=>line.classList.add('fade'),3400);
+    line.feedRemoveTimer=setTimeout(()=>line.remove(),4100);
+    return line;
   }
 
   /** Who felled me, how, and how close it was (deathCam.deathCardText). */
