@@ -1676,7 +1676,7 @@ test('forgiving Dagaz gestures light only the authored stencil, not a freehand f
  assert.equal(e.controls.valkyrieInk.getAttribute('d'),
    e.controls.valkyrieGeometry.path,
    'visible progress is constrained to the canonical Dagaz/crossbar only');
- assert.equal(e.controls.valkyrieStencil.querySelector('.touch-valkyrie-finger'),null,
+ assert.doesNotMatch(e.controls.valkyrieStencil.innerHTML,/touch-valkyrie-finger/,
    'no raw touch-trail SVG may paint outside the intended rune');
  e.controls.dispose();
 });
