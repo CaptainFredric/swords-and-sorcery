@@ -374,11 +374,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       const bob=m.neutralHoverFromRise?FIGHT_FLIGHT.neutralBobMetres*
         Math.sin(hoverAge*2*Math.PI*FIGHT_FLIGHT.neutralBobHz):0;
       const hoverHeight=(m.neutralHoverHeight??m.y)+bob;
-      const hoverVelocity=cap((hoverHeight-m.y)*3.2,-.9,.9);
+      const hoverVelocity=m.neutralHoverFromRise?
+        cap((hoverHeight-m.y)*2.4,-.42,.42):0;
       const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
         m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
         settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
-      const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
+      const correction=cap((targetVelocity-m.velocity.y)*9,-13,13)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
       // Power assistance is only steady-altitude compensation. Ascending
