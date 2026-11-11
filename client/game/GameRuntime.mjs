@@ -3563,12 +3563,12 @@ export class GameRuntime {
       const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      // During the terminal run the boom follows the real heavy chassis
-      // heading, not the far-ahead reticle. Keep its blades and rider framed
-      // through the increasingly unstable turn; aim inputs remain untouched.
-      const chaseYaw=terminal&&Number.isFinite(m.heading)?m.heading:look.yaw;
-      const third=new THREE.Vector3(m.x+Math.sin(chaseYaw)*distance,
-        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(chaseYaw)*distance);
+      // Preserve ordinary Dash's third-person aim: the boom and view both
+      // follow the reticle, while the heavy craft turns and pitches toward it
+      // at its own authoritative rate. Locking the view onto the chassis made
+      // looking up/down move the camera without actually looking up/down.
+      const third=new THREE.Vector3(m.x+Math.sin(look.yaw)*distance,
+        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(look.yaw)*distance);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
       // World collision clipping must not undo the cockpit's floor clearance,
@@ -3616,14 +3616,9 @@ export class GameRuntime {
         this.hud.setFlightSight?.(null);
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
-        if(terminal){
-          // A genuine third-person pursuit shot of the diving machine; the
-          // view tracks its torso while server-owned pitch/steering can still
-          // drive it straight into a wall. Never rotate the player's controls.
-          const lookAt=new THREE.Vector3(m.x,m.y+1.65,m.z);
-          this.siegeCamera.quaternion.setFromRotationMatrix(
-            new THREE.Matrix4().lookAt(this.siegeCamera.position,lookAt,new THREE.Vector3(0,1,0)));
-        }else this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
+        // Same camera orientation as held Dash, including true up/down
+        // aim. Chassis pitch remains independently visible in the frame.
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;
