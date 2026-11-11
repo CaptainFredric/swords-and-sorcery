@@ -5,7 +5,7 @@ import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {stepPracticeActors} from '../../shared/sim/practice.mjs';
 import {stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
 import {SIEGE_OPERATORS} from '../../shared/sim/practiceSiegeOperators.mjs';
-import {soFistExit} from '../../shared/sim/soFistication.mjs';
+import {soFistExit,soFistEntry} from '../../shared/sim/soFistication.mjs';
 
 const world={floors:[{id:'ground',center:[0,-.1,0],size:[160,.2,160],y:0}],
   solids:[],ramps:[],spawnPoints:[{x:0,y:0,z:0,yaw:0}],abyssY:-10};
@@ -193,4 +193,55 @@ test('Hostile flight deployment rejects a low canopy which clears the grounded c
  advance(room,2,8);
  assert.ok(Number.isFinite(m.takeoffAt)&&m.takeoffAt>=2,'bot must genuinely attempt powered takeoff');
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'new open site permits physical repeater fire');
+});
+
+test('Dismounted hostile operators can reclaim an intact, empty original seat',()=>{
+ for(const machine of ['bi-bye-llista','so-fist-ication','fight-and-flight']){
+  const {room,command}=setup();
+  assert.deepEqual(command('spawn',machine),{});
+  const field=SIEGE_OPERATORS[machine].field,m=room[field];
+  const actor=room.players.get(m.operatorId);
+  // Model a legitimate earlier egress while standing within the normal
+  // interact radius; the subsequent call must use the REAL player mount API.
+  m.operatorId=null;
+  actor.operatingBallistaId=null;actor.operatingRamId=null;actor.operatingFightFlightId=null;
+  actor.attackHeld=false;actor.attackActive=false;
+  actor.pendingSpell=null;actor.ultimateState=null;actor.gauntlet=null;
+  if(machine==='fight-and-flight'){
+    m.grounded=true;m.y=0;m.mode='GROUNDED';m.rotorHP=100;
+  }
+  const heading=m.heading??0;
+  const d=machine==='bi-bye-llista'?2.35:1.55;
+  actor.position=machine==='so-fist-ication'?
+    {...actor.position}:
+    {x:m.x+Math.sin(heading)*d,y:0,z:m.z+Math.cos(heading)*d};
+  if(machine==='so-fist-ication'){
+    // Use the physical station entry, not the former rider seat.
+    actor.position={...soFistEntry(m,room.world)};
+  }
+  const oldPosition={...actor.position};
+  stepPracticeActors(room,3,room.world);
+  assert.equal(m.operatorId,actor.id,machine+' remounts via standard mount checks');
+  assert.equal(actor[['bi-bye-llista','so-fist-ication','fight-and-flight'].indexOf(machine)===0?
+    'operatingBallistaId':machine==='so-fist-ication'?'operatingRamId':'operatingFightFlightId'],
+    m.id,'real operator permissions restored');
+  assert.ok(Math.hypot(actor.position.x-oldPosition.x,actor.position.z-oldPosition.z)<4,
+    'reentry is the normal near-station mount, never a scene teleport');
+  assert.ok(room.events.some(e=>e.type==='practiceSiegePilotRemounted'&&e.playerId===actor.id));
+ }
+});
+test('Hostile operators cannot reclaim occupied, destroyed, or physically disabled machines',()=>{
+ for(const failure of ['occupied','destroyed','rotor']){
+   const {room,command}=setup();
+   assert.deepEqual(command('spawn','fight-and-flight'),{});
+   const m=room.fightFlight,a=room.players.get(m.operatorId);
+   a.operatingFightFlightId=null;m.operatorId=null;
+   a.siegeAi.phase='foot';
+   if(failure==='occupied')m.operatorId='someone-else';
+   if(failure==='destroyed'){m.mode='DESTROYED';m.health=0;}
+   if(failure==='rotor')m.rotorHP=0;
+   stepPracticeActors(room,3,room.world);
+   assert.notEqual(m.operatorId,a.id,failure+' cannot bypass machine eligibility');
+   assert.equal(a.siegeAi.phase,'foot',failure+' falls back to real foot behavior');
+ }
 });
