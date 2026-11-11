@@ -2020,11 +2020,19 @@ function animateCardReorder(category, selectedItemId) {
   if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
 
   let listId = '#armory-spells';
-  if (category === 'masterstroke') listId = '#armory-ultimates';
-  else if (category === 'technique') listId = '#armory-techniques';
+  let wrapperId = '#inspector-list-sorcery';
+  if (category === 'masterstroke') {
+    listId = '#armory-ultimates';
+    wrapperId = '#inspector-list-masterstroke';
+  } else if (category === 'technique') {
+    listId = '#armory-techniques';
+    wrapperId = '#inspector-list-technique';
+  }
 
   const container = document.querySelector(listId);
-  if (!container) return null;
+  const scrollEl = document.querySelector('#armory-inspector .inspector-scroll');
+  const wrapperEl = document.querySelector(wrapperId);
+  if (!container || !scrollEl) return null;
 
   const firstPositions = new Map();
   container.querySelectorAll('.spell-card').forEach((card) => {
@@ -2035,95 +2043,80 @@ function animateCardReorder(category, selectedItemId) {
   });
 
   return function play() {
-    requestAnimationFrame(() => {
-      const cards = container.querySelectorAll('.spell-card');
-      const animatingCards = [];
+    if (wrapperEl) {
+      const targetScrollTop = Math.max(0, wrapperEl.offsetTop + wrapperEl.offsetHeight - scrollEl.clientHeight);
+      scrollEl.scrollTop = targetScrollTop;
+    }
 
-      cards.forEach((card) => {
-        const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
-        const first = firstPositions.get(id);
-        if (!first) return;
+    const cards = container.querySelectorAll('.spell-card');
+    const animatingCards = [];
 
-        const last = card.getBoundingClientRect();
-        const deltaY = first.top - last.top;
+    cards.forEach((card) => {
+      const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+      const first = firstPositions.get(id);
+      if (!first) return;
 
-        if (Math.abs(deltaY) > 1) {
-          const isSelected = id === selectedItemId;
-          card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
-          card.style.transition = 'none';
-          if (isSelected) {
-            card.classList.add('swiping-down');
-          } else {
-            card.classList.add('shifting-up');
-          }
-          animatingCards.push({ card, isSelected });
+      const last = card.getBoundingClientRect();
+      const deltaY = first.top - last.top;
+
+      if (Math.abs(deltaY) > 1) {
+        const isSelected = id === selectedItemId;
+        card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
+        card.style.transition = 'none';
+        if (isSelected) {
+          card.classList.add('swiping-down');
+        } else {
+          card.classList.add('shifting-up');
         }
-      });
+        animatingCards.push({ card, isSelected });
+      }
+    });
 
-      if (animatingCards.length === 0) return;
+    if (animatingCards.length === 0) return;
 
-      container.offsetHeight;
+    container.offsetHeight;
 
-      requestAnimationFrame(() => {
-        animatingCards.forEach(({ card, isSelected }) => {
-          if (isSelected) {
-            card.style.transition = 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.38s ease, border-color 0.28s ease';
-            card.style.transform = 'translateY(0) scale(1)';
-          } else {
-            card.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
-            card.style.transform = 'translateY(0)';
-          }
+    requestAnimationFrame(() => {
+      animatingCards.forEach(({ card, isSelected }) => {
+        if (isSelected) {
+          card.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.25s ease';
+          card.style.transform = 'translateY(0) scale(1)';
+        } else {
+          card.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
+          card.style.transform = 'translateY(0)';
+        }
 
-          const cleanup = () => {
-            card.style.transform = '';
-            card.style.transition = '';
-            card.classList.remove('swiping-down', 'shifting-up');
-          };
-          card.addEventListener('transitionend', cleanup, { once: true });
-          setTimeout(cleanup, 450);
-        });
+        const cleanup = () => {
+          card.style.transform = '';
+          card.style.transition = '';
+          card.classList.remove('swiping-down', 'shifting-up');
+        };
+        card.addEventListener('transitionend', cleanup, { once: true });
+        setTimeout(cleanup, 480);
       });
     });
   };
 }
 
-function scrollToEquippedItem(category, { smooth = true } = {}) {
+function scrollToEquippedItem(category, { smooth = false } = {}) {
   const inspector = $('#armory-inspector');
   if (!inspector || inspector.classList.contains('closed')) return;
   const scrollEl = inspector.querySelector('.inspector-scroll');
   if (!scrollEl) return;
 
-  let listId = '#armory-spells';
-  if (category === 'masterstroke') listId = '#armory-ultimates';
-  else if (category === 'technique') listId = '#armory-techniques';
+  let wrapperId = '#inspector-list-sorcery';
+  if (category === 'masterstroke') wrapperId = '#inspector-list-masterstroke';
+  else if (category === 'technique') wrapperId = '#inspector-list-technique';
 
-  const container = inspector.querySelector(listId);
-  if (!container) return;
+  const listEl = inspector.querySelector(wrapperId);
+  if (!listEl) return;
 
-  const equippedCard = container.querySelector('.spell-card.equipped') || container.querySelector('.spell-card:last-child');
-  if (!equippedCard) return;
+  const targetScrollTop = Math.max(0, listEl.offsetTop + listEl.offsetHeight - scrollEl.clientHeight);
 
-  const doScroll = () => {
-    let el = equippedCard;
-    let top = 0;
-    while (el && el !== scrollEl) {
-      top += el.offsetTop;
-      el = el.offsetParent;
-    }
-    const cardBottomOffset = top + equippedCard.offsetHeight;
-    const targetScrollTop = Math.max(0, cardBottomOffset - scrollEl.clientHeight + 14);
-
-    scrollEl.scrollTo({
-      top: targetScrollTop,
-      behavior: smooth ? 'smooth' : 'instant',
-    });
-  };
-
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(doScroll);
-  } else {
-    doScroll();
-  }
+  scrollEl.scrollTo({
+    top: targetScrollTop,
+    behavior: smooth ? 'smooth' : 'instant',
+  });
 }
 
 function equipInspectorItem(category, itemId, { animate = true } = {}) {
@@ -2155,8 +2148,12 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
   lastEquippedItemId = itemId;
 
   renderArmory();
-  playReorder?.();
-  scrollToEquippedItem(category, { smooth: animate });
+
+  if (playReorder) {
+    playReorder();
+  } else {
+    scrollToEquippedItem(category, { smooth: false });
+  }
 }
 
 function highlightInspectorItem(category, itemId) {
