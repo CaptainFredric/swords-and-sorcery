@@ -98,6 +98,10 @@ export function requestFlightDash(room,m,p,held,now){
 }
 export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
+ // Terminal Valkyrie has its own authoritative propulsion and turn integrator.
+ // Never run the ordinary Dash cancellation/reset path on a committed dive:
+ // that used to erase its angular velocity EVERY room tick.
+ if(m.terminalDive)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
  if(m.flightDashHeld&&!fresh){
@@ -199,7 +203,6 @@ export function stepFlightRun(room,m,dt,now){
  // signed flight pitch. Negative aim pitches the nose and thrust DOWN.
  // The initial vector is captured at the press; aim cannot retarget it until
  // the commitment expires. Practice refills never restart this phase.
- if(m.terminalDive)return; // irreversible Dive owns its own physics
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
