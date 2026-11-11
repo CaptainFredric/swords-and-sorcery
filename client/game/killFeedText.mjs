@@ -43,10 +43,18 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${k} took ${v} out for a spin`,
  ],event,'sword');
  if(source==='bibye-siege')return text([
+   // The physical bolt gag is common; the musical allusion is a rare
+   // extra, not a constant wink outside Castleward's fiction.
    `${v} stuck around for ${k}`,
-   `${k} gave ${v} a bad name`,
    `${k} got through ${v}`,
    `${v} bolted away from ${k}`,
+   `${v} stuck around for ${k}`,
+   `${k} got through ${v}`,
+   `${v} bolted away from ${k}`,
+   `${v} stuck around for ${k}`,
+   `${k} got through ${v}`,
+   `${v} bolted away from ${k}`,
+   `${k} gave ${v} a bad name`,
  ],event,'sword');
  if(source==='bibye-conditioning'||source==='bibye-shockwave')return text([
    `${k} chilled out ${v}`,
@@ -56,7 +64,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  // These become live once the authoritative A Sharp Turn damage source is
  // introduced; do not falsely claim that an ordinary bolt was a blade sweep.
  if(source==='bibye-sharp-turn'||source==='bibye-blade-sweep')return text([
-   `${v} thought the blades were for decoration`,
+   `${v} thought ${apostrophe(k)} ballista blades were for decoration`,
    `That took a sharp turn for ${v}, didn't it, ${k}?`,
    `${v} admired ${apostrophe(k)} ballista a little too closely`,
  ],event,'sword');
