@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {plateSkyBytes,plateMetalness} from './plateEnvironmentData.mjs';
 
 // Something for the supplied Spellblade's plate to reflect. The game lights its knights with a hemisphere and a sun and
 // no environment map: with nothing to reflect, metal renders dark, so that model's build turns its metalness down to a
@@ -30,20 +31,9 @@ function skyOverGround() {
   if (shared) return shared;
   const width = 64;
   const height = 32;
-  // Unsigned-byte equirectangular reflections work on mobile WebGL and
-  // renderers without floating-point texture filtering. FloatType could leave
-  // the metal with a black reflection after a context or quality transition.
-  const data = new Uint8Array(width * height * 4);
-  const { sky, horizon, ground } = PLATE_ENVIRONMENT;
-  for (let y = 0; y < height; y += 1) {
-    // (the top row is straight up)
-    const up = 1 - (2 * (y + 0.5)) / height;
-    const colour = up >= 0
-      ? horizon.map((h, k) => h + (sky[k] - h) * Math.min(1, up / 0.6))
-      : horizon.map((h, k) => h + (ground[k] - h) * Math.min(1, -up / 0.25));
-    const rgb=colour.map(v=>Math.round(Math.max(0,Math.min(1,v))*255));
-    for (let x = 0; x < width; x += 1) data.set([...rgb, 255], (y * width + x) * 4);
-  }
+  // Unsigned byte storage is supported even on devices lacking floating
+  // texture filtering, and is reproducible without a WebGL test context.
+  const data=plateSkyBytes(width,height,PLATE_ENVIRONMENT);
   shared = new THREE.DataTexture(data,width,height,THREE.RGBAFormat,THREE.UnsignedByteType);
   shared.mapping = THREE.EquirectangularReflectionMapping;
   shared.colorSpace = THREE.LinearSRGBColorSpace;
@@ -78,8 +68,7 @@ export function lightPlate(root) {
         // A texture's metalness channel is MULTIPLIED by this factor. Setting
         // the factor to 1.25 (outside PBR's [0,1]) made parts go virtually
         // black when a soft environment probe failed or faced the ground.
-        const original=Number.isFinite(material.metalness)?material.metalness:0.25;
-        material.metalness=Math.max(0,Math.min(.6,original*PLATE_ENVIRONMENT.metal));
+        material.metalness=plateMetalness(material.metalness,PLATE_ENVIRONMENT.metal);
         material.roughness = Math.min(1, material.roughness * PLATE_ENVIRONMENT.roughness);
       }
       material.userData.plateEnvironment = true;
