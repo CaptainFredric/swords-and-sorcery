@@ -1017,10 +1017,12 @@ export function stepBotControllers(
 
   for (const actor of room.players.values()) {
     if (!allowedKinds.has(actor.actorKind) || !actor.alive || room.inspectionFrozenActors?.has(actor.id)) continue;
-    // Mounted Practice pilots are driven by their actual machine AI. Once
-    // dismounted alive they return to this same ordinary foot combat brain.
+    // Machine AI owns mounted pilots and their ordinary foot navigation
+    // back to an intact, unoccupied machine. Regular foot combat resumes
+    // when their assigned machine is destroyed or unavailable.
     if(actor.practiceSiegeOperator &&
-      (actor.operatingBallistaId||actor.operatingRamId||actor.operatingFightFlightId))continue;
+      (actor.operatingBallistaId||actor.operatingRamId||actor.operatingFightFlightId||
+        actor.siegeAi?.phase==='remount'))continue;
     const skill = botSkill(actor);
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
