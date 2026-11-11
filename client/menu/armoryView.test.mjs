@@ -72,6 +72,18 @@ test('How to Play states Chivalry’s actual duration', () => {
   assert.ok(html.includes(`cast together for ${ULTIMATES.chivalry.activeSec} seconds.`));
 });
 
+test('Shared Practice invites use the available Private Match route', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /Friends: open Private Match, enter this code under Join by Code, then choose Join\./);
+  assert.match(html, /<h2>PRIVATE MATCH<\/h2>/);
+  assert.match(html, /OR JOIN BY CODE/);
+});
+
+test('player-facing foundry statuses do not expose implementation terminology', () => {
+  const source = readFileSync(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /PREPARING AUTHORED SIEGE MACHINE/);
+});
+
 test('Armory facts derive All-Natural Disaster and Line of Conduct values from the shared rules', () => {
   const view = armoryView('line_of_conduct', 'one_hit_of_wonders');
   const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
