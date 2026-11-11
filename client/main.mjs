@@ -1649,10 +1649,17 @@ async function copyText(text, title) {
   try { await navigator.clipboard.writeText(text); }
   catch { window.prompt(title, text); }
 }
+// UI focus is an explicit Practice-only input barrier, not an ejection or
+// a player reset. The host knows this BEFORE pointer lock emits key releases.
+function protectPracticeMount(open){
+  if(latestSnapshot?.roomState==='PLAYING'&&latestSnapshot?.mode==='PRACTICE')
+    socket.send({type:'practiceUiFocus',open:Boolean(open)});
+}
 function openPracticeDrawer() {
   if (latestSnapshot?.roomState !== 'PLAYING' || !practiceVisibleWanted) return;
   if (paused) closePause({ resumeArena: false });
   practiceDrawerOpen = true;
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (practiceOverlay.parentNode !== practiceHome) {
     practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
@@ -1665,6 +1672,7 @@ function openPracticeDrawer() {
 
 function closePracticeDrawer({ resumeArena = true } = {}) {
   practiceDrawerOpen = false;
+  protectPracticeMount(false);
   practiceOverlay.classList.remove('drawer-open');
   setPracticeVisible(practiceVisibleWanted);
   if (resumeArena) runtime?.requestPointerLock();
@@ -1684,6 +1692,7 @@ function openPause(section = 'main') {
   if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
   practiceDirect = false;
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (section === 'practice' && practiceVisibleWanted) {
     pausePracticeMount.append(practiceOverlay);
@@ -1702,6 +1711,7 @@ function openPause(section = 'main') {
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
+  protectPracticeMount(false);
   practiceDirect = false;
   pauseSection = 'main';
   pauseMenu.setAttribute('aria-label', 'Arena menu');
