@@ -156,7 +156,8 @@ export function stepFlightRun(room,m,dt,now){
      (!practice&&!ascension&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
   // Do not force the rotor to hover forever after a Dash that started cold.
-  if(!m.runRotorWasPowered&&!p?.input?.flightRise&&!p?.input?.jump)
+  if(!m.runRotorWasPowered&&!preparing&&!activeChivalry&&
+    !m.flightDashHeld&&!p?.input?.flightRise&&!p?.input?.jump)
     m.rotorPowered=false;
  }else{
    if(!m.offensiveRun){
