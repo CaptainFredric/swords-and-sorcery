@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -105,7 +105,18 @@ try {
   await until(() => evaluate("Boolean(document.querySelector('#loading-veil')?.classList.contains('done'))"), 'menu ready');
   await until(async () => evaluate("(() => { const offer = document.querySelector('#tutorial-onboarding'); if (offer && !offer.hidden) document.querySelector('[data-tutorial-onboarding-skip]')?.click(); const show = document.querySelector('#show-menu'); if (show && !show.closest('.yard-observe')?.hidden) show.click(); const field = document.querySelector('#player-name'); if (field && field.value !== 'Mobile Inspector') { field.value = 'Mobile Inspector'; field.dispatchEvent(new Event('input', { bubbles: true })); } const soloMenu = document.querySelector('#solo-menu'); if (soloMenu && !soloMenu.classList.contains('hidden')) return true; document.querySelector('#solo-button')?.click(); return false; })()"), 'Solo menu');
   await evaluate("document.querySelector('#practice-mode').click()");
-  await until(() => evaluate("Boolean(window.__ssRuntime?.touch && window.__ssRuntime?.localAuth && !document.querySelector('#hud').classList.contains('hidden'))"), 'live local Practice runtime');
+  await until(() => evaluate("document.querySelector('#practice-mode')?.getAttribute('aria-pressed') === 'true'"), 'Practice Yard selected');
+  const launchVisible = () => evaluate("document.querySelector('#solo-launch')?.checkVisibility()");
+  if (!(await launchVisible()) && await evaluate("document.querySelector('#solo-details')?.checkVisibility()")) {
+    await evaluate("document.querySelector('#solo-details').click()");
+  }
+  await until(launchVisible, 'Solo launch confirmation');
+  await evaluate("document.querySelector('#solo-launch').click()");
+  await until(() => evaluate(`(() => {
+    const r = window.__ssRuntime;
+    return r?.latestSnapshot?.mode === 'PRACTICE' && r.socket.playingLocally &&
+      Boolean(r.touch && r.localAuth && !document.querySelector('#hud').classList.contains('hidden'));
+  })()`), 'live local Practice runtime');
   const preFocus = await evaluate("(() => { const r=window.__ssRuntime; return {playing:r.playing,touchFocus:r.input.touchFocus,touchActive:r.touch.active,inputEnabled:r.input.enabled,suspended:r.input.suspended,world:r.worldId}; })()");
   // Focus without issuing browser pointer lock; mobile touch uses touchFocus instead.
   await evaluate("window.__ssRuntime.input.requestPointerLock()");
@@ -128,6 +139,25 @@ try {
   const post = await evaluate("(() => {const r=window.__ssRuntime;return {touchFocus:r.input.touchFocus,enabled:r.input.enabled,last:r.lastSentInput,position:{...r.localState.position}};})()");
   console.log('Full game mobile movement PASS', JSON.stringify({preFocus,pre,live,network,post}));
 
+} catch (error) {
+  if (socket?.readyState === WebSocket.OPEN) {
+    const screenshot = await send('Page.captureScreenshot', { format: 'png' }).catch(() => null);
+    if (screenshot) {
+      await writeFile('public-game-joystick-failure.png', Buffer.from(screenshot.data, 'base64')).catch(console.error);
+    }
+    const state = await evaluate(`(() => {
+      const r = window.__ssRuntime;
+      const solo = document.querySelector('#solo-menu');
+      return {
+        panel: solo?.dataset.panel, selected: solo?.querySelector('[aria-pressed="true"]')?.id,
+        launchVisible: document.querySelector('#solo-launch')?.checkVisibility(),
+        mode: r?.latestSnapshot?.mode, local: r?.socket.playingLocally,
+        playing: r?.playing, position: r?.localAuth?.position, input: r?.lastSentInput,
+      };
+    })()`).catch(() => null);
+    await writeFile('public-game-joystick-failure.json', JSON.stringify({ failure: error.message, state }, null, 2) + '\n').catch(console.error);
+  }
+  throw error;
 } finally {
   try { socket?.close(); } catch { /* no socket */ }
   chrome.kill('SIGTERM');

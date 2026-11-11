@@ -1,3 +1,4 @@
+import { restlessRenownerBlade, restlessRenownerMouth } from '../worlds/renownerGeometry.mjs';
 // Restless Day's authoritative rules; shared with dedicated server and solo host.
 // No exhaustion modifier, no overtime, no objective-capture fallback.
 import { TEAMS } from '../src/teams.mjs';
@@ -187,24 +188,14 @@ export function damageRestlessLadder(room,id,amount,attackerId,now){
  room.events.push({type:'restlessLadderDamaged',ladderId:id,health:l.health,at:now});
  return true;
 }
-function strikeGeometry(s,t){
- // A physical line segment occupied by the travelling sword, not a radius AoE.
- const blade=s.renowner,arc=blade.attack;
- const turn=arc?.type==='sweep'?(clamp((t-arc.contactAt)/.25,0,1)-.5)*2.3:0;
- const theta=blade.yaw+turn;
- const length=arc?.type==='sweep'?7.8:5.8;
- return {a:[blade.position.x,arc?.type==='sweep'?2.4:4.0,blade.position.z],
- b:[blade.position.x+Math.sin(theta)*length,arc?.type==='sweep'?2.0:1.15,
-    blade.position.z+Math.cos(theta)*length]};
-}
 function swordTouches(s,p,t){
- const {a,b}=strikeGeometry(s,t),center=[p.position.x,p.position.y+1.1,p.position.z];
+ const {a,b}=restlessRenownerBlade(s.renowner,t),center=[p.position.x,p.position.y+1.1,p.position.z];
  const v=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],u=[center[0]-a[0],center[1]-a[1],center[2]-a[2]];
  const k=clamp(u.reduce((n,x,i)=>n+x*v[i],0)/(v.reduce((n,x)=>n+x*x,0)||1),0,1);
  return Math.hypot(...center.map((x,i)=>x-a[i]-k*v[i]))<1.2;
 }
 function launchCoin(room,s,target,now){
- const r=s.renowner,origin={x:r.position.x,y:5.2,z:r.position.z};
+ const r=s.renowner,origin=restlessRenownerMouth(r);
  const aim={x:target.position.x-origin.x,y:target.position.y+1.1-origin.y,z:target.position.z-origin.z};
  const norm=Math.hypot(aim.x,aim.y,aim.z)||1,speed=16;
  const coin={id:`renown-${Math.floor(now*1000)}`,position:origin,
@@ -256,7 +247,7 @@ function stepStatue(room,s,dt,now,damage){
    if(r.attack.type!=='coin'&&now>=r.attack.contactAt&&now<=r.attack.contactAt+.25){
      for(const p of targets){
        if(r.attack.hit.includes(p.id)||!swordTouches(s,p,now))continue;
-       const segment=strikeGeometry(s,now);
+       const segment=restlessRenownerBlade(r,now);
        const blocked=(room.world.solids??[]).some(box=>box.id!=='renowner-body'&&box.id!=='renowner-podium'
          &&segmentAabbHit(segment.a,[p.position.x,p.position.y+1.1,p.position.z],box));
        if(blocked)continue;

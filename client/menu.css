@@ -638,11 +638,23 @@ html[data-turn] .turn-only { display: block !important; }
   padding: 0 4px 8px 0; display: flex; flex-direction: column; gap: 14px;
 }
 
+.inspector-list {
+  display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; flex-shrink: 0;
+}
+
+.inspector-list > .armory-slot {
+  margin-top: auto;
+}
+
+.inspector-list .armory-spells {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
 /* Item Card Detail View in Inspector */
 .inspector-item-card {
   padding: 14px 16px; border: 1px solid rgba(201, 156, 82, .4); border-top: 2px solid rgba(201, 156, 82, .55); border-radius: 3px;
   background: linear-gradient(180deg, rgba(42, 33, 26, .92) 0%, rgba(26, 20, 16, .96) 100%);
-  display: flex; flex-direction: column; gap: 8px; margin-top: 10px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px; margin-top: 10px; margin-bottom: 12px; flex-shrink: 0;
 }
 .inspector-card-heading {
   display: flex; align-items: center; gap: 10px;
@@ -865,6 +877,20 @@ html[data-turn] .turn-only { display: block !important; }
 }
 .spell-card.just-equipped {
   animation: equipSettle 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.spell-card.swiping-down {
+  animation: none !important;
+  z-index: 10;
+  border-color: var(--heraldry-brass-light);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .8), 0 0 18px rgba(236, 201, 127, .65), inset 0 0 12px rgba(236, 201, 127, .25);
+  will-change: transform, box-shadow;
+}
+
+.spell-card.shifting-up {
+  animation: none !important;
+  opacity: 0.82;
+  will-change: transform;
 }
 
 .spell-card.selected-inspect { border-color: #ffd685; box-shadow: 0 0 12px rgba(236, 201, 127, .4); }

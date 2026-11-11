@@ -528,6 +528,11 @@ export function applyRoomCommand(room, player, message, time) {
       const m=room.fightFlight;
       if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id)
         return {rejected:'Operate Fight-and-Flight before ejecting.'};
+      // A UI focus transition cancels Eject; a stale key-up/second touch must
+      // not turn the opened Practice menu into an involuntary safe exit.
+      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus){
+        m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;return {};
+      }
       if(m.terminalDive)return {rejected:'A committed terminal dive cannot be abandoned.'};
       if(message.cancel){m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;return {};}
       if(message.down){if(m.ejectHoldStartedAt==null)m.ejectHoldStartedAt=time;return {};}
@@ -568,6 +573,20 @@ export function applyRoomCommand(room, player, message, time) {
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
+    case 'practiceUiFocus': {
+      // Explicit Practice-only interface state. It prevents a coincident
+      // pointer/key release from administering a dismount; it does not freeze
+      // physics or grant immunity while the pilot is reading the controls.
+      if(room.mode!==GAME_MODES.PRACTICE||room.state!=='PLAYING'||
+        player.actorKind!=='human'||room.players.get(player.id)!==player)
+        return {rejected:'Practice UI focus unavailable.'};
+      player.practiceUiFocus=message.open===true;
+      if(player.practiceUiFocus&&room.fightFlight?.operatorId===player.id){
+        room.fightFlight.ejectHoldStartedAt=null;
+        room.fightFlight.emergencyBrakeActive=false;
+      }
+      return {};
+    }
     case 'practiceSiegeOpponent':{
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage opponents.'};
       const {action,machine,difficulty}=message;
@@ -591,7 +610,7 @@ export function applyRoomCommand(room, player, message, time) {
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may dismantle siege machines.'};
       return practiceBiByeCommand(room,player,'dismantle',time);
     case 'practiceResetPlayer':
-      return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
+      return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time, message.destination ?? null) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };
@@ -646,6 +665,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
+      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
          && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);
@@ -659,6 +679,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {rejected:'Approach an available operator station.'};
     }
     case 'bibyeOperate': {
+      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
       if(player.operatingFightFlightId)return {rejected:'Land and dismount Fight-and-Flight first.'};
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       if (!room.biByeLlista) return { rejected: 'No ballista available' };

@@ -1,4 +1,4 @@
-import { arenaOrDefault, RENOWN_ARENAS } from '../../shared/src/modes.mjs';
+import { arenaForMode, RENOWN_ARENAS } from '../../shared/src/modes.mjs';
 import { botSkillId } from '../../shared/sim/botSkill.mjs';
 
 const MAX_NAME_LENGTH = 18;
@@ -26,13 +26,15 @@ export class MenuController {
   }
 
   /** The arena chosen for solo play (remembered; Castleward until another is chosen). */
-  soloArena() {
-    return arenaOrDefault(this.storage?.getItem?.('ss-solo-arena'));
+  soloArena(mode = 'BOT_DUEL') {
+    const legacy = this.storage?.getItem?.('ss-solo-arena');
+    const saved = mode === 'PRACTICE' ? this.storage?.getItem?.('ss-practice-arena') ?? legacy : legacy;
+    return arenaForMode(mode, saved);
   }
 
-  chooseSoloArena(worldId) {
-    const arena = arenaOrDefault(worldId);
-    this.storage?.setItem?.('ss-solo-arena', arena);
+  chooseSoloArena(worldId, mode = 'BOT_DUEL') {
+    const arena = arenaForMode(mode, worldId);
+    this.storage?.setItem?.(mode === 'PRACTICE' ? 'ss-practice-arena' : 'ss-solo-arena', arena);
     return arena;
   }
 
@@ -178,16 +180,16 @@ export class MenuController {
       : this.socket.startSolo('RENOWN_TRIALS', name, arena));
   }
 
-  practice(rawName) {
-    return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, this.soloArena()));
+  practice(rawName, worldId = this.soloArena('PRACTICE')) {
+    return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, arenaForMode('PRACTICE', worldId)));
   }
 
   sharedPractice(rawName) {
-    return this.#withName(rawName,name=>this.socket.createSharedPracticeRoom(name,this.soloArena()));
+    return this.#withName(rawName,name=>this.socket.createSharedPracticeRoom(name,this.soloArena('PRACTICE')));
   }
 
   inspectionPractice(rawName) {
-    return this.#withName(rawName, name => this.socket.startInspectionPractice(name, this.soloArena()));
+    return this.#withName(rawName, name => this.socket.startInspectionPractice(name, this.soloArena('PRACTICE')));
   }
 
   createPrivate(rawName,settings=null,team=null) {

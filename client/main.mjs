@@ -42,6 +42,8 @@ import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { loadArmoryLocation, saveArmoryLocation } from './menu/armoryLocation.mjs';
 import { CLOTH } from '../shared/src/cosmetics.mjs';
+import { arenasForMode } from '../shared/src/modes.mjs';
+import { getWorld } from '../shared/worlds/registry.mjs';
 import { GAME } from '../shared/src/combat.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
@@ -1046,6 +1048,7 @@ function setPracticeVisible(visible) {
   updateInspectionControls();
 }
 function showPauseSection(section) {
+  if(section==='practice')protectPracticeOpeningClick();
   pauseSection = section === 'practice' && practiceVisibleWanted ? 'practice' : 'main';
   syncPauseSections();
   setPracticeVisible(practiceVisibleWanted);
@@ -1076,8 +1079,24 @@ $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 // the solo arena: a chip each, the chosen one lit
 const soloArena = $('#solo-arena');
+let soloActivity = 'bot-duel';
+const soloArenaMode = () => soloActivity === 'bot-duel' ? 'BOT_DUEL' : 'PRACTICE';
 function showSoloArena() {
-  const chosen = menuController.soloArena();
+  const mode = soloArenaMode();
+  const chosen = menuController.soloArena(mode);
+  const worlds = arenasForMode(mode);
+  if (soloArena.dataset.mode !== mode) {
+    soloArena.dataset.mode = mode;
+    soloArena.replaceChildren(soloArena.firstElementChild, ...worlds.map(id => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'vote-chip';
+      chip.setAttribute('role', 'radio');
+      chip.dataset.arena = id;
+      chip.textContent = getWorld(id).name.toUpperCase();
+      return chip;
+    }));
+  }
   for (const chip of soloArena.querySelectorAll('[data-arena]')) {
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
@@ -1087,7 +1106,7 @@ function showSoloArena() {
 soloArena.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
   if (!chip) return;
-  menuController.chooseSoloArena(chip.dataset.arena);
+  menuController.chooseSoloArena(chip.dataset.arena, soloArenaMode());
   showSoloArena();
 });
 showSoloArena();
@@ -1508,7 +1527,6 @@ function startTutorial() {
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
 // Solo: left banner chooses an activity; right banner owns relevant options and launch.
-let soloActivity = 'bot-duel';
 const soloChoices = Object.freeze({
   'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
   'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment. Offline rehearsal awards no account Renown.'],
@@ -1521,6 +1539,7 @@ const soloChoices = Object.freeze({
 function chooseSoloActivity(id) {
   if (!Object.hasOwn(soloChoices,id)) return;
   soloActivity=id;
+  showSoloArena();
   for(const choice of Object.keys(soloChoices)) {
     const button=$('#'+choice);
     const active=choice===id;
@@ -1632,10 +1651,31 @@ async function copyText(text, title) {
   try { await navigator.clipboard.writeText(text); }
   catch { window.prompt(title, text); }
 }
+// UI focus is an explicit Practice-only input barrier, not an ejection or
+// a player reset. The host knows this BEFORE pointer lock emits key releases.
+// A mobile pointerup may open the Practice drawer before the browser sends
+// its synthesized click. Ignore that ONE opening click inside the newly
+// inserted panel, or it can hit RESET/REPOSITION beneath the original thumb
+// and administratively relocate a still-mounted pilot.
+let practiceOpeningClickGuardUntil=0;
+practiceOverlay.addEventListener('click',(event)=>{
+  if(event.isTrusted&&performance.now()<practiceOpeningClickGuardUntil){
+    event.preventDefault();event.stopImmediatePropagation();
+  }
+},true);
+function protectPracticeOpeningClick(){
+  practiceOpeningClickGuardUntil=performance.now()+280;
+}
+function protectPracticeMount(open){
+  if(latestSnapshot?.roomState==='PLAYING'&&latestSnapshot?.mode==='PRACTICE')
+    socket.send({type:'practiceUiFocus',open:Boolean(open)});
+}
 function openPracticeDrawer() {
   if (latestSnapshot?.roomState !== 'PLAYING' || !practiceVisibleWanted) return;
   if (paused) closePause({ resumeArena: false });
   practiceDrawerOpen = true;
+  protectPracticeOpeningClick();
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (practiceOverlay.parentNode !== practiceHome) {
     practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
@@ -1648,6 +1688,7 @@ function openPracticeDrawer() {
 
 function closePracticeDrawer({ resumeArena = true } = {}) {
   practiceDrawerOpen = false;
+  protectPracticeMount(false);
   practiceOverlay.classList.remove('drawer-open');
   setPracticeVisible(practiceVisibleWanted);
   if (resumeArena) runtime?.requestPointerLock();
@@ -1667,8 +1708,10 @@ function openPause(section = 'main') {
   if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
   practiceDirect = false;
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (section === 'practice' && practiceVisibleWanted) {
+    protectPracticeOpeningClick();
     pausePracticeMount.append(practiceOverlay);
     expandPracticeTools();
     pauseSection = 'practice';
@@ -1685,6 +1728,7 @@ function openPause(section = 'main') {
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
+  protectPracticeMount(false);
   practiceDirect = false;
   pauseSection = 'main';
   pauseMenu.setAttribute('aria-label', 'Arena menu');
@@ -1999,39 +2043,107 @@ function updateInspectorDetailCard() {
   }
 }
 
-function scrollToEquippedItem(category, { smooth = true } = {}) {
+function animateCardReorder(category, selectedItemId) {
+  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
+
+  let listId = '#armory-spells';
+  let wrapperId = '#inspector-list-sorcery';
+  if (category === 'masterstroke') {
+    listId = '#armory-ultimates';
+    wrapperId = '#inspector-list-masterstroke';
+  } else if (category === 'technique') {
+    listId = '#armory-techniques';
+    wrapperId = '#inspector-list-technique';
+  }
+
+  const container = document.querySelector(listId);
+  const scrollEl = document.querySelector('#armory-inspector .inspector-scroll');
+  const wrapperEl = document.querySelector(wrapperId);
+  if (!container || !scrollEl) return null;
+
+  const firstPositions = new Map();
+  container.querySelectorAll('.spell-card').forEach((card) => {
+    const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+    if (id) {
+      firstPositions.set(id, card.getBoundingClientRect());
+    }
+  });
+
+  return function play() {
+    if (wrapperEl) {
+      const targetScrollTop = Math.max(0, wrapperEl.offsetTop + wrapperEl.offsetHeight - scrollEl.clientHeight);
+      scrollEl.scrollTop = targetScrollTop;
+    }
+
+    const cards = container.querySelectorAll('.spell-card');
+    const animatingCards = [];
+
+    cards.forEach((card) => {
+      const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+      const first = firstPositions.get(id);
+      if (!first) return;
+
+      const last = card.getBoundingClientRect();
+      const deltaY = first.top - last.top;
+
+      if (Math.abs(deltaY) > 1) {
+        const isSelected = id === selectedItemId;
+        card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
+        card.style.transition = 'none';
+        if (isSelected) {
+          card.classList.add('swiping-down');
+        } else {
+          card.classList.add('shifting-up');
+        }
+        animatingCards.push({ card, isSelected });
+      }
+    });
+
+    if (animatingCards.length === 0) return;
+
+    container.offsetHeight;
+
+    requestAnimationFrame(() => {
+      animatingCards.forEach(({ card, isSelected }) => {
+        if (isSelected) {
+          card.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.25s ease';
+          card.style.transform = 'translateY(0) scale(1)';
+        } else {
+          card.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
+          card.style.transform = 'translateY(0)';
+        }
+
+        const cleanup = () => {
+          card.style.transform = '';
+          card.style.transition = '';
+          card.classList.remove('swiping-down', 'shifting-up');
+        };
+        card.addEventListener('transitionend', cleanup, { once: true });
+        setTimeout(cleanup, 480);
+      });
+    });
+  };
+}
+
+function scrollToEquippedItem(category, { smooth = false } = {}) {
   const inspector = $('#armory-inspector');
   if (!inspector || inspector.classList.contains('closed')) return;
   const scrollEl = inspector.querySelector('.inspector-scroll');
   if (!scrollEl) return;
 
-  let listId = '#armory-spells';
-  if (category === 'masterstroke') listId = '#armory-ultimates';
-  else if (category === 'technique') listId = '#armory-techniques';
+  let wrapperId = '#inspector-list-sorcery';
+  if (category === 'masterstroke') wrapperId = '#inspector-list-masterstroke';
+  else if (category === 'technique') wrapperId = '#inspector-list-technique';
 
-  const container = inspector.querySelector(listId);
-  if (!container) return;
+  const listEl = inspector.querySelector(wrapperId);
+  if (!listEl) return;
 
-  const equippedCard = container.querySelector('.spell-card.equipped') || container.querySelector('.spell-card:last-child');
-  if (!equippedCard) return;
+  const targetScrollTop = Math.max(0, listEl.offsetTop + listEl.offsetHeight - scrollEl.clientHeight);
 
-  const doScroll = () => {
-    const cardRect = equippedCard.getBoundingClientRect();
-    const scrollRect = scrollEl.getBoundingClientRect();
-    const cardBottomOffset = (cardRect.bottom - scrollRect.top) + scrollEl.scrollTop;
-    const targetScrollTop = Math.max(0, cardBottomOffset - scrollEl.clientHeight + 14);
-
-    scrollEl.scrollTo({
-      top: targetScrollTop,
-      behavior: smooth ? 'smooth' : 'instant',
-    });
-  };
-
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(doScroll);
-  } else {
-    doScroll();
-  }
+  scrollEl.scrollTo({
+    top: targetScrollTop,
+    behavior: smooth ? 'smooth' : 'instant',
+  });
 }
 
 function equipInspectorItem(category, itemId, { animate = true } = {}) {
@@ -2057,11 +2169,18 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     }
   }
 
+  const playReorder = animate ? animateCardReorder(category, itemId) : null;
+
   lastEquippedCategory = category;
   lastEquippedItemId = itemId;
 
   renderArmory();
-  scrollToEquippedItem(category, { smooth: animate });
+
+  if (playReorder) {
+    playReorder();
+  } else {
+    scrollToEquippedItem(category, { smooth: false });
+  }
 }
 
 function highlightInspectorItem(category, itemId) {
@@ -2092,9 +2211,9 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Masterful stances and weapon abilities for the Castleward longsword.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Two sword techniques are in training. The Castleward longsword is already equipped.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
-    masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Spend built Prowess to unleash a battle-turning technique.' },
+    masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };
   const t = titles[category] || titles.sorcery;
   $('#inspector-category').textContent = t.cat;
@@ -2563,6 +2682,14 @@ function practiceOneHitCommand(command){
   socket.practiceOneHit(command);
 }
 function updateInspectionControls() {
+  const destinationWorld = latestSnapshot?.mode === 'PRACTICE' && !latestSnapshot.tutorial ? latestSnapshot.worldId : null;
+  const reposition = $('#practice-reposition');
+  if (reposition.dataset.world !== (destinationWorld ?? '')) {
+    const destinations = destinationWorld ? getWorld(destinationWorld).practiceDestinations ?? [] : [];
+    $('#practice-destination').replaceChildren(...destinations.map(point => new Option(point.name, point.id)));
+    reposition.hidden = !destinations.length;
+    reposition.dataset.world = destinationWorld ?? '';
+  }
   const machineChoice=$('#practice-hostile-machine')?.value;
   const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
   const hostileStatus=$('#practice-hostile-status');
@@ -2737,9 +2864,13 @@ $('#shared-practice-copy')?.addEventListener('click',async()=>{
   catch{$('#shared-practice-copy').textContent='ROOM CODE · '+code;}
 });
 $('#shared-practice-to-solo')?.addEventListener('click', () => {
-  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+  runMenuAction(menuController.practice(nameInput.value, latestSnapshot?.worldId), SCREEN_IDS.SOLO_MENU);
 });
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
+$('#practice-move').addEventListener('click', () => {
+  const destination = $('#practice-destination').value;
+  if (destination) socket.send({ type: 'practiceResetPlayer', destination });
+});
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
 $('#practice-guarding').addEventListener('click', () => socket.practiceSpawnDummy('GUARDING'));
 $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('FIGHTS_BACK'));
@@ -2985,7 +3116,7 @@ async function chooseHighGroundsMachine(machine) {
   // Remote clients also auto-load from the authoritative snapshot.
   if (machine === 'fight-and-flight' || machine === 'so-fist-ication') {
     preparingHighGroundsMachine=true;
-    if (hgFoundryHint) hgFoundryHint.textContent='PREPARING AUTHORED SIEGE MACHINE…';
+    if (hgFoundryHint) hgFoundryHint.textContent='PREPARING SIEGE MACHINE…';
     for(const item of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) item.disabled=true;
     let loaded=false;
     try {
@@ -3028,7 +3159,7 @@ function updateHighGroundsHud(snapshot) {
   if(!view.visible){if(hgFoundryPicker)hgFoundryPicker.open=false;return;}
   hgFoundryState.textContent=view.status;
   if(hgFoundryHint)hgFoundryHint.textContent=preparingHighGroundsMachine
-    ? 'PREPARING AUTHORED SIEGE MACHINE…'
+    ? 'PREPARING SIEGE MACHINE…'
     : view.hint;
   for(const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]'))
     button.disabled=preparingHighGroundsMachine||Boolean(view.disabled?.[button.dataset.highGroundsMachine]);

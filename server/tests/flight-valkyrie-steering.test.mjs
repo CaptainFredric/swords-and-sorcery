@@ -5,6 +5,7 @@ import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/s
 import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fightFlightRun.mjs';
 import {stepTerminalPreparation,requestTerminalRitual,advanceTerminalFlight} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
+import {stepRoom} from '../../shared/sim/combat.mjs';
 
 const DT=1/30;
 function setup({practice=false,y=30}={}){
@@ -185,50 +186,50 @@ test('low flight attack banks farther nose-down while keeping its real rotor abo
  assert.ok(low>=.10,'actual hub and swept blade keep ground clearance');
 });
 
-test('Ground E Dash reaches 450 RPM and commits attack without separate Jump or clearance wait',()=>{
+test('Ground Fight-and-Flight Dash launches on keydown with a stopped rotor',()=>{
   const s=setup({practice:true,y:0});
-  s.m.grounded=true;s.m.mode='GROUNDED';s.m.rotorPowered=false;
-  s.m.rotorAngularVelocity=0;s.m.rotorRPM=0;s.m.y=0;s.m.position.y=0;
+  Object.assign(s.m,{grounded:true,mode:'GROUNDED',rotorPowered:false,
+    rotorAngularVelocity:0,rotorRPM:0,y:0});
   assert.equal(requestFlightDash(s.room,s.m,s.p,true,0),true);
-  assert.equal(s.m.runGroundPhase,'SPINUP');
-  frames(s,9);
-  assert.ok(s.m.grounded,'spinning does not launch until 450 RPM');
-  assert.ok(s.m.rotorRPM>0&&s.m.rotorRPM<450,'real rotor accelerates progressively');
-  assert.equal(s.m.offensiveRun,false,'no free Dash while rotor warms up');
-  for(let i=0;i<34&&!s.m.offensiveRun;i++)frames(s,1);
-  assert.ok(s.m.rotorRPM>=VALKYRIE_RUN.spinupRPM-.1,'required full 450 RPM');
-  assert.ok(s.m.y>0&&s.m.y<VALKYRIE_RUN.groundLaunchClearance,
-    'attack begins directly off the floor without an altitude wait: '+JSON.stringify({
-      y:s.m.y,phase:s.m.runGroundPhase,run:s.m.offensiveRun,grounded:s.m.grounded,
-      rpm:s.m.rotorRPM,charge:s.m.flightCharge,elapsed:s.m.runElapsed}));
-  assert.equal(s.m.grounded,false);
-  assert.equal(s.m.offensiveRun,true,'attack becomes active after the lifted machine clears its rotor');
-  frames(s,8);
-  assert.ok(s.m.runPitch>1.25,'propeller attacks steeply after the physical takeoff');
-  assert.ok(s.m.runTravel>0,'ground Dash advances through actual world movement');
-  assert.equal(s.m.terminalDive,null,'ordinary Dash must never accidentally terminal-dive');
+  assert.equal(s.m.grounded,false,'takeoff must be immediate, without waiting for a physics tick or rotor RPM');
+  assert.equal(s.m.mode,'TAKEOFF');
+  assert.ok(s.m.velocity.y>=VALKYRIE_RUN.groundTakeoffVelocity);
+  assert.equal(s.m.rotorRPM,0,'the motor has not spun up before the attack begins');
+  assert.equal(s.m.runGroundPhase,null,'no waiting SPINUP phase');
+  frames(s,1);
+  assert.equal(s.m.offensiveRun,true,'the first real physics tick engages the attack');
+  assert.ok(s.m.rotorRPM>0&&s.m.rotorRPM<450,'rotor actually accelerates on the way');
+  assert.ok(s.m.y>0&&s.m.runTravel>0,'the chassis is physically airborne and travelling');
+  assert.equal(s.m.terminalDive,null,'ordinary Dash is not an accidental terminal commitment');
 });
-test('Ground Dash release cancels spool, while release after motor takeoff finishes 10m minimum',()=>{
-  const init=()=>{const s=setup({practice:true,y:0});Object.assign(s.m,{
-    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,
-    rotorAngularVelocity:0,rotorRPM:0});return s;};
-  const cancel=init();requestFlightDash(cancel.room,cancel.m,cancel.p,true,0);frames(cancel,3);
-  requestFlightDash(cancel.room,cancel.m,cancel.p,false,cancel.now);
-  assert.equal(cancel.m.runGroundPhase,null);
-  frames(cancel,25);
-  assert.equal(cancel.m.grounded,true,'release during spool safely aborts launch');
-  assert.equal(cancel.m.offensiveRun,false);
-  const s=init();requestFlightDash(s.room,s.m,s.p,true,0);
-  for(let i=0;i<42&&!s.m.offensiveRun;i++)frames(s,1);
-  assert.equal(s.m.offensiveRun,true,'takeoff has no separate ascent hold: '+JSON.stringify({
-    y:s.m.y,grounded:s.m.grounded,rpm:s.m.rotorRPM,
-    elapsed:s.m.runElapsed,run:s.m.offensiveRun}));
-  requestFlightDash(s.room,s.m,s.p,false,s.now);
-  for(let i=0;i<100&&(s.m.runGroundPhase||s.m.offensiveRun||s.m.runTravel===0);i++)frames(s,1);
-  assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel,
-    'release during committed takeoff still produces ten metres of physical attack');
+
+test('A quick ground Dash tap still commits its minimum distance and may let rotor spin down',()=>{
+  const s=setup({practice:true,y:0});
+  Object.assign(s.m,{grounded:true,mode:'GROUNDED',rotorPowered:false,
+    rotorAngularVelocity:0,rotorRPM:0,y:0});
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  requestFlightDash(s.room,s.m,s.p,false,.01);
+  assert.equal(s.m.grounded,false,'release must never undo an actual takeoff');
+  for(let i=0;i<100&&(s.m.offensiveRun||s.m.runGroundLaunchReady||i<2);i++)frames(s,1);
+  assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel,'tap preserves physical commitment');
   assert.equal(s.m.flightDashHeld,false);
-  assert.equal(s.m.terminalDive,null);
+  assert.equal(s.m.offensiveRun,false);
+  assert.equal(s.m.rotorPowered,false,'stopped-before-Dash rotor can spin down after attack');
+  assert.equal(s.m.runGroundPhase,null);
+});
+
+test('A rotor already spinning stays available after Dash if the pilot wanted hover',()=>{
+  const s=setup({practice:true,y:0});
+  Object.assign(s.m,{grounded:true,mode:'GROUNDED',rotorPowered:true,
+    rotorAngularVelocity:Math.PI*15,rotorRPM:450,y:0});
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  assert.equal(s.m.grounded,false);
+  frames(s,2);
+  assert.equal(s.m.offensiveRun,true);
+  requestFlightDash(s.room,s.m,s.p,false,s.now);
+  for(let i=0;i<100&&s.m.offensiveRun;i++)frames(s,1);
+  assert.equal(s.m.offensiveRun,false);
+  assert.equal(s.m.rotorPowered,true,'an existing hover rotor is not forcibly stopped');
 });
 
 test('Airborne Dash drives a falling craft immediately with full Chivalry and no vertical freeze',()=>{
@@ -261,56 +262,32 @@ test('Moving Dash still accepts a deliberate Chivalry terminal chord during the 
   assert.equal(s.m.offensiveRun,false,'terminal preparation takes over the propulsion state');
 });
 
-test('Ground E Dash retains walking movement during actual rotor spin-up',()=>{
-  const s=setup({practice:true,y:0});Object.assign(s.m,{
-    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
-  });
-  s.p.input.forward=1;
-  requestFlightDash(s.room,s.m,s.p,true,0);
-  const z=s.m.z;
-  frames(s,5);
-  assert.ok(s.m.z<z-.1,'spinning the rotor must not halt ordinary ground motion');
-  assert.equal(s.m.offensiveRun,false);
-  assert.equal(Boolean(s.p.input.jump||s.p.input.flightRise),false,'no Jump input supplied');
-  for(let i=0;i<40&&!s.m.offensiveRun;i++)frames(s,1);
-  assert.equal(s.m.offensiveRun,true,'E starts flight without jumping');
-  assert.ok(s.m.y>0&&s.m.y<VALKYRIE_RUN.groundLaunchClearance,'attack begins from ground');
-});
-
-test('Grounded Dash reuses an already-spinning 450 RPM rotor with no additional wait',()=>{
-  const s=setup({practice:true,y:0});Object.assign(s.m,{
-    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,
-    rotorAngularVelocity:Math.PI*15,rotorRPM:450
-  });
-  requestFlightDash(s.room,s.m,s.p,true,0);
-  frames(s,2);
-  assert.equal(s.m.offensiveRun,true,'physical motor speed allows immediate launch');
-  assert.ok(s.m.y>0);
-});
-
-test('Walking off a ledge during E spin-up cannot latch Dash in a frozen SPINUP state',()=>{
-  const s=setup({practice:true,y:0});Object.assign(s.m,{
-    y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
-  });
-  requestFlightDash(s.room,s.m,s.p,true,0);frames(s,3);
-  assert.equal(s.m.runGroundPhase,'SPINUP');
-  // A real cliff makes the machine airborne before the rotor reaches 450.
-  s.m.grounded=false;s.m.y=8;s.m.mode='FALLING';s.m.velocity.y=-7;
-  frames(s,1);
-  assert.equal(s.m.runGroundPhase,null);
-  assert.equal(s.m.offensiveRun,true,'airborne Dash engages instead of waiting for grounded RPM');
-  assert.ok(s.m.velocity.y<0,'falling momentum continues');
-});
-
-test('Crouch during grounded E rotor spin-up does not trap the wind-up',()=>{
+test('Crouch does not impose a ground spin-up wait on an eligible Dash',()=>{
   const s=setup({practice:true,y:0});Object.assign(s.m,{
     y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
   });
   s.p.input.crouch=true;
   requestFlightDash(s.room,s.m,s.p,true,0);
-  frames(s,9);
-  assert.ok(s.m.rotorRPM>200,'Dash engages rotor despite the lower/crouch input');
+  assert.equal(s.m.grounded,false,'Dash keydown launches despite crouch');
+  frames(s,1);
+  assert.equal(s.m.offensiveRun,true);
   assert.equal(s.m.rotorBrakeHeld,false);
+});
+
+test('A destroyed rotor or unpowered machine cannot bypass eligibility with instant Dash',()=>{
+  for(const damage of ['rotor','charge','brake']){
+    const s=setup({practice:true,y:0});Object.assign(s.m,{
+      y:0,grounded:true,mode:'GROUNDED',rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0
+    });
+    if(damage==='rotor')s.m.rotorHP=0;
+    if(damage==='charge')s.m.flightCharge=0;
+    if(damage==='brake')s.m.emergencyBrakeActive=true;
+    requestFlightDash(s.room,s.m,s.p,true,0);
+    assert.equal(s.m.grounded,true,damage+' prevents grounded takeoff');
+    assert.equal(s.m.runGroundPhase,null);
+    frames(s,1);
+    assert.equal(s.m.offensiveRun,false);
+  }
 });
 
 test('grounded Valkyrie rune commits with full Ascension/Chivalry and physically launches',()=>{
@@ -373,7 +350,8 @@ test('Early committed Valkyrie has ordinary Dash-equivalent turn and climb autho
   assert.ok(s.m.velocity.y>8,'positive reticle pitch produces real ascent, not a tiny trim');
   assert.ok(s.m.y>120,'the chassis actually climbs through the world');
   assert.ok(s.m.runFlightPitch>.75,'replicated pitch remains player controlled');
-  assert.ok(s.m.runPitch<.1,'climbing changes the third-person craft attitude');
+  assert.ok(s.m.runPitch>.35&&s.m.runPitch<1.05,
+    'climbing raises the Dash-style machine from its forward-cutting pitch, not a shallow custom trim');
   assert.ok(s.m.runTurnSpeed<=VALKYRIE_RUN.turnRate+1e-6);
   assert.ok(s.m.rotorAngularVelocity>0,'rotor remains physically powered');
 });
@@ -404,4 +382,67 @@ test('Committed Valkyrie ascends on initial ground activation with matching pitc
   assert.ok(ground.m.y>0.3,'real vertical displacement comes from velocity');
   assert.ok(ground.m.velocity.y>6,'look pitch still works from the ground');
   assert.equal(ground.m.terminalDive.resolved,false);
+});
+
+test('Terminal Valkyrie physically pitches down exactly like held Dash, then smoothly pitches up',()=>{
+  const ordinary=setup({practice:true,y:180});
+  ordinary.p.input.pitch=-.7;
+  assert.equal(requestFlightDash(ordinary.room,ordinary.m,ordinary.p,true,0),true);
+  frames(ordinary,36);
+  const terminal=terminalSetup({y:180,pitch:-.7});
+  terminalFrames(terminal,36);
+  assert.ok(ordinary.m.runPitch>1.4,'baseline Dash pitches the rotor forward/down');
+  assert.ok(terminal.m.runPitch>1.4,'terminal must retain the SAME visible forward-cutting attitude');
+  assert.ok(Math.abs(terminal.m.runPitch-ordinary.m.runPitch)<.08,
+    'terminal and Dash derive chassis pitch from the same servo');
+  assert.ok(Math.abs(terminal.m.runFlightPitch-ordinary.m.runFlightPitch)<.08,
+    'terminal and Dash share the signed smoothed flight pitch');
+  assert.ok(terminal.m.velocity.y<-4,'downward pitch physically descends');
+
+  const before=terminal.m.y,downPitch=terminal.m.runPitch;
+  terminal.p.input.pitch=.8;
+  terminalFrames(terminal,18);
+  assert.ok(terminal.m.runFlightPitch>.55,'reticle can smoothly reverse into an upward pitch');
+  assert.ok(terminal.m.velocity.y>3,'upward pitch changes authoritative motion, not only camera position');
+  assert.ok(terminal.m.runPitch<downPitch-.25,
+    'the real third-person machine pitches back out of its steep dive');
+  terminalFrames(terminal,15);
+  assert.ok(terminal.m.y>before-5,'climb recovers physical altitude after the turn');
+});
+
+test('The real 30Hz room loop retains Valkyrie angular momentum while banking and pitching',()=>{
+  const s=terminalSetup({y:180,pitch:.65,yaw:Math.PI/2});
+  let previous=s.m.heading,nonzero=0;
+  for(let i=0;i<24;i++){
+    s.now+=DT;
+    const simulatedBefore=s.m.terminalDive.simulatedSec;
+    stepRoom(s.room,DT,s.now,s.room.world);
+    const simulatedAdvance=s.m.terminalDive.simulatedSec-simulatedBefore;
+    if(Math.abs(s.m.runTurnSpeed)>.05)nonzero++;
+    // The authoritative solo host may catch up multiple 30Hz physics steps
+    // in one wall-clock callback. Bound heading change by ACTUAL simulated
+    // time, not by one render/tick interval regardless of catch-up.
+    assert.ok(Math.abs(s.m.heading-previous)<=
+      VALKYRIE_RUN.turnRate*simulatedAdvance+.005,
+      'steering respects the Dash turn-rate bound across room catch-up');
+    previous=s.m.heading;
+  }
+  assert.ok(nonzero>=15,'ordinary Dash update must not reset terminal turn speed each tick');
+  assert.ok(s.m.heading>.65,'reticle steers the machine in actual game-loop integration');
+  assert.ok(s.m.runFlightPitch>.4&&s.m.velocity.y>3,
+    'room integration retains the same smoothly controlled upward flight as Dash');
+
+  const headingAtReverse=s.m.heading,poseAtReverse=s.m.runPitch;
+  s.p.input.yaw=-Math.PI/2;s.p.input.pitch=-.7;
+  for(let i=0;i<29;i++){
+    s.now+=DT;
+    stepRoom(s.room,DT,s.now,s.room.world);
+  }
+  assert.ok(s.m.heading<headingAtReverse-.12,
+    'the pilot can reverse the actual machine turn, not just rotate the camera');
+  assert.ok(s.m.runFlightPitch<-.45&&s.m.velocity.y<0,
+    'downward reticle reversal changes signed vertical momentum');
+  assert.ok(s.m.runPitch>poseAtReverse+.25,
+    'chassis progressively leans into the reversed physical dive');
+  assert.ok(!s.m.terminalDive?.resolved,'no artificial explosion interrupts free-air steering');
 });

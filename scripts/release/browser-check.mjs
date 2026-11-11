@@ -89,7 +89,7 @@ try {
     for (const type of ['mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, ...point, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 });
   };
   const key = (code, down) => cdp.send('Input.dispatchKeyEvent', { type: down ? 'keyDown' : 'keyUp', code, key: code === 'Escape' ? 'Escape' : code.replace('Key', '').toLowerCase(), windowsVirtualKeyCode: code === 'Escape' ? 27 : code.replace('Key', '').charCodeAt(0) });
-  const state = () => evaluate(`(() => {const r=window.__ssRuntime,p=r?.localAuth;return {position:p?.position,yaw:r?.input.yaw,guard:p?.guarding,attack:p?.attackActive,cast:p?.castingSpell,ready:p?.spellReadyAt,enabled:r?.input.enabled,world:r?.worldId};})()`);
+  const state = () => evaluate(`(() => {const r=window.__ssRuntime,p=r?.localAuth;return {position:p?.position,yaw:r?.input.yaw,guard:p?.guarding,attack:p?.attackActive,cast:p?.castingSpell,ready:p?.spellReadyAt,enabled:r?.input.enabled,world:r?.worldId,mode:r?.latestSnapshot?.mode,local:r?.socket.playingLocally};})()`);
   const screenshot = async name => fs.writeFile(path.join(directory, name), Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
   const loadMenu = async () => {
     await cdp.send('Page.navigate', { url });
@@ -100,9 +100,22 @@ try {
     checks.menu = true;
   };
   const setName = () => evaluate("(()=>{const e=document.querySelector('#player-name');e.value='Release tester';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  const launchSolo = async selector => {
+    await click('#solo-button');
+    await until(() => visible('#solo-menu'), 'Solo menu');
+    await click(selector);
+    await until(() => evaluate(`document.querySelector(${JSON.stringify(selector)})?.getAttribute('aria-pressed') === 'true'`), 'Solo activity selected');
+    if (!(await visible('#solo-launch')) && await visible('#solo-details')) await click('#solo-details');
+    await until(() => visible('#solo-launch'), 'Solo launch confirmation');
+    await click('#solo-launch');
+  };
   const practice = async () => {
-    await setName(); await click('#solo-button'); await until(()=>visible('#solo-menu'),'Solo menu'); await sleep(250); await click('#practice-mode');
-    await until(async () => (await visible('#hud')) && (await state()).position, 'Practice Yard');
+    await setName();
+    await launchSolo('#practice-mode');
+    await until(async () => {
+      const runtime = await state();
+      return runtime.mode === 'PRACTICE' && runtime.local && runtime.position && await visible('#hud');
+    }, 'Practice Yard');
   };
   await loadMenu(); await until(()=>evaluate("globalThis.__SPELLBLADE_ASSET_STATUS__?.menu?.kind==='glb'"),'production menu GLB'); await screenshot('candidate-menu.png');
   const release = await (await fetch(url.split('?')[0] + 'release.json')).json();
@@ -132,7 +145,7 @@ try {
   await key('Escape', true); await key('Escape', false);
   await until(() => evaluate('!document.pointerLockElement'), 'release pointer');
   await click('#practice-leave'); await until(() => visible('#menu'), 'leave Practice'); checks.leave = true;
-  await click('#solo-button'); await until(()=>visible('#solo-menu'),'Solo menu for tutorial'); await sleep(250); await click('#tutorial-mode');
+  await launchSolo('#tutorial-mode');
   await until(() => evaluate("window.__ssRuntime?.worldId==='greener-pastures' && !document.querySelector('#tutorial-overlay')?.hidden"), 'Tutorial world');
   await until(() => evaluate("document.querySelector('[data-tutorial-line]')?.textContent.trim().length>0"), 'Tutorial captions');
   await until(() => resources.some(resource => /tutorial-voice\/.*\.(?:ogg|mp3|m4a|wav)(?:\?|$)/.test(resource.url) && resource.status === 200), 'recorded audio resource');

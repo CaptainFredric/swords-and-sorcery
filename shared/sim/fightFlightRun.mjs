@@ -20,6 +20,30 @@ export const VALKYRIE_RUN=Object.freeze({
   spinupRPM:450,chargeGraceSec:.30,chivalryDashImpulse:8,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+/** Shared signed flight-pitch servo for normal Dash and terminal Valkyrie.
+ * Its actual thrust vector and replicated, collision-bearing rotor attitude
+ * follow the same smoothed reticle input, rather than disconnected animations.
+ * Normal Dash prevents a low rotor strike; terminal flight may crash after takeoff. */
+export function stepFlightPitchAttitude(m,dt,{
+ target=0,requested=target,lead=VALKYRIE_RUN.rotorAimLead,
+ engaged=true,ground=null,limitRotorToSupport=true,
+ pitchRate=VALKYRIE_RUN.pitchRate,
+}={}){
+ const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
+ const correction=engaged&&limitRotorToSupport?
+   clamp(Math.max(0,target-requested)*.49,0,.56):0;
+ m.runTrim=approach(m.runTrim??0,engaged?lead+correction:0,pitchRate*1.3);
+ m.runFlightPitch=approach(m.runFlightPitch??0,target,
+   pitchRate*(target>(m.runFlightPitch??0)?1.8:1));
+ let maxPitch=VALKYRIE_RUN.maxAttackPitch;
+ if(limitRotorToSupport&&ground!=null){
+   // GLB rotor hub y=2.185, swept blade radius=1.295 metres.
+   const radius=Math.hypot(2.185,1.295),phase=Math.atan2(1.295,2.185);
+   maxPitch=Math.min(maxPitch,Math.acos(clamp((.12-(m.y-ground))/radius,-1,1))-phase);
+ }
+ m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,Math.max(0,maxPitch));
+ return m.runFlightPitch;
+}
 export function requestFlightDash(room,m,p,held,now){
  if(!m||m.mode==='DESTROYED'||m.terminalDive||m.health<=0||!p?.alive||room.players.get(p.id)!==p||
    m.operatorId!==p.id||p.operatingFightFlightId!==m.id)return false;
@@ -27,12 +51,8 @@ export function requestFlightDash(room,m,p,held,now){
  if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
  if(!held){
-   if(m.runGroundPhase==='SPINUP'){
-     // A release before the rotor reaches speed cancels the wind-up;
-     // after actual takeoff, minimum-distance commitment is preserved.
-     m.runGroundPhase=null;
-     if(m.grounded)m.rotorPowered=false;
-   }else if(m.runGroundLaunchReady)m.runGroundReleased=true;
+   // Dash starts on keydown; a fast release still owes its committed travel.
+   if(m.runGroundLaunchReady)m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
    m.runReleasedAt=now;m.flightDashStartedAt=null;
@@ -49,14 +69,21 @@ export function requestFlightDash(room,m,p,held,now){
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  m.runGroundReleased=false;
- // Grounded Dash needs no preliminary Jump: the real rotor spins up to
- // 450 RPM, then lifts and attacks in the same physical launch. Airborne Dash
- // engages the rotor immediately, without pausing an ongoing fall.
+ // Grounded Dash launches on the authoritative press, not at some later RPM.
+ // The actual rotor spins up in flight and retains normal contact physics.
  const practice=room.mode==='PRACTICE'&&p.actorKind==='human'&&!room.localTutorial;
- if(!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2){
-   if(m.grounded&&(p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id)))
-     m.runGroundPhase='SPINUP';
-   else if(!m.grounded)m.rotorPowered=true;
+ const canDash=!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&
+   (p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id));
+ m.runRotorWasPowered=Boolean(m.rotorPowered);
+ if(canDash){
+   m.rotorPowered=true;
+   if(m.grounded){
+     m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
+     m.velocity.y=Math.max(m.velocity.y,VALKYRIE_RUN.groundTakeoffVelocity);
+     m.runGroundPhase=null;m.runGroundLaunchReady=true;
+     room.events.push({type:'fightFlightGroundDashTakeoff',machineId:m.id,
+       operatorId:p.id,rotorRPM:m.rotorRPM,at:now});
+   }
  }
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
@@ -74,6 +101,10 @@ export function requestFlightDash(room,m,p,held,now){
 }
 export function stepFlightRun(room,m,dt,now){
  if(!m||m.mode==='DESTROYED'||m.retired)return;
+ // Terminal Valkyrie has its own authoritative propulsion and turn integrator.
+ // Never run the ordinary Dash cancellation/reset path on a committed dive:
+ // that used to erase its angular velocity EVERY room tick.
+ if(m.terminalDive)return;
  const p=m.operatorId?room.players.get(m.operatorId):null;
  const fresh=Boolean(!Number.isFinite(p?.flightInputAt)||now-p.flightInputAt<=.5);
  if(m.flightDashHeld&&!fresh){
@@ -124,6 +155,10 @@ export function stepFlightRun(room,m,dt,now){
    if(!valid||(ascension&&!(m.flightCharge>0))||
      (!practice&&!ascension&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
+  // Do not force the rotor to hover forever after a Dash that started cold.
+  if(!m.runRotorWasPowered&&!preparing&&!activeChivalry&&
+    !m.flightDashHeld&&!p?.input?.flightRise&&!p?.input?.jump)
+    m.rotorPowered=false;
  }else{
    if(!m.offensiveRun){
      m.runAnimationStartedAt=now;m.offensiveRun=true;
@@ -175,7 +210,6 @@ export function stepFlightRun(room,m,dt,now){
  // signed flight pitch. Negative aim pitches the nose and thrust DOWN.
  // The initial vector is captured at the press; aim cannot retarget it until
  // the commitment expires. Practice refills never restart this phase.
- if(m.terminalDive)return; // irreversible Dive owns its own physics
  const committed=Boolean(m.offensiveRun&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec);
  const livePitch=clamp(Number.isFinite(p?.input?.pitch)?p.input.pitch:0,
    -VALKYRIE_RUN.descentPitchLimit,VALKYRIE_RUN.pitchLimit);
@@ -190,28 +224,11 @@ export function stepFlightRun(room,m,dt,now){
      target=Math.max(target,-VALKYRIE_RUN.descentPitchLimit*available);
    }
  }
- const approach=(value,goal,rate)=>value+clamp(goal-value,-rate*dt,rate*dt);
- // During the attack the rotor sweeps toward a full 90-degree vertical
- // cutting plane: a charged blade, not a sightseeing helicopter. Camera pitch
- // still controls the physically replicated flight vector and visual tilt.
- // Ground clearance is enforced below on the REAL collision-swept rotor.
- // If clearance suppresses downward thrust, the rotor may still pitch
- // physically into the infantry-height crosshair corridor. Its actual swept
- // blades share runPitch and must respect the separate real-ground limit.
- const requested=committed?m.runCommitPitch:livePitch;
- const clearanceCorrection=m.offensiveRun?clamp(Math.max(0,target-requested)*.49,0,.56):0;
- const rotorLead=(committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead)+clearanceCorrection;
- m.runTrim=approach(m.runTrim??0,m.offensiveRun?rotorLead:0,VALKYRIE_RUN.pitchRate*1.3);
- m.runFlightPitch=approach(m.runFlightPitch??0,target,
-   target>m.runFlightPitch?VALKYRIE_RUN.pitchRate*1.8:VALKYRIE_RUN.pitchRate);
- // Bound the lowest real rotor point against support while allowing a steeper
- // attack above it. GLB hub y=2.185/z=-.025, blade radius=1.32 metres.
- let maxPitch=VALKYRIE_RUN.maxAttackPitch;
- if(floor!=null){
-   const radius=Math.hypot(2.185,1.295),phase=Math.atan2(1.295,2.185);
-   maxPitch=Math.min(maxPitch,Math.acos(clamp((.12-(m.y-floor))/radius,-1,1))-phase);
- }
- m.runPitch=clamp(m.runTrim-m.runFlightPitch,-.85,Math.max(0,maxPitch));
+ // Keep ordinary Dash's full rotor lean, physical pitch tracking and ground
+ // clearance behavior unchanged; terminal Valkyrie now calls this same servo.
+ stepFlightPitchAttitude(m,dt,{target,requested:committed?m.runCommitPitch:livePitch,
+   lead:committed?VALKYRIE_RUN.launchRotorLead:VALKYRIE_RUN.rotorAimLead,
+   engaged:m.offensiveRun,ground:floor});
 
 }
 

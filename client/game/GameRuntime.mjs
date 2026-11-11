@@ -9,7 +9,7 @@ import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
-import {FlightDashPresentation} from './flightDashPresentation.mjs';
+import {FlightDashPresentation,flightDashChasePose} from './flightDashPresentation.mjs';
 import {stableFlightCockpitEye,finiteFlightLook} from './flightCameraSafety.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
@@ -3578,12 +3578,11 @@ export class GameRuntime {
       const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      // During the terminal run the boom follows the real heavy chassis
-      // heading, not the far-ahead reticle. Keep its blades and rider framed
-      // through the increasingly unstable turn; aim inputs remain untouched.
-      const chaseYaw=terminal&&Number.isFinite(m.heading)?m.heading:look.yaw;
-      const third=new THREE.Vector3(m.x+Math.sin(chaseYaw)*distance,
-        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(chaseYaw)*distance);
+      // Aim and boom now share the same reticle frame in ordinary Dash and
+      // terminal flight. Machine heading/pitch follows that frame physically
+      // at its own rate, without locking the camera onto the fuselage.
+      const chase=flightDashChasePose(m,look,distance);
+      const third=new THREE.Vector3(chase.position.x,chase.position.y,chase.position.z);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
       // World collision clipping must not undo the cockpit's floor clearance,
@@ -3631,14 +3630,9 @@ export class GameRuntime {
         this.hud.setFlightSight?.(null);
         this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
-        if(terminal){
-          // A genuine third-person pursuit shot of the diving machine; the
-          // view tracks its torso while server-owned pitch/steering can still
-          // drive it straight into a wall. Never rotate the player's controls.
-          const lookAt=new THREE.Vector3(m.x,m.y+1.65,m.z);
-          this.siegeCamera.quaternion.setFromRotationMatrix(
-            new THREE.Matrix4().lookAt(this.siegeCamera.position,lookAt,new THREE.Vector3(0,1,0)));
-        }else this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
+        // Same camera orientation as held Dash, including true up/down
+        // aim. Chassis pitch remains independently visible in the frame.
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(chase.pitch,chase.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;

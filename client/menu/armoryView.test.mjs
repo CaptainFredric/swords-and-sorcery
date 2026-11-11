@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import test from 'node:test';
 import { armoryView } from './armoryView.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
+import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
+import { ONE_HIT_FIRST_INFUSION_DAMAGE, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 
 test('the Armory lists every spell from the shared table, marks the one carried, and says plainly what each does', () => {
   const view = armoryView('frostfire');
@@ -27,8 +31,8 @@ test('the Armory offers the original ultimates and All-Natural Disaster with its
   const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
   assert.equal(disaster.name,'ALL-NATURAL DISASTER');
   // its facts are the rules' own figures: 46, and each first infusion's contribution (Gale's 1, not its old 8)
-  assert.match(disaster.facts, /^46 DAMAGE · FIRE \+13.*FROST \+11.*GALE \+1,.*LIGHTNING \+12.*STEEL \+2,/);
-  assert.doesNotMatch(disaster.facts, /\+8|40 PHYSICAL/);
+  assert.match(disaster.facts, /^46 PHYSICAL · \+13 FIRE · \+11 FROST · \+1 GALE · \+12 LIGHTNING · \+2 STEEL · /);
+  assert.doesNotMatch(disaster.facts, /\+8 GALE|40 PHYSICAL/);
   assert.match(disaster.line, /Steel/);
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');
@@ -65,6 +69,37 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.equal(core.name, 'COREFLAGRATION');
   assert.match(core.facts, /5 first burst · 20 final blast · 6 burn · 5s cooldown/);
   assert.match(core.line, /burning stone/);
+});
+
+test('How to Play states Chivalry’s actual duration', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes(`cast together for ${ULTIMATES.chivalry.activeSec} seconds.`));
+});
+
+test('Shared Practice invites use the available Private Match route', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /Friends: open Private Match, enter this code under Join by Code, then choose Join\./);
+  assert.match(html, /<h2>PRIVATE MATCH<\/h2>/);
+  assert.match(html, /OR JOIN BY CODE/);
+});
+
+test('player-facing foundry statuses do not expose implementation terminology', () => {
+  const source = readFileSync(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /PREPARING AUTHORED SIEGE MACHINE/);
+});
+
+test('Armory facts derive All-Natural Disaster and Line of Conduct values from the shared rules', () => {
+  const view = armoryView('line_of_conduct', 'one_hit_of_wonders');
+  const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
+  assert.match(disaster.facts, new RegExp(`^${ONE_HIT_BASE_DAMAGE} PHYSICAL`));
+  for (const [element, damage] of Object.entries(ONE_HIT_FIRST_INFUSION_DAMAGE)) {
+    assert.ok(disaster.facts.includes(`+${damage} ${element.toUpperCase()}`), element);
+  }
+  const conduct = view.spells.find((s) => s.id === 'line_of_conduct');
+  assert.ok(conduct.facts.includes(`${ONE_HIT_RULES.lineOfConduct.nearDamage} close`));
+  assert.ok(conduct.facts.includes(`${ONE_HIT_RULES.lineOfConduct.farDamage} extreme`));
+  const gale = view.spells.find((s) => s.id === 'gale');
+  assert.match(gale.facts, /shove to 11m/);
 });
 
 test('the longsword is equipment and the two Sword Techniques are training previews', () => {

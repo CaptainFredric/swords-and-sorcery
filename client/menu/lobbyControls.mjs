@@ -1,4 +1,4 @@
-import { ARENAS, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, RESTLESS_DAY_ARENAS, EDGE_OF_VICTORY_ARENAS } from '../../shared/src/modes.mjs';
+import { arenasForMode } from '../../shared/src/modes.mjs';
 import { WORLD_NAMES } from './lobbyView.mjs';
 
 const rendered = new WeakMap();
@@ -9,11 +9,7 @@ export function stableLobbyMarkup(element, html) {
 }
 const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function arenaOptions(mode, selected) {
-  const worlds = mode === 'BREAKTHROUGH' ? BREAKTHROUGH_ARENAS
-    : mode === 'HIGH_GROUNDS' ? HIGH_GROUNDS_ARENAS
-    : mode === 'RESTLESS_DAY' ? RESTLESS_DAY_ARENAS
-    : mode === 'EDGE_OF_VICTORY' ? EDGE_OF_VICTORY_ARENAS
-    : ARENAS;
+  const worlds = arenasForMode(mode);
   return worlds.map(id=>`<option value="${id}"${id===selected?' selected':''}>${WORLD_NAMES[id]??id}</option>`).join('');
 }
 export function lobbyControls(message, localId) {

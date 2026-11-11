@@ -6,9 +6,9 @@ import { SPELLS } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
 import { STEEL_RAM } from '../../shared/src/steelRam.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
-import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
-import { ONE_HIT_FIRST_INFUSION_DAMAGE } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
+import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
+import { ONE_HIT_FIRST_INFUSION_DAMAGE, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 
 // Preview only until their authoritative controls and contact rules ship.
 export const SWORD_TECHNIQUES = Object.freeze([
@@ -41,66 +41,66 @@ const SPELL_WORDS = Object.freeze({
   line_of_conduct: {
     mark:'ϟ',
     line:'A lightning line whose direct damage diminishes over distance; dangerous conduction persists briefly along the path.',
-    facts:(s)=>`20 close → 12 extreme · ${s.cooldownSec}s cooldown`,
-    lore:'Arcing lightning conduit. An instantaneous linear discharge that punishes tight formations and leaves an energized trace across the ground.',
+    facts:(s)=>`${ONE_HIT_RULES.lineOfConduct.nearDamage} close → ${ONE_HIT_RULES.lineOfConduct.farDamage} extreme · ${s.cooldownSec}s cooldown`,
+    lore:'A strict line of conduct, drawn where nobody sensible should stand.',
   },
   fireball: {
     mark: '✦',
     line: 'Explodes on impact and burns enemies caught near the blast.',
     facts: (s) => `${s.directDamage} impact · ${s.burn.damage} burn · ${s.cooldownSec}s cooldown`,
-    lore: 'The classic martial sorcery. Concentrated flame gathered in the off-hand and cast with destructive conviction.',
+    lore: 'The off-hand makes its point with fire. It seldom requests a reply.',
   },
   coreflagration: {
     mark: '◆',
     line: 'A burning stone bursts on impact, then erupts a moment later. Parry the flying core to knock it aside.',
     facts: (s) => `${s.core.initialDamage} first burst · ${s.directDamage} final blast · ${s.burn.damage} burn · ${s.cooldownSec}s cooldown`,
-    lore: 'Dense volcanic pyromancy. A hurled magma core cracks on initial contact, creating a delayed explosive threat that skilled fighters can parry away.',
+    lore: 'The first burst is a warning only in the technical sense: it also hurts.',
   },
   frostfire: {
     mark: '❄',
     line: 'A fast bolt of cold that slows whoever it hits until they thaw.',
     facts: (s) => `${s.directDamage} impact · heavy chill ${s.chill.seconds}s · ${s.cooldownSec}s cooldown`,
-    lore: 'Glacial bolt. Drains momentum upon contact, drastically reducing target movement and sprint speed during critical maneuvers.',
+    lore: 'The Spellblade prefers opponents who take time to compose themselves.',
   },
   gale: {
     mark: '≋',
     line: 'Release a cone of wind that carries enemies, bends projectiles, and can launch you when aimed at the ground.',
-    facts: (s) => `Up to ${s.cone.damage} damage · ${s.cone.pressureReach}m reach · burst / balanced / sustained · ${s.cooldownSec}s cooldown`,
+    facts: (s) => `Up to ${s.cone.damage} close damage · shove to ${s.cone.pressureReach}m · burst / balanced / sustained · ${s.cooldownSec}s cooldown`,
     lore: 'Atmospheric pressure bent to the Spellblade\'s command. Shape the gust on release into a sudden burst, balanced gale, or sustained carry.',
   },
   steel: {
     mark: '⛨',
     line: 'Harden your armor. Incoming hits glance off; Dash into a foe to ram them with your hardened plate.',
     facts: (s) => `${STEEL_RAM.damage} ram damage · heavy shove & Balance · ${STEEL.fullSec}s full strength · ${STEEL.fadeSec}s fade · ${s.cooldownSec}s cooldown`,
-    lore: 'An ancient chivalric ward that fortifies armor plates. Incoming attacks glance off while your Dash transforms into a devastating physical ram.',
+    lore: 'Hardened plate has made the Spellblade unusually confident about running into people.',
   },
 });
 
 // and each ultimate (player-facing category: MASTERSTROKE)
 const ULTIMATE_WORDS = Object.freeze({
   one_hit_of_wonders: {
-    mark: '✦', line: 'One spinning sword strike that breaks the ground. Earn Fire, Frost, Gale and Lightning from real spell hits, and Steel by wearing Sheathe in Steel through unbroken. The strike spends them all.',
-    // (every figure read from the rules: what is printed here is what the room does)
-    facts: () => { const d = ONE_HIT_FIRST_INFUSION_DAMAGE; return `${ONE_HIT_BASE_DAMAGE} DAMAGE · FIRE +${d.fire}, WIDER AND TALLER BLAST · FROST +${d.frost}, SLOWS, HITS LATECOMERS · GALE +${d.gale}, LONG SHOVE, SLOW TURNING · LIGHTNING +${d.lightning}, SHOCKS THEIR NEXT BLOW · STEEL +${d.steel}, INTERRUPTS, CRACKS ALL ROUND · FULL STAGES ADD BURNING GROUND, FREEZE, FLIGHT, BLINK, 1 HP GUARD`; },
-    lore: 'A plain Sunder until it is fed. Each element is earned once or twice and changes the same single blow: where it reaches, whom it holds, what it leaves on the ground. What it leaves fades over four seconds, a little longer for every element in it.',
+    // (main's words and its figures-from-the-rules form, with the fifth infusion and what each element now does)
+    mark: '✦', line: 'A committed sword slam that fractures the ground. Earn Fire, Frost, Gale and Lightning infusions through separate spell encounters, and Steel by wearing Sheathe in Steel through unbroken.',
+    facts: () => `${ONE_HIT_BASE_DAMAGE} PHYSICAL · +${ONE_HIT_FIRST_INFUSION_DAMAGE.fire} FIRE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.frost} FROST · +${ONE_HIT_FIRST_INFUSION_DAMAGE.gale} GALE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.lightning} LIGHTNING · +${ONE_HIT_FIRST_INFUSION_DAMAGE.steel} STEEL · FIRE: WIDER BLAST · FROST: SLOW · GALE: SHOVE · LIGHTNING: SHOCK · STEEL: INTERRUPT · FULL FIRE: BURNING GROUND · FULL FROST: FREEZE · FULL GALE: AERIAL · FULL LIGHTNING: BLINK · FULL STEEL: 1 HP GUARD`,
+    lore: 'Simple Sunder evidently did not account for the elements. The oversight has been corrected at considerable expense to the surrounding ground.',
   },
   sunder: {
     mark: '⚒',
     line: 'Every sword strike becomes a crushing downward blow. Hits interrupt actions, split the ground, and hammer through Guard.',
     facts: (u) => `${GAME.swordElevated} sword damage · double Guard impact · ${u.activeSec}s duration`,
-    lore: 'Pure martial overwhelm. Each heavy strike splits stone beneath your feet, bypassing ordinary Guard and breaking defensive stances.',
+    lore: 'Every strike is a verdict delivered from above. Guard takes the weight of two blows; hardened Steel is less impressed.',
   },
   chivalry: {
     mark: '⚔',
     line: 'Guard rises as Chivalry begins. For 10 seconds, Sprint, attack, Guard, Dash and cast together. Eligible attacks from the front are automatically parried while your Guard is ready. Draw from three prepared spells. The spell you finish with stays equipped for the match.',
     facts: (u) => `${u.activeSec}s · 3 prepared spells · rapid projectile casting · no parry reel`,
-    lore: 'The apex of Spellblade doctrine. Seamlessly weaves concurrent swordplay, automatic parrying, and prepared spell rotations without posture delay.',
+    lore: 'The Spellblade sees no reason to choose between swordplay, sorcery and self-preservation. The schedule is someone else’s concern.',
   },
   vortex: {
     mark: '✺',
     line: 'Spin through enemies with your blade and aimed fire. Move faster and fall slowly. Hold Attack for stronger fire or Guard for faster cuts.',
     facts: (u) => `${u.contact.damage} contact damage · Guard unavailable · ${u.activeSec}s duration`,
-    lore: 'An unstoppable offensive whirlwind. Ignites the blade and propels the Spellblade forward in a mobile blaze of cuts and projectiles.',
+    lore: 'The sword goes round, the fire goes forward, and the Spellblade remains certain this counts as a plan.',
   },
 });
 

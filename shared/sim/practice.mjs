@@ -7,13 +7,15 @@ import { recordTransform } from './history.mjs';
 import { stepBotControllers } from './BotController.mjs';
 import { BOT_PROFILES } from './botBehavior.mjs';
 import { PROWESS } from '../src/prowess.mjs';
-import { surfaceHeightAt } from '../src/collision.mjs';
+import { resolvePlayerWorld, surfaceHeightAt } from '../src/collision.mjs';
 import { emptyInfusions, normalizeInfusions, ONE_HIT_PRESETS } from '../src/oneHitInfusions.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 import { setupStPerry, stepStPerry, cleanupStPerry, isCanonizationUnlocked } from './StPerry.mjs';
 import { dismountBiByeLlista } from './biByeLlista.mjs';
 import {stepPracticeSiegeOperators} from './practiceSiegeOperators.mjs';
+import { worldSpawnPoints } from './spawns.mjs';
+import { playerMovementWorld } from './playerMovementWorld.mjs';
 import { nearbyPracticeSpawn } from './nearbyPracticeSpawn.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
@@ -119,11 +121,31 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   recordTransform(player, nowSec);
 }
 
-export function resetPracticePlayer(room, playerId, nowSec) {
+function practiceDestination(room, player, id) {
+  const anchor = room.world.practiceDestinations?.find(point => point.id === id);
+  if (!anchor || room.localTutorial || room.state !== 'PLAYING') return null;
+  const world = playerMovementWorld(room.world, {
+    ballista: room.biByeLlista, ram: room.soFistication, flight: room.fightFlight,
+  });
+  for (const [dx, dz] of [[0,0], [1.5,0], [-1.5,0], [0,1.5], [0,-1.5]]) {
+    const x = anchor.x + dx, z = anchor.z + dz;
+    const y = surfaceHeightAt(x, z, anchor.y + 0.2, world);
+    if (y === null || Math.abs(y - anchor.y) > 0.2) continue;
+    const clear = resolvePlayerWorld({ x, y, z }, 0.48, world.solids, 1.8);
+    if (Math.hypot(clear.x - x, clear.z - z) > 0.03) continue;
+    const occupied = [...room.players.values()].some(other => other.id !== player.id && other.alive &&
+      Math.abs(other.position.y - y) < 1.8 && Math.hypot(other.position.x - x, other.position.z - z) < 1.1);
+    if (!occupied) return { x, y, z, yaw: anchor.yaw };
+  }
+  return null;
+}
+
+export function resetPracticePlayer(room, playerId, nowSec, destination = null) {
   if (!isPractice(room)) return false;
   const player = room.players.get(playerId);
   if (!player || player.actorKind !== 'human') return false;
-  const spawn = room.world.spawnPoints[0];
+  const spawn = destination === null ? worldSpawnPoints(room.world, room.mode)[0]
+    : practiceDestination(room, player, destination);
   if (!spawn) return false;
 
   for (const projectile of [...room.projectiles.values()]) {

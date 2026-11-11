@@ -111,6 +111,39 @@ try{
  },'player climbs inner incline and exits onto second battlement',105);
  await evaluate("clearInterval(window.__restlessDrive);window.__ssRuntime.input.keys.delete('KeyW');window.__ssRuntime.socket.send({type:'input',forward:0,right:0,yaw:Math.PI});true");
  await shot('06b-inner-battlement-climb');
+ await until(()=>evaluate('Boolean(window.__ssRuntime.world.renowner?.model)'),'authored Renowner GLB');
+ // Sample the production renderer at exact contact timestamps, without
+ // choosing a hit or awarding a victory on the client.
+ const bladeProof=await evaluate(`(async()=>{
+   const {Vector3}=await import('three');
+   const {restlessRenownerBlade}=await import('/shared/worlds/renownerGeometry.mjs');
+   const r=window.__ssRuntime, v=r.world.renowner, state=r.latestSnapshot.modeState.renowner;
+   if(r.structuresRenderer.entries.some(entry=>entry.def.profile==='renowner'))
+     throw Error('A generic structure mesh covers the authored Renowner');
+   const camera=r.camera.clone();camera.position.set(8,5.4,44);camera.fov=42;camera.updateProjectionMatrix();camera.lookAt(0,3.9,55);
+   const positions=v.sword.geometry.getAttribute('position');
+   let tipIndex=0;
+   for(let i=1;i<positions.count;i++)if(positions.getY(i)<positions.getY(tipIndex))tipIndex=i;
+   const proofs=[];
+   for(const type of ['downstroke','sweep']){
+     const now=100, sample={...state,yaw:Math.PI,attack:{type,startedAt:98.95,contactAt:100}};
+     v.restless(now,sample);
+     const segment=restlessRenownerBlade(sample,now);
+     const grip=v.sword.getWorldPosition(new Vector3());
+     const tip=v.sword.localToWorld(v.sword.getVertexPosition(tipIndex,new Vector3()));
+     r.renderer.render(r.scene,camera);
+     proofs.push({type,gripError:grip.distanceTo(new Vector3(...segment.a)),
+       tipError:tip.distanceTo(new Vector3(...segment.b)),image:r.renderer.domElement.toDataURL()});
+   }
+   v.restless(r.socket.serverNow(),state);
+   return proofs;
+ })()`);
+ for(const row of bladeProof){
+   assert.ok(row.gripError<.001&&row.tipError<.001, 'rendered steel diverged from contact segment');
+   await writeFile(output+'/06c-renowner-'+row.type+'.png',Buffer.from(row.image.split(',')[1],'base64'));
+   delete row.image;
+ }
+
  // Structural damage is a staged authority assertion, not a player's sword hit.
  const destroyed=await evaluate(`(async()=>{const r=window.__ssRuntime,room=r.socket.local.room;
   const {damageStructure}=await import('/shared/sim/structures.mjs');
@@ -118,6 +151,7 @@ try{
   return {ok,state:room.state,team:room.winnerTeam,reason:room.finishReason};
  })()`);
  assert.equal(destroyed.ok,true);assert.equal(destroyed.reason,'renowner-destroyed');
+ await until(()=>evaluate('window.__ssRuntime.world.renowner.group.visible===false'),'destroyed authored statue hidden');
  await shot('07-staged-pre-sundown-surrender');
  await evaluate("(()=>{const r=window.__ssRuntime;const room=r.socket.local.room;room.startMatch(r.socket.serverNow());return true;})()");
  await until(async()=>{const s=await evaluate(state);return s.room==='PLAYING'&&s.renowner===1650?s:null;},'authoritative rematch resets monument');
@@ -140,7 +174,7 @@ try{
    sleeping:[...room.players.values()].filter(p=>p.team==='ATTACKERS'&&p.restlessAsleep).length};})()`);
  assert.equal(sundown.reason,'sundown');assert.equal(sundown.sleeping,5);
  await shot('09-staged-sundown');
- await writeFile(output+'/result.json',JSON.stringify({entered,climbed,innerClimbed,botMoved:moved.length,destroyed,recovery,sundown,errors},null,2));
+ await writeFile(output+'/result.json',JSON.stringify({entered,climbed,innerClimbed,botMoved:moved.length,bladeProof,destroyed,recovery,sundown,errors},null,2));
  if(errors.length)throw Error('Browser exceptions: '+errors.slice(0,4).join(' / '));
  console.log('[RESTLESS DAY BROWSER ACCEPTED]',JSON.stringify({actors:entered.players,botMoved:moved.length,climbed:climbed.player.position,recovery,sundown}));
 }catch(e){
