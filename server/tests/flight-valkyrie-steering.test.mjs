@@ -441,7 +441,14 @@ test('The real 30Hz room loop retains Valkyrie angular momentum while banking an
     s.now+=DT;
     stepRoom(s.room,DT,s.now,s.room.world);
     if(Math.abs(s.m.runTurnSpeed)>.05)nonzero++;
-    assert.ok(Math.abs(s.m.heading-previous)<.14,'turning never teleports between ticks');
+    assert.ok(Math.abs(s.m.heading-previous)<.14,
+      'turning never teleports between ticks: '+JSON.stringify({
+        i,dt:DT,now:s.now,previous,heading:s.m.heading,
+        delta:s.m.heading-previous,runTurnSpeed:s.m.runTurnSpeed,
+        simulatedSec:s.m.terminalDive?.simulatedSec,
+        lastWallStepAt:s.m.terminalDive?.lastWallStepAt,
+        mode:s.m.mode,operatorId:s.m.operatorId,
+      }));
     previous=s.m.heading;
   }
   assert.ok(nonzero>=15,'ordinary Dash update must not reset terminal turn speed each tick');
