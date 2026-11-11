@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { armoryView } from './armoryView.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
+import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
+import { ONE_HIT_FIRST_INFUSION_DAMAGE, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 
 test('the Armory lists every spell from the shared table, marks the one carried, and says plainly what each does', () => {
   const view = armoryView('frostfire');
@@ -61,6 +63,20 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.equal(core.name, 'COREFLAGRATION');
   assert.match(core.facts, /5 first burst · 20 final blast · 6 burn · 5s cooldown/);
   assert.match(core.line, /burning stone/);
+});
+
+test('Armory facts derive All-Natural Disaster and Line of Conduct values from the shared rules', () => {
+  const view = armoryView('line_of_conduct', 'one_hit_of_wonders');
+  const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
+  assert.match(disaster.facts, new RegExp(`^${ONE_HIT_BASE_DAMAGE} PHYSICAL`));
+  for (const [element, damage] of Object.entries(ONE_HIT_FIRST_INFUSION_DAMAGE)) {
+    assert.ok(disaster.facts.includes(`+${damage} ${element.toUpperCase()}`), element);
+  }
+  const conduct = view.spells.find((s) => s.id === 'line_of_conduct');
+  assert.ok(conduct.facts.includes(`${ONE_HIT_RULES.lineOfConduct.nearDamage} close`));
+  assert.ok(conduct.facts.includes(`${ONE_HIT_RULES.lineOfConduct.farDamage} extreme`));
+  const gale = view.spells.find((s) => s.id === 'gale');
+  assert.match(gale.facts, /shove to 11m/);
 });
 
 test('the longsword is equipment and the two Sword Techniques are training previews', () => {
