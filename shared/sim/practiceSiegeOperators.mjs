@@ -13,6 +13,7 @@ import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
+import {wayToward} from './botNav.mjs';
 import {beginAttack,endAttack} from './combat.mjs';
 
 export const SIEGE_OPERATORS=Object.freeze({
@@ -303,6 +304,62 @@ function donte(room,a,m,target,ai,tuning,now){
     setFlightUltimateHold(room,m,a,true,now);
   }
 }
+/** Hostile Practice pilots return to their ORIGINAL intact machine by
+ * walking and using its real mount function. No teleport, privilege bypass,
+ * rebuilt chassis, free repair, or appropriation of somebody else's seat. */
+function tryHostileRemount(room,a,m,machine,ai,now,world){
+ if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0||
+   m.operatorId||mounted(a)||m.team&&m.team!==a.team||
+   machine==='fight-and-flight'&&(!m.grounded||m.rotorHP<=0||m.terminalDive)||
+   machine==='so-fist-ication'&&
+     ((m.components?.Drive?.health??0)<=0||
+      m.detachedFist?.state==='recovering'||
+      (()=>{const failed=['FL','FR','RL','RR'].filter(w=>
+        (m.components?.['Wheel_'+w]?.health??0)<=0);
+        return failed.length>=3||failed.includes('FL')&&failed.includes('FR')||
+          ['L','R'].some(side=>failed.filter(w=>w.endsWith(side)).length>=2);
+      })()))
+   return false;
+ let entry;
+ if(machine==='so-fist-ication')entry=soFistEntry(m,world);
+ else{
+   // Approach the rear of a vehicle, rather than its collision-blocked centre.
+   const back=machine==='bi-bye-llista'?2.35:1.55;
+   entry={x:m.x+Math.sin(m.heading??0)*back,y:m.y,
+     z:m.z+Math.cos(m.heading??0)*back};
+   if(machine==='bi-bye-llista'){
+     const y=surfaceHeightAt(entry.x,entry.z,m.y+2,world);
+     if(y!==null)entry.y=y;
+   }
+ }
+ if(!entry||![entry.x,entry.y,entry.z].every(Number.isFinite))return false;
+ const d=dist(a.position,entry);
+ if(d<=(machine==='bi-bye-llista'?1.45:1.05)&&
+   now>=(ai.nextRemountAt??0)){
+   // A human must stop swinging before climbing into the apparatus; so does
+   // its hostile operator. Otherwise all the usual mounting gates still apply.
+   if(a.attackHeld||a.attackActive)endAttack(room,a.id,now);
+   const ok=machine==='bi-bye-llista'?mountBiByeLlista(m,a,now):
+     machine==='so-fist-ication'?mountSoFistication(room,m,a,now):
+       mountFightFlight(room,m,a,now);
+   ai.nextRemountAt=now+.45;
+   if(ok){
+     ai.phase='mounted';ai.route=null;ai.routeCheckAt=-Infinity;
+     ai.nextThinkAt=now;
+     room.events.push({type:'practiceSiegePilotRemounted',
+       playerId:a.id,machineId:m.id,machine,at:now});
+     return true;
+   }
+ }
+ const point=wayToward(world,a,{position:entry},ai,now)??entry;
+ const yaw=bearing(a.position,point),distance=dist(a.position,point);
+ ai.phase='remount';
+ // Use the same ordinary foot-movement input as the player; never directly
+ // assign the pilot's position to the machine's seat.
+ a.input={...a.input,yaw,pitch:0,forward:distance>.75?1:0,right:0,
+   sprint:distance>5,jump:false,crouch:false,attack:false,guard:false};
+ return true;
+}
 /** Call before stepRoom, for both LocalHost and network authority. */
 export function stepPracticeSiegeOperators(room,now,world=room.world){
   if(room.mode!=='PRACTICE'||room.state!=='PLAYING')return;
@@ -330,7 +387,11 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
         dismountSoFistication(room,m,a,{at:now});
     }
     if(noOperation(room,a,now)){
-      // Wrecked or dismounted: use existing foot Spellblade controller next tick.
+      // An intact unoccupied original machine can be reclaimed through the
+      // exact player mount path. Only a truly unusable or occupied machine
+      // forces the hostile pilot back into ordinary foot combat.
+      if(tryHostileRemount(room,a,m,machine,ai,now,world))continue;
+      ai.route=null;ai.routeCheckAt=-Infinity;
       if(ai.phase!=='foot'){ai.phase='foot';room.events.push({type:'practiceSiegePilotOnFoot',playerId:a.id,at:now});}
       continue;
     }

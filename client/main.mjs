@@ -1047,6 +1047,7 @@ function setPracticeVisible(visible) {
   updateInspectionControls();
 }
 function showPauseSection(section) {
+  if(section==='practice')protectPracticeOpeningClick();
   pauseSection = section === 'practice' && practiceVisibleWanted ? 'practice' : 'main';
   syncPauseSections();
   setPracticeVisible(practiceVisibleWanted);
@@ -1649,10 +1650,31 @@ async function copyText(text, title) {
   try { await navigator.clipboard.writeText(text); }
   catch { window.prompt(title, text); }
 }
+// UI focus is an explicit Practice-only input barrier, not an ejection or
+// a player reset. The host knows this BEFORE pointer lock emits key releases.
+// A mobile pointerup may open the Practice drawer before the browser sends
+// its synthesized click. Ignore that ONE opening click inside the newly
+// inserted panel, or it can hit RESET/REPOSITION beneath the original thumb
+// and administratively relocate a still-mounted pilot.
+let practiceOpeningClickGuardUntil=0;
+practiceOverlay.addEventListener('click',(event)=>{
+  if(event.isTrusted&&performance.now()<practiceOpeningClickGuardUntil){
+    event.preventDefault();event.stopImmediatePropagation();
+  }
+},true);
+function protectPracticeOpeningClick(){
+  practiceOpeningClickGuardUntil=performance.now()+280;
+}
+function protectPracticeMount(open){
+  if(latestSnapshot?.roomState==='PLAYING'&&latestSnapshot?.mode==='PRACTICE')
+    socket.send({type:'practiceUiFocus',open:Boolean(open)});
+}
 function openPracticeDrawer() {
   if (latestSnapshot?.roomState !== 'PLAYING' || !practiceVisibleWanted) return;
   if (paused) closePause({ resumeArena: false });
   practiceDrawerOpen = true;
+  protectPracticeOpeningClick();
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (practiceOverlay.parentNode !== practiceHome) {
     practiceHome.insertBefore(practiceOverlay, practiceHomeNext);
@@ -1665,6 +1687,7 @@ function openPracticeDrawer() {
 
 function closePracticeDrawer({ resumeArena = true } = {}) {
   practiceDrawerOpen = false;
+  protectPracticeMount(false);
   practiceOverlay.classList.remove('drawer-open');
   setPracticeVisible(practiceVisibleWanted);
   if (resumeArena) runtime?.requestPointerLock();
@@ -1684,8 +1707,10 @@ function openPause(section = 'main') {
   if (practiceDrawerOpen) closePracticeDrawer({ resumeArena: false });
   paused = true;
   practiceDirect = false;
+  protectPracticeMount(true);
   runtime?.releasePointer();
   if (section === 'practice' && practiceVisibleWanted) {
+    protectPracticeOpeningClick();
     pausePracticeMount.append(practiceOverlay);
     expandPracticeTools();
     pauseSection = 'practice';
@@ -1702,6 +1727,7 @@ function openPause(section = 'main') {
 }
 function closePause({ resumeArena = true } = {}) {
   paused = false;
+  protectPracticeMount(false);
   practiceDirect = false;
   pauseSection = 'main';
   pauseMenu.setAttribute('aria-label', 'Arena menu');
