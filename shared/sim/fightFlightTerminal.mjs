@@ -215,13 +215,17 @@ export function resolveTerminalFlight(room,m,now){
  const {radius,damage,fireRadius,fireDuration,fireTickDamage}=blastProfile;
  room.events.push({type:'fightFlightTerminalExplosion',machineId:m.id,operatorId:d.operatorId,
    point,radius,damage,condition:blastProfile.condition,fireDuration,fireRadius,reason,at:now});
+ const ascendedWith=[];
  for(const p of room.players.values()){
    if(!p.alive||p.id===d.operatorId||areAllies(room,d.operatorId,p.id))continue;
    const dy=clamp((p.position.y+.9)-point.y,-6,6);
    const dist=Math.hypot(p.position.x-point.x,dy,p.position.z-point.z);
    if(dist>radius||occluded(room,point,p))continue;
    const raw=terminalRadialDamage(damage,dist,radius);
-   if(raw>0)applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
+   if(raw>0){
+     applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
+     if(!p.alive)ascendedWith.push(p.id);
+   }
  }
  // Use established per-component blast allocations for both siege engines;
  // destructible masonry is damaged at its actual nearest exposed surface.
@@ -252,6 +256,10 @@ export function resolveTerminalFlight(room,m,now){
    pilot.respawnAt=now+(room.policy?.respawnSec??5);
    pilot.terminalRespawnDeferredFor=null;
  }
+ // One consolidated outcome for the kill feed. Individual deaths still own
+ // the actual scores, respawns, narration and damage events.
+ room.events.push({type:'flightTerminalAscended',machineId:m.id,
+   operatorId:d.operatorId,victimIds:ascendedWith,at:now});
  endSiegeSteel(room,m,now);
  beginSiegeWreck(room,m,'fight-flight',now,{attackerId:d.operatorId,source:'fight-flight-terminal',point});
  m.health=0;m.mode='DESTROYED';m.operatorId=null;m.firingOperatorId=null;

@@ -394,3 +394,33 @@ test('the craft detonates once after crossing the authored arena edge',()=>{
  assert.equal(s.room.flightBurnZones.length,0);
  assert.equal(resolveTerminalFlight(s.room,s.m,2.3),false);
 });
+
+test('terminal blast emits exactly one Ascension headline with only its actually defeated victims',()=>{
+ const s=setup();commit(s);
+ const close=s.room.addPlayer({id:'close-foe',token:'near',name:'Close Foe'},0);
+ const distant=s.room.addPlayer({id:'far-foe',token:'far',name:'Far Foe'},0);
+ for(const p of [close,distant]){p.alive=true;p.health=100;p.spawnProtectionUntil=0;}
+ close.position={x:1,y:0,z:0};distant.position={x:50,y:0,z:0};
+ s.m.x=0;s.m.y=0;s.m.z=0;s.m.grounded=true;s.m.terminalDive.impactAt=2.2;
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
+ const headlines=s.room.events.filter(e=>e.type==='flightTerminalAscended');
+ assert.equal(headlines.length,1);
+ assert.equal(headlines[0].operatorId,s.p.id);
+ assert.deepEqual(headlines[0].victimIds,['close-foe']);
+ assert.equal(close.alive,false);
+ assert.equal(distant.alive,true);
+ const actualDeaths=s.room.events.filter(e=>e.type==='death');
+ assert.ok(actualDeaths.some(e=>e.victimId===close.id&&e.killerId===s.p.id));
+ assert.ok(actualDeaths.some(e=>e.victimId===s.p.id&&!e.killerId),
+   'self-sacrifice and scored enemy death remain independent authoritative events');
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.3),false);
+ assert.equal(s.room.events.filter(e=>e.type==='flightTerminalAscended').length,1);
+});
+test('terminal suicide alone also emits an Ascended event with no fictitious enemies',()=>{
+ const s=setup();commit(s);
+ s.m.x=0;s.m.y=0;s.m.z=0;s.m.grounded=true;s.m.terminalDive.impactAt=2.2;
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
+ const outcomes=s.room.events.filter(e=>e.type==='flightTerminalAscended');
+ assert.deepEqual(outcomes[0]?.victimIds,[]);
+ assert.equal(outcomes.length,1);
+});
