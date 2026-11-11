@@ -5,7 +5,7 @@ import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.m
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 function setup(mode='PRACTICE'){
- const room=new RoomManager().createSoloRoom(mode,0,'castleward');
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
  room.mode=mode;room.state='PLAYING';
  room.world={floors:[{y:0,center:[0,0,0],size:[200,.2,200]}],solids:[],ramps:[]};
  const p=room.addPlayer({id:'practice-pilot',token:'pilot',name:'Pilot'},0);
