@@ -108,16 +108,26 @@ export function advanceValkyrieRitual(g,p,now){
  // jump straight from Jump to a later rune checkpoint.
  const adjacent=project(index+1);
  const corner=points[index+1];
- if(adjacent&&segmentProgress>=.58&&
-   adjacent.deviation<=tolerance&&
-   distance(p,corner)<=Math.max(1.55*tolerance,Math.hypot(
-     points[index+2][0]-corner[0],points[index+2][1]-corner[1])*.55)){
+ const cornerDistance=distance(p,corner);
+ const previousCornerDistance=g.last?Math.hypot(
+   g.last[0]-corner[0],g.last[1]-corner[1]):Infinity;
+ const lastLegLength=Math.hypot(
+   points[index+1][0]-points[index][0],
+   points[index+1][1]-points[index][1]);
+ // Crucial at Dagaz's intersecting, out-and-back diagonal: do NOT hop onto
+ // the next segment merely because the thumb passes near the intersection.
+ // Handoff requires proximity to the ACTUAL junction and a stroke now
+ // moving AWAY from that junction along the next segment.
+ if(adjacent&&segmentProgress>=.76&&
+   cornerDistance<=Math.min(26,lastLegLength*.3)&&
+   cornerDistance>previousCornerDistance+.3&&
+   adjacent.t>.12&&adjacent.deviation<=tolerance*.65){
    index++;segmentProgress=0;candidate=adjacent;
  }
  if(candidate.deviation>tolerance*1.4||
    candidate.t+.28<segmentProgress)return null;
  segmentProgress=Math.max(segmentProgress,candidate.t);
- if(candidate.t>=.78&&candidate.distanceToEnd<=tolerance*1.28){
+ if(candidate.t>=.92&&candidate.distanceToEnd<=Math.min(24,tolerance*.55)){
    index++;segmentProgress=0;
  }
  return {...g,points,variant,index,segmentProgress,
