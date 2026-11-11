@@ -3449,7 +3449,8 @@ export class GameRuntime {
       if(!streak.names.includes(victim?.name??'someone'))
         streak.names.push(victim?.name??'someone');
       streak.lastAt=at;
-      const feed=vortexStreakFeed(killer.name,streak.names);
+      const feed=streak.names.length===1?copy:
+        vortexStreakFeed(killer.name,streak.names);
       this.hud.addFeed(feed.text,feed.kind,`vortex:${killer.id}:${streak.startedAt}`);
     }else if(copy){
       this.hud.addFeed(copy.text,copy.kind);
