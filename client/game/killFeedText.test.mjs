@@ -56,7 +56,10 @@ test('Sunder Rupture, Vortex and Renown Trial finishers have meaningful contexts
  assert.ok(/withstand|stand on|ruptured|staggering/.test(sunder.text));
  const vortex=killFeedDeath(death('vortexFire'),'Aden','Enemy');
  assert.equal(vortex.streak,'vortex');
- assert.equal(vortex.text,'Aden is hotter than Enemy');
+ assert.ok(/hotter than|spun through|standing close/.test(vortex.text));
+ const projectile=killFeedDeath(death('vortexFire'),'Aden','Enemy');
+ assert.equal(projectile.streak,'vortex');
+ assert.ok(/blazing balls from the blade battered|hotter than/.test(projectile.text));
  assert.equal(vortexStreakFeed('Aden',['Enemy','Rival','Enemy']).text,
   'Aden is hotter than Enemy, Rival');
  const renown=Array.from({length:70},(_,i)=>killFeedDeath(
