@@ -104,7 +104,20 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${k} totally ruptured ${v}`,
    `${v} witnessed a staggering display from ${k}`,
  ],event,'sword');
- if(isVortex(source))return {text:`${k} is hotter than ${v}`,kind:'fire',streak:'vortex'};
+ if(isVortex(source)){
+   // A single Vortex death may carry its own physical joke. When another
+   // opponent falls in the same uninterrupted sequence, the displayed line
+   // evolves into the accumulating, name-by-name heat boast.
+   const first=source==='vortex'?[
+     `${v} thought standing close to ${k} was a good idea`,
+     `${k} spun through ${v}`,
+     `${k} is hotter than ${v}`,
+   ]:[
+     `${apostrophe(k)} blazing balls from the blade battered ${v}`,
+     `${k} is hotter than ${v}`,
+   ];
+   return {...text(first,event,'fire'),streak:'vortex'};
+ }
  if(source==='fireball')return text([
    `${k} incinerated ${v}`,`${k} roasted ${v}`,
  ],event,'fire');
