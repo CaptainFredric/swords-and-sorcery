@@ -6,9 +6,12 @@ import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 function setup(mode='PRACTICE'){
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
- room.mode=mode;room.state='PLAYING';
+ room.state='PLAYING';
  room.world={floors:[{y:0,center:[0,0,0],size:[200,.2,200]}],solids:[],ramps:[]};
+ // Add a legitimate Practice pilot before testing a hostile room-mode switch.
+ // Otherwise the solo room's invitation gate rejects the test fixture itself.
  const p=room.addPlayer({id:'practice-pilot',token:'pilot',name:'Pilot'},0);
+ room.mode=mode;
  p.position={x:0,y:0,z:1};
  const m=createFightFlight();room.fightFlight=m;
  assert.equal(mountFightFlight(room,m,p,0),true);
