@@ -302,6 +302,44 @@ export function strikeSurface(material) {
   return 'stone';
 }
 
+/**
+ * A Steel-infused All-Natural Disaster landing: a hammer on an anvil under the ground breaking. The struck bar (a hard
+ * tick, then a high bright ring over a deep one that hangs on), and, for Full Steel, a second lower bar and the weight
+ * of the stone going up.
+ */
+export function disasterAnvilRecipe(rand = Math.random, { full = false } = {}) {
+  const layers = [
+    { type: 'noise', filter: 'highpass', freq: 3200, q: 0.8, attack: 0.0005, decay: 0.035, gain: 0.7 },
+    ring(rand, 1180 * jitter(rand, 0.03), { decay: full ? 1.5 : 1.1, gain: 0.26, partials: 6, bright: 1.25 }),
+    ring(rand, 446 * jitter(rand, 0.03), { decay: full ? 1.9 : 1.3, gain: 0.22, partials: 5, bright: 0.9 }),
+    { type: 'tone', wave: 'sine', freq: 96, slideTo: 38, attack: 0.002, decay: full ? 0.6 : 0.4, gain: 0.9 },
+    { type: 'noise', filter: 'lowpass', freq: 520, q: 0.6, attack: 0.004, decay: full ? 0.55 : 0.32, gain: 0.55 },
+  ];
+  if (full) {
+    layers.push(ring(rand, 262 * jitter(rand, 0.03), { decay: 2.2, gain: 0.2, partials: 4, bright: 0.7 }));
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 900, q: 0.7, attack: 0.02, decay: 0.7, gain: 0.3, at: 0.05 });
+  }
+  return { layers, reverb: full ? 0.5 : 0.4 };
+}
+
+/**
+ * Shocking Conduct. `discharge`: the whole of what a knight carried going into them as their own blow is stopped (a
+ * crack, a torn buzz falling away); otherwise the status taking hold (a short dry snap).
+ */
+export function conductShockRecipe(rand = Math.random, { discharge = false, share = 1 } = {}) {
+  const weight = 0.5 + 0.5 * Math.max(0, Math.min(1, share));
+  if (!discharge) return { layers: [
+    { type: 'noise', filter: 'highpass', freq: 4200, q: 0.9, attack: 0.0005, decay: 0.03, gain: 0.45 * weight },
+    { type: 'tone', wave: 'sawtooth', freq: 1900 * jitter(rand, 0.1), slideTo: 700, attack: 0.001, decay: 0.07, gain: 0.12 * weight },
+  ], reverb: 0.15 };
+  return { layers: [
+    { type: 'noise', filter: 'highpass', freq: 3000, q: 0.7, attack: 0.0005, decay: 0.05, gain: 0.8 * weight },
+    { type: 'tone', wave: 'sawtooth', freq: 120 * jitter(rand, 0.05), slideTo: 55, attack: 0.002, decay: 0.34, gain: 0.3 * weight },
+    { type: 'noise', filter: 'bandpass', freq: 2400 * jitter(rand, 0.1), q: 2.2, sweepTo: 900, attack: 0.004, decay: 0.3, gain: 0.5 * weight, at: 0.02 },
+    { type: 'tone', wave: 'square', freq: 61, attack: 0.002, decay: 0.26, gain: 0.12 * weight, at: 0.01 },
+  ], reverb: 0.3 };
+}
+
 export function wallClangRecipe(rand = Math.random) {
   return {
     layers: [

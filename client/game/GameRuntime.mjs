@@ -60,7 +60,7 @@ import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoin
 import {
   blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -1557,7 +1557,7 @@ export class GameRuntime {
         this.hud.flashText('THE RIGHTFUL RENOWNER FALLS · SURRENDER','gold',2700);
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
-      this.oneHitEffects?.event(event);
+      this.oneHitEffects?.event(event,this.latestSnapshot);
       if(event.type==='edgeVoluntaryDismount'){
         // The knight chooses to leave: a brief, readable settled gesture
         // with no recorded dialogue, death camera or extra control lock.
@@ -1567,6 +1567,19 @@ export class GameRuntime {
       }
       if(event.type==='edgeSpellCollected'&&event.playerId===this.playerId)
         this.hud.flashText('SPELL FOUND · '+String(event.spell).toUpperCase(),'sunder',1050);
+      // what a Disaster leaves on me, said plainly as it happens (the elements show it on the knight for everyone)
+      if(event.type==='oneHitConduct'&&event.playerId===this.playerId)this.hud.flashText('SHOCKING CONDUCT · YOUR NEXT BLOW SHOCKS YOU','sunder',1500);
+      if(event.type==='oneHitBlustered'&&event.playerId===this.playerId)this.hud.flashText('BLUSTERED · YOU TURN SLOWLY','sunder',1400);
+      if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
+      if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
+      if(event.type==='oneHitLastStand'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS · 1 HP UNTIL THE BLOW IS DONE','gold',1700);
+      if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
+      if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
+        this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
+      if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
+        event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
+      if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
+        event.playerId===this.playerId?null:this.#bodyPosition(event.playerId),.6);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
         this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,

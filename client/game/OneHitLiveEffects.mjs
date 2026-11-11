@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
+import { DisasterElementEffects } from './DisasterElementEffects.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -46,8 +46,10 @@ export class OneHitLiveEffects {
     this.conductHands=new Map();
     this.visualClock=0;
     this.density=1;
+    // gathering, eruption, fields and statuses: the elements themselves
+    this.elements=new DisasterElementEffects(this.root,remotePlayers);
   }
-  setDensity(density) { this.density=clamp(Number(density)||.45,.45,1); }
+  setDensity(density) { this.density=clamp(Number(density)||.45,.45,1);this.elements.setDensity(this.density); }
   #detail(count) { return Math.max(2,Math.round(count*this.density)); }
   #add(mesh,ttl,velocity=null,spin=0) {
     if(this.transients.length>=185){
@@ -72,70 +74,23 @@ export class OneHitLiveEffects {
     return this.#add(m,ttl,velocity,spin);
   }
   #fork(origin,direction,length,ttl,strength=1) {
-    const sideways=new THREE.Vector3(-direction.z,.08,direction.x).normalize();
-    const points=[];
-    for(let i=0;i<=6;i++)points.push(origin.clone().addScaledVector(direction,length*i/6)
-      .addScaledVector(sideways,(i===0||i===6?0:(i%2?1:-1))*.14*strength));
-    const line=(p,c,o)=>new THREE.Line(new THREE.BufferGeometry().setFromPoints(p),
-      new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false}));
-    this.#add(line(points,0xffd552,.97),ttl);
-    this.#add(line([points[2],points[3].clone().addScaledVector(sideways,.24),points[4].clone().addScaledVector(sideways,.57)],
-      0xfff1ab,.88),ttl*.77);
+    this.elements.bolt(origin,origin.clone().addScaledVector(direction.clone().normalize(),length),
+      {width:.026*strength,ttl,forks:1});
   }
-  #burst(point,tiers={},form='ground',normal=null) {
-    const p=v(point),ground=form==='ground'||normal?.[1]>.6;
-    const rocks=this.#detail(18),slabs=this.#detail(12);
-    if(ground)for(let i=0;i<rocks;i++){
-      const a=i*TAU/rocks,span=1.4+(i%5)*.45,size=.11+(i%5)*.05;
-      const velocity=new THREE.Vector3(Math.cos(a)*span,1.65+(i%4)*.68,Math.sin(a)*span);
-      this.#particle(STONE_SHAPE,STONE,p.clone().add(new THREE.Vector3(Math.cos(a)*.65,.12,Math.sin(a)*.65)),
-        [size,size*.85,size],.85,{velocity,gravity:10,spin:3,opacity:1});
-    }
-    if(ground&&form==='ground')for(let i=0;i<slabs;i++){
-      const a=i*TAU/slabs+(i%2)*.085,dist=1.4+.47*(i%4);
+  #burst(point,tiers={},form='ground') {
+    // the ground itself: slabs heaved up round where the blade went in (more of them, further out, for Steel).
+    // Thrown stone, dust and every element's own eruption are DisasterElementEffects'.
+    if(form!=='ground')return;
+    const p=v(point),steel=tiers.steel??0;
+    const slabs=this.#detail(steel===2?22:steel===1?16:12);
+    for(let i=0;i<slabs;i++){
+      const a=i*TAU/slabs+(i%2)*.085,dist=(1.4+.47*(i%4))*(steel===2?1.35:1);
       const slab=new THREE.Mesh(STONE_SHAPE,new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,roughness:.9}));
-      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04);
+      slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar(steel===2?1.4:1);
       slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
       slab.rotation.set(Math.sin(a)*.33,a,Math.cos(a)*.4);
-      slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09};
+      slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09+(steel?.12:0)};
       this.#add(slab,1.35);
-    }
-    const pressure=this.#particle(SWEEP,tiers.gale?0x9cf1bd:0xd1c9ba,
-      p.clone().add(new THREE.Vector3(0,.12,0)),[.89,.89,.52],.45,{grow:2.15,opacity:.5});
-    if(ground)pressure.quaternion.setFromUnitVectors(Z,Y);
-    else if(normal)pressure.quaternion.setFromUnitVectors(Z,new THREE.Vector3(...normal).normalize());
-    if(tiers.fire){
-      const full=tiers.fire===2;
-      this.#particle(EMBER,0xffedaf,p.clone().add(new THREE.Vector3(0,.48,0)),[.48,.62,.48],.17,{grow:1.8});
-      for(let i=0;i<this.#detail(full?18:10);i++){
-        const a=i*2.39996,r=.45+(i%4)*.19;
-        const outward=new THREE.Vector3(Math.cos(a),.22+(i%6)*.11,Math.sin(a));
-        const start=p.clone().addScaledVector(outward,r);
-        const flame=this.#particle(i%3?SHARD:EMBER,[0xffdc77,0xff8032,0xd84225][i%3],start,
-          [.075+(i%3)*.035,.26+(i%4)*.105,.105],.36+(i%5)*.095,
-          {velocity:outward.clone().multiplyScalar(full?5.1:3.4),gravity:3,spin:1.3,grow:.55,opacity:.81});
-        flame.quaternion.setFromUnitVectors(Y,outward.normalize());
-        if(i%3===0)this.#particle(SMOKE,0x422d25,start,[.37,.41,.37],1.38+(i%2)*.2,
-          {velocity:new THREE.Vector3(Math.cos(a)*.65,.95,Math.sin(a)*.65),grow:1.6,opacity:.34});
-      }
-    }
-    if(tiers.frost)for(let i=0;i<this.#detail(tiers.frost===2?11:6);i++){
-      const a=i*2.39996,dir=new THREE.Vector3(Math.cos(a),.64+(i%3)*.34,Math.sin(a));
-      const shard=this.#particle(SHARD,i%3===0?0xe8fdff:0x7ed7f5,p.clone().addScaledVector(dir,.48),
-        [.11+(i%3)*.035,.48+(i%4)*.25,.14],.75+(i%3)*.1,
-        {velocity:dir.clone().multiplyScalar(2),gravity:4,spin:1.7,opacity:.78});
-      shard.quaternion.setFromUnitVectors(Y,dir.normalize());
-    }
-    if(tiers.gale)for(let i=0;i<this.#detail(tiers.gale===2?5:3);i++){
-      const arc=this.#particle(SWEEP,i%2?0xedfff0:0x7de5aa,p.clone().add(new THREE.Vector3(0,.36+i*.18,0)),
-        [.68+i*.095,.68+i*.095,.33],.43+i*.065,{grow:1.72,spin:6-i*.6,opacity:.52});
-      arc.rotation.set(1.22+i*.12,i*.86,.24*i);
-    }
-    const forks=this.#detail(tiers.lightning===2?8:4);
-    if(tiers.lightning)for(let i=0;i<forks;i++){
-      const a=i*TAU/forks;
-      this.#fork(p.clone().add(new THREE.Vector3(0,.18,0)),new THREE.Vector3(Math.cos(a),.16+(i%3)*.3,Math.sin(a)),
-        2+(i%4)*.46, .21+(i%4)*.06);
     }
   }
   setChargeGuide(origin,plan) {
@@ -156,24 +111,22 @@ export class OneHitLiveEffects {
       let obj=this.zones.get(zone.id);
       if(!obj){
         obj=new THREE.Group();obj.position.copy(v(zone.position));
-        const rim=new THREE.Mesh(FIRE_FOOTPRINT,M(0xff9a52,.54));
-        rim.rotation.x=-Math.PI/2;rim.position.y=.057;rim.scale.setScalar(zone.radius);
         const coals=new THREE.Mesh(new THREE.CircleGeometry(zone.radius,48),M(0x532d1a,.33));
         coals.rotation.x=-Math.PI/2;coals.position.y=.042;
         const tongues=new THREE.InstancedMesh(EMBER,M(0xffa448,.78),19);
         tongues.frustumCulled=false;
         for(let i=0;i<19;i++)tongues.setColorAt(i,new THREE.Color([0xffb965,0xff742f,0xd94d26][i%3]));
-        obj.add(coals,rim,tongues);
+        obj.add(coals,tongues);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
       const left=clamp((zone.until-now)/4,0,1);
-      const [coals,rim,tongues]=obj.children;
+      const [coals,tongues]=obj.children;
       coals.material.opacity=.17+.24*left;
-      rim.material.opacity=.28+.36*left;
       tongues.material.opacity=.36+.47*left;
       tongues.count=7+Math.ceil(left*12*this.density);
       for(let i=0;i<tongues.count;i++){
-        const a=i*2.39996,r=zone.radius*(.19+((i*7)%18)/24);
+        // (one in three stands on the fire's edge: where it burns is read from the flames, not from a drawn line)
+        const a=i*2.39996,r=i%3===0?zone.radius*.97:zone.radius*(.19+((i*7)%18)/24);
         const gust=.77+.23*Math.sin(now*11+i*3);
         matrix.position.set(Math.sin(a)*r,.13+(i%4)*.09*left,Math.cos(a)*r);
         matrix.rotation.set(.15*Math.sin(now*6+i),a,.25*Math.cos(now*7+i));
@@ -188,28 +141,25 @@ export class OneHitLiveEffects {
     const seen=new Set();
     for(const player of snapshot?.players??[]){
       if(!player.alive)continue;
-      const frozen=(player.oneHitFrozenUntil??0)>now,slow=(player.oneHitFrostSlow?.until??0)>now;
-      const backlash=oneHitBacklashRemaining(player.electricalBacklash,now);
-      if(!slow&&!frozen&&backlash<=0)continue;
+      const frozen=(player.oneHitFrozenUntil??0)>now;
+      if(!frozen)continue;
       seen.add(player.id);
       let entry=this.statuses.get(player.id);
       if(!entry){
-        const root=new THREE.Group(),ice=new THREE.Group(),mist=new THREE.Mesh(FIRE_FOOTPRINT,M(0xb9e8ff,.5));
-        mist.rotation.x=-Math.PI/2;mist.position.y=.09;mist.scale.setScalar(.68);
+        const root=new THREE.Group(),ice=new THREE.Group();
         for(let i=0;i<7;i++){
           const a=i*TAU/7,mesh=new THREE.Mesh(SHARD,M(i%3===0?0xe7fbff:0x83cafa,.66));
           mesh.position.set(Math.cos(a)*.38,.67+(i%3)*.19,Math.sin(a)*.38);
           mesh.scale.set(.22,1.32+(i%3)*.24,.21);mesh.rotation.set(.32*Math.sin(a),a,-.33*Math.cos(a));
           ice.add(mesh);
         }
-        root.add(ice,mist);this.root.add(root);
-        entry={root,ice,mist,wasFrozen:false,sparkAt:0};this.statuses.set(player.id,entry);
+        root.add(ice);this.root.add(root);
+        entry={root,ice,wasFrozen:false};this.statuses.set(player.id,entry);
       }
       const shell=player.id===this.remotePlayers?.localId?this.remotePlayers.self:this.remotePlayers?.rigs?.get(player.id);
       const position=shell?.root?.visible?shell.root.position:player.position;
       entry.root.position.copy(position);
       entry.ice.visible=frozen;
-      entry.mist.visible=slow||frozen;
       const freezeAge=.9-Math.max(0,(player.oneHitFrozenUntil??0)-now);
       if(frozen)entry.ice.scale.setScalar(clamp(.36+freezeAge*7, .36,1));
       if(entry.wasFrozen&&!frozen)for(let i=0;i<5;i++){
@@ -218,25 +168,14 @@ export class OneHitLiveEffects {
           {velocity:new THREE.Vector3(Math.cos(a)*1.6,1.6,Math.sin(a)*1.6),gravity:6,spin:5});
       }
       entry.wasFrozen=frozen;
-      if(backlash>.1&&this.visualClock>entry.sparkAt){
-        entry.sparkAt=this.visualClock+.28;
-        const a=this.visualClock*13+player.position.x;
-        this.#fork(v(position).add(new THREE.Vector3(Math.cos(a)*.42,.64,Math.sin(a)*.42)),
-          new THREE.Vector3(-Math.cos(a),.92,-Math.sin(a)),.64+backlash/24,.15);
-      }
     }
     for(const [id,entry] of this.statuses)if(!seen.has(id)){this.#discard(entry.root);this.statuses.delete(id);}
   }
-  #flash(point,tiers={}) {
+  #flash(point) {
     const center=v(point).add(new THREE.Vector3(0,.63,0));
     for(let i=0;i<5;i++){
       const a=i*TAU/5;
       this.#fork(center,new THREE.Vector3(Math.cos(a),.45+i*.19,Math.sin(a)),.72+i*.055,.19);
-    }
-    for(const [i,[id,color]] of ELEMENTS.entries())if(tiers[id]>0){
-      const arc=this.#particle(SWEEP,color,center.clone().add(new THREE.Vector3(0,i*.09,0)),
-        [.48+i*.06,.6,.31],.25,{grow:.58,spin:3,opacity:.43});
-      arc.rotation.set(1.07,i*.72,i*.85);
     }
   }
   #conduct(origin,end,handOrigin=null){
@@ -245,7 +184,8 @@ export class OneHitLiveEffects {
     const bolt=createConductDischarge(origin,end,{handOrigin});
     this.#add(bolt,1);
   }
-  event(event){
+  event(event,snapshot=null){
+    this.elements.event(event,snapshot);
     if(event.type==='oneHitImpact'){
       if(event.impactId){
         if(this.resolvedWaves.has(event.impactId))return;
@@ -253,7 +193,7 @@ export class OneHitLiveEffects {
         const old=this.waves.get(event.impactId);
         if(old){this.#discard(old);this.waves.delete(event.impactId);}
       }
-      this.#burst(event.point,event.tiers,event.form,event.normal);
+      this.#burst(event.point,event.tiers,event.form);
     }
     if(event.type==='oneHitTeleport')this.#flash(event.to,event.tiers);
     if(event.type==='lineConductDischarge'){
@@ -363,43 +303,7 @@ export class OneHitLiveEffects {
       if(electrified.has(id))continue;
       entry.effect.dispose();this.conductHands.delete(id);
     }
-    const charging=new Set();
-    for(const player of snapshot?.players??[]){
-      const state=player.ultimateState;
-      if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup'||!player.alive)continue;
-      charging.add(player.id);
-      const tiers=state.preparedTiers??player.oneHitInfusions??{};
-      let glow=this.auras.get(player.id);
-      if(!glow){
-        glow=new THREE.Group();this.root.add(glow);this.auras.set(player.id,glow);
-      }
-      // Rebuild only when a distinct stage combination is selected.
-      const key=ELEMENTS.map(([id])=>String(tiers[id]||0)).join('');
-      if(glow.userData.key!==key){
-        for(const old of [...glow.children])this.#discard(old);
-        glow.userData.key=key;
-        glow.add(new THREE.Mesh(new THREE.TorusGeometry(.74,.03,4,32),M(0xc2bfba,.42)));
-        for(const [element,color]of ELEMENTS)if((tiers[element]??0)>0){
-          const tier=tiers[element];
-          const ring=new THREE.Mesh(new THREE.TorusGeometry(
-            tier===2?1.05:.88,.04,4,32),M(color,tier===2?.8:.48));
-          ring.rotation.z=(ELEMENTS.findIndex(([id])=>id===element)+1)*.31;
-          glow.add(ring);
-        }
-      }
-      glow.position.set(player.position.x,player.position.y+1.02,player.position.z);
-      glow.rotation.y+=frame*(tiers.gale===2&&!player.grounded?4.3:1.8);
-      if(Number.isFinite(state.teleportHoldAt)&&this.visualClock>(glow.userData.nextArc??0)){
-        glow.userData.nextArc=this.visualClock+.15;
-        const a=this.visualClock*8;
-        this.#fork(glow.position.clone().add(new THREE.Vector3(Math.sin(a)*.58,-.25,Math.cos(a)*.58)),
-          new THREE.Vector3(-Math.sin(a),1.6,-Math.cos(a)),.88,.17,1.4);
-      }
-      for(const ring of glow.children)ring.rotation.x=Math.PI/2;
-    }
-    for(const [id,glow]of this.auras)if(!charging.has(id)){
-      this.#discard(glow);this.auras.delete(id);
-    }
+    this.elements.update(frame,snapshot,now);
   }
   dispose(){
     for(const t of this.transients)this.#discard(t.mesh);
@@ -410,6 +314,7 @@ export class OneHitLiveEffects {
     this.#discard(this.reticle);this.zones.clear();this.statuses.clear();
     for(const entry of this.conductHands.values())entry.effect.dispose();
     this.transients=[];this.waves.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();
+    this.elements.dispose();
     this.root.parent?.remove(this.root);
   }
 }

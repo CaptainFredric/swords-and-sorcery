@@ -240,23 +240,73 @@ test('Sprint plus Guard sword and spell keeps authored gait with a restrained Sp
   assert.equal(resumed.layers.posture.overlay.clip,'Sprint');
 });
 
-test('All-Natural Disaster poses the third-person sword through the actual strike contact, not Idle',async()=>{
+test('All-Natural Disaster plays its authored clips, each with the blade in the ground at the authoritative commit',async()=>{
   const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
-  const base={alive:true,velocity:{x:0,y:0,z:0},staggerUntil:0};
-  const charging={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',commitAt:10.92,preparedTiers:{lightning:0}}};
-  const started=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(charging,10),player:charging,serverNow:10});
-  const near=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(charging,10.9),player:charging,serverNow:10.9});
-  const committed={...charging,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'ground'}}};
-  const contact=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(committed,10.92),player:committed,serverNow:10.92});
-  const follow=resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(committed,11.2),player:committed,serverNow:11.2});
-  assert.equal(started.clip,'Slash_3');
-  assert.equal(near.clip,'Slash_3');
-  assert.ok(near.time>started.time,'windup advances as the commit nears');
-  assert.equal(contact.clip,'Slash_3');
-  assert.ok(contact.time>=near.time,'no snap backwards at contact');
-  assert.ok(follow.time>contact.time && follow.time<.64,'strike follows through');
-  const charge={...charging,ultimateState:{...charging.ultimateState,commitAt:3_600_010,preparedTiers:{lightning:2},teleportHoldAt:10}};
-  assert.ok(resolveSpellbladeAnimationPlan({state:'one-hit',player:charge,serverNow:30}).time < contact.time,'charge pose holds until release');
+  const { DISASTER_CLIPS } = await import('./spellbladeAnimationPlan.mjs');
+  const { loadGlb, localPose, worldMatrices, apply } = await import('../../scripts/lib/glbPose.mjs');
+  const model=loadGlb(new URL('../assets/characters/spellblade/spellblade.glb',import.meta.url).pathname);
+  const hand=model.byName.get('hand.R'),TIP=[0.131,1.3383,-0.1661];
+  const tipY=(clip,time)=>apply(worldMatrices(model,localPose(model,[{clip,time,weight:1}]))[hand],TIP)[1];
+  const plan=(player,now)=>resolveSpellbladeAnimationPlan({state:resolveSpellbladeState(player,now),player,serverNow:now});
+  const base={alive:true,grounded:true,velocity:{x:0,y:0,z:0},staggerUntil:0};
+  // the shipped model really has every clip the plan names, as long as the plan says it is
+  for(const entry of Object.values(DISASTER_CLIPS)){
+    assert.ok(model.clips.has(entry.clip),`${entry.clip} is in spellblade.glb`);
+    assert.ok(Math.abs(model.clips.get(entry.clip).duration-entry.duration)<.07,`${entry.clip} runs ${entry.duration}s`);
+  }
+  // each slam's contact time is when the authored blade reaches the floor (its tip crossing y = 0 on the way down
+  // into the slam), to within a frame
+  for(const key of ['ground','fast','arrival']){
+    const {clip,contact,duration}=DISASTER_CLIPS[key];
+    let lowest=0;
+    for(let t=0;t<=duration;t+=1/120)if(tipY(clip,t)<tipY(clip,lowest))lowest=t;
+    let crossing=null;
+    for(let t=lowest;t>=0;t-=1/240)if(tipY(clip,t)>0){crossing=t;break;}
+    assert.ok(crossing!==null&&Math.abs(crossing-contact)<=1/30,`${key}: the blade reaches the ground at ${crossing?.toFixed(3)}s, the plan says ${contact}s`);
+    // (the arrival clip is joined at its landing: it has no time before it)
+    if(key!=='arrival')assert.ok(tipY(clip,contact-.08)>.5,`${key}: still well up 0.08s before`);
+  }
+  // ordinary wind-up (0.92 s): the dual-spin slam from its first frame, its contact frame exactly at the commit
+  const charging={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:10.92,preparedTiers:{lightning:0}}};
+  const started=plan(charging,10),near=plan(charging,10.9);
+  assert.equal(started.clip,'AllNatural_Ground_DualSpin_Slam');
+  assert.ok(started.time<1e-9,'from its first frame');
+  assert.ok(plan(charging,10.07).time<1e-9&&plan(charging,10.2).time>.1,'the turns begin once the clip can end on the commit');
+  assert.ok(Math.abs(near.time-(DISASTER_CLIPS.ground.contact-.02))<1e-9,'two hundredths before the commit, two hundredths before the blade lands');
+  assert.equal(started.fallback,'Slash_3','a model without the clip keeps the old heavy strike');
+  const committed={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'ground',tiers:{}}}};
+  const contact=plan(committed,10.92),follow=plan(committed,11.2);
+  assert.equal(contact.clip,'AllNatural_Ground_DualSpin_Slam','no change of clip at the commit');
+  assert.ok(Math.abs(contact.time-DISASTER_CLIPS.ground.contact)<1e-9,'the contact frame at the commit');
+  assert.ok(Math.abs(follow.time-(DISASTER_CLIPS.ground.contact+.28))<1e-9,'and its authored recovery in real time');
+  assert.ok(plan(committed,12.5).time<DISASTER_CLIPS.ground.duration,'never past its end');
+  // Half Lightning (0.36 s): the fast clip, same rule
+  const fast={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:10.36,preparedTiers:{lightning:1}}};
+  assert.equal(plan(fast,10).clip,'AllNatural_FastLightning_DualSpin_Slam');
+  const fastHit={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.36,until:12,oneHit:{form:'ground',tiers:{lightning:1}}}};
+  assert.ok(Math.abs(plan(fastHit,10.36).time-DISASTER_CLIPS.fast.contact)<1e-9);
+  assert.ok(Math.abs(plan(fast,10.35).time-(DISASTER_CLIPS.fast.contact-.01))<1e-9,'continuous into it');
+  // a held ground release waits a frame short of the ground and never passes it
+  const held={...charging,ultimateState:{...charging.ultimateState,groundRelease:{readyAt:10.92,until:11.24}}};
+  assert.ok(Math.abs(plan(held,11.1).time-(DISASTER_CLIPS.ground.contact-1/30))<1e-9);
+  // Full Lightning: the charge loops for as long as it is held, on the ground and in the air; the release is the
+  // arrival slam with its blade already landing
+  const aim={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:3_600_010,preparedTiers:{lightning:2},teleportHoldAt:10}};
+  const aiming=plan(aim,30.3);
+  assert.equal(aiming.clip,'AllNatural_Lightning_Charge_Ground');
+  assert.ok(aiming.loop&&aiming.time<DISASTER_CLIPS.chargeGround.duration);
+  assert.equal(plan({...aim,grounded:false},30.3).clip,'AllNatural_Lightning_Charge_Air');
+  const arrived={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:31,until:32.65,teleportHoldAt:10,oneHit:{form:'ground',tiers:{lightning:2}}}};
+  const arrival=plan(arrived,31);
+  assert.equal(arrival.clip,'AllNatural_Lightning_Arrival_Slam');
+  assert.ok(Math.abs(arrival.time-DISASTER_CLIPS.arrival.contact)<1e-9,'no second wind-up: the blade lands as the knight arrives');
+  // Full Gale in the air: the charge until the commit, then the vortex clip, whose cut throws the wave when the host does
+  const air={...base,grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:10.92,preparedTiers:{gale:2}}};
+  assert.equal(plan(air,10.4).clip,'AllNatural_Lightning_Charge_Air');
+  const vortex={...base,grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'aerial',tiers:{gale:2},waveAt:11.77}}};
+  assert.equal(plan(vortex,10.92).clip,'AllNatural_Aerial_Vortex_Wave');
+  assert.ok(plan(vortex,10.92).time<1e-9);
+  assert.ok(Math.abs(plan(vortex,11.77).time-DISASTER_CLIPS.aerial.contact)<1e-9,'the cut that throws the wave, as the wave is thrown');
 });
 
 test('the two chain forms: the rising chain plays its cuts in its own order, each contact frame on the server contact',()=>{
@@ -275,7 +325,7 @@ test('the two chain forms: the rising chain plays its cuts in its own order, eac
   assert.notEqual(opening(0).clip,opening(1).clip);
 });
 
-test('only the vetted canonical airborne Lightning hold selects its authored clip',()=>{
+test('the held Full Lightning aim loops its authored charge, in the air and on the ground',()=>{
   const hold={id:'one_hit_of_wonders',phase:'startup',commitAt:3_600_010,
     teleportHoldAt:10,preparedTiers:{lightning:2,gale:2}};
   const plan=(grounded,serverNow)=>resolveSpellbladeAnimationPlan({
@@ -284,5 +334,6 @@ test('only the vetted canonical airborne Lightning hold selects its authored cli
   assert.equal(plan(false,10.3).clip,'AllNatural_Lightning_Charge_Air');
   assert.equal(plan(false,10.3).loop,true);
   assert.equal(plan(false,60.2).clip,'AllNatural_Lightning_Charge_Air');
-  assert.equal(plan(true,10.3).clip,'Slash_3');
+  assert.equal(plan(true,10.3).clip,'AllNatural_Lightning_Charge_Ground');
+  assert.equal(plan(true,10.3).fallback,'Slash_3','and a model without it keeps the raised heavy strike');
 });
