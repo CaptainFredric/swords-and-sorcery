@@ -42,6 +42,7 @@ import { separateLocal } from '../../shared/src/separation.mjs';
 import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
@@ -2124,6 +2125,14 @@ export class GameRuntime {
           this.hud.hurt?.({ amount: event.amount, side: -push.x });
         }
       }
+      if(event.type==='flightTerminalAscended'){
+        const everyone=this.latestSnapshot?.players??[];
+        const operator=everyone.find(p=>p.id===event.operatorId);
+        const names=(event.victimIds??[]).map(id=>
+          everyone.find(p=>p.id===id)?.name??'someone');
+        const feed=terminalAscensionFeed(operator?.name??'The pilot',names);
+        this.hud.addFeed(feed.text,feed.kind);
+      }
       if (event.type === 'death') {
         this.flightVoState?.delete(event.victimId);
         this.pendingSentenceComplaints?.delete(event.victimId);
@@ -2234,6 +2243,7 @@ export class GameRuntime {
         }
       }
       if (event.type === 'matchStarted') {
+        this.vortexFeedStreaks?.clear();
         this.moments.reset();
         if (this.latestSnapshot?.mode === 'BREAKTHROUGH') {
           const myTeam = this.localAuth?.team ?? this.latestSnapshot?.players?.find((p) => p.id === me)?.team;
@@ -3425,17 +3435,25 @@ export class GameRuntime {
       const body = this.#bodyPosition(event.victimId);
       if (body && event.source !== 'abyss') this.effects.killBurst({ x: body.x, y: body.y + 1.1, z: body.z });
     }
-    if (event.source === 'abyss' && killer) this.hud.addFeed(`${killer.name} sent ${victim?.name ?? 'someone'} into the abyss`, 'abyss');
-    else if (event.source === 'fireball' && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
-    else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
-    else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
-    else if (event.source === 'gale' && killer) this.hud.addFeed(`${killer.name} blew ${victim?.name ?? 'someone'} away`, 'gale');
-    else if (event.source === 'vortex' && killer) this.hud.addFeed(`${killer.name} spun through ${victim?.name ?? 'someone'}`, 'fire');
-    else if (spellFor(event.source).conjured && spellFor(event.source).id === event.source && killer) this.hud.addFeed(`${killer.name} scorched ${victim?.name ?? 'someone'}`, 'fire');
-    else if (event.source === 'gauntlet' && killer) this.hud.addFeed(`${killer.name} laid ${victim?.name ?? 'someone'} low with a gauntlet`, 'sword');
-    else if (event.source === 'ram' && killer) this.hud.addFeed(`${killer.name} ran ${victim?.name ?? 'someone'} down in Steel`, 'sword');
-    else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
-    else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
+    const copy=killFeedDeath(event,killer?.name??null,victim?.name??'someone',{
+      mode:this.latestSnapshot?.mode,
+    });
+    if(copy?.streak==='vortex'&&killer){
+      this.vortexFeedStreaks??=new Map();
+      let streak=this.vortexFeedStreaks.get(killer.id);
+      const at=Number.isFinite(event.at)?event.at:this.socket.serverNow();
+      if(!streak||at-streak.startedAt>10.5||at-streak.lastAt>5){
+        streak={startedAt:at,lastAt:at,names:[]};
+        this.vortexFeedStreaks.set(killer.id,streak);
+      }
+      if(!streak.names.includes(victim?.name??'someone'))
+        streak.names.push(victim?.name??'someone');
+      streak.lastAt=at;
+      const feed=vortexStreakFeed(killer.name,streak.names);
+      this.hud.addFeed(feed.text,feed.kind,`vortex:${killer.id}:${streak.startedAt}`);
+    }else if(copy){
+      this.hud.addFeed(copy.text,copy.kind);
+    }
   }
 
   // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
