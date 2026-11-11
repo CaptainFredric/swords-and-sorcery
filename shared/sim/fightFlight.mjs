@@ -17,6 +17,7 @@ export const FIGHT_FLIGHT = Object.freeze({
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
   neutralStabilizeSec:1.0,neutralDescentSpeed:.4,
+  neutralBobMetres:.07,neutralBobHz:1.15,
   airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
@@ -46,7 +47,8 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorPowered:false,rotorBrakeHeld:false,rotorTargetRPM:0,rotorRPM:0,
     rotorSpinupAcceleration:90,rotorSpindownAcceleration:65,rotorLiftAuthority:0,
     jumpWasHeld:false,hopStartedAt:null,hopRequested:false,airHopRequested:false,
-    airHopRemaining:0,nextAirHopAt:-Infinity,verticalIntent:'IDLE',neutralHoverAt:null,rotorLiftSuppressedUntil:0,
+    airHopRemaining:0,nextAirHopAt:-Infinity,verticalIntent:'IDLE',neutralHoverAt:null,
+    neutralHoverHeight:null,neutralHoverFromRise:false,rotorLiftSuppressedUntil:0,
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
@@ -102,6 +104,7 @@ export function mountFightFlight(room,m,player,now=0){
   m.skill={...m.skill,id:equippedFightFlightSkill(player).id};
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
   m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
+  m.neutralHoverHeight=null;m.neutralHoverFromRise=false;
   m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
   m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;m.practiceDashRefilling=false;
   m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=Number.isFinite(m.heading)?m.heading:0;
@@ -128,7 +131,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   m.runStopRequested=false;m.runStartAt=null;m.runTurnSpeed=0;m.runCommitHeading=null;
   m.runGroundPhase=null;m.runGroundReleased=false;m.runGroundLaunchReady=false;player.operatingFightFlightId=null;
   m.jumpWasHeld=false;m.hopStartedAt=null;m.hopRequested=false;m.airHopRequested=false;
-  m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;player.flightInputAt=null;
+  m.airHopRemaining=0;m.verticalIntent='IDLE';m.neutralHoverAt=null;
+  m.neutralHoverHeight=null;m.neutralHoverFromRise=false;player.flightInputAt=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   if(airborne&&player.alive){
@@ -237,7 +241,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.flightCharge=Math.max(0,m.flightCharge-FIGHT_FLIGHT.airHopCost);
     m.velocity.y=Math.max(m.velocity.y,FIGHT_FLIGHT.airHopVelocity);
     m.airHopRemaining=FIGHT_FLIGHT.airHopHoldSec;
-    m.neutralHoverAt=null;
+    m.neutralHoverAt=null;m.neutralHoverHeight=null;m.neutralHoverFromRise=false;
   }
   m.airHopRemaining=Math.max(0,(m.airHopRemaining??0)-dt);
   if(m.ejectHoldStartedAt!=null&&now-m.ejectHoldStartedAt>=.35){
@@ -282,11 +286,17 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
+  const previousVerticalIntent=m.verticalIntent;
   m.verticalIntent=!op?.alive?'IDLE':m.runGroundPhase==='ASCENT'?'RISE':
     m.runGroundPhase==='SPINUP'?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':
     m.hopStartedAt!=null||explicitHop||(m.airHopRemaining??0)>0?'HOP':'HOVER';
-  if(m.grounded||m.verticalIntent!=='HOVER')m.neutralHoverAt=null;
-  else if(m.neutralHoverAt==null)m.neutralHoverAt=now;
+  if(m.grounded||m.verticalIntent!=='HOVER'){
+    m.neutralHoverAt=null;m.neutralHoverHeight=null;m.neutralHoverFromRise=false;
+  }else if(m.neutralHoverAt==null){
+    m.neutralHoverAt=now;
+    m.neutralHoverFromRise=previousVerticalIntent==='RISE';
+    m.neutralHoverHeight=m.y+cap(m.velocity.y,0,4)*.14;
+  }
   m.jumpWasHeld=legacyJump;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
   // Ground Dash spin-up has priority over the ordinary crouch/lower brake.
@@ -355,10 +365,21 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   }else if(!m.grounded){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
-      // Bounded velocity servo, counteracting ascent and descent momentum.
-      const settled=m.neutralHoverAt!=null&&now-m.neutralHoverAt>=FIGHT_FLIGHT.neutralStabilizeSec;
-      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):settled?-FIGHT_FLIGHT.neutralDescentSpeed:0;
-      const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
+      // For a second after releasing Rise, remain near the attained height
+      // with a restrained bob before entering controlled .4m/s descent.
+      // Velocity remains physically integrated; a damaged rotor or depleted
+      // charge still cannot hover, and ceiling/floor impacts still resolve.
+      const hoverAge=m.neutralHoverAt==null?Infinity:Math.max(0,now-m.neutralHoverAt);
+      const settled=hoverAge>=FIGHT_FLIGHT.neutralStabilizeSec;
+      const bob=m.neutralHoverFromRise?FIGHT_FLIGHT.neutralBobMetres*
+        Math.sin(hoverAge*2*Math.PI*FIGHT_FLIGHT.neutralBobHz):0;
+      const hoverHeight=(m.neutralHoverHeight??m.y)+bob;
+      const hoverVelocity=m.neutralHoverFromRise?
+        cap((hoverHeight-m.y)*2.4,-.42,.42):0;
+      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
+        m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
+        settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
+      const correction=cap((targetVelocity-m.velocity.y)*9,-13,13)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
       // Power assistance is only steady-altitude compensation. Ascending

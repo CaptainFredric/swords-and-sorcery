@@ -1662,3 +1662,21 @@ test('browser implicit child pointer-capture transfer does not cancel a held Dag
  assert.deepEqual(sent,[],'neither event may synthesize an Ultimate or Dash');
  e.controls.dispose();
 });
+
+test('forgiving Dagaz gestures light only the authored stencil, not a freehand finger blob',()=>{
+ const e=valkyrieFlightFixture(),points=e.controls.valkyrieGeometry.points;
+ e.send('pointerdown',points[0][0],points[0][1],
+   {action:'jump',pointerId:801});
+ e.send('pointermove',points[1][0],points[1][1],
+   {target:e.controls.layer,pointerId:801});
+ const before=e.controls.ritual.index;
+ e.send('pointermove',10,10,{target:e.controls.layer,pointerId:801});
+ assert.ok(e.controls.ritual.index>=before,
+   'stray travel preserves the forgiving completed checkpoints');
+ assert.equal(e.controls.valkyrieInk.getAttribute('d'),
+   e.controls.valkyrieGeometry.path,
+   'visible progress is constrained to the canonical Dagaz/crossbar only');
+ assert.doesNotMatch(e.controls.valkyrieStencil.innerHTML,/touch-valkyrie-finger/,
+   'no raw touch-trail SVG may paint outside the intended rune');
+ e.controls.dispose();
+});

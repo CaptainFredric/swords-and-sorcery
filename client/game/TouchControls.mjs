@@ -148,7 +148,6 @@ export class TouchControls {
       <svg viewBox="0 0 240 240" aria-hidden="true" preserveAspectRatio="none">
         <path class="touch-valkyrie-ghost" d="${VALKYRIE_RITUAL_PATH}"/>
         <path class="touch-valkyrie-ink" pathLength="1" d="${VALKYRIE_RITUAL_PATH}"/>
-        <path class="touch-valkyrie-finger" d=""/>
         ${VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>{
           const a=VALKYRIE_RITUAL_POINTS[i];
           return `<path class="touch-valkyrie-segment ritual-stage-${i}"
@@ -159,7 +158,6 @@ export class TouchControls {
       <span class="touch-valkyrie-status" role="status" aria-live="polite"></span>`;
     this.layer.append(this.valkyrieStencil);
     this.valkyrieInk=this.valkyrieStencil.querySelector('.touch-valkyrie-ink');
-    this.valkyrieFinger=this.valkyrieStencil.querySelector('.touch-valkyrie-finger');
     this.valkyrieStatus=this.valkyrieStencil.querySelector('.touch-valkyrie-status');
     this.valkyrieLines=VALKYRIE_RITUAL_POINTS.slice(1).map((p,i)=>
       this.valkyrieStencil.querySelector('.ritual-stage-'+i));
@@ -995,13 +993,9 @@ export class TouchControls {
         :this.valkyrieGeometry?.path??VALKYRIE_RITUAL_PATH);
       if(this.valkyrieInk.style)this.valkyrieInk.style.strokeDasharray=`${progress} 1`;
     }
-    // Follow the actual fingertip rather than displaying only a clipped ideal
-    // path. This is visual feedback, NOT an alternative completion shortcut.
-    if(this.valkyrieFinger){
-      const trail=g?.trail??[];
-      this.valkyrieFinger.setAttribute('d',trail.length?
-        'M'+trail.map(p=>p.map(v=>Math.round(v*10)/10).join(' ')).join(' L'):'');
-    }
+    // The recognizer accepts off-path thumb movement, but the overlay only
+    // illuminates the canonical rune's completed portions. Never render raw
+    // pointer travel here: it makes crossing diagonals turn into a bright blob.
     if(this.valkyrieStatus&&g&&!g.completed)
       this.valkyrieStatus.textContent=`ᛞ · TRACE ${Math.round(progress*100)}%`;
     for(let i=0;i<this.valkyrieLines.length;i++){
@@ -1037,7 +1031,7 @@ export class TouchControls {
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
       this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),
-      startedOnJump:true,startPoint:point,trail:[[point.x,point.y]]};
+      startedOnJump:true,startPoint:point};
     this.#paintValkyrieRitual();
     return true;
   }
@@ -1065,9 +1059,7 @@ export class TouchControls {
         if(advanced)next=advanced;
         if(next.completed)break;
       }
-      const trail=[...(next.trail??[]),[at.x,at.y]];
-      if(trail.length>700)trail.splice(1,trail.length-700);
-      next={...next,last:[at.x,at.y],trail};
+      next={...next,last:[at.x,at.y]};
     }
     this.ritual=next;
     this.#paintValkyrieRitual();

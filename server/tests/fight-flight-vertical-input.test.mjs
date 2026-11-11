@@ -162,3 +162,25 @@ test('Death does not grant a second mounted life or leave ascent input controlli
  assert.equal(p.flightInputAt,null);
  assert.equal(mountFightFlight(room,m,p,3),false);
 });
+
+test('Rise release holds a powered bobbing hover for about a second, then gently descends',()=>{
+ const {room,m,p}=setup();
+ step(room,m,0,55,{flightRise:true});
+ const riseEnd=m.y,releaseTime=55*DT;
+ assert.ok(riseEnd>1,'the actual aircraft climbed');
+ step(room,m,releaseTime,8,{flightRise:false});
+ assert.equal(m.verticalIntent,'HOVER');
+ assert.equal(m.neutralHoverFromRise,true);
+ assert.ok(Number.isFinite(m.neutralHoverHeight));
+ assert.ok(m.rotorPowered,'releasing Rise does not cut the hovering rotor');
+ const early=m.y;
+ step(room,m,releaseTime+8*DT,14,{flightRise:false});
+ assert.ok(m.y>=riseEnd-.55,'a pilot who releases Rise must not immediately fall');
+ assert.ok(Math.abs(m.y-early)<1.6,'the hover is stabilized, not an extra launch');
+ assert.equal(m.verticalIntent,'HOVER');
+ assert.ok(m.flightCharge>0);
+ step(room,m,releaseTime+22*DT,32,{flightRise:false});
+ assert.ok(m.velocity.y<-.2&&m.velocity.y>-.8,
+   'after the hold the rotor controls a slow descent, not a gravity drop');
+ assert.equal(m.neutralHoverFromRise,true);
+});
