@@ -15,10 +15,10 @@
 //   Blustered: the knight's fighting facing (sword, guard) turns only so fast; the look itself is never slowed.
 import { ONE_HIT_STATUS_SECONDS } from './oneHitInfusions.mjs';
 import { ONE_HIT_FIRST_INFUSION_DAMAGE } from './oneHitOfWondersRules.mjs';
-import { STEEL_RAM } from './steelRam.mjs';
 
 export const ONE_HIT_FIELD = Object.freeze({
-  seconds: ONE_HIT_STATUS_SECONDS,
+  seconds: ONE_HIT_STATUS_SECONDS,   // a field of a blow with no infusions
+  perElementSec: 0.3,      // and this much longer for every distinct element the blow carried (Half or Full: one)
   vertical: 1.25,          // feet within this of the field's ground are in it
   bodyRadius: 0.4,         // a knight's own breadth, for how much of them is inside
   frostDepth: 0.35,        // the slow at the heart of a fresh Frost field (the direct hit's own)
@@ -35,16 +35,52 @@ export const ONE_HIT_BLUSTER = Object.freeze({
   seconds: ONE_HIT_STATUS_SECONDS,
   turnRate: 2.4,           // rad/s at its worst (about 140 degrees a second); it loosens as the wind leaves them
   free: 0.05,              // below this much of it left, the facing is the look again
-  knockback: 1.5,          // Half Gale's shove, as a share of the plain blow's
+  knockback: 2.5,          // Half Gale's shove, as a share of the plain blow's (about a metre and three quarters, not 0.7)
 });
 
+// Steel takes nothing extra from a Guard (the Disaster's own 40 for a guarded blow is all a Guard pays).
 export const ONE_HIT_STEEL = Object.freeze({
-  guardStamina: STEEL_RAM.guard.stamina, // the extra a Steel-infused blow takes from a Guard, and from the struck
   // the radial fracture: arms all the way round, evenly (Half), more and further (Full)
   arms: Object.freeze({ 1: Object.freeze({ count: 8, reach: 6.2 }), 2: Object.freeze({ count: 12, reach: 7.6 }) }),
   fissureShaken: Object.freeze({ core: 0.8, trail: 0.5 }),
-  fissureGuard: Object.freeze({ core: 28, trail: 12 }),
 });
+
+// Fire's first infusion is reach: a wider blow that also goes up, and a sword wave that catches a body's breadth
+// further out on every side. (It is no burn: only Full Fire's ground burns.)
+export const ONE_HIT_REACH = Object.freeze({
+  radius: 3.4, up: 2.6, down: 2.6,                       // the ordinary grounded blow
+  fire: Object.freeze({ radius: 4.6, up: 3.5 }),         // with Fire
+  wave: 0.9, waveFire: 1.5,                              // how near the travelling wave's line a body's middle must be
+  terminal: 2.2, terminalFire: 3.0,                      // where the wave ends: its landing gust, or Fire's explosion
+});
+
+// Frost's first infusion is time: the decisive contact stays open this much longer for a knight it has not yet met.
+export const ONE_HIT_FROST_LINGER_SEC = 0.3;
+
+// Fire and Gale together: the shove is by where the struck knight stood in the blast. From its heart they are thrown
+// the whole way; at its edge only this share of it, so that what is thrown tends to come down inside the fire.
+export const ONE_HIT_FIRE_GALE = Object.freeze({ edgeShare: 0.1 });
+
+/** How many distinct elements a blow carries (a Half or a Full stage is one). */
+export function distinctElements(tiers = {}) {
+  return ['fire', 'frost', 'gale', 'lightning', 'steel'].filter((element) => Number(tiers[element] ?? 0) >= 1).length;
+}
+
+/** How long every persistent field of a blow with these stages lasts: four seconds, and 0.3 more for each element. */
+export function fieldSeconds(tiers = {}, rules = ONE_HIT_FIELD) {
+  return rules.seconds + rules.perElementSec * distinctElements(tiers);
+}
+
+/** The grounded blow's reach for these stages: { radius, up, down } about where it landed. */
+export function groundReach(tiers = {}, rules = ONE_HIT_REACH) {
+  return (tiers.fire ?? 0) >= 1 ? { radius: rules.fire.radius, up: rules.fire.up, down: rules.down } : { radius: rules.radius, up: rules.up, down: rules.down };
+}
+
+/** Fire + Gale: the share of the shove a knight struck `distance` from the heart of a blast of `radius` is given. */
+export function fireGaleShove(distance, radius, rules = ONE_HIT_FIRE_GALE) {
+  const out = clamp01(distance / Math.max(radius, 1e-6));
+  return rules.edgeShare + (1 - rules.edgeShare) * (1 - out);
+}
 
 const clamp01 = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 

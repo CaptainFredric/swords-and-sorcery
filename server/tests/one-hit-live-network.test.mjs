@@ -125,7 +125,7 @@ test('two real sockets see the same grounded Full Disaster: one decisive hit, it
     const field=m=>m.type==='snapshot'&&m.oneHitFields?.some(f=>f.id===impact.fieldId);
     const [h,g]=await Promise.all([host.wait(field),guest.wait(field)]);
     assert.deepEqual(h.oneHitFields,g.oneHitFields,'the same field on both sockets');
-    assert.equal(h.oneHitFields[0].until-h.oneHitFields[0].bornAt,4);
+    assert.ok(Math.abs(h.oneHitFields[0].until-h.oneHitFields[0].bornAt-5.5)<1e-9,'five elements: 4 + 5 x 0.3 seconds');
     for(const snapshot of [h,g]){
       const struck=snapshot.players.find(p=>p.id===peer.id);
       assert.ok(struck.shaken&&struck.blustered&&struck.oneHitFrostSlow,'Shaken, Blustered and slowed, as each socket sees it');

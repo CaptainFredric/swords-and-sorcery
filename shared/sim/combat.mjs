@@ -31,7 +31,8 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitGlide, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
-  blusterSeverity, blusteredFacing, steelFractureRules } from '../src/oneHitStatus.mjs';
+  blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
+  fireGaleShove } from '../src/oneHitStatus.mjs';
 import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
@@ -242,9 +243,41 @@ function resumeSwordChain(player, last) {
   player.attackEnd = null;
 }
 
+// Flash Freeze (Full Frost's direct hit): the knight is held, not interrupted. They cannot move, turn, or begin a
+// sword blow, a spell, a fist, a dash, a guard or an ultimate until it lets go; whatever they were already doing is
+// held where it was (holdFlashFrozen) and carries on from there. Nothing is cancelled: that is Steel's.
+function flashFrozen(player, nowSec) {
+  return nowSec < (player?.oneHitFrozenUntil ?? -Infinity);
+}
+// One tick of a freeze: every clock of an action under way is carried forward by the tick, so it is no further on
+// when the ice lets go than when it took hold (the same hold the yard's inspection freeze uses). A spell already
+// loosed is the world's, and flies on.
+function holdFlashFrozen(player, dt, nowSec) {
+  if (player.attackActive) player.attackStartedAt = (player.attackStartedAt ?? nowSec) + dt;
+  if (Number.isFinite(player.attackRestartAt) && player.attackRestartAt > nowSec - dt) player.attackRestartAt += dt;
+  if (player.attackSweep && Number.isFinite(player.attackSweep.sampledTo)) player.attackSweep.sampledTo += dt;
+  if (player.attackLastChain) player.attackLastChain = { ...player.attackLastChain, startedAt: player.attackLastChain.startedAt + dt, endedAt: player.attackLastChain.endedAt + dt };
+  if (player.pendingSpell) {
+    player.castEndsAt = (player.castEndsAt ?? nowSec) + dt;
+    if (Number.isFinite(player.pendingSpell.startedAt)) player.pendingSpell.startedAt += dt;
+  }
+  if (player.gauntlet) player.gauntlet.landAt = (player.gauntlet.landAt ?? nowSec) + dt;
+  if (Number.isFinite(player.gauntletReadyAt) && player.gauntletReadyAt > nowSec - dt) player.gauntletReadyAt += dt;
+  if (Number.isFinite(player.dashUntil) && nowSec - dt < player.dashUntil) player.dashUntil += dt;
+  const state = player.ultimateState;
+  if (state?.phase === 'startup') {
+    if (Number.isFinite(state.commitAt) && state.commitAt < 1e6) state.commitAt += dt;
+    if (Number.isFinite(state.startedAt)) state.startedAt += dt;
+    if (Number.isFinite(state.teleportHoldAt)) state.teleportHoldAt += dt;
+    if (state.groundRelease) state.groundRelease = { readyAt: state.groundRelease.readyAt + dt, until: state.groundRelease.until + dt };
+  }
+  if (Number.isFinite(player.ultimateWantedUntil) && player.ultimateWantedUntil > nowSec - dt) player.ultimateWantedUntil += dt;
+}
+
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (flashFrozen(player, nowSec)) return false;
   // a Vortex has both hands from the moment it is lit to the end of its recovery: a press then is nothing (and is
   // not kept: no swing comes of it later)
   if (ultimateFor(player.ultimateState?.id).spin && player.ultimateState || nowSec < (player.recoverUntil ?? -Infinity)) return false;
@@ -317,6 +350,7 @@ export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}
   player.guardHeld = Boolean(guarding);
   player.guardAuto = Boolean(guarding) && auto;
   if (guarding && room.state !== 'PLAYING') return false;
+  if (guarding && flashFrozen(player, nowSec)) return false;
   if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || nowSec < (player.guardBrokenUntil ?? -Infinity)
     || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
       (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active'))) return false;
@@ -393,6 +427,7 @@ export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
     (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active')) return false;
+  if (flashFrozen(player, nowSec)) return false;
   const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
@@ -437,6 +472,7 @@ function recordSpellUse(player, spell, nowSec, practice) {
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (flashFrozen(player, nowSec)) return false;
   const practice = practising(room, player);
   const spell = spellFor(player.spell);
   // Even a direct simulation caller cannot cast arbitrary ordinary spells
@@ -553,6 +589,7 @@ export function tryGauntletStrike(room, playerId, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || player.pendingSpell || player.gauntlet || ultimateStartup(player, nowSec) || handsTaken(player, nowSec)) return false;
+  if (flashFrozen(player, nowSec)) return false;
   if (nowSec < (player.gauntletReadyAt ?? -Infinity)) return false;
   if (player.attackSweep || (player.attackActive && player.attackNextStrike < player.attackCommitted)) return false;
   const at = Math.min(nowSec, pressedAt);
@@ -1985,10 +2022,10 @@ function settleOneHitLastStand(room,player,state,nowSec) {
     {ongoing:true,skipSteel:true,ultimate:true});
 }
 
-function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
+function oneHitGuard(room,caster,target,origin,nowSec) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
-  // (a Steel-infused blow bears on a Guard as a Steel ram does, on top of its own weight)
-  target.guardStamina=Math.max(0,target.guardStamina-40-((tiers.steel??0)>=1?ONE_HIT_STEEL.guardStamina:0));
+  // (40 for a guarded Disaster, whatever it carries: no infusion bears harder on a Guard)
+  target.guardStamina=Math.max(0,target.guardStamina-40);
   target.lastGuardDrainAt=nowSec;
   if(target.guardStamina<=0)breakGuard(target,.4,nowSec);
   room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
@@ -2022,8 +2059,7 @@ function restartSkillCooldowns(room,caster,target,nowSec) {
 function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={}) {
   if(!target.alive)return;
   if(shaken)applyOneHitShaken(target,nowSec,shaken);
-  if(tiers.fire>=1)target.burn={attackerId:caster.id,perLick:2,licksLeft:4,
-    interval:.5,nextAt:nowSec+.5,until:nowSec+2,ultimate:true};
+  // (Fire leaves no burn on the knight: Half Fire is reach, and Full Fire's ground does the burning)
   if(tiers.frost>=1) {
     const frozen=tiers.frost===2;
     target.oneHitFrostSlow=mergeFrostSlow(target.oneHitFrostSlow,
@@ -2037,8 +2073,6 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
     room.events.push({type:'oneHitBlustered',playerId:target.id,sourceId:caster.id,at:nowSec});
   }
   if((tiers.steel??0)>=1){
-    target.guardStamina=Math.max(0,target.guardStamina-ONE_HIT_STEEL.guardStamina);
-    target.lastGuardDrainAt=nowSec;
     interruptHitActions(room,target,caster.id,nowSec,'all_natural_disaster');
     if(tiers.steel===2)restartSkillCooldowns(room,caster,target,nowSec);
   }
@@ -2046,30 +2080,49 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
 
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
-  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,
+  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
   const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
-  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers))return false;
+  if(oneHitGuard(room,caster,target,incoming,nowSec))return false;
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
   const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
   const d=Math.hypot(dx,dz)||1;
   // (Half Gale: the blow carries them further the way it was going)
-  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback:1);
+  // Fire and Gale together (`blast`: how far from the heart of a blast of what radius they stood): thrown the whole
+  // way from its heart, less and less toward its edge, so the fire's ground is where they tend to come down
+  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback:1)*
+    (blast&&tiers.gale>=1&&tiers.fire>=1?fireGaleShove(blast.distance,blast.radius):1);
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
     {x:dx/d*shove,y:.6,z:dz/d*shove},{ultimate:true,rawDamage:damage}))return false;
   oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
   return true;
 }
-function oneHitBurnZone(room,caster,id,position,nowSec) {
+function oneHitBurnZone(room,caster,id,position,nowSec,tiers) {
   (room.oneHitBurnZones??=[]).push({
-    id,ownerId:caster.id,position,radius:4.6,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+ONE_HIT_STATUS_SECONDS,
+    id,ownerId:caster.id,position,radius:ONE_HIT_REACH.fire.radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
   });
 }
+// The grounded blow's contact: every enemy in its reach it has not yet met (`processed`: this attack's one registry,
+// a Guard that spent its contact included). Returns whom it struck now.
+function oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed) {
+  const reach=groundReach(tiers),struck=[];
+  for(const target of room.players.values()) {
+    if(processed.includes(target.id))continue;
+    const distance=Math.hypot(target.position.x-center.x,target.position.z-center.z);
+    const rise=target.position.y-center.y;
+    if(distance>reach.radius||rise>reach.up||rise<-reach.down)continue;
+    if(oneHitTouch(room,caster,target,tiers,nowSec,world,{distance,processed,
+      origin:{...center,y:center.y+1},blast:{distance,radius:reach.radius}}))struck.push(target.id);
+  }
+  return struck;
+}
+// In order: the impact and any Guard, the one decisive hit, Shaken and the statuses (oneHitTouch); then the rupture;
+// then what is left behind (burning ground, the field). Nothing left behind exists while the blow itself lands.
 function oneHitSlam(room,caster,tiers,nowSec,world) {
-  const radius=tiers.fire===2?4.6:ONE_HIT_GROUND_RADIUS;
+  const reach=groundReach(tiers),radius=reach.radius;
   // Full Gale draws enemies toward the destination, then the same decisive
   // contact tests run exactly once. No second base-damage hit from a vortex.
   if(tiers.gale===2)for(const target of room.players.values()) {
@@ -2084,28 +2137,30 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
     if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1 &&
       !oneHitWorldContact(oneHitChest(target),{...next,y:next.y+1},world))target.position=next;
   }
-  const struck=[];
-  for(const target of room.players.values()) {
-    const distance=Math.hypot(target.position.x-caster.position.x,target.position.z-caster.position.z);
-    if(distance<=radius && Math.abs(target.position.y-caster.position.y)<2.6 &&
-      oneHitTouch(room,caster,target,tiers,nowSec,world,{distance}))struck.push(target.id);
-  }
+  const center={...caster.position},processed=[];
+  const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed);
   // Reuse the game's actual rupture simulation and its visible fissure events.
   // The same enemy is never dealt the full decisive strike twice by its fissure.
   // Steel turns the lopsided star into a fracture all the way round (its arms still stop at whatever the ground
-  // and the walls stop them at); whoever one of its arms catches is Shaken and pays Guard stamina for it.
+  // and the walls stop them at); whoever one of its arms catches is Shaken by it.
   const steel=tiers.steel??0;
   const before=room.ruptures?.length??0;
-  groundStrike(room,caster,2,{point:{...caster.position},floor:{y:caster.position.y}},nowSec,world,
+  groundStrike(room,caster,2,{point:{...center},floor:{y:center.y}},nowSec,world,
     steel>=1?{rules:steelFractureRules(RUPTURE,steel),oneHit:{steel}}:{});
-  if((room.ruptures?.length??0)>before)room.ruptures.at(-1).caught.push(...struck);
-  if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...caster.position},nowSec);
+  const rupture=(room.ruptures?.length??0)>before?room.ruptures.at(-1):null;
+  rupture?.caught.push(...struck);
+  if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...center},nowSec,tiers);
   // The field it leaves: laid down after the blow has landed, so the decisive hit is never counted against it.
-  const field={id:`oh-field:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...caster.position},radius,
-    bornAt:nowSec,until:nowSec+ONE_HIT_FIELD.seconds,tiers:{...tiers},conducted:{}};
+  const field={id:`oh-field:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...center},radius,
+    bornAt:nowSec,until:nowSec+fieldSeconds(tiers),tiers:{...tiers},conducted:{}};
   (room.oneHitFields??=[]).push(field);
-  room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...caster.position},
-    tiers:{...tiers},form:'ground',radius,struck,fieldId:field.id,at:nowSec});
+  // (whoever the blow itself struck has had its Conduct whole: its field owes them nothing more)
+  if(tiers.lightning>=1)for(const id of struck)field.conducted[id]=1;
+  // Frost: the same contact stays open a moment longer for whoever it has not met (never a second hit on one it has)
+  if(tiers.frost>=1)(room.oneHitLingers??=[]).push({kind:'ground',ownerId:caster.id,center,tiers:{...tiers},
+    until:nowSec+ONE_HIT_FROST_LINGER_SEC,processed,ruptureId:rupture?.id??null,fieldId:field.id});
+  room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...center},
+    tiers:{...tiers},form:'ground',radius,height:reach.up,struck,fieldId:field.id,at:nowSec});
 }
 
 // Each tick: which hostile field each knight stands in (the strongest, if several overlap), and what it does to
@@ -2248,31 +2303,71 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
 // The wave pierces bodies. Terrain contact or an intentional second press
 // ends it; running out of range dissipates it. Splash contributes
 // no second decisive hit, even on targets who spent Guard on the moving blade.
-function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
-  const radius=2.2;
-  const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
-  const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
+// Where the wave ends. Without Fire: its landing gust, which afflicts whoever it has not met and deals no HP. With
+// Fire: an explosion, a wider one all round, and part of the same decisive contact: whoever the wave had not yet met
+// takes the one decisive hit here, with everything the wave carries. `rec.hitIds` is the attack's one registry.
+function oneHitTerminalContact(room,caster,rec,nowSec,world) {
+  const fire=(rec.tiers.fire??0)>=1,caught=[];
   for(const target of room.players.values()) {
+    if(rec.hitIds.includes(target.id))continue;
     const center=oneHitChest(target);
-    if(wave.hitIds.includes(target.id)||Math.hypot(center.x-origin.x,center.y-origin.y,center.z-origin.z)>radius||
-      !oneHitVisible(room,caster,target,world,nowSec,origin)||oneHitGuard(room,caster,target,guardSource,nowSec,wave.tiers))continue;
-    oneHitAfflict(room,caster,target,wave.tiers,nowSec,{shaken:.6});
+    if(Math.hypot(center.x-rec.origin.x,center.y-rec.origin.y,center.z-rec.origin.z)>rec.radius)continue;
+    if(fire){
+      if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{aerial:true,origin:rec.origin,direction:rec.direction,
+        distance:rec.distance,processed:rec.hitIds}))caught.push(target.id);
+      continue;
+    }
+    if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
+    rec.hitIds.push(target.id);
+    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec))continue;
+    oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6});
     const scale=staggerShove(target.stagger);
-    shoveBody(target,{x:wave.direction.x*2.2*scale,y:.35,z:wave.direction.z*2.2*scale});
+    shoveBody(target,{x:rec.direction.x*2.2*scale,y:.35,z:rec.direction.z*2.2*scale});
     target.lastKnockbackAt=nowSec;
     target.lastKnockbackBy=caster.id;
     target.lastKnockbackSource='one_hit_wave_impact';
     target.lastAttackerId=caster.id;
+    caught.push(target.id);
   }
+  return caught;
+}
+function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
+  const fire=(wave.tiers.fire??0)>=1;
+  const radius=fire?ONE_HIT_REACH.terminalFire:ONE_HIT_REACH.terminal;
+  const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
+  const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
+  const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
+    hitIds:wave.hitIds,distance:wave.distance};
+  const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
+  if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({...rec,until:nowSec+ONE_HIT_FROST_LINGER_SEC});
+  // (burning ground only where there is ground under it: nothing burns in the air)
   if(wave.tiers.fire===2) {
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
     if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
-      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec);
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers);
   }
   room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point,
     cause:contact?'terrain':'manual',normal:contact?.normal??null,direction:wave.direction,
-    tiers:{...wave.tiers},form:'aerial',radius,at:nowSec});
+    tiers:{...wave.tiers},form:'aerial',radius,struck,at:nowSec});
+}
+// Half Frost's longer contact, each tick until it closes: the same blow meeting whoever has come into it since.
+function stepOneHitLingers(room,nowSec,world) {
+  const lingers=room.oneHitLingers;
+  if(!lingers?.length)return;
+  for(const rec of lingers) {
+    const caster=room.players.get(rec.ownerId);
+    if(!caster||nowSec>rec.until+1e-9)continue;
+    const late=rec.kind==='ground'
+      ?oneHitGroundContact(room,caster,rec.center,rec.tiers,nowSec,world,rec.processed)
+      :oneHitTerminalContact(room,caster,rec,nowSec,world);
+    if(!late.length)continue;
+    if(rec.ruptureId)room.ruptures?.find(r=>r.id===rec.ruptureId)?.caught.push(...late);
+    const field=rec.fieldId&&rec.tiers.lightning>=1?room.oneHitFields?.find(f=>f.id===rec.fieldId):null;
+    if(field)for(const id of late)field.conducted[id]=1;
+    room.events.push({type:'oneHitLateContact',playerId:caster.id,targets:late,form:rec.kind==='ground'?'ground':'aerial',at:nowSec});
+  }
+  room.oneHitLingers=lingers.filter(rec=>nowSec<rec.until);
 }
 
 export function detonateOneHitWave(room,playerId,waveId,nowSec) {
@@ -2304,7 +2399,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       const frac=Math.max(0,Math.min(stop,((center.x-old.x)*wave.direction.x+
         (center.y-old.y)*wave.direction.y+(center.z-old.z)*wave.direction.z)/step));
       const near=oneHitAlong(old,next,frac);
-      if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.9)continue;
+      if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
         distance:wave.distance+step*frac,processed:wave.hitIds});
@@ -2332,6 +2427,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     }
   }
   room.oneHitBurnZones=(room.oneHitBurnZones??[]).filter(z=>nowSec<z.until);
+  stepOneHitLingers(room,nowSec,world);
   stepOneHitFields(room,dt,nowSec,world);
   for(const wire of room.lineConductWires??[]) {
     if(nowSec>=wire.until)continue;
@@ -2424,6 +2520,7 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
+  if (flashFrozen(player, nowSec)) return false;
   if (player.ultimateState) return false;
   // (nor in the moment after a Vortex, while both hands are still its)
   if (nowSec < (player.recoverUntil ?? -Infinity)) return false;
@@ -2788,13 +2885,11 @@ function stepRuptures(room, nowSec) {
       applyDamage(room, rupture.ownerId, target.id, core ? RUPTURE.damage : RUPTURE.trailDamage, 'rupture', nowSec,
         { x: 0, y: core ? RUPTURE.jolt : RUPTURE.trailJolt, z: 0 }, { ultimate: true });
       staggerBy(room, target, core ? RUPTURE.stagger : RUPTURE.trailStagger, nowSec, rupture.ownerId);
-      // (a Steel-infused Disaster's radial fracture: whoever an arm catches is Shaken and pays Guard stamina; the
-      // rupture's own small hurt above is all the HP it takes, never the decisive hit again)
+      // (a Steel-infused Disaster's radial fracture: whoever an arm catches is Shaken; the rupture's own small hurt
+      // above is all the HP it takes, never the decisive hit again)
       if (rupture.oneHit?.steel && target.alive) {
         const part = core ? 'core' : 'trail';
         applyOneHitShaken(target, nowSec, ONE_HIT_STEEL.fissureShaken[part]);
-        target.guardStamina = Math.max(0, target.guardStamina - ONE_HIT_STEEL.fissureGuard[part]);
-        target.lastGuardDrainAt = nowSec;
         room.events.push({ type: 'oneHitFissure', playerId: target.id, ownerId: rupture.ownerId, ruptureId: rupture.id, part, at: nowSec });
       }
     }
@@ -2945,6 +3040,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       }
       continue;
     }
+    if (flashFrozen(player, nowSec)) holdFlashFrozen(player, dt, nowSec);
     // the ultimate's key, kept while the hand was busy: taken now if it is free
     if(nowSec<(player.ultimateWantedUntil??-Infinity)&&!player.pendingSpell&&!player.gauntlet)
       tryUltimate(room,player.id,nowSec,{held:player.disasterWantedHeld,released:player.disasterWantedReleased});

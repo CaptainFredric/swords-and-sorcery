@@ -13,7 +13,8 @@ import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
 import { STEEL_RAM, ramEffect } from '../../shared/src/steelRam.mjs';
 import { STEEL_DAMAGE_RANGES } from '../../shared/src/steel.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
-import { ONE_HIT_STEEL } from '../../shared/src/oneHitStatus.mjs';
+import { ONE_HIT_REACH, ONE_HIT_BLUSTER, fieldSeconds, fieldStrength, distinctElements } from '../../shared/src/oneHitStatus.mjs';
+import { setGuard, tryDash } from '../../shared/sim/combat.mjs';
 
 const world = {
   floors: [{ id: 'ground', center: [0, -.1, 0], size: [200, .2, 200], y: 0 }],
@@ -232,25 +233,72 @@ test('two overlapping fields cost one Guard loss (the stronger), never both', ()
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-test('Fire: the initial burn is kept; Full Fire leaves burning ground whose licks die down with it', () => {
-  {
-    const { room, b } = battle({ tiers: { fire: 1 } });
-    slam(room);
-    assert.equal(b.burn?.perLick, 2); assert.equal(b.burn.licksLeft, 4);
-    assert.equal(room.oneHitBurnZones.length, 0, 'Half Fire leaves no burning ground');
-  }
+test('Half Fire is reach, not burn: a wider blow that also goes up; nothing burns on the knight', () => {
+  // three knights: one beyond the ordinary 3.4 m, one on a deck 3 m up, one 4 m up (beyond even Fire's 3.5)
+  const yard = { ...world, floors: [...world.floors, { id: 'deck', center: [0, 2.9, -2], size: [2, .2, 2], y: 3 }, { id: 'tower', center: [0, 3.9, 2], size: [2, .2, 2], y: 4 }] };
+  const scene = (tiers) => {
+    const { room, b } = battle({ tiers });
+    b.health = 1000;
+    const wide = add(room, 'wide', { x: 4.2, y: 0, z: 0 });
+    const high = add(room, 'high', { x: 0, y: 3, z: -2 });
+    const higher = add(room, 'higher', { x: 0, y: 4, z: 2 });
+    for (const k of [wide, high, higher]) k.health = 1000;
+    slam(room, 9, yard);
+    return { room, b, wide, high, higher };
+  };
+  const plain = scene({});
+  assert.equal(plain.room.events.find((e) => e.type === 'oneHitImpact').radius, 3.4);
+  assert.equal(decisive(plain.room, 'wide').length + decisive(plain.room, 'high').length, 0, 'out of the ordinary blow\'s reach');
+  const fire = scene({ fire: 1 });
+  const impact = fire.room.events.find((e) => e.type === 'oneHitImpact');
+  assert.equal(impact.radius, 4.6); assert.equal(impact.height, 3.5);
+  assert.equal(decisive(fire.room, 'wide').length, 1, 'the wider blast');
+  assert.equal(decisive(fire.room, 'high').length, 1, 'and its height: a knight three metres up');
+  assert.equal(decisive(fire.room, 'higher').length, 0, 'but not beyond it');
+  assert.equal(decisive(fire.room, 'wide')[0].amount, 59, 'the one decisive hit, 46 + 13');
+  for (const k of [fire.b, fire.wide, fire.high]) assert.equal(k.burn, null, 'no burn status');
+  run(fire.room, 10.2, 3);
+  assert.equal(fire.room.events.some((e) => e.source === 'burn' || e.source === 'one_hit_ground_fire'), false, 'Half Fire burns nothing afterward');
+  assert.equal(fire.room.oneHitBurnZones.length, 0);
+});
+
+test('Fire\'s wider contact carries every other infusion, once: a knight only the blast reaches gets the whole blow', () => {
+  const { room, b } = battle({ tiers: { fire: 1, frost: 2, gale: 1, lightning: 1, steel: 2 } });
+  b.health = 1000;
+  const wide = add(room, 'wide', { x: 0, y: 0, z: 4.3 });
+  wide.health = 1000; wide.spell = 'fireball'; wide.spellReadyAt = 0; wide.pendingSpell = { spell: 'fireball', direction: { x: 1, y: 0, z: 0 } }; wide.castEndsAt = 99;
+  const now = slam(room);
+  const hits = decisive(room, 'wide');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].amount, 46 + 13 + 11 + 1 + 12 + 2);
+  assert.ok(wide.shaken && wide.blustered && wide.oneHitFrozenUntil > now - DT, 'Shaken, Blustered, frozen');
+  assert.equal(wide.electricalBacklash.initial, 12);
+  assert.equal(wide.pendingSpell, null, 'interrupted by Steel');
+  assert.ok(wide.spellReadyAt > 9, 'cooldowns restarted by Full Steel');
+  for (const type of ['oneHitConduct', 'oneHitBlustered', 'oneHitCooldownsRestarted', 'actionInterrupted'])
+    assert.equal(room.events.filter((e) => e.type === type && e.playerId === 'wide').length, 1, `${type} once`);
+  run(room, now, 1);
+  assert.equal(decisive(room, 'wide').length, 1, 'and never again');
+});
+
+test('Full Fire: burning ground at a ground-supported impact, its licks dying down, and no second burn on the struck', () => {
   const { room, b } = battle({ tiers: { fire: 2 } });
   b.health = 1000;
   const now = slam(room);
   assert.equal(room.oneHitBurnZones.length, 1);
-  assert.equal(room.oneHitBurnZones[0].radius, 4.6);
-  b.position = { x: 2, y: 0, z: 0 }; b.velocity = { x: 0, y: 0, z: 0 }; b.burn = null;
-  run(room, now, 5);
+  const zone = room.oneHitBurnZones[0];
+  assert.equal(zone.radius, 4.6);
+  assert.ok(Math.abs(zone.until - zone.bornAt - 4.3) < 1e-9, 'one element: 4.3 seconds');
+  assert.equal(b.burn, null, 'the struck knight carries no burn of their own');
+  b.position = { x: 2, y: 0, z: 0 }; b.velocity = { x: 0, y: 0, z: 0 };
+  run(room, now, 5.5);
   const licks = room.events.filter((e) => e.source === 'one_hit_ground_fire' && e.victimId === 'b').map((e) => e.amount);
-  assert.ok(licks.length >= 6, `${licks.length} licks`);
-  assert.equal(licks[0], 3);
+  assert.ok(licks.length >= 7, `${licks.length} licks`);
+  assert.equal(licks[0], 3, 'the existing lick, not a stronger one');
   assert.equal(licks.at(-1), 1);
   assert.deepEqual(licks, [...licks].sort((x, y) => y - x), `never rising: ${licks}`);
+  assert.ok(Math.max(...licks) <= 3);
+  assert.equal(room.events.some((e) => e.source === 'burn'), false, 'one burning source: the ground');
   assert.equal(room.oneHitBurnZones.length, 0, 'burnt out');
 });
 
@@ -294,7 +342,7 @@ test('Half Gale: a longer shove the way the blow went, and Blustered: the fighti
   const gale = battle({ tiers: { gale: 1 } }); gale.b.health = 1000;
   const now = slam(gale.room);
   const push = (room) => decisive(room, 'b')[0].push;
-  assert.ok(Math.abs(push(gale.room).x / push(plain.room).x - 1.5) < 1e-9);
+  assert.ok(Math.abs(push(gale.room).x / push(plain.room).x - ONE_HIT_BLUSTER.knockback) < 1e-9 && ONE_HIT_BLUSTER.knockback >= 2);
   assert.equal(push(gale.room).z, 0);
   assert.equal(plain.b.blustered, null);
 
@@ -451,7 +499,9 @@ test('Full Lightning field: Conduct by field strength and by how much of the kni
   const cx = field.position.x;
   const deep = add(room, 'deep', { x: cx + 1, y: 0, z: 0 }, born);
   stepRoom(room, DT, born + 2, world);
-  assert.ok(Math.abs(deep.electricalBacklash.initial - 6) < 1e-6, `12 x 0.5 x full contact = ${deep.electricalBacklash.initial}`);
+  const strengthNow = fieldStrength(field, born + 2);
+  assert.ok(Math.abs(strengthNow - (1 - 2 / 4.3)) < 1e-9, 'one element: the field runs down over 4.3 seconds');
+  assert.ok(Math.abs(deep.electricalBacklash.initial - 12 * strengthNow) < 1e-6, `12 x strength x full contact = ${deep.electricalBacklash.initial}`);
   assert.equal(deep.electricalBacklash.sourceId, 'a');
   // another only brushes the rim at the same moment: far less
   const brush = add(room, 'brush', { x: cx + field.radius + .2, y: 0, z: 0 }, born);
@@ -484,7 +534,7 @@ test('Full Lightning field: Conduct by field strength and by how much of the kni
   assert.equal(a.electricalBacklash, null, 'never its owner');
 
   run(room, born + 3.5, 1);
-  assert.equal(room.oneHitFields.length, 0, 'four seconds');
+  assert.equal(room.oneHitFields.length, 0, 'gone');
 });
 
 test('Full Lightning: the held teleport reaches further the longer it is held, with no cap on the hold', () => {
@@ -554,7 +604,7 @@ test('Steel is not earned by an interrupted use, by a knight killed in it, or by
   }
 });
 
-test('Half Steel: +2, more Guard pressure, interrupts the struck, shrugs off ordinary blows in its wind-up, and fractures the ground all round', () => {
+test('Half Steel: +2, interrupts the struck, shrugs off ordinary blows in its wind-up, and fractures the ground all round', () => {
   const walled = { ...world, solids: [{ id: 'pillar', center: [0, 1, -3], size: [1.2, 3, 1.2] }] };
   const { room, a, b } = battle({ tiers: { steel: 1 } });
   b.health = 1000;
@@ -573,7 +623,7 @@ test('Half Steel: +2, more Guard pressure, interrupts the struck, shrugs off ord
   assert.equal(decisive(room, 'b')[0].amount, 48);
   assert.equal(b.pendingSpell, null, 'what they were doing is ended');
   assert.ok(room.events.some((e) => e.type === 'actionInterrupted' && e.playerId === 'b' && e.by === 'a'));
-  assert.ok(b.guardStamina <= 100 - ONE_HIT_STEEL.guardStamina + 1e-9, `Guard stamina pressed: ${b.guardStamina}`);
+  assert.equal(b.guardStamina, 100, 'Steel takes no Guard stamina of its own from the struck');
 
   const rupture = room.events.find((e) => e.type === 'rupture');
   assert.equal(rupture.radial, true);
@@ -585,11 +635,11 @@ test('Half Steel: +2, more Guard pressure, interrupts the struck, shrugs off ord
   assert.ok(toward(0, -1).length < 2.6, `stopped at the pillar's foot: ${toward(0, -1).length}`);
 
   run(room, now, 1.2, walled);
-  // the arm reaches `far`: the rupture's own small hurt, Shaken, Guard stamina; never the decisive hit
+  // the arm reaches `far`: the rupture's own small hurt and Shaken; never the decisive hit
   assert.equal(decisive(room, 'far').length, 0);
   assert.equal(room.events.filter((e) => e.type === 'damage' && e.source === 'rupture' && e.victimId === 'far').length, 1);
   assert.ok(far.shaken, 'Shaken by the fissure');
-  assert.ok(far.guardStamina < 100);
+  assert.equal(far.guardStamina, 100, 'nor does its fracture');
   assert.ok(room.events.some((e) => e.type === 'oneHitFissure' && e.playerId === 'far'));
   // the one behind the pillar: the arm never reached them
   assert.equal(behind.health, 100);
@@ -598,7 +648,7 @@ test('Half Steel: +2, more Guard pressure, interrupts the struck, shrugs off ord
   assert.equal(room.events.filter((e) => e.type === 'damage' && e.victimId === 'b' && e.source !== 'one_hit_of_wonders').length, 0);
 });
 
-test('without Steel the wind-up is still broken by a stagger; a Guard pays 40, or 68 to a Steel-infused blow', () => {
+test('without Steel the wind-up is still broken by a stagger; a Guard pays its ordinary 40 whatever the blow carries', () => {
   {
     const { room, a } = battle();
     tryUltimate(room, 'a', 9); run(room, 9, .3);
@@ -606,12 +656,13 @@ test('without Steel the wind-up is still broken by a stagger; a Guard pays 40, o
     stepRoom(room, DT, 9.3 + DT, world);
     assert.equal(a.ultimateState, null, 'interrupted, as it always was');
   }
-  for (const [steel, cost] of [[0, 40], [1, 68]]) {
-    const { room, b } = battle({ tiers: { steel } });
+  for (const tiers of [{}, { steel: 1 }, { steel: 2 }, { fire: 2, frost: 2, gale: 2, lightning: 1, steel: 2 }]) {
+    const { room, b } = battle({ tiers });
     b.guarding = true; b.guardStartedAt = 0;
     slam(room);
     assert.equal(decisive(room, 'b').length, 0, 'guarded');
-    assert.equal(b.guardStamina, 100 - cost);
+    assert.equal(b.guardStamina, 60, `40, once: ${JSON.stringify(tiers)}`);
+    assert.equal(room.events.filter((e) => e.type === 'block' && e.oneHit).length, 1);
   }
 });
 
@@ -734,6 +785,245 @@ test('terrain: the field lies on its own level; a knight on a platform above it,
   assert.equal(behind.oneHitField, null, 'nor is the far side of a wall');
   assert.equal(above.oneHitFrostSlow, null); assert.equal(behind.oneHitFrostSlow, null);
   assert.equal(a.health, 100);
+});
+
+// --- the supplemental specification ----------------------------------------------------------------------------
+test('order: impact and Guard, the one decisive hit, then Shaken and the statuses, then the rupture, then the field', () => {
+  const { room, b } = battle({ tiers: { gale: 1, lightning: 1, steel: 1 } });
+  b.health = 1000;
+  // (watch the struck knight at the moment the damage event is written: nothing of the aftermath exists yet)
+  const seen = {};
+  const push = room.events.push.bind(room.events);
+  room.events.push = (...events) => {
+    for (const e of events) if (e.type === 'damage' && e.source === 'one_hit_of_wonders') Object.assign(seen, { shaken: Boolean(b.shaken), blustered: Boolean(b.blustered), conduct: Boolean(b.electricalBacklash), fields: room.oneHitFields.length, ruptures: room.ruptures?.length ?? 0 });
+    return push(...events);
+  };
+  slam(room);
+  assert.deepEqual(seen, { shaken: false, blustered: false, conduct: false, fields: 0, ruptures: 0 }, 'at the decisive hit: no status, no rupture, no field yet');
+  const order = (type, match = () => true) => room.events.findIndex((e) => e.type === type && match(e));
+  const hit = order('damage', (e) => e.source === 'one_hit_of_wonders');
+  assert.ok(hit >= 0 && hit < order('oneHitConduct') && hit < order('oneHitBlustered') && hit < order('actionInterrupted'), 'statuses after the hit');
+  assert.ok(order('oneHitBlustered') < order('rupture') && order('rupture') < order('oneHitImpact'), 'then the rupture, then the field (announced with the impact)');
+  assert.ok(b.shaken && room.oneHitFields.length === 1);
+  // the field charged nothing for the hit that made it
+  assert.equal(room.events.some((e) => e.type === 'oneHitFieldGuard'), false);
+  assert.equal(b.guardStamina, 100, 'an unguarded struck knight loses no Guard stamina to the blow, Steel or not');
+});
+
+test('the Shaken field: later HP damage inside it costs Guard stamina by its strength, on the damage actually taken, once', () => {
+  const { room, b } = battle();
+  // a field at exactly 60%: 20 HP taken inside it costs 12 Guard stamina
+  room.oneHitFields = [{ id: 'f', ownerId: 'a', position: { x: 0, y: 0, z: 0 }, radius: 3.4, bornAt: 8.4, until: 12.4, tiers: {}, conducted: {} }];
+  stepRoom(room, DT, 10, world);
+  assert.ok(Math.abs(b.oneHitField.strength - .6) < 1e-9);
+  applyDamage(room, 'a', 'b', 20, 'sword', 10);
+  assert.ok(Math.abs(b.guardStamina - 88) < 1e-9, `100 - 20 x 0.6 = ${b.guardStamina}`);
+  assert.equal(room.events.filter((e) => e.type === 'oneHitFieldGuard').length, 1);
+  // mitigated damage: what the plate turned aside costs nothing
+  b.steel = { calledAt: 9.9, fullUntil: 30, struck: true };
+  const before = b.guardStamina, health = b.health;
+  applyDamage(room, 'a', 'b', 30, 'gauntlet', 10);
+  const taken = health - b.health;
+  assert.ok(taken > 0 && taken < 30, `the plate turned some of it: ${taken} of 30`);
+  assert.ok(Math.abs(before - b.guardStamina - taken * .6) < 1e-9, 'stamina for the damage actually suffered');
+  // damage that takes no HP (spawn protection) costs nothing
+  b.spawnProtectionUntil = 99; const kept = b.guardStamina;
+  applyDamage(room, 'a', 'b', 20, 'sword', 10);
+  assert.equal(b.guardStamina, kept);
+});
+
+test('field lifetimes: four seconds and 0.3 more for each distinct element, Half or Full alike; every field decays across all of it', () => {
+  const sets = [{}, { gale: 1 }, { gale: 2, steel: 1 }, { fire: 2, frost: 1, steel: 2 }, { fire: 2, frost: 2, gale: 1, lightning: 1 }, { fire: 2, frost: 2, gale: 2, lightning: 1, steel: 2 }];
+  sets.forEach((tiers, count) => {
+    const expected = [4, 4.3, 4.6, 4.9, 5.2, 5.5][count];
+    assert.equal(distinctElements(tiers), count);
+    assert.ok(Math.abs(fieldSeconds(tiers) - expected) < 1e-9);
+    const { room, b } = battle({ tiers });
+    b.health = 1e6;
+    const now = slam(room);
+    const field = room.oneHitFields[0];
+    assert.ok(Math.abs(field.until - field.bornAt - expected) < 1e-9, `the baseline field ${JSON.stringify(tiers)}`);
+    for (const zone of room.oneHitBurnZones) assert.ok(Math.abs(zone.until - zone.bornAt - expected) < 1e-9, 'Full Fire\'s ground, the same');
+    assert.equal(room.oneHitBurnZones.length, tiers.fire === 2 ? 1 : 0, 'Half Fire makes no burning ground');
+    // decaying across the whole of it: half strength at half its life, still something just before the end
+    assert.ok(Math.abs(fieldStrength(field, field.bornAt + expected / 2) - .5) < 1e-9);
+    assert.ok(fieldStrength(field, field.bornAt + expected - .05) > 0 && fieldStrength(field, field.bornAt + expected - .05) < .02);
+    run(room, now, expected - .2);
+    assert.equal(room.oneHitFields.length, 1, 'still there just before');
+    run(room, now + expected - .2, .4);
+    assert.equal(room.oneHitFields.length, 0, 'gone just after');
+    assert.equal(room.oneHitBurnZones.length, 0);
+  });
+});
+
+test('Half Frost: the decisive contact stays open 0.3 s for a knight it has not met; never a second hit; Guard spends it once', () => {
+  const late = (frost, delay) => {
+    const { room, b } = battle({ tiers: frost ? { frost } : {} });
+    b.health = 1000;
+    const guard = add(room, 'guard', { x: 0, y: 0, z: 1.8 });
+    guard.yaw = 0; guard.input.yaw = 0; guard.guarding = true; guard.guardStartedAt = 0; // (faces -z: toward the caster)
+    const comer = add(room, 'comer', { x: 30, y: 0, z: 0 });
+    comer.health = 1000;
+    const now = slam(room);
+    const impactAt = room.events.find((e) => e.type === 'oneHitImpact').at;
+    run(room, now, Math.max(0, impactAt + delay - now));
+    comer.position = { x: -2, y: 0, z: 0 };
+    run(room, impactAt + delay, 1);
+    return { room, b, guard, comer };
+  };
+  const caught = late(1, .2);
+  assert.equal(decisive(caught.room, 'comer').length, 1, 'entering 0.2 s after the blow: caught by the same blow');
+  assert.equal(decisive(caught.room, 'comer')[0].amount, 57, 'its one decisive hit');
+  assert.ok(caught.comer.oneHitFrostSlow && caught.comer.shaken);
+  assert.equal(caught.room.events.filter((e) => e.type === 'oneHitLateContact').length, 1);
+  assert.equal(decisive(caught.room, 'b').length, 1, 'the knight it had already struck is not struck again');
+  assert.equal(caught.room.events.filter((e) => e.type === 'block' && e.oneHit).length, 1, 'a Guard that spent its contact is not asked again');
+  assert.ok(caught.guard.guardStamina >= 60 && caught.guard.guardStamina < 66, 'its 40, once (a little has come back since)');
+  assert.equal(caught.room.events.filter((e) => e.type === 'oneHitImpact').length, 1, 'one blow');
+  assert.equal(caught.room.events.filter((e) => e.type === 'rupture').length, 1);
+  assert.equal(caught.room.oneHitFields.length, 1, 'and one field');
+  assert.equal(decisive(late(1, .45).room, 'comer').length, 0, 'entering after 0.3 s: too late');
+  assert.equal(decisive(late(0, .1).room, 'comer').length, 0, 'without Frost the contact is the instant of the blow');
+  assert.equal(decisive(late(2, .2).room, 'comer').length, 1, 'Full Frost inherits it');
+});
+
+test('Flash Freeze holds; it does not interrupt: nothing is cancelled, nothing new begins, and it is not an Interrupted', () => {
+  const { room, a, b } = battle({ tiers: { frost: 2 } });
+  b.health = 1000; b.spell = 'fireball'; b.spellReadyAt = 0;
+  // b is gathering a Fireball as the blow lands
+  assert.equal(tryUltimate(room, 'a', 9), true);
+  const commit = a.ultimateState.commitAt;
+  run(room, 9, commit - 9 - .1);
+  assert.equal(tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, commit - .1), true);
+  const dueAt = b.castEndsAt;
+  let now = commit - .1;
+  while (now < commit + DT) { stepRoom(room, DT, now, world); now += DT; }
+  const frozenUntil = b.oneHitFrozenUntil;
+  assert.ok(frozenUntil > now && frozenUntil - commit <= .9 + DT);
+  assert.ok(b.pendingSpell, 'the gathering spell is still in the palm');
+  assert.equal(room.events.some((e) => e.type === 'actionInterrupted'), false, 'no Interrupted');
+  assert.equal(room.challengeFacts?.some?.((f) => f.type === 'swordChainInterrupted' || f.type === 'ultimateInterrupted') ?? false, false);
+  // while frozen: no turning, no moving of their own, nothing new
+  const facing = b.yaw, at = { ...b.position };
+  b.input = { ...b.input, yaw: facing + 2, forward: 1 };
+  b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 };
+  const mid = now + .3;
+  run(room, now, .3);
+  assert.equal(b.yaw, facing, 'cannot turn');
+  assert.ok(Math.hypot(b.position.x - at.x, b.position.z - at.z) < .9, 'does not walk (the blow\'s own shove aside)');
+  assert.equal(beginAttack(room, 'b', mid), false);
+  assert.equal(tryGauntletStrike(room, 'b', mid), false);
+  assert.equal(tryDash(room, 'b', { x: 1, z: 0 }, mid), false);
+  assert.equal(setGuard(room, 'b', true, mid), false);
+  b.prowess = PROWESS.full; b.ultimate = 'sunder';
+  assert.equal(tryUltimate(room, 'b', mid), false);
+  assert.equal(room.projectiles.size, 0, 'and the spell has not flown while they were held');
+  // it lets go: the spell flies, later than it would have by about as long as they were held
+  run(room, mid, 1.2);
+  const cast = room.events.find((e) => e.type === 'spellSpawn' || e.type === 'projectile' || e.type === 'spellFired' || e.type === 'spellRelease');
+  assert.ok(room.projectiles.size > 0 || cast || !b.pendingSpell, 'the held spell is loosed after the thaw, not lost');
+  assert.equal(b.pendingSpell, null);
+  assert.ok(room.events.some((e) => e.type !== 'spellCast' && /spell|projectile/i.test(e.type) && e.at >= frozenUntil - DT && e.at > dueAt + .5), `released after the ice let go (due ${dueAt.toFixed(2)}, thawed ${frozenUntil.toFixed(2)})`);
+  assert.equal(beginAttack(room, 'b', mid + 1.3), true, 'and they may act again');
+});
+
+test('Flash Freeze holds a sword chain where it was: the blow under way lands late, not never', () => {
+  const { room, b } = battle();
+  const c = add(room, 'c', { x: 3.6, y: 0, z: 0 }); // b's target, 1.8 m beyond b
+  c.health = 1000;
+  b.yaw = -Math.PI / 2; b.input.yaw = b.yaw; // faces +x: toward c
+  beginAttack(room, 'b', 10);
+  run(room, 10, .2);
+  b.oneHitFrozenUntil = 10.2 + .9; // (frozen a fifth of a second into the swing, before its contact at 0.4)
+  run(room, 10.2, .6);
+  assert.equal(room.events.some((e) => e.type === 'swordHit' && e.playerId === 'b'), false, 'held: the blow has not landed while frozen');
+  assert.equal(b.attackActive, true, 'and the chain is not broken');
+  run(room, 10.8, .8);
+  const hit = room.events.find((e) => e.type === 'swordHit' && e.playerId === 'b');
+  assert.ok(hit, 'it lands after the thaw');
+  assert.ok(hit.at > 11.1 && hit.at < 11.5, `about 0.9 s later than it would have: ${hit.at.toFixed(2)}`);
+});
+
+test('Gale with Fire: the shove is by where they stood, and the struck come down in the fire; alone, Gale throws them clear', () => {
+  const rest = (tiers, distance) => {
+    const { room, b } = battle({ tiers, at: { x: distance, y: 0, z: 0 } });
+    b.health = 1000;
+    const now = slam(room);
+    run(room, now, 3);
+    return { travelled: Math.hypot(b.position.x, b.position.z) - distance, at: Math.hypot(b.position.x, b.position.z) };
+  };
+  for (const gale of [1, 2]) for (const distance of [1, 2, 3, 4, 4.4]) {
+    const end = rest({ fire: 2, gale }, distance).at;
+    assert.ok(end <= ONE_HIT_REACH.fire.radius + .4, `Full Fire + Gale ${gale}: struck at ${distance} m rests at ${end.toFixed(2)} m, in or on the 4.6 m fire`);
+  }
+  const heart = rest({ fire: 2, gale: 1 }, 1).travelled, edge = rest({ fire: 2, gale: 1 }, 4.2).travelled;
+  assert.ok(heart > 1.2, `still thrown from the heart: ${heart.toFixed(2)} m`);
+  assert.ok(edge < heart / 3 && edge > 0, `far less at the edge: ${edge.toFixed(2)} m`);
+  assert.ok(rest({ gale: 1 }, 3).at > 4.6, 'Gale alone throws a knight at 3 m well out');
+  assert.ok(rest({ gale: 1 }, 3).travelled > rest({}, 3).travelled * 2, 'and much further than the plain blow');
+  // no barrier: a knight shoved toward a drop still goes over it
+  const ledge = { ...world, floors: [{ id: 'ledge', center: [0, -.1, 0], size: [9.2, .2, 9.2], y: 0 }] };
+  const { room, b } = battle({ tiers: { fire: 2, gale: 1 }, at: { x: 4.5, y: 0, z: 0 } });
+  b.health = 1000;
+  const now = slam(room, 9, ledge);
+  run(room, now, 2.5, ledge);
+  assert.ok(b.position.y < -1 || !b.alive, 'the edge of the world is still an edge');
+});
+
+test('aerial: Half Fire widens the wave on every side and ends it in an explosion that is the same decisive contact', () => {
+  const fly = (tiers, target, wall = true, height = 1.2) => {
+    const { room, a, b } = battle({ at: { x: 60, y: 0, z: 0 } });
+    const t = add(room, 't', target); t.health = 1000;
+    const w = wall ? { ...world, solids: [{ id: 'wall', center: [12, 2, 0], size: [.4, 8, 12] }] } : world;
+    room.oneHitWaves = [{ id: 'w', ownerId: 'a', position: { x: 2, y: height, z: 0 }, direction: { x: 1, y: 0, z: 0 }, tiers: { fire: 0, frost: 0, gale: 2, lightning: 0, steel: 0, ...tiers }, bornAt: 9, distance: 2, hitIds: [] }];
+    run(room, 9, 1.5, w);
+    return { room, t, hits: decisive(room, 't') };
+  };
+  // beside the wave's line: 1.3 m out is beyond the plain wave (0.9), inside Fire's (1.5); so is 1.3 m above it
+  assert.equal(fly({}, { x: 6, y: 0, z: 1.3 }).hits.length, 0);
+  assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 1.3 }).hits.length, 1, 'beside');
+  assert.equal(fly({ fire: 1 }, { x: 6, y: 1.3, z: 0 }).hits.length, 1, 'above');
+  assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 1, 'below (the wave passing 1.4 m over a knight\'s chest)');
+  assert.equal(fly({}, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 0, 'which the plain wave clears');
+  assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 2 }).hits.length, 0, 'not beyond it');
+  // where it ends (the wall at x = 11.8): 2.6 m from it is beyond the plain gust (2.2), inside Fire's explosion (3.0)
+  const plain = fly({ frost: 1 }, { x: 10.6, y: 0, z: 2.4 });
+  assert.equal(plain.hits.length, 0, 'the plain landing gust does not reach, and deals no HP when it does');
+  const blast = fly({ fire: 1, frost: 1, lightning: 1 }, { x: 10.6, y: 0, z: 2.4 });
+  assert.equal(blast.hits.length, 1, 'Fire\'s explosion: the one decisive hit for a knight the wave had not met');
+  assert.ok(blast.t.oneHitFrostSlow && blast.t.electricalBacklash && blast.t.shaken && blast.t.blustered, 'with everything the wave carries');
+  assert.equal(blast.t.burn, null);
+  assert.equal(blast.room.oneHitBurnZones.length, 0, 'Half Fire leaves nothing burning');
+  // a knight the moving wave already struck stands in the explosion too: not struck again
+  const both = fly({ fire: 2 }, { x: 10.4, y: 0, z: .2 });
+  assert.equal(both.hits.length, 1, 'wave and explosion share one registry');
+  assert.equal(both.room.oneHitBurnZones.length, 1, 'Full Fire: burning ground where it ended on the ground');
+  // ended in mid-air by its range: nothing left burning in the air
+  const air = fly({ fire: 2 }, { x: 40, y: 0, z: 0 }, false);
+  assert.equal(air.room.oneHitBurnZones.length, 0);
+});
+
+test('a fully infused wave: one decisive hit a victim, every status and Steel consequence once, across wave, explosion and Frost\'s longer contact', () => {
+  const { room } = battle({ at: { x: 60, y: 0, z: 0 } });
+  const tiers = { fire: 2, frost: 2, gale: 2, lightning: 2, steel: 2 };
+  const onLine = add(room, 'onLine', { x: 6, y: 0, z: 0 }), inBlast = add(room, 'inBlast', { x: 10.2, y: 0, z: 2.2 }), late = add(room, 'late', { x: 30, y: 0, z: 9 });
+  for (const k of [onLine, inBlast, late]) { k.health = 1000; k.spellReadyAt = 0; }
+  const w = { ...world, solids: [{ id: 'wall', center: [12, 2, 0], size: [.4, 8, 12] }] };
+  room.oneHitWaves = [{ id: 'w', ownerId: 'a', position: { x: 2, y: 1.2, z: 0 }, direction: { x: 1, y: 0, z: 0 }, tiers, bornAt: 9, distance: 2, hitIds: [] }];
+  let now = 9;
+  while (!room.events.some((e) => e.type === 'oneHitImpact')) { stepRoom(room, DT, now, w); now += DT; }
+  late.position = { x: 10.5, y: 0, z: -1.5 }; // walks into where it ended, a tenth of a second on
+  run(room, now + .1, 1.2, w);
+  for (const id of ['onLine', 'inBlast', 'late']) {
+    assert.equal(decisive(room, id).length, 1, `${id}: one decisive hit`);
+    for (const type of ['oneHitConduct', 'oneHitBlustered', 'oneHitCooldownsRestarted', 'actionInterrupted'])
+      assert.equal(room.events.filter((e) => e.type === type && e.playerId === id).length, 1, `${id}: ${type} once`);
+  }
+  assert.equal(room.events.filter((e) => e.type === 'oneHitImpact').length, 1);
+  assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no ground rupture from the air');
+  assert.equal(room.oneHitFields.length, 0, 'and no ground field');
+  assert.equal(room.oneHitBurnZones.length, 1);
+  assert.ok(Math.abs(room.oneHitBurnZones[0].until - room.oneHitBurnZones[0].bornAt - 5.5) < 1e-9);
 });
 
 // ---------------------------------------------------------------------------------------------------------------
