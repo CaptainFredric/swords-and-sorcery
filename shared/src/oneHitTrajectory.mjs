@@ -24,7 +24,15 @@ export function planOneHitTeleport({ origin, yaw, pitch, aerial, holdSec, world,
     const ground=oneHitWorldContact(origin,target,{floors:world.floors,ramps:world.ramps});
     if(ground)t=Math.min(t,Math.max(0,ground.t-.12/Math.max(rayLength,.01)));
   }
-  const end=oneHitAlong(origin,target,t);
+  let end=oneHitAlong(origin,target,t);
+  if(aerial&&((world.floors?.length??0)+(world.ramps?.length??0))>0){
+    // An aerial arrival must still be over the world: with no ground anywhere beneath it, the knight would only fall
+    // out of the arena. The aim is drawn back along its own line to the last point that has ground under it.
+    const supported=point=>surfaceHeightAt(point.x,point.z,point.y+.5,world)!==null;
+    const stepBack=.5/Math.max(rayLength,.01);
+    while(t>0&&!supported(end)){t=Math.max(0,t-stepBack);end=oneHitAlong(origin,target,t);}
+    if(!supported(end))return {end,legal:false};
+  }
   const resolved=resolvePlayerWorld(end,MOVEMENT.playerRadius,solids);
   if(Math.hypot(resolved.x-end.x,resolved.z-end.z)>.1 ||
     (edge&&!edgeInside(end,edge.center,edge.radius,MOVEMENT.playerRadius)))return {end,legal:false};

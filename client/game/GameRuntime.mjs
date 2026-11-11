@@ -69,6 +69,7 @@ import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRec
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
+import { frostSlowScale } from '../../shared/src/oneHitStatus.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -3894,7 +3895,8 @@ export class GameRuntime {
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
-      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow);
+      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow)
+        *frostSlowScale(this.localAuth.oneHitFrostSlow, serverNow); // (a Disaster's frost, as deep as the room says it is)
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       if (this.latestSnapshot?.objective) {

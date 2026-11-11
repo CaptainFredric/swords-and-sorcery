@@ -9,7 +9,7 @@
 //        [--hold 1.2] [--dummy PASSIVE|GUARDING|none] [--after 5] [--walk-in] [--strike-back] [--out dir] [--label x]
 //
 //   --hold        seconds the key is held (a Full Lightning aim is held this long; otherwise a tap)
-//   --strike-back the dummy is made to swing at the knight after the blow (Shocking Conduct discharging into it)
+//   --self-conduct the player's knight is given Shocking Conduct and swings at the dummy (its discharge into him)
 //   --walk-in     the dummy is stood outside the blow and walked into its field a second later
 //
 // Sheets need ImageMagick (magick); frames are kept either way.
@@ -93,24 +93,37 @@ try {
   await evaluate("window.__ssLink.practiceOneHit({ action: 'enabled', enabled: true })");
   await poll(() => evaluate(`(() => { const s = window.__ssRuntime.localAuth?.practiceOneHit?.stages ?? {}; return ${JSON.stringify(Object.entries(tiers))}.every(([k, v]) => (s[k] ?? 0) === v); })()`, 4000), 'stages set');
   if (dummyMode !== 'none') { await evaluate(`window.__ssLink.practiceSpawnDummy(${JSON.stringify(dummyMode)})`); await sleep(600); }
-  const distance = flag('--walk-in') ? 7 : form === 'aerial' ? 7 : 1.9;
-  await evaluate(`(() => {
-    const rt = window.__ssRuntime, link = window.__ssLink, me = rt.localAuth;
+  const distance = Number(option('--distance', flag('--walk-in') ? 7 : form === 'aerial' ? 7 : 1.9));
+  // the knight is turned to face down the longest stretch of real floor from where he stands (the yard's spawn is
+  // near an edge: a teleport or a shoved dummy must have ground to arrive on), the dummy stood on that line
+  await evaluate(`(async () => {
+    const { surfaceHeightAt } = await import('/shared/src/collision.mjs');
+    const rt = window.__ssRuntime, link = window.__ssLink, me = rt.localAuth, world = link.local.room.world;
+    let best = { yaw: 0, run: -1 };
+    for (let k = 0; k < 16; k += 1) {
+      const yaw = k * Math.PI / 8;
+      let run = 0;
+      while (run < 40 && surfaceHeightAt(me.position.x - Math.sin(yaw) * (run + 1), me.position.z - Math.cos(yaw) * (run + 1), me.position.y + 1, world) !== null
+        && Math.abs(surfaceHeightAt(me.position.x - Math.sin(yaw) * (run + 1), me.position.z - Math.cos(yaw) * (run + 1), me.position.y + 1, world) - me.position.y) < 0.3) run += 1;
+      if (run > best.run) best = { yaw, run };
+    }
+    const yaw = best.yaw, f = { x: -Math.sin(yaw), z: -Math.cos(yaw) }, r = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+    window.__yard = { yaw, f, r, run: best.run };
     const dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy');
+    rt.input.yaw = yaw; rt.input.pitch = ${Number(option('--pitch', form === 'aerial' ? '-0.6' : '0'))};
     if (dummy) {
-      link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x, y: me.position.y, z: me.position.z - ${distance} }, vitals: { refill: true } });
+      link.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x + f.x * ${distance}, y: me.position.y, z: me.position.z + f.z * ${distance} }, vitals: { refill: true } });
       link.stageInspectionActor({ actorId: dummy.id, position: 'face_target' });
     }
-    rt.input.yaw = 0; rt.input.pitch = ${form === 'aerial' ? -0.42 : 0};
-    link.stageInspectionActor({ actorId: rt.playerId, position: dummy ? 'face_target' : undefined });
     rt.setInspectionSplit(${size.split});
     const p = rt.localAuth.position;
-    // (off the knight's left shoulder and a little above, looking across him and the dummy)
-    const c = { x: p.x - 5.4, y: p.y + ${form === 'aerial' ? 3.8 : 2.2}, z: p.z + 1.6 };
-    const aim = { x: p.x, y: p.y + ${form === 'aerial' ? 3.2 : 0.7}, z: p.z - 1.0 };
+    // (off the knight's left and a little behind and above, looking across him and the dummy)
+    const c = { x: p.x - r.x * 5.4 - f.x * 1.6, y: p.y + ${form === 'aerial' ? 3.8 : 2.2}, z: p.z - r.z * 5.4 - f.z * 1.6 };
+    const aim = { x: p.x + f.x * 1.0, y: p.y + ${form === 'aerial' ? 3.2 : 0.7}, z: p.z + f.z * 1.0 };
     rt.flyPose = { position: c, yaw: Math.atan2(-(aim.x - c.x), -(aim.z - c.z)), pitch: Math.atan2(aim.y - c.y, Math.hypot(aim.x - c.x, aim.z - c.z)) };
     rt.syncInspection();
     rt.setInspectionUiMode(${size.mobile} ? 'gameplay' : 'clean');
+    return best;
   })()`);
   await cdp.send('Page.bringToFront');
   const centre = await evaluate("(() => { const b = window.__ssRuntime.renderer.domElement.getBoundingClientRect(); return { x: b.x + b.width * 0.25, y: b.y + b.height * 0.5 }; })()");
@@ -156,7 +169,10 @@ try {
     rec.startedAt = rt.socket.serverNow();
   })()`);
   await sleep(500);
-  if (form === 'aerial') { await evaluate("window.__ssLink.practiceOneHit({ action: 'aerial' })"); await sleep(250); }
+  if (form === 'aerial') {
+    await evaluate("window.__ssLink.practiceOneHit({ action: 'aerial' })");
+    await poll(() => evaluate('window.__ssRuntime.localAuth.grounded === false && window.__ssRuntime.localAuth.position.y > 3', 3000), 'lifted for the aerial form', 6000);
+  }
   if (flag('--incoming')) {
     // a real enemy Fireball thrown at the knight as the wind-up begins (Half Gale's wind is to turn it)
     await evaluate(`(async () => {
@@ -183,16 +199,29 @@ try {
     return cdp.send('Input.dispatchKeyEvent', { type: down ? 'rawKeyDown' : 'keyUp', key: 'r', code: 'KeyR', windowsVirtualKeyCode: 82 });
   };
   stage = 'press';
-  if (flag('--incoming')) await evaluate('window.__throw()');
-  await press(true);
-  await sleep(holdSec * 1000);
-  await press(false);
+  if (flag('--self-conduct')) {
+    // Shocking Conduct on the player's own knight (the status is staged on the room, as a struck knight would carry
+    // it; the swing is the real mouse button): his next blow that would land on the dummy shocks him instead
+    await evaluate(`(() => { const room = window.__ssLink.local.room, rt = window.__ssRuntime; const me = room.players.get(rt.playerId);
+      const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy');
+      me.electricalBacklash = { at: window.__ssLink.local.now(), initial: 12, sourceId: dummy.id };
+      room.events.push({ type: 'oneHitConduct', playerId: me.id, sourceId: dummy.id, initial: 12, at: window.__ssLink.local.now() }); })()`);
+    await sleep(1400);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...centre, button: 'left', buttons: 1, clickCount: 1 });
+    await sleep(700);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...centre, button: 'left', buttons: 0, clickCount: 1 });
+  } else {
+    if (flag('--incoming')) await evaluate('window.__throw()');
+    await press(true);
+    await sleep(holdSec * 1000);
+    await press(false);
+  }
   if (flag('--walk-in')) {
     // (the dummy, untouched by the blow, is stood in its field a second after it landed)
     await poll(() => evaluate("window.__disasterRun.events.some((e) => e.type === 'oneHitImpact')", 4000), 'impact', 8000);
     await sleep(1000);
     await evaluate(`(() => { const rt = window.__ssRuntime, me = rt.localAuth, dummy = rt.latestSnapshot.players.find((p) => p.actorKind === 'dummy');
-      window.__ssLink.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x + 0.4, y: me.position.y, z: me.position.z - 1.7 } }); })()`);
+      const y = window.__yard; window.__ssLink.stageInspectionActor({ actorId: dummy.id, position: { x: me.position.x + y.f.x * 1.7 + y.r.x * 0.4, y: me.position.y, z: me.position.z + y.f.z * 1.7 + y.r.z * 0.4 } }); })()`);
   }
   if (flag('--strike-back')) {
     // (the struck dummy, carrying the Conduct, swings at the knight: the sim's own attack, on the room)
@@ -202,8 +231,10 @@ try {
       const combat = await import('/shared/sim/combat.mjs');
       const room = window.__ssLink.local.room, rt = window.__ssRuntime;
       const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy'), me = room.players.get(rt.playerId);
-      dummy.position = { x: me.position.x, y: me.position.y, z: me.position.z - 1.7 }; dummy.velocity = { x: 0, y: 0, z: 0 };
-      dummy.yaw = Math.PI; dummy.input.yaw = Math.PI; dummy.staggerUntil = -Infinity; dummy.oneHitFrozenUntil = -Infinity;
+      const y = window.__yard;
+      // (stood a sword's length in front of the knight, facing him)
+      dummy.position = { x: me.position.x + y.f.x * 1.7, y: me.position.y, z: me.position.z + y.f.z * 1.7 }; dummy.velocity = { x: 0, y: 0, z: 0 };
+      dummy.yaw = y.yaw + Math.PI; dummy.input.yaw = dummy.yaw; dummy.staggerUntil = -Infinity; dummy.oneHitFrozenUntil = -Infinity;
       combat.beginAttack(room, dummy.id, window.__ssLink.local.now());
     })()`);
   }

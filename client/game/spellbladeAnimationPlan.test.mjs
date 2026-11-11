@@ -295,7 +295,9 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
   const aiming=plan(aim,30.3);
   assert.equal(aiming.clip,'AllNatural_Lightning_Charge_Ground');
   assert.ok(aiming.loop&&aiming.time<DISASTER_CLIPS.chargeGround.duration);
-  assert.equal(plan({...aim,grounded:false},30.3).clip,'AllNatural_Lightning_Charge_Air');
+  const airAim={...aim,grounded:false,ultimateState:{...aim.ultimateState,preparedTiers:{lightning:2,gale:2}}};
+  assert.equal(plan(airAim,30.3).clip,'AllNatural_Lightning_Charge_Air');
+  assert.equal(plan({...aim,grounded:false},30.3).clip,'AllNatural_Lightning_Charge_Ground','without Full Gale there is no aerial form: knocked into the air, it is still the ground aim');
   const arrived={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:31,until:32.65,teleportHoldAt:10,oneHit:{form:'ground',tiers:{lightning:2}}}};
   const arrival=plan(arrived,31);
   assert.equal(arrival.clip,'AllNatural_Lightning_Arrival_Slam');

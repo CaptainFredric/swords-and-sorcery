@@ -342,6 +342,18 @@ test('Half Gale: the wind of the wind-up turns an enemy spell aside once, keeps 
     assert.equal(a.health, 100);
     assert.equal(b.health, 100, 'and it is not thrown back at them as a hit of the knight\'s own');
   }
+  { // a real Fireball cast from point blank and from across the yard: both are turned, neither hurts
+    for (const distance of [1.9, 8]) {
+      const { room, a, b } = battle({ tiers: { gale: 1 }, at: { x: distance, y: 0, z: 0 } });
+      b.spell = 'fireball'; b.spellReadyAt = 0;
+      assert.equal(tryCastSpell(room, 'b', { x: -1, y: .02, z: 0 }, 9), true);
+      assert.equal(tryUltimate(room, 'a', 9), true);
+      run(room, 9, .8);
+      assert.equal(room.events.filter((e) => e.type === 'oneHitDeflect').length, 1, `turned from ${distance} m`);
+      assert.equal(a.health, 100, `unhurt from ${distance} m`);
+      assert.equal(room.events.some((e) => e.type === 'damage' && e.source === 'fireball' && e.victimId === 'a'), false);
+    }
+  }
   { // no Gale: nothing is turned
     const { room } = battle({ at: { x: 14, y: 0, z: 0 } });
     tryUltimate(room, 'a', 9); incoming(room);
@@ -395,6 +407,28 @@ test('Full Gale gathers, flies and waves as before; Full Gale + Full Lightning a
     assert.ok(hop.to.y > before.y + 2, `up: ${before.y} -> ${hop.to.y}`);
     assert.ok(hop.to.x > before.x + 2, 'and forward');
   }
+});
+
+test('the three-dimensional teleport never arrives over the void: an aim past the arena\'s edge is drawn back to the last supported point', () => {
+  const island = { ...world, floors: [{ id: 'island', center: [0, -.1, 0], size: [30, .2, 30], y: 0 }] };
+  const aim = (pitch, hold) => {
+    const { room, a } = battle({ tiers: { gale: 2, lightning: 2 }, at: { x: -10, y: 0, z: 10 } });
+    room.world = island;
+    a.position = { x: 0, y: 14, z: 0 }; a.grounded = false; a.velocity = { x: 0, y: 0, z: 0 };
+    a.input = { ...a.input, pitch }; a.pitch = pitch;
+    assert.equal(tryUltimate(room, 'a', 9, { held: true }), true);
+    for (let now = 9; now < 9 + hold; now += DT) stepRoom(room, DT, now, island);
+    releaseOneHitCharge(room, 'a', 9 + hold);
+    return { a, hop: room.events.find((e) => e.type === 'oneHitTeleport') };
+  };
+  // (a faces +x: the island's edge is 15 m that way)
+  const far = aim(.2, 3);
+  assert.ok(far.hop, 'still a teleport');
+  assert.ok(far.hop.to.x <= 15 + 1e-6 && far.hop.to.x > 12, `drawn back to the edge, not beyond it: x = ${far.hop.to.x}`);
+  assert.ok(far.hop.to.y > far.hop.from.y, 'still up where it was aimed');
+  assert.equal(far.a.alive, true);
+  const near = aim(.2, .4);
+  assert.ok(near.hop.to.x < 12 && near.hop.to.x > 3, 'a shorter aim inside the arena is untouched');
 });
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -3197,6 +3197,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if(room.soFistication)stepSiegeSteel(room,room.soFistication,nowSec);
   if (!room.freezeProjectiles) {
     const filterOwnerId = isOthersFreeze ? activeActorId : null;
+    // (a spell loosed this very tick from close by is inside a Disaster's wind before it has moved at all: the wind
+    // has its say first)
+    for (const knight of room.players.values())
+      if (knight.alive && knight.ultimateState?.id === 'one_hit_of_wonders') oneHitDefensiveWind(room, knight, nowSec);
     stepProjectiles(room, dt, nowSec, world, { filterOwnerId });
     stepFightFlightProjectiles(room,dt,nowSec,world,{filterOwnerId});
     if (room.biByeLlista) {

@@ -102,7 +102,8 @@ function disasterPlan(player, serverNow) {
   const action = player.ultimateState ?? {};
   const windup = disasterWindupSec(action);
   const tiers = action.oneHit?.tiers ?? action.preparedTiers ?? {};
-  const airborne = action.phase === 'active' ? action.oneHit?.form === 'aerial' : player.grounded === false;
+  // (only Full Gale has an aerial form: a grounded wind-up knocked off its feet for a moment is still the ground slam)
+  const airborne = action.phase === 'active' ? action.oneHit?.form === 'aerial' : player.grounded === false && (tiers.gale ?? 0) >= 2;
   // (the model without them: the plain heavy strike, wound up to its contact as before)
   const provisional = (time) => ({ requiredClip: true, fallback: 'Slash_3', fallbackTime: Math.max(0, Math.min(SLASH_DURATIONS[2] - .01, time)) });
   const authored = (entry, time, extra = {}) => ({
