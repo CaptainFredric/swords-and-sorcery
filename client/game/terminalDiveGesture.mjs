@@ -2,7 +2,7 @@
 // then a reversible crossbar. No polygonal halo or independent touch hitbox.
 // Waypoints follow the actual editable Flight buttons in game-layer space.
 export const RITUAL_UNIT=240; // legacy stencil adapter only
-export const RITUAL_TOLERANCE=39;
+export const RITUAL_TOLERANCE=52;
 export const RITUAL_TIMEOUT_MS=90000;
 export const RITUAL_HALO_STEPS=0; // kept for older diagnostics; the halo is gone
 export const VALKYRIE_RUNE_ACTIONS=Object.freeze(['jump','ultimate','dash','siegeSkill','jump']);
@@ -85,21 +85,41 @@ export function advanceValkyrieRitual(g,p,now){
   !Number.isFinite(now)||now-g.startedAt>RITUAL_TIMEOUT_MS)return null;
  let {points,variant}=g;
  if(g.index===6&&!variant&&g.reversePoints){
-  const delta=p.x-points[6][0];
-  if(Math.abs(delta)>8){
-   variant=delta<0?'left-first':'right-first';
-   if(variant==='left-first')points=g.reversePoints;
-  }
+   const delta=p.x-points[6][0];
+   if(Math.abs(delta)>8){
+     variant=delta<0?'left-first':'right-first';
+     if(variant==='left-first')points=g.reversePoints;
+   }
  }
- const a=points[g.index],b=points[g.index+1];
- if(!a||!b)return null;
- const dx=b[0]-a[0],dy=b[1]-a[1],lengthSq=dx*dx+dy*dy;
- if(lengthSq<1)return null;
- const t=clamp(((p.x-a[0])*dx+(p.y-a[1])*dy)/lengthSq,0,1);
- const deviation=Math.hypot(p.x-(a[0]+t*dx),p.y-(a[1]+t*dy));
- if(deviation>RITUAL_TOLERANCE*1.55||t+.13<g.segmentProgress)return null;
- let index=g.index,segmentProgress=Math.max(g.segmentProgress,t);
- if(t>=.90&&distance(p,b)<=RITUAL_TOLERANCE){index+=1;segmentProgress=0;}
+ const project=(i)=>{
+   const a=points[i],b=points[i+1];if(!a||!b)return null;
+   const dx=b[0]-a[0],dy=b[1]-a[1],sq=dx*dx+dy*dy;
+   if(sq<1)return null;
+   const t=clamp(((p.x-a[0])*dx+(p.y-a[1])*dy)/sq,0,1);
+   return {t,deviation:Math.hypot(p.x-a[0]-t*dx,p.y-a[1]-t*dy),
+     distanceToEnd:distance(p,b)};
+ };
+ let index=g.index,segmentProgress=g.segmentProgress??0;
+ let candidate=project(index);if(!candidate)return null;
+ const tolerance=RITUAL_TOLERANCE;
+ // At tight Dagaz intersections the thumb often turns onto the next stroke
+ // before being sampled exactly over the junction. Permit an adjacent-stroke
+ // handoff only after most of the CURRENT segment was traced. A finger cannot
+ // jump straight from Jump to a later rune checkpoint.
+ const adjacent=project(index+1);
+ const corner=points[index+1];
+ if(adjacent&&segmentProgress>=.58&&
+   adjacent.deviation<=tolerance&&
+   distance(p,corner)<=Math.max(1.55*tolerance,Math.hypot(
+     points[index+2][0]-corner[0],points[index+2][1]-corner[1])*.55)){
+   index++;segmentProgress=0;candidate=adjacent;
+ }
+ if(candidate.deviation>tolerance*1.4||
+   candidate.t+.28<segmentProgress)return null;
+ segmentProgress=Math.max(segmentProgress,candidate.t);
+ if(candidate.t>=.78&&candidate.distanceToEnd<=tolerance*1.28){
+   index++;segmentProgress=0;
+ }
  return {...g,points,variant,index,segmentProgress,
   completed:index===points.length-1,last:[p.x,p.y]};
 }
