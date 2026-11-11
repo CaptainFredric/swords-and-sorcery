@@ -9,7 +9,7 @@ import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
-import {FlightDashPresentation} from './flightDashPresentation.mjs';
+import {FlightDashPresentation,flightDashChasePose} from './flightDashPresentation.mjs';
 import {stableFlightCockpitEye,finiteFlightLook} from './flightCameraSafety.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
@@ -3563,12 +3563,11 @@ export class GameRuntime {
       const look=finiteFlightLook(this.input.yaw,this.input.pitch,m.heading);
       const anchor=new THREE.Vector3(m.x,m.y+1.5,m.z);
       const distance=5.5+dash.pullback;
-      // Preserve ordinary Dash's third-person aim: the boom and view both
-      // follow the reticle, while the heavy craft turns and pitches toward it
-      // at its own authoritative rate. Locking the view onto the chassis made
-      // looking up/down move the camera without actually looking up/down.
-      const third=new THREE.Vector3(m.x+Math.sin(look.yaw)*distance,
-        m.y+3.05-Math.sin(look.pitch)*distance,m.z+Math.cos(look.yaw)*distance);
+      // Aim and boom now share the same reticle frame in ordinary Dash and
+      // terminal flight. Machine heading/pitch follows that frame physically
+      // at its own rate, without locking the camera onto the fuselage.
+      const chase=flightDashChasePose(m,look,distance);
+      const third=new THREE.Vector3(chase.position.x,chase.position.y,chase.position.z);
       const target=eye.clone().lerp(third,blend);
       target.fromArray(clip(this.#reach,anchor.toArray(),target.toArray(),.3));
       // World collision clipping must not undo the cockpit's floor clearance,
@@ -3618,7 +3617,7 @@ export class GameRuntime {
         this.siegeCamera.position.copy(target); // blend already owns the transition, with final world clipping
         // Same camera orientation as held Dash, including true up/down
         // aim. Chassis pitch remains independently visible in the frame.
-        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(look.pitch,look.yaw,0,'YXZ'));
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(chase.pitch,chase.yaw,0,'YXZ'));
         this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
       }
       this.input.aimGain=1;return;
