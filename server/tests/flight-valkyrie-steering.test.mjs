@@ -439,16 +439,16 @@ test('The real 30Hz room loop retains Valkyrie angular momentum while banking an
   let previous=s.m.heading,nonzero=0;
   for(let i=0;i<24;i++){
     s.now+=DT;
+    const simulatedBefore=s.m.terminalDive.simulatedSec;
     stepRoom(s.room,DT,s.now,s.room.world);
+    const simulatedAdvance=s.m.terminalDive.simulatedSec-simulatedBefore;
     if(Math.abs(s.m.runTurnSpeed)>.05)nonzero++;
-    assert.ok(Math.abs(s.m.heading-previous)<.14,
-      'turning never teleports between ticks: '+JSON.stringify({
-        i,dt:DT,now:s.now,previous,heading:s.m.heading,
-        delta:s.m.heading-previous,runTurnSpeed:s.m.runTurnSpeed,
-        simulatedSec:s.m.terminalDive?.simulatedSec,
-        lastWallStepAt:s.m.terminalDive?.lastWallStepAt,
-        mode:s.m.mode,operatorId:s.m.operatorId,
-      }));
+    // The authoritative solo host may catch up multiple 30Hz physics steps
+    // in one wall-clock callback. Bound heading change by ACTUAL simulated
+    // time, not by one render/tick interval regardless of catch-up.
+    assert.ok(Math.abs(s.m.heading-previous)<=
+      VALKYRIE_RUN.turnRate*simulatedAdvance+.005,
+      'steering respects the Dash turn-rate bound across room catch-up');
     previous=s.m.heading;
   }
   assert.ok(nonzero>=15,'ordinary Dash update must not reset terminal turn speed each tick');
