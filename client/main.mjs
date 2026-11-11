@@ -2991,7 +2991,7 @@ async function chooseHighGroundsMachine(machine) {
   // Remote clients also auto-load from the authoritative snapshot.
   if (machine === 'fight-and-flight' || machine === 'so-fist-ication') {
     preparingHighGroundsMachine=true;
-    if (hgFoundryHint) hgFoundryHint.textContent='PREPARING AUTHORED SIEGE MACHINE…';
+    if (hgFoundryHint) hgFoundryHint.textContent='PREPARING SIEGE MACHINE…';
     for(const item of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) item.disabled=true;
     let loaded=false;
     try {
@@ -3034,7 +3034,7 @@ function updateHighGroundsHud(snapshot) {
   if(!view.visible){if(hgFoundryPicker)hgFoundryPicker.open=false;return;}
   hgFoundryState.textContent=view.status;
   if(hgFoundryHint)hgFoundryHint.textContent=preparingHighGroundsMachine
-    ? 'PREPARING AUTHORED SIEGE MACHINE…'
+    ? 'PREPARING SIEGE MACHINE…'
     : view.hint;
   for(const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]'))
     button.disabled=preparingHighGroundsMachine||Boolean(view.disabled?.[button.dataset.highGroundsMachine]);
