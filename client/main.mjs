@@ -1,4 +1,5 @@
 import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
+import { ONE_HIT_PRESETS } from '../shared/src/oneHitInfusions.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
 import { createRepeatActivation } from './menu/repeatActivation.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
@@ -2900,14 +2901,7 @@ practiceOneHit?.addEventListener('click',event=>{
   const button=event.target.closest?.('button');
   if(!button)return;
   if(button.dataset.oneHitPreset){
-    const values=({
-      simple:{fire:0,frost:0,gale:0,lightning:0},
-      reset:{fire:0,frost:0,gale:0,lightning:0},
-      partial:{fire:1,frost:1,gale:1,lightning:1},
-      full:{fire:2,frost:2,gale:2,lightning:2},
-      gale:{fire:0,frost:0,gale:2,lightning:0},
-      'gale-lightning':{fire:0,frost:0,gale:2,lightning:2},
-    })[button.dataset.oneHitPreset];
+    const values=({...ONE_HIT_PRESETS,reset:ONE_HIT_PRESETS.simple})[button.dataset.oneHitPreset];
     if(values)for(const [element,tier]of Object.entries(values))pendingOneHitTier(element,tier);
     practiceOneHitCommand({action:'preset',preset:button.dataset.oneHitPreset});
   }else if(button.dataset.oneHitAction){

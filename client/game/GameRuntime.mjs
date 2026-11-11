@@ -60,7 +60,7 @@ import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoin
 import {
   blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -69,6 +69,7 @@ import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRec
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
+import { frostSlowScale } from '../../shared/src/oneHitStatus.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -325,6 +326,7 @@ export class GameRuntime {
     };
     this.effects = new Effects(this.scene, this.camera);
     this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers,this.weapon);
+    this.oneHitEffects.elements.viewer = this.camera.position;
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -1557,7 +1559,7 @@ export class GameRuntime {
         this.hud.flashText('THE RIGHTFUL RENOWNER FALLS · SURRENDER','gold',2700);
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
-      this.oneHitEffects?.event(event);
+      this.oneHitEffects?.event(event,this.latestSnapshot);
       if(event.type==='edgeVoluntaryDismount'){
         // The knight chooses to leave: a brief, readable settled gesture
         // with no recorded dialogue, death camera or extra control lock.
@@ -1567,6 +1569,19 @@ export class GameRuntime {
       }
       if(event.type==='edgeSpellCollected'&&event.playerId===this.playerId)
         this.hud.flashText('SPELL FOUND · '+String(event.spell).toUpperCase(),'sunder',1050);
+      // what a Disaster leaves on me, said plainly as it happens (the elements show it on the knight for everyone)
+      if(event.type==='oneHitConduct'&&event.playerId===this.playerId)this.hud.flashText('SHOCKING CONDUCT · YOUR NEXT BLOW SHOCKS YOU','sunder',1500);
+      if(event.type==='oneHitBlustered'&&event.playerId===this.playerId)this.hud.flashText('BLUSTERED · YOU TURN SLOWLY','sunder',1400);
+      if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
+      if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
+      if(event.type==='oneHitLastStand'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS · 1 HP UNTIL THE BLOW IS DONE','gold',1700);
+      if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
+      if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
+        this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
+      if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
+        event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
+      if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
+        event.playerId===this.playerId?null:this.#bodyPosition(event.playerId),.6);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
         this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
@@ -3832,6 +3847,8 @@ export class GameRuntime {
       const wanted = this.inspectionFree || this.trialControlsLocked
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
         : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
+      // (Flash Freeze: held where I stand, as the room holds me; the look is still mine)
+      if (serverNow < (this.localAuth?.oneHitFrozenUntil ?? -Infinity)) Object.assign(wanted, { forward: 0, right: 0, jump: false, sprint: false });
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
@@ -3875,7 +3892,8 @@ export class GameRuntime {
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
-      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow);
+      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow)
+        *frostSlowScale(this.localAuth.oneHitFrostSlow, serverNow); // (a Disaster's frost, as deep as the room says it is)
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       if (this.latestSnapshot?.objective) {

@@ -1,0 +1,185 @@
+{
+ "device": "phone",
+ "form": "ground",
+ "tiers": {
+  "lightning": 2
+ },
+ "label": "phone-lightning2-ground-hold",
+ "renderFps": 60,
+ "stills": 143,
+ "videoBytes": 4674020,
+ "commitAt": 7.663399999991059,
+ "clips": [
+  {
+   "clip": "AllNatural_Lightning_Charge_Ground",
+   "from": 5.826
+  },
+  {
+   "clip": "AllNatural_Lightning_Arrival_Slam",
+   "from": 7.712
+  }
+ ],
+ "clipAtCommit": {
+  "clip": "AllNatural_Lightning_Charge_Ground",
+  "time": 0.445,
+  "lateBy": 0.016
+ },
+ "impact": {
+  "form": "ground",
+  "radius": 3.4,
+  "struck": []
+ },
+ "peakEffects": {
+  "glow": 29,
+  "rock": 55,
+  "smoke": 26,
+  "bolts": 14,
+  "fields": 1,
+  "ice": 0,
+  "fractures": 0
+ },
+ "effectsAtEnd": {
+  "glow": 0,
+  "rock": 0,
+  "smoke": 0,
+  "bolts": 0,
+  "fields": 0,
+  "fractures": 0,
+  "ice": 0
+ },
+ "dummyAtEnd": {
+  "health": 100,
+  "guard": 100,
+  "shaken": false,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0
+ },
+ "eventTypes": {
+  "groundStrike": 1,
+  "oneHitCommitted": 1,
+  "oneHitImpact": 1,
+  "oneHitTeleport": 1,
+  "rupture": 1,
+  "ultimateActive": 1,
+  "ultimateEnded": 1,
+  "ultimateStart": 1
+ },
+ "decisive": [],
+ "decisiveVictims": 0,
+ "worstFrameGapMs": 32,
+ "pageErrors": [],
+ "events": [
+  {
+   "type": "ultimateStart",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "ultimate": "one_hit_of_wonders",
+   "commitAt": 3600005.6323,
+   "preparedTiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 0,
+    "lightning": 2,
+    "steel": 0
+   },
+   "at": 5.63229999999702
+  },
+  {
+   "type": "oneHitTeleport",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "from": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "to": {
+    "x": 12.58,
+    "y": 0,
+    "z": 3.2
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 0,
+    "lightning": 2,
+    "steel": 0
+   },
+   "at": 7.663399999991059
+  },
+  {
+   "type": "groundStrike",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "strikeIndex": 2,
+   "point": {
+    "x": 12.58,
+    "y": 0,
+    "z": 3.2
+   },
+   "at": 7.663399999991059
+  },
+  {
+   "type": "rupture",
+   "id": "r1",
+   "ownerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "origin": {
+    "x": 12.58,
+    "y": 0,
+    "z": 3.2
+   },
+   "speed": 8.5,
+   "fissures": 4,
+   "at": 7.663399999991059
+  },
+  {
+   "type": "oneHitImpact",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "point": {
+    "x": 12.58,
+    "y": 0,
+    "z": 3.2
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 0,
+    "lightning": 2,
+    "steel": 0
+   },
+   "form": "ground",
+   "radius": 3.4,
+   "height": 2.6,
+   "struck": [],
+   "fieldId": "oh-field:0a01c3d5-514e-438f-98f1-4f6e5faa4727:7.663399999991059",
+   "at": 7.663399999991059
+  },
+  {
+   "type": "oneHitCommitted",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 0,
+    "lightning": 2,
+    "steel": 0
+   },
+   "form": "ground",
+   "at": 7.663399999991059
+  },
+  {
+   "type": "ultimateActive",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "ultimate": "one_hit_of_wonders",
+   "until": 9.31339999999106,
+   "at": 7.663399999991059
+  },
+  {
+   "type": "ultimateEnded",
+   "playerId": "0a01c3d5-514e-438f-98f1-4f6e5faa4727",
+   "ultimate": "one_hit_of_wonders",
+   "recoverUntil": 9.696799999997019,
+   "dizzyUntil": 9.34679999999702,
+   "at": 9.34679999999702
+  }
+ ]
+}

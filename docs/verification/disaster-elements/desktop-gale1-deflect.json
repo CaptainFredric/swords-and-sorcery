@@ -1,0 +1,213 @@
+{
+ "device": "desktop",
+ "form": "ground",
+ "tiers": {
+  "gale": 1
+ },
+ "label": "desktop-gale1-deflect",
+ "renderFps": 60,
+ "stills": 111,
+ "videoBytes": 2992528,
+ "commitAt": 7.910600000008941,
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 6.475
+  },
+  {
+   "clip": "AllNatural_Ground_DualSpin_Slam",
+   "from": 6.998
+  },
+  {
+   "clip": "Idle",
+   "from": 9.573
+  }
+ ],
+ "clipAtCommit": {
+  "clip": "AllNatural_Ground_DualSpin_Slam",
+  "time": 0.887,
+  "lateBy": 0.031
+ },
+ "impact": {
+  "form": "ground",
+  "radius": 3.4,
+  "struck": [
+   "practice-dummy-ERKH8"
+  ]
+ },
+ "peakEffects": {
+  "glow": 55,
+  "rock": 44,
+  "smoke": 27,
+  "bolts": 0,
+  "fields": 1,
+  "ice": 0,
+  "fractures": 0
+ },
+ "effectsAtEnd": {
+  "glow": 0,
+  "rock": 2,
+  "smoke": 1,
+  "bolts": 0,
+  "fields": 1,
+  "fractures": 0,
+  "ice": 0
+ },
+ "dummyAtEnd": {
+  "health": 53,
+  "guard": 100,
+  "shaken": true,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0.040697674418604834
+ },
+ "eventTypes": {
+  "damage:one_hit_of_wonders": 1,
+  "groundStrike": 1,
+  "oneHitBlustered": 1,
+  "oneHitCommitted": 1,
+  "oneHitDeflect": 1,
+  "oneHitImpact": 1,
+  "rupture": 1,
+  "ultimateActive": 1,
+  "ultimateEnded": 1,
+  "ultimateStart": 1
+ },
+ "decisive": [
+  47
+ ],
+ "decisiveVictims": 1,
+ "worstFrameGapMs": 35,
+ "pageErrors": [],
+ "events": [
+  {
+   "type": "ultimateStart",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "ultimate": "one_hit_of_wonders",
+   "commitAt": 7.88470000000298,
+   "preparedTiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "at": 6.96470000000298
+  },
+  {
+   "type": "oneHitDeflect",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "projectileId": "f1",
+   "ownerId": "practice-dummy-ERKH8",
+   "point": {
+    "x": -4.89,
+    "y": 1.25,
+    "z": -4.04
+   },
+   "velocity": {
+    "x": 15.44,
+    "y": 17.23,
+    "z": 6.39
+   },
+   "at": 7.284600000008941
+  },
+  {
+   "type": "damage",
+   "attackerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "victimId": "practice-dummy-ERKH8",
+   "source": "one_hit_of_wonders",
+   "amount": 47,
+   "health": 53,
+   "push": {
+    "x": 7.85,
+    "y": 0.6,
+    "z": 3.25
+   },
+   "at": 7.910600000008941,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBlustered",
+   "playerId": "practice-dummy-ERKH8",
+   "sourceId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "at": 7.910600000008941
+  },
+  {
+   "type": "groundStrike",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "strikeIndex": 2,
+   "point": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "at": 7.910600000008941
+  },
+  {
+   "type": "rupture",
+   "id": "r1",
+   "ownerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "origin": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "speed": 8.5,
+   "fissures": 4,
+   "at": 7.910600000008941
+  },
+  {
+   "type": "oneHitImpact",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "point": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "form": "ground",
+   "radius": 3.4,
+   "height": 2.6,
+   "struck": [
+    "practice-dummy-ERKH8"
+   ],
+   "fieldId": "oh-field:1c51fcdc-0edc-440a-9228-e4e9562649a2:7.910600000008941",
+   "at": 7.910600000008941
+  },
+  {
+   "type": "oneHitCommitted",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "form": "ground",
+   "at": 7.910600000008941
+  },
+  {
+   "type": "ultimateActive",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "ultimate": "one_hit_of_wonders",
+   "until": 9.53470000000298,
+   "at": 7.910600000008941
+  },
+  {
+   "type": "ultimateEnded",
+   "playerId": "1c51fcdc-0edc-440a-9228-e4e9562649a2",
+   "ultimate": "one_hit_of_wonders",
+   "recoverUntil": 9.91040000000596,
+   "dizzyUntil": 9.560400000005961,
+   "at": 9.560400000005961
+  }
+ ]
+}

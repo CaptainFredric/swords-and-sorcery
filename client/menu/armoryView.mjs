@@ -79,8 +79,9 @@ const SPELL_WORDS = Object.freeze({
 // and each ultimate (player-facing category: MASTERSTROKE)
 const ULTIMATE_WORDS = Object.freeze({
   one_hit_of_wonders: {
-    mark: '✦', line: 'A committed sword slam that fractures the ground. Earn Fire, Frost, Gale and Lightning infusions through separate spell encounters.',
-    facts: () => `${ONE_HIT_BASE_DAMAGE} PHYSICAL · +${ONE_HIT_FIRST_INFUSION_DAMAGE.fire} FIRE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.frost} FROST · +${ONE_HIT_FIRST_INFUSION_DAMAGE.gale} GALE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.lightning} LIGHTNING · FULL GALE: AERIAL · FULL LIGHTNING: BLINK`,
+    // (main's words and its figures-from-the-rules form, with the fifth infusion and what each element now does)
+    mark: '✦', line: 'A committed sword slam that fractures the ground. Earn Fire, Frost, Gale and Lightning infusions through separate spell encounters, and Steel by wearing Sheathe in Steel through unbroken.',
+    facts: () => `${ONE_HIT_BASE_DAMAGE} PHYSICAL · +${ONE_HIT_FIRST_INFUSION_DAMAGE.fire} FIRE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.frost} FROST · +${ONE_HIT_FIRST_INFUSION_DAMAGE.gale} GALE · +${ONE_HIT_FIRST_INFUSION_DAMAGE.lightning} LIGHTNING · +${ONE_HIT_FIRST_INFUSION_DAMAGE.steel} STEEL · FIRE: WIDER BLAST · FROST: SLOW · GALE: SHOVE · LIGHTNING: SHOCK · STEEL: INTERRUPT · FULL FIRE: BURNING GROUND · FULL FROST: FREEZE · FULL GALE: AERIAL · FULL LIGHTNING: BLINK · FULL STEEL: 1 HP GUARD`,
     lore: 'Simple Sunder evidently did not account for the elements. The oversight has been corrected at considerable expense to the surrounding ground.',
   },
   sunder: {

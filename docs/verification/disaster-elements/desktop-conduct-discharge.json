@@ -1,0 +1,127 @@
+{
+ "device": "desktop",
+ "form": "ground",
+ "tiers": {},
+ "label": "desktop-conduct-discharge",
+ "renderFps": 60,
+ "stills": 92,
+ "videoBytes": 3516551,
+ "commitAt": null,
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 6.74
+  },
+  {
+   "clip": "Slash_1",
+   "from": 8.672
+  },
+  {
+   "clip": "Idle",
+   "from": 9.055
+  },
+  {
+   "clip": "Slash_1",
+   "from": 9.389
+  },
+  {
+   "clip": "Idle",
+   "from": 10.389
+  }
+ ],
+ "clipAtCommit": null,
+ "impact": null,
+ "peakEffects": {
+  "glow": 31,
+  "rock": 0,
+  "smoke": 0,
+  "bolts": 9,
+  "fields": 0,
+  "ice": 0,
+  "fractures": 0
+ },
+ "effectsAtEnd": {
+  "glow": 0,
+  "rock": 0,
+  "smoke": 0,
+  "bolts": 0,
+  "fields": 0,
+  "fractures": 0,
+  "ice": 0
+ },
+ "dummyAtEnd": {
+  "health": 76,
+  "guard": 100,
+  "shaken": false,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0
+ },
+ "eventTypes": {
+  "damage:electrical_backlash": 1,
+  "oneHitBacklash": 1,
+  "oneHitConduct": 1,
+  "swordHit": 1
+ },
+ "decisive": [],
+ "decisiveVictims": 0,
+ "worstFrameGapMs": 24,
+ "pageErrors": [],
+ "events": [
+  {
+   "type": "oneHitConduct",
+   "playerId": "bb3c0b63-3ce1-408e-8775-b3edbf3aac4f",
+   "sourceId": "practice-dummy-CTMN4",
+   "initial": 12,
+   "at": 7.237
+  },
+  {
+   "type": "damage",
+   "attackerId": "practice-dummy-CTMN4",
+   "victimId": "bb3c0b63-3ce1-408e-8775-b3edbf3aac4f",
+   "source": "electrical_backlash",
+   "amount": 6.5961000000089385,
+   "health": 93.40389999999107,
+   "push": null,
+   "at": 9.03829999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBacklash",
+   "attackerId": "practice-dummy-CTMN4",
+   "victimId": "bb3c0b63-3ce1-408e-8775-b3edbf3aac4f",
+   "sparedId": "practice-dummy-CTMN4",
+   "amount": 6.5961000000089385,
+   "strikeIndex": 0,
+   "kind": 0,
+   "at": 9.03829999999702
+  },
+  {
+   "type": "swordHit",
+   "playerId": "bb3c0b63-3ce1-408e-8775-b3edbf3aac4f",
+   "targetId": "practice-dummy-CTMN4",
+   "strikeIndex": 0,
+   "kind": 0,
+   "heat": {
+    "along": 1.828,
+    "reach": 0.732,
+    "dt": -0.02,
+    "qReach": 0.994,
+    "qPhase": 0.852,
+    "qAngle": 0.392
+   },
+   "judged": 0.4684735866659972,
+   "quality": 0.4684735866659972,
+   "impact": 0,
+   "steel": 0,
+   "point": {
+    "x": -4.58,
+    "y": 1.46,
+    "z": -3.36
+   },
+   "at": 9.7635
+  }
+ ]
+}

@@ -21,7 +21,9 @@ test('zero, partial and full tiers have exactly one direct damage contribution p
  assert.equal(oneHitDamage({}),GAME.swordElevated+RUPTURE.damage,'simple Disaster matches one Sunder strike and its rupture');
  assert.equal(oneHitDamage({fire:1}),59);
  assert.equal(oneHitDamage({fire:2}),59);
- assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
+ assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),83,'Gale adds 1, the least a gust deals, not its 8-point heart');
+ assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2,steel:2}),85);
+ assert.equal(oneHitDamage({steel:1}),48);
 });
 test('airborne requires full Gale and cannot switch forms just from a Frost or Fire infusion',()=>{
  assert.equal(oneHitForm(false,emptyInfusions()),null);
@@ -31,11 +33,11 @@ test('airborne requires full Gale and cannot switch forms just from a Frost or F
 });
 test('commit consumes match infusions but preserves infinite Practice preset',()=>{
  const p={oneHitInfusions:{fire:2,frost:1,gale:0,lightning:0}};
- assert.deepEqual(oneHitCommit(p),{fire:2,frost:1,gale:0,lightning:0});
+ assert.deepEqual(oneHitCommit(p),{fire:2,frost:1,gale:0,lightning:0,steel:0});
  assert.deepEqual(p.oneHitInfusions,emptyInfusions());
  p.practiceOneHit={enabled:true,stages:ONE_HIT_PRESETS['gale-lightning']};
- assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2});
- assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2});
+ assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2,steel:0});
+ assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2,steel:0});
 });
 test('Shaken reduces sprint benefit instead of slowing normal walking',()=>{
  const target={};applyOneHitShaken(target,10,1);
@@ -56,5 +58,5 @@ test('teleport reach grows forever, with diminishing increments',()=>{
  assert.ok(oneHitTeleportDistance(100)>oneHitTeleportDistance(10));
 });
 test('untrusted practice values clamp to tier 0..2',()=>{
- assert.deepEqual(normalizeInfusions({fire:91,frost:-9,gale:1.9,lightning:'x'}),{fire:2,frost:0,gale:1,lightning:0});
+ assert.deepEqual(normalizeInfusions({fire:91,frost:-9,gale:1.9,lightning:'x'}),{fire:2,frost:0,gale:1,lightning:0,steel:0});
 });

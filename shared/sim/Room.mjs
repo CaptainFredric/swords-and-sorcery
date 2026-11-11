@@ -89,6 +89,8 @@ function freshCombatState(spawn, nowSec = 0) {
     shaken: null,
     electricalBacklash: null,
     oneHitFrostSlow: null,
+    blustered: null,
+    oneHitField: null,
     ultimateLockedUntil: -Infinity,
     recoverUntil: -Infinity,
     dizzyUntil: -Infinity,
@@ -152,6 +154,7 @@ export class Room {
     this.projectiles = new Map();
     this.oneHitWaves = [];
     this.oneHitBurnZones = [];
+    this.oneHitFields = [];
     this.lineConductWires = [];
     this.ruptures = [];
     this.events = [];

@@ -1,0 +1,955 @@
+{
+ "device": "desktop",
+ "form": "ground",
+ "tiers": {
+  "fire": 2,
+  "gale": 1,
+  "frost": 2
+ },
+ "label": "desktop-fire2-gale1-frost2-multi",
+ "renderFps": 59.9,
+ "stills": 135,
+ "videoBytes": 4353172,
+ "commitAt": 8.18320000000298,
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 6.74
+  },
+  {
+   "clip": "AllNatural_Ground_DualSpin_Slam",
+   "from": 7.274
+  },
+  {
+   "clip": "Idle",
+   "from": 9.842
+  }
+ ],
+ "clipAtCommit": {
+  "clip": "AllNatural_Ground_DualSpin_Slam",
+  "time": 0.886,
+  "lateBy": 0.041
+ },
+ "impact": {
+  "form": "ground",
+  "radius": 4.6,
+  "struck": [
+   "practice-dummy-ZNSG5",
+   "capture-dummy-0",
+   "capture-dummy-1",
+   "capture-dummy-2"
+  ]
+ },
+ "peakEffects": {
+  "glow": 480,
+  "rock": 82,
+  "smoke": 47,
+  "bolts": 0,
+  "fields": 1,
+  "ice": 1,
+  "fractures": 0
+ },
+ "effectsAtEnd": {
+  "glow": 0,
+  "rock": 0,
+  "smoke": 3,
+  "bolts": 0,
+  "fields": 0,
+  "fractures": 0,
+  "ice": 0
+ },
+ "dummyAtEnd": {
+  "health": 15,
+  "guard": 95.67881632652208,
+  "shaken": false,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0
+ },
+ "eventTypes": {
+  "damage:one_hit_ground_fire": 36,
+  "damage:one_hit_of_wonders": 4,
+  "groundStrike": 1,
+  "oneHitBlustered": 4,
+  "oneHitCommitted": 1,
+  "oneHitFieldGuard": 36,
+  "oneHitImpact": 1,
+  "rupture": 1,
+  "ultimateActive": 1,
+  "ultimateEnded": 1,
+  "ultimateStart": 1
+ },
+ "decisive": [
+  71,
+  71,
+  71,
+  71
+ ],
+ "decisiveVictims": 4,
+ "worstFrameGapMs": 48,
+ "pageErrors": [],
+ "events": [
+  {
+   "type": "ultimateStart",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "ultimate": "one_hit_of_wonders",
+   "commitAt": 8.1615,
+   "preparedTiers": {
+    "fire": 2,
+    "frost": 2,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "at": 7.2415
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_of_wonders",
+   "amount": 71,
+   "health": 29,
+   "push": {
+    "x": 4.93,
+    "y": 0.6,
+    "z": 2.04
+   },
+   "at": 8.18320000000298,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBlustered",
+   "playerId": "practice-dummy-ZNSG5",
+   "sourceId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_of_wonders",
+   "amount": 71,
+   "health": 29,
+   "push": {
+    "x": 1.93,
+    "y": 0.6,
+    "z": 1.39
+   },
+   "at": 8.18320000000298,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBlustered",
+   "playerId": "capture-dummy-0",
+   "sourceId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_of_wonders",
+   "amount": 71,
+   "health": 29,
+   "push": {
+    "x": 1.57,
+    "y": 0.6,
+    "z": -0.47
+   },
+   "at": 8.18320000000298,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBlustered",
+   "playerId": "capture-dummy-1",
+   "sourceId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_of_wonders",
+   "amount": 71,
+   "health": 29,
+   "push": {
+    "x": 0.29,
+    "y": 0.6,
+    "z": 4.03
+   },
+   "at": 8.18320000000298,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitBlustered",
+   "playerId": "capture-dummy-2",
+   "sourceId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "groundStrike",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "strikeIndex": 2,
+   "point": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "at": 8.18320000000298
+  },
+  {
+   "type": "rupture",
+   "id": "r1",
+   "ownerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "origin": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "speed": 8.5,
+   "fissures": 4,
+   "at": 8.18320000000298
+  },
+  {
+   "type": "oneHitImpact",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "point": {
+    "x": -6,
+    "y": 0,
+    "z": -4.5
+   },
+   "tiers": {
+    "fire": 2,
+    "frost": 2,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "form": "ground",
+   "radius": 4.6,
+   "height": 3.5,
+   "struck": [
+    "practice-dummy-ZNSG5",
+    "capture-dummy-0",
+    "capture-dummy-1",
+    "capture-dummy-2"
+   ],
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "oneHitCommitted",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "tiers": {
+    "fire": 2,
+    "frost": 2,
+    "gale": 1,
+    "lightning": 0,
+    "steel": 0
+   },
+   "form": "ground",
+   "at": 8.18320000000298
+  },
+  {
+   "type": "ultimateActive",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "ultimate": "one_hit_of_wonders",
+   "until": 9.8115,
+   "at": 8.18320000000298
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 2.7,
+   "at": 8.71120000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 3,
+   "health": 26,
+   "push": null,
+   "at": 8.71120000000298,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 2.7,
+   "at": 8.71120000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 3,
+   "health": 26,
+   "push": null,
+   "at": 8.71120000000298,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 2.7,
+   "at": 8.71120000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 3,
+   "health": 26,
+   "push": null,
+   "at": 8.71120000000298,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 2.7,
+   "at": 8.71120000000298
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 3,
+   "health": 26,
+   "push": null,
+   "at": 8.71120000000298,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.6,
+   "at": 9.20690000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 24,
+   "push": null,
+   "at": 9.20690000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.6,
+   "at": 9.20690000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 24,
+   "push": null,
+   "at": 9.20690000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.6,
+   "at": 9.20690000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 24,
+   "push": null,
+   "at": 9.20690000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.6,
+   "at": 9.20690000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 24,
+   "push": null,
+   "at": 9.20690000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.4,
+   "at": 9.701400000005961
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 22,
+   "push": null,
+   "at": 9.701400000005961,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.4,
+   "at": 9.701400000005961
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 22,
+   "push": null,
+   "at": 9.701400000005961,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.4,
+   "at": 9.701400000005961
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 22,
+   "push": null,
+   "at": 9.701400000005961,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.4,
+   "at": 9.701400000005961
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 22,
+   "push": null,
+   "at": 9.701400000005961,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "ultimateEnded",
+   "playerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "ultimate": "one_hit_of_wonders",
+   "recoverUntil": 10.183799999997019,
+   "dizzyUntil": 9.83379999999702,
+   "at": 9.83379999999702
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.2,
+   "at": 10.19709999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 20,
+   "push": null,
+   "at": 10.19709999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.2,
+   "at": 10.19709999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 20,
+   "push": null,
+   "at": 10.19709999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.2,
+   "at": 10.19709999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 20,
+   "push": null,
+   "at": 10.19709999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 1.2,
+   "at": 10.19709999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 2,
+   "health": 20,
+   "push": null,
+   "at": 10.19709999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.5,
+   "at": 10.69129999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 19,
+   "push": null,
+   "at": 10.69129999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.5,
+   "at": 10.69129999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 19,
+   "push": null,
+   "at": 10.69129999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.5,
+   "at": 10.69129999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 19,
+   "push": null,
+   "at": 10.69129999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.5,
+   "at": 10.69129999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 19,
+   "push": null,
+   "at": 10.69129999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.4,
+   "at": 11.18979999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 18,
+   "push": null,
+   "at": 11.18979999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.4,
+   "at": 11.18979999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 18,
+   "push": null,
+   "at": 11.18979999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.4,
+   "at": 11.18979999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 18,
+   "push": null,
+   "at": 11.18979999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.4,
+   "at": 11.18979999999702
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 18,
+   "push": null,
+   "at": 11.18979999999702,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.3,
+   "at": 11.71459999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 17,
+   "push": null,
+   "at": 11.71459999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.3,
+   "at": 11.71459999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 17,
+   "push": null,
+   "at": 11.71459999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.3,
+   "at": 11.71459999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 17,
+   "push": null,
+   "at": 11.71459999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.3,
+   "at": 11.71459999999404
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 17,
+   "push": null,
+   "at": 11.71459999999404,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.2,
+   "at": 12.20940000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 16,
+   "push": null,
+   "at": 12.20940000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.2,
+   "at": 12.20940000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 16,
+   "push": null,
+   "at": 12.20940000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.2,
+   "at": 12.20940000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 16,
+   "push": null,
+   "at": 12.20940000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.2,
+   "at": 12.20940000000596
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 16,
+   "push": null,
+   "at": 12.20940000000596,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "practice-dummy-ZNSG5",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.1,
+   "at": 12.705700000002981
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "practice-dummy-ZNSG5",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 15,
+   "push": null,
+   "at": 12.705700000002981,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-0",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.1,
+   "at": 12.705700000002981
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-0",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 15,
+   "push": null,
+   "at": 12.705700000002981,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-1",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.1,
+   "at": 12.705700000002981
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-1",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 15,
+   "push": null,
+   "at": 12.705700000002981,
+   "ongoing": true,
+   "ultimate": true
+  },
+  {
+   "type": "oneHitFieldGuard",
+   "playerId": "capture-dummy-2",
+   "fieldId": "oh-field:cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6:8.18320000000298",
+   "amount": 0.1,
+   "at": 12.705700000002981
+  },
+  {
+   "type": "damage",
+   "attackerId": "cdc5caae-8dfb-4ef5-ae9b-ed69a66e05a6",
+   "victimId": "capture-dummy-2",
+   "source": "one_hit_ground_fire",
+   "amount": 1,
+   "health": 15,
+   "push": null,
+   "at": 12.705700000002981,
+   "ongoing": true,
+   "ultimate": true
+  }
+ ]
+}

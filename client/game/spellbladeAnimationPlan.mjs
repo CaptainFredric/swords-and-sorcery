@@ -73,6 +73,73 @@ function attackPlan(player, serverNow, { guarded = false } = {}) {
   return fixed('Slash_3', cycle - SLASH_DURATIONS[0] - SLASH_DURATIONS[1]);
 }
 
+// All-Natural Disaster's authored clips (spellblade.glb), and where in each the blow lands: the moment the authored
+// blade reaches the ground (its tip crossing the floor), measured from the shipped GLB (the test measures it again):
+//   ground:  two turns of the whole body with the sword low, a rise overhead, and the slam: the blade meets the
+//            ground 0.85 s in and is driven on into it (the ordinary wind-up is 0.92 s: the clip waits its first
+//            frame out for the difference);
+//   fast:    one turn and the slam, blade down 0.33 s in, for Half Lightning's 0.36 s wind-up;
+//   arrival: the slam alone, for the instant strike out of a Full Lightning teleport: joined where its blade lands;
+//   aerial:  two turns in the air and the cut that throws the wave, 0.85 s in (the aerial form's own delay);
+//   the two charges: the held aim, on the ground (blade planted) and in the air.
+// These are Argon's clips as delivered. The blade is driven well into the floor at each slam and rides below it
+// through the ground spins (docs/verification/refinement-v-combat-acceptance.md has the figures): the presentation
+// treats that as what it looks like, a blade scoring and then breaking the ground, and puts its debris where the
+// blade really is. Nothing here moves a bone.
+export const DISASTER_CLIPS = Object.freeze({
+  ground: Object.freeze({ clip: 'AllNatural_Ground_DualSpin_Slam', contact: 0.85, duration: 1.44 }),
+  fast: Object.freeze({ clip: 'AllNatural_FastLightning_DualSpin_Slam', contact: 0.33, duration: 0.92 }),
+  arrival: Object.freeze({ clip: 'AllNatural_Lightning_Arrival_Slam', contact: 0.085, duration: 0.6 }),
+  aerial: Object.freeze({ clip: 'AllNatural_Aerial_Vortex_Wave', contact: 0.85, duration: 1.25 }),
+  chargeGround: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Ground', duration: 0.8 }),
+  chargeAir: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Air', duration: 0.8 }),
+});
+const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) => entry.clip));
+/** Whether a plan is one of the authored Disaster clips (their turns are in the clip: nothing else turns the body). */
+export const disasterAuthored = (clip) => DISASTER_CLIP_NAMES.has(clip);
+
+function disasterPlan(player, serverNow) {
+  const action = player.ultimateState ?? {};
+  const windup = disasterWindupSec(action);
+  const tiers = action.oneHit?.tiers ?? action.preparedTiers ?? {};
+  // (only Full Gale has an aerial form: a grounded wind-up knocked off its feet for a moment is still the ground slam)
+  const airborne = action.phase === 'active' ? action.oneHit?.form === 'aerial' : player.grounded === false && (tiers.gale ?? 0) >= 2;
+  // (the model without them: the plain heavy strike, wound up to its contact as before)
+  const provisional = (time) => ({ requiredClip: true, fallback: 'Slash_3', fallbackTime: Math.max(0, Math.min(SLASH_DURATIONS[2] - .01, time)) });
+  const authored = (entry, time, extra = {}) => ({
+    ...fixed(entry.clip, Math.min(entry.duration - 1 / 60, time)), ...extra, disaster: true,
+  });
+  if (action.phase === 'startup') {
+    // the held Full Lightning aim: its own charge, looping, on the ground or in the air
+    if (disasterHolding(action)) {
+      const entry = airborne ? DISASTER_CLIPS.chargeAir : DISASTER_CLIPS.chargeGround;
+      const held = Math.max(0, serverNow - finite(action.teleportHoldAt, serverNow));
+      return { ...fixed(entry.clip, held % entry.duration, true), disaster: true, ...provisional(SLAM_CONTACT * .18) };
+    }
+    const remaining = Math.max(0, finite(action.commitAt, serverNow) - serverNow);
+    const share = Math.max(0, Math.min(1, 1 - remaining / windup));
+    const old = SLAM_CONTACT * (.18 + .82 * share);
+    // in the air (Full Gale): the charge gathers until the commit; the turns and the wave are the active clip's
+    if (airborne) return { ...authored(DISASTER_CLIPS.chargeAir, (windup - remaining) % DISASTER_CLIPS.chargeAir.duration), loop: true, ...provisional(old) };
+    const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
+    // (a held ground release waits one frame short of the ground; the commit then lands it)
+    const latest = entry.contact - (action.groundRelease ? 1 / 30 : 0);
+    return { ...authored(entry, Math.max(0, Math.min(latest, entry.contact - remaining))), ...provisional(Math.min(action.groundRelease ? SLAM_CONTACT - 1 / 30 : SLAM_CONTACT, old)) };
+  }
+  const elapsed = Math.max(0, serverNow - finite(action.commitAt, serverNow));
+  const follow = provisional(SLAM_CONTACT + elapsed * .75);
+  const teleported = Number.isFinite(action.teleportHoldAt);
+  if (airborne) {
+    // out of a teleport the wave is thrown at once: the clip is joined at its cut. Otherwise it is played from its
+    // first turn, and throws the wave when the host does.
+    const from = teleported ? DISASTER_CLIPS.aerial.contact : 0;
+    return { ...authored(DISASTER_CLIPS.aerial, from + elapsed, teleported ? { blend: .05 } : {}), ...follow };
+  }
+  if (teleported) return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
+  const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
+  return { ...authored(entry, entry.contact + elapsed), ...follow };
+}
+
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
   const layers = concurrentPresentation(player, serverNow, player.castPoseUntil, player.castPoseStartAt);
   if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
@@ -116,27 +183,9 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     return lighting ? fixed('Slash_3', VORTEX_HELD.raised) : fixed('Slash_1', VORTEX_HELD.level);
   }
 
-  // All-Natural Disaster: the authored body's sword winds up while the
-  // camera reveals its turn, then Slash_3 crosses its actual contact pose
-  // exactly at the authoritative commitment time (ground or in the air).
-  // The indefinite Full Lightning hold retains the raised stance, not a
-  // looping attack; release commits the strike as normal.
-  if (state === 'one-hit') {
-    const action=player.ultimateState ?? {};
-    const windup=disasterWindupSec(action);
-    if (action.phase==='startup') {
-      if(disasterHolding(action)&&player.grounded===false){
-        return {...fixed('AllNatural_Lightning_Charge_Air',serverNow-action.teleportHoldAt,true),
-          requiredClip:true,fallback:'Slash_3',fallbackTime:SLAM_CONTACT*.18};
-      }
-      const remaining=finite(action.commitAt,serverNow)-serverNow;
-      const share=Math.max(0,Math.min(1,1-remaining/windup));
-      const beforeContact=action.groundRelease?SLAM_CONTACT-1/30:SLAM_CONTACT;
-      return fixed('Slash_3',Math.min(beforeContact,SLAM_CONTACT*(.18+.82*share)));
-    }
-    const elapsed=Math.max(0,serverNow-finite(action.commitAt,serverNow));
-    return fixed('Slash_3',Math.min(SLASH_DURATIONS[2]-.01,SLAM_CONTACT + elapsed * .75));
-  }
+  // All-Natural Disaster: Argon's authored Disaster clips, each placed on the host's own clock so that the frame in
+  // which the blade meets the ground (or leaves the sword as a wave) is shown at the authoritative moment it does.
+  if (state === 'one-hit') return disasterPlan(player, serverNow);
 
   // the brace into Sunder: the opening of the slam's own swing (the sword taken up overhead), played through the
   // startup so that the first slam drives down out of it as the brace ends (the host begins that slam's chain
