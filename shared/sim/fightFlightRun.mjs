@@ -51,12 +51,8 @@ export function requestFlightDash(room,m,p,held,now){
  if(!held&&!before)return true; // duplicate release cannot extend a minimum launch
  m.flightDashHeld=Boolean(held);
  if(!held){
-   if(m.runGroundPhase==='SPINUP'){
-     // A release before the rotor reaches speed cancels the wind-up;
-     // after actual takeoff, minimum-distance commitment is preserved.
-     m.runGroundPhase=null;
-     if(m.grounded)m.rotorPowered=false;
-   }else if(m.runGroundLaunchReady)m.runGroundReleased=true;
+   // Dash starts on keydown; a fast release still owes its committed travel.
+   if(m.runGroundLaunchReady)m.runGroundReleased=true;
    m.runStopRequested=Boolean(m.offensiveRun);m.runReleaseElapsed=0;
    if(m.offensiveRun&&(m.runTravel??0)>=VALKYRIE_RUN.minTravel){m.runAnimationEndedAt=now;m.offensiveRun=false;m.runStopRequested=false;}
    m.runReleasedAt=now;m.flightDashStartedAt=null;
@@ -73,14 +69,21 @@ export function requestFlightDash(room,m,p,held,now){
  m.runStartAt=null;m.runElapsed=0;m.runTravel=0;m.runLastPosition=null;
  m.runStopRequested=false;m.runReleasedAt=null;m.runTurnSpeed=0;
  m.runGroundReleased=false;
- // Grounded Dash needs no preliminary Jump: the real rotor spins up to
- // 450 RPM, then lifts and attacks in the same physical launch. Airborne Dash
- // engages the rotor immediately, without pausing an ongoing fall.
+ // Grounded Dash launches on the authoritative press, not at some later RPM.
+ // The actual rotor spins up in flight and retains normal contact physics.
  const practice=room.mode==='PRACTICE'&&p.actorKind==='human'&&!room.localTutorial;
- if(!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2){
-   if(m.grounded&&(p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id)))
-     m.runGroundPhase='SPINUP';
-   else if(!m.grounded)m.rotorPowered=true;
+ const canDash=!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&
+   (p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id));
+ m.runRotorWasPowered=Boolean(m.rotorPowered);
+ if(canDash){
+   m.rotorPowered=true;
+   if(m.grounded){
+     m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
+     m.velocity.y=Math.max(m.velocity.y,VALKYRIE_RUN.groundTakeoffVelocity);
+     m.runGroundPhase=null;m.runGroundLaunchReady=true;
+     room.events.push({type:'fightFlightGroundDashTakeoff',machineId:m.id,
+       operatorId:p.id,rotorRPM:m.rotorRPM,at:now});
+   }
  }
  const ultimate=activeUltimate(p,now);
  if(ultimate?.id==='chivalry'&&!m.grounded){
@@ -152,6 +155,9 @@ export function stepFlightRun(room,m,dt,now){
    if(!valid||(ascension&&!(m.flightCharge>0))||
      (!practice&&!ascension&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
+  // Do not force the rotor to hover forever after a Dash that started cold.
+  if(!m.runRotorWasPowered&&!p?.input?.flightRise&&!p?.input?.jump)
+    m.rotorPowered=false;
  }else{
    if(!m.offensiveRun){
      m.runAnimationStartedAt=now;m.offensiveRun=true;
