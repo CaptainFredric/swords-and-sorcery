@@ -113,9 +113,11 @@ export class SiegeWorkshopScene {
     const emberMat = new THREE.MeshBasicMaterial({ color: 0xff6622 });
 
     // 1. Ground apron (paved stone flagstones for the workshop)
-    const apronGeo = new THREE.BoxGeometry(10, 0.15, 9);
+    // Extended demonstration apron: reverse drives and aerial runs need
+    // genuine clearance beyond the small resting machine shelter.
+    const apronGeo = new THREE.BoxGeometry(13, 0.15, 18);
     const apron = new THREE.Mesh(apronGeo, stoneMat);
-    apron.position.set(0, -0.075, 0);
+    apron.position.set(0, -0.075, -2.5);
     apron.receiveShadow = true;
     env.add(apron);
 
@@ -338,7 +340,7 @@ export class SiegeWorkshopScene {
     knuckles.position.set(0, .15, -.35);
     fist.add(knuckles);
 
-    soFistFallback.userData = { isAuthored: false, machineId: 'soFist' };
+    soFistFallback.userData = { isAuthored: false, machineId: 'soFist', motionBounds: new THREE.Box3().setFromObject(soFistFallback) };
     this.fallbacks.set('soFist', soFistFallback);
 
     // Fallback 2: BI-BYE-LLISTA (Twin-bolt mobile carriage)
@@ -389,7 +391,7 @@ export class SiegeWorkshopScene {
     bolt2.position.set(0.08, 1.15, -0.3);
     biByeFallback.add(bolt2);
 
-    biByeFallback.userData = { isAuthored: false, machineId: 'biBye' };
+    biByeFallback.userData = { isAuthored: false, machineId: 'biBye', motionBounds: new THREE.Box3().setFromObject(biByeFallback) };
     this.fallbacks.set('biBye', biByeFallback);
 
     // Fallback 3: FIGHT-AND-FLIGHT (Wearable harness, repeater, twin-sword rotor)
@@ -429,7 +431,7 @@ export class SiegeWorkshopScene {
     rotorBlade2.castShadow = true;
     flightFallback.add(rotorBlade2);
 
-    flightFallback.userData = { isAuthored: false, machineId: 'fightFlight' };
+    flightFallback.userData = { isAuthored: false, machineId: 'fightFlight', motionBounds: new THREE.Box3().setFromObject(flightFallback) };
     this.fallbacks.set('fightFlight', flightFallback);
   }
 
@@ -603,6 +605,7 @@ export class SiegeWorkshopScene {
     this.stopPreview();
     const started=this.performance.play(skill);
     if(started)this.previewAnimation=null;
+    this.onPreviewChange?.(started?skill:null);
     return started;
   }
 
@@ -612,6 +615,7 @@ export class SiegeWorkshopScene {
     this.#restoreFist();
     this.machinePivot.position.set(0,0,0);
     this.machinePivot.rotation.x=0;
+    this.onPreviewChange?.(null);
   }
 
   #restoreFist() {
@@ -688,9 +692,11 @@ export class SiegeWorkshopScene {
     this.#restoreFist();
     const mixer=this.mixers.get(this.activeMachineId);
     if(mixer&&!reducedMotion&&!this.performance.active)mixer.update(dt);
+    const wasActive=this.performance.active;
     const pose=this.performance.update(dt,reducedMotion);
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
     else if(this.previewAnimation)this.#restorePreviewAnimation();
+    if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
     this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
     this.#poseFist(pose);
