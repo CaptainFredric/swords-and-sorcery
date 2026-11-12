@@ -833,7 +833,7 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
-    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
+    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.input.oneHitAimUntil=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
@@ -1421,6 +1421,8 @@ export class GameRuntime {
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
+    this.input.oneHitAimUntil=auth?.alive&&auth.ultimateState?.id==='one_hit_of_wonders'&&
+      auth.ultimateState.phase==='active' ? auth.ultimateState.oneHit?.aimUntil??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
@@ -4270,6 +4272,7 @@ export class GameRuntime {
         ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
       const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
+        allowVertical:disasterCharge.preparedTiers.gale===2,
         holdSec:disasterNow-disasterCharge.teleportHoldAt,world,solids,edge});
       this.oneHitEffects.setChargeGuide(origin,plan);
     }else this.oneHitEffects?.setChargeGuide(null,null);
