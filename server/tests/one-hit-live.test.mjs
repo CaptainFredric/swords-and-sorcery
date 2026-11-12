@@ -193,7 +193,7 @@ test('aerial wall impact carries all four tiers, affects new exposed targets and
   assert.equal(room.oneHitBurnZones.length,0);
 });
 
-test('aerial terrain contact is real, one-sided, and does not turn a range expiry into a bomb',()=>{
+test('aerial terrain contact and range expiry both resolve with one physical wave blast',()=>{
   const {room,a,b}=battle();
   b.position={x:35,y:0,z:0};
   const tiers={fire:2,frost:0,gale:2,lightning:0};
@@ -203,9 +203,9 @@ test('aerial terrain contact is real, one-sided, and does not turn a range expir
     {...base,id:'expiry',position:{x:10,y:5,z:0},direction:{x:1,y:0,z:0},distance:21.6},
   ];
   ticks(room,9,10);
-  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['landing']);
+  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['expiry','landing']);
   assert.ok(Math.abs(room.oneHitBurnZones[0].position.y)<1e-8);
-  assert.equal(room.oneHitBurnZones.length,1);
+  assert.equal(room.oneHitBurnZones.length,1,'the high expiry leaves no fire on the ground');
 });
 
 test('an incoming aerial blade spends directional Guard only once and does not reapply terminal frost',()=>{
