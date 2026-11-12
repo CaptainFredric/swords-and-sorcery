@@ -316,6 +316,12 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
     until:12.57,oneHit:{form:'aerial',tiers:{gale:2},waveAt:11.77},
   }};
   const atCommit=plan(vortex,10.92),afterCommit=plan(vortex,11.2);
+  // Wire snapshots do not transmit ultimateState.startedAt: the planner
+  // must reconstruct it from the authoritative commit and wind-up rule.
+  const wireAir={...air,ultimateState:{...air.ultimateState,startedAt:undefined}};
+  const wireVortex={...vortex,ultimateState:{...vortex.ultimateState,startedAt:undefined}};
+  close(plan(wireAir,10.4).time,earlyAir.time);
+  close(plan(wireVortex,10.92).time,atCommit.time);
   assert.equal(atCommit.clip,firstAir.clip);
   assert.ok(Math.abs(atCommit.time - lateAir.time)<.03,'no pose reset at commit');
   assert.ok(afterCommit.time>atCommit.time,'winding continues after commit');
