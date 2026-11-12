@@ -45,6 +45,7 @@ export const BOT_SKILLS = Object.freeze({
     label: 'The Spellblade', name: 'The Spellblade', reaction: Object.freeze([0.17, 0.05]), think: 0.1, guard: 1.3, guardFloor: 15,
     parry: 0.75, spacing: 0.3, punish: 0.95, patience: 0.75, lead: 1, aimError: 0.01, dodge: 0.65, retreat: 32,
     smartUltimate: true, edgeGale: 1, sprintReserve: 45, mistakes: 0, aggression: 1, chain: Object.freeze([1.9, 0.3]), yields: true,
+    activeRead: true, // only the highest difficulty recognizes visibly live hitboxes
   }),
 });
 
