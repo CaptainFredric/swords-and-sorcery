@@ -1177,7 +1177,9 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       target.lastGuardDrainAt=nowSec;
       if(guard.kind==='parry'&&parryEligible){
         target.parries+=1;
-        gainProwess(room,target,PROWESS.parry);
+        // Rigid's defensive interception is still a technique: it earns
+        // the Spellblade no Prowess. Ordinary enemy parries of the ensuing
+        // thrust continue receiving their own normal Prowess reward.
         attacker.staggerUntil=Math.max(attacker.staggerUntil??-Infinity,
           nowSec+GAME.parryStaggerMs/1000);
         stopSwordChain(attacker,{},room,nowSec);
