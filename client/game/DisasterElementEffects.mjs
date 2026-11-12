@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { windbladeTrailSpan } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
@@ -981,7 +982,7 @@ export class DisasterElementEffects {
     const tiers=wave.tiers??{};
     const scale=tiers.fire?1.5/.9:1;
     const d=wave.direction;
-    const advance=Math.min(2.5,Math.max(0,dt)*(tiers.lightning?48:28));
+    const advance=windbladeTrailSpan(dt,tiers);
     const trailing=()=>rand(0,advance);
     const back=speed=>({
       x:-d.x*speed+rand(-.6,.6),
