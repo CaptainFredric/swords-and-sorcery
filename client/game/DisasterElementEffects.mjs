@@ -448,7 +448,8 @@ export class DisasterElementEffects {
   // --- the blow lands ---------------------------------------------------------------------------------------------
   impact(event) {
     const tiers = event.tiers ?? {};
-    const p = new THREE.Vector3(event.point.x, event.point.y, event.point.z);
+    const impactPoint=event.groundBlast&&event.groundPoint?event.groundPoint:event.point;
+    const p = new THREE.Vector3(impactPoint.x,impactPoint.y,impactPoint.z);
     const ground = event.form === 'ground' || Boolean(event.groundBlast);
     const floor = p.y + 0.02;
     const steel = tiers.steel ?? 0;
