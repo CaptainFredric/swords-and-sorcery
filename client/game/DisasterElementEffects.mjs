@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
+import { crackedFrostPattern } from './disasterFrostGeometry.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -205,6 +206,27 @@ export class DisasterElementEffects {
     this.warmIce.setMatrixAt(0, tmpObject.matrix);
     this.warmIce.frustumCulled = false;
     this.root.add(this.warmIce);
+    // Build the cracked-surface shaders before the first freeze. Every field
+    // subsequently clones these materials; no new shader type arrives midfight.
+    this.frostPlateMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true, emissive: 0x163e59, emissiveIntensity: 0.28,
+      roughness: 0.32, metalness: 0.02, transparent: true, opacity: 0.8,
+      depthWrite: false, side: THREE.DoubleSide, flatShading: true,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    });
+    this.frostCrackMaterial = new THREE.MeshBasicMaterial({
+      color: 0x366b86, transparent: true, opacity: 0.38,
+      depthWrite: false, side: THREE.DoubleSide,
+    });
+    this.frostRidgeMaterial = new THREE.LineBasicMaterial({
+      color: 0xe6faff, transparent: true, opacity: 0.22, depthWrite: false,
+    });
+    const warmPatch = new THREE.BufferGeometry();
+    warmPatch.setAttribute('position',new THREE.Float32BufferAttribute([0,-1e4,0,.001,-1e4,0,0,-1e4,.001],3));
+    warmPatch.setAttribute('color',new THREE.Float32BufferAttribute([1,1,1,1,1,1,1,1,1],3));
+    this.warmPatch = new THREE.Mesh(warmPatch,this.frostPlateMaterial);
+    this.warmPatch.frustumCulled = false;
+    this.root.add(this.warmPatch);
     this.fields = new Map();     // field id -> { ice, emit clocks }
     this.fractures = [];         // radial fractures still running: rocks thrown where each arm's head is
     this.gather = new Map();     // player id -> emit clocks
@@ -261,6 +283,41 @@ export class DisasterElementEffects {
   #mote(element, at, velocity, { size = 0.05, ttl = 0.5, gravity = 0, align = true, stretch = 3, drag = 0, home = null, pull = 0, swirl = 0 } = {}) {
     this.glow.spawn({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, sx: size, sy: size * (align ? stretch : 1), sz: size,
       color: pick(COLOR[element]), ttl, gravity, align, drag, home, pull, swirl });
+  }
+
+  // A Fire infusion is an actual expanding fireball, not just thin spark
+  // streaks. Broad bright lobes push out before the dark smoke follows; all
+  // pieces use existing instanced pools and do not add runtime shader types.
+  #fireExplosion(point,radius,height,ground,full) {
+    const lobes=this.#n(full?76:56);
+    for(let i=0;i<lobes;i++){
+      const angle=rand(TAU),rise=ground?rand(0.06,.92):rand(-.9,.9);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),ttl=rand(.28,.52);
+      const magnitude=rand(.5,.95);
+      this.glow.spawn({
+        x:point.x+Math.cos(angle)*rand(.04,.24),y:point.y+.27+rand(.15),
+        z:point.z+Math.sin(angle)*rand(.04,.24),
+        vx:Math.cos(angle)*flat*radius/ttl*magnitude,
+        vy:rise*height/ttl*magnitude,
+        vz:Math.sin(angle)*flat*radius/ttl*magnitude,
+        sx:rand(.17,.32)*(full?1.12:1),
+        sy:rand(.18,.36)*(full?1.12:1),
+        sz:rand(.15,.29)*(full?1.12:1),
+        color:pick(COLOR.fire),ttl,drag:.78,grow:.62,align:false,
+      });
+    }
+    // The slower rolling cloud behind the flash provides scale and contrast;
+    // individual flame pieces never take up the whole screen for seconds.
+    for(let i=0;i<this.#n(full?26:18);i++){
+      const a=rand(TAU),s=rand(.35,1.1);
+      this.#dust({
+        x:point.x+Math.cos(a)*s,y:point.y+.25+rand(.65),
+        z:point.z+Math.sin(a)*s,
+      },{
+        x:Math.cos(a)*rand(1.5,4),y:rand(1.3,3.5),
+        z:Math.sin(a)*rand(1.5,4),
+      },rand(.35,.66),rand(.75,1.25),0x44352b);
+    }
   }
 
   // --- the gathering: each element is drawn out of the ground round the knight and into the blade -----------------
@@ -406,11 +463,12 @@ export class DisasterElementEffects {
         const a = rand(TAU);
         this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
       }
+      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2);
     }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
       const full = tiers.frost === 2;
-      for (let i = 0; i < this.#n(full ? 44 : 24); i += 1) {
+      for (let i = 0; i < this.#n(full ? 68 : 42); i += 1) {
         const a = rand(TAU), speed = rand(2.5, full ? 8 : 5);
         this.#mote('frost', { x: p.x, y: floor + 0.05, z: p.z }, { x: Math.cos(a) * speed, y: rand(0.1, 0.6), z: Math.sin(a) * speed }, { size: rand(0.03, 0.06), ttl: rand(0.4, 0.7), drag: 2.4, stretch: 7 });
       }
@@ -419,7 +477,7 @@ export class DisasterElementEffects {
         this.#mote('frost', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * rand(1, 3), y: rand(2, 5.5), z: Math.sin(a) * rand(1, 3) }, { size: rand(0.04, 0.08), ttl: rand(0.5, 0.8), gravity: 9, stretch: 4 });
       }
       for (let i = 0; i < this.#n(6); i += 1) this.#dust({ x: p.x + rand(-1, 1), y: floor + 0.2, z: p.z + rand(-1, 1) }, { x: rand(-1.5, 1.5), y: 0.3, z: rand(-1.5, 1.5) }, 0.28, 1.2, 0xcfe9f5);
-      if (!ground || !event.fieldId) this.#iceCrown(p, 1.1, full ? 9 : 6, 1.1);
+      if (!full || !ground || !event.fieldId) this.#iceCrown(p, full ? 1.4 : 1.8, full ? 12 : 18, 0.85);
     }
     if (tiers.gale) {
       // pressure: the air thrown outward in long level streaks, and wound upward round the blow
@@ -438,12 +496,12 @@ export class DisasterElementEffects {
     if (tiers.lightning) {
       // the discharge: one strike down into the blow, and thick forks running out from it along the ground
       const full = tiers.lightning === 2;
-      this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.13 : 0.085, ttl: 0.24, jag: 0.07, forks: 3, steps: 11 });
-      const forks = this.#n(full ? 9 : 5);
+      this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.155 : 0.103, ttl: 0.26, jag: 0.08, forks: 3, steps: 11 });
+      const forks = this.#n(full ? 11 : 7);
       for (let i = 0; i < forks; i += 1) {
         const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * radius * (full ? 1.15 : 0.8);
         this.#bolt(new THREE.Vector3(p.x, floor + 0.15, p.z), new THREE.Vector3(p.x + Math.cos(a) * reach, floor + rand(0.05, 0.5), p.z + Math.sin(a) * reach),
-          { width: full ? 0.06 : 0.042, ttl: rand(0.16, 0.26), jag: 0.14, forks: 2 });
+          { width: full ? 0.073 : 0.051, ttl: rand(0.19, 0.3), jag: 0.14, forks: 2 });
       }
       for (let i = 0; i < this.#n(24); i += 1) {
         const a = rand(TAU);
@@ -537,37 +595,105 @@ export class DisasterElementEffects {
       }
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
-      if (entry.ice) { entry.ice.parent?.remove(entry.ice); entry.ice.geometry.dispose(); entry.ice.material.dispose(); }
+      if (entry.ice) this.#disposeIce(entry.ice);
       this.fields.delete(id);
     }
   }
-  // Full Frost's field: real ice standing out of the ground across it, tallest at the heart
+  // The frozen ground is the main visual: pale, subtly uneven plates with
+  // dark branching gaps between them. A few broken crystals mark the impact;
+  // this must not resemble dozens of cones planted in unfrozen grass.
   #iceField(field) {
-    const count = Math.round(46 * this.density);
-    const ice = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5), this.iceMaterial.clone(), count);
-    ice.frustumCulled = false;
-    ice.userData.spikes = Array.from({ length: count }, (_, i) => {
-      const a = i * 2.39996, r = Math.sqrt((i + 0.5) / count) * field.radius * 0.97;
-      return { x: Math.cos(a) * r, z: Math.sin(a) * r, height: (0.35 + Math.random() * 0.75) * (1.25 - 0.6 * r / field.radius), lean: rand(-0.35, 0.35), turn: rand(TAU), width: rand(0.09, 0.2), delay: r / field.radius * 0.22 };
+    const pattern=crackedFrostPattern(field.radius,field.id,Math.round(92*this.density));
+    const ice=new THREE.Group();
+    ice.name='disaster-cracked-frost-field';
+    ice.position.set(field.position.x,field.position.y,field.position.z);
+
+    const underlayPositions=[];
+    for(let i=0;i<pattern.outline.length;i++){
+      const a=pattern.outline[i],b=pattern.outline[(i+1)%pattern.outline.length];
+      underlayPositions.push(0,0.033,0, a.x,0.033,a.z, b.x,0.033,b.z);
+    }
+    const underlayGeo=new THREE.BufferGeometry();
+    underlayGeo.setAttribute('position',new THREE.Float32BufferAttribute(underlayPositions,3));
+    underlayGeo.computeVertexNormals();
+    const underlay=new THREE.Mesh(underlayGeo,this.frostCrackMaterial.clone());
+    underlay.frustumCulled=false;
+    underlay.name='frost-dark-crack-underlay';
+    ice.add(underlay);
+
+    const positions=[],colors=[],ridgePositions=[],ends=[];
+    const hues=[0xd9f0f7,0xc2e4f1,0xe6f4f6,0xa9cbdc,0xd1e7f2];
+    for(const plate of pattern.plates){
+      const vertices=plate.vertices;
+      const tint=new THREE.Color(hues[plate.tint]);
+      const centerTint=new THREE.Color(0xf2fdff).lerp(tint,.62);
+      const y=0.055+0.006*(plate.tint%3);
+      for(let i=0;i<vertices.length;i++){
+        const a=vertices[i],b=vertices[(i+1)%vertices.length];
+        positions.push(plate.center.x,y+.003,plate.center.z,a.x,y,a.z,b.x,y,b.z);
+        for(const color of [centerTint,tint,tint])colors.push(color.r,color.g,color.b);
+        if((i+plate.tint)%3!==0)ridgePositions.push(a.x,y+.003,a.z,b.x,y+.003,b.z);
+      }
+      ends.push(positions.length/3);
+    }
+    const plateGeo=new THREE.BufferGeometry();
+    plateGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    plateGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    plateGeo.computeVertexNormals();
+    const surface=new THREE.Mesh(plateGeo,this.frostPlateMaterial.clone());
+    surface.frustumCulled=false;
+    surface.name='frost-fractured-ice-plates';
+    ice.add(surface);
+
+    const ridgeGeo=new THREE.BufferGeometry();
+    ridgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(ridgePositions,3));
+    const ridge=new THREE.LineSegments(ridgeGeo,this.frostRidgeMaterial.clone());
+    ridge.frustumCulled=false;
+    ridge.name='frost-crack-edges';
+    ice.add(ridge);
+
+    const count=Math.max(5,Math.round(12*this.density));
+    const crystals=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,5),this.iceMaterial.clone(),count);
+    crystals.frustumCulled=false;
+    crystals.name='frost-shattered-small-crystals';
+    const shards=Array.from({length:count},(_,i)=>{
+      const plate=pattern.plates[Math.floor((i+.35)*pattern.plates.length/count)]??{center:{x:0,z:0}};
+      return {x:plate.center.x,z:plate.center.z,height:rand(.12,.4),width:rand(.035,.08),
+        lean:rand(-.4,.4),turn:rand(TAU),delay:Math.hypot(plate.center.x,plate.center.z)/field.radius*.25};
     });
-    ice.position.set(field.position.x, field.position.y, field.position.z);
+    ice.add(crystals);
+    ice.userData.frost={surface,underlay,ridge,crystals,shards,ends};
     this.root.add(ice);
+    this.#poseIce(ice,field,1,field.bornAt);
     return ice;
   }
-  #poseIce(ice, field, strength, now) {
-    const age = now - field.bornAt;
-    ice.userData.spikes.forEach((s, i) => {
-      // it forms outward from the blow in the first quarter second, then sinks with the field's strength
-      const formed = clamp01((age - s.delay) / 0.12);
-      const h = s.height * formed * (0.2 + 0.8 * strength);
-      tmpObject.position.set(s.x, h * 0.5 - 0.02, s.z);
-      tmpObject.rotation.set(s.lean, s.turn, s.lean * 0.6);
-      tmpObject.scale.set(s.width * (0.5 + 0.5 * strength), Math.max(0.001, h), s.width * (0.5 + 0.5 * strength));
+  #poseIce(ice,field,strength,now){
+    const data=ice.userData.frost,age=Math.max(0,now-field.bornAt);
+    const formed=clamp01(age/.32);
+    const visible=Math.ceil(formed*data.ends.length);
+    data.surface.geometry.setDrawRange(0,visible?data.ends[visible-1]:0);
+    data.surface.material.opacity=(0.18+0.67*strength)*Math.min(1,formed*5);
+    data.underlay.material.opacity=(0.06+0.30*strength)*Math.min(1,formed*5);
+    data.ridge.material.opacity=(0.06+0.28*strength)*Math.min(1,formed*5);
+    for(let i=0;i<data.shards.length;i++){
+      const s=data.shards[i],grown=clamp01((age-s.delay)/.18);
+      const h=s.height*grown*(0.15+0.85*strength);
+      tmpObject.position.set(s.x,h/2+.05,s.z);
+      tmpObject.rotation.set(s.lean,s.turn,s.lean*.6);
+      tmpObject.scale.set(s.width*(.3+.7*strength),Math.max(.001,h),s.width*(.3+.7*strength));
       tmpObject.updateMatrix();
-      ice.setMatrixAt(i, tmpObject.matrix);
+      data.crystals.setMatrixAt(i,tmpObject.matrix);
+    }
+    data.crystals.instanceMatrix.needsUpdate=true;
+    data.crystals.material.opacity=.15+.58*strength;
+  }
+  #disposeIce(ice){
+    ice.removeFromParent();
+    ice.traverse(object=>{
+      object.geometry?.dispose?.();
+      if(Array.isArray(object.material))for(const mat of object.material)mat.dispose();
+      else object.material?.dispose?.();
     });
-    ice.instanceMatrix.needsUpdate = true;
-    ice.material.opacity = 0.35 + 0.5 * strength;
   }
 
   // Full Fire's burning ground (the room's burn zones): flame standing on it, embers going up, smoke over it, all of
@@ -813,12 +939,16 @@ export class DisasterElementEffects {
 
   dispose() {
     while (this.bolts.length) this.#dropBolt(0);
-    for (const entry of this.fields.values()) if (entry.ice) { entry.ice.parent?.remove(entry.ice); entry.ice.geometry.dispose(); entry.ice.material.dispose(); }
+    for (const entry of this.fields.values()) if (entry.ice) this.#disposeIce(entry.ice);
     this.fields.clear();
     this.glow.dispose(); this.rock.dispose(); this.smoke.dispose();
     this.warmBolt.geometry.dispose();
     this.warmIce.geometry.dispose();
+    this.warmPatch.geometry.dispose();
     this.iceMaterial.dispose();
+    this.frostPlateMaterial.dispose();
+    this.frostCrackMaterial.dispose();
+    this.frostRidgeMaterial.dispose();
     this.boltMaterial.dispose();
     this.root.parent?.remove(this.root);
   }
