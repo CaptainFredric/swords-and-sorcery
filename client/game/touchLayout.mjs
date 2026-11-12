@@ -19,7 +19,9 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   crouch: { left: 190, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
   ultimate: { right: 24, bottom: 222, size: 50 },
-  technique: {right: 148, bottom: 215, size: 46},
+  // New action has no legacy CSS coordinates: always position it from the
+  // touch-layout model, including users with migrated saved layouts.
+  technique: {right: 148, bottom: 215, size: 46, custom:true},
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
