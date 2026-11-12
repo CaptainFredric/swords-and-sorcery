@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
+import { windbladeSpeed } from './disasterWavePresentation.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -336,7 +337,7 @@ export class OneHitLiveEffects {
       }
       // Extrapolate by at most a small fraction of a tick. The collision
       // event snaps to the authoritative point and removes the travelling mesh.
-      const age=clamp(now-(snapshot?.serverTime??now),0,1/30)*(wave.tiers.lightning?48:28);
+      const age=clamp(now-(snapshot?.serverTime??now),0,1/30)*windbladeSpeed(wave.tiers);
       mesh.position.x+=wave.direction.x*age;mesh.position.y+=wave.direction.y*age;mesh.position.z+=wave.direction.z*age;
       // (one blade of air, held as it was cut: its pressure arcs breathe behind it; nothing spins)
       mesh.userData.breathe?.(this.visualClock);
