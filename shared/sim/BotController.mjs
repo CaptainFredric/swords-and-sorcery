@@ -196,7 +196,7 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
       ai.hazardUntil=nowSec+.52;
       ai.hazardDirection={x:danger.x,z:danger.z};
       ai.hazardKind=danger.kind;
-      if((danger.kind==='wave'||danger.kind==='vortex'||danger.kind==='disaster')&&
+      if((danger.kind==='wave'||danger.kind==='vortex'||danger.kind==='disaster'||danger.kind==='rupture')&&
          random()<skill.dodge&&tryDash(room,actor.id,danger,nowSec))
         return;
       // A blade already spinning or a sword wave crossing your feet is
