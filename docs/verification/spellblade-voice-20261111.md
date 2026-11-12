@@ -11,7 +11,7 @@ The creator's recording bundle contains:
 | `HahaGoodLuckForgrtting.mp3` | 3.06 | `goodLuckForgettingMe` | Shorter alternate performance |
 | `HahaGoodLuckForgettingMeLongerMeee.mp3` | 3.68 | `goodLuckForgettingMe` | Longer alternate performance |
 
-The spoken words of the two last takes are inferred from their source filenames and should be auditioned/transcribed against the audio before treating their subtitle as final. Two takes of the same sentence must remain one voice declaration. Do not generate new dialogue with TTS or invent extra words.
+Descript transcribed the shorter spoken take as “Ha ha. Good luck forgetting me” on November 11, 2026; the declared subtitle preserves those words with expressive punctuation. The longer variant has not been independently transcribed and must be auditioned before acceptance. Two takes of the same sentence must remain one voice declaration. Do not generate new dialogue with TTS or invent extra words.
 
 ## Ingest with Castleward's existing audio system
 
