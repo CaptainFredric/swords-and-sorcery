@@ -77,7 +77,7 @@
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
         <!-- the quieter doors -->
         <div class="command-pair">
-          <button id="how-button" class="menu-command quiet-command"><span>CASTLE CHRONICLES</span></button>
+          <button id="how-button" class="menu-command quiet-command"><span class="chronicles-command-label">CASTLE<span>CHRONICLES</span></span></button>
           <button id="settings-button" class="menu-command quiet-command" data-open-settings><span>SETTINGS</span></button>
         </div>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
@@ -645,49 +645,46 @@
         <button class="back-button" data-close-how>← BACK</button>
         <p class="eyebrow">CASTLEWARD · FIELD REFERENCE</p>
         <h2>CASTLE CHRONICLES</h2>
-        <div class="manual-scroll" tabindex="0" aria-label="Castle Chronicles: controls, combat rules and afflictions">
-        <div class="controls-grid key-controls-grid">
-          <h3 class="controls-group">MOVEMENT</h3>
-          <span>WASD</span><b>Move</b>
-          <span>MOUSE</span><b>Aim</b>
-          <span>SHIFT</span><b>Sprint · uses stamina</b>
-          <span>SPACE / C</span><b>Jump / Crouch</b>
-          <span>E</span><b>Dash in your movement direction</b>
-          <h3 class="controls-group">COMBAT</h3>
-          <span>LMB</span><b>Hold for sword combos</b>
-          <span>RMB / G</span><b>Guard · time it with a hit to Parry</b>
-          <span>Q</span><b>Cast your equipped spell or ward</b>
-          <span>R</span><b>Use your Ultimate when Prowess is full</b>
-          <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers. Prepared spells always stay spells.</b>
-          <h3 class="controls-group">OTHER</h3>
-          <span>I</span><b>Inspect status effects · press again for the next one</b>
-          <span>TAB</span><b>Scoreboard</b>
-          <span>M / N</span><b>Toggle sound / music</b>
-          <span>ESC</span><b>Arena menu / Back</b>
-        </div>
-        <div class="controls-grid touch-controls-grid">
-          <span>LEFT THUMB</span><b>Move · push fully forward to Sprint</b>
-          <span>RIGHT THUMB</span><b>Drag to aim</b>
-          <span>ATTACK</span><b>Hold sword combo · drag to aim mid-swing</b>
-          <span>GUARD</span><b>Hold to block · tap into a strike to Parry</b>
-          <span>SPELL</span><b>Cast where you aim (choose it in the Armory)</b>
-          <span>DASH</span><b>Dash in your movement direction</b>
-          <span>ULTIMATE</span><b>Use when Prowess is full</b>
-          <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
-          <span>STATUS ICONS</span><b>Tap an upper-left icon to inspect its effect</b>
-          <span>MENU</span><b>Arena menu · practice tools</b>
-        </div>
-        <section class="chronicles-chapter" aria-labelledby="chronicles-disaster-heading">
-          <h3 id="chronicles-disaster-heading" class="controls-group">ALL-NATURAL DISASTER · AIMING</h3>
-          <p>Half Lightning permits a short aimed charge. Sprint is unavailable while charging, but you can move carefully and turn freely. Full Lightning lets you hold and release a teleport: steer the aim throughout the charge, then release to travel toward the indicated destination. Lightning alone must arrive on supported ground. With Full Gale as well, look up, down or around in any direction to choose a 3D destination; the attack's ground or aerial form follows where you actually arrive. An aerial charge descends rather than suspending you indefinitely.</p>
-        </section>
-        <section class="chronicles-chapter" aria-labelledby="chronicles-afflictions-heading">
-          <h3 id="chronicles-afflictions-heading" class="controls-group">AFFLICTIONS</h3>
-          <p>These are the status effects shown beside your Health in combat. Select an icon for its explanation and current effectiveness. The meter is not a timer: some effects hold their full strength until they end, while others gradually weaken.</p>
-          <div id="chronicles-affliction-list" class="chronicles-affliction-list" aria-label="All combat afflictions"></div>
-        </section>
-        <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
-        <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Keep holding Attack or Guard and it comes back by itself after a Parry, a stagger or a broken Guard. A Guard that comes back on its own blocks but cannot Parry; press Guard again to time one.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect. While Sheathed in Steel, Dash into an enemy to ram them, dealing light damage and heavy knockback and Balance. The Dash stops on impact.</p><p>Gale gathers for half a second. Tap for balanced wind; swipe up from Spell for a burst, or down toward yourself for sustained wind. On desktop, scroll up or down during the gather to shape it. The choice locks when the gust releases.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p><p>Spells &amp; Chivalry raises Guard, then lets you Sprint, attack, Guard, Dash and cast together for 10 seconds. Release Guard to lower it. If it is broken or interrupted, hold Guard and it comes back, or raise it again; your sword and spells carry on. Tap Q to cast. Hold Q briefly to choose a prepared spell, then press 1, 2 or 3 to choose and cast immediately (Q can be let go first). On touch, drag from the spell button and release on a spell to cast. During startup, choosing only preselects.</p></div>
+        <div class="manual-scroll" tabindex="0" aria-label="Castle Chronicles field reference">
+          <section class="chronicles-chapter" aria-labelledby="chronicles-afflictions-heading">
+            <h3 id="chronicles-afflictions-heading" class="controls-group">AFFLICTIONS</h3>
+            <p class="chronicles-brief">Select an icon to inspect its effect.</p>
+            <div id="chronicles-affliction-list" class="chronicles-affliction-list" role="group" aria-label="Affliction icons"></div>
+            <article id="chronicles-affliction-detail" class="chronicles-affliction-detail" role="region" aria-live="polite" aria-label="Selected affliction" hidden></article>
+          </section>
+          <details id="chronicles-controls" class="chronicles-controls">
+            <summary>VIEW CONTROLS</summary>
+            <div class="controls-grid key-controls-grid">
+              <h3 class="controls-group">MOVEMENT</h3>
+              <span>WASD</span><b>Move</b>
+              <span>MOUSE</span><b>Look and aim</b>
+              <span>SHIFT</span><b>Sprint</b>
+              <span>SPACE / C</span><b>Jump / Crouch</b>
+              <span>E</span><b>Dash</b>
+              <h3 class="controls-group">COMBAT</h3>
+              <span>LMB</span><b>Sword · hold to continue</b>
+              <span>RMB / G</span><b>Guard · time to Parry</b>
+              <span>Q</span><b>Equipped spell</b>
+              <span>R</span><b>Ultimate</b>
+              <span>I</span><b>Inspect afflictions</b>
+              <span>TAB</span><b>Scoreboard</b>
+              <span>Z</span><b>Switch view</b>
+              <span>M / N</span><b>Sound / Music</b>
+              <span>ESC</span><b>Menu</b>
+            </div>
+            <div class="controls-grid touch-controls-grid">
+              <span>LEFT THUMB</span><b>Move · push forward to Sprint</b>
+              <span>RIGHT THUMB</span><b>Look and aim</b>
+              <span>ATTACK</span><b>Sword · hold for combos</b>
+              <span>GUARD</span><b>Block · time to Parry</b>
+              <span>SPELL</span><b>Cast or select a prepared spell</b>
+              <span>DASH</span><b>Dash in movement direction</b>
+              <span>ULTIMATE</span><b>Use when Prowess is full</b>
+              <span>STATUS ICONS</span><b>Tap an icon for details</b>
+              <span>MENU</span><b>Arena menu</b>
+            </div>
+            <button class="wide-button how-settings" data-open-settings="controls">CUSTOMIZE CONTROLS</button>
+          </details>
         </div>
       </div></div>
     </section>
