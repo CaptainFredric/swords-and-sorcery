@@ -570,7 +570,7 @@ export class InputController {
 
   ultimateRelease(source='direct',cancel=false) {
     if(!this.ultimateSources.delete(source)||this.ultimateSources.size)return;
-    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel});
+    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel,yaw:this.yaw,pitch:this.pitch});
     this.ultimateGesture=null;
   }
 
