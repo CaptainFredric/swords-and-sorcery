@@ -94,7 +94,7 @@ test('summon recalls the same dummy near the human after moving or being defeate
 
 test('practice dummy modes are explicit and invalid modes are rejected', () => {
   const { room } = makePracticeRoom();
-  assert.deepEqual(new Set(Object.values(PRACTICE_DUMMY_MODES)), new Set(['PASSIVE', 'GUARDING', 'FIGHTS_BACK', 'SORCERY', 'MELEE', 'RUNNER', 'ULTIMATE_KNIGHT', 'ST_PERRY', 'CANONIZATION']));
+  assert.deepEqual(new Set(Object.values(PRACTICE_DUMMY_MODES)), new Set(['PASSIVE', 'GUARDING', 'FIGHTS_BACK', 'SORCERY', 'MELEE', 'RUNNER', 'SPELLBLADE', 'ULTIMATE_KNIGHT', 'ST_PERRY', 'CANONIZATION']));
   assert.equal(spawnPracticeDummy(room, 'NOPE', 0), null);
   assert.equal(setPracticeDummyMode(room, 'NOPE', 0), false);
 });
