@@ -208,7 +208,7 @@ test('Decay-scaled Shaken field is still an audible warning halfway through its 
   assert.ok(late.recipe.layers[0].gain>=beginning.recipe.layers[0].gain*.45,
     'half-life field should remain audible instead of nearly vanishing');
 });
-test('Sustained Gale's ambient tail follows the actual 1.25s cone, not a .75s approximation',()=>{
+test("Sustained Gale\u2019s ambient tail follows the actual 1.25s cone, not a .75s approximation",()=>{
   const {sound}=fixture();
   const burst={type:'galeBlast',playerId:'a',
     origin:{x:1,y:0,z:0},mode:'sustained',at:2};
