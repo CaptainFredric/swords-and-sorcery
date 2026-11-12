@@ -537,7 +537,15 @@ export class InputController {
   }
 
   // the gauntlet on its own key (unbound unless chosen): the fist whether or not the spell is ready
+  ramFlick(){
+    if(!this.enabled||!this.mountedRam||this.allowAction?.('attack')===false)return;
+    this.socket?.send?.({type:'ramFlick'});
+  }
+
   gauntlet() {
+    // The ordinary gauntlet binding becomes the ram's third core attack.
+    // It is not an additional selectable Skill, and never leaks on dismount.
+    if(this.mountedRam){this.ramFlick();return;}
     if (!this.enabled || this.allowAction?.('gauntlet') === false) return;
     this.socket.gauntlet();
     this.onGauntletLocal();
