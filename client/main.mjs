@@ -1884,7 +1884,7 @@ function updatePlaques() {
   const currentUltId = settings.get('loadout.ultimate');
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
-  const view = armoryView(currentSpellId, currentUltId);
+  const view = armoryView(currentSpellId, currentUltId, settings.get('loadout.technique'));
 
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
@@ -1964,7 +1964,7 @@ function renderInspectorLists() {
 
   const spellsContainer = $('#armory-spells');
   if (spellsContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.spells.filter((s) => !s.equipped);
     const equipped = view.spells.find((s) => s.equipped);
     const sortedSpells = bannerOrdered(equipped ? [...unequipped, equipped] : view.spells, 'sorcery', item => item.id);
@@ -1980,7 +1980,7 @@ function renderInspectorLists() {
 
   const ultimatesContainer = $('#armory-ultimates');
   if (ultimatesContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.ultimates.filter((u) => !u.equipped);
     const equipped = view.ultimates.find((u) => u.equipped);
     const sortedUlts = bannerOrdered(equipped ? [...unequipped, equipped] : view.ultimates, 'masterstroke', item => item.id);
@@ -2000,7 +2000,7 @@ function updateInspectorDetailCard() {
   const id = armoryLocation.highlightedItem;
   const equipBtn = $('#armory-equip-btn');
   const preparedRoot = $('#armory-prepared');
-  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.technique'));
 
   if (cat === 'technique') {
     const tech = SWORD_TECHNIQUES.find((t) => t.id === id) || SWORD_TECHNIQUES[0];
