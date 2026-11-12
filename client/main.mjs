@@ -1898,7 +1898,8 @@ function updatePlaques() {
   const equippedTech = armoryTechniques().find((t) => t.equipped);
   if (techIcon) techIcon.textContent = equippedTech?.mark ?? '⚔';
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = equippedTech?.name ?? 'Longsword Alone';
+  // (the plaque says the slot is empty; 'Longsword Alone' is the name of that choice in the list)
+  if (techName) techName.textContent = equippedTech && equippedTech.id !== 'none' ? equippedTech.name : 'None equipped';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
