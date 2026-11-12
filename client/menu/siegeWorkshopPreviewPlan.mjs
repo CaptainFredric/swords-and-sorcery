@@ -42,7 +42,7 @@ export function workshopPreviewPose(skill, time) {
     z=-4.7*launch-3.8*dive;
     y=3.5*between(t,.8,2.1)*(1-between(t,3.1,5.55));
     pitch=2*Math.PI*between(t,1.55,2.8)+.34*Math.sin(Math.PI*dive);
-    if(t>=5.78){x=0;y=0;z=0;pitch=0;}
+    if(t>=5.78){x=0;y=0;z=-8.5;pitch=0;}
   } else if (skill==='narrowToOne') {
     const u=between(t,.28,4.75);
     const a=u*Math.PI*2;
