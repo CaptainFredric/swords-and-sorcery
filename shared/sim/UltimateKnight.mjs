@@ -169,9 +169,21 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
     // There is one Practice actor; this route runs its ordinary controller exactly once.
     stepBotControllers(room, nowSec, world, { random, actorKinds: ['dummy'], aggression: 0.55 });
     if(demo.behavior==='stay'){
-      // Ordinary attacks and aimed spells work within range, but the Knight
-      // never pursues a player around the Practice Yard.
-      actor.input={...actor.input,forward:0,right:0,sprint:false,jump:false};
+      // No opponent pursuit. However, real skills (especially Lightning's
+      // teleport) and knockback can displace a stationary training opponent.
+      // Once the Ultimate has finished, walk back to the chosen station
+      // through normal navigation and at an ordinary walking speed.
+      const post=demo.anchor??actor.position;
+      const displaced=Math.hypot(post.x-actor.position.x,post.z-actor.position.z);
+      if(!actor.ultimateState&&displaced>.7){
+        const goal={position:post};
+        const waypoint=wayToward(world,actor,goal,demo.navigation,nowSec)??post;
+        const yaw=Math.atan2(-(waypoint.x-actor.position.x),-(waypoint.z-actor.position.z));
+        actor.input={...actor.input,forward:.6,right:0,yaw,pitch:0,
+          sprint:false,jump:false};
+      }else{
+        actor.input={...actor.input,forward:0,right:0,sprint:false,jump:false};
+      }
     }
   }
   reconcile(actor, nowSec);
