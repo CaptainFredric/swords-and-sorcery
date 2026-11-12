@@ -246,7 +246,10 @@ export class InputController {
       if (this.enabled && action) {
         event.preventDefault();
         if (this.blockedKeys.has(event.code)) return;
-        if (this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
+        const onFootX=action==='siegeWeapon'&&!this.mountedBallista&&!this.mountedRam&&!this.mountedFlight;
+        if (this.allowAction?.(onFootX?'technique':MOVE_ACTIONS.has(action)?'move':action, !event.repeat) === false) {
+          this.blockedKeys.add(event.code); return;
+        }
       }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       if (event.code === 'KeyV' && !event.repeat && this.enabled && !this.suspended) {
