@@ -28,7 +28,7 @@ import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
-  oneHitGlide, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
+  oneHitGlide, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
@@ -1376,14 +1376,22 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   }
 
   const healthBefore = victim.health;
-  // Full Steel's committed Disaster: nothing takes its knight below 1 HP until the attack is over. What would have
-  // killed them is kept, and settled the moment it ends (settleOneHitLastStand).
-  const stand = finalAmount >= victim.health ? oneHitLastStand(victim, nowSec) : null;
-  if (stand) {
-    const first = !stand.deferredLethal;
-    stand.deferredLethal = { attackerId, source, amount: (stand.deferredLethal?.amount ?? 0) + finalAmount - Math.max(0, victim.health - 1), at: nowSec };
+  // Full Steel temporarily makes the LAST HP invulnerable. This is damage
+  // prevention, NOT a deferred debt: it never kills the knight when the
+  // Ultimate, its Gale wave, or its protection expires.
+  // Ordinary damage/mitigation, knockback and stagger still work normally.
+  const steelFloor = finalAmount > Math.max(0, victim.health - 1) &&
+    oneHitSteelFloorActive(victim, nowSec);
+  if (steelFloor) {
     finalAmount = Math.max(0, victim.health - 1);
-    if (first) room.events.push({ type: 'oneHitLastStand', playerId: victimId, attackerId, source, until: stand.until ?? null, at: nowSec });
+    const state = victim.ultimateState;
+    if (!state.steelFloorAnnounced) {
+      state.steelFloorAnnounced = true;
+      // Retain the visible steel-on-impact sparks for both clients, but no
+      // repeated explanatory screen text or future lethal settlement.
+      room.events.push({ type: 'oneHitLastStand', playerId: victimId, attackerId, source,
+        until: state.until ?? null, at: nowSec });
+    }
   }
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
@@ -2015,29 +2023,8 @@ function oneHitPrepTiers(player,nowSec) {
 function oneHitSteelBraced(player,nowSec) {
   return (oneHitPrepTiers(player,nowSec)?.steel??0)>=1;
 }
-// Full Steel: the state of a knight who cannot be taken below 1 HP now (a finite wind-up, or the committed attack
-// itself), or null. A held Full Lightning aim is neither.
-function oneHitLastStand(player,nowSec) {
-  const state=player?.ultimateState;
-  if(state?.id!=='one_hit_of_wonders')return null;
-  const tiers=state.oneHit?.tiers??state.preparedTiers;
-  if((tiers?.steel??0)<2)return null;
-  if(state.phase==='active'){
-    if(state.oneHit?.awaitingWave&&state.oneHit.waveResolved)return null;
-    return nowSec<state.until?state:null;
-  }
-  return state.phase==='startup'&&!Number.isFinite(state.teleportHoldAt)?state:null;
-}
-// The attack is over (run out, or broken off): what would have killed its knight during it, does.
-function settleOneHitLastStand(room,player,state,nowSec) {
-  const owed=state?.deferredLethal;
-  if(!owed||!player.alive)return;
-  state.deferredLethal=null;
-  room.events.push({type:'oneHitLastStandEnded',playerId:player.id,attackerId:owed.attackerId,source:owed.source,at:nowSec});
-  const killer=owed.attackerId&&room.players.has(owed.attackerId)&&!areAllies(room,owed.attackerId,player.id)?owed.attackerId:null;
-  applyDamage(room,killer,player.id,Math.max(player.health,owed.amount),owed.source,nowSec,null,
-    {ongoing:true,skipSteel:true,ultimate:true});
-}
+// Full Steel's HP floor is provided by oneHitSteelFloorActive, shared with
+// the HUD. A blocked killing blow is never saved as future damage.
 
 function oneHitGuard(room,caster,target,origin,nowSec) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
@@ -2305,8 +2292,8 @@ function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   action.waveLaunchedAt=nowSec;
   action.aimUntil=null;
   const speed=tiers.lightning?48:28;
-  // Full Steel is protected through the finite wave flight, including range
-  // expiry. The last-stand debt is settled when the wave resolves.
+  // Full Steel protects the last HP through finite wave flight. This
+  // protection simply ends on impact; no stored lethal damage exists.
   const state=player.ultimateState;
   if(state?.id==='one_hit_of_wonders')
     state.until=Math.max(state.until??0,nowSec+ONE_HIT_RULES.waveMaxReach/speed+.18);
@@ -2405,8 +2392,8 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     radius,struck,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
-// Full Steel lasts THROUGH the outgoing wave, but is paid for at its first
-// terminal impact, manual detonation or finite maximum-range explosion.
+// Full Steel lasts THROUGH the outgoing wave; the protection ends at its
+// terminal impact, manual detonation or maximum range, without lethal debt.
 function resolveOneHitWave(room,caster,wave,nowSec){
   const state=caster.ultimateState;
   if(state?.id!=='one_hit_of_wonders'||state.oneHit?.waveResolved||
@@ -2414,7 +2401,7 @@ function resolveOneHitWave(room,caster,wave,nowSec){
   state.oneHit.waveResolved=true;
   state.oneHit.aimUntil=null;
   room.events.push({type:'oneHitWaveResolved',playerId:caster.id,waveId:wave.id,at:nowSec});
-  settleOneHitLastStand(room,caster,state,nowSec);
+  // No deferred lethal settlement: the protected HP remains the player's.
 }
 // Half Frost's longer contact, each tick until it closes: the same blow meeting whoever has come into it since.
 function stepOneHitLingers(room,nowSec,world) {
@@ -2703,7 +2690,6 @@ function stepUltimate(room, player, nowSec, world=room.world) {
   }
   if (!player.alive || nowSec >= state.until) {
     player.ultimateState = null;
-    settleOneHitLastStand(room, player, state, nowSec);
     if (ultimate.id === 'chivalry') {
       player.chivalryProjectileReadyAt = 0;
       player.guardBrokenUntil = -Infinity;
@@ -2738,7 +2724,6 @@ function interruptUltimate(room, player, nowSec, by = null, source = null) {
   player.ultimateState = null;
   player.ultimateLockedUntil = nowSec + ultimate.lockoutSec;
   room.events.push({ type: 'ultimateInterrupted', playerId: player.id, ultimate: ultimate.id, lockedUntil: player.ultimateLockedUntil, at: nowSec });
-  settleOneHitLastStand(room, player, state, nowSec);
   return true;
 }
 
