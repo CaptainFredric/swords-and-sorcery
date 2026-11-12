@@ -2260,8 +2260,17 @@ function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
     oneHitTeleport(room,player,state,nowSec,world);
   // Classification is made AFTER the teleport (or an external shove during
   // preparation). The origin's former grounded state no longer decides it.
-  const form=oneHitForm(player.grounded,tiers),teleported=Boolean(state.teleportSucceeded);
+  const form=oneHitForm(player.grounded,tiers)??'plunge';
+  const teleported=Boolean(state.teleportSucceeded);
   const aerial=form==='aerial',groundWave=form==='ground'&&tiers.gale===2;
+  if(form==='plunge'){
+    // The original preparation committed successfully, but its knight lost
+    // the ground. No Gale => NO aerial projectile. Accelerate straight down
+    // through ordinary world collision; the next real landing is the slam.
+    // A fall over the abyss still kills, rather than granting a rescue blink.
+    state.until=Math.max(state.until??0,nowSec+6);
+    room.events.push({type:'oneHitPlunge',playerId:player.id,at:nowSec});
+  }
   const aimUntil=aerial&&teleported?nowSec+ONE_HIT_RULES.postTeleportAimSec:null;
   state.oneHit={
     tiers,form,startedAt:nowSec,hit:false,waveLaunched:false,
@@ -2304,7 +2313,21 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
   const state=player.ultimateState;
   if(state?.id==='one_hit_of_wonders'&&player.alive)oneHitDefensiveWind(room,player,nowSec);
   const action=state?.phase==='active'&&state.id==='one_hit_of_wonders'?state.oneHit:null;
-  if(!action||!action.awaitingWave||action.waveLaunched||!player.alive)return;
+  if(!action||!player.alive)return;
+  if(action.form==='plunge'){
+    if(player.grounded){
+      action.form='ground';
+      action.hitIds=oneHitSlam(room,player,action.tiers,nowSec,world);
+      action.hit=true;
+      action.landedAt=nowSec;
+      // The landing is authoritative, not a projected ground under the
+      // ledge; hit registry and field begin here, at the actual contact.
+      state.until=Math.min(state.until,nowSec+ULTIMATES.one_hit_of_wonders.activeSec);
+      room.events.push({type:'oneHitPlungeLanded',playerId:player.id,at:nowSec});
+    }
+    return;
+  }
+  if(!action.awaitingWave||action.waveLaunched)return;
   // Original aerial Gale gets its vortex; teleport arrivals get a 0.35s
   // aiming hover rather than a second lengthy animation.
   if(action.form==='aerial'&&nowSec<action.waveAt &&
