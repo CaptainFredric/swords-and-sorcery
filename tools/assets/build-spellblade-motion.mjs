@@ -108,7 +108,7 @@ const TECHNIQUES = {
 // (the clips that stand on the ground decide each technique's lift; the airborne ones take the same)
 const GROUNDED = new Set(['Technique_RigidRiposte_Enter', 'Technique_RigidRiposte_Interception', 'Technique_RigidRiposte_Thrust', 'Technique_RigidRiposte_Recovery',
   'Technique_Whirl_Enter', 'Technique_Whirl_Revolution', 'Technique_Whirl_Exit']);
-const frameTimes = (duration) => { const n = Math.max(1, Math.round(duration * FPS)); return Array.from({ length: n + 1 }, (_, i) => Math.min(duration, i / FPS)); };
+const frameTimes = (duration) => { const n = Math.max(1, Math.ceil(duration * FPS - 1e-6)); return Array.from({ length: n + 1 }, (_, i) => Math.min(duration, i / FPS)); };
 const lifts = {};
 for (const [id, clips] of Object.entries(TECHNIQUES)) {
   let low = Infinity;
@@ -159,8 +159,11 @@ for (const clip of built) {
     const rot = clip.frames.map((f) => f.pose[j].r);
     // keep each rotation track in one hemisphere (a LINEAR sampler takes the short way only if neighbours agree)
     for (let i = 1; i < rot.length; i += 1) if (rot[i].reduce((d, v, c) => d + v * rot[i - 1][c], 0) < 0) rot[i] = rot[i].map((v) => -v);
-    samplers.push({ input, interpolation: 'LINEAR', output: pushFloats(rot.flat(), 'VEC4') });
-    channels.push({ sampler: samplers.length - 1, target: { node: remap.get(j), path: 'rotation' } });
+    // (a bone a clip never moves from its rest has no track: the root, for one, which no clip here turns or carries)
+    if (rot.some((q) => Math.abs(Math.abs(q.reduce((d, v, c) => d + v * rest.r[c], 0)) - 1) > 1e-7)) {
+      samplers.push({ input, interpolation: 'LINEAR', output: pushFloats(rot.flat(), 'VEC4') });
+      channels.push({ sampler: samplers.length - 1, target: { node: remap.get(j), path: 'rotation' } });
+    }
     const tr = clip.frames.map((f) => f.pose[j].t);
     if (tr.some((t) => t.some((v, c) => Math.abs(v - rest.t[c]) > 1e-5))) {
       samplers.push({ input, interpolation: 'LINEAR', output: pushFloats(tr.flat(), 'VEC3') });
@@ -198,7 +201,7 @@ function bladeTrack(clip) {
     const w = Math.max(0, Math.min(1, (time - a.t) / Math.max(1e-9, c.t - a.t)));
     return worldMatrices(canon, mixPose(a.pose, c.pose, w));
   };
-  const n = Math.round(b.duration * 60);
+  const n = Math.ceil(b.duration * 60 - 1e-6);
   return Array.from({ length: n + 1 }, (_, i) => {
     const time = Math.min(b.duration, i / 60), world = at(time);
     return { time: round(time), base: apply(world[HAND], BASE).map(round), tip: apply(world[HAND], TIP).map(round) };

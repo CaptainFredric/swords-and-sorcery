@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "sha256": "f5c64433ad00786adbaf7d6d30c198db8dbd5f583d97c3ed107911b378dac216",
-  "bytes": 399956,
+  "sha256": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687",
+  "bytes": 316588,
   "canonicalSha256": "b43e5c3fb0c60a0a722577e0fad266efb3eef0f260fd88698e81192f41d10e80",
   "candidateSha256": "9dae42a815f4108afab4fdab95673293422283b677ea97f06ac0375ba50516a1",
   "fps": 30,
@@ -41,14 +41,14 @@
     {
       "name": "Technique_RigidRiposte_Recovery",
       "durationSec": 0.35,
-      "frames": 11,
+      "frames": 12,
       "source": "Argon Technique_RigidRiposte_Recovery, pelvis +0.0723 m",
       "lowestSoleM": 0.021
     },
     {
       "name": "Technique_RigidRiposte_Parried",
       "durationSec": 0.68,
-      "frames": 21,
+      "frames": 22,
       "source": "Argon Technique_RigidRiposte_Parried, pelvis +0.0723 m",
       "lowestSoleM": 0.005
     },
