@@ -24,6 +24,13 @@ export function disasterHolding(state) {
     (state.preparedTiers?.lightning===1&&Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased));
 }
 
+/** The held charge camera is shared with Half Lightning, but the
+ * destination guide belongs ONLY to the Full-Lightning teleport. */
+export function disasterTeleportAiming(state) {
+  return disasterHolding(state) && state.preparedTiers?.lightning === 2 &&
+    Number.isFinite(state.teleportHoldAt);
+}
+
 export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
   const state = player?.alive ? player.ultimateState : null;
   if (state?.id !== 'one_hit_of_wonders' || !Number.isFinite(state.commitAt) || !Number.isFinite(nowSec)) return false;
