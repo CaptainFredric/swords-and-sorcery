@@ -69,7 +69,10 @@ test('Fire Away sustains repeater over three separate target lanes then lands',(
   assert.deepEqual([...new Set(shots.map(s=>s.target))],[0,1,2]);
   assert.equal(workshopPreviewTargets('fireAwayRightHere').length,3);
   assert.ok(shots.at(-1).at-shots[0].at>3);
-  assert.ok(workshopPreviewPose('fireAwayRightHere',2.5).y>4.5);
+  assert.ok(workshopPreviewPose('fireAwayRightHere',1.3).y>4.5);
+  assert.equal(workshopPreviewPose('fireAwayRightHere',2.5).y,0,
+    'the machine lands before the repeater barrage starts');
+  assert.ok(shots[0].at>2.5);
   assert.equal(workshopPreviewPose('fireAwayRightHere',8.2).y,0);
   for(let i=0;i<3;i++)assert.equal(workshopPreviewTargetPose('fireAwayRightHere',7.9,i).fall,1);
 });
