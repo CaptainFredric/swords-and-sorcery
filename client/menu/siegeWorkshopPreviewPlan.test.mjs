@@ -48,12 +48,19 @@ test('ballista frost burst is a near miss and mobile Bolt II demonstrably fires 
   assert.equal(workshopPreviewTargets('boltToTheOccasion').length,2);
 });
 
-test('Do Not Stop My Ascension makes a genuine loop-and-return; Narrow circles a guarding rival',()=>{
+test('Do Not Stop My Ascension loops, crashes into a trio and stays defeated; Narrow circles a guarding rival',()=>{
   const mid=workshopPreviewPose('doNotStopMyAscension',2.2);
   assert.ok(mid.y>1);
   assert.ok(mid.pitch>Math.PI*.2 && mid.pitch<Math.PI*2);
-  const end=workshopPreviewPose('doNotStopMyAscension',4.8);
-  assert.ok(Math.abs(end.x)+Math.abs(end.y)+Math.abs(end.z)<.01);
+  const dive=workshopPreviewPose('doNotStopMyAscension',5.4);
+  assert.ok(dive.z < -7, 'the machine dives into the formation after looping');
+  assert.equal(workshopPreviewTargets('doNotStopMyAscension').length,3);
+  for(let i=0;i<3;i++) {
+    assert.equal(workshopPreviewTargetPose('doNotStopMyAscension',6.4,i).fall,1);
+    assert.equal(workshopPreviewTargetPose('doNotStopMyAscension',200,i).fall,1);
+  }
+  assert.equal(workshopPreviewDone('doNotStopMyAscension',200),false,
+    'the crash persists until the exhibition is closed or replayed');
   const circle=workshopPreviewPose('narrowToOne',2.5);
   assert.ok(Math.hypot(circle.x,circle.z)>1);
   assert.ok(workshopPreviewTargetPose('narrowToOne',2.1,0).guard);
