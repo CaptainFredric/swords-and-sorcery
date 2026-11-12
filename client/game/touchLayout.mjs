@@ -18,6 +18,8 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   sprint: { left: 26, bottom: 190, size: 50 },
   crouch: { left: 190, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
+  // (above the spell, a thumb's slide from JUMP)
+  technique: { right: 84, bottom: 208, size: 52 },
   ultimate: { right: 24, bottom: 222, size: 50 },
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },

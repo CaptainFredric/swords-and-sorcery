@@ -69,6 +69,7 @@ import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRec
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
+import { swordTechniqueFor, techniqueInput, techniqueMoment, techniqueMotion } from '../../shared/src/swordTechniques.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -1418,6 +1419,8 @@ export class GameRuntime {
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
+    // (the Sword Technique carried: its touch button wears it, and is there only when one is)
+    this.touch?.setTechniqueButton?.(swordTechniqueFor(auth?.technique));
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
@@ -1968,6 +1971,16 @@ export class GameRuntime {
         this.#play(vortexEndRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.6);
       }
       if (event.type === 'vortexHit') this.#vortexHit(event);
+      // Sword Techniques: the blow, the sword going round or driven out (heard), what it rings off, a spell cut down
+      if (event.type === 'techniqueHit') this.#techniqueHit(event);
+      if (event.type === 'techniqueWorldContact') this.#vortexWorld(event);
+      if (event.type === 'techniqueStart' || event.type === 'techniqueRevolution' || event.type === 'techniqueThrust') {
+        this.#play(vortexWhooshRecipe(Math.random, { rate: event.type === 'techniqueThrust' ? 16 : 2 * Math.PI / 0.6 }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.6);
+      }
+      if (event.type === 'techniqueDeflect') {
+        this.effects.blockBurst?.(event.point, null, { parry: true });
+        if (event.playerId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); }
+      }
       // an ember leaving the spin: a small spit of fire
       if (event.type === 'projectileSpawned' && spellFor(event.projectile?.spell).conjured && event.projectile.spell === spellFor(event.projectile.spell).id) {
         // a Vortex's fire leaving the spin: a spit for an ember, a real launch for the fire's own (heard and seen)
@@ -3275,6 +3288,35 @@ export class GameRuntime {
       this.spinTurn = null;
     }
     this.weapon.setVortex(view);
+    this.#technique(serverNow);
+  }
+
+  // my own Sword Technique in my arms, each frame (fpTechnique.mjs), from the host's word of it
+  #technique(serverNow) {
+    const me = this.localAuth;
+    const state = me?.alive ? me.techniqueState : null;
+    const moment = state ? techniqueMoment(state, serverNow) : null;
+    this.weapon.setTechnique(moment ? { moment, state } : null);
+  }
+
+  // a Sword Technique's blade biting a knight: sparks where it met them, and the cut heard
+  #techniqueHit(event) {
+    const me = this.playerId;
+    const attacker = this.#bodyPosition(event.playerId);
+    const victim = this.#bodyPosition(event.targetId);
+    const point = event.point ?? impactPoint(victim, attacker);
+    if (event.targetId !== me && point) {
+      this.effects.hitBurst(point, blowDirection(victim, attacker), { strike: event.technique === 'rigid_riposte' ? 2 : 0, quality: event.clean ? 1 : 0.4 });
+      this.remotePlayers.flashHit(event.targetId);
+    }
+    if (event.playerId === me) {
+      this.cameraKick = Math.max(this.cameraKick, event.technique === 'rigid_riposte' ? 0.07 : 0.03);
+      this.#play(vortexCutRecipe(), null, 0.9);
+    } else if (event.targetId === me) {
+      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: event.technique === 'rigid_riposte', amount: swordTechniqueFor(event.technique)?.damage ?? 16 }), null, 1);
+    } else {
+      this.#play(vortexCutRecipe(), point, 0.75);
+    }
   }
 
   // a Vortex's blade biting a knight as it comes round: sparks and fire where it met them, and the cut heard
@@ -3835,14 +3877,17 @@ export class GameRuntime {
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
+      // (in a Sword Technique I move as it lets me, by the host's own rule: its lunge carries me, a Whirl goes at a run)
+      const technique = techniqueMotion(this.localAuth, serverNow);
       const whirl = ultimateWhirl(this.localAuth, serverNow) ??
-        oneHitGlide(this.localAuth,MOVEMENT.runSpeed);
+        oneHitGlide(this.localAuth,MOVEMENT.runSpeed) ?? technique;
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
       const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
       const moveInput = reeling
         ? { ...wanted, forward: 0, right: 0, jump: false, sprint: false }
         : bracing
           ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
+          : whirl === technique && technique ? techniqueInput(wanted, technique)
           : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
       // ground an enemy's Sunder has torn, under my feet: no sprint while I stand on it (the host's word for it)
       const torn = Boolean(this.localAuth.tornGround);

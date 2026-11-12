@@ -675,10 +675,25 @@ test('Flight repeater uses LMB (Mouse0) and RMB (Mouse2) attacks with sword',()=
 });
 test('Flight repeater does not fire while ordinary Spellblade is unmounted and disabled',()=>{
  const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
- input.mountedFlight=false;down('KeyX');up('KeyX');
+ // (on foot X is the Sword Technique's now; the ballista's focus is X only while one is operated)
+ input.mountedFlight=false;input.mountedBallista=true;down('KeyX');up('KeyX');
  assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
- input.mountedFlight=true;input.enabled=false;down('Mouse0');
+ input.mountedBallista=false;input.mountedFlight=true;input.enabled=false;down('Mouse0');
  assert.equal(calls.length,1);
+});
+
+test('X is contextual: the Sword Technique on foot (held and let go), the machine\'s while one is operated',()=>{
+ const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
+ const pressed=[];input.socket.technique=d=>pressed.push(d);
+ down('KeyX');down('KeyX');
+ assert.deepEqual(pressed,[true]);assert.deepEqual(calls,[]);
+ up('KeyX');assert.deepEqual(pressed,[true,false]);
+ // operating a ballista, X never reaches the technique
+ input.mountedBallista=true;down('KeyX');up('KeyX');
+ assert.deepEqual(pressed,[true,false]);assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
+ // a key held as the arena is left is let go
+ input.mountedBallista=false;down('KeyX');input.releaseInputs();
+ assert.deepEqual(pressed,[true,false,true,false]);
 });
 
 

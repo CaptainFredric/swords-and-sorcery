@@ -27,7 +27,8 @@ import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
-const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||flight&&(action==='siegeWeapon'||action==='dash');
+// (the Sword Technique's button too: a Whirl is steered by the thumb that holds it)
+const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||action==='technique'||flight&&(action==='siegeWeapon'||action==='dash');
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -43,6 +44,9 @@ const BUTTONS = [
   { action: 'crouch', label: 'CROUCH' },
   // the gauntlet on its own, spell or no spell: hidden unless asked for in the settings
   { action: 'gauntlet', label: 'FIST' },
+  // the Sword Technique carried from the Armory (hidden when none is): held, a Whirl goes on; the thumb slid from
+  // it onto JUMP holds Jump as well
+  { action: 'technique', label: 'RIPOSTE', icon: 'technique', cooldown: { key: 'techniqueReadyAt', seconds: 10 } },
   // the ultimate: its shade drains as prowess is earned; full, it glows
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
@@ -332,7 +336,7 @@ export class TouchControls {
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
         ram?['attack','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
-        ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','interact','pause','scores','practiceTools'];
+        ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','technique','interact','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
         button.hidden=!visible.includes(action);
       this.layer.classList.toggle('mounted-steel-available',mounted);
@@ -430,7 +434,7 @@ export class TouchControls {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.ramMounted?false:
-        this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
+        this.jumpHeld || Boolean(this.techniqueJump) || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
       ramRaise: Boolean(this.ramMounted && raise),
@@ -873,6 +877,21 @@ export class TouchControls {
     this.buttons.spell?.classList.toggle('fist-held', !ready);
   }
 
+  /** The Sword Technique's button: shown when one is carried (`technique`: its rules, or null), wearing its name. */
+  setTechniqueButton(technique) {
+    this.layer.classList.toggle('technique-on', Boolean(technique));
+    const button = this.buttons.technique;
+    if (!button || !technique || button.dataset.technique === technique.id) return;
+    button.dataset.technique = technique.id;
+    const label = technique.kind === 'whirl' ? 'WHIRL' : 'RIPOSTE';
+    button.querySelector('span').textContent = label;
+    button.setAttribute('aria-label', technique.name);
+    const icon = button.querySelector('svg');
+    if (icon) icon.innerHTML = ICONS[technique.kind === 'whirl' ? 'whirl' : 'riposte'] ?? ICONS.technique;
+    const cooldown = this.cooldowns?.find?.((entry) => entry.element === button);
+    if (cooldown) cooldown.seconds = technique.cooldownSec;
+  }
+
   /** The gauntlet's own button (a setting; hidden unless asked for). */
   setGauntletButton(shown) {
     this.layer.classList.toggle('gauntlet-on', Boolean(shown));
@@ -1241,6 +1260,15 @@ export class TouchControls {
       }
       this.#gateHeld('jump',false,source,false);
     }
+    // the thumb holding the Sword Technique, slid onto JUMP: Jump is held with it (a Whirl climbing), for as long
+    // as it stays there
+    if (held === 'technique' && !this.deniedButtons.has(event.pointerId)) {
+      const over = this.#fingerOverJump(event);
+      if (over !== Boolean(this.techniqueJump)) {
+        this.techniqueJump = over;
+        this.buttons.jump?.classList.toggle('pressed', over);
+      }
+    }
     const aiming = aimDragAction(held,this.flightMounted) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
@@ -1416,6 +1444,7 @@ export class TouchControls {
       } else this.input.cast();
     }
     if (action === 'gauntlet') this.input.gauntlet();
+    if (action === 'technique') this.input.technique?.(true, `touch:${event.pointerId}`);
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
@@ -1473,6 +1502,10 @@ export class TouchControls {
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
     if (action === 'attack') this.input.setAttack(false, `touch:${pointerId}`);
     if (action === 'guard') this.input.setGuard(false, `touch:${pointerId}`);
+    if (action === 'technique') {
+      this.input.technique?.(false, `touch:${pointerId}`);
+      if (this.techniqueJump) { this.techniqueJump = false; this.buttons.jump?.classList.remove('pressed'); }
+    }
     if (action === 'flightRise') {
       this.flightRiseSources.delete(pointerId);
       this.flightRiseHeld = this.flightRiseSources.size > 0;

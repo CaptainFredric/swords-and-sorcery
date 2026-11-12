@@ -34,7 +34,7 @@ import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmospher
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
-import { armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
+import { armoryView, preparedArmoryView, techniqueCards } from './menu/armoryView.mjs';
 import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
@@ -1795,7 +1795,9 @@ function applySettings() {
 }
 const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
-  settings.get('loadout.preparedSpells'),siegeSelections());
+  settings.get('loadout.preparedSpells'),siegeSelections(),settings.get('loadout.technique'));
+// the Sword Technique cards, the chosen one marked
+const armoryTechniques=()=>techniqueCards(settings.get('loadout.technique'));
 // Seed the solo host from the same validated settings the Armory displays, including after reload.
 transmitLoadout();
 const settingsPanel = new SettingsPanel({
@@ -1814,6 +1816,10 @@ const settingsPanel = new SettingsPanel({
 });
 settings.onChange((change) => {
   applySettings();
+  if (change.id === 'loadout.technique') {
+    transmitLoadout();
+    renderArmory();
+  }
   if (change.id === 'loadout.ultimate') {
     armoryFeedback.cancel();
     if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
@@ -1887,9 +1893,10 @@ function updatePlaques() {
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
   const techIcon = $('#plaque-icon-technique');
-  if (techIcon) techIcon.textContent = '⚔';
+  const equippedTech = armoryTechniques().find((t) => t.equipped);
+  if (techIcon) techIcon.textContent = equippedTech?.mark ?? '⚔';
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = 'None equipped';
+  if (techName) techName.textContent = equippedTech?.name ?? 'Longsword Alone';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
@@ -1928,8 +1935,8 @@ function renderInspectorLists() {
 
   const techContainer = $('#armory-techniques');
   if (techContainer) {
-    const unequipped = SWORD_TECHNIQUES.filter((t) => t.status !== 'EQUIPPED');
-    const equipped = SWORD_TECHNIQUES.filter((t) => t.status === 'EQUIPPED');
+    const unequipped = armoryTechniques().filter((t) => t.status !== 'EQUIPPED');
+    const equipped = armoryTechniques().filter((t) => t.status === 'EQUIPPED');
     const sortedTechs = [...unequipped, ...equipped];
 
     techContainer.innerHTML = sortedTechs.map((tech) => {
@@ -1985,7 +1992,7 @@ function updateInspectorDetailCard() {
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
 
   if (cat === 'technique') {
-    const tech = SWORD_TECHNIQUES.find((t) => t.id === id) || SWORD_TECHNIQUES[0];
+    const tech = armoryTechniques().find((t) => t.id === id) || armoryTechniques()[0];
     const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
     $('#inspector-card-mark').textContent = tech.mark;
     $('#inspector-card-name').textContent = tech.name;
@@ -1999,10 +2006,10 @@ function updateInspectorDetailCard() {
         equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
       }
     } else {
-      $('#inspector-card-status').textContent = 'EQUIPPED';
+      $('#inspector-card-status').textContent = tech.equipped ? 'EQUIPPED' : 'AVAILABLE';
       if (equipBtn) {
-        equipBtn.disabled = true;
-        equipBtn.textContent = 'EQUIPPED';
+        equipBtn.disabled = tech.equipped;
+        equipBtn.textContent = tech.equipped ? 'EQUIPPED' : 'EQUIP';
       }
     }
     if (preparedRoot) preparedRoot.classList.add('hidden');
@@ -2160,12 +2167,13 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     settings.set('loadout.ultimate', itemId);
     armoryFeedback.select(itemId, prevUlt, (id) => settings.set('loadout.ultimate', id));
   } else if (category === 'technique') {
-    const tech = SWORD_TECHNIQUES.find((t) => t.id === itemId);
-    if (!tech || tech.disabled || tech.status === 'IN TRAINING') {
+    const tech = armoryTechniques().find((t) => t.id === itemId);
+    if (!tech || tech.disabled) {
       renderInspectorLists();
       updateInspectorDetailCard();
       return;
     }
+    settings.set('loadout.technique', itemId);
   }
 
   const playReorder = animate ? animateCardReorder(category, itemId) : null;
@@ -2194,7 +2202,7 @@ function openInspector(category, itemId = null) {
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
-    if (category === 'technique') itemId = SWORD_TECHNIQUES[0].id;
+    if (category === 'technique') itemId = settings.get('loadout.technique') || 'none';
     else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
     else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
   }
@@ -2210,7 +2218,7 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Two sword techniques are in training. The Castleward longsword is already equipped.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'The longsword is always equipped. Carry one Sword Technique beside it, on X, or none.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
     masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };

@@ -216,6 +216,11 @@ registry
     id: 'loadout.ultimate', section: 'loadout', label: 'Ultimate', type: 'choice', default: 'sunder',
     options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }, { value: 'one_hit_of_wonders', label: 'All-Natural Disaster' }],
   })
+  // the Sword Technique carried beside the longsword (none: the longsword alone)
+  .defineSetting({
+    id: 'loadout.technique', section: 'loadout', label: 'Sword Technique', type: 'choice', default: 'none',
+    options: [{ value: 'none', label: 'None' }, { value: 'rigid_riposte', label: 'Rigid Riposte' }, { value: 'whirl_like_the_wind', label: 'Whirl Like the Wind' }],
+  })
   .defineSetting({
     id: 'loadout.preparedSpells', section: 'loadout', label: 'Prepared spells', type: 'array', default: DEFAULT_PREPARED_SPELLS,
     validate: (ids) => normalizePreparedSpells(Array.isArray(ids) ? ids.find(isSpell) : 'fireball', ids),
@@ -253,7 +258,7 @@ registry
   .defineAction({ id: 'interact', label: 'Operate / Interact', group: 'Combat', keys: ['KeyT'] })
   .defineAction({ id: 'deploy', label: 'Deploy / Mobile Mode', group: 'Combat', keys: ['KeyB'] })
   .defineAction({ id: 'siegeSkill', label: 'Siege machine Skill', group: 'Siege', keys: ['KeyU'] })
-  .defineAction({ id: 'siegeWeapon', label: 'Ballista weapon focus / cancel alignment', group: 'Siege', keys: ['KeyX'] })
+  .defineAction({ id: 'siegeWeapon', label: 'Sword Technique (on foot) / Ballista weapon focus (mounted)', group: 'Abilities', keys: ['KeyX'] })
   .defineAction({ id: 'siegeView', label: 'Mounted siege view', group: 'Interface', keys: ['KeyZ'] })
   // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })

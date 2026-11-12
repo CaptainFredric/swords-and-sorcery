@@ -1,7 +1,10 @@
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
+import { techniqueMoment } from '../../shared/src/swordTechniques.mjs';
 export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
+  // a Sword Technique, from its first moment to the end of its recovery (turned or broken off, its own recoil)
+  if (techniqueMoment(player.techniqueState, serverNow)) return 'technique';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
   // a Blazing Vortex (lit, or spinning): the knight is the spin
   if (player.ultimateState?.id === 'vortex') return 'vortex';

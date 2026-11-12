@@ -453,6 +453,10 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* the gauntlet's own button: only when asked for in the settings, left of the spell */
 .touch-gauntlet { --size: 46px; display: none !important; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #eadfc4; border-color: rgba(214, 190, 140, .62); }
 .touch-controls.gauntlet-on .touch-gauntlet { display: grid !important; }
+/* the Sword Technique carried from the Armory: only when one is, above the spell (a thumb's slide from JUMP) */
+.touch-technique { --size: 52px; display: none !important; right: calc(var(--safe-r) + 84px * var(--s)); bottom: calc(var(--safe-b) + 208px * var(--s)); color: #e9e2cf; border-color: rgba(196, 204, 214, .7); }
+.touch-controls.technique-on .touch-technique { display: grid !important; }
+.touch-controls.technique-on.touch-mounted .touch-technique { display: none !important; }
 /* Crouch sits inward of the joystick, away from its forward Sprint/Charge
    extension. The flight rail occupies this space only while Crouch is hidden. */
 .touch-crouch { --size: 50px; left: calc(var(--safe-l) + 190px * var(--s)); bottom: calc(var(--safe-b) + 187px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }

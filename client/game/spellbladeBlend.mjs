@@ -24,6 +24,11 @@ export function blendSeconds(fromClip, toClip) {
   if (!fromClip || fromClip === toClip) return 0;
   // respawn teleports the character, so leaving the death pose snaps
   if (fromClip === 'Death') return 0;
+  // a Sword Technique's clips meet end to end (authored so); into one, quickly; out of one, as into any stance
+  const technique = (clip) => typeof clip === 'string' && clip.startsWith('Technique_');
+  // (but not the ones a technique is broken off into, or its climbing turn: those are eased into)
+  if (technique(fromClip) && technique(toClip)) return /Parried|Interrupted|GaleLift|AirRecovery/.test(fromClip + toClip) ? 0.08 : 0;
+  if (technique(toClip)) return 0.07;
   // slashes chained inside one attack already meet at matching poses
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
   // a cut broken off into the guard swings round into it (the guard's own authored entry arcs out through the right):

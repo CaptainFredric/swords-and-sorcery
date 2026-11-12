@@ -1,3 +1,4 @@
+import { swordTechniqueFor } from '../../shared/src/swordTechniques.mjs';
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {highGroundsHudView} from './highGroundsHudView.mjs';
 import { renownTrialsView } from './renownTrialsView.mjs';
@@ -143,6 +144,7 @@ export class HUD {
     this.dash = document.querySelector('#dash-ability');
     const dashIcon = this.dash?.querySelector('.ability-icon');
     if (dashIcon) dashIcon.innerHTML = iconSvg('dash');
+    this.technique = document.querySelector('#technique-ability');
     this.ultimate = document.querySelector('#ultimate-ability');
     const ultimateIcon = this.ultimate?.querySelector('.ability-icon');
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
@@ -387,6 +389,24 @@ export class HUD {
     this.dash.classList.toggle('active',flightDashActive);
     if(inFlight)this.dash.querySelector('strong').textContent=
       flightDashActive?'DASHING':flightMachine?.runGroundPhase==='SPINUP'?'SPINNING':'READY';
+    // the Sword Technique carried (none: no tile; on a siege machine X is the machine's)
+    if (this.technique) {
+      const technique = swordTechniqueFor(local.technique);
+      const mounted = Boolean(local.operatingBallistaId || local.operatingRamId || local.operatingFightFlightId);
+      this.technique.hidden = !technique || mounted;
+      if (technique && !mounted) {
+        if (this.technique.dataset.technique !== technique.id) {
+          this.technique.dataset.technique = technique.id;
+          this.technique.querySelector('.ability-icon').innerHTML = iconSvg(technique.kind === 'whirl' ? 'whirl' : 'riposte');
+          this.technique.querySelector('em').textContent = technique.kind === 'whirl' ? 'WHIRL' : 'RIPOSTE';
+        }
+        const going = Boolean(local.techniqueState) && !Number.isFinite(local.techniqueState.endAt);
+        this.#ability(this.technique, going ? 0 : Math.max(0, (local.techniqueReadyAt ?? 0) - serverNow), technique.cooldownSec);
+        this.technique.classList.toggle('active', going);
+        if (going) this.technique.querySelector('strong').textContent = technique.kind === 'whirl' ? `TURN ${local.techniqueState.revolutions || 1}` : 'LUNGE';
+        this.technique.classList.toggle('practice', practiceOverride(local, 'technique', serverNow, practice));
+      }
+    }
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.dash.classList.toggle('practice', !inFlight&&practiceOverride(local, 'dash', serverNow, practice));

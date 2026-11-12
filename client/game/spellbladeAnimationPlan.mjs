@@ -4,6 +4,7 @@ import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shar
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
+import { techniqueMoment } from '../../shared/src/swordTechniques.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -98,6 +99,17 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
       sorcery: layers.cast ? cast : layers.guard ? layers.attack ? defensive : guard : still,
     }, concurrent: layers };
   }
+  // A Sword Technique: the clip of the moment it is in, at that moment's time (the motion sidecar's clips: the same
+  // ones the server's blade was sampled from). The clips meet end to end; a Whirl's turn is the clip's own (the
+  // pelvis carries it: nothing else turns the knight). Without the sidecar the nearest of the model's own stands in.
+  if (state === 'technique') {
+    const moment = techniqueMoment(player.techniqueState, serverNow);
+    if (moment) {
+      return { ...fixed(moment.clip, moment.time), fallback: moment.technique.kind === 'whirl' ? 'Vortex_Spin' : 'Slash_3',
+        ...(moment.technique.kind === 'whirl' ? {} : { fallbackTime: Math.min(0.36, moment.age) }), technique: moment.technique.id };
+    }
+  }
+
   if (state === 'attack') {
     const attack = attackPlan(player, serverNow);
     // on the move (or in the air) the legs keep their gait and only the body above them swings: a whole-body strike

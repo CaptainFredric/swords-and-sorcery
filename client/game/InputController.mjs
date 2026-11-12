@@ -23,7 +23,7 @@ const RELEASE = {
 };
 const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
 const MOVE_ACTIONS = new Set(['forward', 'back', 'left', 'right']);
-const GATED_ACTIONS = new Set([...MOVE_ACTIONS, 'sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate']);
+const GATED_ACTIONS = new Set([...MOVE_ACTIONS, 'sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate', 'technique']);
 // the menus handle these themselves (they work outside the arena too)
 const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
@@ -39,6 +39,8 @@ export class InputController {
     this.attackSources = new Set();
     this.guardSources = new Set();
     this.ultimateSources = new Set();
+    // the Sword Technique's button: every key or finger holding it
+    this.techniqueSources = new Set();
     this.ultimateGesture = null;
     this.oneHitWaveId = null;
     this.prepared = { visible: false };
@@ -138,6 +140,8 @@ export class InputController {
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
     if(this.mountedRam&&action==='dash')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
+    // X is the siege machine's while one is operated; on foot it is the equipped Sword Technique's
+    if(action==='siegeWeapon'&&this.onFoot){this.technique(true,`key:${code}`);return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'ultimate') this.ultimate(code);
@@ -154,6 +158,7 @@ export class InputController {
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
+    if(action==='siegeWeapon'&&this.techniqueSources.has(`key:${code}`)){this.technique(false,`key:${code}`);return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
@@ -433,6 +438,7 @@ export class InputController {
 
   releaseInputs() {
     this.ramPitchModifierHeld=false;
+    if(this.techniqueSources?.size){this.techniqueSources.clear();this.socket?.technique?.(false);}
     if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel:true});
     this.ultimateSources.clear();
     this.ultimateGesture=null;
@@ -646,6 +652,25 @@ export class InputController {
 
   siegeWeapon() {
     if (this.enabled) this.socket?.send?.({ type: 'bibyeWeaponFocus' });
+  }
+
+  /** On foot (no siege machine operated): where the technique's button is the knight's own. */
+  get onFoot() { return !this.mountedBallista && !this.mountedFlight && !this.mountedRam; }
+
+  /**
+   * The Sword Technique's button, down or up, from a key or a finger (`source`): the equipped technique begins on the
+   * first press and is let go when the last one holding it lets go (a Whirl goes round for as long as it is held).
+   */
+  technique(down, source = 'direct') {
+    if (down) {
+      if (!this.enabled || !this.onFoot || this.allowAction?.('technique') === false) return;
+      const first = this.techniqueSources.size === 0;
+      this.techniqueSources.add(source);
+      if (first) this.socket.technique?.(true);
+      return;
+    }
+    if (!this.techniqueSources.delete(source) || this.techniqueSources.size) return;
+    this.socket.technique?.(false);
   }
 
   movement() {
