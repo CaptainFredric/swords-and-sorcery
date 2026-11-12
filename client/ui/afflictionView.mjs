@@ -40,6 +40,10 @@ export const AFFLICTIONS = Object.freeze({
     name: 'Frostbound', icon: 'afflictionFrostbound', steady: true,
     description: 'Disaster frost slows your movement. Its grip can linger after the initial freeze, or be renewed by a frost-covered rupture.',
   }),
+  tornGround: Object.freeze({
+    name: 'Torn Ground', icon: 'afflictionTornGround', steady: true,
+    description: 'An enemy’s Sundering strike has torn the ground beneath you. Sprint is denied while you stand on it.',
+  }),
   rupture: Object.freeze({
     name: 'On Ruptured Ground', icon: 'afflictionRupture', steady: false,
     description: 'The fractured ground delays recovery from Shaken. Damage taken here also drains Guard stamina. Its influence fades as the field settles.',
@@ -76,6 +80,7 @@ export function afflictionView(player, nowSec) {
     // This slow really holds at a fixed depth until it ends or is refreshed.
     push(effects, 'frostbound', (frost.depth ?? ONE_HIT_FIELD.frostDepth) / ONE_HIT_FIELD.frostDepth);
   }
+  if (player.tornGround) push(effects, 'tornGround', 1);
   const field = player.oneHitField;
   if (field && field.ownerId !== player.id) push(effects, 'rupture', field.strength);
   return effects;
