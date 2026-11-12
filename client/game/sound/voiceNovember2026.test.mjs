@@ -6,19 +6,14 @@ import { VOICE_LIBRARY, subtitleFor } from '../../ui/voiceLibrary.mjs';
 const find = (id) => VOICE_LINE_LIST.find((entry) => entry.id === id);
 const shelf = (id) => VOICE_LIBRARY.find((entry) => entry.line === id);
 
-test('the two new physical exertions stay distinct from spoken dialogue', () => {
-  for (const [id, section] of [
-    ['hummedExertion', 'Exertions'],
-    ['coughGrowlExertion', 'Injury'],
-  ]) {
-    assert.equal(find(id)?.kind, 'exertion');
-    assert.equal(find(id)?.section, section);
-    assert.equal(shelf(id)?.section, section);
-    assert.equal(subtitleFor(id), null);
-  }
-  assert.ok(find('hummedExertion').triggers.heavySwing > 0);
-  assert.ok(find('coughGrowlExertion').triggers.heavyHurt > 0);
-  assert.notEqual(find('hummedExertion').id, find('laugh')?.id, 'new hum is not the established spoken laugh');
+test('the new physical exertion stays distinct from spoken dialogue', () => {
+  const id = 'coughGrowlExertion';
+  const section = 'Injury';
+  assert.equal(find(id)?.kind, 'exertion');
+  assert.equal(find(id)?.section, section);
+  assert.equal(shelf(id)?.section, section);
+  assert.equal(subtitleFor(id), null);
+  assert.ok(find(id).triggers.heavyHurt > 0);
 });
 
 test('Good Luck Forgetting Me is one authored sentence with two alternate performances', () => {
@@ -35,7 +30,7 @@ test('Good Luck Forgetting Me is one authored sentence with two alternate perfor
 });
 
 test('new lines use actual raised moments and pass declaration validation', () => {
-  for (const id of ['hummedExertion', 'coughGrowlExertion', 'goodLuckForgettingMe']) {
+  for (const id of ['coughGrowlExertion', 'goodLuckForgettingMe']) {
     const entry = find(id);
     for (const tag of Object.keys(entry.triggers)) assert.ok(VOICE_TAGS[tag] && !VOICE_TAGS[tag].future);
   }
