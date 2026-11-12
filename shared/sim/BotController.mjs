@@ -397,7 +397,12 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     if (spell && distance <= castRange(spellFor(spell))) {
       const carried = actor.spell;
       actor.spell = spell;
-      if (tryCastSpell(room, actor.id, spellAim(actor, target, skill, random), nowSec)) {
+      // A line of lightning is instant: aim where the opponent actually is.
+      // Physical bolts travel at different speeds, and are led accordingly.
+      const payload=spellFor(spell);
+      const aimed=payload.kind==='line'?aimDirection(actor,target):
+        spellAim(actor,target,skill,random,payload.speed??24);
+      if (tryCastSpell(room, actor.id, aimed, nowSec)) {
         ai.lastSpell = spell;
         // and has it back sooner than a knight would
         if (profile.spellCooldown) actor.spellReadyAt = nowSec + (actor.spellReadyAt - nowSec) * profile.spellCooldown;
