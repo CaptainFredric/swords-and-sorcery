@@ -61,11 +61,13 @@ export const ULTIMATES = Object.freeze({
   // scorch on them. Nothing at a distance is touched by the sword, and nothing through a wall; what the blade clips of
   // the world rings and sparks and does not stop it. Small Fireballs (shared/src/spells.mjs CONJURED) leave along the
   // aim. The knight moves faster than a run and slower than a sprint, falls slowly (it never rises of itself: no
-  // flight), cannot guard, sprint, dash, swing, cast or throw a fist, and is hurt and shaken exactly as ever.
+  // flight), cannot raise a stationary Guard, sprint, dash, swing, cast or throw a fist. The spinning
+  // blade itself can intercept a physical blow ONLY at its position, paying real Guard stamina; other
+  // angles and non-blade hazards can still hurt and shake the knight.
   //
   // What it is, the knight steers with what they hold (`emphasis`, -1..1, moving between them over `emphasisSec`):
   //   nothing held, or both: balanced;
-  //   the guard held (the right hand's button: there is no guard to raise while it spins): the blade (it spins
+  //   the Guard button held (it steers emphasis rather than raising a static Guard): the blade (it spins
   //   faster, hangs in the air longest, and its fire is a weak ember);
   //   the attack held (the left: as one looses a shot): the fire (it spins slower, falls sooner, and its fire is a
   //   small, serious Fireball).
