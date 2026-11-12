@@ -43,6 +43,7 @@ const BUTTONS = [
   { action: 'crouch', label: 'CROUCH' },
   // the gauntlet on its own, spell or no spell: hidden unless asked for in the settings
   { action: 'gauntlet', label: 'FIST' },
+  { action: 'ramFlick', label: 'FLICK', icon: 'gauntlet' },
   // the ultimate: its shade drains as prowess is earned; full, it glows
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
@@ -328,7 +329,7 @@ export class TouchControls {
     // current player state. None of these preview presses reach gameplay.
     if(mode){
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
-        ram?['attack','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
+        ram?['attack','ramFlick','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
         ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','interact','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
@@ -614,6 +615,10 @@ export class TouchControls {
       this.stickBase.style.setProperty('--drive-pressure',drivePressure);
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
+      if(this.buttons.ramFlick){
+        this.buttons.ramFlick.hidden=!ram;
+        this.buttons.ramFlick.setAttribute('aria-label','Finger Flick · one targeted strike · shares piston recovery');
+      }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
@@ -1408,6 +1413,7 @@ export class TouchControls {
       } else this.input.cast();
     }
     if (action === 'gauntlet') this.input.gauntlet();
+    if (action === 'ramFlick') this.input.ramFlick?.();
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
