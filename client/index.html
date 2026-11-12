@@ -843,11 +843,45 @@
           <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
           <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
           <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
+          <button id="practice-spellblade" class="practice-opponent">THE SPELLBLADE · MASTER</button>
           <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
+          <details class="practice-siege" id="practice-ultimate-knight-config" hidden>
+            <summary>ULTIMATE KNIGHT · DRILL SETTINGS</summary>
+            <div class="practice-knight-settings">
+              <label>ULTIMATE
+                <select id="practice-knight-ultimate">
+                  <option value="cycle">CYCLE ALL ULTIMATES</option>
+                  <option value="sunder">SUNDER ALL THAT RUSTS</option>
+                  <option value="vortex">BLAZING VORTEX</option>
+                  <option value="chivalry">SPELLS &amp; CHIVALRY</option>
+                  <option value="one_hit_of_wonders">ALL-NATURAL DISASTER</option>
+                </select>
+              </label>
+              <label>BEHAVIOR
+                <select id="practice-knight-behavior">
+                  <option value="follow">FOLLOW · SEEK &amp; FIGHT</option>
+                  <option value="stay">STAY · REPEAT &amp; DEFEND</option>
+                </select>
+              </label>
+              <small>STAY holds position, casts periodically and attacks nearby. FOLLOW pursues you.</small>
+              <div class="one-hit-practice-levels" id="practice-knight-infusions">
+                <label>FIRE <select data-knight-element="fire"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>FROST <select data-knight-element="frost"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>GALE <select data-knight-element="gale"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>LIGHTNING <select data-knight-element="lightning"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>STEEL <select data-knight-element="steel"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              </div>
+              <div class="one-hit-practice-presets">
+                <button type="button" data-knight-preset="reset">NONE</button>
+                <button type="button" data-knight-preset="partial">ALL PARTIAL</button>
+                <button type="button" data-knight-preset="full">ALL FULL</button>
+              </div>
+              <small>Infusions affect only All-Natural Disaster. The Knight uses real attacks, not scripted damage.</small>
+            </div>
+          </details>
           <button id="practice-st-perry" class="practice-opponent">ST. PERRY THE PRODIGIOUS</button>
           <button id="practice-canonization" class="practice-opponent hidden">CANONIZATION</button>
           <button id="practice-remove">REMOVE DUMMY</button>
-          <small class="practice-ultimate-always-ready">PERSONAL ULTIMATE + PROWESS · ALWAYS FULL IN PRACTICE</small>
           <details class="practice-siege" id="practice-one-hit" hidden>
             <summary>ALL-NATURAL DISASTER · INFINITE TESTING</summary>
             <p>Practice only. Each element independently progresses from None to Partial to Full.</p>
