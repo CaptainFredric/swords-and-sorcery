@@ -2815,6 +2815,24 @@ function updateInspectionControls() {
           'NATURAL · real elemental spell hits determine infusion tiers.';
     }
   }
+  const knight=latestSnapshot?.players?.find(p=>p.actorKind==='dummy'&&
+    p.practiceMode==='ULTIMATE_KNIGHT');
+  const knightPanel=$('#practice-ultimate-knight-config');
+  if(knightPanel){
+    knightPanel.hidden=!knight;
+    if(knight){
+      const config=knight.ultimateKnight??{};
+      const selection=knightPanel.querySelector('#practice-knight-ultimate');
+      const behavior=knightPanel.querySelector('#practice-knight-behavior');
+      if(selection&&!selection.matches(':focus'))selection.value=config.selection??'cycle';
+      if(behavior&&!behavior.matches(':focus'))behavior.value=config.behavior??'follow';
+      for(const select of knightPanel.querySelectorAll('[data-knight-element]')){
+        if(!select.matches(':focus'))select.value=String(config.stages?.[select.dataset.knightElement]??0);
+      }
+      const editable=!shared||latestSnapshot?.sharedPracticeHostId===socket.playerId;
+      for(const control of knightPanel.querySelectorAll('button,select'))control.disabled=!editable;
+    }
+  }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
   const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
   const aloneNotice = $('#shared-practice-alone');
@@ -2845,7 +2863,7 @@ function updateInspectionControls() {
   if(hostileStatus&&!hostile&&occupied)hostileStatus.textContent='Machine already present. Dismantle it before summoning.';
   if(shared&&latestSnapshot?.sharedPracticeHostId!==socket.playerId){
     const hostTools=['practice-passive','practice-guarding','practice-fight','practice-sorcery','practice-melee','practice-runner',
-      'practice-ultimate-knight','practice-st-perry','practice-canonization','practice-remove',
+      'practice-spellblade','practice-ultimate-knight','practice-st-perry','practice-canonization','practice-remove',
       'practice-build-bibye','practice-rebuild-bibye','practice-dismantle-bibye',
       'practice-hostile-spawn','practice-hostile-reset','practice-hostile-remove'];
     for(const id of hostTools){const button=$('#'+id);if(button)button.disabled=true;}
@@ -2931,7 +2949,24 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
+$('#practice-spellblade').addEventListener('click', () => socket.practiceSpawnDummy('SPELLBLADE'));
 $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
+const knightConfigPanel=$('#practice-ultimate-knight-config');
+knightConfigPanel?.addEventListener('change',event=>{
+  const field=event.target;
+  if(field?.id==='practice-knight-ultimate')
+    socket.send({type:'practiceUltimateKnightConfig',selection:field.value});
+  else if(field?.id==='practice-knight-behavior')
+    socket.send({type:'practiceUltimateKnightConfig',behavior:field.value});
+  else if(field?.dataset?.knightElement)
+    socket.send({type:'practiceUltimateKnightConfig',element:field.dataset.knightElement,
+      tier:Number(field.value)});
+});
+knightConfigPanel?.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-knight-preset]');
+  if(button?.dataset?.knightPreset)
+    socket.send({type:'practiceUltimateKnightConfig',preset:button.dataset.knightPreset});
+});
 $('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
 $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
