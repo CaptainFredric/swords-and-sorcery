@@ -1797,7 +1797,7 @@ function applySettings() {
 }
 const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
-  settings.get('loadout.preparedSpells'),siegeSelections());
+  settings.get('loadout.preparedSpells'),siegeSelections(),settings.get('loadout.technique'));
 // Seed the solo host from the same validated settings the Armory displays, including after reload.
 transmitLoadout();
 const settingsPanel = new SettingsPanel({
@@ -1830,6 +1830,7 @@ settings.onChange((change) => {
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
   }
+  if(change.id==='loadout.technique'){transmitLoadout();renderArmory();}
   if (change.id === 'loadout.preparedSpells') {
     transmitLoadout();
     renderArmory();
@@ -1944,12 +1945,13 @@ function renderInspectorLists() {
 
   const techContainer = $('#armory-techniques');
   if (techContainer) {
-    const unequipped = SWORD_TECHNIQUES.filter((t) => t.status !== 'EQUIPPED');
-    const equipped = SWORD_TECHNIQUES.filter((t) => t.status === 'EQUIPPED');
+    const chosen=settings.get('loadout.technique');
+    const unequipped = SWORD_TECHNIQUES.filter((t) => t.id !== chosen);
+    const equipped = SWORD_TECHNIQUES.filter((t) => t.id === chosen);
     const sortedTechs = [...unequipped, ...equipped];
 
     techContainer.innerHTML = sortedTechs.map((tech) => {
-      const isEquipped = tech.status === 'EQUIPPED';
+      const isEquipped = tech.id === chosen;
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
       const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
       const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
@@ -2015,10 +2017,11 @@ function updateInspectorDetailCard() {
         equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
       }
     } else {
-      $('#inspector-card-status').textContent = 'EQUIPPED';
+      const selected=settings.get('loadout.technique')===tech.id;
+      $('#inspector-card-status').textContent = selected?'EQUIPPED':'AVAILABLE';
       if (equipBtn) {
-        equipBtn.disabled = true;
-        equipBtn.textContent = 'EQUIPPED';
+        equipBtn.disabled=selected;
+        equipBtn.textContent=selected?'EQUIPPED':'EQUIP';
       }
     }
     if (preparedRoot) preparedRoot.classList.add('hidden');
@@ -2161,6 +2164,9 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
       updateInspectorDetailCard();
       return;
     }
+    const previous=settings.get('loadout.technique');
+    settings.set('loadout.technique',itemId);
+    armoryFeedback.select(itemId,previous,id=>settings.set('loadout.technique',id));
   }
 
   lastEquippedCategory = category;
@@ -2187,7 +2193,7 @@ function openInspector(category, itemId = null) {
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
-    if (category === 'technique') itemId = SWORD_TECHNIQUES[0].id;
+    if (category === 'technique') itemId = settings.get('loadout.technique')||SWORD_TECHNIQUES[0].id;
     else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
     else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
   }
