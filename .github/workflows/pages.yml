@@ -38,6 +38,10 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Verify the browser module graph before publishing
+        run: |
+          npm ci
+          npm run check:browser-imports
       - name: Build the static client
         run: |
           mkdir -p _site/about
