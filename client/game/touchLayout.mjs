@@ -25,7 +25,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   // On-foot VIEW shares the siege VIEW action, but sits below the kill-feed
   // strip and inward of ULTIMATE. Mounted modes retain their existing upper
   // corner positions. Custom ensures old saved on-foot layouts gain the slot.
-  siegeView: {right: 96, top: 90, size: 44, custom:true},
+  siegeView: {right: 96, top: 70, size: 44, custom:true},
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
