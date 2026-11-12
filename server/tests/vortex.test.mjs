@@ -9,6 +9,7 @@ import { CONJURED, SPELLS, isSpell, spellFor } from '../../shared/src/spells.mjs
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate, stepVortexEmphasis, vortexAngle, vortexEmphasisWanted, vortexTune, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { readyPracticeUltimate } from '../../shared/sim/practice.mjs';
 import { serializeSnapshot } from '../../shared/sim/wire.mjs';
+import { vortexBladeGuards } from '../../shared/src/vortexGuard.mjs';
 
 // Blazing Vortex: the second ultimate. A steered, spinning, burning sword with aimed fire, on the same course as any
 // ultimate (a full meter, an exposed startup, a commit that spends the charge, a stretch, an end). These are
@@ -603,13 +604,19 @@ test('its fire meets the world like any spell', () => {
   assert.equal(b.health, 100);
 });
 
-test('it is no shield: the spinning knight is hurt and shaken as ever, and staggered, cuts nothing', () => {
+test('Vortex sword guard protects only at its blade, never when the blade faces away; stagger stops the spin', () => {
   const { room, a, b } = duel({ distance: 1.4 });
   const committed = spin(room, a, pinned(b, 1.4));
   const before = a.health;
   // b's own blade lands on it as on anyone
   beginAttack(room, 'b', committed + 0.05);
-  run(room, committed + TICK * 2, committed + 0.6, () => { pinned(b, 1.4)(); b.health = 100; });
+  run(room, committed + TICK * 2, committed + 0.6, now => {
+    pinned(b, 1.4)(); b.health = 100;
+    // Sword is on the OTHER side. No invisible 360-degree guard.
+    a.ultimateState.angle=Math.PI/2;
+    a.ultimateState.angleAt=now;
+    a.ultimateState.rate=2*Math.PI*vortex.balanced.revPerSec;
+  });
   assert.ok(a.health < before, 'it takes the blow in full');
   const sword = room.events.find((e) => e.type === 'damage' && e.source === 'sword' && e.victimId === 'a');
   assert.ok(sword && sword.amount >= 15);
@@ -623,6 +630,30 @@ test('it is no shield: the spinning knight is hurt and shaken as ever, and stagg
   assert.equal(cuts(other.room.events).length, 0);
   assert.equal(fires(other.room.events).length, 0);
   assert.equal(other.a.ultimateState?.phase, 'active', 'the charge is spent and the clock runs on');
+});
+
+test('Vortex blade physically blocks a sword from its current angle, pays stamina, and never perfect-parries',()=>{
+  const {room,a,b}=duel({distance:1.4});
+  const committed=spin(room,a,pinned(b,1.4));
+  room.events.length=0;
+  const current=()=>a.ultimateState;
+  const side={position:{x:1.4,y:0,z:0}};
+  current().angle=-Math.PI/2;current().angleAt=committed;current().rate=2*Math.PI*3.25;
+  assert.equal(vortexBladeGuards(a,side,committed),true);
+  current().angle=Math.PI/2;
+  assert.equal(vortexBladeGuards(a,side,committed),false);
+  current().angle=-Math.PI/2;
+  beginAttack(room,'b',committed+.04);
+  run(room,committed+2*TICK,committed+.55,now=>{
+    pinned(b,1.4)();b.health=100;
+    const s=current();
+    s.angle=-Math.PI/2;s.angleAt=now;s.rate=2*Math.PI*3.25;
+  });
+  assert.ok(room.events.some(e=>e.type==='vortexBladeGuard'&&e.defenderId==='a'));
+  assert.ok(room.events.some(e=>e.type==='block'&&e.vortexBlade&&e.defenderId==='a'));
+  assert.equal(room.events.some(e=>e.type==='parry'&&e.defenderId==='a'),false);
+  assert.equal(room.events.some(e=>e.type==='damage'&&e.source==='sword'&&e.victimId==='a'),false);
+  assert.ok(a.guardStamina<100,'the sword guard is real stamina-backed defense');
 });
 
 test('a knight who falls spinning, or still dizzy from it, is marked for the voice', () => {
