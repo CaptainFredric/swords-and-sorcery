@@ -18,6 +18,17 @@ const roomGain=(position,listener)=>!position||!listener?1:
 const mix=count=>1/Math.sqrt(1+count*.34);
 const at=(n,fallback)=>Number.isFinite(n)?n:fallback;
 const impactPoint=event=>event?.groundBlast&&event?.groundPoint?event.groundPoint:event?.point;
+// A long electrical ray is heard where it passes the listener, not teleported
+// to the player's ears from a distant wall or from the caster.
+export function nearestConductPoint(origin,end,ear){
+  if(!origin||!end)return origin??end??null;
+  if(!ear)return origin;
+  const dx=end.x-origin.x,dy=end.y-origin.y,dz=end.z-origin.z;
+  const len=dx*dx+dy*dy+dz*dz||1;
+  const t=clamp(((ear.x-origin.x)*dx+(ear.y-origin.y)*dy+
+    (ear.z-origin.z)*dz)/len);
+  return {x:origin.x+dx*t,y:origin.y+dy*t,z:origin.z+dz*t};
+}
 
 export class DisasterSoundscape {
   // Play callbacks preserve the existing SoundEngine sound mixer/panning.
@@ -27,6 +38,7 @@ export class DisasterSoundscape {
     this.playerPosition=playerPosition;
     this.random=random;
     this.fields=new Map();this.charges=new Map();this.waves=new Map();
+    this.lines=new Map();
     this.gusts=new Map();this.cores=new Map();this.lastNow=-Infinity;
     this.density=1;this.recent=new Map();
   }
@@ -84,11 +96,7 @@ export class DisasterSoundscape {
         // at the caster or at the far end of a 240-metre hitscan.
         const ear=this.listener(),from=event.origin,to=event.end;
         if(from&&to&&ear){
-          const dx=to.x-from.x,dy=to.y-from.y,dz=to.z-from.z;
-          const len=dx*dx+dy*dy+dz*dz||1;
-          const fraction=clamp(((ear.x-from.x)*dx+(ear.y-from.y)*dy+
-            (ear.z-from.z)*dz)/len);
-          const near={x:from.x+dx*fraction,y:from.y+dy*fraction,z:from.z+dz*fraction};
+          const near=nearestConductPoint(from,to,ear);
           if(dist(near,from)>3.5)
             this.#around(near,conductWireTailRecipe(rand),.49,.025);
         }
@@ -153,7 +161,7 @@ export class DisasterSoundscape {
     if(!snapshot||!Number.isFinite(nowSec))return;
     if(nowSec+1e-5<this.lastNow){
       this.fields.clear();this.charges.clear();this.waves.clear();this.gusts.clear();
-      this.recent.clear();
+      this.lines.clear();this.recent.clear();
       for(const core of this.cores.values())core.handle?.stop?.(.06);
       this.cores.clear();
     }
@@ -187,6 +195,26 @@ export class DisasterSoundscape {
           tier:field.tiers[e],strength}),gain*.94,.19+i*.34);
       }
     }
+    // Line of Conduct's visible wire remains in the server snapshot for one
+    // second. A short electrical aftercurrent follows that REAL lifetime,
+    // closest to the listening knight; no repeated full thunder strike.
+    const liveLines=new Set();
+    const lines=(snapshot.lineConductWires??[])
+      .filter(w=>nowSec<w.until&&(!ear||
+        dist(nearestConductPoint(w.origin,w.end,ear),ear)<21))
+      .sort((a,b)=>dist(nearestConductPoint(a.origin,a.end,ear),ear)-
+                   dist(nearestConductPoint(b.origin,b.end,ear),ear))
+      .slice(0,this.density<.8?1:2);
+    for(const wire of lines){
+      liveLines.add(wire.id);
+      let cursor=this.lines.get(wire.id);
+      if(!cursor){cursor={next:nowSec+.12};this.lines.set(wire.id,cursor);}
+      if(nowSec<cursor.next)continue;
+      cursor.next=nowSec+.39;
+      const point=nearestConductPoint(wire.origin,wire.end,ear);
+      this.#around(point,conductWireTailRecipe(this.random),.21);
+    }
+    for(const id of this.lines.keys())if(!liveLines.has(id))this.lines.delete(id);
     // Held Half/Full Lightning charging remains active but quietly alive.
     const chargers=(snapshot.players??[])
       .filter(p=>p.alive&&p.ultimateState?.id==='one_hit_of_wonders'&&
@@ -248,6 +276,6 @@ export class DisasterSoundscape {
   dispose(){
     for(const core of this.cores.values())core.handle?.stop?.(.04);
     this.cores.clear();this.fields.clear();this.charges.clear();this.waves.clear();this.gusts.clear();
-    this.recent.clear();this.lastNow=-Infinity;
+    this.lines.clear();this.recent.clear();this.lastNow=-Infinity;
   }
 }
