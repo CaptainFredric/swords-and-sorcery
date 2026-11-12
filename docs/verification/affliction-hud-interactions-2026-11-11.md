@@ -33,6 +33,6 @@ No added damage sources or new status fields. No timer math on the client beyond
 - client/ui/afflictionView.test.mjs: overlapping effects, real degradation vs constant effects, ownership and death.
 - client/ui/AfflictionPanel.test.mjs: click selection, replacement, toggle-close, keyboard cycling, DOM retention, expiry cleanup, no click propagation.
 - Existing HUD, touch, practice, network and rendering suites should run through GitHub CI.
-- Manual desktop/touch acceptance: induce multiple All-Natural Disaster infusions and inspect every active icon; verify tapping does not swing/cast; test **I** with pointer lock; confirm shortened descriptions and safe positioning in landscape / narrow heights and on mounted machines. The touch overlay and text wrapping should be checked in an actual browser before review-ready.
+- Manual desktop/touch acceptance: induce multiple All-Natural Disaster infusions, Sunder terrain and inspect every active icon; verify tapping does not swing/cast; test **I** with pointer lock; confirm shortened descriptions and safe positioning in landscape / narrow heights and on mounted machines. The touch overlay and text wrapping should be checked in an actual browser before review-ready.
 
 **Branch only. Do not merge or deploy without browser/mobile acceptance.**
