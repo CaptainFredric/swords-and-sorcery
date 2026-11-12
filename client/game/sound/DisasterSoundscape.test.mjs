@@ -123,3 +123,34 @@ test('Stopped/restarted server clock cannot retain stale effects from an old mat
   assert.equal(stopped.length,1);
   sound.dispose();
 });
+
+test('Duplicate network reports cannot replay the same electrical blast or Core explosion',()=>{
+  const {sound,played}=fixture();
+  const discharge={type:'lineConductDischarge',playerId:'a',
+    origin:{x:0,y:0,z:0},end:{x:12,y:0,z:0},at:3};
+  sound.onEvent(discharge);const n=played.length;
+  sound.onEvent(discharge);
+  assert.equal(played.length,n,'the same server event is audible once');
+  const blast={type:'projectileImpact',spell:'coreflagration',stage:'final',
+    projectileId:'core-1',point:{x:3,y:0,z:0},at:3.5};
+  sound.onEvent(blast);const next=played.length;
+  sound.onEvent(blast);
+  assert.equal(played.length,next,'single detonation even if repeated');
+  sound.onEvent({...blast,projectileId:'core-2'});
+  assert.equal(played.length,next+1,'a different real projectile is not suppressed');
+});
+test('Touch soundscape reduces proximity polyphony without suppressing all ambient clues',()=>{
+  const {sound,played}=fixture();
+  sound.setDensity(.55);
+  const snapshot={players:[],oneHitWaves:[
+    {id:'w1',position:{x:2,y:1,z:0},tiers:{fire:2,gale:2}},
+    {id:'w2',position:{x:3,y:1,z:0},tiers:{frost:2,gale:2}},
+    {id:'w3',position:{x:4,y:1,z:0},tiers:{lightning:2,gale:2}},
+  ],oneHitFields:[field('a',tiers(2),1),field('b',tiers(2),2),
+    field('c',tiers(2),3)]};
+  sound.update(snapshot,0);
+  sound.update(snapshot,.34);
+  assert.equal(sound.fields.size,2,'only two nearest field voices on mobile');
+  assert.equal(sound.waves.size,2,'only two nearest moving sword waves');
+  assert.ok(played.length>0,'mobile users still hear meaningful nearby ambience');
+});
