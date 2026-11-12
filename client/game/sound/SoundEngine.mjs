@@ -430,7 +430,7 @@ export class SoundEngine {
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter;
       filter.frequency.setValueAtTime(layer.freq, start);
-      if (layer.sweepTo) filter.frequency.exponentialRampToValueAtTime(layer.sweepTo, start + layer.attack + layer.decay);
+      if (layer.sweepTo) filter.frequency.exponentialRampToValueAtTime(layer.sweepTo, start + layer.attack + (layer.hold ?? 0) + layer.decay);
       filter.Q.value = layer.q ?? 0.7;
       const amp = ctx.createGain();
       const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain, layer.hold ?? 0);
@@ -444,7 +444,7 @@ export class SoundEngine {
       const osc = ctx.createOscillator();
       osc.type = layer.wave ?? 'sine';
       osc.frequency.setValueAtTime(layer.freq, start);
-      if (layer.slideTo) osc.frequency.exponentialRampToValueAtTime(layer.slideTo, start + layer.attack + layer.decay);
+      if (layer.slideTo) osc.frequency.exponentialRampToValueAtTime(layer.slideTo, start + layer.attack + (layer.hold ?? 0) + layer.decay);
       const amp = ctx.createGain();
       const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain, layer.hold ?? 0);
       osc.connect(amp).connect(out);
