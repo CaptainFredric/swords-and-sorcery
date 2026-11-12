@@ -249,6 +249,8 @@ export class GameSocket {
   selectPreparedSpell(spell) { this.send({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate({held=false}={}) { this.send({type:'ultimate',...(held?{held:true}:{})}); }
+  // the Sword Technique's button, down and up
+  technique(down = true) { this.send({ type: 'technique', down: Boolean(down) }); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
   oneHitRelease({cancel=false}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
   oneHitDetonate(waveId) { this.send({type:'oneHitDetonate',waveId}); }
@@ -266,8 +268,8 @@ export class GameSocket {
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
   // the spell carried from the Armory (kept by the server for every room this connection joins)
-  loadout(spell, ultimate, preparedSpells, siegeLoadout) { this.send({ type: 'loadout', spell, ultimate, preparedSpells,
-  ...(siegeLoadout!==undefined?{siegeLoadout}:{}) }); }
+  loadout(spell, ultimate, preparedSpells, siegeLoadout, technique) { this.send({ type: 'loadout', spell, ultimate, preparedSpells,
+  ...(siegeLoadout!==undefined?{siegeLoadout}:{}), ...(technique!==undefined?{technique}:{}) }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {

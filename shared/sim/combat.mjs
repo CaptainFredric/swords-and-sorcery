@@ -63,6 +63,8 @@ import { stepObjectives } from './objectives.mjs';
 import { stepHighGrounds, availableHighGroundsSpawns } from './highGroundsMode.mjs';
 import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista } from './biByeLlista.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
+import { swordTechniqueFor, techniqueInput, techniqueMoment, techniqueMotion } from '../src/swordTechniques.mjs';
+import { beginSwordTechnique, cancelSwordTechnique, stepSwordTechnique, techniqueMeetsProjectile, techniqueTurns } from './swordTechnique.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
@@ -104,6 +106,8 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.yaw = spawn.yaw ?? 0;
   player.pitch = 0;
   player.input = { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: 0 };
+  player.techniqueState = null;
+  player.techniqueHeld = false;
   player.health = 100;
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
@@ -239,6 +243,8 @@ function resumeSwordChain(player, last) {
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  // (a Sword Technique has the sword until it is over: a button still held brings the chain back then)
+  if (player.techniqueState) return false;
   // a Vortex has both hands from the moment it is lit to the end of its recovery: a press then is nothing (and is
   // not kept: no swing comes of it later)
   if (ultimateFor(player.ultimateState?.id).spin && player.ultimateState || nowSec < (player.recoverUntil ?? -Infinity)) return false;
@@ -312,7 +318,7 @@ export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}
   player.guardAuto = Boolean(guarding) && auto;
   if (guarding && room.state !== 'PLAYING') return false;
   if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || nowSec < (player.guardBrokenUntil ?? -Infinity)
-    || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
+    || player.techniqueState || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
       (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active'))) return false;
   if (player.guarding === Boolean(guarding)) return true;
   player.guarding = Boolean(guarding);
@@ -352,7 +358,7 @@ export function releaseButtons(player) {
 // tick back), as a held chain does; a guard comes back up as a held one, so it blocks and cannot Parry.
 function resumeHeldActions(room, player, nowSec, dt) {
   if (!player.attackButton && !player.guardButton) return;
-  if (nowSec < player.staggerUntil || player.pendingSpell || player.gauntlet) return;
+  if (nowSec < player.staggerUntil || player.pendingSpell || player.gauntlet || player.techniqueState) return;
   const concurrent = combatActionPolicy(player, nowSec).concurrent;
   const wanted = heldActions({ attack: player.attackButton, guard: player.guardButton,
     attackPressedAt: player.attackPressedAt, guardPressedAt: player.guardPressedAt, concurrent });
@@ -367,7 +373,8 @@ function resumeHeldActions(room, player, nowSec, dt) {
 
 // both hands are the Vortex's while it spins, and for a moment after it ends (its recovery): no spell, no fist
 function handsTaken(player, nowSec) {
-  return Boolean(vortexing(player, nowSec)) ||
+  // (and a Sword Technique's, from its first moment to the end of its recovery)
+  return Boolean(vortexing(player, nowSec)) || Boolean(player.techniqueState) ||
     (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState?.phase==='active') ||
     nowSec < (player.recoverUntil ?? -Infinity);
 }
@@ -387,6 +394,7 @@ export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
     (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active')) return false;
+  if (player.techniqueState) return false;
   const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
@@ -407,6 +415,38 @@ export function tryDash(room, playerId, direction, nowSec) {
 }
 
 const round2 = (value) => Math.round(value * 100) / 100;
+
+// --- Sword Techniques (shared/sim/swordTechnique.mjs): the room's ordinary rules, handed to the one action state
+const TECHNIQUE_RULES = Object.freeze({
+  practising,
+  stopSwordChain: (room, player, nowSec) => stopSwordChain(player, {}, room, nowSec),
+  isInGuardCone,
+  chivalryParries: (target, attacker, nowSec) => chivalryParries(target, nowSec, { x: attacker.position.x - target.position.x, z: attacker.position.z - target.position.z }),
+  breakGuard,
+  staggerBy: (...args) => staggerBy(...args),
+  applyDamage: (...args) => applyDamage(...args),
+});
+
+/**
+ * The Sword Technique's button: down, the equipped technique begins if it can (and the button is held: a Whirl goes
+ * round again for as long as it is, and the prowess lasts); up, it is let go. On a siege machine it is not the
+ * knight's to use (the command never reaches here: wire.mjs).
+ */
+export function pressTechnique(room, playerId, down, nowSec) {
+  const player = room.players.get(playerId);
+  if (!player) return false;
+  player.techniqueHeld = Boolean(down);
+  if (!down) return false;
+  const guarding = Boolean(player.guarding), swinging = Boolean(player.attackActive);
+  const began = beginSwordTechnique(room, player, nowSec, TECHNIQUE_RULES);
+  if (began) {
+    player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+    // (the sword is the technique's: a raised guard came down for it, a chain under way ended)
+    if (guarding) room.events.push({ type: 'guardEnded', playerId, at: nowSec });
+    if (swinging) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
+  }
+  return Boolean(began);
+}
 
 /** Identity clocks remain ordinary; the temporary projectile gate is shared across the arsenal. */
 function spellReady(player, spell, nowSec, practice) {
@@ -431,6 +471,7 @@ function recordSpellUse(player, spell, nowSec, practice) {
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (player.techniqueState) return false;
   const practice = practising(room, player);
   const spell = spellFor(player.spell);
   // Even a direct simulation caller cannot cast arbitrary ordinary spells
@@ -1052,6 +1093,48 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   const level = empowered ? DAMAGE_LEVELS.elevated : DAMAGE_LEVELS.normal;
   const force = swordForce(physical);
 
+  // a Sword Technique's blade lying across this one turns it (a Riposte's while it is held up, a Whirl's as it passes):
+  // only where the two swords really meet, never by facing
+  if (met?.direction && target.techniqueState && Number.isFinite(contactSec)) {
+    // (asked of the whole of this cut, from where its swing began to where it would be through the middle of them:
+    // did the blade, on its way in, have to cross their sword? A knight's body as the blade meets it is a broad
+    // capsule: its edge is reached a moment before a sword held in front of its middle would be. The blade is taken
+    // no further than the body it reached.)
+    const reach = Math.min(BLADE.to, met.along + 0.3);
+    const centre = targetTransform.position;
+    const offCentre = (t) => {
+      const placed = transformFor(attacker, t);
+      const origin = bladeOrigin(placed).eye;
+      const d = bladeDirection(kind, t - contactSec, strikeFrame(placed, Boolean(attacker.attackSweep?.slam)));
+      const tx = centre.x - origin.x, tz = centre.z - origin.z, tl = Math.hypot(tx, tz) || 1, dl = Math.hypot(d.x, d.z) || 1;
+      return Math.acos(Math.max(-1, Math.min(1, (d.x * tx + d.z * tz) / (dl * tl))));
+    };
+    let through = atSec;
+    while (through + 1 / 240 <= contactSec + MELEE_CONTACT.window.late && offCentre(through + 1 / 240) < offCentre(through) - 1e-6) through += 1 / 240;
+    let turnedBy = null;
+    for (let t = Math.max(contactSec - MELEE_CONTACT.window.early, atSec - 0.2); t <= through + 1e-9 && !turnedBy; t += 1 / 240) {
+      const placed = transformFor(attacker, t);
+      const origin = bladeOrigin(placed).eye;
+      const d = bladeDirection(kind, t - contactSec, strikeFrame(placed, Boolean(attacker.attackSweep?.slam)));
+      turnedBy = techniqueTurns(target, {
+        base: { x: origin.x + d.x * BLADE.from, y: origin.y + d.y * BLADE.from, z: origin.z + d.z * BLADE.from },
+        tip: { x: origin.x + d.x * reach, y: origin.y + d.y * reach, z: origin.z + d.z * reach },
+      }, Math.min(t, nowSec), Math.min(t, nowSec), room.world ?? {});
+    }
+    if (turnedBy) {
+      const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
+      if (!suppressParryReel) {
+        attacker.staggerUntil = nowSec + (sunder ? ultimateFor('sunder').parriedSec : GAME.parryStaggerMs / 1000);
+        stopSwordChain(attacker, {}, room, nowSec);
+      }
+      // (the technique's user earns nothing for it)
+      room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, technique: turnedBy.technique.id, suppressParryReel,
+        point: { x: turnedBy.point.x, y: turnedBy.point.y, z: turnedBy.point.z }, at: nowSec });
+      staggerBy(room, attacker, STAGGER.gain.parried, nowSec, target.id);
+      return 'parry';
+    }
+  }
+
   const automaticParry=chivalryParries({...target,yaw:targetTransform.yaw},nowSec,{
     x:attackerTransform.position.x-targetTransform.position.x,
     z:attackerTransform.position.z-targetTransform.position.z,
@@ -1224,6 +1307,7 @@ function interruptOrdinaryActions(room, player, nowSec) {
   player.gauntlet = null;
   player.dashUntil = Math.min(player.dashUntil ?? nowSec, nowSec);
   stopSwordChain(player, {}, room, nowSec);
+  cancelSwordTechnique(room, player, nowSec, TECHNIQUE_RULES);
 }
 
 /**
@@ -1271,7 +1355,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
-  minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
+  minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null, noProwess = false,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1316,7 +1400,8 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
-  if (!ongoing) prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });
+  // (noProwess: a Sword Technique's blow pays its user nothing; the one it hurts still earns)
+  if (!ongoing) prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate: ultimate || noProwess });
   if (knockback) {
     const scale = staggerShove(victim.stagger);
     shoveBody(victim, { x: knockback.x * scale, y: knockback.y, z: knockback.z * scale });
@@ -1348,6 +1433,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
 export function killPlayer(room, victimId, attackerId, source, nowSec) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive) return false;
+  // (a Sword Technique under way dies with them: its cooldown runs from here)
+  cancelSwordTechnique(room, victim, nowSec, TECHNIQUE_RULES, { clear: true });
+  victim.techniqueHeld = false;
   let credited = attackerId;
   if (!credited && victim.lastAttackerId && nowSec - victim.lastKnockbackAt <= ABYSS_ATTRIBUTION_SEC) credited = victim.lastAttackerId;
   // (for the voice: whether their plate was still hardened as the blow that felled them landed)
@@ -1858,9 +1946,20 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
       const t=C<=0?0:Math.max(0,Math.min(1,(-B-Math.sqrt(Math.max(0,B*B-4*A*C)))/(2*A||1)));
       hits.push({t,point:[before.x+d.x*t,before.y+d.y*t,before.z+d.z*t],kind:'player',player:target});
     }
+    // a Sword Technique's blade in its path (where the sword really is): the spell is cut out of the air there
+    if (projectile.spell !== 'coreflagration') {
+      const cut = techniqueMeetsProjectile(room, projectile, before, after, nowSec - dt, nowSec, world);
+      if (cut) hits.push({ t: cut.t, point: [cut.point.x, cut.point.y, cut.point.z], kind: 'blade', player: cut.player, technique: cut.technique });
+    }
     hits.sort((a,b)=>a.t-b.t);
     if(hits.length){
       const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
+      if (hit.kind === 'blade') {
+        room.projectiles.delete(projectile.id);
+        room.events.push({ type: 'techniqueDeflect', playerId: hit.player.id, technique: hit.technique.id, projectileId: projectile.id, spell: projectile.spell,
+          ownerId: projectile.ownerId, point, at: nowSec });
+        continue;
+      }
       if (projectile.spell === 'coreflagration' && hit.kind === 'player' && coreflagrationParry(room, projectile, hit.player, nowSec)) { projectile.position = { ...point }; continue; }
       if(hit.kind==='world'&&hit.box&&String(hit.box.id??'').startsWith('siege-ladder-'))damageRestlessLadder(room,hit.box.id.split('-').slice(2,4).join('-'),spellFor(projectile.spell).directDamage??30,projectile.ownerId,nowSec);
        if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,projectile.spell==='coreflagration'?spellFor(projectile.spell).core.initialDamage:spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
@@ -2215,7 +2314,7 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
-  if (player.ultimateState) return false;
+  if (player.ultimateState || player.techniqueState) return false;
   // (nor in the moment after a Vortex, while both hands are still its)
   if (nowSec < (player.recoverUntil ?? -Infinity)) return false;
   // a fist in the air, or a spell gathering (Chivalry alone takes a gathering spell into itself), has the hand: the key
@@ -2700,6 +2799,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       if (player.gauntlet) {
         player.gauntlet.landAt = (player.gauntlet.landAt ?? nowSec) + dt;
       }
+      if (player.techniqueState) {
+        for (const key of ['startedAt', 'spinAt', 'endAt', 'sampledTo', 'lungeEndAt']) if (Number.isFinite(player.techniqueState[key])) player.techniqueState[key] += dt;
+      }
       if (player.dashUntil && nowSec < player.dashUntil) {
         player.dashUntil += dt;
       }
@@ -2747,7 +2849,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.guardStamina = Math.min(guardCapacity, player.guardStamina + rate * dt);
     }
     // balance comes back once nothing has shaken it for a moment; an ultimate braces, commits and runs its course
-    drainStagger(player.stagger, dt, nowSec);
+    // (not while a Whirl is going round: the spin holds what has shaken it)
+    if (techniqueMoment(player.techniqueState, nowSec)?.phase !== 'spin') drainStagger(player.stagger, dt, nowSec);
     stepUltimate(room, player, nowSec, world);
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
@@ -2778,7 +2881,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // (spinning in a Vortex, they move at its pace and fall slowly, as they have steered it: no sprint, no crouch)
     steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
-    const whirl = ultimateWhirl(player, nowSec) ?? oneHitGlide(player,MOVEMENT.runSpeed);
+    // (in a Sword Technique they move as it lets them: a Riposte's lunge carries them, a Whirl goes at a run)
+    const technique = techniqueMotion(player, nowSec);
+    const whirl = ultimateWhirl(player, nowSec) ?? oneHitGlide(player,MOVEMENT.runSpeed) ?? technique;
     player.shakenNow=nowSec;
     const frozen=nowSec < (player.oneHitFrozenUntil??-Infinity);
     const input = frozen ? { forward:0,right:0,jump:false,sprint:false,yaw:player.yaw,pitch:player.pitch }
@@ -2786,6 +2891,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       ? { forward: 0, right: 0, jump: false, crouch: Boolean(player.input?.crouch), yaw: player.yaw, pitch: player.pitch }
       : bracing
         ? { ...player.input, forward: (player.input?.forward ?? 0) * bracing.startupMove, right: (player.input?.right ?? 0) * bracing.startupMove, jump: false, sprint: false }
+        : whirl === technique && technique
+          ? techniqueInput(player.input, technique)
         : whirl
           ? { ...player.input, sprint: false, crouch: false }
           : player.input;
@@ -2914,7 +3021,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         player.attackQueued = again;
       }
     } else if ((player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil
-      && !ultimateStartup(player, nowSec)) {
+      && !ultimateStartup(player, nowSec) && !player.techniqueState) {
       // a held or waiting press starts the chain the moment it became legal (at most a tick back), not at the tick
       // that noticed: holding comes round exactly on time
       const legal = Math.max(player.attackRestartAt ?? -Infinity, player.staggerUntil ?? -Infinity);
@@ -2924,6 +3031,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if (player.attackSweep) sweepStrike(room, player, nowSec, world);
     // a thrown fist lands
     if (player.gauntlet && nowSec + 1e-9 >= player.gauntlet.landAt) landGauntlet(room, player, nowSec, world);
+    // a Sword Technique's blade is swept on, through every moment since the last
+    if (player.techniqueState) stepSwordTechnique(room, player, nowSec, world, TECHNIQUE_RULES);
     // a Vortex's blade goes round, and its embers leave
     if (player.ultimateState?.angle !== undefined) stepVortex(room, player, dt, nowSec, world);
     stepOneHitActor(room,player,dt,nowSec,world);

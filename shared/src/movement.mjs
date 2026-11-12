@@ -202,10 +202,15 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   if (state.crouched) state.sprinting = false;
 
   const inDash = nowSec < state.dashUntil;
+  // (a Sword Technique's lunge carries the body along its committed line, whatever is held: swordTechniques.mjs)
+  const lunge = state.whirl?.lunge ?? null;
   if (inDash) {
     const dashSpeed = MOVEMENT.dashDistance / MOVEMENT.dashDuration;
     state.velocity.x = state.dashDir.x * dashSpeed;
     state.velocity.z = state.dashDir.z * dashSpeed;
+  } else if (lunge) {
+    state.velocity.x = lunge.x * lunge.speed;
+    state.velocity.z = lunge.z * lunge.speed;
   } else {
     const f = Math.max(-1, Math.min(1, input.forward ?? 0));
     const r = Math.max(-1, Math.min(1, input.right ?? 0));
@@ -245,6 +250,11 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const whirl = state.whirl ?? null;
     state.velocity.y -= MOVEMENT.gravity * (whirl && state.velocity.y <= 0 ? whirl.fallGravity : 1) * dt;
     if (whirl) state.velocity.y = Math.max(state.velocity.y, -whirl.maxFall);
+  }
+  // (a Whirl with Gale Garner carried climbs while Jump is held, from the ground or in the air)
+  if (state.whirl?.liftSpeed > 0 && input.jump) {
+    state.velocity.y = Math.max(state.velocity.y, state.whirl.liftSpeed);
+    state.grounded = false;
   }
 
   const beforeY = state.position.y;

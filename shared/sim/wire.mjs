@@ -15,7 +15,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, pressTechnique } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
@@ -247,6 +247,17 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
       oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
       ultimate: p.ultimate ?? null,
+      // the Sword Technique carried, when it may be used again, and the one action under way (what the body and the
+      // arms play it from, and what a player's own movement is predicted by)
+      technique: p.technique ?? 'none',
+      techniqueReadyAt: p.techniqueReadyAt ?? 0,
+      techniqueState: p.techniqueState ? {
+        id: p.techniqueState.id, startedAt: p.techniqueState.startedAt, airborne: Boolean(p.techniqueState.airborne), revolutions: p.techniqueState.revolutions ?? 0,
+        ...(Number.isFinite(p.techniqueState.spinAt) ? { spinAt: p.techniqueState.spinAt, lift: Boolean(p.techniqueState.lift), lifting: Boolean(p.techniqueState.lifting) } : {}),
+        ...(Number.isFinite(p.techniqueState.yaw) ? { yaw: p.techniqueState.yaw } : {}),
+        ...(Number.isFinite(p.techniqueState.lungeEndAt) ? { lungeEndAt: p.techniqueState.lungeEndAt } : {}),
+        ...(Number.isFinite(p.techniqueState.endAt) ? { endAt: p.techniqueState.endAt, end: p.techniqueState.end } : {}),
+      } : null,
       ...(disasterWaves.has(p.id)?{oneHitWaveId:disasterWaves.get(p.id)}:{}),
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
@@ -378,12 +389,12 @@ export function applyRoomCommand(room, player, message, time) {
     && !renownTrialCombatOpen(room)
     && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
-      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease','oneHitDetonate',
+      'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
-  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
+  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type)&&message.down!==false)return {rejected:'Set down the heavy siege ladder first.'};
   const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
   const mounted=groundSiege||flightSiege;
@@ -400,6 +411,9 @@ export function applyRoomCommand(room, player, message, time) {
   // apparatus; other Ultimates retain their standard unmounted restrictions.
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
   if(mounted&&message.type==='oneHitRelease'&&message.cancel!==true)return {};
+  // On a siege machine the knight's own Sword Technique is not theirs to use (X there is the machine's: the client
+  // never sends this). The button let go is always heard.
+  if(mounted&&message.type==='technique'&&message.down!==false)return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -498,6 +512,8 @@ export function applyRoomCommand(room, player, message, time) {
     }
     // the gauntlet on its own key: the fist, whether or not the spell is ready
     case 'gauntlet': tryGauntletStrike(room, player.id, time, compensatedInputTime(message.clientTime, time)); return {};
+    // the Sword Technique's button, down and up (a Whirl is held)
+    case 'technique': pressTechnique(room, player.id, message.down !== false, time); return {};
     case 'dash':
       if(player.operatingFightFlightId)return {rejected:'Hold Dash to initiate Flight to the Valkyrie.'};
       tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};

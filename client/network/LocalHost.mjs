@@ -12,6 +12,7 @@ import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { GAME_MODES, arenaForMode } from '../../shared/src/modes.mjs';
 import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
+import { DEFAULT_SWORD_TECHNIQUE, normalizeSwordTechnique } from '../../shared/src/swordTechniques.mjs';
 import { clothChoice } from '../../shared/src/cosmetics.mjs';
 import { DEFAULT_EMBLEM, ownedEmblems } from '../../shared/src/heraldry.mjs';
 import { resolvePlayerWorld, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -28,7 +29,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'siegeSkill','ultimate','oneHitRelease','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','technique','oneHitRelease','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
@@ -85,6 +86,8 @@ export class LocalHost {
     this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
+    // (and the Sword Technique carried: named apart from technique(), the button's command)
+    this.techniqueId = DEFAULT_SWORD_TECHNIQUE;
     this.siegeLoadout=normalizeSiegeLoadout(null);
     this.playerId = null;
     this.token = null;
@@ -162,7 +165,7 @@ export class LocalHost {
         if (cached) this.setProfile(cached);
       } catch {}
     }
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, technique: this.techniqueId, team }, time);
     player.cloth = this.cloth;
     player.emblem = this.emblem || this.profile?.emblem || DEFAULT_EMBLEM;
     player.emblems = this.emblems?.length ? [...this.emblems] : (this.profile?.emblems ? [...this.profile.emblems] : []);
@@ -644,6 +647,10 @@ export class LocalHost {
         actor.startingSpell = loadout.spell;
         if (!actor.preparedSpells.includes(loadout.spell)) actor.preparedSpells[0] = loadout.spell;
       }
+      if (loadout.technique !== undefined) {
+        actor.technique = normalizeSwordTechnique(loadout.technique);
+        actor.startingTechnique = actor.technique;
+      }
       if (loadout.ultimate && isUltimate(loadout.ultimate)) {
         actor.ultimate = loadout.ultimate;
         actor.startingUltimate = loadout.ultimate;
@@ -774,8 +781,9 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout) {
+  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout, technique = this.techniqueId) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
+    this.techniqueId = normalizeSwordTechnique(technique);
     this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     this.preparedSpells = normalizePreparedSpells(this.spell, preparedSpells);
     this.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
@@ -787,7 +795,9 @@ export class LocalHost {
     player.startingSpell = this.spell;
     player.startingPreparedSpells = [...this.preparedSpells];
     player.startingUltimate = this.ultimateId;
+    player.startingTechnique = this.techniqueId;
     if (this.room?.state !== 'PLAYING') {
+      player.technique = this.techniqueId;
       player.spell = this.spell;
       player.preparedSpells = [...this.preparedSpells];
       player.ultimate = this.ultimateId;
@@ -923,6 +933,7 @@ export class LocalHost {
   selectPreparedSpell(spell) { this.#command({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate({held=false}={}) { this.#command({type:'ultimate',...(held?{held:true}:{})}); }
+  technique(down = true) { this.#command({ type: 'technique', down: Boolean(down) }); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
   oneHitRelease({cancel=false}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
   oneHitDetonate(waveId) { this.#command({type:'oneHitDetonate',waveId}); }
