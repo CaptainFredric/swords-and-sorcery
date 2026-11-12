@@ -187,7 +187,7 @@ test('aerial wall impact carries all four tiers, affects new exposed targets and
   assert.equal(sheltered.burn,null);
   assert.equal(sheltered.oneHitFrozenUntil,undefined);
   assert.equal(protectedKnight.burn,null);
-  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===4.6&&z.bornAt<z.until));
+  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===3.4&&z.bornAt<z.until));
   for(let i=6;i<170;i++)stepRoom(room,1/30,9+i/30,withWall); // (four elements: its burning ground lasts 5.2 s)
   assert.equal(sheltered.health,100);
   assert.equal(room.oneHitBurnZones.length,0);
@@ -256,16 +256,19 @@ test('holding ordinary Disaster briefly keeps it interruptible and release commi
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact').length,1);
 });
 
-test('ordinary hold has a short deadline; losing input cancels held Lightning and never fires it',()=>{
+test('Half Lightning can hold for four seconds, while canceling Full Lightning still never fires it',()=>{
   const {room,a}=battle();
   a.prowess=PROWESS.full;
   a.oneHitInfusions.lightning=1;
   applyRoomCommand(room,a,{type:'ultimate',held:true},9);
-  const ready=a.ultimateState.commitAt;
+  const ready=a.ultimateState.partialLightningReadyAt;
+  assert.equal(ready,9.36,'Half Lightning retains its real minimum 0.36-second startup');
   stepRoom(room,1/30,ready+.05,world);
-  assert.equal(a.ultimateState.phase,'startup');
-  stepRoom(room,1/30,ready+.36,world);
-  assert.equal(a.ultimateState.phase,'active');
+  assert.equal(a.ultimateState.phase,'startup','held Half Lightning waits instead of instantly firing');
+  const cap=a.ultimateState.commitAt;
+  assert.equal(cap,13,'maximum hold is four seconds');
+  stepRoom(room,1/30,cap+.02,world);
+  assert.equal(a.ultimateState.phase,'active','the maximum hold automatically commits');
 
   const held=battle();
   held.a.prowess=PROWESS.full;

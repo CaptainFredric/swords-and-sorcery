@@ -128,6 +128,12 @@ function disasterPlan(player, serverNow) {
   }
   const elapsed = Math.max(0, serverNow - finite(action.commitAt, serverNow));
   const follow = provisional(SLAM_CONTACT + elapsed * .75);
+  if(action.oneHit?.form==='plunge'){
+    // The knight keeps the slam drawn back while falling. The blade does
+    // NOT strike an imaginary floor or accidentally play Gale's aerial form.
+    const entry=tiers.lightning>=1?DISASTER_CLIPS.fast:DISASTER_CLIPS.ground;
+    return { ...authored(entry,Math.max(0,entry.contact-1/30)), ...provisional(SLAM_CONTACT-1/30) };
+  }
   const teleported = Number.isFinite(action.teleportHoldAt);
   if (airborne) {
     // After an aerial teleport, pose the sword while the player adjusts aim.

@@ -20,7 +20,8 @@ export function disasterWindupSec(state) {
 
 export function disasterHolding(state) {
   return state?.id==='one_hit_of_wonders' && state.phase==='startup' &&
-    state.preparedTiers?.lightning===2 && Number.isFinite(state.teleportHoldAt);
+    ((state.preparedTiers?.lightning===2&&Number.isFinite(state.teleportHoldAt)&&!state.teleportReleased)||
+    (state.preparedTiers?.lightning===1&&Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased));
 }
 
 export function disasterCameraWanted(player, nowSec, rules = DISASTER_CAMERA) {
