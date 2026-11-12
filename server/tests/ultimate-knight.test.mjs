@@ -164,3 +164,20 @@ test('Ultimate Knight stationary drill commits its selected Disaster without wal
   assert.ok(Math.abs(knight.position.z)<.5,'Stay does not chase a player ten meters away');
   assert.ok(room.events.some(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id));
 });
+
+test('Stay returns to its marked post by ordinary foot movement after physical displacement',()=>{
+  const f=fixture();
+  const {room,human,knight}=f;
+  human.position={x:0,y:0,z:-12};
+  assert.equal(configureUltimateKnight(room,human.id,{behavior:'stay',selection:'sunder'},0),true);
+  const anchor={...knight.ultimateKnight.anchor};
+  knight.position={x:anchor.x+5,y:anchor.y,z:anchor.z};
+  knight.prowess=0;
+  knight.ultimateKnight.refillAt=20; // no new Ultimate while navigating home
+  knight.ultimateLockedUntil=20;
+  stepPracticeActors(room,1,world,{random:()=>.5});
+  assert.equal(knight.input.forward,.6,'normal locomotion toward marked station');
+  assert.equal(knight.input.sprint,false,'returns at walking pace, not teleported or boosted');
+  assert.equal(knight.input.jump,false);
+  assert.deepEqual(knight.ultimateKnight.anchor,anchor,'the drill post remains unchanged');
+});
