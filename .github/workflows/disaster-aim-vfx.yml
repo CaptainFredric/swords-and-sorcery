@@ -40,6 +40,7 @@ jobs:
       - name: Exercise live desktop and touch Disaster impacts in Chrome
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          DISASTER_AIM_VFX_GROUND_ONLY: '1'
         run: node scripts/disaster-impact-browser.mjs
       - name: Preserve screenshots and observed browser results
         if: always()
