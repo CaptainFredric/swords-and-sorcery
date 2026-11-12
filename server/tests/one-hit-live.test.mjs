@@ -5,7 +5,7 @@ import { tryUltimate, releaseOneHitCharge, tryCastSpell, stepRoom } from '../../
 import { configurePracticeOneHit } from '../../shared/sim/practice.mjs';
 import { applyRoomCommand,serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
-import { lineOfConductDamage } from '../../shared/src/oneHitOfWondersRules.mjs';
+import { lineOfConductDamage, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { oneHitDamage } from '../../shared/src/oneHitInfusions.mjs';
 
 const world={
