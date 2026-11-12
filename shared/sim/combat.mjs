@@ -2346,7 +2346,7 @@ export function fireOneHitWave(room,playerId,nowSec){
   return true;
 }
 // The wave pierces bodies. Terrain contact or an intentional second press
-// ends it; running out of range dissipates it. Splash contributes
+// ends it; at maximum range it explodes at its endpoint. Splash contributes
 // no second decisive hit, even on targets who spent Guard on the moving blade.
 // Where the wave ends. Without Fire: its landing gust, which afflicts whoever it has not met and deals no HP. With
 // Fire: an explosion, a wider one all round, and part of the same decisive contact: whoever the wave had not yet met
@@ -2376,9 +2376,12 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
   }
   return caught;
 }
-function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
+function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null) {
   const fire=(wave.tiers.fire??0)>=1;
-  const radius=fire?ONE_HIT_REACH.terminalFire:ONE_HIT_REACH.terminal;
+  const radius=fire?ONE_HIT_RULES.waveTerminalFireRadius:ONE_HIT_RULES.waveTerminalRadius;
+  const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
+  const groundBlast=contact?.kind==='ground'||
+    (floor!==null&&point.y>=floor-.04&&point.y-floor<=.5);
   const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
   const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
@@ -2390,11 +2393,24 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world) {
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
     if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
-      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers);
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers,radius);
   }
   room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point,
-    cause:contact?'terrain':'manual',normal:contact?.normal??null,direction:wave.direction,
-    tiers:{...wave.tiers},form:'aerial',radius,struck,at:nowSec});
+    cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
+    tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
+    radius,struck,at:nowSec});
+  resolveOneHitWave(room,caster,wave,nowSec);
+}
+// Full Steel lasts THROUGH the outgoing wave, but is paid for at its first
+// terminal impact, manual detonation or finite maximum-range explosion.
+function resolveOneHitWave(room,caster,wave,nowSec){
+  const state=caster.ultimateState;
+  if(state?.id!=='one_hit_of_wonders'||state.oneHit?.waveResolved||
+     !state.oneHit?.awaitingWave)return;
+  state.oneHit.waveResolved=true;
+  state.oneHit.aimUntil=null;
+  room.events.push({type:'oneHitWaveResolved',playerId:caster.id,waveId:wave.id,at:nowSec});
+  settleOneHitLastStand(room,caster,state,nowSec);
 }
 // Half Frost's longer contact, each tick until it closes: the same blow meeting whoever has come into it since.
 function stepOneHitLingers(room,nowSec,world) {
@@ -2431,9 +2447,9 @@ export function detonateOneHitWave(room,playerId,waveId,nowSec) {
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
-    if(!caster){wave.distance=22;continue;}
+    if(!caster){wave.distance=ONE_HIT_RULES.waveMaxReach;continue;}
     const old=wave.position,speed=wave.tiers.lightning?48:28;
-    const step=Math.min(Math.max(0,22-wave.distance),speed*dt);
+    const step=Math.min(Math.max(0,ONE_HIT_RULES.waveMaxReach-wave.distance),speed*dt);
     if(step<=0)continue;
     const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
     const contact=oneHitWorldContact(old,next,world);
@@ -2453,10 +2469,14 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     wave.distance+=step*stop;
     if(contact){
       oneHitWaveImpact(room,caster,wave,wave.position,contact,nowSec,world);
-      wave.distance=22;
+      wave.distance=ONE_HIT_RULES.waveMaxReach;
+    }else if(wave.distance>=ONE_HIT_RULES.waveMaxReach-1e-8){
+      // Never silently despawn: a missed shot gets its smaller terminal
+      // explosion as well, and Full Steel's protection closes here.
+      oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'range');
     }
   }
-  room.oneHitWaves=(room.oneHitWaves??[]).filter(w=>w.distance<22);
+  room.oneHitWaves=(room.oneHitWaves??[]).filter(w=>w.distance<ONE_HIT_RULES.waveMaxReach);
   for(const zone of room.oneHitBurnZones??[]) {
     if(nowSec<zone.nextAt||zone.nextAt>zone.until)continue;
     zone.nextAt+=.5;
