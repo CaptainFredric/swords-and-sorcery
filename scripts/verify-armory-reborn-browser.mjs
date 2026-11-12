@@ -371,21 +371,21 @@ try {
   const stagedBefore=await evaluate(`(() => {
     const ws=window.__ssMenu.siegeWorkshop;
     return {active:ws.performance.active,parented:ws.performance.root.parent===ws.inspectionPivot,
-      position:ws.performance.actors[0].root.getWorldPosition(new THREE.Vector3()).toArray(),
-      machine:ws.machinePivot.getWorldPosition(new THREE.Vector3()).toArray()};
+      position:ws.performance.actors[0].root.getWorldPosition(new ws.machinePivot.position.constructor()).toArray(),
+      machine:ws.machinePivot.getWorldPosition(new ws.machinePivot.position.constructor()).toArray()};
   })()`);
   assert.ok(stagedBefore.active && stagedBefore.parented,'the attacker and training knight share one exhibition turntable');
   const relativeBefore=await evaluate(`(() => {
     const ws=window.__ssMenu.siegeWorkshop;
     return ws.inspectionPivot.worldToLocal(ws.performance.actors[0].root.getWorldPosition(
-      new THREE.Vector3())).toArray();
+      new ws.machinePivot.position.constructor())).toArray();
   })()`);
   await dragPreview('siege');
   await sleep(400);
   const relativeAfter=await evaluate(`(() => {
     const ws=window.__ssMenu.siegeWorkshop;
     return {active:ws.performance.active,position:ws.inspectionPivot.worldToLocal(
-      ws.performance.actors[0].root.getWorldPosition(new THREE.Vector3())).toArray()};
+      ws.performance.actors[0].root.getWorldPosition(new ws.machinePivot.position.constructor())).toArray()};
   })()`);
   assert.equal(relativeAfter.active,true,'inspection dragging must not cancel the ram performance');
   assert.ok(Math.hypot(...relativeAfter.position.map((n,i)=>n-relativeBefore[i]))<2.5,
