@@ -26,6 +26,7 @@ import {operatedSiegeSteelMachine} from './siegeSteel.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { renownTrialCombatOpen, serializeRenownTrial } from './renownTrials.mjs';
 import { edgeSnapshot } from './edgeOfVictory.mjs';
+import { requestSwordTechnique, techniqueView } from './swordTechniqueLive.mjs';
 import { modeCall, modeSnapshot } from './modeRuntime.mjs';
 import { interactRestlessLadder, ladderReach } from './restlessDayMode.mjs';
 
@@ -213,6 +214,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       parries: p.parries,
       abyssKills: p.abyssKills,
       spell: p.spell,
+      technique: p.technique ?? 'rigid_riposte',
+      swordTechnique: techniqueView(p),
+      swordTechniqueReadyAt: p.swordTechniqueReadyAt ?? 0,
       startingSpell: p.startingSpell ?? p.spell,
       preparedSpells: [...(p.preparedSpells ?? [])],
       preparedSpellSelected: Boolean(p.preparedSpellSelected),
@@ -383,12 +387,18 @@ export function applyRoomCommand(room, player, message, time) {
     && !renownTrialCombatOpen(room)
     && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
-      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease','oneHitFire','oneHitDetonate',
+      'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
-  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
+  if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
+  // A committed sword technique owns both hands. A release remains legal so
+  // losing focus cannot leave any held input stuck.
+  if(player?.swordTechnique&&message.down!==false&&
+     ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell',
+      'dash','gauntlet','ultimate','oneHitRelease','technique'].includes(message.type) &&
+      message.type!=='technique')return {};
   const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
   const mounted=groundSiege||flightSiege;
@@ -406,6 +416,13 @@ export function applyRoomCommand(room, player, message, time) {
   if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
   if(mounted&&message.type==='oneHitRelease'&&message.cancel!==true)return {};
   switch (message.type) {
+    case 'technique': {
+      // Mounted controls retain their existing bindings. The release is always
+      // accepted, even following an unexpected mount/connection transition.
+      if(mounted&&message.down!==false)return {};
+      requestSwordTechnique(room,player.id,Boolean(message.down),time);
+      return {};
+    }
     case 'startMatch':
     case 'ready': {
       const ready = message.type === 'startMatch' ? true : Boolean(message.ready);
