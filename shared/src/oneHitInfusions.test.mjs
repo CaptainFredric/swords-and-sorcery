@@ -86,12 +86,12 @@ test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD'
   assert.equal(oneHitSteelFloorActive(p,11),false);
 });
 
-test('A four-second Half Lightning hold cannot extend the Full Steel 1-HP floor indefinitely',()=>{
+test('A held Half Lightning aim cannot extend the Full Steel 1-HP floor indefinitely',()=>{
   const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
-    preparedTiers:{steel:2,lightning:1},startedAt:9,commitAt:13,
+    preparedTiers:{steel:2,lightning:1},startedAt:9,commitAt:10.75,
     partialLightningHoldAt:9,partialLightningReadyAt:9.36}};
   assert.equal(oneHitSteelFloorActive(p,9.5),true,'finite early bracing is protected');
-  assert.equal(oneHitSteelFloorActive(p,10),false,'holding longer does not grant a four-second immunity');
+  assert.equal(oneHitSteelFloorActive(p,10),false,'holding longer does not extend Steel protection');
   p.ultimateState.partialLightningReleased=true;
   p.ultimateState.commitAt=10.2;
   assert.equal(oneHitSteelFloorActive(p,10.1),false);
