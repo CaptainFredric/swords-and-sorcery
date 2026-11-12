@@ -183,14 +183,30 @@ export class SiegeWorkshopPerformance {
       }
     }
     const bases=workshopPreviewTargets(skill);
-    for(const {shot,object} of this.projectiles) {
+    for(const entry of this.projectiles) {
+      const {shot,object}=entry;
       const age=t-shot.at;
       const flight=shot.flight;
       object.visible=age>=0&&age<=flight;
       const machine=workshopPreviewPose(skill,shot.at);
-      const from=skill==='coldHowTouching'||skill==='boltToTheOccasion'
+      const fallback=skill==='coldHowTouching'||skill==='boltToTheOccasion'
         ? [machine.x+(shot.kind==='frost'?.32:0),1.6,machine.z-1.4]
         : [machine.x+.22,1.35+machine.y,machine.z-.7];
+      if(age>=0&&!entry.from) {
+        // Prefer the authored GLB's muzzle socket, respecting its actual
+        // carriage orientation and articulated crossbow. Only procedural
+        // fallbacks use a reference point inferred from the hull geometry.
+        const markerName=skill==='coldHowTouching'||skill==='boltToTheOccasion'
+          ? (shot.kind==='heavy'?'main_bolt_muzzle':'small_bolt_muzzle')
+          : 'crossbow_muzzle';
+        const marker=this.workshop.machinePivot.children[0]?.getObjectByName(markerName);
+        if(marker) {
+          marker.updateWorldMatrix(true,false);
+          const origin=this.workshop.root.worldToLocal(marker.getWorldPosition(new THREE.Vector3()));
+          entry.from=origin.toArray();
+        } else entry.from=fallback;
+      }
+      const from=entry.from??fallback;
       const base=bases[shot.target]??[0,0,-4];
       const to=shot.nearMiss ? [base[0]+.95,1.2,base[2]+.42]
         : [base[0]+(skill==='narrowToOne'&&shot.lowShot ? .26 : 0),
