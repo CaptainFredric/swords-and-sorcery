@@ -172,6 +172,13 @@ try{
   await poll(()=>evaluate(`${rt}?.localAuth?.ultimate==='one_hit_of_wonders' &&
     document.querySelector('#arena-gate').classList.contains('hidden')`),'equipped local Practice',45000);
   await click('#practice-drawer-close');
+  if(process.env.DISASTER_AERIAL_WINDUP_CHECK==='1'){
+    // The acceptance is about the authored clip, not the provisional
+    // Slash_3 used while the production GLB finishes downloading.
+    await evaluate("import('/client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())");
+    await poll(()=>evaluate("Boolean(window.__ssRuntime.remotePlayers.self?.visualInstance?.animator?.actions?.has('AllNatural_Aerial_Vortex_Wave'))"),
+      'authored Gale animation loaded before aerial playback',30000);
+  }
   await evaluate(`(() => {
     const rt=${rt};
     for(const type of ['keydown','keyup'])document.addEventListener(type,event=>{
