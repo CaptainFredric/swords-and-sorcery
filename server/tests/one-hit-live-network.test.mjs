@@ -55,7 +55,7 @@ test('both Shared Practice sockets receive the same authoritative Disaster landi
     const zones=m=>m.type==='snapshot'&&m.oneHitBurnZones?.some(z=>z.id===event.impactId+':fire');
     const [h,g]=await Promise.all([host.wait(zones),guest.wait(zones)]);
     assert.deepEqual(h.oneHitBurnZones,g.oneHitBurnZones);
-    assert.equal(h.oneHitBurnZones[0].radius,4.6);
+    assert.equal(h.oneHitBurnZones[0].radius,3.4,'wave-end Full Fire burns only within the smaller explosion');
   } finally {
     for(const ws of clients)ws.close();
     await game.stop();
