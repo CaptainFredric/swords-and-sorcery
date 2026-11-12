@@ -1,0 +1,54 @@
+name: Aerial Gale animation and teleport arrival Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/spellbladeAnimationPlan.mjs'
+      - 'client/game/spellbladeAnimationPlan.test.mjs'
+      - 'scripts/one-hit-camera-browser.mjs'
+      - '.github/workflows/aerial-gale-windup.yml'
+permissions:
+  contents: read
+jobs:
+  aerial-gale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Validate browser imports and authored GLB timing tests
+        run: |
+          npm run check:browser-imports
+          node --test client/game/spellbladeAnimationPlan.test.mjs
+      - name: Start local game
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/disaster-aerial-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/disaster-aerial-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify normal mid-air Gale and airborne Lightning teleport in real Chrome
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          DISASTER_AERIAL_WINDUP_CHECK: '1'
+        run: node scripts/one-hit-camera-browser.mjs
+      - name: Preserve third-person animation samples and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aerial-gale-animation
+          path: output/playwright/all-natural-disaster/
+          retention-days: 7
