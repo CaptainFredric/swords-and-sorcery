@@ -1,25 +1,78 @@
 import { PROWESS } from '../src/prowess.mjs';
+import { normalizeInfusions,emptyInfusions,ONE_HIT_PRESETS } from '../src/oneHitInfusions.mjs';
 import { postureOf } from '../src/body.mjs';
 import { activeUltimate } from '../src/ultimates.mjs';
-import { beginAttack, endAttack, setGuard, castPreparedSpell, tryDash } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, castPreparedSpell, tryDash,tryUltimate,releaseOneHitCharge } from './combat.mjs';
 import { stepBotControllers } from './BotController.mjs';
 import { wayToward } from './botNav.mjs';
 
+export const KNIGHT_ULTIMATES = Object.freeze(['cycle','sunder','vortex','chivalry','one_hit_of_wonders']);
+export const KNIGHT_BEHAVIORS = Object.freeze(['follow','stay']);
 const CYCLE = Object.freeze(['sunder', 'vortex', 'chivalry']);
 const PREPARED = Object.freeze(['fireball', 'frostfire', 'gale']);
 const REFILL_SEC = 3;
 
-/** Only the Practice opponent owns this demonstration clock. Combat owns every ability clock. */
-export function setupUltimateKnight(actor, nowSec) {
-  actor.name = 'The Ultimate Knight';
-  actor.botProfile = 'rival';
-  actor.ultimate = actor.startingUltimate = CYCLE[0];
-  actor.spell = actor.startingSpell = PREPARED[0];
-  actor.preparedSpells = [...PREPARED];
-  actor.startingPreparedSpells = [...PREPARED];
-  actor.prowess = PROWESS.full;
-  actor.ultimateKnight = { cycle: 0, tracked: null, committed: null, refillAt: nowSec,
-    demonstration: null, castSlot: -1, dashSlot: -1, spellIndex: 0, navigation: {} };
+/** Only this dummy's own lesson controls can update it. Ordinary combat
+ * still validates every real Ultimate and every actual infusion. */
+export function setupUltimateKnight(actor,nowSec,previous=null){
+  actor.name='The Ultimate Knight';
+  actor.botProfile='rival';
+  const choice=KNIGHT_ULTIMATES.includes(previous?.selection)?previous.selection:'cycle';
+  const behavior=KNIGHT_BEHAVIORS.includes(previous?.behavior)?previous.behavior:'follow';
+  const stages=normalizeInfusions(previous?.stages??emptyInfusions());
+  actor.ultimate=actor.startingUltimate=choice==='cycle'?CYCLE[0]:choice;
+  actor.spell=actor.startingSpell=PREPARED[0];
+  actor.preparedSpells=[...PREPARED];
+  actor.startingPreparedSpells=[...PREPARED];
+  actor.prowess=PROWESS.full;
+  actor.ultimateKnight={cycle:0,tracked:null,committed:null,refillAt:nowSec,
+    demonstration:null,castSlot:-1,dashSlot:-1,spellIndex:0,navigation:{},
+    selection:choice,behavior,stages,anchor:{...actor.position}};
+  actor.practiceOneHit={enabled:true,stages:{...stages}};
+}
+/** Apply independent Ult selection, Stay/Follow, five infusion sliders or
+ * presets. Untrusted network values cannot alter a non-Practice opponent. */
+export function configureUltimateKnight(room,requesterId,message,nowSec){
+  if(room?.mode!=='PRACTICE'||room.state!=='PLAYING')return false;
+  const requester=room.players.get(requesterId);
+  if(requester?.actorKind!=='human'||!requester.alive)return false;
+  const actor=[...room.players.values()].find(p=>p.actorKind==='dummy'&&
+    p.practiceMode==='ULTIMATE_KNIGHT');
+  if(!actor?.ultimateKnight)return false;
+  const demo=actor.ultimateKnight;
+  if(message.selection!==undefined){
+    if(!KNIGHT_ULTIMATES.includes(message.selection))return false;
+    demo.selection=message.selection;
+  }
+  if(message.behavior!==undefined){
+    if(!KNIGHT_BEHAVIORS.includes(message.behavior))return false;
+    if(demo.behavior!==message.behavior&&message.behavior==='stay')
+      demo.anchor={...actor.position};
+    demo.behavior=message.behavior;
+    actor.ai=null;
+  }
+  if(message.preset!==undefined){
+    if(message.preset==='reset')demo.stages=emptyInfusions();
+    else if(Object.hasOwn(ONE_HIT_PRESETS,message.preset))
+      demo.stages=normalizeInfusions(ONE_HIT_PRESETS[message.preset]);
+    else return false;
+  }
+  if(message.element!==undefined){
+    if(!['fire','frost','gale','lightning','steel'].includes(message.element)||
+       ![0,1,2].includes(message.tier))return false;
+    demo.stages={...demo.stages,[message.element]:message.tier};
+  }
+  actor.practiceOneHit={enabled:true,stages:{...demo.stages}};
+  // Do not interrupt a committed demonstration. The new chosen Ultimate
+  // and infusions apply to the NEXT actual cast.
+  if(!actor.ultimateState){
+    actor.ultimate=demo.selection==='cycle'?CYCLE[demo.cycle]:demo.selection;
+    actor.oneHitInfusions={...demo.stages};
+    actor.prowess=PROWESS.full;
+  }
+  room.events.push({type:'practiceUltimateKnightConfigured',playerId:actor.id,
+    selection:demo.selection,behavior:demo.behavior,stages:{...demo.stages},at:nowSec});
+  return true;
 }
 
 function reconcile(actor, nowSec) {
@@ -28,7 +81,7 @@ function reconcile(actor, nowSec) {
   const tracked = demo.tracked;
   if (tracked?.phase === 'active' && demo.committed !== tracked) {
     demo.committed = tracked;
-    demo.cycle = (demo.cycle + 1) % CYCLE.length;
+    if(demo.selection==='cycle')demo.cycle=(demo.cycle+1)%CYCLE.length;
   }
   if (tracked && actor.ultimateState !== tracked) {
     if (demo.committed === tracked) demo.refillAt = Math.max(nowSec, actor.recoverUntil ?? nowSec) + REFILL_SEC;
@@ -70,7 +123,7 @@ function demonstrateChivalry(room, actor, nowSec, world) {
   const way = wayToward(world, actor, target, demo.navigation, nowSec);
   const movementYaw = way ? Math.atan2(-(way.x - actor.position.x), -(way.z - actor.position.z)) : actor.yaw;
   const relative = movementYaw - actor.yaw;
-  const forward = distance > 2.6 ? 0.55 : distance < 1.3 ? -0.3 : 0;
+  const forward = demo.behavior==='stay'?0:distance > 2.6 ? 0.55 : distance < 1.3 ? -0.3 : 0;
   actor.input = { forward: forward * Math.cos(relative), right: -forward * Math.sin(relative), jump: false,
     attack: sword, guard, yaw: actor.yaw, pitch: actor.pitch };
   if (guard !== actor.guardHeld || (guard && !actor.guarding)) setGuard(room, actor.id, guard, nowSec);
@@ -81,7 +134,7 @@ function demonstrateChivalry(room, actor, nowSec, world) {
     demo.castSlot = slot;
     castPreparedSpell(room, actor.id, PREPARED[demo.spellIndex++ % PREPARED.length], direction, nowSec);
   }
-  if (phase >= 1.8 && demo.dashSlot !== loop) {
+  if (demo.behavior!=='stay' && phase >= 1.8 && demo.dashSlot !== loop) {
     demo.dashSlot = loop;
     tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
   }
@@ -94,15 +147,32 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
   if (!actor.alive) return;
   const demo = actor.ultimateKnight;
   if (!actor.ultimateState) {
-    actor.ultimate = CYCLE[demo.cycle];
-    if (nowSec >= demo.refillAt) actor.prowess = PROWESS.full;
+    actor.ultimate=demo.selection==='cycle'?CYCLE[demo.cycle]:demo.selection;
+    if(nowSec>=demo.refillAt)actor.prowess=PROWESS.full;
+    if(actor.ultimate==='one_hit_of_wonders')
+      actor.practiceOneHit={enabled:true,stages:{...demo.stages}};
   }
+  // The Full Lightning tier must RELEASE its held teleport. An ordinary
+  // player releases the button; the teaching opponent uses the same command.
+  const state=actor.ultimateState;
+  if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'&&
+     Number.isFinite(state.teleportHoldAt)&&!state.teleportReleased&&
+     nowSec-state.teleportHoldAt>=.55)
+    releaseOneHitCharge(room,actor.id,nowSec);
+  if(demo.behavior==='stay'&&!actor.ultimateState&&
+     actor.prowess>=PROWESS.full&&nowSec>=demo.refillAt)
+    tryUltimate(room,actor.id,nowSec,{held:true});
   if (activeUltimate(actor, nowSec)?.id === 'chivalry') {
     demonstrateChivalry(room, actor, nowSec, world);
   } else {
     if (demo.demonstration) { demo.demonstration = null; actor.ai = null; }
     // There is one Practice actor; this route runs its ordinary controller exactly once.
     stepBotControllers(room, nowSec, world, { random, actorKinds: ['dummy'], aggression: 0.55 });
+    if(demo.behavior==='stay'){
+      // Ordinary attacks and aimed spells work within range, but the Knight
+      // never pursues a player around the Practice Yard.
+      actor.input={...actor.input,forward:0,right:0,sprint:false,jump:false};
+    }
   }
   reconcile(actor, nowSec);
 }
