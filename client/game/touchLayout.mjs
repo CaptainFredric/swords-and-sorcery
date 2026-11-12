@@ -22,9 +22,10 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   // New action has no legacy CSS coordinates: always position it from the
   // touch-layout model, including users with migrated saved layouts.
   technique: {right: 148, bottom: 215, size: 46, custom:true},
-  // Same upper-right VIEW placement as the mounted machines. The custom
-  // placement survives earlier users' touch-layout migration.
-  siegeView: {right: 14, top: 10, size: 44, custom:true},
+  // On-foot VIEW shares the siege VIEW action, but sits below the kill-feed
+  // strip and inward of ULTIMATE. Mounted modes retain their existing upper
+  // corner positions. Custom ensures old saved on-foot layouts gain the slot.
+  siegeView: {right: 96, top: 90, size: 44, custom:true},
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
