@@ -34,17 +34,27 @@ export function planOneHitTeleport({
     const hit=segmentAabbHit(a,b,box);
     if(hit)t=Math.min(t,Math.max(0,hit.t-.55/Math.max(rayLength,.01)));
   }
-  // A downward 3D teleport can ARRIVE ON the floor; do not always stop a
-  // hand's breadth above it and insist on the aerial wave. World contact is
-  // one-sided so upward teleports through an ordinary floor are not blocked.
+  const floorAt=point=>surfaceHeightAt(point.x,point.z,
+    Math.max(point.y,origin.y)+1,world);
+  // Feet begin ON the floor. Casting a downward ray from the feet hit
+  // that same floor at t=0, so every downward Full Gale aim silently
+  // teleported in place. A grounded cast aims from eye height instead;
+  // an airborne descent retains its original feet-to-ground contact.
+  const originFloor=floorAt(origin);
+  const standing=allowVertical&&!aerial&&originFloor!==null&&
+    Math.abs(origin.y-originFloor)<=.24;
+  const eyeOffset=standing?1.45:0;
   if(allowVertical){
-    const ground=oneHitWorldContact(origin,target,{floors:world.floors,ramps:world.ramps});
+    const from={...origin,y:origin.y+eyeOffset};
+    const to={...target,y:target.y+eyeOffset};
+    const ground=oneHitWorldContact(from,to,{floors:world.floors,ramps:world.ramps});
     if(ground?.kind==='ground')t=Math.min(t,ground.t);
   }
   let end=oneHitAlong(origin,target,t);
-  const floorAt=point=>surfaceHeightAt(point.x,point.z,
-    Math.max(point.y,origin.y)+1,world);
   let floor=floorAt(end);
+  // The teleport ends with the knight's FEET on the surface hit by the
+  // eye ray; the camera ray's height is not a displacement into the soil.
+  if(standing&&floor!==null&&end.y<floor)end.y=floor;
   const hasTerrain=((world.floors?.length??0)+(world.ramps?.length??0))>0;
   if(allowVertical&&hasTerrain){
     // Never teleport over the void. Clip to the nearest supported part of

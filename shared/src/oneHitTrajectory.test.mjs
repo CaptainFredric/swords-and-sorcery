@@ -47,6 +47,18 @@ test('Full Gale allows vertical repositioning from the GROUND; without Gale pitc
   assert.ok(returning.legal&&returning.grounded&&Math.abs(returning.end.y)<1e-6);
 });
 
+test('grounded Full Gale downward aim targets terrain AHEAD, not the floor at the caster\'s feet',()=>{
+  const down=planOneHitTeleport({origin,yaw,pitch:-Math.PI/6,allowVertical:true,
+    aerial:false,holdSec:2,world});
+  assert.ok(down.legal && down.grounded,'the destination remains a legal grounded strike');
+  assert.ok(down.end.x>2 && down.end.x<4,'eye ray hits terrain in front of the knight');
+  assert.ok(Math.abs(down.end.y)<1e-6,'feet finish on the floor, not underground');
+  const ordinary=planOneHitTeleport({origin,yaw,pitch:-Math.PI/6,allowVertical:false,
+    aerial:false,holdSec:2,world});
+  assert.ok(ordinary.end.x>20 && ordinary.grounded,
+    'Full Lightning without Gale still ignores vertical pitch');
+});
+
 test('omnidirectional Full Gale+Lightning aims independently at all compass bearings and heights',()=>{
   const axes=[
     {yaw:0,axis:'z',sign:-1},

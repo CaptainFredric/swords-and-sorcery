@@ -161,7 +161,40 @@ async function scenario(url,label,touch,enhanced){
   if(!verifyAir){
     await press(touch,true);
     await until(()=>ev(`Number.isFinite(${actor}?.ultimateState?.teleportHoldAt)`),'Full Lightning holds on actual input');
-    if(enhanced)await until(()=>ev(`${runtime}?.chase>.6 && ${runtime}.oneHitEffects.reticle.visible`),'charging chase and reachable guide');
+    if(enhanced){
+      await until(()=>ev(`${runtime}?.chase>.6 && ${runtime}.oneHitEffects.reticle.visible`),
+        'charging chase and reachable guide');
+      // Exercise the SAME input turn path the mouse/touch look uses while
+      // holding Full Lightning + Full Gale. The destination must follow
+      // live azimuth and elevation, including after a downward sweep.
+      const sample=()=>ev(`(() => {
+        const rt=${runtime},p=rt.oneHitEffects.teleportTarget.position;
+        return {yaw:rt.input.yaw,pitch:rt.input.pitch,point:[p.x,p.y,p.z],
+          visible:rt.oneHitEffects.reticle.visible,vertical:rt.input.disasterThreeDAim};
+      })()`);
+      const before=await sample();
+      assert.ok(before.vertical,'Full Lightning + Gale unlocks live 3D look');
+      await ev(`${runtime}.input.turn(Math.PI,.68)`);
+      const above=await until(async()=>{
+        const s=await sample();
+        return s.pitch>before.pitch+.35&&s.point[1]>before.point[1]+1?s:null;
+      },'held teleport pitch and behind-the-back destination move');
+      assert.ok(Math.abs(above.yaw-before.yaw)>1,'the charging view turns through the rear hemisphere');
+      await ev(`${runtime}.input.turn(0,-1.36)`);
+      const below=await until(async()=>{
+        const s=await sample();
+        return s.pitch<-.35&&s.point[1]<above.point[1]-1?s:null;
+      },'groundward 3D destination responds to look without releasing charge');
+      assert.ok(below.visible&&above.visible);
+      console.log('[3D CHARGE AIM]',JSON.stringify({before,above,below}));
+      // Restore the staged forward lane before releasing: this is an aiming
+      // probe, not a change to the next impact fixture's orientation.
+      await ev(`${runtime}.input.yaw=${before.yaw}; ${runtime}.input.pitch=${before.pitch}`);
+      await until(async()=>{
+        const s=await sample();
+        return Math.abs(s.yaw-before.yaw)<.001&&Math.abs(s.pitch-before.pitch)<.001;
+      },'original forward lane restored before impact');
+    }
     await snap(label+'-charge');
     await until(()=>ev(`${runtime}.socket.serverNow()-${actor}.ultimateState.teleportHoldAt>.55`),'half-second charge');
     await press(touch,false);
@@ -171,10 +204,24 @@ async function scenario(url,label,touch,enhanced){
     await until(()=>ev(`!${actor}?.ultimateState && (${actor}?.recoverUntil??0)<${runtime}.socket.serverNow() &&
       ${runtime}.latestSnapshot.oneHitBurnZones.length===0`),'recovery and ground zone expiry');
   }
+  // The scoped 3D aim / impact CI job needs only the real held-charge
+  // ground encounter. The original full capture remains the default and
+  // continues into the separate aerial scenario.
+  if(process.env.DISASTER_AIM_VFX_GROUND_ONLY==='1'){
+    await click('#pause-leave');
+    await until(()=>ev("!window.__ssLink?.roomCode"),'left Practice');
+    console.log('[DISASTER GROUND & 3D AIM PASS]',label);
+    return {label,touch,enhanced,grounded:true,aim3D:true};
+  }
   // Match the exact downward aim for the two captures. Cast/release still
   // travel through actual desktop or touch events and authoritative movement.
   if(verifyAir)await ev(`import('./client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())`);
   await ev(`${runtime}.input.pitch=-.50`);
+  // The aerial Windblade does not throw ground-only stone slabs unless it
+  // actually lands as a grounded slam. Observe the terminal projectile event
+  // instead of waiting for unrelated ground-only transients.
+  await ev(`window.__disasterImpacts=[]; ${runtime}.socket.on('events',
+    batch=>{for(const e of batch.events??[])if(e.type==='oneHitImpact')window.__disasterImpacts.push(e);})`);
   const stage=await ev(`new Promise(resolve => {
     const rt=${runtime},host=rt.socket.local?.player;
     document.querySelector('[data-one-hit-action=aerial]').click();
@@ -217,7 +264,11 @@ async function scenario(url,label,touch,enhanced){
     return clip==='Slash_3'&&rt.chase>.5?{clip,chase:rt.chase}:null;
   })()`),'release transitions to provisional slam');
   if(enhanced&&!air){
-    await until(()=>ev(`${runtime}?.oneHitEffects.zones.size>0 && ${runtime}.oneHitEffects.transients.length>12`),'aerial eruption and ground zone',4000);
+    const terminal=await until(()=>ev('window.__disasterImpacts?.find(e=>e.impactId)'),
+      'authoritative Windblade terminal impact',5000);
+    assert.ok(terminal.impactId,'aerial Wave actually terminated');
+    await until(()=>ev(`${runtime}.oneHitEffects.elements.census().glow>2`),
+      'elemental terminal burst visible',4000);
     await snap(label+'-aerial-impact');
   }else if(!air)await snap(label+'-aerial-release');
   if(air){

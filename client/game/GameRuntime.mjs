@@ -4324,7 +4324,9 @@ export class GameRuntime {
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
         allowVertical:disasterCharge.preparedTiers.gale===2,
         holdSec:disasterNow-disasterCharge.teleportHoldAt,world,solids,edge});
-      this.oneHitEffects.setChargeGuide(origin,plan);
+      this.oneHitEffects.setChargeGuide(origin,plan,{
+        pitch:this.input.pitch,vertical:disasterCharge.preparedTiers.gale===2,
+      });
     }else this.oneHitEffects?.setChargeGuide(null,null);
     this.oneHitEffects?.update(dt,this.latestSnapshot,disasterNow);
     this.disasterSound?.update(this.latestSnapshot,this.socket.serverNow());

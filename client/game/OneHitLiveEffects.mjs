@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
+import { windbladeSpeed } from './disasterWavePresentation.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -31,8 +32,10 @@ const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 const WAVE_ARC=75*Math.PI/180;
 function crescent(tiers,{width=.24,fade=1}={}) {
   const steps=26,positions=[],colors=[],index=[];
-  const base=new THREE.Color(0xeef1f0),steel=new THREE.Color(0x8d959f),fire=new THREE.Color(0xff7a1c),hot=new THREE.Color(0xffc45a),
-    frost=new THREE.Color(0xbfeaff),c=new THREE.Color();
+  const base=new THREE.Color(0xf3fff2),steel=new THREE.Color(0x8d959f),
+    gale=new THREE.Color(0xa8f67c),windWhite=new THREE.Color(0xfafff4),
+    fire=new THREE.Color(0xff7a1c),hot=new THREE.Color(0xffd080),
+    frost=new THREE.Color(0xbfeaff),electric=new THREE.Color(0xffef9a),c=new THREE.Color();
   for(let i=0;i<=steps;i++){
     const t=i/steps,a=-WAVE_ARC+2*WAVE_ARC*t,taper=Math.pow(Math.max(0,Math.cos(a*1.12)),.8);
     const outer=1.25,inner=outer-(width*taper+.015),bow=.34*Math.cos(a*1.15); // (bowed forward at its middle)
@@ -40,10 +43,16 @@ function crescent(tiers,{width=.24,fade=1}={}) {
       positions.push(Math.sin(a)*r,Math.cos(a)*r-.55,bow-(edge?.07:0));
       c.copy(base);
       if(tiers.steel)c.lerp(steel,tiers.steel===2?.85:.6);
+      // The Gale cut has a white leading edge and a lime-green pressure
+      // sheath. The element remains visible even under Fire or Lightning.
+      if(tiers.gale)c.lerp(edge?gale:windWhite,(tiers.gale===2?.76:.54)*
+        (.55+.45*Math.sin(Math.PI*t)));
       // Fire: along the lower limb, hottest at the leading edge
       if(tiers.fire&&t<.46)c.lerp(edge?fire:hot,Math.min(1,(.46-t)/.3)*(tiers.fire===2?1:.8));
-      // Frost: the tips and the inner edge go white-blue
-      if(tiers.frost){const tip=Math.max(0,(Math.abs(t-.5)-.3)/.2);c.lerp(frost,Math.min(1,Math.max(tip,edge?.55:0))*(tiers.frost===2?1:.75));}
+      // Frost: crystalline tips and a chilled inner edge; the center still
+      // reads as wind rather than a generic blue projectile.
+      if(tiers.frost){const tip=Math.max(0,(Math.abs(t-.5)-.3)/.2);c.lerp(frost,Math.min(1,Math.max(tip,edge?.7:0))*(tiers.frost===2?1:.82));}
+      if(tiers.lightning&&i%5<2)c.lerp(electric,tiers.lightning===2?.43:.24);
       colors.push(c.r*fade,c.g*fade,c.b*fade);
     }
     if(i){const k=(i-1)*2;index.push(k,k+1,k+2,k+1,k+3,k+2);}
@@ -62,13 +71,24 @@ function swordWave(tiers={}) {
       depthWrite:false,side:THREE.DoubleSide}));
     m.position.z=-back;m.scale.setScalar(scale);body.add(m);return m;
   };
-  layer(.26,.9+dense*.5,0,1);                 // the cut itself
-  const arcs=[layer(.5,.34+dense,.28,.93),layer(.8,.17+dense*.6,.62,.84)]; // the pressure it drags
+  layer(.23,.94+dense*.3,0,1);                // crisp sword-pressure front
+  const arcs=[
+    layer(.42,.39+dense*.5,.21,.96),
+    layer(.67,.24+dense*.35,.49,.87),
+    layer(.91,.12+dense*.18,.82,.77),
+  ]; // successive thinner, more diffuse pressure sheaths BEHIND the cut
   // (held a little off the vertical, as the blade was swung)
   body.rotation.z=.42;
   body.scale.setScalar((tiers.fire??0)>=1?1.5/.9:1);
   group.add(body);
-  group.userData.breathe=clock=>{arcs.forEach((arc,i)=>{arc.position.z=-(i?.62:.28)-.05*Math.sin(clock*17+i*2);});};
+  group.userData.breathe=clock=>{
+    arcs.forEach((arc,i)=>{
+      // Air shears off the blade rather than wobbling as a single rigid disc.
+      arc.position.z=-[.21,.49,.82][i]-.025*Math.sin(clock*12-i*1.4);
+      arc.material.opacity=[.39+dense*.5,.24+dense*.35,.12+dense*.18][i]*
+        (.88+.12*Math.sin(clock*9-i*.8));
+    });
+  };
   return group;
 }
 
@@ -159,18 +179,23 @@ export class OneHitLiveEffects {
       this.#add(slab,1.35);
     }
   }
-  setChargeGuide(origin,plan) {
+  setChargeGuide(origin,plan,{pitch=0,vertical=false}={}) {
     this.reticle.visible=Boolean(origin&&plan);
     this.teleportTarget.visible=this.reticle.visible;
     if(!this.reticle.visible)return;
     const pos=this.reticle.geometry.attributes.position;
-    pos.setXYZ(0,origin.x,origin.y+1,origin.z);
-    pos.setXYZ(1,plan.end.x,plan.end.y+1,plan.end.z);
+    // Draw the line from the caster's eye TO the actual landing surface
+    // when looking downward with Full Gale. A level, eye-to-eye line would
+    // falsely suggest a horizontal teleport even though the feet land ahead.
+    const groundward=vertical&&pitch<-.04&&plan.grounded;
+    const eye=1.45,mark=groundward?.24:eye;
+    pos.setXYZ(0,origin.x,origin.y+eye,origin.z);
+    pos.setXYZ(1,plan.end.x,plan.end.y+mark,plan.end.z);
     pos.needsUpdate=true;
     const color=plan.legal?0xffd65d:0xc16a3a;
     this.reticle.material.color.setHex(color);
     this.reticle.material.opacity=plan.legal?.87:.31;
-    this.teleportTarget.position.set(plan.end.x,plan.end.y+1,plan.end.z);
+    this.teleportTarget.position.set(plan.end.x,plan.end.y+mark,plan.end.z);
     for(const child of this.teleportTarget.children){
       child.material.color.setHex(color);
       child.material.opacity=plan.legal?.83:.3;
@@ -317,7 +342,7 @@ export class OneHitLiveEffects {
       }
       // Extrapolate by at most a small fraction of a tick. The collision
       // event snaps to the authoritative point and removes the travelling mesh.
-      const age=clamp(now-(snapshot?.serverTime??now),0,.018)*(wave.tiers.lightning?48:28);
+      const age=clamp(now-(snapshot?.serverTime??now),0,1/30)*windbladeSpeed(wave.tiers);
       mesh.position.x+=wave.direction.x*age;mesh.position.y+=wave.direction.y*age;mesh.position.z+=wave.direction.z*age;
       // (one blade of air, held as it was cut: its pressure arcs breathe behind it; nothing spins)
       mesh.userData.breathe?.(this.visualClock);
@@ -327,6 +352,11 @@ export class OneHitLiveEffects {
     this.#stepStatuses(snapshot,now);
     for(const [id,mesh] of this.waves)if(!tracked.has(id)){
       this.#discard(mesh);this.waves.delete(id);
+    }
+    if(this.teleportTarget.visible){
+      this.teleportTarget.rotation.y+=frame*.9;
+      const pulse=1+.07*Math.sin(this.visualClock*6);
+      this.teleportTarget.scale.setScalar(pulse);
     }
     // Third-person Spellblades use the SAME actual left Sorcery hand socket.
     // A local first-person hand uses WeaponView's own socket-attached emitter.
