@@ -4,6 +4,7 @@ import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
 import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
+import { FLIGHT_CLIPS } from '../worlds/flightAnimationState.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -665,45 +666,86 @@ export class SiegeWorkshopScene {
     const clips=this.clips.get(id);
     const mixer=this.mixers.get(id);
     if(!mixer||!clips?.length)return;
-    let name=null,age=time,loop=false;
-    if(id==='soFist' && skill==='longArmToTheJaw') {
-      name='01_Ram_Strike_Full_Cycle';
-      // Hold the deployed piston frame instead of running its return stroke.
-      const strike=clips.find(c=>c.name===name);
-      age=strike ? Math.min(strike.duration*.48,time*1.5) : 0;
-    } else if(id==='soFist' && skill==='beatToThePunch') {
-      name='01_Ram_Strike_Full_Cycle';
-      age=Math.max(0,time-2.1);
-    } else if(id==='biBye' && skill==='boltToTheOccasion') {
-      name=time>=2.58?'09_BiBye_Mobile_Shot1_Fire_Upper':'21_BiBye_Delayed_Shot2_Release_And_Recoil';
-      age=time>=2.58?time-2.58:Math.max(0,time-1.27);
-    } else if(id==='biBye' && skill==='coldHowTouching') {
-      name='09_BiBye_Mobile_Shot1_Fire_Upper'; age=Math.max(0,time-.75);
-    } else if(id==='fightFlight') {
-      name='Rotor_Spin_Cycle_1Rev'; age=time;loop=true;
-    }
-    const clip=clips.find(c=>c.name===name);
-    if(!clip) {
-      if(name&&!this.previewClipWarnings.has(id+':'+name)){
-        this.previewClipWarnings.add(id+':'+name);
-        console.warn('Siege Workshop: missing authored animation clip',id,name);
+
+    // Individual non-competing animation layers keep a rotor spinning while
+    // the same authored chassis performs a Dash, a gun fires, or it crashes.
+    const layers=[];
+    if(id==='soFist') {
+      const name='01_Ram_Strike_Full_Cycle';
+      const clip=clips.find(c=>c.name===name);
+      if(skill==='longArmToTheJaw')
+        layers.push({name,age:clip?Math.min(clip.duration*.48,time*1.5):0});
+      else if(skill==='beatToThePunch')
+        layers.push({name,age:Math.max(0,time-2.1)});
+    } else if(id==='biBye') {
+      if(skill==='boltToTheOccasion')
+        layers.push(time>=2.58
+          ? {name:'09_BiBye_Mobile_Shot1_Fire_Upper',age:time-2.58}
+          : {name:'21_BiBye_Delayed_Shot2_Release_And_Recoil',
+            age:Math.max(0,time-1.27)});
+      else if(skill==='coldHowTouching')
+        layers.push({name:'09_BiBye_Mobile_Shot1_Fire_Upper',
+          age:Math.max(0,time-.75)});
+    } else if(id==='fightFlight' && time<6.6) {
+      layers.push({name:'Rotor_Spin_Cycle_1Rev',age:time*4,loop:true});
+      if(skill==='doNotStopMyAscension') {
+        if(time>=5.55)
+          layers.push({name:FLIGHT_CLIPS.terminal,age:time-5.55});
+        else if(time<.8)
+          layers.push({name:FLIGHT_CLIPS.entry,age:time});
+        else
+          layers.push({name:FLIGHT_CLIPS.sustain,age:time-.8,loop:true});
+      } else if(skill==='narrowToOne') {
+        layers.push(time<.75
+          ? {name:FLIGHT_CLIPS.entry,age:time}
+          : time<4.75
+            ? {name:FLIGHT_CLIPS.sustain,age:time-.75,loop:true}
+            : {name:FLIGHT_CLIPS.release,age:time-4.75});
+        if(time>=1.05 && time<=4.62)
+          layers.push({name:'Crossbow_Fire_Loop',age:time-1.05,loop:true});
+      } else if(skill==='fireAwayRightHere') {
+        layers.push(time<.7
+          ? {name:'Posture_04_Takeoff_To_Flight',age:time}
+          : time<2.45
+            ? {name:'Posture_10_Ascending_Hover_Descending',
+              age:time-.7,loop:true}
+            : {name:FLIGHT_CLIPS.idle,age:0,loop:true});
+        if(time>=2.65 && time<=6.9)
+          layers.push({name:'Crossbow_Fire_Loop',age:time-2.65,loop:true});
       }
-      return;
     }
-    if(this.previewAnimation?.name!==name||this.previewAnimation?.machine!==id) {
+    if(this.previewAnimation?.machine!==id) {
       mixer.stopAllAction();
-      const action=mixer.clipAction(clip);
-      action.reset().setLoop(loop?THREE.LoopRepeat:THREE.LoopOnce,loop?Infinity:1);
-      action.clampWhenFinished=!loop;
-      action.play();
-      this.previewAnimation={machine:id,name,action};
+      this.previewAnimation={machine:id,layers:new Map()};
     }
-    // Sample *the chosen action* rather than resetting the entire mixer clock
-    // on every frame. Switching Bolt II to Bolt I cannot rewind the new action.
-    const action=this.previewAnimation.action;
-    action.paused=false;
-    action.time=loop ? age % Math.max(.001,clip.duration)
-      : Math.min(Math.max(0,clip.duration-.001),age);
+    const active=new Set();
+    for(const layer of layers) {
+      const clip=clips.find(c=>c.name===layer.name);
+      if(!clip){
+        if(!this.previewClipWarnings.has(id+':'+layer.name)){
+          this.previewClipWarnings.add(id+':'+layer.name);
+          console.warn('Siege Workshop: missing authored animation clip',id,layer.name);
+        }
+        continue;
+      }
+      active.add(layer.name);
+      let action=this.previewAnimation.layers.get(layer.name);
+      if(!action){
+        action=mixer.clipAction(clip);
+        action.reset().setLoop(layer.loop?THREE.LoopRepeat:THREE.LoopOnce,
+          layer.loop?Infinity:1);
+        action.clampWhenFinished=!layer.loop;
+        action.play();
+        this.previewAnimation.layers.set(layer.name,action);
+      }
+      action.paused=false;
+      action.time=layer.loop
+        ? Math.max(0,layer.age)%Math.max(.001,clip.duration)
+        : Math.min(Math.max(0,clip.duration-.001),layer.age);
+    }
+    for(const [name,action] of this.previewAnimation.layers) {
+      if(!active.has(name)){action.stop();this.previewAnimation.layers.delete(name);}
+    }
     mixer.update(0);
   }
 
@@ -728,7 +770,7 @@ export class SiegeWorkshopScene {
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
     else if(this.previewAnimation)this.#restorePreviewAnimation();
     if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
-    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=5.68);
+    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
     this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
     this.#poseFist(pose);
