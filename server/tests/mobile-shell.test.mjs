@@ -64,21 +64,21 @@ test('Castle Chronicles starts with clickable affliction icons; controls stay in
   const main = await read('client/main.mjs');
   const css = await read('client/menu.css');
   const how = html.slice(html.indexOf('id="how-panel"'), html.indexOf('id="lobby"'));
-  assert.match(html, /id="how-button"[\\s\\S]*?chronicles-command-label/);
+  assert.match(html, /id="how-button"[\s\S]*?chronicles-command-label/);
   assert.match(how, /id="chronicles-affliction-list"/);
-  assert.match(how, /id="chronicles-affliction-detail"[\\s\\S]*?hidden/);
+  assert.match(how, /id="chronicles-affliction-detail"[\s\S]*?hidden/);
   assert.match(how, /<details id="chronicles-controls" class="chronicles-controls">/);
-  assert.match(how, /<summary>VIEW CONTROLS<\\/summary>/);
+  assert.match(how, /<summary>VIEW CONTROLS<\/summary>/);
   assert.match(how, /class="controls-grid key-controls-grid"/);
   assert.match(how, /class="controls-grid touch-controls-grid"/);
   assert.doesNotMatch(how, /ALL-NATURAL DISASTER · AIMING|class="rules-copy"/);
   assert.ok(how.indexOf('chronicles-affliction-list') < how.indexOf('chronicles-controls'),
     'afflictions precede the optional controls');
-  assert.match(main, /Object\\.entries\\(AFFLICTIONS\\)/,
+  assert.match(main, /Object\.entries\(AFFLICTIONS\)/,
     'the reference uses exactly the live HUD affliction registry');
-  assert.match(main, /createElement\\('button'\\)/);
+  assert.match(main, /createElement\('button'\)/);
   assert.match(main, /aria-pressed/);
-  assert.match(css, /#how-panel \\.manual-inner > \\.banner-scroll[\\s\\S]*?flex: 1 1 auto/);
+  assert.match(css, /#how-panel \.manual-inner > \.banner-scroll[\s\S]*?flex: 1 1 auto/);
   assert.match(html, /STAMINA/);
 });
 
@@ -87,11 +87,11 @@ test('ordinary gameplay notice uses a small safe-edge caption, not the aim retic
   const mobile = await read('client/mobile.css');
   const hud = await read('client/ui/HUD.mjs');
   const notice = css.slice(css.indexOf('/* Routine state notices'),css.indexOf('.bottom-hud {'));
-  assert.match(notice, /\\.status-flash \\{[\\s\\S]*top: auto;/);
-  assert.match(notice, /bottom: clamp\\(/);
-  assert.doesNotMatch(notice, /top:55%|left:50%|translate\\(-50%,-50%\\)/);
-  assert.match(mobile, /\\.touch-ui \\.status-flash[\\s\\S]*?bottom: calc\\(/);
-  assert.match(hud, /flashText\\(text, kind = ''/);
+  assert.match(notice, /\.status-flash \{[\s\S]*top: auto;/);
+  assert.match(notice, /bottom: clamp\(/);
+  assert.doesNotMatch(notice, /top:55%|left:50%|translate\(-50%,-50%\)/);
+  assert.match(mobile, /\.touch-ui \.status-flash[\s\S]*?bottom: calc\(/);
+  assert.match(hud, /flashText\(text, kind = ''/);
 });
 
 test('touch play enters the arena without pointer lock and leaves it through the same path', async () => {
