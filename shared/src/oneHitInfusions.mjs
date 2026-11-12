@@ -96,9 +96,14 @@ export function oneHitChargingLightning(player,nowSec){
  * intent is shared by authoritative movement and prediction. Digital movement
  * remains possible, just at deliberate aiming pace; no Sprint, Dash or Jump. */
 export function oneHitChargeIntent(input = {}) {
+  const forward=Math.max(-1,Math.min(1,Number(input.forward)||0));
+  const right=Math.max(-1,Math.min(1,Number(input.right)||0));
+  // Normalize BEFORE imposing the charging pace. Otherwise WASD diagonals
+  // reach ~1.41 times the straight speed despite both being held Lightning.
+  const normal=Math.max(1,Math.hypot(forward,right));
   return { ...input,
-    forward: (Number(input.forward)||0)*.56,
-    right: (Number(input.right)||0)*.56,
+    forward:forward/normal*.56,
+    right:right/normal*.56,
     sprint:false, jump:false, dash:false, crouch:false };
 }
 
