@@ -53,6 +53,7 @@ export class InputController {
     this.blockedHolds = new Set();
     this.yaw = 0;
     this.pitch = 0;
+    this.disasterThreeDAim = false;
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
@@ -383,7 +384,10 @@ export class InputController {
     if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
     const gain=(this.mountedRam?this.look.ram:1)*this.aimGain;
     this.yaw += yawDelta*gain;
-    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta*gain));
+    // Most combat keeps its original camera comfort limits. Only a held
+    // Full-Lightning + Full-Gale teleport admits a truly vertical destination.
+    const pitchLimit=this.disasterThreeDAim ? Math.PI/2 : 1.45;
+    this.pitch = Math.max(-pitchLimit, Math.min(pitchLimit, this.pitch + pitchDelta*gain));
   }
 
   /** A denied held source must release before it may request the newly available action. */
