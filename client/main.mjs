@@ -2124,6 +2124,10 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
   armoryLocation.highlightedItem = itemId;
   saveArmoryLocation(armoryLocation);
 
+  // Capture BEFORE settings.set: its synchronous onChange redraws every
+  // equipment card, otherwise the animation never sees the original order.
+  const playReorder = animate ? animateCardReorder(category, itemId) : null;
+
   if (category === 'sorcery') {
     const prevSpell = settings.get('loadout.spell');
     settings.set('loadout.spell', itemId);
@@ -2140,8 +2144,6 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
       return;
     }
   }
-
-  const playReorder = animate ? animateCardReorder(category, itemId) : null;
 
   lastEquippedCategory = category;
   lastEquippedItemId = itemId;
