@@ -123,7 +123,12 @@ export function oneHitSteelFloorActive(player, nowSec) {
   const tiers=state.oneHit?.tiers??state.preparedTiers;
   if((tiers?.steel??0)<2)return false;
   if(state.phase==='startup')
-    return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&nowSec<state.commitAt+1e-9;
+    return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&
+      nowSec<state.commitAt+1e-9 &&
+      // A four-second Half-Lightning delay is not four seconds of immortality:
+      // Full Steel's bracing protection ends at the normal finite windup.
+      (!Number.isFinite(state.partialLightningHoldAt)||
+        nowSec<state.startedAt+0.92);
   if(state.phase==='active')
     return Number.isFinite(state.until)&&nowSec<state.until &&
       !(state.oneHit?.awaitingWave&&state.oneHit.waveResolved);
