@@ -3,7 +3,7 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import {
   SIEGE_PREVIEW_LENGTH, SIEGE_PREVIEW_MACHINE, workshopPreviewPose,
   workshopPreviewShots, workshopPreviewTargets, workshopPreviewTargetPose,
-  workshopPreviewDone, smooth,
+  workshopPreviewDone, workshopPreviewImpacts, smooth,
 } from './siegeWorkshopPreviewPlan.mjs';
 
 // Cosmetic workshop theater using the real machine GLBs and clones of the real
@@ -79,18 +79,7 @@ export class SiegeWorkshopPerformance {
   // One reusable three-dimensional effect per authored impact. The geometry
   // lives entirely in the workshop; no gameplay fire zones or damage events.
   #prepareEffects(skill) {
-    const events=[];
-    if(skill==='doNotStopMyAscension')events.push({at:5.55,x:0,z:-8.4,type:'valkyrie'});
-    if(skill==='beatToThePunch')events.push({at:2.55,x:.15,z:1.65,type:'ram'});
-    if(skill==='coldHowTouching')events.push({at:1.4,x:2.15,z:-3.63,type:'frost'});
-    if(skill==='boltToTheOccasion')events.push(
-      {at:1.92,x:.15,z:-4.7,type:'bolt'},
-      {at:3.27,x:-1.8,z:-4.5,type:'frost'});
-    if(skill==='narrowToOne')events.push({at:4.68,x:0,z:-2.8,type:'repeater'});
-    if(skill==='fireAwayRightHere')
-      for(const [i,z] of [-4.35,-5.3,-4.35].entries())
-        events.push({at:6.4+i*.15,x:(i-1)*2.35,z,type:'repeater'});
-    for(const event of events) {
+    for(const event of workshopPreviewImpacts(skill)) {
       const valk=event.type==='valkyrie';
       const color=valk?0xff6a22:event.type==='frost'?0x9feaff:
         event.type==='ram'?0xd8bb79:0xeaba78;
