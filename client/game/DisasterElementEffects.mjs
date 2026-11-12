@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
+import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -297,6 +298,64 @@ export class DisasterElementEffects {
       color: pick(COLOR[element]), ttl, gravity, align, drag, home, pull, swirl });
   }
 
+  // Frost's FIRST infusion is a longer decisive contact, not a persistent
+  // damaging cloud. Show the cold that remains inside its 0.3-second contact:
+  // a shallow pressure dome of mist and suspended, slowly settling fragments.
+  // Full Frost carries the same burst with a denser crystalline silhouette.
+  // Existing prewarmed instanced pools keep this cheap even in busy matches.
+  #frostSuspendedDome(point, radius, full, ground = true) {
+    if (!ground) return; // airborne waves get their existing directional burst
+    const profile = frostSuspensionProfile(full ? 2 : 1, radius, this.density);
+    if (!profile) return;
+    const { height, shards } = profile;
+    const vapour = profile.mist;
+    for (let i = 0; i < shards; i++) {
+      // Golden-angle distribution avoids a uniform ring or conspicuous rows.
+      const angle = i * 2.399963229728653 + rand(-.22, .22);
+      const u = Math.sqrt((i + .45) / shards);
+      const dome = Math.sqrt(Math.max(0, 1 - u * u));
+      const reach = radius * (.43 + .43 * u);
+      const rise = height * (.23 + .67 * dome);
+      const life = rand(.95, 1.45);
+      const size = rand(full ? .055 : .042, full ? .115 : .088);
+      // Eruption is fast for its first few frames; drag nearly suspends
+      // fragments, then weak gravity makes them settle without raining down.
+      const release = rand(2.35, 3.25);
+      this.glow.spawn({
+        x: point.x + Math.cos(angle) * rand(.04, .23),
+        y: point.y + rand(.12, .35),
+        z: point.z + Math.sin(angle) * rand(.04, .23),
+        vx: Math.cos(angle) * reach * release,
+        vy: rise * release,
+        vz: Math.sin(angle) * reach * release,
+        sx: size, sy: size * rand(2.4, 4.3), sz: size * .8,
+        color: i % 4 === 0 ? 0xf3feff : i % 3 === 0 ? 0x8dd2f4 : 0xbdefff,
+        ttl: life, drag: 3.1, gravity: rand(.3, .85),
+        align: false, spin: rand(-1.8, 1.8),
+      });
+    }
+    for (let i = 0; i < vapour; i++) {
+      const angle = i * 2.399963229728653 + rand(-.5, .5);
+      const u = Math.sqrt((i + .5) / vapour);
+      const crown = Math.sqrt(Math.max(0, 1 - u * u));
+      const reach = radius * (.25 + .55 * u);
+      const release = rand(2.7, 3.8);
+      const size = rand(.23, full ? .52 : .44);
+      this.smoke.spawn({
+        x: point.x + Math.cos(angle) * rand(.05, .36),
+        y: point.y + rand(.1, .26),
+        z: point.z + Math.sin(angle) * rand(.05, .36),
+        vx: Math.cos(angle) * reach * release,
+        vy: height * (.14 + .73 * crown) * release,
+        vz: Math.sin(angle) * reach * release,
+        sx: size, sy: size * rand(.7, 1.15), sz: size,
+        color: i % 3 === 0 ? 0xe9f9ff : 0xc2e7f3,
+        ttl: rand(.85, 1.25), drag: 3.45, gravity: .12,
+        grow: .75, fadeIn: .07,
+      });
+    }
+  }
+
   // A Fire infusion is an actual expanding fireball, not just thin spark
   // streaks. Broad bright lobes push out before the dark smoke follows; all
   // pieces use existing instanced pools and do not add runtime shader types.
@@ -516,6 +575,10 @@ export class DisasterElementEffects {
         this.#mote('frost', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * rand(1, 3), y: rand(2, 5.5), z: Math.sin(a) * rand(1, 3) }, { size: rand(0.04, 0.08), ttl: rand(0.5, 0.8), gravity: 9, stretch: 4 });
       }
       for (let i = 0; i < this.#n(6); i += 1) this.#dust({ x: p.x + rand(-1, 1), y: floor + 0.2, z: p.z + rand(-1, 1) }, { x: rand(-1.5, 1.5), y: 0.3, z: rand(-1.5, 1.5) }, 0.28, 1.2, 0xcfe9f5);
+      // Give Half Frost's extended first-contact interval a readable volume,
+      // rather than implying that a handful of fast splinters is the attack.
+      // Full Frost retains its separately authored standing ice field.
+      this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground);
       if (!full || !ground || !event.fieldId) this.#iceCrown(p, full ? 1.4 : 1.8, full ? 12 : 18, 0.85);
     }
     if (tiers.gale) {
