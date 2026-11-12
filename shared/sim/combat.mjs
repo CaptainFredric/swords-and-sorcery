@@ -3455,9 +3455,17 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       if (nowSec >= (player.dashUntil ?? -Infinity)) player.dashRam = null;
     }
     recordTransform(player, nowSec);
-    if(player.swordTechnique)
-      stepLiveSwordTechnique(room,player,nowSec,world,(action,contact)=>
+    if(player.swordTechnique){
+      // Ordinary sword cuts can meet a machine's actual blade-facing component
+      // geometry, not merely static terrain. Techniques must see those same
+      // authoritative surfaces (and not the coarse rider movement hulls).
+      const bladeWorld={...world,solids:[...(world.solids??[]),
+        ...biByeHitVolumes(room.biByeLlista,nowSec),
+        ...soFistVolumes(room.soFistication,nowSec),
+        ...fightFlightHitVolumes(room.fightFlight)]};
+      stepLiveSwordTechnique(room,player,nowSec,bladeWorld,(action,contact)=>
         resolveTechniqueContact(room,player,action,contact,nowSec));
+    }
 
     // A gathered projectile leaves the current hand along the latest authoritative aim. Once released its
     // velocity belongs to the projectile; turning or moving the caster never steers it.
