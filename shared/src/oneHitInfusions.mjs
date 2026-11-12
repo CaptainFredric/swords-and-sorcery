@@ -79,6 +79,19 @@ export function oneHitTeleportDistance(holdSec) {
   return oneHitTeleportReach(Math.max(0, holdSec));
 }
 
+/** Half/Full Lightning's genuinely steerable charging interval.
+ * The cast still owns the hands, not the feet or the camera. The server and
+ * local prediction share this decision so charging cannot rubber-band.
+ */
+export function oneHitChargingLightning(player,nowSec){
+  const state=player?.ultimateState;
+  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup')return false;
+  if((state.preparedTiers?.lightning??0)<1)return false;
+  if(Number.isFinite(state.teleportHoldAt))return !state.teleportReleased;
+  return Number.isFinite(state.partialLightningHoldAt)&&
+    !state.partialLightningReleased&&nowSec<(state.commitAt??-Infinity);
+}
+
 /** A bounded Gale suspension, shared by server movement and prediction.
  * Ordinary aerial preparation and the brief post-teleport aim HOLD altitude;
  * an indefinitely held Lightning charge merely slows the fall. */
