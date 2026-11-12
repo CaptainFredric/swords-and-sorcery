@@ -81,6 +81,10 @@ export class SiegeWorkshopPerformance {
       const root=new THREE.Group();
       root.name=`PracticeSpellblade_${i+1}`;
       const model=cloneSkinned(knight.root);
+      // The comparison knight is positioned beside the resting machine;
+      // cloned rivals must instead stand at their OWN arena positions.
+      model.position.set(0,0,0);
+      model.rotation.set(0,0,0);
       model.visible=true;
       root.add(model);
       root.position.copy(vec(positions[i]));
@@ -145,8 +149,8 @@ export class SiegeWorkshopPerformance {
         : [machine.x+.22,1.35+machine.y,machine.z-.7];
       const base=bases[shot.target]??[0,0,-4];
       const to=shot.nearMiss ? [base[0]+.95,1.2,base[2]+.42]
-        : [base[0]+(skill==='narrowToOne'&&shot.lowShot?.26:0),
-            skill==='narrowToOne'&&shot.lowShot?.43:1.2,base[2]];
+        : [base[0]+(skill==='narrowToOne'&&shot.lowShot ? .26 : 0),
+            skill==='narrowToOne'&&shot.lowShot ? .43 : 1.2,base[2]];
       if(object.visible) {
         const u=clamp(age/flight);
         const start=vec(from),end=vec(to);
@@ -158,8 +162,8 @@ export class SiegeWorkshopPerformance {
         const actor=this.actors[shot.target];
         if(actor) {
           actor.hit.visible=true;
-          actor.hit.position.set(shot.nearMiss?.75:(skill==='narrowToOne'&&shot.lowShot?.25:0),
-            skill==='narrowToOne'&&shot.lowShot?.45:1.15,shot.nearMiss?.42:0);
+          actor.hit.position.set(shot.nearMiss ? .75 :(skill==='narrowToOne'&&shot.lowShot ? .25 : 0),
+            skill==='narrowToOne'&&shot.lowShot ? .45 : 1.15,shot.nearMiss ? .42 : 0);
           actor.hit.material.color.setHex(shot.kind==='frost'?0xb3e9ff:0xffb36b);
           actor.hit.scale.setScalar(shot.nearMiss ? 1+7*smooth((age-flight)/.26) : 1+1.8*smooth((age-flight)/.26));
           actor.hit.material.opacity=.45*(1-clamp((age-flight)/.26));
