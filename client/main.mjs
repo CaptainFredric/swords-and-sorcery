@@ -309,6 +309,7 @@ let renown = null;
 try {
   menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryScreen: $('#armory-menu') });
   menuScene.setTourAllowed(tourAllowed());
+  menuScene.siegeWorkshop.onPreviewChange=skill=>updateSiegePreviewUI(skill);
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
   menuSpellblade.classList.add('menu-scene-unavailable');
@@ -2055,6 +2056,7 @@ function animateCardReorder(category, selectedItemId) {
   const before = new Map([...container.querySelectorAll('.spell-card')]
     .map(card => [keyOf(card), card.getBoundingClientRect()]));
   const priorScroll = scrollEl.scrollTop;
+  const wasFocused = container.contains(document.activeElement);
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   return () => {
     // DOM replacement can invoke scroll anchoring. The player's position in the
@@ -2094,8 +2096,7 @@ function animateCardReorder(category, selectedItemId) {
     // and swipe up to return to the preceding choices.
     if (Math.abs(desired - scrollEl.scrollTop) > 1)
       scrollEl.scrollTo({ top: desired, behavior: reduced ? 'instant' : 'smooth' });
-    if (document.activeElement?.closest?.(listId))
-      target.focus({ preventScroll: true });
+    if (wasFocused) target.focus({ preventScroll: true });
   };
 }
 
