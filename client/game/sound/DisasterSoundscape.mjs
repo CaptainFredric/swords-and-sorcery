@@ -1,6 +1,7 @@
 // Event-driven finite sound choreography for real Castleward gameplay.
 // Snapshots own expiration and position. Uses existing positional SFX mixer.
 import {fieldStrength} from '../../shared/src/oneHitStatus.mjs';
+import {galeProfile} from '../../shared/src/galeModes.mjs';
 import {
   DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
   coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
@@ -87,7 +88,9 @@ export class DisasterSoundscape {
         if(event.spell!=='coreflagration'||event.stage!=='final')break;
         const old=this.cores.get(event.projectileId);
         old?.handle?.stop?.(.035);this.cores.delete(event.projectileId);
-        this.#around(event.point,coreMagmaDetonationRecipe(rand),1.0);
+        // Calibrated against the baseline earth impact: explosive but not
+        // overwhelmingly sub-bass-heavy or hard limiting the whole SFX bus.
+        this.#around(event.point,coreMagmaDetonationRecipe(rand),.86);
         break;
       }
       case 'lineConductDischarge':{
@@ -133,8 +136,11 @@ export class DisasterSoundscape {
       }
       case 'oneHitImpact':{
         const point=impactPoint(event),elements=tiersOf(event.tiers),balance=mix(elements.length);
+        // Preserve the attack's initial weight regardless of infusion count.
+        // Only the EXTRA elemental layers share a collective loudness budget;
+        // previously all five infusions paradoxically weakened the base hit.
         this.#around(point,disasterEarthImpactRecipe(rand,{wave:Boolean(event.impactId)}),
-          (event.impactId?.77:.93)*balance);
+          event.impactId?.72:.89);
         // Fire ignites, frost fractures, Gale evacuates, lightning snaps, Steel
         // rumbles last. Avoid simply synchronizing five entire explosions.
         const delays={fire:.035,frost:.095,gale:.135,lightning:.185,steel:.23};
@@ -146,8 +152,10 @@ export class DisasterSoundscape {
       }
       case 'galeBlast':{
         this.#around(event.origin,galeStreamRecipe(rand,{seconds:.56,weight:1}),.37,.16);
+        // Sustain tracks the ACTUAL chosen Gale cone duration, not the
+        // earlier hard-coded .75 s (sustained Gale physically lasts 1.25 s).
         this.gusts.set(event.playerId,{point:event.origin,next:at(event.at,0)+.53,
-          until:at(event.at,0)+(event.mode==='sustained'?.75:.5)});
+          until:at(event.at,0)+galeProfile(event.mode).cone.lastsSec});
         break;
       }
       case 'galeEnded':
@@ -185,7 +193,10 @@ export class DisasterSoundscape {
       const strength=fieldStrength(field,nowSec);
       if(strength<=.045)continue;
       const elements=tiersOf(field.tiers),balance=mix(elements.length);
-      const gain=.45*strength*balance;
+      // Recipe envelopes already multiply by authoritative strength.
+      // Multiplying the outer gain by strength as well made the field fade
+      // quadratically and nearly disappear while Shaken remained active.
+      const gain=.52*balance;
       this.#around(field.position,disasterFieldPulseRecipe(this.random,{strength}),gain);
       // All five infusion timbres take turns throughout the authoritative
       // field lifetime, two gentle accents per beat. Never five full booms.
