@@ -39,12 +39,10 @@ export function workshopPreviewPose(skill, time) {
     // At impact the machine is consumed; no automatic reset while open.
     const launch=between(t,.35,1.45);
     const dive=between(t,3.15,5.55);
-    const impact=between(t,5.55,5.78);
     z=-4.7*launch-3.8*dive;
     y=3.5*between(t,.8,2.1)*(1-between(t,3.1,5.55));
     pitch=2*Math.PI*between(t,1.55,2.8)+.34*Math.sin(Math.PI*dive);
     if(t>=5.78){x=0;y=0;z=0;pitch=0;}
-    
   } else if (skill==='narrowToOne') {
     const u=between(t,.28,4.75);
     const a=u*Math.PI*2;
@@ -81,6 +79,26 @@ export function workshopPreviewShots(skill) {
   if(skill==='fireAwayRightHere')
     return Array.from({length:27},(_,i)=>({
       at:2.65+i*.145,flight:.33,kind:'repeater',target:i%3,
+    }));
+  return [];
+}
+// Visual-only impact cue locations and timings; each cue is tied to the
+// corresponding authored animation, never to live match state.
+export function workshopPreviewImpacts(skill) {
+  if(skill==='doNotStopMyAscension')
+    return [{at:5.55,x:0,z:-8.4,type:'valkyrie'}];
+  if(skill==='beatToThePunch')
+    return [{at:2.55,x:.15,z:1.65,type:'ram'}];
+  if(skill==='coldHowTouching')
+    return [{at:1.4,x:2.15,z:-3.63,type:'frost'}];
+  if(skill==='boltToTheOccasion')
+    return [{at:1.92,x:.15,z:-4.7,type:'bolt'},
+      {at:3.27,x:-1.8,z:-4.5,type:'frost'}];
+  if(skill==='narrowToOne')
+    return [{at:4.68,x:0,z:-2.8,type:'repeater'}];
+  if(skill==='fireAwayRightHere')
+    return [-4.35,-5.3,-4.35].map((z,i)=>({
+      at:6.4+i*.15,x:(i-1)*2.35,z,type:'repeater'
     }));
   return [];
 }
