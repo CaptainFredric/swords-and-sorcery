@@ -65,7 +65,7 @@ async function installFixture(){
     electricalBacklash:{at:10,initial:12},
     blustered:{at:10,severity:1},shaken:{at:10,severity:1},
     burningUntil:12,chill:{startedAt:10,until:14,slow:.55},
-    oneHitFrostSlow:{until:14,depth:.35},
+    oneHitFrostSlow:{until:14,depth:.35},tornGround:true,
     oneHitField:{id:'ground-1',ownerId:'enemy',strength:.7}
   },10.1);
   const backdrop=document.createElement('div');
@@ -123,8 +123,8 @@ try{
   await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'game shell',190);
   await evaluate('('+installFixture.toString()+')()');
   const desktop=await evaluate('('+inspect.toString()+')()');
-  assert.equal(desktop.buttons,9);
-  assert.equal(desktop.svgCount,9,'icons are vector artwork');
+  assert.equal(desktop.buttons,10);
+  assert.equal(desktop.svgCount,10,'icons are vector artwork');
   assert.equal(desktop.visible,false,'detail starts closed');
   assert.equal(desktop.hit,'frozen','desktop hit test');
   assert.ok(desktop.dock.bottom<desktop.health.y,'effects stay away from health');
