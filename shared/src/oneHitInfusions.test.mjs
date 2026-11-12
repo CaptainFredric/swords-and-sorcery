@@ -111,6 +111,10 @@ test('held Lightning charges suppress Sprint and Jump without locking 360-degree
   assert.equal(intent.yaw,4.5);
   assert.equal(intent.pitch,-1.2);
   assert.ok(intent.forward>0&&intent.forward<1);
+  assert.ok(Math.abs(Math.hypot(intent.forward,intent.right)-.56)<1e-8,
+    'diagonal aiming movement must not exceed straight charged walking pace');
+  const straight=oneHitChargeIntent({forward:1,right:0});
+  assert.ok(Math.abs(Math.hypot(straight.forward,straight.right)-.56)<1e-8);
   const glide=oneHitGlide(player,7.5);
   assert.ok(glide.fallGravity>0&&glide.maxFall>0,
     'charging above terrain must descend rather than hover without time limit');
