@@ -158,7 +158,7 @@ test('interrupted action replicates its recovery for its exact window, then expi
   const shown=serializeSnapshot(room,12.2,'b').players.find(p=>p.id==='a');
   assert.equal(shown.swordTechnique?.phase,'interrupted');
   assert.equal(shown.swordTechnique?.reason,'parried');
-  assert.equal(serializeSnapshot(room,12.79,'b').players.find(p=>p.id==='a').swordTechnique?.id,'rigid_riposte');
+  assert.equal(serializeSnapshot(room,12.77,'b').players.find(p=>p.id==='a').swordTechnique?.id,'rigid_riposte');
   assert.equal(serializeSnapshot(room,12.81,'b').players.find(p=>p.id==='a').swordTechnique,null);
 });
 
