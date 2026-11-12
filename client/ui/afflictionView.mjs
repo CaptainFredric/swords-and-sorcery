@@ -1,7 +1,7 @@
 // Afflictions on the local Spellblade. A pure projection of authoritative
 // snapshot state: no client-owned timers, predicted statuses, or fictitious
 // weakening of conditions which actually end at full strength.
-import { chillScale } from '../../shared/src/spells.mjs';
+import { SPELLS, chillScale } from '../../shared/src/spells.mjs';
 import { shakenSprintFactor, oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, ONE_HIT_BLUSTER, ONE_HIT_CONDUCT, ONE_HIT_FIELD } from '../../shared/src/oneHitStatus.mjs';
 
@@ -73,7 +73,9 @@ export function afflictionView(player, nowSec) {
   if ((player.burningUntil ?? -Infinity) > nowSec) push(effects, 'burning', 1);
   if (player.chill && nowSec < player.chill.until) {
     const current = 1 - chillScale(player.chill, nowSec);
-    push(effects, 'chilled', current / Math.max(0.001, player.chill.slow ?? 0));
+    // Compare against the spell's strongest chill, not the exposure's own
+    // initial depth; a glancing, mild chill must not look fully potent.
+    push(effects, 'chilled', current / Math.max(0.001, SPELLS.frostfire.chill.slow));
   }
   const frost = player.oneHitFrostSlow;
   if (frost && nowSec < frost.until) {
