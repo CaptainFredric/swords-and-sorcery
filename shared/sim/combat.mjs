@@ -1192,6 +1192,11 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       if(guard.kind==='guardBreak'){
         breakGuard(target,GAME.guardBreakStaggerMs/1000,nowSec);
         interruptSwordTechnique(target,nowSec);
+        // An ordinary enemy sword earns its existing guard-break reward;
+        // neither the defending technique nor a concurrent Masterstroke does.
+        if(!combatActionPolicy(attacker,nowSec).concurrent&&
+           !attacker.attackChivalry&&!sundering(attacker,nowSec))
+          gainProwess(room,attacker,PROWESS.guardBreak);
         room.events.push({type:'guardBreak',attackerId:attacker.id,
           defenderId:target.id,technique:technique.id,point:contact,at:nowSec});
       }else{
