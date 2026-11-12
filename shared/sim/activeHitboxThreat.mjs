@@ -9,7 +9,7 @@ export function activeHitboxThreat(room,actor,foe,nowSec){
     return {kind,x:dx/mag,z:dz/mag};
   };
   for(const wave of room?.oneHitWaves??[]){
-    if(wave.ownerId!==foe.id||!wave.direction)return null;
+    if(wave.ownerId!==foe.id||!wave.direction)continue;
     const d=wave.direction,flat=Math.hypot(d.x,d.z);
     if(flat<.05)continue;
     const ux=d.x/flat,uz=d.z/flat;
