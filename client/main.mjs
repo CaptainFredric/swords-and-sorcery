@@ -1934,15 +1934,16 @@ let lastEquippedItemId = null;
 // end of a possibly much longer equipment list. Preserve the remaining order.
 const bannerReorderSlots = new Map();
 function bannerOrdered(items, category, key) {
-  const slot = bannerReorderSlots.get(category);
-  if (!slot) return items;
-  const result = [...items];
-  const chosen = result.findIndex(item => key(item) === slot.chosen);
-  if (chosen < 0) return result;
-  const [item] = result.splice(chosen, 1);
-  const anchor = result.findIndex(entry => key(entry) === slot.anchor);
-  result.splice(anchor < 0 ? result.length : anchor + 1, 0, item);
-  return result;
+  const order = bannerReorderSlots.get(category);
+  if (!order) return items;
+  // Preserve the actual displayed order across synchronous settings redraws.
+  // Sorting an equipped item to the end on EVERY redraw is what used to send
+  // distant choices (e.g. Fireball) down through the entire banner.
+  const positions = new Map(order.map((id, index) => [id, index]));
+  return items.map((item, originalIndex) => ({item, originalIndex}))
+    .sort((a, b) => (positions.get(key(a.item)) ?? (order.length + a.originalIndex))
+      - (positions.get(key(b.item)) ?? (order.length + b.originalIndex)))
+    .map(entry => entry.item);
 }
 
 function renderInspectorLists() {
@@ -2078,16 +2079,33 @@ function animateCardReorder(category, selectedItemId) {
     .map(card => [keyOf(card), card.getBoundingClientRect()]));
   const priorScroll = scrollEl.scrollTop;
   const scrollWindow = scrollEl.getBoundingClientRect();
-  const visibleCards = [...container.querySelectorAll('.spell-card')].filter(card => {
+  const cardsBefore = [...container.querySelectorAll('.spell-card')];
+  const visibleCards = cardsBefore.filter(card => {
     const bounds = card.getBoundingClientRect();
-    return bounds.top < scrollWindow.bottom - 8 && bounds.bottom > scrollWindow.top + 8;
+    return bounds.top >= scrollWindow.top + 2
+      && bounds.bottom <= scrollWindow.bottom - 2;
   });
-  const anchor = visibleCards.at(-1)?.dataset && keyOf(visibleCards.at(-1)) === selectedItemId
-    ? visibleCards.at(-2) : visibleCards.at(-1);
-  // The last currently visible choice marks the bottom of the crimson viewport.
-  // Don't jump the scroll position down through offscreen cards and details.
-  if (anchor && category !== 'technique')
-    bannerReorderSlots.set(category, { chosen: selectedItemId, anchor: keyOf(anchor) });
+  // Reserve the bottommost FULLY visible card's slot for the selection.
+  // Partially clipped cards must not be the anchor or the destination will
+  // itself fall off the banner when selecting a distant item.
+  const bottomCard = visibleCards.at(-1) ?? cardsBefore.filter(card => {
+    const bounds=card.getBoundingClientRect();
+    return bounds.top < scrollWindow.bottom && bounds.bottom > scrollWindow.top;
+  }).at(-1);
+  if (bottomCard && category !== 'technique') {
+    const order = cardsBefore.map(keyOf);
+    const from = order.indexOf(selectedItemId);
+    const to = order.indexOf(keyOf(bottomCard));
+    if (from !== -1 && to !== -1) {
+      order.splice(from, 1);
+      order.splice(to, 0, selectedItemId);
+      bannerReorderSlots.set(category, order);
+    }
+  }
+  // Native CSS scroll anchoring can override an explicit scrollTop assignment
+  // when elements above the visible range are rebuilt. Inspection is governed
+  // by the user's position, not by browser heuristics about focused nodes.
+  scrollEl.style.overflowAnchor = 'none';
   const wasFocused = container.contains(document.activeElement);
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   return () => {
@@ -2456,7 +2474,7 @@ $('#armory-inspector-categories').addEventListener('click', event => {
 $('#armory-equip-btn')?.addEventListener('click', () => {
   const cat = armoryLocation.category;
   const id = armoryLocation.highlightedItem;
-  equipInspectorItem(cat, id, { animate: false });
+  equipInspectorItem(cat, id, { animate: true });
 });
 
 $('#armory-techniques').addEventListener('click', (event) => {
