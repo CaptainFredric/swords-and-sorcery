@@ -57,6 +57,8 @@ import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../s
 import { postureOf } from '../src/body.mjs';
 import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
+import { stepLiveSwordTechnique, interruptSwordTechnique } from './swordTechniqueLive.mjs';
+import { techniqueInterception } from './swordTechnique.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
