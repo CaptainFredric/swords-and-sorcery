@@ -325,6 +325,28 @@ try {
   assert.match(soFistStatus.childName, /Authored_soFist/);
   assert.ok(soFistStatus.bounds.size.x > 0.5 && soFistStatus.bounds.size.y > 0.5, 'soFist model has realistic dimensions');
 
+  // The first Skill is held until stopped. A second press genuinely replays it.
+  await until(()=>evaluate('Boolean(window.__ssMenu.siegeWorkshop.knight)'), 'authentic training Spellblade');
+  await evaluate('document.querySelector("[data-siege-skill=longArmToTheJaw]").click()');
+  await sleep(800);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.skill'), 'longArmToTheJaw');
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.time') > .6);
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.previewFist?.node.position.z-window.__ssMenu.siegeWorkshop.previewFist?.rest.z') < -2,
+    'actual mounted fist moves forward and remains deployed');
+  await evaluate('document.querySelector("[data-siege-skill=longArmToTheJaw]").click()');
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.time') < .3, 'second press restarts the shot');
+  await evaluate('document.querySelector("#siege-preview-stop").click()');
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.active'),false);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.y'),0);
+  await evaluate('document.querySelector("[data-siege-skill=beatToThePunch]").click()');
+  await sleep(1650);
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.z') < -1.3,
+    'Beat to the Punch visibly reverses out of the shed');
+  await screenshot('04a-ram-beat-to-the-punch.png');
+  await evaluate('document.querySelector("#siege-preview-stop").click()');
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.z'),0);
+
+
   // Verify pointer dragging rotates machine
   const initialYaw = await evaluate("window.__ssMenu?.siegeWorkshop?.targetYaw ?? 0");
   await dragPreview('siege');
@@ -366,6 +388,15 @@ try {
   assert.match(bibyeStatus.model.childName, /Authored_biBye/);
   assert.ok(bibyeStatus.model.bounds.size.x > 0.5, 'biBye model has non-zero authored bounds');
   assert.ok(bibyeStatus.skills.includes('boltToTheOccasion'));
+  await evaluate('document.querySelector("[data-siege-skill=coldHowTouching]").click()');
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles[0].shot.nearMiss'),true);
+  await sleep(1200);
+  await screenshot('05a-bibye-near-miss-frost.png');
+  await evaluate('document.querySelector("[data-siege-skill=boltToTheOccasion]").click()');
+  assert.deepEqual(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.map(p=>p.shot.kind)'),
+    ['heavy','frost'], 'mobile Bolt II is demonstrated BEFORE the conditioning bolt');
+  await evaluate('document.querySelector("#siege-preview-stop").click()');
+
 
   await screenshot('05-siege-workshop-bibye.png');
 
@@ -392,6 +423,24 @@ try {
   assert.equal(flightStatus.model.isAuthored, true, 'FIGHT-AND-FLIGHT must display authored GLB, not fallback');
   assert.match(flightStatus.model.childName, /Authored_fightFlight/);
   assert.ok(flightStatus.model.bounds.size.y > 0.5, 'fightFlight model has non-zero authored bounds');
+  await evaluate('document.querySelector("[data-siege-skill=doNotStopMyAscension]").click()');
+  await sleep(1950);
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.y')>1,
+    'the flight demonstration really pitches and climbs');
+  await screenshot('06a-flight-dash-loop.png');
+  await evaluate('document.querySelector("[data-siege-skill=narrowToOne]").click()');
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),18);
+  await sleep(1300);
+  await screenshot('06b-flight-narrow-to-one.png');
+  await evaluate('document.querySelector("[data-siege-skill=fireAwayRightHere]").click()');
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),27);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.length'),3);
+  await sleep(2900);
+  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.some(a=>a.lastHp<100)'),
+    'three visible 100-HP training targets lose HP under sustained repeater fire');
+  await screenshot('06c-flight-fire-away-hp.png');
+  await evaluate('document.querySelector("#siege-preview-stop").click()');
+
 
   // 4. Verify honest fallback when asset is missing or unknown
   const honestFallback = await evaluate(`(() => {
@@ -517,7 +566,7 @@ try {
   const beforeTouch = await evaluate('window.__ssMenu.targetYaw');
   await dragPreview('kit',true);
   assert.ok(Math.abs(await evaluate('window.__ssMenu.targetYaw') - beforeTouch) > 0.4);
-  assert.ok(Math.abs(await evaluate('window.__ssMenu.targetPitch')) > .05);
+  assert.equal(await evaluate('window.__ssMenu.targetPitch'), 0, 'the Spellblade remains planted during vertical drag');
   await tap('#armory-reset-hero', true);
   assert.equal(await evaluate('window.__ssMenu.targetPitch'), 0);
   await tap('#armory-inspector-close', true);
