@@ -1,6 +1,6 @@
 # Spellblade voice recording packet — November 11, 2026
 
-**Status:** The declarations and Credits metadata are committed in this draft. **The four recordings are not yet committed as playable takes.** Do not merge or describe this as live voice until the normal ingest pipeline has run and the resulting `.m4a` and `.wav` files and updated manifest are committed.
+**Status:** All four creator recordings from the November 11, 2026 voice packet are ingested via `npm run voice -- --line ...`, auditioned, and committed as playable `.m4a`/`.wav` assets alongside the updated manifest (`216 lines declared, 213 recorded (244 takes)`) and declaration order. **Keep this PR as DRAFT. Do not merge or deploy.**
 
 The creator's recording bundle contains:
 

@@ -244,6 +244,12 @@
         "seconds": 3.56
       }
     ],
+    "coughGrowlExertion": [
+      {
+        "file": "cough-growl-exertion-1",
+        "seconds": 0.98
+      }
+    ],
     "couldveDoneThat": [
       {
         "file": "couldve-done-that-1",
@@ -522,6 +528,16 @@
         ]
       }
     ],
+    "goodLuckForgettingMe": [
+      {
+        "file": "good-luck-forgetting-me-1",
+        "seconds": 2.32
+      },
+      {
+        "file": "good-luck-forgetting-me-2",
+        "seconds": 3.18
+      }
+    ],
     "groundPersuasion": [
       {
         "file": "ground-persuasion-1",
@@ -638,6 +654,12 @@
           0.0,
           3.37
         ]
+      }
+    ],
+    "hummedExertion": [
+      {
+        "file": "hummed-exertion-1",
+        "seconds": 1.21
       }
     ],
     "hurt": [
@@ -1751,6 +1773,9 @@
     "theyAreRuiningTheColor": "2026-11-02",
     "youMayNoLonger": "2026-11-02",
     "allNaturalDisasterBaseShelter": "2026-11-07",
-    "allNaturalDisasterInfusedColorful": "2026-11-07"
+    "allNaturalDisasterInfusedColorful": "2026-11-07",
+    "hummedExertion": "2026-11-12",
+    "coughGrowlExertion": "2026-11-12",
+    "goodLuckForgettingMe": "2026-11-12"
   }
 }
