@@ -638,8 +638,19 @@ export class SiegeWorkshopScene {
     if(this.previewAnimation) {
       const mixer=this.mixers.get(this.previewAnimation.machine);
       mixer?.stopAllAction();
-      const idle=this.clips.get(this.previewAnimation.machine)?.find(c=>c.name===IDLE_CLIP[this.previewAnimation.machine]);
-      if(idle)mixer?.clipAction(idle)?.reset().play();
+      const id=this.previewAnimation.machine;
+      const clips=this.clips.get(id)??[];
+      const idle=clips.find(c=>c.name===IDLE_CLIP[id])
+        ?? (id==='soFist'?clips.find(c=>c.name==='01_Ram_Strike_Full_Cycle'):null);
+      if(idle&&mixer) {
+        const action=mixer.clipAction(idle).reset().play();
+        if(id==='soFist') {
+          // This GLB does not carry a dedicated resting clip. Pose its actual
+          // strike animation at the coupled, fully retracted starting frame.
+          mixer.setTime(0);
+          action.paused=true;
+        }
+      }
     }
     this.previewAnimation=null;
   }
