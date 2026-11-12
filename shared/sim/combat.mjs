@@ -98,8 +98,26 @@ function normalize3(v) {
 // its own next revolutions; legitimate victim and parry rewards remain intact.
 function resolveTechniqueContact(room,attacker,action,contact,nowSec){
   if(contact.kind!=='body'){
+    const solid=contact.kind==='solid'?contact.solid:null;
+    const damage=action.contract.damage.clean;
+    if(solid){
+      const ram=String(solid.id??'').startsWith('sofist-');
+      const flight=String(solid.id??'').startsWith('fight-flight-');
+      if(solid.componentId){
+        (flight?damageFightFlight:ram?damageSoFistication:damageBiByeLlista)(
+          room,flight?room.fightFlight:ram?room.soFistication:room.biByeLlista,
+          damage,attacker.id,'sword',nowSec,{
+            componentId:solid.componentId,point:contact.point,material:solid.material,
+          });
+      }
+      if(String(solid.id??'').startsWith('siege-ladder-'))
+        damageRestlessLadder(room,solid.id.split('-').slice(2,4).join('-'),
+          damage,attacker.id,nowSec);
+      damageStructureSolid(room,solid,damage,attacker.id,'sword',nowSec,
+        {point:contact.point});
+    }
     room.events.push({type:'swordTechniqueWorld',playerId:attacker.id,
-      kind:contact.kind,point:contact.point??null,at:nowSec});
+      id:action.id,kind:contact.kind,point:contact.point??null,at:nowSec});
     return;
   }
   const defender=room.players.get(contact.id);
