@@ -140,6 +140,25 @@
 }
 .health-fill { background: linear-gradient(180deg, #e0685a 0, #b23a30 45%, #7e231d 100%); box-shadow: inset 0 1px 0 rgba(255, 210, 190, .35); }
 .health-trail { background: linear-gradient(180deg, #c9887c, #8c4d45); }
+/* Full Steel's ultimate protects exactly the final HP. A tiny steel ingot
+   REPLACES that leftmost bit of the red fill, rather than adding a frame,
+   changing the whole bar, or suggesting that the rest is invulnerable. */
+.health-steel-last-hp {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: max(1%, 3px);
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    #ffffff 0%, #eef4f8 14%, #aab7c3 35%, #697782 68%,
+    #35414a 85%, #b9c6d0 100%);
+  border-right: 1px solid #f3f8fa;
+  box-shadow: inset 1px 0 0 #fff, inset -1px 0 0 #36414a,
+    1px 0 3px rgba(203, 225, 235, .5);
+}
+.health-armour.steel-floor .health-steel-last-hp { opacity: 1; }
+
 .health-track::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(8, 6, 4, .55) calc(25% - 1px) 25%);
