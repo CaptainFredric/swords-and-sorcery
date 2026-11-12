@@ -47,6 +47,7 @@ function freshCombatState(spawn, nowSec = 0) {
     pitch: 0,
     health: 100,
     swordTechnique:null,
+    swordTechniqueExit:null,
     swordTechniqueHeld:false,
     swordTechniqueReadyAt:0,
     guardStamina: guardProfile().capacity,
