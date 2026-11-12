@@ -187,6 +187,13 @@ async function scenario(url,label,touch,enhanced){
       },'groundward 3D destination responds to look without releasing charge');
       assert.ok(below.visible&&above.visible);
       console.log('[3D CHARGE AIM]',JSON.stringify({before,above,below}));
+      // Restore the staged forward lane before releasing: this is an aiming
+      // probe, not a change to the next impact fixture's orientation.
+      await ev(`${runtime}.input.yaw=${before.yaw}; ${runtime}.input.pitch=${before.pitch}`);
+      await until(async()=>{
+        const s=await sample();
+        return Math.abs(s.yaw-before.yaw)<.001&&Math.abs(s.pitch-before.pitch)<.001;
+      },'original forward lane restored before impact');
     }
     await snap(label+'-charge');
     await until(()=>ev(`${runtime}.socket.serverNow()-${actor}.ultimateState.teleportHoldAt>.55`),'half-second charge');
