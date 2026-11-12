@@ -1073,33 +1073,66 @@ $('#private-button').addEventListener('click', () => {
 });
 // Build the reference from the same entries as the live affliction HUD.
 // No separately maintained descriptions that can drift out of date.
+// The reference uses exactly the same names, artwork and descriptions as
+// the live HUD. Ten compact buttons share one detail area instead of ten
+// permanently expanded paragraphs. Selection never steals keyboard focus.
+function selectChroniclesAffliction(id) {
+  const list = $('#chronicles-affliction-list');
+  const detail = $('#chronicles-affliction-detail');
+  if (!list || !detail) return;
+  const effect = AFFLICTIONS[id];
+  const active = effect && detail.dataset.affliction !== id ? id : null;
+  for (const button of list.querySelectorAll('button[data-affliction]')) {
+    const pressed = button.dataset.affliction === active;
+    button.setAttribute('aria-pressed', String(pressed));
+    button.classList.toggle('selected', pressed);
+  }
+  detail.replaceChildren();
+  if (!active) {
+    detail.hidden = true;
+    delete detail.dataset.affliction;
+    return;
+  }
+  detail.dataset.affliction = active;
+  const title = document.createElement('h4');
+  title.textContent = effect.name;
+  const description = document.createElement('p');
+  description.textContent = effect.description;
+  const behavior = document.createElement('small');
+  behavior.textContent = effect.steady
+    ? 'HOLDS UNTIL THE EFFECT ENDS'
+    : 'GRADUALLY WEAKENS';
+  detail.append(title, description, behavior);
+  detail.hidden = false;
+}
+
 function renderChroniclesAfflictions() {
   const list = $('#chronicles-affliction-list');
   if (!list) return;
   list.replaceChildren();
+  const detail = $('#chronicles-affliction-detail');
+  if (detail) { detail.hidden = true; detail.replaceChildren(); delete detail.dataset.affliction; }
   for (const [id, effect] of Object.entries(AFFLICTIONS)) {
-    const entry = document.createElement('article');
-    entry.className = 'chronicles-affliction';
-    entry.dataset.affliction = id;
-    const heading = document.createElement('h4');
-    heading.textContent = effect.name;
-    const icon = document.createElement('span');
-    icon.className = 'chronicles-affliction-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.innerHTML = iconSvg(effect.icon);
-    heading.prepend(icon);
-    const description = document.createElement('p');
-    description.textContent = effect.description;
-    const behavior = document.createElement('small');
-    behavior.textContent = effect.steady
-      ? 'HOLDS ITS STRENGTH UNTIL IT ENDS'
-      : 'EFFECTIVENESS GRADUALLY WANES';
-    entry.append(heading, description, behavior);
-    list.append(entry);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chronicles-affliction-icon';
+    button.dataset.affliction = id;
+    button.title = effect.name;
+    button.setAttribute('aria-label', effect.name);
+    button.setAttribute('aria-controls', 'chronicles-affliction-detail');
+    button.setAttribute('aria-pressed', 'false');
+    button.innerHTML = iconSvg(effect.icon);
+    list.append(button);
   }
 }
+$('#chronicles-affliction-list')?.addEventListener('click', event => {
+  const button = event.target.closest('button[data-affliction]');
+  if (button && event.currentTarget.contains(button))
+    selectChroniclesAffliction(button.dataset.affliction);
+});
 $('#how-button').addEventListener('click', () => {
   renderChroniclesAfflictions();
+  $('#chronicles-controls')?.removeAttribute('open');
   route(SCREEN_IDS.HOW_TO_PLAY);
 });
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when

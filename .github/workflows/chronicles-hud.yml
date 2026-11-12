@@ -1,0 +1,47 @@
+name: Chronicles reference and HUD edge notice acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/index.html'
+      - 'client/main.mjs'
+      - 'client/menu.css'
+      - 'client/styles.css'
+      - 'client/mobile.css'
+      - 'scripts/chronicles-hud-browser.mjs'
+      - 'server/tests/mobile-shell.test.mjs'
+      - '.github/workflows/chronicles-hud.yml'
+permissions:
+  contents: read
+jobs:
+  chronicles-hud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Syntax, browser imports and targeted DOM contracts
+        run: |
+          node --check scripts/chronicles-hud-browser.mjs
+          node --test server/tests/mobile-shell.test.mjs
+          npm run check:browser-imports
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Inspect desktop and landscape mobile layouts in real Chrome
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/chronicles-hud-browser.mjs
+      - name: Preserve screenshots and layout measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronicles-hud-browser
+          path: output/playwright/chronicles-hud/
+          retention-days: 7

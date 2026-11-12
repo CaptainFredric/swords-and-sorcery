@@ -59,18 +59,39 @@ test('touch screens keep a pull on the game from refreshing the page an app hold
   assert.match(css, /html\.pull-guard #game-shell \{ position: fixed; left: 0; top: 0; \}/);
 });
 
-test('Castle Chronicles retains desktop/touch help and exposes the full canonical affliction reference', async () => {
+test('Castle Chronicles starts with clickable affliction icons; controls stay in a collapsed disclosure', async () => {
   const html = await read('client/index.html');
   const main = await read('client/main.mjs');
+  const css = await read('client/menu.css');
   const how = html.slice(html.indexOf('id="how-panel"'), html.indexOf('id="lobby"'));
-  assert.match(html, /CASTLE CHRONICLES/);
-  assert.match(how, /class=["']controls-grid key-controls-grid["'][\s\S]*SHIFT[\s\S]*Sprint/);
-  assert.match(how, /class=["']controls-grid touch-controls-grid["'][\s\S]*LEFT THUMB[\s\S]*RIGHT THUMB/);
+  assert.match(html, /id="how-button"[\s\S]*?chronicles-command-label/);
   assert.match(how, /id="chronicles-affliction-list"/);
-  assert.match(how, /ALL-NATURAL DISASTER · AIMING/);
+  assert.match(how, /id="chronicles-affliction-detail"[\s\S]*?hidden/);
+  assert.match(how, /<details id="chronicles-controls" class="chronicles-controls">/);
+  assert.match(how, /<summary>VIEW CONTROLS<\/summary>/);
+  assert.match(how, /class="controls-grid key-controls-grid"/);
+  assert.match(how, /class="controls-grid touch-controls-grid"/);
+  assert.doesNotMatch(how, /ALL-NATURAL DISASTER · AIMING|class="rules-copy"/);
+  assert.ok(how.indexOf('chronicles-affliction-list') < how.indexOf('chronicles-controls'),
+    'afflictions precede the optional controls');
   assert.match(main, /Object\.entries\(AFFLICTIONS\)/,
-    'the reference must use the HUD registry, not duplicate a subset');
+    'the reference uses exactly the live HUD affliction registry');
+  assert.match(main, /createElement\('button'\)/);
+  assert.match(main, /aria-pressed/);
+  assert.match(css, /#how-panel \.manual-inner > \.banner-scroll[\s\S]*?flex: 1 1 auto/);
   assert.match(html, /STAMINA/);
+});
+
+test('ordinary gameplay notice uses a small safe-edge caption, not the aim reticle', async () => {
+  const css = await read('client/styles.css');
+  const mobile = await read('client/mobile.css');
+  const hud = await read('client/ui/HUD.mjs');
+  const notice = css.slice(css.indexOf('/* Routine state notices'),css.indexOf('.bottom-hud {'));
+  assert.match(notice, /\.status-flash \{[\s\S]*top: auto;/);
+  assert.match(notice, /bottom: clamp\(/);
+  assert.doesNotMatch(notice, /top:55%|left:50%|translate\(-50%,-50%\)/);
+  assert.match(mobile, /\.touch-ui \.status-flash[\s\S]*?bottom: calc\(/);
+  assert.match(hud, /flashText\(text, kind = ''/);
 });
 
 test('touch play enters the arena without pointer lock and leaves it through the same path', async () => {

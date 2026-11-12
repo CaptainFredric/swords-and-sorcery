@@ -358,6 +358,19 @@
 .command-pair .menu-command { min-width: 0; padding-left: 20px; padding-right: 20px; }
 .command-pair .menu-command::before { left: 9px; }
 .command-pair .menu-command span { font-size: clamp(11px, 1.6cqw, 15px); white-space: normal; text-wrap: balance; }
+/* Two deliberate lines, NEVER a third split inside CHRONICLES. The
+   centered command stays legible on narrow landscape phones. */
+.command-pair #how-button { padding-inline: 10px; }
+.command-pair #how-button .chronicles-command-label {
+  display: block; min-width: 0; max-width: 100%;
+  font-size: clamp(10px, 1.25cqw, 14px);
+  white-space: nowrap; overflow-wrap: normal; word-break: keep-all; text-wrap: nowrap;
+  line-height: 1.12; letter-spacing: .025em;
+}
+.command-pair #how-button .chronicles-command-label > span {
+  display: block; font: inherit; white-space: nowrap; overflow-wrap: normal;
+  word-break: keep-all; text-wrap: nowrap;
+}
 .how-settings { margin: 10px 0 4px; }
 .turn-only { display: none !important; }
 html[data-turn] .turn-only { display: block !important; }
@@ -1004,18 +1017,61 @@ html[data-turn] .turn-only { display: block !important; }
 .armory-scroll-hint { flex-shrink: 0; margin: 8px 0 0; padding-top: 6px; border-top: 1px solid rgba(236,201,127,.4); color: var(--heraldry-brass-light); font: 700 9px/1.3 var(--font-script); letter-spacing: .09em; }
 .controls-group { grid-column: 1 / -1; margin: 6px 0 2px; color: var(--heraldry-brass-light); font: 800 10px/1.1 var(--font-script); letter-spacing: .15em; }
 .rules-copy p { margin: 0 0 7px; }
-/* Castle Chronicles: compact player reference, aligned to the existing banner. */
-.chronicles-chapter { margin: 18px 0 10px; padding-top: 9px; border-top: 1px solid rgba(201,156,82,.35); }
-.chronicles-chapter > p { color: rgba(234,220,182,.86); font: 500 12.5px/1.55 var(--font-script); margin: 8px 0 12px; }
-.chronicles-chapter .controls-group { margin: 0 0 6px; color: var(--heraldry-brass-light); }
-.chronicles-affliction-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; padding-bottom: 8px; }
-.chronicles-affliction { border: 1px solid rgba(201,156,82,.22); border-left: 2px solid rgba(201,156,82,.58); padding: 9px 11px; background: rgba(30,18,15,.34); }
-.chronicles-affliction h4 { margin: 0 0 4px; color: var(--heraldry-cream); font: 600 13px/1.3 var(--font-inscription); }
-.chronicles-affliction-icon { display: inline-flex; vertical-align: middle; width: 19px; height: 19px; margin-right: 7px; color: var(--heraldry-brass-light); }
-.chronicles-affliction-icon svg { width: 100%; height: 100%; }
-.chronicles-affliction p { margin: 0 0 6px; color: rgba(234,220,182,.83); font: 500 12px/1.5 var(--font-script); }
-.chronicles-affliction small { display: block; color: var(--heraldry-brass-light); font: 10px/1.4 var(--font-inscription); letter-spacing: .045em; }
-
+/* Castle Chronicles: the reference is a small icon rack. Only the
+   selected effect has prose; controls remain folded until requested. */
+#how-panel .chronicles-chapter { margin: 0; padding: 4px 0 10px; border-top: 0; }
+#how-panel .chronicles-chapter .controls-group { margin: 0 0 4px; font-size: 11px; }
+#how-panel .chronicles-brief {
+  margin: 0 0 9px; color: rgba(234,220,182,.8);
+  font: 500 12px/1.3 var(--font-script);
+}
+.chronicles-affliction-list {
+  display: grid; grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 7px; max-width: 310px; padding: 2px 0 7px;
+}
+.chronicles-affliction-icon {
+  width: 100%; min-height: 43px; display: grid; place-items: center;
+  padding: 8px; border: 1px solid rgba(201,156,82,.44); border-radius: 3px;
+  color: #e9d49b; background: rgba(25,18,15,.48); cursor: pointer;
+  transition: border-color .12s ease, background .12s ease, color .12s ease;
+}
+.chronicles-affliction-icon svg { width: 23px; height: 23px; pointer-events: none; }
+.chronicles-affliction-icon:is(:hover,.selected) {
+  color: #f7e8be; border-color: #ebc67d; background: rgba(130,80,37,.33);
+}
+.chronicles-affliction-icon:focus-visible { outline: 2px solid #f3d797; outline-offset: 2px; }
+.chronicles-affliction-detail {
+  margin: 5px 0 4px; padding: 9px 10px;
+  border: 1px solid rgba(201,156,82,.37); border-left: 3px solid #dec17c;
+  background: rgba(24,17,13,.42);
+}
+.chronicles-affliction-detail[hidden] { display: none; }
+.chronicles-affliction-detail h4 {
+  margin: 0 0 4px; color: var(--heraldry-cream);
+  font: 600 13px/1.2 var(--font-inscription);
+}
+.chronicles-affliction-detail p {
+  margin: 0 0 6px; color: rgba(241,228,202,.89);
+  font: 500 12px/1.45 var(--font-script);
+}
+.chronicles-affliction-detail small {
+  display: block; color: var(--heraldry-brass-light);
+  font: 700 9px/1.25 var(--font-script); letter-spacing: .08em;
+}
+.chronicles-controls {
+  margin: 7px 0 0; border-top: 1px solid rgba(201,156,82,.4);
+}
+.chronicles-controls > summary {
+  display: block; padding: 11px 2px 10px; cursor: pointer; list-style: none;
+  color: #f2dfa8; font: 700 12px/1.25 var(--font-inscription);
+  letter-spacing: .1em;
+}
+.chronicles-controls > summary::-webkit-details-marker { display: none; }
+.chronicles-controls > summary::before { content: '▸'; display: inline-block; margin-right: 9px; }
+.chronicles-controls[open] > summary::before { content: '▾'; }
+.chronicles-controls > summary:focus-visible { outline: 2px solid #f3d797; outline-offset: 2px; }
+.chronicles-controls .controls-grid { gap: 7px 12px; padding: 7px 0 10px; }
+.chronicles-controls .how-settings { min-height: 39px; margin: 7px 0 5px; font-size: 12px; }
 .menu-command:active, .back-button:active, .armory-tabs button:active, .mode-choice:active, .wide-button:active { transform: translateY(1px); }
 @container app (max-height: 500px) {
   .armory-inner { padding-top: 18px; padding-bottom: calc(var(--hem) + 9px); }
@@ -1026,9 +1082,23 @@ html[data-turn] .turn-only { display: block !important; }
 }
 
 /* Keep the manual crown visible while keys and rules scroll inside the banner. */
-#how-panel .manual-inner { height: calc(100% - 20px); overflow: hidden; }
-.manual-inner > :not(.manual-scroll) { flex-shrink: 0; }
-.manual-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--heraldry-brass) rgba(25, 14, 10, .3); padding-right: 6px; }
+#how-panel .manual-inner { height: calc(100% - 20px); max-height: calc(100% - 20px); overflow: hidden; }
+/* The banner-scroll is the ACTUAL child of manual-inner. Give it a finite
+   flex height so the nested manual-scroll can scroll on phones and desktop. */
+#how-panel .manual-inner > .banner-scroll {
+  flex: 1 1 auto; min-height: 0; height: 100%;
+  display: flex; flex-direction: column; overflow: hidden;
+  margin-bottom: 0; padding-bottom: calc(var(--hem) + 15px);
+}
+#how-panel .manual-inner > .banner-scroll > :not(.manual-scroll) { flex: 0 0 auto; }
+#how-panel .manual-scroll {
+  min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin;
+  scrollbar-color: var(--heraldry-brass) rgba(25, 14, 10, .3);
+  padding: 0 6px 10px 0; touch-action: pan-y;
+}
+.manual-scroll::-webkit-scrollbar { width: 5px; }
+.manual-scroll::-webkit-scrollbar-thumb { background: var(--heraldry-brass); border-radius: 2px; }
 .manual-scroll::-webkit-scrollbar { width: 5px; }
 .manual-scroll::-webkit-scrollbar-thumb { background: var(--heraldry-brass); border-radius: 2px; }
 /* the library's sections, each folding away under its name and how many lines it holds */
