@@ -1,6 +1,5 @@
-// Server-side prototype for an authored longsword technique. This module does
-// not equip an action. The room adapter must supply reviewed asset samples,
-// eligible bodies and the normal Castleward outcome handling.
+// Authored contact sampling for Castleward's production Sword Techniques.
+// The room adapter owns eligibility, terrain-aware movement, defenses, damage and replication.
 import { BLADE, aimFrame, occluded, segmentDistance, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT } from '../src/movement.mjs';
 
@@ -39,8 +38,9 @@ function contactAt(blade, bodies, world) {
   });
 }
 
-// Preserve intervening authored frames even when one server update crosses
-// more than one quadrant. Subdivide on actual endpoint travel, not render FPS.
+// Preserve intervening authored frames even when one 30 Hz server update crosses
+// 20 degrees of a Whirl. Four 120 Hz temporal substeps are 5 degrees apiece;
+// additional subdivisions cap blade tip travel at 0.035 m. Never sample by render FPS.
 export function sweepTechniqueTrack(track, from, to, transformAt, bodiesAt, world, hitIds) {
   const cuts=[from,...track.map(frame=>frame.time).filter(time=>from<time&&time<to),to];
   const contacts=[];
@@ -72,23 +72,36 @@ export function beginSwordTechnique(player, contract, nowSec) {
      nowSec<(player.staggerUntil??0) || player.ultimateState || player.attackActive || player.pendingSpell ||
      player.guarding || player.operatingBallistaId || player.operatingRamId || player.operatingFightFlightId) return null;
   if(!player.grounded){
-    if(contract.kind!=='riposte'||nowSec<(player.dashReadyAt??0))return null;
-    // Consume the ordinary Dash clock, without starting a second movement.
-    player.dashReadyAt=nowSec+MOVEMENT.dashCooldown;
+    if(contract.kind==='riposte') {
+      if(nowSec<(player.dashReadyAt??0))return null;
+      // Consume the ordinary Dash clock without a second instantaneous Dash.
+      player.dashReadyAt=nowSec+MOVEMENT.dashCooldown;
+    } else if(contract.kind==='whirl'&&player.spell!=='gale')return null;
   }
-  player.swordTechniqueReadyAt=nowSec+contract.cooldown;
+  player.swordTechniqueHeld=true;
   return player.swordTechnique={
-    contract,startedAt:nowSec,phase:'startup',sampledTo:contract.activeFrom,
+    id:contract.id,contract,startedAt:nowSec,initialStartedAt:nowSec,
+    phase:'startup',sampledTo:contract.activeFrom,
     revolutions:1,hitIds:new Set(),intercepted:false,
   };
+}
+
+export function interruptSwordTechnique(player, nowSec) {
+  const action=player?.swordTechnique;
+  if(!action)return false;
+  player.swordTechnique=null;
+  player.swordTechniqueHeld=false;
+  player.swordTechniqueReadyAt=Math.max(player.swordTechniqueReadyAt??0,nowSec+action.contract.cooldown);
+  return true;
 }
 
 // Incoming candidates must be already eligible physical sword or projectile
 // segments supplied by the host. An incoming swing's cone alone cannot parry.
 export function techniqueInterception(action, incoming, transform, world, nowSec) {
-  if(action?.contract.kind!=='riposte'||action.intercepted)return null;
-  const age=nowSec-action.startedAt, {braceFrom,braceUntil,track}=action.contract;
-  if(age<braceFrom||age>=braceUntil)return null;
+  if(!action?.contract || (action.contract.kind==='riposte'&&action.intercepted))return null;
+  const age=nowSec-action.startedAt, {braceFrom=0,braceUntil=0,track}=action.contract;
+  if(action.contract.kind==='riposte'&&(age<braceFrom||age>=braceUntil))return null;
+  if(action.contract.kind==='whirl'&&(action.phase!=='active'||age<0||age>=action.contract.activeUntil))return null;
   const blade=placeBlade(bladeAt(track,age),transform);
   if(occluded(transform.eye,blade.base,world.solids??[]))return null;
   const near=segmentDistance(incoming.base,incoming.tip,blade.base,blade.tip);
@@ -96,7 +109,7 @@ export function techniqueInterception(action, incoming, transform, world, nowSec
   const intercept=lerp(blade.base,blade.tip,near.t);
   if(contactAt({base:incoming.base,tip:lerp(incoming.base,incoming.tip,near.s)},[],world)||
      contactAt({base:blade.base,tip:intercept},[],world))return null;
-  action.intercepted=true;
+  if(action.contract.kind==='riposte')action.intercepted=true;
   return intercept;
 }
 
@@ -107,7 +120,7 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
   if(!action)return [];
   if(!player.alive || nowSec<(player.staggerUntil??0) || player.operatingBallistaId ||
      player.operatingRamId || player.operatingFightFlightId){
-    player.swordTechnique=null;
+    interruptSwordTechnique(player,nowSec);
     return [];
   }
   const {kind,track,activeFrom,activeUntil,recovery,maxRevolutions=1,extraRevolutionCost}=action.contract;
@@ -132,6 +145,8 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
        extraRevolutionCost>0&&(player.prowess??0)>=extraRevolutionCost){
       player.prowess-=extraRevolutionCost;
       action.revolutions+=1;
+      // Exactly once per victim per revolution, not once per entire five-spin skill.
+      action.hitIds=new Set();
       action.startedAt+=activeUntil-activeFrom;
       action.sampledTo=activeFrom;
       continue;
@@ -139,6 +154,6 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
     action.phase='recovery';
     action.endsAt=(stopped?contacts.at(-1).at:action.startedAt+activeUntil)+recovery;
   }
-  if(nowSec>=action.endsAt)player.swordTechnique=null;
+  if(nowSec>=action.endsAt)interruptSwordTechnique(player,action.endsAt);
   return contacts;
 }
