@@ -52,6 +52,25 @@ test('Top-tier bot detects the physical Vortex blade and wave, not future button
   assert.equal(wave?.kind,'wave','incoming wave belongs to the human, not unrelated cast');
   assert.ok(Math.hypot(wave.x,wave.z)>.99);
 });
+test('Spellblade forecasts only advancing live Sunder cracks, not dead cracks or unseen futures',()=>{
+  const {room,human,dummy}=practice();
+  human.position={x:0,y:0,z:0};
+  dummy.position={x:0,y:0,z:3};dummy.grounded=true;
+  const fissure={dir:{x:0,z:1},length:7,core:4,level:0};
+  const rupture={ownerId:human.id,bornAt:5,origin:{x:0,y:0,z:0},
+    reached:0,fissures:[fissure],caught:[]};
+  room.ruptures=[rupture];
+  assert.equal(activeHitboxThreat(room,dummy,human,5),null,
+    'a fissure is visible but has not yet advanced close enough');
+  const threat=activeHitboxThreat(room,dummy,human,5.18);
+  assert.equal(threat?.kind,'rupture','fissure is advancing toward our feet');
+  assert.ok(Math.abs(threat.x)>.99,'sidestep perpendicular to line, not flee down it');
+  assert.equal(activeHitboxThreat(room,dummy,human,6),null,
+    'once the head has passed it is not a repeating damage hitbox');
+  rupture.caught.push(dummy.id);
+  assert.equal(activeHitboxThreat(room,dummy,human,5.18),null,
+    'an already struck actor does not foresee another strike from the same rupture');
+});
 test('Practice Spellblade can claim only an EXISTING, abandoned, suitable siege machine',()=>{
   const {room,human,dummy}=practice();
   human.position={x:30,y:0,z:0};dummy.position={x:0,y:0,z:0};
