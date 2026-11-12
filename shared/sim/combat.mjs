@@ -2022,7 +2022,10 @@ function oneHitLastStand(player,nowSec) {
   if(state?.id!=='one_hit_of_wonders')return null;
   const tiers=state.oneHit?.tiers??state.preparedTiers;
   if((tiers?.steel??0)<2)return null;
-  if(state.phase==='active')return nowSec<state.until?state:null;
+  if(state.phase==='active'){
+    if(state.oneHit?.awaitingWave&&state.oneHit.waveResolved)return null;
+    return nowSec<state.until?state:null;
+  }
   return state.phase==='startup'&&!Number.isFinite(state.teleportHoldAt)?state:null;
 }
 // The attack is over (run out, or broken off): what would have killed its knight during it, does.
@@ -2114,9 +2117,9 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
   return true;
 }
-function oneHitBurnZone(room,caster,id,position,nowSec,tiers) {
+function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius) {
   (room.oneHitBurnZones??=[]).push({
-    id,ownerId:caster.id,position,radius:ONE_HIT_REACH.fire.radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
+    id,ownerId:caster.id,position,radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
   });
 }
 // The grounded blow's contact: every enemy in its reach it has not yet met (`processed`: this attack's one registry,
@@ -2175,6 +2178,7 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
     until:nowSec+ONE_HIT_FROST_LINGER_SEC,processed,ruptureId:rupture?.id??null,fieldId:field.id});
   room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...center},
     tiers:{...tiers},form:'ground',radius,height:reach.up,struck,fieldId:field.id,at:nowSec});
+  return processed; // Shared with Frost late contact and Full Gale's wave.
 }
 
 // Each tick: which hostile field each knight stands in (the strongest, if several overlap), and what it does to
@@ -2241,19 +2245,22 @@ function oneHitDefensiveWind(room,player,nowSec) {
 }
 function oneHitTeleport(room,player,state,nowSec,world=room.world) {
   const origin={...player.position};
-  const aerial=!player.grounded&&state.preparedTiers?.gale===2;
+  const vertical=state.preparedTiers?.gale===2;
   const teleportWorld=room.edgeOfVictory
     ?playerMovementWorld(world,{ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight})
     :world;
   const plan=planOneHitTeleport({origin,yaw:player.input?.yaw??player.yaw,pitch:player.input?.pitch??player.pitch,
-    aerial,holdSec:nowSec-(state.teleportHoldAt??nowSec),world,solids:teleportWorld.solids,edge:room.edgeOfVictory});
+    aerial:!player.grounded&&vertical,allowVertical:vertical,
+    holdSec:nowSec-(state.teleportHoldAt??nowSec),world,
+    solids:teleportWorld.solids,edge:room.edgeOfVictory});
   if(!plan.legal)return false;
-  const next=plan.end;
-  player.grounded=!aerial;
-  player.position=next;
-  player.velocity={x:0,y:Math.min(0,player.velocity?.y??0),z:0};
-  room.events.push({type:'oneHitTeleport',playerId:player.id,from:origin,to:{...next},
-    tiers:{...state.preparedTiers},at:nowSec});
+  player.position=plan.end;
+  player.grounded=plan.grounded;
+  player.velocity={x:0,y:0,z:0};
+  state.teleportSucceeded=true;
+  room.events.push({type:'oneHitTeleport',playerId:player.id,from:origin,to:{...plan.end},
+    grounded:player.grounded,tiers:{...state.preparedTiers},at:nowSec});
+  return true;
 }
 function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
   const tiers=state.preparedTiers ?? oneHitCommit(player);
