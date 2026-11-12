@@ -224,6 +224,27 @@ try {
   assert.match(galeCardState.name, /GALE GARNER/i);
   assert.ok(galeCardState.desc.length > 5);
   console.log('[VERIFY] Gale detail verified:', galeCardState);
+  // Selected cards settle last, do not scale twice, and leave the detail card
+  // below in the same native scroll rail for a downward swipe.
+  const equipmentMotion=await evaluate(`(() => {
+    const cards=[...document.querySelectorAll('#armory-spells .spell-card')];
+    const scroll=document.querySelector('#armory-inspector .inspector-scroll');
+    const detail=document.querySelector('#inspector-item-card');
+    const card=cards.at(-1);
+    return {
+      last:card?.dataset.spell,
+      selected:card?.classList.contains('equipped'),
+      noLegacyBounce:getComputedStyle(card).animationName==='none',
+      detailBelow:detail.getBoundingClientRect().top>card.getBoundingClientRect().bottom,
+      canSwipe:scroll.scrollHeight>scroll.clientHeight,
+    };
+  })()`);
+  assert.equal(equipmentMotion.last,'gale','newly selected Sorcery slides to final list position');
+  assert.equal(equipmentMotion.selected,true);
+  assert.equal(equipmentMotion.noLegacyBounce,true,'no conflicting equip scale keyframes');
+  assert.equal(equipmentMotion.detailBelow,true,'details remain below the options');
+  assert.equal(equipmentMotion.canSwipe,true,'downward swipe exposes equipment details');
+
 
   assert.equal(await evaluate(`(() => {
     const panel = document.querySelector('#armory-inspector').getBoundingClientRect();
