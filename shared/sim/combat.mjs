@@ -138,7 +138,7 @@ function resolveTechniqueContact(room,attacker,action,contact,nowSec){
       gainProwess(room,defender,PROWESS.parry);
       attacker.staggerUntil=Math.max(attacker.staggerUntil??-Infinity,
         nowSec+GAME.parryStaggerMs/1000);
-      interruptSwordTechnique(attacker,nowSec);
+      interruptSwordTechnique(attacker,nowSec,'parried');
       room.events.push({type:'parry',attackerId:attacker.id,defenderId:defender.id,
         technique:contract.id,point:contact.point,at:nowSec});
       recordChallengeFact(room,{type:'parry',attackerId:attacker.id,defenderId:defender.id,at:nowSec});
