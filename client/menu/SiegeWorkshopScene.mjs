@@ -57,11 +57,17 @@ export class SiegeWorkshopScene {
     this.parentScene.add(this.root);
 
     this.activeMachineId = 'soFist';
+    // The turntable is for INSPECTION only: the complete staged tableau
+    // (machine, opponents, projectiles, impact cues) rotates rigidly together.
+    // Skill-specific translation, pitch and articulated GLB clips stay below it.
+    this.inspectionPivot = new THREE.Group();
+    this.inspectionPivot.name = 'WorkshopInspectionPivot';
+    this.root.add(this.inspectionPivot);
     this.machinePivot = new THREE.Group();
     this.machinePivot.name = 'MachinePivot';
     this.knightBounds = new THREE.Box3();
     this.clock = 0;
-    this.root.add(this.machinePivot);
+    this.inspectionPivot.add(this.machinePivot);
 
     this.currentYaw = REST_YAW.soFist;
     this.targetYaw = this.currentYaw;
@@ -772,7 +778,8 @@ export class SiegeWorkshopScene {
     if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
     this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
-    this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
+    this.inspectionPivot.rotation.y=this.currentYaw;
+    this.machinePivot.rotation.set(pose?.pitch??0,pose?.yawOffset??0,pose?.roll??0);
     this.#poseFist(pose);
   }
 
