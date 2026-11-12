@@ -4286,7 +4286,8 @@ export class GameRuntime {
     this.effects.update(dt);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
-    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&disasterHolding(disasterCharge)){
+    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&
+      disasterHolding(disasterCharge)&&Number.isFinite(disasterCharge.teleportHoldAt)){
       const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
       const world=this.activeWorld;
       const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,
