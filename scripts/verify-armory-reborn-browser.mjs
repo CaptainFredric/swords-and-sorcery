@@ -391,6 +391,8 @@ try {
   assert.ok(Math.hypot(...relativeAfter.position.map((n,i)=>n-relativeBefore[i]))<2.5,
     'the trained victim remains in the ram demonstration rather than orbiting independently');
   await screenshot('04a-ram-beat-to-the-punch.png');
+  await sleep(1050);
+  await screenshot('04b-ram-rotated-impact.png');
   await evaluate('document.querySelector("#siege-preview-stop").click()');
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.z'),0);
 
@@ -492,6 +494,24 @@ try {
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.y')>1,
     'the flight demonstration really pitches and climbs');
   await screenshot('06a-flight-dash-loop.png');
+  await sleep(4550);
+  const crashed=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return {
+      active:ws.performance.active,
+      skill:ws.performance.skill,
+      impact:ws.performance.effects.find(e=>e.type==='valkyrie')?.scorch?.material.opacity,
+      defeated:ws.performance.actors.map(a=>a.root.rotation.z),
+      wreck:ws.machinePivot.position.z
+    };
+  })()`);
+  assert.equal(crashed.skill,'doNotStopMyAscension');
+  assert.equal(crashed.active,true,'terminal wreck holds until preview is dismissed');
+  assert.ok(crashed.impact>.7,'terminal crash leaves a visible scorch mark');
+  assert.equal(crashed.defeated.length,3);
+  assert.ok(crashed.defeated.every(angle=>angle<-.9),'all three victims remain down');
+  assert.ok(crashed.wreck < -7,'the wreck stays at the enemy formation');
+  await screenshot('06a2-flight-valkyrie-triple-impact.png');
   await evaluate('document.querySelector("[data-siege-skill=narrowToOne]").click()');
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),18);
   await sleep(1300);
