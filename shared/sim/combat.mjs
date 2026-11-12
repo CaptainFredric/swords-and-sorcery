@@ -193,6 +193,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.chill = null;
   player.steel = null;
   player.dashRam = null;
+  interruptSwordTechnique(player,nowSec);
   player.speedScale = 1;
   // balance found again; an ultimate still bracing or active is over (the prowess earned is kept)
   player.stagger = freshStagger();
@@ -336,7 +337,7 @@ function holdFlashFrozen(player, dt, nowSec) {
 
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
-  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || player.swordTechnique) return false;
   if (flashFrozen(player, nowSec)) return false;
   // a Vortex has both hands from the moment it is lit to the end of its recovery: a press then is nothing (and is
   // not kept: no swing comes of it later)
@@ -1305,6 +1306,7 @@ function dischargeShockingConduct(room, attacker, spared, nowSec, facts = {}) {
 export function interruptHitActions(room, target, attackerId, nowSec, source = 'sunder') {
   if (!target.alive) return;
   const what = [];
+  if(interruptSwordTechnique(target,nowSec))what.push('technique');
   if (stopSustainedGale(room,target,nowSec)) what.push('spell');
   if (target.guarding) { target.guarding = false; what.push('guard'); }
   if (target.pendingSpell) {
@@ -1355,6 +1357,7 @@ export function breakGuard(target, seconds, nowSec) {
 }
 
 function interruptOrdinaryActions(room, player, nowSec) {
+  interruptSwordTechnique(player,nowSec);
   stopSustainedGale(room,player,nowSec);
   player.guarding = false;
   player.pendingSpell = null;
@@ -1543,6 +1546,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
     victim.ultimateInterruptionSource = 'death';
   }
   victim.alive = false;
+  interruptSwordTechnique(victim,nowSec);
   victim.health = 0;
   if (victim.operatingBallistaId && room.biByeLlista) {
     dismountBiByeLlista(room.biByeLlista, victim);
@@ -3260,6 +3264,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
     // balance comes back once nothing has shaken it for a moment; an ultimate braces, commits and runs its course
     drainStagger(player.stagger, dt, nowSec);
+    if(player.swordTechnique&&nowSec<(player.staggerUntil??-Infinity))interruptSwordTechnique(player,nowSec);
     stepUltimate(room, player, nowSec, world);
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
