@@ -19,6 +19,7 @@ import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
+import { AFFLICTIONS } from './ui/afflictionView.mjs';
 import {highGroundsFoundryView,HIGH_GROUNDS_MACHINE_KEYS} from './ui/highGroundsHudView.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
@@ -1070,7 +1071,32 @@ $('#private-button').addEventListener('click', () => {
   privateActivation.reset(); showMenuError(''); privateMenu.dataset.panel='list';
   route(SCREEN_IDS.PRIVATE_MENU);
 });
-$('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
+// Build the reference from the same entries as the live affliction HUD.
+// No separately maintained descriptions that can drift out of date.
+function renderChroniclesAfflictions() {
+  const list = $('#chronicles-affliction-list');
+  if (!list) return;
+  list.replaceChildren();
+  for (const [id, effect] of Object.entries(AFFLICTIONS)) {
+    const entry = document.createElement('article');
+    entry.className = 'chronicles-affliction';
+    entry.dataset.affliction = id;
+    const heading = document.createElement('h4');
+    heading.textContent = effect.name;
+    const description = document.createElement('p');
+    description.textContent = effect.description;
+    const behavior = document.createElement('small');
+    behavior.textContent = effect.steady
+      ? 'HOLDS ITS STRENGTH UNTIL IT ENDS'
+      : 'EFFECTIVENESS GRADUALLY WANES';
+    entry.append(heading, description, behavior);
+    list.append(entry);
+  }
+}
+$('#how-button').addEventListener('click', () => {
+  renderChroniclesAfflictions();
+  route(SCREEN_IDS.HOW_TO_PLAY);
+});
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
 const MENU_REACTIONS = { 'solo-button': 'salute', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
