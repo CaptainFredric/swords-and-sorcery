@@ -3,6 +3,7 @@ import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
+import { ONE_HIT_AERIAL_DURATION } from '../../shared/src/oneHitInfusions.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
@@ -80,8 +81,10 @@ function attackPlan(player, serverNow, { guarded = false } = {}) {
 //            frame out for the difference);
 //   fast:    one turn and the slam, blade down 0.33 s in, for Half Lightning's 0.36 s wind-up;
 //   arrival: the slam alone, for the instant strike out of a Full Lightning teleport: joined where its blade lands;
-//   aerial:  two turns in the air and the cut that throws the wave, 0.85 s in (the aerial form's own delay);
-//   the two charges: the held aim, on the ground (blade planted) and in the air.
+//   aerial:  two turns and the cut that throws the wave, 0.85 s into its AUTHORED clip;
+//            the complete wind-up is time-mapped across the server's preparation
+//            and vortex phases, without a separate floating-idle pose;
+//   the two charges: ONLY the genuinely held Lightning aim, on ground or in air.
 // These are Argon's clips as delivered. The blade is driven well into the floor at each slam and rides below it
 // through the ground spins (docs/verification/refinement-v-combat-acceptance.md has the figures): the presentation
 // treats that as what it looks like, a blade scoring and then breaking the ground, and puts its debris where the
@@ -95,6 +98,38 @@ export const DISASTER_CLIPS = Object.freeze({
   chargeAir: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Air', duration: 0.8 }),
 });
 const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) => entry.clip));
+
+/**
+ * The same authored aerial cut runs from the first Gale wind-up frame to
+ * the server-authoritative wave launch. The player never transitions from
+ * a static airborne charge to a SECOND wind-up on commit.
+ *
+ * Ordinary Gale retains its existing interruptible startup and vortex time;
+ * the .85-second authored cut is stretched across both as ONE continuous
+ * motion. A Full-Lightning teleport instead enters the FINAL wind-up frames
+ * immediately on arrival, ending exactly when its short aiming window ends.
+ * The winding must never reach the actual cut before the server launches.
+ */
+export function disasterAerialWindupTime(action, nowSec, { teleported = false } = {}) {
+  const contact = DISASTER_CLIPS.aerial.contact;
+  const commitAt = finite(action?.commitAt, nowSec);
+  const launchAt = Math.max(commitAt + 1 / 60,
+    finite(action?.oneHit?.waveAt, commitAt + (teleported ? 0.35 : ONE_HIT_AERIAL_DURATION)));
+  let frame;
+  if (teleported) {
+    const window = launchAt - commitAt;
+    const authoredLead = Math.min(window, contact);
+    const elapsed = Math.max(0, Math.min(window, nowSec - commitAt));
+    // Use the LAST portion of the cut, not two full rotations in .35 s.
+    frame = contact - authoredLead + elapsed * (authoredLead / window);
+  } else {
+    const started = finite(action?.startedAt, commitAt - disasterWindupSec(action));
+    const span = Math.max(1 / 60, launchAt - started);
+    frame = (nowSec - started) / span * contact;
+  }
+  // A late snapshot must not show the sword firing before waveLaunched.
+  return Math.max(0, Math.min(contact - 1 / 60, frame));
+}
 /** Whether a plan is one of the authored Disaster clips (their turns are in the clip: nothing else turns the body). */
 export const disasterAuthored = (clip) => DISASTER_CLIP_NAMES.has(clip);
 
@@ -119,8 +154,10 @@ function disasterPlan(player, serverNow) {
     const remaining = Math.max(0, finite(action.commitAt, serverNow) - serverNow);
     const share = Math.max(0, Math.min(1, 1 - remaining / windup));
     const old = SLAM_CONTACT * (.18 + .82 * share);
-    // in the air (Full Gale): the charge gathers until the commit; the turns and the wave are the active clip's
-    if (airborne) return { ...authored(DISASTER_CLIPS.chargeAir, (windup - remaining) % DISASTER_CLIPS.chargeAir.duration), loop: true, ...provisional(old) };
+    // Full Gale winds up from the FIRST frame, even while still in startup.
+    // Do not insert the old stationary chargeAir section before the vortex.
+    if (airborne) return { ...authored(DISASTER_CLIPS.aerial,
+      disasterAerialWindupTime(action, serverNow)), ...provisional(old) };
     const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
     // (a held ground release waits one frame short of the ground; the commit then lands it)
     const latest = entry.contact - (action.groundRelease ? 1 / 30 : 0);
@@ -136,15 +173,18 @@ function disasterPlan(player, serverNow) {
   }
   const teleported = Number.isFinite(action.teleportHoldAt);
   if (airborne) {
-    // After an aerial teleport, pose the sword while the player adjusts aim.
-    // Only the authoritative launch event can advance the clip past its cut.
-    if(teleported&&!action.oneHit?.waveLaunched){
-      const charge=DISASTER_CLIPS.chargeAir;
-      return { ...fixed(charge.clip, elapsed%charge.duration,true), disaster:true, ...follow };
-    }
+    // Stay in the SAME aerial cut through the commit. On a teleport arrival
+    // skip the static charge pose and play the last .35 s of the winding
+    // while the knight can still steer the wave's launch direction.
+    if (!action.oneHit?.waveLaunched) return {
+      ...authored(DISASTER_CLIPS.aerial,
+        disasterAerialWindupTime(action, serverNow, { teleported }),
+        teleported ? { blend: .06 } : {}),
+      ...follow,
+    };
     const sinceLaunch=Math.max(0,serverNow-finite(action.oneHit?.waveLaunchedAt,serverNow));
     return { ...authored(DISASTER_CLIPS.aerial,
-      teleported?DISASTER_CLIPS.aerial.contact+sinceLaunch:elapsed,
+      DISASTER_CLIPS.aerial.contact+sinceLaunch,
       teleported?{blend:.05}:{}), ...follow };
   }
   if (teleported) return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
