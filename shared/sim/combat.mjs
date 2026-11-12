@@ -2413,7 +2413,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const radius=fire?ONE_HIT_RULES.waveTerminalFireRadius:ONE_HIT_RULES.waveTerminalRadius;
   const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
   const groundBlast=contact?.kind==='ground'||
-    (floor!==null&&point.y>=floor-.04&&point.y-floor<=.9);
+    (floor!==null&&point.y>=floor-.04&&point.y-floor<=1.25);
   const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
   const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
@@ -2442,10 +2442,11 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
       oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers);
   }
-  // Visual eruption follows the actual ground when a skimming wave expires.
-  // Damage calculations still use the authoritative projectile origin above.
-  const visualPoint=groundBlast&&floor!==null?{...point,y:floor}:point;
-  room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point:visualPoint,
+  // Preserve the REAL projectile impact coordinate for damage, interpolation
+  // and playback. Only the rubble/frost/Fire ground footprint uses groundPoint.
+  const groundPoint=groundBlast&&floor!==null?{...point,y:floor}:null;
+  room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point:{...point},
+    ...(groundPoint?{groundPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
     radius,struck,fieldId:terminalFieldId,at:nowSec});
