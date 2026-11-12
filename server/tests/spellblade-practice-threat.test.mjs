@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {spawnPracticeDummy,setPracticeDummyMode} from '../../shared/sim/practice.mjs';
 import {BOT_SKILLS} from '../../shared/sim/botSkill.mjs';
+import {BOT_PROFILES} from '../../shared/sim/botBehavior.mjs';
 import {activeHitboxThreat} from '../../shared/sim/activeHitboxThreat.mjs';
 import {seekSpellbladeSiegeMachine} from '../../shared/sim/practiceSiegeOperators.mjs';
 
@@ -24,6 +25,9 @@ test('Practice Spellblade has the top intelligence and normal attributes with no
   assert.equal(dummy.botSkill,'spellblade');
   assert.equal(dummy.botProfile,'spellblade');
   assert.equal(BOT_SKILLS.spellblade.activeRead,true);
+  assert.deepEqual(BOT_PROFILES.spellblade.spellCycle,
+    ['fireball','frostfire','gale','coreflagration','line_of_conduct']);
+  assert.equal(BOT_PROFILES.spellblade.ward,'steel','Steel remains the real ward cooldown');
   assert.equal(dummy.health,100);
   assert.equal(dummy.guardStamina,human.guardStamina);
   assert.equal(dummy.ultimate,'sunder');
