@@ -59,14 +59,15 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
+import { DisasterSoundscape } from './sound/DisasterSoundscape.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { oneHitGlide,oneHitChargingLightning } from '../../shared/src/oneHitInfusions.mjs';
@@ -183,6 +184,13 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
+    // A single bounded event/snapshot audio director, using the same SFX bus,
+    // spatializer and user volume preferences as every other combat sound.
+    this.disasterSound=new DisasterSoundscape({
+      play:(recipe,point,gain,delay)=>this.#play(recipe,point,gain,delay),
+      listener:()=>this.localState?.position??this.localAuth?.position??null,
+      playerPosition:id=>this.#bodyPosition(id),
+    });
     this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);
     this.flightDashPresentation=new FlightDashPresentation();
     this.voice = voice;
@@ -1309,6 +1317,7 @@ export class GameRuntime {
       }
       this.effects?.setDensity(this.view.particles ?? 1);
       this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
+      this.disasterSound?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
     if (input) {
@@ -1330,6 +1339,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
+    this.disasterSound?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
@@ -1565,6 +1575,7 @@ export class GameRuntime {
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
       this.oneHitEffects?.event(event,this.latestSnapshot);
+      this.disasterSound?.onEvent(event,this.latestSnapshot);
       if(event.type==='edgeVoluntaryDismount'){
         // The knight chooses to leave: a brief, readable settled gesture
         // with no recorded dialogue, death camera or extra control lock.
@@ -1580,18 +1591,8 @@ export class GameRuntime {
       if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
       if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
-      if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
-        this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
-      if(event.type==='oneHitImpact'&&event.impactId){
-        // A Gale wave is a distinct terminal blast (terrain, detonation or
-        // range), not a silent disappearance. Keep it spatially situated even
-        // for its caster, especially when it bursts a long way away.
-        const at=event.point;
-        this.#play((event.tiers?.fire??0)>0?fireballImpactRecipe(Math.random):
-          groundSlamRecipe(Math.random),at,event.tiers?.fire?.72:.48);
-        if((event.tiers?.frost??0)>0)this.#play(frostImpactRecipe(Math.random),at,.36);
-        if((event.tiers?.lightning??0)>0)this.#play(conductShockRecipe(Math.random,{discharge:true,share:.65}),at,.32);
-      }
+      // All-Natural Disaster impacts and Gale-wave endings use the central
+      // layered soundscape, avoiding a duplicate generic fireball/ground boom.
       if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
         event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
       if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
@@ -1861,7 +1862,12 @@ export class GameRuntime {
           this.effects.castFlash(spell.id);
         }
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
-        this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        // Line of Conduct has a separate rising electric charge; never put
+        // Fireball's generic fire gathering underneath the crackling current.
+        if(spell.id!=='line_of_conduct')
+          this.#play(castRecipe(Math.random, { spell: spell.id, release }),
+            event.playerId === me ? null : this.#bodyPosition(event.playerId),
+            event.playerId === me ? 0.9 : 0.6);
         if (spell.kind === 'cone') {
           // my own lets go when the server's does (and now it surely will); another's is seen gathering in their hand
           if (event.playerId === me && this.localGale) {
@@ -2095,7 +2101,8 @@ export class GameRuntime {
       if (event.type === 'coreflagrationArmed') {
         // A brief, small flame burst; the physical core and its 3m warning ring remain visible until detonation.
         this.effects.coreContact(event.point, event.radius);
-        this.#play(fireballImpactRecipe(), event.point, 0.4);
+        // The arming knock and bubbling magma fuse play at this exact point.
+        // The final explosion is a separate deeper eruption.
       }
       if (event.type === 'coreflagrationParried') {
         this.#play(parryRecipe(), event.defenderId === me ? null : event.point, 0.9);
@@ -2108,13 +2115,13 @@ export class GameRuntime {
         if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point, event.radius ?? spell.radius, ground);
         else this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
         const recipe = spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size })
-          : spell.id === 'coreflagration' ? coreflagrationImpactRecipe()
+          : spell.id === 'coreflagration' ? null // phase-two magma blast in DisasterSoundscape
           : spell.chill ? frostImpactRecipe()
           : fireballImpactRecipe();
         const volume = spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5)
           : spell.id === 'coreflagration' ? 1.2
           : 1;
-        this.#play(recipe, event.point, volume);
+        if(recipe)this.#play(recipe, event.point, volume);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       // the split ground catching a knight: a smaller ring of the same iron
@@ -3225,7 +3232,7 @@ export class GameRuntime {
     if (!this.sound) return;
     const listener = this.localState?.position ?? this.localAuth?.position;
     const place = source ? spatialize(listener, this.input.yaw, source) : { pan: 0, gain: 1 };
-    this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain, delay });
+    return this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain, delay });
   }
 
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
@@ -4297,6 +4304,7 @@ export class GameRuntime {
       this.oneHitEffects.setChargeGuide(origin,plan);
     }else this.oneHitEffects?.setChargeGuide(null,null);
     this.oneHitEffects?.update(dt,this.latestSnapshot,disasterNow);
+    this.disasterSound?.update(this.latestSnapshot,this.socket.serverNow());
     if(this.localState){
       this.localState.shaken=this.localAuth?.shaken??null;
       this.localState.shakenNow=this.socket.serverNow();
@@ -4519,6 +4527,7 @@ export class GameRuntime {
     this.#disposeTrialCutaway();
     this.edgeRenderer.dispose();
     this.oneHitEffects?.dispose();
+    this.disasterSound?.dispose();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();
     this.weapon.dispose();

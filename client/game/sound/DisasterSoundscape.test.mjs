@@ -1,0 +1,242 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DisasterSoundscape} from './DisasterSoundscape.mjs';
+const tiers=(value=0)=>({fire:value,frost:value,gale:value,lightning:value,steel:value});
+function fixture(listener={x:0,y:0,z:0}){
+  const played=[],stopped=[];
+  const sound=new DisasterSoundscape({
+    play:(recipe,point,gain,delay)=>{
+      played.push({recipe,point,gain,delay});
+      return {stop:fade=>stopped.push(fade)};
+    },
+    listener:()=>listener,
+    playerPosition:id=>id==='a'?{x:0,y:1,z:0}:null,
+    random:()=>.4,
+  });
+  return {sound,played,stopped,listener};
+}
+const field=(id='f',states=tiers(0),x=3)=>({
+  id,ownerId:'a',position:{x,y:0,z:0},bornAt:0,until:5,tiers:states,
+});
+test('Coreflagration is armed, actively bubbles, then EXPLODES ONCE with a deep distinct final blast',()=>{
+  const {sound,played,stopped}=fixture();
+  sound.onEvent({type:'coreflagrationArmed',projectileId:'c1',point:{x:2,y:0,z:0},
+    at:1,detonateAt:1.6});
+  assert.equal(played.length,2,'arming and sustained bubbling are separate');
+  assert.ok(played[1].recipe.layers.some(l=>(l.at??0)>.1),'magma bubbles over the fuse');
+  sound.onEvent({type:'projectileImpact',projectileId:'c1',spell:'coreflagration',
+    stage:'final',point:{x:2,y:0,z:0},at:1.6});
+  assert.equal(played.length,3,'single deep second explosion');
+  assert.equal(stopped.length,1,'cancel fuse sound at actual explosion');
+  assert.equal(sound.cores.size,0,'no stale bubbling while the stone is gone');
+  sound.dispose();
+});
+test('Line of Conduct is positional along its actual bolt, not just its caster',()=>{
+  const {sound,played}=fixture({x:12,y:0,z:1});
+  const snapshot={players:[{id:'a',position:{x:0,y:0,z:0},alive:true}]};
+  sound.onEvent({type:'spellCast',spell:'line_of_conduct',playerId:'a',
+    at:1,castEndsAt:1.45},snapshot);
+  assert.equal(played.length,1,'distinct rising charge');
+  sound.onEvent({type:'lineConductDischarge',playerId:'a',
+    origin:{x:0,y:0,z:0},end:{x:40,y:0,z:0},at:1.45},snapshot);
+  assert.equal(played.length,3,'source crack plus listener-nearest wire crackle');
+  assert.ok(Math.abs(played[2].point.x-12)<.01,'nearest point of 40m wire');
+  assert.ok(played[1].recipe.layers.some(l=>l.type==='tone'&&l.freq<100));
+});
+test('Base Shaken field makes decaying sound, pauses with frozen simulation, expires on server time',()=>{
+  const {sound,played}=fixture();
+  const sample={oneHitFields:[field()],players:[],oneHitWaves:[]};
+  sound.update(sample,.02);
+  assert.equal(played.length,0,'ambient starts after the entry, not a surprise boom');
+  sound.update(sample,.31);
+  assert.equal(played.length,1,'base has audible ground even at zero infusions');
+  const n=played.length;
+  for(let i=0;i<40;i++)sound.update(sample,.31);
+  assert.equal(played.length,n,'frozen Inspection has no sound replay');
+  sound.update(sample,1.7);
+  assert.ok(played.length>n,'live decaying field pulses again');
+  sound.update(sample,5.1);
+  assert.equal(sound.fields.size,0);
+  const ended=played.length;
+  sound.update(sample,6);
+  assert.equal(played.length,ended,'no sounds after server field expiry');
+});
+test('All five infusions remain DISTINCT during a field, alternating without a wall of sound',()=>{
+  const {sound,played}=fixture();
+  const sample={oneHitFields:[field('full',tiers(2))],players:[],oneHitWaves:[]};
+  for(let sec=.1;sec<=4.3;sec+=.55)sound.update(sample,sec);
+  assert.ok(played.length>=9);
+  // At most the base plus two distinct accents per field beat.
+  assert.ok(played.length<=18,'polyphony cap');
+  const unique=new Set(played.map(p=>JSON.stringify(p.recipe)));
+  assert.ok(unique.size>5,'base plus five different timbres over lifetime');
+  assert.ok(played.every(p=>p.gain<=1.15),'safe mix');
+});
+test('Only nearest three fields play; distant battlefield chaos cannot spawn unlimited voices',()=>{
+  const {sound,played}=fixture();
+  const sample={oneHitFields:Array.from({length:22},(_,i)=>
+    field('field-'+i,tiers(2),i===0?2:i*3+25)),players:[],oneHitWaves:[]};
+  sound.update(sample,0);
+  sound.update(sample,.35);
+  assert.ok(sound.fields.size<=3,'bounded field voices');
+  assert.ok(played.length<=9);
+  sound.dispose();assert.equal(sound.fields.size,0);
+});
+test('Moving Gale plays from changing world position and ends with server-owned wave',()=>{
+  const {sound,played}=fixture();
+  const wave={id:'w1',ownerId:'a',position:{x:1,y:1,z:0},
+    direction:{x:1,y:0,z:0},tiers:{...tiers(),gale:2,steel:2}};
+  const sample={oneHitFields:[],players:[],oneHitWaves:[wave]};
+  sound.update(sample,1);
+  assert.equal(sound.waves.size,1);
+  assert.ok(played.some(x=>x.point===wave.position),'wave itself emits');
+  wave.position={x:7,y:1,z:0};
+  sound.update(sample,1.55);
+  assert.ok(played.some(x=>x.point===wave.position),'sound travels with the new position');
+  sample.oneHitWaves=[];
+  sound.onEvent({type:'oneHitImpact',playerId:'a',impactId:'w1',
+    point:{x:7,y:1,z:0},tiers:wave.tiers,at:1.7},sample);
+  sound.update(sample,1.8);
+  assert.equal(sound.waves.size,0,'no phantom wind after terminal explosion');
+});
+test('Rumble charge and all infused impacts are time-staggered, including low Steel and Frost',()=>{
+  const {sound,played}=fixture();
+  const full=tiers(2),snapshot={players:[{id:'a',alive:true,position:{x:0,y:0,z:0}}]};
+  sound.onEvent({type:'ultimateStart',playerId:'a',ultimate:'one_hit_of_wonders',
+    preparedTiers:full,at:1},snapshot);
+  assert.equal(played.length,6,'one base pulse + five separately timed starts');
+  assert.ok(new Set(played.map(p=>p.delay)).size>=5);
+  const before=played.length;
+  sound.onEvent({type:'oneHitImpact',playerId:'a',form:'ground',point:{x:0,y:0,z:0},
+    fieldId:'field-a',tiers:full,at:2},snapshot);
+  assert.equal(played.length-before,6,'one real earth impact + five infusion hit signatures');
+  assert.ok(new Set(played.slice(before).map(p=>p.delay)).size===6);
+  assert.equal(sound.fields.get('field-a')?.next,2.75);
+});
+test('Stopped/restarted server clock cannot retain stale effects from an old match',()=>{
+  const {sound,played,stopped}=fixture();
+  sound.onEvent({type:'coreflagrationArmed',projectileId:'old',at:11,detonateAt:11.6,
+    point:{x:1,y:0,z:0}});
+  sound.update({players:[],oneHitFields:[]},11);
+  sound.update({players:[],oneHitFields:[]},1);
+  assert.equal(sound.cores.size,0);
+  assert.equal(stopped.length,1);
+  sound.dispose();
+});
+
+test('Duplicate network reports cannot replay the same electrical blast or Core explosion',()=>{
+  const {sound,played}=fixture();
+  const discharge={type:'lineConductDischarge',playerId:'a',
+    origin:{x:0,y:0,z:0},end:{x:12,y:0,z:0},at:3};
+  sound.onEvent(discharge);const n=played.length;
+  sound.onEvent(discharge);
+  assert.equal(played.length,n,'the same server event is audible once');
+  const blast={type:'projectileImpact',spell:'coreflagration',stage:'final',
+    projectileId:'core-1',point:{x:3,y:0,z:0},at:3.5};
+  sound.onEvent(blast);const next=played.length;
+  sound.onEvent(blast);
+  assert.equal(played.length,next,'single detonation even if repeated');
+  sound.onEvent({...blast,projectileId:'core-2'});
+  assert.equal(played.length,next+1,'a different real projectile is not suppressed');
+});
+test('Touch soundscape reduces proximity polyphony without suppressing all ambient clues',()=>{
+  const {sound,played}=fixture();
+  sound.setDensity(.55);
+  const snapshot={players:[],oneHitWaves:[
+    {id:'w1',position:{x:2,y:1,z:0},tiers:{fire:2,gale:2}},
+    {id:'w2',position:{x:3,y:1,z:0},tiers:{frost:2,gale:2}},
+    {id:'w3',position:{x:4,y:1,z:0},tiers:{lightning:2,gale:2}},
+  ],oneHitFields:[field('a',tiers(2),1),field('b',tiers(2),2),
+    field('c',tiers(2),3)]};
+  sound.update(snapshot,0);
+  sound.update(snapshot,.34);
+  assert.equal(sound.fields.size,2,'only two nearest field voices on mobile');
+  assert.equal(sound.waves.size,2,'only two nearest moving sword waves');
+  assert.ok(played.length>0,'mobile users still hear meaningful nearby ambience');
+});
+
+test('Electrical residual sound follows the REAL one-second wire, not imaginary perpetual thunder',()=>{
+  const {sound,played}=fixture({x:10,y:0,z:1});
+  const line={id:'conduct:a:10',ownerId:'a',origin:{x:0,y:0,z:0},
+    end:{x:45,y:0,z:0},until:2};
+  const snapshot={players:[],oneHitFields:[],lineConductWires:[line]};
+  sound.update(snapshot,1);
+  assert.equal(played.length,0,'no full discharge repeated by a snapshot');
+  sound.update(snapshot,1.2);
+  assert.equal(played.length,1,'small residual current after the discharge');
+  assert.ok(Math.abs(played[0].point.x-10)<.01,'current is heard at the ray segment nearest the listener');
+  sound.update(snapshot,1.62);
+  assert.equal(played.length,2);
+  snapshot.lineConductWires=[];
+  sound.update(snapshot,1.7);
+  assert.equal(sound.lines.size,0);
+  const before=played.length;
+  sound.update(snapshot,2.7);
+  assert.equal(played.length,before,'no ghost wire after server removal');
+});
+
+test('Layering five infusions never weakens the initial base-earth hit',()=>{
+  const none=fixture();
+  const full=fixture();
+  const point={x:1,y:0,z:0};
+  none.sound.onEvent({type:'oneHitImpact',impactId:null,playerId:'a',
+    tiers:{fire:0,frost:0,gale:0,lightning:0,steel:0},
+    form:'ground',point,at:1});
+  full.sound.onEvent({type:'oneHitImpact',impactId:null,playerId:'a',
+    tiers:{fire:2,frost:2,gale:2,lightning:2,steel:2},
+    form:'ground',point,at:1});
+  assert.equal(none.played[0].gain,full.played[0].gain,
+    'base earth amplitude does not shrink under five infusions');
+  assert.ok(full.played.length>none.played.length);
+  assert.ok(full.played.slice(1).every(p=>p.gain<full.played[0].gain),
+    'each elemental accent is secondary to the impact anchor');
+  assert.equal(new Set(full.played.slice(1).map(p=>p.delay)).size,5,
+    'five signatures are staggered and not one overloaded sound');
+});
+test('Decay-scaled Shaken field is still an audible warning halfway through its real lifetime',()=>{
+  const {sound,played}=fixture();
+  const snapshot={players:[],oneHitFields:[field()],oneHitWaves:[]};
+  sound.update(snapshot,.0);
+  sound.update(snapshot,.30);
+  const beginning=played.at(-1);
+  sound.update(snapshot,2.3);
+  const late=played.at(-1);
+  assert.ok(beginning?.recipe.layers[0]?.gain>late?.recipe.layers[0]?.gain,
+    'geological pulses reflect weakening ground');
+  assert.equal(beginning.gain,late.gain,
+    'do not multiply the same decay factor twice');
+  assert.ok(late.recipe.layers[0].gain>=beginning.recipe.layers[0].gain*.45,
+    'half-life field should remain audible instead of nearly vanishing');
+});
+test("Sustained Gale\u2019s ambient tail follows the actual 1.25s cone, not a .75s approximation",()=>{
+  const {sound}=fixture();
+  const burst={type:'galeBlast',playerId:'a',
+    origin:{x:1,y:0,z:0},mode:'sustained',at:2};
+  sound.onEvent(burst);
+  const gust=sound.gusts.get('a');
+  assert.ok(gust);
+  assert.equal(gust.until,3.25);
+  sound.update({players:[],oneHitFields:[],oneHitWaves:[]},3.1);
+  assert.ok(sound.gusts.has('a'));
+  sound.update({players:[],oneHitFields:[],oneHitWaves:[]},3.26);
+  assert.equal(sound.gusts.size,0);
+});
+
+test('Low-power mobile audio retains all five distinct infusions while thinning redundant oscillators',()=>{
+  const desktop=fixture(),mobile=fixture();
+  mobile.sound.setDensity(.55);
+  const full={fire:2,frost:2,gale:2,lightning:2,steel:2};
+  const blow={type:'oneHitImpact',form:'ground',playerId:'a',tiers:full,
+    point:{x:0,y:0,z:0},at:1};
+  desktop.sound.onEvent(blow);
+  mobile.sound.onEvent(blow);
+  assert.equal(desktop.played.length,6,'base plus all five desktop identities');
+  assert.equal(mobile.played.length,6,'mobile still has all five identities');
+  const count=(events)=>events.reduce((n,e)=>n+
+    e.recipe.layers.reduce((m,l)=>m+(l.type==='ring'?l.partials.length:1),0),0);
+  assert.ok(count(mobile.played)<count(desktop.played),
+    'phone activates fewer redundant WebAudio sources for the same attack');
+  assert.ok(mobile.played.every(e=>e.recipe.layers.length>=1));
+  assert.deepEqual(mobile.played.map(x=>x.delay),desktop.played.map(x=>x.delay),
+    'phone preserves elemental timing and recognizability');
+});

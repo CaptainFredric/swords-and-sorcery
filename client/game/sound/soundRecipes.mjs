@@ -384,9 +384,13 @@ export function hurtRecipe(rand = Math.random, { heavy = false, amount = 25 } = 
 /** A fireball bursting: a deep boom that rolls out, and the fire crackling after it. */
 export function fireballImpactRecipe(rand = Math.random) {
   const layers = [
-    { type: 'noise', filter: 'lowpass', freq: 1100 * jitter(rand, 0.1), q: 0.6, sweepTo: 160, attack: 0.004, decay: 0.75, gain: 0.85 },
-    { type: 'tone', wave: 'sine', freq: 92, slideTo: 32, attack: 0.004, decay: 0.55, gain: 0.9 },
-    { type: 'noise', filter: 'highpass', freq: 2800, q: 0.6, attack: 0.002, decay: 0.25, gain: 0.3 },
+    // A clean initial ignition crack, then the displaced air and low-body
+    // boom, with short embers continuing after the pressure front moves on.
+    { type: 'noise', filter: 'highpass', freq: 4900, q: 0.8, attack: 0.001, decay: 0.048, gain: 0.28 },
+    { type: 'noise', filter: 'lowpass', freq: 1100 * jitter(rand, 0.1), q: 0.6, sweepTo: 160, attack: 0.004, decay: 0.75, gain: 0.75 },
+    { type: 'tone', wave: 'sine', freq: 92, slideTo: 32, attack: 0.004, decay: 0.55, gain: 0.8 },
+    { type: 'noise', filter: 'highpass', freq: 2800, q: 0.6, attack: 0.002, decay: 0.25, gain: 0.26 },
+    { type: 'noise', filter: 'bandpass', freq: 800, q: 1.2, sweepTo: 310, at: 0.19, attack: .04, decay: .45, gain: .17 },
   ];
   for (let i = 0; i < 6; i += 1) {
     layers.push({ type: 'noise', filter: 'bandpass', freq: 3000 * jitter(rand, 0.3), q: 3, at: 0.12 + i * 0.07 + rand() * 0.05, attack: 0.001, decay: 0.02, gain: 0.12 * (1 - i / 7) });
@@ -411,9 +415,13 @@ export function coreflagrationImpactRecipe(rand = Math.random) {
 /** Frostfire breaking: ice shattering, its shards ringing as they scatter, a cold hiss after. */
 export function frostImpactRecipe(rand = Math.random) {
   const layers = [
-    { type: 'noise', filter: 'highpass', freq: 4200, q: 0.8, attack: 0.001, decay: 0.06, gain: 0.5 },
-    { type: 'tone', wave: 'sine', freq: 140, slideTo: 60, attack: 0.003, decay: 0.2, gain: 0.5 },
-    { type: 'noise', filter: 'bandpass', freq: 5200, q: 1.2, sweepTo: 2600, attack: 0.01, decay: 0.45, gain: 0.18 },
+    // Compression of heavy ice, sharp fracture, then glass-like fragments
+    // and a much longer aspirated cold front.
+    { type: 'noise', filter: 'bandpass', freq: 720, q: 1.7, at: 0, attack: .01, decay: .16, gain: .15, sweepTo: 360 },
+    { type: 'noise', filter: 'highpass', freq: 4200, q: 0.8, at: .024, attack: 0.001, decay: 0.06, gain: 0.49 },
+    { type: 'tone', wave: 'sine', freq: 140, slideTo: 60, attack: 0.003, decay: 0.2, gain: 0.44 },
+    { type: 'noise', filter: 'bandpass', freq: 5200, q: 1.2, sweepTo: 2600, at: .055, attack: 0.01, decay: 0.61, gain: 0.2 },
+    { type: 'noise', filter: 'highpass', freq: 6700, q: .75, at: .21, attack: .025, decay: .56, gain: .065, sweepTo: 3400 },
   ];
   for (let i = 0; i < 7; i += 1) {
     layers.push({ type: 'ring', at: rand() * 0.18, partials: [{ freq: 2400 + rand() * 3200, gain: 0.05, decay: 0.12 + rand() * 0.15 }, { freq: 4000 + rand() * 3000, gain: 0.03, decay: 0.08 }] });
