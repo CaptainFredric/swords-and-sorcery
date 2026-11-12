@@ -221,3 +221,22 @@ test("Sustained Gale\u2019s ambient tail follows the actual 1.25s cone, not a .7
   sound.update({players:[],oneHitFields:[],oneHitWaves:[]},3.26);
   assert.equal(sound.gusts.size,0);
 });
+
+test('Low-power mobile audio retains all five distinct infusions while thinning redundant oscillators',()=>{
+  const desktop=fixture(),mobile=fixture();
+  mobile.sound.setDensity(.55);
+  const full={fire:2,frost:2,gale:2,lightning:2,steel:2};
+  const blow={type:'oneHitImpact',form:'ground',playerId:'a',tiers:full,
+    point:{x:0,y:0,z:0},at:1};
+  desktop.sound.onEvent(blow);
+  mobile.sound.onEvent(blow);
+  assert.equal(desktop.played.length,6,'base plus all five desktop identities');
+  assert.equal(mobile.played.length,6,'mobile still has all five identities');
+  const count=(events)=>events.reduce((n,e)=>n+
+    e.recipe.layers.reduce((m,l)=>m+(l.type==='ring'?l.partials.length:1),0),0);
+  assert.ok(count(mobile.played)<count(desktop.played),
+    'phone activates fewer redundant WebAudio sources for the same attack');
+  assert.ok(mobile.played.every(e=>e.recipe.layers.length>=1));
+  assert.deepEqual(mobile.played.map(x=>x.delay),desktop.played.map(x=>x.delay),
+    'phone preserves elemental timing and recognizability');
+});
