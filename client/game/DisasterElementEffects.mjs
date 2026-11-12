@@ -681,8 +681,12 @@ export class DisasterElementEffects {
       fissures.push(x1-nx,.046,z1-nz,x2-nx,.046,z2-nz,x2+nx,.046,z2+nz,
         x1-nx,.046,z1-nz,x2+nx,.046,z2+nz,x1+nx,.046,z1+nz);
     };
-    for(let arm=0;arm<13;arm++){
-      const theta=(arm+randRock()*.4)/13*TAU;
+    // Steel leaves its characteristic eight- or twelve-armed fracture
+    // visible in the grounded endpoint's hazard footprint. These are
+    // presentation, not an extra set of damaging Sunder hits.
+    const arms=field.tiers?.steel===2?12:field.tiers?.steel===1?8:7;
+    for(let arm=0;arm<arms;arm++){
+      const theta=(arm+randRock()*.4)/arms*TAU;
       const target=radius*(.79+.19*randRock());
       let last={x:Math.cos(theta)*.16,z:Math.sin(theta)*.16};
       const pieces=4+Math.floor(randRock()*3);
