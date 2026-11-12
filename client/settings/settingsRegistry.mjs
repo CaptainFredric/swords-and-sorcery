@@ -257,6 +257,7 @@ registry
   .defineAction({ id: 'siegeView', label: 'Mounted siege view', group: 'Interface', keys: ['KeyZ'] })
   // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
+  .defineAction({ id: 'inspectEffects', label: 'Inspect active status effects', group: 'Interface', keys: ['KeyI'] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
   .defineAction({ id: 'toggleSound', label: 'Sound on / off', group: 'Interface', keys: ['KeyM'] })
   .defineAction({ id: 'toggleMusic', label: 'Music on / off', group: 'Interface', keys: ['KeyN'] })
