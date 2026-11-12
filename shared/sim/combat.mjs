@@ -37,6 +37,7 @@ import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
+import { vortexBladeGuards } from '../src/vortexGuard.mjs';
 import { heldActions } from '../src/heldActions.mjs';
 import { recordChallengeFact } from './challenges.mjs';
 import { recordPerryParry, recordPerryDamage, assessPerryDefeat } from './StPerry.mjs';
@@ -508,6 +509,7 @@ export function tryDash(room, playerId, direction, nowSec) {
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
     (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active')) return false;
   if (flashFrozen(player, nowSec)) return false;
+  if(player.practiceMode==='ULTIMATE_KNIGHT'&&player.ultimateKnight?.behavior==='stay')return false;
   const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
@@ -1259,7 +1261,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     x:attackerTransform.position.x-targetTransform.position.x,
     z:attackerTransform.position.z-targetTransform.position.z,
   });
-  if (automaticParry || target.guarding && isInGuardCone(target, attacker, atSec)) {
+  const bladeGuard=vortexBladeGuards(target,attacker,nowSec);
+  if (automaticParry || target.guarding && isInGuardCone(target, attacker, atSec) || bladeGuard) {
     guardChallengeContact(room, target, attacker, nowSec);
     // a Sundering blow lands on a guard as two (the guard pays for both; it is still one blow)
     const impacts = empowered ? ultimateFor('sunder').guardImpacts : 1;
@@ -1270,20 +1273,27 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact);
       const guardResult = resolveSwordVsGuard({
         guarding: true,
-        guardAgeMs: automaticParry ? 0 : (nowSec - target.guardStartedAt) * 1000,
+        // Sunder simply cannot be perfect-parried, even with Chivalry's
+        // automatic parry. A successful timing gesture becomes the same
+        // two-impact Guard block it would have been if held normally.
+        // Vortex's moving sword also guards, but is never a perfect parry.
+        guardAgeMs: empowered || bladeGuard ? Infinity :
+          automaticParry ? 0 : (nowSec - target.guardStartedAt) * 1000,
         stamina: target.guardStamina,
         profile: guardProfile(target.knightClass),
         pressure,
         impacts,
       });
     target.guardStamina = guardResult.staminaAfter;
+    if (bladeGuard)room.events.push({type:'vortexBladeGuard',attackerId:attacker.id,
+      defenderId:target.id,point:met?.point??null,at:nowSec});
     if (guardResult.kind === 'parry') {
       target.parries += 1;
       const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
       if (!suppressParryReel) {
-        // (a Sundering knight turned by a perfect guard is stopped, and staggered for less: the blow is theirs to lose,
-        // not the whole of their Sunder)
-        attacker.staggerUntil = nowSec + (sunder ? ultimateFor('sunder').parriedSec : GAME.parryStaggerMs / 1000);
+        // Only ordinary sword blows (including a Sunder canceled by Sheathe
+        // in Steel) can be parried. Empowered Sunder is never in this branch.
+        attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
         stopSwordChain(attacker, {}, room, nowSec);
       }
       gainProwess(room, target, PROWESS.parry);
@@ -1303,12 +1313,14 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
       room.events.push({
         type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), impact: physical.impact, impacts,
+        ...(bladeGuard?{vortexBlade:true}:{}), ...(sunder?{sunder:true}:{}),
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
       room.events.push({
         type: 'block', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), quality, impact: physical.impact, impacts,
+        ...(bladeGuard?{vortexBlade:true}:{}), ...(sunder?{sunder:true}:{}),
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       staggerBy(room, target, STAGGER.gain.sword * force * STAGGER.gain.blocked * impacts, nowSec, attacker.id);
@@ -3050,7 +3062,8 @@ function landVortex(room, attacker, target, met, nowSec) {
   const vortex = ULTIMATES.vortex;
   const contact = vortex.contact;
   const point = met.point;
-  if (target.guarding && isInGuardCone(target, attacker, nowSec)) {
+  const bladeGuard=vortexBladeGuards(target,attacker,nowSec);
+  if ((target.guarding && isInGuardCone(target, attacker, nowSec)) || bladeGuard) {
     guardChallengeContact(room, target, attacker, nowSec);
     const result = resolveSwordVsGuard({
       guarding: true, guardAgeMs: Infinity, stamina: target.guardStamina, profile: guardProfile(target.knightClass), pressure: contact.guardPressure,
@@ -3059,10 +3072,10 @@ function landVortex(room, attacker, target, met, nowSec) {
     target.lastGuardDrainAt = nowSec;
     if (result.kind === 'guardBreak') {
       breakGuard(target, GAME.guardBreakStaggerMs / 1000, nowSec);
-      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: 0, impacts: 1, vortex: true, point, at: nowSec });
+      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: 0, impacts: 1, vortex: true, ...(bladeGuard?{vortexBlade:true}:{}), point, at: nowSec });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
-      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, quality: 1, impact: 0, impacts: 1, vortex: true, point, at: nowSec });
+      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, quality: 1, impact: 0, impacts: 1, vortex: true, ...(bladeGuard?{vortexBlade:true}:{}), point, at: nowSec });
       staggerBy(room, target, contact.stagger * STAGGER.gain.blocked, nowSec, attacker.id);
     }
     return;

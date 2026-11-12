@@ -18,6 +18,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, fireOneHitWave } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { configureUltimateKnight } from './UltimateKnight.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -250,6 +251,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       blustered: p.blustered ? { ...p.blustered } : null,
       oneHitField: p.oneHitField ? { ...p.oneHitField } : null,
       practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
+      ultimateKnight: p.ultimateKnight ? {selection:p.ultimateKnight.selection,
+        behavior:p.ultimateKnight.behavior,stages:{...p.ultimateKnight.stages}}:null,
       oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
       oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
       ultimate: p.ultimate ?? null,
@@ -642,6 +645,11 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceOneHit':
       return configurePracticeOneHit(room,player.id,message,time) ? {} : {rejected:PRACTICE_REJECTED};
+    case 'practiceUltimateKnightConfig':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)
+        return {rejected:'Only the Shared Practice host may configure dummies.'};
+      return configureUltimateKnight(room,player.id,message,time)?{}:
+        {rejected:PRACTICE_REJECTED};
     case 'practiceSetDummyMode':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };

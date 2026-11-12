@@ -2094,7 +2094,9 @@ export class GameRuntime {
       }
       if (event.type === 'block') {
         if (event.attackerId === me) this.hud.hit('block');
-        if (event.defenderId === me) this.weapon.block(false);
+        // Vortex's moving blade is the defense. Do not pose a phantom
+        // stationary hand Guard over the authored spinning animation.
+        if (event.defenderId === me && !event.vortexBlade) this.weapon.block(false);
         // (a Vortex's blade is not thrown back by a guard: it is already coming round again)
         if (event.attackerId === me && !event.vortex) this.weapon.rebound();
       }

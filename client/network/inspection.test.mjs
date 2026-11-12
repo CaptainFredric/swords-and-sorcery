@@ -472,3 +472,26 @@ test('Play Frames advances flying projectiles and unpauses everything cleanly on
     assert.notDeepEqual(host.latestSnapshot.projectiles[0].position, posAfterBeat2, 'Projectile resumes real-time flight');
   }
 });
+
+test('Ultimate Knight drill settings can be staged while Inspection is frozen, with immediate snapshot',()=>{
+  const {host,advance}=yard();
+  host.practiceSpawnDummy('ULTIMATE_KNIGHT');advance(.1);
+  const knight=[...host.room.players.values()].find(p=>p.practiceMode==='ULTIMATE_KNIGHT');
+  assert.ok(knight);
+  host.setInspectionFrozen(true);
+  const tickBefore=host.latestSnapshot.tick;
+  const serverTime=host.serverNow();
+  host.send({type:'practiceUltimateKnightConfig',selection:'one_hit_of_wonders'});
+  host.send({type:'practiceUltimateKnightConfig',behavior:'stay'});
+  host.send({type:'practiceUltimateKnightConfig',element:'steel',tier:2});
+  assert.equal(knight.ultimateKnight.selection,'one_hit_of_wonders');
+  assert.equal(knight.ultimateKnight.behavior,'stay');
+  assert.equal(knight.ultimateKnight.stages.steel,2);
+  assert.equal(host.inspectionFrozen,true);
+  assert.equal(host.latestSnapshot.tick,tickBefore,'configuration does not step combat');
+  assert.equal(host.serverNow(),serverTime,'configuration does not advance time');
+  const snapshot=host.latestSnapshot.players.find(p=>p.id===knight.id);
+  assert.equal(snapshot.ultimateKnight.selection,'one_hit_of_wonders');
+  assert.equal(snapshot.ultimateKnight.behavior,'stay');
+  assert.equal(snapshot.ultimateKnight.stages.steel,2);
+});

@@ -501,13 +501,13 @@ export class LocalHost {
     // Configuration is a staging command, not an action frame. Permit it
     // while Inspection is frozen and publish a snapshot immediately: there
     // may be no simulation tick to deliver the new selector values.
-    const configureOneHit=message.type==='practiceOneHit';
-    if (!room || !owner || (this.inspectionFrozen && !configureOneHit)) return;
+    const configurePractice=message.type==='practiceOneHit'||message.type==='practiceUltimateKnightConfig';
+    if (!room || !owner || (this.inspectionFrozen && !configurePractice)) return;
     this.#validateInspectionActor();
     if (this.inspectionControlId && INSPECTION_ADMIN_RESET.has(message.type)) this.setInspectionActor(owner.id);
     const player = this.inspectionControlId && INSPECTION_ACTIONS.has(message.type)
       ? room.players.get(this.inspectionControlId) : owner;
-    if (this.inspectionFreezeMode === 'actor' && player?.id === this.inspectionActorId && !configureOneHit) return;
+    if (this.inspectionFreezeMode === 'actor' && player?.id === this.inspectionActorId && !configurePractice) return;
     if (this.commandFilter) {
       message = this.commandFilter(message);
       if (!message) return;
@@ -515,7 +515,7 @@ export class LocalHost {
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
-    else if (configureOneHit && !result.rejected)
+    else if (configurePractice && !result.rejected)
       this.#deliver(serializeSnapshot(room,this.now(),this.playerId),true);
     this.#validateInspectionActor();
   }
