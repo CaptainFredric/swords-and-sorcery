@@ -63,6 +63,21 @@ test('mounted view toggle uses its rebound key and produces one local presentati
   assert.deepEqual(actions, ['siegeView']);
 });
 
+test('the status inspection action works during pointer lock and is rebindable', () => {
+  const { input, down, up, calls } = setup();
+  const actions = [];
+  input.onAction = (name, pressed) => { if (pressed) actions.push(name); };
+  assert.deepEqual(input.bindings.inspectEffects, ['KeyI']);
+  down('KeyI'); up('KeyI');
+  assert.deepEqual(actions, ['inspectEffects']);
+  assert.equal(input.pointerLocked, true, 'inspecting must not release mouse lock');
+  assert.deepEqual(calls, [], 'inspecting must not fire an attack or spell');
+  input.configure({ bindings: { ...input.bindings, inspectEffects: ['KeyJ'] } });
+  down('KeyI'); up('KeyI');
+  down('KeyJ'); up('KeyJ');
+  assert.deepEqual(actions, ['inspectEffects', 'inspectEffects'], 'new binding takes precedence');
+});
+
 test('default guard holds across either physical binding release without restarting guard', () => {
   for (const sources of [['Mouse2', 'KeyG'], ['KeyG', 'Mouse2']]) {
     const { input, calls, down, up } = setup();
