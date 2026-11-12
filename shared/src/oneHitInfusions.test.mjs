@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyInfusions,creditOneHitEncounter,oneHitCommit,oneHitForm,oneHitDamage,
   applyOneHitShaken,shakenSprintFactor,oneHitBacklashRemaining,oneHitTeleportDistance,normalizeInfusions,
-  ONE_HIT_PRESETS,oneHitSteelFloorActive} from './oneHitInfusions.mjs';
+  ONE_HIT_PRESETS,oneHitSteelFloorActive,oneHitChargeIntent,oneHitGlide,oneHitChargingLightning} from './oneHitInfusions.mjs';
 import { GAME } from './combat.mjs';
 import { RUPTURE } from './rupture.mjs';
 
@@ -98,4 +98,25 @@ test('A four-second Half Lightning hold cannot extend the Full Steel 1-HP floor 
   p.ultimateState.phase='active';p.ultimateState.until=11.9;
   p.ultimateState.oneHit={tiers:{steel:2,lightning:1},form:'ground'};
   assert.equal(oneHitSteelFloorActive(p,10.3),true,'the actual committed attack restores its intended protection');
+});
+
+test('held Lightning charges suppress Sprint and Jump without locking 360-degree aim',()=>{
+  const player={grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{lightning:2,gale:2},teleportHoldAt:9,commitAt:3600009}};
+  assert.equal(oneHitChargingLightning(player,10),true);
+  const intent=oneHitChargeIntent({forward:1,right:1,sprint:true,jump:true,dash:true,yaw:4.5,pitch:-1.2});
+  assert.equal(intent.sprint,false);
+  assert.equal(intent.jump,false);
+  assert.equal(intent.dash,false);
+  assert.equal(intent.yaw,4.5);
+  assert.equal(intent.pitch,-1.2);
+  assert.ok(intent.forward>0&&intent.forward<1);
+  const glide=oneHitGlide(player,7.5);
+  assert.ok(glide.fallGravity>0&&glide.maxFall>0,
+    'charging above terrain must descend rather than hover without time limit');
+  player.ultimateState={...player.ultimateState,teleportHoldAt:undefined,
+    partialLightningHoldAt:9,preparedTiers:{gale:2,lightning:1}};
+  const half=oneHitGlide(player,7.5);
+  assert.ok(half.fallGravity>0&&half.maxFall>0,
+    'Half Lightning with Full Gale must not hover for its full hold');
 });
