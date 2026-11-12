@@ -28,7 +28,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'siegeSkill','ultimate','oneHitRelease','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','oneHitRelease','oneHitFire','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
@@ -925,6 +925,7 @@ export class LocalHost {
   ultimate({held=false}={}) { this.#command({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
   oneHitRelease({cancel=false}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitFire() { this.#command({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.#command({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.#command({type:'practiceOneHit',...options}); }
   siegeOperate() { this.#command({ type: 'siegeOperate' }); }

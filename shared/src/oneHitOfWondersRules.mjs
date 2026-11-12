@@ -9,6 +9,15 @@ export const ONE_HIT_RULES = Object.freeze({
   groundReleaseWindowSec: 0.32,
   // After a full-Lightning teleport, the discharge has no SECOND wind-up.
   postTeleportWindupSec: 0,
+  // A short hover after an airborne teleport lets the player aim the sword,
+  // independently from the direction used to reposition.
+  postTeleportAimSec: 0.35,
+  groundedGaleWaveDelaySec: 0.14,
+  waveMaxReach: 22,
+  waveTerminalRadius: 2.2,
+  // A Fire-infused terminal blast equals an ordinary (uninfused) ground slam;
+  // it is still smaller than the widened Fire-infused ground slam.
+  waveTerminalFireRadius: 3.4,
   // Held teleport visual aura does not continually expand or inflict damage.
   teleportAuraMaxRadius: 1.25,
   teleportDistanceScale: 22,

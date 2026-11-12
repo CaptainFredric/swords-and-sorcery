@@ -833,7 +833,7 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
-    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
+    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.input.oneHitAimUntil=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
@@ -1421,6 +1421,8 @@ export class GameRuntime {
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
+    this.input.oneHitAimUntil=auth?.alive&&auth.ultimateState?.id==='one_hit_of_wonders'&&
+      auth.ultimateState.phase==='active' ? auth.ultimateState.oneHit?.aimUntil??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
@@ -1579,6 +1581,16 @@ export class GameRuntime {
       if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
       if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
         this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
+      if(event.type==='oneHitImpact'&&event.impactId){
+        // A Gale wave is a distinct terminal blast (terrain, detonation or
+        // range), not a silent disappearance. Keep it spatially situated even
+        // for its caster, especially when it bursts a long way away.
+        const at=event.point;
+        this.#play((event.tiers?.fire??0)>0?fireballImpactRecipe(Math.random):
+          groundSlamRecipe(Math.random),at,event.tiers?.fire?.72:.48);
+        if((event.tiers?.frost??0)>0)this.#play(frostImpactRecipe(Math.random),at,.36);
+        if((event.tiers?.lightning??0)>0)this.#play(conductShockRecipe(Math.random,{discharge:true,share:.65}),at,.32);
+      }
       if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
         event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
       if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
@@ -4270,6 +4282,7 @@ export class GameRuntime {
         ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
       const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
+        allowVertical:disasterCharge.preparedTiers.gale===2,
         holdSec:disasterNow-disasterCharge.teleportHoldAt,world,solids,edge});
       this.oneHitEffects.setChargeGuide(origin,plan);
     }else this.oneHitEffects?.setChargeGuide(null,null);

@@ -79,17 +79,20 @@ export function oneHitTeleportDistance(holdSec) {
   return oneHitTeleportReach(Math.max(0, holdSec));
 }
 
-/** Slow but never upward-propelled descent during a committed Full-Gale aerial
- * windup, vortex, or Full-Gale/Lightning held teleport charge. Both host and
- * prediction use the same movement modifier. */
-export function oneHitGlide(player, speed=7.5) {
+/** A bounded Gale suspension, shared by server movement and prediction.
+ * Ordinary aerial preparation and the brief post-teleport aim HOLD altitude;
+ * an indefinitely held Lightning charge merely slows the fall. */
+export function oneHitGlide(player,speed=7.5){
   const state=player?.ultimateState;
-  if(player?.grounded || state?.id!=='one_hit_of_wonders')return null;
+  if(player?.grounded||state?.id!=='one_hit_of_wonders')return null;
   const tiers=state.preparedTiers??state.oneHit?.tiers??player.oneHitInfusions;
   if(tiers?.gale!==2)return null;
-  if(state.phase==='startup' ||
-     (state.phase==='active' && state.oneHit?.form==='aerial' && !state.oneHit.hit))
-    return {speed,fallGravity:.16,maxFall:1.8};
+  if(state.phase==='startup')
+    return Number.isFinite(state.teleportHoldAt)?
+      {speed,fallGravity:.16,maxFall:1.8}:
+      {speed,fallGravity:0,maxFall:0};
+  if(state.phase==='active'&&state.oneHit?.form==='aerial'&&!state.oneHit.waveLaunched)
+    return {speed,fallGravity:0,maxFall:0};
   return null;
 }
 

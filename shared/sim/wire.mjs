@@ -15,7 +15,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, fireOneHitWave } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
@@ -383,7 +383,7 @@ export function applyRoomCommand(room, player, message, time) {
     && !renownTrialCombatOpen(room)
     && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
-      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease','oneHitDetonate',
+      'castCurrentSpell','dash','gauntlet','ultimate','oneHitRelease','oneHitFire','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
@@ -562,6 +562,8 @@ export function applyRoomCommand(room, player, message, time) {
       tryUltimate(room,player.id,time,{held:message.held===true}); return {};
     case 'oneHitRelease':
       releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true}); return {};
+    case 'oneHitFire':
+      fireOneHitWave(room,player.id,time); return {};
     case 'oneHitDetonate':
       detonateOneHitWave(room,player.id,message.waveId,time); return {};
     case 'flightUltimateHold': {

@@ -320,6 +320,31 @@ export class DisasterElementEffects {
     }
   }
 
+  // At a wave's endpoint, air compresses and breaks outward. This is a
+  // distinct, smaller EXPLOSION, not an invisible no-damage puff. Fire uses
+  // #fireExplosion at the same real terminal radius; other elements color
+  // this shared pressure burst. No new collision or damage is introduced.
+  #waveExplosion(point,radius,ground,tiers){
+    const n=this.#n(62);
+    for(let i=0;i<n;i++){
+      const a=rand(TAU),lift=ground?rand(.06,.88):rand(-.85,.85);
+      const flat=Math.sqrt(Math.max(0,1-lift*lift));
+      const life=rand(.24,.43),travel=radius*rand(.55,1);
+      const kind=tiers.frost?'frost':tiers.lightning?'lightning':tiers.steel?'steel':'gale';
+      this.#mote(kind,point,{
+        x:Math.cos(a)*flat*travel/life,y:lift*travel/life,
+        z:Math.sin(a)*flat*travel/life,
+      },{size:rand(.025,.065),ttl:life,drag:1.3,stretch:rand(5,10)});
+    }
+    for(let i=0;i<this.#n(16);i++){
+      const a=rand(TAU);
+      this.#dust({x:point.x+Math.cos(a)*.3,y:point.y+.06,z:point.z+Math.sin(a)*.3},
+        {x:Math.cos(a)*rand(2,5),y:ground?rand(.25,1.8):rand(-1,2),
+         z:Math.sin(a)*rand(2,5)},rand(.26,.44),rand(.48,.8),
+        tiers.frost?0xb7d9e3:0xa7aaab);
+    }
+  }
+
   // --- the gathering: each element is drawn out of the ground round the knight and into the blade -----------------
   #gather(player, tiers, dt, now) {
     let entry = this.gather.get(player.id);
@@ -412,10 +437,11 @@ export class DisasterElementEffects {
   impact(event) {
     const tiers = event.tiers ?? {};
     const p = new THREE.Vector3(event.point.x, event.point.y, event.point.z);
-    const ground = event.form === 'ground';
+    const ground = event.form === 'ground' || Boolean(event.groundBlast);
     const floor = p.y + 0.02;
     const steel = tiers.steel ?? 0;
     const radius = event.radius ?? 3.4;
+    if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers);
     if (ground) {
       // the ground breaks where the blade went in: stone thrown out and up, more of it and harder for Steel
       const rocks = this.#n(steel === 2 ? 80 : steel === 1 ? 46 : 22);
