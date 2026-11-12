@@ -3235,7 +3235,7 @@ export class GameRuntime {
         this.weapon.brace(this.presentationNow()/1000+(event.commitAt-this.socket.serverNow()),{
           startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
         });
-        this.hud.flashText('ALL-NATURAL DISASTER','sunder',1400);
+        this.hud.flashText('ALL-NATURAL DISASTER','sunder',620);
       }
       const tiers = event.preparedTiers ?? (me ? this.localAuth?.ultimateState?.preparedTiers : this.latestSnapshot?.players.find((p) => p.id === event.playerId)?.ultimateState?.preparedTiers) ?? {};
       const total = (tiers.fire ?? 0) + (tiers.frost ?? 0) + (tiers.gale ?? 0) + (tiers.lightning ?? 0);
@@ -3254,7 +3254,7 @@ export class GameRuntime {
           this.localState.grounded = false;
         }
         // its name, and under it (for this once) how it is steered; after that the tile says what it is doing
-        this.hud.flashText('BLAZING VORTEX', 'vortex', 1900, vortexHint({ touch: Boolean(this.touch), bindings: this.input.bindings }));
+        this.hud.flashText('BLAZING VORTEX', 'vortex', 650, vortexHint({ touch: Boolean(this.touch), bindings: this.input.bindings }));
       }
       return;
     }
@@ -3262,7 +3262,7 @@ export class GameRuntime {
       const cry = cryMoment(event.ultimate);
       this.#ultimateCry(event.playerId, cry, voice);
       if (me) {
-        this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
+        this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 620);
         // my own Chivalry, taken up: the strings swell into the light under the cry (the music is mine alone to hear)
         this.music?.stinger('chivalry');
       }
@@ -3279,7 +3279,7 @@ export class GameRuntime {
     const cry = cryMoment(event.ultimate);
     this.#ultimateCry(event.playerId, cry, voice);
     if (me) {
-      this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
+      this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 620);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
     }
   }
