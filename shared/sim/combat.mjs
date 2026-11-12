@@ -429,6 +429,7 @@ export function tryDash(room, playerId, direction, nowSec) {
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec) ||
     (player.ultimateState?.id==='one_hit_of_wonders' && player.ultimateState.phase==='active')) return false;
   if (flashFrozen(player, nowSec)) return false;
+  if(player.practiceMode==='ULTIMATE_KNIGHT'&&player.ultimateKnight?.behavior==='stay')return false;
   const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
