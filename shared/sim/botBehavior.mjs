@@ -22,7 +22,7 @@ export const BOT_PROFILES = Object.freeze({
   spellblade: Object.freeze({
     name:'The Spellblade',sword:true,spells:true,guard:.85,dash:.45,
     keepRange:null,flee:false,footwork:1.0,
-    spellCycle:Object.freeze(['fireball','frostfire','gale']),ward:'steel',
+    spellCycle:Object.freeze(['fireball','frostfire','gale','coreflagration','line_of_conduct']),ward:'steel',
   }),
   // Mr. Melee: a swordsman through and through. Lunges in to the blade, circles hard once there, guards readily,
   // carries Sheathe in Steel and hardens as a fight begins (never at nothing); no offensive spells
