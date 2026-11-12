@@ -165,13 +165,17 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
     fallback:firstPerson?'Idle':'Guard',...extra,
   });
   if(action.id==='rigid_riposte'){
+    if(action.phase==='interrupted')return clip(
+      action.reason==='parried'?'Technique_RigidRiposte_Parried':'Technique_RigidRiposte_Recovery',age);
     if(action.aerial&&age<.48)return clip('Technique_RigidRiposte_Air',age);
-    if(age<.085)return clip('Technique_RigidRiposte_Enter',age);
+    if(age<.1)return clip('Technique_RigidRiposte_Enter',age);
     if(age<.22)return clip('Technique_RigidRiposte_Interception',age);
     if(age<.48)return clip('Technique_RigidRiposte_Thrust',age-.22);
     return clip('Technique_RigidRiposte_Recovery',age-.48);
   }
   if(action.id==='whirl_wind'){
+    if(action.phase==='interrupted')return clip(
+      action.aerial?'Technique_Whirl_AirRecovery':'Technique_Whirl_Interrupted',age);
     if(action.phase==='recovery'){
       const began=(action.endsAt??serverNow)-.25;
       return clip(grounded?'Technique_Whirl_Exit':'Technique_Whirl_AirRecovery',
@@ -179,7 +183,7 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
     }
     // The entry occupies the start of the active revolution. Its source
     // clip is not allowed to delay sword-contact authority.
-    if(action.revolutions===1&&age<.1)return clip('Technique_Whirl_Enter',age);
+    if(action.revolutions===1&&age<.2)return clip('Technique_Whirl_Enter',age);
     return clip(action.galeLift?'Technique_Whirl_GaleLift':'Technique_Whirl_Revolution',
       age,{loop:true});
   }
@@ -187,7 +191,7 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
 }
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
-  if(player.swordTechnique&&state!=='dead'&&state!=='stagger'){
+  if(player.swordTechnique&&state!=='dead'){
     const technique=swordTechniqueAnimationPlan(player.swordTechnique,serverNow,false,player.grounded);
     if(technique)return technique;
   }
