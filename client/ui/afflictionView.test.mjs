@@ -57,6 +57,13 @@ test('the HUD draws potency, not a fake duration countdown', () => {
   assert.equal(find(afflictionView(snapshot, 14), 'conduct'), undefined);
 });
 
+test('a glancing Chill displays less strength than a full Frostfire hit', () => {
+  const mild = afflictionView(player({ chill: { startedAt: 10, until: 13, slow: .11 } }), 10);
+  const full = afflictionView(player({ chill: { startedAt: 10, until: 13, slow: .55 } }), 10);
+  assert.ok(find(mild, 'chilled').strength < find(full, 'chilled').strength);
+  assert.ok(find(mild, 'chilled').strength < .25);
+});
+
 test('field entry and Frost status follow authoritative strength and ownership', () => {
   const local = player({
     oneHitField: { id: 'x', ownerId: 'other', strength: .26 },
