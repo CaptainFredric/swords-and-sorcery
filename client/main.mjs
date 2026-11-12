@@ -2075,7 +2075,8 @@ function animateCardReorder(category, selectedItemId) {
     const bounds = card.getBoundingClientRect();
     return bounds.top < scrollWindow.bottom - 8 && bounds.bottom > scrollWindow.top + 8;
   });
-  const anchor = visibleCards.at(-1);
+  const anchor = visibleCards.at(-1)?.dataset && keyOf(visibleCards.at(-1)) === selectedItemId
+    ? visibleCards.at(-2) : visibleCards.at(-1);
   // The last currently visible choice marks the bottom of the crimson viewport.
   // Don't jump the scroll position down through offscreen cards and details.
   if (anchor && category !== 'technique')
