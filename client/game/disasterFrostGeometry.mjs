@@ -64,7 +64,7 @@ export function crackedFrostPattern(radius,seed='frost',plateCount=84){
       z:poly.reduce((sum,p)=>sum+p.z,0)/poly.length};
     // Inward offset each cell, preserving the original polygon's shape.
     // The blue backing visible between panels is the branching crack.
-    const gap=.025+.028*rng();
+    const gap=Math.min(.023+.025*rng(),radius*.012);
     const vertices=poly.map(p=>{
       const dx=p.x-center.x,dz=p.z-center.z,d=Math.hypot(dx,dz)||1;
       const k=Math.max(0.78,1-gap/d);
