@@ -23,6 +23,7 @@ The player can be subject to many overlapping effects during All-Natural Disaste
 | Burning | burningUntil | Full until fire ends | Repeated burn damage; no fictitious damage reduction |
 | Chilled | chill | Current chill reduction divided by initial strength | Ordinary Frostfire chill thaws gradually |
 | Frostbound | oneHitFrostSlow | Current depth / base field depth | Disaster frost slows movement while present; depth can be held/renewed |
+| Torn Ground | tornGround | Full while standing on enemy Sunder rupture | Disables Sprint while underfoot |
 | On Ruptured Ground | oneHitField | Authoritative strength of hostile ground field | Delays Shaken recovery and drains Guard on incoming HP damage |
 
 No added damage sources or new status fields. No timer math on the client beyond existing pure rule functions. Effects vanish when the player dies or their authoritative effect ends. Cosmetic-only dizziness and ordinary balance accumulation remain in their existing HUD/readout rather than masquerading as an affliction.
