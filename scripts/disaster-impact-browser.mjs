@@ -204,6 +204,15 @@ async function scenario(url,label,touch,enhanced){
     await until(()=>ev(`!${actor}?.ultimateState && (${actor}?.recoverUntil??0)<${runtime}.socket.serverNow() &&
       ${runtime}.latestSnapshot.oneHitBurnZones.length===0`),'recovery and ground zone expiry');
   }
+  // The scoped 3D aim / impact CI job needs only the real held-charge
+  // ground encounter. The original full capture remains the default and
+  // continues into the separate aerial scenario.
+  if(process.env.DISASTER_AIM_VFX_GROUND_ONLY==='1'){
+    await click('#pause-leave');
+    await until(()=>ev("!window.__ssLink?.roomCode"),'left Practice');
+    console.log('[DISASTER GROUND & 3D AIM PASS]',label);
+    return {label,touch,enhanced,grounded:true,aim3D:true};
+  }
   // Match the exact downward aim for the two captures. Cast/release still
   // travel through actual desktop or touch events and authoritative movement.
   if(verifyAir)await ev(`import('./client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())`);
