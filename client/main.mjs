@@ -2063,6 +2063,10 @@ function animateCardReorder(category, selectedItemId) {
     const cards = [...container.querySelectorAll('.spell-card')];
     const target = cards.find(card => keyOf(card) === selectedItemId);
     if (!target) return;
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const cardRect = target.getBoundingClientRect();
+    const desired = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
+      scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
     if (!reduced) {
       for (const card of cards) {
         const previous = before.get(keyOf(card));
@@ -2088,10 +2092,6 @@ function animateCardReorder(category, selectedItemId) {
     // Aim only far enough to leave the newly equipped item near the bottom.
     // The detail card remains BELOW the list: swipe down for its full text,
     // and swipe up to return to the preceding choices.
-    const scrollRect = scrollEl.getBoundingClientRect();
-    const cardRect = target.getBoundingClientRect();
-    const desired = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
-      scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
     if (Math.abs(desired - scrollEl.scrollTop) > 1)
       scrollEl.scrollTo({ top: desired, behavior: reduced ? 'instant' : 'smooth' });
     if (document.activeElement?.closest?.(listId))
