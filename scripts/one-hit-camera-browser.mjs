@@ -145,7 +145,7 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
       startupSamples:beginning.length,arrivalSamples:after.length,
       first:beginning[0]?.clipTime??after[0]?.clipTime,
       last:beginning.at(-1)?.clipTime??after.at(-1)?.clipTime,
-      launchAt:launched.at,
+      launchAt:launched?.at??null,
     }));
   }
   evidence[name]={...run,restored};
