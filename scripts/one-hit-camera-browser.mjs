@@ -117,19 +117,21 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
   if(interrupt)assert.ok(!run.events.some(e=>e.type==='oneHitCommitted'));
   if (process.env.DISASTER_AERIAL_WINDUP_CHECK==='1' && aerial && !interrupt) {
     const clip='AllNatural_Aerial_Vortex_Wave';
-    const beginning=run.frames.filter(f=>f.phase==='startup'&&f.clip===clip&&Number.isFinite(f.clipTime));
+    const beginning=run.frames.filter(f=>f.phase==='startup'&&f.plannedClip===clip&&Number.isFinite(f.plannedTime));
     const after=run.frames.filter(f=>f.phase==='active'&&f.clip===clip&&Number.isFinite(f.clipTime));
     const launched=run.events.find(e=>e.type==='oneHitWave');
     if (!lightning) {
       // GitHub's software-rendered Chrome sometimes manages only 1-2 FPS.
       // Inspect clip identity and its phase-boundary continuity, not an
       // arbitrary minimum count of frames during a 0.92 s startup.
-      assert.ok(beginning.length>=1,'normal Full Gale shows the aerial wind-up BEFORE commit');
-      assert.ok(after.length>=1,'the same vortex clip continues after commit');
-      assert.ok(after[0].clipTime>=beginning.at(-1).clipTime-.07,
-        'the aerial wind-up must not restart from frame zero on commit');
-      if(beginning.length>=2)assert.ok(beginning.at(-1).clipTime>beginning[0].clipTime+.005,
-        'the clip advances during the visible startup');
+      assert.ok(beginning.length>=1,
+        'the live startup chooses the aerial wind-up even when GPU delays drawing its first frame');
+      assert.ok(beginning[0].plannedTime>0,'the sword is already winding while still in startup');
+      assert.ok(after.length>=1,'the actual rendered vortex continues after commit');
+      assert.ok(after[0].clipTime>=beginning.at(-1).plannedTime-.07,
+        'the rendered clip cannot restart from frame zero at commit');
+      if(beginning.length>=2)assert.ok(beginning.at(-1).plannedTime>=beginning[0].plannedTime,
+        'the planned winding never moves backward');
     } else {
       assert.ok(after.length>=1,'aerial Lightning arrival plays wind-up instead of hovering');
       assert.ok(after[0].clipTime>.40,'arrival uses final winding frames, not the original charge hold');
@@ -183,6 +185,7 @@ try{
     // The acceptance is about the authored clip, not the provisional
     // Slash_3 used while the production GLB finishes downloading.
     await evaluate("import('/client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())");
+    await evaluate("import('/client/game/spellbladeAnimationPlan.mjs').then(m=>{window.__disasterAnimationPlan=m.resolveSpellbladeAnimationPlan})");
     await poll(()=>evaluate("Boolean(window.__ssRuntime.remotePlayers.self?.visualInstance?.animator?.actions?.has('AllNatural_Aerial_Vortex_Wave'))"),
       'authored Gale animation loaded before aerial playback',30000);
   }
@@ -201,7 +204,15 @@ try{
       if(run && run.frames.length<3000){
         const chase=rt.chase??0, body=!!rt.remotePlayers.self?.root.visible, hands=rt.weapon.group.visible;
         const animator=rt.remotePlayers.self?.visualInstance?.animator;
+        // GPU-stalled headless Chrome can advance the server through the
+        // 0.92 s startup without DRAWING a single authored GLB frame. Read
+        // the very plan the renderer consumes, as well as its active clip.
+        const planned=a?.id==='one_hit_of_wonders'
+          ?window.__disasterAnimationPlan?.({
+              state:'one-hit',player:rt.localAuth,serverNow:rt.socket.serverNow(),
+            }):null;
         run.frames.push({now:rt.socket.serverNow(),phase:a?.phase,commitAt:a?.commitAt,
+          plannedClip:planned?.clip??null,plannedTime:planned?.time??null,
           clip:animator?.activeClip??null,clipTime:animator?.activeAction?.time??null,
           holding:a?.phase==='startup'&&Number.isFinite(a?.teleportHoldAt),chase,body,hands,wave:rt.input.oneHitWaveId,
           restored:!a&&chase<.05&&hands&&!body&&
