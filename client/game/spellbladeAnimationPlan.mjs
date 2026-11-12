@@ -4,6 +4,7 @@ import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shar
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
 import { ONE_HIT_AERIAL_DURATION } from '../../shared/src/oneHitInfusions.mjs';
+import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
@@ -114,7 +115,7 @@ export function disasterAerialWindupTime(action, nowSec, { teleported = false } 
   const contact = DISASTER_CLIPS.aerial.contact;
   const commitAt = finite(action?.commitAt, nowSec);
   const launchAt = Math.max(commitAt + 1 / 60,
-    finite(action?.oneHit?.waveAt, commitAt + (teleported ? 0.35 : ONE_HIT_AERIAL_DURATION)));
+    finite(action?.oneHit?.waveAt, commitAt + (teleported ? ONE_HIT_RULES.postTeleportAimSec : ONE_HIT_AERIAL_DURATION)));
   let frame;
   if (teleported) {
     const window = launchAt - commitAt;
