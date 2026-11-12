@@ -37,23 +37,29 @@ async function run(name,width,height,touch,url){
   await cdp.send('Page.navigate',{url:url+'/?debug'});
   await poll(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),name+' menu loaded');
   await evaluate("document.querySelector('[data-tutorial-onboarding-skip]')?.click()");
+  // The main-menu label is hidden when the Chronicles banner opens, so
+  // measure its two actual visible lines BEFORE routing to the manual.
+  const caption=await inspect(()=>{
+    const label=document.querySelector('#how-button .chronicles-command-label');
+    const line=parseFloat(getComputedStyle(label).lineHeight);
+    return {height:label.getBoundingClientRect().height,line,
+      unbroken:getComputedStyle(label.querySelector('span')).whiteSpace==='nowrap'};
+  });
+  assert.ok(caption.height>=caption.line*1.8&&caption.height<=caption.line*2.3,
+    'Chronicles menu caption uses exactly two lines');
+  assert.ok(caption.unbroken,'CHRONICLES does not wrap inside the word');
   await evaluate("document.querySelector('#how-button').click()");
   await poll(()=>evaluate("!document.querySelector('#how-panel')?.classList.contains('hidden')"),name+' Chronicles opened');
   const initial=await inspect(()=>{
     const list=document.querySelector('#chronicles-affliction-list');
     const detail=document.querySelector('#chronicles-affliction-detail');
     const controls=document.querySelector('#chronicles-controls');
-    const label=document.querySelector('#how-button .chronicles-command-label');
-    const child=label.querySelector('span');
-    const line=parseFloat(getComputedStyle(label).lineHeight);
     const buttons=[...list.querySelectorAll('button')];
     const panel=document.querySelector('#how-panel .manual-scroll');
     return {count:buttons.length,hasIcon:buttons.every(b=>b.querySelector('svg')),
       hasLabels:buttons.every(b=>b.getAttribute('aria-label')),
       selected:buttons.filter(b=>b.getAttribute('aria-pressed')==='true').length,
       detailHidden:detail.hidden,controlsOpen:controls.open,
-      labelHeight:label.getBoundingClientRect().height,line,
-      unbroken:getComputedStyle(child).whiteSpace==='nowrap',
       viewHeight:panel.clientHeight,scrollHeight:panel.scrollHeight,
       touchUI:document.body.classList.contains('touch-ui')};
   });
@@ -61,8 +67,6 @@ async function run(name,width,height,touch,url){
   assert.ok(initial.hasIcon&&initial.hasLabels,'SVG icons with accessible names');
   assert.equal(initial.selected,0);
   assert.ok(initial.detailHidden&&!initial.controlsOpen,'no initial wall of text');
-  assert.ok(initial.labelHeight>=initial.line*1.8&&initial.labelHeight<=initial.line*2.3,'label is exactly two lines');
-  assert.ok(initial.unbroken,'CHRONICLES never breaks within its word');
   assert.ok(initial.viewHeight>60,'actual available scroll height');
   if(touch)assert.ok(initial.touchUI,'touch CSS active');
   await shot(name+'-icons');
@@ -104,7 +108,7 @@ async function run(name,width,height,touch,url){
   assert.ok(notice.width>30&&notice.width<340&&notice.height<90,'notice is compact');
   assert.ok(notice.x<width*.53&&notice.y>height*.57,'notice is off-center and low');
   assert.ok(notice.right<width*.7,'no crosshair collision');
-  results.push({name,initial,selected,scroll,notice});
+  results.push({name,caption,initial,selected,scroll,notice});
   console.log('[CHRONICLES HUD PASS]',name,JSON.stringify({icons:initial.count,scroll,notice}));
 }
 try{
