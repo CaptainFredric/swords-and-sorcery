@@ -759,7 +759,7 @@ test('Full Steel: non-lethal damage is ordinary; without Full Steel a lethal blo
   }
 });
 
-test('aerial Steel: the wave\'s own blade interrupts and restarts cooldowns; its landing leaves no rupture and no ground field', () => {
+test('aerial Steel: the wave carries interruption and cooldown effects, but leaves no new Sunder rupture', () => {
   const { room, a, b } = battle({ tiers: { gale: 2, steel: 2 } });
   b.health = 1000; b.position = { x: 6, y: 0, z: 0 }; b.spellReadyAt = 0; b.pendingSpell = { spell: 'fireball', castAt: 99 };
   a.position = { x: 0, y: 0, z: 0 };
@@ -771,8 +771,13 @@ test('aerial Steel: the wave\'s own blade interrupts and restarts cooldowns; its
   assert.equal(b.pendingSpell, null, 'interrupted');
   assert.ok(b.spellReadyAt > 9, 'cooldowns restarted');
   assert.ok(b.blustered, 'and Blustered by the Gale in it');
-  assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no floating ground rupture');
-  assert.equal(room.oneHitFields.length, 0);
+  assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no second Sunder hit');
+  const terminal = room.events.find(e => e.type === 'oneHitImpact' && e.impactId === 'w');
+  assert.equal(room.oneHitFields.length, terminal.groundBlast ? 1 : 0, 'grounded endpoint alone makes a smaller Shaken field');
+  if(terminal.groundBlast){
+    assert.equal(terminal.radius, 2.2);
+    assert.equal(room.oneHitFields[0].radius, terminal.radius);
+  }
 });
 
 test('terrain: the field lies on its own level; a knight on a platform above it, or behind a wall from it, is not in it', () => {
