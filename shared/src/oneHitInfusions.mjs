@@ -103,8 +103,8 @@ export function oneHitChargeIntent(input = {}) {
 }
 
 /** A bounded Gale suspension, shared by server movement and prediction.
- * Ordinary aerial preparation and the brief post-teleport aim HOLD altitude;
- * an indefinitely held Lightning charge merely slows the fall. */
+ * Ordinary aerial preparation and the brief post-teleport aim hold altitude;
+ * held Lightning charge always descends under controlled gravity. */
 export function oneHitGlide(player,speed=7.5){
   const state=player?.ultimateState;
   if(player?.grounded||state?.id!=='one_hit_of_wonders')return null;
@@ -141,7 +141,7 @@ export function oneHitSteelFloorActive(player, nowSec) {
   if(state.phase==='startup')
     return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&
       nowSec<state.commitAt+1e-9 &&
-      // A four-second Half-Lightning delay is not four seconds of immortality:
+      // A held Half-Lightning delay is never extra immortality:
       // Full Steel's bracing protection ends at the normal finite windup.
       (!Number.isFinite(state.partialLightningHoldAt)||
         nowSec<state.startedAt+0.92);
