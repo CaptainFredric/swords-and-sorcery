@@ -736,6 +736,7 @@ export class WeaponView {
     this.concurrent = Boolean(policy?.concurrent);
     this.combatPlayer = player;
     this.combatServerNow = serverNow;
+    this.combatLocalNow = this.now();
   }
 
   reconcileCast(player, serverNow) {

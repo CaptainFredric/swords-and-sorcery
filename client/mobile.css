@@ -88,6 +88,8 @@ button, input { touch-action: manipulation; }
 .touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
 .touch-deploy { --size: 58px; right: calc(var(--safe-r) + 196px * var(--s)); bottom: calc(var(--safe-b) + 164px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
 .touch-siegeView { --size: 58px; right: calc(var(--safe-r) + 122px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); }
+/* The on-foot VIEW toggle keeps its familiar control, with a persistent visual state. */
+.touch-siegeView.on { border-color: #e6c46a; background: radial-gradient(circle, rgba(230,196,106,.35), rgba(55,48,31,.82)); box-shadow: inset 0 0 0 1px rgba(240,212,142,.35), 0 2px 10px #0008; }
 .touch-btn[hidden] { display: none; }
 .touch-mounted :is(.touch-guard, .touch-dash, .touch-spell, .touch-jump, .touch-sprint, .touch-crouch, .touch-gauntlet, .touch-ultimate) { display: none; }
 

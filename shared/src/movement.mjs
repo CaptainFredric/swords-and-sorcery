@@ -202,7 +202,23 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   if (state.crouched) state.sprinting = false;
 
   const inDash = nowSec < state.dashUntil;
-  if (inDash) {
+  // Rigid Riposte is a committed 5.7 m thrust, not an ordinary Dash. Integrate
+  // its exact time-window displacement through the SAME horizontal collision
+  // substeps, ramps, ground and Edge boundary that resolve all player movement.
+  // Partially covered authoritative ticks move only their fraction of 5.7 m.
+  const technique = previous.swordTechnique;
+  const lunge = technique?.contract?.kind === 'riposte' && technique.phase !== 'recovery'
+    ? technique.contract : null;
+  const thrustFrom = (technique?.initialStartedAt ?? nowSec) + (lunge?.activeFrom ?? 0);
+  const thrustUntil = (technique?.initialStartedAt ?? nowSec) + (lunge?.activeUntil ?? 0);
+  const thrustOverlap = lunge ? Math.max(0, Math.min(nowSec, thrustUntil) - Math.max(nowSec - dt, thrustFrom)) : 0;
+  if (!inDash && thrustOverlap > 0 && dt > 0) {
+    const speed = lunge.lungeDistance * thrustOverlap / ((lunge.activeUntil - lunge.activeFrom) * dt);
+    const yaw = technique.lungeYaw ?? previous.yaw ?? 0;
+    state.velocity.x = -Math.sin(yaw) * speed + state.impulse.x;
+    state.velocity.z = -Math.cos(yaw) * speed + state.impulse.z;
+    state.sprintBlend = 0;
+  } else if (inDash) {
     const dashSpeed = MOVEMENT.dashDistance / MOVEMENT.dashDuration;
     state.velocity.x = state.dashDir.x * dashSpeed;
     state.velocity.z = state.dashDir.z * dashSpeed;

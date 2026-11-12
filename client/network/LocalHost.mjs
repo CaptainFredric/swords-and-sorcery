@@ -1,4 +1,5 @@
 import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
+import {normalizeSwordTechnique} from '../../shared/src/swordTechniqueContracts.mjs';
 // The browser hosts Practice Yard and Bot Duel on the same simulation the server runs (shared/sim), a room with you,
 // its bots and its dummies. It speaks exactly like GameSocket (the same messages, the same methods), so the rest of
 // the client plays it without knowing the difference. Nothing online lives here: no rooms to join, no matchmaking.
@@ -82,6 +83,7 @@ export class LocalHost {
     this.room = null;
     this.timer = null;
     this.spell = DEFAULT_SPELL;
+    this.technique = 'rigid_riposte';
     this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
@@ -162,7 +164,7 @@ export class LocalHost {
         if (cached) this.setProfile(cached);
       } catch {}
     }
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, technique: this.technique, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
     player.cloth = this.cloth;
     player.emblem = this.emblem || this.profile?.emblem || DEFAULT_EMBLEM;
     player.emblems = this.emblems?.length ? [...this.emblems] : (this.profile?.emblems ? [...this.profile.emblems] : []);
@@ -774,8 +776,9 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout) {
+  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout, technique = this.technique) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
+    this.technique = normalizeSwordTechnique(technique);
     this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     this.preparedSpells = normalizePreparedSpells(this.spell, preparedSpells);
     this.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
@@ -785,10 +788,12 @@ export class LocalHost {
     else if(player)player.queuedSiegeLoadout={...this.siegeLoadout};
     if (!player) return;
     player.startingSpell = this.spell;
+    player.startingTechnique = this.technique;
     player.startingPreparedSpells = [...this.preparedSpells];
     player.startingUltimate = this.ultimateId;
     if (this.room?.state !== 'PLAYING') {
       player.spell = this.spell;
+      player.technique = this.technique;
       player.preparedSpells = [...this.preparedSpells];
       player.ultimate = this.ultimateId;
       player.spellReadyAt = player.spellReadyById?.[this.spell] ?? -Infinity;
@@ -901,6 +906,7 @@ export class LocalHost {
   practicePerryDismiss() { this.#command({ type: 'practicePerryDismiss' }); }
   setInputSampler(sampler) { this.inputSampler = typeof sampler === 'function' ? sampler : null; }
   input(input) { this.#command({ type: 'input', ...input }); }
+  technique(down) { this.#command({type:'technique',down:Boolean(down)}); }
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
   cast(direction) { this.#command({ type: 'cast', direction, clientTime: this.now() }); }

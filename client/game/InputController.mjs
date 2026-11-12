@@ -14,16 +14,18 @@ const PRESS = {
   deploy: (input) => input.deploy(),
   siegeSkill: (input) => input.siegeSkill(),
   siegeWeapon: (input) => input.siegeWeapon(),
+  technique: (input) => input.technique(true,'binding'),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
   attack: (input) => input.setAttack(false),
   guard: (input) => input.setGuard(false),
   scoreboard: (input) => { input.scoreboardHeld = false; },
+  technique: (input) => input.technique(false,'binding'),
 };
 const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
 const MOVE_ACTIONS = new Set(['forward', 'back', 'left', 'right']);
-const GATED_ACTIONS = new Set([...MOVE_ACTIONS, 'sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate']);
+const GATED_ACTIONS = new Set([...MOVE_ACTIONS, 'sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate', 'technique']);
 // the menus handle these themselves (they work outside the arena too)
 const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
@@ -38,6 +40,7 @@ export class InputController {
     this.clearTimer = clearTimer;
     this.attackSources = new Set();
     this.guardSources = new Set();
+    this.techniqueSources = new Set();
     this.ultimateSources = new Set();
     this.ultimateGesture = null;
     this.oneHitWaveId = null;
@@ -135,6 +138,7 @@ export class InputController {
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(true,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
     if(this.mountedRam&&action==='dash')return;
@@ -153,6 +157,7 @@ export class InputController {
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(false,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
@@ -241,7 +246,10 @@ export class InputController {
       if (this.enabled && action) {
         event.preventDefault();
         if (this.blockedKeys.has(event.code)) return;
-        if (this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
+        const onFootX=action==='siegeWeapon'&&!this.mountedBallista&&!this.mountedRam&&!this.mountedFlight;
+        if (this.allowAction?.(onFootX?'technique':MOVE_ACTIONS.has(action)?'move':action, !event.repeat) === false) {
+          this.blockedKeys.add(event.code); return;
+        }
       }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       if (event.code === 'KeyV' && !event.repeat && this.enabled && !this.suspended) {
@@ -278,7 +286,13 @@ export class InputController {
       // Their compatibility mouse clicks must never become a sword press.
       if (event.sourceCapabilities?.firesTouchEvents || event.target?.closest?.('button, input, select, textarea, summary, a, [role=dialog]')) return;
       if (!this.enabled && !this.pointerLocked) return;
+      if(this.actionOf.get('Mouse'+event.button))event.preventDefault();
       this.handleMouseButtonDown(`Mouse${event.button}`);
+    });
+    // Chrome may interpret auxiliary Mouse4 clicks as navigation unless the
+    // on-foot action consumes the auxiliary click, not only mousedown.
+    this.#listen(document,'auxclick',event=>{
+      if(this.enabled&&this.actionOf.get('Mouse'+event.button))event.preventDefault();
     });
 
     this.#listen(document, 'mouseup', (event) => {
@@ -419,6 +433,16 @@ export class InputController {
     this.onAttackLocal(this.attackHeld);
   }
 
+  technique(down,source='touch'){
+    if(down&&(!this.enabled||this.mountedBallista||this.mountedRam||this.mountedFlight||
+      !this.gateHeldAction('technique',true,source)))return;
+    const before=this.techniqueSources.size>0;
+    if(down)this.techniqueSources.add(source);
+    else{this.techniqueSources.delete(source);this.gateHeldAction('technique',false,source);}
+    const held=this.techniqueSources.size>0;
+    if(held!==before)this.socket?.technique?.(held);
+  }
+
   setGuard(held, source = 'touch') {
     const accepted = this.gateHeldAction('guard', Boolean(held), source);
     if (held && !accepted) return;
@@ -449,6 +473,7 @@ export class InputController {
     this.cancelPreparedGesture();
     this.attackSources.clear();
     this.guardSources.clear();
+    if(this.techniqueSources.size){this.techniqueSources.clear();this.socket?.technique?.(false);}
     this.preparedConsumedKeys.clear();
     if (this.allowAction) {
       for (const code of this.keys) if (GATED_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);

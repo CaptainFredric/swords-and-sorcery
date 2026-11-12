@@ -221,6 +221,10 @@ registry
     validate: (ids) => normalizePreparedSpells(Array.isArray(ids) ? ids.find(isSpell) : 'fireball', ids),
   })
   .defineSetting({
+    id: 'loadout.technique', section: 'loadout', label: 'Sword Technique', type: 'choice', default: 'rigid_riposte',
+    options: [{value:'rigid_riposte',label:'Rigid Riposte'}, {value:'whirl_wind',label:'Whirl Like the Wind'}]
+  })
+  .defineSetting({
     id: 'loadout.bibyeSkill', section: 'loadout', label: 'Bi-Bye-llista Skill', type: 'choice', default: 'boltToTheOccasion',
     options: [{value:'boltToTheOccasion',label:'Bolt to the Occasion'},{value:'coldHowTouching',label:'Cold, How Touching'}]
   })
@@ -253,8 +257,9 @@ registry
   .defineAction({ id: 'interact', label: 'Operate / Interact', group: 'Combat', keys: ['KeyT'] })
   .defineAction({ id: 'deploy', label: 'Deploy / Mobile Mode', group: 'Combat', keys: ['KeyB'] })
   .defineAction({ id: 'siegeSkill', label: 'Siege machine Skill', group: 'Siege', keys: ['KeyU'] })
-  .defineAction({ id: 'siegeWeapon', label: 'Ballista weapon focus / cancel alignment', group: 'Siege', keys: ['KeyX'] })
-  .defineAction({ id: 'siegeView', label: 'Mounted siege view', group: 'Interface', keys: ['KeyZ'] })
+  .defineAction({ id: 'siegeWeapon', label: 'On foot: Technique / mounted: weapon focus', group: 'Siege', keys: ['KeyX'] })
+  .defineAction({ id: 'technique', label: 'Sword Technique (hold Whirl)', group: 'Abilities', keys: ['Mouse4'] })
+  .defineAction({ id: 'siegeView', label: 'View: first/third person or siege optics', group: 'Interface', keys: ['KeyZ'] })
   // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
   .defineAction({ id: 'inspectEffects', label: 'Inspect active status effects', group: 'Interface', keys: ['KeyI'] })

@@ -152,7 +152,49 @@ function disasterPlan(player, serverNow) {
   return { ...authored(entry, entry.contact + elapsed), ...follow };
 }
 
+// Animation clips share the action's authoritative clock. Enter is blended
+// into the EXISTING 0.22 s Rigid interception and first 0.6 s Whirl, never
+// inserted as extra startup. The supplied GLBs must be shipped separately.
+export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false, grounded=true) {
+  if(!action)return null;
+  const clipPrefix=firstPerson?'FP_':'';
+  const age=Math.max(0,serverNow-(action.startedAt??serverNow));
+  const key=action.initialStartedAt??action.startedAt;
+  const clip=(name,at,extra={})=>({
+    ...fixed(clipPrefix+name,at),actionKey:key,blend:.08,
+    fallback:firstPerson?'Idle':'Guard',...extra,
+  });
+  if(action.id==='rigid_riposte'){
+    if(action.phase==='interrupted')return clip(
+      action.reason==='parried'?'Technique_RigidRiposte_Parried':'Technique_RigidRiposte_Recovery',age);
+    if(action.aerial&&age<.48)return clip('Technique_RigidRiposte_Air',age);
+    if(age<.1)return clip('Technique_RigidRiposte_Enter',age);
+    if(age<.22)return clip('Technique_RigidRiposte_Interception',age);
+    if(age<.48)return clip('Technique_RigidRiposte_Thrust',age-.22);
+    return clip('Technique_RigidRiposte_Recovery',age-.48);
+  }
+  if(action.id==='whirl_wind'){
+    if(action.phase==='interrupted')return clip(
+      action.aerial?'Technique_Whirl_AirRecovery':'Technique_Whirl_Interrupted',age);
+    if(action.phase==='recovery'){
+      const began=(action.endsAt??serverNow)-.25;
+      return clip(grounded?'Technique_Whirl_Exit':'Technique_Whirl_AirRecovery',
+        serverNow-began);
+    }
+    // The entry occupies the start of the active revolution. Its source
+    // clip is not allowed to delay sword-contact authority.
+    if(action.revolutions===1&&age<.2)return clip('Technique_Whirl_Enter',age);
+    return clip(action.galeLift?'Technique_Whirl_GaleLift':'Technique_Whirl_Revolution',
+      age,{loop:true});
+  }
+  return null;
+}
+
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
+  if(player.swordTechnique&&state!=='dead'){
+    const technique=swordTechniqueAnimationPlan(player.swordTechnique,serverNow,false,player.grounded);
+    if(technique)return technique;
+  }
   const layers = concurrentPresentation(player, serverNow, player.castPoseUntil, player.castPoseStartAt);
   if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
     const still = fixed('Idle', idleTime(localTime), true);
@@ -267,6 +309,12 @@ function guardHoldTime(clock) {
 }
 
 export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
+  if(view.combatPlayer?.swordTechnique){
+    const authority=view.combatServerNow+Math.max(0,timeSec-(view.combatLocalNow??timeSec));
+    const authored=swordTechniqueAnimationPlan(view.combatPlayer.swordTechnique,
+      authority,true,view.combatPlayer.grounded);
+    if(authored)return authored;
+  }
   if (view.concurrent) {
     const still = { clip: 'Idle', loop: true, time: idleTime(timeSec) };
     const guard = { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };

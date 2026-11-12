@@ -14,6 +14,6 @@ export function combatActionPolicy(player, nowSec) {
 export function combatBlocksSprint(player, nowSec, {
   guarding = player?.guarding, attacking = player?.attackActive, casting = Boolean(player?.pendingSpell || player?.castEndsAt > nowSec),
 } = {}) {
-  if ((player?.staggerUntil ?? 0) > nowSec || ultimateStartup(player, nowSec)?.id === 'chivalry' || vortexing(player, nowSec)) return true;
+  if (player?.swordTechnique || (player?.staggerUntil ?? 0) > nowSec || ultimateStartup(player, nowSec)?.id === 'chivalry' || vortexing(player, nowSec)) return true;
   return !combatActionPolicy(player, nowSec).concurrent && Boolean(guarding || attacking || casting);
 }

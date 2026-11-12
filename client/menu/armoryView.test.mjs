@@ -102,20 +102,25 @@ test('Armory facts derive All-Natural Disaster and Line of Conduct values from t
   assert.match(gale.facts, /shove to 11m/);
 });
 
-test('the longsword is equipment and the two Sword Techniques are training previews', () => {
-  const view = armoryView('fireball');
+test('the longsword is the weapon and both Sword Techniques are equippable', () => {
+  const view = armoryView('fireball', 'sunder', 'rigid_riposte');
   assert.equal(view.techniques.length, 2);
   assert.match(view.blade.name, /longsword/i);
   assert.match(view.blade.facts, /Three-strike combo/);
-  assert.ok(view.techniques.every(technique => !technique.equipped));
 
   const riposte = view.techniques.find((t) => t.id === 'rigid_riposte');
-  assert.equal(riposte.disabled, true);
-  assert.equal(riposte.status, 'IN TRAINING');
-  assert.match(riposte.line, /Rigid Riposte|forward sword thrust/i);
+  assert.equal(riposte.disabled, false);
+  assert.equal(riposte.status, 'AVAILABLE');
+  assert.equal(riposte.equipped, true);
+  assert.match(riposte.line, /forward sword thrust/i);
 
   const whirl = view.techniques.find((t) => t.id === 'whirl_wind');
-  assert.equal(whirl.disabled, true);
-  assert.equal(whirl.status, 'IN TRAINING');
-  assert.match(whirl.line, /Whirl Like the Wind|360°/i);
+  assert.equal(whirl.disabled, false);
+  assert.equal(whirl.status, 'AVAILABLE');
+  assert.equal(whirl.equipped, false);
+  assert.match(whirl.line, /360°/i);
+
+  const switched = armoryView('fireball', 'sunder', 'whirl_wind');
+  assert.equal(switched.techniques.find((t) => t.id === 'whirl_wind').equipped, true);
+  assert.equal(switched.techniques.find((t) => t.id === 'rigid_riposte').equipped, false);
 });

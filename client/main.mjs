@@ -1797,7 +1797,7 @@ function applySettings() {
 }
 const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
-  settings.get('loadout.preparedSpells'),siegeSelections());
+  settings.get('loadout.preparedSpells'),siegeSelections(),settings.get('loadout.technique'));
 // Seed the solo host from the same validated settings the Armory displays, including after reload.
 transmitLoadout();
 const settingsPanel = new SettingsPanel({
@@ -1830,6 +1830,7 @@ settings.onChange((change) => {
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
   }
+  if(change.id==='loadout.technique'){transmitLoadout();renderArmory();}
   if (change.id === 'loadout.preparedSpells') {
     transmitLoadout();
     renderArmory();
@@ -1883,7 +1884,7 @@ function updatePlaques() {
   const currentUltId = settings.get('loadout.ultimate');
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
-  const view = armoryView(currentSpellId, currentUltId);
+  const view = armoryView(currentSpellId, currentUltId, settings.get('loadout.technique'));
 
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
@@ -1945,25 +1946,26 @@ function renderInspectorLists() {
 
   const techContainer = $('#armory-techniques');
   if (techContainer) {
-    const unequipped = SWORD_TECHNIQUES.filter((t) => t.status !== 'EQUIPPED');
-    const equipped = SWORD_TECHNIQUES.filter((t) => t.status === 'EQUIPPED');
+    const chosen=settings.get('loadout.technique');
+    const unequipped = SWORD_TECHNIQUES.filter((t) => t.id !== chosen);
+    const equipped = SWORD_TECHNIQUES.filter((t) => t.id === chosen);
     const sortedTechs = [...unequipped, ...equipped];
 
     techContainer.innerHTML = sortedTechs.map((tech) => {
-      const isEquipped = tech.status === 'EQUIPPED';
+      const isEquipped = tech.id === chosen;
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
-      const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
+      const unavailable=Boolean(tech.disabled);
       const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
       const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
-        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (isInTraining ? '<i class="training-tag">IN TRAINING</i>' : '')}
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${unavailable ? ' disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${unavailable ? 'aria-disabled="true"' : ''}>
+        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (unavailable ? '<i>UNAVAILABLE</i>' : '')}
         <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
     }).join('');
   }
 
   const spellsContainer = $('#armory-spells');
   if (spellsContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.spells.filter((s) => !s.equipped);
     const equipped = view.spells.find((s) => s.equipped);
     const sortedSpells = bannerOrdered(equipped ? [...unequipped, equipped] : view.spells, 'sorcery', item => item.id);
@@ -1979,7 +1981,7 @@ function renderInspectorLists() {
 
   const ultimatesContainer = $('#armory-ultimates');
   if (ultimatesContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.ultimates.filter((u) => !u.equipped);
     const equipped = view.ultimates.find((u) => u.equipped);
     const sortedUlts = bannerOrdered(equipped ? [...unequipped, equipped] : view.ultimates, 'masterstroke', item => item.id);
@@ -1999,7 +2001,7 @@ function updateInspectorDetailCard() {
   const id = armoryLocation.highlightedItem;
   const equipBtn = $('#armory-equip-btn');
   const preparedRoot = $('#armory-prepared');
-  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.technique'));
 
   if (cat === 'technique') {
     const tech = SWORD_TECHNIQUES.find((t) => t.id === id) || SWORD_TECHNIQUES[0];
@@ -2009,17 +2011,18 @@ function updateInspectorDetailCard() {
     $('#inspector-card-desc').textContent = tech.line;
     $('#inspector-card-facts').textContent = factsText;
     $('#inspector-card-lore').textContent = tech.lore;
-    if (tech.disabled || tech.status === 'IN TRAINING') {
-      $('#inspector-card-status').textContent = 'IN TRAINING';
+    if (tech.disabled) {
+      $('#inspector-card-status').textContent = 'UNAVAILABLE';
       if (equipBtn) {
         equipBtn.disabled = true;
-        equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
+        equipBtn.textContent = 'UNAVAILABLE';
       }
     } else {
-      $('#inspector-card-status').textContent = 'EQUIPPED';
+      const selected=settings.get('loadout.technique')===tech.id;
+      $('#inspector-card-status').textContent = selected?'EQUIPPED':'AVAILABLE';
       if (equipBtn) {
-        equipBtn.disabled = true;
-        equipBtn.textContent = 'EQUIPPED';
+        equipBtn.disabled=selected;
+        equipBtn.textContent=selected?'EQUIPPED':'EQUIP';
       }
     }
     if (preparedRoot) preparedRoot.classList.add('hidden');
@@ -2174,11 +2177,14 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     armoryFeedback.select(itemId, prevUlt, (id) => settings.set('loadout.ultimate', id));
   } else if (category === 'technique') {
     const tech = SWORD_TECHNIQUES.find((t) => t.id === itemId);
-    if (!tech || tech.disabled || tech.status === 'IN TRAINING') {
+    if (!tech || tech.disabled) {
       renderInspectorLists();
       updateInspectorDetailCard();
       return;
     }
+    const previous=settings.get('loadout.technique');
+    settings.set('loadout.technique',itemId);
+    armoryFeedback.select(itemId,previous,id=>settings.set('loadout.technique',id));
   }
 
   lastEquippedCategory = category;
@@ -2205,7 +2211,7 @@ function openInspector(category, itemId = null) {
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
-    if (category === 'technique') itemId = SWORD_TECHNIQUES[0].id;
+    if (category === 'technique') itemId = settings.get('loadout.technique')||SWORD_TECHNIQUES[0].id;
     else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
     else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
   }
@@ -2221,7 +2227,7 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Two sword techniques are in training. The Castleward longsword is already equipped.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Equip a sword technique for battle. Your Castleward longsword remains your weapon.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
     masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };
