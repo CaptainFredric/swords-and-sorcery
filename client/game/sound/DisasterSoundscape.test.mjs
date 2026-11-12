@@ -174,3 +174,50 @@ test('Electrical residual sound follows the REAL one-second wire, not imaginary 
   sound.update(snapshot,2.7);
   assert.equal(played.length,before,'no ghost wire after server removal');
 });
+
+test('Layering five infusions never weakens the initial base-earth hit',()=>{
+  const none=fixture();
+  const full=fixture();
+  const point={x:1,y:0,z:0};
+  none.sound.onEvent({type:'oneHitImpact',impactId:null,playerId:'a',
+    tiers:{fire:0,frost:0,gale:0,lightning:0,steel:0},
+    form:'ground',point,at:1});
+  full.sound.onEvent({type:'oneHitImpact',impactId:null,playerId:'a',
+    tiers:{fire:2,frost:2,gale:2,lightning:2,steel:2},
+    form:'ground',point,at:1});
+  assert.equal(none.played[0].gain,full.played[0].gain,
+    'base earth amplitude does not shrink under five infusions');
+  assert.ok(full.played.length>none.played.length);
+  assert.ok(full.played.slice(1).every(p=>p.gain<full.played[0].gain),
+    'each elemental accent is secondary to the impact anchor');
+  assert.equal(new Set(full.played.slice(1).map(p=>p.delay)).size,5,
+    'five signatures are staggered and not one overloaded sound');
+});
+test('Decay-scaled Shaken field is still an audible warning halfway through its real lifetime',()=>{
+  const {sound,played}=fixture();
+  const snapshot={players:[],oneHitFields:[field()],oneHitWaves:[]};
+  sound.update(snapshot,.0);
+  sound.update(snapshot,.30);
+  const beginning=played.at(-1);
+  sound.update(snapshot,2.3);
+  const late=played.at(-1);
+  assert.ok(beginning?.recipe.layers[0]?.gain>late?.recipe.layers[0]?.gain,
+    'geological pulses reflect weakening ground');
+  assert.equal(beginning.gain,late.gain,
+    'do not multiply the same decay factor twice');
+  assert.ok(late.recipe.layers[0].gain>=beginning.recipe.layers[0].gain*.45,
+    'half-life field should remain audible instead of nearly vanishing');
+});
+test('Sustained Gale's ambient tail follows the actual 1.25s cone, not a .75s approximation',()=>{
+  const {sound}=fixture();
+  const burst={type:'galeBlast',playerId:'a',
+    origin:{x:1,y:0,z:0},mode:'sustained',at:2};
+  sound.onEvent(burst);
+  const gust=sound.gusts.get('a');
+  assert.ok(gust);
+  assert.equal(gust.until,3.25);
+  sound.update({players:[],oneHitFields:[],oneHitWaves:[]},3.1);
+  assert.ok(sound.gusts.has('a'));
+  sound.update({players:[],oneHitFields:[],oneHitWaves:[]},3.26);
+  assert.equal(sound.gusts.size,0);
+});
