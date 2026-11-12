@@ -1139,7 +1139,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
         // automatic parry. A successful timing gesture becomes the same
         // two-impact Guard block it would have been if held normally.
         // Vortex's moving sword also guards, but is never a perfect parry.
-        guardAgeMs: sunder || bladeGuard ? Infinity :
+        guardAgeMs: empowered || bladeGuard ? Infinity :
           automaticParry ? 0 : (nowSec - target.guardStartedAt) * 1000,
         stamina: target.guardStamina,
         profile: guardProfile(target.knightClass),
