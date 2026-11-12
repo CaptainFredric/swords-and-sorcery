@@ -18,7 +18,7 @@ export class AfflictionPanel {
     this.dock.setAttribute('aria-label', 'Status effects affecting your Spellblade');
     this.dock.hidden = true;
     this.dock.innerHTML =
-      '<div class="affliction-heading"><span>AFFLICTIONS</span><small class="affliction-help">I · INSPECT</small></div>' +
+      '<div class="affliction-heading"><span>AFFLICTIONS</span><small class="affliction-help">SELECT TO INSPECT</small></div>' +
       '<div class="affliction-icons" role="group" aria-label="Active status effects"></div>' +
       '<section class="affliction-detail" id="affliction-detail" aria-label="Selected status effect" hidden>' +
         '<header><strong class="affliction-name"></strong><button class="affliction-dismiss" type="button" aria-label="Close effect details">×</button></header>' +
