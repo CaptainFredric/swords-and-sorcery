@@ -155,7 +155,6 @@ test('Disaster release packet preserves valid final camera aim on both transport
   ]);
   const local=new LocalHost({every:()=>1,cancel:()=>{},later:()=>{}});
   const captured=[];
-  const original=local.room;
   // The transport contract is the same whether GameLink currently chooses
   // its remote or the browser's local authoritative host.
   const remote={on:()=>{},oneHitRelease:packet=>captured.push(packet)};
