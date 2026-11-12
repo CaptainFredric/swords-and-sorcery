@@ -22,7 +22,10 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
     if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TELEPORT',word:'RELEASE',ultimate};
     if(Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased){
       const ready=state.partialLightningReadyAt-serverNow;
-      return {state:'bracing',charge:1,label:ready>0?'PREP '+ready.toFixed(1):'CHARGED',word:'RELEASE',ultimate};
+      const expires=Math.max(0,state.commitAt-serverNow);
+      return {state:'bracing',charge:1,
+        label:ready>0?'PREP '+ready.toFixed(1):'HOLD '+expires.toFixed(1),
+        word:'RELEASE',ultimate};
     }
     if(state.groundRelease&&serverNow>=state.groundRelease.readyAt&&serverNow<state.groundRelease.until){
       const left=state.groundRelease.until-serverNow;
