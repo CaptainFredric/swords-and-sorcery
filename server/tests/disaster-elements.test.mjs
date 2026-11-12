@@ -852,7 +852,11 @@ test('field lifetimes: four seconds and 0.3 more for each distinct element, Half
     assert.equal(room.oneHitFields.length, 1, 'still there just before');
     run(room, now + expected - .2, .4);
     assert.equal(room.oneHitFields.length, 0, 'gone just after');
-    assert.equal(room.oneHitBurnZones.length, 0);
+    // Grounded Full Gale now launches a SECOND, later-travelling wave whose
+    // Full Fire terminal can leave its own (later-expiring) burning patch.
+    assert.equal(room.oneHitBurnZones.length,tiers.fire===2&&tiers.gale===2?1:0);
+    run(room,now+expected+.2,1);
+    assert.equal(room.oneHitBurnZones.length,0);
   });
 });
 
@@ -986,7 +990,7 @@ test('aerial: Half Fire widens the wave on every side and ends it in an explosio
   assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 1, 'below (the wave passing 1.4 m over a knight\'s chest)');
   assert.equal(fly({}, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 0, 'which the plain wave clears');
   assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 2 }).hits.length, 0, 'not beyond it');
-  // where it ends (the wall at x = 11.8): 2.6 m from it is beyond the plain gust (2.2), inside Fire's explosion (3.0)
+  // where it ends (the wall at x = 11.8): 2.6 m from it is beyond the plain gust (2.2), inside Fire's explosion (3.4)
   const plain = fly({ frost: 1 }, { x: 10.6, y: 0, z: 2.4 });
   assert.equal(plain.hits.length, 0, 'the plain landing gust does not reach, and deals no HP when it does');
   const blast = fly({ fire: 1, frost: 1, lightning: 1 }, { x: 10.6, y: 0, z: 2.4 });
