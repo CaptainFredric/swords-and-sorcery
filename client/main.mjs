@@ -2078,11 +2078,7 @@ function animateCardReorder(category, selectedItemId) {
         if (Math.abs(deltaY) < 0.5) continue;
         const selected = card === target;
         card.getAnimations().forEach(animation => animation.cancel());
-        card.animate(selected ? [
-          { transform: `translateY(${deltaY}px) scale(1)`, offset: 0 },
-          { transform: `translateY(${deltaY * .18}px) scale(1.028)`, offset: .70 },
-          { transform: 'translateY(0) scale(1)', offset: 1 },
-        ] : [
+        card.animate([
           { transform: `translateY(${deltaY}px)` },
           { transform: 'translateY(0)' },
         ], {
