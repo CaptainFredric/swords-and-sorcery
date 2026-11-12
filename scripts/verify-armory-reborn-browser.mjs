@@ -230,17 +230,19 @@ try {
     const cards=[...document.querySelectorAll('#armory-spells .spell-card')];
     const scroll=document.querySelector('#armory-inspector .inspector-scroll');
     const detail=document.querySelector('#inspector-item-card');
-    const card=cards.at(-1);
+    const card=cards.find(card=>card.dataset.spell==='gale');
+    const view=scroll.getBoundingClientRect();
+    const r=card.getBoundingClientRect();
     return {
-      last:card?.dataset.spell,
       selected:card?.classList.contains('equipped'),
+      visible:r.top>=view.top-2&&r.bottom<=view.bottom+2,
       noLegacyBounce:getComputedStyle(card).animationName==='none',
-      detailBelow:detail.getBoundingClientRect().top>card.getBoundingClientRect().bottom,
+      detailBelow:detail.getBoundingClientRect().top>cards.at(-1).getBoundingClientRect().bottom,
       canSwipe:scroll.scrollHeight>scroll.clientHeight,
     };
   })()`);
-  assert.equal(equipmentMotion.last,'gale','newly selected Sorcery slides to final list position');
   assert.equal(equipmentMotion.selected,true);
+  assert.equal(equipmentMotion.visible,true,'selected Sorcery stays within the CURRENT visible banner');
   assert.equal(equipmentMotion.noLegacyBounce,true,'no conflicting equip scale keyframes');
   assert.equal(equipmentMotion.detailBelow,true,'details remain below the options');
   assert.equal(equipmentMotion.canSwipe,true,'downward swipe exposes equipment details');
@@ -269,6 +271,38 @@ try {
   assert.match(afterEquip.summary, /Gale Garner/i);
   assert.equal(afterEquip.cardStatus, 'EQUIPPED');
   console.log('[VERIFY] Gale Garner successfully equipped:', afterEquip);
+
+  // Regression: start with an equipped option low in the list, scroll all
+  // the way back to Fireball, and select it. The banner must NOT jump down.
+  await evaluate(`(() => {
+    const scroll=document.querySelector('#armory-inspector .inspector-scroll');
+    scroll.scrollTop=scroll.scrollHeight;
+  })()`);
+  await sleep(100);
+  await evaluate(`document.querySelector('#armory-inspector .inspector-scroll').scrollTop=0`);
+  await sleep(120);
+  const fireballBefore=await evaluate(`(() => {
+    const scroller=document.querySelector('#armory-inspector .inspector-scroll');
+    const el=document.querySelector('#armory-spells [data-spell="fireball"]');
+    const v=scroller.getBoundingClientRect(),r=el.getBoundingClientRect();
+    return {scroll:scroller.scrollTop,visible:r.top>=v.top-2&&r.bottom<=v.bottom+2};
+  })()`);
+  assert.equal(fireballBefore.visible,true,'Fireball is visible at the top of Sorcery');
+  await evaluate(`document.querySelector('#armory-spells [data-spell="fireball"]').click()`);
+  await sleep(600);
+  const fireballAfter=await evaluate(`(() => {
+    const scroller=document.querySelector('#armory-inspector .inspector-scroll');
+    const el=document.querySelector('#armory-spells [data-spell="fireball"]');
+    const v=scroller.getBoundingClientRect(),r=el.getBoundingClientRect();
+    return {scroll:scroller.scrollTop,visible:r.top>=v.top-2&&r.bottom<=v.bottom+2,
+      selected:el.classList.contains('equipped'),index:[...el.parentNode.children].indexOf(el)};
+  })()`);
+  assert.ok(Math.abs(fireballAfter.scroll-fireballBefore.scroll)<3,
+    'selecting distant Fireball must preserve scroll position');
+  assert.equal(fireballAfter.visible,true,
+    'Fireball must finish within the currently visible banner, not at the list bottom');
+  assert.equal(fireballAfter.selected,true);
+  await screenshot('02b-sorcery-fireball-visible-window.png');
 
   // Close inspector
   await evaluate("document.querySelector('#armory-inspector-close').click()");
