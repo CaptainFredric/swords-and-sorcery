@@ -142,14 +142,14 @@ export function primeSoFistSkill(room,b,p,now){
  // from Long Arm to Beat after a throw can permanently strand the gauntlet.
  if(b?.detachedFist?.state==='resting'||b?.skill?.id==='longArmToTheJaw')
   return requestLongArmToJaw(room,b,p,now);
- if(!skillOperator(room,b,p,now)||!hasFist(b)||b.components.Drive.health<=0)return 'The fist and drive must be functioning.';
+ if(!skillOperator(room,b,p,now)||b.components.Drive.health<=0)return 'The piston drive must be functioning.';
  if(!primeSiegeSkill(b,now))return 'Beat to the Punch is cooling down or already primed.';
  b.skill.chassisDamage=0;b.skill.failureThreshold=sampleRamFailure(room);
  b.skill.integratedHazard=0;skillEvent(room,b,now,'primed');return null;
 }
 function triggerSoFistSkill(room,b,now,reason){
  if(b.skill?.phase!=='primed')return;
- if(!skillOperator(room,b,room.players.get(b.operatorId),now)||!hasFist(b)||b.components.Drive.health<=0){endSiegeSkill(b,now);return;}
+ if(!skillOperator(room,b,room.players.get(b.operatorId),now)||b.components.Drive.health<=0){endSiegeSkill(b,now);return;}
  const from=soFistPose(b,now).offset,prepare=Math.max(.14,(from+.105*SO_FIST_SCALE)/4.5);
  b.skillStroke={from,prepare};b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strokePreviousOffset=from;
  b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];b.strikeOperatorId=b.operatorId;
@@ -158,7 +158,7 @@ function triggerSoFistSkill(room,b,now,reason){
 function stepSoFistSkill(room,b,now){
  if(b.skill?.phase!=='primed')return;
  const p=room.players.get(b.operatorId);
- if(!skillOperator(room,b,p,now)||!hasFist(b)||b.components.Drive.health<=0){
+ if(!skillOperator(room,b,p,now)||b.components.Drive.health<=0){
   endSiegeSkill(b,now);skillEvent(room,b,now,'ended');return;
  }
  // Preserve genuine enemy-reach and hull-damage releases through the same
@@ -450,7 +450,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,health:target.health,maxHealth:target.maxHealth??b.maxHealth,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(componentId==='Drive'&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
