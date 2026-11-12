@@ -209,8 +209,11 @@ try {
   assert.match(sorceryInspectorOpen.title, /CHOOSE SPELL OR WARD/);
   assert.ok(sorceryInspectorOpen.spellsCount >= 4);
 
-  // Highlight Gale Garner
+  // Highlight Gale Garner from a genuinely visible card; scripted clicks on
+  // offscreen DOM nodes cannot represent the player's touch interaction.
   console.log('[VERIFY] Highlighting Gale Garner...');
+  await evaluate("document.querySelector('[data-spell=\"gale\"]').scrollIntoView({block:'center',behavior:'instant'})");
+  await sleep(100);
   await evaluate("document.querySelector('[data-spell=\"gale\"]').click()");
   await sleep(400);
 
