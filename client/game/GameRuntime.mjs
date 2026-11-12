@@ -117,6 +117,7 @@ import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
+import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
 // the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
