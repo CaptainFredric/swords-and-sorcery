@@ -117,6 +117,28 @@ test('Non-Fire terminal gust inflicts ALL infusion statuses without inventing de
   assert.equal(room.oneHitFields[0].radius,event.radius);
   assert.equal(room.events.some(e=>e.type==='damage'&&e.victimId===b.id&&e.source==='one_hit_of_wonders'),false);
 });
+test('An untouched enemy entering the base field gets decaying Shaken once, without re-entry farming',()=>{
+  const {room,a,b}=setup();
+  assert.equal(tryUltimate(room,'a',9),true);
+  tick(room,9,10.05);
+  assert.equal(room.oneHitFields.length,1);
+  assert.equal(b.shaken,null);
+  b.position={x:2.95,y:0,z:0};
+  tick(room,10.06,10.16);
+  assert.ok(b.shaken,'even zero-infused terrain now Shakes a fresh entrant');
+  assert.equal(b.health,100,'the field itself does no HP damage');
+  assert.equal(room.events.filter(e=>e.type==='oneHitFieldShaken'&&e.playerId===b.id).length,1);
+  const first=b.shaken.at;
+  b.position={x:40,y:0,z:0};
+  tick(room,10.17,10.29);
+  b.position={x:2.95,y:0,z:0};
+  tick(room,10.30,10.42);
+  assert.equal(room.events.filter(e=>e.type==='oneHitFieldShaken'&&e.playerId===b.id).length,1,
+    'a second step into the same weaker field cannot restart Shaken');
+  assert.ok(b.shaken.at>=first,'Shaken can be held back by the field itself');
+  assert.ok(room.oneHitFields[0].shakenContact[b.id]>0);
+});
+
 test('Base-field rock fracture telegraph persists, fades with field strength and is cleaned up',()=>{
   const effects=readFileSync(new URL('../../client/game/DisasterElementEffects.mjs',import.meta.url),'utf8');
   assert.match(effects,/name='disaster-shaken-ground-field'/);
