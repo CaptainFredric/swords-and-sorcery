@@ -1317,6 +1317,7 @@ export class GameRuntime {
       }
       this.effects?.setDensity(this.view.particles ?? 1);
       this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
+      this.disasterSound?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
     if (input) {
@@ -1338,6 +1339,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
+    this.disasterSound?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
