@@ -159,6 +159,16 @@ export class SiegeWorkshopPerformance {
       actor.guard.visible=Boolean(state.guard);
       actor.hit.visible=false;
       const hasBar=skill==='fireAwayRightHere'||skill==='narrowToOne';
+      // A terminal Valkyrie crash destroys all three targets at the same instant.
+      // They stay down until the player exits or explicitly replays the preview.
+      if(skill==='doNotStopMyAscension' && t>=5.55 && t<6.75){
+        actor.hit.visible=true;
+        actor.hit.position.set(0,1.05,0);
+        const burst=smooth((t-5.55)/.28)*(1-smooth((t-6.08)/.67));
+        actor.hit.scale.setScalar(1+8*burst);
+        actor.hit.material.opacity=.72*burst;
+        actor.hit.material.color.setHex(0xff9a3a);
+      }
       actor.meter.visible=hasBar;
       if(hasBar){
         const cues=workshopPreviewShots(skill);
