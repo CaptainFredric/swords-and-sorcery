@@ -1154,9 +1154,9 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
       target.parries += 1;
       const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
       if (!suppressParryReel) {
-        // (a Sundering knight turned by a perfect guard is stopped, and staggered for less: the blow is theirs to lose,
-        // not the whole of their Sunder)
-        attacker.staggerUntil = nowSec + (sunder ? ultimateFor('sunder').parriedSec : GAME.parryStaggerMs / 1000);
+        // Only ordinary sword blows (including a Sunder canceled by Sheathe
+        // in Steel) can be parried. Empowered Sunder is never in this branch.
+        attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
         stopSwordChain(attacker, {}, room, nowSec);
       }
       gainProwess(room, target, PROWESS.parry);
