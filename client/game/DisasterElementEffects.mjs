@@ -735,9 +735,9 @@ export class DisasterElementEffects {
     // its Shaken suppression and Guard drain wane. Frost can cover the rock
     // without making its original broken earth abruptly disappear.
     const ice=field.tiers?.frost===2;
-    data.floor.material.opacity=(ice?.08:.11)+strength*(ice?.11:.25);
-    data.cracks.material.opacity=(ice?.17:.26)+strength*(ice?.23:.56);
-    data.bits.material.opacity=.18+.75*strength;
+    data.floor.material.opacity=(ice?0.2:0.36)*strength;
+    data.cracks.material.opacity=(ice?0.42:0.82)*strength;
+    data.bits.material.opacity=0.93*strength;
     if(now-data.poseAt<.11)return;
     data.poseAt=now;
     for(let i=0;i<data.pebbles.length;i++){
