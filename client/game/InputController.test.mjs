@@ -788,3 +788,18 @@ test('custom E/C hydraulic action bindings remain mounted-only and cannot dismou
   up('KeyT');up('Mouse2');input.mountedRam=false;input.dispose();
 });
 
+
+test('Full Gale plus Full Lightning can aim directly up/down; ordinary controls retain camera comfort limits',()=>{
+  const {input}=setup();
+  input.turn(0,10);
+  assert.equal(input.pitch,1.45);
+  input.disasterThreeDAim=true;
+  input.turn(0,10);
+  assert.equal(input.pitch,Math.PI/2);
+  input.turn(Math.PI*1.5,-10);
+  assert.equal(input.pitch,-Math.PI/2);
+  assert.ok(input.yaw>Math.PI,'full yaw revolution is never clamped');
+  input.disasterThreeDAim=false;
+  input.turn(0,0);
+  assert.equal(input.pitch,-1.45,'ordinary camera clamp restored when the teleport charge ends');
+});
