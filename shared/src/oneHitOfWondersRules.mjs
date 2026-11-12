@@ -7,10 +7,10 @@ import { STEEL_RAM, ramEffect } from './steelRam.mjs';
 export const ONE_HIT_RULES = Object.freeze({
   aerialWindupSec: 0.85,
   groundReleaseWindowSec: 0.32,
-  // Half Lightning charges in the player's hands for at most four seconds.
+  // Half Lightning's finite hold is long enough to aim, not a four-second aerial refuge.
   // An early release cannot bypass its genuinely faster .36 s minimum wind-up.
   halfLightningStartupSec: 0.36,
-  halfLightningHoldMaxSec: 4,
+  halfLightningHoldMaxSec: 1.75,
   // Without Full Gale, a caster knocked from a ledge completes a swift,
   // grounded plunge, without acquiring Gale's airborne projectile.
   groundPlungeFallSpeed: 21,

@@ -59,11 +59,17 @@ test('touch screens keep a pull on the game from refreshing the page an app hold
   assert.match(css, /html\.pull-guard #game-shell \{ position: fixed; left: 0; top: 0; \}/);
 });
 
-test('How to Play lists touch controls on touch devices and Sprint on the keyboard', async () => {
+test('Castle Chronicles retains desktop/touch help and exposes the full canonical affliction reference', async () => {
   const html = await read('client/index.html');
+  const main = await read('client/main.mjs');
   const how = html.slice(html.indexOf('id="how-panel"'), html.indexOf('id="lobby"'));
+  assert.match(html, /CASTLE CHRONICLES/);
   assert.match(how, /class=["']controls-grid key-controls-grid["'][\s\S]*SHIFT[\s\S]*Sprint/);
   assert.match(how, /class=["']controls-grid touch-controls-grid["'][\s\S]*LEFT THUMB[\s\S]*RIGHT THUMB/);
+  assert.match(how, /id="chronicles-affliction-list"/);
+  assert.match(how, /ALL-NATURAL DISASTER · AIMING/);
+  assert.match(main, /Object\.entries\(AFFLICTIONS\)/,
+    'the reference must use the HUD registry, not duplicate a subset');
   assert.match(html, /STAMINA/);
 });
 

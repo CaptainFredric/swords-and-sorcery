@@ -92,29 +92,53 @@ export function oneHitChargingLightning(player,nowSec){
     !state.partialLightningReleased&&nowSec<(state.commitAt??-Infinity);
 }
 
+/** Held Lightning owns the caster's stance but never their view. This
+ * intent is shared by authoritative movement and prediction. Digital movement
+ * remains possible, just at deliberate aiming pace; no Sprint, Dash or Jump. */
+export function oneHitChargeIntent(input = {}) {
+  const forward=Math.max(-1,Math.min(1,Number(input.forward)||0));
+  const right=Math.max(-1,Math.min(1,Number(input.right)||0));
+  // Normalize BEFORE imposing the charging pace. Otherwise WASD diagonals
+  // reach ~1.41 times the straight speed despite both being held Lightning.
+  const normal=Math.max(1,Math.hypot(forward,right));
+  return { ...input,
+    forward:forward/normal*.56,
+    right:right/normal*.56,
+    sprint:false, jump:false, dash:false, crouch:false };
+}
+
 /** A bounded Gale suspension, shared by server movement and prediction.
- * Ordinary aerial preparation and the brief post-teleport aim HOLD altitude;
- * an indefinitely held Lightning charge merely slows the fall. */
+ * Ordinary aerial preparation and the brief post-teleport aim hold altitude;
+ * held Lightning charge always descends under controlled gravity. */
 export function oneHitGlide(player,speed=7.5){
   const state=player?.ultimateState;
   if(player?.grounded||state?.id!=='one_hit_of_wonders')return null;
   const tiers=state.preparedTiers??state.oneHit?.tiers??player.oneHitInfusions;
   if(tiers?.gale!==2)return null;
-  if(state.phase==='startup')
-    return Number.isFinite(state.teleportHoldAt)?
-      {speed,fallGravity:.16,maxFall:1.8}:
-      {speed,fallGravity:0,maxFall:0};
+  if(state.phase==='startup') {
+    // A held Lightning aim never acts as a hovering sanctuary. Keep a
+    // steerable, controlled descent even for the indefinitely held Full tier.
+    if(Number.isFinite(state.teleportHoldAt))
+      return {speed:speed*.62,fallGravity:.65,maxFall:4.2};
+    if(Number.isFinite(state.partialLightningHoldAt))
+      return {speed:speed*.62,fallGravity:.65,maxFall:4.2};
+    // Ordinary (non-Lightning) aerial windup is a finite 0.85 s pause.
+    return {speed,fallGravity:0,maxFall:0};
+  }
   if(state.phase==='active'&&state.oneHit?.form==='aerial'&&!state.oneHit.waveLaunched)
     return {speed,fallGravity:0,maxFall:0};
   return null;
 }
 
 /** Full Steel's temporary 1-HP floor. Never store prevented lethal damage.
- * Held Full-Lightning teleport aim offers NO protection; the finite windup,
- * committed strike and unfinished Gale wave do. The protection is over at
- * wave resolution or ordinary Ultimate expiry, but the player remains alive
- * at the HP they actually retained.
- * This pure check drives BOTH authoritative damage and the health-bar sliver.
+ * There are two distinctly bounded phases:
+ *  - Bracing: the ordinary 0.92-second preparation from the ORIGINAL press,
+ *    even when Full Lightning can hold a teleport indefinitely afterward.
+ *  - Commitment: a fresh protection window for the actual released attack,
+ *    including its still-unresolved Gale wave (not a new 0.92-second timer).
+ * Neither charging longer nor simply standing inside the aim can extend the
+ * first phase. The active phase ends with the resolved wave/Ultimate expiry.
+ * Both authoritative damage and the health-bar sliver read this same check.
  */
 export function oneHitSteelFloorActive(player, nowSec) {
   if(!player?.alive)return false;
@@ -122,13 +146,14 @@ export function oneHitSteelFloorActive(player, nowSec) {
   if(state?.id!=='one_hit_of_wonders')return false;
   const tiers=state.oneHit?.tiers??state.preparedTiers;
   if((tiers?.steel??0)<2)return false;
-  if(state.phase==='startup')
-    return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&
-      nowSec<state.commitAt+1e-9 &&
-      // A four-second Half-Lightning delay is not four seconds of immortality:
-      // Full Steel's bracing protection ends at the normal finite windup.
-      (!Number.isFinite(state.partialLightningHoldAt)||
-        nowSec<state.startedAt+0.92);
+  if(state.phase==='startup') {
+    // A finite ordinary cast may still complete at its scheduled time; a
+    // delayed Half/Full Lightning release NEVER refreshes this initial brace.
+    if(!Number.isFinite(state.commitAt)||!Number.isFinite(state.startedAt))
+      return false;
+    return nowSec<state.commitAt+1e-9 &&
+      nowSec<state.startedAt+0.92;
+  }
   if(state.phase==='active')
     return Number.isFinite(state.until)&&nowSec<state.until &&
       !(state.oneHit?.awaitingWave&&state.oneHit.waveResolved);

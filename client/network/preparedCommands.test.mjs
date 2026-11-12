@@ -143,3 +143,23 @@ test('One Hit Practice settings reach authoritative LocalHost through the real G
    {type:'oneHitRelease'}]);
  local.close();
 });
+
+test('Disaster release packet preserves valid final camera aim on both transports',()=>{
+  const wire=Object.create(GameSocket.prototype),out=[];
+  wire.send=message=>out.push(message);
+  wire.oneHitRelease({yaw:Math.PI,pitch:-.9});
+  wire.oneHitRelease({cancel:true,yaw:NaN,pitch:Infinity});
+  assert.deepEqual(out,[
+    {type:'oneHitRelease',yaw:Math.PI,pitch:-.9},
+    {type:'oneHitRelease',cancel:true},
+  ]);
+  const local=new LocalHost({every:()=>1,cancel:()=>{},later:()=>{}});
+  const captured=[];
+  // The transport contract is the same whether GameLink currently chooses
+  // its remote or the browser's local authoritative host.
+  const remote={on:()=>{},oneHitRelease:packet=>captured.push(packet)};
+  const link=new GameLink({remote,local});
+  link.oneHitRelease({yaw:2.4,pitch:.8});
+  assert.deepEqual(captured,[{yaw:2.4,pitch:.8}]);
+  local.close();
+});

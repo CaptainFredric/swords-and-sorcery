@@ -91,6 +91,24 @@ export class OneHitLiveEffects {
     this.reticle.frustumCulled=false;
     this.reticle.visible=false;
     this.root.add(this.reticle);
+    // The old single line was difficult to read in three dimensions,
+    // particularly when aiming ABOVE or BEHIND the current facing. A target
+    // glyph marks the actual server-planned destination in world space.
+    this.teleportTarget=new THREE.Group();
+    this.teleportTarget.name='Disaster teleport destination (3D aim)';
+    this.teleportTarget.visible=false;
+    const destinationMaterial=new THREE.MeshBasicMaterial({
+      color:0xffd65d,transparent:true,opacity:.83,depthWrite:false,
+      side:THREE.DoubleSide
+    });
+    const destinationShape=new THREE.Mesh(new THREE.OctahedronGeometry(.21,0),destinationMaterial);
+    const horizon=new THREE.Mesh(new THREE.TorusGeometry(.46,.024,5,32),
+      destinationMaterial.clone());
+    horizon.rotation.x=Math.PI/2;
+    const meridian=new THREE.Mesh(new THREE.TorusGeometry(.46,.024,5,32),
+      destinationMaterial.clone());
+    this.teleportTarget.add(destinationShape,horizon,meridian);
+    this.root.add(this.teleportTarget);
     this.conductHands=new Map();
     this.visualClock=0;
     this.density=1;
@@ -143,13 +161,20 @@ export class OneHitLiveEffects {
   }
   setChargeGuide(origin,plan) {
     this.reticle.visible=Boolean(origin&&plan);
+    this.teleportTarget.visible=this.reticle.visible;
     if(!this.reticle.visible)return;
     const pos=this.reticle.geometry.attributes.position;
     pos.setXYZ(0,origin.x,origin.y+1,origin.z);
     pos.setXYZ(1,plan.end.x,plan.end.y+1,plan.end.z);
     pos.needsUpdate=true;
-    this.reticle.material.color.setHex(plan.legal?0xffd65d:0xc16a3a);
+    const color=plan.legal?0xffd65d:0xc16a3a;
+    this.reticle.material.color.setHex(color);
     this.reticle.material.opacity=plan.legal?.87:.31;
+    this.teleportTarget.position.set(plan.end.x,plan.end.y+1,plan.end.z);
+    for(const child of this.teleportTarget.children){
+      child.material.color.setHex(color);
+      child.material.opacity=plan.legal?.83:.3;
+    }
   }
   #stepZones(snapshot,now) {
     const seen=new Set();
@@ -339,7 +364,7 @@ export class OneHitLiveEffects {
     for(const g of this.auras.values())this.#discard(g);
     for(const g of this.zones.values())this.#discard(g);
     for(const e of this.statuses.values())this.#discard(e.root);
-    this.#discard(this.reticle);this.zones.clear();this.statuses.clear();
+    this.#discard(this.reticle);this.#discard(this.teleportTarget);this.zones.clear();this.statuses.clear();
     for(const entry of this.conductHands.values())entry.effect.dispose();
     this.transients=[];this.waves.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();
     this.elements.dispose();

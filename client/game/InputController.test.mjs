@@ -37,7 +37,7 @@ test('a key released after pointer lock is lost cancels the Ultimate before the 
   assert.equal(input.enabled, true, 'pointerlockchange is still queued');
   up('KeyR');
   send('pointerlockchange');
-  assert.deepEqual(releases, [{ cancel: false }, { cancel: true }]);
+  assert.deepEqual(releases, [{ cancel: false, yaw:0, pitch:0 }, { cancel: true, yaw:0, pitch:0 }]);
 });
 
 test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
@@ -788,3 +788,31 @@ test('custom E/C hydraulic action bindings remain mounted-only and cannot dismou
   up('KeyT');up('Mouse2');input.mountedRam=false;input.dispose();
 });
 
+
+test('Full Gale plus Full Lightning can aim directly up/down; ordinary controls retain camera comfort limits',()=>{
+  const {input}=setup();
+  input.turn(0,10);
+  assert.equal(input.pitch,1.45);
+  input.disasterThreeDAim=true;
+  input.turn(0,10);
+  assert.equal(input.pitch,Math.PI/2);
+  input.turn(Math.PI*1.5,-10);
+  assert.equal(input.pitch,-Math.PI/2);
+  assert.ok(input.yaw>Math.PI,'full yaw revolution is never clamped');
+  input.disasterThreeDAim=false;
+  input.turn(0,0);
+  assert.equal(input.pitch,-1.45,'ordinary camera clamp restored when the teleport charge ends');
+});
+
+test('Lightning release sends live pointer aim atomically, not an old movement-facing direction',()=>{
+  const {input,down,up}=setup();
+  const packets=[];
+  input.socket.oneHitRelease=packet=>packets.push(packet);
+  down('KeyR');
+  input.turn(Math.PI*1.2,.4);
+  up('KeyR');
+  assert.equal(packets.length,1);
+  assert.ok(Math.abs(packets[0].yaw-Math.PI*1.2)<1e-9);
+  assert.ok(Math.abs(packets[0].pitch-.4)<1e-9);
+  assert.equal(packets[0].cancel,false);
+});

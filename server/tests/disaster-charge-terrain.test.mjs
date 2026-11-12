@@ -47,7 +47,7 @@ test('Half Lightning can freely move/turn while held and release at a chosen lat
   a.input.forward=1;a.input.pitch=.48;
   tick(room,9,9.75);
   assert.equal(a.ultimateState.phase,'startup');
-  assert.ok(a.position.x>2.2,'the knight is not stuck in a 35%-speed brace');
+  assert.ok(a.position.x>1.8,'the knight can still reposition deliberately while charging');
   assert.equal(a.pitch,.48,'camera look is not frozen');
   assert.equal(oneHitChargingLightning(a,9.74),true);
   assert.equal(releaseOneHitCharge(room,'a',10.6),true);
@@ -55,13 +55,13 @@ test('Half Lightning can freely move/turn while held and release at a chosen lat
   assert.equal(a.ultimateState.commitAt,10.6);
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact'&&e.form==='ground').length,1);
 });
-test('Half Lightning auto-releases at four seconds without making the Ultimate permanent',()=>{
+test('Half Lightning auto-releases after a short bounded hold without making the Ultimate permanent',()=>{
   const {room,a}=setup({lightning:1});
   assert.equal(tryUltimate(room,'a',9,{held:true}),true);
   assert.equal(a.ultimateState.commitAt,9+ONE_HIT_RULES.halfLightningHoldMaxSec);
-  tick(room,9,12.9);
+  tick(room,9,9+ONE_HIT_RULES.halfLightningHoldMaxSec-.05);
   assert.equal(a.ultimateState.phase,'startup');
-  tick(room,12.9,13.3);
+  tick(room,9+ONE_HIT_RULES.halfLightningHoldMaxSec-.05,11.15);
   assert.equal(room.events.filter(e=>e.type==='oneHitCommitted').length,1);
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact'&&e.form==='ground').length,1);
 });
@@ -70,11 +70,65 @@ test('Full Lightning retains its freely steerable charge and vertical aim',()=>{
   assert.equal(tryUltimate(room,'a',9,{held:true}),true);
   a.input.forward=1;a.input.pitch=.7;
   tick(room,9,9.65);
-  assert.ok(a.position.x>1.8);
+  assert.ok(a.position.x>.8);
   assert.equal(a.pitch,.7);
   assert.equal(oneHitChargingLightning(a,9.5),true);
   assert.equal(a.ultimateState.phase,'startup');
 });
+test('Full Lightning tracks a changed yaw and pitch at RELEASE, not at start',()=>{
+  const {room,a}=setup({lightning:2,gale:2});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  a.input.yaw=-Math.PI/2;
+  a.input.pitch=.1;
+  a.input.sprint=true;
+  a.input.forward=1;
+  tick(room,9,9.35);
+  assert.equal(a.sprinting,false,'Lightning charge must refuse Sprint');
+  assert.ok(a.sprintBlend<.001);
+  // Turn all the way toward the opposite side and look up AFTER starting.
+  a.input.yaw=Math.PI/2;
+  a.input.pitch=.7;
+  a.input.forward=0;
+  tick(room,9.35,9.55);
+  const before={...a.position};
+  assert.equal(releaseOneHitCharge(room,'a',9.55),true);
+  const teleport=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(teleport,'the release commits a teleport');
+  assert.ok(teleport.to.x<before.x-3,
+    'the current westward facing wins over the original eastward facing');
+  assert.ok(teleport.to.y>before.y+2,
+    'the current upward look determines height with Full Gale');
+});
+
+test('atomic final-look release overrides a stale movement packet during Full Gale teleport',()=>{
+  const {room,a}=setup({lightning:2,gale:2});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  a.input.yaw=-Math.PI/2;a.input.pitch=0;
+  tick(room,9,9.5);
+  const before={...a.position};
+  // No intervening 'input' movement packet arrives. The release itself
+  // contains the player's new view from immediately before the key came up.
+  assert.equal(releaseOneHitCharge(room,'a',9.5,{yaw:Math.PI/2,pitch:.65}),true);
+  const impact=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(impact);
+  assert.ok(impact.to.x<before.x-3,'destination uses release yaw, not older eastward input');
+  assert.ok(impact.to.y>before.y+2,'destination uses release elevation');
+  assert.equal(a.input.yaw,Math.PI/2);
+  assert.equal(a.input.pitch,.65);
+});
+
+test('Lightning without Full Gale remains ground-bound even if looking high',()=>{
+  const {room,a}=setup({lightning:2});
+  a.input.pitch=1.3;
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  tick(room,9,9.35);
+  assert.equal(releaseOneHitCharge(room,'a',9.35),true);
+  const teleport=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(teleport);
+  assert.equal(teleport.grounded,true);
+  assert.ok(Math.abs(teleport.to.y)<1e-5);
+});
+
 test('A non-Gale Ultimate falling during windup PLUNGES to actual ground, not an aerial Gale wave',()=>{
   const {room,a}=setup();
   assert.equal(tryUltimate(room,'a',9),true);

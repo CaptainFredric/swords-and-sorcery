@@ -70,7 +70,7 @@ import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRec
 import { DisasterSoundscape } from './sound/DisasterSoundscape.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
-import { oneHitGlide,oneHitChargingLightning } from '../../shared/src/oneHitInfusions.mjs';
+import { oneHitGlide,oneHitChargingLightning,oneHitChargeIntent } from '../../shared/src/oneHitInfusions.mjs';
 import { frostSlowScale } from '../../shared/src/oneHitStatus.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
@@ -116,7 +116,7 @@ import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
-import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
+import { disasterCameraWanted, disasterHolding, disasterTeleportAiming, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
@@ -1439,6 +1439,10 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
+    // Match controller pitch limits to the active teleport's actual 3D
+    // capability. Every other spell/weapon keeps the ordinary camera clamp.
+    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState)
+      &&auth?.ultimateState?.preparedTiers?.gale===2);
     // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
@@ -3916,7 +3920,7 @@ export class GameRuntime {
         : plunging
           ? { ...wanted, forward:0,right:0,jump:false,sprint:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch }
         : freelyCharging
-          ? { ...wanted, sprint:false }
+          ? oneHitChargeIntent(wanted)
         : bracing
           ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
           : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
@@ -3934,14 +3938,15 @@ export class GameRuntime {
         this.localState.velocity.y??0,-ONE_HIT_RULES.groundPlungeFallSpeed);
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
       const wasSprinting = this.localState.sprinting;
+      if(freelyCharging)this.localState.sprintBlend=0;
       this.localState.sprinting = resolveSprint({
-        wantsSprint: wanted.sprint,
+        wantsSprint: wanted.sprint&&!freelyCharging,
         forward: wanted.forward,
         right: wanted.right,
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: Boolean(this.localAuth?.operatingRamId) || reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
+        blocked: freelyCharging || Boolean(this.localAuth?.operatingRamId) || reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
           guarding: this.input.guardHeld || this.weapon.guard,
           attacking: this.input.attackHeld || this.weapon.attackHeld,
           casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
@@ -4309,7 +4314,8 @@ export class GameRuntime {
     this.effects.update(dt);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
-    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&disasterHolding(disasterCharge)){
+    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&
+      disasterTeleportAiming(disasterCharge)){
       const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
       const world=this.activeWorld;
       const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,

@@ -587,7 +587,8 @@ export function applyRoomCommand(room, player, message, time) {
         return {rejected:'Release Dash before activating ordinary Chivalry.'};
       tryUltimate(room,player.id,time,{held:message.held===true}); return {};
     case 'oneHitRelease':
-      releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true}); return {};
+      releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true,
+        yaw:message.yaw,pitch:message.pitch}); return {};
     case 'oneHitFire':
       fireOneHitWave(room,player.id,time); return {};
     case 'oneHitDetonate':
