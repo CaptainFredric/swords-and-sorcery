@@ -63,11 +63,18 @@ test('untrusted practice values clamp to tier 0..2',()=>{
 
 test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD',()=>{
   const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
-    preparedTiers:{steel:2},commitAt:10}};
+    preparedTiers:{steel:2},startedAt:9.08,commitAt:10}};
   assert.equal(oneHitSteelFloorActive(p,9),true);
   assert.equal(oneHitSteelFloorActive(p,10.01),false);
+  p.ultimateState.startedAt=9;
+  p.ultimateState.commitAt=3600009;
   p.ultimateState.teleportHoldAt=9;
-  assert.equal(oneHitSteelFloorActive(p,9.5),false,'indefinite held Lightning aim is vulnerable');
+  assert.equal(oneHitSteelFloorActive(p,9.5),true,
+    'Full Steel protects the original brace even during held Full Lightning');
+  assert.equal(oneHitSteelFloorActive(p,9.919),true);
+  assert.equal(oneHitSteelFloorActive(p,9.921),false,
+    'Full Lightning hold does not prolong the initial 0.92-second Steel floor');
+  assert.equal(oneHitSteelFloorActive(p,19),false,'indefinite aim is not indefinite immunity');
   delete p.ultimateState.teleportHoldAt;
   p.ultimateState.phase='active';
   p.ultimateState.until=12;
@@ -84,6 +91,26 @@ test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD'
   p.ultimateState.id='one_hit_of_wonders';
   p.alive=false;
   assert.equal(oneHitSteelFloorActive(p,11),false);
+});
+
+test('Full Steel renews its attack protection at late Lightning arrival without extending the aim brace',()=>{
+  const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{steel:2,lightning:2,gale:2},startedAt:9,teleportHoldAt:9,commitAt:3600009}};
+  assert.equal(oneHitSteelFloorActive(p,9.7),true);
+  assert.equal(oneHitSteelFloorActive(p,10.5),false);
+  p.ultimateState.phase='active';
+  p.ultimateState.commitAt=11;
+  p.ultimateState.until=12.65;
+  p.ultimateState.oneHit={tiers:{steel:2,lightning:2,gale:2},
+    form:'aerial',awaitingWave:true,waveResolved:false};
+  assert.equal(oneHitSteelFloorActive(p,11.01),true,
+    'the committed aerial attack has independent Full Steel protection on arrival');
+  assert.equal(oneHitSteelFloorActive(p,12),true,'a still unresolved Gale wave remains covered');
+  p.ultimateState.oneHit.waveResolved=true;
+  assert.equal(oneHitSteelFloorActive(p,12.1),false,
+    'wave resolution closes protection rather than restarting a new timer');
+  p.ultimateState.oneHit.waveResolved=false;
+  assert.equal(oneHitSteelFloorActive(p,12.66),false,'Ultimate expiry is a hard stop');
 });
 
 test('A held Half Lightning aim cannot extend the Full Steel 1-HP floor indefinitely',()=>{
