@@ -160,7 +160,8 @@
   left: calc(100% + 9px);
   top: 0;
   width: min(236px, calc(100cqw - 322px));
-  max-height: min(160px, calc(100cqh - 86px));
+  /* Short enough to leave the central reticle clear on 390px landscape. */
+  max-height: min(108px, calc(50cqh - 86px));
 }
 
 /* Low landscape windows reserve space for the combat arena and the lower-left
