@@ -79,6 +79,7 @@ export function beginSwordTechnique(player, contract, nowSec) {
     } else if(contract.kind==='whirl'&&player.spell!=='gale')return null;
   }
   player.swordTechniqueHeld=true;
+  player.swordTechniqueExit=null;
   return player.swordTechnique={
     id:contract.id,contract,startedAt:nowSec,initialStartedAt:nowSec,
     phase:'startup',sampledTo:contract.activeFrom,
@@ -86,11 +87,24 @@ export function beginSwordTechnique(player, contract, nowSec) {
   };
 }
 
-export function interruptSwordTechnique(player, nowSec) {
+export function interruptSwordTechnique(player, nowSec, reason='interrupted') {
   const action=player?.swordTechnique;
   if(!action)return false;
   player.swordTechnique=null;
   player.swordTechniqueHeld=false;
+  // A natural recovery has already been shown by the active state machine.
+  // Interrupted and parried cuts need their own replicated cinematic exit,
+  // without extending cooldown, movement lockout or authoritative timings.
+  if(reason!=='completed'&&player.alive){
+    const duration=action.contract.kind==='whirl'
+      ? (player.grounded?.42:.3)
+      : reason==='parried'?.68:.35;
+    player.swordTechniqueExit={
+      id:action.id,phase:'interrupted',reason,
+      startedAt:nowSec,initialStartedAt:nowSec,until:nowSec+duration,
+      aerial:!player.grounded,
+    };
+  }else player.swordTechniqueExit=null;
   player.swordTechniqueReadyAt=Math.max(player.swordTechniqueReadyAt??0,nowSec+action.contract.cooldown);
   return true;
 }
@@ -156,6 +170,6 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
     action.phase='recovery';
     action.endsAt=(stopped?contacts.at(-1).at:action.startedAt+activeUntil)+recovery;
   }
-  if(nowSec>=action.endsAt)interruptSwordTechnique(player,action.endsAt);
+  if(nowSec>=action.endsAt)interruptSwordTechnique(player,action.endsAt,'completed');
   return contacts;
 }
