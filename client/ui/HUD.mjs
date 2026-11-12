@@ -15,6 +15,7 @@ import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
+import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
 
 const HIT_MARKERS = Object.freeze({
@@ -321,6 +322,9 @@ export class HUD {
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
     this.healthFill.style.width = `${hp}%`;
+    // The invulnerable 1-HP segment is a real part of the health bar, not
+    // an on-screen warning. Its state is the same pure rule as the host's.
+    this.armour?.classList.toggle('steel-floor',oneHitSteelFloorActive(local,serverNow));
     this.displayedTrail += (hp - this.displayedTrail) * 0.035;
     if (hp < this.displayedTrail) this.displayedTrail = Math.max(hp, this.displayedTrail - 0.25);
     else this.displayedTrail = hp;
