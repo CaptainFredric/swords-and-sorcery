@@ -35,7 +35,7 @@ export class SiegeWorkshopPerformance {
     this.workshop=workshop;
     this.root=new THREE.Group();
     this.root.name='SiegeSkillExhibition';
-    workshop.root.add(this.root);
+    workshop.inspectionPivot.add(this.root);
     this.skill=null;
     this.time=0;
     this.actors=[];
@@ -291,7 +291,8 @@ export class SiegeWorkshopPerformance {
         const marker=this.workshop.machinePivot.children[0]?.getObjectByName(markerName);
         if(marker) {
           marker.updateWorldMatrix(true,false);
-          const origin=this.workshop.root.worldToLocal(marker.getWorldPosition(new THREE.Vector3()));
+          // Muzzle and actors share the rotating exhibition's local space.
+          const origin=this.workshop.inspectionPivot.worldToLocal(marker.getWorldPosition(new THREE.Vector3()));
           entry.from=origin.toArray();
         } else entry.from=fallback;
       }
