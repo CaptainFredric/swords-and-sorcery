@@ -2390,11 +2390,11 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({...rec,until:nowSec+ONE_HIT_FROST_LINGER_SEC});
   // (burning ground only where there is ground under it: nothing burns in the air)
-  if(wave.tiers.fire===2) {
+  if(wave.tiers.fire===2&&groundBlast) {
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
     if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
-      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers,radius);
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers);
   }
   // Visual eruption follows the actual ground when a skimming wave expires.
   // Damage calculations still use the authoritative projectile origin above.
