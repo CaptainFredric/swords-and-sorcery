@@ -100,6 +100,23 @@ test('Full Lightning tracks a changed yaw and pitch at RELEASE, not at start',()
     'the current upward look determines height with Full Gale');
 });
 
+test('atomic final-look release overrides a stale movement packet during Full Gale teleport',()=>{
+  const {room,a}=setup({lightning:2,gale:2});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  a.input.yaw=-Math.PI/2;a.input.pitch=0;
+  tick(room,9,9.5);
+  const before={...a.position};
+  // No intervening 'input' movement packet arrives. The release itself
+  // contains the player's new view from immediately before the key came up.
+  assert.equal(releaseOneHitCharge(room,'a',9.5,{yaw:Math.PI/2,pitch:.65}),true);
+  const impact=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(impact);
+  assert.ok(impact.to.x<before.x-3,'destination uses release yaw, not older eastward input');
+  assert.ok(impact.to.y>before.y+2,'destination uses release elevation');
+  assert.equal(a.input.yaw,Math.PI/2);
+  assert.equal(a.input.pitch,.65);
+});
+
 test('Lightning without Full Gale remains ground-bound even if looking high',()=>{
   const {room,a}=setup({lightning:2});
   a.input.pitch=1.3;
