@@ -75,6 +75,43 @@ test('Full Lightning retains its freely steerable charge and vertical aim',()=>{
   assert.equal(oneHitChargingLightning(a,9.5),true);
   assert.equal(a.ultimateState.phase,'startup');
 });
+test('Full Lightning tracks a changed yaw and pitch at RELEASE, not at start',()=>{
+  const {room,a}=setup({lightning:2,gale:2});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  a.input.yaw=-Math.PI/2;
+  a.input.pitch=.1;
+  a.input.sprint=true;
+  a.input.forward=1;
+  tick(room,9,9.35);
+  assert.equal(a.sprinting,false,'Lightning charge must refuse Sprint');
+  assert.ok(a.sprintBlend<.001);
+  // Turn all the way toward the opposite side and look up AFTER starting.
+  a.input.yaw=Math.PI/2;
+  a.input.pitch=.7;
+  a.input.forward=0;
+  tick(room,9.35,9.55);
+  const before={...a.position};
+  assert.equal(releaseOneHitCharge(room,'a',9.55),true);
+  const teleport=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(teleport,'the release commits a teleport');
+  assert.ok(teleport.to.x<before.x-3,
+    'the current westward facing wins over the original eastward facing');
+  assert.ok(teleport.to.y>before.y+2,
+    'the current upward look determines height with Full Gale');
+});
+
+test('Lightning without Full Gale remains ground-bound even if looking high',()=>{
+  const {room,a}=setup({lightning:2});
+  a.input.pitch=1.3;
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  tick(room,9,9.35);
+  assert.equal(releaseOneHitCharge(room,'a',9.35),true);
+  const teleport=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(teleport);
+  assert.equal(teleport.grounded,true);
+  assert.ok(Math.abs(teleport.to.y)<1e-5);
+});
+
 test('A non-Gale Ultimate falling during windup PLUNGES to actual ground, not an aerial Gale wave',()=>{
   const {room,a}=setup();
   assert.equal(tryUltimate(room,'a',9),true);
