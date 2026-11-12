@@ -50,7 +50,7 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'setInputSampler', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'oneHitFire', 'oneHitDetonate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
+  'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'technique', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'oneHitFire', 'oneHitDetonate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'highGroundsBuild', 'ping', 'send'];
 const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
@@ -159,7 +159,7 @@ export class GameLink {
     this.#setStatus('online');
     // every connection carries what the player brings (the Armory's spell): heard like a reconnect
     if (this.hosting === 'remote') this.#emit('connection', { connected: true });
-    else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells, this.local.siegeLoadout);
+    else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells, this.local.siegeLoadout, this.local.technique);
   }
 
   /** Try the server again now (the Retry button). */
@@ -317,9 +317,9 @@ export class GameLink {
     }
   }
 
-  loadout(spell, ultimate, preparedSpells, siegeLoadout) {
-    this.local.loadout(spell, ultimate, preparedSpells, siegeLoadout);
-    this.remote.loadout(spell, ultimate, preparedSpells, siegeLoadout);
+  loadout(spell, ultimate, preparedSpells, siegeLoadout, technique) {
+    this.local.loadout(spell, ultimate, preparedSpells, siegeLoadout, technique);
+    this.remote.loadout(spell, ultimate, preparedSpells, siegeLoadout, technique);
   }
 
   serverNow() {
