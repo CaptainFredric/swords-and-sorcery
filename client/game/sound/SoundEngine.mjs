@@ -426,7 +426,7 @@ export class SoundEngine {
       const source = ctx.createBufferSource();
       source.buffer = this.noise;
       source.playbackRate.value = 0.9 + Math.random() * 0.2;
-      source.loop = layer.attack + layer.decay > 0.45;
+      source.loop = layer.attack + (layer.hold ?? 0) + layer.decay > 0.45;
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter;
       filter.frequency.setValueAtTime(layer.freq, start);
