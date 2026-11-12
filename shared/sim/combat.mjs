@@ -2419,7 +2419,6 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
-  if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({...rec,until:nowSec+ONE_HIT_FROST_LINGER_SEC});
   // A ground-contacting wave leaves the SAME decaying Shaken terrain as a
   // slam, but over its smaller terminal radius. The ground retains full
   // Frost/Lightning field consequences and its own visible rubble. A wave
@@ -2435,6 +2434,12 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     (room.oneHitFields??=[]).push(field);
     terminalFieldId=field.id;
   }
+  // Half Frost's late decisive contacts share this very field; the field
+  // must remember them as direct victims rather than offering fresh Shaken
+  // and Conduct all over again on the next tick.
+  if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({
+    ...rec,fieldId:terminalFieldId,until:nowSec+ONE_HIT_FROST_LINGER_SEC,
+  });
   // (burning ground only where there is ground under it: nothing burns in the air)
   if(wave.tiers.fire===2&&groundBlast) {
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
