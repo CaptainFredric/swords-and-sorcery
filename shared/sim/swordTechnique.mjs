@@ -69,7 +69,7 @@ export function sweepTechniqueTrack(track, from, to, transformAt, bodiesAt, worl
 
 export function beginSwordTechnique(player, contract, nowSec) {
   if(!contract || !player.alive || player.swordTechnique || nowSec<(player.swordTechniqueReadyAt??0) ||
-     nowSec<(player.staggerUntil??0) || player.ultimateState || player.attackActive || player.pendingSpell ||
+     nowSec<(player.staggerUntil??0) || player.ultimateState || player.attackActive || player.attackSweep || player.pendingSpell ||
      player.guarding || player.operatingBallistaId || player.operatingRamId || player.operatingFightFlightId) return null;
   if(!player.grounded){
     if(contract.kind==='riposte') {
@@ -101,7 +101,9 @@ export function techniqueInterception(action, incoming, transform, world, nowSec
   if(!action?.contract || (action.contract.kind==='riposte'&&action.intercepted))return null;
   const age=nowSec-action.startedAt, {braceFrom=0,braceUntil=0,track}=action.contract;
   if(action.contract.kind==='riposte'&&(age<braceFrom||age>=braceUntil))return null;
-  if(action.contract.kind==='whirl'&&(action.phase!=='active'||age<0||age>=action.contract.activeUntil))return null;
+  // A Whirl blade is live from the first authored frame, before the owner is
+  // advanced this tick. Never make interception depend on player iteration order.
+  if(action.contract.kind==='whirl'&&(action.phase==='recovery'||age<0||age>=action.contract.activeUntil))return null;
   const blade=placeBlade(bladeAt(track,age),transform);
   if(occluded(transform.eye,blade.base,world.solids??[]))return null;
   const near=segmentDistance(incoming.base,incoming.tip,blade.base,blade.tip);
