@@ -2156,10 +2156,11 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...center},nowSec,tiers);
   // The field it leaves: laid down after the blow has landed, so the decisive hit is never counted against it.
   const field={id:`oh-field:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...center},radius,
-    bornAt:nowSec,until:nowSec+fieldSeconds(tiers),tiers:{...tiers},conducted:{}};
+    bornAt:nowSec,until:nowSec+fieldSeconds(tiers),tiers:{...tiers},conducted:{},shakenContact:{}};
   (room.oneHitFields??=[]).push(field);
   // (whoever the blow itself struck has had its Conduct whole: its field owes them nothing more)
   if(tiers.lightning>=1)for(const id of struck)field.conducted[id]=1;
+  for(const id of struck)field.shakenContact[id]=1;
   // Frost: the same contact stays open a moment longer for whoever it has not met (never a second hit on one it has)
   if(tiers.frost>=1)(room.oneHitLingers??=[]).push({kind:'ground',ownerId:caster.id,center,tiers:{...tiers},
     until:nowSec+ONE_HIT_FROST_LINGER_SEC,processed,ruptureId:rupture?.id??null,fieldId:field.id});
@@ -2185,6 +2186,22 @@ function stepOneHitFields(room,dt,nowSec,world) {
       const strength=fieldStrength(field,nowSec);
       if(!player.oneHitField||strength>player.oneHitField.strength)
         player.oneHitField={id:field.id,ownerId:field.ownerId,strength,contact};
+      // The base field REALLY shakes newly entering enemies. The visual
+      // shattered ground warns of this, including when there are no elements.
+      // Keep the deepest offered effect per target/field: walking out and
+      // returning cannot refresh Shaken indefinitely. A target of the initial
+      // blow has already been shaken and is marked when the field is created.
+      const offered=strength*contact;
+      const previous=field.shakenContact?.[player.id]??0;
+      if(offered>.015&&(previous===0||offered>=previous+ONE_HIT_FIELD.shakenStep)){
+        (field.shakenContact??={})[player.id]=offered;
+        const prior=player.shaken;
+        applyOneHitShaken(player,nowSec,offered);
+        if(prior!==player.shaken)room.events.push({
+          type:'oneHitFieldShaken',playerId:player.id,fieldId:field.id,
+          strength:Math.round(offered*100)/100,at:nowSec,
+        });
+      }
       if(field.tiers.frost===2)player.oneHitFrostSlow=mergeFrostSlow(player.oneHitFrostSlow,
         {until:nowSec+ONE_HIT_FIELD.frostLingerSec,depth:fieldFrostDepth(strength,contact)},nowSec);
       if(field.tiers.lightning===2){
@@ -2412,8 +2429,9 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     const field={id:wave.id+':field',ownerId:caster.id,
       position:{x:point.x,y:floor,z:point.z},radius,
       bornAt:nowSec,until:nowSec+fieldSeconds(wave.tiers),
-      tiers:{...wave.tiers},conducted:{}};
+      tiers:{...wave.tiers},conducted:{},shakenContact:{}};
     if(wave.tiers.lightning>=1)for(const id of wave.hitIds)field.conducted[id]=1;
+    for(const id of wave.hitIds)field.shakenContact[id]=1;
     (room.oneHitFields??=[]).push(field);
     terminalFieldId=field.id;
   }
@@ -2458,6 +2476,8 @@ function stepOneHitLingers(room,nowSec,world) {
     if(rec.ruptureId)room.ruptures?.find(r=>r.id===rec.ruptureId)?.caught.push(...late);
     const field=rec.fieldId&&rec.tiers.lightning>=1?room.oneHitFields?.find(f=>f.id===rec.fieldId):null;
     if(field)for(const id of late)field.conducted[id]=1;
+    const shakeField=rec.fieldId?room.oneHitFields?.find(f=>f.id===rec.fieldId):null;
+    if(shakeField)for(const id of late)(shakeField.shakenContact??={})[id]=1;
     room.events.push({type:'oneHitLateContact',playerId:caster.id,targets:late,form:rec.kind==='ground'?'ground':'aerial',at:nowSec});
   }
   room.oneHitLingers=lingers.filter(rec=>nowSec<rec.until);
