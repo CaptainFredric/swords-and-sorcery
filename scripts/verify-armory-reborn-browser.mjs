@@ -352,8 +352,11 @@ try {
   await sleep(800);
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.skill'), 'longArmToTheJaw');
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.time') > .6);
-  assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.previewFist?.node.position.z-window.__ssMenu.siegeWorkshop.previewFist?.rest.z') < -2,
-    'actual mounted fist moves forward and remains deployed');
+  assert.ok(await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return ws.previewAnimation?.layers?.has('01_Ram_Strike_Full_Cycle')
+      && !ws.previewFist;
+  })()`), 'the authored ram strike plays without double-applying manual piston travel');
   await evaluate('document.querySelector("[data-siege-skill=longArmToTheJaw]").click()');
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.time') < .3, 'second press restarts the shot');
   await evaluate('document.querySelector("#siege-preview-stop").click()');
@@ -363,7 +366,33 @@ try {
   await sleep(1650);
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.z') < -1.3,
     'Beat to the Punch visibly reverses out of the shed');
+  // The Spellblade must share the inspection turntable with the ram.
+  // Dragging can change the view, never the staged contact relationship.
+  const stagedBefore=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return {active:ws.performance.active,parented:ws.performance.root.parent===ws.inspectionPivot,
+      position:ws.performance.actors[0].root.getWorldPosition(new ws.machinePivot.position.constructor()).toArray(),
+      machine:ws.machinePivot.getWorldPosition(new ws.machinePivot.position.constructor()).toArray()};
+  })()`);
+  assert.ok(stagedBefore.active && stagedBefore.parented,'the attacker and training knight share one exhibition turntable');
+  const relativeBefore=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return ws.inspectionPivot.worldToLocal(ws.performance.actors[0].root.getWorldPosition(
+      new ws.machinePivot.position.constructor())).toArray();
+  })()`);
+  await dragPreview('siege');
+  await sleep(400);
+  const relativeAfter=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return {active:ws.performance.active,position:ws.inspectionPivot.worldToLocal(
+      ws.performance.actors[0].root.getWorldPosition(new ws.machinePivot.position.constructor())).toArray()};
+  })()`);
+  assert.equal(relativeAfter.active,true,'inspection dragging must not cancel the ram performance');
+  assert.ok(Math.hypot(...relativeAfter.position.map((n,i)=>n-relativeBefore[i]))<2.5,
+    'the trained victim remains in the ram demonstration rather than orbiting independently');
   await screenshot('04a-ram-beat-to-the-punch.png');
+  await sleep(1050);
+  await screenshot('04b-ram-rotated-impact.png');
   await evaluate('document.querySelector("#siege-preview-stop").click()');
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.z'),0);
 
@@ -416,6 +445,22 @@ try {
   await evaluate('document.querySelector("[data-siege-skill=boltToTheOccasion]").click()');
   assert.deepEqual(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.map(p=>p.shot.kind)'),
     ['heavy','frost'], 'mobile Bolt II is demonstrated BEFORE the conditioning bolt');
+  await sleep(1450);
+  const forwardBolt=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    const shot=ws.performance.projectiles[0];
+    return {from:shot.from,origin:shot.object.position.toArray(),
+      target:ws.performance.actors[0].root.position.toArray(),
+      commonParent:ws.performance.root.parent===ws.machinePivot.parent};
+  })()`);
+  assert.equal(forwardBolt.commonParent,true,'projectiles and machine use a shared rotated coordinate system');
+  assert.ok(forwardBolt.from && forwardBolt.from[2]>forwardBolt.target[2],
+    'heavy bolt starts in front of its target, never behind the carriage');
+  await dragPreview('siege');
+  await sleep(200);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.active'),true,
+    'ballista inspection must not cancel the authored shooting sequence');
+  await screenshot('05b-bibye-rotated-firing.png');
   await evaluate('document.querySelector("#siege-preview-stop").click()');
 
 
@@ -449,6 +494,24 @@ try {
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.machinePivot.position.y')>1,
     'the flight demonstration really pitches and climbs');
   await screenshot('06a-flight-dash-loop.png');
+  await sleep(4550);
+  const crashed=await evaluate(`(() => {
+    const ws=window.__ssMenu.siegeWorkshop;
+    return {
+      active:ws.performance.active,
+      skill:ws.performance.skill,
+      impact:ws.performance.effects.find(e=>e.type==='valkyrie')?.scorch?.material.opacity,
+      defeated:ws.performance.actors.map(a=>a.root.rotation.z),
+      wreck:ws.machinePivot.position.z
+    };
+  })()`);
+  assert.equal(crashed.skill,'doNotStopMyAscension');
+  assert.equal(crashed.active,true,'terminal wreck holds until preview is dismissed');
+  assert.ok(crashed.impact>.7,'terminal crash leaves a visible scorch mark');
+  assert.equal(crashed.defeated.length,3);
+  assert.ok(crashed.defeated.every(angle=>angle<-.9),'all three victims remain down');
+  assert.ok(crashed.wreck < -7,'the wreck stays at the enemy formation');
+  await screenshot('06a2-flight-valkyrie-triple-impact.png');
   await evaluate('document.querySelector("[data-siege-skill=narrowToOne]").click()');
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),18);
   await sleep(1300);

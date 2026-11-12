@@ -4,6 +4,7 @@ import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
 import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
+import { FLIGHT_CLIPS } from '../worlds/flightAnimationState.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -56,11 +57,17 @@ export class SiegeWorkshopScene {
     this.parentScene.add(this.root);
 
     this.activeMachineId = 'soFist';
+    // The turntable is for INSPECTION only: the complete staged tableau
+    // (machine, opponents, projectiles, impact cues) rotates rigidly together.
+    // Skill-specific translation, pitch and articulated GLB clips stay below it.
+    this.inspectionPivot = new THREE.Group();
+    this.inspectionPivot.name = 'WorkshopInspectionPivot';
+    this.root.add(this.inspectionPivot);
     this.machinePivot = new THREE.Group();
     this.machinePivot.name = 'MachinePivot';
     this.knightBounds = new THREE.Box3();
     this.clock = 0;
-    this.root.add(this.machinePivot);
+    this.inspectionPivot.add(this.machinePivot);
 
     this.currentYaw = REST_YAW.soFist;
     this.targetYaw = this.currentYaw;
@@ -73,6 +80,7 @@ export class SiegeWorkshopScene {
     this.clips = new Map();
     this.previewAnimation = null;
     this.previewFist = null;
+    this.previewClipWarnings = new Set();
     this.loader = new GLTFLoader();
     this.performance = new SiegeWorkshopPerformance(this);
 
@@ -628,6 +636,9 @@ export class SiegeWorkshopScene {
 
   #poseFist(pose) {
     if(!pose||this.activeMachineId!=='soFist')return;
+    // Authored piston motion already belongs to the GLB. Applying the old
+    // hand-written extension on top caused double travel and twisted joints.
+    if(this.isDisplayingAuthored())return;
     const node=this.machinePivot.children[0]?.getObjectByName('Armored_Fist');
     if(!node)return;
     this.previewFist={node,rest:node.position.clone()};
@@ -661,31 +672,87 @@ export class SiegeWorkshopScene {
     const clips=this.clips.get(id);
     const mixer=this.mixers.get(id);
     if(!mixer||!clips?.length)return;
-    let name=null,age=time;
-    if(id==='soFist' && skill==='longArmToTheJaw') {
-      name='01_Ram_Strike_Full_Cycle'; age=Math.min(.88,time*1.7);
-    } else if(id==='soFist' && skill==='beatToThePunch') {
-      name='01_Ram_Strike_Full_Cycle'; age=Math.max(0,time-2.1);
-    } else if(id==='biBye' && skill==='boltToTheOccasion') {
-      name=time>=2.58?'09_BiBye_Mobile_Shot1_Fire_Upper':'21_BiBye_Delayed_Shot2_Release_And_Recoil';
-      age=time>=2.58?time-2.58:Math.max(0,time-1.27);
-    } else if(id==='biBye' && skill==='coldHowTouching') {
-      name='09_BiBye_Mobile_Shot1_Fire_Upper'; age=Math.max(0,time-.75);
-    } else if(id==='fightFlight') {
-      name='Rotor_Spin_Cycle_1Rev'; age=time;
+
+    // Individual non-competing animation layers keep a rotor spinning while
+    // the same authored chassis performs a Dash, a gun fires, or it crashes.
+    const layers=[];
+    if(id==='soFist') {
+      const name='01_Ram_Strike_Full_Cycle';
+      const clip=clips.find(c=>c.name===name);
+      if(skill==='longArmToTheJaw')
+        layers.push({name,age:clip?Math.min(clip.duration*.48,time*1.5):0});
+      else if(skill==='beatToThePunch')
+        layers.push({name,age:Math.max(0,time-2.1)});
+    } else if(id==='biBye') {
+      if(skill==='boltToTheOccasion')
+        layers.push(time>=2.58
+          ? {name:'09_BiBye_Mobile_Shot1_Fire_Upper',age:time-2.58}
+          : {name:'21_BiBye_Delayed_Shot2_Release_And_Recoil',
+            age:Math.max(0,time-1.27)});
+      else if(skill==='coldHowTouching')
+        layers.push({name:'09_BiBye_Mobile_Shot1_Fire_Upper',
+          age:Math.max(0,time-.75)});
+    } else if(id==='fightFlight' && time<6.6) {
+      layers.push({name:'Rotor_Spin_Cycle_1Rev',age:time*4,loop:true});
+      if(skill==='doNotStopMyAscension') {
+        if(time>=5.55)
+          layers.push({name:FLIGHT_CLIPS.terminal,age:time-5.55});
+        else if(time<.8)
+          layers.push({name:FLIGHT_CLIPS.entry,age:time});
+        else
+          layers.push({name:FLIGHT_CLIPS.sustain,age:time-.8,loop:true});
+      } else if(skill==='narrowToOne') {
+        layers.push(time<.75
+          ? {name:FLIGHT_CLIPS.entry,age:time}
+          : time<4.75
+            ? {name:FLIGHT_CLIPS.sustain,age:time-.75,loop:true}
+            : {name:FLIGHT_CLIPS.release,age:time-4.75});
+        if(time>=1.05 && time<=4.62)
+          layers.push({name:'Crossbow_Fire_Loop',age:time-1.05,loop:true});
+      } else if(skill==='fireAwayRightHere') {
+        layers.push(time<.7
+          ? {name:'Posture_04_Takeoff_To_Flight',age:time}
+          : time<2.45
+            ? {name:'Posture_10_Ascending_Hover_Descending',
+              age:time-.7,loop:true}
+            : {name:FLIGHT_CLIPS.idle,age:0,loop:true});
+        if(time>=2.65 && time<=6.9)
+          layers.push({name:'Crossbow_Fire_Loop',age:time-2.65,loop:true});
+      }
     }
-    const clip=clips.find(c=>c.name===name);
-    if(!clip)return;
-    if(this.previewAnimation?.name!==name||this.previewAnimation?.machine!==id) {
+    if(this.previewAnimation?.machine!==id) {
       mixer.stopAllAction();
-      const action=mixer.clipAction(clip);
-      action.reset().setLoop(id==='fightFlight'?THREE.LoopRepeat:THREE.LoopOnce,
-        id==='fightFlight'?Infinity:1);
-      action.clampWhenFinished=true;
-      action.play();
-      this.previewAnimation={machine:id,name};
+      this.previewAnimation={machine:id,layers:new Map()};
     }
-    mixer.setTime(id==='fightFlight'?age:Math.min(Math.max(0,clip.duration-.001),age));
+    const active=new Set();
+    for(const layer of layers) {
+      const clip=clips.find(c=>c.name===layer.name);
+      if(!clip){
+        if(!this.previewClipWarnings.has(id+':'+layer.name)){
+          this.previewClipWarnings.add(id+':'+layer.name);
+          console.warn('Siege Workshop: missing authored animation clip',id,layer.name);
+        }
+        continue;
+      }
+      active.add(layer.name);
+      let action=this.previewAnimation.layers.get(layer.name);
+      if(!action){
+        action=mixer.clipAction(clip);
+        action.reset().setLoop(layer.loop?THREE.LoopRepeat:THREE.LoopOnce,
+          layer.loop?Infinity:1);
+        action.clampWhenFinished=!layer.loop;
+        action.play();
+        this.previewAnimation.layers.set(layer.name,action);
+      }
+      action.paused=false;
+      action.time=layer.loop
+        ? Math.max(0,layer.age)%Math.max(.001,clip.duration)
+        : Math.min(Math.max(0,clip.duration-.001),layer.age);
+    }
+    for(const [name,action] of this.previewAnimation.layers) {
+      if(!active.has(name)){action.stop();this.previewAnimation.layers.delete(name);}
+    }
+    mixer.update(0);
   }
 
   update(dt, reducedMotion = false) {
@@ -709,9 +776,10 @@ export class SiegeWorkshopScene {
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
     else if(this.previewAnimation)this.#restorePreviewAnimation();
     if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
-    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=5.68);
+    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
-    this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
+    this.inspectionPivot.rotation.y=this.currentYaw;
+    this.machinePivot.rotation.set(pose?.pitch??0,pose?.yawOffset??0,pose?.roll??0);
     this.#poseFist(pose);
   }
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   SIEGE_PREVIEW_LENGTH,SIEGE_PREVIEW_MACHINE,workshopPreviewPose,
   workshopPreviewShots,workshopPreviewTargets,workshopPreviewTargetPose,
-  workshopPreviewDone,
+  workshopPreviewDone,workshopPreviewImpacts,
 } from './siegeWorkshopPreviewPlan.mjs';
 
 const SKILLS=[
@@ -68,6 +68,21 @@ test('Do Not Stop My Ascension loops, crashes into a trio and stays defeated; Na
   const shots=workshopPreviewShots('narrowToOne');
   assert.equal(shots.length,18);
   assert.ok(shots.some(shot=>shot.lowShot));
+});
+
+test('workshop impact presentation matches the actual authored skill sequences',()=>{
+  assert.equal(workshopPreviewImpacts('longArmToTheJaw').length,0,
+    'Long Arm holds its fist out rather than faking an unrelated impact');
+  assert.equal(workshopPreviewImpacts('beatToThePunch')[0].type,'ram');
+  assert.equal(workshopPreviewImpacts('coldHowTouching')[0].type,'frost');
+  const ballista=workshopPreviewImpacts('boltToTheOccasion');
+  assert.deepEqual(ballista.map(cue=>cue.type),['bolt','frost']);
+  const shots=workshopPreviewShots('boltToTheOccasion');
+  assert.ok(ballista[0].at>shots[0].at);
+  assert.ok(ballista[1].at>shots[1].at);
+  assert.equal(workshopPreviewImpacts('doNotStopMyAscension')[0].at,5.55);
+  assert.equal(workshopPreviewImpacts('narrowToOne').length,1);
+  assert.equal(workshopPreviewImpacts('fireAwayRightHere').length,3);
 });
 
 test('Fire Away sustains repeater over three separate target lanes then lands',()=>{
