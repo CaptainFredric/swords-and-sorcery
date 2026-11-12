@@ -1418,6 +1418,10 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
+    // Match controller pitch limits to the active teleport's actual 3D
+    // capability. Every other spell/weapon keeps the ordinary camera clamp.
+    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState)
+      &&auth?.ultimateState?.preparedTiers?.gale===2);
     // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
