@@ -28,7 +28,7 @@ import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
-  oneHitGlide, oneHitChargingLightning, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
+  oneHitGlide, oneHitChargingLightning, oneHitChargeIntent, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
@@ -3203,14 +3203,16 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     stepUltimate(room, player, nowSec, world);
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
+    const chargingLightning=oneHitChargingLightning(player,nowSec);
+    if(chargingLightning)player.sprintBlend=0;
     player.sprinting = resolveSprint({
-      wantsSprint: Boolean(player.input?.sprint),
+      wantsSprint: Boolean(player.input?.sprint)&&!chargingLightning,
       forward: player.input?.forward,
       right: player.input?.right,
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId) || Boolean(player.operatingFightFlightId),
+      blocked: chargingLightning || combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId) || Boolean(player.operatingFightFlightId),
       crouched: Boolean(player.crouched),
     });
     // (torn ground breaks a sprint outright: the speed it had built goes with it)
@@ -3231,7 +3233,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
     const whirl = ultimateWhirl(player, nowSec) ?? oneHitGlide(player,MOVEMENT.runSpeed);
-    const freelyCharging=oneHitChargingLightning(player,nowSec);
+    const freelyCharging=chargingLightning;
     const plunging=player.ultimateState?.id==='one_hit_of_wonders'&&
       player.ultimateState.phase==='active'&&player.ultimateState.oneHit?.form==='plunge';
     player.shakenNow=nowSec;
@@ -3242,7 +3244,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       : plunging
         ? { ...player.input, forward:0, right:0, jump:false, sprint:false, yaw:player.yaw, pitch:player.pitch }
         : freelyCharging
-          ? { ...player.input, sprint:false }
+          ? oneHitChargeIntent(player.input)
         : bracing
           ? { ...player.input, forward: (player.input?.forward ?? 0) * bracing.startupMove, right: (player.input?.right ?? 0) * bracing.startupMove, jump: false, sprint: false }
         : whirl
