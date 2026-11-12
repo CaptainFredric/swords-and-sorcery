@@ -861,9 +861,12 @@ test('field lifetimes: four seconds and 0.3 more for each distinct element, Half
     assert.ok(Math.abs(fieldStrength(field, field.bornAt + expected / 2) - .5) < 1e-9);
     assert.ok(fieldStrength(field, field.bornAt + expected - .05) > 0 && fieldStrength(field, field.bornAt + expected - .05) < .02);
     run(room, now, expected - .2);
-    assert.equal(room.oneHitFields.length, 1, 'still there just before');
+    assert.ok(room.oneHitFields.some(f=>f.id===field.id), 'original slam field still there just before');
     run(room, now + expected - .2, .4);
-    assert.equal(room.oneHitFields.length, 0, 'gone just after');
+    assert.equal(room.oneHitFields.some(f=>f.id===field.id),false,
+      'the original field expires on time even if Gale made a newer wave-end field');
+    assert.equal(room.oneHitFields.length,tiers.gale===2?1:0,
+      'only the later, independently timed Gale terminal field remains');
     // Grounded Full Gale now launches a SECOND, later-travelling wave whose
     // Full Fire terminal can leave its own (later-expiring) burning patch.
     assert.equal(room.oneHitBurnZones.length,tiers.fire===2&&tiers.gale===2?1:0);
@@ -1037,7 +1040,10 @@ test('a fully infused wave: one decisive hit a victim, every status and Steel co
   }
   assert.equal(room.events.filter((e) => e.type === 'oneHitImpact').length, 1);
   assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no ground rupture from the air');
-  assert.equal(room.oneHitFields.length, 0, 'and no ground field');
+  assert.equal(room.oneHitFields.length, 1, 'the ground-adjacent wave explosion leaves its own small Shaken field');
+  assert.equal(room.oneHitFields[0].radius,3.4);
+  assert.equal(room.oneHitFields[0].tiers.frost,2);
+  assert.equal(room.oneHitFields[0].tiers.lightning,2);
   assert.equal(room.oneHitBurnZones.length, 1);
   assert.ok(Math.abs(room.oneHitBurnZones[0].until - room.oneHitBurnZones[0].bornAt - 5.5) < 1e-9);
 });
