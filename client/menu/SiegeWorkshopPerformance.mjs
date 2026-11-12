@@ -41,6 +41,7 @@ export class SiegeWorkshopPerformance {
     this.actors=[];
     this.projectiles=[];
     this.resources=[];
+    this.effects=[];
   }
 
   get active() { return Boolean(this.skill); }
@@ -50,6 +51,7 @@ export class SiegeWorkshopPerformance {
     this.time=0;
     this.actors.length=0;
     this.projectiles.length=0;
+    this.effects.length=0;
     this.root.clear();
     for(const item of this.resources)item.dispose();
     this.resources.length=0;
@@ -64,12 +66,99 @@ export class SiegeWorkshopPerformance {
     // Keep the primary comparison knight asset intact; this performance uses
     // independently transformable SkinnedMesh clones, never material duplicates.
     this.#ensureActors();
+    this.#prepareEffects(skill);
     for(const shot of workshopPreviewShots(skill)) {
       const arrow=projectile(shot.kind,this.resources);
       this.root.add(arrow);
       this.projectiles.push({shot,object:arrow});
     }
     return true;
+  }
+
+
+  // One reusable three-dimensional effect per authored impact. The geometry
+  // lives entirely in the workshop; no gameplay fire zones or damage events.
+  #prepareEffects(skill) {
+    const events=[];
+    if(skill==='doNotStopMyAscension')events.push({at:5.55,x:0,z:-8.4,type:'valkyrie'});
+    if(skill==='beatToThePunch')events.push({at:2.55,x:.15,z:1.65,type:'ram'});
+    if(skill==='coldHowTouching')events.push({at:1.4,x:2.15,z:-3.63,type:'frost'});
+    if(skill==='boltToTheOccasion')events.push(
+      {at:1.92,x:.15,z:-4.7,type:'bolt'},
+      {at:3.27,x:-1.8,z:-4.5,type:'frost'});
+    if(skill==='narrowToOne')events.push({at:4.68,x:0,z:-2.8,type:'repeater'});
+    if(skill==='fireAwayRightHere')
+      for(const [i,z] of [-4.35,-5.3,-4.35].entries())
+        events.push({at:6.4+i*.15,x:(i-1)*2.35,z,type:'repeater'});
+    for(const event of events) {
+      const valk=event.type==='valkyrie';
+      const color=valk?0xff6a22:event.type==='frost'?0x9feaff:
+        event.type==='ram'?0xd8bb79:0xeaba78;
+      const group=new THREE.Group();
+      group.position.set(event.x,.075,event.z);
+      const ring=new THREE.Mesh(new THREE.RingGeometry(.8,1,48),
+        new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,
+          side:THREE.DoubleSide,depthWrite:false}));
+      ring.rotation.x=-Math.PI/2;
+      group.add(ring);
+      const fireball=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),
+        new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,
+          depthWrite:false,blending:THREE.AdditiveBlending}));
+      fireball.position.y=1.1;
+      group.add(fireball);
+      const smoke=[];
+      for(let i=0;i<(valk?7:3);i++) {
+        const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),
+          new THREE.MeshBasicMaterial({color:valk?0x382b27:color,
+            transparent:true,opacity:0,depthWrite:false}));
+        mesh.position.set(Math.cos(i*2.4),.9+i*.22,Math.sin(i*2.4));
+        group.add(mesh);
+        smoke.push(mesh);
+      }
+      // Terminal impact leaves a persistent scorched earth/ember perimeter.
+      let scorch=null;
+      if(valk){
+        scorch=new THREE.Mesh(new THREE.CircleGeometry(2.85,48),
+          new THREE.MeshBasicMaterial({color:0x28160e,transparent:true,
+            opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+        scorch.rotation.x=-Math.PI/2;
+        scorch.position.y=.025;
+        group.add(scorch);
+      }
+      this.root.add(group);
+      this.effects.push({...event,group,ring,fireball,smoke,scorch});
+      for(const mesh of [ring,fireball,...smoke,...(scorch?[scorch]:[])])
+        this.resources.push(mesh.geometry,mesh.material);
+    }
+  }
+
+  #updateEffects(t) {
+    for(const effect of this.effects){
+      const age=t-effect.at;
+      const valk=effect.type==='valkyrie';
+      const active=age>=0;
+      effect.group.visible=active;
+      if(!active)continue;
+      const blast=smooth(age/(valk?.23:.16));
+      const fade=1-smooth((age-(valk?.18:.09))/(valk?1.15:.5));
+      const radius=valk?6.3:effect.type==='frost'?2.2:1.5;
+      effect.ring.scale.setScalar(.2+(radius-.2)*blast);
+      effect.ring.material.opacity=Math.max(0,fade)*(valk?.8:.62);
+      effect.fireball.scale.setScalar((valk?2.9:.8)*(.35+blast));
+      effect.fireball.material.opacity=Math.max(0,fade)*(valk?.78:.5);
+      effect.fireball.position.y=1.15+(valk?.9:.2)*blast;
+      for(let i=0;i<effect.smoke.length;i++){
+        const mesh=effect.smoke[i];
+        const spread=(valk?2.6:.75)*(1+.38*i/effect.smoke.length);
+        const theta=i*2.4;
+        mesh.position.set(Math.cos(theta)*spread*(.35+blast),
+          .5+(valk?2.8:.8)*smooth(age/(valk?2.8:1.4))+i*.16,
+          Math.sin(theta)*spread*(.35+blast));
+        mesh.scale.setScalar((valk?.55:.25)+age*(valk?.45:.16));
+        mesh.material.opacity=Math.max(0,1-smooth(age/(valk?3.8:1.5)))*(valk?.3:.22);
+      }
+      if(effect.scorch)effect.scorch.material.opacity=.9*smooth(age/.27);
+    }
   }
 
   #ensureActors() {
@@ -151,6 +240,7 @@ export class SiegeWorkshopPerformance {
     const t=this.time;
     const skill=this.skill;
     const pose=workshopPreviewPose(skill,t);
+    this.#updateEffects(t);
     for(let i=0;i<this.actors.length;i++) {
       const actor=this.actors[i];
       const state=workshopPreviewTargetPose(skill,t,i);
