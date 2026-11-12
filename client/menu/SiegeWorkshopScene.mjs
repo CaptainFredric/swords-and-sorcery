@@ -73,6 +73,7 @@ export class SiegeWorkshopScene {
     this.clips = new Map();
     this.previewAnimation = null;
     this.previewFist = null;
+    this.previewClipWarnings = new Set();
     this.loader = new GLTFLoader();
     this.performance = new SiegeWorkshopPerformance(this);
 
@@ -628,6 +629,9 @@ export class SiegeWorkshopScene {
 
   #poseFist(pose) {
     if(!pose||this.activeMachineId!=='soFist')return;
+    // Authored piston motion already belongs to the GLB. Applying the old
+    // hand-written extension on top caused double travel and twisted joints.
+    if(this.isDisplayingAuthored())return;
     const node=this.machinePivot.children[0]?.getObjectByName('Armored_Fist');
     if(!node)return;
     this.previewFist={node,rest:node.position.clone()};
@@ -661,31 +665,46 @@ export class SiegeWorkshopScene {
     const clips=this.clips.get(id);
     const mixer=this.mixers.get(id);
     if(!mixer||!clips?.length)return;
-    let name=null,age=time;
+    let name=null,age=time,loop=false;
     if(id==='soFist' && skill==='longArmToTheJaw') {
-      name='01_Ram_Strike_Full_Cycle'; age=Math.min(.88,time*1.7);
+      name='01_Ram_Strike_Full_Cycle';
+      // Hold the deployed piston frame instead of running its return stroke.
+      const strike=clips.find(c=>c.name===name);
+      age=strike ? Math.min(strike.duration*.48,time*1.5) : 0;
     } else if(id==='soFist' && skill==='beatToThePunch') {
-      name='01_Ram_Strike_Full_Cycle'; age=Math.max(0,time-2.1);
+      name='01_Ram_Strike_Full_Cycle';
+      age=Math.max(0,time-2.1);
     } else if(id==='biBye' && skill==='boltToTheOccasion') {
       name=time>=2.58?'09_BiBye_Mobile_Shot1_Fire_Upper':'21_BiBye_Delayed_Shot2_Release_And_Recoil';
       age=time>=2.58?time-2.58:Math.max(0,time-1.27);
     } else if(id==='biBye' && skill==='coldHowTouching') {
       name='09_BiBye_Mobile_Shot1_Fire_Upper'; age=Math.max(0,time-.75);
     } else if(id==='fightFlight') {
-      name='Rotor_Spin_Cycle_1Rev'; age=time;
+      name='Rotor_Spin_Cycle_1Rev'; age=time;loop=true;
     }
     const clip=clips.find(c=>c.name===name);
-    if(!clip)return;
+    if(!clip) {
+      if(name&&!this.previewClipWarnings.has(id+':'+name)){
+        this.previewClipWarnings.add(id+':'+name);
+        console.warn('Siege Workshop: missing authored animation clip',id,name);
+      }
+      return;
+    }
     if(this.previewAnimation?.name!==name||this.previewAnimation?.machine!==id) {
       mixer.stopAllAction();
       const action=mixer.clipAction(clip);
-      action.reset().setLoop(id==='fightFlight'?THREE.LoopRepeat:THREE.LoopOnce,
-        id==='fightFlight'?Infinity:1);
-      action.clampWhenFinished=true;
+      action.reset().setLoop(loop?THREE.LoopRepeat:THREE.LoopOnce,loop?Infinity:1);
+      action.clampWhenFinished=!loop;
       action.play();
-      this.previewAnimation={machine:id,name};
+      this.previewAnimation={machine:id,name,action};
     }
-    mixer.setTime(id==='fightFlight'?age:Math.min(Math.max(0,clip.duration-.001),age));
+    // Sample *the chosen action* rather than resetting the entire mixer clock
+    // on every frame. Switching Bolt II to Bolt I cannot rewind the new action.
+    const action=this.previewAnimation.action;
+    action.paused=false;
+    action.time=loop ? age % Math.max(.001,clip.duration)
+      : Math.min(Math.max(0,clip.duration-.001),age);
+    mixer.update(0);
   }
 
   update(dt, reducedMotion = false) {
