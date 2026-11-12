@@ -208,6 +208,11 @@ async function scenario(url,label,touch,enhanced){
   // travel through actual desktop or touch events and authoritative movement.
   if(verifyAir)await ev(`import('./client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())`);
   await ev(`${runtime}.input.pitch=-.50`);
+  // The aerial Windblade does not throw ground-only stone slabs unless it
+  // actually lands as a grounded slam. Observe the terminal projectile event
+  // instead of waiting for unrelated ground-only transients.
+  await ev(`window.__disasterImpacts=[]; ${runtime}.socket.on('events',
+    batch=>{for(const e of batch.events??[])if(e.type==='oneHitImpact')window.__disasterImpacts.push(e);})`);
   const stage=await ev(`new Promise(resolve => {
     const rt=${runtime},host=rt.socket.local?.player;
     document.querySelector('[data-one-hit-action=aerial]').click();
@@ -250,7 +255,11 @@ async function scenario(url,label,touch,enhanced){
     return clip==='Slash_3'&&rt.chase>.5?{clip,chase:rt.chase}:null;
   })()`),'release transitions to provisional slam');
   if(enhanced&&!air){
-    await until(()=>ev(`${runtime}?.oneHitEffects.zones.size>0 && ${runtime}.oneHitEffects.transients.length>12`),'aerial eruption and ground zone',4000);
+    const terminal=await until(()=>ev('window.__disasterImpacts?.find(e=>e.impactId)'),
+      'authoritative Windblade terminal impact',5000);
+    assert.ok(terminal.impactId,'aerial Wave actually terminated');
+    await until(()=>ev(`${runtime}.oneHitEffects.elements.census().glow>2`),
+      'elemental terminal burst visible',4000);
     await snap(label+'-aerial-impact');
   }else if(!air)await snap(label+'-aerial-release');
   if(air){
