@@ -105,8 +105,29 @@ export class SiegeWorkshopPerformance {
       hit.position.set(0,1.1,0);
       hit.visible=false;
       root.add(hit);
-      this.resources.push(guard.geometry,guard.material,hit.geometry,hit.material);
-      this.actors.push({root,model,guard,hit,base:positions[i]});
+      // Three visible 100-HP training targets for Fire Away's prolonged
+      // demonstration. These are exhibition counters, never player HP.
+      const meter=new THREE.Group();
+      meter.position.set(0,2.28,.3);
+      const back=new THREE.Mesh(new THREE.PlaneGeometry(1.16,.18),
+        new THREE.MeshBasicMaterial({color:0x231d18,side:THREE.DoubleSide,depthTest:false}));
+      const fill=new THREE.Mesh(new THREE.PlaneGeometry(1.08,.12),
+        new THREE.MeshBasicMaterial({color:0x80c46b,side:THREE.DoubleSide,depthTest:false}));
+      fill.position.z=.013;
+      meter.add(back,fill);
+      const canvas=document.createElement('canvas');
+      canvas.width=256;canvas.height=64;
+      const texture=new THREE.CanvasTexture(canvas);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false}));
+      label.position.set(0,.32,.01);
+      label.scale.set(1.22,.3,1);
+      meter.add(label);
+      root.add(meter);
+      meter.visible=false;
+      this.resources.push(guard.geometry,guard.material,hit.geometry,hit.material,
+        back.geometry,back.material,fill.geometry,fill.material,texture,label.material);
+      this.actors.push({root,model,guard,hit,meter,fill,canvas,texture,base:positions[i],lastHp:-1});
     }
   }
 
@@ -137,6 +158,28 @@ export class SiegeWorkshopPerformance {
       actor.root.rotation.z=-state.fall*1.18;
       actor.guard.visible=Boolean(state.guard);
       actor.hit.visible=false;
+      const hasBar=skill==='fireAwayRightHere'||skill==='narrowToOne';
+      actor.meter.visible=hasBar;
+      if(hasBar){
+        const cues=workshopPreviewShots(skill);
+        const total=cues.filter(shot=>shot.target===i).length;
+        const hits=cues.filter(shot=>shot.target===i && t>=shot.at+shot.flight).length;
+        const hp=Math.max(0,100-Math.round(100*hits/Math.max(1,total)));
+        if(actor.lastHp!==hp){
+          actor.lastHp=hp;
+          const width=hp/100;
+          actor.fill.scale.x=Math.max(.0001,width);
+          actor.fill.position.x=-(1-width)*.54;
+          actor.fill.material.color.setHex(hp>45?0x80c46b:hp>20?0xe0bc61:0xb54d43);
+          const ctx=actor.canvas.getContext('2d');
+          ctx.clearRect(0,0,256,64);
+          ctx.fillStyle='#f1dfb5';
+          ctx.font='bold 36px sans-serif';
+          ctx.textAlign='center';
+          ctx.fillText(`${hp} / 100 HP`,128,44);
+          actor.texture.needsUpdate=true;
+        }
+      }
     }
     const bases=workshopPreviewTargets(skill);
     for(const {shot,object} of this.projectiles) {
