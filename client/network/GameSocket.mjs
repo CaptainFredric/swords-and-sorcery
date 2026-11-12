@@ -250,7 +250,8 @@ export class GameSocket {
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate({held=false}={}) { this.send({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease({cancel=false}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitRelease({cancel=false,yaw,pitch}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{}),
+    ...(Number.isFinite(yaw)?{yaw}:{}),...(Number.isFinite(pitch)?{pitch}:{})}); }
   oneHitFire() { this.send({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.send({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.send({type:'practiceOneHit',...options}); }
