@@ -13,7 +13,7 @@ import {
 class FakeContext{
   constructor(){
     this.state='running';this.currentTime=0;this.sampleRate=8000;
-    this.started=[];this.stopped=[];this.parameters=[];
+    this.started=[];this.stopped=[];this.parameters=[];this.sources=[];
     this.destination=this.node();
   }
   param(value=0){
@@ -42,7 +42,7 @@ class FakeContext{
   }
   createGain(){return this.node()}
   createOscillator(){return this.node()}
-  createBufferSource(){return this.node()}
+  createBufferSource(){const node=this.node();this.sources.push(node);return node}
   createConvolver(){return this.node()}
   createDelay(){return this.node()}
   createBiquadFilter(){return this.node()}
@@ -78,4 +78,25 @@ test('Every new identity plays in the REAL WebAudio recipe engine, with legal en
   assert.equal(ctx.started.length,ctx.stopped.length,'all sources have finite stop times');
   assert.ok(ctx.stopped.every(t=>t<30),'no indefinitely looping audio samples');
   assert.ok(ctx.parameters.every(Number.isFinite));
+});
+
+test('Held Gale wind has a real sustained body, loops the noise source and fades without a hard cut',()=>{
+  const ctx=new FakeContext();
+  const engine=new SoundEngine({listen:false}).useContext(ctx);
+  engine.offline=true;
+  const wind=galeStreamRecipe(()=>.4,{seconds:.8,weight:1});
+  const first=ctx.stopped.length;
+  engine.play(wind,{at:2,gain:.35,pan:0});
+  const durations=ctx.stopped.slice(first);
+  assert.ok(durations.length>=3);
+  assert.ok(Math.max(...durations)>2.68,
+    'audible wind remains present well after the opening whoosh');
+  assert.ok(ctx.sources.filter(n=>n.buffer===engine.noise).every(n=>n.loop===true),
+    'sustained noise must loop its one-second source buffer until envelope finishes');
+  const short={layers:[{type:'noise',filter:'highpass',freq:4000,
+    attack:.002,decay:.08,gain:.1}],reverb:0};
+  const before=ctx.sources.length;
+  engine.play(short,{at:4,gain:.5});
+  assert.equal(ctx.sources[before].loop,false,
+    'old short-percussive recipes still use unlooped one-shot noise');
 });
