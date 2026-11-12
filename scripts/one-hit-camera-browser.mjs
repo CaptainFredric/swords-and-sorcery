@@ -68,6 +68,9 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
       now>=Math.max(host.recoverUntil??0,host.ultimateLockedUntil??0);
   })()`),name+' recovery finished');
   await focusArena();
+  // Keep the teleport arrival airborne when testing Full Lightning + Gale;
+  // aiming downward can correctly resolve into a ground-arrival slam instead.
+  const castPitch=aerial&&lightning?.35:aerial?-.25:0;
   await evaluate(`(() => {
     const rt=${rt}, host=rt.socket.local.player;
     // The preceding teleport can leave us away from the supported test yard.
@@ -84,7 +87,7 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
       };
       document.addEventListener('keydown',stage,true);
     }
-    rt.input.pitch=${aerial?-.25:0};
+    rt.input.pitch=${castPitch};
     window.__disasterRun={name:${JSON.stringify(name)},frames:[],events:[],keys:[]};
   })()`);
   await poll(()=>evaluate(`${rt}.localAuth?.grounded`),name+' supported reset');
