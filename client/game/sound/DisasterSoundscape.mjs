@@ -1,7 +1,7 @@
 // Event-driven finite sound choreography for real Castleward gameplay.
 // Snapshots own expiration and position. Uses existing positional SFX mixer.
-import {fieldStrength} from '../../shared/src/oneHitStatus.mjs';
-import {galeProfile} from '../../shared/src/galeModes.mjs';
+import {fieldStrength} from '../../../shared/src/oneHitStatus.mjs';
+import {galeProfile} from '../../../shared/src/galeModes.mjs';
 import {
   DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
   coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
