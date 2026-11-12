@@ -161,7 +161,33 @@ async function scenario(url,label,touch,enhanced){
   if(!verifyAir){
     await press(touch,true);
     await until(()=>ev(`Number.isFinite(${actor}?.ultimateState?.teleportHoldAt)`),'Full Lightning holds on actual input');
-    if(enhanced)await until(()=>ev(`${runtime}?.chase>.6 && ${runtime}.oneHitEffects.reticle.visible`),'charging chase and reachable guide');
+    if(enhanced){
+      await until(()=>ev(`${runtime}?.chase>.6 && ${runtime}.oneHitEffects.reticle.visible`),
+        'charging chase and reachable guide');
+      // Exercise the SAME input turn path the mouse/touch look uses while
+      // holding Full Lightning + Full Gale. The destination must follow
+      // live azimuth and elevation, including after a downward sweep.
+      const sample=()=>ev(`(() => {
+        const rt=${runtime},p=rt.oneHitEffects.teleportTarget.position;
+        return {yaw:rt.input.yaw,pitch:rt.input.pitch,point:[p.x,p.y,p.z],
+          visible:rt.oneHitEffects.reticle.visible,vertical:rt.input.disasterThreeDAim};
+      })()`);
+      const before=await sample();
+      assert.ok(before.vertical,'Full Lightning + Gale unlocks live 3D look');
+      await ev(`${runtime}.input.turn(Math.PI,.68)`);
+      const above=await until(async()=>{
+        const s=await sample();
+        return s.pitch>before.pitch+.35&&s.point[1]>before.point[1]+1?s:null;
+      },'held teleport pitch and behind-the-back destination move');
+      assert.ok(Math.abs(above.yaw-before.yaw)>1,'the charging view turns through the rear hemisphere');
+      await ev(`${runtime}.input.turn(0,-1.36)`);
+      const below=await until(async()=>{
+        const s=await sample();
+        return s.pitch<-.35&&s.point[1]<above.point[1]-1?s:null;
+      },'groundward 3D destination responds to look without releasing charge');
+      assert.ok(below.visible&&above.visible);
+      console.log('[3D CHARGE AIM]',JSON.stringify({before,above,below}));
+    }
     await snap(label+'-charge');
     await until(()=>ev(`${runtime}.socket.serverNow()-${actor}.ultimateState.teleportHoldAt>.55`),'half-second charge');
     await press(touch,false);
