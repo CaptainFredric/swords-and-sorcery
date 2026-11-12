@@ -102,7 +102,7 @@ function disasterPlan(player, serverNow) {
   const action = player.ultimateState ?? {};
   const windup = disasterWindupSec(action);
   const tiers = action.oneHit?.tiers ?? action.preparedTiers ?? {};
-  // (only Full Gale has an aerial form: a grounded wind-up knocked off its feet for a moment is still the ground slam)
+  // Form follows the server's resolved post-teleport grounded state.
   const airborne = action.phase === 'active' ? action.oneHit?.form === 'aerial' : player.grounded === false && (tiers.gale ?? 0) >= 2;
   // (the model without them: the plain heavy strike, wound up to its contact as before)
   const provisional = (time) => ({ requiredClip: true, fallback: 'Slash_3', fallbackTime: Math.max(0, Math.min(SLASH_DURATIONS[2] - .01, time)) });
@@ -130,10 +130,16 @@ function disasterPlan(player, serverNow) {
   const follow = provisional(SLAM_CONTACT + elapsed * .75);
   const teleported = Number.isFinite(action.teleportHoldAt);
   if (airborne) {
-    // out of a teleport the wave is thrown at once: the clip is joined at its cut. Otherwise it is played from its
-    // first turn, and throws the wave when the host does.
-    const from = teleported ? DISASTER_CLIPS.aerial.contact : 0;
-    return { ...authored(DISASTER_CLIPS.aerial, from + elapsed, teleported ? { blend: .05 } : {}), ...follow };
+    // After an aerial teleport, pose the sword while the player adjusts aim.
+    // Only the authoritative launch event can advance the clip past its cut.
+    if(teleported&&!action.oneHit?.waveLaunched){
+      const charge=DISASTER_CLIPS.chargeAir;
+      return { ...fixed(charge.clip, elapsed%charge.duration,true), disaster:true, ...follow };
+    }
+    const sinceLaunch=Math.max(0,serverNow-finite(action.oneHit?.waveLaunchedAt,serverNow));
+    return { ...authored(DISASTER_CLIPS.aerial,
+      teleported?DISASTER_CLIPS.aerial.contact+sinceLaunch:elapsed,
+      teleported?{blend:.05}:{}), ...follow };
   }
   if (teleported) return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
   const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
