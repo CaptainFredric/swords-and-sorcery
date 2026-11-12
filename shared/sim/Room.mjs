@@ -1,4 +1,6 @@
 import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
+import {normalizeSwordTechnique} from '../src/swordTechniqueContracts.mjs';
+import {interruptSwordTechnique} from './swordTechniqueLive.mjs';
 import { emptyInfusions } from '../src/oneHitInfusions.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
@@ -44,6 +46,9 @@ function freshCombatState(spawn, nowSec = 0) {
     yaw: spawn.yaw ?? 0,
     pitch: 0,
     health: 100,
+    swordTechnique:null,
+    swordTechniqueHeld:false,
+    swordTechniqueReadyAt:0,
     guardStamina: guardProfile().capacity,
     guarding: false,
     guardHeld: false,
@@ -249,7 +254,7 @@ export class Room {
     return this.humanActorCount() < capacity ? null : 'Room is full.';
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, technique = 'rigid_riposte', preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
     const joinFailure = this.joinError();
     // Solo and duel creation have their own controlled actor counts and are never public joins.
     if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE, GAME_MODES.RENOWN_TRIALS].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
@@ -298,6 +303,8 @@ export class Room {
     // personal Ultimate, independent of the Fight-and-Flight dash reserve.
     if(this.mode===GAME_MODES.PRACTICE)player.prowess=PROWESS.full;
     player.startingSpell = player.spell;
+    player.technique=normalizeSwordTechnique(technique);
+    player.startingTechnique=player.technique;
     player.preparedSpells = normalizePreparedSpells(player.startingSpell, preparedSpells);
     player.startingPreparedSpells = [...player.preparedSpells];
     player.startingUltimate = player.ultimate;
@@ -791,6 +798,7 @@ export class Room {
       pitch: player.pitch,
     };
     player.sprinting = false;
+    interruptSwordTechnique(player,nowSec);
     player.attackHeld = false;
     player.attackActive = false;
     player.attackQueued = false;
@@ -1041,6 +1049,7 @@ export class Room {
       player.operatingFightFlightId = null;
       const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
+      player.technique = normalizeSwordTechnique(player.startingTechnique);
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
       player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
       Object.assign(player, freshCombatState(spawn, nowSec));
