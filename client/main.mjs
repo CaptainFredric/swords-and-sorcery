@@ -1923,6 +1923,20 @@ function updatePlaques() {
 
 let lastEquippedCategory = null;
 let lastEquippedItemId = null;
+// The selection is placed at the bottom of the *visible banner window*, not the
+// end of a possibly much longer equipment list. Preserve the remaining order.
+const bannerReorderSlots = new Map();
+function bannerOrdered(items, category, key) {
+  const slot = bannerReorderSlots.get(category);
+  if (!slot) return items;
+  const result = [...items];
+  const chosen = result.findIndex(item => key(item) === slot.chosen);
+  if (chosen < 0) return result;
+  const [item] = result.splice(chosen, 1);
+  const anchor = result.findIndex(entry => key(entry) === slot.anchor);
+  result.splice(anchor < 0 ? result.length : anchor + 1, 0, item);
+  return result;
+}
 
 function renderInspectorLists() {
   const currentSpell = settings.get('loadout.spell');
@@ -1951,7 +1965,7 @@ function renderInspectorLists() {
     const view = armoryView(currentSpell, currentUlt);
     const unequipped = view.spells.filter((s) => !s.equipped);
     const equipped = view.spells.find((s) => s.equipped);
-    const sortedSpells = equipped ? [...unequipped, equipped] : view.spells;
+    const sortedSpells = bannerOrdered(equipped ? [...unequipped, equipped] : view.spells, 'sorcery', item => item.id);
 
     spellsContainer.innerHTML = sortedSpells.map((spell) => {
       const isSelected = spell.id === armoryLocation.highlightedItem && armoryLocation.category === 'sorcery';
@@ -1967,7 +1981,7 @@ function renderInspectorLists() {
     const view = armoryView(currentSpell, currentUlt);
     const unequipped = view.ultimates.filter((u) => !u.equipped);
     const equipped = view.ultimates.find((u) => u.equipped);
-    const sortedUlts = equipped ? [...unequipped, equipped] : view.ultimates;
+    const sortedUlts = bannerOrdered(equipped ? [...unequipped, equipped] : view.ultimates, 'masterstroke', item => item.id);
 
     ultimatesContainer.innerHTML = sortedUlts.map((u) => {
       const isSelected = u.id === armoryLocation.highlightedItem && armoryLocation.category === 'masterstroke';
@@ -2056,6 +2070,16 @@ function animateCardReorder(category, selectedItemId) {
   const before = new Map([...container.querySelectorAll('.spell-card')]
     .map(card => [keyOf(card), card.getBoundingClientRect()]));
   const priorScroll = scrollEl.scrollTop;
+  const scrollWindow = scrollEl.getBoundingClientRect();
+  const visibleCards = [...container.querySelectorAll('.spell-card')].filter(card => {
+    const bounds = card.getBoundingClientRect();
+    return bounds.top < scrollWindow.bottom - 8 && bounds.bottom > scrollWindow.top + 8;
+  });
+  const anchor = visibleCards.at(-1);
+  // The last currently visible choice marks the bottom of the crimson viewport.
+  // Don't jump the scroll position down through offscreen cards and details.
+  if (anchor && category !== 'technique')
+    bannerReorderSlots.set(category, { chosen: selectedItemId, anchor: keyOf(anchor) });
   const wasFocused = container.contains(document.activeElement);
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   return () => {
@@ -2065,10 +2089,6 @@ function animateCardReorder(category, selectedItemId) {
     const cards = [...container.querySelectorAll('.spell-card')];
     const target = cards.find(card => keyOf(card) === selectedItemId);
     if (!target) return;
-    const scrollRect = scrollEl.getBoundingClientRect();
-    const cardRect = target.getBoundingClientRect();
-    const desired = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
-      scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
     if (!reduced) {
       for (const card of cards) {
         const previous = before.get(keyOf(card));
@@ -2087,11 +2107,8 @@ function animateCardReorder(category, selectedItemId) {
         });
       }
     }
-    // Aim only far enough to leave the newly equipped item near the bottom.
-    // The detail card remains BELOW the list: swipe down for its full text,
-    // and swipe up to return to the preceding choices.
-    if (Math.abs(desired - scrollEl.scrollTop) > 1)
-      scrollEl.scrollTo({ top: desired, behavior: reduced ? 'instant' : 'smooth' });
+    // No automatic scroll. The clicked card moves within the visible
+    // banner window; the player scrolls separately to see its details.
     if (wasFocused) target.focus({ preventScroll: true });
   };
 }
