@@ -33,6 +33,10 @@ export class AfflictionPanel {
     this.description = this.dock.querySelector('.affliction-description');
     this.strengthName = this.dock.querySelector('.affliction-scale-word');
     this.strengthFill = this.dock.querySelector('.affliction-big-fill');
+    // HUD's legacy Node test fixtures intentionally expose only a tiny DOM.
+    // The live browser has these APIs; no mock-only UI should be mounted.
+    this.available = Boolean(this.dock.addEventListener && this.icons?.append && this.details);
+    if (!this.available) return;
     this.dock.addEventListener('pointerdown', event => event.stopPropagation());
     this.dock.addEventListener('click', event => {
       // The status dock must never send a click through to the arena.
@@ -45,6 +49,7 @@ export class AfflictionPanel {
   }
 
   update(player, nowSec) {
+    if (!this.available) return;
     const items = afflictionView(player, nowSec);
     this.items = items;
     this.dock.hidden = items.length === 0;
@@ -105,7 +110,7 @@ export class AfflictionPanel {
   /** Desktop pointer lock hides the mouse. A rebindable Interface action
    * cycles one selected effect at a time without unlocking or cancelling combat. */
   cycle() {
-    if (!this.items.length) return;
+    if (!this.available || !this.items.length) return;
     const index = this.items.findIndex(item => item.id === this.selectedId);
     this.select(index >= this.items.length - 1 ? null : this.items[index + 1].id);
   }
