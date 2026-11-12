@@ -162,8 +162,9 @@ export class SiegeWorkshopPerformance {
       actor.meter.visible=hasBar;
       if(hasBar){
         const cues=workshopPreviewShots(skill);
-        const total=cues.filter(shot=>shot.target===i).length;
-        const hits=cues.filter(shot=>shot.target===i && t>=shot.at+shot.flight).length;
+        const harmful=cues.filter(shot=>shot.target===i && (skill!=='narrowToOne'||shot.lowShot));
+        const total=harmful.length;
+        const hits=harmful.filter(shot=>t>=shot.at+shot.flight).length;
         const hp=Math.max(0,100-Math.round(100*hits/Math.max(1,total)));
         if(actor.lastHp!==hp){
           actor.lastHp=hp;
@@ -193,7 +194,8 @@ export class SiegeWorkshopPerformance {
       const base=bases[shot.target]??[0,0,-4];
       const to=shot.nearMiss ? [base[0]+.95,1.2,base[2]+.42]
         : [base[0]+(skill==='narrowToOne'&&shot.lowShot ? .26 : 0),
-            skill==='narrowToOne'&&shot.lowShot ? .43 : 1.2,base[2]];
+            skill==='narrowToOne'&&shot.lowShot ? .43 : 1.2,
+            base[2]+(skill==='narrowToOne'&&!shot.lowShot ? .43 : 0)];
       if(object.visible) {
         const u=clamp(age/flight);
         const start=vec(from),end=vec(to);
@@ -207,7 +209,8 @@ export class SiegeWorkshopPerformance {
           actor.hit.visible=true;
           actor.hit.position.set(shot.nearMiss ? .75 :(skill==='narrowToOne'&&shot.lowShot ? .25 : 0),
             skill==='narrowToOne'&&shot.lowShot ? .45 : 1.15,shot.nearMiss ? .42 : 0);
-          actor.hit.material.color.setHex(shot.kind==='frost'?0xb3e9ff:0xffb36b);
+          actor.hit.material.color.setHex(shot.kind==='frost'?0xb3e9ff:
+            skill==='narrowToOne'&&!shot.lowShot?0xecc884:0xffb36b);
           actor.hit.scale.setScalar(shot.nearMiss ? 1+7*smooth((age-flight)/.26) : 1+1.8*smooth((age-flight)/.26));
           actor.hit.material.opacity=.45*(1-clamp((age-flight)/.26));
         }
