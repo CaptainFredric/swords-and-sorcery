@@ -1,0 +1,49 @@
+name: All-Natural Disaster aim and elemental VFX browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'shared/src/oneHitTrajectory.mjs'
+      - 'shared/src/oneHitTrajectory.test.mjs'
+      - 'client/game/OneHitLiveEffects.mjs'
+      - 'client/game/DisasterElementEffects.mjs'
+      - 'client/game/disasterWavePresentation.mjs'
+      - 'client/game/disasterWavePresentation.test.mjs'
+      - 'scripts/disaster-impact-browser.mjs'
+      - '.github/workflows/disaster-aim-vfx.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disaster-aim-vfx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Validate browser imports and focused teleport/Windblade rules
+        run: |
+          npm run check:browser-imports
+          node --test shared/src/oneHitTrajectory.test.mjs client/game/disasterWavePresentation.test.mjs
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Exercise live desktop and touch Disaster impacts in Chrome
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/disaster-impact-browser.mjs
+      - name: Preserve screenshots and observed browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-natural-disaster-3d-vfx
+          path: output/playwright/disaster-impact/
+          retention-days: 7
