@@ -24,15 +24,25 @@ test('rising ramp can terminate an approaching horizontal wave; floor is not a c
   assert.equal(oneHitWorldContact({x:0,y:-1,z:0},{x:0,y:1,z:0},terrain),null);
 });
 
-test('a long downward Lightning release stops above real terrain and leaves unsupported air alone',()=>{
+test('a downward Gale-Lightning teleport lands ON terrain and chooses the grounded form',()=>{
   const cast={origin:{x:0,y:2.5,z:0},yaw,pitch:-.50,aerial:true,holdSec:1.8};
   const field=planOneHitTeleport({...cast,world});
-  assert.ok(field.legal && field.end.y>0 && field.end.y<.1);
+  assert.ok(field.legal && field.grounded && Math.abs(field.end.y)<1e-6);
   assert.ok(field.end.x>4 && field.end.x<5);
   const unsupported=planOneHitTeleport({...cast,world:{solids:[]}});
   assert.ok(unsupported.legal && unsupported.end.y<0 && unsupported.end.x>field.end.x);
   const ramp={axis:'x',minX:1,maxX:8,minZ:-2,maxZ:2,startY:0,endY:2};
   const rising=planOneHitTeleport({...cast,world:{...world,ramps:[ramp]}});
   assert.ok(rising.legal && rising.end.x<field.end.x);
-  assert.ok(rising.end.y>(rising.end.x-1)*2/7);
+  assert.ok(rising.grounded && Math.abs(rising.end.y-(rising.end.x-1)*2/7)<.01);
+});
+
+test('Full Gale allows vertical repositioning from the GROUND; without Gale pitch remains level',()=>{
+  const base={origin,yaw,pitch:Math.PI/3,aerial:false,holdSec:1.3,world};
+  const ordinary=planOneHitTeleport(base);
+  assert.ok(ordinary.legal&&ordinary.grounded&&Math.abs(ordinary.end.y)<1e-7);
+  const gale=planOneHitTeleport({...base,allowVertical:true});
+  assert.ok(gale.legal&&!gale.grounded&&gale.end.y>8);
+  const returning=planOneHitTeleport({...base,origin:{x:0,y:8,z:0},pitch:-Math.PI/3,allowVertical:true});
+  assert.ok(returning.legal&&returning.grounded&&Math.abs(returning.end.y)<1e-6);
 });
