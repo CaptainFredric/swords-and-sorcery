@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
-import { crackedFrostPattern } from './disasterFrostGeometry.mjs';
+import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -227,7 +227,19 @@ export class DisasterElementEffects {
     this.warmPatch = new THREE.Mesh(warmPatch,this.frostPlateMaterial);
     this.warmPatch.frustumCulled = false;
     this.root.add(this.warmPatch);
-    this.fields = new Map();     // field id -> { ice, emit clocks }
+    this.earthMaterial = new THREE.MeshBasicMaterial({
+      color:0x51463c,transparent:true,opacity:.25,depthWrite:false,
+      side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,
+    });
+    this.faultMaterial = new THREE.MeshBasicMaterial({
+      color:0x171713,transparent:true,opacity:.75,depthWrite:false,
+      side:THREE.DoubleSide,
+    });
+    this.rubbleMaterial = new THREE.MeshStandardMaterial({
+      color:0x857b6e,roughness:.93,metalness:.02,flatShading:true,
+      transparent:true,opacity:1,depthWrite:false,
+    });
+    this.fields = new Map();     // field id -> { rock, ice, emit clocks }
     this.fractures = [];         // radial fractures still running: rocks thrown where each arm's head is
     this.gather = new Map();     // player id -> emit clocks
     this.status = new Map();     // player id -> emit clocks
@@ -593,10 +605,11 @@ export class DisasterElementEffects {
       seen.add(field.id);
       let entry = this.fields.get(field.id);
       if (!entry) {
-        entry = { acc: {}, arcAt: 0, ice: null };
+        entry = { acc: {}, arcAt: 0, rock: this.#rockField(field), ice: null };
         if (field.tiers?.frost === 2) entry.ice = this.#iceField(field);
         this.fields.set(field.id, entry);
       }
+      this.#poseRockField(entry.rock,field,strength,now);
       const p = field.position, floor = p.y + 0.03;
       const emit = (key, perSec, fn) => {
         entry.acc[key] = (entry.acc[key] ?? 0) + perSec * this.density * dt * strength;
@@ -622,9 +635,123 @@ export class DisasterElementEffects {
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
       if (entry.ice) this.#disposeIce(entry.ice);
+      if (entry.rock) this.#disposeIce(entry.rock);
       this.fields.delete(id);
     }
   }
+  // Every grounded Disaster has a real, persistent Shaken field. The broken
+  // earth is the gameplay telegraph, not a temporary explosion decal: dark
+  // faults, an uneven crater rim and dozens of small settled loose stones.
+  // Its footprint and decay use exactly the server-reported field properties.
+  #rockField(field){
+    const rock=new THREE.Group();
+    rock.name='disaster-shaken-ground-field';
+    rock.position.set(field.position.x,field.position.y,field.position.z);
+    const radius=field.radius;
+    let seed=frostPatternHash(field.id);
+    const randRock=()=>{
+      seed=(seed+0x6d2b79f5)>>>0;
+      let t=Math.imul(seed^(seed>>>15),1|seed);
+      t^=t+Math.imul(t^(t>>>7),61|t);
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+    // Irregular, flat shattered earth, rather than a perfect glowing circle.
+    const groundTriangles=[],perimeter=[];
+    for(let i=0;i<72;i++){
+      const a=i/72*TAU,r=radius*(.955+.043*randRock());
+      perimeter.push({x:Math.cos(a)*r,z:Math.sin(a)*r});
+    }
+    for(let i=0;i<perimeter.length;i++){
+      const p=perimeter[i],q=perimeter[(i+1)%perimeter.length];
+      groundTriangles.push(0,.026,0,p.x,.026,p.z,q.x,.026,q.z);
+    }
+    const floorGeo=new THREE.BufferGeometry();
+    floorGeo.setAttribute('position',new THREE.Float32BufferAttribute(groundTriangles,3));
+    floorGeo.computeVertexNormals();
+    const floor=new THREE.Mesh(floorGeo,this.earthMaterial.clone());
+    floor.name='shaken-broken-ground-surface';
+    floor.frustumCulled=false;
+    rock.add(floor);
+
+    const fissures=[];
+    const cut=(x1,z1,x2,z2,width)=>{
+      const dx=x2-x1,dz=z2-z1,l=Math.hypot(dx,dz)||1;
+      const nx=-dz/l*width,nz=dx/l*width;
+      fissures.push(x1-nx,.046,z1-nz,x2-nx,.046,z2-nz,x2+nx,.046,z2+nz,
+        x1-nx,.046,z1-nz,x2+nx,.046,z2+nz,x1+nx,.046,z1+nz);
+    };
+    for(let arm=0;arm<13;arm++){
+      const theta=(arm+randRock()*.4)/13*TAU;
+      const target=radius*(.79+.19*randRock());
+      let last={x:Math.cos(theta)*.16,z:Math.sin(theta)*.16};
+      const pieces=4+Math.floor(randRock()*3);
+      for(let j=1;j<=pieces;j++){
+        const distance=target*j/pieces;
+        const angle=theta+(randRock()-.5)*.19;
+        const next={x:Math.cos(angle)*distance,z:Math.sin(angle)*distance};
+        cut(last.x,last.z,next.x,next.z,.009+randRock()*.012);
+        if(j>1&&j<pieces&&randRock()>.43){
+          const side=theta+(randRock()>.5?1:-1)*(.32+.32*randRock());
+          const branch=Math.min(radius*.96,distance+radius*(.10+.14*randRock()));
+          cut(next.x,next.z,Math.cos(side)*branch,Math.sin(side)*branch,.007+randRock()*.008);
+        }
+        last=next;
+      }
+    }
+    const crackGeo=new THREE.BufferGeometry();
+    crackGeo.setAttribute('position',new THREE.Float32BufferAttribute(fissures,3));
+    crackGeo.computeVertexNormals();
+    const cracks=new THREE.Mesh(crackGeo,this.faultMaterial.clone());
+    cracks.frustumCulled=false;
+    cracks.name='shaken-fissures';
+    rock.add(cracks);
+
+    const count=this.#n(52);
+    const bits=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),
+      this.rubbleMaterial.clone(),count);
+    bits.name='shaken-scattered-pebbles';
+    bits.frustumCulled=false;
+    const pebbles=[];
+    for(let i=0;i<count;i++){
+      const angle=randRock()*TAU;
+      const distance=radius*Math.sqrt(randRock())*(.75+.24*randRock());
+      pebbles.push({
+        x:Math.cos(angle)*distance,z:Math.sin(angle)*distance,
+        size:.025+Math.pow(randRock(),2)*.105,
+        angle:randRock()*TAU,phase:randRock()*TAU,
+      });
+    }
+    bits.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    rock.add(bits);
+    rock.userData.shaken={floor,cracks,bits,pebbles,poseAt:-Infinity};
+    this.root.add(rock);
+    this.#poseRockField(rock,field,1,field.bornAt);
+    return rock;
+  }
+  #poseRockField(rock,field,strength,now){
+    const data=rock.userData.shaken;
+    if(!data)return;
+    // Still there until the actual gameplay field expires; visibly wanes as
+    // its Shaken suppression and Guard drain wane. Frost can cover the rock
+    // without making its original broken earth abruptly disappear.
+    const ice=field.tiers?.frost===2;
+    data.floor.material.opacity=(ice?.08:.11)+strength*(ice?.11:.25);
+    data.cracks.material.opacity=(ice?.17:.26)+strength*(ice?.23:.56);
+    data.bits.material.opacity=.18+.75*strength;
+    if(now-data.poseAt<.11)return;
+    data.poseAt=now;
+    for(let i=0;i<data.pebbles.length;i++){
+      const p=data.pebbles[i];
+      const shiver=Math.sin(now*13+p.phase)*.016*strength;
+      tmpObject.position.set(p.x,.053+p.size*.28+shiver,p.z);
+      tmpObject.rotation.set(p.phase*.19,p.angle,shiver*3);
+      tmpObject.scale.set(p.size,p.size*(.4+.1*Math.sin(p.phase)),p.size*.85);
+      tmpObject.updateMatrix();
+      data.bits.setMatrixAt(i,tmpObject.matrix);
+    }
+    data.bits.instanceMatrix.needsUpdate=true;
+  }
+
   // The frozen ground is the main visual: pale, subtly uneven plates with
   // dark branching gaps between them. A few broken crystals mark the impact;
   // this must not resemble dozens of cones planted in unfrozen grass.
@@ -965,12 +1092,18 @@ export class DisasterElementEffects {
 
   dispose() {
     while (this.bolts.length) this.#dropBolt(0);
-    for (const entry of this.fields.values()) if (entry.ice) this.#disposeIce(entry.ice);
+    for (const entry of this.fields.values()){
+      if (entry.ice) this.#disposeIce(entry.ice);
+      if (entry.rock) this.#disposeIce(entry.rock);
+    }
     this.fields.clear();
     this.glow.dispose(); this.rock.dispose(); this.smoke.dispose();
     this.warmBolt.geometry.dispose();
     this.warmIce.geometry.dispose();
     this.warmPatch.geometry.dispose();
+    this.earthMaterial.dispose();
+    this.faultMaterial.dispose();
+    this.rubbleMaterial.dispose();
     this.iceMaterial.dispose();
     this.frostPlateMaterial.dispose();
     this.frostCrackMaterial.dispose();
