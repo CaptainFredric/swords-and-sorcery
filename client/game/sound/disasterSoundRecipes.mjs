@@ -38,7 +38,8 @@ export function coreMagmaFuseRecipe(rand=Math.random,{seconds=.6}={}){
     const at=.055+(sec-.14)*(i+.20*rand())/bubbles;
     layers.push(n('bandpass',(180+rand()*370)*jitter(rand,.08),.003,
       .045+rand()*.06,.11+rand()*.08,{at,q:1.5,sweepTo:110+rand()*130}));
-    layers.push(t('sine',140+rand()*75,65+rand()*30,.002,.065,.085,{at:at+.012}));
+    // Deeper viscous pops, not high pitched cartoon-like descending beeps.
+    layers.push(t('triangle',108+rand()*58,52+rand()*26,.002,.085,.064,{at:at+.012}));
   }
   return recipe(layers,.18);
 }
