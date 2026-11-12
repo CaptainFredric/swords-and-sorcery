@@ -157,6 +157,20 @@ try {
       const shown = rt.remotePlayers?.shells?.get?.(other.id)?.root?.position ?? other.position;
       rt.input.yaw = Math.atan2(-(shown.x - me.position.x), -(shown.z - me.position.z)); rt.input.pitch = Math.atan2((shown.y ?? 0) - me.position.y, Math.max(1, Math.hypot(shown.x - me.position.x, shown.z - me.position.z))) * 0.8; }; follow(); })()`);
   }
+  const approach = async () => {
+    // the viewer walks up to the actor (W held, its aim already following them) and stops a few metres short
+    if (!viewer) return;
+    const apart = () => viewer.evaluate(`(() => { const rt = window.__ssRuntime, me = rt.localAuth, other = rt.latestSnapshot.players.find((p) => p.id !== rt.playerId && p.actorKind === 'human'); return Math.hypot(other.position.x - me.position.x, other.position.z - me.position.z); })()`);
+    const want = Number(option('--apart', scenario.startsWith('riposte') ? '5.2' : scenario.startsWith('whirl') ? '3.4' : '3.2'));
+    if (await apart() <= want) return;
+    await viewer.cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'w', code: 'KeyW', windowsVirtualKeyCode: 87 });
+    await poll(async () => (await apart()) <= want, 'viewer walked up', 30000).catch(() => null);
+    await viewer.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW', windowsVirtualKeyCode: 87 });
+    await sleep(400);
+    // (the actor turns to face them where they now stand)
+    await ev(`(() => { const rt = window.__ssRuntime, me = rt.localAuth, other = rt.latestSnapshot.players.find((p) => p.id !== rt.playerId && p.actorKind === 'human');
+      rt.input.yaw = Math.atan2(-(other.position.x - me.position.x), -(other.position.z - me.position.z)); rt.input.pitch = 0; })()`);
+  };
   for (const b of browsers) {
     await b.cdp.send('Page.bringToFront');
     const centre = await b.evaluate("(() => { const r = window.__ssRuntime.renderer.domElement.getBoundingClientRect(); return { x: r.x + r.width * 0.25, y: r.y + r.height * 0.5 }; })()");
@@ -167,6 +181,7 @@ try {
       await poll(() => b.evaluate('window.__ssRuntime.input.enabled', 4000), `${b.name}: input enabled`);
     }
   }
+  await approach();
   await sleep(2600); // (the click's own sword swing over, the yard settled)
 
   // the authoritative events and each frame's clip, in the page whose view is recorded and in the actor's

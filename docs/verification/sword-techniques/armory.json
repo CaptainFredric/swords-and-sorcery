@@ -1,0 +1,40 @@
+{
+ "atFirst": "none",
+ "cards": [
+  {
+   "id": "rigid_riposte",
+   "name": "Rigid Riposte",
+   "facts": "24 through the middle · 20 grazing · 5.7 m lunge · 10s cooldown · earns no Prowess · in the air it uses your Dash",
+   "equipped": false,
+   "disabled": false
+  },
+  {
+   "id": "whirl_like_the_wind",
+   "name": "Whirl Like the Wind",
+   "facts": "16 a turn · 13 at the point · first turn free, then 25 Prowess each · 10s cooldown · earns no Prowess · with Gale Garner: starts in the air, hold Jump to climb",
+   "equipped": false,
+   "disabled": false
+  },
+  {
+   "id": "none",
+   "name": "Longsword Alone",
+   "facts": "Nothing on X while on foot",
+   "equipped": true,
+   "disabled": false
+  }
+ ],
+ "afterClick": {
+  "setting": "whirl_like_the_wind",
+  "plaque": "Whirl Like the Wind",
+  "host": "whirl_like_the_wind"
+ },
+ "inPractice": {
+  "technique": "whirl_like_the_wind",
+  "tileShown": true,
+  "tile": "WHIRL"
+ },
+ "afterReload": {
+  "setting": "whirl_like_the_wind",
+  "host": "whirl_like_the_wind"
+ }
+}

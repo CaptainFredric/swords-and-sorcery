@@ -142,7 +142,7 @@ The braced sword lies centre-right and high, so a right-to-left forehand from de
 
 ### Tests
 
-`npm test` on Node 24: **3,007 of 3,008 pass.** The one failure, `aerial: Half Fire widens the wave…` in `server/tests/disaster-elements.test.mjs`, fails identically on `main` at `d225dfeb` (2,976 of 2,977 there). 31 tests are new:
+`npm test` on Node 24: **3,007 of 3,008 pass.** The one failure, `aerial: Half Fire widens the wave…` in `server/tests/disaster-elements.test.mjs`, fails identically on `main` at `d225dfeb` (2,976 of 2,977 there). The suite has 31 more tests than `main` (the old fixture-only prototype tests are replaced):
 
 - `server/tests/sword-technique.test.mjs` (21): damage and lunge distance, commitment, wall and body stops, interception from each side, a spell cut where the sword is, Guard and parry, Steel, the Dash rule, cooldowns, Stagger, the five-turn Prowess ladder, release, no Prowess in a crowd or on a guard, Gale lift without the spell, Practice against a match, spin direction, replication, loadout.
 - `server/tests/spellblade-motion-sidecar.test.mjs` (5), `client/game/fpTechnique.test.mjs` (3), `client/game/fpForehandFollowThrough.test.mjs` (5, with the old path shown to fail), plus changed tests in `armoryView`, `InputController` and `swordChainPresentation`.
@@ -151,7 +151,17 @@ The braced sword lies centre-right and high, so a right-to-left forehand from de
 
 Real Chrome (headless, GPU), a real game server, real input events. Videos are on branch `evidence/swordsmanship-techniques-20261112`; sheets are in this folder. Each has a full-speed WebM, a quarter-speed copy and `timeline.json` (authoritative events and the clip played each frame). Phone runs are a landscape phone **emulated in desktop Chrome, not a real phone.**
 
-See [RECORDINGS.md](RECORDINGS.md) for the table of what each run measured.
+See [RECORDINGS.md](RECORDINGS.md) for what each run measured. In short: every run rendered at 56 to 60 fps with no page errors; the Riposte did 24 on desktop, emulated phone and to a second client; the Whirl did 16 then 13 as the shove carried the dummy to the point's reach, and 16, 16, 13, 13 on a second client, who received the same events the actor did; with Gale Garner carried a held Jump (Space, or the thumb slid from TECHNIQUE onto JUMP) climbed about 12 m.
+
+The first cut, `main` above and this branch below (stills from the recordings, 0.34 to 0.95 s after the press, first person left and third person right):
+
+![first cut, desktop](first-cut-before-above-after-desktop.jpg)
+
+![first cut, emulated phone](first-cut-before-above-after-phone.jpg)
+
+Techniques: [Riposte](desktop-riposte-sheet.jpg), [Riposte in the air](desktop-riposte-air-sheet.jpg), [Whirl](desktop-whirl-sheet.jpg), [Whirl with Gale Garner](desktop-whirl-gale-sheet.jpg); emulated phone [Riposte](phone-riposte-sheet.jpg), [Whirl](phone-whirl-sheet.jpg), [Whirl climbing](phone-whirl-gale-sheet.jpg); a second client's view of the [Riposte](remote-riposte-sheet.jpg), the [Whirl](remote-whirl-sheet.jpg) and the ordinary chain [before](before-remote-slash-chain-sheet.jpg) and [after](after-remote-slash-chain-sheet.jpg).
+
+Armory to Practice to reload (`scripts/swordsmanship-armory-browser.mjs`, real clicks): the Whirl card is clicked, the setting and the solo host both read `whirl_like_the_wind`, the yard's knight carries it and its HUD tile shows, and after a reload it is still chosen ([Armory](armory-whirl-equipped.jpg), [HUD](practice-hud-technique-tile.jpg), [armory.json](armory.json)). Known cosmetic fault: the technique list has an empty band above its heading.
 
 ### Not verified
 
@@ -179,7 +189,7 @@ See [RECORDINGS.md](RECORDINGS.md) for the table of what each run measured.
 | Hips driving the third-person cuts | Proposed (needs Blender: request 1) |
 | Rigid Riposte: rules, input, Armory, first and third person | Implemented, tested, recorded |
 | Whirl Like the Wind: rules, input, Armory, first and third person | Implemented, tested, recorded |
-| Gale lift | Implemented at a provisional 5 m/s |
+| Gale lift | Implemented at a provisional 5 m/s (recorded: about 12 m gained over a four-turn Whirl in Practice) |
 | Riposte brace covering a forehand from dead ahead | Proposed (request 3) |
 | Technique combined with Spells & Chivalry | Not implemented: a technique cannot begin during any Ultimate |
 | Physical shields | Not in the game; nothing to respect yet |
@@ -193,5 +203,5 @@ See [RECORDINGS.md](RECORDINGS.md) for the table of what each run measured.
 1. The Riposte's startup is 0.32 s (authored clips at authored speed), not Argon's 0.22 s.
 2. A forehand from dead ahead beats the brace (table above). Keep the honest geometry, or ask for a wider brace clip?
 3. A held ordinary Guard blocks a Riposte at heavy cost. The design note had only a parry or a shield stopping it.
-4. The Whirl's climb is 5 m/s with Gale Garner carried.
+4. The Whirl's climb is 5 m/s with Gale Garner carried: about 12 m over four held turns in the recording. That is high; say the height you want and it is one number.
 5. X is shared with the siege binding by context; it is one row in Controls.
