@@ -227,6 +227,7 @@ export class GameSocket {
   practicePerryDismiss() { this.send({ type: 'practicePerryDismiss' }); }
   setInputSampler(sampler) {}
   input(input) { this.send({ type: 'input', ...input }); }
+  technique(down) { this.send({type:'technique',down:Boolean(down)}); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }
   cast(direction) { this.send({ type: 'cast', direction, clientTime: this.serverNow() }); }
@@ -267,7 +268,8 @@ export class GameSocket {
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
   // the spell carried from the Armory (kept by the server for every room this connection joins)
-  loadout(spell, ultimate, preparedSpells, siegeLoadout) { this.send({ type: 'loadout', spell, ultimate, preparedSpells,
+  loadout(spell, ultimate, preparedSpells, siegeLoadout, technique) { this.send({ type: 'loadout', spell, ultimate, preparedSpells,
+  ...(technique!==undefined?{technique}:{}),
   ...(siegeLoadout!==undefined?{siegeLoadout}:{}) }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
