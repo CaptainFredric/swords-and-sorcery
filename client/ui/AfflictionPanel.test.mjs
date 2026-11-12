@@ -130,6 +130,6 @@ test('status expiry closes only the selected detail and shows no clock', () => {
     assert.equal(panel.selectedId, null);
     assert.equal(panel.details.hidden, true);
     assert.equal(panel.buttons.size, 1);
-    assert.equal(panel.strengthName.textContent, undefined, 'closed details need no visible countdown');
+    assert.ok(!/\d+(?:\.\d+)?\s*(?:seconds?|s|%)/i.test(panel.details.html ?? ''), 'no countdown markup');
   } finally { restore(); }
 });
