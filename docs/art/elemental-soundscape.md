@@ -52,3 +52,5 @@ With the game's normal sound demo UI (`?debug`), render either named demo with t
 - `client/game/sound/disasterSoundRecipes.test.mjs`: sample layer safety, all distinct timbres, deferred magma pops, latency and subdued passive tails.
 - `client/game/sound/DisasterSoundscape.test.mjs`: event-driven core and line, field and moving-wave emitter lifetimes, pause, stop, 3-field budget, mobile budget, duplicate event protection.
 - `client/game/sound/disasterDemo.test.mjs`: offline audition sequence availability and correct multi-phase timing.
+- `client/game/sound/disasterEngine.test.mjs`: instantiate the existing WebAudio graph with a strict fake context; every new recipe must start and stop all sources with finite parameters, through the genuine `SoundEngine` layer renderer.
+- The Line of Conduct wire's one-second snapshot lifetime now produces a low-level crackle along the nearest visible segment; playback ends when the server removes the wire.
