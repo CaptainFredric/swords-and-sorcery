@@ -154,3 +154,23 @@ test('Touch soundscape reduces proximity polyphony without suppressing all ambie
   assert.equal(sound.waves.size,2,'only two nearest moving sword waves');
   assert.ok(played.length>0,'mobile users still hear meaningful nearby ambience');
 });
+
+test('Electrical residual sound follows the REAL one-second wire, not imaginary perpetual thunder',()=>{
+  const {sound,played}=fixture({x:10,y:0,z:1});
+  const line={id:'conduct:a:10',ownerId:'a',origin:{x:0,y:0,z:0},
+    end:{x:45,y:0,z:0},until:2};
+  const snapshot={players:[],oneHitFields:[],lineConductWires:[line]};
+  sound.update(snapshot,1);
+  assert.equal(played.length,0,'no full discharge repeated by a snapshot');
+  sound.update(snapshot,1.2);
+  assert.equal(played.length,1,'small residual current after the discharge');
+  assert.ok(Math.abs(played[0].point.x-10)<.01,'current is heard at the ray segment nearest the listener');
+  sound.update(snapshot,1.62);
+  assert.equal(played.length,2);
+  snapshot.lineConductWires=[];
+  sound.update(snapshot,1.7);
+  assert.equal(sound.lines.size,0);
+  const before=played.length;
+  sound.update(snapshot,2.7);
+  assert.equal(played.length,before,'no ghost wire after server removal');
+});
