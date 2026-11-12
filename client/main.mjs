@@ -1083,6 +1083,11 @@ function renderChroniclesAfflictions() {
     entry.dataset.affliction = id;
     const heading = document.createElement('h4');
     heading.textContent = effect.name;
+    const icon = document.createElement('span');
+    icon.className = 'chronicles-affliction-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = iconSvg(effect.icon);
+    heading.prepend(icon);
     const description = document.createElement('p');
     description.textContent = effect.description;
     const behavior = document.createElement('small');
