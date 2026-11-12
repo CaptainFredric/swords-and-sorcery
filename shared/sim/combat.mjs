@@ -3320,6 +3320,15 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if(plunging&&!player.grounded)player.velocity.y=Math.min(player.velocity.y??0,
       -ONE_HIT_RULES.groundPlungeFallSpeed);
     const from = { ...player.position };
+    // A held Jump carries a Gale-equipped Whirl upward ~5 m each revolution.
+    // Keep native gravity and world movement; no Gale cast or recast is issued.
+    const rising=player.swordTechnique?.contract.kind==='whirl'&&
+      player.swordTechnique.phase!=='recovery'&&player.spell==='gale'&&Boolean(input?.jump);
+    if(rising){
+      player.velocity.y=Math.max(player.velocity.y??0,
+        5/player.swordTechnique.contract.revolutionSeconds+MOVEMENT.gravity*dt);
+      player.grounded=false;
+    }
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
     const aboardFlight=Boolean(player.operatingFightFlightId && room.fightFlight?.operatorId === player.id);
     if (aboardFlight) {
@@ -3395,6 +3404,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       if (nowSec >= (player.dashUntil ?? -Infinity)) player.dashRam = null;
     }
     recordTransform(player, nowSec);
+    if(player.swordTechnique)
+      stepLiveSwordTechnique(room,player,nowSec,world,(action,contact)=>
+        resolveTechniqueContact(room,player,action,contact,nowSec));
 
     // A gathered projectile leaves the current hand along the latest authoritative aim. Once released its
     // velocity belongs to the projectile; turning or moving the caster never steers it.
@@ -3405,7 +3417,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
-    resumeHeldActions(room, player, nowSec, dt);
+    if(!player.swordTechnique)resumeHeldActions(room, player, nowSec, dt);
     if (player.attackActive && nowSec >= player.staggerUntil) {
       // the chain in time order: committed strikes land; as each next swing would begin, it is committed if the
       // button is still held (or was pressed again), or the chain ends there, the swing before it having landed
