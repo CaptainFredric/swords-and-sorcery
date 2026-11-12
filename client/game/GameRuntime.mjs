@@ -1577,7 +1577,6 @@ export class GameRuntime {
       if(event.type==='oneHitBlustered'&&event.playerId===this.playerId)this.hud.flashText('BLUSTERED · YOU TURN SLOWLY','sunder',1400);
       if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
-      if(event.type==='oneHitLastStand'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS · 1 HP UNTIL THE BLOW IS DONE','gold',1700);
       if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
       if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
         this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
