@@ -924,7 +924,8 @@ export class LocalHost {
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate({held=false}={}) { this.#command({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease({cancel=false}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitRelease({cancel=false,yaw,pitch}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{}),
+    ...(Number.isFinite(yaw)?{yaw}:{}),...(Number.isFinite(pitch)?{pitch}:{})}); }
   oneHitFire() { this.#command({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.#command({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.#command({type:'practiceOneHit',...options}); }
