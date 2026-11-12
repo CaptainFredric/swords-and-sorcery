@@ -28,7 +28,7 @@ import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
-  oneHitGlide, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
+  oneHitGlide, oneHitChargingLightning, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
@@ -2556,12 +2556,19 @@ export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false}={}) {
     return true;
   }
   if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup')return false;
-  if(!state.groundRelease&&!Number.isFinite(state.teleportHoldAt))return false;
+  if(!state.groundRelease&&!Number.isFinite(state.teleportHoldAt)&&
+     !Number.isFinite(state.partialLightningHoldAt))return false;
   if(cancel)return interruptUltimate(room,player,nowSec);
   if(Number.isFinite(state.teleportHoldAt)){
     if(state.teleportReleased)return false;
     state.teleportReleased=true;
     state.commitAt=nowSec;
+  }else if(Number.isFinite(state.partialLightningHoldAt)){
+    if(state.partialLightningReleased)return false;
+    state.partialLightningReleased=true;
+    // Releasing a near-tap schedules the blow when the FULL .36s minimum
+    // has elapsed; holding can delay it, but NEVER accelerate it.
+    state.commitAt=Math.max(state.partialLightningReadyAt,nowSec);
   }else{
     const {readyAt}=state.groundRelease;
     state.groundRelease=null;
@@ -2603,12 +2610,18 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
   player.ultimateInterruptionSource = null;
   const isDisaster=ultimate.id==='one_hit_of_wonders';
   const teleport=isDisaster&&plannedTiers.lightning===2;
-  const commitAt=nowSec+(teleport?3600000:isDisaster&&plannedTiers.lightning===1?.36:ultimate.startupSec);
+  const partialHeld=isDisaster&&plannedTiers.lightning===1&&held&&!released;
+  const commitAt=nowSec+(teleport?3600000:partialHeld?ONE_HIT_RULES.halfLightningHoldMaxSec:
+    isDisaster&&plannedTiers.lightning===1?ONE_HIT_RULES.halfLightningStartupSec:ultimate.startupSec);
   player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt,
     until: null,
     ...(isDisaster?{preparedTiers:plannedTiers}:{}),
     ...(teleport?{teleportHoldAt:nowSec}:{}),
-    ...(isDisaster&&held&&!released&&player.grounded&&!teleport?{
+    ...(partialHeld?{
+      partialLightningHoldAt:nowSec,
+      partialLightningReadyAt:nowSec+ONE_HIT_RULES.halfLightningStartupSec,
+    }:{}),
+    ...(isDisaster&&held&&!released&&player.grounded&&!teleport&&!partialHeld?{
       groundRelease:{readyAt:commitAt,until:commitAt+ONE_HIT_RULES.groundReleaseWindowSec},
     }:{}),
   };
@@ -3151,17 +3164,29 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
     const whirl = ultimateWhirl(player, nowSec) ?? oneHitGlide(player,MOVEMENT.runSpeed);
+    const freelyCharging=oneHitChargingLightning(player,nowSec);
+    const plunging=player.ultimateState?.id==='one_hit_of_wonders'&&
+      player.ultimateState.phase==='active'&&player.ultimateState.oneHit?.form==='plunge';
     player.shakenNow=nowSec;
     const frozen=nowSec < (player.oneHitFrozenUntil??-Infinity);
     const input = frozen ? { forward:0,right:0,jump:false,sprint:false,yaw:player.yaw,pitch:player.pitch }
       : staggered
       ? { forward: 0, right: 0, jump: false, crouch: Boolean(player.input?.crouch), yaw: player.yaw, pitch: player.pitch }
-      : bracing
-        ? { ...player.input, forward: (player.input?.forward ?? 0) * bracing.startupMove, right: (player.input?.right ?? 0) * bracing.startupMove, jump: false, sprint: false }
+      : plunging
+        ? { ...player.input, forward:0, right:0, jump:false, sprint:false, yaw:player.yaw, pitch:player.pitch }
+        : freelyCharging
+          ? { ...player.input, sprint:false }
+        : bracing
+          ? { ...player.input, forward: (player.input?.forward ?? 0) * bracing.startupMove, right: (player.input?.right ?? 0) * bracing.startupMove, jump: false, sprint: false }
         : whirl
           ? { ...player.input, sprint: false, crouch: false }
           : player.input;
     player.whirl = whirl;
+    // The non-Gale Ultimate is a deliberate DOWNWARD plunge, not a free
+    // aerial attack or an unvalidated teleport into the nearest platform.
+    // Collisions and the abyss still govern its descent.
+    if(plunging&&!player.grounded)player.velocity.y=Math.min(player.velocity.y??0,
+      -ONE_HIT_RULES.groundPlungeFallSpeed);
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
     const aboardFlight=Boolean(player.operatingFightFlightId && room.fightFlight?.operatorId === player.id);
