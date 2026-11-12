@@ -2613,7 +2613,7 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   }
   room.events.push({type:'lineConductDischarge',playerId:player.id,origin,end:stop,at:nowSec});
 }
-export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false}={}) {
+export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false,yaw,pitch}={}) {
   const player=room.players.get(playerId),state=player?.ultimateState;
   if(room.state!=='PLAYING'||!player?.alive)return false;
   if(!state&&player.ultimate==='one_hit_of_wonders'&&player.disasterWantedHeld&&
@@ -2626,6 +2626,12 @@ export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false}={}) {
   if(!state.groundRelease&&!Number.isFinite(state.teleportHoldAt)&&
      !Number.isFinite(state.partialLightningHoldAt))return false;
   if(cancel)return interruptUltimate(room,player,nowSec);
+  // The release carries the *final* client look as one atomic input. A late
+  // movement packet must not force the teleport back to the charge-start yaw.
+  // Only directional input is accepted; damage, reach and collision stay host-owned.
+  player.input??={};
+  if(Number.isFinite(yaw))player.input.yaw=yaw;
+  if(Number.isFinite(pitch))player.input.pitch=Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch));
   if(Number.isFinite(state.teleportHoldAt)){
     if(state.teleportReleased)return false;
     state.teleportReleased=true;
