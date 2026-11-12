@@ -60,11 +60,17 @@ export function stepLiveSwordTechnique(room, player, nowSec, world, onContact) {
     room.events.push({type:'swordTechniqueEnded',playerId:player.id,id:action.id,at:nowSec});
 }
 
-export function techniqueView(player) {
+export function techniqueView(player,nowSec=Infinity) {
   const a=player.swordTechnique;
-  return a?{id:a.id,phase:a.phase,startedAt:a.startedAt,
+  if(a)return {id:a.id,phase:a.phase,startedAt:a.startedAt,
     initialStartedAt:a.initialStartedAt,revolutions:a.revolutions,
     aerial:Boolean(a.aerial),galeLift:Boolean(a.galeLift),
-    endsAt:a.endsAt??null}:null;
+    endsAt:a.endsAt??null};
+  const exit=player.swordTechniqueExit;
+  return exit&&nowSec<exit.until ? {
+    id:exit.id,phase:exit.phase,reason:exit.reason,
+    startedAt:exit.startedAt,initialStartedAt:exit.initialStartedAt,
+    aerial:Boolean(exit.aerial),until:exit.until,
+  }:null;
 }
 export { interruptSwordTechnique };
