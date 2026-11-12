@@ -19,6 +19,10 @@ export function requestSwordTechnique(room, playerId, down, nowSec) {
   if(!action)return false;
   action.lungeYaw=player.yaw;
   action.aerial=aerial;
+  // The first active frame may follow a sprint. A Whirl always uses the
+  // ordinary run envelope instead of inheriting residual sprint acceleration.
+  player.sprinting=false;
+  player.sprintBlend=0;
   player.spawnProtectionUntil=Math.min(player.spawnProtectionUntil,nowSec);
   room.events.push({type:'swordTechniqueStarted',playerId,id:contract.id,at:nowSec});
   return true;
@@ -44,9 +48,13 @@ export function stepLiveSwordTechnique(room, player, nowSec, world, onContact) {
     }),
     world,
   });
+  // A long tick may complete an action while delivering its final swept
+  // contacts. They still occurred during the attack and must be adjudicated.
+  const naturallyEnded=!player.swordTechnique&&action.phase==='recovery';
   for(const met of contacts){
-    if(!player.alive || (player.swordTechnique!==action&&met.kind==='body'))break;
+    if(!player.alive || (!naturallyEnded&&player.swordTechnique!==action))break;
     onContact(action,met);
+    if(nowSec<(player.staggerUntil??-Infinity))break;
   }
   if(!player.swordTechnique&&action.phase==='recovery')
     room.events.push({type:'swordTechniqueEnded',playerId:player.id,id:action.id,at:nowSec});
