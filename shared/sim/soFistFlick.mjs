@@ -121,6 +121,17 @@ function impact(room,b,contact,now){
     damageFightFlight(room,contact.target,FLICK.damage,by,'so-fist-flick',now,{
       componentId:contact.box.componentId,point:{x:point[0],y:point[1],z:point[2]},
     });
+    // A flying frame is lighter than a wheeled ballista but has a stabilizing
+    // rotor. Apply bounded collision impulses through its ACTUAL motion solver
+    // (never teleport it; walls, floor, and terminal dive remain authoritative).
+    if(contact.target.health>0){
+      const prior=contact.target.externalFlickImpulse??{x:0,y:0,z:0};
+      contact.target.externalFlickImpulse={
+        x:clamp(prior.x+forward[0]*12,-14,14),
+        y:clamp(prior.y+3.5,-2,5),
+        z:clamp(prior.z+forward[2]*12,-14,14),
+      };
+    }
     room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'flight',at:now});
   }
 }
