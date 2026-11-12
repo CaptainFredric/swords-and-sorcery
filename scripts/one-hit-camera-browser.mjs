@@ -115,6 +115,32 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
     if(hold)assert.ok(commit.at>=start.commitAt+.31,name+' hold survived default commit time');
   }
   if(interrupt)assert.ok(!run.events.some(e=>e.type==='oneHitCommitted'));
+  if (process.env.DISASTER_AERIAL_WINDUP_CHECK==='1' && aerial && !interrupt) {
+    const clip='AllNatural_Aerial_Vortex_Wave';
+    const beginning=run.frames.filter(f=>f.phase==='startup'&&f.clip===clip&&Number.isFinite(f.clipTime));
+    const after=run.frames.filter(f=>f.phase==='active'&&f.clip===clip&&Number.isFinite(f.clipTime));
+    const launched=run.events.find(e=>e.type==='oneHitWave');
+    if (!lightning) {
+      assert.ok(beginning.length>=3,'the NORMAL Full Gale aerial wind-up starts during startup');
+      assert.ok(beginning.at(-1).clipTime>beginning[0].clipTime+.04,
+        'the aerial sword actually advances during startup rather than hovering');
+      assert.ok(after.length>=2,'the same vortex clip continues after commit');
+      assert.ok(after[0].clipTime>=beginning.at(-1).clipTime-.07,
+        'the aerial wind-up must not restart from frame zero on commit');
+    } else {
+      assert.ok(after.length>=3,'aerial Lightning arrival plays wind-up rather than hovering');
+      assert.ok(after[0].clipTime>.40,'teleport arrival skips directly to the final winding frames');
+      assert.ok(after.some(f=>f.clipTime>after[0].clipTime+.07),
+        'the sword winds up during the steerable post-teleport aim window');
+    }
+    assert.ok(launched,'the authoritative aerial wave actually launched');
+    console.log('[AERIAL WINDUP PASS]',name,JSON.stringify({
+      startupSamples:beginning.length,arrivalSamples:after.length,
+      first:beginning[0]?.clipTime??after[0]?.clipTime,
+      last:beginning.at(-1)?.clipTime??after.at(-1)?.clipTime,
+      launchAt:launched.at,
+    }));
+  }
   evidence[name]={...run,restored};
   console.log('[DISASTER CAMERA PASS]',name,JSON.stringify({
     start:start.at,commit:commit.at,form:commit.form,peakChase:Math.max(...run.frames.map(f=>f.chase)),
@@ -160,7 +186,9 @@ try{
       const run=window.__disasterRun, a=rt.localAuth?.ultimateState;
       if(run && run.frames.length<3000){
         const chase=rt.chase??0, body=!!rt.remotePlayers.self?.root.visible, hands=rt.weapon.group.visible;
+        const animator=rt.remotePlayers.self?.visualInstance?.animator;
         run.frames.push({now:rt.socket.serverNow(),phase:a?.phase,commitAt:a?.commitAt,
+          clip:animator?.activeClip??null,clipTime:animator?.activeAction?.time??null,
           holding:a?.phase==='startup'&&Number.isFinite(a?.teleportHoldAt),chase,body,hands,wave:rt.input.oneHitWaveId,
           restored:!a&&chase<.05&&hands&&!body&&
             run.events.some(e=>e.type==='oneHitCommitted'||e.type==='ultimateInterrupted')});
@@ -169,13 +197,20 @@ try{
     };
     requestAnimationFrame(frame);
   })()`);
-  await play('ground tap');
-  await play('ordinary hold',{hold:true});
-  await play('partial Lightning',{preset:'partial'});
-  await play('ground Full Lightning',{preset:'full',lightning:true});
-  await play('aerial Gale',{preset:'gale',aerial:true});
-  await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
-  await play('interrupted Full Lightning',{preset:'full',lightning:true,interrupt:true});
+  if(process.env.DISASTER_AERIAL_WINDUP_CHECK==='1'){
+    // Isolate the two changed aerial animations; unrelated ground-camera
+    // fixtures must not obscure a failed or passing aerial regression.
+    await play('aerial Gale',{preset:'gale',aerial:true});
+    await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
+  }else{
+    await play('ground tap');
+    await play('ordinary hold',{hold:true});
+    await play('partial Lightning',{preset:'partial'});
+    await play('ground Full Lightning',{preset:'full',lightning:true});
+    await play('aerial Gale',{preset:'gale',aerial:true});
+    await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
+    await play('interrupted Full Lightning',{preset:'full',lightning:true,interrupt:true});
+  }
   await snap('first-person-restored');
   await writeFile(join(output,'result.json'),JSON.stringify(evidence,null,2));
 }catch(error){
