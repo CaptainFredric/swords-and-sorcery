@@ -775,6 +775,17 @@ html[data-turn] .turn-only { display: block !important; }
   font: 800 10px/1 var(--font-script); color: var(--heraldry-brass-light); letter-spacing: .12em;
 }
 
+/* A selected siege Skill is equipment: it settles below the alternatives.
+   The rest of the inspector (controls, lore, details) remains swipeable. */
+.siege-armory-machines .armory-spells { display:flex; flex-direction:column; gap:8px; }
+.siege-armory-machines .spell-card { min-height:54px; touch-action:manipulation; }
+.siege-preview-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+.siege-preview-controls p { margin:0; color:var(--heraldry-brass-light); font:600 10px/1.4 var(--font-script); letter-spacing:.06em; }
+.siege-preview-controls button { flex:none; min-height:34px; }
+.siege-preview-controls [hidden] { display:none; }
+.siege-inspector-scroll { overflow-anchor:none; touch-action:pan-y; -webkit-overflow-scrolling:touch; scroll-padding-block:12px 18px; }
+@media (prefers-reduced-motion: reduce) { .siege-armory-machines .spell-card { transition:none; } }
+
 /* Heraldry Chamber Stage */
 .heraldry-stage-controls {
   grid-area: tools; min-width: 0;
