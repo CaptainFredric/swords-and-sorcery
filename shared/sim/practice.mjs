@@ -300,6 +300,10 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
   if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room, playerId)) return false;
   const dummy = findPracticeDummy(room);
   if (!dummy) return false;
+  // Recalling the same drill near the player must not silently reset the
+  // Ult choice, Stay/Follow, or individually selected Disaster infusions.
+  const priorKnight=mode===PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT?
+    dummy.ultimateKnight:null;
 
   // Leave the REAL machine seat when selecting another dummy, without
   // changing the machine's health, ammunition or component state.
@@ -337,7 +341,7 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
   dummy.spell = opponent?.spell ?? 'fireball';
   dummy.ultimate='sunder';
   dummy.steel = null;
-  if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec);
+  if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec, priorKnight);
   if (mode === PRACTICE_DUMMY_MODES.ST_PERRY) setupStPerry(dummy, nowSec, false, room, playerId);
   if (mode === PRACTICE_DUMMY_MODES.CANONIZATION) setupStPerry(dummy, nowSec, true, room, playerId);
 
