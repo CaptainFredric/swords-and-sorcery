@@ -154,18 +154,25 @@
 .touch-ui .affliction-heading { max-width: 186px; }
 .touch-ui .affliction-icons { grid-template-columns: repeat(5, 36px); grid-auto-rows: 36px; max-width: 196px; }
 .touch-ui .affliction-icon { width: 36px; height: 36px; }
-.touch-ui .affliction-detail { max-height: min(148px, calc(100cqh - 178px)); }
+.touch-ui .affliction-detail {
+  /* A sidecar keeps the opened explanation off the movement stick. */
+  position: absolute;
+  left: calc(100% + 9px);
+  top: 0;
+  width: min(236px, calc(100cqw - 322px));
+  max-height: min(160px, calc(100cqh - 86px));
+}
 
 /* Low landscape windows reserve space for the combat arena and the lower-left
    stick; detailed prose scrolls in its own small card, never under an icon. */
 @container app (max-height: 440px) {
-  .affliction-detail { max-height: min(125px, calc(100cqh - 182px)); }
+  .affliction-detail { max-height: min(155px, calc(100cqh - 86px)); }
 }
 @container app (max-width: 510px) {
   .touch-ui .affliction-dock { left: calc(var(--safe-l, 0px) + 82px); }
   .touch-ui .affliction-icons { grid-template-columns: repeat(4, 34px); max-width: 150px; }
   .touch-ui .affliction-icon { width: 34px; height: 34px; }
-  .touch-ui .affliction-detail { width: min(232px, calc(100cqw - 95px)); }
+  .touch-ui .affliction-detail { width: min(210px, calc(100cqw - 247px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .affliction-small-track i, .affliction-big-fill { transition: none; }
