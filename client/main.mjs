@@ -2868,6 +2868,11 @@ function updateInspectionControls() {
       'practice-hostile-spawn','practice-hostile-reset','practice-hostile-remove'];
     for(const id of hostTools){const button=$('#'+id);if(button)button.disabled=true;}
   }
+  // The generic Practice button policy above may re-enable buttons inside
+  // expandable sections. Restore Shared Practice host authority LAST, for
+  // both the selects and the preset buttons within Ultimate Knight drills.
+  if(knightPanel)for(const control of knightPanel.querySelectorAll('button,select'))
+    control.disabled=Boolean(shared&&latestSnapshot?.sharedPracticeHostId!==socket.playerId||frozen);
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = touchUi
     ? 'TAP THE TARGET ICON FOR TOOLS'
