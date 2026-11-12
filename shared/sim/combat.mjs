@@ -2445,7 +2445,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
     if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
-      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers);
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers,radius);
   }
   // Preserve the REAL projectile impact coordinate for damage, interpolation
   // and playback. Only the rubble/frost/Fire ground footprint uses groundPoint.
