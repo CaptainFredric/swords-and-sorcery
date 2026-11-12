@@ -25,6 +25,11 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
       return {state:'bracing',charge:1,label:left.toFixed(1),word:'RELEASE',ultimate};
     }
   }
+  if(state?.id==='one_hit_of_wonders'&&state.phase==='active'&&
+     Number.isFinite(state.oneHit?.aimUntil)&&serverNow<state.oneHit.aimUntil){
+    const left=Math.max(0,state.oneHit.aimUntil-serverNow);
+    return {state:'active',charge:1,label:'AIM '+left.toFixed(1),left,word:'FIRE',ultimate};
+  }
   if (state?.phase === 'active' && serverNow < state.until) {
     const left = state.until - serverNow;
     const emphasis = state.id === 'vortex' ? vortexTune(state.emphasis).kind : null;
