@@ -27,8 +27,11 @@ export function coreMagmaArmRecipe(rand=Math.random){
 export function coreMagmaFuseRecipe(rand=Math.random,{seconds=.6}={}){
   const sec=Math.max(.16,Math.min(2,Number(seconds)||.6));
   const layers=[
-    n('lowpass',280,.045,Math.max(.05,sec-.07),.21,{sweepTo:115}),
-    t('triangle',62,37,.035,Math.max(.05,sec-.06),.15),
+    // Truly bubbling bed: hold pressure between the little individual pops.
+    // Without sustain, the WebAudio exponential envelope falls silent
+    // halfway through the fuse, despite its advertised 0.6 s duration.
+    n('lowpass',280,.045,sec*.36,.21,{hold:sec*.37,sweepTo:115}),
+    t('triangle',119,58,.035,sec*.32,.12,{hold:sec*.34}),
   ];
   const bubbles=Math.max(3,Math.min(9,Math.round(sec*11)));
   for(let i=0;i<bubbles;i++){
@@ -45,13 +48,16 @@ export function coreMagmaDetonationRecipe(rand=Math.random){
   return recipe([
     // Leading earth-splitting knock, preceding the old fiery body.
     n('bandpass',940,.001,.09,.32,{q:1.7,sweepTo:180}),
-    t('sine',59,25,.004,.89,.57),
-    n('lowpass',410,.018,.95,.32,{at:.07,sweepTo:90}),
+    // Sub-bass alone disappears on laptop/phone speakers and crowds the
+    // compressor. Use a quieter sub with a much more audible 160 Hz body.
+    t('sine',62,31,.004,.76,.38),
+    t('triangle',158,77,.009,.42,.23,{at:.023}),
+    n('lowpass',410,.018,.74,.27,{at:.07,sweepTo:110}),
     ...old.layers.map(layer=>({...layer,at:(layer.at??0)+.035,
-      ...(layer.gain!==undefined?{gain:layer.gain*.67}:{})})),
+      ...(layer.gain!==undefined?{gain:layer.gain*.57}:{})})),
     // One delayed lava cavern roll, so it is not a single transient blob.
-    n('lowpass',340,.07,.74,.19,{at:.28,sweepTo:120}),
-  ],.43,.22);
+    n('lowpass',340,.07,.74,.17,{at:.28,sweepTo:120}),
+  ],.38,.14);
 }
 /** Line of Conduct: charged high-voltage needle over a restrained mains hum. */
 export function conductChargeRecipe(rand=Math.random,{seconds=.45}={}){
@@ -89,11 +95,14 @@ export function galeStreamRecipe(rand=Math.random,{seconds=.7,weight=1}={}){
   const sec=Math.max(.18,Math.min(1.5,Number(seconds)||.7));
   const w=clamp(weight);
   return recipe([
-    n('bandpass',850*jitter(rand,.12),.08,Math.max(.08,sec-.12),(.2+.13*w),
-      {sweepTo:380,q:.9}),
-    n('highpass',3800*jitter(rand,.13),.03,Math.max(.07,sec-.09),.055+.08*w,
-      {sweepTo:1700}),
-    t('sine',115*jitter(rand,.08),69,.045,Math.max(.08,sec-.08),.045+.04*w),
+    // Overlapping sustained envelopes remove the obvious rhythmic dropouts
+    // from treating wind as a succession of short explosive impacts.
+    n('bandpass',850*jitter(rand,.12),.08,Math.max(.07,sec*.36),(.2+.13*w),
+      {hold:sec*.46,sweepTo:380,q:.9}),
+    n('highpass',3800*jitter(rand,.13),.03,Math.max(.06,sec*.35),.055+.08*w,
+      {hold:sec*.51,sweepTo:1700}),
+    t('sine',115*jitter(rand,.08),69,.045,Math.max(.06,sec*.36),.045+.04*w,
+      {hold:sec*.43}),
   ],.13);
 }
 /** A base thunder-slam: cracked earth with a second delayed tectonic roll. */
@@ -101,8 +110,9 @@ export function disasterEarthImpactRecipe(rand=Math.random,{wave=false}={}){
   const q=wave?.58:1;
   return recipe([
     n('bandpass',1300,.002,.105,.42*q,{sweepTo:320,q:1.35}),
-    n('lowpass',510,.009,.46,.45*q,{sweepTo:125}),
-    t('sine',86,33,.004,.48,.57*q),
+    n('lowpass',510,.009,.46,.42*q,{sweepTo:125}),
+    t('sine',86,37,.004,.48,.45*q),
+    t('triangle',165,80,.007,.37,.19*q,{at:.015}),
     n('bandpass',2700*jitter(rand,.18),.002,.16,.14*q,{at:.11,sweepTo:800,q:2}),
     n('lowpass',300,.065,.62,.2*q,{at:.17,sweepTo:95}),
   ],.37,.13);
@@ -185,9 +195,9 @@ export function disasterInfusionImpactRecipe(element,rand=Math.random,{tier=1,wa
 export function disasterFieldPulseRecipe(rand=Math.random,{strength=1}={}){
   const s=clamp(strength);
   return recipe([
-    n('lowpass',350*jitter(rand,.11),.035,.36,.09*s,{sweepTo:115}),
-    n('bandpass',1150,.003,.075,.075*s,{at:.16,q:1.2,sweepTo:450}),
-    t('sine',61,44,.04,.34,.075*s),
+    n('lowpass',350*jitter(rand,.11),.035,.36,.14*s,{sweepTo:115}),
+    n('bandpass',1150,.003,.075,.112*s,{at:.16,q:1.2,sweepTo:450}),
+    t('triangle',132,68,.04,.33,.083*s),
   ],.17);
 }
 /** Low-density, distinct ambient accents, never replay an entire blast. */
@@ -204,7 +214,10 @@ export function disasterInfusionFieldRecipe(element,rand=Math.random,{tier=1,str
       ring(rand,1850*jitter(rand,.14),{decay:.3,gain:.028*s,partials:3}),
       n('highpass',5900,.001,.03,.065*s,{at:.16}),
     ],.24);
-    case 'gale':return galeStreamRecipe(rand,{seconds:.42,weight:.2+.6*s});
+    case 'gale':{
+      const wind=galeStreamRecipe(rand,{seconds:.42,weight:.2+.6*s});
+      return {...wind,layers:wind.layers.map(layer=>({...layer,gain:layer.gain*s}))};
+    }
     case 'lightning':return recipe([
       n('highpass',5100,.001,.035,.12*s),
       n('bandpass',2700,.01,.13,.073*s,{at:.095,q:2.2,sweepTo:1150}),
@@ -222,8 +235,8 @@ export function disasterInfusionFieldRecipe(element,rand=Math.random,{tier=1,str
 export function disasterWaveRushRecipe(rand=Math.random,{tier=0}={}){
   const rich=clamp(tier/2);
   return recipe([
-    n('bandpass',1750*jitter(rand,.12),.01,.49,.20+.08*rich,{sweepTo:440}),
-    n('highpass',4100,.005,.19,.075,{sweepTo:2100}),
-    t('sine',124,59,.008,.26,.085),
+    n('bandpass',1750*jitter(rand,.12),.01,.22,.20+.08*rich,{hold:.21,sweepTo:440}),
+    n('highpass',4100,.005,.12,.075,{hold:.12,sweepTo:2100}),
+    t('triangle',150,70,.008,.19,.078,{hold:.16}),
   ],.17);
 }
