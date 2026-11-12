@@ -256,7 +256,7 @@ test('holding ordinary Disaster briefly keeps it interruptible and release commi
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact').length,1);
 });
 
-test('Half Lightning can hold for four seconds, while canceling Full Lightning still never fires it',()=>{
+test('Half Lightning has a short finite aim hold, while canceling Full Lightning still never fires it',()=>{
   const {room,a}=battle();
   a.prowess=PROWESS.full;
   a.oneHitInfusions.lightning=1;
@@ -266,7 +266,7 @@ test('Half Lightning can hold for four seconds, while canceling Full Lightning s
   stepRoom(room,1/30,ready+.05,world);
   assert.equal(a.ultimateState.phase,'startup','held Half Lightning waits instead of instantly firing');
   const cap=a.ultimateState.commitAt;
-  assert.equal(cap,13,'maximum hold is four seconds');
+  assert.equal(cap,9+ONE_HIT_RULES.halfLightningHoldMaxSec,'maximum Half Lightning hold is bounded');
   stepRoom(room,1/30,cap+.02,world);
   assert.equal(a.ultimateState.phase,'active','the maximum hold automatically commits');
 
