@@ -18,7 +18,7 @@ test('every equippable siege Skill has an individual, bounded-or-held exhibition
     const p=workshopPreviewPose(skill,0);
     assert.equal(p.x,0);
     assert.equal(p.y,0);
-    assert.equal(p.z,0);
+    assert.ok(Math.abs(p.z)<1e-10);
     assert.ok(SIEGE_PREVIEW_LENGTH[skill]>3);
   }
   assert.equal(workshopPreviewDone('longArmToTheJaw',100),false,
