@@ -187,7 +187,7 @@ test('aerial wall impact carries all four tiers, affects new exposed targets and
   assert.equal(sheltered.burn,null);
   assert.equal(sheltered.oneHitFrozenUntil,undefined);
   assert.equal(protectedKnight.burn,null);
-  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===4.6&&z.bornAt<z.until));
+  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===3.4&&z.bornAt<z.until));
   for(let i=6;i<170;i++)stepRoom(room,1/30,9+i/30,withWall); // (four elements: its burning ground lasts 5.2 s)
   assert.equal(sheltered.health,100);
   assert.equal(room.oneHitBurnZones.length,0);
