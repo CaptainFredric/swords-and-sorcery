@@ -17,6 +17,7 @@ import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
+import { AfflictionPanel } from './AfflictionPanel.mjs';
 
 const HIT_MARKERS = Object.freeze({
   hit: { priority: 1, milliseconds: 160 },
@@ -247,6 +248,7 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.afflictionPanel = new AfflictionPanel(this.root);
     this.trialPanel = document.createElement('div');
     this.trialPanel.className = 'renown-trial-hud';
     this.trialPanel.id = 'renown-trial-hud';
@@ -306,7 +308,8 @@ export class HUD {
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
-  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); }
+  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); }
+  cycleAfflictionDetails() { this.afflictionPanel.cycle(); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', Boolean(locked) || Boolean(this.suppressPointerHint));
     this.root.classList.toggle('pointer-locked', Boolean(locked));
@@ -318,7 +321,8 @@ export class HUD {
   }
 
   update(local, snapshot, serverNow) {
-    if (!local) return;
+    if (!local) { this.afflictionPanel.clear(); return; }
+    this.afflictionPanel.update(local, serverNow);
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
     this.healthFill.style.width = `${hp}%`;
