@@ -93,6 +93,64 @@ function normalize3(v) {
   return { x: v.x / m, y: v.y / m, z: v.z / m };
 }
 
+// A technique contact enters the same guard, parry, Stagger, Steel, death and
+// Prowess systems as a normal sword. The originating technique cannot earn
+// its own next revolutions; legitimate victim and parry rewards remain intact.
+function resolveTechniqueContact(room,attacker,action,contact,nowSec){
+  if(contact.kind!=='body'){
+    room.events.push({type:'swordTechniqueWorld',playerId:attacker.id,
+      kind:contact.kind,point:contact.point??null,at:nowSec});
+    return;
+  }
+  const defender=room.players.get(contact.id);
+  if(!defender?.alive||areAllies(room,attacker.id,defender.id)||
+     defender.spawnProtectionUntil>nowSec)return;
+  const contract=action.contract;
+  const automatic=chivalryParries(defender,nowSec,{
+    x:attacker.position.x-defender.position.x,z:attacker.position.z-defender.position.z});
+  if(automatic||(defender.guarding&&isInGuardCone(defender,attacker,nowSec))){
+    const guardResult=resolveSwordVsGuard({
+      guarding:true,guardAgeMs:automatic?0:(nowSec-defender.guardStartedAt)*1000,
+      stamina:defender.guardStamina,profile:guardProfile(defender.knightClass),pressure:1,
+    });
+    defender.guardStamina=guardResult.staminaAfter;
+    defender.lastGuardDrainAt=nowSec;
+    if(guardResult.kind==='parry'){
+      defender.parries+=1;
+      gainProwess(room,defender,PROWESS.parry);
+      attacker.staggerUntil=Math.max(attacker.staggerUntil??-Infinity,
+        nowSec+GAME.parryStaggerMs/1000);
+      interruptSwordTechnique(attacker,nowSec);
+      room.events.push({type:'parry',attackerId:attacker.id,defenderId:defender.id,
+        technique:contract.id,point:contact.point,at:nowSec});
+      recordChallengeFact(room,{type:'parry',attackerId:attacker.id,defenderId:defender.id,at:nowSec});
+      staggerBy(room,attacker,STAGGER.gain.parried,nowSec,defender.id);
+    }else if(guardResult.kind==='guardBreak'){
+      breakGuard(defender,GAME.guardBreakStaggerMs/1000,nowSec);
+      gainProwess(room,attacker,PROWESS.guardBreak);
+      room.events.push({type:'guardBreak',attackerId:attacker.id,
+        defenderId:defender.id,technique:contract.id,point:contact.point,at:nowSec});
+      staggerBy(room,defender,STAGGER.gain.guardBreak,nowSec,attacker.id);
+    }else{
+      room.events.push({type:'block',attackerId:attacker.id,
+        defenderId:defender.id,technique:contract.id,point:contact.point,at:nowSec});
+      staggerBy(room,defender,STAGGER.gain.sword*STAGGER.gain.blocked,nowSec,attacker.id);
+    }
+    return;
+  }
+  const torso=defender.position.y+postureOf(defender).center;
+  const clean=Math.abs(contact.point.y-torso)<.53&&contact.along>=.85;
+  const damage=clean?contract.damage.clean:contract.damage.grazing;
+  if(applyDamage(room,attacker.id,defender.id,damage,'sword',nowSec,null,{
+    clean,ultimate:true,rawDamage:damage,
+    contactFacts:challengeContact(attacker,nowSec,{technique:contract.id}),
+  })){
+    staggerBy(room,defender,STAGGER.gain.sword*(clean?1:.75),nowSec,attacker.id);
+    room.events.push({type:'swordTechniqueHit',playerId:attacker.id,
+      targetId:defender.id,id:contract.id,clean,damage,point:contact.point,at:nowSec});
+  }
+}
+
 // the middle of a body as it stands (or crouches): a blast's heart, a spell's aim
 function playerCenter(player) {
   return { x: player.position.x, y: player.position.y + postureOf(player).center, z: player.position.z };
