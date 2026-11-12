@@ -46,7 +46,21 @@ export class DisasterSoundscape {
   setDensity(factor=1){this.density=clamp(factor,.35,1);}
   #emit(recipe,point,gain=1,delay=0){
     if(!(gain>.01))return null;
-    return this.play(recipe,point,clamp(gain,0,1.15),Math.max(0,delay))??null;
+    // Phones still hear EVERY infusion. Thin only redundant micro-sparks and
+    // upper ringing partials; never remove an element's audible identity.
+    // One large five-element slam otherwise spawns dozens of tiny sources.
+    const layers=recipe?.layers??[];
+    let playable=recipe;
+    if(this.density<.8 && layers.length){
+      const keep=new Set([0,1,2]);
+      const extra=Math.min(3,Math.max(0,layers.length-3));
+      for(let i=0;i<extra;i++)
+        keep.add(3+Math.floor((layers.length-3)*(i+.5)/extra));
+      const slim=layers.filter((_,i)=>keep.has(i)).map(l=>
+        l.type==='ring' ? {...l,partials:l.partials.slice(0,3)} : l);
+      playable={...recipe,layers:slim};
+    }
+    return this.play(playable,point,clamp(gain,0,1.15),Math.max(0,delay))??null;
   }
   #around(point,recipe,gain,delay=0){
     if(roomGain(point,this.listener())<.035)return null;
