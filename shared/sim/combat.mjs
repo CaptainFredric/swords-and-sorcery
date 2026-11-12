@@ -212,6 +212,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.steel = null;
   player.dashRam = null;
   interruptSwordTechnique(player,nowSec);
+  player.swordTechniqueExit=null;
   player.speedScale = 1;
   // balance found again; an ultimate still bracing or active is over (the prowess earned is kept)
   player.stagger = freshStagger();
