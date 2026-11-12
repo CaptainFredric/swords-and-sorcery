@@ -1953,11 +1953,11 @@ function renderInspectorLists() {
     techContainer.innerHTML = sortedTechs.map((tech) => {
       const isEquipped = tech.id === chosen;
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
-      const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
+      const unavailable=Boolean(tech.disabled);
       const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
       const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
-        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (isInTraining ? '<i class="training-tag">IN TRAINING</i>' : '')}
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${unavailable ? ' disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${unavailable ? 'aria-disabled="true"' : ''}>
+        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (unavailable ? '<i>UNAVAILABLE</i>' : '')}
         <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
     }).join('');
   }
@@ -2010,11 +2010,11 @@ function updateInspectorDetailCard() {
     $('#inspector-card-desc').textContent = tech.line;
     $('#inspector-card-facts').textContent = factsText;
     $('#inspector-card-lore').textContent = tech.lore;
-    if (tech.disabled || tech.status === 'IN TRAINING') {
-      $('#inspector-card-status').textContent = 'IN TRAINING';
+    if (tech.disabled) {
+      $('#inspector-card-status').textContent = 'UNAVAILABLE';
       if (equipBtn) {
         equipBtn.disabled = true;
-        equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
+        equipBtn.textContent = 'UNAVAILABLE';
       }
     } else {
       const selected=settings.get('loadout.technique')===tech.id;
@@ -2159,7 +2159,7 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     armoryFeedback.select(itemId, prevUlt, (id) => settings.set('loadout.ultimate', id));
   } else if (category === 'technique') {
     const tech = SWORD_TECHNIQUES.find((t) => t.id === itemId);
-    if (!tech || tech.disabled || tech.status === 'IN TRAINING') {
+    if (!tech || tech.disabled) {
       renderInspectorLists();
       updateInspectorDetailCard();
       return;
@@ -2209,7 +2209,7 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Two sword techniques are in training. The Castleward longsword is already equipped.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Equip a sword technique for battle. Your Castleward longsword remains your weapon.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
     masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };
