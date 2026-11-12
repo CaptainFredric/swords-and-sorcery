@@ -88,6 +88,7 @@ function inspect(){
     title:panel.heading.textContent,description:panel.description.textContent,
     buttons:buttons.length,svgCount:buttons.filter(b=>b.querySelector('svg')).length,
     hudLayer:getComputedStyle(document.querySelector('#hud')).zIndex,
+    touchControlTarget:document.elementFromPoint(34,340)?.closest('.touch-controls')?.id??null,
     health:box(document.querySelector('.health-block'))
   };
 }
@@ -147,12 +148,15 @@ try{
   const mobile=await evaluate('('+inspect.toString()+')()');
   assert.equal(mobile.hudLayer,'13','status HUD must rise above touch controls');
   assert.equal(mobile.hit,'frozen','full-screen touch layer must not steal status taps');
+  assert.equal(mobile.touchControlTarget,'affliction-touch-test-cover',
+    'the rest of the touch-controls surface must still receive inputs');
   assert.ok(mobile.icon.x>=0&&mobile.icon.right<=844);
   assert.ok(mobile.icon.y>=0&&mobile.icon.bottom<=390);
   await tap(mobile.icon.x+mobile.icon.width/2,mobile.icon.y+mobile.icon.height/2);
   const tapped=await evaluate('('+inspect.toString()+')()');
   assert.equal(tapped.selected,'frozen');
   assert.equal(tapped.visible,true);
+  assert.ok(tapped.detail.x>=250, 'mobile detail sidecar must stay off the left movement stick');
   assert.ok(tapped.detail.x>=0&&tapped.detail.right<=844);
   assert.ok(tapped.detail.bottom<=390,'detail must fit short landscape window');
   await screenshot('touch-inspected');
