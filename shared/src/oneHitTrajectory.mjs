@@ -6,14 +6,25 @@ import { oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
 const xyz = p => [p.x,p.y,p.z];
 export const oneHitAlong = (a,b,t) => ({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t, z:a.z+(b.z-a.z)*t });
 
+// Aiming comes from the CURRENT view at release, not the facing at charge
+// startup. Any azimuth is legal; only Full Gale grants elevation (up to
+// directly overhead/underfoot). This same function drives server and guide.
+export function oneHitAimDirection(yaw, pitch, allowVertical = false) {
+  const heading=Number.isFinite(yaw)?yaw:0;
+  const elevation=allowVertical && Number.isFinite(pitch)
+    ?Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch)):0;
+  return {x:-Math.sin(heading)*Math.cos(elevation),
+    y:Math.sin(elevation),z:-Math.cos(heading)*Math.cos(elevation)};
+}
+
 export function planOneHitTeleport({
   origin,yaw,pitch,aerial=false,allowVertical=aerial,holdSec,world,
   solids=world.solids??[],edge,
 }) {
   const distance=Math.max(.65,oneHitTeleportReach(Math.max(0,holdSec)));
-  const angle=allowVertical?Math.max(-1.45,Math.min(1.45,pitch||0)):0;
-  const wanted={x:origin.x-Math.sin(yaw)*Math.cos(angle)*distance,
-    y:origin.y+Math.sin(angle)*distance,z:origin.z-Math.cos(yaw)*Math.cos(angle)*distance};
+  const aim=oneHitAimDirection(yaw,pitch,allowVertical);
+  const wanted={x:origin.x+aim.x*distance,
+    y:origin.y+aim.y*distance,z:origin.z+aim.z*distance};
   const target=edge?edgeClipTeleport(origin,wanted,edge,MOVEMENT.playerRadius):wanted;
   if(!target)return {end:origin,legal:false};
   const a=[origin.x,origin.y+1,origin.z],b=[target.x,target.y+1,target.z];

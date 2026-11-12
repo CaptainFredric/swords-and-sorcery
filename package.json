@@ -6,9 +6,10 @@
   "scripts": {
     "test": "node --experimental-websocket --test client/game/*.test.mjs client/game/sound/*.test.mjs client/game/sound/music/*.test.mjs client/menu/*.test.mjs client/menu/tour/*.test.mjs client/tutorial/*.test.mjs client/network/*.test.mjs client/settings/*.test.mjs client/ui/*.test.mjs client/worlds/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs tools/audio/*.test.mjs",
     "check": "node scripts/check-syntax.mjs",
+    "check:browser-imports": "node scripts/check-browser-imports.mjs",
     "start": "node server/src/server.mjs",
     "dev": "node server/src/server.mjs",
-    "verify": "npm run check && npm test && npm run test:html5 && npm run smoke",
+    "verify": "npm run check && npm run check:browser-imports && npm test && npm run test:html5 && npm run smoke",
     "test:html5": "node --experimental-websocket --test scripts/export-html5.test.mjs scripts/release/*.test.mjs",
     "export:html5": "node scripts/export-html5.mjs",
     "smoke": "node --experimental-websocket scripts/smoke.mjs",

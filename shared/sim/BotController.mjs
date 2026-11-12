@@ -14,6 +14,7 @@ import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { highGroundsBotGoal } from './highGroundsMode.mjs';
 import {modeCall} from './modeRuntime.mjs';
+import { activeHitboxThreat } from './activeHitboxThreat.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -185,6 +186,30 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
   }
   if (nowSec < ai.nextDefensiveDecisionAt) return;
   ai.nextDefensiveDecisionAt = nowSec + reactionDelay(skill, random);
+
+  // The canonical Spellblade anticipates visibly ACTIVE damage volumes,
+  // including moving Gale waves and a Vortex blade. This runs on the same
+  // finite reaction clock as any other decision, not future button reads.
+  if(skill.activeRead){
+    // Scan every VISIBLE enemy threat, not only the selected dueling target:
+    // a second human can throw a wave into a Shared Practice encounter.
+    const kinds=['human','bot'];
+    const danger=foesOf(room,actor,kinds)
+      .map(foe=>activeHitboxThreat(room,actor,foe,nowSec)).filter(Boolean)
+      .sort((a,b)=>({wave:0,rupture:1,vortex:2,disaster:3,field:4}[a.kind]??5)-
+                   ({wave:0,rupture:1,vortex:2,disaster:3,field:4}[b.kind]??5))[0]??null;
+    if(danger){
+      ai.hazardUntil=nowSec+.52;
+      ai.hazardDirection={x:danger.x,z:danger.z};
+      ai.hazardKind=danger.kind;
+      if((danger.kind==='wave'||danger.kind==='vortex'||danger.kind==='disaster'||danger.kind==='rupture')&&
+         random()<skill.dodge&&tryDash(room,actor.id,danger,nowSec))
+        return;
+      // A blade already spinning or a sword wave crossing your feet is
+      // better escaped than parried into its next revolution.
+      if(danger.kind!=='field')return;
+    }
+  }
 
   // a spell coming at it: slipped aside
   if (skill.dodge > 0 && dodgeSpell(room, actor, target, ai, nowSec, random, skill)) return;
@@ -372,7 +397,12 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     if (spell && distance <= castRange(spellFor(spell))) {
       const carried = actor.spell;
       actor.spell = spell;
-      if (tryCastSpell(room, actor.id, spellAim(actor, target, skill, random), nowSec)) {
+      // A line of lightning is instant: aim where the opponent actually is.
+      // Physical bolts travel at different speeds, and are led accordingly.
+      const payload=spellFor(spell);
+      const aimed=payload.kind==='line'?aimDirection(actor,target):
+        spellAim(actor,target,skill,random,payload.speed??24);
+      if (tryCastSpell(room, actor.id, aimed, nowSec)) {
         ai.lastSpell = spell;
         // and has it back sooner than a knight would
         if (profile.spellCooldown) actor.spellReadyAt = nowSec + (actor.spellReadyAt - nowSec) * profile.spellCooldown;
@@ -623,6 +653,13 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   if (spacing) {
     forward = -0.9;
     right = ai.strafeDirection * 0.35;
+  }
+  if(skill.activeRead&&nowSec<(ai.hazardUntil??-Infinity)&&!way&&ai.hazardDirection){
+    // Preserve the camera-facing target while moving in a physically
+    // meaningful direction away from the active volume (or across a wave).
+    const h=ai.hazardDirection,fx=-Math.sin(yaw),fz=-Math.cos(yaw);
+    forward=clamp(h.x*fx+h.z*fz,-1,1);
+    right=clamp(h.x*Math.cos(yaw)-h.z*Math.sin(yaw),-1,1);
   }
   // backing off to heal: away from its foe, at a run, across and away rather than straight back
   const retreating = !way && !profile.flee && nowSec < (ai.retreatUntil ?? -Infinity);

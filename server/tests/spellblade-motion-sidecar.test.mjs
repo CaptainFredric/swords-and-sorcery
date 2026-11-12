@@ -1,14 +1,14 @@
-// The Spellblade's motion sidecar (tools/assets/build-spellblade-motion.mjs): what it is, that it is the file the
-// blade tracks were sampled from, that the canonical model is the one it was built against, and what its clips do
-// on that model (measured: scripts/lib/glbPose.mjs, glbSkin.mjs).
+// The Spellblade's motion sidecar (tools/assets/build-spellblade-motion.mjs): what it is, that the canonical model is
+// the one it was built against, that its technique clips draw the blade the server sweeps
+// (shared/src/swordTechniqueContracts.mjs), and what its clips do on that model (scripts/lib/glbPose.mjs, glbSkin.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { loadGlb, localPose, overlayMotion, worldMatrices, apply } from '../../scripts/lib/glbPose.mjs';
 import { skinnedHeights, skinnedMeshes } from '../../scripts/lib/glbSkin.mjs';
-import { SWORD_TECHNIQUE_TRACKS, SWORD_TECHNIQUE_TRACK_SOURCE } from '../../shared/src/swordTechniqueTracks.mjs';
-import { SWORD_TECHNIQUES, techniqueBlade } from '../../shared/src/swordTechniques.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS } from '../../shared/src/swordTechniqueContracts.mjs';
+import { swordTechniqueAnimationPlan } from '../../client/game/spellbladeAnimationPlan.mjs';
 import { STRIKE_CLIPS } from '../../client/game/swordChainPresentation.mjs';
 
 const dir = new URL('../../client/assets/characters/spellblade/', import.meta.url);
@@ -19,9 +19,8 @@ const canonical = () => loadGlb(new URL('spellblade.glb', dir).pathname);
 const withMotion = () => overlayMotion(canonical(), new URL('spellblade-motion.glb', dir).pathname);
 const TIP = [0.131, 1.3383, -0.1661];
 
-test('the sidecar is the file its record and the server\'s blade tracks name, built against the canonical model', () => {
+test('the sidecar is the file its record names, built against the canonical model', () => {
   assert.equal(sha('spellblade-motion.glb'), meta.sha256);
-  assert.equal(SWORD_TECHNIQUE_TRACK_SOURCE.motionSha256, meta.sha256);
   // the canonical GLB is untouched: still the promoted one
   assert.equal(sha('spellblade.glb'), manifest.thirdPerson.sha256);
   assert.equal(meta.canonicalSha256, manifest.thirdPerson.sha256);
@@ -41,26 +40,58 @@ test('the sidecar is the file its record and the server\'s blade tracks name, bu
   }
 });
 
-test('every technique clip the rules name is in the sidecar and has its blade track, of the same length', () => {
+const TECHNIQUE_CLIPS = ['Technique_RigidRiposte_Enter', 'Technique_RigidRiposte_Interception', 'Technique_RigidRiposte_Thrust', 'Technique_RigidRiposte_Recovery',
+  'Technique_RigidRiposte_Parried', 'Technique_RigidRiposte_Air', 'Technique_Whirl_Enter', 'Technique_Whirl_Revolution', 'Technique_Whirl_GaleLift',
+  'Technique_Whirl_Exit', 'Technique_Whirl_Interrupted', 'Technique_Whirl_AirRecovery'];
+// (the rules' guard point: the sword socket, 0.12 m up the blade from the hand)
+const BASE = TIP.map((v) => v * (0.117 / Math.hypot(...TIP)));
+
+test('every clip the technique animation plan asks for is in the sidecar, as long as the rules say', () => {
   const motion = loadGlb(new URL('spellblade-motion.glb', dir).pathname);
-  const lengths = { enter: 'enterSec', brace: 'braceSec', thrust: 'thrustSec', recovery: 'recoverySec', parried: 'parriedSec', revolution: 'revolutionSec', lift: 'revolutionSec', exit: 'exitSec', interrupted: 'interruptedSec' };
-  for (const technique of Object.values(SWORD_TECHNIQUES)) for (const [role, clip] of Object.entries(technique.clips)) {
-    assert.ok(motion.clips.has(clip), clip);
-    const track = SWORD_TECHNIQUE_TRACKS[clip];
-    assert.ok(track?.length > 2, `${clip} track`);
-    assert.ok(Math.abs(track.at(-1).time - motion.clips.get(clip).duration) < 1e-3, clip);
-    if (lengths[role]) assert.ok(Math.abs(motion.clips.get(clip).duration - technique[lengths[role]]) < 0.012, `${clip} is ${motion.clips.get(clip).duration}s, the rules say ${technique[lengths[role]]}`);
+  for (const clip of TECHNIQUE_CLIPS) assert.ok(motion.clips.has(clip), clip);
+  // every clip the plan can name, through a Riposte and two turns of a Whirl, their endings included
+  const asked = new Set();
+  for (const action of [{ id: 'rigid_riposte' }, { id: 'rigid_riposte', aerial: true }, { id: 'rigid_riposte', phase: 'interrupted', reason: 'parried' },
+    { id: 'whirl_wind', revolutions: 1 }, { id: 'whirl_wind', revolutions: 2, galeLift: true }, { id: 'whirl_wind', phase: 'recovery', endsAt: 0.25 },
+    { id: 'whirl_wind', phase: 'interrupted' }, { id: 'whirl_wind', phase: 'interrupted', aerial: true }]) {
+    for (let t = 0; t < 1.3; t += 1 / 60) for (const grounded of [true, false]) asked.add(swordTechniqueAnimationPlan({ ...action, startedAt: 0 }, t, false, grounded).clip);
   }
+  for (const clip of asked) assert.ok(motion.clips.has(clip), `the plan asks for ${clip}`);
+  const riposte = SWORD_TECHNIQUE_CONTRACTS.rigid_riposte, whirl = SWORD_TECHNIQUE_CONTRACTS.whirl_wind;
+  const near = (clip, sec) => assert.ok(Math.abs(motion.clips.get(clip).duration - sec) < 0.012, `${clip} is ${motion.clips.get(clip).duration}s, the rules say ${sec}`);
+  near('Technique_RigidRiposte_Interception', riposte.braceUntil);
+  near('Technique_RigidRiposte_Thrust', riposte.activeUntil - riposte.activeFrom);
+  near('Technique_RigidRiposte_Recovery', riposte.recovery);
+  near('Technique_Whirl_Revolution', whirl.revolutionSeconds);
+  near('Technique_Whirl_GaleLift', whirl.revolutionSeconds);
+  near('Technique_Whirl_Exit', whirl.recovery);
 });
 
-test('the blade the server sweeps is the blade the clip draws', () => {
+test('the blade the server sweeps is the blade the clips draw (but for the lift that stands them on the floor)', () => {
   const model = withMotion();
   const hand = model.byName.get('hand.R');
-  for (const [clip, time] of [['Technique_RigidRiposte_Interception', 0.11], ['Technique_RigidRiposte_Thrust', 0.13], ['Technique_Whirl_Revolution', 0.2], ['Technique_Whirl_Revolution', 0.47]]) {
-    const world = worldMatrices(model, localPose(model, [{ clip, time, weight: 1 }]));
-    const drawn = apply(world[hand], TIP), swept = techniqueBlade(clip, time).tip;
-    assert.ok(Math.hypot(drawn[0] - swept.x, drawn[1] - swept.y, drawn[2] - swept.z) < 0.02, `${clip} at ${time}`);
+  const drawn = (clip, time) => { const world = worldMatrices(model, localPose(model, [{ clip, time, weight: 1 }])); return { tip: apply(world[hand], TIP), base: apply(world[hand], BASE) }; };
+  // the clips are lifted so the canonical boots stand on the floor (Argon posed them on a lower stance); the server's
+  // samples are his, unlifted: that lift is the whole of the difference
+  const off = (p, q, lift) => Math.hypot(p[0] - q.x, p[1] - lift - q.y, p[2] - q.z);
+  const whirl = SWORD_TECHNIQUE_CONTRACTS.whirl_wind;
+  for (const s of whirl.track) {
+    const d = drawn('Technique_Whirl_Revolution', Math.min(s.time, whirl.revolutionSeconds));
+    assert.ok(off(d.tip, s.tip, meta.pelvisLiftM.whirl) < 0.03 && off(d.base, s.base, meta.pelvisLiftM.whirl) < 0.04, `Whirl at ${s.time}`);
   }
+  // a Riposte, as the animation plan plays it. From the end of the brace on, the drawn blade is the swept one. In the
+  // first 0.2 s it is not quite: the plan plays the 0.10 s Enter clip and then joins the brace clip part-way through,
+  // where the rules' samples bring the sword up over the whole 0.22 s (measured: up to 0.32 m apart at the point)
+  const riposte = SWORD_TECHNIQUE_CONTRACTS.rigid_riposte;
+  let startup = 0;
+  for (const s of riposte.track) {
+    const plan = swordTechniqueAnimationPlan({ id: 'rigid_riposte', startedAt: 0 }, s.time, false, true);
+    const d = drawn(plan.clip, Math.min(plan.time, model.clips.get(plan.clip).duration));
+    const tip = off(d.tip, s.tip, meta.pelvisLiftM.riposte), base = off(d.base, s.base, meta.pelvisLiftM.riposte);
+    if (s.time < 0.2) { startup = Math.max(startup, tip); continue; }
+    assert.ok(tip < 0.06 && base < 0.06, `Riposte at ${s.time}: point ${tip.toFixed(3)} m, guard ${base.toFixed(3)} m`);
+  }
+  assert.ok(startup < 0.35, `Riposte startup: ${startup.toFixed(3)} m`);
 });
 
 test('the techniques stand on the canonical floor and their clips meet end to end', () => {
@@ -82,7 +113,7 @@ test('the techniques stand on the canonical floor and their clips meet end to en
   }
   // nothing but the pelvis turns a Whirl: the root is never animated (the runtime does not turn it either)
   const root = model.byName.get('root');
-  for (const clip of Object.values(SWORD_TECHNIQUES.whirl_like_the_wind.clips)) assert.ok(!model.clips.get(clip).channels.some((c) => c.node === root), clip);
+  for (const clip of TECHNIQUE_CLIPS.filter((c) => c.startsWith('Technique_Whirl_'))) assert.ok(!model.clips.get(clip).channels.some((c) => c.node === root), clip);
 });
 
 test('the revised first cut: begun and ended on the canonical stance, driven by the torso, finished in control, home clear of the floor', () => {

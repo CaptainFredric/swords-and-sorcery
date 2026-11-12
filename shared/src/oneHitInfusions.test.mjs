@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyInfusions,creditOneHitEncounter,oneHitCommit,oneHitForm,oneHitDamage,
   applyOneHitShaken,shakenSprintFactor,oneHitBacklashRemaining,oneHitTeleportDistance,normalizeInfusions,
-  ONE_HIT_PRESETS,oneHitSteelFloorActive} from './oneHitInfusions.mjs';
+  ONE_HIT_PRESETS,oneHitSteelFloorActive,oneHitChargeIntent,oneHitGlide,oneHitChargingLightning} from './oneHitInfusions.mjs';
 import { GAME } from './combat.mjs';
 import { RUPTURE } from './rupture.mjs';
 
@@ -63,11 +63,18 @@ test('untrusted practice values clamp to tier 0..2',()=>{
 
 test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD',()=>{
   const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
-    preparedTiers:{steel:2},commitAt:10}};
+    preparedTiers:{steel:2},startedAt:9.08,commitAt:10}};
   assert.equal(oneHitSteelFloorActive(p,9),true);
   assert.equal(oneHitSteelFloorActive(p,10.01),false);
+  p.ultimateState.startedAt=9;
+  p.ultimateState.commitAt=3600009;
   p.ultimateState.teleportHoldAt=9;
-  assert.equal(oneHitSteelFloorActive(p,9.5),false,'indefinite held Lightning aim is vulnerable');
+  assert.equal(oneHitSteelFloorActive(p,9.5),true,
+    'Full Steel protects the original brace even during held Full Lightning');
+  assert.equal(oneHitSteelFloorActive(p,9.919),true);
+  assert.equal(oneHitSteelFloorActive(p,9.921),false,
+    'Full Lightning hold does not prolong the initial 0.92-second Steel floor');
+  assert.equal(oneHitSteelFloorActive(p,19),false,'indefinite aim is not indefinite immunity');
   delete p.ultimateState.teleportHoldAt;
   p.ultimateState.phase='active';
   p.ultimateState.until=12;
@@ -86,16 +93,61 @@ test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD'
   assert.equal(oneHitSteelFloorActive(p,11),false);
 });
 
-test('A four-second Half Lightning hold cannot extend the Full Steel 1-HP floor indefinitely',()=>{
+test('Full Steel renews its attack protection at late Lightning arrival without extending the aim brace',()=>{
   const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
-    preparedTiers:{steel:2,lightning:1},startedAt:9,commitAt:13,
+    preparedTiers:{steel:2,lightning:2,gale:2},startedAt:9,teleportHoldAt:9,commitAt:3600009}};
+  assert.equal(oneHitSteelFloorActive(p,9.7),true);
+  assert.equal(oneHitSteelFloorActive(p,10.5),false);
+  p.ultimateState.phase='active';
+  p.ultimateState.commitAt=11;
+  p.ultimateState.until=12.65;
+  p.ultimateState.oneHit={tiers:{steel:2,lightning:2,gale:2},
+    form:'aerial',awaitingWave:true,waveResolved:false};
+  assert.equal(oneHitSteelFloorActive(p,11.01),true,
+    'the committed aerial attack has independent Full Steel protection on arrival');
+  assert.equal(oneHitSteelFloorActive(p,12),true,'a still unresolved Gale wave remains covered');
+  p.ultimateState.oneHit.waveResolved=true;
+  assert.equal(oneHitSteelFloorActive(p,12.1),false,
+    'wave resolution closes protection rather than restarting a new timer');
+  p.ultimateState.oneHit.waveResolved=false;
+  assert.equal(oneHitSteelFloorActive(p,12.66),false,'Ultimate expiry is a hard stop');
+});
+
+test('A held Half Lightning aim cannot extend the Full Steel 1-HP floor indefinitely',()=>{
+  const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{steel:2,lightning:1},startedAt:9,commitAt:10.75,
     partialLightningHoldAt:9,partialLightningReadyAt:9.36}};
   assert.equal(oneHitSteelFloorActive(p,9.5),true,'finite early bracing is protected');
-  assert.equal(oneHitSteelFloorActive(p,10),false,'holding longer does not grant a four-second immunity');
+  assert.equal(oneHitSteelFloorActive(p,10),false,'holding longer does not extend Steel protection');
   p.ultimateState.partialLightningReleased=true;
   p.ultimateState.commitAt=10.2;
   assert.equal(oneHitSteelFloorActive(p,10.1),false);
   p.ultimateState.phase='active';p.ultimateState.until=11.9;
   p.ultimateState.oneHit={tiers:{steel:2,lightning:1},form:'ground'};
   assert.equal(oneHitSteelFloorActive(p,10.3),true,'the actual committed attack restores its intended protection');
+});
+
+test('held Lightning charges suppress Sprint and Jump without locking 360-degree aim',()=>{
+  const player={grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{lightning:2,gale:2},teleportHoldAt:9,commitAt:3600009}};
+  assert.equal(oneHitChargingLightning(player,10),true);
+  const intent=oneHitChargeIntent({forward:1,right:1,sprint:true,jump:true,dash:true,yaw:4.5,pitch:-1.2});
+  assert.equal(intent.sprint,false);
+  assert.equal(intent.jump,false);
+  assert.equal(intent.dash,false);
+  assert.equal(intent.yaw,4.5);
+  assert.equal(intent.pitch,-1.2);
+  assert.ok(intent.forward>0&&intent.forward<1);
+  assert.ok(Math.abs(Math.hypot(intent.forward,intent.right)-.56)<1e-8,
+    'diagonal aiming movement must not exceed straight charged walking pace');
+  const straight=oneHitChargeIntent({forward:1,right:0});
+  assert.ok(Math.abs(Math.hypot(straight.forward,straight.right)-.56)<1e-8);
+  const glide=oneHitGlide(player,7.5);
+  assert.ok(glide.fallGravity>0&&glide.maxFall>0,
+    'charging above terrain must descend rather than hover without time limit');
+  player.ultimateState={...player.ultimateState,teleportHoldAt:undefined,
+    partialLightningHoldAt:9,preparedTiers:{gale:2,lightning:1}};
+  const half=oneHitGlide(player,7.5);
+  assert.ok(half.fallGravity>0&&half.maxFall>0,
+    'Half Lightning with Full Gale must not hover for its full hold');
 });

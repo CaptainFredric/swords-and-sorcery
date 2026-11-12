@@ -102,24 +102,25 @@ test('Armory facts derive All-Natural Disaster and Line of Conduct values from t
   assert.match(gale.facts, /shove to 11m/);
 });
 
-test('the longsword is equipment; the Sword Technique slot holds one technique or none', () => {
-  const view = armoryView('fireball');
+test('the longsword is the weapon and both Sword Techniques are equippable', () => {
+  const view = armoryView('fireball', 'sunder', 'rigid_riposte');
+  assert.equal(view.techniques.length, 2);
   assert.match(view.blade.name, /longsword/i);
   assert.match(view.blade.facts, /Three-strike combo/);
-  assert.deepEqual(view.techniques.map((t) => t.id), ['none', 'rigid_riposte', 'whirl_like_the_wind']);
-  // nothing chosen: the longsword alone is what is equipped
-  assert.deepEqual(view.techniques.filter((t) => t.equipped).map((t) => t.id), ['none']);
 
-  const chosen = armoryView('fireball', 'sunder', 'whirl_like_the_wind');
-  assert.deepEqual(chosen.techniques.filter((t) => t.equipped).map((t) => t.id), ['whirl_like_the_wind']);
-  assert.equal(chosen.techniques.find((t) => t.id === 'whirl_like_the_wind').status, 'EQUIPPED');
-  // an unknown id is no technique
-  assert.deepEqual(armoryView('fireball', 'sunder', 'whirl_wind').techniques.filter((t) => t.equipped).map((t) => t.id), ['none']);
-
-  // the numbers on the cards are the rules' own
   const riposte = view.techniques.find((t) => t.id === 'rigid_riposte');
-  assert.match(riposte.facts, /24 through the middle · 20 grazing · 5\.7 m lunge · 10s cooldown · earns no Prowess/);
-  const whirl = view.techniques.find((t) => t.id === 'whirl_like_the_wind');
-  assert.match(whirl.facts, /16 a turn · 13 at the point · first turn free, then 25 Prowess each · 10s cooldown · earns no Prowess/);
-  assert.ok(view.techniques.every((t) => !t.disabled));
+  assert.equal(riposte.disabled, false);
+  assert.equal(riposte.status, 'AVAILABLE');
+  assert.equal(riposte.equipped, true);
+  assert.match(riposte.line, /forward sword thrust/i);
+
+  const whirl = view.techniques.find((t) => t.id === 'whirl_wind');
+  assert.equal(whirl.disabled, false);
+  assert.equal(whirl.status, 'AVAILABLE');
+  assert.equal(whirl.equipped, false);
+  assert.match(whirl.line, /360°/i);
+
+  const switched = armoryView('fireball', 'sunder', 'whirl_wind');
+  assert.equal(switched.techniques.find((t) => t.id === 'whirl_wind').equipped, true);
+  assert.equal(switched.techniques.find((t) => t.id === 'rigid_riposte').equipped, false);
 });

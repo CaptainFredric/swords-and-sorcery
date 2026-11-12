@@ -77,7 +77,7 @@
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
         <!-- the quieter doors -->
         <div class="command-pair">
-          <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span></button>
+          <button id="how-button" class="menu-command quiet-command"><span>CASTLE CHRONICLES</span></button>
           <button id="settings-button" class="menu-command quiet-command" data-open-settings><span>SETTINGS</span></button>
         </div>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
@@ -643,9 +643,9 @@
     <section id="how-panel" class="side-screen hidden">
       <div class="side-screen-inner banner-panel manual-inner"><div class="banner-scroll">
         <button class="back-button" data-close-how>← BACK</button>
-        <p class="eyebrow">HOW TO PLAY</p>
-        <h2>HOW TO PLAY</h2>
-        <div class="manual-scroll" tabindex="0" aria-label="Controls and combat rules">
+        <p class="eyebrow">CASTLEWARD · FIELD REFERENCE</p>
+        <h2>CASTLE CHRONICLES</h2>
+        <div class="manual-scroll" tabindex="0" aria-label="Castle Chronicles: controls, combat rules and afflictions">
         <div class="controls-grid key-controls-grid">
           <h3 class="controls-group">MOVEMENT</h3>
           <span>WASD</span><b>Move</b>
@@ -677,6 +677,15 @@
           <span>STATUS ICONS</span><b>Tap an upper-left icon to inspect its effect</b>
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
+        <section class="chronicles-chapter" aria-labelledby="chronicles-disaster-heading">
+          <h3 id="chronicles-disaster-heading" class="controls-group">ALL-NATURAL DISASTER · AIMING</h3>
+          <p>Half Lightning permits a short aimed charge. Sprint is unavailable while charging, but you can move carefully and turn freely. Full Lightning lets you hold and release a teleport: steer the aim throughout the charge, then release to travel toward the indicated destination. Lightning alone must arrive on supported ground. With Full Gale as well, look up, down or around in any direction to choose a 3D destination; the attack's ground or aerial form follows where you actually arrive. An aerial charge descends rather than suspending you indefinitely.</p>
+        </section>
+        <section class="chronicles-chapter" aria-labelledby="chronicles-afflictions-heading">
+          <h3 id="chronicles-afflictions-heading" class="controls-group">AFFLICTIONS</h3>
+          <p>These are the status effects shown beside your Health in combat. Select an icon for its explanation and current effectiveness. The meter is not a timer: some effects hold their full strength until they end, while others gradually weaken.</p>
+          <div id="chronicles-affliction-list" class="chronicles-affliction-list" aria-label="All combat afflictions"></div>
+        </section>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
         <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Keep holding Attack or Guard and it comes back by itself after a Parry, a stagger or a broken Guard. A Guard that comes back on its own blocks but cannot Parry; press Guard again to time one.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect. While Sheathed in Steel, Dash into an enemy to ram them, dealing light damage and heavy knockback and Balance. The Dash stops on impact.</p><p>Gale gathers for half a second. Tap for balanced wind; swipe up from Spell for a burst, or down toward yourself for sustained wind. On desktop, scroll up or down during the gather to shape it. The choice locks when the gust releases.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p><p>Spells &amp; Chivalry raises Guard, then lets you Sprint, attack, Guard, Dash and cast together for 10 seconds. Release Guard to lower it. If it is broken or interrupted, hold Guard and it comes back, or raise it again; your sword and spells carry on. Tap Q to cast. Hold Q briefly to choose a prepared spell, then press 1, 2 or 3 to choose and cast immediately (Q can be let go first). On touch, drag from the spell button and release on a spell to cast. During startup, choosing only preselects.</p></div>
         </div>
@@ -800,8 +809,6 @@
         <div class="abilities">
           <div id="spell-ability" class="ability ready" data-spell="fireball"><span class="ability-icon"></span><b>Q</b><em>FIREBALL</em><strong>READY</strong><i class="ability-badge"></i></div>
           <div id="dash-ability" class="ability ready"><span class="ability-icon"></span><b>E</b><em>DASH</em><strong>READY</strong></div>
-          <!-- the Sword Technique carried from the Armory (hidden when none is, and on a siege machine) -->
-          <div id="technique-ability" class="ability technique ready" hidden><span class="ability-icon"></span><b>X</b><em>RIPOSTE</em><strong>READY</strong></div>
           <!-- the ultimate: its shade drains as prowess is earned; full, it is ready -->
           <div id="ultimate-ability" class="ability ultimate cooling" data-ultimate="sunder"><span class="ability-icon"></span><b>R</b><em>SUNDER</em><strong>0%</strong></div>
         </div>
@@ -845,11 +852,45 @@
           <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
           <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
           <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
+          <button id="practice-spellblade" class="practice-opponent">THE SPELLBLADE · MASTER</button>
           <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
+          <details class="practice-siege" id="practice-ultimate-knight-config" hidden>
+            <summary>ULTIMATE KNIGHT · DRILL SETTINGS</summary>
+            <div class="practice-knight-settings">
+              <label>ULTIMATE
+                <select id="practice-knight-ultimate">
+                  <option value="cycle">CYCLE ORIGINAL THREE</option>
+                  <option value="sunder">SUNDER ALL THAT RUSTS</option>
+                  <option value="vortex">BLAZING VORTEX</option>
+                  <option value="chivalry">SPELLS &amp; CHIVALRY</option>
+                  <option value="one_hit_of_wonders">ALL-NATURAL DISASTER</option>
+                </select>
+              </label>
+              <label>BEHAVIOR
+                <select id="practice-knight-behavior">
+                  <option value="follow">FOLLOW · SEEK &amp; FIGHT</option>
+                  <option value="stay">STAY · REPEAT &amp; DEFEND</option>
+                </select>
+              </label>
+              <small>STAY holds position, casts periodically and attacks nearby. FOLLOW pursues you.</small>
+              <div class="one-hit-practice-levels" id="practice-knight-infusions">
+                <label>FIRE <select data-knight-element="fire"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>FROST <select data-knight-element="frost"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>GALE <select data-knight-element="gale"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>LIGHTNING <select data-knight-element="lightning"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                <label>STEEL <select data-knight-element="steel"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              </div>
+              <div class="one-hit-practice-presets">
+                <button type="button" data-knight-preset="reset">NONE</button>
+                <button type="button" data-knight-preset="partial">ALL PARTIAL</button>
+                <button type="button" data-knight-preset="full">ALL FULL</button>
+              </div>
+              <small>Infusions affect only All-Natural Disaster. The Knight uses real attacks, not scripted damage.</small>
+            </div>
+          </details>
           <button id="practice-st-perry" class="practice-opponent">ST. PERRY THE PRODIGIOUS</button>
           <button id="practice-canonization" class="practice-opponent hidden">CANONIZATION</button>
           <button id="practice-remove">REMOVE DUMMY</button>
-          <small class="practice-ultimate-always-ready">PERSONAL ULTIMATE + PROWESS · ALWAYS FULL IN PRACTICE</small>
           <details class="practice-siege" id="practice-one-hit" hidden>
             <summary>ALL-NATURAL DISASTER · INFINITE TESTING</summary>
             <p>Practice only. Each element independently progresses from None to Partial to Full.</p>

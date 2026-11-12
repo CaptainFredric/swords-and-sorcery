@@ -140,7 +140,9 @@ function hitActors(room,b,start,end){
 }
 function projectileImpact(room,b,f,hit,now){
  const at={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
- const damage=fistDamage(f.traveled);
+ const normalDamage=fistDamage(f.traveled);
+ const damage=f.isFinal&&f.fragment?
+   Math.round(normalDamage*85/RAM_FIST.closeDamage):normalDamage;
  if(hit.kind==='actor'){
   const guarded=Boolean(hit.victim.guarding&&
     isInGuardCone(hit.victim,{position:at},now));
@@ -184,7 +186,7 @@ function projectileImpact(room,b,f,hit,now){
  f.state='falling';f.impactCount++;
 }
 export function stepDetachedRamFist(room,b,dt,now,world=room.world){
- if(!b?.detachedFist||b.retired||b.health<=0)return;
+ if(!b?.detachedFist||b.retired||(b.health<=0&&!b.detachedFist.isFinal))return;
  const f=b.detachedFist;
  const parked=()=>{
   const home=f.home??b.fistHome;
@@ -192,10 +194,11 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
    Math.hypot(b.x-home.x,b.z-home.z)<=SO_FIST_LIFT.recoveryRadius&&
    Math.abs(b.y-(home.y??b.y))<=1.5);
  };
- if((b.components?.Fist?.health??0)<=0){
+ if((b.components?.Fist?.health??0)<=0&&!f.isFinal){
    if(f.state!=='destroyed'){f.state='destroyed';b.fistMounted=false;event(room,b,'destroyed',now,{hp:0});}
    return;
   }
+  if(f.isFinal&&['abyss','resting','destroyed'].includes(f.state))return;
   if(f.state==='abyss'){
    if(parked()){
    f.state='recovering';f.recoverAt=now+SO_FIST_LIFT.recoveryCooldown;

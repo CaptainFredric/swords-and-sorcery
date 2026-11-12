@@ -6,50 +6,35 @@ import { SPELLS } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
 import { STEEL_RAM } from '../../shared/src/steelRam.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
-import { NO_SWORD_TECHNIQUE, SWORD_TECHNIQUES as TECHNIQUE_RULES, normalizeSwordTechnique } from '../../shared/src/swordTechniques.mjs';
 import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
 import { ONE_HIT_FIRST_INFUSION_DAMAGE, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 
-// The Sword Technique slot: the longsword alone, or one technique carried beside it (shared/src/swordTechniques.mjs
-// has their rules; the numbers shown are read from there).
-const RIPOSTE = TECHNIQUE_RULES.rigid_riposte;
-const WHIRL = TECHNIQUE_RULES.whirl_like_the_wind;
+// Sword Techniques use the same authoritative loadout as spells and Ultimates.
 export const SWORD_TECHNIQUES = Object.freeze([
   {
-    id: NO_SWORD_TECHNIQUE,
-    name: 'Longsword Alone',
-    mark: '⚔',
-    icon: 'attack',
-    line: 'No Sword Technique. The Castleward longsword and its three-strike chain, exactly as they are.',
-    facts: () => 'Nothing on X while on foot',
-    lore: 'A sword held properly is already a technique. The Spellblade will explain this at length.',
-  },
-  {
-    id: RIPOSTE.id,
-    name: RIPOSTE.name,
+    id: 'rigid_riposte',
+    name: 'Rigid Riposte',
     mark: '⇏',
-    icon: 'riposte',
-    line: 'Raise the sword across your front, then lunge. While it is raised it turns the blades and spells that actually meet it; then the thrust carries you forward behind the point.',
-    facts: () => `${RIPOSTE.damage} through the middle · ${RIPOSTE.grazeDamage} grazing · ${RIPOSTE.lungeDistance} m lunge · ${RIPOSTE.cooldownSec}s cooldown · earns no Prowess · in the air it uses your Dash`,
-    lore: 'The Spellblade regards it as a reply. He prefers to deliver those in person.',
+    icon: 'attack',
+    line: 'A committed forward sword thrust that intercepts and parries incoming attacks along its startup path.',
+    facts: () => '24 clean / 20 grazing · 5.7 m thrust · 10s cooldown · aerial use consumes Dash',
+    lore: 'A blade held exactly where the opponent would prefer it not to be.',
+    status: 'AVAILABLE',
+    disabled: false,
   },
   {
-    id: WHIRL.id,
-    name: WHIRL.name,
+    id: 'whirl_wind',
+    name: 'Whirl Like the Wind',
     mark: '↻',
-    icon: 'whirl',
-    line: 'Sweep the sword once right round, at a run. Hold to keep turning: every turn after the first spends a quarter of your Prowess. It cuts, and turns blows, only where the blade is passing.',
-    facts: () => `${WHIRL.damage} a turn · ${WHIRL.glanceDamage} at the point · first turn free, then ${WHIRL.extraRevolutionCost} Prowess each · ${WHIRL.cooldownSec}s cooldown · earns no Prowess · with Gale Garner: starts in the air, hold Jump to climb`,
-    lore: 'It turns the other way to a Blazing Vortex. The Spellblade maintains this is the entire difference.',
+    icon: 'vortex',
+    line: 'A full 360° mobile sword sweep. Can be sustained by expending Prowess energy; synergizes with Gale Garner.',
+    facts: () => '16 clean / 13 glancing per contact · 0.6s/revolution · 25 Prowess per extra spin · 10s cooldown',
+    lore: 'More sword, less stopping to discuss it.',
+    status: 'AVAILABLE',
+    disabled: false,
   },
 ]);
-
-/** The technique cards with the chosen one marked (`equipped`: a technique's id, or 'none'). */
-export function techniqueCards(equipped = NO_SWORD_TECHNIQUE) {
-  const chosen = normalizeSwordTechnique(equipped);
-  return SWORD_TECHNIQUES.map((tech) => ({ ...tech, status: tech.id === chosen ? 'EQUIPPED' : 'AVAILABLE', equipped: tech.id === chosen }));
-}
 
 // how each spell reads in the Armory: what it is like, then plainly what it does
 const SPELL_WORDS = Object.freeze({
@@ -119,13 +104,13 @@ const ULTIMATE_WORDS = Object.freeze({
   },
 });
 
-export function armoryView(equipped, ultimate = 'sunder', technique = NO_SWORD_TECHNIQUE) {
+export function armoryView(equipped, ultimate = 'sunder', technique = 'rigid_riposte') {
   return {
     blade: {
       name: 'Castleward longsword',
       facts: `Three-strike combo · ${GAME.swordGlance} to ${GAME.swordDamage} damage · guard and parry`,
     },
-    techniques: techniqueCards(technique).map((tech) => ({
+    techniques: SWORD_TECHNIQUES.map((tech) => ({
       id: tech.id,
       name: tech.name.toUpperCase(),
       mark: tech.mark,
@@ -134,7 +119,8 @@ export function armoryView(equipped, ultimate = 'sunder', technique = NO_SWORD_T
       facts: tech.facts(GAME),
       lore: tech.lore,
       status: tech.status,
-      equipped: tech.equipped,
+      disabled: tech.disabled,
+      equipped: tech.id === technique,
     })),
     spells: Object.values(SPELLS).map((spell) => {
       const words = SPELL_WORDS[spell.id] ?? { mark: '◆', line: '', facts: () => `${spell.cooldownSec} s`, lore: '' };

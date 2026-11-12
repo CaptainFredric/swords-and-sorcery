@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { disasterBodyTurn, disasterCameraWanted, disasterWindupSec, stepDisasterReveal, DISASTER_CAMERA } from './oneHitCamera.mjs';
+import { disasterBodyTurn, disasterCameraWanted, disasterWindupSec, disasterTeleportAiming, stepDisasterReveal, DISASTER_CAMERA } from './oneHitCamera.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 
 const player = state => ({alive:true,ultimateState:state});
@@ -68,4 +68,17 @@ test('authored full-body turn rotates smoothly, returns to facing before contact
   assert.ok(last>2*Math.PI-.001);
   assert.equal(disasterBodyTurn(active(10),10),0,'the 360 degree turn resolves exactly to real yaw');
   assert.equal(disasterBodyTurn(startup(3_600_010,{lightning:2}),30),0,'no spin during indefinite charge');
+});
+
+test('the 3D destination guide belongs to Full Lightning, never Half-Lightning held charge',()=>{
+  const half=startup(11,{lightning:1,gale:2});
+  half.partialLightningHoldAt=9;
+  assert.equal(disasterTeleportAiming(half),false);
+  assert.equal(disasterCameraWanted(player(half),10),true,
+    'Half Lightning retains a camera view without pretending to teleport');
+  const full=startup(3_600_009,{lightning:2,gale:2});
+  full.teleportHoldAt=9;
+  assert.equal(disasterTeleportAiming(full),true);
+  full.teleportReleased=true;
+  assert.equal(disasterTeleportAiming(full),false);
 });

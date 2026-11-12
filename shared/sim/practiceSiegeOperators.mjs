@@ -74,6 +74,55 @@ function cleanProjectiles(room,actor,machineId){
   for(const pool of [room.projectiles,room.bibyeProjectiles,room.fightFlightProjectiles])
     for(const [id,q] of pool??[])if(q.ownerId===actor.id||q.machineId===machineId||q.ballistaId===machineId)pool.delete(id);
 }
+/** A top-tier Practice Spellblade can appropriate an EXISTING, empty machine
+ * when doing so is tactically useful. No duplicate chassis, free remote mount,
+ * skill cooldown, health, damage, or ammo change. The real formidable pilot
+ * will navigate to its ordinary seat and operate it next ticks.
+ */
+export function seekSpellbladeSiegeMachine(room,actor,now){
+  if(room?.mode!=='PRACTICE'||actor?.practiceMode!=='SPELLBLADE'||
+     !actor.alive)return false;
+  if(actor.practiceSiegeOperator){
+    const old=SIEGE_OPERATORS[actor.practiceSiegeOperator.machine];
+    const m=room[old?.field];
+    if(m&&!m.retired&&m.health>0&&m.mode!=='DESTROYED'&&
+       (!m.operatorId||m.operatorId===actor.id))return true;
+    actor.practiceSiegeOperator=null;actor.siegeAi=null;
+    actor.ai=null;
+  }
+  if(now<(actor.nextSiegeDecisionAt??-Infinity))return false;
+  actor.nextSiegeDecisionAt=now+1.75;
+  if(mounted(actor)||actor.ultimateState)return false;
+  const foe=enemy(room,actor);
+  if(!foe||dist(actor.position,foe.position)<4)return false;
+  const candidates=[];
+  for(const [machine,def] of Object.entries(SIEGE_OPERATORS)){
+    const m=room[def.field];
+    if(!m||m.operatorId||m.retired||m.mode==='DESTROYED'||m.health<=0||
+       (m.team&&m.team!==actor.team))continue;
+    if(machine==='fight-and-flight'&&(!m.grounded||m.rotorHP<=0||m.terminalDive))continue;
+    if(machine==='so-fist-ication'&&(m.components?.Drive?.health??0)<=0)continue;
+    const here={x:m.x,y:m.y,z:m.z};
+    const distance=dist(actor.position,here);
+    if(distance>17||dist(foe.position,here)>43)continue;
+    // Do not claim a machine a nearby human could be about to mount.
+    if([...room.players.values()].some(p=>p.actorKind==='human'&&p.alive&&
+       dist(p.position,here)<2.7))continue;
+    candidates.push({machine,m,score:distance+(machine==='fight-and-flight'?-2:0)});
+  }
+  if(!candidates.length)return false;
+  candidates.sort((a,b)=>a.score-b.score);
+  const {machine,m}=candidates[0];
+  actor.practiceSiegeOperator={machine,difficulty:'formidable',opportunistic:true};
+  actor.siegeAi={seed:Math.floor(now*30)%2147483647,decisions:0,nextThinkAt:now,
+    side:1,lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},
+    stuckUntil:0,now,lastShotIAt:-Infinity,lastVolleyAt:-Infinity,
+    nextRamAt:now,nextDiveAt:now,phase:'remount'};
+  actor.ai=null;
+  room.events.push({type:'spellbladeSiegeIntent',playerId:actor.id,
+    machine,machineId:m.id,at:now});
+  return true;
+}
 /** Plan first. Reject occupied authoritative machines rather than making copies. */
 export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='skilled',now=0){
   const def=SIEGE_OPERATORS[machine],tuning=SIEGE_DIFFICULTIES[difficulty];

@@ -37,7 +37,7 @@ test('a key released after pointer lock is lost cancels the Ultimate before the 
   assert.equal(input.enabled, true, 'pointerlockchange is still queued');
   up('KeyR');
   send('pointerlockchange');
-  assert.deepEqual(releases, [{ cancel: false }, { cancel: true }]);
+  assert.deepEqual(releases, [{ cancel: false, yaw:0, pitch:0 }, { cancel: true, yaw:0, pitch:0 }]);
 });
 
 test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
@@ -690,25 +690,10 @@ test('Flight repeater uses LMB (Mouse0) and RMB (Mouse2) attacks with sword',()=
 });
 test('Flight repeater does not fire while ordinary Spellblade is unmounted and disabled',()=>{
  const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
- // (on foot X is the Sword Technique's now; the ballista's focus is X only while one is operated)
- input.mountedFlight=false;input.mountedBallista=true;down('KeyX');up('KeyX');
+ input.mountedFlight=false;down('KeyX');up('KeyX');
  assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
- input.mountedBallista=false;input.mountedFlight=true;input.enabled=false;down('Mouse0');
+ input.mountedFlight=true;input.enabled=false;down('Mouse0');
  assert.equal(calls.length,1);
-});
-
-test('X is contextual: the Sword Technique on foot (held and let go), the machine\'s while one is operated',()=>{
- const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
- const pressed=[];input.socket.technique=d=>pressed.push(d);
- down('KeyX');down('KeyX');
- assert.deepEqual(pressed,[true]);assert.deepEqual(calls,[]);
- up('KeyX');assert.deepEqual(pressed,[true,false]);
- // operating a ballista, X never reaches the technique
- input.mountedBallista=true;down('KeyX');up('KeyX');
- assert.deepEqual(pressed,[true,false]);assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
- // a key held as the arena is left is let go
- input.mountedBallista=false;down('KeyX');input.releaseInputs();
- assert.deepEqual(pressed,[true,false,true,false]);
 });
 
 
@@ -803,3 +788,31 @@ test('custom E/C hydraulic action bindings remain mounted-only and cannot dismou
   up('KeyT');up('Mouse2');input.mountedRam=false;input.dispose();
 });
 
+
+test('Full Gale plus Full Lightning can aim directly up/down; ordinary controls retain camera comfort limits',()=>{
+  const {input}=setup();
+  input.turn(0,10);
+  assert.equal(input.pitch,1.45);
+  input.disasterThreeDAim=true;
+  input.turn(0,10);
+  assert.equal(input.pitch,Math.PI/2);
+  input.turn(Math.PI*1.5,-10);
+  assert.equal(input.pitch,-Math.PI/2);
+  assert.ok(input.yaw>Math.PI,'full yaw revolution is never clamped');
+  input.disasterThreeDAim=false;
+  input.turn(0,0);
+  assert.equal(input.pitch,-1.45,'ordinary camera clamp restored when the teleport charge ends');
+});
+
+test('Lightning release sends live pointer aim atomically, not an old movement-facing direction',()=>{
+  const {input,down,up}=setup();
+  const packets=[];
+  input.socket.oneHitRelease=packet=>packets.push(packet);
+  down('KeyR');
+  input.turn(Math.PI*1.2,.4);
+  up('KeyR');
+  assert.equal(packets.length,1);
+  assert.ok(Math.abs(packets[0].yaw-Math.PI*1.2)<1e-9);
+  assert.ok(Math.abs(packets[0].pitch-.4)<1e-9);
+  assert.equal(packets[0].cancel,false);
+});

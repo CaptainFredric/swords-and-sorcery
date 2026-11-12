@@ -18,9 +18,14 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   sprint: { left: 26, bottom: 190, size: 50 },
   crouch: { left: 190, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
-  // (above the spell, a thumb's slide from JUMP)
-  technique: { right: 84, bottom: 208, size: 52 },
   ultimate: { right: 24, bottom: 222, size: 50 },
+  // New action has no legacy CSS coordinates: always position it from the
+  // touch-layout model, including users with migrated saved layouts.
+  technique: {right: 148, bottom: 215, size: 46, custom:true},
+  // On-foot VIEW shares the siege VIEW action, but sits below the kill-feed
+  // strip and inward of ULTIMATE. Mounted modes retain their existing upper
+  // corner positions. Custom ensures old saved on-foot layouts gain the slot.
+  siegeView: {right: 96, top: 70, size: 44, custom:true},
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
@@ -105,6 +110,7 @@ const MOUNTED_ACTIONS = Object.freeze({
   attack:{right:14,bottom:18,size:76},
   siegeSkill:{right:100,bottom:22,size:64},
   spell:{right:184,bottom:20,size:52},
+  ramFlick:{right:142,bottom:112,size:54},
   jump:{right:14,bottom:112,size:54},
   crouch:{right:80,bottom:112,size:54},
   // Inactive for ram; legacy mounted fallbacks.

@@ -27,8 +27,7 @@ import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
-// (the Sword Technique's button too: a Whirl is steered by the thumb that holds it)
-const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||action==='technique'||flight&&(action==='siegeWeapon'||action==='dash');
+const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||flight&&(action==='siegeWeapon'||action==='dash');
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -39,14 +38,13 @@ const BUTTONS = [
   // the spell carried from the Armory (its icon, name and cooldown follow the spell)
   { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
+  { action: 'technique', label: 'TECHNIQUE', icon:'attack', cooldown:{key:'swordTechniqueReadyAt',seconds:10} },
   { action: 'sprint', label: 'SPRINT' },
   // (a toggle, and only for a deliberate tap on it: see #up)
   { action: 'crouch', label: 'CROUCH' },
   // the gauntlet on its own, spell or no spell: hidden unless asked for in the settings
   { action: 'gauntlet', label: 'FIST' },
-  // the Sword Technique carried from the Armory (hidden when none is): held, a Whirl goes on; the thumb slid from
-  // it onto JUMP holds Jump as well
-  { action: 'technique', label: 'RIPOSTE', icon: 'technique', cooldown: { key: 'techniqueReadyAt', seconds: 10 } },
+  { action: 'ramFlick', label: 'FLICK', icon: 'gauntlet' },
   // the ultimate: its shade drains as prowess is earned; full, it glows
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
@@ -332,9 +330,9 @@ export class TouchControls {
     // current player state. None of these preview presses reach gameplay.
     if(mode){
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
-        ram?['attack','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
+        ram?['attack','ramFlick','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
-        ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','technique','interact','pause','scores','practiceTools'];
+        ['attack','guard','dash','jump','spell','ultimate','technique','crouch','gauntlet','interact','siegeView','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
         button.hidden=!visible.includes(action);
       this.layer.classList.toggle('mounted-steel-available',mounted);
@@ -432,7 +430,7 @@ export class TouchControls {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.ramMounted?false:
-        this.jumpHeld || Boolean(this.techniqueJump) || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
+        this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
       flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
       flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
       ramRaise: Boolean(this.ramMounted && raise),
@@ -470,7 +468,7 @@ export class TouchControls {
     }
   }
 
-  update(local, serverNow, { practice = false, snapshot = null } = {}) {
+  update(local, serverNow, { practice = false, snapshot = null, onFootThirdPerson = false } = {}) {
     // The workshop is a real per-machine preview. Live snapshots must not
     // repaint hidden actions or restore the currently mounted machine while
     // the player edits Ballista, Ram, Flight or on-foot controls.
@@ -489,6 +487,9 @@ export class TouchControls {
     const ram = Boolean(local.alive && local.operatingRamId);
     const flight = Boolean(local.alive && local.operatingFightFlightId);
     const mounted = Boolean(local.alive && (local.operatingBallistaId || local.operatingRamId || local.operatingFightFlightId));
+    this.buttons.technique.hidden=mounted;
+    const label=this.buttons.technique.querySelector('span');
+    if(label)label.textContent=local.technique==='whirl_wind'?'WHIRL':'RIPOSTE';
     const machine = flight ? fb : ram ? rb : bl;
     const machineAlive = Boolean(machine && (machine.health ?? 0) > 0 && machine.mode !== 'DESTROYED' && !machine.retired);
     const hasBaseSteel = local.spell === 'steel';
@@ -618,6 +619,10 @@ export class TouchControls {
       this.stickBase.style.setProperty('--drive-pressure',drivePressure);
       if(layoutChanged)this.applyLayout(this.layouts);
       this.layer.classList.toggle('touch-ram',ram);
+      if(this.buttons.ramFlick){
+        this.buttons.ramFlick.hidden=!ram;
+        this.buttons.ramFlick.setAttribute('aria-label','Finger Flick · one targeted strike · shares piston recovery');
+      }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
@@ -774,10 +779,18 @@ export class TouchControls {
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
-        this.buttons.siegeView.hidden=!mounted;
-        this.buttons.siegeView.querySelector('span').textContent=ram||flight?'VIEW':'VIEW ↑';
-        this.buttons.siegeView.setAttribute('aria-label',ram?'Change ram view':'Tap to change view. Swipe up to zoom ahead of the bow. Tap again to return.');
-        if(!mounted)this.viewGesture=null;
+        // VIEW is now a Spellblade control too: upper right while on foot.
+        // Keep its pointer gesture alive through frame updates so taps register.
+        const onFoot=!mounted;
+        this.buttons.siegeView.hidden=!local.alive;
+        this.buttons.siegeView.querySelector('span').textContent=onFoot||ram||flight?'VIEW':'VIEW ↑';
+        this.buttons.siegeView.classList.toggle('on',onFoot&&onFootThirdPerson);
+        this.buttons.siegeView.setAttribute('aria-pressed',String(onFoot&&onFootThirdPerson));
+        this.buttons.siegeView.setAttribute('aria-label',onFoot
+          ? `Spellblade view: ${onFootThirdPerson?'third person':'first person'}. Tap to switch.`
+          : ram?'Change ram view':flight?'Change flying machine view'
+          :'Tap to change ballista view. Swipe up to zoom ahead of the bow. Tap again to return.');
+        if(!local.alive)this.viewGesture=null;
       }
       if (this.buttons.siegeWeapon) {
         this.buttons.siegeWeapon.hidden = !mounted || ram || (!flight&&bl?.mode !== 'DEPLOYED');
@@ -873,21 +886,6 @@ export class TouchControls {
    */
   setFistReady(ready) {
     this.buttons.spell?.classList.toggle('fist-held', !ready);
-  }
-
-  /** The Sword Technique's button: shown when one is carried (`technique`: its rules, or null), wearing its name. */
-  setTechniqueButton(technique) {
-    this.layer.classList.toggle('technique-on', Boolean(technique));
-    const button = this.buttons.technique;
-    if (!button || !technique || button.dataset.technique === technique.id) return;
-    button.dataset.technique = technique.id;
-    const label = technique.kind === 'whirl' ? 'WHIRL' : 'RIPOSTE';
-    button.querySelector('span').textContent = label;
-    button.setAttribute('aria-label', technique.name);
-    const icon = button.querySelector('svg');
-    if (icon) icon.innerHTML = ICONS[technique.kind === 'whirl' ? 'whirl' : 'riposte'] ?? ICONS.technique;
-    const cooldown = this.cooldowns?.find?.((entry) => entry.element === button);
-    if (cooldown) cooldown.seconds = technique.cooldownSec;
   }
 
   /** The gauntlet's own button (a setting; hidden unless asked for). */
@@ -1198,7 +1196,7 @@ export class TouchControls {
     if(this.viewGesture?.id===event.pointerId){
       const point=gamePoint(event,this.layer),g=this.viewGesture,dx=point.x-g.x,dy=g.y-point.y;
       g.travel=Math.max(g.travel,Math.hypot(dx,dy));
-      if(!g.zoomed&&dy>=32&&dy>Math.abs(dx)*1.25){g.zoomed=true;this.input.onAction?.('siegeZoom',true);}
+      if(!g.zoomed&&(this.ballistaMounted||this.ramMounted||this.flightMounted)&&dy>=32&&dy>Math.abs(dx)*1.25){g.zoomed=true;this.input.onAction?.('siegeZoom',true);}
       return;
     }
     if (this.galeGesture?.id === event.pointerId) {
@@ -1251,15 +1249,6 @@ export class TouchControls {
         this.buttons.jump?.classList.add('pressed');
       }
       this.#gateHeld('jump',false,source,false);
-    }
-    // the thumb holding the Sword Technique, slid onto JUMP: Jump is held with it (a Whirl climbing), for as long
-    // as it stays there
-    if (held === 'technique' && !this.deniedButtons.has(event.pointerId)) {
-      const over = this.#fingerOverJump(event);
-      if (over !== Boolean(this.techniqueJump)) {
-        this.techniqueJump = over;
-        this.buttons.jump?.classList.toggle('pressed', over);
-      }
     }
     const aiming = aimDragAction(held,this.flightMounted) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
@@ -1392,6 +1381,7 @@ export class TouchControls {
     element?.classList.add('pressed');
     if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
     if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
+    if (action === 'technique') this.input.technique(true, `touch:${event.pointerId}`);
     if (action === 'flightRise') {
       this.flightRiseSources.add(event.pointerId);
       this.flightRiseHeld = true;
@@ -1436,7 +1426,7 @@ export class TouchControls {
       } else this.input.cast();
     }
     if (action === 'gauntlet') this.input.gauntlet();
-    if (action === 'technique') this.input.technique?.(true, `touch:${event.pointerId}`);
+    if (action === 'ramFlick') this.input.ramFlick?.();
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
@@ -1494,10 +1484,7 @@ export class TouchControls {
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
     if (action === 'attack') this.input.setAttack(false, `touch:${pointerId}`);
     if (action === 'guard') this.input.setGuard(false, `touch:${pointerId}`);
-    if (action === 'technique') {
-      this.input.technique?.(false, `touch:${pointerId}`);
-      if (this.techniqueJump) { this.techniqueJump = false; this.buttons.jump?.classList.remove('pressed'); }
-    }
+    if (action === 'technique') this.input.technique(false, `touch:${pointerId}`);
     if (action === 'flightRise') {
       this.flightRiseSources.delete(pointerId);
       this.flightRiseHeld = this.flightRiseSources.size > 0;

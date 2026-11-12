@@ -202,15 +202,26 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   if (state.crouched) state.sprinting = false;
 
   const inDash = nowSec < state.dashUntil;
-  // (a Sword Technique's lunge carries the body along its committed line, whatever is held: swordTechniques.mjs)
-  const lunge = state.whirl?.lunge ?? null;
-  if (inDash) {
+  // Rigid Riposte is a committed 5.7 m thrust, not an ordinary Dash. Integrate
+  // its exact time-window displacement through the SAME horizontal collision
+  // substeps, ramps, ground and Edge boundary that resolve all player movement.
+  // Partially covered authoritative ticks move only their fraction of 5.7 m.
+  const technique = previous.swordTechnique;
+  const lunge = technique?.contract?.kind === 'riposte' && technique.phase !== 'recovery'
+    ? technique.contract : null;
+  const thrustFrom = (technique?.initialStartedAt ?? nowSec) + (lunge?.activeFrom ?? 0);
+  const thrustUntil = (technique?.initialStartedAt ?? nowSec) + (lunge?.activeUntil ?? 0);
+  const thrustOverlap = lunge ? Math.max(0, Math.min(nowSec, thrustUntil) - Math.max(nowSec - dt, thrustFrom)) : 0;
+  if (!inDash && thrustOverlap > 0 && dt > 0) {
+    const speed = lunge.lungeDistance * thrustOverlap / ((lunge.activeUntil - lunge.activeFrom) * dt);
+    const yaw = technique.lungeYaw ?? previous.yaw ?? 0;
+    state.velocity.x = -Math.sin(yaw) * speed + state.impulse.x;
+    state.velocity.z = -Math.cos(yaw) * speed + state.impulse.z;
+    state.sprintBlend = 0;
+  } else if (inDash) {
     const dashSpeed = MOVEMENT.dashDistance / MOVEMENT.dashDuration;
     state.velocity.x = state.dashDir.x * dashSpeed;
     state.velocity.z = state.dashDir.z * dashSpeed;
-  } else if (lunge) {
-    state.velocity.x = lunge.x * lunge.speed;
-    state.velocity.z = lunge.z * lunge.speed;
   } else {
     const f = Math.max(-1, Math.min(1, input.forward ?? 0));
     const r = Math.max(-1, Math.min(1, input.right ?? 0));
@@ -250,11 +261,6 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const whirl = state.whirl ?? null;
     state.velocity.y -= MOVEMENT.gravity * (whirl && state.velocity.y <= 0 ? whirl.fallGravity : 1) * dt;
     if (whirl) state.velocity.y = Math.max(state.velocity.y, -whirl.maxFall);
-  }
-  // (a Whirl with Gale Garner carried climbs while Jump is held, from the ground or in the air)
-  if (state.whirl?.liftSpeed > 0 && input.jump) {
-    state.velocity.y = Math.max(state.velocity.y, state.whirl.liftSpeed);
-    state.grounded = false;
   }
 
   const beforeY = state.position.y;

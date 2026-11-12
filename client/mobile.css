@@ -88,6 +88,8 @@ button, input { touch-action: manipulation; }
 .touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
 .touch-deploy { --size: 58px; right: calc(var(--safe-r) + 196px * var(--s)); bottom: calc(var(--safe-b) + 164px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
 .touch-siegeView { --size: 58px; right: calc(var(--safe-r) + 122px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); }
+/* The on-foot VIEW toggle keeps its familiar control, with a persistent visual state. */
+.touch-siegeView.on { border-color: #e6c46a; background: radial-gradient(circle, rgba(230,196,106,.35), rgba(55,48,31,.82)); box-shadow: inset 0 0 0 1px rgba(240,212,142,.35), 0 2px 10px #0008; }
 .touch-btn[hidden] { display: none; }
 .touch-mounted :is(.touch-guard, .touch-dash, .touch-spell, .touch-jump, .touch-sprint, .touch-crouch, .touch-gauntlet, .touch-ultimate) { display: none; }
 
@@ -453,10 +455,6 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* the gauntlet's own button: only when asked for in the settings, left of the spell */
 .touch-gauntlet { --size: 46px; display: none !important; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #eadfc4; border-color: rgba(214, 190, 140, .62); }
 .touch-controls.gauntlet-on .touch-gauntlet { display: grid !important; }
-/* the Sword Technique carried from the Armory: only when one is, above the spell (a thumb's slide from JUMP) */
-.touch-technique { --size: 52px; display: none !important; right: calc(var(--safe-r) + 84px * var(--s)); bottom: calc(var(--safe-b) + 208px * var(--s)); color: #e9e2cf; border-color: rgba(196, 204, 214, .7); }
-.touch-controls.technique-on .touch-technique { display: grid !important; }
-.touch-controls.technique-on.touch-mounted .touch-technique { display: none !important; }
 /* Crouch sits inward of the joystick, away from its forward Sprint/Charge
    extension. The flight rail occupies this space only while Crouch is hidden. */
 .touch-crouch { --size: 50px; left: calc(var(--safe-l) + 190px * var(--s)); bottom: calc(var(--safe-b) + 187px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }

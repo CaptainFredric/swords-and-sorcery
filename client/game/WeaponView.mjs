@@ -14,7 +14,6 @@ import { SORCERY_LIFT } from './SorceryVolume.mjs';
 import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { techniqueArmsWeight, techniquePose } from './fpTechnique.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
@@ -737,6 +736,7 @@ export class WeaponView {
     this.concurrent = Boolean(policy?.concurrent);
     this.combatPlayer = player;
     this.combatServerNow = serverNow;
+    this.combatLocalNow = this.now();
   }
 
   reconcileCast(player, serverNow) {
@@ -760,27 +760,6 @@ export class WeaponView {
   }
 
   chivalryEvent(event) { this.chivalryLink?.event(event); }
-
-  /** A Sword Technique under way (or null): { moment, state } from the server's own clock (fpTechnique.mjs). */
-  setTechnique(technique) {
-    this.technique = technique;
-    if (technique) {
-      this.guard = false;
-      if (this.swordChain.active) this.cancelAttack();
-    }
-  }
-
-  // the technique's arms, eased in over the first moments and let go of through its recovery
-  #techniquePose(dt) {
-    const held = this.techniqueHeld ??= { weight: 0, pose: null };
-    const technique = this.technique;
-    const wanted = technique ? techniqueArmsWeight(technique.moment) : 0;
-    if (technique) held.pose = techniquePose(technique.moment, technique.state) ?? held.pose;
-    held.weight = wanted > held.weight ? Math.min(wanted, held.weight + dt / 0.07) : Math.max(wanted, held.weight - dt / 0.12);
-    if (held.weight <= 0) held.pose = null;
-    const ease = held.weight * held.weight * (3 - 2 * held.weight);
-    return held.pose && ease > 0.001 ? { ...held.pose, weight: ease } : null;
-  }
 
   setVortex(vortex) {
     this.vortex = vortex;
@@ -883,9 +862,7 @@ export class WeaponView {
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
       // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
-      // (a Sword Technique has the sword from its first moment to the end of its recovery)
-      const techniquePose = vortexPose ? null : this.#techniquePose(dt);
-      const sourceCombo = vortexPose ?? techniquePose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
+      const sourceCombo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
       this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
       // Guard owns a complete defensive path, including the way home when a committed chain ends.
       // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.
@@ -900,7 +877,7 @@ export class WeaponView {
         defended = guardedRecoveryPose(this.guardedCutFrom, timeSec - this.guardedCutAt);
       }
       if (this.concurrentGuardBlend <= 0) this.guardedCutAt = undefined;
-      const combo = vortexPose || techniquePose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
+      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
       // the arms still being brought out (or not out yet): over whatever else has them
       const away = this.#equipmentPose(timeSec);
       if (away.sword) {

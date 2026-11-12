@@ -19,6 +19,7 @@ import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
+import { AFFLICTIONS } from './ui/afflictionView.mjs';
 import {highGroundsFoundryView,HIGH_GROUNDS_MACHINE_KEYS} from './ui/highGroundsHudView.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
@@ -35,7 +36,7 @@ import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmospher
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
-import { armoryView, preparedArmoryView, techniqueCards } from './menu/armoryView.mjs';
+import { armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
 import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
@@ -1070,7 +1071,37 @@ $('#private-button').addEventListener('click', () => {
   privateActivation.reset(); showMenuError(''); privateMenu.dataset.panel='list';
   route(SCREEN_IDS.PRIVATE_MENU);
 });
-$('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
+// Build the reference from the same entries as the live affliction HUD.
+// No separately maintained descriptions that can drift out of date.
+function renderChroniclesAfflictions() {
+  const list = $('#chronicles-affliction-list');
+  if (!list) return;
+  list.replaceChildren();
+  for (const [id, effect] of Object.entries(AFFLICTIONS)) {
+    const entry = document.createElement('article');
+    entry.className = 'chronicles-affliction';
+    entry.dataset.affliction = id;
+    const heading = document.createElement('h4');
+    heading.textContent = effect.name;
+    const icon = document.createElement('span');
+    icon.className = 'chronicles-affliction-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = iconSvg(effect.icon);
+    heading.prepend(icon);
+    const description = document.createElement('p');
+    description.textContent = effect.description;
+    const behavior = document.createElement('small');
+    behavior.textContent = effect.steady
+      ? 'HOLDS ITS STRENGTH UNTIL IT ENDS'
+      : 'EFFECTIVENESS GRADUALLY WANES';
+    entry.append(heading, description, behavior);
+    list.append(entry);
+  }
+}
+$('#how-button').addEventListener('click', () => {
+  renderChroniclesAfflictions();
+  route(SCREEN_IDS.HOW_TO_PLAY);
+});
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
 const MENU_REACTIONS = { 'solo-button': 'salute', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
@@ -1798,8 +1829,6 @@ function applySettings() {
 const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
   settings.get('loadout.preparedSpells'),siegeSelections(),settings.get('loadout.technique'));
-// the Sword Technique cards, the chosen one marked
-const armoryTechniques=()=>techniqueCards(settings.get('loadout.technique'));
 // Seed the solo host from the same validated settings the Armory displays, including after reload.
 transmitLoadout();
 const settingsPanel = new SettingsPanel({
@@ -1818,10 +1847,6 @@ const settingsPanel = new SettingsPanel({
 });
 settings.onChange((change) => {
   applySettings();
-  if (change.id === 'loadout.technique') {
-    transmitLoadout();
-    renderArmory();
-  }
   if (change.id === 'loadout.ultimate') {
     armoryFeedback.cancel();
     if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
@@ -1836,6 +1861,7 @@ settings.onChange((change) => {
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
   }
+  if(change.id==='loadout.technique'){transmitLoadout();renderArmory();}
   if (change.id === 'loadout.preparedSpells') {
     transmitLoadout();
     renderArmory();
@@ -1889,17 +1915,15 @@ function updatePlaques() {
   const currentUltId = settings.get('loadout.ultimate');
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
-  const view = armoryView(currentSpellId, currentUltId);
+  const view = armoryView(currentSpellId, currentUltId, settings.get('loadout.technique'));
 
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
   const techIcon = $('#plaque-icon-technique');
-  const equippedTech = armoryTechniques().find((t) => t.equipped);
-  if (techIcon) techIcon.textContent = equippedTech?.mark ?? '⚔';
+  if (techIcon) techIcon.textContent = '⚔';
   const techName = $('#plaque-name-technique');
-  // (the plaque says the slot is empty; 'Longsword Alone' is the name of that choice in the list)
-  if (techName) techName.textContent = equippedTech && equippedTech.id !== 'none' ? equippedTech.name : 'None equipped';
+  if (techName) techName.textContent = 'None equipped';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
@@ -1953,25 +1977,26 @@ function renderInspectorLists() {
 
   const techContainer = $('#armory-techniques');
   if (techContainer) {
-    const unequipped = armoryTechniques().filter((t) => t.status !== 'EQUIPPED');
-    const equipped = armoryTechniques().filter((t) => t.status === 'EQUIPPED');
+    const chosen=settings.get('loadout.technique');
+    const unequipped = SWORD_TECHNIQUES.filter((t) => t.id !== chosen);
+    const equipped = SWORD_TECHNIQUES.filter((t) => t.id === chosen);
     const sortedTechs = [...unequipped, ...equipped];
 
     techContainer.innerHTML = sortedTechs.map((tech) => {
-      const isEquipped = tech.status === 'EQUIPPED';
+      const isEquipped = tech.id === chosen;
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
-      const isInTraining = tech.disabled || tech.status === 'IN TRAINING';
+      const unavailable=Boolean(tech.disabled);
       const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
       const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${isInTraining ? ' in-training disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${isInTraining ? 'aria-disabled="true"' : ''}>
-        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (isInTraining ? '<i class="training-tag">IN TRAINING</i>' : '')}
+      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${unavailable ? ' disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${unavailable ? 'aria-disabled="true"' : ''}>
+        <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (unavailable ? '<i>UNAVAILABLE</i>' : '')}
         <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
     }).join('');
   }
 
   const spellsContainer = $('#armory-spells');
   if (spellsContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.spells.filter((s) => !s.equipped);
     const equipped = view.spells.find((s) => s.equipped);
     const sortedSpells = bannerOrdered(equipped ? [...unequipped, equipped] : view.spells, 'sorcery', item => item.id);
@@ -1987,7 +2012,7 @@ function renderInspectorLists() {
 
   const ultimatesContainer = $('#armory-ultimates');
   if (ultimatesContainer) {
-    const view = armoryView(currentSpell, currentUlt);
+    const view = armoryView(currentSpell, currentUlt, settings.get('loadout.technique'));
     const unequipped = view.ultimates.filter((u) => !u.equipped);
     const equipped = view.ultimates.find((u) => u.equipped);
     const sortedUlts = bannerOrdered(equipped ? [...unequipped, equipped] : view.ultimates, 'masterstroke', item => item.id);
@@ -2007,27 +2032,28 @@ function updateInspectorDetailCard() {
   const id = armoryLocation.highlightedItem;
   const equipBtn = $('#armory-equip-btn');
   const preparedRoot = $('#armory-prepared');
-  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.technique'));
 
   if (cat === 'technique') {
-    const tech = armoryTechniques().find((t) => t.id === id) || armoryTechniques()[0];
+    const tech = SWORD_TECHNIQUES.find((t) => t.id === id) || SWORD_TECHNIQUES[0];
     const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
     $('#inspector-card-mark').textContent = tech.mark;
     $('#inspector-card-name').textContent = tech.name;
     $('#inspector-card-desc').textContent = tech.line;
     $('#inspector-card-facts').textContent = factsText;
     $('#inspector-card-lore').textContent = tech.lore;
-    if (tech.disabled || tech.status === 'IN TRAINING') {
-      $('#inspector-card-status').textContent = 'IN TRAINING';
+    if (tech.disabled) {
+      $('#inspector-card-status').textContent = 'UNAVAILABLE';
       if (equipBtn) {
         equipBtn.disabled = true;
-        equipBtn.textContent = 'IN TRAINING (NOT SELECTABLE)';
+        equipBtn.textContent = 'UNAVAILABLE';
       }
     } else {
-      $('#inspector-card-status').textContent = tech.equipped ? 'EQUIPPED' : 'AVAILABLE';
+      const selected=settings.get('loadout.technique')===tech.id;
+      $('#inspector-card-status').textContent = selected?'EQUIPPED':'AVAILABLE';
       if (equipBtn) {
-        equipBtn.disabled = tech.equipped;
-        equipBtn.textContent = tech.equipped ? 'EQUIPPED' : 'EQUIP';
+        equipBtn.disabled=selected;
+        equipBtn.textContent=selected?'EQUIPPED':'EQUIP';
       }
     }
     if (preparedRoot) preparedRoot.classList.add('hidden');
@@ -2181,13 +2207,15 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     settings.set('loadout.ultimate', itemId);
     armoryFeedback.select(itemId, prevUlt, (id) => settings.set('loadout.ultimate', id));
   } else if (category === 'technique') {
-    const tech = armoryTechniques().find((t) => t.id === itemId);
+    const tech = SWORD_TECHNIQUES.find((t) => t.id === itemId);
     if (!tech || tech.disabled) {
       renderInspectorLists();
       updateInspectorDetailCard();
       return;
     }
-    settings.set('loadout.technique', itemId);
+    const previous=settings.get('loadout.technique');
+    settings.set('loadout.technique',itemId);
+    armoryFeedback.select(itemId,previous,id=>settings.set('loadout.technique',id));
   }
 
   lastEquippedCategory = category;
@@ -2214,7 +2242,7 @@ function openInspector(category, itemId = null) {
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
-    if (category === 'technique') itemId = settings.get('loadout.technique') || 'none';
+    if (category === 'technique') itemId = settings.get('loadout.technique')||SWORD_TECHNIQUES[0].id;
     else if (category === 'sorcery') itemId = settings.get('loadout.spell') || 'fireball';
     else if (category === 'masterstroke') itemId = settings.get('loadout.ultimate') || 'sunder';
   }
@@ -2230,7 +2258,7 @@ function openInspector(category, itemId = null) {
   }
 
   const titles = {
-    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'The longsword is always equipped. Carry one Sword Technique beside it, on X, or none.' },
+    technique: { cat: 'TECHNIQUE', title: 'SWORD TECHNIQUES', sub: 'Equip a sword technique for battle. Your Castleward longsword remains your weapon.' },
     sorcery: { cat: 'SORCERY', title: 'CHOOSE SPELL OR WARD', sub: 'The Spellblade ordinarily equips one spell or ward for battle.' },
     masterstroke: { cat: 'MASTERSTROKE', title: 'CHOOSE MASTERSTROKE', sub: 'Fill your Prowess meter to use your chosen Masterstroke.' },
   };
@@ -2842,6 +2870,24 @@ function updateInspectionControls() {
           'NATURAL · real elemental spell hits determine infusion tiers.';
     }
   }
+  const knight=latestSnapshot?.players?.find(p=>p.actorKind==='dummy'&&
+    p.practiceMode==='ULTIMATE_KNIGHT');
+  const knightPanel=$('#practice-ultimate-knight-config');
+  if(knightPanel){
+    knightPanel.hidden=!knight;
+    if(knight){
+      const config=knight.ultimateKnight??{};
+      const selection=knightPanel.querySelector('#practice-knight-ultimate');
+      const behavior=knightPanel.querySelector('#practice-knight-behavior');
+      if(selection&&!selection.matches(':focus'))selection.value=config.selection??'cycle';
+      if(behavior&&!behavior.matches(':focus'))behavior.value=config.behavior??'follow';
+      for(const select of knightPanel.querySelectorAll('[data-knight-element]')){
+        if(!select.matches(':focus'))select.value=String(config.stages?.[select.dataset.knightElement]??0);
+      }
+      const editable=!shared||latestSnapshot?.sharedPracticeHostId===socket.playerId;
+      for(const control of knightPanel.querySelectorAll('button,select'))control.disabled=!editable;
+    }
+  }
   const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
   const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
   const aloneNotice = $('#shared-practice-alone');
@@ -2872,11 +2918,16 @@ function updateInspectionControls() {
   if(hostileStatus&&!hostile&&occupied)hostileStatus.textContent='Machine already present. Dismantle it before summoning.';
   if(shared&&latestSnapshot?.sharedPracticeHostId!==socket.playerId){
     const hostTools=['practice-passive','practice-guarding','practice-fight','practice-sorcery','practice-melee','practice-runner',
-      'practice-ultimate-knight','practice-st-perry','practice-canonization','practice-remove',
+      'practice-spellblade','practice-ultimate-knight','practice-st-perry','practice-canonization','practice-remove',
       'practice-build-bibye','practice-rebuild-bibye','practice-dismantle-bibye',
       'practice-hostile-spawn','practice-hostile-reset','practice-hostile-remove'];
     for(const id of hostTools){const button=$('#'+id);if(button)button.disabled=true;}
   }
+  // The generic Practice button policy above may re-enable buttons inside
+  // expandable sections. Restore Shared Practice host authority LAST, for
+  // both the selects and the preset buttons within Ultimate Knight drills.
+  if(knightPanel)for(const control of knightPanel.querySelectorAll('button,select'))
+    control.disabled=Boolean(shared&&latestSnapshot?.sharedPracticeHostId!==socket.playerId||frozen);
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = touchUi
     ? 'TAP THE TARGET ICON FOR TOOLS'
@@ -2958,7 +3009,24 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
+$('#practice-spellblade').addEventListener('click', () => socket.practiceSpawnDummy('SPELLBLADE'));
 $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
+const knightConfigPanel=$('#practice-ultimate-knight-config');
+knightConfigPanel?.addEventListener('change',event=>{
+  const field=event.target;
+  if(field?.id==='practice-knight-ultimate')
+    socket.send({type:'practiceUltimateKnightConfig',selection:field.value});
+  else if(field?.id==='practice-knight-behavior')
+    socket.send({type:'practiceUltimateKnightConfig',behavior:field.value});
+  else if(field?.dataset?.knightElement)
+    socket.send({type:'practiceUltimateKnightConfig',element:field.dataset.knightElement,
+      tier:Number(field.value)});
+});
+knightConfigPanel?.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-knight-preset]');
+  if(button?.dataset?.knightPreset)
+    socket.send({type:'practiceUltimateKnightConfig',preset:button.dataset.knightPreset});
+});
 $('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
 $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());

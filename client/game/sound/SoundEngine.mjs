@@ -407,11 +407,17 @@ export class SoundEngine {
     return buffer;
   }
 
-  #envelope(param, start, attack, decay, peak) {
+  #envelope(param, start, attack, decay, peak, hold = 0) {
+    // Most effects are percussive (hold=0, unchanged). Running wind and
+    // bubbling magma need a genuine audible body between their onset and
+    // their release; without a hold, an exponential fall is almost silent
+    // after the first fraction of its nominal duration.
+    const sustain = Math.max(0, Math.min(2, Number(hold) || 0));
     param.setValueAtTime(0.0001, start);
     param.linearRampToValueAtTime(peak, start + attack);
-    param.exponentialRampToValueAtTime(0.0001, start + attack + decay);
-    return start + attack + decay;
+    if (sustain) param.setValueAtTime(peak, start + attack + sustain);
+    param.exponentialRampToValueAtTime(0.0001, start + attack + sustain + decay);
+    return start + attack + sustain + decay;
   }
 
   #layer(layer, out, start, sources = [], nodes = []) {
@@ -420,14 +426,14 @@ export class SoundEngine {
       const source = ctx.createBufferSource();
       source.buffer = this.noise;
       source.playbackRate.value = 0.9 + Math.random() * 0.2;
-      source.loop = layer.attack + layer.decay > 0.45;
+      source.loop = layer.attack + (layer.hold ?? 0) + layer.decay > 0.45;
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter;
       filter.frequency.setValueAtTime(layer.freq, start);
-      if (layer.sweepTo) filter.frequency.exponentialRampToValueAtTime(layer.sweepTo, start + layer.attack + layer.decay);
+      if (layer.sweepTo) filter.frequency.exponentialRampToValueAtTime(layer.sweepTo, start + layer.attack + (layer.hold ?? 0) + layer.decay);
       filter.Q.value = layer.q ?? 0.7;
       const amp = ctx.createGain();
-      const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain);
+      const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain, layer.hold ?? 0);
       source.connect(filter).connect(amp).connect(out);
       sources.push(source);nodes.push(source,filter,amp);
       source.start(start, Math.random() * 0.5);
@@ -438,9 +444,9 @@ export class SoundEngine {
       const osc = ctx.createOscillator();
       osc.type = layer.wave ?? 'sine';
       osc.frequency.setValueAtTime(layer.freq, start);
-      if (layer.slideTo) osc.frequency.exponentialRampToValueAtTime(layer.slideTo, start + layer.attack + layer.decay);
+      if (layer.slideTo) osc.frequency.exponentialRampToValueAtTime(layer.slideTo, start + layer.attack + (layer.hold ?? 0) + layer.decay);
       const amp = ctx.createGain();
-      const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain);
+      const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain, layer.hold ?? 0);
       osc.connect(amp).connect(out);
       sources.push(osc);nodes.push(osc,amp);
       osc.start(start);

@@ -93,6 +93,7 @@ export class SoFisticationRenderer {
     }
    });
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
+   this.availableClips=new Set(gltf.animations.map(a=>a.name));
    this.animation=new MachineAnimationComposition(this.model,gltf.animations);
    // New elevation pivots are deliberately NOT controlled by an animation
    // clip. Capture their rests once: additive per-frame lifting would drift.
@@ -148,9 +149,26 @@ export class SoFisticationRenderer {
   const dt=this.lastAt==null?0:Math.min(.1,Math.max(0,now-this.lastAt));this.lastAt=now;
   this.animation.begin(dt);
   if(destroyed){
-   this.animation.sample({clip:ramWreckClip(b),time:now-(b.destroyedAt??now)},()=>true);
+   // Destruction launch variants are authored on the v26 model. Older
+   // production assets retain their existing, valid collapse animation.
+   const variant=b.finalJaw?.variant;
+   const terminal=variant==='damaged'?'25_Final_Long_Arm_Launch_Damaged_Fist_Breakdown':
+     variant==='intact'?'24_Final_Long_Arm_Launch_Intact_Fist_Breakdown':null;
+   const clip=terminal&&this.availableClips?.has(terminal)?terminal:ramWreckClip(b);
+   this.animation.sample({clip,time:now-(b.destroyedAt??now)},()=>true);
   }else{
-   this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',time:Math.min(3.999,soFistPose(b,now).clipAge)},k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   const flickAge=b.flickAt!=null?now-b.flickAt:-1;
+   const flickActive=flickAge>=0&&flickAge<4;
+   if(flickActive&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
+     this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},
+       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   }else{
+     // An old asset cannot display a new flick; do not animate a counterfeit
+     // piston strike over its authoritative fingertip contact.
+     this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
+       time:flickActive?0:Math.min(3.999,soFistPose(b,now).clipAge)},
+       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   }
    this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
    for(let i=0;i<this.wheels.length;i++){
     const {o,rest,position}=this.wheels[i],failed=b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;

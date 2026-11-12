@@ -227,6 +227,7 @@ export class GameSocket {
   practicePerryDismiss() { this.send({ type: 'practicePerryDismiss' }); }
   setInputSampler(sampler) {}
   input(input) { this.send({ type: 'input', ...input }); }
+  technique(down) { this.send({type:'technique',down:Boolean(down)}); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }
   cast(direction) { this.send({ type: 'cast', direction, clientTime: this.serverNow() }); }
@@ -249,10 +250,9 @@ export class GameSocket {
   selectPreparedSpell(spell) { this.send({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate({held=false}={}) { this.send({type:'ultimate',...(held?{held:true}:{})}); }
-  // the Sword Technique's button, down and up
-  technique(down = true) { this.send({ type: 'technique', down: Boolean(down) }); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease({cancel=false}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitRelease({cancel=false,yaw,pitch}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{}),
+    ...(Number.isFinite(yaw)?{yaw}:{}),...(Number.isFinite(pitch)?{pitch}:{})}); }
   oneHitFire() { this.send({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.send({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.send({type:'practiceOneHit',...options}); }
@@ -270,7 +270,8 @@ export class GameSocket {
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
   // the spell carried from the Armory (kept by the server for every room this connection joins)
   loadout(spell, ultimate, preparedSpells, siegeLoadout, technique) { this.send({ type: 'loadout', spell, ultimate, preparedSpells,
-  ...(siegeLoadout!==undefined?{siegeLoadout}:{}), ...(technique!==undefined?{technique}:{}) }); }
+  ...(technique!==undefined?{technique}:{}),
+  ...(siegeLoadout!==undefined?{siegeLoadout}:{}) }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {

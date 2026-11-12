@@ -59,19 +59,19 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
+import { DisasterSoundscape } from './sound/DisasterSoundscape.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
-import { oneHitGlide,oneHitChargingLightning } from '../../shared/src/oneHitInfusions.mjs';
+import { oneHitGlide,oneHitChargingLightning,oneHitChargeIntent } from '../../shared/src/oneHitInfusions.mjs';
 import { frostSlowScale } from '../../shared/src/oneHitStatus.mjs';
-import { swordTechniqueFor, techniqueInput, techniqueMoment, techniqueMotion } from '../../shared/src/swordTechniques.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
@@ -116,7 +116,7 @@ import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
-import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
+import { disasterCameraWanted, disasterHolding, disasterTeleportAiming, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
@@ -184,6 +184,13 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
+    // A single bounded event/snapshot audio director, using the same SFX bus,
+    // spatializer and user volume preferences as every other combat sound.
+    this.disasterSound=new DisasterSoundscape({
+      play:(recipe,point,gain,delay)=>this.#play(recipe,point,gain,delay),
+      listener:()=>this.localState?.position??this.localAuth?.position??null,
+      playerPosition:id=>this.#bodyPosition(id),
+    });
     this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);
     this.flightDashPresentation=new FlightDashPresentation();
     this.voice = voice;
@@ -495,10 +502,21 @@ export class GameRuntime {
     };
     if(socket.inspectionAvailable)this.input.allowAction=this.inspectionActionGate;
     this.siegeView = 'third';
+    // This is a local presentation preference, not a server action. The
+    // mounted machines keep their own VIEW selection when the knight mounts.
+    this.onFootThirdPerson = false;
     this.input.onAction = (action, pressed) => {
       if(action==='inspectEffects'&&pressed){this.hud.cycleAfflictionDetails();return;}
       if(action==='pause'&&pressed){this.onPause?.();return;}
       if(action==='practiceTools'&&pressed){this.onPracticeTools?.();return;}
+      // Z and the existing upper-right touch VIEW control also work on foot.
+      // Never commandeer machine optics or inspection's free camera.
+      if(action==='siegeView'&&pressed&&this.localAuth?.alive&&!this.inspectionFree&&
+        !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId){
+        this.onFootThirdPerson=!this.onFootThirdPerson;
+        this.hud.flashText(this.onFootThirdPerson?'THIRD PERSON':'FIRST PERSON','',650);
+        return;
+      }
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
         if(this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
@@ -1310,6 +1328,7 @@ export class GameRuntime {
       }
       this.effects?.setDensity(this.view.particles ?? 1);
       this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
+      this.disasterSound?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
     if (input) {
@@ -1331,6 +1350,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
+    this.disasterSound?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
     this.#shadowDetail();
@@ -1419,13 +1439,15 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
+    // Match controller pitch limits to the active teleport's actual 3D
+    // capability. Every other spell/weapon keeps the ordinary camera clamp.
+    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState)
+      &&auth?.ultimateState?.preparedTiers?.gale===2);
     // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
-    // (the Sword Technique carried: its touch button wears it, and is there only when one is)
-    this.touch?.setTechniqueButton?.(swordTechniqueFor(auth?.technique));
     this.input.oneHitAimUntil=auth?.alive&&auth.ultimateState?.id==='one_hit_of_wonders'&&
       auth.ultimateState.phase==='active' ? auth.ultimateState.oneHit?.aimUntil??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
@@ -1568,6 +1590,7 @@ export class GameRuntime {
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
       this.oneHitEffects?.event(event,this.latestSnapshot);
+      this.disasterSound?.onEvent(event,this.latestSnapshot);
       if(event.type==='edgeVoluntaryDismount'){
         // The knight chooses to leave: a brief, readable settled gesture
         // with no recorded dialogue, death camera or extra control lock.
@@ -1583,18 +1606,8 @@ export class GameRuntime {
       if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
       if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
-      if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
-        this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
-      if(event.type==='oneHitImpact'&&event.impactId){
-        // A Gale wave is a distinct terminal blast (terrain, detonation or
-        // range), not a silent disappearance. Keep it spatially situated even
-        // for its caster, especially when it bursts a long way away.
-        const at=event.point;
-        this.#play((event.tiers?.fire??0)>0?fireballImpactRecipe(Math.random):
-          groundSlamRecipe(Math.random),at,event.tiers?.fire?.72:.48);
-        if((event.tiers?.frost??0)>0)this.#play(frostImpactRecipe(Math.random),at,.36);
-        if((event.tiers?.lightning??0)>0)this.#play(conductShockRecipe(Math.random,{discharge:true,share:.65}),at,.32);
-      }
+      // All-Natural Disaster impacts and Gale-wave endings use the central
+      // layered soundscape, avoiding a duplicate generic fireball/ground boom.
       if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
         event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
       if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
@@ -1864,7 +1877,12 @@ export class GameRuntime {
           this.effects.castFlash(spell.id);
         }
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
-        this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        // Line of Conduct has a separate rising electric charge; never put
+        // Fireball's generic fire gathering underneath the crackling current.
+        if(spell.id!=='line_of_conduct')
+          this.#play(castRecipe(Math.random, { spell: spell.id, release }),
+            event.playerId === me ? null : this.#bodyPosition(event.playerId),
+            event.playerId === me ? 0.9 : 0.6);
         if (spell.kind === 'cone') {
           // my own lets go when the server's does (and now it surely will); another's is seen gathering in their hand
           if (event.playerId === me && this.localGale) {
@@ -2000,16 +2018,6 @@ export class GameRuntime {
         this.#play(vortexEndRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.6);
       }
       if (event.type === 'vortexHit') this.#vortexHit(event);
-      // Sword Techniques: the blow, the sword going round or driven out (heard), what it rings off, a spell cut down
-      if (event.type === 'techniqueHit') this.#techniqueHit(event);
-      if (event.type === 'techniqueWorldContact') this.#vortexWorld(event);
-      if (event.type === 'techniqueStart' || event.type === 'techniqueRevolution' || event.type === 'techniqueThrust') {
-        this.#play(vortexWhooshRecipe(Math.random, { rate: event.type === 'techniqueThrust' ? 16 : 2 * Math.PI / 0.6 }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.6);
-      }
-      if (event.type === 'techniqueDeflect') {
-        this.effects.blockBurst?.(event.point, null, { parry: true });
-        if (event.playerId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); }
-      }
       // an ember leaving the spin: a small spit of fire
       if (event.type === 'projectileSpawned' && spellFor(event.projectile?.spell).conjured && event.projectile.spell === spellFor(event.projectile.spell).id) {
         // a Vortex's fire leaving the spin: a spit for an ember, a real launch for the fire's own (heard and seen)
@@ -2090,7 +2098,9 @@ export class GameRuntime {
       }
       if (event.type === 'block') {
         if (event.attackerId === me) this.hud.hit('block');
-        if (event.defenderId === me) this.weapon.block(false);
+        // Vortex's moving blade is the defense. Do not pose a phantom
+        // stationary hand Guard over the authored spinning animation.
+        if (event.defenderId === me && !event.vortexBlade) this.weapon.block(false);
         // (a Vortex's blade is not thrown back by a guard: it is already coming round again)
         if (event.attackerId === me && !event.vortex) this.weapon.rebound();
       }
@@ -2108,7 +2118,8 @@ export class GameRuntime {
       if (event.type === 'coreflagrationArmed') {
         // A brief, small flame burst; the physical core and its 3m warning ring remain visible until detonation.
         this.effects.coreContact(event.point, event.radius);
-        this.#play(fireballImpactRecipe(), event.point, 0.4);
+        // The arming knock and bubbling magma fuse play at this exact point.
+        // The final explosion is a separate deeper eruption.
       }
       if (event.type === 'coreflagrationParried') {
         this.#play(parryRecipe(), event.defenderId === me ? null : event.point, 0.9);
@@ -2121,13 +2132,13 @@ export class GameRuntime {
         if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point, event.radius ?? spell.radius, ground);
         else this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
         const recipe = spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size })
-          : spell.id === 'coreflagration' ? coreflagrationImpactRecipe()
+          : spell.id === 'coreflagration' ? null // phase-two magma blast in DisasterSoundscape
           : spell.chill ? frostImpactRecipe()
           : fireballImpactRecipe();
         const volume = spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5)
           : spell.id === 'coreflagration' ? 1.2
           : 1;
-        this.#play(recipe, event.point, volume);
+        if(recipe)this.#play(recipe, event.point, volume);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       // the split ground catching a knight: a smaller ring of the same iron
@@ -3238,7 +3249,7 @@ export class GameRuntime {
     if (!this.sound) return;
     const listener = this.localState?.position ?? this.localAuth?.position;
     const place = source ? spatialize(listener, this.input.yaw, source) : { pan: 0, gain: 1 };
-    this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain, delay });
+    return this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain, delay });
   }
 
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
@@ -3326,35 +3337,6 @@ export class GameRuntime {
       this.spinTurn = null;
     }
     this.weapon.setVortex(view);
-    this.#technique(serverNow);
-  }
-
-  // my own Sword Technique in my arms, each frame (fpTechnique.mjs), from the host's word of it
-  #technique(serverNow) {
-    const me = this.localAuth;
-    const state = me?.alive ? me.techniqueState : null;
-    const moment = state ? techniqueMoment(state, serverNow) : null;
-    this.weapon.setTechnique(moment ? { moment, state } : null);
-  }
-
-  // a Sword Technique's blade biting a knight: sparks where it met them, and the cut heard
-  #techniqueHit(event) {
-    const me = this.playerId;
-    const attacker = this.#bodyPosition(event.playerId);
-    const victim = this.#bodyPosition(event.targetId);
-    const point = event.point ?? impactPoint(victim, attacker);
-    if (event.targetId !== me && point) {
-      this.effects.hitBurst(point, blowDirection(victim, attacker), { strike: event.technique === 'rigid_riposte' ? 2 : 0, quality: event.clean ? 1 : 0.4 });
-      this.remotePlayers.flashHit(event.targetId);
-    }
-    if (event.playerId === me) {
-      this.cameraKick = Math.max(this.cameraKick, event.technique === 'rigid_riposte' ? 0.07 : 0.03);
-      this.#play(vortexCutRecipe(), null, 0.9);
-    } else if (event.targetId === me) {
-      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: event.technique === 'rigid_riposte', amount: swordTechniqueFor(event.technique)?.damage ?? 16 }), null, 1);
-    } else {
-      this.#play(vortexCutRecipe(), point, 0.75);
-    }
   }
 
   // a Vortex's blade biting a knight as it comes round: sparks and fire where it met them, and the cut heard
@@ -3926,13 +3908,11 @@ export class GameRuntime {
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
-      // (in a Sword Technique I move as it lets me, by the host's own rule: its lunge carries me, a Whirl goes at a run)
-      const technique = techniqueMotion(this.localAuth, serverNow);
       const freelyCharging=oneHitChargingLightning(this.localAuth,serverNow);
       const plunging=this.localAuth.ultimateState?.id==='one_hit_of_wonders'&&
         this.localAuth.ultimateState.phase==='active'&&this.localAuth.ultimateState.oneHit?.form==='plunge';
       const whirl = ultimateWhirl(this.localAuth, serverNow) ??
-        oneHitGlide(this.localAuth,MOVEMENT.runSpeed) ?? technique;
+        oneHitGlide(this.localAuth,MOVEMENT.runSpeed);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
       const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
       const moveInput = reeling
@@ -3940,10 +3920,9 @@ export class GameRuntime {
         : plunging
           ? { ...wanted, forward:0,right:0,jump:false,sprint:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch }
         : freelyCharging
-          ? { ...wanted, sprint:false }
+          ? oneHitChargeIntent(wanted)
         : bracing
           ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
-          : whirl === technique && technique ? techniqueInput(wanted, technique)
           : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
       // ground an enemy's Sunder has torn, under my feet: no sprint while I stand on it (the host's word for it)
       const torn = Boolean(this.localAuth.tornGround);
@@ -3959,14 +3938,15 @@ export class GameRuntime {
         this.localState.velocity.y??0,-ONE_HIT_RULES.groundPlungeFallSpeed);
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
       const wasSprinting = this.localState.sprinting;
+      if(freelyCharging)this.localState.sprintBlend=0;
       this.localState.sprinting = resolveSprint({
-        wantsSprint: wanted.sprint,
+        wantsSprint: wanted.sprint&&!freelyCharging,
         forward: wanted.forward,
         right: wanted.right,
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: Boolean(this.localAuth?.operatingRamId) || reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
+        blocked: freelyCharging || Boolean(this.localAuth?.operatingRamId) || reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
           guarding: this.input.guardHeld || this.weapon.guard,
           attacking: this.input.attackHeld || this.weapon.attackHeld,
           casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
@@ -4096,12 +4076,16 @@ export class GameRuntime {
       // Disaster uses that same collision-checked shot only for its sword
       // turn, decisive impact, and (for Full Gale) the delayed aerial wave.
       // Full Lightning holds this collision-checked view while the player aims.
-      // Existing death/inspection/mounted views retain priority.
+      // On foot, VIEW selects the same physically clipped chase camera,
+      // preserving the cinematic Vortex/Disaster camera and its aim correction.
+      // Mounted optics, death and inspection still own their respective views.
       this.disasterReveal = this.inspectionFree ? null
         : stepDisasterReveal(this.disasterReveal, this.localAuth, serverNow, dt, this.chase);
       const cinematic = !this.inspectionFree &&
         (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0);
       this.chase = stepChase(this.chase ?? 0,
+        (this.onFootThirdPerson && !this.inspectionFree &&
+          !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId) ||
         chaseWanted(this.localAuth, serverNow) || cinematic, dt);
       const helm = 1 - this.chase * this.chase * (3 - 2 * this.chase);
       this.camera.rotation.y = this.input.yaw + view.camera.yaw * motion * helm;
@@ -4330,7 +4314,8 @@ export class GameRuntime {
     this.effects.update(dt);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
-    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&disasterHolding(disasterCharge)){
+    if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&
+      disasterTeleportAiming(disasterCharge)){
       const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
       const world=this.activeWorld;
       const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,
@@ -4342,6 +4327,7 @@ export class GameRuntime {
       this.oneHitEffects.setChargeGuide(origin,plan);
     }else this.oneHitEffects?.setChargeGuide(null,null);
     this.oneHitEffects?.update(dt,this.latestSnapshot,disasterNow);
+    this.disasterSound?.update(this.latestSnapshot,this.socket.serverNow());
     if(this.localState){
       this.localState.shaken=this.localAuth?.shaken??null;
       this.localState.shakenNow=this.socket.serverNow();
@@ -4384,7 +4370,10 @@ export class GameRuntime {
       } else {
         this.hud.updateRivalWaypoint?.(null);
       }
-      this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice(), snapshot: this.latestSnapshot });
+      this.touch?.update(this.localAuth, this.socket.serverNow(), {
+        practice: this.#inPractice(), snapshot: this.latestSnapshot,
+        onFootThirdPerson: this.onFootThirdPerson,
+      });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
         fps: this.fps,
@@ -4564,6 +4553,7 @@ export class GameRuntime {
     this.#disposeTrialCutaway();
     this.edgeRenderer.dispose();
     this.oneHitEffects?.dispose();
+    this.disasterSound?.dispose();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();
     this.weapon.dispose();

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { oneHitWorldContact,planOneHitTeleport } from './oneHitTrajectory.mjs';
+import { oneHitWorldContact,planOneHitTeleport,oneHitAimDirection } from './oneHitTrajectory.mjs';
 
 const origin={x:0,y:0,z:0},yaw=-Math.PI/2,pitch=0;
 const world={floors:[{center:[0,-.1,0],size:[200,.2,200],y:0}],solids:[]};
@@ -45,4 +45,28 @@ test('Full Gale allows vertical repositioning from the GROUND; without Gale pitc
   assert.ok(gale.legal&&!gale.grounded&&gale.end.y>8);
   const returning=planOneHitTeleport({...base,origin:{x:0,y:8,z:0},pitch:-Math.PI/3,allowVertical:true});
   assert.ok(returning.legal&&returning.grounded&&Math.abs(returning.end.y)<1e-6);
+});
+
+test('omnidirectional Full Gale+Lightning aims independently at all compass bearings and heights',()=>{
+  const axes=[
+    {yaw:0,axis:'z',sign:-1},
+    {yaw:Math.PI/2,axis:'x',sign:-1},
+    {yaw:Math.PI,axis:'z',sign:1},
+    {yaw:3*Math.PI/2,axis:'x',sign:1},
+  ];
+  for(const {yaw,axis,sign} of axes){
+    const aim=oneHitAimDirection(yaw,.3,true);
+    assert.ok(aim[axis]*sign>.9,'the aim can rotate to '+yaw);
+    const plan=planOneHitTeleport({origin,yaw,pitch:.3,allowVertical:true,holdSec:1.1,world});
+    assert.equal(plan.legal,true);
+    assert.ok((plan.end[axis]-origin[axis])*sign>4);
+    assert.ok(plan.end.y>0);
+  }
+  assert.ok(oneHitAimDirection(0,Math.PI/2,true).y>.999,'directly above');
+  assert.ok(oneHitAimDirection(0,-Math.PI/2,true).y<-.999,'directly below');
+  assert.equal(oneHitAimDirection(0,Math.PI/2,false).y,0,
+    'Lightning without Full Gale remains ground-locked');
+  const vertical=planOneHitTeleport({origin,yaw:0,pitch:Math.PI/2,allowVertical:true,
+    holdSec:.7,world});
+  assert.ok(vertical.legal&&!vertical.grounded&&vertical.end.y>5);
 });

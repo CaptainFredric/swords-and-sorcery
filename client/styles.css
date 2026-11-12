@@ -74,7 +74,7 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
 .bottom-hud { position:absolute; left:24px; right:24px; bottom:22px; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
 .health-block { width:250px; }.health-label{font-family:Georgia,serif;font-size:19px;font-weight:900;margin-bottom:5px}.health-track{position:relative;height:12px;background:#171913;border:1px solid #5a574a;overflow:hidden}.health-fill,.health-trail{position:absolute;left:0;top:0;bottom:0}.health-trail{background:#ae5f55}.health-fill{background:linear-gradient(90deg,#9c352f,#d25743);box-shadow:0 0 12px rgba(224,68,61,.25)}
 .guard-block { position:absolute; left:50%; transform:translateX(-50%); width:190px; transition:opacity .2s }.guard-block.faded{opacity:.72}.guard-block span{font-size:11px;letter-spacing:.15em;font-weight:900}.guard-track{height:7px;background:#111510;border:1px solid #48514a;margin-top:5px}.guard-fill{height:100%;background:#66c9dd;transition:width .08s}.guard-block.sprinting .guard-fill{background:#e6c46a}.guard-block.winded .guard-fill{background:#b0584e}.guard-block.winded span{color:#e0877c}
-.abilities { display:flex; gap:9px; }.ability[hidden]{display:none}.ability.technique .ability-icon{color:#d9dde2}.ability.technique.active{border-color:#d9dde2}.ability{position:relative;width:104px;height:62px;border:1px solid #585648;background:rgba(21,22,18,.86);padding:6px 8px;display:grid;grid-template-columns:26px 1fr;grid-template-rows:22px 15px 12px;overflow:hidden}.ability::after{content:"";position:absolute;inset:0;background:rgba(10,11,8,.62);transform:translateY(calc((1 - var(--cooldown,0))*100%));pointer-events:none}.ability.ready{border-color:#6b7770}.ability-icon{grid-row:1/3;font-size:21px;color:#ff9a4a}.ability:nth-child(2) .ability-icon{color:#72d8f0}.ability b{justify-self:end;font-size:11px}.ability em{font-size:8px;letter-spacing:.09em;font-style:normal;color:#a39f91}.ability strong{font-size:9px;color:#ddd6c8;z-index:1}.ability.cooling strong{color:#8f8b7f}
+.abilities { display:flex; gap:9px; }.ability{position:relative;width:104px;height:62px;border:1px solid #585648;background:rgba(21,22,18,.86);padding:6px 8px;display:grid;grid-template-columns:26px 1fr;grid-template-rows:22px 15px 12px;overflow:hidden}.ability::after{content:"";position:absolute;inset:0;background:rgba(10,11,8,.62);transform:translateY(calc((1 - var(--cooldown,0))*100%));pointer-events:none}.ability.ready{border-color:#6b7770}.ability-icon{grid-row:1/3;font-size:21px;color:#ff9a4a}.ability:nth-child(2) .ability-icon{color:#72d8f0}.ability b{justify-self:end;font-size:11px}.ability em{font-size:8px;letter-spacing:.09em;font-style:normal;color:#a39f91}.ability strong{font-size:9px;color:#ddd6c8;z-index:1}.ability.cooling strong{color:#8f8b7f}
 /* who felled you, low in the view, and how close it was: the one who did it stays in sight above it */
 .death-card { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%); display:grid; gap:4px; justify-items:center; white-space:nowrap; padding:9px 18px; background:rgba(20,18,15,.72); border-top:1px solid rgba(238,98,98,.35); border-bottom:1px solid rgba(238,98,98,.35) }.death-card > div{display:flex;align-items:baseline;gap:10px}.death-card small{color:#b3a5a5;font-size:9px;letter-spacing:.2em}.death-card strong{font-family:Georgia,serif;font-size:19px}.death-card b{color:#e8c07a;font-size:10px;letter-spacing:.14em}.death-card b::before{content:'\2014  ';color:#b3a5a5}.death-card em{font-style:normal;color:#cfc3b0;font-size:11px;letter-spacing:.06em}.death-card span{color:#d87575;font-weight:900;font-variant-numeric:tabular-nums;min-width:2.2em;text-align:right}
 .pointer-hint{position:absolute;left:50%;top:70%;transform:translateX(-50%);padding:9px 12px;background:rgba(18,19,15,.72);font-size:9px;letter-spacing:.15em;color:#d2ccbc}
@@ -357,6 +357,22 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .practice-siege h4{font:700 13px/1.3 var(--font-inscription);margin:10px 0 6px;color:#f0d79f}
 .practice-siege p{font:12px/1.45 Georgia,serif;letter-spacing:normal;color:#eadcb6;white-space:normal;overflow-wrap:break-word;margin:5px 0 9px}
 .practice-siege button{font-size:10px;line-height:1.4;white-space:normal;min-height:34px}
+/* The Ultimate Knight's drill editor expands within the existing Practice
+   scroll panel. Compact, separately scrollable when the viewport is short. */
+#practice-ultimate-knight-config[hidden]{display:none!important}
+.practice-knight-settings{
+  display:grid;gap:8px;max-height:min(340px,50vh);
+  overflow-y:auto;overscroll-behavior:contain;padding:6px 5px 8px 0;
+  scrollbar-width:thin;scrollbar-color:#b59561 transparent;
+}
+.practice-knight-settings>label{display:block;color:#f0d79f;font:700 10px/1.5 var(--font-inscription,Georgia,serif)}
+.practice-knight-settings>label select{
+  display:block;width:100%;min-height:32px;margin-top:3px;padding:5px 7px;
+  color:#f4e3bf;background:#481d17;border:1px solid rgba(236,201,127,.5);
+  border-radius:2px;font:700 10px var(--font-inscription,Georgia,serif);
+}
+.practice-knight-settings>small{font:11px/1.4 Georgia,serif;color:#eadcb6;white-space:normal}
+
 
 /* St. Perry the Prodigious dialogue card and practice controls */
 .perry-dialogue {
@@ -633,7 +649,7 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
 
 .inspection-view-label { position:absolute; pointer-events:auto; min-width:72px; }
 .hud.inspection-flying .bottom-hud,.hud.inspection-flying .hud-status-stack,.hud.inspection-flying .kill-feed,.hud.inspection-flying .subtitle { display:none; }
-.touch-controls.inspection-flight .touch-attack,.touch-controls.inspection-flight .touch-guard,.touch-controls.inspection-flight .touch-spell,.touch-controls.inspection-flight .touch-dash,.touch-controls.inspection-flight .touch-gauntlet,.touch-controls.inspection-flight .touch-technique,.touch-controls.inspection-flight .touch-ultimate,.touch-controls.inspection-flight .touch-interact,.touch-controls.inspection-flight .touch-deploy,.touch-controls.inspection-flight .touch-siegeView,.touch-controls.inspection-flight .touch-siegeWeapon,.touch-controls.inspection-flight .touch-siegeSkill,.touch-controls.inspection-flight .touch-scores { display:none !important; }
+.touch-controls.inspection-flight .touch-attack,.touch-controls.inspection-flight .touch-guard,.touch-controls.inspection-flight .touch-spell,.touch-controls.inspection-flight .touch-dash,.touch-controls.inspection-flight .touch-gauntlet,.touch-controls.inspection-flight .touch-ultimate,.touch-controls.inspection-flight .touch-interact,.touch-controls.inspection-flight .touch-deploy,.touch-controls.inspection-flight .touch-siegeView,.touch-controls.inspection-flight .touch-siegeWeapon,.touch-controls.inspection-flight .touch-siegeSkill,.touch-controls.inspection-flight .touch-scores { display:none !important; }
 .touch-controls.inspection-flight .touch-jump { right:22px; bottom:72px; }
 .touch-controls.inspection-flight .touch-crouch { left:auto; right:112px; top:auto; bottom:38px; }
 @container app (max-width:600px) { .inspection-camera-tools { top:48px; width:min(290px,calc(100% - 20px)); } }

@@ -836,10 +836,8 @@ test('struck by it, a knight reels for a moment: what they were doing is over an
   assert.equal(both.b.ultimateState?.phase, 'active');
 });
 
-test('a perfect guard still turns a Sundering blow; the Sundering knight is staggered for less than an ordinary one', () => {
-  assert.ok(ULTIMATES.sunder.parriedSec >= 0.35 && ULTIMATES.sunder.parriedSec <= 0.45);
-  assert.ok(ULTIMATES.sunder.parriedSec < GAME.parryStaggerMs / 1000);
-  const parried = (sundering) => {
+test('Sunder is un-parryable: a perfectly timed guard is a costly block, not a stagger for the attacker', () => {
+  const approach = (sundering) => {
     const { room, a, b } = duel();
     if (sundering) sunder(room, a);
     place(b, 0, 1.8);
@@ -847,21 +845,24 @@ test('a perfect guard still turns a Sundering blow; the Sundering knight is stag
     beginAttack(room, 'a', 10);
     let raised = false;
     for (let now = 10; now <= 10.6 + 1e-9; now += 0.01) {
-      // (the guard raised just as the blade arrives)
-      if (!raised && now >= 10.27) { raised = setGuard(room, 'b', true, now); }
+      if (!raised && now >= 10.27) raised = setGuard(room, 'b', true, now);
       stepRoom(room, 0.01, now, openWorld);
     }
-    const parry = room.events.find((e) => e.type === 'parry');
-    assert.ok(parry, `${sundering ? 'Sundering' : 'ordinary'}: parried`);
-    assert.equal(room.events.some((e) => e.type === 'damage' && e.source === 'sword' && e.victimId === 'b'), false, 'the blow is stopped');
-    return { held: a.staggerUntil - parry.at, room, a };
+    assert.equal(raised, true);
+    const events = room.events.filter(e=>['parry','block','guardBreak'].includes(e.type));
+    assert.equal(room.events.some(e=>e.type==='damage'&&e.source==='sword'&&e.victimId==='b'),false);
+    return {room,a,b,events};
   };
-  const ordinary = parried(false);
-  const sunderer = parried(true);
-  assert.ok(Math.abs(ordinary.held - GAME.parryStaggerMs / 1000) < 1e-9, 'an ordinary sword as ever');
-  assert.ok(Math.abs(sunderer.held - ULTIMATES.sunder.parriedSec) < 1e-9, `${sunderer.held.toFixed(2)} s`);
-  assert.equal(sunderer.a.attackActive, false, 'the chain is stopped all the same');
-  assert.equal(sunderer.a.ultimateState?.phase, 'active');
+  const normal=approach(false);
+  assert.ok(normal.events.some(e=>e.type==='parry'),'ordinary properly timed parries remain intact');
+  const empowered=approach(true);
+  assert.equal(empowered.events.some(e=>e.type==='parry'),false);
+  assert.ok(empowered.events.some(e=>e.type==='block'||e.type==='guardBreak'));
+  assert.equal(empowered.events[0].impacts,ULTIMATES.sunder.guardImpacts);
+  assert.ok(empowered.b.guardStamina<normal.b.guardStamina,
+    'Sunder takes two guard contacts worth of stamina');
+  assert.ok(empowered.a.staggerUntil<10.27,'Sunder cannot be staggered by a parry');
+  assert.equal(empowered.a.ultimateState?.phase,'active');
 });
 
 // --- torn ground ----------------------------------------------------------------------------------------------------

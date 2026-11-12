@@ -1,6 +1,7 @@
 import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/challenges.mjs';
 import { eligibleChallengeParticipant } from './challengeSettlement.mjs';
 import { applySavedLoadout } from './savedLoadout.mjs';
+import {normalizeSwordTechnique} from '../../shared/src/swordTechniqueContracts.mjs';
 import http from 'node:http';
 import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
 import { pendingTrialAward, commitTrialAward } from './renownTrialSettlement.mjs';
@@ -214,7 +215,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function createNetworkPlayer(session, room, name, team = null) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells, siegeLoadout: session.siegeLoadout, technique: session.technique, team }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, technique: normalizeSwordTechnique(session.technique), preparedSpells: session.preparedSpells, siegeLoadout: session.siegeLoadout, team }, now());
   }
 
   function joinNew(session, room, name, team = null) {
@@ -509,7 +510,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (url.pathname !== '/ws') { socket.destroy(); return; }
     const peer = acceptWebSocket(req, socket);
     if (!peer) return;
-    const session = { id: crypto.randomUUID(), peer, roomCode: null, playerId: null, spell: DEFAULT_SPELL, messageWindowStartedAt: now(), messageCount: 0 };
+    const session = { id: crypto.randomUUID(), peer, roomCode: null, playerId: null, spell: DEFAULT_SPELL, technique:'rigid_riposte', messageWindowStartedAt: now(), messageCount: 0 };
     sessions.add(session);
     sessionsById.set(session.id, session);
     peer.onMessage = (message) => handleMessage(session, message);

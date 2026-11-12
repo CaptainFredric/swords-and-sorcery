@@ -13,7 +13,7 @@ import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 import { setupStPerry, stepStPerry, cleanupStPerry, isCanonizationUnlocked } from './StPerry.mjs';
 import { dismountBiByeLlista } from './biByeLlista.mjs';
-import {stepPracticeSiegeOperators} from './practiceSiegeOperators.mjs';
+import {stepPracticeSiegeOperators,seekSpellbladeSiegeMachine} from './practiceSiegeOperators.mjs';
 import { worldSpawnPoints } from './spawns.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 import { nearbyPracticeSpawn } from './nearbyPracticeSpawn.mjs';
@@ -25,6 +25,7 @@ export const PRACTICE_DUMMY_MODES = Object.freeze({
   SORCERY: 'SORCERY',
   MELEE: 'MELEE',
   RUNNER: 'RUNNER',
+  SPELLBLADE: 'SPELLBLADE',
   ULTIMATE_KNIGHT: 'ULTIMATE_KNIGHT',
   ST_PERRY: 'ST_PERRY',
   CANONIZATION: 'CANONIZATION',
@@ -39,6 +40,7 @@ export const PRACTICE_OPPONENTS = Object.freeze({
   SORCERY: Object.freeze({ profile: 'caster', name: BOT_PROFILES.caster.name, spell: 'fireball', aggression: 0.7 }),
   MELEE: Object.freeze({ profile: 'melee', name: BOT_PROFILES.melee.name, spell: 'steel', aggression: 0.62 }),
   RUNNER: Object.freeze({ profile: 'runner', name: BOT_PROFILES.runner.name, spell: 'fireball', aggression: 0.7 }),
+  SPELLBLADE: Object.freeze({ profile: 'spellblade', name: BOT_PROFILES.spellblade.name, spell:'fireball', aggression: 1 }),
   ST_PERRY: Object.freeze({ profile: 'rival', name: 'St. Perry the Prodigious', spell: 'fireball', aggression: 0.4 }),
   CANONIZATION: Object.freeze({ profile: 'rival', name: 'St. Perry the Prodigious', spell: 'fireball', aggression: 1 }),
 });
@@ -298,7 +300,22 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
   if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room, playerId)) return false;
   const dummy = findPracticeDummy(room);
   if (!dummy) return false;
+  // Recalling the same drill near the player must not silently reset the
+  // Ult choice, Stay/Follow, or individually selected Disaster infusions.
+  const priorKnight=mode===PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT?
+    dummy.ultimateKnight:null;
 
+  // Leave the REAL machine seat when selecting another dummy, without
+  // changing the machine's health, ammunition or component state.
+  if(dummy.practiceSiegeOperator?.opportunistic){
+    if(dummy.operatingBallistaId&&room.biByeLlista)
+      dismountBiByeLlista(room.biByeLlista,dummy,nowSec);
+    if(dummy.operatingRamId&&room.soFistication)
+      dismountSoFistication(room,room.soFistication,dummy,{force:true});
+    if(dummy.operatingFightFlightId&&room.fightFlight)
+      dismountFightFlight(room,room.fightFlight,dummy,{force:true,at:nowSec});
+    dummy.practiceSiegeOperator=null;dummy.siegeAi=null;
+  }
   if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);
   if (dummy.guarding) setGuard(room, dummy.id, false, nowSec);
   dummy.guardHeld = false;
@@ -319,10 +336,12 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
   dummy.practiceMode = mode;
   const opponent = PRACTICE_OPPONENTS[mode];
   dummy.botProfile = opponent?.profile ?? null;
+  dummy.botSkill = mode===PRACTICE_DUMMY_MODES.SPELLBLADE?'spellblade':'knight';
   dummy.name = opponent?.name ?? 'Training Dummy';
   dummy.spell = opponent?.spell ?? 'fireball';
+  dummy.ultimate='sunder';
   dummy.steel = null;
-  if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec);
+  if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec, priorKnight);
   if (mode === PRACTICE_DUMMY_MODES.ST_PERRY) setupStPerry(dummy, nowSec, false, room, playerId);
   if (mode === PRACTICE_DUMMY_MODES.CANONIZATION) setupStPerry(dummy, nowSec, true, room, playerId);
 
@@ -339,6 +358,10 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
 
 export function stepPracticeActors(room, nowSec, world = room.world, { random = Math.random } = {}) {
   if (!isPractice(room) || room.state !== 'PLAYING') return;
+  const incoming=findPracticeDummy(room);
+  if(incoming?.practiceMode===PRACTICE_DUMMY_MODES.SPELLBLADE&&
+     !(room.inspectionEnabled&&(incoming.aiSuspended||incoming.id===room.inspectionControlId)))
+    seekSpellbladeSiegeMachine(room,incoming,nowSec);
   stepPracticeSiegeOperators(room,nowSec,world);
   const dummy = findPracticeDummy(room);
   if (!dummy) return;
@@ -354,6 +377,8 @@ export function stepPracticeActors(room, nowSec, world = room.world, { random = 
     return;
   }
   if (!dummy.alive) return;
+  if(dummy.practiceMode===PRACTICE_DUMMY_MODES.SPELLBLADE&&dummy.practiceSiegeOperator)
+    return; // The existing machine is controlled ONCE by the formidable pilot.
 
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.PASSIVE) {
     if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);

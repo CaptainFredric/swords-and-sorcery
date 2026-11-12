@@ -94,10 +94,6 @@ export const ICONS = Object.freeze({
   siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
   siegeSkill: '<path d="M12 2v20M9 5l3-3 3 3M2 11l4-3h12l4 3-10 5zM9 20h6"/>',
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
-  // the Sword Techniques: a sword driven straight on (the Riposte), a sword gone right round (the Whirl)
-  technique: '<path d="M4 20 18 6M15 4l5 0 0 5M7 14l3 3M4 20l2-5 3 3z"/>',
-  riposte: '<path d="M3 21 19 5M16 3h5v5M6 15l3 3M3 21l1.5-4.5 3 3zM13 14l5 0M10 17l6 0" />',
-  whirl: '<path d="M12 3a9 9 0 1 1-8.5 6M3.5 4.5v4.5h4.5M12 12l5-5M17 7l-1 3-2-2z"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   deploy: '<path d="M4 12h16M12 4v16M7 7l10 10M17 7l-10 10"/>',
 });

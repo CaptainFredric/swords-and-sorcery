@@ -14,12 +14,14 @@ const PRESS = {
   deploy: (input) => input.deploy(),
   siegeSkill: (input) => input.siegeSkill(),
   siegeWeapon: (input) => input.siegeWeapon(),
+  technique: (input) => input.technique(true,'binding'),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
   attack: (input) => input.setAttack(false),
   guard: (input) => input.setGuard(false),
   scoreboard: (input) => { input.scoreboardHeld = false; },
+  technique: (input) => input.technique(false,'binding'),
 };
 const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
 const MOVE_ACTIONS = new Set(['forward', 'back', 'left', 'right']);
@@ -38,9 +40,8 @@ export class InputController {
     this.clearTimer = clearTimer;
     this.attackSources = new Set();
     this.guardSources = new Set();
-    this.ultimateSources = new Set();
-    // the Sword Technique's button: every key or finger holding it
     this.techniqueSources = new Set();
+    this.ultimateSources = new Set();
     this.ultimateGesture = null;
     this.oneHitWaveId = null;
     this.oneHitAimUntil = null;
@@ -55,6 +56,7 @@ export class InputController {
     this.blockedHolds = new Set();
     this.yaw = 0;
     this.pitch = 0;
+    this.disasterThreeDAim = false;
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
@@ -137,12 +139,11 @@ export class InputController {
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(true,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
     if(this.mountedRam&&action==='dash')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
-    // X is the siege machine's while one is operated; on foot it is the equipped Sword Technique's
-    if(action==='siegeWeapon'&&this.onFoot){this.technique(true,`key:${code}`);return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'ultimate') this.ultimate(code);
@@ -157,9 +158,9 @@ export class InputController {
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(false,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
-    if(action==='siegeWeapon'&&this.techniqueSources.has(`key:${code}`)){this.technique(false,`key:${code}`);return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
@@ -246,7 +247,10 @@ export class InputController {
       if (this.enabled && action) {
         event.preventDefault();
         if (this.blockedKeys.has(event.code)) return;
-        if (this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
+        const onFootX=action==='siegeWeapon'&&!this.mountedBallista&&!this.mountedRam&&!this.mountedFlight;
+        if (this.allowAction?.(onFootX?'technique':MOVE_ACTIONS.has(action)?'move':action, !event.repeat) === false) {
+          this.blockedKeys.add(event.code); return;
+        }
       }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       if (event.code === 'KeyV' && !event.repeat && this.enabled && !this.suspended) {
@@ -283,7 +287,13 @@ export class InputController {
       // Their compatibility mouse clicks must never become a sword press.
       if (event.sourceCapabilities?.firesTouchEvents || event.target?.closest?.('button, input, select, textarea, summary, a, [role=dialog]')) return;
       if (!this.enabled && !this.pointerLocked) return;
+      if(this.actionOf.get('Mouse'+event.button))event.preventDefault();
       this.handleMouseButtonDown(`Mouse${event.button}`);
+    });
+    // Chrome may interpret auxiliary Mouse4 clicks as navigation unless the
+    // on-foot action consumes the auxiliary click, not only mousedown.
+    this.#listen(document,'auxclick',event=>{
+      if(this.enabled&&this.actionOf.get('Mouse'+event.button))event.preventDefault();
     });
 
     this.#listen(document, 'mouseup', (event) => {
@@ -388,7 +398,10 @@ export class InputController {
     if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
     const gain=(this.mountedRam?this.look.ram:1)*this.aimGain;
     this.yaw += yawDelta*gain;
-    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta*gain));
+    // Most combat keeps its original camera comfort limits. Only a held
+    // Full-Lightning + Full-Gale teleport admits a truly vertical destination.
+    const pitchLimit=this.disasterThreeDAim ? Math.PI/2 : 1.45;
+    this.pitch = Math.max(-pitchLimit, Math.min(pitchLimit, this.pitch + pitchDelta*gain));
   }
 
   /** A denied held source must release before it may request the newly available action. */
@@ -424,6 +437,16 @@ export class InputController {
     this.onAttackLocal(this.attackHeld);
   }
 
+  technique(down,source='touch'){
+    if(down&&(!this.enabled||this.mountedBallista||this.mountedRam||this.mountedFlight||
+      !this.gateHeldAction('technique',true,source)))return;
+    const before=this.techniqueSources.size>0;
+    if(down)this.techniqueSources.add(source);
+    else{this.techniqueSources.delete(source);this.gateHeldAction('technique',false,source);}
+    const held=this.techniqueSources.size>0;
+    if(held!==before)this.socket?.technique?.(held);
+  }
+
   setGuard(held, source = 'touch') {
     const accepted = this.gateHeldAction('guard', Boolean(held), source);
     if (held && !accepted) return;
@@ -439,7 +462,6 @@ export class InputController {
 
   releaseInputs() {
     this.ramPitchModifierHeld=false;
-    if(this.techniqueSources?.size){this.techniqueSources.clear();this.socket?.technique?.(false);}
     if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel:true});
     this.ultimateSources.clear();
     this.ultimateGesture=null;
@@ -455,6 +477,7 @@ export class InputController {
     this.cancelPreparedGesture();
     this.attackSources.clear();
     this.guardSources.clear();
+    if(this.techniqueSources.size){this.techniqueSources.clear();this.socket?.technique?.(false);}
     this.preparedConsumedKeys.clear();
     if (this.allowAction) {
       for (const code of this.keys) if (GATED_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
@@ -543,7 +566,15 @@ export class InputController {
   }
 
   // the gauntlet on its own key (unbound unless chosen): the fist whether or not the spell is ready
+  ramFlick(){
+    if(!this.enabled||!this.mountedRam||this.allowAction?.('attack')===false)return;
+    this.socket?.send?.({type:'ramFlick'});
+  }
+
   gauntlet() {
+    // The ordinary gauntlet binding becomes the ram's third core attack.
+    // It is not an additional selectable Skill, and never leaks on dismount.
+    if(this.mountedRam){this.ramFlick();return;}
     if (!this.enabled || this.allowAction?.('gauntlet') === false) return;
     this.socket.gauntlet();
     this.onGauntletLocal();
@@ -572,7 +603,7 @@ export class InputController {
 
   ultimateRelease(source='direct',cancel=false) {
     if(!this.ultimateSources.delete(source)||this.ultimateSources.size)return;
-    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel});
+    if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel,yaw:this.yaw,pitch:this.pitch});
     this.ultimateGesture=null;
   }
 
@@ -658,25 +689,6 @@ export class InputController {
 
   siegeWeapon() {
     if (this.enabled) this.socket?.send?.({ type: 'bibyeWeaponFocus' });
-  }
-
-  /** On foot (no siege machine operated): where the technique's button is the knight's own. */
-  get onFoot() { return !this.mountedBallista && !this.mountedFlight && !this.mountedRam; }
-
-  /**
-   * The Sword Technique's button, down or up, from a key or a finger (`source`): the equipped technique begins on the
-   * first press and is let go when the last one holding it lets go (a Whirl goes round for as long as it is held).
-   */
-  technique(down, source = 'direct') {
-    if (down) {
-      if (!this.enabled || !this.onFoot || this.allowAction?.('technique') === false) return;
-      const first = this.techniqueSources.size === 0;
-      this.techniqueSources.add(source);
-      if (first) this.socket.technique?.(true);
-      return;
-    }
-    if (!this.techniqueSources.delete(source) || this.techniqueSources.size) return;
-    this.socket.technique?.(false);
   }
 
   movement() {

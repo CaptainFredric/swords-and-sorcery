@@ -314,3 +314,22 @@ test('the ultimate carried from the Armory, and its key, both work in a match th
     assert.equal(me().ultimateState?.id, ultimate, 'it begins');
   }
 });
+
+test('the Sword Technique command reaches the yard the browser hosts, with the technique the loadout chose', () => {
+  const { host, flush, advance } = handHost();
+  const link = new GameLink({ remote: { on() {}, loadout() {} }, local: host });
+  host.loadout(host.spell, host.ultimateId, host.preparedSpells, host.siegeLoadout, 'whirl_wind');
+  host.startSolo('PRACTICE', 'Aden');
+  flush();
+  host.arenaReady(true);
+  advance(1);
+  const self = () => host.latestSnapshot.players.find((player) => player.id === host.playerId);
+  assert.equal(self().swordTechnique, null);
+  // (the host's chosen technique is kept in a field of another name: a field called `technique` hid this command)
+  assert.equal(typeof host.technique, 'function');
+  link.hosting = 'local';
+  link.technique(true);
+  advance(0.2);
+  assert.equal(self().swordTechnique?.id, 'whirl_wind');
+  link.technique(false);
+});

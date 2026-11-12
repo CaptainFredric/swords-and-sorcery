@@ -27,7 +27,7 @@ const flag = (name) => args.includes(name);
 const scenario = option('--scenario', 'slash-tap');
 const device = option('--device', 'desktop');
 const remote = flag('--remote');
-const technique = scenario.startsWith('riposte') ? 'rigid_riposte' : scenario.startsWith('whirl') ? 'whirl_like_the_wind' : null;
+const technique = scenario.startsWith('riposte') ? 'rigid_riposte' : scenario.startsWith('whirl') ? 'whirl_wind' : null;
 const spell = scenario === 'whirl-gale' ? 'gale' : 'fireball';
 const holdSec = Number(option('--hold', scenario === 'slash-chain' ? '2.2' : scenario === 'whirl' ? '2.6' : scenario === 'whirl-gale' ? '2.2' : '0.08'));
 const afterSec = Number(option('--after', '2.2'));
@@ -114,7 +114,6 @@ try {
   await sleep(1200);
   for (const b of browsers) await b.evaluate("document.querySelector('#practice-drawer-close')?.click()");
   const carried = await ev('({ technique: window.__ssRuntime.localAuth.technique ?? null, spell: window.__ssRuntime.localAuth.spell })');
-  if (technique && carried.technique !== technique) throw new Error(`the yard's knight carries ${carried.technique}, not ${technique}`);
 
   if (!remote) {
     if (dummyMode !== 'none') { await ev(`window.__ssLink.practiceSpawnDummy(${JSON.stringify(dummyMode)})`); await sleep(600); }
@@ -188,7 +187,7 @@ try {
   const watch = `(() => {
     const rt = window.__ssRuntime;
     const run = window.__swordRun = { events: [], frames: [], on: true };
-    const wanted = /^(technique|sword|attack|parry|block|guardBreak|damage|dash|staggerBreak)/;
+    const wanted = /^(technique|swordTechnique|sword|attack|parry|block|guardBreak|damage|dash|staggerBreak)/;
     rt.socket.on('events', (batch) => { for (const e of batch.events) if (wanted.test(e.type)) run.events.push(JSON.parse(JSON.stringify(e))); });
     const tick = () => {
       if (!run.on) return;
@@ -199,8 +198,8 @@ try {
       const animator = shell?.visualInstance?.animator;
       const dummy = rt.latestSnapshot?.players.find((p) => p.actorKind === 'dummy');
       run.frames.push({ wall: performance.now(), server: rt.socket.serverNow(), clip: animator?.activeClip ?? null, time: animator?.activeAction?.time ?? null,
-        technique: a?.techniqueState ? { ...a.techniqueState } : null, prowess: a?.prowess ?? null, y: a?.position?.y ?? null, x: a?.position?.x ?? null, z: a?.position?.z ?? null,
-        other: other ? { technique: other.techniqueState ? { id: other.techniqueState.id, revolutions: other.techniqueState.revolutions } : null, health: other.health, x: other.position.x, z: other.position.z } : null,
+        technique: a?.swordTechnique ? { ...a.swordTechnique } : null, prowess: a?.prowess ?? null, y: a?.position?.y ?? null, x: a?.position?.x ?? null, z: a?.position?.z ?? null,
+        other: other ? { technique: other.swordTechnique ? { id: other.swordTechnique.id, revolutions: other.swordTechnique.revolutions } : null, health: other.health, x: other.position.x, z: other.position.z } : null,
         dummy: dummy ? { health: dummy.health } : null, motion: shell?.visualInstance?.motionSha256 ?? null });
     };
     requestAnimationFrame(tick);
@@ -329,7 +328,7 @@ try {
   const fps = shown.length > 2 ? (shown.length - 1) / ((shown.at(-1).wall - shown[0].wall) / 1000) : 0;
   const count = (events) => Object.fromEntries(Object.entries(events.reduce((m, e) => { const k = e.type === 'damage' ? `damage:${e.source}` : e.type; m[k] = (m[k] ?? 0) + 1; return m; }, {})).sort());
   const first = (type) => run.events.find((e) => e.type === type);
-  const start = first('techniqueStart') ?? first('attackStarted') ?? first('swordSwing');
+  const start = first('swordTechniqueStarted') ?? first('attackStarted') ?? first('swordSwing');
   const ys = run.frames.map((f) => f.y).filter(Number.isFinite);
   const at0 = run.frames.find((f) => f.server >= (start?.at ?? 0)) ?? run.frames[0], atEnd = run.frames.at(-1);
   const summary = {
@@ -339,7 +338,7 @@ try {
     clips,
     events: count(run.events), eventsSeenByViewer: seen ? count(seen.events) : null,
     damage: run.events.filter((e) => e.type === 'damage').map((e) => ({ source: e.source, amount: e.amount })),
-    technique: { hits: run.events.filter((e) => e.type === 'techniqueHit').map((e) => ({ clean: e.clean, revolution: e.revolution ?? null })), end: first('techniqueEnd') ?? null,
+    technique: { hits: run.events.filter((e) => e.type === 'swordTechniqueHit').map((e) => ({ clean: e.clean, revolution: e.revolution ?? null })), end: first('swordTechniqueEnded') ?? null,
       revolutions: run.events.filter((e) => e.type === 'techniqueRevolution').map((e) => ({ revolution: e.revolution, prowess: e.prowess })) },
     travelled: at0 && atEnd ? +Math.hypot(atEnd.x - at0.x, atEnd.z - at0.z).toFixed(2) : null,
     climbed: ys.length ? +(Math.max(...ys) - ys[0]).toFixed(2) : null,

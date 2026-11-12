@@ -1,4 +1,5 @@
 import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
+import {normalizeSwordTechnique} from '../../shared/src/swordTechniqueContracts.mjs';
 // The browser hosts Practice Yard and Bot Duel on the same simulation the server runs (shared/sim), a room with you,
 // its bots and its dummies. It speaks exactly like GameSocket (the same messages, the same methods), so the rest of
 // the client plays it without knowing the difference. Nothing online lives here: no rooms to join, no matchmaking.
@@ -12,7 +13,6 @@ import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { GAME_MODES, arenaForMode } from '../../shared/src/modes.mjs';
 import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
-import { DEFAULT_SWORD_TECHNIQUE, normalizeSwordTechnique } from '../../shared/src/swordTechniques.mjs';
 import { clothChoice } from '../../shared/src/cosmetics.mjs';
 import { DEFAULT_EMBLEM, ownedEmblems } from '../../shared/src/heraldry.mjs';
 import { resolvePlayerWorld, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -29,7 +29,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'siegeSkill','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','oneHitRelease','oneHitFire','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
@@ -83,11 +83,11 @@ export class LocalHost {
     this.room = null;
     this.timer = null;
     this.spell = DEFAULT_SPELL;
+    // (not `technique`: that is the command below, and an own field of that name would hide it)
+    this.techniqueId = 'rigid_riposte';
     this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
-    // (and the Sword Technique carried: named apart from technique(), the button's command)
-    this.techniqueId = DEFAULT_SWORD_TECHNIQUE;
     this.siegeLoadout=normalizeSiegeLoadout(null);
     this.playerId = null;
     this.token = null;
@@ -165,7 +165,7 @@ export class LocalHost {
         if (cached) this.setProfile(cached);
       } catch {}
     }
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, technique: this.techniqueId, team }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, technique: this.techniqueId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
     player.cloth = this.cloth;
     player.emblem = this.emblem || this.profile?.emblem || DEFAULT_EMBLEM;
     player.emblems = this.emblems?.length ? [...this.emblems] : (this.profile?.emblems ? [...this.profile.emblems] : []);
@@ -502,13 +502,13 @@ export class LocalHost {
     // Configuration is a staging command, not an action frame. Permit it
     // while Inspection is frozen and publish a snapshot immediately: there
     // may be no simulation tick to deliver the new selector values.
-    const configureOneHit=message.type==='practiceOneHit';
-    if (!room || !owner || (this.inspectionFrozen && !configureOneHit)) return;
+    const configurePractice=message.type==='practiceOneHit'||message.type==='practiceUltimateKnightConfig';
+    if (!room || !owner || (this.inspectionFrozen && !configurePractice)) return;
     this.#validateInspectionActor();
     if (this.inspectionControlId && INSPECTION_ADMIN_RESET.has(message.type)) this.setInspectionActor(owner.id);
     const player = this.inspectionControlId && INSPECTION_ACTIONS.has(message.type)
       ? room.players.get(this.inspectionControlId) : owner;
-    if (this.inspectionFreezeMode === 'actor' && player?.id === this.inspectionActorId && !configureOneHit) return;
+    if (this.inspectionFreezeMode === 'actor' && player?.id === this.inspectionActorId && !configurePractice) return;
     if (this.commandFilter) {
       message = this.commandFilter(message);
       if (!message) return;
@@ -516,7 +516,7 @@ export class LocalHost {
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
-    else if (configureOneHit && !result.rejected)
+    else if (configurePractice && !result.rejected)
       this.#deliver(serializeSnapshot(room,this.now(),this.playerId),true);
     this.#validateInspectionActor();
   }
@@ -646,10 +646,6 @@ export class LocalHost {
         actor.spell = loadout.spell;
         actor.startingSpell = loadout.spell;
         if (!actor.preparedSpells.includes(loadout.spell)) actor.preparedSpells[0] = loadout.spell;
-      }
-      if (loadout.technique !== undefined) {
-        actor.technique = normalizeSwordTechnique(loadout.technique);
-        actor.startingTechnique = actor.technique;
       }
       if (loadout.ultimate && isUltimate(loadout.ultimate)) {
         actor.ultimate = loadout.ultimate;
@@ -793,12 +789,12 @@ export class LocalHost {
     else if(player)player.queuedSiegeLoadout={...this.siegeLoadout};
     if (!player) return;
     player.startingSpell = this.spell;
+    player.startingTechnique = this.techniqueId;
     player.startingPreparedSpells = [...this.preparedSpells];
     player.startingUltimate = this.ultimateId;
-    player.startingTechnique = this.techniqueId;
     if (this.room?.state !== 'PLAYING') {
-      player.technique = this.techniqueId;
       player.spell = this.spell;
+      player.technique = this.techniqueId;
       player.preparedSpells = [...this.preparedSpells];
       player.ultimate = this.ultimateId;
       player.spellReadyAt = player.spellReadyById?.[this.spell] ?? -Infinity;
@@ -911,6 +907,7 @@ export class LocalHost {
   practicePerryDismiss() { this.#command({ type: 'practicePerryDismiss' }); }
   setInputSampler(sampler) { this.inputSampler = typeof sampler === 'function' ? sampler : null; }
   input(input) { this.#command({ type: 'input', ...input }); }
+  technique(down) { this.#command({type:'technique',down:Boolean(down)}); }
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
   cast(direction) { this.#command({ type: 'cast', direction, clientTime: this.now() }); }
@@ -933,9 +930,9 @@ export class LocalHost {
   selectPreparedSpell(spell) { this.#command({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate({held=false}={}) { this.#command({type:'ultimate',...(held?{held:true}:{})}); }
-  technique(down = true) { this.#command({ type: 'technique', down: Boolean(down) }); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
-  oneHitRelease({cancel=false}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitRelease({cancel=false,yaw,pitch}={}) { this.#command({type:'oneHitRelease',...(cancel?{cancel:true}:{}),
+    ...(Number.isFinite(yaw)?{yaw}:{}),...(Number.isFinite(pitch)?{pitch}:{})}); }
   oneHitFire() { this.#command({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.#command({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.#command({type:'practiceOneHit',...options}); }

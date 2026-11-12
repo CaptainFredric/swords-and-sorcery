@@ -1,4 +1,6 @@
 import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
+import {normalizeSwordTechnique} from '../src/swordTechniqueContracts.mjs';
+import {interruptSwordTechnique} from './swordTechniqueLive.mjs';
 import { emptyInfusions } from '../src/oneHitInfusions.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
@@ -16,7 +18,6 @@ import { recordChallengeFact, resetChallengeTracking } from './challenges.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
-import { NO_SWORD_TECHNIQUE, normalizeSwordTechnique } from '../src/swordTechniques.mjs';
 import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { worldSpawnPoints } from './spawns.mjs';
 import { beginPeace } from './peace.mjs';
@@ -45,6 +46,10 @@ function freshCombatState(spawn, nowSec = 0) {
     yaw: spawn.yaw ?? 0,
     pitch: 0,
     health: 100,
+    swordTechnique:null,
+    swordTechniqueExit:null,
+    swordTechniqueHeld:false,
+    swordTechniqueReadyAt:0,
     guardStamina: guardProfile().capacity,
     guarding: false,
     guardHeld: false,
@@ -84,10 +89,6 @@ function freshCombatState(spawn, nowSec = 0) {
     stagger: freshStagger(),
     prowess: 0,
     ultimateState: null,
-    // the Sword Technique: its one action state, its button, its cooldown
-    techniqueState: null,
-    techniqueHeld: false,
-    techniqueReadyAt: 0,
     oneHitInfusions: emptyInfusions(),
     oneHitSeenUses: {},
     practiceOneHit: null,
@@ -254,7 +255,7 @@ export class Room {
     return this.humanActorCount() < capacity ? null : 'Room is full.';
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null, technique = NO_SWORD_TECHNIQUE }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, technique = 'rigid_riposte', preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
     const joinFailure = this.joinError();
     // Solo and duel creation have their own controlled actor counts and are never public joins.
     if (joinFailure && !([GAME_MODES.BOT_DUEL, GAME_MODES.DUEL, GAME_MODES.PRACTICE, GAME_MODES.RENOWN_TRIALS].includes(this.mode) && !this.sharedPractice)) throw new Error(joinFailure);
@@ -288,8 +289,6 @@ export class Room {
       spell: isSpell(spell) ? spell : DEFAULT_SPELL,
       // and the ultimate chosen there
       ultimate: isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE,
-      // and the Sword Technique, if one was chosen (none: the longsword alone)
-      technique: normalizeSwordTechnique(technique),
       actorKind: 'human',
       connected: true,
       arenaReady: false,
@@ -305,10 +304,11 @@ export class Room {
     // personal Ultimate, independent of the Fight-and-Flight dash reserve.
     if(this.mode===GAME_MODES.PRACTICE)player.prowess=PROWESS.full;
     player.startingSpell = player.spell;
+    player.technique=normalizeSwordTechnique(technique);
+    player.startingTechnique=player.technique;
     player.preparedSpells = normalizePreparedSpells(player.startingSpell, preparedSpells);
     player.startingPreparedSpells = [...player.preparedSpells];
     player.startingUltimate = player.ultimate;
-    player.startingTechnique = player.technique;
     player.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
     this.players.set(id, player);
     if (!this.hostOwnerId) this.hostOwnerId = id;
@@ -779,6 +779,9 @@ export class Room {
   disconnectPlayer(id, nowSec) {
     const player = this.players.get(id);
     if (!player || player.actorKind !== 'human') return;
+    // A dropped connection must not leave a five-spin hold armed server-side.
+    // The standard interruption cooldown still applies on reconnection.
+    interruptSwordTechnique(player,nowSec);
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
@@ -799,6 +802,7 @@ export class Room {
       pitch: player.pitch,
     };
     player.sprinting = false;
+    interruptSwordTechnique(player,nowSec);
     player.attackHeld = false;
     player.attackActive = false;
     player.attackQueued = false;
@@ -1049,9 +1053,9 @@ export class Room {
       player.operatingFightFlightId = null;
       const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
+      player.technique = normalizeSwordTechnique(player.startingTechnique);
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
       player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
-      player.technique = normalizeSwordTechnique(player.startingTechnique ?? player.technique);
       Object.assign(player, freshCombatState(spawn, nowSec));
       // startMatch resets all actor combat state, including Prowess. Restore
       // Practice's fully charged personal Ultimate BEFORE the first snapshot,
