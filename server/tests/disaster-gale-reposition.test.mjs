@@ -116,7 +116,7 @@ test('The second press fires early during aim, not as another Ultimate or a deto
   run(room,9.7,10.5);
   assert.equal(waves(room).length,1,'automatic fire does not launch a duplicate');
 });
-test('Full Steel defers lethal damage UNTIL an airborne wave explodes at maximum range',()=>{
+test('Full Steel keeps the last HP after the airborne wave expires; future damage is still lethal',()=>{
   const {room,a}=battle({gale:2,steel:2});
   a.position.y=10;a.grounded=false;
   assert.equal(tryUltimate(room,'a',9),true);
@@ -125,11 +125,14 @@ test('Full Steel defers lethal damage UNTIL an airborne wave explodes at maximum
   applyDamage(room,'b','a',200,'sword',10.12);
   assert.equal(a.health,1);
   assert.equal(a.alive,true);
-  assert.ok(a.ultimateState.deferredLethal);
+  assert.equal(a.ultimateState.deferredLethal,undefined);
   run(room,10.13,11.9);
   assert.equal(impacts(room).length,1);
   assert.equal(impacts(room)[0].cause,'range');
   assert.equal(room.events.filter(e=>e.type==='oneHitWaveResolved').length,1);
-  assert.ok(room.events.some(e=>e.type==='oneHitLastStandEnded'));
-  assert.equal(a.alive,false,'lethal damage is owed when the wave FINISHES, not indefinitely');
+  assert.equal(room.events.some(e=>e.type==='oneHitLastStandEnded'),false);
+  assert.equal(a.alive,true,'the expiry of the wave does not kill the survivor');
+  assert.equal(a.health,1);
+  applyDamage(room,'b','a',10,'sword',12);
+  assert.equal(a.alive,false,'a NEW blow outside the protected interval can kill');
 });
