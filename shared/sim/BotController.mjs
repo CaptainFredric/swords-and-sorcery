@@ -14,6 +14,7 @@ import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { highGroundsBotGoal } from './highGroundsMode.mjs';
 import {modeCall} from './modeRuntime.mjs';
+import { activeHitboxThreat } from './activeHitboxThreat.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -185,6 +186,24 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
   }
   if (nowSec < ai.nextDefensiveDecisionAt) return;
   ai.nextDefensiveDecisionAt = nowSec + reactionDelay(skill, random);
+
+  // The canonical Spellblade anticipates visibly ACTIVE damage volumes,
+  // including moving Gale waves and a Vortex blade. This runs on the same
+  // finite reaction clock as any other decision, not future button reads.
+  if(skill.activeRead){
+    const danger=activeHitboxThreat(room,actor,target,nowSec);
+    if(danger){
+      ai.hazardUntil=nowSec+.52;
+      ai.hazardDirection={x:danger.x,z:danger.z};
+      ai.hazardKind=danger.kind;
+      if((danger.kind==='wave'||danger.kind==='vortex'||danger.kind==='disaster')&&
+         random()<skill.dodge&&tryDash(room,actor.id,danger,nowSec))
+        return;
+      // A blade already spinning or a sword wave crossing your feet is
+      // better escaped than parried into its next revolution.
+      if(danger.kind!=='field')return;
+    }
+  }
 
   // a spell coming at it: slipped aside
   if (skill.dodge > 0 && dodgeSpell(room, actor, target, ai, nowSec, random, skill)) return;
@@ -623,6 +642,13 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   if (spacing) {
     forward = -0.9;
     right = ai.strafeDirection * 0.35;
+  }
+  if(skill.activeRead&&nowSec<(ai.hazardUntil??-Infinity)&&!way&&ai.hazardDirection){
+    // Preserve the camera-facing target while moving in a physically
+    // meaningful direction away from the active volume (or across a wave).
+    const h=ai.hazardDirection,fx=-Math.sin(yaw),fz=-Math.cos(yaw);
+    forward=clamp(h.x*fx+h.z*fz,-1,1);
+    right=clamp(h.x*Math.cos(yaw)-h.z*Math.sin(yaw),-1,1);
   }
   // backing off to heal: away from its foe, at a run, across and away rather than straight back
   const retreating = !way && !profile.flee && nowSec < (ai.retreatUntil ?? -Infinity);
