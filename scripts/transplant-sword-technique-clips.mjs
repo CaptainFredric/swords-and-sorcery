@@ -125,8 +125,8 @@ for(const r of result){
   const m=manifest[r.key];
   if(m.sha256!==r.before)throw Error('Manifest baseline mismatch; aborting: '+r.file);
   m.sha256=r.after;m.bytes=r.bytes;m.clips=r.clips;
-  m.url=m.url.replace(/\\?v=[^&]+/,'?v='+revision);
-  m.gzipUrl=m.gzipUrl.replace(/\\?v=[^&]+/,'?v='+revision);
+  m.url=m.url.replace(/\?v=[^&]+/,'?v='+revision);
+  m.gzipUrl=m.gzipUrl.replace(/\?v=[^&]+/,'?v='+revision);
 }
 manifest.sourceRevision=revision;
 if(apply){
