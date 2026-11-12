@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
+import { crackedFrostPattern } from './disasterFrostGeometry.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -205,6 +206,27 @@ export class DisasterElementEffects {
     this.warmIce.setMatrixAt(0, tmpObject.matrix);
     this.warmIce.frustumCulled = false;
     this.root.add(this.warmIce);
+    // Build the cracked-surface shaders before the first freeze. Every field
+    // subsequently clones these materials; no new shader type arrives midfight.
+    this.frostPlateMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true, emissive: 0x163e59, emissiveIntensity: 0.28,
+      roughness: 0.32, metalness: 0.02, transparent: true, opacity: 0.8,
+      depthWrite: false, side: THREE.DoubleSide, flatShading: true,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    });
+    this.frostCrackMaterial = new THREE.MeshBasicMaterial({
+      color: 0x366b86, transparent: true, opacity: 0.38,
+      depthWrite: false, side: THREE.DoubleSide,
+    });
+    this.frostRidgeMaterial = new THREE.LineBasicMaterial({
+      color: 0xe6faff, transparent: true, opacity: 0.22, depthWrite: false,
+    });
+    const warmPatch = new THREE.BufferGeometry();
+    warmPatch.setAttribute('position',new THREE.Float32BufferAttribute([0,-1e4,0,.001,-1e4,0,0,-1e4,.001],3));
+    warmPatch.setAttribute('color',new THREE.Float32BufferAttribute([1,1,1,1,1,1,1,1,1],3));
+    this.warmPatch = new THREE.Mesh(warmPatch,this.frostPlateMaterial);
+    this.warmPatch.frustumCulled = false;
+    this.root.add(this.warmPatch);
     this.fields = new Map();     // field id -> { ice, emit clocks }
     this.fractures = [];         // radial fractures still running: rocks thrown where each arm's head is
     this.gather = new Map();     // player id -> emit clocks
@@ -537,37 +559,105 @@ export class DisasterElementEffects {
       }
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
-      if (entry.ice) { entry.ice.parent?.remove(entry.ice); entry.ice.geometry.dispose(); entry.ice.material.dispose(); }
+      if (entry.ice) this.#disposeIce(entry.ice);
       this.fields.delete(id);
     }
   }
-  // Full Frost's field: real ice standing out of the ground across it, tallest at the heart
+  // The frozen ground is the main visual: pale, subtly uneven plates with
+  // dark branching gaps between them. A few broken crystals mark the impact;
+  // this must not resemble dozens of cones planted in unfrozen grass.
   #iceField(field) {
-    const count = Math.round(46 * this.density);
-    const ice = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5), this.iceMaterial.clone(), count);
-    ice.frustumCulled = false;
-    ice.userData.spikes = Array.from({ length: count }, (_, i) => {
-      const a = i * 2.39996, r = Math.sqrt((i + 0.5) / count) * field.radius * 0.97;
-      return { x: Math.cos(a) * r, z: Math.sin(a) * r, height: (0.35 + Math.random() * 0.75) * (1.25 - 0.6 * r / field.radius), lean: rand(-0.35, 0.35), turn: rand(TAU), width: rand(0.09, 0.2), delay: r / field.radius * 0.22 };
+    const pattern=crackedFrostPattern(field.radius,field.id,Math.round(92*this.density));
+    const ice=new THREE.Group();
+    ice.name='disaster-cracked-frost-field';
+    ice.position.set(field.position.x,field.position.y,field.position.z);
+
+    const underlayPositions=[];
+    for(let i=0;i<pattern.outline.length;i++){
+      const a=pattern.outline[i],b=pattern.outline[(i+1)%pattern.outline.length];
+      underlayPositions.push(0,0.033,0, a.x,0.033,a.z, b.x,0.033,b.z);
+    }
+    const underlayGeo=new THREE.BufferGeometry();
+    underlayGeo.setAttribute('position',new THREE.Float32BufferAttribute(underlayPositions,3));
+    underlayGeo.computeVertexNormals();
+    const underlay=new THREE.Mesh(underlayGeo,this.frostCrackMaterial.clone());
+    underlay.frustumCulled=false;
+    underlay.name='frost-dark-crack-underlay';
+    ice.add(underlay);
+
+    const positions=[],colors=[],ridgePositions=[],ends=[];
+    const hues=[0xd9f0f7,0xc2e4f1,0xe6f4f6,0xa9cbdc,0xd1e7f2];
+    for(const plate of pattern.plates){
+      const vertices=plate.vertices;
+      const tint=new THREE.Color(hues[plate.tint]);
+      const centerTint=new THREE.Color(0xf2fdff).lerp(tint,.62);
+      const y=0.055+0.006*(plate.tint%3);
+      for(let i=0;i<vertices.length;i++){
+        const a=vertices[i],b=vertices[(i+1)%vertices.length];
+        positions.push(plate.center.x,y+.003,plate.center.z,a.x,y,a.z,b.x,y,b.z);
+        for(const color of [centerTint,tint,tint])colors.push(color.r,color.g,color.b);
+        if((i+plate.tint)%3!==0)ridgePositions.push(a.x,y+.003,a.z,b.x,y+.003,b.z);
+      }
+      ends.push(positions.length/3);
+    }
+    const plateGeo=new THREE.BufferGeometry();
+    plateGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    plateGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    plateGeo.computeVertexNormals();
+    const surface=new THREE.Mesh(plateGeo,this.frostPlateMaterial.clone());
+    surface.frustumCulled=false;
+    surface.name='frost-fractured-ice-plates';
+    ice.add(surface);
+
+    const ridgeGeo=new THREE.BufferGeometry();
+    ridgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(ridgePositions,3));
+    const ridge=new THREE.LineSegments(ridgeGeo,this.frostRidgeMaterial.clone());
+    ridge.frustumCulled=false;
+    ridge.name='frost-crack-edges';
+    ice.add(ridge);
+
+    const count=Math.max(5,Math.round(12*this.density));
+    const crystals=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,5),this.iceMaterial.clone(),count);
+    crystals.frustumCulled=false;
+    crystals.name='frost-shattered-small-crystals';
+    const shards=Array.from({length:count},(_,i)=>{
+      const plate=pattern.plates[Math.floor((i+.35)*pattern.plates.length/count)]??{center:{x:0,z:0}};
+      return {x:plate.center.x,z:plate.center.z,height:rand(.12,.4),width:rand(.035,.08),
+        lean:rand(-.4,.4),turn:rand(TAU),delay:Math.hypot(plate.center.x,plate.center.z)/field.radius*.25};
     });
-    ice.position.set(field.position.x, field.position.y, field.position.z);
+    ice.add(crystals);
+    ice.userData.frost={surface,underlay,ridge,crystals,shards,ends};
     this.root.add(ice);
+    this.#poseIce(ice,field,1,field.bornAt);
     return ice;
   }
-  #poseIce(ice, field, strength, now) {
-    const age = now - field.bornAt;
-    ice.userData.spikes.forEach((s, i) => {
-      // it forms outward from the blow in the first quarter second, then sinks with the field's strength
-      const formed = clamp01((age - s.delay) / 0.12);
-      const h = s.height * formed * (0.2 + 0.8 * strength);
-      tmpObject.position.set(s.x, h * 0.5 - 0.02, s.z);
-      tmpObject.rotation.set(s.lean, s.turn, s.lean * 0.6);
-      tmpObject.scale.set(s.width * (0.5 + 0.5 * strength), Math.max(0.001, h), s.width * (0.5 + 0.5 * strength));
+  #poseIce(ice,field,strength,now){
+    const data=ice.userData.frost,age=Math.max(0,now-field.bornAt);
+    const formed=clamp01(age/.32);
+    const visible=Math.ceil(formed*data.ends.length);
+    data.surface.geometry.setDrawRange(0,visible?data.ends[visible-1]:0);
+    data.surface.material.opacity=(0.18+0.67*strength)*Math.min(1,formed*5);
+    data.underlay.material.opacity=(0.06+0.30*strength)*Math.min(1,formed*5);
+    data.ridge.material.opacity=(0.06+0.28*strength)*Math.min(1,formed*5);
+    for(let i=0;i<data.shards.length;i++){
+      const s=data.shards[i],grown=clamp01((age-s.delay)/.18);
+      const h=s.height*grown*(0.15+0.85*strength);
+      tmpObject.position.set(s.x,h/2+.05,s.z);
+      tmpObject.rotation.set(s.lean,s.turn,s.lean*.6);
+      tmpObject.scale.set(s.width*(.3+.7*strength),Math.max(.001,h),s.width*(.3+.7*strength));
       tmpObject.updateMatrix();
-      ice.setMatrixAt(i, tmpObject.matrix);
+      data.crystals.setMatrixAt(i,tmpObject.matrix);
+    }
+    data.crystals.instanceMatrix.needsUpdate=true;
+    data.crystals.material.opacity=.15+.58*strength;
+  }
+  #disposeIce(ice){
+    ice.removeFromParent();
+    ice.traverse(object=>{
+      object.geometry?.dispose?.();
+      if(Array.isArray(object.material))for(const mat of object.material)mat.dispose();
+      else object.material?.dispose?.();
     });
-    ice.instanceMatrix.needsUpdate = true;
-    ice.material.opacity = 0.35 + 0.5 * strength;
   }
 
   // Full Fire's burning ground (the room's burn zones): flame standing on it, embers going up, smoke over it, all of
@@ -813,12 +903,16 @@ export class DisasterElementEffects {
 
   dispose() {
     while (this.bolts.length) this.#dropBolt(0);
-    for (const entry of this.fields.values()) if (entry.ice) { entry.ice.parent?.remove(entry.ice); entry.ice.geometry.dispose(); entry.ice.material.dispose(); }
+    for (const entry of this.fields.values()) if (entry.ice) this.#disposeIce(entry.ice);
     this.fields.clear();
     this.glow.dispose(); this.rock.dispose(); this.smoke.dispose();
     this.warmBolt.geometry.dispose();
     this.warmIce.geometry.dispose();
+    this.warmPatch.geometry.dispose();
     this.iceMaterial.dispose();
+    this.frostPlateMaterial.dispose();
+    this.frostCrackMaterial.dispose();
+    this.frostRidgeMaterial.dispose();
     this.boltMaterial.dispose();
     this.root.parent?.remove(this.root);
   }
