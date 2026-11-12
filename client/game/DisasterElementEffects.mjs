@@ -285,6 +285,41 @@ export class DisasterElementEffects {
       color: pick(COLOR[element]), ttl, gravity, align, drag, home, pull, swirl });
   }
 
+  // A Fire infusion is an actual expanding fireball, not just thin spark
+  // streaks. Broad bright lobes push out before the dark smoke follows; all
+  // pieces use existing instanced pools and do not add runtime shader types.
+  #fireExplosion(point,radius,height,ground,full) {
+    const lobes=this.#n(full?76:56);
+    for(let i=0;i<lobes;i++){
+      const angle=rand(TAU),rise=ground?rand(0.06,.92):rand(-.9,.9);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),ttl=rand(.28,.52);
+      const magnitude=rand(.5,.95);
+      this.glow.spawn({
+        x:point.x+Math.cos(angle)*rand(.04,.24),y:point.y+.27+rand(.15),
+        z:point.z+Math.sin(angle)*rand(.04,.24),
+        vx:Math.cos(angle)*flat*radius/ttl*magnitude,
+        vy:rise*height/ttl*magnitude,
+        vz:Math.sin(angle)*flat*radius/ttl*magnitude,
+        sx:rand(.17,.32)*(full?1.12:1),
+        sy:rand(.18,.36)*(full?1.12:1),
+        sz:rand(.15,.29)*(full?1.12:1),
+        color:pick(COLOR.fire),ttl,drag:.78,grow:.62,align:false,
+      });
+    }
+    // The slower rolling cloud behind the flash provides scale and contrast;
+    // individual flame pieces never take up the whole screen for seconds.
+    for(let i=0;i<this.#n(full?26:18);i++){
+      const a=rand(TAU),s=rand(.35,1.1);
+      this.#dust({
+        x:point.x+Math.cos(a)*s,y:point.y+.25+rand(.65),
+        z:point.z+Math.sin(a)*s,
+      },{
+        x:Math.cos(a)*rand(1.5,4),y:rand(1.3,3.5),
+        z:Math.sin(a)*rand(1.5,4),
+      },rand(.35,.66),rand(.75,1.25),0x44352b);
+    }
+  }
+
   // --- the gathering: each element is drawn out of the ground round the knight and into the blade -----------------
   #gather(player, tiers, dt, now) {
     let entry = this.gather.get(player.id);
@@ -428,11 +463,12 @@ export class DisasterElementEffects {
         const a = rand(TAU);
         this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
       }
+      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2);
     }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
       const full = tiers.frost === 2;
-      for (let i = 0; i < this.#n(full ? 44 : 24); i += 1) {
+      for (let i = 0; i < this.#n(full ? 68 : 42); i += 1) {
         const a = rand(TAU), speed = rand(2.5, full ? 8 : 5);
         this.#mote('frost', { x: p.x, y: floor + 0.05, z: p.z }, { x: Math.cos(a) * speed, y: rand(0.1, 0.6), z: Math.sin(a) * speed }, { size: rand(0.03, 0.06), ttl: rand(0.4, 0.7), drag: 2.4, stretch: 7 });
       }
@@ -441,7 +477,7 @@ export class DisasterElementEffects {
         this.#mote('frost', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * rand(1, 3), y: rand(2, 5.5), z: Math.sin(a) * rand(1, 3) }, { size: rand(0.04, 0.08), ttl: rand(0.5, 0.8), gravity: 9, stretch: 4 });
       }
       for (let i = 0; i < this.#n(6); i += 1) this.#dust({ x: p.x + rand(-1, 1), y: floor + 0.2, z: p.z + rand(-1, 1) }, { x: rand(-1.5, 1.5), y: 0.3, z: rand(-1.5, 1.5) }, 0.28, 1.2, 0xcfe9f5);
-      if (!ground || !event.fieldId) this.#iceCrown(p, 1.1, full ? 9 : 6, 1.1);
+      if (!full || !ground || !event.fieldId) this.#iceCrown(p, full ? 1.4 : 1.8, full ? 12 : 18, 0.85);
     }
     if (tiers.gale) {
       // pressure: the air thrown outward in long level streaks, and wound upward round the blow
@@ -460,12 +496,12 @@ export class DisasterElementEffects {
     if (tiers.lightning) {
       // the discharge: one strike down into the blow, and thick forks running out from it along the ground
       const full = tiers.lightning === 2;
-      this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.13 : 0.085, ttl: 0.24, jag: 0.07, forks: 3, steps: 11 });
-      const forks = this.#n(full ? 9 : 5);
+      this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.155 : 0.103, ttl: 0.26, jag: 0.08, forks: 3, steps: 11 });
+      const forks = this.#n(full ? 11 : 7);
       for (let i = 0; i < forks; i += 1) {
         const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * radius * (full ? 1.15 : 0.8);
         this.#bolt(new THREE.Vector3(p.x, floor + 0.15, p.z), new THREE.Vector3(p.x + Math.cos(a) * reach, floor + rand(0.05, 0.5), p.z + Math.sin(a) * reach),
-          { width: full ? 0.06 : 0.042, ttl: rand(0.16, 0.26), jag: 0.14, forks: 2 });
+          { width: full ? 0.073 : 0.051, ttl: rand(0.19, 0.3), jag: 0.14, forks: 2 });
       }
       for (let i = 0; i < this.#n(24); i += 1) {
         const a = rand(TAU);
