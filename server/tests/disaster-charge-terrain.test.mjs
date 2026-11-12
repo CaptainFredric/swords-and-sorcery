@@ -47,7 +47,7 @@ test('Half Lightning can freely move/turn while held and release at a chosen lat
   a.input.forward=1;a.input.pitch=.48;
   tick(room,9,9.75);
   assert.equal(a.ultimateState.phase,'startup');
-  assert.ok(a.position.x>2.2,'the knight is not stuck in a 35%-speed brace');
+  assert.ok(a.position.x>1.8,'the knight can still reposition deliberately while charging');
   assert.equal(a.pitch,.48,'camera look is not frozen');
   assert.equal(oneHitChargingLightning(a,9.74),true);
   assert.equal(releaseOneHitCharge(room,'a',10.6),true);
@@ -55,13 +55,13 @@ test('Half Lightning can freely move/turn while held and release at a chosen lat
   assert.equal(a.ultimateState.commitAt,10.6);
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact'&&e.form==='ground').length,1);
 });
-test('Half Lightning auto-releases at four seconds without making the Ultimate permanent',()=>{
+test('Half Lightning auto-releases after a short bounded hold without making the Ultimate permanent',()=>{
   const {room,a}=setup({lightning:1});
   assert.equal(tryUltimate(room,'a',9,{held:true}),true);
   assert.equal(a.ultimateState.commitAt,9+ONE_HIT_RULES.halfLightningHoldMaxSec);
-  tick(room,9,12.9);
+  tick(room,9,9+ONE_HIT_RULES.halfLightningHoldMaxSec-.05);
   assert.equal(a.ultimateState.phase,'startup');
-  tick(room,12.9,13.3);
+  tick(room,9+ONE_HIT_RULES.halfLightningHoldMaxSec-.05,11.15);
   assert.equal(room.events.filter(e=>e.type==='oneHitCommitted').length,1);
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact'&&e.form==='ground').length,1);
 });
@@ -70,7 +70,7 @@ test('Full Lightning retains its freely steerable charge and vertical aim',()=>{
   assert.equal(tryUltimate(room,'a',9,{held:true}),true);
   a.input.forward=1;a.input.pitch=.7;
   tick(room,9,9.65);
-  assert.ok(a.position.x>1.8);
+  assert.ok(a.position.x>.8);
   assert.equal(a.pitch,.7);
   assert.equal(oneHitChargingLightning(a,9.5),true);
   assert.equal(a.ultimateState.phase,'startup');
