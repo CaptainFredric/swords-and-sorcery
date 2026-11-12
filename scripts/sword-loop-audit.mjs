@@ -17,7 +17,7 @@ import { serializeSnapshot } from '../shared/sim/wire.mjs';
 import { resolveSpellbladeState } from '../client/game/spellbladePose.mjs';
 import { resolveSpellbladeAnimationPlan } from '../client/game/spellbladeAnimationPlan.mjs';
 import { blendSeconds, blendWeights } from '../client/game/spellbladeBlend.mjs';
-import { loadGlb, localPose, worldMatrices, apply } from './lib/glbPose.mjs';
+import { loadGlb, localPose, overlayMotion, worldMatrices, apply } from './lib/glbPose.mjs';
 
 // the composition's bone owners (spellbladeComposition.mjs, which needs three.js: the same rule, restated)
 function spellbladeBoneOwner(name) {
@@ -33,7 +33,9 @@ const option = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i 
 const FPS = 60;
 const DT = 1 / FPS;
 
+// (the canonical model with its motion sidecar laid over it, as the client plays it; --canonical: without)
 const model = loadGlb(new URL('../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname);
+if (!process.argv.includes('--canonical')) overlayMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
 // the sword's point and the grip in hand.R's frame (measured from the skinned sword's bind pose)
 const TIP = [0.131, 1.3383, -0.1661];
 const HAND = model.byName.get('hand.R');
@@ -78,9 +80,23 @@ class AnimatorEmulation {
       this.gait = ((this.gait ?? 0) + step * (loco.rate ?? 1) / c.duration) % 1;
       const locoTime = loco.loop ? this.gait * c.duration : (loco.normalized ? loco.time * c.duration : loco.time);
       this.active = null; this.fading = [];
-      return { layered: true, layers: [{ clip: plan.layers.sword.clip, time: plan.layers.sword.time, weight: 1 }],
+      // (the sword's channel cross-fades from the clip it had, over the plan's own blend: spellbladeComposition.mjs)
+      const sword = plan.layers.sword;
+      if (this.swordLayer && this.swordLayer.clip !== sword.clip) {
+        this.swordFade = { from: { ...this.swordLayer }, elapsed: 0, duration: Number.isFinite(sword.blend) ? sword.blend : blendSeconds(this.swordLayer.clip, sword.clip) };
+      }
+      this.swordLayer = { clip: sword.clip, time: sword.time };
+      const fade = this.swordFade;
+      if (fade) {
+        fade.elapsed += step;
+        if (sword.carry) fade.from.time = Math.min(model.clips.get(fade.from.clip).duration, fade.from.time + step);
+        if (fade.elapsed >= fade.duration) this.swordFade = null;
+      }
+      const w = this.swordFade ? ((x) => x * x * (3 - 2 * x))(this.swordFade.elapsed / this.swordFade.duration) : 1;
+      return { layered: true, layers: [{ clip: sword.clip, time: sword.time, weight: w }, ...(this.swordFade ? [{ clip: this.swordFade.from.clip, time: this.swordFade.from.time, weight: 1 - w }] : [])],
         owners: { locomotion: { clip: c.name, time: locoTime }, other: { clip: plan.layers.sword.clip, time: plan.layers.sword.time } } };
     }
+    this.swordLayer = null; this.swordFade = null;
     const clip = model.clips.has(plan.clip) ? plan.clip : plan.fallback;
     if (this.active?.clip !== clip) {
       const duration = this.active ? (plan.blend ?? blendSeconds(this.active.clip, clip)) : 0;

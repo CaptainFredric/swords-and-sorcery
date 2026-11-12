@@ -28,7 +28,8 @@ export function blendSeconds(fromClip, toClip) {
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
   // a cut broken off into the guard swings round into it (the guard's own authored entry arcs out through the right):
   // a little longer than an ordinary raise, so the blade is not whipped faster than any authored cut
-  if (COMBO_CLIPS.has(fromClip) && toClip === 'Guard') return 0.22;
+  // (0.3: the forehand now finishes high on the left, further from the guard than the low finish it had)
+  if (COMBO_CLIPS.has(fromClip) && toClip === 'Guard') return 0.3;
   // run <-> sprint shifts gait mid-stride (both stride on one shared phase)
   if ((fromClip === 'Run' && toClip === 'Sprint') || (fromClip === 'Sprint' && toClip === 'Run')) return 0.16;
   // the body moves at full speed at once, so a long fade from Idle would skate the feet

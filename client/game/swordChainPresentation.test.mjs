@@ -62,7 +62,10 @@ test('the shipped clips through the real sim: taps, let-go, guard, cast, dash, j
   }
   // a cut broken off into the Guard swings round into it no faster than the fastest authored cut
   const guard = run('attack into guard mid-swing', SCENARIOS['attack into guard mid-swing']);
-  assert.ok(Math.max(...guard.frames.map((f) => f.step ?? 0)) <= 1.1);
+  // (the fastest authored cut: the forehand through its contact, as a tap shows it)
+  const cut = Math.max(...run('one tap', SCENARIOS['one tap']).frames.filter((f) => f.state === 'attack').map((f) => f.step ?? 0));
+  const swing = Math.max(...guard.frames.filter((f) => f.state === 'guard').map((f) => f.step ?? 0));
+  assert.ok(swing <= cut, `into the Guard the point moves ${swing.toFixed(2)} m in a frame, the cut ${cut.toFixed(2)}`);
 });
 
 test('on the move the legs keep their gait under the strike (layered), standing the strike has the whole body', () => {

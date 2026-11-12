@@ -104,6 +104,27 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
+// The motion sidecar: clips laid over the canonical third-person model's own, by bone name (an animation-only GLB of
+// the same skeleton: tools/assets/build-spellblade-motion.mjs). A clip of the same name replaces the model's; the
+// model itself is not touched. Without it (not found, or it fails to load) the model plays its own clips.
+const MOTION_META_URL = '/client/assets/characters/spellblade/spellblade-motion.json';
+let motionPromise = null;
+function loadMotion() {
+  motionPromise ??= fetch(appUrl(MOTION_META_URL), { cache: 'no-store' })
+    .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`motion sidecar HTTP ${response.status}`))))
+    .then((meta) => loader.loadAsync(appUrl(`/client/assets/characters/spellblade/spellblade-motion.glb?v=${String(meta.sha256).slice(0, 40)}`))
+      .then((gltf) => Object.freeze({ sha256: meta.sha256, clips: Object.freeze(gltf.animations) })))
+    .catch((error) => { console.warn('Spellblade motion sidecar unavailable:', error?.message ?? error); return null; });
+  return motionPromise;
+}
+
+/** A model's clips with the sidecar's laid over them (same name: the sidecar's). */
+export function withMotionClips(own, motion) {
+  if (!motion?.length) return own;
+  const replaced = new Set(motion.map((clip) => clip.name));
+  return [...own.filter((clip) => !replaced.has(clip.name)), ...motion];
+}
+
 const FIRST_PERSON_ANISOTROPY = 8;
 const TEXTURE_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
 function sharpenTextures(root, anisotropy) {
@@ -156,7 +177,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const entry = kind === 'firstPerson' ? manifest.firstPerson : manifest.thirdPerson;
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
-  const gltf = await loadGltf(entry.url);
+  const [gltf, motion] = await Promise.all([loadGltf(entry.url), kind === 'firstPerson' ? null : loadMotion()]);
+  const clips = withMotionClips(gltf.animations, motion?.clips);
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;
@@ -172,8 +194,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   });
 
   const sorcery = createSorceryVolume(sockets.sorcery);
-  const castDuration = gltf.animations.find((clip) => clip.name === 'Cast')?.duration ?? 1;
-  const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
+  const castDuration = clips.find((clip) => clip.name === 'Cast')?.duration ?? 1;
+  const animator = new SpellbladeAnimator(root, clips, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
     sorcery.update(performance.now() / 1000, (plan.mounted || plan.ramMounted) ? 0 : sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
@@ -195,6 +217,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     sorceryLevel: () => sorcery.level(),
     materials: mutableMaterials.byName,
     sourceRevision: manifest.sourceRevision,
+    motionSha256: motion?.sha256 ?? null,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -210,11 +233,12 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
 export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL) {
   const manifest = await loadManifest(manifestUrl);
   if (manifest.enabled === false) return null;
-  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url)]);
+  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url), loadMotion()]);
   return manifest.sourceRevision;
 }
 
 export function clearSpellbladeAssetCaches() {
   manifestPromises.clear();
   gltfPromises.clear();
+  motionPromise = null;
 }
