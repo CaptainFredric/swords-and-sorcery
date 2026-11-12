@@ -162,11 +162,11 @@ test('committing spends the charge; it runs eight seconds and ends, with a short
   assert.equal(beginAttack(room, 'a', after + 0.5), true, 'and the sword again');
 });
 
-test('spinning, there is no guard, no dash, no spell, no fist and no sword chain of its own', () => {
+test('spinning, no stationary hand Guard or other attacks; the swept sword can still guard', () => {
   const { room, a } = duel({ distance: 30 });
   const committed = spin(room, a);
   const now = committed + 0.5;
-  assert.equal(setGuard(room, 'a', true, now), false, 'no guard');
+  assert.equal(setGuard(room, 'a', true, now), false, 'no stationary hand Guard');
   assert.equal(a.guarding, false);
   assert.equal(tryDash(room, 'a', { x: 1, z: 0 }, now), false, 'no dash');
   assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, now), false, 'no spell');
