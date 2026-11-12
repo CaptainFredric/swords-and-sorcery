@@ -10,7 +10,7 @@ import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 import { ONE_HIT_BASE_DAMAGE } from '../../shared/src/oneHitInfusions.mjs';
 import { ONE_HIT_FIRST_INFUSION_DAMAGE, ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 
-// Preview only until their authoritative controls and contact rules ship.
+// Sword Techniques use the same authoritative loadout as spells and Ultimates.
 export const SWORD_TECHNIQUES = Object.freeze([
   {
     id: 'rigid_riposte',
@@ -18,10 +18,10 @@ export const SWORD_TECHNIQUES = Object.freeze([
     mark: '⇏',
     icon: 'attack',
     line: 'A committed forward sword thrust that intercepts and parries incoming attacks along its startup path.',
-    facts: () => '~20–25 damage · ~10s cooldown · physical interception parry',
-    lore: "Sword technique in development. The Spellblade's tutors are drilling the recovery posture; not yet authorized for tournament combat.",
-    status: 'IN TRAINING',
-    disabled: true,
+    facts: () => '24 clean / 20 grazing · 5.7 m thrust · 10s cooldown · aerial use consumes Dash',
+    lore: 'A blade held exactly where the opponent would prefer it not to be.',
+    status: 'AVAILABLE',
+    disabled: false,
   },
   {
     id: 'whirl_wind',
@@ -29,10 +29,10 @@ export const SWORD_TECHNIQUES = Object.freeze([
     mark: '↻',
     icon: 'vortex',
     line: 'A full 360° mobile sword sweep. Can be sustained by expending Prowess energy; synergizes with Gale Garner.',
-    facts: () => 'Directional blade guard · ~8–12s cooldown · Prowess sustain',
-    lore: 'Sword technique in development. Rotational balance and physical footing are still being mastered under live sparring conditions.',
-    status: 'IN TRAINING',
-    disabled: true,
+    facts: () => '16 clean / 13 glancing per contact · 0.6s/revolution · 25 Prowess per extra spin · 10s cooldown',
+    lore: 'More sword, less stopping to discuss it.',
+    status: 'AVAILABLE',
+    disabled: false,
   },
 ]);
 
@@ -104,7 +104,7 @@ const ULTIMATE_WORDS = Object.freeze({
   },
 });
 
-export function armoryView(equipped, ultimate = 'sunder') {
+export function armoryView(equipped, ultimate = 'sunder', technique = 'rigid_riposte') {
   return {
     blade: {
       name: 'Castleward longsword',
@@ -120,7 +120,7 @@ export function armoryView(equipped, ultimate = 'sunder') {
       lore: tech.lore,
       status: tech.status,
       disabled: tech.disabled,
-      equipped: false,
+      equipped: tech.id === technique,
     })),
     spells: Object.values(SPELLS).map((spell) => {
       const words = SPELL_WORDS[spell.id] ?? { mark: '◆', line: '', facts: () => `${spell.cooldownSec} s`, lore: '' };
