@@ -24,6 +24,7 @@ export const ONE_HIT_FIELD = Object.freeze({
   frostDepth: 0.35,        // the slow at the heart of a fresh Frost field (the direct hit's own)
   frostLingerSec: 0.6,     // a chill picked up in the field lasts this long after the last contact
   conductStep: 0.15,       // a field passes on more Conduct only for this much deeper a contact than before
+  shakenStep: 0.15,        // similarly, a newly entering knight gets only deeper Shaken, never infinite reapplications
 });
 
 export const ONE_HIT_CONDUCT = Object.freeze({
