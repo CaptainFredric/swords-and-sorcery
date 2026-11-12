@@ -48,8 +48,10 @@ export function workshopPreviewPose(skill, time) {
     y=2.2*between(t,.14,.75)*(1-between(t,4.8,5.95));
     yawOffset=-a;
   } else if (skill==='fireAwayRightHere') {
-    y=5.1*between(t,.25,1.6)*(1-between(t,6.6,8.1));
-    z=-.6*between(t,1.6,2.2)*(1-between(t,6.6,8.1));
+    // The demonstration first ascends dramatically and then settles to the
+    // workshop floor BEFORE the sustained borrowed-ammo crossbow exhibition.
+    y=5.1*between(t,.22,1.25)*(1-between(t,1.55,2.4));
+    z=-.6*between(t,.75,1.3)*(1-between(t,1.55,2.4));
   }
   return {x,y,z,pitch,roll,yawOffset,fist,shudder};
 }
@@ -72,7 +74,7 @@ export function workshopPreviewShots(skill) {
     }));
   if(skill==='fireAwayRightHere')
     return Array.from({length:27},(_,i)=>({
-      at:2.35+i*.145,flight:.33,kind:'repeater',target:i%3,
+      at:2.65+i*.145,flight:.33,kind:'repeater',target:i%3,
     }));
   return [];
 }
@@ -91,7 +93,7 @@ export function workshopPreviewTargetPose(skill,t,index) {
       fall:between(t,3.02,3.42)*(1-back),guard:false};
   }
   const defeated=skill==='narrowToOne'?4.68:
-    skill==='fireAwayRightHere'?[6.17,6.34,6.51][index]:
+    skill==='fireAwayRightHere'?[6.4,6.55,6.7][index]:
     skill==='boltToTheOccasion'?[2.03,3.35][index]:2;
   const fall=between(t,defeated,defeated+.38);
   return {x:0,y:0,z:0,fall,
