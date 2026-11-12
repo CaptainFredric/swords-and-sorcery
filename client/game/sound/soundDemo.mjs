@@ -26,7 +26,7 @@ export const DEMOS = {
       const impact=(at,tiers)=>{
         const elements=DISASTER_AUDIO_ELEMENTS.filter(e=>(tiers[e]??0)>0);
         const balance=1/Math.sqrt(1+elements.length*.34);
-        engine.play(disasterEarthImpactRecipe(rand),{at,gain:.93*balance});
+        engine.play(disasterEarthImpactRecipe(rand),{at,gain:.89});
         const offsets={fire:.035,frost:.095,gale:.135,lightning:.185,steel:.23};
         for(const e of elements){
           engine.play(disasterInfusionImpactRecipe(e,rand,{tier:tiers[e]}),
@@ -54,7 +54,7 @@ export const DEMOS = {
       const rand=()=>.42;
       engine.play(coreMagmaArmRecipe(rand),{at:1,gain:.55});
       engine.play(coreMagmaFuseRecipe(rand,{seconds:.6}),{at:1.035,gain:.72});
-      engine.play(coreMagmaDetonationRecipe(rand),{at:1.6,gain:1});
+      engine.play(coreMagmaDetonationRecipe(rand),{at:1.6,gain:.86});
       engine.play(conductChargeRecipe(rand,{seconds:.45}),{at:6,gain:.85});
       engine.play(conductDischargeRecipe(rand),{at:6.45,gain:.93});
       engine.play(conductWireTailRecipe(rand),{at:6.48,gain:.49,pan:.28});
