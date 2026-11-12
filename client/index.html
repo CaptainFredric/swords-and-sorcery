@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="client/ui/preparedSpells.css" />
   <link rel="stylesheet" href="client/chivalry.css" />
   <link rel="stylesheet" href="client/siege-hud.css" />
+  <link rel="stylesheet" href="client/ui/afflictions.css" />
   <script type="importmap">
     {
       "imports": {
@@ -291,6 +292,10 @@
             <section class="siege-section">
               <h4 class="armory-slot">SIEGE SKILLS · U</h4>
               <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
+              <div class="siege-preview-controls">
+                <p id="siege-preview-hint" aria-live="polite">SELECT A SKILL TO WATCH ITS WORKSHOP DEMONSTRATION.</p>
+                <button type="button" id="siege-preview-stop" class="armory-reset-btn" hidden>END PREVIEW</button>
+              </div>
             </section>
 
             <section class="siege-section">
@@ -655,6 +660,7 @@
           <span>R</span><b>Use your Ultimate when Prowess is full</b>
           <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers. Prepared spells always stay spells.</b>
           <h3 class="controls-group">OTHER</h3>
+          <span>I</span><b>Inspect status effects · press again for the next one</b>
           <span>TAB</span><b>Scoreboard</b>
           <span>M / N</span><b>Toggle sound / music</b>
           <span>ESC</span><b>Arena menu / Back</b>
@@ -668,6 +674,7 @@
           <span>DASH</span><b>Dash in your movement direction</b>
           <span>ULTIMATE</span><b>Use when Prowess is full</b>
           <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
+          <span>STATUS ICONS</span><b>Tap an upper-left icon to inspect its effect</b>
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
@@ -780,7 +787,7 @@
           <div class="health-label"><span id="health-value">100</span><small>HP</small></div>
           <!-- Sheathed in Steel: a riveted frame of plates round the bar, as strong as the armour, wearing away plate by plate -->
           <div id="health-armour" class="health-armour" aria-hidden="true">
-            <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div></div>
+            <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div><div class="health-steel-last-hp" aria-hidden="true"></div></div>
             <i class="armour-plate" style="--i: 0"></i><i class="armour-plate" style="--i: 1"></i><i class="armour-plate" style="--i: 2"></i><i class="armour-plate" style="--i: 3"></i><i class="armour-plate" style="--i: 4"></i>
             <b class="armour-tag">⛨ STEEL</b>
           </div>
@@ -851,6 +858,7 @@
               <label>FROST <select data-one-hit-element="frost"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
               <label>GALE <select data-one-hit-element="gale"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
               <label>LIGHTNING <select data-one-hit-element="lightning"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+              <label>STEEL <select data-one-hit-element="steel"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
             </div>
             <div class="one-hit-practice-presets">
               <button type="button" data-one-hit-preset="simple">SIMPLE SUNDER</button>
@@ -858,6 +866,7 @@
               <button type="button" data-one-hit-preset="full">ALL FULL</button>
               <button type="button" data-one-hit-preset="gale">FULL GALE</button>
               <button type="button" data-one-hit-preset="gale-lightning">GALE + LIGHTNING</button>
+              <button type="button" data-one-hit-preset="steel">FULL STEEL</button>
               <button type="button" data-one-hit-preset="reset">RESET INFUSIONS</button>
             </div>
             <label class="one-hit-unlimited"><input id="practice-one-hit-unlimited" type="checkbox" checked> PRESERVE SELECTED INFUSIONS BETWEEN CASTS</label>

@@ -587,13 +587,6 @@ html.turn-typing .rotate-prompt { display: none !important; }
   filter:drop-shadow(0 0 5px #ffbd6b) drop-shadow(0 0 2px #ffe3a3);
   pointer-events:none;
 }
-.touch-valkyrie-finger {
-  fill:none;stroke:#fff9d3;stroke-width:4.5;
-  stroke-linecap:round;stroke-linejoin:round;opacity:.88;
-  filter:drop-shadow(0 0 5px rgba(255,210,130,.85));
-  pointer-events:none;
-}
-.touch-valkyrie-stencil:not(.drawing):not(.complete) .touch-valkyrie-finger {opacity:.35;}
 .touch-valkyrie-status {
   position:absolute;min-width:140px;max-width:230px;box-sizing:border-box;
   padding:4px 7px;border:1px solid #e1c78488;border-radius:4px;

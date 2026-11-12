@@ -1,4 +1,5 @@
 import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
+import { ONE_HIT_PRESETS } from '../shared/src/oneHitInfusions.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
 import { createRepeatActivation } from './menu/repeatActivation.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
@@ -308,6 +309,7 @@ let renown = null;
 try {
   menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryScreen: $('#armory-menu') });
   menuScene.setTourAllowed(tourAllowed());
+  menuScene.siegeWorkshop.onPreviewChange=skill=>updateSiegePreviewUI(skill);
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
   menuSpellblade.classList.add('menu-scene-unavailable');
@@ -1928,6 +1930,20 @@ function updatePlaques() {
 
 let lastEquippedCategory = null;
 let lastEquippedItemId = null;
+// The selection is placed at the bottom of the *visible banner window*, not the
+// end of a possibly much longer equipment list. Preserve the remaining order.
+const bannerReorderSlots = new Map();
+function bannerOrdered(items, category, key) {
+  const slot = bannerReorderSlots.get(category);
+  if (!slot) return items;
+  const result = [...items];
+  const chosen = result.findIndex(item => key(item) === slot.chosen);
+  if (chosen < 0) return result;
+  const [item] = result.splice(chosen, 1);
+  const anchor = result.findIndex(entry => key(entry) === slot.anchor);
+  result.splice(anchor < 0 ? result.length : anchor + 1, 0, item);
+  return result;
+}
 
 function renderInspectorLists() {
   const currentSpell = settings.get('loadout.spell');
@@ -1956,7 +1972,7 @@ function renderInspectorLists() {
     const view = armoryView(currentSpell, currentUlt);
     const unequipped = view.spells.filter((s) => !s.equipped);
     const equipped = view.spells.find((s) => s.equipped);
-    const sortedSpells = equipped ? [...unequipped, equipped] : view.spells;
+    const sortedSpells = bannerOrdered(equipped ? [...unequipped, equipped] : view.spells, 'sorcery', item => item.id);
 
     spellsContainer.innerHTML = sortedSpells.map((spell) => {
       const isSelected = spell.id === armoryLocation.highlightedItem && armoryLocation.category === 'sorcery';
@@ -1972,7 +1988,7 @@ function renderInspectorLists() {
     const view = armoryView(currentSpell, currentUlt);
     const unequipped = view.ultimates.filter((u) => !u.equipped);
     const equipped = view.ultimates.find((u) => u.equipped);
-    const sortedUlts = equipped ? [...unequipped, equipped] : view.ultimates;
+    const sortedUlts = bannerOrdered(equipped ? [...unequipped, equipped] : view.ultimates, 'masterstroke', item => item.id);
 
     ultimatesContainer.innerHTML = sortedUlts.map((u) => {
       const isSelected = u.id === armoryLocation.highlightedItem && armoryLocation.category === 'masterstroke';
@@ -2049,85 +2065,59 @@ function updateInspectorDetailCard() {
   }
 }
 
+// Capture visual card coordinates before re-render. FLIP animates real DOM position
+// changes; never move the scroll container instantaneously in the middle of the move.
 function animateCardReorder(category, selectedItemId) {
-  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
-
-  let listId = '#armory-spells';
-  let wrapperId = '#inspector-list-sorcery';
-  if (category === 'masterstroke') {
-    listId = '#armory-ultimates';
-    wrapperId = '#inspector-list-masterstroke';
-  } else if (category === 'technique') {
-    listId = '#armory-techniques';
-    wrapperId = '#inspector-list-technique';
-  }
-
+  const listId = category === 'masterstroke' ? '#armory-ultimates'
+    : category === 'technique' ? '#armory-techniques' : '#armory-spells';
   const container = document.querySelector(listId);
   const scrollEl = document.querySelector('#armory-inspector .inspector-scroll');
-  const wrapperEl = document.querySelector(wrapperId);
   if (!container || !scrollEl) return null;
-
-  const firstPositions = new Map();
-  container.querySelectorAll('.spell-card').forEach((card) => {
-    const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
-    if (id) {
-      firstPositions.set(id, card.getBoundingClientRect());
-    }
+  const keyOf = card => card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+  const before = new Map([...container.querySelectorAll('.spell-card')]
+    .map(card => [keyOf(card), card.getBoundingClientRect()]));
+  const priorScroll = scrollEl.scrollTop;
+  const scrollWindow = scrollEl.getBoundingClientRect();
+  const visibleCards = [...container.querySelectorAll('.spell-card')].filter(card => {
+    const bounds = card.getBoundingClientRect();
+    return bounds.top < scrollWindow.bottom - 8 && bounds.bottom > scrollWindow.top + 8;
   });
-
-  return function play() {
-    if (wrapperEl) {
-      const targetScrollTop = Math.max(0, wrapperEl.offsetTop + wrapperEl.offsetHeight - scrollEl.clientHeight);
-      scrollEl.scrollTop = targetScrollTop;
-    }
-
-    const cards = container.querySelectorAll('.spell-card');
-    const animatingCards = [];
-
-    cards.forEach((card) => {
-      const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
-      const first = firstPositions.get(id);
-      if (!first) return;
-
-      const last = card.getBoundingClientRect();
-      const deltaY = first.top - last.top;
-
-      if (Math.abs(deltaY) > 1) {
-        const isSelected = id === selectedItemId;
-        card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
-        card.style.transition = 'none';
-        if (isSelected) {
-          card.classList.add('swiping-down');
-        } else {
-          card.classList.add('shifting-up');
-        }
-        animatingCards.push({ card, isSelected });
+  const anchor = visibleCards.at(-1)?.dataset && keyOf(visibleCards.at(-1)) === selectedItemId
+    ? visibleCards.at(-2) : visibleCards.at(-1);
+  // The last currently visible choice marks the bottom of the crimson viewport.
+  // Don't jump the scroll position down through offscreen cards and details.
+  if (anchor && category !== 'technique')
+    bannerReorderSlots.set(category, { chosen: selectedItemId, anchor: keyOf(anchor) });
+  const wasFocused = container.contains(document.activeElement);
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  return () => {
+    // DOM replacement can invoke scroll anchoring. The player's position in the
+    // list is authoritative, not the browser's choice of a replacement anchor.
+    scrollEl.scrollTop = priorScroll;
+    const cards = [...container.querySelectorAll('.spell-card')];
+    const target = cards.find(card => keyOf(card) === selectedItemId);
+    if (!target) return;
+    if (!reduced) {
+      for (const card of cards) {
+        const previous = before.get(keyOf(card));
+        if (!previous) continue;
+        const current = card.getBoundingClientRect();
+        const deltaY = previous.top - current.top;
+        if (Math.abs(deltaY) < 0.5) continue;
+        const selected = card === target;
+        card.getAnimations().forEach(animation => animation.cancel());
+        card.animate([
+          { transform: `translateY(${deltaY}px)` },
+          { transform: 'translateY(0)' },
+        ], {
+          duration: selected ? 460 : 400,
+          easing: 'cubic-bezier(.2,.74,.25,1)',
+        });
       }
-    });
-
-    if (animatingCards.length === 0) return;
-
-    container.offsetHeight;
-
-    requestAnimationFrame(() => {
-      animatingCards.forEach(({ card, isSelected }) => {
-        if (isSelected) {
-          card.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.25s ease';
-          card.style.transform = 'translateY(0) scale(1)';
-        } else {
-          card.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
-          card.style.transform = 'translateY(0)';
-        }
-
-        const cleanup = () => {
-          card.style.transform = '';
-          card.style.transition = '';
-          card.classList.remove('swiping-down', 'shifting-up');
-        };
-        card.addEventListener('transitionend', cleanup, { once: true });
-        setTimeout(cleanup, 480);
-      });
-    });
+    }
+    // No automatic scroll. The clicked card moves within the visible
+    // banner window; the player scrolls separately to see its details.
+    if (wasFocused) target.focus({ preventScroll: true });
   };
 }
 
@@ -2144,12 +2134,13 @@ function scrollToEquippedItem(category, { smooth = false } = {}) {
   const listEl = inspector.querySelector(wrapperId);
   if (!listEl) return;
 
-  const targetScrollTop = Math.max(0, listEl.offsetTop + listEl.offsetHeight - scrollEl.clientHeight);
-
-  scrollEl.scrollTo({
-    top: targetScrollTop,
-    behavior: smooth ? 'smooth' : 'instant',
-  });
+  const card = listEl.querySelector('.spell-card.equipped');
+  if (!card) return;
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const target = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
+    scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
+  scrollEl.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'instant' });
 }
 
 function equipInspectorItem(category, itemId, { animate = true } = {}) {
@@ -2157,6 +2148,10 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
   armoryLocation.category = category;
   armoryLocation.highlightedItem = itemId;
   saveArmoryLocation(armoryLocation);
+
+  // Capture BEFORE settings.set: its synchronous onChange redraws every
+  // equipment card, otherwise the animation never sees the original order.
+  const playReorder = animate ? animateCardReorder(category, itemId) : null;
 
   if (category === 'sorcery') {
     const prevSpell = settings.get('loadout.spell');
@@ -2175,8 +2170,6 @@ function equipInspectorItem(category, itemId, { animate = true } = {}) {
     }
     settings.set('loadout.technique', itemId);
   }
-
-  const playReorder = animate ? animateCardReorder(category, itemId) : null;
 
   lastEquippedCategory = category;
   lastEquippedItemId = itemId;
@@ -2254,6 +2247,56 @@ function closeInspector() {
   if (backBtn && armoryLocation.region === 'kit') backBtn.textContent = '← MAIN MENU';
 }
 
+function updateSiegePreviewUI(skillId) {
+  const button=$('#siege-preview-stop');
+  const hint=$('#siege-preview-hint');
+  if(button)button.hidden=!skillId;
+  if(hint) {
+    const names={
+      boltToTheOccasion:'BOLT TO THE OCCASION',
+      coldHowTouching:'COLD, HOW TOUCHING',
+      beatToThePunch:'BEAT TO THE PUNCH',
+      longArmToTheJaw:'LONG ARM TO THE JAW',
+      fireAwayRightHere:"FIRE AWAY? I'M RIGHT HERE",
+      narrowToOne:'NARROW TO ONE',
+      doNotStopMyAscension:'DO NOT STOP MY ASCENSION',
+    };
+    hint.textContent=skillId ? `DEMONSTRATING ${names[skillId]??'SKILL'} · TAP AGAIN TO REPLAY`
+      :'SELECT A SKILL TO WATCH ITS WORKSHOP DEMONSTRATION.';
+  }
+}
+
+function prepareSiegeSkillReorder(skillId) {
+  const list=$('#armory-siege-machines');
+  const scroll=$('#armory-siege .siege-inspector-scroll');
+  if(!list||!scroll)return () => {};
+  const before=new Map([...list.querySelectorAll('[data-siege-skill]')]
+    .map(node=>[node.dataset.siegeSkill,node.getBoundingClientRect()]));
+  const scrollTop=scroll.scrollTop;
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  return () => {
+    scroll.scrollTop=scrollTop;
+    const cards=[...list.querySelectorAll('[data-siege-skill]')];
+    const chosen=cards.find(card=>card.dataset.siegeSkill===skillId);
+    if(!chosen)return;
+    const rect=chosen.getBoundingClientRect();
+    const box=scroll.getBoundingClientRect();
+    const goal=Math.max(0,Math.min(scroll.scrollHeight-scroll.clientHeight,
+      scroll.scrollTop+rect.bottom-box.bottom+18));
+    if(!reduced)for(const card of cards) {
+      const first=before.get(card.dataset.siegeSkill);
+      if(!first)continue;
+      const dy=first.top-card.getBoundingClientRect().top;
+      if(Math.abs(dy)>.5)card.animate([
+        {transform:`translateY(${dy}px) scale(1)`},
+        {transform:'translateY(0) scale(1)'},
+      ],{duration:420,easing:'cubic-bezier(.2,.74,.25,1)'});
+    }
+    if(Math.abs(goal-scroll.scrollTop)>1)
+      scroll.scrollTo({top:goal,behavior:reduced?'instant':'smooth'});
+  };
+}
+
 function renderSiegeWorkshop(machineId = 'soFist') {
   armoryLocation.siegeMachine = machineId;
   saveArmoryLocation(armoryLocation);
@@ -2291,10 +2334,12 @@ function renderSiegeWorkshop(machineId = 'soFist') {
     </div>`).join('');
   }
 
+  const sortedSkills=[...m.skills.filter(skill=>!skill.equipped),
+    ...m.skills.filter(skill=>skill.equipped)];
   $('#armory-siege-machines').innerHTML = `
     <article class="siege-armory-card">
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
-        ${m.skills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
+        ${sortedSkills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
           <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
           <small>${skill.line}</small></button>`).join('')}
       </div>
@@ -2314,6 +2359,7 @@ function renderSiegeWorkshop(machineId = 'soFist') {
       ${m.line.split(/\n\s*\n/).map((paragraph, i) => `<p${i === 0 && m.id === 'fightFlight' ? ' class="siege-armory-motto"' : ''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('')}
     </div>
   `;
+  updateSiegePreviewUI(menuScene?.siegeWorkshop?.performance?.skill??null);
 }
 
 function navigateToArmorySection(region, { preserveInspector = false, immediate = false } = {}) {
@@ -2450,8 +2496,12 @@ $('#armory-siege-machines').addEventListener('click', (event) => {
     button.dataset.siegeMachine === 'soFist' ? 'loadout.soFistSkill' :
     button.dataset.siegeMachine === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
   if (setting) {
+    const motion=prepareSiegeSkillReorder(button.dataset.siegeSkill);
     settings.set(setting, button.dataset.siegeSkill);
     renderSiegeWorkshop(armoryLocation.siegeMachine);
+    motion();
+    menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill);
+    updateSiegePreviewUI(button.dataset.siegeSkill);
   }
 });
 
@@ -2459,6 +2509,11 @@ document.querySelector('.siege-machine-nav')?.addEventListener('click', (event) 
   const button = event.target.closest('[data-siege-tab]');
   if (!button) return;
   renderSiegeWorkshop(button.dataset.siegeTab);
+});
+
+$('#siege-preview-stop')?.addEventListener('click',()=>{
+  menuScene?.siegeWorkshop?.stopPreview();
+  updateSiegePreviewUI(null);
 });
 
 $('#siege-story-details')?.addEventListener('toggle', (event) => {
@@ -2908,14 +2963,7 @@ practiceOneHit?.addEventListener('click',event=>{
   const button=event.target.closest?.('button');
   if(!button)return;
   if(button.dataset.oneHitPreset){
-    const values=({
-      simple:{fire:0,frost:0,gale:0,lightning:0},
-      reset:{fire:0,frost:0,gale:0,lightning:0},
-      partial:{fire:1,frost:1,gale:1,lightning:1},
-      full:{fire:2,frost:2,gale:2,lightning:2},
-      gale:{fire:0,frost:0,gale:2,lightning:0},
-      'gale-lightning':{fire:0,frost:0,gale:2,lightning:2},
-    })[button.dataset.oneHitPreset];
+    const values=({...ONE_HIT_PRESETS,reset:ONE_HIT_PRESETS.simple})[button.dataset.oneHitPreset];
     if(values)for(const [element,tier]of Object.entries(values))pendingOneHitTier(element,tier);
     practiceOneHitCommand({action:'preset',preset:button.dataset.oneHitPreset});
   }else if(button.dataset.oneHitAction){

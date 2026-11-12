@@ -43,6 +43,7 @@ export class InputController {
     this.techniqueSources = new Set();
     this.ultimateGesture = null;
     this.oneHitWaveId = null;
+    this.oneHitAimUntil = null;
     this.prepared = { visible: false };
     this.preparedGesture = null;
     this.preparedConsumedKeys = new Set();
@@ -554,6 +555,11 @@ export class InputController {
     const busy=this.ultimateSources.size>0;
     this.ultimateSources.add(source);
     if(busy)return;
+    if(Number.isFinite(this.oneHitAimUntil)){
+      this.ultimateGesture='fire';
+      this.socket.oneHitFire?.();
+      return;
+    }
     if(this.oneHitWaveId){
       this.ultimateGesture='detonate';
       this.socket.oneHitDetonate?.(this.oneHitWaveId);

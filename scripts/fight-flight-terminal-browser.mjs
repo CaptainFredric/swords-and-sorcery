@@ -180,10 +180,14 @@ try{
  assert.equal(prep.spent,false,'preparation must not pre-consume final dive');
  assert.ok(prep.prowess>=100,'precommit meter must remain unspent');
  assert.ok(prep.remaining>0,'the full one-second preparation must be observed');
- await screenshot('04-terminal-sequence');
+ // A blocking Chrome screenshot during the one-second terminal dive can
+ // consume every render frame under software WebGL, falsely reporting that
+ // the pitched rider never appeared. Observe the actual frame FIRST; keep
+ // the same visibility-and-angle assertion, then capture the screenshot.
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),'real one-second Valkyrie commitment',160);
  const pitchEvidence=await until(()=>evaluate("(() => {const trace=window.__terminalPitchTrace??[],m=window.__ssRuntime?.latestSnapshot?.fightFlight,found=trace.find(s=>s.visible&&s.pitch>.3&&Math.abs(s.rider+s.pitch)<.12);return found?{observed:true,...found}:m?.terminalDive?.resolved?{observed:false,resolved:true}:null;})()"),'rendered Spellblade pitch during physical terminal dive',150);
  assert.equal(pitchEvidence.observed,true,'a real visible rider frame must match chassis pitch, not merely the server state');
+ await screenshot('04-terminal-sequence');
  const committed=await evaluate(flightState);
  assert.ok(committed.machine.terminalDiveSpent,'the machine spends one terminal opportunity');
  assert.ok(committed.player.prowess===0 || committed.player.prowess>=99,'terminal dive consumes meter; Practice mode restores personal Ultimate');

@@ -30,6 +30,10 @@ test('the Armory offers the original ultimates and All-Natural Disaster with its
   assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
   const disaster = view.ultimates.find((u) => u.id === 'one_hit_of_wonders');
   assert.equal(disaster.name,'ALL-NATURAL DISASTER');
+  // its facts are the rules' own figures: 46, and each first infusion's contribution (Gale's 1, not its old 8)
+  assert.match(disaster.facts, /^46 PHYSICAL · \+13 FIRE · \+11 FROST · \+1 GALE · \+12 LIGHTNING · \+2 STEEL · /);
+  assert.doesNotMatch(disaster.facts, /\+8 GALE|40 PHYSICAL/);
+  assert.match(disaster.line, /Steel/);
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');
   assert.match(vortex.line, /^Spin through enemies with your blade and aimed fire\./);

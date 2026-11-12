@@ -541,7 +541,9 @@ export class WeaponView {
       const spinShare=Math.min(1,share/.78);
       const spin=vortexStartupPose(spinShare,spinShare*Math.PI*2);
       if(share<.78)pose=spin;
-      else pose=blendPoses(spin,pose,ease((share-.78)/.22));
+      // (the spin's pose and the slam's are two different rigs' worth of numbers: where they cannot be blended, the
+      // spin is kept until the slam is nearly down rather than throwing in the frame, as it did)
+      else pose=spin?.raw?.turn&&pose?.raw?.turn?blendPoses(spin,pose,ease((share-.78)/.22)):share<.9?spin:pose;
     }
     // taking over from a swing that was under way: a short hand-over, never a jump
     const takeover = (timeSec - brace.at) / 0.16;

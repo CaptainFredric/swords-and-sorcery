@@ -15,7 +15,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, pressTechnique } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, fireOneHitWave, pressTechnique } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
@@ -231,7 +231,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
       burningUntil: p.burn?.until ?? 0,
       // Sheathed in Steel: when it was called and until when it holds full (it wears off evenly from there)
-      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck) } : null,
+      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck), ...(p.steel.extended ? { extended: true } : {}), ...(p.steel.earning ? { earning: true } : {}) } : null,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       // the Practice Yard's recast gates (practiceRecast.mjs): the real cooldowns above are shown as they are
@@ -240,9 +240,11 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
-      oneHitInfusions: { ...(p.oneHitInfusions ?? {fire:0,frost:0,gale:0,lightning:0}) },
+      oneHitInfusions: { fire:0,frost:0,gale:0,lightning:0,steel:0, ...(p.oneHitInfusions ?? {}) },
       shaken: p.shaken ? { ...p.shaken } : null,
       electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,
+      blustered: p.blustered ? { ...p.blustered } : null,
+      oneHitField: p.oneHitField ? { ...p.oneHitField } : null,
       practiceOneHit: p.id === recipientId || !recipientId ? (p.practiceOneHit ? { enabled: Boolean(p.practiceOneHit.enabled), stages: { ...p.practiceOneHit.stages } } : null) : null,
       oneHitFrostSlow: p.oneHitFrostSlow ? { ...p.oneHitFrostSlow } : null,
       oneHitFrozenUntil: p.oneHitFrozenUntil ?? -Infinity,
@@ -287,6 +289,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     })),
     oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
       id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, bornAt:z.bornAt, until:z.until,
+    })),
+    oneHitFields: (room.oneHitFields ?? []).map(f => ({
+      id:f.id, ownerId:f.ownerId, position:{...f.position}, radius:f.radius, bornAt:f.bornAt, until:f.until, tiers:{...f.tiers},
     })),
     lineConductWires: (room.lineConductWires ?? []).map(w => ({
       id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,
@@ -389,7 +394,7 @@ export function applyRoomCommand(room, player, message, time) {
     && !renownTrialCombatOpen(room)
     && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
-      'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitDetonate',
+      'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
@@ -573,6 +578,8 @@ export function applyRoomCommand(room, player, message, time) {
       tryUltimate(room,player.id,time,{held:message.held===true}); return {};
     case 'oneHitRelease':
       releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true}); return {};
+    case 'oneHitFire':
+      fireOneHitWave(room,player.id,time); return {};
     case 'oneHitDetonate':
       detonateOneHitWave(room,player.id,message.waveId,time); return {};
     case 'flightUltimateHold': {

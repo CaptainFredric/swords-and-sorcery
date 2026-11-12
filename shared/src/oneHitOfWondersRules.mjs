@@ -1,12 +1,31 @@
 import { SPELLS } from './spells.mjs';
+import { STEEL_DAMAGE_RANGES } from './steel.mjs';
+import { STEEL_RAM, ramEffect } from './steelRam.mjs';
 
 // Rule foundation for the eventual server-authoritative Ultimate and its presentation.
 // This does not register or activate the Ultimate or the new Line of Conduct spell.
 export const ONE_HIT_RULES = Object.freeze({
   aerialWindupSec: 0.85,
   groundReleaseWindowSec: 0.32,
+  // Half Lightning charges in the player's hands for at most four seconds.
+  // An early release cannot bypass its genuinely faster .36 s minimum wind-up.
+  halfLightningStartupSec: 0.36,
+  halfLightningHoldMaxSec: 4,
+  // Without Full Gale, a caster knocked from a ledge completes a swift,
+  // grounded plunge, without acquiring Gale's airborne projectile.
+  groundPlungeFallSpeed: 21,
+
   // After a full-Lightning teleport, the discharge has no SECOND wind-up.
   postTeleportWindupSec: 0,
+  // A short hover after an airborne teleport lets the player aim the sword,
+  // independently from the direction used to reposition.
+  postTeleportAimSec: 0.35,
+  groundedGaleWaveDelaySec: 0.14,
+  waveMaxReach: 22,
+  waveTerminalRadius: 2.2,
+  // A Fire-infused terminal blast equals an ordinary (uninfused) ground slam;
+  // it is still smaller than the widened Fire-infused ground slam.
+  waveTerminalFireRadius: 3.4,
   // Held teleport visual aura does not continually expand or inflict damage.
   teleportAuraMaxRadius: 1.25,
   teleportDistanceScale: 22,
@@ -16,12 +35,17 @@ export const ONE_HIT_RULES = Object.freeze({
 
 // Each element's first infusion adds its minimum meaningful direct spell hit
 // ONLY to the decisive impact/wave (once per victim). Full infusion does not
-// grant another copy. Gale's outer pressure is non-damaging; the core deals 8.
+// grant another copy. Every figure is read from the rule that owns it:
+//   Fire, Frost: the edge of the blast (the least a real contact deals);
+//   Gale: the least a whole gust deals to a body it legitimately caught (its 8-point heart is its most, not its least);
+//   Lightning: Line of Conduct's long-distance floor;
+//   Steel: the least a qualifying Steel Dash ram deals, a ram at the weakest plate that still makes one.
 export const ONE_HIT_FIRST_INFUSION_DAMAGE = Object.freeze({
   fire: SPELLS.fireball.edgeDamage,
   frost: SPELLS.frostfire.edgeDamage,
-  gale: SPELLS.gale.cone.damage,
+  gale: STEEL_DAMAGE_RANGES.gale.min,
   lightning: ONE_HIT_RULES.lineOfConduct.farDamage,
+  steel: ramEffect(STEEL_RAM.minStrength).damage,
 });
 
 export function lineOfConductDamage(distanceMetres) {

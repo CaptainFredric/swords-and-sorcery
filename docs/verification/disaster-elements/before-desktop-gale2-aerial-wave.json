@@ -1,0 +1,167 @@
+{
+ "device": "desktop",
+ "form": "aerial",
+ "tiers": {
+  "gale": 2
+ },
+ "label": "before-desktop-gale2-aerial-wave",
+ "renderFps": 60,
+ "stills": 108,
+ "videoBytes": 2858040,
+ "commitAt": 7.96590000000596,
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 6.508
+  },
+  {
+   "clip": "Air",
+   "from": 7.041
+  },
+  {
+   "clip": "Slash_3",
+   "from": 7.062
+  },
+  {
+   "clip": "Idle",
+   "from": 9.624
+  }
+ ],
+ "clipAtCommit": {
+  "clip": "Slash_3",
+  "time": 0.389,
+  "lateBy": 0.01
+ },
+ "impact": {
+  "form": "aerial",
+  "radius": 2.2,
+  "struck": null
+ },
+ "peakEffects": {
+  "glow": 0,
+  "rock": 0,
+  "smoke": 0,
+  "bolts": 0,
+  "fields": 0,
+  "ice": 0,
+  "fractures": 0
+ },
+ "effectsAtEnd": null,
+ "dummyAtEnd": {
+  "health": 100,
+  "guard": 100,
+  "shaken": false,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0
+ },
+ "eventTypes": {
+  "oneHitCommitted": 1,
+  "oneHitImpact": 1,
+  "oneHitWave": 1,
+  "ultimateActive": 1,
+  "ultimateEnded": 1,
+  "ultimateStart": 1
+ },
+ "decisive": [],
+ "decisiveVictims": 0,
+ "worstFrameGapMs": 21,
+ "pageErrors": [
+  "[Castleward] Visual frame recovered after exception Object TypeError: Cannot read properties of undefined (reading 'turn')\n    at blendPoses (http://127.0.0.1:55539/client/game/fpSlash.mjs:787:28)\n    at #bracePose (http://127.0.0.1:55539/client/game/WeaponView.mjs:543:17)\n    at WeaponView.update (http://127.0.0.1:55539/client/game/WeaponView.mjs:862:56)\n    at #frameTick (http://127.0.0.1:55539/"
+ ],
+ "events": [
+  {
+   "type": "ultimateStart",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "ultimate": "one_hit_of_wonders",
+   "commitAt": 7.932900000005961,
+   "preparedTiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0
+   },
+   "at": 7.012900000005961
+  },
+  {
+   "type": "oneHitCommitted",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0
+   },
+   "form": "aerial",
+   "at": 7.96590000000596
+  },
+  {
+   "type": "ultimateActive",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "ultimate": "one_hit_of_wonders",
+   "until": 9.58290000000596,
+   "at": 7.96590000000596
+  },
+  {
+   "type": "oneHitWave",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "waveId": "oh-wave:acab900c-25b0-4c3f-af9f-ca476c868d71:8.82429999999702",
+   "origin": {
+    "x": -6,
+    "y": 2.91,
+    "z": -4.5
+   },
+   "direction": {
+    "x": 0.83,
+    "y": -0.44,
+    "z": 0.34
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0
+   },
+   "at": 8.82429999999702
+  },
+  {
+   "type": "oneHitImpact",
+   "impactId": "oh-wave:acab900c-25b0-4c3f-af9f-ca476c868d71:8.82429999999702",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "point": {
+    "x": -0.58,
+    "y": 0,
+    "z": -2.26
+   },
+   "cause": "terrain",
+   "normal": [
+    0,
+    1,
+    0
+   ],
+   "direction": {
+    "x": 0.83,
+    "y": -0.44,
+    "z": 0.34
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0
+   },
+   "form": "aerial",
+   "radius": 2.2,
+   "at": 9.05370000000298
+  },
+  {
+   "type": "ultimateEnded",
+   "playerId": "acab900c-25b0-4c3f-af9f-ca476c868d71",
+   "ultimate": "one_hit_of_wonders",
+   "recoverUntil": 9.96670000000298,
+   "dizzyUntil": 9.61670000000298,
+   "at": 9.61670000000298
+  }
+ ]
+}

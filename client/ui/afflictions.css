@@ -1,0 +1,180 @@
+/* Active effects are a separate combat docket, not another health-bar label.
+   Icons stay small; their hit areas remain usable on touch screens. */
+.affliction-dock {
+  position: absolute;
+  left: calc(var(--safe-l, 0px) + 17px);
+  top: calc(var(--safe-t, 0px) + 76px);
+  z-index: 17;
+  width: max-content;
+  max-width: min(272px, calc(100% - 22px));
+  pointer-events: auto;
+  color: #e9e1cc;
+  font-family: 'Alegreya Sans', system-ui, sans-serif;
+  text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.affliction-dock[hidden], .affliction-detail[hidden] { display: none !important; }
+.affliction-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 196px;
+  padding: 0 1px 4px;
+  font: 800 8px/1.2 system-ui, sans-serif;
+  letter-spacing: .13em;
+  color: #e5d4b7;
+  text-shadow: 0 1px 3px #080907;
+}
+.affliction-help { font-size: 8px; font-weight: 600; letter-spacing: .02em; opacity: .72; }
+.affliction-icons {
+  display: grid;
+  grid-template-columns: repeat(5, 34px);
+  grid-auto-rows: 34px;
+  gap: 4px;
+  max-width: 186px;
+}
+.affliction-icon {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 3px 2px 6px;
+  border: 1px solid #786e60;
+  border-radius: 3px;
+  background: linear-gradient(160deg, rgba(51, 46, 41, .93), rgba(17, 19, 19, .93));
+  box-shadow: 0 1px 5px #0009;
+  color: #f0c4a6;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.affliction-icon[data-effect="chilled"],
+.affliction-icon[data-effect="frozen"],
+.affliction-icon[data-effect="frostbound"] { color: #b5e4f1; }
+.affliction-icon[data-effect="conduct"] { color: #e7d599; }
+.affliction-icon[data-effect="blustered"] { color: #c3dacc; }
+.affliction-icon[data-effect="shaken"],
+.affliction-icon[data-effect="rupture"] { color: #d9b99a; }
+.affliction-icon[data-effect="staggered"] { color: #e9afa1; }
+.affliction-icon.selected { background: #423c31; border-color: #f0d195; box-shadow: 0 0 0 1px #dcb97477; }
+.affliction-icon:focus-visible, .affliction-dismiss:focus-visible {
+  outline: 2px solid #f7d58a;
+  outline-offset: 2px;
+}
+.affliction-icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.affliction-small-track {
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  right: 3px;
+  height: 2px;
+  background: #090b0c;
+  overflow: hidden;
+  pointer-events: none;
+}
+.affliction-small-track i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: currentColor;
+  box-shadow: 0 0 4px currentColor;
+  transition: width .08s linear;
+}
+.affliction-detail {
+  width: min(252px, calc(100cqw - 32px));
+  max-width: 100%;
+  max-height: min(180px, calc(100cqh - 180px));
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 10px 11px;
+  border: 1px solid rgba(213, 183, 126, .7);
+  border-radius: 3px;
+  background: linear-gradient(145deg, rgba(29, 28, 26, .97), rgba(14, 19, 20, .97));
+  box-shadow: 0 5px 18px #000b;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+.affliction-detail header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.affliction-name {
+  font: 700 15px/1.15 'IM Fell English SC', Georgia, serif;
+  color: #f1dfb8;
+}
+.affliction-dismiss {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #80735c;
+  border-radius: 2px;
+  background: #252522;
+  color: #efdfbd;
+  font: 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.affliction-description {
+  margin: 5px 0 9px;
+  color: #e2ddcf;
+  font: 500 12px/1.35 'Alegreya Sans', system-ui, sans-serif;
+  overflow-wrap: break-word;
+}
+.affliction-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 700 8px/1.3 system-ui, sans-serif;
+  letter-spacing: .07em;
+  color: #d1c0a4;
+}
+.affliction-scale-word { color: #f1d5a8; font-size: 10px; letter-spacing: 0; }
+.affliction-big-track { display: block; height: 5px; margin-top: 4px; background: #090b0d; border: 1px solid #706250; }
+.affliction-big-fill { display: block; height: 100%; background: linear-gradient(90deg, #a68b75, #f0d8a2); transition: width .08s linear; }
+
+.touch-ui .hud.effects-available { z-index: 13; } /* above the full-screen touch-control input layer */
+.touch-ui .affliction-dock {
+  left: calc(var(--safe-l, 0px) + 94px);
+  top: calc(var(--safe-t, 0px) + 70px);
+}
+.touch-ui .affliction-help { display: none; }
+.touch-ui .affliction-heading { max-width: 186px; }
+.touch-ui .affliction-icons { grid-template-columns: repeat(5, 36px); grid-auto-rows: 36px; max-width: 196px; }
+.touch-ui .affliction-icon { width: 36px; height: 36px; }
+.touch-ui .affliction-detail {
+  /* A sidecar keeps the opened explanation off the movement stick. */
+  position: absolute;
+  left: calc(100% + 9px);
+  top: 0;
+  width: min(236px, calc(100cqw - 322px));
+  /* Short enough to leave the central reticle clear on 390px landscape. */
+  max-height: min(100px, calc(50cqh - 92px));
+}
+
+/* Low landscape windows reserve space for the combat arena and the lower-left
+   stick; detailed prose scrolls in its own small card, never under an icon. */
+@container app (max-height: 440px) {
+  .affliction-detail { max-height: min(155px, calc(100cqh - 86px)); }
+}
+@container app (max-width: 510px) {
+  .touch-ui .affliction-dock { left: calc(var(--safe-l, 0px) + 82px); }
+  .touch-ui .affliction-icons { grid-template-columns: repeat(4, 34px); max-width: 150px; }
+  .touch-ui .affliction-icon { width: 34px; height: 34px; }
+  .touch-ui .affliction-detail { width: min(210px, calc(100cqw - 247px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .affliction-small-track i, .affliction-big-fill { transition: none; }
+}

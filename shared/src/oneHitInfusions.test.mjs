@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyInfusions,creditOneHitEncounter,oneHitCommit,oneHitForm,oneHitDamage,
   applyOneHitShaken,shakenSprintFactor,oneHitBacklashRemaining,oneHitTeleportDistance,normalizeInfusions,
-  ONE_HIT_PRESETS} from './oneHitInfusions.mjs';
+  ONE_HIT_PRESETS,oneHitSteelFloorActive} from './oneHitInfusions.mjs';
 import { GAME } from './combat.mjs';
 import { RUPTURE } from './rupture.mjs';
 
@@ -21,7 +21,9 @@ test('zero, partial and full tiers have exactly one direct damage contribution p
  assert.equal(oneHitDamage({}),GAME.swordElevated+RUPTURE.damage,'simple Disaster matches one Sunder strike and its rupture');
  assert.equal(oneHitDamage({fire:1}),59);
  assert.equal(oneHitDamage({fire:2}),59);
- assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
+ assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),83,'Gale adds 1, the least a gust deals, not its 8-point heart');
+ assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2,steel:2}),85);
+ assert.equal(oneHitDamage({steel:1}),48);
 });
 test('airborne requires full Gale and cannot switch forms just from a Frost or Fire infusion',()=>{
  assert.equal(oneHitForm(false,emptyInfusions()),null);
@@ -31,11 +33,11 @@ test('airborne requires full Gale and cannot switch forms just from a Frost or F
 });
 test('commit consumes match infusions but preserves infinite Practice preset',()=>{
  const p={oneHitInfusions:{fire:2,frost:1,gale:0,lightning:0}};
- assert.deepEqual(oneHitCommit(p),{fire:2,frost:1,gale:0,lightning:0});
+ assert.deepEqual(oneHitCommit(p),{fire:2,frost:1,gale:0,lightning:0,steel:0});
  assert.deepEqual(p.oneHitInfusions,emptyInfusions());
  p.practiceOneHit={enabled:true,stages:ONE_HIT_PRESETS['gale-lightning']};
- assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2});
- assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2});
+ assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2,steel:0});
+ assert.deepEqual(oneHitCommit(p),{fire:0,frost:0,gale:2,lightning:2,steel:0});
 });
 test('Shaken reduces sprint benefit instead of slowing normal walking',()=>{
  const target={};applyOneHitShaken(target,10,1);
@@ -56,5 +58,44 @@ test('teleport reach grows forever, with diminishing increments',()=>{
  assert.ok(oneHitTeleportDistance(100)>oneHitTeleportDistance(10));
 });
 test('untrusted practice values clamp to tier 0..2',()=>{
- assert.deepEqual(normalizeInfusions({fire:91,frost:-9,gale:1.9,lightning:'x'}),{fire:2,frost:0,gale:1,lightning:0});
+ assert.deepEqual(normalizeInfusions({fire:91,frost:-9,gale:1.9,lightning:'x'}),{fire:2,frost:0,gale:1,lightning:0,steel:0});
+});
+
+test('Full Steel last-HP floor is exact, time-limited, shared by combat and HUD',()=>{
+  const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{steel:2},commitAt:10}};
+  assert.equal(oneHitSteelFloorActive(p,9),true);
+  assert.equal(oneHitSteelFloorActive(p,10.01),false);
+  p.ultimateState.teleportHoldAt=9;
+  assert.equal(oneHitSteelFloorActive(p,9.5),false,'indefinite held Lightning aim is vulnerable');
+  delete p.ultimateState.teleportHoldAt;
+  p.ultimateState.phase='active';
+  p.ultimateState.until=12;
+  p.ultimateState.oneHit={tiers:{steel:2,gale:2},awaitingWave:true,waveResolved:false};
+  assert.equal(oneHitSteelFloorActive(p,11.99),true,'wave still flying');
+  p.ultimateState.oneHit.waveResolved=true;
+  assert.equal(oneHitSteelFloorActive(p,11.99),false,'protection ends at wave resolution');
+  assert.equal(oneHitSteelFloorActive(p,12.01),false,'the Ultimate is over');
+  p.ultimateState.oneHit={tiers:{steel:1}};
+  assert.equal(oneHitSteelFloorActive(p,11),false,'half Steel does not protect the final HP');
+  p.ultimateState.oneHit={tiers:{steel:2}};
+  p.ultimateState.id='sunder';
+  assert.equal(oneHitSteelFloorActive(p,11),false,'only All-Natural Disaster');
+  p.ultimateState.id='one_hit_of_wonders';
+  p.alive=false;
+  assert.equal(oneHitSteelFloorActive(p,11),false);
+});
+
+test('A four-second Half Lightning hold cannot extend the Full Steel 1-HP floor indefinitely',()=>{
+  const p={alive:true,ultimateState:{id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{steel:2,lightning:1},startedAt:9,commitAt:13,
+    partialLightningHoldAt:9,partialLightningReadyAt:9.36}};
+  assert.equal(oneHitSteelFloorActive(p,9.5),true,'finite early bracing is protected');
+  assert.equal(oneHitSteelFloorActive(p,10),false,'holding longer does not grant a four-second immunity');
+  p.ultimateState.partialLightningReleased=true;
+  p.ultimateState.commitAt=10.2;
+  assert.equal(oneHitSteelFloorActive(p,10.1),false);
+  p.ultimateState.phase='active';p.ultimateState.until=11.9;
+  p.ultimateState.oneHit={tiers:{steel:2,lightning:1},form:'ground'};
+  assert.equal(oneHitSteelFloorActive(p,10.3),true,'the actual committed attack restores its intended protection');
 });

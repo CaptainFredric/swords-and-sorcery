@@ -23,12 +23,12 @@ test('Line of Conduct declines from 20 near to an asymptotic 12 without a distan
 });
 
 test('each first infusion contributes exactly once, including when fully charged', () => {
-  assert.deepEqual(ONE_HIT_FIRST_INFUSION_DAMAGE, { fire: 13, frost: 11, gale: 8, lightning: 12 });
+  assert.deepEqual(ONE_HIT_FIRST_INFUSION_DAMAGE, { fire: 13, frost: 11, gale: 1, lightning: 12, steel: 2 });
   assert.equal(oneHitInfusionDamageBonus({}), 0);
   assert.equal(oneHitInfusionDamageBonus({ fire: 1 }), 13);
   assert.equal(oneHitInfusionDamageBonus({ fire: 2 }), 13);
-  assert.equal(oneHitInfusionDamageBonus({ fire: 2, frost: 1, gale: 2, lightning: 2 }), 44);
-  assert.equal(oneHitDecisiveDamage(28, { fire: 2, frost: 1, gale: 2, lightning: 2 }), 72);
+  assert.equal(oneHitInfusionDamageBonus({ fire: 2, frost: 1, gale: 2, lightning: 2 }), 37);
+  assert.equal(oneHitDecisiveDamage(28, { fire: 2, frost: 1, gale: 2, lightning: 2 }), 65);
   assert.throws(() => oneHitDecisiveDamage(-2, {}), RangeError);
 });
 

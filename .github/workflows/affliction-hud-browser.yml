@@ -1,0 +1,53 @@
+name: Affliction HUD desktop and touch acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/ui/AfflictionPanel.mjs'
+      - 'client/ui/afflictionView.mjs'
+      - 'client/ui/afflictions.css'
+      - 'client/ui/HUD.mjs'
+      - 'client/ui/icons.mjs'
+      - 'client/index.html'
+      - 'scripts/affliction-hud-browser-review.mjs'
+      - '.github/workflows/affliction-hud-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-afflictions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start game server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs >/tmp/affliction-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/affliction-server.log
+          exit 1
+      - name: Find Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Inspect status HUD on desktop and touch
+        env:
+          STATUS_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/affliction-hud-browser-review.mjs
+      - name: Keep screenshots and hit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: affliction-hud-desktop-and-touch
+          path: output/playwright/affliction-hud/
+          retention-days: 7

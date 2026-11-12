@@ -43,12 +43,12 @@ test('zero-infusion Ultimate is a usable real room attack, Shaken and physical r
   assert.ok(room.events.some(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b'));
   assert.ok(b.shaken,'physical status without elemental tiers');
   assert.equal(b.health,54,'46 direct damage; the same target is not hit again by its rupture');
-  assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0});
+  assert.deepEqual(a.oneHitInfusions,{fire:0,frost:0,gale:0,lightning:0,steel:0});
 });
 test('first-tier elemental contributions remain additive to the 46 base',()=>{
   assert.equal(oneHitDamage({fire:0,frost:0,gale:0,lightning:0}),46);
-  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),90);
-  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),90);
+  assert.equal(oneHitDamage({fire:1,frost:1,gale:1,lightning:1}),83);
+  assert.equal(oneHitDamage({fire:2,frost:2,gale:2,lightning:2}),83);
 });
 test('ordinary and first tier Lightning taps keep their authoritative startup independent of voice length',()=>{
   for(const [lightning,startup] of [[0,.92],[1,.36]]){
@@ -178,19 +178,22 @@ test('aerial wall impact carries all four tiers, affects new exposed targets and
   assert.ok(Math.abs(impacts[0].point.x-6.8)<1e-6);
   assert.deepEqual(impacts[0].tiers,tiers);
   assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b').length,1);
-  assert.equal(splash.health,100,'splash carries effects without another direct HP hit');
-  assert.ok(splash.oneHitFrozenUntil>9&&splash.electricalBacklash?.initial===12&&splash.burn);
+  // Fire's terminal explosion is part of the same decisive contact: a knight the wave had not met takes the one
+  // decisive hit there, with everything the wave carries, and no burn status of their own
+  assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='splash').length,1,'one decisive hit, at the explosion');
+  assert.ok(splash.oneHitFrozenUntil>9&&splash.electricalBacklash?.initial===12);
+  assert.equal(room.events.some(e=>e.source==='burn'),false,'no burn status from Fire');
   assert.ok(splash.lastKnockbackAt>=9&&splash.lastKnockbackBy===a.id&&splash.shaken);
   assert.equal(sheltered.burn,null);
   assert.equal(sheltered.oneHitFrozenUntil,undefined);
   assert.equal(protectedKnight.burn,null);
-  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===4.6&&z.bornAt<z.until));
-  for(let i=6;i<140;i++)stepRoom(room,1/30,9+i/30,withWall);
+  assert.ok(serializeSnapshot(room,9.15).oneHitBurnZones.some(z=>z.radius===3.4&&z.bornAt<z.until));
+  for(let i=6;i<170;i++)stepRoom(room,1/30,9+i/30,withWall); // (four elements: its burning ground lasts 5.2 s)
   assert.equal(sheltered.health,100);
   assert.equal(room.oneHitBurnZones.length,0);
 });
 
-test('aerial terrain contact is real, one-sided, and does not turn a range expiry into a bomb',()=>{
+test('aerial terrain contact and range expiry both resolve with one physical wave blast',()=>{
   const {room,a,b}=battle();
   b.position={x:35,y:0,z:0};
   const tiers={fire:2,frost:0,gale:2,lightning:0};
@@ -200,9 +203,9 @@ test('aerial terrain contact is real, one-sided, and does not turn a range expir
     {...base,id:'expiry',position:{x:10,y:5,z:0},direction:{x:1,y:0,z:0},distance:21.6},
   ];
   ticks(room,9,10);
-  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['landing']);
+  assert.deepEqual(room.events.filter(e=>e.type==='oneHitImpact').map(e=>e.impactId),['expiry','landing']);
   assert.ok(Math.abs(room.oneHitBurnZones[0].position.y)<1e-8);
-  assert.equal(room.oneHitBurnZones.length,1);
+  assert.equal(room.oneHitBurnZones.length,1,'the high expiry leaves no fire on the ground');
 });
 
 test('an incoming aerial blade spends directional Guard only once and does not reapply terminal frost',()=>{
@@ -253,16 +256,19 @@ test('holding ordinary Disaster briefly keeps it interruptible and release commi
   assert.equal(room.events.filter(e=>e.type==='oneHitImpact').length,1);
 });
 
-test('ordinary hold has a short deadline; losing input cancels held Lightning and never fires it',()=>{
+test('Half Lightning can hold for four seconds, while canceling Full Lightning still never fires it',()=>{
   const {room,a}=battle();
   a.prowess=PROWESS.full;
   a.oneHitInfusions.lightning=1;
   applyRoomCommand(room,a,{type:'ultimate',held:true},9);
-  const ready=a.ultimateState.commitAt;
+  const ready=a.ultimateState.partialLightningReadyAt;
+  assert.equal(ready,9.36,'Half Lightning retains its real minimum 0.36-second startup');
   stepRoom(room,1/30,ready+.05,world);
-  assert.equal(a.ultimateState.phase,'startup');
-  stepRoom(room,1/30,ready+.36,world);
-  assert.equal(a.ultimateState.phase,'active');
+  assert.equal(a.ultimateState.phase,'startup','held Half Lightning waits instead of instantly firing');
+  const cap=a.ultimateState.commitAt;
+  assert.equal(cap,13,'maximum hold is four seconds');
+  stepRoom(room,1/30,cap+.02,world);
+  assert.equal(a.ultimateState.phase,'active','the maximum hold automatically commits');
 
   const held=battle();
   held.a.prowess=PROWESS.full;
@@ -299,8 +305,9 @@ test('manual Disaster detonation consumes exactly one owned wave at its current 
   assert.equal(impacts[0].impactId,'live');
   assert.deepEqual(impacts[0].point,position);
   assert.deepEqual(impacts[0].tiers,tiers);
-  assert.equal(b.health,100,'terminal contact is not another decisive HP hit');
-  assert.ok(b.oneHitFrozenUntil>9.2 && b.burn && b.shaken);
+  assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='b').length,1,'Fire: the explosion is the decisive contact for a knight the wave had not met');
+  assert.equal(room.events.filter(e=>e.source==='one_hit_of_wonders'&&e.victimId==='already').length,0,'never one it had');
+  assert.ok(b.oneHitFrozenUntil>9.2 && !b.burn && b.shaken);
   assert.equal(room.players.get('already').burn,null);
   assert.equal(room.players.get('sheltered').burn,null);
   assert.ok(room.oneHitBurnZones.some(z=>z.id==='live:fire'));

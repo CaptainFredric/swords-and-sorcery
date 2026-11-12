@@ -1,0 +1,187 @@
+{
+ "device": "desktop",
+ "form": "aerial",
+ "tiers": {
+  "gale": 2,
+  "steel": 1
+ },
+ "label": "desktop-gale2-steel1-aerial-wave",
+ "renderFps": 60.1,
+ "stills": 112,
+ "videoBytes": 2626868,
+ "commitAt": 7.99029999999702,
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 6.564
+  },
+  {
+   "clip": "Air",
+   "from": 7.09
+  },
+  {
+   "clip": "AllNatural_Lightning_Charge_Air",
+   "from": 7.109
+  },
+  {
+   "clip": "AllNatural_Aerial_Vortex_Wave",
+   "from": 8.008
+  },
+  {
+   "clip": "Idle",
+   "from": 9.656
+  }
+ ],
+ "clipAtCommit": {
+  "clip": "AllNatural_Aerial_Vortex_Wave",
+  "time": 0.014,
+  "lateBy": 0.017
+ },
+ "impact": {
+  "form": "aerial",
+  "radius": 2.2,
+  "struck": [
+   "practice-dummy-AMSS3"
+  ]
+ },
+ "peakEffects": {
+  "glow": 104,
+  "rock": 15,
+  "smoke": 8,
+  "bolts": 0,
+  "fields": 0,
+  "ice": 0,
+  "fractures": 0
+ },
+ "effectsAtEnd": {
+  "glow": 0,
+  "rock": 0,
+  "smoke": 0,
+  "bolts": 0,
+  "fields": 0,
+  "fractures": 0,
+  "ice": 0
+ },
+ "dummyAtEnd": {
+  "health": 100,
+  "guard": 100,
+  "shaken": false,
+  "blustered": false,
+  "conduct": 0,
+  "frost": 0,
+  "field": 0
+ },
+ "eventTypes": {
+  "oneHitCommitted": 1,
+  "oneHitImpact": 1,
+  "oneHitWave": 1,
+  "ultimateActive": 1,
+  "ultimateEnded": 1,
+  "ultimateStart": 1
+ },
+ "decisive": [],
+ "decisiveVictims": 0,
+ "worstFrameGapMs": 20,
+ "pageErrors": [],
+ "events": [
+  {
+   "type": "ultimateStart",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "ultimate": "one_hit_of_wonders",
+   "commitAt": 7.98820000000298,
+   "preparedTiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0,
+    "steel": 1
+   },
+   "at": 7.06820000000298
+  },
+  {
+   "type": "oneHitCommitted",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0,
+    "steel": 1
+   },
+   "form": "aerial",
+   "at": 7.99029999999702
+  },
+  {
+   "type": "ultimateActive",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "ultimate": "one_hit_of_wonders",
+   "until": 9.63820000000298,
+   "at": 7.99029999999702
+  },
+  {
+   "type": "oneHitWave",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "waveId": "oh-wave:adeb43b0-4533-48e1-8ee3-4e484850d92c:8.845",
+   "origin": {
+    "x": -6,
+    "y": 2.97,
+    "z": -4.5
+   },
+   "direction": {
+    "x": 0.83,
+    "y": -0.45,
+    "z": 0.34
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0,
+    "steel": 1
+   },
+   "at": 8.845
+  },
+  {
+   "type": "oneHitImpact",
+   "impactId": "oh-wave:adeb43b0-4533-48e1-8ee3-4e484850d92c:8.845",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "point": {
+    "x": -0.5,
+    "y": 0,
+    "z": -2.22
+   },
+   "cause": "terrain",
+   "normal": [
+    0,
+    1,
+    0
+   ],
+   "direction": {
+    "x": 0.83,
+    "y": -0.45,
+    "z": 0.34
+   },
+   "tiers": {
+    "fire": 0,
+    "frost": 0,
+    "gale": 2,
+    "lightning": 0,
+    "steel": 1
+   },
+   "form": "aerial",
+   "radius": 2.2,
+   "struck": [
+    "practice-dummy-AMSS3"
+   ],
+   "at": 9.07670000000298
+  },
+  {
+   "type": "ultimateEnded",
+   "playerId": "adeb43b0-4533-48e1-8ee3-4e484850d92c",
+   "ultimate": "one_hit_of_wonders",
+   "recoverUntil": 9.98990000000596,
+   "dizzyUntil": 9.63990000000596,
+   "at": 9.63990000000596
+  }
+ ]
+}

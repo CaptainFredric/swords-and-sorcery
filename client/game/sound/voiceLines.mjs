@@ -2310,6 +2310,34 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     },
     file: 'MostColorfulCatasTrophy.mp3',
   },
+  // --- November 2026 creator recordings: a knight's exertions and his lasting impression
+  {
+    id: 'hummedExertion', kind: 'exertion',
+    text: '(three low humming chuckles, rising with rather too much confidence)',
+    trigger: { heavySwing: 1, lightSwing: 0.15, blowDealt: 0.3 },
+    priority: 'low', rarity: 0.14, cooldown: 15, gain: 0.76,
+    section: 'Exertions',
+    credits: { title: 'A Pleased Exertion', description: 'Occasionally during a committed sword swing, or immediately after landing a blow.', note: 'The effort has met with his approval.' },
+    voice: { drive: 1.9, rmsDb: -18 }, file: 'laughexertion_1.mp3',
+  },
+  {
+    id: 'coughGrowlExertion', kind: 'exertion',
+    text: '(a cough followed by a prolonged, rough hrrr)',
+    trigger: { heavyHurt: 1, hurt: 0.3 },
+    priority: 'low', rarity: 0.19, cooldown: 20, gain: 0.82,
+    section: 'Injury',
+    credits: { title: 'Cough & Composure', description: 'Occasionally after surviving an appreciable blow.', note: 'The protest contains no formal objection.' },
+    voice: { drive: 2.0, rmsDb: -17 }, file: 'Exertioncoughorhurt.mp3',
+  },
+  {
+    id: 'goodLuckForgettingMe',
+    text: 'Ha ha! Good luck forgetting me!',
+    trigger: { death: 1, rivalFelled: 0.55, kill: 0.12 },
+    priority: 'normal', rarity: 0.12, cooldown: 240, perLife: 1,
+    section: 'Remarks & Oddities',
+    credits: { title: 'Unforgettable', description: 'Very rarely after an especially memorable encounter, even if he was the one who fell.', note: 'He has appointed himself the lasting impression.' },
+    voice: { drive: 2.0, rmsDb: -17 }, aliases: ['HahaGoodLuckForgrtting.mp3', 'HahaGoodLuckForgettingMeLongerMeee.mp3'],
+  },
 ]);
 
 const PRIORITIES = Object.freeze({ low: 1, normal: 2, high: 3 });

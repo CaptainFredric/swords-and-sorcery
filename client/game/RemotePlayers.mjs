@@ -22,6 +22,7 @@ import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { disasterBodyTurn, disasterHolding } from './oneHitCamera.mjs';
+import { DISASTER_CLIPS } from './spellbladeAnimationPlan.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
@@ -785,7 +786,9 @@ export class RemotePlayers {
     } else {
       // The Disaster's full-body turn ends at 2π, facing precisely where
       // the authoritative strike is aimed. The camera never inherits it.
-      if (pb.ultimateState?.id === 'one_hit_of_wonders')
+      // (Argon's authored Disaster clips turn the body themselves, twice, about its own feet: the procedural turn is
+      // only for a model that has not got them)
+      if (pb.ultimateState?.id === 'one_hit_of_wonders' && !shell.visualInstance?.animator?.actions?.has(DISASTER_CLIPS.ground.clip))
         shell.root.rotation.y = d.yaw + disasterBodyTurn(pb.ultimateState, serverNow);
       d.vortexTurn = null;
     }

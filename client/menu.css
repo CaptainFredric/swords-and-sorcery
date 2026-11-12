@@ -775,6 +775,17 @@ html[data-turn] .turn-only { display: block !important; }
   font: 800 10px/1 var(--font-script); color: var(--heraldry-brass-light); letter-spacing: .12em;
 }
 
+/* A selected siege Skill is equipment: it settles below the alternatives.
+   The rest of the inspector (controls, lore, details) remains swipeable. */
+.siege-armory-machines .armory-spells { display:flex; flex-direction:column; gap:8px; }
+.siege-armory-machines .spell-card { min-height:54px; touch-action:manipulation; }
+.siege-preview-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+.siege-preview-controls p { margin:0; color:var(--heraldry-brass-light); font:600 10px/1.4 var(--font-script); letter-spacing:.06em; }
+.siege-preview-controls button { flex:none; min-height:34px; }
+.siege-preview-controls [hidden] { display:none; }
+.siege-inspector-scroll { overflow-anchor:none; touch-action:pan-y; -webkit-overflow-scrolling:touch; scroll-padding-block:12px 18px; }
+@media (prefers-reduced-motion: reduce) { .siege-armory-machines .spell-card { transition:none; } }
+
 /* Heraldry Chamber Stage */
 .heraldry-stage-controls {
   grid-area: tools; min-width: 0;
@@ -860,37 +871,22 @@ html[data-turn] .turn-only { display: block !important; }
   text-shadow: 0 0 6px rgba(185, 220, 168, 0.4);
 }
 
-@keyframes equipSettle {
-  0% {
-    opacity: 0.65;
-    transform: translateY(-8px) scale(0.98);
-    box-shadow: 0 0 24px rgba(236, 201, 127, 0.75), inset 0 0 14px rgba(236, 201, 127, 0.35);
-  }
-  45% {
-    transform: translateY(2px) scale(1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    box-shadow: 0 0 0 1px rgba(236, 201, 127, .45), 0 0 18px rgba(236, 201, 127, .18) inset;
-  }
+/* Selection motion is a single FLIP animation driven by the actual new card
+   positions. CSS keyframes here previously fought the reorder and made cards
+   jump, swell twice, and jitter. */
+#armory-inspector .spell-card.just-equipped { z-index: 1; }
+#armory-inspector .inspector-scroll {
+  overflow-anchor: none;
+  scroll-padding-block: 12px 18px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
-.spell-card.just-equipped {
-  animation: equipSettle 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
-.spell-card.swiping-down {
-  animation: none !important;
-  z-index: 10;
-  border-color: var(--heraldry-brass-light);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, .8), 0 0 18px rgba(236, 201, 127, .65), inset 0 0 12px rgba(236, 201, 127, .25);
-  will-change: transform, box-shadow;
-}
-
-.spell-card.shifting-up {
-  animation: none !important;
-  opacity: 0.82;
-  will-change: transform;
+#armory-inspector .inspector-list { min-height: 100%; }
+#armory-inspector .inspector-item-card { scroll-margin-top: 18px; }
+#armory-inspector .spell-card:active,
+#armory-inspector .spell-card:not(.equipped):hover { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  #armory-inspector .spell-card { transition: none; }
 }
 
 .spell-card.selected-inspect { border-color: #ffd685; box-shadow: 0 0 12px rgba(236, 201, 127, .4); }

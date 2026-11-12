@@ -42,6 +42,7 @@ import { separateLocal } from '../../shared/src/separation.mjs';
 import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
@@ -60,7 +61,7 @@ import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoin
 import {
   blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -68,7 +69,8 @@ import {
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
-import { oneHitGlide } from '../../shared/src/oneHitInfusions.mjs';
+import { oneHitGlide,oneHitChargingLightning } from '../../shared/src/oneHitInfusions.mjs';
+import { frostSlowScale } from '../../shared/src/oneHitStatus.mjs';
 import { swordTechniqueFor, techniqueInput, techniqueMoment, techniqueMotion } from '../../shared/src/swordTechniques.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
@@ -116,6 +118,7 @@ import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { disasterCameraWanted, disasterHolding, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
+import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
 // the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
@@ -326,6 +329,7 @@ export class GameRuntime {
     };
     this.effects = new Effects(this.scene, this.camera);
     this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers,this.weapon);
+    this.oneHitEffects.elements.viewer = this.camera.position;
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onInputsReleased = () => {
@@ -492,6 +496,7 @@ export class GameRuntime {
     if(socket.inspectionAvailable)this.input.allowAction=this.inspectionActionGate;
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
+      if(action==='inspectEffects'&&pressed){this.hud.cycleAfflictionDetails();return;}
       if(action==='pause'&&pressed){this.onPause?.();return;}
       if(action==='practiceTools'&&pressed){this.onPracticeTools?.();return;}
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
@@ -831,7 +836,7 @@ export class GameRuntime {
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
     this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
-    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.deathCam=null;
+    this.localState=null;this.localAuth=null;this.input.oneHitWaveId=null;this.input.oneHitAimUntil=null;this.deathCam=null;
     this.predictionHistory=[];
     this.lastSeparationKey=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
@@ -1421,6 +1426,8 @@ export class GameRuntime {
       !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
     // (the Sword Technique carried: its touch button wears it, and is there only when one is)
     this.touch?.setTechniqueButton?.(swordTechniqueFor(auth?.technique));
+    this.input.oneHitAimUntil=auth?.alive&&auth.ultimateState?.id==='one_hit_of_wonders'&&
+      auth.ultimateState.phase==='active' ? auth.ultimateState.oneHit?.aimUntil??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
@@ -1560,7 +1567,7 @@ export class GameRuntime {
         this.hud.flashText('THE RIGHTFUL RENOWNER FALLS · SURRENDER','gold',2700);
       }
       if(event.type==='restlessLadderPlaced')this.hud.flashText('SIEGE LADDER DEPLOYED','gold',800);
-      this.oneHitEffects?.event(event);
+      this.oneHitEffects?.event(event,this.latestSnapshot);
       if(event.type==='edgeVoluntaryDismount'){
         // The knight chooses to leave: a brief, readable settled gesture
         // with no recorded dialogue, death camera or extra control lock.
@@ -1570,6 +1577,28 @@ export class GameRuntime {
       }
       if(event.type==='edgeSpellCollected'&&event.playerId===this.playerId)
         this.hud.flashText('SPELL FOUND · '+String(event.spell).toUpperCase(),'sunder',1050);
+      // what a Disaster leaves on me, said plainly as it happens (the elements show it on the knight for everyone)
+      if(event.type==='oneHitConduct'&&event.playerId===this.playerId)this.hud.flashText('SHOCKING CONDUCT · YOUR NEXT BLOW SHOCKS YOU','sunder',1500);
+      if(event.type==='oneHitBlustered'&&event.playerId===this.playerId)this.hud.flashText('BLUSTERED · YOU TURN SLOWLY','sunder',1400);
+      if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
+      if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
+      if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
+      if(event.type==='oneHitImpact'&&event.form==='ground'&&(event.tiers?.steel??0)>=1)
+        this.#play(disasterAnvilRecipe(Math.random,{full:event.tiers.steel===2}),event.playerId===this.playerId?null:event.point,1);
+      if(event.type==='oneHitImpact'&&event.impactId){
+        // A Gale wave is a distinct terminal blast (terrain, detonation or
+        // range), not a silent disappearance. Keep it spatially situated even
+        // for its caster, especially when it bursts a long way away.
+        const at=event.point;
+        this.#play((event.tiers?.fire??0)>0?fireballImpactRecipe(Math.random):
+          groundSlamRecipe(Math.random),at,event.tiers?.fire?.72:.48);
+        if((event.tiers?.frost??0)>0)this.#play(frostImpactRecipe(Math.random),at,.36);
+        if((event.tiers?.lightning??0)>0)this.#play(conductShockRecipe(Math.random,{discharge:true,share:.65}),at,.32);
+      }
+      if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
+        event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
+      if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
+        event.playerId===this.playerId?null:this.#bodyPosition(event.playerId),.6);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
         const earned=event.tier===2?'FULL':'PARTIAL';
         this.hud.flashText(`${String(event.element).toUpperCase()} INFUSION · ${earned}`,
@@ -2137,6 +2166,14 @@ export class GameRuntime {
           this.hud.hurt?.({ amount: event.amount, side: -push.x });
         }
       }
+      if(event.type==='flightTerminalAscended'){
+        const everyone=this.latestSnapshot?.players??[];
+        const operator=everyone.find(p=>p.id===event.operatorId);
+        const names=(event.victimIds??[]).map(id=>
+          everyone.find(p=>p.id===id)?.name??'someone');
+        const feed=terminalAscensionFeed(operator?.name??'The pilot',names);
+        this.hud.addFeed(feed.text,feed.kind);
+      }
       if (event.type === 'death') {
         this.flightVoState?.delete(event.victimId);
         this.pendingSentenceComplaints?.delete(event.victimId);
@@ -2247,6 +2284,7 @@ export class GameRuntime {
         }
       }
       if (event.type === 'matchStarted') {
+        this.vortexFeedStreaks?.clear();
         this.moments.reset();
         if (this.latestSnapshot?.mode === 'BREAKTHROUGH') {
           const myTeam = this.localAuth?.team ?? this.latestSnapshot?.players?.find((p) => p.id === me)?.team;
@@ -3212,7 +3250,7 @@ export class GameRuntime {
         this.weapon.brace(this.presentationNow()/1000+(event.commitAt-this.socket.serverNow()),{
           startupSec:ULTIMATES.one_hit_of_wonders.startupSec,lead:.34,oneHit:true,
         });
-        this.hud.flashText('ALL-NATURAL DISASTER','sunder',1400);
+        this.hud.flashText('ALL-NATURAL DISASTER','sunder',620);
       }
       const tiers = event.preparedTiers ?? (me ? this.localAuth?.ultimateState?.preparedTiers : this.latestSnapshot?.players.find((p) => p.id === event.playerId)?.ultimateState?.preparedTiers) ?? {};
       const total = (tiers.fire ?? 0) + (tiers.frost ?? 0) + (tiers.gale ?? 0) + (tiers.lightning ?? 0);
@@ -3231,7 +3269,7 @@ export class GameRuntime {
           this.localState.grounded = false;
         }
         // its name, and under it (for this once) how it is steered; after that the tile says what it is doing
-        this.hud.flashText('BLAZING VORTEX', 'vortex', 1900, vortexHint({ touch: Boolean(this.touch), bindings: this.input.bindings }));
+        this.hud.flashText('BLAZING VORTEX', 'vortex', 650, vortexHint({ touch: Boolean(this.touch), bindings: this.input.bindings }));
       }
       return;
     }
@@ -3239,7 +3277,7 @@ export class GameRuntime {
       const cry = cryMoment(event.ultimate);
       this.#ultimateCry(event.playerId, cry, voice);
       if (me) {
-        this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
+        this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 620);
         // my own Chivalry, taken up: the strings swell into the light under the cry (the music is mine alone to hear)
         this.music?.stinger('chivalry');
       }
@@ -3256,7 +3294,7 @@ export class GameRuntime {
     const cry = cryMoment(event.ultimate);
     this.#ultimateCry(event.playerId, cry, voice);
     if (me) {
-      this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
+      this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 620);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
     }
   }
@@ -3467,17 +3505,26 @@ export class GameRuntime {
       const body = this.#bodyPosition(event.victimId);
       if (body && event.source !== 'abyss') this.effects.killBurst({ x: body.x, y: body.y + 1.1, z: body.z });
     }
-    if (event.source === 'abyss' && killer) this.hud.addFeed(`${killer.name} sent ${victim?.name ?? 'someone'} into the abyss`, 'abyss');
-    else if (event.source === 'fireball' && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
-    else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
-    else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
-    else if (event.source === 'gale' && killer) this.hud.addFeed(`${killer.name} blew ${victim?.name ?? 'someone'} away`, 'gale');
-    else if (event.source === 'vortex' && killer) this.hud.addFeed(`${killer.name} spun through ${victim?.name ?? 'someone'}`, 'fire');
-    else if (spellFor(event.source).conjured && spellFor(event.source).id === event.source && killer) this.hud.addFeed(`${killer.name} scorched ${victim?.name ?? 'someone'}`, 'fire');
-    else if (event.source === 'gauntlet' && killer) this.hud.addFeed(`${killer.name} laid ${victim?.name ?? 'someone'} low with a gauntlet`, 'sword');
-    else if (event.source === 'ram' && killer) this.hud.addFeed(`${killer.name} ran ${victim?.name ?? 'someone'} down in Steel`, 'sword');
-    else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
-    else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
+    const copy=killFeedDeath(event,killer?.name??null,victim?.name??'someone',{
+      mode:this.latestSnapshot?.mode,
+    });
+    if(copy?.streak==='vortex'&&killer){
+      this.vortexFeedStreaks??=new Map();
+      let streak=this.vortexFeedStreaks.get(killer.id);
+      const at=Number.isFinite(event.at)?event.at:this.socket.serverNow();
+      if(!streak||at-streak.startedAt>10.5||at-streak.lastAt>5){
+        streak={startedAt:at,lastAt:at,names:[]};
+        this.vortexFeedStreaks.set(killer.id,streak);
+      }
+      if(!streak.names.includes(victim?.name??'someone'))
+        streak.names.push(victim?.name??'someone');
+      streak.lastAt=at;
+      const feed=streak.names.length===1?copy:
+        vortexStreakFeed(killer.name,streak.names);
+      this.hud.addFeed(feed.text,feed.kind,`vortex:${killer.id}:${streak.startedAt}`);
+    }else if(copy){
+      this.hud.addFeed(copy.text,copy.kind);
+    }
   }
 
   // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
@@ -3874,17 +3921,26 @@ export class GameRuntime {
       const wanted = this.inspectionFree || this.trialControlsLocked
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
         : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
+      // (Flash Freeze: held where I stand, as the room holds me; the look is still mine)
+      if (serverNow < (this.localAuth?.oneHitFrozenUntil ?? -Infinity)) Object.assign(wanted, { forward: 0, right: 0, jump: false, sprint: false });
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
       // (in a Sword Technique I move as it lets me, by the host's own rule: its lunge carries me, a Whirl goes at a run)
       const technique = techniqueMotion(this.localAuth, serverNow);
+      const freelyCharging=oneHitChargingLightning(this.localAuth,serverNow);
+      const plunging=this.localAuth.ultimateState?.id==='one_hit_of_wonders'&&
+        this.localAuth.ultimateState.phase==='active'&&this.localAuth.ultimateState.oneHit?.form==='plunge';
       const whirl = ultimateWhirl(this.localAuth, serverNow) ??
         oneHitGlide(this.localAuth,MOVEMENT.runSpeed) ?? technique;
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
       const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
       const moveInput = reeling
         ? { ...wanted, forward: 0, right: 0, jump: false, sprint: false }
+        : plunging
+          ? { ...wanted, forward:0,right:0,jump:false,sprint:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch }
+        : freelyCharging
+          ? { ...wanted, sprint:false }
         : bracing
           ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
           : whirl === technique && technique ? techniqueInput(wanted, technique)
@@ -3899,6 +3955,8 @@ export class GameRuntime {
         this.localState.sprintBlend = 0;
       }
       this.localState.whirl = whirl;
+      if(plunging&&!this.localState.grounded)this.localState.velocity.y=Math.min(
+        this.localState.velocity.y??0,-ONE_HIT_RULES.groundPlungeFallSpeed);
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
       const wasSprinting = this.localState.sprinting;
       this.localState.sprinting = resolveSprint({
@@ -3920,7 +3978,8 @@ export class GameRuntime {
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
-      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow);
+      this.localState.speedScale = (this.localAuth?.restlessCarrying?.length?0.65:1)*chillScale(this.localAuth.chill, serverNow)
+        *frostSlowScale(this.localAuth.oneHitFrostSlow, serverNow); // (a Disaster's frost, as deep as the room says it is)
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       if (this.latestSnapshot?.objective) {
@@ -4278,6 +4337,7 @@ export class GameRuntime {
         ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
       const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
+        allowVertical:disasterCharge.preparedTiers.gale===2,
         holdSec:disasterNow-disasterCharge.teleportHoldAt,world,solids,edge});
       this.oneHitEffects.setChargeGuide(origin,plan);
     }else this.oneHitEffects?.setChargeGuide(null,null);

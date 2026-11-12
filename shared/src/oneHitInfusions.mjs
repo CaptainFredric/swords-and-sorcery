@@ -2,13 +2,15 @@
 // This module has no visual dependencies; demos and Practice presets cannot award combat stages.
 import { oneHitDecisiveDamage, oneHitAttackForm, oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
 
-export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning']);
+export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning', 'steel']);
 export const ONE_HIT_BASE_DAMAGE = 46;
 export const ONE_HIT_GROUND_RADIUS = 3.4;
 export const ONE_HIT_AERIAL_DURATION = 0.85;
 export const ONE_HIT_SHAKEN_SECONDS = 3;
+// Shocking Conduct, Blustered and every ground field run down over the same four seconds.
+export const ONE_HIT_STATUS_SECONDS = 4;
 
-export const emptyInfusions = () => ({ fire: 0, frost: 0, gale: 0, lightning: 0 });
+export const emptyInfusions = () => ({ fire: 0, frost: 0, gale: 0, lightning: 0, steel: 0 });
 export const normalizeInfusions = (stages = {}) => Object.fromEntries(
   ONE_HIT_ELEMENTS.map(element => [element, Math.max(0, Math.min(2, Math.trunc(Number(stages?.[element]) || 0)))]));
 export const elementForSpell = spell => ({
@@ -69,7 +71,7 @@ export function applyOneHitShaken(target, nowSec, quality = 1) {
 
 export function oneHitBacklashRemaining(status, nowSec) {
   if (!status) return 0;
-  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / 4));
+  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / ONE_HIT_STATUS_SECONDS));
   return Math.max(0, status.initial * fraction);
 }
 
@@ -77,24 +79,67 @@ export function oneHitTeleportDistance(holdSec) {
   return oneHitTeleportReach(Math.max(0, holdSec));
 }
 
-/** Slow but never upward-propelled descent during a committed Full-Gale aerial
- * windup, vortex, or Full-Gale/Lightning held teleport charge. Both host and
- * prediction use the same movement modifier. */
-export function oneHitGlide(player, speed=7.5) {
+/** Half/Full Lightning's genuinely steerable charging interval.
+ * The cast still owns the hands, not the feet or the camera. The server and
+ * local prediction share this decision so charging cannot rubber-band.
+ */
+export function oneHitChargingLightning(player,nowSec){
   const state=player?.ultimateState;
-  if(player?.grounded || state?.id!=='one_hit_of_wonders')return null;
+  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup')return false;
+  if((state.preparedTiers?.lightning??0)<1)return false;
+  if(Number.isFinite(state.teleportHoldAt))return !state.teleportReleased;
+  return Number.isFinite(state.partialLightningHoldAt)&&
+    !state.partialLightningReleased&&nowSec<(state.commitAt??-Infinity);
+}
+
+/** A bounded Gale suspension, shared by server movement and prediction.
+ * Ordinary aerial preparation and the brief post-teleport aim HOLD altitude;
+ * an indefinitely held Lightning charge merely slows the fall. */
+export function oneHitGlide(player,speed=7.5){
+  const state=player?.ultimateState;
+  if(player?.grounded||state?.id!=='one_hit_of_wonders')return null;
   const tiers=state.preparedTiers??state.oneHit?.tiers??player.oneHitInfusions;
   if(tiers?.gale!==2)return null;
-  if(state.phase==='startup' ||
-     (state.phase==='active' && state.oneHit?.form==='aerial' && !state.oneHit.hit))
-    return {speed,fallGravity:.16,maxFall:1.8};
+  if(state.phase==='startup')
+    return Number.isFinite(state.teleportHoldAt)?
+      {speed,fallGravity:.16,maxFall:1.8}:
+      {speed,fallGravity:0,maxFall:0};
+  if(state.phase==='active'&&state.oneHit?.form==='aerial'&&!state.oneHit.waveLaunched)
+    return {speed,fallGravity:0,maxFall:0};
   return null;
+}
+
+/** Full Steel's temporary 1-HP floor. Never store prevented lethal damage.
+ * Held Full-Lightning teleport aim offers NO protection; the finite windup,
+ * committed strike and unfinished Gale wave do. The protection is over at
+ * wave resolution or ordinary Ultimate expiry, but the player remains alive
+ * at the HP they actually retained.
+ * This pure check drives BOTH authoritative damage and the health-bar sliver.
+ */
+export function oneHitSteelFloorActive(player, nowSec) {
+  if(!player?.alive)return false;
+  const state=player.ultimateState;
+  if(state?.id!=='one_hit_of_wonders')return false;
+  const tiers=state.oneHit?.tiers??state.preparedTiers;
+  if((tiers?.steel??0)<2)return false;
+  if(state.phase==='startup')
+    return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&
+      nowSec<state.commitAt+1e-9 &&
+      // A four-second Half-Lightning delay is not four seconds of immortality:
+      // Full Steel's bracing protection ends at the normal finite windup.
+      (!Number.isFinite(state.partialLightningHoldAt)||
+        nowSec<state.startedAt+0.92);
+  if(state.phase==='active')
+    return Number.isFinite(state.until)&&nowSec<state.until &&
+      !(state.oneHit?.awaitingWave&&state.oneHit.waveResolved);
+  return false;
 }
 
 export const ONE_HIT_PRESETS = Object.freeze({
   simple: emptyInfusions(),
-  partial: Object.freeze({ fire: 1, frost: 1, gale: 1, lightning: 1 }),
-  full: Object.freeze({ fire: 2, frost: 2, gale: 2, lightning: 2 }),
-  gale: Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 0 }),
-  'gale-lightning': Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 2 }),
+  partial: Object.freeze({ fire: 1, frost: 1, gale: 1, lightning: 1, steel: 1 }),
+  full: Object.freeze({ fire: 2, frost: 2, gale: 2, lightning: 2, steel: 2 }),
+  gale: Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 0, steel: 0 }),
+  'gale-lightning': Object.freeze({ fire: 0, frost: 0, gale: 2, lightning: 2, steel: 0 }),
+  steel: Object.freeze({ fire: 0, frost: 0, gale: 0, lightning: 0, steel: 2 }),
 });

@@ -20,10 +20,22 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
     return {state:'active',charge:1,label:'IN FLIGHT',word:'DETONATE',ultimate};
   if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'){
     if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TELEPORT',word:'RELEASE',ultimate};
+    if(Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased){
+      const ready=state.partialLightningReadyAt-serverNow;
+      const expires=Math.max(0,state.commitAt-serverNow);
+      return {state:'bracing',charge:1,
+        label:ready>0?'PREP '+ready.toFixed(1):'HOLD '+expires.toFixed(1),
+        word:'RELEASE',ultimate};
+    }
     if(state.groundRelease&&serverNow>=state.groundRelease.readyAt&&serverNow<state.groundRelease.until){
       const left=state.groundRelease.until-serverNow;
       return {state:'bracing',charge:1,label:left.toFixed(1),word:'RELEASE',ultimate};
     }
+  }
+  if(state?.id==='one_hit_of_wonders'&&state.phase==='active'&&
+     Number.isFinite(state.oneHit?.aimUntil)&&serverNow<state.oneHit.aimUntil){
+    const left=Math.max(0,state.oneHit.aimUntil-serverNow);
+    return {state:'active',charge:1,label:'AIM '+left.toFixed(1),left,word:'FIRE',ultimate};
   }
   if (state?.phase === 'active' && serverNow < state.until) {
     const left = state.until - serverNow;

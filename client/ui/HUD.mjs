@@ -16,7 +16,9 @@ import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
+import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
+import { AfflictionPanel } from './AfflictionPanel.mjs';
 
 const HIT_MARKERS = Object.freeze({
   hit: { priority: 1, milliseconds: 160 },
@@ -248,6 +250,7 @@ export class HUD {
     `;
     this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
+    this.afflictionPanel = new AfflictionPanel(this.root);
     this.trialPanel = document.createElement('div');
     this.trialPanel.className = 'renown-trial-hud';
     this.trialPanel.id = 'renown-trial-hud';
@@ -307,7 +310,8 @@ export class HUD {
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
-  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); }
+  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); }
+  cycleAfflictionDetails() { this.afflictionPanel.cycle(); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', Boolean(locked) || Boolean(this.suppressPointerHint));
     this.root.classList.toggle('pointer-locked', Boolean(locked));
@@ -319,10 +323,14 @@ export class HUD {
   }
 
   update(local, snapshot, serverNow) {
-    if (!local) return;
+    if (!local) { this.afflictionPanel.clear(); return; }
+    this.afflictionPanel.update(local, serverNow);
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
     this.healthFill.style.width = `${hp}%`;
+    // The invulnerable 1-HP segment is a real part of the health bar, not
+    // an on-screen warning. Its state is the same pure rule as the host's.
+    this.armour?.classList.toggle('steel-floor',oneHitSteelFloorActive(local,serverNow));
     this.displayedTrail += (hp - this.displayedTrail) * 0.035;
     if (hp < this.displayedTrail) this.displayedTrail = Math.max(hp, this.displayedTrail - 0.25);
     else this.displayedTrail = hp;
@@ -1007,14 +1015,24 @@ export class HUD {
     this.crosshair.classList.remove(...Object.keys(HIT_MARKERS));
   }
 
-  addFeed(text, kind = '') {
-    const line = document.createElement('div');
-    line.className = `feed-line ${kind}`;
-    line.textContent = text;
-    this.feed.prepend(line);
-    while (this.feed.children.length > 5) this.feed.lastElementChild?.remove();
-    setTimeout(() => line.classList.add('fade'), 3400);
-    setTimeout(() => line.remove(), 4100);
+  addFeed(text, kind = '', key = null) {
+    // Keyed updates let an ongoing Blazing Vortex add each new fallen name
+    // to ONE living feed entry. Other deaths still receive independent lines.
+    let line=key?[...this.feed.children].find(node=>node.dataset?.feedKey===key):null;
+    if(!line){
+      line=document.createElement('div');
+      if(key)line.dataset.feedKey=key;
+      this.feed.prepend(line);
+    }
+    line.className=`feed-line ${kind}`;
+    line.textContent=text;
+    line.classList.remove('fade');
+    if(line.feedFadeTimer!=null)clearTimeout(line.feedFadeTimer);
+    if(line.feedRemoveTimer!=null)clearTimeout(line.feedRemoveTimer);
+    while(this.feed.children.length>5)this.feed.lastElementChild?.remove();
+    line.feedFadeTimer=setTimeout(()=>line.classList.add('fade'),3400);
+    line.feedRemoveTimer=setTimeout(()=>line.remove(),4100);
+    return line;
   }
 
   /** Who felled me, how, and how close it was (deathCam.deathCardText). */
