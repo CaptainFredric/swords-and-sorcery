@@ -32,6 +32,8 @@ export const ICONS = Object.freeze({
   afflictionFrostbound: '<path d="M5 2v8M2 5h6M3 3l4 4M7 3 3 7M12 7v7l3 3h6v3H9l-3-4V9M13 14l4-3M3 22h18"/>',
   // Jagged ground with a radiating field: hazardous ruptured terrain.
   afflictionRupture: '<path d="M2 17l5-3 3 3 3-7 4 6 5-3M11 2l-1 8 3 3-3 9M4 7l2 3M19 5l-2 4M20 20l2 2"/>',
+  // Sunder-torn ground: a boot unable to run across a split flagstone.
+  afflictionTornGround: '<path d="M2 19l5-2 3 2 4-5 3 3 5-2M12 2l-1 8 2 4-3 8M4 5l5 3M16 5l4 3M3 12l2 3"/>' ,
   // Lightning in a narrow conducting wire; a broken zigzag, not a Fireball.
   line_of_conduct: '<path d="m4 4 6 3-3 4 9 4-4 5M3 12l4-1M16 15l5-2M11 2l-1 5" stroke-width="1.7" fill="none"/>',
   // One ordinary-sized sword spins down into fractured stone; orbiting stars
