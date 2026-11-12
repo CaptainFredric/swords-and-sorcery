@@ -87,11 +87,18 @@ async function run(name,width,height,touch,url){
     controls.querySelector('summary').click();
     const manual=document.querySelector('#how-panel .manual-scroll');
     manual.scrollTop=manual.scrollHeight;
+    const action=controls.querySelector('.how-settings').getBoundingClientRect();
+    const viewport=manual.getBoundingClientRect();
     return {open:controls.open,max:manual.scrollHeight-manual.clientHeight,
-      current:manual.scrollTop,visible:!!controls.querySelector('.controls-grid')};
+      current:manual.scrollTop,actionBottom:action.bottom,viewportBottom:viewport.bottom,
+      visible:!!controls.querySelector('.controls-grid')};
   });
   assert.ok(scroll.open&&scroll.visible,'controls expanded');
-  assert.ok(scroll.max>10&&scroll.current>0,'scroll reaches additional controls');
+  // Tall screens may fit every control without needing any scrolling;
+  // shorter screens must be able to scroll to the last control button.
+  assert.ok(scroll.max>10 ? scroll.current>0 :
+    scroll.actionBottom<=scroll.viewportBottom+2,
+    'last control can be reached without overflow clipping');
   await shot(name+'-controls');
   const notice=await inspect(()=>{
     const root=document.createElement('div');
