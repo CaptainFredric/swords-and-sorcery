@@ -38,6 +38,7 @@ const BUTTONS = [
   // the spell carried from the Armory (its icon, name and cooldown follow the spell)
   { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
+  { action: 'technique', label: 'TECHNIQUE', icon:'attack', cooldown:{key:'swordTechniqueReadyAt',seconds:10} },
   { action: 'sprint', label: 'SPRINT' },
   // (a toggle, and only for a deliberate tap on it: see #up)
   { action: 'crouch', label: 'CROUCH' },
@@ -330,7 +331,7 @@ export class TouchControls {
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
         ram?['attack','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
-        ['attack','guard','dash','jump','spell','ultimate','crouch','gauntlet','interact','pause','scores','practiceTools'];
+        ['attack','guard','dash','jump','spell','ultimate','technique','crouch','gauntlet','interact','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
         button.hidden=!visible.includes(action);
       this.layer.classList.toggle('mounted-steel-available',mounted);
@@ -485,6 +486,9 @@ export class TouchControls {
     const ram = Boolean(local.alive && local.operatingRamId);
     const flight = Boolean(local.alive && local.operatingFightFlightId);
     const mounted = Boolean(local.alive && (local.operatingBallistaId || local.operatingRamId || local.operatingFightFlightId));
+    this.buttons.technique.hidden=mounted;
+    const label=this.buttons.technique.querySelector('span');
+    if(label)label.textContent=local.technique==='whirl_wind'?'WHIRL':'RIPOSTE';
     const machine = flight ? fb : ram ? rb : bl;
     const machineAlive = Boolean(machine && (machine.health ?? 0) > 0 && machine.mode !== 'DESTROYED' && !machine.retired);
     const hasBaseSteel = local.spell === 'steel';
@@ -1364,6 +1368,7 @@ export class TouchControls {
     element?.classList.add('pressed');
     if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
     if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
+    if (action === 'technique') this.input.technique(true, `touch:${event.pointerId}`);
     if (action === 'flightRise') {
       this.flightRiseSources.add(event.pointerId);
       this.flightRiseHeld = true;
@@ -1465,6 +1470,7 @@ export class TouchControls {
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
     if (action === 'attack') this.input.setAttack(false, `touch:${pointerId}`);
     if (action === 'guard') this.input.setGuard(false, `touch:${pointerId}`);
+    if (action === 'technique') this.input.technique(false, `touch:${pointerId}`);
     if (action === 'flightRise') {
       this.flightRiseSources.delete(pointerId);
       this.flightRiseHeld = this.flightRiseSources.size > 0;
