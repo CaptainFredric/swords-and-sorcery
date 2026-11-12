@@ -127,7 +127,7 @@ function resolveTechniqueContact(room,attacker,action,contact,nowSec){
       staggerBy(room,attacker,STAGGER.gain.parried,nowSec,defender.id);
     }else if(guardResult.kind==='guardBreak'){
       breakGuard(defender,GAME.guardBreakStaggerMs/1000,nowSec);
-      gainProwess(room,attacker,PROWESS.guardBreak);
+      // Technique guard breaks do not generate attacker Prowess.
       room.events.push({type:'guardBreak',attackerId:attacker.id,
         defenderId:defender.id,technique:contract.id,point:contact.point,at:nowSec});
       staggerBy(room,defender,STAGGER.gain.guardBreak,nowSec,attacker.id);
@@ -3324,6 +3324,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // Keep native gravity and world movement; no Gale cast or recast is issued.
     const rising=player.swordTechnique?.contract.kind==='whirl'&&
       player.swordTechnique.phase!=='recovery'&&player.spell==='gale'&&Boolean(input?.jump);
+    if(player.swordTechnique)player.swordTechnique.galeLift=Boolean(rising);
     if(rising){
       player.velocity.y=Math.max(player.velocity.y??0,
         5/player.swordTechnique.contract.revolutionSeconds+MOVEMENT.gravity*dt);
