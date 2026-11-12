@@ -251,6 +251,7 @@ export class GameSocket {
   ultimate({held=false}={}) { this.send({type:'ultimate',...(held?{held:true}:{})}); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
   oneHitRelease({cancel=false}={}) { this.send({type:'oneHitRelease',...(cancel?{cancel:true}:{})}); }
+  oneHitFire() { this.send({type:'oneHitFire'}); }
   oneHitDetonate(waveId) { this.send({type:'oneHitDetonate',waveId}); }
   practiceOneHit(options={}) { this.send({type:'practiceOneHit',...options}); }
   dash(direction) { this.send({ type: 'dash', direction }); }
