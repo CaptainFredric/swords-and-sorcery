@@ -15,6 +15,15 @@
 export const BOT_PROFILES = Object.freeze({
   // the Bot Duel's rival: sword and spell
   rival: Object.freeze({ sword: true, spells: true, guard: 0.58, dash: 0.12, keepRange: null, flee: false }),
+  // The Spellblade: the exact ordinary player's kit and resources, but
+  // authoritatively driven by the highest reasoning preset, not more stats.
+  // It rotates every ordinary spell, uses the real Steel ward cooldown, and
+  // fights by footwork rather than a hidden damage or health multiplier.
+  spellblade: Object.freeze({
+    name:'The Spellblade',sword:true,spells:true,guard:.85,dash:.45,
+    keepRange:null,flee:false,footwork:1.0,
+    spellCycle:Object.freeze(['fireball','frostfire','gale']),ward:'steel',
+  }),
   // Mr. Melee: a swordsman through and through. Lunges in to the blade, circles hard once there, guards readily,
   // carries Sheathe in Steel and hardens as a fight begins (never at nothing); no offensive spells
   melee: Object.freeze({
