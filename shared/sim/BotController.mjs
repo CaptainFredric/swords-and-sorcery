@@ -191,7 +191,13 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
   // including moving Gale waves and a Vortex blade. This runs on the same
   // finite reaction clock as any other decision, not future button reads.
   if(skill.activeRead){
-    const danger=activeHitboxThreat(room,actor,target,nowSec);
+    // Scan every VISIBLE enemy threat, not only the selected dueling target:
+    // a second human can throw a wave into a Shared Practice encounter.
+    const kinds=['human','bot'];
+    const danger=foesOf(room,actor,kinds)
+      .map(foe=>activeHitboxThreat(room,actor,foe,nowSec)).filter(Boolean)
+      .sort((a,b)=>({wave:0,rupture:1,vortex:2,disaster:3,field:4}[a.kind]??5)-
+                   ({wave:0,rupture:1,vortex:2,disaster:3,field:4}[b.kind]??5))[0]??null;
     if(danger){
       ai.hazardUntil=nowSec+.52;
       ai.hazardDirection={x:danger.x,z:danger.z};
