@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
+import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -69,7 +70,11 @@ export class SiegeWorkshopScene {
     this.cache = new Map();
     this.inFlight = new Map();
     this.mixers = new Map();
+    this.clips = new Map();
+    this.previewAnimation = null;
+    this.previewFist = null;
     this.loader = new GLTFLoader();
+    this.performance = new SiegeWorkshopPerformance(this);
 
     this.#buildEnvironment();
     this.#initFallbacks();
@@ -78,6 +83,7 @@ export class SiegeWorkshopScene {
 
   setVisible(visible) {
     this.root.visible = Boolean(visible);
+    if (!visible) this.stopPreview();
     if (visible && !this.knight && !this.knightLoading) {
       this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
         if (!instance) return;
@@ -107,9 +113,11 @@ export class SiegeWorkshopScene {
     const emberMat = new THREE.MeshBasicMaterial({ color: 0xff6622 });
 
     // 1. Ground apron (paved stone flagstones for the workshop)
-    const apronGeo = new THREE.BoxGeometry(10, 0.15, 9);
+    // Extended demonstration apron: reverse drives and aerial runs need
+    // genuine clearance beyond the small resting machine shelter.
+    const apronGeo = new THREE.BoxGeometry(13, 0.15, 18);
     const apron = new THREE.Mesh(apronGeo, stoneMat);
-    apron.position.set(0, -0.075, 0);
+    apron.position.set(0, -0.075, -2.5);
     apron.receiveShadow = true;
     env.add(apron);
 
@@ -322,16 +330,17 @@ export class SiegeWorkshopScene {
     // Heavy Armored Fist
     const fistGeo = new THREE.BoxGeometry(0.65, 0.55, 0.85);
     const fist = new THREE.Mesh(fistGeo, ironMat);
+    fist.name = 'Armored_Fist';
     fist.position.set(0, 2.2, -0.8);
     fist.castShadow = true;
     soFistFallback.add(fist);
     // Brass knuckle plates
     const knuckleGeo = new THREE.BoxGeometry(0.68, 0.18, 0.2);
     const knuckles = new THREE.Mesh(knuckleGeo, brassMat);
-    knuckles.position.set(0, 2.35, -1.15);
-    soFistFallback.add(knuckles);
+    knuckles.position.set(0, .15, -.35);
+    fist.add(knuckles);
 
-    soFistFallback.userData = { isAuthored: false, machineId: 'soFist' };
+    soFistFallback.userData = { isAuthored: false, machineId: 'soFist', motionBounds: new THREE.Box3().setFromObject(soFistFallback) };
     this.fallbacks.set('soFist', soFistFallback);
 
     // Fallback 2: BI-BYE-LLISTA (Twin-bolt mobile carriage)
@@ -382,7 +391,7 @@ export class SiegeWorkshopScene {
     bolt2.position.set(0.08, 1.15, -0.3);
     biByeFallback.add(bolt2);
 
-    biByeFallback.userData = { isAuthored: false, machineId: 'biBye' };
+    biByeFallback.userData = { isAuthored: false, machineId: 'biBye', motionBounds: new THREE.Box3().setFromObject(biByeFallback) };
     this.fallbacks.set('biBye', biByeFallback);
 
     // Fallback 3: FIGHT-AND-FLIGHT (Wearable harness, repeater, twin-sword rotor)
@@ -422,13 +431,14 @@ export class SiegeWorkshopScene {
     rotorBlade2.castShadow = true;
     flightFallback.add(rotorBlade2);
 
-    flightFallback.userData = { isAuthored: false, machineId: 'fightFlight' };
+    flightFallback.userData = { isAuthored: false, machineId: 'fightFlight', motionBounds: new THREE.Box3().setFromObject(flightFallback) };
     this.fallbacks.set('fightFlight', flightFallback);
   }
 
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
     if (this.activeMachineId === id && this.machinePivot.children.length) return;
+    this.stopPreview();
     this.activeMachineId = id;
     this.currentYaw = REST_YAW[id];
     this.resetRotation();
@@ -469,9 +479,19 @@ export class SiegeWorkshopScene {
     const child = this.machinePivot.children[0];
     const modelBounds = child?.userData.motionBounds;
     this.machinePivot.updateWorldMatrix(true, false);
-    const bounds = modelBounds ? modelBounds.clone().applyMatrix4(this.machinePivot.matrixWorld)
-      : new THREE.Box3().setFromObject(this.machinePivot);
-    if (this.knight) bounds.union(this.knightBounds);
+    // Yaw invariant filming bounds: inspect a rolling chassis, not a jumping
+    // one. Rotating a rectangular box must not repeatedly re-fit the camera.
+    const bounds=modelBounds ? (() => {
+      const xx=Math.max(Math.abs(modelBounds.min.x),Math.abs(modelBounds.max.x));
+      const zz=Math.max(Math.abs(modelBounds.min.z),Math.abs(modelBounds.max.z));
+      const radius=Math.hypot(xx,zz);
+      return new THREE.Box3(
+        new THREE.Vector3(this.root.position.x-radius,this.root.position.y,this.root.position.z-radius),
+        new THREE.Vector3(this.root.position.x+radius,this.root.position.y+modelBounds.max.y,this.root.position.z+radius));
+    })() : new THREE.Box3().setFromObject(this.machinePivot);
+    if(this.knight&&!this.performance.active)bounds.union(this.knightBounds);
+    const demonstration=this.performance.bounds();
+    if(demonstration)bounds.union(demonstration);
     if (bounds.isEmpty()) return null;
     return { min:bounds.min.toArray(), max:bounds.max.toArray() };
   }
@@ -512,12 +532,11 @@ export class SiegeWorkshopScene {
             isAuthored: true, machineId: id, motionBounds: box,
             bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
-          const clip = gltf.animations.find(candidate => candidate.name === IDLE_CLIP[id]);
-          if (clip) {
-            const mixer = new THREE.AnimationMixer(model);
-            mixer.clipAction(clip).play();
-            this.mixers.set(id, mixer);
-          }
+          this.clips.set(id,gltf.animations);
+          const mixer=new THREE.AnimationMixer(model);
+          const clip=gltf.animations.find(candidate=>candidate.name===IDLE_CLIP[id]);
+          if(clip)mixer.clipAction(clip).play();
+          this.mixers.set(id,mixer);
 
           this.cache.set(id, model);
           this.inFlight.delete(id);
@@ -570,47 +589,133 @@ export class SiegeWorkshopScene {
     };
   }
 
-  rotate(deltaYaw, deltaPitch = 0) {
-    this.targetYaw += deltaYaw;
-    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch + deltaPitch, -0.15, 0.15);
+  rotate(deltaYaw) {
+    if(this.performance.active)this.stopPreview();
+    this.targetYaw+=deltaYaw;
   }
 
   resetRotation() {
-    this.targetYaw = REST_YAW[this.activeMachineId];
-    this.targetPitch = 0;
+    if(this.performance.active)this.stopPreview();
+    this.targetYaw=REST_YAW[this.activeMachineId];
+    this.targetPitch=0;
+    this.currentPitch=0;
+  }
+
+  playPreview(skill) {
+    this.stopPreview();
+    const started=this.performance.play(skill);
+    if(started)this.previewAnimation=null;
+    this.onPreviewChange?.(started?skill:null);
+    return started;
+  }
+
+  stopPreview() {
+    this.performance?.stop();
+    this.#restorePreviewAnimation();
+    this.#restoreFist();
+    this.machinePivot.position.set(0,0,0);
+    this.machinePivot.rotation.x=0;
+    this.onPreviewChange?.(null);
+  }
+
+  #restoreFist() {
+    if(this.previewFist) {
+      this.previewFist.node.position.copy(this.previewFist.rest);
+      this.previewFist=null;
+    }
+  }
+
+  #poseFist(pose) {
+    if(!pose||this.activeMachineId!=='soFist')return;
+    const node=this.machinePivot.children[0]?.getObjectByName('Armored_Fist');
+    if(!node)return;
+    this.previewFist={node,rest:node.position.clone()};
+    node.position.z-=3.2*pose.fist;
+    node.position.x+=Math.sin(this.performance.time*55)*pose.shudder;
+  }
+
+  #restorePreviewAnimation() {
+    if(this.previewAnimation) {
+      const mixer=this.mixers.get(this.previewAnimation.machine);
+      mixer?.stopAllAction();
+      const id=this.previewAnimation.machine;
+      const clips=this.clips.get(id)??[];
+      const idle=clips.find(c=>c.name===IDLE_CLIP[id])
+        ?? (id==='soFist'?clips.find(c=>c.name==='01_Ram_Strike_Full_Cycle'):null);
+      if(idle&&mixer) {
+        const action=mixer.clipAction(idle).reset().play();
+        if(id==='soFist') {
+          // This GLB does not carry a dedicated resting clip. Pose its actual
+          // strike animation at the coupled, fully retracted starting frame.
+          mixer.setTime(0);
+          action.paused=true;
+        }
+      }
+    }
+    this.previewAnimation=null;
+  }
+
+  #samplePreviewAnimation(skill,time) {
+    const id=this.activeMachineId;
+    const clips=this.clips.get(id);
+    const mixer=this.mixers.get(id);
+    if(!mixer||!clips?.length)return;
+    let name=null,age=time;
+    if(id==='soFist' && skill==='longArmToTheJaw') {
+      name='01_Ram_Strike_Full_Cycle'; age=Math.min(.88,time*1.7);
+    } else if(id==='soFist' && skill==='beatToThePunch') {
+      name='01_Ram_Strike_Full_Cycle'; age=Math.max(0,time-2.1);
+    } else if(id==='biBye' && skill==='boltToTheOccasion') {
+      name=time>=2.58?'09_BiBye_Mobile_Shot1_Fire_Upper':'21_BiBye_Delayed_Shot2_Release_And_Recoil';
+      age=time>=2.58?time-2.58:Math.max(0,time-1.27);
+    } else if(id==='biBye' && skill==='coldHowTouching') {
+      name='09_BiBye_Mobile_Shot1_Fire_Upper'; age=Math.max(0,time-.75);
+    } else if(id==='fightFlight') {
+      name='Rotor_Spin_Cycle_1Rev'; age=time;
+    }
+    const clip=clips.find(c=>c.name===name);
+    if(!clip)return;
+    if(this.previewAnimation?.name!==name||this.previewAnimation?.machine!==id) {
+      mixer.stopAllAction();
+      const action=mixer.clipAction(clip);
+      action.reset().setLoop(id==='fightFlight'?THREE.LoopRepeat:THREE.LoopOnce,
+        id==='fightFlight'?Infinity:1);
+      action.clampWhenFinished=true;
+      action.play();
+      this.previewAnimation={machine:id,name};
+    }
+    mixer.setTime(id==='fightFlight'?age:Math.min(Math.max(0,clip.duration-.001),age));
   }
 
   update(dt, reducedMotion = false) {
-    // Smooth damp towards target rotation
-    this.currentYaw += (this.targetYaw - this.currentYaw) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
-    this.currentPitch += (this.targetPitch - this.currentPitch) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
-
-    this.machinePivot.rotation.y = this.currentYaw;
-    this.machinePivot.rotation.x = this.currentPitch;
-    const box = this.machinePivot.children[0]?.userData.motionBounds;
-    if (box) {
-      // Pitch inspection pivots on the floor instead of sinking the wheels.
-      const floor = Math.min(box.min.y * Math.cos(this.currentPitch) - box.min.z * Math.sin(this.currentPitch),
-        box.min.y * Math.cos(this.currentPitch) - box.max.z * Math.sin(this.currentPitch));
-      this.machinePivot.position.y = Math.max(0, -floor);
-    }
-    if (!reducedMotion) this.clock += dt;
-    if (this.knight) {
-      this.knight.animator.apply({clip:'Idle',loop:true,time:this.clock},reducedMotion ? 0 : dt);
-      if (this.knightBounds.isEmpty()) {
-        // SkinnedMesh refreshes its inverse bind transform in updateMatrixWorld.
+    // Inspect on the wheels: there is no root pitch or artificial floor lift.
+    const weight=reducedMotion?1:1-Math.exp(-dt*10);
+    this.currentYaw+=(this.targetYaw-this.currentYaw)*weight;
+    this.currentPitch=0;
+    if(!reducedMotion)this.clock+=dt;
+    if(this.knight) {
+      this.knight.animator.apply({clip:'Idle',loop:true,time:this.clock},reducedMotion?0:dt);
+      if(this.knightBounds.isEmpty()) {
         this.root.updateMatrixWorld(true);
-        this.knightBounds.setFromObject(this.knight.root, true);
+        this.knightBounds.setFromObject(this.knight.root,true);
       }
     }
-
-    // Update active animation mixer
-    const mixer = this.mixers.get(this.activeMachineId);
-    if (mixer && !reducedMotion) mixer.update(dt);
+    this.#restoreFist();
+    const mixer=this.mixers.get(this.activeMachineId);
+    if(mixer&&!reducedMotion&&!this.performance.active)mixer.update(dt);
+    const wasActive=this.performance.active;
+    const pose=this.performance.update(dt,reducedMotion);
+    if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
+    else if(this.previewAnimation)this.#restorePreviewAnimation();
+    if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
+    this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
+    this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
+    this.#poseFist(pose);
   }
 
   dispose() {
     this.disposed = true;
+    this.performance?.dispose();
     this.knight?.dispose();
     this.root.removeFromParent();
     for (const mixer of this.mixers.values()) mixer.stopAllAction();
@@ -626,5 +731,6 @@ export class SiegeWorkshopScene {
     this.cache.clear();
     this.inFlight.clear();
     this.mixers.clear();
+    this.clips.clear();
   }
 }

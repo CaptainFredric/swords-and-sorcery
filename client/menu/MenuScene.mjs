@@ -327,13 +327,15 @@ export class MenuScene {
     if (this.siegeActive) {
       const dx = point.x - this.dragStart.x;
       const dy = point.y - this.dragStart.y;
-      this.siegeWorkshop?.rotate(dx * 0.009, dy * 0.004);
+      this.siegeWorkshop?.rotate(dx * 0.009);
       this.dragStart.x = point.x;
       this.dragStart.y = point.y;
       return;
     }
     this.targetYaw = this.dragStart.yaw + (point.x - this.dragStart.x) * 0.009;
-    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.28, 0.28);
+    // Inspection rotates the knight around his planted feet. Pitching the
+    // entire rig used to make his boots rise and sink as he turned.
+    this.targetPitch = 0;
   };
 
   #pointerUp = event => {

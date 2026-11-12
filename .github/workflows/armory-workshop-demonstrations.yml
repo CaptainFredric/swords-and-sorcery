@@ -1,0 +1,44 @@
+name: Armory equipment and siege workshop Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/main.mjs'
+      - 'client/menu.css'
+      - 'client/index.html'
+      - 'client/menu/MenuScene.mjs'
+      - 'client/menu/SiegeWorkshopScene.mjs'
+      - 'client/menu/SiegeWorkshopPerformance.mjs'
+      - 'client/menu/siegeWorkshopPreviewPlan.mjs'
+      - 'scripts/verify-armory-reborn-browser.mjs'
+      - '.github/workflows/armory-workshop-demonstrations.yml'
+permissions:
+  contents: read
+jobs:
+  workshop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Verify deterministic exhibition plans
+        run: node --test client/menu/siegeWorkshopPreviewPlan.test.mjs
+      - name: Locate Chrome
+        id: chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify real Armory, 3D Skills, and mobile preview gestures
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/verify-armory-reborn-browser.mjs
+      - name: Preserve real Chrome screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: armory-workshop-exhibitions
+          path: output/armory-reborn/
+          retention-days: 7
