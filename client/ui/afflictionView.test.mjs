@@ -16,10 +16,11 @@ test('all Disaster ailments, burn, Chill, Stagger and field appear independently
     chill: { startedAt: 10, until: 13, slow: .55 },
     oneHitFrostSlow: { until: 13.8, depth: .35 },
     oneHitField: { id: 'rupture', ownerId: 'enemy', strength: .7 },
+    tornGround: true,
   }), 10);
   assert.deepEqual(effects.map(effect => effect.id),
     ['frozen', 'staggered', 'conduct', 'blustered', 'shaken',
-     'burning', 'chilled', 'frostbound', 'rupture']);
+     'burning', 'chilled', 'frostbound', 'tornGround', 'rupture']);
   for (const effect of effects) {
     assert.equal(effect.name, AFFLICTIONS[effect.id].name);
     assert.ok(effect.icon.startsWith('affliction'));
@@ -75,4 +76,7 @@ test('dead, missing, or invalid snapshots have no interactive afflictions', () =
   assert.deepEqual(afflictionView({ alive: false, burningUntil: 300 }, 10), []);
   assert.deepEqual(afflictionView(player({ burningUntil: 300 }), Number.NaN), []);
   assert.deepEqual(afflictionView(player({}), 10), []);
+  const torn = afflictionView(player({tornGround:true}),10);
+  assert.equal(torn[0].name,'Torn Ground');
+  assert.equal(torn[0].strength,1);
 });
