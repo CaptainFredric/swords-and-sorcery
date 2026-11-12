@@ -107,6 +107,9 @@
   "contributionInsultV2": [
     "contribution-insult-v2-1.mp3"
   ],
+  "coughGrowlExertion": [
+    "cough-growl-exertion-1.mp3"
+  ],
   "couldveDoneThat": [
     "couldve-done-that-1.mp3"
   ],
@@ -229,6 +232,10 @@
   "goingEasy": [
     "going-easy-1.mp3"
   ],
+  "goodLuckForgettingMe": [
+    "good-luck-forgetting-me-1.mp3",
+    "good-luck-forgetting-me-2.mp3"
+  ],
   "groundPersuasion": [
     "ground-persuasion-1.mp3"
   ],
@@ -279,6 +286,9 @@
   ],
   "highGround": [
     "high-ground-1.mp3"
+  ],
+  "hummedExertion": [
+    "hummed-exertion-1.mp3"
   ],
   "hurt": [
     "hurt-1.mp3"
