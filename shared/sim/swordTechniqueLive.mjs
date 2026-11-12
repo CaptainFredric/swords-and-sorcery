@@ -14,9 +14,11 @@ export function requestSwordTechnique(room, playerId, down, nowSec) {
      player.inspectionFrozen||nowSec<(player.staggerUntil??-Infinity)||
      nowSec<(player.oneHitFrozenUntil??-Infinity))return false;
   const contract=SWORD_TECHNIQUE_CONTRACTS[player.technique];
+  const aerial=!player.grounded;
   const action=beginSwordTechnique(player,contract,nowSec);
   if(!action)return false;
   action.lungeYaw=player.yaw;
+  action.aerial=aerial;
   player.spawnProtectionUntil=Math.min(player.spawnProtectionUntil,nowSec);
   room.events.push({type:'swordTechniqueStarted',playerId,id:contract.id,at:nowSec});
   return true;
@@ -54,6 +56,7 @@ export function techniqueView(player) {
   const a=player.swordTechnique;
   return a?{id:a.id,phase:a.phase,startedAt:a.startedAt,
     initialStartedAt:a.initialStartedAt,revolutions:a.revolutions,
+    aerial:Boolean(a.aerial),galeLift:Boolean(a.galeLift),
     endsAt:a.endsAt??null}:null;
 }
 export { interruptSwordTechnique };
