@@ -126,6 +126,8 @@ function impact(room,b,contact,now){
 }
 export function stepFlick(room,b,dt,now){
   if(!b||b.flickAt==null||b.retired||b.health<=0)return;
+  // A destroyed or detached hand cannot complete a stored fingertip contact.
+  if(b.fistMounted===false||(b.components?.Fist?.health??0)<=0)b.flickContactUsed=true;
   const prior=clamp(b.flickLastAge??0,0,FLICK.cycle),age=clamp(now-b.flickAt,0,FLICK.cycle);
   const lo=Math.max(prior,FLICK.activeFrom),hi=Math.min(age,FLICK.activeTo);
   if(!b.flickContactUsed&&hi>lo){
