@@ -23,6 +23,7 @@ import {SO_FIST_LIFT,soFistAllowedPitch} from './soFistElevation.mjs';
 import {requestLongArmToJaw,stepDetachedRamFist} from './soFistDetachedFist.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
+import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
@@ -211,7 +212,11 @@ function pinsPlayer(room,next,world,obstacles){
  return false;
 }
 export function stepSoFistication(room,b,dt,now,world=room.world){
- if(!b||b.retired)return;if(b.health<=0){stepSiegeWreck(room,b,now);return;}
+ if(!b||b.retired)return;if(b.health<=0){
+   stepFinalJaw(room,b,now);
+   if(b.detachedFist?.isFinal)stepDetachedRamFist(room,b,dt,now,world);
+   stepSiegeWreck(room,b,now);return;
+ }
  b.poseTime=now;b.edgeBlocked=false;stepDetachedRamFist(room,b,dt,now,world);
  stepRamElevation(room,b,dt,now,world);
  stepSoFistSkill(room,b,now);
@@ -468,7 +473,10 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
  if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(componentId==='Drive'&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
+    // The terminal payload must be captured before the operator is dismounted.
+    queueFinalJaw(room,b,now,{attackerId});
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
+    if(b.finalJaw)b.wreckFistMissing=false;
     b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
     const pilot=b.operatorId?room.players.get(b.operatorId):null;
     dismountSoFistication(room,b,pilot,{force:true,at:now});
