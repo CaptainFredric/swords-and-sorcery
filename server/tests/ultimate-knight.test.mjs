@@ -7,6 +7,8 @@ import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/ch
 import { matchReward } from '../src/ProfileStore.mjs';
 import { eligibleChallengeParticipant } from '../src/challengeSettlement.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
+import { configureUltimateKnight } from '../../shared/sim/UltimateKnight.mjs';
+import { applyRoomCommand,serializeSnapshot } from '../../shared/sim/wire.mjs';
 
 const world = { floors: [{ id: 'floor', center: [0, -0.1, 0], size: [80, 0.2, 80], y: 0 }],
   ramps: [], solids: [], abyssY: -9, spawnPoints: [{ x: 0, y: 0, z: 0, yaw: 0 }, { x: 0, y: 0, z: -4, yaw: Math.PI }] };
@@ -120,4 +122,41 @@ test('Ultimate Knight combat cannot progress Challenges, reward Renown, or finis
   assert.deepEqual(challengeProgressFor(f.room, f.human.id), {});
   assert.equal(f.room.state, 'PLAYING'); assert.equal(matchReward(f.room, f.human, 40), 0);
   assert.equal(eligibleChallengeParticipant(f.room, f.human), false);
+});
+
+test('Ultimate Knight drill settings are Practice-only and carry fixed Ultimate, Follow/Stay and 5 tiers on the wire',()=>{
+  const {room,human,knight}=fixture();
+  const chosen={type:'practiceUltimateKnightConfig',selection:'one_hit_of_wonders'};
+  assert.deepEqual(applyRoomCommand(room,human,chosen,0),{});
+  assert.equal(knight.ultimate,'one_hit_of_wonders');
+  assert.deepEqual(applyRoomCommand(room,human,{type:'practiceUltimateKnightConfig',behavior:'stay'},0),{});
+  assert.equal(knight.ultimateKnight.behavior,'stay');
+  assert.deepEqual(applyRoomCommand(room,human,{type:'practiceUltimateKnightConfig',preset:'full'},0),{});
+  assert.deepEqual(knight.ultimateKnight.stages,{fire:2,frost:2,gale:2,lightning:2,steel:2});
+  assert.deepEqual(applyRoomCommand(room,human,{type:'practiceUltimateKnightConfig',element:'frost',tier:0},0),{});
+  assert.equal(knight.practiceOneHit.stages.frost,0);
+  const wire=serializeSnapshot(room,0,human.id).players.find(p=>p.id===knight.id);
+  assert.equal(wire.ultimateKnight.selection,'one_hit_of_wonders');
+  assert.equal(wire.ultimateKnight.behavior,'stay');
+  assert.equal(wire.ultimateKnight.stages.frost,0);
+  assert.equal(applyRoomCommand(room,human,{type:'practiceUltimateKnightConfig',element:'frost',tier:4},0).rejected!==undefined,true);
+  assert.equal(knight.practiceOneHit.stages.frost,0);
+  const arena=new Room('NOPE',{mode:'FFA'});
+  assert.equal(configureUltimateKnight(arena,human.id,chosen,0),false);
+});
+test('Ultimate Knight stationary drill commits its selected Disaster without walking toward the player',()=>{
+  const f=fixture();const {room,human,knight}=f;
+  human.position={x:0,y:0,z:-10};
+  assert.equal(configureUltimateKnight(room,human.id,{selection:'one_hit_of_wonders',behavior:'stay',preset:'partial'},0),true);
+  for(let i=0;i<180;i++){
+    const now=i/30;
+    human.position={x:0,y:0,z:-10};human.velocity={x:0,y:0,z:0};human.health=100;
+    stepPracticeActors(room,now,world,{random:()=>.5});
+    stepRoom(room,1/30,now,world);
+  }
+  const starts=room.events.filter(e=>e.type==='ultimateStart'&&e.playerId===knight.id);
+  assert.ok(starts.length>=1,'stationary Knight actually uses the chosen Ultimate');
+  assert.ok(starts.every(e=>e.ultimate==='one_hit_of_wonders'));
+  assert.ok(Math.abs(knight.position.z)<.5,'Stay does not chase a player ten meters away');
+  assert.ok(room.events.some(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id));
 });
