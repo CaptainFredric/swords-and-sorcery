@@ -73,7 +73,7 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
    Death, match results and authored dialogue have their own presentations. */
 .status-flash {
   position: absolute; top: auto; left: calc(env(safe-area-inset-left, 0px) + 24px);
-  bottom: clamp(104px, 16cqh, 166px); z-index: 13;
+  bottom: clamp(148px, 23cqh, 216px); z-index: 13;
   width: max-content; max-width: min(300px, 42cqw);
   padding: 7px 12px; border-left: 2px solid rgba(214,182,118,.78);
   background: linear-gradient(90deg,rgba(17,19,16,.91),rgba(17,19,16,.4));
