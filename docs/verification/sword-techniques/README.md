@@ -1,6 +1,6 @@
 # Ordinary sword correction and the two Sword Techniques
 
-Draft, for review. Nothing here is merged or deployed, and the canonical `spellblade.glb` / `spellblade-fp.glb` are byte-for-byte unchanged.
+Draft, for review. Base: `main` at `0e0052e2` (branched from `272417b3`, `main` merged in three times; no Spellblade promotion commits landed in between). Nothing here is merged or deployed, and the canonical `spellblade.glb` / `spellblade-fp.glb` are byte-for-byte unchanged.
 
 ## What this is
 
@@ -142,7 +142,7 @@ The braced sword lies centre-right and high, so a right-to-left forehand from de
 
 ### Tests
 
-`npm test` on Node 24: **3,007 of 3,008 pass.** The one failure, `aerial: Half Fire widens the wave…` in `server/tests/disaster-elements.test.mjs`, fails identically on `main` at `d225dfeb` (2,976 of 2,977 there). The suite has 31 more tests than `main` (the old fixture-only prototype tests are replaced):
+`npm test` on Node 24: **3,010 of 3,011 pass**, and `npm run test:html5` 21 of 21. The one failure, `aerial: Half Fire widens the wave…` in `server/tests/disaster-elements.test.mjs`, fails identically on `main` at `0e0052e2` (2,979 of 2,980 there). `practice-mounted-ui.test.mjs`, which failed on `main` when this work began (`272417b3`), now passes on both. The suite has 31 more tests than `main` (the old fixture-only prototype tests are replaced):
 
 - `server/tests/sword-technique.test.mjs` (21): damage and lunge distance, commitment, wall and body stops, interception from each side, a spell cut where the sword is, Guard and parry, Steel, the Dash rule, cooldowns, Stagger, the five-turn Prowess ladder, release, no Prowess in a crowd or on a guard, Gale lift without the spell, Practice against a match, spin direction, replication, loadout.
 - `server/tests/spellblade-motion-sidecar.test.mjs` (5), `client/game/fpTechnique.test.mjs` (3), `client/game/fpForehandFollowThrough.test.mjs` (5, with the old path shown to fail), plus changed tests in `armoryView`, `InputController` and `swordChainPresentation`.
