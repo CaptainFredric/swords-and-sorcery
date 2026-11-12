@@ -599,33 +599,101 @@ export class SiegeWorkshopScene {
     this.currentPitch=0;
   }
 
-  update(dt, reducedMotion = false) {
-    // Smooth damp towards target rotation
-    this.currentYaw += (this.targetYaw - this.currentYaw) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
-    this.currentPitch += (this.targetPitch - this.currentPitch) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 10));
+  playPreview(skill) {
+    this.stopPreview();
+    const started=this.performance.play(skill);
+    if(started)this.previewAnimation=null;
+    return started;
+  }
 
-    this.machinePivot.rotation.y = this.currentYaw;
-    this.machinePivot.rotation.x = this.currentPitch;
-    const box = this.machinePivot.children[0]?.userData.motionBounds;
-    if (box) {
-      // Pitch inspection pivots on the floor instead of sinking the wheels.
-      const floor = Math.min(box.min.y * Math.cos(this.currentPitch) - box.min.z * Math.sin(this.currentPitch),
-        box.min.y * Math.cos(this.currentPitch) - box.max.z * Math.sin(this.currentPitch));
-      this.machinePivot.position.y = Math.max(0, -floor);
+  stopPreview() {
+    this.performance?.stop();
+    this.#restorePreviewAnimation();
+    this.#restoreFist();
+    this.machinePivot.position.set(0,0,0);
+    this.machinePivot.rotation.x=0;
+  }
+
+  #restoreFist() {
+    if(this.previewFist) {
+      this.previewFist.node.position.copy(this.previewFist.rest);
+      this.previewFist=null;
     }
-    if (!reducedMotion) this.clock += dt;
-    if (this.knight) {
-      this.knight.animator.apply({clip:'Idle',loop:true,time:this.clock},reducedMotion ? 0 : dt);
-      if (this.knightBounds.isEmpty()) {
-        // SkinnedMesh refreshes its inverse bind transform in updateMatrixWorld.
+  }
+
+  #poseFist(pose) {
+    if(!pose||this.activeMachineId!=='soFist')return;
+    const node=this.machinePivot.children[0]?.getObjectByName('Armored_Fist');
+    if(!node)return;
+    this.previewFist={node,rest:node.position.clone()};
+    node.position.z-=3.2*pose.fist;
+    node.position.x+=Math.sin(this.performance.time*55)*pose.shudder;
+  }
+
+  #restorePreviewAnimation() {
+    if(this.previewAnimation) {
+      const mixer=this.mixers.get(this.previewAnimation.machine);
+      mixer?.stopAllAction();
+      const idle=this.clips.get(this.previewAnimation.machine)?.find(c=>c.name===IDLE_CLIP[this.previewAnimation.machine]);
+      if(idle)mixer?.clipAction(idle)?.reset().play();
+    }
+    this.previewAnimation=null;
+  }
+
+  #samplePreviewAnimation(skill,time) {
+    const id=this.activeMachineId;
+    const clips=this.clips.get(id);
+    const mixer=this.mixers.get(id);
+    if(!mixer||!clips?.length)return;
+    let name=null,age=time;
+    if(id==='soFist' && skill==='longArmToTheJaw') {
+      name='01_Ram_Strike_Full_Cycle'; age=Math.min(.88,time*1.7);
+    } else if(id==='soFist' && skill==='beatToThePunch') {
+      name='01_Ram_Strike_Full_Cycle'; age=Math.max(0,time-2.1);
+    } else if(id==='biBye' && skill==='boltToTheOccasion') {
+      name=time>=2.58?'09_BiBye_Mobile_Shot1_Fire_Upper':'21_BiBye_Delayed_Shot2_Release_And_Recoil';
+      age=time>=2.58?time-2.58:Math.max(0,time-1.27);
+    } else if(id==='biBye' && skill==='coldHowTouching') {
+      name='09_BiBye_Mobile_Shot1_Fire_Upper'; age=Math.max(0,time-.75);
+    } else if(id==='fightFlight') {
+      name='Rotor_Spin_Cycle_1Rev'; age=time;
+    }
+    const clip=clips.find(c=>c.name===name);
+    if(!clip)return;
+    if(this.previewAnimation?.name!==name||this.previewAnimation?.machine!==id) {
+      mixer.stopAllAction();
+      const action=mixer.clipAction(clip);
+      action.reset().setLoop(id==='fightFlight'?THREE.LoopRepeat:THREE.LoopOnce,
+        id==='fightFlight'?Infinity:1);
+      action.clampWhenFinished=true;
+      action.play();
+      this.previewAnimation={machine:id,name};
+    }
+    mixer.setTime(id==='fightFlight'?age:Math.min(Math.max(0,clip.duration-.001),age));
+  }
+
+  update(dt, reducedMotion = false) {
+    // Inspect on the wheels: there is no root pitch or artificial floor lift.
+    const weight=reducedMotion?1:1-Math.exp(-dt*10);
+    this.currentYaw+=(this.targetYaw-this.currentYaw)*weight;
+    this.currentPitch=0;
+    if(!reducedMotion)this.clock+=dt;
+    if(this.knight) {
+      this.knight.animator.apply({clip:'Idle',loop:true,time:this.clock},reducedMotion?0:dt);
+      if(this.knightBounds.isEmpty()) {
         this.root.updateMatrixWorld(true);
-        this.knightBounds.setFromObject(this.knight.root, true);
+        this.knightBounds.setFromObject(this.knight.root,true);
       }
     }
-
-    // Update active animation mixer
-    const mixer = this.mixers.get(this.activeMachineId);
-    if (mixer && !reducedMotion) mixer.update(dt);
+    this.#restoreFist();
+    const mixer=this.mixers.get(this.activeMachineId);
+    if(mixer&&!reducedMotion&&!this.performance.active)mixer.update(dt);
+    const pose=this.performance.update(dt,reducedMotion);
+    if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
+    else if(this.previewAnimation)this.#restorePreviewAnimation();
+    this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
+    this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
+    this.#poseFist(pose);
   }
 
   dispose() {
