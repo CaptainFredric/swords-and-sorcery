@@ -494,10 +494,21 @@ export class GameRuntime {
     };
     if(socket.inspectionAvailable)this.input.allowAction=this.inspectionActionGate;
     this.siegeView = 'third';
+    // This is a local presentation preference, not a server action. The
+    // mounted machines keep their own VIEW selection when the knight mounts.
+    this.onFootThirdPerson = false;
     this.input.onAction = (action, pressed) => {
       if(action==='inspectEffects'&&pressed){this.hud.cycleAfflictionDetails();return;}
       if(action==='pause'&&pressed){this.onPause?.();return;}
       if(action==='practiceTools'&&pressed){this.onPracticeTools?.();return;}
+      // Z and the existing upper-right touch VIEW control also work on foot.
+      // Never commandeer machine optics or inspection's free camera.
+      if(action==='siegeView'&&pressed&&this.localAuth?.alive&&!this.inspectionFree&&
+        !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId){
+        this.onFootThirdPerson=!this.onFootThirdPerson;
+        this.hud.flashText(this.onFootThirdPerson?'THIRD PERSON':'FIRST PERSON','',650);
+        return;
+      }
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
         if(this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
@@ -4051,12 +4062,16 @@ export class GameRuntime {
       // Disaster uses that same collision-checked shot only for its sword
       // turn, decisive impact, and (for Full Gale) the delayed aerial wave.
       // Full Lightning holds this collision-checked view while the player aims.
-      // Existing death/inspection/mounted views retain priority.
+      // On foot, VIEW selects the same physically clipped chase camera,
+      // preserving the cinematic Vortex/Disaster camera and its aim correction.
+      // Mounted optics, death and inspection still own their respective views.
       this.disasterReveal = this.inspectionFree ? null
         : stepDisasterReveal(this.disasterReveal, this.localAuth, serverNow, dt, this.chase);
       const cinematic = !this.inspectionFree &&
         (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0);
       this.chase = stepChase(this.chase ?? 0,
+        (this.onFootThirdPerson && !this.inspectionFree &&
+          !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId) ||
         chaseWanted(this.localAuth, serverNow) || cinematic, dt);
       const helm = 1 - this.chase * this.chase * (3 - 2 * this.chase);
       this.camera.rotation.y = this.input.yaw + view.camera.yaw * motion * helm;
@@ -4339,7 +4354,10 @@ export class GameRuntime {
       } else {
         this.hud.updateRivalWaypoint?.(null);
       }
-      this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice(), snapshot: this.latestSnapshot });
+      this.touch?.update(this.localAuth, this.socket.serverNow(), {
+        practice: this.#inPractice(), snapshot: this.latestSnapshot,
+        onFootThirdPerson: this.onFootThirdPerson,
+      });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
         fps: this.fps,
