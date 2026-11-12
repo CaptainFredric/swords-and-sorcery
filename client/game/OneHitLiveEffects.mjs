@@ -179,18 +179,23 @@ export class OneHitLiveEffects {
       this.#add(slab,1.35);
     }
   }
-  setChargeGuide(origin,plan) {
+  setChargeGuide(origin,plan,{pitch=0,vertical=false}={}) {
     this.reticle.visible=Boolean(origin&&plan);
     this.teleportTarget.visible=this.reticle.visible;
     if(!this.reticle.visible)return;
     const pos=this.reticle.geometry.attributes.position;
-    pos.setXYZ(0,origin.x,origin.y+1,origin.z);
-    pos.setXYZ(1,plan.end.x,plan.end.y+1,plan.end.z);
+    // Draw the line from the caster's eye TO the actual landing surface
+    // when looking downward with Full Gale. A level, eye-to-eye line would
+    // falsely suggest a horizontal teleport even though the feet land ahead.
+    const groundward=vertical&&pitch<-.04&&plan.grounded;
+    const eye=1.45,mark=groundward?.24:eye;
+    pos.setXYZ(0,origin.x,origin.y+eye,origin.z);
+    pos.setXYZ(1,plan.end.x,plan.end.y+mark,plan.end.z);
     pos.needsUpdate=true;
     const color=plan.legal?0xffd65d:0xc16a3a;
     this.reticle.material.color.setHex(color);
     this.reticle.material.opacity=plan.legal?.87:.31;
-    this.teleportTarget.position.set(plan.end.x,plan.end.y+1,plan.end.z);
+    this.teleportTarget.position.set(plan.end.x,plan.end.y+mark,plan.end.z);
     for(const child of this.teleportTarget.children){
       child.material.color.setHex(color);
       child.material.opacity=plan.legal?.83:.3;
