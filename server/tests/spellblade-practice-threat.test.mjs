@@ -55,7 +55,7 @@ test('Top-tier bot detects the physical Vortex blade and wave, not future button
 test('Spellblade forecasts only advancing live Sunder cracks, not dead cracks or unseen futures',()=>{
   const {room,human,dummy}=practice();
   human.position={x:0,y:0,z:0};
-  dummy.position={x:0,y:0,z:3};dummy.grounded=true;
+  dummy.position={x:0,y:0,z:6.5};dummy.grounded=true;
   const fissure={dir:{x:0,z:1},length:7,core:4,level:0};
   const rupture={ownerId:human.id,bornAt:5,origin:{x:0,y:0,z:0},
     reached:0,fissures:[fissure],caught:[]};
