@@ -22,6 +22,7 @@ import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,
 import {SO_FIST_LIFT,soFistAllowedPitch} from './soFistElevation.mjs';
 import {requestLongArmToJaw,stepDetachedRamFist} from './soFistDetachedFist.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
+import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
@@ -95,6 +96,7 @@ function stepRamElevation(room,b,dt,now,world){
 }
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
+  flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
  detachedFist:null,fistRecoveryUntil:0,
  fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
@@ -129,12 +131,25 @@ export function fireSoFistication(room,b,now){
  if(b?.emplacementId&&room.state!=='PLAYING')return false;
  if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
    (room.players.get(b.operatorId)?.staggerUntil??0)>now||
-   b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle)return false;
+   (b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
+     b.flickAt!=null&&now-b.flickAt<FLICK.cycle))return false;
  // Invalid manual attempts must not disarm a waiting counterattack.
  if(b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled',{reason:'manual'});}
  b.skillStroke=null;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;
  b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];
  room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;
+}
+// Distinct core attack. Uses the same four-second mechanical opportunity as
+// the piston, not a fourth siege Skill or an extra hit between strokes.
+export function flickSoFistication(room,b,now){
+ if(b?.emplacementId&&room.state!=='PLAYING')return false;
+ if(!canFlick(b,now))return false;
+ const p=room.players.get(b.operatorId);
+ if(!p?.alive||(p.staggerUntil??0)>now||p.operatingRamId!==b.id)return false;
+ if(b.skill?.phase==='primed'){
+   endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled',{reason:'manual-flick'});
+ }
+ return beginFlick(room,b,now);
 }
 export function primeSoFistSkill(room,b,p,now){
  // Retrieval is a physical interaction with a recoverable fist, regardless
@@ -349,6 +364,7 @@ const p=room.players.get(b.operatorId);
  const recoil=b.recoilVelocity??0;
  b.recoilVelocity=Math.sign(recoil)*Math.max(0,Math.abs(recoil)-SIEGE_IMPACT.ramPistonRecoilBrake*dt);
  if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*travelSpeed,y:0,z:-Math.cos(b.heading)*travelSpeed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
+ stepFlick(room,b,dt,now);
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
 }
 
