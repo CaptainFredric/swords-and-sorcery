@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { oneHitBacklashRemaining } from '../../shared/src/oneHitInfusions.mjs';
+import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 
@@ -918,7 +918,7 @@ export class DisasterElementEffects {
       if (!player.alive) continue;
       const conduct = oneHitBacklashRemaining(player.electricalBacklash, now);
       const bluster = blusterSeverity(player.blustered, now);
-      const shaken = player.shaken && player.oneHitField ? player.oneHitField.strength : 0;
+      const shaken = player.shaken ? Math.max(1-shakenSprintFactor(player.shaken,now),player.oneHitField?.strength??0) : 0;
       const chilled = (player.oneHitFrostSlow?.until ?? 0) > now ? (player.oneHitFrostSlow.depth ?? 0.35) / 0.35 : 0;
       if (conduct <= 0.05 && bluster <= 0.02 && shaken <= 0 && chilled <= 0) continue;
       seen.add(player.id);
