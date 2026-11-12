@@ -2263,63 +2263,87 @@ function oneHitTeleport(room,player,state,nowSec,world=room.world) {
   return true;
 }
 function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
-  const tiers=state.preparedTiers ?? oneHitCommit(player);
-  // Consume only when commitment actually occurs. Practice presets remain
-  // selected for repeated casts; ordinary infusions reset at this point.
-  if(state.preparedTiers) {
-    if(!player.practiceOneHit?.enabled) {
-      player.oneHitInfusions=emptyInfusions();
-      player.oneHitSeenUses={};
-      player.practiceOneHit=null;
-    }
+  const tiers=state.preparedTiers??oneHitCommit(player);
+  if(state.preparedTiers&&!player.practiceOneHit?.enabled){
+    player.oneHitInfusions=emptyInfusions();
+    player.oneHitSeenUses={};
+    player.practiceOneHit=null;
   }
-  if(Number.isFinite(state.teleportHoldAt) && state.teleportReleased)
+  if(Number.isFinite(state.teleportHoldAt)&&state.teleportReleased)
     oneHitTeleport(room,player,state,nowSec,world);
-  const form=oneHitForm(player.grounded,tiers);
-  state.oneHit={tiers,form,startedAt:nowSec,hit:false,
-    waveAt:form==='aerial'?nowSec+(state.teleportReleased?0:ONE_HIT_AERIAL_DURATION):null,
-    vortexLastAt:nowSec,vortexTicks:{}};
-  if(form==='ground') {
-    oneHitSlam(room,player,tiers,nowSec,world);
-    state.oneHit.hit=true;
-  }else if(form==='aerial'&&state.teleportReleased) {
-    oneHitLaunchWave(room,player,tiers,nowSec);
+  // Classification is made AFTER the teleport (or an external shove during
+  // preparation). The origin's former grounded state no longer decides it.
+  const form=oneHitForm(player.grounded,tiers),teleported=Boolean(state.teleportSucceeded);
+  const aerial=form==='aerial',groundWave=form==='ground'&&tiers.gale===2;
+  const aimUntil=aerial&&teleported?nowSec+ONE_HIT_RULES.postTeleportAimSec:null;
+  state.oneHit={
+    tiers,form,startedAt:nowSec,hit:false,waveLaunched:false,
+    awaitingWave:aerial||groundWave,waveResolved:false,
+    aimUntil,
+    waveAt:aerial?(aimUntil??nowSec+ONE_HIT_AERIAL_DURATION):
+      groundWave?nowSec+ONE_HIT_RULES.groundedGaleWaveDelaySec:null,
+    vortexLastAt:nowSec,vortexTicks:{},hitIds:[],
+  };
+  if(form==='ground'){
+    state.oneHit.hitIds=oneHitSlam(room,player,tiers,nowSec,world);
     state.oneHit.hit=true;
   }
   room.events.push({type:'oneHitCommitted',playerId:player.id,tiers:{...tiers},form,at:nowSec});
 }
-function oneHitLaunchWave(room,player,tiers,nowSec) {
+function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   const yaw=player.input?.yaw??player.yaw,pitch=player.input?.pitch??player.pitch;
   const direction={x:-Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),z:-Math.cos(yaw)*Math.cos(pitch)};
-  const wave={id:`oh-wave:${player.id}:${nowSec}`,ownerId:player.id,
-    position:{x:player.position.x,y:player.position.y+1,z:player.position.z},
-    direction,tiers:{...tiers},bornAt:nowSec,distance:0,hitIds:[]};
+  const fromGround=action.form==='ground';
+  const wave={id:'oh-wave:'+player.id+':'+nowSec,ownerId:player.id,
+    position:{x:player.position.x,y:player.position.y+(fromGround?1.1:1),z:player.position.z},
+    direction,tiers:{...tiers},bornAt:nowSec,distance:0,
+    hitIds:action.hitIds,fromGround,
+  };
   (room.oneHitWaves??=[]).push(wave);
+  action.hit=true;
+  action.waveLaunched=true;
+  action.aimUntil=null;
+  const speed=tiers.lightning?48:28;
+  // Full Steel is protected through the finite wave flight, including range
+  // expiry. The last-stand debt is settled when the wave resolves.
+  const state=player.ultimateState;
+  if(state?.id==='one_hit_of_wonders')
+    state.until=Math.max(state.until??0,nowSec+ONE_HIT_RULES.waveMaxReach/speed+.18);
   room.events.push({type:'oneHitWave',playerId:player.id,waveId:wave.id,
-    origin:{...wave.position},direction,tiers:{...tiers},at:nowSec});
+    origin:{...wave.position},direction,tiers:{...tiers},fromGround,at:nowSec});
 }
 function stepOneHitActor(room,player,dt,nowSec,world) {
   const state=player.ultimateState;
   if(state?.id==='one_hit_of_wonders'&&player.alive)oneHitDefensiveWind(room,player,nowSec);
   const action=state?.phase==='active'&&state.id==='one_hit_of_wonders'?state.oneHit:null;
-  if(!action||action.form!=='aerial'||action.hit||!player.alive)return;
-  // The first .85 seconds are modest, at most TWO 5-damage contacts per enemy.
-  if(nowSec<action.waveAt && nowSec-action.vortexLastAt>=.28) {
+  if(!action||!action.awaitingWave||action.waveLaunched||!player.alive)return;
+  // Original aerial Gale gets its vortex; teleport arrivals get a 0.35s
+  // aiming hover rather than a second lengthy animation.
+  if(action.form==='aerial'&&nowSec<action.waveAt &&
+     nowSec-action.vortexLastAt>=.28){
     action.vortexLastAt=nowSec;
-    for(const target of room.players.values()) {
+    for(const target of room.players.values()){
       if(target.id===player.id||!target.alive)continue;
       const count=action.vortexTicks[target.id]??0;
       if(count>=2||Math.hypot(target.position.x-player.position.x,target.position.y-player.position.y,
-        target.position.z-player.position.z)>3.2)continue;
+          target.position.z-player.position.z)>3.2)continue;
       if(!oneHitVisible(room,player,target,world,nowSec,oneHitChest(player)))continue;
       action.vortexTicks[target.id]=count+1;
       applyDamage(room,player.id,target.id,5,'one_hit_vortex',nowSec,null,{ultimate:true,ongoing:true});
     }
   }
-  if(nowSec>=action.waveAt){
-    oneHitLaunchWave(room,player,action.tiers,nowSec);
-    action.hit=true;
-  }
+  if(nowSec>=action.waveAt)oneHitLaunchWave(room,player,action.tiers,nowSec,action);
+}
+// A second Ultimate tap may fire sooner while the post-teleport aiming
+// interval is active; otherwise the server fires automatically at the end.
+export function fireOneHitWave(room,playerId,nowSec){
+  const player=room.players.get(playerId),state=player?.ultimateState;
+  const action=state?.oneHit;
+  if(room.state!=='PLAYING'||!player?.alive||state?.id!=='one_hit_of_wonders'||
+     state.phase!=='active'||action?.form!=='aerial'||!Number.isFinite(action.aimUntil)||
+     action.waveLaunched||nowSec>action.aimUntil)return false;
+  oneHitLaunchWave(room,player,action.tiers,nowSec,action);
+  return true;
 }
 // The wave pierces bodies. Terrain contact or an intentional second press
 // ends it; running out of range dissipates it. Splash contributes
