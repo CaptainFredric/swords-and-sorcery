@@ -28,7 +28,9 @@ export class DisasterSoundscape {
     this.random=random;
     this.fields=new Map();this.charges=new Map();this.waves=new Map();
     this.gusts=new Map();this.cores=new Map();this.lastNow=-Infinity;
+    this.density=1;this.recent=new Map();
   }
+  setDensity(factor=1){this.density=clamp(factor,.35,1);}
   #emit(recipe,point,gain=1,delay=0){
     if(!(gain>.01))return null;
     return this.play(recipe,point,clamp(gain,0,1.15),Math.max(0,delay))??null;
@@ -39,6 +41,17 @@ export class DisasterSoundscape {
   }
   onEvent(event,snapshot=null){
     if(!event?.type)return;
+    // Network resends or a frozen/replayed Inspection snapshot must never
+    // produce a second huge blast. Distinct projectile uses retain their IDs.
+    if(['coreflagrationArmed','projectileImpact','lineConductDischarge',
+      'spellCast','ultimateStart','oneHitTeleport','oneHitWave','oneHitImpact',
+      'galeBlast'].includes(event.type)){
+      const key=[event.type,event.projectileId??event.impactId??event.waveId??
+        event.playerId??event.ownerId??'',event.at??'',event.stage??''].join(':');
+      if(this.recent.has(key))return;
+      this.recent.set(key,at(event.at,this.lastNow));
+      if(this.recent.size>128)this.recent.delete(this.recent.keys().next().value);
+    }
     const rand=this.random;
     const actorId=event.playerId??event.ownerId;
     const actor=snapshot?.players?.find(p=>p.id===actorId);
@@ -140,16 +153,20 @@ export class DisasterSoundscape {
     if(!snapshot||!Number.isFinite(nowSec))return;
     if(nowSec+1e-5<this.lastNow){
       this.fields.clear();this.charges.clear();this.waves.clear();this.gusts.clear();
+      this.recent.clear();
       for(const core of this.cores.values())core.handle?.stop?.(.06);
       this.cores.clear();
     }
     // Inspection freeze: no double playback on repeated frames at same tick.
     if(nowSec<=this.lastNow+1e-6)return;
     this.lastNow=nowSec;
+    for(const [key,when] of this.recent)
+      if(Number.isFinite(when)&&nowSec-when>8)this.recent.delete(key);
     const ear=this.listener();
     const fields=(snapshot.oneHitFields??[])
       .filter(f=>nowSec<f.until&&(!ear||dist(f.position,ear)<28))
-      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear)).slice(0,3);
+      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear))
+      .slice(0,this.density<.8?2:3);
     const liveFields=new Set(fields.map(f=>f.id));
     for(const id of this.fields.keys())if(!liveFields.has(id))this.fields.delete(id);
     for(const field of fields){
@@ -174,7 +191,8 @@ export class DisasterSoundscape {
     const chargers=(snapshot.players??[])
       .filter(p=>p.alive&&p.ultimateState?.id==='one_hit_of_wonders'&&
         p.ultimateState.phase==='startup'&&(!ear||dist(p.position,ear)<24))
-      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear)).slice(0,2);
+      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear))
+      .slice(0,this.density<.8?1:2);
     const charging=new Set(chargers.map(p=>p.id));
     for(const id of this.charges.keys())if(!charging.has(id))this.charges.delete(id);
     for(const p of chargers){
@@ -195,7 +213,8 @@ export class DisasterSoundscape {
     // position. Only three nearest waves may contribute at any given tick.
     const liveWaves=new Set();
     const waves=(snapshot.oneHitWaves??[]).filter(w=>(!ear||dist(w.position,ear)<32))
-      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear)).slice(0,3);
+      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear))
+      .slice(0,this.density<.8?2:3);
     for(const wave of waves){
       liveWaves.add(wave.id);
       let cursor=this.waves.get(wave.id);
@@ -229,5 +248,6 @@ export class DisasterSoundscape {
   dispose(){
     for(const core of this.cores.values())core.handle?.stop?.(.04);
     this.cores.clear();this.fields.clear();this.charges.clear();this.waves.clear();this.gusts.clear();
+    this.recent.clear();this.lastNow=-Infinity;
   }
 }
