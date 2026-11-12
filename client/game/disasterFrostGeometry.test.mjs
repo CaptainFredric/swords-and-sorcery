@@ -48,5 +48,5 @@ test('Disaster visuals keep the ice floor locked, fade the field and preserve or
   assert.match(source,/this\.#fireExplosion\(p,reach,tall,ground,tiers\.fire===2\)/);
   assert.match(source,/if \(!full \|\| !ground \|\| !event\.fieldId\) this\.#iceCrown/);
   assert.match(combat,/until:nowSec\+fieldSeconds\(tiers\)/);
-  assert.match(combat,/if\(tiers\.frost>=1\).*?ONE_HIT_FROST_LINGER_SEC/);
+  assert.match(combat,/if\(tiers\.frost>=1\)[\s\S]*?ONE_HIT_FROST_LINGER_SEC/);
 });
