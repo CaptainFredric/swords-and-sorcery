@@ -779,6 +779,9 @@ export class Room {
   disconnectPlayer(id, nowSec) {
     const player = this.players.get(id);
     if (!player || player.actorKind !== 'human') return;
+    // A dropped connection must not leave a five-spin hold armed server-side.
+    // The standard interruption cooldown still applies on reconnection.
+    interruptSwordTechnique(player,nowSec);
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
