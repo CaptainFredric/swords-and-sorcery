@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
+import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -304,9 +305,10 @@ export class DisasterElementEffects {
   // Existing prewarmed instanced pools keep this cheap even in busy matches.
   #frostSuspendedDome(point, radius, full, ground = true) {
     if (!ground) return; // airborne waves get their existing directional burst
-    const height = Math.min(2.45, radius * 0.64);
-    const shards = this.#n(full ? 52 : 34);
-    const vapour = this.#n(full ? 28 : 21);
+    const profile = frostSuspensionProfile(full ? 2 : 1, radius, this.density);
+    if (!profile) return;
+    const { height, shards } = profile;
+    const vapour = profile.mist;
     for (let i = 0; i < shards; i++) {
       // Golden-angle distribution avoids a uniform ring or conspicuous rows.
       const angle = i * 2.399963229728653 + rand(-.22, .22);
