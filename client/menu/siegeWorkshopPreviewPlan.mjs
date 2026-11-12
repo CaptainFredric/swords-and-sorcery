@@ -90,12 +90,12 @@ export function workshopPreviewTargetPose(skill,t,index) {
     return {x:.15,y:.95*Math.sin(Math.PI*flight)*(1-back),z:1.65+1.85*flight*(1-back),
       fall:between(t,3.02,3.42)*(1-back),guard:false};
   }
-  const defeated=skill==='narrowToOne'?4.35:
-    skill==='fireAwayRightHere'?[5.1,5.65,6.2][index]:
+  const defeated=skill==='narrowToOne'?4.68:
+    skill==='fireAwayRightHere'?[6.17,6.34,6.51][index]:
     skill==='boltToTheOccasion'?[2.03,3.35][index]:2;
   const fall=between(t,defeated,defeated+.38);
   return {x:0,y:0,z:0,fall,
-    guard:skill==='narrowToOne'&&t>=.65&&t<4.3};
+    guard:skill==='narrowToOne'&&t>=.65&&t<4.68};
 }
 export function workshopPreviewDone(skill,t) {
   return t>=SIEGE_PREVIEW_LENGTH[skill];
