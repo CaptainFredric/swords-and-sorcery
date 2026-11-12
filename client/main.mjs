@@ -2043,85 +2043,59 @@ function updateInspectorDetailCard() {
   }
 }
 
+// Capture visual card coordinates before re-render. FLIP animates real DOM position
+// changes; never move the scroll container instantaneously in the middle of the move.
 function animateCardReorder(category, selectedItemId) {
-  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
-
-  let listId = '#armory-spells';
-  let wrapperId = '#inspector-list-sorcery';
-  if (category === 'masterstroke') {
-    listId = '#armory-ultimates';
-    wrapperId = '#inspector-list-masterstroke';
-  } else if (category === 'technique') {
-    listId = '#armory-techniques';
-    wrapperId = '#inspector-list-technique';
-  }
-
+  const listId = category === 'masterstroke' ? '#armory-ultimates'
+    : category === 'technique' ? '#armory-techniques' : '#armory-spells';
   const container = document.querySelector(listId);
   const scrollEl = document.querySelector('#armory-inspector .inspector-scroll');
-  const wrapperEl = document.querySelector(wrapperId);
   if (!container || !scrollEl) return null;
-
-  const firstPositions = new Map();
-  container.querySelectorAll('.spell-card').forEach((card) => {
-    const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
-    if (id) {
-      firstPositions.set(id, card.getBoundingClientRect());
-    }
-  });
-
-  return function play() {
-    if (wrapperEl) {
-      const targetScrollTop = Math.max(0, wrapperEl.offsetTop + wrapperEl.offsetHeight - scrollEl.clientHeight);
-      scrollEl.scrollTop = targetScrollTop;
-    }
-
-    const cards = container.querySelectorAll('.spell-card');
-    const animatingCards = [];
-
-    cards.forEach((card) => {
-      const id = card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
-      const first = firstPositions.get(id);
-      if (!first) return;
-
-      const last = card.getBoundingClientRect();
-      const deltaY = first.top - last.top;
-
-      if (Math.abs(deltaY) > 1) {
-        const isSelected = id === selectedItemId;
-        card.style.transform = `translateY(${deltaY}px)${isSelected ? ' scale(1.02)' : ''}`;
-        card.style.transition = 'none';
-        if (isSelected) {
-          card.classList.add('swiping-down');
-        } else {
-          card.classList.add('shifting-up');
-        }
-        animatingCards.push({ card, isSelected });
+  const keyOf = card => card.dataset.spell || card.dataset.ultimate || card.dataset.technique;
+  const before = new Map([...container.querySelectorAll('.spell-card')]
+    .map(card => [keyOf(card), card.getBoundingClientRect()]));
+  const priorScroll = scrollEl.scrollTop;
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  return () => {
+    // DOM replacement can invoke scroll anchoring. The player's position in the
+    // list is authoritative, not the browser's choice of a replacement anchor.
+    scrollEl.scrollTop = priorScroll;
+    const cards = [...container.querySelectorAll('.spell-card')];
+    const target = cards.find(card => keyOf(card) === selectedItemId);
+    if (!target) return;
+    if (!reduced) {
+      for (const card of cards) {
+        const previous = before.get(keyOf(card));
+        if (!previous) continue;
+        const current = card.getBoundingClientRect();
+        const deltaY = previous.top - current.top;
+        if (Math.abs(deltaY) < 0.5) continue;
+        const selected = card === target;
+        card.getAnimations().forEach(animation => animation.cancel());
+        card.animate(selected ? [
+          { transform: `translateY(${deltaY}px) scale(1)`, offset: 0 },
+          { transform: `translateY(${deltaY * .18}px) scale(1.028)`, offset: .70 },
+          { transform: 'translateY(0) scale(1)', offset: 1 },
+        ] : [
+          { transform: `translateY(${deltaY}px)` },
+          { transform: 'translateY(0)' },
+        ], {
+          duration: selected ? 460 : 400,
+          easing: 'cubic-bezier(.2,.74,.25,1)',
+        });
       }
-    });
-
-    if (animatingCards.length === 0) return;
-
-    container.offsetHeight;
-
-    requestAnimationFrame(() => {
-      animatingCards.forEach(({ card, isSelected }) => {
-        if (isSelected) {
-          card.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.25s ease';
-          card.style.transform = 'translateY(0) scale(1)';
-        } else {
-          card.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease';
-          card.style.transform = 'translateY(0)';
-        }
-
-        const cleanup = () => {
-          card.style.transform = '';
-          card.style.transition = '';
-          card.classList.remove('swiping-down', 'shifting-up');
-        };
-        card.addEventListener('transitionend', cleanup, { once: true });
-        setTimeout(cleanup, 480);
-      });
-    });
+    }
+    // Aim only far enough to leave the newly equipped item near the bottom.
+    // The detail card remains BELOW the list: swipe down for its full text,
+    // and swipe up to return to the preceding choices.
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const cardRect = target.getBoundingClientRect();
+    const desired = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
+      scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
+    if (Math.abs(desired - scrollEl.scrollTop) > 1)
+      scrollEl.scrollTo({ top: desired, behavior: reduced ? 'instant' : 'smooth' });
+    if (document.activeElement?.closest?.(listId))
+      target.focus({ preventScroll: true });
   };
 }
 
@@ -2138,12 +2112,13 @@ function scrollToEquippedItem(category, { smooth = false } = {}) {
   const listEl = inspector.querySelector(wrapperId);
   if (!listEl) return;
 
-  const targetScrollTop = Math.max(0, listEl.offsetTop + listEl.offsetHeight - scrollEl.clientHeight);
-
-  scrollEl.scrollTo({
-    top: targetScrollTop,
-    behavior: smooth ? 'smooth' : 'instant',
-  });
+  const card = listEl.querySelector('.spell-card.equipped');
+  if (!card) return;
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const target = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight,
+    scrollEl.scrollTop + cardRect.bottom - scrollRect.bottom + 18));
+  scrollEl.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'instant' });
 }
 
 function equipInspectorItem(category, itemId, { animate = true } = {}) {
