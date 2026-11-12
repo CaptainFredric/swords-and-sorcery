@@ -59,9 +59,9 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, disasterAnvilRecipe, conductShockRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -1860,7 +1860,12 @@ export class GameRuntime {
           this.effects.castFlash(spell.id);
         }
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
-        this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        // Line of Conduct has a separate rising electric charge; never put
+        // Fireball's generic fire gathering underneath the crackling current.
+        if(spell.id!=='line_of_conduct')
+          this.#play(castRecipe(Math.random, { spell: spell.id, release }),
+            event.playerId === me ? null : this.#bodyPosition(event.playerId),
+            event.playerId === me ? 0.9 : 0.6);
         if (spell.kind === 'cone') {
           // my own lets go when the server's does (and now it surely will); another's is seen gathering in their hand
           if (event.playerId === me && this.localGale) {
