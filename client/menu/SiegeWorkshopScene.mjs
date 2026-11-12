@@ -590,12 +590,12 @@ export class SiegeWorkshopScene {
   }
 
   rotate(deltaYaw) {
-    if(this.performance.active)this.stopPreview();
+    // Inspection changes the viewer's yaw, never ends a running demonstration.
     this.targetYaw+=deltaYaw;
   }
 
   resetRotation() {
-    if(this.performance.active)this.stopPreview();
+    // Reset the inspection angle without restarting the demonstration.
     this.targetYaw=REST_YAW[this.activeMachineId];
     this.targetPitch=0;
     this.currentPitch=0;
@@ -614,6 +614,7 @@ export class SiegeWorkshopScene {
     this.#restorePreviewAnimation();
     this.#restoreFist();
     this.machinePivot.position.set(0,0,0);
+    this.machinePivot.visible=true;
     this.machinePivot.rotation.x=0;
     this.onPreviewChange?.(null);
   }
@@ -708,6 +709,7 @@ export class SiegeWorkshopScene {
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
     else if(this.previewAnimation)this.#restorePreviewAnimation();
     if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
+    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=5.68);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
     this.machinePivot.rotation.set(pose?.pitch??0,this.currentYaw+(pose?.yawOffset??0),pose?.roll??0);
     this.#poseFist(pose);

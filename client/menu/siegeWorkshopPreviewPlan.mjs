@@ -5,7 +5,7 @@ export const SIEGE_PREVIEW_LENGTH = Object.freeze({
   beatToThePunch: 5.4,
   coldHowTouching: 3.8,
   boltToTheOccasion: 5.0,
-  doNotStopMyAscension: 4.8,
+  doNotStopMyAscension: Infinity,
   narrowToOne: 6.2,
   fireAwayRightHere: 8.2,
 });
@@ -35,10 +35,16 @@ export function workshopPreviewPose(skill, time) {
   } else if (skill==='boltToTheOccasion') {
     z=.95*between(t,.12,.95)*(1-between(t,3.9,4.8));
   } else if (skill==='doNotStopMyAscension') {
-    const launch=between(t,.35,1.45), returnHome=between(t,3.1,4.6);
-    z=-4.7*launch*(1-returnHome);
-    y=3.5*between(t,.8,2.1)*(1-between(t,3.2,4.5));
-    pitch=2*Math.PI*between(t,1.55,2.8);
+    // Dash, complete the loop, then dive into the waiting formation.
+    // At impact the machine is consumed; no automatic reset while open.
+    const launch=between(t,.35,1.45);
+    const dive=between(t,3.15,5.55);
+    const impact=between(t,5.55,5.78);
+    z=-4.7*launch-3.8*dive;
+    y=3.5*between(t,.8,2.1)*(1-between(t,3.1,5.55));
+    pitch=2*Math.PI*between(t,1.55,2.8)+.34*Math.sin(Math.PI*dive);
+    if(t>=5.78){x=0;y=0;z=0;pitch=0;}
+    
   } else if (skill==='narrowToOne') {
     const u=between(t,.28,4.75);
     const a=u*Math.PI*2;
@@ -82,6 +88,7 @@ export function workshopPreviewTargets(skill) {
   if(skill==='beatToThePunch')return [[.15,0,1.65]];
   if(skill==='coldHowTouching')return [[1.2,0,-4.05]];
   if(skill==='boltToTheOccasion')return [[.15,0,-4.7],[-1.8,0,-4.5]];
+  if(skill==='doNotStopMyAscension')return [[-1.1,0,-8.25],[0,0,-8.5],[1.1,0,-8.25]];
   if(skill==='narrowToOne')return [[0,0,-2.8]];
   if(skill==='fireAwayRightHere')return [[-2.35,0,-4.35],[0,0,-5.3],[2.35,0,-4.35]];
   return [];
@@ -92,7 +99,8 @@ export function workshopPreviewTargetPose(skill,t,index) {
     return {x:.15,y:.95*Math.sin(Math.PI*flight)*(1-back),z:1.65+1.85*flight*(1-back),
       fall:between(t,3.02,3.42)*(1-back),guard:false};
   }
-  const defeated=skill==='narrowToOne'?4.68:
+  const defeated=skill==='doNotStopMyAscension'?5.55:
+     skill==='narrowToOne'?4.68:
     skill==='fireAwayRightHere'?[6.4,6.55,6.7][index]:
     skill==='boltToTheOccasion'?[2.03,3.35][index]:2;
   const fall=between(t,defeated,defeated+.38);
