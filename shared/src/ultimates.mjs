@@ -48,7 +48,7 @@ export const ULTIMATES = Object.freeze({
     stagger: 40,
     reelSec: 0.22,
     // turned by a perfect guard, a Sundering knight is staggered this long (an ordinary one: GAME.parryStaggerMs)
-    parriedSec: 0.35,
+    // A perfect guard against this Ultimate is a heavy normal block, never a parry.
     // the button held as it commits: the first slam's swing began this long before (the brace was its windup), so it
     // lands this soon after the commit
     firstSlamLead: 0.2,
