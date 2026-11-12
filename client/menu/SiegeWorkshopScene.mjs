@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
+import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -69,7 +70,11 @@ export class SiegeWorkshopScene {
     this.cache = new Map();
     this.inFlight = new Map();
     this.mixers = new Map();
+    this.clips = new Map();
+    this.previewAnimation = null;
+    this.previewFist = null;
     this.loader = new GLTFLoader();
+    this.performance = new SiegeWorkshopPerformance(this);
 
     this.#buildEnvironment();
     this.#initFallbacks();
@@ -78,6 +83,7 @@ export class SiegeWorkshopScene {
 
   setVisible(visible) {
     this.root.visible = Boolean(visible);
+    if (!visible) this.stopPreview();
     if (visible && !this.knight && !this.knightLoading) {
       this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
         if (!instance) return;
@@ -322,14 +328,15 @@ export class SiegeWorkshopScene {
     // Heavy Armored Fist
     const fistGeo = new THREE.BoxGeometry(0.65, 0.55, 0.85);
     const fist = new THREE.Mesh(fistGeo, ironMat);
+    fist.name = 'Armored_Fist';
     fist.position.set(0, 2.2, -0.8);
     fist.castShadow = true;
     soFistFallback.add(fist);
     // Brass knuckle plates
     const knuckleGeo = new THREE.BoxGeometry(0.68, 0.18, 0.2);
     const knuckles = new THREE.Mesh(knuckleGeo, brassMat);
-    knuckles.position.set(0, 2.35, -1.15);
-    soFistFallback.add(knuckles);
+    knuckles.position.set(0, .15, -.35);
+    fist.add(knuckles);
 
     soFistFallback.userData = { isAuthored: false, machineId: 'soFist' };
     this.fallbacks.set('soFist', soFistFallback);
@@ -429,6 +436,7 @@ export class SiegeWorkshopScene {
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
     if (this.activeMachineId === id && this.machinePivot.children.length) return;
+    this.stopPreview();
     this.activeMachineId = id;
     this.currentYaw = REST_YAW[id];
     this.resetRotation();
@@ -469,9 +477,19 @@ export class SiegeWorkshopScene {
     const child = this.machinePivot.children[0];
     const modelBounds = child?.userData.motionBounds;
     this.machinePivot.updateWorldMatrix(true, false);
-    const bounds = modelBounds ? modelBounds.clone().applyMatrix4(this.machinePivot.matrixWorld)
-      : new THREE.Box3().setFromObject(this.machinePivot);
-    if (this.knight) bounds.union(this.knightBounds);
+    // Yaw invariant filming bounds: inspect a rolling chassis, not a jumping
+    // one. Rotating a rectangular box must not repeatedly re-fit the camera.
+    const bounds=modelBounds ? (() => {
+      const xx=Math.max(Math.abs(modelBounds.min.x),Math.abs(modelBounds.max.x));
+      const zz=Math.max(Math.abs(modelBounds.min.z),Math.abs(modelBounds.max.z));
+      const radius=Math.hypot(xx,zz);
+      return new THREE.Box3(
+        new THREE.Vector3(this.root.position.x-radius,this.root.position.y,this.root.position.z-radius),
+        new THREE.Vector3(this.root.position.x+radius,this.root.position.y+modelBounds.max.y,this.root.position.z+radius));
+    })() : new THREE.Box3().setFromObject(this.machinePivot);
+    if(this.knight&&!this.performance.active)bounds.union(this.knightBounds);
+    const demonstration=this.performance.bounds();
+    if(demonstration)bounds.union(demonstration);
     if (bounds.isEmpty()) return null;
     return { min:bounds.min.toArray(), max:bounds.max.toArray() };
   }
@@ -512,12 +530,11 @@ export class SiegeWorkshopScene {
             isAuthored: true, machineId: id, motionBounds: box,
             bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
-          const clip = gltf.animations.find(candidate => candidate.name === IDLE_CLIP[id]);
-          if (clip) {
-            const mixer = new THREE.AnimationMixer(model);
-            mixer.clipAction(clip).play();
-            this.mixers.set(id, mixer);
-          }
+          this.clips.set(id,gltf.animations);
+          const mixer=new THREE.AnimationMixer(model);
+          const clip=gltf.animations.find(candidate=>candidate.name===IDLE_CLIP[id]);
+          if(clip)mixer.clipAction(clip).play();
+          this.mixers.set(id,mixer);
 
           this.cache.set(id, model);
           this.inFlight.delete(id);
@@ -570,14 +587,16 @@ export class SiegeWorkshopScene {
     };
   }
 
-  rotate(deltaYaw, deltaPitch = 0) {
-    this.targetYaw += deltaYaw;
-    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch + deltaPitch, -0.15, 0.15);
+  rotate(deltaYaw) {
+    if(this.performance.active)this.stopPreview();
+    this.targetYaw+=deltaYaw;
   }
 
   resetRotation() {
-    this.targetYaw = REST_YAW[this.activeMachineId];
-    this.targetPitch = 0;
+    if(this.performance.active)this.stopPreview();
+    this.targetYaw=REST_YAW[this.activeMachineId];
+    this.targetPitch=0;
+    this.currentPitch=0;
   }
 
   update(dt, reducedMotion = false) {
@@ -611,6 +630,7 @@ export class SiegeWorkshopScene {
 
   dispose() {
     this.disposed = true;
+    this.performance?.dispose();
     this.knight?.dispose();
     this.root.removeFromParent();
     for (const mixer of this.mixers.values()) mixer.stopAllAction();
@@ -626,5 +646,6 @@ export class SiegeWorkshopScene {
     this.cache.clear();
     this.inFlight.clear();
     this.mixers.clear();
+    this.clips.clear();
   }
 }
