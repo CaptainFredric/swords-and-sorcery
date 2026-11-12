@@ -5,6 +5,7 @@ on:
       - 'shared/src/oneHitTrajectory.mjs'
       - 'shared/src/oneHitTrajectory.test.mjs'
       - 'client/game/OneHitLiveEffects.mjs'
+      - 'client/game/GameRuntime.mjs'
       - 'client/game/DisasterElementEffects.mjs'
       - 'client/game/disasterWavePresentation.mjs'
       - 'client/game/disasterWavePresentation.test.mjs'
