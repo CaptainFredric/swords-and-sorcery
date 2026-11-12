@@ -2302,6 +2302,7 @@ function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   (room.oneHitWaves??=[]).push(wave);
   action.hit=true;
   action.waveLaunched=true;
+  action.waveLaunchedAt=nowSec;
   action.aimUntil=null;
   const speed=tiers.lightning?48:28;
   // Full Steel is protected through the finite wave flight, including range
