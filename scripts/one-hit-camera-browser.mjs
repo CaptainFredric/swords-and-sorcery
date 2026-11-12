@@ -70,7 +70,7 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
   await focusArena();
   // Keep the teleport arrival airborne when testing Full Lightning + Gale;
   // aiming downward can correctly resolve into a ground-arrival slam instead.
-  const castPitch=aerial&&lightning?.35:aerial?-.25:0;
+  const castPitch = aerial && lightning ? 0.35 : aerial ? -0.25 : 0;
   await evaluate(`(() => {
     const rt=${rt}, host=rt.socket.local.player;
     // The preceding teleport can leave us away from the supported test yard.
