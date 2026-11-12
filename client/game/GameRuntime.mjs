@@ -494,6 +494,7 @@ export class GameRuntime {
     if(socket.inspectionAvailable)this.input.allowAction=this.inspectionActionGate;
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
+      if(action==='inspectEffects'&&pressed){this.hud.cycleAfflictionDetails();return;}
       if(action==='pause'&&pressed){this.onPause?.();return;}
       if(action==='practiceTools'&&pressed){this.onPracticeTools?.();return;}
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
