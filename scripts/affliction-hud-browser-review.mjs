@@ -89,7 +89,8 @@ function inspect(){
     buttons:buttons.length,svgCount:buttons.filter(b=>b.querySelector('svg')).length,
     hudLayer:getComputedStyle(document.querySelector('#hud')).zIndex,
     touchControlTarget:document.elementFromPoint(34,340)?.closest('.touch-controls')?.id??null,
-    health:box(document.querySelector('.health-block'))
+    health:box(document.querySelector('.health-block')),
+    reticle:box(document.querySelector('#crosshair'))
   };
 }
 function enableTouchCover(){
@@ -159,6 +160,9 @@ try{
   assert.ok(tapped.detail.x>=250, 'mobile detail sidecar must stay off the left movement stick');
   assert.ok(tapped.detail.x>=0&&tapped.detail.right<=844);
   assert.ok(tapped.detail.bottom<=390,'detail must fit short landscape window');
+  const d=tapped.detail,r=tapped.reticle;
+  assert.ok(!(d.x<r.right && r.x<d.right && d.y<r.bottom && r.y<d.bottom),
+    'status explanation must not obstruct the aiming reticle');
   await screenshot('touch-inspected');
 
   const next=await evaluate('('+secondIcon.toString()+')()');
