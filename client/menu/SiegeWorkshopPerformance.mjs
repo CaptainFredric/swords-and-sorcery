@@ -296,12 +296,23 @@ export class SiegeWorkshopPerformance {
           entry.from=origin.toArray();
         } else entry.from=fallback;
       }
-      const from=entry.from??fallback;
       const base=bases[shot.target]??[0,0,-4];
       const to=shot.nearMiss ? [base[0]+.95,1.2,base[2]+.42]
         : [base[0]+(skill==='narrowToOne'&&shot.lowShot ? .26 : 0),
             skill==='narrowToOne'&&shot.lowShot ? .43 : 1.2,
             base[2]+(skill==='narrowToOne'&&!shot.lowShot ? .43 : 0)];
+      const ballista=skill==='coldHowTouching'||skill==='boltToTheOccasion';
+      let from=entry.from??fallback;
+      if(ballista && to[2]>=from[2]-.05) {
+        // The ballista's forward firing direction is -Z. An authored socket
+        // can be missing, misplaced, or oriented for another configuration;
+        // never render a bolt shooting backwards out of its rear.
+        from=fallback;
+        if(!entry.warnedMuzzle){
+          entry.warnedMuzzle=true;
+          console.warn('Siege Workshop: muzzle behind its target; using forward firing position',skill,shot.kind);
+        }
+      }
       if(object.visible) {
         const u=clamp(age/flight);
         const start=vec(from),end=vec(to);
