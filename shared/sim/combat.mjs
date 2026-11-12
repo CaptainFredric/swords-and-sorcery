@@ -1130,6 +1130,56 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   const attackerTransform = transformFor(attacker, atSec);
   const targetTransform = transformFor(target, atSec);
   const { view, eye, frame: viewFrame } = bladeOrigin(attackerTransform);
+  // An actual sword-vs-sword collision can be a Rigid interception or the
+  // moving guard of Whirl. It is NEVER a full-sphere or frontal immunity.
+  if(target.swordTechnique && met?.direction){
+    const dir=met.direction;
+    const incoming={base:{
+      x:eye.x+dir.x*BLADE.from,y:eye.y+dir.y*BLADE.from,z:eye.z+dir.z*BLADE.from,
+    },tip:{
+      x:eye.x+dir.x*BLADE.to,y:eye.y+dir.y*BLADE.to,z:eye.z+dir.z*BLADE.to,
+    },radius:BLADE.radius};
+    const defensivePose={
+      position:targetTransform.position,yaw:targetTransform.yaw,
+      eye:{x:targetTransform.position.x,y:targetTransform.position.y+1.55,
+        z:targetTransform.position.z},
+    };
+    const contact=techniqueInterception(target.swordTechnique,incoming,defensivePose,room.world,atSec);
+    if(contact){
+      const technique=target.swordTechnique;
+      // A Sunder slam can be guarded by this real blade, not parried.
+      const parryEligible=technique.contract.kind==='riposte'&&!sundering(attacker,atSec);
+      const guard=resolveSwordVsGuard({
+        guarding:true,guardAgeMs:parryEligible?0:Infinity,
+        stamina:target.guardStamina,profile:guardProfile(target.knightClass),
+        pressure:1,impacts:sundering(attacker,atSec)?ultimateFor('sunder').guardImpacts:1,
+      });
+      target.guardStamina=guard.staminaAfter;
+      target.lastGuardDrainAt=nowSec;
+      if(guard.kind==='parry'&&parryEligible){
+        target.parries+=1;
+        gainProwess(room,target,PROWESS.parry);
+        attacker.staggerUntil=Math.max(attacker.staggerUntil??-Infinity,
+          nowSec+GAME.parryStaggerMs/1000);
+        stopSwordChain(attacker,{},room,nowSec);
+        staggerBy(room,attacker,STAGGER.gain.parried,nowSec,target.id);
+        room.events.push({type:'parry',attackerId:attacker.id,
+          defenderId:target.id,technique:technique.id,point:contact,at:nowSec});
+        recordChallengeFact(room,{type:'parry',attackerId:attacker.id,defenderId:target.id,at:nowSec});
+        return 'parry';
+      }
+      if(guard.kind==='guardBreak'){
+        breakGuard(target,GAME.guardBreakStaggerMs/1000,nowSec);
+        interruptSwordTechnique(target,nowSec);
+        room.events.push({type:'guardBreak',attackerId:attacker.id,
+          defenderId:target.id,technique:technique.id,point:contact,at:nowSec});
+      }else{
+        room.events.push({type:'block',attackerId:attacker.id,
+          defenderId:target.id,technique:technique.id,point:contact,at:nowSec});
+      }
+      return 'block';
+    }
+  }
   const frame = strikeFrame(attackerTransform, Boolean(attacker.attackSweep?.slam));
   const dx = targetTransform.position.x - attackerTransform.position.x;
   const dz = targetTransform.position.z - attackerTransform.position.z;
