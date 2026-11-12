@@ -1,0 +1,6956 @@
+{
+ "scenario": "whirl",
+ "device": "desktop",
+ "remote": false,
+ "label": "desktop-whirl",
+ "equipped": {
+  "spell": "fireball",
+  "technique": "whirl_like_the_wind"
+ },
+ "carried": {
+  "technique": "whirl_like_the_wind",
+  "spell": "fireball"
+ },
+ "renderFps": 59.9,
+ "stills": 152,
+ "videoBytes": 3596387,
+ "emulated": null,
+ "motionSidecar": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687",
+ "clips": [
+  {
+   "clip": "Idle",
+   "from": 8.815
+  },
+  {
+   "clip": "Technique_Whirl_Enter",
+   "from": 9.359
+  },
+  {
+   "clip": "Technique_Whirl_Revolution",
+   "from": 9.588
+  },
+  {
+   "clip": "Technique_Whirl_Exit",
+   "from": 11.973
+  },
+  {
+   "clip": "Idle",
+   "from": 12.213
+  }
+ ],
+ "events": {
+  "damage:whirl_like_the_wind": 3,
+  "techniqueEnd": 1,
+  "techniqueHit": 3,
+  "techniqueRevolution": 3,
+  "techniqueStart": 1
+ },
+ "eventsSeenByViewer": null,
+ "damage": [
+  {
+   "source": "whirl_like_the_wind",
+   "amount": 16
+  },
+  {
+   "source": "whirl_like_the_wind",
+   "amount": 13
+  },
+  {
+   "source": "whirl_like_the_wind",
+   "amount": 13
+  }
+ ],
+ "technique": {
+  "hits": [
+   {
+    "clean": true,
+    "revolution": 1
+   },
+   {
+    "clean": false,
+    "revolution": 2
+   },
+   {
+    "clean": false,
+    "revolution": 3
+   }
+  ],
+  "end": {
+   "type": "techniqueEnd",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "end": "released",
+   "revolutions": 4,
+   "at": 11.956799999982119
+  },
+  "revolutions": [
+   {
+    "revolution": 2,
+    "prowess": 75
+   },
+   {
+    "revolution": 3,
+    "prowess": 75
+   },
+   {
+    "revolution": 4,
+    "prowess": 75
+   }
+  ]
+ },
+ "travelled": 0,
+ "climbed": 0,
+ "viewerSawTechnique": null,
+ "worstFrameGapMs": 48,
+ "stillTimes": [
+  8.81,
+  8.845,
+  8.88,
+  8.915,
+  8.947,
+  8.98,
+  9.144,
+  9.177,
+  9.212,
+  9.245,
+  9.28,
+  9.314,
+  9.348,
+  9.38,
+  9.413,
+  9.446,
+  9.48,
+  9.514,
+  9.577,
+  9.615,
+  9.647,
+  9.681,
+  9.715,
+  9.747,
+  9.78,
+  9.813,
+  9.848,
+  9.881,
+  9.915,
+  9.946,
+  9.979,
+  10.013,
+  10.048,
+  10.08,
+  10.114,
+  10.147,
+  10.179,
+  10.248,
+  10.28,
+  10.314,
+  10.346,
+  10.38,
+  10.413,
+  10.446,
+  10.478,
+  10.511,
+  10.545,
+  10.579,
+  10.612,
+  10.645,
+  10.679,
+  10.712,
+  10.745,
+  10.778,
+  10.813,
+  10.845,
+  10.878,
+  10.912,
+  10.944,
+  10.979,
+  11.012,
+  11.045,
+  11.078,
+  11.112,
+  11.145,
+  11.178,
+  11.212,
+  11.246,
+  11.28,
+  11.313,
+  11.345,
+  11.378,
+  11.412,
+  11.445,
+  11.482,
+  11.512,
+  11.545,
+  11.579,
+  11.613,
+  11.647,
+  11.679,
+  11.713,
+  11.746,
+  11.781,
+  11.813,
+  11.846,
+  11.945,
+  11.979,
+  12.012,
+  12.045,
+  12.079,
+  12.113,
+  12.146,
+  12.179,
+  12.212,
+  12.249,
+  12.279,
+  12.313,
+  12.345,
+  12.38,
+  12.413,
+  12.445,
+  12.479,
+  12.511,
+  12.545,
+  12.578,
+  12.611,
+  12.645,
+  12.679,
+  12.712,
+  12.744,
+  12.778,
+  12.811,
+  12.845,
+  12.877,
+  12.912,
+  12.945,
+  12.979,
+  13.011,
+  13.046,
+  13.08,
+  13.113,
+  13.149,
+  13.179,
+  13.212,
+  13.246,
+  13.278,
+  13.313,
+  13.345,
+  13.38,
+  13.412,
+  13.447,
+  13.479,
+  13.512,
+  13.546,
+  13.578,
+  13.612,
+  13.646,
+  13.679,
+  13.712,
+  13.745,
+  13.778,
+  13.813,
+  13.845,
+  13.88,
+  13.912,
+  13.947,
+  13.979,
+  14.012,
+  14.046,
+  14.079,
+  14.112
+ ],
+ "startAt": 9.338699999988078,
+ "pageErrors": [],
+ "actorEvents": [
+  {
+   "type": "techniqueStart",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "airborne": false,
+   "at": 9.338699999988078
+  },
+  {
+   "type": "damage",
+   "attackerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "victimId": "practice-dummy-YHFF6",
+   "source": "whirl_like_the_wind",
+   "amount": 16,
+   "health": 84,
+   "push": {
+    "x": 1.4782072520180585,
+    "y": 0.2,
+    "z": 0.6122934917841443
+   },
+   "at": 9.540524999991058,
+   "clean": true
+  },
+  {
+   "type": "techniqueHit",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "targetId": "practice-dummy-YHFF6",
+   "technique": "whirl_like_the_wind",
+   "clean": true,
+   "steel": 0,
+   "revolution": 1,
+   "point": {
+    "x": -4.622986564431171,
+    "y": 1.2931102141929145,
+    "z": -3.87079909275111
+   },
+   "at": 9.540524999991058
+  },
+  {
+   "type": "techniqueRevolution",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "revolution": 2,
+   "prowess": 75,
+   "at": 10.138699999988077
+  },
+  {
+   "type": "damage",
+   "attackerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "victimId": "practice-dummy-YHFF6",
+   "source": "whirl_like_the_wind",
+   "amount": 13,
+   "health": 71,
+   "push": {
+    "x": 1.478207252018059,
+    "y": 0.2,
+    "z": 0.6122934917841438
+   },
+   "at": 10.140099999994039
+  },
+  {
+   "type": "techniqueHit",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "targetId": "practice-dummy-YHFF6",
+   "technique": "whirl_like_the_wind",
+   "clean": false,
+   "steel": 0,
+   "revolution": 2,
+   "point": {
+    "x": -4.307344066001231,
+    "y": 1.2897188761993341,
+    "z": -3.8281807969600834
+   },
+   "at": 10.140099999994039
+  },
+  {
+   "type": "techniqueRevolution",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "revolution": 3,
+   "prowess": 75,
+   "at": 10.738699999988077
+  },
+  {
+   "type": "damage",
+   "attackerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "victimId": "practice-dummy-YHFF6",
+   "source": "whirl_like_the_wind",
+   "amount": 13,
+   "health": 58,
+   "push": {
+    "x": 1.4782072520180591,
+    "y": 0.2,
+    "z": 0.6122934917841434
+   },
+   "at": 10.740314285704066
+  },
+  {
+   "type": "techniqueHit",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "targetId": "practice-dummy-YHFF6",
+   "technique": "whirl_like_the_wind",
+   "clean": false,
+   "steel": 0,
+   "revolution": 3,
+   "point": {
+    "x": -4.28894244209703,
+    "y": 1.2895,
+    "z": -3.8213781821401405
+   },
+   "at": 10.740314285704066
+  },
+  {
+   "type": "techniqueRevolution",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "revolution": 4,
+   "prowess": 75,
+   "at": 11.338699999988076
+  },
+  {
+   "type": "techniqueEnd",
+   "playerId": "ed9afee6-04bd-4d59-9003-774ac1e6ed96",
+   "technique": "whirl_like_the_wind",
+   "end": "released",
+   "revolutions": 4,
+   "at": 11.956799999982119
+  }
+ ],
+ "viewerEvents": null,
+ "frames": [
+  {
+   "server": 8.8145,
+   "clip": "Idle",
+   "time": 0.9772666666607068,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.828899999976159,
+   "clip": "Idle",
+   "time": 0.9915666666428247,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.84009999999404,
+   "clip": "Idle",
+   "time": 1.0034666666487868,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.8565,
+   "clip": "Idle",
+   "time": 1.0201666666666678,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.875,
+   "clip": "Idle",
+   "time": 1.0368666666547468,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.890399999976157,
+   "clip": "Idle",
+   "time": 1.0540666666428247,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.90659999999404,
+   "clip": "Idle",
+   "time": 1.0701666666666667,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.925899999976158,
+   "clip": "Idle",
+   "time": 1.0879666666487853,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.941099999994039,
+   "clip": "Idle",
+   "time": 1.1035666666428248,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.958,
+   "clip": "Idle",
+   "time": 1.1199666666487853,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.97469999998808,
+   "clip": "Idle",
+   "time": 1.136466666648786,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 8.990899999976158,
+   "clip": "Idle",
+   "time": 1.1536666666666675,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.0075,
+   "clip": "Idle",
+   "time": 1.1702666666607064,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.023399999976158,
+   "clip": "Idle",
+   "time": 1.1871666666666676,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.039299999982118,
+   "clip": "Idle",
+   "time": 1.202766666660707,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.05629999998212,
+   "clip": "Idle",
+   "time": 1.2199666666487867,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.073199999988079,
+   "clip": "Idle",
+   "time": 1.2367666666607078,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.08969999998808,
+   "clip": "Idle",
+   "time": 1.2532666666607066,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.106599999994039,
+   "clip": "Idle",
+   "time": 1.2701666666666678,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.1235,
+   "clip": "Idle",
+   "time": 1.2866666666666666,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.140299999982119,
+   "clip": "Idle",
+   "time": 1.3034666666487857,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.155699999988078,
+   "clip": "Idle",
+   "time": 1.3191666666666673,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.173199999988078,
+   "clip": "Idle",
+   "time": 1.3367666666607074,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.188899999976158,
+   "clip": "Idle",
+   "time": 1.3526666666666673,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.20659999999404,
+   "clip": "Idle",
+   "time": 1.3702666666607075,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.223099999994039,
+   "clip": "Idle",
+   "time": 1.3867666666607064,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.239799999982118,
+   "clip": "Idle",
+   "time": 1.4035666666428255,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.256299999982119,
+   "clip": "Idle",
+   "time": 1.4201666666666681,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.273399999976158,
+   "clip": "Idle",
+   "time": 1.436766666660707,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.290799999982118,
+   "clip": "Idle",
+   "time": 1.453466666648786,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.30759999999404,
+   "clip": "Idle",
+   "time": 1.4703666666547472,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.325399999976158,
+   "clip": "Idle",
+   "time": 1.4867666666607078,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.34309999999404,
+   "clip": "Idle",
+   "time": 1.5066666666666673,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.35859999999404,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.014400000005961644,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.374399999976157,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.031500000000001194,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.390199999988079,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.04809999999404013,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.406899999976158,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.06469999998807907,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.424,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.08150000000000013,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.439299999982119,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.09709999999403962,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.457399999976158,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.1149000000059619,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.474399999976159,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.13150000000000084,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.491699999988079,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.14809999999403978,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.50659999999404,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.1640999999940398,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.52559999999404,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.18159999999403986,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.54019999998808,
+   "clip": "Technique_Whirl_Enter",
+   "time": 0.19740000000596147,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 100
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.587899999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.03350000000000186,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.599399999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.051300000011922364,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.60909999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.06500000000000128,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.625899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.081599999994042,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.64519999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.09809999999404084,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.658799999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.11419999998808095,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.676599999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.13150000000000084,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.692599999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.14769999998808103,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.706399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.16409999999404157,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.726399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.18150000000000155,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.74079999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.19790000000596208,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.757899999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.21480000001192323,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.774,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.23100000000000165,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.79159999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2481999999880813,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.80769999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.26469999998808014,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.823099999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.28069999998808015,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.843599999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2981999999880802,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.858399999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.31440000000596235,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.87609999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3310000000000013,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.8925,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.34790000000596244,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.907899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.364300000011923,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.92519999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3814000000059625,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.940799999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.39809999999404155,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.957,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4146999999880805,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.97359999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.43140000000596146,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 9.99,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4479000000059621,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.006899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.46480000001192323,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.02459999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.48150000000000226,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.04179999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.49719999998808007,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.059,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5150000000000023,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.077,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5310000000000024,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.091,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5483000000119223,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.107,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5648000000119229,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.125599999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5818000000119223,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.139699999988078,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5976999999880803,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 1,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 84
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.15819999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.014800000011921832,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.17379999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.03150000000000086,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.190399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.048099999994041576,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.232399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.08990000000596121,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.2385,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.09590000000596144,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.2455,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.10059999999404179,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.259399999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.11500000000000166,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.278299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1318000000119227,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.291199999988079,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.14800000000000113,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.30779999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.16450000000000176,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.325,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1814000000059629,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.33959999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1971999999880808,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.35759999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2149000000059612,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.373,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2305999999940408,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.390299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.24809999999404087,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.406,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2640000000000008,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.423899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.28150000000000086,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.44019999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2980999999940416,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.456899999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3146999999880805,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.474199999988079,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3314000000059615,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.489399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3473000000119232,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.50719999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3654000000059622,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.5225,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.38059999999404115,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.540899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.39890000000596226,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.55669999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.41469999998808016,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.5735,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4315000000000012,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.590199999988078,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.44800000000000184,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.606899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4650000000000013,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.623299999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4815000000000019,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.639799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.49809999999404087,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.6565,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5146999999880798,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.6735,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5314000000059625,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.689899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5480999999940416,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.706799999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5646999999880805,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.723099999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5814000000059615,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.739799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5980000000000022,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.756199999988079,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.014599999994041157,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 2,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 71
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.773,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.031300000011922124,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.78959999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.04780000001192275,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.806399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.06459999999404187,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.822899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.0810000000000024,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.8395,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.09750000000000125,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.855799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.11390000000596179,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.87359999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.13140000000596186,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.88909999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.14719999998808153,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.905699999988078,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1638000000119224,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.923299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.18150000000000088,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.939899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1980999999940416,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.955599999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2136999999880811,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.973399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2314000000059615,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 10.99009999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.24800000000000222,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.00719999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2648000000119233,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.02309999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2811999999880801,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2971999999880801,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.05659999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3148000000119222,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.073199999988079,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3314000000059629,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.089899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.34809999999404195,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.106899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3648000000119229,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.12319999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.38140000000596186,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.139799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3980999999940409,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.156299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4145000000000014,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.1735,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.43140000000596257,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.1895,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.447599999994041,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.20579999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4640999999940416,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.223099999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4814000000059615,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.23969999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.49780000001192204,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.256899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5146999999880812,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.272899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5308000000119233,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.291199999988079,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5473000000119221,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.306799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5648000000119222,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.323299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5815000000000012,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.33969999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5980000000000019,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.356399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.013900000005961921,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 3,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.374099999994039,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.03150000000000208,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.389399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.04730000001192192,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.407299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.06440000000596147,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.423299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.080800000011922,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.44009999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.09790000000596155,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.45659999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1148000000119227,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.4735,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.13140000000596164,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.49259999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.14800000000000235,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.50659999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.1638000000119222,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.52359999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.18140000000596235,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.54009999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.19750000000000245,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.556799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.21440000000596182,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.57359999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.23109999999404085,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.589899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.24750000000000139,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.60859999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.26480000001192305,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.62469999998808,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2809000000059614,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.6425,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.2979000000059626,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.658699999988078,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.31459999999404165,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.674299999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3310999999940405,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.689899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3475999999940411,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.706299999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.36400000000000166,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.72409999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.3809000000059628,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.74079999998212,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.39769999998808014,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.756899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4144000000059629,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.7765,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.43119999998808023,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.79209999999404,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.44730000001192227,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.807899999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4646999999880803,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.8245,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.48130000001192297,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.839799999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.4975000000000014,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.857399999976158,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.514699999988081,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.875899999976157,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5308000000119231,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.89,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.5473000000119219,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.907299999982119,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.56469999998808,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.924899999976159,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.58069999998808,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.940299999982118,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.597500000000001,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.9565,
+   "clip": "Technique_Whirl_Revolution",
+   "time": 0.014300000011921998,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.973399999976158,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.03069999998808015,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 11.9895,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.04740000000596112,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.00669999998808,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.06450000000000067,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.023299999982118,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.0809000000059612,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.0405,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.09759999999404023,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.05669999998808,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.11430000001192298,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.072699999988078,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.130300000011923,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.090199999988078,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.14780000001192128,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.10609999999404,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.1638000000119213,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.1245,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.18209999999404047,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.140399999976157,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.1980000000000004,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.15709999999404,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.21480000001192145,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.175099999994039,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.23140000000596217,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.19,
+   "clip": "Technique_Whirl_Exit",
+   "time": 0.2480000000000011,
+   "technique": {
+    "id": "whirl_like_the_wind",
+    "startedAt": 9.338699999988078,
+    "airborne": false,
+    "revolutions": 4,
+    "spinAt": 9.538699999988077,
+    "lift": false,
+    "lifting": false,
+    "endAt": 11.938699999988078,
+    "end": "released"
+   },
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.2125,
+   "clip": "Idle",
+   "time": 0.44223333330949144,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.223,
+   "clip": "Idle",
+   "time": 0.45263333331545175,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.24,
+   "clip": "Idle",
+   "time": 0.4693333333333345,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.26,
+   "clip": "Idle",
+   "time": 0.4882333333094926,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.27309999999404,
+   "clip": "Idle",
+   "time": 0.502433333327374,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.29069999998808,
+   "clip": "Idle",
+   "time": 0.5200333333214124,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.30779999998212,
+   "clip": "Idle",
+   "time": 0.5365333333214131,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.32369999998808,
+   "clip": "Idle",
+   "time": 0.5535333333214125,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.339399999976159,
+   "clip": "Idle",
+   "time": 0.5692333333094921,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.356,
+   "clip": "Idle",
+   "time": 0.5857333333094927,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.37319999998808,
+   "clip": "Idle",
+   "time": 0.6026333333154521,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.390099999994039,
+   "clip": "Idle",
+   "time": 0.6200333333214121,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.406899999976158,
+   "clip": "Idle",
+   "time": 0.6366333333154528,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.423899999976157,
+   "clip": "Idle",
+   "time": 0.6533333333333338,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.440299999982118,
+   "clip": "Idle",
+   "time": 0.6699333333273727,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.456799999982119,
+   "clip": "Idle",
+   "time": 0.6866333333154517,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.473099999994039,
+   "clip": "Idle",
+   "time": 0.7032333333094924,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.489799999982118,
+   "clip": "Idle",
+   "time": 0.7200333333214135,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.50559999999404,
+   "clip": "Idle",
+   "time": 0.7358333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.52259999999404,
+   "clip": "Idle",
+   "time": 0.7526333333154525,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.53879999998212,
+   "clip": "Idle",
+   "time": 0.769033333321413,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.5565,
+   "clip": "Idle",
+   "time": 0.786433333327373,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.5725,
+   "clip": "Idle",
+   "time": 0.8025333333214131,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.58969999998808,
+   "clip": "Idle",
+   "time": 0.8199333333273731,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.606399999976158,
+   "clip": "Idle",
+   "time": 0.8366333333154521,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.622199999988078,
+   "clip": "Idle",
+   "time": 0.8523333333333336,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.639,
+   "clip": "Idle",
+   "time": 0.8691333333154527,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.656199999988079,
+   "clip": "Idle",
+   "time": 0.8864333333273726,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.673,
+   "clip": "Idle",
+   "time": 0.9033333333333338,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.69009999999404,
+   "clip": "Idle",
+   "time": 0.9199333333273727,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.70609999999404,
+   "clip": "Idle",
+   "time": 0.9363333333333332,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.72329999998212,
+   "clip": "Idle",
+   "time": 0.9533333333333345,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.739099999994039,
+   "clip": "Idle",
+   "time": 0.9693333333333345,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.75569999998808,
+   "clip": "Idle",
+   "time": 0.9859333333273734,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.77269999998808,
+   "clip": "Idle",
+   "time": 1.0028333333333346,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.789299999982118,
+   "clip": "Idle",
+   "time": 1.019633333315452,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.805699999988079,
+   "clip": "Idle",
+   "time": 1.0359333333273741,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.82209999999404,
+   "clip": "Idle",
+   "time": 1.0523333333333347,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.84009999999404,
+   "clip": "Idle",
+   "time": 1.0697333333094927,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.856599999994039,
+   "clip": "Idle",
+   "time": 1.086633333315452,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.873399999976158,
+   "clip": "Idle",
+   "time": 1.103333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.888699999988079,
+   "clip": "Idle",
+   "time": 1.1190333333214126,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.9065,
+   "clip": "Idle",
+   "time": 1.1366333333154528,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.923699999988079,
+   "clip": "Idle",
+   "time": 1.1533333333333338,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.939599999994039,
+   "clip": "Idle",
+   "time": 1.1698333333333344,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.9565,
+   "clip": "Idle",
+   "time": 1.1866333333154517,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.973399999976158,
+   "clip": "Idle",
+   "time": 1.2034333333273728,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 12.989799999982118,
+   "clip": "Idle",
+   "time": 1.2200333333214135,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.00659999999404,
+   "clip": "Idle",
+   "time": 1.2367333333094925,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.022399999976159,
+   "clip": "Idle",
+   "time": 1.252433333327374,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.039399999976158,
+   "clip": "Idle",
+   "time": 1.2694333333273735,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.056799999982118,
+   "clip": "Idle",
+   "time": 1.2866333333154532,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.073099999994039,
+   "clip": "Idle",
+   "time": 1.3033333333333341,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.090899999976157,
+   "clip": "Idle",
+   "time": 1.3194333333273742,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.108099999994039,
+   "clip": "Idle",
+   "time": 1.3367333333094922,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.124399999976157,
+   "clip": "Idle",
+   "time": 1.3532333333094928,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.14,
+   "clip": "Idle",
+   "time": 1.369333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.1605,
+   "clip": "Idle",
+   "time": 1.3859333333273738,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.174799999982119,
+   "clip": "Idle",
+   "time": 1.4028333333333332,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.19009999999404,
+   "clip": "Idle",
+   "time": 1.4197333333094924,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.206699999988079,
+   "clip": "Idle",
+   "time": 1.4366333333154517,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.22319999998808,
+   "clip": "Idle",
+   "time": 1.4525333333214134,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.240899999976158,
+   "clip": "Idle",
+   "time": 1.469533333321413,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.2575,
+   "clip": "Idle",
+   "time": 1.4867333333094925,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.2745,
+   "clip": "Idle",
+   "time": 1.5032333333094914,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.28959999999404,
+   "clip": "Idle",
+   "time": 1.5192333333094914,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.306,
+   "clip": "Idle",
+   "time": 1.535733333309492,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.322899999976158,
+   "clip": "Idle",
+   "time": 1.5529333333273736,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.340199999988078,
+   "clip": "Idle",
+   "time": 1.569933333327373,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.356599999994039,
+   "clip": "Idle",
+   "time": 1.5861333333154533,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.373299999982118,
+   "clip": "Idle",
+   "time": 1.603333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.390099999994039,
+   "clip": "Idle",
+   "time": 1.6199333333273738,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.40669999998808,
+   "clip": "Idle",
+   "time": 1.6366333333154528,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.423599999994039,
+   "clip": "Idle",
+   "time": 1.6531333333154516,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.440399999976158,
+   "clip": "Idle",
+   "time": 1.6700333333214128,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.45759999999404,
+   "clip": "Idle",
+   "time": 1.6867333333094918,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.47469999998808,
+   "clip": "Idle",
+   "time": 1.7025333333214134,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.490299999982119,
+   "clip": "Idle",
+   "time": 1.719533333321413,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.50719999998808,
+   "clip": "Idle",
+   "time": 1.7367333333094925,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.523299999982118,
+   "clip": "Idle",
+   "time": 1.7528333333333346,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.54059999999404,
+   "clip": "Idle",
+   "time": 1.769133333315453,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.55669999998808,
+   "clip": "Idle",
+   "time": 1.7866333333154532,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.573299999982119,
+   "clip": "Idle",
+   "time": 1.803233333309492,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.589799999982118,
+   "clip": "Idle",
+   "time": 1.8200333333214131,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.6065,
+   "clip": "Idle",
+   "time": 1.836633333315452,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.62309999999404,
+   "clip": "Idle",
+   "time": 1.853333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.639699999988078,
+   "clip": "Idle",
+   "time": 1.869333333333333,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.657,
+   "clip": "Idle",
+   "time": 1.8866333333154528,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.674,
+   "clip": "Idle",
+   "time": 1.9033333333333338,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.69019999998808,
+   "clip": "Idle",
+   "time": 1.9197333333094924,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.705599999994039,
+   "clip": "Idle",
+   "time": 1.9356333333154523,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.72319999998808,
+   "clip": "Idle",
+   "time": 1.9533333333333345,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.738899999976159,
+   "clip": "Idle",
+   "time": 1.9690333333214123,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.75659999999404,
+   "clip": "Idle",
+   "time": 1.9865333333214124,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.77309999999404,
+   "clip": "Idle",
+   "time": 0.03666666666666707,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.789699999988079,
+   "clip": "Idle",
+   "time": 0.053166666666667695,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.80669999998808,
+   "clip": "Idle",
+   "time": 0.06986666665474672,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.823,
+   "clip": "Idle",
+   "time": 0.08636666665474735,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.83969999998808,
+   "clip": "Idle",
+   "time": 0.10326666666070672,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.856599999994039,
+   "clip": "Idle",
+   "time": 0.11996666664878575,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.873699999988078,
+   "clip": "Idle",
+   "time": 0.1367666666607068,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.890099999994039,
+   "clip": "Idle",
+   "time": 0.15326666666070743,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.907,
+   "clip": "Idle",
+   "time": 0.16996666664878646,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.923299999982119,
+   "clip": "Idle",
+   "time": 0.1862666666607069,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.939599999994039,
+   "clip": "Idle",
+   "time": 0.20286666665474584,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.957,
+   "clip": "Idle",
+   "time": 0.22006666664282548,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.97659999999404,
+   "clip": "Idle",
+   "time": 0.23676666666070645,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 13.989899999976158,
+   "clip": "Idle",
+   "time": 0.2532666666607071,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.006399999976159,
+   "clip": "Idle",
+   "time": 0.2699666666487861,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.023,
+   "clip": "Idle",
+   "time": 0.28616666666666823,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.041,
+   "clip": "Idle",
+   "time": 0.3032666666607078,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.056899999976158,
+   "clip": "Idle",
+   "time": 0.3199666666487868,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.073199999988079,
+   "clip": "Idle",
+   "time": 0.33656666664282575,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.0905,
+   "clip": "Idle",
+   "time": 0.3533666666547468,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.108399999976157,
+   "clip": "Idle",
+   "time": 0.36996666664878575,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.12319999998808,
+   "clip": "Idle",
+   "time": 0.3861666666666679,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.140099999994039,
+   "clip": "Idle",
+   "time": 0.40336666665474574,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.159199999988079,
+   "clip": "Idle",
+   "time": 0.42226666666070756,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.176299999982119,
+   "clip": "Idle",
+   "time": 0.4365666666428254,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.189599999994039,
+   "clip": "Idle",
+   "time": 0.45276666666070753,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.207399999976158,
+   "clip": "Idle",
+   "time": 0.4702666666607076,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.22329999998212,
+   "clip": "Idle",
+   "time": 0.4865666666428261,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.240199999988079,
+   "clip": "Idle",
+   "time": 0.5029666666487866,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.25719999998808,
+   "clip": "Idle",
+   "time": 0.5199666666487861,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.27429999998212,
+   "clip": "Idle",
+   "time": 0.5356666666666676,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.29,
+   "clip": "Idle",
+   "time": 0.5532666666607078,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.309399999976158,
+   "clip": "Idle",
+   "time": 0.5699666666487868,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.330299999982119,
+   "clip": "Idle",
+   "time": 0.5868666666547462,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.346199999988078,
+   "clip": "Idle",
+   "time": 0.6037666666607073,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.362,
+   "clip": "Idle",
+   "time": 0.6197666666607073,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.378,
+   "clip": "Idle",
+   "time": 0.6363666666547463,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.39469999998808,
+   "clip": "Idle",
+   "time": 0.6526666666666667,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.41119999998808,
+   "clip": "Idle",
+   "time": 0.6700666666428248,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.42829999998212,
+   "clip": "Idle",
+   "time": 0.6867666666607075,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.446299999982118,
+   "clip": "Idle",
+   "time": 0.7025666666428254,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.46209999999404,
+   "clip": "Idle",
+   "time": 0.7196666666666669,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.4775,
+   "clip": "Idle",
+   "time": 0.7367666666607064,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.49529999998212,
+   "clip": "Idle",
+   "time": 0.7535666666428256,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.514399999976158,
+   "clip": "Idle",
+   "time": 0.7703666666547466,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.526299999982118,
+   "clip": "Idle",
+   "time": 0.7861666666666682,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.5425,
+   "clip": "Idle",
+   "time": 0.8034666666487862,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  },
+  {
+   "server": 14.557199999988079,
+   "clip": "Idle",
+   "time": 0.8198666666547467,
+   "technique": null,
+   "prowess": 100,
+   "y": 0,
+   "x": -6,
+   "z": -4.5,
+   "other": null,
+   "dummy": {
+    "health": 58
+   },
+   "motion": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687"
+  }
+ ]
+}
