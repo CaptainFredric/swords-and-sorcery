@@ -141,6 +141,10 @@ test('Ultimate Knight drill settings are Practice-only and carry fixed Ultimate,
   assert.equal(wire.ultimateKnight.stages.frost,0);
   assert.equal(applyRoomCommand(room,human,{type:'practiceUltimateKnightConfig',element:'frost',tier:4},0).rejected!==undefined,true);
   assert.equal(knight.practiceOneHit.stages.frost,0);
+  assert.equal(spawnPracticeDummy(room,'ULTIMATE_KNIGHT',.5,human.id),knight);
+  assert.equal(knight.ultimateKnight.selection,'one_hit_of_wonders','recall preserves chosen Ultimate');
+  assert.equal(knight.ultimateKnight.behavior,'stay','recall preserves Stay');
+  assert.equal(knight.ultimateKnight.stages.frost,0,'recall preserves individual infusion');
   const arena=new Room('NOPE',{mode:'FFA'});
   assert.equal(configureUltimateKnight(arena,human.id,chosen,0),false);
 });
