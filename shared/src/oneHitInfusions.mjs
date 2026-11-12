@@ -96,6 +96,27 @@ export function oneHitGlide(player,speed=7.5){
   return null;
 }
 
+/** Full Steel's temporary 1-HP floor. Never store prevented lethal damage.
+ * Held Full-Lightning teleport aim offers NO protection; the finite windup,
+ * committed strike and unfinished Gale wave do. The protection is over at
+ * wave resolution or ordinary Ultimate expiry, but the player remains alive
+ * at the HP they actually retained.
+ * This pure check drives BOTH authoritative damage and the health-bar sliver.
+ */
+export function oneHitSteelFloorActive(player, nowSec) {
+  if(!player?.alive)return false;
+  const state=player.ultimateState;
+  if(state?.id!=='one_hit_of_wonders')return false;
+  const tiers=state.oneHit?.tiers??state.preparedTiers;
+  if((tiers?.steel??0)<2)return false;
+  if(state.phase==='startup')
+    return !Number.isFinite(state.teleportHoldAt)&&Number.isFinite(state.commitAt)&&nowSec<state.commitAt+1e-9;
+  if(state.phase==='active')
+    return Number.isFinite(state.until)&&nowSec<state.until &&
+      !(state.oneHit?.awaitingWave&&state.oneHit.waveResolved);
+  return false;
+}
+
 export const ONE_HIT_PRESETS = Object.freeze({
   simple: emptyInfusions(),
   partial: Object.freeze({ fire: 1, frost: 1, gale: 1, lightning: 1, steel: 1 }),

@@ -690,30 +690,33 @@ test('Full Steel: more arms; the struck knight\'s Skills all start cooling again
   assert.equal(half.b.spellReadyAt, 0);
 });
 
-test('Full Steel: HP cannot fall below 1 during the attack; what would have killed resolves the moment it ends', () => {
-  const { room, a, b } = battle({ tiers: { steel: 2 }, at: { x: 30, y: 0, z: 0 } });
+test('Full Steel: the last 1 HP is truly protected, without lethal debt after the attack', () => {
+  const { room, a } = battle({ tiers: { steel: 2 }, at: { x: 30, y: 0, z: 0 } });
   a.health = 20;
   assert.equal(tryUltimate(room, 'a', 9), true);
   run(room, 9, .3);
-  // a lethal blow in the wind-up
   applyDamage(room, 'b', 'a', 60, 'sword', 9.3);
   assert.equal(a.health, 1); assert.equal(a.alive, true);
   assert.equal(room.events.filter((e) => e.type === 'oneHitLastStand').length, 1);
   let now = run(room, 9.3, 1);
-  assert.equal(a.ultimateState.phase, 'active', 'and the attack still comes');
+  assert.equal(a.ultimateState.phase, 'active');
   assert.ok(room.events.some((e) => e.type === 'oneHitImpact'));
-  // more of it during the committed attack: still 1
-  applyDamage(room, 'b', 'a', 60, 'sword', now);
+  // A second lethal blow cannot eat that last sliver, and must not store a
+  // debt, replenish lost HP or credit two lethal events.
+  applyDamage(room, 'b', 'a', 1000, 'sword', now);
   assert.equal(a.health, 1); assert.equal(a.alive, true);
-  assert.equal(room.events.filter((e) => e.type === 'oneHitLastStand').length, 1, 'announced once');
-  // the attack ends: dead at once, credited to whoever dealt it
+  assert.equal(a.ultimateState.deferredLethal, undefined);
+  assert.equal(room.events.filter((e) => e.type === 'oneHitLastStand').length, 1);
   const until = a.ultimateState.until;
   now = run(room, now, until - now + 2 * DT);
-  assert.equal(a.alive, false, 'deferred lethal damage resolves immediately after the attack');
-  const death = room.events.find((e) => e.type === 'death' && e.victimId === 'a');
-  assert.equal(death.killerId, 'b');
-  assert.ok(death.at >= until && death.at <= until + 2 * DT);
-  assert.ok(room.events.some((e) => e.type === 'oneHitLastStandEnded'));
+  assert.ok(a.alive, 'the ending Ultimate cannot kill someone by bookkeeping');
+  assert.equal(a.health, 1, 'the protected health point is kept');
+  assert.ok(!room.events.some((e) => e.type === 'oneHitLastStandEnded'));
+  assert.ok(!room.events.some((e) => e.type === 'death' && e.victimId === 'a'));
+  // Protection is TEMPORARY: ordinary real damage after the attack still kills.
+  applyDamage(room, 'b', 'a', 5, 'sword', now);
+  assert.equal(a.alive, false);
+  assert.equal(room.events.find((e) => e.type === 'death' && e.victimId === 'a')?.killerId, 'b');
 });
 
 test('Full Steel: non-lethal damage is ordinary; without Full Steel a lethal blow kills at once; the held Lightning aim gives no protection', () => {
@@ -747,8 +750,12 @@ test('Full Steel: non-lethal damage is ordinary; without Full Steel a lethal blo
     assert.equal(a.ultimateState.phase, 'active');
     applyDamage(room, 'b', 'a', 200, 'sword', 14.1);
     assert.equal(a.health, 1);
-    run(room, 14.1, 3);
-    assert.equal(a.alive, false);
+    const later = run(room, 14.1, 3);
+    assert.equal(a.alive, true, 'the attack ending cannot settle any lethal debt');
+    assert.equal(a.ultimateState, null);
+    assert.ok(a.health >= 1);
+    applyDamage(room, 'b', 'a', 200, 'sword', later);
+    assert.equal(a.alive, false, 'the next actual blow after the protection ends remains fatal');
   }
 });
 
