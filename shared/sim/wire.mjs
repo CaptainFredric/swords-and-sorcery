@@ -215,7 +215,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       abyssKills: p.abyssKills,
       spell: p.spell,
       technique: p.technique ?? 'rigid_riposte',
-      swordTechnique: techniqueView(p),
+      swordTechnique: techniqueView(p,nowSec),
       swordTechniqueReadyAt: p.swordTechniqueReadyAt ?? 0,
       startingSpell: p.startingSpell ?? p.spell,
       preparedSpells: [...(p.preparedSpells ?? [])],
