@@ -5,7 +5,7 @@ import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
-import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
+import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
@@ -466,6 +466,12 @@ export function applyRoomCommand(room, player, message, time) {
       if (message.down) beginAttack(room, player.id, inputTime);
       else endAttack(room, player.id, time, inputTime);
       return {};
+    }
+    case 'ramFlick': {
+      const b=room.soFistication;
+      if(!player.alive||!player.operatingRamId||b?.operatorId!==player.id)
+        return {rejected:'Operate SO-FIST-ICATION to flick.'};
+      return flickSoFistication(room,b,time)?{}:{rejected:'The armored hand is unavailable or recovering.'};
     }
     case 'guard': {
       if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded&&!combatActionPolicy(player,time).concurrent)return {};
