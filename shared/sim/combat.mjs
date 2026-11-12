@@ -2376,7 +2376,11 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
     rec.hitIds.push(target.id);
     if(oneHitGuard(room,caster,target,rec.guardSource,nowSec))continue;
-    oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6});
+    // A sword wave's terminal gust carries ALL of its infused on-contact
+    // properties, even without Fire's bonus HP blast. Steel still disrupts
+    // Skills, Gale still Blusters, Frost freezes, and Lightning conducts.
+    // Only the Fire tier creates new decisive HP damage at the endpoint.
+    oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
     const scale=staggerShove(target.stagger);
     shoveBody(target,{x:rec.direction.x*2.2*scale,y:.35,z:rec.direction.z*2.2*scale});
     target.lastKnockbackAt=nowSec;
@@ -2399,6 +2403,20 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({...rec,until:nowSec+ONE_HIT_FROST_LINGER_SEC});
+  // A ground-contacting wave leaves the SAME decaying Shaken terrain as a
+  // slam, but over its smaller terminal radius. The ground retains full
+  // Frost/Lightning field consequences and its own visible rubble. A wave
+  // bursting in free air cannot create a floating patch of earth.
+  let terminalFieldId=null;
+  if(groundBlast&&floor!==null){
+    const field={id:wave.id+':field',ownerId:caster.id,
+      position:{x:point.x,y:floor,z:point.z},radius,
+      bornAt:nowSec,until:nowSec+fieldSeconds(wave.tiers),
+      tiers:{...wave.tiers},conducted:{}};
+    if(wave.tiers.lightning>=1)for(const id of wave.hitIds)field.conducted[id]=1;
+    (room.oneHitFields??=[]).push(field);
+    terminalFieldId=field.id;
+  }
   // (burning ground only where there is ground under it: nothing burns in the air)
   if(wave.tiers.fire===2&&groundBlast) {
     const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
@@ -2412,7 +2430,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point:visualPoint,
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
-    radius,struck,at:nowSec});
+    radius,struck,fieldId:terminalFieldId,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
 // Full Steel lasts THROUGH the outgoing wave; the protection ends at its
