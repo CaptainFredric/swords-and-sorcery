@@ -245,6 +245,14 @@ button, input { touch-action: manipulation; }
 .touch-ui .guard-block { position: static; transform: none; width: 150px; margin-top: 6px; }
 .touch-ui .guard-block span { font-size: 10px; letter-spacing: .12em; }
 .touch-ui .abilities { display: none; }
+/* Touch: the status caption sits above the thumb controls, to the left of
+   the reticle but clear of the top HP meter and bottom-center subtitles. */
+.touch-ui .status-flash {
+  top: auto; left: calc(var(--safe-l, 0px) + 32cqw);
+  bottom: calc(var(--safe-b, 0px) + 92px);
+  max-width: min(250px, 35cqw); padding: 5px 8px;
+  font-size: 10px; line-height: 1.2; letter-spacing: .035em;
+}
 .touch-ui .match-info { top: 10px; }
 .touch-ui .duel-score { top:39px; padding:3px 9px; gap:8px; }
 .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 8px); left: calc(var(--safe-l) + 266px); right: calc(var(--safe-r) + 12px); width: auto; transform: none; gap: 4px; }
