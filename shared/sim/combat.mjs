@@ -2295,7 +2295,7 @@ function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   const direction={x:-Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),z:-Math.cos(yaw)*Math.cos(pitch)};
   const fromGround=action.form==='ground';
   const wave={id:'oh-wave:'+player.id+':'+nowSec,ownerId:player.id,
-    position:{x:player.position.x,y:player.position.y+(fromGround?1.1:1),z:player.position.z},
+    position:{x:player.position.x,y:player.position.y+(fromGround?.65:1),z:player.position.z},
     direction,tiers:{...tiers},bornAt:nowSec,distance:0,
     hitIds:action.hitIds,fromGround,
   };
@@ -2382,7 +2382,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const radius=fire?ONE_HIT_RULES.waveTerminalFireRadius:ONE_HIT_RULES.waveTerminalRadius;
   const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
   const groundBlast=contact?.kind==='ground'||
-    (floor!==null&&point.y>=floor-.04&&point.y-floor<=.5);
+    (floor!==null&&point.y>=floor-.04&&point.y-floor<=.9);
   const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
   const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
@@ -2396,7 +2396,10 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
       oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers,radius);
   }
-  room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point,
+  // Visual eruption follows the actual ground when a skimming wave expires.
+  // Damage calculations still use the authoritative projectile origin above.
+  const visualPoint=groundBlast&&floor!==null?{...point,y:floor}:point;
+  room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point:visualPoint,
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
     radius,struck,at:nowSec});
