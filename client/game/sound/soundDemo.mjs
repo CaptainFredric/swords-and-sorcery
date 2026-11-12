@@ -5,10 +5,64 @@ import { Ambience } from './Ambience.mjs';
 import { bellTollRecipe, gateRecipe, uiClankRecipe, warDrumRecipe } from './atmosphereRecipes.mjs';
 import { MusicPlayer } from './music/MusicPlayer.mjs';
 import { SoundEngine } from './SoundEngine.mjs';
+import {galeReleaseRecipe} from './soundRecipes.mjs';
+import {
+  DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
+  coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
+  conductWireTailRecipe,galeStreamRecipe,disasterEarthImpactRecipe,
+  disasterInfusionChargeRecipe,disasterInfusionImpactRecipe,
+  disasterInfusionFieldRecipe,disasterFieldPulseRecipe,disasterWaveRushRecipe,
+} from './disasterSoundRecipes.mjs';
 import { VOICE_HEARING } from './voiceRules.mjs';
 import { appUrl } from '../../appUrl.mjs';
 
 export const DEMOS = {
+  // A/B each elemental identity and the all-five mix in real rendered audio.
+  // All times here are for AUDITION ONLY; live sounds use real server events.
+  'disaster-elements':{
+    seconds:43,
+    script(engine){
+      const rand=()=>.43;
+      const impact=(at,tiers)=>{
+        const elements=DISASTER_AUDIO_ELEMENTS.filter(e=>(tiers[e]??0)>0);
+        const balance=1/Math.sqrt(1+elements.length*.34);
+        engine.play(disasterEarthImpactRecipe(rand),{at,gain:.93*balance});
+        const offsets={fire:.035,frost:.095,gale:.135,lightning:.185,steel:.23};
+        for(const e of elements){
+          engine.play(disasterInfusionImpactRecipe(e,rand,{tier:tiers[e]}),
+            {at:at+offsets[e],gain:.76*balance});
+        }
+        for(let t=at+.9;t<at+3.5;t+=1.05){
+          const strength=Math.max(.02,1-(t-at)/4.3);
+          engine.play(disasterFieldPulseRecipe(rand,{strength}),{at:t,gain:.4*strength*balance});
+          elements.forEach((e,i)=>engine.play(disasterInfusionFieldRecipe(e,rand,{
+            strength,tier:tiers[e]}),{at:t+.16+i*.23,gain:.26*strength*balance}));
+        }
+      };
+      const none={fire:0,frost:0,gale:0,lightning:0,steel:0};
+      impact(1,none);
+      DISASTER_AUDIO_ELEMENTS.forEach((e,i)=>impact(6+i*5,{...none,[e]:2}));
+      impact(33,{fire:2,frost:2,gale:2,lightning:2,steel:2});
+      engine.play(disasterWaveRushRecipe(rand,{tier:2}),{at:35.8,gain:.38});
+    },
+  },
+  // The little magma pockets MUST be heard BEFORE the deep second blast.
+  // The line is a separate voltage climb and instantaneous cracking strike.
+  'magma-and-lightning':{
+    seconds:17,
+    script(engine){
+      const rand=()=>.42;
+      engine.play(coreMagmaArmRecipe(rand),{at:1,gain:.55});
+      engine.play(coreMagmaFuseRecipe(rand,{seconds:.6}),{at:1.035,gain:.72});
+      engine.play(coreMagmaDetonationRecipe(rand),{at:1.6,gain:1});
+      engine.play(conductChargeRecipe(rand,{seconds:.45}),{at:6,gain:.85});
+      engine.play(conductDischargeRecipe(rand),{at:6.45,gain:.93});
+      engine.play(conductWireTailRecipe(rand),{at:6.48,gain:.49,pan:.28});
+      engine.play(galeReleaseRecipe(rand),{at:11,gain:.8});
+      engine.play(galeStreamRecipe(rand,{seconds:.66,weight:1}),{at:11.16,gain:.37});
+      engine.play(galeStreamRecipe(rand,{seconds:.5,weight:.65}),{at:11.65,gain:.23});
+    },
+  },
   // the menu at dusk: wind, banners, the bell; a few button presses; a duel found (drum count, gate)
   atmosphere: {
     seconds: 42,
