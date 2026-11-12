@@ -2222,6 +2222,56 @@ function closeInspector() {
   if (backBtn && armoryLocation.region === 'kit') backBtn.textContent = '← MAIN MENU';
 }
 
+function updateSiegePreviewUI(skillId) {
+  const button=$('#siege-preview-stop');
+  const hint=$('#siege-preview-hint');
+  if(button)button.hidden=!skillId;
+  if(hint) {
+    const names={
+      boltToTheOccasion:'BOLT TO THE OCCASION',
+      coldHowTouching:'COLD, HOW TOUCHING',
+      beatToThePunch:'BEAT TO THE PUNCH',
+      longArmToTheJaw:'LONG ARM TO THE JAW',
+      fireAwayRightHere:"FIRE AWAY? I'M RIGHT HERE",
+      narrowToOne:'NARROW TO ONE',
+      doNotStopMyAscension:'DO NOT STOP MY ASCENSION',
+    };
+    hint.textContent=skillId ? `DEMONSTRATING ${names[skillId]??'SKILL'} · TAP AGAIN TO REPLAY`
+      :'SELECT A SKILL TO WATCH ITS WORKSHOP DEMONSTRATION.';
+  }
+}
+
+function prepareSiegeSkillReorder(skillId) {
+  const list=$('#armory-siege-machines');
+  const scroll=$('#armory-siege .siege-inspector-scroll');
+  if(!list||!scroll)return () => {};
+  const before=new Map([...list.querySelectorAll('[data-siege-skill]')]
+    .map(node=>[node.dataset.siegeSkill,node.getBoundingClientRect()]));
+  const scrollTop=scroll.scrollTop;
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  return () => {
+    scroll.scrollTop=scrollTop;
+    const cards=[...list.querySelectorAll('[data-siege-skill]')];
+    const chosen=cards.find(card=>card.dataset.siegeSkill===skillId);
+    if(!chosen)return;
+    const rect=chosen.getBoundingClientRect();
+    const box=scroll.getBoundingClientRect();
+    const goal=Math.max(0,Math.min(scroll.scrollHeight-scroll.clientHeight,
+      scroll.scrollTop+rect.bottom-box.bottom+18));
+    if(!reduced)for(const card of cards) {
+      const first=before.get(card.dataset.siegeSkill);
+      if(!first)continue;
+      const dy=first.top-card.getBoundingClientRect().top;
+      if(Math.abs(dy)>.5)card.animate([
+        {transform:`translateY(${dy}px) scale(1)`},
+        {transform:'translateY(0) scale(1)'},
+      ],{duration:420,easing:'cubic-bezier(.2,.74,.25,1)'});
+    }
+    if(Math.abs(goal-scroll.scrollTop)>1)
+      scroll.scrollTo({top:goal,behavior:reduced?'instant':'smooth'});
+  };
+}
+
 function renderSiegeWorkshop(machineId = 'soFist') {
   armoryLocation.siegeMachine = machineId;
   saveArmoryLocation(armoryLocation);
@@ -2259,10 +2309,12 @@ function renderSiegeWorkshop(machineId = 'soFist') {
     </div>`).join('');
   }
 
+  const sortedSkills=[...m.skills.filter(skill=>!skill.equipped),
+    ...m.skills.filter(skill=>skill.equipped)];
   $('#armory-siege-machines').innerHTML = `
     <article class="siege-armory-card">
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
-        ${m.skills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
+        ${sortedSkills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
           <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
           <small>${skill.line}</small></button>`).join('')}
       </div>
@@ -2282,6 +2334,7 @@ function renderSiegeWorkshop(machineId = 'soFist') {
       ${m.line.split(/\n\s*\n/).map((paragraph, i) => `<p${i === 0 && m.id === 'fightFlight' ? ' class="siege-armory-motto"' : ''}>${escapeHtml(paragraph).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('')}
     </div>
   `;
+  updateSiegePreviewUI(menuScene?.siegeWorkshop?.performance?.skill??null);
 }
 
 function navigateToArmorySection(region, { preserveInspector = false, immediate = false } = {}) {
@@ -2418,8 +2471,12 @@ $('#armory-siege-machines').addEventListener('click', (event) => {
     button.dataset.siegeMachine === 'soFist' ? 'loadout.soFistSkill' :
     button.dataset.siegeMachine === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
   if (setting) {
+    const motion=prepareSiegeSkillReorder(button.dataset.siegeSkill);
     settings.set(setting, button.dataset.siegeSkill);
     renderSiegeWorkshop(armoryLocation.siegeMachine);
+    motion();
+    menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill);
+    updateSiegePreviewUI(button.dataset.siegeSkill);
   }
 });
 
@@ -2427,6 +2484,11 @@ document.querySelector('.siege-machine-nav')?.addEventListener('click', (event) 
   const button = event.target.closest('[data-siege-tab]');
   if (!button) return;
   renderSiegeWorkshop(button.dataset.siegeTab);
+});
+
+$('#siege-preview-stop')?.addEventListener('click',()=>{
+  menuScene?.siegeWorkshop?.stopPreview();
+  updateSiegePreviewUI(null);
 });
 
 $('#siege-story-details')?.addEventListener('toggle', (event) => {
