@@ -283,7 +283,13 @@ export class InputController {
       // Their compatibility mouse clicks must never become a sword press.
       if (event.sourceCapabilities?.firesTouchEvents || event.target?.closest?.('button, input, select, textarea, summary, a, [role=dialog]')) return;
       if (!this.enabled && !this.pointerLocked) return;
+      if(this.actionOf.get('Mouse'+event.button))event.preventDefault();
       this.handleMouseButtonDown(`Mouse${event.button}`);
+    });
+    // Chrome may interpret auxiliary Mouse4 clicks as navigation unless the
+    // on-foot action consumes the auxiliary click, not only mousedown.
+    this.#listen(document,'auxclick',event=>{
+      if(this.enabled&&this.actionOf.get('Mouse'+event.button))event.preventDefault();
     });
 
     this.#listen(document, 'mouseup', (event) => {
