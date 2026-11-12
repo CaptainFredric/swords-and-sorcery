@@ -139,3 +139,52 @@ test('saved loadout survives to the next authoritative match but is not hot-swap
   assert.equal(a.technique,'whirl_wind');
   assert.equal(a.swordTechnique,null);
 });
+
+test('disconnect cancels a held Whirl and retains its 10s cooldown',()=>{
+  const {room,a}=roomWithPlayers('whirl_wind');
+  a.prowess=100;
+  command(room,a,'technique',true,12);
+  assert.ok(a.swordTechnique);
+  room.disconnectPlayer('a',12.12);
+  assert.equal(a.swordTechnique,null);
+  assert.equal(a.swordTechniqueHeld,false);
+  assert.ok(a.swordTechniqueReadyAt>=22.12);
+});
+
+test('interrupted action replicates its recovery for its exact window, then expires',()=>{
+  const {room,a}=roomWithPlayers();
+  command(room,a,'technique',true,12);
+  interruptSwordTechnique(a,12.1,'parried');
+  const shown=serializeSnapshot(room,12.2,'b').players.find(p=>p.id==='a');
+  assert.equal(shown.swordTechnique?.phase,'interrupted');
+  assert.equal(shown.swordTechnique?.reason,'parried');
+  assert.equal(serializeSnapshot(room,12.79,'b').players.find(p=>p.id==='a').swordTechnique?.id,'rigid_riposte');
+  assert.equal(serializeSnapshot(room,12.81,'b').players.find(p=>p.id==='a').swordTechnique,null);
+});
+
+test('native lunge does not cross a wall or snap down from elevated terrain',()=>{
+  const {a}=roomWithPlayers();
+  a.position={x:0,y:5,z:0};
+  a.grounded=true;
+  a.velocity={x:0,y:0,z:0};a.impulse={x:0,z:0};
+  a.swordTechnique={contract:TECH.rigid_riposte,phase:'active',lungeYaw:0,initialStartedAt:0};
+  const world={floors:[{id:'terrace',center:[0,0,0],size:[30,1,30],y:5}],
+    solids:[{id:'terrace-wall',center:[0,6,-3],size:[4,3,.4]}]};
+  let state=a;
+  for(let i=1;i<=18;i++)
+    state=movePlayer(state,{forward:0,right:0,jump:false,crouch:false,yaw:0},
+      1/30,i/30,world);
+  assert.ok(state.position.z>-2.6,'collision prevents passage through the terrace wall');
+  assert.ok(Math.abs(state.position.y-5)<.01,'feet remain on the elevated platform');
+});
+
+test('authored first- and third-person clip selection follows authoritative action phases',async()=>{
+  const {swordTechniqueAnimationPlan}=await import('../../client/game/spellbladeAnimationPlan.mjs');
+  const a={id:'rigid_riposte',startedAt:10,initialStartedAt:10,phase:'brace',aerial:false};
+  assert.equal(swordTechniqueAnimationPlan(a,10.05,false).clip,'Technique_RigidRiposte_Enter');
+  assert.equal(swordTechniqueAnimationPlan(a,10.05,true).clip,'FP_Technique_RigidRiposte_Enter');
+  assert.equal(swordTechniqueAnimationPlan({...a,phase:'active'},10.3,false).clip,
+    'Technique_RigidRiposte_Thrust');
+  assert.equal(swordTechniqueAnimationPlan({id:'whirl_wind',startedAt:10,initialStartedAt:10,
+    phase:'active',revolutions:2,galeLift:true},10.2,true).clip,'FP_Technique_Whirl_GaleLift');
+});
