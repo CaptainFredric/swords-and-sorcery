@@ -349,7 +349,7 @@ test('Full Lightning + Full Gale arrival uses the final aerial winding frames du
   const start=plan(commitAt),mid=plan(commitAt+aimSec/2),near=plan(commitAt+aimSec-1/1000);
   assert.equal(start.clip,DISASTER_CLIPS.aerial.clip);
   assert.equal(start.loop,false,'arrival is a winding action, not a hovering loop');
-  close(start.time,DISASTER_CLIPS.aerial.contact-aimSec);
+  close(start.time,Math.max(0,DISASTER_CLIPS.aerial.contact-aimSec));
   assert.ok(mid.time>start.time&&mid.time<near.time,'sword keeps winding while the player aims');
   assert.ok(near.time<DISASTER_CLIPS.aerial.contact,'blade cannot throw before actual wave release');
   const launched={...player,ultimateState:{...player.ultimateState,oneHit:{

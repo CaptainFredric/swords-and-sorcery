@@ -1603,7 +1603,14 @@ export class GameRuntime {
       // what a Disaster leaves on me, said plainly as it happens (the elements show it on the knight for everyone)
       if(event.type==='oneHitConduct'&&event.playerId===this.playerId)this.hud.flashText('SHOCKING CONDUCT · YOUR NEXT BLOW SHOCKS YOU','sunder',1500);
       if(event.type==='oneHitBlustered'&&event.playerId===this.playerId)this.hud.flashText('BLUSTERED · YOU TURN SLOWLY','sunder',1400);
-      if(event.type==='oneHitBacklash'&&event.victimId===this.playerId)this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
+      if(event.type==='oneHitBacklash'&&event.victimId===this.playerId){
+        // The host cancelled the attempted melee contact. Stop the local
+        // sword animation immediately; a genuinely held input may restart
+        // once the broken-chain recovery has elapsed.
+        this.weapon.cancelAttack();
+        this.shockBacklashUntil=(event.at??this.socket.serverNow())+.24;
+        this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
+      }
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
       if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
       // All-Natural Disaster impacts and Gale-wave endings use the central
@@ -2656,7 +2663,7 @@ export class GameRuntime {
   // it at once, as they show a press (the host's word follows)
   #resumeHeld(now) {
     const auth = this.localAuth;
-    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive || auth.operatingBallistaId || auth.operatingRamId) return;
+    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive || auth.operatingBallistaId || auth.operatingRamId || now<(this.shockBacklashUntil??-Infinity)) return;
     const concurrent = combatActionPolicy(auth, now).concurrent;
     const wanted = heldActions({ attack: this.input.attackHeld, guard: this.input.guardHeld,
       attackPressedAt: this.pressedAt.attack, guardPressedAt: this.pressedAt.guard, concurrent });
@@ -4131,7 +4138,11 @@ export class GameRuntime {
       if (isFpFlight) this.weapon.group.visible = true;
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
-        position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,
+        position: this.localState.position, velocity: this.localState.velocity,
+          // The camera still turns freely under Blustered. The body, sword
+          // and Guard follow the actual slower authoritative fighting yaw.
+          yaw: mounted || this.localAuth.blustered ? this.localAuth.yaw : this.input.yaw,
+          pitch: mounted ? 0 : this.input.pitch,
       }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
       if (this.remotePlayers.self?.setCockpitHeadHidden) {
         this.remotePlayers.self.setCockpitHeadHidden(isFpFlight);

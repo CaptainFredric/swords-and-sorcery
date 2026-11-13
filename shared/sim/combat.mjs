@@ -9,7 +9,7 @@ import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
 import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones,terminalFlightSteps} from './fightFlightTerminal.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
-import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
+import {fightFlightHitVolumes,fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -60,6 +60,7 @@ import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/coll
 import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { stepLiveSwordTechnique, interruptSwordTechnique } from './swordTechniqueLive.mjs';
 import { techniqueInterception } from './swordTechnique.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS } from '../src/swordTechniqueContracts.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
@@ -77,9 +78,9 @@ const RESPAWN_SEC = 3;
 const SPAWN_PROTECTION_SEC = 1;
 // a guard's stamina comes back once the pressure on it has let up for a moment (a blow on it, a gust, a sprint all
 // start the wait again), whether or not the guard is still raised; held up, it comes back a little slower
-const GUARD_REGEN_DELAY_SEC = 1;
-const GUARD_REGEN_PER_SEC = 40;
-const GUARD_REGEN_GUARDING = 0.6;
+const GUARD_REGEN_DELAY_SEC = 1.45;
+const GUARD_REGEN_PER_SEC = 27;
+const GUARD_REGEN_GUARDING = 0.55;
 const HEALTH_REGEN_DELAY_SEC = HEALTH_REGEN.delaySec;
 const HEALTH_REGEN_PER_SEC = HEALTH_REGEN.perSec;
 const ABYSS_ATTRIBUTION_SEC = 5;
@@ -2178,12 +2179,23 @@ function oneHitSteelBraced(player,nowSec) {
 // Full Steel's HP floor is provided by oneHitSteelFloorActive, shared with
 // the HUD. A blocked killing blow is never saved as future damage.
 
-function oneHitGuard(room,caster,target,origin,nowSec) {
+function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
   // (40 for a guarded Disaster, whatever it carries: no infusion bears harder on a Guard)
   target.guardStamina=Math.max(0,target.guardStamina-40);
   target.lastGuardDrainAt=nowSec;
   if(target.guardStamina<=0)breakGuard(target,.4,nowSec);
+  // Guard prevents the direct HP contact, not a gale's physical pressure.
+  // A defended shove is smaller and follows the wave/impact direction.
+  if((tiers.gale??0)>=1){
+    const dx=target.position.x-origin.x,dz=target.position.z-origin.z;
+    const mag=Math.hypot(dx,dz)||1;
+    const scale=staggerShove(target.stagger);
+    shoveBody(target,{x:dx/mag*2.6*scale,y:.18,z:dz/mag*2.6*scale});
+    target.lastKnockbackAt=nowSec;
+    target.lastKnockbackBy=caster.id;
+    target.lastKnockbackSource='one_hit_gale_guarded';
+  }
   room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
   return true;
 }
@@ -2197,15 +2209,19 @@ function oneHitConduct(room,target,offered,nowSec) {
   return true;
 }
 
-// Full Steel: every Skill the struck knight carries starts its cooldown again from now, ready or not. Nothing else
-// of theirs (Prowess, the dash, the match) is touched.
+// Full Steel restarts the struck knight's equipped skills, Dash and Sword Technique.
+// These are separate, authoritative cooldown clocks; Prowess is not reset.
 function restartSkillCooldowns(room,caster,target,nowSec) {
   const ids=[...new Set([target.spell,...(target.preparedSpells??[]),...Object.keys(target.spellReadyById??{})])]
     .filter(id=>typeof id==='string'&&spellFor(id).id===id);
   target.spellReadyById??={};
   for(const id of ids)target.spellReadyById[id]=nowSec+spellFor(id).cooldownSec;
   if(target.spell&&target.spellReadyById[target.spell]!==undefined)target.spellReadyAt=target.spellReadyById[target.spell];
-  room.events.push({type:'oneHitCooldownsRestarted',playerId:target.id,by:caster.id,skills:ids,at:nowSec});
+  target.dashReadyAt=nowSec+MOVEMENT.dashCooldown;
+  const technique=SWORD_TECHNIQUE_CONTRACTS[target.technique];
+  if(technique)target.swordTechniqueReadyAt=nowSec+technique.cooldown;
+  room.events.push({type:'oneHitCooldownsRestarted',playerId:target.id,by:caster.id,
+    skills:[...ids,'dash',...(technique?[technique.id]:[])],at:nowSec});
 }
 
 // What the blow leaves on a knight it reached. `direct`: they were genuinely struck by the decisive hit itself (the
@@ -2236,12 +2252,12 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
 
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
-  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,
+  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
   const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
-  if(oneHitGuard(room,caster,target,incoming,nowSec))return false;
+  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers)){onGuard?.();return false;}
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
   const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
@@ -2249,13 +2265,68 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   // (Half Gale: the blow carries them further the way it was going)
   // Fire and Gale together (`blast`: how far from the heart of a blast of what radius they stood): thrown the whole
   // way from its heart, less and less toward its edge, so the fire's ground is where they tend to come down
-  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback:1)*
+  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback*1.18:1)*
     (blast&&tiers.gale>=1&&tiers.fire>=1?fireGaleShove(blast.distance,blast.radius):1);
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
     {x:dx/d*shove,y:.6,z:dz/d*shove},{ultimate:true,rawDamage:damage}))return false;
   oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
   return true;
 }
+// Every machine may receive at most ONE decisive structural hit from an
+// All-Natural Disaster cast, even if the slam, projectile and explosion overlap.
+// Component allocation is delegated to the machine's existing blast system.
+// Infused statuses are applied at reduced strength to machines separately;
+// no per-wheel duplicate 85-HP cuts are allowed.
+function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
+  const cast=String(caster.ultimateState?.startedAt??nowSec);
+  const seen=room.oneHitSiegeContacts??=new Map();
+  if(seen.size>128)seen.clear();
+  const amount=Math.max(1,Math.round(oneHitDamage(tiers,ONE_HIT_BASE_DAMAGE)*.65));
+  const machines=[
+    [room.soFistication,'ram'],
+    [room.biByeLlista,'ballista'],
+    [room.fightFlight,'flight'],
+  ];
+  for(const [machine,kind] of machines) {
+    if(!machine||machine.retired||machine.mode==='DESTROYED'||!(machine.health>0))continue;
+    if(machine.team&&caster.team&&machine.team===caster.team)continue;
+    const key=`${caster.id}:${cast}:${machine.id}`;
+    if(seen.has(key))continue;
+    const box=kind==='ram'?soFistVolumes(machine,nowSec):
+      kind==='ballista'?biByeHitVolumes(machine,nowSec):fightFlightHitVolumes(machine);
+    // World-aware extents from the real component volumes, not a fabricated
+    // giant machine hurt sphere. At most one allocation per machine/cast.
+    const intersects=box.some(v=>{
+      const c=v.center,extent=Math.hypot(...v.size)*.42;
+      return Math.hypot(point.x-c[0],point.y-c[1],point.z-c[2])<=radius+extent;
+    });
+    if(!intersects)continue;
+    seen.set(key,nowSec);
+    if(kind==='ram')
+      blastSoFistication(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+    else if(kind==='ballista')
+      blastBiByeLlista(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+    else {
+      // Fight-and-Flight has exposed, independently destructible pieces.
+      // Choose one actual intersecting component rather than dealing full
+      // blast damage to its rotor, two braces AND main hull at once.
+      const hit=box.map(v=>({v,d:Math.hypot(point.x-v.center[0],point.y-v.center[1],point.z-v.center[2])}))
+        .filter(o=>o.d<=radius+Math.hypot(...o.v.size)*.42)
+        .sort((a,b)=>a.d-b.d)[0];
+      if(hit)damageFightFlight(room,machine,amount,caster.id,'one_hit_of_wonders',nowSec,
+        {componentId:hit.v.componentId,point});
+    }
+    // Siege hardware cannot suffer a Spellblade's exact four-second frozen
+    // lock. Give each existing machine a weaker, decaying disruption signal.
+    machine.disasterAffliction={at:nowSec,until:nowSec+1.3,
+      gale:(tiers.gale??0)>=1 ? .25 : 0,
+      frost:(tiers.frost??0)>=1 ? .2 : 0,
+      lightning:(tiers.lightning??0)>=1 ? .2 : 0};
+    room.events.push({type:'oneHitSiegeImpact',playerId:caster.id,machineId:machine.id,
+      machineKind:kind,point:{...point},at:nowSec});
+  }
+}
+
 function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius) {
   (room.oneHitBurnZones??=[]).push({
     id,ownerId:caster.id,position,radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
@@ -2279,21 +2350,11 @@ function oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed) {
 // then what is left behind (burning ground, the field). Nothing left behind exists while the blow itself lands.
 function oneHitSlam(room,caster,tiers,nowSec,world) {
   const reach=groundReach(tiers),radius=reach.radius;
-  // Full Gale draws enemies toward the destination, then the same decisive
-  // contact tests run exactly once. No second base-damage hit from a vortex.
-  if(tiers.gale===2)for(const target of room.players.values()) {
-    if(!oneHitVisible(room,caster,target,world,nowSec,oneHitChest(caster)))continue;
-    const dx=caster.position.x-target.position.x,dz=caster.position.z-target.position.z;
-    const d=Math.hypot(dx,dz);
-    if(d>6.8||d<.1||Math.abs(target.position.y-caster.position.y)>3)continue;
-    const travel=Math.min(2.8,Math.max(0,d-1));
-    const next={...target.position,x:target.position.x+dx/d*travel,
-      z:target.position.z+dz/d*travel};
-    const clear=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
-    if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1 &&
-      !oneHitWorldContact(oneHitChest(target),{...next,y:next.y+1},world))target.position=next;
-  }
+  // Gale is an outward pressure wave, never a pre-hit vacuum. Let the
+  // decisive contact's authoritative impulse move the victim away from
+  // the eruption; pulling bodies inward first concealed that displacement.
   const center={...caster.position},processed=[];
+  oneHitSiegeContact(room,caster,center,radius,tiers,nowSec);
   const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed);
   // Reuse the game's actual rupture simulation and its visible fissure events.
   // The same enemy is never dealt the full decisive strike twice by its fissure.
@@ -2445,7 +2506,10 @@ function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
     tiers,form,startedAt:nowSec,hit:false,waveLaunched:false,
     awaitingWave:aerial||groundWave,waveResolved:false,
     aimUntil,
-    waveAt:aerial?(aimUntil??nowSec+ONE_HIT_AERIAL_DURATION):
+    // Ordinary aerial Gale spends its existing startup spinning: release at
+    // about one second from first activation rather than adding another .85s.
+    // Teleport arrivals instead spin for a new one-second aerial vortex.
+    waveAt:aerial?(aimUntil??Math.max(nowSec+.1,state.startedAt+1.0)):
       groundWave?nowSec+ONE_HIT_RULES.groundedGaleWaveDelaySec:null,
     vortexLastAt:nowSec,vortexTicks:{},hitIds:[],
   };
@@ -2497,8 +2561,8 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
     return;
   }
   if(!action.awaitingWave||action.waveLaunched)return;
-  // Original aerial Gale gets its vortex; teleport arrivals get a 0.35s
-  // aiming hover rather than a second lengthy animation.
+  // One authored aerial vortex: original Gale spins from activation;
+  // teleported Gale spins after arrival. Both release the wave near one second.
   if(action.form==='aerial'&&nowSec<action.waveAt &&
      nowSec-action.vortexLastAt>=.28){
     action.vortexLastAt=nowSec;
@@ -2544,7 +2608,7 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     }
     if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
     rec.hitIds.push(target.id);
-    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec))continue;
+    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec,rec.tiers))continue;
     // A sword wave's terminal gust carries ALL of its infused on-contact
     // properties, even without Fire's bonus HP blast. Steel still disrupts
     // Skills, Gale still Blusters, Frost freezes, and Lightning conducts.
@@ -2571,6 +2635,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
+  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec);
   // A ground-contacting wave leaves the SAME decaying Shaken terrain as a
   // slam, but over its smaller terminal radius. The ground retains full
   // Frost/Lightning field consequences and its own visible rubble. A wave
@@ -2654,6 +2719,22 @@ export function detonateOneHitWave(room,playerId,waveId,nowSec) {
   return true;
 }
 
+function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
+  let nearest=null;
+  for(const [machine,hit] of [
+    [room.soFistication,soFistFirstHit(room.soFistication,from,to,nowSec,.16)],
+    [room.biByeLlista,biByeFirstHit(room.biByeLlista,from,to,nowSec,.16)],
+    [room.fightFlight,fightFlightFirstHit(room.fightFlight,from,to,.16)],
+  ]) {
+    if(!hit||!machine||machine.retired||machine.health<=0)continue;
+    if(machine.team&&caster.team===machine.team)continue;
+    if(Number.isFinite(hit.t)&&(!nearest||hit.t<nearest.t))
+      nearest={t:hit.t,point:{x:from.x+(to.x-from.x)*hit.t,
+        y:from.y+(to.y-from.y)*hit.t,z:from.z+(to.z-from.z)*hit.t}};
+  }
+  return nearest;
+}
+
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
@@ -2664,7 +2745,9 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
     const contact=oneHitWorldContact(old,next,world);
     const stop=contact?.t??1;
+    let guardedContact=null;
     for(const target of room.players.values()){
+      if(guardedContact)break;
       if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id)continue;
       const center=oneHitChest(target);
       const frac=Math.max(0,Math.min(stop,((center.x-old.x)*wave.direction.x+
@@ -2673,7 +2756,31 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
-        distance:wave.distance+step*frac,processed:wave.hitIds});
+        distance:wave.distance+step*frac,processed:wave.hitIds,
+        onGuard:()=>{guardedContact={...near};}});
+    }
+    const machineContact=oneHitMachineWaveContact(room,caster,old,next,nowSec);
+    // Intercept the nearest machine only if it lies before a world obstacle.
+    // Guard and hardware each produce the normal terminal burst once.
+    if(machineContact&&machineContact.t<=stop&&
+      (!guardedContact||Math.hypot(machineContact.point.x-old.x,machineContact.point.y-old.y,
+        machineContact.point.z-old.z)<
+        Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z))){
+      wave.position=machineContact.point;
+      wave.distance+=step*machineContact.t;
+      oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'machine');
+      wave.distance=ONE_HIT_RULES.waveMaxReach;
+      continue;
+    }
+    if(guardedContact) {
+      // Guard spends its one contact AND stops the travelling sword-wave.
+      // Explode at the defender, with the usual smaller terminal blast.
+      // The same defended victim remains in hitIds: no duplicated HP or Guard cost.
+      wave.position=guardedContact;
+      wave.distance+=Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z);
+      oneHitWaveImpact(room,caster,wave,guardedContact,null,nowSec,world,'guard');
+      wave.distance=ONE_HIT_RULES.waveMaxReach;
+      continue;
     }
     wave.position=oneHitAlong(old,next,stop);
     wave.distance+=step*stop;

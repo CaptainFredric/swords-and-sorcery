@@ -1,3 +1,4 @@
+import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 // Fight-and-Flight: server-authoritative Gate A locomotion. One actual machine per lifecycle.
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
@@ -333,15 +334,17 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.rotorLiftAuthority=intact&&m.flightCharge>0?
     cap(m.rotorAngularVelocity/maxOmega,0,1)*cap(m.rotorEnergy/35,0,1)*(now<(m.rotorLiftSuppressedUntil??0)?.45:1):0;
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
+  const affliction=siegeDisasterImpairment(m,now);
   const speed=m.grounded?(input.sprint&&!m.crouched?FIGHT_FLIGHT.sprintSpeed:m.crouched?1.7:FIGHT_FLIGHT.groundSpeed):FIGHT_FLIGHT.airSpeed;
+  const impairedSpeed=speed*affliction.speed;
   const run=m.offensiveRun&&!m.grounded;
   const flightPitch=m.runFlightPitch??0;
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
   const thrustHeading=run&&(m.runElapsed??0)<=VALKYRIE_RUN.commitmentSec?m.runCommitHeading:m.heading;
   const dx=run?-Math.sin(thrustHeading)*runHorizontal:
-    (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+    (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*impairedSpeed;
   const dz=run?-Math.cos(thrustHeading)*runHorizontal:
-    (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+    (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*impairedSpeed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){

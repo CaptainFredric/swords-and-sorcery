@@ -1,3 +1,4 @@
+import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
@@ -731,11 +732,12 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const steer = Math.max(-1, Math.min(1, rightVal));
 
         const driveScale=biByeCondition(ballista).driveScale;
-        const baseSpeed=driveScale*forward*(forward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
+        const affliction=siegeDisasterImpairment(ballista,nowSec);
+        const baseSpeed=driveScale*affliction.speed*forward*(forward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
         const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(forward);
         const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
-        ballista.steer=steer;
+        ballista.steer=steer*affliction.steering;
         const others=soFistSolids(room.soFistication);
         for(const other of room.players?.values()??[]){if(other.alive&&other.id!==ballista.operatorId)others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});}
         const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
