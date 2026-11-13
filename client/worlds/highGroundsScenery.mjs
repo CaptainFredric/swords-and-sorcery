@@ -91,9 +91,18 @@ function addCliffFooting(group,materials,x,z,w,d,top,bottom,seed) {
 export function buildHighGroundsSurroundings(group, world, materials) {
   valleySurface(group,materials);
   const centers=[[-1,-100,45,33],[1,100,45,33],[0,0,28,24],
-    [0,-52,24,22],[0,52,24,22],[-38,-7,25,25],[38,7,25,25]];
-  centers.forEach(([x,z,w,d],i)=>addCliffFooting(group,materials,x,z,w,d,
-    i>4?11.6:-1.35,-90,i));
+    [0,-52,24,22],[0,52,24,22]];
+  centers.forEach(([x,z,w,d],i)=>addCliffFooting(group,materials,x,z,w,d,-1.35,-90,i));
+  // Each Bloom's rock is cut where its crown ramp climbs through the deck (the stairwell in the world's floors), so
+  // the ramp rises in an open cutting between two shoulders of rock and not through a cliff face.
+  for(const [side,i] of [[-1,5],[1,6]]){
+    addCliffFooting(group,materials,side*42.25,side*7,16.5,25,11.6,-90,i);
+    addCliffFooting(group,materials,side*29.75,side*-0.75,8.5,9.5,11.6,-90,i);
+    addCliffFooting(group,materials,side*29.75,side*15.25,8.5,8.5,11.6,-90,i);
+  }
+  // A spur of the cliff under each camp ascent's pier (the pier itself is one of the world's solids).
+  for(const [k,[sx,sz]] of [[-1,-1],[1,-1],[1,1],[-1,1]].entries())
+    addCliffFooting(group,materials,sx*38,sz*81.5,11,4,-5.9,-90,20+k*3);
   // The colossal flowering trees are rooted in *real visible highland rock*.
   // Previously the trunks stopped at Y=-1 with open sky beneath them, making
   // the entire battlefield look suspended in a featureless void.

@@ -32,10 +32,17 @@ const grounds = [
   floor('crimson-forward-deck', 0, 52, 25, 23, 0, 'stone'),
   // High, exposed canopy traverse is not required to cross on foot.
   floor('west-canopy-south', -38, -42, 12, 46, 12),
-  floor('west-canopy-capture', -38, -7, 25, 25, 12, 'stone'),
-  floor('west-canopy-north', -38, 35, 12, 62, 12),
-  floor('east-canopy-south', 38, -35, 12, 62, 12),
-  floor('east-canopy-capture', 38, 7, 25, 25, 12, 'stone'),
+  // Each Bloom's deck is cut where its crown ramp arrives (a stairwell 8.5 m long, the ramp's own width), so the
+  // ramp comes up into the open between two wings of the deck and not through the underside of the floor.
+  floor('west-canopy-capture', -42.25, -7, 16.5, 25, 12, 'stone'),
+  floor('west-canopy-capture-bridgehead', -29.75, 0.75, 8.5, 9.5, 12, 'stone'),
+  floor('west-canopy-capture-wing', -29.75, -15.25, 8.5, 8.5, 12, 'stone'),
+  // (the two canopy roads that meet a long ramp's head stop at it: a metre of deck over the ramp made a lip there)
+  floor('west-canopy-north', -38, 34.5, 12, 61, 12),
+  floor('east-canopy-south', 38, -34.5, 12, 61, 12),
+  floor('east-canopy-capture', 42.25, 7, 16.5, 25, 12, 'stone'),
+  floor('east-canopy-capture-bridgehead', 29.75, -0.75, 8.5, 9.5, 12, 'stone'),
+  floor('east-canopy-capture-wing', 29.75, 15.25, 8.5, 8.5, 12, 'stone'),
   floor('east-canopy-north', 38, 42, 12, 46, 12),
   // Three cross-bridges join the treetop highways.
   floor('high-bridge-south', 0, -57, 78, 8, 12),
@@ -59,9 +66,10 @@ const grounds = [
   floor('azure-east-ascent-landing', 38, -104, 19, 12, 0, 'stone'),
   floor('crimson-west-descent-landing', -38, 104, 19, 12, 0, 'stone'),
   // Entrances to the under-roots must be supported at Y=0, not begin
-  // outside the forward deck in invisible space.
-  floor('azure-root-approach', -14, -55, 13, 5, 0, 'stone'),
-  floor('crimson-root-approach', 14, 54, 13, 10, 0, 'stone'),
+  // outside the forward deck in invisible space. Each stops at its ramp's head: paving laid on over the ramp put a
+  // slab through the head of whoever climbed it.
+  floor('azure-root-approach', -14, -55.75, 13, 3.5, 0, 'stone'),
+  floor('crimson-root-approach', 14, 56.5, 13, 5, 0, 'stone'),
 
 ];
 const ramps = [
@@ -70,9 +78,10 @@ const ramps = [
   ramp('east-ascent', 'z', 32, 44, 65, 98, 12, 0),
   ramp('west-north-descent', 'z', -44, -32, 65, 98, 12, 0),
   ramp('east-south-ascent', 'z', 32, 44, -98, -65, 0, 12),
-  // Cross-connect road and tree roads; intentional infantry shortcuts.
-  ramp('west-to-crown', 'x', -34, -10, -7, 0, 12, 0),
-  ramp('crown-to-east', 'x', 10, 34, 0, 7, 0, 12),
+  // Cross-connect road and tree roads; intentional infantry shortcuts. Each runs beside the centre bridge, clear of
+  // it: under the bridge, its head was buried in the bridge's deck and its foot in the Crown Span's cover.
+  ramp('west-to-crown', 'x', -34, -10, -11, -4, 12, 0),
+  ramp('crown-to-east', 'x', 10, 34, 4, 11, 0, 12),
   // Lower root routes have separate physical access near either forward deck.
   ramp('root-west-south', 'z', -21, -11, -54, -29, 0, -9),
   ramp('root-east-north', 'z', 11, 21, 29, 54, -9, 0),
@@ -120,7 +129,7 @@ const AZURE_PROPS = [
   { kind: 'crate', x: -27.6, y: 12, z: -17.8, turn: -0.1, stack: true }, { kind: 'lantern', x: -26.6, y: 12, z: -18.6 },
   // the west root shelf, nine metres down: miners' lanterns along its wall side, and what grows in the dark
   { kind: 'lantern', x: -20.4, y: -9, z: -18 }, { kind: 'lantern', x: -20.4, y: -9, z: 12 },
-  { kind: 'fungus', x: -20.5, y: -9, z: -9 }, { kind: 'fungus', x: -20.5, y: -9, z: 4.5 },
+  { kind: 'fungus', x: -20.5, y: -9, z: -13.5 }, { kind: 'fungus', x: -20.5, y: -9, z: 4.5 },
   { kind: 'fungus', x: -20.5, y: -9, z: 20 }, { kind: 'fungus', x: -11.6, y: -9, z: -15 },
   { kind: 'barrel', x: -20.4, y: -9, z: -21.2 }, { kind: 'crate', x: -20.3, y: -9, z: 15.4, turn: 0.2 },
 ];
@@ -132,9 +141,75 @@ const PROPS = Object.freeze([
   ...AZURE_PROPS.map((prop) => ({ ...mirrored(prop), team: TEAMS.DEFENDERS })),
 ].map((prop, index) => Object.freeze({ id: `hg-prop-${index}`, ...prop })));
 
+// What carries the ramps. A ramp is a slope with nothing under it, so each gets the masonry a builder would give it,
+// and all of it is solid (bodies, blades, bolts and machines meet it as they meet any wall):
+//  - a stepped stone footing under its foot, wherever a knight on the floor beneath could otherwise walk in under the
+//    slope and stand with their head through the planks;
+//  - a stone pier under the long spans (the four camp ascents, the two crown ramps);
+//  - cheek walls where a crown ramp rises through the Bloom's deck.
+// Every piece stops short of the slope by what a body's width gains along it, so nothing here touches a knight who
+// is on the ramp.
+const BODY_RADIUS = 0.45;
+const rampAlong = (r) => (r.axis === 'z' ? [r.minZ, r.maxZ] : [r.minX, r.maxX]);
+const rampHeight = (r, a) => {
+  const [a0, a1] = rampAlong(r);
+  return r.startY + (r.endY - r.startY) * (a - a0) / (a1 - a0);
+};
+/** A block under ramp `r` from a0 to a1 along it (c0..c1 across it), standing on `bottom`, as tall as the slope allows. */
+const underRamp = (id, r, a0, a1, c0, c1, bottom, material = 'stone') => {
+  const [r0, r1] = rampAlong(r);
+  const grade = Math.abs(r.endY - r.startY) / (r1 - r0);
+  const top = Math.min(rampHeight(r, a0), rampHeight(r, a1)) - grade * BODY_RADIUS - 0.05;
+  const along = [(a0 + a1) / 2, a1 - a0], across = [(c0 + c1) / 2, c1 - c0];
+  return r.axis === 'z'
+    ? solid(id, across[0], (top + bottom) / 2, along[0], across[1], top - bottom, along[1], material)
+    : solid(id, along[0], (top + bottom) / 2, across[0], along[1], top - bottom, across[1], material);
+};
+/** Stone steps under a ramp's foot, from `from` (near the foot) to `to`, the ramp's full width. */
+const rampFooting = (r, from, to, bottom, tread = 1) => {
+  const n = Math.round(Math.abs(to - from) / tread), d = (to - from) / n;
+  const [c0, c1] = r.axis === 'z' ? [r.minX, r.maxX] : [r.minZ, r.maxZ];
+  return Array.from({ length: n }, (_, i) => underRamp(`ramp-footing-${r.id}-${i}`, r,
+    Math.min(from + d * i, from + d * (i + 1)), Math.max(from + d * i, from + d * (i + 1)), c0, c1, bottom));
+};
+const rampNamed = Object.fromEntries(ramps.map((r) => [r.id, r]));
+const rampWorks = [
+  // the camp ascents: a footing where the gate approach's paving runs in under the foot, and a pier at mid-span
+  // (it stands on a spur of the cliff, drawn by the scenery)
+  ...rampFooting(rampNamed['west-ascent'], -96, -93, -1.6),
+  ...rampFooting(rampNamed['east-south-ascent'], -96, -93, -1.6),
+  ...rampFooting(rampNamed['east-ascent'], 96, 93, -1.6),
+  ...rampFooting(rampNamed['west-north-descent'], 96, 93, -1.6),
+  underRamp('ramp-pier-west-ascent', rampNamed['west-ascent'], -83, -80, -43, -33, -6),
+  underRamp('ramp-pier-east-south-ascent', rampNamed['east-south-ascent'], -83, -80, 33, 43, -6),
+  underRamp('ramp-pier-east-ascent', rampNamed['east-ascent'], 80, 83, 33, 43, -6),
+  underRamp('ramp-pier-west-north-descent', rampNamed['west-north-descent'], 80, 83, -43, -33, -6),
+  // the crown ramps: a footing on the Crown Span, and a pier standing on the root shelf's outer edge below
+  ...rampFooting(rampNamed['west-to-crown'], -11.4, -15, 0, 0.9),
+  ...rampFooting(rampNamed['crown-to-east'], 11.4, 15, 0, 0.9),
+  underRamp('ramp-pier-west-to-crown', rampNamed['west-to-crown'], -21, -19, -9.5, -5.5, -9),
+  underRamp('ramp-pier-crown-to-east', rampNamed['crown-to-east'], 19, 21, 5.5, 9.5, -9),
+  // ...and cheek walls down each side of the cut they climb through the Bloom's deck (their tops under the deck)
+  solid('ramp-cheek-west-bridge', -29.75, 9.55, -3.815, 8.5, 4.7, 0.43, 'stone'),
+  solid('ramp-cheek-west-wing', -29.75, 9.55, -11.185, 8.5, 4.7, 0.43, 'stone'),
+  solid('ramp-cheek-east-bridge', 29.75, 9.55, 3.815, 8.5, 4.7, 0.43, 'stone'),
+  solid('ramp-cheek-east-wing', 29.75, 9.55, 11.185, 8.5, 4.7, 0.43, 'stone'),
+  // the root ramps: a footing on the root shelf, which runs on five metres under each ramp's foot
+  ...rampFooting(rampNamed['root-west-south'], -31, -34, -9),
+  ...rampFooting(rampNamed['root-east-north'], 31, 34, -9),
+];
+// A mantlet at the Crown Span's two corners that have no ramp, beside each road's mouth and outside the capture ring:
+// a knight coming up either road can get out of a level line of fire before crossing the open deck (the other side
+// of each mouth has the crown ramp's footing). They hide nobody from the bridge and the Blooms above, and sheltering
+// behind one holds nothing. The 13 m machine road passes them untouched.
+const crownMantlets = [[-1, 1, 'west-north'], [1, -1, 'east-south']].map(([sx, sz, corner]) =>
+  solid(`crown-mantlet-${corner}`, sx * 8.3, 0.95, sz * 10.1, 2.2, 1.9, 0.4, 'timber'));
+
 const solids = [
   // the armies' furnishings (above)
   ...propSolids(PROPS),
+  ...rampWorks,
+  ...crownMantlets,
   // Structural railings on the edges of high crossbridges, above the
   // central vehicle road. These have *real* collision and won't draw
   // misleading phantom barriers in flight or first-person combat.
