@@ -854,3 +854,10 @@ body.touch-layout-editor-open #practice-overlay {
 }
 .touch-ui .status-flash.show {transform:translateY(0);}
 .touch-ui .hud.ballista-mounted:not(.flight-mounted) .ballista-hud {display:none !important;}
+
+/* During defeat, only navigation remains clickable: no phantom attacks. */
+.touch-controls.dead-navigation .touch-btn:not(.touch-pause):not(.touch-practiceTools),
+.touch-controls.dead-navigation .touch-stick,
+.touch-controls.dead-navigation .touch-motion-guide {display:none!important;}
+.touch-controls.dead-navigation .touch-pause,
+.touch-controls.dead-navigation .touch-practiceTools:not([hidden]) {display:grid!important;}
