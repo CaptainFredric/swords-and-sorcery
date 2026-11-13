@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
-import { windbladeSpeed } from './disasterWavePresentation.mjs';
+import { windbladePosition } from './disasterWavePresentation.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -63,31 +63,75 @@ function crescent(tiers,{width=.24,fade=1}={}) {
   geometry.setIndex(index);
   return geometry;
 }
-function swordWave(tiers={}) {
+// Unlike several copies of the crescent parked behind each other, this
+// pressure membrane is ONE connected surface from the edge to its wake.
+// Transparency falls continuously with depth; no duplicate blade silhouettes.
+// An RGBA vertex colour uses Three's built-in vertex-alpha path (no shaders).
+function pressureWake(tiers={}) {
+  const segments=36,depthSlices=7,positions=[],colors=[],index=[];
+  const white=new THREE.Color(0xfafff3),lime=new THREE.Color(0xb4fa85),
+    frost=new THREE.Color(0xd6f3ff),fire=new THREE.Color(0xffb767),
+    steel=new THREE.Color(0xb1b8b6),c=new THREE.Color();
+  const gale=Number(tiers.gale??0);
+  const presence=gale===2?1:gale===1?.78:.48;
+  for(let i=0;i<=segments;i++){
+    const t=i/segments,a=-WAVE_ARC+2*WAVE_ARC*t;
+    const tip=Math.pow(Math.max(0,Math.cos(a*1.12)),.8);
+    const along=Math.pow(Math.max(0,Math.sin(Math.PI*t)),.5);
+    for(let j=0;j<=depthSlices;j++){
+      const u=j/depthSlices;
+      // Root near the middle of the REAL leading band, then peel back and
+      // inwards. The whole wake follows the arc, including its two tips.
+      const radius=1.25-(.12+.20*u)*tip-.015;
+      const x=Math.sin(a)*radius,y=Math.cos(a)*radius-.55;
+      const z=.34*Math.cos(a*1.15)-.04-u*(.98+.12*along);
+      positions.push(x,y,z);
+      c.copy(white).lerp(lime,gale?Math.min(.84,.18+.68*u):.12+.25*u);
+      if(tiers.steel)c.lerp(steel,tiers.steel===2?.55:.33);
+      if(tiers.frost)c.lerp(frost,(tiers.frost===2?.70:.45)*(.25+.75*Math.max(u,1-along)));
+      if(tiers.fire&&t<.48)c.lerp(fire,(tiers.fire===2?.83:.61)*(.48-t)/.48);
+      // A lightning glint is on the FACE; the actual forks are attached
+      // to the moving projectile, not left hanging in world space.
+      const alpha=presence*.35*Math.pow(1-u,1.6)*(.2+.8*along);
+      colors.push(c.r,c.g,c.b,Math.max(0,Math.min(1,alpha)));
+      if(i&&j){
+        const k=(i-1)*(depthSlices+1)+j-1;
+        const n=i*(depthSlices+1)+j-1;
+        index.push(k,k+1,n,k+1,n+1,n);
+      }
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,4));
+  geometry.setIndex(index);
+  return geometry;
+}
+
+export function swordWave(tiers={}) {
   const group=new THREE.Group(),body=new THREE.Group();
-  const dense=tiers.steel?.16:0;
-  const layer=(width,opacity,back,scale)=>{
-    const m=new THREE.Mesh(crescent(tiers,{width}),new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity,
-      depthWrite:false,side:THREE.DoubleSide}));
-    m.position.z=-back;m.scale.setScalar(scale);body.add(m);return m;
-  };
-  layer(.23,.94+dense*.3,0,1);                // crisp sword-pressure front
-  const arcs=[
-    layer(.42,.39+dense*.5,.21,.96),
-    layer(.67,.24+dense*.35,.49,.87),
-    layer(.91,.12+dense*.18,.82,.77),
-  ]; // successive thinner, more diffuse pressure sheaths BEHIND the cut
-  // (held a little off the vertical, as the blade was swung)
+  // ONE dense pressure edge and ONE continuous attenuating membrane. The
+  // older three detached crescents created duplicate silhouettes in motion.
+  const wake=new THREE.Mesh(pressureWake(tiers),new THREE.MeshBasicMaterial({
+    vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide,
+    opacity:1,
+  }));
+  wake.name='Windblade continuous pressure wake';
+  wake.renderOrder=1;
+  const edge=new THREE.Mesh(crescent(tiers,{width:.23}),new THREE.MeshBasicMaterial({
+    vertexColors:true,transparent:true,opacity:tiers.steel?.96:.93,
+    depthWrite:false,side:THREE.DoubleSide,
+  }));
+  edge.name='Windblade leading cut';
+  edge.renderOrder=2;
+  body.add(wake,edge);
+  // This rotation and scale belong to the ENTIRE sheet, not independent arcs.
   body.rotation.z=.42;
   body.scale.setScalar((tiers.fire??0)>=1?1.5/.9:1);
   group.add(body);
   group.userData.breathe=clock=>{
-    arcs.forEach((arc,i)=>{
-      // Air shears off the blade rather than wobbling as a single rigid disc.
-      arc.position.z=-[.21,.49,.82][i]-.025*Math.sin(clock*12-i*1.4);
-      arc.material.opacity=[.39+dense*.5,.24+dense*.35,.12+dense*.18][i]*
-        (.88+.12*Math.sin(clock*9-i*.8));
-    });
+    // Subtle air-pressure pulsation without detaching the membrane.
+    wake.material.opacity=.92+.08*Math.sin(clock*8);
   };
   return group;
 }
@@ -335,15 +379,14 @@ export class OneHitLiveEffects {
         mesh=swordWave(wave.tiers);
         this.root.add(mesh);this.waves.set(wave.id,mesh);
       }
-      mesh.position.copy(wave.position);
+      const rendered=windbladePosition(wave,snapshot?.serverTime,now);
+      mesh.position.set(rendered.x,rendered.y,rendered.z);
       if(mesh.userData.snapshot!==snapshot?.serverTime){
         mesh.userData.snapshot=snapshot?.serverTime;
         mesh.quaternion.setFromUnitVectors(Z,v(wave.direction).normalize());
       }
-      // Extrapolate by at most a small fraction of a tick. The collision
-      // event snaps to the authoritative point and removes the travelling mesh.
-      const age=clamp(now-(snapshot?.serverTime??now),0,1/30)*windbladeSpeed(wave.tiers);
-      mesh.position.x+=wave.direction.x*age;mesh.position.y+=wave.direction.y*age;mesh.position.z+=wave.direction.z*age;
+      // Use the same smooth, bounded flight prediction for the pressure
+      // sheet and all particles. Impact still removes it at server contact.
       // (one blade of air, held as it was cut: its pressure arcs breathe behind it; nothing spins)
       mesh.userData.breathe?.(this.visualClock);
       this.elements.waveBody(wave,mesh,frame);

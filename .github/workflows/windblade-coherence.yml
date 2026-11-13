@@ -1,0 +1,44 @@
+name: Windblade coherent Gale visual browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/OneHitLiveEffects.mjs'
+      - 'client/game/DisasterElementEffects.mjs'
+      - 'client/game/disasterWavePresentation.mjs'
+      - 'client/game/disasterWavePresentation.test.mjs'
+      - 'scripts/windblade-coherence-browser.mjs'
+      - '.github/workflows/windblade-coherence.yml'
+permissions:
+  contents: read
+jobs:
+  windblade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Validate browser graph and smooth projectile position
+        run: |
+          npm run check:browser-imports
+          node --test client/game/disasterWavePresentation.test.mjs
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify connected Gale membrane and moving Lightning in Chrome
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/windblade-coherence-browser.mjs
+      - name: Preserve geometry findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gale-wave-coherence
+          path: output/playwright/windblade-coherence/
+          retention-days: 7
