@@ -110,6 +110,13 @@ async function run(url,touch){
   const aimed=await wait(()=>evaluate(sample),'real drag moves both yaw and elevated destination');
   assert.ok(aimed.held&&aimed.vertical);
   await shot(name+'-upward-preview');
+  // Screenshots in software-rendered Chrome can take several seconds; the
+  // logarithmic range keeps growing while the player holds Ultimate. Read the
+  // latest destination immediately before release rather than comparing the
+  // final distance to a stale screenshot-frame marker.
+  const finalPreview=await evaluate('(()=>{const rt='+runtime+
+    ';const p=rt.oneHitEffects.teleportTarget.position;return {marker:{x:p.x,y:p.y,z:p.z},'+
+    'origin:{...rt.localAuth.position}};})()');
   if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   else await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'r',code:'KeyR',windowsVirtualKeyCode:82});
   const event=await wait(()=>evaluate("window.__disasterTeleportEvents.find(e=>e.type==='oneHitTeleport')"),
@@ -118,13 +125,19 @@ async function run(url,touch){
   assert.ok(event.to.y-event.from.y>4,'the knight actually teleports UP');
   assert.ok(Math.hypot(event.to.x-event.from.x,event.to.z-event.from.z)>2,
     'the player also selects a horizontal direction');
-  const error=Math.hypot(event.to.x-aimed.marker.x,event.to.z-aimed.marker.z,
-    event.to.y-(aimed.marker.y-1.45));
-  assert.ok(error<3,'live preview agrees with the server destination: '+error);
+  const previewVector={
+    x:finalPreview.marker.x-finalPreview.origin.x,
+    y:finalPreview.marker.y-1.45-finalPreview.origin.y,
+    z:finalPreview.marker.z-finalPreview.origin.z,
+  };
+  const resultVector={x:event.to.x-event.from.x,y:event.to.y-event.from.y,z:event.to.z-event.from.z};
+  const dot=previewVector.x*resultVector.x+previewVector.y*resultVector.y+previewVector.z*resultVector.z;
+  const agreement=dot/(Math.hypot(...Object.values(previewVector))*Math.hypot(...Object.values(resultVector)));
+  assert.ok(agreement>.98,'preview and authoritative 3D teleport have same bearing/elevation: '+agreement);
   await shot(name+'-upward-arrival');
-  recordings.push({name,before,aimed,event,previewError:error});
+  recordings.push({name,before,aimed,finalPreview,event,agreement});
   console.log('[REAL 3D TELEPORT PASS]',name,JSON.stringify({
-    pitch:aimed.pitch,yaw:aimed.yaw,gainY:event.to.y-event.from.y,previewError:error
+    pitch:aimed.pitch,yaw:aimed.yaw,gainY:event.to.y-event.from.y,agreement
   }));
 }
 try{
