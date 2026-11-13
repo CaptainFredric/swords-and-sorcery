@@ -91,6 +91,7 @@ try{
   evidence.before=await evaluate("(()=>{const rt="+rt+";return {yaw:rt.input.yaw,pitch:rt.input.pitch,preview:rt.oneHitEffects.teleportTarget.position.toArray(),origin:rt.localAuth.position,gesture:rt.input.ultimateGesture,caption:document.querySelector('.touch-btn[data-action=\"ultimate\"] span')?.textContent};})()");
   assert.equal(evidence.before.gesture,'charge');
   assert.equal(evidence.before.caption,'DRAG TO AIM');
+  await evaluate("window.__touchTeleportBeforeYaw="+evidence.before.yaw);
   // The original finger leaves the button's bounds. Pointer capture must
   // preserve the hold while changing BOTH azimuth and elevation.
   const firstX=Math.max(45,Math.min(790,button.x-95));
@@ -99,7 +100,7 @@ try{
   const secondX=Math.max(35,firstX-80);
   const secondY=Math.max(20,firstY-90);
   await touch('touchMove',secondX,secondY);
-  const aimed=await until(()=>evaluate("(()=>{const rt="+rt+",p=rt.localAuth;const c=rt.oneHitEffects.teleportTarget.position;return p?.ultimateState?.phase==='startup'&&rt.input.ultimateGesture==='charge'&&rt.input.pitch>.5&&Math.abs(rt.input.yaw)>.15&&c.y>p.position.y+3?{yaw:rt.input.yaw,pitch:rt.input.pitch,preview:c.toArray(),origin:{...p.position},aim3D:rt.input.disasterThreeDAim}:null;})()"),
+  const aimed=await until(()=>evaluate("(()=>{const rt="+rt+",p=rt.localAuth;const c=rt.oneHitEffects.teleportTarget.position;return p?.ultimateState?.phase==='startup'&&rt.input.ultimateGesture==='charge'&&rt.input.pitch>.5&&Math.abs(Math.atan2(Math.sin(rt.input.yaw-window.__touchTeleportBeforeYaw),Math.cos(rt.input.yaw-window.__touchTeleportBeforeYaw)))>.15&&c.y>p.position.y+3?{yaw:rt.input.yaw,pitch:rt.input.pitch,preview:c.toArray(),origin:{...p.position},aim3D:rt.input.disasterThreeDAim}:null;})()"),
     'thumb drag changes the held 3D destination BEFORE release',15000);
   evidence.aimed=aimed;
   await shot('held-upward-aim');
