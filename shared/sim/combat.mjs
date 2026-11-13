@@ -2185,6 +2185,12 @@ function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   target.guardStamina=Math.max(0,target.guardStamina-40);
   target.lastGuardDrainAt=nowSec;
   if(target.guardStamina<=0)breakGuard(target,.4,nowSec);
+  // Full Fire turns the opposing Guard into an elemental conductor.
+  // The HP strike is still BLOCKED (one Guard cost, no direct HP), but
+  // allied Frost, Lightning, Gale and Steel effects cross the guard.
+  // This applies equally to slam, travelling sword-wave and terminal burst.
+  if((tiers.fire??0)===2)
+    oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:.65,direct:true});
   // Guard prevents the direct HP contact, not a gale's physical pressure.
   // A defended shove is smaller and follows the wave/impact direction.
   if((tiers.gale??0)>=1){
@@ -2966,6 +2972,9 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
   const heldAttack = Boolean(player.attackHeld || player.attackQueued || player.input?.attack) && !ultimate.spin;
   player.guardHeld = player.guardHeld || player.guarding || Boolean(player.input?.guard);
   player.guarding = false;
+  // Committing to Disaster ends Sprint's acceleration immediately; the
+  // wind-up cannot inherit a permanently displayed sprinting state.
+  if(isDisaster){player.sprinting=false;player.sprintBlend=0;}
   stopSwordChain(player, {}, room, nowSec);
   player.attackHeld = heldAttack;
   if (!ultimate.spin) player.attackRestartAt = Math.min(player.attackRestartAt ?? -Infinity, nowSec + ultimate.startupSec);
@@ -3471,15 +3480,17 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
     const chargingLightning=oneHitChargingLightning(player,nowSec);
-    if(chargingLightning)player.sprintBlend=0;
+    const disasterBraced=player.ultimateState?.id==='one_hit_of_wonders' &&
+      player.ultimateState.phase==='startup';
+    if(disasterBraced)player.sprintBlend=0;
     player.sprinting = resolveSprint({
-      wantsSprint: Boolean(player.input?.sprint)&&!chargingLightning,
+      wantsSprint: Boolean(player.input?.sprint)&&!disasterBraced,
       forward: player.input?.forward,
       right: player.input?.right,
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: chargingLightning || combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId) || Boolean(player.operatingFightFlightId),
+      blocked: disasterBraced || combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId) || Boolean(player.operatingFightFlightId),
       crouched: Boolean(player.crouched),
     });
     // (torn ground breaks a sprint outright: the speed it had built goes with it)
