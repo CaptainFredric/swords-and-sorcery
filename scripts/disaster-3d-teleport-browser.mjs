@@ -100,6 +100,13 @@ async function run(url,touch){
     await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:850,y:500,button:'none'});
     await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:600,y:250,button:'none'});
     await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:410,y:75,button:'none'});
+    // Software-rendered headless Chrome can zero pointer-lock movementX when
+    // dispatchMouseEvent re-centers the locked cursor. Exercise the exact
+    // production document mousemove listener using explicit movement deltas.
+    // This does NOT write input.yaw/pitch or bypass the controller.
+    await evaluate("(()=>{const move=(dx,dy)=>{const e=new MouseEvent('mousemove',{bubbles:true});"+
+      "Object.defineProperty(e,'movementX',{value:dx});Object.defineProperty(e,'movementY',{value:dy});"+
+      "document.dispatchEvent(e);};move(-240,-80);move(-175,-30);})()");
   }
   const sample='(()=>{const rt='+runtime+',p=rt.oneHitEffects.teleportTarget.position;'+
     'if(rt.input.pitch<.42||Math.abs(rt.input.yaw-'+before.yaw+')<.35||p.y-rt.localAuth.position.y<4)return null;'+
