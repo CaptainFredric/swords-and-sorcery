@@ -342,7 +342,7 @@ test('Half Gale: a longer shove the way the blow went, and Blustered: the fighti
   const gale = battle({ tiers: { gale: 1 } }); gale.b.health = 1000;
   const now = slam(gale.room);
   const push = (room) => decisive(room, 'b')[0].push;
-  assert.ok(Math.abs(push(gale.room).x / push(plain.room).x - ONE_HIT_BLUSTER.knockback) < 1e-9 && ONE_HIT_BLUSTER.knockback >= 2);
+  assert.ok(Math.abs(push(gale.room).x / push(plain.room).x - ONE_HIT_BLUSTER.knockback*1.18) < 1e-9 && ONE_HIT_BLUSTER.knockback >= 2);
   assert.equal(push(gale.room).z, 0);
   assert.equal(plain.b.blustered, null);
 
@@ -666,12 +666,32 @@ test('without Steel the wind-up is still broken by a stagger; a Guard pays its o
   }
 });
 
-test('Full Steel: more arms; the struck knight\'s Skills all start cooling again, ready or not; Prowess and the dash are left alone', () => {
+test('Full Fire is the guard-piercing infusion for STATUS effects, never a free HP strike',()=>{
+  const {room,b}=battle({tiers:{fire:2,frost:2,gale:1,lightning:1,steel:2}});
+  b.health=1000;b.guarding=true;b.guardStartedAt=0;b.spellReadyAt=0;
+  const before=b.health;
+  slam(room);
+  assert.equal(b.health,before,'direct damage still respects Guard');
+  assert.equal(b.guardStamina,60,'one contact takes the usual 40 Guard stamina');
+  assert.ok(b.oneHitFrostSlow,'Frost gets through the guard');
+  assert.ok(b.electricalBacklash,'Shocking Conduct gets through the guard');
+  assert.ok(b.blustered,'Gale Blustered gets through the guard');
+  assert.ok(b.spellReadyAt>9,'Full Steel status resets skills behind Guard');
+  assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
+  const half=battle({tiers:{fire:1,frost:2,lightning:1}});
+  half.b.guarding=true;half.b.guardStartedAt=0;
+  slam(half.room);
+  assert.equal(half.b.electricalBacklash,null,'Half Fire does not pierce Guard');
+  assert.equal(half.b.oneHitFrostSlow,null);
+});
+
+test('Full Steel: struck knight\'s spells, Dash and Sword Technique all restart cooldown; Prowess remains', () => {
   const { room, b } = battle({ tiers: { steel: 2 } });
   b.health = 1000;
   b.spell = 'fireball'; b.preparedSpells = ['fireball', 'frostfire', 'gale'];
   b.spellReadyAt = 0; b.spellReadyById = { frostfire: 5 };
   b.prowess = 37; b.dashReadyAt = 3;
+  b.technique='rigid_riposte'; b.swordTechniqueReadyAt=2;
   const now = slam(room);
   const at = decisive(room, 'b')[0].at;
   assert.equal(room.events.find((e) => e.type === 'rupture').fissures.length, 12);
@@ -679,11 +699,12 @@ test('Full Steel: more arms; the struck knight\'s Skills all start cooling again
   assert.equal(b.spellReadyById.frostfire, at + SPELLS.frostfire.cooldownSec);
   assert.equal(b.spellReadyById.gale, at + SPELLS.gale.cooldownSec);
   assert.ok(b.prowess >= 37, 'Prowess is not reset (being struck earns as it always does)');
-  assert.equal(b.dashReadyAt, 3);
+  assert.ok(b.dashReadyAt>at,'Dash restarts its cooldown');
+  assert.ok(b.swordTechniqueReadyAt>at,'Sword Technique restarts its cooldown');
   assert.equal(tryCastSpell(room, 'b', { x: 1, y: 0, z: 0 }, now + 2), false, 'cooling');
   const restarted = room.events.filter((e) => e.type === 'oneHitCooldownsRestarted');
   assert.equal(restarted.length, 1);
-  assert.deepEqual([...restarted[0].skills].sort(), ['fireball', 'frostfire', 'gale']);
+  assert.deepEqual([...restarted[0].skills].sort(), ['dash','fireball', 'frostfire', 'gale','rigid_riposte']);
   // Half Steel does not
   const half = battle({ tiers: { steel: 1 } }); half.b.health = 1000; half.b.spellReadyAt = 0;
   slam(half.room);
@@ -719,7 +740,7 @@ test('Full Steel: the last 1 HP is truly protected, without lethal debt after th
   assert.equal(room.events.find((e) => e.type === 'death' && e.victimId === 'a')?.killerId, 'b');
 });
 
-test('Full Steel: non-lethal damage is ordinary; without Full Steel a lethal blow kills at once; the held Lightning aim gives no protection', () => {
+test('Full Steel: initial Lightning hold has finite 1-HP protection; late aim is vulnerable; committed strike protects again', () => {
   { // survivable damage: nothing deferred, the knight lives on
     const { room, a } = battle({ tiers: { steel: 2 }, at: { x: 30, y: 0, z: 0 } });
     tryUltimate(room, 'a', 9); run(room, 9, .3);
@@ -735,12 +756,13 @@ test('Full Steel: non-lethal damage is ordinary; without Full Steel a lethal blo
     applyDamage(room, 'b', 'a', 200, 'sword', 9.3);
     assert.equal(a.alive, false);
   }
-  { // Full Steel + Full Lightning, aim held for a long time: mortal throughout the hold
+  { // Full Steel + Full Lightning protects its initial brief bracing window
     const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });
     assert.equal(tryUltimate(room, 'a', 9, { held: true }), true);
     run(room, 9, .2);
     applyDamage(room, 'b', 'a', 200, 'sword', 9.2);
-    assert.equal(a.alive, false, 'no 1-HP protection while only aiming, even at once');
+    assert.equal(a.alive, true, 'initial 0.92-second Steel bracing survives lethal damage');
+    assert.equal(a.health,1);
   }
   { // ...but the committed attack after the release is protected like any other
     const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });

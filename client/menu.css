@@ -1761,3 +1761,21 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 @media (prefers-reduced-motion: reduce) {
   .armory-kit-stage { transition: none; }
 }
+
+/* Chronicles shows the exact combat glyphs, with their live status palette,
+   not a second set of dark decorative tile backgrounds. */
+#chronicles-affliction-list .chronicles-affliction-icon {
+  background:transparent;border:1px solid transparent;box-shadow:none;
+  color:#e7d599;min-height:42px;padding:6px;
+}
+#chronicles-affliction-list .chronicles-affliction-icon svg {width:26px;height:26px;}
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="frozen"],
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="chilled"],
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="frostbound"] {color:#b5e4f1;}
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="blustered"] {color:#c3dacc;}
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="shaken"],
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="rupture"] {color:#d9b99a;}
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="staggered"] {color:#e9afa1;}
+#chronicles-affliction-list .chronicles-affliction-icon:is(.selected,:hover) {
+  background:rgba(201,156,82,.10);border-color:#ebc67d;
+}

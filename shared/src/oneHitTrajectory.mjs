@@ -72,10 +72,22 @@ export function planOneHitTeleport({
      (edge&&!edgeInside(end,edge.center,edge.radius,MOVEMENT.playerRadius)))
     return {end,legal:false};
   if(!allowVertical){
-    // Full Lightning without Gale is still a ground-distance teleport.
-    if(floor===null||Math.abs(floor-end.y)>2)return {end,legal:false};
+    // Lightning alone uses a horizontal projection of the player's look.
+    // Its feet remain on supported ground. A lower platform beyond a ledge
+    // is a legal DESTINATION: traverse at the original altitude, then drop
+    // vertically to support, never gain altitude because the view looked up.
+    if(floor===null||floor>origin.y+1.1)return {end,legal:false};
+    if(floor<end.y-.24){
+      const dropFrom=[end.x,end.y+1.05,end.z],dropTo=[end.x,floor+1.05,end.z];
+      if(solids.some(box=>segmentAabbHit(dropFrom,dropTo,box)))
+        return {end,legal:false};
+    }
+    const landing={...end,y:floor};
+    const clear=resolvePlayerWorld(landing,MOVEMENT.playerRadius,solids);
+    if(Math.hypot(clear.x-end.x,clear.z-end.z)>.1)return {end,legal:false};
     end.y=floor;
-    return {end,legal:true,grounded:true};
+    return {end,legal:true,grounded:true,groundLocked:true,
+      verticalDrop:Math.max(0,origin.y-floor)};
   }
   // Form is an ARRIVAL fact, not the takeoff state. A grounded ascent
   // becomes aerial; a descending aerial teleport can become a ground slam.

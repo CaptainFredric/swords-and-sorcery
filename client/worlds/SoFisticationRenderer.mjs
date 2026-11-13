@@ -57,6 +57,47 @@ export class SoFisticationRenderer {
   const fallback=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892');
   const failed=error=>{this.error=true;this.loading=false;resolve(false);
     console.error('SoFistication authored asset failed to load',error);};
+  // Keep the established 45-node hydraulic structure, its rider station and
+  // source-fitted lift cylinders. Argon's 56-node v26 ram has NO hydraulic
+  // pivots: graft only its articulated hand and its extra animation tracks.
+  const integrateHand=(gltf,articulated)=>{
+   if(!articulated){received(gltf,false);return;}
+   const url=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v26.glb?v=6800db7a9dd1bfa6');
+   loader.load(url,donor=>{
+    const target=gltf.scene.getObjectByName('Armored_Fist');
+    const hand=donor.scene.getObjectByName('Armored_Fist');
+    const required=['Index_1','Index_2','Index_3','Middle_1','Middle_2','Middle_3',
+      'Ring_1','Ring_2','Ring_3','Pinky_1','Pinky_2','Pinky_3',
+      'Thumb_1','Thumb_2','Thumb_3','Palm_Capture_Gate',
+      'Secret_Palm_Hatch_L','Secret_Palm_Hatch_R',
+      'Rear_Egress_Hatch_L','Rear_Egress_Hatch_R',
+      'socket_enemy_capture_hold','socket_ally_compartment_seat',
+      'socket_ally_rear_egress_origin'];
+    const missing=required.filter(name=>!hand?.getObjectByName(name));
+    const extra=donor.animations.filter(a=>/^(1[1-9]|2[0-6])_/.test(a.name));
+    if(!target||!hand||missing.length||extra.length!==16){
+     console.error('Argon v26 articulated hand incomplete; keeping production hydraulics',missing,extra.length);
+     received(gltf,true);return;
+    }
+    // Swap the named fist surface without touching the coupling locator,
+    // piston, collar, upper saddle, gear train or wheel hierarchy.
+    if(target.isMesh&&hand.isMesh){
+     target.geometry=hand.geometry;target.material=hand.material;
+    }else if(hand.isMesh){
+     for(const old of [...target.children])
+      if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
+     const surface=new THREE.Mesh(hand.geometry,hand.material);
+     surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
+    }
+    for(const part of [...hand.children])target.add(part);
+    gltf.animations=[...gltf.animations,...extra];
+    this.v26HandInstalled=true;
+    received(gltf,true);
+   },undefined,error=>{
+    console.error('Argon v26 hand failed to load; fingerprint actions unavailable',error);
+    received(gltf,true);
+   });
+  };
   const received=(gltf,articulated)=>{
    const hierarchyIssues=articulated?authoredHierarchyIssues(gltf.scene,RAM_REQUIRED_PARENTS):[];
    if(hierarchyIssues.length){
@@ -104,7 +145,7 @@ export class SoFisticationRenderer {
    }));
    this.loading=false;resolve(true);
   };
-  loader.load(latest,g=>received(g,true),undefined,error=>{
+  loader.load(latest,g=>integrateHand(g,true),undefined,error=>{
    // Existing installations must remain playable before the two new GLBs
    // are committed. Never silently claim full 3D articulation on rollback.
    console.warn('SO-FIST-ICATION new hydraulic GLB unavailable; using v2.7 visual fallback',error);
@@ -154,20 +195,53 @@ export class SoFisticationRenderer {
    const variant=b.finalJaw?.variant;
    const terminal=variant==='damaged'?'25_Final_Long_Arm_Launch_Damaged_Fist_Breakdown':
      variant==='intact'?'24_Final_Long_Arm_Launch_Intact_Fist_Breakdown':null;
-   const clip=terminal&&this.availableClips?.has(terminal)?terminal:ramWreckClip(b);
+   const absent=(!b.finalJaw&&
+     (b.fistMounted===false||(b.components?.Fist?.health??0)<=0))?
+       '26_Final_Long_Arm_Absent_Fist_Collapse':null;
+   const authored=terminal??absent;
+   const clip=authored&&this.availableClips?.has(authored)?authored:ramWreckClip(b);
    this.animation.sample({clip,time:now-(b.destroyedAt??now)},()=>true);
   }else{
    const flickAge=b.flickAt!=null?now-b.flickAt:-1;
    const flickActive=flickAge>=0&&flickAge<4;
-   if(flickActive&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
-     this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},
-       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
-   }else{
-     // An old asset cannot display a new flick; do not animate a counterfeit
-     // piston strike over its authoritative fingertip contact.
-     this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
-       time:flickActive?0:Math.min(3.999,soFistPose(b,now).clipAge)},
-       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   const hand=b.hellping,handAge=hand?Math.max(0,now-hand.at):0;
+   // Donor hand clips also carry transforms for Argon's older carriage,
+   // piston, and wheels. These must not override the live hydraulic rig's
+   // independently simulated lift, stroke, movement or damage geometry.
+   const handTrack=k=>/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\./.test(k);
+   // Physical piston movement remains tied to the authoritative 4s cycle,
+   // including a punch while an ally rides in HELLping's compartment.
+   this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
+     time:flickActive?0:Math.min(3.999,soFistPose(b,now).clipAge)},
+     k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   if(flickActive&&this.v26HandInstalled&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
+     this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},handTrack);
+   }else if(this.v26HandInstalled&&hand){
+     // All clients play the server's authoritative phase; hydraulic controls
+     // remain separate and no hit or passenger state originates in the viewer.
+     let clip='22_HELLping_Hand_Skill_Default_Open_Palm_Idle',time=handAge,loop=true;
+     if(hand.phase==='open'&&Number.isFinite(hand.exitAt)&&now-hand.exitAt<1.1){
+       clip='17_HELLping_Hand_Ally_Rear_Exit';time=Math.max(0,now-hand.exitAt);loop=false;
+     }else if(hand.phase==='open'&&handAge<1){
+       clip='11_HELLping_Hand_Open_Wide';time=handAge;loop=false;
+     }else if(hand.phase==='grasp'){
+       clip=handAge<1?'12_HELLping_Hand_Enemy_Capture_Close':
+         '13_HELLping_Hand_Sustained_Crush_4s';
+       time=handAge<1?handAge:handAge-1;loop=false;
+     }else if(hand.phase==='transport'&&b.strikeAt!=null&&
+       b.strikeAt>=hand.at&&now-b.strikeAt>=0&&now-b.strikeAt<1.2){
+       // A real passenger-protected punch wins over a still-opening hatch.
+       clip='16_HELLping_Hand_Ally_Protected_Punch';time=now-b.strikeAt;loop=false;
+     }else if(hand.phase==='transport'&&handAge<1.4){
+       clip='15_HELLping_Hand_Ally_Hatch_Open_Enter';time=handAge;loop=false;
+     }else if(hand.phase==='vault'){
+       clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
+         '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
+       time=handAge;loop=false;
+     }else if(hand.phase==='release'){
+       clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
+     }
+     this.animation.sample({clip,time,loop},handTrack);
    }
    this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
    for(let i=0;i<this.wheels.length;i++){

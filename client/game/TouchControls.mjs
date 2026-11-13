@@ -1,5 +1,7 @@
 import { galeSwipeMode } from '../../shared/src/galeModes.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
+import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
+import {BI_BYE_WEAPONS} from '../../shared/sim/biByeWeapons.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
@@ -140,7 +142,7 @@ export class TouchControls {
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
+          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
     // A read-only, full-layer ink overlay connects the ACTUAL four Flight
@@ -350,7 +352,7 @@ export class TouchControls {
   // shown and listening only while the player is in the arena (the touch version of pointer lock)
   setActive(active) {
     this.active = Boolean(active);
-    this.layer.classList.toggle('active', this.active);
+    this.layer.classList.toggle('active', this.active || this.deadNavigationEnabled);
     if (!this.active) this.reset();
   }
 
@@ -474,6 +476,9 @@ export class TouchControls {
   }
 
   update(local, serverNow, { practice = false, snapshot = null, onFootThirdPerson = false } = {}) {
+    this.deadNavigationEnabled=Boolean(local&&!local.alive);
+    this.layer.classList.toggle('dead-navigation',this.deadNavigationEnabled);
+    this.layer.classList.toggle('active',this.active||this.deadNavigationEnabled);
     // The workshop is a real per-machine preview. Live snapshots must not
     // repaint hidden actions or restore the currently mounted machine while
     // the player edits Ballista, Ram, Flight or on-foot controls.
@@ -630,6 +635,40 @@ export class TouchControls {
       }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
+      // Mounted weapon recovery uses the same dark shade/fill as spell
+      // cooldowns. The controls own this information, not the giant status
+      // banner in the middle of the Ballista's sightline.
+      const setMountedRecovery=(button,remaining,total)=>{
+        if(!button)return;
+        const value=Math.max(0,remaining);
+        button.classList.toggle('cooling',value>.01);
+        button.style.setProperty('--cooldown',String(Math.min(1,value/Math.max(.1,total))));
+        const timer=button.querySelector('.touch-timer');
+        if(timer)timer.textContent=value>.01?value.toFixed(value<1?1:0):'';
+      };
+      if(ballista&&bl){
+        const first=Math.max(0,(bl.smallBoltReadyAt??serverNow)-serverNow);
+        const second=Math.max(bl.mainBoltLoaded===false?
+          Math.max(0,(bl.reloadEndsAt??serverNow)-serverNow):0,
+          bl.skill?.phase==='idle'?Math.max(0,(bl.skill.readyAt??serverNow)-serverNow):0);
+        setMountedRecovery(this.buttons.attack,first,BI_BYE_WEAPONS.upperRecock);
+        setMountedRecovery(this.buttons.siegeSkill,second,
+          Math.max(BI_BYE_WEAPONS.heavyReload,bl.skill?.cooldownSec??0));
+      }else if(ram&&rb){
+        const cycle=soFistTiming(rb).cycle;
+        const piston=Math.max(0,cycle-Math.max(0,serverNow-(rb.strikeAt??-Infinity)));
+        const flick=Math.max(0,cycle-Math.max(0,serverNow-(rb.flickAt??-Infinity)));
+        // Both attacks spend one four-second mechanical cycle; neither button
+        // should appear ready while the other has the piston drive committed.
+        const recovery=Math.max(piston,flick);
+        setMountedRecovery(this.buttons.attack,recovery,cycle);
+        setMountedRecovery(this.buttons.ramFlick,recovery,cycle);
+        setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
+          Math.max(1,rb.skill?.cooldownSec??8));
+      }else{
+        for(const action of ['attack','ramFlick','siegeSkill'])
+          setMountedRecovery(this.buttons[action],0,1);
+      }
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
       const flightSkillId=fb?.skill?.id??'fireAwayImRightHere';
       const flightSkillIcon=flightSkillId==='narrowToOne'?'narrowToOne':
@@ -638,7 +677,7 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -1132,7 +1171,9 @@ export class TouchControls {
 
   #down = (event) => {
     this.touchDebugEvent = 'down';
-    if (!this.active) return;
+    if (!this.active && !this.deadNavigationEnabled) return;
+    if (!this.active && this.deadNavigationEnabled &&
+       !event.target.closest?.('.touch-pause,.touch-practiceTools'))return;
     // A pointer owns the action it STARTED on. A thumb sliding across Dash
     // cannot be promoted from a look, stick, rail, or other held gesture.
     // Distinct fingers can still press Dash and Ultimate together.
@@ -1403,7 +1444,8 @@ export class TouchControls {
         this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     const gatedAction=this.ramMounted&&(action==='jump'||action==='crouch')?'move':action;
-    if (!this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
+    if (!(this.deadNavigationEnabled && (action==='pause'||action==='practiceTools')) &&
+      !this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
       this.deniedButtons.add(event.pointerId);
       return;
     }

@@ -6,6 +6,7 @@ import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
+import {boardHellpingHand,exitHellpingHand} from './soFistHellpingHand.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
@@ -396,6 +397,14 @@ export function applyRoomCommand(room, player, message, time) {
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
   if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
+  // HELLping's enemy grip is a physical capture, not merely a position sync.
+  // Refuse new movement/combat intents until release. Allied passengers are
+  // deliberately NOT restricted and remain able to fight from their seat.
+  if(player?.hellpingCapturedBy&&[
+    'input','attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell',
+    'dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
+    'siegeOperate','siegeSkill'
+  ].includes(message.type))return {};
   // A committed sword technique owns both hands. A release remains legal so
   // losing focus cannot leave any held input stuck.
   if(player?.swordTechnique&&message.down!==false&&
@@ -700,6 +709,9 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'siegeOperate': {
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
+      if(player.hellpingCarriedBy===room.soFistication?.id)
+       {exitHellpingHand(room,room.soFistication,player,time);return {}; }
+      if(boardHellpingHand(room,room.soFistication,player,time))return {};
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
          && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);

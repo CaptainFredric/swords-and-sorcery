@@ -3,7 +3,10 @@
 // Already detached/destroyed fist -> ordinary absent-fist collapse, never a clone.
 import {postureOf} from '../src/body.mjs';
 import {areAllies} from '../src/teams.mjs';
-import {SO_FIST_SCALE,soFistFrame} from './soFistGeometry.mjs';
+import {SO_FIST_SCALE,soFistFrame,soFistPose} from './soFistGeometry.mjs';
+import {SO_FIST_LIFT} from './soFistElevation.mjs';
+import {structureWorld} from './structures.mjs';
+import {segmentAabbHit} from '../src/collision.mjs';
 import {soFistUpperPoint} from './soFistElevation.mjs';
 import {RAM_FIST} from './soFistDetachedFist.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -14,8 +17,12 @@ export const FINAL_JAW=Object.freeze({
 });
 const dot=(a,b)=>a.reduce((v,n,i)=>v+n*b[i],0);
 const normalized=a=>{const m=Math.hypot(...a)||1;return a.map(v=>v/m);};
-function initialMuzzle(b){
-  return soFistUpperPoint(soFistFrame(b),b,[0,.365*SO_FIST_SCALE,.965*SO_FIST_SCALE]);
+function initialMuzzle(b,now){
+  // Shared attached-fist COM: a different forward point made the death shot
+  // visibly teleport from its wrist when the projectile became authoritative.
+  const stroke=soFistPose(b,now).offset;
+  return soFistUpperPoint(soFistFrame(b),b,
+    [0,.380*SO_FIST_SCALE,.735*SO_FIST_SCALE+stroke]);
 }
 // Return a physically possible low-arc elevation angle for a gravitational shot.
 // Null means this target cannot be reached at the existing projectile velocity.
@@ -26,8 +33,8 @@ function arcPitch(horizontal,vertical){
   if(d<0)return null;
   return Math.atan2(speed2-Math.sqrt(d),g*horizontal);
 }
-function aimAt(b,target){
-  const muzzle=initialMuzzle(b),root=soFistFrame(b);
+function aimAt(b,target,now){
+  const muzzle=initialMuzzle(b,now),root=soFistFrame(b);
   const v=[target.x-muzzle[0],target.y-muzzle[1],target.z-muzzle[2]];
   const horizontal=Math.hypot(v[0],v[2]);
   const towards=normalized([v[0],0,v[2]]);
@@ -37,15 +44,41 @@ function aimAt(b,target){
   const elevation=arcPitch(horizontal,v[1]);
   if(elevation==null)return null;
   const relativePitch=elevation-(b.ramElevPitch??0);
-  if(relativePitch<FINAL_JAW.pitchDown||relativePitch>FINAL_JAW.pitchUp)return null;
-  return {yaw,relativePitch,range:horizontal};
+  if(relativePitch<FINAL_JAW.pitchDown||relativePitch>FINAL_JAW.pitchUp||
+     elevation<0||elevation>SO_FIST_LIFT.maxPitch)return null;
+  return {yaw,relativePitch,range:horizontal,elevation,muzzle};
 }
-function chooseAim(room,b,attackerId){
+function clearBallisticArc(room,b,aim){
+  // Check the *curved flight path*, not a straight sightline, against the
+  // same solid geometry the projectile will collide with on the next tick.
+  const world=structureWorld(room.world,room.structures);
+  const axes=soFistFrame(b).axes;
+  const h=[axes[2][0]*Math.cos(aim.yaw)+axes[0][0]*Math.sin(aim.yaw),
+    axes[2][2]*Math.cos(aim.yaw)+axes[0][2]*Math.sin(aim.yaw)];
+  const speed=RAM_FIST.speed,travel=aim.range/(speed*Math.cos(aim.elevation));
+  const flightAt=t=>[aim.muzzle[0]+h[0]*speed*Math.cos(aim.elevation)*t,
+    aim.muzzle[1]+speed*Math.sin(aim.elevation)*t-.5*RAM_FIST.gravity*t*t,
+    aim.muzzle[2]+h[1]*speed*Math.cos(aim.elevation)*t];
+  const step=.06;
+  for(let t=0;t<travel-1e-5;t+=step){
+    const from=flightAt(t),to=flightAt(Math.min(t+step,travel));
+    for(const solid of world.solids??[]){
+      if(!solid?.size||!solid?.center)continue;
+      // Projectile radius is authoritative, including at corners and ceilings.
+      const box={...solid,size:solid.size.map(n=>n+2*RAM_FIST.radius)};
+      const hit=segmentAabbHit(from,to,box);
+      if(hit&&!(t===0&&hit.t<=1e-4))return false;
+    }
+  }
+  return true;
+}
+function chooseAim(room,b,attackerId,now){
   const list=[];
   for(const p of room.players.values()){
     if(!p.alive||p.id===b.operatorId||areAllies(room,b.operatorId,p.id))continue;
-    const h=postureOf(p).height,aim=aimAt(b,{x:p.position.x,y:p.position.y+h*.48,z:p.position.z});
-    if(aim)list.push({...aim,id:p.id,priority:p.id===attackerId?0:1});
+    const h=postureOf(p).height,aim=aimAt(b,{x:p.position.x,y:p.position.y+h*.48,z:p.position.z},now);
+    if(aim&&clearBallisticArc(room,b,aim))
+     list.push({...aim,id:p.id,priority:p.id===attackerId?0:1});
   }
   list.sort((a,b)=>a.priority-b.priority||a.range-b.range||String(a.id).localeCompare(String(b.id)));
   const v=list[0];
@@ -62,10 +95,10 @@ export function queueFinalJaw(room,b,now,{attackerId=null}={}){
   const justBroken=hp<=0&&Math.abs((b.fistBrokenAt??-Infinity)-now)<1e-6;
   if(hp<=0&&!justBroken)return false;
   const variant=hp>0?'intact':'damaged';
-  const aim=chooseAim(room,b,attackerId);
+  const aim=chooseAim(room,b,attackerId,now);
   b.finalJaw={phase:'aiming',at:now,spawnAt:now+FINAL_JAW.spawnSec,
     variant,aimYaw:aim.yaw,aimPitch:aim.pitch,targetId:aim.targetId,
-    ownerId:b.operatorId,spent:false};
+    ownerId:b.operatorId,muzzle:initialMuzzle(b,now),spent:false};
   room.events.push({type:'soFistFinalJawQueued',machineId:b.id,at:now,
     variant,targetId:aim.targetId,yaw:aim.yaw,pitch:aim.pitch});
   return true;
@@ -84,7 +117,7 @@ export function stepFinalJaw(room,b,now){
     root.axes[2][2]*Math.cos(yaw)+root.axes[0][2]*Math.sin(yaw),
   ];
   const direction=normalized([horizontal[0]*Math.cos(angle),Math.sin(angle),horizontal[1]*Math.cos(angle)]);
-  const pos=initialMuzzle(b);
+  const pos=s.muzzle??initialMuzzle(b,s.at);
   const origin={x:pos[0],y:pos[1],z:pos[2]};
   const home=b.fistHome??{x:b.x,y:b.y,z:b.z};
   b.detachedFist={state:'flying',position:origin,

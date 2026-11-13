@@ -1,0 +1,49 @@
+name: SO-FIST-ICATION Argon fingertip Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/worlds/SoFisticationRenderer.mjs'
+      - 'client/worlds/MachineAnimationComposition.mjs'
+      - 'scripts/so-fist-v26-flick-browser.mjs'
+      - '.github/workflows/so-fist-v26-flick-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-flick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start Castleward
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/castleward-flick.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/castleward-flick.log
+          exit 1
+      - name: Find Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify actual index fingertip visual motion
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/so-fist-v26-flick-browser.mjs
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: so-fist-v26-flick-browser
+          path: output/playwright/so-fist-v26-flick/
+          retention-days: 7

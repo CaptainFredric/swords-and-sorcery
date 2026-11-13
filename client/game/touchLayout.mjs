@@ -110,8 +110,9 @@ const MOUNTED_ACTIONS = Object.freeze({
   attack:{right:14,bottom:18,size:76},
   siegeSkill:{right:100,bottom:22,size:64},
   spell:{right:184,bottom:20,size:52},
-  ramFlick:{right:142,bottom:112,size:54},
-  jump:{right:14,bottom:112,size:54},
+  // Flick sits underneath RAISE, right of Launch, above Piston.
+  ramFlick:{right:14,bottom:92,size:50},
+  jump:{right:14,bottom:156,size:52},
   crouch:{right:80,bottom:112,size:54},
   // Inactive for ram; legacy mounted fallbacks.
   siegeBoth:{right:14,bottom:194,size:56},

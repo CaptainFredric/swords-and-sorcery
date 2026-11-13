@@ -3,7 +3,6 @@ import { normalizeInfusions,emptyInfusions,ONE_HIT_PRESETS } from '../src/oneHit
 import { postureOf } from '../src/body.mjs';
 import { activeUltimate } from '../src/ultimates.mjs';
 import { beginAttack, endAttack, setGuard, castPreparedSpell, tryDash,tryUltimate,releaseOneHitCharge } from './combat.mjs';
-import { stepBotControllers } from './BotController.mjs';
 import { wayToward } from './botNav.mjs';
 
 export const KNIGHT_ULTIMATES = Object.freeze(['cycle','sunder','vortex','chivalry','one_hit_of_wonders']);
@@ -27,6 +26,7 @@ export function setupUltimateKnight(actor,nowSec,previous=null){
   actor.prowess=PROWESS.full;
   actor.ultimateKnight={cycle:0,tracked:null,committed:null,refillAt:nowSec,
     demonstration:null,castSlot:-1,dashSlot:-1,spellIndex:0,navigation:{},
+    nextSwordAt:nowSec+6,swordReleaseAt:null,
     selection:choice,behavior,stages,anchor:{...actor.position}};
   actor.practiceOneHit={enabled:true,stages:{...stages}};
 }
@@ -166,8 +166,46 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
     demonstrateChivalry(room, actor, nowSec, world);
   } else {
     if (demo.demonstration) { demo.demonstration = null; actor.ai = null; }
-    // There is one Practice actor; this route runs its ordinary controller exactly once.
-    stepBotControllers(room, nowSec, world, { random, actorKinds: ['dummy'], aggression: 0.55 });
+    // This is a dedicated ULTIMATE drill, not an ordinary spellblade bot.
+    // Do not invoke the generic controller: it autonomously casts spells,
+    // sword-spams and selects tactics unrelated to the chosen Ultimate.
+    const target=targetFor(room,actor);
+    const distance=target?Math.hypot(target.position.x-actor.position.x,
+      target.position.z-actor.position.z):Infinity;
+    if(target){
+      const dx=target.position.x-actor.position.x,dz=target.position.z-actor.position.z;
+      const dy=target.position.y+postureOf(target).center-actor.position.y-postureOf(actor).eye;
+      actor.yaw=Math.atan2(-dx,-dz);
+      actor.pitch=Math.atan2(dy,Math.max(.01,distance));
+      const route=demo.behavior==='follow'&&distance>2.6?
+        wayToward(world,actor,target,demo.navigation,nowSec):null;
+      const movementYaw=route?
+        Math.atan2(-(route.x-actor.position.x),-(route.z-actor.position.z)):actor.yaw;
+      const relative=movementYaw-actor.yaw;
+      const advance=demo.behavior==='follow'&&distance>3 ? .65:0;
+      actor.input={...actor.input,yaw:actor.yaw,pitch:actor.pitch,
+        forward:advance*Math.cos(relative),right:-advance*Math.sin(relative),
+        sprint:false,jump:false,guard:false,attack:false};
+      if(demo.behavior==='follow'&&distance<16&&!actor.ultimateState&&
+        actor.prowess>=PROWESS.full&&nowSec>=demo.refillAt)
+        tryUltimate(room,actor.id,nowSec,{held:true});
+    } else actor.input={...actor.input,forward:0,right:0,
+      sprint:false,jump:false,guard:false,attack:false};
+    // The occasional sword is permitted only against a reachable live body:
+    // its physical hit can hurt, drain Guard, or trigger the caster's own
+    // Shocking Conduct. Never swing at empty space simply to animate.
+    if(demo.swordReleaseAt!=null&&nowSec>=demo.swordReleaseAt){
+      endAttack(room,actor.id,nowSec);demo.swordReleaseAt=null;
+    }
+    if(target&&distance<2.55&&!actor.ultimateState&&
+      target.spawnProtectionUntil<=nowSec&&
+      nowSec>=(demo.nextSwordAt??Infinity)&&
+      nowSec>=(actor.staggerUntil??-Infinity)&&!actor.attackActive){
+      if(beginAttack(room,actor.id,nowSec)){
+        demo.swordReleaseAt=nowSec+.3;
+        demo.nextSwordAt=nowSec+7.5;
+      }
+    }
     if(demo.behavior==='stay'){
       // No opponent pursuit. However, real skills (especially Lightning's
       // teleport) and knockback can displace a stationary training opponent.

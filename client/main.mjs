@@ -1117,6 +1117,7 @@ function renderChroniclesAfflictions() {
     button.type = 'button';
     button.className = 'chronicles-affliction-icon';
     button.dataset.affliction = id;
+    button.dataset.effect = id; // same palette discriminator as the live affliction HUD
     button.title = effect.name;
     button.setAttribute('aria-label', effect.name);
     button.setAttribute('aria-controls', 'chronicles-affliction-detail');
@@ -3043,22 +3044,73 @@ $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
 $('#practice-spellblade').addEventListener('click', () => socket.practiceSpawnDummy('SPELLBLADE'));
-$('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
+// A drill belongs to the local player's chosen Practice setup, not the
+// transient server dummy. Persist the entire valid choice and replay it after
+// each newly summoned Knight, including after returning from a different game.
+const KNIGHT_DRILL_KEY='ss-practice-ultimate-knight-drill-v1';
+const knightElements=['fire','frost','gale','lightning','steel'];
 const knightConfigPanel=$('#practice-ultimate-knight-config');
+const knightDrillDefaults=()=>({selection:'cycle',behavior:'follow',
+  stages:Object.fromEntries(knightElements.map(id=>[id,0]))});
+function readSavedKnightDrill(){
+  let raw=null;
+  try{raw=JSON.parse(localStorage.getItem(KNIGHT_DRILL_KEY)||'null');}catch{}
+  const result=knightDrillDefaults();
+  if(['cycle','sunder','vortex','chivalry','one_hit_of_wonders'].includes(raw?.selection))
+    result.selection=raw.selection;
+  if(['follow','stay'].includes(raw?.behavior))result.behavior=raw.behavior;
+  for(const element of knightElements)
+    if([0,1,2].includes(raw?.stages?.[element]))
+      result.stages[element]=raw.stages[element];
+  return result;
+}
+let savedKnightDrill=readSavedKnightDrill();
+function saveKnightDrill(next){
+  savedKnightDrill=next;
+  try{localStorage.setItem(KNIGHT_DRILL_KEY,JSON.stringify(next));}catch{}
+}
+function showKnightDrill(next){
+  if(!knightConfigPanel)return;
+  knightConfigPanel.querySelector('#practice-knight-ultimate').value=next.selection;
+  knightConfigPanel.querySelector('#practice-knight-behavior').value=next.behavior;
+  for(const select of knightConfigPanel.querySelectorAll('[data-knight-element]'))
+    select.value=String(next.stages[select.dataset.knightElement]??0);
+}
+function transmitKnightDrill(next){
+  socket.send({type:'practiceUltimateKnightConfig',selection:next.selection});
+  socket.send({type:'practiceUltimateKnightConfig',behavior:next.behavior});
+  for(const element of knightElements)
+    socket.send({type:'practiceUltimateKnightConfig',element,tier:next.stages[element]});
+}
+showKnightDrill(savedKnightDrill);
+$('#practice-ultimate-knight').addEventListener('click',()=>{
+  socket.practiceSpawnDummy('ULTIMATE_KNIGHT');
+  // Commands travel in order on the same Practice transport: the dummy is
+  // created before any setting is applied, with no client-only simulation.
+  transmitKnightDrill(savedKnightDrill);
+});
 knightConfigPanel?.addEventListener('change',event=>{
   const field=event.target;
-  if(field?.id==='practice-knight-ultimate')
+  if(field?.id==='practice-knight-ultimate'){
+    saveKnightDrill({...savedKnightDrill,selection:field.value});
     socket.send({type:'practiceUltimateKnightConfig',selection:field.value});
-  else if(field?.id==='practice-knight-behavior')
+  }else if(field?.id==='practice-knight-behavior'){
+    saveKnightDrill({...savedKnightDrill,behavior:field.value});
     socket.send({type:'practiceUltimateKnightConfig',behavior:field.value});
-  else if(field?.dataset?.knightElement)
-    socket.send({type:'practiceUltimateKnightConfig',element:field.dataset.knightElement,
-      tier:Number(field.value)});
+  }else if(field?.dataset?.knightElement){
+    const element=field.dataset.knightElement,tier=Number(field.value);
+    saveKnightDrill({...savedKnightDrill,stages:{...savedKnightDrill.stages,[element]:tier}});
+    socket.send({type:'practiceUltimateKnightConfig',element,tier});
+  }
 });
 knightConfigPanel?.addEventListener('click',event=>{
-  const button=event.target.closest?.('[data-knight-preset]');
-  if(button?.dataset?.knightPreset)
-    socket.send({type:'practiceUltimateKnightConfig',preset:button.dataset.knightPreset});
+  const preset=event.target.closest?.('[data-knight-preset]')?.dataset?.knightPreset;
+  if(!preset)return;
+  const value=preset==='reset'?0:preset==='partial'?1:preset==='full'?2:null;
+  if(value===null)return;
+  const next={...savedKnightDrill,stages:Object.fromEntries(knightElements.map(el=>[el,value]))};
+  saveKnightDrill(next);showKnightDrill(next);
+  socket.send({type:'practiceUltimateKnightConfig',preset});
 });
 $('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
 $('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));

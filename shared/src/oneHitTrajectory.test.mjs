@@ -82,3 +82,32 @@ test('omnidirectional Full Gale+Lightning aims independently at all compass bear
     holdSec:.7,world});
   assert.ok(vertical.legal&&!vertical.grounded&&vertical.end.y>5);
 });
+
+test('Lightning-only view can aim up or down but its guide and travel remain ground-locked',()=>{
+  const ledges={solids:[],ramps:[],floors:[
+    {id:'cliff',center:[0,6.9,0],size:[15,.2,40],y:7},
+    {id:'valley',center:[28,-.1,0],size:[34,.2,40],y:0},
+  ]};
+  const options={origin:{x:0,y:7,z:0},yaw:-Math.PI/2,
+    aerial:false,allowVertical:false,holdSec:1.8,world:ledges};
+  const ahead=planOneHitTeleport({...options,pitch:0});
+  const up=planOneHitTeleport({...options,pitch:1.2});
+  const down=planOneHitTeleport({...options,pitch:-1.1});
+  for(const path of [ahead,up,down]){
+    assert.ok(path.legal,'lower landing surface is valid even after a sizable drop');
+    assert.equal(path.grounded,true);
+    assert.equal(path.groundLocked,true);
+    assert.equal(path.verticalDrop,7);
+    assert.equal(path.end.y,0,'no upward teleport; descend at the destination');
+    assert.ok(path.end.x>20&&path.end.x<30);
+  }
+  assert.deepEqual(ahead.end,up.end,'camera elevation does not change a Lightning-only destination');
+  assert.deepEqual(ahead.end,down.end);
+  const voidWorld={...ledges,floors:[ledges.floors[0]]};
+  assert.equal(planOneHitTeleport({...options,world:voidWorld}).legal,false,
+    'no unsupported free-fall teleport into empty space');
+  const uphill={...ledges,floors:[ledges.floors[0],
+    {...ledges.floors[1],y:10}]};
+  assert.equal(planOneHitTeleport({...options,world:uphill}).legal,false,
+    'ground-only Lightning cannot climb a distant higher platform');
+});

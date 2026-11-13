@@ -736,3 +736,23 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
   .flight-target-name { max-width:90px; font-size:8px; }
   .flight-target-brackets { width:33px; height:38px; }
 }
+
+/* The Ultimate Knight's editor is a first-class Practice action, not a
+   tiny disclosure buried among siege maintenance controls. */
+#practice-ultimate-knight-config>summary {
+  min-height:39px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;
+  padding:8px 10px;margin:6px 0;
+  border:1px solid rgba(233,193,106,.78);
+  background:linear-gradient(120deg,rgba(88,59,30,.9),rgba(43,34,22,.85));
+  color:#ffe5ab;font:900 11px/1.4 var(--font-script);
+  letter-spacing:.065em;box-shadow:inset 0 1px #e6c77750;
+}
+#practice-ultimate-knight-config>summary small{
+  color:#dbc68f;font:700 8px/1.35 var(--font-script);
+}
+#practice-ultimate-knight-config[open]>summary{
+  border-color:#ffe0a4;background:rgba(91,64,36,.94);
+}
+#practice-ultimate-knight-config .practice-knight-settings>label select{
+  min-height:38px;font-size:11px;
+}

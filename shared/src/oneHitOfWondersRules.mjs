@@ -17,9 +17,9 @@ export const ONE_HIT_RULES = Object.freeze({
 
   // After a full-Lightning teleport, the discharge has no SECOND wind-up.
   postTeleportWindupSec: 0,
-  // A short hover after an airborne teleport lets the player aim the sword,
-  // independently from the direction used to reposition.
-  postTeleportAimSec: 0.35,
+  // A one-second authored vortex after an airborne teleport lets the player
+  // retarget the sword independently from the travel direction.
+  postTeleportAimSec: 1.0,
   groundedGaleWaveDelaySec: 0.14,
   waveMaxReach: 22,
   waveTerminalRadius: 2.2,
