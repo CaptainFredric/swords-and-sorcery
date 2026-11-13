@@ -750,7 +750,9 @@ export function applyRoomCommand(room, player, message, time) {
         if(interrupted)room.events.push({type:'siegeSkill',machineId:room.biByeLlista.id,
           skill:'coldHowTouching',action:'ended',reason:'dismount',at:time});
       } else {
-        mountBiByeLlista(room.biByeLlista, player, time);
+        if(!mountBiByeLlista(room.biByeLlista,player,time))
+          return {rejected:'Approach the ballista on the same level and finish any active attack.'};
+        player.practiceUiFocus=false;
       }
       return {};
     }
