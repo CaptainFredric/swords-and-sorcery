@@ -120,7 +120,15 @@ export function mountSoFistication(room,b,p,now=0){
  if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(room.objectiveState?.phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
  const obstacles=[...getBiByeSolids(room.biByeLlista),...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
- if(entry.y==null||Math.abs(p.position.y-entry.y)>1||Math.hypot(p.position.x-entry.x,p.position.z-entry.z)>2.2||!stationClear(b,room.world,obstacles)||!soFistExit(room,b,p))return false;
+ // Boarding is not an ejection test. A clear occupied saddle and proximity
+ // to any side of the carriage are enough. A distant/blocked exit behind it
+ // must not stop a knight standing beside the machine from mounting.
+ const boardingDistance=Math.min(
+   entry.y==null?Infinity:Math.hypot(p.position.x-entry.x,p.position.z-entry.z),
+   Math.hypot(p.position.x-b.x,p.position.z-b.z),
+   Math.hypot(p.position.x-seat.x,p.position.z-seat.z));
+ if(boardingDistance>3.75||Math.abs(p.position.y-seat.y)>2.0||
+    !stationClear(b,room.world,obstacles))return false;
  b.skill??=createSiegeSkill('beatToThePunch');
  b.skill.id=selectedSiegeSkill(p,'soFist');
  if(b.hellping?.phase==='release')b.hellping=null;
