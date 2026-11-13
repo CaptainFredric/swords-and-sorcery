@@ -1292,12 +1292,14 @@ export class TouchControls {
     // lostpointercapture for the child when the first move is processed.
     // That is a transfer, NOT a finger release; synthetic PointerEvent tests
     // do not reproduce it. Only loss of the layer's own capture ends input.
-    // Android implicitly captures the BUTTON first. Transferring that
-    // pointer to our game layer fires a bubbling lostpointercapture on the
-    // child even though the thumb remains down. Never mistake this for a
-    // released Ultimate (or Attack/Guard); layer capture/cancel and actual
-    // pointerup remain the authoritative end of the gesture.
-    if(event.type==='lostpointercapture'&&event.target!==this.layer)return;
+    // Android implicitly captures the Ultimate button before our layer.
+    // Transferring capture to the layer emits lostpointercapture on the
+    // CHILD even though the same thumb is still holding the Ultimate.
+    // Ignore only that transfer (and the ritual's existing case): Flight
+    // rails and other controls must still cancel on genuine capture loss.
+    if(event.type==='lostpointercapture'&&event.target!==this.layer&&
+      (this.ritual?.pointerId===event.pointerId||
+        (!this.mounted&&this.held.get(event.pointerId)==='ultimate')))return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
