@@ -17,6 +17,7 @@ import {beginSiegeWreck,stepSiegeWreck} from './siegeWreck.mjs';
 import {sampleTransform} from './history.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
 import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
+import {ramMountReach} from '../src/siegeMountReach.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
@@ -122,11 +123,7 @@ export function mountSoFistication(room,b,p,now=0){
  // Boarding is not an ejection test. A clear occupied saddle and proximity
  // to any side of the carriage are enough. A distant/blocked exit behind it
  // must not stop a knight standing beside the machine from mounting.
- const boardingDistance=Math.min(
-   entry.y==null?Infinity:Math.hypot(p.position.x-entry.x,p.position.z-entry.z),
-   Math.hypot(p.position.x-b.x,p.position.z-b.z),
-   Math.hypot(p.position.x-seat.x,p.position.z-seat.z));
- if(boardingDistance>3.75||Math.abs(p.position.y-seat.y)>2.0||
+ if(!ramMountReach(p,b,entry,seat)||
     !stationClear(b,room.world,obstacles))return false;
  b.skill??=createSiegeSkill('beatToThePunch');
  b.skill.id=selectedSiegeSkill(p,'soFist');
