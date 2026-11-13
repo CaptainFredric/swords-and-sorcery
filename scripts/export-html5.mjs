@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import esbuild from 'esbuild';
+import {assembleSoFistAsset} from './assemble-so-fist-v26.mjs';
 
 export const DEFAULT_GAME_SERVER = 'wss://swords-and-sorcery.onrender.com/ws';
 const ASSET_FILE = /\.(html|css|json|webmanifest|svg|png|jpe?g|webp|glb|ogg|mp3|m4a|wav|woff2?|ttf)$/i;
@@ -37,6 +38,8 @@ export function checkLimits(entries) {
 
 // The same browser source is exported; tests and unknown/development formats never enter the archive.
 export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..'), out = path.join(root, 'dist/html5'), server = DEFAULT_GAME_SERVER, revision } = {}) {
+  // Reassemble and verify the original 26-clip GLB before staging playable assets.
+  if(path.resolve(root)===path.resolve(import.meta.dirname,'..'))assembleSoFistAsset('glb');
   const html = configuredHtml(await readFile(path.join(root, 'client/index.html'), 'utf8'), server);
   revision ??= execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   await mkdir(out, { recursive: true });
