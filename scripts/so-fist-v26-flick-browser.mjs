@@ -107,8 +107,10 @@ try{
        ...(name.startsWith('17_')?{exitAt:80}:{} )},
      poseTime:current};
    ram.update(current,handState);
-   const expected=handTrack?.interpolant.evaluate(name.startsWith('13_')?age-1:
-     name.startsWith('16_')?current-handState.strikeAt:age);
+   const clipTime=name.startsWith('13_')?age-1:
+     name.startsWith('16_')?current-handState.strikeAt:
+     name.startsWith('22_')?((age%clip.duration)+clip.duration)%clip.duration:age;
+   const expected=handTrack?.interpolant.evaluate(clipTime);
    const actual=handTrack?.node[handTrack.property]?.toArray();
    const error=expected&&actual?Math.max(...actual.map((v,i)=>Math.abs(v-expected[i]))):null;
    s.hellpingClips.push({clip:name,phase,animatedJoint:handTrack?.name??null,error});
