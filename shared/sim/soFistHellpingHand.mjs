@@ -107,7 +107,7 @@ export function requestHellpingHand(room,b,p,now){
     (b.components?.Drive?.health??0)<=0)return 'HELLping Hand requires a functional armored fist and drive.';
  const h=b.hellping;
  if(h?.phase==='transport'||h?.phase==='grasp')
-  return releaseHellpingHand(room,b,now)?null:'No safe rear exit; move the ram to clear ground.';
+  releaseHellpingHand(room,b,now);return null;
  if(h?.phase==='vault'||h?.phase==='release')return 'HELLping Hand is recovering.';
  if(h?.phase!=='open'){
   if(now<(b.skill.readyAt??0)-1e-8)return 'HELLping Hand is recovering.';
@@ -130,7 +130,7 @@ export function requestHellpingHand(room,b,p,now){
  }
  const direction=(p.input?.forward??0)>.45?1:(p.input?.forward??0)<-.45?-1:0;
  if(direction&&vault(room,b,now,direction))return null;
- return releaseHellpingHand(room,b,now)?null:'HELLping Hand cannot release yet.';
+ releaseHellpingHand(room,b,now);return null;
 }
 export function stepHellpingHand(room,b,dt,now){
  const h=b?.hellping;if(!h)return;
