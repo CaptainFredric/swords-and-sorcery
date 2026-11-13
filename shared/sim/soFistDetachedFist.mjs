@@ -226,7 +226,7 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
  if(f.state==='resting')return;
  if(!['flying','falling'].includes(f.state)||!Number.isFinite(dt)||dt<=0)return;
  const initialSpeed=Math.hypot(f.velocity.x,f.velocity.y,f.velocity.z);
- const steps=Math.max(1,Math.min(128,Math.ceil(dt/RAM_FIST.maxSubstep),
+ const steps=Math.min(128,Math.max(1,Math.ceil(dt/RAM_FIST.maxSubstep),
    Math.ceil(initialSpeed*dt/RAM_FIST.maxTravelStep)));
  const h=dt/steps;
  for(let i=0;i<steps;i++){
