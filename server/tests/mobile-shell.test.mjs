@@ -82,16 +82,19 @@ test('Castle Chronicles starts with clickable affliction icons; controls stay in
   assert.match(html, /STAMINA/);
 });
 
-test('ordinary gameplay notice uses a small safe-edge caption, not the aim reticle', async () => {
+test('combat notices sit centered above measured subtitles rather than on the crosshair', async () => {
   const css = await read('client/styles.css');
   const mobile = await read('client/mobile.css');
   const hud = await read('client/ui/HUD.mjs');
-  const notice = css.slice(css.indexOf('/* Routine state notices'),css.indexOf('.bottom-hud {'));
-  assert.match(notice, /\.status-flash \{[\s\S]*top: auto;/);
-  assert.match(notice, /bottom: clamp\(/);
-  assert.doesNotMatch(notice, /top:55%|left:50%|translate\(-50%,-50%\)/);
-  assert.match(mobile, /\.touch-ui \.status-flash[\s\S]*?bottom: calc\(/);
-  assert.match(hud, /flashText\(text, kind = ''/);
+  const notice = css.slice(css.indexOf('/* Brief action/Ultimate notices'),css.indexOf('.bottom-hud {'));
+  assert.match(notice, /\.status-flash \{[\s\S]*top: auto; left: 50%/);
+  assert.match(notice, /bottom: var\(--status-caption-bottom/);
+  assert.match(notice, /translate\(-50%,0\)/);
+  assert.doesNotMatch(notice, /top:55%|transform:translate\(-50%,-50%\)/);
+  assert.match(mobile, /\.touch-ui \.status-flash \{[\s\S]*?left: 50%/);
+  assert.match(hud, /#syncStatusCaptionLane\(\)/);
+  assert.match(hud, /this\.subtitleLine\.classList\.contains\('show'\)/);
+  assert.match(hud, /compactCombatStatusDurationMs\(text,durationMs\)/);
 });
 
 test('touch play enters the arena without pointer lock and leaves it through the same path', async () => {
