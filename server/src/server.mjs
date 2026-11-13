@@ -1,4 +1,5 @@
 import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/challenges.mjs';
+import {assembleSoFistAsset} from '../../scripts/assemble-so-fist-v26.mjs';
 import { eligibleChallengeParticipant } from './challengeSettlement.mjs';
 import { applySavedLoadout } from './savedLoadout.mjs';
 import {normalizeSwordTechnique} from '../../shared/src/swordTechniqueContracts.mjs';
@@ -89,6 +90,8 @@ export function resolveStaticFile(root, urlPath) {
 
 export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0',
   profileStore = new ProfileStore(process.env.RENOWN_DATA_DIR || path.join(ROOT, '.data', 'renown')) } = {}) {
+  // Gameplay must never claim an authored fingertip animation while serving a fallback GLB.
+  assembleSoFistAsset('glb');
   const roomManager = new RoomManager();
   const matchmaker = new Matchmaker();
   const sessions = new Set();
