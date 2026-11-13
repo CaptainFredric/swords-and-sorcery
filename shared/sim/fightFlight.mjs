@@ -344,16 +344,6 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
   const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
-  // The ram's physical Finger Flick pushes the aircraft, without teleporting
-  // it or ignoring its own airborne movement/world-collision solver.
-  if(m.externalFlickImpulse){
-    const impulse=m.externalFlickImpulse;
-    m.velocity.x+=impulse.x??0;
-    m.velocity.y+=impulse.y??0;
-    m.velocity.z+=impulse.z??0;
-    m.externalFlickImpulse=null;
-    room.events?.push({type:'fightFlightFlickDeflected',machineId:m.id,at:now});
-  }
   if(m.terminalDive){
     // Already committed momentum and gravity, not the live rider's jump/aim.
     m.velocity.y=Math.max(-25,m.velocity.y);
@@ -423,6 +413,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.velocity.y=cap(m.velocity.y+(flick.y??0),-18,12);
     m.velocity.z=cap(m.velocity.z+(flick.z??0),-24,24);
     m.externalFlickImpulse=null;
+    room.events?.push({type:'fightFlightFlickDeflected',machineId:m.id,at:now});
   }
   m.edgeBlocked=false;
   const solids=extraSolids(room,m,world);
