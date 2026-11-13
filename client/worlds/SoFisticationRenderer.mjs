@@ -208,7 +208,7 @@ export class SoFisticationRenderer {
    // Donor hand clips also carry transforms for Argon's older carriage,
    // piston, and wheels. These must not override the live hydraulic rig's
    // independently simulated lift, stroke, movement or damage geometry.
-   const handTrack=k=>/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\\./.test(k);
+   const handTrack=k=>/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\./.test(k);
    // Physical piston movement remains tied to the authoritative 4s cycle,
    // including a punch while an ally rides in HELLping's compartment.
    this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
