@@ -81,6 +81,38 @@ try{
    s.details.push({age,pose:[i1?.quaternion.toArray(),i2?.quaternion.toArray(),i3?.quaternion.toArray()],
      tip:indexTip?.toArray(),fistVisible:hand?.visible});
   }
+  // Exercise every HELLping Hand phase on the same mounted production rig.
+  // For each authoritative snapshot-shaped phase, prove its distinct Argon
+  // joint channel reaches the actual visible joint, rather than merely
+  // checking that an animation with the right name exists.
+  s.hellpingClips=[];
+  const phases=[
+   ['11_HELLping_Hand_Open_Wide','open',.4],
+   ['12_HELLping_Hand_Enemy_Capture_Close','grasp',.4],
+   ['13_HELLping_Hand_Sustained_Crush_4s','grasp',1.8],
+   ['14_HELLping_Hand_Release_Or_Fist_Destroyed','release',.4],
+   ['15_HELLping_Hand_Ally_Hatch_Open_Enter','transport',.4],
+   ['16_HELLping_Hand_Ally_Protected_Punch','transport',.4],
+   ['17_HELLping_Hand_Ally_Rear_Exit','open',.4],
+   ['18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages','vault',.4],
+   ['19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages','vault',.4],
+   ['22_HELLping_Hand_Skill_Default_Open_Palm_Idle','open',2.4],
+  ];
+  for(const [name,phase,age] of phases){
+   const clip=ram.animation.clips.get(name);
+   const handTrack=clip?.tracks.find(t=>/^(?:Index|Middle|Ring|Pinky|Thumb)_\\d+\\.quaternion$/.test(t.name));
+   const current=80+age;
+   const handState={...b,id:'hellping-visual-proof',flickAt:null,strikeAt:name.startsWith('16_')?80.15:null,
+     hellping:{phase,at:80,direction:name.startsWith('18_')?-1:1,
+       ...(name.startsWith('17_')?{exitAt:80}:{} )},
+     poseTime:current};
+   ram.update(current,handState);
+   const expected=handTrack?.interpolant.evaluate(name.startsWith('13_')?age-1:
+     name.startsWith('16_')?current-handState.strikeAt:age);
+   const actual=handTrack?.node[handTrack.property]?.toArray();
+   const error=expected&&actual?Math.max(...actual.map((v,i)=>Math.abs(v-expected[i]))):null;
+   s.hellpingClips.push({clip:name,phase,animatedJoint:handTrack?.name??null,error});
+  }
   ram.dispose();
   return s;
  })()`);
@@ -108,6 +140,12 @@ try{
  assert.ok(angles[0]>.08&&angles[1]>.08&&angles[2]>.08,'All three index joints visibly flex');
  assert.ok(distance>.25,'The physical fingertip must travel through space, not merely change a hidden animation flag');
  assert.ok(report.details.every(d=>d.fistVisible),'Finger must be visible throughout the cycle');
+ assert.equal(report.hellpingClips.length,10);
+ for(const phase of report.hellpingClips){
+  assert.ok(phase.animatedJoint,'Missing an actual animated hand joint in '+phase.clip);
+  assert.ok(phase.error<.0002,'Displayed joint does not match '+phase.clip+' (error '+phase.error+')');
+ }
+ console.log('[ARGON HELLPING HAND CHROME PHASES]',JSON.stringify(report.hellpingClips));
  console.log('[ARGON FLICK BROWSER ACCEPTED]');
 }catch(error){
  console.error('[ARGON FLICK BROWSER FAILED]',error.stack??String(error));
