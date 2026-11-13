@@ -4,6 +4,7 @@ import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
 // Flight charge (power supply) and spinning rotor energy remain separate.
 import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
+import {flightMountReach} from '../src/siegeMountReach.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
@@ -88,19 +89,28 @@ export function fightFlightEdgeVolumes(m){
   return [...fightFlightSolids(m),{id:'rotor-footprint',center:[m.x,m.y+2.0,m.z],
     size:[FIGHT_FLIGHT.rotorRadius*2,.14,FIGHT_FLIGHT.rotorRadius*2]}];
 }
+export function fightFlightMountProblem(room,m,player,now=0){
+  if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0)return 'Fight-and-Flight is unavailable.';
+  if(!player?.alive)return 'Only a living knight can board.';
+  if(player.operatingRamId||player.operatingBallistaId||player.operatingFightFlightId)
+    return 'Leave the current siege machine first.';
+  if(player.pendingSpell||player.gauntlet||player.ultimateState||player.attackActive)
+    return 'Finish your current attack or cast before mounting.';
+  if(m.operatorId&&m.operatorId!==player.id)return 'Fight-and-Flight has another pilot.';
+  if(m.team&&m.team!==player.team)return 'This flying machine belongs to the opposing side.';
+  if(!flightMountReach(player,m))return 'Move closer to the cockpit on the same elevation.';
+  if(!collisionFree({x:m.x,y:m.y,z:m.z},extraSolids(room,m)))
+    return 'The cockpit intersects nearby scenery or another siege machine.';
+  const solids=extraSolids(room,m);
+  if(solids.some(s=>segmentAabbHit(
+    [player.position.x,player.position.y+1.25,player.position.z],
+    [m.x,m.y+1.25,m.z],s)))
+    return 'Move around the obstruction to reach the cockpit.';
+  return null;
+}
 export function mountFightFlight(room,m,player,now=0){
-  if(!m||m.retired||m.mode==='DESTROYED'||m.health<=0||!player?.alive)return false;
-  if(player.operatingRamId||player.operatingBallistaId||player.operatingFightFlightId)return false;
-  if(player.pendingSpell||player.gauntlet||player.ultimateState||player.attackActive)return false;
-  if(m.operatorId&&m.operatorId!==player.id)return false;
-  if(m.team&&m.team!==player.team)return false;
-  if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>3.2||Math.abs(player.position.y-m.y)>1.8)return false;
-  if(!collisionFree({x:m.x,y:m.y,z:m.z},extraSolids(room,m)))return false;
-  const sightSolids=extraSolids(room,m);
-  if(sightSolids.some(s=>segmentAabbHit([player.position.x,player.position.y+1.25,player.position.z],[m.x,m.y+1.25,m.z],s)))return false;
-  // Mounting only requires a safely occupied cockpit. Ejection candidates
-  // are evaluated when leaving, because nearby terrain can change after
-  // boarding. Testing the rear exit here caused false-negative mounts.
+  if(fightFlightMountProblem(room,m,player,now))return false;
+  // The exit corridor is evaluated on dismount, not before boarding.
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
   // The Armory loadout belongs to the new pilot; physical cooldown remains.
   m.skill={...m.skill,id:equippedFightFlightSkill(player).id};

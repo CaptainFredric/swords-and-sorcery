@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {Room} from '../../shared/sim/Room.mjs';
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
+import {createSoFistication,soFistEntry,mountSoFistication,primeSoFistSkill} from '../../shared/sim/soFistication.mjs';
 import {applySavedLoadout} from '../src/savedLoadout.mjs';
 import {LocalHost} from '../../client/network/LocalHost.mjs';
 import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
@@ -23,6 +24,43 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.deepEqual(v[1].skills.map(s=>s.id),['beatToThePunch','longArmToTheJaw','hellpingHand']);
  assert.equal(v[1].skills[0].equipped,true);
  assert.equal(v[2].skills.length,3);
+});
+test('HELLping Hand Armory selection has real copy, survives persistence and equips on the actual ram',()=>{
+ const ram=siegeArmoryView({soFist:'hellpingHand'}).find(machine=>machine.id==='soFist');
+ const skill=ram.skills.find(item=>item.id==='hellpingHand');
+ assert.equal(skill?.name,'HELLping Hand');
+ assert.equal(skill?.equipped,true);
+ assert.equal(typeof skill?.line,'string');
+ assert.match(skill.line,/seize a nearby enemy/);
+ assert.equal(ram.skills.filter(item=>item.equipped).length,1);
+ for(const machine of siegeArmoryView({}))
+  for(const item of machine.skills) {
+   assert.ok(typeof item.line==='string'&&item.line.length>20,
+     'missing armory explanation: '+item.id);
+   assert.ok(typeof item.name==='string'&&item.name.length,
+     'missing armory label: '+item.id);
+  }
+
+ const memory=new Map(),storage={getItem:key=>memory.get(key)??null,
+   setItem:(key,value)=>memory.set(key,value)};
+ const settings=new SettingsStore({registry,storage});
+ assert.equal(settings.set('loadout.soFistSkill','hellpingHand'),'hellpingHand');
+ const reloaded=new SettingsStore({registry,storage});
+ assert.equal(reloaded.get('loadout.soFistSkill'),'hellpingHand');
+ assert.equal(normalizeSiegeLoadout({soFist:reloaded.get('loadout.soFistSkill')}).soFist,'hellpingHand');
+
+ const room=new Room('HELLPING_ARMORY',{mode:'PRACTICE'});
+ room.state='PLAYING';room.world=structuredClone(ground);
+ const operator=room.addPlayer({id:'hel',token:'hel',name:'HELLping Tester',
+   siegeLoadout:{soFist:reloaded.get('loadout.soFistSkill')}},0);
+ const ramMachine=room.soFistication=createSoFistication({x:0,y:0,z:0,heading:0});
+ operator.position=soFistEntry(ramMachine,room.world);
+ assert.equal(mountSoFistication(room,ramMachine,operator,0),true);
+ assert.equal(ramMachine.skill.id,'hellpingHand',
+   'the chosen persisted personal Skill must become the live mounted skill');
+ assert.equal(primeSoFistSkill(room,ramMachine,operator,0),null);
+ assert.equal(ramMachine.hellping?.phase,'open',
+   'the selected Skill must actually open the palm instead of priming Beat to the Punch');
 });
 test('Fight-and-Flight Armory preserves the full authored lore with paragraphs and emphasis',()=>{
  const view=siegeArmoryView({fightFlight:'doNotStopMyAscension'});

@@ -1,5 +1,6 @@
 import { galeSwipeMode } from '../../shared/src/galeModes.mjs';
-import {soFistOperator} from '../../shared/sim/soFistication.mjs';
+import {soFistOperator,soFistEntry} from '../../shared/sim/soFistication.mjs';
+import {flightMountReach,ramMountReach,ballistaMountReach} from '../../shared/src/siegeMountReach.mjs';
 import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
 import {BI_BYE_WEAPONS} from '../../shared/sim/biByeWeapons.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
@@ -25,11 +26,12 @@ import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
 //
-// Left of STICK_ZONE: a fixed visual movement stick, steered by thumb displacement. Everywhere else: drag to look.
-// Action thumbs can also turn the camera while held (even if the action fires on press), without
-// transferring ownership to buttons they cross. Prepared-spell choice and ram hydraulic swipes
-// retain their dedicated gestures. The Ultimate thumb can steer a held Full Gale + Full
-// Lightning teleport only when the authoritative 3D-aim flag is active.
+// Left of STICK_ZONE: a fixed visual movement stick, steered by thumb displacement. Everywhere else: drag to look. Attack and Guard also turn the view
+// while held, so a thumb can swing and aim in one motion. The Ultimate
+// thumb can also steer ANY held Full Lightning teleport, independently
+// of Gale. Camera look is free in 3D, while Lightning-only travel stays
+// ground-locked. Touch position tracking and actual look both start at DOWN:
+// do not lose the first swipe waiting for the host's held-state snapshot.
 
 const STICK_ZONE = 0.42;
 const aimDragAction=(action,flight,disaster=false,ram=false)=>
@@ -487,6 +489,14 @@ export class TouchControls {
     if (this.layer.classList.contains('touch-layout-editing')) return;
     if (this.inspectionFlight) return;
     if (!local) return;
+    // The real equipped infusion is already in the latest snapshot before
+    // the held Ultimate acknowledgment arrives. Use it to grant immediate
+    // thumb-look during a legitimate Full Lightning press, not just Gale+Lightning.
+    this.fullLightningEquipped=Boolean(local.alive &&
+      local.ultimate==='one_hit_of_wonders' &&
+      (local.ultimateState?.preparedTiers?.lightning ??
+        local.practiceOneHit?.stages?.lightning ??
+        local.oneHitInfusions?.lightning)===2);
     this.galeAvailable = local.spell === 'gale' && (practice || (local.spellReadyAt ?? 0) <= serverNow || local.castingSpell === 'gale');
     this.prepared = preparedSpellView(local, serverNow);
     this.input.updatePreparedSpells(local, serverNow);
@@ -607,8 +617,16 @@ export class TouchControls {
       const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),
         ballista=Boolean(local.alive&&local.operatingBallistaId),
         fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
-      const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&local.position&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
-      const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
+      // The same world-space boarding envelope drives the touch affordance
+      // AND authoritative mounting. High Grounds has elevated decks sharing
+      // X/Z: never invite a mount from a different floor, and never hide a
+      // valid approach just because its distance exceeds an old UI-only 2.5m.
+      const nearFlight=Boolean(local.alive&&fb&&fb.health>0&&!fb.retired&&
+        !fb.operatorId&&(!fb.team||fb.team===local.team)&&
+        flightMountReach(local,fb));
+      const nearRam=Boolean(local.alive&&rb&&rb.health>0&&!rb.retired&&
+        !rb.operatorId&&(!rb.team||rb.team===local.team)&&
+        ramMountReach(local,rb,soFistEntry(rb),station));
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight||
         this.ramMounted!==ram||this.ballistaMounted!==ballista;
@@ -822,7 +840,9 @@ export class TouchControls {
         this.buttons.siegeBoth.dataset.volley=secondary??'';
         this.buttons.siegeBoth.setAttribute('aria-label',combat.secondaryDescription??'Combined volley unavailable');
       }
-      const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
+      const near=Boolean(local.alive&&bl&&bl.health>0&&
+        bl.mode!=='DESTROYED'&&!bl.retired&&!bl.operatorId&&
+        (!bl.team||bl.team===local.team)&&ballistaMountReach(local,bl));
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
         // VIEW is now a Spellblade control too: upper right while on foot.
@@ -900,20 +920,22 @@ export class TouchControls {
       button.setAttribute('aria-label', name);
       button.querySelector('svg')?.replaceWith(document.createRange().createContextualFragment(iconSvg(view.ultimate.id, 'sunder')));
     }
-    // Tell the player that the held Full Gale+Lightning Ultimate button
-    // itself is now a 3D aiming surface, not a fixed-direction trigger.
+    // All Full Lightning charges have free thumb-look. The label clarifies
+    // that only a simultaneous Full Gale permits AIRBORNE teleport movement.
     // A second finger can still drag the ordinary look area instead.
-    const teleport3D = local.ultimateState?.id === 'one_hit_of_wonders' &&
+    const teleportAim = local.ultimateState?.id === 'one_hit_of_wonders' &&
       local.ultimateState.phase === 'startup' &&
-      local.ultimateState.preparedTiers?.gale === 2 &&
       local.ultimateState.preparedTiers?.lightning === 2 &&
       Number.isFinite(local.ultimateState.teleportHoldAt);
-    button.classList.toggle('teleport-aim',teleport3D);
-    button.setAttribute('aria-label',teleport3D
-      ? 'Hold and drag to aim Full Gale Lightning in 3D, then release to teleport'
+    const aerialTravel=teleportAim&&local.ultimateState.preparedTiers?.gale===2;
+    button.classList.toggle('teleport-aim',teleportAim);
+    button.setAttribute('aria-label',teleportAim
+      ? aerialTravel
+        ? 'Drag to look freely and teleport in 3D with Full Gale and Full Lightning'
+        : 'Drag to look freely; Full Lightning teleports along the ground, even when you look up'
       : (view.ultimate.short ?? view.ultimate.label).toUpperCase());
     // Its normal Ultimate word comes back as soon as the held aim ends.
-    const word = teleport3D ? 'DRAG TO AIM' :
+    const word = teleportAim ? 'DRAG TO AIM' :
       (view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase());
     const label = button.querySelector('span');
     if (label.textContent !== word) label.textContent = word;
@@ -1320,11 +1342,14 @@ export class TouchControls {
     // first few frames before a held-teleport snapshot arrives. Otherwise
     // the first acknowledged frame would lurch by the ENTIRE old drag.
     tracker.clientX=event.clientX;tracker.clientY=event.clientY;
-    // Ordinary Ultimates keep their gesture semantics. A Gale-Lightning
-    // charge alone turns the held Ultimate button into a directional 3D
-    // trackpad, releasing to blink along the final aim.
+    // Ordinary Ultimates and mounted flight keep their gesture semantics.
+    // Full Lightning makes the held thumb a look trackpad regardless of
+    // Gale's tier. Full Gale only affects the legal TELEPORT trajectory.
+    // Locally equipped tiers let the first swipe work before host ack;
+    // authoritative held state remains the source of actual teleport legality.
     if(held==='ultimate'&&
-      !(this.input.disasterThreeDAim&&this.input.ultimateGesture==='charge'))return;
+      !(this.input.ultimateGesture==='charge'&&
+        (this.input.disasterThreeDAim||this.fullLightningEquipped)))return;
     if (!this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false)) return;
     const look = this.input.look ?? { touch: 1, invertY: false };
     this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
@@ -1439,8 +1464,8 @@ export class TouchControls {
     if (aimDragAction(action,this.flightMounted,true,this.ramMounted)) {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
-      // An ordinary Ultimate does not acquire Look; it merely records the
-      // initial coordinate in case Full Gale+Lightning becomes held.
+      // An ordinary Ultimate does not acquire Look; only a held Full
+      // Lightning press can turn this tracked thumb into a look surface.
       if(action!=='ultimate')
         this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }

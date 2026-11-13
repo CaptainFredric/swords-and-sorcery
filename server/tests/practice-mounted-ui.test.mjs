@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.mjs';
+import {WORLD_IDS,getWorld} from '../../shared/worlds/registry.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 
 function setup(mode='PRACTICE'){
@@ -35,6 +36,52 @@ test('opening Practice controls never dismounts, resets, or teleports a mounted 
  assert.deepEqual(cmd({type:'flightEject',down:true},2.1),{});
  assert.equal(m.ejectHoldStartedAt,2.1,'normal operator input resumes upon closing UI');
  cmd({type:'flightEject',down:false,cancel:true},2.2);
+});
+test('stale Practice drawer focus cannot silently discard a NEW Mount request',()=>{
+ const {room,p,m,cmd}=setup();
+ // A previously dismissed drawer left a focus packet outstanding.
+ m.operatorId=null;p.operatingFightFlightId=null;p.position={x:2.9,y:0,z:0};
+ assert.deepEqual(cmd({type:'practiceUiFocus',open:true},1),{});
+ assert.equal(p.practiceUiFocus,true);
+ const mounted=cmd({type:'siegeOperate'},1.1);
+ assert.deepEqual(mounted,{},mounted.rejected);
+ assert.equal(m.operatorId,p.id);
+ assert.equal(p.operatingFightFlightId,m.id);
+ assert.equal(p.practiceUiFocus,false,'successful board clears stale focus');
+});
+
+test('Practice Mount on High Grounds distinguishes a nearby cockpit from a deck 12m above it',()=>{
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,WORLD_IDS.HIGH_GROUNDS);
+ room.world=getWorld(WORLD_IDS.HIGH_GROUNDS);room.state='PLAYING';
+ const p=room.addPlayer({id:'height-pilot',token:'height',name:'Pilot'},0);
+ const m=createFightFlight({x:0,y:0,z:0});room.fightFlight=m;
+ p.position={x:2,y:12,z:0}; // supported elevated crown bridge, not the ground-level road
+ const elevated=applyRoomCommand(room,p,{type:'siegeOperate'},1);
+ assert.match(elevated.rejected,/same elevation/i);
+ assert.equal(m.operatorId,null);
+ p.position={x:2.9,y:0,z:0};
+ const boarded=applyRoomCommand(room,p,{type:'siegeOperate'},1.5);
+ assert.equal(boarded.rejected,undefined,boarded.rejected);
+ assert.equal(m.operatorId,p.id);
+ assert.equal(p.operatingFightFlightId,m.id);
+});
+
+test('a real Practice-built Fight-and-Flight on High Grounds is boardable by mobile-range approach',()=>{
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,WORLD_IDS.HIGH_GROUNDS);
+ room.world=getWorld(WORLD_IDS.HIGH_GROUNDS);room.state='PLAYING';
+ const p=room.addPlayer({id:'builder-pilot',token:'builder',name:'Pilot'},0);
+ p.position={x:0,y:0,z:-40};
+ p.yaw=0;
+ const built=applyRoomCommand(room,p,
+   {type:'practiceSiege',action:'build',machine:'fight-and-flight'},1);
+ assert.equal(built.rejected,undefined,built.rejected);
+ const m=room.fightFlight;
+ assert.ok(m&&m.health>0);
+ p.position={x:m.x+3,y:m.y,z:m.z};
+ const mount=applyRoomCommand(room,p,{type:'siegeOperate'},1.5);
+ assert.equal(mount.rejected,undefined,
+   'a Practice-built machine on High Grounds must actually board: '+mount.rejected);
+ assert.equal(p.operatingFightFlightId,m.id);
 });
 test('Practice focus is neither a PvP dismount bypass nor an unrestricted bot command',()=>{
  const {room,p,cmd}=setup('FREE_FOR_ALL');

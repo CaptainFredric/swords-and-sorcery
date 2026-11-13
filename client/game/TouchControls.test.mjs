@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TouchControls } from './TouchControls.mjs';
 import { InputController } from './InputController.mjs';
+import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialSession } from '../tutorial/TutorialSession.mjs';
 
@@ -74,9 +75,10 @@ const local = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'fr
   ultimateState: { id: 'chivalry', phase: 'active', until: 19 }, chivalryProjectileReadyAt: 0 };
 
 test('siege controls appear only in real interaction range or while mounted and clear on death', () => {
-  const p = { alive: true, spell: 'fireball', position: { x: 0, z: 3.1 } };
+  const p = { alive: true, spell: 'fireball', position: { x: 0, y: 0, z: 3.1 } };
   const { controls, input, send } = setup(p);
-  const b = { id: 'siege', position: { x: 0, z: 0 }, mode: 'MOBILE' };
+  const b = { id: 'siege', x: 0, y: 0, z: 0, health:650,
+    interactRadius:3.2, position: { x: 0, y:0, z: 0 }, mode: 'MOBILE' };
   controls.update(p, 10, { snapshot: { bibyeBallista: b } });
   assert.equal(controls.buttons.interact.hidden, false);
   assert.equal(controls.buttons.deploy.hidden, true);
@@ -92,6 +94,37 @@ test('siege controls appear only in real interaction range or while mounted and 
   controls.update({ ...p, alive: false }, 10, { snapshot: { bibyeBallista: b } });
   assert.equal(controls.buttons.interact.hidden, true);
   assert.equal(controls.buttons.siegeView.hidden, true);
+});
+
+test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOperate',()=>{
+  const pilot={alive:true,spell:'fireball',position:{x:3.1,y:0,z:0}};
+  const {input,controls,send}=setup(pilot);
+  const machine={id:'flight',x:0,y:0,z:0,health:250,rotorHP:100,grounded:true};
+  const sent=[];input.socket.send=message=>sent.push(message);
+  controls.update(pilot,10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,false,
+    '3.1m is inside the authoritative range even though old touch UI used 2.5m');
+  assert.match(controls.buttons.interact.getAttribute('aria-label'),/Fight-and-Flight/);
+  send('pointerdown',600,300,{action:'interact',pointerId:222});
+  send('pointerup',600,300,{action:'interact',pointerId:222});
+  assert.deepEqual(sent,[{type:'siegeOperate'}],
+    'the mobile Mount button sends the real authoritative command once');
+  controls.update({...pilot,position:{x:1,y:12,z:0}},10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,true,
+    'standing on a 12m-high bridge above the same machine is not boarding range');
+  controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,false);
+});
+
+test('mobile Mount reach applies the same elevation rule to ballista and ram',()=>{
+  const pilot={alive:true,spell:'fireball',position:{x:1,y:12,z:0}};
+  const {controls}=setup(pilot);
+  const ballista={id:'ballista',x:0,y:0,z:0,mode:'MOBILE',health:650,
+    position:{x:0,y:0,z:0},interactRadius:3.2};
+  controls.update(pilot,10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.hidden,true,'no Ballista mount through bridge');
+  controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.hidden,false,'ground-level ballista shows Mount');
 });
 
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {
@@ -1767,10 +1800,11 @@ test('dragging the held Full Gale + Full Lightning Ultimate thumb steers 3D tele
   assert.equal(sent.length,1,'no release on child lostpointercapture');
   assert.ok(controls.aim.has(73),'the same held thumb has an aim tracker');
 
-  // Before the first authoritative held snapshot arrives, coordinate
-  // tracking must continue without turning or accumulating an old delta.
+  // Equipped Full Lightning permits LOOK immediately, even before the
+  // held-state acknowledgment. There is no locked first swipe to throw away.
+  input.touch=controls;
   send('pointermove',590,240,finger);
-  assert.equal(input.pitch,0);
+  assert.ok(input.pitch>.25,'initial drag is visible before the first snapshot');
   input.disasterThreeDAim=true;
   send('pointermove',635,90,finger);
   assert.ok(input.pitch>.6,'upward drag can aim at a point IN THE AIR');
@@ -1782,6 +1816,57 @@ test('dragging the held Full Gale + Full Lightning Ultimate thumb steers 3D tele
     'atomic release sends the FINAL directional 3D target to the host');
   assert.equal(controls.aim.has(73),false);
   assert.equal(controls.held.has(73),false);
+});
+
+test('Full Lightning WITHOUT Gale allows held-thumb free swipe and vertical view but ground-only teleport',()=>{
+  const {input,controls,send}=setup({
+    alive:true,spell:'fireball',ultimate:'one_hit_of_wonders',
+    oneHitInfusions:{fire:0,frost:0,gale:0,lightning:2,steel:0},prowess:100,
+  });
+  input.touch=controls; // Production GameRuntime binds the same two objects.
+  const sent=[];
+  input.socket.ultimate=arg=>sent.push(['start',arg]);
+  input.socket.oneHitRelease=arg=>sent.push(['release',arg]);
+  const finger={action:'ultimate',pointerId:97};
+  assert.equal(controls.fullLightningEquipped,true);
+  assert.equal(input.disasterThreeDAim,false,'no server acknowledgment is necessary');
+  send('pointerdown',630,350,finger);
+  send('pointermove',690,90,finger);
+  assert.ok(input.yaw<-.25,'held Ultimate thumb turns horizontally without Gale');
+  assert.ok(input.pitch>.8,'held Ultimate thumb looks up without Gale');
+  // Push the thumb further, all the way overhead, before any state packet.
+  send('pointermove',690,-180,finger);
+  assert.ok(Math.abs(input.pitch-Math.PI/2)<1e-9,
+    'Full Lightning-only camera can look vertically even during initial ack latency');
+  const actualYaw=input.yaw,actualPitch=input.pitch;
+  // The aiming freedom never grants Full Gale's vertical MOVEMENT.
+  const world={floors:[{center:[0,-.1,0],size:[200,.2,200],y:0}],solids:[]};
+  const plan=planOneHitTeleport({origin:{x:0,y:0,z:0},
+    yaw:actualYaw,pitch:actualPitch,allowVertical:false,holdSec:1.5,world});
+  assert.equal(plan.legal,true);
+  assert.equal(plan.grounded,true);
+  assert.equal(plan.end.y,0,'the teleport remains ground-bound');
+  send('pointerup',690,-180,finger);
+  assert.deepEqual(sent.map(([kind])=>kind),['start','release']);
+  assert.deepEqual(sent[1][1],{cancel:false,yaw:actualYaw,pitch:actualPitch},
+    'the release packet preserves the last freely swiped direction');
+});
+
+test('Full Lightning with held Ultimate supports a separate look finger in addition to its own thumb',()=>{
+  const {input,controls,send}=setup({alive:true,ultimate:'one_hit_of_wonders',
+    oneHitInfusions:{gale:0,lightning:2},prowess:100});
+  input.touch=controls;
+  input.socket.ultimate=()=>{};
+  input.socket.oneHitRelease=()=>{};
+  const held={action:'ultimate',pointerId:98};
+  send('pointerdown',650,390,held);
+  send('pointerdown',600,270,{target:controls.layer,pointerId:99});
+  assert.equal(controls.look.id,99,'second finger is an independent camera trackpad');
+  send('pointermove',750,140,{target:controls.layer,pointerId:99});
+  assert.ok(input.yaw<-.5&&input.pitch>.5);
+  assert.equal(controls.held.get(98),'ultimate','second-finger look never releases teleport');
+  send('pointerup',750,140,{target:controls.layer,pointerId:99});
+  send('pointerup',650,390,held);
 });
 
 test('ordinary Ultimates cannot rotate from their button, and a cancelled Gale drag never teleports', () => {

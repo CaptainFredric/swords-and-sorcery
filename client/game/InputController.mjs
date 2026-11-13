@@ -400,9 +400,12 @@ export class InputController {
     if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
     const gain=(this.mountedRam?this.look.ram:1)*this.aimGain;
     this.yaw += yawDelta*gain;
-    // Most combat keeps its original camera comfort limits. Only a held
-    // Full-Lightning + Full-Gale teleport admits a truly vertical destination.
-    const pitchLimit=this.disasterThreeDAim ? Math.PI/2 : 1.45;
+    // Full Lightning grants free LOOK (including directly overhead) with
+    // or without Gale. Only Gale makes the TELEPORT itself vertical. During
+    // initial mobile frames use equipped tiers until the held-state ack arrives.
+    const lightningTouchLook=this.ultimateGesture==='charge'&&
+      Boolean(this.touch?.fullLightningEquipped);
+    const pitchLimit=this.disasterThreeDAim||lightningTouchLook?Math.PI/2:1.45;
     this.pitch = Math.max(-pitchLimit, Math.min(pitchLimit, this.pitch + pitchDelta*gain));
   }
 
