@@ -10,8 +10,8 @@ import {SO_FIST_SCALE,soFistFrame,soFistSolids,machineryOverlap} from './soFistG
 import {soFistUpperPoint} from './soFistElevation.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-export const HELLPING=Object.freeze({crushSeconds:4,reach:2.25,openSeconds:.6,
-  vaultSeconds:1.1,vaultTravel:1.15*SO_FIST_SCALE,vaultHeight:.969,cooldown:24});
+export const HELLPING=Object.freeze({crushSeconds:4,reach:2.25,openSeconds:1,
+  vaultSeconds:3,vaultTravel:1.15*SO_FIST_SCALE,vaultHeight:.969,cooldown:24});
 const site=(b,y,z)=>soFistUpperPoint(soFistFrame(b),b,[0,y*SO_FIST_SCALE,z*SO_FIST_SCALE]);
 const palm=b=>site(b,.34,.885);
 const seat=b=>site(b,.33,.715);
@@ -63,7 +63,7 @@ export function releaseHellpingHand(room,b,now,{force=false}={}){
  const h=b?.hellping;
  if(!h||h.phase==='release')return true;
  if(!dislodge(room,b,now,force))return false;
- b.hellping={phase:'release',at:now,until:now+.5};
+ b.hellping={phase:'release',at:now,until:now+1.2};
  if(b.skill?.id==='hellpingHand'){
   b.skill.phase='idle';
   b.skill.readyAt=Math.max(b.skill.readyAt??0,now+SIEGE_SKILLS.hellpingHand.cooldown);
@@ -142,14 +142,15 @@ export function stepHellpingHand(room,b,dt,now){
   if(!p?.alive||p.hellpingCapturedBy!==b.id){
    releaseHellpingHand(room,b,now,{force:true});return;
   }
-  const interval=clamp(now-Math.max(h.at,h.lastAt??h.at),0,dt);
+  const crushAt=h.at+1;
+  const interval=clamp(now-Math.max(crushAt,h.lastAt??crushAt),0,dt);
   const q=palm(b),height=postureOf(p).height;
   p.position={x:q[0],y:Math.max(b.y,q[1]-height*.5),z:q[2]};
   p.velocity={x:0,y:0,z:0};p.staggerUntil=Math.max(p.staggerUntil??0,now+.16);
   if(interval>0)applyDamage(room,b.operatorId,p.id,(p.maxHealth??100)*.25*interval,
     'hellping-crush',now,null,{ongoing:true});
   h.lastAt=now;
-  if(now-h.at>=HELLPING.crushSeconds){
+  if(now-h.at>=1+HELLPING.crushSeconds){
    if(p.alive)applyDamage(room,b.operatorId,p.id,p.health+1,
      'hellping-crush',now,null,{ongoing:true});
    releaseHellpingHand(room,b,now,{force:true});
