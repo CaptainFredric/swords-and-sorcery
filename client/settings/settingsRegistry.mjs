@@ -232,7 +232,8 @@ registry
     id: 'loadout.soFistSkill', section: 'loadout', label: 'SO-FIST-ICATION Skill', type: 'choice',
     default: 'beatToThePunch',
     options: [{value:'beatToThePunch',label:'Beat to the Punch'},
-      {value:'longArmToTheJaw',label:'Long Arm to the Jaw'}]
+      {value:'longArmToTheJaw',label:'Long Arm to the Jaw'},
+      {value:'hellpingHand',label:'HELLping Hand'}]
   })
   .defineSetting({
     id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: 'fireAwayRightHere',
