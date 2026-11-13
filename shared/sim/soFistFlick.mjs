@@ -47,6 +47,7 @@ export function canFlick(b,now){
   return Boolean(b&&!b.retired&&b.health>0&&b.fistMounted!==false&&
     (b.components?.Fist?.health??0)>0&&
     (b.components?.Drive?.health??0)>0&&
+    (!b.hellping||b.hellping.phase==='release')&&
     (b.strikeAt==null||now-b.strikeAt>=FLICK.cycle)&&
     (b.flickAt==null||now-b.flickAt>=FLICK.cycle));
 }
