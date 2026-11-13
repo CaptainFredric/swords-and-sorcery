@@ -60,6 +60,7 @@ import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/coll
 import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { stepLiveSwordTechnique, interruptSwordTechnique } from './swordTechniqueLive.mjs';
 import { techniqueInterception } from './swordTechnique.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS } from '../src/swordTechniqueContracts.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
@@ -77,9 +78,9 @@ const RESPAWN_SEC = 3;
 const SPAWN_PROTECTION_SEC = 1;
 // a guard's stamina comes back once the pressure on it has let up for a moment (a blow on it, a gust, a sprint all
 // start the wait again), whether or not the guard is still raised; held up, it comes back a little slower
-const GUARD_REGEN_DELAY_SEC = 1;
-const GUARD_REGEN_PER_SEC = 40;
-const GUARD_REGEN_GUARDING = 0.6;
+const GUARD_REGEN_DELAY_SEC = 1.45;
+const GUARD_REGEN_PER_SEC = 27;
+const GUARD_REGEN_GUARDING = 0.55;
 const HEALTH_REGEN_DELAY_SEC = HEALTH_REGEN.delaySec;
 const HEALTH_REGEN_PER_SEC = HEALTH_REGEN.perSec;
 const ABYSS_ATTRIBUTION_SEC = 5;
@@ -2197,15 +2198,19 @@ function oneHitConduct(room,target,offered,nowSec) {
   return true;
 }
 
-// Full Steel: every Skill the struck knight carries starts its cooldown again from now, ready or not. Nothing else
-// of theirs (Prowess, the dash, the match) is touched.
+// Full Steel restarts the struck knight's equipped skills, Dash and Sword Technique.
+// These are separate, authoritative cooldown clocks; Prowess is not reset.
 function restartSkillCooldowns(room,caster,target,nowSec) {
   const ids=[...new Set([target.spell,...(target.preparedSpells??[]),...Object.keys(target.spellReadyById??{})])]
     .filter(id=>typeof id==='string'&&spellFor(id).id===id);
   target.spellReadyById??={};
   for(const id of ids)target.spellReadyById[id]=nowSec+spellFor(id).cooldownSec;
   if(target.spell&&target.spellReadyById[target.spell]!==undefined)target.spellReadyAt=target.spellReadyById[target.spell];
-  room.events.push({type:'oneHitCooldownsRestarted',playerId:target.id,by:caster.id,skills:ids,at:nowSec});
+  target.dashReadyAt=nowSec+MOVEMENT.dashCooldown;
+  const technique=SWORD_TECHNIQUE_CONTRACTS[target.technique];
+  if(technique)target.swordTechniqueReadyAt=nowSec+technique.cooldown;
+  room.events.push({type:'oneHitCooldownsRestarted',playerId:target.id,by:caster.id,
+    skills:[...ids,'dash',...(technique?[technique.id]:[])],at:nowSec});
 }
 
 // What the blow leaves on a knight it reached. `direct`: they were genuinely struck by the decisive hit itself (the
