@@ -1,0 +1,48 @@
+name: Full Gale Lightning true 3D teleport desktop and touch
+on:
+  pull_request:
+    paths:
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/game/TouchControls.test.mjs'
+      - 'shared/src/oneHitTrajectory.mjs'
+      - 'shared/src/oneHitTrajectory.test.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'server/tests/disaster-gale-reposition.test.mjs'
+      - 'scripts/disaster-3d-teleport-browser.mjs'
+      - '.github/workflows/disaster-free-aim.yml'
+permissions:
+  contents: read
+jobs:
+  free-aim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Shared host aim, touch gestures, and browser import checks
+        run: |
+          node --check scripts/disaster-3d-teleport-browser.mjs
+          npm run check:browser-imports
+          node --test client/game/TouchControls.test.mjs client/game/InputController.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Desktop and touch actual held Ultimate aiming and upward teleport
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/disaster-3d-teleport-browser.mjs
+      - name: Preserve 3D aiming and arrival screenshots and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-gale-3d-teleport-browser
+          path: output/playwright/disaster-3d-teleport/
+          retention-days: 7
