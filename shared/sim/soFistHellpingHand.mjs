@@ -84,7 +84,9 @@ export function exitHellpingHand(room,b,p,now){
  const exit=safeExit(room,b,p);
  if(!exit)return false;
  p.position=exit;delete p.hellpingCarriedBy;
- b.hellping={phase:'open',at:now-HELLPING.openSeconds};
+ // Keep the open-palm mechanics while all clients play Argon's real rear
+ // egress clip; exitAt replicates with the ordinary authoritative snapshot.
+ b.hellping={phase:'open',at:now-HELLPING.openSeconds,exitAt:now};
  emit(room,b,'passengerExited',now,{passengerId:p.id});return true;
 }
 function vault(room,b,now,direction){
