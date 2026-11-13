@@ -842,3 +842,15 @@ body.touch-layout-editor-open #practice-overlay {
  font-size:6px;letter-spacing:.025em;max-width:94%;overflow-wrap:anywhere;
  text-align:center;line-height:1.15
 }
+
+/* Compact mobile feedback belongs to the thumb-side lower-left margin,
+   not in the central sightline or over the subtitles. */
+.touch-ui .status-flash {
+  left:calc(var(--safe-l,0px) + 12px);
+  bottom:calc(var(--safe-b,0px) + 8px);
+  width:max-content;max-width:min(235px,31cqw);
+  padding:4px 8px;text-align:left;font-size:9px;
+  transform:translateY(5px);
+}
+.touch-ui .status-flash.show {transform:translateY(0);}
+.touch-ui .hud.ballista-mounted:not(.flight-mounted) .ballista-hud {display:none !important;}
