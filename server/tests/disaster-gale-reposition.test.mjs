@@ -76,7 +76,9 @@ test('Full Gale plus Lightning teleports UP from the ground, then aims the wave 
   const snap=serializeSnapshot(room,10.2,'a').players.find(p=>p.id==='a');
   assert.ok(snap.ultimateState.oneHit.aimUntil>10.2);
   a.input.yaw=0;a.input.pitch=-.6;
-  run(room,10.2,10.75);
+  run(room,10.2,10.93);
+  assert.equal(waves(room).length,0,'one-second post-arrival vortex is still turning');
+  run(room,10.93,11.25);
   assert.equal(waves(room).length,1);
   assert.ok(waves(room)[0].direction.y<-.5,'wave follows the NEW pitch, not upward teleport pitch');
   assert.ok(waves(room)[0].direction.z<-.7,'independent yaw is live');
