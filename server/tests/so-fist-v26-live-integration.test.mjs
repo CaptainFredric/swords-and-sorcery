@@ -57,6 +57,11 @@ test('HELLping Hand opens, takes one target and performs a lethal 4s crush after
  assert.equal(s.b.hellping.phase,'grasp');
  assert.equal(s.b.hellping.targetId,foe.id);
  assert.equal(foe.hellpingCapturedBy,s.b.id);
+ assert.deepEqual(applyRoomCommand(s.room,foe,{type:'input',forward:1,right:1,attack:true,guard:true},.15),{});
+ assert.equal(foe.input.forward,0,'captured enemy cannot walk out of the closed palm');
+ assert.equal(foe.input.attack,false,'stale attack intent is cleared upon capture');
+ assert.deepEqual(applyRoomCommand(s.room,foe,{type:'attack',down:true},.16),{});
+ assert.equal(foe.attackActive,false,'captured enemy cannot start another attack');
  assert.equal(fireSoFistication(s.room,s.b,.2),false);
  tick(s,.12,5.2);
  assert.equal(foe.alive,false,'uninterrupted full capture completes the crush');
