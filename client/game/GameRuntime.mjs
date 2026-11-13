@@ -1439,10 +1439,10 @@ export class GameRuntime {
     }
     this.trialControlsLocked = trialLocked;
     this.localAuth = auth ?? null;
-    // Match controller pitch limits to the active teleport's actual 3D
-    // capability. Every other spell/weapon keeps the ordinary camera clamp.
-    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState)
-      &&auth?.ultimateState?.preparedTiers?.gale===2);
+    // Full Lightning alone allows unrestricted 3D LOOK, not 3D TRAVEL.
+    // Only Full Gale changes the shared teleport planner's vertical legality.
+    // Do not couple the camera pitch or touch drag permission to Gale.
+    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState));
     // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
