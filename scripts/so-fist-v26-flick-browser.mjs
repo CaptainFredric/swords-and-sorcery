@@ -51,7 +51,9 @@ try{
  report=await evaluate(`(async()=>{
   const THREE=await import('three');
   const {SoFisticationRenderer}=await import('/client/worlds/SoFisticationRenderer.mjs');
-  const {createSoFistication}=await import('/shared/sim/soFistication.mjs');
+  const {createSoFistication,soFistEntry,mountSoFistication}=await import('/shared/sim/soFistication.mjs');
+  const {Room}=await import('/shared/sim/Room.mjs');
+  const {applyRoomCommand,serializeSnapshot}=await import('/shared/sim/wire.mjs');
   const scene=new THREE.Scene(),ram=new SoFisticationRenderer(scene);
   const loaded=await ram.load();
   const s={loaded,installed:Boolean(ram.v26HandInstalled),
@@ -64,7 +66,15 @@ try{
   const hand=ram.nodes.get('Armored_Fist'),i1=ram.nodes.get('Index_1'),i2=ram.nodes.get('Index_2'),i3=ram.nodes.get('Index_3');
   s.hierarchy={hand:hand?.name,handParent:hand?.parent?.name,index1:i1?.parent?.name,index2:i2?.parent?.name,index3:i3?.parent?.name,
     indexMeshes:[i1,i2,i3].map(node=>{let vertices=0;node?.traverse(o=>{if(o.isMesh)vertices+=o.geometry?.attributes?.position?.count??0;});return vertices;})};
-  const b=createSoFistication({id:'visual-proof',x:0,y:0,z:0,heading:0});b.flickAt=10;
+  const room=new Room('FLICK_VISUAL',{mode:'PRACTICE'});room.state='PLAYING';
+  room.world={solids:[],ramps:[],floors:[{id:'floor',center:[0,-.1,0],size:[120,.2,120],y:0}],spawnPoints:[{x:0,y:0,z:0}],abyssY:-30};
+  const p=room.addPlayer({id:'visual-operator',token:'visual-operator',name:'Visual Operator'},0);
+  room.soFistication=createSoFistication({id:'visual-proof',x:0,y:0,z:0,heading:0});
+  p.position=soFistEntry(room.soFistication,room.world);p.spawnProtectionUntil=0;
+  s.mounted=mountSoFistication(room,room.soFistication,p,9.9);
+  s.command=applyRoomCommand(room,p,{type:'ramFlick'},10);
+  const b=serializeSnapshot(room,10,p.id).soFistication;
+  s.replicatedFlickAt=b?.flickAt;
   for(const age of [.1,.4,.65,.7,.75,.8,.85,1.2,2.4,3.4]){
    const now=10+age;ram.update(now,b);ram.group.updateMatrixWorld(true);
    const indexTip=i3?.localToWorld(new THREE.Vector3(-.0138,.0214,-.1366));
@@ -76,6 +86,9 @@ try{
  })()`);
  console.log('[ARGON FLICK RENDER]',JSON.stringify(report));
  await writeFile(out+'/result.json',JSON.stringify(report,null,2));
+ assert.equal(report.mounted,true,'The operator actually mounted the machine');
+ assert.deepEqual(report.command,{},'Real ramFlick wire command was accepted');
+ assert.equal(report.replicatedFlickAt,10,'Flick timestamp survived serialization into the network snapshot');
  assert.equal(report.loaded,true,'Real production ram asset must load in Chrome');
  assert.equal(report.installed,true,'Original 26-clip GLB must graft onto the hydraulic machine');
  assert.equal(report.hierarchy.index1,'Armored_Fist');
