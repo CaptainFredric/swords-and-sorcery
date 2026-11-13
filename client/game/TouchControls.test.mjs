@@ -130,6 +130,72 @@ test('mobile startup preselects on release and the ordinary spell button still c
   assert.equal(ordinary.calls[0][0], 'cast');
 });
 
+test('Spellblade Spell, Jump, Dash, and Sword Technique can look from their own held thumb', () => {
+  for (const action of ['spell','jump','dash','technique']) {
+    const { input, controls, calls, send } = setup({ alive:true, spell:'fireball', spellReadyAt:0 });
+    const finger={action,pointerId:71};
+    send('pointerdown',650,320,finger);
+    assert.equal(controls.held.get(71),action,action+' claims its own pointer');
+    if(action==='spell')assert.equal(calls.filter(c=>c[0]==='cast').length,1,'tap-to-cast stays immediate');
+    if(action==='dash')assert.equal(calls.filter(c=>c[0]==='dash').length,1,'Dash fires on press');
+    if(action==='jump')assert.equal(controls.jumpHeld,true,'holding Jump still jumps');
+    send('pointermove',590,230,{...finger,target:controls.layer});
+    assert.ok(input.yaw>0,action+' horizontal drag changes camera bearing');
+    assert.ok(input.pitch>0,action+' vertical drag changes camera pitch');
+    assert.equal(controls.held.get(71),action,'drag must not transfer action ownership');
+    const yaw=input.yaw,pitch=input.pitch;
+    send('pointerup',590,230,{...finger,target:controls.layer});
+    assert.equal(controls.held.has(71),false,'release clears action ownership');
+    assert.equal(controls.aim?.has(71),false,'release clears aim tracker');
+    if(action==='jump')assert.equal(controls.jumpHeld,false);
+    send('pointermove',540,180,{...finger,target:controls.layer});
+    assert.equal(input.yaw,yaw,'released thumb cannot continue looking');
+    assert.equal(input.pitch,pitch);
+    controls.dispose();
+  }
+});
+
+test('contextual siege Skill turns with its own touch without duplicating the command', () => {
+  const p={alive:true,spell:'fireball',operatingFightFlightId:'f'};
+  const {input,controls,send}=setup(p);
+  input.mountedFlight=true;
+  const packets=[];input.socket.send=message=>packets.push(message);
+  controls.update(p,10,{snapshot:{fightFlight:{id:'f',health:250,rotorHP:100,grounded:true}}});
+  const finger={action:'siegeSkill',pointerId:72};
+  send('pointerdown',700,300,finger);
+  send('pointermove',630,240,{...finger,target:controls.layer});
+  assert.ok(input.yaw>0&&input.pitch>0,'Skill swipe aims like Guard');
+  send('pointerup',630,240,{...finger,target:controls.layer});
+  assert.equal(packets.filter(message=>message.type==='siegeSkill').length,1,'Skill still activates once');
+  controls.dispose();
+});
+
+test('child capture transfer does not prematurely release any camera-draggable action', () => {
+  for (const action of ['spell','jump','dash','technique']) {
+    const {input,controls,send}=setup({alive:true,spell:'fireball'});
+    const finger={action,pointerId:75};
+    send('pointerdown',650,300,finger);
+    send('lostpointercapture',650,300,{...finger,target:controls.buttons[action]});
+    assert.equal(controls.held.has(75),true,action+' survives child capture transfer');
+    send('pointermove',600,240,{...finger,target:controls.layer});
+    assert.ok(input.yaw>0&&input.pitch>0,action+' can still turn after capture transfer');
+    send('pointercancel',600,240,{...finger,target:controls.layer});
+    assert.equal(controls.held.has(75),false,'genuine cancellation releases '+action);
+    controls.dispose();
+  }
+});
+
+test('prepared spell selection retains its radial swipe without turning the camera', () => {
+  const {input,controls,calls,send}=setup(local);
+  send('pointerdown',600,300);
+  send('pointermove',534,244);
+  assert.equal(input.yaw,0);
+  assert.equal(input.pitch,0);
+  send('pointerup',534,244);
+  assert.deepEqual(calls[0].slice(0,2),['castPreparedSpell','frostfire']);
+  controls.dispose();
+});
+
 test('a held touch stick keeps ordinary movement and requires easing below the Sprint threshold after unlock', () => {
   const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
   input.touch = controls;
@@ -645,7 +711,7 @@ test('mouse clicks on interface controls do not also attack while touch focus is
  input.dispose();
 });
 
-test('Gale casts on press and shapes upward/downward during gather without leaking into look', () => {
+test('Gale shapes upward/downward during gather while its held thumb can also look', () => {
   const {input,controls,calls,send}=setup({alive:true,spell:'gale',spellReadyAt:0});
   const modes=[];input.selectGaleMode=mode=>{modes.push(mode);return true;};
   let turns=0;input.turn=()=>turns++;
@@ -670,7 +736,8 @@ test('Gale casts on press and shapes upward/downward during gather without leaki
   send('pointerup',601,339);
   assert.equal(calls.filter(c=>c[0]==='cast').length,1);
   assert.deepEqual(modes,['burst','balanced','sustained']);
-  assert.equal(turns,0);assert.equal(controls.galeGesture,null);
+  assert.ok(turns > 0, 'Gale shaping does not block the held thumb from turning the camera');
+  assert.equal(controls.galeGesture,null);
   assert.equal(controls.galeIndicator.classList.contains('active'), false);
 });
 
