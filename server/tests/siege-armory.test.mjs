@@ -30,8 +30,8 @@ test('HELLping Hand Armory selection has real copy, survives persistence and equ
  const skill=ram.skills.find(item=>item.id==='hellpingHand');
  assert.equal(skill?.name,'HELLping Hand');
  assert.equal(skill?.equipped,true);
- assert.ok(typeof skill?.line==='string'&&skill.line.includes('capture')===false
-   ? skill.line.includes('seize a nearby enemy'):skill.line?.includes('seize a nearby enemy'));
+ assert.equal(typeof skill?.line,'string');
+ assert.match(skill.line,/seize a nearby enemy/);
  assert.equal(ram.skills.filter(item=>item.equipped).length,1);
  for(const machine of siegeArmoryView({}))
   for(const item of machine.skills) {
