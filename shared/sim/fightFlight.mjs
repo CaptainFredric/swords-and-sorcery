@@ -94,12 +94,13 @@ export function mountFightFlight(room,m,player,now=0){
   if(player.pendingSpell||player.gauntlet||player.ultimateState||player.attackActive)return false;
   if(m.operatorId&&m.operatorId!==player.id)return false;
   if(m.team&&m.team!==player.team)return false;
-  if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>2.5||Math.abs(player.position.y-m.y)>1.5)return false;
+  if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>3.2||Math.abs(player.position.y-m.y)>1.8)return false;
   if(!collisionFree({x:m.x,y:m.y,z:m.z},extraSolids(room,m)))return false;
   const sightSolids=extraSolids(room,m);
   if(sightSolids.some(s=>segmentAabbHit([player.position.x,player.position.y+1.25,player.position.z],[m.x,m.y+1.25,m.z],s)))return false;
-  // Do not imprison the rider in machinery with no safe way to exit.
-  if(!fightFlightExit(room,m,player))return false;
+  // Mounting only requires a safely occupied cockpit. Ejection candidates
+  // are evaluated when leaving, because nearby terrain can change after
+  // boarding. Testing the rear exit here caused false-negative mounts.
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
   // The Armory loadout belongs to the new pilot; physical cooldown remains.
   m.skill={...m.skill,id:equippedFightFlightSkill(player).id};
