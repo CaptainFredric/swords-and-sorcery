@@ -1,5 +1,7 @@
 import { galeSwipeMode } from '../../shared/src/galeModes.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
+import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
+import {BI_BYE_WEAPONS} from '../../shared/sim/biByeWeapons.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
@@ -646,12 +648,14 @@ export class TouchControls {
       };
       if(ballista&&bl){
         const first=Math.max(0,(bl.smallBoltReadyAt??serverNow)-serverNow);
-        const second=bl.mainBoltLoaded===false?
-          Math.max(0,(bl.reloadEndsAt??serverNow)-serverNow):0;
-        setMountedRecovery(this.buttons.attack,first,2.5);
-        setMountedRecovery(this.buttons.siegeSkill,second,4.5);
+        const second=Math.max(bl.mainBoltLoaded===false?
+          Math.max(0,(bl.reloadEndsAt??serverNow)-serverNow):0,
+          bl.skill?.phase==='idle'?Math.max(0,(bl.skill.readyAt??serverNow)-serverNow):0);
+        setMountedRecovery(this.buttons.attack,first,BI_BYE_WEAPONS.upperRecock);
+        setMountedRecovery(this.buttons.siegeSkill,second,
+          Math.max(BI_BYE_WEAPONS.heavyReload,bl.skill?.cooldownSec??0));
       }else if(ram&&rb){
-        const cycle=4.0;
+        const cycle=soFistTiming(rb).cycle;
         const piston=Math.max(0,cycle-Math.max(0,serverNow-(rb.strikeAt??-Infinity)));
         setMountedRecovery(this.buttons.attack,piston,cycle);
         setMountedRecovery(this.buttons.ramFlick,piston,cycle);
