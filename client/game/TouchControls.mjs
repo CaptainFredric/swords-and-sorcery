@@ -24,10 +24,15 @@ import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
 // keyboard, so the server, prediction and animation see no difference between the two.
 //
 // Left of STICK_ZONE: a fixed visual movement stick, steered by thumb displacement. Everywhere else: drag to look. Attack and Guard also turn the view
-// while held, so a thumb can swing and aim in one motion.
+// while held, so a thumb can swing and aim in one motion. The Ultimate
+// thumb can also steer a held Full Gale + Full Lightning teleport. Tracking
+// starts on touchDOWN (before the server confirms the held state), but only
+// changes look when the authoritative 3D-aim flag is active.
 
 const STICK_ZONE = 0.42;
-const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||flight&&(action==='siegeWeapon'||action==='dash');
+const aimDragAction=(action,flight,disaster=false)=>action==='attack'||action==='guard'||
+  flight&&(action==='siegeWeapon'||action==='dash')||
+  action==='ultimate'&&!flight&&disaster;
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -1250,12 +1255,20 @@ export class TouchControls {
       }
       this.#gateHeld('jump',false,source,false);
     }
-    const aiming = aimDragAction(held,this.flightMounted) ? this.aim?.get(event.pointerId) : null;
+    const aiming = aimDragAction(held,this.flightMounted,true) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
     const delta=screenTurn?.vector(event.clientX-tracker.clientX,event.clientY-tracker.clientY)??{x:event.clientX-tracker.clientX,y:event.clientY-tracker.clientY};
     const { yaw, pitch } = lookDelta(delta.x,delta.y);
+    // Always absorb the finger's latest position, including during the
+    // first few frames before a held-teleport snapshot arrives. Otherwise
+    // the first acknowledged frame would lurch by the ENTIRE old drag.
     tracker.clientX=event.clientX;tracker.clientY=event.clientY;
+    // Ordinary Ultimates and mounted flight keep their gesture semantics.
+    // A Gale-Lightning charge alone turns this SAME held button into a
+    // directional 3D trackpad, releasing to blink along the final aim.
+    if(held==='ultimate'&&
+      !(this.input.disasterThreeDAim&&this.input.ultimateGesture==='charge'))return;
     if (!this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false)) return;
     const look = this.input.look ?? { touch: 1, invertY: false };
     this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
@@ -1267,8 +1280,12 @@ export class TouchControls {
     // lostpointercapture for the child when the first move is processed.
     // That is a transfer, NOT a finger release; synthetic PointerEvent tests
     // do not reproduce it. Only loss of the layer's own capture ends input.
-    if(event.type==='lostpointercapture'&&event.target!==this.layer&&
-      this.ritual?.pointerId===event.pointerId)return;
+    // Android implicitly captures the BUTTON first. Transferring that
+    // pointer to our game layer fires a bubbling lostpointercapture on the
+    // child even though the thumb remains down. Never mistake this for a
+    // released Ultimate (or Attack/Guard); layer capture/cancel and actual
+    // pointerup remain the authoritative end of the gesture.
+    if(event.type==='lostpointercapture'&&event.target!==this.layer)return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
@@ -1363,10 +1380,13 @@ export class TouchControls {
 
   #press(action, event) {
     this.held.set(event.pointerId, action);
-    if (aimDragAction(action,this.flightMounted)) {
+    if (aimDragAction(action,this.flightMounted,true)) {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
-      this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
+      // An ordinary Ultimate does not acquire Look; it merely records the
+      // initial coordinate in case Full Gale+Lightning becomes held.
+      if(action!=='ultimate')
+        this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     const gatedAction=this.ramMounted&&(action==='jump'||action==='crouch')?'move':action;
     if (!this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
@@ -1476,7 +1496,8 @@ export class TouchControls {
 
   #release(action, pointerId, cancelled=false) {
     if(this.ramTiltGestures.delete(pointerId))this.buttons[action]?.classList.remove('ram-lift');
-    if (aimDragAction(action,this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
+    if (aimDragAction(action,this.flightMounted,true))
+      this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(this.ramMounted&&(action==='jump'||action==='crouch')?'move':action,
       false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
