@@ -53,6 +53,24 @@ test('Grounded Full Gale gets the slam AND one shared-registry travelling wave',
   assert.equal(terminal[0].radius,ONE_HIT_RULES.waveTerminalRadius);
   assert.equal(terminal[0].groundBlast,true);
 });
+test('a guarding defender stops and detonates Gale wave without duplicate HP or Guard loss',()=>{
+  const {room,a,b}=battle({gale:2});
+  b.position={x:10,y:0,z:0};
+  b.yaw=Math.PI/2;b.input.yaw=b.yaw;
+  b.guarding=true;b.guardStartedAt=0;b.guardStamina=100;
+  assert.equal(tryUltimate(room,'a',9),true);
+  run(room,9,10.8);
+  const explosion=impacts(room).find(e=>e.cause==='guard');
+  assert.ok(explosion,'the wave explodes on a defended sword contact');
+  assert.ok(explosion.point.x>7&&explosion.point.x<12,
+    'impact is near the guard, not the far 22m range limit');
+  assert.equal(damage(room,b.id).length,0,'guarded victim has no decisive HP hit');
+  assert.equal(b.guardStamina,60,'one guard contact costs exactly 40 stamina');
+  assert.equal(waves(room).length,1,'one wave launched');
+  assert.equal(room.events.filter(e=>e.type==='oneHitWaveResolved').length,1,
+    'guarded wave resolves once');
+});
+
 test('Fire terminal wave explosion equals a plain grounded slam, smaller than a Fire slam',()=>{
   const {room,b}=battle({gale:2,fire:1});
   assert.equal(tryUltimate(room,'a',9),true);
