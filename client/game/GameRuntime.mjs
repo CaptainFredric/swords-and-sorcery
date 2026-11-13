@@ -117,7 +117,7 @@ import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { disasterCameraWanted, disasterHolding, disasterTeleportAiming, stepDisasterReveal } from './oneHitCamera.mjs';
-import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
+import { planOneHitTeleport, oneHitFreeAimActive } from '../../shared/src/oneHitTrajectory.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
@@ -1441,8 +1441,7 @@ export class GameRuntime {
     this.localAuth = auth ?? null;
     // Match controller pitch limits to the active teleport's actual 3D
     // capability. Every other spell/weapon keeps the ordinary camera clamp.
-    this.input.disasterThreeDAim=Boolean(disasterTeleportAiming(auth?.ultimateState)
-      &&auth?.ultimateState?.preparedTiers?.gale===2);
+    this.input.disasterThreeDAim=oneHitFreeAimActive(auth?.ultimateState);
     // (the server's word on my chain's form: the arms chose it themselves as it began, by the same rule, and only go
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());

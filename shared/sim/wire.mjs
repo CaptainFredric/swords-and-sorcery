@@ -1,5 +1,6 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
 import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
+import { oneHitInputPitchLimit } from '../src/oneHitTrajectory.mjs';
 import {mountFightFlight,dismountFightFlight,FIGHT_FLIGHT} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
@@ -465,7 +466,10 @@ export function applyRoomCommand(room, player, message, time) {
         attack: Boolean(message.attack)&&!player.restlessCarrying,
         guard: Boolean(message.guard)&&!player.restlessCarrying,
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
-        pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
+        pitch: Number.isFinite(message.pitch)
+          ?Math.max(-oneHitInputPitchLimit(player.ultimateState),
+            Math.min(oneHitInputPitchLimit(player.ultimateState),message.pitch))
+          :player.pitch,
         viewFov: player.operatingFightFlightId&&Number.isFinite(message.viewFov)?
           Math.max(50,Math.min(110,message.viewFov)):78,
         viewAspect: player.operatingFightFlightId&&Number.isFinite(message.viewAspect)?

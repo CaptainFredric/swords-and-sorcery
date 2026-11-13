@@ -27,7 +27,13 @@ import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
-const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||flight&&(action==='siegeWeapon'||action==='dash');
+// The Ultimate button is ALSO an aiming surface on foot. Keeping the finger
+// down charges Full Lightning while that SAME captured finger may drag through
+// yaw and pitch, including straight up with Full Gale. A second look finger
+// remains optional, not required. Mounted Flight keeps its own input scheme.
+const aimDragAction=(action,flight)=>action==='attack'||action==='guard'||
+  (!flight&&action==='ultimate')||
+  (flight&&(action==='siegeWeapon'||action==='dash'));
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -1268,7 +1274,8 @@ export class TouchControls {
     // That is a transfer, NOT a finger release; synthetic PointerEvent tests
     // do not reproduce it. Only loss of the layer's own capture ends input.
     if(event.type==='lostpointercapture'&&event.target!==this.layer&&
-      this.ritual?.pointerId===event.pointerId)return;
+      (this.ritual?.pointerId===event.pointerId||
+       (!this.flightMounted&&this.held.get(event.pointerId)==='ultimate')))return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();

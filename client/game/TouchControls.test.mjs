@@ -206,6 +206,57 @@ test('one held full stick or Sprint latch earns tutorial stamina milestones whil
   }
 });
 
+test('Full Gale + Full Lightning can drag the ULTIMATE button itself to aim upward and behind',()=>{
+  const p={alive:true,spell:'gale',ultimate:'one_hit_of_wonders',prowess:100,
+    position:{x:0,y:0,z:0},grounded:true,ultimateState:{id:'one_hit_of_wonders',
+      phase:'startup',teleportHoldAt:9,preparedTiers:{gale:2,lightning:2}}};
+  const {input,controls,send}=setup(p);
+  input.touch=controls;
+  input.disasterThreeDAim=true;
+  const starts=[],releases=[];
+  input.socket.ultimate=packet=>starts.push(packet);
+  input.socket.oneHitRelease=packet=>releases.push(packet);
+  send('pointerdown',700,370,{action:'ultimate',pointerId:87});
+  assert.deepEqual(starts,[{held:true}]);
+  assert.equal(controls.held.get(87),'ultimate');
+  // Child -> layer pointer capture transfer is NOT a button release.
+  send('lostpointercapture',700,370,{target:controls.buttons.ultimate,pointerId:87});
+  assert.equal(releases.length,0);
+  assert.equal(controls.held.get(87),'ultimate');
+  // One thumb controls both axes, not merely holding a fixed horizontal vector.
+  send('pointermove',480,-35,{action:'ultimate',pointerId:87});
+  assert.ok(input.yaw>1.2);
+  assert.equal(input.pitch,Math.PI/2);
+  assert.equal(releases.length,0,'dragging should not discharge early');
+  send('pointerup',480,-35,{action:'ultimate',pointerId:87});
+  assert.equal(releases.length,1);
+  assert.equal(releases[0].cancel,false);
+  assert.equal(releases[0].pitch,Math.PI/2);
+  assert.ok(releases[0].yaw>1.2);
+  assert.equal(input.ultimateSources.size,0);
+  assert.equal(controls.aim.size,0,'the Ultimate drag owner is cleared on release');
+  controls.dispose();
+});
+
+test('Ultimate drag cancels safely and a second finger can steer without stealing the held Ultimate',()=>{
+  const {input,controls,send}=setup({alive:true,spell:'fireball',ultimate:'one_hit_of_wonders'});
+  input.touch=controls;input.disasterThreeDAim=true;
+  const releases=[];
+  input.socket.ultimate=()=>{};
+  input.socket.oneHitRelease=packet=>releases.push(packet);
+  send('pointerdown',670,340,{action:'ultimate',pointerId:81});
+  send('pointerdown',610,210,{target:controls.layer,pointerId:82});
+  send('pointermove',560,150,{target:controls.layer,pointerId:82});
+  assert.ok(input.pitch>0);
+  assert.equal(controls.held.get(81),'ultimate','independent look finger cannot cancel charging');
+  send('pointercancel',670,340,{action:'ultimate',pointerId:81});
+  assert.equal(releases.length,1);
+  assert.equal(releases[0].cancel,true);
+  send('pointerup',560,150,{target:controls.layer,pointerId:82});
+  assert.equal(input.ultimateSources.size,0);
+  controls.dispose();
+});
+
 test('early held touch Attack and Guard buttons require release and a fresh press', () => {
   for (const action of ['attack', 'guard']) {
     const { input, controls, calls, send } = setup({ alive: true, spell: 'fireball' });
