@@ -666,6 +666,25 @@ test('without Steel the wind-up is still broken by a stagger; a Guard pays its o
   }
 });
 
+test('Full Fire is the guard-piercing infusion for STATUS effects, never a free HP strike',()=>{
+  const {room,b}=battle({tiers:{fire:2,frost:2,gale:1,lightning:1,steel:2}});
+  b.health=1000;b.guarding=true;b.guardStartedAt=0;b.spellReadyAt=0;
+  const before=b.health;
+  slam(room);
+  assert.equal(b.health,before,'direct damage still respects Guard');
+  assert.equal(b.guardStamina,60,'one contact takes the usual 40 Guard stamina');
+  assert.ok(b.oneHitFrostSlow,'Frost gets through the guard');
+  assert.ok(b.electricalBacklash,'Shocking Conduct gets through the guard');
+  assert.ok(b.blustered,'Gale Blustered gets through the guard');
+  assert.ok(b.spellReadyAt>9,'Full Steel status resets skills behind Guard');
+  assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
+  const half=battle({tiers:{fire:1,frost:2,lightning:1}});
+  half.b.guarding=true;half.b.guardStartedAt=0;
+  slam(half.room);
+  assert.equal(half.b.electricalBacklash,null,'Half Fire does not pierce Guard');
+  assert.equal(half.b.oneHitFrostSlow,null);
+});
+
 test('Full Steel: struck knight\'s spells, Dash and Sword Technique all restart cooldown; Prowess remains', () => {
   const { room, b } = battle({ tiers: { steel: 2 } });
   b.health = 1000;
