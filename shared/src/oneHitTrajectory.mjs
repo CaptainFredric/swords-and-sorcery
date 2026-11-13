@@ -6,6 +6,25 @@ import { oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
 const xyz = p => [p.x,p.y,p.z];
 export const oneHitAlong = (a,b,t) => ({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t, z:a.z+(b.z-a.z)*t });
 
+// One shared policy for the client's camera and the host's movement input.
+// Full Lightning + Full Gale can steer the teleport in all three dimensions
+// for the entire hold. A successful airborne arrival retains 3D aiming until
+// the projectile actually launches; no other spell gets this exception.
+export function oneHitFreeAimActive(state) {
+  if(state?.id!=='one_hit_of_wonders'||
+     state.preparedTiers?.lightning!==2||state.preparedTiers?.gale!==2)return false;
+  if(state.phase==='startup')
+    return Number.isFinite(state.teleportHoldAt)&&!state.teleportReleased;
+  if(state.phase==='active')
+    return state.oneHit?.form==='aerial'&&
+      Number.isFinite(state.oneHit?.aimUntil)&&!state.oneHit.waveLaunched;
+  return false;
+}
+
+export function oneHitInputPitchLimit(state) {
+  return oneHitFreeAimActive(state)?Math.PI/2:1.45;
+}
+
 // Aiming comes from the CURRENT view at release, not the facing at charge
 // startup. Any azimuth is legal; only Full Gale grants elevation (up to
 // directly overhead/underfoot). This same function drives server and guide.
