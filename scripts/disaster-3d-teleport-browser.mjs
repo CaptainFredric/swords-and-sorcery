@@ -45,22 +45,21 @@ async function load(url,touch){
   await cdp.send('Page.navigate',{url:url+'/?debug'});
   await wait(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu');
   await click('[data-tutorial-onboarding-skip]');
+  await evaluate("(()=>{const input=document.querySelector('#player-name');input.value='Disaster Tester';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
   await click('#armory-button');
   await click('#armory-slot-masterstroke');
-  if(await evaluate("document.querySelector('#plaque-name-masterstroke')?.textContent?.includes('All-Natural Disaster')")){
-    await click('[data-ultimate=chivalry]');
-    await click('#armory-equip-btn');
-  }
-  await click('[data-ultimate=one_hit_of_wonders]');
+  await click('#armory-ultimates [data-ultimate=one_hit_of_wonders]');
   await click('#armory-equip-btn');
   await click('#armory-inspector-close');
   await click('#armory-back');
   await click('#solo-button');
   await click('#practice-mode');
-  if(await evaluate("document.querySelector('#solo-launch')?.getClientRects()?.length>0"))
-    await click('#solo-launch');
-  else await click('#practice-mode');
-  await wait(()=>evaluate(actor+"?.ultimate==='one_hit_of_wonders'&&"+actor+"?.alive"),'equipped Practice player');
+  await click('#solo-launch');
+  await wait(()=>evaluate(actor+"?.ultimate==='one_hit_of_wonders'&&"+actor+"?.alive"),'equipped Practice player')
+    .catch(async error=>{
+      console.error('[PRACTICE BOOT]',await evaluate("(()=>({screen:document.querySelector('#solo-menu')?.className,loadout:document.querySelector('#plaque-name-masterstroke')?.textContent,actor:window.__ssRuntime?.localAuth?.ultimate,mode:window.__ssSnapshot?.mode,errors:[...document.querySelectorAll('.error-copy')].map(n=>n.textContent).filter(Boolean)}))()"));
+      throw error;
+    });
   await wait(()=>evaluate("document.querySelector('#arena-gate')?.classList.contains('hidden')"),'arena title lifted');
   await click('#practice-drawer-close');
   if(touch){
