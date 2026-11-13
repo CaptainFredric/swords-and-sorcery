@@ -1680,3 +1680,77 @@ test('forgiving Dagaz gestures light only the authored stencil, not a freehand f
    'no raw touch-trail SVG may paint outside the intended rune');
  e.controls.dispose();
 });
+
+test('dragging the held Full Gale + Full Lightning Ultimate thumb steers 3D teleport and releases the final look', () => {
+  const {input,controls,send}=setup({
+    alive:true,spell:'gale',ultimate:'one_hit_of_wonders',
+    oneHitInfusions:{gale:2,lightning:2},prowess:100,
+  });
+  const sent=[];
+  input.socket.ultimate=message=>sent.push({kind:'ultimate',message});
+  input.socket.oneHitRelease=message=>sent.push({kind:'release',message});
+  const finger={action:'ultimate',pointerId:73};
+  send('pointerdown',590,320,finger);
+  assert.equal(input.ultimateGesture,'charge','the actual Ultimate button is held');
+  assert.equal(controls.held.get(73),'ultimate');
+  // On real Android a button first captures its pointer, then the GAME
+  // layer takes ownership. This bubbling CHILD lostcapture is NOT pointerup.
+  send('lostpointercapture',590,320,{...finger,target:controls.buttons.ultimate});
+  assert.equal(input.ultimateGesture,'charge','capture transfer must not prematurely teleport');
+  assert.equal(sent.length,1,'no release on child lostpointercapture');
+  assert.ok(controls.aim.has(73),'the same held thumb has an aim tracker');
+
+  // Before the first authoritative held snapshot arrives, coordinate
+  // tracking must continue without turning or accumulating an old delta.
+  send('pointermove',590,240,finger);
+  assert.equal(input.pitch,0);
+  input.disasterThreeDAim=true;
+  send('pointermove',635,90,finger);
+  assert.ok(input.pitch>.6,'upward drag can aim at a point IN THE AIR');
+  assert.ok(input.yaw<-.22,'sideways drag changes the azimuth');
+  const pitch=input.pitch,yaw=input.yaw;
+  send('pointerup',635,90,finger);
+  assert.deepEqual(sent.map(s=>s.kind),['ultimate','release']);
+  assert.deepEqual(sent[1].message,{cancel:false,yaw,pitch},
+    'atomic release sends the FINAL directional 3D target to the host');
+  assert.equal(controls.aim.has(73),false);
+  assert.equal(controls.held.has(73),false);
+});
+
+test('ordinary Ultimates cannot rotate from their button, and a cancelled Gale drag never teleports', () => {
+  const {input,controls,send}=setup({alive:true,spell:'fireball',ultimate:'sunder',prowess:100});
+  const releases=[];
+  input.socket.ultimate=()=>{};
+  input.socket.oneHitRelease=message=>releases.push(message);
+  const button={action:'ultimate',pointerId:88};
+  send('pointerdown',650,300,button);
+  send('pointermove',530,100,button);
+  assert.equal(input.yaw,0);
+  assert.equal(input.pitch,0,'only an ACTUAL Full Gale Lightning charge can aim from the Ultimate thumb');
+  send('pointerup',530,100,button);
+  assert.deepEqual(releases,[{cancel:false,yaw:0,pitch:0}]);
+
+  input.disasterThreeDAim=true;
+  send('pointerdown',650,300,button);
+  send('pointermove',650,95,button);
+  assert.ok(input.pitch>.8);
+  send('pointercancel',650,95,button);
+  assert.equal(releases.at(-1).cancel,true,
+    'a system pointer cancellation is not permission to teleport');
+  assert.equal(controls.held.has(88),false);
+  assert.equal(input.ultimateGesture,null);
+});
+
+test('real layer capture loss cancels the held teleport, unlike child capture transfer',()=>{
+  const {input,controls,send}=setup({alive:true,spell:'gale',ultimate:'one_hit_of_wonders',prowess:100});
+  const releases=[];
+  input.socket.ultimate=()=>{};
+  input.socket.oneHitRelease=arg=>releases.push(arg);
+  const finger={action:'ultimate',pointerId:89};
+  send('pointerdown',600,320,finger);
+  send('lostpointercapture',600,320,{...finger,target:controls.buttons.ultimate});
+  assert.equal(releases.length,0);
+  send('lostpointercapture',600,320,{...finger,target:controls.layer});
+  assert.deepEqual(releases,[{cancel:true,yaw:0,pitch:0}]);
+  assert.equal(controls.held.has(89),false);
+});

@@ -7,6 +7,7 @@ import {tryUltimate,releaseOneHitCharge,stepRoom,applyDamage} from '../../shared
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {PROWESS} from '../../shared/src/prowess.mjs';
 import {ONE_HIT_RULES} from '../../shared/src/oneHitOfWondersRules.mjs';
+import {planOneHitTeleport} from '../../shared/src/oneHitTrajectory.mjs';
 
 const DT=1/30;
 const world={
@@ -80,6 +81,50 @@ test('Full Gale plus Lightning teleports UP from the ground, then aims the wave 
   assert.ok(waves(room)[0].direction.y<-.5,'wave follows the NEW pitch, not upward teleport pitch');
   assert.ok(waves(room)[0].direction.z<-.7,'independent yaw is live');
 });
+
+test('the final dragged 3D look reaches the authoritative teleport, overriding stale facing on every axis',()=>{
+  const directions=[
+    {name:'up-forward',yaw:0,pitch:.85,axis:'z',sign:-1},
+    {name:'up-right',yaw:-Math.PI/2,pitch:.65,axis:'x',sign:1},
+    {name:'up-behind',yaw:Math.PI,pitch:.82,axis:'z',sign:1},
+    {name:'up-left',yaw:Math.PI/2,pitch:.65,axis:'x',sign:-1},
+    {name:'straight-up',yaw:1.5,pitch:Math.PI/2,axis:'y',sign:1},
+  ];
+  for(const {name,yaw,pitch,axis,sign} of directions){
+    const {room,a}=battle({gale:2,lightning:2});
+    a.input.yaw=0;a.input.pitch=0; // stale snapshot still faces forward
+    assert.equal(tryUltimate(room,'a',9,{held:true}),true,name);
+    run(room,9,9.75);
+    const origin={...a.position};
+    const expected=planOneHitTeleport({
+      origin,yaw,pitch,aerial:false,allowVertical:true,holdSec:.75,world,
+    });
+    assert.ok(expected.legal,name+' has a real valid 3D destination');
+    assert.equal(releaseOneHitCharge(room,'a',9.75,{yaw,pitch}),true,name);
+    const arrived=room.events.find(e=>e.type==='oneHitTeleport');
+    assert.ok(arrived,name+' teleports; not just a decorative 3D guide');
+    assert.ok(Math.abs(arrived.to.x-expected.end.x)<.04,name+' x matches preview');
+    assert.ok(Math.abs(arrived.to.y-expected.end.y)<.04,name+' y matches preview');
+    assert.ok(Math.abs(arrived.to.z-expected.end.z)<.04,name+' z matches preview');
+    assert.ok((arrived.to[axis]-origin[axis])*sign>6,name+' goes in the newly dragged direction');
+    assert.ok(arrived.to.y>origin.y+5,name+' gains actual altitude');
+    assert.equal(commits(room)[0].form,'aerial',name+' acquires the aerial wave from ground ascent');
+    assert.equal(a.input.yaw,yaw,name+' final release yaw was accepted');
+    assert.equal(a.input.pitch,pitch,name+' final release pitch was accepted');
+  }
+});
+
+test('Full Lightning WITHOUT Full Gale still cannot gain height by sending a 3D drag',()=>{
+  const {room,a}=battle({lightning:2,gale:1});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  run(room,9,9.8);
+  assert.equal(releaseOneHitCharge(room,'a',9.8,{yaw:-Math.PI/2,pitch:Math.PI/2}),true);
+  const arrived=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(arrived&&arrived.grounded,'Gale tier two is necessary for 3D teleport');
+  assert.ok(Math.abs(arrived.to.y)<1e-8);
+  assert.ok(arrived.to.x>5,'without Full Gale the same input still aims horizontally');
+});
+
 test('Landing from an airborne teleport chooses the ground slam, not the aerial wave',()=>{
   const {room,a}=battle({gale:2,lightning:2});
   a.position.y=7;a.grounded=false;a.input.pitch=-1.1;
