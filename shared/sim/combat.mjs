@@ -9,7 +9,7 @@ import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
 import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones,terminalFlightSteps} from './fightFlightTerminal.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
-import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
+import {fightFlightHitVolumes,fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -2727,6 +2727,22 @@ export function detonateOneHitWave(room,playerId,waveId,nowSec) {
   return true;
 }
 
+function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
+  let nearest=null;
+  for(const [machine,hit] of [
+    [room.soFistication,soFistFirstHit(room.soFistication,from,to,nowSec,.16)],
+    [room.biByeLlista,biByeFirstHit(room.biByeLlista,from,to,nowSec,.16)],
+    [room.fightFlight,fightFlightFirstHit(room.fightFlight,from,to,.16)],
+  ]) {
+    if(!hit||!machine||machine.retired||machine.health<=0)continue;
+    if(machine.team&&caster.team===machine.team)continue;
+    if(Number.isFinite(hit.t)&&(!nearest||hit.t<nearest.t))
+      nearest={t:hit.t,point:{x:from.x+(to.x-from.x)*hit.t,
+        y:from.y+(to.y-from.y)*hit.t,z:from.z+(to.z-from.z)*hit.t}};
+  }
+  return nearest;
+}
+
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
@@ -2750,6 +2766,19 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
         distance:wave.distance+step*frac,processed:wave.hitIds,
         onGuard:()=>{guardedContact={...near};}});
+    }
+    const machineContact=oneHitMachineWaveContact(room,caster,old,next,nowSec);
+    // Intercept the nearest machine only if it lies before a world obstacle.
+    // Guard and hardware each produce the normal terminal burst once.
+    if(machineContact&&machineContact.t<=stop&&
+      (!guardedContact||Math.hypot(machineContact.point.x-old.x,machineContact.point.y-old.y,
+        machineContact.point.z-old.z)<
+        Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z))){
+      wave.position=machineContact.point;
+      wave.distance+=step*machineContact.t;
+      oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'machine');
+      wave.distance=ONE_HIT_RULES.waveMaxReach;
+      continue;
     }
     if(guardedContact) {
       // Guard spends its one contact AND stops the travelling sword-wave.
