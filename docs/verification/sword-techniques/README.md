@@ -222,9 +222,14 @@ None of these blocks the PR; each is art that cannot be fixed in code without in
 | A fuller first-person thrust; hips in the cuts | Proposed (requests 1 and 3) |
 | Replacing the canonical GLB, skeleton or stance | Not done, not needed |
 
+## The first-person sword arm joined at the wrist
+
+In the canonical `spellblade-fp.glb` the sword fist and its vambrace are separate shells with no shared edge or blended weight, and at rest the cuff's rim sits 19 cm to the side of the fist: from the eye the fist floated under the guard with grass between it and the forearm, in `main`'s Idle and cuts as much as in the technique clips (`node scripts/fp-wrist-seam.mjs` measures the file: 96 mm nearest approach on the sword arm, 8 mm on the magic arm). It was in this PR's own first-person stills and should have been called out then.
+
+`client/game/swordWrist.mjs` closes it as the arms load: the vambrace is leaned over along its own length (nothing at the elbow, everything at the cuff) and drawn in to 0.9, so the cuff closes round the back of the fist, in the rest shape, so every pose and clip carries it. The fist, grip, sword, skeleton and the model file are untouched; a model whose cuff already reaches the fist is left alone. Looked at in the running game in Idle, Guard, a cut and a Riposte: the arm reads as one piece. Not looked at: Whirl, the phone layout. From straight behind (the Riposte's thrust) the cuff hides most of the fist. This is a load-time repair; the lasting one is the same lean in the first-person source art.
+
 ## Seen in `main`, not touched
 
 - A Riposte's lunge ends inside its target (from 4.4 m the camera finishes in the Training Dummy's chest). That is movement, not animation.
 - The Technique slot has no "none"; every knight defaults to Rigid Riposte.
 - On the ground a crouch's authored chassis drop (0.52 m) is also discarded; the carriage layer deliberately stands aside for a crouch.
-- The first-person sword hand is not joined to its forearm in the canonical `spellblade-fp.glb`: the two are separate shells with no shared edge or blended weight, and at bind the hand sits 96 mm from the nearest forearm vertex (the magic hand: 8 mm). `main`'s own `Idle` shows 95 to 98 mm, its cuts 27 to 104 mm. The technique clips here are rotation-only and keep it at 68 to 102 mm, so they neither open nor close it: `node scripts/fp-wrist-seam.mjs`. Closing it is source art on the model, which this PR does not touch.
