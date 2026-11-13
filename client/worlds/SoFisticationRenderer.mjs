@@ -204,9 +204,34 @@ export class SoFisticationRenderer {
   }else{
    const flickAge=b.flickAt!=null?now-b.flickAt:-1;
    const flickActive=flickAge>=0&&flickAge<4;
+   const hand=b.hellping,handAge=hand?Math.max(0,now-hand.at):0;
    if(flickActive&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
      this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},
        k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   }else if(this.v26HandInstalled&&hand){
+     // All clients play the server's authoritative phase; hydraulic controls
+     // remain separate and no hit or passenger state originates in the viewer.
+     let clip='22_HELLping_Hand_Skill_Default_Open_Palm_Idle',time=handAge,loop=true;
+     if(hand.phase==='open'&&handAge<1){
+       clip='11_HELLping_Hand_Open_Wide';time=handAge;loop=false;
+     }else if(hand.phase==='grasp'){
+       clip=handAge<1?'12_HELLping_Hand_Enemy_Capture_Close':
+         '13_HELLping_Hand_Sustained_Crush_4s';
+       time=handAge<1?handAge:handAge-1;loop=false;
+     }else if(hand.phase==='transport'&&handAge<1.4){
+       clip='15_HELLping_Hand_Ally_Hatch_Open_Enter';time=handAge;loop=false;
+     }else if(hand.phase==='transport'&&b.strikeAt!=null&&now-b.strikeAt<1.2){
+       clip='16_HELLping_Hand_Ally_Protected_Punch';time=now-b.strikeAt;loop=false;
+     }else if(hand.phase==='vault'){
+       clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
+         '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
+       time=handAge;loop=false;
+     }else if(hand.phase==='release'){
+       clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
+     }
+     this.animation.sample({clip,time,loop},
+       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root')&&
+        !k.startsWith('Carriage_Main')&&!k.startsWith('Lower_Wheel_Carriage'));
    }else{
      // An old asset cannot display a new flick; do not animate a counterfeit
      // piston strike over its authoritative fingertip contact.
