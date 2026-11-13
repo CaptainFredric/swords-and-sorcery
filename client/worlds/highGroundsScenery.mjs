@@ -100,9 +100,12 @@ export function buildHighGroundsSurroundings(group, world, materials) {
     addCliffFooting(group,materials,side*29.75,side*-0.75,8.5,9.5,11.6,-90,i);
     addCliffFooting(group,materials,side*29.75,side*15.25,8.5,8.5,11.6,-90,i);
   }
-  // A spur of the cliff under each camp ascent's pier (the pier itself is one of the world's solids).
+  // A spur of the cliff under every pier that stands over the ravine (the piers are the world's own solids), and rock
+  // under the four side landings and their gate approaches, which hung in the air beside each camp's cliff.
+  world.solids.filter(s=>/-pier-/.test(s.id)&&s.center[1]-s.size[1]/2<=-5.9)
+    .forEach((s,k)=>addCliffFooting(group,materials,s.center[0],s.center[2],s.size[0]+1,s.size[2]+1,-5.9,-90,20+k));
   for(const [k,[sx,sz]] of [[-1,-1],[1,-1],[1,1],[-1,1]].entries())
-    addCliffFooting(group,materials,sx*38,sz*81.5,11,4,-5.9,-90,20+k*3);
+    addCliffFooting(group,materials,sx*33,sz*103.5,29,13,-1.35,-90,40+k);
   // The colossal flowering trees are rooted in *real visible highland rock*.
   // Previously the trunks stopped at Y=-1 with open sky beneath them, making
   // the entire battlefield look suspended in a featureless void.

@@ -80,10 +80,10 @@ These are mode rules or bot logic (Codex's area), seen in the Restless Day bot m
 
 Environment items proposed, not done:
 
-- High Grounds: done in the follow-up geometry pass (footings and piers under its ramps, the crown ramps moved clear
-  of the centre bridge and opened through the Blooms' decks, two mantlets at the Crown Span's road mouths). Head-clip
-  cells 696 → 24 (the root ramps' inner edge under the forward decks, left alone); cover 5% → 6%; running times and
-  the bot graph's routes unchanged.
+- High Grounds: done in the follow-up geometry pass (footings and piers under its ramps and canopy roads, the crown
+  ramps moved clear of the centre bridge and opened through the Blooms' decks, the root ramps started at the forward
+  decks' edges, two mantlets at the Crown Span's road mouths). Head-clip cells 696 → 0; cover 5% → 6%; running times
+  and the bot graph's routes unchanged.
 - Castleward: two stair waypoints 0.13 m off their floor (harmless).
 - The renderers' monuments (Restless Day's Renowner effigy) are box assemblies; an authored model is Argon's call.
 - Mobile numbers come from desktop Chrome with phone-sized emulation and 4× CPU throttling, not a phone. A

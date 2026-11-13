@@ -83,8 +83,9 @@ const ramps = [
   ramp('west-to-crown', 'x', -34, -10, -11, -4, 12, 0),
   ramp('crown-to-east', 'x', 10, 34, 4, 11, 0, 12),
   // Lower root routes have separate physical access near either forward deck.
-  ramp('root-west-south', 'z', -21, -11, -54, -29, 0, -9),
-  ramp('root-east-north', 'z', 11, 21, 29, 54, -9, 0),
+  // (each starts at its forward deck's edge: the 1.5 m that ran in under the deck put the deck through a head)
+  ramp('root-west-south', 'z', -21, -12.5, -54, -29, 0, -9),
+  ramp('root-east-north', 'z', 12.5, 21, 29, 54, -9, 0),
 ];
 const trees = [
   { id: 'elder-west', x: -60, z: -10, radius: 6, height: 44, bloom: 'rose' },
@@ -194,6 +195,9 @@ const rampWorks = [
   solid('ramp-cheek-west-wing', -29.75, 9.55, -11.185, 8.5, 4.7, 0.43, 'stone'),
   solid('ramp-cheek-east-bridge', 29.75, 9.55, 3.815, 8.5, 4.7, 0.43, 'stone'),
   solid('ramp-cheek-east-wing', 29.75, 9.55, 11.185, 8.5, 4.7, 0.43, 'stone'),
+  // the canopy roads: two piers under each, on spurs of the cliff like the ascents' (the cross-bridges hang, as drawn)
+  ...[[-38, [-50, -32, 22, 44]], [38, [-44, -22, 32, 50]]].flatMap(([x, zs]) => zs.map((z) =>
+    solid(`canopy-pier-${x < 0 ? 'west' : 'east'}-${z}`, x, 2.75, z, 8, 17.5, 3, 'stone'))),
   // the root ramps: a footing on the root shelf, which runs on five metres under each ramp's foot
   ...rampFooting(rampNamed['root-west-south'], -31, -34, -9),
   ...rampFooting(rampNamed['root-east-north'], 31, 34, -9),
@@ -227,9 +231,10 @@ const solids = [
   ...trees.map((t) => solid('trunk-' + t.id, t.x, t.height / 2 - 1, t.z,
     t.radius * 1.5, t.height, t.radius * 1.5, 'wood')),
   // Readable cover deliberately does not close the principal machine road.
+  // (the forward decks' pair stand a metre in from the deck's edge, so neither overhangs the root ramp beside it)
   ...[-100, -52, 0, 52, 100].flatMap((z, i) => [
-    solid('cover-west-' + i, -12, 1.05, z, 2, 2.1, 3, 'stone'),
-    solid('cover-east-' + i, 12, 1.05, z, 2, 2.1, 3, 'stone'),
+    solid('cover-west-' + i, Math.abs(z) === 52 ? -11 : -12, 1.05, z, 2, 2.1, 3, 'stone'),
+    solid('cover-east-' + i, Math.abs(z) === 52 ? 11 : 12, 1.05, z, 2, 2.1, 3, 'stone'),
   ]),
   ...[-20, 20].flatMap((z, i) => [
     solid('canopy-cover-west-' + i, -46, 13.0, z, 2, 2, 2, 'timber'),
