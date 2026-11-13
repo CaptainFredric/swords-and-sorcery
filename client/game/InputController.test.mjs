@@ -602,6 +602,20 @@ test('mobile focus does not invoke native pointer lock or fullscreen and ignores
   assert.ok(resets > 0, 'backgrounding the page must clear touch input');
 });
 
+test('mounted X triggers exactly one Finger Flick and never ballista focus or piston fire',()=>{
+ const {input,down,up}=setup(),sent=[];
+ input.socket.send=message=>sent.push(message);
+ input.mountedRam=true;input.enabled=true;
+ down('KeyX');up('KeyX');
+ assert.deepEqual(sent,[{type:'ramFlick'}]);
+ down('KeyX');up('KeyX');
+ assert.deepEqual(sent,[{type:'ramFlick'},{type:'ramFlick'}],'each deliberate key press requests one flick; the server owns cooldown');
+ input.mountedRam=false;input.mountedBallista=true;
+ down('KeyX');up('KeyX');
+ assert.deepEqual(sent.at(-1),{type:'bibyeWeaponFocus'},'ballista retains its own X action');
+ input.dispose();
+});
+
 test('ram sensitivity preserves precise immediate aim and ordinary settings on exit',()=>{
  const {input}=setup();input.configure({ram: .6});input.mountedRam=true;input.turn(.1,.05);
  assert.ok(Math.abs(input.yaw-.06)<1e-9);assert.ok(Math.abs(input.pitch-.03)<1e-9);
