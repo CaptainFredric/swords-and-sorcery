@@ -108,8 +108,9 @@ async function run(url,touch){
       "Object.defineProperty(e,'movementX',{value:dx});Object.defineProperty(e,'movementY',{value:dy});"+
       "document.dispatchEvent(e);};move(-240,-80);move(-175,-30);})()");
   }
+  console.log('[3D AIM BASELINE]',name,JSON.stringify(before));
   const sample='(()=>{const rt='+runtime+',p=rt.oneHitEffects.teleportTarget.position;'+
-    'if(rt.input.pitch<.42||Math.abs(rt.input.yaw-'+before.yaw+')<.35||p.y-rt.localAuth.position.y<4)return null;'+
+    'if(rt.input.pitch<.42||Math.abs(rt.input.yaw-('+before.yaw+'))<.35||p.y-rt.localAuth.position.y<4)return null;'+
     'return {yaw:rt.input.yaw,pitch:rt.input.pitch,vertical:rt.input.disasterThreeDAim,'+
       'marker:{x:p.x,y:p.y,z:p.z},current:{...rt.localAuth.position},'+
       'held:Number.isFinite(rt.localAuth.ultimateState?.teleportHoldAt)};})()';
