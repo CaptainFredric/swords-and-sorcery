@@ -2265,7 +2265,7 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   // (Half Gale: the blow carries them further the way it was going)
   // Fire and Gale together (`blast`: how far from the heart of a blast of what radius they stood): thrown the whole
   // way from its heart, less and less toward its edge, so the fire's ground is where they tend to come down
-  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback:1)*
+  const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback*1.18:1)*
     (blast&&tiers.gale>=1&&tiers.fire>=1?fireGaleShove(blast.distance,blast.radius):1);
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
     {x:dx/d*shove,y:.6,z:dz/d*shove},{ultimate:true,rawDamage:damage}))return false;
@@ -2350,20 +2350,9 @@ function oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed) {
 // then what is left behind (burning ground, the field). Nothing left behind exists while the blow itself lands.
 function oneHitSlam(room,caster,tiers,nowSec,world) {
   const reach=groundReach(tiers),radius=reach.radius;
-  // Full Gale draws enemies toward the destination, then the same decisive
-  // contact tests run exactly once. No second base-damage hit from a vortex.
-  if(tiers.gale===2)for(const target of room.players.values()) {
-    if(!oneHitVisible(room,caster,target,world,nowSec,oneHitChest(caster)))continue;
-    const dx=caster.position.x-target.position.x,dz=caster.position.z-target.position.z;
-    const d=Math.hypot(dx,dz);
-    if(d>6.8||d<.1||Math.abs(target.position.y-caster.position.y)>3)continue;
-    const travel=Math.min(2.8,Math.max(0,d-1));
-    const next={...target.position,x:target.position.x+dx/d*travel,
-      z:target.position.z+dz/d*travel};
-    const clear=resolvePlayerWorld(next,MOVEMENT.playerRadius,world?.solids??[]);
-    if(Math.hypot(clear.x-next.x,clear.z-next.z)<.1 &&
-      !oneHitWorldContact(oneHitChest(target),{...next,y:next.y+1},world))target.position=next;
-  }
+  // Gale is an outward pressure wave, never a pre-hit vacuum. Let the
+  // decisive contact's authoritative impulse move the victim away from
+  // the eruption; pulling bodies inward first concealed that displacement.
   const center={...caster.position},processed=[];
   oneHitSiegeContact(room,caster,center,radius,tiers,nowSec);
   const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed);
