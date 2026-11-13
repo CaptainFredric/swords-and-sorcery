@@ -135,7 +135,7 @@ export function fireSoFistication(room,b,now){
  if(b?.emplacementId&&room.state!=='PLAYING')return false;
  if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
    (room.players.get(b.operatorId)?.staggerUntil??0)>now||
-   (['grasp','vault'].includes(b.hellping?.phase)||
+   (['open','grasp','vault','release'].includes(b.hellping?.phase)||
     b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
      b.flickAt!=null&&now-b.flickAt<FLICK.cycle))return false;
  // Invalid manual attempts must not disarm a waiting counterattack.
