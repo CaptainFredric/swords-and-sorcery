@@ -228,10 +228,12 @@ export class SoFisticationRenderer {
        clip=handAge<1?'12_HELLping_Hand_Enemy_Capture_Close':
          '13_HELLping_Hand_Sustained_Crush_4s';
        time=handAge<1?handAge:handAge-1;loop=false;
+     }else if(hand.phase==='transport'&&b.strikeAt!=null&&
+       b.strikeAt>=hand.at&&now-b.strikeAt>=0&&now-b.strikeAt<1.2){
+       // A real passenger-protected punch wins over a still-opening hatch.
+       clip='16_HELLping_Hand_Ally_Protected_Punch';time=now-b.strikeAt;loop=false;
      }else if(hand.phase==='transport'&&handAge<1.4){
        clip='15_HELLping_Hand_Ally_Hatch_Open_Enter';time=handAge;loop=false;
-     }else if(hand.phase==='transport'&&b.strikeAt!=null&&now-b.strikeAt<1.2){
-       clip='16_HELLping_Hand_Ally_Protected_Punch';time=now-b.strikeAt;loop=false;
      }else if(hand.phase==='vault'){
        clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
          '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
