@@ -1340,7 +1340,8 @@ export class TouchControls {
     // ownership. That transfer is not a release for any held action. A real
     // loss of the layer's capture (or pointercancel) still cancels normally.
     if(event.type==='lostpointercapture'&&event.target!==this.layer&&
-      (this.ritual?.pointerId===event.pointerId||this.held.has(event.pointerId)))return;
+      (this.ritual?.pointerId===event.pointerId||this.held.has(event.pointerId))&&
+      this.layer.hasPointerCapture?.(event.pointerId)!==false)return;
     this.touchDebugEvent = event.type;
     if(this.#ritualEnd(event))return;
     if (this.flightRailPointer === event.pointerId) this.#resetFlightRail();
