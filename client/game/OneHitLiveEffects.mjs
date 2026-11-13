@@ -150,7 +150,7 @@ export class OneHitLiveEffects {
     this.auras=new Map();
     this.zones=new Map();
     this.statuses=new Map();
-    this.reticle=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()]),
+    this.reticle=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()]),
       new THREE.LineBasicMaterial({color:0xffd65d,transparent:true,opacity:.86,depthWrite:false}));
     this.reticle.frustumCulled=false;
     this.reticle.visible=false;
@@ -236,14 +236,16 @@ export class OneHitLiveEffects {
     const eye=1.45,mark=groundlocked?.24:groundward?.24:eye;
     pos.setXYZ(0,origin.x,origin.y+eye,origin.z);
     if(groundlocked){
-      // Preview the SERVER's actual path: horizontal projection first,
-      // then a vertical drop when the ground at the destination is lower.
-      // Looking up is allowed but NEVER draws an upward teleport vector.
-      pos.setXYZ(1,plan.end.x,origin.y+eye,plan.end.z);
-      pos.setXYZ(2,plan.end.x,plan.end.y+mark,plan.end.z);
+      // The line lies close to the caster's GROUND, not in the air at the
+      // current pitch. It travels horizontally and then descends to the
+      // supported destination if the aimed terrain lies below a ledge.
+      pos.setXYZ(1,origin.x,origin.y+.24,origin.z);
+      pos.setXYZ(2,plan.end.x,origin.y+.24,plan.end.z);
+      pos.setXYZ(3,plan.end.x,plan.end.y+.24,plan.end.z);
     }else{
       pos.setXYZ(1,plan.end.x,plan.end.y+mark,plan.end.z);
       pos.setXYZ(2,plan.end.x,plan.end.y+mark,plan.end.z);
+      pos.setXYZ(3,plan.end.x,plan.end.y+mark,plan.end.z);
     }
     pos.needsUpdate=true;
     const color=plan.legal?0xffd65d:0xc16a3a;
