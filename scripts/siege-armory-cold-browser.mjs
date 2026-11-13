@@ -58,6 +58,20 @@ try{
  const before=await evaluate("(() => ({selected:document.querySelector('#armory-siege-tab').getAttribute('aria-pressed'),section:!document.querySelector('#armory-siege').classList.contains('hidden'),names:[...document.querySelectorAll('#armory-siege .siege-machine-nav button')].map(e=>e.textContent)}))()");
  assert.equal(before.selected,'true');assert.equal(before.section,true);
  assert.deepEqual(before.names,['SO-FIST-ICATION','BI-BYE-LLISTA','FIGHT-AND-FLIGHT']);
+ // Real browser click regression: the former undefined text and silent
+ // settings validation fallback made HELLping impossible to equip.
+ const helBefore=await evaluate("(() => {const c=document.querySelector('[data-siege-skill=hellpingHand]');return {name:c?.querySelector('.spell-name')?.textContent,description:c?.querySelector('small')?.textContent,checked:c?.getAttribute('aria-checked')};})()");
+ assert.equal(helBefore.name,'HELLping Hand');
+ assert.ok(helBefore.description.includes('seize a nearby enemy'));
+ assert.ok(!helBefore.description.includes('undefined'));
+ await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').click()");
+ assert.equal(await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').getAttribute('aria-checked')"),'true');
+ assert.match(await evaluate("document.querySelector('#siege-preview-hint').textContent"),/WORKSHOP DEMONSTRATION NOT YET AVAILABLE/);
+ await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
+ await evaluate("document.querySelector('[data-siege-tab=soFist]').click()");
+ assert.equal(await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').getAttribute('aria-checked')"),'true',
+   'HELLping remains selected after a tab change, not just transiently highlighted');
+ await screenshot('00-hellping-equipped');
  await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
  const biByeState=await evaluate("(() => ({title:document.querySelector('#siege-title').textContent,alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
  assert.equal(biByeState.title,'BI-BYE-LLISTA');assert.equal(biByeState.alternatives,2);
