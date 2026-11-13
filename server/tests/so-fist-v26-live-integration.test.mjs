@@ -44,8 +44,8 @@ test('original Argon hand is byte-exact and contains 26 clips and all five joint
 });
 test('original editable Argon Blender file is restored without alteration',()=>{
  const file=readFileSync(assembleSoFistAsset('source'));
- assert.equal(file.length,SO_FIST_V26.source.bytes);
- assert.equal(createHash('sha256').update(file).digest('hex'),SO_FIST_V26.source.sha256);
+ assert.equal(file.length,SO_FIST_V26.source.unpackedBytes);
+ assert.equal(createHash('sha256').update(file).digest('hex'),SO_FIST_V26.source.unpackedSha256);
  assert.equal(file.toString('ascii',0,7),'BLENDER');
 });
 test('HELLping Hand opens, takes one target and performs a lethal 4s crush after grasp closure',()=>{
