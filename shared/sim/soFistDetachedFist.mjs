@@ -225,17 +225,21 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
  }
  if(f.state==='resting')return;
  if(!['flying','falling'].includes(f.state)||!Number.isFinite(dt)||dt<=0)return;
+ // A fist launched during this server tick has not flown for the entire
+ // tick. Never integrate a final death discharge before its launch timestamp.
+ const simulatedDt=Math.min(dt,Math.max(0,now-(f.launchedAt??(now-dt))));
+ if(simulatedDt<=0)return;
  const initialSpeed=Math.hypot(f.velocity.x,f.velocity.y,f.velocity.z);
- const steps=Math.min(128,Math.max(1,Math.ceil(dt/RAM_FIST.maxSubstep),
-   Math.ceil(initialSpeed*dt/RAM_FIST.maxTravelStep)));
- const h=dt/steps;
+ const steps=Math.min(128,Math.max(1,Math.ceil(simulatedDt/RAM_FIST.maxSubstep),
+   Math.ceil(initialSpeed*simulatedDt/RAM_FIST.maxTravelStep)));
+ const h=simulatedDt/steps;
  for(let i=0;i<steps;i++){
   const previous={...f.position},v={...f.velocity};
   const next={x:previous.x+v.x*h,
    y:previous.y+v.y*h-.5*RAM_FIST.gravity*h*h,
    z:previous.z+v.z*h};
   const movement=Math.hypot(next.x-previous.x,next.y-previous.y,next.z-previous.z);
-  const at=now-dt+h*(i+1);
+  const at=now-simulatedDt+h*(i+1);
   let hits=[hitWall(room,previous,next,world),hitGround(previous,next,world)];
   if(f.state==='flying'){
    hits.push(hitActors(room,b,previous,next));
