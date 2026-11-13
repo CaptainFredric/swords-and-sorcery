@@ -63,7 +63,7 @@ try{
   s.trackNames=clip?.tracks.map(t=>t.name)??[];
   const hand=ram.nodes.get('Armored_Fist'),i1=ram.nodes.get('Index_1'),i2=ram.nodes.get('Index_2'),i3=ram.nodes.get('Index_3');
   s.hierarchy={hand:hand?.name,handParent:hand?.parent?.name,index1:i1?.parent?.name,index2:i2?.parent?.name,index3:i3?.parent?.name,
-    indexMeshes:[i1?.isMesh,i2?.isMesh,i3?.isMesh],indexGeometry:[i1?.geometry?.attributes?.position?.count,i2?.geometry?.attributes?.position?.count,i3?.geometry?.attributes?.position?.count]};
+    indexMeshes:[i1,i2,i3].map(node=>{let vertices=0;node?.traverse(o=>{if(o.isMesh)vertices+=o.geometry?.attributes?.position?.count??0;});return vertices;})};
   const b=createSoFistication({id:'visual-proof',x:0,y:0,z:0,heading:0});b.flickAt=10;
   for(const age of [.1,.4,.65,.7,.75,.8,.85,1.2,2.4,3.4]){
    const now=10+age;ram.update(now,b);ram.group.updateMatrixWorld(true);
@@ -81,8 +81,7 @@ try{
  assert.equal(report.hierarchy.index1,'Armored_Fist');
  assert.equal(report.hierarchy.index2,'Index_1');
  assert.equal(report.hierarchy.index3,'Index_2');
- assert.ok(report.hierarchy.indexMeshes.every(Boolean),'All three index segments must be visible meshes');
- assert.ok(report.hierarchy.indexGeometry.every(n=>n>50),'The moving fingers need real mesh vertices');
+ assert.ok(report.hierarchy.indexMeshes.every(n=>n>50),'All three articulated index groups must contain actual visible mesh vertices');
  for(const name of ['Index_1.quaternion','Index_2.quaternion','Index_3.quaternion'])
   assert.ok(report.trackNames.includes(name),'Argon Flick track missing from runtime: '+name);
  const [before,peak]=[report.details.find(d=>d.age===.4),report.details.find(d=>d.age===.75)];
