@@ -10,3 +10,11 @@ const STATUS_DURATIONS_MS = Object.freeze({
 export function combatStatusDurationMs(text) {
   return STATUS_DURATIONS_MS[text] ?? 450;
 }
+
+// A brief action acknowledgement, not a second subtitle. Reduce lingering
+// Ultimate/view/status messages without making 180ms contact cues unreadable.
+export function compactCombatStatusDurationMs(text, overrideMs = null) {
+  const base = Number.isFinite(overrideMs)
+    ? Math.max(0,overrideMs) : combatStatusDurationMs(text);
+  return base<=250 ? base : Math.round(base*.82);
+}
