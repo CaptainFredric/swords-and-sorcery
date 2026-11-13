@@ -8,7 +8,7 @@ test('ram prompt belongs to its actual rear operator station and uses rebound co
  const op={...local,operatingRamId:b.id};b.operatorId='p';b.pressure=37;b.components.Fist.health=0;
  const view=soFistHudView(op,snapshot,0,{bindings:{sprint:['KeyH'],attack:['KeyJ'],siegeView:['KeyL'],siegeWeapon:['KeyX'],interact:['KeyK']}});assert.equal(view.pressure,37);assert.match(view.status,/EXPOSED PISTON/);assert.match(view.controls,/H.*J.*L.*K/);assert.match(soFistHudView(op,snapshot,0,{touch:true}).controls,/stick forward.*CHARGE/);
  assert.match(view.controls,/lift.*lower/);
- assert.match(view.controls,/\[X\] Flick/);assert.doesNotMatch(view.controls,/RMB Flick/);
+ assert.match(view.controls,/RMB Flick/);assert.match(view.controls,/Space .*lift\/lower/);
  b.health=0;assert.equal(soFistHudView(op,snapshot,0),null);
 });
 
