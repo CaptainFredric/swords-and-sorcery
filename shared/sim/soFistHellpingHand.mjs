@@ -172,6 +172,6 @@ export function stepHellpingHand(room,b,dt,now){
    releaseHellpingHand(room,b,now,{force:true});return;
   }
   Object.assign(b,next);b.speed=0;b.charging=false;
-  if(t>=1){emit(room,b,'vaultLanded',now);releaseHellpingHand(room,b,now,{force:true});}
+  if(t>=1-1e-8){emit(room,b,'vaultLanded',now);releaseHellpingHand(room,b,now,{force:true});}
  }
 }
