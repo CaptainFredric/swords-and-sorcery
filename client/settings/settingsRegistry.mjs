@@ -1,5 +1,7 @@
 import { isSpell } from '../../shared/src/spells.mjs';
 import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
+import { SIEGE_LOADOUT_DEFAULT, SIEGE_SKILL_OPTIONS, SIEGE_SKILL_NAMES } from '../../shared/src/siegeLoadout.mjs';
+const siegeChoices=machine=>SIEGE_SKILL_OPTIONS[machine].map(value=>({value,label:SIEGE_SKILL_NAMES[value]}));
 // Everything a player can set, declared in one place. The Settings screen, saving, loading and validation all follow
 // from these declarations, so a new feature only has to declare what it needs:
 //
@@ -225,21 +227,17 @@ registry
     options: [{value:'rigid_riposte',label:'Rigid Riposte'}, {value:'whirl_wind',label:'Whirl Like the Wind'}]
   })
   .defineSetting({
-    id: 'loadout.bibyeSkill', section: 'loadout', label: 'Bi-Bye-llista Skill', type: 'choice', default: 'boltToTheOccasion',
-    options: [{value:'boltToTheOccasion',label:'Bolt to the Occasion'},{value:'coldHowTouching',label:'Cold, How Touching'}]
+    id: 'loadout.bibyeSkill', section: 'loadout', label: 'Bi-Bye-llista Skill', type: 'choice', default: SIEGE_LOADOUT_DEFAULT.biBye,
+    options: siegeChoices('biBye')
   })
   .defineSetting({
     id: 'loadout.soFistSkill', section: 'loadout', label: 'SO-FIST-ICATION Skill', type: 'choice',
-    default: 'beatToThePunch',
-    options: [{value:'beatToThePunch',label:'Beat to the Punch'},
-      {value:'longArmToTheJaw',label:'Long Arm to the Jaw'},
-      {value:'hellpingHand',label:'HELLping Hand'}]
+    default: SIEGE_LOADOUT_DEFAULT.soFist,
+    options: siegeChoices('soFist')
   })
   .defineSetting({
-    id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: 'fireAwayRightHere',
-    options: [{value:'fireAwayRightHere',label:"Fire Away? I'm Right Here."},
-      {value:'narrowToOne',label:'Narrow to One'},
-      {value:'doNotStopMyAscension',label:'Do Not Stop My Ascension!'}]
+    id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: SIEGE_LOADOUT_DEFAULT.fightFlight,
+    options: siegeChoices('fightFlight')
   });
 
 registry
