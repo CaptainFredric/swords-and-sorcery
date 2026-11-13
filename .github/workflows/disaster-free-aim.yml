@@ -27,7 +27,8 @@ jobs:
         run: |
           node --check scripts/disaster-3d-teleport-browser.mjs
           npm run check:browser-imports
-          node --test client/game/TouchControls.test.mjs client/game/InputController.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
+          node --test client/game/TouchControls.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
+          node --test --test-name-pattern='Full Gale plus Full Lightning|Lightning release sends' client/game/InputController.test.mjs
       - name: Locate Chrome
         id: chrome
         shell: bash
