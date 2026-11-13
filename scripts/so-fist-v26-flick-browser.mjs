@@ -22,7 +22,7 @@ async function until(f,tag,count=90){
 async function send(method,params={}){
  const id=++seq;
  const promise=new Promise((resolve,reject)=>{
-  const timeout=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},20000);
+  const timeout=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},90000);
   pending.set(id,{resolve:v=>{clearTimeout(timeout);resolve(v);},reject:e=>{clearTimeout(timeout);reject(e);}});
  });
  ws.send(JSON.stringify({id,method,params}));return promise;
