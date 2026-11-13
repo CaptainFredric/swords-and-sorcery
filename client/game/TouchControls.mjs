@@ -140,7 +140,7 @@ export class TouchControls {
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
+          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
     // A read-only, full-layer ink overlay connects the ACTUAL four Flight
@@ -630,6 +630,34 @@ export class TouchControls {
       }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
+      // Mounted weapon recovery uses the same dark shade/fill as spell
+      // cooldowns. The controls own this information, not the giant status
+      // banner in the middle of the Ballista's sightline.
+      const setMountedRecovery=(button,remaining,total)=>{
+        if(!button)return;
+        const value=Math.max(0,remaining);
+        button.classList.toggle('cooling',value>.01);
+        button.style.setProperty('--cooldown',String(Math.min(1,value/Math.max(.1,total))));
+        const timer=button.querySelector('.touch-timer');
+        if(timer)timer.textContent=value>.01?value.toFixed(value<1?1:0):'';
+      };
+      if(ballista&&bl){
+        const first=Math.max(0,(bl.smallBoltReadyAt??serverNow)-serverNow);
+        const second=bl.mainBoltLoaded===false?
+          Math.max(0,(bl.reloadEndsAt??serverNow)-serverNow):0;
+        setMountedRecovery(this.buttons.attack,first,2.5);
+        setMountedRecovery(this.buttons.siegeSkill,second,4.5);
+      }else if(ram&&rb){
+        const cycle=4.0;
+        const piston=Math.max(0,cycle-Math.max(0,serverNow-(rb.strikeAt??-Infinity)));
+        setMountedRecovery(this.buttons.attack,piston,cycle);
+        setMountedRecovery(this.buttons.ramFlick,piston,cycle);
+        setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
+          Math.max(1,rb.skill?.cooldownSec??8));
+      }else{
+        for(const action of ['attack','ramFlick','siegeSkill'])
+          setMountedRecovery(this.buttons[action],0,1);
+      }
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
       const flightSkillId=fb?.skill?.id??'fireAwayImRightHere';
       const flightSkillIcon=flightSkillId==='narrowToOne'?'narrowToOne':
