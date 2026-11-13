@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { oneHitWorldContact,planOneHitTeleport,oneHitAimDirection } from './oneHitTrajectory.mjs';
+import { oneHitWorldContact,planOneHitTeleport,oneHitAimDirection,oneHitFreeAimActive,oneHitInputPitchLimit } from './oneHitTrajectory.mjs';
 
 const origin={x:0,y:0,z:0},yaw=-Math.PI/2,pitch=0;
 const world={floors:[{center:[0,-.1,0],size:[200,.2,200],y:0}],solids:[]};
@@ -81,4 +81,24 @@ test('omnidirectional Full Gale+Lightning aims independently at all compass bear
   const vertical=planOneHitTeleport({origin,yaw:0,pitch:Math.PI/2,allowVertical:true,
     holdSec:.7,world});
   assert.ok(vertical.legal&&!vertical.grounded&&vertical.end.y>5);
+});
+
+test('one shared Full Gale Lightning free-aim policy governs charge, aerial release and default camera clamps',()=>{
+  const state={id:'one_hit_of_wonders',phase:'startup',
+    preparedTiers:{lightning:2,gale:2},teleportHoldAt:5};
+  assert.ok(oneHitFreeAimActive(state));
+  assert.equal(oneHitInputPitchLimit(state),Math.PI/2);
+  const groundOnly={...state,preparedTiers:{lightning:2,gale:1}};
+  assert.equal(oneHitInputPitchLimit(groundOnly),1.45);
+  const half={...state,preparedTiers:{lightning:1,gale:2}};
+  assert.equal(oneHitInputPitchLimit(half),1.45);
+  assert.equal(oneHitFreeAimActive({...state,teleportReleased:true}),false);
+  const airborne={...state,phase:'active',oneHit:{
+    form:'aerial',aimUntil:11.5,waveLaunched:false}};
+  assert.ok(oneHitFreeAimActive(airborne));
+  assert.equal(oneHitInputPitchLimit(airborne),Math.PI/2,
+    'post-teleport wave release remains fully vertical');
+  assert.equal(oneHitFreeAimActive({...airborne,oneHit:{...airborne.oneHit,waveLaunched:true}}),false);
+  assert.equal(oneHitFreeAimActive({...airborne,oneHit:{...airborne.oneHit,form:'ground'}}),false);
+  assert.equal(oneHitFreeAimActive(null),false);
 });
