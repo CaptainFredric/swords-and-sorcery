@@ -1,3 +1,4 @@
+import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {createSiegeSkill,primeSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS,integratedRamHazard,sampleRamFailure} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
@@ -263,6 +264,7 @@ const p=room.players.get(b.operatorId);
  if(b.charging){b.pressure=Math.max(0,b.pressure-(4+.07*b.speed*b.speed)*(1+failed.length*.18+(b.components.Drive.health<=0?.5:0))*dt);if(b.pressure<=0){b.charging=false;b.chargeSpent=true;}}
  else b.pressure=Math.min(100,b.pressure+(Math.abs(b.speed)>6?5:13)*(b.components.Drive.health<=0?.5:1)*dt);
  if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.debt+=debt;}
+ const affliction=siegeDisasterImpairment(b,now);
  const elevatedDrive=1-.40*clamp((b.ramLiftY??0)/SO_FIST_LIFT.maxRise,0,1);
  const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):input.forward??0))/.384,0,1));
  const reversing=target*b.speed<0;
@@ -270,7 +272,7 @@ const p=room.players.get(b.operatorId);
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
   // Actual momentum sign, not the newly requested direction during braking.
   b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
- b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
+ b.steer=clamp(input.right??0,-1,1)*affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
  const travelSpeed=b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
