@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {Room} from '../../shared/sim/Room.mjs';
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
-import {createSoFistication,soFistEntry,mountSoFistication} from '../../shared/sim/soFistication.mjs';
+import {createSoFistication,soFistEntry,mountSoFistication,primeSoFistSkill} from '../../shared/sim/soFistication.mjs';
 import {applySavedLoadout} from '../src/savedLoadout.mjs';
 import {LocalHost} from '../../client/network/LocalHost.mjs';
 import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
@@ -58,6 +58,9 @@ test('HELLping Hand Armory selection has real copy, survives persistence and equ
  assert.equal(mountSoFistication(room,ramMachine,operator,0),true);
  assert.equal(ramMachine.skill.id,'hellpingHand',
    'the chosen persisted personal Skill must become the live mounted skill');
+ assert.equal(primeSoFistSkill(room,ramMachine,operator,0),null);
+ assert.equal(ramMachine.hellping?.phase,'open',
+   'the selected Skill must actually open the palm instead of priming Beat to the Punch');
 });
 test('Fight-and-Flight Armory preserves the full authored lore with paragraphs and emphasis',()=>{
  const view=siegeArmoryView({fightFlight:'doNotStopMyAscension'});
