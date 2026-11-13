@@ -53,6 +53,22 @@ test('Held explicit Rise climbs and release targets neutral velocity instead of 
  assert.ok(m.rotorLiftAuthority>.8&&m.rotorPowered);
  assert.ok(m.flightCharge<charge,'ordinary hover still has a physical energy cost');
 });
+test('released Rise retains powered rotor and visible coasting height before the gentle descent',()=>{
+  const {room,m}=setup();
+  step(room,m,0,48,{flightRise:true});
+  const takeoffHeight=m.y,t=48*DT;
+  step(room,m,t,8,{flightRise:false,flightLower:false});
+  assert.equal(m.verticalIntent,'HOVER');
+  assert.equal(m.neutralHoverFromRise,true);
+  assert.equal(m.rotorPowered,true,'neutral hover does not cut the rotor drive');
+  assert.ok(m.neutralHoverHeight>=takeoffHeight+.19,'brief positive rise after lever release');
+  assert.ok(m.y>takeoffHeight-.2,'the aircraft does not drop immediately');
+  step(room,m,t+8*DT,20,{flightRise:false});
+  assert.ok(m.y>=takeoffHeight-.35,'hover keeps nearly the attained altitude for ~1 second');
+  step(room,m,t+28*DT,28,{flightRise:false});
+  assert.ok(m.velocity.y>-.9&&m.velocity.y<0,'later descent is controlled, not ballistic');
+});
+
 test('Lower responds on its first packet, holding sustains descent and release damps it',()=>{
  const {room,m,p}=setup();
  step(room,m,0,68,{flightRise:true});
