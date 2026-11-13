@@ -2517,7 +2517,10 @@ function commitOneHitAttack(room,player,state,nowSec,world=room.world) {
     tiers,form,startedAt:nowSec,hit:false,waveLaunched:false,
     awaitingWave:aerial||groundWave,waveResolved:false,
     aimUntil,
-    waveAt:aerial?(aimUntil??nowSec+ONE_HIT_AERIAL_DURATION):
+    // Ordinary aerial Gale spends its existing startup spinning: release at
+    // about one second from first activation rather than adding another .85s.
+    // Teleport arrivals instead spin for a new one-second aerial vortex.
+    waveAt:aerial?(aimUntil??Math.max(nowSec+.1,state.startedAt+1.0)):
       groundWave?nowSec+ONE_HIT_RULES.groundedGaleWaveDelaySec:null,
     vortexLastAt:nowSec,vortexTicks:{},hitIds:[],
   };
@@ -2569,8 +2572,8 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
     return;
   }
   if(!action.awaitingWave||action.waveLaunched)return;
-  // Original aerial Gale gets its vortex; teleport arrivals get a 0.35s
-  // aiming hover rather than a second lengthy animation.
+  // One authored aerial vortex: original Gale spins from activation;
+  // teleported Gale spins after arrival. Both release the wave near one second.
   if(action.form==='aerial'&&nowSec<action.waveAt &&
      nowSec-action.vortexLastAt>=.28){
     action.vortexLastAt=nowSec;
