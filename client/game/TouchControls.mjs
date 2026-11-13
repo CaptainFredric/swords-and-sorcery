@@ -657,8 +657,12 @@ export class TouchControls {
       }else if(ram&&rb){
         const cycle=soFistTiming(rb).cycle;
         const piston=Math.max(0,cycle-Math.max(0,serverNow-(rb.strikeAt??-Infinity)));
-        setMountedRecovery(this.buttons.attack,piston,cycle);
-        setMountedRecovery(this.buttons.ramFlick,piston,cycle);
+        const flick=Math.max(0,cycle-Math.max(0,serverNow-(rb.flickAt??-Infinity)));
+        // Both attacks spend one four-second mechanical cycle; neither button
+        // should appear ready while the other has the piston drive committed.
+        const recovery=Math.max(piston,flick);
+        setMountedRecovery(this.buttons.attack,recovery,cycle);
+        setMountedRecovery(this.buttons.ramFlick,recovery,cycle);
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
           Math.max(1,rb.skill?.cooldownSec??8));
       }else{
