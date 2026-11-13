@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { combatStatusDurationMs } from './combatFeedbackTiming.mjs';
+import { combatStatusDurationMs, compactCombatStatusDurationMs } from './combatFeedbackTiming.mjs';
 
 test('CLANG is an impact-frame cue rather than a lingering subtitle', () => {
   const duration = combatStatusDurationMs('CLANG!');
@@ -21,4 +21,14 @@ test('important combat messages remain visible longer than CLANG', () => {
 test('unknown status messages retain a restrained default duration', () => {
   const duration = combatStatusDurationMs('FIGHT!');
   assert.ok(duration >= 350 && duration <= 550);
+});
+
+test('Ultimate, view and ordinary notices are briefer without making impact-frame labels vanish',()=>{
+  assert.equal(compactCombatStatusDurationMs('CLANG!'),180);
+  assert.ok(compactCombatStatusDurationMs('VIEW: THIRD PERSON')<combatStatusDurationMs('VIEW: THIRD PERSON'));
+  assert.equal(compactCombatStatusDurationMs('FIGHT!',1400),1148);
+  assert.equal(compactCombatStatusDurationMs('THUNDER ALL THAT RUSTS',1200),984);
+  assert.equal(compactCombatStatusDurationMs('PARRY'),279);
+  assert.equal(compactCombatStatusDurationMs('DO NOT FLASH',0),0);
+  assert.equal(compactCombatStatusDurationMs('CLANG!',180),180);
 });

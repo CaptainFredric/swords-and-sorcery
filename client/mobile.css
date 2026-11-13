@@ -245,12 +245,13 @@ button, input { touch-action: manipulation; }
 .touch-ui .guard-block { position: static; transform: none; width: 150px; margin-top: 6px; }
 .touch-ui .guard-block span { font-size: 10px; letter-spacing: .12em; }
 .touch-ui .abilities { display: none; }
-/* Touch: the status caption sits above the thumb controls, to the left of
-   the reticle but clear of the top HP meter and bottom-center subtitles. */
+/* Touch: remain horizontally centered, immediately above the actual
+   subtitle lane. The shared HUD measurement raises it when dialogue wraps;
+   neither the thumb controls nor the crosshair need to move. */
 .touch-ui .status-flash {
-  top: auto; left: calc(var(--safe-l, 0px) + 32cqw);
-  bottom: calc(var(--safe-b, 0px) + 92px);
-  max-width: min(250px, 35cqw); padding: 5px 8px;
+  top: auto; left: 50%;
+  bottom: var(--status-caption-bottom, calc(var(--safe-b, 0px) + 68px));
+  width: max-content; max-width: min(320px, 66cqw); padding: 4px 9px;
   font-size: 10px; line-height: 1.2; letter-spacing: .035em;
 }
 .touch-ui .match-info { top: 10px; }

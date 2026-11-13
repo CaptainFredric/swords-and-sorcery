@@ -7,7 +7,7 @@ import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
-import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
+import { compactCombatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { iconSvg } from './icons.mjs';
@@ -816,8 +816,27 @@ export class HUD {
     }
     this.flash.className = `status-flash show ${kind}`;
     clearTimeout(this.flashTimer);
-    const duration = Number.isFinite(durationMs) ? Math.max(0, durationMs) : combatStatusDurationMs(text);
+    this.#syncStatusCaptionLane();
+    const duration = compactCombatStatusDurationMs(text,durationMs);
     this.flashTimer = setTimeout(() => { this.flash.className = 'status-flash'; }, duration);
+  }
+
+  #syncStatusCaptionLane() {
+    if (!this.subtitleLine || !this.flash || !this.root ||
+      typeof globalThis.getComputedStyle !== 'function') return;
+    const style=globalThis.getComputedStyle(this.subtitleLine);
+    const bottom=Number.parseFloat(style.bottom);
+    // Subtitles may be a single line, several cues, or raised above a siege
+    // machine. Read the actual caption height rather than guessing a fixed
+    // offset that overlaps dialogue on small landscape screens.
+    const isDialogue=this.subtitleLine.classList.contains('show') &&
+      !this.subtitleLine.classList.contains('menu-caption') &&
+      !this.subtitleLine.classList.contains('end-caption');
+    const height=isDialogue
+      ?Math.ceil(this.subtitleLine.getBoundingClientRect?.().height??26)
+      :26;
+    const rise=Math.max(0,Number.isFinite(bottom)?bottom:112)+height+9;
+    this.root.style.setProperty('--status-caption-bottom',Math.ceil(rise)+'px');
   }
 
   #syncMachineCaptionClearance() {
@@ -831,6 +850,7 @@ export class HUD {
     const captionHeight=this.subtitleLine?.classList?.contains('show')
       ?Math.ceil(this.subtitleLine?.getBoundingClientRect?.()?.height??0):0;
     this.machineGauge?.style.setProperty('--machine-caption-height',captionHeight+'px');
+    this.#syncStatusCaptionLane();
   }
 
   /**
