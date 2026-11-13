@@ -104,17 +104,31 @@ async function run(name,width,height,touch,url){
     const root=document.createElement('div');
     root.style.cssText='position:fixed;inset:0;z-index:100;pointer-events:none';
     document.querySelector('#game-shell').append(root);
+    const subtitle=document.createElement('div');
+    subtitle.className='subtitle show';
+    subtitle.textContent='This deliberately long subtitle is wrapped across several lines so that the action notice must clear it.';
+    subtitle.style.width='min(330px,44cqw)';
+    root.append(subtitle);
     const flash=document.createElement('div');
     flash.className='status-flash show';flash.textContent='VIEW: THIRD PERSON';
     root.append(flash);
+    const style=getComputedStyle(subtitle);
+    root.style.setProperty('--status-caption-bottom',
+      (parseFloat(style.bottom)+subtitle.getBoundingClientRect().height+9)+'px');
     const b=flash.getBoundingClientRect();
-    const r={x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};
+    const c=subtitle.getBoundingClientRect();
+    const r=root.getBoundingClientRect();
+    const result={x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,
+      height:b.height,center:(b.left+b.right)/2,rootCenter:(r.left+r.right)/2,
+      subtitleTop:c.top,subtitleBottom:c.bottom,rootBottom:r.bottom,
+      transformed:getComputedStyle(flash).transform};
     root.remove();
-    return r;
+    return result;
   });
-  assert.ok(notice.width>30&&notice.width<340&&notice.height<90,'notice is compact');
-  assert.ok(notice.x<width*.53&&notice.y>height*.57,'notice is off-center and low');
-  assert.ok(notice.right<width*.7,'no crosshair collision');
+  assert.ok(notice.width>30&&notice.width<390&&notice.height<90,'notice is compact');
+  assert.ok(Math.abs(notice.center-notice.rootCenter)<6,'notification stays horizontally centered');
+  assert.ok(notice.bottom<notice.subtitleTop-4,'notice sits just above, not over, wrapped dialogue');
+  assert.ok(notice.y>notice.rootBottom-height*.59,'notification is in the lower portion of the viewport');
   results.push({name,caption,initial,selected,scroll,notice});
   console.log('[CHRONICLES HUD PASS]',name,JSON.stringify({icons:initial.count,scroll,notice}));
 }
