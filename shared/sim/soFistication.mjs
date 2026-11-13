@@ -24,6 +24,7 @@ import {requestLongArmToJaw,stepDetachedRamFist} from './soFistDetachedFist.mjs'
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
+import {requestHellpingHand,stepHellpingHand,releaseHellpingHand} from './soFistHellpingHand.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
@@ -98,7 +99,7 @@ function stepRamElevation(room,b,dt,now,world){
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
   flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
- detachedFist:null,fistRecoveryUntil:0,
+ detachedFist:null,fistRecoveryUntil:0,hellping:null,
  fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
@@ -121,10 +122,12 @@ export function mountSoFistication(room,b,p,now=0){
  if(entry.y==null||Math.abs(p.position.y-entry.y)>1||Math.hypot(p.position.x-entry.x,p.position.z-entry.z)>2.2||!stationClear(b,room.world,obstacles)||!soFistExit(room,b,p))return false;
  b.skill??=createSiegeSkill('beatToThePunch');
  b.skill.id=selectedSiegeSkill(p,'soFist');
+ if(b.hellping?.phase==='release')b.hellping=null;
  b.operatorId=p.id;p.operatingRamId=b.id;p.position=seat;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};p.guarding=false;p.guardHeld=false;p.attackHeld=false;p.input={forward:0,right:0,yaw:b.heading,pitch:0,jump:false,sprint:false};return true;
 }
 export function dismountSoFistication(room,b,p,{administrative=false,exit=null,force=false,at=null}={}){
  if(!b)return false;if(p?.alive&&!exit){exit=soFistExit(room,b,p);if(!exit&&!administrative&&!force)return false;}
+ releaseHellpingHand(room,b,at??b.poseTime??0,{force:true});
  endSiegeSkill(b,at??Math.max(b.poseTime??0,b.skill?.primedAt??0));b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
  if(p){p.operatingRamId=null;p.input={forward:0,right:0,yaw:p.yaw,pitch:p.pitch,jump:false,sprint:false};p.attackHeld=false;p.guarding=false;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};if(exit)p.position={...exit};}return true;
 }
@@ -132,7 +135,8 @@ export function fireSoFistication(room,b,now){
  if(b?.emplacementId&&room.state!=='PLAYING')return false;
  if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
    (room.players.get(b.operatorId)?.staggerUntil??0)>now||
-   (b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
+   (['grasp','vault'].includes(b.hellping?.phase)||
+    b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
      b.flickAt!=null&&now-b.flickAt<FLICK.cycle))return false;
  // Invalid manual attempts must not disarm a waiting counterattack.
  if(b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled',{reason:'manual'});}
@@ -158,6 +162,7 @@ export function primeSoFistSkill(room,b,p,now){
  // from Long Arm to Beat after a throw can permanently strand the gauntlet.
  if(b?.detachedFist?.state==='resting'||b?.skill?.id==='longArmToTheJaw')
   return requestLongArmToJaw(room,b,p,now);
+ if(b.skill?.id==='hellpingHand')return requestHellpingHand(room,b,p,now);
  if(!skillOperator(room,b,p,now)||b.components.Drive.health<=0)return 'The piston drive must be functioning.';
  if(!primeSiegeSkill(b,now))return 'Beat to the Punch is cooling down or already primed.';
  b.skill.chassisDamage=0;b.skill.failureThreshold=sampleRamFailure(room);
@@ -218,6 +223,7 @@ export function stepSoFistication(room,b,dt,now,world=room.world){
    stepSiegeWreck(room,b,now);return;
  }
  b.poseTime=now;b.edgeBlocked=false;stepDetachedRamFist(room,b,dt,now,world);
+ stepHellpingHand(room,b,dt,now);
  stepRamElevation(room,b,dt,now,world);
  stepSoFistSkill(room,b,now);
  // Sweep the real striking surface against architecture before sampling contacts.
@@ -272,7 +278,7 @@ const p=room.players.get(b.operatorId);
   b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
- const travelSpeed=b.speed+(b.recoilVelocity??0);
+ const travelSpeed=b.hellping?.phase==='vault'?0:b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
  for(let i=0;i<steps;i++){
   if(Math.abs(travelSpeed)<1e-5)break;
@@ -370,6 +376,7 @@ const p=room.players.get(b.operatorId);
  b.recoilVelocity=Math.sign(recoil)*Math.max(0,Math.abs(recoil)-SIEGE_IMPACT.ramPistonRecoilBrake*dt);
  if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*travelSpeed,y:0,z:-Math.cos(b.heading)*travelSpeed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  stepFlick(room,b,dt,now);
+ if(b.hellping?.phase==='transport'||b.hellping?.phase==='grasp')stepHellpingHand(room,b,dt,now);
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
 }
 
@@ -471,6 +478,8 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,health:target.health,maxHealth:target.maxHealth??b.maxHealth,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
+ if(target.health===0&&['Fist','Drive','hull'].includes(componentId)&&b.hellping)
+  releaseHellpingHand(room,b,now,{force:true});
  if(target.health===0){target.failedAt=now;if(componentId==='Fist'){b.fistBrokenAt=now;room.events.push({type:'soFistComponentDestroyed',machineId:b.id,componentId:'Fist',health:0,maxHealth:target.maxHealth,at:now});}if(componentId==='Drive'&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){
     endSiegeSteel(room,b,now);
     // The terminal payload must be captured before the operator is dismounted.
