@@ -106,7 +106,20 @@ async function run(url,touch){
     'return {yaw:rt.input.yaw,pitch:rt.input.pitch,vertical:rt.input.disasterThreeDAim,'+
       'marker:{x:p.x,y:p.y,z:p.z},current:{...rt.localAuth.position},'+
       'held:Number.isFinite(rt.localAuth.ultimateState?.teleportHoldAt)};})()';
-  const aimed=await wait(()=>evaluate(sample),'real drag moves both yaw and elevated destination');
+  const aimed=await wait(()=>evaluate(sample),'real drag moves both yaw and elevated destination',14000)
+    .catch(async error=>{
+      console.error('[3D AIM INPUT DIAGNOSTICS]',name,JSON.stringify(await evaluate(
+        '(()=>{const rt='+runtime+',p=rt.oneHitEffects.teleportTarget.position;return {'+
+        'pitch:rt.input.pitch,yaw:rt.input.yaw,locked:rt.input.pointerLocked,'+
+        'touchFocus:rt.input.touchFocus,enabled:rt.input.enabled,disasterThreeDAim:rt.input.disasterThreeDAim,'+
+        'view:[p.x,p.y,p.z],origin:rt.localAuth.position,'+
+        'holding:rt.localAuth.ultimateState?.teleportHoldAt,'+
+        'state:rt.localAuth.ultimateState?.phase,gesture:rt.input.ultimateGesture,'+
+        'touchHeld:[...(rt.touch?.held?.entries?.()??[])],touchLook:rt.touch?.look,'+
+        'touchAim:[...(rt.touch?.aim?.entries?.()??[])]};})()'
+      )));
+      throw error;
+    });
   assert.ok(aimed.held&&aimed.vertical);
   await shot(name+'-upward-preview');
   // Screenshots in software-rendered Chrome can take several seconds; the
