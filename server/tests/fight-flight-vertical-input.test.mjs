@@ -42,6 +42,17 @@ test('Explicit mobile Hop is one accepted command, a ballistic apex and real lan
  assert.equal(m.grounded,true);assert.ok(Math.abs(m.y)<.02);
  assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2).rejected===undefined,'another grounded press is legal');
 });
+test('Fight-and-Flight allows a close side boarding without prevalidated rear ejection',()=>{
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
+ room.state='PLAYING';
+ room.world={floors:[{id:'floor',center:[0,-.1,0],size:[100,.2,100],y:0}],
+   ramps:[],solids:[],spawnPoints:[],abyssY:-30};
+ const p=room.addPlayer({id:'side-board',token:'side',name:'Pilot'},0);
+ const m=createFightFlight({id:'side-flight'});room.fightFlight=m;
+ p.position={x:2.85,y:0,z:0};
+ assert.equal(mountFightFlight(room,m,p,0),true,'safe nearby side boarding');
+ assert.equal(p.operatingFightFlightId,m.id);
+});
 test('Held explicit Rise climbs and release targets neutral velocity instead of persistent ascent',()=>{
  const {room,m,p}=setup();
  step(room,m,0,48,{flightRise:true});
