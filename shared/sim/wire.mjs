@@ -1,6 +1,6 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
 import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
-import {mountFightFlight,dismountFightFlight,FIGHT_FLIGHT} from './fightFlight.mjs';
+import {mountFightFlight,fightFlightMountProblem,dismountFightFlight,FIGHT_FLIGHT} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
@@ -708,7 +708,13 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
-      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
+      // Practice UI focus protects an EXISTING rider from an accidental
+      // dismount as a drawer or Pause menu opens. It must not silently
+      // suppress a legitimate boarding request by an unmounted player:
+      // mobile focus transitions can leave the flag stale between packets.
+      const mounted=Boolean(player.operatingFightFlightId||
+        player.operatingRamId||player.operatingBallistaId);
+      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&mounted)return {};
       if(player.hellpingCarriedBy===room.soFistication?.id)
        {exitHellpingHand(room,room.soFistication,player,time);return {}; }
       if(boardHellpingHand(room,room.soFistication,player,time))return {};
@@ -719,13 +725,21 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
-      if(f&&mountFightFlight(room,f,player,time))return {};
-      if(ram&&mountSoFistication(room,ram,player,time))return {};
-      if(b&&mountBiByeLlista(b,player,time))return {};
-      return {rejected:'Approach an available operator station.'};
+      if(f&&mountFightFlight(room,f,player,time)){player.practiceUiFocus=false;return {};}
+      if(ram&&mountSoFistication(room,ram,player,time)){player.practiceUiFocus=false;return {};}
+      if(b&&mountBiByeLlista(b,player,time)){player.practiceUiFocus=false;return {};}
+      // A generic "approach a station" message concealed cockpit collisions,
+      // elevations and busy combat states, making taps appear completely inert.
+      // Report the actual nearest machine's reason without bypassing a single
+      // server-side safety or team rule.
+      if(f&&Math.hypot(player.position.x-f.x,player.position.z-f.z)<=5){
+        const reason=fightFlightMountProblem(room,f,player,time);
+        if(reason)return {rejected:reason};
+      }
+      return {rejected:'Move beside an available, unoccupied siege machine on the same elevation.'};
     }
     case 'bibyeOperate': {
-      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
+      if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&player.operatingBallistaId)return {};
       if(player.operatingFightFlightId)return {rejected:'Land and dismount Fight-and-Flight first.'};
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
