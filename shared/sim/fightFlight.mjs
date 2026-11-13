@@ -17,8 +17,8 @@ export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
-  neutralStabilizeSec:1.0,neutralDescentSpeed:.4,
-  neutralBobMetres:.07,neutralBobHz:1.15,
+  neutralStabilizeSec:1.05,neutralDescentSpeed:.4,
+  neutralBobMetres:.15,neutralBobHz:1.0,
   airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
@@ -94,12 +94,13 @@ export function mountFightFlight(room,m,player,now=0){
   if(player.pendingSpell||player.gauntlet||player.ultimateState||player.attackActive)return false;
   if(m.operatorId&&m.operatorId!==player.id)return false;
   if(m.team&&m.team!==player.team)return false;
-  if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>2.5||Math.abs(player.position.y-m.y)>1.5)return false;
+  if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>3.2||Math.abs(player.position.y-m.y)>1.8)return false;
   if(!collisionFree({x:m.x,y:m.y,z:m.z},extraSolids(room,m)))return false;
   const sightSolids=extraSolids(room,m);
   if(sightSolids.some(s=>segmentAabbHit([player.position.x,player.position.y+1.25,player.position.z],[m.x,m.y+1.25,m.z],s)))return false;
-  // Do not imprison the rider in machinery with no safe way to exit.
-  if(!fightFlightExit(room,m,player))return false;
+  // Mounting only requires a safely occupied cockpit. Ejection candidates
+  // are evaluated when leaving, because nearby terrain can change after
+  // boarding. Testing the rear exit here caused false-negative mounts.
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
   // The Armory loadout belongs to the new pilot; physical cooldown remains.
   m.skill={...m.skill,id:equippedFightFlightSkill(player).id};
@@ -296,9 +297,17 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   }else if(m.neutralHoverAt==null){
     m.neutralHoverAt=now;
     m.neutralHoverFromRise=previousVerticalIntent==='RISE';
-    m.neutralHoverHeight=m.y+cap(m.velocity.y,0,4)*.14;
+    // The released lever still carries the rotor's attained climb momentum.
+    // Reserve a little height above release altitude for visible overshoot.
+    m.neutralHoverHeight=m.y+cap(m.velocity.y*.24,.2,.72);
   }
   m.jumpWasHeld=legacyJump;
+  // Only a deliberate Hop is ballistic. An actual Rise->Hover transition
+  // MUST retain rotor power while still airborne; do not make release of the
+  // altitude lever equivalent to powering the helicopter off.
+  if(!m.grounded&&intact&&m.flightCharge>0&&!m.emergencyBrakeActive&&
+     (m.verticalIntent==='RISE'||m.verticalIntent==='HOVER'&&m.neutralHoverFromRise))
+    m.rotorPowered=true;
   const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
   // Ground Dash spin-up has priority over the ordinary crouch/lower brake.
   m.rotorBrakeHeld=Boolean(descend&&m.grounded&&m.runGroundPhase!=='SPINUP');
@@ -378,7 +387,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         Math.sin(hoverAge*2*Math.PI*FIGHT_FLIGHT.neutralBobHz):0;
       const hoverHeight=(m.neutralHoverHeight??m.y)+bob;
       const hoverVelocity=m.neutralHoverFromRise?
-        cap((hoverHeight-m.y)*2.4,-.42,.42):0;
+        cap((hoverHeight-m.y)*3.1,-.5,1.05):0;
       const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
         m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
         settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;

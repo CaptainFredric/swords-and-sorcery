@@ -165,6 +165,24 @@ test('Ultimate Knight stationary drill commits its selected Disaster without wal
   assert.ok(room.events.some(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id));
 });
 
+test('Ultimate Knight in Stay drill does not run ordinary bot spell and sword attacks',()=>{
+ const f=fixture(),{room,human,knight}=f;
+ human.position={x:0,y:0,z:-13};human.spawnProtectionUntil=0;
+ assert.equal(configureUltimateKnight(room,human.id,
+   {behavior:'stay',selection:'one_hit_of_wonders',preset:'partial'},0),true);
+ for(let i=0;i<420;i++){
+   const now=i/30;
+   human.position={x:0,y:0,z:-13};human.alive=true;
+   human.health=100;human.spawnProtectionUntil=0;
+   stepPracticeActors(room,now,world,{random:()=>.5});
+   stepRoom(room,1/30,now,world);
+ }
+ assert.ok(room.events.some(e=>e.type==='ultimateStart'&&e.playerId===knight.id));
+ assert.equal(room.events.some(e=>e.type==='spellCast'&&e.playerId===knight.id),false,
+   'no ordinary spellcasting controller');
+ assert.equal(room.events.some(e=>e.type==='attackStarted'&&e.playerId===knight.id),false,
+   'no pointless sword swings from 13 metres away');
+});
 test('Stay returns to its marked post by ordinary foot movement after physical displacement',()=>{
   const f=fixture();
   const {room,human,knight}=f;

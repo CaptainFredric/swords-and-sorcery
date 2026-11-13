@@ -11,6 +11,17 @@ test('authored four wheel carriage accelerates, reverses and turns without later
  const at=s.b.z;run(s,4,{forward:-1});assert.ok(s.b.speed>=-SO_FIST.reverse-.01&&s.b.speed< -SO_FIST.reverse+.1);assert.ok(s.b.z>at);
  const turn=setup();run(turn,3,{forward:1,right:1});assert.ok(Math.abs(turn.b.heading)>1);const still=setup();run(still,1,{right:1});assert.equal(still.b.heading,0);assert.equal(still.b.x,0);
 });
+test('ram can board from the side without demanding an unobstructed rear exit',()=>{
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
+ room.world=structuredClone(ground);room.state='PLAYING';
+ const p=room.addPlayer({id:'side-pilot',token:'side',name:'Side Pilot'},0);
+ const b=room.soFistication=createSoFistication({x:0,y:0,z:0,heading:0});
+ p.position={x:2.8,y:0,z:0};
+ assert.ok(mountSoFistication(room,b,p,0),'nearby side boarding is permitted');
+ assert.equal(b.operatorId,p.id);
+ assert.equal(p.operatingRamId,b.id);
+});
+
 test('held Knock on Steel sustains beyond1.5s, drains its own pressure, winds down and requires recovery',()=>{
  const s=setup();run(s,4,{sprint:true});assert.ok(s.b.speed>11);assert.ok(s.b.pressure<100&&s.b.pressure>0);assert.equal(s.p.guardStamina,100);
  run(s,6,{sprint:true});assert.ok(s.b.pressure<25);assert.ok(s.b.speed<7);assert.equal(s.b.charging,false);
