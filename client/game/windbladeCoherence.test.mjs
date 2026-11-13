@@ -58,7 +58,8 @@ test('Full Gale is brighter than an uninfused wave and retains a white-to-lime p
   const b=full.wake.geometry.getAttribute('color');
   assert.ok(b.getW(18*8)>a.getW(18*8)*1.9,
     'Full Gale visibly strengthens the continuous sheet');
-  assert.ok(b.getY(18*8+5)>b.getY(18*8+5)*0.95,'valid lime channel');
+  assert.ok(b.getY(18*8+5)>b.getX(18*8+5)*1.2,
+    'the wake has a real lime-green hue, not a duplicate white silhouette');
   assert.ok(b.getX(18*8)>b.getX(18*8+5),
     'the leading edge is whiter than the lime wake');
   assert.ok(b.getW(18*8+7)<.001,'wake dissolves smoothly rather than ending in a hard arc');
