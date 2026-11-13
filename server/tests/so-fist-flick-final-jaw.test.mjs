@@ -31,13 +31,14 @@ test('the flick is a fingertip sweep with one budgeted contact, not an AoE',()=>
   const s=setup(),a=s.room.addPlayer({id:'foe',token:'foe',name:'Foe'},0);
   const tip=flickTipWorld(s.b,.75);
   a.position={x:tip[0],y:0,z:tip[2]};a.spawnProtectionUntil=0;
+  const initialHealth=a.health;
   assert.equal(flickSoFistication(s.room,s.b,0),true);
   run(s,0,.91);
   const impacts=s.room.events.filter(e=>e.type==='soFistFlickImpact');
   assert.equal(impacts.length,1,'an actually reachable fingertip inflicts exactly one contact');
   assert.equal(impacts[0].victimId,a.id);
   assert.equal(impacts[0].damage,80,'not merely an asset or input test');
-  assert.equal(a.health,a.maxHealth-80,'server owns the complete 80 HP damage');
+  assert.equal(a.health,initialHealth-80,'server owns the complete 80 HP damage');
   assert.ok(Math.hypot(a.impulse.x,a.impulse.z)>=25,'server launched the hit body');
   assert.equal(s.b.flickContactUsed,true,'one hit budget, even across many swept substeps');
   assert.equal(FLICK.damage,80);
@@ -52,13 +53,14 @@ test('a facing guard reduces the flick and costs stamina without creating a seco
   const dx=s.b.x-foe.position.x,dz=s.b.z-foe.position.z;
   foe.yaw=Math.atan2(-dx,-dz);
   foe.guarding=true;foe.guardStamina=100;
+  const initialHealth=foe.health;
   assert.equal(flickSoFistication(s.room,s.b,0),true);
   run(s,0,.91);
   const impacts=s.room.events.filter(e=>e.type==='soFistFlickImpact');
   assert.equal(impacts.length,1);
   assert.equal(impacts[0].guarded,true);
   assert.equal(impacts[0].damage,Math.round(FLICK.damage*FLICK.guardDamageFactor));
-  assert.equal(foe.health,foe.maxHealth-impacts[0].damage);
+  assert.equal(foe.health,initialHealth-impacts[0].damage);
   assert.equal(foe.guardStamina,100-FLICK.guardDrain);
 });
 test('death attack ignores cooldown but requires Long Arm equipped and a mounted fist',()=>{
