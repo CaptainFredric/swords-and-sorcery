@@ -35,5 +35,5 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
      b.hellping?.phase==='open'?'OPEN PALM · PRESS SKILL TO GRAB':
      b.hellping?.phase==='vault'?'HAND-VAULTING':'',recovery,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
   controls:touch?'Full stick forward or hold CHARGE · JUMP raises upper ram · CROUCH lowers · Aim up for elevated punch · ATTACK piston · FLICK · SKILL · VIEW · LEAVE':
-  `Hold [${key('sprint')}] + W charge or S reverse while primed · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}] lift · [${key('crouch')}] lower · Look up to aim · [${key('siegeSkill')}] Skill`};
+  `Hold [${key('sprint')}] + W charge or S reverse while primed · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}]/[${key('crouch')}] pitch · [${key('jump')}] + [${key('dash')}]/[${key('crouch')}] lift/lower · [${key('siegeSkill')}] Skill`};
 }

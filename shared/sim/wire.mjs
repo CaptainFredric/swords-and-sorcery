@@ -397,6 +397,14 @@ export function applyRoomCommand(room, player, message, time) {
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
   if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
+  // HELLping's enemy grip is a physical capture, not merely a position sync.
+  // Refuse new movement/combat intents until release. Allied passengers are
+  // deliberately NOT restricted and remain able to fight from their seat.
+  if(player?.hellpingCapturedBy&&[
+    'input','attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell',
+    'dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
+    'siegeOperate','siegeSkill'
+  ].includes(message.type))return {};
   // A committed sword technique owns both hands. A release remains legal so
   // losing focus cannot leave any held input stuck.
   if(player?.swordTechnique&&message.down!==false&&

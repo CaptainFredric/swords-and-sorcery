@@ -57,6 +57,11 @@ test('HELLping Hand opens, takes one target and performs a lethal 4s crush after
  assert.equal(s.b.hellping.phase,'grasp');
  assert.equal(s.b.hellping.targetId,foe.id);
  assert.equal(foe.hellpingCapturedBy,s.b.id);
+ assert.deepEqual(applyRoomCommand(s.room,foe,{type:'input',forward:1,right:1,attack:true,guard:true},.15),{});
+ assert.equal(foe.input.forward,0,'captured enemy cannot walk out of the closed palm');
+ assert.equal(foe.input.attack,false,'stale attack intent is cleared upon capture');
+ assert.deepEqual(applyRoomCommand(s.room,foe,{type:'attack',down:true},.16),{});
+ assert.equal(foe.attackActive,false,'captured enemy cannot start another attack');
  assert.equal(fireSoFistication(s.room,s.b,.2),false);
  tick(s,.12,5.2);
  assert.equal(foe.alive,false,'uninterrupted full capture completes the crush');
@@ -76,6 +81,23 @@ test('destroyed armored fist interrupts crush without restoring component HP',()
  assert.equal(foe.hellpingCapturedBy,undefined);
  assert.equal(s.b.hellping.phase,'release');
 });
+test('HELLping facing Guard depletes and breaks rather than blocking every future capture',()=>{
+ const s=game(),foe=s.room.addPlayer({id:'guarded-foe',token:'guarded-foe',name:'Guarded Foe'},0);
+ foe.position={x:0,y:0,z:-.885*SO_FIST_SCALE};
+ foe.spawnProtectionUntil=0;
+ foe.yaw=Math.atan2(-(s.b.x-foe.position.x),-(s.b.z-foe.position.z));
+ foe.guarding=true;foe.guardStamina=35;
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,0),null);
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,.2),null);
+ assert.equal(s.b.hellping.phase,'open','first contact was guarded');
+ assert.equal(foe.guardStamina,0);
+ assert.equal(foe.guarding,false,'an exhausted Guard must actually fall');
+ assert.ok(s.room.events.some(e=>e.type==='guardBreak'&&e.hellping&&e.defenderId===foe.id));
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,.3),null);
+ assert.equal(s.b.hellping.phase,'grasp','the second opening may capture a no-longer-guarded enemy');
+ assert.equal(foe.hellpingCapturedBy,s.b.id);
+});
+
 test('allied compartment requires voluntary board and allows attack, exit and transport',()=>{
  const s=game(),ally=s.room.addPlayer({id:'ally',token:'ally',name:'Ally'},0);
  // Team assignments remain authoritative; no uninvited boarding.
@@ -86,6 +108,8 @@ test('allied compartment requires voluntary board and allows attack, exit and tr
  assert.equal(boardHellpingHand(s.room,s.b,ally,.2),true);
  assert.equal(s.b.hellping.phase,'transport');
  assert.equal(ally.hellpingCarriedBy,s.b.id);
+ assert.deepEqual(applyRoomCommand(s.room,ally,{type:'attack',down:true},.24),{});
+ assert.equal(ally.attackActive,true,'the carried ally can actually begin a sword attack');
  assert.equal(fireSoFistication(s.room,s.b,.3),true);
  tick(s,.3,.4);
  assert.ok(Number.isFinite(ally.position.z));
