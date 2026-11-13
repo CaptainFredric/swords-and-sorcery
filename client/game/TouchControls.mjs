@@ -859,9 +859,21 @@ export class TouchControls {
       button.setAttribute('aria-label', name);
       button.querySelector('svg')?.replaceWith(document.createRange().createContextualFragment(iconSvg(view.ultimate.id, 'sunder')));
     }
-    // its name; while a Vortex runs, what it has been steered to (BLADE, FIRE), the button taking that on, and how
-    // much of its stretch is left drawn round it
-    const word = view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase();
+    // Tell the player that the held Full Gale+Lightning Ultimate button
+    // itself is now a 3D aiming surface, not a fixed-direction trigger.
+    // A second finger can still drag the ordinary look area instead.
+    const teleport3D = local.ultimateState?.id === 'one_hit_of_wonders' &&
+      local.ultimateState.phase === 'startup' &&
+      local.ultimateState.preparedTiers?.gale === 2 &&
+      local.ultimateState.preparedTiers?.lightning === 2 &&
+      Number.isFinite(local.ultimateState.teleportHoldAt);
+    button.classList.toggle('teleport-aim',teleport3D);
+    button.setAttribute('aria-label',teleport3D
+      ? 'Hold and drag to aim Full Gale Lightning in 3D, then release to teleport'
+      : (view.ultimate.short ?? view.ultimate.label).toUpperCase());
+    // Its normal Ultimate word comes back as soon as the held aim ends.
+    const word = teleport3D ? 'DRAG TO AIM' :
+      (view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase());
     const label = button.querySelector('span');
     if (label.textContent !== word) label.textContent = word;
     const emphasis = view.emphasis ?? '';
