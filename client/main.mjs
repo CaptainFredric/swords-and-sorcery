@@ -2328,11 +2328,17 @@ function closeInspector() {
   if (backBtn && armoryLocation.region === 'kit') backBtn.textContent = '← MAIN MENU';
 }
 
-function updateSiegePreviewUI(skillId) {
+function updateSiegePreviewUI(skillId, unavailableSkill=null) {
   const button=$('#siege-preview-stop');
   const hint=$('#siege-preview-hint');
   if(button)button.hidden=!skillId;
   if(hint) {
+    // A Skill can be equipped without the older workshop GLB having its
+    // authored animation. Never pretend an unsupported preview is playing.
+    if(unavailableSkill==='hellpingHand') {
+      hint.textContent='HELLPING HAND EQUIPPED · WORKSHOP DEMONSTRATION NOT YET AVAILABLE. USE THE SKILL IN GAME.';
+      return;
+    }
     const names={
       boltToTheOccasion:'BOLT TO THE OCCASION',
       coldHowTouching:'COLD, HOW TOUCHING',
@@ -2581,8 +2587,9 @@ $('#armory-siege-machines').addEventListener('click', (event) => {
     settings.set(setting, button.dataset.siegeSkill);
     renderSiegeWorkshop(armoryLocation.siegeMachine);
     motion();
-    menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill);
-    updateSiegePreviewUI(button.dataset.siegeSkill);
+    const started=menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill)===true;
+    updateSiegePreviewUI(started?button.dataset.siegeSkill:null,
+      started?null:button.dataset.siegeSkill);
   }
 });
 
