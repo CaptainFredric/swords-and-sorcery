@@ -4460,8 +4460,8 @@ export class GameRuntime {
     const { width, height } = this.#viewSize();
     const camera = this.trialJudgmentCamera ??= new THREE.PerspectiveCamera(45, 1, 0.1, 120);
     camera.aspect = width / height;
-    camera.position.set(2.2, 3, 6.0);
-    camera.lookAt(0, 3.8, 15.2);
+    camera.position.set(5.2, 3.4, 7.6);
+    camera.lookAt(0, 3.4, 15.8);
     camera.updateProjectionMatrix();
 
     if (this.world instanceof CourtOfMeritRenderer) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { restlessRenownerBlade, restlessRenownerMouth } from '../../shared/worlds/renownerGeometry.mjs';
+import { restlessRenownerBlade, restlessRenownerMouth, RENOWNER_SWORD_LENGTH, RESTLESS_RENOWNER_SCALE, RESTLESS_RENOWNER_SWORD_SCALE } from '../../shared/worlds/renownerGeometry.mjs';
 
 test('the authored Renowner binary preserves its original joint and ceremony inventory', async () => {
   const bytes = await readFile(new URL('../../client/assets/props/rightful-renowner/Rightful_Renowner_GameReady_PBR.glb', import.meta.url));
@@ -23,16 +23,21 @@ test('the authored Renowner binary preserves its original joint and ceremony inv
   assert.equal(model.accessors[cycle.samplers[0].input].max[0], 6);
 });
 
-test('the Restless Day blade keeps its endpoints and committed moving sweep', () => {
+test('both combat strikes follow a rigid sword with one fixed proportional scale', () => {
   const renowner = { position:{x:0,y:1.4,z:56}, yaw:Math.PI, attack:{type:'downstroke',contactAt:10} };
-  const strike = restlessRenownerBlade(renowner, 10);
-  assert.ok(Math.abs(strike.b[0]) < 1e-10);
-  assert.equal(strike.b[1], 1.15);
-  assert.equal(strike.b[2], 50.2);
-  renowner.attack.type = 'sweep';
+  const length = RENOWNER_SWORD_LENGTH * RESTLESS_RENOWNER_SCALE * RESTLESS_RENOWNER_SWORD_SCALE;
+  for (const type of ['downstroke','sweep']) {
+    renowner.attack.type=type;
+    for (let t=9;t<=11;t+=.01) {
+      const {a,b}=restlessRenownerBlade(renowner,t);
+      assert.ok(Math.abs(Math.hypot(...b.map((v,i)=>v-a[i]))-length)<1e-9);
+      assert.ok(b[1]>1.4, 'steel stays above the solid podium');
+      assert.ok(Math.hypot(b[0],b[2]-56)<3.1, 'distant invisible reach must be removed');
+    }
+  }
   const left = restlessRenownerBlade(renowner, 10);
   const right = restlessRenownerBlade(renowner, 10.25);
-  assert.ok(left.b[0] > 6 && right.b[0] < -6);
+  assert.ok(left.b[0] > 2 && right.b[0] < -2);
   assert.ok(restlessRenownerMouth(renowner).z < renowner.position.z);
 });
 
@@ -47,10 +52,27 @@ test('authoritative statue contact and dispenser projectiles keep their existing
     const renowner = room.restlessDay.renowner;
     renowner.nextAttackAt = 2;
     renowner.attacksMade = prior;
-    player.position = { x:0, y:0, z:kind === 'sweep' ? 48.8 : 50.2 };
+    if(kind==='coin') player.position={x:0,y:0,z:50.2};
+    else {
+      const segment=restlessRenownerBlade({...renowner,attack:{type:kind,contactAt:3.05}},3.05);
+      player.position={x:segment.b[0],y:1.4,z:segment.b[2]};
+    }
     const hits = [];
     const damage = (_room, _attacker, target, amount, source) => hits.push({target, amount, source});
     for (let i = 0; i < 65; i++) restlessnessStep(room, 1/30, 2 + i/30, {damage});
     assert.deepEqual(hits, [{target:player.id, amount, source:kind === 'coin' ? 'renowner-coin' : 'renowner-sword'}]);
   }
+});
+
+test('a distant opponent receives no phantom sword hit from the former stretched blade', async () => {
+  const { Room } = await import('../../shared/sim/Room.mjs');
+  const { restlessnessStep } = await import('../../shared/sim/restlessDayMode.mjs');
+  const room=new Room('FAR',{mode:'RESTLESS_DAY',worldId:'restless-day'});
+  const p=room.addPlayer({id:'p',token:'p',name:'Knight',team:'ATTACKERS'},0);
+  room.startMatch(1);room.restlessDay.phase=2;
+  room.restlessDay.renowner.nextAttackAt=2;
+  p.position={x:0,y:0,z:50.2};
+  const hits=[];
+  for(let i=0;i<65;i++)restlessnessStep(room,1/30,2+i/30,{damage:(...args)=>hits.push(args)});
+  assert.deepEqual(hits,[]);
 });
