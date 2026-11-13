@@ -414,6 +414,16 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       m.velocity.y=Math.min(m.velocity.y,-1.8);
     }
   }
+  // A fingertip hit is a one-time external collision impulse, not another
+  // flight control request. Feed it into the normal collision-resolving solver
+  // so aircraft cannot tunnel through walls, floor or ceilings on impact.
+  const flick=m.externalFlickImpulse;
+  if(flick){
+    m.velocity.x=cap(m.velocity.x+(flick.x??0),-24,24);
+    m.velocity.y=cap(m.velocity.y+(flick.y??0),-18,12);
+    m.velocity.z=cap(m.velocity.z+(flick.z??0),-24,24);
+    m.externalFlickImpulse=null;
+  }
   m.edgeBlocked=false;
   const solids=extraSolids(room,m,world);
   const steps=Math.max(1,Math.ceil(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)*dt/.25));
