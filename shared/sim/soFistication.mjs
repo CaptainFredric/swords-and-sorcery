@@ -114,8 +114,7 @@ export function soFistExit(room,b,p,extras=[],accept=()=>true){
  for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015&&accept(candidate))return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
- if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId||
-   b.detachedFist?.state==='recovering')return false;
+ if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId)return false;
  if(b.team&&p.team!==b.team)return false;
  if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(room.objectiveState?.phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
