@@ -2272,6 +2272,61 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
   return true;
 }
+// Every machine may receive at most ONE decisive structural hit from an
+// All-Natural Disaster cast, even if the slam, projectile and explosion overlap.
+// Component allocation is delegated to the machine's existing blast system.
+// Infused statuses are applied at reduced strength to machines separately;
+// no per-wheel duplicate 85-HP cuts are allowed.
+function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
+  const cast=String(caster.ultimateState?.startedAt??nowSec);
+  const seen=room.oneHitSiegeContacts??=new Map();
+  if(seen.size>128)seen.clear();
+  const amount=Math.max(1,Math.round(oneHitDamage(tiers,ONE_HIT_BASE_DAMAGE)*.65));
+  const machines=[
+    [room.soFistication,'ram'],
+    [room.biByeLlista,'ballista'],
+    [room.fightFlight,'flight'],
+  ];
+  for(const [machine,kind] of machines) {
+    if(!machine||machine.retired||machine.mode==='DESTROYED'||!(machine.health>0))continue;
+    if(machine.team&&caster.team&&machine.team===caster.team)continue;
+    const key=`${caster.id}:${cast}:${machine.id}`;
+    if(seen.has(key))continue;
+    const box=kind==='ram'?soFistVolumes(machine,nowSec):
+      kind==='ballista'?biByeHitVolumes(machine,nowSec):fightFlightHitVolumes(machine);
+    // World-aware extents from the real component volumes, not a fabricated
+    // giant machine hurt sphere. At most one allocation per machine/cast.
+    const intersects=box.some(v=>{
+      const c=v.center,extent=Math.hypot(...v.size)*.42;
+      return Math.hypot(point.x-c[0],point.y-c[1],point.z-c[2])<=radius+extent;
+    });
+    if(!intersects)continue;
+    seen.set(key,nowSec);
+    if(kind==='ram')
+      blastSoFistication(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+    else if(kind==='ballista')
+      blastBiByeLlista(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+    else {
+      // Fight-and-Flight has exposed, independently destructible pieces.
+      // Choose one actual intersecting component rather than dealing full
+      // blast damage to its rotor, two braces AND main hull at once.
+      const hit=box.map(v=>({v,d:Math.hypot(point.x-v.center[0],point.y-v.center[1],point.z-v.center[2])}))
+        .filter(o=>o.d<=radius+Math.hypot(...o.v.size)*.42)
+        .sort((a,b)=>a.d-b.d)[0];
+      if(hit)damageFightFlight(room,machine,amount,caster.id,'one_hit_of_wonders',nowSec,
+        {componentId:hit.v.componentId,point});
+    }
+    // Siege hardware cannot suffer a Spellblade's exact four-second frozen
+    // lock. Give each existing machine a weaker, decaying disruption signal.
+    machine.disasterAffliction={at:nowSec,until:nowSec+1.3,
+      gale:(tiers.gale??0)>=1 ? .25 : 0,
+      frost:(tiers.frost??0)>=1 ? .2 : 0,
+      lightning:(tiers.lightning??0)>=1 ? .2 : 0};
+    room.events.push({type:'oneHitSiegeImpact',playerId:caster.id,machineId:machine.id,
+      machineKind:kind,point:{...point},at:nowSec});
+  }
+}
+
 function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius) {
   (room.oneHitBurnZones??=[]).push({
     id,ownerId:caster.id,position,radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
@@ -2310,6 +2365,7 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
       !oneHitWorldContact(oneHitChest(target),{...next,y:next.y+1},world))target.position=next;
   }
   const center={...caster.position},processed=[];
+  oneHitSiegeContact(room,caster,center,radius,tiers,nowSec);
   const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed);
   // Reuse the game's actual rupture simulation and its visible fissure events.
   // The same enemy is never dealt the full decisive strike twice by its fissure.
@@ -2587,6 +2643,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
+  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec);
   // A ground-contacting wave leaves the SAME decaying Shaken terrain as a
   // slam, but over its smaller terminal radius. The ground retains full
   // Frost/Lightning field consequences and its own visible rubble. A wave
