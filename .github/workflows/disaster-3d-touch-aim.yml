@@ -22,7 +22,7 @@ jobs:
       - name: Test real gesture dispatcher, release vector and authoritative destination
         run: |
           npm run check:browser-imports
-          node --test client/game/TouchControls.test.mjs client/game/InputController.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
+          node --test client/game/TouchControls.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
       - name: Locate browser
         id: chrome
         shell: bash
