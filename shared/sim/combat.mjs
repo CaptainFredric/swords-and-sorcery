@@ -2179,12 +2179,23 @@ function oneHitSteelBraced(player,nowSec) {
 // Full Steel's HP floor is provided by oneHitSteelFloorActive, shared with
 // the HUD. A blocked killing blow is never saved as future damage.
 
-function oneHitGuard(room,caster,target,origin,nowSec) {
+function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
   // (40 for a guarded Disaster, whatever it carries: no infusion bears harder on a Guard)
   target.guardStamina=Math.max(0,target.guardStamina-40);
   target.lastGuardDrainAt=nowSec;
   if(target.guardStamina<=0)breakGuard(target,.4,nowSec);
+  // Guard prevents the direct HP contact, not a gale's physical pressure.
+  // A defended shove is smaller and follows the wave/impact direction.
+  if((tiers.gale??0)>=1){
+    const dx=target.position.x-origin.x,dz=target.position.z-origin.z;
+    const mag=Math.hypot(dx,dz)||1;
+    const scale=staggerShove(target.stagger);
+    shoveBody(target,{x:dx/mag*2.6*scale,y:.18,z:dz/mag*2.6*scale});
+    target.lastKnockbackAt=nowSec;
+    target.lastKnockbackBy=caster.id;
+    target.lastKnockbackSource='one_hit_gale_guarded';
+  }
   room.events.push({type:'block',attackerId:caster.id,defenderId:target.id,oneHit:true,at:nowSec});
   return true;
 }
@@ -2241,12 +2252,12 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
 
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
-  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,
+  aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
   const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
-  if(oneHitGuard(room,caster,target,incoming,nowSec))return false;
+  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers)){onGuard?.();return false;}
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
   const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
@@ -2549,7 +2560,7 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     }
     if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
     rec.hitIds.push(target.id);
-    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec))continue;
+    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec,rec.tiers))continue;
     // A sword wave's terminal gust carries ALL of its infused on-contact
     // properties, even without Fire's bonus HP blast. Steel still disrupts
     // Skills, Gale still Blusters, Frost freezes, and Lightning conducts.
@@ -2669,7 +2680,9 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
     const contact=oneHitWorldContact(old,next,world);
     const stop=contact?.t??1;
+    let guardedContact=null;
     for(const target of room.players.values()){
+      if(guardedContact)break;
       if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id)continue;
       const center=oneHitChest(target);
       const frac=Math.max(0,Math.min(stop,((center.x-old.x)*wave.direction.x+
@@ -2678,7 +2691,18 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
-        distance:wave.distance+step*frac,processed:wave.hitIds});
+        distance:wave.distance+step*frac,processed:wave.hitIds,
+        onGuard:()=>{guardedContact={...near};}});
+    }
+    if(guardedContact) {
+      // Guard spends its one contact AND stops the travelling sword-wave.
+      // Explode at the defender, with the usual smaller terminal blast.
+      // The same defended victim remains in hitIds: no duplicated HP or Guard cost.
+      wave.position=guardedContact;
+      wave.distance+=Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z);
+      oneHitWaveImpact(room,caster,wave,guardedContact,null,nowSec,world,'guard');
+      wave.distance=ONE_HIT_RULES.waveMaxReach;
+      continue;
     }
     wave.position=oneHitAlong(old,next,stop);
     wave.distance+=step*stop;
