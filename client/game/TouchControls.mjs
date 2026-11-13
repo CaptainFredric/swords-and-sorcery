@@ -350,7 +350,7 @@ export class TouchControls {
   // shown and listening only while the player is in the arena (the touch version of pointer lock)
   setActive(active) {
     this.active = Boolean(active);
-    this.layer.classList.toggle('active', this.active);
+    this.layer.classList.toggle('active', this.active || this.deadNavigationEnabled);
     if (!this.active) this.reset();
   }
 
@@ -474,6 +474,9 @@ export class TouchControls {
   }
 
   update(local, serverNow, { practice = false, snapshot = null, onFootThirdPerson = false } = {}) {
+    this.deadNavigationEnabled=Boolean(local&&!local.alive);
+    this.layer.classList.toggle('dead-navigation',this.deadNavigationEnabled);
+    this.layer.classList.toggle('active',this.active||this.deadNavigationEnabled);
     // The workshop is a real per-machine preview. Live snapshots must not
     // repaint hidden actions or restore the currently mounted machine while
     // the player edits Ballista, Ram, Flight or on-foot controls.
@@ -1160,7 +1163,9 @@ export class TouchControls {
 
   #down = (event) => {
     this.touchDebugEvent = 'down';
-    if (!this.active) return;
+    if (!this.active && !this.deadNavigationEnabled) return;
+    if (!this.active && this.deadNavigationEnabled &&
+       !event.target.closest?.('.touch-pause,.touch-practiceTools'))return;
     // A pointer owns the action it STARTED on. A thumb sliding across Dash
     // cannot be promoted from a look, stick, rail, or other held gesture.
     // Distinct fingers can still press Dash and Ultimate together.
@@ -1431,7 +1436,8 @@ export class TouchControls {
         this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     const gatedAction=this.ramMounted&&(action==='jump'||action==='crouch')?'move':action;
-    if (!this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
+    if (!(this.deadNavigationEnabled && (action==='pause'||action==='practiceTools')) &&
+      !this.#gateHeld(gatedAction, true, `touch-button:${event.pointerId}`)) {
       this.deniedButtons.add(event.pointerId);
       return;
     }
