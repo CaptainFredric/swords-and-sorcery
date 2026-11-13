@@ -227,3 +227,4 @@ None of these blocks the PR; each is art that cannot be fixed in code without in
 - A Riposte's lunge ends inside its target (from 4.4 m the camera finishes in the Training Dummy's chest). That is movement, not animation.
 - The Technique slot has no "none"; every knight defaults to Rigid Riposte.
 - On the ground a crouch's authored chassis drop (0.52 m) is also discarded; the carriage layer deliberately stands aside for a crouch.
+- The first-person sword hand is not joined to its forearm in the canonical `spellblade-fp.glb`: the two are separate shells with no shared edge or blended weight, and at bind the hand sits 96 mm from the nearest forearm vertex (the magic hand: 8 mm). `main`'s own `Idle` shows 95 to 98 mm, its cuts 27 to 104 mm. The technique clips here are rotation-only and keep it at 68 to 102 mm, so they neither open nor close it: `node scripts/fp-wrist-seam.mjs`. Closing it is source art on the model, which this PR does not touch.
