@@ -205,14 +205,24 @@ export class SoFisticationRenderer {
    const flickAge=b.flickAt!=null?now-b.flickAt:-1;
    const flickActive=flickAge>=0&&flickAge<4;
    const hand=b.hellping,handAge=hand?Math.max(0,now-hand.at):0;
-   if(flickActive&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
-     this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},
-       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   // Donor hand clips also carry transforms for Argon's older carriage,
+   // piston, and wheels. These must not override the live hydraulic rig's
+   // independently simulated lift, stroke, movement or damage geometry.
+   const handTrack=k=>/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\\./.test(k);
+   // Physical piston movement remains tied to the authoritative 4s cycle,
+   // including a punch while an ally rides in HELLping's compartment.
+   this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
+     time:flickActive?0:Math.min(3.999,soFistPose(b,now).clipAge)},
+     k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+   if(flickActive&&this.v26HandInstalled&&this.availableClips?.has('23_Finger_Flick_Single_Target_Strike')){
+     this.animation.sample({clip:'23_Finger_Flick_Single_Target_Strike',time:flickAge},handTrack);
    }else if(this.v26HandInstalled&&hand){
      // All clients play the server's authoritative phase; hydraulic controls
      // remain separate and no hit or passenger state originates in the viewer.
      let clip='22_HELLping_Hand_Skill_Default_Open_Palm_Idle',time=handAge,loop=true;
-     if(hand.phase==='open'&&handAge<1){
+     if(hand.phase==='open'&&Number.isFinite(hand.exitAt)&&now-hand.exitAt<1.1){
+       clip='17_HELLping_Hand_Ally_Rear_Exit';time=Math.max(0,now-hand.exitAt);loop=false;
+     }else if(hand.phase==='open'&&handAge<1){
        clip='11_HELLping_Hand_Open_Wide';time=handAge;loop=false;
      }else if(hand.phase==='grasp'){
        clip=handAge<1?'12_HELLping_Hand_Enemy_Capture_Close':
@@ -229,15 +239,7 @@ export class SoFisticationRenderer {
      }else if(hand.phase==='release'){
        clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
      }
-     this.animation.sample({clip,time,loop},
-       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root')&&
-        !k.startsWith('Carriage_Main')&&!k.startsWith('Lower_Wheel_Carriage'));
-   }else{
-     // An old asset cannot display a new flick; do not animate a counterfeit
-     // piston strike over its authoritative fingertip contact.
-     this.animation.sample({clip:'01_Ram_Strike_Full_Cycle',
-       time:flickActive?0:Math.min(3.999,soFistPose(b,now).clipAge)},
-       k=>!k.startsWith('Wheel_')&&!k.startsWith('BattleRam_Root'));
+     this.animation.sample({clip,time,loop},handTrack);
    }
    this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
    for(let i=0;i<this.wheels.length;i++){
