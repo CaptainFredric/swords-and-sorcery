@@ -131,6 +131,11 @@ export function requestHellpingHand(room,b,p,now){
   b.hellping={phase:'grasp',targetId:victim.id,at:now,lastAt:now};
   victim.hellpingCapturedBy=b.id;
   interruptHitActions(room,victim,b.operatorId,now,'hellping-capture');
+  // Clear held input at the actual grasp. The wire gate prevents subsequent
+  // input packets from restoring movement/attacks until the hand releases.
+  victim.input={...victim.input,forward:0,right:0,jump:false,sprint:false,
+    crouch:false,attack:false,guard:false};
+  victim.attackHeld=false;victim.guardHeld=false;victim.guarding=false;
   emit(room,b,'captured',now,{targetId:victim.id});return null;
  }
  const direction=(p.input?.forward??0)>.45?1:(p.input?.forward??0)<-.45?-1:0;
