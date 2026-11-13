@@ -80,6 +80,50 @@ test('Full Gale plus Lightning teleports UP from the ground, then aims the wave 
   assert.ok(waves(room)[0].direction.y<-.5,'wave follows the NEW pitch, not upward teleport pitch');
   assert.ok(waves(room)[0].direction.z<-.7,'independent yaw is live');
 });
+test('actual hosted movement packets and Ultimate release can teleport vertically upward at all compass bearings',()=>{
+  const bearings=[0,Math.PI/2,Math.PI,3*Math.PI/2];
+  for(const yaw of bearings){
+    const {room,a}=battle({gale:2,lightning:2});
+    assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+    const start={...a.position};
+    // This is the SAME host command path used by online and local touch.
+    assert.deepEqual(applyRoomCommand(room,a,{
+      type:'input',seq:1,forward:0,right:0,yaw,pitch:Math.PI/2,
+    },10),{});
+    assert.equal(a.input.pitch,Math.PI/2,'host must not flatten a live 3D touch aim');
+    const preview=serializeSnapshot(room,10,'a').players.find(p=>p.id==='a');
+    assert.equal(preview.input?.pitch,undefined); // player snapshots have actual yaw/pitch
+    assert.deepEqual(applyRoomCommand(room,a,{
+      type:'oneHitRelease',yaw,pitch:Math.PI/2,
+    },10.4),{});
+    const event=room.events.find(e=>e.type==='oneHitTeleport');
+    assert.ok(event,'host issued a teleport at heading '+yaw);
+    assert.ok(event.to.y>start.y+10,'destination is truly above the caster, not level');
+    assert.ok(Math.hypot(event.to.x-start.x,event.to.z-start.z)<.04,
+      'looking straight up must not carry an accidental horizontal displacement');
+    assert.equal(event.grounded,false);
+    assert.equal(a.ultimateState.oneHit.form,'aerial');
+    // The post-arrival aim window is equally free: an upward sword release
+    // remains vertical instead of returning to the ordinary 1.45 clamp.
+    applyRoomCommand(room,a,{type:'input',seq:2,yaw:yaw+.6,pitch:Math.PI/2},10.45);
+    assert.equal(a.input.pitch,Math.PI/2,'host keeps vertical aim through the aerial release');
+    applyRoomCommand(room,a,{type:'oneHitFire'},10.48);
+    const wave=room.events.find(e=>e.type==='oneHitWave');
+    assert.ok(wave&&wave.direction.y>.999,'one wave follows the new vertical sword aim');
+  }
+});
+
+test('ordinary Lightning and other attacks keep standard pitch limits and ground-only teleport',()=>{
+  const {room,a}=battle({gale:0,lightning:2});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  applyRoomCommand(room,a,{type:'input',yaw:0,pitch:Math.PI/2},9.8);
+  assert.equal(a.input.pitch,1.45,'only Full Gale may break the normal look limit');
+  applyRoomCommand(room,a,{type:'oneHitRelease',yaw:0,pitch:Math.PI/2},9.9);
+  const event=room.events.find(e=>e.type==='oneHitTeleport');
+  assert.ok(event&&event.grounded);
+  assert.ok(Math.abs(event.to.y)<1e-8,'without Full Gale the teleport stays on the ground');
+});
+
 test('Landing from an airborne teleport chooses the ground slam, not the aerial wave',()=>{
   const {room,a}=battle({gale:2,lightning:2});
   a.position.y=7;a.grounded=false;a.input.pitch=-1.1;
