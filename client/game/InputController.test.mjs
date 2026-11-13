@@ -752,7 +752,24 @@ test('UPPER-focus coupled control sends one camera ray, not the primed combined 
  input.mountedBallista=false;input.siegeCoupled();assert.equal(calls.length,2);
 });
 
-test('ram E/C pitch by default; RMB+E/C lifts without Dash, Guard, Jump or Crouch',()=>{
+test('mounted right mouse sends one server Finger Flick, not Guard, aim modifier or held punch',()=>{
+ const {input,down,up,calls}=setup(),sent=[];
+ input.socket.send=m=>sent.push(m);
+ input.mountedRam=true;input.enabled=true;
+ down('Mouse2');
+ assert.deepEqual(sent,[{type:'ramFlick'}]);
+ assert.equal(input.movement().ramRaise,false);
+ assert.equal(input.movement().guard,false);
+ up('Mouse2');
+ assert.deepEqual(sent,[{type:'ramFlick'}]);
+ assert.deepEqual(calls,[]);
+ input.mountedRam=false;
+ down('Mouse2');up('Mouse2');
+ assert.deepEqual(calls,[['guard',true],['guard',false]],'ordinary on-foot Guard still works');
+ input.dispose();
+});
+
+test('ram E/C pitch by default; Space+E/C lifts without Dash, Guard, Jump or Crouch',()=>{
   const {input,down,up,calls}=setup(),sent=[];
   input.socket.dash=()=>calls.push(['dash']);input.socket.send=m=>sent.push(m);
   input.mountedRam=true;
@@ -766,8 +783,7 @@ test('ram E/C pitch by default; RMB+E/C lifts without Dash, Guard, Jump or Crouc
   assert.equal(move.ramLower,false);
   assert.equal(move.crouch,false);
   up('KeyC');
-  down('Mouse2');
-  assert.equal(input.ramPitchModifierHeld,true);
+  down('Space');
   down('KeyE');move=input.movement();
   assert.equal(move.ramRaise,true);
   assert.equal(move.ramPitchUp,false);
@@ -775,7 +791,7 @@ test('ram E/C pitch by default; RMB+E/C lifts without Dash, Guard, Jump or Crouc
   down('KeyC');move=input.movement();
   assert.equal(move.ramLower,true);
   assert.equal(move.ramPitchDown,false);
-  up('Mouse2');move=input.movement();
+  up('Space');move=input.movement();
   assert.equal(move.ramPitchDown,true);
   assert.equal(move.ramLower,false);
   assert.equal(move.guard,false);
@@ -783,7 +799,6 @@ test('ram E/C pitch by default; RMB+E/C lifts without Dash, Guard, Jump or Crouc
   assert.equal(sent.some(x=>x.type==='siegeOperate'),false);
   up('KeyC');
   input.releaseInputs();
-  assert.equal(input.ramPitchModifierHeld,false);
   input.mountedRam=false;
   assert.equal(input.movement().ramPitchDown,false);
   input.dispose();
@@ -796,10 +811,10 @@ test('custom E/C hydraulic action bindings remain mounted-only and cannot dismou
   assert.equal(input.movement().ramPitchUp,true);
   assert.equal(input.movement().jump,false);
   assert.equal(calls.some(x=>x[0]==='dash'),false);
-  up('KeyR');down('Mouse2');down('KeyT');
+  up('KeyR');down('Space');down('KeyT');
   assert.equal(input.movement().ramLower,true);
   assert.equal(input.movement().crouch,false);
-  up('KeyT');up('Mouse2');input.mountedRam=false;input.dispose();
+  up('KeyT');up('Space');input.mountedRam=false;input.dispose();
 });
 
 
