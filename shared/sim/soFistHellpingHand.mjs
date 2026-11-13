@@ -24,14 +24,15 @@ function eligible(p,b){
 }
 function safeExit(room,b,p){
  const frame=soFistFrame(b),rear=frame.axes[2],right=frame.axes[0],world=room.world;
- for(const side of [1,-1,0]){
-  const x=b.x-rear[0]*3.3+right[0]*side*2.6,z=b.z-rear[2]*3.3+right[2]*side*2.6;
+ for(const [back,side] of [[3.3,0],[3.3,2.6],[3.3,-2.6],
+   [4.4,0],[4.4,2.8],[4.4,-2.8],[1.2,4.1],[1.2,-4.1],[-3.6,2.5],[-3.6,-2.5]]){
+  const x=b.x-rear[0]*back+right[0]*side,z=b.z-rear[2]*back+right[2]*side;
   const y=surfaceHeightAt(x,z,b.y+.7,world);
   if(y==null||Math.abs(y-b.y)>1.2)continue;
   const point={x,y,z};
   const collision=[...(world.solids??[]),...soFistSolids(b),...getBiByeSolids(room.biByeLlista)];
   const resolved=resolvePlayerWorld(point,.45,collision,postureOf(p).height);
-  if(Math.hypot(resolved.x-x,resolved.z-z)<.04)return point;
+  if(Math.hypot(resolved.x-x,resolved.z-z)<.08)return point;
  }
  return null;
 }
