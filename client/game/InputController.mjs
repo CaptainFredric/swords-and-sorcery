@@ -60,8 +60,6 @@ export class InputController {
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
-    // Right mouse is a hydraulic pitch modifier only while operating the ram.
-    this.ramPitchModifierHeld = false;
     this._mountedFlight = false;
     this.flightFireSources = new Set();
     this.flightDashSources = new Set();
@@ -315,7 +313,9 @@ export class InputController {
       this.#ballistaMouseDown(code);return;
     }
     if(this.mountedRam&&code==='Mouse2'){
-      this.ramPitchModifierHeld=true;return;
+      // An edge-triggered second primary attack. Never treat RMB as Guard
+      // or the hydraulic lift modifier while mounted on SO-FIST-ICATION.
+      this.ramFlick();return;
     }
     if (this.blockedKeys.has(code)) return;
     const action = this.actionOf.get(code);
@@ -335,9 +335,7 @@ export class InputController {
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseUp(code);return;
     }
-    if(code==='Mouse2'&&this.ramPitchModifierHeld){
-      this.ramPitchModifierHeld=false;return;
-    }
+    if(this.mountedRam&&code==='Mouse2')return;
     this.blockedKeys.delete(code);
     if (!this.keys.delete(code)) return;
     this.#release(code);
@@ -464,7 +462,6 @@ export class InputController {
   }
 
   releaseInputs() {
-    this.ramPitchModifierHeld=false;
     if(this.ultimateGesture==='charge')this.socket.oneHitRelease?.({cancel:true});
     this.ultimateSources.clear();
     this.ultimateGesture=null;
@@ -702,9 +699,10 @@ export class InputController {
       for (const code of this.keys) if (MOVE_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
     }
     const moving = action => (this.bindings[action] ?? []).some(code => this.keys.has(code) && !this.blockedKeys.has(code));
-    // E/C tilt the front; RMB+E/C lift the independent upper saddle.
-    // Never route mounted hydraulics to personal Dash, Jump or Crouch.
-    const ramLiftMode=Boolean(this.mountedRam&&this.ramPitchModifierHeld);
+    // E/C tilt the front; hold Space with E/C to lift the upper saddle.
+    // Mounted Space is NOT a jump; it is only the hydraulic modifier.
+    // Right mouse remains free for Finger Flick and never consumes Guard.
+    const ramLiftMode=Boolean(this.mountedRam&&this.held('jump'));
     const ramUpKey=moving('dash'),ramDownKey=moving('crouch');
     return {
       forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
