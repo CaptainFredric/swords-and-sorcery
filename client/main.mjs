@@ -1117,6 +1117,7 @@ function renderChroniclesAfflictions() {
     button.type = 'button';
     button.className = 'chronicles-affliction-icon';
     button.dataset.affliction = id;
+    button.dataset.effect = id; // same palette discriminator as the live affliction HUD
     button.title = effect.name;
     button.setAttribute('aria-label', effect.name);
     button.setAttribute('aria-controls', 'chronicles-affliction-detail');

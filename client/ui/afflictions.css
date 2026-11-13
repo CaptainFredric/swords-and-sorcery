@@ -178,3 +178,16 @@
 @media (prefers-reduced-motion: reduce) {
   .affliction-small-track i, .affliction-big-fill { transition: none; }
 }
+
+/* Place the active effect docket UNDER the personal HP/Guard gauges.
+   Keep the icons separate from touch joystick hit-testing. */
+.touch-ui .affliction-dock {
+  left:calc(var(--safe-l,0px) + 105px);
+  top:calc(var(--safe-t,0px) + 119px);
+}
+@container app (max-width:510px) {
+  .touch-ui .affliction-dock {
+    left:calc(var(--safe-l,0px) + 103px);
+    top:calc(var(--safe-t,0px) + 119px);
+  }
+}

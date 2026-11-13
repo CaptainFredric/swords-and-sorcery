@@ -131,3 +131,24 @@
   .challenge-names #challenge-squires { font-size: 10px; }
   .challenge-names #challenge-foe { font-size: clamp(17px, 4cqw, 27px); }
 }
+
+/* Mounted ram: the knight's own HP/Stamina aligns with Ballista's, to the
+   right of Pause/Score, not underneath the Tools button. */
+.touch-ui .hud.ram-mounted .bottom-hud {
+  top:calc(var(--safe-t,0px) + 9px);
+  left:calc(var(--safe-l,0px) + 104px);
+  width:150px;
+}
+.touch-ui .hud.ram-mounted .bottom-hud .health-block {width:100%;}
+/* Keep the attractive pressure instrument, but compact it and position it
+   below the personal status lane and clear of Practice Tools. */
+.touch-ui .drive-housing {
+  top:calc(var(--safe-t,0px) + 134px);
+  left:calc(var(--safe-l,0px) + 16px);
+  width:min(180px,25cqw);
+  padding:3px 5px 5px;
+}
+.touch-ui .drive-housing-head {font-size:8px;}
+.touch-ui .drive-housing-track {height:7px;margin-top:3px;}
+/* Piston readiness is on its touch button, not a floating text banner. */
+.touch-ui .machine-gauge[data-kind="ram"] .machine-piston {display:none;}
