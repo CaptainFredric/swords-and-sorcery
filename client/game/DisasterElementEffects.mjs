@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { windbladeSpeed, windbladeTrailSpan } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
@@ -17,7 +18,7 @@ const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const COLOR = Object.freeze({
-  fire: [0xffb347, 0xff6a14, 0xd9360f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xf6f8f7, 0xdde4e1, 0xbcc6c3],
+  fire: [0xffb347, 0xff6a14, 0xd9360f], frost: [0xf2fdff, 0x9adfff, 0x5fb4ea], gale: [0xfafff0, 0xcfff87, 0x91e86e],
   lightning: [0xfffbe0, 0xffe45c, 0xffc21f], steel: [0xe9edf2, 0xaab3bf, 0x77808c], dust: [0xcabba4, 0xa3927b, 0x7d6f5e],
 });
 const STONE_TINTS = [0x8a8072, 0x746b60, 0x9a9184, 0x65605a];
@@ -273,11 +274,13 @@ export class DisasterElementEffects {
   // --- pieces -----------------------------------------------------------------------------------------------------
   /** A thick branching bolt between two points (the teleport's flash and guide use it too). */
   bolt(from, to, options) { this.#bolt(from, to, options); }
-  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7 } = {}) {
+  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7, parent = null } = {}) {
     if (this.bolts.length >= 42) this.#dropBolt(0);
     const mesh = new THREE.Mesh(boltGeometry(boltPath(from, to, { jag, forks, steps }), width), this.boltMaterial.clone());
     mesh.frustumCulled = false;
-    this.root.add(mesh);
+    // A travelling Windblade's sparks must follow the same moving mesh.
+    // Other world impacts and teleport effects remain world-anchored.
+    (parent??this.root).add(mesh);
     this.bolts.push({ mesh, ttl, life: ttl });
   }
   #dropBolt(i) {
@@ -375,6 +378,20 @@ export class DisasterElementEffects {
         sy:rand(.18,.36)*(full?1.12:1),
         sz:rand(.15,.29)*(full?1.12:1),
         color:pick(COLOR.fire),ttl,drag:.78,grow:.62,align:false,
+      });
+    }
+    // The ignition has a short incandescent pressure core BEFORE the broader
+    // orange lobes and late smoke. All phases use the existing bounded pool.
+    for(let i=0;i<this.#n(full?24:16);i++){
+      const a=rand(TAU),rise=ground?rand(.18,.92):rand(-.9,.9),ttl=rand(.11,.23);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=radius*rand(.35,.74);
+      this.glow.spawn({
+        x:point.x+Math.cos(a)*rand(.05,.18),y:point.y+.24,
+        z:point.z+Math.sin(a)*rand(.05,.18),
+        vx:Math.cos(a)*flat*reach/ttl,vy:rise*height*.7/ttl,
+        vz:Math.sin(a)*flat*reach/ttl,
+        sx:rand(.08,.19),sy:rand(.11,.24),sz:rand(.08,.19),
+        color:i%3===0?0xfff7dc:0xffdf87,ttl,drag:1.7,grow:.1,align:false,
       });
     }
     // The slower rolling cloud behind the flash provides scale and contrast;
@@ -579,6 +596,17 @@ export class DisasterElementEffects {
       // rather than implying that a handful of fast splinters is the attack.
       // Full Frost retains its separately authored standing ice field.
       this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground);
+      // A cold compression front rolls outward at ankle height, then
+      // separates into slow vapour and bright ice splinters. The persistent
+      // Full Frost plates remain the gameplay indicator, not this mist.
+      for(let i=0;i<this.#n(full?34:22);i++){
+        const a=(i+rand(.5))/ (full?34:22)*TAU,reach=radius*rand(.55,1);
+        this.#dust({x:p.x+Math.cos(a)*rand(.12,.35),
+            y:floor+rand(.1,.35),z:p.z+Math.sin(a)*rand(.12,.35)},
+          {x:Math.cos(a)*reach*rand(1.4,2.5),y:rand(.18,.65),
+            z:Math.sin(a)*reach*rand(1.4,2.5)},
+          rand(.15,.29),rand(.42,.78),i%3?0xc5ebf5:0xf1fcff);
+      }
       if (!full || !ground || !event.fieldId) this.#iceCrown(p, full ? 1.4 : 1.8, full ? 12 : 18, 0.85);
     }
     if (tiers.gale) {
@@ -949,30 +977,103 @@ export class DisasterElementEffects {
   // The sword wave in flight. Everything here is drawn on the one wave's own body (`mesh`: its crescent, turned the
   // way it flies): torn air streaming back off its arc, and what it carries riding the same arc (embers off its
   // burning limb, rime off its tips, filings in its pressure, lightning branching along it). No second projectile.
+  // One physically continuous Windblade, not multiple disconnected spell
+  // projectiles. Sample each arc across the distance moved this render frame
+  // so Lightning-fast waves do not leave dotted trails on slower devices.
   waveBody(wave, mesh, dt) {
-    const tiers = wave.tiers ?? {};
-    const scale = (tiers.fire ?? 0) >= 1 ? 1.5 / 0.9 : 1;
-    const d = wave.direction;
-    // a point on the arc (t: 0 its lower tip, 1 its upper), in the world
-    const onArc = (t) => {
-      const a = -1.309 + 2.618 * t;
-      return mesh.localToWorld(tmpVec.set(Math.sin(a) * 1.25, Math.cos(a) * 1.25 - 0.55, 0.3 * Math.cos(a * 1.15)).applyAxisAngle(AXIS_Z, 0.42).multiplyScalar(scale)).clone();
+    const tiers=wave.tiers??{};
+    const scale=tiers.fire?1.5/.9:1;
+    const d=wave.direction;
+    const speed=windbladeSpeed(tiers);
+    const advance=windbladeTrailSpan(dt,tiers);
+    // All motes originate INSIDE the connected pressure membrane, instead
+    // of appearing metres behind it during a slow frame. Their motion has
+    // forward momentum, just a little LESS than the blade, so the wake
+    // streams behind in its moving frame without splitting into a cloud.
+    const trailing=()=>rand(0,Math.min(.88,advance));
+    const back=lag=>({
+      x:d.x*(speed-lag)+rand(-.2,.2),
+      y:d.y*(speed-lag)+rand(-.2,.2),
+      z:d.z*(speed-lag)+rand(-.2,.2),
+    });
+    // Read the real rendered arc (rotation and Fire scale included), then
+    // offset BACK along its actual 3D flight vector, not screen-horizontal.
+    const onArc=(t,behind=0)=>{
+      const a=-1.309+2.618*t;
+      const at=mesh.localToWorld(tmpVec.set(
+        Math.sin(a)*1.25,Math.cos(a)*1.25-.55,
+        .3*Math.cos(a*1.15)).applyAxisAngle(AXIS_Z,.42).multiplyScalar(scale)).clone();
+      at.x-=d.x*behind;at.y-=d.y*behind;at.z-=d.z*behind;
+      return at;
     };
-    const acc = (this.waveAcc[wave.id] ??= { air: 0, fire: 0, frost: 0, steel: 0, boltAt: 0, seen: 0 });
-    acc.seen = this.clock;
-    const stream = (key, perSec, fn) => { acc[key] += perSec * this.density * dt; while (acc[key] >= 1) { acc[key] -= 1; fn(); } };
-    const back = (speed) => ({ x: -d.x * speed + rand(-0.6, 0.6), y: -d.y * speed + rand(-0.6, 0.6), z: -d.z * speed + rand(-0.6, 0.6) });
-    stream('air', 70, () => this.#mote(tiers.steel ? 'steel' : 'gale', onArc(Math.random()), back(rand(4, 9)), { size: tiers.steel ? 0.02 : 0.015, stretch: rand(14, 24), ttl: rand(0.16, 0.3) }));
-    if (tiers.fire) stream('fire', tiers.fire === 2 ? 70 : 46, () => this.#mote('fire', onArc(rand(0, 0.46)), back(rand(1.5, 4)), { size: rand(0.035, 0.07), stretch: 3, ttl: rand(0.2, 0.4) }));
-    if (tiers.frost) stream('frost', tiers.frost === 2 ? 44 : 28, () => { const tip = Math.random() < 0.5 ? rand(0, 0.2) : rand(0.8, 1);
-      this.#mote('frost', onArc(tip), back(rand(0.8, 2.5)), { size: rand(0.02, 0.04), stretch: 4, ttl: rand(0.35, 0.6), gravity: 2 }); });
-    if (tiers.steel) stream('steel', tiers.steel === 2 ? 12 : 7, () => { const at = onArc(Math.random()); const v = back(rand(2, 5));
-      this.rock.spawn({ x: at.x, y: at.y, z: at.z, vx: v.x, vy: v.y, vz: v.z, sx: rand(0.03, 0.06), color: pick(COLOR.steel), ttl: 0.5, gravity: 9, spin: 12 }); });
-    if (tiers.lightning && this.clock >= acc.boltAt) {
-      // along the arc itself, tip toward tip in uneven lengths, with a branch thrown off
-      acc.boltAt = this.clock + (tiers.lightning === 2 ? 0.045 : 0.075) / this.density;
-      const from = rand(0, 0.6), to = Math.min(1, from + rand(0.25, 0.5));
-      this.#bolt(onArc(from), onArc(to), { width: tiers.lightning === 2 ? 0.03 : 0.02, ttl: 0.08, jag: 0.12, forks: 1, steps: 5 });
+    const acc=(this.waveAcc[wave.id]??={air:0,gale:0,fire:0,frost:0,steel:0,spark:0,boltAt:0,seen:0,arcIndex:0});
+    acc.seen=this.clock;
+    // Golden-ratio stepping distributes streaks across BOTH tips and the
+    // center, rather than random dense knots around a single spot.
+    const along=()=>.035+.93*((acc.arcIndex++*.61803398875)%1);
+    const attachBolt=(from,to,options)=>{
+      const a=mesh.worldToLocal(from),b=mesh.worldToLocal(to);
+      this.#bolt(a,b,{...options,parent:mesh});
+    };
+    const stream=(key,perSec,fn)=>{
+      acc[key]=(acc[key]??0)+perSec*this.density*dt;
+      while(acc[key]>=1){acc[key]-=1;fn();}
+    };
+    stream('air',tiers.gale?86:70,()=>{
+      this.#mote(tiers.steel&&!tiers.gale?'steel':'gale',
+        onArc(along(),trailing()),back(rand(4,7)),
+        {size:tiers.steel&&!tiers.gale?.019:.013,stretch:rand(11,19),
+          ttl:rand(.12,.22),drag:.25});
+    });
+    if(tiers.gale)stream('gale',tiers.gale===2?58:38,()=>{
+      // These closely follow the pressure face; colour is the bright
+      // white edge shedding into lime-green airflow, not extra projectiles.
+      const at=onArc(along(),trailing());
+      const v=back(rand(2,4));
+      this.glow.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
+        sx:rand(.010,.018),sy:rand(.11,.24),sz:rand(.010,.018),
+        color:Math.random()<.44?0xfafff0:0xc3ff83,
+        ttl:rand(.12,.24),drag:.24,align:true});
+    });
+    if(tiers.fire)stream('fire',tiers.fire===2?82:54,()=>{
+      const at=onArc(.03+along()*.45,trailing());
+      this.#mote('fire',at,back(rand(1.1,4)),
+        {size:rand(.033,.069),stretch:rand(2.5,5.2),ttl:rand(.22,.44),
+          gravity:-1.2,drag:1.3});
+    });
+    if(tiers.frost)stream('frost',tiers.frost===2?70:44,()=>{
+      const tip=Math.random()<.58?(Math.random()<.5?rand(0,.2):rand(.8,1)):Math.random();
+      const at=onArc(tip,trailing());
+      this.#mote('frost',at,back(rand(.7,3.4)),
+        {size:rand(.018,.045),stretch:rand(4,8),ttl:rand(.32,.62),
+          gravity:1.5,drag:1.2});
+    });
+    if(tiers.steel)stream('steel',tiers.steel===2?17:10,()=>{
+      const at=onArc(along(),trailing()),v=back(rand(2,5));
+      this.rock.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
+        sx:rand(.025,.05),color:pick(COLOR.steel),ttl:.43,gravity:8,spin:10});
+    });
+    if(tiers.lightning){
+      stream('spark',tiers.lightning===2?64:37,()=>{
+        const at=onArc(along(),trailing());
+        this.#mote('lightning',at,back(rand(2,6)),
+          {size:rand(.011,.023),stretch:rand(6,12),ttl:rand(.11,.24),drag:2});
+      });
+      if(this.clock>=acc.boltAt){
+        acc.boltAt=this.clock+(tiers.lightning===2?.048:.084)/this.density;
+        const from=rand(0,.62),to=Math.min(1,from+rand(.22,.42));
+        const lag=trailing()*.6;
+        attachBolt(onArc(from,lag),onArc(to,lag),
+          {width:tiers.lightning===2?.033:.024,ttl:.095,
+            jag:.10,forks:1,steps:7});
+        // An arc continuing behind the wind cut sells the electrical wake;
+        // it never reads as a second moving attack.
+        if(tiers.gale){
+          const t=rand(.18,.82),reach=rand(.3,Math.max(.65,advance+.35));
+          attachBolt(onArc(t,0),onArc(t,Math.min(1.1,reach)),
+            {width:.013,ttl:.10,jag:.07,forks:0,steps:5});
+        }
+      }
     }
   }
   #stepWaves() {

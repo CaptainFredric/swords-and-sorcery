@@ -656,12 +656,6 @@
         ]
       }
     ],
-    "hummedExertion": [
-      {
-        "file": "hummed-exertion-1",
-        "seconds": 1.21
-      }
-    ],
     "hurt": [
       {
         "file": "hurt-1",
@@ -1774,7 +1768,6 @@
     "youMayNoLonger": "2026-11-02",
     "allNaturalDisasterBaseShelter": "2026-11-07",
     "allNaturalDisasterInfusedColorful": "2026-11-07",
-    "hummedExertion": "2026-11-12",
     "coughGrowlExertion": "2026-11-12",
     "goodLuckForgettingMe": "2026-11-12"
   }

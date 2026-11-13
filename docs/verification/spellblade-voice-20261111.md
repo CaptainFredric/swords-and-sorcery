@@ -1,12 +1,12 @@
 # Spellblade voice recording packet — November 11, 2026
 
-**Status:** All four creator recordings from the November 11, 2026 voice packet are ingested via `npm run voice -- --line ...`, auditioned, and committed as playable `.m4a`/`.wav` assets alongside the updated manifest (`216 lines declared, 213 recorded (244 takes)`) and declaration order. **Keep this PR as DRAFT. Do not merge or deploy.**
+**Status:** `coughGrowlExertion` and `goodLuckForgettingMe` (2 takes) remain live and playable. `hummedExertion` (`laughexertion_1.mp3`) was removed per creator direction after recording review.
 
-The creator's recording bundle contains:
+The creator's recording bundle originally contained:
 
 | Source MP3 | Seconds | Declared line | Usage |
 | --- | ---: | --- | --- |
-| `laughexertion_1.mp3` | 1.33 | `hummedExertion` | One nonverbal triple rising hummed laugh, occasionally with heavy sword effort |
+| `laughexertion_1.mp3` | 1.33 | `hummedExertion` | (Removed per creator review; excluded from live library and gameplay) |
 | `Exertioncoughorhurt.mp3` | 1.23 | `coughGrowlExertion` | One nonverbal cough followed by sustained `hrrr`, occasionally after injury |
 | `HahaGoodLuckForgrtting.mp3` | 3.06 | `goodLuckForgettingMe` | Shorter alternate performance |
 | `HahaGoodLuckForgettingMeLongerMeee.mp3` | 3.68 | `goodLuckForgettingMe` | Longer alternate performance |

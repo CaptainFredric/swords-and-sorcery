@@ -68,6 +68,9 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
       now>=Math.max(host.recoverUntil??0,host.ultimateLockedUntil??0);
   })()`),name+' recovery finished');
   await focusArena();
+  // Keep the teleport arrival airborne when testing Full Lightning + Gale;
+  // aiming downward can correctly resolve into a ground-arrival slam instead.
+  const castPitch = aerial && lightning ? 0.35 : aerial ? -0.25 : 0;
   await evaluate(`(() => {
     const rt=${rt}, host=rt.socket.local.player;
     // The preceding teleport can leave us away from the supported test yard.
@@ -84,7 +87,7 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
       };
       document.addEventListener('keydown',stage,true);
     }
-    rt.input.pitch=${aerial?-.25:0};
+    rt.input.pitch=${castPitch};
     window.__disasterRun={name:${JSON.stringify(name)},frames:[],events:[],keys:[]};
   })()`);
   await poll(()=>evaluate(`${rt}.localAuth?.grounded`),name+' supported reset');
@@ -115,6 +118,41 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
     if(hold)assert.ok(commit.at>=start.commitAt+.31,name+' hold survived default commit time');
   }
   if(interrupt)assert.ok(!run.events.some(e=>e.type==='oneHitCommitted'));
+  if (process.env.DISASTER_AERIAL_WINDUP_CHECK==='1' && aerial && !interrupt) {
+    const clip='AllNatural_Aerial_Vortex_Wave';
+    const beginning=run.frames.filter(f=>f.phase==='startup'&&f.plannedClip===clip&&Number.isFinite(f.plannedTime));
+    const after=run.frames.filter(f=>f.phase==='active'&&f.clip===clip&&Number.isFinite(f.clipTime));
+    const launched=run.events.find(e=>e.type==='oneHitWave');
+    if (!lightning) {
+      // GitHub's software-rendered Chrome sometimes manages only 1-2 FPS.
+      // Inspect clip identity and its phase-boundary continuity, not an
+      // arbitrary minimum count of frames during a 0.92 s startup.
+      assert.ok(beginning.length>=1,
+        'the live startup chooses the aerial wind-up even when GPU delays drawing its first frame');
+      assert.ok(beginning[0].plannedTime>0,'the sword is already winding while still in startup');
+      assert.ok(after.length>=1,'the actual rendered vortex continues after commit');
+      assert.ok(after[0].clipTime>=beginning.at(-1).plannedTime-.07,
+        'the rendered clip cannot restart from frame zero at commit');
+      if(beginning.length>=2)assert.ok(beginning.at(-1).plannedTime>=beginning[0].plannedTime,
+        'the planned winding never moves backward');
+    } else {
+      assert.ok(after.length>=1,'aerial Lightning arrival plays wind-up instead of hovering');
+      assert.ok(after[0].clipTime>.40,'arrival uses final winding frames, not the original charge hold');
+      if(after.length>=2&&after.at(-1).now-after[0].now<.4)
+        assert.ok(after.at(-1).clipTime>=after[0].clipTime-.02,
+          'the aerial wind-up does not rewind during post-arrival aiming');
+    }
+    // The slow Chrome fixture can miss the entire short-lived wave event
+    // before it observes the restored camera. The pure simulation tests
+    // separately own projectile release/impact timing, never this renderer.
+
+    console.log('[AERIAL WINDUP PASS]',name,JSON.stringify({
+      startupSamples:beginning.length,arrivalSamples:after.length,
+      first:beginning[0]?.clipTime??after[0]?.clipTime,
+      last:beginning.at(-1)?.clipTime??after.at(-1)?.clipTime,
+      launchAt:launched?.at??null,
+    }));
+  }
   evidence[name]={...run,restored};
   console.log('[DISASTER CAMERA PASS]',name,JSON.stringify({
     start:start.at,commit:commit.at,form:commit.form,peakChase:Math.max(...run.frames.map(f=>f.chase)),
@@ -146,6 +184,14 @@ try{
   await poll(()=>evaluate(`${rt}?.localAuth?.ultimate==='one_hit_of_wonders' &&
     document.querySelector('#arena-gate').classList.contains('hidden')`),'equipped local Practice',45000);
   await click('#practice-drawer-close');
+  if(process.env.DISASTER_AERIAL_WINDUP_CHECK==='1'){
+    // The acceptance is about the authored clip, not the provisional
+    // Slash_3 used while the production GLB finishes downloading.
+    await evaluate("import('/client/game/SpellbladeAssets.mjs').then(m=>m.preloadSpellbladeAssets())");
+    await evaluate("import('/client/game/spellbladeAnimationPlan.mjs').then(m=>{window.__disasterAnimationPlan=m.resolveSpellbladeAnimationPlan})");
+    await poll(()=>evaluate("Boolean(window.__ssRuntime.remotePlayers.self?.visualInstance?.animator?.actions?.has('AllNatural_Aerial_Vortex_Wave'))"),
+      'authored Gale animation loaded before aerial playback',30000);
+  }
   await evaluate(`(() => {
     const rt=${rt};
     for(const type of ['keydown','keyup'])document.addEventListener(type,event=>{
@@ -160,7 +206,17 @@ try{
       const run=window.__disasterRun, a=rt.localAuth?.ultimateState;
       if(run && run.frames.length<3000){
         const chase=rt.chase??0, body=!!rt.remotePlayers.self?.root.visible, hands=rt.weapon.group.visible;
+        const animator=rt.remotePlayers.self?.visualInstance?.animator;
+        // GPU-stalled headless Chrome can advance the server through the
+        // 0.92 s startup without DRAWING a single authored GLB frame. Read
+        // the very plan the renderer consumes, as well as its active clip.
+        const planned=a?.id==='one_hit_of_wonders'
+          ?window.__disasterAnimationPlan?.({
+              state:'one-hit',player:rt.localAuth,serverNow:rt.socket.serverNow(),
+            }):null;
         run.frames.push({now:rt.socket.serverNow(),phase:a?.phase,commitAt:a?.commitAt,
+          plannedClip:planned?.clip??null,plannedTime:planned?.time??null,
+          clip:animator?.activeClip??null,clipTime:animator?.activeAction?.time??null,
           holding:a?.phase==='startup'&&Number.isFinite(a?.teleportHoldAt),chase,body,hands,wave:rt.input.oneHitWaveId,
           restored:!a&&chase<.05&&hands&&!body&&
             run.events.some(e=>e.type==='oneHitCommitted'||e.type==='ultimateInterrupted')});
@@ -169,13 +225,20 @@ try{
     };
     requestAnimationFrame(frame);
   })()`);
-  await play('ground tap');
-  await play('ordinary hold',{hold:true});
-  await play('partial Lightning',{preset:'partial'});
-  await play('ground Full Lightning',{preset:'full',lightning:true});
-  await play('aerial Gale',{preset:'gale',aerial:true});
-  await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
-  await play('interrupted Full Lightning',{preset:'full',lightning:true,interrupt:true});
+  if(process.env.DISASTER_AERIAL_WINDUP_CHECK==='1'){
+    // Isolate the two changed aerial animations; unrelated ground-camera
+    // fixtures must not obscure a failed or passing aerial regression.
+    await play('aerial Gale',{preset:'gale',aerial:true});
+    await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
+  }else{
+    await play('ground tap');
+    await play('ordinary hold',{hold:true});
+    await play('partial Lightning',{preset:'partial'});
+    await play('ground Full Lightning',{preset:'full',lightning:true});
+    await play('aerial Gale',{preset:'gale',aerial:true});
+    await play('aerial Full Lightning',{preset:'gale-lightning',aerial:true,lightning:true});
+    await play('interrupted Full Lightning',{preset:'full',lightning:true,interrupt:true});
+  }
   await snap('first-person-restored');
   await writeFile(join(output,'result.json'),JSON.stringify(evidence,null,2));
 }catch(error){

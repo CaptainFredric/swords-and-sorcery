@@ -302,13 +302,68 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
   const arrival=plan(arrived,31);
   assert.equal(arrival.clip,'AllNatural_Lightning_Arrival_Slam');
   assert.ok(Math.abs(arrival.time-DISASTER_CLIPS.arrival.contact)<1e-9,'no second wind-up: the blade lands as the knight arrives');
-  // Full Gale in the air: the charge until the commit, then the vortex clip, whose cut throws the wave when the host does
+  // Full Gale in the air: one uninterrupted winding clip beginning on key
+  // press, continuing past the commit without a hover or clip reset.
   const air={...base,grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:10.92,preparedTiers:{gale:2}}};
-  assert.equal(plan(air,10.4).clip,'AllNatural_Lightning_Charge_Air');
-  const vortex={...base,grounded:false,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'aerial',tiers:{gale:2},waveAt:11.77}}};
-  assert.equal(plan(vortex,10.92).clip,'AllNatural_Aerial_Vortex_Wave');
-  assert.ok(plan(vortex,10.92).time<1e-9);
-  assert.ok(Math.abs(plan(vortex,11.77).time-DISASTER_CLIPS.aerial.contact)<1e-9,'the cut that throws the wave, as the wave is thrown');
+  const firstAir=plan(air,10),earlyAir=plan(air,10.4),lateAir=plan(air,10.9);
+  assert.equal(firstAir.clip,'AllNatural_Aerial_Vortex_Wave');
+  assert.equal(firstAir.loop,false);
+  assert.ok(firstAir.time<1e-9);
+  assert.equal(earlyAir.clip,firstAir.clip);
+  assert.ok(earlyAir.time>0&&lateAir.time>earlyAir.time);
+  const vortex={...base,grounded:false,ultimateState:{
+    id:'one_hit_of_wonders',phase:'active',startedAt:10,commitAt:10.92,
+    until:12.57,oneHit:{form:'aerial',tiers:{gale:2},waveAt:11.77},
+  }};
+  const atCommit=plan(vortex,10.92),afterCommit=plan(vortex,11.2);
+  // Wire snapshots do not transmit ultimateState.startedAt: the planner
+  // must reconstruct it from the authoritative commit and wind-up rule.
+  const wireAir={...air,ultimateState:{...air.ultimateState,startedAt:undefined}};
+  const wireVortex={...vortex,ultimateState:{...vortex.ultimateState,startedAt:undefined}};
+  close(plan(wireAir,10.4).time,earlyAir.time);
+  close(plan(wireVortex,10.92).time,atCommit.time);
+  assert.equal(atCommit.clip,firstAir.clip);
+  assert.ok(Math.abs(atCommit.time - lateAir.time)<.03,'no pose reset at commit');
+  assert.ok(afterCommit.time>atCommit.time,'winding continues after commit');
+  assert.ok(plan(vortex,11.76).time<DISASTER_CLIPS.aerial.contact,'never fires ahead of the host');
+  const launched={...vortex,ultimateState:{...vortex.ultimateState,oneHit:{
+    ...vortex.ultimateState.oneHit,waveLaunched:true,waveLaunchedAt:11.77,
+  }}};
+  close(plan(launched,11.77).time,DISASTER_CLIPS.aerial.contact);
+  assert.ok(plan(launched,11.95).time>DISASTER_CLIPS.aerial.contact,'release continues into follow-through');
+  assert.notEqual(plan(air,10.4).clip,DISASTER_CLIPS.chargeAir.clip,'no static airborne charge before vortex');
+});
+
+test('Full Lightning + Full Gale arrival uses the final aerial winding frames during the actual aim window',async()=>{
+  const { ONE_HIT_RULES }=await import('../../shared/src/oneHitOfWondersRules.mjs');
+  const { DISASTER_CLIPS }=await import('./spellbladeAnimationPlan.mjs');
+  const base={alive:true,grounded:false,velocity:{x:0,y:0,z:0},staggerUntil:0};
+  const commitAt=31,aimSec=ONE_HIT_RULES.postTeleportAimSec;
+  const player={...base,ultimateState:{
+    id:'one_hit_of_wonders',phase:'active',startedAt:12,
+    commitAt,teleportHoldAt:12,until:33,preparedTiers:{lightning:2,gale:2},
+    oneHit:{form:'aerial',tiers:{lightning:2,gale:2},
+      waveAt:commitAt+aimSec,waveLaunched:false},
+  }};
+  const plan=now=>resolveSpellbladeAnimationPlan({state:'one-hit',player,serverNow:now});
+  const start=plan(commitAt),mid=plan(commitAt+aimSec/2),near=plan(commitAt+aimSec-1/1000);
+  assert.equal(start.clip,DISASTER_CLIPS.aerial.clip);
+  assert.equal(start.loop,false,'arrival is a winding action, not a hovering loop');
+  close(start.time,DISASTER_CLIPS.aerial.contact-aimSec);
+  assert.ok(mid.time>start.time&&mid.time<near.time,'sword keeps winding while the player aims');
+  assert.ok(near.time<DISASTER_CLIPS.aerial.contact,'blade cannot throw before actual wave release');
+  const launched={...player,ultimateState:{...player.ultimateState,oneHit:{
+    ...player.ultimateState.oneHit,waveLaunched:true,waveLaunchedAt:commitAt+aimSec,
+  }}};
+  close(resolveSpellbladeAnimationPlan({state:'one-hit',player:launched,
+    serverNow:commitAt+aimSec}).time,DISASTER_CLIPS.aerial.contact);
+  assert.ok(resolveSpellbladeAnimationPlan({state:'one-hit',player:launched,
+    serverNow:commitAt+aimSec+.1}).time>DISASTER_CLIPS.aerial.contact);
+  const onGround={...player,grounded:true,ultimateState:{...player.ultimateState,
+    oneHit:{...player.ultimateState.oneHit,form:'ground'}}};
+  assert.equal(resolveSpellbladeAnimationPlan({state:'one-hit',player:onGround,
+    serverNow:commitAt}).clip,DISASTER_CLIPS.arrival.clip,
+    'the existing instant ground-arrival slam remains unchanged');
 });
 
 test('the two chain forms: the rising chain plays its cuts in its own order, each contact frame on the server contact',()=>{

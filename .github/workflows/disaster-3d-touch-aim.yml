@@ -1,0 +1,43 @@
+name: Full Gale + Lightning 3D touch teleport acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/TouchControls.test.mjs'
+      - 'server/tests/disaster-gale-reposition.test.mjs'
+      - 'scripts/disaster-3d-touch-browser.mjs'
+      - '.github/workflows/disaster-3d-touch-aim.yml'
+permissions:
+  contents: read
+jobs:
+  teleport-3d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Test real gesture dispatcher, release vector and authoritative destination
+        run: |
+          npm run check:browser-imports
+          node --test client/game/TouchControls.test.mjs shared/src/oneHitTrajectory.test.mjs server/tests/disaster-gale-reposition.test.mjs
+      - name: Locate browser
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Drive actual touch Ultimate hold, drag and upward teleport in Chrome Practice
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/disaster-3d-touch-browser.mjs
+      - name: Save touch teleport trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gale-lightning-touch-3d
+          path: output/playwright/disaster-3d-touch/
+          retention-days: 7

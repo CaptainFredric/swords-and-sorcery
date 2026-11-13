@@ -2312,15 +2312,6 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   // --- November 2026 creator recordings: a knight's exertions and his lasting impression
   {
-    id: 'hummedExertion', kind: 'exertion',
-    text: '(three low humming chuckles, rising with rather too much confidence)',
-    trigger: { heavySwing: 1, lightSwing: 0.15, blowDealt: 0.3 },
-    priority: 'low', rarity: 0.14, cooldown: 15, gain: 0.76,
-    section: 'Exertions',
-    credits: { title: 'A Pleased Exertion', description: 'Occasionally during a committed sword swing, or immediately after landing a blow.', note: 'The effort has met with his approval.' },
-    voice: { drive: 1.9, rmsDb: -18 }, file: 'laughexertion_1.mp3',
-  },
-  {
     id: 'coughGrowlExertion', kind: 'exertion',
     text: '(a cough followed by a prolonged, rough hrrr)',
     trigger: { heavyHurt: 1, hurt: 0.3 },
