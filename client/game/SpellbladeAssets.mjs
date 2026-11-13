@@ -104,18 +104,20 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
-// The motion sidecar: clips laid over the canonical third-person model's own, by bone name (an animation-only GLB of
-// the same skeleton: tools/assets/build-spellblade-motion.mjs). A clip of the same name replaces the model's; the
-// model itself is not touched. Without it (not found, or it fails to load) the model plays its own clips.
-const MOTION_META_URL = '/client/assets/characters/spellblade/spellblade-motion.json';
-let motionPromise = null;
-function loadMotion() {
-  motionPromise ??= fetch(appUrl(MOTION_META_URL), { cache: 'no-store' })
+// The motion sidecars: clips laid over a canonical model's own, by bone name (animation-only GLBs of the same
+// skeleton: tools/assets/build-spellblade-motion.mjs for the body, build-spellblade-fp-motion.mjs for the
+// first-person arms). A clip of the same name replaces the model's; the model itself is not touched. Without one
+// (not found, or it fails to load) the model plays its own clips.
+const MOTION_FILES = Object.freeze({ thirdPerson: 'spellblade-motion', firstPerson: 'spellblade-fp-motion' });
+const motionPromises = new Map();
+function loadMotion(kind = 'thirdPerson') {
+  const file = MOTION_FILES[kind] ?? MOTION_FILES.thirdPerson;
+  if (!motionPromises.has(file)) motionPromises.set(file, fetch(appUrl(`/client/assets/characters/spellblade/${file}.json`), { cache: 'no-store' })
     .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`motion sidecar HTTP ${response.status}`))))
-    .then((meta) => loader.loadAsync(appUrl(`/client/assets/characters/spellblade/spellblade-motion.glb?v=${String(meta.sha256).slice(0, 40)}`))
+    .then((meta) => loader.loadAsync(appUrl(`/client/assets/characters/spellblade/${file}.glb?v=${String(meta.sha256).slice(0, 40)}`))
       .then((gltf) => Object.freeze({ sha256: meta.sha256, clips: Object.freeze(gltf.animations) })))
-    .catch((error) => { console.warn('Spellblade motion sidecar unavailable:', error?.message ?? error); return null; });
-  return motionPromise;
+    .catch((error) => { console.warn(`Spellblade motion sidecar unavailable (${file}):`, error?.message ?? error); return null; }));
+  return motionPromises.get(file);
 }
 
 /** A model's clips with the sidecar's laid over them (same name: the sidecar's). */
@@ -177,7 +179,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const entry = kind === 'firstPerson' ? manifest.firstPerson : manifest.thirdPerson;
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
-  const [gltf, motion] = await Promise.all([loadGltf(entry.url), kind === 'firstPerson' ? null : loadMotion()]);
+  const [gltf, motion] = await Promise.all([loadGltf(entry.url), loadMotion(kind === 'firstPerson' ? 'firstPerson' : 'thirdPerson')]);
   const clips = withMotionClips(gltf.animations, motion?.clips);
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
@@ -233,12 +235,12 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
 export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL) {
   const manifest = await loadManifest(manifestUrl);
   if (manifest.enabled === false) return null;
-  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url), loadMotion()]);
+  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url), loadMotion('thirdPerson'), loadMotion('firstPerson')]);
   return manifest.sourceRevision;
 }
 
 export function clearSpellbladeAssetCaches() {
   manifestPromises.clear();
   gltfPromises.clear();
-  motionPromise = null;
+  motionPromises.clear();
 }

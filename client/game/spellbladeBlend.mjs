@@ -24,11 +24,14 @@ export function blendSeconds(fromClip, toClip) {
   if (!fromClip || fromClip === toClip) return 0;
   // respawn teleports the character, so leaving the death pose snaps
   if (fromClip === 'Death') return 0;
-  // a Sword Technique's clips meet end to end (authored so); into one, quickly; out of one, as into any stance
-  const technique = (clip) => typeof clip === 'string' && clip.startsWith('Technique_');
-  // (but not the ones a technique is broken off into, or its climbing turn: those are eased into)
+  // A Sword Technique's clips meet end to end (authored so), in the body and in the first-person arms: nothing to
+  // ease between them, but for the ones a technique is broken off into and its climbing turn.
+  const technique = (clip) => typeof clip === 'string' && /^(FP_)?Technique_/.test(clip);
   if (technique(fromClip) && technique(toClip)) return /Parried|Interrupted|GaleLift|AirRecovery/.test(fromClip + toClip) ? 0.08 : 0;
-  if (technique(toClip)) return 0.07;
+  // Into one: its blade is the server's from the first instant, so quickly; but not so quickly that the sword is
+  // thrown. A Whirl is spun up into (its blade is already going round); out of a raised Guard the sword has the
+  // furthest to come (0.08 s threw the point at some 90 m/s, faster than any cut).
+  if (technique(toClip)) return /Whirl/.test(toClip) ? 0.14 : fromClip === 'Guard' ? 0.12 : 0.08;
   // slashes chained inside one attack already meet at matching poses
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
   // a cut broken off into the guard swings round into it (the guard's own authored entry arcs out through the right):

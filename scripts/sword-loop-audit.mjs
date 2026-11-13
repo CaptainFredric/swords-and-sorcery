@@ -14,6 +14,7 @@ import { Room } from '../shared/sim/Room.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastSpell, tryDash } from '../shared/sim/combat.mjs';
 import { SWORD_STRIKE_TIMES, strikeKind } from '../shared/src/combat.mjs';
 import { serializeSnapshot } from '../shared/sim/wire.mjs';
+import { requestSwordTechnique } from '../shared/sim/swordTechniqueLive.mjs';
 import { resolveSpellbladeState } from '../client/game/spellbladePose.mjs';
 import { resolveSpellbladeAnimationPlan } from '../client/game/spellbladeAnimationPlan.mjs';
 import { blendSeconds, blendWeights } from '../client/game/spellbladeBlend.mjs';
@@ -220,6 +221,11 @@ const hold = (from, to = Infinity) => (t, { room, player, now }) => {
   if (Math.abs(t - to) < DT / 2) endAttack(room, player.id, now);
 };
 
+const technique = (id, from, to) => (t, { room, player, now }) => {
+  if (Math.abs(t - from) < DT / 2) { player.technique = id; player.prowess = 100; requestSwordTechnique(room, player.id, true, now); }
+  if (Math.abs(t - to) < DT / 2) requestSwordTechnique(room, player.id, false, now);
+};
+
 export const SCENARIOS = {
   'ten held chains': { seconds: 10 * 2.08 + 0.6, script: hold(0, 10 * 2.08 - 0.1) },
   'one tap': { seconds: 1.6, script: hold(0, 0.05) },
@@ -234,6 +240,12 @@ export const SCENARIOS = {
   'dash mid-chain': { seconds: 2.2, script: (t, c) => { hold(0, 1.6)(t, c); if (Math.abs(t - 0.6) < DT / 2) tryDash(c.room, 'a', { x: 0, z: -1 }, c.now); } },
   'parried': { seconds: 2.4, defender: true, script: (t, c) => { hold(0, 2.0)(t, c); if (Math.abs(t - 0.3) < DT / 2) setGuard(c.room, 'b', true, c.now); } },
   'blocked chain': { seconds: 2.6, defender: true, script: (t, c) => { if (Math.abs(t) < DT / 2) setGuard(c.room, 'b', true, c.now - 1); hold(0, 2.0)(t, c); } },
+  // the Sword Techniques (main's rules, the sidecar's clips): out of rest, out of the guard, out of a cut, and back
+  'riposte from rest': { seconds: 2.0, script: technique('rigid_riposte', 0.3, 0.35) },
+  'riposte out of guard': { seconds: 2.2, script: (t, c) => { if (Math.abs(t) < DT / 2) setGuard(c.room, 'a', true, c.now); if (Math.abs(t - 0.75) < DT / 2) setGuard(c.room, 'a', false, c.now); technique('rigid_riposte', 0.8, 0.85)(t, c); } },
+  'riposte after a cut': { seconds: 2.4, script: (t, c) => { hold(0, 0.05)(t, c); technique('rigid_riposte', 0.8, 0.85)(t, c); } },
+  'whirl, two turns': { seconds: 2.6, script: technique('whirl_wind', 0.3, 1.0) },
+  'whirl out of guard': { seconds: 2.4, script: (t, c) => { if (Math.abs(t) < DT / 2) setGuard(c.room, 'a', true, c.now); if (Math.abs(t - 0.75) < DT / 2) setGuard(c.room, 'a', false, c.now); technique('whirl_wind', 0.8, 0.9)(t, c); } },
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {

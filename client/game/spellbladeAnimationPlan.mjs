@@ -196,21 +196,51 @@ function disasterPlan(player, serverNow) {
 // Animation clips share the action's authoritative clock. Enter is blended
 // into the EXISTING 0.22 s Rigid interception and first 0.6 s Whirl, never
 // inserted as extra startup. The supplied GLBs must be shipped separately.
-export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false, grounded=true) {
+const RIPOSTE_BRACE_SEC=.22, RIPOSTE_ENTER_CLIP_SEC=.1;
+// Where the authored brace (Enter, then Interception: seconds through the two) is, each moment of the server's
+// brace: fitted to the server's own samples of the blade (swordTechniqueContracts.mjs), which bring the sword up
+// fast and then carry it across. server/tests/spellblade-motion-sidecar.test.mjs holds the two together.
+const RIPOSTE_BRACE_PACE=Object.freeze([[0,0],[.05,.06],[.066,.09],[.083,.098],[.1,.126],[.133,.182],[.166,.236],[.2,.292],[.22,.32]]);
+export function riposteBraceClipTime(age){
+  const pace=RIPOSTE_BRACE_PACE;
+  if(age<=0)return 0;
+  for(let i=1;i<pace.length;i+=1)if(age<=pace[i][0]){
+    const [t0,u0]=pace[i-1],[t1,u1]=pace[i];
+    return u0+(u1-u0)*(age-t0)/(t1-t0);
+  }
+  return pace[pace.length-1][1];
+}
+// A technique begun as the Guard comes down (within this long of the knight last being seen guarding): the sword is
+// still on its way down from overhead, the furthest it can be from where a technique wants it.
+const TECHNIQUE_OUT_OF_GUARD_SEC=.3;
+export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false, grounded=true, guardSeenAt=null) {
   if(!action)return null;
   const clipPrefix=firstPerson?'FP_':'';
   const age=Math.max(0,serverNow-(action.startedAt??serverNow));
   const key=action.initialStartedAt??action.startedAt;
+  const began=action.initialStartedAt??action.startedAt??serverNow;
+  const outOfGuard=Number.isFinite(guardSeenAt)&&began-guardSeenAt<=TECHNIQUE_OUT_OF_GUARD_SEC&&began-guardSeenAt>=-.05;
   const clip=(name,at,extra={})=>({
-    ...fixed(clipPrefix+name,at),actionKey:key,blend:.08,
+    // (how each clip is eased into is the animator's: spellbladeBlend.mjs knows what it is coming from)
+    ...fixed(clipPrefix+name,at),actionKey:key,
+    // out of a Guard only just lowered the technique's first clip is eased into a little longer (0.08 s threw the
+    // point at some 90 m/s, faster than any cut); the clips after it meet end to end as ever
+    ...(outOfGuard&&age<.06?{blend:.14}:{}),
     fallback:firstPerson?'Idle':'Guard',...extra,
   });
   if(action.id==='rigid_riposte'){
     if(action.phase==='interrupted')return clip(
       action.reason==='parried'?'Technique_RigidRiposte_Parried':'Technique_RigidRiposte_Recovery',age);
     if(action.aerial&&age<.48)return clip('Technique_RigidRiposte_Air',age);
-    if(age<.1)return clip('Technique_RigidRiposte_Enter',age);
-    if(age<.22)return clip('Technique_RigidRiposte_Interception',age);
+    // The server's 0.22 s brace is the Enter and Interception clips together (0.32 s as authored), brought up in
+    // that time: so they are played through at the server's pace, and the blade drawn is the blade that intercepts.
+    // (Enter at its own pace and Interception joined part-way left the point up to 0.32 m from it.) The timing is
+    // the server's, untouched: the brace still ends, and the thrust still begins, at 0.22 s.
+    if(age<RIPOSTE_BRACE_SEC){
+      const authored=riposteBraceClipTime(age);
+      return authored<RIPOSTE_ENTER_CLIP_SEC?clip('Technique_RigidRiposte_Enter',authored)
+        :clip('Technique_RigidRiposte_Interception',authored-RIPOSTE_ENTER_CLIP_SEC);
+    }
     if(age<.48)return clip('Technique_RigidRiposte_Thrust',age-.22);
     return clip('Technique_RigidRiposte_Recovery',age-.48);
   }
@@ -222,9 +252,10 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
       return clip(grounded?'Technique_Whirl_Exit':'Technique_Whirl_AirRecovery',
         serverNow-began);
     }
-    // The entry occupies the start of the active revolution. Its source
-    // clip is not allowed to delay sword-contact authority.
-    if(action.revolutions===1&&age<.2)return clip('Technique_Whirl_Enter',age);
+    // The server's blade is going round from the first instant (the first revolution begins at once), so the
+    // revolution is what is played, at the server's phase, and the knight is eased into it from wherever the
+    // sword was. (The authored Enter clip winds up for 0.20 s and ends where a revolution begins: played first, it
+    // put the blade a third of a turn behind the one that cuts, then threw it there in a frame.)
     return clip(action.galeLift?'Technique_Whirl_GaleLift':'Technique_Whirl_Revolution',
       age,{loop:true});
   }
@@ -233,7 +264,7 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
   if(player.swordTechnique&&state!=='dead'){
-    const technique=swordTechniqueAnimationPlan(player.swordTechnique,serverNow,false,player.grounded);
+    const technique=swordTechniqueAnimationPlan(player.swordTechnique,serverNow,false,player.grounded,player.guardSeenAt);
     if(technique)return technique;
   }
   const layers = concurrentPresentation(player, serverNow, player.castPoseUntil, player.castPoseStartAt);
