@@ -315,7 +315,8 @@ export class InputController {
     if(this.mountedRam&&code==='Mouse2'){
       // An edge-triggered second primary attack. Never treat RMB as Guard
       // or the hydraulic lift modifier while mounted on SO-FIST-ICATION.
-      this.ramFlick();return;
+      if(!this.keys.has(code)){this.keys.add(code);this.ramFlick();}
+      return;
     }
     if (this.blockedKeys.has(code)) return;
     const action = this.actionOf.get(code);
@@ -335,7 +336,7 @@ export class InputController {
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseUp(code);return;
     }
-    if(this.mountedRam&&code==='Mouse2')return;
+    if(this.mountedRam&&code==='Mouse2'){this.keys.delete(code);return;}
     this.blockedKeys.delete(code);
     if (!this.keys.delete(code)) return;
     this.#release(code);
