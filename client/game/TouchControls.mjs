@@ -1,5 +1,6 @@
 import { galeSwipeMode } from '../../shared/src/galeModes.mjs';
-import {soFistOperator} from '../../shared/sim/soFistication.mjs';
+import {soFistOperator,soFistEntry} from '../../shared/sim/soFistication.mjs';
+import {flightMountReach,ramMountReach,ballistaMountReach} from '../../shared/src/siegeMountReach.mjs';
 import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
 import {BI_BYE_WEAPONS} from '../../shared/sim/biByeWeapons.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
@@ -614,8 +615,16 @@ export class TouchControls {
       const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),
         ballista=Boolean(local.alive&&local.operatingBallistaId),
         fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
-      const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&local.position&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
-      const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&station&&local.position&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
+      // The same world-space boarding envelope drives the touch affordance
+      // AND authoritative mounting. High Grounds has elevated decks sharing
+      // X/Z: never invite a mount from a different floor, and never hide a
+      // valid approach just because its distance exceeds an old UI-only 2.5m.
+      const nearFlight=Boolean(local.alive&&fb&&fb.health>0&&!fb.retired&&
+        !fb.operatorId&&(!fb.team||fb.team===local.team)&&
+        flightMountReach(local,fb));
+      const nearRam=Boolean(local.alive&&rb&&rb.health>0&&!rb.retired&&
+        !rb.operatorId&&(!rb.team||rb.team===local.team)&&
+        ramMountReach(local,rb,soFistEntry(rb),station));
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight||
         this.ramMounted!==ram||this.ballistaMounted!==ballista;
@@ -829,7 +838,9 @@ export class TouchControls {
         this.buttons.siegeBoth.dataset.volley=secondary??'';
         this.buttons.siegeBoth.setAttribute('aria-label',combat.secondaryDescription??'Combined volley unavailable');
       }
-      const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
+      const near=Boolean(local.alive&&bl&&bl.health>0&&
+        bl.mode!=='DESTROYED'&&!bl.retired&&!bl.operatorId&&
+        (!bl.team||bl.team===local.team)&&ballistaMountReach(local,bl));
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
         // VIEW is now a Spellblade control too: upper right while on foot.
