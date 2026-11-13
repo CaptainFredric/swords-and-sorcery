@@ -20,7 +20,7 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true]);
  assert.equal(v[0].skills[0].icon,'boltToTheOccasion');
  assert.equal(v[0].skills[1].icon,undefined,'alternative frost Skill retains its presentation');
- assert.deepEqual(v[1].skills.map(s=>s.id),['beatToThePunch','longArmToTheJaw']);
+ assert.deepEqual(v[1].skills.map(s=>s.id),['beatToThePunch','longArmToTheJaw','hellpingHand']);
  assert.equal(v[1].skills[0].equipped,true);
  assert.equal(v[2].skills.length,3);
 });

@@ -19,6 +19,14 @@ export function siegeSkillControlLabel(b,now){
   if(b.detachedFist?.state==='recovering')return Math.ceil(Math.max(0,b.fistRecoveryUntil-now))+'s';
   return remaining>0?`${Math.ceil(remaining)}s`:'LAUNCH';
  }
+ if(s.id==='hellpingHand'){
+  const phase=b.hellping?.phase;
+  if(phase==='grasp')return 'CRUSH';
+  if(phase==='transport')return 'RELEASE ALLY';
+  if(phase==='vault')return 'VAULTING';
+  if(phase==='open')return 'GRAB / VAULT / CLOSE';
+  return remaining>0?Math.ceil(remaining)+'s':'OPEN HAND';
+ }
  if(s.id==='beatToThePunch'){
   if(s.phase==='primed')return 'PRIMED';
   return remaining>0?`${Math.ceil(remaining)}s`:'PRIME';
@@ -33,7 +41,8 @@ export function siegeSkillControlLabel(b,now){
 }
 export function siegeSkillLabel(b,now){
  const s=b?.skill;if(!s)return '';
- const name=s.id==='longArmToTheJaw'?'Long Arm to the Jaw':
+ const name=s.id==='hellpingHand'?'HELLping Hand':
+  s.id==='longArmToTheJaw'?'Long Arm to the Jaw':
   s.id==='beatToThePunch'?'Beat to the Punch':
   s.id==='coldHowTouching'?'Cold, How Touching':'Bolt to the Occasion';
  if(s.id==='coldHowTouching'&&s.phase==='active')return `${name}: ACTIVE · Bolt I proximity frost until Bolt II`;

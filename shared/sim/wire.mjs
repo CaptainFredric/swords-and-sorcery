@@ -6,6 +6,7 @@ import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
+import {boardHellpingHand,exitHellpingHand} from './soFistHellpingHand.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
@@ -700,6 +701,9 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'siegeOperate': {
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus)return {};
+      if(player.hellpingCarriedBy===room.soFistication?.id)
+       return exitHellpingHand(room,room.soFistication,player,time)?{}:{rejected:'The rear exit is obstructed.'};
+      if(boardHellpingHand(room,room.soFistication,player,time))return {};
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
          && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);

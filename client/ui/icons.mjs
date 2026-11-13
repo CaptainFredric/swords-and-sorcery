@@ -89,6 +89,8 @@ export const ICONS = Object.freeze({
   // A pale clock face and dark hands remain visible above the fist; the
   // lower rim breaks around its raised knuckles.
   // Detachable armored fist accelerating away from its exposed steel piston.
+  // Articulated open palm with a separate thumb and four raised fingers.
+  hellpingHand: '<path d="M7 19 5 14 3 11c-1-2 1-3 2-2l3 3V5a1.2 1.2 0 0 1 2.4 0v5V3a1.2 1.2 0 0 1 2.4 0v7V4a1.2 1.2 0 0 1 2.4 0v7l.2-4a1.2 1.2 0 0 1 2.4 0l-.5 9-3 5H8z" fill="none" stroke="currentColor" stroke-width="1.35"/><path d="m9 19 8-1M10 12v3M13 10v5M16 11v4" fill="none" stroke="currentColor" stroke-width="1.1"/>',
   longArmToTheJaw: '<path d="M2 12h6M3 8h5M4 16h4" stroke="currentColor" fill="none" stroke-width="1.8"/><path d="m7 8 2 4-2 4" fill="none" stroke="currentColor" stroke-width="1.1"/><g transform="translate(8 2) scale(.66)">' + RAM_GAUNTLET + '</g>',
   beatToThePunch: '<g stroke-width="1.15" stroke-linejoin="round"><path d="M7 13a8 8 0 1 1 13 1l-2 .5-1-2-2 3-2-1-2 1z" fill="#e8d7ac" stroke="currentColor"/><path d="M14 2v2M21 9h-2M7 9h2M14 5v4l3-2M18.5 3.5l-1 1M9.5 3.5l1 1" fill="none" stroke="#343b3d" stroke-linecap="square"/><circle cx="14" cy="9" r=".7" fill="#343b3d" stroke="none"/><path d="m20 16 2-1 .5 2-2 1z" fill="#e8d7ac" stroke="none"/></g><g transform="translate(0 8) scale(.68)"><g transform="rotate(25 12 12)">' + RAM_GAUNTLET + '</g></g>',
   siegeBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',

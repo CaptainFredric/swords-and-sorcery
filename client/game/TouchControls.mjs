@@ -673,7 +673,7 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
