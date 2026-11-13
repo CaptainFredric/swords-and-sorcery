@@ -139,6 +139,8 @@ export class InputController {
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
+    // Mounted X is this ram's Finger Flick, not the ballista weapon-focus command.
+    if(this.mountedRam&&action==='siegeWeapon'){this.ramFlick();return;}
     if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(true,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
@@ -158,6 +160,7 @@ export class InputController {
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
+    if(this.mountedRam&&action==='siegeWeapon')return; // Flick is one press, never a held strike.
     if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(false,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
