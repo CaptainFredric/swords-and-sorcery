@@ -75,9 +75,10 @@ const local = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'fr
   ultimateState: { id: 'chivalry', phase: 'active', until: 19 }, chivalryProjectileReadyAt: 0 };
 
 test('siege controls appear only in real interaction range or while mounted and clear on death', () => {
-  const p = { alive: true, spell: 'fireball', position: { x: 0, z: 3.1 } };
+  const p = { alive: true, spell: 'fireball', position: { x: 0, y: 0, z: 3.1 } };
   const { controls, input, send } = setup(p);
-  const b = { id: 'siege', position: { x: 0, z: 0 }, mode: 'MOBILE' };
+  const b = { id: 'siege', x: 0, y: 0, z: 0, health:650,
+    interactRadius:3.2, position: { x: 0, y:0, z: 0 }, mode: 'MOBILE' };
   controls.update(p, 10, { snapshot: { bibyeBallista: b } });
   assert.equal(controls.buttons.interact.hidden, false);
   assert.equal(controls.buttons.deploy.hidden, true);
@@ -93,6 +94,37 @@ test('siege controls appear only in real interaction range or while mounted and 
   controls.update({ ...p, alive: false }, 10, { snapshot: { bibyeBallista: b } });
   assert.equal(controls.buttons.interact.hidden, true);
   assert.equal(controls.buttons.siegeView.hidden, true);
+});
+
+test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOperate',()=>{
+  const pilot={alive:true,spell:'fireball',position:{x:3.1,y:0,z:0}};
+  const {input,controls,send}=setup(pilot);
+  const machine={id:'flight',x:0,y:0,z:0,health:250,rotorHP:100,grounded:true};
+  const sent=[];input.socket.send=message=>sent.push(message);
+  controls.update(pilot,10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,false,
+    '3.1m is inside the authoritative range even though old touch UI used 2.5m');
+  assert.match(controls.buttons.interact.getAttribute('aria-label'),/Fight-and-Flight/);
+  send('pointerdown',600,300,{action:'interact',pointerId:222});
+  send('pointerup',600,300,{action:'interact',pointerId:222});
+  assert.deepEqual(sent,[{type:'siegeOperate'}],
+    'the mobile Mount button sends the real authoritative command once');
+  controls.update({...pilot,position:{x:1,y:12,z:0}},10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,true,
+    'standing on a 12m-high bridge above the same machine is not boarding range');
+  controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{fightFlight:machine}});
+  assert.equal(controls.buttons.interact.hidden,false);
+});
+
+test('mobile Mount reach applies the same elevation rule to ballista and ram',()=>{
+  const pilot={alive:true,spell:'fireball',position:{x:1,y:12,z:0}};
+  const {controls}=setup(pilot);
+  const ballista={id:'ballista',x:0,y:0,z:0,mode:'MOBILE',health:650,
+    position:{x:0,y:0,z:0},interactRadius:3.2};
+  controls.update(pilot,10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.hidden,true,'no Ballista mount through bridge');
+  controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.hidden,false,'ground-level ballista shows Mount');
 });
 
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {

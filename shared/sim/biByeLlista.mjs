@@ -1,4 +1,5 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
+import {ballistaMountReach} from '../src/siegeMountReach.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
@@ -308,8 +309,9 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
   // Owned machines remain restricted to their side when unattended.
   if (ballista.team && ballista.team !== player.team) return false;
 
-  const dist = Math.hypot(player.position.x - ballista.x, player.position.z - ballista.z);
-  if (dist > ballista.interactRadius) return false;
+  // Elevated maps have overlapping decks: same X/Z on a different level
+  // must not offer an impossible boarding interaction.
+  if (!ballistaMountReach(player, ballista)) return false;
 
   if(player.queuedSiegeLoadout){
     player.siegeLoadout={...player.queuedSiegeLoadout};player.queuedSiegeLoadout=null;

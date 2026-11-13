@@ -134,6 +134,38 @@ try{
   await until(()=>evalBrowser("Boolean(window.__ssRuntime?.flightRenderer?.model && window.__ssRuntime?.flightRenderer?.group?.visible)"),
     'authored Fight-and-Flight model is loaded and visible',190);
   await screenshot('05-real-foundry-flight');
+
+  // The player-reported mobile Mount issue applies to High Grounds, where
+  // decks are vertically stacked. Test the REAL touch input after production
+  // from a legal 2.95m side approach, outside the former 2.5m UI cutoff.
+  await evalBrowser(`(() => {
+    const rt=window.__ssRuntime,room=rt.socket.local.room;
+    const actor=room.players.get(rt.playerId),machine=room.fightFlight;
+    actor.position={x:machine.x+2.95,y:machine.y,z:machine.z};
+    actor.velocity={x:0,y:0,z:0};actor.attackActive=false;actor.ultimateState=null;
+    rt.input.enabled=true;
+  })()`);
+  await until(()=>evalBrowser(`(() => {
+    const rt=window.__ssRuntime,p=rt.localAuth,m=rt.latestSnapshot?.fightFlight;
+    return p&&m&&Math.hypot(p.position.x-m.x,p.position.z-m.z)>2.5&&
+      Math.hypot(p.position.x-m.x,p.position.z-m.z)<3.2&&
+      !rt.touch?.buttons?.interact?.hidden;
+  })()`),'real mobile Mount visible within authoritative Flight reach',90);
+  const mountRect=await evalBrowser(`(() => {
+    const b=document.querySelector('.touch-interact'),r=b.getBoundingClientRect();
+    return {x:r.left+r.width/2,y:r.top+r.height/2,
+      label:b.getAttribute('aria-label')};
+  })()`);
+  assert.match(mountRect.label,/Fight-and-Flight/);
+  await send('Input.dispatchTouchEvent',{type:'touchStart',
+    touchPoints:[{x:mountRect.x,y:mountRect.y,id:93}]});
+  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await until(()=>evalBrowser(`(() => {
+    const rt=window.__ssRuntime,m=rt.latestSnapshot?.fightFlight;
+    return m?.operatorId===rt.playerId &&
+      rt.localAuth?.operatingFightFlightId===m.id;
+  })()`),'real High Grounds Flight mounts from touchscreen',100);
+  await screenshot('06-high-grounds-mobile-flight-mounted');
   if(exceptions.length)throw Error('Browser exceptions: '+exceptions.join(' / '));
   await writeFile(output+'/result.json',JSON.stringify({state,exceptions},null,2));
   console.log('[HIGH GROUNDS BROWSER ACCEPTED]',JSON.stringify({mode:state.mode,renderer:state.renderer,sites:state.sites.length}));
