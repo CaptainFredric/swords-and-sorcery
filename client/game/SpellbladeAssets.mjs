@@ -1,3 +1,4 @@
+import { joinSwordWrist } from './swordWrist.mjs';
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
 import { lightPlate } from './plateEnvironment.mjs';
@@ -185,6 +186,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;
   root.userData.assetKind = kind;
+  // (the arms in view: the sword arm's vambrace joined to its fist, in the shared rest shape, once)
+  if (kind === 'firstPerson') joinSwordWrist(root);
 
   const mutableNames = kind === 'firstPerson'
     ? manifest.firstPersonMutableMaterials
