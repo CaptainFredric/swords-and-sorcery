@@ -3,7 +3,7 @@
 import {areAllies} from '../src/teams.mjs';
 import {postureOf} from '../src/body.mjs';
 import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
-import {applyDamage,interruptHitActions,isInGuardCone} from './combat.mjs';
+import {applyDamage,interruptHitActions,isInGuardCone,breakGuard} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
 import {skillOperator,SIEGE_SKILLS,skillEvent} from './siegeSkills.mjs';
 import {SO_FIST_SCALE,soFistFrame,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
@@ -120,6 +120,12 @@ export function requestHellpingHand(room,b,p,now){
  if(victim){
   if(victim.guarding&&isInGuardCone(victim,{position:{x:b.x,y:b.y,z:b.z}},now)){
    victim.guardStamina=Math.max(0,(victim.guardStamina??0)-50);
+   victim.lastGuardDrainAt=now;
+   if(victim.guardStamina<=0){
+    // A depleted Guard cannot block the open palm indefinitely.
+    breakGuard(victim,.4,now);
+    room.events.push({type:'guardBreak',attackerId:b.operatorId,defenderId:victim.id,hellping:true,at:now});
+   }
    emit(room,b,'guarded',now,{targetId:victim.id});return null;
   }
   b.hellping={phase:'grasp',targetId:victim.id,at:now,lastAt:now};
