@@ -57,6 +57,47 @@ export class SoFisticationRenderer {
   const fallback=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb?v=21219a43541c7892');
   const failed=error=>{this.error=true;this.loading=false;resolve(false);
     console.error('SoFistication authored asset failed to load',error);};
+  // Keep the established 45-node hydraulic structure, its rider station and
+  // source-fitted lift cylinders. Argon's 56-node v26 ram has NO hydraulic
+  // pivots: graft only its articulated hand and its extra animation tracks.
+  const integrateHand=(gltf,articulated)=>{
+   if(!articulated){received(gltf,false);return;}
+   const url=appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v26.glb?v=6800db7a9dd1bfa6');
+   loader.load(url,donor=>{
+    const target=gltf.scene.getObjectByName('Armored_Fist');
+    const hand=donor.scene.getObjectByName('Armored_Fist');
+    const required=['Index_1','Index_2','Index_3','Middle_1','Middle_2','Middle_3',
+      'Ring_1','Ring_2','Ring_3','Pinky_1','Pinky_2','Pinky_3',
+      'Thumb_1','Thumb_2','Thumb_3','Palm_Capture_Gate',
+      'Secret_Palm_Hatch_L','Secret_Palm_Hatch_R',
+      'Rear_Egress_Hatch_L','Rear_Egress_Hatch_R',
+      'socket_enemy_capture_hold','socket_ally_compartment_seat',
+      'socket_ally_rear_egress_origin'];
+    const missing=required.filter(name=>!hand?.getObjectByName(name));
+    const extra=donor.animations.filter(a=>/^(1[1-9]|2[0-6])_/.test(a.name));
+    if(!target||!hand||missing.length||extra.length!==16){
+     console.error('Argon v26 articulated hand incomplete; keeping production hydraulics',missing,extra.length);
+     received(gltf,true);return;
+    }
+    // Swap the named fist surface without touching the coupling locator,
+    // piston, collar, upper saddle, gear train or wheel hierarchy.
+    if(target.isMesh&&hand.isMesh){
+     target.geometry=hand.geometry;target.material=hand.material;
+    }else if(hand.isMesh){
+     for(const old of [...target.children])
+      if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
+     const surface=new THREE.Mesh(hand.geometry,hand.material);
+     surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
+    }
+    for(const part of [...hand.children])target.add(part);
+    gltf.animations=[...gltf.animations,...extra];
+    this.v26HandInstalled=true;
+    received(gltf,true);
+   },undefined,error=>{
+    console.error('Argon v26 hand failed to load; fingerprint actions unavailable',error);
+    received(gltf,true);
+   });
+  };
   const received=(gltf,articulated)=>{
    const hierarchyIssues=articulated?authoredHierarchyIssues(gltf.scene,RAM_REQUIRED_PARENTS):[];
    if(hierarchyIssues.length){
@@ -104,7 +145,7 @@ export class SoFisticationRenderer {
    }));
    this.loading=false;resolve(true);
   };
-  loader.load(latest,g=>received(g,true),undefined,error=>{
+  loader.load(latest,g=>integrateHand(g,true),undefined,error=>{
    // Existing installations must remain playable before the two new GLBs
    // are committed. Never silently claim full 3D articulation on rollback.
    console.warn('SO-FIST-ICATION new hydraulic GLB unavailable; using v2.7 visual fallback',error);
@@ -154,7 +195,11 @@ export class SoFisticationRenderer {
    const variant=b.finalJaw?.variant;
    const terminal=variant==='damaged'?'25_Final_Long_Arm_Launch_Damaged_Fist_Breakdown':
      variant==='intact'?'24_Final_Long_Arm_Launch_Intact_Fist_Breakdown':null;
-   const clip=terminal&&this.availableClips?.has(terminal)?terminal:ramWreckClip(b);
+   const absent=(!b.finalJaw&&
+     (b.fistMounted===false||(b.components?.Fist?.health??0)<=0))?
+       '26_Final_Long_Arm_Absent_Fist_Collapse':null;
+   const authored=terminal??absent;
+   const clip=authored&&this.availableClips?.has(authored)?authored:ramWreckClip(b);
    this.animation.sample({clip,time:now-(b.destroyedAt??now)},()=>true);
   }else{
    const flickAge=b.flickAt!=null?now-b.flickAt:-1;
