@@ -756,8 +756,8 @@ test('mounted right mouse sends one server Finger Flick, not Guard, aim modifier
  const {input,down,up,calls}=setup(),sent=[];
  input.socket.send=m=>sent.push(m);
  input.mountedRam=true;input.enabled=true;
- down('Mouse2');
- assert.deepEqual(sent,[{type:'ramFlick'}]);
+ down('Mouse2');down('Mouse2');
+ assert.deepEqual(sent,[{type:'ramFlick'}],'held RMB cannot replay the attack');
  assert.equal(input.movement().ramRaise,false);
  assert.equal(input.movement().guard,false);
  up('Mouse2');
