@@ -16,6 +16,7 @@ import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.m
 
 export const BI_BYE_SWEEP=Object.freeze({
   single:1.65,opening:1.04,loop:1.20,settleClip:2.20,
+  sharedHeavyRecovery:4, // A Sharp Turn and the actual Bolt II release share this gate.
   damage:45,guardScale:.55,shove:13,stagger:62,
   settleRate:Math.PI*2/3,maxArcStep:Math.PI/32,
   // Clip 22: time, unwrapped Traverse_Mount yaw, cradle lowering.
@@ -47,6 +48,12 @@ const phaseAt=t=>{
  }
  return {angle:TAU,lower:0};
 };
+// One gate for the innate one-turn defensive attack and Bolt II. Bolt I
+// recocks separately; the 24s sustained Spin Skill has its own availability.
+export const biByeHeavySweepReady=(b,now)=>Boolean(b&&now+1e-8>=(b.sweepHeavyReadyAt??0));
+export function biByeHeavySweepCommit(b,now){
+ b.sweepHeavyReadyAt=Math.max(b.sweepHeavyReadyAt??0,now+BI_BYE_SWEEP.sharedHeavyRecovery);
+}
 export function biByeSweepActive(b){return Boolean(inside(b?.sweep));}
 export function biByeSweepFireLocked(b){return Boolean(b?.sweep?.phase==='opening'||b?.sweep?.phase==='loop'||b?.sweep?.phase==='single'||b?.sweep?.phase==='settle');}
 // Only this special attack uses v26 mesh bounds and actual authored limb
@@ -136,6 +143,8 @@ function readyToStart(b){
 function start(room,b,p,now,kind){
  if(!skillOperator(room,b,p,now))return 'Operate the ballista to use its bow sweep.';
  if(!readyToStart(b))return 'Finish the current weapon mechanism or repair the supports.';
+ if(kind==='single'&&!biByeHeavySweepReady(b,now))
+  return 'A Sharp Turn and Bolt II share a four-second recovery.';
  if(kind==='skill'&&(b.skill?.id!=='lookAroundAndFindOut'||b.skill.phase!=='idle'||now+1e-8<b.skill.readyAt))
   return 'Look Around and Find Out is not ready.';
  if(!biByeSweepClearance(b,room.world))return 'The bow does not have physical clearance for a full turn.';
@@ -144,6 +153,9 @@ function start(room,b,p,now,kind){
  b.sweep={kind,phase:kind==='skill'?'opening':'single',startedAt:now,
    baseYaw:b.mainYaw,basePitch:b.mainPitch,upperBaseYaw:b.upperYaw,
    angle:0,lower:0,revolution:0,victims:{},machines:{},ownerId:p.id};
+ // Charge the ordinary melee immediately on a valid commitment. It cannot
+ // be spammed by alternating presses, interruption or client-side prediction.
+ if(kind==='single')biByeHeavySweepCommit(b,now);
  if(kind==='skill'){
   b.skill.phase='active';b.skill.ownerId=p.id;b.skill.primedAt=now;
   skillEvent(room,b,now,'activated');
