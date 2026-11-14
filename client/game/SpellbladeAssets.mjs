@@ -105,10 +105,9 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
-// The motion sidecars: clips laid over a canonical model's own, by bone name (animation-only GLBs of the same
-// skeleton: tools/assets/build-spellblade-motion.mjs for the body, build-spellblade-fp-motion.mjs for the
-// first-person arms). A clip of the same name replaces the model's; the model itself is not touched. Without one
-// (not found, or it fails to load) the model plays its own clips.
+// PR #457's phase-specific Technique sidecars retain server-aligned sword motion.
+// The canonical 89/25 authored clips take precedence where names overlap: in particular
+// the old sidecar Slash_1 must not overwrite Argon's subsequently improved footwork.
 const MOTION_FILES = Object.freeze({ thirdPerson: 'spellblade-motion', firstPerson: 'spellblade-fp-motion' });
 const motionPromises = new Map();
 function loadMotion(kind = 'thirdPerson') {
@@ -121,11 +120,11 @@ function loadMotion(kind = 'thirdPerson') {
   return motionPromises.get(file);
 }
 
-/** A model's clips with the sidecar's laid over them (same name: the sidecar's). */
+/** Add only missing phase clips. Never supersede a newer canonical authored action. */
 export function withMotionClips(own, motion) {
   if (!motion?.length) return own;
-  const replaced = new Set(motion.map((clip) => clip.name));
-  return [...own.filter((clip) => !replaced.has(clip.name)), ...motion];
+  const names = new Set(own.map((clip) => clip.name));
+  return [...own, ...motion.filter((clip) => !names.has(clip.name))];
 }
 
 const FIRST_PERSON_ANISOTROPY = 8;

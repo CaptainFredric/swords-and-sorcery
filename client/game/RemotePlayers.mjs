@@ -765,7 +765,9 @@ export class RemotePlayers {
   #pose(id, shell, pb, serverNow, nowMs, dt) {
     const localTime = nowMs / 1000;
     const d = shell.root.userData;
-    const state = pb.restlessAsleep ? 'dead' : resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
+    if (pb.restlessAsleep && !Number.isFinite(d.restlessSleepAt)) d.restlessSleepAt = serverNow;
+    if (!pb.restlessAsleep) d.restlessSleepAt = null;
+    const state = pb.restlessAsleep ? 'restless-sleep' : resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
     // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
     const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
     const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.angle);
@@ -830,7 +832,10 @@ export class RemotePlayers {
     }, dt);
     // (when he was last seen in his Guard: a chain begun straight out of it starts from the raised sword)
     if (pb.guarding) d.guardSeenAt = serverNow;
-    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil, guardSeenAt: d.guardSeenAt };
+    // The chosen collapse is stable per actor; it does not affect the authority's sleep state.
+    const restlessVariant = [...String(pb.id ?? id ?? '')].reduce((sum, c) => sum * 31 + c.charCodeAt(0), 0) & 1;
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil,
+      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);

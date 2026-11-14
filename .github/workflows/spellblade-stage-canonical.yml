@@ -1,0 +1,34 @@
+name: Finalize staged Spellblade GLBs
+on:
+  push:
+    branches:
+      - feat/spellblade-argon89-fp25-final-20261114
+permissions:
+  contents: write
+jobs:
+  assemble:
+    if: startsWith(github.event.head_commit.message, 'Stage Argon 89/25')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Assemble verified canonical GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=tools/asset-staging/spellblade
+          out=client/assets/characters/spellblade
+          cat "$dir"/third-person.part* > "$out"/spellblade.glb
+          cat "$dir"/first-person.part* > "$out"/spellblade-fp.glb
+          echo '161879e5a39cbcae004465163716e3a107816c960289e0611e117610918a4a83  '"$out"'/spellblade.glb' | sha256sum --check
+          echo '4f53671eadd8f706692f632c71892e78e92d38cfe06592c65b2254158c5953ce  '"$out"'/spellblade-fp.glb' | sha256sum --check
+          gzip -n -9 -c "$out"/spellblade.glb > "$out"/spellblade.glb.gz
+          gzip -n -9 -c "$out"/spellblade-fp.glb > "$out"/spellblade-fp.glb.gz
+          test "$(stat -c %s "$out"/spellblade.glb)" -eq 13542132
+          test "$(stat -c %s "$out"/spellblade-fp.glb)" -eq 7298028
+          git add "$out"/spellblade.glb "$out"/spellblade.glb.gz "$out"/spellblade-fp.glb "$out"/spellblade-fp.glb.gz
+          git rm -r "$dir"
+          git rm .github/workflows/spellblade-stage-canonical.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Finalize verified Argon 89/25 Spellblade assets on draft branch'
+          git push origin HEAD:feat/spellblade-argon89-fp25-final-20261114
