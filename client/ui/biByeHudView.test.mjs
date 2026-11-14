@@ -41,3 +41,23 @@ test('terrain deployment rejection is concise and expires without replacing read
  assert.match(biByeHudView(localDriver,{bibyeBallista:bl},11).status,/Too steep/);
  assert.match(biByeHudView(localDriver,{bibyeBallista:bl},14).status,/Shot I ready/);
 });
+
+test('ram-forced outriggers appear in mounted combat status and suppress the Pack control until recovery',()=>{
+ const driver={...local,operatingBallistaId:b.id};
+ const blast={...b,mode:'DEPLOYING',forcedOutriggersAt:1,forcedOutriggersUntil:4.2,
+   weaponFocus:'UPPER',deploymentReason:null};
+ const active=biByeHudView(driver,{bibyeBallista:blast},1.5,
+   {bindings:{deploy:['KeyH'],siegeView:['KeyJ']}});
+ assert.match(active.status,/OUTRIGGERS FORCED.*BRACING/);
+ assert.doesNotMatch(active.controls,/\[H\] Deploy|\[H\] Pack/);
+ const heavy={...blast,mode:'DEPLOYED'};
+ assert.match(biByeHudView(driver,{bibyeBallista:heavy},2).status,
+   /OUTRIGGERS FORCED.*HEAVY MODE LOCKED/);
+ assert.doesNotMatch(biByeHudView(driver,{bibyeBallista:heavy},2,
+   {bindings:{deploy:['KeyH']}}).controls,/\[H\] Pack/);
+ assert.match(biByeHudView(driver,{bibyeBallista:heavy},4.21,
+   {bindings:{deploy:['KeyH']}}).controls,/\[H\] Pack/,
+   'operator can choose to restore mobility after forced brace completes');
+ assert.doesNotMatch(biByeHudView(local,{bibyeBallista:heavy},2).status,/OUTRIGGERS FORCED/,
+   'nearby bystander only gets the existing operate prompt');
+});
