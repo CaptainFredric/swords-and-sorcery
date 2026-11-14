@@ -561,3 +561,40 @@ test('Bi-Bye innate SWEEP has its own usable touch rectangle without obscuring e
       'SWEEP must not obstruct '+id);
  }
 });
+
+test('Steel and PRIME separate on custom saved mobile positions without moving other controls', async()=>{
+ const {clearTouchButtonOverlap,DEFAULT_RAM_LAYOUT}=await import('./touchLayout.mjs');
+ const bounds={left:0,right:844,top:0,bottom:390};
+ const steel={left:630,right:684,top:166,bottom:220};
+ const prime={left:624,right:688,top:206,bottom:270};
+ const shifts=clearTouchButtonOverlap(steel,prime,bounds);
+ assert.ok(shifts,'there is a viable move for overlapping Steel');
+ const moved={left:steel.left+shifts.dx,right:steel.right+shifts.dx,
+   top:steel.top+shifts.dy,bottom:steel.bottom+shifts.dy};
+ assert.ok(moved.bottom<=prime.top-7||moved.right<=prime.left-7||
+   moved.left>=prime.right+7||moved.top>=prime.bottom+7,
+   'entire Steel touch target clears PRIME, not just the icon');
+ assert.equal(clearTouchButtonOverlap(moved,prime,bounds).dx,0,
+   'already separated controls are never shifted');
+ const obstructing={left:626,right:687,top:130,bottom:206};
+ const alternative=clearTouchButtonOverlap(steel,prime,bounds,[obstructing]);
+ assert.ok(alternative,'uses another axis when moving up would land on another control');
+ assert.notDeepEqual(alternative,shifts,'the collision guard checks other active controls');
+ assert.equal(clearTouchButtonOverlap({left:0,right:50,top:0,bottom:50},
+   {left:0,right:50,top:0,bottom:50},
+   {left:0,right:50,top:0,bottom:50}),null,'does not move a button outside the viewport');
+ assert.ok(DEFAULT_RAM_LAYOUT.spell.bottom>=110,'default Steel has its own high lane');
+ assert.ok(DEFAULT_RAM_LAYOUT.spell.right>DEFAULT_RAM_LAYOUT.siegeSkill.right+70,
+   'default Steel stays left of PRIME horizontally as well');
+});
+
+test('touch objective, killfeed, drive pressure and subtitles use separate mobile lanes', async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const mobile=await readFile(new URL('../mobile.css',import.meta.url),'utf8');
+ const siege=await readFile(new URL('../siege-hud.css',import.meta.url),'utf8');
+ const play=await readFile(new URL('../playability.css',import.meta.url),'utf8');
+ assert.match(mobile,/\.touch-ui \.kill-feed \{[\s\S]*top:calc\(var\(--safe-t\) \+ 72px\)/);
+ assert.match(mobile,/\.touch-ui \.hud-status-stack \{[\s\S]*left:max\(/);
+ assert.match(siege,/\.touch-ui \.drive-housing \{[\s\S]*top:calc\(var\(--safe-t,0px\) \+ 66px\)/);
+ assert.match(play,/\.touch-ui \.hud\.ballista-mounted #subtitle \{[\s\S]*--siege-gauge-height, 54px\) \+ 7px/);
+});
