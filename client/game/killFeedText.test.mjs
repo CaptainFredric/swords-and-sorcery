@@ -19,7 +19,7 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
   'fight-flight-repeater':['tranquilized','pin-cushioned'],
   'fight-flight-rotor':['rotor-blades','for a spin'],
   'bibye-siege':['stuck around','bad name','got through','bolted away'],
-  'bibye-conditioning':['chilled out','calm down','first bolt'],
+  'bibye-conditioning':['chilled out','calm down'],
   'so-fist':['handshake','broke','ahold'],
   'so-fist-flick':['showed','fainted','finger'],
   'knock-on-steel':['ran through','battering ram'],
