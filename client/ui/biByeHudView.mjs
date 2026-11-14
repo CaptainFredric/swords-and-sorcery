@@ -39,8 +39,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if(b.combinedUpperPendingAt!=null)status+=' · BOLT I FOLLOW-THROUGH';
   if(!touch)status+=' · '+siegeSkillLabel(b,now);
   const tray=biByeCombatView(b,now);
-  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SKILL II${tray.secondary?' · BOTH':''}`
-    : `LMB Bolt I · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
+  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SWEEP · SKILL${tray.secondary?' · BOTH':''}`
+    : `LMB Bolt I · [K] Sharp Turn · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
   const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.mode==='RETRACTING'?
     'RETRACTING · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
   return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${touch?station.split(' / ')[0]:station}`, status, controls };
