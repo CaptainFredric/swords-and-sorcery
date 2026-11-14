@@ -2,7 +2,7 @@ import { galeProfile, galeModeId, sustainGaleRecoil } from '../../shared/src/gal
 import { flyStep, inspectionSpawn, inspectionViews, levelCamera, focusOnSubject, createBookmark } from './inspectionCamera.mjs';
 import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { ZipArchive } from './zipWriter.mjs';
-import { structureWorld } from '../../shared/sim/structures.mjs';
+import { structureDefinitions, structureWorld } from '../../shared/sim/structures.mjs';
 import {withRestlessLadders,constrainRestlessCarry} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
@@ -56,7 +56,8 @@ import { Effects } from './Effects.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
-import { localPushDirection } from './spellbladeMotion.mjs';
+import { landingStrength, localPushDirection } from './spellbladeMotion.mjs';
+import { CONTACT_LIMITS, contactWorthDrawing, footfallPlan, groundContactAt, landingPlan } from './groundContact.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
@@ -178,6 +179,9 @@ function dataUrlToBytes(dataUrl) {
   return bytes;
 }
 
+// struck masonry flakes; struck metal only sparks
+const strikeMaterialIsMasonry = (material) => !['iron', 'brass', 'metal', 'steel', 'arcane'].includes(material);
+
 export class GameRuntime {
   constructor(container, socket, hud, { sound = null, voice = null, music = null } = {}) {
     this.container = container;
@@ -271,6 +275,8 @@ export class GameRuntime {
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId, { now: () => this.presentationNow() });
     // (a crouched knight's steps are soft and light)
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
+    // another knight coming down hard: the ground answers round his feet
+    this.remotePlayers.onLanding = (id, position, strength) => this.#groundLanding(position, strength);
     // now and then a knight grunts as he jumps (an exertion: never over his other lines)
     this.remotePlayers.onJump = (id) => this.#sayMoment(id, ['jump']);
     // another knight's Blazing Vortex: the star's ting as it is lit, and the beat of the blade, once a turn
@@ -777,8 +783,10 @@ export class GameRuntime {
       this.activeWorld = structureWorld(phasedWorld, this.latestSnapshot?.structures);
       this.worldId = worldId;
       // Avoid near-clip scenery on an actual 234 m battlefield, without
-      // spending the extra depth range in smaller arenas.
-      this.camera.far = worldId === 'high-grounds' ? 340 : worldId === 'restless-day' ? 310 : 180;
+      // spending the extra depth range in smaller arenas. A world whose lighting names its own reach (its sky and
+      // backdrop drawn out to it) keeps it: overriding it here clipped the Outerworks' sky and hills, and the High
+      // Grounds' valley, to bare haze in play.
+      this.camera.far = nextRenderer.lighting?.cameraFar ?? (worldId === 'high-grounds' ? 340 : worldId === 'restless-day' ? 310 : 180);
       this.camera.updateProjectionMatrix();
       this.worldError = null;
       this.localState = null;
@@ -1667,7 +1675,10 @@ export class GameRuntime {
         if (op) this.#sayMoment(op, ['apparatusHit']);
       }
       if(event.type==='structureDamaged'){
-        if(event.point)this.effects.splinters?.(event.point);
+        const floorY=event.point&&this.activeWorld?surfaceHeightAt(event.point.x,event.point.z,event.point.y,this.activeWorld):null;
+        if(event.point)this.effects.splinters?.(event.point,event.destroyed?6:8,{floorY});
+        // a barricade broken: it comes down along its length, and the ground answers
+        if(event.destroyed)this.#structureCollapse(event.structureId);
         if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('BREACH OPEN','gold',1800);
       }
       if(event.type==='structureRebuilt'&&event.blueMagic&&event.point){
@@ -2578,7 +2589,9 @@ export class GameRuntime {
   // a footstep on whatever is underfoot: mine (from = null) at my own feet, another knight's from where he stands and
   // only near him (footsteps.mjs)
   #footstep(from, position, heavy = 0, gain = FOOTSTEPS.other) {
-    if (!this.sound || !position) return;
+    if (!position) return;
+    this.#groundFootfall(from, position, heavy);
+    if (!this.sound) return;
     this.stepVariant ??= variantPicker();
     const surface = surfaceAt(this.activeWorld, position.x, position.z, position.y ?? 0);
     const recipe = footstepRecipe(Math.random, { surface, heavy, variant: this.stepVariant(from ?? 'me') });
@@ -2589,6 +2602,44 @@ export class GameRuntime {
     const listener = this.localState?.position ?? this.localAuth?.position;
     const place = footstepPlacement(listener, this.input.yaw, position);
     if (place && place.gain > 0.01) this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain / FOOTSTEPS.other });
+  }
+
+  // a structure the host has just broken (structures.mjs): dust along the line where each of its pieces lands
+  #structureCollapse(structureId) {
+    if (!this.activeWorld) return;
+    // (the broken pieces are already gone from the live world: they are read from its unbroken base)
+    const world = structureWorld(this.activeWorld, null);
+    const def = structureDefinitions(world).find((d) => d.id === structureId);
+    if (!def) return;
+    for (const id of def.solidIds ?? []) {
+      const solid = (world.solids ?? []).find((s) => s.id === id);
+      if (!solid) continue;
+      const [x, y, z] = solid.center, [sx, sy, sz] = solid.size;
+      const floorY = surfaceHeightAt(x, z, y - sy / 2 + 0.3, world) ?? y - sy / 2;
+      const alongX = sx >= sz, half = (alongX ? sx : sz) / 2;
+      this.effects.structureCollapse?.({ material: solid.material ?? 'timber', weight: Math.min(1, sy / 2.4),
+        from: { x: alongX ? x - half : x, y: floorY, z: alongX ? z : z - half }, to: { x: alongX ? x + half : x, y: floorY, z: alongX ? z : z + half } });
+    }
+  }
+
+  // what a footfall raises off the ground under it (groundContact.mjs): seen only near the eye, and only while the
+  // fight's own effects leave room; my own trails behind me as I run
+  #groundFootfall(from, position, heavy) {
+    if (!this.activeWorld || !this.effects?.footfall) return;
+    if (!contactWorthDrawing(position, this.camera.position, { range: CONTACT_LIMITS.footfallRange, used: this.effects.effectLoad(), budget: CONTACT_LIMITS.footfallBudget })) return;
+    const contact = groundContactAt(this.activeWorld, position.x, position.z, position.y ?? 0);
+    if (!contact) return;
+    const v = !from ? this.localState?.velocity : null;
+    const back = v && Math.hypot(v.x, v.z) > 0.5 ? { x: -v.x, z: -v.z } : null;
+    this.effects.footfall({ x: position.x, y: position.y ?? 0, z: position.z }, footfallPlan(contact, heavy), { back });
+  }
+
+  // a knight coming down hard: a ring of the ground's dust thrown out round the feet (groundContact.mjs)
+  #groundLanding(position, strength) {
+    if (!position || !this.activeWorld || !this.effects?.landing) return;
+    if (!contactWorthDrawing(position, this.camera.position, { range: CONTACT_LIMITS.landingRange, used: this.effects.effectLoad(), budget: CONTACT_LIMITS.landingBudget })) return;
+    const contact = groundContactAt(this.activeWorld, position.x, position.z, position.y ?? 0);
+    if (contact) this.effects.landing({ x: position.x, y: position.y ?? 0, z: position.z }, landingPlan(contact, strength));
   }
 
   // a Gale let go: the gust seen and heard, the knights it caught shoved and their cloth flung, and now and then a word
@@ -3098,12 +3149,19 @@ export class GameRuntime {
       if (surface === 'stone') this.hud.flashText('CLANG!', 'metal');
       this.cameraKick = Math.max(this.cameraKick, surface === 'soft' ? 0.05 : 0.13);
     }
+    // what the blow knocks off the wall falls to the ground under it, and is thrown back toward whoever struck it
+    const floorY = this.activeWorld ? surfaceHeightAt(point.x, point.z, point.y, this.activeWorld) : null;
+    const away = mine ? { x: this.camera.position.x - point.x, z: this.camera.position.z - point.z } : null;
     if (surface === 'stone') {
       if(surfaceId?.startsWith('sofist-')&&surfaceId.endsWith('-Fist'))this.effects.sparks(point,0xc9dded,mine?5:3);
-      else if (mine) this.effects.wallClang(point);
-      else this.effects.sparks(point, 0xffd48a, 8);
+      else {
+        if (mine) this.effects.wallClang(point);
+        else this.effects.sparks(point, 0xffd48a, 8);
+        // (masonry, not plate: a few flakes of the stone itself)
+        if (strikeMaterialIsMasonry(material)) this.effects.stoneChips?.(point, mine ? 6 : 4, { floorY, away });
+      }
     } else if (surface === 'wood') {
-      this.effects.splinters(point, mine ? 12 : 7);
+      this.effects.splinters(point, mine ? 12 : 7, { floorY, away });
     }
     this.#play(recipe, mine ? null : point, mine ? 0.9 : 0.5);
   }
@@ -4053,6 +4111,7 @@ export class GameRuntime {
         if (fallSpeed > 11) this.#sayMoment(this.playerId, ['hardLanding']);
         // both feet down at once, heavier the further he fell
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
+        this.#groundLanding(this.localState.position, landingStrength(fallSpeed));
       }
       // With the view out behind me, the aim is from my own eyes to what the reticle is on.
       if (!this.socket.playingLocally) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
@@ -4212,6 +4271,11 @@ export class GameRuntime {
     this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
+    // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)
+    for (const impact of this.world?.takeImpacts?.() ?? []) {
+      if (impact.kind === 'collapse') this.effects.structureCollapse?.(impact);
+      else if (impact.kind === 'sift') this.effects.sift?.(impact.from, impact.to);
+    }
     // A shared match clock, not client frame count, controls the entire sundown arc.
     if(this.latestSnapshot?.mode==='RESTLESS_DAY'){
       const deadline=this.latestSnapshot?.modeState?.deadline;

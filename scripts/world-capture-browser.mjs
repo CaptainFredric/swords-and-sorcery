@@ -129,10 +129,20 @@ try {
       document.querySelector('#solo-launch')?.click();return true})()`);
   }
   const expect = how.world ?? how.arena ?? how.renown;
+  // a bot duel now waits in its lobby for the player to press Start Bot Duel
+  if (how.solo === 'bot-duel') {
+    await until(() => evaluate("(()=>{const b=document.querySelector('#copy-link');return Boolean(b&&!b.classList.contains('hidden')&&!b.disabled&&/START BOT DUEL/.test(b.textContent))})()"), 'bot duel lobby', 60000);
+    // (it takes pointer lock, which needs a real input event on a page in front)
+    await cdp.send('Page.bringToFront');
+    const [bx, by] = await evaluate("(()=>{const r=document.querySelector('#copy-link').getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2]})()");
+    for (const type of ['mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, x: bx, y: by, button: 'left', clickCount: 1 });
+  }
   await until(() => evaluate(`(()=>{const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.roomState==='PLAYING'&&s?.worldId==='${expect}'})()`), 'live match', 120000);
   // an optional staged setup, named in the output (SS_SETUP: JS run in the page once the match is live, e.g. to wind
   // Edge of Victory's clock to a later ring); never used for the default before/after captures
   if (process.env.SS_SETUP) { await evaluate(process.env.SS_SETUP); await sleep(1500); }
+  // SS_PROBE: an expression evaluated in the live match, its value printed (what is that on the horizon?)
+  if (process.env.SS_PROBE) console.log('[probe]', JSON.stringify(await evaluate(process.env.SS_PROBE)));
   // the camera override and per-frame accounting (installed once; renders still come from the game's own loop)
   await evaluate(`(()=>{const r=window.__ssRuntime,R=r.renderer;R.info.autoReset=false;
     const render=R.render.bind(R);window.__cap={view:null,frames:0,calls:0,tris:0,dts:[],last:performance.now()};

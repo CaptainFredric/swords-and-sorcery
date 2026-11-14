@@ -192,6 +192,8 @@ export function cottage(batch, rand, solid, { roof = 'thatch', door = '-z' } = {
     overhang: 0.35, ridge: (ridgeAlongX ? sx : sz) * 0.32, color: roof === 'thatch' ? P.thatch : P.slate, rand, rotY: ridgeAlongX ? 0 : Math.PI / 2,
   });
   batch.stone.block({ cx: cx + sx * 0.3, cy: bottom + sy - 0.3, cz: cz + sz * 0.2, sx: 0.55, sy: roofHeight + 0.75, sz: 0.55, chamfer: 0.05, jitter: 0.02, color: P.stoneDark, rand });
+  // (the chimney's mouth, for whatever smoke a world draws from it)
+  return { chimney: [cx + sx * 0.3, bottom + sy - 0.3 + roofHeight + 0.75, cz + sz * 0.2] };
 }
 
 /** A brass wall sconce; returns the flame's world position (flames and light are animated separately). */

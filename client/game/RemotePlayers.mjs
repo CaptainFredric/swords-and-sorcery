@@ -368,6 +368,8 @@ export class RemotePlayers {
     this.machineHeading = {};
     // told each time a knight's foot comes down: (id, position, heavy 0..1), from the gait clip's own stride
     this.onFootstep = null;
+    // told when a knight comes down hard: (id, position, strength 0..1)
+    this.onLanding = null;
     this.rigs = new Map();
     this.samples = new Map();
     this.playbackClock = null;
@@ -809,6 +811,8 @@ export class RemotePlayers {
         d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
         // and the tabards flip out with it, then settle
         shell.visualInstance?.animator?.cloth?.land?.(strength);
+        // and the ground answers round his feet (the runtime draws it)
+        if (id) this.onLanding?.(id, shell.root.position, strength);
       }
       d.fastestFall = 0;
     }

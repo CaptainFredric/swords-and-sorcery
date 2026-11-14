@@ -41,7 +41,7 @@ export class StructureRenderer {
         new THREE.MeshBasicMaterial({color:0x5acaff,transparent:true,opacity:.0,
           wireframe:true,depthWrite:false,blending:THREE.AdditiveBlending}));
       aura.visible=false;root.add(aura);
-      this.entries.push({def,solid,root,parts,cracks,aura});
+      this.entries.push({def,solid,root,parts,cracks,aura,rest:root.position.clone()});
     }
     scene.add(this.group);
   }
@@ -77,6 +77,16 @@ export class StructureRenderer {
         }else if(fraction<.67&&i%3===1){mesh.rotation.z+=(fraction<.34?.035:.018)*(i%2?1:-1);}
       }
       for(const crack of e.cracks)crack.visible=!failed&&fraction<.67;
+      // a blow that lands jolts the whole barricade back on its footing and it shudders still (a quarter second; drawn
+      // only: the host's collider never moves)
+      const since=Number.isFinite(health?.lastHitAt)&&!failed?now-health.lastHitAt:Infinity;
+      e.root.position.copy(e.rest);e.root.rotation.set(0,0,0);
+      if(since>=0&&since<.28){
+        const k=(1-since/.28)**2*Math.sin(since*55),[width,height]=e.solid.size;
+        e.root.position.y+=Math.abs(k)*.015;
+        e.root.rotation.z=k*.018*Math.min(1,2/Math.max(1,width));
+        e.root.rotation.x=k*.012*Math.min(1,height/2);
+      }
     }
   }
   dispose(){this.scene.remove(this.group);this.group.traverse(o=>o.geometry?.dispose());

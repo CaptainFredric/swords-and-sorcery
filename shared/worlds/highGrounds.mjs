@@ -285,6 +285,8 @@ for(const r of ramps) {
 
 export const HIGH_GROUNDS = Object.freeze({
   id: 'high-grounds', name: 'The High Grounds',
+  // (its ramps are planked: what a foot or a blade meets on them, for presentation)
+  rampMaterial: 'timber',
   floors: grounds, ramps, solids, trees, objectives, spawnPoints, props: PROPS,
   practiceSpawns: [
     { id:'crown', name:'Crown Span · ground level', x:0, y:0, z:4, yaw:0 },
