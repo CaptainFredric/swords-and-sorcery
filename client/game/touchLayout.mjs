@@ -167,7 +167,13 @@ export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
     const mirrored=original?mirrorLayoutHorizontal({[action]:original})[action]:null;
     const preset=mirrored&&Object.entries(mirrored).every(([k,v])=>saved?.[k]===v);
-    layout[action]=saved?.custom&&!preset?{...saved}:{...placement,custom:true};
+    // The on-foot VIEW factory placement was marked custom for onboarding.
+    // That flag alone must not override the ballista's nonoverlapping default
+    // VIEW position. Explicitly edited VIEW positions still win.
+    const untouchedOnFootView=machine==='biBye'&&action==='siegeView'&&
+      original&&Object.entries(original).every(([key,value])=>saved?.[key]===value);
+    layout[action]=saved?.custom&&!preset&&!untouchedOnFootView?
+      {...saved}:{...placement,custom:true};
   }
   return layout;
 }
