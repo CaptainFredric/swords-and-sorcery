@@ -58,7 +58,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    ...(mode==='EDGE_OF_VICTORY' ? [`${v} will NOT be bouncing back`] : []),
    ...(!['RENOWN_TRIALS','EDGE_OF_VICTORY'].includes(mode)?[`${v} will take this personally`]:[]),
  ];
- const aside=pick([...Array(70).fill(null),...rare],event);
+ const aside=source==='sword'?pick([...Array(70).fill(null),...rare],event):null;
  if(aside)return {text:aside,kind:'sword'};
  if(source==='fight-flight-repeater')return text([
    `${k} tranquilized ${v} permanently`,
