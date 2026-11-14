@@ -53,7 +53,7 @@ async function measure(){
     "const b=s=>box(document.querySelector(s)),sh=document.querySelector('#game-shell').getBoundingClientRect();"+
     "return {w:sh.width,h:sh.height,objective:b('#breakthrough-hud'),feed:b('#kill-feed'),"+
     "leave:b('.touch-interact'),view:b('.touch-siegeView'),hp:b('.health-block'),"+
-    "drive:b('.drive-housing'),subtitle:b('#subtitle'),gauge:b('.machine-gauge'),"+
+    "drive:b('.drive-housing'),subtitle:b('#subtitle'),gauge:b('.machine-gauge'),flightHud:b('.flight-hud'),"+
     "steel:b('.touch-spell'),prime:b('.touch-siegeSkill')};})()");
 }
 function verify(kind,x,screen){
@@ -74,6 +74,13 @@ function verify(kind,x,screen){
     assert.ok(s.bottom<=g.top-5&&s.bottom>=g.top-15,
       screen+' '+kind+' subtitle just above siege health');
   }else assert.ok(s.bottom>x.h-55,screen+' on-foot subtitle remains low');
+  if(kind==='flight'){
+    const flight=x.flightHud;
+    assert.ok(flight.visible&&flight.width>200&&flight.width<=340,
+      screen+' Flight meters remain readable after objective compaction');
+    assert.ok(clear(flight,f,3)&&clear(flight,o,3),
+      screen+' Flight meters stay in a lane separate from objective and kills');
+  }
   if(kind==='ram'){
     assert.ok(d.visible&&d.top>=hp.bottom+2&&d.top<hp.bottom+55,
       screen+' Drive Pressure beside personal HUD');
