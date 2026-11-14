@@ -1,6 +1,7 @@
 import {createSiegeSkill,primeSiegeSkill,commitSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import { biByeCondition, biByeConstrainAim } from './biByeComponents.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
+import {biByeHeavySweepReady,biByeHeavySweepCommit} from './biByeSweep.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
 // authored asset can load late without changing aim, ammunition or release clocks.
@@ -24,12 +25,12 @@ const ordinaryCoupleSkillReady=b=>b.skill?.id==='boltToTheOccasion'?
 // Ordinary coupled fire is a mechanical weapon command, not a Bolt to the
 // Occasion Skill. Cold only enhances newly released Bolt I; it must not
 // disable the coupled mechanism, and the real Bolt II release ends Cold.
-export const canBiByeCouple=(b,now)=>Boolean(b&&!b.sweep&&!b.heavySkill&&ordinaryCoupleSkillReady(b)&&
+export const canBiByeCouple=(b,now)=>Boolean(b&&!b.sweep&&!b.heavySkill&&biByeHeavySweepReady(b,now)&&ordinaryCoupleSkillReady(b)&&
  supported(b)&&b.state==='LOADED'&&b.mainBoltLoaded&&ready(b,now)&&
  !b.pendingCoupledFromUpper&&!busy(b));
 
 export function biByeWeaponState(heading) {
-  return {skill:createSiegeSkill('boltToTheOccasion'),heavySkill:null,mainSkillUntil:0,mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
+  return {skill:createSiegeSkill('boltToTheOccasion'),heavySkill:null,mainSkillUntil:0,sweepHeavyReadyAt:0,mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
     pendingIndependent:null,pendingCoupledFromUpper:null,weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
     couplingStartedAt:null,couplingEndsAt:null,couplingReleaseFrom:1,pendingVolley:null,upperReleasedAt:null,upperReadyAnnouncedAt:null,
     heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null,combinedUpperPendingAt:null,combinedUpperAim:null,combinedOperatorId:null};
@@ -93,6 +94,7 @@ export function requestBiByeHeavySkill(room,b,p,now,targetAim,{combined=false,co
  const s=b.skill;
  if(s?.phase==='releasing')return 'Bolt II is already releasing.';
  if(s?.phase==='primed'){
+  if(!biByeHeavySweepReady(b,now))return 'Bolt II and A Sharp Turn share a four-second recovery.';
   if(combined&&(!ready(b,now)||!b.operatorId))return 'BOTH requires a ready Bolt I.';
   if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
   if(b.mobileShotPendingAt!=null||b.pendingIndependent)return 'II PREPARING — Bolt I has not released.';
@@ -144,7 +146,7 @@ export function requestBiByeCombinedSkill(room,b,p,now,targetAim){
 // through to the ordinary independent Bolt I instead.
 export function requestBiByeSweepDischarge(room,b,now) {
  if(!b||b.sweep||b.skill?.id!=='lookAroundAndFindOut')return false;
- if(supported(b)&&b.mainBoltLoaded&&b.state==='LOADED'&&
+ if(biByeHeavySweepReady(b,now)&&supported(b)&&b.mainBoltLoaded&&b.state==='LOADED'&&
     !b.heavySkill&&!busy(b)&&b.operatorId){
   const follow=ready(b,now);
   b.heavySkill={operatorId:b.operatorId,aim:{yaw:b.mainYaw,pitch:b.mainPitch},
@@ -231,6 +233,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       b.mainYaw=approach(b.mainYaw,target.yaw,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(target.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
       if(now+1e-8>=pending.releaseAt&&Math.abs(wrapBiByeAngle(target.yaw-b.mainYaw))<.001&&Math.abs(target.pitch-b.mainPitch)<.001){
         b.firingOperatorId=pending.operatorId;shotII?.(room,b,{yaw:b.mainYaw,pitch:b.mainPitch},now);
+        biByeHeavySweepCommit(b,now);
         b.mainBoltLoaded=false;b.mainReleasedAt=now;b.firedAt=now;b.mainSkillUntil=now+BI_BYE_WEAPONS.recovery;b.state='SPENT';
         b.reloadStartedAt=now+BI_BYE_WEAPONS.recovery;b.reloadEndsAt=b.reloadStartedAt+BI_BYE_WEAPONS.heavyReload;
         // The second string is a follow-through of the ONE committed action.
@@ -363,6 +366,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
     else if(b.upperReleasedAt!=null&&now+1e-8>=b.shotIIPendingAt){
       const releasedAt=b.shotIIPendingAt;
       shotII?.(room,b,b.committedAim,releasedAt);
+      biByeHeavySweepCommit(b,releasedAt);
       finishColdHowTouching(room,b,releasedAt,'boltII');
       b.shotIIPendingAt=Infinity;
       b.mainReleasedAt=releasedAt;b.mainBoltLoaded=false;b.state='SPENT';b.reloadStartedAt=b.firedAt+BI_BYE_WEAPONS.recovery;
