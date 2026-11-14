@@ -5,6 +5,7 @@ import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {requestBiByeSharpTurn,biByeSweepClearance,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
+import {biByeHitVolumes} from '../../shared/sim/biByeComponents.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
 
 const ground=()=>({floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20});
@@ -86,6 +87,39 @@ test('snapshot and existing authored clip selection follow immutable machine clo
  assert.equal(biByeAnimation(sample,2.3).name,'23_BiBye_Look_Around_Spin_Loop');
  issue(s,'siegeSkill',2.35);
  assert.equal(biByeAnimation(s.b,2.4).name,'24_BiBye_Look_Around_Reversed_Fire_Settle');
+});
+test('actual swept main-limb geometry lands one 45 HP hit, but not at elevated non-contact points',()=>{
+ const s=setup();
+ const limb=biByeHitVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}}).find(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6);
+ assert.ok(limb,'must have authored-aligned main limb collider');
+ const victim=s.room.addPlayer({id:'target',token:'t',name:'target'},0);
+ victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
+ victim.spawnProtectionUntil=0;
+ assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
+ step(s,1,2.8);
+ assert.equal(victim.health,55,'one legitimate clean contact in the committed revolution');
+ assert.equal(s.room.events.filter(e=>e.type==='bibyeSweepImpact'&&e.victimId==='target').length,1);
+ const high=setup(),above=high.room.addPlayer({id:'above',token:'h',name:'above'},0);
+ above.position={x:limb.center[0],y:limb.center[1]+3,z:limb.center[2]};
+ above.spawnProtectionUntil=0;
+ assert.equal(issue(high,'bibyeSharpTurn').rejected,undefined);
+ step(high,1,2.8);
+ assert.equal(above.health,100,'same horizontal radius is not a radial damage pulse');
+});
+test('facing Guard mitigates a genuine bow-limb collision and its displacement',()=>{
+ const s=setup();
+ const limb=biByeHitVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}}).find(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6);
+ const victim=s.room.addPlayer({id:'guard',token:'g',name:'guard'},0);
+ victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
+ victim.spawnProtectionUntil=0;victim.guarding=true;victim.guardStamina=100;
+ victim.yaw=Math.atan2(victim.position.x-s.b.x,victim.position.z-s.b.z)+Math.PI;
+ assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
+ step(s,1,2.8);
+ const hit=s.room.events.find(e=>e.type==='bibyeSweepImpact'&&e.victimId==='guard');
+ assert.ok(hit,'geometry must make contact');
+ assert.equal(hit.guarded,true,'Guard must be facing the actual contact');
+ assert.ok(victim.health>55,'guarded damage must be below the clean 45 HP');
+ assert.ok(victim.guardStamina<100,'guard expends stamina to mitigate the blow');
 });
 test('clearance, damage, and loop cadence retain discrete authored timings',()=>{
  assert.equal(BI_BYE_SWEEP.single,1.65);
