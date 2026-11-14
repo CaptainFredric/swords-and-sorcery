@@ -65,7 +65,7 @@ function terrainBlocked(b,volumes,world){
  return false;
 }
 function bladesAt(b,angle,lower){
- return blades({...b,mainYaw:b.heading+angle,sweep:{phase:'opening',lower}});
+ return blades({...b,mainYaw:b.heading+angle,mainPitch:-.435*lower,sweep:{phase:'opening',lower}});
 }
 function worldBlocked(b,oldBlades,nextBlades,world){
  const solids=(world?.solids??[]).filter(s=>!String(s.id??'').startsWith('bibye-'));
