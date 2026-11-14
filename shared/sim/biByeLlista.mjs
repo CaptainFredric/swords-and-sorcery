@@ -177,6 +177,7 @@ export function createBiByeLlista(overrides = {}) {
     modeTransitionStartedAt: -Infinity,
     modeTransitionEndsAt: -Infinity,
     forcedOutriggersAt:-Infinity,forcedOutriggersUntil:-Infinity,forcedOutriggersSource:null,
+    forcedDeployAt:null,
 
     components: createBiByeComponents(),
     wheelRolls: [0,0,0,0,0,0],
@@ -422,6 +423,7 @@ function syncOperatorPosition(ballista, player) {
  */
 export function toggleBiByeDeploy(ballista, nowSec, world=null) {
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if(ballista.forcedDeployAt!=null&&nowSec<ballista.forcedOutriggersUntil)return false;
 
   if (ballista.mode === BI_BYE_MODES.MOBILE) {
     if (ballista.mobileShotPendingAt != null || !biByeCondition(ballista).canDeploy) return false;
@@ -683,6 +685,28 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     return;
   }
 
+  // The initial collision genuinely skids the carriage across the ground.
+  // After that momentum transfer, slam planted outriggers down, if the
+  // final resting footprint is still safe. Never brace over a void.
+  if(ballista.mode==='MOBILE'&&Number.isFinite(ballista.forcedDeployAt)&&
+      nowSec>=ballista.forcedDeployAt){
+    ballista.forcedDeployAt=null;
+    const support=biByeDeploymentSupport(ballista,world);
+    if(support.ok&&biByeCondition(ballista).canDeploy){
+      interruptBiByeSupport(ballista,nowSec);
+      ballista.mode='DEPLOYING';
+      ballista.modeTransitionStartedAt=nowSec;
+      ballista.modeTransitionEndsAt=nowSec+.65;
+      ballista.stabilizerTilts=support.tilts;
+      ballista.deploymentSupported=true;ballista.deploymentReason=null;
+      ballista.speed=0;ballista.externalVelocity={x:0,z:0};
+      room.events?.push({type:'bibyeForcedBraceStarted',ballistaId:ballista.id,at:nowSec});
+    }else{
+      ballista.forcedOutriggersUntil=nowSec;
+      room.events?.push({type:'bibyeForcedBraceFailed',ballistaId:ballista.id,at:nowSec,
+        reason:support.reason??'Stabilizers disabled'});
+    }
+  }
   if(ballista.mode==='DEPLOYING'||ballista.mode==='DEPLOYED'){
     const support=biByeDeploymentSupport(ballista,world);
     ballista.deploymentSupported=support.ok;
