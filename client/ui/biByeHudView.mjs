@@ -28,7 +28,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
     (b.mode==='RETRACTING'?'FORCED RETRACTION':'MOBILE · STABILIZERS RECOVERING')+
     ' · '+status;
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);
-  if(b.aimLimited)status+=' · AIM LIMIT';
+  if(b.sweep)status+=' · '+(b.sweep.phase==='settle'?'BOW SETTLING':b.sweep.kind==='skill'?'STATIONARY BOW SPIN':'A SHARP TURN');
+   if(b.aimLimited)status+=' · AIM LIMIT';
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy&&!uprooted&&
     (b.mode==='MOBILE'||b.mode==='DEPLOYED')
