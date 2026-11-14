@@ -40,7 +40,11 @@ const phaseAt=t=>{
 };
 export function biByeSweepActive(b){return Boolean(inside(b?.sweep));}
 export function biByeSweepFireLocked(b){return Boolean(b?.sweep?.phase==='opening'||b?.sweep?.phase==='loop'||b?.sweep?.phase==='single'||b?.sweep?.phase==='settle');}
-const blades=b=>biByeHitVolumes(b).filter(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6);
+// The original PBR GLB's POSITION accessor for each Main_Limb has a
+// 1.99277 x .46000 x .63472 metre local mesh extent. The ordinary bolt
+// hit-volume profile is intentionally not expanded outside this special strike.
+const blades=b=>biByeHitVolumes(b).filter(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6)
+ .map(v=>({...v,size:[1.993,.460,.635]}));
 function expand(target,attacker,extra=0){
  return {...target,size:target.size.map((width,i)=>width+
    attacker.axes.reduce((sum,axis,j)=>sum+Math.abs(axis.reduce((v,c,k)=>v+c*target.axes[i][k],0))*attacker.size[j],0)+extra*2)};
