@@ -13,6 +13,7 @@ const PRESS = {
   interact: (input) => input.interact(),
   deploy: (input) => input.deploy(),
   siegeSkill: (input) => input.siegeSkill(),
+  siegeSweep: (input) => input.siegeSweep(),
   siegeWeapon: (input) => input.siegeWeapon(),
   technique: (input) => input.technique(true,'binding'),
   scoreboard: (input) => { input.scoreboardHeld = true; },
@@ -634,6 +635,10 @@ export class InputController {
     this.socket?.send?.({ type: 'bibyeToggleDeploy' });
   }
 
+  siegeSweep() {
+    if(!this.enabled||!this.mountedBallista||this.allowAction?.('attack')===false)return;
+    this.socket?.send?.({type:'bibyeSharpTurn'});
+  }
   siegeSkill() {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)
       this.socket?.send?.({type:'siegeSkill',

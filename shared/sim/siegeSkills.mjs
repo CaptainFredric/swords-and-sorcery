@@ -2,6 +2,7 @@
 export const SIEGE_SKILLS=Object.freeze({
  boltToTheOccasion:Object.freeze({cooldown:24,interShotPrep:.2}),
  coldHowTouching:Object.freeze({cooldown:24}),
+ lookAroundAndFindOut:Object.freeze({cooldown:24}),
  longArmToTheJaw:Object.freeze({cooldown:24}),
  hellpingHand:Object.freeze({cooldown:24}),
  beatToThePunch:Object.freeze({

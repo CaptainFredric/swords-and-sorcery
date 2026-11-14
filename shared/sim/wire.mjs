@@ -10,6 +10,7 @@ import {boardHellpingHand,exitHellpingHand} from './soFistHellpingHand.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
+import {requestBiByeSharpTurn,requestLookAroundAndFindOut,biByeSweepFireLocked} from './biByeSweep.mjs';
 import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill,requestBiByeCoupledFromUpper } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
@@ -312,6 +313,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
+      sweep:room.biByeLlista.sweep?{...room.biByeLlista.sweep,victims:undefined,machines:undefined}:null,
       impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
       outriggersDislodgedAt:Number.isFinite(room.biByeLlista.outriggersDislodgedAt)?room.biByeLlista.outriggersDislodgedAt:null,
       outriggersDislodgedUntil:Number.isFinite(room.biByeLlista.outriggersDislodgedUntil)?room.biByeLlista.outriggersDislodgedUntil:null,
@@ -396,7 +398,7 @@ export function applyRoomCommand(room, player, message, time) {
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
       'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
-      'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire'].includes(message.type)) return {};
+      'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire','bibyeSharpTurn'].includes(message.type)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
   if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
@@ -685,6 +687,7 @@ export function applyRoomCommand(room, player, message, time) {
         {yaw:message.yaw,pitch:message.pitch}:null;
       const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time,aim):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?
         (b.skill?.id==='coldHowTouching'?requestColdHowTouching(room,b,player,time):
+         b.skill?.id==='lookAroundAndFindOut'?requestLookAroundAndFindOut(room,b,player,time):
          requestBiByeHeavySkill(room,b,player,time,biByeTargetAim)):'Operate a siege machine to use its Skill.';
       return reason?{rejected:reason}:{};
     }
@@ -693,8 +696,15 @@ export function applyRoomCommand(room, player, message, time) {
       if(!requestFightFlightFire(room,m,player,Boolean(message.down),time))return {rejected:'Operate Fight-and-Flight to fire the repeater.'};
       return {};
     }
+    case 'bibyeSharpTurn': {
+      const b=room.biByeLlista;
+      if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
+      const reason=requestBiByeSharpTurn(room,b,player,time);
+      return reason?{rejected:reason}:{};
+    }
     case 'bibyeHeavyFire': {
       const b=room.biByeLlista;
+      if(biByeSweepFireLocked(b))return {rejected:'Bolt II is mechanically locked during the sweep.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
       const ray=Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)?
         {yaw:message.yaw,pitch:message.pitch,
@@ -706,6 +716,7 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'bibyeCombinedFire': {
       const b=room.biByeLlista;
+      if(biByeSweepFireLocked(b))return {rejected:'Bolt II cannot be queued during the spin.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
       const reason=requestBiByeCombinedSkill(room,b,player,time,biByeTargetAim);
       return reason?{rejected:reason}:{};
@@ -775,6 +786,7 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'bibyeCoupledFire': {
       const b=room.biByeLlista;
+      if(biByeSweepFireLocked(b))return {rejected:'Bolt II is locked during the spin.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)
         return {rejected:'Operate the ballista before firing a coupled volley.'};
       const aim=Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)?{

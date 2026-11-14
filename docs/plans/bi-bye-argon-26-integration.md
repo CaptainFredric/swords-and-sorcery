@@ -1,0 +1,45 @@
+# Bi-Bye-llista — original Argon v26 integration contract
+
+## Actual uploaded donor, inspected 2026-11-14
+
+The uploaded **Bi_Bye_llista_GameReady_PBR.glb** contains 69 named nodes, 46 meshes, and 26 actual exported animations, not placeholders. SHA-256: `9d1a8e7920b445c29546336d1bf00190b6837549941bd84c75858f64662619e6`. The source archive ZIP SHA-256 is `cdb304075c515d0313fdcd65673e8927d07232894c97fe2a11e8666501957d60`; its only entry is `Bi_Bye_llista.blend.xz`, which decompresses to a native Blender 4.05 header.
+
+| Existing clip | Duration | Intended use |
+|---|---:|---|
+| 22_BiBye_A_Sharp_Turn | 1.65 s | committed lower-bow 360-degree physical sweep |
+| 23_BiBye_Look_Around_Spin_Loop | 1.20 s | uninterrupted repeating revolution |
+| 24_BiBye_Look_Around_Reversed_Fire_Settle | 2.20 s | physical reversal, settle, recoil/firing transition |
+| 25_BiBye_Ram_Impact_Force_Mobile | 1.40 s | additional mobile impact response, not a new attack |
+| 26_BiBye_Melee_Lowered_Stance | 1.00 s | braced bow posture under loop |
+
+Original pivots: Traverse_Mount is parented to Carriage_Chassis at local (0,1.24,0); Elevation_Cradle is parented to Traverse_Mount at (0,.38,-.12). The cradle lowers by .22m. Both Main_Limb_L and Main_Limb_R carry actual locator children: socket_frame_blade_L/R and frame_sweep_volume_L/R. The last locators sit at X=-1.82 / +1.82, Z=.12 in their respective limb frames. They are **empty locator nodes**, not authored collision box dimensions. Do not fabricate contact-event markers.
+
+Clip 22 samples show lowering by .26s, traverse around 60 degrees by .45s, 180 degrees by .68s, nearly 360 degrees by 1.04s and completion at 1.65s. Clip 23 traverses a full 360 degrees in 1.20s. Clip 24 starts from an authored ~48-degree reversed pose and returns the traverse home by .24s. An arbitrary spin stop cannot jump into that exact starting pose. A mechanically limited settling phase must reconcile actual orientation before any release.
+
+**Critical original-animation conflict resolved without new art:** clip 24's Main_Siege_Bolt begins its visual flight around 0.28s and scales out at 0.48s; its Upper_Conditioning_Bolt does not scale out until 0.98s. That authored heavy-first sequence cannot universally represent mobile Bolt I or an unloaded Bolt II. Therefore, the integration samples **only the original 0–0.24s stop/settle portion of clip 24**, holding its final aligned pose for any additional physical settling. Actual firing/recoil then comes exclusively from the previously working Bolt I/Bolt II animation and ammunition pipeline. The server never advances either projectile on those discarded decorative clip-24 release tracks.
+
+## Mechanical contract
+
+Server owns yaw, limb swept volumes, body hits, component damage, Guard, clearances, wheel immobility, and Skill resolution. The moving bow geometry is sampled in angular substeps, not replaced by a radial hit. Maximum one collision consequence per target per revolution. Ordinary turret aim limits remain unchanged outside the attack. A Sharp Turn has windup/recovery but no Skill cooldown. The selectable sustained Skill starts its machine-owned 24s cooldown **only after resolution**, never during indefinite spin.
+
+Bolt II, coupled launch, and queued heavy fire are locked during committed spinning. Stopping must physically settle first. Then use the actual original loaded bow/muzzle, recock, shot timing and projectile pipeline; no ammunition creation or mobile Bolt II. Existing Bolt I and Bolt II remain available outside the special action, including when the third Skill is equipped. Destruction, dismount, support failure and strong machine impulse interrupt the spin.
+
+On the client, clip 22 is the single-attack layer, clip 23 the repeated loop, clip 24 the settle, and clip 26 the author-provided lowered stance. To avoid double transformations, clip 23 and the clip 26 stance must never both own the cradle or main-limb tracks simultaneously; world-space turret yaw and lowered pitch remain authoritative. Do not override six wheel transforms, damaged components, stabilizer health or existing dual-bolt recoil/reload presentation.
+
+## Original Argon binaries committed to draft PR #483
+
+**Completed 2026-11-14:** The byte-exact, user-uploaded GLB and Blender source archive are now committed on the feature branch, not merely staged outside Git. The original GLB is at `client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb` (4,280,336 bytes; Git blob SHA-1 `773a53533bbd55880ff8c517df05bc375032f338`). The original Blender source ZIP is at `assets/source/bibye-ballista/Bi_Bye_llista_blend_archive.zip` (5,122,298 bytes; Git blob SHA-1 `c47cf7eaef6cb765cb7964a51d394e5fc4a60d8a`). Both SHA-256 hashes above were verified before the commit. The source ZIP contains the unmodified `Bi_Bye_llista.blend.xz` Blender source.
+
+The original assets were transferred through checksum-gated, temporary Git blobs, reconstructed on GitHub Actions, validated by `scripts/stage-bibye-argon-v26.mjs`, and committed after focused mechanical checks. Temporary chunk files were removed in the asset commit. The existing production v4.3 model remains intact as a fallback, not the primary target.
+
+**Actual Chrome acceptance is separate:** the first authentic-v26 browser run confirmed all required animation actions and sweep locator nodes loaded in the Three.js scene, and the Armory showed the third Skill equipped, but its headless keyboard-walk prerequisite did not bring the Spellblade into mounting range. A revised browser script uses Castleward's authorized, collision-resolved *local Inspection Practice* position staging, then requires real mounted controls (T, K, U, Fire) and real authoritative snapshots. This is not a PvP mount bypass. No claims about combat visuals, remote observer, or complete gameplay acceptance follow from the asset-load-only result. These remain review requirements before merging.
+
+Only request animation changes from Argon if a specific demonstrated visual/geometry defect remains after integrating and inspecting these original clips. No additional Skills or features authorized.
+
+## Focused mechanical verification
+
+The authored v26 limb-quaternion and exact mesh-AABB contacts are in `shared/sim/biByeSweepGeometry.mjs`; ordinary ballista hull and bolt hit volumes are unchanged. The host accounts for the fractional server tick across the 22-to-23 clip transition, keeps the chassis and wheels stationary, and restores normal turret aim after interruption.
+
+Focused regressions exercise main-limb contact and elevated misses, facing Guard, clearance, 22-to-23 timing, arbitrary starting aim and pitch, per-revolution strike gating, other siege machines' real component damage paths, Bolt II lockout, real loaded ammunition, 24s cooldown on resolution, and snapshots. The completed CI checkpoint `d2d0c84621a707277ad06c94e2d8427dfc005a0a` had all new sweep tests passing; the global suite still had 30 unrelated failures.
+
+A dedicated **real-Chrome inspection** script `scripts/bi-bye-sweep-browser.mjs` asserts the actual original clips and contact locator nodes have loaded (so v4.3 fallback cannot masquerade as accepted v26), equips the third Skill in the Armory, mounts through real controls, uses K and U, manually fires and settles, and captures screenshots. The byte-exact original binaries are now committed and their animations were verified loading in Chrome; the end-to-end mounted and remote-observer combat inspection remains a review blocker.

@@ -84,7 +84,7 @@ function frame(origin,rotation,parent){
 export function biByeFrames(b,now=b.poseTime??0){
  const root=biByeRootFrame(b);
  const p=biByeAimPose(b,now),traverse=frame([0,1.24,0],[p.mainYaw,0,0],root);
- const cradle=frame([0,.38,-.12],[0,-p.mainPitch,0],traverse);
+ const cradle=frame([0,.38-.22*(b.sweep?.lower??0),-.12],[0,-p.mainPitch,0],traverse);
  const upper=frame([0,1.54,.08],[p.upperYaw,-p.upperPitch,0],traverse);
  return {root,traverse,cradle,upper};
 }
@@ -103,7 +103,7 @@ export function biByeHitVolumes(b,now=b.poseTime??0){
   for(const sign of [-1,1])add('hull','metal',[sign*.85,.23,1.15],[.55,.8,.22],cradle);
   add('hull','metal',[0,.08,.03],[.55,.32,1.6],upper);
   for(const sign of [-1,1]){
-   const mainLimb=frame([sign*.88,.18,1.04],[sign*25*DEG,0,0],cradle);
+   const mainLimb=frame([sign*.88,.18,1.04],[sign*25*DEG,0,-sign*.24*(b.sweep?.lower??0)],cradle);
    add('hull','timber',[sign*.84,0,-.02],[1.98,.44,.48],mainLimb,[0,0,0],'main');
    const upperLimb=frame([sign*.3,.14,.26],[sign*25*DEG,0,0],upper);
    add('hull','metal',[sign*.436,0,-.025],[1.03,.23,.27],upperLimb,[0,0,0],'upper');

@@ -2,6 +2,7 @@ import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
 import {ballistaMountReach} from '../src/siegeMountReach.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
+import {biByeSweepActive,requestBiByeSweepStop,finishBiByeSweep,stepBiByeSweep} from './biByeSweep.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
 import {earliestFrostProximity} from './biByeProximity.mjs';
 import {SIEGE_IMPACT} from './siegeImpact.mjs';
@@ -170,6 +171,7 @@ export function createBiByeLlista(overrides = {}) {
     operatorId: null,
     team: conf.team ?? null,
     mobileFiredAt: null,
+    sweep:null,
     destroyedAt: null,
 
     // Operational mode
@@ -320,7 +322,7 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
   }
   // Only technique selection changes. In particular never recreate skill,
   // readyAt, loading state, committed bolt, or the chassis.
-  if(ballista.skill?.phase==='idle')ballista.skill.id=selectedSiegeSkill(player,'biBye');
+  if(ballista.skill?.phase==='idle'&&!ballista.sweep)ballista.skill.id=selectedSiegeSkill(player,'biBye');
   ballista.operatorId = player.id;
   if (!ballista.team && player.team) ballista.team = player.team;
   player.operatingBallistaId = ballista.id;
@@ -351,6 +353,7 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   }
   // Once Bolt II is committed, the mechanism owes that physical shot even
   // if the rider changes. Destruction may still arrest the mechanism.
+  finishBiByeSweep(null,ballista,nowSec,'dismount');
   const committedHeavy=Boolean(ballista.heavySkill&&ballista.skill?.phase==='releasing');
   if(!committedHeavy){ballista.heavySkill=null;endSiegeSkill(ballista,nowSec);}
   ballista.pendingIndependent=null;
@@ -422,7 +425,7 @@ function syncOperatorPosition(ballista, player) {
  * Toggle operational mode between MOBILE and DEPLOYED.
  */
 export function toggleBiByeDeploy(ballista, nowSec, world=null) {
-  if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if (!ballista || ballista.sweep || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   // Give violently uprooted stabilizers a brief recovery before redeployment.
   if(ballista.mode===BI_BYE_MODES.MOBILE&&
       nowSec<(ballista.outriggersDislodgedUntil??-Infinity))return false;
@@ -498,6 +501,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
     }
   }
   if (ballista.health <= 0) {
+    finishBiByeSweep(room,ballista,nowSec,'destroyed');
     endSiegeSteel(room,ballista,nowSec);
     ballista.destroyedAt = nowSec;
     ballista.mode = BI_BYE_MODES.DESTROYED;
@@ -535,6 +539,8 @@ export function fireBiByeFullVolley(room, ballista, nowSec) {
   return requestBiByeVolley(room, ballista, nowSec);
 }
 export function fireBiByeLlista(room, ballista, nowSec) {
+  if(ballista?.sweep?.kind==='skill')return requestBiByeSweepStop(ballista,nowSec,true);
+  if(biByeSweepActive(ballista))return false;
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   // A primed Skill always routes ATTACK to the independent upper bolt.
   // Never let the ordinary deployed MAIN focus arm a coupled automatic Bolt II.
@@ -721,6 +727,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     }
   }
 
+  // Physical impact interrupts a stationary bow sweep before impulse movement.
+  if(ballista.sweep&&Math.hypot(ballista.externalVelocity?.x??0,ballista.externalVelocity?.z??0)>SIEGE_IMPACT.restSpeed)
+    finishBiByeSweep(room,ballista,nowSec,'impact');
   // Handle operator controls & vehicle movement
   if (ballista.operatorId) {
     const operator = room.players?.get(ballista.operatorId);
@@ -729,7 +738,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     } else {
       const input = operator.input ?? {};
 
-      if (ballista.mode === BI_BYE_MODES.MOBILE) {
+      if (ballista.mode === BI_BYE_MODES.MOBILE&&!ballista.sweep) {
         // Input consumption: signed numbers in [-1, 1]
         // (Supporting boolean legacy, number protocol, and touch joystick)
         let forwardVal = 0;
@@ -834,6 +843,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
 
   stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim,targetAim:biByeTargetAim});
+  stepBiByeSweep(room,ballista,dt,nowSec,(r,b,at)=>
+    b.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&(!b.mainBoltLoaded||b.state!=='LOADED')
+      ?fireBiByeMobile(r,b,at):fireBiByeLlista(r,b,at));
 
 }
 
