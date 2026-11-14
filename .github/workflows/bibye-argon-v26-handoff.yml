@@ -55,8 +55,8 @@ jobs:
           node --experimental-websocket --test \
             server/tests/bi-bye-sweep.test.mjs \
             client/ui/biByeHudView.test.mjs \
-            client/game/touchLayout.test.mjs \
             server/tests/siege-armory.test.mjs
+          node --experimental-websocket --test --test-name-pattern='Bi-Bye' client/game/touchLayout.test.mjs
           npm run check:browser-imports
       - name: Commit byte-exact ORIGINAL GLB and Blender source to draft branch
         shell: bash
