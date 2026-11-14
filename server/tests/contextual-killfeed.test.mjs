@@ -64,6 +64,7 @@ test('actual sword guard counterfactual respects facing and available stamina',(
  ]){
    const {room,b}=battle();
    b.yaw=facing;b.input.yaw=facing;b.guardStamina=stamina;b.health=15;
+   b.lastGuardDrainAt=10.4; // Prevent regen between setup and the actual sword contact.
    beginAttack(room,'a',10);
    stepRoom(room,.01,10.3,world);stepRoom(room,.01,10.4,world);
    const death=lastDeath(room);
