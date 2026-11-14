@@ -93,10 +93,10 @@ try{
    'Practice player carries the selected third Skill; the idle machine remains default until mounted');
  // The city's initial foundry location is beside a stone parapet. A full
  // 360-degree *physical bow* must reject that obstruction. Stage the operator
- // in Castleward's broad east meadow BEFORE building; use the real Practice
+ // in Castleward's broad, explicitly designated open Tourney Field BEFORE building; use the real Practice
  // foundry to choose a supported emplacement, rather than bypassing collision
  // checks or relocating an already-mounted machine.
- const openGround=await evaluate("window.__ssLink.stageInspectionActor({actorId:window.__ssRuntime.localAuth.id,position:{x:16,y:0,z:8,yaw:0}})");
+ const openGround=await evaluate("window.__ssLink.stageInspectionActor({actorId:window.__ssRuntime.localAuth.id,position:{x:14.55,y:0,z:-19,yaw:Math.PI}})");
  assert.equal(openGround?.success,true,'open-ground player setup must use authorized inspection placement');
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await observe();return s?.ballista?s:false;},'real ballista built',100);
