@@ -224,13 +224,15 @@ export class TourDirector {
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
     this.schedule = buildSchedule(this.path.length, { fights: this.fights, distances: this.stops, introduction: round === 0 && this.map.id === 'castleward' });
-    // (the lift-off's funnel made, and its shaders and its effects' compiled, as the round begins, not as each first
-    // appears mid-fight)
-    if (this.fights.some((fight) => fight.id === 'galeLiftoff')) {
-      if (!this.funnel) this.funnel = galeFunnel(this.scene);
-      this.worlds?.warm?.(this.funnel.group);
-      this.#rehearse();
-    }
+  }
+
+  // The lift-off made ready in a moment nobody sees (as the menu loads, and in the dark of each change of map: a world's
+  // lights change its shaders): its funnel built and compiled, and its effects rehearsed. Done at the start of a round
+  // in daylight, the compiling showed as a frame's stall of its own.
+  #readyLiftoff() {
+    this.funnel ??= galeFunnel(this.scene);
+    this.worlds?.warm?.(this.funnel.group);
+    this.#rehearse();
   }
 
   // The lift-off's effects once each, far under the map where nothing sees them, and compiled there: the parry's burst,
@@ -305,6 +307,7 @@ export class TourDirector {
       };
     });
     this.#applyCast(this.cast);
+    this.#readyLiftoff();
     this.ready = true;
   }
 
@@ -505,6 +508,7 @@ export class TourDirector {
   // in the dark: the next map's round, from its start, the camera already behind him; and the round may change hands
   #arrive(leg) {
     this.#usePlan(mapPlan(leg.id, leg));
+    this.#readyLiftoff();
     this.seen = this.seen.length + 1 >= this.mapIds.length ? [leg.id] : [...this.seen, leg.id];
     this.leg = { id: leg.id, rounds: leg.rounds };
     this.travel = null;

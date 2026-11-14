@@ -49,6 +49,9 @@ test('the spin: from standing, slowly, then faster, and faster still in the air;
   // the Gale's own air and the Whirlwind's arms: the funnel is made of the Gale's wind (galeVolume.mjs)
   assert.match(source('./tourProps.mjs'), /export function galeFunnel[\s\S]*windConeGeometry\(spread\)[\s\S]*createWindRibbonMaterial\(\)/);
   assert.match(director, /this\.funnel \?\?= galeFunnel\(this\.scene\);/);
+  // (made ready out of sight: as the menu loads, and in the dark of each change of map)
+  assert.match(director, /this\.#applyCast\(this\.cast\);\s+this\.#readyLiftoff\(\);/);
+  assert.match(director, /this\.#usePlan\(mapPlan\(leg\.id, leg\)\);\s+this\.#readyLiftoff\(\);/);
   assert.match(director, /this\.effects\.galeGather\(/);
 });
 
