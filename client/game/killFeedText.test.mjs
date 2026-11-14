@@ -21,7 +21,7 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
   'bibye-siege':['stuck around','bad name','got through','bolted away'],
   'bibye-conditioning':['chilled out','calm down','first bolt'],
   'so-fist':['handshake','broke','ahold'],
-  'so-fist-flick':['pointed','fainted','finger'],
+  'so-fist-flick':['showed','fainted','finger'],
   'knock-on-steel':['ran through','battering ram'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
   'ram':['knocked down','misremembered'],
@@ -44,7 +44,7 @@ test('Finger Flick lines are reserved for real Flick finishers, never ordinary p
  const flick=new Set(Array.from({length:120},(_,i)=>
    killFeedDeath(death('so-fist-flick',null,i/30),'Rowan','Perry').text));
  assert.deepEqual(flick,new Set([
-   'Rowan pointed Perry toward the exit',
+   'Rowan showed Perry the door',
    "Perry fainted at Rowan's accusation",
    'Rowan gave Perry the finger',
  ]));
