@@ -2847,6 +2847,7 @@ function renderPracticeSiegeStory(machine){
  });
  content.replaceChildren(...paragraphs);
  content.scrollTop=0;
+ content.tabIndex=-1;
  const story=$('#practice-siege-story'),toggle=$('#practice-siege-more');
  story.classList.remove('expanded');
  toggle.textContent='SHOW MORE';
@@ -3051,6 +3052,7 @@ $('#practice-siege-more').addEventListener('click',()=>{
   const expanded=story.classList.toggle('expanded');
   const toggle=$('#practice-siege-more');
   toggle.setAttribute('aria-expanded',String(expanded));
+  $('#practice-siege-story-copy').tabIndex=expanded?0:-1;
   toggle.textContent=expanded?'SHOW LESS':'SHOW MORE';
   if(!expanded)$('#practice-siege-story-copy').scrollTop=0;
 });
