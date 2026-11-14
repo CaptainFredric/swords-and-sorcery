@@ -38,13 +38,17 @@ async function stage(kind){
     "if('",kind,"'==='ram'){local.operatingRamId=rt.__hudMachines.ram.id;snap.soFistication=rt.__hudMachines.ram;}",
     "if('",kind,"'==='ballista'){local.operatingBallistaId=rt.__hudMachines.ballista.id;snap.bibyeBallista=rt.__hudMachines.ballista;}",
     "if('",kind,"'==='flight'){local.operatingFightFlightId=rt.__hudMachines.flight.id;snap.fightFlight=rt.__hudMachines.flight;}",
+    'rt.__lastHudLocal=local;rt.__lastHudSnap=snap;',
     'rt.__hudUpdate(local,snap,now);rt.__touchUpdate(local,now,{snapshot:snap,practice:false});',
     "rt.hud.addFeed('Squire Rowan was defeated by Warden Alden and his unreasonably large equipment');",
     "rt.hud.subtitle({text:'What!? But I am a knight!',name:'SQUIRE ROWAN',seconds:9});",
     '})()',
   ].join('');
   await ev(js);
-  await sleep(370);
+  await sleep(275); // allow frame-throttled Steel collision adjustment
+  await ev("(()=>{const rt=window.__ssRuntime;rt.__touchUpdate(rt.__lastHudLocal,"+
+    "rt.socket.serverNow(),{snapshot:rt.__lastHudSnap,practice:false})})()");
+  await sleep(120);
 }
 async function measure(){
   return ev("(()=>{const box=el=>{if(!el)return null;const r=el.getBoundingClientRect();"+
