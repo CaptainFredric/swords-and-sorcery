@@ -16,7 +16,7 @@ import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode, clearTouchButtonOverlap } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
   buildValkyrieRitualGeometry,ritualStartNear,createValkyrieRitual,
@@ -322,6 +322,36 @@ export class TouchControls {
       this.setCustomOpacity(layouts.opacity);
     }
     this.#syncValkyrieGeometry();
+  }
+
+  // Custom saved layouts can put the mounted Steel orb directly on PRIME.
+  // Preserve custom coordinates in storage; render a small, temporary offset
+  // to Steel only when two ACTUAL hit rectangles intersect. The hit target
+  // itself moves, so the apparent and clickable positions remain identical.
+  #clearMountedSteelSkillOverlap() {
+    const steel=this.buttons.spell,prime=this.buttons.siegeSkill;
+    if(!steel||!prime)return;
+    if(!this.active||!this.mountedSteelEligible||!this.mounted||
+       this.layer.classList.contains('touch-layout-editing')||this.previewMode){
+      steel.style.translate='';return;
+    }
+    const now=globalThis.performance?.now?.()??0;
+    if(now<(this.steelClearanceNextAt??0))return;
+    this.steelClearanceNextAt=now+220;
+    steel.style.translate='';
+    if(steel.hidden||prime.hidden||!steel.getBoundingClientRect||
+       !prime.getBoundingClientRect||!this.layer.getBoundingClientRect)return;
+    if(globalThis.getComputedStyle?.(steel)?.display==='none'||
+       globalThis.getComputedStyle?.(prime)?.display==='none')return;
+    const bounds=this.layer.getBoundingClientRect();
+    const other=Object.values(this.buttons).filter(button=>button!==steel&&button!==prime&&
+      !button.hidden&&button.getBoundingClientRect&&
+      globalThis.getComputedStyle?.(button)?.display!=='none')
+      .map(button=>button.getBoundingClientRect());
+    const shift=clearTouchButtonOverlap(steel.getBoundingClientRect(),
+      prime.getBoundingClientRect(),bounds,other);
+    if(shift&&(shift.dx||shift.dy))
+      steel.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
   }
 
   setCustomOpacity(opacity) {
@@ -906,6 +936,7 @@ export class TouchControls {
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       }
     }
+    this.#clearMountedSteelSkillOverlap();
   }
 
   #setMotionIndicator(mode) {
