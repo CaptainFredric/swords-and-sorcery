@@ -176,6 +176,7 @@ export function createBiByeLlista(overrides = {}) {
     mode: BI_BYE_MODES.MOBILE,
     modeTransitionStartedAt: -Infinity,
     modeTransitionEndsAt: -Infinity,
+    forcedOutriggersAt:-Infinity,forcedOutriggersUntil:-Infinity,forcedOutriggersSource:null,
 
     components: createBiByeComponents(),
     wheelRolls: [0,0,0,0,0,0],
@@ -436,6 +437,7 @@ export function toggleBiByeDeploy(ballista, nowSec, world=null) {
   }
 
   if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
+    if(nowSec < (ballista.forcedOutriggersUntil??-Infinity))return false;
     // Once the string releases, keep the machine planted through the heavy delay.
     if (ballista.coupling === 'FIRING' && ballista.upperReleasedAt != null) return false;
     ballista.pendingIndependent=null;
@@ -700,7 +702,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       ballista.weaponFocus = 'MAIN';ballista.focusRevision++;
       const op = room.players?.get(ballista.operatorId);
       if(op)op.input={...op.input,yaw:ballista.mainYaw,pitch:ballista.mainPitch};
-      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.DEPLOYED, at: nowSec });
+      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.DEPLOYED, forced:nowSec<(ballista.forcedOutriggersUntil??-Infinity), at: nowSec });
     }
   } else if (ballista.mode === BI_BYE_MODES.RETRACTING) {
     if (nowSec >= ballista.modeTransitionEndsAt) {
