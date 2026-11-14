@@ -41,6 +41,10 @@ test('an actual stationary piston hit translates a live mobile ballista, not onl
  for(let i=1;i<=100;i++)stepRoom(r,1/30,i/30,r.world);
  assert.ok(r.events.some(e=>e.type==='bibyeDamaged'&&e.source==='so-fist'),'fist must contact machine component');
  assert.ok(ballista.z<start-.06,'impacted machine must translate across the world');
+ assert.ok(r.events.some(e=>e.type==='bibyeOutriggersForced'),
+   'real piston contact with the ballista should forcibly brace its outriggers');
+ assert.equal(ballista.mode,'DEPLOYED',
+   'real piston contact must finish its involuntary deployment into heavy mode');
  assert.ok(ram.z>.2,'hitting the machine must also recoil the attacker');
 });
 test('carriage collision transfers only bounded momentum and visually settles',()=>{
