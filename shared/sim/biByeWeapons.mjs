@@ -138,7 +138,7 @@ export function requestBiByeCombinedSkill(room,b,p,now,targetAim){
  return requestBiByeHeavySkill(room,b,p,now,targetAim,{combined:true});
 }
 export function requestBiByeIndependent(room,b,now) {
-  if(!b||b.sweep||b.sweepRecovery&&b.poseTime<b.sweepRecovery.until||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||b.pendingCoupledFromUpper||!ready(b,now))return false;
+  if(!b||b.sweep||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||b.pendingCoupledFromUpper||!ready(b,now))return false;
   if(b.coupling==='RELEASING'&&(b.weaponFocus==='UPPER'||b.skill?.phase==='primed')){
     b.pendingIndependent??={operatorId:b.operatorId,yaw:b.upperYaw,pitch:b.upperPitch};return true;
   }
@@ -250,7 +250,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       }
     }
   }
-  if(!b.sweep&&!(b.sweepRecovery&&now<b.sweepRecovery.until)){
+  if(!b.sweep){
   const primed=b.skill?.phase==='primed';
   const locked=busy(b)||Boolean(b.heavySkill);
   b.aimTarget=input.siegeTarget??null;
