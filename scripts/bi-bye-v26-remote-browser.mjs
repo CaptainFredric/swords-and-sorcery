@@ -139,14 +139,15 @@ try{
  const model=await waitFor(()=>guest.evaluate("(() => {const b=window.__ssRuntime?.world?.biByeLlista;return b?.actions?.has('22_BiBye_A_Sharp_Turn')&&b.actions.has('23_BiBye_Look_Around_Spin_Loop')&&b.actions.has('24_BiBye_Look_Around_Reversed_Fire_Settle')&&b.nodes.has('frame_sweep_volume_L')&&b.nodes.has('frame_sweep_volume_R')?{clips:b.actions.size,hasLocators:true}:null;})()"),'actual v26 GLB and bow locator meshes loaded on second client',180);
  const before=await host.frames();await waitFor(async()=>(await host.frames()).count>=before.count+3,'pilot frames progress',160);
  await focusArena(host);
- // Input stays physical W through GameLink and the network host. Limit walking
- // speed and stop when within the actual 3.2m boarding radius, avoiding a CI
- // software-rendering hiccup that would overshoot the emplacement.
- await host.evaluate("(() => {const rt=window.__ssRuntime,inp=rt.input,original=inp.movement;window.__bibyeApproach={stopped:false,restore:()=>{inp.movement=original}};inp.movement=function(){const move=original.call(this),p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||move.forward<=0)return move;const dx=b.x-p.position.x,dz=b.z-p.position.z;if(window.__bibyeApproach.stopped||Math.hypot(dx,dz)<=2.65){window.__bibyeApproach.stopped=true;return {...move,forward:0,right:0}}return {...move,forward:.33,right:0,yaw:Math.atan2(-dx,-dz)};};})()");
+ // Input stays physical W through GameLink if an approach is necessary. The
+ // first legitimate collision-resolved standing spot is ~3.027m from the
+ // chassis: demanding <2.85m deadlocks against real machine solids. Stop
+ // INSIDE the actual 3.2m interaction radius instead of moving inside wood.
+ await host.evaluate("(() => {const rt=window.__ssRuntime,inp=rt.input,original=inp.movement;window.__bibyeApproach={stopped:false,restore:()=>{inp.movement=original}};inp.movement=function(){const move=original.call(this),p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||move.forward<=0)return move;const dx=b.x-p.position.x,dz=b.z-p.position.z;if(window.__bibyeApproach.stopped||Math.hypot(dx,dz)<=3.10){window.__bibyeApproach.stopped=true;return {...move,forward:0,right:0}}return {...move,forward:.33,right:0,yaw:Math.atan2(-dx,-dz)};};})()");
  let stopSeq=null;
  try{
   await host.key('W','rawKeyDown');
-  stopSeq=await waitFor(()=>host.evaluate("(() => {const rt=window.__ssRuntime,p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||Math.hypot(p.position.x-b.x,p.position.z-b.z)>2.85)return null;window.__bibyeApproach.stopped=true;const seq=++rt.sequence;rt.socket.input({...rt.input.movement(),forward:0,right:0,seq,clientTime:rt.socket.serverNow()});return seq;})()"),'real W approach reaches boarding range',170);
+  stopSeq=await waitFor(()=>host.evaluate("(() => {const rt=window.__ssRuntime,p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||Math.hypot(p.position.x-b.x,p.position.z-b.z)>3.15)return null;window.__bibyeApproach.stopped=true;const seq=++rt.sequence;rt.socket.input({...rt.input.movement(),forward:0,right:0,seq,clientTime:rt.socket.serverNow()});return seq;})()"),'real W approach reaches boarding range',170);
  }finally{
   await host.key('W','keyUp');
   await host.evaluate("window.__bibyeApproach?.restore();delete window.__bibyeApproach");
