@@ -868,6 +868,7 @@ export class GameRuntime {
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
+    this.weapon.resetBlusterFacing();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
     this.localRam=null;this.windOnMeUntil=null;this.braceAskedAt=null;
     this.localGale=null;this.localGaleWind=null;this.localGaleAt=null;
@@ -4142,8 +4143,9 @@ export class GameRuntime {
       // Third person already uses the host's slow Blustered fighting yaw.
       // In first person, the hands must follow that same body rather than
       // snapping along with the freely rotating camera and crosshair.
-      const armBluster = !this.localAuth.operatingBallistaId && !this.localAuth.operatingRamId &&
-        !this.localAuth.operatingFightFlightId ? this.localAuth.blustered : null;
+      const ridingForArmYaw = Boolean(this.localAuth.operatingBallistaId || this.localAuth.operatingRamId ||
+        this.localAuth.operatingFightFlightId);
+      const armBluster = ridingForArmYaw ? null : this.localAuth.blustered;
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),
@@ -4153,6 +4155,7 @@ export class GameRuntime {
         bodyYaw: armBluster ? this.localAuth.yaw : null,
         blustered: armBluster,
         serverNow,
+        mounted: ridingForArmYaw,
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
