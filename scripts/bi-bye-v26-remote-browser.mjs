@@ -125,12 +125,15 @@ try{
  assert.equal(await host.evaluate("document.querySelector('[data-siege-skill=lookAroundAndFindOut]').getAttribute('aria-checked')"),'true');
  await host.evaluate("document.querySelector('#armory-back').click();document.querySelector('#player-name').value='Argon v26 Pilot';document.querySelector('#solo-button').click()");
  await waitFor(()=>host.evaluate("!document.querySelector('#shared-practice-mode').disabled"),'shared Practice mode',80);
- await host.evaluate("document.querySelector('#shared-practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#shared-practice-mode').click()");
+ await host.evaluate("document.querySelector('#shared-practice-mode').click();const choice=document.querySelector('[data-arena=high-grounds]');if(!choice)throw Error('High Grounds Practice arena unavailable');choice.click();document.querySelector('#solo-launch').click()");
  const h=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&s?.roomCode&&r?.localAuth?.id?{code:s.roomCode,id:r.localAuth.id}:null;})()"),'real network Practice pilot',180);
  await guest.evaluate("document.querySelector('#player-name').value='Argon v26 Observer';const p=document.querySelector('#private-name');if(p){p.value='Argon v26 Observer';p.dispatchEvent(new Event('input',{bubbles:true}));}document.querySelector('#private-button').click()");
  await guest.evaluate("const rc=document.querySelector('#room-code');rc.value='"+h.code+"';rc.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#join-room').click()");
  const g=await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&r?.localAuth?.id?{code:s.roomCode,id:r.localAuth.id,count:s.players?.filter(p=>p.actorKind==='human').length}:null;})()"),'actual second Chrome client connected',180);
  assert.equal(g.code,h.code);assert.equal(g.count,2);
+ // High Grounds has a long level road and real three-dimensional siege
+ // collisions. Choosing it through the actual menu avoids Castleward's
+ // adjacent market masonry without moving any machine through scenery.
  // The existing Practice Foundry is server-authoritative; it places one valid
  // siege engine in a real world. No fake room snapshots or forced operator.
  await host.evaluate("const s=document.querySelector('#practice-siege-type');s.value='bi-bye-llista';s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-build-bibye').click()");
