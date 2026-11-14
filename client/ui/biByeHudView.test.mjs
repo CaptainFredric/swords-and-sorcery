@@ -62,3 +62,16 @@ test('uprooted outriggers switch from forced retraction to MOBILE, then permit v
  assert.doesNotMatch(biByeHudView(local,{bibyeBallista:mobile},2).status,/OUTRIGGERS UPROOTED/,
    'nearby bystander only gets existing operate prompt');
 });
+
+test('third Ballista Skill advertises genuine loaded firing, not unavailable RMB Bolt II',()=>{
+ const op={...local,operatingBallistaId:b.id};
+ const third={...b,mode:'DEPLOYED',weaponFocus:'MAIN',mainBoltLoaded:true,
+   coupling:'INDEPENDENT',skill:{id:'lookAroundAndFindOut',phase:'idle',readyAt:0}};
+ const idle=biByeHudView(op,{bibyeBallista:third},1);
+ assert.match(idle.controls,/LMB BOTH/);
+ assert.doesNotMatch(idle.controls,/RMB prime\/fire II/);
+ const spinning=biByeHudView(op,{bibyeBallista:{...third,
+   skill:{...third.skill,phase:'active'},sweep:{kind:'skill',phase:'loop'}}},2);
+ assert.match(spinning.controls,/LMB stop & fire/);
+ assert.doesNotMatch(spinning.controls,/RMB prime\/fire II/);
+});
