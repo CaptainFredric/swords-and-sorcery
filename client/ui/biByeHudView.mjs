@@ -20,7 +20,7 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const upper = b.upperQueued ? 'Shot I queued' : upperReady ? 'Shot I ready' : b.upperPending ? 'Shot I releasing' : `Shot I ${Math.max(0,(b.smallBoltReadyAt??now)-now).toFixed(1)}s`;
   const sharedRecovery=Math.max(0,(b.sweepHeavyReadyAt??0)-now);
   const heavy = b.mainBoltLoaded !== false
-    ? sharedRecovery>0 ? `II / SWEEP ${sharedRecovery.toFixed(1)}s` : 'II ready'
+    ? sharedRecovery>0 ? 'II locked' : 'II ready'
     : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
   const coupling = b.pendingCoupledFromUpper ? 'Main bow traversing'
     : b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
