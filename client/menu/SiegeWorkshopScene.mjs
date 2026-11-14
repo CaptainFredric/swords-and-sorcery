@@ -20,7 +20,7 @@ const MACHINE_ASSETS = Object.freeze({
 // publishing. Keep the functional hydraulic rig; transfer only articulated
 // finger meshes and donor-hand animation tracks, exactly as in gameplay.
 const SO_FIST_ARGON_V26='/client/assets/props/so-fist-ication/so-fist-ication-v26.glb?v=6800db7a9dd1bfa6';
-const ARGON_HAND_TRACK=/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\\./;
+const ARGON_HAND_TRACK=/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\./;
 function graftWorkshopArgonHand(base,donor){
  const target=base.scene.getObjectByName('Armored_Fist');
  const hand=donor.scene.getObjectByName('Armored_Fist');
