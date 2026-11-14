@@ -73,8 +73,8 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
 
   mobility: Object.freeze({
     forwardSpeed: 3.2,            // m/s forward travel
-    reverseSpeed: 2.0,            // m/s reverse travel
-    minTurningRadius: 4.25,       // Minimum Ackermann turning radius (m)
+    reverseSpeed: 2.4,            // modest reverse agility buff
+    minTurningRadius: 3.8,        // tighter Ackermann turn; no stationary pivot
     wheelRadius: 0.550,           // 0.55m wheel radius
     trackWidth: 2.150,            // 2.15m lateral track width
     wheelbase: 2.915,             // 2.915m front-to-rear axle wheelbase
@@ -753,20 +753,26 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
 
         const forward = Math.max(-1, Math.min(1, forwardVal));
         const steer = Math.max(-1, Math.min(1, rightVal));
+        // Full sideways joystick: assisted low-speed arc through the wheels.
+        // Keep the established reverse direction if already reversing, and
+        // invert wheel steering to turn toward the requested bearing.
+        const sidewaysTurn=Math.abs(forward)<.08&&Math.abs(steer)>.92;
+        const driveForward=sidewaysTurn?(ballista.speed<-.35?-.65:.65):forward;
+        const wheelSteer=sidewaysTurn?steer*Math.sign(driveForward):steer;
 
         const driveScale=biByeCondition(ballista).driveScale;
         const affliction=siegeDisasterImpairment(ballista,nowSec);
-        const baseSpeed=driveScale*affliction.speed*forward*(forward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
-        const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(forward);
+        const baseSpeed=driveScale*affliction.speed*driveForward*(driveForward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
+        const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(driveForward);
         const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
-        ballista.steer=steer*affliction.steering;
+        ballista.steer=wheelSteer*affliction.steering;
         const others=soFistSolids(room.soFistication);
         for(const other of room.players?.values()??[]){if(other.alive&&other.id!==ballista.operatorId)others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});}
         const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
         const slices=Math.max(1,Math.ceil(Math.abs(speed*dt)/.05));
         for(let i=0;i<slices&&Math.abs(speed)>1e-5;i++){
-          const distance=speed*dt/slices,heading=ballista.heading-distance/BI_BYE_LLISTA_CONFIG.mobility.minTurningRadius*steer;
+          const distance=speed*dt/slices,heading=ballista.heading-distance/BI_BYE_LLISTA_CONFIG.mobility.minTurningRadius*ballista.steer;
           let moved=false;
           for(const h of [heading,ballista.heading]){
             const candidate={...ballista,heading:h,x:ballista.x-Math.sin(h)*distance,z:ballista.z-Math.cos(h)*distance};
