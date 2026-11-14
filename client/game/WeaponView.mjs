@@ -335,6 +335,11 @@ export class WeaponView {
     this.#upgradeVisual();
   }
 
+  resetBlusterFacing() {
+    this.blusterFacing = null;
+    this.group.rotation.y = 0;
+  }
+
   #upgradeVisual() {
     const generation = ++this.assetGeneration;
     createSpellbladeAsset({ kind: 'firstPerson' }).then((instance) => {
@@ -807,13 +812,17 @@ export class WeaponView {
   }
 
   update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0,
-    bodyYaw = null, blustered = null, serverNow = null } = {}) {
+    bodyYaw = null, blustered = null, serverNow = null, mounted = false } = {}) {
     // The view/crosshair yaw remains free. Only the camera-child arm rig rotates
     // toward the host's slower fighting facing; its existing IK and swing clips
     // stay local to that carriage, including both hands and their weapon.
-    this.blusterFacing = stepFirstPersonBluster(this.blusterFacing,
-      {lookYaw:yaw,bodyYaw,blustered,nowSec:serverNow,dt});
-    this.group.rotation.y = this.blusterFacing.yaw;
+    // A mounted cockpit is a different carriage; never inherit a prior yaw lag.
+    if (mounted) this.resetBlusterFacing();
+    else {
+      this.blusterFacing = stepFirstPersonBluster(this.blusterFacing,
+        {lookYaw:yaw,bodyYaw,blustered,nowSec:serverNow,dt});
+      this.group.rotation.y = this.blusterFacing.yaw;
+    }
     // everything on my arms is drawn in the view's own pass, over the world (viewLayers.mjs): whatever has been
     // put on them since the last frame included
     onViewLayer(this.group);
