@@ -1,3 +1,4 @@
+import { withMotionClips } from './spellbladeClipInventory.mjs';
 import { joinSwordWrist } from './swordWrist.mjs';
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
@@ -105,10 +106,9 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
-// The motion sidecars: clips laid over a canonical model's own, by bone name (animation-only GLBs of the same
-// skeleton: tools/assets/build-spellblade-motion.mjs for the body, build-spellblade-fp-motion.mjs for the
-// first-person arms). A clip of the same name replaces the model's; the model itself is not touched. Without one
-// (not found, or it fails to load) the model plays its own clips.
+// PR #457's Technique sidecars retain server-aligned sword motion. Slash_1
+// selectively combines its corrected torso/sword with the latest canonical
+// 89-clip legs and pelvis; no duplicate track or animation action is played.
 const MOTION_FILES = Object.freeze({ thirdPerson: 'spellblade-motion', firstPerson: 'spellblade-fp-motion' });
 const motionPromises = new Map();
 function loadMotion(kind = 'thirdPerson') {
@@ -121,12 +121,8 @@ function loadMotion(kind = 'thirdPerson') {
   return motionPromises.get(file);
 }
 
-/** A model's clips with the sidecar's laid over them (same name: the sidecar's). */
-export function withMotionClips(own, motion) {
-  if (!motion?.length) return own;
-  const replaced = new Set(motion.map((clip) => clip.name));
-  return [...own.filter((clip) => !replaced.has(clip.name)), ...motion];
-}
+// A pure, bone-ownership-aware clip reconciliation; no second mixer.
+export { withMotionClips } from './spellbladeClipInventory.mjs';
 
 const FIRST_PERSON_ANISOTROPY = 8;
 const TEXTURE_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];

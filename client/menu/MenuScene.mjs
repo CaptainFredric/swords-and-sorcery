@@ -1,4 +1,4 @@
-import { armoryPose, mixArmoryPose, ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
+import { armoryPose, mixArmoryPose, authoredArmoryClip, ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
 import { createArmoryHand } from './armoryHand.mjs';
 import { createElementalOrb } from '../game/elementalOrb.mjs';
 import { createSteelSheen } from '../game/steelSheen.mjs';
@@ -469,8 +469,15 @@ export class MenuScene {
         }
         this.lastArmoryPose=gesture;
         this.lastArmoryPoseAt=this.clock;
-        plan = resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
-        plan.motion=armoryGestureMotion(gesture);
+        // Prefer the model's authored action; procedural IK would overwrite its
+        // hands and torso a second time. Keep the old gesture as a missing-clip fallback.
+        const authored = authoredArmoryClip(id);
+        const hasAuthored = authored && this.assetInstance.animator.actions.has(authored);
+        plan = hasAuthored
+          ? { clip: authored, time: Math.min(elapsed, ARMORY_PREVIEW_SEC), loop: false,
+              actionKey: `armory-${id}-${this.armoryPreview.started}` }
+          : resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
+        if (!hasAuthored) plan.motion = armoryGestureMotion(gesture);
         this.armoryHand ??= createArmoryHand(this.assetInstance);
         this.armoryHand.set(gesture.fist);
         if (id === 'steel') {

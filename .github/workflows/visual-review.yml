@@ -28,9 +28,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify repository
-        run: npm run verify
-
       - name: Start local game server
         shell: bash
         run: |
@@ -70,6 +67,11 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           REQUIRE_SPELLBLADE_GLBS: '1'
         run: node scripts/capture-public-arena.mjs
+
+      # Preserve the full verify gate, but run Chrome first so a failure in an
+      # unrelated server-side test cannot conceal visual evidence for this PR.
+      - name: Verify repository
+        run: npm run verify
 
       - name: Upload Spellblade visual evidence
         if: always()

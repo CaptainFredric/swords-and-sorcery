@@ -263,6 +263,22 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
 }
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
+  // Restless Day is an authoritative mode event. Only animation changes here:
+  // world position, facing, ladder transport and movement speed remain server-owned.
+  if (state === 'restless-sleep' && player.restlessAsleep) {
+    const age = Math.max(0, serverNow - finite(player.restlessSleepAt, serverNow));
+    const seated = player.restlessVariant === 1;
+    const falling = seated ? 'Restless_Fall_Asleep_Seated_Nod' : 'Restless_Fall_Asleep_Standing_Slump';
+    const fallDuration = seated ? 2.4 : 2.2;
+    return age < fallDuration
+      ? { ...fixed(falling, age), fallback: 'Idle' }
+      : { ...fixed('Restless_Sleep_Breathing_Loop', age - fallDuration, true), fallback: 'Idle' };
+  }
+  if (player.restlessCarrying && !['dead', 'stagger'].includes(state)) {
+    const velocity = player.velocity ?? {};
+    const moving = Math.hypot(finite(velocity.x), finite(velocity.z)) > 0.12;
+    return { ...fixed(moving ? 'Restless_Ladder_Carry_March' : 'Restless_Ladder_Carry_Idle', localTime, true), fallback: 'Idle' };
+  }
   if(player.swordTechnique&&state!=='dead'){
     const technique=swordTechniqueAnimationPlan(player.swordTechnique,serverNow,false,player.grounded,player.guardSeenAt);
     if(technique)return technique;
@@ -381,6 +397,12 @@ function guardHoldTime(clock) {
 }
 
 export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
+  const carried = view?.combatPlayer?.restlessCarrying;
+  if (carried) {
+    const velocity = view.combatPlayer.velocity ?? {};
+    const moving = Math.hypot(finite(velocity.x), finite(velocity.z)) > 0.12;
+    return { ...fixed(moving ? 'FP_Ladder_Carry_March' : 'FP_Ladder_Carry_Idle', timeSec, true), fallback: 'Idle' };
+  }
   if(view.combatPlayer?.swordTechnique){
     const authority=view.combatServerNow+Math.max(0,timeSec-(view.combatLocalNow??timeSec));
     const authored=swordTechniqueAnimationPlan(view.combatPlayer.swordTechnique,

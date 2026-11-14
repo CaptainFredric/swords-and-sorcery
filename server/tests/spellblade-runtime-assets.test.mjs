@@ -56,7 +56,12 @@ test('enabled Spellblade manifest serves revisioned GLBs with all required anima
     assert.equal(bytes.readUInt32LE(4), 2);
     assert.equal(bytes.readUInt32LE(8), bytes.length);
     const document = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
-    assert.deepEqual(document.animations.map(a => a.name).sort(), [...clips].sort());
+    // External Argon models extend, rather than replace, the original Blender
+    // worker's baseline clip contract. Require BOTH the actual manifest inventory
+    // and every original action; do not rewrite the old builder's contract.
+    const actual = document.animations.map(a => a.name);
+    assert.deepEqual(actual, manifest[kind].clips);
+    for (const required of clips) assert.ok(actual.includes(required),`${kind} lost ${required}`);
     assert.ok(document.animations.every(a => a.channels.length > 0));
   }
 });

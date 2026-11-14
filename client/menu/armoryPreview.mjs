@@ -1,3 +1,18 @@
+// Canonical 89-clip authored demonstrations. Unlisted cards retain the existing
+// procedural gestures. Siege Workshop remains controlled by its actual machine rigs.
+export const ARMORY_AUTHORED_CLIPS = Object.freeze({
+  fireball: 'Armory_Fireball_Cast_Showcase',
+  frostfire: 'Armory_Frostfire_Snap_Showcase',
+  gale: 'Armory_Gale_Cone_Showcase',
+  coreflagration: 'Armory_Coreflagration_Lob_Showcase',
+  steel: 'Armory_Steel_Infusion_Brace_Showcase',
+  line_of_conduct: 'Armory_LineOfConduct_Commit_Showcase',
+  lineOfConduct: 'Armory_LineOfConduct_Commit_Showcase',
+  rod_of_power: 'Armory_LineOfConduct_Commit_Showcase',
+  conduct: 'Armory_LineOfConduct_Commit_Showcase',
+});
+export function authoredArmoryClip(id) { return ARMORY_AUTHORED_CLIPS[id] ?? null; }
+
 // Menu performances on the real rig. Root space: right +x, up +y, forward -z.
 export const ARMORY_PREVIEW_SEC = 1.5;
 const arm = (wrist, aim, roll = [1, 0, 0]) => ({ wrist, aim, roll });
