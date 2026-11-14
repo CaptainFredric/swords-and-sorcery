@@ -11,7 +11,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (!local.operatingBallistaId) {
     // Mobile uses the actual nearby MOUNT control, not an obsolete text panel.
     if (touch) return null;
-    if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > BI_BYE_LLISTA_CONFIG.emplacement.interactRadius) return null;
+    const boardRadius=Number.isFinite(b.interactRadius)?b.interactRadius:BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
+    if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > boardRadius) return null;
     return { title: 'BI-BYE-LLISTA', status: touch ? 'Tap MOUNT to operate' : `[${key('interact')}] Operate`, controls: '' };
   }
   const condition = biByeCondition(b);

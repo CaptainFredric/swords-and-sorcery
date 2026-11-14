@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { biByeHudView } from './biByeHudView.mjs';
 const b = { id: 'siege', position: { x: 0, y: 0, z: 0 }, health: 400, maxHealth: 400, mode: 'MOBILE', state: 'LOADED', smallBoltReady: true };
 const local = { alive: true, position: { x: 0, z: 3.1 } };
-test('one interaction prompt uses the actual 3.2 m range and excludes an occupied machine', () => {
+test('one interaction prompt uses the actual 3.75 m collision-reachable range and excludes an occupied machine', () => {
   assert.ok(biByeHudView(local, { bibyeBallista: b }, 0));
   assert.equal(biByeHudView(local, { bibyeBallista: b }, 0, {touch:true}),null,
     'mobile near-ballista prompt is the physical MOUNT button, not an outdated black HUD panel');
-  assert.equal(biByeHudView({ ...local, position: { x: 0, z: 3.3 } }, { bibyeBallista: b }, 0), null);
+  assert.ok(biByeHudView({ ...local, position: { x: 0, z: 3.585 } }, { bibyeBallista: b }, 0),'a real non-clipping front approach still gets MOUNT');
+  assert.equal(biByeHudView({ ...local, position: { x: 0, z: 3.76 } }, { bibyeBallista: b }, 0), null);
+  assert.ok(biByeHudView({ ...local, position: { x: 0, z: 4 } }, { bibyeBallista: { ...b, interactRadius: 4.2 } }, 0),'an authored wider reach and the prompt must match');
   assert.equal(biByeHudView(local, { bibyeBallista: { ...b, operatorId: 'another' } }, 0), null);
 });
 test('mounted controls use rebound keys or touch labels', () => {
