@@ -583,6 +583,7 @@ test('Steel and PRIME separate on custom saved mobile positions without moving o
  assert.equal(clearTouchButtonOverlap({left:0,right:50,top:0,bottom:50},
    {left:0,right:50,top:0,bottom:50},
    {left:0,right:50,top:0,bottom:50}),null,'does not move a button outside the viewport');
+ assert.equal(DEFAULT_ON_FOOT_LAYOUT.siegeView.top,8,'on-foot VIEW shares the upper auxiliary row');
  assert.ok(DEFAULT_RAM_LAYOUT.spell.bottom>=110,'default Steel has its own high lane');
  assert.ok(DEFAULT_RAM_LAYOUT.spell.right>DEFAULT_RAM_LAYOUT.siegeSkill.right+70,
    'default Steel stays left of PRIME horizontally as well');
@@ -593,7 +594,7 @@ test('touch objective, killfeed, drive pressure and subtitles use separate mobil
  const mobile=await readFile(new URL('../mobile.css',import.meta.url),'utf8');
  const siege=await readFile(new URL('../siege-hud.css',import.meta.url),'utf8');
  const play=await readFile(new URL('../playability.css',import.meta.url),'utf8');
- assert.match(mobile,/\.touch-ui \.kill-feed \{[\s\S]*top:calc\(var\(--safe-t\) \+ 72px\)/);
+ assert.match(mobile,/\.touch-ui \.kill-feed \{[\s\S]*top:var\(--mobile-feed-top, calc\(var\(--safe-t\) \+ 72px\)\)/);
  assert.match(mobile,/\.touch-ui \.hud-status-stack \{[\s\S]*left:max\(/);
  assert.match(siege,/\.touch-ui \.drive-housing \{[\s\S]*top:calc\(var\(--safe-t,0px\) \+ 66px\)/);
  assert.match(play,/\.touch-ui \.hud\.ballista-mounted #subtitle \{[\s\S]*--siege-gauge-height, 54px\) \+ 7px/);
