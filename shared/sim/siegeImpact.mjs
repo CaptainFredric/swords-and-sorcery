@@ -1,6 +1,5 @@
 import {biByeDeploymentSupport} from './biByeTerrain.mjs';
 import {biByeCondition} from './biByeComponents.mjs';
-import {interruptBiByeSupport} from './biByeWeapons.mjs';
 // Bounded authoritative impact response shared by the two heavy siege chassis.
 // All translation remains subject to each machine's existing terrain/collision solver.
 export const SIEGE_IMPACT=Object.freeze({
@@ -61,16 +60,12 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
   if(speed>=SIEGE_IMPACT.forceOutriggersSpeed&&biByeCondition(b).canDeploy){
    const support=biByeDeploymentSupport(b,room?.world);
    if(support.ok){
-    interruptBiByeSupport(b,now);
-    b.mode='DEPLOYING';
-    b.modeTransitionStartedAt=now;
-    b.modeTransitionEndsAt=now+SIEGE_IMPACT.forceOutriggersSec;
-    b.stabilizerTilts=support.tilts;
-    b.deploymentSupported=true;b.deploymentReason=null;
+    // Preserve the initial shove and wheel roll for .28s before the
+    // stabilizers catch. Instant deployment would magically erase momentum.
+    b.forcedDeployAt=now+.28;
     b.forcedOutriggersAt=now;
     b.forcedOutriggersUntil=now+SIEGE_IMPACT.forcedHoldSec;
     b.forcedOutriggersSource='so-fist';
-    b.speed=0;b.externalVelocity={x:0,z:0};
     room?.events?.push({type:'bibyeOutriggersForced',ballistaId:b.id,
      source:'so-fist',point,at:now,until:b.forcedOutriggersUntil});
    }
