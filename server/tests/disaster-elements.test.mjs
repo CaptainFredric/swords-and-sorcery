@@ -355,6 +355,10 @@ test('Half Gale: a longer shove the way the blow went, and Blustered: the fighti
   assert.equal(b.input.yaw, facing + Math.PI, 'the camera\'s own yaw is never rewritten');
   const first = Math.abs(b.yaw - facing);
   assert.ok(first > 0 && first < .2, `the facing follows slowly at first: ${first} rad in a tick`);
+  assert.ok(first <= ONE_HIT_BLUSTER.turnRate * DT * 1.05,
+    'fresh Blustered allows no more than roughly 60 degrees/second of body turn');
+  assert.ok(Math.abs(b.input.yaw-b.yaw)>2.8,
+    'a 180-degree camera flick leaves the physical sword and guard far behind');
   // it loosens as the wind leaves them: the same turn takes less and less time
   run(room, now + DT, 2);
   const mid = b.yaw;
@@ -535,6 +539,40 @@ test('Full Lightning field: Conduct by field strength and by how much of the kni
 
   run(room, born + 3.5, 1);
   assert.equal(room.oneHitFields.length, 0, 'gone');
+});
+
+test('a half-decayed Full Lightning field gives portable half-strength Shocking Conduct', () => {
+  const {room}=battle({tiers:{lightning:2}});
+  assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+  stepRoom(room,DT,9+DT,world);
+  releaseOneHitCharge(room,'a',9+2*DT);
+  const field=room.oneHitFields[0];
+  assert.ok(field,'the authoritative grounded strike creates an electrical field');
+  const halfAge=field.bornAt+(field.until-field.bornAt)*.5;
+  const walk=add(room,'walking-victim',{x:field.position.x+field.radius+6,y:field.position.y,z:field.position.z},field.bornAt);
+  stepRoom(room,DT,halfAge-DT,world);
+  assert.equal(walk.electricalBacklash,null,'not yet touched the field');
+  walk.position={x:field.position.x+1,y:field.position.y,z:field.position.z};
+  stepRoom(room,DT,halfAge,world);
+  const charged=walk.electricalBacklash;
+  assert.ok(charged?.fieldId===field.id,'contact transmits actual server-owned Conduct');
+  assert.ok(Math.abs(charged.initial-6)<.001,
+    '50% remaining field gives 50% of the twelve-point Conduct potential');
+  const acquiredAt=charged.at;
+  walk.position={x:field.position.x+field.radius+6,y:field.position.y,z:field.position.z};
+  stepRoom(room,DT,halfAge+DT,world);
+  assert.equal(walk.electricalBacklash.at,acquiredAt,
+    'leaving the field does not erase or restart the acquired status');
+  const remaining=oneHitBacklashRemaining(walk.electricalBacklash,halfAge+1);
+  assert.ok(Math.abs(remaining-4.5)<.001,
+    'after one second outside, the carried six-point charge has decayed by a quarter');
+  stepRoom(room,DT,field.until+.1,world);
+  assert.equal(room.oneHitFields.length,0,'the original ground field has expired');
+  assert.ok(walk.electricalBacklash,
+    'Conduct belongs to the knight and survives the original field disappearing');
+  stepRoom(room,DT,halfAge+4+DT,world);
+  assert.equal(walk.electricalBacklash,null,
+    'the independently timed status eventually expires after four seconds');
 });
 
 test('Full Lightning: the held teleport reaches further the longer it is held, with no cap on the hold', () => {
