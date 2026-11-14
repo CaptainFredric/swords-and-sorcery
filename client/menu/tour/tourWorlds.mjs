@@ -77,8 +77,13 @@ export class TourWorlds {
     for (const [other, renderer] of this.worlds) if (renderer.group) renderer.group.visible = other === id;
     this.activeId = id;
     this.#light(this.worlds.get(id).lighting);
-    this.#compile(this.scene);
+    this.#compile(this.scene, { wait: true });
     return true;
+  }
+
+  /** Whether a world just shown is still having its shaders compiled (the round keeps the dark until it is not). */
+  get busy() {
+    return this.holding > 0;
   }
 
   /** Ready something not yet on show to be drawn without a stall (its shaders compiled now, as if it were seen). */
@@ -90,12 +95,16 @@ export class TourWorlds {
     object.visible = shown;
   }
 
-  #compile(object) {
+  // (with `wait`: the dark is kept for a few drawn frames more, for the first of them to finish the shaders the browser
+  // only links when they are first drawn; compileAsync would wait for them instead, but three.js stumbles over some of
+  // a world's materials there and never resolves)
+  #compile(object, { wait = false } = {}) {
     try {
       this.renderer?.compile?.(object, this.camera, this.scene);
     } catch {
       // (a renderer that cannot compile ahead simply compiles on first sight)
     }
+    if (wait) this.holding = 3;
   }
 
   // a world's light, sky and fog, as the game draws it in (GameRuntime applyLighting)
@@ -114,6 +123,8 @@ export class TourWorlds {
 
   update(timeSec, camera, dt) {
     this.active?.update?.(timeSec, camera, dt);
+    // (one more frame drawn in the dark)
+    if (this.holding > 0) this.holding -= 1;
   }
 
   dispose() {

@@ -312,6 +312,27 @@ export function blocked(eye, at, blockers, margin = 0.2) {
   return SEEN_AT.some((y) => blockers.some((box) => box.max[1] > 0.6 && crosses(eye, [at[0], y, at[1]], box, margin)));
 }
 
+/**
+ * The camera at `eye` ([x, y, z]) kept clear of everything: if it is inside something, or something tall stands
+ * between it and `at` (the knight's chest, [x, y, z]), it is moved on toward him (level, a quarter metre at a time, at
+ * most 4 m) until neither is so. Returns the eye, moved or not.
+ */
+export function clearEye(eye, at, blockers, { room = 0.3, step = 0.25, most = 4 } = {}) {
+  const [ax, , az] = at;
+  let [x, y, z] = eye;
+  const toward = [ax - x, az - z];
+  const length = Math.hypot(...toward);
+  if (length < 1e-6) return eye;
+  const way = [toward[0] / length, toward[1] / length];
+  const clear = () => !blockers.some((box) => gap([x, y, z], box) < room)
+    && !blockers.some((box) => box.max[1] > 1.2 && crosses([x, y, z], at, box, 0.05));
+  for (let moved = 0; moved < Math.min(most, length - 1.5) && !clear(); moved += step) {
+    x += way[0] * step;
+    z += way[1] * step;
+  }
+  return [x, y, z];
+}
+
 // ------------------------------------------------------------------------------------------------ on the run
 // Following him on the run: from behind and to his left, so he runs on the right of the frame; where that would put
 // the camera in a stall's awning, a gatepost or a hedge, it comes in closer and higher over his shoulder instead.

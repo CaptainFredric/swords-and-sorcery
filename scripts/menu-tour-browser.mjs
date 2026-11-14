@@ -85,12 +85,18 @@ const PROBE = String.raw`(async (speed) => {
   // what it costs: building each world at the dark, and every long frame (with what the round was doing then)
   probe.builds = [];
   probe.longFrames = [];
-  const show = menu.tourWorlds.show.bind(menu.tourWorlds);
-  menu.tourWorlds.show = (id) => {
+  const show = menu.tourWorlds?.show.bind(menu.tourWorlds);
+  if (show) menu.tourWorlds.show = (id) => {
     const fresh = !menu.tourWorlds.worlds.has(id);
     const started = performance.now();
     const shown = show(id);
-    if (fresh && shown) probe.builds.push({ id, ms: +(performance.now() - started).toFixed(1) });
+    if (fresh && shown) {
+      const built = { id, ms: +(performance.now() - started).toFixed(1) };
+      probe.builds.push(built);
+      // (and how long the world's shaders take to be ready, the round holding the dark meanwhile)
+      const ready = () => (menu.tourWorlds.busy ? requestAnimationFrame(ready) : (built.readyMs = +(performance.now() - started).toFixed(1)));
+      requestAnimationFrame(ready);
+    }
     return shown;
   };
   let lastFrame = performance.now();
@@ -109,6 +115,8 @@ const PROBE = String.raw`(async (speed) => {
     return view;
   };
   const check = (dt) => {
+    // (the dark between maps: nothing there to see; the round holds in it while a world's shaders are made ready)
+    if ((tour.travelFade ?? 0) >= 0.99) { probe.last = null; return; }
     probe.frames += 1;
     const world = tour.world ?? CASTLEWARD;
     const map = tour.map?.id ?? 'castleward';

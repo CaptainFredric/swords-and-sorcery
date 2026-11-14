@@ -15,7 +15,7 @@ import { hearingFor, voicePlacement } from '../../game/sound/voiceRules.mjs';
 import { linesFor } from '../../game/sound/voiceLines.mjs';
 import { footstepRecipe, gaitFootfall, surfaceAt, variantPicker } from '../../game/sound/footsteps.mjs';
 import {
-  COMPACT_SHOT, FIGHT_SHOT, fightPair, fightShot, followAim, followEye, followPlan, frameSide, lookFor, placeFight,
+  COMPACT_SHOT, FIGHT_SHOT, clearEye, fightPair, fightShot, followAim, followEye, followPlan, frameSide, lookFor, placeFight,
 } from './tourCamera.mjs';
 import { FIGHT_POOL, galeTurns } from './tourFights.mjs';
 import { buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
@@ -384,6 +384,11 @@ export class TourDirector {
    */
   update(dt) {
     if (!this.ready) return null;
+    // (a world just built: the round holds in the dark until it can be drawn without a stall)
+    if (this.worlds?.busy && Number.isFinite(this.arrivedAt)) {
+      this.travelFade = 1;
+      return this.view ? { ...this.view, fade: 1 } : null;
+    }
     if (this.pause > 0) {
       this.pause -= dt;
       if (this.performance) this.performance.elapsed += dt;
@@ -1125,6 +1130,8 @@ export class TourDirector {
     this.view.position.lerp(want.position, k);
     this.view.target.lerp(want.target, k);
     this.view.fov += (want.fov - this.view.fov) * k;
+    // never inside anything, nor with anything between it and him (a pillar's edge, passing): moved on toward him
+    this.view.position.set(...clearEye(this.view.position.toArray(), [hero.x, hero.y + 1.2, hero.z], this.blockers));
     // and whatever it is doing, it never lets him slip behind the banner (setting off, he walks straight across the
     // front door's shot, faster than the steadicam follows)
     if (!this.flying && !this.travellerAway) {
