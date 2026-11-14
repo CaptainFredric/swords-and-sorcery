@@ -80,6 +80,11 @@ test('actual first-person WeaponView root uses the body lag, not camera rotation
   assert.match(weapon,/this\.group\.rotation\.y\s*=\s*this\.blusterFacing\.yaw/);
   assert.match(runtime,/bodyYaw:\s*armBluster\s*\?\s*this\.localAuth\.yaw\s*:\s*null/);
   assert.match(runtime,/blustered:\s*armBluster/);
+  assert.match(runtime,/mounted:\s*ridingForArmYaw/);
+  assert.match(weapon,/if \(mounted\) this\.resetBlusterFacing\(\)/,
+    'mounting clears any old on-foot hand lag before drawing the cockpit');
+  assert.match(runtime,/this\.weapon\.resetBlusterFacing\(\)/,
+    'switching players also resets the first-person arm carriage');
   assert.match(runtime,/this\.camera\.rotation\.y\s*=\s*this\.input\.yaw\s*\+/,
     'the head/crosshair look remains independent of the first-person arm transform');
 });
