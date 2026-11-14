@@ -96,7 +96,7 @@ test('siege controls appear only in real interaction range or while mounted and 
   assert.equal(controls.buttons.siegeView.hidden, true);
 });
 
-test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOperate',()=>{
+test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius names the intended machine',()=>{
   const pilot={alive:true,spell:'fireball',position:{x:3.1,y:0,z:0}};
   const {input,controls,send}=setup(pilot);
   const machine={id:'flight',x:0,y:0,z:0,health:250,rotorHP:100,grounded:true};
@@ -107,8 +107,9 @@ test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOpe
   assert.match(controls.buttons.interact.getAttribute('aria-label'),/Fight-and-Flight/);
   send('pointerdown',600,300,{action:'interact',pointerId:222});
   send('pointerup',600,300,{action:'interact',pointerId:222});
-  assert.deepEqual(sent,[{type:'siegeOperate'}],
-    'the mobile Mount button sends the real authoritative command once');
+  assert.equal(controls.buttons.interact.dataset.mountTarget,'fight-and-flight');
+  assert.deepEqual(sent,[{type:'siegeOperate',machine:'fight-and-flight'}],
+    'the mobile Mount button sends exactly one server-validated, targeted boarding request');
   controls.update({...pilot,position:{x:1,y:12,z:0}},10,{snapshot:{fightFlight:machine}});
   assert.equal(controls.buttons.interact.hidden,true,
     'standing on a 12m-high bridge above the same machine is not boarding range');
@@ -125,6 +126,9 @@ test('mobile Mount reach applies the same elevation rule to ballista and ram',()
   assert.equal(controls.buttons.interact.hidden,true,'no Ballista mount through bridge');
   controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{bibyeBallista:ballista}});
   assert.equal(controls.buttons.interact.hidden,false,'ground-level ballista shows Mount');
+  assert.equal(controls.buttons.interact.dataset.mountTarget,'bi-bye-llista');
+  controls.update({...pilot,alive:false},10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.dataset.mountTarget,undefined,'dead players have no stale boarding target');
 });
 
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {
