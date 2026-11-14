@@ -18,6 +18,7 @@ export function biByeModeButton(b){
 // releasing. Cold, How Touching retains its separate frost emblem.
 export function biByeSkillIcon(b,now){
  if(b?.skill?.id==='coldHowTouching')return 'frostBolt';
+ if(b?.skill?.id==='lookAroundAndFindOut')return 'siegeSweep';
  const label=siegeSkillControlLabel(b,now);
  return label==='FIRE II'||label==='II RELEASING'?'boltII':'boltToTheOccasion';
 }
@@ -39,6 +40,7 @@ export function biByeCombinedReady(b,now){
  * not its location. "coupled" is the ordinary upper-first volley; "skill"
  * is the distinct primed heavy-first atomic command. */
 export function biByeCombatView(b,now){
+ if(b?.sweep)return {primary:{label:b.sweep.kind==='skill'?'STOP & FIRE':'SWEEPING',icon:'siegeSweep',description:b.sweep.kind==='skill'?'Stop, settle, and fire only loaded ammunition':'One committed lower-bow sweep'},secondary:null,secondaryDescription:null};
  const primed=b?.skill?.id==='boltToTheOccasion'&&b.skill.phase==='primed';
  const mainCoupled=b?.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&!primed;
  const secondary=primed&&biByeCombinedReady(b,now)?'skill':
