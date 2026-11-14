@@ -82,7 +82,7 @@ test('rotated ram movement solids leave the empty diagonal approach accessible',
 test('ordinary maneuvering responds within one second and brakes promptly without replacing charge',()=>{
  const s=setup();run(s,1,{forward:1});assert.ok(s.b.speed>=3.7&&s.b.speed<5);
  const before=s.b.z;run(s,1);assert.equal(s.b.speed,0);assert.ok(before-s.b.z<1.7);
- run(s,2,{forward:-1});assert.ok(s.b.speed<=-2.3&&s.b.speed>=-2.6);
+ run(s,2,{forward:-1});assert.ok(s.b.speed<=-2.9&&s.b.speed>=-3.2);
  const charge=setup();run(charge,4,{sprint:true});assert.ok(charge.b.speed>11);assert.ok(charge.b.speed>SO_FIST.speed*2);
 });
 
