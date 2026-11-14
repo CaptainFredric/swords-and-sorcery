@@ -69,7 +69,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} admired ${apostrophe(k)} ballista a little too closely`,
  ],event,'sword');
  if(source==='so-fist-flick')return text([
-   `${k} pointed ${v} toward the exit`,
+   `${k} showed ${v} the door`,
    `${v} fainted at ${apostrophe(k)} accusation`,
    `${k} gave ${v} the finger`,
  ],event,'sword');
