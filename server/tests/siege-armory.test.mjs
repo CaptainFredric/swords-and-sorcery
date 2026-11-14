@@ -18,9 +18,13 @@ test('Siege Armory has its own real tab and leaves the other three Armory tabs i
  assert.match(html,/fourth wall still stands/);
  const v=siegeArmoryView({biBye:'coldHowTouching'});
  assert.deepEqual(v.map(m=>m.name),['BI-BYE-LLISTA','SO-FIST-ICATION','FIGHT-AND-FLIGHT']);
- assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true]);
+ assert.deepEqual(v[0].skills.map(s=>s.equipped),[false,true,false]);
  assert.equal(v[0].skills[0].icon,'boltToTheOccasion');
  assert.equal(v[0].skills[1].icon,undefined,'alternative frost Skill retains its presentation');
+ assert.equal(v[0].skills[2].id,'lookAroundAndFindOut');
+ assert.equal(v[0].skills[2].icon,'siegeSweep');
+ assert.match(v[0].skills[2].line,/24s cooldown begins when the action resolves/);
+ assert.deepEqual(siegeArmoryView({biBye:'lookAroundAndFindOut'})[0].skills.map(s=>s.equipped),[false,false,true]);
  assert.deepEqual(v[1].skills.map(s=>s.id),['beatToThePunch','longArmToTheJaw','hellpingHand']);
  assert.equal(v[1].skills[0].equipped,true);
  assert.equal(v[2].skills.length,3);
