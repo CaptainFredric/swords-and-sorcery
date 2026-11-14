@@ -26,6 +26,14 @@ export const BI_BYE_SWEEP=Object.freeze({
   contactStart:.45,contactEnd:1.04
 });
 const TAU=2*Math.PI;
+// Contact at 359 degrees followed by 1 degree must not count as two
+// revolutions of actual bow travel. Require both a new numbered turn and
+// almost a complete 2pi excursion since the previous physical strike.
+export function biByeSweepAllowsContact(last,revolution,angle){
+ if(last==null)return true;
+ if(typeof last==='number')return last!==revolution;
+ return last.revolution!==revolution&&angle-last.angle>=TAU-.035;
+}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const inside=s=>s&&['opening','loop','single','settle'].includes(s.phase);
@@ -146,10 +154,10 @@ export function finishBiByeSweep(room,b,now,reason='finished'){
  if(room)room.events?.push({type:'bibyeSweep',ballistaId:b.id,action:'ended',reason,at:now});
 }
 const owner=(room,b)=>room.players?.get(b.sweep?.ownerId);
-function hitPlayer(room,b,s,player,point,normal,now){
+function hitPlayer(room,b,s,player,point,normal,now,angle){
  if(player.id===s.ownerId||!player.alive||areAllies(room,s.ownerId,player.id))return;
- if(s.victims[player.id]===s.revolution)return;
- s.victims[player.id]=s.revolution;
+ if(!biByeSweepAllowsContact(s.victims[player.id],s.revolution,angle))return;
+ s.victims[player.id]={revolution:s.revolution,angle};
  const guarded=Boolean(player.guarding&&player.guardStamina>0&&
   isInGuardCone(player,{position:{x:b.x,y:b.y,z:b.z}},now));
  const damage=guarded?Math.round(BI_BYE_SWEEP.damage*BI_BYE_SWEEP.guardScale):BI_BYE_SWEEP.damage;
@@ -167,15 +175,15 @@ function hitPlayer(room,b,s,player,point,normal,now){
  if(player.alive){armWorldImpact(player,s.ownerId,'bibye-sweep',now);interruptHitActions(room,player,s.ownerId,now,'bibye-sweep');}
  room.events?.push({type:'bibyeSweepImpact',ballistaId:b.id,victimId:player.id,guarded,point,at:now});
 }
-function hitMachines(room,b,s,oldBlades,newBlades,now){
+function hitMachines(room,b,s,oldBlades,newBlades,now,angle){
  for(const machine of [room.soFistication,room.fightFlight]){
   if(!machine||machine.retired||machine.mode==='DESTROYED'||machine.health<=0||
-      machine.operatorId===s.ownerId||s.machines[machine.id]===s.revolution)continue;
+      machine.operatorId===s.ownerId||!biByeSweepAllowsContact(s.machines[machine.id],s.revolution,angle))continue;
   if(machine.team&&owner(room,b)?.team===machine.team&&room.mode!=='PRACTICE')continue;
   const volumes=machine===room.soFistication?soFistVolumes(machine,now):fightFlightHitVolumes(machine);
   const hit=contact(oldBlades,newBlades,volumes,.015);
   if(!hit)continue;
-  s.machines[machine.id]=s.revolution;
+  s.machines[machine.id]={revolution:s.revolution,angle};
   const point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
   const caused=machine===room.soFistication?
    damageSoFistication(room,machine,BI_BYE_SWEEP.damage,s.ownerId,'bibye-sweep',now,{componentId:hit.target.componentId??'hull',point}):
@@ -209,9 +217,9 @@ function contacts(room,b,s,prevAngle,angle,previousLower,lower,now,authoredClock
    const height=postureOf(player).height,point=player.position;
    const target={center:[point.x,point.y+height/2,point.z],size:[.9,height,.9]};
    const h=contact(last,next,[target],.02);
-   if(h)hitPlayer(room,b,s,player,{x:h.point[0],y:h.point[1],z:h.point[2]},h.normal,now);
+   if(h)hitPlayer(room,b,s,player,{x:h.point[0],y:h.point[1],z:h.point[2]},h.normal,now,a);
   }
-  hitMachines(room,b,s,last,next,now);
+  hitMachines(room,b,s,last,next,now,a);
   last=next;
  }
  return true;

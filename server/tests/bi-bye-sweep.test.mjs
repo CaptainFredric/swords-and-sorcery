@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
-import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
+import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,biByeSweepAllowsContact,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
 import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
@@ -43,7 +43,13 @@ test('sweep starts from the actual turret aim and upper assembly rotates with it
  assert.equal(s.b.sweep.phase,'loop');
  assert.ok(Math.abs((s.b.upperYaw-s.b.mainYaw)-initialOffset)<1e-7,'upper must rotate on shared traverse');
  issue(s,'siegeSkill',2.5);
- step(s,2.5,5);
+ let resolved=false;
+ for(let at=2.5+1/30;at<=5;at+=1/30){
+  const was=Boolean(s.b.sweep);
+  stepBiByeLlista(s.room,s.b,1/30,at,s.room.world);
+  if(was&&!s.b.sweep){resolved=true;break;}
+ }
+ assert.equal(resolved,true,'inspect the exact settling frame before mobile aim recovers');
  assert.equal(s.b.sweep,null);
  assert.ok(Math.abs(s.b.mainYaw-.48)<1e-7,'returns to actual starting aim, not fixed chassis yaw');
  assert.ok(Math.abs(s.b.mainPitch-.21)<1e-7,'restores original physical elevation after recovery');
@@ -168,6 +174,14 @@ test('original Argon mesh volumes and quaternion keyframes are faithfully repres
  const q=authoredSweepLimbQuaternion(-1,.45,1);
  assert.ok(Math.abs(q[1]+.14242306)<1e-6);
  assert.ok(Math.abs(q[2]-.12060817)<1e-6);
+});
+test('overlap across the 360-degree seam cannot create an instant second hit',()=>{
+ const almost=2*Math.PI-.01,early=2*Math.PI+.01;
+ const previous={revolution:0,angle:almost};
+ assert.equal(biByeSweepAllowsContact(previous,1,early),false);
+ assert.equal(biByeSweepAllowsContact(previous,1,almost+2*Math.PI),true);
+ assert.equal(biByeSweepAllowsContact(previous,0,almost+2*Math.PI),false);
+ assert.equal(biByeSweepAllowsContact(null,0,0),true);
 });
 test('clearance, damage, and loop cadence retain discrete authored timings',()=>{
  assert.equal(BI_BYE_SWEEP.single,1.65);
