@@ -129,6 +129,27 @@ test('look around keeps cooldown unspent while spinning; stops through loaded ph
  assert.deepEqual([...s.room.bibyeProjectiles.values()].map(v=>v.subKind),['conditioning']);
  assert.equal(s.b.mainBoltLoaded,true,'mobile spin must not launch heavy ammunition');
 });
+test('deployed loaded Look Around finishes with authoritative Bolt II then Bolt I, paying each ammunition clock',()=>{
+ const s=setup('lookAroundAndFindOut');s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.deploymentSupported=true;
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,4);
+ assert.equal(s.b.sweep.phase,'loop');
+ assert.equal(issue(s,'bibyeFire',4.1).rejected,undefined);
+ step(s,4.1,8);
+ const order=s.room.events.filter(e=>e.type==='bibyeFired'&&
+   ['II_SKILL','I_COMBINED'].includes(e.shot));
+ assert.deepEqual(order.map(e=>e.shot),['II_SKILL','I_COMBINED'],
+   'the heavy bow genuinely releases first, not an animated free bolt');
+ assert.ok(order[0].at<order[1].at);
+ assert.equal(order[0].origin,'lookAroundAndFindOut');
+ assert.equal(s.b.mainBoltLoaded,false,'heavy ammunition consumed by original heavy launcher');
+ assert.ok(s.b.reloadEndsAt>8,'original heavy reload retained');
+ assert.ok(s.b.smallBoltReadyAt>order[1].at,'conditioning bolt recocks normally');
+ const ended=s.room.events.find(e=>e.type==='siegeSkill'&&e.skill==='lookAroundAndFindOut'&&e.action==='ended');
+ assert.ok(ended,'spin resolves before loaded bolts release');
+ assert.ok(Math.abs(s.b.skill.readyAt-ended.at-24)<1e-7,
+   '24s Skill cooldown starts at settle, not from the later second bolt');
+});
 test('third equipped Skill retains ordinary deployed BOTH eligibility and does not bypass heavy loading',()=>{
  const s=setup('lookAroundAndFindOut');s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';
  assert.equal(canBiByeCouple(s.b,1),true);

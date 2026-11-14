@@ -14,7 +14,7 @@ import {damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
 import { sampleTransform } from './history.mjs';
 import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
-import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
+import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, requestBiByeSweepDischarge, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import {fightFlightFirstHit,damageFightFlight,fightFlightHitVolumes} from './fightFlightComponents.mjs';
@@ -844,8 +844,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
 
   stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim,targetAim:biByeTargetAim});
   stepBiByeSweep(room,ballista,dt,nowSec,(r,b,at)=>
-    b.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&(!b.mainBoltLoaded||b.state!=='LOADED')
-      ?fireBiByeMobile(r,b,at):fireBiByeLlista(r,b,at));
+    requestBiByeSweepDischarge(r,b,at));
 
 }
 
