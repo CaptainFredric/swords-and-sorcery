@@ -163,6 +163,9 @@ function resolveTechniqueContact(room,attacker,action,contact,nowSec){
   const damage=clean?contract.damage.clean:contract.damage.grazing;
   if(applyDamage(room,attacker.id,defender.id,damage,'sword',nowSec,null,{
     clean,ultimate:true,rawDamage:damage,
+    guardWouldSave: !defender.guarding && defender.guardStamina>0 &&
+      nowSec >= (defender.guardBrokenUntil??-Infinity) && nowSec >= (defender.staggerUntil??-Infinity) &&
+      nowSec >= (defender.oneHitFrozenUntil??-Infinity) && isInGuardCone(defender,attacker,nowSec),
     contactFacts:challengeContact(attacker,nowSec,{technique:contract.id}),
   })){
     staggerBy(room,defender,STAGGER.gain.sword*(clean?1:.75),nowSec,attacker.id);
@@ -1349,6 +1352,13 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     skipSteel: cancelled || armour.strength > 0,
     ultimate: sunder || Boolean(attacker.attackChivalry) || combatActionPolicy(attacker, nowSec).concurrent,
     rawDamage: sunder ? GAME.swordElevated : GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * quality,
+    // The counterfactual uses the very guard cone and block mechanics this contact
+    // already passed. No stamina, broken guard, stun or wrong facing = no claim.
+    guardWouldSave: !target.guarding && target.guardStamina>0 &&
+      nowSec >= (target.guardBrokenUntil??-Infinity) &&
+      nowSec >= (target.staggerUntil??-Infinity) &&
+      nowSec >= (target.oneHitFrozenUntil??-Infinity) &&
+      !target.hellpingCapturedBy && isInGuardCone(target,attacker,atSec),
     contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
       chainId: attacker.attackChainId, strikeIndex, lethalThreat: lethalCounter,
       steel: cancelled ? steelStrength(target.steel, nowSec) : armour.strength }),
@@ -1377,7 +1387,9 @@ function dischargeShockingConduct(room, attacker, spared, nowSec, facts = {}) {
   stopSwordChain(attacker, {}, room, nowSec);
   attacker.gauntlet = null;
   const source = room.players.has(status.sourceId) && !areAllies(room, status.sourceId, attacker.id) ? status.sourceId : null;
-  applyDamage(room, source, attacker.id, charge, 'electrical_backlash', nowSec, null, { ultimate: true, ongoing: true });
+  applyDamage(room, source, attacker.id, charge, 'electrical_backlash', nowSec, null, {
+    ultimate: true, ongoing: true, killVariant: 'shocking-conduct-interrupted',
+  });
   // (`attackerId`: who put the Conduct on them; `victimId`: the knight shocked by their own swing; `sparedId`: whom
   // that swing would have hit)
   room.events.push({ type: 'oneHitBacklash', attackerId: source, victimId: attacker.id, sparedId: spared.id,
@@ -1504,7 +1516,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
   minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
-  killVariant = null,
+  killVariant = null, guardWouldSave = false,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1528,6 +1540,13 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   }
 
   const healthBefore = victim.health;
+  // A repeater barrage must really have hit more than once to count as
+  // pelting. This is per victim, per attacker and per uninterrupted burst.
+  if(source==='fight-flight-repeater'&&attackerId&&amount>0){
+    const trail=victim.killfeedPelting;
+    victim.killfeedPelting=trail?.attackerId===attackerId&&nowSec-trail.at<=3
+      ?{attackerId,at:nowSec,hits:trail.hits+1}:{attackerId,at:nowSec,hits:1};
+  }
   // Full Steel temporarily makes the LAST HP invulnerable. This is damage
   // prevention, NOT a deferred debt: it never kills the knight when the
   // Ultimate, its Gale wave, or its protection expires.
@@ -1601,11 +1620,15 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
   recordPerryDamage(room, attackerId, victimId, source, nowSec, taken, healthBefore);
-  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec, killVariant);
+  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec, killVariant, {
+    excessDamage: Math.max(0, finalAmount-healthBefore),
+    guardWouldSave: Boolean(guardWouldSave),
+    pelted: source==='fight-flight-repeater'&&victim.killfeedPelting?.hits>=3,
+  });
   return true;
 }
 
-export function killPlayer(room, victimId, attackerId, source, nowSec, killVariant = null) {
+export function killPlayer(room, victimId, attackerId, source, nowSec, killVariant = null, killFacts = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive) return false;
   let credited = attackerId;
@@ -1618,6 +1641,12 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   // state still exist. Afterwards a death may dismount the victim and clear
   // active abilities, making client-side guesses unreliable.
   const killer=room.players.get(credited);
+  // Consecutive deaths to the SAME killer, not their total kills and not a
+  // global tally. Survives respawn, but a different killer resets the run.
+  const sameKiller=Boolean(credited&&credited!==victimId&&killer&&room.state==='PLAYING');
+  victim.killfeedConsecutiveDeaths=sameKiller&&victim.killfeedPreviousKiller===credited
+    ? (victim.killfeedConsecutiveDeaths??0)+1 : sameKiller?1:0;
+  victim.killfeedPreviousKiller=sameKiller?credited:null;
   const special=killVariant||
     (source==='fight-flight-rotor'&&room.fightFlight?.operatorId===credited&&
      room.fightFlight?.offensiveRun?'rotorDash':null)||
@@ -1704,7 +1733,11 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
   const death = { type: 'death', victimId, killerId: credited, source,
-    ...(special?{killContext:special}:{}), ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
+    ...(special?{killContext:special}:{}),
+    ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
+    ...(killFacts.excessDamage>=GAME.maxHealth?{extremeOverkill:true}:{}),
+    ...(killFacts.guardWouldSave?{guardWouldSave:true}:{}),
+    ...(killFacts.pelted?{pelted:true}:{}), ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
   const vortex = spun || Boolean(room.players.get(credited) && vortexing(room.players.get(credited), nowSec)) || ['ember','vortexFire','vortexBlaze'].includes(source);
   const voicePending = playing && queueDefeatVoice(room, death, victim.position, {vortex});
   room.events.push({...death, ...(voicePending ? {voicePending:true} : {})});
@@ -2273,8 +2306,17 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   // way from its heart, less and less toward its edge, so the fire's ground is where they tend to come down
   const shove=3.4*(tiers.gale>=1?ONE_HIT_BLUSTER.knockback*1.18:1)*
     (blast&&tiers.gale>=1&&tiers.fire>=1?fireGaleShove(blast.distance,blast.radius):1);
+  const stages=Object.values(tiers).reduce((sum,n)=>sum+(Number(n)||0),0);
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
-    {x:dx/d*shove,y:.6,z:dz/d*shove},{ultimate:true,rawDamage:damage}))return false;
+    {x:dx/d*shove,y:.6,z:dz/d*shove},{
+      ultimate:true,rawDamage:damage,
+      // The full-element joke belongs only to a genuinely nearly-full cast.
+      killVariant:stages>=8&&tiers.frost>=1&&tiers.lightning>=1?'nearly-full-disaster':null,
+      guardWouldSave:!target.guarding&&target.guardStamina>0&&
+        nowSec >= (target.guardBrokenUntil??-Infinity)&&
+        nowSec >= (target.staggerUntil??-Infinity)&&
+        isInGuardCone(target,{position:incoming},nowSec),
+    }))return false;
   oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
   return true;
 }
