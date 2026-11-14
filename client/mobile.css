@@ -256,9 +256,16 @@ button, input { touch-action: manipulation; }
 }
 .touch-ui .match-info { top: 10px; }
 .touch-ui .duel-score { top:39px; padding:3px 9px; gap:8px; }
-.touch-ui .hud-status-stack { top: calc(var(--safe-t) + 8px); left: calc(var(--safe-l) + clamp(190px, 35cqw, 300px)); right: calc(var(--safe-r) + 14px); width: auto; transform: none; gap: 4px; justify-items: start; }
-.touch-ui .breakthrough-hud { width: min(240px, 28cqw, 100%); padding: 5px 7px; }
+/* Keep objectives in the lane BETWEEN the left HP/stamina bars and the
+   right killfeed. At narrower widths, stack the objective below the feed
+   rather than compress both into an unreadable overlap. */
+.touch-ui .hud-status-stack { top: calc(var(--safe-t) + 8px); left: max(calc(var(--safe-l) + 190px), 42cqw); right: calc(var(--safe-r) + 35cqw); width: auto; transform: none; gap: 4px; justify-items: start; }
+.touch-ui .breakthrough-hud { width: min(300px, 100%); padding: 5px 7px; }
 .touch-ui .breakthrough-hud .bt-footer, .touch-ui .breakthrough-hud .bt-phase { display: none; }
+@container app (max-width: 1050px) {
+  .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 78px); left: calc(var(--safe-l) + 38cqw); right: calc(var(--safe-r) + 15px); }
+  .touch-ui .breakthrough-hud { width: min(250px, 100%); }
+}
 @container app (max-width: 540px) {
   .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 86px); left: calc(var(--safe-l) + 12px); right: calc(var(--safe-r) + 12px); justify-items: center; }
   .touch-ui .breakthrough-hud { width: min(275px, 100%); }
