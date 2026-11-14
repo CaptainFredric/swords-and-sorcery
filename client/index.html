@@ -916,18 +916,26 @@
             <small id="practice-one-hit-status" role="status">Practice configurations do not affect multiplayer matches.</small>
           </details>
 
-          <details class="practice-siege">
+          <details class="practice-siege" id="practice-siege-machinations">
             <summary>SIEGE MACHINATIONS</summary>
-            <label class="siege-machine-choice">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option><option value="fight-and-flight">FIGHT-AND-FLIGHT</option></select></label>
-            <p id="practice-siege-status" role="status" hidden></p>
-            <article>
-              <h4 data-siege-title>BI-BYE-LLISTA</h4>
-              <p data-siege-classification hidden></p>
-              <p data-siege-description>A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.</p>
-              <p data-siege-final>The first shot lowers the target's defense.</p>
-              <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
-              <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
-              <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
+            <label class="siege-machine-choice" for="practice-siege-type">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option><option value="fight-and-flight">FIGHT-AND-FLIGHT</option></select></label>
+            <article class="practice-siege-machine">
+              <header class="practice-siege-identity">
+                <h4 data-siege-title>BI-BYE-LLISTA</h4>
+                <p data-siege-classification></p>
+                <p class="practice-siege-motto" data-siege-subtitle></p>
+              </header>
+              <div class="practice-siege-story" id="practice-siege-story">
+                <div class="practice-siege-story-copy" id="practice-siege-story-copy" data-siege-description tabindex="-1" role="region" aria-label="Siege machine story"></div>
+                <button type="button" id="practice-siege-more" class="practice-siege-more" aria-controls="practice-siege-story-copy" aria-expanded="false">SHOW MORE</button>
+              </div>
+              <p class="practice-siege-facts" data-siege-final></p>
+              <p id="practice-siege-status" role="status" hidden></p>
+              <div class="practice-siege-actions">
+                <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
+                <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
+                <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
+              </div>
             </article>
           </details>
           <details class="practice-siege" id="practice-hostile-siege">
