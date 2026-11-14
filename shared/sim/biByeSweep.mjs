@@ -188,6 +188,9 @@ export function finishBiByeSweep(room,b,now,reason='finished'){
   b.yaw=s.baseYaw;b.pitch=s.basePitch;b.speed=0;b.steer=0;
  }
  if(s.kind==='skill'&&b.skill?.id==='lookAroundAndFindOut'){
+  // A spin may need longer than the clip's nominal .24s to settle.
+  // The operator stands only after the actual physical action resolves.
+  b.lastSweepEndAt=now;
   b.skill.readyAt=Math.max(b.skill.readyAt??0,now+SIEGE_SKILLS.lookAroundAndFindOut.cooldown);
   endSiegeSkill(b,now);
   if(room)skillEvent(room,b,now,'ended',{reason});
