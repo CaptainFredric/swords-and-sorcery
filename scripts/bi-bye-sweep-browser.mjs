@@ -152,6 +152,10 @@ try{
  if(!proof.afterMount.ballista.operatorId)throw Error('Physical T did not mount. Routed command trace: '+JSON.stringify(proof.commandWire));
  const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',15);
  assert.equal(mounted.ballista.skill.id,'lookAroundAndFindOut');
+ // Inspect the production rig's actual world-space bones, not a
+ // procedural preview pose or a synthetic temporary model.
+ const operatorBones="(() => {const r=window.__ssRuntime,a=r?.remotePlayers?.self?.visualInstance?.animator?.siege;const h=a?.bone('head'),p=a?.bone('pelvis');if(!h||!p)return null;h.updateWorldMatrix(true,false);p.updateWorldMatrix(true,false);return {helmY:h.matrixWorld.elements[13],pelvisY:p.matrixWorld.elements[13],visible:r.remotePlayers.self.root.visible,kind:r.remotePlayers.self.visualKind??null,phase:r.latestSnapshot?.bibyeBallista?.sweep?.phase??null};})()";
+ const operatorUpright=await until(()=>evaluate(operatorBones),'real seated helmet bone ready',80);
  await screenshot('02-mounted-original-v26');
  // Capture genuine authoritative events *as delivered*, not only transient
  // animation snapshots: a 1.65s single turn can begin and end between two
@@ -175,6 +179,14 @@ try{
  const spinning=await until(async()=>{const s=await observe();return s?.ballista?.sweep?.phase==='loop'?s:false;},'U: sustained Look Around spin',80);
  assert.equal(spinning.ballista.heading,initialHeading,'wheels do not turn the carriage');
  assert.equal(spinning.ballista.skill.readyAt,0,'cooldown cannot expire during an indefinite loop');
+ const operatorDuck=await until(async()=>{
+  const head=await evaluate(operatorBones);
+  return head?.phase==='loop'&&head.visible&&
+    operatorUpright.helmY-head.helmY>.075&&
+    Math.abs(head.pelvisY-operatorUpright.pelvisY)<.035?head:null;
+ },'real Spellblade ducks his helmet below rotating bow without leaving seat',100);
+ console.log('[BI-BYE OPERATOR DUCK]',JSON.stringify({before:operatorUpright,during:operatorDuck,
+   drop:operatorUpright.helmY-operatorDuck.helmY}));
  await screenshot('04-continuous-braced-spin');
  // True left-click: Fire becomes a stop request, not a free projectile.
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
