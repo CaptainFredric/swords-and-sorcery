@@ -4,6 +4,8 @@ on:
     paths:
       - 'scripts/bi-bye-sweep-browser.mjs'
       - 'shared/sim/biByeSweep.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'server/tests/bi-bye-sweep.test.mjs'
       - 'shared/sim/biByeSweepGeometry.mjs'
       - 'client/worlds/BiByeLlistaRenderer.mjs'
       - 'client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb'
