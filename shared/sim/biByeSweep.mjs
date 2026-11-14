@@ -3,7 +3,7 @@
 import {biByeCondition} from './biByeComponents.mjs';
 import {authoredBiByeSweepVolumes} from './biByeSweepGeometry.mjs';
 import {skillOperator,endSiegeSkill,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
-import {orientedBoxHit} from '../src/orientedBox.mjs';
+import {orientedBoxHit,boxWorld} from '../src/orientedBox.mjs';
 import {surfaceHeightAt} from '../src/collision.mjs';
 import {postureOf} from '../src/body.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
@@ -70,8 +70,14 @@ function terrainBlocked(b,volumes,world){
  for(const box of volumes){
   const bottom=box.center[1]-.5*box.axes.reduce((sum,axis,i)=>sum+Math.abs(axis[1])*box.size[i],0);
   // Sample the contact limbs, not the ground-touching wheels / outrigger feet.
-  const ground=surfaceHeightAt(box.center[0],box.center[2],b.y+3,world);
-  if(ground!=null&&bottom<ground-.04)return true;
+  // The GLB limbs extend almost two metres. A sloped bank can contact
+  // either tip while the box centre floats clear above the terrain.
+  for(const at of [box.center,
+      boxWorld(box,[-box.size[0]/2,0,0]),
+      boxWorld(box,[box.size[0]/2,0,0])]){
+   const ground=surfaceHeightAt(at[0],at[2],b.y+3,world);
+   if(ground!=null&&bottom<ground-.04)return true;
+  }
  }
  return false;
 }
