@@ -228,7 +228,7 @@ test('Restless Day machines use real authoritative mounting rather than Breakthr
  const {room,attacker}=match();
  const ram=room.soFistication,ballista=room.biByeLlista;
  assert.ok(ram&&ballista,'both existing machines spawned');
- assert.equal(room.objectiveState,undefined,'Restless Day has its own phase');
+ assert.equal(room.objectiveState,null,'Restless Day has its own phase');
  attacker.position={x:ram.x,y:ram.y,z:ram.z-2.8};
  attacker.velocity={x:0,y:0,z:0};
  let response=applyRoomCommand(room,attacker,{type:'siegeOperate'},20);
