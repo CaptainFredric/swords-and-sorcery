@@ -188,6 +188,22 @@ test('original Argon mesh volumes and quaternion keyframes are faithfully repres
  assert.ok(Math.abs(q[1]+.14242306)<1e-6);
  assert.ok(Math.abs(q[2]-.12060817)<1e-6);
 });
+test('sustained loop can strike again only after a real new revolution',()=>{
+ const s=setup('lookAroundAndFindOut');
+ const limb=authoredBiByeSweepVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}})[0];
+ const victim=s.room.addPlayer({id:'repeat',token:'repeat',name:'repeat'},0);
+ victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
+ victim.spawnProtectionUntil=0;
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,3.25);
+ const hits=s.room.events.filter(e=>e.type==='bibyeSweepImpact'&&e.victimId==='repeat');
+ assert.ok(hits.length>=2,'a stationary target may be struck on a later physical turn');
+ for(let i=1;i<hits.length;i++)
+  assert.ok(hits[i].at-hits[i-1].at>=BI_BYE_SWEEP.loop-.13,
+   'each repeated blow must follow at least one real revolution');
+ assert.equal(victim.health,100-hits.length*BI_BYE_SWEEP.damage);
+ assert.equal(s.b.skill.readyAt,0,'no cooldown during indefinite motion');
+});
 test('overlap across the 360-degree seam cannot create an instant second hit',()=>{
  const almost=2*Math.PI-.01,early=2*Math.PI+.01;
  const previous={revolution:0,angle:almost};

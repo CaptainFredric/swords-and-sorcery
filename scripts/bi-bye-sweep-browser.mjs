@@ -17,7 +17,7 @@ let ws,seq=0,stage='boot';const pending=new Map(),exceptions=[],record={};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,label,tries=100){
  stage=label;let last=null;
- for(let i=0;i<tries;i++){try{const value=await fn();if(value){console.log('[COLD PASS]',label);return value;}}catch(e){last=e;}
+ for(let i=0;i<tries;i++){try{const value=await fn();if(value){console.log('[BI-BYE PASS]',label);return value;}}catch(e){last=e;}
   await sleep(100);}
  throw Error('Chrome timeout '+label+'; '+(last?.message??''));
 }
@@ -84,7 +84,7 @@ try{
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  await evaluate("window.__ssRuntime?.requestPointerLock()");
  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'focused gameplay input',80);
- const radius=3.8;
+ const radius=BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
  let near=false;
  for(let i=0;i<25;i++){
   const s=await observe(),p=s?.me?.position,b=s?.ballista;
@@ -117,7 +117,7 @@ try{
  assert.equal(settling.ballista.skill.readyAt,0);
  await screenshot('05-authored-settle');
  const resolved=await until(async()=>{const s=await observe();return s?.ballista?.skill?.phase==='idle'&&!s?.ballista?.sweep&&s.ballista.skill.readyAt>s.at?s:false;},'machine-owned Skill cooldown begins on resolution',100);
- const shot=await until(async()=>{const s=await observe();return s?.projectiles?.some(p=>p.subKind==='conditioning')?s:false;},'physical Bolt I fired after settling',90);
+ const shot=await until(async()=>{const s=await observe();return s?.ballista?.smallBoltReadyAt>mounted.ballista.smallBoltReadyAt?s:false;},'physical Bolt I release advances its real recock clock',90);
  assert.equal(shot.ballista.mainBoltLoaded,true,'mobile spin must never discharge Bolt II');
  await screenshot('06-loaded-bolt-I-release');
  assert.deepEqual(exceptions,[],'no Chrome runtime exceptions');

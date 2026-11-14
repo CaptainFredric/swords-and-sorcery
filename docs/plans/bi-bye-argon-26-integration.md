@@ -37,3 +37,11 @@ From a checkout with both originals, stage the exact bytes without replacing v4.
 That command checks both SHA-256 hashes, all five named clips and all four contact locator nodes before copying. Add both binaries to the PR, run the focused machine tests, and inspect one local mounted operator plus one remote observer in real Chrome. Inspect collisions at walls/terrain, actual limb contact, Guard, stagger and knockback, impact to ram and Fight-and-Flight components, duration of stationary spin, arbitrary-angle settle, ammo and reload. **Do not merge/deploy the incomplete handoff.**
 
 Only request animation changes from Argon if a specific demonstrated visual/geometry defect remains after integrating and inspecting these original clips. No additional Skills or features authorized.
+
+## Focused mechanical verification
+
+The authored v26 limb-quaternion and exact mesh-AABB contacts are in `shared/sim/biByeSweepGeometry.mjs`; ordinary ballista hull and bolt hit volumes are unchanged. The host accounts for the fractional server tick across the 22-to-23 clip transition, keeps the chassis and wheels stationary, and restores normal turret aim after interruption.
+
+Focused regressions exercise main-limb contact and elevated misses, facing Guard, clearance, 22-to-23 timing, arbitrary starting aim and pitch, per-revolution strike gating, other siege machines' real component damage paths, Bolt II lockout, real loaded ammunition, 24s cooldown on resolution, and snapshots. The completed CI checkpoint `d2d0c84621a707277ad06c94e2d8427dfc005a0a` had all new sweep tests passing; the global suite still had 30 unrelated failures.
+
+A dedicated **real-Chrome inspection** script `scripts/bi-bye-sweep-browser.mjs` asserts the actual original clips and contact locator nodes have loaded (so v4.3 fallback cannot masquerade as accepted v26), equips the third Skill in the Armory, mounts through real controls, uses K and U, manually fires and settles, and captures screenshots. Both uploaded binaries must be staged on this PR branch first. The original-v26 visual inspection has not been executed or passed and remains a review blocker.
