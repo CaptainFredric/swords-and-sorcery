@@ -1,4 +1,5 @@
 import { TEAMS } from '../src/teams.mjs';
+import {trackCircleChase} from './killfeedCaptureContext.mjs';
 
 export const HIGH_GROUNDS_RULES = Object.freeze({
   scoreToWin: 900,
@@ -40,6 +41,7 @@ export function stepHighGrounds(room, dt, now) {
     for (const p of room.players.values()) {
       if (!p.alive || !SIDES.includes(p.team)) continue;
       if (p.operatingFightFlightId && !room.fightFlight?.grounded) continue;
+      trackCircleChase(room,p,site,now,{eligible:site.owner!==p.team});
       const dx = p.position.x - site.position.x, dz = p.position.z - site.position.z;
       const dy = p.position.y - site.position.y;
       if (dx * dx + dz * dz > site.radius * site.radius || dy < -.6 || dy > 2.3) continue;
