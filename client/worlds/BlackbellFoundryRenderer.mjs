@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {structureDefinitions} from '../../shared/sim/structures.mjs';
 import { BLACKBELL_FOUNDRY } from '../../shared/worlds/blackbellFoundry.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { createBatch, masonry, palisade } from './kit/kitPieces.mjs';
@@ -119,7 +120,9 @@ export class BlackbellFoundryRenderer {
     // (dull worked iron: the kit's polished metal, with nothing to reflect, rendered these as black slabs)
     batch.iron = new FacetBuilder();
     this.kit.iron = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.62, metalness: 0.3 });
+    const transient=new Set(structureDefinitions(BLACKBELL_FOUNDRY).filter(d=>d.transient).flatMap(d=>d.solidIds));
     for (const sol of BLACKBELL_FOUNDRY.solids) {
+      if(transient.has(sol.id))continue;
       if (sol.kind === 'prop') continue;
       if (Number.isFinite(sol.drawTo)) {
         // a raised deck's base stops a step under the deck (a stair's top runs onto it clean): drawn up to the deck
