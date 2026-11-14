@@ -64,10 +64,11 @@ function normalSoFistPose(b,now=b?.poseTime??0){
  return{age,clipAge:0,offset:0,velocity:0,active:false};
 }
 export function soFistTurnRate(b){
- // Inner steering wheel is bounded to 45 degrees. Useful crawl steering remains
- // proportional to distance travelled; a parked carriage never pivots in place.
- const radius=SO_FIST_FIT.wheelbase+SO_FIST_FIT.frontTrack/2;
- return -(b.steer??0)*Math.sign(b.speed??0)*Math.min(1.4,Math.abs(b.speed??0)/radius);
+ // The ram's Ackermann front wheels may steer to 55 degrees when fully
+ // commanded. The reduced turning radius is still derived from the actual
+ // wheelbase/track: turning requires travel and a parked ram cannot pivot.
+ const radius=SO_FIST_FIT.wheelbase/Math.tan(55*Math.PI/180)+SO_FIST_FIT.frontTrack/2;
+ return -(b.steer??0)*Math.sign(b.speed??0)*Math.min(1.55,Math.abs(b.speed??0)/radius);
 }
 export function soFistWheelSteering(b){
  const speed=Math.abs(b.speed??0),curvature=speed>.001?-soFistTurnRate({...b,speed})/speed:0;

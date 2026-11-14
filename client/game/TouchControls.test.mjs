@@ -131,6 +131,27 @@ test('mobile Mount reach applies the same elevation rule to ballista and ram',()
   assert.equal(controls.buttons.interact.dataset.mountTarget,undefined,'dead players have no stale boarding target');
 });
 
+test('Restless Day attacker sees a real mobile MOUNT button near either native siege machine',()=>{
+  const p={alive:true,spell:'fireball',team:'ATTACKERS',position:{x:15,y:0,z:-74.8}};
+  const {input,controls,send}=setup(p);
+  const messages=[];input.socket.send=packet=>messages.push(packet);
+  const ballista={id:'restless-ballista',x:15,y:0,z:-77,
+    position:{x:15,y:0,z:-77},mode:'MOBILE',health:650,
+    interactRadius:3.2,team:'ATTACKERS',operatorId:null};
+  const ram={id:'restless-ram',x:-4,y:0,z:-76,heading:Math.PI,
+    health:1400,team:'ATTACKERS',operatorId:null};
+  controls.update(p,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
+  assert.equal(controls.buttons.interact.hidden,false,'ballista has usable MOUNT button');
+  send('pointerdown',650,300,{action:'interact',pointerId:301});
+  send('pointerup',650,300,{action:'interact',pointerId:301});
+  assert.deepEqual(messages,[{type:'siegeOperate'}]);
+  const onRam={...p,position:{x:-4,y:0,z:-78}};
+  controls.update(onRam,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
+  assert.equal(controls.buttons.interact.hidden,false,'ram also has usable MOUNT button');
+  assert.match(controls.buttons.interact.getAttribute('aria-label'),/ram/i);
+  controls.dispose();
+});
+
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {
   const { controls, calls, send } = setup(local);
   send('pointerdown');

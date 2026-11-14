@@ -48,9 +48,11 @@ export function biByeAimPose(b,now=b.poseTime??0){
 }
 export function biByeWheelSteering(steer){
  if(Math.abs(steer)<.001)return [0,0,0,0,0,0];
- const radius=4.25/Math.abs(steer),side=Math.sign(steer);
+ // The visible six-wheel steering and wheel travel must agree with the
+ // tighter 3.8m server-side turn, not retain the previous 4.25m geometry.
+ const radius=3.8/Math.abs(steer),side=Math.sign(steer);
  const angle=(deg,x)=>Math.atan(Math.tan(deg*DEG)*radius/(radius-side*x))*side;
- return [-angle(18,-1.075),-angle(18,1.075),0,0,angle(10,-1.075),angle(10,1.075)];
+ return [-angle(22,-1.075),-angle(22,1.075),0,0,angle(12,-1.075),angle(12,1.075)];
 }
 // The same small, deterministic bends are used by hit geometry and presentation.
 export function biByeComponentPose(b,def,now=b.poseTime??0){

@@ -5,6 +5,8 @@ const b = { id: 'siege', position: { x: 0, y: 0, z: 0 }, health: 400, maxHealth:
 const local = { alive: true, position: { x: 0, z: 3.1 } };
 test('one interaction prompt uses the actual 3.2 m range and excludes an occupied machine', () => {
   assert.ok(biByeHudView(local, { bibyeBallista: b }, 0));
+  assert.equal(biByeHudView(local, { bibyeBallista: b }, 0, {touch:true}),null,
+    'mobile near-ballista prompt is the physical MOUNT button, not an outdated black HUD panel');
   assert.equal(biByeHudView({ ...local, position: { x: 0, z: 3.3 } }, { bibyeBallista: b }, 0), null);
   assert.equal(biByeHudView(local, { bibyeBallista: { ...b, operatorId: 'another' } }, 0), null);
 });

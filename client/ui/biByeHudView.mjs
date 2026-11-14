@@ -9,6 +9,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (!local?.alive || !b || b.mode === 'DESTROYED') return null;
   const key = action => bindings[action]?.[0] ? keyLabel(bindings[action][0]) : 'UNBOUND';
   if (!local.operatingBallistaId) {
+    // Mobile uses the actual nearby MOUNT control, not an obsolete text panel.
+    if (touch) return null;
     if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > BI_BYE_LLISTA_CONFIG.emplacement.interactRadius) return null;
     return { title: 'BI-BYE-LLISTA', status: touch ? 'Tap MOUNT to operate' : `[${key('interact')}] Operate`, controls: '' };
   }

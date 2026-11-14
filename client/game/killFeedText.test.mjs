@@ -21,6 +21,7 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
   'bibye-siege':['stuck around','bad name','got through','bolted away'],
   'bibye-conditioning':['chilled out','calm down','first bolt'],
   'so-fist':['handshake','broke','ahold'],
+  'so-fist-flick':['pointed','fainted','finger'],
   'knock-on-steel':['ran through','battering ram'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
   'ram':['knocked down','misremembered'],
@@ -38,6 +39,16 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
  }
  const dash=killFeedDeath(death('fight-flight-rotor','rotorDash'),'Aden','Enemy');
  assert.ok(dash.text.includes('rotor-blades')||dash.text.includes('for a spin'));
+});
+test('Finger Flick lines are reserved for real Flick finishers, never ordinary piston kills',()=>{
+ const flick=new Set(Array.from({length:120},(_,i)=>
+   killFeedDeath(death('so-fist-flick',null,i/30),'Rowan','Perry').text));
+ assert.deepEqual(flick,new Set([
+   'Rowan pointed Perry toward the exit',
+   "Perry fainted at Rowan's accusation",
+   'Rowan gave Perry the finger',
+ ]));
+ assert.ok(!flick.has(killFeedDeath(death('so-fist'),'Rowan','Perry').text));
 });
 test('Coreflagration only claims a second explosion if the lethal contact was the second burst',()=>{
  for(let i=0;i<45;i++){

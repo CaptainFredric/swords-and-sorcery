@@ -9,7 +9,13 @@ function run(s,seconds,input={},dt=1/60){s.p.input={forward:0,right:0,yaw:0,pitc
 test('authored four wheel carriage accelerates, reverses and turns without lateral sliding',()=>{
  const s=setup();run(s,3,{forward:1});assert.ok(Math.abs(s.b.speed-SO_FIST.speed)<.02);assert.ok(s.b.z<-9);assert.equal(s.b.wheelRolls.length,4);assert.equal(s.p.guardStamina,100);
  const at=s.b.z;run(s,4,{forward:-1});assert.ok(s.b.speed>=-SO_FIST.reverse-.01&&s.b.speed< -SO_FIST.reverse+.1);assert.ok(s.b.z>at);
- const turn=setup();run(turn,3,{forward:1,right:1});assert.ok(Math.abs(turn.b.heading)>1);const still=setup();run(still,1,{right:1});assert.equal(still.b.heading,0);assert.equal(still.b.x,0);
+ const turn=setup();run(turn,3,{forward:1,right:1});assert.ok(Math.abs(turn.b.heading)>1);
+ const assist=setup();run(assist,2,{right:1});
+ assert.ok(Math.abs(assist.b.heading)>.65,'full lateral stick commands a tight moving-wheel turn');
+ assert.ok(Math.hypot(assist.b.x,assist.b.z)>1,'assisted turning translates instead of pivoting on the spot');
+ const reverse=setup();run(reverse,2,{forward:-1});const heading=reverse.b.heading;
+ run(reverse,2,{right:1});assert.ok(reverse.b.heading<heading,
+   'assisted reversing still turns toward right command');
 });
 test('ram can board from the side without demanding an unobstructed rear exit',()=>{
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
@@ -76,7 +82,7 @@ test('rotated ram movement solids leave the empty diagonal approach accessible',
 test('ordinary maneuvering responds within one second and brakes promptly without replacing charge',()=>{
  const s=setup();run(s,1,{forward:1});assert.ok(s.b.speed>=3.7&&s.b.speed<5);
  const before=s.b.z;run(s,1);assert.equal(s.b.speed,0);assert.ok(before-s.b.z<1.7);
- run(s,2,{forward:-1});assert.ok(s.b.speed<=-2.3&&s.b.speed>=-2.6);
+ run(s,2,{forward:-1});assert.ok(s.b.speed<=-2.9&&s.b.speed>=-3.2);
  const charge=setup();run(charge,4,{sprint:true});assert.ok(charge.b.speed>11);assert.ok(charge.b.speed>SO_FIST.speed*2);
 });
 
