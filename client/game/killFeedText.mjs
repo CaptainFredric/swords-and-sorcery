@@ -100,7 +100,6 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  if(source==='bibye-conditioning'||source==='bibye-shockwave')return text([
    `${k} chilled out ${v}`,
    `${k} made ${v} calm down`,
-   `${v} was caught by ${apostrophe(k)} first bolt`,
  ],event,'frost');
  // These become live once the authoritative A Sharp Turn damage source is
  // introduced; do not falsely claim that an ordinary bolt was a blade sweep.
