@@ -193,11 +193,20 @@ try {
     return dist < 2.0;
   }, 'Walking into mount range', 40, 200);
 
+  // Press the real landscape MOUNT button. A direct rt.input.interact()
+  // would bypass the touch label/selection/PointerEvent route reported broken.
   await evaluate(`(() => {
     const rt = window.__ssRuntime;
     rt.input.movement = rt._origMovement;
     rt.input.enabled = true;
-    rt.input.interact();
+    const button = rt.touch.buttons.interact;
+    if (button.hidden || button.dataset.mountTarget !== 'fight-and-flight')
+      throw new Error('Fight-and-Flight must be the visible mobile MOUNT target');
+    const rect = button.getBoundingClientRect();
+    const gesture = {bubbles:true,pointerType:'touch',pointerId:771,
+      clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2};
+    button.dispatchEvent(new PointerEvent('pointerdown',gesture));
+    button.dispatchEvent(new PointerEvent('pointerup',gesture));
   })()`);
 
   await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"), 'Mounted on Fight-and-Flight', 40, 200);
