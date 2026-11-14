@@ -82,10 +82,15 @@ try{
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=lookAroundAndFindOut]').getAttribute('aria-checked')"),'true');
  await screenshot('01-third-skill-equipped');
  await evaluate("document.querySelector('#armory-back').click()");
- await evaluate("document.querySelector('#player-name').value='Argon v26 sweep inspection';document.querySelector('#solo-button').click()");
- await until(()=>evaluate("Boolean(document.querySelector('#practice-mode')&&!document.querySelector('#practice-mode').disabled)"),'Practice menu');
- await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click()||document.querySelector('#practice-mode').click()");
- await until(async()=>{const s=await observe();return s?.mode==='PRACTICE'&&s?.me?.id?s:false;},'Practice host',180);
+ // Inspection Practice uses Castleward's *existing, authorized* collision-safe
+ // actor placement tools to defeat headless Chrome's slow software-rendered
+ // walking. Mount, attack, Skill, and projectile fire are still real inputs.
+ const kit=await evaluate("window.__ssLink?.local?.siegeLoadout?.biBye");
+ assert.equal(kit,'lookAroundAndFindOut','actual personal equipment must match the Armory before entering');
+ await evaluate("window.__ssLink.startInspectionPractice('Argon v26 sweep inspection','castleward')");
+ await until(async()=>{const s=await observe();return s?.mode==='PRACTICE'&&s?.me?.id?s:false;},'isolated real-authority Inspection Practice host',180);
+ assert.equal(await evaluate("window.__ssLink.local.player.siegeLoadout.biBye"),'lookAroundAndFindOut',
+   'Practice player carries the selected third Skill; the idle machine remains default until mounted');
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await observe();return s?.ballista?s:false;},'real ballista built',100);
  // The original 26-clip donor must load, not the production v4.3 fallback.
@@ -98,16 +103,17 @@ try{
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  await evaluate("window.__ssRuntime?.requestPointerLock()");
  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'focused gameplay input',80);
- const radius=BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
- let near=false;
- for(let i=0;i<25;i++){
+ // The sandbox tool resolves this position against terrain, player and
+ // machine solids; it does not grant a PvP mount bypass or fake an operator.
+ const staged=await evaluate("(() => {const r=window.__ssRuntime,link=window.__ssLink;return link.stageInspectionActor({actorId:r.localAuth.id,position:'near_ballista'});})()");
+ assert.equal(staged?.success,true,'valid, collision-resolved inspection placement beside the actual siege engine: '+JSON.stringify(staged));
+ const position=await until(async()=>{
   const s=await observe(),p=s?.me?.position,b=s?.ballista;
-  if(!p||!b)throw Error('Lost Practice actor or ballista while approaching');
-  if(Math.hypot(p.x-b.x,p.z-b.z)<radius-.05){near=true;break;}
-  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
-  await key('W','rawKeyDown');await sleep(280);await key('W','keyUp');await sleep(100);
- }
- assert.ok(near,'player must approach the actual mounting position');
+  return p&&b&&Math.hypot(p.x-b.x,p.z-b.z)<BI_BYE_LLISTA_CONFIG.emplacement.interactRadius-.05?s:false;
+ },'authorized near-ballista inspection placement',90);
+ proof.staged={position:position.me.position,selectedKit:kit};
+ await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
+
  await tap('T');
  const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',90);
  assert.equal(mounted.ballista.skill.id,'lookAroundAndFindOut');
