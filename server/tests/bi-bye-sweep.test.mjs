@@ -199,8 +199,8 @@ test('sustained loop can strike again only after a real new revolution',()=>{
  const hits=s.room.events.filter(e=>e.type==='bibyeSweepImpact'&&e.victimId==='repeat');
  assert.ok(hits.length>=2,'a stationary target may be struck on a later physical turn');
  for(let i=1;i<hits.length;i++)
-  assert.ok(hits[i].at-hits[i-1].at>=BI_BYE_SWEEP.loop-.13,
-   'each repeated blow must follow at least one real revolution');
+  assert.ok(hits[i].sweepAngle-hits[i-1].sweepAngle>=Math.PI*2-.035,
+   'each repeated blow must follow a complete physical 360-degree arc');
  assert.equal(victim.health,100-hits.length*BI_BYE_SWEEP.damage);
  assert.equal(s.b.skill.readyAt,0,'no cooldown during indefinite motion');
 });

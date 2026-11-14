@@ -88,6 +88,16 @@ function worldBlocked(b,oldBlades,nextBlades,world){
 // Conservative complete clearance before either action. Dynamic enemies and
 // machines are legitimate impact targets, not imaginary walls.
 export function biByeSweepClearance(b,world){
+ // Check the complete exported clip-22 windup AND recovery, not only the
+ // all-lowered spinning circle. A raised limb can strike a wall the lower
+ // pose would clear. This is entirely a collision preflight, no damage.
+ let previous=bladesAt(b,0,phaseAt(0).lower,0);
+ for(let time=.05;time<=BI_BYE_SWEEP.single+.049;time+=.05){
+  const current=Math.min(time,BI_BYE_SWEEP.single),p=phaseAt(current);
+  const next=bladesAt(b,p.angle,p.lower,current);
+  if(worldBlocked(b,previous,next,world))return false;
+  previous=next;
+ }
  const original=bladesAt(b,0,1);
  let last=original;
  for(let a=BI_BYE_SWEEP.maxArcStep;a<TAU+.001;a+=BI_BYE_SWEEP.maxArcStep){
@@ -173,7 +183,8 @@ function hitPlayer(room,b,s,player,point,normal,now,angle){
  staggerBy(room,player,BI_BYE_SWEEP.stagger*(guarded?.35:1),now,s.ownerId);
  launchBody(player,{x:dx*shove,y:guarded?1.2:3,z:dz*shove},6);
  if(player.alive){armWorldImpact(player,s.ownerId,'bibye-sweep',now);interruptHitActions(room,player,s.ownerId,now,'bibye-sweep');}
- room.events?.push({type:'bibyeSweepImpact',ballistaId:b.id,victimId:player.id,guarded,point,at:now});
+ room.events?.push({type:'bibyeSweepImpact',ballistaId:b.id,victimId:player.id,guarded,point,
+  revolution:s.revolution,sweepAngle:angle,at:now});
 }
 function hitMachines(room,b,s,oldBlades,newBlades,now,angle){
  for(const machine of [room.soFistication,room.fightFlight]){
@@ -270,8 +281,12 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
    else finishBiByeSweep(room,b,now,'obstructed');
    return;
   }
- }else if(s.phase==='settle'&&worldBlocked(b,bladesAt(b,prior,priorLower),bladesAt(b,next,lower),room.world)){
-  finishBiByeSweep(room,b,now,'obstructed');return;
+ }else if(worldBlocked(b,
+   bladesAt(b,prior,priorLower,authoredClock?(s.lastPhysicsAge??0):null),
+   bladesAt(b,next,lower,authoredClock?age:null),room.world)){
+  if(s.kind==='skill'&&s.phase==='opening')requestBiByeSweepStop(b,now,false);
+  else finishBiByeSweep(room,b,now,'obstructed');
+  return;
  }
  s.angle=next;s.lower=lower;s.lastPhysicsAge=age;
  // Keep both launchers attached to the real traverse. Starting from the
