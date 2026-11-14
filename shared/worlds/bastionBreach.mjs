@@ -113,10 +113,12 @@ const SOLIDS = [
   solid('rubble-flank-west', [-14.5, -12.5], [0, 0.9], [-16, -14]),
 
   // --- Approach Cover (pavises, barricades, crates, breastwork) ---
-  solid('cover-camp-barricade', [-3, 3], [0, 1.2], [-28, -27], { material: 'timber' }),
-  solid('cover-camp-pavise', [-7.0, -5.0], [0, 1.4], [-27.5, -26.5], { material: 'timber' }),
-  solid('cover-approach-pillar-left', [-4.5, -3.0], [0, 2.8], [-20, -18]),
-  solid('cover-approach-crates-right', [2.5, 4.5], [0, 1.4], [-19, -17], { material: 'timber' }),
+  // Put the flanking cover in side pockets, off the carriage's departure
+  // lane. The central assault barricade stays destructive and unavoidable.
+  solid('cover-camp-barricade', [-12.0, -8.0], [0, 1.2], [-28, -27], { material: 'timber' }),
+  solid('cover-camp-pavise', [-7.0, -5.0], [0, 1.4], [-29.3, -28.3], { material: 'timber' }),
+  solid('cover-approach-pillar-left', [-7.3, -5.8], [0, 2.8], [-20, -18]),
+  solid('cover-approach-crates-right', [6.5, 8.5], [0, 1.4], [-19, -17], { material: 'timber' }),
   solid('cover-approach-breastwork', [-2.9, 2.9], [0, 2.35], [-14.5, -13.7], { material: 'timber' }),
 
   // --- Barbican Gatehouse (Objective 1) Defensive Bulwarks ---
