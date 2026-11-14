@@ -84,7 +84,7 @@ export function biByeSweepClearance(b,world){
  return !worldBlocked(b,last,original,world);
 }
 function readyToStart(b){
- return !impeded(b)&&!b.sweep&&!b.heavySkill&&
+ return !impeded(b)&&!b.sweep&&(!b.sweepRecovery||b.poseTime>=b.sweepRecovery.until)&&!b.heavySkill&&
   b.mobileShotPendingAt==null&&b.combinedUpperPendingAt==null&&
   !b.pendingIndependent&&!b.pendingCoupledFromUpper&&!b.pendingVolley&&
   !['FIRING','ALIGNING','ENGAGING','COUPLED'].includes(b.coupling)&&
@@ -247,7 +247,13 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
   b.mainYaw=b.heading;b.mainPitch=0;
   // Resolution starts the full Skill cooldown. The ordinary loader, physical
   // clutch and projectile pipeline still decide whether anything can fire.
+  const transitionStart=s.stopAt;
   finishBiByeSweep(room,b,now,shouldFire?'firing':'cancelled');
-  if(shouldFire)fireOrdinary?.(room,b,now);
+  if(shouldFire){
+   fireOrdinary?.(room,b,now);
+   // Preserve the rest of original clip 24's 2.2-second recoil/recovery
+   // without retaining a second active sweep or delaying the actual loader.
+   b.sweepRecovery={from:transitionStart,until:transitionStart+BI_BYE_SWEEP.settleClip};
+  }
  }
 }
