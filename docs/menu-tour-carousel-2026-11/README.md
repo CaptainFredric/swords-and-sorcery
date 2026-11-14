@@ -70,11 +70,11 @@ Like for like, Castleward only, three rounds at 2x, main vs this branch: menu re
 same, plus up to 150 ms the first time the lift-off's parry and gusts are drawn).
 
 The carousel: another world's renderer module is fetched during the round before; building it takes 120 to 185 ms and
-its first drawn frame up to about 270 ms more, both in the dark (the round holds the dark for three drawn frames after
+its first drawn frame up to about 400 ms more (the Outerworks), both in the dark (the round holds the dark for three drawn frames after
 building, so the browser's shader linking lands there; `compileAsync` stalls on some of the Outerworks' materials in
 three r169, so it is not used). With the Outerworks on show the menu draws about 90 to 130 calls and 200k triangles;
-heap 180 to 220 MB with one other world kept. No frame over 40 ms with the picture up during a change of map in the
-final run. Before the dark hold, the Outerworks' first visible frame stalled 1.5 s.
+heap 180 to 285 MB with one other world kept. In the final run (Castleward, Court, Court, Outerworks, back to
+Castleward) every frame over 40 ms during a change of map fell in the dark; none with the picture up. Before the dark hold, the Outerworks' first visible frame stalled 1.5 s.
 
 ## What was not verified
 
