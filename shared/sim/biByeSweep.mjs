@@ -137,7 +137,7 @@ function hitPlayer(room,b,s,player,point,normal,now){
  if(s.victims[player.id]===s.revolution)return;
  s.victims[player.id]=s.revolution;
  const guarded=Boolean(player.guarding&&player.guardStamina>0&&
-  isInGuardCone(player,{position:point},now));
+  isInGuardCone(player,{position:{x:b.x,y:b.y,z:b.z}},now));
  const damage=guarded?Math.round(BI_BYE_SWEEP.damage*BI_BYE_SWEEP.guardScale):BI_BYE_SWEEP.damage;
  if(guarded){
   player.guardStamina=Math.max(0,player.guardStamina-40);
