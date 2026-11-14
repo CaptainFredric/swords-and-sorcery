@@ -66,7 +66,9 @@ test('he lifts off, hangs a moment, and goes straight up and out of the picture;
   assert.ok(Math.abs(galeLift(G.fly[0]) - G.hoverAt) < 0.1, 'hanging there');
   assert.ok(galeLift(G.fly[1]) > 25, 'gone up out of the picture');
   assert.ok(fight.hero(G.fly[1] + 0.3).away && !fight.hero(G.fly[1] - 0.3).away);
-  assert.match(director, /root\.visible = this\.visible && !away;/);
+  assert.match(director, /if \(this\.cast\.traveller === HERO\) this\.#showHero\(this\.visible && !away\);\s+else root\.visible = this\.visible && !away;/);
+  // (hidden without a stall: his lights stood in for, so no shader is rebuilt the moment he goes)
+  assert.match(director, /stand\.intensity = 0;/);
   // and the one left standing stares up after him
   assert.ok(fight.rival(G.lookUp[1] + 0.1).looking === 1);
   assert.ok(fight.rival(G.handover - 0.01).looking === 1, 'still staring at the handover');
@@ -112,7 +114,7 @@ test('visual only: nothing the round does reaches the player\'s knight beyond po
     assert.doesNotMatch(code(text), /setCloth|setEmblem|localStorage|__ssSettings|settings\.|loadout|armory/i);
   }
   // the hero is only hidden while a rival has the round, and shown again when the cast is reset (leaving, a restart)
-  assert.match(director, /this\.hero\.root\.visible = cast\.traveller === HERO;/);
+  assert.match(director, /this\.#showHero\(cast\.traveller === HERO\);/);
   const hide = director.slice(director.indexOf('setVisible(visible) {'), director.indexOf('/** A reaction on the front door'));
   assert.match(hide, /if \(!visible\) \{\s+this\.#applyCast\(createCast\(RIVAL_DRESS\.length, 3\)\);/, 'leaving: his again');
   // and the menu, leaving the front door: back on his stage, in Castleward, shown, his pose reset

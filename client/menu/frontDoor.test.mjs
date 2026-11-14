@@ -162,3 +162,13 @@ test('the menu tour restores pending rivals before combat approach so repeated c
   assert.match(director, /this\.#restoreRival\(rival, index\);/);
 });
 
+
+test('on a short screen the round\'s subtitle sits above the yard\'s controls, never under them (both views)', () => {
+  // (the short-screen block that sets the yard's controls)
+  const at = css.indexOf('.yard-controls { bottom: calc(var(--safe-b, 0px) + 10px); }');
+  const block = css.slice(css.lastIndexOf('@container app (max-height: 500px)', at), css.indexOf('\n}\n', at));
+  assert.match(block, /\.subtitle\.menu-caption, \.touch-ui \.subtitle\.menu-caption, \.subtitle\.menu-caption\.observing \{ bottom: calc\(var\(--safe-b, 0px\) \+ 64px\); \}/);
+  // (the touch plaque: 46px tall, 10px up: the subtitle's foot clears it)
+  assert.match(css, /\.touch-ui \.yard-button \{ min-height: 46px; \}/);
+  assert.match(block, /\.yard-controls \{ bottom: calc\(var\(--safe-b, 0px\) \+ 10px\); \}/);
+});

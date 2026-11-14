@@ -4,7 +4,7 @@ import { createSpellbladeAsset } from '../../game/SpellbladeAssets.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../../game/swordArmIK.mjs';
 import { performanceAt } from '../menuReactions.mjs';
 import {
-  armourFallRecipe, blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, galeReleaseRecipe, groundSlamRecipe,
+  armourFallRecipe, blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, galeGatherRecipe, galeReleaseRecipe, groundSlamRecipe,
   meltHissRecipe, parryRecipe, scoopRecipe, slushCollapseRecipe, spatialize, splashRecipe, swingRecipe, swordHitRecipe, vesselRecipe, vortexEndRecipe,
   vortexWhooshRecipe, wallClangRecipe,
 } from '../../game/sound/soundRecipes.mjs';
@@ -50,6 +50,9 @@ export const RIVAL_DRESS = Object.freeze([
 export const TRAVEL_FADE = Object.freeze({ out: 0.55, in: 0.7 });
 // how close the Gale's wind must be to catch a knight's cape, and how hard (m/s) it blows at its strongest
 const GALE_REACH = 7;
+// a third-person blade's length (vortexBlade VORTEX_BLADES.thirdPerson), and where along the rival's a parry takes it
+const PARRY_BLADE = 0.94;
+const PARRY_SHARE = 0.62;
 const GALE_GUST = 15;
 // the Gale's gust (shared/src/spells.mjs) made small: the air driven off the funnel at the one backing away from it, and
 // the blast out across the ground as he leaves it
@@ -179,7 +182,33 @@ export class TourDirector {
       const record = this.knights[index];
       if (record) { this.#restoreRival(record, index); record.holder.visible = false; record.resetPending = false; }
     }
-    if (this.hero?.root) this.hero.root.visible = cast.traveller === HERO;
+    this.#showHero(cast.traveller === HERO);
+  }
+
+  // The player's knight in sight or out of it, without a stall: whatever lights he carries (the menu's palm light) are
+  // stood in for, lit at nothing, while he is hidden, so the scene's count of lights never changes (a change rebuilds
+  // every lit shader: a frame's freeze, the moment he flew off). Nothing on him is touched but his root's visibility.
+  #showHero(shown) {
+    const root = this.hero?.root;
+    if (!root) return;
+    if (!shown && root.visible && !this.heroStandIns) {
+      const lights = [];
+      root.traverseVisible((object) => { if (object.isLight) lights.push(object); });
+      this.heroStandIns = lights.map((light) => {
+        const stand = light.clone(false);
+        stand.intensity = 0;
+        this.scene.add(stand);
+        return stand;
+      });
+    }
+    if (shown && this.heroStandIns) {
+      for (const stand of this.heroStandIns) {
+        this.scene.remove(stand);
+        stand.dispose?.();
+      }
+      this.heroStandIns = null;
+    }
+    root.visible = shown;
   }
 
   // this round's fights at the three stops, their frames and the schedule they make
@@ -195,11 +224,36 @@ export class TourDirector {
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
     this.schedule = buildSchedule(this.path.length, { fights: this.fights, distances: this.stops, introduction: round === 0 && this.map.id === 'castleward' });
-    // (the lift-off's funnel made, and its shaders compiled, as the round begins, not as it first appears mid-fight)
-    if (!this.funnel && this.fights.some((fight) => fight.id === 'galeLiftoff')) {
-      this.funnel = galeFunnel(this.scene);
+    // (the lift-off's funnel made, and its shaders and its effects' compiled, as the round begins, not as each first
+    // appears mid-fight)
+    if (this.fights.some((fight) => fight.id === 'galeLiftoff')) {
+      if (!this.funnel) this.funnel = galeFunnel(this.scene);
       this.worlds?.warm?.(this.funnel.group);
+      this.#rehearse();
     }
+  }
+
+  // The lift-off's effects once each, far under the map where nothing sees them, and compiled there: the parry's burst,
+  // the gusts, the wisps, the ring and dust of the lift-off. Effects keeps one material of each kind it lets go of, so
+  // their shaders stay built for the fight itself (a world's lights change its shaders: rehearsed in each world).
+  #rehearse() {
+    if (!this.worlds?.warm || !this.effects?.transients) return;
+    const before = new Set(this.effects.transients.map((transient) => transient.mesh));
+    const below = { x: 0, y: -400, z: 0 };
+    const groundAt = () => -400;
+    this.effects.blockBurst(below, { x: 1, y: 0, z: 0 }, { parry: true });
+    this.effects.groundShock(below, { radius: 3.2 });
+    this.effects.galeBlast(below, { x: 1, y: 0.02, z: 0 }, PUSH_CONE, { groundAt });
+    this.effects.galeBlast(below, { x: 1, y: -0.06, z: 0 }, LIFTOFF_CONE, { groundAt });
+    this.effects.galeGather(() => ({ origin: below }), { gatherSec: 0.3 });
+    const made = new Set();
+    for (const { mesh } of this.effects.transients) {
+      if (before.has(mesh)) continue;
+      let top = mesh;
+      while (top.parent && top.parent !== this.scene) top = top.parent;
+      made.add(top);
+    }
+    for (const object of made) this.worlds.warm(object);
   }
 
   // the first version of a fight from the pool that has room and a clear view at this stop
@@ -519,6 +573,8 @@ export class TourDirector {
       // a spin is too quick to ease after: he faces exactly where the script says
       snap = Boolean(pose.snap);
       plan = this.#plan(pose);
+      // a parry: his blade to where the rival's really is
+      if (pose.guardBlade > 1e-3) this.#parryArm(plan, pose, this.rivals[moment.fight], instance);
       // the White Flag's finale: he raises his sword to the sky as the rival runs for it
       if (pose.rally !== null && pose.rally !== undefined) plan = this.#performancePlan('rally', pose.rally, plan);
     } else {
@@ -538,7 +594,8 @@ export class TourDirector {
     }
     if (this.performance) plan = this.#performancePlan(this.performance.kind, this.performance.elapsed, { clip: 'Idle', loop: true, time: this.time });
     // (gone up out of the sky: nothing of him to draw until the round is his again)
-    root.visible = this.visible && !away;
+    if (this.cast.traveller === HERO) this.#showHero(this.visible && !away);
+    else root.visible = this.visible && !away;
     this.travellerAway = away;
     root.position.copy(position);
     // the turn is eased (a knight turns in a moment, never snaps), except in a spin, which is all turn
@@ -608,6 +665,43 @@ export class TourDirector {
       } : undefined,
     };
     return plan;
+  }
+
+  // A point along a knight's blade (`share` of the way from the grip to the point), in the world: the blade as his rig
+  // holds it this frame (its grip socket, the blade along the socket's aim: VORTEX's own measure of it)
+  #bladePoint(instance, share) {
+    const socket = instance?.sockets?.sword ?? instance?.animator?.bone?.('socket_sword');
+    if (!socket) return null;
+    const [ax, ay, az] = THIRD_PERSON_SWORD_ARM.aim;
+    return socket.localToWorld(new THREE.Vector3(ax, ay, az).multiplyScalar(PARRY_BLADE * share));
+  }
+
+  // The parry made real: his sword arm (the arm solver, after whatever the clip and the script have done) brings his
+  // blade across the rival's at the point it is coming in, then sweeps it out to his right as the parry turns it
+  #parryArm(plan, pose, rival, instance) {
+    const point = this.#bladePoint(rival?.instance, PARRY_SHARE);
+    if (!point || !plan.motion) return;
+    instance.root.updateMatrixWorld(true);
+    const goal = instance.root.worldToLocal(point).toArray();
+    const before = plan.motion.solve;
+    plan.motion.solve = (bones) => {
+      before?.(bones);
+      const S = bones.position(THIRD_PERSON_SWORD_ARM.shoulder);
+      const to = goal.map((g, k) => g - S[k]);
+      const far = Math.hypot(...to) || 1;
+      const reach = Math.max(0.28, Math.min(0.6, far - 0.42));
+      const wrist = S.map((s, k) => s + (to[k] / far) * reach);
+      wrist[0] += 0.24 * pose.parrySweep;
+      wrist[1] += 0.06 * pose.parrySweep;
+      const toward = goal.map((g, k) => g - wrist[k]);
+      const length = Math.hypot(...toward) || 1;
+      const raised = toward.map((c, k) => (c / length) * 0.7 + (k === 1 ? 0.3 : 0));
+      const n = Math.hypot(...raised) || 1;
+      const aim = raised.map((c) => c / n);
+      const across = [1 - aim[0] * aim[0], -aim[0] * aim[1], -aim[0] * aim[2]];
+      const m = Math.hypot(...across) || 1;
+      solveArm(bones, THIRD_PERSON_SWORD_ARM, { wrist, aim, roll: across.map((c) => c / m) }, pose.guardBlade);
+    };
   }
 
   #performancePlan(kind, elapsed, base) {
@@ -723,7 +817,7 @@ export class TourDirector {
         if (!rivalRoot) break;
         const a = this.#chest(heroRoot);
         const b = this.#chest(rivalRoot);
-        const point = a.clone().lerp(b, 0.42).add(new THREE.Vector3(0, 0.2, 0));
+        const point = this.#bladePoint(rival.instance, PARRY_SHARE) ?? a.clone().lerp(b, 0.42).add(new THREE.Vector3(0, 0.2, 0));
         this.effects.blockBurst(point, b.clone().sub(a).normalize(), { parry: true });
         this.#play(parryRecipe(), point, 0.75);
         break;
@@ -988,6 +1082,9 @@ export class TourDirector {
       this.wind.wisps = 0.45;
       const gather = this.effects.galeGather(() => ({ origin: this.#chest(root) }), { gatherSec: 0.6 });
       if (gather) this.wind.gathering = gather;
+      // (and heard drawn in, the Gale's own gathering breath, louder as it builds: the slow turns before the spin's
+      // whooshes take over were silent)
+      this.#play(galeGatherRecipe(Math.random, { seconds: 0.6 }), this.#chest(root), 0.14 + 0.32 * wind);
     }
     const rival = this.rivals[moment.fight];
     const standing = rival && rival.holder.visible ? rival.holder.getWorldPosition(new THREE.Vector3()) : null;
@@ -1152,7 +1249,7 @@ export class TourDirector {
     this.#stopWind();
     this.funnel?.dispose();
     this.funnel = null;
-    if (this.hero?.root) this.hero.root.visible = true;
+    this.#showHero(true);
     for (const rival of this.knights) {
       if (!rival) continue;
       this.scene.remove(rival.holder);

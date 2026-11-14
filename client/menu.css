@@ -1271,6 +1271,9 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 @container app (max-height: 500px) {
   .herald-tab { top: 74px; }
   .yard-controls { bottom: calc(var(--safe-b, 0px) + 10px); }
+  /* (the round's subtitle above the yard's controls, never under them: a short screen has no room beside them; the
+     touch plaque is 46px tall, set 10px up) */
+  .subtitle.menu-caption, .touch-ui .subtitle.menu-caption, .subtitle.menu-caption.observing { bottom: calc(var(--safe-b, 0px) + 64px); }
   .yard-button { min-height: 38px; padding: 6px 12px 6px 26px; }
   .yard-button small { display: none; }
   .banner-foot { margin-top: 2px; padding-top: 3px; }

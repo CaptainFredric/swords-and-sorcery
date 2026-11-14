@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TOUR_MAPS } from './tourMaps.mjs';
 
 // The worlds behind the front door: Castleward (the menu's own, always there: every other screen is framed on its
 // green) and whichever world the round has moved on to (tourMaps.mjs). Another world's renderer is fetched while the
@@ -6,12 +7,6 @@ import * as THREE from 'three';
 // (show: building one takes a moment; nobody sees the frame it takes), and shown in that world's own light, sky and
 // fog. One other world is kept at a time: moving on to a third lets the second go. Leaving the front door shows
 // Castleward again at once, in its own light.
-
-// each world's renderer, fetched only when the round is going there
-const RENDERERS = Object.freeze({
-  'court-of-merit': () => import('../../worlds/CourtOfMeritRenderer.mjs').then((module) => module.CourtOfMeritRenderer),
-  outerworks: () => import('../../worlds/OuterworksRenderer.mjs').then((module) => module.OuterworksRenderer),
-});
 
 export class TourWorlds {
   /**
@@ -44,7 +39,8 @@ export class TourWorlds {
   /** Fetch a world's renderer ahead of the dark: resolves true once it can be shown, false if it cannot. */
   prepare(id) {
     if (this.worlds.has(id) || this.types.has(id)) return Promise.resolve(true);
-    const load = RENDERERS[id];
+    // (each map names its own renderer's loader: tourMaps.mjs)
+    const load = id === 'castleward' ? null : TOUR_MAPS[id]?.load;
     if (!load) return Promise.resolve(false);
     if (!this.loading.has(id)) {
       this.loading.set(id, load().then((Renderer) => {

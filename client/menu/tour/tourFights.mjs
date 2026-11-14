@@ -244,8 +244,8 @@ export function makeWhiteFlag({ flee = [12.5, 1] } = {}) {
         [4.3, 'Idle', { loop: true }],
         [4.6, 'Run', { loop: true, rate: 0.35 }],
         [5.1, 'Idle', { loop: true }],
-        [6.0, 'Run', { loop: true, rate: 0.35 }],
-        [6.5, 'Idle', { loop: true }],
+        [5.45, 'Run', { loop: true, rate: -0.35 }],
+        [5.95, 'Idle', { loop: true }],
       ], t);
       // the duck: down low, head tucked, as the fireball passes where his head was
       const duck = between(t, 2.55, 2.75) * (1 - between(t, 3.2, 3.5));
@@ -255,10 +255,11 @@ export function makeWhiteFlag({ flee = [12.5, 1] } = {}) {
         { bone: 'chest', axis: [-1, 0, 0], angle: 0.25 * duck },
         { bone: 'head', axis: [-1, 0, 0], angle: 0.35 * duck },
       ] : [];
-      // a step in to work the change, a step back to admire it
-      const u = keyed([[4.6, 0], [5.1, 0.55], [6.0, 0.55], [6.5, 0]], t);
+      // a step in to work the change, and straight back out of it to admire it (back before the rival's long look at
+      // his flag begins, at 5.6: standing in close through it, his back hid the look from the camera)
+      const u = keyed([[4.6, 0], [5.1, 0.55], [5.45, 0.55], [5.95, 0]], t);
       // the flick of sorcery: the spell hand thrust toward the rival's sword
-      const flick = between(t, 5.05, 5.3) * (1 - between(t, 5.7, 6.0));
+      const flick = between(t, 5.05, 5.3) * (1 - between(t, 5.4, 5.65));
       const spell = flick > 1e-3 ? arm(blade([-0.12, 1.36, -0.62], [0, 0, -1]), flick) : null;
       // he watches him go, then raises his sword to the sky
       return { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, spell, sword: null, rally: t >= 8.3 && t < 11.2 ? t - 8.3 : null };
@@ -833,7 +834,12 @@ export function makeGaleLiftoff() {
       if (skyward > 1e-3) rotations.push({ bone: 'head', axis: [1, 0, 0], angle: 0.35 * skyward }, { bone: 'chest', axis: [1, 0, 0], angle: 0.12 * skyward });
       const crouch = lift > 0.02 ? 0 : out * 0.16 + 0.22 * between(t, G.liftoff - 0.35, G.liftoff - 0.05);
       const away = t >= G.fly[1] + 0.25;
+      // the parries: his sword hand goes to meet the blade coming at him (where it really is: TourDirector reads it off
+      // the rival's rig), takes it, and sweeps it aside
+      const guardBlade = Math.max(...G.blows.map((blow) => between(t, blow.parry - 0.36, blow.parry - 0.1) * (1 - between(t, blow.parry + 0.22, blow.parry + 0.48))));
+      const parrySweep = Math.max(...G.blows.map((blow) => between(t, blow.parry, blow.parry + 0.14) * (1 - between(t, blow.parry + 0.26, blow.parry + 0.48))));
       return {
+        guardBlade, parrySweep,
         u: 0, v: 0, lift, heading, ...clip, crouch, rotations, sword, spell, snap: spinning,
         // (for the camera: once he is on his way up out of the picture, there is nothing of him left to frame, so it
         // moves on to the one left standing, where he stands)

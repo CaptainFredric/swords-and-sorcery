@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { surfaceHeightAt } from '../../../shared/src/collision.mjs';
+import { getWorld } from '../../../shared/worlds/registry.mjs';
+import { readFileSync } from 'node:fs';
 import { FIGHT_POOL } from './tourFights.mjs';
 import { fightPair, placeFight } from './tourCamera.mjs';
 import { STOP_SPACING, TOUR_MAPS, TOUR_MAP_IDS, mapPlan, mapVariants, nextLeg, routeIssues, stopsFit } from './tourMaps.mjs';
@@ -22,6 +24,17 @@ test('every map the round visits is a world of the game, with routes and three s
     assert.ok(map.routes.length >= 1);
     for (const route of map.routes) assert.equal((route.anchors ?? route.stops).length, 3, `${id}/${route.id}: three stops`);
     assert.ok(mapVariants(id).length >= 6, `${id}: several ways round (starts, directions)`);
+  }
+  // each a world the game really has, as the game has it (no stand-in arena), and its renderer fetched only on the way
+  // there; Castleward, the menu's own, is always there
+  for (const id of TOUR_MAP_IDS) {
+    assert.equal(getWorld(id), TOUR_MAPS[id].world, `${id}: the registry's own world`);
+    if (id !== 'castleward') assert.equal(typeof TOUR_MAPS[id].load, 'function', `${id}: its renderer's loader`);
+  }
+  const loaders = readFileSync(new URL('./tourMaps.mjs', import.meta.url), 'utf8').match(/import\('\.\.\/\.\.\/worlds\/(\w+)\.mjs'\)/g) ?? [];
+  for (const loader of loaders) {
+    const file = loader.match(/worlds\/(\w+)\.mjs/)[1];
+    assert.ok(readFileSync(new URL(`../../worlds/${file}.mjs`, import.meta.url), 'utf8').includes(`export class ${file}`), `${file} exists`);
   }
   // (and Castleward's first way round is the round as it has always been)
   assert.deepEqual(mapPlan('castleward').stops, [20.5, 34.5, 70.5]);

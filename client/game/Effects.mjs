@@ -178,6 +178,15 @@ function settleOnFloor(transient) {
   transient.spin = null;
 }
 
+// what decides a material's shader (as far as Effects' own transients differ): its kind and the switches that change
+// the program three.js builds for it, never its colour or opacity (uniforms)
+function materialKind(material) {
+  const m = material;
+  const shader = m.isShaderMaterial ? `${m.vertexShader?.length}:${m.fragmentShader?.length}:${Object.keys(m.defines ?? {}).join(',')}` : '';
+  return [m.type, m.transparent, m.side, m.blending, m.depthWrite, m.depthTest, m.vertexColors, Boolean(m.map), Boolean(m.alphaMap), m.fog,
+    m.sizeAttenuation, m.flatShading, shader].join('|');
+}
+
 export class Effects {
   constructor(scene, camera) {
     this.scene = scene;
@@ -433,8 +442,23 @@ export class Effects {
     if (!transient) return;
     transient.parent?.remove(transient.mesh);
     // fading transients own their material (cloned); textures such as damage numbers are cached and shared
-    if (transient.fade || transient.own) transient.mesh.material.dispose();
+    if (transient.fade || transient.own) this.#retire(transient.mesh.material);
     if (transient.ownGeometry) transient.mesh.geometry.dispose();
+  }
+
+  // A transient's own material done with. One of each kind is kept rather than disposed: three.js lets a shader go
+  // with the last material that used it, so every hit, ring and gust that made and let go of its own material rebuilt
+  // its shader on the next one (a frame's stall each time: the menu round's probe saw it on every Whirlwind blow). A
+  // kept material holds its shader; the rest are disposed as before. (A few dozen kinds at most: bounded.)
+  #retire(material) {
+    if (!material) return;
+    const kind = materialKind(material);
+    this.keptMaterials ??= new Map();
+    if (kind && !this.keptMaterials.has(kind) && this.keptMaterials.size < 64) {
+      this.keptMaterials.set(kind, material);
+      return;
+    }
+    material.dispose();
   }
 
   #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {

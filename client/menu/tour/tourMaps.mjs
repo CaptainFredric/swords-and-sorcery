@@ -6,6 +6,11 @@
 // rounds. Pure: no three.js; tested in tourMaps.test.mjs (every metre of every route on standable ground).
 //
 // World space as the worlds have it: x east, z north, y up. Points are [x, z].
+//
+// Adding a map (one entry in TOUR_MAPS): a world the game really has (shared/worlds, in the registry: never a stand-in),
+// its renderer's loader (`load`: fetched only when the round is going there), its level ground (`footprint`), what
+// stands on it for the camera (`blockers`, `props`), and a route of points with three `anchors`. tourMaps.test.mjs then
+// walks every metre of it every way round and stages every fight at every stop: fix the points until it passes.
 
 import { CASTLEWARD } from '../../../shared/worlds/castleward.mjs';
 import { COURT_OF_MERIT } from '../../../shared/worlds/courtOfMerit.mjs';
@@ -47,6 +52,7 @@ export const TOUR_MAPS = Object.freeze({
     id: 'court-of-merit',
     name: 'The Court of Merit',
     world: COURT_OF_MERIT,
+    load: () => import('../../worlds/CourtOfMeritRenderer.mjs').then((module) => module.CourtOfMeritRenderer),
     footprint: footprintFor(COURT_OF_MERIT, { bounds: [-17.4, 17.4, -17.6, 10] }),
     blockers: () => worldBlockers(COURT_OF_MERIT),
     props: () => [],
@@ -67,6 +73,7 @@ export const TOUR_MAPS = Object.freeze({
     id: 'outerworks',
     name: 'The Outerworks',
     world: OUTERWORKS,
+    load: () => import('../../worlds/OuterworksRenderer.mjs').then((module) => module.OuterworksRenderer),
     footprint: footprintFor(OUTERWORKS, { bounds: [-17.6, 16.6, 6.2, 37] }),
     blockers: () => worldBlockers(OUTERWORKS, propBoxes(OUTERWORKS)),
     props: () => propBoxes(OUTERWORKS),
