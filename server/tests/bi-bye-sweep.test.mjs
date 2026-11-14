@@ -4,6 +4,8 @@ import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,biByeSweepAllowsContact,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
+import {requestBiByeIndependent,requestBiByeHeavySkill,requestBiByeVolley} from '../../shared/sim/biByeWeapons.mjs';
+import {biByeOperatorDuck} from '../../client/game/biByeOperatorState.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
 import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
 import {biByeHitVolumes} from '../../shared/sim/biByeComponents.mjs';
@@ -327,4 +329,92 @@ test('clearance, damage, and loop cadence retain discrete authored timings',()=>
  assert.equal(BI_BYE_SWEEP.loop,1.2);
  assert.equal(BI_BYE_SWEEP.settleClip,2.2);
  assert.equal(BI_BYE_SWEEP.damage,45);
+});
+
+test('a committed Sharp Turn starts one shared four-second recovery, never a repeatable per-click melee loop',()=>{
+ const s=setup();
+ assert.equal(issue(s,'bibyeSharpTurn',1).rejected,undefined);
+ assert.equal(s.b.sweepHeavyReadyAt,5,'cooldown begins at accepted command, not the final damage tick');
+ assert.equal(BI_BYE_SWEEP.damage,45);
+ finishBiByeSweep(s.room,s.b,1.4,'interrupted');
+ assert.match(issue(s,'bibyeSharpTurn',1.5).rejected,/four-second recovery/i,
+  'canceling the swing does not refund its commitment');
+ assert.equal(issue(s,'bibyeSharpTurn',5).rejected,undefined,'exact recovery boundary reopens');
+ assert.equal(s.b.sweepHeavyReadyAt,9);
+ assert.equal(s.b.skill.readyAt,0,'ordinary sweep never consumes the separate selectable Skill');
+});
+
+test('innate melee locks all Bolt II routes for four seconds but leaves independent Bolt I usable',()=>{
+ const s=setup();
+ s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';
+ assert.equal(issue(s,'bibyeSharpTurn',1).rejected,undefined);
+ step(s,1,2.8);
+ assert.equal(s.b.sweep,null);
+ assert.equal(requestBiByeVolley(s.room,s.b,2.81),false,'upper-first coupled Bolt II cannot evade melee lockout');
+ assert.equal(requestBiByeIndependent(s.room,s.b,2.82),true,'Bolt I remains useful while both heavy options recover');
+ step(s,2.8,3.22);
+ assert.equal(s.b.mobileShotPendingAt,null);
+ assert.ok(s.room.events.some(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE'),
+   'actual upper bolt still fires through its normal weapon pipeline');
+ assert.match(issue(s,'bibyeSharpTurn',3.23).rejected,/four-second recovery/);
+ assert.equal(requestBiByeVolley(s.room,s.b,5.7),true,'after shared recovery AND the independent upper recock, coupled volley is available');
+});
+
+test('Bolt II release renews four-second melee recovery on the authoritative release, not on button repeat',()=>{
+ const s=setup();
+ s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.trackingSince=0.5;
+ assert.equal(requestBiByeVolley(s.room,s.b,1),true);
+ step(s,1,3.6);
+ const shot=s.room.events.find(e=>e.type==='bibyeFired'&&e.shot==='II');
+ assert.ok(shot,'real coupled Bolt II released; state='+JSON.stringify({mode:s.b.mode,coupling:s.b.coupling,pending:s.b.pendingVolley,events:s.room.events.filter(e=>e.type?.startsWith('bibye')).map(e=>({type:e.type,shot:e.shot,at:e.at})).slice(-12)}));
+ assert.ok(Math.abs(s.b.sweepHeavyReadyAt-(shot.at+4))<1e-6,
+   'melee and heavy share a gate starting at the heavy string release');
+ assert.match(issue(s,'bibyeSharpTurn',shot.at+.2).rejected,/four-second recovery/);
+});
+
+test('primed independent heavy Bolt II cannot be committed during the melee cooldown',()=>{
+ const s=setup();
+ s.b.mode='DEPLOYED';
+ assert.equal(issue(s,'bibyeSharpTurn',1).rejected,undefined);
+ step(s,1,2.8);
+ assert.equal(requestBiByeHeavySkill(s.room,s.b,s.operator,2.85),null,'priming is allowed while waiting');
+ assert.match(requestBiByeHeavySkill(s.room,s.b,s.operator,2.9),/four-second recovery/,
+   'neither repeated U nor RMB can bypass the shared heavy mechanism');
+ assert.equal(requestBiByeHeavySkill(s.room,s.b,s.operator,5.01),null,'Bolt II can commit at recovery boundary');
+ step(s,5.01,5.4);
+ const shot=s.room.events.find(e=>e.type==='bibyeFired'&&e.shot==='II_SKILL');
+ assert.ok(shot,'actual heavy projectile was released');
+ assert.ok(Math.abs(s.b.sweepHeavyReadyAt-(shot.at+4))<1e-6);
+ assert.match(issue(s,'bibyeSharpTurn',shot.at+.15).rejected,/four-second recovery/);
+});
+
+test('every bow sweep automatically ducks the mounted knight and keeps him tucked until real settle',()=>{
+ const s=setup('lookAroundAndFindOut');
+ assert.equal(biByeOperatorDuck(s.b,1),0);
+ assert.equal(issue(s,'bibyeSharpTurn',1).rejected,undefined);
+ assert.ok(biByeOperatorDuck(s.b,1.13)>0&&biByeOperatorDuck(s.b,1.13)<1,
+   'knight folds into stance before the first sweep contact');
+ assert.ok(biByeOperatorDuck(s.b,1.55)>.98,'body is below moving limbs during contacts');
+ assert.ok(biByeOperatorDuck(s.b,2.6)<.1,'single attack ends with natural recovery');
+ finishBiByeSweep(s.room,s.b,2.65);
+ assert.equal(issue(s,'siegeSkill',5.01).rejected,undefined,'independent 24-second Skill is not consumed by melee');
+ step(s,5.01,6.3);
+ assert.equal(s.b.sweep.phase,'loop');
+ assert.equal(biByeOperatorDuck(s.b,6.3),1,'every loop revolution keeps head below the blade sweep');
+ assert.equal(issue(s,'siegeSkill',6.35).rejected,undefined);
+ assert.equal(s.b.sweep.phase,'settle');
+ assert.equal(biByeOperatorDuck(s.b,6.7),1,'do not stand while an arbitrarily stopped traverse is still rotating');
+ let finishedAt=null;
+ for(let t=6.35+1/30;t<9;t+=1/30){
+  stepBiByeLlista(s.room,s.b,1/30,t,s.room.world);
+  if(!s.b.sweep){finishedAt=t;break;}
+ }
+ assert.ok(Number.isFinite(finishedAt));
+ assert.equal(biByeOperatorDuck(s.b,finishedAt),1);
+ assert.ok(biByeOperatorDuck(s.b,finishedAt+.19)>0);
+ assert.equal(biByeOperatorDuck(s.b,finishedAt+.4),0,'knight stands again after physical clearance');
+ assert.ok(s.b.skill.readyAt>=finishedAt+24-1e-8,'the sustained Skill retains its separate 24s cooldown');
+ const snap=serializeSnapshot(s.room,finishedAt+.2,s.operator.id).bibyeBallista;
+ assert.ok(Number.isFinite(snap.lastSweepEndAt)&&Number.isFinite(snap.sweepHeavyReadyAt),
+   'remote spectators and the operator see the same duck and ability recovery');
 });

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { BI_BYE_OPERATOR_POSES as DATA } from './biByeOperatorPoses.mjs';
-import { biByeOperatorReach } from './biByeOperatorState.mjs';
+import { biByeOperatorReach, biByeOperatorDuck } from './biByeOperatorState.mjs';
 import { spellHandTurns } from './spellHand.mjs';
 const clean=name=>name.replace(/[[\].:/]/g,'');
 // the magic hand closed round its handle (the fitted pose holds the gauntlet's modelled open cup); the sword hand is
 // modelled closed
 const GRIP=spellHandTurns({fist:1});
 const _grip=new THREE.Quaternion(),_gripAxis=new THREE.Vector3();
+const _duckQ=new THREE.Quaternion(),_duckAxis=new THREE.Vector3(1,0,0);
 
 // Fitted against the actual production mesh in Blender. Its imported bone bases
 // differ from Argon's candidate, so only the retargeted production transforms are used.
@@ -50,6 +51,16 @@ export class BiByeOperatorPose {
    const bone=this.bones.get(name);if(!bone)continue;
    const lever=this.poses.lever.get(name)??a;
    bone.position.copy(a.p).lerp(lever.p,reach);bone.quaternion.copy(a.q).slerp(lever.q,reach);
+  }
+  // Fold the seated knight's torso below the moving bow-limb corridor.
+  // His pelvis stays on the original seat; knees and feet are undisturbed.
+  // The existing wrist IK runs AFTER this, retaining real handle contacts.
+  const duck=biByeOperatorDuck(b,now);
+  if(duck>0){
+   for(const [name,radians] of [['spine',-.62],['chest',-.24],['neck',.20],['head',-.12]]){
+    const bone=this.bone(name);
+    if(bone)bone.quaternion.multiply(_duckQ.setFromAxisAngle(_duckAxis,radians*duck));
+   }
   }
   // (every finger bone was just set from the fitted pose, so the grip is applied afresh each frame)
   for(const t of GRIP){const bone=this.bones.get(clean(t.bone));if(bone)bone.quaternion.multiply(_grip.setFromAxisAngle(_gripAxis.fromArray(t.axis),t.angle));}
