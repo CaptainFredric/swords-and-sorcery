@@ -3,6 +3,8 @@
 export const SIEGE_PREVIEW_LENGTH = Object.freeze({
   longArmToTheJaw: Infinity,
   beatToThePunch: 5.4,
+  hellpingHand: 15.3,
+  ramFingerFlick: 4,
   coldHowTouching: 3.8,
   boltToTheOccasion: 5.0,
   doNotStopMyAscension: Infinity,
@@ -11,6 +13,7 @@ export const SIEGE_PREVIEW_LENGTH = Object.freeze({
 });
 export const SIEGE_PREVIEW_MACHINE = Object.freeze({
   longArmToTheJaw: 'soFist', beatToThePunch: 'soFist',
+  hellpingHand: 'soFist', ramFingerFlick: 'soFist',
   coldHowTouching: 'biBye', boltToTheOccasion: 'biBye',
   doNotStopMyAscension: 'fightFlight', narrowToOne: 'fightFlight',
   fireAwayRightHere: 'fightFlight',
@@ -104,6 +107,8 @@ export function workshopPreviewImpacts(skill) {
 }
 export function workshopPreviewTargets(skill) {
   if(skill==='beatToThePunch')return [[.15,0,1.65]];
+  if(skill==='ramFingerFlick')return [[.15,0,2.5]];
+  if(skill==='hellpingHand')return [[.15,0,2.6],[-1.4,0,2.4]];
   if(skill==='coldHowTouching')return [[1.2,0,-4.05]];
   if(skill==='boltToTheOccasion')return [[.15,0,-4.7],[-1.8,0,-4.5]];
   if(skill==='doNotStopMyAscension')return [[-1.1,0,-8.25],[0,0,-8.5],[1.1,0,-8.25]];
@@ -112,6 +117,16 @@ export function workshopPreviewTargets(skill) {
   return [];
 }
 export function workshopPreviewTargetPose(skill,t,index) {
+  if(skill==='ramFingerFlick')
+    return {x:0,y:0,z:0,fall:between(t,.75,1.3),guard:false};
+  if(skill==='hellpingHand'){
+    // The first training rival is the captured enemy. The second represents
+    // the voluntary passenger; this exhibition never simulates real damage.
+    if(index===0)return {x:0,y:0,z:0,
+      fall:between(t,4.8,5.4),guard:false};
+    return {x:0,y:between(t,7.2,8.2)*1.2*(1-between(t,9.8,10.8)),
+      z:0,fall:0,guard:false};
+  }
   if(skill==='beatToThePunch') {
     const flight=between(t,2.65,3.3),back=between(t,3.35,4.95);
     return {x:.15,y:.95*Math.sin(Math.PI*flight)*(1-back),z:1.65+1.85*flight*(1-back),
