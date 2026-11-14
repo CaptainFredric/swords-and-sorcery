@@ -147,6 +147,25 @@ try{
     await shot(w+'x'+h+'-custom-ram');
     console.log('[CUSTOM STEEL CLEARANCE PASS]',w+'x'+h);
   }
+  // A portrait-locked browser can rotate the whole game shell. The gauge's
+  // screen rectangle is then wide/tall SWAPPED, but its subtitle clearance
+  // MUST remain the native layout height in the game's coordinate system.
+  const rotated=await ev("(()=>{const shell=document.querySelector('#game-shell');"+
+    "shell.style.transform='rotate(90deg)';"+
+    "const rt=window.__ssRuntime;rt.hud.subtitle({text:'Squire Rowan insists he remains a knight',"+
+    "name:'SQUIRE ROWAN',seconds:3});return true})()");
+  assert.equal(rotated,true);
+  await sleep(220);
+  const rotatedMeasure=await ev("(()=>{const rt=window.__ssRuntime,g=rt.hud.machineGauge;"+
+    "return {native:g.offsetHeight,screen:g.getBoundingClientRect().height,"+
+    "clearance:parseFloat(rt.hud.root.style.getPropertyValue('--siege-gauge-height'))};})()");
+  assert.ok(Math.abs(rotatedMeasure.clearance-Math.max(30,rotatedMeasure.native))<=1,
+    '90-degree phone rotation never confuses siege gauge WIDTH with its CSS HEIGHT');
+  assert.ok(rotatedMeasure.screen>rotatedMeasure.native+35,
+    'the rotated test actually exercises nontrivially swapped screen dimensions');
+  results.push({kind:'rotated-shell-gauge',rotatedMeasure});
+  await ev("document.querySelector('#game-shell').style.transform=''");
+  console.log('[ROTATED PHONE CAPTION PASS]',JSON.stringify(rotatedMeasure));
   await writeFile(join(output,'result.json'),JSON.stringify(results,null,2)+'\n');
 }catch(error){
   console.error('[MOBILE HUD FAIL]',error.stack);
