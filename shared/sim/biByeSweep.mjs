@@ -104,6 +104,19 @@ export function biByeSweepClearance(b,world){
   if(worldBlocked(b,previous,next,world))return false;
   previous=next;
  }
+ // The opening clip ends partly lowered. Clip 26 braces the limbs while
+ // clip 23 is already rotating; this moving join needs preflight clearance.
+ // Checking only the final lower stance can approve a wall collision here.
+ const join=phaseAt(BI_BYE_SWEEP.opening);
+ let changing=bladesAt(b,join.angle,join.lower,BI_BYE_SWEEP.opening);
+ for(let t=.02;t<=.121;t+=.02){
+  const time=Math.min(.12,t);
+  const angle=join.angle+time*TAU/BI_BYE_SWEEP.loop;
+  const lower=join.lower+(1-join.lower)*clamp(time/.12,0,1);
+  const next=bladesAt(b,angle,lower);
+  if(worldBlocked(b,changing,next,world))return false;
+  changing=next;
+ }
  const original=bladesAt(b,0,1);
  let last=original;
  for(let a=BI_BYE_SWEEP.maxArcStep;a<TAU+.001;a+=BI_BYE_SWEEP.maxArcStep){
@@ -145,10 +158,11 @@ export function requestLookAroundAndFindOut(room,b,p,now){
  }
  return start(room,b,p,now,'skill');
 }
-export function requestBiByeSweepStop(b,now,fire=true){
+export function requestBiByeSweepStop(b,now,fire=true,reason=fire?'firing':'cancelled'){
  if(!b?.sweep||b.sweep.phase==='settle')return false;
  if(b.sweep.kind!=='skill'||!['opening','loop'].includes(b.sweep.phase))return false;
  b.sweep.phase='settle';b.sweep.stopAt=now;b.sweep.fireOnStop=Boolean(fire);
+ b.sweep.stopReason=reason;
  b.sweep.settleAngle=b.sweep.angle;
  return true;
 }
@@ -283,14 +297,14 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
  }
  if(canHit){
   if(!contacts(room,b,s,prior,next,priorLower,lower,now,authoredClock)){
-   if(s.kind==='skill')requestBiByeSweepStop(b,now,false);
+   if(s.kind==='skill')requestBiByeSweepStop(b,now,false,'obstructed');
    else finishBiByeSweep(room,b,now,'obstructed');
    return;
   }
  }else if(worldBlocked(b,
    bladesAt(b,prior,priorLower,authoredClock?(s.lastPhysicsAge??0):null),
    bladesAt(b,next,lower,authoredClock?age:null),room.world)){
-  if(s.kind==='skill'&&s.phase==='opening')requestBiByeSweepStop(b,now,false);
+  if(s.kind==='skill'&&s.phase==='opening')requestBiByeSweepStop(b,now,false,'obstructed');
   else finishBiByeSweep(room,b,now,'obstructed');
   return;
  }
@@ -311,7 +325,7 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
   // Clip 24 is authored heavy-first, including a non-authoritative release.
   // It supplies its real <=.24s mechanical settle only. The original weapon
   // animations own the later bolt strings and must match real ammunition.
-  finishBiByeSweep(room,b,now,shouldFire?'firing':'cancelled');
+  finishBiByeSweep(room,b,now,s.stopReason??(shouldFire?'firing':'cancelled'));
   if(shouldFire)fireOrdinary?.(room,b,now);
  }
 }
