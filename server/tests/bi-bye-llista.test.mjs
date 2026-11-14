@@ -491,14 +491,25 @@ test('Scenario 11: Vehicle Input Protocol & Ackermann Steering Kinematics', () =
   const initialZ = ballista.z;
   const dt = 1 / 30;
 
-  // 1. Motionless steering: input.right = 1, forward = 0
-  // Authored kinematics: vehicle ONLY steers while moving!
-  human.input = { forward: 0, right: 1 };
+  // 1. Neutral stick is stationary; pure sideways joystick now requests
+  // a bounded wheeled crawl rather than an impossible stationary pivot.
+  human.input = { forward: 0, right: 0 };
   for (let i = 0; i < 30; i++) {
     stepBiByeLlista(room, ballista, dt, 1.0 + i * dt, room.world);
   }
-  assert.equal(ballista.heading, initialHeading, 'motionless machine has zero steering angular velocity');
-  assert.equal(ballista.x, initialX, 'motionless machine does not translate');
+  assert.equal(ballista.heading, initialHeading, 'neutral stick does not rotate');
+  assert.equal(ballista.x, initialX, 'neutral stick does not translate');
+  const assist=makePracticeRoom();
+  assist.human.position={x:7.8,y:0,z:-14.6};
+  assert.equal(mountBiByeLlista(assist.room.biByeLlista,assist.human),true);
+  const assistHeading=assist.room.biByeLlista.heading;
+  const ax=assist.room.biByeLlista.x,az=assist.room.biByeLlista.z;
+  assist.human.input={forward:0,right:1};
+  for(let i=0;i<30;i++)
+    stepBiByeLlista(assist.room,assist.room.biByeLlista,dt,1+i*dt,assist.room.world);
+  assert.ok(assist.room.biByeLlista.heading<assistHeading-.1,'sideways stick turns clockwise');
+  assert.ok(Math.hypot(assist.room.biByeLlista.x-ax,assist.room.biByeLlista.z-az)>.5,
+    'assisted turn still travels along a real wheel arc');
 
   // 2. Forward driving: input.forward = 1, right = 0
   human.input = { forward: 1, right: 0 };
@@ -515,12 +526,12 @@ test('Scenario 11: Vehicle Input Protocol & Ackermann Steering Kinematics', () =
   // Turning right in Castleward decreases heading (clockwise)
   assert.ok(ballista.heading < preSteerHeading, 'steering right while moving forward turns clockwise (heading decreases)');
 
-  // Ackermann turning radius validation: R = |v / omega| >= 4.25m
+  // Buffed Ackermann turning radius validation: R = |v / omega| ≈ 3.8m
   const speed = BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed; // 3.2 m/s
   const deltaHeading = Math.abs(ballista.heading - preSteerHeading);
   const omega = deltaHeading / dt;
   const turningRadius = speed / omega;
-  assert.ok(turningRadius >= 4.24 && turningRadius <= 4.26, `turning radius matches authored R=4.25m: ${turningRadius}`);
+  assert.ok(turningRadius >= 3.78 && turningRadius <= 3.82, `turning radius matches authored R=3.8m: ${turningRadius}`);
 
   // 4. Reverse driving: input.forward = -1
   const preRevX = ballista.x;
