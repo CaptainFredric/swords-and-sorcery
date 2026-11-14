@@ -7,7 +7,7 @@ import {createBiByeLlista,damageBiByeLlista,BI_BYE_LLISTA_CONFIG} from '../../sh
 import {createSoFistication,damageSoFistication,SO_FIST} from '../../shared/sim/soFistication.mjs';
 import {SO_FIST_PISTON} from '../../shared/src/soFistPiston.mjs';
 import {STEEL_DAMAGE_RANGES,steelStrength,STEEL} from '../../shared/src/steel.mjs';
-import {tryCastSpell,tryCastOrGauntlet,castPreparedSpell} from '../../shared/sim/combat.mjs';
+import {tryCastSpell,tryCastOrGauntlet,castPreparedSpell,stepRoom} from '../../shared/sim/combat.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {stepSiegeSteel,beginSiegeSteel,machineSteelParts,SIEGE_STEEL_REFERENCES} from '../../shared/sim/siegeSteel.mjs';
 
@@ -310,4 +310,32 @@ test('ram Steel can legitimately repair installed fist components, but cannot he
  assert.ok(y.m.components.Fist.health>0,'finite Steel remains a legitimate attached-fist repair');
  assert.ok(y.m.components.Fist.health<=SIEGE_STEEL_REFERENCES.ram.maximum,
    'the exhausted installed fist does not receive free full-HP resurrection');
+});
+
+test('real authoritative room ticks restore damaged Bi-Bye-llista HP and replicate it',()=>{
+ const x=setup('bibye');
+ x.m.health=350;
+ cast(x,1);
+ const starting=x.m.health;
+ for(let tick=1;tick<=300;tick++){
+   const now=1+tick/30;
+   stepRoom(x.room,1/30,now,x.room.world);
+ }
+ assert.ok(Math.abs(x.m.health-(starting+55))<.01,
+   'five seconds of genuine server ticks restore 55 HP, not just a HUD animation');
+ const midway=serializeSnapshot(x.room,6,x.p.id).bibyeBallista;
+ assert.ok(Math.abs(midway.health-405)<.01);
+ for(let tick=301;tick<=600;tick++){
+   const now=1+tick/30;
+   stepRoom(x.room,1/30,now,x.room.world);
+ }
+ assert.ok(Math.abs(x.m.health-(starting+85))<.01,
+   'expiry settles the additional 30 HP from the shared 55-85 ballista budget');
+ const witness=x.room.addPlayer({id:'repair-witness',token:'rw',name:'Witness'},11);
+ const pilot=serializeSnapshot(x.room,11,x.p.id).bibyeBallista;
+ const guest=serializeSnapshot(x.room,11,witness.id).bibyeBallista;
+ assert.equal(pilot.health,435);
+ assert.equal(pilot.health,guest.health,'no client-side guessed repair');
+ assert.equal(x.m.siegeSteel.healed,85);
+ assert.equal(x.m.siegeSteel.state,'expired');
 });
