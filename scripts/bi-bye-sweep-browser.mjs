@@ -187,10 +187,40 @@ try{
  const shot=await until(async()=>{const s=await observe();return s?.ballista?.smallBoltReadyAt>mounted.ballista.smallBoltReadyAt?s:false;},'physical Bolt I release advances its real recock clock',90);
  assert.equal(shot.ballista.mainBoltLoaded,true,'mobile spin must never discharge Bolt II');
  await screenshot('06-loaded-bolt-I-release');
+ // Real deployed gameplay acceptance for Argon's reversed firing sequence.
+ // The earlier mobile Skill demonstrates a normal Bolt I with NO free heavy
+ // shot. Let its actual 24-second cooldown elapse, deploy through KeyB, then
+ // use the SAME physical U/left-mouse actions. Both bolts must appear as
+ // separately committed authoritative projectiles on their genuine clocks.
+ await tap('B');
+ const deployed=await until(async()=>{const s=await observe();return s?.ballista?.mode==='DEPLOYED'?s:false;},'physical B deploys supported outriggers',130);
+ assert.equal(deployed.ballista.mainBoltLoaded,true,'the first mobile spin did not consume the heavy bolt');
+ await until(async()=>{const s=await observe();return s?.ballista?.skill?.readyAt<=s?.at?s:false;},'real 24s Skill cooldown elapsed before repeat',350);
+ await screenshot('07-real-heavy-outriggers-deployed');
+ const beforeSecond=(await evaluate("window.__bibyeActions")).length;
+ await tap('U');
+ const deployedSpin=await until(async()=>{const s=await observe();return s?.ballista?.sweep?.phase==='loop'?s:false;},'real deployed sustained spin keeps chassis stationary',100);
+ assert.equal(deployedSpin.ballista.heading,initialHeading);
+ await screenshot('08-real-deployed-clip23-continuous');
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
+ await sleep(130);
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
+ const heavyEvent=await until(()=>evaluate("window.__bibyeActions.find(e=>e.type==='bibyeFired'&&e.shot==='II_SKILL'&&e.origin==='lookAroundAndFindOut')"),
+   'deployed original Bolt II projectile released first',140);
+ const upperEvent=await until(()=>evaluate("window.__bibyeActions.find(e=>e.type==='bibyeFired'&&e.shot==='I_COMBINED'&&e.at>="+heavyEvent.at+")"),
+   'deployed original Bolt I string releases after Bolt II',140);
+ assert.ok(heavyEvent.at<upperEvent.at,'genuine heavy-first firing order');
+ const discharged=await until(async()=>{const s=await observe();return s?.ballista&&!s.ballista.mainBoltLoaded&&s.ballista.smallBoltReadyAt>upperEvent.at?s:false;},
+   'both actual ammunition and reload clocks were charged',160);
+ assert.equal(discharged.ballista.heading,initialHeading,'the carriage stayed still during spin and both releases');
+ assert.ok(discharged.ballista.skill.readyAt>heavyEvent.at-2,'Skill cooldown began as settling completed');
+ await screenshot('09-real-deployed-II-then-I');
+ const firingEvents=(await evaluate("window.__bibyeActions")).slice(beforeSecond);
+ assert.deepEqual(firingEvents.filter(e=>e.type==='bibyeFired').map(e=>e.shot),['II_SKILL','I_COMBINED']);
  assert.deepEqual(exceptions,[],'no Chrome runtime exceptions');
- proof={...proof,mounted,single,spinning,settling,resolved,shot,exceptions};
+ proof={...proof,mounted,single,spinning,settling,resolved,shot,deployed,deployedSpin,heavyEvent,upperEvent,discharged,exceptions};
  await writeFile(out+'/result.json',JSON.stringify(proof,null,2));
- console.log('[BI-BYE SWEEP BROWSER ACCEPTED]',JSON.stringify({clips:inventory.clips,settledCooldown:resolved.ballista.skill.readyAt-resolved.at,projectiles:shot.projectiles}));
+ console.log('[BI-BYE SWEEP BROWSER ACCEPTED]',JSON.stringify({clips:inventory.clips,settledCooldown:resolved.ballista.skill.readyAt-resolved.at,projectiles:shot.projectiles,reversedFiring:[heavyEvent.shot,upperEvent.shot]}));
 }catch(error){
  console.error('[BI-BYE SWEEP BROWSER FAILED]',stage,error.stack??String(error));
  await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(error),exceptions,state:ws?await observe().catch(()=>null):null,
