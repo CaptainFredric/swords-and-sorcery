@@ -8,6 +8,8 @@ export function biByeAnimation(b, now) {
     if(s.phase==='loop')return {name:'23_BiBye_Look_Around_Spin_Loop',time:((now-(s.loopAt??now))%1.2+1.2)%1.2};
     return {name:'22_BiBye_A_Sharp_Turn',time:Math.max(0,Math.min(1.65,now-s.startedAt))};
   }
+  if(b.sweepRecovery&&now<b.sweepRecovery.until)
+    return {name:'24_BiBye_Look_Around_Reversed_Fire_Settle',time:Math.max(0,now-b.sweepRecovery.from)};
   if (b.mode === 'DESTROYED') return { name:'12_BiBye_Damaged_Destroyed',time:Math.min(1.8,Math.max(0,now-(b.destroyedAt??now))) };
   if (b.state === 'RELOADING') return { name:'19_BiBye_Main_Winch_Reload_Only',time:Math.max(0,now-(b.reloadStartedAt??now)) };
   if (b.mainReleasedAt != null && now < (b.firedAt??0)+CONFIG.timing.recoilRecoveryDurationSec)
