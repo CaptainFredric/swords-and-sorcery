@@ -76,7 +76,7 @@ const PROPS = Object.freeze([
   { kind: 'brazier', x: -7.6, z: -36.7 }, { kind: 'brazier', x: 7.6, z: -36.7 },
   { kind: 'rack', x: 14.7, z: -29.4, facing: -Math.PI / 2 },
   { kind: 'crate', x: 14.5, z: -27.0, turn: 0.2, stack: true }, { kind: 'barrel', x: -14.6, z: -29.0 },
-  { kind: 'standard', x: -8.4, z: -27.2, team: TEAMS.ATTACKERS }, { kind: 'standard', x: 8.4, z: -27.2, team: TEAMS.ATTACKERS },
+  { kind: 'standard', x: -8.4, z: -32.0, team: TEAMS.ATTACKERS }, { kind: 'standard', x: 8.4, z: -32.0, team: TEAMS.ATTACKERS },
   // the courtyard's stores against its walls
   { kind: 'barrel', x: -14.9, z: -8.8 }, { kind: 'barrel', x: -14.8, z: -8.0, tilt: 0.3 }, { kind: 'crate', x: -14.8, z: -6.8, turn: 0.1 },
   { kind: 'sacks', x: 14.6, z: -8.4 }, { kind: 'crate', x: 14.8, z: -7.0, turn: -0.2, stack: true },
