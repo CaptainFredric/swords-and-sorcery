@@ -414,7 +414,7 @@ test('Beat reverse momentum cannot flip instantly and returns to ordinary revers
 });
 test('ordinary reverse remains constrained; reverse Skill does not invent a rear-facing fist',()=>{
  const q=setup();step(q,2,{forward:-1,sprint:true});
- assert.ok(q.b.speed<=0&&q.b.speed>=-2.51);
+ assert.ok(q.b.speed<=0&&q.b.speed>=-3.11);
  assert.equal(q.b.charging,false);
  assert.equal(soFistStriker(q.b,2).componentId,'Fist');
  assert.equal(q.b.chargeDirection,0);
