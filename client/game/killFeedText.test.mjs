@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed} from './killFeedText.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed} from './killFeedText.mjs';
 
 const death=(source,killContext=null,at=12.25)=>({
  type:'death',source,killerId:'A',victimId:'B',at,...(killContext?{killContext}:{})
@@ -21,7 +21,7 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
   'bibye-siege':['stuck around','bad name','got through','bolted away'],
   'bibye-conditioning':['chilled out','calm down','first bolt'],
   'so-fist':['handshake','broke','ahold'],
-  'so-fist-flick':['pointed','fainted','finger'],
+  'so-fist-flick':['showed','fainted','finger'],
   'knock-on-steel':['ran through','battering ram'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
   'ram':['knocked down','misremembered'],
@@ -44,7 +44,7 @@ test('Finger Flick lines are reserved for real Flick finishers, never ordinary p
  const flick=new Set(Array.from({length:120},(_,i)=>
    killFeedDeath(death('so-fist-flick',null,i/30),'Rowan','Perry').text));
  assert.deepEqual(flick,new Set([
-   'Rowan pointed Perry toward the exit',
+   'Rowan showed Perry the door',
    "Perry fainted at Rowan's accusation",
    'Rowan gave Perry the finger',
  ]));
@@ -92,4 +92,79 @@ test('Uncredited falls do not invent a machine killer or an opponent',()=>{
  assert.equal(feed.kind,'abyss');
  assert.ok(feed.text.includes('Enemy'));
  assert.ok(!feed.text.includes('undefined'));
+});
+
+test('extreme overkill alone can yield the mock saint or paragon epitaph',()=>{
+ const samples=Array.from({length:180},(_,i)=>killFeedDeath(
+   {...death('sword',null,i/30),extremeOverkill:true},'Rowan','Perry').text);
+ assert.ok(samples.includes('Saint Perry the Deceased'));
+ assert.ok(samples.includes('Perry became the paragon of death'));
+ const ordinary=Array.from({length:300},(_,i)=>killFeedDeath(death('sword',null,i/30),'Rowan','Perry').text);
+ assert.ok(!ordinary.includes('Saint Perry the Deceased'));
+ assert.ok(!ordinary.includes('Perry became the paragon of death'));
+});
+test('should-have-guarded and repeat-killer taunts cannot appear without proven flags',()=>{
+ const cases=[
+  [{guardWouldSave:true},'Perry should\'ve guarded'],
+  [{sameKillerDeaths:3},'Perry doesn\'t want to play anymore'],
+  [{sameKillerDeaths:2},'Perry is contemplating whether to continue'],
+ ];
+ for(const [facts,line] of cases){
+   const seen=new Set(Array.from({length:240},(_,i)=>killFeedDeath(
+     {...death('sword',null,i/30),...facts},'Rowan','Perry').text));
+   assert.ok(seen.has(line),line+' can be chosen when appropriate');
+   const denied=new Set(Array.from({length:240},(_,i)=>killFeedDeath(
+     death('sword',null,i/30),'Rowan','Perry').text));
+   assert.ok(!denied.has(line),line+' is never fabricated');
+ }
+ const two=new Set(Array.from({length:240},(_,i)=>killFeedDeath(
+   {...death('sword',null,i/30),sameKillerDeaths:2},'Rowan','Perry').text));
+ assert.ok(!two.has('Perry doesn\'t want to play anymore'),'one recurrence is not an endless losing streak');
+});
+test('electrical reversal and near-full natural disaster report their actual causes',()=>{
+ const backlash=death('electrical_backlash','shocking-conduct-interrupted');
+ assert.equal(killFeedDeath(backlash,'Rowan','Perry').text,'Perry got struck instead...');
+ const complete=death('one_hit_of_wonders','nearly-full-disaster');
+ assert.equal(killFeedDeath(complete,'Rowan','Perry').text,
+   'Rowan was so cool that Perry experienced aftershocks');
+ const plain=killFeedDeath(death('one_hit_of_wonders'),'Rowan','Perry').text;
+ assert.notEqual(plain,'Rowan was so cool that Perry experienced aftershocks');
+});
+test('fork, stunned, shocking conduct, armor and power are lightning-only variations',()=>{
+ const lines=new Set(Array.from({length:450},(_,i)=>killFeedDeath(
+   death('line_of_conduct',null,i/30),'Rowan','Perry').text));
+ for(const fragment of ['was stunned','fork stuck in the wrong place','shocking conduct',
+   'armor would insulate them','enough of Rowan\'s power'])
+   assert.ok([...lines].some(line=>line.includes(fragment)),fragment);
+ const fire=new Set(Array.from({length:150},(_,i)=>killFeedDeath(
+   death('fireball',null,i/30),'Rowan','Perry').text));
+ assert.ok(![...fire].some(line=>/fork stuck|shocking conduct|insulate them/.test(line)));
+});
+test('the pelt requires a real repeater barrage and the friend requires an actual HELLping crush',()=>{
+ const shots=new Set(Array.from({length:180},(_,i)=>killFeedDeath(
+   {...death('fight-flight-repeater',null,i/30),pelted:true},'Rowan','Perry').text));
+ assert.ok(shots.has('Perry was pelted and is now a pelt'));
+ const single=new Set(Array.from({length:180},(_,i)=>killFeedDeath(
+   death('fight-flight-repeater',null,i/30),'Rowan','Perry').text));
+ assert.ok(!single.has('Perry was pelted and is now a pelt'));
+ assert.equal(killFeedDeath(death('hellping-crush'),'Rowan','Perry').text,
+   "Rowan wouldn't become Perry's friend");
+ assert.notEqual(killFeedDeath(death('so-fist'),'Rowan','Perry').text,
+   "Rowan wouldn't become Perry's friend");
+});
+test('rare personal remarks appear without flooding the combat-specific variations',()=>{
+ const sword=new Set(Array.from({length:4000},(_,i)=>killFeedDeath(
+   death('sword',null,i/30),'Rowan','Perry',{mode:'BREAKTHROUGH'}).text));
+ assert.ok(sword.has("Perry couldn't make it to the restroom in time"));
+ assert.ok(sword.has('Perry will take this personally'));
+ assert.ok(sword.has('Perry! You made it onto here!'));
+ const noRespawn=new Set(Array.from({length:3000},(_,i)=>killFeedDeath(
+   death('sword',null,i/30),'Rowan','Perry',{mode:'EDGE_OF_VICTORY'}).text));
+ assert.ok(noRespawn.has('Perry will NOT be bouncing back'));
+ assert.ok(!noRespawn.has('Perry will take this personally'));
+});
+test('shared grave only contains real named companions and preserves original wording',()=>{
+ assert.equal(graveTimeFeed('Perry',[]),null);
+ assert.equal(graveTimeFeed('Perry',['Rowan','Rowan','Perry']).text,
+   'Perry is going to have a grave time along with Rowan');
 });
