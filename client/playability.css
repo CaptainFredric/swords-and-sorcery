@@ -370,7 +370,10 @@
   max-width:min(650px,76cqw);z-index:15;
 }
 .touch-ui .hud.ballista-mounted #subtitle {
-  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + var(--siege-label-clearance, 28px) + 6px);
+  /* Mounted captions should sit immediately above the machine's ACTUAL
+     health gauge, not 44px higher on the ram. A 7px breathing gap leaves
+     the plate visible without letting dialogue cover its numbers. */
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + 7px);
   max-width:min(500px,66cqw);
 }
 @container app (max-height: 420px) {
