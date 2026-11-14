@@ -1675,14 +1675,15 @@ export class GameRuntime {
         // collision; all observers see the same blue magical reconstitution.
         this.effects.sparks?.(event.point,0x65cbff,16);
       }
-      if(event.type==='bibyeOutriggersForced'){
+      if(event.type==='bibyeOutriggersUprooted'){
         if(event.point){
+          // The leg sockets break free: iron screams against masonry.
           this.effects.wallClang?.(event.point);
-          this.effects.sparks?.(event.point,0xf8b267,10);
+          this.effects.sparks?.(event.point,0xf8b267,15);
         }
         if(this.latestSnapshot?.bibyeBallista?.operatorId===this.playerId){
-          this.cameraKick=Math.max(this.cameraKick??0,.30);
-          this.hud.flashText('OUTRIGGERS FORCED','danger',1250);
+          this.cameraKick=Math.max(this.cameraKick??0,.36);
+          this.hud.flashText('OUTRIGGERS UPROOTED','danger',1400);
         }
       }
       if(event.type==='soFistChassisMachineImpact'||event.type==='soFistFlickMachineImpact'){

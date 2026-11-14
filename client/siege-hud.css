@@ -154,9 +154,9 @@
 .touch-ui .machine-gauge[data-kind="ram"] .machine-piston {display:none;}
 
 
-/* Involuntary anchoring is a physical condition, not an ordinary mode toggle.
+/* A violent ram collision uproots Heavy-mode supports and puts the ballista back on wheels.
    Dedicated lower-left lane leaves the existing centre siege gauge intact. */
-.forced-outriggers-indicator {
+.uprooted-outriggers-indicator {
   position:absolute; z-index:14; left:calc(var(--safe-l,0px) + 18px);
   bottom:calc(var(--safe-b,0px) + 100px);
   width:min(246px,38%); padding:8px 10px; box-sizing:border-box;
@@ -166,15 +166,15 @@
   font-family:'Alegreya Sans',sans-serif; letter-spacing:.05em;
   box-shadow:0 4px 13px #0009,0 0 14px #b85c3433;
 }
-.forced-outriggers-indicator[hidden] {display:none!important}
-.forced-outriggers-indicator strong{font-size:12px;letter-spacing:.12em;}
-.forced-outriggers-indicator span{font-size:10px;color:#edd8bd;}
-.forced-outriggers-indicator progress{width:100%;height:5px;accent-color:#e9a35f;}
+.uprooted-outriggers-indicator[hidden] {display:none!important}
+.uprooted-outriggers-indicator strong{font-size:12px;letter-spacing:.12em;}
+.uprooted-outriggers-indicator span{font-size:10px;color:#edd8bd;}
+.uprooted-outriggers-indicator progress{width:100%;height:5px;accent-color:#e9a35f;}
 @container app (max-width:700px) {
- .touch-ui .forced-outriggers-indicator {
+ .touch-ui .uprooted-outriggers-indicator {
   left:calc(var(--safe-l,0px) + 12px);bottom:calc(var(--safe-b,0px) + 170px);
   width:min(184px,37%);padding:5px 7px;gap:2px;
  }
- .touch-ui .forced-outriggers-indicator strong{font-size:9px;}
- .touch-ui .forced-outriggers-indicator span{font-size:8px;}
+ .touch-ui .uprooted-outriggers-indicator strong{font-size:9px;}
+ .touch-ui .uprooted-outriggers-indicator span{font-size:8px;}
 }

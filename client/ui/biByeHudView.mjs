@@ -22,12 +22,16 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   let status = b.mode === 'DEPLOYING' ? 'Deploying outriggers' : b.mode === 'RETRACTING' ? 'Packing outriggers'
     : [upper,b.mode === 'DEPLOYED' || b.mainBoltLoaded === false ? heavy : '',coupling].filter(Boolean).join(' · ');
   if(b.deploymentReason&&now-(b.deploymentRejectedAt??-Infinity)<3)status=b.deploymentReason;
-  const forced=Number.isFinite(b.forcedOutriggersUntil)&&now<b.forcedOutriggersUntil&&b.mode!=='MOBILE';
-  if(forced)status='OUTRIGGERS FORCED · '+(b.mode==='DEPLOYING'?'BRACING':'HEAVY MODE LOCKED')+' · '+status;
+  const uprooted=Number.isFinite(b.outriggersDislodgedUntil)&&
+    now<b.outriggersDislodgedUntil;
+  if(uprooted)status='OUTRIGGERS UPROOTED · '+
+    (b.mode==='RETRACTING'?'FORCED RETRACTION':'MOBILE · STABILIZERS RECOVERING')+
+    ' · '+status;
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);
   if(b.aimLimited)status+=' · AIM LIMIT';
   if (faults.length) status += " · " + faults.join(" · ");
-  const deployment = condition.canDeploy&&!(Number.isFinite(b.forcedOutriggersUntil)&&now<b.forcedOutriggersUntil)
+  const deployment = condition.canDeploy&&!uprooted&&
+    (b.mode==='MOBILE'||b.mode==='DEPLOYED')
     ? `[${key('deploy')}] ${b.mode === 'DEPLOYED' ? 'Pack' : 'Deploy'} · ` : "";
   const focus = b.mode === 'DEPLOYED' ? `[${key('siegeWeapon')}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
   if(b.skill?.phase==='primed'&&b.mainBoltLoaded!==false&&upperReady&&!b.upperQueued&&!b.upperPending&&b.combinedUpperPendingAt==null&&b.coupling==='INDEPENDENT')status+=' · BOTH READY';
@@ -36,6 +40,7 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const tray=biByeCombatView(b,now);
   const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SKILL II${tray.secondary?' · BOTH':''}`
     : `LMB Bolt I · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
-  const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
+  const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.mode==='RETRACTING'?
+    'RETRACTING · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
   return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${touch?station.split(' / ')[0]:station}`, status, controls };
 }

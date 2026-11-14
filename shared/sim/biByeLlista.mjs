@@ -176,8 +176,8 @@ export function createBiByeLlista(overrides = {}) {
     mode: BI_BYE_MODES.MOBILE,
     modeTransitionStartedAt: -Infinity,
     modeTransitionEndsAt: -Infinity,
-    forcedOutriggersAt:-Infinity,forcedOutriggersUntil:-Infinity,forcedOutriggersSource:null,
-    forcedDeployAt:null,
+    outriggersDislodgedAt:-Infinity,outriggersDislodgedUntil:-Infinity,
+    outriggersDislodgedSource:null,dislodgedImpulse:null,
 
     components: createBiByeComponents(),
     wheelRolls: [0,0,0,0,0,0],
@@ -423,7 +423,9 @@ function syncOperatorPosition(ballista, player) {
  */
 export function toggleBiByeDeploy(ballista, nowSec, world=null) {
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
-  if(ballista.forcedDeployAt!=null&&nowSec<ballista.forcedOutriggersUntil)return false;
+  // Give violently uprooted stabilizers a brief recovery before redeployment.
+  if(ballista.mode===BI_BYE_MODES.MOBILE&&
+      nowSec<(ballista.outriggersDislodgedUntil??-Infinity))return false;
 
   if (ballista.mode === BI_BYE_MODES.MOBILE) {
     if (ballista.mobileShotPendingAt != null || !biByeCondition(ballista).canDeploy) return false;
@@ -439,7 +441,6 @@ export function toggleBiByeDeploy(ballista, nowSec, world=null) {
   }
 
   if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
-    if(nowSec < (ballista.forcedOutriggersUntil??-Infinity))return false;
     // Once the string releases, keep the machine planted through the heavy delay.
     if (ballista.coupling === 'FIRING' && ballista.upperReleasedAt != null) return false;
     ballista.pendingIndependent=null;
@@ -685,28 +686,6 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     return;
   }
 
-  // The initial collision genuinely skids the carriage across the ground.
-  // After that momentum transfer, slam planted outriggers down, if the
-  // final resting footprint is still safe. Never brace over a void.
-  if(ballista.mode==='MOBILE'&&Number.isFinite(ballista.forcedDeployAt)&&
-      nowSec>=ballista.forcedDeployAt){
-    ballista.forcedDeployAt=null;
-    const support=biByeDeploymentSupport(ballista,world);
-    if(support.ok&&biByeCondition(ballista).canDeploy){
-      interruptBiByeSupport(ballista,nowSec);
-      ballista.mode='DEPLOYING';
-      ballista.modeTransitionStartedAt=nowSec;
-      ballista.modeTransitionEndsAt=nowSec+.65;
-      ballista.stabilizerTilts=support.tilts;
-      ballista.deploymentSupported=true;ballista.deploymentReason=null;
-      ballista.speed=0;ballista.externalVelocity={x:0,z:0};
-      room.events?.push({type:'bibyeForcedBraceStarted',ballistaId:ballista.id,at:nowSec});
-    }else{
-      ballista.forcedOutriggersUntil=nowSec;
-      room.events?.push({type:'bibyeForcedBraceFailed',ballistaId:ballista.id,at:nowSec,
-        reason:support.reason??'Stabilizers disabled'});
-    }
-  }
   if(ballista.mode==='DEPLOYING'||ballista.mode==='DEPLOYED'){
     const support=biByeDeploymentSupport(ballista,world);
     ballista.deploymentSupported=support.ok;
@@ -726,12 +705,19 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       ballista.weaponFocus = 'MAIN';ballista.focusRevision++;
       const op = room.players?.get(ballista.operatorId);
       if(op)op.input={...op.input,yaw:ballista.mainYaw,pitch:ballista.mainPitch};
-      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.DEPLOYED, forced:nowSec<(ballista.forcedOutriggersUntil??-Infinity), at: nowSec });
+      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.DEPLOYED, at: nowSec });
     }
   } else if (ballista.mode === BI_BYE_MODES.RETRACTING) {
     if (nowSec >= ballista.modeTransitionEndsAt) {
       ballista.mode = BI_BYE_MODES.MOBILE;
-      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.MOBILE, at: nowSec });
+      if(ballista.dislodgedImpulse){
+        ballista.externalVelocity={...ballista.dislodgedImpulse};
+        ballista.dislodgedImpulse=null;
+      }
+      room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id,
+        mode: BI_BYE_MODES.MOBILE,
+        uprooted:nowSec<(ballista.outriggersDislodgedUntil??-Infinity),
+        at: nowSec });
     }
   }
 
