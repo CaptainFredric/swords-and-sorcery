@@ -142,20 +142,24 @@ try{
  const model=await waitFor(()=>guest.evaluate("(() => {const b=window.__ssRuntime?.world?.biByeLlista;return b?.actions?.has('22_BiBye_A_Sharp_Turn')&&b.actions.has('23_BiBye_Look_Around_Spin_Loop')&&b.actions.has('24_BiBye_Look_Around_Reversed_Fire_Settle')&&b.nodes.has('frame_sweep_volume_L')&&b.nodes.has('frame_sweep_volume_R')?{clips:b.actions.size,hasLocators:true}:null;})()"),'actual v26 GLB and bow locator meshes loaded on second client',180);
  const before=await host.frames();await waitFor(async()=>(await host.frames()).count>=before.count+3,'pilot frames progress',160);
  await focusArena(host);
- // Input stays physical W through GameLink if an approach is necessary. The
- // first legitimate collision-resolved standing spot is ~3.027m from the
- // chassis: demanding <2.85m deadlocks against real machine solids. Stop
- // INSIDE the actual 3.2m interaction radius instead of moving inside wood.
- await host.evaluate("(() => {const rt=window.__ssRuntime,inp=rt.input,original=inp.movement;window.__bibyeApproach={stopped:false,restore:()=>{inp.movement=original}};inp.movement=function(){const move=original.call(this),p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||move.forward<=0)return move;const dx=b.x-p.position.x,dz=b.z-p.position.z;if(window.__bibyeApproach.stopped||Math.hypot(dx,dz)<=3.10){window.__bibyeApproach.stopped=true;return {...move,forward:0,right:0}}return {...move,forward:.33,right:0,yaw:Math.atan2(-dx,-dz)};};})()");
+ // An actual shared Practice player starts ~6m from the foundry. Walk
+ // using physical W through GameLink; collision with the authored bow
+ // naturally stops them at ~3.585m. Stop BEFORE that obstruction and board
+ // within the real 3.75m interaction radius. Do not stage/teleport the actor.
+ await host.evaluate("(() => {const rt=window.__ssRuntime,inp=rt.input,original=inp.movement;window.__bibyeApproach={stopped:false,restore:()=>{inp.movement=original}};inp.movement=function(){const move=original.call(this),p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||move.forward<=0)return move;const dx=b.x-p.position.x,dz=b.z-p.position.z;if(window.__bibyeApproach.stopped||Math.hypot(dx,dz)<=3.65){window.__bibyeApproach.stopped=true;return {...move,forward:0,right:0}}return {...move,forward:.33,right:0,yaw:Math.atan2(-dx,-dz)};};})()");
  let stopSeq=null;
  try{
   await host.key('W','rawKeyDown');
-  stopSeq=await waitFor(()=>host.evaluate("(() => {const rt=window.__ssRuntime,p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||Math.hypot(p.position.x-b.x,p.position.z-b.z)>3.15)return null;window.__bibyeApproach.stopped=true;const seq=++rt.sequence;rt.socket.input({...rt.input.movement(),forward:0,right:0,seq,clientTime:rt.socket.serverNow()});return seq;})()"),'real W approach reaches boarding range',170);
+  stopSeq=await waitFor(()=>host.evaluate("(() => {const rt=window.__ssRuntime,p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||Math.hypot(p.position.x-b.x,p.position.z-b.z)>3.72)return null;window.__bibyeApproach.stopped=true;const seq=++rt.sequence;rt.socket.input({...rt.input.movement(),forward:0,right:0,seq,clientTime:rt.socket.serverNow()});return seq;})()"),'real W reaches outer collision-safe boarding range',210);
  }finally{
   await host.key('W','keyUp');
   await host.evaluate("window.__bibyeApproach?.restore();delete window.__bibyeApproach");
  }
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth,b=r?.latestSnapshot?.bibyeBallista;return p&&b&&p.lastInputSeq>="+stopSeq+"&&Math.hypot(p.position.x-b.x,p.position.z-b.z)<3.2?true:false;})()"),'server acknowledges neutral stop before mount',80);
+ const standing=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth,b=r.latestSnapshot?.bibyeBallista;if(!p||!b)return null;const distance=Math.hypot(p.position.x-b.x,p.position.z-b.z);if(p.lastInputSeq<"+stopSeq+"||distance>b.interactRadius)return null;return {position:p.position,ballista:{x:b.x,y:b.y,z:b.z},range:b.interactRadius,distance,deltaY:Math.abs(p.position.y-b.y),ack:p.lastInputSeq};})()"),'authoritative boarding range and neutral stop acknowledged',110);
+ console.log('[BI-BYE NATURAL BOARDING APPROACH]',JSON.stringify(standing));
+ assert.ok(standing&&standing.distance<=standing.range&&standing.deltaY<=2,
+   'the player must stand safely OUTSIDE physical solids and INSIDE the real mount reach');
+ await focusArena(host);
  const initial=await host.evaluate("(() => {const b=window.__ssRuntime.latestSnapshot.bibyeBallista;return {heading:b.heading,mainYaw:b.mainYaw};})()");
  await host.tap('T');
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingBallistaId)"),'real physical T mounts pilot',100);
@@ -164,7 +168,7 @@ try{
  await host.screenshot('pilot-mounted');
  // Persist network observations when frame rate is low, including brief
  // one-revolution episodes that are shorter than one guest screenshot.
- await guest.evaluate("(() => {window.__remoteBiBye={events:[],angles:[],states:[]};const rt=window.__ssRuntime;rt.socket.on('events',e=>{window.__remoteBiBye.events.push(...(e?.events??[]).filter(x=>/^(bibyeSweep|bibyeFired|siegeSkill)$/.test(x.type)));});rt.socket.on('snapshot',s=>{const b=(s?.snapshot??s)?.bibyeBallista;if(b?.sweep)window.__remoteBiBye.angles.push({angle:b.sweep.angle,phase:b.sweep.phase,mainYaw:b.mainYaw,heading:b.heading,time:s.serverTime});});})()");
+ await guest.evaluate("(() => {window.__remoteBiBye={events:[],angles:[],poses:[]};const rt=window.__ssRuntime;rt.socket.on('events',e=>{window.__remoteBiBye.events.push(...(e?.events??[]).filter(x=>/^(bibyeSweep|bibyeFired|siegeSkill)$/.test(x.type)));});rt.socket.on('snapshot',s=>{const b=(s?.snapshot??s)?.bibyeBallista;if(b?.sweep)window.__remoteBiBye.angles.push({angle:b.sweep.angle,phase:b.sweep.phase,mainYaw:b.mainYaw,heading:b.heading,time:s.serverTime});});const mesh=rt.world?.biByeLlista;if(!mesh?.authoredModel)throw Error('original Argon v26 renderer must be loaded on remote client');const oldUpdate=mesh.update;mesh.update=function(time,b,projectiles){const result=oldUpdate.call(this,time,b,projectiles);if(b?.sweep?.phase==='loop'){const yaw=(b.mainYaw??0)-(b.heading??0),expected=Math.atan2(Math.sin(yaw),Math.cos(yaw)),actual=this.nodes.get('Traverse_Mount')?.rotation?.y,cradle=this.nodes.get('Elevation_Cradle');const error=Number.isFinite(actual)?Math.atan2(Math.sin(actual-expected),Math.cos(actual-expected)):null;const yError=cradle?cradle.position.y-(.38-.22*(b.sweep.lower??0)):null;window.__remoteBiBye.poses.push({time,clip:this.activeActionName,yawError:error,cradleError:yError,heading:b.heading,mainYaw:b.mainYaw});if(window.__remoteBiBye.poses.length>240)window.__remoteBiBye.poses.shift();}return result;};})()");
  await host.tap('K');
  await waitFor(()=>guest.evaluate("window.__remoteBiBye.events.some(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started')"),'observer receives authoritative single sweep',120);
  await waitFor(()=>guest.evaluate("window.__remoteBiBye.events.some(e=>e.type==='bibyeSweep'&&e.action==='ended')"),'observer receives completed one-turn sweep',120);
@@ -173,22 +177,34 @@ try{
  const observed=await guest.evaluate("(() => {const r=window.__ssRuntime,b=r.latestSnapshot.bibyeBallista,mesh=r.world?.biByeLlista;return {phase:b.sweep.phase,angle:b.sweep.angle,heading:b.heading,mainYaw:b.mainYaw,activeAction:mesh?.activeActionName,loaded:b.mainBoltLoaded,skill:b.skill,observerCount:r.latestSnapshot?.players?.length};})()");
  assert.equal(observed.phase,'loop');
  assert.equal(observed.heading,initial.heading,'carriage chassis stays fixed while main traverse rotates');
- assert.equal(observed.activeAction,'23_BiBye_Look_Around_Spin_Loop','remote renderer samples the real v26 loop');
+ // A network snapshot and the WebGL renderer run on different clocks.
+ // Wait until a frame was ACTUALLY drawn using clip 23, then compare its
+ // traverse and lowering against the precise authoritative frame passed
+ // into that same renderer update; no fake/snap-to-camera values.
+ const painted=await waitFor(()=>guest.evaluate("window.__remoteBiBye.poses.find(p=>p.clip==='23_BiBye_Look_Around_Spin_Loop'&&p.yawError!==null&&p.cradleError!==null)"),
+   'second Chrome draws original v26 loop with authoritative rig transforms',160);
+ assert.ok(Math.abs(painted.yawError)<.001,
+   'authored Traverse_Mount rotation must equal the server-owned yaw on the painted frame');
+ assert.ok(Math.abs(painted.cradleError)<.001,
+   'authored Elevation_Cradle position must equal the server-owned lowering on the painted frame');
  assert.ok(observed.skill.readyAt===0,'machine cooldown unspent while looping');
  await guest.screenshot('observer-original-clip23-loop');
+ await focusArena(host);
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:400,y:230,button:'left',clickCount:1});
  await sleep(130);
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:400,y:230,button:'left',clickCount:1});
  await waitFor(()=>guest.evaluate("window.__remoteBiBye.events.some(e=>e.type==='bibyeSweep'&&e.action==='ended'&&e.reason==='firing')"),'remote observer sees true Skill stop-to-fire resolution',130);
  const finished=await waitFor(()=>guest.evaluate("(() => {const b=window.__ssRuntime?.latestSnapshot?.bibyeBallista;return !b?.sweep&&b?.skill?.phase==='idle'&&b.skill.readyAt>window.__ssRuntime.latestSnapshot.serverTime?{readyAt:b.skill.readyAt,mainLoaded:b.mainBoltLoaded,heading:b.heading}:null;})()"),'remote observes 24s cooldown after real resolution',130);
+ const remoteBolt=await waitFor(()=>guest.evaluate("window.__remoteBiBye.events.find(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE')"),'second client receives real Bolt I discharge event',150);
  await guest.screenshot('observer-after-physical-settle');
- const proof={roomCode:h.code,pilot:h.id,observer:g.id,model,initial,observed,finished,
+ const proof={roomCode:h.code,pilot:h.id,observer:g.id,model,initial,observed,painted,finished,remoteBolt,
    networkEvents:await guest.evaluate("window.__remoteBiBye.events"),
    snapshots:await guest.evaluate("window.__remoteBiBye.angles"),
+   presentedPoses:await guest.evaluate("window.__remoteBiBye.poses"),
    errors:[...host.errors,...guest.errors]};
  assert.deepEqual(proof.errors,[]);
  await writeFile(out+'/result.json',JSON.stringify(proof,null,2));
- console.log('[BI-BYE TWO-CLIENT ACCEPTED]',JSON.stringify({room:h.code,model:proof.model,observed:proof.observed,finished:proof.finished,events:proof.networkEvents.length}));
+ console.log('[BI-BYE TWO-CLIENT ACCEPTED]',JSON.stringify({room:h.code,model:proof.model,observed:proof.observed,finished:proof.finished,events:proof.networkEvents.length,renderedRig:proof.painted}));
 }catch(e){
  console.error('[BI-BYE TWO-CLIENT FAILED]',stage,e.stack??String(e));
  const hostState=await host?.evaluate("(() => ({p:window.__ssRuntime?.localAuth,b:window.__ssRuntime?.latestSnapshot?.bibyeBallista,inputs:window.__ssRuntime?.input?.enabled}))()").catch(()=>null);

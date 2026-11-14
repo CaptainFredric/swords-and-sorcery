@@ -38,6 +38,24 @@ test('real Interact boards an unoccupied ballista when no ram exists (undefined 
  assert.equal(p.operatingBallistaId,ballista.id);
  assert.equal(ballista.skill.id,'lookAroundAndFindOut','selected third Skill survives physical boarding');
 });
+test('real front boarding is possible without stepping inside authored bow solids',()=>{
+ const room=new Room('FRONT',{mode:'PRACTICE'});room.world=ground();room.state='PLAYING';
+ const p=room.addPlayer({id:'front',token:'front',name:'Front Pilot'},0);
+ const b=room.biByeLlista=createBiByeLlista({x:0,y:0,z:-2,baseYaw:0,interactRadius:3.2});
+ assert.equal(b.interactRadius,3.75,'older 3.2m world placement uses reachable radius');
+ const snap=serializeSnapshot(room,1,p.id);
+ assert.equal(snap.bibyeBallista.interactRadius,b.interactRadius,
+   'replicated MOUNT target and the real server gate must expose identical reach');
+ // The real dual Chrome server recorded a non-penetrating station here:
+ // a player at z=1.585 against the frontal bow, 3.585m away.
+ p.position={x:0,y:0,z:1.585};
+ assert.equal(applyRoomCommand(room,p,{type:'siegeOperate'},1).rejected,undefined);
+ assert.equal(b.operatorId,p.id);
+ const far=room.addPlayer({id:'far',token:'far',name:'Far Pilot'},0);
+ far.position={x:0,y:0,z:1.76};
+ assert.equal(mountBiByeLlista(createBiByeLlista({x:0,y:0,z:-2,baseYaw:0}),far,2),false,
+   'mount still rejects beyond 3.75m; no remote-mount shortcut');
+});
 test('sharp turn is independently operable without selecting the third Skill; actual traverse rotates, chassis does not',()=>{
  const s=setup();assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
  assert.equal(s.b.skill.id,'boltToTheOccasion');assert.equal(s.b.skill.readyAt,0);
