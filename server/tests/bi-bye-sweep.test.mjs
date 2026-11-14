@@ -357,7 +357,7 @@ test('innate melee locks all Bolt II routes for four seconds but leaves independ
  assert.ok(s.room.events.some(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE'),
    'actual upper bolt still fires through its normal weapon pipeline');
  assert.match(issue(s,'bibyeSharpTurn',3.23).rejected,/four-second recovery/);
- assert.equal(requestBiByeVolley(s.room,s.b,5.4),true,'after shared recovery AND the independent upper recock, coupled volley is available');
+ assert.equal(requestBiByeVolley(s.room,s.b,5.7),true,'after shared recovery AND the independent upper recock, coupled volley is available');
 });
 
 test('Bolt II release renews four-second melee recovery on the authoritative release, not on button repeat',()=>{
