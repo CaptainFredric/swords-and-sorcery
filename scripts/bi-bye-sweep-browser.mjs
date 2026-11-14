@@ -98,6 +98,12 @@ try{
  // checks or relocating an already-mounted machine.
  const openGround=await evaluate("window.__ssLink.stageInspectionActor({actorId:window.__ssRuntime.localAuth.id,position:{x:14.55,y:0,z:-19,yaw:Math.PI}})");
  assert.equal(openGround?.success,true,'open-ground player setup must use authorized inspection placement');
+ // The Practice staging tool sets the player's yaw, but the running client
+ // still holds its earlier mouse yaw and can overwrite authority on the next
+ // input tick. Send a normal neutral movement input carrying the chosen aim
+ // before Foundry uses the player's authoritative heading to place a machine.
+ await evaluate("(() => {const r=window.__ssRuntime;r.input.yaw=Math.PI;r.socket.input({forward:0,right:0,jump:false,attack:false,guard:false,yaw:Math.PI,pitch:0,seq:++r.sequence,clientTime:r.socket.serverNow()});})()");
+ await until(()=>evaluate("(() => {const r=window.__ssRuntime,p=window.__ssLink.local.room.players.get(r.localAuth?.id);return p&&Math.abs(Math.atan2(Math.sin(p.yaw-Math.PI),Math.cos(p.yaw-Math.PI)))<.01;})()"),'authoritative neutral aim directed across open Tourney Field',60);
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await observe();return s?.ballista?s:false;},'real ballista built',100);
  const realClearance=await evaluate("(async()=>{const mod=await import('/shared/sim/biByeSweep.mjs');const room=window.__ssLink.local.room,b=room.biByeLlista;return {clear:mod.biByeSweepClearance(b,room.world),x:b.x,y:b.y,z:b.z,heading:b.heading,world:room.worldId};})()");
