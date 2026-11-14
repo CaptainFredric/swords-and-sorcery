@@ -1,0 +1,50 @@
+name: First-person Blustered Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/firstPersonBluster.mjs'
+      - 'client/game/WeaponView.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'scripts/first-person-bluster-browser.mjs'
+      - '.github/workflows/first-person-bluster.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-first-person:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start real Castleward server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/fp-bluster-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/fp-bluster-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify delayed hands and free camera in actual first-person Practice
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/first-person-bluster-browser.mjs
+      - name: Upload first-person Blustered evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-person-bluster-acceptance
+          path: output/playwright/first-person-bluster/
+          retention-days: 7
