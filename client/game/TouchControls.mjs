@@ -14,7 +14,7 @@ import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
-import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeControlView.mjs';
+import { biByeModeButton, biByeSkillIcon, biByeCombatView, biByeSweepCooldownView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
@@ -147,7 +147,7 @@ export class TouchControls {
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
+          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill','siegeSweep'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
     // A read-only, full-layer ink overlay connects the ACTUAL four Flight
@@ -675,6 +675,11 @@ export class TouchControls {
         setMountedRecovery(this.buttons.attack,first,BI_BYE_WEAPONS.upperRecock);
         setMountedRecovery(this.buttons.siegeSkill,second,
           Math.max(BI_BYE_WEAPONS.heavyReload,bl.skill?.cooldownSec??0));
+        const sweep=biByeSweepCooldownView(bl,serverNow);
+        setMountedRecovery(this.buttons.siegeSweep,sweep.remaining,sweep.total);
+        this.buttons.siegeSweep?.setAttribute('aria-label',sweep.remaining>.01
+          ? `A Sharp Turn: ${Math.ceil(sweep.remaining)} seconds cooldown`
+          : 'A Sharp Turn: Sweep ready');
       }else if(ram&&rb){
         const cycle=soFistTiming(rb).cycle;
         const piston=Math.max(0,cycle-Math.max(0,serverNow-(rb.strikeAt??-Infinity)));
@@ -687,7 +692,7 @@ export class TouchControls {
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
           Math.max(1,rb.skill?.cooldownSec??8));
       }else{
-        for(const action of ['attack','ramFlick','siegeSkill'])
+        for(const action of ['attack','ramFlick','siegeSkill','siegeSweep'])
           setMountedRecovery(this.buttons[action],0,1);
       }
       const modeButton=biByeModeButton(bl),combat=biByeCombatView(bl,serverNow);
