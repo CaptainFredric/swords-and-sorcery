@@ -16,8 +16,8 @@ Castleward's engineers saw no need to settle for a single warning shot. The smal
    {name:'OUTRIGGER ANCHOR',icon:'deploy',line:'Deploy stabilizer legs for heavy bolt alignment, or pack them away for 6-wheel mobile repositioning.',facts:'Required for Bolt II alignment'}
   ],
   controls:{
-   desktop:'[W/A/S/D] Steer carriage · [R] Deploy / Pack outriggers · [Left Click] Bolt I · [Right Click / Space] Bolt II · [Tab] Weapon focus toggle · [U / Q] Skill · [F] Dismount',
-   touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
+   desktop:'[W/A/S/D] Steer carriage · [R] Deploy / Pack outriggers · [Left Click] Bolt I · [K] A Sharp Turn · [Right Click / Space] Bolt II · [Tab] Weapon focus toggle · [U / Q] Skill · [F] Dismount',
+   touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · SWEEP: A Sharp Turn · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
   }
  },
  {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN',
