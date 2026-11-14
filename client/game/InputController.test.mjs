@@ -40,6 +40,23 @@ test('a key released after pointer lock is lost cancels the Ultimate before the 
   assert.deepEqual(releases, [{ cancel: false, yaw:0, pitch:0 }, { cancel: true, yaw:0, pitch:0 }]);
 });
 
+test('interact preserves keyboard context but can explicitly board the touch-selected machine',()=>{
+  const {input}=setup(),messages=[];
+  input.socket.send=message=>messages.push(message);
+  input.enabled=true;
+  input.interact();
+  input.interact('fight-and-flight');
+  input.interact('bi-bye-llista');
+  assert.deepEqual(messages,[
+    {type:'siegeOperate'},
+    {type:'siegeOperate',machine:'fight-and-flight'},
+    {type:'siegeOperate',machine:'bi-bye-llista'},
+  ]);
+  input.enabled=false;
+  input.interact('fight-and-flight');
+  assert.equal(messages.length,3,'an inactive input controller cannot board');
+});
+
 test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
   const {input}=setup(),sent=[];
   input.socket.send=message=>sent.push(message);
@@ -844,4 +861,16 @@ test('Lightning release sends live pointer aim atomically, not an old movement-f
   assert.ok(Math.abs(packets[0].yaw-Math.PI*1.2)<1e-9);
   assert.ok(Math.abs(packets[0].pitch-.4)<1e-9);
   assert.equal(packets[0].cancel,false);
+});
+
+test('mounted K invokes the separate innate bow sweep without invoking the V mark-target action',()=>{
+ const {input,down,up}=setup();
+ const sent=[];input.socket.send=message=>sent.push(message);
+ input.socket.markTarget=()=>sent.push({type:'markTarget'});
+ input.enabled=true;input.mountedBallista=true;
+ assert.deepEqual(input.bindings.siegeSweep,['KeyK']);
+ down('KeyK');up('KeyK');
+ assert.deepEqual(sent,[{type:'bibyeSharpTurn'}]);
+ input.mountedBallista=false;down('KeyK');up('KeyK');
+ assert.equal(sent.length,1,'the innate button has no unmounted effect');
 });

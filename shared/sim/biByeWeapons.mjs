@@ -18,12 +18,13 @@ const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCond
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 // Ordinary coupled volley, distinct from the heavy-first atomic Skill command.
 const ordinaryCoupleSkillReady=b=>b.skill?.id==='boltToTheOccasion'?
-  b.skill.phase==='idle':b.skill?.id==='coldHowTouching'&&
-  (b.skill.phase==='idle'||b.skill.phase==='active');
+  b.skill.phase==='idle':b.skill?.id==='coldHowTouching'?
+  (b.skill.phase==='idle'||b.skill.phase==='active'):
+  b.skill?.id==='lookAroundAndFindOut'&&b.skill.phase==='idle';
 // Ordinary coupled fire is a mechanical weapon command, not a Bolt to the
 // Occasion Skill. Cold only enhances newly released Bolt I; it must not
 // disable the coupled mechanism, and the real Bolt II release ends Cold.
-export const canBiByeCouple=(b,now)=>Boolean(b&&!b.heavySkill&&ordinaryCoupleSkillReady(b)&&
+export const canBiByeCouple=(b,now)=>Boolean(b&&!b.sweep&&!b.heavySkill&&ordinaryCoupleSkillReady(b)&&
  supported(b)&&b.state==='LOADED'&&b.mainBoltLoaded&&ready(b,now)&&
  !b.pendingCoupledFromUpper&&!busy(b));
 
@@ -54,7 +55,7 @@ export function cancelBiByeCoupling(b,now=b.poseTime??0) {
   return true;
 }
 export function setBiByeWeaponFocus(b,focus,now=0) {
-  if(!b||b.mode!=='DEPLOYED'||!['MAIN','UPPER'].includes(focus))return false;
+  if(!b||b.sweep||b.mode!=='DEPLOYED'||!['MAIN','UPPER'].includes(focus))return false;
   if(focus===b.weaponFocus)return true;
   if(focus==='UPPER')cancelBiByeCoupling(b,now);
   b.pendingCoupledFromUpper=null;
@@ -86,6 +87,7 @@ function finishColdHowTouching(room,b,now,reason){
 // SKILL is a two-press command: first primes independent aim, second fires
 // the loaded heavy bow. Ordinary ATTACK can still release Bolt I in between.
 export function requestBiByeHeavySkill(room,b,p,now,targetAim,{combined=false,commandAim=null}={}){
+ if(b?.sweep)return 'The bow is committed to A Sharp Turn.';
  if(b?.skill?.id!=='boltToTheOccasion')return 'Bolt to the Occasion is not equipped.';
  if(!skillOperator(room,b,p,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)return 'The main launcher cannot release here.';
  const s=b.skill;
@@ -135,8 +137,27 @@ export function requestBiByeCombinedSkill(room,b,p,now,targetAim){
  if(!ready(b,now))return 'BOTH requires Bolt I ready.';
  return requestBiByeHeavySkill(room,b,p,now,targetAim,{combined:true});
 }
+// Authored clip 24 releases the main siege bolt BEFORE the conditioning bolt.
+// Reuse the existing committed heavy/upper-string machinery; no second Skill,
+// no new projectile type, and NEVER free ammunition. The main bolt still
+// requires planted, supported outriggers. Mobile or unloaded states fall
+// through to the ordinary independent Bolt I instead.
+export function requestBiByeSweepDischarge(room,b,now) {
+ if(!b||b.sweep||b.skill?.id!=='lookAroundAndFindOut')return false;
+ if(supported(b)&&b.mainBoltLoaded&&b.state==='LOADED'&&
+    !b.heavySkill&&!busy(b)&&b.operatorId){
+  const follow=ready(b,now);
+  b.heavySkill={operatorId:b.operatorId,aim:{yaw:b.mainYaw,pitch:b.mainPitch},
+    releaseAt:now+.04,combined:follow,fromSweep:true,
+    followThroughDelay:.50};
+  event(room,b,'bibyeSweepDischargeCommitted',now,{order:follow?'II_TO_I':'II_ONLY',
+    operatorId:b.operatorId,mainLoaded:true,upperLoaded:follow});
+  return true;
+ }
+ return requestBiByeIndependent(room,b,now);
+}
 export function requestBiByeIndependent(room,b,now) {
-  if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||b.pendingCoupledFromUpper||!ready(b,now))return false;
+  if(!b||b.sweep||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||b.pendingCoupledFromUpper||!ready(b,now))return false;
   if(b.coupling==='RELEASING'&&(b.weaponFocus==='UPPER'||b.skill?.phase==='primed')){
     b.pendingIndependent??={operatorId:b.operatorId,yaw:b.upperYaw,pitch:b.upperPitch};return true;
   }
@@ -186,6 +207,7 @@ export function interruptBiByeSupport(b,now=b.poseTime??0) {
 
 export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAim}={}) {
   if(b.mode==='DESTROYED')return;
+  if(b.sweep){b.pendingCoupledFromUpper=null;b.pendingVolley=null;}
   if(b.combinedUpperPendingAt!=null&&b.combinedUpperAim){b.upperYaw=b.combinedUpperAim.yaw;b.upperPitch=b.combinedUpperAim.pitch;}
   const op=room.players?.get(b.operatorId),input=op?.alive?op.input??{}:{};
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
@@ -201,7 +223,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   }
   if(b.heavySkill){
     const pending=b.heavySkill;
-    if(!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){
+    if(!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded||pending.fromSweep&&!supported(b)){
       b.heavySkill=null;endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled');
     }
     else{
@@ -214,18 +236,22 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
         // The second string is a follow-through of the ONE committed action.
         // Retain it through a rider change; no unrelated input can launch it.
         if(pending.combined){
-          b.combinedUpperPendingAt=now+BI_BYE_WEAPONS.heavyDelay;
+          b.combinedUpperPendingAt=now+(pending.followThroughDelay??BI_BYE_WEAPONS.heavyDelay);
           b.combinedUpperAim={yaw:b.upperYaw,pitch:b.upperPitch};
           b.combinedOperatorId=pending.operatorId;
-          b.upperFiredAt=now;b.upperShotKind='combined';
+          b.upperFiredAt=pending.fromSweep?b.combinedUpperPendingAt-BI_BYE_WEAPONS.independentWindup:now;
+          b.upperShotKind='combined';
           event(room,b,'bibyeCombinedCommitted',now,{operatorId:pending.operatorId,upperReleaseAt:b.combinedUpperPendingAt});
         }
-        b.heavySkill=null;endSiegeSkill(b,now);
+        b.heavySkill=null;
+        if(!pending.fromSweep)endSiegeSkill(b,now); // Spin cooldown already began at settle.
         // Selection of the current rider was deferred until the first
         // operator's irrevocable release finished. No cooldown reset.
         const current=room.players.get(b.operatorId);
         if(current?.alive)b.skill.id=selectedSiegeSkill(current,'biBye');
-        event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL'});skillEvent(room,b,now,'released');
+        event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL',
+          ...(pending.fromSweep?{origin:'lookAroundAndFindOut'}:{})});
+        if(!pending.fromSweep)skillEvent(room,b,now,'released');
       }
     }
   }
@@ -247,6 +273,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       }
     }
   }
+  if(!b.sweep){
   const primed=b.skill?.phase==='primed';
   const locked=busy(b)||Boolean(b.heavySkill);
   b.aimTarget=input.siegeTarget??null;
@@ -306,6 +333,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       }
     }
   }
+  } // Sweep owns the traverse and cannot queue weapon alignment.
   if(b.combinedUpperPendingAt!=null&&now+1e-8>=b.combinedUpperPendingAt){
     const releasedAt=b.combinedUpperPendingAt;
     shotI?.(room,b,b.combinedUpperAim,releasedAt,b.combinedOperatorId);

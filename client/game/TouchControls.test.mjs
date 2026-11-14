@@ -96,7 +96,7 @@ test('siege controls appear only in real interaction range or while mounted and 
   assert.equal(controls.buttons.siegeView.hidden, true);
 });
 
-test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOperate',()=>{
+test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius names the intended machine',()=>{
   const pilot={alive:true,spell:'fireball',position:{x:3.1,y:0,z:0}};
   const {input,controls,send}=setup(pilot);
   const machine={id:'flight',x:0,y:0,z:0,health:250,rotorHP:100,grounded:true};
@@ -107,8 +107,9 @@ test('a mobile Mount tap at the real 3.2m Fight-and-Flight radius sends siegeOpe
   assert.match(controls.buttons.interact.getAttribute('aria-label'),/Fight-and-Flight/);
   send('pointerdown',600,300,{action:'interact',pointerId:222});
   send('pointerup',600,300,{action:'interact',pointerId:222});
-  assert.deepEqual(sent,[{type:'siegeOperate'}],
-    'the mobile Mount button sends the real authoritative command once');
+  assert.equal(controls.buttons.interact.dataset.mountTarget,'fight-and-flight');
+  assert.deepEqual(sent,[{type:'siegeOperate',machine:'fight-and-flight'}],
+    'the mobile Mount button sends exactly one server-validated, targeted boarding request');
   controls.update({...pilot,position:{x:1,y:12,z:0}},10,{snapshot:{fightFlight:machine}});
   assert.equal(controls.buttons.interact.hidden,true,
     'standing on a 12m-high bridge above the same machine is not boarding range');
@@ -125,6 +126,30 @@ test('mobile Mount reach applies the same elevation rule to ballista and ram',()
   assert.equal(controls.buttons.interact.hidden,true,'no Ballista mount through bridge');
   controls.update({...pilot,position:{x:1,y:0,z:0}},10,{snapshot:{bibyeBallista:ballista}});
   assert.equal(controls.buttons.interact.hidden,false,'ground-level ballista shows Mount');
+  assert.equal(controls.buttons.interact.dataset.mountTarget,'bi-bye-llista');
+  controls.update({...pilot,alive:false},10,{snapshot:{bibyeBallista:ballista}});
+  assert.equal(controls.buttons.interact.dataset.mountTarget,undefined,'dead players have no stale boarding target');
+});
+
+test('Restless Day attacker sees a real mobile MOUNT button near either native siege machine',()=>{
+  const p={alive:true,spell:'fireball',team:'ATTACKERS',position:{x:15,y:0,z:-74.8}};
+  const {input,controls,send}=setup(p);
+  const messages=[];input.socket.send=packet=>messages.push(packet);
+  const ballista={id:'restless-ballista',x:15,y:0,z:-77,
+    position:{x:15,y:0,z:-77},mode:'MOBILE',health:650,
+    interactRadius:3.2,team:'ATTACKERS',operatorId:null};
+  const ram={id:'restless-ram',x:-4,y:0,z:-76,heading:Math.PI,
+    health:1400,team:'ATTACKERS',operatorId:null};
+  controls.update(p,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
+  assert.equal(controls.buttons.interact.hidden,false,'ballista has usable MOUNT button');
+  send('pointerdown',650,300,{action:'interact',pointerId:301});
+  send('pointerup',650,300,{action:'interact',pointerId:301});
+  assert.deepEqual(messages,[{type:'siegeOperate'}]);
+  const onRam={...p,position:{x:-4,y:0,z:-78}};
+  controls.update(onRam,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
+  assert.equal(controls.buttons.interact.hidden,false,'ram also has usable MOUNT button');
+  assert.match(controls.buttons.interact.getAttribute('aria-label'),/ram/i);
+  controls.dispose();
 });
 
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {

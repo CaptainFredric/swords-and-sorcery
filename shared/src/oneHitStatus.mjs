@@ -34,7 +34,7 @@ export const ONE_HIT_CONDUCT = Object.freeze({
 
 export const ONE_HIT_BLUSTER = Object.freeze({
   seconds: ONE_HIT_STATUS_SECONDS,
-  turnRate: 2.4,           // rad/s at its worst (about 140 degrees a second); it loosens as the wind leaves them
+  turnRate: 1.05,          // fresh wind: ~60 degrees/s body rotation; the camera stays unrestricted.
   free: 0.05,              // below this much of it left, the facing is the look again
   knockback: 2.5,          // Half Gale's shove, as a share of the plain blow's (about a metre and three quarters, not 0.7)
 });

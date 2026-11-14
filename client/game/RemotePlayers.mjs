@@ -741,6 +741,10 @@ export class RemotePlayers {
     d.gestures ??= new GestureLayer();
     d.secondary ??= new SecondaryMotion();
     d.playerId = pb.id;
+    if (state === 'restless-sleep' || pb.restlessCarrying) {
+      d.gestureGlow = 0;
+      return { turns: [], gestures: [] }; // no unrelated personality beats over authored carry/sleep
+    }
     const context = this.#gestureContext(pb, d, state, serverNow, recovering);
     // (timed by the server's clock, so a knight drawn again after a while hidden starts afresh rather than lurching)
     const since = Number.isFinite(d.characterAt) ? serverNow - d.characterAt : Infinity;
@@ -765,7 +769,9 @@ export class RemotePlayers {
   #pose(id, shell, pb, serverNow, nowMs, dt) {
     const localTime = nowMs / 1000;
     const d = shell.root.userData;
-    const state = pb.restlessAsleep ? 'dead' : resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
+    if (pb.restlessAsleep && !Number.isFinite(d.restlessSleepAt)) d.restlessSleepAt = serverNow;
+    if (!pb.restlessAsleep) d.restlessSleepAt = null;
+    const state = pb.restlessAsleep ? 'restless-sleep' : resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
     // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
     const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
     const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.angle);
@@ -830,7 +836,10 @@ export class RemotePlayers {
     }, dt);
     // (when he was last seen in his Guard: a chain begun straight out of it starts from the raised sword)
     if (pb.guarding) d.guardSeenAt = serverNow;
-    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil, guardSeenAt: d.guardSeenAt };
+    // The chosen collapse is stable per actor; it does not affect the authority's sleep state.
+    const restlessVariant = [...String(pb.id ?? id ?? '')].reduce((sum, c) => sum * 31 + c.charCodeAt(0), 0) & 1;
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil,
+      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant };
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);
@@ -855,7 +864,7 @@ export class RemotePlayers {
       recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration,hold:pb.presentationRecovery.hold ?? 0} : null,
       crouch: crouch.flex,
       // the gauntlet's jab, if one is under way, and the crouch's lean
-      extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity)),
+      extra: state === 'dead' || state === 'restless-sleep' || pb.restlessCarrying || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity)),
         // and the head looks where the knight aims
         ...(state === 'stagger' ? [] : lookTurns(shell.root.userData.pitch)),
         // the spell hand opens to throw, closes to run, dash or bring the sword down with both hands

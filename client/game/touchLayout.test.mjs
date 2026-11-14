@@ -545,3 +545,19 @@ test('SO-FIST-ICATION has a non-overlapping mobile control ladder with hydraulic
  assert.equal(DEFAULT_RAM_LAYOUT.jump.bottom,DEFAULT_RAM_LAYOUT.crouch.bottom);
  assert.ok(DEFAULT_RAM_LAYOUT.jump.bottom>DEFAULT_RAM_LAYOUT.attack.bottom+DEFAULT_RAM_LAYOUT.attack.size);
 });
+
+test('Bi-Bye innate SWEEP has its own usable touch rectangle without obscuring established controls',async()=>{
+ const {mountedTouchLayout}=await import('./touchLayout.mjs');
+ const layout=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
+ const sweep=layout.siegeSweep;
+ assert.ok(sweep,'separate third innate control exists when mounted');
+ const bounds=p=>({left:568-p.right-p.size,right:568-p.right,
+   top:p.top??320-p.bottom-p.size,bottom:p.top!=null?p.top+p.size:320-p.bottom});
+ const s=bounds(sweep);
+ assert.ok(s.left>=0&&s.top>=0&&s.right<=568&&s.bottom<=320);
+ for(const id of ['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView','spell']){
+   const o=bounds(layout[id]);
+   assert.ok(s.right<=o.left||o.right<=s.left||s.bottom<=o.top||o.bottom<=s.top,
+      'SWEEP must not obstruct '+id);
+ }
+});

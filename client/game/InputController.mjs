@@ -13,6 +13,7 @@ const PRESS = {
   interact: (input) => input.interact(),
   deploy: (input) => input.deploy(),
   siegeSkill: (input) => input.siegeSkill(),
+  siegeSweep: (input) => input.siegeSweep(),
   siegeWeapon: (input) => input.siegeWeapon(),
   technique: (input) => input.technique(true,'binding'),
   scoreboard: (input) => { input.scoreboardHeld = true; },
@@ -621,9 +622,12 @@ export class InputController {
     this.onDashLocal(dir);
   }
 
-  interact() {
+  interact(machine = null) {
     if (!this.enabled) return;
-    this.socket?.send?.({ type: 'siegeOperate' });
+    // Touch MOUNT identifies the machine actually offered by the HUD. Do not
+    // let a generic operate packet accidentally choose another nearby station.
+    // The host still validates range, team, occupancy and cockpit clearance.
+    this.socket?.send?.({ type: 'siegeOperate', ...(machine ? { machine } : {}) });
   }
 
   deploy() {
@@ -634,6 +638,10 @@ export class InputController {
     this.socket?.send?.({ type: 'bibyeToggleDeploy' });
   }
 
+  siegeSweep() {
+    if(!this.enabled||!this.mountedBallista||this.allowAction?.('attack')===false)return;
+    this.socket?.send?.({type:'bibyeSharpTurn'});
+  }
   siegeSkill() {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)
       this.socket?.send?.({type:'siegeSkill',

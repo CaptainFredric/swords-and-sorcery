@@ -4,13 +4,14 @@ export const SIEGE_LOADOUT_DEFAULT=Object.freeze({
  biBye:'boltToTheOccasion',soFist:'beatToThePunch',fightFlight:'fireAwayRightHere'
 });
 export const SIEGE_SKILL_OPTIONS=Object.freeze({
- biBye:Object.freeze(['boltToTheOccasion','coldHowTouching']),
+ biBye:Object.freeze(['boltToTheOccasion','coldHowTouching','lookAroundAndFindOut']),
  soFist:Object.freeze(['beatToThePunch','longArmToTheJaw','hellpingHand']),
  fightFlight:Object.freeze(['fireAwayRightHere','narrowToOne','doNotStopMyAscension'])
 });
 export const SIEGE_SKILL_NAMES=Object.freeze({
  boltToTheOccasion:'Bolt to the Occasion',
  coldHowTouching:'Cold, How Touching',
+ lookAroundAndFindOut:'Look Around and Find Out',
  beatToThePunch:'Beat to the Punch',
  longArmToTheJaw:'Long Arm to the Jaw',
  hellpingHand:'HELLping Hand',

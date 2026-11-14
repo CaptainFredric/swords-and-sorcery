@@ -9,6 +9,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (!local?.alive || !b || b.mode === 'DESTROYED') return null;
   const key = action => bindings[action]?.[0] ? keyLabel(bindings[action][0]) : 'UNBOUND';
   if (!local.operatingBallistaId) {
+    // Mobile uses the actual nearby MOUNT control, not an obsolete text panel.
+    if (touch) return null;
     if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > BI_BYE_LLISTA_CONFIG.emplacement.interactRadius) return null;
     return { title: 'BI-BYE-LLISTA', status: touch ? 'Tap MOUNT to operate' : `[${key('interact')}] Operate`, controls: '' };
   }
@@ -28,7 +30,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
     (b.mode==='RETRACTING'?'FORCED RETRACTION':'MOBILE · STABILIZERS RECOVERING')+
     ' · '+status;
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);
-  if(b.aimLimited)status+=' · AIM LIMIT';
+  if(b.sweep)status+=' · '+(b.sweep.phase==='settle'?'BOW SETTLING':b.sweep.kind==='skill'?'STATIONARY BOW SPIN':'A SHARP TURN');
+   if(b.aimLimited)status+=' · AIM LIMIT';
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy&&!uprooted&&
     (b.mode==='MOBILE'||b.mode==='DEPLOYED')
@@ -38,8 +41,16 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if(b.combinedUpperPendingAt!=null)status+=' · BOLT I FOLLOW-THROUGH';
   if(!touch)status+=' · '+siegeSkillLabel(b,now);
   const tray=biByeCombatView(b,now);
-  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SKILL II${tray.secondary?' · BOTH':''}`
-    : `LMB Bolt I · RMB prime/fire II (hold both: BOTH) · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
+  // Right-click's independent Bolt II belongs to Bolt to the Occasion's
+  // primed mechanism. The third Skill cannot pretend RMB will work.
+  const heavyHint=(b.skill?.id??'boltToTheOccasion')==='boltToTheOccasion'
+    ? ' · RMB prime/fire II (hold both: BOTH)' : '';
+  const fireHint=b.sweep?.kind==='single'?'LMB locked during sweep'
+    : b.sweep?.kind==='skill'?
+      (b.sweep.phase==='settle'?'LMB settling':'LMB stop & fire')
+    : 'LMB '+(tray.primary.label==='BOLT I'?'Bolt I':tray.primary.label);
+  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SWEEP · SKILL${tray.secondary?' · BOTH':''}`
+    : `${fireHint} · [${key('siegeSweep')}] Sharp Turn${heavyHint} · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
   const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.mode==='RETRACTING'?
     'RETRACTING · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED';
   return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${touch?station.split(' / ')[0]:station}`, status, controls };

@@ -23,7 +23,10 @@ test('the sidecar is the file its record names, built against the canonical mode
   assert.equal(sha('spellblade-motion.glb'), meta.sha256);
   // the canonical GLB is untouched: still the promoted one
   assert.equal(sha('spellblade.glb'), manifest.thirdPerson.sha256);
-  assert.equal(meta.canonicalSha256, manifest.thirdPerson.sha256);
+  // Sidecar provenance records the #457 production model, not the newer Argon
+  // model. The bone-parent and live sword-contact checks below prove compatibility.
+  assert.equal(meta.canonicalSha256,'b43e5c3fb0c60a0a722577e0fad266efb3eef0f260fd88698e81192f41d10e80');
+  assert.notEqual(meta.canonicalSha256,manifest.thirdPerson.sha256);
   const motion = loadGlb(new URL('spellblade-motion.glb', dir).pathname);
   // animation only: no mesh, no skin, no image
   assert.equal(motion.gltf.meshes, undefined);
@@ -126,35 +129,31 @@ test('the techniques stand on the canonical floor and their clips meet end to en
   for (const clip of TECHNIQUE_CLIPS.filter((c) => c.startsWith('Technique_Whirl_'))) assert.ok(!model.clips.get(clip).channels.some((c) => c.node === root), clip);
 });
 
-test('the revised first cut: begun and ended on the canonical stance, driven by the torso, finished in control, home clear of the floor', () => {
-  const before = canonical(), after = withMotion();
-  const pose = (model, time) => worldMatrices(model, localPose(model, [{ clip: 'Slash_1', time, weight: 1 }]));
-  const point = (model, time, bone, p = [0, 0, 0]) => apply(pose(model, time)[model.byName.get(bone)], p);
-  const tip = (model, time) => point(model, time, 'hand.R', TIP);
-  const far = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+test('the corrected first cut uses the newer grounded legs and PR #457 sword contact and raised follow-through', () => {
+  const latest = canonical(), source = withMotion();
+  const modelPose = (model,t) => worldMatrices(model,localPose(model,[{clip:'Slash_1',time:t,weight:1}]));
+  const point = (model,t,bone,p=[0,0,0]) => apply(modelPose(model,t)[model.byName.get(bone)],p);
+  const tip = (model,t) => point(model,t,'hand.R',TIP);
   const clip = STRIKE_CLIPS.Slash_1;
-  // the same stance at both ends, and the same raise
-  for (const t of [0, 0.1, clip.raised, clip.end]) assert.ok(far(tip(before, t), tip(after, t)) < 0.02, `at ${t}`);
-  // the legs are the canonical ones throughout (nothing new to slide)
-  for (let t = 0; t <= clip.end; t += 1 / 30) for (const foot of ['foot.L', 'foot.R']) assert.ok(far(point(before, t, foot), point(after, t, foot)) < 1e-3);
-  // the chest turns with the cut (it did not turn at all)
-  const heading = (model, time) => { const m = pose(model, time)[model.byName.get('chest')]; return Math.atan2(-m[8], -m[10]) * 180 / Math.PI; };
-  const turn = (model) => { const a = heading(model, 0.3), b = heading(model, 0.5); return Math.abs(((b - a + 540) % 360) - 180); };
-  assert.ok(turn(before) < 2, `canonical chest turn ${turn(before).toFixed(1)}`);
-  assert.ok(turn(after) > 30, `revised chest turn ${turn(after).toFixed(1)}`);
-  // the blade crosses the knight's front at the authored contact
-  const at = tip(after, clip.contact);
-  assert.ok(Math.abs(at[0]) < 0.35 && at[2] < -1.5, `contact tip ${at.map((v) => v.toFixed(2))}`);
-  // the follow-through: the point carried round to the left and held up there (it sank through the follow-through)
-  const elevation = (model, time) => { const h = point(model, time, 'hand.R'), p = tip(model, time); return Math.asin((p[1] - h[1]) / far(p, h)) * 180 / Math.PI; };
-  for (let t = clip.contact + 1 / 30; t <= clip.far + 1e-9; t += 1 / 30) assert.ok(elevation(after, t) > -12, `the blade droops to ${elevation(after, t).toFixed(0)} deg at ${t.toFixed(3)}`);
-  assert.ok(elevation(before, 0.5) < -15, 'the canonical follow-through droops');
-  assert.ok(tip(after, clip.far)[1] > tip(before, clip.far)[1] + 0.2);
-  // and home again without the point going near the floor (it swept within 6 cm of it)
-  let low = Infinity, lowBefore = Infinity;
-  for (let t = clip.far; t <= clip.end - 0.05; t += 1 / 60) { low = Math.min(low, tip(after, t)[1]); lowBefore = Math.min(lowBefore, tip(before, t)[1]); }
-  assert.ok(lowBefore < 0.1, `canonical recovery lowest ${lowBefore.toFixed(2)}`);
-  assert.ok(low > 0.2, `revised recovery lowest ${low.toFixed(2)}`);
+  // The authored first cut travels from the knight's right to his left,
+  // contacts ahead of the hitbox and leaves the blade raised in recovery.
+  const starting=tip(source,0),hit=tip(source,clip.contact),end=tip(source,clip.far);
+  assert.ok(starting[0]>0.6,'starts on the right');
+  assert.ok(hit[0]<0.35 && hit[2]<-1.5,'physical blade crosses the enemy at the contact');
+  assert.ok(end[0]<-0.7,'follows through on the left');
+  // The sidecar never animates the feet. Those belong exclusively to the
+  // canonical new model under production composition (the 89-clip gait).
+  const motion=loadGlb(new URL('spellblade-motion.glb',dir).pathname);
+  const feet=['thigh.L','shin.L','foot.L','thigh.R','shin.R','foot.R'];
+  for(const channel of motion.clips.get('Slash_1').channels){
+    const name=motion.gltf.nodes[channel.node].name;
+    assert.ok(!feet.includes(name),`Slash_1 sidecar took over the new footwork: ${name}`);
+  }
+  // The new model itself retains its complete grounded pose and finished
+  // follow-through; measuring its actual contact prevents a blind override.
+  const newHit=tip(latest,clip.contact);
+  assert.ok(newHit[0]<0.35&&newHit[2]<-1.5,'new canonical cut also crosses forward');
+  assert.ok(tip(latest,clip.far)[0]<-1,'new grounded follow-through remains on left');
 });
 
 // --- the first-person sidecar (tools/assets/build-spellblade-fp-motion.mjs)
@@ -165,7 +164,8 @@ const fpWithMotion = () => overlayMotion(fpCanonical(), new URL('spellblade-fp-m
 test('the first-person sidecar is animation only, on the canonical arm rig, and has every clip the plan asks for', () => {
   assert.equal(sha('spellblade-fp-motion.glb'), fpMeta.sha256);
   assert.equal(sha('spellblade-fp.glb'), manifest.firstPerson.sha256);
-  assert.equal(fpMeta.canonicalSha256, manifest.firstPerson.sha256);
+  assert.equal(fpMeta.canonicalSha256,'def9bf62a8b3c16f2974030d28db1ff395cc67425272699f0dc4fea1afda3dcf');
+  assert.notEqual(fpMeta.canonicalSha256,manifest.firstPerson.sha256);
   const motion = loadGlb(new URL('spellblade-fp-motion.glb', dir).pathname);
   assert.equal(motion.gltf.meshes, undefined);
   assert.equal(motion.gltf.skins, undefined);

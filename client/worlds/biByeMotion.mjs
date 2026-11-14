@@ -31,6 +31,8 @@ export class BiByeMotion {
   const t=a===b?0:Math.max(0,Math.min(1,(clock-a.time)/(b.time-a.time)));
   const discrete=clock>=b.time-1e-8?b.ballista:a.ballista;
   const ballista={...discrete,position:{},poseTime:clock};
+   if(a.ballista.sweep&&b.ballista.sweep&&a.ballista.sweep.startedAt===b.ballista.sweep.startedAt)
+     ballista.sweep={...discrete.sweep,angle:lerp(a.ballista.sweep.angle,b.ballista.sweep.angle,t),lower:lerp(a.ballista.sweep.lower,b.ballista.sweep.lower,t)};
   for(const k of ['x','y','z']){ballista[k]=lerp(a.ballista.position[k],b.ballista.position[k],t);ballista.position[k]=ballista[k];}
   for(const k of ['heading','yaw','mainYaw','upperYaw'])ballista[k]=angle(a.ballista[k]??a.ballista.yaw??a.ballista.heading??0,b.ballista[k]??b.ballista.yaw??b.ballista.heading??0,t);
   for(const k of ['pitch','mainPitch','upperPitch','steer','speed','chassisPitch','chassisRoll'])ballista[k]=lerp(a.ballista[k]??0,b.ballista[k]??0,t);

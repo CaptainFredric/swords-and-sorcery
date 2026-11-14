@@ -28,7 +28,7 @@ import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
 import {requestHellpingHand,stepHellpingHand,releaseHellpingHand} from './soFistHellpingHand.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
+export const SO_FIST=Object.freeze({speed:5.3,reverse:3.1,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
 export const soFistReverseChargeAvailable=b=>Boolean(b&&!b.retired&&b.health>0&&
   b.skill?.id==='beatToThePunch'&&b.skill.phase==='primed');
@@ -115,9 +115,13 @@ export function soFistExit(room,b,p,extras=[],accept=()=>true){
  for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015&&accept(candidate))return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
- if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId)return false;
+ if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId||
+   b.detachedFist?.state==='recovering')return false;
  if(b.team&&p.team!==b.team)return false;
- if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(room.objectiveState?.phase)))return false;
+ // Restless Day owns a separate phase sequence and has no Breakthrough objectiveState.
+ // Validate against the active mode, never against an undefined objective phase.
+ const phase=room.mode==='RESTLESS_DAY'?(room.restlessDay?.phase??0):room.objectiveState?.phase;
+ if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
  const obstacles=[...getBiByeSolids(room.biByeLlista),...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
  // Boarding is not an ejection test. A clear occupied saddle and proximity
@@ -276,13 +280,20 @@ const p=room.players.get(b.operatorId);
  if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.debt+=debt;}
  const affliction=siegeDisasterImpairment(b,now);
  const elevatedDrive=1-.40*clamp((b.ramLiftY??0)/SO_FIST_LIFT.maxRise,0,1);
- const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):input.forward??0))/.384,0,1));
+ // A full sideways stick is a request for a tight wheeled turn, not a tank pivot.
+ // Crawl in the existing travel direction (forward when parked), with steering
+ // reversed during reverse travel so LEFT/RIGHT still mean left/right heading.
+ const sidewaysTurn=Boolean(driver&&!b.charging&&Math.abs(input.forward??0)<.08&&
+   Math.abs(input.right??0)>.92);
+ const driveForward=sidewaysTurn?(b.speed<-.45?-.72:.72):(input.forward??0);
+ const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?SO_FIST.speed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/.384,0,1));
  const reversing=target*b.speed<0;
  const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
   // Actual momentum sign, not the newly requested direction during braking.
   b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
- b.steer=clamp(input.right??0,-1,1)*affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
+ b.steer=clamp(input.right??0,-1,1)*(sidewaysTurn?Math.sign(driveForward):1)*
+   affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
  const travelSpeed=b.hellping?.phase==='vault'?0:b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
