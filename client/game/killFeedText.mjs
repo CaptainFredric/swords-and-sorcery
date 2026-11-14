@@ -31,9 +31,39 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    'coreflagration','line_of_conduct'].includes(source);
  if(event.killContext==='chivalry'&&normalCombat)
    return {text:`${k} mastered ${v}`,kind:'sword'};
+ // The combat itself is the setup for these. Backlash only damages the knight
+ // whose OWN melee strike was interrupted, not arbitrary lightning victims.
+ if(source==='electrical_backlash'&&event.killContext==='shocking-conduct-interrupted')
+   return {text:`${v} got struck instead...`,kind:'fire'};
+ if(source==='hellping-crush')
+   return {text:`${k} wouldn't become ${apostrophe(v)} friend`,kind:'sword'};
+ if(source==='one_hit_of_wonders'&&event.killContext==='nearly-full-disaster')
+   return {text:`${k} was so cool that ${v} experienced aftershocks`,kind:'frost'};
+ // Exceptional jokes are sampled, not permanent replacements for the finishing
+ // weapon's identity. Never speculate about Guard, overkill or a losing streak:
+ // the authoritative death event must explicitly prove each condition.
+ const exceptional=[];
+ if(event.extremeOverkill) exceptional.push(`Saint ${v} the Deceased`,`${v} became the paragon of death`);
+ if(event.sameKillerDeaths>=3) exceptional.push(`${v} doesn't want to play anymore`);
+ if(event.sameKillerDeaths>=2) exceptional.push(`${v} is contemplating whether to continue`);
+ if(event.guardWouldSave) exceptional.push(`${v} should've guarded`);
+ const standout=exceptional.length?pick([...exceptional,null,null],event):null;
+ if(standout)return {text:standout,kind:'sword'};
+ // These are deliberately rare: otherwise the chronicler's self-awareness and
+ // personal insults would drown out the mechanics of each weapon.
+ const rare=[
+   `${v} couldn't make it to the restroom in time`,
+   `${v}! You made it onto here!`,
+   ...(mode==='RENOWN_TRIALS' ? [`${v} confused being bad with being remembered`] : []),
+   ...(mode==='EDGE_OF_VICTORY' ? [`${v} will NOT be bouncing back`] : []),
+   ...(!['RENOWN_TRIALS','EDGE_OF_VICTORY'].includes(mode)?[`${v} will take this personally`]:[]),
+ ];
+ const aside=pick([...Array(70).fill(null),...rare],event);
+ if(aside)return {text:aside,kind:'sword'};
  if(source==='fight-flight-repeater')return text([
    `${k} tranquilized ${v} permanently`,
    `${k} pin-cushioned ${v}`,
+   ...(event.pelted?[`${v} was pelted and is now a pelt`]:[]),
  ],event,'sword');
  if(source==='fight-flight-rotor')return text(event.killContext==='rotorDash'?[
    `${k} took ${v} out for a spin`,
@@ -69,7 +99,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} admired ${apostrophe(k)} ballista a little too closely`,
  ],event,'sword');
  if(source==='so-fist-flick')return text([
-   `${k} pointed ${v} toward the exit`,
+   `${k} showed ${v} the door`,
    `${v} fainted at ${apostrophe(k)} accusation`,
    `${k} gave ${v} the finger`,
  ],event,'sword');
@@ -130,13 +160,23 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  if(source==='frostfire')return text([
    `${k} shattered ${v}`,`${k} chilled out ${v}`,
  ],event,'frost');
- if(source==='gale')return {text:`${k} blew ${v} away`,kind:'gale'};
+ if(source==='gale')return text([
+   `${k} blew ${v} away`,
+   `${v} became winded after ${apostrophe(k)} antics`,
+ ],event,'gale');
  if(source==='abyss')return text([
    `${k} sent ${v} into the abyss`,
    `${v} attained a grounded perspective, courtesy of ${k}`,
  ],event,'abyss');
  if(source==='gauntlet')return {text:`${k} laid ${v} low with a gauntlet`,kind:'sword'};
- if(source==='line_of_conduct')return {text:`${k} conducted ${v} out of the battle`,kind:'fire'};
+ if(source==='line_of_conduct')return text([
+   `${k} conducted ${v} out of the battle`,
+   `${v} was stunned`,
+   `${v} had a fork stuck in the wrong place`,
+   `${v} displayed shocking conduct`,
+   `${v} believed their armor would insulate them`,
+   `${v} couldn't get enough of ${apostrophe(k)} power`,
+ ],event,'fire');
  if(source==='sword')return text(mode==='RENOWN_TRIALS'?[
    `${k} slew ${v}`,
    `${k} ren-OWNED ${v}`,
@@ -146,6 +186,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} bowed down out of sudden respect for ${k}`,
    `${v} misremembered how sharp ${apostrophe(k)} blades were`,
    `${v} was defeated by ${apostrophe(k)} not-so-secret weapon`,
+   `${k} caused ${v} to lay down arms`,
  ],event,'sword');
  return {text:`${k} slew ${v}`,kind:'sword'};
 }
@@ -155,6 +196,13 @@ export function terminalAscensionFeed(pilotName,victims=[]){
  const names=[...new Set(victims.filter(Boolean))];
  return {text:names.length?`${pilotName} Ascended with ${names.join(', ')}`:
    `${pilotName} Ascended`,kind:'fire'};
+}
+// Real grouped casualties, collected by the client from authoritative death
+// events with the same credited killer within the same brief impact window.
+export function graveTimeFeed(victimName,companions=[]){
+  const others=[...new Set(companions.filter(name=>name&&name!==victimName))];
+  if(!others.length)return null;
+  return {text:`${victimName} is going to have a grave time along with ${others.join(', ')}`,kind:'sword'};
 }
 export function vortexStreakFeed(killerName,victims=[]){
  return {text:`${killerName} is hotter than ${[...new Set(victims)].join(', ')}`,kind:'fire'};
