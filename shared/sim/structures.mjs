@@ -21,7 +21,9 @@ export function structureDefinitions(world){
  const used=new Set(authored.flatMap(def=>def.solidIds??[]));
  const transient=(base.solids??[]).filter(s=>
    typeof s.id==='string'&&/^(?:cover-|canopy-cover-)/.test(s.id)&&
-   s.material==='timber'&&!used.has(s.id)&&Array.isArray(s.size))
+   s.material==='timber'&&s.kind!=='prop'&&
+   !['cover-esplanade-mantlet','cover-esplanade-cart'].includes(s.id)&&
+   !used.has(s.id)&&Array.isArray(s.size))
   .map(s=>({id:'reforming-'+s.id,name:'Enchanted '+s.id.replaceAll('-',' '),
     profile:'timber',solidIds:[s.id],rebuildAfterSec:18,transient:true}));
  result=[...authored,...transient];definitionCache.set(base,result);
