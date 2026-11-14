@@ -143,7 +143,7 @@ export class BiByeLlistaRenderer {
             // Clip 26 supplies the authored lowered bow stance as an exclusive
             // joint layer. Clip 23 owns continuous spin, never these same joints.
             const stance=/^(Elevation_Cradle|Main_Limb_[LR])\./;
-            if(clip.name==='23_BiBye_Look_Around_Spin_Loop')part.tracks=part.tracks.filter(t=>!stance.test(t.name));
+            if(clip.name==='23_BiBye_Look_Around_Spin_Loop'||clip.name==='24_BiBye_Look_Around_Reversed_Fire_Settle')part.tracks=part.tracks.filter(t=>!stance.test(t.name));
             if(clip.name==='26_BiBye_Melee_Lowered_Stance')part.tracks=part.tracks.filter(t=>stance.test(t.name));
             if(!part.tracks.length)continue;
             const action=this.mixer.clipAction(part);action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
@@ -329,10 +329,10 @@ export class BiByeLlistaRenderer {
       if(next!==this[key]){this[key]?.stop();this[key]=next;next?.reset().play();}
       if(next){next.paused=true;next.time=Math.max(0,Math.min(chosen.time,next.getClip().duration));}
     }
-    const lowered=ballistaData.sweep?.phase==='loop';
+    const lowered=ballistaData.sweep?.phase==='loop'||ballistaData.sweep?.phase==='settle';
     const stance=lowered?this.actions.get('26_BiBye_Melee_Lowered_Stance'):null;
     if(stance!==this.stanceAction){this.stanceAction?.stop();this.stanceAction=stance;stance?.reset().play();}
-    if(stance){stance.paused=true;stance.time=1;}
+    if(stance){stance.paused=true;stance.time=Math.max(0,Math.min(.45,.45*(ballistaData.sweep?.lower??1)));}
     this.mixer.update(0);
     for (const [name, pose] of this.jointPose) pose.copy(this.nodes.get(name).quaternion);
 
@@ -364,7 +364,7 @@ export class BiByeLlistaRenderer {
     if(cradle&&ballistaData.sweep){
       // The server owns the lowering and pitch: don't apply clip 22 or 26 twice.
       cradle.position.y=.38-.22*(ballistaData.sweep.lower??0);
-      cradle.rotation.set(.435*(ballistaData.sweep.lower??0),0,0);
+      cradle.rotation.set(-pose.mainPitch,0,0);
     }else{
       if(cradle)cradle.position.y=.38;
       cradle?.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pose.mainPitch));

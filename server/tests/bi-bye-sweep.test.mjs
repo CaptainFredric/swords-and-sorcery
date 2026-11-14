@@ -5,7 +5,7 @@ import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {requestBiByeSharpTurn,biByeSweepClearance,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
-import {biByeHitVolumes} from '../../shared/sim/biByeComponents.mjs';
+import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
 
 const ground=()=>({floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20});
@@ -109,7 +109,7 @@ test('snapshot and existing authored clip selection follow immutable machine clo
 });
 test('actual swept main-limb geometry lands one 45 HP hit, but not at elevated non-contact points',()=>{
  const s=setup();
- const limb=biByeHitVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}}).find(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6);
+ const limb=authoredBiByeSweepVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}})[0];
  assert.ok(limb,'must have authored-aligned main limb collider');
  const victim=s.room.addPlayer({id:'target',token:'t',name:'target'},0);
  victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
@@ -127,7 +127,7 @@ test('actual swept main-limb geometry lands one 45 HP hit, but not at elevated n
 });
 test('facing Guard mitigates a genuine bow-limb collision and its displacement',()=>{
  const s=setup();
- const limb=biByeHitVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}}).find(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6);
+ const limb=authoredBiByeSweepVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}})[0];
  const victim=s.room.addPlayer({id:'guard',token:'g',name:'guard'},0);
  victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
  victim.spawnProtectionUntil=0;victim.guarding=true;victim.guardStamina=100;
@@ -139,6 +139,20 @@ test('facing Guard mitigates a genuine bow-limb collision and its displacement',
  assert.equal(hit.guarded,true,'Guard must be facing the actual contact');
  assert.ok(victim.health>55,'guarded damage must be below the clean 45 HP');
  assert.ok(victim.guardStamina<100,'guard expends stamina to mitigate the blow');
+});
+test('original Argon mesh volumes and quaternion keyframes are faithfully represented',()=>{
+ const b=setup().b;
+ const [left,right]=authoredBiByeSweepVolumes({...b,sweep:{lower:1}});
+ for(const v of [left,right]){
+  assert.ok(Math.abs(v.size[0]-1.99276906)<.00001);
+  assert.ok(Math.abs(v.size[1]-.46)<.00001);
+  assert.ok(Math.abs(v.size[2]-.63472036)<.00001);
+  for(const axis of v.axes)assert.ok(Math.abs(Math.hypot(...axis)-1)<1e-7);
+ }
+ assert.ok(left.center[0]*right.center[0]<0);
+ const q=authoredSweepLimbQuaternion(-1,.45,1);
+ assert.ok(Math.abs(q[1]+.14242306)<1e-6);
+ assert.ok(Math.abs(q[2]-.12060817)<1e-6);
 });
 test('clearance, damage, and loop cadence retain discrete authored timings',()=>{
  assert.equal(BI_BYE_SWEEP.single,1.65);

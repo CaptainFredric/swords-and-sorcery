@@ -1,6 +1,7 @@
 // Bi-Bye-llista physical sweep. Authored Argon v26 clip clocks and pivot geometry
 // are authoritative gameplay timing; visual channels never grant damage.
-import {biByeCondition,biByeHitVolumes} from './biByeComponents.mjs';
+import {biByeCondition} from './biByeComponents.mjs';
+import {authoredBiByeSweepVolumes} from './biByeSweepGeometry.mjs';
 import {skillOperator,endSiegeSkill,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {surfaceHeightAt} from '../src/collision.mjs';
@@ -40,11 +41,9 @@ const phaseAt=t=>{
 };
 export function biByeSweepActive(b){return Boolean(inside(b?.sweep));}
 export function biByeSweepFireLocked(b){return Boolean(b?.sweep?.phase==='opening'||b?.sweep?.phase==='loop'||b?.sweep?.phase==='single'||b?.sweep?.phase==='settle');}
-// The original PBR GLB's POSITION accessor for each Main_Limb has a
-// 1.99277 x .46000 x .63472 metre local mesh extent. The ordinary bolt
-// hit-volume profile is intentionally not expanded outside this special strike.
-const blades=b=>biByeHitVolumes(b).filter(v=>v.assembly==='main'&&v.size[0]>1.8&&v.size[1]<.6)
- .map(v=>({...v,size:[1.993,.460,.635]}));
+// Only this special attack uses v26 mesh bounds and actual authored limb
+// quaternions. Ordinary ballista component and bolt hitboxes remain unchanged.
+const blades=(b,clipTime=null)=>authoredBiByeSweepVolumes(b,{clipTime});
 function expand(target,attacker,extra=0){
  return {...target,size:target.size.map((width,i)=>width+
    attacker.axes.reduce((sum,axis,j)=>sum+Math.abs(axis.reduce((v,c,k)=>v+c*target.axes[i][k],0))*attacker.size[j],0)+extra*2)};
@@ -68,10 +67,11 @@ function terrainBlocked(b,volumes,world){
  }
  return false;
 }
-function bladesAt(b,angle,lower){
+function bladesAt(b,angle,lower,clipTime=null){
  const base=b.sweep?.baseYaw??b.mainYaw??b.heading;
  const pitch=b.sweep?.basePitch??b.mainPitch??0;
- return blades({...b,mainYaw:base+angle,mainPitch:pitch*(1-lower)-.435*lower,sweep:{phase:'opening',lower}});
+ const pose={...b,mainYaw:base+angle,mainPitch:pitch*(1-lower)-.435*lower,sweep:{...b.sweep,lower}};
+ return blades(pose,clipTime);
 }
 function worldBlocked(b,oldBlades,nextBlades,world){
  const solids=(world?.solids??[]).filter(s=>!String(s.id??'').startsWith('bibye-'));
@@ -186,12 +186,13 @@ function hitMachines(room,b,s,oldBlades,newBlades,now){
   }
  }
 }
-function contacts(room,b,s,prevAngle,angle,previousLower,lower,now){
+function contacts(room,b,s,prevAngle,angle,previousLower,lower,now,authoredClock=false){
  const count=Math.max(1,Math.ceil(Math.abs(angle-prevAngle)/BI_BYE_SWEEP.maxArcStep));
- let last=bladesAt(b,prevAngle,previousLower);
+ const oldAge=s.lastPhysicsAge??0,currentAge=Math.max(0,now-s.startedAt);
+ let last=bladesAt(b,prevAngle,previousLower,authoredClock?oldAge:null);
  for(let i=1;i<=count;i++){
   const frac=i/count,a=prevAngle+(angle-prevAngle)*frac,l=previousLower+(lower-previousLower)*frac;
-  const next=bladesAt(b,a,l);
+  const next=bladesAt(b,a,l,authoredClock?oldAge+(currentAge-oldAge)*frac:null);
   if(worldBlocked(b,last,next,room.world))return false;
   // The seam at exactly 360 degrees belongs to the previous revolution.
   const revolution=s.kind==='single'?0:Math.max(0,Math.floor((a-1e-6)/TAU));
@@ -214,6 +215,7 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
   finishBiByeSweep(room,b,now,'interrupted');return;
  }
  const age=Math.max(0,now-s.startedAt),prior=s.angle,priorLower=s.lower;
+ const authoredClock=s.phase==='opening'||s.phase==='single';
  let next=prior,lower=priorLower,canHit=false;
  if(s.phase==='single'){
   const p=phaseAt(Math.min(age,BI_BYE_SWEEP.single));
@@ -235,7 +237,7 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
   lower=Math.max(0,priorLower-dt/Math.max(.24,BI_BYE_SWEEP.settleClip*.20));
  }
  if(canHit){
-  if(!contacts(room,b,s,prior,next,priorLower,lower,now)){
+  if(!contacts(room,b,s,prior,next,priorLower,lower,now,authoredClock)){
    if(s.kind==='skill')requestBiByeSweepStop(b,now,false);
    else finishBiByeSweep(room,b,now,'obstructed');
    return;
@@ -243,7 +245,7 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
  }else if(s.phase==='settle'&&worldBlocked(b,bladesAt(b,prior,priorLower),bladesAt(b,next,lower),room.world)){
   finishBiByeSweep(room,b,now,'obstructed');return;
  }
- s.angle=next;s.lower=lower;
+ s.angle=next;s.lower=lower;s.lastPhysicsAge=age;
  // Keep both launchers attached to the real traverse. Starting from the
  // pre-existing aimed pose prevents an instant 45-degree snap on activation.
  b.mainYaw=s.baseYaw+next;b.upperYaw=s.upperBaseYaw+next;
