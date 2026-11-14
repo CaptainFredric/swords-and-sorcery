@@ -9,6 +9,9 @@ import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES, getBiByeMuzzlePositi
 import { withClearBoltHidden, withClearNearBoltsHidden, biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb?v=d696b66892a96c0a';
+// The uploaded original 26-clip donor takes priority once staged in production.
+// Keep the known-good v4.3 asset as an explicit fallback until that binary lands.
+const AUTHORED_26_PATH = '/client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb';
 
 // the chassis point the operator's right fist comes down on, in the ballista's own frame (getOperatorGrips)
 const OPERATOR_CASING=Object.freeze([-0.38,0.942,-1.24]);
@@ -96,10 +99,10 @@ export class BiByeLlistaRenderer {
 
   #loadAuthoredModel() {
     const loader = new GLTFLoader();
-    const url = appUrl(ASSET_PATH);
-
-    loader.load(
-      url,
+    const candidates = [appUrl(AUTHORED_26_PATH),appUrl(ASSET_PATH)];
+    let candidate=0;
+    const loadCandidate=()=>loader.load(
+      candidates[candidate],
       (gltf) => {
         this.authoredModel = gltf.scene;
         if (this.disposed) { this.#disposeGroup(gltf.scene, true); return; }
@@ -137,6 +140,11 @@ export class BiByeLlistaRenderer {
           for(const owner of ['Main','Upper','Clutch','Delay']){
             const part=clip.clone();part.name+=owner==='Main'?'':'_'+owner;
             part.tracks=part.tracks.filter(track=>biByeTrackOwner(track.name)===owner);
+            // Clip 26 supplies the authored lowered bow stance as an exclusive
+            // joint layer. Clip 23 owns continuous spin, never these same joints.
+            const stance=/^(Elevation_Cradle|Main_Limb_[LR])\./;
+            if(clip.name==='23_BiBye_Look_Around_Spin_Loop')part.tracks=part.tracks.filter(t=>!stance.test(t.name));
+            if(clip.name==='26_BiBye_Melee_Lowered_Stance')part.tracks=part.tracks.filter(t=>stance.test(t.name));
             if(!part.tracks.length)continue;
             const action=this.mixer.clipAction(part);action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
             this.actions.set(part.name,action);
@@ -152,9 +160,11 @@ export class BiByeLlistaRenderer {
       undefined,
       (err) => {
         // Fallback remains active seamlessly if GLB network load fails
+        if(candidate===0){candidate=1;loadCandidate();return;}
         console.warn('BiByeLlistaRenderer: Authored asset load failed, retaining fallback mesh', err);
       }
     );
+    loadCandidate();
   }
 
   #copyDamageMaterials(root){
@@ -272,7 +282,7 @@ export class BiByeLlistaRenderer {
 
     if(this.instanceId!==ballistaData.id){
       this.instanceId=ballistaData.id;this.lastWheelPose=null;this.wheelAngles.fill(0);
-      this.mixer?.stopAllAction();this.activeBaseAction=null;this.upperAction=null;this.clutchAction=null;this.delayAction=null;
+      this.mixer?.stopAllAction();this.activeBaseAction=null;this.upperAction=null;this.clutchAction=null;this.delayAction=null;this.stanceAction=null;
       if(this.restJointPose)this.jointPose=new Map([...this.restJointPose].map(([name,q])=>[name,q.clone()]));
     }
     // 1. Authoritative World Position & Carriage Heading
@@ -319,6 +329,10 @@ export class BiByeLlistaRenderer {
       if(next!==this[key]){this[key]?.stop();this[key]=next;next?.reset().play();}
       if(next){next.paused=true;next.time=Math.max(0,Math.min(chosen.time,next.getClip().duration));}
     }
+    const lowered=ballistaData.sweep?.phase==='loop';
+    const stance=lowered?this.actions.get('26_BiBye_Melee_Lowered_Stance'):null;
+    if(stance!==this.stanceAction){this.stanceAction?.stop();this.stanceAction=stance;stance?.reset().play();}
+    if(stance){stance.paused=true;stance.time=1;}
     this.mixer.update(0);
     for (const [name, pose] of this.jointPose) pose.copy(this.nodes.get(name).quaternion);
 
@@ -346,7 +360,15 @@ export class BiByeLlistaRenderer {
     if(mode===BI_BYE_MODES.DESTROYED)return;
     const pose=biByeAimPose(ballistaData,timeSec);
     this.nodes.get('Traverse_Mount')?.rotation.set(0,pose.mainYaw,0);
-    this.nodes.get('Elevation_Cradle')?.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pose.mainPitch));
+    const cradle=this.nodes.get('Elevation_Cradle');
+    if(cradle&&ballistaData.sweep){
+      // The server owns the lowering and pitch: don't apply clip 22 or 26 twice.
+      cradle.position.y=.38-.22*(ballistaData.sweep.lower??0);
+      cradle.rotation.set(.435*(ballistaData.sweep.lower??0),0,0);
+    }else{
+      if(cradle)cradle.position.y=.38;
+      cradle?.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pose.mainPitch));
+    }
     this.nodes.get('Upper_Turret_Mount')?.quaternion.setFromEuler(new THREE.Euler(-pose.upperPitch,pose.upperYaw,0,'YXZ'));
     const tiller=this.nodes.get('Operator_Steering_Tiller');if(tiller)tiller.rotation.z=(ballistaData.steer??0)*.28;
     this.nodes.get('Operator_Traverse_Wheel')?.rotateZ(pose.mainYaw*4);
