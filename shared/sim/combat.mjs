@@ -230,6 +230,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.oneHitField = null;
   player.oneHitFrozenUntil = -Infinity;
   player.damageTakenThisLife = 0;
+  player.killfeedPelting=null; // a repeater barrage cannot persist across lives
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
   player.respawnAt = 0;
