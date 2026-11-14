@@ -70,7 +70,8 @@ function terrainBlocked(b,volumes,world){
 }
 function bladesAt(b,angle,lower){
  const base=b.sweep?.baseYaw??b.mainYaw??b.heading;
- return blades({...b,mainYaw:base+angle,mainPitch:-.435*lower,sweep:{phase:'opening',lower}});
+ const pitch=b.sweep?.basePitch??b.mainPitch??0;
+ return blades({...b,mainYaw:base+angle,mainPitch:pitch*(1-lower)-.435*lower,sweep:{phase:'opening',lower}});
 }
 function worldBlocked(b,oldBlades,nextBlades,world){
  const solids=(world?.solids??[]).filter(s=>!String(s.id??'').startsWith('bibye-'));
@@ -104,7 +105,7 @@ function start(room,b,p,now,kind){
  b.trackingSince=null;b.pendingVolley=null;b.coupling='INDEPENDENT';b.couplingProgress=0;
  b.speed=0;b.steer=0;
  b.sweep={kind,phase:kind==='skill'?'opening':'single',startedAt:now,
-   baseYaw:b.mainYaw,upperBaseYaw:b.upperYaw,
+   baseYaw:b.mainYaw,basePitch:b.mainPitch,upperBaseYaw:b.upperYaw,
    angle:0,lower:0,revolution:0,victims:{},machines:{},ownerId:p.id};
  if(kind==='skill'){
   b.skill.phase='active';b.skill.ownerId=p.id;b.skill.primedAt=now;
@@ -246,14 +247,14 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
  // Keep both launchers attached to the real traverse. Starting from the
  // pre-existing aimed pose prevents an instant 45-degree snap on activation.
  b.mainYaw=s.baseYaw+next;b.upperYaw=s.upperBaseYaw+next;
- b.mainPitch=-.435*lower;b.yaw=b.mainYaw;b.pitch=b.mainPitch;
+ b.mainPitch=s.basePitch*(1-lower)-.435*lower;b.yaw=b.mainYaw;b.pitch=b.mainPitch;
  b.speed=0;b.steer=0;
  if(s.phase==='single'&&age>=BI_BYE_SWEEP.single){
-  b.mainYaw=s.baseYaw;b.upperYaw=s.upperBaseYaw;b.mainPitch=0;finishBiByeSweep(room,b,now);
+  b.mainYaw=s.baseYaw;b.upperYaw=s.upperBaseYaw;b.mainPitch=s.basePitch;finishBiByeSweep(room,b,now);
  }else if(s.phase==='settle'&&Math.abs(delta(next,0))<.015&&
           now-s.stopAt>=.24){
   const shouldFire=s.fireOnStop;
-  b.mainYaw=s.baseYaw;b.upperYaw=s.upperBaseYaw;b.mainPitch=0;
+  b.mainYaw=s.baseYaw;b.upperYaw=s.upperBaseYaw;b.mainPitch=s.basePitch;
   // Resolution starts the full Skill cooldown. The ordinary loader, physical
   // clutch and projectile pipeline still decide whether anything can fire.
   // Clip 24 is authored heavy-first, including a non-authoritative release.
