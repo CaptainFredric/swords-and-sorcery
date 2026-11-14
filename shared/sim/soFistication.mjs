@@ -334,7 +334,7 @@ const p=room.players.get(b.operatorId);
   const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);let first=null;
   for(const box of biByeHitVolumes(other,now)){
    const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
-   const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first=hit;
+   const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first={...hit,box};
   }
   if(first){const armored=hasFist(b),damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);
     const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
@@ -356,7 +356,7 @@ const p=room.players.get(b.operatorId);
     head.axes.reduce((n,axis,j)=>n+
       Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
    const hit=orientedBoxHit(old.center,head.center,{...box,size});
-   if(hit&&(!first||hit.t<first.t))first=hit;
+   if(hit&&(!first||hit.t<first.t))first={...hit,box};
   }
   if(first){
    const armored=hasFist(b),damage=armored?110:75+
