@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {stepRoom} from '../../shared/sim/combat.mjs';
 import {createSoFistication,mountSoFistication,soFistEntry,stepSoFistication,fireSoFistication} from '../../shared/sim/soFistication.mjs';
-import {createBiByeLlista,stepBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
+import {createBiByeLlista,stepBiByeLlista,toggleBiByeDeploy} from '../../shared/sim/biByeLlista.mjs';
 import {primeSoFistSkill} from '../../shared/sim/soFistication.mjs';
 import {applyBallistaImpact,ramReboundSpeed,siegeRock,recordSiegeImpact,SIEGE_IMPACT} from '../../shared/sim/siegeImpact.mjs';
 const ground={floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20};
@@ -64,6 +64,34 @@ test('actual mobile ballista translates from external momentum without operator 
  assert.ok(b.z<start-.06,'unoccupied ballista must actually travel on the map');
  assert.ok(Math.hypot(...b.wheelRolls)>0,'real wheel roll accompanies displacement');
  assert.ok(Math.hypot(b.externalVelocity.x,b.externalVelocity.z)<3.4);
+});
+test('ram impact skids a mobile ballista, then forcibly plants outriggers and locks mobile mode',()=>{
+ const r=room(),b=r.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});
+ b.terrainInitialized=true;b.y=0;
+ assert.equal(applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:12}),true);
+ assert.equal(b.mode,'MOBILE','first the carriage must absorb real physical momentum');
+ assert.ok(b.externalVelocity.z<0,'contact drives actual wheel translation');
+ const start=b.z;
+ for(let i=1;i<=12;i++)stepBiByeLlista(r,b,1/30,1+i/30);
+ assert.ok(b.z<start-.05,'there is observable skid distance before feet plant');
+ assert.equal(b.mode,'DEPLOYING');
+ assert.ok(r.events.some(e=>e.type==='bibyeOutriggersForced'));
+ for(let i=13;i<=43;i++)stepBiByeLlista(r,b,1/30,1+i/30);
+ assert.equal(b.mode,'DEPLOYED','the collision forced HEAVY rather than just painting a warning');
+ assert.equal(toggleBiByeDeploy(b,2.6,r.world),false,'operator cannot instantly cancel a forced brace');
+ assert.equal(toggleBiByeDeploy(b,5,r.world),true,'after recovery the user regains ordinary mode control');
+ assert.equal(b.mode,'RETRACTING');
+});
+test('light taps or broken stabilizers do not conjure deployed supports',()=>{
+ const r=room(),light=createBiByeLlista({x:0,z:0,baseYaw:0});
+ applyBallistaImpact(r,light,1,{normal:{x:0,z:-1},speed:7});
+ assert.equal(light.forcedDeployAt,null);
+ const damaged=createBiByeLlista({x:0,z:0,baseYaw:0});
+ for(const part of ['Stabilizer_FL','Stabilizer_FR'])damaged.components[part].health=0;
+ applyBallistaImpact(r,damaged,2,{normal:{x:0,z:-1},speed:16});
+ assert.equal(damaged.mode,'MOBILE');
+ assert.equal(damaged.forcedDeployAt,null);
+ assert.ok(damaged.externalVelocity.z<0,'real shove still happens when feet cannot plant');
 });
 test('a deployed ballista absorbs shock but does not magically drive away',()=>{
  const r=room(),b=r.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});
