@@ -9,7 +9,8 @@ export function siegeSkillControlLabel(b,now){
  if(b.detachedFist?.state==='recovering')
   return Math.ceil(Math.max(0,(b.fistRecoveryUntil??now)-now))+'s';
  const remaining=Math.max(0,(s.readyAt??0)-now);
- if(s.id==='coldHowTouching')
+ if(s.id==='lookAroundAndFindOut')return b.sweep?.kind==='skill'?(b.sweep.phase==='settle'?'SETTLING':'CANCEL SPIN'):remaining>0?Math.ceil(remaining)+'s':'SPIN';
+  if(s.id==='coldHowTouching')
   return s.phase==='active'?'ACTIVE':remaining>0?`${Math.ceil(remaining)}s`:'ACTIVATE';
  if(s.phase==='releasing')return 'II RELEASING';
  if(s.id==='longArmToTheJaw'){
@@ -44,7 +45,8 @@ export function siegeSkillLabel(b,now){
  const name=s.id==='hellpingHand'?'HELLping Hand':
   s.id==='longArmToTheJaw'?'Long Arm to the Jaw':
   s.id==='beatToThePunch'?'Beat to the Punch':
-  s.id==='coldHowTouching'?'Cold, How Touching':'Bolt to the Occasion';
+  s.id==='coldHowTouching'?'Cold, How Touching':
+  s.id==='lookAroundAndFindOut'?'Look Around and Find Out':'Bolt to the Occasion';
  if(s.id==='coldHowTouching'&&s.phase==='active')return `${name}: ACTIVE · Bolt I proximity frost until Bolt II`;
  if(s.id==='beatToThePunch'&&s.phase==='primed'){
   const t=Math.max(0,now-(s.primedAt??now));
