@@ -42,6 +42,7 @@ import { separateLocal } from '../../shared/src/separation.mjs';
 import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
+import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
 import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
@@ -1872,9 +1873,7 @@ export class GameRuntime {
         // exposes a locator called "hull". Never silently drop its repair VFX.
         const componentPoint = event.componentId
           ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
-        const point = componentPoint ?? event.point ??
-          (machine && (machine.health ?? 1) > 0
-            ? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z } : null);
+        const point = siegeSteelRepairPoint(event,machine,componentPoint);
         if (point && event.amount > 0) {
           this.effects.steelGlint(point, null, { strength: 0.45, ring: false, scale: 0.4 });
         }
