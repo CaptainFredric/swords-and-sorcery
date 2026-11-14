@@ -10,12 +10,46 @@ export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
 // Asset paths for canonical lightweight machine previews
 const MACHINE_ASSETS = Object.freeze({
-  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-v2_7.glb',
+  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb',
   biBye: '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',
   fightFlight: '/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb',
 });
 
 // Match gameplay's native transforms. The two metre-based GLBs use unit scale.
+// This is the original, SHA-verified Argon donor, reassembled before static
+// publishing. Keep the functional hydraulic rig; transfer only articulated
+// finger meshes and donor-hand animation tracks, exactly as in gameplay.
+const SO_FIST_ARGON_V26='/client/assets/props/so-fist-ication/so-fist-ication-v26.glb?v=6800db7a9dd1bfa6';
+const ARGON_HAND_TRACK=/^(?:Armored_Fist|Wrist_Resonator_Ring|Index_[123]|Middle_[123]|Ring_[123]|Pinky_[123]|Thumb_[123]|Palm_Capture_Gate|Secret_Palm_Hatch_[LR]|Rear_Egress_Hatch_[LR])\\./;
+function graftWorkshopArgonHand(base,donor){
+ const target=base.scene.getObjectByName('Armored_Fist');
+ const hand=donor.scene.getObjectByName('Armored_Fist');
+ const fingers=['Index_1','Index_2','Index_3','Middle_1','Middle_2','Middle_3',
+   'Ring_1','Ring_2','Ring_3','Pinky_1','Pinky_2','Pinky_3',
+   'Thumb_1','Thumb_2','Thumb_3'];
+ const missing=fingers.filter(name=>!hand?.getObjectByName(name));
+ const extra=donor.animations.filter(a=>/^(1[1-9]|2[0-6])_/.test(a.name));
+ if(!target||!hand||missing.length||extra.length!==16)
+   throw Error('Incomplete Argon v26 donor: missing '+missing.join(',')+', clips '+extra.length);
+ if(target.isMesh&&hand.isMesh){
+  target.geometry=hand.geometry;target.material=hand.material;
+ }else if(hand.isMesh){
+  for(const old of [...target.children])
+   if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
+  const surface=new THREE.Mesh(hand.geometry,hand.material);
+  surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
+ }
+ for(const part of [...hand.children])target.add(part);
+ // Donor carriages do NOT have the production hydraulic pivots. Their tracks
+ // must never animate the base, wheels, piston, driver or independent lift.
+ const handClips=extra.map(clip=>new THREE.AnimationClip(clip.name,clip.duration,
+   clip.tracks.filter(track=>ARGON_HAND_TRACK.test(track.name))));
+ for(const clip of handClips)
+  if(!clip.tracks.length)throw Error('Argon hand clip has no bound tracks: '+clip.name);
+ base.animations.push(...handClips);
+ return handClips;
+}
+
 const AUTHORED_SCALE = { soFist: SO_FIST_SCALE, biBye: 1, fightFlight: 1 };
 const REST_YAW = { soFist: Math.PI - .28, biBye: 0, fightFlight: 0 };
 const IDLE_CLIP = { biBye: '01_BiBye_LoadedIdle', fightFlight: 'Posture_01_Grounded_Idle' };
@@ -514,7 +548,19 @@ export class SiegeWorkshopScene {
     const promise = new Promise((resolve) => {
       this.loader.load(
         appUrl(assetPath),
-        (gltf) => {
+        async (gltf) => {
+          if(id==='soFist'){
+            try{
+              const donor=await new Promise((resolveDonor,rejectDonor)=>
+                this.loader.load(appUrl(SO_FIST_ARGON_V26),resolveDonor,undefined,rejectDonor));
+              graftWorkshopArgonHand(gltf,donor);
+              this.argonHandInstalled=true;
+            }catch(error){
+              this.argonHandInstalled=false;
+              console.error('Siege Workshop: Argon v26 hand unavailable; no hand preview',error);
+            }
+          }
+          if(this.disposed){this.inFlight.delete(id);resolve(null);return;}
           const model = gltf.scene;
           model.name = `Authored_${id}`;
 
@@ -537,7 +583,7 @@ export class SiegeWorkshopScene {
           const size = box.getSize(new THREE.Vector3());
           const center = box.getCenter(new THREE.Vector3());
           model.userData = {
-            isAuthored: true, machineId: id, motionBounds: box,
+            isAuthored: true, machineId: id, argonHand: id==='soFist'&&Boolean(this.argonHandInstalled), motionBounds: box,
             bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
           this.clips.set(id,gltf.animations);
@@ -594,6 +640,7 @@ export class SiegeWorkshopScene {
       scale: child?.scale.x ?? null,
       knight: Boolean(this.knight),
       hasMixer: this.mixers.has(this.activeMachineId),
+      argonHand: Boolean(child?.userData?.argonHand),
     };
   }
 
@@ -610,6 +657,18 @@ export class SiegeWorkshopScene {
   }
 
   playPreview(skill) {
+    // Do not play a fictitious animation on the old fallback model. If a
+    // player clicks before the 7 MB donor has finished loading, start the
+    // requested demonstration as soon as its actual articulated rig arrives.
+    if(this.activeMachineId==='soFist' &&
+      (skill==='hellpingHand'||skill==='ramFingerFlick') &&
+      !this.argonHandInstalled){
+      this.whenLoaded('soFist').then(()=>{
+        if(this.activeMachineId==='soFist'&&this.argonHandInstalled)
+          this.playPreview(skill);
+      });
+      return false;
+    }
     this.stopPreview();
     const started=this.performance.play(skill);
     if(started)this.previewAnimation=null;
@@ -683,6 +742,27 @@ export class SiegeWorkshopScene {
         layers.push({name,age:clip?Math.min(clip.duration*.48,time*1.5):0});
       else if(skill==='beatToThePunch')
         layers.push({name,age:Math.max(0,time-2.1)});
+      else if(skill==='ramFingerFlick')
+        layers.push({name:'23_Finger_Flick_Single_Target_Strike',age:time});
+      else if(skill==='hellpingHand'){
+        // The exact Argon phases, in a readable theatrical succession.
+        // This is the menu only: server gameplay remains state-authoritative.
+        const segments=[
+          [0,1,'11_HELLping_Hand_Open_Wide'],
+          [1,2,'12_HELLping_Hand_Enemy_Capture_Close'],
+          [2,6,'13_HELLping_Hand_Sustained_Crush_4s'],
+          [6,7.2,'14_HELLping_Hand_Release_Or_Fist_Destroyed'],
+          [7.2,8.6,'15_HELLping_Hand_Ally_Hatch_Open_Enter'],
+          [8.6,9.8,'16_HELLping_Hand_Ally_Protected_Punch'],
+          [9.8,10.9,'17_HELLping_Hand_Ally_Rear_Exit'],
+          [10.9,12.5,'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages'],
+          [12.5,14.1,'19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages'],
+          [14.1,15.3,'22_HELLping_Hand_Skill_Default_Open_Palm_Idle'],
+        ];
+        const segment=segments.find(([start,end])=>time>=start&&time<end)??segments.at(-1);
+        layers.push({name:segment[2],age:Math.max(0,time-segment[0]),
+          loop:segment[2].startsWith('22_')});
+      }
     } else if(id==='biBye') {
       if(skill==='boltToTheOccasion')
         layers.push(time>=2.58
