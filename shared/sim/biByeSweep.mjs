@@ -130,6 +130,13 @@ export function requestBiByeSweepStop(b,now,fire=true){
 }
 export function finishBiByeSweep(room,b,now,reason='finished'){
  const s=b?.sweep;if(!s)return;
+ // Interruptions (support collapse, forced dismount, collision, destruction)
+ // must never strand the ordinary turret outside its physical aim envelope.
+ // The uncommitted action is arrested and reset; this is NOT a new attack.
+ if(!['finished','firing','cancelled'].includes(reason)){
+  b.mainYaw=s.baseYaw;b.mainPitch=s.basePitch;b.upperYaw=s.upperBaseYaw;
+  b.yaw=s.baseYaw;b.pitch=s.basePitch;b.speed=0;b.steer=0;
+ }
  if(s.kind==='skill'&&b.skill?.id==='lookAroundAndFindOut'){
   b.skill.readyAt=Math.max(b.skill.readyAt??0,now+SIEGE_SKILLS.lookAroundAndFindOut.cooldown);
   endSiegeSkill(b,now);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
-import {requestBiByeSharpTurn,biByeSweepClearance,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
+import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
 import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
@@ -48,6 +48,21 @@ test('sweep starts from the actual turret aim and upper assembly rotates with it
  assert.ok(Math.abs(s.b.mainYaw-.48)<1e-7,'returns to actual starting aim, not fixed chassis yaw');
  assert.ok(Math.abs(s.b.mainPitch-.21)<1e-7,'restores original physical elevation after recovery');
  assert.ok(Math.abs(s.b.upperYaw-.64)<1e-7);
+});
+test('interruptions restore legal ordinary turret aim and charge the machine Skill only on actual resolution',()=>{
+ const s=setup('lookAroundAndFindOut');
+ s.b.mainYaw=.32;s.b.mainPitch=.1;s.b.upperYaw=.7;
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,1.82);
+ assert.ok(Math.abs(s.b.mainYaw-.32)>1,'turret really rotates before interruption');
+ assert.equal(s.b.skill.readyAt,0);
+ finishBiByeSweep(s.room,s.b,1.83,'impact');
+ assert.equal(s.b.sweep,null);
+ assert.ok(Math.abs(s.b.mainYaw-.32)<1e-9);
+ assert.ok(Math.abs(s.b.upperYaw-.7)<1e-9);
+ assert.ok(Math.abs(s.b.mainPitch-.1)<1e-9);
+ assert.equal(s.b.skill.readyAt,25.83);
+ assert.equal(fireBiByeLlista(s.room,s.b,1.84),true,'original bolt input returns immediately after interruption');
 });
 test('walls prevent a full revolution before startup; unobstructed ground permits it',()=>{
  const s=setup();assert.equal(biByeSweepClearance(s.b,s.room.world),true);
