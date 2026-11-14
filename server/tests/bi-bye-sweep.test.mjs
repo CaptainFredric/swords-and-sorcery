@@ -6,6 +6,8 @@ import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,fireBiByeLlista} from
 import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,biByeSweepAllowsContact,BI_BYE_SWEEP} from '../../shared/sim/biByeSweep.mjs';
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
 import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
+import {biByeHitVolumes} from '../../shared/sim/biByeComponents.mjs';
+import {orientedBoxHit,boxWorld} from '../../shared/src/orientedBox.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
 import {createSoFistication} from '../../shared/sim/soFistication.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
@@ -128,6 +130,45 @@ test('look around keeps cooldown unspent while spinning; stops through loaded ph
  step(s,7,7.5);
  assert.deepEqual([...s.room.bibyeProjectiles.values()].map(v=>v.subKind),['conditioning']);
  assert.equal(s.b.mainBoltLoaded,true,'mobile spin must not launch heavy ammunition');
+});
+test('outrigger shoes and beams keep original real hit volumes while only the articulated bow sweeps',()=>{
+ const s=setup('lookAroundAndFindOut');
+ const take=()=>biByeHitVolumes(s.b).filter(v=>v.componentId.startsWith('Stabilizer_'));
+ const before=take(),ids=[...new Set(before.map(v=>v.componentId))];
+ assert.deepEqual(ids.sort(),['Stabilizer_FL','Stabilizer_FR','Stabilizer_RL','Stabilizer_RR']);
+ for(const id of ids){
+  const parts=before.filter(v=>v.componentId===id);
+  assert.ok(parts.length>=3,id+' must contain tangible wooden beam, metal brace and planting shoe');
+  for(const box of parts){
+   const start=boxWorld(box,[0,0,-box.size[2]/2-.35]);
+   const end=boxWorld(box,[0,0,box.size[2]/2+.35]);
+   assert.ok(orientedBoxHit(start,end,box),id+' is not a purely visual outrigger');
+  }
+ }
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,2.35);
+ assert.equal(s.b.sweep?.phase,'loop');
+ const during=take();
+ assert.equal(during.length,before.length);
+ for(let i=0;i<before.length;i++){
+  assert.equal(during[i].componentId,before[i].componentId);
+  assert.ok(Math.hypot(...during[i].center.map((n,k)=>n-before[i].center[k]))<1e-7,
+    'the out-riggers are stationary chassis supports, not spinning ghost attack boxes');
+ }
+ assert.equal(s.b.heading,0);
+});
+test('heavy Bolt II opportunity cost cannot be bypassed by repeating a loaded spin during reload',()=>{
+ const s=setup('lookAroundAndFindOut');
+ s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.deploymentSupported=true;
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,4);assert.equal(issue(s,'bibyeFire',4.1).rejected,undefined);
+ step(s,4.1,8);
+ const heavyFired=s.room.events.filter(e=>e.type==='bibyeFired'&&e.shot==='II_SKILL');
+ assert.equal(heavyFired.length,1);
+ assert.equal(s.b.mainBoltLoaded,false);
+ assert.ok(s.b.reloadEndsAt>8);
+ assert.match(issue(s,'siegeSkill',8.1).rejected,/ready|cooling/i);
+ assert.equal(s.room.events.filter(e=>e.type==='bibyeFired'&&e.shot==='II_SKILL').length,1);
 });
 test('deployed loaded Look Around finishes with authoritative Bolt II then Bolt I, paying each ammunition clock',()=>{
  const s=setup('lookAroundAndFindOut');s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.deploymentSupported=true;
