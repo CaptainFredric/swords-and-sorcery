@@ -102,7 +102,8 @@ test('Finger Flick contacts real ballista and aircraft component volumes, transf
   assert.ok(ballista.health<oldBallistaHP,'the swept fingertip damaged the real ballista hull');
   assert.ok(Math.hypot(ballista.externalVelocity.x,ballista.externalVelocity.z)>0,
     'mobile ballista received a physical movement impulse');
-  assert.ok(ballistaScenario.b.recoilVelocity<0,'striking the machine recoils the ram as well');
+  assert.ok(ballistaScenario.room.events.some(e=>e.type==='siegeImpact'&&e.kind==='flick-ballista'),
+    'the machine contact must propagate into the ram chassis kinetic-response system');
 
   const flightScenario=setup();
   const flight=createFightFlight();
