@@ -58,7 +58,9 @@ export function stepStructureRestoration(room,now){
   if(blocked)continue;
   entry.health=entry.maxHealth;entry.destroyedAt=null;entry.rebuiltAt=now;
   entry.lastHitAt=null;room.structures.revision++;restored++;
+  const solid=base.solids?.find(o=>def.solidIds.includes(o.id));
   room.events.push({type:'structureRebuilt',structureId:def.id,name:def.name,
+    point:solid?{x:solid.center[0],y:solid.center[1],z:solid.center[2]}:null,
     blueMagic:true,at:now});
  }
  if(restored)room.world=structureWorld(room.world,room.structures);
