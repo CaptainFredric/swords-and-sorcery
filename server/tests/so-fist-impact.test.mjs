@@ -41,10 +41,9 @@ test('an actual stationary piston hit translates a live mobile ballista, not onl
  for(let i=1;i<=100;i++)stepRoom(r,1/30,i/30,r.world);
  assert.ok(r.events.some(e=>e.type==='bibyeDamaged'&&e.source==='so-fist'),'fist must contact machine component');
  assert.ok(ballista.z<start-.06,'impacted machine must translate across the world');
- assert.ok(r.events.some(e=>e.type==='bibyeOutriggersForced'),
-   'real piston contact with the ballista should forcibly brace its outriggers');
- assert.equal(ballista.mode,'DEPLOYED',
-   'real piston contact must finish its involuntary deployment into heavy mode');
+ assert.equal(r.events.some(e=>e.type==='bibyeOutriggersUprooted'),false,
+   'a ballista already in MOBILE has no planted outriggers to uproot');
+ assert.equal(ballista.mode,'MOBILE','ram strikes must never deploy mobile outriggers');
  assert.ok(ram.z>.2,'hitting the machine must also recoil the attacker');
 });
 test('carriage collision transfers only bounded momentum and visually settles',()=>{
@@ -69,41 +68,69 @@ test('actual mobile ballista translates from external momentum without operator 
  assert.ok(Math.hypot(...b.wheelRolls)>0,'real wheel roll accompanies displacement');
  assert.ok(Math.hypot(b.externalVelocity.x,b.externalVelocity.z)<3.4);
 });
-test('ram impact skids a mobile ballista, then forcibly plants outriggers and locks mobile mode',()=>{
+test('a heavy hit UPROOTS deployed outriggers, forcibly retracts to mobile, and delivers real knockback',()=>{
  const r=room(),b=r.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});
- b.terrainInitialized=true;b.y=0;
+ b.mode='DEPLOYED';b.terrainInitialized=true;b.y=0;
+ const z=b.z;
  assert.equal(applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:12}),true);
- assert.equal(b.mode,'MOBILE','first the carriage must absorb real physical momentum');
- assert.ok(b.externalVelocity.z<0,'contact drives actual wheel translation');
- const start=b.z;
- for(let i=1;i<=12;i++)stepBiByeLlista(r,b,1/30,1+i/30);
- assert.ok(b.z<start-.05,'there is observable skid distance before feet plant');
- assert.equal(b.mode,'DEPLOYING');
- assert.ok(r.events.some(e=>e.type==='bibyeOutriggersForced'));
- for(let i=13;i<=43;i++)stepBiByeLlista(r,b,1/30,1+i/30);
- assert.equal(b.mode,'DEPLOYED','the collision forced HEAVY rather than just painting a warning');
- assert.equal(toggleBiByeDeploy(b,2.6,r.world),false,'operator cannot instantly cancel a forced brace');
- assert.equal(toggleBiByeDeploy(b,5,r.world),true,'after recovery the user regains ordinary mode control');
- assert.equal(b.mode,'RETRACTING');
+ assert.equal(b.mode,'RETRACTING','impact must eject supports from the ground, not deploy them');
+ assert.equal(b.retractFrom,1,'a fully planted foot begins a full physical removal animation');
+ assert.ok(b.dislodgedImpulse.z<0,'ballista inherits queued physical impulse');
+ assert.equal(b.externalVelocity.z,0,'feet have not left the ground yet');
+ const uproot=r.events.filter(e=>e.type==='bibyeOutriggersUprooted');
+ assert.equal(uproot.length,1,'server creates exactly one authoritative outrigger dislodgement');
+ for(let i=1;i<=26;i++)stepBiByeLlista(r,b,1/30,1+i/30);
+ assert.equal(b.mode,'MOBILE','impact ends in MOBILE mode after legs clear the ground');
+ assert.ok(b.z<z-.025,'real ballista chassis is shoved backwards after unbracing');
+ assert.ok(b.wheelRolls.some(v=>Math.abs(v)>0),'wheels actually roll with the impact');
+ assert.equal(b.dislodgedImpulse,null,'queued impulse applied only once');
+ assert.equal(toggleBiByeDeploy(b,2,r.world),false,'uprooted supports cannot instantly redeploy');
+ assert.equal(toggleBiByeDeploy(b,3.3,r.world),true,'player may choose Heavy again after recovery');
+ assert.equal(b.mode,'DEPLOYING','redeployment is voluntary rather than automatic');
 });
-test('light taps or broken stabilizers do not conjure deployed supports',()=>{
- const r=room(),light=createBiByeLlista({x:0,z:0,baseYaw:0});
- applyBallistaImpact(r,light,1,{normal:{x:0,z:-1},speed:7});
- assert.equal(light.forcedDeployAt,null);
- const damaged=createBiByeLlista({x:0,z:0,baseYaw:0});
- for(const part of ['Stabilizer_FL','Stabilizer_FR'])damaged.components[part].health=0;
- applyBallistaImpact(r,damaged,2,{normal:{x:0,z:-1},speed:16});
- assert.equal(damaged.mode,'MOBILE');
- assert.equal(damaged.forcedDeployAt,null);
- assert.ok(damaged.externalVelocity.z<0,'real shove still happens when feet cannot plant');
+test('mobile impacts preserve ordinary shove without planting anything or creating uproot events',()=>{
+ const r=room(),b=createBiByeLlista({x:0,z:0,baseYaw:0});
+ applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:16});
+ assert.equal(b.mode,'MOBILE');
+ assert.equal(b.dislodgedImpulse,null);
+ assert.equal(b.outriggersDislodgedUntil,-Infinity);
+ assert.ok(b.externalVelocity.z<0);
+ assert.equal(r.events.some(e=>e.type==='bibyeOutriggersUprooted'),false);
 });
-test('a deployed ballista absorbs shock but does not magically drive away',()=>{
+test('light contact rocks deployed outriggers without unplanting them or creating free movement',()=>{
  const r=room(),b=r.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});
  b.mode='DEPLOYED';b.operatorId=null;
- applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:12});
+ applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:7});
+ assert.equal(b.mode,'DEPLOYED');
  assert.equal(b.externalVelocity?.z??0,0);
+ assert.equal(b.dislodgedImpulse,null);
+ assert.equal(r.events.some(e=>e.type==='bibyeOutriggersUprooted'),false);
  const p=siegeRock(b,1.1);
  assert.ok(Math.abs(p.pitch)>0);
+});
+test('a second impact during involuntary outrigger release cannot restart ejection',()=>{
+ const r=room(),b=createBiByeLlista({x:0,z:0,baseYaw:0});
+ b.mode='DEPLOYED';
+ applyBallistaImpact(r,b,1,{normal:{x:0,z:-1},speed:12});
+ const until=b.modeTransitionEndsAt;
+ applyBallistaImpact(r,b,1.12,{normal:{x:0,z:-1},speed:17});
+ assert.equal(b.mode,'RETRACTING');
+ assert.equal(b.modeTransitionEndsAt,until);
+ assert.equal(r.events.filter(e=>e.type==='bibyeOutriggersUprooted').length,1);
+});
+test('a genuine live piston against a DEPLOYED ballista triggers involuntary unbracing',()=>{
+ const r=room(),ram=r.soFistication=createSoFistication(),driver=r.addPlayer({id:'heavy-driver',token:'heavy-driver',name:'Driver'},0);
+ driver.position=soFistEntry(ram,r.world);
+ assert.ok(mountSoFistication(r,ram,driver));
+ const b=r.biByeLlista=createBiByeLlista({x:0,z:-5.5,baseYaw:0});
+ b.mode='DEPLOYED';b.weaponFocus='MAIN';
+ assert.ok(fireSoFistication(r,ram,0));
+ for(let i=1;i<=100;i++)stepRoom(r,1/30,i/30,r.world);
+ assert.ok(r.events.some(e=>e.type==='bibyeDamaged'&&e.source==='so-fist'),
+   'actual piston struck the real heavy-machine component');
+ assert.ok(r.events.some(e=>e.type==='bibyeOutriggersUprooted'),
+   'piston must dislodge the planted supports through the gameplay hit path');
+ assert.equal(b.mode,'MOBILE');
 });
 test('reverse pressure charge accelerates while consuming actual reserve and retaining cooldown debt',()=>{
  const r=room(),b=r.soFistication=createSoFistication();
