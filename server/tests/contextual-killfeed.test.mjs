@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {applyDamage,beginAttack,stepRoom} from '../../shared/sim/combat.mjs';
+import {trackCircleChase} from '../../shared/sim/killfeedCaptureContext.mjs';
 
 const world={
  floors:[{id:'ground',center:[0,-.1,0],size:[50,.2,50],y:0}],
@@ -84,4 +85,43 @@ test('interrupted melee death is marked as Shocking Conduct, not sword damage',(
  assert.equal(death.source,'electrical_backlash');
  assert.equal(death.killContext,'shocking-conduct-interrupted');
  assert.equal(room.events.some(event=>event.type==='swordHit'&&event.playerId==='b'),false);
+});
+
+test('multi-attacker epitaph names only players who actually dealt HP damage',()=>{
+ const {room,b}=battle();
+ const c=room.addPlayer({id:'c',token:'tc',name:'Wingmate'},0);
+ c.spawnProtectionUntil=0;
+ applyDamage(room,'a','b',10,'sword',10);
+ applyDamage(room,'c','b',100,'sword',10.4);
+ const death=lastDeath(room);
+ assert.deepEqual(death.damageContributors,['a','c']);
+ const only=battle();
+ applyDamage(only.room,'a','b',200,'sword',10);
+ assert.equal(lastDeath(only.room).damageContributors,undefined);
+});
+test('leaving a live capture circle toward a low-health enemy can authorize the joke, returning cancels it',()=>{
+ const {room,a,b}=battle();
+ room.mode='HIGH_GROUNDS';
+ a.team='ATTACKERS';b.team='DEFENDERS';
+ const site={id:'outer-point',position:{x:0,y:0,z:0},radius:1.2};
+ a.position={x:0,y:0,z:0};
+ b.position={x:2.4,y:0,z:0};b.health=20;
+ trackCircleChase(room,a,site,10);
+ a.position={x:1.6,y:0,z:0};a.velocity={x:3,y:0,z:0};
+ trackCircleChase(room,a,site,10.1);
+ assert.equal(a.killfeedCircleChase?.enemyId,'b');
+ applyDamage(room,'b','a',200,'sword',10.2);
+ assert.equal(lastDeath(room).abandonedCaptureCircle,true);
+ const returned=battle();
+ returned.room.mode='HIGH_GROUNDS';
+ returned.a.team='ATTACKERS';returned.b.team='DEFENDERS';
+ returned.b.health=20;returned.b.position={x:2.4,y:0,z:0};
+ trackCircleChase(returned.room,returned.a,site,10);
+ returned.a.position={x:1.6,y:0,z:0};returned.a.velocity={x:3,y:0,z:0};
+ trackCircleChase(returned.room,returned.a,site,10.1);
+ returned.a.position={x:0,y:0,z:0};
+ trackCircleChase(returned.room,returned.a,site,10.12);
+ assert.equal(returned.a.killfeedCircleChase,null);
+ applyDamage(returned.room,'b','a',200,'sword',10.2);
+ assert.equal(lastDeath(returned.room).abandonedCaptureCircle,undefined);
 });
