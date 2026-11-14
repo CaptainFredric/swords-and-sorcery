@@ -46,7 +46,7 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const fireHint=b.sweep?.kind==='single'?'LMB locked during sweep'
     : b.sweep?.kind==='skill'?
       (b.sweep.phase==='settle'?'LMB settling':'LMB stop & fire')
-    : 'LMB '+tray.primary.label;
+    : 'LMB '+(tray.primary.label==='BOLT I'?'Bolt I':tray.primary.label);
   const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ${tray.primary.label} · SWEEP · SKILL${tray.secondary?' · BOTH':''}`
     : `${fireHint} · [${key('siegeSweep')}] Sharp Turn${heavyHint} · [${key('siegeSkill')}] Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
   const station=b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.mode==='RETRACTING'?
