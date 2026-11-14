@@ -32,11 +32,12 @@ test('sharp turn is independently operable without selecting the third Skill; ac
 });
 test('sweep starts from the actual turret aim and upper assembly rotates with its mount',()=>{
  const s=setup('lookAroundAndFindOut');
- s.b.mainYaw=.48;s.b.upperYaw=.64;
+ s.b.mainYaw=.48;s.b.mainPitch=.21;s.b.upperYaw=.64;
  const initialOffset=.16;
  assert.equal(issue(s,'siegeSkill').rejected,undefined);
  step(s,1,1+1/30);
  assert.ok(Math.abs(s.b.mainYaw-.48)<.20,'cannot snap turret to chassis heading');
+ assert.ok(Math.abs(s.b.mainPitch-.21)<.12,'must lower the cradle from its actual current pitch');
  assert.ok(Math.abs((s.b.upperYaw-s.b.mainYaw)-initialOffset)<1e-7);
  step(s,1+1/30,2.4);
  assert.equal(s.b.sweep.phase,'loop');
@@ -45,6 +46,7 @@ test('sweep starts from the actual turret aim and upper assembly rotates with it
  step(s,2.5,5);
  assert.equal(s.b.sweep,null);
  assert.ok(Math.abs(s.b.mainYaw-.48)<1e-7,'returns to actual starting aim, not fixed chassis yaw');
+ assert.ok(Math.abs(s.b.mainPitch-.21)<1e-7,'restores original physical elevation after recovery');
  assert.ok(Math.abs(s.b.upperYaw-.64)<1e-7);
 });
 test('walls prevent a full revolution before startup; unobstructed ground permits it',()=>{
