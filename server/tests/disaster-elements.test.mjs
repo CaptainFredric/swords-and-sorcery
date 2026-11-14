@@ -559,10 +559,15 @@ test('a half-decayed Full Lightning field gives portable half-strength Shocking 
   assert.ok(Math.abs(charged.initial-6)<.001,
     '50% remaining field gives 50% of the twelve-point Conduct potential');
   const acquiredAt=charged.at;
-  walk.position={x:field.position.x+field.radius+6,y:field.position.y,z:field.position.z};
-  stepRoom(room,DT,halfAge+DT,world);
+  // Actually walk away through the field edge; do not simulate an exit by
+  // teleporting the actor or simply editing its status object.
+  walk.input={...walk.input,forward:1,right:0,yaw:-Math.PI/2};
+  run(room,halfAge+DT,1,world);
+  assert.ok(walk.position.x>field.position.x+field.radius,
+    'the knight traversed the field boundary in authoritative movement');
   assert.equal(walk.electricalBacklash.at,acquiredAt,
-    'leaving the field does not erase or restart the acquired status');
+    'walking out does not erase or restart the acquired status');
+  walk.input.forward=0;
   const remaining=oneHitBacklashRemaining(walk.electricalBacklash,halfAge+1);
   assert.ok(Math.abs(remaining-4.5)<.001,
     'after one second outside, the carried six-point charge has decayed by a quarter');
