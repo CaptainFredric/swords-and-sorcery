@@ -1,0 +1,90 @@
+name: Siege physical Flick, blue restoration and forced outriggers
+
+on:
+  pull_request:
+    paths:
+      - 'shared/sim/soFistFlick.mjs'
+      - 'shared/sim/soFistication.mjs'
+      - 'shared/sim/siegeImpact.mjs'
+      - 'shared/sim/biByeLlista.mjs'
+      - 'shared/sim/structures.mjs'
+      - 'shared/sim/Room.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'shared/worlds/bastionBreach.mjs'
+      - 'client/worlds/soFistThumbRestraint.mjs'
+      - 'client/worlds/SoFisticationRenderer.mjs'
+      - 'client/worlds/StructureRenderer.mjs'
+      - 'client/menu/SiegeWorkshopScene.mjs'
+      - 'client/ui/HUD.mjs'
+      - 'client/ui/biByeHudView.mjs'
+      - 'client/siege-hud.css'
+      - 'server/tests/so-fist-impact.test.mjs'
+      - 'server/tests/so-fist-flick-final-jaw.test.mjs'
+      - 'server/tests/siege-arcane-restoration.test.mjs'
+      - 'client/ui/biByeHudView.test.mjs'
+      - 'scripts/so-fist-v26-flick-browser.mjs'
+      - '.github/workflows/siege-physical-arcane-acceptance.yml'
+permissions:
+  contents: read
+
+jobs:
+  focused-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Real server-physics, forced-outrigger and restoration regressions
+        run: |
+          node --test \
+            server/tests/so-fist-impact.test.mjs \
+            server/tests/so-fist-flick-final-jaw.test.mjs \
+            server/tests/siege-arcane-restoration.test.mjs \
+            server/tests/structures.test.mjs \
+            server/tests/structures-network.test.mjs \
+            server/tests/so-fist-contact.test.mjs \
+            server/tests/bi-bye-moving-hit.test.mjs \
+            client/ui/biByeHudView.test.mjs
+      - name: Check browser source import contract
+        run: npm run check:browser-imports
+
+  chrome-original-argon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start Castleward with original SHA-verified Argon GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/castleward-physical-siege.log 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/castleward-physical-siege.log
+          exit 1
+      - name: Find Chromium
+        id: browser
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify real articulated thumbs stay tucked through the flick
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.browser.outputs.path }}
+        run: node scripts/so-fist-v26-flick-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: siege-physical-argon-browser
+          path: output/playwright/so-fist-v26-flick/
+          retention-days: 7

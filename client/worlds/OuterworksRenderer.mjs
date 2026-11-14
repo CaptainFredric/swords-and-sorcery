@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {structureDefinitions} from '../../shared/sim/structures.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import {
   OUTERWORKS,
@@ -170,7 +171,9 @@ export class OuterworksRenderer {
     // (earth first: a paved floor leaves out what an earthen one already covers, and the other way round)
     this.group.add(drawnFloors([...OUTERWORKS.floors.filter(earthy), ...OUTERWORKS.floors.filter((f) => !earthy(f))], this.kit.paving,
       { name: 'outerworks-paving', draw: (floor) => !earthy(floor) }));
+    const transient=new Set(structureDefinitions(OUTERWORKS).filter(d=>d.transient).flatMap(d=>d.solidIds));
     for (const sol of OUTERWORKS.solids) {
+      if(transient.has(sol.id))continue;
       if (sol.id === 'barrier-outer-palisade' || sol.id === 'portcullis-inner-gate' || sol.id === 'cover-esplanade-mantlet' || sol.id === 'cover-esplanade-cart') continue;
       if (sol.kind === 'prop') continue;
       if (Number.isFinite(sol.drawTo)) {

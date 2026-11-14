@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
+import {createFlickThumbRestraint,restrainFlickThumb} from './soFistThumbRestraint.mjs';
 import {ramWreckClip} from './flightAnimationState.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
@@ -136,6 +137,7 @@ export class SoFisticationRenderer {
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
    this.availableClips=new Set(gltf.animations.map(a=>a.name));
    this.animation=new MachineAnimationComposition(this.model,gltf.animations);
+   this.flickThumbParts=createFlickThumbRestraint(this.model,gltf.animations);
    // New elevation pivots are deliberately NOT controlled by an animation
    // clip. Capture their rests once: additive per-frame lifting would drift.
    this.liftRest=new Map(['Upper_Ram_Lift','Upper_Elevation_Pivot',
@@ -255,6 +257,8 @@ export class SoFisticationRenderer {
    const drive=b.components?.Drive,weight=drive?.maxHealth?1-drive.health/drive.maxHealth:0;
    this.animation.sample({clip:'10_Comp_Wheel_And_Drive_Damage_Repairable',time:now,loop:true},k=>!k.startsWith('Wheel_'),{additive:true,weight:Math.max(0,weight)});
   }
+  if(!destroyed&&this.v26HandInstalled&&b.flickAt!=null)
+   restrainFlickThumb(this.flickThumbParts,now-b.flickAt);
   this.animation.end();
   // Source-backed hydraulics: the Stage 1 rods climb half the upper saddle
   // travel, and the pitched rods rotate coaxially with the rear trunnion.

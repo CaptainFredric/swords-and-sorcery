@@ -12,7 +12,8 @@ import {soFistUpperPoint} from './soFistElevation.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {damageBiByeLlista} from './biByeLlista.mjs';
 import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
-import {applyBallistaImpact} from './siegeImpact.mjs';
+import {applyBallistaImpact,recoilRamOnPistonHit} from './siegeImpact.mjs';
+import {structureForSolid,damageStructure} from './structures.mjs';
 
 export const FLICK = Object.freeze({
   damage:80, cycle:4, tipRadius:.165, activeFrom:.65, activeTo:.85,
@@ -87,12 +88,23 @@ function firstContact(room,b,from,to,now){
   return first;
 }
 function impact(room,b,contact,now){
-  if(contact.kind==='wall'){
-    room.events.push({type:'soFistFlickBlocked',machineId:b.id,at:now});
-    return;
-  }
   const root=soFistFrame(b),forward=root.axes[2],by=b.flickOwnerId;
   const point=contact.hit.point;
+  // Normal piston and Flick strike the same physical carriage: a hit must
+  // transfer recoil through the ram's actual movement solver, not just spawn
+  // cosmetic effects at the tip. Flick has lower chassis recoil than piston.
+  const recoilSpeed=contact.kind==='ballista'||contact.kind==='flight'?11:8;
+  recoilRamOnPistonHit(room,b,now,{speed:recoilSpeed,
+    normal:{x:-forward[0],z:-forward[2]},kind:'flick-'+contact.kind,
+    point:{x:point[0],y:point[1],z:point[2]}});
+  if(contact.kind==='wall'){
+    const def=structureForSolid(room.world,contact.target);
+    if(def)damageStructure(room,def.id,FLICK.damage,by,'so-fist-flick',now,{
+      raw:true,point:{x:point[0],y:point[1],z:point[2]}});
+    room.events.push({type:'soFistFlickBlocked',machineId:b.id,
+      structureId:def?.id??null,point:{x:point[0],y:point[1],z:point[2]},at:now});
+    return;
+  }
   if(contact.kind==='player'){
     const v=contact.target;
     const guarded=Boolean(v.guarding&&isInGuardCone(v,{position:{x:b.x,y:b.y,z:b.z}},now));
@@ -117,7 +129,7 @@ function impact(room,b,contact,now){
       normal:{x:forward[0],z:forward[2]},speed:FLICK.impulse,
       point:{x:point[0],y:point[1],z:point[2]},
     });
-    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'ballista',at:now});
+    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'ballista',point:{x:point[0],y:point[1],z:point[2]},at:now});
   }else if(contact.kind==='flight'){
     damageFightFlight(room,contact.target,FLICK.damage,by,'so-fist-flick',now,{
       componentId:contact.box.componentId,point:{x:point[0],y:point[1],z:point[2]},
@@ -133,7 +145,7 @@ function impact(room,b,contact,now){
         z:clamp(prior.z+forward[2]*12,-14,14),
       };
     }
-    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'flight',at:now});
+    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'flight',point:{x:point[0],y:point[1],z:point[2]},at:now});
   }
 }
 export function stepFlick(room,b,dt,now){

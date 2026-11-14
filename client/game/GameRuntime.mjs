@@ -1670,6 +1670,26 @@ export class GameRuntime {
         if(event.point)this.effects.splinters?.(event.point);
         if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('BREACH OPEN','gold',1800);
       }
+      if(event.type==='structureRebuilt'&&event.blueMagic&&event.point){
+        // The server has verified the footprint is clear and restored solid
+        // collision; all observers see the same blue magical reconstitution.
+        this.effects.sparks?.(event.point,0x65cbff,16);
+      }
+      if(event.type==='bibyeOutriggersForced'){
+        if(event.point){
+          this.effects.wallClang?.(event.point);
+          this.effects.sparks?.(event.point,0xf8b267,10);
+        }
+        if(this.latestSnapshot?.bibyeBallista?.operatorId===this.playerId){
+          this.cameraKick=Math.max(this.cameraKick??0,.30);
+          this.hud.flashText('OUTRIGGERS FORCED','danger',1250);
+        }
+      }
+      if(event.type==='soFistChassisMachineImpact'||event.type==='soFistFlickMachineImpact'){
+        if(event.point)this.effects.wallClang?.(event.point);
+        if(this.latestSnapshot?.soFistication?.operatorId===this.playerId)
+          this.cameraKick=Math.max(this.cameraKick??0,.24);
+      }
       if(event.type==='fightFlightBoltImpact'&&event.point){
         if(event.hitKind==='player'||event.hitKind==='guard'||event.hitKind==='parry')this.effects.wallClang?.(event.point);
         else this.effects.splinters?.(event.point);

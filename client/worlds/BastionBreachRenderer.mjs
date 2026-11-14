@@ -5,6 +5,7 @@ import { appUrl } from '../appUrl.mjs';
 import { BASTION_BREACH, BASTION_GATE_OPEN_DURATION_SEC } from '../../shared/worlds/bastionBreach.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { createBatch, masonry, palisade } from './kit/kitPieces.mjs';
+import {structureDefinitions} from '../../shared/sim/structures.mjs';
 import { facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
 import { floorTile } from './kit/kitTerrain.mjs';
 import { drawWorldProps } from './kit/worldProps.mjs';
@@ -168,8 +169,9 @@ export class BastionBreachRenderer {
     const ordered = [...BASTION_BREACH.floors.filter(earthy), ...BASTION_BREACH.floors.filter((f) => !earthy(f))];
     this.group.add(drawnFloors(ordered, this.kit.paving, { name: 'bastion-paving', draw: (floor) => !earthy(floor) && !dais(floor) }));
     this.group.add(drawnFloors(ordered, this.kit.daisPaving, { name: 'bastion-dais', draw: dais }));
+    const regeneratingCover=new Set(structureDefinitions(BASTION_BREACH).filter(d=>d.transient).flatMap(d=>d.solidIds));
     for (const sol of BASTION_BREACH.solids) {
-      if (sol.id.startsWith('gatehouse-') || BASTION_BREACH.structures.some(def => def.solidIds.includes(sol.id))) continue;
+      if (regeneratingCover.has(sol.id) || sol.id.startsWith('gatehouse-') || BASTION_BREACH.structures.some(def => def.solidIds.includes(sol.id))) continue;
       if (sol.kind === 'prop') continue;
       const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
       if (isTimber) palisade(batch, rand, sol);

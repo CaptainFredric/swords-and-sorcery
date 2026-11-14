@@ -298,6 +298,28 @@ const p=room.players.get(b.operatorId);
      b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;break;
    }
    if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
+   // Chassis collision with a real ballista is more than a visual thud.
+   // Use the same mutually exclusive component contact and momentum path
+   // as piston/Flick; a collision cannot damage every tick while overlapped.
+   const ballista=room.biByeLlista;
+   if(pose&&ballista&&!ballista.retired&&ballista.health>0&&
+      Math.abs(travelSpeed)>4.2&&now-(b.lastChassisBallistaAt??-Infinity)>.85){
+    const collided=soFistVolumes({...next,...pose}).some(v=>
+      biByeHitVolumes(ballista,now).some(box=>machineryOverlap(v,box)));
+    if(collided){
+      const intensity=Math.abs(travelSpeed);
+      const point={x:ballista.x,y:ballista.y+1,z:ballista.z};
+      const damage=Math.min(65,Math.round((intensity-4)*8));
+      if(damageBiByeLlista(room,ballista,damage,b.operatorId,'ram-charge',now,
+        {componentId:'hull',point})){
+        b.lastChassisBallistaAt=now;
+        applyBallistaImpact(room,ballista,now,
+          {normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
+        room.events.push({type:'soFistChassisMachineImpact',machineId:b.id,
+          targetId:ballista.id,point,damage,at:now});
+      }
+    }
+   }
    if(pose&&b.speed>4.2){
     const head=soFistStriker(b,now),end=soFistStriker({...next,...pose},now);
     const extent=[0,1,2].map(i=>head.axes.reduce((sum,axis,j)=>sum+Math.abs(axis[i])*head.size[j],0));
@@ -334,7 +356,7 @@ const p=room.players.get(b.operatorId);
   const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);let first=null;
   for(const box of biByeHitVolumes(other,now)){
    const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
-   const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first=hit;
+   const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first={...hit,box};
   }
   if(first){const armored=hasFist(b),damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);
     const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
@@ -356,7 +378,7 @@ const p=room.players.get(b.operatorId);
     head.axes.reduce((n,axis,j)=>n+
       Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
    const hit=orientedBoxHit(old.center,head.center,{...box,size});
-   if(hit&&(!first||hit.t<first.t))first=hit;
+   if(hit&&(!first||hit.t<first.t))first={...hit,box};
   }
   if(first){
    const armored=hasFist(b),damage=armored?110:75+
