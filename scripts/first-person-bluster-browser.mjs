@@ -53,7 +53,7 @@ const sample=`(() => {
     kind:rt.weapon.visualKind,
     cameraYaw:rt.camera.rotation.y,cameraPitch:rt.camera.rotation.x,
     inputYaw:rt.input.yaw,bodyYaw:rt.localAuth.yaw,
-    bodyGap:wrapped(rt.localAuth.yaw,rt.input.yaw),
+    bodyGap:wrapped(rt.input.yaw,rt.localAuth.yaw),
     armYaw:rt.weapon.group.rotation.y,
   };
 })()`;
@@ -126,6 +126,7 @@ try {
   console.error('[FIRST-PERSON BLUSTER FAIL]',stage,error.stack);
   evidence.failure={stage,message:String(error),last:await evaluate(sample).catch(()=>null),
     menu:await evaluate("({solo:document.querySelector('#solo-menu')?.className,practiceDisabled:document.querySelector('#practice-mode')?.disabled,launch:document.querySelector('#solo-launch')?.getClientRects().length,gate:document.querySelector('#arena-gate')?.className,room:window.__ssRuntime?.latestSnapshot?.roomState,playing:window.__ssRuntime?.playing,localHost:!!window.__ssRuntime?.socket?.local})").catch(()=>null)};
+  console.error('[FIRST-PERSON BLUSTER DIAGNOSTICS]',JSON.stringify(evidence.failure));
   await writeFile(join(output,'failure.json'),JSON.stringify(evidence,null,2));
   throw error;
 } finally {
