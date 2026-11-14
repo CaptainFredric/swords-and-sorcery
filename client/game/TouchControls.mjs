@@ -354,6 +354,23 @@ export class TouchControls {
       steel.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
   }
 
+  // Saved VIEW/LEAVE buttons may be lower than their current presets.
+  // Keep the killfeed BELOW their real interactive rectangles even after a
+  // player customizes or mirrors the layout; objective placement is separate.
+  #syncMobileFeedLane() {
+    const feed=globalThis.document?.querySelector?.('#kill-feed');
+    if(!feed?.style?.setProperty||!this.active||this.previewMode)return;
+    const width=this.layer.clientWidth;
+    let top=width<=540?142:width<=700?68:72;
+    for(const action of ['siegeView','interact']){
+      const btn=this.buttons[action];
+      if(!btn||btn.hidden||globalThis.getComputedStyle?.(btn)?.display==='none')continue;
+      if(Number.isFinite(btn.offsetTop)&&Number.isFinite(btn.offsetHeight))
+        top=Math.max(top,btn.offsetTop+btn.offsetHeight+9);
+    }
+    feed.style.setProperty('--mobile-feed-top',Math.ceil(top)+'px');
+  }
+
   setCustomOpacity(opacity) {
     this.layer.style.setProperty('--touch-opacity', String(opacity));
   }
@@ -937,6 +954,7 @@ export class TouchControls {
       }
     }
     this.#clearMountedSteelSkillOverlap();
+    this.#syncMobileFeedLane();
   }
 
   #setMotionIndicator(mode) {
