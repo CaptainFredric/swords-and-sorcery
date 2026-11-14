@@ -10,7 +10,7 @@ test('ground boarding and elevated onboard authority use distinct actual station
  const {room,p,b}=setup();assert.equal(p.position.y,0);assert.ok(mountSoFistication(room,b,p));assert.ok(Math.abs(p.position.y-.226*SO_FIST_SCALE)<1e-7);
  Object.assign(b,{x:3,y:1,z:2,heading:.7,chassisPitch:.12,chassisRoll:-.08});
  const expected=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);assert.deepEqual(Object.values(soFistOperator(b)),expected);
- assert.deepEqual([SO_FIST.hull,SO_FIST.fist,SO_FIST.speed,SO_FIST.reverse,SO_FIST.peak,SO_FIST.cycle],[1400,500,4.8,2.5,12,4]);
+ assert.deepEqual([SO_FIST.hull,SO_FIST.fist,SO_FIST.speed,SO_FIST.reverse,SO_FIST.peak,SO_FIST.cycle],[1400,500,5.3,3.1,12,4]);
 });
 test('rider headroom blocks boarding and travel while exits remain actual safe ground',()=>{
  const {room,p,b}=setup();room.world.solids=[{center:[0,2.1,2.5],size:[1,.1,1]}];assert.equal(mountSoFistication(room,b,p),false);
