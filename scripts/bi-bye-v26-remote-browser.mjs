@@ -142,20 +142,15 @@ try{
  const model=await waitFor(()=>guest.evaluate("(() => {const b=window.__ssRuntime?.world?.biByeLlista;return b?.actions?.has('22_BiBye_A_Sharp_Turn')&&b.actions.has('23_BiBye_Look_Around_Spin_Loop')&&b.actions.has('24_BiBye_Look_Around_Reversed_Fire_Settle')&&b.nodes.has('frame_sweep_volume_L')&&b.nodes.has('frame_sweep_volume_R')?{clips:b.actions.size,hasLocators:true}:null;})()"),'actual v26 GLB and bow locator meshes loaded on second client',180);
  const before=await host.frames();await waitFor(async()=>(await host.frames()).count>=before.count+3,'pilot frames progress',160);
  await focusArena(host);
- // Input stays physical W through GameLink if an approach is necessary. The
- // first legitimate collision-resolved standing spot is ~3.027m from the
- // chassis: demanding <2.85m deadlocks against real machine solids. Stop
- // INSIDE the actual 3.2m interaction radius instead of moving inside wood.
- await host.evaluate("(() => {const rt=window.__ssRuntime,inp=rt.input,original=inp.movement;window.__bibyeApproach={stopped:false,restore:()=>{inp.movement=original}};inp.movement=function(){const move=original.call(this),p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||move.forward<=0)return move;const dx=b.x-p.position.x,dz=b.z-p.position.z;if(window.__bibyeApproach.stopped||Math.hypot(dx,dz)<=3.10){window.__bibyeApproach.stopped=true;return {...move,forward:0,right:0}}return {...move,forward:.33,right:0,yaw:Math.atan2(-dx,-dz)};};})()");
- let stopSeq=null;
- try{
-  await host.key('W','rawKeyDown');
-  stopSeq=await waitFor(()=>host.evaluate("(() => {const rt=window.__ssRuntime,p=rt.localAuth,b=rt.latestSnapshot?.bibyeBallista;if(!p||!b||Math.hypot(p.position.x-b.x,p.position.z-b.z)>3.15)return null;window.__bibyeApproach.stopped=true;const seq=++rt.sequence;rt.socket.input({...rt.input.movement(),forward:0,right:0,seq,clientTime:rt.socket.serverNow()});return seq;})()"),'real W approach reaches boarding range',170);
- }finally{
-  await host.key('W','keyUp');
-  await host.evaluate("window.__bibyeApproach?.restore();delete window.__bibyeApproach");
- }
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r?.localAuth,b=r?.latestSnapshot?.bibyeBallista;return p&&b&&p.lastInputSeq>="+stopSeq+"&&Math.hypot(p.position.x-b.x,p.position.z-b.z)<3.2?true:false;})()"),'server acknowledges neutral stop before mount',80);
+ // Authentic network Practice places the siege engine in the pilot's
+ // approach. Physical bow collision stops the body about 3.585m away.
+ // The old test insisted on penetrating the model (<3.15m) before pressing T.
+ // Exercise boarding from the actual safe, authoritative standing position.
+ const standing=await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth,b=r.latestSnapshot?.bibyeBallista;return p&&b?{position:p.position,ballista:{x:b.x,y:b.y,z:b.z},range:b.interactRadius,distance:Math.hypot(p.position.x-b.x,p.position.z-b.z),deltaY:Math.abs(p.position.y-b.y)}:null})()");
+ console.log('[BI-BYE NATURAL BOARDING APPROACH]',JSON.stringify(standing));
+ assert.ok(standing&&standing.distance<=standing.range&&standing.deltaY<=2,
+   'the unmodified server position must be within physical ballista boarding reach');
+ await focusArena(host);
  const initial=await host.evaluate("(() => {const b=window.__ssRuntime.latestSnapshot.bibyeBallista;return {heading:b.heading,mainYaw:b.mainYaw};})()");
  await host.tap('T');
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingBallistaId)"),'real physical T mounts pilot',100);

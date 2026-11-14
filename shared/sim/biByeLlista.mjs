@@ -35,7 +35,9 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     y: 0,
     z: -14.6,
     baseYaw: -Math.PI / 2, // Facing East (+X) across the Tourney Field
-    interactRadius: 3.2,
+    // The real front collision envelope stops a Spellblade ~3.585m from
+    // this long ballista. Reach must include that legitimate standing point.
+    interactRadius: 3.75,
     operatorOffset: Object.freeze({ x: 0, y: -.05, z: -1.880 }),
   }),
 
@@ -211,7 +213,10 @@ export function createBiByeLlista(overrides = {}) {
     reloadStartedAt: -Infinity,
     reloadEndsAt: -Infinity,
 
-    interactRadius: conf.interactRadius,
+    // Map emplacements may still name the old 3.2m radius. Normalize every
+    // production machine without affecting collision boxes or vertical reach.
+    interactRadius: Math.max(BI_BYE_LLISTA_CONFIG.emplacement.interactRadius,
+      Number.isFinite(conf.interactRadius)?conf.interactRadius:0),
     operatorOffset: conf.operatorOffset,
   };
 }
