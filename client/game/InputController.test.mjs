@@ -40,6 +40,23 @@ test('a key released after pointer lock is lost cancels the Ultimate before the 
   assert.deepEqual(releases, [{ cancel: false, yaw:0, pitch:0 }, { cancel: true, yaw:0, pitch:0 }]);
 });
 
+test('interact preserves keyboard context but can explicitly board the touch-selected machine',()=>{
+  const {input}=setup(),messages=[];
+  input.socket.send=message=>messages.push(message);
+  input.enabled=true;
+  input.interact();
+  input.interact('fight-and-flight');
+  input.interact('bi-bye-llista');
+  assert.deepEqual(messages,[
+    {type:'siegeOperate'},
+    {type:'siegeOperate',machine:'fight-and-flight'},
+    {type:'siegeOperate',machine:'bi-bye-llista'},
+  ]);
+  input.enabled=false;
+  input.interact('fight-and-flight');
+  assert.equal(messages.length,3,'an inactive input controller cannot board');
+});
+
 test('mobile mounted Jump emits a real one-shot flightHop command with no Rise latch',()=>{
   const {input}=setup(),sent=[];
   input.socket.send=message=>sent.push(message);
