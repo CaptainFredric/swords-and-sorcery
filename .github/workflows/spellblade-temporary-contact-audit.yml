@@ -1,0 +1,43 @@
+name: Spellblade temporary baseline geometry comparison
+on:
+  push:
+    branches: [tmp/spellblade-main-comparison-20261114]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify legacy-vs-89 authored sword contacts and joint maps
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 41a8b082f52156feb9f912dc7d83e912c239741c:client/assets/characters/spellblade/spellblade.glb > /tmp/legacy.glb
+          git show e13b6b42444549f49d73796a1060deed506c14da:client/assets/characters/spellblade/spellblade.glb > /tmp/argon89.glb
+          node --input-type=module <<'JS'
+          import {loadGlb,localPose,worldMatrices,apply} from './scripts/lib/glbPose.mjs';
+          const old=loadGlb('/tmp/legacy.glb'), modern=loadGlb('/tmp/argon89.glb');
+          const TIP=[0.131,1.3383,-0.1661];
+          const expected={AllNatural_Ground_DualSpin_Slam:.85,AllNatural_FastLightning_DualSpin_Slam:.33,AllNatural_Lightning_Arrival_Slam:.085,Slash_1:.4};
+          const report={};
+          for(const [name,contact] of Object.entries(expected)){
+            report[name]={};
+            for(const [label,model] of [['baseline',old],['argon89',modern]]){
+              const hand=model.byName.get('hand.R');
+              const at=t=>apply(worldMatrices(model,localPose(model,[{clip:name,time:t,weight:1}]))[hand],TIP);
+              const duration=model.clips.get(name).duration;
+              const points=[];
+              for(let t=0;t<=duration+1e-7;t+=1/240) points.push({t,y:at(t)[1]});
+              let lowest=points.reduce((a,b)=>a.y<b.y?a:b);
+              let crossing=null;
+              for(let i=Math.floor(lowest.t*240);i>=0;i--)if(points[i].y>0){crossing=points[i].t;break;}
+              report[name][label]={duration,lowest:lowest.t,crossing,atContact:at(contact).map(x=>Number(x.toFixed(3)))};
+            }
+          }
+          const oldBones=old.gltf.skins[0].joints.map(i=>old.gltf.nodes[i].name);
+          const latestBones=modern.gltf.skins[0].joints.map(i=>modern.gltf.nodes[i].name);
+          console.log('BASELINE_CONTACTS',JSON.stringify(report));
+          console.log('BIND_COMPATIBILITY',JSON.stringify({sameJointNames:JSON.stringify(oldBones)===JSON.stringify(latestBones),oldCount:oldBones.length,newCount:latestBones.length}));
+          JS
