@@ -231,6 +231,9 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.oneHitFrozenUntil = -Infinity;
   player.damageTakenThisLife = 0;
   player.killfeedPelting=null; // a repeater barrage cannot persist across lives
+  player.killfeedDamageContributors=[];
+  player.killfeedCircleChase=null;
+  player.killfeedInsideCircles={};
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
   player.respawnAt = 0;
@@ -1567,7 +1570,16 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   }
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
-  if (taken > 0) victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + taken;
+  if (taken > 0) {
+    victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + taken;
+    // True multiple-attacker finishers, including siege/Spellblade contributions.
+    // Record only actual post-mitigation HP damage and expire old contributors.
+    const recent=(victim.killfeedDamageContributors??=[]).filter(
+      entry=>nowSec-entry.at<=6 && entry.id!==attackerId);
+    if(attackerId&&attackerId!==victimId&&room.players.has(attackerId))
+      recent.push({id:attackerId,at:nowSec});
+    victim.killfeedDamageContributors=recent.slice(-12);
+  }
   // HP lost inside a hostile Disaster field takes Guard stamina with it, by what is left of the field (the field a
   // knight stands in is read once a tick, stepOneHitFields: one field, one loss, however many overlap)
   const field = taken > 0 ? victim.oneHitField : null;
@@ -1738,7 +1750,18 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
     ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
     ...(killFacts.excessDamage>=GAME.maxHealth?{extremeOverkill:true}:{}),
     ...(killFacts.guardWouldSave?{guardWouldSave:true}:{}),
-    ...(killFacts.pelted?{pelted:true}:{}), ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
+    ...(killFacts.pelted?{pelted:true}:{}),
+    ...(victim.killfeedCircleChase&&nowSec-victim.killfeedCircleChase.at<=6&&
+      victim.killfeedCircleChase.key===((room.mode==='HIGH_GROUNDS')
+        ?victim.killfeedCircleChase.key:`${room.mode}:${room.objectiveState?.objectives?.[room.objectiveState?.index]?.id??''}`)
+      ?{abandonedCaptureCircle:true}:{}),
+    ...((victim.killfeedDamageContributors??[]).filter(entry=>
+      nowSec-entry.at<=6&&entry.id!==victimId&&room.players.has(entry.id)&&
+      !areAllies(room,entry.id,victimId)).map(entry=>entry.id)
+      .filter((id,i,ids)=>ids.indexOf(id)===i).length>=2
+        ?{damageContributors:[...new Set(victim.killfeedDamageContributors
+          .filter(entry=>nowSec-entry.at<=6&&room.players.has(entry.id)&&
+            !areAllies(room,entry.id,victimId)).map(entry=>entry.id))]}:{}), ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
   const vortex = spun || Boolean(room.players.get(credited) && vortexing(room.players.get(credited), nowSec)) || ['ember','vortexFire','vortexBlaze'].includes(source);
   const voicePending = playing && queueDefeatVoice(room, death, victim.position, {vortex});
   room.events.push({...death, ...(voicePending ? {voicePending:true} : {})});
@@ -2312,7 +2335,9 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
     {x:dx/d*shove,y:.6,z:dz/d*shove},{
       ultimate:true,rawDamage:damage,
       // The full-element joke belongs only to a genuinely nearly-full cast.
-      killVariant:stages>=8&&tiers.frost>=1&&tiers.lightning>=1?'nearly-full-disaster':null,
+      killVariant:tiers.lightning===2 && caster.ultimateState?.teleportSucceeded &&
+        caster.ultimateState?.oneHit?.form==='ground'?'lightning-teleport-slam':
+        stages>=8&&tiers.frost>=1&&tiers.lightning>=1?'nearly-full-disaster':null,
       guardWouldSave:!target.guarding&&target.guardStamina>0&&
         nowSec >= (target.guardBrokenUntil??-Infinity)&&
         nowSec >= (target.staggerUntil??-Infinity)&&
