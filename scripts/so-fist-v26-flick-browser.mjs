@@ -64,6 +64,7 @@ try{
   s.trackCount=clip?.tracks.length??0;
   s.trackNames=clip?.tracks.map(t=>t.name)??[];
   const hand=ram.nodes.get('Armored_Fist'),i1=ram.nodes.get('Index_1'),i2=ram.nodes.get('Index_2'),i3=ram.nodes.get('Index_3');
+  const thumbs=['Thumb_1','Thumb_2','Thumb_3'].map(name=>ram.nodes.get(name));
   s.hierarchy={hand:hand?.name,handParent:hand?.parent?.name,index1:i1?.parent?.name,index2:i2?.parent?.name,index3:i3?.parent?.name,
     indexMeshes:[i1,i2,i3].map(node=>{let vertices=0;node?.traverse(o=>{if(o.isMesh)vertices+=o.geometry?.attributes?.position?.count??0;});return vertices;})};
   const room=new Room('FLICK_VISUAL',{mode:'PRACTICE'});room.state='PLAYING';
@@ -79,6 +80,7 @@ try{
    const now=10+age;ram.update(now,b);ram.group.updateMatrixWorld(true);
    const indexTip=i3?.localToWorld(new THREE.Vector3(-.0138,.0214,-.1366));
    s.details.push({age,pose:[i1?.quaternion.toArray(),i2?.quaternion.toArray(),i3?.quaternion.toArray()],
+     thumbPose:thumbs.map(node=>node?.quaternion.toArray()),
      tip:indexTip?.toArray(),fistVisible:hand?.visible});
   }
   // Exercise every HELLping Hand phase on the same mounted production rig.
@@ -132,7 +134,10 @@ try{
   w.flickStarted=workshop.playPreview('ramFingerFlick');
   workshop.update(.4);
   const first=index?.quaternion.clone();
+  const thumb=workshop.machinePivot.getObjectByName('Thumb_1');
+  const thumbFirst=thumb?.quaternion.clone();
   workshop.update(.35);
+  w.thumbAngle=thumbFirst?.angleTo(thumb.quaternion)??Infinity;
   w.flickAngle=first?.angleTo(index.quaternion)??0;
   w.flickClip=workshop.previewAnimation?.layers?.has('23_Finger_Flick_Single_Target_Strike')??false;
   w.hellpingStarted=workshop.playPreview('hellpingHand');
@@ -179,6 +184,11 @@ try{
  const distance=Math.hypot(...before.tip.map((v,i)=>v-peak.tip[i]));
  console.log('[ARGON FLICK VISIBLE DELTA]',JSON.stringify({angles,distance,loaded:report.loaded}));
  assert.ok(angles[0]>.08&&angles[1]>.08&&angles[2]>.08,'All three index joints visibly flex');
+ for(let i=0;i<3;i++){
+  const angle=quaternionAngle(before.thumbPose[i],peak.thumbPose[i]);
+  assert.ok(angle<.40,'Argon Thumb_'+(i+1)+' hyperextended during visible Flick: '+angle);
+ }
+ assert.ok(report.workshop.thumbAngle<.40,'Workshop thumb should remain in a curled bracing pose');
  assert.ok(distance>.25,'The physical fingertip must travel through space, not merely change a hidden animation flag');
  assert.ok(report.details.every(d=>d.fistVisible),'Finger must be visible throughout the cycle');
  assert.equal(report.hellpingClips.length,10);
