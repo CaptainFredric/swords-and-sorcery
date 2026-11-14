@@ -1,114 +1,160 @@
-# Menu tour: audit, the Gale Lift-Off Handover, and a carousel of maps
+# Menu tour: audit fixes, the Gale Lift-Off Handover, and a carousel of maps
 
-Baseline: `41a8b082` (main). Draft; not merged, not deployed.
+Branch `claude/awesome-benz-af7087`, draft PR #486. Not merged, not deployed. Merged with main twice, now up to date
+with main `4ffc3267`. Both merges were clean (no conflicts): `MenuScene.mjs` auto-merged main's authored Armory clips
+with the tour's world swapping. The merged-in Argon 89/25 Spellblade has every clip the tour uses.
 
-## 1. Audit of the existing tours
+## What the PR does
 
-Tool: `scripts/menu-tour-browser.mjs` (real Chrome, Metal GPU, the running menu). It wraps the round's update and checks
-every frame: the clock stalls, a knight off the floor or inside a solid (the world's own `surfaceHeightAt` and solids),
-the camera inside a solid, the traveller hidden behind a solid or off the open part of the screen, page errors. It also
-takes a still of every stop, films a fight frame by frame (`--jump`, `--sequence`), and with `--leave` opens the Armory
-and comes back, recording the player's knight before and after.
+1. **Audit fixes to the existing tours** (kept from the first round):
+   - The Slush's steam drew as hard faceted hexagons; it is now soft puff sprites.
+   - Fights' walk-aways strode at sprint cadence: `clipAt` never passed the authored gait rate.
+   - The White Flag's reveal was hidden behind the Spellblade's back. The shot is now 0.2 rad, and he steps back out of
+     the way before the rival's long look at the flag.
+2. **The Gale Lift-Off Handover:**
+   1. Two parries.
+   2. A spin, slow then fast, inside a Gale funnel.
+   3. The rival backs off with his cape thrashing.
+   4. Lift-off, hover, and flight out of frame.
+   5. The rival stares up, then becomes the travelling knight.
+   6. After that, the round changes hands now and then at a change of map.
+3. **The carousel:** Castleward, the Court of Merit and the Outerworks, from varied starts and either direction, in a
+   shuffled order. Each world is built in the dark of a short fade.
 
-Five rounds of the Castleward tour on main (3x speed) and three at real speed: no stalls, no knight off the floor or in
-a wall, no page errors. Looking at the stills and frames found three real faults, fixed at their cause:
+## What changed in this round
 
-| Fault | Cause | Fix |
+- **The parries meet the blade.** The new model's Guard clip holds the sword level, so the first version's parries met
+  nothing. Now, during each parry, the director reads where the rival's blade really is on his rig. The arm solver
+  brings the Spellblade's blade across it at 62% of its length, then sweeps it aside. The parry burst lands where the
+  blades cross. See `parry-contact.jpg`.
+- **No stalls in the vignette.** A per-frame shader log (`renderer.info.programs`) and a long-frame log found three
+  causes, each fixed:
+  - **His palm light.** Hiding the player's knight as he flew off removed his palm light from the scene. A change in
+    the light count rebuilds every lit shader (200 to 350 ms). His lights are now stood in for at zero intensity while
+    he is hidden.
+  - **Disposed effect materials.** `Effects` disposed each transient's own material, and three.js drops a shader with
+    its last material. So the next hit, ring or gust rebuilt it, in every fight on main too. `Effects` now keeps one
+    retired material per kind (bounded: 12 after a long soak).
+  - **Compiling on first sight.** The vignette's effects are now rehearsed out of sight and compiled as the menu loads,
+    and again in the dark of each change of map. Rehearsing at the start of its round showed as an 83 ms stall of its
+    own.
+- **The slow spin is heard.** The two seconds between the gathering sound and the first whoosh were silent. The Gale's
+  own gathering breath now plays with each batch of wisps, louder as the wind builds.
+- **Phone landscape.** The round's subtitle sat under the Watch the Yard plaque, and under Show Menu in Watch the Yard.
+  On short screens it now sits above the controls.
+- **One registry entry per map.** Each map carries its renderer's loader. A test requires every map to be a world from
+  the game's registry, with a renderer that exists. Edge of Victory's newer maps are not on this branch and are not
+  assumed.
+- **Capture tool** (`scripts/menu-tour-browser.mjs`): new `--record` (Chrome's screencast, at normal speed),
+  `--observe`, `--layout`, `--state`, `--audio` and `--soak` options, plus per-frame shader-compile and long-frame logs.
+
+## Verification
+
+**The Gale lift-off at normal speed.** Screencasts at about 56 fps, in both the banner view and Watch the Yard, show:
+- two parries with real blade contact;
+- the spin building smoothly (turns per second never fall);
+- the funnel growing with the wind, and the rival's cape gusted;
+- the hover, then the departure, with the camera moving to the rival while the Spellblade is still rising;
+- a stare of over 2 s with sky above the rival;
+- the handover at the same pose and clip time;
+- the walk back to the path on a gait at its own pace.
+
+The probe saw no page errors, and no knight off the floor or inside a solid. Its only off-screen samples are the
+instant of the scripted jump.
+
+**Player state** (`--state`, real Chrome). The flow:
+1. The lift-off was interrupted mid-hover by opening the Armory.
+2. Spell and Masterstroke were changed there (Gale, Vortex), then back to the front door.
+3. A handover and eight map changes: the round went to the Verdant Knight, back to the player, then to the Azure
+   Knight.
+4. The player left the front door while a rival had the round.
+5. The player entered Practice.
+
+At every step the player's knight was:
+- on his stage, visible, in Castleward light;
+- free of stand-in lights, wind and funnel;
+- unchanged in meshes and materials, apart from the Armory's own palm orb and its Vortex showcase heat.
+
+Practice joined with Gale, Vortex, `rigid_riposte`, and his profile's cloth and emblem. Cloth is a server profile item
+(`profile.equipped`, from the Renown store). The tour has no path that writes it, and a source test forbids loadout,
+cloth, emblem, settings or storage writes in the tour's code.
+
+**Audio** (`--audio`: a real click to unlock, a log of every sound played, an analyser on the engine's output):
+- Both swings and both parries play once each.
+- The gathering breaths play every half second from 2.7 s, rising in gain, until the whooshes take over at 4.6 s.
+- The lift-off pair plays at 6.1 s and the departure pair at 7.7 s. Nothing plays at the handover.
+- The level rises from about −24 dB while gathering to −23 dB at lift-off. The stare sits at the music and ambience
+  bed (−28 to −31 dB).
+- After leaving for the Armory only the bed remains (−30 dB). No tour sound loops.
+- His voice lines play only while the round is his.
+
+**Not listened to by a person:** the balance and character of the sound still need a human listen.
+
+**Phone landscape** (`--layout`, desktop Chrome emulation with touch). At 844×390, 932×430, 740×360, 667×375 and
+926×428, in both views, the subtitle overlaps no yard control and is fully on screen. Not tried on a real phone.
+
+**Soak** (`--soak 24`: 24 rounds at 4×, 16 changes of map, 12 handovers, forced GC before each sample):
+- JS heap settles at 120–139 MB: 126.7 MB at round 4, 128.9 MB at round 23.
+- Geometries return to the same count for each map pair, every cycle.
+- Shader programs plateau at about 146.
+- At most two worlds are held.
+- Transients and debris return to 0.
+- No growth.
+
+**Frame times** (real Chrome, Metal, 1280×720). Main (`f4706f7c`, then `4ffc3267`) against the branch on Castleward,
+3 rounds at 2×, runs interleaved. The machine was heavily loaded (load average 6–20), so frame times are noisy.
+
+| | Main | Branch |
 | --- | --- | --- |
-| The Slush's melt steamed hard-edged white hexagons a metre wide, hanging over the heap | `Effects.steam` drew its puffs with the faceted dust (unshaded icosahedra) | soft puff sprites (`puffTexture`), as the Gale's breath uses; only the menu's Slush calls it |
-| Every walk-away (Whirlwind, Sky-Bait, its payoff, the Slush's return, the White Flag's steps) ran its legs at full sprint cadence while moving at a stroll | a looping gait clip strides on the animator's own phase at `plan.rate` and ignores `time`; `clipAt` never passed the authored rate on | `clipAt` returns the rate when it is not 1 |
-| The White Flag's gag (the rival's long look at the flag he has just been handed) was hidden behind the Spellblade's back | the shot was turned 0.4 rad behind his shoulder | 0.2 rad (nearer side on); any nearer and the fleeing rival runs past the lens (the camera-distance test catches it). Better, not perfect: at some stops the two still overlap while the Spellblade steps in for the flick |
+| Menu ready | about 2.1–3.0 s | same, within noise |
+| Round starts | about 4.7–5.9 s | same, within noise |
+| Median frame | 16.7 ms | 16.7 ms |
+| Whirlwind shatter spike (every round with one) | 120–250 ms | same |
+| Lift-off round spikes | — | none in 2 of 4 runs; one 150 ms frame as the wind gathers in the other 2 |
 
-Seen and left: on a phone on its side the subtitle box sits under the Watch the Yard button (menu CSS, untouched here).
-The inherited `How to Play states Chivalry's actual duration` test fails on main too; `npm test` here: 29 failures,
-all in server, input, touch-layout and vortex-camera suites this branch does not touch (main has about 28; several are
-socket-timing tests that vary run to run).
+The Whirlwind spike is its rival shattering into debris, CPU mesh splitting that is already on main. Changes of map
+take 120–190 ms to build, plus up to about 400 ms for the first frame, all held in the dark.
 
-## 2. The Gale Lift-Off Handover
+**Tests:**
+- Syntax and the browser module graph are OK.
+- Tour and menu suites pass in full, except the inherited `How to Play states Chivalry's actual duration`.
+- Full suite at the final merge: the branch has 23 failures out of 3211; main `4ffc3267` has 21 out of 3210, the same
+  21.
+- The branch's two extra failures are `snapshotAckWindow` network timing tests. They pass 3 out of 3 when run alone,
+  and the branch touches no server or simulation code.
 
-`tourFights.mjs` `makeGaleLiftoff` (one of the rarer fights, `RARE_FIGHTS.galeLiftoff`: round 3 of a visit, then every
-sixth). The rival attacks twice; both blows are parried with the game's own parry (`spellbladeMotion` `REACTIONS.parry`
-deflection, `Effects.blockBurst({ parry: true })`, `parryRecipe`), and the rival is driven back by each. The Spellblade
-turns, slowly then faster (`galeTurns`), arms out as in the Whirlwind; the Gale's wind gathers round him (`galeGather`)
-and stands up round him as a funnel made of the Gale's own wind cone and ribbons (`tourProps.galeFunnel`, built once,
-turning with him). The rival backs off into it, head down, a hand before his visor, his cape gusted by it several times
-a second (`cloth.gust`, as a Gale gusts a knight's cape in play), with low gusts off the funnel raising the dust at his
-feet. At lift-off a ring off the ground and a blast to either side; he hangs at 1.35 m, then climbs out of the picture.
-The rival looks up after him (Sky-Bait's gaze) for over two seconds; then the round is his: the handover hands the
-traveller part to that rival (`tourCast.handOver`) at exactly his pose and clip time, and he walks back to the path and
-on. After that the round changes hands now and then at a change of map (`changeHands`: back to the Spellblade, or on to
-another rival), and the lift-off can come round again with whoever has it.
+## Not done or not verified
 
-Visual only: the player's knight is never posted at a stop (`castIsSound`), never dressed, burned, frozen or broken;
-he is only hidden while someone else travels. Leaving the front door resets the cast (his again, shown), and the menu
-puts him back on his stage in Castleward. The Spellblade's voice lines play only while the round is his.
-
-## 3. The carousel of maps
-
-`tourMaps.mjs`: Castleward, the Court of Merit (round the arena floor between pillars and stands) and the Outerworks
-(round the bailey: inside the breach, the east lane, under the gate towers, past the storehouse). Each route is a closed
-loop of hand-placed points with three stops; each map can be run from any start that leaves room for the stops, either
-way round (Castleward 20 ways, Court 20, Outerworks 12). A visit opens on Castleward as before (the Slush, then
-Sky-Bait's setup); after that each map gets one or two rounds, the next map chosen so none repeats before every other
-has had its turn. The vignette order shifts with the round counter as before, and a stop with no room for its fight
-stages another.
-
-`tourWorlds.mjs`: the next world's renderer module is fetched during its predecessor's last round; the world is built
-in the dark of a 0.55 s fade out / 0.7 s fade in, with its own sky, fog, hemisphere and sun. One other world is kept
-at a time. Leaving the front door shows Castleward again at once.
-
-Tests: `tourMaps.test.mjs` (every metre of every route on level standable floor and clear of solids and props, stepped
-with the game's `surfaceHeightAt`; stops spaced; fights fit and are filmed clear at every stop; the carousel never
-repeats a map), `galeLiftoff.test.mjs` (the beats, the parries, the spin, the flight, the seamless handover, the cast
-never putting the player's knight at a stop, nothing touching his loadout, cloth, emblem or storage).
-
-## Performance (real Chrome, Apple GPU via Metal, 1280x720; the probe's own numbers)
-
-Like for like, Castleward only, three rounds at 2x, main vs this branch: menu ready 2.02 s vs 1.95 s; the round starts
-4.68 s vs 4.60 s; median and 95th-percentile frame 16.7 ms on both (vsync); 59 vs 61 draw calls; JS heap 97 vs 108 MB
-(the fourth rival). Frames over 40 ms: main 3 (183, 50, 133 ms: first-use hitches in the first fights), branch 6 (the
-same, plus up to 150 ms the first time the lift-off's parry and gusts are drawn).
-
-The carousel: another world's renderer module is fetched during the round before; building it takes 120 to 185 ms and
-its first drawn frame up to about 400 ms more (the Outerworks), both in the dark (the round holds the dark for three drawn frames after
-building, so the browser's shader linking lands there; `compileAsync` stalls on some of the Outerworks' materials in
-three r169, so it is not used). With the Outerworks on show the menu draws about 90 to 130 calls and 200k triangles;
-heap 180 to 285 MB with one other world kept. In the final run (Castleward, Court, Court, Outerworks, back to
-Castleward) every frame over 40 ms during a change of map fell in the dark; none with the picture up. Before the dark hold, the Outerworks' first visible frame stalled 1.5 s.
-
-## What was not verified
-
-- Audio: no sound was heard. The lift-off's whooshes, parries, gusts and lift-off blast use the game's recipes, placed
-  as the other fights' are, but their levels are unjudged.
-- A real phone: phone-landscape was emulated in desktop Chrome only (layout and framing, not a phone GPU).
-- Long sessions: about ten rounds and five changes of map at most in one visit; memory looked flat with one other
-  world kept, but a half-hour menu idle was not run.
-- High Grounds, Greener Pastures and the other worlds are not in the carousel: Greener Pastures draws trees outside its
-  collision data, and Ruined Keep is too cramped for the fights' footwork. Outerworks is drawn in its own low dusk
-  light, and its southern stop sits in the breach wall's shadow.
-- Reduced motion and Smooth quality keep the round off, as before; not re-checked in a browser.
+- A person listening to the audio, and a real phone.
+- The Whirlwind's shatter spike (inherited from main): building the debris could be prepared ahead, as a separate
+  change.
+- In captures of the vignette in Watch the Yard, one stall appears when the screencast starts together with the
+  banner's withdrawal. Plain Watch the Yard runs on both main and the branch show no stall there.
 
 ## Evidence
 
-![The Gale Lift-Off Handover, key beats](gale-liftoff-strip.jpg)
+![Parry contact: both parries, then lift-off and hover](parry-contact.jpg)
 
-![The Gale Lift-Off Handover, frames (slowed: 0.6x tour time, every other frame)](gale-liftoff.gif)
+![The Gale Lift-Off Handover at normal speed (real time, about 11 fps)](gale-liftoff.gif)
 
-![Court of Merit and Outerworks: the lift-off in the Court, the Verdant Knight travelling after the handover, the
-Outerworks' bailey with the banner up and in Watch the Yard](maps.jpg)
+![Key beats, banner view](gale-liftoff-strip.jpg)
 
-![The White Flag's reveal, filmed nearer side on](white-flag-reveal.jpg)
+![Key beats, Watch the Yard](gale-liftoff-observe-strip.jpg)
 
-![The Slush's steam: before, after](steam-before-after.jpg)
+![The White Flag's reveal at two stops](white-flag-reveal.jpg)
 
-![A phone on its side (emulated)](phone-landscape.jpg)
+![Phone landscape: the subtitle above the controls (844x390 and 667x375, both views)](phone-landscape-layout.jpg)
 
-Reproduce (local server on 3017; Node 24):
+![Court of Merit and the Outerworks](maps.jpg)
+
+![The Slush's steam, before and after](steam-before-after.jpg)
+
+Reproduce (local server on 3017, Node 24):
 
 ```
-node scripts/menu-tour-browser.mjs --out output/menu-tour --maps court-of-merit,outerworks --rounds 3 --speed 2 --stills
-node scripts/menu-tour-browser.mjs --out output/vignette --maps castleward --jump galeLiftoff --sequence galeLiftoff --seq-speed 0.6 --leave
+node scripts/menu-tour-browser.mjs --out out/v --maps castleward --jump galeLiftoff --record [--observe]
+node scripts/menu-tour-browser.mjs --out out/s --state
+node scripts/menu-tour-browser.mjs --out out/a --maps castleward --audio
+node scripts/menu-tour-browser.mjs --out out/l --maps castleward --rounds 0 --mobile --layout
+node scripts/menu-tour-browser.mjs --out out/k --speed 4 --soak 24
 ```
-
-`--leave` opens the Armory after the handover and comes back, and reports the player's knight before, in the Armory and
-after: cloth, emblem, visible meshes and stored settings were identical, and the round was his again on Castleward.
