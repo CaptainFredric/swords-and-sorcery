@@ -4,6 +4,11 @@ on:
     paths:
       - 'client/worlds/SoFisticationRenderer.mjs'
       - 'client/worlds/MachineAnimationComposition.mjs'
+      - 'client/menu/SiegeWorkshopScene.mjs'
+      - 'client/menu/SiegeWorkshopPerformance.mjs'
+      - 'client/menu/siegeWorkshopPreviewPlan.mjs'
+      - 'client/menu/siegeArmoryView.mjs'
+      - '.github/workflows/pages.yml'
       - 'scripts/so-fist-v26-flick-browser.mjs'
       - '.github/workflows/so-fist-v26-flick-browser.yml'
 permissions:
@@ -35,7 +40,7 @@ jobs:
           CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
           test -n "$CHROME"
           echo "path=$CHROME" >> "$GITHUB_OUTPUT"
-      - name: Verify actual index fingertip visual motion
+      - name: Verify gameplay fingertip and Workshop Argon v26 hand animation
         env:
           SIEGE_BROWSER_URL: http://127.0.0.1:3001
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
