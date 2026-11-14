@@ -1063,6 +1063,9 @@ export class Room {
       player.killfeedPreviousKiller=null;
       player.killfeedConsecutiveDeaths=0;
       player.killfeedPelting=null;
+      player.killfeedDamageContributors=[];
+      player.killfeedCircleChase=null;
+      player.killfeedInsideCircles={};
       // startMatch resets all actor combat state, including Prowess. Restore
       // Practice's fully charged personal Ultimate BEFORE the first snapshot,
       // not one server tick later, without charging bots or normal matches.
