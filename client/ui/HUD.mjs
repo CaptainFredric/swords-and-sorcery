@@ -855,22 +855,26 @@ export class HUD {
       !this.subtitleLine.classList.contains('menu-caption') &&
       !this.subtitleLine.classList.contains('end-caption');
     const height=isDialogue
-      ?Math.ceil(this.subtitleLine.getBoundingClientRect?.().height??26)
+      ?Math.ceil(this.subtitleLine.offsetHeight??this.subtitleLine.getBoundingClientRect?.()?.height??26)
       :26;
     const rise=Math.max(0,Number.isFinite(bottom)?bottom:112)+height+9;
     this.root.style.setProperty('--status-caption-bottom',Math.ceil(rise)+'px');
   }
 
   #syncMachineCaptionClearance() {
+    // CSS ScreenTurn can rotate the ENTIRE game 90 degrees on portrait-locked
+    // phones. getBoundingClientRect().height is then the gauge's WIDTH.
+    // offsetHeight stays in the game's unrotated layout coordinates, exactly
+    // the units required by the subtitle's CSS bottom inset.
     const mounted=!this.machineGauge?.hidden;
     const gaugeHeight=mounted
-      ?Math.ceil(this.machineGauge?.getBoundingClientRect?.()?.height??0):0;
+      ?Math.ceil(this.machineGauge?.offsetHeight??this.machineGauge?.getBoundingClientRect?.()?.height??0):0;
     const height=mounted?Math.max(30,gaugeHeight):0;
     this.root?.style?.setProperty?.('--siege-gauge-height',height+'px');
     // Keep this informational height for inspector/screenshots; captions are
     // outside the health assembly rather than lifting the assembly itself.
     const captionHeight=this.subtitleLine?.classList?.contains('show')
-      ?Math.ceil(this.subtitleLine?.getBoundingClientRect?.()?.height??0):0;
+      ?Math.ceil(this.subtitleLine?.offsetHeight??this.subtitleLine?.getBoundingClientRect?.()?.height??0):0;
     this.machineGauge?.style.setProperty('--machine-caption-height',captionHeight+'px');
     this.#syncStatusCaptionLane();
   }
