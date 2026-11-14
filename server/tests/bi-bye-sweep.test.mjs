@@ -112,7 +112,7 @@ test('facing Guard mitigates a genuine bow-limb collision and its displacement',
  const victim=s.room.addPlayer({id:'guard',token:'g',name:'guard'},0);
  victim.position={x:limb.center[0],y:limb.center[1]-.9,z:limb.center[2]};
  victim.spawnProtectionUntil=0;victim.guarding=true;victim.guardStamina=100;
- victim.yaw=Math.atan2(victim.position.x-s.b.x,victim.position.z-s.b.z)+Math.PI;
+ victim.yaw=Math.atan2(victim.position.x-s.b.x,victim.position.z-s.b.z);
  assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
  step(s,1,2.8);
  const hit=s.room.events.find(e=>e.type==='bibyeSweepImpact'&&e.victimId==='guard');
