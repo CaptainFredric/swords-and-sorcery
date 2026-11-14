@@ -52,6 +52,13 @@ test('named Fight-and-Flight boarding reaches the selected machine without bypas
  assert.match(invalid.rejected,/unknown siege machine/i);
  assert.equal(m.operatorId,null);
 
+ // A named request must not bypass another mode's physical carry restriction.
+ p.restlessCarrying={length:1};
+ const burdened=cmd({type:'siegeOperate',machine:'fight-and-flight'},2.5);
+ assert.match(burdened.rejected,/set down the siege ladder/i);
+ assert.equal(m.operatorId,null);
+ p.restlessCarrying=null;
+
  // Naming the selected machine does not grant a longer boarding reach.
  p.position={x:5,y:0,z:0};
  const distant=cmd({type:'siegeOperate',machine:'fight-and-flight'},3);
