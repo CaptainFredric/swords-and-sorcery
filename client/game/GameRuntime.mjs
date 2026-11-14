@@ -4139,12 +4139,20 @@ export class GameRuntime {
       if (this.localGaleWind && this.localAuth.alive && !this.localAuth.operatingBallistaId && !this.localAuth.operatingRamId && serverNow < this.localGaleWind.until) {
         if (!this.socket.playingLocally) sustainGaleRecoil(this.localGaleWind.spell, this.localState, this.input.lookDirection(), this.activeWorld, dt);
       } else this.localGaleWind = null;
+      // Third person already uses the host's slow Blustered fighting yaw.
+      // In first person, the hands must follow that same body rather than
+      // snapping along with the freely rotating camera and crosshair.
+      const armBluster = !this.localAuth.operatingBallistaId && !this.localAuth.operatingRamId &&
+        !this.localAuth.operatingFightFlightId ? this.localAuth.blustered : null;
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),
         grounded: this.localState.grounded,
         yaw: this.input.yaw,
         pitch: this.input.pitch,
+        bodyYaw: armBluster ? this.localAuth.yaw : null,
+        blustered: armBluster,
+        serverNow,
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
