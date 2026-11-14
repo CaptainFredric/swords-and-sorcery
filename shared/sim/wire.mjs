@@ -729,7 +729,7 @@ export function applyRoomCommand(room, player, message, time) {
       const mounted=Boolean(player.operatingFightFlightId||
         player.operatingRamId||player.operatingBallistaId);
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&mounted)return {};
-      if(player.hellpingCarriedBy===room.soFistication?.id)
+      if(room.soFistication && player.hellpingCarriedBy===room.soFistication.id)
        {exitHellpingHand(room,room.soFistication,player,time);return {}; }
       if(boardHellpingHand(room,room.soFistication,player,time))return {};
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId

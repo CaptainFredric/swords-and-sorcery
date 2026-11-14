@@ -22,6 +22,20 @@ function step(s,from,to,dt=1/30){
  for(let t=from+dt;t<=to+dt/2;t+=dt)stepBiByeLlista(s.room,s.b,dt,t,s.room.world);
 }
 const issue=(s,type,at=1)=>applyRoomCommand(s.room,s.operator,{type},at);
+test('real Interact boards an unoccupied ballista when no ram exists (undefined passenger is not a passenger)',()=>{
+ const room=new Room('NO_RAM',{mode:'PRACTICE'});room.world=ground();room.state='PLAYING';
+ const p=room.addPlayer({id:'boarding',token:'board',name:'Boarder',
+   siegeLoadout:{biBye:'lookAroundAndFindOut'}},0);
+ const ballista=room.biByeLlista=createBiByeLlista({x:0,y:0,z:0,baseYaw:0});
+ p.position={x:-2.9,y:0,z:0};p.spawnProtectionUntil=0;
+ assert.equal(room.soFistication,null);
+ assert.equal(p.hellpingCarriedBy,undefined);
+ const result=applyRoomCommand(room,p,{type:'siegeOperate'},1);
+ assert.equal(result.rejected,undefined);
+ assert.equal(ballista.operatorId,p.id,'real authority must authorize this rider');
+ assert.equal(p.operatingBallistaId,ballista.id);
+ assert.equal(ballista.skill.id,'lookAroundAndFindOut','selected third Skill survives physical boarding');
+});
 test('sharp turn is independently operable without selecting the third Skill; actual traverse rotates, chassis does not',()=>{
  const s=setup();assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
  assert.equal(s.b.skill.id,'boltToTheOccasion');assert.equal(s.b.skill.readyAt,0);
