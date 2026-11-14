@@ -7,11 +7,12 @@ import {
 } from './siegeWorkshopPreviewPlan.mjs';
 
 const SKILLS=[
-  'longArmToTheJaw','beatToThePunch','coldHowTouching','boltToTheOccasion',
+  'longArmToTheJaw','beatToThePunch','hellpingHand','ramFingerFlick',
+  'coldHowTouching','boltToTheOccasion',
   'doNotStopMyAscension','narrowToOne','fireAwayRightHere',
 ];
 
-test('every equippable siege Skill has an individual, bounded-or-held exhibition',()=>{
+test('every siege Skill and independently previewable Finger Flick has an exhibition',()=>{
   assert.deepEqual(Object.keys(SIEGE_PREVIEW_LENGTH).sort(),SKILLS.slice().sort());
   assert.deepEqual(Object.keys(SIEGE_PREVIEW_MACHINE).sort(),SKILLS.slice().sort());
   for(const skill of SKILLS){
@@ -36,6 +37,17 @@ test('Long Arm extends and stays out; Beat to the Punch shudders, reverses, hits
   assert.ok(Math.abs(workshopPreviewPose('beatToThePunch',5.4).z)<.01);
 });
 
+test('Argon HELLping and Finger Flick are distinct actual visual sequences, not placeholder attacks',()=>{
+ assert.equal(SIEGE_PREVIEW_MACHINE.hellpingHand,'soFist');
+ assert.equal(SIEGE_PREVIEW_MACHINE.ramFingerFlick,'soFist');
+ assert.equal(workshopPreviewTargets('hellpingHand').length,2);
+ assert.equal(workshopPreviewTargets('ramFingerFlick').length,1);
+ assert.equal(workshopPreviewDone('hellpingHand',12),false);
+ assert.equal(workshopPreviewDone('hellpingHand',15.3),true);
+ assert.equal(workshopPreviewDone('ramFingerFlick',4),true);
+ assert.ok(workshopPreviewTargetPose('ramFingerFlick',1.2,0).fall>.9);
+ assert.ok(workshopPreviewTargetPose('hellpingHand',5.5,0).fall>.9);
+});
 test('ballista frost burst is a near miss and mobile Bolt II demonstrably fires before Bolt I',()=>{
   const frost=workshopPreviewShots('coldHowTouching');
   assert.equal(frost.length,1);

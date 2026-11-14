@@ -20,6 +20,9 @@ test('Pages workflow publishes the game client (and the landing page at /about/)
   assert.match(workflow, /pages:\s*write/);
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /actions\/configure-pages@v5[\s\S]*?enablement:\s*true/);
+  assert.match(workflow, /node scripts\/assemble-so-fist-v26\.mjs/);
+  assert.match(workflow, /_site\/client\/assets\/props\/so-fist-ication\/so-fist-ication-v26\.glb/);
+  assert.match(workflow, /sha256sum --check/, 'Pages must publish the exact original Argon v26 GLB');
   assert.match(workflow, /cp -R client shared _site\//);
   assert.match(workflow, /name=\\"ss-game-server\\"/);
   assert.match(workflow, /cp -R site\/\. _site\/about\//);

@@ -28,11 +28,12 @@ The engineers of Castleward discovered that a siege engine could have all the su
   facts:'Armored piston · charging drive · counterattack Skill',
   attacks:[
    {name:'RECIPROCATING PISTON',icon:'ram',line:'Hydraulic steel ram stroke that fractures gatehouse masonry and knocks opposing combatants off their feet.',facts:'Heavy physical blunt impact'},
+   {name:'FINGER FLICK',icon:'ram',line:'Argon’s articulated index finger snaps forward for one precise 80-damage contact with powerful knockback. Facing Guard reduces it to 44 damage and drains stamina. Shares the piston’s four-second cycle.',facts:'80 damage · 44 against Guard · shared 4s cycle',previewSkill:'ramFingerFlick'},
    {name:'CARRIAGE ELEVATION',icon:'rise',line:'Elevate or lower the articulated carriage to target high stone battlements or low gate portals.',facts:'Adjustable vertical strike angle'},
    {name:'RAMMING CHARGE',icon:'dash',line:'Accelerate the mobile carriage to full forward drive, battering through obstacles and barricades.',facts:'High chassis momentum'}
   ],
   controls:{
-   desktop:'[W/A/S/D] Steer & accelerate · [Left Click / Space] Ram charge & strike · [E] Elevate / Lower piston · [U / Q] Skill · [F] Dismount',
+   desktop:'[W/A/S/D] Steer carriage · [Left Click] Piston · [Right Click / X] Finger Flick · [E / C] Pitch · [Space + E / C] Hydraulic lift · [U] Equipped Skill · [F] Dismount',
    touch:'Left Stick: Drive ram · ATTACK: Charge strike · ELEVATE: Raise/Lower carriage · SKILL: Skill · DISMOUNT'
   }
  },

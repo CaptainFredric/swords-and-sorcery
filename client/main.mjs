@@ -2333,16 +2333,18 @@ function updateSiegePreviewUI(skillId, unavailableSkill=null) {
   const hint=$('#siege-preview-hint');
   if(button)button.hidden=!skillId;
   if(hint) {
-    // A Skill can be equipped without the older workshop GLB having its
-    // authored animation. Never pretend an unsupported preview is playing.
-    if(unavailableSkill==='hellpingHand') {
-      hint.textContent='HELLPING HAND EQUIPPED · WORKSHOP DEMONSTRATION NOT YET AVAILABLE. USE THE SKILL IN GAME.';
+    if(unavailableSkill==='hellpingHand'||unavailableSkill==='ramFingerFlick'){
+      hint.textContent=menuScene?.siegeWorkshop?.inFlight?.has('soFist')
+        ?'LOADING ARGON V26 ARTICULATED HAND FOR PREVIEW…'
+        :'ARGON ANIMATION UNAVAILABLE · VERIFY THE V26 GLB WAS DEPLOYED.';
       return;
     }
     const names={
       boltToTheOccasion:'BOLT TO THE OCCASION',
       coldHowTouching:'COLD, HOW TOUCHING',
       beatToThePunch:'BEAT TO THE PUNCH',
+      hellpingHand:'HELLPING HAND',
+      ramFingerFlick:'FINGER FLICK',
       longArmToTheJaw:'LONG ARM TO THE JAW',
       fireAwayRightHere:"FIRE AWAY? I'M RIGHT HERE",
       narrowToOne:'NARROW TO ONE',
@@ -2418,6 +2420,7 @@ function renderSiegeWorkshop(machineId = 'soFist') {
         <small>${escapeHtml(atk.facts)}</small>
       </div>
       <p>${escapeHtml(atk.line)}</p>
+      ${atk.previewSkill ? `<button type="button" class="siege-attack-preview" data-siege-attack-preview="${escapeHtml(atk.previewSkill)}">WATCH ARGON ANIMATION</button>` : ''}
     </div>`).join('');
   }
 
@@ -2574,6 +2577,14 @@ $('#armory-prepared').addEventListener('click', (event) => {
   armoryFeedback.select(to, to, () => {});
   settings.set('loadout.preparedSpells', replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, to));
   document.querySelector(`[data-prepared-slot="${slot}"][data-way="${button.dataset.way}"]`)?.focus({ preventScroll: true });
+});
+
+$('#siege-attacks-list')?.addEventListener('click', (event) => {
+  const button=event.target.closest('[data-siege-attack-preview]');
+  if(!button)return;
+  const skill=button.dataset.siegeAttackPreview;
+  const started=menuScene?.siegeWorkshop?.playPreview(skill)===true;
+  updateSiegePreviewUI(started?skill:null,started?null:skill);
 });
 
 $('#armory-siege-machines').addEventListener('click', (event) => {

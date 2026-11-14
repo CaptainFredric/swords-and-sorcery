@@ -12,6 +12,7 @@ on:
       - 'shared/**'
       - 'site/**'
       - '.github/workflows/pages.yml'
+      - 'scripts/assemble-so-fist-v26.mjs'
   workflow_dispatch:
 
 permissions:
@@ -44,8 +45,15 @@ jobs:
           npm run check:browser-imports
       - name: Build the static client
         run: |
+          # The original Argon v26 GLB is checked in as ten Git-safe parts.
+          # A Node server reconstructs it on startup, but static Pages has no
+          # server startup. Assemble BEFORE copying the client to the site.
+          node scripts/assemble-so-fist-v26.mjs
+          test -s client/assets/props/so-fist-ication/so-fist-ication-v26.glb
           mkdir -p _site/about
           cp -R client shared _site/
+          test -s _site/client/assets/props/so-fist-ication/so-fist-ication-v26.glb
+          echo '6800db7a9dd1bfa69bb8b789c5663e2e6a83b63f5406d9dbdd97e113ca2221b4  _site/client/assets/props/so-fist-ication/so-fist-ication-v26.glb' | sha256sum --check
           # the page names the game server it plays on
           sed "s#<meta charset=\"UTF-8\" />#<meta charset=\"UTF-8\" />\n  <meta name=\"ss-game-server\" content=\"${GAME_SERVER}\" />#" client/index.html > _site/index.html
           grep -q 'name="ss-game-server"' _site/index.html
