@@ -186,7 +186,8 @@ function contacts(room,b,s,prevAngle,angle,previousLower,lower,now){
   const frac=i/count,a=prevAngle+(angle-prevAngle)*frac,l=previousLower+(lower-previousLower)*frac;
   const next=bladesAt(b,a,l);
   if(worldBlocked(b,last,next,room.world))return false;
-  const revolution=Math.max(0,Math.floor((a+1e-7)/TAU));
+  // The seam at exactly 360 degrees belongs to the previous revolution.
+  const revolution=s.kind==='single'?0:Math.max(0,Math.floor((a-1e-6)/TAU));
   s.revolution=revolution;
   for(const player of room.players?.values()??[]){
    if(!player.alive||player.id===s.ownerId||areAllies(room,s.ownerId,player.id))continue;
