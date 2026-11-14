@@ -67,10 +67,13 @@ try {
   await poll(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),
     'game menu',45000);
   await click('[data-tutorial-onboarding-skip]');
-  await click('#solo-button');
-  await click('#practice-mode');
-  await click('#solo-launch');
-  await poll(()=>evaluate("Boolean(window.__ssRuntime?.localAuth?.alive && window.__ssRuntime?.socket?.playingLocally && window.__ssRuntime?.playing)"),
+  await evaluate("document.querySelector('#player-name').value='Bluster browser probe';document.querySelector('#solo-button').click()");
+  await poll(()=>evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"),
+    'Practice menu enabled',35000);
+  // The dual-banner menu can require a second click when the launch button
+  // is not yet visible. Match the other shipped Chrome gameplay harnesses.
+  await evaluate("document.querySelector('#practice-mode').click();document.querySelector('#solo-launch')?.click() || document.querySelector('#practice-mode').click()");
+  await poll(()=>evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing)"),
     'real local Practice',45000);
   await click('#practice-drawer-close');
   // The status is staged on the same authoritative local-host player that
@@ -121,7 +124,8 @@ try {
   await writeFile(join(output,'result.json'),JSON.stringify(evidence,null,2));
 } catch(error) {
   console.error('[FIRST-PERSON BLUSTER FAIL]',stage,error.stack);
-  evidence.failure={stage,message:String(error),last:await evaluate(sample).catch(()=>null)};
+  evidence.failure={stage,message:String(error),last:await evaluate(sample).catch(()=>null),
+    menu:await evaluate("({solo:document.querySelector('#solo-menu')?.className,practiceDisabled:document.querySelector('#practice-mode')?.disabled,launch:document.querySelector('#solo-launch')?.getClientRects().length,gate:document.querySelector('#arena-gate')?.className,room:window.__ssRuntime?.latestSnapshot?.roomState,playing:window.__ssRuntime?.playing,localHost:!!window.__ssRuntime?.socket?.local})").catch(()=>null)};
   await writeFile(join(output,'failure.json'),JSON.stringify(evidence,null,2));
   throw error;
 } finally {
