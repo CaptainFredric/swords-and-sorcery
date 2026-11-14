@@ -115,6 +115,45 @@ try{
    const error=expected&&actual?Math.max(...actual.map((v,i)=>Math.abs(v-expected[i]))):null;
    s.hellpingClips.push({clip:name,phase,animatedJoint:handTrack?.name??null,error});
   }
+  // The shipped Armory must also use the genuine donor, not its old v2.7
+  // model. Open the real workshop, load the original asset, and sample the
+  // real THREE.AnimationMixer on its visible index geometry.
+  const {SiegeWorkshopScene}=await import('/client/menu/SiegeWorkshopScene.mjs');
+  const workshop=new SiegeWorkshopScene(new THREE.Scene());
+  await workshop.whenLoaded('soFist');
+  const active=workshop.getActiveModelStatus();
+  const index=workshop.machinePivot.getObjectByName('Index_1');
+  const mesh=workshop.machinePivot.getObjectByName('Index_3');
+  let vertices=0;
+  mesh?.traverse(node=>{if(node.isMesh)vertices+=node.geometry?.attributes?.position?.count??0;});
+  const previewClipNames=workshop.clips.get('soFist')?.map(c=>c.name)??[];
+  const w={loaded:active.isAuthored,argonHand:active.argonHand,vertices,
+    previewClips:previewClipNames.filter(name=>/^(1[1-9]|2[0-6])_/.test(name)),stages:[]};
+  w.flickStarted=workshop.playPreview('ramFingerFlick');
+  workshop.update(.4);
+  const first=index?.quaternion.clone();
+  workshop.update(.35);
+  w.flickAngle=first?.angleTo(index.quaternion)??0;
+  w.flickClip=workshop.previewAnimation?.layers?.has('23_Finger_Flick_Single_Target_Strike')??false;
+  w.hellpingStarted=workshop.playPreview('hellpingHand');
+  for(const [time,expected] of [
+    [.5,'11_HELLping_Hand_Open_Wide'],
+    [1.5,'12_HELLping_Hand_Enemy_Capture_Close'],
+    [3.5,'13_HELLping_Hand_Sustained_Crush_4s'],
+    [6.5,'14_HELLping_Hand_Release_Or_Fist_Destroyed'],
+    [7.7,'15_HELLping_Hand_Ally_Hatch_Open_Enter'],
+    [8.9,'16_HELLping_Hand_Ally_Protected_Punch'],
+    [10.2,'17_HELLping_Hand_Ally_Rear_Exit'],
+    [11.4,'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages'],
+    [13.0,'19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages'],
+    [14.6,'22_HELLping_Hand_Skill_Default_Open_Palm_Idle'],
+  ]){
+    const delta=time-workshop.performance.time;
+    workshop.update(delta);
+    w.stages.push({time,expected,active:[...(workshop.previewAnimation?.layers?.keys()??[])]});
+  }
+  s.workshop=w;
+  workshop.dispose();
   ram.dispose();
   return s;
  })()`);
@@ -148,6 +187,17 @@ try{
   assert.ok(phase.error<.0002,'Displayed joint does not match '+phase.clip+' (error '+phase.error+')');
  }
  console.log('[ARGON HELLPING HAND CHROME PHASES]',JSON.stringify(report.hellpingClips));
+ assert.equal(report.workshop.loaded,true,'Armory must load the production hydraulic rig');
+ assert.equal(report.workshop.argonHand,true,'Armory must graft the exact original Argon v26 donor');
+ assert.ok(report.workshop.vertices>50,'Armory index must have visible mesh geometry');
+ assert.equal(report.workshop.previewClips.length,16,'All 16 new Argon hand clips available in Armory');
+ assert.equal(report.workshop.flickStarted,true);
+ assert.equal(report.workshop.flickClip,true);
+ assert.ok(report.workshop.flickAngle>.08,'the actual Armory fingertip must flex on the 23_Finger_Flick clip');
+ assert.equal(report.workshop.hellpingStarted,true);
+ for(const stage of report.workshop.stages)
+   assert.ok(stage.active.includes(stage.expected),'Armory never played '+stage.expected+' at '+stage.time);
+ console.log('[ARGON WORKSHOP REAL CLIPS ACCEPTED]',JSON.stringify(report.workshop));
  console.log('[ARGON FLICK BROWSER ACCEPTED]');
 }catch(error){
  console.error('[ARGON FLICK BROWSER FAILED]',error.stack??String(error));
