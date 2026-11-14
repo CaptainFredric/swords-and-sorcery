@@ -61,8 +61,11 @@ function verify(kind,x,screen){
   assert.ok(o.visible&&o.width>90&&o.width<=240&&o.height<85,screen+' '+kind+' compact objective');
   assert.ok(o.left>hp.right+2,screen+' '+kind+' objective clears personal HP');
   assert.ok(o.top<110,screen+' '+kind+' objective moved upward');
-  assert.ok(f.visible&&f.top>Math.max(l.bottom,v.bottom)+6,
-    screen+' '+kind+' feed below Leave and View');
+  assert.ok(f.visible&&f.top>l.bottom+6,
+    screen+' '+kind+' feed below LEAVE');
+  // Ballista VIEW is intentionally near BOTH, well below the compact feed;
+  // other View buttons occupy the top-right row, directly above the feed.
+  assert.ok(clear(f,v,4),screen+' '+kind+' feed never covers VIEW');
   assert.ok(f.right<=x.w+2&&f.left>=0,screen+' '+kind+' feed in viewport');
   assert.ok(clear(o,f,2),screen+' '+kind+' objective and killfeed clear');
   assert.ok(s.visible&&s.bottom<=x.h+3,screen+' '+kind+' subtitle visible');
