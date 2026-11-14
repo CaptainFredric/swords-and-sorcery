@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
+import {createFlickThumbRestraint,restrainFlickThumb} from '../worlds/soFistThumbRestraint.mjs';
 import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
 import { FLIGHT_CLIPS } from '../worlds/flightAnimationState.mjs';
 
@@ -111,6 +112,7 @@ export class SiegeWorkshopScene {
     this.cache = new Map();
     this.inFlight = new Map();
     this.mixers = new Map();
+    this.flickThumbParts=[];
     this.clips = new Map();
     this.previewAnimation = null;
     this.previewFist = null;
@@ -587,6 +589,7 @@ export class SiegeWorkshopScene {
             bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
           this.clips.set(id,gltf.animations);
+          if(id==='soFist')this.flickThumbParts=createFlickThumbRestraint(model,gltf.animations);
           const mixer=new THREE.AnimationMixer(model);
           const clip=gltf.animations.find(candidate=>candidate.name===IDLE_CLIP[id]);
           if(clip)mixer.clipAction(clip).play();
@@ -833,6 +836,8 @@ export class SiegeWorkshopScene {
       if(!active.has(name)){action.stop();this.previewAnimation.layers.delete(name);}
     }
     mixer.update(0);
+    if(id==='soFist'&&skill==='ramFingerFlick')
+      restrainFlickThumb(this.flickThumbParts,time);
   }
 
   update(dt, reducedMotion = false) {
