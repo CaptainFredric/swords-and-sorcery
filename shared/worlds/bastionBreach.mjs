@@ -405,8 +405,8 @@ const BASE_BASTION_BREACH = Object.freeze({
   props: PROPS,
   objectives: OBJECTIVES,
   structures: Object.freeze([
-    { id: 'assault-barricade', name: 'Reinforced assault barricade', solidIds: ['cover-approach-breastwork'], profile: 'reinforcedTimber', team: TEAMS.DEFENDERS },
-    { id: 'approach-screen', name: 'Supply screen', solidIds: ['cover-approach-crates-right'], profile: 'timber', team: TEAMS.DEFENDERS },
+    { id: 'assault-barricade', name: 'Reinforced assault barricade', solidIds: ['cover-approach-breastwork'], profile: 'reinforcedTimber', team: TEAMS.DEFENDERS, rebuildAfterSec: 26 },
+    { id: 'approach-screen', name: 'Supply screen', solidIds: ['cover-approach-crates-right'], profile: 'timber', team: TEAMS.DEFENDERS, rebuildAfterSec: 18 },
     { id: 'sanctum-barricade', name: 'Sanctum rear barricade', solidIds: ['cover-defender-barricade'], profile: 'reinforcedTimber', team: TEAMS.DEFENDERS },
   ]),
   siegeEmplacements: Object.freeze([
