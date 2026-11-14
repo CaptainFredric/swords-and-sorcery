@@ -1,6 +1,20 @@
 // Chrome/CDP acceptance on a real locally hosted HTML5 Castleward build.
 // Uses visible Armory clicks and real keyboard/mouse gameplay, not fake damage.
 import assert from 'node:assert/strict';
+import {readFileSync,existsSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+// Fail BEFORE launching Chrome if the authentic exported v26 asset or its
+// Blender source is missing, incomplete, or replaced by an unrelated file.
+for(const [asset,expected] of [
+ [new URL('../client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb',import.meta.url),
+   '9d1a8e7920b445c29546336d1bf00190b6837549941bd84c75858f64662619e6'],
+ [new URL('../assets/source/bibye-ballista/Bi_Bye_llista_blend_archive.zip',import.meta.url),
+   'cdb304075c515d0313fdcd65673e8927d07232894c97fe2a11e8666501957d60']
+]){
+ if(!existsSync(asset))throw Error('Original Argon v26 handoff absent: stage '+asset.pathname);
+ const actual=createHash('sha256').update(readFileSync(asset)).digest('hex');
+ assert.equal(actual,expected,'The uploaded original Argon file must remain unmodified: '+asset.pathname);
+}
 import {BI_BYE_LLISTA_CONFIG} from '../shared/sim/biByeLlista.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
