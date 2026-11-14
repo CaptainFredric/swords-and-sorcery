@@ -9,13 +9,16 @@ import { createBatch } from './kit/kitPieces.mjs';
 import { facetMesh, kitMaterials, seededRandom } from './kit/facetKit.mjs';
 import { drawWorldProps } from './kit/worldProps.mjs';
 import { FlameSet } from './kit/flames.mjs';
+import { buildHighGroundsAtmosphere } from './highGroundsAtmosphere.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
 // remain legible and run in the HTML5/mobile renderer without texture atlases.
 export const HIGH_GROUNDS_LIGHTING = Object.freeze({
   cameraFar: 610,
   background: 0xb2cbd2,
-  fog: Object.freeze({ color: 0xb2cbd2, density: 0.0017 }),
+  // (enough haze that the valley seventy metres down and the far ridges sit back in the air: the drop reads as a drop;
+  // a knight forty metres off is still 97% himself)
+  fog: Object.freeze({ color: 0xb2cbd2, density: 0.0042 }),
   hemisphere: Object.freeze({ skyColor: 0xedf2e7, groundColor: 0x566755, intensity: 2.1 }),
   sun: Object.freeze({ color: 0xffdf9c, intensity: 2.35, position: Object.freeze([-65, 86, -40]) }),
 });
@@ -55,6 +58,7 @@ export class HighGroundsRenderer {
       ...highGroundsSceneryMaterials(),
     };
     this.standards = new Map();
+    this.blooms = [];
     this.#build();
     scene.add(this.group);
   }
@@ -108,12 +112,14 @@ export class HighGroundsRenderer {
         const x = tree.x + Math.cos(a) * outer;
         const z = tree.z + Math.sin(a) * outer;
         const y = crownY + (i % 3 - 1) * 2.3;
-        mesh(this.group, new THREE.IcosahedronGeometry(tree.radius * .91, 0), bloom, [x, y, z]);
+        this.blooms.push(mesh(this.group, new THREE.IcosahedronGeometry(tree.radius * .91, 0), bloom, [x, y, z]));
       }
-      mesh(this.group, new THREE.IcosahedronGeometry(tree.radius * 1.05, 0),
-        this.materials.leaf, [tree.x, crownY - 3.7, tree.z]);
+      this.blooms.push(mesh(this.group, new THREE.IcosahedronGeometry(tree.radius * 1.05, 0),
+        this.materials.leaf, [tree.x, crownY - 3.7, tree.z]));
     }
     buildHighGroundsDetail(this.group, HIGH_GROUNDS, this.materials);
+    // the air: cloud banks far below, swaying blooms and their drifting petals, pennants on the bridges
+    this.atmosphere = buildHighGroundsAtmosphere(this.group, HIGH_GROUNDS, { blooms: this.blooms });
     this.#furnishings();
     // Three-dimensional standards on *all five* independent capture sites.
     for (const obj of HIGH_GROUNDS.objectives) {
@@ -186,6 +192,7 @@ export class HighGroundsRenderer {
   }
   update(timeSec) {
     this.flames?.update(timeSec);
+    this.atmosphere?.update(timeSec);
     const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec,
       this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
     this.biByeLlista?.update(view.clock, view.ballista, view.projectiles);
@@ -199,5 +206,6 @@ export class HighGroundsRenderer {
     for (const material of Object.values(this.materials)) material.dispose();
     for (const material of Object.values(this.kit ?? {})) material.dispose();
     this.flames?.dispose();
+    this.atmosphere?.dispose();
   }
 }

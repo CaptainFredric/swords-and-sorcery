@@ -48,9 +48,12 @@ export function floorColor(material, x, z, paths, rand) {
   // clover-sized mottling, finer than the blotches
   const mottle = (valueNoise(x * 1.1, z * 1.1, 41) - 0.5) * 0.1;
   if (material === 'earth' || worn > 0.55) {
-    const base = worn > 0.8 ? P.earthDark : P.earth;
-    // cart tracks: two darker ruts either side of a path's line, on the earth
-    const rut = material === 'earth' ? Math.exp(-(((toPath - 0.75) / 0.2) ** 2)) * 0.12 : 0;
+    // a path worn through turf darkens gradually toward its line (a hard step to the dark earth drew a stripe down every
+    // path); along an earth road the crown is packed pale and dusty, with a darker cart rut either side of it
+    const road = material === 'earth';
+    const base = road ? shadeColor(P.earth, 1 + 0.06 * worn)
+      : shadeColor(P.earth, 1).lerp(shadeColor(P.earthDark, 1), Math.max(0, Math.min(1, (worn - 0.6) / 0.4)) ** 2);
+    const rut = road ? Math.exp(-(((toPath - 0.8) / 0.3) ** 2)) * 0.1 : 0;
     const color = shadeColor(base, (0.88 + blotch * 0.2 + mottle + (rand() - 0.5) * 0.06 - rut) * (1 + lie * 0.07));
     return lie < 0 ? color : color.lerp(RED_EARTH, lie * 0.22);
   }
@@ -76,12 +79,14 @@ function hash01(i, j, seed) {
  * they are left out here, so two surfaces never share a plane and flicker against each other. `shade(x, z)`: an
  * extra factor for the ground's colour there (darker at the foot of walls and houses; 1 elsewhere).
  */
-export function floorTile(batch, floor, paths, rand, covers = [], shade = null) {
+export function floorTile(batch, floor, paths, rand, covers = [], shade = null, { cell = 1, tint = null } = {}) {
   const [cx, , cz] = floor.center;
   const [sx, sy, sz] = floor.size;
   const y = floor.y;
-  const nx = Math.max(1, Math.round(sx / 1.0));
-  const nz = Math.max(1, Math.round(sz / 1.0));
+  // cell: the grid's spacing (finer lets a path's worn edge and a floor's feathered seam read); tint(x, z, color):
+  // a world's own touch to a colour (a seam blended into the floor beside it)
+  const nx = Math.max(1, Math.round(sx / cell));
+  const nz = Math.max(1, Math.round(sz / cell));
   const x0 = cx - sx / 2;
   const z0 = cz - sz / 2;
   const builder = batch.ground;
@@ -89,6 +94,7 @@ export function floorTile(batch, floor, paths, rand, covers = [], shade = null) 
   const soft = floor.material !== 'stone';
   const colorAt = (x, z) => {
     const color = floorColor(floor.material, x, z, paths, rand);
+    if (tint) tint(x, z, color);
     return shade ? color.multiplyScalar(shade(x, z)) : color;
   };
   const corner = [];
