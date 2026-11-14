@@ -1,4 +1,5 @@
 import { TEAMS } from '../src/teams.mjs';
+import {trackCircleChase} from './killfeedCaptureContext.mjs';
 
 /**
  * Creates an authoritative objective state for a room.
@@ -75,6 +76,7 @@ export function stepObjectives(room, dt, nowSec) {
   let defenders = 0;
   for (const player of room.players.values()) {
     if (!player.alive) continue;
+    trackCircleChase(room,player,currentObj,nowSec,{eligible:player.team===TEAMS.ATTACKERS});
     const dx = player.position.x - center.x;
     const dz = player.position.z - center.z;
     if (dx * dx + dz * dz <= radiusSq) {

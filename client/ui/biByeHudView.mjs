@@ -11,13 +11,17 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (!local.operatingBallistaId) {
     // Mobile uses the actual nearby MOUNT control, not an obsolete text panel.
     if (touch) return null;
-    if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > BI_BYE_LLISTA_CONFIG.emplacement.interactRadius) return null;
+    const boardRadius=Number.isFinite(b.interactRadius)?b.interactRadius:BI_BYE_LLISTA_CONFIG.emplacement.interactRadius;
+    if (b.operatorId || Math.hypot(b.position.x - local.position.x, b.position.z - local.position.z) > boardRadius) return null;
     return { title: 'BI-BYE-LLISTA', status: touch ? 'Tap MOUNT to operate' : `[${key('interact')}] Operate`, controls: '' };
   }
   const condition = biByeCondition(b);
   const upperReady = b.smallBoltReady ?? (now >= (b.smallBoltReadyAt ?? 0) && !b.upperPending);
   const upper = b.upperQueued ? 'Shot I queued' : upperReady ? 'Shot I ready' : b.upperPending ? 'Shot I releasing' : `Shot I ${Math.max(0,(b.smallBoltReadyAt??now)-now).toFixed(1)}s`;
-  const heavy = b.mainBoltLoaded !== false ? 'II ready' : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
+  const sharedRecovery=Math.max(0,(b.sweepHeavyReadyAt??0)-now);
+  const heavy = b.mainBoltLoaded !== false
+    ? sharedRecovery>0 ? 'II locked' : 'II ready'
+    : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
   const coupling = b.pendingCoupledFromUpper ? 'Main bow traversing'
     : b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
     : b.coupling === 'ENGAGING' ? 'Engaging latch' : b.coupling === 'RELEASING' ? 'Releasing clutch' : b.coupling === 'FIRING' ? 'Volley committed' : '';
@@ -31,6 +35,7 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
     ' · '+status;
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);
   if(b.sweep)status+=' · '+(b.sweep.phase==='settle'?'BOW SETTLING':b.sweep.kind==='skill'?'STATIONARY BOW SPIN':'A SHARP TURN');
+  else if(sharedRecovery>0)status+=` · SWEEP / II ${sharedRecovery.toFixed(1)}s`;
    if(b.aimLimited)status+=' · AIM LIMIT';
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy&&!uprooted&&

@@ -10,6 +10,7 @@ import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { castGesture, castGestureRotations } from './castGesture.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
+import { stepFirstPersonBluster } from './firstPersonBluster.mjs';
 import { SORCERY_LIFT } from './SorceryVolume.mjs';
 import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
@@ -199,6 +200,7 @@ export class WeaponView {
     this.group = new THREE.Group();
     this.group.name = 'first-person-spellblade-root';
     camera.add(this.group);
+    this.blusterFacing = null; // camera-relative body lag, never a camera or combat-yaw override
 
     this.fallbackVisual = new THREE.Group();
     this.fallbackVisual.name = 'first-person-spellblade-fallback';
@@ -331,6 +333,11 @@ export class WeaponView {
     this.guide = null;
 
     this.#upgradeVisual();
+  }
+
+  resetBlusterFacing() {
+    this.blusterFacing = null;
+    this.group.rotation.y = 0;
   }
 
   #upgradeVisual() {
@@ -804,7 +811,18 @@ export class WeaponView {
     return held.pose && ease > 0.001 ? { ...held.pose, weight: ease } : null;
   }
 
-  update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0 } = {}) {
+  update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0,
+    bodyYaw = null, blustered = null, serverNow = null, mounted = false } = {}) {
+    // The view/crosshair yaw remains free. Only the camera-child arm rig rotates
+    // toward the host's slower fighting facing; its existing IK and swing clips
+    // stay local to that carriage, including both hands and their weapon.
+    // A mounted cockpit is a different carriage; never inherit a prior yaw lag.
+    if (mounted) this.resetBlusterFacing();
+    else {
+      this.blusterFacing = stepFirstPersonBluster(this.blusterFacing,
+        {lookYaw:yaw,bodyYaw,blustered,nowSec:serverNow,dt});
+      this.group.rotation.y = this.blusterFacing.yaw;
+    }
     // everything on my arms is drawn in the view's own pass, over the world (viewLayers.mjs): whatever has been
     // put on them since the last frame included
     onViewLayer(this.group);

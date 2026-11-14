@@ -313,6 +313,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
+      sweepHeavyReadyAt:room.biByeLlista.sweepHeavyReadyAt??0,
+      lastSweepEndAt:room.biByeLlista.lastSweepEndAt??null,
       sweep:room.biByeLlista.sweep?{...room.biByeLlista.sweep,victims:undefined,machines:undefined}:null,
       impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
       outriggersDislodgedAt:Number.isFinite(room.biByeLlista.outriggersDislodgedAt)?room.biByeLlista.outriggersDislodgedAt:null,
@@ -321,6 +323,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       builtAt:room.biByeLlista.builtAt,
       ownerId:room.biByeLlista.ownerId??null,
       id: room.biByeLlista.id,
+      // Mobile and desktop MOUNT affordances must use the same authoritative
+      // reach as mountBiByeLlista, including the non-clipping front station.
+      interactRadius:room.biByeLlista.interactRadius,
       position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
       x: room.biByeLlista.x,
       y: room.biByeLlista.y,

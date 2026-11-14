@@ -185,7 +185,8 @@ try{
  assert.ok(later.ballista.sweep.angle>=spin.ballista.sweep.angle,'server-owned traverse continues forward');
  await screenshot('05-touch-continuous-spinning');
  await tapTouch('attack',12);
- await until(()=>evaluate("window.__bibyeTouchEvents.find(e=>e.type==='bibyeSweep'&&e.kind==='skill'&&e.action==='ended')"),'real thumb FIRE ends Skill after physical settle',130);
+ console.log('[BI-BYE TOUCH FIRE TRACE]',JSON.stringify(await evaluate("window.__bibyeTouchEvents")));
+ await until(()=>evaluate("window.__bibyeTouchEvents.find(e=>e.type==='bibyeSweep'&&e.action==='ended'&&e.reason==='firing')"),'real thumb FIRE ends Skill after physical settle',130);
  const end=await until(async()=>{const s=await observe();return s?.ballista?.skill?.phase==='idle'&&!s?.ballista?.sweep&&s.ballista.skill.readyAt>s.at?s:false;},'real touch resolved cooldown',100);
  const fired=await until(()=>evaluate("window.__bibyeTouchEvents.find(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE')"),'real upper-bow ammunition released from touch stop',100);
  assert.equal(end.ballista.mainBoltLoaded,true,'mobile thumb Skill cannot conjure Bolt II or consume it');
@@ -199,7 +200,7 @@ try{
 }catch(error){
  console.error('[BI-BYE TOUCH BROWSER FAILED]',stage,error.stack??String(error));
  await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(error),exceptions,state:ws?await observe().catch(()=>null):null,
-  actions:ws?await evaluate("window.__bibyeActions??[]").catch(()=>[]):[],rejections:ws?await evaluate("window.__bibyeMountErrors??[]").catch(()=>[]):[]},null,2));
+  actions:ws?await evaluate("window.__bibyeTouchEvents??[]").catch(()=>[]):[],rejections:ws?await evaluate("window.__bibyeMountErrors??[]").catch(()=>[]):[]},null,2));
  if(ws)await screenshot('failure').catch(()=>{});
  throw error;
 }finally{ws?.close();chrome.kill('SIGTERM');await sleep(700);await rm(profile,{recursive:true,force:true}).catch(()=>{});}

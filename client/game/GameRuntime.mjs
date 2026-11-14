@@ -42,7 +42,7 @@ import { separateLocal } from '../../shared/src/separation.mjs';
 import { shouldPredictSeparation, separationTickKey } from './separationCadence.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed} from './killFeedText.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement } from './predictMovement.mjs';
@@ -868,6 +868,7 @@ export class GameRuntime {
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.disasterReveal=null;this.siegeCamera=null;
     this.flightDashPresentation.reset();
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
+    this.weapon.resetBlusterFacing();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
     this.localRam=null;this.windOnMeUntil=null;this.braceAskedAt=null;
     this.localGale=null;this.localGaleWind=null;this.localGaleAt=null;
@@ -3573,9 +3574,43 @@ export class GameRuntime {
       const body = this.#bodyPosition(event.victimId);
       if (body && event.source !== 'abyss') this.effects.killBurst({ x: body.x, y: body.y + 1.1, z: body.z });
     }
-    const copy=killFeedDeath(event,killer?.name??null,victim?.name??'someone',{
-      mode:this.latestSnapshot?.mode,
-    });
+    const localTeam=this.latestSnapshot?.players.find(p=>p.id===this.playerId)?.team;
+    const sameTeamAsViewer=Boolean(localTeam&&victim?.team&&localTeam===victim.team);
+    const copy=killFeedDeath({...event,sameTeamAsViewer},
+      killer?.name??null,victim?.name??'someone',{
+        mode:this.latestSnapshot?.mode,
+      });
+    if(copy&&copy.streak!=='vortex'&&event.damageContributors?.length>=2){
+      const participants=event.damageContributors.map(id=>
+        this.latestSnapshot?.players.find(p=>p.id===id)?.name).filter(Boolean);
+      const group=groupHeroFeed(victim?.name??'someone',participants,event);
+      if(group?.text){
+        this.hud.addFeed(group.text,group.kind);
+        return;
+      }
+    }
+    // A shared grave is reserved for genuine near-simultaneous casualties
+    // credited to one attacker, not two arbitrary deaths in the same match.
+    // Keying replaces the growing group rather than printing it repeatedly.
+    if(copy&&killer&&event.killerId!==event.victimId&&copy.streak!=='vortex'){
+      this.graveFeedWindows??=new Map();
+      const at=Number.isFinite(event.at)?event.at:this.socket.serverNow();
+      let group=this.graveFeedWindows.get(killer.id);
+      if(!group||at-group.firstAt>.25||at-group.lastAt>.25){
+        group={firstAt:at,lastAt:at,victims:[]};
+        this.graveFeedWindows.set(killer.id,group);
+      }
+      if(!group.victims.some(entry=>entry.id===event.victimId))
+        group.victims.push({id:event.victimId,name:victim?.name??'someone'});
+      group.lastAt=at;
+      if(group.victims.length>=2){
+        const names=group.victims.map(entry=>entry.name);
+        const grave=groupCheatingFeed(killer.name,names,event) ??
+          graveTimeFeed(names[0],names.slice(1));
+        if(grave)this.hud.addFeed(grave.text,grave.kind,`grave:${killer.id}:${group.firstAt}`);
+        return;
+      }
+    }
     if(copy?.streak==='vortex'&&killer){
       this.vortexFeedStreaks??=new Map();
       let streak=this.vortexFeedStreaks.get(killer.id);
@@ -4139,12 +4174,22 @@ export class GameRuntime {
       if (this.localGaleWind && this.localAuth.alive && !this.localAuth.operatingBallistaId && !this.localAuth.operatingRamId && serverNow < this.localGaleWind.until) {
         if (!this.socket.playingLocally) sustainGaleRecoil(this.localGaleWind.spell, this.localState, this.input.lookDirection(), this.activeWorld, dt);
       } else this.localGaleWind = null;
+      // Third person already uses the host's slow Blustered fighting yaw.
+      // In first person, the hands must follow that same body rather than
+      // snapping along with the freely rotating camera and crosshair.
+      const ridingForArmYaw = Boolean(this.localAuth.operatingBallistaId || this.localAuth.operatingRamId ||
+        this.localAuth.operatingFightFlightId);
+      const armBluster = ridingForArmYaw ? null : this.localAuth.blustered;
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),
         grounded: this.localState.grounded,
         yaw: this.input.yaw,
         pitch: this.input.pitch,
+        bodyYaw: armBluster ? this.localAuth.yaw : null,
+        blustered: armBluster,
+        serverNow,
+        mounted: ridingForArmYaw,
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
