@@ -1,3 +1,4 @@
+import { withMotionClips } from './spellbladeClipInventory.mjs';
 import { joinSwordWrist } from './swordWrist.mjs';
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
@@ -105,9 +106,9 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
-// PR #457's phase-specific Technique sidecars retain server-aligned sword motion.
-// The canonical 89/25 authored clips take precedence where names overlap: in particular
-// the old sidecar Slash_1 must not overwrite Argon's subsequently improved footwork.
+// PR #457's Technique sidecars retain server-aligned sword motion. Slash_1
+// selectively combines its corrected torso/sword with the latest canonical
+// 89-clip legs and pelvis; no duplicate track or animation action is played.
 const MOTION_FILES = Object.freeze({ thirdPerson: 'spellblade-motion', firstPerson: 'spellblade-fp-motion' });
 const motionPromises = new Map();
 function loadMotion(kind = 'thirdPerson') {
@@ -120,12 +121,8 @@ function loadMotion(kind = 'thirdPerson') {
   return motionPromises.get(file);
 }
 
-/** Add only missing phase clips. Never supersede a newer canonical authored action. */
-export function withMotionClips(own, motion) {
-  if (!motion?.length) return own;
-  const names = new Set(own.map((clip) => clip.name));
-  return [...own, ...motion.filter((clip) => !names.has(clip.name))];
-}
+// A pure, bone-ownership-aware clip reconciliation; no second mixer.
+export { withMotionClips } from './spellbladeClipInventory.mjs';
 
 const FIRST_PERSON_ANISOTROPY = 8;
 const TEXTURE_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];

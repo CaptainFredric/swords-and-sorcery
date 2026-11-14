@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { withMotionClips } from './SpellbladeAssets.mjs';
+import { withMotionClips } from './spellbladeClipInventory.mjs';
 import { resolveSpellbladeAnimationPlan, resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { authoredArmoryClip } from '../menu/armoryPreview.mjs';
 
@@ -34,13 +34,23 @@ test('Argon 89/25 production models are the exact reviewed bytes and inventories
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);
 });
 
-test('phase sidecars append rather than replace newer canonical actions', () => {
-  const own = [{name:'Slash_1',source:'new'}, {name:'Idle'}];
-  const motion = [{name:'Slash_1',source:'old'}, {name:'Technique_Whirl_Revolution'}];
+test('technique phases append; Slash_1 keeps canonical gait and corrected sword track exactly once', () => {
+  class Clip { constructor(name, duration, tracks){this.name=name;this.duration=duration;this.tracks=tracks;} }
+  const tr = name => ({name});
+  const own = [new Clip('Slash_1',.766,[tr('root.position'),tr('pelvis.quaternion'),
+    tr('foot.R.quaternion'),tr('chest.quaternion'),tr('hand.R.quaternion')]),
+    new Clip('Idle',1,[tr('chest.quaternion')])];
+  const correction = new Clip('Slash_1',.766,[tr('chest.quaternion'),tr('hand.R.quaternion')]);
+  correction.tracks[0].corrected = true;
+  const motion = [correction,new Clip('Technique_Whirl_Revolution',.6,[])];
   const result = withMotionClips(own,motion);
-  assert.equal(result.find((clip)=>clip.name==='Slash_1').source,'new');
-  assert.equal(result.filter((clip)=>clip.name==='Slash_1').length,1);
-  assert.equal(result.find((clip)=>clip.name==='Technique_Whirl_Revolution'),motion[1]);
+  const slash = result.find(c=>c.name==='Slash_1');
+  assert.equal(result.length,3);
+  assert.equal(result.filter(c=>c.name==='Slash_1').length,1);
+  assert.ok(slash.tracks.find(c=>c.name==='chest.quaternion')?.corrected);
+  assert.equal(slash.tracks.find(c=>c.name==='foot.R.quaternion'),own[0].tracks[2]);
+  assert.equal(slash.tracks.filter(c=>c.name==='hand.R.quaternion').length,1);
+  assert.equal(result.find(c=>c.name==='Technique_Whirl_Revolution'),motion[1]);
 });
 
 test('Restless Day collapse plays both variants then breathes without the Death clip', () => {

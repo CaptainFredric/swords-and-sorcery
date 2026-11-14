@@ -14,7 +14,7 @@ Base: `main` `41a8b082f52156feb9f912dc7d83e912c239741c`, which already includes 
 
 | Animation group | New 89 TP | New 25 FP | Older 90 TP / 35 FP | PR #457 sidecars | Chosen source |
 |---|---|---|---|---|---|
-| Idle, Guard, Cast, Dash, ordinary Slash 1–3 | Yes | Yes | Yes | TP Slash_1 only | New canonical assets; do not overwrite improved Slash_1 |
+| Idle, Guard, Cast, Dash, ordinary Slash 1–3 | Yes | Yes | Yes | TP Slash_1 only | New footwork + PR #457 corrected torso/sword track, composed without duplicate playback |
 | Sunder, Vortex, All-Natural Disaster, Chivalry | Yes | Relevant FP actions | Yes | None | New canonical assets; preserve authoritative timelines |
 | Rigid Riposte combined actions | 3 | 1 | Yes | Phase-based clips | New canonical combined actions retained; active server technique phases use #457 sidecars |
 | Rigid Riposte phase-specific Enter / Interception / Thrust / Recovery / Parried / Air | No | No | 6 / 6 | 6 / 6 | #457 sidecars; do not duplicate or alter combat clock |
@@ -27,6 +27,6 @@ Base: `main` `41a8b082f52156feb9f912dc7d83e912c239741c`, which already includes 
 
 ## Integration decisions
 - **Accepted:** geometry, rigid armor, padded gauntlets, locomotion/footwork, third-person Restless/Armory clips and first-person carry clips; PR #457's timing, FP slash corrections, technique sidecars and compatible composition.
-- **Rejected:** overwriting `SpellbladeComposition.apply()` with an older `playPlan()`; replacing production movement/combat/siege systems; overwriting newest `Slash_1` with #457 sidecar; using fallback `Death` for Restless sleep.
+- **Rejected:** overwriting `SpellbladeComposition.apply()` with an older `playPlan()`; replacing production movement/combat/siege systems; wholesale overriding newest `Slash_1` leg/footwork channels with #457's full-body pose; using fallback `Death` for Restless sleep.
 - **Retained provisionally:** PR #457's first-person wrist geometry correction (it has a guard against adjusting already connected geometry). Remove only after continuous wrist inspection in real gameplay.
 - **Not established by static inspection:** physically convincing contact, non-clipping armor in extreme motion, proper first-person wrist throughout all phases, actual two-client or landscape-mobile acceptance. These require game/browser evidence beyond this asset audit.
