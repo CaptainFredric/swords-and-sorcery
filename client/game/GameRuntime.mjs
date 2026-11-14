@@ -1868,24 +1868,27 @@ export class GameRuntime {
       }
       if (event.type === 'siegeSteelRepair') {
         const machine = this.#siegeMachine(event.machineId);
-        let pt = event.componentId ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
-        if (!pt && !event.componentId && machine && (machine.health ?? 1) > 0) {
-          pt = event.point ?? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z };
-        }
-        if (pt) {
-          this.effects.steelGlint(pt, null, { strength: 0.45, ring: false, scale: 0.4 });
-        }
-      }
-      if (event.type === 'siegeSteelRepairFinished') {
-        const machine = this.#siegeMachine(event.machineId);
-        if (machine?.operatorId === this.playerId) {
-          this.hud.flashText('STEEL REPAIR SETTLED', '', 800);
+        // A hull is a real componentId too, but not every siege renderer
+        // exposes a locator called "hull". Never silently drop its repair VFX.
+        const componentPoint = event.componentId
+          ? this.#siegeComponentPosition(event.machineId, event.componentId) : null;
+        const point = componentPoint ?? event.point ??
+          (machine && (machine.health ?? 1) > 0
+            ? { x: machine.x, y: (machine.y ?? 0) + 0.9, z: machine.z } : null);
+        if (point && event.amount > 0) {
+          this.effects.steelGlint(point, null, { strength: 0.45, ring: false, scale: 0.4 });
         }
       }
       if (event.type === 'siegeSteelEnded') {
         const machine = this.#siegeMachine(event.machineId);
         if (machine?.operatorId === this.playerId) {
-          this.hud.flashText(event.reason === 'destroyed' ? 'STEEL WARD BROKEN' : 'STEEL WARD EXPIRED', event.reason === 'destroyed' ? 'danger' : '', 900);
+          // The repair-finished and ward-ended events happen in the SAME
+          // authoritative tick. Give the operator the actual delivered total
+          // rather than immediately replacing it with a generic expiry banner.
+          const healed = Math.max(0, Math.round(event.healed ?? 0));
+          this.hud.flashText(event.reason === 'destroyed' ? 'STEEL WARD BROKEN'
+            : healed > 0 ? `STEEL REPAIRED +${healed} HP` : 'STEEL WARD EXPIRED',
+            event.reason === 'destroyed' ? 'danger' : healed > 0 ? 'gold' : '', 1000);
         }
       }
       this.ramRenderer.hit(event);
