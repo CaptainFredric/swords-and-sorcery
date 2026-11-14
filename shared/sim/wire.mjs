@@ -313,6 +313,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
       impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
+      forcedOutriggersAt:Number.isFinite(room.biByeLlista.forcedOutriggersAt)?room.biByeLlista.forcedOutriggersAt:null,
+      forcedOutriggersUntil:Number.isFinite(room.biByeLlista.forcedOutriggersUntil)?room.biByeLlista.forcedOutriggersUntil:null,
+      forcedOutriggersSource:room.biByeLlista.forcedOutriggersSource,
       builtAt:room.biByeLlista.builtAt,
       ownerId:room.biByeLlista.ownerId??null,
       id: room.biByeLlista.id,
