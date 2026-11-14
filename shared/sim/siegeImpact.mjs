@@ -1,3 +1,6 @@
+import {biByeDeploymentSupport} from './biByeTerrain.mjs';
+import {biByeCondition} from './biByeComponents.mjs';
+import {interruptBiByeSupport} from './biByeWeapons.mjs';
 // Bounded authoritative impact response shared by the two heavy siege chassis.
 // All translation remains subject to each machine's existing terrain/collision solver.
 export const SIEGE_IMPACT=Object.freeze({
@@ -7,6 +10,7 @@ export const SIEGE_IMPACT=Object.freeze({
  ramPistonRecoilTransfer:.33,ramPistonRecoilMax:3.75,ramPistonRecoilBrake:4.9,
  mobileBallistaTransfer:.19,mobileBallistaMaxSpeed:3.4,
  mobileDrag:4.2,restSpeed:.06,rockDuration:1.15,rockPitch:.075,rockRoll:.042,
+ forceOutriggersSpeed:8,forceOutriggersSec:.65,forcedHoldSec:3.2,
 });
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function recordSiegeImpact(room,machine,now,{speed=0,normal={x:0,z:0},kind='chassis',point=null}={}){
@@ -52,6 +56,25 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
   const old=b.externalVelocity??{x:0,z:0},x=old.x+nx/len*impulse,z=old.z+nz/len*impulse;
   const scale=Math.min(1,SIEGE_IMPACT.mobileBallistaMaxSpeed/Math.max(.001,Math.hypot(x,z)));
   b.externalVelocity={x:x*scale,z:z*scale};
+  // Braced against a real supported surface, a heavy blow plants the feet.
+  // On a ledge or with destroyed stabilizers the ram can only shove it.
+  if(speed>=SIEGE_IMPACT.forceOutriggersSpeed&&biByeCondition(b).canDeploy){
+   const support=biByeDeploymentSupport(b,room?.world);
+   if(support.ok){
+    interruptBiByeSupport(b,now);
+    b.mode='DEPLOYING';
+    b.modeTransitionStartedAt=now;
+    b.modeTransitionEndsAt=now+SIEGE_IMPACT.forceOutriggersSec;
+    b.stabilizerTilts=support.tilts;
+    b.deploymentSupported=true;b.deploymentReason=null;
+    b.forcedOutriggersAt=now;
+    b.forcedOutriggersUntil=now+SIEGE_IMPACT.forcedHoldSec;
+    b.forcedOutriggersSource='so-fist';
+    b.speed=0;b.externalVelocity={x:0,z:0};
+    room?.events?.push({type:'bibyeOutriggersForced',ballistaId:b.id,
+     source:'so-fist',point,at:now,until:b.forcedOutriggersUntil});
+   }
+  }
  }
  return true;
 }
