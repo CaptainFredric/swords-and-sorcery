@@ -9,7 +9,7 @@ export const SIEGE_IMPACT=Object.freeze({
  ramPistonRecoilTransfer:.33,ramPistonRecoilMax:3.75,ramPistonRecoilBrake:4.9,
  mobileBallistaTransfer:.19,mobileBallistaMaxSpeed:3.4,
  mobileDrag:4.2,restSpeed:.06,rockDuration:1.15,rockPitch:.075,rockRoll:.042,
- forceOutriggersSpeed:8,forceOutriggersSec:.65,forcedHoldSec:3.2,
+ uprootOutriggersSpeed:8,uprootRetractSeconds:.48,outriggerRecoverySec:2.2,
 });
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function recordSiegeImpact(room,machine,now,{speed=0,normal={x:0,z:0},kind='chassis',point=null}={}){
