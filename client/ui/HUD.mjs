@@ -231,12 +231,12 @@ export class HUD {
     this.ballistaPanel.hidden = true;
     this.ballistaPanel.innerHTML = '<strong></strong><span></span><label class=drive-pressure hidden>DRIVE PRESSURE <output></output><progress max=100></progress></label><small></small>';
     this.statusStack.append(this.ballistaPanel);
-    this.forcedOutriggersPanel=document.createElement('div');
-    this.forcedOutriggersPanel.className='forced-outriggers-indicator';
-    this.forcedOutriggersPanel.hidden=true;
-    this.forcedOutriggersPanel.setAttribute('role','status');
-    this.forcedOutriggersPanel.innerHTML='<strong>OUTRIGGERS FORCED</strong><span></span><progress max="1" value="1"></progress>';
-    this.root.append(this.forcedOutriggersPanel);
+    this.uprootedOutriggersPanel=document.createElement('div');
+    this.uprootedOutriggersPanel.className='uprooted-outriggers-indicator';
+    this.uprootedOutriggersPanel.hidden=true;
+    this.uprootedOutriggersPanel.setAttribute('role','status');
+    this.uprootedOutriggersPanel.innerHTML='<strong>OUTRIGGERS UPROOTED</strong><span></span><progress max="1" value="1"></progress>';
+    this.root.append(this.uprootedOutriggersPanel);
     this.flightPanel = document.createElement('div');
     this.flightPanel.className = 'flight-hud';
     this.flightPanel.hidden = true;
@@ -460,19 +460,21 @@ export class HUD {
     const isFlight = Boolean(siege?.isFlight);
     this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
     this.flightPanel.hidden = !siege || !isFlight;
-    const forcedBallista=local?.alive&&local.operatingBallistaId
+    const uprootedBallista=local?.alive&&local.operatingBallistaId
       ? snapshot?.bibyeBallista:null;
-    const forcedUntil=forcedBallista?.forcedOutriggersUntil;
-    const forcedVisible=forcedBallista&&forcedBallista.mode!=='MOBILE'&&
-      Number.isFinite(forcedUntil)&&forcedUntil>serverNow;
-    this.forcedOutriggersPanel.hidden=!forcedVisible;
-    if(forcedVisible){
-      this.forcedOutriggersPanel.querySelector('span').textContent=
-        forcedBallista.mode==='DEPLOYING'?'BRACING UNDER IMPACT':'HEAVY MODE · MOVEMENT LOCKED';
-      const at=Number.isFinite(forcedBallista.forcedOutriggersAt)
-        ?forcedBallista.forcedOutriggersAt:serverNow;
-      const fraction=Math.max(0,Math.min(1,(forcedUntil-serverNow)/Math.max(.01,forcedUntil-at)));
-      this.forcedOutriggersPanel.querySelector('progress').value=fraction;
+    const uprootedUntil=uprootedBallista?.outriggersDislodgedUntil;
+    const uprootedVisible=uprootedBallista&&
+      Number.isFinite(uprootedUntil)&&uprootedUntil>serverNow;
+    this.uprootedOutriggersPanel.hidden=!uprootedVisible;
+    if(uprootedVisible){
+      this.uprootedOutriggersPanel.querySelector('span').textContent=
+        uprootedBallista.mode==='RETRACTING'
+          ?'SUPPORTS TORN FREE · FALLING TO WHEELS'
+          :'MOBILE MODE · REDEPLOY RECOVERING';
+      const at=Number.isFinite(uprootedBallista.outriggersDislodgedAt)
+        ?uprootedBallista.outriggersDislodgedAt:serverNow;
+      const fraction=Math.max(0,Math.min(1,(uprootedUntil-serverNow)/Math.max(.01,uprootedUntil-at)));
+      this.uprootedOutriggersPanel.querySelector('progress').value=fraction;
     }
     if (siege && !isFlight) {
       this.ballistaPanel.querySelector('strong').textContent = siege.title;
