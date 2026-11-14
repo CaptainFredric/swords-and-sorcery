@@ -132,7 +132,7 @@ try{
  console.log('[BI-BYE MOUNT POST]',JSON.stringify({down:proof.downMount,after:proof.afterMount,wire:proof.commandWire}));
  await writeFile(out+'/mount-diagnostic.json',JSON.stringify({before:proof.beforeMount,down:proof.downMount,after:proof.afterMount,wire:proof.commandWire},null,2));
  if(proof.afterMount.errors?.length)throw Error('Server rejected real T mount: '+proof.afterMount.errors.join('; '));
- if(proof.downMount.input?.interactAction!=='interact'||!proof.downMount.input?.held?.includes('KeyT'))throw Error('Physical T never reached InputController: '+JSON.stringify(proof.downMount.input));
+ if(proof.downMount.input?.interactAction!=='interact'||!proof.commandWire.some(x=>x.step==='nativeKeyDown'&&x.values?.repeat===false)||!proof.commandWire.some(x=>x.step==='interact'))throw Error('Physical T was not processed as an interaction: '+JSON.stringify(proof.commandWire));
  if(!proof.afterMount.ballista.operatorId)throw Error('Physical T did not mount. Routed command trace: '+JSON.stringify(proof.commandWire));
  const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',15);
  assert.equal(mounted.ballista.skill.id,'lookAroundAndFindOut');
