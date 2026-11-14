@@ -46,7 +46,7 @@ test('look around keeps cooldown unspent while spinning; stops through loaded ph
  assert.equal(s.b.mainBoltLoaded,true);
  assert.equal(issue(s,'bibyeHeavyFire',4.1).rejected!==undefined,true,'Bolt II explicitly locked');
  assert.equal(issue(s,'bibyeCombinedFire',4.1).rejected!==undefined,true,'cannot queue delayed heavy');
- assert.equal(s.b.shotIIPendingAt,Infinity);
+ assert.equal(Number.isFinite(s.b.shotIIPendingAt)&&s.b.shotIIPendingAt>=4,false,'no heavy release timestamp is queued');
  assert.equal(s.b.heading,0);
  assert.equal(issue(s,'bibyeFire',4.15).rejected,undefined);
  assert.equal(s.b.sweep.phase,'settle');
@@ -54,7 +54,9 @@ test('look around keeps cooldown unspent while spinning; stops through loaded ph
  step(s,4.15,7);
  assert.equal(s.b.sweep,null);
  assert.equal(s.b.skill.phase,'idle');
- assert.ok(s.b.skill.readyAt>=31,'full 24 second cooldown starts on resolution');
+ const ended=s.room.events.find(e=>e.type==='siegeSkill'&&e.skill==='lookAroundAndFindOut'&&e.action==='ended');
+ assert.ok(ended,'the spin must resolve');
+ assert.ok(Math.abs(s.b.skill.readyAt-(ended.at+24))<1e-7,'full 24s cooldown begins on resolution');
  step(s,7,7.5);
  assert.deepEqual([...s.room.bibyeProjectiles.values()].map(v=>v.subKind),['conditioning']);
  assert.equal(s.b.mainBoltLoaded,true,'mobile spin must not launch heavy ammunition');
