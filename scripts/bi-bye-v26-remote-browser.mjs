@@ -155,7 +155,7 @@ try{
   await host.key('W','keyUp');
   await host.evaluate("window.__bibyeApproach?.restore();delete window.__bibyeApproach");
  }
- const standing=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth,b=r.latestSnapshot?.bibyeBallista;if(!p||!b)return null;const distance=Math.hypot(p.position.x-b.x,p.position.z-b.z);if(p.lastInputSeq<${stopSeq}||distance>b.interactRadius)return null;return {position:p.position,ballista:{x:b.x,y:b.y,z:b.z},range:b.interactRadius,distance,deltaY:Math.abs(p.position.y-b.y),ack:p.lastInputSeq};})()"),'authoritative boarding range and neutral stop acknowledged',110);
+ const standing=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth,b=r.latestSnapshot?.bibyeBallista;if(!p||!b)return null;const distance=Math.hypot(p.position.x-b.x,p.position.z-b.z);if(p.lastInputSeq<"+stopSeq+"||distance>b.interactRadius)return null;return {position:p.position,ballista:{x:b.x,y:b.y,z:b.z},range:b.interactRadius,distance,deltaY:Math.abs(p.position.y-b.y),ack:p.lastInputSeq};})()"),'authoritative boarding range and neutral stop acknowledged',110);
  console.log('[BI-BYE NATURAL BOARDING APPROACH]',JSON.stringify(standing));
  assert.ok(standing&&standing.distance<=standing.range&&standing.deltaY<=2,
    'the player must stand safely OUTSIDE physical solids and INSIDE the real mount reach');
