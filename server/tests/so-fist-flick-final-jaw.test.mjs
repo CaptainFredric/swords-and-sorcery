@@ -4,6 +4,7 @@ import {Room} from '../../shared/sim/Room.mjs';
 import {createSoFistication,soFistEntry,mountSoFistication,fireSoFistication,
   flickSoFistication,stepSoFistication,damageSoFistication} from '../../shared/sim/soFistication.mjs';
 import {flickTipWorld,FLICK} from '../../shared/sim/soFistFlick.mjs';
+import {createStructureState} from '../../shared/sim/structures.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {biByeHitVolumes} from '../../shared/sim/biByeComponents.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
@@ -48,6 +49,22 @@ test('the flick is a fingertip sweep with one budgeted contact, not an AoE',()=>
   assert.equal(FLICK.damage,80);
   assert.equal(FLICK.cycle,4);
 });
+test('Flick hits an actual timber obstacle, removes structural HP and physically recoils the ram',()=>{
+ const s=setup();
+ const tip=flickTipWorld(s.b,.75);
+ const wall={id:'cover-practice-pal',center:[tip[0],tip[1],tip[2]],
+  size:[.68,1.1,.20],material:'timber'};
+ s.room.world.solids=[wall];s.room.structures=createStructureState(s.room.world);
+ assert.ok(s.room.structures.entities['reforming-cover-practice-pal']);
+ assert.equal(flickSoFistication(s.room,s.b,0),true);
+ run(s,0,.91);
+ const entity=s.room.structures.entities['reforming-cover-practice-pal'];
+ assert.equal(entity.health,160,'real 80-damage contact against the temporary cover');
+ assert.equal(s.room.events.filter(e=>e.type==='soFistFlickBlocked').length,1);
+ assert.ok(s.b.recoilVelocity<0,'contact must shove the actual carriage solver backward');
+ assert.ok(s.room.events.some(e=>e.type==='siegeImpact'&&e.kind==='flick-wall'));
+ assert.equal(s.b.flickContactUsed,true,'the collision spends the single contact');
+});
 test('a facing guard reduces the flick and costs stamina without creating a second hit',()=>{
   const s=setup(),foe=s.room.addPlayer({id:'guard',token:'guard',name:'Guard'},0);
   const point=flickTipWorld(s.b,.75);
@@ -85,6 +102,7 @@ test('Finger Flick contacts real ballista and aircraft component volumes, transf
   assert.ok(ballista.health<oldBallistaHP,'the swept fingertip damaged the real ballista hull');
   assert.ok(Math.hypot(ballista.externalVelocity.x,ballista.externalVelocity.z)>0,
     'mobile ballista received a physical movement impulse');
+  assert.ok(ballistaScenario.b.recoilVelocity<0,'striking the machine recoils the ram as well');
 
   const flightScenario=setup();
   const flight=createFightFlight();
