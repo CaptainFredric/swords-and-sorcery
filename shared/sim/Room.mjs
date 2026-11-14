@@ -4,7 +4,7 @@ import {interruptSwordTechnique} from './swordTechniqueLive.mjs';
 import { emptyInfusions } from '../src/oneHitInfusions.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
-import { createStructureState } from './structures.mjs';
+import {createStructureState,stepStructureRestoration} from './structures.mjs';
 import { dismountFightFlight } from './fightFlight.mjs';
 import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { createMovementState } from '../src/movement.mjs';
@@ -988,6 +988,9 @@ export class Room {
     }
     if (this.mode === GAME_MODES.RENOWN_TRIALS && this.state === 'PLAYING')
       stepRenownTrial(this, nowSec);
+    // Server-owned restoration after siege breaches. Geometry is restored only
+    // when its original footprint is safe for living players and machines.
+    stepStructureRestoration(this,nowSec);
   }
 
   startMatch(nowSec) {
