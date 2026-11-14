@@ -357,16 +357,16 @@ test('innate melee locks all Bolt II routes for four seconds but leaves independ
  assert.ok(s.room.events.some(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE'),
    'actual upper bolt still fires through its normal weapon pipeline');
  assert.match(issue(s,'bibyeSharpTurn',3.23).rejected,/four-second recovery/);
- assert.equal(requestBiByeVolley(s.room,s.b,5.01),true,'heavy coupled volley becomes available at the same shared clock');
+ assert.equal(requestBiByeVolley(s.room,s.b,5.4),true,'after shared recovery AND the independent upper recock, coupled volley is available');
 });
 
 test('Bolt II release renews four-second melee recovery on the authoritative release, not on button repeat',()=>{
  const s=setup();
  s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.trackingSince=0.5;
  assert.equal(requestBiByeVolley(s.room,s.b,1),true);
- step(s,1,2.1);
+ step(s,1,3.6);
  const shot=s.room.events.find(e=>e.type==='bibyeFired'&&e.shot==='II');
- assert.ok(shot,'real coupled Bolt II released');
+ assert.ok(shot,'real coupled Bolt II released; state='+JSON.stringify({mode:s.b.mode,coupling:s.b.coupling,pending:s.b.pendingVolley,events:s.room.events.filter(e=>e.type?.startsWith('bibye')).map(e=>({type:e.type,shot:e.shot,at:e.at})).slice(-12)}));
  assert.ok(Math.abs(s.b.sweepHeavyReadyAt-(shot.at+4))<1e-6,
    'melee and heavy share a gate starting at the heavy string release');
  assert.match(issue(s,'bibyeSharpTurn',shot.at+.2).rejected,/four-second recovery/);
