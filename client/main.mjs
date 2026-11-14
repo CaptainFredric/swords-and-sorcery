@@ -39,6 +39,7 @@ import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
 import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
+import {practiceSiegeCopy,practiceSiegeParagraphs} from './menu/practiceSiegeStory.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { loadArmoryLocation, saveArmoryLocation } from './menu/armoryLocation.mjs';
@@ -2828,6 +2829,33 @@ rematchButton.addEventListener('click', () => {
 $('#leave').addEventListener('click', () => returnToMenu());
 
 let preparingSiege=false;
+// Rebuild only when MACHINE changes, never on every 30Hz room snapshot.
+// This keeps a player's Show more / scroll position stable while browsing.
+function renderPracticeSiegeStory(machine){
+ const copy=practiceSiegeCopy(machine);
+ if(!copy)return;
+ const content=$('#practice-siege-story-copy');
+ if(content.dataset.machine===machine)return;
+ content.dataset.machine=machine;
+ const paragraphs=practiceSiegeParagraphs(copy.line).map(tokens=>{
+  const p=document.createElement('p');
+  for(const part of tokens){
+   if(!part.em){p.append(document.createTextNode(part.text));continue;}
+   const em=document.createElement('em');em.textContent=part.text;p.append(em);
+  }
+  return p;
+ });
+ content.replaceChildren(...paragraphs);
+ content.scrollTop=0;
+ const story=$('#practice-siege-story'),toggle=$('#practice-siege-more');
+ story.classList.remove('expanded');
+ toggle.textContent='SHOW MORE';
+ toggle.setAttribute('aria-expanded','false');
+ $('[data-siege-title]').textContent=copy.name;
+ $('[data-siege-classification]').textContent=copy.classification;
+ $('[data-siege-subtitle]').textContent=copy.subtitle;
+ $('[data-siege-final]').textContent=copy.facts;
+}
 // The page receives 30Hz snapshots. Do not overwrite an unacknowledged user's
 // selection with the PREVIOUS snapshot, making the control appear inoperative.
 const pendingOneHitTiers=new Map();
@@ -2861,16 +2889,12 @@ function updateInspectionControls() {
       ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'}`
       : 'No hostile operator summoned.';
   }
-  const ram=$('#practice-siege-type').value==='so-fist-ication';
-  const flight=$('#practice-siege-type').value==='fight-and-flight';
+  const machineType=$('#practice-siege-type').value;
+  const ram=machineType==='so-fist-ication';
+  const flight=machineType==='fight-and-flight';
   const machine=Boolean(flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
-  const name=flight?'FIGHT-AND-FLIGHT':ram?'SO-FIST-ICATION':'BI-BYE-LLISTA';
-  $('[data-siege-title]').textContent=name;
-  $('[data-siege-classification]').hidden=!(ram||flight);
-  $('[data-siege-classification]').textContent=flight?'Wearable Flying Siege Apparatus':ram?'Mechanical Battering Ram':'';
-  $('[data-siege-description]').hidden=false;
-  $('[data-siege-description]').textContent=flight?'A sword-bladed rotor above you, a repeating crossbow beside you, and an excellent opportunity to reconsider the laws of gravity. Mount nearby; hold JUMP to climb, CROUCH to descend, and use VIEW to change cameras. Land before dismounting.':ram?'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.':'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.';
-  $('[data-siege-final]').textContent=flight?'Your sword has taken to the skies.':ram?'Will not leave a scratch.':"The first shot lowers the target's defense.";
+  const name=practiceSiegeCopy(machineType)?.name??'BI-BYE-LLISTA';
+  renderPracticeSiegeStory(machineType);
   for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').textContent=preparingSiege&&action!=='dismantle'?'PREPARING CARRIAGE…':action.toUpperCase()+(action==='build'?' A ':' ')+name;
   $('#practice-build-bibye').hidden=machine;
   $('#practice-rebuild-bibye').hidden=!machine;
@@ -2951,7 +2975,7 @@ function updateInspectionControls() {
 
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy, #shared-practice-to-solo')) continue;
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, #practice-siege-more, [data-open-settings], #practice-panel-toggle, #shared-practice-copy, #shared-practice-to-solo')) continue;
     // In Inspection Mode, staging dummies and siege machines is permitted while frozen
     if (available) {
       button.disabled = Boolean(preparingSiege && button.id.endsWith('-bibye'));
@@ -3022,6 +3046,14 @@ document.addEventListener('keydown', event => {
 }, { capture: true });
 socket.on('inspectionState', updateInspectionControls);
 
+$('#practice-siege-more').addEventListener('click',()=>{
+  const story=$('#practice-siege-story');
+  const expanded=story.classList.toggle('expanded');
+  const toggle=$('#practice-siege-more');
+  toggle.setAttribute('aria-expanded',String(expanded));
+  toggle.textContent=expanded?'SHOW LESS':'SHOW MORE';
+  if(!expanded)$('#practice-siege-story-copy').scrollTop=0;
+});
 $('#practice-siege-type').addEventListener('change',updateInspectionControls);
 $('#practice-hostile-machine')?.addEventListener('change',updateInspectionControls);
 for(const action of ['spawn','reset','remove'])$('#practice-hostile-'+action)?.addEventListener('click',()=>{
