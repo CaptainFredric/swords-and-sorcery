@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {structureDefinitions} from '../../shared/sim/structures.mjs';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
@@ -65,7 +66,9 @@ export class HighGroundsRenderer {
     this.rampMaterial = deckMaterials(this.materials).timber.clone();
     this.rampMaterial.side = THREE.DoubleSide;
     this.materials.rampDeck = this.rampMaterial;
+    const transient=new Set(structureDefinitions(HIGH_GROUNDS).filter(d=>d.transient).flatMap(d=>d.solidIds));
     for (const s of HIGH_GROUNDS.solids) {
+      if(transient.has(s.id))continue;
       // (trunks are drawn as trees, furnishings by the kit: each fills its own box)
       if (s.id.startsWith('trunk-') || s.kind === 'prop') continue;
       mesh(this.group, new THREE.BoxGeometry(...s.size), this.materials[s.material] ?? this.materials.timber, s.center, true);
