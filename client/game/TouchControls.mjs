@@ -339,26 +339,38 @@ export class TouchControls {
     if(now<(this.steelClearanceNextAt??0))return;
     this.steelClearanceNextAt=now+220;
     steel.style.translate='';
-    if(steel.hidden||prime.hidden||!steel.getBoundingClientRect||
-       !prime.getBoundingClientRect||!this.layer.getBoundingClientRect)return;
+    if(steel.hidden||prime.hidden)return;
     if(globalThis.getComputedStyle?.(steel)?.display==='none'||
        globalThis.getComputedStyle?.(prime)?.display==='none')return;
-    const bounds=this.layer.getBoundingClientRect();
+    // ScreenTurn rotates the entire game shell 90 degrees on portrait-locked
+    // phones. Viewport getBoundingClientRect coordinates are then rotated,
+    // while CSS translate offsets are NOT. Use native game-layout pixels for
+    // both the target rectangles and the displacement.
+    const rect=(element,centered=false)=>{
+      if(!Number.isFinite(element?.offsetLeft)||!Number.isFinite(element?.offsetTop)||
+         !Number.isFinite(element?.offsetWidth)||!Number.isFinite(element?.offsetHeight))return null;
+      const left=element.offsetLeft-(centered?element.offsetWidth*.5:0);
+      return {left,right:left+element.offsetWidth,
+        top:element.offsetTop,bottom:element.offsetTop+element.offsetHeight};
+    };
+    const moving=rect(steel),fixed=rect(prime);
+    if(!moving||!fixed)return;
+    const bounds={left:0,top:0,right:this.layer.clientWidth,bottom:this.layer.clientHeight};
     const other=Object.values(this.buttons).filter(button=>button!==steel&&button!==prime&&
-      !button.hidden&&button.getBoundingClientRect&&
-      globalThis.getComputedStyle?.(button)?.display!=='none')
-      .map(button=>button.getBoundingClientRect());
-    // A shifted touch target must not solve PRIME by landing on subtitles
-    // or the machine's health readout. These are display-only obstacles.
+      !button.hidden&&globalThis.getComputedStyle?.(button)?.display!=='none')
+      .map(button=>rect(button)).filter(Boolean);
+    // Both caption and machine health are centered via CSS translateX.
+    // Their offsetLeft is the anchor BEFORE that transform, so subtract
+    // half of their width when turning them into collision obstacles.
     for(const selector of ['#subtitle','.machine-gauge']){
       const element=globalThis.document?.querySelector?.(selector);
-      if(!element||element.hidden||!element.getBoundingClientRect||
+      if(!element||element.hidden||
          globalThis.getComputedStyle?.(element)?.display==='none')continue;
       if(selector==='#subtitle'&&!element.classList.contains('show'))continue;
-      other.push(element.getBoundingClientRect());
+      const obstacle=rect(element,true);
+      if(obstacle)other.push(obstacle);
     }
-    const shift=clearTouchButtonOverlap(steel.getBoundingClientRect(),
-      prime.getBoundingClientRect(),bounds,other);
+    const shift=clearTouchButtonOverlap(moving,fixed,bounds,other);
     if(shift&&(shift.dx||shift.dy))
       steel.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
   }
