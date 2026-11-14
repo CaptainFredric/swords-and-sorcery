@@ -843,7 +843,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
 
   stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim,targetAim:biByeTargetAim});
-  stepBiByeSweep(room,ballista,dt,nowSec,fireBiByeLlista);
+  stepBiByeSweep(room,ballista,dt,nowSec,(r,b,at)=>
+    b.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&(!b.mainBoltLoaded||b.state!=='LOADED')
+      ?fireBiByeMobile(r,b,at):fireBiByeLlista(r,b,at));
 
 }
 
