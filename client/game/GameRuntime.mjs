@@ -334,8 +334,8 @@ export class GameRuntime {
         ? { ...p, position: this.localState.position, yaw: this.input.yaw ?? p.yaw } : p));
       this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
     };
-    this.effects = new Effects(this.scene, this.camera);
-    this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers,this.weapon);
+    this.effects = new Effects(this.scene, this.camera, () => this.activeWorld);
+    this.oneHitEffects = new OneHitLiveEffects(this.scene,this.remotePlayers,this.weapon, () => this.activeWorld);
     this.oneHitEffects.elements.viewer = this.camera.position;
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
@@ -4018,12 +4018,19 @@ export class GameRuntime {
       } else {
         const edge=this.latestSnapshot?.mode==='EDGE_OF_VICTORY'?this.latestSnapshot?.edgeOfVictory:null;
         const baseWorld=withRestlessLadders(this.activeWorld,this.latestSnapshot?.modeState);
-        const predictionWorld=edge ? {...baseWorld,edgeBoundary:{
-          center:edge.center,radius:edgePresentedRadius(edge,serverNow,this.latestSnapshot?.serverTime??serverNow)
-        }} : baseWorld;
-        this.movementWorld = playerMovementWorld(predictionWorld, {
-          ballista:this.latestSnapshot?.bibyeBallista,ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight,
-        });
+        // Machine solids come from snapshots. Reuse the same geometry across
+        // render frames, rebuilding when the world or any machine state changes.
+        const { bibyeBallista: ballista, soFistication: ram, fightFlight: flight } = this.latestSnapshot ?? {};
+        const cached = this.predictionSolids;
+        if (cached?.baseWorld !== baseWorld || cached.ballista !== ballista ||
+            cached.ram !== ram || cached.flight !== flight) {
+          this.predictionSolids = { baseWorld, ballista, ram, flight,
+            world: playerMovementWorld(baseWorld, { ballista, ram, flight }) };
+        }
+        const occupiedWorld = this.predictionSolids.world;
+        this.movementWorld = edge ? { ...occupiedWorld, edgeBoundary: {
+          center: edge.center, radius: edgePresentedRadius(edge, serverNow, this.latestSnapshot?.serverTime ?? serverNow),
+        }} : occupiedWorld;
         const beforeCarry={...this.localState.position};
         this.localState.restlessCarrying=this.localAuth?.restlessCarrying??null;
         if(this.localState.restlessCarrying){moveInput.jump=false;moveInput.sprint=false;}
@@ -4518,7 +4525,7 @@ export class GameRuntime {
     const clear=Boolean(firstPerson&&this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&(this.siegeView==='clear'||this.clearBlend>.02));
     if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera),camera);
     else renderer.render(scene,camera);
-    if(!firstPerson)return;
+    if (!firstPerson || !this.weapon.group.visible) return;
     const background = scene.background;
     const shadows = renderer.shadowMap.autoUpdate;
     const clears = renderer.autoClear;

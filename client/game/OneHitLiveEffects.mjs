@@ -1,3 +1,4 @@
+import { drapeGround, effectGround } from './groundEffect.mjs';
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
@@ -137,7 +138,8 @@ export function swordWave(tiers={}) {
 }
 
 export class OneHitLiveEffects {
-  constructor(scene,remotePlayers=null,weapon=null) {
+  constructor(scene,remotePlayers=null,weapon=null,getWorld=()=>null) {
+    this.getWorld=getWorld;
     this.scene=scene;
     this.remotePlayers=remotePlayers;
     this.weapon=weapon;
@@ -177,7 +179,7 @@ export class OneHitLiveEffects {
     this.visualClock=0;
     this.density=1;
     // gathering, eruption, fields and statuses: the elements themselves
-    this.elements=new DisasterElementEffects(this.root,remotePlayers);
+    this.elements=new DisasterElementEffects(this.root,remotePlayers,getWorld);
   }
   setDensity(density) { this.density=clamp(Number(density)||.45,.45,1);this.elements.setDensity(this.density); }
   #detail(count) { return Math.max(2,Math.round(count*this.density)); }
@@ -212,14 +214,18 @@ export class OneHitLiveEffects {
     // Thrown stone, dust and every element's own eruption are DisasterElementEffects'.
     if(form!=='ground')return;
     const p=v(point),steel=tiers.steel??0;
+    const world=this.getWorld();
     const slabs=this.#detail(steel===2?22:steel===1?16:12);
     for(let i=0;i<slabs;i++){
       const a=i*TAU/slabs+(i%2)*.085,dist=(1.4+.47*(i%4))*(steel===2?1.35:1);
+      const x=p.x+Math.cos(a)*dist,z=p.z+Math.sin(a)*dist;
+      const y=effectGround(world,p,x,z);
+      if(y===null)continue;
       const slab=new THREE.Mesh(STONE_SHAPE,new THREE.MeshStandardMaterial({color:i%2?0x746b60:0x8a8072,roughness:.9}));
       slab.scale.set(.30+(i%3)*.06,.22+(i%4)*.08,.36+(i%3)*.04).multiplyScalar((steel===2?.95:.8)*(.75+(i%5)*.1));
-      slab.position.set(p.x+Math.cos(a)*dist,p.y-.15,p.z+Math.sin(a)*dist);
+      slab.position.set(x,y-.15,z);
       slab.rotation.set(Math.sin(a)*.33,a,Math.cos(a)*.4);
-      slab.userData.oneHitSlab={groundY:p.y-.2,topY:p.y+.16+(i%4)*.09+(steel?.12:0)};
+      slab.userData.oneHitSlab={groundY:y-.2,topY:y+.16+(i%4)*.09+(steel?.12:0)};
       this.#add(slab,1.35);
     }
   }
@@ -265,8 +271,9 @@ export class OneHitLiveEffects {
       let obj=this.zones.get(zone.id);
       if(!obj){
         obj=new THREE.Group();obj.position.copy(v(zone.position));
-        const coals=new THREE.Mesh(new THREE.CircleGeometry(zone.radius,48),M(0x532d1a,.33));
-        coals.rotation.x=-Math.PI/2;coals.position.y=.042;
+        const coals=new THREE.Mesh(new THREE.RingGeometry(0,zone.radius,40,5).rotateX(-Math.PI/2),M(0x532d1a,.33));
+        drapeGround(coals.geometry,this.getWorld(),zone.position);
+        coals.position.y=.042;
         // (scorched ground only: the flames, embers and smoke on it are DisasterElementEffects', dying with the fire)
         obj.add(coals);
         this.root.add(obj);this.zones.set(zone.id,obj);

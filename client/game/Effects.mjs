@@ -1,3 +1,4 @@
+import { drapeGround, effectGround } from './groundEffect.mjs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
@@ -158,7 +159,8 @@ function createCoreflagrationOrb() {
 }
 
 export class Effects {
-  constructor(scene, camera) {
+  constructor(scene, camera, getWorld = () => null) {
+    this.getWorld = getWorld;
     this.scene = scene;
     this.camera = camera;
     this.projectiles = new Map();
@@ -233,7 +235,7 @@ export class Effects {
     this.blastGeometry = new THREE.IcosahedronGeometry(0.5, 2);
     this.groundRingGeometry = new THREE.RingGeometry(0.8, 1, 40);
     this.blastFrontGeometry = new THREE.SphereGeometry(1, 24, 12);
-    this.scorchGeometry = new THREE.CircleGeometry(1, 24);
+    this.scorchGeometry = new THREE.RingGeometry(0, 1, 24, 4);
     this.shardGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.2);
     this.moteGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.03);
     this.flameGeometry = new THREE.OctahedronGeometry(0.1, 0);
@@ -498,6 +500,17 @@ export class Effects {
     }
   }
 
+  #drapeWave(mesh, origin, start, end, life) {
+    mesh.geometry = mesh.geometry.clone().rotateX(-Math.PI / 2);
+    const source = mesh.geometry.attributes.position.array.slice();
+    const world = this.getWorld();
+    if (!world) return null;
+    const tick = (age) => drapeGround(mesh.geometry, world, origin,
+      { source, scale: start + (end-start) * Math.min(1, age/life) });
+    tick(0);
+    return tick;
+  }
+
   /**
    * A very heavy blow into the ground at `point` (the Armory's Sunder): the ground's own shock, low and brief. A ring
    * of dust driven out along it, and a dull ring of pressure running out over it; no light and no colour of its own.
@@ -511,9 +524,9 @@ export class Effects {
     }
     const ring = new THREE.Mesh(this.groundRingGeometry, new THREE.MeshBasicMaterial({ color: 0x8c7b62, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
     ring.position.set(at.x, at.y + 0.03, at.z);
-    ring.rotation.x = -Math.PI / 2;
     ring.scale.setScalar(0.3);
-    this.#addTransient(ring, { life: 0.34, expand: (radius / 0.3 - 1) / 0.34, fade: true });
+    const tick = this.#drapeWave(ring, at, 0.3, radius, 0.34);
+    this.#addTransient(ring, { tick, ownGeometry: true, life: 0.34, expand: (radius / 0.3 - 1) / 0.34, fade: true });
     ring.material.dispose();
   }
 
@@ -532,6 +545,7 @@ export class Effects {
     const activeSec = Math.max(...fissures.map((fissure) => fissure.length), 0) / speed + lastsSec;
     const settleSec = 0.7;
     const at = { x: origin.x, y: origin.y, z: origin.z };
+    const world = this.getWorld();
     const stones = [this.#basicMaterial(0x6d655a), this.#basicMaterial(0x8e8574), this.#basicMaterial(0x4f4a43)];
     for (let i = 0, n = this.#many(16); i < n; i += 1) {
       const mesh = new THREE.Mesh(this.chipGeometry, stones[i % 3]);
@@ -594,7 +608,7 @@ export class Effects {
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setDrawRange(0, 0);
-        return geometry;
+        return drapeGround(geometry, world, at, { local: false });
       };
       // a band either side of the path, its light at the line and none at its edges (12 vertices a segment)
       const glowRibbon = (y, half) => {
@@ -613,7 +627,7 @@ export class Effects {
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         geometry.setDrawRange(0, 0);
-        return geometry;
+        return drapeGround(geometry, world, at, { local: false });
       };
       const runSec = fissure.length / speed;
       const coreSegments = Math.round((core / fissure.length) * segments);
@@ -673,6 +687,9 @@ export class Effects {
           // at the running head: in the core, heavy dust and a spit of embers; out on the trailing crack, a little dust
           const d = reached * fissure.length;
           const head = { x: at.x + fissure.dir.x * d, y: at.y, z: at.z + fissure.dir.z * d };
+          const floor = effectGround(world, at, head.x, head.z);
+          if (floor === null) return;
+          head.y = floor;
           const inCore = d <= core;
           if (age >= dustAt) {
             dustAt = age + (inCore ? 0.06 : 0.12);
@@ -1400,15 +1417,16 @@ export class Effects {
       const groundReach = Math.sqrt(Math.max(0, radius * radius - Math.max(0, drop) ** 2));
       const wave = new THREE.Mesh(this.groundRingGeometry, materials.ring);
       wave.position.set(point.x, ground + 0.025, point.z);
-      wave.rotation.x = -Math.PI / 2;
+      const start = Math.max(0.05, groundReach * 0.12), end = Math.max(0.05, groundReach);
+      const tick = this.#drapeWave(wave, { ...point, y: ground }, start, end, 0.21);
       wave.scale.setScalar(Math.max(0.05, groundReach * 0.12));
-      this.#addTransient(wave, { life: 0.21, expand: growth(Math.max(0.05, groundReach * 0.12), Math.max(0.05, groundReach), 0.21), fade: true });
+      this.#addTransient(wave, { tick, ownGeometry: true, life: 0.21, expand: growth(Math.max(0.05, groundReach * 0.12), Math.max(0.05, groundReach), 0.21), fade: true });
       wave.material.opacity = wave.userData.baseOpacity = 0.09 * profile.size;
-      const mark = new THREE.Mesh(this.scorchGeometry, materials.mark);
+      const mark = new THREE.Mesh(this.scorchGeometry.clone().rotateX(-Math.PI / 2), materials.mark);
       mark.position.set(point.x, ground + 0.018, point.z);
-      mark.rotation.x = -Math.PI / 2;
+      drapeGround(mark.geometry, this.getWorld(), { ...point, y: ground }, { scale: radius * 0.25 });
       mark.scale.setScalar(radius * 0.25);
-      this.#addTransient(mark, { life: profile.frost ? 0.8 : 1.2, fade: true });
+      this.#addTransient(mark, { ownGeometry: true, life: profile.frost ? 0.8 : 1.2, fade: true });
       mark.material.opacity = mark.userData.baseOpacity = profile.frost ? 0.12 : 0.18;
     }
 

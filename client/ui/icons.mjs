@@ -13,27 +13,17 @@ const CARRIAGE_WHEEL='<circle cx="12" cy="12" r="9" fill="none" stroke="#dfc89c"
 const RAM_GAUNTLET='<g stroke-linejoin="round" stroke-width="1"><path d="M6 15h13l2 7H4z" fill="#aa9064" stroke="currentColor"/><path d="M7 18h11M8 20h9" stroke="#4a4134" fill="none"/><path d="M5 7V4l2-1h2l1 1V3l2-1h2l1 2 1-1h2l1 2h2l1 2v6l-4 5H8l-4-5V9z" fill="#606d76" stroke="currentColor"/><path d="M6 5h3v6H6zM10 4h4v7h-4zM15 5h3v6h-3zM19 7h2v5h-2z" fill="#c5cbd0" stroke="#30393f"/><path d="M9 12h11l-3 4h-6z" fill="#929fa8" stroke="#30393f"/><path d="m4 9 3-1 6 4-2 4-4-1-3-3z" fill="#b5bfc5" stroke="#30393f"/><path d="m7 10 3 2" fill="none" stroke="#5c6870"/></g>';
 
 export const ICONS = Object.freeze({
-  // Affliction glyphs: distinct, hand-drawn 24-unit vectors; never emoji.
-  // Ice crystal with a trapped central knot: full immobilization.
-  afflictionFrozen: '<path d="m12 2 7 5 2 9-9 6-9-6 2-9zM12 2v20M5 7l14 9M19 7 5 16"/><path d="m10 10 4 0v5h-4z" fill="currentColor" stroke="none"/>',
-  // A dented helmet knocked off its vertical axis: lost balance.
-  afflictionStaggered: '<path d="M4 15c0-7 4-11 10-11 5 0 7 4 7 8l-4 2-2 6-8-1zM8 16l7 2M3 5l3 2m-4 3h3M20 3l-2 3"/>',
-  // Electrical charge suspended inside a closed loop; the discharge is deferred.
-  afflictionConduct: '<circle cx="12" cy="12" r="9"/><path d="m14 3-6 10h5l-3 8 7-11h-5z"/><circle cx="4" cy="4" r="1" fill="currentColor" stroke="none"/>',
-  // A view-axis arrow pushing through crosswind: lagging weapon facing.
-  afflictionBlustered: '<path d="M2 7h13c4 0 4-5 1-5-2 0-3 1-3 2M2 12h17c4 0 4 6 0 6-2 0-3-1-3-2M2 17h8c3 0 4 5 1 5"/><path d="m9 9 3 3-3 3"/>',
-  // Three diverging ground shocks, not a generic impact star.
-  afflictionShaken: '<path d="M2 18h5l3-4 3 5 3-7 3 4h3M3 8l5 3 4-8 4 6 5-2M7 21l3-3"/>',
-  // Thin, licking flame with three separate embers.
-  afflictionBurning: '<path d="M12 2c1 6-5 7-5 12a5 5 0 0 0 10 0c0-3-1-4-2-6 0 3-2 4-3 5 1-5-1-6 0-11z"/><path d="M4 5l-1-2M20 5l1-2M21 11l2-1"/>',
-  // Thawing snowflake; one lower arm dissolves into drops.
-  afflictionChilled: '<path d="M12 2v16M5 6l14 11M19 6 5 17M9 5l3 3 3-3M5 12l3-1 1 3M19 12l-3-1-1 3"/><circle cx="12" cy="22" r="1" fill="currentColor" stroke="none"/>',
-  // Boot held against a fractured ice shelf: sustained frost slow, not a freeze.
-  afflictionFrostbound: '<path d="M5 2v8M2 5h6M3 3l4 4M7 3 3 7M12 7v7l3 3h6v3H9l-3-4V9M13 14l4-3M3 22h18"/>',
-  // Jagged ground with a radiating field: hazardous ruptured terrain.
-  afflictionRupture: '<path d="M2 17l5-3 3 3 3-7 4 6 5-3M11 2l-1 8 3 3-3 9M4 7l2 3M19 5l-2 4M20 20l2 2"/>',
-  // Sunder-torn ground: a boot unable to run across a split flagstone.
-  afflictionTornGround: '<path d="M2 19l5-2 3 2 4-5 3 3 5-2M12 2l-1 8 2 4-3 8M4 5l5 3M16 5l4 3M3 12l2 3"/>' ,
+  // Shared between the Chronicles and the live status dock.
+  afflictionFrozen: '<path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5m-9 5v10"/><path d="M9 7V6a3 3 0 0 1 6 0v1m-6 0h6v3H9z" fill="currentColor" stroke-width="1"/>',
+  afflictionStaggered: '<path d="m6 17 2-8a6 6 0 0 1 11 4l-4 1-1 6zM9 14l5 2M3 7l3 2M5 3l2 3m5-4v3"/>',
+  afflictionConduct: '<path d="m7 15 9-9 4-2-2 4-9 9m-4-4 6 6m-4-2-4 4"/><path d="m17 12-3 5h4l-2 5 6-7h-4z" fill="currentColor" stroke="none"/>',
+  afflictionBlustered: '<path d="M2 5h11c3 0 4-4 1-4M2 9h16c4 0 4 5 0 5h-3M2 13h6m1 3 3-2 3 2v3l-3 3-3-3z"/>',
+  afflictionShaken: '<path d="m11 7 2 6 6 2v4H8l-3-5 2-4M2 6l3 2m-3 8 2 2m8 4 3-1 4 1m0-13 2 2-2 2"/>',
+  afflictionBurning: '<path d="M12 2c1 6-7 7-7 13a7 7 0 0 0 14 0c0-3-2-6-4-7 1 4-1 5-2 6 1-5-2-6-1-12z"/><path d="M12 15c-4 4-1 7 1 6 3-2 0-4-1-6z" fill="currentColor" stroke="none"/>',
+  afflictionChilled: '<path d="M12 2v14M4 6l16 8M20 6 4 14M9 4l3 3 3-3m-9 7 2-3m10 3-2-3m-4 10c-4 5 4 5 0 0z"/>',
+  afflictionFrostbound: '<path d="M7 3h6v8l3 3h5v4H8l-2-4zM3 20l3-3m-3 0v3h4m2 2 3-4 3 4 3-4 3 3"/>',
+  afflictionRupture: '<path d="m12 2 6 3v5c0 4-6 7-6 7s-6-3-6-7V5zM12 7v6m-2-2 2 2 2-2M2 20l5-2 4 3 4-3 7 2"/>',
+  afflictionTornGround: '<path d="m4 16 5-3 3 2 3-4 7 4v5l-7-3-3 4-4-3-4 2zM9 4l4 2-2 6M7 8l6-2 5 2"/><circle cx="8" cy="3" r="1.3" fill="currentColor" stroke="none"/>',
   // Lightning in a narrow conducting wire; a broken zigzag, not a Fireball.
   line_of_conduct: '<path d="m4 4 6 3-3 4 9 4-4 5M3 12l4-1M16 15l5-2M11 2l-1 5" stroke-width="1.7" fill="none"/>',
   // One ordinary-sized sword spins down into fractured stone; orbiting stars

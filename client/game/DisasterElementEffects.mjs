@@ -1,3 +1,4 @@
+import { drapeGround, effectGround } from './groundEffect.mjs';
 import * as THREE from 'three';
 import { windbladeSpeed, windbladeTrailSpan } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
@@ -62,6 +63,7 @@ class ParticlePool {
   // clear: a point (the viewer's eye) that this pool's particles thin away from, so nothing is drawn across the lens
   update(dt, clear = null) {
     const items = this.items;
+    if (!items.length && this.idle) return;
     let n = 0;
     for (let i = 0; i < items.length; i += 1) {
       const p = items[i];
@@ -110,9 +112,13 @@ class ParticlePool {
     items.length = n;
     // (never empty: one unseen instance keeps the pool drawn, so its shader is built before the first blow, not on it)
     if (n === 0) { tmpObject.position.set(0, -1e4, 0); tmpObject.scale.setScalar(1e-6); tmpObject.updateMatrix(); this.mesh.setMatrixAt(0, tmpObject.matrix); }
+    this.idle = n === 0;
     this.mesh.count = Math.max(1, n);
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    for (const attribute of [this.mesh.instanceMatrix, this.mesh.instanceColor]) {
+      attribute.clearUpdateRanges();
+      attribute.addUpdateRange(0, this.mesh.count * attribute.itemSize);
+      attribute.needsUpdate = true;
+    }
   }
   dispose() {
     this.mesh.parent?.remove(this.mesh);
@@ -183,7 +189,8 @@ function boltGeometry(path, width) {
 }
 
 export class DisasterElementEffects {
-  constructor(parent, remotePlayers = null) {
+  constructor(parent, remotePlayers = null, getWorld = () => null) {
+    this.getWorld = getWorld;
     this.remotePlayers = remotePlayers;
     this.root = new THREE.Group();
     this.root.name = 'All-Natural Disaster elements (presentation only)';
@@ -540,10 +547,18 @@ export class DisasterElementEffects {
         this.#stone({ x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }, { x: Math.cos(a) * out, y: rand(3, 8.5) * force, z: Math.sin(a) * out },
           rand(0.05, steel === 2 ? 0.19 : 0.14), floor, rand(1.3, 2.2));
       }
-      // and the dust of it, rolling outward low (in place of a drawn ring: it is the ground's own)
+      // Send the low pressure dust along the local slope.
+      const world = this.getWorld();
       for (let i = 0; i < this.#n(22); i += 1) {
         const a = i / 22 * TAU + rand(0.2), speed = rand(3.5, 6.5) * (steel ? 1.2 : 1);
-        this.#dust({ x: p.x + Math.cos(a) * 0.5, y: floor + 0.15, z: p.z + Math.sin(a) * 0.5 }, { x: Math.cos(a) * speed, y: rand(0.2, 1), z: Math.sin(a) * speed }, rand(0.22, 0.36), rand(0.8, 1.3));
+        const dx = Math.cos(a), dz = Math.sin(a);
+        const x = p.x + dx * .5, z = p.z + dz * .5;
+        const y = effectGround(world, p, x, z);
+        if (y === null) continue;
+        const ahead = effectGround(world, p, x + dx, z + dz);
+        const slope = ahead === null ? 0 : THREE.MathUtils.clamp(ahead - y, -.65, .65);
+        this.#dust({ x, y: y + .15, z }, { x: dx * speed, y: slope * speed + rand(.2, 1), z: dz * speed },
+          rand(.22, .36), rand(.8, 1.3));
       }
     } else {
       // a wave breaking on stone or in the air: chips off the face it struck
@@ -667,13 +682,16 @@ export class DisasterElementEffects {
       f.age += dt;
       const head = f.age * f.speed;
       const longest = Math.max(...f.fissures.map((arm) => arm.length));
-      const floor = f.origin.y + 0.02;
+      const world = this.getWorld();
       // (stone thrown every third of a metre of ground each arm splits)
       while (f.reached < Math.min(head, longest)) {
         f.reached += 0.34;
         for (const arm of f.fissures) {
           if (f.reached > arm.length) continue;
-          const at = { x: f.origin.x + arm.dir.x * f.reached, y: floor, z: f.origin.z + arm.dir.z * f.reached };
+          const at = { x: f.origin.x + arm.dir.x * f.reached, y: f.origin.y, z: f.origin.z + arm.dir.z * f.reached };
+          const y = effectGround(world, f.origin, at.x, at.z);
+          if (y === null) continue;
+          const floor = at.y = y + .02;
           const count = f.steel === 2 ? 3 : 2;
           for (let k = 0; k < this.#n(count); k += 1) {
             const side = rand(-1, 1);
@@ -702,27 +720,32 @@ export class DisasterElementEffects {
         this.fields.set(field.id, entry);
       }
       this.#poseRockField(entry.rock,field,strength,now);
-      const p = field.position, floor = p.y + 0.03;
+      const p = field.position, world = this.getWorld();
       const emit = (key, perSec, fn) => {
         entry.acc[key] = (entry.acc[key] ?? 0) + perSec * this.density * dt * strength;
         while (entry.acc[key] >= 1) { entry.acc[key] -= 1; fn(); }
       };
-      const inside = (share = 1) => { const a = rand(TAU), r = Math.sqrt(Math.random()) * field.radius * share; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
+      const inside = () => {
+        const angle = rand(TAU), radius = Math.sqrt(Math.random()) * field.radius;
+        const x = p.x + Math.cos(angle) * radius, z = p.z + Math.sin(angle) * radius;
+        const y = effectGround(world, p, x, z);
+        return y === null ? { ...p, y: p.y + .03 } : { x, y: y + .03, z };
+      };
       // every field: the broken ground still shifting, grit hopping and dust hanging over it
-      emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), floor, 0.6); });
-      emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
+      emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), at.y, 0.6); });
+      emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: at.y + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
       if (field.tiers?.frost === 2) {
         // cold coming up off the ice, and the ice itself sinking back as the field goes
-        emit('cold', 20, () => { const at = inside(); this.#mote('frost', { ...at, y: floor + rand(0.05, 0.3) }, { x: rand(-0.4, 0.4), y: rand(0.3, 0.9), z: rand(-0.4, 0.4) }, { size: rand(0.02, 0.04), ttl: rand(0.6, 1), stretch: 2.5, drag: 0.8 }); });
-        emit('mist', 3, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.1 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.26, 1.4, 0xd4edf8); });
+        emit('cold', 20, () => { const at = inside(); this.#mote('frost', { ...at, y: at.y + rand(0.05, 0.3) }, { x: rand(-0.4, 0.4), y: rand(0.3, 0.9), z: rand(-0.4, 0.4) }, { size: rand(0.02, 0.04), ttl: rand(0.6, 1), stretch: 2.5, drag: 0.8 }); });
+        emit('mist', 3, () => { const at = inside(); this.#dust({ ...at, y: at.y + 0.1 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.26, 1.4, 0xd4edf8); });
         if (entry.ice) this.#poseIce(entry.ice, field, strength, now);
       }
       if (field.tiers?.lightning === 2 && this.clock >= entry.arcAt) {
         // arcs crawling over the ground between two points of it: fewer and thinner as the charge runs out
         entry.arcAt = this.clock + rand(0.05, 0.11) / Math.max(0.15, strength) / this.density;
         const a = inside(), b = inside();
-        this.#bolt(new THREE.Vector3(a.x, floor + 0.08, a.z), new THREE.Vector3(b.x, floor + rand(0.1, 0.9 * strength + 0.15), b.z), { width: 0.016 + 0.03 * strength, ttl: 0.12, jag: 0.2, forks: strength > 0.5 ? 2 : 1 });
-        for (let i = 0; i < 3; i += 1) this.#mote('lightning', { ...b, y: floor + 0.1 }, { x: rand(-2, 2), y: rand(1, 3.5), z: rand(-2, 2) }, { size: 0.016, ttl: 0.22, gravity: 12, stretch: 5 });
+        this.#bolt(new THREE.Vector3(a.x, a.y + 0.08, a.z), new THREE.Vector3(b.x, b.y + rand(0.1, 0.9 * strength + 0.15), b.z), { width: 0.016 + 0.03 * strength, ttl: 0.12, jag: 0.2, forks: strength > 0.5 ? 2 : 1 });
+        for (let i = 0; i < 3; i += 1) this.#mote('lightning', { ...b, y: b.y + 0.1 }, { x: rand(-2, 2), y: rand(1, 3.5), z: rand(-2, 2) }, { size: 0.016, ttl: 0.22, gravity: 12, stretch: 5 });
       }
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
@@ -755,10 +778,15 @@ export class DisasterElementEffects {
     }
     for(let i=0;i<perimeter.length;i++){
       const p=perimeter[i],q=perimeter[(i+1)%perimeter.length];
-      groundTriangles.push(0,.026,0,p.x,.026,p.z,q.x,.026,q.z);
+      for (let j = 0; j < 5; j++) {
+        const a = j / 5, b = (j + 1) / 5;
+        groundTriangles.push(p.x*a,.026,p.z*a,p.x*b,.026,p.z*b,q.x*b,.026,q.z*b);
+        if (j) groundTriangles.push(p.x*a,.026,p.z*a,q.x*b,.026,q.z*b,q.x*a,.026,q.z*a);
+      }
     }
     const floorGeo=new THREE.BufferGeometry();
     floorGeo.setAttribute('position',new THREE.Float32BufferAttribute(groundTriangles,3));
+    drapeGround(floorGeo, this.getWorld(), field.position);
     floorGeo.computeVertexNormals();
     const floor=new THREE.Mesh(floorGeo,this.earthMaterial.clone());
     floor.name='shaken-broken-ground-surface';
@@ -796,6 +824,7 @@ export class DisasterElementEffects {
     }
     const crackGeo=new THREE.BufferGeometry();
     crackGeo.setAttribute('position',new THREE.Float32BufferAttribute(fissures,3));
+    drapeGround(crackGeo, this.getWorld(), field.position);
     crackGeo.computeVertexNormals();
     const cracks=new THREE.Mesh(crackGeo,this.faultMaterial.clone());
     cracks.frustumCulled=false;
@@ -819,6 +848,8 @@ export class DisasterElementEffects {
     }
     bits.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     rock.add(bits);
+    const world = this.getWorld();
+    for (const p of pebbles) p.y = effectGround(world, field.position, field.position.x + p.x, field.position.z + p.z);
     rock.userData.shaken={floor,cracks,bits,pebbles,poseAt:-Infinity};
     this.root.add(rock);
     this.#poseRockField(rock,field,1,field.bornAt);
@@ -839,9 +870,10 @@ export class DisasterElementEffects {
     for(let i=0;i<data.pebbles.length;i++){
       const p=data.pebbles[i];
       const shiver=Math.sin(now*13+p.phase)*.016*strength;
-      tmpObject.position.set(p.x,.053+p.size*.28+shiver,p.z);
+      tmpObject.position.set(p.x,(p.y ?? field.position.y)-field.position.y+.053+p.size*.28+shiver,p.z);
       tmpObject.rotation.set(p.phase*.19,p.angle,shiver*3);
       tmpObject.scale.set(p.size,p.size*(.4+.1*Math.sin(p.phase)),p.size*.85);
+      if (p.y === null) tmpObject.scale.setScalar(0);
       tmpObject.updateMatrix();
       data.bits.setMatrixAt(i,tmpObject.matrix);
     }
@@ -864,6 +896,7 @@ export class DisasterElementEffects {
     }
     const underlayGeo=new THREE.BufferGeometry();
     underlayGeo.setAttribute('position',new THREE.Float32BufferAttribute(underlayPositions,3));
+    drapeGround(underlayGeo, this.getWorld(), field.position);
     underlayGeo.computeVertexNormals();
     const underlay=new THREE.Mesh(underlayGeo,this.frostCrackMaterial.clone());
     underlay.frustumCulled=false;
@@ -888,6 +921,7 @@ export class DisasterElementEffects {
     const plateGeo=new THREE.BufferGeometry();
     plateGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     plateGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    drapeGround(plateGeo, this.getWorld(), field.position);
     plateGeo.computeVertexNormals();
     const surface=new THREE.Mesh(plateGeo,this.frostPlateMaterial.clone());
     surface.frustumCulled=false;
@@ -896,6 +930,7 @@ export class DisasterElementEffects {
 
     const ridgeGeo=new THREE.BufferGeometry();
     ridgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(ridgePositions,3));
+    drapeGround(ridgeGeo, this.getWorld(), field.position, { lines: true });
     const ridge=new THREE.LineSegments(ridgeGeo,this.frostRidgeMaterial.clone());
     ridge.frustumCulled=false;
     ridge.name='frost-crack-edges';
@@ -910,6 +945,10 @@ export class DisasterElementEffects {
       return {x:plate.center.x,z:plate.center.z,height:rand(.12,.4),width:rand(.035,.08),
         lean:rand(-.4,.4),turn:rand(TAU),delay:Math.hypot(plate.center.x,plate.center.z)/field.radius*.25};
     });
+    const world = this.getWorld();
+    for (const shard of shards) {
+      shard.y = effectGround(world, field.position, field.position.x + shard.x, field.position.z + shard.z);
+    }
     ice.add(crystals);
     ice.userData.frost={surface,underlay,ridge,crystals,shards,ends};
     this.root.add(ice);
@@ -926,8 +965,8 @@ export class DisasterElementEffects {
     data.ridge.material.opacity=(0.06+0.28*strength)*Math.min(1,formed*5);
     for(let i=0;i<data.shards.length;i++){
       const s=data.shards[i],grown=clamp01((age-s.delay)/.18);
-      const h=s.height*grown*(0.15+0.85*strength);
-      tmpObject.position.set(s.x,h/2+.05,s.z);
+      const h=s.y === null ? 0 : s.height*grown*(0.15+0.85*strength);
+      tmpObject.position.set(s.x,(s.y ?? field.position.y)-field.position.y+h/2+.05,s.z);
       tmpObject.rotation.set(s.lean,s.turn,s.lean*.6);
       tmpObject.scale.set(s.width*(.3+.7*strength),Math.max(.001,h),s.width*(.3+.7*strength));
       tmpObject.updateMatrix();
@@ -953,8 +992,13 @@ export class DisasterElementEffects {
       if (strength <= 0) continue;
       const entry = this.fireAcc[zone.id] ??= { flame: 0, ember: 0, smoke: 0, seen: 0 };
       entry.seen = this.clock;
-      const p = zone.position, floor = p.y + 0.03;
-      const inside = () => { const a = rand(TAU), r = Math.sqrt(Math.random()) * zone.radius; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
+      const p = zone.position, world = this.getWorld();
+      const inside = () => {
+        const angle = rand(TAU), radius = Math.sqrt(Math.random()) * zone.radius;
+        const x = p.x + Math.cos(angle) * radius, z = p.z + Math.sin(angle) * radius;
+        const y = effectGround(world, p, x, z);
+        return y === null ? { ...p, y: p.y + .03 } : { x, y: y + .03, z };
+      };
       entry.flame += 340 * (0.25 + 0.75 * strength) * this.density * dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
@@ -969,7 +1013,7 @@ export class DisasterElementEffects {
       while (entry.smoke >= 1) {
         entry.smoke -= 1;
         const at = inside();
-        this.#dust({ ...at, y: floor + rand(0.9, 1.5) }, { x: rand(-0.3, 0.3), y: rand(1.2, 2.2), z: rand(-0.3, 0.3) }, rand(0.35, 0.6), rand(1.4, 2.1), 0x2e2520);
+        this.#dust({ ...at, y: at.y + rand(0.9, 1.5) }, { x: rand(-0.3, 0.3), y: rand(1.2, 2.2), z: rand(-0.3, 0.3) }, rand(0.35, 0.6), rand(1.4, 2.1), 0x2e2520);
       }
     }
     for (const id of Object.keys(this.fireAcc)) if (this.clock - this.fireAcc[id].seen > 1) delete this.fireAcc[id];

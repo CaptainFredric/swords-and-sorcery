@@ -1768,7 +1768,11 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   background:transparent;border:1px solid transparent;box-shadow:none;
   color:#e7d599;min-height:42px;padding:6px;
 }
-#chronicles-affliction-list .chronicles-affliction-icon svg {width:26px;height:26px;}
+#chronicles-affliction-list .chronicles-affliction-icon svg {
+  width:26px;height:26px;
+  fill:none;stroke:currentColor;stroke-width:1.65;
+  stroke-linecap:round;stroke-linejoin:round;
+}
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="frozen"],
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="chilled"],
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="frostbound"] {color:#b5e4f1;}
