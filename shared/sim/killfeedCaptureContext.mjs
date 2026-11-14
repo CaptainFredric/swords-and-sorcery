@@ -12,6 +12,7 @@ export function trackCircleChase(room,player,{id,position,radius,verticalBelow=.
  const slots=player.killfeedInsideCircles??={};
  const prior=slots[key];
  slots[key]=inside;
+ if(inside && player.killfeedCircleChase?.key===key)player.killfeedCircleChase=null;
  if(prior!==true||inside)return;
  // The player just LEFT the point. Only a real outward chase toward a
  // low-health ENEMY (not a retreat, objective rotation, or enemy already
