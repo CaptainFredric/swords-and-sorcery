@@ -737,6 +737,8 @@ export function applyRoomCommand(room, player, message, time) {
       if(!mounted && message.machine != null){
         if(player.hellpingCapturedBy||player.hellpingCarriedBy)
           return {rejected:'Leave the current siege machine before boarding another.'};
+        if(player.restlessCarrying)
+          return {rejected:'Set down the siege ladder before mounting.'};
         let boarded=false;
         if(message.machine==='fight-and-flight'){
           const reason=fightFlightMountProblem(room,room.fightFlight,player,time);
