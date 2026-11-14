@@ -137,12 +137,24 @@ try{
  const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',15);
  assert.equal(mounted.ballista.skill.id,'lookAroundAndFindOut');
  await screenshot('02-mounted-original-v26');
+ // Capture genuine authoritative events *as delivered*, not only transient
+ // animation snapshots: a 1.65s single turn can begin and end between two
+ // software-WebGL frames in CI, so polling 'sweep!==null' can falsely time out.
+ await evaluate("(() => {window.__bibyeActions=[];window.__ssLink.local.on('events',data=>{for(const e of data?.events??[])if(/^bibye|^siegeSkill/.test(e.type))window.__bibyeActions.push(e);});})()");
  const initialHeading=mounted.ballista.heading;
+ const kPre=await evaluate("({enabled:window.__ssRuntime.input.enabled,mounted:window.__ssRuntime.input.mountedBallista,key:window.__ssRuntime.input.actionOf.get('KeyK'),allowed:window.__ssRuntime.input.allowAction?.('siegeSweep',false),errors:window.__bibyeMountErrors})");
+ console.log('[BI-BYE K INPUT]',JSON.stringify(kPre));
+ assert.equal(kPre.key,'siegeSweep','K binding has to exist on the mounted controller');
  await tap('K');
- const single=await until(async()=>{const s=await observe();return s?.ballista?.sweep?.kind==='single'?s:false;},'K: third innate A Sharp Turn',40);
+ const firstEvents=await evaluate("({events:window.__bibyeActions,errors:window.__bibyeMountErrors})");
+ console.log('[BI-BYE K POST]',JSON.stringify(firstEvents));
+ if(firstEvents.errors?.length)throw Error('Server rejected K: '+JSON.stringify(firstEvents.errors));
+ const eventStart=await until(()=>evaluate("window.__bibyeActions?.find(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started')"),'authoritative K Sharp Turn started event',60);
+ const single=(await observe());
+ assert.equal(eventStart.kind,'single');
  assert.equal(single.ballista.skill.readyAt,0);
  await screenshot('03-sharp-turn-bow-moving');
- await until(async()=>{const s=await observe();return s?.ballista&&!s.ballista.sweep?s:false;},'single revolution completed',80);
+ await until(()=>evaluate("window.__bibyeActions?.find(e=>e.type==='bibyeSweep'&&e.action==='ended')"),'authoritative single revolution completed',80);
  await tap('U');
  const spinning=await until(async()=>{const s=await observe();return s?.ballista?.sweep?.phase==='loop'?s:false;},'U: sustained Look Around spin',80);
  assert.equal(spinning.ballista.heading,initialHeading,'wheels do not turn the carriage');
@@ -165,7 +177,8 @@ try{
  console.log('[BI-BYE SWEEP BROWSER ACCEPTED]',JSON.stringify({clips:inventory.clips,settledCooldown:resolved.ballista.skill.readyAt-resolved.at,projectiles:shot.projectiles}));
 }catch(error){
  console.error('[BI-BYE SWEEP BROWSER FAILED]',stage,error.stack??String(error));
- await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(error),exceptions,state:ws?await observe().catch(()=>null):null},null,2));
+ await writeFile(out+'/failure.json',JSON.stringify({stage,error:String(error),exceptions,state:ws?await observe().catch(()=>null):null,
+  actions:ws?await evaluate("window.__bibyeActions??[]").catch(()=>[]):[],rejections:ws?await evaluate("window.__bibyeMountErrors??[]").catch(()=>[]):[]},null,2));
  if(ws)await screenshot('failure').catch(()=>{});
  throw error;
 }finally{ws?.close();chrome.kill('SIGTERM');await sleep(700);await rm(profile,{recursive:true,force:true}).catch(()=>{});}
