@@ -78,6 +78,7 @@ export const ICONS = Object.freeze({
   repeater: '<path d="M4 12h15M15 8l6 4-6 4M2 8l4 4-4 4"/>',
   flightDash: '<path d="M12 3 6 12l4-1v10h4V11l4 1z" fill="currentColor" stroke="none"/><path d="M3 8v5M21 8v5M6 17v4M18 17v4"/>',
   eject: '<path d="M12 15V2m-4 4 4-4 4 4M5 13v7h14v-7M3 17h4M17 17h4"/>',
+  siegeSweep: '<path d="M5 7c3-6 12-6 15 1M20 8l-1-5M20 8l-5-2M19 17c-4 5-12 5-15-1M4 16l1 5M4 16l5 2"/><path d="M4 12h16M12 8v8"/>',
   boltI: BOLT_I,
   boltII: BOLT_II,
   boltBoth: '<g transform="translate(0 3) scale(.5 .82)">' + BOLT_I + '</g><g transform="translate(12 0) scale(.5 1)">' + BOLT_II + '</g>',
