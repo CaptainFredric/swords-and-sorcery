@@ -43,6 +43,10 @@ jobs:
             server/tests/so-fist-impact.test.mjs \
             server/tests/so-fist-flick-final-jaw.test.mjs \
             server/tests/siege-arcane-restoration.test.mjs \
+            server/tests/structures.test.mjs \
+            server/tests/structures-network.test.mjs \
+            server/tests/so-fist-contact.test.mjs \
+            server/tests/bi-bye-moving-hit.test.mjs \
             client/ui/biByeHudView.test.mjs
       - name: Check browser source import contract
         run: npm run check:browser-imports
