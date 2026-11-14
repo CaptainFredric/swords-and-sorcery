@@ -147,3 +147,16 @@ export function worldMatrices(model, pose) {
   for (let i = 0; i < pose.length; i += 1) visit(i);
   return out;
 }
+
+/**
+ * Lay another file's clips over a model's, by bone name (the client does the same with the Spellblade's motion sidecar,
+ * client/assets/characters/spellblade/spellblade-motion.glb): a clip of the same name replaces the model's own.
+ */
+export function overlayMotion(model, path) {
+  const motion = loadGlb(path);
+  for (const [name, clip] of motion.clips) {
+    const channels = clip.channels.map((channel) => ({ ...channel, node: model.byName.get(motion.gltf.nodes[channel.node].name) })).filter((channel) => channel.node != null);
+    model.clips.set(name, { ...clip, channels });
+  }
+  return model;
+}

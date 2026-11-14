@@ -1,3 +1,4 @@
+import { joinSwordWrist } from './swordWrist.mjs';
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
 import { lightPlate } from './plateEnvironment.mjs';
@@ -104,6 +105,29 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
+// The motion sidecars: clips laid over a canonical model's own, by bone name (animation-only GLBs of the same
+// skeleton: tools/assets/build-spellblade-motion.mjs for the body, build-spellblade-fp-motion.mjs for the
+// first-person arms). A clip of the same name replaces the model's; the model itself is not touched. Without one
+// (not found, or it fails to load) the model plays its own clips.
+const MOTION_FILES = Object.freeze({ thirdPerson: 'spellblade-motion', firstPerson: 'spellblade-fp-motion' });
+const motionPromises = new Map();
+function loadMotion(kind = 'thirdPerson') {
+  const file = MOTION_FILES[kind] ?? MOTION_FILES.thirdPerson;
+  if (!motionPromises.has(file)) motionPromises.set(file, fetch(appUrl(`/client/assets/characters/spellblade/${file}.json`), { cache: 'no-store' })
+    .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`motion sidecar HTTP ${response.status}`))))
+    .then((meta) => loader.loadAsync(appUrl(`/client/assets/characters/spellblade/${file}.glb?v=${String(meta.sha256).slice(0, 40)}`))
+      .then((gltf) => Object.freeze({ sha256: meta.sha256, clips: Object.freeze(gltf.animations) })))
+    .catch((error) => { console.warn(`Spellblade motion sidecar unavailable (${file}):`, error?.message ?? error); return null; }));
+  return motionPromises.get(file);
+}
+
+/** A model's clips with the sidecar's laid over them (same name: the sidecar's). */
+export function withMotionClips(own, motion) {
+  if (!motion?.length) return own;
+  const replaced = new Set(motion.map((clip) => clip.name));
+  return [...own.filter((clip) => !replaced.has(clip.name)), ...motion];
+}
+
 const FIRST_PERSON_ANISOTROPY = 8;
 const TEXTURE_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
 function sharpenTextures(root, anisotropy) {
@@ -156,11 +180,14 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const entry = kind === 'firstPerson' ? manifest.firstPerson : manifest.thirdPerson;
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
-  const gltf = await loadGltf(entry.url);
+  const [gltf, motion] = await Promise.all([loadGltf(entry.url), loadMotion(kind === 'firstPerson' ? 'firstPerson' : 'thirdPerson')]);
+  const clips = withMotionClips(gltf.animations, motion?.clips);
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;
   root.userData.assetKind = kind;
+  // (the arms in view: the sword arm's vambrace joined to its fist, in the shared rest shape, once)
+  if (kind === 'firstPerson') joinSwordWrist(root);
 
   const mutableNames = kind === 'firstPerson'
     ? manifest.firstPersonMutableMaterials
@@ -172,8 +199,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   });
 
   const sorcery = createSorceryVolume(sockets.sorcery);
-  const castDuration = gltf.animations.find((clip) => clip.name === 'Cast')?.duration ?? 1;
-  const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
+  const castDuration = clips.find((clip) => clip.name === 'Cast')?.duration ?? 1;
+  const animator = new SpellbladeAnimator(root, clips, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
     sorcery.update(performance.now() / 1000, (plan.mounted || plan.ramMounted) ? 0 : sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
@@ -195,6 +222,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     sorceryLevel: () => sorcery.level(),
     materials: mutableMaterials.byName,
     sourceRevision: manifest.sourceRevision,
+    motionSha256: motion?.sha256 ?? null,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -210,11 +238,12 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
 export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL) {
   const manifest = await loadManifest(manifestUrl);
   if (manifest.enabled === false) return null;
-  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url)]);
+  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url), loadMotion('thirdPerson'), loadMotion('firstPerson')]);
   return manifest.sourceRevision;
 }
 
 export function clearSpellbladeAssetCaches() {
   manifestPromises.clear();
   gltfPromises.clear();
+  motionPromises.clear();
 }

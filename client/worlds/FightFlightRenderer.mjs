@@ -163,8 +163,11 @@ export class FightFlightRenderer{
     const cradle=this.nodes.get('Crossbow_Pitch_Cradle');
     const tilter=this.nodes.get('Crossbow_Aim_Tilter_Link');
     if(gimbal&&cradle){
-      gimbal.rotation.set(0,yaw,0);
-      cradle.rotation.set(-pitch,0,0);
+      // The repeater's gimbals hold its aim while the chassis rocks under them on the ground (flightGroundCarriage).
+      const rock=this.animation.carriageOffset;
+      const rockYaw=rock?.weight>0?2*Math.atan2(rock.q[1],rock.q[3]):0,rockPitch=rock?.weight>0?2*Math.atan2(rock.q[0],rock.q[3]):0;
+      gimbal.rotation.set(0,yaw-rockYaw,0);
+      cradle.rotation.set(-pitch-rockPitch,0,0);
       if(tilter){
         const xAxis=new THREE.Vector3(1,0,0),yAxis=new THREE.Vector3(0,1,0);
         const inverseCradle=new THREE.Quaternion().setFromAxisAngle(xAxis,pitch);
@@ -454,7 +457,8 @@ export class FightFlightRenderer{
       let authored=null;
       if(eye){
         this.group.updateMatrixWorld(true);
-        authored=eye.getWorldPosition(out);
+        // (without the grounded carriage's rock: the aim is the authority's, the machine moves under it)
+        authored=this.animation?.steadyWorldPosition?this.animation.steadyWorldPosition(eye,out):eye.getWorldPosition(out);
       }
       // At Valkyrie's ~90-degree real chassis pitch the authored marker moves
       // below the operator's feet. Keep aiming from a stabilized visor position

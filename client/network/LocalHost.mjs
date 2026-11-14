@@ -83,7 +83,8 @@ export class LocalHost {
     this.room = null;
     this.timer = null;
     this.spell = DEFAULT_SPELL;
-    this.technique = 'rigid_riposte';
+    // (not `technique`: that is the command below, and an own field of that name would hide it)
+    this.techniqueId = 'rigid_riposte';
     this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
@@ -164,7 +165,7 @@ export class LocalHost {
         if (cached) this.setProfile(cached);
       } catch {}
     }
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, technique: this.technique, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, technique: this.techniqueId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
     player.cloth = this.cloth;
     player.emblem = this.emblem || this.profile?.emblem || DEFAULT_EMBLEM;
     player.emblems = this.emblems?.length ? [...this.emblems] : (this.profile?.emblems ? [...this.profile.emblems] : []);
@@ -776,9 +777,9 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout, technique = this.technique) {
+  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout, technique = this.techniqueId) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
-    this.technique = normalizeSwordTechnique(technique);
+    this.techniqueId = normalizeSwordTechnique(technique);
     this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     this.preparedSpells = normalizePreparedSpells(this.spell, preparedSpells);
     this.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
@@ -788,12 +789,12 @@ export class LocalHost {
     else if(player)player.queuedSiegeLoadout={...this.siegeLoadout};
     if (!player) return;
     player.startingSpell = this.spell;
-    player.startingTechnique = this.technique;
+    player.startingTechnique = this.techniqueId;
     player.startingPreparedSpells = [...this.preparedSpells];
     player.startingUltimate = this.ultimateId;
     if (this.room?.state !== 'PLAYING') {
       player.spell = this.spell;
-      player.technique = this.technique;
+      player.technique = this.techniqueId;
       player.preparedSpells = [...this.preparedSpells];
       player.ultimate = this.ultimateId;
       player.spellReadyAt = player.spellReadyById?.[this.spell] ?? -Infinity;

@@ -159,7 +159,7 @@ export class GameLink {
     this.#setStatus('online');
     // every connection carries what the player brings (the Armory's spell): heard like a reconnect
     if (this.hosting === 'remote') this.#emit('connection', { connected: true });
-    else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells, this.local.siegeLoadout, this.local.technique);
+    else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells, this.local.siegeLoadout, this.local.techniqueId);
   }
 
   /** Try the server again now (the Retry button). */

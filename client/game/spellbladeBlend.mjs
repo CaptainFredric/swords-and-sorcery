@@ -24,11 +24,20 @@ export function blendSeconds(fromClip, toClip) {
   if (!fromClip || fromClip === toClip) return 0;
   // respawn teleports the character, so leaving the death pose snaps
   if (fromClip === 'Death') return 0;
+  // A Sword Technique's clips meet end to end (authored so), in the body and in the first-person arms: nothing to
+  // ease between them, but for the ones a technique is broken off into and its climbing turn.
+  const technique = (clip) => typeof clip === 'string' && /^(FP_)?Technique_/.test(clip);
+  if (technique(fromClip) && technique(toClip)) return /Parried|Interrupted|GaleLift|AirRecovery/.test(fromClip + toClip) ? 0.08 : 0;
+  // Into one: its blade is the server's from the first instant, so quickly; but not so quickly that the sword is
+  // thrown. A Whirl is spun up into (its blade is already going round); out of a raised Guard the sword has the
+  // furthest to come (0.08 s threw the point at some 90 m/s, faster than any cut).
+  if (technique(toClip)) return /Whirl/.test(toClip) ? 0.14 : fromClip === 'Guard' ? 0.12 : 0.08;
   // slashes chained inside one attack already meet at matching poses
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
   // a cut broken off into the guard swings round into it (the guard's own authored entry arcs out through the right):
   // a little longer than an ordinary raise, so the blade is not whipped faster than any authored cut
-  if (COMBO_CLIPS.has(fromClip) && toClip === 'Guard') return 0.22;
+  // (0.3: the forehand now finishes high on the left, further from the guard than the low finish it had)
+  if (COMBO_CLIPS.has(fromClip) && toClip === 'Guard') return 0.3;
   // run <-> sprint shifts gait mid-stride (both stride on one shared phase)
   if ((fromClip === 'Run' && toClip === 'Sprint') || (fromClip === 'Sprint' && toClip === 'Run')) return 0.16;
   // the body moves at full speed at once, so a long fade from Idle would skate the feet

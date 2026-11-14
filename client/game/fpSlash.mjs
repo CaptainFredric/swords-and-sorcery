@@ -336,6 +336,32 @@ export function aimedAtServer(keys, strikes) {
   };
 }
 
+// The forehand's cut and its follow-through (contact at `c`), authored where the blade is once it is aimed at the
+// server's (contactTurn): the approach and the contact are the aimed ones, and the follow-through carries on from
+// them. It was authored about a blade 40 degrees lower and further round than the one shown at the contact, so the
+// aim's turn had to be let go in the follow-through: the cut stalled as it passed the middle (700 to 70 degrees a
+// second in a tenth of a second), and then the blade tipped down to the left on a wrist that had stopped (30 degrees
+// in an eighth of a second), bounced, and dipped again. Now it is one cut: through the contact at its fastest, the
+// hand carrying on across to the left hip and the blade slowing all the way to where the returning cut is loaded from
+// (low on the left, where the server's backhand begins), the shoulder and the body turning behind it.
+const forehandCut = (c) => [
+  key(c - EARLY, [0.44, -0.2, -0.63], dir(-42.7, 24.3), [-0.64, -0.04, -0.78],
+    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
+  key(c, [0.3, -0.24, -0.65], dir(30.3, 18.3), [-0.93, -0.32, 0.1],
+    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
+  key(c + 0.05, [0.18, -0.255, -0.645], dir(52, 10), [-0.93, -0.3, -0.05],
+    { shoulder: [-0.16, 0.01, -0.115], body: [-0.025, -0.008, -0.011], look: [-0.45, -1.3, -1.4], counter: [0.64, 0.54, 0.09] }),
+  key(c + LATE, [0.06, -0.275, -0.635], dir(68, 1), [-0.9, -0.3, -0.2],
+    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
+];
+// ...and where it comes to rest when the backhand follows: the low-left chamber, the hand by the left hip
+const forehandSettle = (c) => [
+  key(c + 0.2, [-0.04, -0.295, -0.62], dir(77, -8), [-0.85, -0.45, 0],
+    { shoulder: [-0.21, -0.01, -0.115], body: [-0.032, -0.012, -0.011], look: [-0.3, -1.45, -1.6], counter: [0.72, 0.72, 0.09] }),
+  key(c + 0.3, [-0.08, -0.31, -0.61], dir(79, -12), [-0.8, -0.55, 0.1],
+    { shoulder: [-0.215, -0.015, -0.105], body: [-0.03, -0.012, -0.009], look: [-0.1, -1.4, -1.6], counter: [0.7, 0.95, 0.07] }),
+];
+
 export const COMBO = settle(preAimed([
   rest(0, { ease: 0.6 }),
   // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)... (the
@@ -345,20 +371,12 @@ export const COMBO = settle(preAimed([
     { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
   key(C1 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
     { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
-  // ...then it comes down across the front, the shoulder driving round behind it; through the middle at the contact
-  key(C1 - EARLY, [0.44, -0.2, -0.63], dir(-25, 20), [-0.75, -0.3, -0.6],
-    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
-  key(C1, [0.3, -0.24, -0.65], dir(54, -12), [-0.65, -0.45, 0.6],
-    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
-  key(C1 + LATE, [0.05, -0.27, -0.63], dir(70, -16), [-0.8, -0.5, 0.3],
-    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
-  // 2. the backhand: the forehand's momentum carried on round the low left (the blade still moving, the body
-  // starting to unwind), rebounding a little as it turns, then dipping to load...
-  key(C1 + 0.22, [-0.03, -0.28, -0.62], dir(76, -17), [-0.8, -0.55, 0.2],
-    { shoulder: [-0.21, -0.01, -0.11], body: [-0.03, -0.012, -0.01], look: [-0.2, -1.4, -1.6], counter: [0.72, 0.8, 0.09] }),
-  key(C1 + 0.34, [-0.06, -0.25, -0.61], dir(73, 0), [0.75, 0.6, -0.2],
-    { shoulder: [-0.21, -0.02, -0.1], body: [-0.028, -0.012, -0.008], look: [0.1, -1.3, -1.6], counter: [0.68, 1.1, 0.06] }),
-  key(C2 - 0.24, [-0.06, -0.33, -0.61], dir(69, -19), [0.7, 0.65, -0.2],
+  // ...then it comes down across the front, the shoulder driving round behind it; through the middle at the contact,
+  // and on across to the low left in one slowing sweep (forehandCut, forehandSettle)
+  ...forehandCut(C1), ...forehandSettle(C1),
+  // 2. the backhand: loaded where the forehand came to rest (the hand sinking a little by the hip, the edge turned
+  // over there, the blade all but still: no rebound and no second dip)...
+  key(C2 - 0.24, [-0.07, -0.33, -0.61], dir(74, -15), [0.7, 0.65, -0.2],
     { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.6 }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
@@ -438,15 +456,10 @@ export const COMBO_RISING = settle(preAimed([
     { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
   key(C2 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
     { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
-  // ...then down across the front to the low left
-  key(C2 - EARLY, [0.44, -0.2, -0.63], dir(-25, 20), [-0.75, -0.3, -0.6],
-    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
-  key(C2, [0.3, -0.24, -0.65], dir(54, -12), [-0.65, -0.45, 0.6],
-    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
-  key(C2 + LATE, [0.05, -0.27, -0.63], dir(70, -16), [-0.8, -0.5, 0.3],
-    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
+  // ...then down across the front to the low left (forehandCut)
+  ...forehandCut(C2),
   // 3. the heavy strike: the forehand's momentum turned up out of the low left, through the front...
-  key(C2 + 0.22, [0.0, -0.26, -0.62], dir(70, -2), [0.75, 0.6, -0.2],
+  key(C2 + 0.2, [-0.01, -0.265, -0.62], dir(73, 0), [0.75, 0.6, -0.2],
     { shoulder: [-0.18, -0.01, -0.1], body: [-0.025, -0.01, -0.008], look: [0.1, -1.1, -1.3], counter: [0.5, 0.6, 0.06] }),
   key(C2 + 0.32, [0.12, -0.17, -0.62], dir(25, 50), [0.3, 0.45, -0.85],
     { shoulder: [-0.06, 0.06, -0.07], body: [0.005, 0.01, -0.002], look: [0.7, 0.4, 0.3], grip: 0.5, counter: [0.1, 0.1, -0.06] }),

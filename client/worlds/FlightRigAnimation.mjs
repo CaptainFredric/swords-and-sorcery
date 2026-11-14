@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
-import {FlightAnimationState,flightChannelOwner} from './flightAnimationState.mjs';
+import {FlightAnimationState,flightChannelOwner,FLIGHT_CLIPS} from './flightAnimationState.mjs';
+import {FlightGroundCarriage} from './flightGroundCarriage.mjs';
 import {SWORD_STRIKE_TIMES} from '../../shared/src/combat.mjs';
 const own=owner=>key=>flightChannelOwner(key)===owner;
 const clamp=x=>Math.max(0,Math.min(1,x));
@@ -9,6 +10,46 @@ export class FlightRigAnimation{
   this.pose=new MachineAnimationComposition(root,clips);this.state=new FlightAnimationState();this.nodes=new Map();root.traverse(n=>{if(n.name)this.nodes.set(n.name,n);});
   this.chassisShell=this.pose.shell('Main_Apparatus_Chassis');this.gunShell=this.pose.shell('Crossbow_Body');this.shaftShell=this.pose.shell('Rotor_Shaft_And_Bearing');
   this.weights={braceL:0,braceR:0,rotor:0,chassis:0};
+  // The grounded carriage (flightGroundCarriage.mjs): what each ground posture clip authors for the chassis, and the
+  // chassis node it is laid on after everything else. Presentation only.
+  this.carriage=new FlightGroundCarriage();this.chassis=this.nodes.get('Main_Apparatus_Chassis')??null;
+  this.chassisRest=this.chassis?{p:this.chassis.position.clone(),q:this.chassis.quaternion.clone()}:null;
+  this.chassisTracks=new Map();
+  for(const name of [FLIGHT_CLIPS.idle,FLIGHT_CLIPS.walk,FLIGHT_CLIPS.sprint,FLIGHT_CLIPS.stop]){
+   const clip=clips.find(c=>c.name===name);if(!clip)continue;
+   const track=suffix=>clip.tracks.find(t=>t.name==='Main_Apparatus_Chassis.'+suffix)?.createInterpolant()??null;
+   this.chassisTracks.set(name,{duration:clip.duration,position:track('position'),quaternion:track('quaternion')});
+  }
+  this.authoredChassis=(name,time)=>{
+   const t=this.chassisTracks.get(name);if(!t||!this.chassisRest)return null;
+   const at=Math.max(0,Math.min(t.duration,name===FLIGHT_CLIPS.stop?time:((time%t.duration)+t.duration)%t.duration));
+   const restQ=this.chassisRest.q;
+   const q=t.quaternion?new THREE.Quaternion().fromArray(t.quaternion.evaluate(at)).premultiply(restQ.clone().invert()):new THREE.Quaternion();
+   return{y:t.position?t.position.evaluate(at)[1]-this.chassisRest.p.y:0,q:[q.x,q.y,q.z,q.w]};
+  };
+ }
+ // The grounded carriage's offset, laid on the chassis after the composition (which puts every animated node back
+ // to its rest at the start of each frame, the chassis among them: so this never accumulates, and whatever a
+ // wreck clip has done to the chassis stands).
+ applyCarriage(m,plan,dt){
+  if(!this.chassis)return;
+  const offset=this.carriage.update(m,plan?.posture??null,dt,this.authoredChassis);
+  this.carriageOffset=offset;this.carriageQ=null;
+  if(offset.weight<=0)return;
+  this.carriageQ=new THREE.Quaternion(offset.q[0],offset.q[1],offset.q[2],offset.q[3]);
+  this.chassis.position.y+=offset.y;
+  this.chassis.quaternion.multiply(this.carriageQ);
+ }
+ // Where a node hung from the chassis would be without the grounded carriage: the aiming eye stays where the
+ // authority has it, however the machine rocks under the rider.
+ steadyWorldPosition(node,out=new THREE.Vector3()){
+  node.getWorldPosition(out);
+  if(!this.chassis?.parent||!this.carriageQ)return out;
+  // out of the rocked chassis, and back through the chassis as it was before the rock was laid on
+  const local=this.chassis.worldToLocal(out);
+  const steadyQ=this.chassis.quaternion.clone().multiply(this.carriageQ.clone().invert());
+  local.multiply(this.chassis.scale).applyQuaternion(steadyQ).add(this.chassis.position);local.y-=this.carriageOffset.y;
+  return local.applyMatrix4(this.chassis.parent.matrixWorld);
  }
  update(m,now,dt,operator,ejectionAt){
   if(this.id!==m.id){this.id=m.id;this.lastSword=null;this.weights={braceL:0,braceR:0,rotor:0,chassis:0};}
@@ -17,7 +58,7 @@ export class FlightRigAnimation{
    p.sample(plan.wreck,()=>true,{transition:'wreck'});
    // Operator release is a visual harness reaction. Server already detached him.
    if(!m.operatorId&&now-m.destroyedAt<.75)p.sample({clip:'Operator_Release_Harness_Open_And_Clearance',time:now-m.destroyedAt},k=>k.startsWith('operator_root_anchor.')||/operator_waist|operator_shoulder/.test(k));
-   p.end();return plan;
+   p.end();this.applyCarriage(m,plan,dt);return plan;
   }
   p.sample(plan.posture,k=>['posture','rider'].includes(flightChannelOwner(k)),{transition:'posture'});
   const phase=(((m.rotorAngle??0)/(2*Math.PI))%1+1)%1;
@@ -73,7 +114,7 @@ export class FlightRigAnimation{
    }
    if(name.includes('Thermal'))node.visible=Boolean(m.terminalDive&&!m.terminalDive.resolved)||m.health<75||m.rotorHP<=0&&now-(m.rotorDestroyedAt??0)<2.4;
   }
-  p.end();return plan;
+  p.end();this.applyCarriage(m,plan,dt);return plan;
  }
  grips(){
   const point=name=>this.nodes.get(name)?.getWorldPosition(new THREE.Vector3());

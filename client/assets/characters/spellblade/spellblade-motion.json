@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "sha256": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687",
+  "bytes": 316588,
+  "canonicalSha256": "b43e5c3fb0c60a0a722577e0fad266efb3eef0f260fd88698e81192f41d10e80",
+  "candidateSha256": "9dae42a815f4108afab4fdab95673293422283b677ea97f06ac0375ba50516a1",
+  "fps": 30,
+  "pelvisLiftM": {
+    "riposte": 0.0723,
+    "whirl": 0.0526
+  },
+  "clips": [
+    {
+      "name": "Slash_1",
+      "durationSec": 0.7667,
+      "frames": 24,
+      "source": "canonical lower body and raise + Argon Slash_1 upper body (cut, finish) + derived recovery",
+      "lowestSoleM": -0.005
+    },
+    {
+      "name": "Technique_RigidRiposte_Enter",
+      "durationSec": 0.1,
+      "frames": 4,
+      "source": "Argon Technique_RigidRiposte_Enter, pelvis +0.0723 m",
+      "lowestSoleM": 0.033
+    },
+    {
+      "name": "Technique_RigidRiposte_Interception",
+      "durationSec": 0.22,
+      "frames": 8,
+      "source": "Argon Technique_RigidRiposte_Interception, pelvis +0.0723 m",
+      "lowestSoleM": 0.016
+    },
+    {
+      "name": "Technique_RigidRiposte_Thrust",
+      "durationSec": 0.26,
+      "frames": 9,
+      "source": "Argon Technique_RigidRiposte_Thrust, pelvis +0.0723 m",
+      "lowestSoleM": 0
+    },
+    {
+      "name": "Technique_RigidRiposte_Recovery",
+      "durationSec": 0.35,
+      "frames": 12,
+      "source": "Argon Technique_RigidRiposte_Recovery, pelvis +0.0723 m",
+      "lowestSoleM": 0.021
+    },
+    {
+      "name": "Technique_RigidRiposte_Parried",
+      "durationSec": 0.68,
+      "frames": 22,
+      "source": "Argon Technique_RigidRiposte_Parried, pelvis +0.0723 m",
+      "lowestSoleM": 0.005
+    },
+    {
+      "name": "Technique_RigidRiposte_Air",
+      "durationSec": 0.72,
+      "frames": 23,
+      "source": "Argon Technique_RigidRiposte_Air, pelvis +0.0723 m",
+      "lowestSoleM": 0.008
+    },
+    {
+      "name": "Technique_Whirl_Enter",
+      "durationSec": 0.2,
+      "frames": 7,
+      "source": "Argon Technique_Whirl_Enter, pelvis +0.0526 m",
+      "lowestSoleM": 0
+    },
+    {
+      "name": "Technique_Whirl_Revolution",
+      "durationSec": 0.6,
+      "frames": 19,
+      "source": "Argon Technique_Whirl_Revolution, pelvis +0.0526 m",
+      "lowestSoleM": 0
+    },
+    {
+      "name": "Technique_Whirl_GaleLift",
+      "durationSec": 0.6,
+      "frames": 19,
+      "source": "Argon Technique_Whirl_GaleLift, pelvis +0.0526 m",
+      "lowestSoleM": 0.228
+    },
+    {
+      "name": "Technique_Whirl_Exit",
+      "durationSec": 0.25,
+      "frames": 9,
+      "source": "Argon Technique_Whirl_Exit, pelvis +0.0526 m",
+      "lowestSoleM": 0.002
+    },
+    {
+      "name": "Technique_Whirl_Interrupted",
+      "durationSec": 0.42,
+      "frames": 14,
+      "source": "Argon Technique_Whirl_Interrupted, pelvis +0.0526 m",
+      "lowestSoleM": 0.002
+    },
+    {
+      "name": "Technique_Whirl_AirRecovery",
+      "durationSec": 0.3,
+      "frames": 10,
+      "source": "Argon Technique_Whirl_AirRecovery, pelvis +0.0526 m",
+      "lowestSoleM": -0.003
+    }
+  ]
+}
