@@ -1,5 +1,5 @@
-import {biByeDeploymentSupport} from './biByeTerrain.mjs';
-import {biByeCondition} from './biByeComponents.mjs';
+import {biByeDeployProgress,biByeAimPose} from './biByeComponents.mjs';
+import {interruptBiByeSupport} from './biByeWeapons.mjs';
 // Bounded authoritative impact response shared by the two heavy siege chassis.
 // All translation remains subject to each machine's existing terrain/collision solver.
 export const SIEGE_IMPACT=Object.freeze({
@@ -48,27 +48,45 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
  if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return false;
  const nx=normal?.x??0,nz=normal?.z??0,len=Math.hypot(nx,nz);
  if(len<.01)return false;
- const grounded=b.mode==='MOBILE',free=grounded?1:.45;
- recordSiegeImpact(room,b,now,{speed:speed*free,normal:{x:nx/len,z:nz/len},kind:grounded?'mobile-piston':'braced-piston',point});
- if(grounded){
-  const impulse=Math.min(SIEGE_IMPACT.mobileBallistaMaxSpeed,Math.max(0,speed)*SIEGE_IMPACT.mobileBallistaTransfer);
-  const old=b.externalVelocity??{x:0,z:0},x=old.x+nx/len*impulse,z=old.z+nz/len*impulse;
+ const mobile=b.mode==='MOBILE';
+ const braced=b.mode==='DEPLOYED'||b.mode==='DEPLOYING';
+ const energy=Math.max(0,speed);
+ const direction={x:nx/len,z:nz/len};
+ recordSiegeImpact(room,b,now,{speed:energy*(mobile?1:.45),normal:direction,
+   kind:mobile?'mobile-piston':'braced-piston',point});
+ const impulse=Math.min(SIEGE_IMPACT.mobileBallistaMaxSpeed,
+   energy*SIEGE_IMPACT.mobileBallistaTransfer);
+ if(mobile){
+  // Ordinary mobile chassis keeps its inertia; a ram NEVER plants its feet.
+  const old=b.externalVelocity??{x:0,z:0};
+  const x=old.x+direction.x*impulse,z=old.z+direction.z*impulse;
   const scale=Math.min(1,SIEGE_IMPACT.mobileBallistaMaxSpeed/Math.max(.001,Math.hypot(x,z)));
   b.externalVelocity={x:x*scale,z:z*scale};
-  // Braced against a real supported surface, a heavy blow plants the feet.
-  // On a ledge or with destroyed stabilizers the ram can only shove it.
-  if(speed>=SIEGE_IMPACT.forceOutriggersSpeed&&biByeCondition(b).canDeploy){
-   const support=biByeDeploymentSupport(b,room?.world);
-   if(support.ok){
-    // Preserve the initial shove and wheel roll for .28s before the
-    // stabilizers catch. Instant deployment would magically erase momentum.
-    b.forcedDeployAt=now+.28;
-    b.forcedOutriggersAt=now;
-    b.forcedOutriggersUntil=now+SIEGE_IMPACT.forcedHoldSec;
-    b.forcedOutriggersSource='so-fist';
-    room?.events?.push({type:'bibyeOutriggersForced',ballistaId:b.id,
-     source:'so-fist',point,at:now,until:b.forcedOutriggersUntil});
-   }
+ }else if(braced&&energy>=SIEGE_IMPACT.uprootOutriggersSpeed){
+  // The deployed legs are torn FREE, not magically planted harder.
+  // Use the actual retracting assembly animation so all observers see
+  // outriggers jerk out of the ground, then let the chassis skid.
+  const planted=biByeDeployProgress(b,now);
+  if(planted>.08){
+   const aim=biByeAimPose(b,now);
+   b.retractFrom=planted;
+   b.retractAim={yaw:aim.mainYaw,pitch:aim.mainPitch};
+   b.pendingIndependent=null;
+   b.pendingCoupledFromUpper=null;
+   interruptBiByeSupport(b,now);
+   b.mode='RETRACTING';
+   b.modeTransitionStartedAt=now;
+   b.modeTransitionEndsAt=now+SIEGE_IMPACT.uprootRetractSeconds*planted;
+   b.outriggersDislodgedAt=now;
+   b.outriggersDislodgedUntil=now+SIEGE_IMPACT.outriggerRecoverySec;
+   b.outriggersDislodgedSource='so-fist';
+   // Defer translational impulse until the legs physically clear the floor.
+   // The existing mobile solver will then enforce slope, walls, wheels and
+   // boundary checks before moving the machine or its mounted operator.
+   b.dislodgedImpulse={x:direction.x*impulse,z:direction.z*impulse};
+   b.speed=0;
+   room?.events?.push({type:'bibyeOutriggersUprooted',ballistaId:b.id,
+     source:'so-fist',point,at:now,until:b.outriggersDislodgedUntil});
   }
  }
  return true;
