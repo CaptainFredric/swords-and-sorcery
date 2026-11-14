@@ -91,8 +91,18 @@ try{
  await until(async()=>{const s=await observe();return s?.mode==='PRACTICE'&&s?.me?.id?s:false;},'isolated real-authority Inspection Practice host',180);
  assert.equal(await evaluate("window.__ssLink.local.player.siegeLoadout.biBye"),'lookAroundAndFindOut',
    'Practice player carries the selected third Skill; the idle machine remains default until mounted');
+ // The city's initial foundry location is beside a stone parapet. A full
+ // 360-degree *physical bow* must reject that obstruction. Stage the operator
+ // in Castleward's broad east meadow BEFORE building; use the real Practice
+ // foundry to choose a supported emplacement, rather than bypassing collision
+ // checks or relocating an already-mounted machine.
+ const openGround=await evaluate("window.__ssLink.stageInspectionActor({actorId:window.__ssRuntime.localAuth.id,position:{x:16,y:0,z:8,yaw:0}})");
+ assert.equal(openGround?.success,true,'open-ground player setup must use authorized inspection placement');
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await observe();return s?.ballista?s:false;},'real ballista built',100);
+ const realClearance=await evaluate("(async()=>{const mod=await import('/shared/sim/biByeSweep.mjs');const room=window.__ssLink.local.room,b=room.biByeLlista;return {clear:mod.biByeSweepClearance(b,room.world),x:b.x,y:b.y,z:b.z,heading:b.heading,world:room.worldId};})()");
+ console.log('[BI-BYE ACTUAL CLEARANCE]',JSON.stringify(realClearance));
+ assert.equal(realClearance.clear,true,'real Practice foundry must place the bow where its full authored revolution physically clears world geometry');
  // The original 26-clip donor must load, not the production v4.3 fallback.
  const inventory=await until(()=>evaluate("(() => {const b=window.__ssRuntime?.world?.biByeLlista;return b?.actions?.has('22_BiBye_A_Sharp_Turn')&&b.actions.has('23_BiBye_Look_Around_Spin_Loop')&&b.actions.has('24_BiBye_Look_Around_Reversed_Fire_Settle')&&b.actions.has('26_BiBye_Melee_Lowered_Stance')&&b.nodes.has('frame_sweep_volume_L')&&b.nodes.has('frame_sweep_volume_R')?{clips:b.actions.size,locators:true}:null;})()"),'original Argon v26 model and contact locators',100);
  proof.inventory=inventory;
