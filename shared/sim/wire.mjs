@@ -313,6 +313,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
+      sweepHeavyReadyAt:room.biByeLlista.sweepHeavyReadyAt??0,
+      lastSweepEndAt:room.biByeLlista.lastSweepEndAt??null,
       sweep:room.biByeLlista.sweep?{...room.biByeLlista.sweep,victims:undefined,machines:undefined}:null,
       impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
       outriggersDislodgedAt:Number.isFinite(room.biByeLlista.outriggersDislodgedAt)?room.biByeLlista.outriggersDislodgedAt:null,
