@@ -115,7 +115,7 @@ const SOLIDS = [
   // --- Approach Cover (pavises, barricades, crates, breastwork) ---
   // Put the flanking cover in side pockets, off the carriage's departure
   // lane. The central assault barricade stays destructive and unavoidable.
-  solid('cover-camp-barricade', [-12.0, -8.0], [0, 1.2], [-28, -27], { material: 'timber' }),
+  solid('cover-camp-barricade', [9.0, 13.0], [0, 1.2], [-28, -27], { material: 'timber' }),
   solid('cover-camp-pavise', [-7.0, -5.0], [0, 1.4], [-29.3, -28.3], { material: 'timber' }),
   solid('cover-approach-pillar-left', [-7.3, -5.8], [0, 2.8], [-20, -18]),
   solid('cover-approach-crates-right', [6.5, 8.5], [0, 1.4], [-19, -17], { material: 'timber' }),
