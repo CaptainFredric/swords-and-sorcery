@@ -282,7 +282,7 @@ button, input { touch-action: manipulation; }
 /* The newest kills are prepended by HUD.addFeed, so a bounded lane keeps
    the latest events readable without obscuring RAISE or the crosshair. */
 .touch-ui .kill-feed {
-  top:calc(var(--safe-t) + 72px);
+  top:var(--mobile-feed-top, calc(var(--safe-t) + 72px));
   right:calc(var(--safe-r) + 10px);
   width:min(215px, 28cqw);max-height:min(100px, 26cqh);
   overflow:hidden; text-align:right;font-size:10px;line-height:1.23;
@@ -294,13 +294,13 @@ button, input { touch-action: manipulation; }
     left:max(calc(var(--safe-l) + 242px), 37cqw);
     width:min(208px, 32cqw);
   }
-  .touch-ui .kill-feed {top:calc(var(--safe-t) + 68px);right:calc(var(--safe-r) + 7px);width:min(170px, 27cqw);}
+  .touch-ui .kill-feed {top:var(--mobile-feed-top, calc(var(--safe-t) + 68px));right:calc(var(--safe-r) + 7px);width:min(170px, 27cqw);}
 }
 @container app (max-width:540px) {
   /* Narrow portrait-turn devices cannot fit both panels side by side.
      The feed moves BELOW the compact objective, not over it. */
   .touch-ui .hud-status-stack {left:calc(var(--safe-l) + 235px);width:min(175px, 33cqw);}
-  .touch-ui .kill-feed {top:calc(var(--safe-t) + 142px);width:min(150px, 28cqw);}
+  .touch-ui .kill-feed {top:var(--mobile-feed-top, calc(var(--safe-t) + 142px));width:min(150px, 28cqw);}
 }
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
 .touch-ui .pointer-hint { top: 62%; padding: 12px 16px; font-size: 11px; }
