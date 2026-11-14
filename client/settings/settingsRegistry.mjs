@@ -256,6 +256,7 @@ registry
   .defineAction({ id: 'interact', label: 'Operate / Interact', group: 'Combat', keys: ['KeyT'] })
   .defineAction({ id: 'deploy', label: 'Deploy / Mobile Mode', group: 'Combat', keys: ['KeyB'] })
   .defineAction({ id: 'siegeSkill', label: 'Siege machine Skill', group: 'Siege', keys: ['KeyU'] })
+  .defineAction({ id: 'siegeSweep', label: 'Ballista: A Sharp Turn', group: 'Siege', keys: ['KeyV'] })
   .defineAction({ id: 'siegeWeapon', label: 'On foot: Technique / Ram: Finger Flick / Ballista: weapon focus / Flight: Bolt', group: 'Siege', keys: ['KeyX'] })
   .defineAction({ id: 'technique', label: 'Sword Technique (hold Whirl)', group: 'Abilities', keys: ['Mouse4'] })
   .defineAction({ id: 'siegeView', label: 'View: first/third person or siege optics', group: 'Interface', keys: ['KeyZ'] })
