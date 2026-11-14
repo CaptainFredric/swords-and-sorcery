@@ -40,7 +40,7 @@ export function biByeCombinedReady(b,now){
  * not its location. "coupled" is the ordinary upper-first volley; "skill"
  * is the distinct primed heavy-first atomic command. */
 export function biByeCombatView(b,now){
- if(b?.sweep)return {primary:{label:b.sweep.kind==='skill'?'STOP & FIRE':'SWEEPING',icon:'siegeSweep',description:b.sweep.kind==='skill'?'Stop, settle, and fire only loaded ammunition':'One committed lower-bow sweep'},secondary:null,secondaryDescription:null};
+ if(b?.sweep)return {primary:{label:b.sweep.phase==='settle'?'SETTLING':b.sweep.kind==='skill'?'STOP & FIRE':'SWEEPING',icon:'siegeSweep',description:b.sweep.kind==='skill'?'Stop, settle, and fire only loaded ammunition':'One committed lower-bow sweep'},secondary:null,secondaryDescription:null};
  const primed=b?.skill?.id==='boltToTheOccasion'&&b.skill.phase==='primed';
  const mainCoupled=b?.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'&&!primed;
  const secondary=primed&&biByeCombinedReady(b,now)?'skill':
