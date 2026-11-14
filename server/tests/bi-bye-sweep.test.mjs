@@ -75,10 +75,10 @@ test('interruptions restore legal ordinary turret aim and charge the machine Ski
 test('authored 22-to-23 transition does not teleport the physical traverse or lower the cradle instantly',()=>{
  const s=setup('lookAroundAndFindOut');
  assert.equal(issue(s,'siegeSkill').rejected,undefined);
- step(s,1,2.04);
+ step(s,1,2+2/30);
  const previous=s.b.sweep.angle,lower=s.b.sweep.lower;
  assert.equal(s.b.sweep.phase,'loop');
- step(s,2.04,2.04+1/30);
+ step(s,2+2/30,2+3/30);
  assert.ok(s.b.sweep.angle-previous<.22,'the handoff must advance by one physical 30Hz spin step');
  assert.ok(s.b.sweep.angle>previous,'rotation never reverses at handoff');
  assert.ok(s.b.sweep.lower-lower<.12,'the braced stance blends in, not a sudden jump');

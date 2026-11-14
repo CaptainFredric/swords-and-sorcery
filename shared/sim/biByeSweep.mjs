@@ -245,6 +245,12 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
    // not 360; preserve it rather than snapping 8 degrees at the boundary.
    s.phase='loop';s.loopAt=s.startedAt+BI_BYE_SWEEP.opening;
    s.loopStartAngle=p.angle;s.loopStartLower=p.lower;
+   // The first host tick may overshoot the 1.04s clip boundary. Consume
+   // that fractional time here rather than hiding it and jumping on the
+   // subsequent tick (important at both 30 and 120 Hz).
+   const over=Math.max(0,age-BI_BYE_SWEEP.opening);
+   next=p.angle+over*TAU/BI_BYE_SWEEP.loop;
+   lower=p.lower+(1-p.lower)*clamp(over/.12,0,1);
   }
  }else if(s.phase==='loop'){
   const loopAge=Math.max(0,now-s.loopAt);
