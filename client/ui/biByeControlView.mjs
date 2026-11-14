@@ -31,7 +31,7 @@ export function biByeCombinedReady(b,now){
    b.upperPending||b.upperQueued||b.pendingIndependent||
    b.mobileShotPendingAt!=null||b.combinedUpperPendingAt!=null||
    (b.coupling&&b.coupling!=='INDEPENDENT'))return false;
- if(b.smallBoltReady===false||now+1e-8<(b.smallBoltReadyAt??0))return false;
+ if(b.smallBoltReady===false||now+1e-8<(b.smallBoltReadyAt??0)||now+1e-8<(b.sweepHeavyReadyAt??0))return false;
  const lastI=b.skill.boltIReleasedAt??-Infinity;
  return now+1e-8>=lastI+SIEGE_SKILLS.boltToTheOccasion.interShotPrep;
 }
