@@ -1,0 +1,144 @@
+{
+  "baseline": true,
+  "frames": 859,
+  "fps": 59.9,
+  "errors": [],
+  "phases": {
+    "walk": {
+      "frames": 179,
+      "grounded": 179,
+      "topSpeed": 5.5,
+      "clips": [
+        "Posture_01_Grounded_Idle",
+        "Gait_02_Balance_Test_Brisk_Stride_5p5_mps"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0.0004,
+      "riderToHarnessGapSpanM": 0,
+      "riderFootToStirrupSpanM": 0,
+      "lowestStirrupM": 0.032,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    },
+    "sprint": {
+      "frames": 132,
+      "grounded": 132,
+      "topSpeed": 8.48,
+      "clips": [
+        "Gait_02_Balance_Test_Brisk_Stride_5p5_mps",
+        "Gait_03_Sprint_Stride_9p3_mps",
+        "Gait_04_Stride_To_Idle_Recovery",
+        "Posture_01_Grounded_Idle"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0.0003,
+      "riderToHarnessGapSpanM": 0,
+      "riderFootToStirrupSpanM": 0,
+      "lowestStirrupM": 0.033,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    },
+    "stop": {
+      "frames": 135,
+      "grounded": 135,
+      "topSpeed": 0,
+      "clips": [
+        "Posture_01_Grounded_Idle"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0,
+      "riderToHarnessGapSpanM": 0,
+      "riderFootToStirrupSpanM": 0,
+      "lowestStirrupM": 0.033,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    },
+    "turn": {
+      "frames": 199,
+      "grounded": 199,
+      "topSpeed": 5.49,
+      "clips": [
+        "Posture_01_Grounded_Idle",
+        "Gait_02_Balance_Test_Brisk_Stride_5p5_mps",
+        "Gait_04_Stride_To_Idle_Recovery"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0.0004,
+      "riderToHarnessGapSpanM": 0,
+      "riderFootToStirrupSpanM": 0,
+      "lowestStirrupM": 0.033,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    },
+    "takeoff": {
+      "frames": 118,
+      "grounded": 2,
+      "topSpeed": 0,
+      "clips": [
+        "Posture_01_Grounded_Idle",
+        "Posture_09_Ordinary_Small_Jump",
+        "Posture_04_Takeoff_To_Flight",
+        "Posture_10_Ascending_Hover_Descending"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0,
+      "riderToHarnessGapSpanM": 0,
+      "riderFootToStirrupSpanM": 0,
+      "lowestStirrupM": 0.032,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    },
+    "air": {
+      "frames": 42,
+      "grounded": 0,
+      "topSpeed": 0,
+      "clips": [
+        "Posture_10_Ascending_Hover_Descending",
+        "Posture_02_Controlled_Landing"
+      ],
+      "chassisBobM": 0,
+      "pitchMeanDeg": 0,
+      "pitchSpanDeg": 0,
+      "rollSpanDeg": 0,
+      "riderPelvisBobM": 0.5096,
+      "riderToHarnessGapSpanM": null,
+      "riderFootToStirrupSpanM": null,
+      "lowestStirrupM": 0.034,
+      "aimEyeHeightSpanM": 0,
+      "aimEyeAheadSpanM": 0,
+      "worstChassisStepM": 0,
+      "worstPitchStepDeg": 0,
+      "endWeight": 0
+    }
+  }
+}

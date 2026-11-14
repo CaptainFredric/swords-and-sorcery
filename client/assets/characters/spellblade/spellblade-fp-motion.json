@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "sha256": "ff7b20dc333c6633cae58a587e7dd1c55945e66c4b002f85bafc3ec2be44a225",
+  "bytes": 289116,
+  "canonicalSha256": "def9bf62a8b3c16f2974030d28db1ff395cc67425272699f0dc4fea1afda3dcf",
+  "candidateSha256": "1b12af5551b449ff25c8b6f75c4d1a661f6edd271a18a97e31c5eb4d743be904",
+  "fps": 60,
+  "clips": [
+    {
+      "name": "FP_Technique_RigidRiposte_Enter",
+      "durationSec": 0.1,
+      "frames": 7,
+      "source": "Argon FP_Technique_RigidRiposte_Enter, as authored"
+    },
+    {
+      "name": "FP_Technique_RigidRiposte_Interception",
+      "durationSec": 0.22,
+      "frames": 15,
+      "source": "Argon FP_Technique_RigidRiposte_Interception, as authored"
+    },
+    {
+      "name": "FP_Technique_RigidRiposte_Thrust",
+      "durationSec": 0.26,
+      "frames": 17,
+      "source": "Argon FP_Technique_RigidRiposte_Thrust, as authored"
+    },
+    {
+      "name": "FP_Technique_RigidRiposte_Recovery",
+      "durationSec": 0.35,
+      "frames": 22,
+      "source": "Argon FP_Technique_RigidRiposte_Recovery, as authored"
+    },
+    {
+      "name": "FP_Technique_RigidRiposte_Parried",
+      "durationSec": 0.68,
+      "frames": 42,
+      "source": "Argon FP_Technique_RigidRiposte_Parried, as authored"
+    },
+    {
+      "name": "FP_Technique_RigidRiposte_Air",
+      "durationSec": 0.72,
+      "frames": 45,
+      "source": "Argon FP_Technique_RigidRiposte_Air, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_Enter",
+      "durationSec": 0.2,
+      "frames": 13,
+      "source": "Argon FP_Technique_Whirl_Enter, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_Revolution",
+      "durationSec": 0.6,
+      "frames": 38,
+      "source": "Argon FP_Technique_Whirl_Revolution, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_GaleLift",
+      "durationSec": 0.6,
+      "frames": 38,
+      "source": "Argon FP_Technique_Whirl_GaleLift, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_Exit",
+      "durationSec": 0.25,
+      "frames": 16,
+      "source": "Argon FP_Technique_Whirl_Exit, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_Interrupted",
+      "durationSec": 0.42,
+      "frames": 27,
+      "source": "Argon FP_Technique_Whirl_Interrupted, as authored"
+    },
+    {
+      "name": "FP_Technique_Whirl_AirRecovery",
+      "durationSec": 0.25,
+      "frames": 16,
+      "source": "Argon FP_Technique_Whirl_AirRecovery, as authored"
+    }
+  ]
+}
