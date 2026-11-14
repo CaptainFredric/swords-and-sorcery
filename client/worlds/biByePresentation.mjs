@@ -2,6 +2,7 @@ import { BI_BYE_LLISTA_CONFIG as CONFIG } from '../../shared/sim/biByeLlista.mjs
 
 // Each layer has exclusive node ownership. All samples seek the presentation host clock.
 export function biByeAnimation(b, now) {
+  if (b.mode === 'DESTROYED') return { name:'12_BiBye_Damaged_Destroyed',time:Math.min(1.8,Math.max(0,now-(b.destroyedAt??now))) };
   if (b.sweep){
     const s=b.sweep;
     if(s.phase==='settle')return {name:'24_BiBye_Look_Around_Reversed_Fire_Settle',time:Math.max(0,now-(s.stopAt??now))};
@@ -10,7 +11,6 @@ export function biByeAnimation(b, now) {
   }
   if(b.sweepRecovery&&now<b.sweepRecovery.until)
     return {name:'24_BiBye_Look_Around_Reversed_Fire_Settle',time:Math.max(0,now-b.sweepRecovery.from)};
-  if (b.mode === 'DESTROYED') return { name:'12_BiBye_Damaged_Destroyed',time:Math.min(1.8,Math.max(0,now-(b.destroyedAt??now))) };
   if (b.state === 'RELOADING') return { name:'19_BiBye_Main_Winch_Reload_Only',time:Math.max(0,now-(b.reloadStartedAt??now)) };
   if (b.mainReleasedAt != null && now < (b.firedAt??0)+CONFIG.timing.recoilRecoveryDurationSec)
     return { name:'21_BiBye_Delayed_Shot2_Release_And_Recoil',time:Math.max(0,now-b.mainReleasedAt) };
