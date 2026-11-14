@@ -43,6 +43,9 @@ test('real front boarding is possible without stepping inside authored bow solid
  const p=room.addPlayer({id:'front',token:'front',name:'Front Pilot'},0);
  const b=room.biByeLlista=createBiByeLlista({x:0,y:0,z:-2,baseYaw:0,interactRadius:3.2});
  assert.equal(b.interactRadius,3.75,'older 3.2m world placement uses reachable radius');
+ const snap=serializeSnapshot(room,1,p.id);
+ assert.equal(snap.bibyeBallista.interactRadius,b.interactRadius,
+   'replicated MOUNT target and the real server gate must expose identical reach');
  // The real dual Chrome server recorded a non-penetrating station here:
  // a player at z=1.585 against the frontal bow, 3.585m away.
  p.position={x:0,y:0,z:1.585};
