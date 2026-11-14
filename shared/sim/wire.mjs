@@ -729,6 +729,30 @@ export function applyRoomCommand(room, player, message, time) {
       const mounted=Boolean(player.operatingFightFlightId||
         player.operatingRamId||player.operatingBallistaId);
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&mounted)return {};
+      // The touch HUD offers a named MOUNT action. Honor that exact choice,
+      // subject to the normal server-owned reach, occupancy and collision
+      // rules. A nearby ram or ballista must not steal a Fight-and-Flight tap.
+      // An ordinary desktop interact still uses the context-sensitive path
+      // below (ladders, HELLping passengers and nearby siege machines).
+      if(!mounted && message.machine != null){
+        if(player.hellpingCapturedBy||player.hellpingCarriedBy)
+          return {rejected:'Leave the current siege machine before boarding another.'};
+        if(player.restlessCarrying)
+          return {rejected:'Set down the siege ladder before mounting.'};
+        let boarded=false;
+        if(message.machine==='fight-and-flight'){
+          const reason=fightFlightMountProblem(room,room.fightFlight,player,time);
+          if(reason)return {rejected:reason};
+          boarded=mountFightFlight(room,room.fightFlight,player,time);
+        }else if(message.machine==='so-fist-ication'){
+          boarded=Boolean(room.soFistication&&mountSoFistication(room,room.soFistication,player,time));
+        }else if(message.machine==='bi-bye-llista'){
+          boarded=Boolean(room.biByeLlista&&mountBiByeLlista(room.biByeLlista,player,time));
+        }else return {rejected:'Unknown siege machine.'};
+        if(!boarded)return {rejected:'The selected siege machine cannot be boarded from here.'};
+        player.practiceUiFocus=false;
+        return {};
+      }
       if(room.soFistication && player.hellpingCarriedBy===room.soFistication.id)
        {exitHellpingHand(room,room.soFistication,player,time);return {}; }
       if(boardHellpingHand(room,room.soFistication,player,time))return {};

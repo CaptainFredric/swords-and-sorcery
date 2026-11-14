@@ -37,6 +37,35 @@ test('opening Practice controls never dismounts, resets, or teleports a mounted 
  assert.equal(m.ejectHoldStartedAt,2.1,'normal operator input resumes upon closing UI');
  cmd({type:'flightEject',down:false,cancel:true},2.2);
 });
+test('named Fight-and-Flight boarding reaches the selected machine without bypassing authority',()=>{
+ const {room,p,m,cmd}=setup();
+ // The HUD offers a concrete machine, not a generic attempt at all stations.
+ m.operatorId=null;p.operatingFightFlightId=null;
+ p.position={x:2.9,y:0,z:0};
+ assert.deepEqual(cmd({type:'siegeOperate',machine:'fight-and-flight'},1),{});
+ assert.equal(m.operatorId,p.id);
+ assert.equal(p.operatingFightFlightId,m.id);
+
+ // A stale or forged machine name must not change the pilot.
+ m.operatorId=null;p.operatingFightFlightId=null;
+ const invalid=cmd({type:'siegeOperate',machine:'unknown-machine'},2);
+ assert.match(invalid.rejected,/unknown siege machine/i);
+ assert.equal(m.operatorId,null);
+
+ // A named request must not bypass another mode's physical carry restriction.
+ p.restlessCarrying={length:1};
+ const burdened=cmd({type:'siegeOperate',machine:'fight-and-flight'},2.5);
+ assert.match(burdened.rejected,/set down the siege ladder/i);
+ assert.equal(m.operatorId,null);
+ p.restlessCarrying=null;
+
+ // Naming the selected machine does not grant a longer boarding reach.
+ p.position={x:5,y:0,z:0};
+ const distant=cmd({type:'siegeOperate',machine:'fight-and-flight'},3);
+ assert.match(distant.rejected,/closer to the cockpit/i);
+ assert.equal(m.operatorId,null);
+});
+
 test('stale Practice drawer focus cannot silently discard a NEW Mount request',()=>{
  const {room,p,m,cmd}=setup();
  // A previously dismissed drawer left a focus packet outstanding.

@@ -869,6 +869,7 @@ export class TouchControls {
       if (mounted) {
         if (this.buttons.interact) {
           this.buttons.interact.hidden = false;
+          delete this.buttons.interact.dataset.mountTarget;
           const label = this.buttons.interact.querySelector('span');
           const text = flight ? 'EJECT' : 'LEAVE';
           if (label && label.textContent !== text) label.textContent = text;
@@ -890,11 +891,18 @@ export class TouchControls {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'MOUNT') label.textContent = 'MOUNT';
+          // The MOUNT label and its command must name the same station.
+          // Without this, generic siegeOperate may select a different machine.
+          this.buttons.interact.dataset.mountTarget = nearFlight ? 'fight-and-flight'
+            : nearRam ? 'so-fist-ication' : 'bi-bye-llista';
           this.buttons.interact.setAttribute('aria-label',nearFlight?'Mount Fight-and-Flight':nearRam?'Operate ram':'Mount ballista');
         }
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       } else {
-        if (this.buttons.interact) this.buttons.interact.hidden = true;
+        if (this.buttons.interact) {
+          this.buttons.interact.hidden = true;
+          delete this.buttons.interact.dataset.mountTarget;
+        }
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       }
     }
@@ -1564,7 +1572,10 @@ export class TouchControls {
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
-    if (action === 'interact') {if(this.input.mountedFlight)this.input.flightEject?.(true);else this.input.interact?.();}
+    if (action === 'interact') {
+      if(this.input.mountedFlight)this.input.flightEject?.(true);
+      else this.input.interact?.(element?.dataset.mountTarget || null);
+    }
     if (action === 'deploy' && element?.getAttribute('aria-disabled') !== 'true') this.input.deploy?.();
     if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,`touch:${event.pointerId}`);else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
