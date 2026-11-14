@@ -16,6 +16,7 @@ import { drawWorldProps } from './kit/worldProps.mjs';
 import { FlameSet } from './kit/flames.mjs';
 import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.mjs';
 import { drawnFloors, flagstoneTexture } from './kit/surfaceTextures.mjs';
+import { createWind, hangCloth, hangingBannerGeometry } from './kit/wind.mjs';
 
 // (the fortress stands on a plateau over a valley at dusk: its land and sky are drawn round it, kit/backdrop.mjs)
 const OUTERWORKS_BACKDROP_RADIUS = 330;
@@ -76,10 +77,14 @@ export class OuterworksRenderer {
     this.torchLights = [];
     this.flames = [];
     this.banners = [];
+    // the evening wind off the valley (it moves the banners; it moves nothing a knight or a bolt can touch)
+    this.wind = createWind({ direction: [0.4, 0.92], strength: 1 });
     this.objectiveRings = [];
     this.currentObjective = null;
     this.localTeam = null;
     this.palisadeCollapseProgress = 0.0;
+    // what came down (or went up) since the runtime last looked, for its effects: takeImpacts()
+    this.impacts = [];
     this.portcullisOpenProgress = 0.0;
     this.disposed = false;
 
@@ -150,6 +155,8 @@ export class OuterworksRenderer {
         side: THREE.DoubleSide,
       }),
     };
+    hangCloth(this.materials.bannerCrimson, this.wind);
+    hangCloth(this.materials.bannerAzure, this.wind);
 
     // --- Floors, walls, earthworks and furnishings in the environment kit ---
     // (paving on the stone, trodden earth in the camps and the trench; coursed masonry on the walls, crowned where
@@ -198,6 +205,9 @@ export class OuterworksRenderer {
     this.backdrop = buildBackdrop(this.group, {
       footprint: [-27.5, 27, -60, 62], floorY: 0, sky: OUTERWORKS_LIGHTING.sky, mood: BACKDROP_MOODS.dusk,
       seed: 26, radius: OUTERWORKS_BACKDROP_RADIUS, materials: this.kit,
+      // (the land falls away lower here: at full height one smooth round hill rose like a dome over the inner gate and
+      // stood over every view down the fortress's length; lowered, the far peaks make the horizon)
+      hills: 0.45,
     });
 
     // --- Build Authoritative Ramps ---
@@ -510,7 +520,8 @@ export class OuterworksRenderer {
       const crossbar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.08), this.materials.brass);
       crossbar.position.y = 3.65;
       const bannerMat = i === 0 ? this.materials.bannerCrimson.clone() : this.materials.bannerAzure.clone();
-      const bannerCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.55), bannerMat);
+      hangCloth(bannerMat, this.wind, { amplitude: 0.07 });
+      const bannerCloth = new THREE.Mesh(hangingBannerGeometry(0.95, 1.55), bannerMat);
       bannerCloth.position.set(0, 2.85, 0.06);
       const finial = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), this.materials.brass);
       finial.position.y = 4.15;
@@ -567,7 +578,8 @@ export class OuterworksRenderer {
 
   #addWallBanner(x, y, z, faction = 'crimson', width = 1.2, height = 2.6) {
     const mat = faction === 'crimson' ? this.materials.bannerCrimson : this.materials.bannerAzure;
-    const banner = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+    // (hung from its rod, it billows in the wind: kit/wind.mjs)
+    const banner = new THREE.Mesh(hangingBannerGeometry(width, height), mat);
     banner.position.set(x, y, z);
     banner.userData = { phase: Math.random() * Math.PI * 2 };
     this.group.add(banner);
@@ -590,6 +602,13 @@ export class OuterworksRenderer {
     this.biByeServerTime = serverNow;
   }
 
+  /** What the fortress's own works did since last asked (a palisade landing, a portcullis lifting), once each. */
+  takeImpacts() {
+    const taken = this.impacts;
+    this.impacts = [];
+    return taken;
+  }
+
   setObjectiveState(objective, localTeam = null, serverTime = null) {
     this.currentObjective = objective ?? null;
     this.localTeam = localTeam;
@@ -604,7 +623,12 @@ export class OuterworksRenderer {
 
     // Palisade collapse animation (Phase 0 complete -> Redoubt fallen)
     const targetPalisade = activeIndex > 0 || completed ? 1.0 : 0.0;
+    const palisadeBefore = this.palisadeCollapseProgress;
     this.palisadeCollapseProgress += (targetPalisade - this.palisadeCollapseProgress) * 0.12;
+    // the moment the felled palisade strikes the paving: its whole length throws up dust (the runtime draws it)
+    if (palisadeBefore < 0.85 && this.palisadeCollapseProgress >= 0.85) {
+      this.impacts.push({ kind: 'collapse', material: 'timber', weight: 1, from: { x: -3.5, y: 0, z: 4.6 }, to: { x: 3.5, y: 0, z: 4.6 } });
+    }
     if (this.palisadeGroup) {
       this.palisadeGroup.rotation.x = this.palisadeCollapseProgress * (Math.PI / 2.05);
       this.palisadeGroup.position.y = -this.palisadeCollapseProgress * 0.45;
@@ -612,7 +636,12 @@ export class OuterworksRenderer {
 
     // Portcullis winch open animation (Phase 1 complete -> Gate breached)
     const targetPortcullis = completed ? 1.0 : 0.0;
+    const portcullisBefore = this.portcullisOpenProgress;
     this.portcullisOpenProgress += (targetPortcullis - this.portcullisOpenProgress) * 0.08;
+    // as the winch takes it up, grit shaken out of the gate's slot sifts down onto the gate passage
+    if (portcullisBefore < 0.04 && this.portcullisOpenProgress >= 0.04) {
+      this.impacts.push({ kind: 'sift', from: { x: -3.6, y: 4.4, z: 41.5 }, to: { x: 3.6, y: 4.4, z: 41.5, floorY: 0 } });
+    }
     if (this.portcullisGroup) {
       this.portcullisGroup.position.y = this.portcullisOpenProgress * 4.4;
     }
@@ -646,10 +675,11 @@ export class OuterworksRenderer {
       light.intensity = 2.2 + Math.sin(timeSec * 9.0 + light.userData.phase) * 0.25;
     }
 
-    // Banners fluttering
-    for (const cloth of this.banners) {
-      cloth.rotation.x = -0.06 * (0.5 + 0.5 * Math.sin(timeSec * 1.3 + cloth.userData.phase));
-    }
+    // the banners billow (their own shader: kit/wind.mjs)
+    this.wind.update(timeSec);
+    // the sky goes with the eye, as in the other arenas (left at the origin, its far side lay past the camera's reach
+    // from the fortress's ends and a dome of bare background showed through it over the inner gate)
+    if (camera && this.backdrop?.sky) this.backdrop.sky.position.copy(camera.position);
 
     // Ballista update
     if (this.biByeLlista) {

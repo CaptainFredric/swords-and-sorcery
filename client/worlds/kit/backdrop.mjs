@@ -63,7 +63,7 @@ function deadTree(batch, rand, { x, y, z, scale = 1 }) {
  * floorY: the arena's ground level. Returns the meshes added (for disposal) and the sky.
  */
 export function buildBackdrop(group, {
-  footprint, floorY = 0, sky, mood = BACKDROP_MOODS.dusk, seed = 1, radius = 330, depth = 18, materials,
+  footprint, floorY = 0, sky, mood = BACKDROP_MOODS.dusk, seed = 1, radius = 330, depth = 18, materials, hills: hillScale = 1,
 }) {
   const rand = seededRandom(seed);
   const batch = createBatch();
@@ -78,7 +78,8 @@ export function buildBackdrop(group, {
   const heightAt = (x, z) => {
     const d = outside(x, z);
     const roll = (valueNoise(x * 0.025, z * 0.025, seed) - 0.5) * 7 + (valueNoise(x * 0.08, z * 0.08, seed + 3) - 0.5) * 2;
-    const hills = smooth((d - 60) / 170) * (26 + valueNoise(x * 0.012, z * 0.012, seed + 7) * 34);
+    // (hillScale: how high the land rises toward the horizon; a near hill can loom over a long arena's end)
+    const hills = smooth((d - 60) / 170) * (26 + valueNoise(x * 0.012, z * 0.012, seed + 7) * 34) * hillScale;
     return valleyY + roll * smooth((d - skirt) / 25) + hills;
   };
   const [grassA, grassB, grassC] = mood.grass;
@@ -162,7 +163,9 @@ export function buildBackdrop(group, {
     const r = radius * (0.92 + rand() * 0.2);
     const [x, z] = [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
     const h = 60 + rand() * 70;
-    batch.stone.prism({ cx: x, cy: heightAt(x, z) - 6, cz: z, radiusBottom: 45 + rand() * 40, radiusTop: 2 + rand() * 6, height: h, sides: 5 + Math.floor(rand() * 3), color: shadeColor(mood.far, 0.85 + rand() * 0.25), rand, rotY: rand() * 3 });
+    // (a peak, not a plateau: a broad one with an eight-metre top, fogged pale, read from inside a fortress as a dome)
+    const broad = 45 + rand() * 40;
+    batch.stone.prism({ cx: x, cy: heightAt(x, z) - 6, cz: z, radiusBottom: broad, radiusTop: 1 + rand() * 2.5, height: Math.max(h, broad * 1.1), sides: 5 + Math.floor(rand() * 3), color: shadeColor(mood.far, 0.85 + rand() * 0.25), rand, rotY: rand() * 3 });
   }
   // other forges on the horizon: chimneys with a glow at their tops (the forge country only)
   const glows = [];

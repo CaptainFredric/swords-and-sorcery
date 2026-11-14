@@ -9,6 +9,8 @@ import { banner, brazier, cottage, createBatch, hedgerow, masonry, palisade, run
 import { floorTile, outerTerrain, scatterGroundDetail } from './kit/kitTerrain.mjs';
 import { archeryTarget, barrel, crate, flowers, lanternPost, pavilion, pennant, sacks, strawBales, weaponRack, woodpile } from './kit/kitProps.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
+import { chimneySmoke } from './kit/chimneySmoke.mjs';
+import { createWind, crownWeight, flutterCloth, nearestHolder, poleWeight, setWindWeights, swayFoliage } from './kit/wind.mjs';
 
 // Late afternoon over Castleward: a warm low sun, a neutral sky fill and a honey haze. The game runtime applies the
 // hemisphere and sun from here (the other worlds keep the default moonlit presentation).
@@ -52,8 +54,16 @@ export class CastlewardRenderer {
 
   #build() {
     this.materials = kitMaterials();
+    // the wind over the land: tree crowns sway and pennants ripple (kit/wind.mjs; drawn, never collided with)
+    this.wind = createWind({ direction: [0.75, -0.66] });
+    this.materials.canopy = swayFoliage(this.materials.foliage.clone(), this.wind);
+    this.materials.flag = flutterCloth(this.materials.cloth.clone(), this.wind);
+    this.treeHolders = [];
+    this.poleHolders = [];
     const rand = seededRandom(1337);
     const batch = createBatch();
+    batch.canopy = new FacetBuilder();
+    batch.flag = new FacetBuilder();
     this.solidsById = new Map(CASTLEWARD.solids.map((solid) => [solid.id, solid]));
 
     // each floor leaves out what an earlier one at the same height already covers (no shared, flickering planes)
@@ -62,7 +72,10 @@ export class CastlewardRenderer {
         minX: other.center[0] - other.size[0] / 2, maxX: other.center[0] + other.size[0] / 2,
         minZ: other.center[2] - other.size[2] / 2, maxZ: other.center[2] + other.size[2] / 2,
       }));
-      floorTile(batch, floor, this.decor.paths, rand, covers, (x, z) => this.#groundShade(x, z, floor.y));
+      // grass and earth on a half-metre grid, their seams feathered into one another; paving keeps its own setts
+      const soft = floor.material !== 'stone';
+      floorTile(batch, floor, this.decor.paths, rand, covers, (x, z) => this.#groundShade(x, z, floor.y),
+        soft ? { cell: 0.5, tint: (x, z, color) => this.#featherSeam(floor, x, z, color) } : {});
     });
     // tufts, pebbles and a few flowers over the grass and earth (their own seeded stream: the rest of the build is
     // unchanged by them)
@@ -82,12 +95,37 @@ export class CastlewardRenderer {
       this.banners.push(mesh);
     }
     this.#sky();
+    // the village is lived in: a hearth lit in every cottage, its smoke leaning with the wind
+    this.smoke = chimneySmoke(this.group, this.chimneys ?? [], { wind: [0.75, -0.66] });
 
     const shadowless = new Set(['ground']);
     for (const [name, builder] of Object.entries(batch)) {
       if (!builder.triangleCount) continue;
-      this.group.add(facetMesh(builder, this.materials[name], { castShadow: !shadowless.has(name), receiveShadow: true, name: `castleward-${name}` }));
+      const mesh = facetMesh(builder, this.materials[name], { castShadow: !shadowless.has(name), receiveShadow: true, name: `castleward-${name}` });
+      // what the wind may move, and how far from what holds it
+      if (name === 'canopy') { const near = nearestHolder(this.treeHolders); setWindWeights(mesh.geometry, (x, y, z) => crownWeight(near(x, z), x, y, z)); }
+      if (name === 'flag') { const near = nearestHolder(this.poleHolders, 3); setWindWeights(mesh.geometry, (x, y, z) => poleWeight(near(x, z), x, y, z)); }
+      this.group.add(mesh);
     }
+  }
+
+  // where a grass floor meets an earth one at the same height, neither stops on a ruled line: the road's dirt spills a
+  // ragged half-metre into the turf and the turf creeps back over the road's edge, meeting half and half at the seam
+  #featherSeam(floor, x, z, color) {
+    const other = floor.material === 'grass' ? 'earth' : floor.material === 'earth' ? 'grass' : null;
+    if (!other) return;
+    let d = Infinity;
+    for (const f of CASTLEWARD.floors) {
+      if (f === floor || f.material !== other || Math.abs(f.y - floor.y) > 0.05) continue;
+      const dx = Math.max(0, Math.abs(x - f.center[0]) - f.size[0] / 2);
+      const dz = Math.max(0, Math.abs(z - f.center[2]) - f.size[2] / 2);
+      d = Math.min(d, Math.hypot(dx, dz));
+    }
+    const reach = 1.3 * (0.6 + 0.8 * valueNoise(x * 0.9, z * 0.9, 77));
+    if (d >= reach) return;
+    const t = 1 - d / reach;
+    const toward = other === 'earth' ? shadeColor(P.earth, 0.92) : shadeColor(P.grass, 0.95);
+    color.lerp(toward, 0.5 * t * t * (3 - 2 * t));
   }
 
   // the ground at the foot of a wall, a house or a hedge is darker (the lee of it: shade, damp, trodden dirt), fading
@@ -187,7 +225,9 @@ export class CastlewardRenderer {
     if (id.startsWith('south-gate-')) return this.#gateTower(batch, rand, solid, 5.4);
     if (id.startsWith('west-house-')) {
       const roof = id === 'west-house-south' ? 'slate' : 'thatch';
-      return cottage(batch, rand, solid, { roof, door: id === 'west-house-south' ? '+z' : '-z' });
+      const built = cottage(batch, rand, solid, { roof, door: id === 'west-house-south' ? '+z' : '-z' });
+      if (built?.chimney) (this.chimneys ??= []).push(built.chimney);
+      return built;
     }
     if (id === 'market-well') return this.#well(batch, rand, solid);
     if (id === 'market-stall-base') return this.#stall(batch, rand, solid);
@@ -367,11 +407,15 @@ export class CastlewardRenderer {
 
   #scenery(batch, rand) {
     for (const item of [...this.decor.trees, ...this.decor.forest]) {
-      tree(batch, rand, { x: item.x, y: this.heightAt(item.x, item.z), z: item.z, scale: item.scale, kind: item.kind });
+      const y = this.heightAt(item.x, item.z);
+      // (the crown on the swaying layer, the trunk on the timber one)
+      tree({ ...batch, foliage: batch.canopy }, rand, { x: item.x, y, z: item.z, scale: item.scale, kind: item.kind });
+      this.treeHolders.push({ x: item.x, y, z: item.z, scale: item.scale, kind: item.kind });
     }
     for (const house of this.decor.houses) {
       const y = this.heightAt(house.x, house.z);
-      cottage(batch, rand, box([house.x, y + house.sy / 2 - 0.1, house.z], [house.sx, house.sy, house.sz]), { roof: house.roof, door: '+z' });
+      const built = cottage(batch, rand, box([house.x, y + house.sy / 2 - 0.1, house.z], [house.sx, house.sy, house.sz]), { roof: house.roof, door: '+z' });
+      if (built?.chimney) (this.chimneys ??= []).push(built.chimney);
     }
   }
 
@@ -426,7 +470,8 @@ export class CastlewardRenderer {
         // raised from the top of the gatepost it stands on
         const post = CASTLEWARD.solids.find((solid) => Math.abs(solid.center[0] - prop.x) < 0.1 && Math.abs(solid.center[2] - prop.z) < 0.1);
         const base = post ? post.center[1] + post.size[1] / 2 + 0.3 : 0;
-        pennant(batch, rand, { x: prop.x, y: base, z: prop.z, height: prop.height - base, facing: Math.PI / 2 });
+        pennant({ ...batch, cloth: batch.flag }, rand, { x: prop.x, y: base, z: prop.z, height: prop.height - base, facing: Math.PI / 2 });
+        this.poleHolders.push({ x: prop.x, z: prop.z });
       }
     }
   }
@@ -464,6 +509,8 @@ export class CastlewardRenderer {
   }
 
   update(timeSec, camera = null) {
+    this.wind?.update(timeSec);
+    this.smoke?.update(timeSec);
     for (const flame of this.flames) {
       const pulse = 0.9 + Math.sin(timeSec * 8.3 + flame.userData.phase) * 0.07 + Math.sin(timeSec * 13.1 + flame.userData.phase * 2) * 0.04;
       const s = flame.userData.scale;

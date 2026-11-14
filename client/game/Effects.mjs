@@ -157,6 +157,27 @@ function createCoreflagrationOrb() {
   return group;
 }
 
+// a random direction thrown out of a struck face: about `away` (horizontal-ish, toward the striker) if given, else
+// anywhere over the upper half; `lift` raises it
+function throwDirection(away, lift = 0.6) {
+  const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * lift + 0.2, Math.random() - 0.5);
+  if (away) dir.add(new THREE.Vector3(away.x, 0, away.z).normalize().multiplyScalar(1.2));
+  return dir.normalize();
+}
+
+// a grain of grit, a splinter or a blade of grass reaching the ground: one low skip, then it lies where it fell
+function settleOnFloor(transient) {
+  const { mesh, velocity } = transient;
+  mesh.position.y = transient.floorY;
+  if (velocity.y < -0.9) {
+    velocity.set(velocity.x * 0.35, -velocity.y * 0.22, velocity.z * 0.35);
+    return;
+  }
+  velocity.set(0, 0, 0);
+  transient.gravity = 0;
+  transient.spin = null;
+}
+
 export class Effects {
   constructor(scene, camera) {
     this.scene = scene;
@@ -377,6 +398,8 @@ export class Effects {
     tick = null,
     own = false,
     ownGeometry = false,
+    // floorY: the ground under it; it comes to rest there (a skip, then still) instead of falling on through
+    floorY = null,
   } = {}) {
     parent.add(mesh);
     if (fade) {
@@ -399,6 +422,7 @@ export class Effects {
       tick,
       own,
       ownGeometry,
+      floorY,
       baseScale: mesh.scale.clone(),
     });
     while (this.transients.length > this.maxTransients) this.#removeTransient(this.transients.shift());
@@ -718,13 +742,167 @@ export class Effects {
     this.#flashLight(at, 0xff9a50, 2.6, 0.12, 4);
   }
 
-  splinters(point, count = 10) {
-    const materials = [this.#basicMaterial(0x8a6a44), this.#basicMaterial(0xb89868)];
+  /**
+   * Timber struck: long pale slivers torn out of it (and a breath of sawdust). floorY: the ground under the blow, where
+   * they come to rest; away: the way out of the struck face (toward whoever struck it), if known.
+   */
+  splinters(point, count = 10, { floorY = null, away = null } = {}) {
+    this.splinterGeometry ??= new THREE.BoxGeometry(0.018, 0.018, 0.12);
+    const materials = [this.#basicMaterial(0x8a6a44), this.#basicMaterial(0xc4a476)];
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
+      const mesh = new THREE.Mesh(i % 3 ? this.splinterGeometry : this.chipGeometry, materials[i % 2]);
+      mesh.position.set(point.x, point.y, point.z);
+      mesh.scale.setScalar(0.7 + Math.random() * 0.6);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      const dir = throwDirection(away, 0.7);
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(2 + Math.random() * 2.5), life: 0.55 + Math.random() * 0.35, gravity: 9, spin: new THREE.Vector3(9, 6, 7), floorY, shrink: floorY === null });
+    }
+    this.#contactPuff(point, 0xc9b48f, { size: 0.28, rise: 0.15, life: 0.45, velocity: away ? throwDirection(away, 0.2).multiplyScalar(0.6) : null });
+  }
+
+  /**
+   * Stone struck: flakes of it knocked off (grey, tumbling, coming to rest on the ground under it) and a little
+   * powdered stone off the face. Drawn with the sparks, not instead of them.
+   */
+  stoneChips(point, count = 6, { floorY = null, away = null } = {}) {
+    const materials = [this.#basicMaterial(0x8e897d), this.#basicMaterial(0xb7b2a5)];
     for (let i = 0, n = this.#many(count); i < n; i += 1) {
       const mesh = new THREE.Mesh(this.chipGeometry, materials[i % 2]);
       mesh.position.set(point.x, point.y, point.z);
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.7 + 0.2, Math.random() - 0.5).normalize();
-      this.#addTransient(mesh, { velocity: dir.multiplyScalar(2 + Math.random() * 2.5), life: 0.45 + Math.random() * 0.3, gravity: 9, spin: new THREE.Vector3(9, 6, 7) });
+      mesh.scale.setScalar(0.6 + Math.random() * 0.9);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      const dir = throwDirection(away, 0.55);
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(1.6 + Math.random() * 2.2), life: 0.6 + Math.random() * 0.35, gravity: 11, spin: new THREE.Vector3(11, 8, 9), floorY, shrink: floorY === null });
+    }
+    this.#contactPuff(point, 0xd3cec2, { size: 0.3, rise: 0.1, life: 0.5, velocity: away ? throwDirection(away, 0.15).multiplyScalar(0.5) : null });
+  }
+
+  // a soft puff of whatever the ground (or wall) is made of: a sprite, one material per colour, faded out as it spreads
+  #contactPuff(point, color, { size = 0.3, rise = 0.3, life = 0.5, velocity = null, expand = 1.9, drag = 3 } = {}) {
+    this.contactDustMaterials ??= new Map();
+    if (!this.contactDustMaterials.has(color)) {
+      this.contactDustMaterials.set(color, new THREE.SpriteMaterial({ map: puffTexture(), color, transparent: true, opacity: 0.3, depthWrite: false }));
+    }
+    const puff = new THREE.Sprite(this.contactDustMaterials.get(color));
+    puff.position.set(point.x + (Math.random() - 0.5) * 0.12, point.y + 0.06, point.z + (Math.random() - 0.5) * 0.12);
+    puff.scale.setScalar(size);
+    const v = velocity ? velocity.clone() : new THREE.Vector3((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3);
+    v.y += rise;
+    this.#addTransient(puff, { velocity: v, life, expand, fade: true, drag });
+  }
+
+  /** How many effects are alive, as a share of what the budget allows (footfalls give way to the fight's own). */
+  effectLoad() {
+    return this.transients.length / Math.max(1, this.maxTransients);
+  }
+
+  /**
+   * A foot coming down (groundContact.footfallPlan): a low puff of the ground's own dust left behind the heel, on
+   * grass at a run a blade flicked up, on a dry road or paving at a sprint two grains of grit. back: the way the
+   * knight came from (the puff drifts that way), if known.
+   */
+  footfall(point, plan, { back = null } = {}) {
+    if (!plan) return;
+    const behind = back ? new THREE.Vector3(back.x, 0, back.z).normalize() : null;
+    for (let i = 0; i < plan.puffs; i += 1) {
+      const drift = behind ? behind.clone().multiplyScalar(0.35 + Math.random() * 0.25) : null;
+      if (drift) { drift.x += (Math.random() - 0.5) * 0.25; drift.z += (Math.random() - 0.5) * 0.25; }
+      this.#contactPuff(point, plan.color, { size: plan.size * (0.85 + Math.random() * 0.3), rise: plan.rise, life: plan.life, velocity: drift });
+    }
+    for (let i = 0; i < plan.blades; i += 1) {
+      const blade = new THREE.Mesh(this.grassGeometry, this.grassMaterials[i % 2]);
+      blade.position.set(point.x + (Math.random() - 0.5) * 0.15, point.y + 0.04, point.z + (Math.random() - 0.5) * 0.15);
+      blade.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      const fling = new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.1 + Math.random() * 0.6, (Math.random() - 0.5) * 0.8);
+      if (behind) fling.addScaledVector(behind, 0.6);
+      this.#addTransient(blade, { velocity: fling, life: 0.7, gravity: 6, drag: 1.2, spin: new THREE.Vector3(8, 10, 5), floorY: point.y + 0.01 });
+    }
+    this.#grit(point, plan.grit, plan.contact === 'stone' ? 0xa8a397 : 0x8f7656, { speed: 1.1, up: 1.3 });
+  }
+
+  /**
+   * A knight coming down hard (groundContact.landingPlan): a low ring of dust thrown out round the feet along the
+   * ground, grit or grass kicked up, and after a heavy one a slow pall of finer dust that hangs and settles back.
+   */
+  landing(point, plan) {
+    if (!plan) return;
+    const ring = this.#many(plan.ring);
+    for (let i = 0; i < ring; i += 1) {
+      const angle = (i / ring) * Math.PI * 2 + Math.random() * 0.5;
+      const out = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+      const at = { x: point.x + out.x * 0.25, y: point.y, z: point.z + out.z * 0.25 };
+      this.#contactPuff(at, plan.color, { size: plan.size * (0.8 + Math.random() * 0.4), rise: 0.12 + Math.random() * 0.15, life: 0.55 + Math.random() * 0.2,
+        velocity: out.multiplyScalar(plan.radius * (1.9 + Math.random() * 0.6)), expand: 2.5, drag: 3.6 });
+    }
+    for (let i = 0, n = this.#many(plan.blades); i < n; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const blade = new THREE.Mesh(this.grassGeometry, this.grassMaterials[i % 2]);
+      blade.position.set(point.x + Math.cos(angle) * 0.3, point.y + 0.04, point.z + Math.sin(angle) * 0.3);
+      blade.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      this.#addTransient(blade, { velocity: new THREE.Vector3(Math.cos(angle) * 1.4, 1.5 + Math.random() * 1.2, Math.sin(angle) * 1.4), life: 0.9, gravity: 6, drag: 1.1,
+        spin: new THREE.Vector3(8, 10, 5), floorY: point.y + 0.01 });
+    }
+    this.#grit(point, plan.grit, plan.contact === 'stone' ? 0xa8a397 : 0x8f7656, { speed: 1.8, up: 2.2 });
+    // the settling pall: a few broad, faint puffs rising slowly, spreading, and sinking back as they thin
+    for (let i = 0, n = this.#many(plan.settle); i < n; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const at = { x: point.x + Math.cos(angle) * 0.5, y: point.y + 0.05, z: point.z + Math.sin(angle) * 0.5 };
+      this.#contactPuff(at, plan.color, { size: plan.size * 1.6, rise: 0.35, life: 1.3 + Math.random() * 0.4,
+        velocity: new THREE.Vector3(Math.cos(angle) * 0.5, 0, Math.sin(angle) * 0.5), expand: 2.8, drag: 1.8 });
+    }
+  }
+
+  /**
+   * Something built coming down onto the ground (a barricade broken, a palisade felled): dust thrown out along the line
+   * where it landed, broken pieces of it kicked up and falling back, and a slow pall that hangs a moment and settles.
+   * from/to: the ends of that line on the ground; material: 'timber' | 'stone' | 'iron'; weight 0..1.
+   */
+  structureCollapse({ from, to, material = 'timber', weight = 1 }) {
+    if (!from || !to) return;
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const along = length > 1e-3 ? { x: (to.x - from.x) / length, z: (to.z - from.z) / length } : { x: 1, z: 0 };
+    const color = material === 'timber' ? 0xc4ab86 : 0xcfc8ba;
+    const n = this.#many(Math.round(Math.min(14, 4 + length * 1.4) * (0.5 + 0.5 * weight)));
+    for (let i = 0; i < n; i += 1) {
+      const t = (i + Math.random()) / n;
+      const at = { x: from.x + (to.x - from.x) * t, y: from.y, z: from.z + (to.z - from.z) * t };
+      // out to either side of the line, along the ground
+      const side = i % 2 ? 1 : -1;
+      const out = new THREE.Vector3(-along.z * side, 0, along.x * side).multiplyScalar(1.6 + Math.random() * 1.4);
+      this.#contactPuff(at, color, { size: 0.5 + Math.random() * 0.3, rise: 0.3 + Math.random() * 0.3, life: 0.8 + Math.random() * 0.3, velocity: out, expand: 2.6, drag: 2.8 });
+    }
+    const mid = { x: (from.x + to.x) / 2, y: from.y + 0.2, z: (from.z + to.z) / 2 };
+    if (material === 'timber') this.splinters(mid, Math.round(10 * weight), { floorY: from.y });
+    else this.stoneChips(mid, Math.round(8 * weight), { floorY: from.y });
+    for (let i = 0, k = this.#many(Math.round(2 + 3 * weight)); i < k; i += 1) {
+      const t = Math.random();
+      const at = { x: from.x + (to.x - from.x) * t, y: from.y + 0.1, z: from.z + (to.z - from.z) * t };
+      this.#contactPuff(at, color, { size: 0.9, rise: 0.45, life: 1.6 + Math.random() * 0.5, velocity: new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6), expand: 2.6, drag: 1.4 });
+    }
+  }
+
+  /** Grit and dust sifting down off something lifted or shaken (a portcullis winched up out of its slot). */
+  sift(from, to, { count = 10 } = {}) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
+      const t = Math.random();
+      const at = { x: from.x + (to.x - from.x) * t, y: from.y, z: from.z + (to.z - from.z) * t };
+      const grain = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(i % 2 ? 0x8a8478 : 0x6d665b));
+      grain.scale.setScalar(0.4 + Math.random() * 0.3);
+      grain.position.set(at.x, at.y, at.z);
+      this.#addTransient(grain, { velocity: new THREE.Vector3((Math.random() - 0.5) * 0.3, -0.5 * Math.random(), (Math.random() - 0.5) * 0.3), life: 1.1, gravity: 9, spin: new THREE.Vector3(6, 5, 4), floorY: to.floorY ?? null, shrink: to.floorY == null });
+      if (i % 3 === 0) this.#contactPuff({ x: at.x, y: at.y - 0.3, z: at.z }, 0xbdb6a8, { size: 0.35, rise: -0.25, life: 0.9, expand: 2.2, drag: 1.5 });
+    }
+  }
+
+  // grains of the ground kicked up and falling back onto it
+  #grit(point, count, color, { speed = 1.2, up = 1.4 } = {}) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const grain = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(color));
+      grain.scale.setScalar(0.45 + Math.random() * 0.35);
+      grain.position.set(point.x, point.y + 0.04, point.z);
+      const v = new THREE.Vector3(Math.cos(angle) * speed * (0.5 + Math.random() * 0.5), up * (0.6 + Math.random() * 0.5), Math.sin(angle) * speed * (0.5 + Math.random() * 0.5));
+      this.#addTransient(grain, { velocity: v, life: 0.75, gravity: 11, spin: new THREE.Vector3(9, 7, 8), floorY: point.y + 0.01 });
     }
   }
 
@@ -1677,6 +1855,7 @@ export class Effects {
       if (transient.drag) transient.velocity.multiplyScalar(Math.exp(-transient.drag * dt));
       if (transient.fade) transient.mesh.material.opacity = transient.mesh.userData.baseOpacity * Math.max(0, transient.life / transient.maxLife);
       transient.tick?.(transient.age);
+      if (transient.floorY !== null && transient.mesh.position.y < transient.floorY) settleOnFloor(transient);
 
       const scale = transientScale(transient.age, transient.maxLife, transient.expand, transient.shrink);
       transient.mesh.scale.copy(transient.baseScale).multiplyScalar(scale);
