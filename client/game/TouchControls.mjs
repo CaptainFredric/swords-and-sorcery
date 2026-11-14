@@ -348,6 +348,15 @@ export class TouchControls {
       !button.hidden&&button.getBoundingClientRect&&
       globalThis.getComputedStyle?.(button)?.display!=='none')
       .map(button=>button.getBoundingClientRect());
+    // A shifted touch target must not solve PRIME by landing on subtitles
+    // or the machine's health readout. These are display-only obstacles.
+    for(const selector of ['#subtitle','.machine-gauge']){
+      const element=globalThis.document?.querySelector?.(selector);
+      if(!element||element.hidden||!element.getBoundingClientRect||
+         globalThis.getComputedStyle?.(element)?.display==='none')continue;
+      if(selector==='#subtitle'&&!element.classList.contains('show'))continue;
+      other.push(element.getBoundingClientRect());
+    }
     const shift=clearTouchButtonOverlap(steel.getBoundingClientRect(),
       prime.getBoundingClientRect(),bounds,other);
     if(shift&&(shift.dx||shift.dy))
