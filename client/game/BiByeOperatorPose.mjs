@@ -57,7 +57,7 @@ export class BiByeOperatorPose {
   // The existing wrist IK runs AFTER this, retaining real handle contacts.
   const duck=biByeOperatorDuck(b,now);
   if(duck>0){
-   for(const [name,radians] of [['spine',-.48],['chest',-.18],['neck',.16],['head',-.12]]){
+   for(const [name,radians] of [['spine',-.62],['chest',-.24],['neck',.20],['head',-.12]]){
     const bone=this.bone(name);
     if(bone)bone.quaternion.multiply(_duckQ.setFromAxisAngle(_duckAxis,radians*duck));
    }
