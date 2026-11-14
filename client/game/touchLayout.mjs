@@ -129,6 +129,7 @@ export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
  siegeBoth:{right:64,bottom:102,size:60},
+  siegeSweep:{right:140,bottom:188,size:54},
  deploy:{right:68,top:56,size:48},
  siegeWeapon:{right:12,top:56,size:48},
 });
