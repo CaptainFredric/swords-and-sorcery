@@ -66,6 +66,7 @@ const BUTTONS = [
   { action: 'siegeView', label: 'VIEW' },
   { action: 'siegeWeapon', label: 'UPPER' },
   { action: 'siegeSkill', label: 'SKILL' },
+  { action: 'siegeSweep', label: 'SWEEP', icon: 'siegeSweep' },
   { action: 'siegeBoth', label: 'BOTH', icon: 'siegeBoth' },
   { action: 'flightRise', label: 'RISE', icon: 'rise' },
   { action: 'flightLower', label: 'LOWER', icon: 'lower' },
@@ -342,7 +343,7 @@ export class TouchControls {
     if(mode){
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
         ram?['attack','ramFlick','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
-        ballista?['attack','siegeSkill','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
+        ballista?['attack','siegeSkill','siegeSweep','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
         ['attack','guard','dash','jump','spell','ultimate','technique','crouch','gauntlet','interact','siegeView','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
         button.hidden=!visible.includes(action);
@@ -697,7 +698,7 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['siegeSweep','siegeSweep'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -1567,6 +1568,7 @@ export class TouchControls {
     if (action === 'deploy' && element?.getAttribute('aria-disabled') !== 'true') this.input.deploy?.();
     if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,`touch:${event.pointerId}`);else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
+    if (action === 'siegeSweep') this.input.siegeSweep?.();
     if (action === 'siegeBoth') {
       // Ordinary UPPER coupled fire and Skill-primed BOTH are different server
       // intents with opposite release order; never conflate the two.

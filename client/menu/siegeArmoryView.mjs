@@ -12,11 +12,12 @@ Castleward's engineers saw no need to settle for a single warning shot. The smal
   attacks:[
    {name:'BOLT I · FROST CONDITIONING',icon:'frostBolt',line:'Rapid-fire conditioning bolt that drenches targets in sudden glacial cold, slowing their advance.',facts:'18 frost / 2 m reach'},
    {name:'BOLT II · SIEGE CONCLUSION',icon:'boltII',line:'Massive high-velocity physical bolt engineered to dismantle stone defenses and armored formations.',facts:'85 physical impact'},
+   {name:'A SHARP TURN',icon:'siegeSweep',line:'Lower the main bow and commit to one genuine 360° articulated sweep. Hits only through the bow limbs; Guard mitigates damage and shove.',facts:'45 HP · physical sweep · stagger'},
    {name:'OUTRIGGER ANCHOR',icon:'deploy',line:'Deploy stabilizer legs for heavy bolt alignment, or pack them away for 6-wheel mobile repositioning.',facts:'Required for Bolt II alignment'}
   ],
   controls:{
-   desktop:'[W/A/S/D] Steer carriage · [R] Deploy / Pack outriggers · [Left Click] Bolt I · [Right Click / Space] Bolt II · [Tab] Weapon focus toggle · [U / Q] Skill · [F] Dismount',
-   touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
+   desktop:'[W/A/S/D] Steer carriage · [B] Deploy / Pack outriggers · [Left Click] Bolt I / deployed MAIN coupled volley · [K] A Sharp Turn · [Right Click] Bolt II only when Bolt to the Occasion is primed · [X] Weapon focus · [U] Equipped Skill · [T] Dismount',
+   touch:'Left Stick: Drive carriage · DEPLOY: Anchor/Pack · FIRE I: Frost bolt · FIRE II: Siege bolt · SWEEP: A Sharp Turn · WEAPON: Toggle focus · SKILL: Skill · DISMOUNT'
   }
  },
  {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN',
@@ -72,6 +73,7 @@ And it is nigh-unreachable.`,
 const EXPLANATIONS={
  boltToTheOccasion:'Prime independent heavy aiming, then release Bolt II on a second Skill press. Bolt I may fire in between.',
  coldHowTouching:'Skill activates Bolt I proximity frost detonation until the next real Bolt II release. No homing or added damage.',
+ lookAroundAndFindOut:'Sustain A Sharp Turn as a stationary bow spin. Fire to stop, settle and release only truly loaded ammunition. Press Skill to cancel; Bolt II is locked throughout rotation. The 24s cooldown begins when the action resolves.',
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
  longArmToTheJaw:'Fire the actual fist into the world. The exposed piston keeps working. Drive to the grounded fist, press Skill to retrieve, then recover for 24s. If lost to the abyss, return to deployment and dismount for locked, 24s restoration at the same fist HP.',
  hellpingHand:'Open the armored palm, then press Skill again to seize a nearby enemy. A facing Guard can resist; an unbroken grasp crushes over four seconds. An ally may willingly board with Interact, fight while riding, and exit with Interact. Press Skill to release; with the palm open and no target in reach, hold forward or reverse and press Skill to vault.',
@@ -83,7 +85,7 @@ export function siegeArmoryView(choice){
  const selected=normalizeSiegeLoadout(choice);
  return MACHINES.map(machine=>({...machine,skills:SIEGE_SKILL_OPTIONS[machine.id].map(id=>({
   id,name:SIEGE_SKILL_NAMES[id],line:EXPLANATIONS[id],
-  ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:{}),
+  ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:id==='lookAroundAndFindOut'?{icon:'siegeSweep'}:{}),
    ...(machine.id==='fightFlight'?{icon:id==='fireAwayRightHere'?'fireAway':id}:{}),
   equipped:selected[machine.id]===id
  }))}));

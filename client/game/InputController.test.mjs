@@ -845,3 +845,15 @@ test('Lightning release sends live pointer aim atomically, not an old movement-f
   assert.ok(Math.abs(packets[0].pitch-.4)<1e-9);
   assert.equal(packets[0].cancel,false);
 });
+
+test('mounted K invokes the separate innate bow sweep without invoking the V mark-target action',()=>{
+ const {input,down,up}=setup();
+ const sent=[];input.socket.send=message=>sent.push(message);
+ input.socket.markTarget=()=>sent.push({type:'markTarget'});
+ input.enabled=true;input.mountedBallista=true;
+ assert.deepEqual(input.bindings.siegeSweep,['KeyK']);
+ down('KeyK');up('KeyK');
+ assert.deepEqual(sent,[{type:'bibyeSharpTurn'}]);
+ input.mountedBallista=false;down('KeyK');up('KeyK');
+ assert.equal(sent.length,1,'the innate button has no unmounted effect');
+});

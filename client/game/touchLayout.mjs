@@ -129,6 +129,7 @@ export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
  siegeBoth:{right:64,bottom:102,size:60},
+  siegeSweep:{right:140,bottom:188,size:54},
  deploy:{right:68,top:56,size:48},
  siegeWeapon:{right:12,top:56,size:48},
 });
@@ -166,7 +167,13 @@ export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
     const saved=onFoot?.[action],original=DEFAULT_ON_FOOT_LAYOUT[action];
     const mirrored=original?mirrorLayoutHorizontal({[action]:original})[action]:null;
     const preset=mirrored&&Object.entries(mirrored).every(([k,v])=>saved?.[k]===v);
-    layout[action]=saved?.custom&&!preset?{...saved}:{...placement,custom:true};
+    // The on-foot VIEW factory placement was marked custom for onboarding.
+    // That flag alone must not override the ballista's nonoverlapping default
+    // VIEW position. Explicitly edited VIEW positions still win.
+    const untouchedOnFootView=machine==='biBye'&&action==='siegeView'&&
+      original&&Object.entries(original).every(([key,value])=>saved?.[key]===value);
+    layout[action]=saved?.custom&&!preset&&!untouchedOnFootView?
+      {...saved}:{...placement,custom:true};
   }
   return layout;
 }
