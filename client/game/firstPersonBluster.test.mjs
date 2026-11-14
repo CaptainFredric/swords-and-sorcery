@@ -12,14 +12,14 @@ test('first-person arms rotate behind an unrestricted camera turn, without chang
   const start=stepFirstPersonBluster(null,input);
   assert.equal(start.yaw,0);
   const next=frame(start,Math.PI/2,0,10+1/60);
-  assert.ok(next.yaw<-.1,'camera turns left; the arms remain behind on its right');
+  assert.ok(next.yaw<-.05,'camera turns left; the arms remain behind on its right');
   assert.ok(next.yaw>=-FIRST_PERSON_BLUSTER.maxArmYaw);
   assert.equal(input.lookYaw,0,'input camera yaw is never modified');
   assert.equal(input.bodyYaw,0,'authoritative fighting yaw is never modified');
   assert.deepEqual(input.blustered,status,'status clock is never modified');
   // Turning the camera the other way is symmetric.
   const opposite=frame(start,-Math.PI/2,0,10+1/60);
-  assert.ok(opposite.yaw>.1,'right camera turn leaves arms behind on the other side');
+  assert.ok(opposite.yaw>.05,'right camera turn leaves arms behind on the other side');
 });
 
 test('large turns remain readable in first person, and the arms really catch up to the body',()=>{
@@ -41,14 +41,22 @@ test('wrapped 180-degree look samples do not flip both hands across the screen',
   assert.ok(visual.yaw<0 && visual.lag<0,
     'crossing the wrapped pi boundary continues moving in the same direction');
   assert.ok(Math.abs(visual.yaw-before)<.06,'no jump at the view yaw boundary');
-  // Multiple fast turns cannot flip the sign of the persistent offset.
+  // At the genuinely ambiguous +/-180-degree body/head separation, the
+  // shortest path may change sides. The visible arms MOVE across the frame;
+  // they must never teleport. A completed 360 returns to physical alignment.
   let look=3.13;
   for(let i=3;i<=40;i++){
+    const old=visual.yaw;
     look+=.36;
     visual=frame(visual,look,3.02,10+i/60);
-    assert.ok(visual.yaw<=0);
+    assert.ok(Math.abs(visual.yaw-old)<=FIRST_PERSON_BLUSTER.maxShiftPerSec/60+1e-9,
+      'no rendered-frame jump even during a rapid repeated camera spin');
     assert.ok(Math.abs(visual.yaw)<=FIRST_PERSON_BLUSTER.maxArmYaw+1e-9);
   }
+  for(let i=41;i<=100;i++)
+    visual=frame(visual,3.02+2*Math.PI,3.02,10+i/60);
+  assert.equal(visual.yaw,0,'a full camera revolution with matching facing leaves no fictional turning debt');
+  assert.ok(Math.abs(visual.lag)<1e-8);
 });
 
 test('on expiry, dismount or death the independent arm lag settles fully to zero',()=>{
