@@ -80,12 +80,15 @@ test('each round stages the fights in another order: the first as written, never
   assert.deepEqual(lineupFor(0), ['slush', 'whirlwind', 'whiteFlag']);
   const seen = new Set();
   const slushAt = [];
-  for (let round = 1; round < 24; round += 1) {
+  // (the plain orders come round on the rounds no rarer fight has: the Gale Lift-Off Handover takes every sixth from
+  // the third, so it takes some forty rounds for all six)
+  for (let round = 1; round < 42; round += 1) {
     const lineup = lineupFor(round);
     assert.notDeepEqual(lineup, lineupFor(round - 1), `round ${round} changes the order`);
     assert.equal(new Set(lineup).size, 3, 'three different fights');
     assert.ok(lineup.every((name) => FIGHT_POOL[name]), 'all from the pool');
-    // the three of the first round, each once; now and then a rarer fight (the Slush, Sky-Bait) in one of their places
+    // the three of the first round, each once; now and then a rarer fight (the Slush, Sky-Bait, the Gale Lift-Off
+    // Handover) in one of their places
     const classic = lineup.filter((name) => ['fireball', 'whirlwind', 'whiteFlag'].includes(name));
     if (classic.length === 3) seen.add(lineup.join());
     if (lineup.includes('slush')) slushAt.push([round, lineup.indexOf('slush')]);
@@ -95,7 +98,7 @@ test('each round stages the fights in another order: the first as written, never
   assert.equal(seen.size, 6, 'every order comes round');
   // the Slush: the first round, then every third, at each of the stops in turn
   assert.ok(!lineupFor(1).includes('slush') && !lineupFor(2).includes('slush'));
-  assert.deepEqual(slushAt.map(([round]) => round), [3, 6, 9, 12, 15, 18, 21]);
+  assert.deepEqual(slushAt.map(([round]) => round), [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39]);
   assert.deepEqual(new Set(slushAt.map(([, slot]) => slot)), new Set([0, 1, 2]));
   // what varies within a fight from round to round: how many times the whirlwind goes round
   const turns = new Set(Array.from({ length: 20 }, (_, round) => FIGHT_POOL.whirlwind(roundRandom(round))[0].key));

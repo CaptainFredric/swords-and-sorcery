@@ -98,10 +98,13 @@ export function roundRandom(round) {
 
 // the rarer fights: a round now and then stages one in place of one of the three (the Slush: the first round, so a
 // visit to the front door opens with it, and every third round after; Sky-Bait's setup every third round from the
-// second; each at a stop that moves along with each)
+// second; the Gale Lift-Off Handover every sixth from the third, so a visit's first handover comes a couple of minutes
+// in, and the plain orders still come round; each at a stop that moves along with each, from its own `slot`). One that
+// `yields` is not tied to its rival: where the Sky-Bait payoff is owed at its stop, it moves to another
 export const RARE_FIGHTS = Object.freeze({
   slush: Object.freeze({ every: 3, from: 0 }),
   skyBait: Object.freeze({ every: 3, from: 1 }),
+  galeLiftoff: Object.freeze({ every: 6, from: 2, slot: 1, yields: true }),
 });
 
 /**
@@ -122,12 +125,21 @@ export function lineupFor(round, pool = FIGHT_POOL, { skyBaited = null } = {}) {
   // also comes round whole)
   const lineup = [...orders[(r + Math.floor(r / orders.length)) % orders.length]];
   const order = [...lineup];
-  for (const [name, { every, from }] of Object.entries(RARE_FIGHTS)) {
+  for (const [name, { every, from, slot = 0 }] of Object.entries(RARE_FIGHTS)) {
     if (!names.includes(name) || r < from || (r - from) % every) continue;
-    lineup[Math.floor((r - from) / every) % lineup.length] = name;
+    lineup[(Math.floor((r - from) / every) + slot) % lineup.length] = name;
   }
   if (Number.isInteger(skyBaited) && skyBaited >= 0 && skyBaited < lineup.length && names.includes('skyBaitPayoff')) {
     for (let slot = 0; slot < lineup.length; slot += 1) if (lineup[slot] === 'skyBait') lineup[slot] = order[slot];
+    // (a rarer fight that yields steps aside to another stop, one that is no rarer fight's own)
+    const there = lineup[skyBaited];
+    if (RARE_FIGHTS[there]?.yields) {
+      const free = [1, 2].map((step) => (skyBaited + step) % lineup.length).find((slot) => !(lineup[slot] in RARE_FIGHTS));
+      if (free !== undefined) {
+        lineup[free] = there;
+        lineup[skyBaited] = order[skyBaited];
+      }
+    }
     // (not over another rarer fight's stop, the Slush that opens a visit: he waits a round, still remembering)
     if (!(lineup[skyBaited] in RARE_FIGHTS)) lineup[skyBaited] = 'skyBaitPayoff';
   }

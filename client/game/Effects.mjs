@@ -513,11 +513,15 @@ export class Effects {
    * `point`, `spread` metres across. Restrained: a puff, never a cloud (fewer at a lower particle density).
    */
   steam(point, { count = 6, spread = 0.5, rise = 1.3 } = {}) {
+    // (a soft puff, not the faceted dust: steam drawn as dust read as hard white hexagons hanging over the heap)
+    this.steamMaterial ??= new THREE.SpriteMaterial({ map: puffTexture(), color: 0xeef5f8, transparent: true, opacity: 0.32, depthWrite: false });
     for (let i = 0; i < this.#many(count); i += 1) {
-      const at = { x: point.x + (Math.random() - 0.5) * spread, y: point.y + Math.random() * 0.3, z: point.z + (Math.random() - 0.5) * spread };
-      this.#dust(at, {
-        size: 1.1 + Math.random() * 0.9, life: 0.8 + Math.random() * 0.5, color: 0xeef5f8,
+      const puff = new THREE.Sprite(this.steamMaterial);
+      puff.position.set(point.x + (Math.random() - 0.5) * spread, point.y + Math.random() * 0.3, point.z + (Math.random() - 0.5) * spread);
+      puff.scale.setScalar(0.3 + Math.random() * 0.25);
+      this.#addTransient(puff, {
         velocity: new THREE.Vector3((Math.random() - 0.5) * 0.35, rise * (0.7 + Math.random() * 0.6), (Math.random() - 0.5) * 0.35),
+        life: 0.8 + Math.random() * 0.5, expand: 2.4, fade: true, drag: 2.5,
       });
     }
   }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { chunkOf, splitAt } from './tourChunks.mjs';
+import { createWindConeMaterial, createWindRibbonMaterial, windConeGeometry, windRibbonGeometry } from '../../game/galeVolume.mjs';
 
 // What happens to the Spellblade's rivals on his round, made of their own armour: a knight charred black, a knight
 // fallen apart into the pieces he was built from, a sword cut in two, a white flag, a knight frozen solid and melted
@@ -801,6 +802,75 @@ export function vesselProp(scene, { kind = 'cup', tint = [1, 1, 1] } = {}) {
       scene.remove(group);
       group.traverse((object) => object.geometry?.dispose?.());
       for (const m of owned) m.dispose();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------- wind
+/**
+ * The Gale Lift-Off's funnel: the Gale's own moving air (its cone of wind and the ribbons twisting round it, galeVolume
+ * .mjs) stood on end round a knight's feet, narrow at the ground and opening upward, turning as he turns. One body of
+ * air for the whole spin (three meshes, built once), not a gust a frame: `strength` (0..1) is how much of it there is,
+ * and it rises with him. update({ position, strength, turn, dt }); dispose().
+ */
+export function galeFunnel(scene, { height = 3.1, spread = 0.42 } = {}) {
+  const group = new THREE.Group();
+  group.name = 'tour-gale-funnel';
+  // (+z, the gust's way, turned to point up)
+  const body = new THREE.Group();
+  body.rotation.x = -Math.PI / 2;
+  group.add(body);
+  const shell = windConeGeometry(spread);
+  const heart = windConeGeometry(spread * 0.62);
+  const strands = windRibbonGeometry(spread * 1.05);
+  const outer = new THREE.Mesh(shell, createWindConeMaterial());
+  const inner = new THREE.Mesh(heart, createWindConeMaterial());
+  const ribbons = [0, 1].map(() => new THREE.Mesh(strands, createWindRibbonMaterial()));
+  for (const mesh of [outer, inner, ...ribbons]) {
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 2;
+    body.add(mesh);
+  }
+  Object.assign(outer.material.uniforms, { uFront: { value: 1.2 }, uSwirl: { value: 0.9 }, uNear: { value: 0.04 }, uRimFill: { value: 0.35 }, uHaze: { value: 0.02 } });
+  Object.assign(inner.material.uniforms, { uFront: { value: 1.2 }, uSwirl: { value: 1.3 }, uNear: { value: 0.04 }, uRimFill: { value: 0.15 }, uHaze: { value: 0.05 } });
+  ribbons[1].rotation.z = Math.PI;
+  group.visible = false;
+  scene.add(group);
+  let time = 0;
+  return {
+    group,
+    update({ position, strength = 0, turn = 0, dt = 0, visible = true }) {
+      const s = Math.max(0, Math.min(1, strength));
+      group.visible = visible && s > 0.01;
+      if (!group.visible) return;
+      time += dt * (0.6 + 1.4 * s);
+      group.position.copy(position);
+      // (it stands taller and opens wider as it gathers)
+      const tall = height * (0.55 + 0.45 * s);
+      body.scale.set(tall * (0.8 + 0.2 * s), tall * (0.8 + 0.2 * s), tall);
+      outer.rotation.z = -turn;
+      inner.rotation.z = -turn * 1.3;
+      ribbons.forEach((ribbon, k) => {
+        ribbon.rotation.z = -turn * 1.15 + k * Math.PI;
+        const u = ribbon.material.uniforms;
+        u.uHead.value = ((time * 1.6 + k * 0.7) % 1.45);
+        u.uFade.value = s;
+        u.uOpacity.value = 0.8;
+      });
+      for (const [mesh, opacity] of [[outer, 0.42], [inner, 0.55]]) {
+        const u = mesh.material.uniforms;
+        u.uTime.value = time;
+        u.uFade.value = s;
+        u.uOpacity.value = opacity;
+        u.uTurb.value = 0.03 + 0.04 * s;
+      }
+    },
+    dispose() {
+      scene.remove(group);
+      for (const mesh of [outer, inner, ...ribbons]) mesh.material.dispose();
+      shell.dispose();
+      heart.dispose();
+      strands.dispose();
     },
   };
 }

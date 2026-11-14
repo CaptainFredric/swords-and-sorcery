@@ -56,11 +56,18 @@ export function fightFrame(path, fight, distance) {
   };
 }
 
+/** Which side of the path a frame puts its rival (+1 or -1: u is the path's way turned that way). */
+export function frameSide(frame) {
+  return Math.sign(frame.u[0] * frame.v[1] - frame.u[1] * frame.v[0]) || 1;
+}
+
 /** Where a fight pose stands in the world: [x, z]. */
 export function placeOnFrame(frame, pose) {
   if (Number.isFinite(pose.path) && frame.along) {
     const here = frame.along(pose.path);
-    return [here.x, here.z];
+    // (`off`: that far to the rival's side of the path, crossing back to it)
+    const off = (pose.off ?? 0) * frameSide(frame);
+    return [here.x + here.dir[1] * off, here.z - here.dir[0] * off];
   }
   const u = pose.u ?? 0;
   const v = pose.v ?? 0;
@@ -74,7 +81,8 @@ export function placeOnFrame(frame, pose) {
  */
 export function fightPair(fight, frame, t) {
   const heroPose = fight.hero(t);
-  const hero = placeOnFrame(frame, heroPose);
+  // (a hero pose may name where the camera is to take him to be: the Gale Lift-Off's, once he is up out of the picture)
+  const hero = placeOnFrame(frame, heroPose.framedAt ?? heroPose);
   const pose = fight.rival(t);
   const rival = placeOnFrame(frame, pose.gone && pose.u === undefined ? { u: fight.reach } : pose);
   return {
@@ -216,6 +224,48 @@ export function castlewardBlockers(world = CASTLEWARD, decor = buildCastlewardDe
   return boxes;
 }
 
+/**
+ * Everything in any other world that could stand between a camera and a fight, as boxes: its solids (an oriented one
+ * by the box round it), its raised floors solid down to the ground, and whatever scenery its map names (`extra`, the
+ * same box shape: a tree drawn by its renderer that nothing collides with still hides a knight).
+ */
+export function worldBlockers(world, extra = []) {
+  const boxes = [];
+  for (const solid of world.solids ?? []) {
+    const [x, y, z] = solid.center;
+    let [sx, sy, sz] = solid.size;
+    if (solid.axes) {
+      // (turned: the box round it, level)
+      const [[ax, , az], , [cx, , cz]] = solid.axes;
+      const wide = Math.abs(ax) * sx + Math.abs(cx) * sz;
+      const deep = Math.abs(az) * sx + Math.abs(cz) * sz;
+      sx = wide; sz = deep;
+    }
+    boxes.push({ min: [x - sx / 2, y - sy / 2, z - sz / 2], max: [x + sx / 2, y + sy / 2, z + sz / 2] });
+  }
+  for (const floor of world.floors ?? []) {
+    if (floor.y >= 1) boxes.push({ min: [floor.center[0] - floor.size[0] / 2, 0, floor.center[2] - floor.size[2] / 2], max: [floor.center[0] + floor.size[0] / 2, floor.y, floor.center[2] + floor.size[2] / 2] });
+  }
+  return [...boxes, ...extra];
+}
+
+/**
+ * A world's footprint for the round, as insideCastlewardFootprint is Castleward's: is [x, z] on (or, a positive margin,
+ * that near) its level ground? A knight's ground and a camera's place alike: the floors at ground height (`level`),
+ * not the raised walks or the trench, and inside `bounds` ([minX, maxX, minZ, maxZ]) when the map keeps to a part of a
+ * larger world.
+ */
+export function footprintFor(world, { level = 0, bounds = null } = {}) {
+  const floors = (world.floors ?? []).filter((floor) => Math.abs(floor.y - level) < 0.05);
+  return (x, z, margin = 0) => {
+    if (bounds && (x < bounds[0] - margin || x > bounds[1] + margin || z < bounds[2] - margin || z > bounds[3] + margin)) return false;
+    return floors.some((floor) => {
+      const reach = 0.6 + margin;
+      return Math.abs(x - floor.center[0]) < floor.size[0] / 2 + reach && Math.abs(z - floor.center[2]) < floor.size[2] / 2 + reach;
+    });
+  };
+}
+
 // does the segment from a to b pass through the box, grown by margin? (slabs)
 function crosses(a, b, box, margin) {
   let enter = 0;
@@ -286,7 +336,7 @@ export function followEye(here, { back, side, up }) {
  * begins `early` and eases in and out over `ease` metres, so the camera glides into it. Returns
  * { at(distance) → { back, side, up } }.
  */
-export function followPlan(path, blockers, { settings = FOLLOW_SETTINGS, margin = 0.25, early = 2, ease = 2 } = {}) {
+export function followPlan(path, blockers, { settings = FOLLOW_SETTINGS, margin = 0.25, early = 2, ease = 2, footprint = insideCastlewardFootprint } = {}) {
   const step = 0.25;
   const count = Math.ceil(path.length / step);
   const wrap = (i) => ((i % count) + count) % count;
@@ -295,7 +345,7 @@ export function followPlan(path, blockers, { settings = FOLLOW_SETTINGS, margin 
     const here = path.at(i * step);
     const clear = settings.findIndex((setting) => {
       const eye = followEye(here, setting);
-      return insideCastlewardFootprint(eye[0], eye[2], -0.3) && !blocked(eye, [here.x, here.z], blockers, margin);
+      return footprint(eye[0], eye[2], -0.3) && !blocked(eye, [here.x, here.z], blockers, margin);
     });
     pick.push(clear < 0 ? settings.length - 1 : clear);
   }
@@ -378,9 +428,9 @@ function footGap(x, z, solid) {
  * Whether a fight has room where its frame puts it: the rival's place clear by a sword's swing, and wherever the
  * fight takes either knight (a leap back, a walk away, a run for it), on open ground and clear of anything standing.
  */
-export function fightFits(fight, frame, world = CASTLEWARD) {
+export function fightFits(fight, frame, world = CASTLEWARD, footprint = insideCastlewardFootprint) {
   const low = world.solids.filter((solid) => solid.center[1] - solid.size[1] / 2 <= 1.8);
-  const clear = ([x, z], room) => low.every((solid) => footGap(x, z, solid) > room) && insideCastlewardFootprint(x, z, -0.6);
+  const clear = ([x, z], room) => low.every((solid) => footGap(x, z, solid) > room) && footprint(x, z, -0.6);
   if (!clear(placeOnFrame(frame, { u: fight.reach }), 1.1)) return false;
   for (let t = -1; t <= fight.duration; t += 0.1) {
     const { hero, rival, rivalHere } = fightPair(fight, frame, t);
@@ -394,12 +444,12 @@ export function fightFits(fight, frame, world = CASTLEWARD) {
  * preference first) and the turn of its camera, as { fight (placed on that side), frame, swing }; null if neither
  * side has room or a clear view. Fights are interchangeable between the round's stops as long as this finds one.
  */
-export function placeFight(path, fight, distance, blockers, world = CASTLEWARD) {
+export function placeFight(path, fight, distance, blockers, world = CASTLEWARD, footprint = insideCastlewardFootprint) {
   const preferred = fight.side ?? 1;
   for (const side of [preferred, -preferred]) {
     const placed = { ...fight, side };
     const frame = fightFrame(path, placed, distance);
-    if (!fightFits(placed, frame, world)) continue;
+    if (!fightFits(placed, frame, world, footprint)) continue;
     const swing = chooseSwing(placed, frame, blockers);
     if (blockedMoments(placed, frame, swing, blockers) > 0) continue;
     return { fight: placed, frame, swing };
