@@ -622,9 +622,12 @@ export class InputController {
     this.onDashLocal(dir);
   }
 
-  interact() {
+  interact(machine = null) {
     if (!this.enabled) return;
-    this.socket?.send?.({ type: 'siegeOperate' });
+    // Touch MOUNT identifies the machine actually offered by the HUD. Do not
+    // let a generic operate packet accidentally choose another nearby station.
+    // The host still validates range, team, occupancy and cockpit clearance.
+    this.socket?.send?.({ type: 'siegeOperate', ...(machine ? { machine } : {}) });
   }
 
   deploy() {
