@@ -224,6 +224,25 @@ test('Real authoritative 5v5 movement simulation advances attackers without fall
  assert.equal(room.players.size,10);
 });
 
+test('Restless Day machines use real authoritative mounting rather than Breakthrough-only objective phase',()=>{
+ const {room,attacker}=match();
+ const ram=room.soFistication,ballista=room.biByeLlista;
+ assert.ok(ram&&ballista,'both existing machines spawned');
+ assert.equal(room.objectiveState,undefined,'Restless Day has its own phase');
+ attacker.position={x:ram.x,y:ram.y,z:ram.z-2.8};
+ attacker.velocity={x:0,y:0,z:0};
+ let response=applyRoomCommand(room,attacker,{type:'siegeOperate'},20);
+ assert.equal(response.rejected,undefined,'Restless Day ram accepts MOUNT');
+ assert.equal(attacker.operatingRamId,ram.id);
+ assert.equal(ram.operatorId,attacker.id);
+ // Switching siege stations is always an actual dismount and reboard.
+ assert.equal(applyRoomCommand(room,attacker,{type:'siegeOperate'},20.1).rejected,undefined);
+ attacker.position={x:ballista.x,y:ballista.y,z:ballista.z+2.5};
+ attacker.velocity={x:0,y:0,z:0};
+ response=applyRoomCommand(room,attacker,{type:'siegeOperate'},20.2);
+ assert.equal(response.rejected,undefined,'Restless Day ballista accepts MOUNT');
+ assert.equal(attacker.operatingBallistaId,ballista.id);
+});
 test('Restless Day native ram can repair its attached zero-HP gauntlet without resurrection budget exploits',()=>{
  const {room,attacker}=match();
  const ram=room.soFistication;
