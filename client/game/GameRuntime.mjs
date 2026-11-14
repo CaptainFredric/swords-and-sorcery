@@ -3580,7 +3580,7 @@ export class GameRuntime {
       killer?.name??null,victim?.name??'someone',{
         mode:this.latestSnapshot?.mode,
       });
-    if(copy&&event.damageContributors?.length>=2){
+    if(copy&&copy.streak!=='vortex'&&event.damageContributors?.length>=2){
       const participants=event.damageContributors.map(id=>
         this.latestSnapshot?.players.find(p=>p.id===id)?.name).filter(Boolean);
       const group=groupHeroFeed(victim?.name??'someone',participants,event);
