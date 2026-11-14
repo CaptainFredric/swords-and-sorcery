@@ -1,0 +1,60 @@
+name: Bi-Bye-llista Argon v26 mounted Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'scripts/bi-bye-sweep-browser.mjs'
+      - 'shared/sim/biByeSweep.mjs'
+      - 'shared/sim/biByeSweepGeometry.mjs'
+      - 'client/worlds/BiByeLlistaRenderer.mjs'
+      - 'client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb'
+      - 'assets/source/bibye-ballista/Bi_Bye_llista_blend_archive.zip'
+      - '.github/workflows/bibye-argon-v26-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-argon-v26:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Verify exact original GLB and Blender-source SHA-256
+        run: |
+          echo '9d1a8e7920b445c29546336d1bf00190b6837549941bd84c75858f64662619e6  client/assets/props/bibye-ballista/Bi_Bye_llista_GameReady_PBR.glb' | sha256sum -c -
+          echo 'cdb304075c515d0313fdcd65673e8927d07232894c97fe2a11e8666501957d60  assets/source/bibye-ballista/Bi_Bye_llista_blend_archive.zip' | sha256sum -c -
+      - name: Run focused authored collision, Armory, and HUD checks
+        run: |
+          node --experimental-websocket --test server/tests/bi-bye-sweep.test.mjs client/ui/biByeHudView.test.mjs server/tests/siege-armory.test.mjs
+          node --experimental-websocket --test --test-name-pattern='Bi-Bye' client/game/touchLayout.test.mjs
+      - name: Start local Castleward Practice server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/bibye-v26-inspection.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/bibye-v26-inspection.log
+          exit 1
+      - name: Find browser
+        id: chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Real scene and real mounted third innate and third Skill
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/bi-bye-sweep-browser.mjs
+      - name: Save animation and gameplay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bibye-argon-v26-mounted-chrome
+          path: output/playwright/bi-bye-sharp-turn/
+          retention-days: 7
