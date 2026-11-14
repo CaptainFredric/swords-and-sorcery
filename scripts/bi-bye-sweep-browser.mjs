@@ -114,8 +114,23 @@ try{
  proof.staged={position:position.me.position,selectedKit:kit};
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
 
- await tap('T');
- const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',90);
+ // Diagnose the *actual* physical boarding path before attributing a
+ // failed mount to collision, local-input routing, or the inspection sandbox.
+ // No force-mounts and no direct simulation mutations here.
+ const mountFacts="(() => {const r=window.__ssRuntime,l=window.__ssLink,local=l.local,p=local.room?.players.get(r.localAuth?.id),b=local.room?.biByeLlista;return {state:{mode:l.latestSnapshot?.mode,roomState:l.latestSnapshot?.roomState,hosting:l.hosting,playingLocally:l.playingLocally},input:{enabled:r.input.enabled,suspended:r.input.suspended,locked:!!document.pointerLockElement,focus:document.activeElement?.outerHTML?.slice(0,190),interactBinding:r.input.bindings.interact,interactAction:r.input.actionOf.get('KeyT'),interactAllowed:r.input.allowAction?.('interact',false),blocked:[...r.input.blockedKeys],held:[...r.input.keys]},inspection:{frozen:local.inspectionFrozen,mode:local.inspectionFreezeMode,actorId:local.inspectionActorId,controlId:local.inspectionControlId,free:r.inspectionFree},player:p?{id:p.id,alive:p.alive,position:p.position,attackActive:p.attackActive,pendingSpell:!!p.pendingSpell,gauntlet:!!p.gauntlet,ultimateState:!!p.ultimateState,practiceUiFocus:p.practiceUiFocus,operatingBallistaId:p.operatingBallistaId,team:p.team}:null,ballista:b?{id:b.id,x:b.x,y:b.y,z:b.z,team:b.team,operatorId:b.operatorId,interactRadius:b.interactRadius,mode:b.mode,health:b.health,planarDistance:p?Math.hypot(p.position.x-b.x,p.position.z-b.z):null}:null,errors:window.__bibyeMountErrors??[]};})()";
+ await evaluate("window.__bibyeMountErrors=[];window.__ssLink.local.on('error',e=>window.__bibyeMountErrors.push(e.message??String(e)))");
+ proof.beforeMount=await evaluate(mountFacts);
+ console.log('[BI-BYE MOUNT PRE]',JSON.stringify(proof.beforeMount));
+ await key('T','rawKeyDown');
+ proof.downMount=await evaluate(mountFacts);
+ await key('T','keyUp');
+ await sleep(240);
+ proof.afterMount=await evaluate(mountFacts);
+ console.log('[BI-BYE MOUNT POST]',JSON.stringify({down:proof.downMount,after:proof.afterMount}));
+ await writeFile(out+'/mount-diagnostic.json',JSON.stringify({before:proof.beforeMount,down:proof.downMount,after:proof.afterMount},null,2));
+ if(proof.afterMount.errors?.length)throw Error('Server rejected real T mount: '+proof.afterMount.errors.join('; '));
+ if(proof.downMount.input?.interactAction!=='interact'||!proof.downMount.input?.held?.includes('KeyT'))throw Error('Physical T never reached InputController: '+JSON.stringify(proof.downMount.input));
+ const mounted=await until(async()=>{const s=await observe();return s?.me?.operating===s?.ballista?.id?s:false;},'actual mounted operator',15);
  assert.equal(mounted.ballista.skill.id,'lookAroundAndFindOut');
  await screenshot('02-mounted-original-v26');
  const initialHeading=mounted.ballista.heading;
