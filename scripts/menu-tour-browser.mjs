@@ -378,6 +378,8 @@ try {
     }
     console.log(JSON.stringify(layoutReport, null, 1));
   }
+  // (--observe without a fight to jump to: Watch the Yard straight away, the round as it comes)
+  if (observe && !jump) { await sleep(1500); await evaluate("document.querySelector('#watch-yard')?.click(); true"); }
   if (jump) {
     const at = await evaluate(`(async()=>{const t=__ssMenu.tour;for(let i=0;i<14&&!t.fights.some(f=>f.id==='${jump}');i+=1){t.time=t.schedule.duration-0.001;await new Promise(r=>setTimeout(r,150));}
       const k=t.fights.findIndex(f=>f.id==='${jump}');if(k<0)return null;const ph=t.schedule.phases.find(p=>p.kind==='fight'&&p.fight===k);t.lastMoment=null;t.time=Math.max(0,ph.start-2.5);return {round:t.round,stop:k,map:t.map?.id};})()`);
