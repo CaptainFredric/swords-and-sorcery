@@ -14,6 +14,8 @@
 // and `near` (0..1: how much closer the camera comes), and the rival's `frozen` and `melt` (0..1); Sky-Bait the hero's
 // `up` (0..1: how much the camera looks up) and the rival's `looking` (0..1: his eyes on the sky).
 
+import { reactionPose } from '../../game/spellbladeMotion.mjs';
+
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const smooth = (t) => { const s = clamp01(t); return s * s * (3 - 2 * s); };
 const mix = (a, b, t) => a + (b - a) * t;
@@ -34,7 +36,9 @@ export function clipAt(sheet, t) {
   for (const candidate of sheet) if (t >= candidate[0]) entry = candidate;
   const [start, clip, { loop = false, rate = 1, hold = null } = {}] = entry;
   const time = hold ?? Math.max(0, (t - start) * rate);
-  return { clip, time, loop };
+  // (a looping gait clip strides on the animator's own phase, at the plan's rate, and never reads `time`: without the
+  // rate a walk-away at a stroll ran its legs at a full sprint's cadence; a negative one walks backwards)
+  return rate === 1 ? { clip, time, loop } : { clip, time, loop, rate };
 }
 
 const blade = (wrist, aim, roll = [1, 0, 0]) => ({ wrist, aim, roll });
@@ -226,7 +230,9 @@ export function makeWhiteFlag({ flee = [12.5, 1] } = {}) {
     duration: 11.8,
     // the rival stands on the South Road's side of the path, and runs off down it
     side: -1,
-    shot: { swing: 0.4 },
+    // filmed more nearly side on: from further behind the Spellblade's shoulder (0.4), his back hid the rival's long look
+    // at the flag he had just been handed, the gag itself (and any nearer side on, the rival bolts past the lens)
+    shot: { swing: 0.2 },
     hero(t) {
       const heading = faceRival(t, 11.8);
       const clip = clipAt([
@@ -706,6 +712,200 @@ export function makeSkyBaitPayoff() {
   };
 }
 
+
+// ---------------------------------------------------------------------------------------------------------------
+// 6. The Gale Lift-Off Handover. The rival comes at him twice, and twice the blade is turned aside: real parries, the
+// game's own (its deflection of the sword hand, its sparks and its ring: spellbladeMotion REACTIONS.parry). Then he
+// begins to turn, arms out, slowly, then faster, and the air goes round with him: a Gale's wind gathers in, and a
+// funnel of it stands up round him. The rival gives ground into it, head down, his cape thrashing. Turning faster than
+// a knight should, he leaves the ground, hangs there a moment, and goes: straight up, out of the picture. The rival
+// looks up after him, and keeps looking. When he lowers his eyes there is nobody else on the road, so he takes it:
+// from here he is the one making the round (TourDirector hands it over: `handover`), and walks on down the path.
+//
+// After the handover the hero's half of the sheet is the rival's, as the one now travelling: it picks up exactly where
+// his own half leaves him (the same spot, the same clip at the same time), and the rival's half is gone.
+export const GALE_LIFTOFF = Object.freeze({
+  reach: 1.9,
+  // his two blows: the swing begins, and its blade is turned aside
+  blows: Object.freeze([Object.freeze({ swing: 0.3, parry: 0.72, clip: 'Slash_1' }), Object.freeze({ swing: 1.2, parry: 1.62, clip: 'Slash_2' })]),
+  spin: Object.freeze([2.3, 6.1]),   // from standing (slowly, then faster) until he leaves the ground...
+  topSpin: 3.4,                      // ...at this many turns a second, and faster still in the air
+  gather: 2.45,                      // the wind drawn in to him from here
+  retreat: Object.freeze([3.1, 5.9]),
+  backTo: 3.4,                       // the rival gives ground to here (u), and is shoved a little further at lift-off
+  shoved: 0.4,
+  liftoff: 6.1,
+  hoverAt: 1.35,                     // he rises to this height and hangs there...
+  fly: Object.freeze([7.7, 9.3]),    // ...then goes straight up, out of the picture
+  climb: 24,                         // m/s/s
+  lookUp: Object.freeze([7.55, 8.15]),
+  handover: 11.6,                    // a couple of seconds after he has gone, still staring after him
+  lowerGaze: Object.freeze([11.6, 12.25]),
+  glance: Object.freeze([12.2, 12.95]),
+  walk: Object.freeze([12.9, 15.5]),
+  away: 2.6,
+});
+
+/** How many times round he has gone by t (the spin: slowly, then faster; faster still once he is off the ground). */
+export function galeTurns(t, G = GALE_LIFTOFF) {
+  const [from, to] = G.spin;
+  if (t <= from) return 0;
+  const T = to - from;
+  const tau = Math.min(t, to) - from;
+  let turns = (G.topSpin * tau ** 3) / (3 * T * T);
+  if (t > to) {
+    const air = t - to;
+    turns += G.topSpin * air + 0.6 * air * air;
+  }
+  return turns;
+}
+
+/** His wind (0..1): gathering as the spin takes hold, all of it as he leaves the ground, gone once he has. */
+export function galeWind(t, G = GALE_LIFTOFF) {
+  return smooth(between(t, G.gather, G.liftoff - 0.2)) * (1 - smooth(between(t, G.fly[0] + 0.4, G.fly[1] + 0.5)));
+}
+
+/** How high he is off the ground at t (m). */
+export function galeLift(t, G = GALE_LIFTOFF) {
+  if (t <= G.liftoff) return 0;
+  const rise = G.hoverAt * smooth(between(t, G.liftoff, G.liftoff + 0.9));
+  const bob = 0.07 * Math.sin((t - G.liftoff) * 5.2) * between(t, G.liftoff + 0.5, G.liftoff + 0.9);
+  const air = Math.max(0, t - G.fly[0]);
+  return rise + bob + 0.5 * G.climb * air * air;
+}
+
+// a sword arm hanging slack, the blade pointing down and a little forward (weight 0..1)
+const slack = (weight) => arm(blade([0.3, 0.92, -0.16], [0.12, -0.8, -0.58]), weight);
+
+export function makeGaleLiftoff() {
+  const G = GALE_LIFTOFF;
+  const U = G.backTo + G.shoved;
+  // the rival's Idle from here on, his own half of the sheet and (after the handover) the hero's half alike: the
+  // same clip at the same time, so the handover is invisible
+  const IDLE_FROM = G.lookUp[0] - 0.3;
+  const gazeUp = (t) => between(t, G.lookUp[0], G.lookUp[1]) * (1 - between(t, G.lowerGaze[0], G.lowerGaze[1]));
+  const parries = G.blows.map((blow) => ({ kind: 'parry', at: blow.parry }));
+  const deflected = G.blows.map((blow) => ({ kind: 'block', at: blow.parry, push: { x: 0, z: 1 }, strength: 0.9 }));
+  // the rival in the wind (0..1): head down, leaning into it, the spell hand up before his visor
+  const braced = (t) => smooth(between(t, G.retreat[0] - 0.2, G.retreat[0] + 0.4)) * (1 - smooth(between(t, G.lookUp[0] - 0.45, G.lookUp[0])));
+  // the sound of the spin: a whoosh each time round while it is slow enough to hear each one, then a steady rush
+  const whooshes = [];
+  for (let k = 1; k < 200; k += 1) {
+    let lo = G.spin[0]; let hi = G.fly[1];
+    if (galeTurns(hi) < k) break;
+    for (let i = 0; i < 40; i += 1) { const mid = (lo + hi) / 2; if (galeTurns(mid) < k) lo = mid; else hi = mid; }
+    if (!whooshes.length || hi - whooshes[whooshes.length - 1] > 0.34) whooshes.push(hi);
+  }
+  return {
+    id: 'galeLiftoff',
+    reach: G.reach,
+    duration: G.walk[1] + 0.1,
+    // the rival across the path from the camera's usual side: he backs away from it, so both stay in the shot
+    side: -1,
+    // the one who walks on leaves this far down the path, walking
+    exit: G.away,
+    exitSpeed: walkSpeed(G.walk, G.away),
+    // filmed side on, a touch from the hero's side: the funnel, the rival backing off and the sky above them
+    shot: { swing: 0.15 },
+    // the moment the round changes hands (TourDirector)
+    handover: G.handover,
+    hero(t) {
+      if (t >= G.handover) return this.taker(t);
+      const turned = galeTurns(t);
+      const spinning = t > G.spin[0];
+      const heading = spinning ? -2 * Math.PI * turned : keyed([[0, Math.PI / 2], [0.35, 0]], t);
+      const lift = galeLift(t);
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        [0.12, 'Guard'],
+        [1.95, 'Idle', { loop: true }],
+        // off the ground: the jump's own pose, held
+        [G.liftoff, 'Air', { hold: 0.32 }],
+      ], t);
+      // the blade and the spell hand out wide as he turns (as in the Whirlwind), and kept out while he whirls aloft
+      const out = between(t, 2.0, 2.45);
+      const sword = arm(blade([0.7, 1.35, -0.2], [1, 0.02, -0.12], [0, 1, 0]), out);
+      const spell = arm(blade([-0.62, 1.32, -0.06], [0, -1, 0]), out);
+      // each blow turned aside: the game's parry (the sword hand sweeps out, the chest counter-twists)
+      const rotations = [...reactionPose(parries, t).rotations];
+      // and up there, his head back to the sky he is going to
+      const skyward = between(t, G.fly[0] - 0.3, G.fly[0] + 0.2);
+      if (skyward > 1e-3) rotations.push({ bone: 'head', axis: [1, 0, 0], angle: 0.35 * skyward }, { bone: 'chest', axis: [1, 0, 0], angle: 0.12 * skyward });
+      const crouch = lift > 0.02 ? 0 : out * 0.16 + 0.22 * between(t, G.liftoff - 0.35, G.liftoff - 0.05);
+      const away = t >= G.fly[1] + 0.25;
+      return {
+        u: 0, v: 0, lift, heading, ...clip, crouch, rotations, sword, spell, snap: spinning,
+        // (for the camera: once he is on his way up out of the picture, there is nothing of him left to frame, so it
+        // moves on to the one left standing, where he stands)
+        framedAt: { u: U * smooth(between(t, G.fly[0] + 0.15, G.fly[1] - 0.2)), v: 0 },
+        wind: galeWind(t), flying: lift > 0.02, away,
+        // the camera looks up after him as he rises, then settles on the one left standing, the sky he is staring
+        // into kept above him
+        up: Math.max(between(t, G.liftoff - 0.3, G.liftoff + 0.8) * (1 - between(t, G.fly[0] + 0.6, G.fly[1] + 0.8)), 0.45 * between(t, G.fly[1], G.fly[1] + 0.8)),
+      };
+    },
+    // the one now making the round (the rival, after the handover): his eyes come down off the sky, a glance either way
+    // down the road, and he walks on down it
+    taker(t) {
+      const up = gazeUp(t);
+      const rotations = skyGaze(up, t);
+      const glance = between(t, G.glance[0], G.glance[1]);
+      if (glance > 0 && glance < 1) rotations.push({ bone: 'head', axis: [0, 1, 0], angle: 0.42 * Math.sin(glance * 2 * Math.PI) });
+      const clip = clipAt([
+        [IDLE_FROM, 'Idle', { loop: true }],
+        [G.walk[0], 'Run', { loop: true, rate: 0.28 }],
+      ], t);
+      // from where he stood back across to the path, and on down it (`off`: how far to the side of it he still is)
+      const back = smooth(between(t, G.walk[0], G.walk[0] + 1.9));
+      const heading = keyed([[G.walk[0] - 0.35, Math.PI], [G.walk[0] + 0.2, Math.PI * 0.68], [G.walk[0] + 1.9, Math.PI / 2]], t);
+      return {
+        path: walkedAway(t, G.walk, G.away), off: U * (1 - back), lift: 0, heading, ...clip, crouch: 0, rotations, sword: slack(up), spell: null,
+      };
+    },
+    rival(t) {
+      if (t >= G.handover) return { gone: true, u: U, v: 0, framed: 0 };
+      const clip = clipAt([
+        [-99, 'Idle', { loop: true }],
+        [-0.9, 'Guard'],
+        [G.blows[0].swing, G.blows[0].clip],
+        [0.9, 'Guard'],
+        [G.blows[1].swing, G.blows[1].clip],
+        [1.85, 'Guard'],
+        // giving ground into the wind, a step at a time, still facing it
+        [G.retreat[0], 'Run', { loop: true, rate: -0.3 }],
+        [G.retreat[1], 'Guard', { hold: 0.55 }],
+        // the blast as he leaves the ground
+        [G.liftoff + 0.05, 'Stagger'],
+        [IDLE_FROM, 'Idle', { loop: true }],
+      ], t);
+      const u = keyed([[G.retreat[0], G.reach], [G.retreat[1], G.backTo], [G.liftoff + 0.05, G.backTo], [G.liftoff + 0.45, U]], t);
+      // each blow turned aside throws his blade back at him (the deflection drives him a little back)
+      const rotations = [...reactionPose(deflected, t).rotations];
+      const brace = braced(t);
+      if (brace > 1e-3) {
+        rotations.push(
+          { bone: 'spine', axis: [-1, 0, 0], angle: 0.2 * brace },
+          { bone: 'chest', axis: [-1, 0, 0], angle: 0.1 * brace },
+          { bone: 'head', axis: [-1, 0, 0], angle: 0.24 * brace },
+        );
+      }
+      rotations.push(...skyGaze(gazeUp(t), t));
+      const spell = arm(blade([-0.1, 1.7, -0.42], [0.35, 0.15, -0.92]), brace);
+      // (staring up, his sword arm hangs: the lean back would otherwise lift the blade level at nothing)
+      const sword = brace > 1e-3 ? arm(blade([0.32, 1.02, -0.36], [0.1, 0.8, -0.6]), brace) : slack(gazeUp(t));
+      return { u, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0.12 * brace, rotations, sword, spell, looking: gazeUp(t), framed: 1 };
+    },
+    cues: [
+      ...G.blows.flatMap((blow) => [{ at: blow.swing, type: 'swing', by: 'rival' }, { at: blow.parry, type: 'parry', by: 'hero' }]),
+      { at: G.gather, type: 'gather', by: 'hero', spell: 'gale', release: 0.6 },
+      ...whooshes.map((at) => ({ at, type: 'whoosh', by: 'hero' })),
+      { at: G.liftoff, type: 'liftoff', by: 'hero' },
+      { at: G.fly[0], type: 'skyward', by: 'hero' },
+      { at: G.handover, type: 'handover', on: 'rival' },
+    ],
+  };
+}
+
 export const FIGHTS = Object.freeze([FIREBALL, WHIRLWIND, WHITE_FLAG]);
 
 // the ways the White Flag's rival can run for it, longest first (a stop on the round takes the first that clears)
@@ -722,6 +922,8 @@ export const FIGHT_POOL = Object.freeze({
   // the two halves of Sky-Bait: the payoff is only ever staged because its setup was seen (tourSchedule lineupFor)
   skyBait: () => [makeSkyBait()],
   skyBaitPayoff: () => [makeSkyBaitPayoff()],
+  // the round changing hands (TourDirector: the rival who stares after him makes the round from then on)
+  galeLiftoff: () => [makeGaleLiftoff()],
   // (a round's dice choose each of its variations)
   slush: (random = Math.random) => {
     const pick = (options) => options[Math.min(options.length - 1, Math.floor(random() * options.length))];

@@ -4,20 +4,24 @@ import { createSpellbladeAsset } from '../../game/SpellbladeAssets.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../../game/swordArmIK.mjs';
 import { performanceAt } from '../menuReactions.mjs';
 import {
-  armourFallRecipe, blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, meltHissRecipe, parryRecipe, scoopRecipe,
-  slushCollapseRecipe, spatialize, splashRecipe, swingRecipe, swordHitRecipe, vesselRecipe, wallClangRecipe,
+  armourFallRecipe, blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, galeReleaseRecipe, groundSlamRecipe,
+  meltHissRecipe, parryRecipe, scoopRecipe, slushCollapseRecipe, spatialize, splashRecipe, swingRecipe, swordHitRecipe, vesselRecipe, vortexEndRecipe,
+  vortexWhooshRecipe, wallClangRecipe,
 } from '../../game/sound/soundRecipes.mjs';
-import { buildTourPath, yawFacing } from './tourPath.mjs';
+import { SPELLS } from '../../../shared/src/spells.mjs';
+import { surfaceHeightAt } from '../../../shared/src/collision.mjs';
+import { yawFacing } from './tourPath.mjs';
 import { hearingFor, voicePlacement } from '../../game/sound/voiceRules.mjs';
 import { linesFor } from '../../game/sound/voiceLines.mjs';
 import { footstepRecipe, gaitFootfall, surfaceAt, variantPicker } from '../../game/sound/footsteps.mjs';
-import { CASTLEWARD } from '../../../shared/worlds/castleward.mjs';
 import {
-  COMPACT_SHOT, FIGHT_SHOT, castlewardBlockers, fightPair, fightShot, followAim, followEye, followPlan, lookFor, placeFight,
+  COMPACT_SHOT, FIGHT_SHOT, clearEye, fightPair, fightShot, followAim, followEye, followPlan, frameSide, lookFor, placeFight,
 } from './tourCamera.mjs';
-import { FIGHT_POOL } from './tourFights.mjs';
-import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
-import { Debris, cutSword, dizzyStars, dressRival, iceCrust, mendSword, shatterKnight, slushPile, vesselProp, whiteFlag } from './tourProps.mjs';
+import { FIGHT_POOL, galeTurns } from './tourFights.mjs';
+import { buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
+import { TOUR_MAP_IDS, mapPlan, nextLeg } from './tourMaps.mjs';
+import { HERO, changeHands, createCast, handOver } from './tourCast.mjs';
+import { Debris, cutSword, dizzyStars, dressRival, galeFunnel, iceCrust, mendSword, shatterKnight, slushPile, vesselProp, whiteFlag } from './tourProps.mjs';
 
 // The Spellblade's round behind the front door, played out: he runs the path, stops at each rival, and they fight to
 // the script in tourFights.mjs; the camera follows him and frames each fight to the right of the menu banner. Three
@@ -26,6 +30,13 @@ import { Debris, cutSword, dizzyStars, dressRival, iceCrust, mendSword, shatterK
 // the next round. Each round stages the pool's fights in a different order at the three stops (lineupFor), each placed
 // where it has room and a clear view. What he says on the round is heard from where he stands; `onCaption` is told
 // its words (and their beats) for the menu's subtitle, and `onCaptionCut` when it is cut short.
+//
+// The round is not always his, nor always on the green. The Gale Lift-Off Handover passes it to a rival, and after
+// that it changes hands every so often (tourCast.mjs: visual only, the player's own knight and loadout never touched;
+// he is only hidden while someone else has the round, and is himself again the moment the front door is left). And
+// after a round or two on a map the round moves on to another (tourMaps.mjs: a slightly shuffled carousel of the game's
+// worlds, each from another start, maybe the other way round), through a quick fade, with the world itself swapped in
+// behind it by the menu (`worlds`: { prepare(id) → Promise, show(id) → whether it is there to be shown }).
 
 const RUN_CLIP_SPEED = 7.5;         // the Run clip's own pace (m/s): the stride rate follows the actual pace
 // each rival's colours: steel tint and the glow behind the visor
@@ -33,7 +44,17 @@ export const RIVAL_DRESS = Object.freeze([
   { tint: [0.5, 0.5, 0.56], visor: 0xff5a2a },       // the Ashen Knight: blackened steel, ember eyes
   { tint: [0.6, 1.08, 0.58], visor: 0x9dff6a },      // the Verdant Knight
   { tint: [1.3, 1.02, 0.55], visor: 0xffc84a },      // the Gilded Knight
+  { tint: [0.62, 0.78, 1.32], visor: 0x7fd2ff },     // the Azure Knight: the one waiting in the wings for a stop
 ]);
+// the round's passage between maps: down to the dark (seconds), and back up on the next
+export const TRAVEL_FADE = Object.freeze({ out: 0.55, in: 0.7 });
+// how close the Gale's wind must be to catch a knight's cape, and how hard (m/s) it blows at its strongest
+const GALE_REACH = 7;
+const GALE_GUST = 15;
+// the Gale's gust (shared/src/spells.mjs) made small: the air driven off the funnel at the one backing away from it, and
+// the blast out across the ground as he leaves it
+const PUSH_CONE = Object.freeze({ ...SPELLS.gale.cone, reach: 2.2, pressureReach: 3.2, halfAngleDeg: 18, pressureHalfAngleDeg: 26, lastsSec: 0.4 });
+const LIFTOFF_CONE = Object.freeze({ ...SPELLS.gale.cone, reach: 1.8, pressureReach: 2.5, halfAngleDeg: 22, pressureHalfAngleDeg: 30, lastsSec: 0.35 });
 
 const _p = new THREE.Vector3();
 // his footsteps out on the round: soft, under the music and the steel
@@ -60,13 +81,17 @@ export class TourDirector {
    * SoundEngine and VoiceBank for the fights' steel, fire and words; effects: the menu's own Effects, when it has
    * them (the round then leaves updating them to the menu).
    */
-  constructor({ scene, camera, hero, sound = null, voice = null, effects = null }) {
+  constructor({ scene, camera, hero, sound = null, voice = null, effects = null, worlds = null, maps = TOUR_MAP_IDS, random = Math.random }) {
     this.scene = scene;
     this.camera = camera;
     this.hero = hero;
     this.sound = sound;
     this.voice = voice;
-    this.path = buildTourPath();
+    // the menu's worlds (the carousel moves the round on only if the menu can show another), and the maps it may visit
+    this.worlds = worlds;
+    this.mapIds = maps.filter((id) => TOUR_MAP_IDS.includes(id));
+    this.random = random;
+    this.#usePlan(mapPlan('castleward'));
     this.effects = effects ?? new Effects(scene, camera);
     this.ownsEffects = !effects;
     this.debris = new Debris(scene, { onLand: (point, impact) => this.#clatter(point, impact) });
@@ -102,12 +127,59 @@ export class TourDirector {
     this.resetFrustum = new THREE.Frustum();
     this.resetMatrix = new THREE.Matrix4();
     this.cleanupDebris = false;
-    this.blockers = castlewardBlockers();
-    // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
+    // where each version of each fight goes at each stop of each map's way round, worked out once (tourCamera.placeFight)
     this.placements = new Map();
+    // who has the round, and who waits at each stop (tourCast.mjs); every rival's own record, by knight
+    this.cast = createCast(RIVAL_DRESS.length, 3);
+    this.knights = [];
+    this.rivals = [];
+    // the carousel: the leg it is on (how many rounds are left on this map), and where it goes next
+    this.leg = this.#opening();
+    this.seen = ['castleward'];
+    this.travel = null;
+    this.travelFade = 0;
+    this.wind = null;
     this.#stageRound(0);
-    this.follow = followPlan(this.path, this.blockers);
     this.#spawnRivals();
+  }
+
+  // the map the round is on, made the round's own: its path, its stops, its ground, what stands on it, how it is followed
+  #usePlan(plan) {
+    this.plan = plan;
+    this.map = plan;
+    this.path = plan.path;
+    this.stops = plan.stops;
+    this.world = plan.world;
+    this.blockers = plan.blockers;
+    this.follow = followPlan(this.path, this.blockers, { footprint: plan.footprint });
+  }
+
+  // a visit's opening stay on the green: two rounds (the Slush, then Sky-Bait's setup), or for good with nowhere to go
+  #opening() {
+    return { id: 'castleward', rounds: this.mapIds.length > 1 ? 2 : Infinity };
+  }
+
+  /** The one making the round: the player's knight ({ root, instance }), or a rival who has taken it over. */
+  get traveller() {
+    if (this.cast.traveller === HERO) return { kind: HERO, root: this.hero.root, instance: this.hero.instance, record: null };
+    const record = this.knights[this.cast.traveller];
+    return record ? { kind: 'rival', root: record.holder, instance: record.instance, record } : { kind: HERO, root: this.hero.root, instance: this.hero.instance, record: null };
+  }
+
+  // the cast made real: the rivals at the stops, the player's knight shown only while he has the round, everyone
+  // else out of sight
+  #applyCast(cast) {
+    const before = this.rivals;
+    this.cast = cast;
+    this.rivals = cast.posted.map((index) => this.knights[index] ?? null);
+    // (Sky-Bait's memory is the rival's at that stop: a stop that changes hands forgets)
+    const remembered = this.memory?.skyBait;
+    if (Number.isInteger(remembered) && before[remembered] !== this.rivals[remembered]) this.memory.skyBait = null;
+    for (const index of cast.spare) {
+      const record = this.knights[index];
+      if (record) { this.#restoreRival(record, index); record.holder.visible = false; record.resetPending = false; }
+    }
+    if (this.hero?.root) this.hero.root.visible = cast.traveller === HERO;
   }
 
   // this round's fights at the three stops, their frames and the schedule they make
@@ -116,17 +188,25 @@ export class TourDirector {
     // (each visit to the front door rolls its own dice: the Slush that opens it is another version each time)
     const random = roundRandom(round + (this.visit ?? 0) * 97);
     const first = lineupFor(0);
-    const placed = lineupFor(round, undefined, { skyBaited: this.memory?.skyBait ?? null }).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
+    // (a stop with no room for its fight on this way round stages the first round's, or else any that fits)
+    const fallback = ['fireball', 'whirlwind', 'whiteFlag'];
+    const placed = lineupFor(round, undefined, { skyBaited: this.memory?.skyBait ?? null }).map((name, slot) => this.#placed(name, slot, random)
+      ?? this.#placed(first[slot], slot, random) ?? fallback.map((other) => this.#placed(other, slot, random)).find(Boolean));
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
-    this.schedule = buildSchedule(this.path.length, { fights: this.fights, introduction: round === 0 });
+    this.schedule = buildSchedule(this.path.length, { fights: this.fights, distances: this.stops, introduction: round === 0 && this.map.id === 'castleward' });
+    // (the lift-off's funnel made, and its shaders compiled, as the round begins, not as it first appears mid-fight)
+    if (!this.funnel && this.fights.some((fight) => fight.id === 'galeLiftoff')) {
+      this.funnel = galeFunnel(this.scene);
+      this.worlds?.warm?.(this.funnel.group);
+    }
   }
 
   // the first version of a fight from the pool that has room and a clear view at this stop
   #placed(name, slot, random) {
     for (const fight of FIGHT_POOL[name](random)) {
-      const key = `${fight.key ?? fight.id}@${slot}`;
-      if (!this.placements.has(key)) this.placements.set(key, placeFight(this.path, fight, FIGHT_DISTANCES[slot], this.blockers));
+      const key = `${this.map.key}/${fight.key ?? fight.id}@${slot}`;
+      if (!this.placements.has(key)) this.placements.set(key, placeFight(this.path, fight, this.stops[slot], this.blockers, this.world, this.map.footprint));
       const placement = this.placements.get(key);
       if (placement) return placement;
     }
@@ -164,12 +244,13 @@ export class TourDirector {
       });
       holder.visible = this.visible;
       this.scene.add(holder);
-      this.rivals[index] = {
-        holder, instance, dress: dressRival(instance, RIVAL_DRESS[index]), stub: null, flag: null, shattered: false, charred: 0,
+      this.knights[index] = {
+        holder, instance, look: RIVAL_DRESS[index], dress: dressRival(instance, RIVAL_DRESS[index]), stub: null, flag: null, shattered: false, charred: 0,
         // the Slush: the ice on him, the heap he becomes, and the steam off him as he goes
         crust: null, pile: null, steam: 0,
       };
     });
+    this.#applyCast(this.cast);
     this.ready = true;
   }
 
@@ -181,8 +262,22 @@ export class TourDirector {
     this.lastMoment = null;
     this.pause = 0;
     this.performance = null;
+    this.#homeAgain();
     this.#stageRound(0);
     this.#resetRivals();
+  }
+
+  // a visit begins as it always has: on the Castleward green, the round his, in the first map's order
+  #homeAgain() {
+    if (this.map?.id !== 'castleward' || this.map.key !== mapPlan('castleward').key) this.#usePlan(mapPlan('castleward'));
+    this.worlds?.show?.('castleward');
+    this.leg = this.#opening();
+    this.seen = ['castleward'];
+    this.travel = null;
+    this.travelFade = 0;
+    this.#stopWind();
+    this.#applyCast(createCast(RIVAL_DRESS.length, 3));
+    this.view = null;
   }
 
   #resetRivals() {
@@ -197,6 +292,13 @@ export class TourDirector {
     this.cleanupDebris = false;
     for (const [index, rival] of this.rivals.entries()) if (rival) this.#restoreRival(rival, index);
     this.hero?.instance?.root?.traverse?.((object) => { if (object.isMesh && /^HeroSword/i.test(object.name)) object.visible = true; });
+  }
+
+  // every rival back as he was (the ones waiting in the wings or making the round too), for a new map
+  #resetEveryone() {
+    this.#resetRivals();
+    for (const [index, record] of this.knights.entries()) if (record && !this.rivals.includes(record)) this.#restoreRival(record, index);
+    this.#applyCast(this.cast);
   }
 
   #restoreRival(rival, index) {
@@ -226,6 +328,7 @@ export class TourDirector {
   // Retain the outgoing tableau until both its old shape and its incoming location are outside the camera.
   #retireRound(completedDuration) {
     if (this.stars) this.starsUntil -= completedDuration;
+    if (this.wind) this.wind.at -= completedDuration;
     for (const rival of this.rivals) if (rival) {
       rival.resetPending = true;
       rival.retiredTime = (rival.retiredTime ?? 0) + completedDuration;
@@ -248,6 +351,13 @@ export class TourDirector {
   /** Show or hide everything the round brings (the rivals and what is left of them). */
   setVisible(visible) {
     this.visible = visible;
+    // leaving the front door: the round is his again, he is himself and in sight, and every rival is out of it
+    if (!visible) {
+      this.#applyCast(createCast(RIVAL_DRESS.length, 3));
+      this.#stopWind();
+      this.travel = null;
+      this.travelFade = 0;
+    }
     for (const rival of this.rivals) {
       if (!rival) continue;
       rival.holder.visible = visible && !rival.shattered;
@@ -274,6 +384,11 @@ export class TourDirector {
    */
   update(dt) {
     if (!this.ready) return null;
+    // (a world just built: the round holds in the dark until it can be drawn without a stall)
+    if (this.worlds?.busy && Number.isFinite(this.arrivedAt)) {
+      this.travelFade = 1;
+      return this.view ? { ...this.view, fade: 1 } : null;
+    }
     if (this.pause > 0) {
       this.pause -= dt;
       if (this.performance) this.performance.elapsed += dt;
@@ -285,10 +400,20 @@ export class TourDirector {
     while (this.time >= this.schedule.duration) {
       const completedDuration = this.schedule.duration;
       this.time -= completedDuration;
+      // (the round moves on to its next map at the dark, if the menu has it ready; otherwise it stays a round more)
+      const moving = this.travel?.ready && this.worlds?.show?.(this.travel.leg.id);
+      if (moving) this.#arrive(this.travel.leg);
+      else {
+        this.travel = null;
+        this.leg.rounds -= 1;
+      }
       this.#stageRound(this.round + 1);
-      this.#retireRound(completedDuration);
+      if (moving) this.#resetEveryone();
+      else this.#retireRound(completedDuration);
       this.lastMoment = null;
+      this.#planTravel();
     }
+    this.#stepTravel(dt);
     const moment = tourMoment(this.schedule, this.time);
     this.#poseHero(moment, dt);
     if (this.rivals.some((rival) => rival?.resetPending) || this.cleanupDebris) {
@@ -305,18 +430,66 @@ export class TourDirector {
     this.debris.update(dt);
     for (const rival of this.rivals) rival?.flag?.update(this.time + (rival.retiredTime ?? 0));
     this.#stepStars();
+    this.#stepWind(moment, dt);
     if (this.ownsEffects) this.effects.update(dt);
     this.lastMoment = moment;
     return this.#camera(moment, dt);
   }
 
+  // ------------------------------------------------------------------------------------------------- the carousel
+  // at the start of a map's last round: where it goes next, its world asked for (so it is there by the dark)
+  #planTravel() {
+    if (!this.worlds || this.mapIds.length < 2 || this.travel || this.leg.rounds > 1) return;
+    const leg = nextLeg(this.random, { from: this.leg.id, seen: this.seen, maps: this.mapIds });
+    const travel = { leg, ready: false };
+    this.travel = travel;
+    Promise.resolve(this.worlds.prepare?.(leg.id) ?? true).then((ready) => { if (this.travel === travel) travel.ready = Boolean(ready); }, () => {
+      if (this.travel === travel) this.travel = null;
+    });
+  }
+
+  // in the dark: the next map's round, from its start, the camera already behind him; and the round may change hands
+  #arrive(leg) {
+    this.#usePlan(mapPlan(leg.id, leg));
+    this.seen = this.seen.length + 1 >= this.mapIds.length ? [leg.id] : [...this.seen, leg.id];
+    this.leg = { id: leg.id, rounds: leg.rounds };
+    this.travel = null;
+    this.arrivedAt = 0;
+    this.#stopWind();
+    this.projectiles = [];
+    this.effects.syncProjectiles([]);
+    this.debris.clear();
+    this.stars?.dispose();
+    this.stars = null;
+    // (after the first handover, now and then, out of sight: the round changes hands)
+    if (this.cast.handovers > 0 && this.random() < 0.6) this.#applyCast(changeHands(this.cast, this.random));
+    this.view = null;
+    this.heroYaw = undefined;
+  }
+
+  // the fade: down as the round on this map runs out, back up once it has begun on the next
+  #stepTravel(dt) {
+    // (each on its own clock: a one-round stay is already going on as it comes up out of the dark)
+    const left = this.schedule.duration - this.time;
+    const down = this.travel?.ready ? Math.min(1, Math.max(0, 1 - left / TRAVEL_FADE.out)) : 0;
+    let up = 0;
+    if (Number.isFinite(this.arrivedAt)) {
+      this.arrivedAt += dt;
+      up = Math.max(0, 1 - this.arrivedAt / TRAVEL_FADE.in);
+      if (up <= 0) this.arrivedAt = null;
+    }
+    this.travelFade = Math.max(down, up);
+  }
+
   // ------------------------------------------------------------------------------------------------ the Spellblade
   #poseHero(moment, dt) {
-    const { root, instance } = this.hero;
+    const { root, instance } = this.traveller;
     let plan;
     let position;
     let yaw;
     let snap = false;
+    let away = false;
+    this.flying = false;
     // how far round the path he really is (a fight can walk him on down it)
     this.heroDistance = moment.distance;
     if (moment.phase === 'fight') {
@@ -329,9 +502,20 @@ export class TourDirector {
         const here = this.path.at(this.heroDistance);
         position = new THREE.Vector3(here.x, 0, here.z);
         yaw = yawFacing(here.dir);
+        if (Number.isFinite(pose.off)) {
+          // (still that far to the side of it, crossing back to it, facing as the script says)
+          const side = frameSide(frame.plan);
+          const across = [here.dir[1] * side, -here.dir[0] * side];
+          position.x += across[0] * pose.off;
+          position.z += across[1] * pose.off;
+          yaw = yawFacing([across[0] * Math.cos(pose.heading) + here.dir[0] * Math.sin(pose.heading), across[1] * Math.cos(pose.heading) + here.dir[1] * Math.sin(pose.heading)]);
+        }
       } else {
         ({ position, yaw } = this.#place(frame, pose));
       }
+      // up in the air (the Gale's lift-off), and gone out of the sky
+      this.flying = Boolean(pose.flying);
+      away = Boolean(pose.away);
       // a spin is too quick to ease after: he faces exactly where the script says
       snap = Boolean(pose.snap);
       plan = this.#plan(pose);
@@ -353,12 +537,15 @@ export class TourDirector {
         : { clip: 'Idle', loop: true, time: this.time };
     }
     if (this.performance) plan = this.#performancePlan(this.performance.kind, this.performance.elapsed, { clip: 'Idle', loop: true, time: this.time });
+    // (gone up out of the sky: nothing of him to draw until the round is his again)
+    root.visible = this.visible && !away;
+    this.travellerAway = away;
     root.position.copy(position);
     // the turn is eased (a knight turns in a moment, never snaps), except in a spin, which is all turn
     root.rotation.y = this.heroYaw === undefined || snap ? yaw : angleLerp(this.heroYaw, yaw, Math.min(1, dt * 12));
     this.heroYaw = root.rotation.y;
     instance.animator.apply(plan, dt);
-    this.#footfall('hero', instance, root.position, plan.clip);
+    if (!this.flying) this.#footfall('hero', instance, root.position, plan.clip);
     const vessel = moment.phase === 'fight' ? this.fights[moment.fight].hero(moment.fightTimes[moment.fight]).vessel : null;
     this.#carryVessel(vessel);
     // (the heap goes as the vessel sweeps through it)
@@ -373,7 +560,7 @@ export class TourDirector {
       this.vessel.update({ visible: false });
       return;
     }
-    const { root, instance } = this.hero;
+    const { root, instance } = this.traveller;
     const palm = this.#socket(instance, 'socket_sorcery');
     const yaw = root.rotation.y;
     const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -402,7 +589,7 @@ export class TourDirector {
     this.lastGait[key] = gait;
     if (!this.sound || !this.visible || (clip !== 'Run' && clip !== 'Sprint') || !gaitFootfall(before, gait)) return;
     this.stepVariant ??= variantPicker();
-    const recipe = footstepRecipe(Math.random, { surface: surfaceAt(CASTLEWARD, position.x, position.z, position.y), variant: this.stepVariant(key) });
+    const recipe = footstepRecipe(Math.random, { surface: surfaceAt(this.world, position.x, position.z, position.y), variant: this.stepVariant(key) });
     this.#play(recipe, position, TOUR_STEPS);
   }
 
@@ -466,7 +653,7 @@ export class TourDirector {
       rival.holder.rotation.y = yaw;
       if (Number.isFinite(pose.frozen)) this.#frozen(rival, index, pose, position, dt);
       // one waiting far from the Spellblade casts no shadow: nobody would see it, and each of his pieces is a draw call
-      const near = position.distanceTo(this.hero.root.position) < 10;
+      const near = position.distanceTo(this.traveller.root.position) < 10;
       if (rival.shadows !== near) {
         rival.shadows = near;
         rival.instance.root.traverse((object) => { if (object.isMesh) object.castShadow = near; });
@@ -523,12 +710,54 @@ export class TourDirector {
 
   #cue(cue, index) {
     const rival = this.rivals[index];
-    const heroRoot = this.hero.root;
+    const traveller = this.traveller;
+    const heroRoot = traveller.root;
     const rivalRoot = rival?.holder;
     const actor = cue.by === 'rival' ? rivalRoot : heroRoot;
     switch (cue.type) {
       case 'swing':
         this.#play(swingRecipe(Math.random, { strike: cue.heavy ? 2 : 0 }), this.#chest(actor), 0.5);
+        break;
+      case 'parry': {
+        // a blow turned aside, as the game shows one: the bright parry burst where the blades met, and its ring
+        if (!rivalRoot) break;
+        const a = this.#chest(heroRoot);
+        const b = this.#chest(rivalRoot);
+        const point = a.clone().lerp(b, 0.42).add(new THREE.Vector3(0, 0.2, 0));
+        this.effects.blockBurst(point, b.clone().sub(a).normalize(), { parry: true });
+        this.#play(parryRecipe(), point, 0.75);
+        break;
+      }
+      case 'whoosh': {
+        // the spin heard going round, quicker as it quickens
+        const turning = (galeTurns(cue.at + 0.05) - galeTurns(cue.at - 0.05)) / 0.1;
+        this.#play(vortexWhooshRecipe(Math.random, { rate: Math.max(2 * Math.PI, 2 * Math.PI * turning) }), this.#chest(heroRoot), 0.32);
+        break;
+      }
+      case 'liftoff': {
+        // the air under him all at once: a ring of it off the ground, a blast out across it, and he rises
+        const feet = heroRoot.getWorldPosition(new THREE.Vector3());
+        this.effects.groundShock(feet, { radius: 3.2 });
+        const groundAt = (x, z, y) => surfaceHeightAt(x, z, y + 0.5, this.world);
+        // (out to either side across the shot, low: never at the camera, where it would fill the frame)
+        this.camera.getWorldDirection(_p);
+        const across = new THREE.Vector3(-_p.z, 0, _p.x).normalize();
+        for (const side of [1, -1]) {
+          this.effects.galeBlast({ x: feet.x, y: feet.y + 0.3, z: feet.z }, { x: across.x * side, y: -0.06, z: across.z * side }, LIFTOFF_CONE, { groundAt });
+        }
+        this.#play(groundSlamRecipe(), feet, 0.45);
+        this.#play(galeReleaseRecipe(), this.#chest(heroRoot), 0.8);
+        // (the one standing nearest takes the blast in his cloak)
+        if (rival) rival.instance.animator.cloth?.gust(this.#windAt(rivalRoot, feet, GALE_GUST * 1.6));
+        break;
+      }
+      case 'skyward':
+        this.#play(vortexEndRecipe(), this.#chest(heroRoot), 0.6);
+        this.#play(galeReleaseRecipe(), this.#chest(heroRoot), 0.5);
+        break;
+      case 'handover':
+        // the round is his now: the rival who stared after him makes it from here (tourCast.mjs: visual only)
+        if (rival) this.#applyCast(handOver(this.cast, index));
         break;
       case 'clash': {
         if (!rivalRoot) break;
@@ -554,7 +783,7 @@ export class TourDirector {
         break;
       case 'cast': {
         if (!rivalRoot) break;
-        const caster = cue.by === 'rival' ? rival.instance : this.hero.instance;
+        const caster = cue.by === 'rival' ? rival.instance : traveller.instance;
         const from = this.#socket(caster, 'socket_sorcery');
         let to;
         if (cue.over) {
@@ -602,13 +831,13 @@ export class TourDirector {
         break;
       case 'slush':
         if (rival && !rival.pile) {
-          rival.pile = slushPile(this.scene, { at: rivalRoot.getWorldPosition(new THREE.Vector3()), tint: RIVAL_DRESS[index].tint, random: seeded(31 + index) });
+          rival.pile = slushPile(this.scene, { at: rivalRoot.getWorldPosition(new THREE.Vector3()), tint: rival.look.tint, random: seeded(31 + index) });
           rival.pile.group.visible = this.visible;
         }
         break;
       case 'vessel':
         this.vessel?.dispose();
-        this.vessel = vesselProp(this.scene, { kind: cue.kind, tint: RIVAL_DRESS[index].tint });
+        this.vessel = vesselProp(this.scene, { kind: cue.kind, tint: rival?.look.tint ?? RIVAL_DRESS[index].tint });
         this.vessel.update({ visible: false });
         this.#play(vesselRecipe(Math.random, { kind: cue.kind }), this.#chest(heroRoot), 0.5);
         break;
@@ -621,7 +850,7 @@ export class TourDirector {
         }
         break;
       case 'dregs': {
-        const hand = this.#socket(this.hero.instance, 'socket_sorcery');
+        const hand = this.#socket(traveller.instance, 'socket_sorcery');
         rival?.pile?.splash({ x: hand.x, z: hand.z });
         this.#play(splashRecipe(), new THREE.Vector3(hand.x, 0, hand.z), 0.5);
         break;
@@ -673,12 +902,13 @@ export class TourDirector {
       case 'dizzy':
         // stars round his head while the world goes round
         this.stars?.dispose();
-        this.stars = dizzyStars(this.scene, this.hero.instance);
+        this.stars = dizzyStars(this.scene, traveller.instance);
         this.starsUntil = this.time + (cue.seconds ?? 1.8);
         break;
       case 'voice':
-        // a line, or a moment (its lines, the first said the only one: voiceLines.mjs)
-        if (this.voice && Math.random() < cue.chance) {
+        // a line, or a moment (its lines, the first said the only one: voiceLines.mjs); his lines are his, said only
+        // while the round is his
+        if (this.voice && traveller.kind === HERO && Math.random() < cue.chance) {
           if (cue.moment) linesFor('tour-spellblade', [cue.moment]).some((say) => this.#say(say.line));
           else this.#say(cue.line);
         }
@@ -732,6 +962,69 @@ export class TourDirector {
     });
   }
 
+  // ------------------------------------------------------------------------------------------------------- wind
+  // The Gale's wind while a fight's traveller pose has it (`wind`, 0..1): wisps of air drawn in round him as it
+  // gathers, a funnel of it standing up round him (the Gale's own gust, turned to blow upward from his feet: Effects
+  // galeBlast), quicker as it strengthens; and the cape of the rival he is fighting flung about by it, the harder the
+  // nearer and the stronger it blows.
+  #stepWind(moment, dt) {
+    const fight = moment.phase === 'fight' ? this.fights[moment.fight] : null;
+    const t = fight ? moment.fightTimes[moment.fight] : 0;
+    const pose = fight ? fight.hero(t) : null;
+    const wind = Math.max(0, Math.min(1, pose?.wind ?? 0));
+    if (wind <= 0.02 || !this.visible) {
+      if (this.wind && wind <= 0.02) this.#stopWind();
+      return;
+    }
+    const root = this.traveller.root;
+    const feet = root.getWorldPosition(new THREE.Vector3());
+    this.wind ??= { at: this.time, wisps: 0, gust: 0, push: 0.3 };
+    // the funnel: one body of air round him, turning with him, rising with him
+    this.funnel ??= galeFunnel(this.scene);
+    this.funnel.update({ position: feet, strength: wind, turn: -(pose.heading ?? 0), dt, visible: this.visible });
+    // the wisps drawn in to him as it gathers
+    this.wind.wisps -= dt;
+    if (this.wind.wisps <= 0 && wind < 0.85) {
+      this.wind.wisps = 0.45;
+      const gather = this.effects.galeGather(() => ({ origin: this.#chest(root) }), { gatherSec: 0.6 });
+      if (gather) this.wind.gathering = gather;
+    }
+    const rival = this.rivals[moment.fight];
+    const standing = rival && rival.holder.visible ? rival.holder.getWorldPosition(new THREE.Vector3()) : null;
+    // the air driven off it at the one giving ground: a low gust now and then, raising the dust about his feet
+    this.wind.push -= dt;
+    if (standing && this.wind.push <= 0 && wind > 0.45 && !this.flying) {
+      this.wind.push = 0.75 - 0.3 * wind;
+      const way = standing.clone().sub(feet).setY(0).normalize();
+      const groundAt = (x, z, y) => surfaceHeightAt(x, z, y + 0.5, this.world);
+      this.effects.galeBlast({ x: feet.x + way.x * 0.6, y: 0.55, z: feet.z + way.z * 0.6 }, { x: way.x, y: 0.02, z: way.z }, PUSH_CONE, { groundAt });
+    }
+    // the rival's cape: flung away from him, gusting (never quite the same twice), several times a second
+    this.wind.gust -= dt;
+    if (this.wind.gust <= 0 && standing) {
+      this.wind.gust = 0.12;
+      const gusting = 0.75 + 0.5 * Math.sin(this.time * 9.1) * Math.sin(this.time * 3.7);
+      rival.instance.animator.cloth?.gust(this.#windAt(rival.holder, feet, GALE_GUST * wind * gusting));
+    }
+  }
+
+  // the wind at a knight from a point: away from it, weaker with distance (out to GALE_REACH), swirling a little
+  #windAt(object, from, strength) {
+    const at = object.getWorldPosition(new THREE.Vector3());
+    const away = at.sub(from).setY(0);
+    const distance = away.length();
+    if (distance < 1e-3) return { x: 0, z: 0 };
+    const falloff = Math.max(0, 1 - distance / GALE_REACH);
+    away.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.5);
+    return { x: away.x * strength * falloff, z: away.z * strength * falloff };
+  }
+
+  #stopWind() {
+    this.wind?.gathering?.cancel?.();
+    this.wind = null;
+    this.funnel?.update({ strength: 0 });
+  }
+
   // armour hitting the ground: a clang for each landing, but never a wall of them at once
   #clatter(point, impact) {
     if (this.time - (this.lastClatter ?? -1) < 0.05) return;
@@ -756,7 +1049,7 @@ export class TourDirector {
     // heard like another knight's voice nearby: from where he stands (his words carry), a touch of the courtyard, no
     // echo; and written out on the menu's subtitle, beat by beat as he gets to it (onCaption)
     this.camera.getWorldDirection(_p);
-    const place = voicePlacement(this.camera.position, Math.atan2(-_p.x, -_p.z), this.#chest(this.hero.root), hearingFor(line));
+    const place = voicePlacement(this.camera.position, Math.atan2(-_p.x, -_p.z), this.#chest(this.traveller.root), hearingFor(line));
     if (!place) return false;
     const said = this.voice.say(line, { speaker: 'tour-spellblade', pan: place.pan, gain: 0.8 * place.gain, reverb: place.reverb });
     if (said) this.onCaption?.({ line, delay: said.delay ?? 0, seconds: said.seconds ?? 2, beats: said.beats ?? null });
@@ -767,7 +1060,9 @@ export class TourDirector {
   // following him on the run (from behind and to his left, so he runs on the right of the frame, closer and higher
   // where scenery is in the way: tourCamera.mjs), and framing each fight to the right of the banner; eased between
   #camera(moment, dt) {
-    const hero = this.hero.root.getWorldPosition(new THREE.Vector3());
+    const hero = this.traveller.root.getWorldPosition(new THREE.Vector3());
+    // (the camera stays on the ground with whoever is left when he flies off)
+    hero.y = 0;
     const onPath = this.heroDistance ?? moment.distance;
     const here = this.path.at(onPath);
     const forward = new THREE.Vector3(here.dir[0], 0, here.dir[1]);
@@ -835,11 +1130,18 @@ export class TourDirector {
     this.view.position.lerp(want.position, k);
     this.view.target.lerp(want.target, k);
     this.view.fov += (want.fov - this.view.fov) * k;
+    // never inside anything, nor with anything between it and him (a pillar's edge, passing): moved on toward him
+    this.view.position.set(...clearEye(this.view.position.toArray(), [hero.x, hero.y + 1.2, hero.z], this.blockers));
     // and whatever it is doing, it never lets him slip behind the banner (setting off, he walks straight across the
     // front door's shot, faster than the steadicam follows)
-    this.view.target.set(...followAim(this.view.position.toArray(), [hero.x, hero.z], this.view.target.toArray(), {
-      aspect: this.camera.aspect, clear: this.clear, fov: this.view.fov,
-    }));
+    if (!this.flying && !this.travellerAway) {
+      this.view.target.set(...followAim(this.view.position.toArray(), [hero.x, hero.z], this.view.target.toArray(), {
+        aspect: this.camera.aspect, clear: this.clear, fov: this.view.fov,
+      }));
+    }
+    // where the light should follow (the sun's shadow box: MenuScene), and how far down the fade between maps is
+    this.view.focus = hero;
+    this.view.fade = this.travelFade;
     return this.view;
   }
 
@@ -847,7 +1149,11 @@ export class TourDirector {
     // (the menu going: everything forgotten, the rivals' memory with it)
     this.memory.skyBait = null;
     this.#resetRivals();
-    for (const rival of this.rivals) {
+    this.#stopWind();
+    this.funnel?.dispose();
+    this.funnel = null;
+    if (this.hero?.root) this.hero.root.visible = true;
+    for (const rival of this.knights) {
       if (!rival) continue;
       this.scene.remove(rival.holder);
       rival.instance.dispose();

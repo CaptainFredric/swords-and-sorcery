@@ -11,6 +11,8 @@ import { MENU_SHOTS, aimAt, easeShot, lerpShot, menuShotFor, shotSettled, menuTr
 import { FIGHT_SHOT, mixClear } from './tour/tourCamera.mjs';
 import { REACTIONS, idleMoment, idlePose, reactionMoment, armoryIdleMoment } from './menuIdle.mjs';
 import { TourDirector } from './tour/TourDirector.mjs';
+import { TourWorlds } from './tour/tourWorlds.mjs';
+import { TOUR_MAP_IDS } from './tour/tourMaps.mjs';
 import { performanceAt } from './menuReactions.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../game/swordArmIK.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
@@ -63,6 +65,14 @@ const SPELL_PREVIEW = Object.freeze({
   vortex: { core: 0xffeab5, glow: 0xff5822, light: 2.6 },
   chivalry: { core: 0xf4f8ff, glow: 0x8fd3ff, light: 1.6 },
 });
+
+// the maps the round may move on to: all of them, or (?debug&tourMaps=court-of-merit,outerworks) only those named,
+// Castleward always first
+function tourMaps() {
+  const params = new URLSearchParams(globalThis.location?.search ?? '');
+  const named = params.has('debug') ? (params.get('tourMaps') ?? '').split(',').filter((id) => TOUR_MAP_IDS.includes(id)) : [];
+  return named.length ? ['castleward', ...named.filter((id) => id !== 'castleward')] : TOUR_MAP_IDS;
+}
 
 export class MenuScene {
   constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null, armoryScreen = null } = {}) {
@@ -122,12 +132,17 @@ export class MenuScene {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
+    // the dark the round passes through between maps (tourWorlds.mjs)
+    this.tourFade = Object.assign(document.createElement('div'), { className: 'tour-fade' });
+    this.tourFade.setAttribute('aria-hidden', 'true');
+    this.container.appendChild(this.tourFade);
 
     // the whole of Castleward, drawn with the environment kit, at its late-afternoon light
     this.world = new CastlewardRenderer(this.scene);
     this.siegeWorkshop = new SiegeWorkshopScene(this.scene);
     const light = CASTLEWARD_LIGHTING;
-    this.scene.add(new THREE.HemisphereLight(light.hemisphere.skyColor, light.hemisphere.groundColor, light.hemisphere.intensity));
+    this.hemisphere = new THREE.HemisphereLight(light.hemisphere.skyColor, light.hemisphere.groundColor, light.hemisphere.intensity);
+    this.scene.add(this.hemisphere);
     const sun = new THREE.DirectionalLight(light.sun.color, light.sun.intensity);
     sun.position.set(STAGE.x + light.sun.position[0], light.sun.position[1], STAGE.z + light.sun.position[2]);
     sun.target.position.set(STAGE.x, 0, STAGE.z);
@@ -136,6 +151,8 @@ export class MenuScene {
     Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 });
     this.scene.add(sun, sun.target);
     this.sun = sun;
+    // the worlds the round moves on to (tourMaps.mjs), Castleward's among them
+    this.tourWorlds = new TourWorlds({ scene: this.scene, camera: this.camera, castleward: this.world, hemisphere: this.hemisphere, sun, renderer: this.renderer });
 
     // the stage faces the camera's side of the forecourt, so the showcase yaw below reads as before: pi faces us
     this.stage = new THREE.Group();
@@ -215,7 +232,7 @@ export class MenuScene {
       }
       // his rivals and his round (not on the Smooth quality, nor for anyone who asked the web for less motion)
       if (this.tourAllowed !== false) {
-        this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice, effects: this.#effects() });
+        this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice, effects: this.#effects(), worlds: this.tourWorlds, maps: tourMaps() });
         // (beat by beat as he says it: never a word before it is said)
         this.tour.onCaption = ({ line, delay, seconds, beats }) => {
           const plan = captionPlan(line, { beats });
@@ -416,10 +433,13 @@ export class MenuScene {
     }
     const round = this.touring ? this.tour.update(dt) : null;
     if (this.touring) {
-      // the round moves him (and the sun, so the shadows around him stay crisp)
-      const at = this.characterRoot.position;
-      this.sun.position.set(at.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], at.z + CASTLEWARD_LIGHTING.sun.position[2]);
+      // the round moves him, or whoever has it (and the sun, so the shadows around them stay crisp), in the light of
+      // whichever world it is in; and between maps, the dark
+      const at = round?.focus ?? this.characterRoot.position;
+      const sunAt = (this.tourWorlds.lighting ?? CASTLEWARD_LIGHTING).sun.position;
+      this.sun.position.set(at.x + sunAt[0], sunAt[1], at.z + sunAt[2]);
       this.sun.target.position.set(at.x, 0, at.z);
+      this.tourFade.style.opacity = String(round?.fade ?? 0);
     } else if (this.showcase?.active && this.assetInstance) {
       // an ultimate chosen in the Armory, performed (ArmoryShowcase.mjs): posed, then what the moment brings
       const plan = this.showcase.pose(dt);
@@ -523,7 +543,7 @@ export class MenuScene {
     // the menu's effects (the round's fights and the showcases alike: the round leaves them to the menu)
     this.effects?.update(dt);
 
-    this.world.update(t, this.camera, dt);
+    this.tourWorlds.update(t, this.camera, dt);
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -784,6 +804,11 @@ export class MenuScene {
     this.characterRoot.position.copy(this.targetPosition);
     this.characterRoot.rotation.set(0, this.targetYaw, 0);
     this.tour.setVisible(false);
+    // (whatever map the round had moved on to, and whoever had it: the front door's own world, in its own light, and
+    // the player's own knight, shown, exactly as he was)
+    this.tourWorlds.show('castleward');
+    this.tourFade.style.opacity = '0';
+    this.characterRoot.visible = true;
     this.assetInstance?.animator?.reset?.();
     this.ensureSwordVisible();
     this.assetInstance?.animator.cloth?.reset();
@@ -1028,6 +1053,7 @@ export class MenuScene {
       this.assetInstance = null;
     }
     if (this.fallbackVisual) disposeObject(this.fallbackVisual);
+    this.tourWorlds.dispose();
     this.world.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();

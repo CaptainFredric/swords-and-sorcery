@@ -37,6 +37,8 @@
 .menu-spellblade:active { cursor: grabbing; }
 .menu-spellblade canvas { width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
 .menu-spellblade.menu-spellblade-ready canvas { opacity: 1; }
+/* the dark the front door's round passes through between one map and the next (MenuScene: its opacity, frame by frame) */
+.menu-spellblade .tour-fade { position: absolute; inset: 0; background: #0d0b09; opacity: 0; pointer-events: none; }
 .menu-vignette { position: absolute; inset: 0; z-index: 3; pointer-events: none; background:
   radial-gradient(ellipse at 62% 48%, transparent 38%, rgba(18, 12, 8, .45) 100%); transition: background-position .42s ease; }
 /* (the shade the crimson banner stands against: lifted, most of the way, when the banner is drawn aside, and the
