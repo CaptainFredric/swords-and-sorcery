@@ -7,6 +7,8 @@ import {requestBiByeSharpTurn,biByeSweepClearance,finishBiByeSweep,biByeSweepAll
 import {canBiByeCouple} from '../../shared/sim/biByeWeapons.mjs';
 import {authoredBiByeSweepVolumes,authoredSweepLimbQuaternion} from '../../shared/sim/biByeSweepGeometry.mjs';
 import {biByeAnimation} from '../../client/worlds/biByePresentation.mjs';
+import {createSoFistication} from '../../shared/sim/soFistication.mjs';
+import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
 
 const ground=()=>({floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20});
 function setup(equipped='boltToTheOccasion'){
@@ -69,6 +71,17 @@ test('interruptions restore legal ordinary turret aim and charge the machine Ski
  assert.ok(Math.abs(s.b.mainPitch-.1)<1e-9);
  assert.equal(s.b.skill.readyAt,25.83);
  assert.equal(fireBiByeLlista(s.room,s.b,1.84),true,'original bolt input returns immediately after interruption');
+});
+test('authored 22-to-23 transition does not teleport the physical traverse or lower the cradle instantly',()=>{
+ const s=setup('lookAroundAndFindOut');
+ assert.equal(issue(s,'siegeSkill').rejected,undefined);
+ step(s,1,2.04);
+ const previous=s.b.sweep.angle,lower=s.b.sweep.lower;
+ assert.equal(s.b.sweep.phase,'loop');
+ step(s,2.04,2.04+1/30);
+ assert.ok(s.b.sweep.angle-previous<.22,'the handoff must advance by one physical 30Hz spin step');
+ assert.ok(s.b.sweep.angle>previous,'rotation never reverses at handoff');
+ assert.ok(s.b.sweep.lower-lower<.12,'the braced stance blends in, not a sudden jump');
 });
 test('walls prevent a full revolution before startup; unobstructed ground permits it',()=>{
  const s=setup();assert.equal(biByeSweepClearance(s.b,s.room.world),true);
@@ -182,6 +195,22 @@ test('overlap across the 360-degree seam cannot create an instant second hit',()
  assert.equal(biByeSweepAllowsContact(previous,1,almost+2*Math.PI),true);
  assert.equal(biByeSweepAllowsContact(previous,0,almost+2*Math.PI),false);
  assert.equal(biByeSweepAllowsContact(null,0,0),true);
+});
+test('main-limb sweep strikes real ram and flight component boxes, never a surrogate radius',()=>{
+ for(const kind of ['ram','flight']){
+  const s=setup();
+  const limb=authoredBiByeSweepVolumes({...s.b,mainYaw:Math.PI,sweep:{lower:1}})[0];
+  const pos={x:limb.center[0],y:0,z:limb.center[2],heading:0};
+  if(kind==='ram')s.room.soFistication=createSoFistication({id:'impact-ram',...pos});
+  else s.room.fightFlight=createFightFlight({id:'impact-flight',...pos});
+  assert.equal(issue(s,'bibyeSharpTurn').rejected,undefined);
+  step(s,1,2.8);
+  const events=s.room.events;
+  const hits=events.filter(e=>e.type==='bibyeSweepMachineImpact');
+  assert.equal(hits.length,1,kind+' should receive one real hit per committed turn');
+  assert.ok(events.some(e=>e.type===(kind==='ram'?'soFistDamaged':'fightFlightComponentHit')),
+    kind+' impact must pass through its original component damage system');
+ }
 });
 test('clearance, damage, and loop cadence retain discrete authored timings',()=>{
  assert.equal(BI_BYE_SWEEP.single,1.65);

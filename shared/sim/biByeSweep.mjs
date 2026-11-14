@@ -241,11 +241,18 @@ export function stepBiByeSweep(room,b,dt,now,fireOrdinary){
   next=p.angle;lower=p.lower;
   canHit=age>=BI_BYE_SWEEP.contactStart;
   if(age>=BI_BYE_SWEEP.opening){
+   // The 22->23 join starts at the *real* clip-22 angle (~352 degrees),
+   // not 360; preserve it rather than snapping 8 degrees at the boundary.
    s.phase='loop';s.loopAt=s.startedAt+BI_BYE_SWEEP.opening;
-   lower=1;
+   s.loopStartAngle=p.angle;s.loopStartLower=p.lower;
   }
  }else if(s.phase==='loop'){
-  next=TAU+(now-s.loopAt)*TAU/BI_BYE_SWEEP.loop;lower=1;canHit=true;
+  const loopAge=Math.max(0,now-s.loopAt);
+  next=(s.loopStartAngle??TAU)+loopAge*TAU/BI_BYE_SWEEP.loop;
+  // Clip 26 brings clip 22's partly raised end-pose into its full brace
+  // without an instantaneous change in bow geometry.
+  lower=(s.loopStartLower??1)+(1-(s.loopStartLower??1))*clamp(loopAge/.12,0,1);
+  canHit=true;
  }else if(s.phase==='settle'){
   const target=Math.round(prior/TAU)*TAU;
   next=prior+clamp(target-prior,-BI_BYE_SWEEP.settleRate*dt,BI_BYE_SWEEP.settleRate*dt);
