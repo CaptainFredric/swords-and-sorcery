@@ -109,7 +109,9 @@ const MOUNTED_ACTIONS = Object.freeze({
   // SO-FIST-ICATION: combat below, side-by-side hydraulics above.
   attack:{right:14,bottom:18,size:76},
   siegeSkill:{right:100,bottom:22,size:64},
-  spell:{right:184,bottom:20,size:52},
+  // Steel sits in a separate upper-left pocket, not in PRIME's
+  // lower attack cluster or in the subtitle lane above the siege HP.
+  spell:{right:202,bottom:120,size:50},
   // Flick sits underneath RAISE, right of Launch, above Piston.
   ramFlick:{right:14,bottom:92,size:50},
   jump:{right:14,bottom:156,size:52},
@@ -139,6 +141,35 @@ const BI_BYE_UTILITIES=Object.freeze({
  // Keep enough clearance from the lower Steel / heavy-fire row on short phones.
  siegeView:{right:145,bottom:111,size:40},
 });
+
+/**
+ * A stored/custom touch layout may put Steel directly over a mounted Skill.
+ * Move only the visible Steel surface at runtime; never rewrite the user's
+ * saved controls. Test candidate positions against ALL other visible buttons
+ * and the safe viewport. The least-displaced viable candidate wins.
+ */
+export function clearTouchButtonOverlap(moving, fixed, bounds, obstacles = [], gap = 7) {
+  const overlaps=(a,b)=>a.left<b.right+gap&&a.right>b.left-gap&&
+    a.top<b.bottom+gap&&a.bottom>b.top-gap;
+  if(!moving||!fixed||!bounds||!overlaps(moving,fixed))return {dx:0,dy:0};
+  const shifts=[
+    {dx:0,dy:fixed.top-moving.bottom-gap},
+    {dx:fixed.left-moving.right-gap,dy:0},
+    {dx:fixed.right-moving.left+gap,dy:0},
+    {dx:0,dy:fixed.bottom-moving.top+gap},
+    {dx:fixed.left-moving.right-gap,dy:fixed.top-moving.bottom-gap},
+    {dx:fixed.right-moving.left+gap,dy:fixed.top-moving.bottom-gap},
+  ].sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy));
+  for(const shift of shifts){
+    const rect={left:moving.left+shift.dx,right:moving.right+shift.dx,
+      top:moving.top+shift.dy,bottom:moving.bottom+shift.dy};
+    if(rect.left<bounds.left+4||rect.right>bounds.right-4||
+       rect.top<bounds.top+4||rect.bottom>bounds.bottom-4)continue;
+    if([fixed,...obstacles].some(other=>overlaps(rect,other)))continue;
+    return shift;
+  }
+  return null;
+}
 
 export function mirrorLayoutHorizontal(layout) {
   const mirrored = {};
