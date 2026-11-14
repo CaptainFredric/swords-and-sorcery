@@ -171,7 +171,7 @@ export function createBiByeLlista(overrides = {}) {
     operatorId: null,
     team: conf.team ?? null,
     mobileFiredAt: null,
-    sweep:null,sweepRecovery:null,
+    sweep:null,
     destroyedAt: null,
 
     // Operational mode
@@ -425,7 +425,7 @@ function syncOperatorPosition(ballista, player) {
  * Toggle operational mode between MOBILE and DEPLOYED.
  */
 export function toggleBiByeDeploy(ballista, nowSec, world=null) {
-  if (!ballista || ballista.sweep || ballista.sweepRecovery&&(nowSec<ballista.sweepRecovery.until) || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if (!ballista || ballista.sweep || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   // Give violently uprooted stabilizers a brief recovery before redeployment.
   if(ballista.mode===BI_BYE_MODES.MOBILE&&
       nowSec<(ballista.outriggersDislodgedUntil??-Infinity))return false;
@@ -540,7 +540,7 @@ export function fireBiByeFullVolley(room, ballista, nowSec) {
 }
 export function fireBiByeLlista(room, ballista, nowSec) {
   if(ballista?.sweep?.kind==='skill')return requestBiByeSweepStop(ballista,nowSec,true);
-  if(biByeSweepActive(ballista)||ballista?.sweepRecovery&&nowSec<ballista.sweepRecovery.until)return false;
+  if(biByeSweepActive(ballista))return false;
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   // A primed Skill always routes ATTACK to the independent upper bolt.
   // Never let the ordinary deployed MAIN focus arm a coupled automatic Bolt II.
@@ -684,7 +684,6 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   if(!ballista.terrainInitialized){const initial=biByeTerrainPose(ballista,biByeTerrainContext(world,ballista));if(initial)Object.assign(ballista,initial);ballista.terrainInitialized=true;}
 
   // Handle destroyed state
-  if(ballista.sweepRecovery&&nowSec>=ballista.sweepRecovery.until)ballista.sweepRecovery=null;
   if (ballista.mode === BI_BYE_MODES.DESTROYED) {
     if (ballista.operatorId) {
       const op = room.players?.get(ballista.operatorId);
@@ -739,7 +738,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     } else {
       const input = operator.input ?? {};
 
-      if (ballista.mode === BI_BYE_MODES.MOBILE&&!ballista.sweep&&!ballista.sweepRecovery) {
+      if (ballista.mode === BI_BYE_MODES.MOBILE&&!ballista.sweep) {
         // Input consumption: signed numbers in [-1, 1]
         // (Supporting boolean legacy, number protocol, and touch joystick)
         let forwardVal = 0;
