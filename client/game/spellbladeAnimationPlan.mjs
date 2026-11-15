@@ -48,7 +48,7 @@ export function swordPresentationTime(elapsed,style=0) {
   return elapsed+(winding?-1:1)*shape*Math.min(.048,span*.19)*Math.max(0,Math.min(1,style));
 }
 
-function attackPlan(player, serverNow, { guarded = false } = {}) {
+function attackPlan(player, serverNow, { guarded = false, localTime = serverNow } = {}) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
   const age = elapsed % ATTACK_CYCLE;
@@ -66,7 +66,11 @@ function attackPlan(player, serverNow, { guarded = false } = {}) {
   // keep their own clips and clocks below.)
   if (!guarded && !player?.attackChivalry && !player?.concurrent) {
     const shown = chainPresentation(player, serverNow);
-    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}), carry: true };
+    // (a let-go strike is handed back to the stance: the Idle on the clock the stance itself is shown on, so nothing
+    // jumps as the chain's presentation ends; a bridge names the next strike's frame for a model without it)
+    if (shown?.idle) return { ...fixed('Idle', idleTime(localTime), true), blend: shown.blend };
+    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}),
+      ...(shown.fallback ? { fallback: shown.fallback, fallbackTime: shown.fallbackTime } : {}), carry: true };
   }
   if (cycle < SLASH_DURATIONS[0]) return fixed('Slash_1', cycle);
   if (cycle < SLASH_DURATIONS[0] + SLASH_DURATIONS[1]) {
@@ -308,7 +312,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     }, concurrent: layers };
   }
   if (state === 'attack') {
-    const attack = attackPlan(player, serverNow);
+    const attack = attackPlan(player, serverNow, { localTime });
     // on the move (or in the air) the legs keep their gait and only the body above them swings: a whole-body strike
     // planted its feet while the knight ran on (every planted frame skated). Standing, the strike has the whole body.
     const moving = locomotionState(player);
@@ -419,7 +423,7 @@ export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
       sorcery: view.guard && !(view.castUntil > timeSec) ? guard : still,
     } };
   }
-  if (pose.state === 'attack') return attackPlan(view, timeSec);
+  if (pose.state === 'attack') return attackPlan(view, timeSec, { localTime: timeSec });
   if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
   if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
   if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };

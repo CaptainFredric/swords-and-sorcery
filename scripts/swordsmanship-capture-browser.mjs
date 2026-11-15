@@ -9,6 +9,7 @@
 //   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|riposte|riposte-air|whirl|whirl-gale
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
+//        [--clear-view]  the recording browser's own first-person arms hidden (to see the watched knight's whole blade)
 //
 // Sheets need ImageMagick (magick); frames are kept either way. (It runs on a checkout without the techniques too:
 // the slash scenarios need nothing of them.)
@@ -208,6 +209,8 @@ try {
   const camera = viewer ?? actor;
   await camera.evaluate(`(() => {
     const rt = window.__ssRuntime, canvas = rt.renderer.domElement;
+    // (--clear-view: the recording browser's own first-person arms and sword hidden, so the knight being watched is seen whole)
+    if (${flag('--clear-view')}) for (const o of [rt.weapon?.group, rt.weapon?.palmLight]) if (o) Object.defineProperty(o, 'visible', { get: () => false, set: () => {}, configurable: true });
     const rec = window.__swordRec = { chunks: [] };
     const copy = document.createElement('canvas');
     copy.width = ${size.split ? 1280 : 844}; copy.height = Math.round(copy.width * canvas.height / canvas.width / 2) * 2;

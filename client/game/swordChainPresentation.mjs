@@ -5,33 +5,55 @@
 // follow-through, and back to Idle. Played back to back that is a reset between every strike (the sword swept back to
 // the low right and up again), and played in the chain's 0.72 s slots it lost the last 1.4 frames of each. So:
 //
-//   - every strike's cut is played at the authored rate through its contact frame, which lands on the server's
-//     contact (SWORD_STRIKE_TIMES), whatever else is warped around it;
+//   - every strike's contact frame lands on the server's contact (SWORD_STRIKE_TIMES), and through the swing window
+//     around it the clip is played at the pace of the server's blade (blade.mjs), so the sword shown is the sword that
+//     hits, in every view of it;
 //   - a strike that may be followed comes to rest at the far end of its follow-through as its slot ends (the earliest
-//     the server says whether the next is committed);
-//   - followed, the next strike picks up from part-way up its own raise, on the side the last one finished (the
-//     forehand ends low left and the backhand rises out of the left; the backhand ends high right and the heavy
-//     strike goes up on the right): no return to Idle between the strikes of one chain;
-//   - not followed (let go), the strike plays its own way home from there, so a let-go chain recovers for real;
+//     the server says whether the next is committed): the frame Argon's bridges start from;
+//   - followed, Argon's authored bridge (Slash_1_to_2, Slash_2_to_3, Slash_2_to_1, Slash_1_to_3) carries the sword from
+//     there up into the next strike's raise, on the side the last one finished: no return to Idle between the strikes
+//     of one chain, and no cross-fade through the body;
+//   - not followed (let go), the strike is handed back to the stance from the far end of its follow-through, rather
+//     than swung on past it (the 89's forehand goes on round behind the knight's left shoulder there);
 //   - the heavy third strike's follow-through plays to its end at the chain's restart (the server's chain is over at
 //     its contact, the body's is not), and arrives on the Idle stance the next chain starts from.
 //
 // Nothing here changes when a blow lands: only which frame of the authored cut is shown at that moment.
 
-import { SWORD_CHAIN, SWORD_CHAINS, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_CHAIN, SWORD_CHAINS, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
 /** The chain's whole cycle: the third contact and the restart after it (2.08 s). */
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
 
-// Authored timing of each strike clip (seconds into the clip), measured from the shipped spellblade.glb
-// (scripts/sword-loop-audit.mjs): `contact` the frame whose blade crosses the knight's front, `far` the end of its
-// follow-through (before it turns for home), `linkIn` part-way up its raise on the side it is raised, `end` its last
-// frame (the Idle stance).
+// Authored timing of each strike clip (seconds into the clip), measured on the 89-clip Spellblade as the client
+// composes it (spellblade.glb + the motion sidecar's Slash_1 upper body; scripts/spellblade-chain-sync-audit.mjs and
+// scripts/spellblade-first-cut-probe.mjs measure them again):
+//   contact  the frame whose blade crosses the knight's front (a side cut's heading, the chop's pitch, through the aim);
+//   swing    the frames whose blade lies where the server's does at the start and the end of the swing window
+//            (MELEE_CONTACT.window, shared/src/blade.mjs bladeDirection): the authored cuts sweep about twice as fast as
+//            the server's blade, so through the window the clip is played at the server's pace, not its own, and the
+//            blade shown is the blade that hits;
+//   far      where a follow-through is handed on: the first frame of Argon's authored bridges (Slash_1_to_2 and the rest
+//            all begin exactly there). Past it the 89's forehand swings on round behind the knight's left shoulder
+//            (123 degrees from the aim at 0.533 s, the wrist folding a further 13 degrees): that is never shown at rest;
+//   pickUp   where a bridge lands in this strike (the top of its raise);
+//   raised   the top of its raise, the sword up as a held Guard has it: a chain begun out of the Guard starts there;
+//   end      its last frame (the Idle stance).
 export const STRIKE_CLIPS = Object.freeze({
-  // (raised: the top of its raise, the sword up as a held Guard has it: a chain begun out of the Guard starts there)
-  Slash_1: Object.freeze({ contact: 0.4, far: 0.533, linkIn: 0.1, raised: 0.167, end: 23 / 30 }),
-  Slash_2: Object.freeze({ contact: 0.38, far: 0.533, linkIn: 0.1, end: 23 / 30 }),
-  Slash_3: Object.freeze({ contact: 0.36, far: 0.5, linkIn: 0.1, end: 20 / 30 }),
+  Slash_1: Object.freeze({ contact: 0.391, swing: Object.freeze([0.367, 0.426]), far: 0.467, pickUp: 0.2, raised: 0.167, end: 23 / 30 }),
+  Slash_2: Object.freeze({ contact: 0.332, swing: Object.freeze([0.303, 0.384]), far: 0.467, pickUp: 0.2, end: 23 / 30 }),
+  // (the chop: the 89's comes down a diagonal and stops 15 degrees below the aim, where the server's goes on down to
+  // 50: past its contact it is played at half its own pace, not tracked to a blade it never reaches)
+  Slash_3: Object.freeze({ contact: 0.385, swing: Object.freeze([0.346, 0.44]), far: 0.5, pickUp: 0.2, end: 20 / 30 }),
+});
+
+// Argon's authored hand-overs between the cuts (89-clip model): each begins exactly on the far end of one cut's
+// follow-through (its `far`) and lands on the next cut's `pickUp` (0.000 m apart in every joint measured, except
+// Slash_2_to_1, whose sword lands 0.3 m off Slash_1's raise: it is handed over with a longer blend). `blend`: the
+// cross-fade into the next cut as the bridge lands.
+export const BRIDGES = Object.freeze({
+  Slash_1: Object.freeze({ Slash_2: Object.freeze({ clip: 'Slash_1_to_2', duration: 0.32, blend: 0.05 }), Slash_3: Object.freeze({ clip: 'Slash_1_to_3', duration: 0.36, blend: 0.05 }) }),
+  Slash_2: Object.freeze({ Slash_3: Object.freeze({ clip: 'Slash_2_to_3', duration: 0.34, blend: 0.05 }), Slash_1: Object.freeze({ clip: 'Slash_2_to_1', duration: 0.32, blend: 0.12 }) }),
 });
 
 // The authored clip of each cut (0 the forehand, 1 the backhand, 2 the heavy strike), and so of each chain's strikes in
@@ -40,12 +62,14 @@ export const STRIKE_CLIPS = Object.freeze({
 export const KIND_CLIPS = Object.freeze(['Slash_1', 'Slash_2', 'Slash_3']);
 export const CHAIN_CLIPS = Object.freeze(SWORD_CHAINS.map((form) => Object.freeze(form.kinds.map((kind) => KIND_CLIPS[kind]))));
 
-// the cut itself, at the authored rate: this long before the contact, and after it
-const CUT = Object.freeze({ before: 0.12, after: 0.04 });
-// a let-go strike's way home from the far end of its follow-through
+// the last of a first strike's raise is eased into the swing window over this long (it is played at the authored rate
+// before that)
+const RAISE_EASE = 0.12;
+// a let-go strike's way home from the far end of its follow-through: handed back to the stance (the Idle the knight
+// stands in next), not swung on through the rest of the authored follow-through
 export const RECOVERY_SEC = 0.3;
-// the cross-fade from one strike's follow-through into the next one's raise (its own frames moving, the last held)
-export const LINK_BLEND_SEC = 0.16;
+// the cross-fade from a follow-through into a bridge (both on the same frame: only the timing changes)
+export const LINK_BLEND_SEC = 0.05;
 
 // out of the Guard into a chain: the guard's raised sword handed to the top of the first strike's raise
 export const GUARD_LINK_SEC = 0.12;
@@ -64,48 +88,82 @@ function hermite(x, x0, y0, m0, x1, y1, m1) {
 // a slope that keeps a Hermite segment from overshooting its end (Fritsch–Carlson's bound)
 const monotone = (m, dy, dx) => Math.min(m, 3 * Math.max(0, dy) / Math.max(1e-9, dx));
 
-/**
- * Where in its clip strike `slot` is, `elapsed` seconds into the chain. linked: it follows the strike before it in
- * this chain (it picks up from that strike's side); followed: the next strike of the chain is committed (unknown
- * until its slot begins: until then it is treated as possible).
- */
-export function strikeClipTime(clipName, slot, elapsed, { linked = slot > 0, followed = null, raised = false } = {}) {
+/** The swing window of strike `slot` for `clipName`: the server's times and the clip's, and the clip's pace through it. */
+export function swingWindow(clipName, slot) {
   const clip = STRIKE_CLIPS[clipName];
   const contact = SWORD_STRIKE_TIMES[slot];
-  const start = SWORD_CHAIN.starts[slot];
-  const next = slot + 1 < SWORD_CHAIN.starts.length ? SWORD_CHAIN.starts[slot + 1] : CHAIN_CYCLE;
-  const cutFrom = contact - CUT.before;
-  const cutTo = contact + CUT.after;
-  const e = elapsed;
-  // the raise: from Idle at the authored rate (a first strike), or from part-way up it (a linked one), slowing through
-  // the held beat to meet the cut at the authored rate
-  if (e < cutFrom) {
-    const from = raised && Number.isFinite(clip.raised) ? clip.raised : linked ? clip.linkIn : null;
-    if (from === null) return clamp(clip.contact - (contact - e), 0, clip.end);
-    const dy = clip.contact - CUT.before - from, dx = cutFrom - start;
-    return hermite(e, start, from, monotone(1, dy, dx), cutFrom, clip.contact - CUT.before, monotone(1, dy, dx));
-  }
-  if (e <= cutTo) return clip.contact + (e - contact);
-  const afterCut = clip.contact + CUT.after;
-  // the heavy strike (or the last of a chain): its follow-through home, arriving on the stance as the chain restarts
-  if (slot === SWORD_STRIKE_TIMES.length - 1) {
-    const dy = clip.end - afterCut, dx = next - cutTo;
-    return hermite(e, cutTo, afterCut, monotone(1, dy, dx), next, clip.end, 0);
-  }
-  // a strike that may be followed: its follow-through comes to rest at its far end as its slot ends...
-  if (e <= next) {
-    const dy = clip.far - afterCut, dx = next - cutTo;
-    return hermite(e, cutTo, afterCut, monotone(1, dy, dx), next, clip.far, 0);
-  }
-  // ...and, let go, plays its own way home from there
-  if (followed === false) return hermite(e, next, clip.far, 0, next + RECOVERY_SEC, clip.end, 0);
-  return clip.far;
+  const from = contact - MELEE_CONTACT.window.early, to = contact + MELEE_CONTACT.window.late;
+  const before = (clip.contact - clip.swing[0]) / MELEE_CONTACT.window.early;
+  const after = (clip.swing[1] - clip.contact) / MELEE_CONTACT.window.late;
+  return { contact, from, to, before, after, at: (before + after) / 2 };
 }
 
 /**
- * The third-person body's place in the chain: { clip, time, slot, blend? } while a chain is shown (under way, or
- * playing its last swing out), or null. player: a snapshot ({ attackActive, attackStartedAt, attackCommitted,
- * attackLanded, attackEnd, attackVariant }).
+ * Where in its clip strike `slot` is, `elapsed` seconds into the chain. linked: it follows the strike before it in
+ * this chain (it is picked up at the top of its raise, where that strike's bridge lands: `bridgeEnd` the chain time it
+ * lands, `bridgePace` the bridge's pace as it does); followed: the next strike of the chain is committed (unknown until its slot begins: until then it is treated
+ * as possible).
+ */
+export function strikeClipTime(clipName, slot, elapsed, { linked = slot > 0, followed = null, raised = false, bridgeEnd = null, bridgePace = 1 } = {}) {
+  const clip = STRIKE_CLIPS[clipName];
+  const w = swingWindow(clipName, slot);
+  const start = SWORD_CHAIN.starts[slot];
+  const next = slot + 1 < SWORD_CHAIN.starts.length ? SWORD_CHAIN.starts[slot + 1] : CHAIN_CYCLE;
+  const e = elapsed;
+  // the raise, to the start of the swing window
+  if (e < w.from) {
+    if (linked) {
+      // picked up where its bridge landed (at the bridge's pace), slowing into the server's pace as the window opens
+      const at = Number.isFinite(bridgeEnd) ? bridgeEnd : start;
+      const dy = clip.swing[0] - clip.pickUp, dx = w.from - at;
+      if (e <= at) return clip.pickUp;
+      return hermite(e, at, clip.pickUp, monotone(bridgePace, dy, dx), w.from, clip.swing[0], monotone(w.before, dy, dx));
+    }
+    if (raised && Number.isFinite(clip.raised)) {
+      const dy = clip.swing[0] - clip.raised, dx = w.from - start;
+      return hermite(e, start, clip.raised, monotone(1, dy, dx), w.from, clip.swing[0], monotone(w.before, dy, dx));
+    }
+    // from Idle at the authored rate, the last of it eased into the window's pace
+    const easeFrom = w.from - RAISE_EASE;
+    if (e < easeFrom) return clamp(clip.swing[0] - (w.from - e), 0, clip.end);
+    return hermite(e, easeFrom, clip.swing[0] - RAISE_EASE, 1, w.from, clip.swing[0], w.before);
+  }
+  // the swing window: the clip at the server's pace, the contact frame at the server's contact
+  if (e <= w.contact) return hermite(e, w.from, clip.swing[0], w.before, w.contact, clip.contact, w.at);
+  if (e <= w.to) return hermite(e, w.contact, clip.contact, w.at, w.to, clip.swing[1], w.after);
+  // the heavy strike (or the last of a chain): its follow-through home, arriving on the stance as the chain restarts
+  if (slot === SWORD_STRIKE_TIMES.length - 1) {
+    const dy = clip.end - clip.swing[1], dx = next - w.to;
+    return hermite(e, w.to, clip.swing[1], monotone(w.after, dy, dx), next, clip.end, 0);
+  }
+  // a strike that may be followed: its follow-through comes to rest at its far end as its slot ends (and is held there
+  // until the next is committed, or handed home: chainPresentation)
+  const dy = clip.far - clip.swing[1], dx = next - w.to;
+  return hermite(Math.min(e, next), w.to, clip.swing[1], monotone(w.after, dy, dx), next, clip.far, 0);
+}
+
+/**
+ * The bridge from strike `slot - 1`'s follow-through into strike `slot`, `elapsed` into the chain: { clip, time, until }
+ * while it plays (until: the chain time it lands), or null once it has landed (or there is none). The bridge and the
+ * rest of the next strike's raise share the time from the slot's start to its swing window, each at the same pace.
+ */
+export function bridgeTime(fromClip, toClip, slot, elapsed) {
+  const bridge = BRIDGES[fromClip]?.[toClip];
+  if (!bridge) return null;
+  const start = SWORD_CHAIN.starts[slot];
+  const w = swingWindow(toClip, slot);
+  const raise = STRIKE_CLIPS[toClip].swing[0] - STRIKE_CLIPS[toClip].pickUp;
+  const pace = (bridge.duration + raise) / Math.max(1e-9, w.from - start);
+  const until = start + bridge.duration / pace;
+  if (elapsed >= until) return { landed: true, until, pace };
+  // (out of the rest at the far end of the follow-through, landing at the pace the raise carries on at)
+  return { ...bridge, time: hermite(elapsed, start, 0, 0, until, bridge.duration, pace), until, pace };
+}
+
+/**
+ * The third-person body's place in the chain: { clip, time, slot, blend?, fallback?, fallbackTime? } while a chain is
+ * shown (under way, or playing its last swing out), or null. player: a snapshot ({ attackActive, attackStartedAt,
+ * attackCommitted, attackLanded, attackEnd, attackVariant }).
  */
 export function chainPresentation(player, serverNow) {
   const startedAt = player?.attackStartedAt;
@@ -121,8 +179,18 @@ export function chainPresentation(player, serverNow) {
     const followed = committed > slot + 1 ? true : null;
     // (begun straight out of the Guard, the sword already up: the first strike picks up at the top of its raise)
     const raised = slot === 0 && fromGuard(player, startedAt);
+    if (slot > 0) {
+      // handed on from the last strike's follow-through by Argon's bridge, then the raise from where it lands
+      const bridge = bridgeTime(clips[slot - 1], clips[slot], slot, elapsed);
+      if (bridge && !bridge.landed) {
+        const fallbackTime = strikeClipTime(clips[slot], slot, elapsed, { followed });
+        return { clip: bridge.clip, time: bridge.time, slot, blend: LINK_BLEND_SEC, fallback: clips[slot], fallbackTime, bridge: true };
+      }
+      const blend = BRIDGES[clips[slot - 1]]?.[clips[slot]]?.blend ?? 0.16;
+      return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, bridgeEnd: bridge?.until, bridgePace: bridge?.pace }), blend };
+    }
     return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, raised }),
-      ...(slot > 0 ? { blend: LINK_BLEND_SEC } : raised ? { blend: GUARD_LINK_SEC } : {}) };
+      ...(raised ? { blend: GUARD_LINK_SEC } : {}) };
   }
   // the chain is over by the server's word: its last swing played out, unless it was broken off
   const landed = player.attackLanded ?? 0;
@@ -131,5 +199,8 @@ export function chainPresentation(player, serverNow) {
   const lastSlot = slot === clips.length - 1;
   const until = lastSlot ? CHAIN_CYCLE : SWORD_CHAIN.starts[slot + 1] + RECOVERY_SEC;
   if (elapsed >= until) return null;
+  // let go after a strike that could have been followed: held at the far end of its follow-through to the end of its
+  // slot, then handed back to the stance (the Idle the knight stands in next, cross-faded over RECOVERY_SEC)
+  if (!lastSlot && elapsed >= SWORD_CHAIN.starts[slot + 1]) return { clip: 'Idle', idle: true, time: 0, slot, blend: RECOVERY_SEC, recovering: true };
   return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed: false }), recovering: true };
 }
