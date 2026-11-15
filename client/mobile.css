@@ -256,22 +256,69 @@ button, input { touch-action: manipulation; }
 }
 .touch-ui .match-info { top: 10px; }
 .touch-ui .duel-score { top:39px; padding:3px 9px; gap:8px; }
-/* Keep objectives in the lane BETWEEN the left HP/stamina bars and the
-   right killfeed. At narrower widths, stack the objective below the feed
-   rather than compress both into an unreadable overlap. */
-.touch-ui .hud-status-stack { top: calc(var(--safe-t) + 8px); left: max(calc(var(--safe-l) + 190px), 42cqw); right: calc(var(--safe-r) + 35cqw); width: auto; transform: none; gap: 4px; justify-items: start; }
-.touch-ui .breakthrough-hud { width: min(300px, 100%); padding: 5px 7px; }
-.touch-ui .breakthrough-hud .bt-footer, .touch-ui .breakthrough-hud .bt-phase { display: none; }
-@container app (max-width: 1050px) {
-  .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 78px); left: calc(var(--safe-l) + 38cqw); right: calc(var(--safe-r) + 15px); }
-  .touch-ui .breakthrough-hud { width: min(250px, 100%); }
+/* Mobile upper HUD has three independent lanes:
+   personal HP at upper-left; a narrow objective card above the sightline;
+   recent kills BELOW the Leave/View controls at upper-right. The mounted
+   siege view must not push the objective down into the crosshair. */
+.touch-ui .hud-status-stack {
+  top:calc(var(--safe-t) + 22px);
+  left:max(calc(var(--safe-l) + 264px), 36cqw);
+  right:auto; width:min(230px, 31cqw);
+  transform:none;gap:3px;justify-items:start;
 }
-@container app (max-width: 540px) {
-  .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 86px); left: calc(var(--safe-l) + 12px); right: calc(var(--safe-r) + 12px); justify-items: center; }
-  .touch-ui .breakthrough-hud { width: min(275px, 100%); }
+.touch-ui .breakthrough-hud {
+  box-sizing:border-box;width:100%;min-width:0;
+  padding:4px 6px;gap:2px;
+}
+.touch-ui .breakthrough-hud .bt-footer,
+.touch-ui .breakthrough-hud .bt-phase {display:none;}
+.touch-ui .bt-team-badge {padding:1px 4px;font-size:7px;letter-spacing:.08em;}
+.touch-ui .bt-clock {font-size:10px;}
+.touch-ui .bt-main {gap:5px;}
+.touch-ui .bt-obj-name {font-size:11px;line-height:1.1;}
+.touch-ui .bt-state-pill {font-size:8px;letter-spacing:0;}
+.touch-ui .bt-bar-track {height:3px;}
+/* Fight-and-Flight also lives inside .hud-status-stack. Keep its six
+   instruments legible in a separate leftward strip: compacting the outer
+   objective must not crush flight metrics into a 200px-wide single row. */
+.touch-ui .hud.flight-mounted .flight-hud {
+  position:absolute;
+  top:calc(100% + 8px);
+  left:clamp(-105px, -10cqw, -60px);
+  width:min(335px, 44cqw);
+  max-width:none;
+}
+.touch-ui .hud.flight-mounted .flight-hud-strip {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:3px 5px;
+  box-sizing:border-box;
 }
 .touch-btn.denied { border-color:#f1aa7e; box-shadow:0 0 0 2px #d28b5b99,0 2px 10px #0006; }
-.touch-ui .kill-feed { top: calc(var(--safe-t) + 10px); right: calc(var(--safe-r) + 14px); width: min(300px, 34cqw); font-size: 10px; }
+/* The newest kills are prepended by HUD.addFeed, so a bounded lane keeps
+   the latest events readable without obscuring RAISE or the crosshair. */
+.touch-ui .kill-feed {
+  top:var(--mobile-feed-top, calc(var(--safe-t) + 72px));
+  right:calc(var(--safe-r) + 10px);
+  width:min(215px, 28cqw);max-height:min(100px, 26cqh);
+  overflow:hidden; text-align:right;font-size:10px;line-height:1.23;
+}
+.touch-ui .kill-feed .feed-line {padding:3px 5px;margin-bottom:3px;}
+@container app (max-width:700px) {
+  .touch-ui .hud-status-stack {
+    top:calc(var(--safe-t) + 62px);
+    left:max(calc(var(--safe-l) + 242px), 37cqw);
+    width:min(208px, 32cqw);
+  }
+  .touch-ui .kill-feed {top:var(--mobile-feed-top, calc(var(--safe-t) + 68px));right:calc(var(--safe-r) + 7px);width:min(170px, 27cqw);}
+}
+@container app (max-width:540px) {
+  /* Narrow portrait-turn devices cannot fit both panels side by side.
+     The feed moves BELOW the compact objective, not over it. */
+  .touch-ui .hud-status-stack {left:calc(var(--safe-l) + 235px);width:min(175px, 33cqw);}
+  .touch-ui .kill-feed {top:var(--mobile-feed-top, calc(var(--safe-t) + 142px));width:min(150px, 28cqw);}
+  .touch-ui .hud.flight-mounted .flight-hud {width:min(190px, 34cqw);}
+}
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
 .touch-ui .pointer-hint { top: 62%; padding: 12px 16px; font-size: 11px; }
 
@@ -509,14 +556,12 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-btn.practice::before { content: "\221E"; position: absolute; left: 12%; top: 8%; z-index: 3; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; font: 900 11px/1 system-ui, sans-serif; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); pointer-events: none; }
 .touch-btn.practice svg, .touch-btn.practice span { opacity: .85 !important; }
 
-/* A short phone keeps the objective clear of the right thumb's action arc. */
+/* Short landscape phones use the same nonoverlapping objective/feed
+   lanes; do not reintroduce a right-anchored, full-width card. */
 @container app (max-width: 700px) and (max-height: 420px) {
-  .touch-ui .hud-status-stack { right: calc(var(--safe-r) + 80px); }
-  .touch-ui .breakthrough-hud { padding: 5px 7px; gap: 2px; }
-  .touch-ui .bt-phase, .touch-ui .bt-footer { display: none; }
-  .touch-ui .bt-main { gap: 4px; }
-  .touch-ui .bt-obj-name { font-size: 11px; }
-  .touch-ui .bt-state-pill { font-size: 8px; letter-spacing: 0; }
+  .touch-ui .breakthrough-hud {padding:3px 5px;gap:2px;}
+  .touch-ui .bt-main {gap:4px;}
+  .touch-ui .bt-obj-name {font-size:10px;}
 }
 
 .touch-siegeWeapon { --size: 62px; right: calc(var(--safe-r) + 48px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); color: #a8e2e9; }
@@ -826,7 +871,8 @@ body.touch-layout-editor-open #practice-overlay {
 /* Reserve the auxiliary controls even on short phones. Six flight metrics form
    two rows only when the space between health and View cannot fit one strip. */
 @container app (max-width:700px) {
- .touch-ui .hud.ballista-mounted .hud-status-stack { left:calc(var(--safe-l) + 266px); right:calc(var(--safe-r) + 116px); }
+ /* The mounted machines retain the SAME objective lane as on-foot.
+    Their auxiliary buttons already occupy the extreme right. */
  .touch-ui .ballista-hud { box-sizing:border-box;padding:4px 6px;gap:2px; }
  .touch-ui .ballista-hud strong { font-size:8px;letter-spacing:.02em; }
  .touch-ui .ballista-hud span { font-size:10px;line-height:1.15; }
@@ -834,9 +880,7 @@ body.touch-layout-editor-open #practice-overlay {
  .touch-ui .hud.flight-mounted .flight-hud-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px 5px; }
  .touch-ui .hud.flight-mounted .match-info { font-size:7px; letter-spacing:.06em; }
 }
-@container app (max-width:540px) {
- .touch-ui .hud.ballista-mounted .hud-status-stack { top:calc(var(--safe-t) + 85px); left:calc(var(--safe-l) + 180px); right:calc(var(--safe-r) + 116px); }
-}
+/* Very narrow mobile objective and feed placement is handled together above. */
 .touch-ui:has(.touch-flight .motion-mirrored) .bottom-hud { left:calc(var(--safe-l) + 120px); }
 
 /* Inform the player when the browser cannot retain touch edits after reload. */

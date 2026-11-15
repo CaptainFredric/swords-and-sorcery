@@ -1,0 +1,54 @@
+name: Practice siege Armory lore Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/index.html'
+      - 'client/main.mjs'
+      - 'client/styles.css'
+      - 'client/menu/practiceSiegeStory.mjs'
+      - 'client/menu/practiceSiegeStory.test.mjs'
+      - 'scripts/practice-siege-lore-browser.mjs'
+      - '.github/workflows/practice-siege-lore.yml'
+permissions:
+  contents: read
+jobs:
+  practice-siege-story:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Verify canonical story and document structure
+        run: node --test client/menu/practiceSiegeStory.test.mjs
+      - name: Start actual Castleward Practice server
+        shell: bash
+        run: |
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/practice-siege-lore-server.log 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsS http://127.0.0.1:3001/ >/dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/practice-siege-lore-server.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Real Practice drawer, all three stories, desktop and mobile
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          PRACTICE_URL: http://127.0.0.1:3001
+        run: node scripts/practice-siege-lore-browser.mjs
+      - name: Preserve desktop and mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: practice-siege-lore-layout
+          path: output/playwright/practice-siege-lore/
+          retention-days: 7
