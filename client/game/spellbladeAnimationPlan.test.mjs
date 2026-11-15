@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { STRIKE_CLIPS } from './swordChainPresentation.mjs';
 import assert from 'node:assert/strict';
 import {
   GUARD_HOLD_SECONDS,
@@ -367,7 +368,7 @@ test('Full Lightning + Full Gale arrival uses the final aerial winding frames du
 });
 
 test('the two chain forms: the rising chain plays its cuts in its own order, each contact frame on the server contact',()=>{
-  const authored={Slash_1:.4,Slash_2:.38,Slash_3:.36};
+  const authored=Object.fromEntries(Object.entries(STRIKE_CLIPS).map(([clip,{contact}])=>[clip,contact]));
   const forms=[['Slash_1','Slash_2','Slash_3'],['Slash_2','Slash_1','Slash_3']];
   forms.forEach((clips,variant)=>{
     const player={attackActive:true,attackStartedAt:10,attackCommitted:3,attackVariant:variant};

@@ -18,7 +18,9 @@ import { requestSwordTechnique } from '../shared/sim/swordTechniqueLive.mjs';
 import { resolveSpellbladeState } from '../client/game/spellbladePose.mjs';
 import { resolveSpellbladeAnimationPlan } from '../client/game/spellbladeAnimationPlan.mjs';
 import { blendSeconds, blendWeights } from '../client/game/spellbladeBlend.mjs';
-import { loadGlb, localPose, overlayMotion, worldMatrices, apply } from './lib/glbPose.mjs';
+import { KIND_CLIPS, STRIKE_CLIPS } from '../client/game/swordChainPresentation.mjs';
+import { loadGlb, localPose, composeMotion, worldMatrices, apply } from './lib/glbPose.mjs';
+import { swordPoint } from './lib/glbSkin.mjs';
 
 // the composition's bone owners (spellbladeComposition.mjs, which needs three.js: the same rule, restated)
 function spellbladeBoneOwner(name) {
@@ -36,13 +38,13 @@ const DT = 1 / FPS;
 
 // (the canonical model with its motion sidecar laid over it, as the client plays it; --canonical: without)
 const model = loadGlb(new URL('../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname);
-if (!process.argv.includes('--canonical')) overlayMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
-// the sword's point and the grip in hand.R's frame (measured from the skinned sword's bind pose)
-const TIP = [0.131, 1.3383, -0.1661];
-const HAND = model.byName.get('hand.R');
+if (!process.argv.includes('--canonical')) composeMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
+// the sword's point in the frame of the joint it is skinned to (measured from the skinned sword's bind pose)
+// (read from the skinned HeroSword: on the 89-clip model it is skinned to socket_sword, its point 1.22 m down -z)
+const { joint: HAND, tip: TIP } = swordPoint(model);
 const FEET = [model.byName.get('foot.L'), model.byName.get('foot.R')];
 // each cut's clip and its authored contact frame (where the blade crosses the knight's front), by kind
-const CLIP_CONTACT = [{ clip: 'Slash_1', time: 0.4 }, { clip: 'Slash_2', time: 0.38 }, { clip: 'Slash_3', time: 0.36 }];
+const CLIP_CONTACT = KIND_CLIPS.map((clip) => ({ clip, time: STRIKE_CLIPS[clip].contact }));
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 const world = {
@@ -145,6 +147,14 @@ function authoredStep(clip, time) {
     best = Math.max(best, distance(sample([{ clip, time: t0, weight: 1 }]).tip, sample([{ clip, time: t1, weight: 1 }]).tip));
   }
   authoredRate.set(key, best);
+  return best;
+}
+
+/** The fastest an authored clip moves the point in a frame, played at its own rate (m per frame at 60 fps). */
+export function authoredPeak(clip) {
+  const c = model.clips.get(clip);
+  let best = 0;
+  for (let t = 0; t + DT <= c.duration; t += DT) best = Math.max(best, distance(sample([{ clip, time: t, weight: 1 }]).tip, sample([{ clip, time: t + DT, weight: 1 }]).tip));
   return best;
 }
 

@@ -55,3 +55,20 @@ export function skinnedHeights(model, meshes, pose, names) {
   }
   return out;
 }
+
+/** The point of the skinned HeroSword in the frame of the joint it is skinned to: { joint, tip, grip } (node indices / local points). */
+export function swordPoint(model, meshName = 'HeroSword') {
+  const skin = model.gltf.skins[0];
+  const ibm = readAccessor(model, skin.inverseBindMatrices).data;
+  const part = (skinnedMeshes(model).get(meshName) ?? [])[0];
+  if (!part) return null;
+  const k = part.joints.data[0];
+  const M = Array.from(ibm.subarray(k * 16, k * 16 + 16));
+  let tip = null;
+  for (let v = 0; v < part.pos.count; v += 1) {
+    const q = apply(M, [part.pos.data[v * 3], part.pos.data[v * 3 + 1], part.pos.data[v * 3 + 2]]);
+    // the blade runs along the joint's longest axis away from the grip: the farthest vertex from the joint's origin
+    if (!tip || Math.hypot(...q) > Math.hypot(...tip)) tip = q;
+  }
+  return { joint: skin.joints[k], tip, grip: [0, 0, 0] };
+}

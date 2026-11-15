@@ -55,9 +55,12 @@ export class SpellbladeComposition {
 
   apply(layers, dt) {
     const step = Math.max(0, dt);
-    for (const [owner, plan] of Object.entries(layers)) {
-      const clip = this.clips.get(plan.clip) ?? this.clips.get(plan.fallback);
+    for (let [owner, plan] of Object.entries(layers)) {
+      const own = this.clips.get(plan.clip);
+      const clip = own ?? this.clips.get(plan.fallback);
       if (!clip) continue;
+      // (a fallback clip is shown at its own frame, when the plan names one)
+      if (!own && Number.isFinite(plan.fallbackTime)) plan = { ...plan, time: plan.fallbackTime };
       const signature = `${plan.clip}:${plan.actionKey ?? ''}`;
       let channel = this.channels.get(owner);
       if (!channel || channel.signature !== signature) {

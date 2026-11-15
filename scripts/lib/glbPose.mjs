@@ -160,3 +160,25 @@ export function overlayMotion(model, path) {
   }
   return model;
 }
+
+/**
+ * Lay the motion sidecar over a model exactly as the client does (client/game/spellbladeClipInventory.mjs
+ * withMotionClips): clips the model lacks are appended; Slash_1 keeps the model's lower body (root, pelvis, legs,
+ * tabards, crest) and takes the sidecar's upper-body tracks, channel by channel; every other model clip wins.
+ */
+export function composeMotion(model, path) {
+  const motion = loadGlb(path);
+  const lowerBody = (name) => /^(?:root|pelvis|thigh[.]|shin[.]|foot[.]|ankle[.]|knee[.]|tabard_|crest_)/.test(name);
+  const nameOf = (m, ch) => m.gltf.nodes[ch.node].name;
+  for (const [name, clip] of motion.clips) {
+    const channels = clip.channels.map((channel) => ({ ...channel, node: model.byName.get(nameOf(motion, channel)) })).filter((channel) => channel.node != null);
+    const own = model.clips.get(name);
+    if (!own) { model.clips.set(name, { ...clip, channels }); continue; }
+    if (name !== 'Slash_1') continue;
+    const upper = channels.filter((ch) => !lowerBody(nameOf(model, ch)));
+    const taken = new Set(upper.map((ch) => `${ch.node}/${ch.path}`));
+    const kept = own.channels.filter((ch) => lowerBody(nameOf(model, ch)) || !taken.has(`${ch.node}/${ch.path}`));
+    model.clips.set(name, { ...own, channels: [...kept, ...upper] });
+  }
+  return model;
+}
