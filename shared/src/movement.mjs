@@ -1,4 +1,4 @@
-import { resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from './collision.mjs';
+import { ceilingAbove, resolvePlayerWorld, surfaceHeightAt, segmentAabbHit } from './collision.mjs';
 import { CROUCH, postureOf, roomToStand } from './body.mjs';
 import { edgeLimitPoint } from './edgeBoundary.mjs';
 
@@ -297,6 +297,16 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     if (wanted > 1e-6 && went < wanted * 0.5) state.impulse = { x: state.impulse.x * 0.3, z: state.impulse.z * 0.3 };
   }
   state.position.y += state.velocity.y * dt;
+  // a head that rises into the underside of a solid stops there (a ceiling), rather than being found inside it on the
+  // next step and thrown out through its side (collision.mjs ceilingAbove)
+  if (state.velocity.y > 0) {
+    const height = postureOf(state).height;
+    const ceiling = ceilingAbove(state.position, MOVEMENT.playerRadius, world.solids ?? [], beforeY + height, state.position.y + height);
+    if (ceiling !== null) {
+      state.position.y = ceiling - height - 1e-4;
+      state.velocity.y = 0;
+    }
+  }
 
   const ground = surfaceHeightAt(state.position.x, state.position.z, Math.max(beforeY, state.position.y), world);
   // A grounded knight must follow an actual declining ramp. Previously, any
