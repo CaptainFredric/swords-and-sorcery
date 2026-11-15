@@ -25,3 +25,17 @@ export const SWORD_TECHNIQUE_CONTRACTS = Object.freeze({
     track:track(WHIRL_SAMPLES),
   }),
 });
+
+/**
+ * Gale-assisted Whirl ascent: while a Whirl is live (not in its recovery), its owner carries Gale and holds Jump, the
+ * knight rises `galeAscentPerRevolution` metres each revolution. The upward speed it holds (m/s), or null. One rule for
+ * the server (shared/sim/combat.mjs) and for the owner's own prediction (client/game/predictMovement.mjs), so the
+ * climb a player sees is the climb the server makes, not a fall the next snapshot corrects.
+ * technique: the server's action ({ contract, phase }) or its snapshot view ({ id, phase }).
+ */
+export function galeWhirlLiftSpeed(technique, spell, jumpHeld) {
+  if (!technique || spell !== 'gale' || !jumpHeld || technique.phase === 'recovery' || technique.phase === 'interrupted') return null;
+  const contract = technique.contract ?? SWORD_TECHNIQUE_CONTRACTS[technique.id];
+  if (contract?.kind !== 'whirl') return null;
+  return (contract.galeAscentPerRevolution ?? 5) / contract.revolutionSeconds;
+}

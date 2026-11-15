@@ -60,7 +60,7 @@ import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/coll
 import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { stepLiveSwordTechnique, interruptSwordTechnique } from './swordTechniqueLive.mjs';
 import { techniqueInterception } from './swordTechnique.mjs';
-import { SWORD_TECHNIQUE_CONTRACTS } from '../src/swordTechniqueContracts.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS, galeWhirlLiftSpeed } from '../src/swordTechniqueContracts.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
@@ -3605,12 +3605,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     const from = { ...player.position };
     // A held Jump carries a Gale-equipped Whirl upward ~5 m each revolution.
     // Keep native gravity and world movement; no Gale cast or recast is issued.
-    const rising=player.swordTechnique?.contract.kind==='whirl'&&
-      player.swordTechnique.phase!=='recovery'&&player.spell==='gale'&&Boolean(input?.jump);
+    // (one rule with the owner's prediction: galeWhirlLiftSpeed)
+    const lift=galeWhirlLiftSpeed(player.swordTechnique,player.spell,Boolean(input?.jump));
+    const rising=lift!==null;
     if(player.swordTechnique)player.swordTechnique.galeLift=Boolean(rising);
     if(rising){
-      player.velocity.y=Math.max(player.velocity.y??0,
-        5/player.swordTechnique.contract.revolutionSeconds+MOVEMENT.gravity*dt);
+      player.velocity.y=Math.max(player.velocity.y??0,lift+MOVEMENT.gravity*dt);
       player.grounded=false;
     }
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
