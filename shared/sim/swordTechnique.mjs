@@ -83,7 +83,7 @@ export function beginSwordTechnique(player, contract, nowSec) {
   return player.swordTechnique={
     id:contract.id,contract,startedAt:nowSec,initialStartedAt:nowSec,
     phase:'startup',sampledTo:contract.activeFrom,
-    revolutions:1,hitIds:new Set(),intercepted:false,
+    revolutions:1,hitIds:new Set(),lastHitAt:new Map(),intercepted:false,
   };
 }
 
@@ -150,9 +150,16 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
     action.phase='active';
     const until=Math.min(age,activeUntil);
     if(until>action.sampledTo){
-      contacts.push(...sweepTechniqueTrack(track,action.sampledTo,until,
-        t=>transformAt(t+action.startedAt),t=>bodiesAt(t+action.startedAt),world,action.hitIds)
-        .map(contact=>({...contact,at:contact.at+action.startedAt})));
+      // A victim is met again only once the blade has come round to them again: a revolution's seam (its last frames
+      // and the next one's first lie side by side) cannot strike one victim twice in a few milliseconds.
+      const lastHitAt=action.lastHitAt??=new Map(), rearm=(activeUntil-activeFrom)*.75, startedAt=action.startedAt;
+      const met=sweepTechniqueTrack(track,action.sampledTo,until,
+        t=>transformAt(t+startedAt),
+        t=>bodiesAt(t+startedAt).filter(body=>!(t+startedAt-(lastHitAt.get(body.id)??-Infinity)<rearm)),
+        world,action.hitIds)
+        .map(contact=>({...contact,at:contact.at+startedAt}));
+      for(const contact of met)if(contact.kind==='body')lastHitAt.set(contact.id,contact.at);
+      contacts.push(...met);
       action.sampledTo=until;
     }
     const stopped=contacts.at(-1)?.kind==='solid'||contacts.at(-1)?.kind==='ground';

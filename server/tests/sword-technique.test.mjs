@@ -72,15 +72,35 @@ test('Whirl samples all quadrants across a long tick and spends Prowess on one b
   const player=fighter({prowess:75});
   const action=beginSwordTechnique(player,whirl,0);
   const fixtures=[body('front',0,-1.65),body('right',1.65,0),body('back',0,1.65),body('left',-1.65,0)];
+  // (one victim per revolution, not one per technique (8a03be07): the long tick ends 0.01 s into the paid second
+  // revolution, whose blade starts at the front again, so the front is met a second time, a full revolution later)
   const contacts=stepSwordTechnique(player,.71,harness(fixtures,world,true));
-  assert.deepEqual(contacts.map(hit=>hit.id),fixtures.map(v=>v.id));
+  assert.deepEqual(contacts.map(hit=>hit.id),[...fixtures.map(v=>v.id),'front']);
+  assert.ok(Math.abs(contacts[4].at-contacts[0].at-.6)<.005,'the front again exactly one revolution on');
   assert.equal(action.revolutions,2);
   assert.equal(player.prowess,50);
-  assert.deepEqual(stepSwordTechnique(player,1.31,harness(fixtures,world,true)),[]);
+  const second=stepSwordTechnique(player,1.31,harness(fixtures,world,true));
+  assert.deepEqual(second.map(hit=>hit.id),['right','back','left']);
+  second.forEach((hit,i)=>assert.ok(Math.abs(hit.at-contacts[i+1].at-.6)<.005,`${hit.id} again exactly one revolution on`));
   assert.equal(action.phase,'recovery');
   assert.equal(player.prowess,50);
   stepSwordTechnique(player,1.51,harness());
   assert.equal(player.swordTechnique,null);
+});
+
+test('Whirl strikes a victim who steps in at a revolution\'s seam once, not again a few milliseconds later',()=>{
+  // (the end of one revolution and the start of the next lie side by side: met at 350 degrees as one ends, the victim
+  // was struck again 15 ms later as the next began)
+  const player=fighter({prowess:100});
+  beginSwordTechnique(player,whirl,0);
+  const a=-10*Math.PI/180, at=(d)=>body('late',-Math.sin(a)*d,-Math.cos(a)*d);
+  const hits=[];
+  for(let t=1/30;player.swordTechnique&&t<3;t+=1/30){
+    const late=t>=.66;
+    hits.push(...stepSwordTechnique(player,t,harness([at(late?1.65:6)],world,true)).filter(hit=>hit.kind==='body').map(hit=>hit.at));
+  }
+  assert.ok(hits.length>=2);
+  for(let i=1;i<hits.length;i+=1)assert.ok(hits[i]-hits[i-1]>.4,`struck twice ${((hits[i]-hits[i-1])*1000).toFixed(0)} ms apart`);
 });
 
 test('Whirl meets the scene first and cannot damage a fighter behind a wall',()=>{

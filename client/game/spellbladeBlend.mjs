@@ -38,6 +38,13 @@ export function blendSeconds(fromClip, toClip) {
   // a little longer than an ordinary raise, so the blade is not whipped faster than any authored cut
   // (0.3: the forehand now finishes high on the left, further from the guard than the low finish it had)
   if (COMBO_CLIPS.has(fromClip) && toClip === 'Guard') return 0.3;
+  // (the 89's raised Guard and the Idle stance are 3.5 m apart at the point, and the Guard clip has no authored way
+  // down: over the default 0.24 s the lowered sword whipped through the body at 35 m/s, faster than any cut; a
+  // technique begun just after letting go of the Guard dipped with it. The server's guard is down at once either way)
+  if (fromClip === 'Guard' && toClip === 'Idle') return 0.36;
+
+
+
   // run <-> sprint shifts gait mid-stride (both stride on one shared phase)
   if ((fromClip === 'Run' && toClip === 'Sprint') || (fromClip === 'Sprint' && toClip === 'Run')) return 0.16;
   // the body moves at full speed at once, so a long fade from Idle would skate the feet
