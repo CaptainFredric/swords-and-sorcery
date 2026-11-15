@@ -65,7 +65,7 @@ export class SpellbladeComposition {
       let channel = this.channels.get(owner);
       if (!channel || channel.signature !== signature) {
         const outgoing = channel;
-        channel = { signature, clip: plan.clip, duration: Number.isFinite(plan.blend) && outgoing ? plan.blend : ownershipBlendSeconds(outgoing?.clip, plan.clip), elapsed: 0,
+        channel = { signature, clip: plan.clip, duration: Number.isFinite(plan.blend) && outgoing && (!plan.blendFrom || plan.blendFrom === outgoing.clip) ? plan.blend : ownershipBlendSeconds(outgoing?.clip, plan.clip), elapsed: 0,
           corrections: new Map(), history: new Map(), incomingVelocity: outgoing?.history ?? new Map() };
         this.channels.set(owner, channel);
       }

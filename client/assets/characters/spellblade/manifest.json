@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "sourceRevision": "161879e5a39cbcae004465163716e3a107816c96",
+  "sourceRevision": "de8c86558a0e758254c4dab87ccc48788a7fc7b4",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=161879e5a39cbcae004465163716e3a107816c96",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=161879e5a39cbcae004465163716e3a107816c96",
-    "sha256": "161879e5a39cbcae004465163716e3a107816c960289e0611e117610918a4a83",
-    "bytes": 13542132,
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=de8c86558a0e758254c4dab87ccc48788a7fc7b4",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=de8c86558a0e758254c4dab87ccc48788a7fc7b4",
+    "sha256": "de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4",
+    "motionOverrides": [],
+    "bytes": 13580700,
     "jointCount": 66,
     "meshCount": 17,
     "clips": [
@@ -97,7 +98,8 @@
       "Armory_Gale_Cone_Showcase",
       "Armory_Coreflagration_Lob_Showcase",
       "Armory_LineOfConduct_Commit_Showcase",
-      "Armory_Steel_Infusion_Brace_Showcase"
+      "Armory_Steel_Infusion_Brace_Showcase",
+      "AllNatural_Lightning_Arrival_Slam_1H_Alt"
     ],
     "bones": [
       "root",
@@ -169,9 +171,9 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=161879e5a39cbcae004465163716e3a107816c96",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=161879e5a39cbcae004465163716e3a107816c96",
-    "sha256": "4f53671eadd8f706692f632c71892e78e92d38cfe06592c65b2254158c5953ce",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=de8c86558a0e758254c4dab87ccc48788a7fc7b4",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=de8c86558a0e758254c4dab87ccc48788a7fc7b4",
+    "sha256": "80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e",
     "bytes": 7298028,
     "jointCount": 41,
     "meshCount": 4,

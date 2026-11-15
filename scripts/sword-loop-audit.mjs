@@ -9,7 +9,7 @@
 // A "snap" is a frame whose tip displacement exceeds both an absolute floor and several times the fastest that same
 // stretch moves in the authored clips themselves (so a real cut at 50 m/s is not a snap, a fade that teleports is).
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { Room } from '../shared/sim/Room.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastSpell, tryDash } from '../shared/sim/combat.mjs';
 import { SWORD_STRIKE_TIMES, strikeKind } from '../shared/src/combat.mjs';
@@ -38,7 +38,9 @@ const DT = 1 / FPS;
 
 // (the canonical model with its motion sidecar laid over it, as the client plays it; --canonical: without)
 const model = loadGlb(new URL('../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname);
-if (!process.argv.includes('--canonical')) composeMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
+// (the sidecar's Slash_1 laid over the model's only where the manifest still asks for it: SpellbladeAssets does the same)
+const motionOverrides = JSON.parse(readFileSync(new URL('../client/assets/characters/spellblade/manifest.json', import.meta.url), 'utf8')).thirdPerson.motionOverrides ?? ['Slash_1'];
+if (!process.argv.includes('--canonical')) composeMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname, { overrides: motionOverrides });
 // the sword's point in the frame of the joint it is skinned to (measured from the skinned sword's bind pose)
 // (read from the skinned HeroSword: on the 89-clip model it is skinned to socket_sword, its point 1.22 m down -z)
 const { joint: HAND, tip: TIP } = swordPoint(model);
@@ -86,7 +88,7 @@ class AnimatorEmulation {
       // (the sword's channel cross-fades from the clip it had, over the plan's own blend: spellbladeComposition.mjs)
       const sword = plan.layers.sword;
       if (this.swordLayer && this.swordLayer.clip !== sword.clip) {
-        this.swordFade = { from: { ...this.swordLayer }, elapsed: 0, duration: Number.isFinite(sword.blend) ? sword.blend : blendSeconds(this.swordLayer.clip, sword.clip) };
+        this.swordFade = { from: { ...this.swordLayer }, elapsed: 0, duration: Number.isFinite(sword.blend) && (!sword.blendFrom || sword.blendFrom === this.swordLayer.clip) ? sword.blend : blendSeconds(this.swordLayer.clip, sword.clip) };
       }
       this.swordLayer = { clip: sword.clip, time: sword.time };
       const fade = this.swordFade;
@@ -102,7 +104,7 @@ class AnimatorEmulation {
     this.swordLayer = null; this.swordFade = null;
     const clip = model.clips.has(plan.clip) ? plan.clip : plan.fallback;
     if (this.active?.clip !== clip) {
-      const duration = this.active ? (plan.blend ?? blendSeconds(this.active.clip, clip)) : 0;
+      const duration = this.active ? (Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.active.clip) ? plan.blend : blendSeconds(this.active.clip, clip)) : 0;
       if (duration > 0) {
         this.fading = this.fading.filter((e) => e.clip !== clip);
         this.fading.push({ ...this.active, frozen: this.active.time, carry: this.active.carry });
