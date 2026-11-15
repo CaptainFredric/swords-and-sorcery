@@ -665,7 +665,7 @@ export class TouchControls {
         button.classList.toggle('cooling',value>.01);
         button.style.setProperty('--cooldown',String(Math.min(1,value/Math.max(.1,total))));
         const timer=button.querySelector('.touch-timer');
-        if(timer)timer.textContent=value>.01?value.toFixed(value<1?1:0):'';
+        if(timer)timer.textContent=value>.01?value.toFixed(value<2&&!Number.isInteger(value)?1:value<1?1:0):'';
       };
       if(ballista&&bl){
         const first=Math.max(0,(bl.smallBoltReadyAt??serverNow)-serverNow);

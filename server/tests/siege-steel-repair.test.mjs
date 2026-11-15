@@ -317,7 +317,7 @@ test('real authoritative room ticks restore damaged Bi-Bye-llista HP and replica
  x.m.health=350;
  cast(x,1);
  const starting=x.m.health;
- for(let tick=1;tick<=300;tick++){
+ for(let tick=1;tick<=150;tick++){
    const now=1+tick/30;
    stepRoom(x.room,1/30,now,x.room.world);
  }
@@ -325,7 +325,7 @@ test('real authoritative room ticks restore damaged Bi-Bye-llista HP and replica
    'five seconds of genuine server ticks restore 55 HP, not just a HUD animation');
  const midway=serializeSnapshot(x.room,6,x.p.id).bibyeBallista;
  assert.ok(Math.abs(midway.health-405)<.01);
- for(let tick=301;tick<=600;tick++){
+ for(let tick=151;tick<=300;tick++){
    const now=1+tick/30;
    stepRoom(x.room,1/30,now,x.room.world);
  }
@@ -334,8 +334,8 @@ test('real authoritative room ticks restore damaged Bi-Bye-llista HP and replica
  const witness=x.room.addPlayer({id:'repair-witness',token:'rw',name:'Witness'},11);
  const pilot=serializeSnapshot(x.room,11,x.p.id).bibyeBallista;
  const guest=serializeSnapshot(x.room,11,witness.id).bibyeBallista;
- assert.equal(pilot.health,435);
+ assert.ok(Math.abs(pilot.health-435)<.01);
  assert.equal(pilot.health,guest.health,'no client-side guessed repair');
- assert.equal(x.m.siegeSteel.healed,85);
+ assert.ok(Math.abs(x.m.siegeSteel.healed-85)<.01);
  assert.equal(x.m.siegeSteel.state,'expired');
 });

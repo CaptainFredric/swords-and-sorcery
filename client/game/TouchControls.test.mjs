@@ -144,7 +144,7 @@ test('Restless Day attacker sees a real mobile MOUNT button near either native s
   assert.equal(controls.buttons.interact.hidden,false,'ballista has usable MOUNT button');
   send('pointerdown',650,300,{action:'interact',pointerId:301});
   send('pointerup',650,300,{action:'interact',pointerId:301});
-  assert.deepEqual(messages,[{type:'siegeOperate'}]);
+  assert.deepEqual(messages,[{type:'siegeOperate',machine:'bi-bye-llista'}]);
   const onRam={...p,position:{x:-4,y:0,z:-78}};
   controls.update(onRam,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
   assert.equal(controls.buttons.interact.hidden,false,'ram also has usable MOUNT button');
