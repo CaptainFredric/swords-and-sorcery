@@ -46,7 +46,7 @@ import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
 import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
-import { advancePredictedMovement } from './predictMovement.mjs';
+import { advancePredictedMovement, galeLiftPrediction } from './predictMovement.mjs';
 import { renownTrialControlsLocked } from './trialControlPolicy.mjs';
 import { movementIntentDuringRenderStall } from './renderStallSafety.mjs';
 import { TouchControls } from './TouchControls.mjs';
@@ -2780,6 +2780,11 @@ export class GameRuntime {
   // rebuttal first, to a foe who has just spoken and is left low enough for a gauntlet to finish)
   // my Steel dash meeting someone, as I see them: stopped dead there and set back (as the host will have it), with its
   // KLANG, its sparks and the jolt at once. The host's word on it follows (#steelRam) and is not played twice
+  // The owner's Gale-assisted Whirl climb, predicted by the host's own rule (predictMovement.mjs galeLiftPrediction)
+  #galeLift(serverNow) {
+    return galeLiftPrediction({ auth: this.localAuth, held: (this.input?.techniqueSources?.size ?? 0) > 0, practice: this.#inPractice(), serverNow });
+  }
+
   #foretellRam(from, serverNow) {
     const players = this.latestSnapshot?.players ?? [];
     const bodies = this.#chargeable(serverNow);
@@ -4122,7 +4127,7 @@ export class GameRuntime {
         const beforeCarry={...this.localState.position};
         this.localState.restlessCarrying=this.localAuth?.restlessCarrying??null;
         if(this.localState.restlessCarrying){moveInput.jump=false;moveInput.sprint=false;}
-        this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld);
+        this.localState = advancePredictedMovement(this.localState, moveInput, elapsed, serverNow, this.movementWorld, this.#galeLift(serverNow));
         if(this.localState.restlessCarrying)
           constrainRestlessCarry(this.localState,beforeCarry,this.movementWorld,this.input.yaw);
       }

@@ -29,3 +29,22 @@ test('a Jump edge and gravity are integrated once through several prediction sub
   assert.ok(jumped.velocity.y>5&&jumped.velocity.y<7.2);
   assert.ok(jumped.position.y>.45,'jump moves continuously during low FPS');
 });
+
+test('the owner predicts a Gale-assisted Whirl climb by the host\'s own rule: 5 m a revolution, and only while it lasts', async () => {
+  const { galeWhirlLiftSpeed, SWORD_TECHNIQUE_CONTRACTS } = await import('../../shared/src/swordTechniqueContracts.mjs');
+  const { createMovementState } = await import('../../shared/src/movement.mjs');
+  const world = { floors: [{ id: 'f', center: [0, -0.1, 0], size: [40, 0.2, 40], y: 0 }], ramps: [], solids: [] };
+  const speed = galeWhirlLiftSpeed({ id: 'whirl_wind', phase: 'active' }, 'gale', true);
+  assert.ok(Math.abs(speed - SWORD_TECHNIQUE_CONTRACTS.whirl_wind.galeAscentPerRevolution / SWORD_TECHNIQUE_CONTRACTS.whirl_wind.revolutionSeconds) < 1e-9);
+  assert.equal(galeWhirlLiftSpeed({ id: 'whirl_wind', phase: 'recovery' }, 'gale', true), null);
+  assert.equal(galeWhirlLiftSpeed({ id: 'whirl_wind', phase: 'active' }, 'fireball', true), null);
+  assert.equal(galeWhirlLiftSpeed({ id: 'rigid_riposte', phase: 'active' }, 'gale', true), null);
+  const input = { forward: 0, right: 0, jump: true, sprint: false, crouch: false, yaw: 0 };
+  let state = createMovementState({ x: 0, y: 0, z: 0 });
+  for (let t = 0; t < 0.6 - 1e-9; t += 1 / 30) state = advancePredictedMovement(state, input, 1 / 30, t + 1 / 30, world, { speed, until: 0.6 });
+  // (the host's revolution: 5 m up, give or take the take-off step)
+  assert.ok(state.position.y > 4.6 && state.position.y < 5.6, `climbed ${state.position.y.toFixed(2)} m in a revolution`);
+  // past `until` it is an ordinary fall
+  const after = advancePredictedMovement(state, input, 1 / 30, 0.7, world, { speed, until: 0.6 });
+  assert.ok(after.velocity.y < speed, 'no lift after the revolution');
+});

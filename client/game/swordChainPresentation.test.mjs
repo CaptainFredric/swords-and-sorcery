@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
-import { BRIDGES, CHAIN_CYCLE, RECOVERY_SEC, STRIKE_CLIPS, bridgeTime, chainPresentation, strikeClipTime, swingWindow } from './swordChainPresentation.mjs';
+import { BRIDGES, CHAIN_CYCLE, RECOVERY_SEC, RESTART_GRACE_SEC, STRIKE_CLIPS, bridgeTime, chainPresentation, strikeClipTime, swingWindow } from './swordChainPresentation.mjs';
 import { audit } from '../../scripts/spellblade-chain-sync-audit.mjs';
 import { SCENARIOS, authoredPeak, run } from '../../scripts/sword-loop-audit.mjs';
+import { setGuard } from '../../shared/sim/combat.mjs';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const held = (startedAt, extra = {}) => ({ attackActive: true, attackStartedAt: startedAt, attackCommitted: 3, ...extra });
@@ -48,7 +49,9 @@ test('a held chain hands each follow-through on through Argon\'s bridge: no retu
   const done = { attackActive: false, attackStartedAt: 0, attackLanded: 3, attackEnd: 'done' };
   assert.equal(chainPresentation(done, SWORD_STRIKE_TIMES[2] + 0.1).clip, 'Slash_3');
   assert.ok(near(chainPresentation(done, CHAIN_CYCLE - 1e-6).time, STRIKE_CLIPS.Slash_3.end, 1e-3));
-  assert.equal(chainPresentation(done, CHAIN_CYCLE + 0.01), null);
+  // ...and is held there until the server's restart tick can have come (no one frame of Idle between two chains)
+  assert.ok(near(chainPresentation(done, CHAIN_CYCLE + 1 / 30).time, STRIKE_CLIPS.Slash_3.end, 1e-3));
+  assert.equal(chainPresentation(done, CHAIN_CYCLE + RESTART_GRACE_SEC + 0.01), null);
 });
 
 test('a let-go strike is handed back to the stance from the end of its follow-through; a broken one gives way at once', () => {
@@ -105,6 +108,14 @@ test('the shipped clips through the real sim: taps, let-go, guard, cast, dash, j
   const cut = authoredPeak('Slash_1');
   const swing = Math.max(...guard.frames.filter((f) => f.state === 'guard').map((f) => f.step ?? 0));
   assert.ok(swing <= cut, `into the Guard the point moves ${swing.toFixed(2)} m in a frame, the cut ${cut.toFixed(2)}`);
+});
+
+test('letting go of the Guard lowers the sword no faster than its own authored motion, and a technique out of it does not dip', () => {
+  const release = run('guard release', { seconds: 1.6, script: (t, c) => { if (Math.abs(t) < 1 / 120) setGuard(c.room, 'a', true, c.now); if (Math.abs(t - 0.75) < 1 / 120) setGuard(c.room, 'a', false, c.now); } });
+  const lowering = Math.max(...release.frames.filter((f) => f.t > 0.74).map((f) => f.step ?? 0));
+  // (before: 0.59 m in a frame, 35 m/s; the Guard clip's own settle peaks at 0.69, the forehand's cut at 1.22)
+  assert.ok(lowering < 0.45, `the lowered Guard's point moves ${lowering.toFixed(2)} m in a frame`);
+  for (const name of ['riposte out of guard', 'whirl out of guard']) assert.deepEqual(run(name, SCENARIOS[name]).snaps, [], name);
 });
 
 test('on the move the legs keep their gait under the strike (layered), standing the strike has the whole body', () => {

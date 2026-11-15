@@ -36,9 +36,11 @@ const option = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i 
 const FPS = 60;
 const DT = 1 / FPS;
 
-// (the canonical model with its motion sidecar laid over it, as the client plays it; --canonical: without)
-const model = loadGlb(new URL('../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname);
-if (!process.argv.includes('--canonical')) composeMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
+// (the canonical model with its motion sidecar laid over it, as the client plays it; --canonical: without;
+// SPELLBLADE_GLB=candidate.glb measures another model, without the sidecar unless SPELLBLADE_SIDECAR=1)
+const candidate = process.env.SPELLBLADE_GLB;
+const model = loadGlb(candidate ?? new URL('../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname);
+if (!process.argv.includes('--canonical') && (!candidate || process.env.SPELLBLADE_SIDECAR === '1')) composeMotion(model, new URL('../client/assets/characters/spellblade/spellblade-motion.glb', import.meta.url).pathname);
 // the sword's point in the frame of the joint it is skinned to (measured from the skinned sword's bind pose)
 // (read from the skinned HeroSword: on the 89-clip model it is skinned to socket_sword, its point 1.22 m down -z)
 const { joint: HAND, tip: TIP } = swordPoint(model);

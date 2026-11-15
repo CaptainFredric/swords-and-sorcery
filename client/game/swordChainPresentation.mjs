@@ -68,6 +68,10 @@ const RAISE_EASE = 0.12;
 // a let-go strike's way home from the far end of its follow-through: handed back to the stance (the Idle the knight
 // stands in next), not swung on through the rest of the authored follow-through
 export const RECOVERY_SEC = 0.3;
+// the heavy strike's last frame (the stance) is held this long past the chain's restart time: the server restarts a held
+// chain on its next tick after it (up to a 30 Hz tick later), and between the two the knight was shown one frame of
+// Idle, cross-fading away from the stance and straight back
+export const RESTART_GRACE_SEC = 0.07;
 // the cross-fade from a follow-through into a bridge (both on the same frame: only the timing changes)
 export const LINK_BLEND_SEC = 0.05;
 
@@ -197,7 +201,7 @@ export function chainPresentation(player, serverNow) {
   if (!(landed > 0) || player.attackEnd === 'broken' || player.attackEnd == null) return null;
   const slot = Math.min(landed, clips.length) - 1;
   const lastSlot = slot === clips.length - 1;
-  const until = lastSlot ? CHAIN_CYCLE : SWORD_CHAIN.starts[slot + 1] + RECOVERY_SEC;
+  const until = lastSlot ? CHAIN_CYCLE + RESTART_GRACE_SEC : SWORD_CHAIN.starts[slot + 1] + RECOVERY_SEC;
   if (elapsed >= until) return null;
   // let go after a strike that could have been followed: held at the far end of its follow-through to the end of its
   // slot, then handed back to the stance (the Idle the knight stands in next, cross-faded over RECOVERY_SEC)

@@ -83,7 +83,7 @@ export function beginSwordTechnique(player, contract, nowSec) {
   return player.swordTechnique={
     id:contract.id,contract,startedAt:nowSec,initialStartedAt:nowSec,
     phase:'startup',sampledTo:contract.activeFrom,
-    revolutions:1,hitIds:new Set(),intercepted:false,
+    revolutions:1,hitIds:new Set(),lastHitAt:new Map(),intercepted:false,
   };
 }
 
@@ -131,7 +131,9 @@ export function techniqueInterception(action, incoming, transform, world, nowSec
 
 // Call at the authoritative simulation clock. Only the room adapter may turn
 // contacts into damage, Guard, Steel, knockback or Stagger outcomes.
-export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt, world }) {
+// endless: the Practice Yard's knight, whose held Whirl goes on while it is held (no revolution limit, no Prowess asked
+// or taken for another); a match's keeps its limit and its cost.
+export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt, world, endless = false }) {
   const action=player.swordTechnique;
   if(!action)return [];
   if(!player.alive || nowSec<(player.staggerUntil??0) || player.operatingBallistaId ||
@@ -150,16 +152,23 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
     action.phase='active';
     const until=Math.min(age,activeUntil);
     if(until>action.sampledTo){
-      contacts.push(...sweepTechniqueTrack(track,action.sampledTo,until,
-        t=>transformAt(t+action.startedAt),t=>bodiesAt(t+action.startedAt),world,action.hitIds)
-        .map(contact=>({...contact,at:contact.at+action.startedAt})));
+      // A victim is met again only once the blade has come round to them again: a revolution's seam (its last frames
+      // and the next one's first lie side by side) cannot strike one victim twice in a few milliseconds.
+      const lastHitAt=action.lastHitAt??=new Map(), rearm=(activeUntil-activeFrom)*.75, startedAt=action.startedAt;
+      const met=sweepTechniqueTrack(track,action.sampledTo,until,
+        t=>transformAt(t+startedAt),
+        t=>bodiesAt(t+startedAt).filter(body=>!(t+startedAt-(lastHitAt.get(body.id)??-Infinity)<rearm)),
+        world,action.hitIds)
+        .map(contact=>({...contact,at:contact.at+startedAt}));
+      for(const contact of met)if(contact.kind==='body')lastHitAt.set(contact.id,contact.at);
+      contacts.push(...met);
       action.sampledTo=until;
     }
     const stopped=contacts.at(-1)?.kind==='solid'||contacts.at(-1)?.kind==='ground';
     if(!stopped&&age<activeUntil)return contacts;
-    if(!stopped&&kind==='whirl'&&held&&action.revolutions<maxRevolutions&&
-       extraRevolutionCost>0&&(player.prowess??0)>=extraRevolutionCost){
-      player.prowess-=extraRevolutionCost;
+    if(!stopped&&kind==='whirl'&&held&&(endless||action.revolutions<maxRevolutions&&
+       extraRevolutionCost>0&&(player.prowess??0)>=extraRevolutionCost)){
+      if(!endless)player.prowess-=extraRevolutionCost;
       action.revolutions+=1;
       // Exactly once per victim per revolution, not once per entire five-spin skill.
       action.hitIds=new Set();

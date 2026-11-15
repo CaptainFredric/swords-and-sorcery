@@ -251,3 +251,135 @@ node scripts/spellblade-compat-check.mjs [candidate.glb] [--fp]
 node scripts/sword-loop-audit.mjs
 node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|riposte|whirl|whirl-gale [--remote] [--clear-view]
 ```
+
+---
+
+# Follow-up (2026-11-15): the five checks before acceptance
+
+**Decision recorded: Gale Whirl keeps its 5 m-per-revolution ascent. There is no cap and the lift is not reduced.**
+
+Commits:
+- `d2e11f28`: Whirl seam, Guard hand-back, chain restart.
+- `620f17df`: Gale prediction and the real-match harness.
+- The commit after them: candidate gate and this section.
+
+Sword timings, damage, Guard windows, Prowess costs and revolution timing are unchanged.
+
+## A. Actual gameplay evidence (real Chrome, real server, real keyboard input)
+
+**1. Gale Whirl in an ordinary online match.** Harness: `scripts/gale-whirl-match-browser.mjs`.
+- Two Chromes in a private FFA room joined by its code, the match started by their ready checks (state `PLAYING`, not
+  Practice).
+- Per trial, the server places the knight and sets his starting Prowess. That is the only thing the harness sets.
+- The actor's browser holds X, Space and W through its real keyboard input.
+- Data: `gale-match/*.json`. Videos and traces are in the session notes `evidence/`.
+
+| Trial (Castleward unless noted) | Revolutions | Prowess spent | Climb | Airborne | End |
+|---|---|---|---|---|---|
+| 0 Prowess, X+Space | 1 | 0 | 7.07 m | 1.5 s | landed, no damage |
+| 25 | 2 | 25 | 11.8 m | 2.7 s | landed |
+| 50 | 3 | 50 | 17.3 m | 3.6 s | landed |
+| 75 | 4 | 75 | 22.1 m | 4.4 s | landed |
+| 100 | 5 | 100 | 27.1 m | 4.8 s | landed |
+| 100, X only (Jump tapped) | 1 | 0 | 1.3 m | 0.7 s | an ordinary jump; no lift without a held Jump |
+| Ceiling: gate arch, underside 4.6 m over the ramp | 1 | 0 | 4.6 m | 1.4 s | see the defect below |
+| Ledge: Blackbell Foundry gantry, X+Space+W | 5 | 100 | 27.1 m (peak 29.9) | 4.9 s | drifted 27 m off the gantry, fell, landed on the lower floor; no damage |
+| Ledge, 0 Prowess, X+W (no Jump) | 1 | 0 | 0 | 0 | the gantry balustrade stops the walk-off; stays up |
+
+Technique hits gave no Prowess in any trial. The cooldown ran its 10 s from the technique's end. No page errors.
+
+**Defect, ceilings (reported, not changed).** Rising under the 1.4 m-deep gate arch:
+- At the moment his head meets the underside, the shared movement collision pushes the knight **1.15 m sideways in one
+  tick** (z 15.8 → 14.65), out from under the lintel.
+- He then rises past its face; the blade strikes the arch, which ends the Whirl (by design); momentum carries him to
+  5.97 m.
+- An ordinary jump never reaches the arch, so only the Gale lift exposes it.
+- It is collision resolution in `shared/src/movement.mjs`, shared by everything that moves, so it needs its own change
+  (cap upward velocity on a ceiling hit rather than resolving sideways). Trace: `gale-match/ceiling-100-trace.json`.
+
+**Defect fixed: the online rubber band.**
+- The owner's client predicted the climb as an ordinary fall, while the server lifted him.
+- In the actor's own view the knight sank up to **2.1 m** behind the server, then snapped up **2.0–2.3 m in one frame**
+  about every 0.9 s. Local Practice hides it, because the room runs in the page.
+- The server's lift rule is now one function (`galeWhirlLiftSpeed`) that the client's prediction also applies; authority
+  is unchanged.
+
+| At 100 Prowess, during the climb | Before | After |
+|---|---|---|
+| Upward snaps > 0.4 m in one frame | 5, largest 2.31 m | 2, largest 0.97 m |
+| Mean shown-vs-server height | 0.72 m | 0.21 m |
+
+At 50 Prowess: one 2.36 m snap before, none after.
+
+**2. Presentation transitions, in Chrome.**
+- Two held 4.4 s chains on the branch each played falling chain → rising chain through all four bridges, with **no Idle
+  frame at either restart** (Slash_3 → Slash_2 directly). Main showed one Idle frame at each restart.
+- The Guard hand-back is verified in the Node sim only. The capture harness has no Guard scenario.
+
+**3. Why Practice Whirl stops at five.**
+- PR #457's own Whirl (commit 7c676f98) had no revolution cap. In the Practice Yard (Prowess pinned full) a held Whirl
+  went on indefinitely. That was its test: "in the Practice Yard a held Whirl goes on and on; in a match it never does".
+- When #454 merged, the user chose "keep main's, port fixes", and #457's technique rules were removed. Main's contract has
+  `maxRevolutions: 5` in every mode (`shared/src/swordTechniqueContracts.mjs`, checked in `stepSwordTechnique`).
+- So Practice now gets five. The indefinite Practice spin was lost in that merge, not changed on purpose.
+- Restoring it is a one-line Practice exception to the cap. It is **not done here**: it changes a rule, so it is left for
+  your decision.
+
+## B. Simulation and animation measurements (Node, real sim, shipped model)
+
+**4. The inherited Whirl failures, investigated.**
+
+- **Hit registry: a real defect, now fixed.**
+  - The registry resets each revolution, so a victim struck as one revolution ended could be struck **again 15 ms later**
+    as the next began: a revolution's last and first frames lie side by side.
+  - Found by sweeping teleport-in victims over every angle and arrival time.
+  - Now a victim is eligible again only once the blade has come round (0.75 of a revolution since their last hit).
+  - Stationary victims are unchanged: exactly one hit per revolution, 0.598–0.602 s apart, at 30 and 60 Hz, and Prowess
+    0/25/50/75/100 still gives 1–5 revolutions.
+  - The closest re-hit anywhere is now 0.536 s, the blade genuinely coming round.
+  - A new regression test fails on main's code (15 ms) and passes here.
+- **"Whirl samples all quadrants…": the test was stale, not the sim.**
+  - It was written on 11-09 (#425) expecting one hit per victim per *technique*.
+  - Commit 8a03be07 (11-12) deliberately changed the sim to one per *revolution* and didn't update the test.
+  - The extra `front` contact is revolution 2 meeting the front again exactly 0.600 s later. The test now asserts that,
+    including the 0.6 s spacing for every victim.
+- **"disconnect cancels a held Whirl…": a floating-point comparison, not gameplay.** 12.12 + 10 = 22.119999999999997, and
+  the test compared it with `>= 22.12` exactly. The cooldown is kept.
+
+**2 (cont.). The Guard-to-technique "snap".**
+- It was the first frames of the ordinary Guard→Idle cross-fade.
+- The 89's raised Guard and its Idle stance are 3.5 m apart at the sword point, and the Guard clip has no authored way
+  down: its frames 0 and 0.267 are both the raised guard.
+- Over the default 0.24 s fade a plain Guard release whipped the point at **35 m/s** (0.59 m in one frame), faster than
+  any cut. A technique begun 50 ms after release dipped with it.
+- The hand-back is now 0.36 s:
+  - peak 0.40 m/frame, below both the Guard clip's own peak (0.69) and the cut's (1.22);
+  - the pre-technique dip is 0.02 / 0.07 / 0.11 m;
+  - no snaps in either out-of-Guard technique scenario.
+- The server's guard ends at once, as before.
+
+## 5. Coordination with Argon
+
+There is no new delivery from Argon since 11-14 (checked `~/Downloads`). The hand-off is now executable:
+
+```
+node scripts/spellblade-candidate-acceptance.mjs <candidate.glb>      # compatibility + every ask + the constants to paste
+SPELLBLADE_GLB=<candidate.glb> node scripts/spellblade-chain-sync-audit.mjs   # the shown blade against the server's
+```
+
+- `spellblade-candidate-acceptance.mjs` runs the compatibility check (exit 1 if it breaks).
+- It measures each §4 ask against a stated target. The shipped model's baseline is `candidate-acceptance-shipped.json`:
+  13 of 17 asks missed, the misses being exactly §4.
+- It prints the `STRIKE_CLIPS` block (contact, swing frames, `far`, `pickUp`) re-measured for the candidate.
+- Checked on the 46-clip predecessor: 45 incompatibilities, exit 1.
+- Targets:
+  - follow-through reach ≤ 90° (forehand) / ≤ 95° (backhand);
+  - wrist fold after contact ≤ 12°;
+  - hips' turn ≥ 15°;
+  - chop within 12° of the aim and down to −40°;
+  - skating ≤ 8 frames at ≤ 2 m/s;
+  - every bridge starting and landing within 0.05 m.
+
+Argon's brief: `ARGON-HANDOFF.md`.
+
+**Tests:** 3,216 tests, 18 failing. That is main's 20 failures less the two Whirl tests explained above; no new failures.
