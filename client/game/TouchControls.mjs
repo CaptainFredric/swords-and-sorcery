@@ -16,7 +16,7 @@ import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { biByeModeButton, biByeSkillIcon, biByeCombatView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode, clearTouchButtonOverlap } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
   buildValkyrieRitualGeometry,ritualStartNear,createValkyrieRitual,
@@ -322,6 +322,79 @@ export class TouchControls {
       this.setCustomOpacity(layouts.opacity);
     }
     this.#syncValkyrieGeometry();
+  }
+
+  // Custom saved layouts can put the mounted Steel orb directly on PRIME.
+  // Preserve custom coordinates in storage; render a small, temporary offset
+  // to Steel only when two ACTUAL hit rectangles intersect. The hit target
+  // itself moves, so the apparent and clickable positions remain identical.
+  #clearMountedSteelSkillOverlap() {
+    const steel=this.buttons.spell,prime=this.buttons.siegeSkill;
+    if(!steel||!prime)return;
+    if(!this.active||!this.mountedSteelEligible||!this.mounted||
+       this.layer.classList.contains('touch-layout-editing')||this.previewMode){
+      steel.style.translate='';return;
+    }
+    const now=globalThis.performance?.now?.()??0;
+    if(now<(this.steelClearanceNextAt??0))return;
+    this.steelClearanceNextAt=now+220;
+    steel.style.translate='';
+    if(steel.hidden||prime.hidden)return;
+    if(globalThis.getComputedStyle?.(steel)?.display==='none'||
+       globalThis.getComputedStyle?.(prime)?.display==='none')return;
+    // ScreenTurn rotates the entire game shell 90 degrees on portrait-locked
+    // phones. Viewport getBoundingClientRect coordinates are then rotated,
+    // while CSS translate offsets are NOT. Use native game-layout pixels for
+    // both the target rectangles and the displacement.
+    const rect=(element,centered=false)=>{
+      if(!Number.isFinite(element?.offsetLeft)||!Number.isFinite(element?.offsetTop)||
+         !Number.isFinite(element?.offsetWidth)||!Number.isFinite(element?.offsetHeight))return null;
+      const left=element.offsetLeft-(centered?element.offsetWidth*.5:0);
+      return {left,right:left+element.offsetWidth,
+        top:element.offsetTop,bottom:element.offsetTop+element.offsetHeight};
+    };
+    const moving=rect(steel),fixed=rect(prime);
+    if(!moving||!fixed)return;
+    const bounds={left:0,top:0,right:this.layer.clientWidth,bottom:this.layer.clientHeight};
+    const other=Object.values(this.buttons).filter(button=>button!==steel&&button!==prime&&
+      !button.hidden&&globalThis.getComputedStyle?.(button)?.display!=='none')
+      .map(button=>rect(button)).filter(Boolean);
+    // Both caption and machine health are centered via CSS translateX.
+    // Their offsetLeft is the anchor BEFORE that transform, so subtract
+    // half of their width when turning them into collision obstacles.
+    for(const selector of ['#subtitle','.machine-gauge']){
+      const element=globalThis.document?.querySelector?.(selector);
+      if(!element||element.hidden||
+         globalThis.getComputedStyle?.(element)?.display==='none')continue;
+      if(selector==='#subtitle'&&!element.classList.contains('show'))continue;
+      const obstacle=rect(element,true);
+      if(obstacle)other.push(obstacle);
+    }
+    const shift=clearTouchButtonOverlap(moving,fixed,bounds,other);
+    if(shift&&(shift.dx||shift.dy))
+      steel.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
+  }
+
+  // Saved VIEW/LEAVE buttons may be lower than their current presets.
+  // Keep the killfeed BELOW their real interactive rectangles even after a
+  // player customizes or mirrors the layout; objective placement is separate.
+  #syncMobileFeedLane() {
+    const feed=globalThis.document?.querySelector?.('#kill-feed');
+    if(!feed?.style?.setProperty||!this.active||this.previewMode)return;
+    const width=this.layer.clientWidth;
+    let top=width<=540?142:width<=700?68:72;
+    for(const action of ['siegeView','interact']){
+      const btn=this.buttons[action];
+      if(!btn||btn.hidden||globalThis.getComputedStyle?.(btn)?.display==='none')continue;
+      // Ballista intentionally keeps VIEW near the BOTH firing row. That
+      // button is already BELOW the feed and must not force kill messages
+      // onto the Attack button. Only controls intersecting the feed's
+      // upper lane reserve additional vertical space.
+      if(Number.isFinite(btn.offsetTop)&&Number.isFinite(btn.offsetHeight)&&
+         btn.offsetTop<top+Math.min(100,this.layer.clientHeight*.26))
+        top=Math.max(top,btn.offsetTop+btn.offsetHeight+9);
+    }
+    feed.style.setProperty('--mobile-feed-top',Math.ceil(top)+'px');
   }
 
   setCustomOpacity(opacity) {
@@ -906,6 +979,8 @@ export class TouchControls {
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       }
     }
+    this.#clearMountedSteelSkillOverlap();
+    this.#syncMobileFeedLane();
   }
 
   #setMotionIndicator(mode) {

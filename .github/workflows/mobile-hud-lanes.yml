@@ -1,0 +1,45 @@
+name: Mobile HUD safe lanes and mounted Steel
+on:
+  pull_request:
+    paths:
+      - 'client/mobile.css'
+      - 'client/playability.css'
+      - 'client/siege-hud.css'
+      - 'client/game/touchLayout.mjs'
+      - 'client/game/TouchControls.mjs'
+      - 'client/game/touchLayout.test.mjs'
+      - 'scripts/mobile-hud-lanes-browser.mjs'
+      - '.github/workflows/mobile-hud-lanes.yml'
+permissions:
+  contents: read
+jobs:
+  mobile-hud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Browser modules and touch layout collision model
+        run: |
+          npm run check:browser-imports
+          node --test client/game/touchLayout.test.mjs
+      - name: Find Chrome
+        id: chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Check on-foot and mounted HUD geometry on landscape phones
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/mobile-hud-lanes-browser.mjs
+      - name: Preserve geometry traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-hud-lanes-screenshots
+          path: output/playwright/mobile-hud-lanes/
+          retention-days: 7

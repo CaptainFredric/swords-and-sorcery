@@ -140,12 +140,13 @@
   width:150px;
 }
 .touch-ui .hud.ram-mounted .bottom-hud .health-block {width:100%;}
-/* Keep the attractive pressure instrument, but compact it and position it
-   below the personal status lane and clear of Practice Tools. */
+/* Drive Pressure belongs to the personal HP/stamina instrumentation, not
+   the joystick or the middle of the battlefield. Keep its right edge below
+   the HP bar and LEFT of the objective in every mobile-mounted mode. */
 .touch-ui .drive-housing {
-  top:calc(var(--safe-t,0px) + 134px);
-  left:calc(var(--safe-l,0px) + 16px);
-  width:min(180px,25cqw);
+  top:calc(var(--safe-t,0px) + 66px);
+  left:calc(var(--safe-l,0px) + 104px);
+  width:min(150px, 26cqw);
   padding:3px 5px 5px;
 }
 .touch-ui .drive-housing-head {font-size:8px;}

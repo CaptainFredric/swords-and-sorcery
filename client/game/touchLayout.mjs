@@ -22,10 +22,10 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   // New action has no legacy CSS coordinates: always position it from the
   // touch-layout model, including users with migrated saved layouts.
   technique: {right: 148, bottom: 215, size: 46, custom:true},
-  // On-foot VIEW shares the siege VIEW action, but sits below the kill-feed
-  // strip and inward of ULTIMATE. Mounted modes retain their existing upper
-  // corner positions. Custom ensures old saved on-foot layouts gain the slot.
-  siegeView: {right: 96, top: 70, size: 44, custom:true},
+  // Put VIEW in the same top-right auxiliary lane as the mounted views.
+  // The killfeed now lives underneath this row, on foot AND on siege rigs.
+  // Custom saves are respected; live feed clearance handles older positions.
+  siegeView: {right: 14, top: 8, size: 44, custom:true},
   interact: { right: 204, bottom: 96, size: 58 },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
@@ -109,7 +109,9 @@ const MOUNTED_ACTIONS = Object.freeze({
   // SO-FIST-ICATION: combat below, side-by-side hydraulics above.
   attack:{right:14,bottom:18,size:76},
   siegeSkill:{right:100,bottom:22,size:64},
-  spell:{right:184,bottom:20,size:52},
+  // Steel sits in a separate upper-left pocket, not in PRIME's
+  // lower attack cluster or in the subtitle lane above the siege HP.
+  spell:{right:202,bottom:120,size:50},
   // Flick sits underneath RAISE, right of Launch, above Piston.
   ramFlick:{right:14,bottom:92,size:50},
   jump:{right:14,bottom:156,size:52},
@@ -139,6 +141,35 @@ const BI_BYE_UTILITIES=Object.freeze({
  // Keep enough clearance from the lower Steel / heavy-fire row on short phones.
  siegeView:{right:145,bottom:111,size:40},
 });
+
+/**
+ * A stored/custom touch layout may put Steel directly over a mounted Skill.
+ * Move only the visible Steel surface at runtime; never rewrite the user's
+ * saved controls. Test candidate positions against ALL other visible buttons
+ * and the safe viewport. The least-displaced viable candidate wins.
+ */
+export function clearTouchButtonOverlap(moving, fixed, bounds, obstacles = [], gap = 7) {
+  const overlaps=(a,b)=>a.left<b.right+gap&&a.right>b.left-gap&&
+    a.top<b.bottom+gap&&a.bottom>b.top-gap;
+  if(!moving||!fixed||!bounds||!overlaps(moving,fixed))return {dx:0,dy:0};
+  const shifts=[
+    {dx:0,dy:fixed.top-moving.bottom-gap},
+    {dx:fixed.left-moving.right-gap,dy:0},
+    {dx:fixed.right-moving.left+gap,dy:0},
+    {dx:0,dy:fixed.bottom-moving.top+gap},
+    {dx:fixed.left-moving.right-gap,dy:fixed.top-moving.bottom-gap},
+    {dx:fixed.right-moving.left+gap,dy:fixed.top-moving.bottom-gap},
+  ].sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy));
+  for(const shift of shifts){
+    const rect={left:moving.left+shift.dx,right:moving.right+shift.dx,
+      top:moving.top+shift.dy,bottom:moving.bottom+shift.dy};
+    if(rect.left<bounds.left+4||rect.right>bounds.right-4||
+       rect.top<bounds.top+4||rect.bottom>bounds.bottom-4)continue;
+    if([fixed,...obstacles].some(other=>overlaps(rect,other)))continue;
+    return shift;
+  }
+  return null;
+}
 
 export function mirrorLayoutHorizontal(layout) {
   const mirrored = {};
