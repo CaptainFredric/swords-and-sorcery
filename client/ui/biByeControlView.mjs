@@ -1,6 +1,7 @@
 import { siegeSkillControlLabel } from './siegeSkillView.mjs';
 import { SIEGE_SKILLS } from '../../shared/sim/siegeSkills.mjs';
 import { canBiByeCouple } from '../../shared/sim/biByeWeapons.mjs';
+import { BI_BYE_SWEEP } from '../../shared/sim/biByeSweep.mjs';
 
 // Action labels and icons describe the destination mode, from the authoritative
 // snapshot. A tap never optimistically changes the presentation.
@@ -54,4 +55,13 @@ export function biByeCombatView(b,now){
   secondaryDescription:secondary==='coupled'?'Coupled volley: Bolt I then Bolt II':
    secondary==='skill'?'Skill combined volley: Bolt II then Bolt I':null,
  };
+}
+
+// A Sharp Turn is a distinct four-second mechanical recovery shared with
+// Bolt II, not the 24-second duration of the optional continuous-spin Skill.
+// Drive the mobile button from the same server-owned gate as the weapon.
+export function biByeSweepCooldownView(b,now){
+ const total=BI_BYE_SWEEP.sharedHeavyRecovery;
+ const remaining=Math.max(0,(b?.sweepHeavyReadyAt??0)-now);
+ return {remaining,total};
 }

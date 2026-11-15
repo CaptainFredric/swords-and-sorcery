@@ -542,7 +542,8 @@ test('SO-FIST-ICATION has a non-overlapping mobile control ladder with hydraulic
    }
   }
  }
- assert.equal(DEFAULT_RAM_LAYOUT.jump.bottom,DEFAULT_RAM_LAYOUT.crouch.bottom);
+ assert.equal(DEFAULT_RAM_LAYOUT.jump.bottom,156);
+ assert.equal(DEFAULT_RAM_LAYOUT.crouch.bottom,112);
  assert.ok(DEFAULT_RAM_LAYOUT.jump.bottom>DEFAULT_RAM_LAYOUT.attack.bottom+DEFAULT_RAM_LAYOUT.attack.size);
 });
 

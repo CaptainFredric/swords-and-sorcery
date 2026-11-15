@@ -18,11 +18,11 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
  const cases={
   'fight-flight-repeater':['tranquilized','pin-cushioned'],
   'fight-flight-rotor':['rotor-blades','for a spin'],
-  'bibye-siege':['stuck around','bad name','got through','bolted away'],
-  'bibye-conditioning':['chilled out','calm down','first bolt'],
+  'bibye-siege':['stuck around','bad name','got through','bolted away','ballista bolt'],
+  'bibye-conditioning':['chilled out','calm down'],
   'so-fist':['handshake','broke','ahold'],
   'so-fist-flick':['showed','fainted','finger'],
-  'knock-on-steel':['ran through','battering ram'],
+  'knock-on-steel':['ran through','battering ram','battery'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
   'ram':['knocked down','misremembered'],
  };

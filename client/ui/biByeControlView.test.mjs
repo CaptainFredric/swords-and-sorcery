@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ICONS, iconSvg } from './icons.mjs';
 import { createSiegeSkill } from '../../shared/sim/siegeSkills.mjs';
-import { biByeModeButton, biByeSkillIcon, biByeCombinedReady, biByeCombatView } from './biByeControlView.mjs';
+import { biByeModeButton, biByeSkillIcon, biByeCombinedReady, biByeCombatView, biByeSweepCooldownView } from './biByeControlView.mjs';
 
 test('Bolt I, Bolt II, BOTH, wheel and Skill motifs stay distinguishable and related',()=>{
  assert.match(ICONS.boltI,/#83ddff/);assert.match(ICONS.boltII,/#e1d8c4/);
@@ -72,4 +72,13 @@ test('carousel displays the existing primary action in every deployment, focus a
  b.skill.id='boltToTheOccasion';
  b.skill.phase='idle';b.mainBoltLoaded=false;assert.equal(view().secondary,null,'unready heavy cannot show BOTH');
  b.mainBoltLoaded=true;b.upperPending=true;assert.equal(view().secondary,null,'unready upper cannot show BOTH');
+});
+
+test('A Sharp Turn cooldown uses the same four-second gate as physical Bolt II, independent of spin Skill',()=>{
+ const ballista={sweepHeavyReadyAt:14,skill:{id:'lookAroundAndFindOut',phase:'idle',readyAt:32}};
+ assert.deepEqual(biByeSweepCooldownView(ballista,10),{remaining:4,total:4});
+ assert.deepEqual(biByeSweepCooldownView(ballista,12.5),{remaining:1.5,total:4});
+ assert.deepEqual(biByeSweepCooldownView(ballista,14),{remaining:0,total:4});
+ assert.deepEqual(biByeSweepCooldownView(ballista,36),{remaining:0,total:4},
+   'the 24s continuous-spin Skill clock does not masquerade as ordinary Sweep');
 });

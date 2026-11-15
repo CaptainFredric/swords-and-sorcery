@@ -144,7 +144,7 @@ test('Restless Day attacker sees a real mobile MOUNT button near either native s
   assert.equal(controls.buttons.interact.hidden,false,'ballista has usable MOUNT button');
   send('pointerdown',650,300,{action:'interact',pointerId:301});
   send('pointerup',650,300,{action:'interact',pointerId:301});
-  assert.deepEqual(messages,[{type:'siegeOperate'}]);
+  assert.deepEqual(messages,[{type:'siegeOperate',machine:'bi-bye-llista'}]);
   const onRam={...p,position:{x:-4,y:0,z:-78}};
   controls.update(onRam,10,{snapshot:{mode:'RESTLESS_DAY',bibyeBallista:ballista,soFistication:ram}});
   assert.equal(controls.buttons.interact.hidden,false,'ram also has usable MOUNT button');
@@ -1930,4 +1930,30 @@ test('real layer capture loss cancels the held teleport, unlike child capture tr
   send('lostpointercapture',600,320,{...finger,target:controls.layer});
   assert.deepEqual(releases,[{cancel:true,yaw:0,pitch:0}]);
   assert.equal(controls.held.has(89),false);
+});
+
+test('mobile Ballista Sweep shows the spell-style countdown from authoritative shared recovery',()=>{
+ const p={alive:true,spell:'fireball',operatingBallistaId:'ballista',position:{x:0,y:0,z:0}};
+ const {controls}=setup(p);
+ const b={id:'ballista',x:0,y:0,z:0,health:500,mode:'MOBILE',state:'LOADED',
+   skill:{id:'lookAroundAndFindOut',phase:'idle',readyAt:28},
+   sweepHeavyReadyAt:14,smallBoltReadyAt:0,mainBoltLoaded:true};
+ const snapshot={snapshot:{bibyeBallista:b}};
+ assert.match(controls.layer.innerHTML,/data-action="siegeSweep"[^]*?<i class="touch-cooldown"><\/i><b class="touch-timer"><\/b>/,
+   'SWEEP carries a real overlay and numeric timer, not just a status label');
+ controls.update(p,10,snapshot);
+ const button=controls.buttons.siegeSweep;
+ assert.equal(button.classList.contains('cooling'),true);
+ assert.equal(button.querySelector('.touch-timer').textContent,'4');
+ assert.match(button.getAttribute('aria-label'),/4 seconds cooldown/);
+ controls.update(p,12.5,snapshot);
+ assert.equal(button.querySelector('.touch-timer').textContent,'1.5');
+ controls.update(p,14,snapshot);
+ assert.equal(button.classList.contains('cooling'),false);
+ assert.equal(button.querySelector('.touch-timer').textContent,'');
+ assert.match(button.getAttribute('aria-label'),/Sweep ready/);
+ // Unmounting removes the stale cooldown tint.
+ controls.update({...p,operatingBallistaId:null},14,{snapshot:{bibyeBallista:b}});
+ assert.equal(button.classList.contains('cooling'),false);
+ controls.dispose();
 });
