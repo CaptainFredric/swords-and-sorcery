@@ -1,0 +1,2069 @@
+{
+ "candidate": {
+  "sha256": "de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4",
+  "joints": [
+   {
+    "name": "root",
+    "parent": "SpellbladeRig",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "pelvis",
+    "parent": "root",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.0568,
+     0.02,
+     1
+    ]
+   },
+   {
+    "name": "spine",
+    "parent": "pelvis",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.1641,
+     0.02,
+     1
+    ]
+   },
+   {
+    "name": "chest",
+    "parent": "spine",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.4395,
+     0.02,
+     1
+    ]
+   },
+   {
+    "name": "neck",
+    "parent": "chest",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.6056,
+     0.02,
+     1
+    ]
+   },
+   {
+    "name": "head",
+    "parent": "neck",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.6771,
+     0.02,
+     1
+    ]
+   },
+   {
+    "name": "clavicle.L",
+    "parent": "chest",
+    "ibm": [
+     -0.0914,
+     -0.9944,
+     -0.0534,
+     0,
+     -0.0675,
+     -0.0474,
+     0.9966,
+     0,
+     -0.9935,
+     0.0947,
+     -0.0628,
+     0,
+     0.0686,
+     0.0039,
+     -1.5902,
+     1
+    ]
+   },
+   {
+    "name": "upper_arm.L",
+    "parent": "clavicle.L",
+    "ibm": [
+     0.7464,
+     -0.6377,
+     -0.1903,
+     0,
+     -0.538,
+     -0.7465,
+     0.3915,
+     0,
+     -0.3918,
+     -0.1898,
+     -0.9003,
+     0,
+     1.0185,
+     1.0293,
+     -0.679,
+     1
+    ]
+   },
+   {
+    "name": "forearm.L",
+    "parent": "upper_arm.L",
+    "ibm": [
+     0.9073,
+     0.3559,
+     -0.2239,
+     0,
+     0.3807,
+     -0.469,
+     0.7969,
+     0,
+     0.1786,
+     -0.8083,
+     -0.561,
+     0,
+     -0.1153,
+     0.7272,
+     -1.2175,
+     1
+    ]
+   },
+   {
+    "name": "hand.L",
+    "parent": "forearm.L",
+    "ibm": [
+     0.8178,
+     -0.4198,
+     0.3936,
+     0,
+     -0.3945,
+     0.0891,
+     0.9146,
+     0,
+     -0.419,
+     -0.9032,
+     -0.0928,
+     0,
+     0.6393,
+     -0.5083,
+     -1.0224,
+     1
+    ]
+   },
+   {
+    "name": "socket_sorcery",
+    "parent": "hand.L",
+    "ibm": [
+     0.8048,
+     0.4844,
+     0.3429,
+     0,
+     -0.5612,
+     0.8091,
+     0.1743,
+     0,
+     -0.193,
+     -0.3327,
+     0.9231,
+     0,
+     0.9882,
+     -1.0335,
+     0.2233,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_1.L",
+    "parent": "hand.L",
+    "ibm": [
+     0.7655,
+     -0.4108,
+     0.4952,
+     0,
+     -0.382,
+     0.3292,
+     0.8636,
+     0,
+     -0.5178,
+     -0.8502,
+     0.0951,
+     0,
+     0.6154,
+     -0.9021,
+     -0.846,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_2.L",
+    "parent": "finger_index_1.L",
+    "ibm": [
+     0.7655,
+     -0.2461,
+     0.5945,
+     0,
+     -0.382,
+     0.5697,
+     0.7277,
+     0,
+     -0.5178,
+     -0.7842,
+     0.3421,
+     0,
+     0.6154,
+     -1.1596,
+     -0.5268,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_3.L",
+    "parent": "finger_index_2.L",
+    "ibm": [
+     0.7655,
+     -0.0977,
+     0.636,
+     0,
+     -0.382,
+     0.7263,
+     0.5714,
+     0,
+     -0.5178,
+     -0.6804,
+     0.5187,
+     0,
+     0.6154,
+     -1.2865,
+     -0.2275,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_1.L",
+    "parent": "hand.L",
+    "ibm": [
+     0.8015,
+     -0.3534,
+     0.4824,
+     0,
+     -0.3909,
+     0.3009,
+     0.8699,
+     0,
+     -0.4526,
+     -0.8858,
+     0.103,
+     0,
+     0.6323,
+     -0.854,
+     -0.8567,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_2.L",
+    "parent": "finger_middle_1.L",
+    "ibm": [
+     0.8015,
+     -0.1951,
+     0.5653,
+     0,
+     -0.3909,
+     0.5445,
+     0.7421,
+     0,
+     -0.4526,
+     -0.8158,
+     0.3602,
+     0,
+     0.6323,
+     -1.1201,
+     -0.5503,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_3.L",
+    "parent": "finger_middle_2.L",
+    "ibm": [
+     0.8015,
+     -0.0551,
+     0.5955,
+     0,
+     -0.3909,
+     0.7053,
+     0.5914,
+     0,
+     -0.4526,
+     -0.7068,
+     0.5437,
+     0,
+     0.6323,
+     -1.2562,
+     -0.2591,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_1.L",
+    "parent": "hand.L",
+    "ibm": [
+     0.833,
+     -0.2936,
+     0.469,
+     0,
+     -0.3976,
+     0.272,
+     0.8763,
+     0,
+     -0.3848,
+     -0.9164,
+     0.1099,
+     0,
+     0.6455,
+     -0.8072,
+     -0.8672,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_2.L",
+    "parent": "finger_ring_1.L",
+    "ibm": [
+     0.833,
+     -0.1419,
+     0.5348,
+     0,
+     -0.3976,
+     0.5188,
+     0.7568,
+     0,
+     -0.3848,
+     -0.843,
+     0.3758,
+     0,
+     0.6455,
+     -1.0752,
+     -0.5751,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_3.L",
+    "parent": "finger_ring_2.L",
+    "ibm": [
+     0.833,
+     -0.0107,
+     0.5532,
+     0,
+     -0.3976,
+     0.6839,
+     0.6118,
+     0,
+     -0.3848,
+     -0.7295,
+     0.5654,
+     0,
+     0.6455,
+     -1.216,
+     -0.2945,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_1.L",
+    "parent": "hand.L",
+    "ibm": [
+     0.8598,
+     -0.2316,
+     0.4551,
+     0,
+     -0.402,
+     0.2427,
+     0.8829,
+     0,
+     -0.315,
+     -0.942,
+     0.1156,
+     0,
+     0.6552,
+     -0.762,
+     -0.8773,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_2.L",
+    "parent": "finger_little_1.L",
+    "ibm": [
+     0.8598,
+     -0.0868,
+     0.5033,
+     0,
+     -0.402,
+     0.4928,
+     0.7717,
+     0,
+     -0.315,
+     -0.8658,
+     0.3888,
+     0,
+     0.6552,
+     -1.0278,
+     -0.6003,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_3.L",
+    "parent": "finger_little_2.L",
+    "ibm": [
+     0.8598,
+     0.0354,
+     0.5095,
+     0,
+     -0.402,
+     0.6621,
+     0.6325,
+     0,
+     -0.315,
+     -0.7486,
+     0.5835,
+     0,
+     0.6552,
+     -1.1708,
+     -0.3315,
+     1
+    ]
+   },
+   {
+    "name": "thumb_1.L",
+    "parent": "hand.L",
+    "ibm": [
+     0.0947,
+     -0.6111,
+     0.7858,
+     0,
+     -0.2993,
+     0.7354,
+     0.608,
+     0,
+     -0.9494,
+     -0.2928,
+     -0.1132,
+     0,
+     0.1327,
+     -1.2535,
+     -0.5014,
+     1
+    ]
+   },
+   {
+    "name": "thumb_2.L",
+    "parent": "thumb_1.L",
+    "ibm": [
+     0.0947,
+     -0.3329,
+     0.9382,
+     0,
+     -0.2993,
+     0.8893,
+     0.3458,
+     0,
+     -0.9494,
+     -0.3135,
+     -0.0154,
+     0,
+     0.1327,
+     -1.3894,
+     -0.0678,
+     1
+    ]
+   },
+   {
+    "name": "thumb_3.L",
+    "parent": "thumb_2.L",
+    "ibm": [
+     0.0947,
+     -0.0805,
+     0.9922,
+     0,
+     -0.2993,
+     0.9483,
+     0.1055,
+     0,
+     -0.9494,
+     -0.307,
+     0.0657,
+     0,
+     0.1327,
+     -1.393,
+     0.3004,
+     1
+    ]
+   },
+   {
+    "name": "elbow.L",
+    "parent": "upper_arm.L",
+    "ibm": [
+     0.9073,
+     0.3559,
+     -0.2239,
+     0,
+     0.3807,
+     -0.469,
+     0.7969,
+     0,
+     0.1786,
+     -0.8083,
+     -0.561,
+     0,
+     -0.1153,
+     0.7272,
+     -1.2175,
+     1
+    ]
+   },
+   {
+    "name": "pauldron.L",
+    "parent": "clavicle.L",
+    "ibm": [
+     0.7464,
+     -0.6377,
+     -0.1903,
+     0,
+     -0.538,
+     -0.7465,
+     0.3915,
+     0,
+     -0.3918,
+     -0.1898,
+     -0.9003,
+     0,
+     1.0185,
+     1.0293,
+     -0.679,
+     1
+    ]
+   },
+   {
+    "name": "clavicle.R",
+    "parent": "chest",
+    "ibm": [
+     -0.0914,
+     0.9944,
+     0.0534,
+     0,
+     0.0675,
+     -0.0474,
+     0.9966,
+     0,
+     0.9935,
+     0.0947,
+     -0.0628,
+     0,
+     -0.1015,
+     -0.0151,
+     -1.5748,
+     1
+    ]
+   },
+   {
+    "name": "upper_arm.R",
+    "parent": "clavicle.R",
+    "ibm": [
+     0.8359,
+     0.4947,
+     0.238,
+     0,
+     0.4,
+     -0.8458,
+     0.353,
+     0,
+     0.3759,
+     -0.1999,
+     -0.9048,
+     0,
+     -0.8636,
+     1.1938,
+     -0.5995,
+     1
+    ]
+   },
+   {
+    "name": "forearm.R",
+    "parent": "upper_arm.R",
+    "ibm": [
+     0.8453,
+     0.4768,
+     0.2412,
+     0,
+     0.4408,
+     -0.8773,
+     0.1897,
+     0,
+     0.3021,
+     -0.054,
+     -0.9517,
+     0,
+     -0.9232,
+     0.8971,
+     -0.396,
+     1
+    ]
+   },
+   {
+    "name": "hand.R",
+    "parent": "forearm.R",
+    "ibm": [
+     0.9196,
+     -0.3796,
+     0.101,
+     0,
+     -0.225,
+     -0.7199,
+     -0.6566,
+     0,
+     0.322,
+     0.5811,
+     -0.7474,
+     0,
+     -0.3518,
+     0.949,
+     0.4918,
+     1
+    ]
+   },
+   {
+    "name": "socket_sword",
+    "parent": "hand.R",
+    "ibm": [
+     0.8202,
+     -0.1661,
+     0.5474,
+     0,
+     -0.4871,
+     -0.7045,
+     0.5162,
+     0,
+     0.2999,
+     -0.69,
+     -0.6588,
+     0,
+     -0.0441,
+     0.7223,
+     -0.7884,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_1.R",
+    "parent": "hand.R",
+    "ibm": [
+     -0.2804,
+     0.9594,
+     -0.029,
+     0,
+     -0.6669,
+     -0.1729,
+     0.7248,
+     0,
+     0.6904,
+     0.2226,
+     0.6883,
+     0,
+     0.8386,
+     -0.3818,
+     -0.5864,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_2.R",
+    "parent": "finger_index_1.R",
+    "ibm": [
+     -0.2804,
+     0.3637,
+     -0.8883,
+     0,
+     -0.6669,
+     0.5918,
+     0.4528,
+     0,
+     0.6904,
+     0.7193,
+     0.0766,
+     0,
+     0.8386,
+     -0.7118,
+     0.1571,
+     1
+    ]
+   },
+   {
+    "name": "finger_index_3.R",
+    "parent": "finger_index_2.R",
+    "ibm": [
+     -0.2804,
+     -0.6514,
+     -0.7051,
+     0,
+     -0.6669,
+     0.6605,
+     -0.345,
+     0,
+     0.6904,
+     0.3734,
+     -0.6196,
+     0,
+     0.8386,
+     -0.1801,
+     0.7579,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_1.R",
+    "parent": "hand.R",
+    "ibm": [
+     -0.2804,
+     0.9595,
+     -0.029,
+     0,
+     -0.6669,
+     -0.1729,
+     0.7248,
+     0,
+     0.6904,
+     0.2226,
+     0.6883,
+     0,
+     0.8691,
+     -0.3818,
+     -0.5864,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_2.R",
+    "parent": "finger_middle_1.R",
+    "ibm": [
+     -0.2804,
+     0.3637,
+     -0.8883,
+     0,
+     -0.6669,
+     0.5918,
+     0.4528,
+     0,
+     0.6904,
+     0.7193,
+     0.0766,
+     0,
+     0.8691,
+     -0.7118,
+     0.1571,
+     1
+    ]
+   },
+   {
+    "name": "finger_middle_3.R",
+    "parent": "finger_middle_2.R",
+    "ibm": [
+     -0.2804,
+     -0.6514,
+     -0.7051,
+     0,
+     -0.6669,
+     0.6605,
+     -0.345,
+     0,
+     0.6904,
+     0.3734,
+     -0.6196,
+     0,
+     0.8691,
+     -0.1801,
+     0.7579,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_1.R",
+    "parent": "hand.R",
+    "ibm": [
+     -0.2804,
+     0.9595,
+     -0.029,
+     0,
+     -0.6669,
+     -0.1729,
+     0.7248,
+     0,
+     0.6904,
+     0.2226,
+     0.6883,
+     0,
+     0.8996,
+     -0.3818,
+     -0.5864,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_2.R",
+    "parent": "finger_ring_1.R",
+    "ibm": [
+     -0.2804,
+     0.3637,
+     -0.8883,
+     0,
+     -0.6669,
+     0.5918,
+     0.4528,
+     0,
+     0.6904,
+     0.7193,
+     0.0766,
+     0,
+     0.8996,
+     -0.7118,
+     0.1571,
+     1
+    ]
+   },
+   {
+    "name": "finger_ring_3.R",
+    "parent": "finger_ring_2.R",
+    "ibm": [
+     -0.2804,
+     -0.6514,
+     -0.7051,
+     0,
+     -0.6669,
+     0.6605,
+     -0.345,
+     0,
+     0.6904,
+     0.3734,
+     -0.6196,
+     0,
+     0.8996,
+     -0.1801,
+     0.7579,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_1.R",
+    "parent": "hand.R",
+    "ibm": [
+     -0.2804,
+     0.9594,
+     -0.029,
+     0,
+     -0.6669,
+     -0.1729,
+     0.7248,
+     0,
+     0.6904,
+     0.2226,
+     0.6883,
+     0,
+     0.9301,
+     -0.3818,
+     -0.5864,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_2.R",
+    "parent": "finger_little_1.R",
+    "ibm": [
+     -0.2804,
+     0.3637,
+     -0.8883,
+     0,
+     -0.6669,
+     0.5918,
+     0.4528,
+     0,
+     0.6904,
+     0.7193,
+     0.0766,
+     0,
+     0.9301,
+     -0.7118,
+     0.1571,
+     1
+    ]
+   },
+   {
+    "name": "finger_little_3.R",
+    "parent": "finger_little_2.R",
+    "ibm": [
+     -0.2804,
+     -0.6514,
+     -0.7051,
+     0,
+     -0.6669,
+     0.6605,
+     -0.345,
+     0,
+     0.6904,
+     0.3734,
+     -0.6196,
+     0,
+     0.9301,
+     -0.1801,
+     0.7579,
+     1
+    ]
+   },
+   {
+    "name": "thumb_1.R",
+    "parent": "hand.R",
+    "ibm": [
+     0.2804,
+     0.9585,
+     -0.0511,
+     0,
+     0.6669,
+     -0.2328,
+     -0.7079,
+     0,
+     -0.6904,
+     0.1644,
+     -0.7045,
+     0,
+     -0.8326,
+     -0.3425,
+     0.7105,
+     1
+    ]
+   },
+   {
+    "name": "thumb_2.R",
+    "parent": "thumb_1.R",
+    "ibm": [
+     0.2804,
+     0.578,
+     -0.7664,
+     0,
+     0.6669,
+     -0.6915,
+     -0.2776,
+     0,
+     -0.6904,
+     -0.4332,
+     -0.5793,
+     0,
+     -0.8326,
+     0.29,
+     0.759,
+     1
+    ]
+   },
+   {
+    "name": "thumb_3.R",
+    "parent": "thumb_2.R",
+    "ibm": [
+     0.2804,
+     -0.0763,
+     -0.9569,
+     0,
+     0.6669,
+     -0.7015,
+     0.2513,
+     0,
+     -0.6904,
+     -0.7086,
+     -0.1458,
+     0,
+     -0.8326,
+     0.6905,
+     0.402,
+     1
+    ]
+   },
+   {
+    "name": "elbow.R",
+    "parent": "upper_arm.R",
+    "ibm": [
+     0.8453,
+     0.4768,
+     0.2412,
+     0,
+     0.4408,
+     -0.8773,
+     0.1897,
+     0,
+     0.3021,
+     -0.054,
+     -0.9517,
+     0,
+     -0.9232,
+     0.8971,
+     -0.396,
+     1
+    ]
+   },
+   {
+    "name": "pauldron.R",
+    "parent": "clavicle.R",
+    "ibm": [
+     0.8359,
+     0.4947,
+     0.238,
+     0,
+     0.4,
+     -0.8458,
+     0.353,
+     0,
+     0.3759,
+     -0.1999,
+     -0.9048,
+     0,
+     -0.8636,
+     1.1938,
+     -0.5995,
+     1
+    ]
+   },
+   {
+    "name": "tabard_back_01",
+    "parent": "chest",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     -0.9945,
+     -0.1047,
+     0,
+     0,
+     0.1047,
+     -0.9945,
+     0,
+     0,
+     1.2569,
+     0.3514,
+     1
+    ]
+   },
+   {
+    "name": "tabard_back_02",
+    "parent": "tabard_back_01",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     -0.9919,
+     -0.1272,
+     0,
+     0,
+     0.1272,
+     -0.9919,
+     0,
+     0,
+     0.7999,
+     0.3696,
+     1
+    ]
+   },
+   {
+    "name": "tabard_root",
+    "parent": "pelvis",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     -1,
+     0,
+     0,
+     0,
+     0,
+     -1,
+     0,
+     0,
+     1.2268,
+     -0.02,
+     1
+    ]
+   },
+   {
+    "name": "tabard_front_01",
+    "parent": "tabard_root",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     -0.9988,
+     0.0499,
+     0,
+     0,
+     -0.0499,
+     -0.9988,
+     0,
+     -0.0019,
+     0.9517,
+     -0.3255,
+     1
+    ]
+   },
+   {
+    "name": "tabard_front_02",
+    "parent": "tabard_front_01",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     -0.9988,
+     0.0499,
+     0,
+     0,
+     -0.0499,
+     -0.9988,
+     0,
+     -0.0019,
+     0.7207,
+     -0.3255,
+     1
+    ]
+   },
+   {
+    "name": "thigh.L",
+    "parent": "pelvis",
+    "ibm": [
+     0.988,
+     -0.1473,
+     -0.0472,
+     0,
+     -0.1457,
+     -0.9887,
+     0.0346,
+     0,
+     -0.0518,
+     -0.0273,
+     -0.9983,
+     0,
+     0.2967,
+     0.9616,
+     -0.1205,
+     1
+    ]
+   },
+   {
+    "name": "shin.L",
+    "parent": "thigh.L",
+    "ibm": [
+     0.987,
+     -0.1469,
+     -0.0649,
+     0,
+     -0.1589,
+     -0.9518,
+     -0.2623,
+     0,
+     -0.0232,
+     0.2692,
+     -0.9628,
+     0,
+     0.3066,
+     0.5401,
+     0.0498,
+     1
+    ]
+   },
+   {
+    "name": "foot.L",
+    "parent": "shin.L",
+    "ibm": [
+     0.9972,
+     0,
+     0.0748,
+     0,
+     -0.0686,
+     -0.3976,
+     0.915,
+     0,
+     0.0297,
+     -0.9176,
+     -0.3965,
+     0,
+     0.2909,
+     0.0936,
+     -0.1516,
+     1
+    ]
+   },
+   {
+    "name": "ankle.L",
+    "parent": "shin.L",
+    "ibm": [
+     0.9972,
+     0,
+     0.0748,
+     0,
+     -0.0686,
+     -0.3976,
+     0.915,
+     0,
+     0.0297,
+     -0.9176,
+     -0.3965,
+     0,
+     0.2909,
+     0.0936,
+     -0.1516,
+     1
+    ]
+   },
+   {
+    "name": "knee.L",
+    "parent": "thigh.L",
+    "ibm": [
+     0.987,
+     -0.1469,
+     -0.0649,
+     0,
+     -0.1589,
+     -0.9518,
+     -0.2623,
+     0,
+     -0.0232,
+     0.2692,
+     -0.9628,
+     0,
+     0.3066,
+     0.5401,
+     0.0498,
+     1
+    ]
+   },
+   {
+    "name": "thigh.R",
+    "parent": "pelvis",
+    "ibm": [
+     0.9751,
+     0.2134,
+     0.0599,
+     0,
+     0.2172,
+     -0.9739,
+     -0.0653,
+     0,
+     0.0444,
+     0.0767,
+     -0.9961,
+     0,
+     -0.3705,
+     0.933,
+     0.0545,
+     1
+    ]
+   },
+   {
+    "name": "shin.R",
+    "parent": "thigh.R",
+    "ibm": [
+     0.9556,
+     0.2923,
+     0.0371,
+     0,
+     0.2918,
+     -0.9563,
+     0.0199,
+     0,
+     0.0413,
+     -0.0082,
+     -0.9991,
+     0,
+     -0.4078,
+     0.4691,
+     0.012,
+     1
+    ]
+   },
+   {
+    "name": "foot.R",
+    "parent": "shin.R",
+    "ibm": [
+     0.9972,
+     0,
+     -0.0748,
+     0,
+     0.0686,
+     -0.3976,
+     0.915,
+     0,
+     -0.0297,
+     -0.9176,
+     -0.3965,
+     0,
+     -0.3799,
+     0.1004,
+     -0.1298,
+     1
+    ]
+   },
+   {
+    "name": "ankle.R",
+    "parent": "shin.R",
+    "ibm": [
+     0.9972,
+     0,
+     -0.0748,
+     0,
+     0.0686,
+     -0.3976,
+     0.915,
+     0,
+     -0.0297,
+     -0.9176,
+     -0.3965,
+     0,
+     -0.3799,
+     0.1004,
+     -0.1298,
+     1
+    ]
+   },
+   {
+    "name": "knee.R",
+    "parent": "thigh.R",
+    "ibm": [
+     0.9556,
+     0.2923,
+     0.0371,
+     0,
+     0.2918,
+     -0.9563,
+     0.0199,
+     0,
+     0.0413,
+     -0.0082,
+     -0.9991,
+     0,
+     -0.4078,
+     0.4691,
+     0.012,
+     1
+    ]
+   },
+   {
+    "name": "crest_01",
+    "parent": "head",
+    "ibm": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     -1.9351,
+     -0.005,
+     1
+    ]
+   }
+  ],
+  "materials": [
+   "CapeBanner",
+   "GameBody",
+   "SorceryAccent",
+   "VisorGlow"
+  ],
+  "meshes": [
+   "Boot.L",
+   "Boot.R",
+   "Breastplate",
+   "Crest",
+   "Gauntlet.L",
+   "Gauntlet.R",
+   "Greave.L",
+   "Greave.R",
+   "HelmetJaw",
+   "HelmetShell",
+   "HeroSword",
+   "PalmRune.001",
+   "Pauldron.L",
+   "Pauldron.R",
+   "TabardBack",
+   "TabardFront",
+   "Visor"
+  ],
+  "sockets": {
+   "socket_sword": {
+    "parent": "hand.R",
+    "t": [
+     -0.0152,
+     0.0776,
+     -0.0302
+    ],
+    "r": [
+     0.629,
+     -0.0011,
+     0.1406,
+     0.7646
+    ]
+   },
+   "socket_sorcery": {
+    "parent": "hand.L",
+    "t": [
+     -0.0471,
+     0.0925,
+     0.1012
+    ],
+    "r": [
+     0.629,
+     0.0011,
+     -0.1406,
+     0.7646
+    ]
+   }
+  },
+  "sword": {
+   "joint": "socket_sword",
+   "tip": [
+    0.3853,
+    0.051,
+    -1.2158
+   ]
+  },
+  "clips": [
+   {
+    "name": "Air",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Cast",
+    "duration": 1,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Dash",
+    "duration": 0.4,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Death",
+    "duration": 1.2,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Guard",
+    "duration": 1.8667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "GuardCut_1",
+    "duration": 0.7667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "GuardCut_2",
+    "duration": 0.7667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "GuardCut_3",
+    "duration": 0.6667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Idle",
+    "duration": 2,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Run",
+    "duration": 0.667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_1",
+    "duration": 0.7667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_2",
+    "duration": 0.7667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_3",
+    "duration": 0.6667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Sprint",
+    "duration": 0.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Stagger",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Walk",
+    "duration": 0.9,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Crouch_Idle",
+    "duration": 0.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Crouch_Walk",
+    "duration": 0.85,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Jump_Start",
+    "duration": 0.38,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Fall_Loop",
+    "duration": 0.65,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Land_Recovery",
+    "duration": 0.42,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Brake_Stop",
+    "duration": 0.45,
+    "animatesRoot": false,
+    "pelvisNet": 0.002
+   },
+   {
+    "name": "Block_Impact",
+    "duration": 0.32,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_Recovery",
+    "duration": 0.36,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Cast_Recovery",
+    "duration": 0.35,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Flight_Glide",
+    "duration": 0.75,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Flight_Dive",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Sunder_Strike",
+    "duration": 0.96,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Vortex_Spin",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Ground_DualSpin_Slam",
+    "duration": 1.44,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_FastLightning_DualSpin_Slam",
+    "duration": 0.92,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Lightning_Charge_Ground",
+    "duration": 0.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Lightning_Charge_Air",
+    "duration": 0.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Lightning_Arrival_Slam",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Aerial_Vortex_Wave",
+    "duration": 1.25,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Overhead_Raise_Test",
+    "duration": 1,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Idle_Brush_Chest",
+    "duration": 1.2,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Idle_Mordhau_Swap_To_Blade",
+    "duration": 0.95,
+    "animatesRoot": false,
+    "pelvisNet": 0.002
+   },
+   {
+    "name": "Mordhau_Blade_Slash",
+    "duration": 0.65,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Idle_Mordhau_Swap_To_Hilt",
+    "duration": 0.85,
+    "animatesRoot": false,
+    "pelvisNet": 0.002
+   },
+   {
+    "name": "Chivalry_Sprint_Guard_Cast",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Chivalry_Sprint_Guard_Slash_Cast",
+    "duration": 0.567,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Chivalry_Guard_Cast_Weave",
+    "duration": 0.667,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Turn_Pivot_L",
+    "duration": 0.45,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Turn_Pivot_R",
+    "duration": 0.45,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Sprint_To_Guard_Bridge",
+    "duration": 0.38,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Rigid_Riposte_Deflect_Thrust",
+    "duration": 0.78,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Rigid_Riposte_Air_Dash_Thrust",
+    "duration": 0.72,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Rigid_Riposte_Parried_Recoil",
+    "duration": 0.68,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Whirl_Wind_Strike_360",
+    "duration": 0.75,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Whirl_Wind_Sustained_Loop",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Whirl_Wind_Release_Recovery",
+    "duration": 0.65,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Whirl_Wind_Gale_Ascent",
+    "duration": 0.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Guard_Parry_Recenter",
+    "duration": 0.55,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_Whiff_Recovery",
+    "duration": 0.65,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "BiBye_Operator_Frame_Sweep",
+    "duration": 0.9,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "FAF_Mount_Vault",
+    "duration": 0.7,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "FAF_Dismount_Drop",
+    "duration": 0.65,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Flight_Valkyrie_Terminal_Dive",
+    "duration": 0.9,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Ram_Contact_Jolt",
+    "duration": 0.75,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Heraldic_Inspect",
+    "duration": 2.4,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_1_Alt_Diagonal",
+    "duration": 0.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_2_Alt_Rising",
+    "duration": 0.85,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_3_Alt_Angled",
+    "duration": 0.96,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Whirl_Wind_Startup",
+    "duration": 0.28,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Mordhau_Left_Hammer",
+    "duration": 0.76,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Mordhau_Rising_Right",
+    "duration": 0.74,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Mordhau_Rotating_Left_Finish",
+    "duration": 0.88,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Mordhau_Forward_Pommel_Thrust",
+    "duration": 0.72,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Slash_1_to_2",
+    "duration": 0.32,
+    "animatesRoot": false,
+    "pelvisNet": 0.065
+   },
+   {
+    "name": "Slash_2_to_3",
+    "duration": 0.34,
+    "animatesRoot": false,
+    "pelvisNet": 0.053
+   },
+   {
+    "name": "Slash_2_to_1",
+    "duration": 0.32,
+    "animatesRoot": false,
+    "pelvisNet": 0.077
+   },
+   {
+    "name": "Slash_1_to_3",
+    "duration": 0.36,
+    "animatesRoot": false,
+    "pelvisNet": 0.02
+   },
+   {
+    "name": "Rise_1",
+    "duration": 0.68,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Guard_From_Cut",
+    "duration": 0.3,
+    "animatesRoot": false,
+    "pelvisNet": 0.136
+   },
+   {
+    "name": "AllNatural_Steel_Infusion_Slam",
+    "duration": 1.48,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Full_Steel_Eruption_Slam",
+    "duration": 1.64,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Forceful_Strike_Recovery",
+    "duration": 0.68,
+    "animatesRoot": false,
+    "pelvisNet": 0.22
+   },
+   {
+    "name": "Restless_Fall_Asleep_Standing_Slump",
+    "duration": 2.2,
+    "animatesRoot": false,
+    "pelvisNet": 0.06
+   },
+   {
+    "name": "Restless_Fall_Asleep_Seated_Nod",
+    "duration": 2.4,
+    "animatesRoot": false,
+    "pelvisNet": 0.04
+   },
+   {
+    "name": "Restless_Sleep_Breathing_Loop",
+    "duration": 2.4,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Restless_Ladder_Carry_Idle",
+    "duration": 1.8,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Restless_Ladder_Carry_March",
+    "duration": 0.92,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Fireball_Cast_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Frostfire_Snap_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Gale_Cone_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Coreflagration_Lob_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_LineOfConduct_Commit_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "Armory_Steel_Infusion_Brace_Showcase",
+    "duration": 1.5,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   },
+   {
+    "name": "AllNatural_Lightning_Arrival_Slam_1H_Alt",
+    "duration": 0.6,
+    "animatesRoot": false,
+    "pelvisNet": 0
+   }
+  ]
+ },
+ "problems": [],
+ "notes": [
+  "clips: AllNatural_Forceful_Strike_Recovery ends 0.22 m from where its pelvis began",
+  "clips: new AllNatural_Lightning_Arrival_Slam_1H_Alt (0.6s) — not named by manifest.json"
+ ]
+}

@@ -1,0 +1,209 @@
+{
+ "model": "/private/tmp/claude-501/-Users-erendiracisneros-swords-and-sorcery--claude-worktrees-trusting-morse-816f54/2b14e6e9-8e12-41cb-a876-4e0805b2374f/scratchpad/argon-de8c8655/candidate/spellblade.glb",
+ "compatibility": {
+  "ok": true,
+  "output": [
+   "candidate de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4 against canonical 161879e5a39cbcae004465163716e3a107816c960289e0611e117610918a4a83",
+   "  note    clips: AllNatural_Forceful_Strike_Recovery ends 0.22 m from where its pelvis began",
+   "  note    clips: new AllNatural_Lightning_Arrival_Slam_1H_Alt (0.6s) — not named by manifest.json",
+   "compatible"
+  ]
+ },
+ "asks": [
+  {
+   "name": "forehand follow-through reach (deg round from the aim)",
+   "measured": 51,
+   "target": "<= 90 (server arc ends 75; was 124 / 138)",
+   "pass": true
+  },
+  {
+   "name": "forehand wrist fold after contact (deg)",
+   "measured": 5,
+   "target": "<= 12 (was 26 / f16)",
+   "pass": true
+  },
+  {
+   "name": "forehand hips' turn vs shoulders' (deg)",
+   "measured": "3 / 44",
+   "target": "hips >= 15 (was 3 / 51)",
+   "pass": false
+  },
+  {
+   "name": "forehand heading at the bridge start (0.467s)",
+   "measured": 52,
+   "target": "<= 95",
+   "pass": true
+  },
+  {
+   "name": "backhand follow-through reach (deg round from the aim)",
+   "measured": 137,
+   "target": "<= 95 (server arc ends 75; was 124 / 138)",
+   "pass": false
+  },
+  {
+   "name": "backhand wrist fold after contact (deg)",
+   "measured": 24,
+   "target": "<= 12 (was 26 / f16)",
+   "pass": false
+  },
+  {
+   "name": "backhand hips' turn vs shoulders' (deg)",
+   "measured": "33 / 67",
+   "target": "hips >= 15 (was 3 / 51)",
+   "pass": true
+  },
+  {
+   "name": "backhand heading at the bridge start (0.467s)",
+   "measured": 127,
+   "target": "<= 95",
+   "pass": false
+  },
+  {
+   "name": "chop: blade to the side where it crosses the aim (deg)",
+   "measured": 37,
+   "target": "|x| <= 12 (was 37)",
+   "pass": false
+  },
+  {
+   "name": "chop: how far below the aim it goes within 0.12 s (deg)",
+   "measured": -27,
+   "target": "<= -40 (server -50; was -15)",
+   "pass": false
+  },
+  {
+   "name": "Slash_1 skating frames (foot within 4 cm of the ground moving > 1 m/s), peak m/s",
+   "measured": "13 @ 5.9",
+   "target": "<= 8 frames, peak <= 2 m/s (46-clip cuts: 4-8 @ 1.5-1.7; 89: 13-17 @ 5.5-7.8)",
+   "pass": false
+  },
+  {
+   "name": "Slash_2 skating frames (foot within 4 cm of the ground moving > 1 m/s), peak m/s",
+   "measured": "17 @ 5.5",
+   "target": "<= 8 frames, peak <= 2 m/s (46-clip cuts: 4-8 @ 1.5-1.7; 89: 13-17 @ 5.5-7.8)",
+   "pass": false
+  },
+  {
+   "name": "Slash_3 skating frames (foot within 4 cm of the ground moving > 1 m/s), peak m/s",
+   "measured": "13 @ 7.8",
+   "target": "<= 8 frames, peak <= 2 m/s (46-clip cuts: 4-8 @ 1.5-1.7; 89: 13-17 @ 5.5-7.8)",
+   "pass": false
+  },
+  {
+   "name": "Slash_1_to_2 starts on Slash_1 / lands on Slash_2 (summed joint gap, m)",
+   "measured": "0 / 0",
+   "target": "<= 0.05 each (Slash_2_to_1 was 0.77 at landing)",
+   "pass": true
+  },
+  {
+   "name": "Slash_2_to_3 starts on Slash_2 / lands on Slash_3 (summed joint gap, m)",
+   "measured": "0 / 0",
+   "target": "<= 0.05 each (Slash_2_to_1 was 0.77 at landing)",
+   "pass": true
+  },
+  {
+   "name": "Slash_2_to_1 starts on Slash_2 / lands on Slash_1 (summed joint gap, m)",
+   "measured": "0 / 0",
+   "target": "<= 0.05 each (Slash_2_to_1 was 0.77 at landing)",
+   "pass": true
+  },
+  {
+   "name": "Slash_1_to_3 starts on Slash_1 / lands on Slash_3 (summed joint gap, m)",
+   "measured": "0 / 0",
+   "target": "<= 0.05 each (Slash_2_to_1 was 0.77 at landing)",
+   "pass": true
+  }
+ ],
+ "strikeClips": {
+  "Slash_1": {
+   "contact": 0.392,
+   "swing": [
+    0.322,
+    0.467
+   ],
+   "swingFit": [
+    40,
+    23
+   ],
+   "rateAtContact": 1772
+  },
+  "Slash_2": {
+   "contact": 0.297,
+   "swing": [
+    0.2,
+    0.38
+   ],
+   "swingFit": [
+    56,
+    6
+   ],
+   "rateAtContact": 586
+  },
+  "Slash_3": {
+   "contact": 0.385,
+   "swing": [
+    0.346,
+    0.535
+   ],
+   "swingFit": [
+    10,
+    24
+   ],
+   "lateralAtContact": 37,
+   "rateAtContact": 1203
+  }
+ },
+ "bridges": {
+  "Slash_1_to_2": {
+   "duration": 0.32,
+   "startsOn": [
+    "Slash_1",
+    0.467,
+    0
+   ],
+   "landsOn": [
+    "Slash_2",
+    0.167,
+    0
+   ]
+  },
+  "Slash_2_to_3": {
+   "duration": 0.34,
+   "startsOn": [
+    "Slash_2",
+    0.467,
+    0
+   ],
+   "landsOn": [
+    "Slash_3",
+    0.167,
+    0
+   ]
+  },
+  "Slash_2_to_1": {
+   "duration": 0.32,
+   "startsOn": [
+    "Slash_2",
+    0.467,
+    0
+   ],
+   "landsOn": [
+    "Slash_1",
+    0.167,
+    0
+   ]
+  },
+  "Slash_1_to_3": {
+   "duration": 0.36,
+   "startsOn": [
+    "Slash_1",
+    0.467,
+    0
+   ],
+   "landsOn": [
+    "Slash_3",
+    0.167,
+    0
+   ]
+  }
+ }
+}
