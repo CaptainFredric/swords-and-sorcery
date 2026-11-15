@@ -1,0 +1,33 @@
+{
+ "match": {
+  "code": "MBAE9",
+  "world": "blackbell-foundry",
+  "mode": "FFA",
+  "state": "PLAYING",
+  "practice": false,
+  "actorSpell": "gale",
+  "actorTechnique": "whirl_wind"
+ },
+ "results": [
+  {
+   "trial": "ledge-100",
+   "keys": "x+space+w",
+   "prowessBefore": 100,
+   "prowessAfter": 0,
+   "spent": 100,
+   "revolutions": 5,
+   "techniqueSec": 2.88,
+   "climb": 27.07,
+   "peakY": 29.869,
+   "airborneSec": 4.9,
+   "landedY": -1,
+   "landedGrounded": true,
+   "endedAt": "ended",
+   "healthLost": 0,
+   "cooldownReadyIn": 7.19,
+   "maxPredictedVsSnapshotGapM": 1.12,
+   "pageFrames": 361
+  }
+ ],
+ "pageErrors": []
+}

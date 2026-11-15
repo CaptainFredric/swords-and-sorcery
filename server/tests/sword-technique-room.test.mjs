@@ -148,7 +148,8 @@ test('disconnect cancels a held Whirl and retains its 10s cooldown',()=>{
   room.disconnectPlayer('a',12.12);
   assert.equal(a.swordTechnique,null);
   assert.equal(a.swordTechniqueHeld,false);
-  assert.ok(a.swordTechniqueReadyAt>=22.12);
+  // (12.12 + 10 is 22.119999999999997 in binary floating point: the cooldown is kept, to the last bit)
+  assert.ok(a.swordTechniqueReadyAt>=22.12-1e-9,`ready at ${a.swordTechniqueReadyAt}`);
 });
 
 test('interrupted action replicates its recovery for its exact window, then expires',()=>{

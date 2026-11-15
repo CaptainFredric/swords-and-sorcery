@@ -3,6 +3,7 @@ import { beginSwordTechnique, stepSwordTechnique, interruptSwordTechnique } from
 import { sampleTransform } from './history.mjs';
 import { postureOf } from '../src/body.mjs';
 import { areAllies } from '../src/teams.mjs';
+import { GAME_MODES } from '../src/modes.mjs';
 
 // Shared by authoritative rooms and the local offline host. No separate player
 // health, terrain, combat, or network model is introduced here.
@@ -28,6 +29,12 @@ export function requestSwordTechnique(room, playerId, down, nowSec) {
   return true;
 }
 
+/** Whether this knight's held Whirl goes on without limit: the Practice Yard's own knight, not a tutorial's or a bot's. */
+export function practiceWhirl(room, player) {
+  return room?.mode===GAME_MODES.PRACTICE&&!room.localTutorial&&
+    (player?.actorKind==='human'||(room.inspectionEnabled&&player?.id===room.inspectionControlId));
+}
+
 // The normal sword sweep already uses sampleTransform and postureOf. Reuse
 // those exact targets and the production sweepBlade body/solid solver.
 export function stepLiveSwordTechnique(room, player, nowSec, world, onContact) {
@@ -37,6 +44,8 @@ export function stepLiveSwordTechnique(room, player, nowSec, world, onContact) {
     other.alive&&!areAllies(room,player.id,other.id)&&other.spawnProtectionUntil<=nowSec);
   const contacts=stepSwordTechnique(player,nowSec,{
     held:Boolean(player.swordTechniqueHeld),
+    // (the Practice Yard's own knight, as its other allowances are given: combat.mjs practising)
+    endless:practiceWhirl(room,player),
     transformAt:at=>{
       const pose=sampleTransform(player,at);
       return {position:pose.position,yaw:pose.yaw,eye:{
