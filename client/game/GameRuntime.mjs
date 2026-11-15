@@ -45,8 +45,7 @@ import { InputController } from './InputController.mjs';
 import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
-import { advancePredictedMovement } from './predictMovement.mjs';
-import { SWORD_TECHNIQUE_CONTRACTS, galeWhirlLiftSpeed } from '../../shared/src/swordTechniqueContracts.mjs';
+import { advancePredictedMovement, galeLiftPrediction } from './predictMovement.mjs';
 import { renownTrialControlsLocked } from './trialControlPolicy.mjs';
 import { movementIntentDuringRenderStall } from './renderStallSafety.mjs';
 import { TouchControls } from './TouchControls.mjs';
@@ -2779,16 +2778,9 @@ export class GameRuntime {
   // rebuttal first, to a foe who has just spoken and is left low enough for a gauntlet to finish)
   // my Steel dash meeting someone, as I see them: stopped dead there and set back (as the host will have it), with its
   // KLANG, its sparks and the jolt at once. The host's word on it follows (#steelRam) and is not played twice
-  // The owner's Gale-assisted Whirl climb, predicted by the host's own rule: until the revolution under way ends, or on
-  // while the technique is held and the Prowess for another is there (the next snapshot says whether it was paid)
+  // The owner's Gale-assisted Whirl climb, predicted by the host's own rule (predictMovement.mjs galeLiftPrediction)
   #galeLift(serverNow) {
-    const auth = this.localAuth, technique = auth?.swordTechnique;
-    const speed = galeWhirlLiftSpeed(technique, auth?.spell, true);
-    if (speed === null) return null;
-    const contract = SWORD_TECHNIQUE_CONTRACTS[technique.id];
-    const another = (this.input?.techniqueSources?.size ?? 0) > 0 && (auth.prowess ?? 0) >= contract.extraRevolutionCost
-      && (technique.revolutions ?? 1) < contract.maxRevolutions;
-    return { speed, until: another ? Infinity : (technique.startedAt ?? serverNow) + contract.activeUntil };
+    return galeLiftPrediction({ auth: this.localAuth, held: (this.input?.techniqueSources?.size ?? 0) > 0, practice: this.#inPractice(), serverNow });
   }
 
   #foretellRam(from, serverNow) {

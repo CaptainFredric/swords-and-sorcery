@@ -131,7 +131,9 @@ export function techniqueInterception(action, incoming, transform, world, nowSec
 
 // Call at the authoritative simulation clock. Only the room adapter may turn
 // contacts into damage, Guard, Steel, knockback or Stagger outcomes.
-export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt, world }) {
+// endless: the Practice Yard's knight, whose held Whirl goes on while it is held (no revolution limit, no Prowess asked
+// or taken for another); a match's keeps its limit and its cost.
+export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt, world, endless = false }) {
   const action=player.swordTechnique;
   if(!action)return [];
   if(!player.alive || nowSec<(player.staggerUntil??0) || player.operatingBallistaId ||
@@ -164,9 +166,9 @@ export function stepSwordTechnique(player, nowSec, { held, transformAt, bodiesAt
     }
     const stopped=contacts.at(-1)?.kind==='solid'||contacts.at(-1)?.kind==='ground';
     if(!stopped&&age<activeUntil)return contacts;
-    if(!stopped&&kind==='whirl'&&held&&action.revolutions<maxRevolutions&&
-       extraRevolutionCost>0&&(player.prowess??0)>=extraRevolutionCost){
-      player.prowess-=extraRevolutionCost;
+    if(!stopped&&kind==='whirl'&&held&&(endless||action.revolutions<maxRevolutions&&
+       extraRevolutionCost>0&&(player.prowess??0)>=extraRevolutionCost)){
+      if(!endless)player.prowess-=extraRevolutionCost;
       action.revolutions+=1;
       // Exactly once per victim per revolution, not once per entire five-spin skill.
       action.hitIds=new Set();

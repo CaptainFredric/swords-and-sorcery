@@ -1,4 +1,5 @@
 import { MOVEMENT, movePlayer } from '../../shared/src/movement.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS, galeWhirlLiftSpeed } from '../../shared/src/swordTechniqueContracts.mjs';
 
 // Rendering and simulation do not necessarily run at the same rate. Advance
 // locomotion across the elapsed frame in bounded, near-authoritative-size steps.
@@ -24,4 +25,20 @@ export function advancePredictedMovement(state, input, elapsedSec, serverNow, wo
     current=movePlayer(current,input,step,at,world);
   }
   return current;
+}
+
+/**
+ * The owner's Gale-assisted Whirl climb, as the host will make it: { speed, until } or null. It rises until the revolution
+ * under way ends, or on while the technique is held and another revolution will be granted: in a match while the Prowess
+ * for it is there and the limit is not reached; in the Practice Yard, without limit or cost (swordTechniqueLive.mjs
+ * practiceWhirl). auth: the owner's latest authoritative state ({ swordTechnique, spell, prowess }).
+ */
+export function galeLiftPrediction({ auth, held, practice = false, serverNow }) {
+  const technique = auth?.swordTechnique;
+  const speed = galeWhirlLiftSpeed(technique, auth?.spell, true);
+  if (speed === null) return null;
+  const contract = SWORD_TECHNIQUE_CONTRACTS[technique.id];
+  const another = Boolean(held) && (practice || ((auth.prowess ?? 0) >= contract.extraRevolutionCost
+    && (technique.revolutions ?? 1) < contract.maxRevolutions));
+  return { speed, until: another ? Infinity : (technique.startedAt ?? serverNow) + contract.activeUntil };
 }
