@@ -30,3 +30,22 @@ test('a thrown spell\'s orb and the blast of its breaking keep their shaders bui
   assert.match(effects, /this\.warmOrbs \?\?= \['fireball', 'frostfire'\]\.map/);
   assert.match(effects, /this\.warmBlast \?\?= new THREE\.Mesh\(this\.blastFrontGeometry, createBlastFrontMaterial/);
 });
+
+test('Fight-and-Flight\'s ground fire keeps one light in the scene from the start: the terminal impact adds none', () => {
+  // (a light made at the impact rebuilt every lit shader in view: 27 programs, a 1.4-4.6 s stall that also hid the
+  // pitched rider from the Gate C3 browser check)
+  const flight = source('../worlds/FightFlightRenderer.mjs');
+  assert.equal([...flight.matchAll(/new THREE\.PointLight\(/g)].length, 1, 'the kept one, made with the renderer');
+  assert.match(flight, /this\.burnLight=everywhere\(new THREE\.PointLight\(0xff702b,0,13,2\)\)/);
+  assert.match(flight, /this\.burnRoot\.add\(this\.burnLight\)/, 'in the scene from the start');
+  assert.match(flight, /this\.burnLight\.intensity=0;this\.burnRoot\.add\(this\.burnLight\)/, 'given back, dark, when the fire is out');
+});
+
+test('the terminal dive\'s shaders are built once the machine is in: thermal distress, ground fire and halo kept warm', () => {
+  const flight = source('../worlds/FightFlightRenderer.mjs');
+  assert.match(flight, /warmTerminal\(renderer,camera\)\{/);
+  assert.match(flight, /this\.warmTerminalGroup\.add\(this\.#burnVisual\(\)\.group,this\.#haloParts\(\)\.group\)/, 'the same materials as the real fire and halo');
+  assert.match(flight, /node\.name\?\.includes\('Thermal'\)&&!node\.visible\)\{node\.visible=true;shown\.push\(node\)/);
+  assert.match(flight, /for\(const node of shown\)node\.visible=false/, 'and put back hidden');
+  assert.match(source('./GameRuntime.mjs'), /if\(this\.flightRenderer\.model&&!this\.flightRenderer\.terminalWarmed\)this\.flightRenderer\.warmTerminal\(this\.renderer,this\.camera\)/);
+});
