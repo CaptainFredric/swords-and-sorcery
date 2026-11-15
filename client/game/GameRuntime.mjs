@@ -4316,6 +4316,8 @@ export class GameRuntime {
     const flightState=this.latestSnapshot?.fightFlight;
     const flightOperator=flightState?.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightState?.operatorId);
     this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
+    // (the terminal dive's shaders, built once the machine is in: its first dive and impact must not stall the frame)
+    if(this.flightRenderer.model&&!this.flightRenderer.terminalWarmed)this.flightRenderer.warmTerminal(this.renderer,this.camera);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)

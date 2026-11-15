@@ -30,6 +30,11 @@ export class FightFlightRenderer{
     this.burnSmokeGeometry=new THREE.IcosahedronGeometry(1,1);
     this.burnCrackGeometry=new THREE.PlaneGeometry(1,.06);
     this.burnZones=new Map();
+    // The ground fire's light is made once and kept in the scene (dark until a fire needs it): adding a light at the
+    // impact changed the scene's light count, and three.js rebuilt the shader of every lit thing in view on that frame
+    // (27 programs: a 1.4-4.6 s stall that swallowed the visible dive).
+    this.burnLight=everywhere(new THREE.PointLight(0xff702b,0,13,2));this.burnLight.position.y=.6;
+    this.burnRoot.add(this.burnLight);this.burnLightZone=null;
     // Persistent aftershock visuals are separate from the craft mesh: they
     // continue rising after the pilot and apparatus have been destroyed.
     this.haloRoot=everywhere(new THREE.Group());this.scene.add(this.haloRoot);
@@ -280,13 +285,8 @@ export class FightFlightRenderer{
   }
   // A short-lived 3D aftershock; the brighter fireball and heavy shrapnel
   // come from Effects.valkyrieDetonation. This never creates a damage zone.
-  spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5){
-    if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
-    const radius=Math.max(2,Math.min(13,blastRadius));
-    const power=Math.max(0,Math.min(1,condition));
-    const lifetime=Math.min(5,Math.max(2.6,(Number(duration)||7)*.45));
+  #haloParts(){
     const group=new THREE.Group();
-    group.position.set(point.x,point.y,point.z);
     const core=new THREE.Mesh(this.blastCoreGeometry,new THREE.MeshBasicMaterial({
       color:0xffce75,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,
       depthWrite:false}));
@@ -304,6 +304,15 @@ export class FightFlightRenderer{
         transparent:true,opacity:0,depthWrite:false}));
       cloud.renderOrder=5;group.add(cloud);return cloud;
     });
+    return {group,core,rings,smoke};
+  }
+  spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5){
+    if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
+    const radius=Math.max(2,Math.min(13,blastRadius));
+    const power=Math.max(0,Math.min(1,condition));
+    const lifetime=Math.min(5,Math.max(2.6,(Number(duration)||7)*.45));
+    const {group,core,rings,smoke}=this.#haloParts();
+    group.position.set(point.x,point.y,point.z);
     this.haloRoot.add(group);
     this.halos.push({group,core,rings,smoke,startedAt,duration:lifetime,radius,power});
     // An event lost during a lag spike must never accumulate unbounded VFX.
@@ -346,6 +355,51 @@ export class FightFlightRenderer{
       }
     }
   }
+  #burnVisual(){
+    const group=new THREE.Group();
+    const scar=new THREE.Group();group.add(scar);
+    // The near-black, charred earth remains visible beneath the flames,
+    // while the thin glowing rim marks the EXACT authoritative radius.
+    const core=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
+      color:0x170f0c,transparent:true,opacity:.36,depthWrite:false,
+      polygonOffset:true,polygonOffsetFactor:-2,side:THREE.DoubleSide}));
+    core.rotation.x=-Math.PI/2;core.renderOrder=1;scar.add(core);
+    const glow=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
+      color:0xcc480c,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,
+      depthWrite:false,side:THREE.DoubleSide}));
+    glow.rotation.x=-Math.PI/2;glow.position.y=.009;glow.renderOrder=2;scar.add(glow);
+    const edge=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({
+      color:0xff8e38,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,
+      depthWrite:false,side:THREE.DoubleSide}));
+    edge.rotation.x=-Math.PI/2;edge.position.y=.02;edge.renderOrder=3;scar.add(edge);
+    const cracks=[];
+    for(let i=0;i<11;i++){
+      const angle=i*2.399963,distance=.13+.057*(i%8);
+      const crack=new THREE.Mesh(this.burnCrackGeometry,new THREE.MeshBasicMaterial({
+        color:i%3===0?0xffa844:0xc64617,transparent:true,opacity:.5,
+        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+      crack.position.set(Math.cos(angle)*distance,.028,Math.sin(angle)*distance);
+      crack.rotation.set(-Math.PI/2,0,angle);
+      crack.scale.set(.17+.075*(i%4),.72,1);
+      crack.renderOrder=4;scar.add(crack);cracks.push(crack);
+    }
+    const flames=[];
+    for(let i=0;i<20;i++){
+      const mesh=new THREE.Mesh(this.burnFlameGeometry,new THREE.MeshBasicMaterial({
+        color:i%5===0?0xffed9a:i%3===0?0xffb045:i%2?0xed6124:0xff872f,
+        transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}));
+      mesh.rotation.y=i*2.4;mesh.renderOrder=5;
+      group.add(mesh);flames.push(mesh);
+    }
+    const soot=[];
+    for(let i=0;i<9;i++){
+      const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
+        color:i%3===0?0x5d4e42:0x322b29,transparent:true,opacity:0,
+        depthWrite:false,side:THREE.DoubleSide}));
+      cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
+    }
+    return {group,scar,edge,core,glow,cracks,flames,soot};
+  }
   drawBurnZones(zones,now){
     const active=new Set();
     for(const zone of zones??[]){
@@ -353,53 +407,14 @@ export class FightFlightRenderer{
       active.add(zone.id);
       let visual=this.burnZones.get(zone.id);
       if(!visual){
-        const group=new THREE.Group();
-        const scar=new THREE.Group();group.add(scar);
-        // The near-black, charred earth remains visible beneath the flames,
-        // while the thin glowing rim marks the EXACT authoritative radius.
-        const core=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
-          color:0x170f0c,transparent:true,opacity:.36,depthWrite:false,
-          polygonOffset:true,polygonOffsetFactor:-2,side:THREE.DoubleSide}));
-        core.rotation.x=-Math.PI/2;core.renderOrder=1;scar.add(core);
-        const glow=new THREE.Mesh(this.burnCoreGeometry,new THREE.MeshBasicMaterial({
-          color:0xcc480c,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,
-          depthWrite:false,side:THREE.DoubleSide}));
-        glow.rotation.x=-Math.PI/2;glow.position.y=.009;glow.renderOrder=2;scar.add(glow);
-        const edge=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({
-          color:0xff8e38,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,
-          depthWrite:false,side:THREE.DoubleSide}));
-        edge.rotation.x=-Math.PI/2;edge.position.y=.02;edge.renderOrder=3;scar.add(edge);
-        const cracks=[];
-        for(let i=0;i<11;i++){
-          const angle=i*2.399963,distance=.13+.057*(i%8);
-          const crack=new THREE.Mesh(this.burnCrackGeometry,new THREE.MeshBasicMaterial({
-            color:i%3===0?0xffa844:0xc64617,transparent:true,opacity:.5,
-            blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-          crack.position.set(Math.cos(angle)*distance,.028,Math.sin(angle)*distance);
-          crack.rotation.set(-Math.PI/2,0,angle);
-          crack.scale.set(.17+.075*(i%4),.72,1);
-          crack.renderOrder=4;scar.add(crack);cracks.push(crack);
-        }
-        const flames=[];
-        for(let i=0;i<20;i++){
-          const mesh=new THREE.Mesh(this.burnFlameGeometry,new THREE.MeshBasicMaterial({
-            color:i%5===0?0xffed9a:i%3===0?0xffb045:i%2?0xed6124:0xff872f,
-            transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}));
-          mesh.rotation.y=i*2.4;mesh.renderOrder=5;
-          group.add(mesh);flames.push(mesh);
-        }
-        const soot=[];
-        for(let i=0;i<9;i++){
-          const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
-            color:i%3===0?0x5d4e42:0x322b29,transparent:true,opacity:0,
-            depthWrite:false,side:THREE.DoubleSide}));
-          cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
-        }
-        // One small, unshadowed firelight per active authoritative zone.
-        const light=everywhere(new THREE.PointLight(0xff702b,1.0,13,2));
-        light.position.y=.6;group.add(light);
-        visual={group,scar,edge,core,glow,cracks,flames,soot,light};
-        this.burnRoot.add(group);this.burnZones.set(zone.id,visual);
+        visual=this.#burnVisual();
+        // One small, unshadowed firelight: the kept one, for the first fire burning (a second fire at once, two
+        // machines brought down together, burns unlit rather than add a light mid-fight)
+        if(this.burnLightZone===null){
+          this.burnLightZone=zone.id;this.burnLight.position.y=.6;
+          visual.group.add(this.burnLight);visual.light=this.burnLight;
+        }else visual.light=null;
+        this.burnRoot.add(visual.group);this.burnZones.set(zone.id,visual);
       }
       const duration=Math.max(.1,zone.expiresAt-zone.startedAt);
       const remaining=Math.max(0,Math.min(1,(zone.expiresAt-now)/duration));
@@ -439,14 +454,46 @@ export class FightFlightRenderer{
         cloud.scale.setScalar(.17+phase*(.33+radius*.035));
         cloud.material.opacity=.19*remaining*(1-phase)**1.4*extinguish;
       }
-      visual.light.intensity=1.2*remaining*extinguish*(.92+.08*Math.sin(now*11));
-      visual.light.distance=radius*2.2;
+      if(visual.light){
+        visual.light.intensity=1.2*remaining*extinguish*(.92+.08*Math.sin(now*11));
+        visual.light.distance=radius*2.2;
+      }
     }
     for(const [id,visual] of this.burnZones)if(!active.has(id)){
+      if(visual.light===this.burnLight){
+        this.burnLight.intensity=0;this.burnRoot.add(this.burnLight);this.burnLightZone=null;
+      }
       visual.group.removeFromParent();
       visual.group.traverse(node=>{if(node.isMesh)node.material.dispose();});
       this.burnZones.delete(id);
     }
+  }
+  /**
+   * Build, off the frame where the browser allows, the shaders the terminal dive first shows: the wreck's thermal
+   * distress (hidden until a dive), its ground fire and its aftershock halo. On their first appearance they compiled in
+   * the frame (0.3-0.8 s at the commit, more at the impact), and the visible dive was lost to the stall. One warm copy of
+   * the fire and the halo is kept: three.js lets a shader go with the last material using it.
+   */
+  warmTerminal(renderer,camera){
+    if(this.terminalWarmed||!this.model||!renderer||!camera)return null;
+    this.terminalWarmed=true;
+    if(!this.warmTerminalGroup){
+      this.warmTerminalGroup=everywhere(new THREE.Group());
+      this.warmTerminalGroup.add(this.#burnVisual().group,this.#haloParts().group);
+      this.warmTerminalGroup.traverse(node=>{node.frustumCulled=false;});
+    }
+    const shown=[];
+    this.model.traverse(node=>{if(node.name?.includes('Thermal')&&!node.visible){node.visible=true;shown.push(node);}});
+    const groupVisible=this.group.visible;this.group.visible=true;
+    this.scene.add(this.warmTerminalGroup);
+    let compiled;
+    try{compiled=renderer.compileAsync?.(this.scene,camera)??Promise.resolve(renderer.compile(this.scene,camera));}
+    finally{
+      // (the compile gathers what it builds at the call: everything is put back as it was at once)
+      this.warmTerminalGroup.removeFromParent();
+      this.group.visible=groupVisible;for(const node of shown)node.visible=false;
+    }
+    return Promise.resolve(compiled).catch(()=>{});
   }
   getOperatorGrips(){return this.animation?.grips()??null;}
   getMountedCameraPosition(view,out=new THREE.Vector3()){
@@ -502,6 +549,7 @@ export class FightFlightRenderer{
     disposeQuarrelDetail(this.quarrelDetail);
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
+    this.warmTerminalGroup?.traverse(node=>{if(node.isMesh)node.material.dispose();});this.warmTerminalGroup=null;
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();
     this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);

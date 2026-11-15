@@ -30,6 +30,7 @@ const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm
   '--enable-unsafe-swiftshader','--disable-background-timer-throttling',
   '--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows',
   '--remote-allow-origins=*','--window-size=1280,800',
+  ...(process.env.FAF_SOFTWARE_GL?['--use-gl=angle','--use-angle=swiftshader']:[]),
   '--remote-debugging-port='+port,'--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
 let ws,seq=0;const pending=new Map(),errors=[];
 async function until(fn,name,limit=300){
@@ -87,6 +88,7 @@ try{
   pending.delete(m.id);if(m.error)fn.reject(Error(m.error.message));else fn.resolve(m.result);
  };
  await send('Page.enable');await send('Runtime.enable');
+ if(process.env.FAF_CPU_THROTTLE)await send('Emulation.setCPUThrottlingRate',{rate:Number(process.env.FAF_CPU_THROTTLE)});
  await send('Page.navigate',{url:base+'/?debug'});
  await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'fully loaded menu');
  await evaluate("document.querySelector('#player-name').value='Terminal Valkyrie flight probe';document.querySelector('#armory-button').click()");
@@ -168,7 +170,8 @@ try{
  assert.ok(beforeChord.machine.y>.5,'must be airborne at terminal input');
  // Observe rendered Spellblade frames across a subsecond terminal dive.
  // Sparse Chrome debugger polls otherwise miss an entire genuine animation.
- await evaluate("(() => {const samples=window.__terminalPitchTrace=[],prepSamples=window.__terminalPrepTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalPrep?.phase==='holding')prepSamples.push({phase:m.terminalPrep.phase,remaining:m.terminalPrep.until-(r?.latestSnapshot?.serverTime??0),spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth?.prowess,skill:m.skill?.id});if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
+ await evaluate("(() => {const samples=window.__terminalPitchTrace=[],prepSamples=window.__terminalPrepTrace=[];let frames=0;const frameLog=window.__terminalFrameLog=[];const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if((m?.terminalPrep||m?.terminalDive)&&frameLog.length<4000)frameLog.push({at:+performance.now().toFixed(1),serverTime:r?.latestSnapshot?.serverTime??null,frame:frames,prep:m?.terminalPrep?.phase??null,dive:Boolean(m?.terminalDive),resolved:Boolean(m?.terminalDive?.resolved),mode:m?.mode??null,runPitch:m?.runPitch??null,rider:root?root.rotation.x:null,visible:root?Boolean(root.visible):null,programs:r?.renderer?.info?.programs?.length??null});if(m?.terminalPrep?.phase==='holding')prepSamples.push({phase:m.terminalPrep.phase,remaining:m.terminalPrep.until-(r?.latestSnapshot?.serverTime??0),spent:Boolean(m.terminalDiveSpent),prowess:r.localAuth?.prowess,skill:m.skill?.id});if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});const zones=r?.latestSnapshot?.flightBurnZones;if(zones?.length)(window.__terminalBurnTrace??=[]).push(zones.map(z=>({point:{...z.point},expiresAt:z.expiresAt})));if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
+ if(process.env.FAF_PROFILE){await send('Profiler.enable');await send('Profiler.setSamplingInterval',{interval:500});await send('Profiler.start');}
  await down('E');await down('R');
  // Record preparation at the render-frame where it occurs. A CDP inspection
  // can take longer than the entire one-second chord on a software GPU;
@@ -194,6 +197,7 @@ try{
  await screenshot('05-terminal-committed');
  await up('R');await up('E');
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.mode==='DESTROYED'"),'physical terminal impact and resolution',220);
+ if(process.env.FAF_PROFILE){await sleep(5500);const {profile:cpu}=await send('Profiler.stop');await writeFile(folder+'/terminal.cpuprofile',JSON.stringify(cpu));await writeFile(folder+'/terminal-programs.json',JSON.stringify(await evaluate("(window.__ssRuntime?.renderer?.info?.programs??[]).map((p,i)=>({i,name:p.name,type:p.type??null,cacheKey:String(p.cacheKey).slice(0,160)}))")));}
  const aftermath=await evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,m=s?.fightFlight;return {machine:{id:m?.id,mode:m?.mode,terminalDiveSpent:m?.terminalDiveSpent,resolved:m?.terminalDive?.resolved,impactAt:m?.terminalDive?.impactAt,resolvedAt:m?.terminalDive?.resolvedAt,startedAt:m?.terminalDive?.startedAt},burnZones:s?.flightBurnZones,events:(r?.latestEvents??[]).filter(e=>e.type?.startsWith('fightFlightTerminal'))};})()");
  assert.equal(aftermath.machine.resolved,true,'one authoritative terminal outcome must resolve');
  assert.ok(aftermath.machine.impactAt!=null,'terminal dive must actually hit geometry, not time out suspended in midair');
@@ -205,7 +209,7 @@ try{
  assert.ok(actualBurn?.length>0,'networked ground fire must exist after real terminal impact');
  assert.ok(Math.abs(actualBurn[0].point.y)<.3,'burning ground must rest on the Practice Yard floor');
  await screenshot('06-terminal-aftermath');
- await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,pitchEvidence,pitchTrace:await evaluate('window.__terminalPitchTrace'),burnTrace:await evaluate('window.__terminalBurnTrace'),committed,aftermath,errors},null,2));
+ await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,pitchEvidence,pitchTrace:await evaluate('window.__terminalPitchTrace'),frameLog:await evaluate('window.__terminalFrameLog'),burnTrace:await evaluate('window.__terminalBurnTrace'),committed,aftermath,errors},null,2));
  assert.equal(errors.length,0,'Unexpected browser exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-C3 terminal acceptance:',JSON.stringify({prepHeld:true,committed:true,spent:committed.machine.terminalDiveSpent,mode:aftermath.machine.mode,burnZones:aftermath.burnZones?.length,errors}));
 
@@ -213,7 +217,8 @@ try{
  console.error('[FAF FAILED]',stage,err.stack??String(err));
  const state=ws?await evaluate(flightState).catch(e=>({diagnosticError:String(e)})):null;
  console.error('[FAF FAILED STATE]',JSON.stringify(state));
- await writeFile(folder+'/failure.json',JSON.stringify({stage,error:String(err),state,errors},null,2));
+ const traces=ws?await evaluate("({pitchTrace:window.__terminalPitchTrace??null,frameLog:window.__terminalFrameLog??null})").catch(()=>({})):{};
+ await writeFile(folder+'/failure.json',JSON.stringify({stage,error:String(err),state,errors,...traces},null,2));
  if(ws)await screenshot('failure').catch(()=>{});
  throw err;
 }finally{
