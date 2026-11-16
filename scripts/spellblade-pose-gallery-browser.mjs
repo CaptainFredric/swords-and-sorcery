@@ -234,7 +234,10 @@ try {
   const pressedAt = await evaluate('window.__ssRuntime.socket.serverNow()');
   await poll(() => evaluate(`(() => { const me = window.__ssLink.local.room.players.get(window.__ssRuntime.playerId); return Boolean(${begun}); })()`, 2000), `${scenario} begun`, 8000);
   // (a tap is let go as soon as it has begun, and the release given two frames to reach the host before the freeze)
-  if (['riposte', 'sunder'].includes(scenario)) { for (const a of hold) await key(false, a); await sleep(40); }
+  if (scenario === 'riposte') { for (const a of hold) await key(false, a); await sleep(40); }
+  // (Sunder: the brace is begun by the tap; its slams are the ordinary cuts while Attack is held, the first landing
+  // firstSlamLead after the commit, so Attack is held from here on)
+  if (scenario === 'sunder') { await key(false, 'ultimate'); await key(true, 'attack'); hold.push('attack'); await sleep(40); }
   await evaluate('window.__ssLink.setInspectionFrozen(true)');
   const frozenAt = await evaluate('window.__ssRuntime.socket.serverNow()');
   await sleep(150);

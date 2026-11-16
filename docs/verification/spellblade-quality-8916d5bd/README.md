@@ -86,6 +86,19 @@ In Castleward (the candidate's animation with these weights; the frozen-step sti
 | Whirl | 4.3× → 1.7× |
 
 What remains in those figures is the elbow pieces (left alone), the shoulder plate (§2) and wrist folding (layer 3).
+
+The model this branch installs, against production, both in Castleward (`d4889a8a` installed; `de8c8655` served
+with `--glb`):
+
+| Scenario | Production: worst stretch, torn or folded edges per tick | Corrected |
+|---|---|---|
+| Walking (W plays Run) | 8.4×, 616 | 1.53×, 238 |
+| Sprinting | 8.2×, 607 | 1.65×, 170 |
+| Sunder (brace and slams) | 5.7×, 680 | 3.8×, 328 |
+
+`evidence/walk-sprint-main-vs-corrected.jpg`: at that camera the difference is modest. Production's wrist shows
+angular tears where the cuff plates rip, clearest in the sprint frame; the corrected arm keeps whole plates. The edges
+that still count are folds (down to 0.17×): the locomotion clips turn the wrist beyond any forearm (layer 3).
 Side by side (`evidence/arm-slash1-main-vs-corrected.jpg`, `evidence/guard-main-vs-corrected.jpg`, `evidence/gauntlet-pieces-uniform.jpg`): the forearm runs straight into a
 whole cuff and fist on the grip, with nothing folded over the hilt.
 
@@ -136,6 +149,13 @@ the blade floats or buries. Nothing in the game fits the blade to the ground ben
 
 **The Lightning arrival 1H_Alt:** still unused (nothing plays it).
 
+**Sunder doesn't use `Sunder_Strike`:**
+- In gameplay it's a 0.6 s brace (Slash_3's opening, `spellbladeAnimationPlan.mjs` `brace`) and then 8 s in which
+  the ordinary cuts are the slams while Attack is held. The server drives each slam along the aim, or 0.45 rad below
+  level.
+- Nothing in the client plays `Sunder_Strike`, so 8916d5bd's 1.3 cm on that clip never reaches the game. Recorded in
+  Castleward, Sunder's stills show Slash_3 only.
+
 ## 4. The Blender source: asset blocker
 
 - **Argon's `reproduce_spellblade_from_blend.py` doesn't export.** It cuts a complete GLB that was appended to the
@@ -164,7 +184,33 @@ its source; requested in `ARGON-REQUEST.md` §1, with the acceptance test stated
 - **`.gz`:** rebuilt with `gzip -9 -n`; decompresses to `d4889a8a`.
 - **`promotion.json`:** untouched.
 
-## 6. Tests
+## 6. Real-Chrome recordings (`scripts/swordsmanship-capture-browser.mjs`)
+
+Every run was a real Castleward yard on a real game server and a real Chrome (GPU), driven by real input. The
+production baseline (`de8c8655`) was served with `--glb`; the corrected model is the one this branch installs. Each
+run has a normal-speed and a quarter-speed video, kept in the session notes folder under
+`evidence/spellblade-quality-8916d5bd/`; sheets are in `evidence/`.
+
+| Run | Baseline | Corrected | Notes |
+|---|---|---|---|
+| Held chain, desktop split view (first and third person) | 60.1 fps, no page errors | 60.1 fps, no errors | Slash_1 → Slash_1_to_2 → Slash_2 → Slash_2_to_3 → Slash_3 → rising chain |
+| Held chain seen by a **remote second client** (its own arms hidden) | 56.7 fps | 59.9 fps | the viewer sees the whole chain (`chain-remote-corrected-sheet.jpg`) |
+| Held chain, **emulated landscape phone**, touch ATTACK | 55.4 fps | 60 fps | first-person chain, hits land; an emulation, not a real phone |
+| Rigid Riposte | 58.5 fps | 60 fps | Enter → Interception → Thrust |
+| Whirl | 59.8 fps | 60.1 fps | Revolution → Exit |
+| Candidate `8916d5bd` chain | — | 60 fps (candidate) | `chain-candidate-sheet.jpg` |
+
+**Not verified:** a real phone, sound, and a sustained match.
+
+### A fix to #502's Half Lightning check
+
+#502's Disaster check bounded a held Half Lightning's commit to 0.1 s after its 0.36 s wind-up. But it commits on
+its release, and CI's runner sees a key-up late, so the bound measured the runner's speed: it failed on this PR's CI.
+`scripts/one-hit-camera-browser.mjs` now follows the rule: the commit comes no sooner than the wind-up or the release
+the page recorded (less a tick), and never after the hold window. 7/7 locally. #502's own branch still has the old
+bound; this PR, which contains #502, carries the fix.
+
+## 7. Tests
 
 `npm test` (Node 24): 3,234 tests, 13 failing. Those 13 fail on `main` `3d8300cf` too (CI), by name; `main`'s 14th,
 the obsolete PR #457 first-cut test, is the one #502 replaced. No new failures. The new and changed model tests pass:

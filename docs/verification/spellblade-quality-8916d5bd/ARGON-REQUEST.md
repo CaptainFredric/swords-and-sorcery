@@ -108,7 +108,7 @@ difference as a pop of up to 43°/frame² (`Slash_1` right).
 | Ground slam | 0.983 s | 0.967 s |
 | Fast slam | 0.6 s | 0.667 s |
 | Lightning arrival | 0.167 s | 0.233 s |
-| Sunder | 0.45 s | 0.433 s |
+| `Sunder_Strike` | 0.45 s | 0.433 s (the game doesn't play this clip: Sunder's slams are the ordinary cuts) |
 
 The tip now lands 1.68–1.77 m ahead of his feet, up from 1.39 m. That's fine if intended: the game re-times its impact
 effects to whatever the next revision delivers. Over a step edge, 1.5% of Castleward's standable directions, the blade
