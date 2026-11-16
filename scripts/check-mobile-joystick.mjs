@@ -58,6 +58,9 @@ try {
     const payload = JSON.parse(String(message.data));
     if (!payload.id) return;
     const cb = pending.get(payload.id);
+    // (a reply that comes after its request timed out: the request was already rejected and retried, so drop it
+    // rather than crash; on a slow CI runner a CDP call can take longer than the 15 s timeout)
+    if (!cb) return;
     pending.delete(payload.id);
     if (payload.error) cb.reject(new Error(payload.error.message));
     else cb.resolve(payload.result);

@@ -1,0 +1,1899 @@
+{
+ "base": {
+  "path": "/Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/spellblade-quality/client/assets/characters/spellblade/spellblade.glb",
+  "sha256": "de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4"
+ },
+ "candidate": {
+  "path": "artifacts/candidate-8916d5bd/spellblade.glb",
+  "sha256": "8916d5bd9cfc2af6c0988db0d922cad1cb6e8a8048ff5356e3c9be3d22a28d4e"
+ },
+ "clips": [
+  {
+   "name": "Air",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Cast",
+   "status": "same",
+   "duration": [
+    1,
+    1
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Dash",
+   "status": "same",
+   "duration": [
+    0.4,
+    0.4
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Death",
+   "status": "same",
+   "duration": [
+    1.2,
+    1.2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Guard",
+   "status": "same",
+   "duration": [
+    1.867,
+    1.867
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "GuardCut_1",
+   "status": "same",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "GuardCut_2",
+   "status": "same",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "GuardCut_3",
+   "status": "same",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Idle",
+   "status": "same",
+   "duration": [
+    2,
+    2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Run",
+   "status": "same",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Slash_1",
+   "status": "changed",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 0.424,
+   "part": "foot.R",
+   "at": 0.433,
+   "per": {
+    "tip": 0.07,
+    "grip": 0.07,
+    "hand.R": 0.07,
+    "hand.L": 0.07,
+    "foot.L": 0.311,
+    "foot.R": 0.424,
+    "pelvis": 0.07,
+    "head": 0.07
+   }
+  },
+  {
+   "name": "Slash_2",
+   "status": "changed",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 1.779,
+   "part": "tip",
+   "at": 0.533,
+   "per": {
+    "tip": 1.779,
+    "grip": 0.566,
+    "hand.R": 0.491,
+    "hand.L": 0.107,
+    "foot.L": 0.405,
+    "foot.R": 0.386,
+    "pelvis": 0.019,
+    "head": 0.049
+   }
+  },
+  {
+   "name": "Slash_3",
+   "status": "changed",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 1.572,
+   "part": "tip",
+   "at": 0.4,
+   "per": {
+    "tip": 1.572,
+    "grip": 0.579,
+    "hand.R": 0.591,
+    "hand.L": 0.638,
+    "foot.L": 0.372,
+    "foot.R": 0.515,
+    "pelvis": 0.019,
+    "head": 0.168
+   }
+  },
+  {
+   "name": "Sprint",
+   "status": "same",
+   "duration": [
+    0.5,
+    0.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Stagger",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Walk",
+   "status": "same",
+   "duration": [
+    0.9,
+    0.9
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Crouch_Idle",
+   "status": "same",
+   "duration": [
+    0.8,
+    0.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Crouch_Walk",
+   "status": "same",
+   "duration": [
+    0.85,
+    0.85
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Jump_Start",
+   "status": "same",
+   "duration": [
+    0.38,
+    0.38
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Fall_Loop",
+   "status": "same",
+   "duration": [
+    0.65,
+    0.65
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Land_Recovery",
+   "status": "same",
+   "duration": [
+    0.42,
+    0.42
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Brake_Stop",
+   "status": "same",
+   "duration": [
+    0.45,
+    0.45
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Block_Impact",
+   "status": "same",
+   "duration": [
+    0.32,
+    0.32
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Slash_Recovery",
+   "status": "same",
+   "duration": [
+    0.36,
+    0.36
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Cast_Recovery",
+   "status": "same",
+   "duration": [
+    0.35,
+    0.35
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Flight_Glide",
+   "status": "same",
+   "duration": [
+    0.75,
+    0.75
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Flight_Dive",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Sunder_Strike",
+   "status": "changed",
+   "duration": [
+    0.96,
+    0.96
+   ],
+   "worst": 0.251,
+   "part": "tip",
+   "at": 0.4,
+   "per": {
+    "tip": 0.251,
+    "grip": 0.015,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Vortex_Spin",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Ground_DualSpin_Slam",
+   "status": "changed",
+   "duration": [
+    1.44,
+    1.44
+   ],
+   "worst": 0.597,
+   "part": "tip",
+   "at": 1.233,
+   "per": {
+    "tip": 0.597,
+    "grip": 0.349,
+    "hand.R": 0.346,
+    "hand.L": 0.141,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_FastLightning_DualSpin_Slam",
+   "status": "changed",
+   "duration": [
+    0.92,
+    0.92
+   ],
+   "worst": 0.576,
+   "part": "tip",
+   "at": 0.767,
+   "per": {
+    "tip": 0.576,
+    "grip": 0.349,
+    "hand.R": 0.346,
+    "hand.L": 0.141,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Lightning_Charge_Ground",
+   "status": "same",
+   "duration": [
+    0.8,
+    0.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Lightning_Charge_Air",
+   "status": "same",
+   "duration": [
+    0.8,
+    0.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Lightning_Arrival_Slam",
+   "status": "changed",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0.015,
+   "part": "tip",
+   "at": 0.2,
+   "per": {
+    "tip": 0.015,
+    "grip": 0.001,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Aerial_Vortex_Wave",
+   "status": "same",
+   "duration": [
+    1.25,
+    1.25
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Overhead_Raise_Test",
+   "status": "same",
+   "duration": [
+    1,
+    1
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Idle_Brush_Chest",
+   "status": "same",
+   "duration": [
+    1.2,
+    1.2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Idle_Mordhau_Swap_To_Blade",
+   "status": "same",
+   "duration": [
+    0.95,
+    0.95
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Mordhau_Blade_Slash",
+   "status": "same",
+   "duration": [
+    0.65,
+    0.65
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Idle_Mordhau_Swap_To_Hilt",
+   "status": "same",
+   "duration": [
+    0.85,
+    0.85
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Chivalry_Sprint_Guard_Cast",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Chivalry_Sprint_Guard_Slash_Cast",
+   "status": "same",
+   "duration": [
+    0.567,
+    0.567
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Chivalry_Guard_Cast_Weave",
+   "status": "same",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Turn_Pivot_L",
+   "status": "same",
+   "duration": [
+    0.45,
+    0.45
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Turn_Pivot_R",
+   "status": "same",
+   "duration": [
+    0.45,
+    0.45
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Sprint_To_Guard_Bridge",
+   "status": "same",
+   "duration": [
+    0.38,
+    0.38
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Rigid_Riposte_Deflect_Thrust",
+   "status": "same",
+   "duration": [
+    0.78,
+    0.78
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Rigid_Riposte_Air_Dash_Thrust",
+   "status": "same",
+   "duration": [
+    0.72,
+    0.72
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Rigid_Riposte_Parried_Recoil",
+   "status": "same",
+   "duration": [
+    0.68,
+    0.68
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Whirl_Wind_Strike_360",
+   "status": "same",
+   "duration": [
+    0.75,
+    0.75
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Whirl_Wind_Sustained_Loop",
+   "status": "same",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Whirl_Wind_Release_Recovery",
+   "status": "same",
+   "duration": [
+    0.65,
+    0.65
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Whirl_Wind_Gale_Ascent",
+   "status": "same",
+   "duration": [
+    0.8,
+    0.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Guard_Parry_Recenter",
+   "status": "same",
+   "duration": [
+    0.55,
+    0.55
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Slash_Whiff_Recovery",
+   "status": "same",
+   "duration": [
+    0.65,
+    0.65
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "BiBye_Operator_Frame_Sweep",
+   "status": "same",
+   "duration": [
+    0.9,
+    0.9
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "FAF_Mount_Vault",
+   "status": "same",
+   "duration": [
+    0.7,
+    0.7
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "FAF_Dismount_Drop",
+   "status": "same",
+   "duration": [
+    0.65,
+    0.65
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Flight_Valkyrie_Terminal_Dive",
+   "status": "same",
+   "duration": [
+    0.9,
+    0.9
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Ram_Contact_Jolt",
+   "status": "same",
+   "duration": [
+    0.75,
+    0.75
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Heraldic_Inspect",
+   "status": "same",
+   "duration": [
+    2.4,
+    2.4
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Slash_1_Alt_Diagonal",
+   "status": "changed",
+   "duration": [
+    0.8,
+    0.8
+   ],
+   "worst": 0.462,
+   "part": "foot.R",
+   "at": 0.433,
+   "per": {
+    "tip": 0.07,
+    "grip": 0.07,
+    "hand.R": 0.07,
+    "hand.L": 0.07,
+    "foot.L": 0.333,
+    "foot.R": 0.462,
+    "pelvis": 0.07,
+    "head": 0.07
+   }
+  },
+  {
+   "name": "Slash_2_Alt_Rising",
+   "status": "changed",
+   "duration": [
+    0.85,
+    0.85
+   ],
+   "worst": 3.31,
+   "part": "tip",
+   "at": 0.533,
+   "per": {
+    "tip": 3.31,
+    "grip": 1.235,
+    "hand.R": 1.089,
+    "hand.L": 0.45,
+    "foot.L": 0.452,
+    "foot.R": 0.412,
+    "pelvis": 0.019,
+    "head": 0.141
+   }
+  },
+  {
+   "name": "Slash_3_Alt_Angled",
+   "status": "changed",
+   "duration": [
+    0.96,
+    0.96
+   ],
+   "worst": 3.309,
+   "part": "tip",
+   "at": 0.133,
+   "per": {
+    "tip": 3.309,
+    "grip": 1.649,
+    "hand.R": 1.609,
+    "hand.L": 0.891,
+    "foot.L": 0.401,
+    "foot.R": 0.6,
+    "pelvis": 0.098,
+    "head": 0.408
+   }
+  },
+  {
+   "name": "Whirl_Wind_Startup",
+   "status": "same",
+   "duration": [
+    0.28,
+    0.28
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Mordhau_Left_Hammer",
+   "status": "same",
+   "duration": [
+    0.76,
+    0.76
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Mordhau_Rising_Right",
+   "status": "same",
+   "duration": [
+    0.74,
+    0.74
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Mordhau_Rotating_Left_Finish",
+   "status": "same",
+   "duration": [
+    0.88,
+    0.88
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Mordhau_Forward_Pommel_Thrust",
+   "status": "same",
+   "duration": [
+    0.72,
+    0.72
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Slash_1_to_2",
+   "status": "changed",
+   "duration": [
+    0.32,
+    0.32
+   ],
+   "worst": 1.218,
+   "part": "tip",
+   "at": 0.167,
+   "per": {
+    "tip": 1.218,
+    "grip": 0.329,
+    "hand.R": 0.271,
+    "hand.L": 0.053,
+    "foot.L": 0.311,
+    "foot.R": 0.427,
+    "pelvis": 0.019,
+    "head": 0.021
+   }
+  },
+  {
+   "name": "Slash_2_to_3",
+   "status": "changed",
+   "duration": [
+    0.34,
+    0.34
+   ],
+   "worst": 2.855,
+   "part": "tip",
+   "at": 0.2,
+   "per": {
+    "tip": 2.855,
+    "grip": 0.941,
+    "hand.R": 0.818,
+    "hand.L": 0.106,
+    "foot.L": 0.399,
+    "foot.R": 0.395,
+    "pelvis": 0.026,
+    "head": 0.021
+   }
+  },
+  {
+   "name": "Slash_2_to_1",
+   "status": "changed",
+   "duration": [
+    0.32,
+    0.32
+   ],
+   "worst": 2.06,
+   "part": "tip",
+   "at": 0.2,
+   "per": {
+    "tip": 2.06,
+    "grip": 0.654,
+    "hand.R": 0.562,
+    "hand.L": 0.158,
+    "foot.L": 0.399,
+    "foot.R": 0.386,
+    "pelvis": 0.047,
+    "head": 0.048
+   }
+  },
+  {
+   "name": "Slash_1_to_3",
+   "status": "changed",
+   "duration": [
+    0.36,
+    0.36
+   ],
+   "worst": 2.543,
+   "part": "tip",
+   "at": 0.2,
+   "per": {
+    "tip": 2.543,
+    "grip": 0.851,
+    "hand.R": 0.749,
+    "hand.L": 0.082,
+    "foot.L": 0.311,
+    "foot.R": 0.427,
+    "pelvis": 0.026,
+    "head": 0.021
+   }
+  },
+  {
+   "name": "Rise_1",
+   "status": "same",
+   "duration": [
+    0.68,
+    0.68
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Guard_From_Cut",
+   "status": "same",
+   "duration": [
+    0.3,
+    0.3
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Steel_Infusion_Slam",
+   "status": "changed",
+   "duration": [
+    1.48,
+    1.48
+   ],
+   "worst": 0.672,
+   "part": "tip",
+   "at": 1.233,
+   "per": {
+    "tip": 0.672,
+    "grip": 0.349,
+    "hand.R": 0.347,
+    "hand.L": 0.142,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Full_Steel_Eruption_Slam",
+   "status": "changed",
+   "duration": [
+    1.64,
+    1.64
+   ],
+   "worst": 0.706,
+   "part": "tip",
+   "at": 1.367,
+   "per": {
+    "tip": 0.706,
+    "grip": 0.349,
+    "hand.R": 0.347,
+    "hand.L": 0.142,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Forceful_Strike_Recovery",
+   "status": "same",
+   "duration": [
+    0.68,
+    0.68
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Restless_Fall_Asleep_Standing_Slump",
+   "status": "same",
+   "duration": [
+    2.2,
+    2.2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Restless_Fall_Asleep_Seated_Nod",
+   "status": "same",
+   "duration": [
+    2.4,
+    2.4
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Restless_Sleep_Breathing_Loop",
+   "status": "same",
+   "duration": [
+    2.4,
+    2.4
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Restless_Ladder_Carry_Idle",
+   "status": "same",
+   "duration": [
+    1.8,
+    1.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Restless_Ladder_Carry_March",
+   "status": "same",
+   "duration": [
+    0.92,
+    0.92
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Fireball_Cast_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Frostfire_Snap_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Gale_Cone_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Coreflagration_Lob_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_LineOfConduct_Commit_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "Armory_Steel_Infusion_Brace_Showcase",
+   "status": "same",
+   "duration": [
+    1.5,
+    1.5
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  },
+  {
+   "name": "AllNatural_Lightning_Arrival_Slam_1H_Alt",
+   "status": "changed",
+   "duration": [
+    0.6,
+    0.6
+   ],
+   "worst": 0.479,
+   "part": "tip",
+   "at": 0.367,
+   "per": {
+    "tip": 0.479,
+    "grip": 0.349,
+    "hand.R": 0.347,
+    "hand.L": 0,
+    "foot.L": 0,
+    "foot.R": 0,
+    "pelvis": 0,
+    "head": 0
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Boot.L",
+   "status": "same"
+  },
+  {
+   "name": "Boot.R",
+   "status": "same"
+  },
+  {
+   "name": "Breastplate",
+   "status": "same"
+  },
+  {
+   "name": "Crest",
+   "status": "same"
+  },
+  {
+   "name": "Gauntlet.L",
+   "status": "same"
+  },
+  {
+   "name": "Gauntlet.R",
+   "status": "same"
+  },
+  {
+   "name": "Greave.L",
+   "status": "same"
+  },
+  {
+   "name": "Greave.R",
+   "status": "same"
+  },
+  {
+   "name": "HelmetJaw",
+   "status": "same"
+  },
+  {
+   "name": "HelmetShell",
+   "status": "same"
+  },
+  {
+   "name": "HeroSword",
+   "status": "same"
+  },
+  {
+   "name": "PalmRune.001",
+   "status": "same"
+  },
+  {
+   "name": "Pauldron.L",
+   "status": "same"
+  },
+  {
+   "name": "Pauldron.R",
+   "status": "same"
+  },
+  {
+   "name": "TabardBack",
+   "status": "same"
+  },
+  {
+   "name": "TabardFront",
+   "status": "same"
+  },
+  {
+   "name": "Visor",
+   "status": "same"
+  }
+ ]
+}

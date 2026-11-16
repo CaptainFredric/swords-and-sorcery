@@ -95,16 +95,37 @@ for (const [clip, sign, label, reachTarget] of [['Slash_1', 1, 'forehand', 90], 
 if (report.strikeClips.Slash_3?.contact) ask('chop: blade to the side where it crosses the aim (deg)', report.strikeClips.Slash_3.lateralAtContact, '|x| <= 12 (was 37)', Math.abs(report.strikeClips.Slash_3.lateralAtContact) <= 12);
 if (has('Slash_3')) { let low = 90; for (let t = (report.strikeClips.Slash_3.contact ?? 0.38); t <= Math.min(duration('Slash_3'), (report.strikeClips.Slash_3.contact ?? 0.38) + 0.12); t += 1 / 60) low = Math.min(low, pitch(pose('Slash_3', t).blade)); ask('chop: how far below the aim it goes within 0.12 s (deg)', +low.toFixed(0), '<= -40 (server -50; was -15)', low <= -40); }
 const idle = (() => { const w = worldMatrices(model, localPose(model, [{ clip: 'Idle', time: 0, weight: 1 }])); return [apply(w[id('foot.L')], [0, 0, 0])[1], apply(w[id('foot.R')], [0, 0, 0])[1]]; })();
+// Footwork. A threshold on speed alone was met by 8916d5bd with a foot gliding 1.4 cm off the floor at 0.96 m/s (under
+// 4 cm, under 1 m/s), the same five-frame glide in all three cuts, the other foot pinned to the micron while the
+// pelvis travels and turns, and the knee absorbing the difference. So the asks are now: no glide (a foot near the floor
+// travels ≤ 2 cm in the clip, however slowly), a foot that moves is lifted to move (≥ 5 cm), and the knees bend smoothly
+// (frame-to-frame change of the knee's own rate ≤ 20°/frame², the pop a pinned foot under a travelling pelvis makes).
+const kneeBend = (w, s) => {
+  const hip = apply(w[id(`thigh.${s}`)], [0, 0, 0]), knee = apply(w[id(`shin.${s}`)], [0, 0, 0]), ankle = apply(w[id(`foot.${s}`)], [0, 0, 0]);
+  const u = hip.map((v, i) => v - knee[i]), v2 = ankle.map((v, i) => v - knee[i]);
+  return 180 - Math.acos(Math.max(-1, Math.min(1, (u[0] * v2[0] + u[1] * v2[1] + u[2] * v2[2]) / (Math.hypot(...u) * Math.hypot(...v2))))) * 180 / Math.PI;
+};
 for (const clip of ['Slash_1', 'Slash_2', 'Slash_3']) {
   if (!has(clip)) continue;
   const n = Math.round(duration(clip) * 30); let skate = 0, peak = 0, prev = null;
+  const glide = [0, 0], travel = [0, 0], lift = [0, 0], knees = [[], []];
   for (let f = 0; f <= n; f += 1) {
     const w = worldMatrices(model, localPose(model, [{ clip, time: f / 30, weight: 1 }]));
     const feet = ['foot.L', 'foot.R'].map((b) => apply(w[id(b)], [0, 0, 0]));
-    if (prev) feet.forEach((p, k) => { const v = Math.hypot(p[0] - prev[k][0], p[2] - prev[k][2]) * 30; if (p[1] < idle[k] + 0.04 && v > 1) { skate += 1; peak = Math.max(peak, v); } });
+    ['L', 'R'].forEach((s, k) => { knees[k].push(kneeBend(w, s)); lift[k] = Math.max(lift[k], feet[k][1] - idle[k]); });
+    if (prev) feet.forEach((p, k) => {
+      const d = Math.hypot(p[0] - prev[k][0], p[2] - prev[k][2]), v = d * 30;
+      travel[k] += d;
+      if (p[1] < idle[k] + 0.04 && prev[k][1] < idle[k] + 0.04) glide[k] += d;
+      if (p[1] < idle[k] + 0.04 && v > 1) { skate += 1; peak = Math.max(peak, v); }
+    });
     prev = feet;
   }
+  const jerk = knees.map((k) => Math.max(0, ...k.slice(2).map((x, i) => Math.abs(x - 2 * k[i + 1] + k[i]))));
   ask(`${clip} skating frames (foot within 4 cm of the ground moving > 1 m/s), peak m/s`, `${skate} @ ${peak.toFixed(1)}`, '<= 8 frames, peak <= 2 m/s (46-clip cuts: 4-8 @ 1.5-1.7; 89: 13-17 @ 5.5-7.8)', skate <= 8 && peak <= 2);
+  ask(`${clip} glide: distance a foot within 4 cm of the floor travels, L / R (cm)`, `${(glide[0] * 100).toFixed(1)} / ${(glide[1] * 100).toFixed(1)}`, '<= 2 each (a planted foot stays planted; a step is lifted)', glide.every((g) => g <= 0.02));
+  ask(`${clip} a moving foot is lifted: travel / lift, L and R (cm)`, ['L', 'R'].map((s, k) => `${s} ${(travel[k] * 100).toFixed(0)}/${(lift[k] * 100).toFixed(1)}`).join(', '), 'a foot travelling > 5 cm lifts >= 5 cm', travel.every((t, k) => t <= 0.05 || lift[k] >= 0.05));
+  ask(`${clip} knee pop: largest change of the knee's bend rate, L / R (deg/frame^2)`, `${jerk[0].toFixed(0)} / ${jerk[1].toFixed(0)}`, '<= 20 (8916d5bd: up to 43, a pinned foot under a travelling pelvis)', jerk.every((j) => j <= 20));
 }
 for (const [bridge, value] of Object.entries(report.bridges)) {
   if (value === 'missing') { ask(`${bridge} present`, 'missing', 'present', false); continue; }
