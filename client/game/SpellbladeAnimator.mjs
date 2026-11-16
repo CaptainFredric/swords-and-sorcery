@@ -458,7 +458,9 @@ export class SpellbladeAnimator {
 
     if (this.activeAction !== action) {
       // (a plan may name its own hand-over: one strike's follow-through into the next one's raise)
-      const duration = step > 0 && this.activeAction ? (Number.isFinite(plan.blend) ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
+      // (a plan's own hand-over applies from the clip it names, blendFrom; from anything else, the ordinary cross-fade)
+      const own = Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.activeClip);
+      const duration = step > 0 && this.activeAction ? (own ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
       let startProgress = 0;
       if (duration > 0) {
         // every outgoing clip restarts its fade from the weight it has right now, so a switch in the middle of a

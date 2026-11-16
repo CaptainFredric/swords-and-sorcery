@@ -163,10 +163,11 @@ export function overlayMotion(model, path) {
 
 /**
  * Lay the motion sidecar over a model exactly as the client does (client/game/spellbladeClipInventory.mjs
- * withMotionClips): clips the model lacks are appended; Slash_1 keeps the model's lower body (root, pelvis, legs,
- * tabards, crest) and takes the sidecar's upper-body tracks, channel by channel; every other model clip wins.
+ * withMotionClips): clips the model lacks are appended; Slash_1 (when the manifest's `motionOverrides` names it) keeps the
+ * model's lower body (root, pelvis, legs, tabards, crest) and takes the sidecar's upper-body tracks, channel by channel;
+ * every other model clip wins.
  */
-export function composeMotion(model, path) {
+export function composeMotion(model, path, { overrides = ['Slash_1'] } = {}) {
   const motion = loadGlb(path);
   const lowerBody = (name) => /^(?:root|pelvis|thigh[.]|shin[.]|foot[.]|ankle[.]|knee[.]|tabard_|crest_)/.test(name);
   const nameOf = (m, ch) => m.gltf.nodes[ch.node].name;
@@ -174,7 +175,7 @@ export function composeMotion(model, path) {
     const channels = clip.channels.map((channel) => ({ ...channel, node: model.byName.get(nameOf(motion, channel)) })).filter((channel) => channel.node != null);
     const own = model.clips.get(name);
     if (!own) { model.clips.set(name, { ...clip, channels }); continue; }
-    if (name !== 'Slash_1') continue;
+    if (name !== 'Slash_1' || !overrides.includes(name)) continue;
     const upper = channels.filter((ch) => !lowerBody(nameOf(model, ch)));
     const taken = new Set(upper.map((ch) => `${ch.node}/${ch.path}`));
     const kept = own.channels.filter((ch) => lowerBody(nameOf(model, ch)) || !taken.has(`${ch.node}/${ch.path}`));

@@ -69,7 +69,7 @@ function attackPlan(player, serverNow, { guarded = false, localTime = serverNow 
     // (a let-go strike is handed back to the stance: the Idle on the clock the stance itself is shown on, so nothing
     // jumps as the chain's presentation ends; a bridge names the next strike's frame for a model without it)
     if (shown?.idle) return { ...fixed('Idle', idleTime(localTime), true), blend: shown.blend };
-    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}),
+    if (shown) return { ...fixed(shown.clip, shown.time), ...(shown.blend ? { blend: shown.blend } : {}), ...(shown.blendFrom ? { blendFrom: shown.blendFrom } : {}),
       ...(shown.fallback ? { fallback: shown.fallback, fallbackTime: shown.fallbackTime } : {}), carry: true };
   }
   if (cycle < SLASH_DURATIONS[0]) return fixed('Slash_1', cycle);
@@ -79,25 +79,23 @@ function attackPlan(player, serverNow, { guarded = false, localTime = serverNow 
   return fixed('Slash_3', cycle - SLASH_DURATIONS[0] - SLASH_DURATIONS[1]);
 }
 
-// All-Natural Disaster's authored clips (spellblade.glb), and where in each the blow lands: the moment the authored
-// blade reaches the ground (its tip crossing the floor), measured from the shipped GLB (the test measures it again):
-//   ground:  two turns of the whole body with the sword low, a rise overhead, and the slam: the blade meets the
-//            ground 0.85 s in and is driven on into it (the ordinary wind-up is 0.92 s: the clip waits its first
-//            frame out for the difference);
-//   fast:    one turn and the slam, blade down 0.33 s in, for Half Lightning's 0.36 s wind-up;
+// All-Natural Disaster's authored clips (spellblade.glb), and where in each the blow lands: the slam's low point, the
+// moment the authored blade comes down nearest the floor, measured from the shipped GLB (the test measures it again).
+// Argon's de8c8655 no longer drives the blade into the floor (the 89 went 0.6 m under): the Lightning arrival comes
+// down to 2 cm of it at 0.167 s, the dual-spin slams to 20-21 cm at 0.983 s (ground) and 0.6 s (fast):
+//   ground:  two turns of the whole body with the sword low, a rise overhead, and the slam: the blade comes down
+//            0.983 s in (the ordinary wind-up is 0.92 s: the clip is joined a few frames in);
+//   fast:    one turn and the slam, blade down 0.6 s in, for Half Lightning's 0.36 s wind-up (joined part-way in);
 //   arrival: the slam alone, for the instant strike out of a Full Lightning teleport: joined where its blade lands;
 //   aerial:  two turns and the cut that throws the wave, 0.85 s into its AUTHORED clip;
 //            the complete wind-up is time-mapped across the server's preparation
 //            and vortex phases, without a separate floating-idle pose;
 //   the two charges: ONLY the genuinely held Lightning aim, on ground or in air.
-// These are Argon's clips as delivered. The blade is driven well into the floor at each slam and rides below it
-// through the ground spins (docs/verification/refinement-v-combat-acceptance.md has the figures): the presentation
-// treats that as what it looks like, a blade scoring and then breaking the ground, and puts its debris where the
-// blade really is. Nothing here moves a bone.
+// These are Argon's clips as delivered. Nothing here moves a bone: the debris goes where the blade really is.
 export const DISASTER_CLIPS = Object.freeze({
-  ground: Object.freeze({ clip: 'AllNatural_Ground_DualSpin_Slam', contact: 0.85, duration: 1.44 }),
-  fast: Object.freeze({ clip: 'AllNatural_FastLightning_DualSpin_Slam', contact: 0.33, duration: 0.92 }),
-  arrival: Object.freeze({ clip: 'AllNatural_Lightning_Arrival_Slam', contact: 0.085, duration: 0.6 }),
+  ground: Object.freeze({ clip: 'AllNatural_Ground_DualSpin_Slam', contact: 0.983, duration: 1.44 }),
+  fast: Object.freeze({ clip: 'AllNatural_FastLightning_DualSpin_Slam', contact: 0.6, duration: 0.92 }),
+  arrival: Object.freeze({ clip: 'AllNatural_Lightning_Arrival_Slam', contact: 0.167, duration: 0.6 }),
   aerial: Object.freeze({ clip: 'AllNatural_Aerial_Vortex_Wave', contact: 0.85, duration: 1.25 }),
   chargeGround: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Ground', duration: 0.8 }),
   chargeAir: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Air', duration: 0.8 }),

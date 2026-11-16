@@ -1,0 +1,676 @@
+{
+ "ten held chains": {
+  "name": "ten held chains",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 32.7,
+    "maxErr": 80,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 20
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 1.8,
+    "contactErr": 4.9,
+    "maxErr": 57.9,
+    "chopLateral": 37.3,
+    "reach": 50,
+    "sweep": 57.8
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 2.48,
+    "contactErr": 28.4,
+    "maxErr": 77.1,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 20.6
+   },
+   {
+    "strike": 1,
+    "kind": 0,
+    "at": 3.18,
+    "contactErr": -3.2,
+    "maxErr": 40.4,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 8.5
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 3.88,
+    "contactErr": -2.8,
+    "maxErr": 56.6,
+    "chopLateral": 39.5,
+    "reach": 49,
+    "sweep": 50.9
+   },
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 4.56,
+    "contactErr": -1.7,
+    "maxErr": 42.9,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 7
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 5.26,
+    "contactErr": 29.4,
+    "maxErr": 77.8,
+    "chopLateral": 0,
+    "reach": 124,
+    "sweep": 20
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 5.96,
+    "contactErr": -0.9,
+    "maxErr": 56.3,
+    "chopLateral": 41.7,
+    "reach": 48,
+    "sweep": 54.7
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 6.64,
+    "contactErr": 30.5,
+    "maxErr": 78.7,
+    "chopLateral": 0,
+    "reach": 126,
+    "sweep": 19.6
+   },
+   {
+    "strike": 1,
+    "kind": 0,
+    "at": 7.34,
+    "contactErr": -0.2,
+    "maxErr": 40.8,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 5.6
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 8.04,
+    "contactErr": 1.1,
+    "maxErr": 56,
+    "chopLateral": 33.3,
+    "reach": 51,
+    "sweep": 58.8
+   },
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 8.72,
+    "contactErr": 1.4,
+    "maxErr": 43.2,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 9.42,
+    "contactErr": 31.6,
+    "maxErr": 79.3,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 19.8
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 10.12,
+    "contactErr": 3,
+    "maxErr": 57.3,
+    "chopLateral": 35.3,
+    "reach": 51,
+    "sweep": 62.9
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 10.8,
+    "contactErr": 32.7,
+    "maxErr": 80,
+    "chopLateral": 0,
+    "reach": 126,
+    "sweep": 20.6
+   },
+   {
+    "strike": 1,
+    "kind": 0,
+    "at": 11.5,
+    "contactErr": 3.1,
+    "maxErr": 43.4,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.7
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 12.2,
+    "contactErr": 4.9,
+    "maxErr": 57.9,
+    "chopLateral": 37.3,
+    "reach": 50,
+    "sweep": 57.8
+   },
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 12.88,
+    "contactErr": -3.2,
+    "maxErr": 42.7,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 8.5
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 13.58,
+    "contactErr": 28.4,
+    "maxErr": 76.6,
+    "chopLateral": 0,
+    "reach": 124,
+    "sweep": 20
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 14.28,
+    "contactErr": -2.8,
+    "maxErr": 56.6,
+    "chopLateral": 39.5,
+    "reach": 49,
+    "sweep": 50.9
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 14.96,
+    "contactErr": 29.4,
+    "maxErr": 78,
+    "chopLateral": 0,
+    "reach": 126,
+    "sweep": 20.8
+   },
+   {
+    "strike": 1,
+    "kind": 0,
+    "at": 15.66,
+    "contactErr": -1.7,
+    "maxErr": 40.6,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 7
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 16.36,
+    "contactErr": -0.9,
+    "maxErr": 56.3,
+    "chopLateral": 41.7,
+    "reach": 48,
+    "sweep": 54.7
+   },
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 17.04,
+    "contactErr": -0.2,
+    "maxErr": 43,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 5.6
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 17.74,
+    "contactErr": 30.5,
+    "maxErr": 78.7,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 19.8
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 18.44,
+    "contactErr": 1.1,
+    "maxErr": 56,
+    "chopLateral": 33.3,
+    "reach": 47,
+    "sweep": 58.8
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 19.12,
+    "contactErr": 31.6,
+    "maxErr": 79.3,
+    "chopLateral": 0,
+    "reach": 126,
+    "sweep": 20.3
+   },
+   {
+    "strike": 1,
+    "kind": 0,
+    "at": 19.82,
+    "contactErr": 1.4,
+    "maxErr": 43.1,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.8
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 20.52,
+    "contactErr": 3,
+    "maxErr": 57.3,
+    "chopLateral": 35.3,
+    "reach": 51,
+    "sweep": 62.9
+   },
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 21.2,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": null,
+    "sweep": 0
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.349,
+  "footSpeed": 1.49
+ },
+ "one tap": {
+  "name": "one tap",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.218,
+  "footSpeed": 0.54
+ },
+ "let go after two": {
+  "name": "let go after two",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 32.7,
+    "maxErr": 80,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 20
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.215,
+  "footSpeed": 0.67
+ },
+ "guard into attack": {
+  "name": "guard into attack",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 1.2,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   }
+  ],
+  "snaps": 1,
+  "footSlide": 0.134,
+  "footSpeed": 0.41
+ },
+ "attack into guard mid-swing": {
+  "name": "attack into guard mid-swing",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 46,
+    "sweep": 36.8
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.177,
+  "footSpeed": 0.48
+ },
+ "running chain": {
+  "name": "running chain",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": -5.1,
+    "maxErr": 40.8,
+    "chopLateral": 0,
+    "reach": 38,
+    "sweep": 8.4
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 14,
+    "maxErr": 67,
+    "chopLateral": 0,
+    "reach": 112,
+    "sweep": 21.3
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 1.8,
+    "contactErr": 3.5,
+    "maxErr": 46.4,
+    "chopLateral": 24.8,
+    "reach": 34,
+    "sweep": 40.1
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 2.48,
+    "contactErr": 9.1,
+    "maxErr": 62.3,
+    "chopLateral": 0,
+    "reach": null,
+    "sweep": 0
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 1,
+  "footSpeed": 8.43
+ },
+ "sprinting chain": {
+  "name": "sprinting chain",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.8,
+    "contactErr": -3.5,
+    "maxErr": 42.2,
+    "chopLateral": 0,
+    "reach": 35,
+    "sweep": 7.7
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.5,
+    "contactErr": 13.2,
+    "maxErr": 64.6,
+    "chopLateral": 0,
+    "reach": 112,
+    "sweep": 22.5
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 2.2,
+    "contactErr": 3.6,
+    "maxErr": 47.6,
+    "chopLateral": 24.7,
+    "reach": 30,
+    "sweep": 30.7
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 1,
+  "footSpeed": 9.46
+ },
+ "jump mid-chain": {
+  "name": "jump mid-chain",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 47.7,
+    "chopLateral": 0,
+    "reach": 38,
+    "sweep": 9.5
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 21.4,
+    "maxErr": 68.4,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 45.1
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 1.8,
+    "contactErr": 4.9,
+    "maxErr": 57.9,
+    "chopLateral": 37.3,
+    "reach": 50,
+    "sweep": 57.8
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 2.48,
+    "contactErr": 28.4,
+    "maxErr": 77.1,
+    "chopLateral": 0,
+    "reach": null,
+    "sweep": 0
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.388,
+  "footSpeed": 1.74
+ },
+ "cast after a strike": {
+  "name": "cast after a strike",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 51,
+    "sweep": 23
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.141,
+  "footSpeed": 0.4
+ },
+ "dash mid-chain": {
+  "name": "dash mid-chain",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 48,
+    "sweep": 52.2
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 32.7,
+    "maxErr": 80,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 20
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 1.8,
+    "contactErr": 4.9,
+    "maxErr": 57.9,
+    "chopLateral": 37.3,
+    "reach": 50,
+    "sweep": 31.2
+   }
+  ],
+  "snaps": 1,
+  "footSlide": 0.392,
+  "footSpeed": 3.07
+ },
+ "parried": {
+  "name": "parried",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 11.1,
+    "maxErr": 103,
+    "chopLateral": 0,
+    "reach": -33,
+    "sweep": 4.6
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.076,
+  "footSpeed": 0.4
+ },
+ "blocked chain": {
+  "name": "blocked chain",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   },
+   {
+    "strike": 1,
+    "kind": 1,
+    "at": 1.1,
+    "contactErr": 32.7,
+    "maxErr": 80,
+    "chopLateral": 0,
+    "reach": 125,
+    "sweep": 20
+   },
+   {
+    "strike": 2,
+    "kind": 2,
+    "at": 1.8,
+    "contactErr": 4.9,
+    "maxErr": 57.9,
+    "chopLateral": 37.3,
+    "reach": 50,
+    "sweep": 57.8
+   },
+   {
+    "strike": 0,
+    "kind": 1,
+    "at": 2.48,
+    "contactErr": 28.4,
+    "maxErr": 77.1,
+    "chopLateral": 0,
+    "reach": null,
+    "sweep": 0
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.372,
+  "footSpeed": 1.54
+ },
+ "riposte after a cut": {
+  "name": "riposte after a cut",
+  "strikes": [
+   {
+    "strike": 0,
+    "kind": 0,
+    "at": 0.4,
+    "contactErr": 3.1,
+    "maxErr": 43.5,
+    "chopLateral": 0,
+    "reach": 52,
+    "sweep": 9.9
+   }
+  ],
+  "snaps": 0,
+  "footSlide": 0.22,
+  "footSpeed": 1.73
+ }
+}

@@ -255,15 +255,17 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
     assert.ok(model.clips.has(entry.clip),`${entry.clip} is in spellblade.glb`);
     assert.ok(Math.abs(model.clips.get(entry.clip).duration-entry.duration)<.07,`${entry.clip} runs ${entry.duration}s`);
   }
-  // each slam's contact time is when the authored blade reaches the floor (its tip crossing y = 0 on the way down
-  // into the slam), to within a frame
+  // each slam's contact time is its low point: the authored blade's first coming down nearest the floor (the first
+  // frame within 1 cm of the lowest it reaches between its first tenth of a second and its last 0.3 s, the way home to
+  // the stance), to within a frame; and the blade is never driven into the floor (de8c8655: the 89's went 0.6 m under)
   for(const key of ['ground','fast','arrival']){
     const {clip,contact,duration}=DISASTER_CLIPS[key];
-    let lowest=0;
-    for(let t=0;t<=duration;t+=1/120)if(tipY(clip,t)<tipY(clip,lowest))lowest=t;
-    let crossing=null;
-    for(let t=lowest;t>=0;t-=1/240)if(tipY(clip,t)>0){crossing=t;break;}
-    assert.ok(crossing!==null&&Math.abs(crossing-contact)<=1/30,`${key}: the blade reaches the ground at ${crossing?.toFixed(3)}s, the plan says ${contact}s`);
+    let lowest=Infinity;
+    for(let t=.1;t<=duration-.3;t+=1/120)lowest=Math.min(lowest,tipY(clip,t));
+    let landing=null;
+    for(let t=.1;t<=duration-.3;t+=1/240)if(tipY(clip,t)<=lowest+.01){landing=t;break;}
+    assert.ok(landing!==null&&Math.abs(landing-contact)<=1/30,`${key}: the blade comes down at ${landing?.toFixed(3)}s, the plan says ${contact}s`);
+    for(let t=0;t<=duration;t+=1/60)assert.ok(tipY(clip,t)>-.02,`${key}: the blade ${(-tipY(clip,t)).toFixed(2)} m into the floor at ${t.toFixed(3)}s`);
     // (the arrival clip is joined at its landing: it has no time before it)
     if(key!=='arrival')assert.ok(tipY(clip,contact-.08)>.5,`${key}: still well up 0.08s before`);
   }
@@ -271,8 +273,11 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
   const charging={...base,ultimateState:{id:'one_hit_of_wonders',phase:'startup',startedAt:10,commitAt:10.92,preparedTiers:{lightning:0}}};
   const started=plan(charging,10),near=plan(charging,10.9);
   assert.equal(started.clip,'AllNatural_Ground_DualSpin_Slam');
-  assert.ok(started.time<1e-9,'from its first frame');
-  assert.ok(plan(charging,10.07).time<1e-9&&plan(charging,10.2).time>.1,'the turns begin once the clip can end on the commit');
+  // (de8c8655's slam comes down 0.983 s in, longer than the 0.92 s wind-up: the clip is joined that much in, and runs
+  // at its own rate from there)
+  const lead=Math.max(0,DISASTER_CLIPS.ground.contact-.92);
+  assert.ok(Math.abs(started.time-lead)<1e-9,`joined ${lead.toFixed(3)}s in`);
+  assert.ok(Math.abs(plan(charging,10.2).time-(lead+.2))<1e-9,'and played at its own rate');
   assert.ok(Math.abs(near.time-(DISASTER_CLIPS.ground.contact-.02))<1e-9,'two hundredths before the commit, two hundredths before the blade lands');
   assert.equal(started.fallback,'Slash_3','a model without the clip keeps the old heavy strike');
   const committed={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:10.92,until:12.57,oneHit:{form:'ground',tiers:{}}}};

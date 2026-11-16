@@ -1,0 +1,481 @@
+{
+ "base": {
+  "path": "/Users/erendiracisneros/swords-and-sorcery/.claude/worktrees/trusting-morse-816f54/client/assets/characters/spellblade/spellblade-fp.glb",
+  "sha256": "4f53671eadd8f706692f632c71892e78e92d38cfe06592c65b2254158c5953ce"
+ },
+ "candidate": {
+  "path": "/private/tmp/claude-501/-Users-erendiracisneros-swords-and-sorcery--claude-worktrees-trusting-morse-816f54/2b14e6e9-8e12-41cb-a876-4e0805b2374f/scratchpad/argon-de8c8655/candidate/spellblade-fp.glb",
+  "sha256": "80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e"
+ },
+ "clips": [
+  {
+   "name": "Cast",
+   "status": "same",
+   "duration": [
+    0.4,
+    0.4
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Dash",
+   "status": "same",
+   "duration": [
+    0.233,
+    0.233
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Guard",
+   "status": "same",
+   "duration": [
+    1.867,
+    1.867
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Idle",
+   "status": "same",
+   "duration": [
+    2,
+    2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_1",
+   "status": "changed",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 0.143,
+   "part": "tip",
+   "at": 0.567,
+   "per": {
+    "tip": 0.143,
+    "grip": 0.043,
+    "hand.R": 0.043,
+    "hand.L": 0,
+    "forearm.R": 0.016,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_2",
+   "status": "same",
+   "duration": [
+    0.767,
+    0.767
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_3",
+   "status": "same",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Stagger",
+   "status": "same",
+   "duration": [
+    0.333,
+    0.333
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Brush_Chest",
+   "status": "same",
+   "duration": [
+    1.2,
+    1.2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Mordhau_Swap",
+   "status": "same",
+   "duration": [
+    1.1,
+    1.1
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Chivalry_Guard_Cast",
+   "status": "same",
+   "duration": [
+    0.667,
+    0.667
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Chivalry_Slash_Cast",
+   "status": "same",
+   "duration": [
+    0.567,
+    0.567
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Rigid_Riposte",
+   "status": "same",
+   "duration": [
+    0.78,
+    0.78
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Whirl_Wind",
+   "status": "same",
+   "duration": [
+    0.75,
+    0.75
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_AllNatural_Slam",
+   "status": "same",
+   "duration": [
+    1.44,
+    1.44
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Lightning_Charge",
+   "status": "same",
+   "duration": [
+    1.2,
+    1.2
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_1_to_2",
+   "status": "same",
+   "duration": [
+    0.32,
+    0.32
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_2_to_3",
+   "status": "same",
+   "duration": [
+    0.34,
+    0.34
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_2_to_1",
+   "status": "same",
+   "duration": [
+    0.32,
+    0.32
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Slash_1_to_3",
+   "status": "same",
+   "duration": [
+    0.36,
+    0.36
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Guard_From_Cut",
+   "status": "same",
+   "duration": [
+    0.3,
+    0.3
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "Rise_1",
+   "status": "same",
+   "duration": [
+    0.68,
+    0.68
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Steel_Infusion_Slam",
+   "status": "same",
+   "duration": [
+    1.48,
+    1.48
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Ladder_Carry_Idle",
+   "status": "same",
+   "duration": [
+    1.8,
+    1.8
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  },
+  {
+   "name": "FP_Ladder_Carry_March",
+   "status": "same",
+   "duration": [
+    0.92,
+    0.92
+   ],
+   "worst": 0,
+   "at": null,
+   "per": {
+    "tip": 0,
+    "grip": 0,
+    "hand.R": 0,
+    "hand.L": 0,
+    "forearm.R": 0,
+    "forearm.L": 0
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Arm.L",
+   "status": "same"
+  },
+  {
+   "name": "Arm.R",
+   "status": "same"
+  },
+  {
+   "name": "HeroSword",
+   "status": "same"
+  },
+  {
+   "name": "PalmRune",
+   "status": "same"
+  }
+ ]
+}

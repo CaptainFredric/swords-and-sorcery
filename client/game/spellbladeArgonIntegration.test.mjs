@@ -29,9 +29,25 @@ function inspect(file, expected, sha, count) {
   assert.ok(json.skins?.length > 0 && json.meshes?.length > 0);
 }
 
-test('Argon 89/25 production models are the exact reviewed bytes and inventories', () => {
-  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 89);
+test('Argon 90/25 production models are the exact reviewed bytes and inventories', () => {
+  // (de8c8655: Argon's reconciliation, verified against his stated SHA-256; 90 clips with the one-handed Lightning
+  // arrival kept as a variation; first person 80de8aee, 25 clips)
+  assert.equal(manifest.thirdPerson.sha256, 'de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4');
+  assert.equal(manifest.firstPerson.sha256, '80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e');
+  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 90);
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);
+});
+
+test('the model plays its own corrected first cut: the sidecar\'s Slash_1 is not laid over it, its techniques still are', () => {
+  // (PR #457's sidecar Slash_1 under this model brought back the 89's flop: the forehand 123 degrees round with the
+  // wrist folded 26, where de8c8655's own reaches 51 with a 5-degree wrist)
+  assert.deepEqual(manifest.thirdPerson.motionOverrides, []);
+  class Clip { constructor(name, duration, tracks){this.name=name;this.duration=duration;this.tracks=tracks;} }
+  const own = [new Clip('Slash_1', .766, [{ name: 'hand.R.quaternion' }])];
+  const motion = [new Clip('Slash_1', .766, [{ name: 'hand.R.quaternion', sidecar: true }]), new Clip('Technique_Whirl_Revolution', .6, [])];
+  const result = withMotionClips(own, motion, { overrides: manifest.thirdPerson.motionOverrides });
+  assert.equal(result.find((c) => c.name === 'Slash_1'), own[0], 'the model\'s own Slash_1, untouched');
+  assert.ok(result.find((c) => c.name === 'Technique_Whirl_Revolution'), 'technique phases appended');
 });
 
 test('technique phases append; Slash_1 keeps canonical gait and corrected sword track exactly once', () => {

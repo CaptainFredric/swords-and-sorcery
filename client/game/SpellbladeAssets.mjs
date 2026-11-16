@@ -177,7 +177,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
   const [gltf, motion] = await Promise.all([loadGltf(entry.url), loadMotion(kind === 'firstPerson' ? 'firstPerson' : 'thirdPerson')]);
-  const clips = withMotionClips(gltf.animations, motion?.clips);
+  const clips = withMotionClips(gltf.animations, motion?.clips, { overrides: entry.motionOverrides ?? ['Slash_1'] });
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;

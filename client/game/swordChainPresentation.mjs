@@ -25,35 +25,36 @@ import { MELEE_CONTACT, SWORD_CHAIN, SWORD_CHAINS, SWORD_STRIKE_TIMES } from '..
 /** The chain's whole cycle: the third contact and the restart after it (2.08 s). */
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
 
-// Authored timing of each strike clip (seconds into the clip), measured on the 89-clip Spellblade as the client
-// composes it (spellblade.glb + the motion sidecar's Slash_1 upper body; scripts/spellblade-chain-sync-audit.mjs and
-// scripts/spellblade-first-cut-probe.mjs measure them again):
+// Authored timing of each strike clip (seconds into the clip), measured on Argon's 90-clip Spellblade (de8c8655) as the
+// client composes it (spellblade.glb as authored: its manifest asks for no sidecar override; the sidecar's technique
+// phases appended; scripts/spellblade-chain-sync-audit.mjs and scripts/spellblade-first-cut-probe.mjs measure them
+// again). Re-measured only where the new poses showed it: Slash_2 now crosses the aim at 0.297 s (the old 0.332 left the
+// shown backhand 27 degrees off the server's at contact), and every bridge lands at 0.167 s:
 //   contact  the frame whose blade crosses the knight's front (a side cut's heading, the chop's pitch, through the aim);
 //   swing    the frames whose blade lies where the server's does at the start and the end of the swing window
 //            (MELEE_CONTACT.window, shared/src/blade.mjs bladeDirection): the authored cuts sweep about twice as fast as
 //            the server's blade, so through the window the clip is played at the server's pace, not its own, and the
 //            blade shown is the blade that hits;
 //   far      where a follow-through is handed on: the first frame of Argon's authored bridges (Slash_1_to_2 and the rest
-//            all begin exactly there). Past it the 89's forehand swings on round behind the knight's left shoulder
-//            (123 degrees from the aim at 0.533 s, the wrist folding a further 13 degrees): that is never shown at rest;
+//            all begin exactly there). (On the 89-clip model the forehand swung on past it to 123 degrees behind the left
+//            shoulder; de8c8655's own follow-through reaches 51, the wrist fold 5 degrees);
 //   pickUp   where a bridge lands in this strike (the top of its raise);
 //   raised   the top of its raise, the sword up as a held Guard has it: a chain begun out of the Guard starts there;
 //   end      its last frame (the Idle stance).
 export const STRIKE_CLIPS = Object.freeze({
-  Slash_1: Object.freeze({ contact: 0.391, swing: Object.freeze([0.367, 0.426]), far: 0.467, pickUp: 0.2, raised: 0.167, end: 23 / 30 }),
-  Slash_2: Object.freeze({ contact: 0.332, swing: Object.freeze([0.303, 0.384]), far: 0.467, pickUp: 0.2, end: 23 / 30 }),
-  // (the chop: the 89's comes down a diagonal and stops 15 degrees below the aim, where the server's goes on down to
-  // 50: past its contact it is played at half its own pace, not tracked to a blade it never reaches)
-  Slash_3: Object.freeze({ contact: 0.385, swing: Object.freeze([0.346, 0.44]), far: 0.5, pickUp: 0.2, end: 20 / 30 }),
+  Slash_1: Object.freeze({ contact: 0.391, swing: Object.freeze([0.367, 0.426]), far: 0.467, pickUp: 0.167, raised: 0.167, end: 23 / 30 }),
+  Slash_2: Object.freeze({ contact: 0.297, swing: Object.freeze([0.2, 0.38]), far: 0.467, pickUp: 0.167, end: 23 / 30 }),
+  // (the chop, unchanged in de8c8655: it comes down a diagonal and stops 15 degrees below the aim, where the server's
+  // goes on down to 50: past its contact it is played at half its own pace, not tracked to a blade it never reaches)
+  Slash_3: Object.freeze({ contact: 0.385, swing: Object.freeze([0.346, 0.44]), far: 0.5, pickUp: 0.167, end: 20 / 30 }),
 });
 
-// Argon's authored hand-overs between the cuts (89-clip model): each begins exactly on the far end of one cut's
-// follow-through (its `far`) and lands on the next cut's `pickUp` (0.000 m apart in every joint measured, except
-// Slash_2_to_1, whose sword lands 0.3 m off Slash_1's raise: it is handed over with a longer blend). `blend`: the
-// cross-fade into the next cut as the bridge lands.
+// Argon's authored hand-overs between the cuts: each begins exactly on the far end of one cut's follow-through (its
+// `far`) and lands on the next cut's `pickUp`, 0.000 m apart in every joint measured, Slash_2_to_1 included (on the
+// 89-clip model it landed 0.3 m off). `blend`: the cross-fade into the next cut as the bridge lands.
 export const BRIDGES = Object.freeze({
   Slash_1: Object.freeze({ Slash_2: Object.freeze({ clip: 'Slash_1_to_2', duration: 0.32, blend: 0.05 }), Slash_3: Object.freeze({ clip: 'Slash_1_to_3', duration: 0.36, blend: 0.05 }) }),
-  Slash_2: Object.freeze({ Slash_3: Object.freeze({ clip: 'Slash_2_to_3', duration: 0.34, blend: 0.05 }), Slash_1: Object.freeze({ clip: 'Slash_2_to_1', duration: 0.32, blend: 0.12 }) }),
+  Slash_2: Object.freeze({ Slash_3: Object.freeze({ clip: 'Slash_2_to_3', duration: 0.34, blend: 0.05 }), Slash_1: Object.freeze({ clip: 'Slash_2_to_1', duration: 0.32, blend: 0.05 }) }),
 });
 
 // The authored clip of each cut (0 the forehand, 1 the backhand, 2 the heavy strike), and so of each chain's strikes in
@@ -188,13 +189,16 @@ export function chainPresentation(player, serverNow) {
       const bridge = bridgeTime(clips[slot - 1], clips[slot], slot, elapsed);
       if (bridge && !bridge.landed) {
         const fallbackTime = strikeClipTime(clips[slot], slot, elapsed, { followed });
-        return { clip: bridge.clip, time: bridge.time, slot, blend: LINK_BLEND_SEC, fallback: clips[slot], fallbackTime, bridge: true };
+        // (the bridge's short hand-over is for the follow-through it was authored from; from anything else, a Dash or a
+        // stagger, the ordinary cross-fade: blendFrom)
+        return { clip: bridge.clip, time: bridge.time, slot, blend: LINK_BLEND_SEC, blendFrom: clips[slot - 1], fallback: clips[slot], fallbackTime, bridge: true };
       }
       const blend = BRIDGES[clips[slot - 1]]?.[clips[slot]]?.blend ?? 0.16;
-      return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, bridgeEnd: bridge?.until, bridgePace: bridge?.pace }), blend };
+      return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, bridgeEnd: bridge?.until, bridgePace: bridge?.pace }), blend,
+        blendFrom: BRIDGES[clips[slot - 1]]?.[clips[slot]]?.clip ?? clips[slot - 1] };
     }
     return { clip: clips[slot], slot, time: strikeClipTime(clips[slot], slot, elapsed, { followed, raised }),
-      ...(raised ? { blend: GUARD_LINK_SEC } : {}) };
+      ...(raised ? { blend: GUARD_LINK_SEC, blendFrom: 'Guard' } : {}) };
   }
   // the chain is over by the server's word: its last swing played out, unless it was broken off
   const landed = player.attackLanded ?? 0;
