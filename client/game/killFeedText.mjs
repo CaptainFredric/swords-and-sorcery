@@ -41,47 +41,38 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    return {text:`${v} forgot the element of surprise`,kind:'fire'};
  if(source==='one_hit_of_wonders'&&event.killContext==='nearly-full-disaster')
    return {text:`${k} was so cool that ${v} experienced aftershocks`,kind:'frost'};
- // All three are actual, independently identified SERVER contact phases.
- // Do not infer the form from the caster's current airborne position: a
- // grounded Full Gale cast can launch a Windblade, too.
- if(source==='one_hit_of_wonders'){
+ // Reuse ONLY the author's pre-existing combat lines, selected by the
+ // authoritative contact subtype. Do not create extra prose here.
+ if(source==='one_hit_of_wonders') {
    if(event.killContext==='disaster-ground-slam')return text([
-     `${k} brought ${v} down to earth`,
-     `${v} was grounded by ${k}`,
-     `${k} made ${v} part of the landscape`,
+     `${k} knocked down ${v}`,
+     `${k} caused ${v} to lay down arms`,
    ],event,'sword');
    if(event.killContext==='disaster-windblade')return text([
-     `${v} discovered the air had an edge, courtesy of ${k}`,
-     `${k} sent ${v} a cutting remark on the wind`,
-     `${v} caught the sharp end of ${apostrophe(k)} forecast`,
+     `${k} blew ${v} away`,
+     `${v} became winded after ${apostrophe(k)} antics`,
+     `${k} blew that way out of proportion`,
    ],event,'gale');
    if(event.killContext==='disaster-terminal-fire')return text([
-     `${k} saved one last explosion for ${v}`,
-     `${v} caught the explosive end of ${apostrophe(k)} Windblade`,
+     `${k} roasted ${v}`,
+     `${k} burned ${v} down`,
    ],event,'fire');
-   // Compatibility with historic replays whose death events lack a
-   // contact subsource, rather than the generic "slew" sword fallback.
-   return {text:`${v} was overwhelmed by ${apostrophe(k)} All-Natural Disaster`,kind:'gale'};
  }
- if(source==='one_hit_ground_fire')return {text:
-   `${v} survived the impact, but not ${apostrophe(k)} aftermath`,kind:'fire'};
- if(source==='one_hit_vortex')return {text:
-   `${v} got caught in ${apostrophe(k)} wind-up`,kind:'gale'};
+ if(source==='one_hit_ground_fire')return {text:`${k} burned ${v} down`,kind:'fire'};
+ if(source==='one_hit_vortex')return {text:`${v} became winded after ${apostrophe(k)} antics`,kind:'gale'};
  // Exceptional jokes are sampled, not permanent replacements for the finishing
  // weapon's identity. Never speculate about Guard, overkill or a losing streak:
  // the authoritative death event must explicitly prove each condition.
  const exceptional=[];
- if(event.extremeOverkill) exceptional.push(`Saint ${v} the Deceased`);
+ if(event.extremeOverkill) exceptional.push(`Saint ${v} the Deceased`,`${v} became the paragon of death`);
  if(event.sameKillerDeaths>=3) exceptional.push(`${v} doesn't want to play anymore`);
  if(event.sameKillerDeaths>=2) exceptional.push(
    `${v} is contemplating whether to continue`,
    `${v} should really stop holding back`);
+ if(event.guardWouldSave) exceptional.push(`${v} should've guarded`);
  if(event.sameKillerDeaths>=3&&event.sameTeamAsViewer)
    exceptional.push(`${v} wants your team to lose`);
- if(event.guardWouldSave) exceptional.push(`${v} should've guarded`);
- // This is a narrowly proven tactical failure, not random kill commentary:
- // the player LEFT a live objective to chase a weak enemy and died.
- // It should actually be reported when earned, not lost in random selection.
+ // This joke is supported by the server's actual objective-chase evidence.
  if(event.abandonedCaptureCircle)
    return {text:`${v} doesn't know how to stand in a circle`,kind:'sword'};
  const standout=exceptional.length?pick([...exceptional,null,null],event):null;
@@ -89,12 +80,14 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  // These are deliberately rare: otherwise the chronicler's self-awareness and
  // personal insults would drown out the mechanics of each weapon.
  const rare=[
+   `${v} couldn't make it to the restroom in time`,
    `${v}! You made it onto here!`,
    ...(!/^squire\b/i.test(v)?[`${v} is actually a squire in disguise`]:[]),
    `${v} is wondering why this message is being shown`,
    ...(mode==='RENOWN_TRIALS' ? [`${v} confused being bad with being remembered`] : []),
    ...(mode==='EDGE_OF_VICTORY' ? [`${v} will NOT be bouncing back`] : []),
    ...(!['RENOWN_TRIALS','EDGE_OF_VICTORY'].includes(mode)?[`${v} will take this personally`]:[]),
+
  ];
  const aside=source==='sword'&&!event.killContext?pick([...Array(70).fill(null),...rare],event):null;
  if(aside)return {text:aside,kind:'sword'};
@@ -114,11 +107,14 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    // The physical bolt gag is common; the musical allusion is a rare
    // extra, not a constant wink outside Castleward's fiction.
    `${v} stuck around for ${k}`,
-   `${v} missed the point of ${apostrophe(k)} ballista`,
+   `${k} got through ${v}`,
+   `${v} bolted away from ${k}`,
    `${v} stuck around for ${k}`,
-   `${k} made a point of hitting ${v}`,
+   `${k} got through ${v}`,
+   `${v} bolted away from ${k}`,
    `${v} stuck around for ${k}`,
-   `${v} missed the point of ${apostrophe(k)} ballista`,
+   `${k} got through ${v}`,
+   `${v} bolted away from ${k}`,
    `${k} gave ${v} a bad name`,
    `Why did ${apostrophe(k)} ballista bolt kill you, ${v}?`,
  ],event,'sword');
@@ -135,7 +131,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  ],event,'sword');
  if(source==='so-fist-flick')return text([
    `${k} showed ${v} the door`,
-   `${k} barely lifted a finger to defeat ${v}`,
+   `${v} fainted at ${apostrophe(k)} accusation`,
    `${k} gave ${v} the finger`,
  ],event,'sword');
  if(source==='so-fist')return text([
@@ -147,6 +143,8 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  if(source==='knock-on-steel')return text([
    `${k} ran through ${v}`,
    `${v} stood in the way of ${apostrophe(k)} battering ram`,
+   `${k} taught ${v} not to stand in the way of a battering ram`,
+   `${k} assaulted ${v} and no longer has battery`,
    `${k} was charged with assault and battery against ${v}`,
  ],event,'sword');
  if(source==='ram')return text([
@@ -208,6 +206,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  if(source==='gauntlet')return {text:`${k} laid ${v} low with a gauntlet`,kind:'sword'};
  if(source==='line_of_conduct')return text([
    `${k} conducted ${v} out of the battle`,
+   `${v} was stunned`,
    `${v} had a fork stuck in the wrong place`,
    `${v} displayed shocking conduct`,
    ...(event.steeled?[`${v} believed their armor would insulate them`]:[]),
@@ -221,6 +220,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${k} slew ${v}`,
    `${v} bowed down out of sudden respect for ${k}`,
    `${v} misremembered how sharp ${apostrophe(k)} blades were`,
+   `${v} was defeated by ${apostrophe(k)} not-so-secret weapon`,
    `${k} caused ${v} to lay down arms`,
  ],event,'sword');
  return {text:`${k} slew ${v}`,kind:'sword'};
