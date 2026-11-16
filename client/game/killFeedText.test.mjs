@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
 
 const death=(source,killContext=null,at=12.25)=>({
  type:'death',source,killerId:'A',victimId:'B',at,...(killContext?{killContext}:{})
@@ -284,4 +284,16 @@ test('an actual Squire is never called a secret squire',()=>{
  const knight=new Set(Array.from({length:9000},(_,i)=>
    killFeedDeath(death('sword',null,i/30),'Rowan','Knight Perry').text));
  assert.ok(knight.has('Knight Perry is actually a squire in disguise'));
+});
+
+test('a generic multi-assist gag cannot erase an earned weapon finisher or tactical insult',()=>{
+ for(const source of ['one_hit_of_wonders','one_hit_ground_fire','fight-flight-rotor','bibye-siege','so-fist-flick','abyss'])
+  assert.equal(allowsSharedHeroEpitaph({source,damageContributors:['a','b']}),false,source);
+ for(const context of ['chivalry','sunder','disaster-ground-slam','disaster-windblade','disaster-terminal-fire'])
+  assert.equal(allowsSharedHeroEpitaph({source:'sword',killContext:context}),false,context);
+ for(const [flag,value] of [['abandonedCaptureCircle',true],['guardWouldSave',true],
+   ['extremeOverkill',true],['sameKillerDeaths',3]])
+  assert.equal(allowsSharedHeroEpitaph({source:'sword',[flag]:value}),false,flag);
+ for(const source of ['sword','fireball','burn','frostfire','gale','gauntlet','ram'])
+  assert.equal(allowsSharedHeroEpitaph({source}),true,source+' supports ordinary genuine group-assist narration');
 });
