@@ -1,8 +1,8 @@
 # For Argon: one revision request after 8916d5bd (2026-11-16)
 
 `8916d5bd` stays a candidate. It isn't going into the game as it is. Draft PR #503 (not merged, not shipping)
-proposes `de8c8655` with corrected gauntlet weights (`6df6c4db`): every clip, mesh, bind and joint byte is yours, and
-only the weights change (§2). Make the changes below in **one new revision**, starting from `8916d5bd`.
+proposes `de8c8655` with corrected gauntlet and shoulder weights (`d0e390b7`): every clip, mesh, bind and joint byte
+is yours, and only the weights change (§2, §8). Make the changes below in **one new revision**, starting from `8916d5bd`.
 
 Clips are 30 fps, frames 0-based (`time × 30`). "Grip" means the sword hand's relation to the forearm in `Idle` f0, the
 hold every cut starts from. Every number here is measured on the GLB, and the tools are named so you can re-measure.
@@ -143,10 +143,11 @@ three ticks (0.1 s), a still pose. A `Slash_3_to_2` bridge would remove it.
 
 ## 8. The shoulder, the elbow and first person
 
-- **The shoulder:** over the played frames, the shoulder (`Pauldron.R` and the Breastplate's shoulder) stretches past
-  1.5× in 26% and folds under 0.6× in 30%. Worst: 2.5× in the Lightning arrival, 0.08× in `Slash_2_to_3` f4.
-  `Pauldron.R` is skinned 0.72 pauldron / 0.28 clavicle across the plate; weight it wholly to `pauldron.R`, since the
-  game turns that bone itself, and give the Breastplate's shoulder plates their own mean weights, as in §2.
+- **The shoulder:** in de8c8655 both shoulders stretched past 1.5× in 79% of played poses and folded under 0.6× in
+  73% (worst 3.2× and 0.08×). The proposed file now gives the six shoulder plates their own mean weights, as in §2: both
+  pauldrons' plates and pads, and the Breastplate's two shoulder yokes. With that, no shoulder plate stretches or folds
+  in any played pose. Put the same weights in the source. What remains is the right yoke parting from the chest shell
+  by up to 5.8 cm (`GuardCut_1`); a yoke modelled to tuck under the shell's edge would hide it.
 - **The elbow:** the pieces the elbow cop holds fold under 0.6× in 69% of played frames (offline, before the game's
   cop drive). In Castleward they are most of what still tears on the arm. Worst at `Technique_RigidRiposte_Thrust`
   0.03 s. Make the elbow's plates whole, with only the padding between them blended.

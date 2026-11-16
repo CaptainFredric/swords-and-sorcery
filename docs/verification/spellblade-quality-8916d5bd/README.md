@@ -2,12 +2,38 @@
 
 Draft PR #503, stacked on draft #502. No merge, no deploy.
 
-**What this PR changes in the game:** only the third-person model's gauntlet skin weights. The proposed file,
-`6df6c4db`, is `de8c8655` byte for byte apart from four accessors: `Gauntlet.L/.R` `JOINTS_0` and `WEIGHTS_0`
+**What this PR changes in the game:** only the third-person model's skin weights on the sword arm's armour, gauntlets
+and shoulders. The proposed file, `d0e390b7`, is `de8c8655` byte for byte apart from the `JOINTS_0` and `WEIGHTS_0` of
+five meshes: `Gauntlet.L/.R`, `Pauldron.L/.R` and the Breastplate's two shoulder yokes
 (`scripts/spellblade-audit/skin-identity.mjs`). Every clip, vertex, bind and joint is unchanged, and so is the first
-person (`80de8aee`). Argon's `8916d5bd` stays a candidate (`CANDIDATE-8916D5BD.md`).
+person (`80de8aee`). Argon's `8916d5bd` and Hydrogen's vNext stay candidates (`CANDIDATE-8916D5BD.md`,
+`VNEXT-EVALUATION.md`).
 
-This is a targeted improvement to one defect. It doesn't fix the character: §3 lists what still looks wrong.
+This is a targeted improvement to two defects, the tearing gauntlets and the tearing shoulders. It doesn't fix the
+character: §3 lists what still looks wrong.
+
+### The shoulders (added after vNext showed the region could be fixed by weights alone)
+
+The same whole-plate rule (`scripts/spellblade-reweight-gauntlet.mjs`, on by default; `--no-shoulders` leaves them as
+delivered) is applied to six shoulder plates:
+- both pauldrons' plates and pads (pauldron 0.93–0.95, clavicle 0.05–0.07);
+- the Breastplate's two shoulder yokes (chest 0.44, clavicle 0.36, upper arm 0.19).
+
+The torso shells, which bend at the waist on purpose, are left as delivered.
+
+Over every played pose (`scripts/spellblade-audit/shoulder-exposure.mjs`, both shoulders, pose for pose against
+production):
+
+| Shoulders | Stretched >1.5× | Folded <0.6× | Pieces further apart than production (median / p90 / worst) |
+|---|---|---|---|
+| Production | 79.3% (worst 3.2×) | 73.4% (worst 0.08×) | — |
+| **Proposed `d0e390b7`** | **0%** | **0%** | 1.0 / 3.1 / 5.8 cm (the right yoke and the chest shell, `GuardCut_1`) |
+| Hydrogen's vNext | 0% | 0% | 1.0 / 4.7 / 10.6 cm |
+
+In Castleward (`evidence/shoulder-503-before-after.jpg`; rows: #503 before the shoulder pass, then after):
+- no pauldron or breastplate edge is flagged in the chain or in Guard;
+- the arm's worst stretch drops from 2.3× to 1.45× in the chain and from 3.95× to 1.57× in Guard;
+- no gap shows at the yoke from the front or the side.
 
 ## 1. The sword arm that tears into a jagged mass
 
@@ -45,7 +71,7 @@ frame, plus 31 crossfades: 1,610 poses):
 | Sword hand | Plates stretched past 2× | Plates folded under ½ | Neighbouring pieces further apart than production |
 |---|---|---|---|
 | Production `de8c8655` | 96.7% of poses (median 4.6×) | 96.4% | — |
-| **Mean plates (proposed, `6df6c4db`)** | **0%** | **12.5%** | median **3.9 cm**, p90 4.9 |
+| **Mean plates (proposed, `d0e390b7`)** | **0%** | **12.5%** | median **3.9 cm**, p90 4.9 |
 | Rigid plates (the earlier `d4889a8a`) | 0% | 12.5% | median 8.8 cm, p90 11.0: the fist parts from the cuff |
 | Rigid, with the cuff as a ramp | 96.5% (median 2.8×) | — | median 4.7 cm |
 
@@ -60,7 +86,7 @@ this replaces the rigid `d4889a8a` this PR first proposed. The left gauntlet: no
 | Hand plates | 18% / 96% | **0% / 15%** |
 | Vambrace | 0% / 0% | 0% / 0% |
 | Elbow | 11% / 69% | unchanged (§3) |
-| Shoulder | 26% / 30% | unchanged (§3) |
+| Shoulder | 26% / 30% | **0% / 0%** (the shoulder pass, above) |
 
 **Sword and crossfades.**
 - No plate of the sword hand enters the blade in any played frame.
@@ -77,7 +103,7 @@ this replaces the rigid `d4889a8a` this PR first proposed. The left gauntlet: no
 | Guard | 9.5× | 4.1× |
 | Running chain | 8.2× | 2.3× |
 
-The remainder is the elbow and shoulder. Side by side (`evidence/three-way-arm.jpg`; rows: production, rigid, mean):
+The remainder is the elbow (and, before the shoulder pass, the shoulder). Side by side (`evidence/three-way-arm.jpg`; rows: production, rigid, mean):
 - **production** folds the gauntlet into a wedge;
 - **rigid** opens a gap under the fist;
 - **mean** keeps the cuff against the fist.
@@ -90,6 +116,7 @@ with the sidecar's techniques and the crossfades:
 - folds under ½ in ≤ 15% of sword-hand poses (production: 96%);
 - no sword-hand plate in the blade;
 - neighbouring pieces part no further than today (sword hand ≤ 21 cm, magic hand ≤ 15.5 cm, against bind);
+- no pauldron or shoulder-yoke plate stretched past 1.05× or folded under 0.6× in any played frame or crossfade;
 - re-applying the correction changes nothing.
 
 Production fails the stretch and fold checks.
@@ -127,7 +154,7 @@ blocker (`ARGON-REQUEST.md` §1).
 - **Folding.** The hand plates fold in 15% of played frames, mostly Rigid Riposte's thrust and the interrupted Whirl.
 - **The elbow** folds in 69% of played frames offline. The game drives its cop at runtime, but in the in-game stills
   the remaining torn edges are mostly the elbow pieces.
-- **The shoulder** (`Pauldron.R` and the Breastplate's shoulder): stretched in 26% of frames, folded in 30%.
+- **The shoulder** is fixed in this PR (above); what remains there is the yoke parting from the chest shell, up to 5.8 cm.
 - **First person** (`80de8aee`, unchanged): same gradient pattern, milder (1.8× worst).
 - **Animation, separate from this patch:** the backhand's thrown-back follow-through, the sideways chop, square
   forehand hips, gliding feet.

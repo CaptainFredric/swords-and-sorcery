@@ -79,8 +79,8 @@ It's compatible: 66 joints, the same binds and sockets, plus one new clip, `Slas
 it needs the chain re-timed in code.
 
 Two of its gains are separable and worth having:
-- **the shoulder weights**, which #503's whole-plate rule could apply to `Pauldron.L/.R` and the Breastplate's
-  shoulder plates;
-- **its first-person arm.**
+- **the shoulder:** now taken into PR #503 by its own whole-plate rule, not vNext's file. No shoulder plate stretches
+  or folds, and the pieces part less than vNext's (worst 5.8 cm against 10.6).
+- **its first-person arm:** not yet taken.
 
-Keep PR #503 independent of it.
+PR #503 stays independent of vNext.

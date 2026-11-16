@@ -15,6 +15,8 @@ directly, or real Blender in the case of the `.py` files, and changes nothing.
 | `gauntlet-integrity.mjs model.glb [--all]` | Both gauntlets, every frame of the played clips (sidecar techniques composed) and the crossfades: plate stretch and fold, how far neighbouring pieces part, plates inside the blade |
 | `gauntlet-exposure.mjs reference.glb model.glb …` | How often, pose for pose against a reference, a gauntlet stretches, folds or parts (what a player keeps seeing, not the worst frame) |
 | `arm-regions.mjs model.glb …` | The sword arm by region (shoulder, elbow, cuff and band, hand plates, vambrace): how often each stretches or folds |
+| `mesh-pieces.mjs model.glb Mesh` | A mesh's connected pieces with their mean weights and how much those vary across each piece |
+| `shoulder-exposure.mjs reference.glb model.glb` | The shoulders over every played pose, against a reference: plates stretched or folded, pieces parting (across meshes) |
 | `played-clips.mjs` | Which clips the client names (played) and which it never does (archive) |
 | `wrist-pivot-experiment.mjs` | Where the sword hand should pivot: with the sword held exactly, the wrist bend left with the elbow moved, or with the pivot at the anatomical wrist, and whether the arm can reach |
 | `grip-axis.mjs model.glb` | How much of the hand's turn into each grip is about the sword's grip axis |

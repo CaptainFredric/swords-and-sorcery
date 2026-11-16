@@ -1,4 +1,4 @@
-// The gauntlets hold together in everything the game plays: every frame of every clip, the motion sidecar's
+// The gauntlets and shoulders hold together in everything the game plays: every frame of every clip, the motion sidecar's
 // techniques composed as the client composes them, and the crossfades between clips.
 //
 // The defect this guards (2026-11-16, reproduced in Castleward with scripts/spellblade-pose-gallery-browser.mjs): the
@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { gauntletIntegrity } from '../../scripts/lib/gauntletIntegrity.mjs';
 import { gameModel, TRANSITIONS } from '../../scripts/spellblade-audit/gauntlet-integrity.mjs';
 import { reweightGauntlets } from '../../scripts/spellblade-reweight-gauntlet.mjs';
+import { shoulderPlates } from '../../scripts/lib/shoulderPlates.mjs';
 
 const path = new URL('../../client/assets/characters/spellblade/spellblade.glb', import.meta.url).pathname;
 const [model, { clips: played }] = gameModel(path);
@@ -78,7 +79,16 @@ test('neighbouring gauntlet pieces part no further than they do today (the wrist
   assert.ok(worst('L') <= 15.5, `magic hand: neighbouring pieces part ${worst('L').toFixed(1)} cm`);
 });
 
-test('the gauntlet plates are weighted as whole plates: re-applying the correction changes nothing', () => {
+test('the shoulders hold: no pauldron or shoulder-yoke plate stretched or folded in any played frame or crossfade', () => {
+  // (de8c8655's own weights: the shoulder stretched past 1.5x in 79% of played poses and folded under 0.6x in 73%,
+  // 3.2x and 0.08x at worst; scripts/spellblade-audit/shoulder-exposure.mjs)
+  const plates = shoulderPlates(model);
+  const bad = [];
+  for (const [label, layers] of poses(played)) { const [lo, hi] = plates(layers); if (hi > 1.05 || lo < 0.6) bad.push(`${label} ${lo.toFixed(2)}..${hi.toFixed(2)}`); }
+  assert.deepEqual(bad.slice(0, 5), []);
+});
+
+test('the gauntlet and shoulder plates are weighted as whole plates: re-applying the correction changes nothing', () => {
   // (a revision from Argon that brings back the per-plate gradients fails here; the script says what to fix)
   const bytes = readFileSync(path);
   const { bytes: again } = reweightGauntlets(bytes);

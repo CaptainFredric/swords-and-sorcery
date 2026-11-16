@@ -29,7 +29,7 @@ import { createHash } from 'node:crypto';
 export const HAND_LOW = 0.12;
 export const HAND_HIGH = 0.6;
 
-export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform', keep = [], plates = 'mean', handMode = 'rigid' } = {}) {
+export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform', keep = [], plates = 'mean', handMode = 'rigid', shoulders = true } = {}) {
   const out = Buffer.from(bytes);
   const jsonLength = out.readUInt32LE(12);
   const gltf = JSON.parse(out.subarray(20, 20 + jsonLength).toString('utf8'));
@@ -148,7 +148,54 @@ export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform'
       }
     }
   }
+  if (shoulders) report.push(...reweightShoulders(out, gltf, binStart, jointName));
   return { bytes: out, report };
+}
+
+// The shoulder, by the same rule (on by default; --no-shoulders leaves it as delivered): each hard plate of
+// Pauldron.L/.R (the pauldron and the pad under it) and each Breastplate piece that mostly rides the shoulder (the two
+// yokes, where clavicle, pauldron and upper arm hold at least 30%) takes its own mean weights, the same on every
+// vertex. The torso shells (chest, spine, pelvis) bend at the waist on purpose and are left as delivered.
+export const SHOULDER_SHARE = 0.3;
+function reweightShoulders(out, gltf, binStart, jointName) {
+  const report = [];
+  const shoulderBone = (name) => /^(clavicle|upper_arm|pauldron)\.[LR]$/.test(name);
+  for (const mesh of gltf.meshes) {
+    if (!['Pauldron.L', 'Pauldron.R', 'Breastplate'].includes(mesh.name)) continue;
+    for (const prim of mesh.primitives) {
+      const view = (k) => { const a = gltf.accessors[prim.attributes[k]]; const v = gltf.bufferViews[a.bufferView]; return { a, base: binStart + (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride }; };
+      const P = view('POSITION'), J = view('JOINTS_0'), W = view('WEIGHTS_0');
+      if (W.a.componentType !== 5126 || J.a.componentType !== 5123 || W.stride || J.stride) throw new Error(`${mesh.name}: expected packed float weights and ushort joints`);
+      const ia = gltf.accessors[prim.indices], iv = gltf.bufferViews[ia.bufferView], ibase = binStart + (iv.byteOffset ?? 0) + (ia.byteOffset ?? 0);
+      const readIndex = (k) => (ia.componentType === 5125 ? out.readUInt32LE(ibase + k * 4) : ia.componentType === 5123 ? out.readUInt16LE(ibase + k * 2) : out.readUInt8(ibase + k));
+      const n = P.a.count;
+      const pos = (v, c) => out.readFloatLE(P.base + v * 12 + c * 4);
+      const jt = (v, c) => out.readUInt16LE(J.base + v * 8 + c * 2);
+      const wt = (v, c) => out.readFloatLE(W.base + v * 16 + c * 4);
+      const parent = Array.from({ length: n }, (_, i) => i);
+      const find = (x) => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
+      const join = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
+      for (let k = 0; k < ia.count; k += 3) { join(readIndex(k), readIndex(k + 1)); join(readIndex(k + 1), readIndex(k + 2)); }
+      const at = new Map();
+      for (let v = 0; v < n; v += 1) { const key = `${pos(v, 0).toFixed(5)},${pos(v, 1).toFixed(5)},${pos(v, 2).toFixed(5)}`; if (at.has(key)) join(v, at.get(key)); else at.set(key, v); }
+      const pieces = new Map();
+      for (let v = 0; v < n; v += 1) { const r = find(v); if (!pieces.has(r)) pieces.set(r, []); pieces.get(r).push(v); }
+      for (const verts of pieces.values()) {
+        const sum = new Map();
+        let total = 0, shoulder = 0;
+        for (const v of verts) for (let c = 0; c < 4; c += 1) { const w = wt(v, c); if (!w) continue; const j = jt(v, c); sum.set(j, (sum.get(j) ?? 0) + w); total += w; if (shoulderBone(jointName[j])) shoulder += w; }
+        if (mesh.name === 'Breastplate' && shoulder < SHOULDER_SHARE * total) continue;
+        const mean = [...sum].sort((a, b) => b[1] - a[1]).slice(0, 4).filter(([, w]) => w / verts.length > 0.005);
+        const norm = mean.reduce((s, [, w]) => s + w, 0);
+        for (const v of verts) {
+          const four = [...mean.map(([j, w]) => [j, w / norm]), [0, 0], [0, 0], [0, 0], [0, 0]].slice(0, 4);
+          four.forEach(([j, w], c) => { out.writeUInt16LE(w ? j : 0, J.base + v * 8 + c * 2); out.writeFloatLE(w, W.base + v * 16 + c * 4); });
+        }
+        report.push({ mesh: mesh.name, vertices: verts.length, rule: `one plate, its mean: ${mean.map(([j, w]) => `${jointName[j]} ${(w / verts.length).toFixed(2)}`).join(' + ')}` });
+      }
+    }
+  }
+  return report;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -159,7 +206,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const source = readFileSync(input);
   const wristAt = args.indexOf('--wrist');
   const keepAt = args.indexOf('--keep');
-  const { bytes, report } = reweightGauntlets(source, { sides, wrist: wristAt >= 0 ? args[wristAt + 1] : 'uniform', keep: keepAt >= 0 ? args[keepAt + 1].split(',') : [], plates: args.includes('--plates') ? args[args.indexOf('--plates') + 1] : 'mean', handMode: args.includes('--hand') ? args[args.indexOf('--hand') + 1] : 'rigid' });
+  const { bytes, report } = reweightGauntlets(source, { sides, wrist: wristAt >= 0 ? args[wristAt + 1] : 'uniform', keep: keepAt >= 0 ? args[keepAt + 1].split(',') : [], plates: args.includes('--plates') ? args[args.indexOf('--plates') + 1] : 'mean', handMode: args.includes('--hand') ? args[args.indexOf('--hand') + 1] : 'rigid', shoulders: !args.includes('--no-shoulders') });
   writeFileSync(output, bytes);
   const sha = (b) => createHash('sha256').update(b).digest('hex');
   console.log(`${input} ${sha(source).slice(0, 12)} -> ${output} ${sha(bytes).slice(0, 12)} (${bytes.length} bytes, unchanged length: ${bytes.length === source.length})`);
