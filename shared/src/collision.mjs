@@ -103,6 +103,27 @@ function orientedBodyPush(box, x, z, radius, low, high) {
   return{x:x+n[0]*push,z:z+n[1]*push};
 }
 
+/**
+ * The underside of a solid that a body rising from `fromTop` to `toTop` (the top of its head) runs into from below, over
+ * its footprint: the lowest such underside, or null. resolvePlayerWorld only resolves across the ground, so a head that
+ * rose into a lintel was found inside it on the next step and thrown out through its nearest side (1.15 m in a tick
+ * under Castleward's gate arch). Walls are not ceilings: a body beside one already reaches above its base. Axis-aligned
+ * solids only (an oriented solid has no level underside to stop under).
+ */
+export function ceilingAbove(position, radius, solids, fromTop, toTop) {
+  let lowest = null;
+  for (const box of solids) {
+    if (box.axes) continue;
+    const { min, max } = bounds(box);
+    if (fromTop > min[1] + 1e-6 || toTop <= min[1]) continue;
+    const dx = position.x - Math.max(min[0], Math.min(position.x, max[0]));
+    const dz = position.z - Math.max(min[2], Math.min(position.z, max[2]));
+    if (dx * dx + dz * dz >= radius * radius) continue;
+    if (lowest === null || min[1] < lowest) lowest = min[1];
+  }
+  return lowest;
+}
+
 export function resolvePlayerWorld(position, radius, solids, height = 1.8) {
   let x = position.x;
   let z = position.z;
