@@ -10,6 +10,7 @@
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
 //        [--glb model.glb]  serve that third-person model in place of the installed one (a candidate, or a baseline)
+//        [--close]  the camera 1.6 m off his sword side, the sword arm and wrist filling the frame
 //        [--clear-view]  the recording browser's own first-person arms hidden (to see the watched knight's whole blade)
 //
 // Sheets need ImageMagick (magick); frames are kept either way. (It runs on a checkout without the techniques too:
@@ -147,8 +148,12 @@ try {
       const p = rt.localAuth.position;
       // (off the knight's left side and a little ahead, looking back across him: the cut read side-on, the lunge along it)
       const lunge = ${scenario.startsWith('riposte')};
-      const c = { x: p.x - r.x * (lunge ? 4.4 : 3.0) + f.x * (lunge ? 2.6 : 1.5), y: p.y + (lunge ? 2.3 : 1.7), z: p.z - r.z * (lunge ? 4.4 : 3.0) + f.z * (lunge ? 2.6 : 1.5) };
-      const aim = { x: p.x + f.x * (lunge ? 2.4 : 0.5), y: p.y + ${scenario === 'whirl-gale' || scenario === 'riposte-air' ? 2.6 : 1.05}, z: p.z + f.z * (lunge ? 2.4 : 0.5) };
+      // (--close: off his sword side and ahead, 1.6 m away at chest height, the sword arm and wrist filling the frame)
+      const close = ${flag('--close')};
+      const c = close ? { x: p.x + r.x * 1.25 + f.x * 1.0, y: p.y + 1.45, z: p.z + r.z * 1.25 + f.z * 1.0 }
+        : { x: p.x - r.x * (lunge ? 4.4 : 3.0) + f.x * (lunge ? 2.6 : 1.5), y: p.y + (lunge ? 2.3 : 1.7), z: p.z - r.z * (lunge ? 4.4 : 3.0) + f.z * (lunge ? 2.6 : 1.5) };
+      const aim = close ? { x: p.x + r.x * 0.25, y: p.y + 1.2, z: p.z + r.z * 0.25 }
+        : { x: p.x + f.x * (lunge ? 2.4 : 0.5), y: p.y + ${scenario === 'whirl-gale' || scenario === 'riposte-air' ? 2.6 : 1.05}, z: p.z + f.z * (lunge ? 2.4 : 0.5) };
       rt.flyPose = { position: c, yaw: Math.atan2(-(aim.x - c.x), -(aim.z - c.z)), pitch: Math.atan2(aim.y - c.y, Math.hypot(aim.x - c.x, aim.z - c.z)) };
       rt.syncInspection();
       rt.setInspectionUiMode(${size.mobile} ? 'gameplay' : 'clean');

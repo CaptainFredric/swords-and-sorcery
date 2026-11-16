@@ -1,50 +1,71 @@
 # For Argon: one revision request after 8916d5bd (2026-11-16)
 
-`8916d5bd` stays a candidate. It isn't going into the game as it is. The game now ships `de8c8655` with corrected
-gauntlet weights (`d4889a8a`): every clip, mesh, bind and joint byte is yours, and only the weights changed (§2). Make
-the changes below in **one new revision**, starting from `8916d5bd`.
+`8916d5bd` stays a candidate. It isn't going into the game as it is. Draft PR #503 (not merged, not shipping)
+proposes `de8c8655` with corrected gauntlet weights (`6df6c4db`): every clip, mesh, bind and joint byte is yours, and
+only the weights change (§2). Make the changes below in **one new revision**, starting from `8916d5bd`.
 
 Clips are 30 fps, frames 0-based (`time × 30`). "Grip" means the sword hand's relation to the forearm in `Idle` f0, the
 hold every cut starts from. Every number here is measured on the GLB, and the tools are named so you can re-measure.
 
 ## 1. The Blender source (blocking)
 
-Send the `.blend` your manifest names (`65ff5eb7…`). The game will open it in Blender, run Blender's own glTF exporter,
-and compare the result with your GLB: skeleton, binds, meshes, weights, and every clip's bone trajectories, which must
-agree within 1 mm and 0.5° (`scripts/spellblade-audit/blend_inspect_export.py`). A clip that agrees is accepted even if
-the bytes differ.
+The two eight-part `.blend`s in the Drive folder were received. They assemble to exactly your manifest's hashes:
+`65ff5eb7…` for 8916d5bd and `96440694…` for de8c8655. Opened in Blender 4.5.14, though, **neither is the source of its
+model.** Each holds:
 
-- **`reproduce_spellblade_from_blend.py` doesn't count:** it cuts a GLB appended to the end of the `.blend`
-  (`GLTF_SYNC_V1`), so it proves nothing about the scene.
-- **The only source we have, `a33f5a94`, isn't this model's source.** It has a 27-bone rig and 15 Actions, and
-  natively exported it breaks compatibility (28 joints against 66).
+- **an armature of 27 bones**, not the model's 66 (no fingers, elbow, knee or ankle cops, pauldrons or tabard
+  chain);
+- **meshes weighted to 22 groups**, and different helmet, crest and gauntlet objects from the ones exported;
+- **90 Actions, 75 of them empty:** no slot, no F-curves, no users. Walk, the bridges, the Disaster slams, the
+  techniques and 1H_Alt are names only;
+- **15 keyed Actions** on the 27-bone rig, which don't match your clips of the same names: the sword point is
+  0.6–3.1 m away.
+
+Blender's own exporter turns it into a 27-joint, 15-clip model that breaks compatibility in 163 places. The real model
+exists only as the GLB appended to the file, which `reproduce_spellblade_from_blend.py` cuts out.
+
+**Wanted:** the `.blend` you actually animate in, with:
+- the 66-joint rig and its weights;
+- the 90 keyed Actions;
+- the corrected gauntlet weights (§2);
+- no appended GLB.
+
+The game will export it with Blender's own exporter (`scripts/spellblade-audit/blend_inspect_export.py`) and compare
+skeleton, binds, meshes, weights and every clip's bone trajectories, which must agree within 1 mm and 0.5°. Byte
+identity isn't required.
 
 ## 2. Keep the corrected gauntlet weights
 
-The torn, jagged sword arm was the gauntlets' weights. Every plate of `Gauntlet.L/.R` was skinned with a soft
-forearm-to-hand gradient, so each one sheared whenever the wrist bent: edges reached 5.2× their length in `Slash_1` f8,
-8.6× in `Guard` f12 and 9.5× in `Rigid_Riposte_Air_Dash_Thrust` f8. The game's file now has:
+The torn, jagged sword arm was the gauntlets' weights. Every hard plate of `Gauntlet.L/.R` was skinned with a gradient
+across itself, so each one sheared whenever the wrist bent. Edges reached 5.2× their length in `Slash_1` f8 and 9×
+over the clips the game plays: stretched past 2× in 96.7% of played poses.
 
-- the vambrace and its band 100% `forearm`;
-- the back of the hand and the knuckle plates 100% `hand`;
-- the wrist cuff (648 vertices) and the wrist band (200 / 204) each one uniform blend across the whole piece (cuff
-  0.17 hand, band 0.51 / 0.52 hand);
-- the palm's forearm share moved to the hand, the finger lames unchanged.
+The proposed file gives **each hard plate its own mean weights, the same on every vertex.** For example:
+- the cuff forearm 0.83 / hand 0.17;
+- the wrist band 0.49 / 0.51;
+- the palm 0.43 / 0.40 / finger 0.17;
+- the back-of-hand plates hand 0.88–0.93.
+
+Each plate keeps the average motion you gave it but can't shear inside itself. The finger lames and the elbow pieces
+are unchanged. Over the played poses: no stretching, folding down from 96% to 12.5%.
 
 The script is `scripts/spellblade-reweight-gauntlet.mjs`. Put the same weights in the source. The test
 `server/tests/spellblade-gauntlet-plates.test.mjs` fails any revision that brings the gradients back.
 
 ## 3. The sword wrist: rig and clips
 
-The weights stop the tearing, but the wrist can't look right while these two problems remain.
+The weights stop the tearing, but the wrist can't look right yet: neighbouring gauntlet pieces still part, a median
+3.9 cm further than they used to sit.
 
-**The pivot.** `hand.R` sits on the grip, about 15 cm past the anatomical wrist. Along the forearm from elbow (0) to
-the `hand.R` joint (1): the cuff spans 0.53–0.78 and the fist 0.60–1.10. So every wrist bend swings the whole fist
-round the grip. Either:
+**The pivot stays.** `hand.R` sits on the grip, about 15 cm past the anatomical wrist (cuff at 0.53–0.78 of the
+forearm, fist 0.60–1.10), so a wrist bend swings the fist round the grip. We tested moving it
+(`scripts/spellblade-audit/wrist-pivot-experiment.mjs`), with the sword held exactly where every clip and the server put
+it. With the pivot at the anatomical wrist, the arm can reach only 11 of 392 played frames: the clips use the grip
+pivot's lever as reach. So **don't add a wrist bone and don't relocate `hand.R`.** Keep the 66 joints.
 
-- add a wrist bone at the anatomical wrist, with `hand.R` as its child. That's a deliberate 67th joint, and the game
-  will take it with its seat poses and compat check updated; or
-- re-pose the gauntlet in bind with the wrist bent as in the Idle grip, so the grip is the cuff's neutral pose.
+**Re-model the sword gauntlet's wrist in the grip pose instead.** Every grip holds the hand about 64° from bind, but the
+gauntlet is modelled straight. Model the cuff and wrist band to bridge the wrist as it's bent in `Idle` f0, and bind
+the gauntlet there, so the grip is the cuff's neutral pose. The cuts then deviate only 12–43° from it.
 
 **The clips.** Against the grip, the sword hand is anatomically impossible here (`REF_CLIP=Idle node scripts/spellblade-audit/wrist-anatomy.mjs <glb>`):
 
@@ -120,10 +141,15 @@ floats or buries by more than 15 cm whatever you do; the game, not the clip, own
 exactly (0 m), so keep them; the game will re-measure. After `Slash_3`, the rising chain shows `Slash_2` frame 0 for
 three ticks (0.1 s), a still pose. A `Slash_3_to_2` bridge would remove it.
 
-## 8. The shoulder and first person
+## 8. The shoulder, the elbow and first person
 
-- **The shoulder plate:** `Pauldron.R` is skinned 0.72 pauldron / 0.28 clavicle across the plate, and stretches
-  1.9–2.4× in `Slash_2_to_3` and `Slash_3`. Weight the plate wholly to `pauldron.R`; the game turns that bone itself.
+- **The shoulder:** over the played frames, the shoulder (`Pauldron.R` and the Breastplate's shoulder) stretches past
+  1.5× in 26% and folds under 0.6× in 30%. Worst: 2.5× in the Lightning arrival, 0.08× in `Slash_2_to_3` f4.
+  `Pauldron.R` is skinned 0.72 pauldron / 0.28 clavicle across the plate; weight it wholly to `pauldron.R`, since the
+  game turns that bone itself, and give the Breastplate's shoulder plates their own mean weights, as in §2.
+- **The elbow:** the pieces the elbow cop holds fold under 0.6× in 69% of played frames (offline, before the game's
+  cop drive). In Castleward they are most of what still tears on the arm. Worst at `Technique_RigidRiposte_Thrust`
+  0.03 s. Make the elbow's plates whole, with only the padding between them blended.
 - **First person:** keep `80de8aee` until a new first-person file arrives with the third-person one. Your manifest
   names `12c8c9e9`, but no file came. Its `Arm.R` has the same gradients (1.8× in `FP_Whirl_Wind` f16, 1.4× in
   `Slash_1` f12), so give its plates the same treatment.
@@ -136,5 +162,5 @@ three ticks (0.1 s), a still pose. A `Slash_3_to_2` bridge would remove it.
 
 ## Don't change
 
-The skeleton (except a wrist bone, if you choose it in §3), the sockets, the sword's skin and point, the material
+The skeleton (66 joints, `hand.R` where it is: §3), the sockets, the sword's skin and point, the material
 names, and every clip name. Keep the root unanimated. `scripts/spellblade-compat-check.mjs` has to print `compatible`.

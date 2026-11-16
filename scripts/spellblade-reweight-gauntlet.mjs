@@ -1,36 +1,35 @@
-// Rigid gauntlet plates for a Spellblade GLB: the skin-weight fix for the sword arm that crumples into a jagged mass.
+// Whole gauntlet plates for a Spellblade GLB: the skin-weight fix for the sword arm that tears into a jagged mass.
 //
 // The defect (measured: scripts/spellblade-arm-strain.mjs, seen in Castleward: scripts/spellblade-pose-gallery-browser.mjs):
-// the gauntlet's hard plates are weighted with soft forearm→hand gradients. The clips bend the sword hand 63-129° from
-// its bind pose (Idle 63°, Slash_1 75°, Slash_3 81°, Walk 129°; Guard also twists it 142°), and every plate with a
-// gradient shears along it: edges stretch to 5-9x their length and fold to a fifth, the cuff tears into a sliver over
-// the hilt and the vambrace opens.
+// the gauntlet's hard plates are weighted with soft gradients across each plate. Every played clip holds the sword hand
+// 60° or more from its bind pose (Idle 63°, Slash_1 75°, Run 125°; Guard also twists it 142°), so every plate shears
+// along its gradient: edges stretch to 5-9x and fold to a fifth, the cuff tears into slivers over the hilt.
 //
-// The fix, per connected piece of Gauntlet.L/.R (the mesh, the skeleton and every animation byte stay as they are):
-//   - a plate held almost wholly by the forearm (hand share ≤ HAND_LOW) is the forearm's alone (the vambrace, its band);
-//   - a plate held mostly by the hand (≥ HAND_HIGH) is the hand's alone (the back of the hand, the knuckle plates);
-//   - a plate between them (the wrist cuff, the wrist band) takes ONE share for all its vertices, the piece's own mean:
-//     it turns as one plate between the forearm and the fist instead of shearing along its gradient;
-//   - a piece with finger or thumb influence keeps it, its forearm share given to the hand (the palm, the lames);
-//   - the elbow pieces (elbow cop, upper arm) are left alone: the elbow cops are designed for them.
-// Only WEIGHTS_0 (and JOINTS_0 where a slot changes bone) of the two gauntlets change, in place, so the file keeps its
-// layout and every other byte.
+// The fix (default, --plates mean), per connected piece of Gauntlet.L/.R: each hard plate takes its OWN MEAN weights,
+// the same on every vertex. It follows the average motion it was delivered with, so it stays beside its neighbours as
+// it did, but it can no longer shear inside itself. Finger and thumb lames (no forearm share) keep their delivered
+// blend: they are articulated on purpose. The elbow pieces are left alone: the elbow cops are designed for them.
+// Only WEIGHTS_0 (and JOINTS_0 where a slot changes bone) of the two gauntlets change, in place: the mesh, the skeleton
+// and every animation byte stay as they are.
 //
-// Why the wrist plates are uniform (measured over all 90 clips, scripts/spellblade-audit/plate-folds.mjs):
-//   --wrist uniform (default): no edge past 1.08x; a plate can still fold where a clip twists the wrist beyond any
-//                              forearm (Walk, Run, Guard: §3 of the Argon request), but it never tears;
-//   --wrist rigid:             0.92-1.08x, but hand.R pivots on the grip ~15 cm past the wrist, so the fist visibly
-//                              comes away from the vambrace in Guard and Brake_Stop;
-//   --wrist graded:            a smooth ramp still has to span that gap: up to 4.8x in Walk.
+// The alternatives, measured pose for pose against production over everything the game plays (the played clips, the
+// sidecar's techniques and the crossfades: scripts/spellblade-audit/gauntlet-exposure.mjs), sword hand:
+//   production weights:       plates stretched past 2x in 96.7% of poses (median 4.6x)
+//   --plates mean (default):  no plate stretched; neighbouring pieces a median 3.9 cm (p90 4.9) further apart
+//   --plates rigid:           no plate stretched; pieces a median 8.8 cm (p90 11.0) further apart: the fist parts from
+//                             the cuff, because hand.R pivots on the grip ~15 cm past the wrist
+//   --plates rigid --wrist graded: the cuff becomes a stretched bridge (median 2.8x) and still parts 4.7 cm
+// No weighting closes the wrist: that needs the gauntlet re-modelled for the grip pose (ARGON-REQUEST.md §3).
 //
-//   node scripts/spellblade-reweight-gauntlet.mjs <in.glb> <out.glb> [--sides R,L] [--wrist uniform|rigid|graded] [--report]
+//   node scripts/spellblade-reweight-gauntlet.mjs <in.glb> <out.glb> [--plates mean|rigid] [--wrist uniform|half|rigid|graded]
+//        [--hand rigid|mean] [--keep forearm,hand,wrist,fingers] [--sides R,L] [--report]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 export const HAND_LOW = 0.12;
 export const HAND_HIGH = 0.6;
 
-export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform' } = {}) {
+export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform', keep = [], plates = 'mean', handMode = 'rigid' } = {}) {
   const out = Buffer.from(bytes);
   const jsonLength = out.readUInt32LE(12);
   const gltf = JSON.parse(out.subarray(20, 20 + jsonLength).toString('utf8'));
@@ -97,7 +96,23 @@ export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform'
         const total = f + h + fing + elb + other;
         if (elb > 0.02 * total || other > 0.02 * total || f + h === 0) continue; // elbow pieces, and anything not forearm/hand
         let rule;
-        if (fing > 0.02 * total) {
+        const handShare = h / (f + h);
+        const group = fing > 0.02 * total ? 'fingers' : handShare <= HAND_LOW ? 'forearm' : handShare >= HAND_HIGH ? 'hand' : 'wrist';
+        if (keep.includes(group)) {
+          report.push({ mesh: mesh.name, vertices: verts.length, before: { forearm: +(f / total).toFixed(2), hand: +(h / total).toFixed(2), fingers: +(fing / total).toFixed(2) }, rule: `kept as delivered (${group})` });
+          continue;
+        }
+        if (plates === 'mean') {
+          // Each plate takes its own mean weights, the same on every vertex: it follows the average motion it was
+          // delivered with (so it stays beside its neighbours as before), but can no longer shear along a gradient.
+          // Finger and thumb lames (no forearm share) keep their delivered blend: they are articulated on purpose.
+          if (fing > 0.02 * total && f <= 0.05 * total) { report.push({ mesh: mesh.name, vertices: verts.length, before: { forearm: +(f / total).toFixed(2), hand: +(h / total).toFixed(2), fingers: +(fing / total).toFixed(2) }, rule: 'finger lame, kept as delivered' }); continue; }
+          const sum = new Map();
+          for (const v of verts) for (let c = 0; c < 4; c += 1) { const w = wt(v, c); if (w) sum.set(jt(v, c), (sum.get(jt(v, c)) ?? 0) + w); }
+          const mean = [...sum].sort((a, b) => b[1] - a[1]).slice(0, 4).filter(([, w]) => w / verts.length > 0.005);
+          for (const v of verts) write(v, mean);
+          rule = `one plate, its mean: ${mean.map(([j, w]) => `${jointName[j]} ${(w / verts.length).toFixed(2)}`).join(' + ')}`;
+        } else if (fing > 0.02 * total) {
           rule = 'fingers kept, forearm share to the hand';
           for (const v of verts) {
             const m = new Map();
@@ -107,8 +122,10 @@ export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform'
         } else {
           const share = h / (f + h);
           if (share <= HAND_LOW) { rule = 'forearm'; for (const v of verts) write(v, [[forearm, 1]]); }
+          else if (share >= HAND_HIGH && handMode === 'mean') { rule = `hand plate, its mean: hand ${share.toFixed(2)}`; for (const v of verts) write(v, [[hand, share], [forearm, 1 - share]]); }
           else if (share >= HAND_HIGH) { rule = 'hand'; for (const v of verts) write(v, [[hand, 1]]); }
           else if (wrist === 'uniform') { rule = `one plate, hand ${share.toFixed(2)}`; for (const v of verts) write(v, [[forearm, 1 - share], [hand, share]]); }
+          else if (wrist === 'half') { rule = 'one plate, midway: forearm 0.5 + hand 0.5'; for (const v of verts) write(v, [[forearm, 0.5], [hand, 0.5]]); }
           else if (wrist === 'rigid') { rule = `wrist plate, rigid to the ${share < 0.5 ? 'forearm' : 'hand'} (hand share was ${share.toFixed(2)})`; for (const v of verts) write(v, [[share < 0.5 ? forearm : hand, 1]]); }
           else { rule = `wrist bridge, graded along the arm (hand share was ${share.toFixed(2)})`; wristPieces.push(verts); }
         }
@@ -141,7 +158,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sides = sidesAt >= 0 ? args[sidesAt + 1].split(',') : ['R', 'L'];
   const source = readFileSync(input);
   const wristAt = args.indexOf('--wrist');
-  const { bytes, report } = reweightGauntlets(source, { sides, wrist: wristAt >= 0 ? args[wristAt + 1] : 'uniform' });
+  const keepAt = args.indexOf('--keep');
+  const { bytes, report } = reweightGauntlets(source, { sides, wrist: wristAt >= 0 ? args[wristAt + 1] : 'uniform', keep: keepAt >= 0 ? args[keepAt + 1].split(',') : [], plates: args.includes('--plates') ? args[args.indexOf('--plates') + 1] : 'mean', handMode: args.includes('--hand') ? args[args.indexOf('--hand') + 1] : 'rigid' });
   writeFileSync(output, bytes);
   const sha = (b) => createHash('sha256').update(b).digest('hex');
   console.log(`${input} ${sha(source).slice(0, 12)} -> ${output} ${sha(bytes).slice(0, 12)} (${bytes.length} bytes, unchanged length: ${bytes.length === source.length})`);

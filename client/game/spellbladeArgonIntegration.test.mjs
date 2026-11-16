@@ -30,10 +30,10 @@ function inspect(file, expected, sha, count) {
 }
 
 test('Argon 90/25 production models are the exact reviewed bytes and inventories', () => {
-  // (d4889a8a: Argon's de8c8655 reconciliation, verified against his stated SHA-256, with only the gauntlets' skin
+  // (6df6c4db: Argon's de8c8655 reconciliation, verified against his stated SHA-256, with only the gauntlets' skin
   // weights corrected by scripts/spellblade-reweight-gauntlet.mjs: every clip, mesh, bind and joint byte is de8c8655's;
   // 90 clips with the one-handed Lightning arrival kept as a variation; first person 80de8aee, 25 clips, unchanged)
-  assert.equal(manifest.thirdPerson.sha256, 'd4889a8a9e0dd0eef0aa65f2b402fe6ab4c8b865f2e1b8aad7ba1e3c1853a0be');
+  assert.equal(manifest.thirdPerson.sha256, '6df6c4db2c8f4c9d3b2bfa3509ee2a60022f5aa65a5fcd88ac5ce06eea87d07f');
   assert.equal(manifest.firstPerson.sha256, '80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e');
   inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 90);
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);

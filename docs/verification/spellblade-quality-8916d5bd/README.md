@@ -1,217 +1,198 @@
-# Spellblade quality pass: Argon's 8916d5bd candidate, and the sword arm (2026-11-16)
+# Spellblade quality pass: the sword arm's gauntlet weights, and Argon's 8916d5bd (2026-11-16)
 
-Draft only: no merge, no deploy. Base: `main` `3d8300cf` (de8c8655 live) with draft PR #502's tests.
+Draft PR #503, stacked on draft #502. No merge, no deploy.
 
-**What this branch changes in the game:** the third-person model's gauntlet skin weights, and nothing else in it. The
-new file `d4889a8a` is `de8c8655` byte for byte apart from four accessors: `Gauntlet.L/.R` `JOINTS_0` and `WEIGHTS_0`
-(`scripts/spellblade-audit/skin-identity.mjs`). Every clip, mesh vertex, bind, joint and the first-person model
-(`80de8aee`) are untouched. Argon's `8916d5bd` stays a candidate (§3).
+**What this PR changes in the game:** only the third-person model's gauntlet skin weights. The proposed file,
+`6df6c4db`, is `de8c8655` byte for byte apart from four accessors: `Gauntlet.L/.R` `JOINTS_0` and `WEIGHTS_0`
+(`scripts/spellblade-audit/skin-identity.mjs`). Every clip, vertex, bind and joint is unchanged, and so is the first
+person (`80de8aee`). Argon's `8916d5bd` stays a candidate (`CANDIDATE-8916D5BD.md`).
 
-## 1. The arm that crumples and wraps round the sword
+This is a targeted improvement to one defect. It doesn't fix the character: §3 lists what still looks wrong.
 
-### Reproduced on main, in Castleward
+## 1. The sword arm that tears into a jagged mass
 
-`scripts/spellblade-pose-gallery-browser.mjs` records real Chrome in Castleward's inspection yard:
-- the attack started with a real key held;
-- the yard frozen through the game link, so the held key keeps driving it;
-- one 30 Hz tick at a time;
-- the knight as the game composes him, drawn by the game's renderer from the front, both sides, behind, beside the
-  sword arm, and in first person;
-- the skinned arm's surface measured on every tick.
+### Reproduced on main, and its cause
 
-| Scenario | Main: worst edge stretch, torn edges | Where |
-|---|---|---|
-| Chain | 5.5×, 1,441 | Slash_3 0.287 s; Slash_1 at 0.271 s: 5.24× |
-| Guard | 9.5×, 1,427 | Guard 1.674 s |
-| Running | 5.2×, 965 | Run |
-| Rigid Riposte | 5.3×, 1,110 | Interception 0.209 s |
-| Whirl | 4.3×, 545 | Revolution 0.136 s |
+In real Castleward (`scripts/spellblade-pose-gallery-browser.mjs`: the inspection yard, real input, one 30 Hz tick at
+a time), the sword gauntlet stretches to 5.5× in the chain, 9.5× in Guard and 8.4× when running. The cuff tears into
+slivers folded over the hilt.
 
-Close up (`evidence/arm-slash1-main-vs-corrected.jpg`, top row; `evidence/gauntlet-bind-vs-slash1-f8.jpg`): in Slash_1 the forearm balloons into a rounded mass. Later in the cut
-the cuff is sheared forward over the hilt as a tilted box in front of the fist: the "wrap round the sword". In Guard
-the gauntlet folds into a twisted sliver round the grip.
+The raw clips alone, with no game layers, give the same numbers (`scripts/spellblade-arm-strain.mjs`: Slash_1 f8,
+5.24×), so it isn't the game's composition. Three layers produce it:
 
-### Cause: three layers, each measured
+1. **Weights (the tearing).** Every hard plate of `Gauntlet.R` is skinned with a gradient across itself: the cuff
+   forearm 0.83 → hand 0.17, the wrist band 0.49/0.51, the palm 0.43/0.40/0.17 finger, the back-of-hand plates 7–12%
+   forearm.
+2. **Articulation.** `hand.R` pivots on the grip, about 15 cm past the anatomical wrist (cuff at 0.53–0.78 of the
+   forearm, fist 0.60–1.10, `hand.R` at 1). A wrist bend swings the whole fist round the grip.
+3. **Authored poses.** Every played clip holds the sword hand at least 60° from bind (Idle 63°). Run and Sprint
+   fold it about 125° and Guard twists it 142° (`scripts/spellblade-audit/wrist-anatomy.mjs`).
 
-1. **Skin weights (the tearing).** Every plate of `Gauntlet.R` is skinned with a soft forearm→hand gradient
-   (`scripts/spellblade-audit/gauntlet-anatomy.mjs`):
-   - the cuff (648 vertices) 0.83 / 0.17;
-   - the wrist band (200) 0.49 / 0.51;
-   - the palm (308) 0.43 forearm / 0.40 hand / 0.17 finger;
-   - the vambrace and the back-of-hand plates 3–12% of the other bone.
+The left gauntlet has the same weights, but its wrist bends only 16–25°.
 
-   With **the clips alone, no game layers** (`scripts/spellblade-arm-strain.mjs`), Slash_1 f8 gives exactly what
-   Chrome showed: 5.24×, 971 torn edges. So it is **not** the game's composition. The worst edges are always between a
-   [forearm 0.58 + hand 0.42] vertex and a [forearm 0.93 + hand 0.07] vertex. The left gauntlet has the same weights but
-   its wrist bends 16–25°, so it peaks at 1.6×.
-2. **Articulation (the swing).** `hand.R` sits on the grip about 15 cm past the anatomical wrist. Along the forearm
-   (elbow 0, `hand.R` 1) the cuff spans 0.53–0.78 and the fist 0.60–1.10. Every bend swings the whole fist round the
-   grip. Making the plates rigid exposes this as the fist coming away from the vambrace (`evidence/gauntlet-pieces-rigid-detaches.jpg`).
-3. **Authored hand transforms (the impossible wrist).** Against the forearm, measured about the forearm's own axis
-   (`scripts/spellblade-audit/wrist-anatomy.mjs`):
-   - **The cuts are fine.** Against the grip, Idle f0, they bend the wrist 12–35° and twist the forearm 13–70°.
-   - **Locomotion and defence aren't:**
-     - Walk folds the hand 111–123° from the grip, Run 106–111°, Sprint 89–99°, Brake_Stop up to 120°;
-     - Guard, Block_Impact and Rigid Riposte twist it 126–130°.
+### The correction
 
-     No wrist does either. Moving the elbow alone, with the sword kept exactly where it is, only gets Walk to 100°
-     (`scripts/spellblade-audit/arm-resolve-probe.mjs`), so this needs re-authoring.
+`scripts/spellblade-reweight-gauntlet.mjs` (default `--plates mean`) gives each hard plate its own mean weights, the
+same on every vertex:
+- **plates** still follow the average motion they were delivered with, but can no longer shear inside themselves;
+- **finger lames** keep their articulated blend;
+- **elbow pieces** are untouched.
 
-### The correction (mine): rigid gauntlet plates
+**Choosing it.** Over everything the game plays, pose for pose against production
+(`scripts/spellblade-audit/gauntlet-exposure.mjs`; the 48 played clips including the sidecar's techniques, every
+frame, plus 31 crossfades: 1,610 poses):
 
-`scripts/spellblade-reweight-gauntlet.mjs`, per connected piece of each gauntlet:
-- the vambrace and its band → forearm 100%;
-- the back of the hand and the knuckles → hand 100%;
-- the cuff and the wrist band → one uniform blend across each piece (it turns as one plate between forearm and fist);
-- the palm → its forearm share given to the hand, its finger share kept;
-- the elbow pieces untouched.
-
-Three wrist treatments were measured over all 90 clips (`scripts/spellblade-audit/plate-folds.mjs`):
-
-| Wrist treatment | Sword-arm plate edges, all 90 clips | What it does |
-|---|---|---|
-| As delivered | up to **9.5×** (Rigid_Riposte_Air_Dash_Thrust), down to 0.02× | tears |
-| **Uniform plates (chosen)** | up to **1.08×** | never tears; folds only where a clip turns the wrist past any forearm (layer 3) |
-| Rigid plates | 0.92–1.08× | the fist visibly detaches in Guard and Brake_Stop (layer 2) |
-| Graded ramp | up to 4.8× (Walk) | a ramp can't span the gap |
-
-In Castleward (the candidate's animation with these weights; the frozen-step stills):
-
-| Scenario | Worst stretch: as delivered → corrected |
-|---|---|
-| Chain | 8.0× → 3.6× |
-| Guard | 9.5× → 4.2× |
-| Running | 5.2× → 1.8× |
-| Riposte | 5.3× → 1.7× |
-| Whirl | 4.3× → 1.7× |
-
-What remains in those figures is the elbow pieces (left alone), the shoulder plate (§2) and wrist folding (layer 3).
-
-The model this branch installs, against production, both in Castleward (`d4889a8a` installed; `de8c8655` served
-with `--glb`):
-
-| Scenario | Production: worst stretch, torn or folded edges per tick | Corrected |
-|---|---|---|
-| Walking (W plays Run) | 8.4×, 616 | 1.53×, 238 |
-| Sprinting | 8.2×, 607 | 1.65×, 170 |
-| Sunder (brace and slams) | 5.7×, 680 | 3.8×, 328 |
-
-`evidence/walk-sprint-main-vs-corrected.jpg`: at that camera the difference is modest. Production's wrist shows
-angular tears where the cuff plates rip, clearest in the sprint frame; the corrected arm keeps whole plates. The edges
-that still count are folds (down to 0.17×): the locomotion clips turn the wrist beyond any forearm (layer 3).
-Side by side (`evidence/arm-slash1-main-vs-corrected.jpg`, `evidence/guard-main-vs-corrected.jpg`, `evidence/gauntlet-pieces-uniform.jpg`): the forearm runs straight into a
-whole cuff and fist on the grip, with nothing folded over the hilt.
-
-The guard is `server/tests/spellblade-gauntlet-plates.test.mjs`:
-- no clip stretches a sword-arm gauntlet plate past 1.15×;
-- re-applying the correction changes nothing, so a revision that brings the gradients back fails.
-
-**Still for Blender authoring (`ARGON-REQUEST.md` §3):** the wrist pivot, and the locomotion and guard clips' wrist.
-
-## 2. Remaining defects found on the way
-
-- **The shoulder plate:** `Pauldron.R` is skinned 0.72 pauldron / 0.28 clavicle. It reaches 1.9–2.4× in the raw
-  Slash_2_to_3 and Slash_3; in Castleward, 278–340 edges at Slash_3. For Argon (§8).
-- **First person** (`80de8aee`, kept as instructed): `Arm.R` has the same gradients, but its clips bend the wrist
-  less. It peaks at 1.8× (FP_Whirl_Wind f16) and 1.4× (Slash_1 f12). For Argon (§8).
-- **A still pose in the chain:** after Slash_3, the rising chain shows Slash_2 frame 0 for three ticks (0.1 s). It
-  happens on main and on the candidate.
-
-## 3. Argon's 8916d5bd: candidate, not adopted
-
-**Verified:**
-- 90 clips, compatible (`scripts/spellblade-compat-check.mjs`).
-- Geometry, skin weights, inverse binds, joints and rest skeleton byte-identical to `de8c8655`: 105 of 105 accessors
-  and structures. So no mesh defect is repaired by it.
-- 17 clips changed: the three cuts, the Alt cuts, the four bridges, the Disaster slams, Sunder and the 1H_Alt
-  arrival. Walk, Run, Sprint, Guard, Rigid Riposte, Whirl and the siege clips are untouched.
-
-| | `de8c8655` (main) | `8916d5bd` | Seen in Castleward |
+| Sword hand | Plates stretched past 2× | Plates folded under ½ | Neighbouring pieces further apart than production |
 |---|---|---|---|
-| Backhand follow-through | 137° | **82°** | **Worse to look at:** from 0.43 to 0.53 s the elbow holds at 30.2–31.3° and the blade-to-forearm angle at 75.4–76.1°. The arm locks straight out sideways at shoulder height and stops dead (`evidence/slash2-main-vs-8916.jpg`) |
-| Chop | 37° to the side of the aim | **−6°** | **Better:** a real descent in front of the body. Only −24° below the aim within 0.12 s (target −40°); the torso barely leans in (`evidence/slash3-main-vs-8916.jpg`) |
-| Forehand hips / shoulders | 3° / 44° | 8° / 44° | Still square |
-| Footwork | glides 43–93 cm per cut | **glides 21.6 cm, the other foot pinned** | **Synthetic:** the moving foot runs the same five frames (0.34 / 0.81 / 0.96 / 0.81 / 0.34 m/s, 1.4 cm lift) in all three cuts, tuned just under the old thresholds (4 cm, 1 m/s). The planted foot is pinned at 0.000 m/s while the pelvis travels 0.30 m and turns 32°, and the knee pops up to 43°/frame² (main ≤ 22) |
-| Sword-arm tearing (raw) | Slash_3 5.5× | Slash_3 **8.2×** | Worse (fixed by §1's weights either way) |
-| Slams above the floor | ground 21 / fast 22 / Steel 18, 17 / Sunder 7.7 / arrival 3.2 cm | **1.3–2.2 cm** all | Verified on flat ground. Low points moved (ground 0.967, fast 0.667, arrival 0.233 s) and the tip now lands 1.68–1.77 m ahead, up from 1.39 m |
-| Bridges | start 0.467, land 0.167 | start 0.533, land 0.133 | Land exactly; needs the game's timings re-measured |
+| Production `de8c8655` | 96.7% of poses (median 4.6×) | 96.4% | — |
+| **Mean plates (proposed, `6df6c4db`)** | **0%** | **12.5%** | median **3.9 cm**, p90 4.9 |
+| Rigid plates (the earlier `d4889a8a`) | 0% | 12.5% | median 8.8 cm, p90 11.0: the fist parts from the cuff |
+| Rigid, with the cuff as a ramp | 96.5% (median 2.8×) | — | median 4.7 cm |
 
-The footwork criterion was gameable, so `scripts/spellblade-candidate-acceptance.mjs` now adds three asks. Both
-models fail them:
-- **glide:** a foot within 4 cm of the floor travels ≤ 2 cm;
-- **lift:** a moving foot is lifted ≥ 5 cm;
-- **knee pop:** ≤ 20°/frame².
+No weighting can close the wrist, because of layers 2 and 3. Mean plates tear nothing and part the least. That's why
+this replaces the rigid `d4889a8a` this PR first proposed. The left gauntlet: no stretch, 0.7% folded, 0.9% parted.
 
-**Terrain** (`scripts/spellblade-audit/slam-terrain.mjs`): Castleward's walkable ground is flat apart from raised
-floors and steps. Across 662 standable points and 16 headings, the ground under the slam's tip differs from the
-ground under the feet by more than 15 cm in 0.8% of cases at main's reach and 1.5% at 8916d5bd's: a step edge, where
-the blade floats or buries. Nothing in the game fits the blade to the ground beneath it.
+**By region** (`scripts/spellblade-audit/arm-regions.mjs`, 1,349 played frames):
 
-**The Lightning arrival 1H_Alt:** still unused (nothing plays it).
+| Sword-arm region | Production: stretched >1.5× / folded <0.6× | Proposed |
+|---|---|---|
+| Cuff and wrist band | 100% / 91% (worst 9.0×) | **0% / 0%** |
+| Hand plates | 18% / 96% | **0% / 15%** |
+| Vambrace | 0% / 0% | 0% / 0% |
+| Elbow | 11% / 69% | unchanged (§3) |
+| Shoulder | 26% / 30% | unchanged (§3) |
 
-**Sunder doesn't use `Sunder_Strike`:**
-- In gameplay it's a 0.6 s brace (Slash_3's opening, `spellbladeAnimationPlan.mjs` `brace`) and then 8 s in which
-  the ordinary cuts are the slams while Attack is held. The server drives each slam along the aim, or 0.45 rad below
-  level.
-- Nothing in the client plays `Sunder_Strike`, so 8916d5bd's 1.3 cm on that clip never reaches the game. Recorded in
-  Castleward, Sunder's stills show Slash_3 only.
+**Sword and crossfades.**
+- No plate of the sword hand enters the blade in any played frame.
+- The magic hand rests on the blade only while falling asleep (the Restless slump and sleep loop), identically on
+  production.
+- Both gauntlets hold through every crossfade the game makes: the four bridges, the rising chain, idle into guard and
+  cut, guard into cut, run and sprint into cut, the techniques, cast, dash and stagger.
 
-## 4. The Blender source: asset blocker
+**In Castleward** (frozen stills from the game's cameras, production served with `--glb`):
 
-- **Argon's `reproduce_spellblade_from_blend.py` doesn't export.** It cuts a complete GLB that was appended to the
-  end of the `.blend` (`GLTF_SYNC_V1` trailer) and checks that GLB's own hash: it proves nothing about the scene, its
-  rig, its Actions or its F-curves.
-- **The `.blend` the manifest names (`65ff5eb7…`) wasn't delivered**, in the audit ZIP or anywhere on this machine.
-- **The only source available, `a33f5a94`, doesn't produce this model.** Opened in Blender 4.5.14 with scripts
-  disabled (`scripts/spellblade-audit/blend_inspect_export.py`), it has:
-  - one armature of **27** bones (no fingers, elbow, knee or ankle cops, or pauldron bones);
-  - **15** Actions (Air … Stagger);
-  - 18 meshes, whose names and vertex counts match the game's;
-  - a README text about locked concept references.
+| Scenario | Production | Proposed |
+|---|---|---|
+| Chain | 5.5× | 2.3× |
+| Guard | 9.5× | 4.1× |
+| Running chain | 8.2× | 2.3× |
 
-  Natively exported, it **breaks** compatibility: 28 joints against 66, and moved inverse binds.
+The remainder is the elbow and shoulder. Side by side (`evidence/three-way-arm.jpg`; rows: production, rigid, mean):
+- **production** folds the gauntlet into a wedge;
+- **rigid** opens a gap under the fist;
+- **mean** keeps the cuff against the fist.
 
-So neither `de8c8655` nor `8916d5bd` has a source that reproduces it. This blocks accepting any further revision on
-its source; requested in `ARGON-REQUEST.md` §1, with the acceptance test stated.
+Normal-speed recordings are in §5.
 
-## 5. Model versions
+**The regression guard:** `server/tests/spellblade-gauntlet-plates.test.mjs`, every frame, both hands, the played clips
+with the sidecar's techniques and the crossfades:
+- no plate stretched past 1.05×, in played or archive clips;
+- folds under ½ in ≤ 15% of sword-hand poses (production: 96%);
+- no sword-hand plate in the blade;
+- neighbouring pieces part no further than today (sword hand ≤ 21 cm, magic hand ≤ 15.5 cm, against bind);
+- re-applying the correction changes nothing.
 
-- **Third person:** `d4889a8a` on this branch, which is `de8c8655` plus corrected weights.
-- **First person:** `80de8aee`, unchanged. Argon's manifest names a first-person `12c8c9e9`, but no file came, so
-  nothing was combined.
-- **`manifest.json`:** `sourceRevision` and the URLs now carry `d4889a8a…` (the cache key for both files); the
-  first-person hash is unchanged.
-- **`.gz`:** rebuilt with `gzip -9 -n`; decompresses to `d4889a8a`.
-- **`promotion.json`:** untouched.
+Production fails the stretch and fold checks.
 
-## 6. Real-Chrome recordings (`scripts/swordsmanship-capture-browser.mjs`)
+## 2. Argon's Blender source: received, and an asset blocker
 
-Every run was a real Castleward yard on a real game server and a real Chrome (GPU), driven by real input. The
-production baseline (`de8c8655`) was served with `--glb`; the corrected model is the one this branch installs. Each
-run has a normal-speed and a quarter-speed video, kept in the session notes folder under
-`evidence/spellblade-quality-8916d5bd/`; sheets are in `evidence/`.
+The eight-part sets in Argon's Drive folder assemble to exactly the hashes his manifest names:
+- `65ff5eb7…` (`spellblade-third-person-8916d5bd.blend`, 47,364,839 B);
+- `96440694…` (`…de8c8655.blend`, 47,162,843 B).
 
-| Run | Baseline | Corrected | Notes |
+Both end in the appended `GLTF_SYNC` GLB.
+
+Opened in Blender 4.5.14 with scripts disabled (`scripts/spellblade-audit/blend_inspect_export.py`, `blend_bone_audit.py`),
+both contain:
+- **an armature of 27 bones**, not 66: no fingers, elbow, knee or ankle cops, pauldron bones or tabard chain;
+- **meshes weighted to 22 groups**, none of the shipped model's finger, cop or pauldron weights, and different helmet,
+  crest and gauntlet objects;
+- **90 Actions, of which 75 are empty**: no slot, no F-curves, no users, a name and a frame range only. Walk, the bridges,
+  the Disaster slams, the techniques and 1H_Alt among them.
+- **15 keyed Actions on the 27-bone rig** (the old kit set: Air … Stagger). They don't match the shipped clips of the
+  same names: the sword point is 0.6–3.1 m away.
+
+Blender's own glTF exporter therefore produces a 27-joint model with 15 clips
+(`artifacts`: `73dd2f12…`). `scripts/spellblade-compat-check.mjs` reports 163 breaks.
+
+**Verdict.** Neither `8916d5bd` nor `de8c8655` is reproducible from its `.blend`. Each model exists only as the GLB
+appended to its source, and Argon's `reproduce_spellblade_from_blend.py` only cuts that GLB out. This stays an asset
+blocker (`ARGON-REQUEST.md` §1).
+
+## 3. What still looks wrong, and the wrist recommendation
+
+**Still wrong (measured):**
+- **The wrist parts.** Neighbouring gauntlet pieces sit a median 3.9 cm further apart than production holds them,
+  because the sword hand pivots on the grip and every pose bends it 60°+.
+- **Folding.** The hand plates fold in 15% of played frames, mostly Rigid Riposte's thrust and the interrupted Whirl.
+- **The elbow** folds in 69% of played frames offline. The game drives its cop at runtime, but in the in-game stills
+  the remaining torn edges are mostly the elbow pieces.
+- **The shoulder** (`Pauldron.R` and the Breastplate's shoulder): stretched in 26% of frames, folded in 30%.
+- **First person** (`80de8aee`, unchanged): same gradient pattern, milder (1.8× worst).
+- **Animation, separate from this patch:** the backhand's thrown-back follow-through, the sideways chop, square
+  forehand hips, gliding feet.
+
+**The wrist: where the pivot should be** (`scripts/spellblade-audit/wrist-pivot-experiment.mjs`, on the GLB, with the
+sword's world transform held exactly so the server's blade and every contact frame are untouched):
+
+| Approach | Wrist bend left (played frames, median / p90) | Elbow moved (p90) | Arm can still reach |
 |---|---|---|---|
-| Held chain, desktop split view (first and third person) | 60.1 fps, no page errors | 60.1 fps, no errors | Slash_1 → Slash_1_to_2 → Slash_2 → Slash_2_to_3 → Slash_3 → rising chain |
-| Held chain seen by a **remote second client** (its own arms hidden) | 56.7 fps | 59.9 fps | the viewer sees the whole chain (`chain-remote-corrected-sheet.jpg`) |
-| Held chain, **emulated landscape phone**, touch ATTACK | 55.4 fps | 60 fps | first-person chain, hits land; an emulation, not a real phone |
-| Rigid Riposte | 58.5 fps | 60 fps | Enter → Interception → Thrust |
-| Whirl | 59.8 fps | 60.1 fps | Revolution → Exit |
-| Candidate `8916d5bd` chain | — | 60 fps (candidate) | `chain-candidate-sheet.jpg` |
+| As authored | 71° / 94° | — | — |
+| A. Current pivot, elbow re-placed | 60° / 90° | 18 cm | always |
+| B. Pivot moved to the anatomical wrist (66 joints, `hand.R` relocated) | 27° / 81° where reachable | 39 cm | **11 of 392 frames** |
 
-**Not verified:** a real phone, sound, and a sustained match.
+B is infeasible: the clips use the grip pivot's 15 cm lever as reach, so with the pivot at the wrist the arm can't
+put the sword where the clip, and the server, have it. A 67th wrist bone has the same geometry problem, plus the first
+person, siege seating and socket costs.
 
-### A fix to #502's Half Lightning check
+A alone isn't enough either. The bend is 60° because the gauntlet is modelled straight while every grip holds the
+hand about 64° from it. The fist's turn into the grip is mostly off the grip axis (62° off, 16° about it;
+`grip-axis.mjs`), so re-posing the fist would pull it off the sword.
 
-#502's Disaster check bounded a held Half Lightning's commit to 0.1 s after its 0.36 s wind-up. But it commits on
-its release, and CI's runner sees a key-up late, so the bound measured the runner's speed: it failed on this PR's CI.
-`scripts/one-hit-camera-browser.mjs` now follows the rule: the commit comes no sooner than the wind-up or the release
-the page recorded (less a tick), and never after the hold window. 7/7 locally. #502's own branch still has the old
-bound; this PR, which contains #502, carries the fix.
+**Recommendation:**
+- Keep the 66-joint skeleton and the pivot.
+- **Re-model the sword gauntlet's wrist in the grip pose** (Idle f0, a 64° bend from bind): the cuff modelled to bridge
+  that bent wrist, then bound there.
+- Re-author the forearm and hand of the clips that leave the grip by more than 45°: Run, Sprint, Guard, Block_Impact,
+  the Riposte thrust.
 
-## 7. Tests
+The cuts already stay within 12–43° of the grip. That's Blender work, for Argon (§3 of the request).
 
-`npm test` (Node 24): 3,234 tests, 13 failing. Those 13 fail on `main` `3d8300cf` too (CI), by name; `main`'s 14th,
-the obsolete PR #457 first-cut test, is the one #502 replaced. No new failures. The new and changed model tests pass:
-`spellblade-gauntlet-plates`, `spellbladeArgonIntegration`, `spellblade-runtime-assets` and `spellblade-motion-sidecar`.
+## 4. Argon's 8916d5bd
+
+Kept as a candidate, not installed and not combined with this correction. See `CANDIDATE-8916D5BD.md` for:
+- **what to carry:** the chop, the slams' 2 cm contact, the bridges;
+- **what not to:** the locked backhand and the synthetic footwork;
+- the rules for the next candidate.
+
+`scripts/spellblade-candidate-acceptance.mjs` now also asks for no glide, lifted steps and no knee pops, which both
+models fail. Sunder never plays `Sunder_Strike` (its slams are the cuts), so 8916d5bd's Sunder contact doesn't reach the
+game.
+
+## 5. Real Chrome at normal speed
+
+`scripts/swordsmanship-capture-browser.mjs` records:
+- a real game server, real Chrome (GPU) and real input, at normal speed with a quarter-speed copy;
+- `--close` puts the camera 1.6 m off the sword side;
+- `--glb` serves production for the comparison.
+
+| Run | Production | Proposed | Notes |
+|---|---|---|---|
+| Held chain, camera close on the sword side | 59.8 fps, no page errors | 60 fps, no page errors | `evidence/close-chain-production-vs-proposed.jpg`, frames paired by time into the chain |
+| Whirl, close | 60.1 fps, no page errors | 60 fps, no page errors | `evidence/close-whirl-production-vs-proposed.jpg` |
+| Held chain, desktop split view; remote second client; emulated phone; Riposte; Whirl | 55–60 fps, no page errors | recorded on the rigid `d4889a8a`, same composition | sheets in `evidence/` |
+
+**What a player sees:** at ordinary speed and play distance, production and the proposed model are hard to tell apart.
+The tearing is clear only close up: the forearm in the forehand's wind-up, the gauntlet folded round the grip in
+Guard, and the arm camera. So this patch removes a real defect, but its visible gain in normal play is modest.
+
+**Not verified:** a real phone, sound.
+
+## 6. CI and tests
+
+- **CI:** the 13 failing unit tests on this PR are exactly `main` `3d8300cf`'s CI failures, by name, less the obsolete
+  PR #457 first-cut test, which #502 replaced. Nothing new fails.
+- **#502's Half Lightning browser check:** it bounded the commit to 0.1 s after the wind-up, but a held Half Lightning
+  commits on its release, and CI sees the key-up late. This PR fixes it (`scripts/one-hit-camera-browser.mjs`);
+  `chrome-disaster` passes on CI.
+- **Stacking:** #503 is stacked on #502's branch, so its diff shows only its own commits. Merge #502 first.

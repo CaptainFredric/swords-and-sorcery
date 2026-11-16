@@ -12,6 +12,13 @@ directly, or real Blender in the case of the `.py` files, and changes nothing.
 | `arm-resolve-probe.mjs model.glb` | How far the wrist could be straightened by moving the elbow alone, with the hand and sword kept |
 | `slam-lowpoints.mjs model.glb` | Each slam's blade low point above the soles, its time and its reach |
 | `slam-terrain.mjs` | Castleward's ground under a slam's tip against the ground under the feet, from every standable point |
+| `gauntlet-integrity.mjs model.glb [--all]` | Both gauntlets, every frame of the played clips (sidecar techniques composed) and the crossfades: plate stretch and fold, how far neighbouring pieces part, plates inside the blade |
+| `gauntlet-exposure.mjs reference.glb model.glb …` | How often, pose for pose against a reference, a gauntlet stretches, folds or parts (what a player keeps seeing, not the worst frame) |
+| `arm-regions.mjs model.glb …` | The sword arm by region (shoulder, elbow, cuff and band, hand plates, vambrace): how often each stretches or folds |
+| `played-clips.mjs` | Which clips the client names (played) and which it never does (archive) |
+| `wrist-pivot-experiment.mjs` | Where the sword hand should pivot: with the sword held exactly, the wrist bend left with the elbow moved, or with the pivot at the anatomical wrist, and whether the arm can reach |
+| `grip-axis.mjs model.glb` | How much of the hand's turn into each grip is about the sword's grip axis |
+| `blend_bone_audit.py` | A `.blend`'s armature bones, the bones its Actions animate (empty Actions included), and its weighted vertex groups |
 | `blend_inspect_export.py` | Opens a `.blend` in real Blender (scripts disabled), reports its rig, meshes, weights and Actions, and exports it with Blender's own glTF exporter |
 | `render_gauntlet_parts.py` | Renders a gauntlet in Blender with each piece coloured, at bind and at a clip frame |
 
