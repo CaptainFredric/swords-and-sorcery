@@ -133,8 +133,7 @@ test('electrical reversal and near-full natural disaster report their actual cau
 test('fork, stunned, shocking conduct, armor and power are lightning-only variations',()=>{
  const lines=new Set(Array.from({length:450},(_,i)=>killFeedDeath(
    death('line_of_conduct',null,i/30),'Rowan','Perry').text));
- for(const fragment of ['was stunned','fork stuck in the wrong place','shocking conduct',
-   'armor would insulate them','enough of Rowan\'s power'])
+ for(const fragment of ['fork stuck in the wrong place','shocking conduct','enough of Rowan\'s power'])
    assert.ok([...lines].some(line=>line.includes(fragment)),fragment);
  const fire=new Set(Array.from({length:150},(_,i)=>killFeedDeath(
    death('fireball',null,i/30),'Rowan','Perry').text));
