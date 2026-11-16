@@ -1,0 +1,25 @@
+name: Contextual kill-feed source acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/game/killFeedText.mjs'
+      - 'client/game/killFeedText.test.mjs'
+      - 'shared/sim/combat.mjs'
+      - 'server/tests/disaster-gale-reposition.test.mjs'
+      - '.github/workflows/killfeed-source-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  killfeed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Validate real death provenance and kill-feed copy
+        run: |
+          npm run check:browser-imports
+          node --test client/game/killFeedText.test.mjs server/tests/disaster-gale-reposition.test.mjs server/tests/contextual-killfeed.test.mjs
