@@ -313,7 +313,10 @@ const keys = new Set();
 const input = { yaw: 0, attack: false, guard: false, pressedAt: null };
 let locked = false;
 let cameraMode = 'behind';
-renderer.domElement.addEventListener('click', () => { if (!locked && $('settings').hidden) renderer.domElement.requestPointerLock?.(); });
+renderer.domElement.addEventListener('click', () => {
+  if (locked || !$('settings').hidden) return;
+  try { renderer.domElement.requestPointerLock?.()?.catch?.(() => {}); } catch { /* unlocked */ }
+});
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === renderer.domElement;
   if (!locked) $('settings').hidden = false;
@@ -322,8 +325,10 @@ document.addEventListener('mousemove', (e) => { if (locked) input.yaw -= e.movem
 const simClock = { wall: performance.now(), sim: 0 };
 const pressNow = () => simClock.sim + Math.max(0, (performance.now() - simClock.wall) / 1000) * settings.speed;
 function attackDown() { if (!input.attack) input.pressedAt = pressNow(); input.attack = true; sound(); }
+// (a page that cannot lock the mouse, an embedded preview for one, still fights: clicks on the yard count, and the
+// knight turns to face his opponent by himself)
 document.addEventListener('mousedown', (e) => {
-  if (!locked) return;
+  if (!locked && (e.target !== renderer.domElement || !$('settings').hidden)) return;
   if (e.button === 0) attackDown();
   if (e.button === 2) input.guard = true;
 });
@@ -335,6 +340,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyJ') attackDown();
   if (e.code === 'KeyK') input.guard = true;
   if (e.code === 'KeyV') cameraMode = cameraMode === 'behind' ? 'side' : 'behind';
+  if (e.code === 'Escape' && !locked) $('settings').hidden = !$('settings').hidden;
 });
 addEventListener('keyup', (e) => {
   keys.delete(e.code);
@@ -349,7 +355,12 @@ for (const [id, key, read] of [['opt-forehand', 'forehand', (e) => e.value], ['o
   ['opt-hitstop', 'hitStop', (e) => e.checked], ['opt-beat', 'beat', (e) => e.checked], ['opt-timeline', 'timeline', (e) => e.checked], ['opt-speed', 'speed', (e) => Number(e.value)]]) {
   $(id).addEventListener('change', (e) => { settings[key] = read(e.target); applySettings(); });
 }
-$('resume').addEventListener('click', () => { $('settings').hidden = true; sound(); renderer.domElement.requestPointerLock?.(); });
+$('resume').addEventListener('click', () => {
+  $('settings').hidden = true;
+  sound();
+  // (may be refused, an embedded preview for one: the lab plays unlocked)
+  try { const p = renderer.domElement.requestPointerLock?.(); p?.catch?.(() => {}); } catch { /* unlocked */ }
+});
 $('reset-stats').addEventListener('click', () => { if (duel) { duel.player.stats = createDuel().player.stats; showStats(duel.player.stats); } });
 
 // --- load
@@ -432,13 +443,20 @@ let paused = false;
 function frame(nowMs) {
   const real = Math.min(0.1, (nowMs - last) / 1000);
   last = nowMs;
-  if (!paused) update(real);
+  // (the duel waits while the settings are open: nobody is cut down reading them)
+  if (!paused && $('settings').hidden) update(real);
   requestAnimationFrame(frame);
 }
 
 // one frame: real seconds passed (scaled by the slow-motion setting)
 function update(real) {
   const dt = real * settings.speed;
+  // unlocked: face the opponent (a lock-on), turning at a knight's pace
+  if (!locked && duel.foe.alive) {
+    const want = Math.atan2(-(duel.foe.pos.x - duel.player.pos.x), -(duel.foe.pos.z - duel.player.pos.z));
+    const turn = Math.atan2(Math.sin(want - input.yaw), Math.cos(want - input.yaw));
+    input.yaw += Math.max(-7 * dt, Math.min(7 * dt, turn));
+  }
   let shownDt = dt;
   if (held > 0) { const take = Math.min(held, dt); held -= take; shownDt = dt - take; }
   else acc += dt;
