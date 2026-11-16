@@ -192,6 +192,7 @@ current branch in Chrome" both **passed**. Only "Verify repository", the inherit
 | Check | Result | Notes |
 |---|---|---|
 | `one-hit-camera-browser` (Disaster) | **pass**, 7/7 | after the Half Lightning fix above |
+| `one-hit-camera-browser`, aerial (`DISASTER_AERIAL_WINDUP_CHECK=1`, the `aerial-gale` CI job) | **pass** | Its arrival check was stale since `ccd5c70e`: the teleport's 1.0 s aim window plays the winding from frame 0. It passed on #501 only because CI drew its first frame 0.61 s late. It now checks the aim window's clock: first frame 0.015 s, 0.022 s after the commit. |
 | `siege-armory-cold-browser` | **pass** | Two assertions were stale against `main`'s content. HELLping Hand has had a workshop demonstration since `60a9ece7`. Bi-Bye gained a third skill in `29b168b7`, and the card count is now read from `SIEGE_SKILL_OPTIONS`. |
 | `mounted-steel-browser` | **pass** | Its launch was stale: Practice Yard is select-then-launch, so it now presses `#solo-launch`. |
 | `menu-tour-browser --rounds 1` | **pass**, no errors | 16.7 ms median frame |
