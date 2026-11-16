@@ -373,7 +373,9 @@
   /* Mounted captions should sit immediately above the machine's ACTUAL
      health gauge, not 44px higher on the ram. A 7px breathing gap leaves
      the plate visible without letting dialogue cover its numbers. */
-  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) + 7px);
+  /* Let the caption skim the upper lip of the machine health panel. It
+     occupies the requested lower lane without hiding its HP numbers. */
+  bottom:calc(var(--safe-b, 0px) + var(--siege-gauge-height, 54px) - 7px);
   max-width:min(500px,66cqw);
 }
 @container app (max-height: 420px) {
