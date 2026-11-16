@@ -1,6 +1,7 @@
 // Play real Practice inputs and observe the authority and the rendered view.
 import assert from 'node:assert/strict';
 import { ONE_HIT_RULES } from '../shared/src/oneHitOfWondersRules.mjs';
+import { DISASTER_CLIPS } from '../client/game/spellbladeAnimationPlan.mjs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -146,7 +147,15 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
         'the planned winding never moves backward');
     } else {
       assert.ok(after.length>=1,'aerial Lightning arrival plays wind-up instead of hovering');
-      assert.ok(after[0].clipTime>.40,'arrival uses final winding frames, not the original charge hold');
+      // Since ccd5c70e (11-12) the teleport's aim window is postTeleportAimSec (1.0 s) and carries the authored winding
+      // up to its cut (0.85 s): it starts at frame 0 and reaches the cut as the window ends. So the first frame's clip
+      // time depends on how late Chrome draws it (0.515 s at 0.61 s late on a slow CI run). Check that it follows the
+      // aim window's clock, not a fixed minimum.
+      const window=ONE_HIT_RULES.postTeleportAimSec,lead=Math.min(window,DISASTER_CLIPS.aerial.contact);
+      const expected=f=>Math.min(DISASTER_CLIPS.aerial.contact-1/60,
+        DISASTER_CLIPS.aerial.contact-lead+Math.min(window,Math.max(0,f.now-f.commitAt))*lead/window);
+      assert.ok(Math.abs(after[0].clipTime-expected(after[0]))<.08,
+        `arrival plays the winding on the aim window's clock, not the charge hold (${after[0].clipTime.toFixed(3)} vs ${expected(after[0]).toFixed(3)} at ${(after[0].now-after[0].commitAt).toFixed(3)} s)`);
       if(after.length>=2&&after.at(-1).now-after[0].now<.4)
         assert.ok(after.at(-1).clipTime>=after[0].clipTime-.02,
           'the aerial wind-up does not rewind during post-arrival aiming');
