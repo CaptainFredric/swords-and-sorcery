@@ -428,6 +428,7 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
   noteYard();
+  if (screenId === SCREEN_IDS.SOLO_MENU) updateSoloRenownUI();
   if (screenId === SCREEN_IDS.MAIN_MENU) requestAnimationFrame(updateMenuScrollCue);
 }
 
@@ -1242,7 +1243,7 @@ for (const control of breakthroughSizeControls) {
 }
 showBreakthroughSize();
 
-const breakthroughArenaControls = [$('#breakthrough-arena'), $('#solo-breakthrough-arena')].filter(Boolean);
+const breakthroughArenaControl = $('#breakthrough-arena');
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
 let mettleSoloMode = null;
 const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
@@ -1267,8 +1268,8 @@ function showBreakthroughArena() {
     button.classList.toggle('selected',button.dataset.mettleMode===mode);
     button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
   }
-  for (const control of breakthroughArenaControls) {
-    for (const chip of control.querySelectorAll('[data-arena]')) {
+  if (breakthroughArenaControl) {
+    for (const chip of breakthroughArenaControl.querySelectorAll('[data-arena]')) {
       chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
       const on = chip.dataset.arena === chosen;
       chip.classList.toggle('mine', on);
@@ -1295,6 +1296,17 @@ function showBreakthroughArena() {
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
+function showSoloBreakthroughArena() {
+  const chosen = menuController.soloBreakthroughArena();
+  const control = $('#solo-breakthrough-arena');
+  if (!control) return;
+  for (const chip of control.querySelectorAll('[data-arena]')) {
+    chip.hidden = false;
+    const on = chip.dataset.arena === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
 const mettleActivation = createRepeatActivation({
   selected: selectedMettleMode,
   select: chosen => {
@@ -1310,15 +1322,20 @@ $('#mettle-modes')?.addEventListener('click', event => {
   const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
   if (chosen) mettleActivation.choose(chosen);
 });
-for (const control of breakthroughArenaControls) {
-  control.addEventListener('click', (event) => {
-    const chip = event.target.closest?.('[data-arena]');
-    if (!chip) return;
-    menuController.chooseBreakthroughArena(chip.dataset.arena);
-    showBreakthroughArena();
-  });
-}
+breakthroughArenaControl?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-arena]');
+  if (!chip) return;
+  menuController.chooseBreakthroughArena(chip.dataset.arena);
+  showBreakthroughArena();
+});
+$('#solo-breakthrough-arena')?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-arena]');
+  if (!chip) return;
+  menuController.chooseSoloBreakthroughArena(chip.dataset.arena);
+  showSoloBreakthroughArena();
+});
 showBreakthroughArena();
+showSoloBreakthroughArena();
 
 const breakthroughTeamControls = [$('#breakthrough-team'), $('#solo-breakthrough-team')].filter(Boolean);
 
@@ -1619,6 +1636,22 @@ const soloChoices = Object.freeze({
   'tutorial-mode': ['TUTORIAL', 'Greener Pastures: learn movement, stamina and combat.'],
   'inspection-mode': ['INSPECTION YARD', 'Local inspection tools, free camera and frame stepping.'],
 });
+function updateSoloRenownUI() {
+  if (soloActivity !== 'renown-trials-mode') return;
+  const isOnline = Boolean(renown?.online());
+  const renownNote = $('#solo-renown-note');
+  if (renownNote) renownNote.hidden = isOnline;
+  const renownRehearse = $('#solo-renown-rehearse');
+  if (renownRehearse) renownRehearse.hidden = !isOnline;
+  if (isOnline) {
+    $('#solo-launch span').textContent = 'BEGIN REWARDED TRIAL';
+    $('#solo-launch small').textContent = 'Solo waves on the server with account Renown';
+  } else {
+    $('#solo-launch span').textContent = 'REHEARSE ON THIS DEVICE';
+    $('#solo-launch small').textContent = 'Play locally · permanent rewards require a connected profile';
+  }
+}
+
 function chooseSoloActivity(id) {
   if (!Object.hasOwn(soloChoices, id)) return;
   soloActivity = id;
@@ -1645,17 +1678,21 @@ function chooseSoloActivity(id) {
     btWrap.hidden = !isBreakthrough;
     if (isBreakthrough) {
       showBreakthroughSize();
-      showBreakthroughArena();
+      showSoloBreakthroughArena();
       showBreakthroughTeam();
       showBreakthroughRival();
     }
   }
   $('#solo-rival-wrap').hidden = id !== 'bot-duel';
 
-  const renownNote = $('#solo-renown-note');
-  if (renownNote) renownNote.hidden = !isRenown;
-  const renownRehearse = $('#solo-renown-rehearse');
-  if (renownRehearse) renownRehearse.hidden = !isRenown;
+  if (isRenown) {
+    updateSoloRenownUI();
+  } else {
+    const renownNote = $('#solo-renown-note');
+    if (renownNote) renownNote.hidden = true;
+    const renownRehearse = $('#solo-renown-rehearse');
+    if (renownRehearse) renownRehearse.hidden = true;
+  }
 
   if (id === 'tutorial-mode') {
     $('#solo-launch span').textContent = 'BEGIN TUTORIAL';
@@ -1667,13 +1704,7 @@ function chooseSoloActivity(id) {
     $('#solo-launch span').textContent = 'START BREAKTHROUGH';
     $('#solo-launch small').textContent = 'Launch the siege battle with bots';
   } else if (isRenown) {
-    if (renown?.online()) {
-      $('#solo-launch span').textContent = 'BEGIN REWARDED TRIAL';
-      $('#solo-launch small').textContent = 'Solo waves on the server with account Renown';
-    } else {
-      $('#solo-launch span').textContent = 'REHEARSE ON THIS DEVICE';
-      $('#solo-launch small').textContent = 'Play locally · permanent rewards require a connected profile';
-    }
+    updateSoloRenownUI();
   } else {
     $('#solo-launch span').textContent = 'ENTER ' + title;
     $('#solo-launch small').textContent = 'Enter the arena';
@@ -1699,7 +1730,7 @@ function launchSoloActivity(id) {
       team: menuController.breakthroughTeam(),
       botSkill: menuController.breakthroughSkill(),
       teamSize: menuController.breakthroughSize(),
-      worldId: menuController.breakthroughArena(),
+      worldId: menuController.soloBreakthroughArena(),
     }), SCREEN_IDS.SOLO_MENU);
   }
   if (id === 'renown-trials-mode') {
@@ -1707,10 +1738,10 @@ function launchSoloActivity(id) {
       const fallback = menuController.savedName() || 'Spellblade';
       nameFields.forEach(field => { field.value = fallback; });
     }
-    const rehearsal = !renown?.online();
+    const isOnline = Boolean(renown?.online());
     return runMenuAction(menuController.renownTrials(nameInput.value, {
       worldId: menuController.renownArena(),
-      rehearsal,
+      rehearsal: !isOnline,
     }), SCREEN_IDS.SOLO_MENU);
   }
   if(id==='edge-of-victory-mode') return runMenuAction(menuController.edgeOfVictory(nameInput.value),SCREEN_IDS.SOLO_MENU);
@@ -2007,6 +2038,7 @@ document.addEventListener('click', (event) => {
 });
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
+if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRenown = renown;
 const challenges = new ChallengesController({ link: socket, getProfile: () => renown.profile, root: $('#armory-challenges'), rewardRoot: $('#challenges-reward') });
 $('#end-armory').addEventListener('click', () => {
   const showArmory = () => {
@@ -3676,11 +3708,13 @@ function announceChallengers() {
 }
 socket.on('status', ({ status, was }) => {
   renderLinkStatus(status);
+  updateSoloRenownUI();
   if (status !== 'online' || !(was === 'offline' || was === 'waking')) return;
   // back mid-match: nobody is pulled out, the word comes over the fight; the next choice simply goes online
   if (runtime && router.current === null) hud.flashText(LINK_RESTORED.title, 'ready', 2400);
   else announceChallengers();
 });
+socket.on('profile', () => updateSoloRenownUI());
 socket.on('notice', ({ text }) => hud.flashText(text.toUpperCase(), 'danger', 2600));
 renderLinkStatus(socket.status);
 $('#link-retry').addEventListener('click', () => socket.retryNow());
@@ -3689,6 +3723,7 @@ socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
   if (connected) transmitLoadout();
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
+  updateSoloRenownUI();
 });
 
 route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);

@@ -26,6 +26,7 @@ export function modeLabel(mode) {
   if (mode === 'HIGH_GROUNDS') return 'HIGH GROUNDS';
   if (mode === 'RESTLESS_DAY') return 'RESTLESS DAY';
   if (mode === 'EDGE_OF_VICTORY') return 'EDGE OF VICTORY';
+  if (mode === 'RENOWN_TRIALS') return 'RAMPAGE TO RENOWN';
   return 'FREE-FOR-ALL';
 }
 

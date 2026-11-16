@@ -184,53 +184,97 @@ try {
   await sleep(400);
 
   // =========================================================================
-  // TASK 2 — Restore Breakthrough to Play Alone
+  // TASK 2 — Restore Breakthrough to Play Alone & Isolate Battlefield Selection
   // =========================================================================
-  console.log('[VERIFY] === Task 2: Restore Breakthrough to Play Alone ===');
+  console.log('[VERIFY] === Task 2: Restore Breakthrough to Play Alone & Isolate Battlefield ===');
+
+  // Step A: Reproduce the user's sequence
+  // 1. Open Modes of Mettle and select High Grounds
+  console.log('[VERIFY] Opening Modes of Mettle and selecting High Grounds...');
+  await evaluate("document.querySelector('#breakthrough-button').click()");
+  await until(() => evaluate("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"), 'breakthrough menu visible');
+  await evaluate("document.querySelector('[data-mettle-mode=\"HIGH_GROUNDS\"]').click()");
+  await sleep(300);
+
+  const mettleState = await evaluate(`(() => {
+    const chip = document.querySelector('#breakthrough-arena [data-arena="high-grounds"]');
+    return {
+      highGroundsActive: chip?.classList.contains('mine'),
+      storedArena: localStorage.getItem('ss-breakthrough-arena'),
+    };
+  })()`);
+  console.log('[VERIFY] Modes of Mettle High Grounds state:', mettleState);
+  assert.equal(mettleState.highGroundsActive, true);
+  assert.equal(mettleState.storedArena, 'high-grounds');
+
+  // 2. Return to the main menu
+  await evaluate("document.querySelector('#breakthrough-back').click()");
+  await until(() => evaluate("!document.querySelector('#menu').classList.contains('hidden')"), 'main menu visible');
+  await sleep(300);
+
+  // 3. Open Play Alone -> Breakthrough
+  console.log('[VERIFY] Opening Play Alone -> Breakthrough...');
   await evaluate("document.querySelector('#solo-button').click()");
   await until(() => evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"), 'solo menu visible');
   await sleep(300);
 
-  // Click Breakthrough in Play Alone
-  console.log('[VERIFY] Selecting Breakthrough in Play Alone...');
   await evaluate("document.querySelector('#breakthrough-mode').click()");
   await sleep(300);
 
-  const soloState = await evaluate(`(() => {
-    const title = document.querySelector('#solo-selected-title')?.textContent;
-    const note = document.querySelector('#solo-selected-note')?.textContent;
-    const btWrapVisible = !document.querySelector('#solo-breakthrough-wrap')?.hidden;
-    const launchText = document.querySelector('#solo-launch span')?.textContent;
-    return { title, note, btWrapVisible, launchText };
+  // 4. Examine the available battlefields and displayed team-size settings
+  const soloBreakthroughInspection = await evaluate(`(() => {
+    const arenaControl = document.querySelector('#solo-breakthrough-arena');
+    const chips = Array.from(arenaControl?.querySelectorAll('[data-arena]') || []).map(c => ({
+      arena: c.dataset.arena,
+      hidden: c.hidden,
+      mine: c.classList.contains('mine'),
+    }));
+    const sizeControl = document.querySelector('#solo-breakthrough-size');
+    const sizeVisible = !sizeControl?.hidden;
+    const sizeChips = Array.from(sizeControl?.querySelectorAll('[data-size]') || []).map(c => ({
+      size: c.dataset.size,
+      mine: c.classList.contains('mine'),
+    }));
+    return { chips, sizeVisible, sizeChips };
   })()`);
-  console.log('[VERIFY] Solo Breakthrough selection state:', soloState);
-  assert.equal(soloState.title, 'BREAKTHROUGH');
-  assert.equal(soloState.btWrapVisible, true);
-  assert.equal(soloState.launchText, 'START BREAKTHROUGH');
+  console.log('[VERIFY] Solo Breakthrough Inspection:', soloBreakthroughInspection);
 
-  // Configure battlefield, allegiance, team size, difficulty
-  console.log('[VERIFY] Configuring Breakthrough options...');
+  // Assert ALL three Breakthrough battlefields are present and none are hidden!
+  assert.equal(soloBreakthroughInspection.chips.length, 3);
+  assert.deepEqual(soloBreakthroughInspection.chips.map(c => c.arena).sort(), ['bastion-breach', 'blackbell-foundry', 'outerworks']);
+  for (const c of soloBreakthroughInspection.chips) {
+    assert.equal(c.hidden, false, `Battlefield ${c.arena} must not be hidden in Solo Breakthrough`);
+  }
+  assert.equal(soloBreakthroughInspection.sizeVisible, true);
+  assert.equal(soloBreakthroughInspection.sizeChips.length, 2);
+
+  // 5. Configure Solo Breakthrough options (Outerworks, Defenders, 2v2, Champion)
+  console.log('[VERIFY] Configuring Solo Breakthrough options...');
   await evaluate("document.querySelector('#solo-breakthrough-arena [data-arena=\"outerworks\"]').click()");
   await evaluate("document.querySelector('#solo-breakthrough-team [data-team=\"DEFENDERS\"]').click()");
   await evaluate("document.querySelector('#solo-breakthrough-size [data-size=\"2\"]').click()");
   await evaluate("document.querySelector('#solo-breakthrough-rival [data-skill=\"champion\"]').click()");
   await sleep(300);
 
-  const configuredOrders = await evaluate(`(() => {
+  const configuredSoloBT = await evaluate(`(() => {
     const arena = document.querySelector('#solo-breakthrough-arena [data-arena="outerworks"]')?.classList.contains('mine');
     const team = document.querySelector('#solo-breakthrough-team [data-team="DEFENDERS"]')?.classList.contains('mine');
     const size = document.querySelector('#solo-breakthrough-size [data-size="2"]')?.classList.contains('mine');
     const rival = document.querySelector('#solo-breakthrough-rival [data-skill="champion"]')?.classList.contains('mine');
-    return { arena, team, size, rival };
+    const storedSoloArena = localStorage.getItem('ss-solo-breakthrough-arena');
+    const storedMettleArena = localStorage.getItem('ss-breakthrough-arena');
+    return { arena, team, size, rival, storedSoloArena, storedMettleArena };
   })()`);
-  console.log('[VERIFY] Configured Breakthrough options active:', configuredOrders);
-  assert.equal(configuredOrders.arena, true);
-  assert.equal(configuredOrders.team, true);
-  assert.equal(configuredOrders.size, true);
-  assert.equal(configuredOrders.rival, true);
+  console.log('[VERIFY] Configured Solo Breakthrough state:', configuredSoloBT);
+  assert.equal(configuredSoloBT.arena, true);
+  assert.equal(configuredSoloBT.team, true);
+  assert.equal(configuredSoloBT.size, true);
+  assert.equal(configuredSoloBT.rival, true);
+  assert.equal(configuredSoloBT.storedSoloArena, 'outerworks');
+  assert.equal(configuredSoloBT.storedMettleArena, 'high-grounds'); // Mettle retained High Grounds!
   await screenshot('04-solo-breakthrough-configured-desktop.png');
 
-  // Verify mobile landscape presentation
+  // Mobile landscape presentation check
   console.log('[VERIFY] Testing mobile landscape viewport emulation (844x390)...');
   await send('Emulation.setDeviceMetricsOverride', {
     width: 844,
@@ -241,18 +285,57 @@ try {
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await sleep(400);
 
-  // Switch to review settings panel on mobile
   await evaluate("document.querySelector('#solo-details')?.click()");
   await sleep(300);
-
   await screenshot('05-solo-breakthrough-mobile-landscape.png');
 
-  // Reset to desktop viewport
   await send('Emulation.clearDeviceMetricsOverride');
   await send('Emulation.setTouchEmulationEnabled', { enabled: false });
   await sleep(300);
 
-  // Ensure player name is set across all name fields
+  // Return to main menu and test bidirectional persistence
+  await evaluate("document.querySelector('#solo-back').click()");
+  await until(() => evaluate("!document.querySelector('#menu').classList.contains('hidden')"), 'main menu visible');
+  await sleep(300);
+
+  // Check Modes of Mettle still has High Grounds selected
+  await evaluate("document.querySelector('#breakthrough-button').click()");
+  await until(() => evaluate("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"), 'breakthrough menu visible');
+  const mettleRevisit = await evaluate(`(() => {
+    return {
+      highGroundsActive: document.querySelector('#breakthrough-arena [data-arena="high-grounds"]')?.classList.contains('mine'),
+      storedArena: localStorage.getItem('ss-breakthrough-arena'),
+    };
+  })()`);
+  console.log('[VERIFY] Modes of Mettle revisit state:', mettleRevisit);
+  assert.equal(mettleRevisit.highGroundsActive, true);
+  assert.equal(mettleRevisit.storedArena, 'high-grounds');
+  await evaluate("document.querySelector('#breakthrough-back').click()");
+  await until(() => evaluate("!document.querySelector('#menu').classList.contains('hidden')"), 'main menu visible');
+  await sleep(300);
+
+  // Test reload persistence of both separate selections
+  console.log('[VERIFY] Reloading page to test persistence of both selections...');
+  await send('Page.reload');
+  await until(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"), 'loading veil done after reload', 150);
+  await sleep(600);
+
+  // Check Solo Breakthrough persisted outerworks
+  await evaluate("document.querySelector('#solo-button').click()");
+  await until(() => evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"), 'solo menu visible');
+  await evaluate("document.querySelector('#breakthrough-mode').click()");
+  await sleep(300);
+
+  const soloPersisted = await evaluate(`(() => {
+    const arenaMine = document.querySelector('#solo-breakthrough-arena [data-arena="outerworks"]')?.classList.contains('mine');
+    const stored = localStorage.getItem('ss-solo-breakthrough-arena');
+    return { arenaMine, stored };
+  })()`);
+  console.log('[VERIFY] Solo Breakthrough reload persistence:', soloPersisted);
+  assert.equal(soloPersisted.arenaMine, true);
+  assert.equal(soloPersisted.stored, 'outerworks');
+
+  // Ensure player name is set
   await evaluate(`(() => {
     for (const f of document.querySelectorAll('input[maxlength="18"]')) {
       f.value = 'Spellblade';
@@ -260,49 +343,20 @@ try {
     }
   })()`);
 
-  // Launch actual local Breakthrough match
+  // Launch Breakthrough match
   console.log('[VERIFY] Launching local Breakthrough match...');
-  const launchDebug = await evaluate(`(() => {
-    const launchBtn = document.querySelector('#solo-launch');
-    const nameVal = document.querySelector('#player-name')?.value;
-    const soloNameVal = document.querySelector('#solo-name')?.value;
-    const rightNameVal = document.querySelector('#solo-right-name')?.value;
-    const act = typeof soloActivity !== 'undefined' ? soloActivity : null;
-    launchBtn.click();
-    const err = document.querySelector('[data-menu-error]')?.textContent;
-    const currentScreen = typeof router !== 'undefined' ? router.current : null;
-    return { nameVal, soloNameVal, rightNameVal, act, err, currentScreen };
-  })()`);
-  console.log('[VERIFY] Launch debug:', launchDebug);
+  await evaluate("document.querySelector('#solo-launch').click()");
   await sleep(1000);
 
-  const afterClickInfo = await evaluate(`(() => {
-    const visibleSections = Array.from(document.querySelectorAll('section:not(.hidden)')).map(s => s.id);
-    const link = globalThis.__ssLink;
-    return {
-      visibleSections,
-      linkHosting: link?.hosting,
-      linkPlayingLocally: link?.playingLocally,
-      localRoomState: link?.local?.room?.state,
-      localRoomMode: link?.local?.room?.mode,
-      lobbyModeText: document.querySelector('#lobby-mode')?.textContent,
-      lobbyWorldText: document.querySelector('#lobby-world')?.textContent,
-      hudHidden: document.querySelector('#hud')?.classList.contains('hidden'),
-    };
-  })()`);
-  console.log('[VERIFY] After click state:', afterClickInfo);
-
-  // Wait for lobby or match to appear
-  console.log('[VERIFY] Waiting for Breakthrough lobby or arena...');
+  // Wait for Breakthrough lobby
+  console.log('[VERIFY] Waiting for Breakthrough lobby...');
   await until(async () => {
     return evaluate(`(() => {
       const lobbyVisible = !document.querySelector('#lobby')?.classList.contains('hidden');
-      const hudVisible = !document.querySelector('#hud')?.classList.contains('hidden');
       const link = globalThis.__ssLink;
-      const isBreakthrough = link?.local?.room?.mode === 'BREAKTHROUGH' || /BREAKTHROUGH/i.test(document.querySelector('#lobby-mode')?.textContent || '');
-      return (lobbyVisible || hudVisible) && isBreakthrough;
+      return lobbyVisible && link?.local?.room?.mode === 'BREAKTHROUGH';
     })()`);
-  }, 'Breakthrough lobby or arena', 150);
+  }, 'Breakthrough lobby', 150);
 
   const lobbyState = await evaluate(`(() => {
     const mode = document.querySelector('#lobby-mode')?.textContent;
@@ -317,112 +371,239 @@ try {
   assert.equal(lobbyState.isLocal, true);
   await screenshot('06-breakthrough-lobby.png');
 
-  // Start match from lobby if ready button is visible, or wait for countdown to finish
-  console.log('[VERIFY] Readying up / waiting for match start...');
+  // Ready up / start match
+  console.log('[VERIFY] Starting Breakthrough match...');
   await evaluate("document.querySelector('#start-match')?.click()");
   await sleep(1000);
 
-  // Wait for playing arena
-  console.log('[VERIFY] Waiting for Breakthrough arena playing state...');
-  await until(async () => {
+  // STRICT ASSERTION: mode === 'BREAKTHROUGH' AND room.state === 'PLAYING' AND visible gameplay HUD (not an OR condition!)
+  console.log('[VERIFY] Waiting for Breakthrough arena STRICT active state (mode + PLAYING state + visible HUD)...');
+  const breakthroughRunning = await until(async () => {
     return evaluate(`(() => {
       const link = globalThis.__ssLink;
-      const playing = link?.local?.room?.state === 'PLAYING';
+      const isMode = link?.local?.room?.mode === 'BREAKTHROUGH';
+      const isPlaying = link?.local?.room?.state === 'PLAYING';
       const hudVisible = !document.querySelector('#hud')?.classList.contains('hidden');
-      return playing || hudVisible;
+      if (isMode && isPlaying && hudVisible) {
+        return { mode: link.local.room.mode, state: link.local.room.state, hudVisible };
+      }
+      return null;
     })()`);
-  }, 'Breakthrough arena playing', 150);
+  }, 'Breakthrough active playing arena with HUD', 150);
+  console.log('[VERIFY] Breakthrough confirmed active:', breakthroughRunning);
+  assert.equal(breakthroughRunning.mode, 'BREAKTHROUGH');
+  assert.equal(breakthroughRunning.state, 'PLAYING');
+  assert.equal(breakthroughRunning.hudVisible, true);
   await sleep(800);
-
   await screenshot('07-breakthrough-match-running.png');
-  console.log('[VERIFY] Breakthrough local match confirmed running!');
 
-  // Leave room and return to main menu
-  console.log('[VERIFY] Leaving Breakthrough match...');
-  await evaluate(`(() => {
-    const leaveBtn = document.querySelector('#lobby-leave') || document.querySelector('#pause-leave') || document.querySelector('#leave');
-    if (leaveBtn) leaveBtn.click();
-    else if (globalThis.__ssLink?.leaveRoom) globalThis.__ssLink.leaveRoom();
-  })()`);
-  await sleep(600);
-
-  // Ensure returned to main menu
-  await evaluate(`(() => {
-    const menuSec = document.querySelector('#menu');
-    if (menuSec?.classList.contains('hidden')) {
-      for (const s of document.querySelectorAll('section')) s.classList.add('hidden');
-      menuSec.classList.remove('hidden');
-    }
-  })()`);
+  // Leave match using the real Leave/Return flow (no artificial unhide hack!)
+  console.log('[VERIFY] Leaving Breakthrough match via game pause-leave button...');
+  await evaluate("document.querySelector('#pause-leave')?.click()");
+  await until(async () => {
+    return evaluate(`(() => {
+      const menuVisible = !document.querySelector('#menu')?.classList.contains('hidden');
+      const routerCurrent = typeof router !== 'undefined' ? router.current : null;
+      return menuVisible && (routerCurrent === null || routerCurrent === 'MAIN_MENU');
+    })()`);
+  }, 'main menu reached via real Leave flow', 100);
+  console.log('[VERIFY] Main menu reached cleanly via real Leave flow!');
   await sleep(400);
 
   // =========================================================================
-  // TASK 3 — Make Rampage to Renown accessible to guests
+  // TASK 3 — Make Rampage to Renown accessible to guests & consistent on connection changes
   // =========================================================================
-  console.log('[VERIFY] === Task 3: Make Rampage to Renown accessible to guests ===');
+  console.log('[VERIFY] === Task 3: Renown Guest Rehearsal & Connection Consistency ===');
+
+  // Step A: Guest State Check
+  console.log('[VERIFY] Testing Guest State in Solo Renown...');
   await evaluate("document.querySelector('#solo-button').click()");
   await until(() => evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"), 'solo menu visible');
   await sleep(300);
 
-  console.log('[VERIFY] Selecting Rampage to Renown in Solo menu...');
   await evaluate("document.querySelector('#renown-trials-mode').click()");
   await sleep(300);
 
-  const renownState = await evaluate(`(() => {
+  const guestRenownState = await evaluate(`(() => {
+    const isOnline = Boolean(globalThis.__ssRenown ? globalThis.__ssRenown.online() : (globalThis.__ssLink?.status === 'online' && globalThis.__ssLink?.remote?.profileReady));
     const title = document.querySelector('#solo-selected-title')?.textContent;
     const noteVisible = !document.querySelector('#solo-renown-note')?.hidden;
     const noteText = document.querySelector('#solo-renown-note')?.textContent;
     const rehearseVisible = !document.querySelector('#solo-renown-rehearse')?.hidden;
-    const rehearseText = document.querySelector('#solo-renown-rehearse span')?.textContent;
     const launchText = document.querySelector('#solo-launch span')?.textContent;
-    return { title, noteVisible, noteText, rehearseVisible, rehearseText, launchText };
+    return { isOnline, title, noteVisible, noteText, rehearseVisible, launchText };
   })()`);
-  console.log('[VERIFY] Solo Renown selection state for guest:', renownState);
-  assert.equal(renownState.title, 'RAMPAGE TO RENOWN');
-  assert.equal(renownState.noteVisible, true);
-  assert.match(renownState.noteText, /Permanent Renown rewards require a connected profile/);
-  assert.equal(renownState.rehearseVisible, true);
-  assert.equal(renownState.rehearseText, 'REHEARSE ON THIS DEVICE');
-  assert.equal(renownState.launchText, 'REHEARSE ON THIS DEVICE');
+  console.log('[VERIFY] Guest Solo Renown state:', guestRenownState);
+  assert.equal(guestRenownState.isOnline, false);
+  assert.equal(guestRenownState.title, 'RAMPAGE TO RENOWN');
+  assert.equal(guestRenownState.noteVisible, true);
+  assert.match(guestRenownState.noteText, /Permanent Renown rewards require a connected profile/);
+  // Guest must NOT have two identical rehearsal buttons!
+  assert.equal(guestRenownState.rehearseVisible, false, 'Guest must not have duplicate rehearsal button');
+  assert.equal(guestRenownState.launchText, 'REHEARSE ON THIS DEVICE');
   await screenshot('08-solo-renown-guest-options.png');
 
-  // Launch local rehearsal as guest
-  console.log('[VERIFY] Launching Renown rehearsal on this device...');
-  await evaluate("document.querySelector('#solo-renown-rehearse').click()");
+  // Launch guest rehearsal via primary button
+  console.log('[VERIFY] Launching guest Renown rehearsal on this device...');
+  await evaluate("document.querySelector('#solo-launch').click()");
   await sleep(1000);
 
-  console.log('[VERIFY] Waiting for Renown Rehearsal match or lobby...');
-  await until(async () => {
-    return evaluate(`(() => {
-      const link = globalThis.__ssLink;
-      const isLocal = link?.playingLocally;
-      const isRenown = link?.local?.room?.mode === 'RENOWN_TRIALS';
-      const lobbyVisible = !document.querySelector('#lobby')?.classList.contains('hidden');
-      const hudVisible = !document.querySelector('#hud')?.classList.contains('hidden');
-      return (lobbyVisible || hudVisible) && isLocal && isRenown;
-    })()`);
-  }, 'local Renown Rehearsal match started', 150);
-
-  // Start match from lobby if present
-  const inLobby = await evaluate("!document.querySelector('#lobby')?.classList.contains('hidden')");
-  if (inLobby) {
-    console.log('[VERIFY] Starting match from Renown lobby...');
+  // Start from lobby if lobby appeared
+  const guestLobby = await evaluate("!document.querySelector('#lobby')?.classList.contains('hidden')");
+  if (guestLobby) {
+    console.log('[VERIFY] Starting from Renown lobby...');
     await evaluate("document.querySelector('#start-match')?.click()");
     await sleep(1000);
   }
 
+  // STRICT ASSERTION: mode === 'RENOWN_TRIALS' AND room.state === 'PLAYING' AND visible gameplay HUD (not an OR condition!)
+  console.log('[VERIFY] Waiting for Renown Rehearsal STRICT active state (mode + PLAYING state + visible HUD)...');
+  const rehearsalRunning = await until(async () => {
+    return evaluate(`(() => {
+      const link = globalThis.__ssLink;
+      const isLocal = link?.playingLocally;
+      const isMode = link?.local?.room?.mode === 'RENOWN_TRIALS';
+      const isPlaying = link?.local?.room?.state === 'PLAYING';
+      const hudVisible = !document.querySelector('#hud')?.classList.contains('hidden');
+      if (isLocal && isMode && isPlaying && hudVisible) {
+        return { isLocal, mode: link.local.room.mode, state: link.local.room.state, hudVisible };
+      }
+      return null;
+    })()`);
+  }, 'local Renown Rehearsal active playing arena with HUD', 150);
+  console.log('[VERIFY] Renown Rehearsal confirmed running locally:', rehearsalRunning);
+  assert.equal(rehearsalRunning.isLocal, true);
+  assert.equal(rehearsalRunning.mode, 'RENOWN_TRIALS');
+  assert.equal(rehearsalRunning.state, 'PLAYING');
+  assert.equal(rehearsalRunning.hudVisible, true);
+  await sleep(800);
+  await screenshot('09-renown-rehearsal-match-running.png');
+
+  // Leave rehearsal via real Leave flow
+  console.log('[VERIFY] Leaving rehearsal match via pause-leave...');
+  await evaluate("document.querySelector('#pause-leave')?.click()");
+  await until(() => evaluate("!document.querySelector('#menu')?.classList.contains('hidden')"), 'main menu reached via pause-leave', 100);
+  await sleep(400);
+
+  // Step B: Connected / Profile-Ready State Check
+  console.log('[VERIFY] Connecting to server to test Connected User state...');
+  await evaluate(`(async () => {
+    const link = globalThis.__ssLink;
+    await link.connect();
+  })()`);
   await until(async () => {
     return evaluate(`(() => {
       const link = globalThis.__ssLink;
-      const playing = link?.local?.room?.state === 'PLAYING';
-      const hudVisible = !document.querySelector('#hud')?.classList.contains('hidden');
-      return playing || hudVisible;
+      return link?.status === 'online' && link?.remote?.profileReady;
     })()`);
-  }, 'Renown Rehearsal arena playing', 150);
+  }, 'server online with profile ready', 150);
 
-  await sleep(800);
-  await screenshot('09-renown-rehearsal-match-running.png');
-  console.log('[VERIFY] Renown Rehearsal confirmed running locally without remote connection!');
+  // Open Solo -> Renown while connected
+  await evaluate("document.querySelector('#solo-button').click()");
+  await until(() => evaluate("!document.querySelector('#solo-menu').classList.contains('hidden')"), 'solo menu visible');
+  await evaluate("document.querySelector('#renown-trials-mode').click()");
+  await sleep(300);
+
+  const connectedRenownState = await evaluate(`(() => {
+    const isOnline = Boolean(globalThis.__ssRenown ? globalThis.__ssRenown.online() : (globalThis.__ssLink?.status === 'online' && globalThis.__ssLink?.remote?.profileReady));
+    const noteVisible = !document.querySelector('#solo-renown-note')?.hidden;
+    const rehearseVisible = !document.querySelector('#solo-renown-rehearse')?.hidden;
+    const launchText = document.querySelector('#solo-launch span')?.textContent;
+    return { isOnline, noteVisible, rehearseVisible, launchText };
+  })()`);
+  console.log('[VERIFY] Connected Solo Renown state:', connectedRenownState);
+  assert.equal(connectedRenownState.isOnline, true);
+  assert.equal(connectedRenownState.noteVisible, false);
+  assert.equal(connectedRenownState.rehearseVisible, true, 'Connected user has explicit optional rehearsal button');
+  assert.equal(connectedRenownState.launchText, 'BEGIN REWARDED TRIAL');
+  await screenshot('10-solo-renown-connected-options.png');
+
+  // Step C: Test Connection Loss while Renown menu is open
+  console.log('[VERIFY] Simulating connection loss while Renown menu is open...');
+  await evaluate(`(() => {
+    const link = globalThis.__ssLink;
+    link.remote.ws?.close();
+  })()`);
+  await until(async () => {
+    return evaluate(`(() => {
+      const isOnline = Boolean(globalThis.__ssRenown ? globalThis.__ssRenown.online() : (globalThis.__ssLink?.status === 'online' && globalThis.__ssLink?.remote?.profileReady));
+      return !isOnline;
+    })()`);
+  }, 'connection loss detected', 100);
+
+  const disconnectedRenownState = await evaluate(`(() => {
+    const isOnline = Boolean(globalThis.__ssRenown ? globalThis.__ssRenown.online() : (globalThis.__ssLink?.status === 'online' && globalThis.__ssLink?.remote?.profileReady));
+    const noteVisible = !document.querySelector('#solo-renown-note')?.hidden;
+    const rehearseVisible = !document.querySelector('#solo-renown-rehearse')?.hidden;
+    const launchText = document.querySelector('#solo-launch span')?.textContent;
+    return { isOnline, noteVisible, rehearseVisible, launchText };
+  })()`);
+  console.log('[VERIFY] Disconnected Renown state (live transition):', disconnectedRenownState);
+  assert.equal(disconnectedRenownState.isOnline, false);
+  assert.equal(disconnectedRenownState.noteVisible, true);
+  assert.equal(disconnectedRenownState.rehearseVisible, false);
+  assert.equal(disconnectedRenownState.launchText, 'REHEARSE ON THIS DEVICE');
+  await screenshot('11-solo-renown-connection-loss.png');
+
+  // Step D: Test Connection Recovery while Renown menu is open
+  console.log('[VERIFY] Simulating connection recovery while Renown menu is open...');
+  await evaluate(`(async () => {
+    const link = globalThis.__ssLink;
+    await link.connect();
+  })()`);
+  await until(async () => {
+    return evaluate(`(() => {
+      const link = globalThis.__ssLink;
+      return link?.status === 'online' && link?.remote?.profileReady;
+    })()`);
+  }, 'connection recovery detected', 150);
+
+  const recoveredRenownState = await evaluate(`(() => {
+    const isOnline = Boolean(globalThis.__ssRenown ? globalThis.__ssRenown.online() : (globalThis.__ssLink?.status === 'online' && globalThis.__ssLink?.remote?.profileReady));
+    const noteVisible = !document.querySelector('#solo-renown-note')?.hidden;
+    const rehearseVisible = !document.querySelector('#solo-renown-rehearse')?.hidden;
+    const launchText = document.querySelector('#solo-launch span')?.textContent;
+    return { isOnline, noteVisible, rehearseVisible, launchText };
+  })()`);
+  console.log('[VERIFY] Recovered Renown state (live transition):', recoveredRenownState);
+  assert.equal(recoveredRenownState.isOnline, true);
+  assert.equal(recoveredRenownState.noteVisible, false);
+  assert.equal(recoveredRenownState.rehearseVisible, true);
+  assert.equal(recoveredRenownState.launchText, 'BEGIN REWARDED TRIAL');
+
+  // Step E: Launch Connected Rewarded Trial -> Routes online to authoritative server
+  console.log('[VERIFY] Launching authoritative online trial as connected user...');
+  await evaluate("document.querySelector('#solo-launch').click()");
+  await sleep(1000);
+
+  await until(async () => {
+    return evaluate(`(() => {
+      const lobbyVisible = !document.querySelector('#lobby')?.classList.contains('hidden');
+      const link = globalThis.__ssLink;
+      return lobbyVisible && link?.hosting === 'remote' && link?.status === 'online';
+    })()`);
+  }, 'online authoritative trial lobby reached', 150);
+
+  const onlineTrialLobby = await evaluate(`(() => {
+    const link = globalThis.__ssLink;
+    const hosting = link?.hosting;
+    const status = link?.status;
+    const mode = document.querySelector('#lobby-mode')?.textContent;
+    return { hosting, status, mode };
+  })()`);
+  console.log('[VERIFY] Online trial lobby reached:', onlineTrialLobby);
+  assert.equal(onlineTrialLobby.hosting, 'remote');
+  assert.equal(onlineTrialLobby.status, 'online');
+  assert.match(onlineTrialLobby.mode, /RENOWN/i);
+  await screenshot('12-solo-renown-online-trial-lobby.png');
+
+  // Leave room using real lobby leave
+  console.log('[VERIFY] Leaving online lobby via real #lobby-leave button...');
+  await evaluate("document.querySelector('#lobby-leave')?.click()");
+  await until(() => evaluate("!document.querySelector('#menu')?.classList.contains('hidden')"), 'main menu reached via lobby-leave', 100);
+  console.log('[VERIFY] Main menu cleanly reached via lobby-leave!');
+
+  console.log('[VERIFY] ALL ACCEPTANCE CRITERIA VERIFIED SUCCESSFULLY IN REAL CHROME!');
 
   console.log('[VERIFY] ALL 3 TASKS VERIFIED SUCCESSFULLY IN CHROME!');
 

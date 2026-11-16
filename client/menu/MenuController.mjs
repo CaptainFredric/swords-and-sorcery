@@ -96,7 +96,7 @@ export class MenuController {
     return chosen;
   }
 
-  /** Selected battlefield for Breakthrough ('bastion-breach', 'outerworks', 'blackbell-foundry'). */
+  /** Selected battlefield for Modes of Mettle / Breakthrough ('bastion-breach', 'outerworks', 'blackbell-foundry', 'high-grounds', 'restless-day'). */
   breakthroughArena() {
     const raw = this.storage?.getItem?.('ss-breakthrough-arena');
     if (raw === 'outerworks' || raw === 'blackbell-foundry' || raw === 'high-grounds' || raw === 'restless-day') return raw;
@@ -106,6 +106,21 @@ export class MenuController {
   chooseBreakthroughArena(arena) {
     const chosen = (arena === 'outerworks' || arena === 'blackbell-foundry' || arena === 'high-grounds' || arena === 'restless-day') ? arena : 'bastion-breach';
     this.storage?.setItem?.('ss-breakthrough-arena', chosen);
+    return chosen;
+  }
+
+  /** Selected battlefield for Solo Breakthrough ('bastion-breach', 'outerworks', 'blackbell-foundry'). */
+  soloBreakthroughArena() {
+    const raw = this.storage?.getItem?.('ss-solo-breakthrough-arena');
+    if (raw === 'outerworks' || raw === 'blackbell-foundry' || raw === 'bastion-breach') return raw;
+    const legacy = this.storage?.getItem?.('ss-breakthrough-arena');
+    if (legacy === 'outerworks' || legacy === 'blackbell-foundry') return legacy;
+    return 'bastion-breach';
+  }
+
+  chooseSoloBreakthroughArena(arena) {
+    const chosen = (arena === 'outerworks' || arena === 'blackbell-foundry') ? arena : 'bastion-breach';
+    this.storage?.setItem?.('ss-solo-breakthrough-arena', chosen);
     return chosen;
   }
 
@@ -151,7 +166,7 @@ export class MenuController {
     const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
     const skill = (typeof options === 'object' && options?.botSkill) ? options.botSkill : this.breakthroughSkill();
     const size = (typeof options === 'object' && options?.teamSize) ? Number(options.teamSize) : this.breakthroughSize();
-    const arena = (typeof options === 'object' && options?.worldId) ? options.worldId : this.breakthroughArena();
+    const arena = (typeof options === 'object' && options?.worldId) ? options.worldId : this.soloBreakthroughArena();
     return this.#withName(rawName, (name) => this.socket.startSolo(arena === 'restless-day' ? 'RESTLESS_DAY' : arena === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH', name, arena, skill, team, arena === 'restless-day' ? 5 : size));
   }
 

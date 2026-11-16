@@ -78,7 +78,7 @@ test('Task 2: Breakthrough is exposed in Play Alone selection with full configur
   const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
   const controller = new MenuController(socket, storage);
 
-  controller.chooseBreakthroughArena('blackbell-foundry');
+  controller.chooseSoloBreakthroughArena('blackbell-foundry');
   controller.chooseBreakthroughTeam('ATTACKERS');
   controller.chooseBreakthroughSize(2);
   controller.chooseBreakthroughSkill('spellblade');
@@ -92,6 +92,32 @@ test('Task 2: Breakthrough is exposed in Play Alone selection with full configur
     'ATTACKERS',
     2,
   ]);
+});
+
+test('Task 2 (isolation): Solo Breakthrough battlefield remains isolated when Modes of Mettle chooses High Grounds', () => {
+  const calls = [];
+  const socket = { startSolo: (...args) => calls.push(args) };
+  const store = new Map();
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
+  const controller = new MenuController(socket, storage);
+
+  // Mettle chooses High Grounds
+  controller.chooseBreakthroughArena('high-grounds');
+  assert.equal(controller.breakthroughArena(), 'high-grounds');
+
+  // Solo Breakthrough stays on default bastion-breach or its own choice
+  assert.equal(controller.soloBreakthroughArena(), 'bastion-breach');
+
+  controller.chooseSoloBreakthroughArena('outerworks');
+  assert.equal(controller.soloBreakthroughArena(), 'outerworks');
+
+  // Launching Breakthrough launches outerworks, NOT high-grounds
+  controller.breakthrough('DefenderKnight');
+  assert.equal(calls.at(-1)[0], 'BREAKTHROUGH');
+  assert.equal(calls.at(-1)[2], 'outerworks');
+
+  // Modes of Mettle still remembers high-grounds
+  assert.equal(controller.breakthroughArena(), 'high-grounds');
 });
 
 test('Task 3: Rampage to Renown allows guest offline rehearsal while communicating profile requirements', () => {
@@ -125,4 +151,24 @@ test('Task 3: Rampage to Renown allows guest offline rehearsal while communicati
   assert.equal(link.playingLocally, true);
   assert.equal(remoteCalls.length, 0, 'No remote calls for guest rehearsal');
   assert.deepEqual(localCalls.at(-1).slice(0, 3), ['RENOWN_TRIALS', 'GuestPlayer', 'court-of-merit']);
+
+  // 4. Connected trial routes online to server
+  const connectedRemoteCalls = [];
+  const connectedLocalCalls = [];
+  const connectedRemote = {
+    connect: () => Promise.resolve(),
+    startSolo: (...args) => connectedRemoteCalls.push(args),
+    leaveRoom: () => {},
+    on: () => {},
+  };
+  const connectedLocal = {
+    startSolo: (...args) => connectedLocalCalls.push(args),
+    leaveRoom: () => {},
+    on: () => {},
+  };
+  const connectedLink = new GameLink({ remote: connectedRemote, local: connectedLocal, timers: globalThis });
+  connectedLink.ensureConnected = () => Promise.resolve(true);
+
+  connectedLink.startSolo('RENOWN_TRIALS', 'ConnectedPlayer', 'court-of-merit');
+  assert.equal(connectedLink.hosting, 'remote');
 });
