@@ -188,7 +188,7 @@ try {
 
   assert.match(kitState.heading, /THE SPELLBLADE'S KIT/);
   assert.equal(kitState.kitVisible, true);
-  assert.equal(kitState.technique, 'None equipped');
+  assert.equal(kitState.technique, 'Rigid Riposte');
   assert.equal(kitState.inspectorClosed, true);
   console.log('[VERIFY] Default Kit State verified:', kitState);
 

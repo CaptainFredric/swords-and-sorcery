@@ -1221,32 +1221,34 @@ soloRival.addEventListener('click', (event) => {
 showSoloRival();
 
 // --- Breakthrough setup controls -------------------------------------------------------------------------------
-const breakthroughSize = $('#breakthrough-size');
+const breakthroughSizeControls = [$('#breakthrough-size'), $('#solo-breakthrough-size')].filter(Boolean);
 function showBreakthroughSize() {
-  if (!breakthroughSize) return;
   const chosen = menuController.breakthroughSize();
-  for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
-    const on = Number(chip.dataset.size) === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
+  for (const control of breakthroughSizeControls) {
+    for (const chip of control.querySelectorAll('[data-size]')) {
+      const on = Number(chip.dataset.size) === chosen;
+      chip.classList.toggle('mine', on);
+      chip.setAttribute('aria-checked', String(on));
+    }
   }
 }
-breakthroughSize?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-size]');
-  if (!chip) return;
-  menuController.chooseBreakthroughSize(Number(chip.dataset.size));
-  showBreakthroughSize();
-});
+for (const control of breakthroughSizeControls) {
+  control.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-size]');
+    if (!chip) return;
+    menuController.chooseBreakthroughSize(Number(chip.dataset.size));
+    showBreakthroughSize();
+  });
+}
 showBreakthroughSize();
 
-const breakthroughArena = $('#breakthrough-arena');
+const breakthroughArenaControls = [$('#breakthrough-arena'), $('#solo-breakthrough-arena')].filter(Boolean);
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
 let mettleSoloMode = null;
 const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
   : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
-  if (!breakthroughArena) return;
   const chosen = menuController.breakthroughArena();
   const mode = selectedMettleMode();
   const solo = mode === 'RENOWN_TRIALS' || mode === 'EDGE_OF_VICTORY';
@@ -1265,11 +1267,13 @@ function showBreakthroughArena() {
     button.classList.toggle('selected',button.dataset.mettleMode===mode);
     button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
   }
-  for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
-    chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
-    const on = chip.dataset.arena === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
+  for (const control of breakthroughArenaControls) {
+    for (const chip of control.querySelectorAll('[data-arena]')) {
+      chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
+      const on = chip.dataset.arena === chosen;
+      chip.classList.toggle('mine', on);
+      chip.setAttribute('aria-checked', String(on));
+    }
   }
   $('#breakthrough-size').hidden=mode==='RESTLESS_DAY';
   $('#breakthrough-find-public').hidden=solo||mode==='RESTLESS_DAY';
@@ -1306,51 +1310,62 @@ $('#mettle-modes')?.addEventListener('click', event => {
   const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
   if (chosen) mettleActivation.choose(chosen);
 });
-breakthroughArena?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-arena]');
-  if (!chip) return;
-  menuController.chooseBreakthroughArena(chip.dataset.arena);
-  showBreakthroughArena();
-});
+for (const control of breakthroughArenaControls) {
+  control.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-arena]');
+    if (!chip) return;
+    menuController.chooseBreakthroughArena(chip.dataset.arena);
+    showBreakthroughArena();
+  });
+}
 showBreakthroughArena();
 
-const breakthroughTeam = $('#breakthrough-team');
+const breakthroughTeamControls = [$('#breakthrough-team'), $('#solo-breakthrough-team')].filter(Boolean);
 
 function showBreakthroughTeam() {
-  if (!breakthroughTeam) return;
   const chosen = menuController.breakthroughTeam();
-  for (const chip of breakthroughTeam.querySelectorAll('[data-team]')) {
-    const on = chip.dataset.team === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
+  for (const control of breakthroughTeamControls) {
+    for (const chip of control.querySelectorAll('[data-team]')) {
+      const on = chip.dataset.team === chosen;
+      chip.classList.toggle('mine', on);
+      chip.setAttribute('aria-checked', String(on));
+    }
   }
 }
-breakthroughTeam?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-team]');
-  if (!chip) return;
-  menuController.chooseBreakthroughTeam(chip.dataset.team);
-  showBreakthroughTeam();
-});
+for (const control of breakthroughTeamControls) {
+  control.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-team]');
+    if (!chip) return;
+    menuController.chooseBreakthroughTeam(chip.dataset.team);
+    showBreakthroughTeam();
+  });
+}
 showBreakthroughTeam();
 
-const breakthroughRival = $('#breakthrough-rival');
+const breakthroughRivalControls = [$('#breakthrough-rival'), $('#solo-breakthrough-rival')].filter(Boolean);
 function showBreakthroughRival() {
-  if (!breakthroughRival) return;
   const chosen = menuController.breakthroughSkill();
-  for (const chip of breakthroughRival.querySelectorAll('[data-skill]')) {
-    const on = chip.dataset.skill === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
+  for (const control of breakthroughRivalControls) {
+    for (const chip of control.querySelectorAll('[data-skill]')) {
+      const on = chip.dataset.skill === chosen;
+      chip.classList.toggle('mine', on);
+      chip.setAttribute('aria-checked', String(on));
+    }
   }
+  const noteText = RIVAL_NOTES[chosen] ?? '';
   const noteEl = $('#breakthrough-rival-note');
-  if (noteEl) noteEl.textContent = RIVAL_NOTES[chosen] ?? '';
+  if (noteEl) noteEl.textContent = noteText;
+  const soloNoteEl = $('#solo-breakthrough-rival-note');
+  if (soloNoteEl) soloNoteEl.textContent = noteText;
 }
-breakthroughRival?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-skill]');
-  if (!chip) return;
-  menuController.chooseBreakthroughSkill(chip.dataset.skill);
-  showBreakthroughRival();
-});
+for (const control of breakthroughRivalControls) {
+  control.addEventListener('click', (event) => {
+    const chip = event.target.closest?.('[data-skill]');
+    if (!chip) return;
+    menuController.chooseBreakthroughSkill(chip.dataset.skill);
+    showBreakthroughRival();
+  });
+}
 showBreakthroughRival();
 $('#mettle-options')?.addEventListener('click',()=>{
   breakthroughMenu.dataset.panel='details';resetCompanionCrown(breakthroughMenu);
@@ -1595,36 +1610,75 @@ function startTutorial() {
 }
 // Solo: left banner chooses an activity; right banner owns relevant options and launch.
 const soloChoices = Object.freeze({
-  'bot-duel': ['BOT DUEL','First to ten against your chosen rival.'],
-  'renown-trials-mode': ['RAMPAGE TO RENOWN','Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment. Offline rehearsal awards no account Renown.'],
-  'edge-of-victory-mode': ['EDGE OF VICTORY','Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
-  'practice-mode': ['PRACTICE YARD','Untimed training with configurable dummies.'],
-  'shared-practice-mode': ['SHARED PRACTICE YARD','Private training with friends; invite by room code.'],
-  'tutorial-mode': ['TUTORIAL','Greener Pastures: learn movement, stamina and combat.'],
-  'inspection-mode': ['INSPECTION YARD','Local inspection tools, free camera and frame stepping.'],
+  'breakthrough-mode': ['BREAKTHROUGH', 'Attackers capture successive objectives; Defenders fight to hold the stronghold.'],
+  'bot-duel': ['BOT DUEL', 'First to ten against your chosen rival.'],
+  'renown-trials-mode': ['RAMPAGE TO RENOWN', 'Defeat escalating Spellblades before the clock expires. Overtime invites the Renowner’s judgment. Offline rehearsal awards no account Renown.'],
+  'edge-of-victory-mode': ['EDGE OF VICTORY', 'Four scattered knights, collectible spells, no retreat. Last survivor wins.'],
+  'practice-mode': ['PRACTICE YARD', 'Untimed training with configurable dummies.'],
+  'shared-practice-mode': ['SHARED PRACTICE YARD', 'Private training with friends; invite by room code.'],
+  'tutorial-mode': ['TUTORIAL', 'Greener Pastures: learn movement, stamina and combat.'],
+  'inspection-mode': ['INSPECTION YARD', 'Local inspection tools, free camera and frame stepping.'],
 });
 function chooseSoloActivity(id) {
-  if (!Object.hasOwn(soloChoices,id)) return;
-  soloActivity=id;
+  if (!Object.hasOwn(soloChoices, id)) return;
+  soloActivity = id;
   showSoloArena();
-  for(const choice of Object.keys(soloChoices)) {
-    const button=$('#'+choice);
-    const active=choice===id;
-    button.classList.toggle('selected-activity',active);
-    button.setAttribute('aria-pressed',String(active));
+  for (const choice of Object.keys(soloChoices)) {
+    const button = $('#' + choice);
+    const active = choice === id;
+    button?.classList.toggle('selected-activity', active);
+    button?.setAttribute('aria-pressed', String(active));
   }
-  const [title,note]=soloChoices[id];
-  $('#solo-selected-title').textContent=title;
-  $('#solo-selected-note').textContent=note;
+  const [title, note] = soloChoices[id];
+  $('#solo-selected-title').textContent = title;
+  $('#solo-selected-note').textContent = note;
   const isRenown = id === 'renown-trials-mode';
-  $('#solo-arena-wrap').hidden = id === 'tutorial-mode' || id === 'edge-of-victory-mode' || isRenown;
+  const isBreakthrough = id === 'breakthrough-mode';
+  $('#solo-arena-wrap').hidden = id === 'tutorial-mode' || id === 'edge-of-victory-mode' || isRenown || isBreakthrough;
   const renownWrap = $('#renown-arena-wrap');
   if (renownWrap) {
     renownWrap.hidden = !isRenown;
     if (isRenown) showRenownArena();
   }
+  const btWrap = $('#solo-breakthrough-wrap');
+  if (btWrap) {
+    btWrap.hidden = !isBreakthrough;
+    if (isBreakthrough) {
+      showBreakthroughSize();
+      showBreakthroughArena();
+      showBreakthroughTeam();
+      showBreakthroughRival();
+    }
+  }
   $('#solo-rival-wrap').hidden = id !== 'bot-duel';
-  $('#solo-launch span').textContent = id === 'tutorial-mode' ? 'BEGIN TUTORIAL' : id === 'bot-duel' ? 'START BOT DUEL' : 'ENTER ' + title;
+
+  const renownNote = $('#solo-renown-note');
+  if (renownNote) renownNote.hidden = !isRenown;
+  const renownRehearse = $('#solo-renown-rehearse');
+  if (renownRehearse) renownRehearse.hidden = !isRenown;
+
+  if (id === 'tutorial-mode') {
+    $('#solo-launch span').textContent = 'BEGIN TUTORIAL';
+    $('#solo-launch small').textContent = 'Enter the arena';
+  } else if (id === 'bot-duel') {
+    $('#solo-launch span').textContent = 'START BOT DUEL';
+    $('#solo-launch small').textContent = 'Enter the arena';
+  } else if (isBreakthrough) {
+    $('#solo-launch span').textContent = 'START BREAKTHROUGH';
+    $('#solo-launch small').textContent = 'Launch the siege battle with bots';
+  } else if (isRenown) {
+    if (renown?.online()) {
+      $('#solo-launch span').textContent = 'BEGIN REWARDED TRIAL';
+      $('#solo-launch small').textContent = 'Solo waves on the server with account Renown';
+    } else {
+      $('#solo-launch span').textContent = 'REHEARSE ON THIS DEVICE';
+      $('#solo-launch small').textContent = 'Play locally · permanent rewards require a connected profile';
+    }
+  } else {
+    $('#solo-launch span').textContent = 'ENTER ' + title;
+    $('#solo-launch small').textContent = 'Enter the arena';
+  }
+
   // Desktop has both banners side by side. On phones, leave the activity
   // choices accessible until the user taps again; REVIEW SETTINGS opens the
   // separate right banner without interfering with second-tap launch.
@@ -1636,7 +1690,29 @@ function chooseSoloActivity(id) {
 function launchSoloActivity(id) {
   if (id === 'tutorial-mode') { startTutorial(); return true; }
   if (id === 'bot-duel') return startBotDuel();
-  if (id === 'renown-trials-mode') return runMenuAction(menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena() }), SCREEN_IDS.SOLO_MENU);
+  if (id === 'breakthrough-mode') {
+    if (!nameInput.value.trim()) {
+      const fallback = menuController.savedName() || 'Spellblade';
+      nameFields.forEach(field => { field.value = fallback; });
+    }
+    return runMenuAction(menuController.breakthrough(nameInput.value, {
+      team: menuController.breakthroughTeam(),
+      botSkill: menuController.breakthroughSkill(),
+      teamSize: menuController.breakthroughSize(),
+      worldId: menuController.breakthroughArena(),
+    }), SCREEN_IDS.SOLO_MENU);
+  }
+  if (id === 'renown-trials-mode') {
+    if (!nameInput.value.trim()) {
+      const fallback = menuController.savedName() || 'Spellblade';
+      nameFields.forEach(field => { field.value = fallback; });
+    }
+    const rehearsal = !renown?.online();
+    return runMenuAction(menuController.renownTrials(nameInput.value, {
+      worldId: menuController.renownArena(),
+      rehearsal,
+    }), SCREEN_IDS.SOLO_MENU);
+  }
   if(id==='edge-of-victory-mode') return runMenuAction(menuController.edgeOfVictory(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='practice-mode') return runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU);
   if(id==='shared-practice-mode') return runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU);
@@ -1654,6 +1730,14 @@ $('#solo-details')?.addEventListener('click',()=>{
   soloMenu.dataset.panel='details';resetCompanionCrown(soloMenu);
 });
 $('#solo-launch').addEventListener('click',()=>soloActivation.run());
+$('#solo-renown-rehearse')?.addEventListener('click', () => {
+  if (!nameInput.value.trim()) {
+    const fallback = menuController.savedName() || 'Spellblade';
+    nameFields.forEach(field => { field.value = fallback; });
+  }
+  return runMenuAction(
+    menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena(), rehearsal: true }), SCREEN_IDS.SOLO_MENU);
+});
 $('#breakthrough-find-public')?.addEventListener('click', () => {
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
@@ -1950,15 +2034,17 @@ function updatePlaques() {
   const currentUltId = settings.get('loadout.ultimate');
   const currentClothId = settings.get('cosmetics.cloth') || 'crimson';
   const cloth = CLOTH[currentClothId] || CLOTH.crimson;
-  const view = armoryView(currentSpellId, currentUltId, settings.get('loadout.technique'));
+  const currentTechId = settings.get('loadout.technique') || 'rigid_riposte';
+  const rawTech = SWORD_TECHNIQUES.find((t) => t.id === currentTechId) || SWORD_TECHNIQUES[0];
+  const view = armoryView(currentSpellId, currentUltId, currentTechId);
 
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
   const techIcon = $('#plaque-icon-technique');
-  if (techIcon) techIcon.textContent = '⚔';
+  if (techIcon) techIcon.textContent = rawTech?.mark || '⇏';
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = 'None equipped';
+  if (techName) techName.textContent = rawTech?.name || 'Rigid Riposte';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;

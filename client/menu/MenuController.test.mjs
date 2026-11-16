@@ -9,7 +9,8 @@ function harness() {
     quickPlay: (name) => calls.push(['quickPlay', name]),
     createRoom: (name) => calls.push(['createRoom', name]),
     joinRoom: (code, name) => calls.push(['joinRoom', code, name]),
-    startSolo: (mode, name, worldId, botSkill) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : []), ...(worldId && mode === 'RENOWN_TRIALS' ? [worldId] : [])]),
+    startSolo: (mode, name, worldId, botSkill, team, teamSize) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : []), ...(worldId && mode === 'RENOWN_TRIALS' ? [worldId] : []), ...(mode === 'BREAKTHROUGH' ? [worldId, team, teamSize] : [])]),
+    startRenownRehearsal: (name, worldId) => calls.push(['startRenownRehearsal', name, worldId]),
   };
   const store = new Map();
   const storage = {
@@ -107,4 +108,42 @@ test('Renown Trials arena is chosen and remembered: court-of-merit by default or
 
   // Rejects invalid arena names and falls back to court-of-merit
   assert.equal(controller.chooseRenownArena('outerworks'), 'court-of-merit');
+});
+
+test('Breakthrough preserves battle size, arena, allegiance, and bot skill', () => {
+  const { controller, calls, store } = harness();
+  assert.equal(controller.breakthroughSize(), 3);
+  assert.equal(controller.chooseBreakthroughSize(2), 2);
+  assert.equal(store.get('ss-breakthrough-size'), '2');
+
+  assert.equal(controller.breakthroughArena(), 'bastion-breach');
+  assert.equal(controller.chooseBreakthroughArena('outerworks'), 'outerworks');
+  assert.equal(store.get('ss-breakthrough-arena'), 'outerworks');
+
+  assert.equal(controller.breakthroughTeam(), 'AUTO');
+  assert.equal(controller.chooseBreakthroughTeam('DEFENDERS'), 'DEFENDERS');
+  assert.equal(store.get('ss-breakthrough-team'), 'DEFENDERS');
+
+  assert.equal(controller.breakthroughSkill(), 'knight');
+  assert.equal(controller.chooseBreakthroughSkill('champion'), 'champion');
+  assert.equal(store.get('ss-breakthrough-skill'), 'champion');
+
+  controller.breakthrough('SiegeKnight');
+  const lastCall = calls.at(-1);
+  assert.equal(lastCall[0], 'startSolo');
+  assert.equal(lastCall[1], 'BREAKTHROUGH');
+  assert.equal(lastCall[2], 'SiegeKnight');
+  assert.equal(lastCall[3], 'champion'); // botSkill
+  assert.equal(lastCall[4], 'outerworks'); // worldId
+  assert.equal(lastCall[5], 'DEFENDERS'); // team
+  assert.equal(lastCall[6], 2); // teamSize
+});
+
+test('Renown rehearsal launches locally without profile dependency, while rewarded trial routes to startSolo', () => {
+  const { controller, calls } = harness();
+  controller.renownTrials('GuestKnight', { worldId: 'castleward', rehearsal: true });
+  assert.deepEqual(calls.at(-1), ['startRenownRehearsal', 'GuestKnight', 'castleward']);
+
+  controller.renownTrials('ConnectedKnight', { worldId: 'court-of-merit', rehearsal: false });
+  assert.deepEqual(calls.at(-1), ['startSolo', 'RENOWN_TRIALS', 'ConnectedKnight', 'court-of-merit']);
 });
