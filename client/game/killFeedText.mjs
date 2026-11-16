@@ -232,6 +232,15 @@ export function terminalAscensionFeed(pilotName,victims=[]){
  return {text:names.length?`${pilotName} Ascended with ${names.join(', ')}`:
    `${pilotName} Ascended`,kind:'fire'};
 }
+// A shared-HP-damage group joke should never erase a distinctive, proven
+// lethal cause or a more specific tactical mistake. Basic combat finishes
+// can still share a group epitaph when two actual attackers contributed.
+export function allowsSharedHeroEpitaph(event) {
+  const ordinary=['sword','fireball','burn','frostfire','gale','gauntlet','ram'];
+  return ordinary.includes(event?.source)&&!event?.killContext&&
+    !event?.abandonedCaptureCircle&&!event?.guardWouldSave&&!event?.extremeOverkill&&
+    !(event?.sameKillerDeaths>=2);
+}
 // Real grouped casualties, collected by the client from authoritative death
 // events with the same credited killer within the same brief impact window.
 export function groupHeroFeed(victimName,contributorNames=[],event={}){
