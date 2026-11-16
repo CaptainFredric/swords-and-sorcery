@@ -2,6 +2,7 @@
 // Uses visible Armory clicks and real keyboard/mouse gameplay, not fake damage.
 import assert from 'node:assert/strict';
 import {BI_BYE_LLISTA_CONFIG} from '../shared/sim/biByeLlista.mjs';
+import {SIEGE_SKILL_OPTIONS} from '../shared/src/siegeLoadout.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
@@ -66,7 +67,8 @@ try{
  assert.ok(!helBefore.description.includes('undefined'));
  await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').getAttribute('aria-checked')"),'true');
- assert.match(await evaluate("document.querySelector('#siege-preview-hint').textContent"),/WORKSHOP DEMONSTRATION NOT YET AVAILABLE/);
+ assert.match(await evaluate("document.querySelector('#siege-preview-hint').textContent"),/DEMONSTRATING HELLPING HAND · TAP AGAIN TO REPLAY/,
+   'every siege Skill has a workshop demonstration since 60a9ece7');
  await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
  await evaluate("document.querySelector('[data-siege-tab=soFist]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').getAttribute('aria-checked')"),'true',
@@ -74,7 +76,7 @@ try{
  await screenshot('00-hellping-equipped');
  await evaluate("document.querySelector('[data-siege-tab=biBye]').click()");
  const biByeState=await evaluate("(() => ({title:document.querySelector('#siege-title').textContent,alternatives:[...document.querySelectorAll('#armory-siege [data-siege-machine=biBye]')].length}))()");
- assert.equal(biByeState.title,'BI-BYE-LLISTA');assert.equal(biByeState.alternatives,2);
+ assert.equal(biByeState.title,'BI-BYE-LLISTA');assert.equal(biByeState.alternatives,SIEGE_SKILL_OPTIONS.biBye.length,'every Bi-Bye skill in the loadout has a card');
  await screenshot('01-siege-armory');
  await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=coldHowTouching]').getAttribute('aria-checked')"),'true');
