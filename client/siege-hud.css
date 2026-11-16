@@ -144,7 +144,9 @@
    the joystick or the middle of the battlefield. Keep its right edge below
    the HP bar and LEFT of the objective in every mobile-mounted mode. */
 .touch-ui .drive-housing {
-  top:calc(var(--safe-t,0px) + 66px);
+  /* A compact instrument immediately below the personal HP/stamina block,
+     rather than floating over the left-hand steering area. */
+  top:calc(var(--safe-t,0px) + 98px);
   left:calc(var(--safe-l,0px) + 104px);
   width:min(150px, 26cqw);
   padding:3px 5px 5px;
