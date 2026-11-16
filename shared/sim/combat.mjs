@@ -2316,6 +2316,7 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
+  terminalFire=false,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
@@ -2334,10 +2335,17 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
     {x:dx/d*shove,y:.6,z:dz/d*shove},{
       ultimate:true,rawDamage:damage,
-      // The full-element joke belongs only to a genuinely nearly-full cast.
+      // A source cannot tell whether this was the actual ground impact,
+      // the travelling sword-pressure front, or its terminal Fire blast.
+      // The SERVER witnessed the contact; attach that fact to the death,
+      // not a client-side guess based on nearby VFX or the equipped spell.
+      // Exceptionally infused finishers take precedence, then the exact
+      // contact that delivered the final HP damage.
       killVariant:tiers.lightning===2 && caster.ultimateState?.teleportSucceeded &&
-        caster.ultimateState?.oneHit?.form==='ground'?'lightning-teleport-slam':
-        stages>=8&&tiers.frost>=1&&tiers.lightning>=1?'nearly-full-disaster':null,
+        caster.ultimateState?.oneHit?.form==='ground'&&!aerial?'lightning-teleport-slam':
+        stages>=8&&tiers.frost>=1&&tiers.lightning>=1?'nearly-full-disaster':
+        terminalFire?'disaster-terminal-fire':
+        aerial?'disaster-windblade':'disaster-ground-slam',
       guardWouldSave:!target.guarding&&target.guardStamina>0&&
         nowSec >= (target.guardBrokenUntil??-Infinity)&&
         nowSec >= (target.staggerUntil??-Infinity)&&
@@ -2677,7 +2685,7 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     if(Math.hypot(center.x-rec.origin.x,center.y-rec.origin.y,center.z-rec.origin.z)>rec.radius)continue;
     if(fire){
       if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{aerial:true,origin:rec.origin,direction:rec.direction,
-        distance:rec.distance,processed:rec.hitIds}))caught.push(target.id);
+        distance:rec.distance,processed:rec.hitIds,terminalFire:true}))caught.push(target.id);
       continue;
     }
     if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
