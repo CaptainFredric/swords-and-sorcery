@@ -9,6 +9,7 @@
 //   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|riposte|riposte-air|whirl|whirl-gale
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
+//        [--glb model.glb]  serve that third-person model in place of the installed one (a candidate, or a baseline)
 //        [--clear-view]  the recording browser's own first-person arms hidden (to see the watched knight's whole blade)
 //
 // Sheets need ImageMagick (magick); frames are kept either way. (It runs on a checkout without the techniques too:
@@ -21,6 +22,7 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { createGameServer } from '../server/src/server.mjs';
 import { CdpClient } from './browser-cdp.mjs';
+import { candidateInfo, substituteSpellblade } from './lib/spellbladeCandidate.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
@@ -28,6 +30,7 @@ const flag = (name) => args.includes(name);
 const scenario = option('--scenario', 'slash-tap');
 const device = option('--device', 'desktop');
 const remote = flag('--remote');
+const candidate = candidateInfo(option('--glb', null));
 const technique = scenario.startsWith('riposte') ? 'rigid_riposte' : scenario.startsWith('whirl') ? 'whirl_wind' : null;
 const spell = scenario === 'whirl-gale' ? 'gale' : 'fireball';
 const holdSec = Number(option('--hold', scenario === 'slash-chain' ? '2.2' : scenario === 'whirl' ? '2.6' : scenario === 'whirl-gale' ? '2.2' : '0.08'));
@@ -74,6 +77,8 @@ async function browser(name, metrics) {
   cdp.on('Runtime.consoleAPICalled', (e) => { if (e.type === 'error') { const text = e.args.map((a) => a.value ?? a.description).join(' ').slice(0, 400); pageErrors.push(`${name}: ${text}`); console.warn('[PAGE ERROR]', name, text); } });
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: metrics.width, height: metrics.height, deviceScaleFactor: metrics.scale, mobile: metrics.mobile, ...(metrics.mobile ? { screenOrientation: { type: 'landscapePrimary', angle: 90 } } : {}) });
   if (metrics.mobile) await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  // (--glb: every browser of the run is served that third-person model in place of the installed one)
+  await substituteSpellblade(cdp, candidate);
   const evaluate = async (expression, timeoutMs = 30000) => {
     const r = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, timeoutMs);
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
@@ -154,7 +159,7 @@ try {
       rt.input.yaw = Math.atan2(-(other.position.x - me.position.x), -(other.position.z - me.position.z)); rt.input.pitch = 0;
       window.__apart = Math.hypot(other.position.x - me.position.x, other.position.z - me.position.z); })()`);
     await viewer.evaluate(`(() => { const rt = window.__ssRuntime; const follow = () => { requestAnimationFrame(follow); const me = rt.localAuth, other = rt.latestSnapshot?.players.find((p) => p.id !== rt.playerId && p.actorKind === 'human'); if (!me || !other) return;
-      const shown = rt.remotePlayers?.shells?.get?.(other.id)?.root?.position ?? other.position;
+      const shown = rt.remotePlayers?.rigs?.get?.(other.id)?.root?.position ?? other.position;
       rt.input.yaw = Math.atan2(-(shown.x - me.position.x), -(shown.z - me.position.z)); rt.input.pitch = Math.atan2((shown.y ?? 0) - me.position.y, Math.max(1, Math.hypot(shown.x - me.position.x, shown.z - me.position.z))) * 0.8; }; follow(); })()`);
   }
   const approach = async () => {
@@ -195,7 +200,7 @@ try {
       requestAnimationFrame(tick);
       const a = rt.localAuth;
       const other = rt.latestSnapshot?.players.find((p) => p.id !== rt.playerId && p.actorKind === 'human');
-      const shell = ${remote ? 'rt.remotePlayers?.shells?.get?.(other?.id)' : 'rt.remotePlayers?.self'};
+      const shell = ${remote ? 'rt.remotePlayers?.rigs?.get?.(other?.id)' : 'rt.remotePlayers?.self'};
       const animator = shell?.visualInstance?.animator;
       const dummy = rt.latestSnapshot?.players.find((p) => p.actorKind === 'dummy');
       run.frames.push({ wall: performance.now(), server: rt.socket.serverNow(), clip: animator?.activeClip ?? null, time: animator?.activeAction?.time ?? null,
@@ -335,7 +340,7 @@ try {
   const ys = run.frames.map((f) => f.y).filter(Number.isFinite);
   const at0 = run.frames.find((f) => f.server >= (start?.at ?? 0)) ?? run.frames[0], atEnd = run.frames.at(-1);
   const summary = {
-    scenario, device, remote, label, equipped, carried, renderFps: +fps.toFixed(1), stills: frames.length, videoBytes: bytes,
+    scenario, device, remote, label, model: candidate ? { glb: candidate.path, sha256: candidate.sha256 } : "installed", equipped, carried, renderFps: +fps.toFixed(1), stills: frames.length, videoBytes: bytes,
     emulated: size.mobile ? 'landscape phone emulated in desktop Chrome: not a real phone' : null,
     motionSidecar: shown.find((f) => f.motion)?.motion ?? null,
     clips,
