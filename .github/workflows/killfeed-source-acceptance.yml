@@ -4,6 +4,7 @@ on:
     paths:
       - 'client/game/killFeedText.mjs'
       - 'client/game/killFeedText.test.mjs'
+      - 'client/game/GameRuntime.mjs'
       - 'shared/sim/combat.mjs'
       - 'server/tests/disaster-gale-reposition.test.mjs'
       - '.github/workflows/killfeed-source-acceptance.yml'
