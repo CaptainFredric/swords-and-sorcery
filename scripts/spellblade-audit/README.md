@@ -18,6 +18,9 @@ directly, or real Blender in the case of the `.py` files, and changes nothing.
 | `played-clips.mjs` | Which clips the client names (played) and which it never does (archive) |
 | `wrist-pivot-experiment.mjs` | Where the sword hand should pivot: with the sword held exactly, the wrist bend left with the elbow moved, or with the pivot at the anatomical wrist, and whether the arm can reach |
 | `grip-axis.mjs model.glb` | How much of the hand's turn into each grip is about the sword's grip axis |
+| `blend_bind_and_export.py` | Exports every Action of a `.blend` with Blender's own glTF exporter through the NLA (one track per Action), which also catches legacy, unslotted Actions |
+| `source-equivalence.mjs delivered.glb export.glb` | Whether a native export reproduces a delivered GLB: one rigid fit at bind, then every joint in every frame of every clip (byte identity not required) |
+| `render_blend_pose.py` | Renders a `.blend`'s own armature as Blender evaluates one Action |
 | `blend_bone_audit.py` | A `.blend`'s armature bones, the bones its Actions animate (empty Actions included), and its weighted vertex groups |
 | `blend_inspect_export.py` | Opens a `.blend` in real Blender (scripts disabled), reports its rig, meshes, weights and Actions, and exports it with Blender's own glTF exporter |
 | `render_gauntlet_parts.py` | Renders a gauntlet in Blender with each piece coloured, at bind and at a clip frame |
