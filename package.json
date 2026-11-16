@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-websocket --test client/game/*.test.mjs client/game/sound/*.test.mjs client/game/sound/music/*.test.mjs client/menu/*.test.mjs client/menu/tour/*.test.mjs client/tutorial/*.test.mjs client/network/*.test.mjs client/settings/*.test.mjs client/ui/*.test.mjs client/worlds/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs tools/audio/*.test.mjs",
+    "test": "node --experimental-websocket --test client/game/*.test.mjs client/lab/*.test.mjs client/game/sound/*.test.mjs client/game/sound/music/*.test.mjs client/menu/*.test.mjs client/menu/tour/*.test.mjs client/tutorial/*.test.mjs client/network/*.test.mjs client/settings/*.test.mjs client/ui/*.test.mjs client/worlds/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs tools/audio/*.test.mjs",
     "check": "node scripts/check-syntax.mjs",
     "check:browser-imports": "node scripts/check-browser-imports.mjs",
     "start": "node server/src/server.mjs",

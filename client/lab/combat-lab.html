@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Combat Lab</title>
+  <!-- the game's files are addressed from its root (the manifest's /client/... paths): the page's base is that root -->
+  <base href="../../" />
+  <link rel="stylesheet" href="client/lab/combat-lab.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js",
+        "three/addons/utils/SkeletonUtils.js": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/utils/SkeletonUtils.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div id="hud">
+    <div class="bars">
+      <div class="bar-group you"><span>You</span><div class="bar health"><i id="you-health"></i></div><div class="bar stamina"><i id="you-stamina"></i></div></div>
+      <div class="bar-group foe"><span id="foe-name">Sparring knight</span><div class="bar health"><i id="foe-health"></i></div><div class="bar stamina"><i id="foe-stamina"></i></div></div>
+    </div>
+
+    <div id="stats" aria-live="polite">
+      <h2>Your timing</h2>
+      <dl>
+        <dt>On the beat</dt><dd id="s-onbeat">–</dd>
+        <dt>Cadence error</dt><dd id="s-cadence">–</dd>
+        <dt>Clean hits</dt><dd id="s-clean">–</dd>
+        <dt>Parried</dt><dd id="s-parry">–</dd>
+        <dt>Perfect Parries</dt><dd id="s-perfect">–</dd>
+        <dt>Longest chain</dt><dd id="s-chain">–</dd>
+      </dl>
+      <button id="reset-stats" type="button">Reset</button>
+    </div>
+
+    <div id="callout" aria-live="assertive"></div>
+
+    <div id="foe-timeline" class="timeline">
+      <div class="label">Their cut</div>
+      <div class="track"><div class="zone startup"></div><div class="zone parry"></div><div class="zone perfect"></div><div class="zone active"></div><div class="tick tell"></div><div class="cursor"></div></div>
+    </div>
+
+    <div id="cadence" class="timeline">
+      <div class="label">Your rhythm <span id="last-press"></span></div>
+      <div class="track"><div class="zone window"></div><div class="zone perfect"></div><div class="tick contact"></div><div class="cursor"></div><div class="presses"></div></div>
+    </div>
+
+    <div id="hint">Click to fight. <b>Mouse</b> turn · <b>WASD</b> move · <b>Left click / J</b> cut · <b>Right click / K</b> guard · <b>V</b> camera · <b>Esc</b> settings</div>
+  </div>
+
+  <aside id="settings">
+    <h1>Combat Lab</h1>
+    <p class="lede">Cadence combat, prototype. Press in time to chain; raise your guard in the last instant to Parry.</p>
+    <label>Forehand motion
+      <select id="opt-forehand">
+        <option value="argon">Argon's Slash_1 (shipped)</option>
+        <option value="seed7" selected>Kimodo, take 7 (generated, retargeted)</option>
+        <option value="seed42">Kimodo, take 42 (generated, retargeted)</option>
+      </select>
+    </label>
+    <label>Transitions
+      <select id="opt-blend">
+        <option value="inertialize" selected>Inertialization</option>
+        <option value="crossfade">Cross-fade (0.15 s)</option>
+        <option value="snap">Snap</option>
+      </select>
+    </label>
+    <label>Opponent
+      <select id="opt-opponent">
+        <option value="drill" selected>Parry drill: single cuts, plainly told</option>
+        <option value="spar">Spar: chains, guards, parries</option>
+        <option value="dummy">Dummy: practise your rhythm</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="opt-hitstop" checked /> Hit-stop</label>
+    <label class="check"><input type="checkbox" id="opt-beat" checked /> Beat cue (a tick on your beat)</label>
+    <label class="check"><input type="checkbox" id="opt-timeline" checked /> Show their cut's timeline</label>
+    <label>Slow motion
+      <select id="opt-speed">
+        <option value="1" selected>Normal speed</option>
+        <option value="0.5">Half speed</option>
+        <option value="0.25">Quarter speed</option>
+      </select>
+    </label>
+    <p class="fine">Model <span id="model-rev">…</span></p>
+    <button id="resume" type="button">Fight</button>
+  </aside>
+
+  <div id="loading">Loading the knights…</div>
+  <script type="module" src="client/lab/combatLab.mjs"></script>
+</body>
+</html>
