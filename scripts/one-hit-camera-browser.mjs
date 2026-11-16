@@ -1,5 +1,6 @@
 // Play real Practice inputs and observe the authority and the rendered view.
 import assert from 'node:assert/strict';
+import { ONE_HIT_RULES } from '../shared/src/oneHitOfWondersRules.mjs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -113,8 +114,16 @@ async function play(name,{preset='simple',aerial=false,hold=false,lightning=fals
   const start=run.events.find(e=>e.type==='ultimateStart');
   assert.ok(start,name+' authoritative startup');
   if(!lightning){
-    assert.ok(Math.abs(start.commitAt-start.at-(preset==='partial'?.36:.92))<1e-6);
-    assert.ok(commit.at>=start.commitAt-1e-6);
+    // A partial (Half) Lightning whose key is still down as it starts is a hold-to-aim (since 62851dbb, 11-11): its
+    // startup reports the hold window's end (halfLightningHoldMaxSec) and the release commits it, never before the
+    // .36 s minimum wind-up (halfLightningStartupSec). A tap that is up before it starts keeps the plain .36 s.
+    const heldPartial=preset==='partial'&&Math.abs(start.commitAt-start.at-ONE_HIT_RULES.halfLightningHoldMaxSec)<1e-6;
+    if(heldPartial){
+      assert.ok(commit.at-start.at>=ONE_HIT_RULES.halfLightningStartupSec-1e-6,name+' commits no sooner than its .36 s wind-up');
+      assert.ok(commit.at-start.at<=ONE_HIT_RULES.halfLightningStartupSec+.1,name+' a released Half Lightning commits at its .36 s wind-up');
+    }else assert.ok(Math.abs(start.commitAt-start.at-(preset==='partial'?ONE_HIT_RULES.halfLightningStartupSec:.92))<1e-6);
+    // (a released held Half Lightning commits before its hold window's end: checked against its wind-up above)
+    if(!heldPartial)assert.ok(commit.at>=start.commitAt-1e-6);
     if(hold)assert.ok(commit.at>=start.commitAt+.31,name+' hold survived default commit time');
   }
   if(interrupt)assert.ok(!run.events.some(e=>e.type==='oneHitCommitted'));
