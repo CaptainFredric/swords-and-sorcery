@@ -18,10 +18,10 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
  const cases={
   'fight-flight-repeater':['tranquilized','pin-cushioned'],
   'fight-flight-rotor':['rotor-blades','for a spin'],
-  'bibye-siege':['stuck around','bad name','got through','bolted away','ballista bolt'],
+  'bibye-siege':['stuck around','bad name','point','ballista bolt'],
   'bibye-conditioning':['chilled out','calm down'],
   'so-fist':['handshake','broke','ahold'],
-  'so-fist-flick':['showed','fainted','finger'],
+  'so-fist-flick':['showed','barely lifted a finger','finger'],
   'knock-on-steel':['ran through','battering ram','battery'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
   'ram':['knocked down','misremembered'],
@@ -45,7 +45,7 @@ test('Finger Flick lines are reserved for real Flick finishers, never ordinary p
    killFeedDeath(death('so-fist-flick',null,i/30),'Rowan','Perry').text));
  assert.deepEqual(flick,new Set([
    'Rowan showed Perry the door',
-   "Perry fainted at Rowan's accusation",
+   'Rowan barely lifted a finger to defeat Perry',
    'Rowan gave Perry the finger',
  ]));
  assert.ok(!flick.has(killFeedDeath(death('so-fist'),'Rowan','Perry').text));
@@ -98,7 +98,7 @@ test('extreme overkill alone can yield the mock saint or paragon epitaph',()=>{
  const samples=Array.from({length:180},(_,i)=>killFeedDeath(
    {...death('sword',null,i/30),extremeOverkill:true},'Rowan','Perry').text);
  assert.ok(samples.includes('Saint Perry the Deceased'));
- assert.ok(samples.includes('Perry became the paragon of death'));
+ assert.ok(!samples.includes('Perry became the paragon of death'));
  const ordinary=Array.from({length:300},(_,i)=>killFeedDeath(death('sword',null,i/30),'Rowan','Perry').text);
  assert.ok(!ordinary.includes('Saint Perry the Deceased'));
  assert.ok(!ordinary.includes('Perry became the paragon of death'));
@@ -139,6 +139,13 @@ test('fork, stunned, shocking conduct, armor and power are lightning-only variat
  const fire=new Set(Array.from({length:150},(_,i)=>killFeedDeath(
    death('fireball',null,i/30),'Rowan','Perry').text));
  assert.ok(![...fire].some(line=>/fork stuck|shocking conduct|insulate them/.test(line)));
+ assert.ok(![...lines].some(line=>line.includes('insulate them')),
+   'claiming armor insulation requires authoritative steeled evidence');
+ const armored=new Set(Array.from({length:450},(_,i)=>killFeedDeath(
+   {...death('line_of_conduct',null,i/30),steeled:true},'Rowan','Perry').text));
+ assert.ok(armored.has('Perry believed their armor would insulate them'));
+ assert.ok(![...lines].some(line=>/was stunned/.test(line)),
+   'unfunny literal Lightning filler is retired');
 });
 test('the pelt requires a real repeater barrage and the friend requires an actual HELLping crush',()=>{
  const shots=new Set(Array.from({length:180},(_,i)=>killFeedDeath(
@@ -155,7 +162,8 @@ test('the pelt requires a real repeater barrage and the friend requires an actua
 test('rare personal remarks appear without flooding the combat-specific variations',()=>{
  const sword=new Set(Array.from({length:4000},(_,i)=>killFeedDeath(
    death('sword',null,i/30),'Rowan','Perry',{mode:'BREAKTHROUGH'}).text));
- assert.ok(sword.has("Perry couldn't make it to the restroom in time"));
+ assert.ok(!sword.has("Perry couldn't make it to the restroom in time"),
+   'disconnected restroom joke has been removed');
  assert.ok(sword.has('Perry will take this personally'));
  assert.ok(sword.has('Perry! You made it onto here!'));
  const noRespawn=new Set(Array.from({length:3000},(_,i)=>killFeedDeath(
@@ -180,9 +188,12 @@ test('ballista bolt and the ram charge have their own absurd questions and batte
  const bolts=new Set(Array.from({length:300},(_,i)=>killFeedDeath(
    death('bibye-siege',null,i/30),'Rowan','Perry').text));
  assert.ok(bolts.has("Why did Rowan's ballista bolt kill you, Perry?"));
+ assert.ok(bolts.has("Perry missed the point of Rowan's ballista"));
+ assert.ok(![...bolts].some(t=>t.includes('bolted away')||t.includes('got through')),
+   'generic arrow filler is removed');
  const ram=new Set(Array.from({length:240},(_,i)=>killFeedDeath(
    death('knock-on-steel',null,i/30),'Rowan','Perry').text));
- assert.ok(ram.has('Rowan assaulted Perry and no longer has battery'));
+ assert.ok(ram.has('Rowan was charged with assault and battery against Perry'));
 });
 test('additional dry remarks are available rarely; gale exaggeration and abyss kingdom stay contextual',()=>{
  const swords=new Set(Array.from({length:9000},(_,i)=>killFeedDeath(
@@ -226,4 +237,52 @@ test('real multi-victim and multi-attacker events produce appropriate named grou
  assert.ok(groupHeroes.has('Rowan knows better than to mess with Perry, Basil'));
  assert.ok(groupHeroes.has("Perry and Basil didn't allow Rowan to be a hero..."));
  assert.equal(groupHeroFeed('Rowan',['Perry']),null);
+});
+
+test('Disaster phrases follow the actual lethal contact, not the equipped Ultimate or nearby VFX',()=>{
+ const scenarios=[
+  ['disaster-ground-slam',['brought','grounded','landscape'],'sword'],
+  ['disaster-windblade',['air had an edge','cutting remark','forecast'],'gale'],
+  ['disaster-terminal-fire',['last explosion','explosive end'],'fire'],
+ ];
+ for(const [context,parts,kind] of scenarios){
+  const seen=new Set(Array.from({length:180},(_,i)=>
+    killFeedDeath(death('one_hit_of_wonders',context,i/30),'Rowan','Perry').text));
+  assert.equal(seen.size,parts.length,context+' all variants circulate');
+  for(const part of parts)assert.ok([...seen].some(line=>line.includes(part)),context+' '+part);
+  for(const line of seen)assert.ok(line.includes('Rowan')&&line.includes('Perry'),context);
+  assert.equal(killFeedDeath(death('one_hit_of_wonders',context),'Rowan','Perry').kind,kind);
+ }
+ const old=killFeedDeath(death('one_hit_of_wonders'),'Rowan','Perry');
+ assert.match(old.text,/All-Natural Disaster/,'old events get a truthful fallback');
+ assert.doesNotMatch(old.text,/slew|sword/i,'no generic sword text for a Disaster');
+ assert.match(killFeedDeath(death('one_hit_vortex'),'Rowan','Perry').text,/wind-up/);
+ assert.match(killFeedDeath(death('one_hit_ground_fire'),'Rowan','Perry').text,/survived the impact/);
+ assert.doesNotMatch(killFeedDeath(death('sword'),'Rowan','Perry').text,/Disaster|Windblade/);
+});
+test('a real objective-chase death always earns its tactical insult',()=>{
+ for(let i=0;i<80;i++){
+  const event={...death('sword',null,i/30),abandonedCaptureCircle:true};
+  assert.equal(killFeedDeath(event,'Rowan','Perry').text,
+    "Perry doesn't know how to stand in a circle");
+ }
+ const plain=new Set(Array.from({length:1500},(_,i)=>
+   killFeedDeath(death('sword',null,i/30),'Rowan','Perry',{mode:'HIGH_GROUNDS'}).text));
+ assert.ok(!plain.has("Perry doesn't know how to stand in a circle"));
+});
+test('team-blame requires repeated kills on a genuine teammate',()=>{
+ const options={mode:'BREAKTHROUGH'};
+ const loops=flags=>new Set(Array.from({length:600},(_,i)=>
+   killFeedDeath({...death('sword',null,i/30),...flags},'Rowan','Perry',options).text));
+ assert.ok(loops({sameKillerDeaths:3,sameTeamAsViewer:true}).has('Perry wants your team to lose'));
+ assert.ok(!loops({sameKillerDeaths:3,sameTeamAsViewer:false}).has('Perry wants your team to lose'));
+ assert.ok(!loops({sameKillerDeaths:1,sameTeamAsViewer:true}).has('Perry wants your team to lose'));
+});
+test('an actual Squire is never called a secret squire',()=>{
+ const lines=new Set(Array.from({length:9000},(_,i)=>
+   killFeedDeath(death('sword',null,i/30),'Rowan','Squire Rowan').text));
+ assert.ok(![...lines].some(line=>line.includes('squire in disguise')));
+ const knight=new Set(Array.from({length:9000},(_,i)=>
+   killFeedDeath(death('sword',null,i/30),'Rowan','Knight Perry').text));
+ assert.ok(knight.has('Knight Perry is actually a squire in disguise'));
 });
