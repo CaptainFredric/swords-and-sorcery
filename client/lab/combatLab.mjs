@@ -444,7 +444,7 @@ function frame(nowMs) {
   const real = Math.min(0.1, (nowMs - last) / 1000);
   last = nowMs;
   // (the duel waits while the settings are open: nobody is cut down reading them)
-  if (!paused && $('settings').hidden) update(real);
+  if (!paused) update($('settings').hidden ? real : 0);
   requestAnimationFrame(frame);
 }
 
@@ -509,7 +509,8 @@ function update(real) {
     wantPos.copy(mid).addScaledVector(across, 5.2).setY(1.7);
     wantLook.copy(mid);
   }
-  const k = 1 - Math.exp(-real * 14);
+  // (held, the camera goes straight to its framing)
+  const k = real > 0 ? 1 - Math.exp(-real * 14) : 1;
   cam.pos.lerp(wantPos, k); cam.look.lerp(wantLook, k);
   camera.position.copy(cam.pos);
   if (shake > 0.001) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake *= Math.exp(-real * 18); }
