@@ -145,17 +145,26 @@ try {
   await click('#renown-trials-mode'); // second activation launches actual selected pursuit
   await until(()=>evaluate("window.__ssLink?.hosting==='remote' && window.__ssLink?.roomCode"),
     'server-authored trial join',240);
+  // The first wave starts on the server 1.5 s after the room does, whether or not a slow (software-rendered) page
+  // has drawn it yet. Hold its rival still from that moment, alongside the waits on the page below: an idle knight
+  // left to it while the page catches up is killed, and the trial ends before the scripted fight.
+  const firstWave=until(()=>{
+    const r=[...server.roomManager.rooms.values()].find(r=>r.mode==='RENOWN_TRIALS');
+    if(r?.renownTrial?.phase!=='WAVE_ACTIVE')return null;
+    r.inspectionFrozenActors=new Set(r.renownTrial.wave.enemyIds);
+    return r;
+  },'live first wave');
+  firstWave.catch(()=>{}); // (awaited below; a page failure first is reported as itself)
   await until(() => evaluate("!document.querySelector('#arena-gate').classList.contains('hidden') && document.querySelector('#arena-gate-sub').textContent==='VS. JUDGMENT'"), 'Judgment introduction');
   await shot('00b-introduction');
-  const room=await until(()=>[...server.roomManager.rooms.values()].find(r=>r.mode==='RENOWN_TRIALS'),'server trial room');
+  const room=await firstWave;
+  assert.equal(room.renownTrial.wave.count,1);
+  assert.equal(room.players.size,2);
   const battlefield = alternate ? 'castleward' : 'court-of-merit';
   await until(() => evaluate(`window.__ssSnapshot?.worldId === '${battlefield}'`), 'requested combat world');
   const player=[...room.players.values()].find(p=>p.actorKind==='human');
   assert.equal(player.profileToken?.length,64,'trial must have a connected persistent guest identity');
-  await until(()=>room.renownTrial?.phase==='WAVE_ACTIVE','live first wave');
-  assert.equal(room.renownTrial.wave.count,1);
-  assert.equal(room.players.size,2);
-  room.inspectionFrozenActors = new Set(room.renownTrial.wave.enemyIds);
+  assert.equal(room.renownTrial.phase,'WAVE_ACTIVE','the knight is still in the first wave');
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
   await until(() => evaluate("document.querySelector('#renown-trial-hud').dataset.cue==='COMBAT'"), 'combat ribbon');
   const combat = await evaluate(`(() => {
