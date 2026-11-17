@@ -20,11 +20,11 @@ test('machine ammunition, swords, gauntlets and physical rotor have distinct kil
   'fight-flight-rotor':['rotor-blades','for a spin'],
   'bibye-siege':['stuck around','bad name','got through','bolted away','ballista bolt'],
   'bibye-conditioning':['chilled out','calm down'],
-  'so-fist':['handshake','broke','ahold'],
+  'so-fist':['handshake','broke','ahold','convinced'],
   'so-fist-flick':['showed','fainted','finger'],
   'knock-on-steel':['ran through','battering ram','battery'],
   'bibye-sharp-turn':['decoration','sharp turn','admired'],
-  'ram':['knocked down','misremembered'],
+  'ram':['knocked down','misremembered','convinced'],
  };
  for(const [source,verbs] of Object.entries(cases)){
    let seen=new Set();
@@ -247,7 +247,14 @@ test('Existing author-written phrases follow the actual lethal Disaster contact'
     killFeedDeath(death('one_hit_of_wonders',context,i/30),'Rowan','Perry').text));
   assert.equal(seen.size,parts.length,context+' all variants circulate');
   for(const part of parts)assert.ok([...seen].some(line=>line.includes(part)),context+' '+part);
-  for(const line of seen)assert.ok(line.includes('Rowan')&&line.includes('Perry'),context);
+  for(const line of seen) {
+   assert.ok(line.includes('Rowan'),context+' names the killer');
+   // The author's intentional "blew that way out of proportion" Gale
+   // quip never identifies its victim. It was already valid in production:
+   // do not rewrite it to satisfy an overstrict test.
+   if(line.includes('blew that way out of proportion'))continue;
+   assert.ok(line.includes('Perry'),context+' names the victim');
+  }
   assert.equal(killFeedDeath(death('one_hit_of_wonders',context),'Rowan','Perry').kind,kind);
  }
  const old=killFeedDeath(death('one_hit_of_wonders'),'Rowan','Perry');
@@ -293,4 +300,54 @@ test('a generic multi-assist gag cannot erase an earned weapon finisher or tacti
   assert.equal(allowsSharedHeroEpitaph({source:'sword',[flag]:value}),false,flag);
  for(const source of ['sword','fireball','burn','frostfire','gale','gauntlet','ram'])
   assert.equal(allowsSharedHeroEpitaph({source}),true,source+' supports ordinary genuine group-assist narration');
+});
+
+test('the six new author-written lines circulate only when their death context supports them',()=>{
+ const samples=(source,flags={},count=500,mode='BREAKTHROUGH')=>
+   new Set(Array.from({length:count},(_,i)=>
+     killFeedDeath({...death(source,null,i/30),...flags},'Rowan','Perry',{mode}).text));
+
+ // These two jokes require an actual large overkill, not a normal death.
+ const overkill=samples('sword',{extremeOverkill:true});
+ assert.ok(overkill.has('Perry is experiencing proper powerscaling'));
+ assert.ok(overkill.has("Perry's going on a mantel..."));
+ const ordinary=samples('sword',{},9000);
+ assert.ok(!ordinary.has('Perry is experiencing proper powerscaling'));
+ assert.ok(!ordinary.has("Perry's going on a mantel..."));
+
+ // The narrator encourages a repeatedly defeated player before it finally
+ // declares their will lost. Neither assessment appears for the first death.
+ const repeated=samples('sword',{sameKillerDeaths:3});
+ assert.ok(repeated.has('Keep it up, Perry!'));
+ assert.ok(!repeated.has('Perry has lost his will.'));
+ const prolonged=samples('sword',{sameKillerDeaths:4});
+ assert.ok(prolonged.has('Perry has lost his will.'));
+ assert.ok(!ordinary.has('Keep it up, Perry!'));
+ assert.ok(!ordinary.has('Perry has lost his will.'));
+
+ // The overly formal messenger is a RARE aside for an ordinary sword death.
+ assert.ok(ordinary.has('Perry has just received news that Rowan has bested him.'));
+ assert.ok(!samples('fight-flight-repeater',{},500).has(
+   'Perry has just received news that Rowan has bested him.'));
+
+ // Physical impacts get the negotiation gag. Ordinary arrow or lightning
+ // kills do not misrepresent their cause as a knockdown.
+ for(const source of ['ram','so-fist'])
+   assert.ok(samples(source).has('Rowan convinced Perry to lie down first'),source);
+ for(const source of ['fight-flight-repeater','line_of_conduct'])
+   assert.ok(!samples(source).has('Rowan convinced Perry to lie down first'),source);
+});
+
+test('new lines keep actual player names and do not claim a killer for uncredited falls',()=>{
+ const remarks=new Set(Array.from({length:700},(_,i)=>
+   killFeedDeath({...death('sword',null,i/30),extremeOverkill:true,
+     sameKillerDeaths:4},'Knight Ash','Baron Vale').text));
+ assert.ok(remarks.has('Baron Vale is experiencing proper powerscaling'));
+ assert.ok(remarks.has("Baron Vale's going on a mantel..."));
+ assert.ok(remarks.has('Keep it up, Baron Vale!'));
+ assert.ok(remarks.has('Baron Vale has lost his will.'));
+ const withoutKiller=killFeedDeath({source:'abyss',killerId:null,victimId:'B',at:5},
+   null,'Baron Vale');
+ assert.ok(!withoutKiller.text.includes('Rowan'));
+ assert.ok(!withoutKiller.text.includes('bested'));
 });
