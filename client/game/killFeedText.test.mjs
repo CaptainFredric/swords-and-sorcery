@@ -247,7 +247,14 @@ test('Existing author-written phrases follow the actual lethal Disaster contact'
     killFeedDeath(death('one_hit_of_wonders',context,i/30),'Rowan','Perry').text));
   assert.equal(seen.size,parts.length,context+' all variants circulate');
   for(const part of parts)assert.ok([...seen].some(line=>line.includes(part)),context+' '+part);
-  for(const line of seen)assert.ok(line.includes('Rowan')&&line.includes('Perry'),context);
+  for(const line of seen) {
+   assert.ok(line.includes('Rowan'),context+' names the killer');
+   // The author's intentional "blew that way out of proportion" Gale
+   // quip never identifies its victim. It was already valid in production:
+   // do not rewrite it to satisfy an overstrict test.
+   if(line.includes('blew that way out of proportion'))continue;
+   assert.ok(line.includes('Perry'),context+' names the victim');
+  }
   assert.equal(killFeedDeath(death('one_hit_of_wonders',context),'Rowan','Perry').kind,kind);
  }
  const old=killFeedDeath(death('one_hit_of_wonders'),'Rowan','Perry');
