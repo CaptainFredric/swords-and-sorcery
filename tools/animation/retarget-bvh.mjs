@@ -248,7 +248,136 @@ function bladeArm(local, dt) {
   let edge = sub(ahead, behind);
   edge = Math.hypot(...edge) > 0.02 ? norm(edge) : (lastEdge ?? [-1, 0, 0]);
   lastEdge = edge;
-  solveArm(api, THIRD_PERSON_SWORD_ARM, { wrist: add(EYE, scale(dir, GRIP)), aim: dir, roll: edge }, 1);
+  // the edge lies the same way it did last frame (either edge would do for the blade; flipping between them spun the
+  // fist half a turn in one frame): the first frame takes the nearer, every later one keeps to it
+  if (lastRoll && dot(edge, lastRoll) < 0) edge = scale(edge, -1);
+  // the grip on the blade's line from the eye, unless that line runs through his own chest (a cut finishing low on
+  // the far side): then the grip is carried out in front of the trunk, the blade still on the server's heading
+  const trunk = [api.position('pelvis'), api.position('neck')];
+  REACH_FROM = () => api.position('upper_arm.R');
+  const goal = clearOfTrunk(add(EYE, scale(dir, GRIP)), trunk, TRUNK_CLEAR);
+  const chain = lastRoll ? { ...THIRD_PERSON_SWORD_ARM, exactRoll: true } : THIRD_PERSON_SWORD_ARM;
+  solveArm(api, chain, { wrist: goal, aim: dir, roll: edge }, 1);
+  // and the elbow turned out (about the shoulder-to-grip line) until the forearm clears the trunk, by the least turn,
+  // carried on from the last frame's turn so the elbow never flips between two frames
+  const S0 = api.position('upper_arm.R'), Wp = api.position('hand.R');
+  const line = norm(sub(Wp, S0));
+  const into = () => armIntoTrunk(api, trunk);
+  {  // (every frame: the turn moves at most 0.15 rad from the last, easing in as the arm nears the trunk and out as it clears)
+    const cost = (turn, depth) => depth * 10 + 0.05 * Math.abs(turn);
+    let best = { turn: null, depth: Infinity };
+    const snapshot = local.map((x) => ({ t: x.t.slice(), r: x.r.slice(), s: x.s.slice() }));
+    const restore = () => snapshot.forEach((x, i) => { local[i].t = x.t.slice(); local[i].r = x.r.slice(); });
+    for (let k = -3; k <= 3; k += 1) {
+      const turn = Math.max(-1.4, Math.min(1.4, lastElbowTurn + k * 0.05));
+      if (best.turn !== null && Math.abs(turn - best.turn) < 1e-9) continue;
+      restore();
+      api.rotate('upper_arm.R', line, turn);
+      // (the hand keeps its aim: the turn moved it with the arm)
+      const aimNow = api.direction('socket_sword', THIRD_PERSON_SWORD_ARM.aim);
+      const fix = cross(aimNow, dir);
+      if (Math.hypot(...fix) > 1e-6) api.rotate('hand.R', norm(fix), Math.acos(Math.max(-1, Math.min(1, dot(aimNow, dir)))));
+      const depth = into();
+      if (cost(turn, depth) < cost(best.turn, best.depth) - 1e-9) best = { turn, depth };
+    }
+    restore();
+    if (best.turn) {
+      api.rotate('upper_arm.R', line, best.turn);
+      const aimNow = api.direction('socket_sword', THIRD_PERSON_SWORD_ARM.aim);
+      const fix = cross(aimNow, dir);
+      if (Math.hypot(...fix) > 1e-6) api.rotate('hand.R', norm(fix), Math.acos(Math.max(-1, Math.min(1, dot(aimNow, dir)))));
+    }
+    lastElbowTurn = best.turn;
+  }
+  // the blade's aim and edge exactly, after the elbow's turn
+  holdBlade(api, dir, edge);
+  // the forearm turns the fist, as a real one does (the wrist cannot twist): the fist's twist about the forearm's
+  // line is handed to the forearm, the fist kept exactly where it is; unwrapped against the last frame's, so it never
+  // jumps a half turn
+  shareTwist(api, local);
+  lastRoll = api.direction('socket_sword', THIRD_PERSON_SWORD_ARM.roll);
+}
+let lastElbowTurn = 0;
+let lastRoll = null;
+const OFF_ARM_SHARE = Number(option('--off-arm', '0.25'));
+function slerp4(a, b, w) {
+  let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+  const bb = d < 0 ? b.map((v) => -v) : b;
+  d = Math.abs(d);
+  if (d > 0.9995) return quat.normalize(a.map((v, i) => v + (bb[i] - v) * w));
+  const th = Math.acos(d), s = Math.sin(th);
+  return a.map((v, i) => v * Math.sin((1 - w) * th) / s + bb[i] * Math.sin(w * th) / s);
+}
+let lastTwist = null;
+const TWIST_SHARE = 0.85;
+
+function holdBlade(api, dir, edge) {
+  const chain = THIRD_PERSON_SWORD_ARM;
+  const aimNow = api.direction('socket_sword', chain.aim);
+  const fix = cross(aimNow, dir);
+  if (Math.hypot(...fix) > 1e-6) api.rotate('hand.R', norm(fix), Math.acos(Math.max(-1, Math.min(1, dot(aimNow, dir)))));
+  const axis = api.direction('socket_sword', chain.aim);
+  const rollNow = api.direction('socket_sword', chain.roll);
+  const reject = (v) => sub(v, scale(axis, dot(v, axis)));
+  const f = norm(reject(rollNow)), t = norm(reject(edge));
+  const twist = Math.atan2(dot(cross(f, t), axis), Math.max(-1, Math.min(1, dot(f, t))));
+  if (Math.abs(twist) > 1e-5) api.rotate('hand.R', axis, twist);
+}
+
+function shareTwist(api, local) {
+  const W = api.world();
+  const F = rotOf(W[T('forearm.R')]), H = rotOf(W[T('hand.R')]);
+  const a = norm(sub(posOf(W[T('hand.R')]), posOf(W[T('forearm.R')])));
+  const rel = quat.mul(quat.inv(F), H);
+  const aLocal = quat.rotate(quat.inv(F), a);
+  let theta = 2 * Math.atan2(dot([rel[0], rel[1], rel[2]], aLocal), rel[3]);
+  if (lastTwist != null) while (theta - lastTwist > Math.PI) theta -= 2 * Math.PI;
+  if (lastTwist != null) while (lastTwist - theta > Math.PI) theta += 2 * Math.PI;
+  lastTwist = theta;
+  api.rotate('forearm.R', a, theta * TWIST_SHARE);
+  // the fist back where it was
+  const pr = rotOf(api.world()[T('forearm.R')]);
+  local[T('hand.R')].r = quat.normalize(quat.mul(quat.inv(pr), H));
+}
+
+// the trunk, as the arm meets it: a capsule from the pelvis to the neck (the breastplate's half-depth and the arm's own)
+const TRUNK_CLEAR = 0.42;
+const TRUNK_RADIUS = 0.19;
+const REACH = 0.68; // shoulder to grip, short of the arm's full length (0.74): never a locked-straight arm
+function clearOfTrunk(point, [a, b], clear) {
+  const ab = sub(b, a);
+  const s = Math.max(0, Math.min(1, dot(sub(point, a), ab) / dot(ab, ab)));
+  const on = add(a, scale(ab, s));
+  let p = point.slice();
+  // a grip in front of his own left side or middle is carried forward, out in front of the chest (where a
+  // follow-through's hands are), never pushed further across: that only straightens the arm through the chest
+  if (p[0] < on[0] + 0.15 && p[2] > on[2] - clear) p[2] = on[2] - clear;
+  // and kept within the sword arm's reach, drawn in across rather than back
+  const shoulder = REACH_FROM();
+  const d = sub(p, shoulder);
+  const len = Math.hypot(...d);
+  if (len > REACH) {
+    const yz = Math.hypot(d[1], d[2]);
+    if (yz < REACH) p[0] = shoulder[0] + Math.sign(d[0] || -1) * Math.sqrt(REACH * REACH - yz * yz);
+    else p = add(shoulder, scale(d, REACH / len));
+  }
+  return p;
+}
+let REACH_FROM = () => [0.27, 1.57, 0.02];
+function segmentDistance(p0, p1, q0, q1) {
+  const d1 = sub(p1, p0), d2 = sub(q1, q0), r = sub(p0, q0);
+  const a = dot(d1, d1), e = dot(d2, d2), f = dot(d2, r), c = dot(d1, r), b = dot(d1, d2), den = a * e - b * b;
+  let s = den > 1e-9 ? Math.max(0, Math.min(1, (b * f - c * e) / den)) : 0;
+  let t = (b * s + f) / e;
+  if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); } else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+  return Math.hypot(...sub(add(p0, scale(d1, s)), add(q0, scale(d2, t))));
+}
+// how deep the sword arm's forearm and lower upper arm go into the trunk (metres; 0 clear)
+function armIntoTrunk(api, trunk) {
+  const S0 = api.position('upper_arm.R'), E = api.position('forearm.R'), Wp = api.position('hand.R');
+  const fore = segmentDistance(E, Wp, ...trunk);
+  const upper = segmentDistance(scale(add(S0, E), 0.5), E, ...trunk);
+  return Math.max(0, TRUNK_RADIUS - Math.min(fore, upper));
 }
 
 // --- each output frame: driven bones' world rotations, then back to locals down the hierarchy
@@ -282,6 +411,13 @@ for (const t of times) {
     return worldRot[i];
   };
   for (let i = 0; i < local.length; i += 1) resolve(i);
+  // the off arm is the Spellblade's: he carries his sorcery hand before his chest (Idle's arm), and takes only a share
+  // of the generated body's counter-swing (a human with nothing in that hand flings it out wide and behind for balance:
+  // 40-60 cm to the side; on him it read as the arm flailing, and it swung through the body into the next cut)
+  for (const name of ['clavicle.L', 'upper_arm.L', 'forearm.L', 'hand.L']) {
+    const j = T(name);
+    local[j].r = slerp4(idleLocal[j].r, local[j].r, OFF_ARM_SHARE);
+  }
   // the clip stands in place: the source's travel comes off the pelvis and is written out as root motion (the
   // simulation moves the knight by exactly it, so a planted foot stays planted in the world); its height stays
   const hips = P.pelvis;

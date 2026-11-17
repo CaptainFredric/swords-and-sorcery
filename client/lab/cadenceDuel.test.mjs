@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DT, createDuel, presentKnight, setPlayerInput, stepDuel } from './cadenceDuel.mjs';
+import { DT, STRIKE_DISTANCE, createDuel, presentKnight, setPlayerInput, stepDuel } from './cadenceDuel.mjs';
 import { CADENCE, CUTS, DEFENCE } from '../../shared/src/combatFrameData.mjs';
 
 // a duel with the player squared up to a dummy at sword's length
@@ -140,7 +140,8 @@ test("a clip's root motion moves the knight by its step", () => {
 
 test('motion warping: the step stops at striking distance from the knight in front, never through him', () => {
   const rootMotion = [{ t: 0, x: 0, z: 0 }, { t: 0.45, x: 0, z: -0.5 }, { t: 0.767, x: 0, z: -0.7 }];
-  for (const gap of [1.75, 2.0, 1.3]) {
+  const S = STRIKE_DISTANCE;
+  for (const gap of [S + 0.25, S + 0.5, S - 0.2]) {
     const duel = createDuel({ opponent: 'dummy', variants: { forehand: { ...CUTS.forehand, clip: 'Kimodo', rootMotion } } });
     duel.player.pos = { x: 0, z: gap };
     duel.foe.pos = { x: 0, z: 0 };
@@ -148,8 +149,8 @@ test('motion warping: the step stops at striking distance from the knight in fro
     press(duel);
     runUntil(duel, duel.now + 0.8);
     const end = duel.player.pos.z;
-    // (the step is 0.7 m: from 1.75 or 2.0 it stops at 1.5; from 1.3, already inside, it takes none)
-    const expected = gap > 1.5 ? 1.5 : gap;
+    // (the step is 0.7 m: from further off it stops at striking distance; from already inside it, it takes none)
+    const expected = gap > S ? S : gap;
     assert.ok(Math.abs(end - expected) < 0.03, `from ${gap} m ended at ${end}`);
   }
 });

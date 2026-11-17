@@ -97,6 +97,23 @@ so planted feet stay planted in the world. The step is scaled so the blow lands 
 never through him: the full step with nobody there, none when he's already close. The cost: a scaled step slides the
 feet by what was taken off, until stride warping bends the legs to match (next step).
 
+## Round two: clipping, twitching and the fall (after the first play)
+
+You reported the arm going into his body, the arm twitching through the swing, and the fall looking bad. All three
+were real. Each is now measured by a tool (`tools/animation/arm-torso.mjs`, `arm-jerk.mjs`) or by a frame-stepped
+capture, and fixed.
+
+| Fault | Cause | Fix | Result |
+|---|---|---|---|
+| Sword arm through the chest in Kimodo's follow-through | The retargeter put the grip on the server's blade line from the eye; for a cut finishing low on the far side, that line runs through the chest, so the arm locked straight across it | The grip is carried forward, in front of the chest, and kept short of full reach; the elbow turns out, at most 8.6° a frame, until the forearm clears | Arm into the trunk on 0 of 24 frames (was 11, up to 17.5 cm deep) |
+| Fist and forearm flipping a half turn between frames | The blade edge was chosen per frame ("whichever is nearer"), and all the twist went into the wrist | The edge keeps to last frame's side; 85% of the fist's twist goes to the forearm, as a real arm turns, unwrapped against last frame's | Worst turn 57° a frame (was 174–180°), smoother than Argon's own forehand (72–77°) |
+| Off hand flung out wide | A generated human swings an empty hand out for balance, 40–60 cm to the side and behind | The Spellblade's own carry (sorcery hand at the chest) plus a quarter of the generated swing | Off hand 23–32 cm out, in front; 7–8° a frame |
+| Sword swinging down through his legs going from one cut into the next | The lab jumped from one cut's end to a fixed frame of the next; inertialization can't smooth a gap that large without passing through the body | Motion-matched hand-overs: a linked cut is picked up at the frame of its clip nearest the pose on screen (sword hand, elbow, blade, off hand), then still meets its contact on time | A continuous blade path from the forehand's finish into the backhand's raise |
+| Bodies overlapping at striking distance | Warping stopped the step at 1.5 m, but a lunging chest is half a metre ahead of the feet | Striking distance 1.9 m; knights never closer than 1.15 m | No overlap in the captures |
+| The fall: hanging in the air with knees tucked, then propped at a slant, sword in the ground | The lab drove the bones with a bare mixer, bypassing the game's animator, so there was no death slump, no lie-down and no ground clearance. Worse, during a hit-stop the mixer leaves unchanged bones alone, so the procedural layer folded the legs again on top of the last drawn pose every frame, and the feet rose to 0.94 m | The lab poses through the game's `SpellbladeAnimator` (death slump, lie-down, ground clearance, guard plates, hit reactions, tabard), and the smoothed pose is only ever what's drawn: the bones go back to the animator's pose between draws | Knees give, he topples, and he lies flat by about 1.25 s; feet peak at 0.29 m while falling |
+
+Take 42 is dropped: its torso leans into the sword arm's path, and no grip placement cleared it.
+
 ## The Kimodo spike
 
 ### How the takes were made
@@ -146,7 +163,7 @@ compressed by the retime.
 - **Take 123 stepped off the wrong foot.** Text alone doesn't hold the details: the full pipeline should pin the feet
   with constraints, which the demo's UI can't script.
 
-The lab plays take 7 by default. Take 42 and Argon's clip are in the settings for comparison.
+The lab plays take 7 by default; Argon's clip is in the settings for comparison. (Take 42 was dropped in round two.)
 
 **Evidence:**
 - `evidence/retarget-skeleton-seed7-vs-argon.png`: skeleton and sword, frame by frame.

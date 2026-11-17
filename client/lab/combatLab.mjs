@@ -62,43 +62,105 @@ for (let i = 0; i < 8; i += 1) { // posts round the yard, for depth
   scene.add(post);
 }
 
-// --- the bodies
-const sanitize = (name) => name.replace(/[[\].:/]/g, '');
-const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3();
+// --- the bodies: posed by the game's own animator (SpellbladeAnimator: the clips, then its procedural layer, the
+// same as a knight in the game: hit reactions, a death's slump and lying down on the ground, the guard plates
+// following the limbs, the tabard), and smoothed over on top by inertialization
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m4 = new THREE.Matrix4();
+const BLADE_AIM = new THREE.Vector3(0.345, 0.039, -0.938);
+const CUT_CLIPS = ['Slash_1', 'Slash_2', 'Slash_3'];
 class Body {
-  constructor(asset, clips) {
+  constructor(asset, extraClips) {
     this.asset = asset;
+    this.animator = asset.animator;
     this.group = new THREE.Group();
     this.group.add(asset.root);
     asset.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-    this.mixer = new THREE.AnimationMixer(asset.root);
-    this.actions = new Map();
-    for (const clip of clips.values()) { const a = this.mixer.clipAction(clip); a.play(); a.setEffectiveWeight(0); this.actions.set(clip.name, a); }
+    for (const clip of extraClips) this.animator.actions.set(clip.name, this.animator.mixer.clipAction(clip));
     this.bones = [];
     asset.root.traverse((o) => { if (o.isBone) this.bones.push(o); });
     this.pelvis = this.bones.find((b) => b.name === 'pelvis');
-    this.chest = this.bones.find((b) => b.name === 'chest');
+    this.bone = (n) => this.bones.find((b) => b.name === n.replace(/[[\].:/]/g, ''));
     this.sword = asset.sockets.sword;
     this.inert = new Inertializer(this.bones.length, { halflife: 0.085 });
     this.key = null;
-    this.current = null;
     this.fade = null;
     this.lastShown = null;
-    this.flinch = { angle: 0, vel: 0, axis: new THREE.Vector3(1, 0, 0), at: null };
+    this.reactions = [];
+    this.lastPush = null;
+    this.entries = new Map();
+    this.features = new Map();
+    for (const name of [...CUT_CLIPS, ...extraClips.map((c) => c.name)]) this.features.set(name, this.sampleFeatures(name));
   }
 
-  /** Show `pres` ({ clip, time, key }) this frame; dt: presentation time passed (0 while the duel is held). */
-  pose(pres, dt, mode) {
-    const action = this.actions.get(pres.clip) ?? this.actions.get('Idle');
-    if (this.current && this.current !== action) this.current.setEffectiveWeight(0);
-    action.setEffectiveWeight(1);
-    action.time = Math.max(0, Math.min(action.getClip().duration, pres.time));
-    this.current = action;
-    this.mixer.update(0);
+  // where the sword arm, the blade and the other hand are, in the knight's own space: what a hand-over is matched on
+  readFeatures() {
+    this.asset.root.updateMatrixWorld(true);
+    _m4.copy(this.asset.root.matrixWorld).invert();
+    const at = (n) => new THREE.Vector3().setFromMatrixPosition(this.bone(n).matrixWorld).applyMatrix4(_m4);
+    const tip = this.sword ? this.sword.localToWorld(BLADE_AIM.clone()).applyMatrix4(_m4).sub(at('hand.R')).normalize() : new THREE.Vector3();
+    return { hand: at('hand.R'), elbow: at('forearm.R'), off: at('hand.L'), tip };
+  }
+  sampleFeatures(clip) {
+    if (!this.animator.has(clip)) return [];
+    const out = [];
+    const duration = this.animator.actions.get(clip).getClip().duration;
+    for (let t = 0; t <= duration + 1e-6; t += 1 / 30) {
+      this.animator.apply({ clip, time: t, loop: false, blend: 0 }, 0);
+      out.push({ t, ...this.readFeatures() });
+    }
+    this.animator.reset();
+    return out;
+  }
+  static distance(a, b) {
+    return a.hand.distanceTo(b.hand) + a.elbow.distanceTo(b.elbow) + 0.5 * a.off.distanceTo(b.off) + 0.35 * a.tip.distanceTo(b.tip);
+  }
+  /** The frame of `clip`, before its contact, nearest the pose on screen: where a linked cut is picked up. */
+  matchEntry(clip, before) {
+    // (matched against the pose as drawn)
+    this.show();
+    const now = this.readFeatures();
+    this.unshow();
+    let best = null;
+    for (const f of this.features.get(clip) ?? []) {
+      if (f.t > before) break;
+      const d = Body.distance(now, f);
+      if (!best || d < best.d) best = { t: f.t, d };
+    }
+    return best?.t ?? null;
+  }
+
+  /** A reaction (hit, block, parry, guardBreak) from a blow that came from `from` (world position). */
+  react(kind, at, from, strength = 1) {
+    const push = { x: this.group.position.x - from.x, z: this.group.position.z - from.z };
+    this.reactions = [...this.reactions.filter((r) => at - r.at < 1.2), { kind, at, push, strength }];
+    if (kind === 'hit') this.lastPush = push;
+  }
+
+  /** Show `pres` ({ clip, time, key, cut, linked, contactTime }) at duel time `now`; dt: presentation time passed. */
+  pose(pres, now, dt, mode) {
     const transition = this.key !== null && pres.key !== this.key;
+    let time = pres.time;
+    // a linked cut is picked up where the pose on screen already is (motion matching, on the cut's own frames), then
+    // run so its contact frame still lands on the cut's contact
+    if (pres.linked && pres.contactTime != null) {
+      if (transition && !this.entries.has(pres.key)) this.entries.set(pres.key, this.matchEntry(pres.clip, pres.contactTime - 0.1) ?? pres.entry);
+      const entry = this.entries.get(pres.key);
+      if (entry != null && time <= pres.contactTime) time = entry + (time - pres.entry) * (pres.contactTime - entry) / Math.max(1e-3, pres.contactTime - pres.entry);
+    }
+    if (this.entries.size > 8) this.entries.delete(this.entries.keys().next().value);
+    const dead = pres.clip === 'Death';
+    this.animator.apply({
+      clip: pres.clip, time, loop: Boolean(pres.loop), blend: 0,
+      motion: {
+        reactions: this.reactions, now, yaw: this.group.rotation.y,
+        death: dead ? { age: pres.time, push: this.lastPush ? [this.lastPush.x, this.lastPush.z] : null } : null,
+      },
+    }, dt);
     this.key = pres.key;
     const rot = this.bones.map((b) => [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w]);
-    const pos = new Map([['pelvis', [this.pelvis.position.x, this.pelvis.position.y, this.pelvis.position.z]]]);
+    // (a dying body's height is the death's own: the slump folds the legs at once, and a pelvis eased down from
+    // standing hung him in the air with his knees tucked for a few frames)
+    const pos = dead ? new Map() : new Map([['pelvis', [this.pelvis.position.x, this.pelvis.position.y, this.pelvis.position.z]]]);
     let out = { rot, pos };
     if (mode === 'inertialize') {
       if (transition) this.inert.transition(rot, pos, Math.max(dt, 1 / 240));
@@ -118,40 +180,34 @@ class Body {
     }
     out.rot.forEach((q, i) => this.bones[i].quaternion.set(q[0], q[1], q[2], q[3]));
     const p = out.pos.get('pelvis');
-    this.pelvis.position.set(p[0], p[1], p[2]);
+    if (p) this.pelvis.position.set(p[0], p[1], p[2]);
+    else out.pos = new Map([['pelvis', [this.pelvis.position.x, this.pelvis.position.y, this.pelvis.position.z]]]);
     this.lastShown = out;
-    this.applyFlinch(dt);
+    this.source = { rot, pos: new Map([['pelvis', [...(dead ? out.pos.get('pelvis') : pos.get('pelvis'))]]]) };
   }
 
-  /** A blow taken: the chest thrown back from where it came (a spring, felt more than seen). */
-  struck(fromWorld) {
-    this.group.updateMatrixWorld(true);
-    const here = this.group.position;
-    _v.set(here.x - fromWorld.x, 0, here.z - fromWorld.z).normalize();
-    this.flinch.axis.copy(new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), _v)).normalize();
-    this.flinch.vel = 7;
+  // The smoothed pose is only ever what is drawn. Between draws the bones go back to the animator's own pose: its
+  // mixer leaves a bone it has no new value for untouched (a duel held for a hit-stop), and its procedural layer then
+  // folded the legs again on top of the last drawn pose, every frame, until the feet rose off the ground.
+  show() {
+    if (!this.lastShown) return;
+    this.lastShown.rot.forEach((q, i) => this.bones[i].quaternion.set(q[0], q[1], q[2], q[3]));
+    const p = this.lastShown.pos.get('pelvis');
+    if (p) this.pelvis.position.set(p[0], p[1], p[2]);
   }
-
-  applyFlinch(dt) {
-    const f = this.flinch;
-    // a stiff spring: out and back in about a quarter of a second
-    const k = 260, c = 26;
-    f.vel += (-k * f.angle - c * f.vel) * dt;
-    f.angle += f.vel * dt;
-    if (Math.abs(f.angle) < 1e-4 && Math.abs(f.vel) < 1e-3) return;
-    this.group.updateMatrixWorld(true);
-    const parent = this.chest.parent;
-    parent.getWorldQuaternion(_q);
-    _q2.setFromAxisAngle(f.axis, f.angle);
-    // the turn about a world axis, in the chest's parent's frame
-    const local = _q.clone().invert().multiply(_q2).multiply(_q);
-    this.chest.quaternion.premultiply(local);
+  unshow() {
+    if (!this.source) return;
+    this.source.rot.forEach((q, i) => this.bones[i].quaternion.set(q[0], q[1], q[2], q[3]));
+    const p = this.source.pos.get('pelvis');
+    this.pelvis.position.set(p[0], p[1], p[2]);
   }
 
   swordPoint(out) {
     this.group.updateMatrixWorld(true);
-    return this.sword ? this.sword.localToWorld(out.set(0.345 * 0.7, 0.039 * 0.7, -0.938 * 0.7)) : out.set(0, 1.4, 0).add(this.group.position);
+    return this.sword ? this.sword.localToWorld(out.copy(BLADE_AIM).multiplyScalar(0.7)) : out.set(0, 1.4, 0).add(this.group.position);
   }
+
+  reset() { this.inert.reset(); this.fade = null; this.reactions = []; this.lastPush = null; this.entries.clear(); }
 }
 
 // --- sparks, a glint, a camera kick
@@ -379,22 +435,17 @@ function applySettings() {
   else duel.variants.forehand = variants[settings.forehand].cut;
   if (duel.opponent !== settings.opponent) { duel.opponent = settings.opponent; duel.foe.stats = duel.foe.stats; }
   $('foe-name').textContent = { drill: 'Drill knight', spar: 'Sparring knight', dummy: 'Dummy' }[settings.opponent];
-  for (const b of [you, foe]) { b.inert.reset(); b.fade = null; }
+  for (const b of [you, foe]) b.reset();
 }
 
 async function start() {
-  const [a, b, v7, v42] = await Promise.all([createSpellbladeAsset(), createSpellbladeAsset(), loadVariant('seed7'), loadVariant('seed42')]);
-  variants.seed7 = v7; variants.seed42 = v42;
+  const [a, b, v7] = await Promise.all([createSpellbladeAsset(), createSpellbladeAsset(), loadVariant('seed7')]);
+  variants.seed7 = v7;
   b.setCloth('azure');
-  const clipsOf = (asset) => {
-    const map = new Map([...asset.animator.actions.values()].map((action) => [action.getClip().name, action.getClip()]));
-    for (const v of [v7, v42]) map.set(v.clip.name, v.clip);
-    return map;
-  };
-  you = new Body(a, clipsOf(a));
-  foe = new Body(b, clipsOf(b));
+  you = new Body(a, [v7.clip]);
+  foe = new Body(b, [v7.clip.clone()]);
   scene.add(you.group, foe.group);
-  $('model-rev').textContent = `${a.sourceRevision.slice(0, 8)}; forehand takes: Kimodo-SOMA-RP-v1, ${v7.cut.clip}, ${v42.cut.clip}`;
+  $('model-rev').textContent = `${a.sourceRevision.slice(0, 8)}; forehand take: Kimodo-SOMA-RP-v1, ${v7.cut.clip}`;
   duel = createDuel({ opponent: settings.opponent });
   input.yaw = duel.player.yaw;
   applySettings();
@@ -413,7 +464,7 @@ function handle(events) {
     if (e.type === 'feint' && e.who === 'player') say('Feint', 'feint');
     if (e.type === 'whiff' && e.who === 'player') { say('Whiff', 'bad'); SFX.whiff(); }
     if (e.type === 'fell') { SFX.fell(); say(e.who === 'player' ? 'You fell' : 'He falls', e.who === 'player' ? 'bad' : 'riposte'); }
-    if (e.type === 'respawn') { you.inert.reset(); foe.inert.reset(); }
+    if (e.type === 'respawn') { you.reset(); foe.reset(); }
     if (e.type !== 'contact' || e.outcome === 'miss') continue;
     const attacker = e.who === 'player' ? you : foe, defender = e.who === 'player' ? foe : you;
     const at = attacker.swordPoint(new THREE.Vector3());
@@ -421,17 +472,20 @@ function handle(events) {
     if (e.outcome === 'hit') {
       burst(at, e.riposte ? 0xffd27a : e.grade === 'perfect' ? 0xfff0c0 : 0xff7a4a, e.quality > 0.8 ? 26 : 16, 3.2);
       SFX.hit(e.quality ?? 0.5);
-      defender.struck(attacker.group.position);
+      defender.react('hit', e.at, attacker.group.position, e.riposte ? 1.4 : e.quality > 0.8 ? 1.15 : 0.9);
       shake = Math.max(shake, e.who === 'player' ? 0.05 : 0.09);
       if (e.who === 'player' && e.grade === 'perfect') SFX.onBeat();
     } else if (e.outcome === 'block' || e.outcome === 'guardBreak') {
       burst(at, 0xfff2c8, 12, 2.4); SFX.block(); shake = Math.max(shake, 0.04);
+      defender.react(e.outcome === 'guardBreak' ? 'guardBreak' : 'block', e.at, attacker.group.position, 1.1);
       if (e.target === 'player') say(e.outcome === 'guardBreak' ? 'Guard broken' : 'Block', e.outcome === 'guardBreak' ? 'bad' : 'block');
     } else if (e.outcome === 'parry') {
       burst(at, 0xbfe2ff, 22, 3.5); SFX.parry(); shake = Math.max(shake, 0.05);
+      defender.react('parry', e.at, attacker.group.position, 1); attacker.react('block', e.at, defender.group.position, 1.3);
       say(e.target === 'player' ? 'Parry' : 'Parried', e.target === 'player' ? 'parry' : 'bad');
     } else if (e.outcome === 'perfect') {
       burst(at, 0xffe08a, 44, 4.5); SFX.perfect(); shake = Math.max(shake, 0.08);
+      defender.react('parry', e.at, attacker.group.position, 1.3); attacker.react('guardBreak', e.at, defender.group.position, 1.4);
       say(e.target === 'player' ? 'Perfect Parry' : 'Perfectly parried', e.target === 'player' ? 'perfect' : 'bad');
     }
     // the beat cue: a tick on the beat after each of your contacts (after the hit-stop, which holds the beat too)
@@ -476,7 +530,7 @@ function update(real) {
   for (const [body, k] of [[you, duel.player], [foe, duel.foe]]) {
     body.group.position.set(k.pos.x, 0, k.pos.z);
     body.group.rotation.y = k.yaw;
-    body.pose(presentKnight(duel, k, showAt), shownDt, settings.blend);
+    body.pose(presentKnight(duel, k, showAt), showAt, shownDt, settings.blend);
   }
   // the glint along their blade as the tell comes
   if (glintAt >= 0) {
@@ -520,18 +574,25 @@ function update(real) {
   updateHud(duel);
   if ((duel.tick & 7) === 0) showStats(duel.player.stats);
   renderer.render(scene, camera);
+  you.unshow(); foe.unshow();
 }
 
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 // (for checking the lab from a script: the duel, the settings, and a way to press)
 globalThis.__combatLab = {
   get duel() { return duel; }, settings, input, press: attackDown, release: () => { input.attack = false; },
-  applySettings, keys, setCamera: (mode) => { cameraMode = mode; },
+  applySettings, keys, setCamera: (mode) => { cameraMode = mode; }, bodies: () => ({ you, foe }),
   // a stalled loop (a hidden page) started again, and the frame as drawn
   kick: () => requestAnimationFrame(frame),
   // a clock of its own (for captures): paused, then advanced by exact frames
   pause: (on = true) => { paused = on; },
   advance: (seconds, fps = 60) => { for (let t = 0; t < seconds - 1e-9; t += 1 / fps) update(1 / fps); },
-  snapshot: (quality = 0.85) => { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', quality); },
+  snapshot: (quality = 0.85) => {
+    you.show(); foe.show();
+    renderer.render(scene, camera);
+    const url = renderer.domElement.toDataURL('image/jpeg', quality);
+    you.unshow(); foe.unshow();
+    return url;
+  },
 };
 start().catch((error) => { $('loading').textContent = `The lab could not load: ${error.message}`; console.error(error); });

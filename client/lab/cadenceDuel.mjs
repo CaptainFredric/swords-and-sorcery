@@ -18,7 +18,7 @@ export const DT = 1 / 60;
 const MOVE_SPEED = 3.6;
 const SPEED_WHILE = Object.freeze({ cut: 0.3, guard: 0.5, stagger: 0 });
 const TURN_RATE = Math.PI * 2.2;     // the sparring knight's turn, rad/s
-const BODY_GAP = 0.9;                // two knights never closer than this (m)
+const BODY_GAP = 1.15;               // two knights never closer than this (m): armoured shoulders do not pass through each other
 const REACH = GAME.swordRange + 0.2; // from one knight's middle to the other's
 const ARC_HALF = Object.freeze([75, 75, 12]); // how far off the aim each cut can catch a body (degrees)
 const FLINCH = 0.22;                 // a struck knight's cut not yet live is lost; he reels this long
@@ -66,7 +66,7 @@ const clipOf = (duel, name) => duel.variants[name] ?? CUTS[name];
 // Motion warping: a cut's step is its clip's, scaled so the blow arrives at striking distance from the knight in
 // front of him, never through him (the full step when nobody is there, none when he is already close). The clip's
 // own feet then slide by what was taken off: the cost, until stride warping bends the legs to match.
-export const STRIKE_DISTANCE = 1.5;
+export const STRIKE_DISTANCE = 1.9; // (a lunging cut's chest comes half a metre ahead of the feet: nearer than this the two bodies met)
 function stepWarp(duel, k, name, linked) {
   const clip = clipOf(duel, name);
   if (!clip.rootMotion?.length) return 1;
@@ -419,7 +419,7 @@ export function setPlayerInput(duel, { move = { x: 0, z: 0 }, yaw, attack = fals
  * changes whenever the clip or its segment changes (the moment the body inertializes into it).
  */
 export function presentKnight(duel, k, now = duel.now) {
-  if (!k.alive) return { clip: 'Death', time: Math.min(1.2, now - k.diedAt), key: `death:${k.diedAt}`, loop: false };
+  if (!k.alive) return { clip: 'Death', time: now - k.diedAt, key: `death:${k.diedAt}`, loop: false };
   if (now < k.staggerUntil) {
     if (k.staggerKind === 'flinch') return { clip: 'Stagger', time: Math.min(0.6, (now - k.staggerAt) * 1.6), key: `flinch:${k.staggerAt}` };
     return { clip: 'Stagger', time: Math.min(0.6, (now - k.staggerAt) * (0.6 / Math.max(0.3, k.staggerUntil - k.staggerAt))), key: `stagger:${k.staggerAt}` };
@@ -427,7 +427,9 @@ export function presentKnight(duel, k, now = duel.now) {
   if (k.cut) {
     const clip = clipOf(duel, k.cut.name);
     const t = cutClipTime(clip, now - k.cut.startedAt, { linked: k.cut.linked, startup: k.cut.startup });
-    return { clip: clip.clip, time: t, key: `cut:${k.cut.startedAt}:${k.cut.name}`, cut: k.cut.name };
+    // (linked: where it is picked up and where its contact frame is, so the body may pick it up nearer the pose it is in)
+    return { clip: clip.clip, time: t, key: `cut:${k.cut.startedAt}:${k.cut.name}`, cut: k.cut.name,
+      linked: k.cut.linked, entry: k.cut.linked ? clip.linkEntry : 0, contactTime: clip.clipContact };
   }
   if (k.guard.up) {
     if ((k.reaction?.kind === 'block' || k.reaction?.kind === 'parry') && now - k.reaction.at < 0.32) return { clip: 'Block_Impact', time: now - k.reaction.at, key: `block:${k.reaction.at}` };
