@@ -78,7 +78,8 @@ test('remote players upgrade fallback visuals to production GLBs without moving 
   assert.match(source, /new\s+THREE\.Group\s*\(/);
   assert.match(source, /generation/);
   assert.match(source, /visualKind\s*===\s*['"]fallback['"]/);
-  assert.match(source, /createSpellbladeAsset\(\{\s*kind:\s*['"]thirdPerson['"]\s*\}\)/);
+  // (the world's knights: the third-person model, and inertialized clip changes: SpellbladeAnimator)
+  assert.match(source, /createSpellbladeAsset\(\{\s*kind:\s*['"]thirdPerson['"](,\s*inertialize:\s*true)?\s*\}\)/);
   assert.match(source, /\.catch\s*\(/);
   assert.doesNotMatch(source, /scene\.add\(instance\.root\)/);
 });

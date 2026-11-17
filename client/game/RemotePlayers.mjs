@@ -29,6 +29,7 @@ import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
 import { GestureLayer, isBrushImpact } from './spellbladeGestures.mjs';
 import { SecondaryMotion, recoilTurns } from './spellbladeSecondary.mjs';
 import { chainClockShown } from './chainClock.mjs';
+import { createCutTell, cutTellStrength } from './cutTell.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -331,7 +332,7 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
   applyCastWindow(shell, pendingCast);
 
   const generation = shell.generation;
-  createSpellbladeAsset({ kind: 'thirdPerson' })
+  createSpellbladeAsset({ kind: 'thirdPerson', inertialize: true })
     .then((instance) => {
       if (!instance) {
         revealRemoteFallback(shell);
@@ -559,6 +560,7 @@ export class RemotePlayers {
         shell.sunderBlade?.dispose();
         shell.vortexBlade?.dispose();
         shell.chivalryLink?.dispose();
+        shell.cutTell?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -953,6 +955,16 @@ export class RemotePlayers {
       shell.visualInstance.root.rotation.x = dizzy > 0 ? Math.cos(nowMs / 1000 * 4.9 + phase) * 0.05 * dizzy : 0;
     }
 
+    // the tell: a glint along his blade a quarter of a second before each cut lands (never on my own body)
+    if (id && shell.visualInstance?.sockets?.sword) {
+      if (shell.cutTellOf !== shell.visualInstance) {
+        shell.cutTell?.dispose();
+        shell.cutTell = createCutTell(shell.visualInstance.sockets.sword);
+        shell.cutTellOf = shell.visualInstance;
+      }
+      shell.cutTell?.set(pb.alive ? cutTellStrength(animationPlayer, serverNow) : 0);
+    }
+
     const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
     setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
@@ -1039,6 +1051,7 @@ export class RemotePlayers {
       shell.sunderBlade?.dispose();
       shell.vortexBlade?.dispose();
       shell.chivalryLink?.dispose();
+      shell.cutTell?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

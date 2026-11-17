@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { chainClockShown, CHAIN_CATCH_UP } from './chainClock.mjs';
+import { CUT_TELL, cutTellStrength } from './cutTellTiming.mjs';
 import { CADENCE, chainCadence } from '../../shared/src/combatFrameData.mjs';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
@@ -47,6 +48,19 @@ test("the server's word sets the arms right: a jump they made is corrected by th
   // the server judged it a little later (its clock): a smaller jump
   local.adoptCadence({ strike: 1, grade: 'good', shift: 0.05 });
   assert.ok(Math.abs(local.chain.startedAt - (10 - 0.05)) < 1e-9, `${jumped} -> ${local.chain.startedAt}`);
+});
+
+test("a cut is told a quarter of a second before its contact, and only a committed one", () => {
+  const p = { attackActive: true, attackStartedAt: 10, attackNextStrike: 0, attackCommitted: 1 };
+  const contact = 10 + SWORD_STRIKE_TIMES[0];
+  assert.ok(cutTellStrength(p, contact - CUT_TELL.lead) > 0.99, 'the peak');
+  assert.equal(cutTellStrength(p, contact - CUT_TELL.lead - CUT_TELL.width - 0.01), 0, 'not before');
+  assert.equal(cutTellStrength(p, contact), 0, 'over by the contact itself');
+  // the backhand is not told until it is committed
+  assert.equal(cutTellStrength(p, 10 + SWORD_STRIKE_TIMES[1] - CUT_TELL.lead), 0);
+  assert.ok(cutTellStrength({ ...p, attackNextStrike: 1, attackCommitted: 2 }, 10 + SWORD_STRIKE_TIMES[1] - CUT_TELL.lead) > 0.99);
+  // the tell comes before a Parry's window opens, so it can be answered (0.25 s ahead; the Parry is the last 0.18 s)
+  assert.ok(CUT_TELL.lead - CUT_TELL.width >= 0.17);
 });
 
 test('a body shown catches up with a jump of the chain clock within a few hundredths of a second', () => {

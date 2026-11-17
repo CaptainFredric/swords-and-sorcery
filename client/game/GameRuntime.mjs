@@ -78,7 +78,7 @@ import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs'
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { RUPTURE } from '../../shared/src/rupture.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
-import { strikeKind, swordDamageFor } from '../../shared/src/combat.mjs';
+import { SWORD_STRIKE_TIMES, strikeKind, swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
@@ -122,6 +122,7 @@ import { disasterCameraWanted, disasterHolding, disasterTeleportAiming, stepDisa
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
+import { RhythmMeter } from '../ui/rhythmMeter.mjs';
 
 // the mounted Fight-and-Flight sight's near clip (metres). The rider's helmet, pauldrons, body and sword arm are hidden
 // from his own eyes (setCockpitHeadHidden; first person draws its own sword arm); what is left near the lens is his left
@@ -245,6 +246,8 @@ export class GameRuntime {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
+    // (a Practice Yard training aid: hidden unless the setting asks for it)
+    this.rhythmMeter = new RhythmMeter(container);
 
     const hemi = everywhere(new THREE.HemisphereLight(
       SCENE_PRESENTATION.hemisphere.skyColor,
@@ -337,6 +340,7 @@ export class GameRuntime {
     // a press for my chain's next cut, judged as I made it: on the beat the blade rings once, clean (nearly on it, a
     // quieter one); early, late or held, nothing (the chain goes on as it always has)
     this.weapon.onCadence = (cadence) => {
+      if (this.view.rhythmMeter && this.#inPractice()) this.rhythmMeter?.press(cadence);
       if (cadence.grade === 'perfect' || cadence.grade === 'good') {
         this.#play(cadenceRingRecipe(Math.random, { grade: cadence.grade }), null, cadence.grade === 'perfect' ? 0.8 : 0.45);
       }
@@ -4218,6 +4222,13 @@ export class GameRuntime {
         serverNow,
         mounted: ridingForArmYaw,
       });
+      // the rhythm meter (a Practice Yard training aid, off unless asked for): the cursor runs from my latest contact
+      {
+        const chain = this.weapon.swordChain.chain;
+        const landed = chain?.landed ?? 0;
+        const since = chain && landed >= 1 ? this.weapon.now() - (chain.startedAt + SWORD_STRIKE_TIMES[landed - 1]) : null;
+        this.rhythmMeter?.update(Boolean(this.view.rhythmMeter) && this.#inPractice(), since);
+      }
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
         // (crouched, the steps are soft and light)
@@ -4702,6 +4713,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    this.rhythmMeter?.dispose();
     clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
     this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();

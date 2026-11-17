@@ -6,7 +6,7 @@
 // next chain. (What the arms do once a chain ends is fpSlash.mjs's recoveryPose.) Pure: times in, the chain out.
 
 import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep, nextChainVariant } from '../../shared/src/combat.mjs';
-import { chainCadence } from '../../shared/src/combatFrameData.mjs';
+import { CADENCE, chainCadence } from '../../shared/src/combatFrameData.mjs';
 
 // the heavy third strike lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
@@ -41,6 +41,11 @@ export class LocalSwordChain {
     this.step(now);
     this.held = true;
     this.lastCadence = null;
+    // (a press just after a chain lapsed was meant for its next cut: late, and the chain starts over)
+    if (!this.chain && this.lapsed && now - this.lapsed.at < 0.3) {
+      this.lastCadence = { strike: this.lapsed.strike, grade: 'late', offset: now - this.lapsed.contactAt - CADENCE.beat, shift: 0, at: null };
+    }
+    this.lapsed = null;
     if (!this.chain && now >= this.restartAt) this.#start(now);
     else {
       this.queued = true;
@@ -57,7 +62,9 @@ export class LocalSwordChain {
     if (!chain || this.plain) return;
     if (chain.cadence?.strike === chain.landed) return;
     const judged = chainCadence({ startedAt: chain.startedAt, landed: chain.landed, pressAt: now });
-    if (!judged || judged.grade === 'early') return;
+    if (!judged) return;
+    // (an early press is reported, for anyone measuring their rhythm, but changes nothing: the chain as it always was)
+    if (judged.grade === 'early') { this.lastCadence = { strike: judged.strike, grade: 'early', offset: judged.offset, shift: 0, at: null }; return; }
     chain.cadence = { strike: judged.strike, grade: judged.grade, at: judged.at, shift: judged.shift, applied: false };
     this.lastCadence = { ...chain.cadence, offset: judged.offset };
   }
@@ -143,6 +150,7 @@ export class LocalSwordChain {
         this.queued = false;
       } else {
         // let go: the swing under way has played out (and the next could not have begun sooner than now)
+        if (chain.landed >= 1) this.lapsed = { at: now, strike: chain.landed, contactAt: chain.startedAt + SWORD_STRIKE_TIMES[chain.landed - 1] };
         this.chain = null;
         this.run = null;
         this.restartAt = Math.max(this.restartAt, chain.startedAt + next.at);
