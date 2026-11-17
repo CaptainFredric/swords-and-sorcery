@@ -41,6 +41,25 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    return {text:`${v} forgot the element of surprise`,kind:'fire'};
  if(source==='one_hit_of_wonders'&&event.killContext==='nearly-full-disaster')
    return {text:`${k} was so cool that ${v} experienced aftershocks`,kind:'frost'};
+ // Reuse ONLY the author's pre-existing combat lines, selected by the
+ // authoritative contact subtype. Do not create extra prose here.
+ if(source==='one_hit_of_wonders') {
+   if(event.killContext==='disaster-ground-slam')return text([
+     `${k} knocked down ${v}`,
+     `${k} caused ${v} to lay down arms`,
+   ],event,'sword');
+   if(event.killContext==='disaster-windblade')return text([
+     `${k} blew ${v} away`,
+     `${v} became winded after ${apostrophe(k)} antics`,
+     `${k} blew that way out of proportion`,
+   ],event,'gale');
+   if(event.killContext==='disaster-terminal-fire')return text([
+     `${k} roasted ${v}`,
+     `${k} burned ${v} down`,
+   ],event,'fire');
+ }
+ if(source==='one_hit_ground_fire')return {text:`${k} burned ${v} down`,kind:'fire'};
+ if(source==='one_hit_vortex')return {text:`${v} became winded after ${apostrophe(k)} antics`,kind:'gale'};
  // Exceptional jokes are sampled, not permanent replacements for the finishing
  // weapon's identity. Never speculate about Guard, overkill or a losing streak:
  // the authoritative death event must explicitly prove each condition.
@@ -51,8 +70,11 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} is contemplating whether to continue`,
    `${v} should really stop holding back`);
  if(event.guardWouldSave) exceptional.push(`${v} should've guarded`);
- if(event.abandonedCaptureCircle) exceptional.push(
-   `${v} doesn't know how to stand in a circle`);
+ if(event.sameKillerDeaths>=3&&event.sameTeamAsViewer)
+   exceptional.push(`${v} wants your team to lose`);
+ // This joke is supported by the server's actual objective-chase evidence.
+ if(event.abandonedCaptureCircle)
+   return {text:`${v} doesn't know how to stand in a circle`,kind:'sword'};
  const standout=exceptional.length?pick([...exceptional,null,null],event):null;
  if(standout)return {text:standout,kind:'sword'};
  // These are deliberately rare: otherwise the chronicler's self-awareness and
@@ -60,13 +82,12 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  const rare=[
    `${v} couldn't make it to the restroom in time`,
    `${v}! You made it onto here!`,
-   `${v} is actually a squire in disguise`,
+   ...(!/^squire\b/i.test(v)?[`${v} is actually a squire in disguise`]:[]),
    `${v} is wondering why this message is being shown`,
    ...(mode==='RENOWN_TRIALS' ? [`${v} confused being bad with being remembered`] : []),
    ...(mode==='EDGE_OF_VICTORY' ? [`${v} will NOT be bouncing back`] : []),
    ...(!['RENOWN_TRIALS','EDGE_OF_VICTORY'].includes(mode)?[`${v} will take this personally`]:[]),
-   ...(event.sameKillerDeaths>=3&&event.sameTeamAsViewer?[
-     `${v} wants your team to lose`]:[]),
+
  ];
  const aside=source==='sword'&&!event.killContext?pick([...Array(70).fill(null),...rare],event):null;
  if(aside)return {text:aside,kind:'sword'};
@@ -124,6 +145,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} stood in the way of ${apostrophe(k)} battering ram`,
    `${k} taught ${v} not to stand in the way of a battering ram`,
    `${k} assaulted ${v} and no longer has battery`,
+   `${k} was charged with assault and battery against ${v}`,
  ],event,'sword');
  if(source==='ram')return text([
    `${k} knocked down ${v}`,
@@ -187,7 +209,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} was stunned`,
    `${v} had a fork stuck in the wrong place`,
    `${v} displayed shocking conduct`,
-   `${v} believed their armor would insulate them`,
+   ...(event.steeled?[`${v} believed their armor would insulate them`]:[]),
    `${v} couldn't get enough of ${apostrophe(k)} power`,
  ],event,'fire');
  if(source==='sword')return text(mode==='RENOWN_TRIALS'?[
@@ -209,6 +231,15 @@ export function terminalAscensionFeed(pilotName,victims=[]){
  const names=[...new Set(victims.filter(Boolean))];
  return {text:names.length?`${pilotName} Ascended with ${names.join(', ')}`:
    `${pilotName} Ascended`,kind:'fire'};
+}
+// A shared-HP-damage group joke should never erase a distinctive, proven
+// lethal cause or a more specific tactical mistake. Basic combat finishes
+// can still share a group epitaph when two actual attackers contributed.
+export function allowsSharedHeroEpitaph(event) {
+  const ordinary=['sword','fireball','burn','frostfire','gale','gauntlet','ram'];
+  return ordinary.includes(event?.source)&&!event?.killContext&&
+    !event?.abandonedCaptureCircle&&!event?.guardWouldSave&&!event?.extremeOverkill&&
+    !(event?.sameKillerDeaths>=2);
 }
 // Real grouped casualties, collected by the client from authoritative death
 // events with the same credited killer within the same brief impact window.

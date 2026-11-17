@@ -201,3 +201,39 @@ test('Full Steel keeps the last HP after the airborne wave expires; future damag
   applyDamage(room,'b','a',10,'sword',12);
   assert.equal(a.alive,false,'a NEW blow outside the protected interval can kill');
 });
+
+test('real decisive Disaster deaths name the ground slam, passing Windblade, and terminal Fire blast',()=>{
+ const cases=[
+  {label:'ground impact',tiers:{gale:2},x:1.8,kind:'disaster-ground-slam'},
+  {label:'passing pressure blade',tiers:{gale:2},x:9,kind:'disaster-windblade'},
+  {label:'endpoint Fire explosion',tiers:{gale:2,fire:1},x:24,kind:'disaster-terminal-fire'},
+ ];
+ for(const scenario of cases){
+  const {room,b}=battle(scenario.tiers);
+  b.position={x:scenario.x,y:0,z:0};
+  b.health=1;
+  assert.equal(tryUltimate(room,'a',9),true,scenario.label);
+  run(room,9,11.5);
+  const deaths=room.events.filter(e=>e.type==='death'&&e.victimId===b.id);
+  assert.equal(deaths.length,1,scenario.label+' scores exactly one death');
+  assert.equal(deaths[0].source,'one_hit_of_wonders',scenario.label+' retains real damage source');
+  assert.equal(deaths[0].killContext,scenario.kind,
+    scenario.label+' was witnessed by server, not guessed from weapon equipped');
+ }
+});
+test('distinct Disaster finishing phases do not overwrite near-full or Lightning-teleport signatures',()=>{
+ const {room,a,b}=battle({gale:2,lightning:2,fire:2,frost:2,steel:2});
+ b.health=1;
+ // Unlike an ordinary ground cast, this held Lightning charge uses the
+ // final authoritative aim to choose the grounded teleport slam.
+ assert.equal(tryUltimate(room,'a',9,{held:true}),true);
+ run(room,9,9.55);
+ assert.equal(releaseOneHitCharge(room,'a',9.55,{yaw:-Math.PI/2,pitch:0}),true);
+ const deaths=room.events.filter(e=>e.type==='death'&&e.victimId===b.id);
+ // A teleport can land past a nearby victim; source identity must remain
+ // correct for whatever (if anything) the later wave actually hits.
+ for(const death of deaths)assert.ok([
+  'lightning-teleport-slam','nearly-full-disaster','disaster-ground-slam',
+  'disaster-windblade','disaster-terminal-fire'
+ ].includes(death.killContext));
+});

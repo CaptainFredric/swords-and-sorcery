@@ -43,7 +43,7 @@ import { shouldPredictSeparation, separationTickKey } from './separationCadence.
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed} from './killFeedText.mjs';
+import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement, galeLiftPrediction } from './predictMovement.mjs';
@@ -3587,7 +3587,7 @@ export class GameRuntime {
       killer?.name??null,victim?.name??'someone',{
         mode:this.latestSnapshot?.mode,
       });
-    if(copy&&copy.streak!=='vortex'&&event.damageContributors?.length>=2){
+    if(copy&&copy.streak!=='vortex'&&allowsSharedHeroEpitaph(event)&&event.damageContributors?.length>=2){
       const participants=event.damageContributors.map(id=>
         this.latestSnapshot?.players.find(p=>p.id===id)?.name).filter(Boolean);
       const group=groupHeroFeed(victim?.name??'someone',participants,event);
