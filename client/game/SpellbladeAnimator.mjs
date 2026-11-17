@@ -13,6 +13,10 @@ import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
 import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, nonlethalRecovery, reactionPose } from './spellbladeMotion.mjs';
+import { Inertializer } from './inertialize.mjs';
+
+// how fast a clip change's leftover dies away (seconds to halve): about a cross-fade's length, without its lag
+export const INERTIAL_HALFLIFE = 0.07;
 
 // three.js strips '.', ':', '/' and brackets from glTF node names ("thigh.L" loads as "thighL")
 function sanitize(name) {
@@ -64,7 +68,7 @@ function clampActionTime(action, time, loop) {
 }
 
 export class SpellbladeAnimator {
-  constructor(root, clips = [], onPose = null, { cloth = false } = {}) {
+  constructor(root, clips = [], onPose = null, { cloth = false, inertialize = false } = {}) {
     this.onPose = onPose;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
@@ -108,6 +112,16 @@ export class SpellbladeAnimator {
     this.chestRest = this.bone('chest') ? this.bone('chest').getWorldQuaternion(new THREE.Quaternion()).premultiply(root.getWorldQuaternion(new THREE.Quaternion()).invert()) : null;
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
+    // Inertialization (inertialize.mjs): a clip change takes over at once, and the difference from what was showing
+    // (and how fast it moved) dies away on a spring, in place of a cross-fade's 0.1-0.2 s average of two poses. The
+    // knights in the world have it; the first-person arms keep their own hand-overs. The tabard's cloth is its own.
+    this.inertia = null;
+    if (inertialize) {
+      this.inertialBones = [...this.bones.values()].filter((bone) => !/^tabard/.test(bone.name));
+      this.inertia = new Inertializer(this.inertialBones.length, { halflife: INERTIAL_HALFLIFE });
+      this.inertialPelvis = this.bones.get('pelvis') ?? null;
+      this.inertialPending = false;
+    }
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
     // retaining the real faceted sole instead of an ankle proxy or a box that exaggerates toe clearance.
     this.soles = new Map();
@@ -397,7 +411,7 @@ export class SpellbladeAnimator {
     this.flightRider.restore();
     this.restoreRamArms();if(!plan?.ramMounted)this.siege.releaseStanding();
     if(plan?.mounted){
-      if(!this.siege.active)this.reset();
+      if(!this.siege.active)this.reset();this.inertia?.reset();
       this.siege.apply();this.onPose?.(plan);return true;
     }
     this.releaseMounted();
@@ -405,6 +419,7 @@ export class SpellbladeAnimator {
     if (plan?.layers) {
       this.#restoreTouched();
       if (!this.composing) {
+        if (this.inertia) this.inertialPending = true;
         this.composition.begin();
         // Stop full-body bindings before applying their individually owned tracks.
         const held = new Map();
@@ -433,13 +448,15 @@ export class SpellbladeAnimator {
       // (a machine's own pose applies it after its own, on the machine's path)
       if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
       this.#followPauldrons();
+      this.#inertialize(step);
       this.cloth?.apply(step);
       this.onPose?.(plan);
       return true;
     }
     if (this.composing) {
       this.#restoreTouched();
-      this.composition.release(['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
+      if (this.inertia) this.inertialPending = true;
+      this.composition.release(this.inertia ? 0 : ['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
       this.composing = false;
     }
     // The mixer may skip an unchanged binding. Restore its underlying sample before blending the exit again.
@@ -460,7 +477,9 @@ export class SpellbladeAnimator {
       // (a plan may name its own hand-over: one strike's follow-through into the next one's raise)
       // (a plan's own hand-over applies from the clip it names, blendFrom; from anything else, the ordinary cross-fade)
       const own = Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.activeClip);
-      const duration = step > 0 && this.activeAction ? (own ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
+      // (inertialized: the new clip takes over at once, and the leftover dies away after the pose: #inertialize)
+      if (this.inertia && this.activeAction) this.inertialPending = true;
+      const duration = this.inertia ? 0 : step > 0 && this.activeAction ? (own ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
       let startProgress = 0;
       if (duration > 0) {
         // every outgoing clip restarts its fade from the weight it has right now, so a switch in the middle of a
@@ -534,6 +553,7 @@ export class SpellbladeAnimator {
     // (a machine's own pose applies it after its own, on the machine's path)
       if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
     this.#followPauldrons();
+    this.#inertialize(step);
     this.cloth?.apply(step);
     this.onPose?.(plan);
     return true;
@@ -574,6 +594,7 @@ export class SpellbladeAnimator {
   reset() {
     this.#restoreCharacter();
     this.#restoreTouched();
+    this.inertia?.reset();
     if (this.composing) {
       this.composition.release(0);
       this.composing = false;
@@ -598,6 +619,45 @@ export class SpellbladeAnimator {
       bone.position.copy(saved.p);
     }
     this.touched.clear();
+  }
+
+  // The pose as drawn: this frame's pose (clips and procedural layer), with what is left of the last clip change laid
+  // over it and dying away. Every bone it moves is `touched`, so the next frame starts from the clip's own pose again
+  // (the mixer leaves a bone alone when its sample has not changed: a held frame would otherwise build up offset on
+  // offset).
+  #inertialize(step) {
+    const inertia = this.inertia;
+    if (!inertia) return;
+    const bones = this.inertialBones;
+    const rot = bones.map((b) => [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w]);
+    const pelvis = this.inertialPelvis;
+    const pos = pelvis ? new Map([['pelvis', [pelvis.position.x, pelvis.position.y, pelvis.position.z]]]) : new Map();
+    const dt = Math.max(0, Math.min(0.1, step));
+    if (this.inertialPending) {
+      inertia.transition(rot, pos, Math.max(dt, 1 / 240));
+      this.inertialPending = false;
+    }
+    const out = inertia.apply(rot, pos, dt);
+    // (what the next frame restores is the bone as the clips and the procedural layer left it, before the character
+    // layer: that layer undoes its own changes first, and a value saved after them would bake its turns in for good)
+    const touch = (bone) => {
+      if (this.touched.has(bone)) return;
+      const pre = this.characterSaved.get(bone);
+      this.touched.set(bone, pre ? { q: pre.q.clone(), p: pre.p.clone() } : { q: bone.quaternion.clone(), p: bone.position.clone() });
+    };
+    out.rot.forEach((q, i) => {
+      const s = rot[i];
+      if (Math.abs(q[0] - s[0]) + Math.abs(q[1] - s[1]) + Math.abs(q[2] - s[2]) + Math.abs(q[3] - s[3]) < 1e-7) return;
+      const bone = bones[i];
+      touch(bone);
+      bone.quaternion.set(q[0], q[1], q[2], q[3]);
+    });
+    const p = out.pos.get('pelvis');
+    if (pelvis && p && Math.abs(p[0] - pelvis.position.x) + Math.abs(p[1] - pelvis.position.y) + Math.abs(p[2] - pelvis.position.z) > 1e-7) {
+      touch(pelvis);
+      pelvis.position.set(p[0], p[1], p[2]);
+    }
+    if (this.touched.size) this.root.updateMatrixWorld(true);
   }
 
   // rotate a bone about an axis given in the character's root space, through the bone's own pivot

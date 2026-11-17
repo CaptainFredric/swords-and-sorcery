@@ -6,6 +6,7 @@
 // next chain. (What the arms do once a chain ends is fpSlash.mjs's recoveryPose.) Pure: times in, the chain out.
 
 import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep, nextChainVariant } from '../../shared/src/combat.mjs';
+import { CADENCE, chainCadence } from '../../shared/src/combatFrameData.mjs';
 
 // the heavy third strike lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
@@ -39,8 +40,51 @@ export class LocalSwordChain {
     // (up to date first: a press just after the chain ended starts a new one, as it does on the server)
     this.step(now);
     this.held = true;
+    this.lastCadence = null;
+    // (a press just after a chain lapsed was meant for its next cut: late, and the chain starts over)
+    if (!this.chain && this.lapsed && now - this.lapsed.at < 0.3) {
+      this.lastCadence = { strike: this.lapsed.strike, grade: 'late', offset: now - this.lapsed.contactAt - CADENCE.beat, shift: 0, at: null };
+    }
+    this.lapsed = null;
     if (!this.chain && now >= this.restartAt) this.#start(now);
-    else this.queued = true;
+    else {
+      this.queued = true;
+      this.#judge(now);
+    }
+    return this.lastCadence;
+  }
+
+  // the press for the chain's next cut, judged against its beat, as the server judges it (chainCadence): on it, the
+  // rest of the follow-through is cancelled into the next cut when that cut now begins (step). Only the first press
+  // after each contact counts.
+  #judge(now) {
+    const chain = this.chain;
+    if (!chain || this.plain) return;
+    if (chain.cadence?.strike === chain.landed) return;
+    const judged = chainCadence({ startedAt: chain.startedAt, landed: chain.landed, pressAt: now });
+    if (!judged) return;
+    // (an early press is reported, for anyone measuring their rhythm, but changes nothing: the chain as it always was)
+    if (judged.grade === 'early') { this.lastCadence = { strike: judged.strike, grade: 'early', offset: judged.offset, shift: 0, at: null }; return; }
+    chain.cadence = { strike: judged.strike, grade: judged.grade, at: judged.at, shift: judged.shift, applied: false };
+    this.lastCadence = { ...chain.cadence, offset: judged.offset };
+  }
+
+  /**
+   * The server's word on a press's cadence for my chain under way (its event: the cut it brought, its grade, how far
+   * the chain's clock jumped, and when, on my clock). What the arms guessed is set right: a jump not yet made is
+   * replaced; one already made is corrected by the difference.
+   */
+  adoptCadence({ strike, grade, shift = 0, cutAt = null }) {
+    const chain = this.chain;
+    if (!chain || !Number.isInteger(strike)) return;
+    const local = chain.cadence?.strike === strike ? chain.cadence : null;
+    if (local?.applied) {
+      chain.startedAt -= shift - local.shift;
+      local.shift = shift;
+      local.grade = grade;
+      return;
+    }
+    chain.cadence = { strike, grade, at: shift > 0 && Number.isFinite(cutAt) ? cutAt : null, shift, applied: !(shift > 0) };
   }
 
   release() {
@@ -89,6 +133,12 @@ export class LocalSwordChain {
     }
     const chain = this.chain;
     if (!chain) return null;
+    // (a press on the beat: the chain's clock jumps to its next cut as it now begins)
+    const c = chain.cadence;
+    if (c && !c.applied && Number.isFinite(c.at) && now + 1e-9 >= c.at) {
+      c.applied = true;
+      chain.startedAt -= c.shift;
+    }
     const elapsed = now - chain.startedAt;
     for (;;) {
       const next = nextChainStep(chain, elapsed);
@@ -100,6 +150,7 @@ export class LocalSwordChain {
         this.queued = false;
       } else {
         // let go: the swing under way has played out (and the next could not have begun sooner than now)
+        if (chain.landed >= 1) this.lapsed = { at: now, strike: chain.landed, contactAt: chain.startedAt + SWORD_STRIKE_TIMES[chain.landed - 1] };
         this.chain = null;
         this.run = null;
         this.restartAt = Math.max(this.restartAt, chain.startedAt + next.at);
@@ -121,7 +172,9 @@ export class LocalSwordChain {
   }
 
   #start(at) {
-    this.chain = { startedAt: at, committed: 1, landed: 0, variant: this.plain ? 0 : nextChainVariant(this.run, at) };
+    // (id: the chain itself, which its clock is not: a cadence jump moves startedAt, never the chain)
+    this.serial = (this.serial ?? 0) + 1;
+    this.chain = { id: this.serial, startedAt: at, committed: 1, landed: 0, variant: this.plain ? 0 : nextChainVariant(this.run, at) };
     this.run = null;
     this.queued = false;
   }

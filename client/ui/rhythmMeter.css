@@ -1,0 +1,22 @@
+/* The Practice Yard's rhythm meter (client/ui/rhythmMeter.mjs): small, low, out of the way of the knight */
+.rhythm-meter { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); width: min(380px, 70vw); pointer-events: none; z-index: 6; font: 600 11px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .04em; color: rgba(236, 230, 218, .78); text-shadow: 0 1px 3px rgba(0, 0, 0, .7); }
+.rhythm-meter[hidden] { display: none; }
+.rhythm-label { margin-bottom: 3px; text-transform: uppercase; }
+.rhythm-last { margin-left: 6px; text-transform: none; font-variant-numeric: tabular-nums; }
+.rhythm-last.perfect { color: #8fe09b; }
+.rhythm-last.good { color: #9fc4ee; }
+.rhythm-last.early { color: #d7cfc2; }
+.rhythm-last.late { color: #ef8b78; }
+.rhythm-track { position: relative; height: 12px; border-radius: 3px; background: rgba(12, 13, 16, .45); border: 1px solid rgba(236, 230, 218, .2); overflow: hidden; }
+.rhythm-track > i { position: absolute; top: 0; bottom: 0; }
+.rhythm-window { background: rgba(143, 183, 232, .22); }
+.rhythm-beat { background: rgba(127, 209, 139, .6); }
+.rhythm-contact { width: 2px; background: #d9564a; }
+.rhythm-cursor { width: 2px; background: #fff; box-shadow: 0 0 5px #fff; }
+.rhythm-dots { position: absolute; inset: 0; }
+.rhythm-dot { position: absolute; top: 2px; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .5); }
+.rhythm-dot.perfect { background: #8fe09b; }
+.rhythm-dot.good { background: #9fc4ee; }
+.rhythm-dot.early { background: #d7cfc2; }
+.rhythm-dot.late { background: #ef8b78; }
+@media (max-width: 700px) { .rhythm-meter { bottom: 170px; } }

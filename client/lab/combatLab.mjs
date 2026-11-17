@@ -13,7 +13,7 @@ import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
 import { SCENE_PRESENTATION } from '../game/scenePresentation.mjs';
 import { CADENCE, CUTS, DEFENCE, summarizeStats } from '../../shared/src/combatFrameData.mjs';
 import { DT, createDuel, presentKnight, setPlayerInput, stepDuel } from './cadenceDuel.mjs';
-import { Inertializer } from './inertialize.mjs';
+import { Inertializer } from '../game/inertialize.mjs';
 
 const $ = (id) => document.getElementById(id);
 const settings = {

@@ -200,7 +200,8 @@ registry
     options: [{ value: 'left', label: '⟲ Left' }, { value: 'right', label: 'Right ⟳' }],
   })
   .defineSetting({ id: 'display.cameraShake', section: 'display', group: 'Comfort', label: 'Camera motion', type: 'range', min: 0, max: 100, step: 10, unit: '%', default: 100, hint: 'Sway, bob and the kick of blows' })
-  .defineSetting({ id: 'display.damageFlash', section: 'display', group: 'Comfort', label: 'Red flash when hit', type: 'toggle', default: true });
+  .defineSetting({ id: 'display.damageFlash', section: 'display', group: 'Comfort', label: 'Red flash when hit', type: 'toggle', default: true })
+  .defineSetting({ id: 'display.rhythmMeter', section: 'display', group: 'Training', label: 'Rhythm meter in the Practice Yard', type: 'toggle', default: false, hint: 'Where each press for your next cut fell against its beat' });
 
 registry
   .defineSetting({

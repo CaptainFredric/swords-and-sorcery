@@ -169,6 +169,40 @@ export function parryRecipe(rand = Math.random) {
 }
 
 /**
+ * A Perfect Parry: the guard met the blow in the last instant. The parry's own catch and singing guard, brighter and
+ * fuller (a fifth above rings with it), with the weight of the attacker's arm thrown back under it: heard, not read.
+ */
+export function perfectParryRecipe(rand = Math.random) {
+  const base = parryRecipe(rand);
+  const sing = 1240 * jitter(rand, 0.02);
+  return {
+    layers: [
+      ...base.layers,
+      { ...ring(rand, sing * 1.5, { decay: 1.1, gain: 0.16, partials: 4, bright: 1.4 }), at: 0.02 },
+      { ...ring(rand, sing * 2, { decay: 0.6, gain: 0.07, partials: 3, bright: 1.2 }), at: 0.03 },
+      { type: 'tone', wave: 'sine', freq: 130 * jitter(rand, 0.06), slideTo: 60, attack: 0.002, decay: 0.16, gain: 0.45, at: 0.01 },
+    ],
+    reverb: 0.55,
+    hall: 0.2,
+  };
+}
+
+/**
+ * The chain kept in time: a press for the next cut on its beat rings the blade once, clean and short (a good press
+ * nearly off it, quieter). Small on purpose: the rhythm is felt in the hands, under the swing that follows.
+ */
+export function cadenceRingRecipe(rand = Math.random, { grade = 'perfect' } = {}) {
+  const onBeat = grade === 'perfect';
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 6800 * jitter(rand, 0.06), q: 0.8, attack: 0.0005, decay: 0.012, gain: onBeat ? 0.22 : 0.1 },
+      ring(rand, 1980 * jitter(rand, 0.015), { decay: onBeat ? 0.34 : 0.16, gain: onBeat ? 0.11 : 0.05, partials: 3, bright: 1.3 }),
+    ],
+    reverb: 0.25,
+  };
+}
+
+/**
  * A sword cutting air, as the cut it is (0 the forehand, falling from the high right: its rush falls; 1 the backhand,
  * rising from the low left: its rush rises; 2 the heavy chop: a deeper, wider rush with the weight of both arms behind
  * it). The blade's edge whistles thinly along the top of each.

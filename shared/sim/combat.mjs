@@ -23,6 +23,7 @@ import {
   resolveSwordVsGuard, swordDamage, swordDamageFor, swordForce,
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
+import { DEFENCE, TIMING_PRESSURE, chainCadence } from '../src/combatFrameData.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
@@ -343,6 +344,7 @@ function flashFrozen(player, nowSec) {
 // loosed is the world's, and flies on.
 function holdFlashFrozen(player, dt, nowSec) {
   if (player.attackActive) player.attackStartedAt = (player.attackStartedAt ?? nowSec) + dt;
+  if (player.attackCadence && !player.attackCadence.applied && Number.isFinite(player.attackCadence.at)) player.attackCadence.at += dt;
   if (Number.isFinite(player.attackRestartAt) && player.attackRestartAt > nowSec - dt) player.attackRestartAt += dt;
   if (player.attackSweep && Number.isFinite(player.attackSweep.sampledTo)) player.attackSweep.sampledTo += dt;
   if (player.attackLastChain) player.attackLastChain = { ...player.attackLastChain, startedAt: player.attackLastChain.startedAt + dt, endedAt: player.attackLastChain.endedAt + dt };
@@ -363,6 +365,38 @@ function holdFlashFrozen(player, dt, nowSec) {
   if (Number.isFinite(player.ultimateWantedUntil) && player.ultimateWantedUntil > nowSec - dt) player.ultimateWantedUntil += dt;
 }
 
+// Cadence (shared/src/combatFrameData.mjs chainCadence): a press made after a cut's contact, for the next cut of the
+// chain, is judged against the beat. On it (or near it), the rest of the follow-through is cancelled into the next cut:
+// the chain's clock jumps ahead when that cut now begins, and everything keyed to the chain's clock (its strikes, its
+// body, the arms) comes with it. Late, early or held, the chain goes on exactly as it always has. Never more damage.
+// Only the first press after each contact counts; Sundering slams, Chivalry's guarded cuts and a Vortex keep their own
+// time.
+function judgeChainPress(room, player, pressAt) {
+  if (!player.attackActive || player.attackSlam || player.attackChivalry) return;
+  const landed = player.attackNextStrike ?? 0;
+  if (player.attackCadence?.chainId === player.attackChainId && player.attackCadence.strike === landed) return;
+  const judged = chainCadence({ startedAt: player.attackStartedAt, landed, pressAt });
+  if (!judged || judged.grade === 'early') return;
+  player.attackCadence = { chainId: player.attackChainId, strike: landed, grade: judged.grade, at: judged.at, shift: judged.shift, applied: false };
+  room.events.push({ type: 'cadence', playerId: player.id, chainId: player.attackChainId, strike: landed, grade: judged.grade,
+    offsetMs: Math.round(judged.offset * 1000), shift: +judged.shift.toFixed(4), cutAt: judged.at, at: pressAt });
+  if (judged.grade === 'perfect') recordChallengeFact(room, { type: 'cadenceOnBeat', playerId: player.id, chainId: player.attackChainId, strike: landed, at: pressAt });
+}
+
+// the cancel itself, on the tick its cut begins
+function applyChainCadence(player, nowSec) {
+  const c = player.attackCadence;
+  if (!c || c.applied || c.chainId !== player.attackChainId || !Number.isFinite(c.at) || nowSec + 1e-9 < c.at) return;
+  c.applied = true;
+  player.attackStartedAt -= c.shift;
+}
+
+/** The weight a strike of this chain bears on a guard for its cadence (an on-beat cut bears harder; never more damage). */
+function cadencePressure(player, strike) {
+  const c = player.attackCadence;
+  return c && c.chainId === player.attackChainId && c.strike === strike && c.applied ? (TIMING_PRESSURE[c.grade] ?? 1) : 1;
+}
+
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || player.swordTechnique) return false;
@@ -381,7 +415,10 @@ export function beginAttack(room, playerId, nowSec) {
   const last = player.attackLastChain;
   if (!player.attackActive && last && nowSec < last.endedAt - 1e-9) resumeSwordChain(player, last);
   else if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
-  else player.attackQueued = true;
+  else {
+    player.attackQueued = true;
+    judgeChainPress(room, player, nowSec);
+  }
   if (!combatActionPolicy(player, nowSec).concurrent) {
     player.guarding = false;
     player.pendingSpell = null;
@@ -1278,7 +1315,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     // Ordinary contact (quality >= 0.35) applies full baseline pressure (22 stamina, 5 blocks to break),
     // while marginal/glancing contact scales smoothly down to 0.6 pressure (13 stamina).
     const guardQuality = Math.min(1, physical.quality / 0.35);
-    const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact);
+    // (and a cut brought on the beat bears harder on it: the reward for rhythm is weight, never damage)
+    const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact) * cadencePressure(attacker, strikeIndex);
       const guardResult = resolveSwordVsGuard({
         guarding: true,
         // Sunder simply cannot be perfect-parried, even with Chivalry's
@@ -1298,15 +1336,23 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     if (guardResult.kind === 'parry') {
       target.parries += 1;
       const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
+      // a guard the knight raised himself in the last instant (never Chivalry's own, never a Vortex's blade) is a
+      // Perfect Parry: the attacker reels nearly twice as long, a sure opening
+      const perfect = Boolean(guardResult.perfect) && !automaticParry && !bladeGuard && !suppressParryReel;
       if (!suppressParryReel) {
         // Only ordinary sword blows (including a Sunder canceled by Sheathe
         // in Steel) can be parried. Empowered Sunder is never in this branch.
-        attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
+        attacker.staggerUntil = nowSec + (perfect ? GAME.perfectParryStaggerMs : GAME.parryStaggerMs) / 1000;
         stopSwordChain(attacker, {}, room, nowSec);
       }
-      gainProwess(room, target, PROWESS.parry);
+      gainProwess(room, target, PROWESS.parry + (perfect ? PROWESS.perfectParryExtra : 0));
+      if (perfect) {
+        target.perfectParries = (target.perfectParries ?? 0) + 1;
+        recordChallengeFact(room, { type: 'perfectParry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
+      }
       room.events.push({
         type: 'parry', attackerId: attacker.id, defenderId: target.id, kind, strikeIndex, ...(heat ? { heat } : {}), suppressParryReel,
+        ...(perfect ? { perfect: true, leadMs: Math.round((nowSec - target.guardStartedAt) * 1000) } : {}),
         ...(automaticParry?{automatic:true}:{}),
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
@@ -3711,6 +3757,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
     if(!player.swordTechnique)resumeHeldActions(room, player, nowSec, dt);
     if (player.attackActive && nowSec >= player.staggerUntil) {
+      // (a press on the beat cancels the rest of the follow-through: the chain's clock jumps to its next cut)
+      applyChainCadence(player, nowSec);
       // the chain in time order: committed strikes land; as each next swing would begin, it is committed if the
       // button is still held (or was pressed again), or the chain ends there, the swing before it having landed
       const elapsed = nowSec - player.attackStartedAt;

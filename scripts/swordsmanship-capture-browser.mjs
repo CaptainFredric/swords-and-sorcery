@@ -6,7 +6,8 @@
 // recording is made from it afterwards. Beside them go the authoritative events and, frame by frame, the clip the
 // third-person body was playing.
 //
-//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|riposte|riposte-air|whirl|whirl-gale
+//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|slash-cadence|riposte|riposte-air|whirl|whirl-gale
+//        [--beats 0,0.6,1.18]   slash-cadence: when each tap is made (seconds)
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
 //        [--clear-view]  the recording browser's own first-person arms hidden (to see the watched knight's whole blade)
@@ -25,6 +26,11 @@ import { CdpClient } from './browser-cdp.mjs';
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
 const flag = (name) => args.includes(name);
+// --setting id=value (any number): set through the game's own settings before the yard
+const extraSettings = args.flatMap((a, i) => (a === '--setting' && args[i + 1] ? [args[i + 1]] : [])).map((pair) => {
+  const [id, raw] = pair.split('=');
+  return [id, raw === 'true' ? true : raw === 'false' ? false : Number.isFinite(Number(raw)) ? Number(raw) : raw];
+});
 const scenario = option('--scenario', 'slash-tap');
 const device = option('--device', 'desktop');
 const remote = flag('--remote');
@@ -93,6 +99,8 @@ try {
   // the loadout, through the game's own settings (what the Armory's cards set): carried into the yard from there
   const equipped = await ev(`(() => { const s = window.__ssSettings.settings; const has = (id) => { try { s.get(id); return true; } catch { return false; } };
     s.set('loadout.spell', ${JSON.stringify(spell)});
+    // (any other setting asked for: --setting id=value, more than once; true/false read as toggles)
+    for (const [id, value] of ${JSON.stringify(extraSettings)}) if (has(id)) s.set(id, value);
     if (${JSON.stringify(technique)} && has('loadout.technique')) s.set('loadout.technique', ${JSON.stringify(technique)});
     return { spell: s.get('loadout.spell'), technique: has('loadout.technique') ? s.get('loadout.technique') : null }; })()`);
   let viewer = null;
@@ -257,6 +265,14 @@ try {
   stage = 'input';
   if (scenario === 'slash-tap' || scenario === 'slash-chain') {
     await attack(true); await sleep(holdSec * 1000); await attack(false);
+  } else if (scenario === 'slash-cadence') {
+    // the chain kept in time: a tap, then a tap on each cut's beat (shared/src/combatFrameData.mjs: 0.2 s after its
+    // contact). The first cut lands 0.4 s in; on its beat the backhand begins at once (the forehand's follow-through
+    // cancelled), and lands 0.38 s later, its own beat 0.2 s after that.
+    const t0 = Date.now();
+    const at = async (sec) => { const wait = t0 + sec * 1000 - Date.now(); if (wait > 0) await sleep(wait); };
+    const beats = (option('--beats', '0,0.6,1.18')).split(',').map(Number);
+    for (const sec of beats) { await at(sec); await attack(true); await at(sec + 0.07); await attack(false); }
   } else if (scenario === 'riposte') {
     await press(true); await sleep(80); await press(false);
   } else if (scenario === 'riposte-air') {

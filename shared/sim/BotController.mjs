@@ -2,6 +2,7 @@ import { edgeInside, edgeLimitPoint } from '../src/edgeBoundary.mjs';
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../src/combat.mjs';
+import { CADENCE } from '../src/combatFrameData.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { ultimateStartup, vortexing } from '../src/ultimates.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -169,6 +170,29 @@ function ensureAi(actor, nowSec, random, skill) {
     escapeUntil: -Infinity,
   };
   return actor.ai;
+}
+
+// A knight with rhythm presses for his chain's next cut on its beat (shared/src/combatFrameData.mjs CADENCE), as a
+// player does: once after each contact, by his own feel for it (a timing error of his skill's spread), and only now and
+// then if he is no great swordsman. His own chain only: never his foe's buttons. Holding through, the chain goes on at
+// its old pace, as it always has.
+function keepChainInTime(room, actor, ai, nowSec, random, skill) {
+  const rhythm = skill.rhythm;
+  if (!rhythm || !(rhythm[0] > 0) || !actor.attackActive || !actor.attackHeld || actor.attackSlam || actor.attackChivalry) { ai.cadence = null; return; }
+  const landed = actor.attackNextStrike ?? 0;
+  if (!(landed >= 1 && landed < SWORD_STRIKE_TIMES.length)) return;
+  const key = `${actor.attackChainId}:${landed}`;
+  if (ai.cadence?.key !== key) {
+    const contactAt = actor.attackStartedAt + SWORD_STRIKE_TIMES[landed - 1];
+    // (a gaussian-ish error: the mean of two uniforms, about his skill's spread either side of the beat)
+    const error = (random() + random() - 1) * rhythm[1];
+    ai.cadence = { key, pressAt: random() < rhythm[0] ? contactAt + CADENCE.beat + error : null };
+  }
+  if (Number.isFinite(ai.cadence.pressAt) && nowSec + 1e-9 >= ai.cadence.pressAt) {
+    const at = ai.cadence.pressAt;
+    ai.cadence.pressAt = null;
+    beginAttack(room, actor.id, Math.min(nowSec, at));
+  }
 }
 
 function releaseExpiredActions(room, actor, ai, nowSec) {
@@ -1064,6 +1088,7 @@ export function stepBotControllers(
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
+    keepChainInTime(room, actor, ai, nowSec, random, skill);
     if (room.edgeOfVictory) {
       const goal=edgeBotGoal(room,actor,targetKinds);
       if(goal){

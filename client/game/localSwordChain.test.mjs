@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CHAIN_CYCLE, LocalSwordChain } from './localSwordChain.mjs';
+import { chainCadence } from '../../shared/src/combatFrameData.mjs';
 
 // the chain's strikes landed by `until`, stepping every frame (60 fps) from 0
 function run(script, until = 3) {
@@ -39,7 +40,13 @@ test('let go in the middle of the second swing: it finishes, no third', () => {
 });
 
 test('quick taps chain, and a guard or a spell stops it outright', () => {
-  assert.deepEqual(run([[0, 'press'], [0.1, 'release'], [0.5, 'press'], [0.6, 'release']], 2.5), ['0.00:1', '0.00:2', 'end']);
+  // (the second tap, 0.1 s after the first contact, is in the cadence window: it hastens the backhand a little, the
+  // chain's clock moving earlier by what it cancels of the forehand's follow-through)
+  const { shift } = chainCadence({ startedAt: 0, landed: 1, pressAt: 0.5 });
+  assert.ok(shift > 0);
+  // (the jump is seen as the forehand still landed under the moved clock, then the backhand lands on it)
+  const moved = (-shift).toFixed(2);
+  assert.deepEqual(run([[0, 'press'], [0.1, 'release'], [0.5, 'press'], [0.6, 'release']], 2.5), ['0.00:1', `${moved}:1`, `${moved}:2`, 'end']);
   const chain = new LocalSwordChain();
   chain.press(0);
   chain.cancel();
