@@ -62,7 +62,7 @@ import { CONTACT_LIMITS, contactWorthDrawing, footfallPlan, groundContactAt, lan
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
+  deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, perfectParryRecipe, cadenceRingRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
@@ -334,6 +334,13 @@ export class GameRuntime {
     };
     // my own strike committed, its swing beginning: the breath behind it leads the blade (a first swing after a while;
     // the heavy third swung at a foe it would fell)
+    // a press for my chain's next cut, judged as I made it: on the beat the blade rings once, clean (nearly on it, a
+    // quieter one); early, late or held, nothing (the chain goes on as it always has)
+    this.weapon.onCadence = (cadence) => {
+      if (cadence.grade === 'perfect' || cadence.grade === 'good') {
+        this.#play(cadenceRingRecipe(Math.random, { grade: cadence.grade }), null, cadence.grade === 'perfect' ? 0.8 : 0.45);
+      }
+    };
     this.weapon.onBegin = (strike) => {
       this.#play(attackWindupRecipe(Math.random, { strike }), null, 0.45);
       const me = this.playerId;
@@ -2133,10 +2140,22 @@ export class GameRuntime {
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
       if (event.type === 'parry') {
-        if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); }
-        if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
-          this.weapon.parryReel();
+        if (event.defenderId === me) {
+          this.weapon.parry();
+          this.hud.flashText(event.perfect ? 'PERFECT PARRY' : 'PARRY', 'parry');
+          // (the last instant: the moment held, as a blow that lands is)
+          if (event.perfect) this.weapon.hitstop(0.09, 0.55);
         }
+        if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
+          this.weapon.parryReel({ perfect: Boolean(event.perfect) });
+        }
+      }
+      // the server's word on a press for my chain's next cut: the arms' guess set right (a jump of the chain's clock it
+      // did or did not make, by the difference)
+      if (event.type === 'cadence' && event.playerId === me) {
+        const toLocal = this.weapon.now() - this.socket.serverNow();
+        this.weapon.swordChain.adoptCadence({ strike: event.strike, grade: event.grade, shift: event.shift ?? 0,
+          cutAt: Number.isFinite(event.cutAt) ? event.cutAt + toLocal : null });
       }
       if (event.type === 'block') {
         if (event.attackerId === me) this.hud.hit('block');
@@ -3544,9 +3563,10 @@ export class GameRuntime {
       // (the blade met the guard where it met the body: the server's point; sparks scrape on along the cut's way)
       const aim = event.attackerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.attackerId);
       const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
-      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
+      // (a Perfect Parry throws the bigger burst)
+      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy: heavy || Boolean(event.perfect), parry, travel });
     }
-    const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
+    const recipe = parry ? (event.perfect ? perfectParryRecipe() : parryRecipe()) : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
     if (!event.ram) this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
     // a Sundering blow lands on a guard as two: CLANG-CLANG, the weight of it under both

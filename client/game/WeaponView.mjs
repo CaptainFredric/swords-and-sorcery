@@ -312,6 +312,8 @@ export class WeaponView {
     this.lastSwingKey = null;
     // told earlier, as each stroke is committed and its swing begins (a breath behind it leads the blade)
     this.onBegin = () => {};
+    // a press for the chain's next cut, judged ({ grade, offset, shift }): GameRuntime rings an on-beat one
+    this.onCadence = () => {};
     this.lastBegunKey = null;
     // where the arms' sword path comes from: the chain under way, or their way home after it (fpSlash.mjs). A new
     // chain takes over from whichever it was; a guard, a cast or a dash lets go of it for its own clip
@@ -469,7 +471,12 @@ export class WeaponView {
     if (held) this.drawSword({ quick: true });
     // (bracing into Sunder, the button is only remembered: the first slam is its, as the brace ends)
     const bracing = this.bracing && !this.bracing.committed;
-    if (held && !this.attackButton && !bracing) this.swordChain.press(this.now());
+    if (held && !this.attackButton && !bracing) {
+      // (a press for the chain's next cut is judged as it is made, on the arms' own clock: the ring of an on-beat press
+      // is heard now, not when the server's word comes back)
+      const cadence = this.swordChain.press(this.now());
+      if (cadence) this.onCadence(cadence);
+    }
     if (!held) this.swordChain.release();
     this.attackButton = held;
     if (held && !this.concurrent) this.guard = false;
@@ -683,9 +690,10 @@ export class WeaponView {
   }
 
   /** My swing was parried by an opponent: blade deflected, attack cancelled, arms reel. */
-  parryReel() {
+  parryReel({ perfect = false } = {}) {
     this.cancelAttack();
-    this.recoilUntil = this.now() + 0.32;
+    // (a Perfect Parry throws me further and holds me longer: the server staggers me nearly twice as long)
+    this.recoilUntil = this.now() + (perfect ? 0.55 : 0.32);
     this.motion.parryReel();
   }
 
@@ -854,16 +862,17 @@ export class WeaponView {
     // fastest a moment later)
     if (chain) {
       // (a strike is committed as its swing begins: the first with the chain, each later one at its own start)
-      const begun = this.lastBegunKey?.startedAt === chain.startedAt ? this.lastBegunKey.strike : -1;
+      // (keyed by the chain itself: a press on the beat moves the chain's clock, never which chain it is)
+      const begun = this.lastBegunKey?.id === chain.id ? this.lastBegunKey.strike : -1;
       for (let strike = begun + 1; strike < chain.committed; strike += 1) {
-        this.lastBegunKey = { startedAt: chain.startedAt, strike };
+        this.lastBegunKey = { id: chain.id, strike };
         this.onBegin(strike);
       }
       const since = timeSec - chain.startedAt;
-      const heard = this.lastSwingKey?.startedAt === chain.startedAt ? this.lastSwingKey.strike : -1;
+      const heard = this.lastSwingKey?.id === chain.id ? this.lastSwingKey.strike : -1;
       for (let strike = heard + 1; strike < chain.committed; strike += 1) {
         if (since < SWORD_STRIKE_TIMES[strike] - MELEE_CONTACT.window.early) break;
-        this.lastSwingKey = { startedAt: chain.startedAt, strike };
+        this.lastSwingKey = { id: chain.id, strike };
         this.onSwing(strike, { slam: Boolean(this.comboSource?.chainAt === chain.startedAt ? this.comboSource.slam : this.sunderActive) });
       }
     }

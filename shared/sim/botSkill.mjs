@@ -25,6 +25,8 @@
 //   out of reach; aggression: how readily it presses at all; chain: [least, spread] seconds it holds its sword chain
 //   before deciding again (the whole chain is about two; a foe left open, it presses on to the end); yields: it lets
 //   its own swing go to guard, parry or step out when its foe's blow will land first (never trading a blow it loses).
+//   rhythm: [share, spread]: how often it presses for its chain's next cut on the beat (the rest it holds through, at
+//   the old pace), and its timing error either side of the beat (seconds; the Knight and the Squire never do)
 export const BOT_SKILLS = Object.freeze({
   squire: Object.freeze({
     label: 'Squire', name: 'Rival Squire', reaction: Object.freeze([0.42, 0.3]), think: 0.32, guard: 0.55, guardFloor: 0,
@@ -40,11 +42,13 @@ export const BOT_SKILLS = Object.freeze({
     label: 'Champion', name: 'Rival Champion', reaction: Object.freeze([0.19, 0.1]), think: 0.14, guard: 1.15, guardFloor: 12,
     parry: 0.4, spacing: 0.15, punish: 0.7, patience: 0.4, lead: 0.75, aimError: 0.03, dodge: 0.35, retreat: 25,
     smartUltimate: true, edgeGale: 0.6, sprintReserve: 45, mistakes: 0, aggression: 1, chain: Object.freeze([1.9, 0.3]), yields: true,
+    rhythm: Object.freeze([0.5, 0.07]),
   }),
   spellblade: Object.freeze({
     label: 'The Spellblade', name: 'The Spellblade', reaction: Object.freeze([0.17, 0.05]), think: 0.1, guard: 1.3, guardFloor: 15,
     parry: 0.75, spacing: 0.3, punish: 0.95, patience: 0.75, lead: 1, aimError: 0.01, dodge: 0.65, retreat: 32,
     smartUltimate: true, edgeGale: 1, sprintReserve: 45, mistakes: 0, aggression: 1, chain: Object.freeze([1.9, 0.3]), yields: true,
+    rhythm: Object.freeze([0.8, 0.04]),
     activeRead: true, // only the highest difficulty recognizes visibly live hitboxes
   }),
 });

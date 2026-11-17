@@ -133,9 +133,10 @@ test("a clip's root motion moves the knight by its step", () => {
   runUntil(duel, 0.2);
   const z0 = duel.player.pos.z;
   press(duel);
-  runUntil(duel, duel.now + 0.75);
+  runUntil(duel, duel.now + 0.4);
+  assert.equal(presentKnight(duel, duel.player).clip, 'Kimodo');
+  runUntil(duel, duel.now + 0.35);
   assert.ok(Math.abs((z0 - duel.player.pos.z) - 0.6) < 0.03, `stepped ${z0 - duel.player.pos.z}`);
-  assert.equal(presentKnight(duel, duel.player, duel.now - 0.3).clip, 'Kimodo');
 });
 
 test('motion warping: the step stops at striking distance from the knight in front, never through him', () => {

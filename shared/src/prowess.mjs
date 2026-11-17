@@ -13,6 +13,7 @@ export const PROWESS = Object.freeze({
   dealt: 0.28,         // per point of health taken off a foe
   taken: 0.14,         // per point of health lost to a foe
   parry: 4,
+  perfectParryExtra: 2, // a Perfect Parry's on top (6 in all)
   guardBreak: 5,
   displaced: 2.5,      // a foe thrown well off their feet (a gust's heart, a spell's burst square on)
 });

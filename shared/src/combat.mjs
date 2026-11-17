@@ -14,6 +14,10 @@ export const GAME = Object.freeze({
   // the guard's capacity and what a blow costs it are per kind of knight: GUARD_PROFILES below
   parryWindowMs: 180,
   parryStaggerMs: 450,
+  // a guard raised in the last instant before the blow (within this of its contact) is a Perfect Parry: the attacker
+  // reels this much longer, a sure opening (no more damage: the opening is the reward)
+  perfectParryWindowMs: 70,
+  perfectParryStaggerMs: 850,
   guardBreakStaggerMs: 700,
   dashCooldownSec: 5,
 });
@@ -163,7 +167,7 @@ export function getSwordStrikeIndex(elapsedSec) {
  */
 export function resolveSwordVsGuard({ guarding, guardAgeMs, stamina, profile = GUARD_PROFILES.spellblade, pressure = 1, impacts = 1 }) {
   if (!guarding) return { kind: 'hit', staminaAfter: stamina };
-  if (guardAgeMs <= GAME.parryWindowMs) return { kind: 'parry', staminaAfter: stamina };
+  if (guardAgeMs <= GAME.parryWindowMs) return { kind: 'parry', perfect: guardAgeMs <= GAME.perfectParryWindowMs, staminaAfter: stamina };
   const staminaAfter = Math.max(0, stamina - guardBlockCost(profile) * Math.max(0, pressure) * Math.max(1, impacts));
   return { kind: staminaAfter <= 1e-9 ? 'guardBreak' : 'block', staminaAfter };
 }

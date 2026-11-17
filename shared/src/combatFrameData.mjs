@@ -17,7 +17,7 @@
 //
 // Current tuning, provisional: these are the numbers the Combat Lab (client/lab/) plays, to be felt and changed.
 
-import { GAME, MELEE_CONTACT } from './combat.mjs';
+import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from './combat.mjs';
 
 // Each cut. Times are seconds from the cut's start (the moment it is committed).
 //   startup      start to contact, fresh (a chain's first cut) and linked (a later one, picked up mid-raise)
@@ -55,13 +55,15 @@ export const ACTIVE = Object.freeze({ before: MELEE_CONTACT.window.early, after:
 //   perfect    how far from the beat a press is still on it
 //   next       when the next cut begins after an on-beat press, an in-window one, or a held button (the old chain)
 //   lapse      a chain nobody carried on is over this long after its last contact (back to the stance)
+// The window closes where the next cut would have begun anyway (the game's own rule: a chain goes on only if the
+// button is held, or pressed again, by then), so rhythm only ever adds speed to the chain the game already has.
 export const CADENCE = Object.freeze({
   beat: 0.2,
   open: 0.04,
-  close: 0.42,
+  close: 0.32,
   perfect: 0.05,
   next: Object.freeze({ perfect: 0.18, good: 0.26, held: 0.32 }),
-  lapse: 0.42,
+  lapse: 0.32,
   // the third cut ends a chain: the next press starts a new one (from the forehand), on the same beat
   finisherRestart: 0.28,
 });
@@ -83,17 +85,38 @@ export function nextCutDelay(grade, cadence = CADENCE) {
   return null;
 }
 
-// Damage and force by timing. Aim still decides most of a blow (blade.mjs aimQuality: the centre of a knight is worth
-// more than the edge); timing adds a measured bonus on top, and a riposte after a Perfect Parry more.
-export const TIMING_BONUS = Object.freeze({ perfect: 1.12, good: 1, held: 1, early: 1, riposte: 1.25 });
+// Timing never raises a blow's damage: aim alone decides it (blade.mjs aimQuality: 25-27 for a good ordinary blow,
+// 28-30 only for consistently centred aim; that top band is not to be loosened). Rhythm is paid in speed (the next cut
+// comes sooner) and in weight on a guard (an on-beat cut bears harder on it); a Perfect Parry in the reel it puts the
+// attacker in (a sure opening), not in damage.
+export const TIMING_BONUS = Object.freeze({ perfect: 1, good: 1, held: 1, early: 1, riposte: 1 });
+export const TIMING_PRESSURE = Object.freeze({ perfect: 1.25, good: 1.1, held: 1, early: 1 });
+
+/**
+ * The game's chain, carried on by a press (server and the local arms alike): when a press made at `pressAt` brings the
+ * chain's next cut, against the chain that began at `startedAt` with `landed` of its cuts landed. Returns null when
+ * there is no next cut to bring (before the first contact, or after the third), else { grade, offset, strike (the cut
+ * it brings), contactAt (the last contact), at (when that cut now begins, or null if the press does not hasten it),
+ * shift (how far the chain's clock jumps ahead then: the rest of the follow-through is cancelled into the next cut) }.
+ */
+export function chainCadence({ startedAt, landed, pressAt }, cadence = CADENCE) {
+  if (!(landed >= 1 && landed < SWORD_STRIKE_TIMES.length) || !Number.isFinite(startedAt) || !Number.isFinite(pressAt)) return null;
+  const contactAt = startedAt + SWORD_STRIKE_TIMES[landed - 1];
+  const judged = judgeCadence(pressAt - contactAt, cadence);
+  const nominal = startedAt + SWORD_CHAIN.starts[landed];
+  if (judged.grade !== 'perfect' && judged.grade !== 'good') return { ...judged, strike: landed, contactAt, at: null, shift: 0 };
+  const at = Math.max(pressAt, contactAt + nextCutDelay(judged.grade, cadence));
+  const shift = Math.max(0, nominal - at);
+  return { ...judged, strike: landed, contactAt, at: shift > 1e-6 ? at : null, shift: shift > 1e-6 ? shift : 0 };
+}
 
 // Defence, by when the guard went up relative to the blow's contact (lead = contact - guard raised, seconds).
 export const DEFENCE = Object.freeze({
-  perfect: 0.07,             // raised within this of the contact: a Perfect Parry
+  perfect: GAME.perfectParryWindowMs / 1000, // raised within this of the contact: a Perfect Parry
   parry: GAME.parryWindowMs / 1000, // within this: a Parry
   whiffOpening: 0.35,        // a guard tapped and dropped before the blow: this long when it cannot go up again
   parryStagger: GAME.parryStaggerMs / 1000,
-  perfectStagger: 0.85,      // the attacker reels this long after a Perfect Parry...
+  perfectStagger: GAME.perfectParryStaggerMs / 1000, // the attacker reels this long after a Perfect Parry...
   riposteWindow: 0.7,        // ...and the defender's next cut within this long is a riposte
 });
 

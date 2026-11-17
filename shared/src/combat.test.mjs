@@ -32,7 +32,7 @@ test('a strike is exposed from its contact time on, in order', () => {
 
 test('guard started inside 180ms parries instead of draining normal block stamina', () => {
   assert.deepEqual(resolveSwordVsGuard({ guarding: true, guardAgeMs: 179, stamina: 100 }), {
-    kind: 'parry', staminaAfter: 100,
+    kind: 'parry', perfect: false, staminaAfter: 100,
   });
   assert.deepEqual(resolveSwordVsGuard({ guarding: true, guardAgeMs: 181, stamina: 100 }), {
     kind: 'block', staminaAfter: 78,

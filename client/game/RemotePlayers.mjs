@@ -28,6 +28,7 @@ import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
 import { GestureLayer, isBrushImpact } from './spellbladeGestures.mjs';
 import { SecondaryMotion, recoilTurns } from './spellbladeSecondary.mjs';
+import { chainClockShown } from './chainClock.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -839,7 +840,9 @@ export class RemotePlayers {
     // The chosen collapse is stable per actor; it does not affect the authority's sleep state.
     const restlessVariant = [...String(pb.id ?? id ?? '')].reduce((sum, c) => sum * 31 + c.charCodeAt(0), 0) & 1;
     const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil,
-      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant };
+      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant,
+      ...(pb.attackActive ? { attackStartedAt: chainClockShown(d, pb.attackStartedAt, dt) } : {}) };
+    if (!pb.attackActive) d.chainClock = null;
     if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);

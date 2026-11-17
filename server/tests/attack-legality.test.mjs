@@ -4,9 +4,11 @@ import { Room } from '../../shared/sim/Room.mjs';
 import { setGuard, stepRoom } from '../../shared/sim/combat.mjs';
 import { applyRoomCommand } from '../../shared/sim/wire.mjs';
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES, MELEE_CONTACT } from '../../shared/src/combat.mjs';
+import { CADENCE } from '../../shared/src/combatFrameData.mjs';
 
 // Attack legality: a tap is one strike, a hold chains at the earliest legal times, and no pattern of letting go and
-// pressing again (however late its word arrives) brings the sword round sooner than holding would.
+// pressing again (however late its word arrives) brings the sword round sooner than holding would, except by what a
+// press on the beat cancels (cadence: the rest of a follow-through, into the next cut) and never by more.
 
 const TICK = 1 / 30;
 const openWorld = {
@@ -66,6 +68,9 @@ const HELD_GAP = Math.min(
   SWORD_CHAIN.restart + SWORD_STRIKE_TIMES[0],
 );
 const live = (contact) => contact - MELEE_CONTACT.window.early;
+// the most a press on the beat may hasten the chain's next cut (shared/src/combatFrameData.mjs chainCadence): the
+// follow-through it cancels, from where holding would begin the next cut to the soonest an on-beat press may
+const CADENCE_CANCEL = Math.max(...[1, 2].map((k) => SWORD_CHAIN.starts[k] - SWORD_STRIKE_TIMES[k - 1] - CADENCE.next.perfect));
 
 test('a single press is exactly one sword strike, and then the sword stops', () => {
   const swings = play([{ at: 0, down: true }, { at: 0.08, down: false }], { seconds: 4 });
@@ -115,7 +120,9 @@ test('no pattern of letting go and pressing again, however late its word arrives
       }
     }
   }
-  assert.ok(worst >= HELD_GAP - TICK - 1e-6, `strikes ${worst.toFixed(3)} s apart (holding: ${HELD_GAP.toFixed(2)}) with ${JSON.stringify(worstCase)}`);
+  // (cadence: a press on the beat may cancel the rest of a follow-through into the next cut, and nothing else may:
+  // no pattern, however its words arrive, beats holding by more than that cancel)
+  assert.ok(worst >= HELD_GAP - CADENCE_CANCEL - TICK - 1e-6, `strikes ${worst.toFixed(3)} s apart (holding: ${HELD_GAP.toFixed(2)}, on the beat at best ${(HELD_GAP - CADENCE_CANCEL).toFixed(2)}) with ${JSON.stringify(worstCase)}`);
 });
 
 test('breaking a chain off into a guard does not bring the sword round sooner either', () => {
