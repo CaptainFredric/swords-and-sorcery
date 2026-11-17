@@ -58,6 +58,8 @@ try {
     const payload = JSON.parse(String(message.data));
     if (!payload.id) return;
     const cb = pending.get(payload.id);
+    // (a reply that comes after its call timed out has already been rejected and retried: nothing waits for it)
+    if (!cb) return;
     pending.delete(payload.id);
     if (payload.error) cb.reject(new Error(payload.error.message));
     else cb.resolve(payload.result);
