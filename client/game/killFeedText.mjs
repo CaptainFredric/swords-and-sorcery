@@ -64,8 +64,15 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  // weapon's identity. Never speculate about Guard, overkill or a losing streak:
  // the authoritative death event must explicitly prove each condition.
  const exceptional=[];
- if(event.extremeOverkill) exceptional.push(`Saint ${v} the Deceased`,`${v} became the paragon of death`);
- if(event.sameKillerDeaths>=3) exceptional.push(`${v} doesn't want to play anymore`);
+ if(event.extremeOverkill) exceptional.push(
+   `Saint ${v} the Deceased`,
+   `${v} became the paragon of death`,
+   `${v} is experiencing proper powerscaling`,
+   `${v}'s going on a mantel...`);
+ if(event.sameKillerDeaths>=3) exceptional.push(
+   `${v} doesn't want to play anymore`,
+   `Keep it up, ${v}!`);
+ if(event.sameKillerDeaths>=4) exceptional.push(`${v} has lost his will.`);
  if(event.sameKillerDeaths>=2) exceptional.push(
    `${v} is contemplating whether to continue`,
    `${v} should really stop holding back`);
@@ -84,6 +91,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v}! You made it onto here!`,
    ...(!/^squire\b/i.test(v)?[`${v} is actually a squire in disguise`]:[]),
    `${v} is wondering why this message is being shown`,
+   `${v} has just received news that ${k} has bested him.`,
    ...(mode==='RENOWN_TRIALS' ? [`${v} confused being bad with being remembered`] : []),
    ...(mode==='EDGE_OF_VICTORY' ? [`${v} will NOT be bouncing back`] : []),
    ...(!['RENOWN_TRIALS','EDGE_OF_VICTORY'].includes(mode)?[`${v} will take this personally`]:[]),
@@ -135,6 +143,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${k} gave ${v} the finger`,
  ],event,'sword');
  if(source==='so-fist')return text([
+   `${k} convinced ${v} to lie down first`,
    `${v} thought ${k} was offering a handshake`,
    `${v} couldn't survive ${apostrophe(k)} handshake`,
    `${k} broke ${apostrophe(v)} jaw`,
@@ -149,6 +158,7 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
  ],event,'sword');
  if(source==='ram')return text([
    `${k} knocked down ${v}`,
+   `${k} convinced ${v} to lie down first`,
    `${v} misremembered how sharp ${apostrophe(k)} blades were`,
  ],event,'sword');
  if(source==='coreflagration'){
