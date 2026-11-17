@@ -659,13 +659,13 @@ test('Vortex blade physically blocks a sword from its current angle, pays stamin
 test('a knight who falls spinning, or still dizzy from it, is marked for the voice', () => {
   const during = duel({ distance: 20 });
   const committed = spin(during.room, during.a);
+  // (felled by a burn mid-spin: a sword swung into the turning blade would meet its guard, vortexGuard.mjs)
   during.a.health = 1;
-  beginAttack(during.room, 'b', committed + 0.2);
-  Object.assign(during.b.position, { x: 1.6, y: 0, z: 0 });
-  during.b.history = [];
-  run(during.room, committed + 0.2, committed + 1, () => { Object.assign(during.b.position, { x: 1.6, y: 0, z: 0 }); during.b.impulse = { x: 0, z: 0 }; during.b.health = 100; });
+  during.a.burn = { attackerId: 'b', perLick: 5, licksLeft: 1, interval: 0.1, nextAt: 0, until: committed + 1 };
+  run(during.room, committed + 0.2, committed + 0.5);
   const death = during.room.events.find((e) => e.type === 'death' && e.victimId === 'a');
   assert.ok(death, 'it fell');
+  assert.ok(death.at < committed + vortex.activeSec, 'while it was still spinning');
   assert.equal(death.dizzy, true);
 
   const after = duel({ distance: 20 });

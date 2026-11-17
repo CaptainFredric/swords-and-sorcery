@@ -78,7 +78,7 @@ const RESPAWN_SEC = 3;
 const SPAWN_PROTECTION_SEC = 1;
 // a guard's stamina comes back once the pressure on it has let up for a moment (a blow on it, a gust, a sprint all
 // start the wait again), whether or not the guard is still raised; held up, it comes back a little slower
-const GUARD_REGEN_DELAY_SEC = 1.45;
+export const GUARD_REGEN_DELAY_SEC = 1.45;
 const GUARD_REGEN_PER_SEC = 27;
 const GUARD_REGEN_GUARDING = 0.55;
 const HEALTH_REGEN_DELAY_SEC = HEALTH_REGEN.delaySec;
