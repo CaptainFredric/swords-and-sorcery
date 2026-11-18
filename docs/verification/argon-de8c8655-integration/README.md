@@ -135,3 +135,75 @@ Videos are in the session notes folder, `evidence/argon-de8c8655/`.
 `npm test` (Node 24): 3,219 tests, 16 failing. That's `main` `a275ef07`'s 17 minus the Disaster test, which now passes;
 no new failures. The inherited "corrected first cut … PR #457" test still fails: it samples the sidecar's whole-body
 `Slash_1`, which this model no longer uses.
+
+## Follow-up after the merge (2026-11-16, branch `claude/argon-de8c8655-acceptance-followup`)
+
+PR #501 was merged to `main` (`3d8300cf`) and deployed. This follow-up changes tests and test scripts only. No gameplay,
+timing, damage or model changes.
+
+### Sword contact: are the 43–58° maxima inside the damaging window?
+
+Yes, at its edges. Measured as the 3-D angle between the shown blade and the server's blade, over the window that can
+damage (contact −0.09 s to +0.045 s), across all strikes in the chain-sync audit:
+
+| Cut | At −0.09 s | Around contact | At +0.045 s | Share of the window within 20° |
+|---|---|---|---|---|
+| Forehand | 42° | 4–8° | 12° | 68% |
+| Backhand | 56° | 8–10° | 20° | 43% |
+| Chop | 12° | 33–44° | 54° | 45% |
+
+- **Contact itself is right:** mean error 3.0° forehand, 4.8° backhand, 3.1° chop pitch.
+- **The edges are authored shape:** the cuts arrive from overhead, where the server's arc is flat, and the chop is a
+  diagonal where the server's is straight down. Retiming can't fix a path that doesn't match, so these go to Argon
+  (`ARGON-REVISION-REQUEST.md`) and timings and damage stay as they are.
+
+### The obsolete PR #457 first-cut test is replaced, not removed
+
+`server/tests/spellblade-motion-sidecar.test.mjs` now checks de8c8655's own cut:
+- the manifest's `motionOverrides` is `[]`;
+- the composed `Slash_1` equals the model's own, node for node, every 1/30 s;
+- every sidecar technique clip is still present;
+- the forehand crosses the aim within one frame of `STRIKE_CLIPS.Slash_1.contact`;
+- from contact + 0.11 s to the far frame, the blade stays ≤ 60° from the aim, with a wrist fold ≤ 10°.
+
+### The Disaster browser check's partial-Lightning failure: a stale assertion
+
+Since `62851dbb` (11 Nov), a partial Lightning held at its start is a Half Lightning. It opens a 1.75 s hold window
+(`commitAt − at`) and commits on release at its 0.36 s wind-up. The sim agrees: committed 0.367 s after the start.
+`scripts/one-hit-camera-browser.mjs` still expected `commitAt − at = 0.36`. It now:
+- accepts the hold window for a held partial;
+- checks that the release commits within its wind-up (0.36–0.46 s).
+
+All seven stages pass in real Chrome on this branch. On `main` with the old assertion it fails at exactly that stage;
+with the fix it passes.
+
+### `AllNatural_Lightning_Arrival_Slam_1H_Alt`: unused
+
+Nothing in the client, shared code or server plays it: the arrival always uses `AllNatural_Lightning_Arrival_Slam`.
+It's in the model only. Argon is asked whether it should alternate.
+
+### Correction: what the `chrome-capture` CI job ran on #501
+
+An earlier note said its browser steps never ran. That was wrong. The job log shows "mobile joystick" and "Capture
+current branch in Chrome" both **passed**. Only "Verify repository", the inherited unit failures, failed.
+
+### Browser checks run locally after the merge (real Chrome, Node 24)
+
+| Check | Result | Notes |
+|---|---|---|
+| `one-hit-camera-browser` (Disaster) | **pass**, 7/7 | after the Half Lightning fix above |
+| `one-hit-camera-browser`, aerial (`DISASTER_AERIAL_WINDUP_CHECK=1`, the `aerial-gale` CI job) | **pass** | Its arrival check was stale since `ccd5c70e`: the teleport's 1.0 s aim window plays the winding from frame 0. It passed on #501 only because CI drew its first frame 0.61 s late. It now checks the aim window's clock: first frame 0.015 s, 0.022 s after the commit. |
+| `siege-armory-cold-browser` | **pass** | Two assertions were stale against `main`'s content. HELLping Hand has had a workshop demonstration since `60a9ece7`. Bi-Bye gained a third skill in `29b168b7`, and the card count is now read from `SIEGE_SKILL_OPTIONS`. |
+| `mounted-steel-browser` | **pass** | Its launch was stale: Practice Yard is select-then-launch, so it now presses `#solo-launch`. |
+| `menu-tour-browser --rounds 1` | **pass**, no errors | 16.7 ms median frame |
+| `verify-armory-reborn-browser` | **fail, inherited** | "Fireball is visible at the top of Sorcery". After Gale is equipped, the preserved banner order (`4deb5a50`) leaves Fireball off the top. No Argon change touches the Armory UI. Whether the test or the ordering is right is the Armory owner's call; it's left unchanged. |
+
+### Unit tests (Node 24, `npm test`)
+
+| | Tests | Failing |
+|---|---|---|
+| `main` `3d8300cf` | 3,229 | 15 |
+| This branch | 3,230 | 14 |
+
+The one fewer is the replaced first-cut test. The other 14 fail identically on `main`. They are inherited and still
+open, not accepted.
