@@ -6,7 +6,7 @@
 // recording is made from it afterwards. Beside them go the authoritative events and, frame by frame, the clip the
 // third-person body was playing.
 //
-//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|riposte|riposte-air|whirl|whirl-gale
+//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|slash-guard|slash-run|riposte|riposte-air|whirl|whirl-gale
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
 //        [--glb model.glb]  serve that third-person model in place of the installed one (a candidate, or a baseline)
@@ -268,6 +268,13 @@ try {
   stage = 'input';
   if (scenario === 'slash-tap' || scenario === 'slash-chain') {
     await attack(true); await sleep(holdSec * 1000); await attack(false);
+  } else if (scenario === 'slash-guard') {
+    // the Guard held, then let go into the attack (the right button, as on desktop)
+    const guard = (down) => actor.cdp.send('Input.dispatchMouseEvent', { type: down ? 'mousePressed' : 'mouseReleased', ...actor.centre, button: 'right', buttons: down ? 2 : 0, clickCount: 1 });
+    await guard(true); await sleep(700); await guard(false); await attack(true); await sleep(holdSec * 1000); await attack(false);
+  } else if (scenario === 'slash-run') {
+    // running at the dummy's side (W held), the attack pressed on the move
+    await key(true, 'w', 'KeyW', 87); await sleep(450); await attack(true); await sleep(holdSec * 1000); await attack(false); await sleep(400); await key(false, 'w', 'KeyW', 87);
   } else if (scenario === 'riposte') {
     await press(true); await sleep(80); await press(false);
   } else if (scenario === 'riposte-air') {

@@ -103,6 +103,8 @@ export function runFirstPerson(name, { seconds, presses }) {
     const c = chain.step(now);
     const pose = arms.step(c, now) ?? comboPose(0);
     const frame = { t: +(now - t0).toFixed(4), wrist: pose.arm.wrist, blade: pose.arm.blade };
+    // (the whole pose too, for drawing it: not enumerable, so it stays out of any JSON written)
+    Object.defineProperty(frame, 'pose', { value: pose });
     if (previous) {
       frame.wristStep = len(sub(pose.arm.wrist, previous.arm.wrist));
       frame.bladeStep = angleBetween(pose.arm.blade, previous.arm.blade);
