@@ -71,9 +71,10 @@ test('Coreflagration is listed in the Armory, can be equipped, and carries its a
   assert.match(core.line, /burning stone/);
 });
 
-test('How to Play states Chivalry’s actual duration', () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes(`cast together for ${ULTIMATES.chivalry.activeSec} seconds.`));
+// (the Chronicles manual no longer describes each Ultimate; the Armory's card is where Chivalry's length is stated)
+test('the Armory states Chivalry’s actual duration', () => {
+  const source = readFileSync(new URL('./armoryView.mjs', import.meta.url), 'utf8');
+  assert.ok(source.includes(`For ${ULTIMATES.chivalry.activeSec} seconds, Sprint, attack, Guard, Dash and cast together.`));
 });
 
 test('Shared Practice invites use the available Private Match route', () => {

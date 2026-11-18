@@ -721,10 +721,11 @@ test('Flight repeater uses LMB (Mouse0) and RMB (Mouse2) attacks with sword',()=
 });
 test('Flight repeater does not fire while ordinary Spellblade is unmounted and disabled',()=>{
  const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
+ input.socket.technique=held=>calls.push({type:'technique',held});
  input.mountedFlight=false;down('KeyX');up('KeyX');
- assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
+ assert.deepEqual(calls,[{type:'technique',held:true},{type:'technique',held:false}],'on foot, X is the Sword Technique');
  input.mountedFlight=true;input.enabled=false;down('Mouse0');
- assert.equal(calls.length,1);
+ assert.equal(calls.length,2);
 });
 
 

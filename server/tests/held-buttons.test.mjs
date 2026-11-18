@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
-import { beginAttack, endAttack, killPlayer, setGuard, stepRoom } from '../../shared/sim/combat.mjs';
+import { GUARD_REGEN_DELAY_SEC, beginAttack, endAttack, killPlayer, setGuard, stepRoom } from '../../shared/sim/combat.mjs';
 import { applyRoomCommand } from '../../shared/sim/wire.mjs';
 import { GAME } from '../../shared/src/combat.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
@@ -95,7 +95,7 @@ test('Guard held through a broken guard comes back up by itself, as a held guard
   run(room, 13.2, 16, (now) => { if (raisedAt === null && b.guarding) raisedAt = now; });
   assert.ok(raisedAt !== null, 'the held guard came back up');
   assert.ok(raisedAt >= reel, 'not before the reel was over');
-  assert.ok(raisedAt - Math.max(reel, b.lastGuardDrainAt + 1) <= 2 * DT + 1e-6, 'as soon as it had stamina again');
+  assert.ok(raisedAt - Math.max(reel, b.lastGuardDrainAt + GUARD_REGEN_DELAY_SEC) <= 2 * DT + 1e-6, 'as soon as it had stamina again');
   assert.equal(b.guardStartedAt, -Infinity, 'a held guard, not a timed one');
   // a blow that meets it at once, as a fresh raise would Parry: no Parry
   const parries = b.parries;

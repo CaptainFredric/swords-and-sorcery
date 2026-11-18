@@ -299,8 +299,11 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
   const previousVerticalIntent=m.verticalIntent;
+  // (read after takeoff: a Space press that has just begun a hop is a Hop, not a Rise, so its quick release is not
+  // taken for a released Rise lever that keeps the rotor running below)
+  const rising=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   m.verticalIntent=!op?.alive?'IDLE':m.runGroundPhase==='ASCENT'?'RISE':
-    m.runGroundPhase==='SPINUP'?'IDLE':descend?'LOWER':live&&sustainedRise?'RISE':
+    m.runGroundPhase==='SPINUP'?'IDLE':descend?'LOWER':live&&rising?'RISE':
     m.hopStartedAt!=null||explicitHop||(m.airHopRemaining??0)>0?'HOP':'HOVER';
   if(m.grounded||m.verticalIntent!=='HOVER'){
     m.neutralHoverAt=null;m.neutralHoverHeight=null;m.neutralHoverFromRise=false;

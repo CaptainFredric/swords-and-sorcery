@@ -49,6 +49,8 @@ const ESCAPE_DURATION_SEC = 0.7;
 
 const BOT_SPRINT_DISTANCE = 9;
 const BOT_SPRINT_STAMINA_RESERVE = 45;
+// how much above its reserve a winded bot waits for before it sprints again
+const BOT_SPRINT_RECOVERY = 25;
 
 // When its foe falls, a bot does not keep hacking at the body or rush on as if someone still stood there. It lets
 // the attack go (a swing already under way still lands), looks at the fallen a moment to be sure, steps back, then
@@ -709,10 +711,16 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     }
   }
 
-  // close long gaps at a sprint, but keep enough stamina in reserve to block when the fight starts
+  // close long gaps at a sprint, but keep enough stamina in reserve to block when the fight starts. Run down to that
+  // reserve, it walks until it has its breath back: sprinting again the moment the bar edges over the reserve would
+  // spend each tick of it and restart the wait before stamina returns, pinning the bot at the reserve
+  const reserve = skill.sprintReserve ?? BOT_SPRINT_STAMINA_RESERVE;
+  const stamina = actor.guardStamina ?? 0;
+  if (stamina <= reserve) ai.winded = true;
+  else if (stamina >= reserve + BOT_SPRINT_RECOVERY) ai.winded = false;
   const sprint = forward > 0.4
     && (distance > BOT_SPRINT_DISTANCE || fleeing)
-    && (actor.guardStamina ?? 0) > (skill.sprintReserve ?? BOT_SPRINT_STAMINA_RESERVE)
+    && stamina > reserve && !ai.winded
     && nowSec >= ai.escapeUntil
     && nowSec >= ai.avoidUntil;
 

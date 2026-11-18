@@ -13,7 +13,7 @@ import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
 import { STEEL_RAM, ramEffect } from '../../shared/src/steelRam.mjs';
 import { STEEL_DAMAGE_RANGES } from '../../shared/src/steel.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
-import { ONE_HIT_REACH, ONE_HIT_BLUSTER, fieldSeconds, fieldStrength, distinctElements } from '../../shared/src/oneHitStatus.mjs';
+import { ONE_HIT_FIELD, ONE_HIT_REACH, ONE_HIT_BLUSTER, fieldSeconds, fieldStrength, distinctElements } from '../../shared/src/oneHitStatus.mjs';
 import { setGuard, tryDash } from '../../shared/sim/combat.mjs';
 
 const world = {
@@ -431,11 +431,18 @@ test('Half Gale: the wind of the wind-up turns an enemy spell aside once, keeps 
 });
 
 test('Full Gale gathers, flies and waves as before; Full Gale + Full Lightning aims its teleport in three dimensions', () => {
-  { // grounded gathering
-    const { room, b } = battle({ tiers: { gale: 2 }, at: { x: 5.5, y: 0, z: 0 } });
-    b.health = 1000;
-    slam(room);
-    assert.equal(decisive(room, 'b').length, 1, 'drawn in, then struck once');
+  { // grounded: an outward pressure wave, never a vacuum (b95cdac0)
+    const far = battle({ tiers: { gale: 2 }, at: { x: 5.5, y: 0, z: 0 } });
+    far.b.health = 1000;
+    slam(far.room);
+    assert.equal(decisive(far.room, 'b').length, 0, 'beyond the slam\'s reach it is not drawn in to be struck');
+    assert.equal(far.b.position.x, 5.5, 'nor pulled toward the caster');
+    const near = battle({ tiers: { gale: 2 } });
+    near.b.health = 1000;
+    slam(near.room);
+    const hits = decisive(near.room, 'b');
+    assert.equal(hits.length, 1, 'struck once');
+    assert.ok(hits[0].push.x > 0, 'and thrown outward, away from the caster');
   }
   { // airborne activation needs Full Gale
     const { room, a } = battle({ tiers: { gale: 1 } });
@@ -723,9 +730,13 @@ test('Full Fire is the guard-piercing infusion for STATUS effects, never a free 
   assert.equal(room.events.filter(e=>e.type==='block'&&e.oneHit).length,1);
   const half=battle({tiers:{fire:1,frost:2,lightning:1}});
   half.b.guarding=true;half.b.guardStartedAt=0;
-  slam(half.room);
+  const after=slam(half.room);
   assert.equal(half.b.electricalBacklash,null,'Half Fire does not pierce Guard');
-  assert.equal(half.b.oneHitFrostSlow,null);
+  // the blow's own Frost (its freeze and long slow) stays behind the Guard; the knight is still standing on the
+  // frozen ground it left, which chills anyone there for a moment, guarded or not
+  assert.ok(!(half.b.oneHitFrozenUntil>9),'no freeze through the Guard');
+  assert.ok(half.b.oneHitFrostSlow===null||half.b.oneHitFrostSlow.until<=after+ONE_HIT_FIELD.frostLingerSec+1e-9,
+    'at most the frozen ground\'s brief chill');
 });
 
 test('Full Steel: struck knight\'s spells, Dash and Sword Technique all restart cooldown; Prowess remains', () => {
@@ -1083,7 +1094,8 @@ test('aerial: Half Fire widens the wave on every side and ends it in an explosio
   assert.equal(both.hits.length, 1, 'wave and explosion share one registry');
   assert.equal(both.room.oneHitBurnZones.length, 1, 'Full Fire: burning ground where it ended on the ground');
   // ended in mid-air by its range: nothing left burning in the air
-  const air = fly({ fire: 2 }, { x: 40, y: 0, z: 0 }, false);
+  // (a wave within 1.25 m of the ground is a ground blast, a0bb3366: this one flies well above it)
+  const air = fly({ fire: 2 }, { x: 40, y: 0, z: 0 }, false, 2.4);
   assert.equal(air.room.oneHitBurnZones.length, 0);
 });
 

@@ -45,6 +45,19 @@ async function shot(name){
   const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile(join(out,name+'.png'),Buffer.from(r.data,'base64'));
 }
+// The server starts each wave on its own clock, whether or not a slow (software-rendered) page has drawn the one
+// before it. Hold the wave's rivals still from the moment it starts, alongside whatever the script is waiting on in
+// the page: an idle knight left to them while the page catches up is killed, and the trial ends early.
+function holdWave(index, label, tries) {
+  const held = until(() => {
+    const r = [...server.roomManager.rooms.values()].find(r => r.mode === 'RENOWN_TRIALS');
+    if (r?.renownTrial?.waveIndex !== index || r.renownTrial.phase !== 'WAVE_ACTIVE') return null;
+    r.inspectionFrozenActors = new Set(r.renownTrial.wave.enemyIds);
+    return r;
+  }, label, tries);
+  held.catch(() => {}); // (awaited by the caller; a page failure first is reported as itself)
+  return held;
+}
 async function swordDefeat(room, player, bot) {
   // Set up reproducible standing contact without replacing combat resolution:
   // the live browser's sword command must actually kill the server's bot.
@@ -143,19 +156,21 @@ try {
   if (alternate) await click('#renown-arena [data-renown-arena="castleward"]');
   await shot('00-launch');
   await click('#renown-trials-mode'); // second activation launches actual selected pursuit
+  // (from the launch: the server can start the wave before a slow page has even joined its room; the wait spans the
+  // join's 240 tries and the wave's own 160)
+  const firstWave=holdWave(1,'live first wave',400);
   await until(()=>evaluate("window.__ssLink?.hosting==='remote' && window.__ssLink?.roomCode"),
     'server-authored trial join',240);
   await until(() => evaluate("!document.querySelector('#arena-gate').classList.contains('hidden') && document.querySelector('#arena-gate-sub').textContent==='VS. JUDGMENT'"), 'Judgment introduction');
   await shot('00b-introduction');
-  const room=await until(()=>[...server.roomManager.rooms.values()].find(r=>r.mode==='RENOWN_TRIALS'),'server trial room');
+  const room=await firstWave;
+  assert.equal(room.renownTrial.wave.count,1);
+  assert.equal(room.players.size,2);
   const battlefield = alternate ? 'castleward' : 'court-of-merit';
   await until(() => evaluate(`window.__ssSnapshot?.worldId === '${battlefield}'`), 'requested combat world');
   const player=[...room.players.values()].find(p=>p.actorKind==='human');
   assert.equal(player.profileToken?.length,64,'trial must have a connected persistent guest identity');
-  await until(()=>room.renownTrial?.phase==='WAVE_ACTIVE','live first wave');
-  assert.equal(room.renownTrial.wave.count,1);
-  assert.equal(room.players.size,2);
-  room.inspectionFrozenActors = new Set(room.renownTrial.wave.enemyIds);
+  assert.equal(room.renownTrial.phase,'WAVE_ACTIVE','the knight is still in the first wave');
   await until(()=>evaluate("document.querySelector('#renown-trial-hud')?.hidden===false"),'trial HUD visible in Three.js arena');
   await until(() => evaluate("document.querySelector('#renown-trial-hud').dataset.cue==='COMBAT'"), 'combat ribbon');
   const combat = await evaluate(`(() => {
@@ -176,6 +191,7 @@ try {
   const enemy=room.players.get(room.renownTrial.wave.enemyIds[0]);
   await swordDefeat(room,player,enemy);
   await until(()=>room.renownTrial?.phase==='JUDGMENT','authoritative timely victory');
+  const secondWave=holdWave(2,'second wave after nonfatal ceremony',150);
   await until(()=>room.renownTrial.ledger[0]?.status==='SETTLED','durable server wallet award');
   const balanceAfterWave1=profileStore.open(player.profileToken).profile.balance;
   assert.ok(balanceAfterWave1>0);
@@ -187,11 +203,9 @@ try {
       && court.handledCues.has('REWARD_COIN') && court.coinVisuals.length > 0;
   })()`), 'Court podium, sword and animated reward coins');
   await shot('02-timely-ceremony');
-  await until(()=>room.renownTrial.waveIndex===2 && room.renownTrial.phase==='WAVE_ACTIVE',
-    'second wave after nonfatal ceremony',150);
+  await secondWave;
   room.renownTrial.maxWaves=2;
   const second=room.renownTrial.wave;
-  room.inspectionFrozenActors = new Set(second.enemyIds);
   // Force the server's test deadline into the past. The production director
   // still runs at 30Hz and the client's combat remains real and controllable.
   second.startedAt=server.now()-second.deadlineSec-5;

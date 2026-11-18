@@ -152,6 +152,7 @@ test('Ultimate Knight stationary drill commits its selected Disaster without wal
   const f=fixture();const {room,human,knight}=f;
   human.position={x:0,y:0,z:-10};
   assert.equal(configureUltimateKnight(room,human.id,{selection:'one_hit_of_wonders',behavior:'stay',preset:'partial'},0),true);
+  const post={...knight.position};
   for(let i=0;i<180;i++){
     const now=i/30;
     human.position={x:0,y:0,z:-10};human.velocity={x:0,y:0,z:0};human.health=100;
@@ -161,7 +162,7 @@ test('Ultimate Knight stationary drill commits its selected Disaster without wal
   const starts=room.events.filter(e=>e.type==='ultimateStart'&&e.playerId===knight.id);
   assert.ok(starts.length>=1,'stationary Knight actually uses the chosen Ultimate');
   assert.ok(starts.every(e=>e.ultimate==='one_hit_of_wonders'));
-  assert.ok(Math.abs(knight.position.z)<.5,'Stay does not chase a player ten meters away');
+  assert.ok(Math.hypot(knight.position.x-post.x,knight.position.z-post.z)<.5,'Stay does not chase a player ten meters away');
   assert.ok(room.events.some(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id));
 });
 

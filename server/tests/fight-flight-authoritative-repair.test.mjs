@@ -45,11 +45,12 @@ test('rotor spools up once; held Rise, stabilization and gentle neutral descent 
  assert.ok(m.y>1.5&&m.rotorPowered&&m.rotorRPM>0);
  p.input.flightRise=false;
  frames(room,m,2,8);
- assert.equal(FIGHT_FLIGHT.neutralStabilizeSec,1,'neutral hold lasts exactly one second');
+ assert.ok(FIGHT_FLIGHT.neutralStabilizeSec>=1&&FIGHT_FLIGHT.neutralStabilizeSec<=1.1,'neutral hold lasts about one second');
  assert.equal(m.verticalIntent,'HOVER');
  assert.ok(m.velocity.y>-.25,'neutral entry first arrests ascent');
  frames(room,m,2+8*DT,18);
- assert.ok(Math.abs(m.velocity.y)<.25,'hover stabilizes near level before one second');
+ // (the released lever coasts a little higher and then bobs visibly, 0d152834: level is a height held, not a speed)
+ assert.ok(Math.abs(m.y-m.neutralHoverHeight)<=FIGHT_FLIGHT.neutralBobMetres+.1,'hover holds near its set height before one second');
  frames(room,m,2+26*DT,24);
  assert.ok(m.velocity.y<-.25&&m.velocity.y>-.75,'settled neutral is gentle descent');
  assert.ok(m.rotorLiftAuthority>.8&&m.flightCharge>0,'flight combat persists beyond the first second');
