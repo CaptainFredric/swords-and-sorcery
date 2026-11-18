@@ -1190,3 +1190,54 @@ export function vortexEndRecipe(rand = Math.random) {
     reverb: 0.2,
   };
 }
+
+// Rigid Riposte, landed: a thrust, not a cut. The point punches through plate in one sharp instant (a hard, narrow
+// crack and a short metallic tick), and the whole lunging body arrives behind it (a deep, quick thud), then a brief,
+// darker ring than a cut's: the steel driven in rather than drawn across. A grazing thrust skates off the plate.
+export function riposteHitRecipe(rand = Math.random, { clean = true } = {}) {
+  const bite = clean ? 1 : 0.6;
+  const layers = [
+    // the point's punch through the plate
+    { type: 'noise', filter: 'highpass', freq: 3200 * jitter(rand, 0.08), q: 0.9, attack: 0.0008, decay: 0.022, gain: 0.7 * bite },
+    { type: 'tone', wave: 'triangle', freq: 1900 * jitter(rand, 0.05), slideTo: 900, attack: 0.001, decay: 0.03, gain: 0.22 * bite },
+    // plate and mail giving way round it (narrower and shorter than a cut's crunch)
+    { type: 'noise', filter: 'bandpass', freq: 850 * jitter(rand, 0.1), q: 2.2, sweepTo: 420, attack: 0.002, decay: 0.07, gain: 0.45 * bite },
+    // the lunging body arriving behind the point
+    { type: 'tone', wave: 'sine', freq: 120 * jitter(rand, 0.06), slideTo: 44, attack: 0.002, decay: 0.16, gain: 0.95 },
+    { type: 'noise', filter: 'lowpass', freq: 300, q: 0.6, attack: 0.002, decay: 0.1, gain: 0.4 },
+    // the steel driven in: a short, dark ring
+    ring(rand, 380 * jitter(rand, 0.04), { decay: 0.32, gain: 0.14, bright: 0.55 }),
+  ];
+  if (!clean) layers.push({ type: 'noise', filter: 'bandpass', freq: 3000 * jitter(rand, 0.1), q: 2, sweepTo: 1600, attack: 0.004, decay: 0.12, gain: 0.2 });
+  return { layers, reverb: 0.26 };
+}
+
+// Rigid Riposte's lunge: the brace let go, the body driven forward behind the point (a low rush that rises, and the
+// point's thin whistle along it). Heard whether or not it lands.
+export function riposteDriveRecipe(rand = Math.random) {
+  const low = 180 * jitter(rand, 0.06);
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.1, sweepTo: low * 3.4, attack: 0.03, decay: 0.24, gain: 0.5 },
+      { type: 'noise', filter: 'bandpass', freq: low * 9, q: 8, sweepTo: low * 13, attack: 0.05, decay: 0.12, gain: 0.07, at: 0.03 },
+      // the push-off: the rear foot driving off the ground
+      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.7, attack: 0.004, decay: 0.09, gain: 0.35 },
+    ],
+    reverb: 0.1,
+  };
+}
+
+// Whirl Like the Wind, one revolution: the blade swept round through the air (a broad rush that rises and falls with
+// the turn) and its edge's thin whistle; each paid revolution a touch higher and fuller as the momentum builds.
+export function whirlTurnRecipe(rand = Math.random, { turn = 0 } = {}) {
+  const build = Math.min(1, Math.max(0, turn) / 3);
+  const low = (240 + 70 * build) * jitter(rand, 0.06);
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.2, sweepTo: low * 3.2, attack: 0.16, decay: 0.3, gain: 0.34 + 0.12 * build },
+      { type: 'noise', filter: 'bandpass', freq: low * 8, q: 9, sweepTo: low * 11, attack: 0.12, decay: 0.16, gain: 0.05 + 0.03 * build, at: 0.08 },
+      { type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.12, decay: 0.22, gain: 0.18 },
+    ],
+    reverb: 0.1,
+  };
+}

@@ -1,3 +1,4 @@
+import { riposteBody, whirlBody, whirlRevolution } from './techniqueMotion.mjs';
 import { hitstopSeconds, hitstopShownAt } from './hitFeel.mjs';
 import { advanceRemotePlaybackClock, appendRemoteSample, remoteSamplePair } from './remoteSnapshots.mjs';
 import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
@@ -854,6 +855,17 @@ export class RemotePlayers {
       const sword = shell.visualInstance?.root?.getObjectByName('HeroSword') ?? shell.fallbackRig?.userData.sword;
       if (sword) sword.visible = pb.tutorialSwordDrawn;
     }
+    // a Sword Technique's body behind its authored clips: the Riposte's brace, drive and lunge, the Whirl's lean
+    // (techniqueMotion.mjs), on the server's own technique clock
+    const techniqueAction = pb.alive && pb.swordTechnique && state !== 'dead' ? pb.swordTechnique : null;
+    const techniqueBody = !techniqueAction ? null
+      : techniqueAction.id === 'rigid_riposte' && techniqueAction.phase !== 'interrupted'
+        ? riposteBody(serverNow - (techniqueAction.initialStartedAt ?? techniqueAction.startedAt ?? serverNow))
+        : techniqueAction.id === 'whirl_wind' ? whirlBody(techniqueAction, serverNow) : null;
+    // (a Whirl's revolution heard as each begins: another knight's here, my own by GameRuntime)
+    const revolution = id ? whirlRevolution(techniqueAction, serverNow) : null;
+    if (revolution !== null && revolution !== d.whirlTurn) this.onWhirlTurn?.(id, revolution);
+    d.whirlTurn = revolution;
     plan.motion = {
       // the killing blow's flinch plays on into the death, and the body gives way under it
       reactions: d.reactions,
@@ -862,13 +874,16 @@ export class RemotePlayers {
       airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
       death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
       recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration,hold:pb.presentationRecovery.hold ?? 0} : null,
-      crouch: crouch.flex,
+      crouch: crouch.flex + (techniqueBody?.crouch ?? 0),
+      pelvis: techniqueBody?.pelvis ?? null,
+      // (and the sword kept on the clip's own path while the body moves behind it)
+      pinSword: Boolean(techniqueBody),
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || state === 'restless-sleep' || pb.restlessCarrying || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity)),
         // and the head looks where the knight aims
         ...(state === 'stagger' ? [] : lookTurns(shell.root.userData.pitch)),
         // the spell hand opens to throw, closes to run, dash or bring the sword down with both hands
-        ...spellHandTurns(d.spellHand)],
+        ...spellHandTurns(d.spellHand), ...(techniqueBody?.turns ?? [])],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
     if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
