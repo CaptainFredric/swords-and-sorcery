@@ -344,22 +344,27 @@ export function aimedAtServer(keys, strikes) {
 // in an eighth of a second), bounced, and dipped again. Now it is one cut: through the contact at its fastest, the
 // hand carrying on across to the left hip and the blade slowing all the way to where the returning cut is loaded from
 // (low on the left, where the server's backhand begins), the shoulder and the body turning behind it.
-const forehandCut = (c) => [
+const forehandCut = (c, { rising = false } = {}) => [
   key(c - EARLY, [0.44, -0.2, -0.63], dir(-42.7, 24.3), [-0.64, -0.04, -0.78],
     { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
   key(c, [0.3, -0.24, -0.65], dir(30.3, 18.3), [-0.93, -0.32, 0.1],
     { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
-  key(c + 0.05, [0.18, -0.255, -0.645], dir(52, 10), [-0.93, -0.3, -0.05],
+  rising ? key(c + 0.05, [0.18, -0.255, -0.645], dir(52, 10), [-0.93, -0.3, -0.05],
+    { shoulder: [-0.16, 0.01, -0.115], body: [-0.025, -0.008, -0.011], look: [-0.45, -1.3, -1.4], counter: [0.64, 0.54, 0.09] }) :
+  key(c + 0.05, [0.17, -0.265, -0.645], dir(44, 0), [-0.85, -0.5, -0.1],
     { shoulder: [-0.16, 0.01, -0.115], body: [-0.025, -0.008, -0.011], look: [-0.45, -1.3, -1.4], counter: [0.64, 0.54, 0.09] }),
-  key(c + LATE, [0.06, -0.275, -0.635], dir(68, 1), [-0.9, -0.3, -0.2],
-    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
+  rising
+    ? key(c + LATE, [0.06, -0.275, -0.635], dir(68, 1), [-0.9, -0.3, -0.2],
+      { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] })
+    : key(c + LATE, [0.05, -0.29, -0.63], dir(60, -6), [-0.75, -0.2, 0.3],
+      { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
 ];
 // ...and where it comes to rest when the backhand follows: the low-left chamber, the hand by the left hip
 const forehandSettle = (c) => [
-  key(c + 0.2, [-0.04, -0.295, -0.62], dir(77, -8), [-0.85, -0.45, 0],
-    { shoulder: [-0.21, -0.01, -0.115], body: [-0.032, -0.012, -0.011], look: [-0.3, -1.45, -1.6], counter: [0.72, 0.72, 0.09] }),
-  key(c + 0.3, [-0.08, -0.31, -0.61], dir(79, -12), [-0.8, -0.55, 0.1],
-    { shoulder: [-0.215, -0.015, -0.105], body: [-0.03, -0.012, -0.009], look: [-0.1, -1.4, -1.6], counter: [0.7, 0.95, 0.07] }),
+  key(c + 0.2, [0.04, -0.2, -0.62], dir(58, 8), [-0.75, -0.3, 0.3],
+    { shoulder: [-0.2, 0.0, -0.11], body: [-0.03, -0.008, -0.01], look: [-0.1, -1.3, -1.5], counter: [0.66, 0.7, 0.08] }),
+  key(c + 0.3, [0.13, -0.135, -0.61], dir(52, 18), [-0.7, -0.45, 0.25],
+    { shoulder: [-0.19, 0.02, -0.1], body: [-0.025, -0.006, -0.008], look: [0.1, -1.1, -1.3], counter: [0.6, 0.85, 0.07], ease: 0.4 }),
 ];
 
 export const COMBO = settle(preAimed([
@@ -367,16 +372,16 @@ export const COMBO = settle(preAimed([
   // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)... (the
   // magic arm swings down and back out of its path as it comes across, and through the backhand's load: the blade's
   // sweep across the low left passed over the magic hand where it rests)
-  key(C1 - 0.25, [0.46, -0.25, -0.6], dir(-38, 40), [-0.8, -0.3, -0.5],
-    { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
-  key(C1 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
-    { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
+  key(C1 - 0.25, [0.45, -0.23, -0.6], dir(-32, 50), [-0.8, -0.3, -0.5],
+    { shoulder: [0.03, 0.04, 0.03], body: [0.01, 0.006, 0.01], look: [0.5, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
+  key(C1 - 0.16, [0.47, -0.21, -0.59], dir(-42, 44), [-0.8, -0.4, -0.45],
+    { shoulder: [0.04, 0.045, 0.04], body: [0.015, 0.007, 0.012], look: [0.7, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
   // ...then it comes down across the front, the shoulder driving round behind it; through the middle at the contact,
   // and on across to the low left in one slowing sweep (forehandCut, forehandSettle)
   ...forehandCut(C1), ...forehandSettle(C1),
   // 2. the backhand: loaded where the forehand came to rest (the hand sinking a little by the hip, the edge turned
   // over there, the blade all but still: no rebound and no second dip)...
-  key(C2 - 0.24, [-0.07, -0.33, -0.61], dir(74, -15), [0.7, 0.65, -0.2],
+  key(C2 - 0.24, [-0.06, -0.29, -0.61], dir(60, -6), [0.7, 0.65, -0.2],
     { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.6 }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
@@ -457,7 +462,7 @@ export const COMBO_RISING = settle(preAimed([
   key(C2 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
     { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
   // ...then down across the front to the low left (forehandCut)
-  ...forehandCut(C2),
+  ...forehandCut(C2, { rising: true }),
   // 3. the heavy strike: the forehand's momentum turned up out of the low left, through the front...
   key(C2 + 0.2, [-0.01, -0.265, -0.62], dir(73, 0), [0.75, 0.6, -0.2],
     { shoulder: [-0.18, -0.01, -0.1], body: [-0.025, -0.01, -0.008], look: [0.1, -1.1, -1.3], counter: [0.5, 0.6, 0.06] }),
@@ -701,7 +706,7 @@ export const RECOVERY = Object.freeze({
   quickSeconds: 0.3,
   // (strike: the last strike that landed)
   via: Object.freeze([
-    Object.freeze({ at: 0.45, wrist: [0.22, -0.37, -0.63], blade: dir(38, 12), lead: [0.7, 0.6, -0.2], shoulder: [-0.08, 0, -0.06], look: [0.2, -0.4, -0.5], counter: [0.05, 0.05, 0.03] }),
+    Object.freeze({ at: 0.45, wrist: [0.2, -0.35, -0.63], blade: dir(20, 28), lead: [0.7, 0.6, -0.2], shoulder: [-0.08, 0, -0.06], look: [0.2, -0.4, -0.5], counter: [0.05, 0.05, 0.03] }),
     Object.freeze({ at: 0.45, wrist: [0.4, -0.22, -0.63], blade: dir(-10, 58), lead: [-0.4, -0.5, -0.75], shoulder: [0.01, 0.03, -0.03], look: [0.4, 0.6, 0.5], counter: [-0.04, -0.05, -0.04] }),
   ]),
 });
