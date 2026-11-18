@@ -30,11 +30,12 @@ function inspect(file, expected, sha, count) {
 }
 
 test('Argon 90/25 production models are the exact reviewed bytes and inventories', () => {
-  // (d0e390b7: Argon's de8c8655 reconciliation, verified against his stated SHA-256, with only the gauntlets' and shoulders' skin
-  // weights corrected by scripts/spellblade-reweight-gauntlet.mjs: every clip, mesh, bind and joint byte is de8c8655's;
-  // 90 clips with the one-handed Lightning arrival kept as a variation; first person 80de8aee, 25 clips, unchanged)
-  assert.equal(manifest.thirdPerson.sha256, 'd0e390b7996bd23b3a4ca30ee02dfb338945f5e6270ba811da725c4c830a6cf7');
-  assert.equal(manifest.firstPerson.sha256, '80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e');
+  // (6a8c25ac / c5f663d1: Codex's 17 November handoff, candidate v1, reviewed in Castleward as a pair. Built from the
+  // PR #503 model (d0e390b7) in its editable Blender source: the same 66 joints, sockets and 90 clip names, with 17 clips
+  // re-authored (carry, Guard, the three cuts and their bridges) and the sword gauntlet, right elbow and breastplate
+  // reweighted; first person 41 joints, 25 clips, Arm.R as whole plates. Blender writes the clips in name order)
+  assert.equal(manifest.thirdPerson.sha256, '6a8c25ac75f044ddf7c6506508f304276f96914dba326ed5fdf6ff5b0bb4bdb8');
+  assert.equal(manifest.firstPerson.sha256, 'c5f663d1e24d9547f9fc80ad512a80e747b201af73693312100de3f027c3cb6a');
   inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 90);
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);
 });
