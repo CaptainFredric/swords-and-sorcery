@@ -8,7 +8,7 @@
 //   - the elbow angle, the wrist fold (forearm against the blade), the hand's distance from the sword's grip,
 //   - the clip and clip time the animator holds.
 //
-//   node scripts/spellblade-pose-gallery-browser.mjs --scenario chain|guard|idle|walk|sprint|run-chain|riposte|whirl|sunder
+//   node scripts/spellblade-pose-gallery-browser.mjs --scenario chain|guard|guard-run|idle|walk|sprint|run-chain|riposte|whirl|sunder
 //        [--glb candidate.glb] [--ticks 60] [--views front,right,left,rear,arm,fp] [--out dir] [--label name]
 //
 // --glb serves a candidate third-person GLB in place of the installed one (scripts/lib/spellbladeCandidate.mjs).
@@ -225,10 +225,10 @@ try {
   // the keys are pressed in real time and the yard frozen the moment the simulation has begun the action: the held
   // keys then go on driving every step, as they would at full speed.
   stage = 'press';
-  const hold = { chain: ['attack'], 'run-chain': ['forward', 'sprint', 'attack'], walk: ['forward'], sprint: ['forward', 'sprint'], guard: ['guard'], idle: [], riposte: ['technique'],
+  const hold = { chain: ['attack'], 'run-chain': ['forward', 'sprint', 'attack'], walk: ['forward'], sprint: ['forward', 'sprint'], guard: ['guard'], 'guard-run': ['forward', 'guard'], idle: [], riposte: ['technique'],
     whirl: ['technique'], sunder: ['ultimate'] }[scenario];
   if (!hold) throw new Error(`unknown scenario ${scenario}`);
-  const begun = { chain: 'me.attackActive', 'run-chain': 'me.attackActive', walk: 'Math.hypot(me.velocity.x, me.velocity.z) > 1', sprint: 'Math.hypot(me.velocity.x, me.velocity.z) > 5', guard: 'me.guarding', idle: 'true',
+  const begun = { chain: 'me.attackActive', 'run-chain': 'me.attackActive', walk: 'Math.hypot(me.velocity.x, me.velocity.z) > 1', sprint: 'Math.hypot(me.velocity.x, me.velocity.z) > 5', guard: 'me.guarding', 'guard-run': 'me.guarding && Math.hypot(me.velocity.x, me.velocity.z) > 1', idle: 'true',
     riposte: 'me.swordTechnique', whirl: 'me.swordTechnique', sunder: 'me.ultimateState' }[scenario];
   if (scenario === 'run-chain') { await key(true, 'forward'); await key(true, 'sprint'); await sleep(1100); await key(true, 'attack'); }
   else for (const a of hold) await key(true, a);
