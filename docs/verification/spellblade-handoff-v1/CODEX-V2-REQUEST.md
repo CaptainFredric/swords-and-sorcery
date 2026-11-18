@@ -17,6 +17,47 @@ Every number below was measured on the frames the game draws: `scripts/spellblad
 cameras, one 30 Hz tick at a time) and `scripts/swordsmanship-capture-browser.mjs` (normal-speed video, including a
 second player's view). Clip frames are 30 fps and 0-based. Frame f means time f/30 s.
 
+## 0. Priorities changed (2026-11-18): the Sword Techniques first
+
+After playing v1, the user ranked the techniques' force above the armour items. The game now draws the following itself:
+- **First-person opening cut:** `fpSlash.mjs`. Its flop is fixed in the game.
+- **First-person Rigid Riposte:** `fpTechniques.mjs`. A real brace, then a thrust along the aim.
+- **Third-person technique body:** `techniqueMotion.mjs`. Sink, torso drive, Whirl lean, with the sword held on the
+  clip's own path.
+- **Sounds and impacts.**
+
+What only the authored third-person clips can give is below. Please do these before §2–§7. §1 (the chop) stays as
+important as before.
+
+**A. `Technique_RigidRiposte_*`: a committed lunge (third person).** The server moves the knight 5.7 m between 0.22 s
+and 0.48 s, about 22 m/s.
+- **Brace (Enter + Interception, 0–0.22 s):** the weight sinks 6–8 cm onto the rear foot, the sword shoulder draws back
+  and the torso coils away from the target. The blade meets the incoming blow across the body.
+- **Drive (`Thrust`, 0–0.26 s of the clip):**
+  - the rear foot pushes off at once, and both feet leave the ground from about 0.03 s to 0.21 s;
+  - the torso pitches at least 20° toward the target by 0.08 s, with the sword shoulder leading the chest;
+  - the arm reaches full extension behind the point by 0.12 s.
+- **Landing (end of `Thrust`):** a long lunge, the lead (right) knee over its foot, the rear leg extended behind, held
+  through the start of `Recovery`.
+- **Keep the sword where the server samples it:** `socket_sword` within 2 cm and 3° of `RIPOSTE_SAMPLES`
+  (`shared/src/swordTechniqueContracts.mjs`). The game pins the sword hand to the clip's path, so the body must move
+  behind it rather than the sword moving.
+- Also the wrist relief in §4.
+
+**B. `Technique_Whirl_*`: rotational momentum (third person).**
+- **The feet pivot rather than orbit:** one foot stays planted as the axis while the other lifts and steps round each
+  half-turn.
+- **Lean into the turn by 10–15°,** with the head and chest ahead of the hips and the sword trailing the chest by about
+  15°. The sword must stay on `WHIRL_SAMPLES` (same tolerance as A).
+- **The 0.6 s loop has no seam:** first and last frames must match in pose and velocity, since the game loops it on the
+  server's phase.
+- **`Enter`** winds up against the turn. **`Exit`** and **`Interrupted`** carry the momentum out with a step, rather
+  than stopping dead.
+
+**C. First-person gauntlet at full stretch.** With the arm straight and the sword levelled (the game's Riposte thrust),
+`Arm.R`'s gauntlet visibly parts from the forearm (`evidence/cmp-riposte-fp.jpg`). Please close that seam in the
+first-person source for an extended, levelled arm.
+
 ## 1. The chop crosses to the side (most visible remaining defect)
 
 The server's third strike comes straight down the aim: 60° above it at the start of the swing window, through the aim
