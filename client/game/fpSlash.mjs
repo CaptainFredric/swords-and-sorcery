@@ -359,12 +359,16 @@ const forehandCut = (c, { rising = false } = {}) => [
     : key(c + LATE, [0.05, -0.29, -0.63], dir(60, -6), [-0.75, -0.2, 0.3],
       { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
 ];
-// ...and where it comes to rest when the backhand follows: the low-left chamber, the hand by the left hip
+// ...and on through, still cutting, down past the left hip and out of the bottom of the view, the point toward the
+// ground (a descending cut's own end, and the low guard the rising backhand is loaded from): in
+// the game a blade that slowed in view (lying across the lower left, or lifted into a guard there) read as a limp
+// sword laid sideways, however it was angled (2026-11-18 recordings). Coiled there, out of sight, the body wound
+// against the backhand that follows, which comes in from the low left at speed.
 const forehandSettle = (c) => [
-  key(c + 0.2, [0.04, -0.2, -0.62], dir(58, 8), [-0.75, -0.3, 0.3],
-    { shoulder: [-0.2, 0.0, -0.11], body: [-0.03, -0.008, -0.01], look: [-0.1, -1.3, -1.5], counter: [0.66, 0.7, 0.08] }),
-  key(c + 0.3, [0.13, -0.135, -0.61], dir(52, 18), [-0.7, -0.45, 0.25],
-    { shoulder: [-0.19, 0.02, -0.1], body: [-0.025, -0.006, -0.008], look: [0.1, -1.1, -1.3], counter: [0.6, 0.85, 0.07], ease: 0.4 }),
+  key(c + 0.2, [-0.025, -0.335, -0.6], dir(72, -30), [-0.75, -0.45, 0.3],
+    { shoulder: [-0.22, -0.01, -0.12], body: [-0.035, -0.012, -0.012], look: [-0.5, -1.4, -1.6], counter: [0.72, 0.74, 0.1] }),
+  key(c + 0.3, [-0.065, -0.365, -0.59], dir(80, -52), [-0.6, -0.65, 0.3],
+    { shoulder: [-0.23, -0.02, -0.11], body: [-0.035, -0.014, -0.01], look: [-0.3, -1.4, -1.6], counter: [0.66, 0.85, 0.08], ease: 0.5 }),
 ];
 
 export const COMBO = settle(preAimed([
@@ -381,7 +385,7 @@ export const COMBO = settle(preAimed([
   ...forehandCut(C1), ...forehandSettle(C1),
   // 2. the backhand: loaded where the forehand came to rest (the hand sinking a little by the hip, the edge turned
   // over there, the blade all but still: no rebound and no second dip)...
-  key(C2 - 0.24, [-0.06, -0.29, -0.61], dir(60, -6), [0.7, 0.65, -0.2],
+  key(C2 - 0.24, [-0.06, -0.36, -0.6], dir(80, -54), [0.3, 0.8, -0.5],
     { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.6 }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
