@@ -60,12 +60,12 @@ export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform'
     for (const prim of mesh.primitives) {
       const view = (k) => { const a = gltf.accessors[prim.attributes[k] ?? prim[k]]; const v = gltf.bufferViews[a.bufferView]; return { a, base: binStart + (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride }; };
       const P = view('POSITION'), J = view('JOINTS_0'), W = view('WEIGHTS_0');
-      if (W.a.componentType !== 5126 || J.a.componentType !== 5123 || W.stride || J.stride) throw new Error('expected packed float weights and ushort joints');
+      if (W.a.componentType !== 5126 || ![5121, 5123].includes(J.a.componentType) || W.stride || J.stride) throw new Error('expected packed float weights and ubyte or ushort joints');
       const ia = gltf.accessors[prim.indices], iv = gltf.bufferViews[ia.bufferView], ibase = binStart + (iv.byteOffset ?? 0) + (ia.byteOffset ?? 0);
       const n = P.a.count;
       const readIndex = (k) => (ia.componentType === 5125 ? out.readUInt32LE(ibase + k * 4) : ia.componentType === 5123 ? out.readUInt16LE(ibase + k * 2) : out.readUInt8(ibase + k));
       const pos = (v, c) => out.readFloatLE(P.base + v * 12 + c * 4);
-      const jt = (v, c) => out.readUInt16LE(J.base + v * 8 + c * 2);
+      const jt = J.a.componentType === 5121 ? (v, c) => out.readUInt8(J.base + v * 4 + c) : (v, c) => out.readUInt16LE(J.base + v * 8 + c * 2);
       const wt = (v, c) => out.readFloatLE(W.base + v * 16 + c * 4);
       // pieces: connected by triangles, and welded where split vertices share a position
       const parent = Array.from({ length: n }, (_, i) => i);
@@ -79,7 +79,7 @@ export function reweightGauntlets(bytes, { sides = ['R', 'L'], wrist = 'uniform'
       const write = (v, entries) => {
         const sum = entries.reduce((s, [, w]) => s + w, 0);
         const four = [...entries.map(([j, w]) => [j, w / sum]), [0, 0], [0, 0], [0, 0], [0, 0]].slice(0, 4);
-        four.forEach(([j, w], c) => { out.writeUInt16LE(w ? j : 0, J.base + v * 8 + c * 2); out.writeFloatLE(w, W.base + v * 16 + c * 4); });
+        four.forEach(([j, w], c) => { if (J.a.componentType === 5121) out.writeUInt8(w ? j : 0, J.base + v * 4 + c); else out.writeUInt16LE(w ? j : 0, J.base + v * 8 + c * 2); out.writeFloatLE(w, W.base + v * 16 + c * 4); });
       };
       // the forearm's axis at bind (mesh space is the skin's bind space here: the gauntlets' nodes carry no transform)
       const elbowAt = bindPosition(forearm), wristAt = bindPosition(hand);
@@ -165,12 +165,12 @@ function reweightShoulders(out, gltf, binStart, jointName) {
     for (const prim of mesh.primitives) {
       const view = (k) => { const a = gltf.accessors[prim.attributes[k]]; const v = gltf.bufferViews[a.bufferView]; return { a, base: binStart + (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride }; };
       const P = view('POSITION'), J = view('JOINTS_0'), W = view('WEIGHTS_0');
-      if (W.a.componentType !== 5126 || J.a.componentType !== 5123 || W.stride || J.stride) throw new Error(`${mesh.name}: expected packed float weights and ushort joints`);
+      if (W.a.componentType !== 5126 || ![5121, 5123].includes(J.a.componentType) || W.stride || J.stride) throw new Error(`${mesh.name}: expected packed float weights and ubyte or ushort joints`);
       const ia = gltf.accessors[prim.indices], iv = gltf.bufferViews[ia.bufferView], ibase = binStart + (iv.byteOffset ?? 0) + (ia.byteOffset ?? 0);
       const readIndex = (k) => (ia.componentType === 5125 ? out.readUInt32LE(ibase + k * 4) : ia.componentType === 5123 ? out.readUInt16LE(ibase + k * 2) : out.readUInt8(ibase + k));
       const n = P.a.count;
       const pos = (v, c) => out.readFloatLE(P.base + v * 12 + c * 4);
-      const jt = (v, c) => out.readUInt16LE(J.base + v * 8 + c * 2);
+      const jt = J.a.componentType === 5121 ? (v, c) => out.readUInt8(J.base + v * 4 + c) : (v, c) => out.readUInt16LE(J.base + v * 8 + c * 2);
       const wt = (v, c) => out.readFloatLE(W.base + v * 16 + c * 4);
       const parent = Array.from({ length: n }, (_, i) => i);
       const find = (x) => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
@@ -189,7 +189,7 @@ function reweightShoulders(out, gltf, binStart, jointName) {
         const norm = mean.reduce((s, [, w]) => s + w, 0);
         for (const v of verts) {
           const four = [...mean.map(([j, w]) => [j, w / norm]), [0, 0], [0, 0], [0, 0], [0, 0]].slice(0, 4);
-          four.forEach(([j, w], c) => { out.writeUInt16LE(w ? j : 0, J.base + v * 8 + c * 2); out.writeFloatLE(w, W.base + v * 16 + c * 4); });
+          four.forEach(([j, w], c) => { if (J.a.componentType === 5121) out.writeUInt8(w ? j : 0, J.base + v * 4 + c); else out.writeUInt16LE(w ? j : 0, J.base + v * 8 + c * 2); out.writeFloatLE(w, W.base + v * 16 + c * 4); });
         }
         report.push({ mesh: mesh.name, vertices: verts.length, rule: `one plate, its mean: ${mean.map(([j, w]) => `${jointName[j]} ${(w / verts.length).toFixed(2)}`).join(' + ')}` });
       }

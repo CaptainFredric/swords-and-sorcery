@@ -1,9 +1,11 @@
 // The forehand (the first ordinary cut, right to left) as a committed cut: once it is through its contact the blade
-// only slows, the hand carrying it on across, to where the returning cut is loaded from. Measured on the shown path
-// (aimed at the server's blade), for both chains: the falling chain opens with it, the rising chain's second cut is it.
+// only slows through its follow-through, the hand carrying it on across. Then, opening the falling chain, it cuts on
+// down past the left hip and out of the view rather than slowing to lie across it (the "flop" players saw,
+// 2026-11-18), and the backhand is loaded from that low guard. Measured on the shown path (aimed at the server's
+// blade), for both chains: the falling chain opens with it, the rising chain's second cut is it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { comboPose } from './fpSlash.mjs';
 
 const DEG = 180 / Math.PI;
@@ -15,7 +17,8 @@ const pitch = (t, v) => Math.asin(comboPose(t, v).arm.blade[1]) * DEG;
 const samples = (from, to, step = 1 / 120) => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, i) => from + i * step);
 
 for (const [name, variant, contact, until] of [
-  ['the falling chain', 0, SWORD_STRIKE_TIMES[0], 0.3],
+  // (the falling chain's follow-through is the server's window after the contact; the lift into the guard follows it)
+  ['the falling chain', 0, SWORD_STRIKE_TIMES[0], MELEE_CONTACT.window.late],
   ['the rising chain', 1, SWORD_STRIKE_TIMES[1], 0.16],
 ]) {
   test(`the forehand of ${name} follows through without stalling`, () => {
@@ -37,15 +40,32 @@ for (const [name, variant, contact, until] of [
   });
 }
 
-test('the forehand comes to rest where the backhand is loaded, with no rebound and no second dip', () => {
+const LATE_WINDOW = MELEE_CONTACT.window.late;
+
+// how much of the blade (grip to point) is on a 16:9 screen with the game's 78-degree view, ignoring the look's lean
+const VERTICAL = Math.tan(39 * Math.PI / 180), HORIZONTAL = VERTICAL * 16 / 9;
+const onScreen = (t) => {
+  const { wrist, blade } = comboPose(t, 0).arm;
+  let seen = 0;
+  for (let i = 0; i <= 20; i += 1) {
+    const p = wrist.map((v, k) => v + blade[k] * (0.08 + 1.05 * i / 20));
+    if (p[2] < -0.05 && Math.abs(p[0] / -p[2]) < HORIZONTAL && Math.abs(p[1] / -p[2]) < VERTICAL) seen += 1;
+  }
+  return seen / 21;
+};
+
+test('the forehand cuts on down past the left hip and out of the view, never left lying across it', () => {
   const contact = SWORD_STRIKE_TIMES[0];
-  // from the end of the follow-through to the backhand's approach: the blade all but still, low on the left
-  const held = samples(contact + 0.3, SWORD_STRIKE_TIMES[1] - 0.14);
-  const pitches = held.map((t) => pitch(t, 0));
-  assert.ok(Math.max(...pitches) - Math.min(...pitches) < 6, `the blade bobs ${(Math.max(...pitches) - Math.min(...pitches)).toFixed(1)} degrees while it is held`);
-  for (const t of held) assert.ok(bladeRate(t, 0) < 80, `at ${t.toFixed(3)} the held blade turns ${bladeRate(t, 0).toFixed(0)} deg/s`);
-  // the whole fall from the contact to the chamber is one way: the point never comes back up before the backhand
-  const fall = samples(contact, SWORD_STRIKE_TIMES[1] - 0.14).map((t) => pitch(t, 0));
-  for (let i = 1; i < fall.length; i += 1) assert.ok(fall[i] <= fall[i - 1] + 0.35, `the point rises again ${(i / 120).toFixed(3)} s after the contact`);
-  assert.ok(fall.at(-1) > -20 && fall.at(-1) < -8, `the chamber holds the blade ${fall.at(-1).toFixed(1)} degrees below level`);
+  // still cutting until it has gone: no slow, sideways blade parked in view (the "flop" players saw, 2026-11-18)
+  for (const t of samples(contact + LATE_WINDOW, contact + 0.26)) {
+    assert.ok(bladeRate(t, 0) > 150 || onScreen(t) < 0.35, `at ${t.toFixed(3)} the blade slows to ${bladeRate(t, 0).toFixed(0)} deg/s with ${(onScreen(t) * 100).toFixed(0)}% of it in view`);
+  }
+  // ...and goes on down: the point toward the ground by the left hip, most of the blade below the view
+  for (const t of samples(contact + 0.3, SWORD_STRIKE_TIMES[1] - 0.2)) {
+    assert.ok(pitch(t, 0) < -40, `at ${t.toFixed(3)} the point is only ${pitch(t, 0).toFixed(1)} degrees below level`);
+    assert.ok(onScreen(t) < 0.35, `at ${t.toFixed(3)} ${(onScreen(t) * 100).toFixed(0)}% of the blade lies in view`);
+    assert.ok(comboPose(t, 0).arm.wrist[0] < 0, 'the hand carried across to the left');
+  }
+  // the backhand comes up out of it at speed, from the low left
+  assert.ok(bladeRate(SWORD_STRIKE_TIMES[1] - MELEE_CONTACT.window.early, 0) > 400, 'the backhand already driving as its window opens');
 });

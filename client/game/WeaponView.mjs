@@ -18,6 +18,8 @@ import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
+import { riposteView, whirlView } from './techniqueMotion.mjs';
+import { riposteFirstPersonPose } from './fpTechniques.mjs';
 
 // What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
@@ -778,6 +780,27 @@ export class WeaponView {
 
   // the arms' Vortex pose this frame, with how firmly they hold it, or null: it takes hold over a moment and lets go
   // over a moment when it ends
+  // a Sword Technique's own first-person sword (fpTechniques.mjs) on the server's technique clock, eased in and out
+  // (an interrupted or parried Riposte keeps its authored clip)
+  #techniquePose(timeSec, dt) {
+    const technique = this.combatPlayer?.alive !== false ? this.combatPlayer?.swordTechnique : null;
+    const held = this.techniqueHeld ??= { weight: 0, pose: null };
+    let pose = null;
+    if (technique?.id === 'rigid_riposte' && technique.phase !== 'interrupted') {
+      const authority = (this.combatServerNow ?? timeSec) + Math.max(0, timeSec - (this.combatLocalNow ?? timeSec));
+      pose = riposteFirstPersonPose(authority - (technique.initialStartedAt ?? technique.startedAt ?? authority));
+    }
+    if (pose) {
+      held.pose = pose;
+      held.weight = Math.min(1, held.weight + dt / 0.08);
+    } else {
+      held.weight = Math.max(0, held.weight - dt / 0.2);
+      if (held.weight <= 0) held.pose = null;
+    }
+    const ease = held.weight * held.weight * (3 - 2 * held.weight);
+    return held.pose && ease > 0.001 ? { ...held.pose, weight: ease } : null;
+  }
+
   #vortexPose(timeSec, dt) {
     const vortex = this.vortex;
     const held = this.vortexHeld ??= { weight: 0, pose: null, fire: 0, sparked: false };
@@ -850,6 +873,20 @@ export class WeaponView {
     });
 
     const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash', guardOverRest: !this.concurrent });
+    // a Sword Technique's body felt from inside the helm (techniqueMotion.mjs), on the server's technique clock: the
+    // Riposte's brace and drive, the Whirl's pull (a degree or two of view, a little of the arms: never a shake)
+    const technique = this.combatPlayer?.alive !== false ? this.combatPlayer?.swordTechnique : null;
+    if (technique) {
+      const authority = (this.combatServerNow ?? timeSec) + Math.max(0, timeSec - (this.combatLocalNow ?? timeSec));
+      const drive = technique.id === 'rigid_riposte' && technique.phase !== 'interrupted'
+        ? riposteView(authority - (technique.initialStartedAt ?? technique.startedAt ?? authority))
+        : technique.id === 'whirl_wind' ? whirlView(technique, authority) : null;
+      if (drive) {
+        for (const k of ['x', 'y', 'z', 'rx', 'ry', 'rz']) motion.weapon[k] += drive.weapon[k];
+        for (const k of ['y', 'pitch', 'roll', 'yaw']) motion.camera[k] += drive.camera[k];
+        motion.fov += drive.fov;
+      }
+    }
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {
@@ -879,8 +916,10 @@ export class WeaponView {
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
+      // (a Sword Technique drawn by the arm solver: the Riposte's brace, thrust and recovery, fpTechniques.mjs)
+      const techniquePose = vortexPose ? null : this.#techniquePose(timeSec, dt);
       // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
-      const sourceCombo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
+      const sourceCombo = vortexPose ?? techniquePose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
       this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
       // Guard owns a complete defensive path, including the way home when a committed chain ends.
       // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.
@@ -895,7 +934,7 @@ export class WeaponView {
         defended = guardedRecoveryPose(this.guardedCutFrom, timeSec - this.guardedCutAt);
       }
       if (this.concurrentGuardBlend <= 0) this.guardedCutAt = undefined;
-      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
+      const combo = vortexPose || techniquePose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
       // the arms still being brought out (or not out yet): over whatever else has them
       const away = this.#equipmentPose(timeSec);
       if (away.sword) {

@@ -343,7 +343,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   }
 
   if (state === 'cast') {
-    return fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow));
+    return onTheMove(player, fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), serverNow, localTime);
   }
 
   if (state === 'dash') {
@@ -363,12 +363,22 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   }
 
   // The guard stays raised but breathes: loop the hold section on the local clock.
-  if (state === 'guard') return fixed('Guard', guardHoldTime(localTime));
+  if (state === 'guard') return onTheMove(player, fixed('Guard', guardHoldTime(localTime)), serverNow, localTime);
   // the air pose follows the jump: take-off at the start of the clip, falling toward its end
   if (state === 'air') return { ...fixed('Air', airPhase(player.velocity?.y)), normalized: true };
   if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run', rate: strideRate(player, SPRINT.speed) };
   if (state === 'run') return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
   return fixed('Idle', idleTime(localTime), true);
+}
+
+// A Guard or a cast on the move: the legs keep their gait (or the air's pose) under it, as a moving strike's do. The
+// whole-body clip has its feet planted, and a guarding knight moves at the full running pace: played whole, those
+// planted feet skated along under him. Standing, the clip keeps the whole body.
+function onTheMove(player, upper, serverNow, localTime) {
+  const moving = locomotionState(player);
+  if (moving === 'idle') return upper;
+  const locomotion = resolveSpellbladeAnimationPlan({ state: moving, player, serverNow, localTime });
+  return { ...locomotion, layers: { locomotion, posture: upper, sword: upper, sorcery: upper }, moving: true };
 }
 
 // stride cadence follows ground speed (the sprint builds up), so feet do not skate

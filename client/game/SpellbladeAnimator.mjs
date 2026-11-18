@@ -203,7 +203,9 @@ export class SpellbladeAnimator {
     const layer = this.character;
     const gestures = (layer?.gestures ?? []).filter((g) => g && g.weight > 1e-3);
     const turns = layer?.turns ?? [];
-    if (!turns.length && !gestures.length) return;
+    const swordPin = this.swordPin;
+    this.swordPin = null;
+    if (!turns.length && !gestures.length && !swordPin) return;
     this.root.updateMatrixWorld(true);
     _rootInv.copy(this.root.matrixWorld).invert();
     this.root.getWorldQuaternion(_rootQuatInv).invert();
@@ -211,6 +213,8 @@ export class SpellbladeAnimator {
     const pins = pinned ? this.#handPins() : null;
     for (const { bone, axis, angle } of turns) api.rotate(bone, axis, angle);
     for (const g of gestures) for (const { bone, axis, angle } of g.turns ?? []) api.rotate(bone, axis, angle * g.weight);
+    // the sword back on the clip's own path: the arm takes up the body's lean and drive at the shoulder and elbow
+    if (swordPin) solveArm(api, { ...GESTURE_ARMS.R, pole: swordPin.pole }, { wrist: swordPin.wrist, aim: swordPin.aim, roll: swordPin.roll }, 1);
     // the hands back on their controls
     if (pins) {
       for (const [side, pin] of Object.entries(pins)) {
@@ -629,6 +633,14 @@ export class SpellbladeAnimator {
 
   #applyProcedural(motion) {
     if (!motion) return;
+    // a Sword Technique's body moves behind its sword: the sword hand is taken where the authored clip put it (the
+    // path the server's contact samples follow), and put back there once the body has moved (#applyCharacter)
+    if (motion.pinSword) {
+      this.root.updateMatrixWorld(true);
+      _rootInv.copy(this.root.matrixWorld).invert();
+      this.root.getWorldQuaternion(_rootQuatInv).invert();
+      this.swordPin = this.#handPins().R ?? null;
+    }
     const pose = reactionPose(motion.reactions, motion.now ?? 0, motion.yaw ?? 0, { slack: Boolean(motion.death) });
     // a death's first moments: the body loses its structure before the clip's fall takes over
     if (motion.death) {
@@ -645,6 +657,8 @@ export class SpellbladeAnimator {
     }
     // extra: caller-supplied rotations (first person uses them for the neutral spread and the sprint arm pump)
     if (Array.isArray(motion.extra)) pose.rotations.push(...motion.extra);
+    // and a caller's own pelvis offset (root space, metres: a Sword Technique's sink and leap, techniqueMotion.mjs)
+    if (Array.isArray(motion.pelvis)) pose.pelvis = pose.pelvis.map((v, i) => v + (Number(motion.pelvis[i]) || 0));
     // a landing's flex, plus any crouch asked for (a flourish gathering itself): the feet stay planted either way
     const landFlex = pose.legFlex + (Number.isFinite(motion.crouch) ? Math.max(0, motion.crouch) : 0);
     const airFlex = Number.isFinite(motion.airFlex) ? Math.max(0, motion.airFlex) : 0;

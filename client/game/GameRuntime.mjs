@@ -59,11 +59,12 @@ import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWor
 import { castVisualDuration } from './weaponPose.mjs';
 import { landingStrength, localPushDirection } from './spellbladeMotion.mjs';
 import { CONTACT_LIMITS, contactWorthDrawing, footfallPlan, groundContactAt, landingPlan } from './groundContact.mjs';
+import { whirlRevolution } from './techniqueMotion.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe, riposteHitRecipe, riposteDriveRecipe, whirlTurnRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -283,6 +284,7 @@ export class GameRuntime {
     // another knight's Blazing Vortex: the star's ting as it is lit, and the beat of the blade, once a turn
     this.remotePlayers.onVortexSpark = (id) => this.#play(vortexStarRecipe(), this.#bodyPosition(id), 0.7);
     this.remotePlayers.onVortexTurn = (id, rate) => this.#play(vortexWhooshRecipe(Math.random, { rate }), this.#bodyPosition(id), 0.6);
+    this.remotePlayers.onWhirlTurn = (id, turn) => this.#play(whirlTurnRecipe(Math.random, { turn }), this.#bodyPosition(id), 0.65);
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
     // and his longer scenes, each part said when the game has earned it (voiceScenes.mjs)
@@ -2129,6 +2131,13 @@ export class GameRuntime {
       // a blade snagged on some small furnishing in passing: very rarely, the knight formally surrenders over it
       if (event.type === 'swordWorldImpact' && event.snag) this.#sayMoment(event.playerId, ['bladeSnag']);
       if (event.type === 'swordHit') this.#swordHit(event);
+      if (event.type === 'swordTechniqueHit') this.#techniqueHit(event);
+      // the Riposte's lunge is heard as its brace lets go (0.22 s in, the contract's activeFrom), landed or not
+      if (event.type === 'swordTechniqueStarted' && event.id === 'rigid_riposte') {
+        const mine = event.playerId === me;
+        const delay = Math.max(0, (event.at ?? 0) + 0.2 - this.socket.serverNow());
+        this.#play(riposteDriveRecipe(), mine ? null : this.#bodyPosition(event.playerId), mine ? 0.9 : 0.7, delay);
+      }
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
@@ -3526,6 +3535,33 @@ export class GameRuntime {
     }
   }
 
+  // a Sword Technique's blow landing (swordTechniqueHit: it has no swordHit of its own). The Riposte's thrust has its
+  // own impact: a point punched through plate, the arm stopped dead for an instant, a restrained kick; a Whirl's cut
+  // lands as a cut. A miss has none of it.
+  #techniqueHit(event) {
+    const me = this.playerId;
+    const attacker = this.#bodyPosition(event.playerId);
+    const victim = this.#bodyPosition(event.targetId);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
+    const riposte = event.id === 'rigid_riposte';
+    const quality = event.clean ? 1 : 0.55;
+    if (event.targetId !== me) {
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike: riposte ? 2 : 0, quality, from: attacker, heavy: riposte });
+      this.remotePlayers.flashHit(event.targetId);
+    }
+    const recipe = riposte ? riposteHitRecipe(Math.random, { clean: Boolean(event.clean) }) : swordHitRecipe(Math.random, { strike: 0, quality });
+    if (event.playerId === me) {
+      this.hud.hit(event.clean ? 'hit' : 'glance');
+      this.weapon.hitstop(riposte ? 0.085 : hitstopSeconds({ quality }), riposte ? 0.7 : hitKick({ quality }));
+      this.#play(recipe, null, 1);
+    } else if (event.targetId === me) {
+      this.#play(hurtRecipe(Math.random, { heavy: riposte, amount: event.damage ?? 20 }), null, 1);
+      if (riposte) { this.#play(recipe, null, 0.7); this.cameraKick = Math.max(this.cameraKick, 0.08); }
+    } else {
+      this.#play(recipe, point, 0.85);
+    }
+  }
+
   // a blow meeting a guard: sparks where the blades met and the ring of steel (or the crunch of it breaking)
   #guardContact(event) {
     const me = this.playerId;
@@ -4292,6 +4328,10 @@ export class GameRuntime {
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
+    // my own Whirl's revolutions, heard as each begins (another knight's are RemotePlayers' onWhirlTurn)
+    const ownTurn = whirlRevolution(this.localAuth?.swordTechnique, this.socket.serverNow());
+    if (ownTurn !== null && ownTurn !== this.ownWhirlTurn) this.#play(whirlTurnRecipe(Math.random, { turn: ownTurn }), null, 0.8);
+    this.ownWhirlTurn = ownTurn;
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);

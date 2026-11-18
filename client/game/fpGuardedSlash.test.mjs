@@ -83,9 +83,12 @@ test('Guard restrains the body, not the cut: shoulder and view held back, the fr
   }
   // the follow-through is stopped sooner and higher: never down round the hip as the ordinary forehand and chop go
   const low = (pose, t) => pose(t).arm.wrist[1];
-  assert.ok(low(guardedComboPose, C1 + 0.22) > low(comboPose, C1 + 0.22) + 0.04, 'the forehand finishes higher');
+  // (at the end of the cut's own follow-through: after it the ordinary forehand lifts into a raised guard of its own)
+  const late = C1 + MELEE_CONTACT.window.late;
+  assert.ok(low(guardedComboPose, late) > low(comboPose, late) + 0.03, 'the forehand finishes higher');
+  for (let t = C1; t <= C1 + 0.3; t += 1 / 60) assert.ok(low(guardedComboPose, t) > -0.27, `never down round the hip (${t.toFixed(2)} s)`);
   assert.ok(low(guardedComboPose, C3 + 0.08) > low(comboPose, C3 + 0.08) + 0.1, 'the descending strike stops at the waist');
-  const sweep = (pose, contact) => Math.abs(seen(pose(contact + 0.2).arm).onScreen[0] - seen(pose(contact).arm).onScreen[0]);
+  const sweep = (pose, contact) => Math.abs(seen(pose(contact + MELEE_CONTACT.window.late).arm).onScreen[0] - seen(pose(contact).arm).onScreen[0]);
   assert.ok(sweep(guardedComboPose, C1) < sweep(comboPose, C1), 'a shorter follow-through');
   // and the cock before the forehand opens less
   assert.ok(guardedComboPose(C1 - 0.16).arm.wrist[0] < comboPose(C1 - 0.16).arm.wrist[0] - 0.03, 'a smaller backswing');
