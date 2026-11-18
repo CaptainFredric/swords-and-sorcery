@@ -32,6 +32,7 @@ const scenario = option('--scenario', 'slash-tap');
 const device = option('--device', 'desktop');
 const remote = flag('--remote');
 const candidate = candidateInfo(option('--glb', null));
+const fpCandidate = candidateInfo(option('--fp-glb', null));
 const technique = scenario.startsWith('riposte') ? 'rigid_riposte' : scenario.startsWith('whirl') ? 'whirl_wind' : null;
 const spell = scenario === 'whirl-gale' ? 'gale' : 'fireball';
 const holdSec = Number(option('--hold', scenario === 'slash-chain' ? '2.2' : scenario === 'whirl' ? '2.6' : scenario === 'whirl-gale' ? '2.2' : '0.08'));
@@ -79,7 +80,7 @@ async function browser(name, metrics) {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: metrics.width, height: metrics.height, deviceScaleFactor: metrics.scale, mobile: metrics.mobile, ...(metrics.mobile ? { screenOrientation: { type: 'landscapePrimary', angle: 90 } } : {}) });
   if (metrics.mobile) await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   // (--glb: every browser of the run is served that third-person model in place of the installed one)
-  await substituteSpellblade(cdp, candidate);
+  await substituteSpellblade(cdp, candidate, { fp: fpCandidate });
   const evaluate = async (expression, timeoutMs = 30000) => {
     const r = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, timeoutMs);
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);

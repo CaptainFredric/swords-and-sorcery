@@ -26,6 +26,7 @@ const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
 const scenario = option('--scenario', 'chain');
 const candidate = candidateInfo(option('--glb', null));
+const fpCandidate = candidateInfo(option('--fp-glb', null));
 const ticks = Number(option('--ticks', scenario === 'idle' ? '8' : scenario === 'guard' ? '24' : '72'));
 const views = option('--views', 'front,right,left,rear,arm,fp').split(',');
 const label = option('--label', `${scenario}-${candidate ? candidate.sha256.slice(0, 8) : 'main'}`);
@@ -73,7 +74,7 @@ try {
   cdp.on('Runtime.exceptionThrown', (e) => pageErrors.push(e.exceptionDetails?.exception?.description?.slice(0, 300) ?? e.exceptionDetails?.text));
   cdp.on('Runtime.consoleAPICalled', (e) => { if (e.type === 'error') pageErrors.push(e.args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)); });
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-  const served = await substituteSpellblade(cdp, candidate);
+  const served = await substituteSpellblade(cdp, candidate, { fp: fpCandidate });
   await cdp.send('Page.navigate', { url: `${url}/?debug` });
   await poll(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')", 5000), 'menu', 120000);
   await evaluate("document.querySelector('[data-tutorial-onboarding-skip]')?.click()");
