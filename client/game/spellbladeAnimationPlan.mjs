@@ -198,7 +198,7 @@ function disasterPlan(player, serverNow) {
 // Animation clips share the action's authoritative clock. Enter is blended
 // into the EXISTING 0.22 s Rigid interception and first 0.6 s Whirl, never
 // inserted as extra startup. The supplied GLBs must be shipped separately.
-const RIPOSTE_BRACE_SEC=.22, RIPOSTE_ENTER_CLIP_SEC=.1;
+const RIPOSTE_BRACE_SEC=.22, RIPOSTE_ENTER_CLIP_SEC=.1, RIPOSTE_INTERCEPTION_CLIP_SEC=.22, RIPOSTE_GUARD_HOLD_SEC=.14;
 // Where the authored brace (Enter, then Interception: seconds through the two) is, each moment of the server's
 // brace: fitted to the server's own samples of the blade (swordTechniqueContracts.mjs), which bring the sword up
 // fast and then carry it across. server/tests/spellblade-motion-sidecar.test.mjs holds the two together.
@@ -240,6 +240,17 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
     // the server's, untouched: the brace still ends, and the thrust still begins, at 0.22 s.
     if(age<RIPOSTE_BRACE_SEC){
       const authored=riposteBraceClipTime(age);
+      // Out of a Guard only just let go the sword is already up: the brace takes it straight on into the interception.
+      // Enter brings the sword up from the low stance, so from overhead it dragged the point down past the knees and
+      // back up (2026-11-19). The interception is held at its first frame while the Guard's pose dies away
+      // (SpellbladeAnimator's inertialized entry, told to finish by RIPOSTE_GUARD_HOLD_SEC on the server's clock,
+      // however late this client saw the Riposte begin), then played through to finish with the brace. Nothing is
+      // still dying away when Candidate v3's interception exchanges about 110 degrees of roll between the forearm and
+      // the hand (at 0.058 s): a pose eased over that turned it into a 2 m jump.
+      if(outOfGuard&&!firstPerson){
+        if(age<RIPOSTE_GUARD_HOLD_SEC)return clip('Technique_RigidRiposte_Interception',0,{entrySec:Math.max(.06,RIPOSTE_GUARD_HOLD_SEC-age)});
+        return clip('Technique_RigidRiposte_Interception',RIPOSTE_INTERCEPTION_CLIP_SEC*(age-RIPOSTE_GUARD_HOLD_SEC)/(RIPOSTE_BRACE_SEC-RIPOSTE_GUARD_HOLD_SEC));
+      }
       return authored<RIPOSTE_ENTER_CLIP_SEC?clip('Technique_RigidRiposte_Enter',authored)
         :clip('Technique_RigidRiposte_Interception',authored-RIPOSTE_ENTER_CLIP_SEC);
     }

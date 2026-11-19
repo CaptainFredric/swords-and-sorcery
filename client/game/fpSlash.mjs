@@ -383,10 +383,15 @@ export const COMBO = settle(preAimed([
   // ...then it comes down across the front, the shoulder driving round behind it; through the middle at the contact,
   // and on across to the low left in one slowing sweep (forehandCut, forehandSettle)
   ...forehandCut(C1), ...forehandSettle(C1),
-  // 2. the backhand: loaded where the forehand came to rest (the hand sinking a little by the hip, the edge turned
-  // over there, the blade all but still: no rebound and no second dip)...
-  key(C2 - 0.24, [-0.06, -0.36, -0.6], dir(80, -54), [0.3, 0.8, -0.5],
-    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.6 }),
+  // 2. the backhand: wound up in view as soon as it is committed (SWORD_CHAIN.starts[1], 0.72 s): the hand rises back
+  // into the low left with the point still hanging down past the hip, a loaded low guard, lifting as the window
+  // nears. (Kept out of sight until the window opened, the 0.4 s between the cuts read as the attack having stopped:
+  // the blade came back only 0.12 s before the contact, 2026-11-19. Cocked back past the hip instead, its point
+  // came at the eye.)...
+  key(C2 - 0.3, [-0.045, -0.3, -0.6], dir(76, -46), [0.25, 0.55, -0.8],
+    { shoulder: [-0.21, -0.03, -0.09], body: [-0.028, -0.012, -0.007], look: [0.2, -1.2, -1.5], counter: [0.55, 0.95, 0.05] }),
+  key(C2 - 0.2, [-0.035, -0.28, -0.61], dir(74, -42), [0.3, 0.6, -0.75],
+    { shoulder: [-0.2, -0.02, -0.095], body: [-0.022, -0.01, -0.008], look: [0.25, -1.0, -1.4], counter: [0.42, 0.9, 0.03] }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
     { shoulder: [-0.15, 0, -0.1], body: [-0.01, -0.005, -0.01], look: [0.1, -0.3, -0.5], counter: [0.14, 0.66, 0] }),

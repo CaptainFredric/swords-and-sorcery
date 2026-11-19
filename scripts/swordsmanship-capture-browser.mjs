@@ -6,7 +6,8 @@
 // recording is made from it afterwards. Beside them go the authoritative events and, frame by frame, the clip the
 // third-person body was playing.
 //
-//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|slash-guard|slash-run|riposte|riposte-air|whirl|whirl-gale
+//   node scripts/swordsmanship-capture-browser.mjs --scenario slash-tap|slash-chain|slash-guard|slash-run|riposte|riposte-guard|riposte-run|riposte-air|whirl|whirl-move|whirl-gale
+//        [--gap ms]  riposte-guard: how long after letting go of the Guard the Riposte is pressed
 //        [--device desktop|phone] [--hold 2.4] [--dummy PASSIVE|GUARDING|none] [--distance 1.9] [--out dir] [--label x]
 //        [--remote]   two browsers in one Shared Practice room on the server: the second one's view is what is recorded
 //        [--glb model.glb]  serve that third-person model in place of the installed one (a candidate, or a baseline)
@@ -35,7 +36,7 @@ const candidate = candidateInfo(option('--glb', null));
 const fpCandidate = candidateInfo(option('--fp-glb', null));
 const technique = scenario.startsWith('riposte') ? 'rigid_riposte' : scenario.startsWith('whirl') ? 'whirl_wind' : null;
 const spell = scenario === 'whirl-gale' ? 'gale' : 'fireball';
-const holdSec = Number(option('--hold', scenario === 'slash-chain' ? '2.2' : scenario === 'whirl' ? '2.6' : scenario === 'whirl-gale' ? '2.2' : '0.08'));
+const holdSec = Number(option('--hold', scenario === 'slash-chain' ? '2.2' : scenario === 'whirl' || scenario === 'whirl-move' ? '2.6' : scenario === 'whirl-gale' ? '2.2' : '0.08'));
 const afterSec = Number(option('--after', '2.2'));
 const dummyMode = option('--dummy', 'PASSIVE');
 const distance = Number(option('--distance', scenario.startsWith('riposte') ? '4.4' : scenario.startsWith('whirl') ? '1.5' : '1.9'));
@@ -209,7 +210,15 @@ try {
       const shell = ${remote ? 'rt.remotePlayers?.rigs?.get?.(other?.id)' : 'rt.remotePlayers?.self'};
       const animator = shell?.visualInstance?.animator;
       const dummy = rt.latestSnapshot?.players.find((p) => p.actorKind === 'dummy');
+      // the drawn sword's point, frame by frame: the third-person knight's in his own root's frame (his travel and turn
+      // taken out), the first-person arms' in the camera's (the tip offsets are the models' own: scripts/lib/glbSkin.mjs)
+      const tipIn = (bone, offset, frame) => { if (!bone || !frame) return null; const v = bone.position.clone().set(...offset); bone.localToWorld(v); frame.worldToLocal(v); return [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)]; };
+      const fpArms = rt.weapon?.productionInstance?.animator;
       run.frames.push({ wall: performance.now(), server: rt.socket.serverNow(), clip: animator?.activeClip ?? null, time: animator?.activeAction?.time ?? null,
+        tpTip: tipIn(animator?.bone('socket_sword'), [0.3853, 0.051, -1.2158], shell?.root), fpTip: tipIn(fpArms?.bone('hand.R'), [0.4166, 1.0168, 0.2131], rt.camera),
+        guarding: a?.guarding ?? null,
+        ...(${Boolean(process.env.CAPTURE_BONES)} ? { bones: Object.fromEntries(['root', 'pelvis', 'spine', 'chest', 'clavicle.R', 'upper_arm.R', 'forearm.R', 'hand.R', 'socket_sword'].map((n) => { const b = animator?.bone(n); return [n, b ? [...b.quaternion.toArray().map((v) => +v.toFixed(4)), ...b.position.toArray().map((v) => +v.toFixed(4))] : null]; })) } : {}),
+        mix: animator ? { composing: Boolean(animator.composing), out: animator.composition?.out ? +animator.composition.out.elapsed.toFixed(3) : null, fading: animator.fading?.length ?? 0, blend: animator.activeBlend ? +(animator.activeBlend.elapsed / Math.max(1e-6, animator.activeBlend.duration)).toFixed(2) : null } : null,
         technique: a?.swordTechnique ? { ...a.swordTechnique } : null, prowess: a?.prowess ?? null, y: a?.position?.y ?? null, x: a?.position?.x ?? null, z: a?.position?.z ?? null,
         other: other ? { technique: other.swordTechnique ? { id: other.swordTechnique.id, revolutions: other.swordTechnique.revolutions } : null, health: other.health, x: other.position.x, z: other.position.z } : null,
         dummy: dummy ? { health: dummy.health } : null, motion: shell?.visualInstance?.motionSha256 ?? null });
@@ -277,6 +286,16 @@ try {
     await key(true, 'w', 'KeyW', 87); await sleep(450); await attack(true); await sleep(holdSec * 1000); await attack(false); await sleep(400); await key(false, 'w', 'KeyW', 87);
   } else if (scenario === 'riposte') {
     await press(true); await sleep(80); await press(false);
+  } else if (scenario === 'riposte-guard') {
+    // the Guard held, then let go and the Riposte pressed --gap ms later (0: the same moment)
+    const guard = (down) => actor.cdp.send('Input.dispatchMouseEvent', { type: down ? 'mousePressed' : 'mouseReleased', ...actor.centre, button: 'right', buttons: down ? 2 : 0, clickCount: 1 });
+    await guard(true); await sleep(900); await guard(false); await sleep(Number(option('--gap', '0'))); await press(true); await sleep(80); await press(false);
+  } else if (scenario === 'riposte-run') {
+    // running at the target (W held), the Riposte pressed on the move
+    await key(true, 'w', 'KeyW', 87); await sleep(450); await press(true); await sleep(80); await press(false); await sleep(900); await key(false, 'w', 'KeyW', 87);
+  } else if (scenario === 'whirl-move') {
+    // the Whirl held --hold s with W held through it (moving input), let go of both
+    await key(true, 'w', 'KeyW', 87); await sleep(150); await press(true); await sleep(holdSec * 1000); await press(false); await sleep(300); await key(false, 'w', 'KeyW', 87);
   } else if (scenario === 'riposte-air') {
     await jump(true); await sleep(330); await press(true); await sleep(80); await press(false); await jump(false);
   } else if (scenario === 'whirl') {

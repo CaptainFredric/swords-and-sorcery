@@ -1,22 +1,15 @@
-// The body behind the Sword Techniques: procedural motion drawn over their authored clips, in both views, from the
-// server's own technique clock (so the knight seen by others commits exactly when the one playing feels it). Nothing
-// here moves anyone or decides a hit: the server's lunge, revolutions and contacts are untouched.
+// The Sword Techniques felt from inside the helm, and their beats, on the server's own technique clock. Nothing here
+// moves anyone or decides a hit: the server's lunge, revolutions and contacts are untouched.
+//
+// Third person the techniques' bodies are their authored clips (Codex's Candidate v3: the Riposte's brace, leap and
+// landing, the Whirl's pivots, lifted steps and stepping brake). A procedural body drawn over them (a sink, a torso
+// drive, a lean) was taken out on 2026-11-19: it doubled beats v3 authors and moved the planted feet 6.5 to 8.8 cm.
 //
 // Rigid Riposte (shared/src/swordTechniqueContracts.mjs): a 0.22 s brace that intercepts, then a committed 5.7 m lunge
-// over the next 0.26 s, then recovery.
-//   - the brace: weight sunk, the sword shoulder drawn back, the torso coiled over the back foot;
-//   - the drive: the coil released at once, the torso pitching in behind the point and the sword shoulder driven
-//     forward (the legs' stride and leap are the authored clip's);
-//   - the ending: sunk into the landing, held a beat, then risen out of.
-// Whirl Like the Wind: each 0.6 s revolution leans the body into the turn, the chest leading the sword round, the lean
-// building through the first revolution and easing out with the release.
-// In both techniques the sword itself stays on its authored path (the one the server's contact samples follow): the
-// body moves behind it and the arm takes up the difference (SpellbladeAnimator's sword pin).
+// over the next 0.26 s, then recovery. Whirl Like the Wind: a revolution every 0.6 s, eased out on release.
 //
-// Third person: root-space turns ({ bone, axis, angle }: radians; +x turns a thigh's knee forward and a spine's chest
-// back), a crouch (SpellbladeAnimator's leg flex) and a pelvis offset (metres, root space: -z is forward).
 // First person: the arms' offsets (metres and radians, as FirstPersonMotion's), the view's lean (radians) and a field of
-// view kick (degrees).
+// view kick (degrees). The first-person Riposte's arms are fpTechniques.mjs.
 
 const clamp01 = (t) => Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0));
 const smooth = (t) => { const s = clamp01(t); return s * s * (3 - 2 * s); };
@@ -39,21 +32,6 @@ export function ripostePhases(age, m = RIPOSTE_MOTION) {
   const air = a < m.air[0] || a > m.air[1] ? 0 : Math.sin(Math.PI * (a - m.air[0]) / (m.air[1] - m.air[0]));
   const rise = smooth((a - m.driveTo - m.hold) / m.rise);
   return { coil, drive: drive * (1 - rise), air, rise };
-}
-
-/** Third person: the Riposte's body over its authored clips. */
-export function riposteBody(age) {
-  const { coil, drive, air } = ripostePhases(age);
-  const turns = [
-    // the coil: the torso drawn back over the rear foot, the sword shoulder turned away; released into the drive
-    { bone: 'spine', axis: [1, 0, 0], angle: 0.07 * coil - 0.24 * drive },
-    { bone: 'chest', axis: [0, 1, 0], angle: -0.22 * coil + 0.2 * drive },
-    { bone: 'chest', axis: [1, 0, 0], angle: -0.08 * drive },
-  ];
-  // sunk for the brace, and again as the lunge lands (the feet stay where the authored stride puts them: its legs are
-  // the authored clip's own, so the leap off the rear foot is asked of the clip, not bent in here)
-  const crouch = 0.24 * coil + 0.1 * drive * (1 - air);
-  return { turns, crouch, pelvis: [0, 0, 0] };
 }
 
 /** First person: the Riposte felt from inside the helm. */
@@ -90,28 +68,6 @@ export function whirlSpin(action, serverNow, m = WHIRL_MOTION) {
     return build * (1 - smooth(since / m.ease));
   }
   return build;
-}
-
-/** Third person: the Whirl's lean and trailing sword (the spin itself is the authored revolution's). */
-export function whirlBody(action, serverNow, m = WHIRL_MOTION) {
-  const spin = whirlSpin(action, serverNow, m);
-  if (spin < 1e-3) return { turns: [], crouch: 0, pelvis: [0, 0, 0] };
-  const age = serverNow - (action.initialStartedAt ?? action.startedAt ?? serverNow);
-  // the push of each revolution: strongest as it comes round through the front, a breath of slack as it passes behind
-  const beat = 0.75 + 0.25 * Math.cos(2 * Math.PI * (age / m.revolution));
-  return {
-    turns: [
-      // leaned into the turn (the knight turns to his left: the body tips that way, the head and chest a little more)
-      { bone: 'spine', axis: [0, 0, 1], angle: m.lean * spin * beat },
-      { bone: 'chest', axis: [0, 0, 1], angle: 0.5 * m.lean * spin * beat },
-      { bone: 'spine', axis: [1, 0, 0], angle: -0.08 * spin },
-      // the chest leading the turn: the sword, held on its own path (the server's sweep), trails behind it
-      { bone: 'chest', axis: [0, 1, 0], angle: m.lag * spin * beat },
-    ],
-    // weight down into the turn
-    crouch: 0.12 * spin,
-    pelvis: [0, -0.02 * spin, 0],
-  };
 }
 
 /** First person: the Whirl's pull felt in the view (a lean and a weight in the arms; the authored arms do the rest). */

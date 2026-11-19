@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "sha256": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687",
-  "bytes": 316588,
+  "sha256": "fd90237d636901c35ab1f335593d7c6dff946f37ce2647e6649884a3babc64b5",
+  "bytes": 1042236,
   "canonicalSha256": "b43e5c3fb0c60a0a722577e0fad266efb3eef0f260fd88698e81192f41d10e80",
   "candidateSha256": "9dae42a815f4108afab4fdab95673293422283b677ea97f06ac0375ba50516a1",
   "fps": 30,
@@ -20,30 +20,26 @@
     {
       "name": "Technique_RigidRiposte_Enter",
       "durationSec": 0.1,
-      "frames": 4,
-      "source": "Argon Technique_RigidRiposte_Enter, pelvis +0.0723 m",
-      "lowestSoleM": 0.033
+      "frames": 25,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_RigidRiposte_Interception",
       "durationSec": 0.22,
-      "frames": 8,
-      "source": "Argon Technique_RigidRiposte_Interception, pelvis +0.0723 m",
-      "lowestSoleM": 0.016
+      "frames": 54,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_RigidRiposte_Thrust",
       "durationSec": 0.26,
-      "frames": 9,
-      "source": "Argon Technique_RigidRiposte_Thrust, pelvis +0.0723 m",
-      "lowestSoleM": 0
+      "frames": 64,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_RigidRiposte_Recovery",
       "durationSec": 0.35,
-      "frames": 12,
-      "source": "Argon Technique_RigidRiposte_Recovery, pelvis +0.0723 m",
-      "lowestSoleM": 0.021
+      "frames": 85,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_RigidRiposte_Parried",
@@ -62,30 +58,26 @@
     {
       "name": "Technique_Whirl_Enter",
       "durationSec": 0.2,
-      "frames": 7,
-      "source": "Argon Technique_Whirl_Enter, pelvis +0.0526 m",
-      "lowestSoleM": 0
+      "frames": 49,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_Whirl_Revolution",
       "durationSec": 0.6,
-      "frames": 19,
-      "source": "Argon Technique_Whirl_Revolution, pelvis +0.0526 m",
-      "lowestSoleM": 0
+      "frames": 145,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_Whirl_GaleLift",
       "durationSec": 0.6,
-      "frames": 19,
-      "source": "Argon Technique_Whirl_GaleLift, pelvis +0.0526 m",
-      "lowestSoleM": 0.228
+      "frames": 145,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_Whirl_Exit",
       "durationSec": 0.25,
-      "frames": 9,
-      "source": "Argon Technique_Whirl_Exit, pelvis +0.0526 m",
-      "lowestSoleM": 0.002
+      "frames": 61,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     },
     {
       "name": "Technique_Whirl_Interrupted",
@@ -97,9 +89,13 @@
     {
       "name": "Technique_Whirl_AirRecovery",
       "durationSec": 0.3,
-      "frames": 10,
-      "source": "Argon Technique_Whirl_AirRecovery, pelvis +0.0526 m",
-      "lowestSoleM": -0.003
+      "frames": 73,
+      "source": "Spellblade Candidate v3 technique actions, Blender authored"
     }
-  ]
+  ],
+  "predecessorMotionSha256": "fd67e1f2be80fe1f901b177522841e6a6f55c095bf2f5964c71e5d4b49a2a687",
+  "assetBaseline": "Spellblade Candidate v2",
+  "compatibleModelSha256": "c7de613807911389a4c3b99b61e75038bfb960ba39d60130a56df1777b62d880",
+  "duplicateTimeSamplesRemoved": {},
+  "sourceNote": "canonicalSha256 and candidateSha256 identify the original sidecar provenance"
 }

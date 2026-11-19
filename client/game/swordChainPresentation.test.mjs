@@ -115,7 +115,22 @@ test('letting go of the Guard lowers the sword no faster than its own authored m
   const lowering = Math.max(...release.frames.filter((f) => f.t > 0.74).map((f) => f.step ?? 0));
   // (before: 0.59 m in a frame, 35 m/s; the Guard clip's own settle peaks at 0.69, the forehand's cut at 1.22)
   assert.ok(lowering < 0.45, `the lowered Guard's point moves ${lowering.toFixed(2)} m in a frame`);
-  for (const name of ['riposte out of guard', 'whirl out of guard']) assert.deepEqual(run(name, SCENARIOS[name]).snaps, [], name);
+  // A technique begun as the Guard comes down is entered from the pose on screen (SpellbladeAnimator's inertialized
+  // entry): a deliberate move from overhead, so it is judged as one, not against the near-still first frame of the clip
+  // it goes into. It accelerates and settles with no frame far faster than those around it (before, with Candidate v3,
+  // a cross-fade flipped the blend and threw the point 2 m in a frame), the Riposte no faster than the fastest authored
+  // cut, the Whirl (whose spin adds its own 0.32 m a frame) no faster than 0.8 m.
+  const cut1 = authoredPeak('Slash_1');
+  for (const [name, most] of [['riposte out of guard', cut1], ['whirl out of guard', 0.8]]) {
+    const steps = run(name, SCENARIOS[name]).frames.filter((f) => f.t > 0.74 && f.t < 1.4).map((f) => f.step ?? 0);
+    assert.ok(Math.max(...steps) <= most, `${name}: the point moves ${Math.max(...steps).toFixed(2)} m in a frame (bound ${most.toFixed(2)})`);
+    steps.forEach((s, i) => {
+      const around = Math.max(...[...steps.slice(Math.max(0, i - 3), i), ...steps.slice(i + 1, i + 4)]);
+      assert.ok(s < 0.15 || s <= 1.6 * around, `${name}: a jump of ${s.toFixed(2)} m in a frame among ${around.toFixed(2)}`);
+    });
+  }
+  // from rest and out of a cut the technique's own clips are kept (nothing to come down from)
+  for (const name of ['riposte from rest', 'riposte after a cut', 'whirl, two turns']) assert.deepEqual(run(name, SCENARIOS[name]).snaps, [], name);
 });
 
 test('on the move the legs keep their gait under the strike (layered), standing the strike has the whole body', () => {

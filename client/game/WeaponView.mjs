@@ -19,7 +19,7 @@ import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, draw
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
 import { riposteView, whirlView } from './techniqueMotion.mjs';
-import { riposteFirstPersonPose } from './fpTechniques.mjs';
+import { mixSwordArm, riposteFirstPersonPose } from './fpTechniques.mjs';
 
 // What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
@@ -787,8 +787,12 @@ export class WeaponView {
     const held = this.techniqueHeld ??= { weight: 0, pose: null };
     let pose = null;
     if (technique?.id === 'rigid_riposte' && technique.phase !== 'interrupted') {
+      // it begins from the sword arm as it was last shown (a Guard just let go, a cut, rest), held from its first
+      // frame: no fade from a stock pose, so nothing jumps (from a lowered Guard the point was pulled 0.27 m a frame)
+      const begun = technique.initialStartedAt ?? technique.startedAt;
+      if (held.of !== begun) { held.of = begun; held.from = this.shownSwordArm ?? null; if (held.from) held.weight = 1; }
       const authority = (this.combatServerNow ?? timeSec) + Math.max(0, timeSec - (this.combatLocalNow ?? timeSec));
-      pose = riposteFirstPersonPose(authority - (technique.initialStartedAt ?? technique.startedAt ?? authority));
+      pose = riposteFirstPersonPose(authority - (begun ?? authority), undefined, undefined, held.from);
     }
     if (pose) {
       held.pose = pose;
@@ -955,6 +959,9 @@ export class WeaponView {
       // (a strike has the arms; as it lets go of them, the guard takes them in step: gated on the strike's being there
       // at all, a guard raised during a cut's way home snapped on, 23 cm in a frame, the moment the cut was gone)
       const guardArm = this.guardBlend * (combo ? 1 - combo.weight : 1);
+      // the sword arm as this frame shows it (the guard's ward and any strike over rest), for a technique to begin from
+      const shownArm = mixSwordArm(null, guardArm > 1e-3 ? guardTargets(timeSec, guardArm).arm : null, guardArm);
+      this.shownSwordArm = combo ? mixSwordArm(shownArm, combo.arm, combo.weight) : shownArm;
       // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
       // has it)
       // (in the cockpit the sword arm rests a little low and out; eased in and out, so a strike, the Guard and the

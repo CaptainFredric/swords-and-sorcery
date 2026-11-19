@@ -4,8 +4,9 @@
 // clock, nothing here moves anyone or decides a hit.
 //
 // Rigid Riposte (shared/src/swordTechniqueContracts.mjs): a 0.22 s brace, then a 5.7 m lunge over 0.26 s, then recovery.
-//   - the brace: the blade comes up across the body to take the blow (the interception), then is drawn back to the
-//     hip with its point levelled at the aim, the hand cocked behind it;
+//   - the brace: the blade comes up across the body to take the blow (the interception), from wherever the arms were
+//     (a Guard just let go, a cut's way home, rest), then is drawn back to the hip with its point levelled at the
+//     aim, the hand cocked behind it;
 //   - the drive: the hand thrown forward along the aim with the body behind it, the blade level and steady, the point
 //     leading; the magic arm swept back to balance it;
 //   - held at full stretch to the lunge's end, then brought home.
@@ -31,24 +32,35 @@ const atAim = (wrist) => normalize(AIM_POINT.map((v, i) => v - wrist[i]));
 const LOADED_WRIST = [0.27, -0.29, -0.5];
 const DRIVEN_WRIST = [0.2, -0.27, -0.7];
 export const FP_RIPOSTE = Object.freeze({
-  // the interception: the blade up across the body, edge out to meet the blow
-  intercept: Object.freeze({ wrist: [0.3, -0.24, -0.62], blade: dir(20, 48), edge: [-0.75, 0.05, -0.65], shoulder: [-0.02, 0.03, -0.02] }),
+  // the interception: the blade up across the body to meet the blow, the hand keeping its roll (an edge facing the
+  // other way, as it had, rolled the gauntlet a quarter turn in one frame as the brace came through it, 2026-11-19)
+  intercept: Object.freeze({ wrist: [0.3, -0.24, -0.62], blade: dir(20, 48), edge: REST_ARM.edge, shoulder: [-0.02, 0.03, -0.02] }),
   // loaded: drawn back by the hip, the point levelled at the aim, the hand on the grip as at rest
   loaded: Object.freeze({ wrist: LOADED_WRIST, blade: atAim(LOADED_WRIST), edge: REST_ARM.edge, shoulder: [0.03, -0.01, 0.06] }),
   // driven home: the arm at full stretch along the aim (within its reach: the body carries it the rest of the way),
   // the shoulder thrown after it
   driven: Object.freeze({ wrist: DRIVEN_WRIST, blade: atAim(DRIVEN_WRIST), edge: REST_ARM.edge, shoulder: [-0.07, 0.01, -0.14] }),
-  interceptBy: 0.1,   // the blade across to take the blow
-  loadFrom: 0.12,     // and drawn back from here to the brace's end
-  driveSec: 0.14,     // thrown forward over this long (the hand at about 5 m/s at its fastest)
+  interceptBy: 0.09,  // the blade across to take the blow
+  loadFrom: 0.09,     // and drawn back from here to the brace's end (unhurried: the drive, not the draw, is the fast part)
+  driveSec: 0.1,      // thrown forward over this long (the point faster than anything in the brace)
 });
 
 function blend(a, b, t) {
   return { wrist: mix(a.wrist, b.wrist, t), blade: normalize(mix(a.blade, b.blade, t)), edge: normalize(mix(a.edge, b.edge, t)), shoulder: mix(a.shoulder, b.shoulder, t) };
 }
 
-/** The Riposte's sword arm `age` seconds after it began (null once it is home). */
-export function riposteFirstPersonPose(age, m = FP_RIPOSTE, timing = RIPOSTE_MOTION) {
+/** A sword arm (wrist, blade, edge) part way from `a` to `b` (each defaults to rest where it is missing). */
+export function mixSwordArm(a, b, t) {
+  const full = (x) => ({ wrist: x?.wrist ?? REST.wrist, blade: x?.blade ?? REST.blade, edge: x?.edge ?? REST.edge, shoulder: x?.shoulder ?? REST.shoulder });
+  return blend(full(a), full(b), clamp01(t));
+}
+
+/**
+ * The Riposte's sword arm `age` seconds after it began (null once it is home). `from`: the sword arm as it was shown
+ * when the Riposte began ({ wrist, blade, edge }: a Guard just let go, a cut, rest), which the interception starts
+ * from, so the sword never jumps to a stock pose first (2026-11-19: from a lowered Guard it was pulled toward rest).
+ */
+export function riposteFirstPersonPose(age, m = FP_RIPOSTE, timing = RIPOSTE_MOTION, from = null) {
   if (!Number.isFinite(age) || age < 0) return null;
   const end = timing.driveTo + timing.hold + timing.rise;
   if (age >= end) return null;
@@ -58,7 +70,11 @@ export function riposteFirstPersonPose(age, m = FP_RIPOSTE, timing = RIPOSTE_MOT
   if (age < timing.brace) {
     const across = smooth(age / m.interceptBy);
     const load = smooth((age - m.loadFrom) / (timing.brace - m.loadFrom));
-    arm = blend(blend(REST, m.intercept, across), m.loaded, load);
+    const start = from ? { wrist: from.wrist, blade: from.blade, edge: from.edge ?? REST.edge, shoulder: REST.shoulder } : REST;
+    // (the hand's roll from wherever it was back to its rest is spread over the interception and the draw: out of a
+    // Guard that is a 96 degree turn, a quarter turn a frame if the interception had it all)
+    const intercept = from ? { ...m.intercept, edge: normalize(mix(start.edge, REST.edge, 0.5)) } : m.intercept;
+    arm = blend(blend(start, intercept, across), m.loaded, load);
     counter = [0.1 * load, 0.2 * load, 0];
     body = [0, -0.01 * load, 0.03 * load];
     // (the point levelled at the aim as the hand comes back)
