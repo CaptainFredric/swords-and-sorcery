@@ -122,8 +122,9 @@ try{
      throw Error('A generic structure mesh covers the authored Renowner');
    const camera=r.camera.clone();camera.position.set(8,5.4,44);camera.fov=42;camera.updateProjectionMatrix();camera.lookAt(0,3.9,55);
    const positions=v.sword.geometry.getAttribute('position');
-   let tipIndex=0;
-   for(let i=1;i<positions.count;i++)if(positions.getY(i)<positions.getY(tipIndex))tipIndex=i;
+   let tipIndex=v.sword.geometry.index.array[0];
+   for(const i of v.sword.geometry.index.array)if(positions.getY(i)<positions.getY(tipIndex))tipIndex=i;
+   if(v.sword.geometry.morphAttributes.position?.length)throw Error('Combat sword must be rigid');
    const proofs=[];
    for(const type of ['downstroke','sweep']){
      const now=100, sample={...state,yaw:Math.PI,attack:{type,startedAt:98.95,contactAt:100}};
