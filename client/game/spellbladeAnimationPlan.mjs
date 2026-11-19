@@ -6,6 +6,7 @@ import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
 import { ONE_HIT_AERIAL_DURATION } from '../../shared/src/oneHitInfusions.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
+import { RIPOSTE_BRACE_SEC, RIPOSTE_RECENT_GUARD_SEC, riposteBraceBlade } from './riposteBracePresentation.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -198,7 +199,7 @@ function disasterPlan(player, serverNow) {
 // Animation clips share the action's authoritative clock. Enter is blended
 // into the EXISTING 0.22 s Rigid interception and first 0.6 s Whirl, never
 // inserted as extra startup. The supplied GLBs must be shipped separately.
-const RIPOSTE_BRACE_SEC=.22, RIPOSTE_ENTER_CLIP_SEC=.1, RIPOSTE_INTERCEPTION_CLIP_SEC=.22, RIPOSTE_GUARD_HOLD_SEC=.14;
+const RIPOSTE_ENTER_CLIP_SEC=.1, RIPOSTE_GUARD_REJOIN_SEC=.133;
 // Where the authored brace (Enter, then Interception: seconds through the two) is, each moment of the server's
 // brace: fitted to the server's own samples of the blade (swordTechniqueContracts.mjs), which bring the sword up
 // fast and then carry it across. server/tests/spellblade-motion-sidecar.test.mjs holds the two together.
@@ -214,14 +215,14 @@ export function riposteBraceClipTime(age){
 }
 // A technique begun as the Guard comes down (within this long of the knight last being seen guarding): the sword is
 // still on its way down from overhead, the furthest it can be from where a technique wants it.
-const TECHNIQUE_OUT_OF_GUARD_SEC=.3;
+
 export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false, grounded=true, guardSeenAt=null) {
   if(!action)return null;
   const clipPrefix=firstPerson?'FP_':'';
   const age=Math.max(0,serverNow-(action.startedAt??serverNow));
   const key=action.initialStartedAt??action.startedAt;
   const began=action.initialStartedAt??action.startedAt??serverNow;
-  const outOfGuard=Number.isFinite(guardSeenAt)&&began-guardSeenAt<=TECHNIQUE_OUT_OF_GUARD_SEC&&began-guardSeenAt>=-.05;
+  const outOfGuard=Number.isFinite(guardSeenAt)&&began-guardSeenAt<=RIPOSTE_RECENT_GUARD_SEC&&began-guardSeenAt>=-.05;
   const clip=(name,at,extra={})=>({
     // (how each clip is eased into is the animator's: spellbladeBlend.mjs knows what it is coming from)
     ...fixed(clipPrefix+name,at),actionKey:key,
@@ -240,16 +241,14 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
     // the server's, untouched: the brace still ends, and the thrust still begins, at 0.22 s.
     if(age<RIPOSTE_BRACE_SEC){
       const authored=riposteBraceClipTime(age);
-      // Out of a Guard only just let go the sword is already up: the brace takes it straight on into the interception.
-      // Enter brings the sword up from the low stance, so from overhead it dragged the point down past the knees and
-      // back up (2026-11-19). The interception is held at its first frame while the Guard's pose dies away
-      // (SpellbladeAnimator's inertialized entry, told to finish by RIPOSTE_GUARD_HOLD_SEC on the server's clock,
-      // however late this client saw the Riposte begin), then played through to finish with the brace. Nothing is
-      // still dying away when Candidate v3's interception exchanges about 110 degrees of roll between the forearm and
-      // the hand (at 0.058 s): a pose eased over that turned it into a 2 m jump.
+      // The sword is already raised out of Guard. Blend into a held brace pose past the forearm roll,
+      // then rejoin the contact-aligned clip clock before the late interception.
       if(outOfGuard&&!firstPerson){
-        if(age<RIPOSTE_GUARD_HOLD_SEC)return clip('Technique_RigidRiposte_Interception',0,{entrySec:Math.max(.06,RIPOSTE_GUARD_HOLD_SEC-age)});
-        return clip('Technique_RigidRiposte_Interception',RIPOSTE_INTERCEPTION_CLIP_SEC*(age-RIPOSTE_GUARD_HOLD_SEC)/(RIPOSTE_BRACE_SEC-RIPOSTE_GUARD_HOLD_SEC));
+        const time=riposteBraceClipTime(Math.max(age,RIPOSTE_GUARD_REJOIN_SEC))-RIPOSTE_ENTER_CLIP_SEC;
+        return clip('Technique_RigidRiposte_Interception',time,{
+          entrySec:Math.max(.10,RIPOSTE_GUARD_REJOIN_SEC-age),
+          braceBlade:riposteBraceBlade(age),
+        });
       }
       return authored<RIPOSTE_ENTER_CLIP_SEC?clip('Technique_RigidRiposte_Enter',authored)
         :clip('Technique_RigidRiposte_Interception',authored-RIPOSTE_ENTER_CLIP_SEC);

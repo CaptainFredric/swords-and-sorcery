@@ -2202,9 +2202,13 @@ export class GameRuntime {
           const marker = damageHitMarker(event, me);
           if (marker) this.hud.hit(marker);
           // my numbers only: the blow's weight, rising off the body
-          const victim = this.#bodyPosition(event.victimId);
-          if (victim && event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {
-            this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
+          if (event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {
+            const showNumber = () => {
+              const victim = this.#bodyPosition(event.victimId);
+              if (victim) this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
+            };
+            if (event.source === 'sword') this.remotePlayers.showRiposteBraceCue(event.victimId, event.at, showNumber);
+            else showNumber();
           }
         }
         // (a ram knocks me through my own view itself, harder: #steelRam)
@@ -3507,8 +3511,12 @@ export class GameRuntime {
       // (the way the attacker's blade was going as it met: his aim and the cut, as the server swept it)
       const aim = event.playerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.playerId);
       const travel = aim && Number.isFinite(aim.yaw) ? cutTravel(strike, aim.yaw, aim.pitch ?? 0) : null;
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker, heavy: event.level === 'elevated' });
-      this.remotePlayers.flashHit(event.targetId);
+      this.remotePlayers.showRiposteBraceCue(event.targetId, event.at, () => {
+        const from = this.#bodyPosition(event.playerId);
+        const to = this.#bodyPosition(event.targetId);
+        if (point) this.effects.hitBurst(point, blowDirection(to, from), { strike, quality, travel, from, heavy: event.level === 'elevated' });
+        this.remotePlayers.flashHit(event.targetId);
+      });
     }
     // a Sundering blow: its weight made felt and seen (a deep whump under the hit, sparks driven down, the ground kicked up)
     if (event.level === 'elevated') {
@@ -3580,7 +3588,13 @@ export class GameRuntime {
       // (the blade met the guard where it met the body: the server's point; sparks scrape on along the cut's way)
       const aim = event.attackerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.attackerId);
       const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
-      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
+      const show = () => {
+        const from = this.#bodyPosition(event.attackerId);
+        const to = this.#bodyPosition(event.defenderId);
+        this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(to, from), { heavy, parry, travel });
+      };
+      if (parry && event.technique === 'rigid_riposte') this.remotePlayers.showRiposteBraceCue(event.defenderId, event.at, show);
+      else show();
     }
     const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;

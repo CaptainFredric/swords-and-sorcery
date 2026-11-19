@@ -8,6 +8,7 @@ import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
 import { MountedSwordArm } from './mountedSwordArm.mjs';
 import { GESTURE_ARMS, PALM_REACH } from './spellbladeGestures.mjs';
 import { solveArm } from './swordArmIK.mjs';
+import { alignRiposteBraceBlade } from './riposteBracePresentation.mjs';
 
 // a Sword Technique's clips (third person); how long the pose it is entered from takes to die away (a Whirl's spin
 // carries the sword round at once, so it is let into it a little longer; scripts/sword-loop-audit.mjs emulates both)
@@ -551,9 +552,16 @@ export class SpellbladeAnimator {
     this.mixer.update(0);
     this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
-    // (a machine's pose comes after this: its own apply* draws the character layer over it)
-    // (a machine's own pose applies it after its own, on the machine's path)
-      if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
+    // A machine's own pose applies its character layer after mounting.
+    if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
+    if (plan.braceBlade) {
+      this.root.updateMatrixWorld(true);
+      _rootInv.copy(this.root.matrixWorld).invert();
+      this.root.getWorldQuaternion(_rootQuatInv).invert();
+      const entry = this.composition.out;
+      const settled = entry ? Math.min(1, entry.elapsed / entry.duration) : 1;
+      alignRiposteBraceBlade(this.boneApi, plan.braceBlade, settled);
+    }
     this.#followPauldrons();
     this.cloth?.apply(step);
     this.onPose?.(plan);

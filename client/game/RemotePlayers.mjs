@@ -29,6 +29,7 @@ import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
 import { GestureLayer, isBrushImpact } from './spellbladeGestures.mjs';
 import { SecondaryMotion, recoilTurns } from './spellbladeSecondary.mjs';
+import { RIPOSTE_BRACE_SEC, RIPOSTE_RECENT_GUARD_SEC, riposteBraceBlade } from './riposteBracePresentation.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -390,6 +391,12 @@ export class RemotePlayers {
     this.#react(event, snapshot);
     const lifecycleShell = this.rigs.get(event?.playerId ?? event?.victimId ?? event?.defenderId);
     lifecycleShell?.chivalryLink?.event(event);
+    if (lifecycleShell && event.type === 'guardEnded') lifecycleShell.root.userData.guardReleasedAt = event.at;
+    if (lifecycleShell && event.type === 'swordTechniqueStarted' && event.id === 'rigid_riposte') {
+      const d = lifecycleShell.root.userData;
+      const fromGuard = event.at - d.guardReleasedAt;
+      d.guardRiposteStartedAt = fromGuard >= 0 && fromGuard <= RIPOSTE_RECENT_GUARD_SEC ? event.at : null;
+    }
     if (lifecycleShell && ['ultimateStart', 'actionInterrupted', 'death', 'guardBreak', 'staggerBreak'].includes(event?.type)) {
       const d = lifecycleShell.root.userData;
       d.castPoseUntil = Math.min(d.castPoseUntil, event.at ?? 0);
@@ -576,6 +583,22 @@ export class RemotePlayers {
     if (shell) shell.hitGlowAt = this.now();
   }
 
+  // World effects on a remote Riposte defender share its pose clock. Local control feedback can respond immediately.
+  showRiposteBraceCue(defenderId, at, show) {
+    const shell = this.rigs.get(defenderId);
+    const d = shell?.root.userData;
+    const startedAt = d?.guardRiposteStartedAt;
+    const age = at - startedAt;
+    // Events are stamped on their publication tick, up to one tick after the blade sample.
+    if (!shell?.visualInstance?.animator?.actions.has('Technique_RigidRiposte_Interception') ||
+        !Number.isFinite(startedAt) || age < 0 || age >= RIPOSTE_BRACE_SEC + 1 / 30 ||
+        !Number.isFinite(this.playbackClock) || !(this.playbackClock < at)) {
+      show();
+      return;
+    }
+    (d.riposteBraceCues ??= []).push({ at, startedAt, show });
+  }
+
   // where an opponent is drawn right now
   bodyPosition(id) {
     const shell = this.rigs.get(id);
@@ -626,7 +649,11 @@ export class RemotePlayers {
       shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
       shell.root.userData.crouched = Boolean(pb.crouched);
 
-      this.#pose(id, shell, pb, renderTime, nowMs, dt);
+      const d = shell.root.userData;
+      const ready = d.riposteBraceCues?.filter(cue => cue.at <= renderTime) ?? [];
+      if (ready.length) d.riposteBraceCues = d.riposteBraceCues.filter(cue => cue.at > renderTime);
+      this.#pose(id, shell, pb, renderTime, nowMs, dt, ready[0]);
+      for (const cue of ready) cue.show();
     }
   }
 
@@ -767,7 +794,7 @@ export class RemotePlayers {
 
   // a knight's body, placed and facing, is posed for this frame: what it is doing, a Vortex's spin, its blade's fire,
   // its plate's steel, its sway. id: whose (null: my own body, which makes no sounds of its own here)
-  #pose(id, shell, pb, serverNow, nowMs, dt) {
+  #pose(id, shell, pb, serverNow, nowMs, dt, braceCue = null) {
     const localTime = nowMs / 1000;
     const d = shell.root.userData;
     if (pb.restlessAsleep && !Number.isFinite(d.restlessSleepAt)) d.restlessSleepAt = serverNow;
@@ -851,6 +878,10 @@ export class RemotePlayers {
     const attackNow = state === 'attack' ? hitstopShownAt(serverNow, d.hitstop) : serverNow;
     const plan = resolveSpellbladeAnimationPlan({ state: drawing ? 'guard' : state, player: drawing ? {...animationPlayer,guarding:true} : animationPlayer, serverNow: attackNow, localTime });
     if (recovering) Object.assign(plan, {clip:'Idle',time:localTime,loop:true,concurrent:null});
+    // Use the cue tick for the sword on the crossing frame, even if playback stepped slightly past it.
+    if (plan.braceBlade && braceCue && braceCue.startedAt === pb.swordTechnique?.startedAt && serverNow - braceCue.at < .035) {
+      plan.braceBlade = riposteBraceBlade(braceCue.at - braceCue.startedAt) ?? plan.braceBlade;
+    }
     if (typeof pb.tutorialSwordDrawn === 'boolean') {
       const sword = shell.visualInstance?.root?.getObjectByName('HeroSword') ?? shell.fallbackRig?.userData.sword;
       if (sword) sword.visible = pb.tutorialSwordDrawn;
