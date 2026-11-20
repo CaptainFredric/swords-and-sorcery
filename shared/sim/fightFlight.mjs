@@ -7,7 +7,7 @@ import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {flightMountReach} from '../src/siegeMountReach.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,fightFlightBarrageFiring,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
@@ -415,7 +415,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       const cost=support?0:climbing?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
       m.flightCharge=cap(m.flightCharge-dt*cost,0,m.maxFlightCharge);
       if(descend&&m.velocity.y<-.3&&
-          !(fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.firingOperatorId))
+          !fightFlightBarrageFiring(m,now))
         m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
   }else{

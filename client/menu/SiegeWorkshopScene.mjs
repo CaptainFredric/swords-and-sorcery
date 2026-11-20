@@ -775,7 +775,7 @@ export class SiegeWorkshopScene {
       else if(skill==='coldHowTouching')
         layers.push({name:'09_BiBye_Mobile_Shot1_Fire_Upper',
           age:Math.max(0,time-.75)});
-    } else if(id==='fightFlight' && time<6.6) {
+    } else if(id==='fightFlight' && (time<6.6||skill==='fireAwayRightHere'&&time<9.2)) {
       layers.push({name:'Rotor_Spin_Cycle_1Rev',age:time*4,loop:true});
       if(skill==='doNotStopMyAscension') {
         if(time>=5.55)
@@ -795,12 +795,12 @@ export class SiegeWorkshopScene {
       } else if(skill==='fireAwayRightHere') {
         layers.push(time<.7
           ? {name:'Posture_04_Takeoff_To_Flight',age:time}
-          : time<2.45
-            ? {name:'Posture_10_Ascending_Hover_Descending',
-              age:time-.7,loop:true}
-            : {name:FLIGHT_CLIPS.idle,age:0,loop:true});
-        if(time>=2.65 && time<=6.9)
-          layers.push({name:'Crossbow_Fire_Loop',age:time-2.65,loop:true});
+          : time<7.8
+            ? {name:FLIGHT_CLIPS.sustain,age:time-.7,loop:true}
+            : {name:'Posture_10_Ascending_Hover_Descending',age:time-7.8});
+        // Physically pause the repeater while the machine holds its altitude.
+        if(time>=1.9 && time<=4.65||time>=5.25 && time<=7.9)
+          layers.push({name:'Crossbow_Fire_Loop',age:time<5?time-1.9:time-5.25,loop:true});
       }
     }
     if(this.previewAnimation?.machine!==id) {

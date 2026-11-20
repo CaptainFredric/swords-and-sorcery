@@ -99,9 +99,13 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
     action:reason,at:now,borrowed:m.skill.borrowed??0,ammoDebt:m.ammoDebt??0});
   return true;
 }
+export function fightFlightBarrageFiring(m,now){
+  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&
+    (Boolean(m.firingOperatorId)||now-(m.lastShotAt??-Infinity)<.16);
+}
 export function fightFlightHoverSupport(m,now,{climbing=false,descending=false}={}){
   // Only Fire Away offsets level hover power, never climb.
-  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.operatorId&&!m.firingOperatorId&&
-    now-(m.lastShotAt??-Infinity)>=.16&& // Do not gain a free hover tick by feathering Fire between bolts.
+  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.operatorId&&
+    !fightFlightBarrageFiring(m,now)&& // Do not gain a free hover tick by feathering Fire between bolts.
     !m.grounded&&!climbing&&!descending&&m.rotorHP>0&&m.flightCharge>0;
 }

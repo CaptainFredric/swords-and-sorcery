@@ -199,3 +199,45 @@ test('Legacy ordinary debt repayment stays compatible without inventing new Fire
  for(let i=0;i<15;i++)advanceFlightAmmo(m,DT);
  assert.equal(m.ammo,1);assert.equal(FLIGHT_REPEATER.production,2);
 });
+
+test('Continuous charged barrage during ascent pays 15/s climb and ends in about 3.9s',()=>{
+ const {room,m,p}=setup();airborne(m,p);
+ p.input.flightRise=true;
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ let elapsed=null;
+ for(let i=1;i<=180;i++){
+  tick(room,m,1+i*DT);
+  if(m.skill.phase==='idle'){elapsed=i*DT;break;}
+ }
+ assert.ok(elapsed>3.6&&elapsed<4.3,'climbing barrage endurance: '+elapsed);
+ assert.equal(m.flightCharge,0);assert.equal(m.ammo,0);
+ assert.ok(m.shotSeq>22&&m.shotSeq<31);
+});
+test('At maintained full RPM on the ground, charge alone limits a barrage to about 9.5s',()=>{
+ const {room,m,p}=setup();m.flightCharge=100;
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ let elapsed=null;
+ for(let i=1;i<=360;i++){
+  stepFightFlightSkill(room,m,1+i*DT);
+  stepFightFlightWeapons(room,m,DT,1+i*DT);
+  if(m.skill.phase==='idle'){elapsed=i*DT;break;}
+ }
+ assert.ok(elapsed>9&&elapsed<9.8,'theoretical grounded full-speed ceiling: '+elapsed);
+ assert.equal(m.flightCharge,0);assert.equal(m.ammo,0);
+ assert.equal(m.ammoDebt,0);assert.equal(m.shotSeq,66);
+});
+test('Descending charge recovery is blocked during firing and immediate Fire-button feathering',()=>{
+ const {room,m,p}=setup();airborne(m,p,45);
+ p.input.flightLower=true;
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ const afterShot=m.flightCharge;
+ tick(room,m,1+DT);
+ assert.ok(m.flightCharge<afterShot,'held fire cannot net-recharge while lowering');
+ requestFightFlightFire(room,m,p,false,1+DT);
+ const before=m.flightCharge;
+ tick(room,m,1+2*DT);
+ assert.ok(m.flightCharge<=before,'a shot just fired still blocks descent replenishment');
+});

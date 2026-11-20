@@ -38,20 +38,19 @@ Numeric values below are either user-proposed baselines or provisional testing s
 
 ## Skill — Fire Away? I'm Right Here.
 
-**Type:** Temporary firepower acceleration versus flight stabilization. **Cooldown and active duration: TBD.**
+**Type:** Charge-funded physical repeater barrage versus flight endurance. **Cooldown: 24 seconds from activation. Active duration: until exhausted, interrupted, or rotor speed is lost.**
 
-**When firing:** The Skill borrows future crossbow replenishment. During activation, the reserve receives enough *additional* bolts to support its ordinary maximum firing rate; the borrowed portion accrues a **reloading debt** on this machine. When the Skill ends, passive ammunition production must repay that debt before generating fresh usable bolts. The weapon cannot keep firing from nonexistent ammunition. Existing stored bolts must not be counted as borrowed twice.
+**Activation:** The machine must have flight charge and an intact rotor rotating at 450 RPM (within 0.5 RPM tolerance). An operator's loadout chooses the Skill, but its charge, ammunition and cooldown stay on the physical machine.
 
-- Debt should reflect **extra ammunition actually delivered**, not a flat penalty for activating but firing nothing.
-- No special spread penalty is required. Existing projectile rules still apply.
-- The debt persists across operators, mounted status, and any other normal machine state changes.
-- Normal machine-specific firing-rate, timing, and ammunition limits still matter.
+**When firing:** Each actually spawned repeater projectile costs 1.5 flight charge instead of loaded ammunition. The normal 7 bolts/s maximum, aiming, projectile flight, collision and 4 close / 2 far damage are unchanged. No ammunition borrowing or debt is created. Ordinary flight costs (8/s hover, 15/s climb) still apply. No recovery is allowed while Fire is held, including when the Fire button is briefly feathered between shots.
 
-**When not firing:** Divert available capacity to flight: charge regeneration should approximately match the cost of maintaining stable altitude while the Skill is active. This supports hovering/steady flight, **not** unlimited high-speed climbing.
+**When not firing:** Neutral level hover offsets its ordinary 8/s battery expenditure, producing approximately zero net power change and maintaining altitude. Climbing still drains charge. Descending retains its legitimate recovery in the absence of firing. The grounded machine cannot recharge during Fire Away: even the transient 450-RPM grounded case cannot supply itself with endless volleys.
 
-**Tactical choice:** Spend tomorrow's bolts to suppress opponents now, or forgo firing to sustain your aerial position.
+**Termination:** Charge below the cost of one more bolt is resolved as exhaustion; zero charge, rotor disruption, death, destruction, and dismount/operator loss also terminate the Skill. The ordinary magazine and fractional ammunition production are cleared on termination. Normal 2 bolts/s replenishment resumes immediately afterward. Cooldown does not restart on expiration and cannot be reset by remounting.
 
-**Verification:** Shoot throughout the Skill; stop early; fire zero shots; exhaust reserve; accrue and repay debt; transfer operators; verify that stored ammo plus borrowed ammo never exceeds allowed actual shots.
+**Tactical choice:** Every crossbow bolt costs your remaining power to stay aloft. Pause Fire and hold the sky; press on and risk falling with your opponents still standing.
+
+**Verification:** Confirm ~5.4s sustained fire in level hover, ~3.9s while climbing, and the ~9.5s theoretical grounded ceiling at uninterrupted full RPM. Confirm zero ammunition debt, paid actual projectiles, charge-stable pause, no double resource spending, interrupted rotor and pilot, and magazine depletion on termination. See the Fire Away regression tests for authoritative simulation coverage.
 
 ## Skill / special Dash — Flight to the Valkyrie
 
@@ -155,7 +154,7 @@ SO-FIST-ICATION is a wheeled piston-driven battering ram: **an enormous armored 
 ## Open decisions / balance-testing checklist
 
 - Skill cooldowns and armed/active durations for all three machines.
-- Crossbow reserve, passive refill rate, borrowed-ammo accounting and repayment.
+- Crossbow reserve, passive refill rate, charge-funded Fire Away endurance and empty-magazine recovery.
 - Fight-and-Flight flight charge, sustainable altitude equilibrium, rotor/brace Sheathe in Steel mitigation, movement and hit-location behavior.
 - Offensive flight run speed/steering, Ultimate drain and rotor damage/vulnerability.
 - Terminal dive crash threshold, maximum duration, radius/falloff, burn area persistence, interaction with opponents and objectives, and machine rebuild lifecycle.
