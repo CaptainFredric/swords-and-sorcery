@@ -12,7 +12,7 @@ import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
-import {fightFlightSkillActive,endFightFlightSkill,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {fightFlightSkillActive,endFightFlightSkill,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
 import {updateNarrowTracking,narrowCommitLock} from './fightFlightTracking.mjs';
 
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
@@ -20,7 +20,9 @@ export {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '..
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function advanceFlightAmmo(m,dt){
   if(!(dt>0)||!m||m.mode==='DESTROYED')return;
-  // Production first repays actual debt from previously delivered Skill bolts.
+  // Fire Away uses charge, never ammunition production; its loaded reserve stays untouched.
+  if(m.skill?.phase==='active'&&m.skill.id===FIRE_AWAY.id)return;
+  // Legacy/ordinary debt is repaid before producing fresh reserve.
   // Keeping fractional progress avoids 30Hz tick-rate-dependent phantom reloads.
   m.ammoProduction=clamp((m.ammoProduction??0)+dt*FLIGHT_REPEATER.production,0,100);
   while(m.ammoProduction>=1-1e-9){
@@ -54,19 +56,19 @@ function release(room,m,p,now){
     // wastes a round or burns the Skill. Held Fire can resume on clearance.
     if(!tracking?.targetId||!tracking.aim)return false;
   }
-  const borrowed=m.ammo<1;
-  if(borrowed&&!fightFlightSkillActive(m,now))return false;
+  const fireAway=fightFlightSkillActive(m,now,FIRE_AWAY.id);
+  if(fireAway){
+    if((m.flightCharge??0)+1e-8<FIRE_AWAY.boltCharge){
+      m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');return false;
+    }
+  }else if(m.ammo<1)return false;
   const solved=tracking?.aim??flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
   const {yaw,pitch}=solved;
   m.crossbowAimLimited=Boolean(solved.limited);
   m.crossbowReachableAim=solved.reachableAimPoint??null;
   const origin=flightMuzzle(m,{yaw,pitch}),unit=flightDirection(m,{yaw,pitch});
-  if(borrowed){
-    // Only an extra projectile ACTUALLY released incurs an integer loan.
-    // Never consume a loaded round twice or reward a zero-shot activation.
-    m.ammoDebt=(m.ammoDebt??0)+1;
-    m.skill.borrowed=(m.skill.borrowed??0)+1;
-  }else m.ammo--;
+  if(fireAway)m.flightCharge=Math.max(0,m.flightCharge-FIRE_AWAY.boltCharge);
+  else m.ammo--;
   const period=1/FLIGHT_REPEATER.fireRate,lastDue=m.nextShotAt??now;
   m.nextShotAt=(now-lastDue>period?now:lastDue)+period;
   m.lastShotAt=now;m.crossbowYaw=yaw;m.crossbowPitch=pitch;m.shotSeq=(m.shotSeq??0)+1;
@@ -76,7 +78,12 @@ function release(room,m,p,now){
     velocity:{x:unit.x*FLIGHT_REPEATER.speed,y:unit.y*FLIGHT_REPEATER.speed,z:unit.z*FLIGHT_REPEATER.speed},
     bornAt:now,dist:0,radius:FLIGHT_REPEATER.radius});
   room.events.push({type:'fightFlightBoltReleased',machineId:m.id,projectileId:id,operatorId:p.id,
-    point:origin,ammo:m.ammo,borrowed,ammoDebt:m.ammoDebt??0,at:now});
+    point:origin,ammo:m.ammo,borrowed:false,ammoDebt:m.ammoDebt??0,
+    chargeCost:fireAway?FIRE_AWAY.boltCharge:0,flightCharge:m.flightCharge,at:now});
+  if(fireAway&&m.flightCharge+1e-8<FIRE_AWAY.boltCharge){
+    // The paid final bolt exists. Unusable residual charge is exhausted immediately.
+    m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');
+  }
   // Commit a tracked target AFTER a physical bolt actually exists. The
   // machine's independent gimbal then keeps this one hard-locked foe even
   // when the pilot's camera or sword aim moves away.

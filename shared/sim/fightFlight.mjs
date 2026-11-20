@@ -7,7 +7,7 @@ import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {flightMountReach} from '../src/siegeMountReach.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
@@ -269,7 +269,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const sustainedRise=Boolean(input.flightRise||(legacyJump&&m.hopStartedAt==null));
   const launchRise=Boolean(live&&sustainedRise&&now-(m.landingAt??-Infinity)>.5);
   const legacyPress=legacyJump&&!m.jumpWasHeld;
-  const training=practiceFlightRun(room,m)&&!fightFlightSkillActive(m,now,ASCENSION.id);
+  const training=practiceFlightRun(room,m)&&!fightFlightSkillActive(m,now,ASCENSION.id)&&
+    !fightFlightSkillActive(m,now,FIRE_AWAY.id);
   if(training){m.flightCharge=Math.max(m.flightCharge,2.1);m.rotorPowered=true;}
   const canLaunch=intact&&!m.emergencyBrakeActive&&m.flightCharge>2;
   if(m.grounded){
@@ -401,21 +402,28 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       const hoverHeight=(m.neutralHoverHeight??m.y)+bob;
       const hoverVelocity=m.neutralHoverFromRise?
         cap((hoverHeight-m.y)*3.1,-.5,1.05):0;
+      const support=fightFlightHoverSupport(m,now,{climbing:m.verticalIntent==='RISE',descending:descend});
       const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
         m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
-        settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
+        support?0:settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
       const correction=cap((targetVelocity-m.velocity.y)*9,-13,13)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
       // Power assistance is only steady-altitude compensation. Ascending
       // still spends the normal powered-climb charge; suppression is a choice.
       const climbing=m.verticalIntent==='RISE';
-      const support=fightFlightHoverSupport(m,now,{climbing,descending:descend});
       const cost=support?0:climbing?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
       m.flightCharge=cap(m.flightCharge-dt*cost,0,m.maxFlightCharge);
-      if(descend&&m.velocity.y<-.3)m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
+      if(descend&&m.velocity.y<-.3&&
+          !(fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.firingOperatorId))
+        m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
-  }else{m.velocity.y=0;m.flightCharge=cap(m.flightCharge+dt*7,0,m.maxFlightCharge);}
+  }else{
+    m.velocity.y=0;
+    // The grounded machine cannot refill the battery while running a charge-fed barrage.
+    if(!fightFlightSkillActive(m,now,FIRE_AWAY.id))
+      m.flightCharge=cap(m.flightCharge+dt*7,0,m.maxFlightCharge);
+  }
   if(m.edgeAutoLand&&!m.terminalDive){
     m.flightDashHeld=false;m.offensiveRun=false;m.runGroundPhase=null;m.runStopRequested=true;
     if(!m.grounded){
