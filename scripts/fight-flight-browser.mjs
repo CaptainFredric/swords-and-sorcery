@@ -178,9 +178,14 @@ try{
  const firstPaid=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
  assert.equal(firstPaid.ammo,barrageStart.ammo,'Fire Away does not touch loaded ordinary ammunition');
  assert.ok(firstPaid.charge<=barrageStart.charge-1.5+0.01,'a real bolt must cost at least 1.5 charge');
- await sleep(3600);
- const sustained=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m.skill?.phase,ammo:m.ammo,debt:m.ammoDebt,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
- assert.ok(sustained.shotSeq-barrageStart.shotSeq>=20,'real Chrome holds a sustained physical barrage beyond 3.5s');
+ const sustained=await until(async()=>{
+   const m=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m.skill?.phase,ammo:m.ammo,debt:m.ammoDebt,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
+   if(!m)return false;
+   if(m.phase!=='active')throw Error('Skill terminated before a 3.5s-plus barrage: '+JSON.stringify(m));
+   if(m.shotSeq-barrageStart.shotSeq>=28)return m;
+   return false;
+ },'real 28-shot barrage (at least 3.86s of simulated 7Hz fire)',700);
+ console.log('[FAF CHARGED BARRAGE]',JSON.stringify({before:barrageStart,after:sustained}));
  assert.equal(sustained.debt,0,'the barrage cannot accumulate borrowed ammunition debt');
  assert.equal(sustained.phase,'active','adequately powered barrage must exceed former 3.5s expiry');
  assert.equal(sustained.ammo,barrageStart.ammo,'paid shots preserve the loaded magazine');

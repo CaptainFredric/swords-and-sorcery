@@ -61,7 +61,8 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
 export function stepFightFlightSkill(room,m,now){
   if(!m||m.skill?.phase!=='active')return;
   const op=m.operatorId?room.players.get(m.operatorId):null;
-  if(m.mode==='DESTROYED'||m.retired||!op?.alive||op.operatingFightFlightId!==m.id){
+  if(m.mode==='DESTROYED'||m.retired||!op?.alive||op.connected===false||
+     m.operatorId!==op?.id||op.operatingFightFlightId!==m.id){
     endFightFlightSkill(room,m,now,'interrupted');return;
   }
   if(m.skill.id===NARROW_TO_ONE.id){

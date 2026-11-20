@@ -241,3 +241,10 @@ test('Descending charge recovery is blocked during firing and immediate Fire-but
  tick(room,m,1+2*DT);
  assert.ok(m.flightCharge<=before,'a shot just fired still blocks descent replenishment');
 });
+
+test('Disconnect terminates the active barrage on its authoritative tick',()=>{
+ const {room,m,p}=setup();requestFightFlightSkill(room,m,p,1);
+ p.connected=false;stepFightFlightSkill(room,m,1.1);
+ assert.equal(m.skill.phase,'idle');assert.equal(m.ammo,0);
+ assert.equal(m.skill.readyAt,25);
+});
