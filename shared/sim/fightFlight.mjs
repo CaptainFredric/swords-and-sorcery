@@ -7,7 +7,7 @@ import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {flightMountReach} from '../src/siegeMountReach.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport,fightFlightBarrageFiring,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightHoverSupport,fightFlightBarrageFiring,fightFlightChargeCostDt,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
@@ -178,6 +178,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const op=m.operatorId?room.players.get(m.operatorId):null;
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
+  // Movement and bolt release share wall-clock resource accounting during
+  // Fire Away. Otherwise 7Hz releases can outpace 30Hz flight expenditures
+  // on a throttled host, effectively creating free hover endurance.
+  const flightCostDt=fightFlightChargeCostDt(m,dt,now);
   const terminalPiloted=Boolean(m.terminalDive&&op?.alive&&op.operatingFightFlightId===m.id);
   const rawYaw=m.terminalDive?(terminalPiloted&&Number.isFinite(input.yaw)?input.yaw:m.heading):Number.isFinite(input.yaw)?input.yaw:m.heading;
   const yaw=Number.isFinite(rawYaw)?rawYaw:(Number.isFinite(m.heading)?m.heading:0);
@@ -387,7 +391,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     }
     m.velocity.y+=(targetY-m.velocity.y)*response;
     if(!training&&!fightFlightSkillActive(m,now,ASCENSION.id))
-      m.flightCharge=cap(m.flightCharge-dt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
+      m.flightCharge=cap(m.flightCharge-flightCostDt*(targetY>.2?FIGHT_FLIGHT.climbCost:FIGHT_FLIGHT.hoverCost),0,m.maxFlightCharge);
   }else if(!m.grounded){
     const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
@@ -413,7 +417,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       // still spends the normal powered-climb charge; suppression is a choice.
       const climbing=m.verticalIntent==='RISE';
       const cost=support?0:climbing?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
-      m.flightCharge=cap(m.flightCharge-dt*cost,0,m.maxFlightCharge);
+      m.flightCharge=cap(m.flightCharge-flightCostDt*cost,0,m.maxFlightCharge);
       if(descend&&m.velocity.y<-.3&&
           !fightFlightBarrageFiring(m,now))
         m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.descentRecharge,0,m.maxFlightCharge);

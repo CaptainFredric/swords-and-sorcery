@@ -98,6 +98,11 @@ function release(room,m,p,now){
 }
 export function requestFightFlightFire(room,m,p,down,now){
   if(!validOperator(room,m,p))return false;
+  if(down&&!m.firingOperatorId&&fightFlightSkillActive(m,now,FIRE_AWAY.id)&&
+      now-(m.lastShotAt??-Infinity)>=.16){
+    // Starting a fresh volley after a real pause must not bill the pause.
+    m.skill.flightCostAccountedAt=now;
+  }
   m.firingOperatorId=down?p.id:null;
   if(down)release(room,m,p,now);
   return true;

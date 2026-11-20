@@ -282,3 +282,34 @@ test('Migrated legacy borrowing debt is cleared by Fire Away and never delays po
  for(let i=1;i<=15;i++)stepFightFlightWeapons(room,m,DT,2+i*DT);
  assert.equal(m.ammo,1);
 });
+
+test('Throttled authoritative callbacks bill all elapsed flight power during held Fire',()=>{
+ const {room,m,p}=setup();airborne(m,p,100);
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ assert.equal(m.flightCharge,98.5);
+ // Only one 30Hz callback arrived in half a second, yet real 7Hz bolts
+ // are clock-gated. Flight charge cannot be under-billed by that lag.
+ stepFightFlight(room,m,DT,1.5);
+ assert.ok(Math.abs(m.flightCharge-94.5)<.02,
+   'half a second of held airborne fire incurs 8/s hover cost regardless of callback count');
+ stepFightFlightWeapons(room,m,DT,1.5);
+ assert.equal(m.shotSeq,2);assert.equal(m.flightCharge,93);
+ stepFightFlight(room,m,DT,2);
+ assert.ok(Math.abs(m.flightCharge-89)<.02);
+ stepFightFlightWeapons(room,m,DT,2);
+ assert.equal(m.shotSeq,3);assert.equal(m.flightCharge,87.5);
+ assert.equal(m.ammo,18);assert.equal(m.ammoDebt,0);
+});
+test('True firing pause does not retroactively debit its elapsed clock when fire resumes',()=>{
+ const {room,m,p}=setup();airborne(m,p,50);
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ requestFightFlightFire(room,m,p,false,1.01);
+ stepFightFlight(room,m,DT,1.3);
+ const held=m.flightCharge;
+ requestFightFlightFire(room,m,p,true,3);
+ stepFightFlight(room,m,DT,3+DT);
+ assert.ok(held-m.flightCharge<3.1,
+   'a two-second non-firing pause is not charged as a retroactive barrage');
+});

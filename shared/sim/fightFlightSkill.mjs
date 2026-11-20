@@ -55,7 +55,10 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     borrowed:0,targetId:null,lockedOnce:false,targetVisible:false,targetInTraverse:false,noClearShot:false,
     trackingState:chosen===NARROW_TO_ONE?'acquiring':null,
     lastPreviewId:null,pendingTargetId:null,pendingSince:null,
-    wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity};
+    wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity,
+    // Authoritative clock anchor. Slow server callbacks must not let a
+    // real 7Hz bolt release outpace the flight charge spent between ticks.
+    flightCostAccountedAt:chosen===FIRE_AWAY?now:null};
   if(chosen===NARROW_TO_ONE)updateNarrowTracking(room,m,p,now,aim);
   room.events.push({type:'siegeSkill',machineId:m.id,skill:chosen.id,
     action:'activated',at:now,until:m.skill.activeUntil});
@@ -106,6 +109,17 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
 export function fightFlightBarrageFiring(m,now){
   return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&
     (Boolean(m.firingOperatorId)||now-(m.lastShotAt??-Infinity)<.16);
+}
+export function fightFlightChargeCostDt(m,dt,now){
+  if(!fightFlightSkillActive(m,now,FIRE_AWAY.id))return dt;
+  const anchor=Number.isFinite(m.skill.flightCostAccountedAt)
+    ?m.skill.flightCostAccountedAt:now-dt;
+  // Neutral hover remains free when Fire is genuinely released. While
+  // firing, flight power is owed for the authoritative elapsed clock, not
+  // merely the callbacks that happened to execute under a throttled host.
+  const elapsed=fightFlightBarrageFiring(m,now)?Math.max(dt,now-anchor):dt;
+  m.skill.flightCostAccountedAt=now;
+  return elapsed;
 }
 export function fightFlightHoverSupport(m,now,{climbing=false,descending=false}={}){
   // Only Fire Away offsets level hover power, never climb.
