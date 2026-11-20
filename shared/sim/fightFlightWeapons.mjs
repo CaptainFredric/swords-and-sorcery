@@ -33,7 +33,7 @@ export function advanceFlightAmmo(m,dt){
   }
   m.ammo=clamp(m.ammo,0,FLIGHT_REPEATER.capacity);
 }
-function validOperator(room,m,p){return Boolean(m&&p?.alive&&p.connected!==false&&room.players.get(p.id)===p&&m.health>0&&
+function validOperator(room,m,p){return Boolean(m&&p?.alive&&(p.actorKind!=='human'||p.connected!==false)&&room.players.get(p.id)===p&&m.health>0&&
   m.mode!=='DESTROYED'&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);}
 function release(room,m,p,now){
   if(!validOperator(room,m,p)||now+1e-8<(m.nextShotAt??0))return false;
