@@ -58,6 +58,10 @@ function release(room,m,p,now){
   }
   const fireAway=fightFlightSkillActive(m,now,FIRE_AWAY.id);
   if(fireAway){
+    // Network input can arrive after a rotor hit but before the next movement tick.
+    if(m.rotorHP<=0||(m.rotorRPM??0)<FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance){
+      endFightFlightSkill(room,m,now,'rotorLost');return false;
+    }
     if((m.flightCharge??0)+1e-8<FIRE_AWAY.boltCharge){
       m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');return false;
     }

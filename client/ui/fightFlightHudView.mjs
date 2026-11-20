@@ -24,7 +24,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     skill.trackingState==='outOfTraverse'?'OUT OF ARC':
     skill.trackingState==='retargetReady'?'PRESS SKILL TO RETARGET':'ACQUIRING':
     variant==='doNotStopMyAscension'&&active?'CHARGE DASH':
-    active?'FIRE AWAY · '+Math.floor(charge/1.5)+' BOLTS LEFT':
+    active?'FIRE AWAY · CHARGE '+Math.ceil(charge)+'/'+(m.maxFlightCharge??100):
     now<(skill.readyAt??0)?Math.ceil(skill.readyAt-now)+'s':'READY';
   const debt=Math.max(0,m.ammoDebt??0),reserve=Math.max(0,m.ammo??0);
   const readiness=skillName.toUpperCase()+' · '+skillState;
