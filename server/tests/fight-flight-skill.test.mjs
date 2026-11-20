@@ -270,3 +270,14 @@ test('Against a defending opponent, charge-paid real bolts obey Guard geometry a
  assert.equal(m.flightCharge,97,'two defended real bolts still cost the same power');
  assert.equal(m.ammo,18);assert.equal(m.ammoDebt,0);
 });
+
+test('Migrated legacy borrowing debt is cleared by Fire Away and never delays post-skill reload',()=>{
+ const {room,m,p}=setup();m.ammoDebt=7;m.ammo=5;
+ requestFightFlightSkill(room,m,p,1);
+ assert.equal(m.ammoDebt,0);
+ requestFightFlightFire(room,m,p,true,1);
+ endFightFlightSkill(room,m,2,'interrupted');
+ assert.equal(m.ammoDebt,0);assert.equal(m.ammo,0);
+ for(let i=1;i<=15;i++)stepFightFlightWeapons(room,m,DT,2+i*DT);
+ assert.equal(m.ammo,1);
+});
