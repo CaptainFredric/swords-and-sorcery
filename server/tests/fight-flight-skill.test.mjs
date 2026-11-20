@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {FLIGHT_REPEATER,stepFightFlightWeapons,requestFightFlightFire,advanceFlightAmmo} from '../../shared/sim/fightFlightWeapons.mjs';
+import {FLIGHT_REPEATER,stepFightFlightWeapons,stepFightFlightProjectiles,requestFightFlightFire,advanceFlightAmmo} from '../../shared/sim/fightFlightWeapons.mjs';
 import {requestFightFlightSkill,stepFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,endFightFlightSkill} from '../../shared/sim/fightFlightSkill.mjs';
 
 const DT=1/30;
@@ -247,4 +247,26 @@ test('Disconnect terminates the active barrage on its authoritative tick',()=>{
  p.connected=false;stepFightFlightSkill(room,m,1.1);
  assert.equal(m.skill.phase,'idle');assert.equal(m.ammo,0);
  assert.equal(m.skill.readyAt,25);
+});
+
+test('Against a defending opponent, charge-paid real bolts obey Guard geometry and exposed leg contact',()=>{
+ const {room,m,p}=setup();
+ const foe=room.addPlayer({id:'defender',token:'defender',name:'Defender'},0);
+ foe.position={x:-.65,y:0,z:-4};foe.spawnProtectionUntil=0;
+ foe.guarding=true;foe.guardStamina=100;foe.yaw=Math.PI;
+ assert.equal(requestFightFlightSkill(room,m,p,1),null);
+ requestFightFlightFire(room,m,p,true,1);requestFightFlightFire(room,m,p,false,1.01);
+ for(let i=1;i<12;i++)stepFightFlightProjectiles(room,DT,1+i*DT);
+ assert.equal(foe.health,100,'defended torso takes no direct damage');
+ assert.ok(foe.guardStamina<100,'genuine Guard intercept spends stamina');
+ assert.equal(m.flightCharge,98.5);
+ assert.equal(m.ammo,18);assert.equal(m.ammoDebt,0);
+ const impact=room.events.find(e=>e.type==='fightFlightBoltImpact');
+ assert.equal(impact?.hitKind,'guard');
+ p.input.pitch=-.19;
+ requestFightFlightFire(room,m,p,true,1.6);requestFightFlightFire(room,m,p,false,1.61);
+ for(let i=1;i<12;i++)stepFightFlightProjectiles(room,DT,1.6+i*DT);
+ assert.ok(foe.health<100,'low physical bolt bypasses the elevated Guard');
+ assert.equal(m.flightCharge,97,'two defended real bolts still cost the same power');
+ assert.equal(m.ammo,18);assert.equal(m.ammoDebt,0);
 });
