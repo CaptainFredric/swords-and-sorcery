@@ -74,7 +74,6 @@ export function requestFlightDash(room,m,p,held,now){
  const practice=room.mode==='PRACTICE'&&p.actorKind==='human'&&!room.localTutorial;
  const canDash=!m.emergencyBrakeActive&&m.rotorHP>0&&m.flightCharge>2&&
    (p.prowess>0||practice||fightFlightSkillActive(m,now,ASCENSION.id));
- m.runRotorWasPowered=Boolean(m.rotorPowered);
  if(canDash){
    m.rotorPowered=true;
    if(m.grounded){
@@ -155,10 +154,11 @@ export function stepFlightRun(room,m,dt,now){
    if(!valid||(ascension&&!(m.flightCharge>0))||
      (!practice&&!ascension&&(!(m.flightCharge>0)||!(p?.prowess>0))))m.flightDashHeld=false;
    m.runStopRequested=false;m.runTurnSpeed=0;m.runStartAt=null;m.runElapsed=0;
-  // Do not force the rotor to hover forever after a Dash that started cold.
-  if(!m.runRotorWasPowered&&!preparing&&!activeChivalry&&
-    !m.flightDashHeld&&!p?.input?.flightRise&&!p?.input?.jump)
-    m.rotorPowered=false;
+  // Ending Dash relinquishes attack propulsion, not the rotor motor. A
+  // cold-start Dash has already wound the rotor into ordinary flight; retain
+  // its real RPM so the pilot can hover or activate Fire Away immediately.
+  // Physical braking, rotor destruction, charge exhaustion, and dismount
+  // continue to stop it in fightFlight.mjs.
  }else{
    if(!m.offensiveRun){
      m.runAnimationStartedAt=now;m.offensiveRun=true;
