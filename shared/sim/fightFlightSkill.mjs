@@ -45,6 +45,9 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
       return 'Fire Away requires an intact rotor at 450 RPM.';
     if(!(m.flightCharge>0))return 'Fire Away requires flight charge.';
   }
+  // Older machines can retain debt from the removed borrowing implementation.
+  // It is obsolete for charge-funded Fire Away, and must not delay post-barrage reload.
+  if(chosen===FIRE_AWAY)m.ammoDebt=0;
   const old=m.skill??{};
   m.skill={...old,id:chosen.id,phase:'active',
     readyAt:chosen===NARROW_TO_ONE?now:now+chosen.cooldown,
@@ -93,7 +96,7 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
   if(skill===NARROW_TO_ONE.id)m.skill.readyAt=now+NARROW_TO_ONE.cooldown;
   if(skill===FIRE_AWAY.id){
     // No debt, reserve or fractional production carries past the charge-fed barrage.
-    m.ammo=0;m.ammoProduction=0;
+    m.ammo=0;m.ammoProduction=0;m.ammoDebt=0;
   }
   m.skill.targetVisible=false;m.skill.targetInTraverse=false;m.skill.noClearShot=false;m.skill.trackingState=null;
   room.events.push({type:'siegeSkill',machineId:m.id,skill,
