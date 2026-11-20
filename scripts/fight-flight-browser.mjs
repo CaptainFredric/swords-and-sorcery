@@ -159,9 +159,33 @@ try{
  // The accessible mounted B shortcut must activate the real machine Skill.
  await tap('B');
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.skill?.phase==='active'"),'mounted B activates Fire Away Skill',45);
- const activeSkill=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m?.skill?.phase,borrowed:m?.skill?.borrowed,ammoDebt:m?.ammoDebt,readyAt:m?.skill?.readyAt};})()");
- assert.equal(activeSkill.borrowed,0,'activation must not invent borrowed bolts');
+ const activeSkill=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m?.skill?.phase,activeUntil:m?.skill?.activeUntil,ammo:m?.ammo,ammoDebt:m?.ammoDebt,charge:m?.flightCharge,shotSeq:m?.shotSeq,readyAt:m?.skill?.readyAt,rotorRPM:m?.rotorRPM};})()");
+ assert.equal(activeSkill.activeUntil,null,'Fire Away has no artificial 3.5-second expiry');
+ assert.equal(activeSkill.ammoDebt,0,'activation must not borrow bolts');
+ assert.ok(activeSkill.rotorRPM>=449.5,'real rotor is at operating RPM');
  await screenshot('03c-fire-away');
+ // Real Chrome input: first pause to maintain hover without charge recovery,
+ // then hold the physical repeater for longer than the previous 3.5s limit.
+ await up('W');await up(' ');
+ const restStart=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.flightCharge");
+ await sleep(500);
+ const restEnd=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.flightCharge");
+ assert.ok(Math.abs(restEnd-restStart)<1.5,'released Fire stabilizes flight power without recharging');
+ const barrageStart=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
+ assert.ok(barrageStart.charge>73,'this sustained airborne barrage needs sufficient starting flight charge');
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+ await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq>"+barrageStart.shotSeq),'charge-paid bolt released from real muzzle',50);
+ const firstPaid=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
+ assert.equal(firstPaid.ammo,barrageStart.ammo,'Fire Away does not touch loaded ordinary ammunition');
+ assert.ok(firstPaid.charge<=barrageStart.charge-1.5+0.01,'a real bolt must cost at least 1.5 charge');
+ await sleep(3600);
+ const sustained=await evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {phase:m.skill?.phase,ammo:m.ammo,debt:m.ammoDebt,charge:m.flightCharge,shotSeq:m.shotSeq};})()");
+ assert.ok(sustained.shotSeq-barrageStart.shotSeq>=20,'real Chrome holds a sustained physical barrage beyond 3.5s');
+ assert.equal(sustained.debt,0,'the barrage cannot accumulate borrowed ammunition debt');
+ assert.equal(sustained.phase,'active','adequately powered barrage must exceed former 3.5s expiry');
+ assert.equal(sustained.ammo,barrageStart.ammo,'paid shots preserve the loaded magazine');
+ await screenshot('03d-charge-barrage');
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  assert.ok(flying.machine.y>1,'airborne model must move physically');
  assert.ok(flying.machine.charge<before.machine.charge,'ascent spends actual flight charge');
  assert.ok(flying.cam?.[1]>before.cam?.[1],'mounted camera must follow changing altitude');
@@ -199,7 +223,7 @@ try{
  assert.ok(ejected.machine.ammo <= beforeEject.machine.ammo + 1, 'ejection cannot reload or regenerate ammo');
  assert.ok(ejected.machine.ammo < 18, 'ejection cannot reload to full capacity');
  await up(' ');
- const result={before,mounted,flying,activeSkill,landed,after:await evaluate(flightState),errors};
+ const result={before,mounted,flying,activeSkill,barrageStart,firstPaid,sustained,landed,after:await evaluate(flightState),errors};
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
  assert.equal(errors.length,0,'Browser JS exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-A acceptance:',JSON.stringify({takeoff:flying.machine.y,landing:landed.machine.y,charge:flying.machine.charge,model:flying.model,herald:flying.herald,errors}));
