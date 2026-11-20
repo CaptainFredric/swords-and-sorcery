@@ -276,6 +276,7 @@ test('Migrated legacy borrowing debt is cleared by Fire Away and never delays po
  requestFightFlightSkill(room,m,p,1);
  assert.equal(m.ammoDebt,0);
  requestFightFlightFire(room,m,p,true,1);
+ requestFightFlightFire(room,m,p,false,1.01);
  endFightFlightSkill(room,m,2,'interrupted');
  assert.equal(m.ammoDebt,0);assert.equal(m.ammo,0);
  for(let i=1;i<=15;i++)stepFightFlightWeapons(room,m,DT,2+i*DT);
