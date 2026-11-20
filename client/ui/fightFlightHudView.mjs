@@ -24,7 +24,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     skill.trackingState==='outOfTraverse'?'OUT OF ARC':
     skill.trackingState==='retargetReady'?'PRESS SKILL TO RETARGET':'ACQUIRING':
     variant==='doNotStopMyAscension'&&active?'CHARGE DASH':
-    active?'FIRE AWAY '+Math.max(0,skill.activeUntil-now).toFixed(1)+'s':
+    active?'FIRE AWAY · CHARGE '+Math.ceil(charge)+'/'+(m.maxFlightCharge??100):
     now<(skill.readyAt??0)?Math.ceil(skill.readyAt-now)+'s':'READY';
   const debt=Math.max(0,m.ammoDebt??0),reserve=Math.max(0,m.ammo??0);
   const readiness=skillName.toUpperCase()+' · '+skillState;
@@ -49,6 +49,8 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
     warning = skill.lockedOnce?'LOCK HELD · TARGET BEHIND COVER · FIRE PAUSED':'TARGET HIDDEN · LOOK FOR AN OPENING';
   else if (active&&variant==='narrowToOne'&&!skill.targetId) warning = 'NARROW TO ONE · LOOK AT AN ENEMY TO MARK';
   else if (active&&variant==='narrowToOne'&&!skill.lockedOnce) warning = 'TARGET MARKED · FIRE TO LOCK';
+  else if (active&&variant==='fireAwayRightHere'&&charge < 15)
+    warning = 'FIRE AWAY · LOW CHARGE · LANDING RISK';
   else if (!supported && charge < 15) warning = 'LOW FLIGHT CHARGE';
   else if (m.crossbowAimLimited) warning = 'AIM OUTSIDE CROSSBOW ARC · MUZZLE PATH DIFFERS';
 
@@ -60,7 +62,7 @@ export function fightFlightHudView(player,snapshot,now,{bindings={},touch=false,
   return {
     isFlight: true,
     title:'FIGHT-AND-FLIGHT · '+grounded,
-    status:(preparing||terminal?commitment+' · ':'')+'ALT '+altitude.toFixed(1)+' m · CHARGE '+Math.ceil(charge)+'/'+(m.maxFlightCharge??100)+' · ROTOR '+Math.ceil(rotor)+'/100 · '+Math.round(m.rotorRPM??0)+' RPM · AMMO '+reserve+'/'+FLIGHT_REPEATER.capacity+' · DEBT '+debt+' · '+readiness,
+    status:(preparing||terminal?commitment+' · ':'')+'ALT '+altitude.toFixed(1)+' m · CHARGE '+Math.ceil(charge)+'/'+(m.maxFlightCharge??100)+' · ROTOR '+Math.ceil(rotor)+'/100 · '+Math.round(m.rotorRPM??0)+' RPM · AMMO '+reserve+'/'+FLIGHT_REPEATER.capacity+(debt>0?' · DEBT '+debt:'')+' · '+readiness,
     controls,pressure:charge,pressureLabel:'FLIGHT CHARGE',
     alt: altitude.toFixed(1),
     charge: Math.ceil(charge),

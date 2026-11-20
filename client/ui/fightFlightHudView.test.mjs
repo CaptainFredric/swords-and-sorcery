@@ -99,3 +99,18 @@ test('Broken rotor does not leave a permanent DESCENDING warning over the game',
  assert.equal(v.warning,'','rotor remains lost, but landing cannot keep a DESCENDING alert');
  assert.match(v.title,/ROTOR LOST/);
 });
+
+test('Charge-funded Fire Away HUD shows battery endurance, not borrowed bolts or an active timer',()=>{
+ const p={id:'pilot',alive:true,operatingFightFlightId:'f',siegeLoadout:{fightFlight:'fireAwayRightHere'}};
+ const m={id:'f',grounded:false,mode:'AIRBORNE',health:250,rotorHP:100,rotorRPM:450,
+  flightCharge:22.5,ammo:18,ammoDebt:0,skill:{id:'fireAwayImRightHere',phase:'active',activeUntil:null,readyAt:25}};
+ const v=fightFlightHudView(p,{fightFlight:m},12);
+ assert.match(v.skillText,/CHARGE 23\/100/);assert.doesNotMatch(v.skillText,/3\.5|NaN|Infinity/);
+ assert.match(v.status,/CHARGE 23\/100/);assert.doesNotMatch(v.status,/DEBT/);
+ assert.equal(v.ammo,18);assert.equal(v.skillActive,true);
+ m.flightCharge=9;
+ assert.match(fightFlightHudView(p,{fightFlight:m},13).warning,/LANDING RISK/);
+ m.skill.phase='idle';m.ammo=0;
+ assert.equal(fightFlightHudView(p,{fightFlight:m},14).ammo,0);
+ assert.match(fightFlightHudView(p,{fightFlight:m},14).skillText,/11s/);
+});

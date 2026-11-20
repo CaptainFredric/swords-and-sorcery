@@ -1,9 +1,10 @@
 // Authoritative machine Skill state. Equipment is personal; cooldowns,
-// actual repeater debt and shared resources stay with Fight-and-Flight.
+// flight charge, ammunition and other shared resources belong to the machine.
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 export const FIRE_AWAY=Object.freeze({
-  id:'fireAwayImRightHere',name:"Fire Away? I'm Right Here.",duration:3.5,cooldown:24,
+  id:'fireAwayImRightHere',name:"Fire Away? I'm Right Here.",duration:null,cooldown:24,
+  boltCharge:1.5,requiredRPM:450,rpmTolerance:.5,
 });
 export const NARROW_TO_ONE=Object.freeze({id:'narrowToOne',name:'Narrow to One',duration:null,cooldown:24});
 export const ASCENSION=Object.freeze({id:'doNotStopMyAscension',name:'Do Not Stop My Ascension!',duration:null,cooldown:24});
@@ -39,6 +40,14 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     return chosen===FIRE_AWAY?'Fire Away is already active.':chosen.name+' is already active.';
   }
   if(now+1e-8<(m.skill?.readyAt??0))return chosen===FIRE_AWAY?'Fire Away is recovering.':chosen.name+' is recovering.';
+  if(chosen===FIRE_AWAY){
+    if(m.rotorHP<=0||(m.rotorRPM??0)<FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance)
+      return 'Fire Away requires an intact rotor at 450 RPM.';
+    if(!(m.flightCharge>0))return 'Fire Away requires flight charge.';
+  }
+  // Older machines can retain debt from the removed borrowing implementation.
+  // It is obsolete for charge-funded Fire Away, and must not delay post-barrage reload.
+  if(chosen===FIRE_AWAY)m.ammoDebt=0;
   const old=m.skill??{};
   m.skill={...old,id:chosen.id,phase:'active',
     readyAt:chosen===NARROW_TO_ONE?now:now+chosen.cooldown,
@@ -46,7 +55,10 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
     borrowed:0,targetId:null,lockedOnce:false,targetVisible:false,targetInTraverse:false,noClearShot:false,
     trackingState:chosen===NARROW_TO_ONE?'acquiring':null,
     lastPreviewId:null,pendingTargetId:null,pendingSince:null,
-    wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity};
+    wasGrounded:Boolean(m.grounded),retargetReadyAt:Infinity,
+    // Authoritative clock anchor. Slow server callbacks must not let a
+    // real 7Hz bolt release outpace the flight charge spent between ticks.
+    flightCostAccountedAt:chosen===FIRE_AWAY?now:null};
   if(chosen===NARROW_TO_ONE)updateNarrowTracking(room,m,p,now,aim);
   room.events.push({type:'siegeSkill',machineId:m.id,skill:chosen.id,
     action:'activated',at:now,until:m.skill.activeUntil});
@@ -55,7 +67,8 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
 export function stepFightFlightSkill(room,m,now){
   if(!m||m.skill?.phase!=='active')return;
   const op=m.operatorId?room.players.get(m.operatorId):null;
-  if(m.mode==='DESTROYED'||m.retired||!op?.alive||op.operatingFightFlightId!==m.id){
+  if(m.mode==='DESTROYED'||m.retired||!op?.alive||(op.actorKind==='human'&&op.connected===false)||
+     m.operatorId!==op?.id||op.operatingFightFlightId!==m.id){
     endFightFlightSkill(room,m,now,'interrupted');return;
   }
   if(m.skill.id===NARROW_TO_ONE.id){
@@ -64,6 +77,16 @@ export function stepFightFlightSkill(room,m,now){
     return;
   }
   if(m.skill.id===ASCENSION.id)return; // A real bolt release ends this, not elapsed time.
+  if(m.skill.id===FIRE_AWAY.id){
+    if(m.rotorHP<=0||(m.rotorRPM??0)<FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance){
+      endFightFlightSkill(room,m,now,'rotorLost');return;
+    }
+    // Residual power below one bolt cannot fund another attack: exhaust it.
+    if((m.flightCharge??0)+1e-8<FIRE_AWAY.boltCharge){
+      m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');
+    }
+    return;
+  }
   if(now+1e-8>=(m.skill.activeUntil??0))endFightFlightSkill(room,m,now);
 }
 export function endFightFlightSkill(room,m,now,reason='expired'){
@@ -74,13 +97,33 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
   m.skill.pendingTargetId=null;m.skill.pendingSince=null;
   // A sustained lock must never have completed its cooldown before it ends.
   if(skill===NARROW_TO_ONE.id)m.skill.readyAt=now+NARROW_TO_ONE.cooldown;
+  if(skill===FIRE_AWAY.id){
+    // No debt, reserve or fractional production carries past the charge-fed barrage.
+    m.ammo=0;m.ammoProduction=0;m.ammoDebt=0;
+  }
   m.skill.targetVisible=false;m.skill.targetInTraverse=false;m.skill.noClearShot=false;m.skill.trackingState=null;
   room.events.push({type:'siegeSkill',machineId:m.id,skill,
     action:reason,at:now,borrowed:m.skill.borrowed??0,ammoDebt:m.ammoDebt??0});
   return true;
 }
+export function fightFlightBarrageFiring(m,now){
+  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&
+    (Boolean(m.firingOperatorId)||now-(m.lastShotAt??-Infinity)<.16);
+}
+export function fightFlightChargeCostDt(m,dt,now){
+  if(!fightFlightSkillActive(m,now,FIRE_AWAY.id))return dt;
+  const anchor=Number.isFinite(m.skill.flightCostAccountedAt)
+    ?m.skill.flightCostAccountedAt:now-dt;
+  // Neutral hover remains free when Fire is genuinely released. While
+  // firing, flight power is owed for the authoritative elapsed clock, not
+  // merely the callbacks that happened to execute under a throttled host.
+  const elapsed=fightFlightBarrageFiring(m,now)?Math.max(dt,now-anchor):dt;
+  m.skill.flightCostAccountedAt=now;
+  return elapsed;
+}
 export function fightFlightHoverSupport(m,now,{climbing=false,descending=false}={}){
   // Only Fire Away offsets level hover power, never climb.
-  return fightFlightSkillActive(m,now)&&m.operatorId&&!m.firingOperatorId&&
+  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.operatorId&&
+    !fightFlightBarrageFiring(m,now)&& // Do not gain a free hover tick by feathering Fire between bolts.
     !m.grounded&&!climbing&&!descending&&m.rotorHP>0&&m.flightCharge>0;
 }

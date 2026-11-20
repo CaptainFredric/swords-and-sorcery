@@ -900,7 +900,7 @@ export class TouchControls {
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
         const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':skill.trackingState==='preview'?'MARKED':'ACQUIRE'):
-          flightSkillId==='doNotStopMyAscension'?'CHARGE':'ACTIVE'):
+          flightSkillId==='doNotStopMyAscension'?'CHARGE':'CHG '+Math.ceil(Math.max(0,fb?.flightCharge??0))):
           remaining>0?Math.ceil(remaining)+'s':flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':'Beat to the Punch'):'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);

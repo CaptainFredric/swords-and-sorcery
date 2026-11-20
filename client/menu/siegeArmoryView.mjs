@@ -60,7 +60,7 @@ It is simply doom.
 And it is nigh-unreachable.`,
   facts:'Finite flight charge · rotor integrity · repeating bolts',
   attacks:[
-   {name:'REPEATING CROSSBOW',icon:'repeater',line:'Fires continuous sequences of high-speed quarrels from an integral rotary hopper.',facts:'14-bolt capacity · rapid cycling'},
+   {name:'REPEATING CROSSBOW',icon:'repeater',line:'Fires continuous sequences of high-speed quarrels from an integral rotary hopper.',facts:'18-bolt capacity · 7 bolts/s · 2 bolts/s reload'},
    {name:'ROTOR-BLADE DASH',icon:'flightDash',line:'Spinning counter-rotating twin sword blades serve as both lift system and high-speed melee weapon.',facts:'High blade contact damage'},
    {name:'VERTICAL ASCENSION',icon:'rise',line:'Ascend rapidly into castle airspace or hover quietly above hostile ground engagement zones.',facts:'Uses rechargeable flight meter'}
   ],
@@ -77,7 +77,7 @@ const EXPLANATIONS={
  beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
  longArmToTheJaw:'Fire the actual fist into the world. The exposed piston keeps working. Drive to the grounded fist, press Skill to retrieve, then recover for 24s. If lost to the abyss, return to deployment and dismount for locked, 24s restoration at the same fist HP.',
  hellpingHand:'Open the armored palm, then press Skill again to seize a nearby enemy. A facing Guard can resist; an unbroken grasp crushes over four seconds. An ally may willingly board with Interact, fight while riding, and exit with Interact. Press Skill to release; with the palm open and no target in reach, hold forward or reverse and press Skill to vault.',
- fireAwayRightHere:'For 3.5 seconds, the repeater can fire borrowed bolts. Reloading repays those debts first; release Fire to stabilize hover.',
+ fireAwayRightHere:'Keep firing physical bolts at up to 7/s, spending 1.5 flight charge per bolt instead of ammunition. Pause Fire to sustain level hover without spending charge; climbing still costs power. The Skill ends when charge or rotor speed fails and empties the normal magazine. 24s cooldown begins on activation.',
   narrowToOne:'Press Skill to scan. Your reticle softly marks the exposed enemy closest to where you look and stays with them until you deliberately look at another. Fire the first real bolt to hard-lock that foe; hold Fire to keep shooting while looking elsewhere, even in third person. The repeating crossbow independently follows only within its mechanical turning arc and never fires through cover or guards. Land, settle, and press Skill to pick another target. The 24s cooldown starts when the Skill ends.',
   doNotStopMyAscension:'Until your next repeater bolt, rotor Dash uses flight charge instead of prowess, at the Rise rate. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
