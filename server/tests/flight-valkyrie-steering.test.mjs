@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {requestFlightDash,stepFlightRun,VALKYRIE_RUN} from '../../shared/sim/fightFlightRun.mjs';
+import {requestFightFlightSkill,stepFightFlightSkill,FIRE_AWAY} from '../../shared/sim/fightFlightSkill.mjs';
+import {requestFightFlightFire} from '../../shared/sim/fightFlightWeapons.mjs';
 import {stepTerminalPreparation,requestTerminalRitual,advanceTerminalFlight} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {stepRoom} from '../../shared/sim/combat.mjs';
@@ -203,7 +205,7 @@ test('Ground Fight-and-Flight Dash launches on keydown with a stopped rotor',()=
   assert.equal(s.m.terminalDive,null,'ordinary Dash is not an accidental terminal commitment');
 });
 
-test('A quick ground Dash tap still commits its minimum distance and may let rotor spin down',()=>{
+test('A quick ground Dash tap completes its minimum travel and retains the wound rotor',()=>{
   const s=setup({practice:true,y:0});
   Object.assign(s.m,{grounded:true,mode:'GROUNDED',rotorPowered:false,
     rotorAngularVelocity:0,rotorRPM:0,y:0});
@@ -214,8 +216,53 @@ test('A quick ground Dash tap still commits its minimum distance and may let rot
   assert.ok(s.m.runTravel>=VALKYRIE_RUN.minTravel,'tap preserves physical commitment');
   assert.equal(s.m.flightDashHeld,false);
   assert.equal(s.m.offensiveRun,false);
-  assert.equal(s.m.rotorPowered,false,'stopped-before-Dash rotor can spin down after attack');
+  assert.equal(s.m.rotorPowered,true,'Dash relinquishes its attack, not its now-spinning motor');
+  assert.ok(s.m.rotorRPM>=449.5,'operating rotor remains available for Fire Away');
   assert.equal(s.m.runGroundPhase,null);
+});
+
+test('Cold-start Dash retains 450 RPM after prowess runs out, immediately allowing charge-paid Fire Away',()=>{
+  const s=setup({y:45});
+  Object.assign(s.m,{rotorPowered:false,rotorAngularVelocity:0,rotorRPM:0});
+  s.p.input.pitch=.45; // remain airborne through the entire ordinary Dash
+  assert.equal(requestFlightDash(s.room,s.m,s.p,true,s.now),true);
+  frames(s,100);
+  assert.equal(s.m.offensiveRun,false,'ordinary Dash stops when personal prowess runs out');
+  assert.equal(s.m.flightDashHeld,false);
+  assert.ok(s.m.y>1&&!s.m.grounded,'machine is still physically airborne');
+  assert.ok(s.m.flightCharge>FIRE_AWAY.boltCharge);
+  assert.equal(s.m.rotorPowered,true,'completed Dash cannot silently kill powered flight');
+  assert.ok(s.m.rotorRPM>=FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance,
+    'no post-Dash RPM drop blocks the Skill');
+  const startAmmo=s.m.ammo,startCharge=s.m.flightCharge;
+  assert.equal(requestFightFlightSkill(s.room,s.m,s.p,s.now),null);
+  assert.equal(s.m.skill.id,FIRE_AWAY.id);
+  assert.equal(s.m.skill.phase,'active');
+  assert.equal(s.m.skill.readyAt,s.now+24);
+  assert.equal(requestFightFlightFire(s.room,s.m,s.p,true,s.now),true);
+  assert.ok(Math.abs(s.m.flightCharge-(startCharge-FIRE_AWAY.boltCharge))<1e-8);
+  assert.equal(s.m.ammo,startAmmo,'Fire Away pays flight charge, not ordinary ammunition');
+  assert.equal(s.m.ammoDebt,0);
+  frames(s,3);stepFightFlightSkill(s.room,s.m,s.now);
+  assert.equal(s.m.skill.phase,'active','ordinary flight remains capable of maintaining Fire Away');
+  assert.ok(s.m.rotorRPM>=449.5);
+});
+
+test('Pilot can still deliberately brake a Dash-wound rotor when grounded',()=>{
+  const s=setup({practice:true,y:0});
+  Object.assign(s.m,{grounded:true,mode:'GROUNDED',rotorPowered:false,
+    rotorAngularVelocity:0,rotorRPM:0,y:0});
+  requestFlightDash(s.room,s.m,s.p,true,0);
+  requestFlightDash(s.room,s.m,s.p,false,.01);
+  for(let i=0;i<100&&(s.m.offensiveRun||s.m.runGroundLaunchReady||i<2);i++)frames(s,1);
+  assert.equal(s.m.rotorPowered,true);
+  const before=s.m.rotorRPM;
+  // Explicit lowering on supported ground is an actual rotor brake.
+  s.m.grounded=true;s.m.mode='GROUNDED';s.m.y=0;s.m.velocity.y=0;
+  s.p.input.crouch=true;
+  frames(s,1);
+  assert.equal(s.m.rotorPowered,false);
+  assert.ok(s.m.rotorRPM<before,'intentional braking still reduces actual angular velocity');
 });
 
 test('A rotor already spinning stays available after Dash if the pilot wanted hover',()=>{
