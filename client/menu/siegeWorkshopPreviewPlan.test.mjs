@@ -97,16 +97,18 @@ test('workshop impact presentation matches the actual authored skill sequences',
   assert.equal(workshopPreviewImpacts('fireAwayRightHere').length,3);
 });
 
-test('Fire Away sustains repeater over three separate target lanes then lands',()=>{
+test('Fire Away spends charge through two airborne volleys, pauses at altitude, then descends',()=>{
   const shots=workshopPreviewShots('fireAwayRightHere');
-  assert.equal(shots.length,27);
+  assert.equal(shots.length,36);
   assert.deepEqual([...new Set(shots.map(s=>s.target))],[0,1,2]);
   assert.equal(workshopPreviewTargets('fireAwayRightHere').length,3);
-  assert.ok(shots.at(-1).at-shots[0].at>3);
-  assert.ok(workshopPreviewPose('fireAwayRightHere',1.3).y>4.5);
-  assert.equal(workshopPreviewPose('fireAwayRightHere',2.5).y,0,
-    'the machine lands before the repeater barrage starts');
-  assert.ok(shots[0].at>2.5);
-  assert.equal(workshopPreviewPose('fireAwayRightHere',8.2).y,0);
-  for(let i=0;i<3;i++)assert.equal(workshopPreviewTargetPose('fireAwayRightHere',7.9,i).fall,1);
+  assert.ok(shots.at(-1).at-shots[0].at>5.5);
+  assert.ok(workshopPreviewPose('fireAwayRightHere',1.4).y>4.5);
+  assert.ok(workshopPreviewPose('fireAwayRightHere',4.8).y>4.5,
+    'the craft must hold altitude between bursts');
+  assert.ok(workshopPreviewPose('fireAwayRightHere',6.5).y>4.5,
+    'the second volley must also be airborne');
+  assert.ok(shots[19].at-shots[18].at>.65,'pause between strings is visible');
+  assert.ok(workshopPreviewPose('fireAwayRightHere',9.15).y<.1);
+  for(let i=0;i<3;i++)assert.equal(workshopPreviewTargetPose('fireAwayRightHere',9.1,i).fall,1);
 });

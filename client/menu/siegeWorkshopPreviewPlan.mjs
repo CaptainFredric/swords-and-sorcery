@@ -9,7 +9,7 @@ export const SIEGE_PREVIEW_LENGTH = Object.freeze({
   boltToTheOccasion: 5.0,
   doNotStopMyAscension: Infinity,
   narrowToOne: 6.2,
-  fireAwayRightHere: 8.2,
+  fireAwayRightHere: 9.2,
 });
 export const SIEGE_PREVIEW_MACHINE = Object.freeze({
   longArmToTheJaw: 'soFist', beatToThePunch: 'soFist',
@@ -55,10 +55,10 @@ export function workshopPreviewPose(skill, time) {
     y=2.2*between(t,.14,.75)*(1-between(t,4.8,5.95));
     yawOffset=-a;
   } else if (skill==='fireAwayRightHere') {
-    // The demonstration first ascends dramatically and then settles to the
-    // workshop floor BEFORE the sustained borrowed-ammo crossbow exhibition.
-    y=5.1*between(t,.22,1.25)*(1-between(t,1.55,2.4));
-    z=-.6*between(t,.75,1.3)*(1-between(t,1.55,2.4));
+    // Remain airborne through two paid volleys separated by a level hover pause.
+    // Only after exhausting flight charge does the machine descend.
+    y=4.8*between(t,.2,1.35)*(1-between(t,7.75,9));
+    z=-.6*between(t,.75,1.3)*(1-between(t,7.75,9));
   }
   return {x,y,z,pitch,roll,yawOffset,fist,shudder};
 }
@@ -80,8 +80,10 @@ export function workshopPreviewShots(skill) {
       lowShot: i%3!==0,
     }));
   if(skill==='fireAwayRightHere')
-    return Array.from({length:27},(_,i)=>({
-      at:2.65+i*.145,flight:.33,kind:'repeater',target:i%3,
+    return Array.from({length:36},(_,i)=>({
+      // Pause for .7s at altitude between two charge-consuming strings.
+      at:i<19?1.9+i*.145:5.25+(i-19)*.145,
+      flight:.33,kind:'repeater',target:i%3,
     }));
   return [];
 }
@@ -101,7 +103,7 @@ export function workshopPreviewImpacts(skill) {
     return [{at:4.68,x:0,z:-2.8,type:'repeater'}];
   if(skill==='fireAwayRightHere')
     return [-4.35,-5.3,-4.35].map((z,i)=>({
-      at:6.4+i*.15,x:(i-1)*2.35,z,type:'repeater'
+      at:7.8+i*.15,x:(i-1)*2.35,z,type:'repeater'
     }));
   return [];
 }
@@ -134,7 +136,7 @@ export function workshopPreviewTargetPose(skill,t,index) {
   }
   const defeated=skill==='doNotStopMyAscension'?5.55:
      skill==='narrowToOne'?4.68:
-    skill==='fireAwayRightHere'?[6.4,6.55,6.7][index]:
+    skill==='fireAwayRightHere'?[7.8,7.95,8.1][index]:
     skill==='boltToTheOccasion'?[2.03,3.35][index]:2;
   const fall=between(t,defeated,defeated+.38);
   return {x:0,y:0,z:0,fall,
