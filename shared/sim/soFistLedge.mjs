@@ -18,6 +18,18 @@ const forward=b=>({x:-Math.sin(b.heading),z:-Math.cos(b.heading)});
 const palm=b=>soFistUpperPoint(soFistFrame(b),b,[0,.34*SO_FIST_SCALE,.885*SO_FIST_SCALE]);
 const nearbyObstacle=(box,obstacles)=>obstacles.some(s=>machineryOverlap(box,s));
 const lerp=(a,b,t)=>a+(b-a)*t;
+// The first 0.18s visibly commits the fingers to the rim. Only then can
+// the hydraulic ram use the planted hand to haul its chassis forward.
+export function hellpingLedgePose(from,to,t){
+ const pull=Math.max(0,Math.min(1,(t-.18)/.82));
+ const e=pull*pull*(3-2*pull);
+ return {x:lerp(from.x,to.x,e),y:lerp(from.y,to.y,e)+LEDGE_PULL.arc*Math.sin(Math.PI*pull),
+   z:lerp(from.z,to.z,e),heading:lerp(from.heading,to.heading,e),
+   chassisPitch:lerp(from.chassisPitch??0,to.chassisPitch??0,e),
+   chassisRoll:lerp(from.chassisRoll??0,to.chassisRoll??0,e),
+   wheelOffsets:(to.wheelOffsets??from.wheelOffsets??[]).map((n,i)=>
+      lerp(from.wheelOffsets?.[i]??0,n,e))};
+}
 
 export function findHellpingLedge(room,b,now=0){
  const world=room?.world;
@@ -69,10 +81,8 @@ export function findHellpingLedge(room,b,now=0){
   // or another siege engine just because its wheels lose support in between.
   let clear=true,last={...b};
   for(let k=1;k<=16;k++){
-   const t=k/16,e=t*t*(3-2*t);
-   const next={...b,x:lerp(b.x,x,e),y:lerp(b.y,landing.y,e)+LEDGE_PULL.arc*Math.sin(Math.PI*t),
-     z:lerp(b.z,z,e),chassisPitch:lerp(b.chassisPitch??0,landing.chassisPitch,e),
-     chassisRoll:lerp(b.chassisRoll??0,landing.chassisRoll,e)};
+   const t=k/16;
+   const next={...b,...hellpingLedgePose(b,landing,t)};
    const solids=soFistSolids(next);
    if(solids.some(box=>nearbyObstacle(box,obstacles))||
        (world.edgeBoundary&&!edgeMachineProgressAllowed(soFistSolids(last),solids,world.edgeBoundary))){
