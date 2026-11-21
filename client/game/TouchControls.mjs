@@ -150,6 +150,15 @@ export class TouchControls {
           <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill','siegeSweep'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
+    // The live reserve is attached to the BOLT control and follows saved,
+    // mirrored and resized layouts; it is not a floating HUD rectangle.
+    this.boltAmmoPill=document.createElement('b');
+    this.boltAmmoPill.className='touch-bolt-ammo';
+    this.boltAmmoPill.setAttribute('aria-hidden','true');
+    this.buttons=Object.fromEntries([...this.layer.querySelectorAll('[data-action]')]
+      .filter(element=>element.classList.contains('touch-btn'))
+      .map(element=>[element.dataset.action,element]));
+    this.buttons.siegeWeapon.querySelector('.touch-face')?.append(this.boltAmmoPill);
     // A read-only, full-layer ink overlay connects the ACTUAL four Flight
     // buttons. It never becomes a fifth movable control or intercepts taps.
     // The original Jump finger is captured by the existing touch layer.
@@ -729,6 +738,9 @@ export class TouchControls {
       }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
+      // Sweep is a Ballista-only action. Never leave its touch target in the
+      // Flight corner, including on first mount or after editing layouts.
+      this.buttons.siegeSweep.hidden=!ballista;
       // Mounted weapon recovery uses the same dark shade/fill as spell
       // cooldowns. The controls own this information, not the giant status
       // banner in the middle of the Ballista's sightline.
@@ -764,6 +776,11 @@ export class TouchControls {
         setMountedRecovery(this.buttons.ramFlick,recovery,cycle);
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
           Math.max(1,rb.skill?.cooldownSec??8));
+      }else if(flight&&fb){
+        // Fire Away / Narrow / Ascension use the same recovering ink as
+        // spells, not a separate READY panel. Active Skills have no shade.
+        const recovery=fb.skill?.phase==='active'?0:Math.max(0,(fb.skill?.readyAt??0)-serverNow);
+        setMountedRecovery(this.buttons.siegeSkill,recovery,24);
       }else{
         for(const action of ['attack','ramFlick','siegeSkill','siegeSweep'])
           setMountedRecovery(this.buttons[action],0,1);
@@ -900,8 +917,8 @@ export class TouchControls {
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
         const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':skill.trackingState==='preview'?'MARKED':'ACQUIRE'):
-          flightSkillId==='doNotStopMyAscension'?'CHARGE':'CHG '+Math.ceil(Math.max(0,fb?.flightCharge??0))):
-          remaining>0?Math.ceil(remaining)+'s':flightSkillShort):siegeSkillControlLabel(machine,serverNow);
+          flightSkillId==='doNotStopMyAscension'?'CHARGE':'FIRE AWAY'):
+          flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':'Beat to the Punch'):'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
         if (flight) {
@@ -941,7 +958,10 @@ export class TouchControls {
         this.buttons.siegeWeapon.hidden = !mounted || ram || (!flight&&bl?.mode !== 'DEPLOYED');
         const next = flight?'BOLT':bl?.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN';
         this.buttons.siegeWeapon.querySelector('span').textContent = next;
-        this.buttons.siegeWeapon.setAttribute('aria-label',flight?'Hold to fire the left-hand repeating crossbow':`Control ${next.toLowerCase()} launcher${next === 'UPPER' ? ' and cancel alignment' : ''}`);
+        if(this.boltAmmoPill){
+          this.boltAmmoPill.textContent=flight?Math.max(0,Math.floor(fb?.ammo??0))+'/'+FLIGHT_REPEATER.capacity:'';
+        }
+        this.buttons.siegeWeapon.setAttribute('aria-label',flight?`Hold to fire the left-hand repeating crossbow; ammo ${Math.max(0,Math.floor(fb?.ammo??0))} of ${FLIGHT_REPEATER.capacity}`:`Control ${next.toLowerCase()} launcher${next === 'UPPER' ? ' and cancel alignment' : ''}`);
       }
 
       if (mounted) {
