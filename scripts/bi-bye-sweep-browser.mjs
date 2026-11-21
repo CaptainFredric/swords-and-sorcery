@@ -56,7 +56,7 @@ async function key(letter,type){
 async function tap(letter){await key(letter,'rawKeyDown');await sleep(90);await key(letter,'keyUp');}
 // Run against one locally hosted Castleward (the original v26 GLB MUST be staged).
 // SIEGE_BROWSER_URL=http://127.0.0.1:3001 CHROME_BIN=chromium node scripts/bi-bye-sweep-browser.mjs
-// Real Chrome/CDP, physical K/U/left-click, server snapshots and actual mesh inventory.
+// Real Chrome/CDP, physical E/U/left-click, server snapshots and actual mesh inventory.
 const state="(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,b=s?.bibyeBallista;return {mode:s?.mode,at:s?.serverTime,ballista:b?{id:b.id,x:b.x,y:b.y,z:b.z,operatorId:b.operatorId,mode:b.mode,heading:b.heading,mainYaw:b.mainYaw,mainPitch:b.mainPitch,skill:b.skill,sweep:b.sweep,mainBoltLoaded:b.mainBoltLoaded,smallBoltReadyAt:b.smallBoltReadyAt,weaponFocus:b.weaponFocus}:null,projectiles:(s?.bibyeProjectiles??[]).map(p=>({id:p.id,subKind:p.subKind})),me:r?.localAuth?{id:r.localAuth.id,operating:r.localAuth.operatingBallistaId,position:r.localAuth.position}:null};})()";
 const observe=()=>evaluate(state);
 let proof={};
@@ -162,14 +162,14 @@ try{
  // software-WebGL frames in CI, so polling 'sweep!==null' can falsely time out.
  await evaluate("(() => {window.__bibyeActions=[];window.__ssLink.local.on('events',data=>{for(const e of data?.events??[])if(/^bibye|^siegeSkill/.test(e.type))window.__bibyeActions.push(e);});})()");
  const initialHeading=mounted.ballista.heading;
- const kPre=await evaluate("({enabled:window.__ssRuntime.input.enabled,mounted:window.__ssRuntime.input.mountedBallista,key:window.__ssRuntime.input.actionOf.get('KeyK'),allowed:window.__ssRuntime.input.allowAction?.('siegeSweep',false),errors:window.__bibyeMountErrors})");
- console.log('[BI-BYE K INPUT]',JSON.stringify(kPre));
- assert.equal(kPre.key,'siegeSweep','K binding has to exist on the mounted controller');
- await tap('K');
+ const ePre=await evaluate("({enabled:window.__ssRuntime.input.enabled,mounted:window.__ssRuntime.input.mountedBallista,key:window.__ssRuntime.input.actionOf.get('KeyE'),allowed:window.__ssRuntime.input.allowAction?.('siegeSweep',false),errors:window.__bibyeMountErrors})");
+ console.log('[BI-BYE E INPUT]',JSON.stringify(ePre));
+ assert.equal(ePre.key,'siegeSweep','E binding must route to Sharp Turn when mounted');
+ await tap('E');
  const firstEvents=await evaluate("({events:window.__bibyeActions,errors:window.__bibyeMountErrors})");
- console.log('[BI-BYE K POST]',JSON.stringify(firstEvents));
- if(firstEvents.errors?.length)throw Error('Server rejected K: '+JSON.stringify(firstEvents.errors));
- const eventStart=await until(()=>evaluate("window.__bibyeActions?.find(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started')"),'authoritative K Sharp Turn started event',60);
+ console.log('[BI-BYE E POST]',JSON.stringify(firstEvents));
+ if(firstEvents.errors?.length)throw Error('Server rejected E: '+JSON.stringify(firstEvents.errors));
+ const eventStart=await until(()=>evaluate("window.__bibyeActions?.find(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started')"),'authoritative E Sharp Turn started event',60);
  const single=(await observe());
  assert.equal(eventStart.kind,'single');
  assert.equal(single.ballista.skill.readyAt,0);

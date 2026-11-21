@@ -201,3 +201,18 @@ test('a phone or tablet starts on Balanced quality; a desktop on Sharp; a choice
     id: 's.q', section: 's', label: 'Q', type: 'choice', default: 'a', touchDefault: 'z', options: [{ value: 'a', label: 'A' }],
   }), /touch default/);
 });
+
+test('mounted ballista Sharp Turn E shares Dash E contextually, including after rebinding',()=>{
+ const store=new SettingsStore({registry,storage:memoryStorage()});
+ assert.deepEqual(store.keysFor('dash'),['KeyE']);
+ assert.deepEqual(store.keysFor('siegeSweep'),['KeyE']);
+ assert.deepEqual(store.keysFor('siegeSkill'),['KeyU']);
+ assert.equal(store.bind('siegeSweep',0,'KeyE'),null);
+ assert.deepEqual(store.keysFor('dash'),['KeyE'],'customizing Sharp Turn does not unbind on-foot Dash');
+ assert.equal(store.bind('dash',0,'KeyE'),null);
+ assert.deepEqual(store.keysFor('siegeSweep'),['KeyE'],'reversing the rebinding preserves mounted turn');
+ const displaced=store.bind('spell',0,'KeyE');
+ assert.equal(displaced,'dash','unrelated ability still displaces both occupants');
+ assert.deepEqual(store.keysFor('dash'),[]);
+ assert.deepEqual(store.keysFor('siegeSweep'),[]);
+});

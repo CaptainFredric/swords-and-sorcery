@@ -37,3 +37,30 @@ export function restrainFlickThumb(parts,age){
   part.node.quaternion.slerp(moderated,begin);
  }
 }
+
+// HELLping uses many authored clips. Their thumb track can swing into a
+// reverse-folded pose when the open palm transitions to a grasp or claw.
+// Keep the three genuine joints and the existing animation; limit only the
+// excursion from the production hand's CLOSED anatomical rest. This avoids
+// replacing the thumb with another static mesh or freezing its movement.
+const HELLPING_THUMB_LIMITS=Object.freeze([.82,.57,.43]);
+export function createHellpingThumbRestraint(root){
+ if(!root)return [];
+ return THUMB_NAMES.flatMap((name,index)=>{
+  const node=root.getObjectByName(name);
+  return node?[{node,name,index,rest:node.quaternion.clone()}]:[];
+ });
+}
+export function restrainHellpingThumb(parts){
+ if(!parts?.length)return;
+ for(const part of parts){
+  const maxAngle=HELLPING_THUMB_LIMITS[part.index];
+  const difference=part.rest.angleTo(part.node.quaternion);
+  if(difference>maxAngle+1e-5){
+   // Preserve the original animated swing, but never allow an exaggerated
+   // backward fold or compounded distal-joint kink.
+   const authored=part.node.quaternion.clone();
+   part.node.quaternion.copy(part.rest).slerp(authored,maxAngle/difference);
+  }
+ }
+}

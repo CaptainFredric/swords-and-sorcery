@@ -32,7 +32,7 @@ test('Flight HUD labels selected indefinite Skills and shows actionable lock fee
  assert.equal(a.skillIcon,'doNotStopMyAscension');
 });
 
-test('Mounted Flight retains its E tile while ram and ballista display only their equipped U Skill',()=>{
+test('Mounted Flight retains Dash E, ram shows Skill U, and ballista shows Sharp Turn E plus Skill U',()=>{
  const css=readFileSync(new URL('../../client/styles.css',import.meta.url),'utf8');
  const hud=readFileSync(new URL('./HUD.mjs',import.meta.url),'utf8');
  const armory=readFileSync(new URL('../main.mjs',import.meta.url),'utf8');

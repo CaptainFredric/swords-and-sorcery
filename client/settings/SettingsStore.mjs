@@ -74,8 +74,10 @@ export class SettingsStore {
   }
 
   /**
-   * Put `code` in one of an action's two slots (null clears the slot). A key belongs to one action only: if another
-   * action had it, it loses it. Returns the action that lost the key, if any.
+   * Put `code` in one of an action's two slots (null clears the slot).
+   * Duplicate keys displace other actions EXCEPT mounted ballista Sharp Turn
+   * and the ordinary Dash: they can share a key because the machines are
+   * mutually exclusive. InputController routes their presses by mount type.
    */
   bind(action, slot, code) {
     if (!this.registry.actions.has(action) || (slot !== 0 && slot !== 1)) return null;
@@ -84,8 +86,11 @@ export class SettingsStore {
     if (code !== null) {
       for (const other of this.registry.actionList()) {
         if (other.id === action || !this.keysFor(other.id).includes(code)) continue;
+        const contextualPair=(action==='dash'&&other.id==='siegeSweep')||
+          (action==='siegeSweep'&&other.id==='dash');
+        if(contextualPair)continue;
         this.bindings[other.id] = this.keysFor(other.id).filter((key) => key !== code);
-        displaced = other.id;
+        displaced??=other.id;
       }
     }
     const keys = [...this.keysFor(action)];
