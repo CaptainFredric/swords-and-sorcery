@@ -18,7 +18,7 @@ function fixture(kind){
  foe.spawnProtectionUntil=0;driver.spawnProtectionUntil=0;
  foe.health=500;foe.grounded=true;
  const machine=kind==='ram'?createSoFistication({x:0,y:0,z:0,heading:0}):
-   createBiByeLlista({x:0,y:0,z:0,heading:0});
+   createBiByeLlista({x:0,y:0,z:0,baseYaw:0});
  if(kind==='ram'){
   room.soFistication=machine;driver.position.z=3.1;
   assert.equal(mountSoFistication(room,machine,driver,0),true);
