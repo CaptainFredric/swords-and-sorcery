@@ -344,6 +344,7 @@ test('A charging barrage has no income during held Fire, but regains neutral-hov
  assert.ok(afterFiring<70,'both physical bolt costs and flight drain are paid');
  requestFightFlightFire(room,m,p,false,1.5);
  for(let i=1;i<=36;i++)tick(room,m,1.5+i*DT);
- assert.ok(Math.abs(m.flightCharge-afterFiring)<.4,'neutral hover is charge-neutral after firing is released');
+ assert.ok(m.flightCharge>=afterFiring-1.6&&m.flightCharge<=afterFiring+.2,
+   'the immediate post-shot grace spends less than 1.6 charge, then hover remains neutral');
  assert.equal(m.skill.phase,'active');
 });
