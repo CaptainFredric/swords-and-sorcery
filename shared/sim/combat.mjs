@@ -2371,6 +2371,9 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
   ];
   for(const [machine,kind] of machines) {
     if(!machine||machine.retired||machine.mode==='DESTROYED'||!(machine.health>0))continue;
+    // The rider's own platform remains friendly even in FFA/Practice when
+    // neither actor nor machine has a team ID. Other machines still take hits.
+    if(machine.operatorId===caster.id)continue;
     if(machine.team&&caster.team&&machine.team===caster.team)continue;
     const key=`${caster.id}:${cast}:${machine.id}`;
     if(seen.has(key))continue;
@@ -2809,6 +2812,7 @@ function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
     [room.fightFlight,fightFlightFirstHit(room.fightFlight,from,to,.16)],
   ]) {
     if(!hit||!machine||machine.retired||machine.health<=0)continue;
+    if(machine.operatorId===caster.id)continue;
     if(machine.team&&caster.team===machine.team)continue;
     if(Number.isFinite(hit.t)&&(!nearest||hit.t<nearest.t))
       nearest={t:hit.t,point:{x:from.x+(to.x-from.x)*hit.t,
