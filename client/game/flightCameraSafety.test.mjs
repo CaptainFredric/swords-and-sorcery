@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stableFlightCockpitEye,finiteFlightLook,FLIGHT_VISOR} from './flightCameraSafety.mjs';
+import {stableFlightCockpitEye,flightReticleOrigin,finiteFlightLook,FLIGHT_VISOR} from './flightCameraSafety.mjs';
 
 const m=(pitch=0,height=0,heading=0)=>({
   id:'flight-1',x:1,y:height,z:2,heading,runPitch:pitch,
@@ -53,4 +53,35 @@ test('GLB not loaded, invalid/missing snapshots or nonfinite eye never poison th
  assert.deepEqual(finiteFlightLook(NaN,Infinity,1),{yaw:1,pitch:0});
  assert.deepEqual(finiteFlightLook(-2,12),{yaw:-2,pitch:1.45});
  assert.deepEqual(finiteFlightLook(2,-12),{yaw:2,pitch:-1.45});
+});
+
+test('hard reversing cannot pull the authored cockpit eye inside the steel carriage',()=>{
+ const machine=m(0,5,.4);
+ const stable=stableFlightCockpitEye(machine,null);
+ const backwards={x:stable.x+.55,y:stable.y-.24,z:stable.z-.95};
+ const eye=stableFlightCockpitEye(machine,backwards,0);
+ assert.ok(Math.hypot(eye.x-stable.x,eye.y-stable.y,eye.z-stable.z)<=FLIGHT_VISOR.maxAuthoredEyeTravel+1e-6,
+   'carriage-animation displacement is bounded to small cockpit motion');
+ assert.ok(eye.y>machine.y+1.1,'the eye never descends into the steel bracing');
+ assert.notDeepEqual(eye,stable,'authored tiny motion is retained, not disabled');
+ for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2]){
+   machine.heading=heading;
+   const moving={x:machine.x-.7,y:machine.y+.7,z:machine.z+.9};
+   const point=stableFlightCockpitEye(machine,moving);
+   const centered=stableFlightCockpitEye(machine,null);
+   assert.ok(Math.hypot(point.x-centered.x,point.y-centered.y,point.z-centered.z)<=.101);
+ }
+});
+test('reticle convergence uses the latest Flight machine eye, not last frame on a reversal',()=>{
+ const before=m(0,4,0),after=m(0,4,0);
+ const oldEye=stableFlightCockpitEye(before,null);
+ after.x+=.8;after.z-=.5;
+ const origin=flightReticleOrigin(after,oldEye,{sight:true,thirdBlend:0});
+ const current=stableFlightCockpitEye(after,null);
+ assert.deepEqual(origin,current,'the server-directed shot follows the current machine');
+ assert.notDeepEqual(origin,oldEye);
+ assert.equal(flightReticleOrigin(after,oldEye,{sight:false}),oldEye,
+   'third-person boom stays at its collision-clipped camera');
+ assert.equal(flightReticleOrigin(after,oldEye,{sight:true,thirdBlend:.5}),oldEye,
+   'a returning Dash boom retains the actual transitional camera');
 });
