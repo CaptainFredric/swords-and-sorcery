@@ -41,9 +41,18 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
   }
   if(now+1e-8<(m.skill?.readyAt??0))return chosen===FIRE_AWAY?'Fire Away is recovering.':chosen.name+' is recovering.';
   if(chosen===FIRE_AWAY){
-    if(m.rotorHP<=0||(m.rotorRPM??0)<FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance)
-      return 'Fire Away requires an intact rotor at 450 RPM.';
+    if(m.rotorHP<=0)return 'Fire Away requires an intact rotor.';
+    if(m.emergencyBrakeActive||m.terminalDive||m.rotorBrakeHeld)
+      return 'Release the rotor brake before Fire Away.';
     if(!(m.flightCharge>0))return 'Fire Away requires flight charge.';
+    // The Skill starts the actual rotor motor. Its activation winds the
+    // authoritative shaft to operating speed even from a cold grounded stop.
+    // A broken rotor, brake or depleted battery cannot bypass this check.
+    m.rotorPowered=true;
+    m.rotorAngularVelocity=Math.PI*15;
+    m.rotorRPM=FIRE_AWAY.requiredRPM;
+    m.rotorTargetRPM=FIRE_AWAY.requiredRPM;
+    m.rotorEnergy=Math.max(m.rotorEnergy??0,100);
   }
   // Older machines can retain debt from the removed borrowing implementation.
   // It is obsolete for charge-funded Fire Away, and must not delay post-barrage reload.
@@ -81,10 +90,10 @@ export function stepFightFlightSkill(room,m,now){
     if(m.rotorHP<=0||(m.rotorRPM??0)<FIRE_AWAY.requiredRPM-FIRE_AWAY.rpmTolerance){
       endFightFlightSkill(room,m,now,'rotorLost');return;
     }
-    // Residual power below one bolt cannot fund another attack: exhaust it.
-    if((m.flightCharge??0)+1e-8<FIRE_AWAY.boltCharge){
-      m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');
-    }
+    // An unfired partial bolt's worth of power can recover while Fire
+    // is released. End the Skill only on actual depletion, not at 1.49.
+    if((m.flightCharge??0)<=0)
+      endFightFlightSkill(room,m,now,'exhausted');
     return;
   }
   if(now+1e-8>=(m.skill.activeUntil??0))endFightFlightSkill(room,m,now);
@@ -120,10 +129,4 @@ export function fightFlightChargeCostDt(m,dt,now){
   const elapsed=fightFlightBarrageFiring(m,now)?Math.max(dt,now-anchor):dt;
   m.skill.flightCostAccountedAt=now;
   return elapsed;
-}
-export function fightFlightHoverSupport(m,now,{climbing=false,descending=false}={}){
-  // Only Fire Away offsets level hover power, never climb.
-  return fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.operatorId&&
-    !fightFlightBarrageFiring(m,now)&& // Do not gain a free hover tick by feathering Fire between bolts.
-    !m.grounded&&!climbing&&!descending&&m.rotorHP>0&&m.flightCharge>0;
 }
