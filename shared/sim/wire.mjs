@@ -309,7 +309,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
         room.soFistication.detachedFist?.state??(room.soFistication.fistMounted?'attached':'absent'),
       drivePressure:room.soFistication.pressure,
       reverseChargeAvailable:soFistReverseChargeAvailable(room.soFistication),
-      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,wheelContactAt:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
