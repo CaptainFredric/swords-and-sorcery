@@ -124,6 +124,7 @@ export function stepFinalJaw(room,b,now){
     velocity:{x:direction[0]*RAM_FIST.speed,y:direction[1]*RAM_FIST.speed,z:direction[2]*RAM_FIST.speed},
     launchedAt:now,launchHeading:b.heading??0,launchPitch:angle,
     traveled:0,ownerId:s.ownerId,home:{...home},impactCount:0,
+    hitVictims:[],hitMachines:[],
     spin:{x:0,y:0,z:0},angularVelocity:{x:6.8,y:1.1,z:.7},
     healthAtLaunch:Math.max(0,b.components?.Fist?.health??0),
     isFinal:true,fragment:s.variant==='damaged'};
