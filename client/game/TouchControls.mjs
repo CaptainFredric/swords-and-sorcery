@@ -3,6 +3,7 @@ import {soFistOperator,soFistEntry} from '../../shared/sim/soFistication.mjs';
 import {flightMountReach,ramMountReach,ballistaMountReach} from '../../shared/src/siegeMountReach.mjs';
 import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
 import {BI_BYE_WEAPONS} from '../../shared/sim/biByeWeapons.mjs';
+import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
