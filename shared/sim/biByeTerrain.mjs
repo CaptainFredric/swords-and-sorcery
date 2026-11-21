@@ -56,7 +56,8 @@ function planeFit(points){
  const det=xx*zz-xz*xz,a=(xy*zz-zy*xz)/det,c=(zy*xx-xy*xz)/det;
  return {a,c,d:m-a*mx-c*mz};
 }
-export function biByeTerrainPose(b,ctx){
+export function biByeTerrainPose(b,ctx,diagnostic=null){
+ const reject=(reason,data={})=>{if(diagnostic)Object.assign(diagnostic,{reason,...data});return null;};
  let pose={...b},contacts=[];
  const steering=biByeWheelSteering(b.steer??0),wheelDefs=BI_BYE_COMPONENTS.slice(0,6);
  for(let iteration=0;iteration<5;iteration++){
@@ -70,23 +71,24 @@ export function biByeTerrainPose(b,ctx){
    const direct=groundAt(ctx,p[0],p[2],ceiling);
    const onRamp=ctx.surfaces.some(s=>(s.a||s.c)&&inside(s,p[0],p[2])&&
      Math.abs(height(s,p[0],p[2])-direct)<.015);
-   if(direct===null||p[1]-direct>R+.32||
-      direct-p[1]>(onRamp?R+.3:BI_BYE_TERRAIN.step))return null;
+   if(direct===null||p[1]-direct>(onRamp?R+1.65:R+.32)||
+      direct-p[1]>(onRamp?R+.3:BI_BYE_TERRAIN.step))
+     return reject('wheel-contact-gap',{iteration,wheel:def.id,direct,axleY:p[1],onRamp});
    let y=-Infinity;
    for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,ceiling)-root.axes[0][1]*lane);}
    return Number.isFinite(y)?[def.pivot[0],def.pivot[2],y]:null;
   });
-  if(contacts.some(p=>!p))return null;
+  if(contacts.some(p=>!p))return reject('unsupported-wheel',{iteration});
   const plane=planeFit(contacts),pitch=Math.asin(clamp(plane.c,-1,1)),roll=Math.asin(clamp(plane.a/Math.cos(pitch),-1,1));
   const grade=Math.acos(clamp(Math.cos(pitch)*Math.cos(roll),-1,1));
-  if(grade>BI_BYE_TERRAIN.mobileGrade+.002)return null;
+  if(grade>BI_BYE_TERRAIN.mobileGrade+.002)return reject('grade-limit',{iteration,grade,limit:BI_BYE_TERRAIN.mobileGrade});
   pose={...pose,chassisPitch:Math.abs(pitch)<1e-10?0:pitch,chassisRoll:Math.abs(roll)<1e-10?0:roll,y:plane.d-R*Math.cos(pitch)*Math.cos(roll)};
  }
  const root=biByeRootFrame(pose),up=root.axes[1][1];
  let offsets=contacts.map(([x,z,y],i)=>(y-boxWorld(root,wheelDefs[i].pivot)[1])/up);
  const center=(Math.max(...offsets)+Math.min(...offsets))/2;
  pose.y+=center*up;offsets=offsets.map(v=>v-center);
- if(offsets.some(v=>Math.abs(v)>BI_BYE_TERRAIN.wheelTravel+1e-6))return null;
+ if(offsets.some(v=>Math.abs(v)>BI_BYE_TERRAIN.wheelTravel+1e-6))return reject('wheel-travel',{offsets});
  return {y:pose.y,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:offsets};
 }
 function overlaps(a,b){
