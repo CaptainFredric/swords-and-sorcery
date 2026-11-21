@@ -120,7 +120,7 @@ test('Flight instruments are in the health stack; no central status panel or dup
  const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
  const controls=readFileSync(new URL('../game/TouchControls.mjs',import.meta.url),'utf8');
  assert.match(hud,/flightChargeRail/);
- assert.match(hud,/guardBlock.insertAdjacentElement\('afterend',this.flightChargeRail\)/);
+ assert.match(hud,/guardBlock.append\(this.flightChargeRail\)/);
  assert.doesNotMatch(hud,/this\.flightPanel/);
  assert.match(mobile,/touch-flight \.touch-siegeSweep \{display:none!important;\}/);
  assert.match(controls,/this\.buttons\.siegeSweep\.hidden=!ballista/);
