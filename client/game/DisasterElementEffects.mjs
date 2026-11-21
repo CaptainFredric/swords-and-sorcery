@@ -729,34 +729,71 @@ export class DisasterElementEffects {
       seen.add(field.id);
       let entry = this.fields.get(field.id);
       if (!entry) {
-        entry = { acc: {}, arcAt: 0, rock: this.#rockField(field), ice: null };
-        if (field.tiers?.frost === 2) entry.ice = this.#iceField(field);
+        entry = {acc:{},arcAt:0,rock:field.air?null:this.#rockField(field),ice:null};
+        if (!field.air&&field.tiers?.frost===2) entry.ice=this.#iceField(field);
         this.fields.set(field.id, entry);
       }
-      this.#poseRockField(entry.rock,field,strength,now);
+      if(entry.rock)this.#poseRockField(entry.rock,field,strength,now);
       const p = field.position, floor = p.y + 0.03;
       const emit = (key, perSec, fn) => {
         entry.acc[key] = (entry.acc[key] ?? 0) + perSec * this.density * dt * strength;
         while (entry.acc[key] >= 1) { entry.acc[key] -= 1; fn(); }
       };
-      const inside = (share = 1) => { const a = rand(TAU),
-        r = Math.sqrt(Math.random()) * groundFootprintRadius(field.radius,field.yaw,Math.cos(a),Math.sin(a))*share;
-        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      // every field: the broken ground still shifting, grit hopping and dust hanging over it
-      emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), floor, 0.6); });
-      emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
+      const inside=(share=1)=>{
+        if(field.air)return insideAirBlast(field,share);
+        const a=rand(TAU),r=Math.sqrt(Math.random())*
+          groundFootprintRadius(field.radius,field.yaw,Math.cos(a),Math.sin(a))*share;
+        return {x:p.x+Math.cos(a)*r,y:floor,z:p.z+Math.sin(a)*r};
+      };
+      if(field.air){
+        // A compact suspended pressure volume, clearly visible for its
+        // 1.15–1.55 second authoritative lifetime, then gone. It is made of
+        // bounded particles, NOT an opaque sphere or a patch of floating dirt.
+        emit('airflow',88,()=>{
+          const at=inside(.96),velocity=field.direction??{x:0,y:0,z:-1};
+          this.#mote(field.tiers?.gale?'gale':'steel',at,
+            {x:velocity.x*rand(.7,2.3)+rand(-.7,.7),
+             y:velocity.y*rand(.7,2.3)+rand(-.6,.6),
+             z:velocity.z*rand(.7,2.3)+rand(-.7,.7)},
+            {size:rand(.010,.022),ttl:rand(.21,.40),stretch:rand(7,13),drag:1.1});
+        });
+        emit('airhaze',18,()=>{
+          const at=inside(.8);
+          this.#dust(at,{x:rand(-.6,.6),y:rand(-.4,.4),z:rand(-.6,.6)},
+            rand(.08,.16),rand(.4,.7),field.tiers?.frost?0xcbe9eb:0xb0bdb1);
+        });
+      }else{
+        // Earth only fractures where the wave truly hit the ground.
+        emit('grit',26,()=>{const at=inside();
+          this.#stone(at,{x:rand(-.4,.4),y:rand(1.2,2.6),z:rand(-.4,.4)},
+            rand(.02,.05),floor,.6);});
+        emit('haze',2.5,()=>{const at=inside();
+          this.#dust({...at,y:floor+.12},
+            {x:rand(-.3,.3),y:rand(.25,.6),z:rand(-.3,.3)},rand(.16,.28),1.3);});
+      }
       if (field.tiers?.frost === 2) {
         // cold coming up off the ice, and the ice itself sinking back as the field goes
-        emit('cold', 20, () => { const at = inside(); this.#mote('frost', { ...at, y: floor + rand(0.05, 0.3) }, { x: rand(-0.4, 0.4), y: rand(0.3, 0.9), z: rand(-0.4, 0.4) }, { size: rand(0.02, 0.04), ttl: rand(0.6, 1), stretch: 2.5, drag: 0.8 }); });
-        emit('mist', 3, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.1 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.26, 1.4, 0xd4edf8); });
+        emit('cold',field.air?48:20,()=>{const at=inside();
+          this.#mote('frost',field.air?at:{...at,y:floor+rand(.05,.3)},
+            {x:rand(-.4,.4),y:rand(.3,.9),z:rand(-.4,.4)},
+            {size:rand(.02,.04),ttl:rand(.35,field.air?.7:1),stretch:2.5,drag:.8});});
+        emit('mist',field.air?14:3,()=>{const at=inside();
+          this.#dust(field.air?at:{...at,y:floor+.1},
+            {x:rand(-.5,.5),y:.15,z:rand(-.5,.5)},
+            .26,field.air?.6:1.4,0xd4edf8);});
         if (entry.ice) this.#poseIce(entry.ice, field, strength, now);
       }
       if (field.tiers?.lightning === 2 && this.clock >= entry.arcAt) {
         // arcs crawling over the ground between two points of it: fewer and thinner as the charge runs out
         entry.arcAt = this.clock + rand(0.05, 0.11) / Math.max(0.15, strength) / this.density;
         const a = inside(), b = inside();
-        this.#bolt(new THREE.Vector3(a.x, floor + 0.08, a.z), new THREE.Vector3(b.x, floor + rand(0.1, 0.9 * strength + 0.15), b.z), { width: 0.016 + 0.03 * strength, ttl: 0.12, jag: 0.2, forks: strength > 0.5 ? 2 : 1 });
-        for (let i = 0; i < 3; i += 1) this.#mote('lightning', { ...b, y: floor + 0.1 }, { x: rand(-2, 2), y: rand(1, 3.5), z: rand(-2, 2) }, { size: 0.016, ttl: 0.22, gravity: 12, stretch: 5 });
+        this.#bolt(new THREE.Vector3(a.x,field.air?a.y:floor+.08,a.z),
+          new THREE.Vector3(b.x,field.air?b.y:floor+rand(.1,.9*strength+.15),b.z),
+          {width:.016+.03*strength,ttl:.12,jag:.2,forks:strength>.5?2:1});
+        for(let i=0;i<3;i++)this.#mote('lightning',
+          field.air?b:{...b,y:floor+.1},
+          {x:rand(-2,2),y:rand(1,3.5),z:rand(-2,2)},
+          {size:.016,ttl:.22,gravity:field.air?1:12,stretch:5});
       }
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
@@ -993,24 +1030,32 @@ export class DisasterElementEffects {
       const entry = this.fireAcc[zone.id] ??= { flame: 0, ember: 0, smoke: 0, seen: 0 };
       entry.seen = this.clock;
       const p = zone.position, floor = p.y + 0.03;
-      const inside = () => { const a = rand(TAU),
-        r = Math.sqrt(Math.random()) * groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
-        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      entry.flame += 340 * (0.25 + 0.75 * strength) * this.density * dt;
+      const inside=()=>{
+        if(zone.air)return insideAirBlast(zone);
+        const a=rand(TAU),r=Math.sqrt(Math.random())*
+          groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
+        return {x:p.x+Math.cos(a)*r,y:floor,z:p.z+Math.sin(a)*r};
+      };
+      entry.flame += (zone.air?145:340) * (.25+.75*strength)*this.density*dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
-        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.07, 0.13) * (0.5 + 0.5 * strength), ttl: rand(0.28, 0.5), stretch: 3.4, drag: 1.2 });
+        this.#mote('fire',inside(),{x:rand(-.3,.3),
+          y:zone.air?rand(-.5,.7):rand(1.2,2.2+2.4*strength),z:rand(-.3,.3)},
+          {size:rand(.07,.13)*(.5+.5*strength),ttl:rand(.28,.5),
+           stretch:3.4,drag:1.2});
       }
-      entry.ember += 26 * strength * this.density * dt;
+      entry.ember += (zone.air?18:26) * strength * this.density * dt;
       while (entry.ember >= 1) {
         entry.ember -= 1;
         this.#mote('fire', inside(), { x: rand(-0.8, 0.8), y: rand(2.5, 5), z: rand(-0.8, 0.8) }, { size: 0.018, ttl: rand(0.8, 1.4), stretch: 1.6, gravity: -1 });
       }
-      entry.smoke += 9 * (0.4 + 0.6 * strength) * this.density * dt;
+      entry.smoke += (zone.air?5:9) * (.4+.6*strength)*this.density*dt;
       while (entry.smoke >= 1) {
         entry.smoke -= 1;
         const at = inside();
-        this.#dust({ ...at, y: floor + rand(0.9, 1.5) }, { x: rand(-0.3, 0.3), y: rand(1.2, 2.2), z: rand(-0.3, 0.3) }, rand(0.35, 0.6), rand(1.4, 2.1), 0x2e2520);
+        this.#dust(zone.air?at:{...at,y:floor+rand(.9,1.5)},
+          {x:rand(-.3,.3),y:zone.air?rand(-.2,.9):rand(1.2,2.2),
+           z:rand(-.3,.3)},rand(.35,.6),zone.air?.7:rand(1.4,2.1),0x2e2520);
       }
     }
     for (const id of Object.keys(this.fireAcc)) if (this.clock - this.fireAcc[id].seen > 1) delete this.fireAcc[id];
