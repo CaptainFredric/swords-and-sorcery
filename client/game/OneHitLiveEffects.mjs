@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
 import { windbladePosition, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
-import { groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
+import { groundFootprintWarp, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
+import {makeWakeVisual, updateWakeVisual, disposeWakeVisual} from './disasterWakeGeometry.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -130,6 +131,7 @@ export class OneHitLiveEffects {
     scene.add(this.root);
     this.transients=[];
     this.waves=new Map();
+    this.wakeTrails=new Map();
     this.resolvedWaves=new Map();
     this.auras=new Map();
     this.zones=new Map();
@@ -239,6 +241,24 @@ export class OneHitLiveEffects {
     for(const child of this.teleportTarget.children){
       child.material.color.setHex(color);
       child.material.opacity=plan.legal?.83:.3;
+    }
+  }
+  #stepWakeTrails(snapshot,now){
+    const seen=new Set();
+    for(const field of snapshot?.oneHitFields??[]){
+      if(!field.trail||now>=field.until)continue;
+      seen.add(field.id);
+      let mesh=this.wakeTrails.get(field.id);
+      if(!mesh){
+        mesh=makeWakeVisual(field.tiers);
+        this.root.add(mesh);
+        this.wakeTrails.set(field.id,mesh);
+      }
+      updateWakeVisual(mesh,field,fieldStrength(field,now));
+    }
+    for(const [id,mesh] of this.wakeTrails)if(!seen.has(id)){
+      disposeWakeVisual(mesh);
+      this.wakeTrails.delete(id);
     }
   }
   #stepZones(snapshot,now) {
@@ -421,6 +441,7 @@ export class OneHitLiveEffects {
       mesh.userData.breathe?.(this.visualClock);
       this.elements.waveBody(wave,mesh,frame);
     }
+    this.#stepWakeTrails(snapshot,now);
     this.#stepZones(snapshot,now);
     this.#stepStatuses(snapshot,now);
     for(const [id,mesh] of this.waves)if(!tracked.has(id)){
@@ -464,12 +485,13 @@ export class OneHitLiveEffects {
   dispose(){
     for(const t of this.transients)this.#discard(t.mesh);
     for(const g of this.waves.values())this.#discard(g);
+    for(const g of this.wakeTrails.values())disposeWakeVisual(g);
     for(const g of this.auras.values())this.#discard(g);
     for(const g of this.zones.values())this.#discard(g);
     for(const e of this.statuses.values())this.#discard(e.root);
     this.#discard(this.reticle);this.#discard(this.teleportTarget);this.zones.clear();this.statuses.clear();
     for(const entry of this.conductHands.values())entry.effect.dispose();
-    this.transients=[];this.waves.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();
+    this.transients=[];this.waves.clear();this.wakeTrails.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();
     this.elements.dispose();
     this.root.parent?.remove(this.root);
   }
