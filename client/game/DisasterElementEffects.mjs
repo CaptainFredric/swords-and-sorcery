@@ -447,6 +447,27 @@ export class DisasterElementEffects {
         z:Math.sin(a)*flat*travel/life,
       },{size:rand(.025,.065),ttl:life,drag:1.3,stretch:rand(5,10)});
     }
+    // A legible expanding blast front: a brief 3D pressure shell composed
+    // entirely of the already-warmed particle pool. It pushes farther in
+    // the wave's actual direction and remains airy, never a solid orb.
+    const count=this.#n(76);
+    for(let i=0;i<count;i++){
+      const angle=(i+.35)*TAU/count,vertical=ground?rand(.06,.78):rand(-.94,.94);
+      const flat=Math.sqrt(Math.max(0,1-vertical*vertical));
+      const nx=Math.cos(angle)*flat,ny=vertical,nz=Math.sin(angle)*flat;
+      const rim=ground
+        ?groundFootprintRadius(radius,yaw,nx,nz)
+        :directionalBlastRadius(radius,direction,nx,ny,nz);
+      const ttl=rand(.26,.44),reach=rim*rand(.74,.98);
+      const white=i%3===0?0xf8fff3:0xc9ff97;
+      this.glow.spawn({
+        x:point.x+nx*.10,y:point.y+ny*.10,z:point.z+nz*.10,
+        vx:nx*reach/ttl,vy:ny*reach/ttl,vz:nz*reach/ttl,
+        sx:rand(.035,.07),sy:rand(.13,.26),sz:rand(.035,.065),
+        color:tiers.frost&&i%5===0?0xc7f1ff:white,
+        ttl,drag:.75,grow:.24,align:true,
+      });
+    }
     for(let i=0;i<this.#n(16);i++){
       const a=rand(TAU);
       this.#dust({x:point.x+Math.cos(a)*.3,y:point.y+.06,z:point.z+Math.sin(a)*.3},
@@ -561,7 +582,9 @@ export class DisasterElementEffects {
         ?groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle))
         :directionalBlastRadius(radius,direction,Math.cos(angle)*flat,lift,Math.sin(angle)*flat);
     };
-    if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers,yaw,direction);
+    // Gale's pressure burst is always present, including a Fire-infused
+    // detonation. Fire adds combustion to the same real explosion.
+    if(event.impactId)this.#waveExplosion(p,radius,ground,tiers,yaw,direction);
     if (ground) {
       // the ground breaks where the blade went in: stone thrown out and up, more of it and harder for Steel
       const rocks = this.#n(steel === 2 ? 80 : steel === 1 ? 46 : 22);
