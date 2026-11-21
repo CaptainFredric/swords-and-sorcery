@@ -3102,7 +3102,7 @@ $('#practice-spellblade').addEventListener('click', () => socket.practiceSpawnDu
 const KNIGHT_DRILL_KEY='ss-practice-ultimate-knight-drill-v1';
 const knightElements=['fire','frost','gale','lightning','steel'];
 const knightConfigPanel=$('#practice-ultimate-knight-config');
-const knightDrillDefaults=()=>({selection:'cycle',behavior:'stay',
+const knightDrillDefaults=()=>({selection:'cycle',behavior:'stay',behaviorExplicit:false,
   stages:Object.fromEntries(knightElements.map(id=>[id,0]))});
 function readSavedKnightDrill(){
   let raw=null;
@@ -3110,7 +3110,12 @@ function readSavedKnightDrill(){
   const result=knightDrillDefaults();
   if(['cycle','sunder','vortex','chivalry','one_hit_of_wonders'].includes(raw?.selection))
     result.selection=raw.selection;
-  if(['follow','stay'].includes(raw?.behavior))result.behavior=raw.behavior;
+  // Old v1 saves carried Follow as an implicit default even when the
+  // user never selected it. Migrate that implicit state to the new Stay
+  // default, but preserve any explicit Follow choice made after the update.
+  result.behaviorExplicit=raw?.behaviorExplicit===true;
+  if(raw?.behavior==='stay'||(raw?.behavior==='follow'&&result.behaviorExplicit))
+    result.behavior=raw.behavior;
   for(const element of knightElements)
     if([0,1,2].includes(raw?.stages?.[element]))
       result.stages[element]=raw.stages[element];
@@ -3147,7 +3152,7 @@ knightConfigPanel?.addEventListener('change',event=>{
     saveKnightDrill({...savedKnightDrill,selection:field.value});
     socket.send({type:'practiceUltimateKnightConfig',selection:field.value});
   }else if(field?.id==='practice-knight-behavior'){
-    saveKnightDrill({...savedKnightDrill,behavior:field.value});
+    saveKnightDrill({...savedKnightDrill,behavior:field.value,behaviorExplicit:true});
     socket.send({type:'practiceUltimateKnightConfig',behavior:field.value});
   }else if(field?.dataset?.knightElement){
     const element=field.dataset.knightElement,tier=Number(field.value);
