@@ -15,6 +15,7 @@ import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
+import { SIEGE_SKILLS } from '../../shared/sim/siegeSkills.mjs';
 import { biByeModeButton, biByeSkillIcon, biByeCombatView, biByeSweepCooldownView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode, clearTouchButtonOverlap } from './touchLayout.mjs';
@@ -793,7 +794,7 @@ export class TouchControls {
         setMountedRecovery(this.buttons.attack,recovery,cycle);
         setMountedRecovery(this.buttons.ramFlick,recovery,cycle);
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
-          Math.max(1,rb.skill?.cooldownSec??8));
+          Math.max(1,SIEGE_SKILLS[rb.skill?.id]?.cooldown??24));
       }else if(flight&&fb){
         // Fire Away / Narrow / Ascension use the same recovering ink as
         // spells, not a separate READY panel. Active Skills have no shade.
@@ -938,7 +939,7 @@ export class TouchControls {
           flightSkillId==='doNotStopMyAscension'?'CHARGE':'FIRE AWAY'):
           flightSkillShort):siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
-        button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':'Beat to the Punch'):'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':skill?.id==='hellpingHand'?'HELLping Hand':'Beat to the Punch'):(skill?.id==='coldHowTouching'?'Cold, How Touching':skill?.id==='lookAroundAndFindOut'?'Look Around and Find Out':'Bolt to the Occasion')}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
         if (flight) {
           const firing = Boolean(fb?.lastShotAt && (serverNow - fb.lastShotAt) < 0.16) || this.input?.flightFireHeld;
           button.classList.toggle('firing', firing);
