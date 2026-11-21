@@ -2786,34 +2786,61 @@ export function fireOneHitWave(room,playerId,nowSec){
 // Where the wave ends. Without Fire: its landing gust, which afflicts whoever it has not met and deals no HP. With
 // Fire: an explosion, a wider one all round, and part of the same decisive contact: whoever the wave had not yet met
 // takes the one decisive hit here, with everything the wave carries. `rec.hitIds` is the attack's one registry.
+// The terminal blast damages through its ENTIRE visible area, not only the
+// forward blade or the near-zero-width travel line. The wave and all its
+// contacts still share a single authoritative hit/Guard registry.
 function oneHitTerminalContact(room,caster,rec,nowSec,world) {
-  const fire=(rec.tiers.fire??0)>=1,caught=[];
+  const caught=[];
   for(const target of room.players.values()) {
     if(rec.hitIds.includes(target.id))continue;
-    const center=oneHitChest(target);
-    if(!terminalBlastContains(rec.origin,center,rec.radius,rec.yaw,rec.direction,rec.air))continue;
-    if(fire){
-      if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{aerial:true,origin:rec.origin,direction:rec.direction,
-        distance:rec.distance,processed:rec.hitIds,terminalFire:true}))caught.push(target.id);
-      continue;
-    }
-    if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
-    rec.hitIds.push(target.id);
-    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec,rec.tiers))continue;
-    // A sword wave's terminal gust carries ALL of its infused on-contact
-    // properties, even without Fire's bonus HP blast. Steel still disrupts
-    // Skills, Gale still Blusters, Frost freezes, and Lightning conducts.
-    // Only the Fire tier creates new decisive HP damage at the endpoint.
-    oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
-    const scale=staggerShove(target.stagger);
-    shoveBody(target,{x:rec.direction.x*2.2*scale,y:.35,z:rec.direction.z*2.2*scale});
-    target.lastKnockbackAt=nowSec;
-    target.lastKnockbackBy=caster.id;
-    target.lastKnockbackSource='one_hit_wave_impact';
-    target.lastAttackerId=caster.id;
-    caught.push(target.id);
+    const dx=target.position.x-rec.origin.x,dz=target.position.z-rec.origin.z;
+    // Ground impacts are circular around their landing point. Airborne
+    // detonations are spheres. Neither has a hidden forward-only damage cone.
+    const inside=rec.air
+      ?Math.hypot(dx,oneHitChest(target).y-rec.origin.y,dz)<=rec.radius+0.4
+      :Math.hypot(dx,dz)<=rec.radius+0.4 &&
+        Math.abs(target.position.y-rec.origin.y)<=ONE_HIT_REACH.up;
+    if(!inside)continue;
+    const radial=Math.hypot(dx,dz);
+    if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{
+      aerial:true,origin:rec.origin,distance:rec.distance,
+      processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
+      terminalFire:(rec.tiers.fire??0)>=1,
+    }))caught.push(target.id);
   }
   return caught;
+}
+
+// A Gale+Lightning wave exploding ABOVE playable ground sends one real
+// independent lightning strike vertically down to the highest supported
+// surface below. Its damage is only the Gale+Lightning aerial pair: Fire,
+// Frost and Steel cannot amplify it, and already-hit wave victims are exempt.
+// Unlike the moving blade, this is a consolation for an overshot air burst.
+function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
+  if((wave.tiers.gale??0)<2||(wave.tiers.lightning??0)<1)return;
+  const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
+  if(floor===null||floor>=point.y-1.25)return;
+  const impact={x:point.x,y:floor,z:point.z};
+  const radius=ONE_HIT_RULES.waveTerminalRadius;
+  const falloff=Math.max(.45,1-wave.distance/40);
+  const damage=Math.round(oneHitDamage({gale:1,lightning:1},36)*falloff);
+  const targets=[];
+  for(const target of room.players.values()){
+    if(wave.hitIds.includes(target.id)||
+      Math.hypot(target.position.x-impact.x,target.position.z-impact.z)>radius+0.4||
+      Math.abs(target.position.y-floor)>ONE_HIT_REACH.up ||
+      !oneHitVisible(room,caster,target,world,nowSec,{...impact,y:floor+.4}))continue;
+    wave.hitIds.push(target.id);
+    const blocked=oneHitGuard(room,caster,target,{...impact,y:floor+.5},nowSec,{lightning:1});
+    // The contact's electricity reaches a valid Guard; HP does not.
+    if(!blocked)applyDamage(room,caster.id,target.id,damage,
+      'one_hit_lightning_ground',nowSec,null,
+      {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade'});
+    if(target.alive)oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+    targets.push(target.id);
+  }
+  room.events.push({type:'oneHitLightningGroundStrike',playerId:caster.id,
+    waveId:wave.id,origin:{...point},point:impact,radius,damage,targets,at:nowSec});
 }
 function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null) {
   const fire=(wave.tiers.fire??0)>=1;
@@ -2834,6 +2861,8 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     direction:wave.direction,tiers:{...wave.tiers},radius,yaw,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
+  if(air&&(wave.tiers.lightning??0)>=1)
+    oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world);
   oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
     air?null:yaw,air?wave.direction:null);
   // The terminal blast is a real SECOND ground strike when it contacts
