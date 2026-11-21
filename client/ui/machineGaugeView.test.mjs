@@ -59,3 +59,22 @@ test('machine gauge is scoped to the mounted machine and its real cap', () => {
   flight.rotorHP = 0;
   assert.equal(machineGaugeView({ alive: true, operatingFightFlightId: 'ff' }, { fightFlight: flight }).context, 'ROTOR DESTROYED');
 });
+
+test('flight side arches expose separate 80HP brace values, live steel and destruction',()=>{
+ const p={alive:true,operatingFightFlightId:'ff'};
+ const m={id:'ff',health:220,maxHealth:250,rotorHP:65,
+   braceLHP:20,braceRHP:80,
+   componentSteel:{braceL:{calledAt:2,fullUntil:7,struck:false},
+     braceR:{calledAt:-30,fullUntil:-25,struck:true}}};
+ let g=machineGaugeView(p,{fightFlight:m},3);
+ assert.deepEqual([g.braces.left.health,g.braces.left.maxHealth,g.braces.left.percent],[20,80,25]);
+ assert.deepEqual([g.braces.right.health,g.braces.right.maxHealth,g.braces.right.percent],[80,80,100]);
+ assert.equal(g.braces.left.steel,1);assert.equal(g.braces.right.steel,0);
+ assert.equal(g.component.label,'ROTOR','the rotor keeps its own integrity indicator');
+ m.braceLHP=0;
+ g=machineGaugeView(p,{fightFlight:m},8);
+ assert.equal(g.braces.left.state,'destroyed');
+ assert.equal(g.braces.left.percent,0);
+ assert.equal(g.braces.right.state,'attached','one arch never borrows health from the other');
+ assert.equal(g.braces.right.health,80);
+});
