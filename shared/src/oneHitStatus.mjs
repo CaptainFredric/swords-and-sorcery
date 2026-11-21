@@ -64,8 +64,8 @@ export const ONE_HIT_REACH = Object.freeze({
   radius: 3.4, up: 2.6, down: 2.6,                       // the ordinary grounded blow
   fire: Object.freeze({ radius: 4.6, up: 3.5 }),         // with Fire
   frontExtension: 0.32, // a broad, smoothly forward-expanded impact, not a cone that erases the sides/back
-  wave: 0.9, waveFire: 1.5,                              // how near the travelling wave's line a body's middle must be
-  terminal: 2.2, terminalFire: 3.0,                      // where the wave ends: its landing gust, or Fire's explosion
+  wave: 0.9, waveFire: 1.85,                              // how near the travelling wave's line a body's middle must be
+  terminal: 2.2, terminalFire: 4.0,                      // where the wave ends: its landing gust, or Fire's explosion
 });
 
 // Frost's first infusion is time: the decisive contact stays open this much longer for a knight it has not yet met.
