@@ -2806,6 +2806,13 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
       aerial:true,origin:rec.origin,distance:rec.distance,
       processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
       terminalFire:(rec.tiers.fire??0)>=1,
+      // Blocking a radial shockwave stops HP, not the pressure and elemental
+      // effects washing over everyone inside the visible explosion. Full
+      // Fire already conducts these through Guard in oneHitGuard itself.
+      onGuard:()=>{
+        if((rec.tiers.fire??0)<2)
+          oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
+      },
     }))caught.push(target.id);
   }
   return caught;
