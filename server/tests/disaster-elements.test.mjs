@@ -837,7 +837,7 @@ test('Full Steel: initial Lightning hold has finite 1-HP protection; late aim is
   }
 });
 
-test('aerial Steel: the wave carries interruption and cooldown effects, but leaves no new Sunder rupture', () => {
+test('aerial Steel: wave interrupts and resets cooldowns, with ground-only rupture at the endpoint', () => {
   const { room, a, b } = battle({ tiers: { gale: 2, steel: 2 } });
   b.health = 1000; b.position = { x: 6, y: 0, z: 0 }; b.spellReadyAt = 0; b.pendingSpell = { spell: 'fireball', castAt: 99 };
   a.position = { x: 0, y: 0, z: 0 };
@@ -849,8 +849,9 @@ test('aerial Steel: the wave carries interruption and cooldown effects, but leav
   assert.equal(b.pendingSpell, null, 'interrupted');
   assert.ok(b.spellReadyAt > 9, 'cooldowns restarted');
   assert.ok(b.blustered, 'and Blustered by the Gale in it');
-  assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no second Sunder hit');
   const terminal = room.events.find(e => e.type === 'oneHitImpact' && e.impactId === 'w');
+  assert.equal(room.events.some(e=>e.type==='rupture'),Boolean(terminal.groundBlast),
+    'only a ground detonation fractures real terrain');
   assert.equal(room.oneHitFields.length, terminal.groundBlast ? 1 : 0, 'grounded endpoint alone makes a smaller Shaken field');
   if(terminal.groundBlast){
     assert.equal(terminal.radius, 2.2);
@@ -1076,16 +1077,16 @@ test('aerial: Half Fire widens the wave on every side and ends it in an explosio
     run(room, 9, 1.5, w);
     return { room, t, hits: decisive(room, 't') };
   };
-  // beside the wave's line: 1.3 m out is beyond the plain wave (0.9), inside Fire's (1.5); so is 1.3 m above it
+  // beside the wave's line: 1.3m is beyond plain (.9), inside Fire (1.85); likewise above it
   assert.equal(fly({}, { x: 6, y: 0, z: 1.3 }).hits.length, 0);
   assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 1.3 }).hits.length, 1, 'beside');
   assert.equal(fly({ fire: 1 }, { x: 6, y: 1.3, z: 0 }).hits.length, 1, 'above');
   assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 1, 'below (the wave passing 1.4 m over a knight\'s chest)');
   assert.equal(fly({}, { x: 6, y: 0, z: 0 }, true, 2.4).hits.length, 0, 'which the plain wave clears');
   assert.equal(fly({ fire: 1 }, { x: 6, y: 0, z: 2 }).hits.length, 0, 'not beyond it');
-  // where it ends (the wall at x = 11.8): 2.6 m from it is beyond the plain gust (2.2), inside Fire's explosion (3.4)
+  // At the wall: 2.6m away lies outside Gale's 2.2m blast but inside Fire's 4m blast.
   const plain = fly({ frost: 1 }, { x: 10.6, y: 0, z: 2.4 });
-  assert.equal(plain.hits.length, 0, 'the plain landing gust does not reach, and deals no HP when it does');
+  assert.equal(plain.hits.length, 0, 'the plain 2.2m radius still does not reach this target');
   const blast = fly({ fire: 1, frost: 1, lightning: 1 }, { x: 10.6, y: 0, z: 2.4 });
   assert.equal(blast.hits.length, 1, 'Fire\'s explosion: the one decisive hit for a knight the wave had not met');
   assert.ok(blast.t.oneHitFrostSlow && blast.t.electricalBacklash && blast.t.shaken && blast.t.blustered, 'with everything the wave carries');
@@ -1118,9 +1119,9 @@ test('a fully infused wave: one decisive hit a victim, every status and Steel co
       assert.equal(room.events.filter((e) => e.type === type && e.playerId === id).length, 1, `${id}: ${type} once`);
   }
   assert.equal(room.events.filter((e) => e.type === 'oneHitImpact').length, 1);
-  assert.equal(room.events.some((e) => e.type === 'rupture' || e.type === 'groundStrike'), false, 'no ground rupture from the air');
+  assert.ok(room.events.some(e=>e.type==='rupture'), 'ground-adjacent wave endpoint splits the ground, including Full Steel');
   assert.equal(room.oneHitFields.length, 1, 'the ground-adjacent wave explosion leaves its own small Shaken field');
-  assert.equal(room.oneHitFields[0].radius,3.4);
+  assert.equal(room.oneHitFields[0].radius,4.0);
   assert.equal(room.oneHitFields[0].tiers.frost,2);
   assert.equal(room.oneHitFields[0].tiers.lightning,2);
   assert.equal(room.oneHitBurnZones.length, 1);
