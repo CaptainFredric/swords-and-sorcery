@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { windbladeSpeed, windbladeTrailSpan } from './disasterWavePresentation.mjs';
+import { windbladeSpeed, windbladeTrailSpan, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
@@ -1009,13 +1009,12 @@ export class DisasterElementEffects {
       y:d.y*(speed-lag)+rand(-.2,.2),
       z:d.z*(speed-lag)+rand(-.2,.2),
     });
-    // Read the real rendered arc (rotation and Fire scale included), then
-    // offset BACK along its actual 3D flight vector, not screen-horizontal.
-    const onArc=(t,behind=0)=>{
-      const a=-1.309+2.618*t;
-      const at=mesh.localToWorld(tmpVec.set(
-        Math.sin(a)*1.25,Math.cos(a)*1.25-.55,
-        .3*Math.cos(a*1.15)).applyAxisAngle(AXIS_Z,.42).multiplyScalar(scale)).clone();
+    // The drawn pressure membrane and ALL elemental motes share a single
+    // horizontal, vaulted 3D surface. Sample different depths and both sides
+    // rather than painting a tall, screen-facing crescent.
+    const onArc=(t,behind=0,depth=0,side=1)=>{
+      const p=windbladeSurfacePoint(t,depth,side);
+      const at=mesh.localToWorld(tmpVec.set(p.x,p.y,p.z).multiplyScalar(scale)).clone();
       at.x-=d.x*behind;at.y-=d.y*behind;at.z-=d.z*behind;
       return at;
     };
@@ -1034,14 +1033,14 @@ export class DisasterElementEffects {
     };
     stream('air',tiers.gale?86:70,()=>{
       this.#mote(tiers.steel&&!tiers.gale?'steel':'gale',
-        onArc(along(),trailing()),back(rand(4,7)),
+        onArc(along(),trailing(),rand(.1,.95),Math.random()<.5?1:-1),back(rand(4,7)),
         {size:tiers.steel&&!tiers.gale?.019:.013,stretch:rand(11,19),
           ttl:rand(.12,.22),drag:.25});
     });
     if(tiers.gale)stream('gale',tiers.gale===2?58:38,()=>{
       // These closely follow the pressure face; colour is the bright
       // white edge shedding into lime-green airflow, not extra projectiles.
-      const at=onArc(along(),trailing());
+      const at=onArc(along(),trailing(),rand(0,.7),Math.random()<.5?1:-1);
       const v=back(rand(2,4));
       this.glow.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
         sx:rand(.010,.018),sy:rand(.11,.24),sz:rand(.010,.018),
@@ -1049,26 +1048,26 @@ export class DisasterElementEffects {
         ttl:rand(.12,.24),drag:.24,align:true});
     });
     if(tiers.fire)stream('fire',tiers.fire===2?82:54,()=>{
-      const at=onArc(.03+along()*.45,trailing());
+      const at=onArc(along(),trailing(),rand(.1,.8),Math.random()<.5?1:-1);
       this.#mote('fire',at,back(rand(1.1,4)),
         {size:rand(.033,.069),stretch:rand(2.5,5.2),ttl:rand(.22,.44),
           gravity:-1.2,drag:1.3});
     });
     if(tiers.frost)stream('frost',tiers.frost===2?70:44,()=>{
       const tip=Math.random()<.58?(Math.random()<.5?rand(0,.2):rand(.8,1)):Math.random();
-      const at=onArc(tip,trailing());
+      const at=onArc(tip,trailing(),rand(.2,.9),Math.random()<.5?1:-1);
       this.#mote('frost',at,back(rand(.7,3.4)),
         {size:rand(.018,.045),stretch:rand(4,8),ttl:rand(.32,.62),
           gravity:1.5,drag:1.2});
     });
     if(tiers.steel)stream('steel',tiers.steel===2?17:10,()=>{
-      const at=onArc(along(),trailing()),v=back(rand(2,5));
+      const at=onArc(along(),trailing(),rand(.1,.8),Math.random()<.5?1:-1),v=back(rand(2,5));
       this.rock.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
         sx:rand(.025,.05),color:pick(COLOR.steel),ttl:.43,gravity:8,spin:10});
     });
     if(tiers.lightning){
       stream('spark',tiers.lightning===2?64:37,()=>{
-        const at=onArc(along(),trailing());
+        const at=onArc(along(),trailing(),rand(.0,.8),Math.random()<.5?1:-1);
         this.#mote('lightning',at,back(rand(2,6)),
           {size:rand(.011,.023),stretch:rand(6,12),ttl:rand(.11,.24),drag:2});
       });
@@ -1076,14 +1075,14 @@ export class DisasterElementEffects {
         acc.boltAt=this.clock+(tiers.lightning===2?.048:.084)/this.density;
         const from=rand(0,.62),to=Math.min(1,from+rand(.22,.42));
         const lag=trailing()*.6;
-        attachBolt(onArc(from,lag),onArc(to,lag),
+        attachBolt(onArc(from,lag,.1,1),onArc(to,lag,.5,-1),
           {width:tiers.lightning===2?.033:.024,ttl:.095,
             jag:.10,forks:1,steps:7});
         // An arc continuing behind the wind cut sells the electrical wake;
         // it never reads as a second moving attack.
         if(tiers.gale){
           const t=rand(.18,.82),reach=rand(.3,Math.max(.65,advance+.35));
-          attachBolt(onArc(t,0),onArc(t,Math.min(1.1,reach)),
+          attachBolt(onArc(t,0,.05,1),onArc(t,Math.min(1.1,reach),.9,-1),
             {width:.013,ttl:.10,jag:.07,forks:0,steps:5});
         }
       }
