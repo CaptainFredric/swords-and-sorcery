@@ -1055,8 +1055,16 @@ export class DisasterElementEffects {
       const p = zone.position, floor = p.y + 0.03;
       const inside=()=>{
         if(zone.air)return insideAirBlast(zone);
-        const a=rand(TAU),r=Math.sqrt(Math.random())*
-          groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
+        const a=rand(TAU);
+        // The radius is already correct server-side. The old uniformly
+        // scattered flecks left too little fire near its outer rim, making
+        // the visible patch LOOK like the obsolete smaller circle. Keep the
+        // inner flames but give the exact elongated boundary a readable
+        // moving perimeter (not a new, oversized damage area).
+        const share=Math.random()<.39?rand(.80,.99):
+          Math.sqrt(Math.random())*.82;
+        const r=share*groundFootprintRadius(zone.radius,zone.yaw,
+          Math.cos(a),Math.sin(a));
         return {x:p.x+Math.cos(a)*r,y:floor,z:p.z+Math.sin(a)*r};
       };
       entry.flame += (zone.air?145:340) * (.25+.75*strength)*this.density*dt;
