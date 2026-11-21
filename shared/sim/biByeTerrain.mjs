@@ -71,9 +71,20 @@ export function biByeTerrainPose(b,ctx,diagnostic=null){
    const direct=groundAt(ctx,p[0],p[2],ceiling);
    const onRamp=ctx.surfaces.some(s=>(s.a||s.c)&&inside(s,p[0],p[2])&&
      Math.abs(height(s,p[0],p[2])-direct)<.015);
-   if(direct===null||p[1]-direct>(onRamp?R+1.65:R+.32)||
-      direct-p[1]>(onRamp?R+.3:BI_BYE_TERRAIN.step))
-     return reject('wheel-contact-gap',{iteration,wheel:def.id,direct,axleY:p[1],onRamp});
+   // At the crest the wheel centre may already be on the LEVEL deck, while
+   // the tire is still rolling over the end of the ramp. Recognize only a
+   // contiguous, height-matched incline within a wheel radius of that deck.
+   // An unrelated raised floor or high curb does not gain ramp privileges.
+   const atRampSeam=direct!==null&&ctx.surfaces.some(s=>{
+    if(!(s.a||s.c))return false;
+    const x=clamp(p[0],s.x0,s.x1),z=clamp(p[2],s.z0,s.z1);
+    return Math.hypot(p[0]-x,p[2]-z)<=R+.15&&
+      Math.abs(height(s,x,z)-direct)<.12;
+   });
+   const inclined=onRamp||atRampSeam;
+   if(direct===null||p[1]-direct>(inclined?R+1.65:R+.32)||
+      direct-p[1]>(inclined?R+.3:BI_BYE_TERRAIN.step))
+     return reject('wheel-contact-gap',{iteration,wheel:def.id,direct,axleY:p[1],inclined});
    let y=-Infinity;
    for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,ceiling)-root.axes[0][1]*lane);}
    return Number.isFinite(y)?[def.pivot[0],def.pivot[2],y]:null;
