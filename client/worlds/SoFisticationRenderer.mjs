@@ -229,6 +229,13 @@ export class SoFisticationRenderer {
        clip='16_HELLping_Hand_Ally_Protected_Punch';time=now-b.strikeAt;loop=false;
      }else if(hand.phase==='transport'&&handAge<1.4){
        clip='15_HELLping_Hand_Ally_Hatch_Open_Enter';time=handAge;loop=false;
+     }else if(hand.phase==='ledgePull'){
+       // Real articulated claw sequence: open and bite the ledge first, then
+       // the existing nine-stage pull clip accompanies the server-owned haul.
+       clip=handAge<.3?'11_HELLping_Hand_Open_Wide':
+         '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
+       time=handAge<.3?Math.min(1,handAge/.3):
+         Math.min(1.5,(handAge-.3)*1.5/1.35);loop=false;
      }else if(hand.phase==='vault'){
        clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
          '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';

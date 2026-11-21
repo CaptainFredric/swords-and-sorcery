@@ -25,6 +25,8 @@ export function siegeSkillControlLabel(b,now){
   if(phase==='grasp')return 'CRUSH';
   if(phase==='transport')return 'RELEASE ALLY';
   if(phase==='vault')return 'HOPPING';
+  if(phase==='ledgePull')return 'PULLING UP';
+  if(b.hellpingLedge)return 'GRAB LEDGE';
   if(phase==='open')return 'GRAB / HOP';
   return remaining>0?Math.ceil(remaining)+'s':'OPEN HAND';
  }

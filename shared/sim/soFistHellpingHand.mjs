@@ -9,6 +9,7 @@ import {skillOperator,SIEGE_SKILLS,skillEvent} from './siegeSkills.mjs';
 import {SO_FIST_SCALE,soFistFrame,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 import {soFistUpperPoint} from './soFistElevation.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
+import {findHellpingLedge,LEDGE_PULL,hellpingLedgePose} from './soFistLedge.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const HELLPING=Object.freeze({crushSeconds:4,reach:2.25,openSeconds:1,
   // A short, deliberate hand-assisted hop, not a three-second floating carriage.
@@ -67,7 +68,7 @@ export function releaseHellpingHand(room,b,now,{force=false}={}){
  const h=b?.hellping;
  if(!h||h.phase==='release')return true;
  if(!dislodge(room,b,now,force))return false;
- b.hellping={phase:'release',at:now,until:now+1.2};
+ b.hellping={phase:'release',at:now,until:now+1.2};b.hellpingLedge=null;
  if(b.skill?.id==='hellpingHand'){
   b.skill.phase='idle';
   b.skill.readyAt=Math.max(b.skill.readyAt??0,now+SIEGE_SKILLS.hellpingHand.cooldown);
@@ -108,6 +109,19 @@ function vault(room,b,now,direction,steer=0){
  b.speed=0;b.charging=false;emit(room,b,'vaultStarted',now,{direction,heading});
  return true;
 }
+function beginLedgePull(room,b,now,plan){
+ // One press is sufficient while approaching the edge. The same U still
+ // opens the hand elsewhere and retains its original enemy/ally behaviors.
+ b.hellping={phase:'ledgePull',at:now,anchor:plan.anchor,landing:plan.landing,
+  start:{x:b.x,y:b.y,z:b.z,heading:b.heading,
+    chassisPitch:b.chassisPitch??0,chassisRoll:b.chassisRoll??0,
+    wheelOffsets:[...(b.wheelOffsets??[])]}};
+ b.hellpingLedge=null;b.speed=0;b.recoilVelocity=0;b.charging=false;
+ b.skill.phase='active';b.skill.primedAt=now;
+ skillEvent(room,b,now,'activated',{mode:'ledgePull'});
+ emit(room,b,'ledgeCaught',now,{anchor:plan.anchor,landing:plan.landing});
+ return null;
+}
 export function requestHellpingHand(room,b,p,now){
  if(!skillOperator(room,b,p,now))return 'The ram operator is unavailable.';
  if(b.fistMounted===false||(b.components?.Fist?.health??0)<=0||
@@ -117,9 +131,11 @@ export function requestHellpingHand(room,b,p,now){
   return releaseHellpingHand(room,b,now)
    ?null:'No safe rear exit; move the ram to clear ground.';
  }
- if(h?.phase==='vault'||h?.phase==='release')return 'HELLping Hand is recovering.';
+ if(h?.phase==='vault'||h?.phase==='ledgePull'||h?.phase==='release')return 'HELLping Hand is recovering.';
  if(h?.phase!=='open'){
   if(now<(b.skill.readyAt??0)-1e-8)return 'HELLping Hand is recovering.';
+  const ledge=findHellpingLedge(room,b,now);
+  if(ledge)return beginLedgePull(room,b,now,ledge);
   b.hellping={phase:'open',at:now};b.skill.phase='active';b.skill.primedAt=now;
   skillEvent(room,b,now,'activated');emit(room,b,'opened',now);return null;
  }
@@ -148,6 +164,8 @@ export function requestHellpingHand(room,b,p,now){
   victim.attackHeld=false;victim.guardHeld=false;victim.guarding=false;
   emit(room,b,'captured',now,{targetId:victim.id});return null;
  }
+ const ledge=findHellpingLedge(room,b,now);
+ if(ledge)return beginLedgePull(room,b,now,ledge);
  const direction=(p.input?.forward??0)>.45?1:(p.input?.forward??0)<-.45?-1:0;
  if(direction){
   return vault(room,b,now,direction,p.input?.right??0)
@@ -190,6 +208,22 @@ export function stepHellpingHand(room,b,dt,now){
   p.position={x:q[0],y:q[1]-height*.5,z:q[2]};
   p.velocity={x:0,y:0,z:0};p.grounded=false;
   // No stagger or attack cancellation: passengers can still fight.
+ }else if(h.phase==='ledgePull'){
+  const t=clamp((now-h.at)/LEDGE_PULL.duration,0,1);
+  const next=hellpingLedgePose(h.start,h.landing,t);
+  const obstacles=[...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista)];
+  if(soFistSolids({...b,...next}).some(box=>obstacles.some(s=>machineryOverlap(box,s)))){
+   // The landing was checked before commitment. If architecture changes
+   // mid-pull, abandon it on the last known supported side.
+   Object.assign(b,h.start);
+   releaseHellpingHand(room,b,now,{force:true});return;
+  }
+  Object.assign(b,next);b.speed=0;b.charging=false;
+  if(t>=1-1e-8){
+   Object.assign(b,h.landing);
+   emit(room,b,'ledgePulled',now,{anchor:h.anchor});
+   releaseHellpingHand(room,b,now,{force:true});
+  }
  }else if(h.phase==='vault'){
   const t=clamp((now-h.at)/HELLPING.vaultSeconds,0,1),from=h.start,to=h.landing;
   // Accelerate off the braced fingers, then settle smoothly onto real floor.

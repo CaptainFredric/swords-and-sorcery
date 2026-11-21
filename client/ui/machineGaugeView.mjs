@@ -37,6 +37,8 @@ export function machineGaugeView(local, snapshot, now = 0) {
       const phase=machine.hellping?.phase;
       if(phase==='open')view.piston='PALM BRACED · SIDEWAYS TO AIM';
       else if(phase==='vault')view.piston='HAND-ASSISTED HOP';
+      else if(phase==='ledgePull')view.piston='HAND ANCHORED · PULLING UP';
+      else if(machine.hellpingLedge)view.piston='LEDGE IN REACH · PRESS SKILL';
       else if(phase==='grasp')view.piston='HAND CRUSHING';
       else if(phase==='transport')view.piston='ALLIED PASSENGER';
       else if(phase==='release')view.piston='HAND RETRACTING';

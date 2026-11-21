@@ -28,7 +28,9 @@ import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
 import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
 import {requestHellpingHand,stepHellpingHand,releaseHellpingHand,hellpingPalm,HELLPING} from './soFistHellpingHand.mjs';
+import {findHellpingLedge} from './soFistLedge.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+export const RAM_TERRAIN=Object.freeze({maxGrade:29*Math.PI/180,maxContactDelta:1.95,wheelTravel:.28});
 export const SO_FIST=Object.freeze({speed:5.3,reverse:3.1,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
 export const soFistReverseChargeAvailable=b=>Boolean(b&&!b.retired&&b.health>0&&
@@ -102,7 +104,7 @@ function stepRamElevation(room,b,dt,now,world){
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
   flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
- detachedFist:null,fistRecoveryUntil:0,hellping:null,
+ detachedFist:null,fistRecoveryUntil:0,hellping:null,hellpingLedge:null,
  fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
@@ -145,7 +147,7 @@ export function fireSoFistication(room,b,now){
  if(b?.emplacementId&&room.state!=='PLAYING')return false;
  if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
    (room.players.get(b.operatorId)?.staggerUntil??0)>now||
-   (['open','grasp','vault','release'].includes(b.hellping?.phase)||
+   (['open','grasp','vault','ledgePull','release'].includes(b.hellping?.phase)||
     b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
      b.flickAt!=null&&now-b.flickAt<FLICK.cycle))return false;
  // Invalid manual attempts must not disarm a waiting counterattack.
@@ -205,10 +207,18 @@ function stepSoFistSkill(room,b,now){
 }
 export function soFistTerrainPose(b,world){
  const flat=soFistFrame({...b,chassisPitch:0,chassisRoll:0}),samples=[];
- for(const w of SO_FIST_WHEELS){const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]),h=surfaceHeightAt(point[0],point[2],b.y+.3,world);if(h==null||Math.abs(h-b.y)>.65)return null;samples.push(h);}
+ for(const w of SO_FIST_WHEELS){
+  const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]);
+  // Front wheels can already be well up a 27-degree ramp while the rear
+  // axle is still on the approach. The old 0.65m centre-height filter
+  // interpreted that legitimate pitch as a vertical cliff.
+  const h=surfaceHeightAt(point[0],point[2],b.y+1.3,world);
+  if(h==null||Math.abs(h-b.y)>RAM_TERRAIN.maxContactDelta)return null;
+  samples.push(h);
+ }
  const front=(samples[0]+samples[1])/2,rear=(samples[2]+samples[3])/2,left=(samples[0]+samples[2])/2,right=(samples[1]+samples[3])/2;
- const pitch=Math.atan2(front-rear,SO_FIST_FIT.wheelbase),roll=Math.atan2(right-left,(SO_FIST_FIT.frontTrack+SO_FIST_FIT.rearTrack)/2);if(Math.hypot(pitch,roll)>.384)return null;
- const tilted=soFistFrame({...b,y:0,chassisPitch:pitch,chassisRoll:roll}),y=SO_FIST_WHEELS.reduce((sum,w,i)=>sum+samples[i]+w.pivot[1]-boxWorld(tilted,w.pivot)[1],0)/SO_FIST_WHEELS.length,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>.18))return null;
+ const pitch=Math.atan2(front-rear,SO_FIST_FIT.wheelbase),roll=Math.atan2(right-left,(SO_FIST_FIT.frontTrack+SO_FIST_FIT.rearTrack)/2);if(Math.hypot(pitch,roll)>RAM_TERRAIN.maxGrade)return null;
+ const tilted=soFistFrame({...b,y:0,chassisPitch:pitch,chassisRoll:roll}),y=SO_FIST_WHEELS.reduce((sum,w,i)=>sum+samples[i]+w.pivot[1]-boxWorld(tilted,w.pivot)[1],0)/SO_FIST_WHEELS.length,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>RAM_TERRAIN.wheelTravel))return null;
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
 export function soFistClear(b,world,extra=[],{operatorStation=false}={}){if((b.operatorId||operatorStation)&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
@@ -280,7 +290,7 @@ const p=room.players.get(b.operatorId);
  const sidewaysTurn=Boolean(driver&&!bracedAim&&!b.charging&&Math.abs(input.forward??0)<.08&&
    Math.abs(input.right??0)>.92);
  const driveForward=bracedAim?0:sidewaysTurn?(b.speed<-.45?-.72:.72):(input.forward??0);
- const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?SO_FIST.speed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/.384,0,1));
+ const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?SO_FIST.speed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/RAM_TERRAIN.maxGrade,0,1));
  const reversing=target*b.speed<0;
  const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
@@ -289,7 +299,7 @@ const p=room.players.get(b.operatorId);
  b.steer=clamp(input.right??0,-1,1)*(sidewaysTurn?Math.sign(driveForward):1)*
    affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
- const travelSpeed=b.hellping?.phase==='vault'?0:b.speed+(b.recoilVelocity??0);
+ const travelSpeed=['vault','ledgePull'].includes(b.hellping?.phase)?0:b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
  for(let i=0;i<steps;i++){
   if(Math.abs(travelSpeed)<1e-5)break;
@@ -423,6 +433,8 @@ const p=room.players.get(b.operatorId);
  b.recoilVelocity=Math.sign(recoil)*Math.max(0,Math.abs(recoil)-SIEGE_IMPACT.ramPistonRecoilBrake*dt);
  if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*travelSpeed,y:0,z:-Math.cos(b.heading)*travelSpeed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  stepFlick(room,b,dt,now);
+ // Prompt only when a server-verified handhold and fully supported landing exist.
+ b.hellpingLedge=findHellpingLedge(room,b,now);
  if(b.hellping?.phase==='transport'||b.hellping?.phase==='grasp')stepHellpingHand(room,b,dt,now);
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
 }

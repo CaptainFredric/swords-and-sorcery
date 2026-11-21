@@ -772,7 +772,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const affliction=siegeDisasterImpairment(ballista,nowSec);
         const baseSpeed=driveScale*affliction.speed*driveForward*(driveForward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
         const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(driveForward);
-        const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
+        const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(28.5*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
         ballista.steer=wheelSteer*affliction.steering;
         // Other siege machines and architecture remain solid. Players are

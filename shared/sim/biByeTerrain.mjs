@@ -2,7 +2,7 @@ import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeRootFrame, biByeHitVolumes, 
 import { boxWorld } from '../src/orientedBox.mjs';
 
 const RAD=Math.PI/180, R=.55, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:22*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
+export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:28.5*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const inside=(s,x,z)=>x>=s.x0-1e-7&&x<=s.x1+1e-7&&z>=s.z0-1e-7&&z<=s.z1+1e-7;
@@ -56,30 +56,55 @@ function planeFit(points){
  const det=xx*zz-xz*xz,a=(xy*zz-zy*xz)/det,c=(zy*xx-xy*xz)/det;
  return {a,c,d:m-a*mx-c*mz};
 }
-export function biByeTerrainPose(b,ctx){
+export function biByeTerrainPose(b,ctx,diagnostic=null){
+ const reject=(reason,data={})=>{if(diagnostic)Object.assign(diagnostic,{reason,...data});return null;};
  let pose={...b},contacts=[];
  const steering=biByeWheelSteering(b.steer??0),wheelDefs=BI_BYE_COMPONENTS.slice(0,6);
  for(let iteration=0;iteration<5;iteration++){
   const root=biByeRootFrame(pose),v=root.axes[1].map(n=>n*R);
   contacts=wheelDefs.map((def,i)=>{
    const p=boxWorld(root,def.pivot),dir=boxWorld(root,[Math.sin(steering[i]),0,Math.cos(steering[i])],true),u=dir.map(n=>n*R);
-   const direct=groundAt(ctx,p[0],p[2],p[1]+.35);
-   if(direct===null||p[1]-direct>R+.32||direct-p[1]>BI_BYE_TERRAIN.step)return null;
+   // A ramp is an inclined wheel path, not a vertical curb. Its leading
+   // contact may rise well above the old axle while the rear wheels are
+   // still on the flat approach; retain the strict .25m limit for risers.
+   const ceiling=p[1]+R+.35;
+   const direct=groundAt(ctx,p[0],p[2],ceiling);
+   const onRamp=ctx.surfaces.some(s=>(s.a||s.c)&&inside(s,p[0],p[2])&&
+     Math.abs(height(s,p[0],p[2])-direct)<.015);
+   // At the crest the wheel centre may already be on the LEVEL deck, while
+   // the tire is still rolling over the end of the ramp. Recognize only a
+   // contiguous, height-matched incline within a wheel radius of that deck.
+   // An unrelated raised floor or high curb does not gain ramp privileges.
+   const atRampSeam=direct!==null&&ctx.surfaces.some(s=>{
+    if(!(s.a||s.c))return false;
+    const x=clamp(p[0],s.x0,s.x1),z=clamp(p[2],s.z0,s.z1);
+    return Math.hypot(p[0]-x,p[2]-z)<=R+.15&&
+      Math.abs(height(s,x,z)-direct)<.12;
+   });
+   const inclined=onRamp||atRampSeam;
+   if(direct===null||p[1]-direct>(inclined?R+1.65:R+.32)||
+      direct-p[1]>(inclined?R+.3:BI_BYE_TERRAIN.step))
+     return reject('wheel-contact-gap',{iteration,wheel:def.id,direct,axleY:p[1],inclined});
    let y=-Infinity;
-   for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,p[1]+.35)-root.axes[0][1]*lane);}
+   for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,ceiling)-root.axes[0][1]*lane);}
    return Number.isFinite(y)?[def.pivot[0],def.pivot[2],y]:null;
   });
-  if(contacts.some(p=>!p))return null;
+  if(contacts.some(p=>!p))return reject('unsupported-wheel',{iteration});
   const plane=planeFit(contacts),pitch=Math.asin(clamp(plane.c,-1,1)),roll=Math.asin(clamp(plane.a/Math.cos(pitch),-1,1));
   const grade=Math.acos(clamp(Math.cos(pitch)*Math.cos(roll),-1,1));
-  if(grade>BI_BYE_TERRAIN.mobileGrade+.002)return null;
+  // The first pass samples wheels in the OLD chassis attitude. On a
+  // 26.6-degree plane its raw height gradient is tan(26.6°)=.5, and asin(.5)
+  // incorrectly looks like 30 degrees. Pitch/roll must converge before the
+  // grade is classified; the fifth iteration uses the fitted contact frame.
+  if(iteration===4&&grade>BI_BYE_TERRAIN.mobileGrade+.002)
+   return reject('grade-limit',{iteration,grade,limit:BI_BYE_TERRAIN.mobileGrade});
   pose={...pose,chassisPitch:Math.abs(pitch)<1e-10?0:pitch,chassisRoll:Math.abs(roll)<1e-10?0:roll,y:plane.d-R*Math.cos(pitch)*Math.cos(roll)};
  }
  const root=biByeRootFrame(pose),up=root.axes[1][1];
  let offsets=contacts.map(([x,z,y],i)=>(y-boxWorld(root,wheelDefs[i].pivot)[1])/up);
  const center=(Math.max(...offsets)+Math.min(...offsets))/2;
  pose.y+=center*up;offsets=offsets.map(v=>v-center);
- if(offsets.some(v=>Math.abs(v)>BI_BYE_TERRAIN.wheelTravel+1e-6))return null;
+ if(offsets.some(v=>Math.abs(v)>BI_BYE_TERRAIN.wheelTravel+1e-6))return reject('wheel-travel',{offsets});
  return {y:pose.y,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:offsets};
 }
 function overlaps(a,b){
