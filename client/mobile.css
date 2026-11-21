@@ -283,7 +283,7 @@ button, input { touch-action: manipulation; }
 .touch-ui .hud.flight-mounted .bottom-hud {
   top:calc(var(--safe-t) + 9px);
   left:calc(var(--safe-l) + 96px);
-  width:min(174px,29cqw);
+  width:min(168px,29cqw);
   gap:3px;
 }
 .touch-ui .hud.flight-mounted :is(.health-block,.guard-block,.flight-charge-rail) {width:100%;}
@@ -926,4 +926,12 @@ body.touch-layout-editor-open #practice-overlay {
 .touch-ui .hud.flight-mounted .hud-status-stack {
   left:50%;right:auto;transform:translateX(-50%);
   width:min(230px,31cqw);justify-items:center;
+}
+/* On genuinely narrow devices there is no central safe lane between the
+   health stack and control column; preserve the proven offset instead. */
+@container app (max-width:700px) {
+  .touch-ui .hud.flight-mounted .hud-status-stack {
+    left:max(calc(var(--safe-l) + 242px),37cqw);
+    transform:none;width:min(208px,32cqw);justify-items:start;
+  }
 }
