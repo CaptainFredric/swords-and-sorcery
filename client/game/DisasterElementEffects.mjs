@@ -712,9 +712,27 @@ export class DisasterElementEffects {
 
   // A Steel-infused blow's radial fracture, as the room planned it: each arm throws stone where its head is now.
   fracture(event) {
-    if (!event.radial) return;
-    this.fractures.push({ origin: { ...event.origin }, fissures: event.fissures.map((f) => ({ dir: { ...f.dir }, length: f.length })), speed: event.speed ?? 8.5,
-      steel: event.steel ?? 1, age: 0, reached: 0 });
+    if (!event.radial||!event.fissures?.length) return;
+    const fissures=event.fissures.map(f=>({dir:{...f.dir},length:f.length}));
+    // A distinct, persistent lightweight ribbon per real fissure. The old
+    // 240-stone rolling pool evicted early Full Steel arms when twelve long
+    // ruptures each spawned hundreds of rocks. One 12-arm 72-vertex batch
+    // makes EVERY planned arm visible independently of that particle cap.
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.BufferAttribute(
+      new Float32Array(fissures.length*18),3));
+    geometry.setDrawRange(0,fissures.length*6);
+    const material=new THREE.MeshBasicMaterial({
+      color:event.steel===2?0xdbe5e4:0xa2b3b1,
+      transparent:true,opacity:event.steel===2?.85:.65,
+      side:THREE.DoubleSide,depthWrite:false,
+    });
+    const lines=new THREE.Mesh(geometry,material);
+    lines.name='One Hit authoritative radial rupture head ribbons';
+    lines.frustumCulled=false;
+    this.root.add(lines);
+    this.fractures.push({origin:{...event.origin},fissures,
+      speed:event.speed??8.5,steel:event.steel??0,age:0,reached:0,lines});
   }
   #stepFractures(dt) {
     for (let i = this.fractures.length - 1; i >= 0; i -= 1) {
@@ -723,6 +741,25 @@ export class DisasterElementEffects {
       const head = f.age * f.speed;
       const longest = Math.max(...f.fissures.map((arm) => arm.length));
       const floor = f.origin.y + 0.02;
+      // Each strip grows at the same 8.5m/s as its server-owned rupture
+      // head. It is one tiny geometry allocation per rupture, not a heavy
+      // mesh every tick; later stone emissions cannot erase previous arms.
+      const positions=f.lines.geometry.getAttribute('position');
+      for(let arm=0;arm<f.fissures.length;arm++){
+        const fissure=f.fissures[arm];
+        const length=Math.min(head,fissure.length);
+        const width=f.steel===2?.072:f.steel===1?.055:.044;
+        const x=f.origin.x,z=f.origin.z,y=floor+.055;
+        const dx=fissure.dir.x,dz=fissure.dir.z,nx=-dz*width,nz=dx*width;
+        const ex=x+dx*length,ez=z+dz*length,j=arm*6;
+        for(const [k,px,pz] of [
+          [0,x+nx,z+nz],[1,x-nx,z-nz],[2,ex+nx,ez+nz],
+          [3,x-nx,z-nz],[4,ex-nx,ez-nz],[5,ex+nx,ez+nz]
+        ])positions.setXYZ(j+k,px,y,pz);
+      }
+      positions.needsUpdate=true;
+      f.lines.material.opacity=(f.steel===2?.86:.66)*
+        (head<longest?1:Math.max(0,(longest+.5-head)/.5));
       // (stone thrown every third of a metre of ground each arm splits)
       while (f.reached < Math.min(head, longest)) {
         f.reached += 0.34;
@@ -739,7 +776,11 @@ export class DisasterElementEffects {
           this.#mote('steel', { ...at, y: floor + 0.1 }, { x: rand(-2, 2), y: rand(3, 7), z: rand(-2, 2) }, { size: 0.014, ttl: 0.3, gravity: 16, stretch: 6 });
         }
       }
-      if (head >= longest + 0.5) this.fractures.splice(i, 1);
+      if (head >= longest + 0.5) {
+        f.lines.removeFromParent();
+        f.lines.geometry.dispose();f.lines.material.dispose();
+        this.fractures.splice(i,1);
+      }
     }
   }
 
@@ -1396,6 +1437,12 @@ export class DisasterElementEffects {
   }
 
   dispose() {
+    for(const fracture of this.fractures){
+      fracture.lines?.removeFromParent();
+      fracture.lines?.geometry.dispose();
+      fracture.lines?.material.dispose();
+    }
+    this.fractures.length=0;
     while (this.bolts.length) this.#dropBolt(0);
     for (const entry of this.fields.values()){
       if (entry.ice) this.#disposeIce(entry.ice);
