@@ -28,7 +28,7 @@ function tick(room,m,at,dt=DT){
  stepFightFlightSkill(room,m,at);
  stepFightFlightWeapons(room,m,dt,at);
 }
-test('Fire Away auto-spins an intact cold rotor and starts its 24s timer on activation',()=>{
+test('Fire Away auto-spins a cold rotor and begins its 24s recovery at actual termination',()=>{
  const {room,m,p}=setup();
  m.rotorPowered=false;m.rotorAngularVelocity=0;m.rotorRPM=0;m.rotorEnergy=0;
  m.rotorHP=0;assert.match(requestFightFlightSkill(room,m,p,1),/intact rotor/);
@@ -36,7 +36,7 @@ test('Fire Away auto-spins an intact cold rotor and starts its 24s timer on acti
  assert.match(requestFightFlightSkill(room,m,p,1),/requires flight charge/);
  m.flightCharge=100;assert.equal(requestFightFlightSkill(room,m,p,1),null);
  assert.equal(m.skill.phase,'active');assert.equal(m.skill.activeUntil,null);
- assert.equal(m.skill.readyAt,25);assert.equal(m.ammo,18);
+ assert.equal(m.skill.readyAt,1);assert.equal(m.ammo,18);
  assert.equal(m.rotorPowered,true);assert.equal(m.rotorRPM,450);
  assert.ok(Math.abs(m.rotorAngularVelocity-Math.PI*15)<1e-8);
  assert.equal(m.rotorEnergy,100);
@@ -44,6 +44,11 @@ test('Fire Away auto-spins an intact cold rotor and starts its 24s timer on acti
  assert.equal(requestFightFlightSkill(room,m,p,2),'Fire Away is already active.');
  stepFightFlightSkill(room,m,6);
  assert.equal(m.skill.phase,'active','there is no 3.5s auto-expiry');
+ assert.equal(m.skill.readyAt,1,'running the Skill does not run its cooldown');
+ endFightFlightSkill(room,m,7,'interrupted');
+ assert.equal(m.skill.readyAt,31,'full 24s cooldown starts at interruption');
+ assert.equal(requestFightFlightSkill(room,m,p,30.99),'Fire Away is recovering.');
+ assert.equal(requestFightFlightSkill(room,m,p,31),null);
 });
 test('Only actual bolts debit 1.5 charge, never ammo, debt, or fractional reload',()=>{
  const {room,m,p}=setup();m.ammo=2;m.ammoProduction=.5;
@@ -102,7 +107,8 @@ test('Held Fire drains normal flight power as well as 1.5 charge per bolt, and o
  assert.equal(m.ammo,0);assert.equal(m.ammoDebt,0);
  assert.ok(m.shotSeq>=34&&m.shotSeq<=40);
  assert.equal(room.fightFlightProjectiles.size,m.shotSeq,'every charged shot is a real projectile');
- assert.equal(m.skill.readyAt,25,'cooldown still starts at activation');
+ const exhaustion=room.events.findLast(e=>e.type==='siegeSkill'&&e.action==='exhausted');
+ assert.ok(Math.abs(m.skill.readyAt-(exhaustion.at+24))<1e-8,'cooldown starts at depletion');
  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.action==='exhausted'));
 });
 test('Paused Fire Away also recovers charge on the ground, but firing suspends income',()=>{
@@ -137,7 +143,7 @@ test('Rotor falls below operating RPM: immediate interruption empties magazine, 
  assert.equal(m.skill.phase,'idle');
  assert.equal(m.ammo,0);assert.equal(m.ammoProduction,0);
  assert.equal(m.flightCharge,charge);
- assert.equal(m.skill.readyAt,25);
+ assert.equal(m.skill.readyAt,25.1);
  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.action==='rotorLost'));
 });
 test('A final paid bolt leaves residual charge recoverable until the next attempted unpaid shot',()=>{
@@ -174,7 +180,7 @@ test('Skill end empties reserve and reload resumes at two bolts per second',()=>
  requestFightFlightFire(room,m,p,false,1.01);
  endFightFlightSkill(room,m,2,'interrupted');
  assert.equal(m.ammo,0);assert.equal(m.ammoProduction,0);assert.equal(m.ammoDebt,0);
- assert.equal(m.skill.readyAt,25);
+ assert.equal(m.skill.readyAt,26);
  for(let i=1;i<=15;i++)stepFightFlightWeapons(room,m,DT,2+i*DT);
  assert.equal(m.ammo,1);
  requestFightFlightFire(room,m,p,true,2.6);
@@ -184,8 +190,10 @@ test('Skill end empties reserve and reload resumes at two bolts per second',()=>
 test('Dismount and operator changes cannot refill resources or restart 24s cooldown',()=>{
  const {room,m,p}=setup();requestFightFlightSkill(room,m,p,1);
  requestFightFlightFire(room,m,p,true,1);
- const charge=m.flightCharge,readyAt=m.skill.readyAt;
+ const charge=m.flightCharge;
+ assert.equal(m.skill.readyAt,1);
  assert.equal(dismountFightFlight(room,m,p,{at:1.1}),true);
+ const readyAt=25.1;
  assert.equal(m.skill.phase,'idle');assert.equal(m.ammo,0);
  assert.equal(m.flightCharge,charge);assert.equal(m.skill.readyAt,readyAt);
  const other=room.addPlayer({id:'replacement',token:'replacement',name:'Replacement'},0);
@@ -258,7 +266,7 @@ test('Disconnect terminates the active barrage on its authoritative tick',()=>{
  const {room,m,p}=setup();requestFightFlightSkill(room,m,p,1);
  p.connected=false;stepFightFlightSkill(room,m,1.1);
  assert.equal(m.skill.phase,'idle');assert.equal(m.ammo,0);
- assert.equal(m.skill.readyAt,25);
+ assert.equal(m.skill.readyAt,25.1);
 });
 
 test('Against a defending opponent, charge-paid real bolts obey Guard geometry and exposed leg contact',()=>{
