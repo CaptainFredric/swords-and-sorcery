@@ -7,6 +7,10 @@
 export const FLIGHT_VISOR = Object.freeze({
   height:1.555, forward:.215, minimumRelativeHeight:1.12,
   pitchBlendBegin:.10,pitchBlendFull:.55,maximumAuthoredDisplacement:1.8,
+  // The model may lurch on a forward-to-reverse carriage transition. The
+  // rider's head follows its own small authored bob, never the chassis mesh
+  // far enough to be swallowed by protective braces or drive assemblies.
+  maxAuthoredEyeTravel:.10,
 });
 const finite=(v,fallback=0)=>Number.isFinite(v)?v:fallback;
 const clamp01=v=>Math.max(0,Math.min(1,v));
@@ -34,11 +38,15 @@ export function stableFlightCockpitEye(m,authoredEye=null,groundHeight=null){
   const credible=source&&displacement<=FLIGHT_VISOR.maximumAuthoredDisplacement;
   const blend=smoothstep((pitch-FLIGHT_VISOR.pitchBlendBegin)/
     (FLIGHT_VISOR.pitchBlendFull-FLIGHT_VISOR.pitchBlendBegin));
-  const t=credible?blend:1;
+  // Keep the physically animated camera *micro-motion*, not its full
+  // model-relative lurch on direction reversal. Horizontal acceleration and
+  // the normal cockpit bob are still applied separately by FlightCameraMotion.
+  const retained=credible?(1-blend)*Math.min(1,
+    FLIGHT_VISOR.maxAuthoredEyeTravel/Math.max(displacement,1e-6)):0;
   const point=credible?{
-    x:source.x+(safe.x-source.x)*t,
-    y:source.y+(safe.y-source.y)*t,
-    z:source.z+(safe.z-source.z)*t,
+    x:safe.x+(source.x-safe.x)*retained,
+    y:safe.y+(source.y-safe.y)*retained,
+    z:safe.z+(source.z-safe.z)*retained,
   }:safe;
   const floor=Number.isFinite(groundHeight)?groundHeight:-Infinity;
   // Honor *both* operator head clearance and arena terrain. A grounded
