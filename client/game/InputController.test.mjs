@@ -864,14 +864,39 @@ test('Lightning release sends live pointer aim atomically, not an old movement-f
   assert.equal(packets[0].cancel,false);
 });
 
-test('mounted K invokes the separate innate bow sweep without invoking the V mark-target action',()=>{
- const {input,down,up}=setup();
- const sent=[];input.socket.send=message=>sent.push(message);
- input.socket.markTarget=()=>sent.push({type:'markTarget'});
- input.enabled=true;input.mountedBallista=true;
- assert.deepEqual(input.bindings.siegeSweep,['KeyK']);
- down('KeyK');up('KeyK');
+test('mounted E makes one Sharp Turn; U remains Skill; E keeps Dash and ram hydraulic pitch elsewhere',()=>{
+ const {input,down,up,calls}=setup(),sent=[];
+ input.socket.send=message=>sent.push(message);
+ input.socket.dash=()=>calls.push(['dash']);
+ input.enabled=true;
+ assert.deepEqual(input.bindings.siegeSweep,['KeyE']);
+ assert.deepEqual(input.bindings.siegeSkill,['KeyU']);
+ input.mountedBallista=true;
+ down('KeyE');up('KeyE');
+ assert.deepEqual(sent,[{type:'bibyeSharpTurn'}],'E triggers only the innate ballista turn');
+ down('KeyU');up('KeyU');
+ assert.deepEqual(sent[1],{type:'siegeSkill'},'U still triggers the equipped mounted Skill');
+ assert.equal(calls.some(c=>c[0]==='dash'),false);
+ input.mountedBallista=false;down('KeyE');up('KeyE');
+ assert.ok(calls.some(c=>c[0]==='dash'),'E remains an on-foot Dash');
+ const count=calls.length;input.mountedRam=true;
+ down('KeyE');
+ assert.equal(input.movement().ramPitchUp,true,'E remains the ram hydraulic pitch modifier');
+ up('KeyE');
+ assert.equal(calls.length,count,'ram pitch never spends Dash');
+ input.dispose();
+});
+
+test('rebound Sharp Turn and Dash resolve without colliding, on the right machine only',()=>{
+ const {input,down,up,calls}=setup(),sent=[];
+ input.socket.send=m=>sent.push(m);input.socket.dash=()=>calls.push(['dash']);
+ input.enabled=true;
+ input.configure({bindings:{...input.bindings,dash:['KeyP'],siegeSweep:['KeyK']}});
+ input.mountedBallista=true;down('KeyK');up('KeyK');
  assert.deepEqual(sent,[{type:'bibyeSharpTurn'}]);
- input.mountedBallista=false;down('KeyK');up('KeyK');
- assert.equal(sent.length,1,'the innate button has no unmounted effect');
+ input.mountedBallista=false;down('KeyP');up('KeyP');
+ assert.ok(calls.some(x=>x[0]==='dash'),'custom dash remains authoritative off the ballista');
+ down('KeyK');up('KeyK');
+ assert.equal(sent.length,1,'unmounted sweep is inert');
+ input.dispose();
 });
