@@ -3177,14 +3177,20 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       const t=Math.max(0,Math.min(1,((center.x-wire.origin.x)*dx+(center.y-wire.origin.y)*dy+
         (center.z-wire.origin.z)*dz)/lenSq));
       const near={x:wire.origin.x+dx*t,y:wire.origin.y+dy*t,z:wire.origin.z+dz*t};
-      const distance=Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z);
+      // The rendered beam passes through the TARGET'S PHYSICAL BODY, not
+      // just an infinitesimally thin point at chest height. A y=1.45 ray
+      // must electrify a standing knight even when their chest anchor is y=1.
+      const bodyTop=target.position.y+postureOf(target).height-.12;
+      const bodyBottom=target.position.y+.14;
+      const verticalMiss=Math.max(bodyBottom-near.y,near.y-bodyTop,0);
+      const distance=Math.hypot(center.x-near.x,verticalMiss,center.z-near.z);
       // The massive initial hitscan has already applied all the HP damage.
       // The exact residual 3D line is only a brief conductive tripwire:
       // no damage, no repeatedly refreshing the same target, no Guard bypass
       // damage from walking in and out. The affliction itself can still bite
       // on a victim's next melee blow, using its normal combat rule.
       wire.affected??=new Set(wire.inside??[]);
-      if(distance<=ONE_HIT_RULES.lineOfConduct.afterlineRadius &&
+      if(distance<=ONE_HIT_RULES.lineOfConduct.afterlineRadius+.30 &&
           !wire.affected.has(target.id)){
         wire.affected.add(target.id);
         const along=t*Math.sqrt(lenSq);
