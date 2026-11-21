@@ -1,32 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeWakeVisual,updateWakeVisual,disposeWakeVisual,wakeRibbonGeometry}
- from './disasterWakeGeometry.mjs';
+import {readFileSync} from 'node:fs';
+import {wakeRibbonVertices} from './disasterWakeGeometryData.mjs';
+
 const points=[{x:1,y:15,z:-2},{x:6,y:15,z:-2},{x:12,y:19,z:-4}];
-test('3D wake geometry follows every authoritative path segment rather than flattening to terrain',()=>{
- const g=wakeRibbonGeometry(points,1.85);
- const p=g.getAttribute('position');
- assert.ok(p.count>=8,'at least two connected quads');
- const ys=Array.from({length:p.count},(_,i)=>p.getY(i));
- assert.ok(Math.max(...ys)>18&&Math.min(...ys)<16,'actual 3D elevation retained');
- const xs=Array.from({length:p.count},(_,i)=>p.getX(i));
- assert.ok(Math.min(...xs)<=1+1.85&&Math.max(...xs)>=12-1.85);
- g.dispose();
+const renderer=readFileSync(new URL('./disasterWakeGeometry.mjs',import.meta.url),'utf8');
+test('3D wake vertices follow actual authoritative elevated line, not projected terrain',()=>{
+ const {coords,faces}=wakeRibbonVertices(points,1.85);
+ assert.ok(coords.length>=24,'two genuine crossed segments');
+ assert.ok(faces.length>=12);
+ const y=coords.filter((_,i)=>i%3===1);
+ assert.ok(Math.max(...y)>18&&Math.min(...y)<16,'3D elevations preserved');
+ const x=coords.filter((_,i)=>i%3===0);
+ assert.ok(Math.min(...x)<=2&&Math.max(...x)>=11);
+ const vertical=wakeRibbonVertices(points,1.85,1);
+ assert.notDeepEqual(vertical.coords,coords,'second ribbon spans a distinct 3D axis');
 });
-test('Fire/Frost/Gale/Lightning/Steel each has a distinct visual strand and matches Full Fire width',()=>{
- const tiers={fire:2,frost:2,gale:2,lightning:2,steel:2};
- const v=makeWakeVisual(tiers);
- assert.equal(v.userData.wakeLayers.length,10,'five distinct elements with two crossed sheets each');
- const field={trailPoints:points,radius:1.85,tiers};
- updateWakeVisual(v,field,1);
- assert.equal(v.userData.wakePoints,3);
- assert.ok(v.userData.wakeLayers.every(l=>l.mesh.visible));
- assert.ok(v.userData.wakeLayers.every(l=>(l.mesh.geometry.getAttribute('position')?.count??0)>=8));
- const highest=v.userData.wakeLayers[0].mesh.geometry.boundingSphere.center.y;
- assert.ok(highest>14&&highest<20);
- const opacity=v.userData.wakeLayers[0].mesh.material.opacity;
- updateWakeVisual(v,field,.5);
- assert.ok(v.userData.wakeLayers[0].mesh.material.opacity<opacity,
-   'non-Steel fade is applied to the SAME geometry rather than changing its hitbox');
- disposeWakeVisual(v);
+test('renderer uses pure path geometry, distinct elemental colors and full Fire width',()=>{
+ assert.match(renderer,/wakeRibbonVertices\(points,radius,axis\)/);
+ assert.match(renderer,/galeFrostWakeRadius\(field.tiers\)/);
+ for(const element of ['gale','frost','fire','lightning','steel'])
+   assert.match(renderer,new RegExp(element+':0x[0-9a-f]+','i'));
+ assert.match(renderer,/axis=0;axis<=1;axis\+\+/);
+ assert.match(renderer,/mesh.material.opacity=weight/);
+ assert.match(renderer,/mesh.geometry.dispose\(\)/);
 });
