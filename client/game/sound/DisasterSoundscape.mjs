@@ -74,7 +74,7 @@ export class DisasterSoundscape {
       'spellCast','ultimateStart','oneHitInfusion','oneHitTeleport','oneHitWave','oneHitImpact','oneHitLightningGroundStrike',
       'galeBlast'].includes(event.type)){
       const key=[event.type,event.projectileId??event.impactId??event.waveId??
-        event.playerId??event.ownerId??'',event.at??'',event.stage??''].join(':');
+        event.playerId??event.ownerId??'',event.at??'',event.stage??event.element??''].join(':');
       if(this.recent.has(key))return;
       this.recent.set(key,at(event.at,this.lastNow));
       if(this.recent.size>128)this.recent.delete(this.recent.keys().next().value);
