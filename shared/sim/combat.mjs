@@ -2449,7 +2449,13 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   const center={...caster.position},processed=[];
   // Capture the facing at the precise landed tick, not activation, flight
   // direction, subsequent aim changes or the client camera interpolation.
-  const yaw=Number.isFinite(caster.yaw)?caster.yaw:0;
+  // Normal controls and an atomic Lightning release use the most recent
+  // authoritative INPUT facing, even if it arrived in the release command
+  // rather than a movement tick. Blustered deliberately slows the physical
+  // fighting facing independently of the free-look camera.
+  const foughtYaw=blusterSeverity(caster.blustered,nowSec)>ONE_HIT_BLUSTER.free
+    ? caster.yaw : (caster.input?.yaw??caster.yaw);
+  const yaw=Number.isFinite(foughtYaw)?foughtYaw:0;
   oneHitSiegeContact(room,caster,center,radius,tiers,nowSec,yaw);
   const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed,yaw);
   // Reuse the game's actual rupture simulation and its visible fissure events.
