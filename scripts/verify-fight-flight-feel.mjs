@@ -278,18 +278,18 @@ try {
 
   // CHECK 4: Compact Flight HUD structure
   const flightHudData = await evaluate(`(() => {
-    const hud = document.querySelector('.flight-hud');
+    const hud = document.querySelector('.flight-charge-rail');
     if (!hud) return null;
     return {
       displayed: !hud.hidden && getComputedStyle(hud).display !== 'none',
       alt: hud.querySelector('[data-flight-alt]')?.textContent,
       charge: hud.querySelector('[data-flight-charge]')?.textContent,
-      rotor: hud.querySelector('[data-flight-rotor]')?.textContent,
+      rotor: hud.querySelector('[data-flight-rpm]')?.textContent,
       ammo: hud.querySelector('[data-flight-ammo]')?.textContent
     };
   })()`);
   console.log('Check 4: Flight HUD data:', flightHudData);
-  assert.ok(flightHudData?.displayed, 'Dedicated Flight HUD strip is displayed');
+  assert.ok(flightHudData?.displayed, 'Compact flight rail is displayed below personal stamina');
   assert.ok(flightHudData?.alt, 'Altitude display is present');
   assert.ok(flightHudData?.rotor, 'Rotor efficiency display is present');
   assert.ok(flightHudData?.ammo, 'Ammo count display is present');
