@@ -2864,14 +2864,16 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const yaw=Math.hypot(wave.direction.x,wave.direction.z)>.01
     ?Math.atan2(-wave.direction.x,-wave.direction.z)
     :Number.isFinite(wave.launchYaw)?wave.launchYaw:caster.yaw;
+  // A projectile keeps its locked heading for travel and for the physical
+  // ruptures. Its DETONATION is a circular/spherical shockwave, including
+  // delayed Frost contacts and the residual elemental field.
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,
-    direction:wave.direction,tiers:{...wave.tiers},radius,yaw,air,
+    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   if(air&&(wave.tiers.lightning??0)>=1)
     oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world);
-  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
-    air?null:yaw,air?wave.direction:null);
+  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,null,null);
   // The terminal blast is a real SECOND ground strike when it contacts
   // solid terrain. Use the established Sunder rupture simulation with the
   // projectile's flight yaw, never the caster's later facing. Full Steel
@@ -2896,13 +2898,13 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       rupture.caught.push(...wave.hitIds);
     }
   }
-  // The shorter terminal blast inherits the same forward-biased reach as
-  // the grounded slam, without acquiring the SLAM's larger base radius.
+  // Terminal pressure has an even circular/spherical reach: no hidden
+  // forward bias in the lingering consequences of an AoE explosion.
   // Aerial detonations leave suspended pressure and elemental effects, not
   // fictitious broken ground. Their lives are much shorter.
   const field={id:wave.id+':field',ownerId:caster.id,
     position:groundBlast&&floor!==null?{x:point.x,y:floor,z:point.z}:{...point},
-    radius,...(air?{air:true,direction:{...wave.direction}}:{yaw}),
+    radius,yaw:null,...(air?{air:true,direction:null}:{}),
     bornAt:nowSec,
     until:nowSec+(air?airFieldSeconds(wave.tiers):fieldSeconds(wave.tiers)),
     tiers:{...wave.tiers},conducted:{},shakenContact:{}};
@@ -2921,13 +2923,13 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       // ground, and it vanishes with the flying pressure rather than four
       // seconds of flames hanging in the sky.
       oneHitBurnZone(room,caster,`${wave.id}:fire`,{...point},nowSec,wave.tiers,
-        radius,null,{air:true,direction:wave.direction});
+        radius,null,{air:true,direction:null});
     }else{
       const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
       if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
         !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
         oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},
-          nowSec,wave.tiers,radius,yaw);
+          nowSec,wave.tiers,radius,null);
     }
   }
   // Preserve the REAL projectile impact coordinate for damage, interpolation
@@ -2937,7 +2939,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     ...(groundPoint?{groundPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
-    radius,yaw,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
+    radius,yaw:null,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
 // Full Steel lasts THROUGH the outgoing wave; the protection ends at its
