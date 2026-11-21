@@ -150,6 +150,13 @@ export class HUD {
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
     this.ultimateShown = 'sunder';
     this.ultimateReady = false;
+    // On desktop, the equipped Flight Skill needs its own existing-style
+    // cooldown tile now that the duplicate central READY panel is gone.
+    this.flightSkillTile=document.createElement('div');
+    this.flightSkillTile.className='ability flight-skill-ability ready';
+    this.flightSkillTile.hidden=true;
+    this.flightSkillTile.innerHTML='<span class="ability-icon"></span><b>U</b><em>FIRE AWAY</em><strong>READY</strong>';
+    this.spell.parentElement?.append(this.flightSkillTile);
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
@@ -237,22 +244,19 @@ export class HUD {
     this.uprootedOutriggersPanel.setAttribute('role','status');
     this.uprootedOutriggersPanel.innerHTML='<strong>OUTRIGGERS UPROOTED</strong><span></span><progress max="1" value="1"></progress>';
     this.root.append(this.uprootedOutriggersPanel);
-    this.flightPanel = document.createElement('div');
-    this.flightPanel.className = 'flight-hud';
-    this.flightPanel.hidden = true;
-    this.flightPanel.innerHTML = `
-      <div class="flight-hud-strip">
-        <div class="flight-metric hull"><label>HULL</label><div class="flight-bar-wrap"><progress max="250" value="250" data-flight-hull-bar></progress><b><output data-flight-hull>250</output></b></div></div>
-        <div class="flight-metric charge"><label>CHARGE</label><div class="flight-bar-wrap"><progress max="100" value="100" data-flight-charge-bar></progress><b><output data-flight-charge>100</output></b></div></div>
-        <div class="flight-metric rotor"><label>ROTOR</label><b><output data-flight-rotor>100</output>%</b><small><output data-flight-rpm>0</output> RPM</small></div>
-        <div class="flight-metric alt"><label>ALT</label><b><output data-flight-alt>0.0</output>m</b></div>
-        <div class="flight-metric ammo"><label>AMMO</label><b><output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></b><small data-flight-debt></small></div>
-        <div class="flight-metric skill"><label>SKILL</label><b data-flight-skill>READY</b></div>
-      </div>
-      <div class="flight-warning-banner" hidden data-flight-warning></div>
-      <small class="flight-controls-hint" data-flight-controls></small>
+    // Flight instruments belong beside personal health, not in a second
+    // six-column panel over the forward sightline. Skill readiness lives on
+    // its actual button; the mounted machine gauge continues to show hull.
+    this.flightChargeRail = document.createElement('div');
+    this.flightChargeRail.className = 'flight-charge-rail';
+    this.flightChargeRail.hidden = true;
+    this.flightChargeRail.innerHTML = `
+      <div class="flight-charge-heading"><span>FLIGHT CHARGE</span><output data-flight-charge>100</output></div>
+      <div class="flight-charge-track"><div class="flight-charge-fill" data-flight-charge-fill></div></div>
+      <div class="flight-mini-telemetry"><span>ALT <output data-flight-alt>0.0</output>m</span><span>ROTOR <output data-flight-rpm>0</output> RPM</span><span class="flight-desktop-ammo">AMMO <output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></span></div>
+      <small class="flight-inline-warning" hidden data-flight-warning></small>
     `;
-    this.statusStack.append(this.flightPanel);
+    this.guardBlock.append(this.flightChargeRail);
     this.root.append(this.statusStack);
     this.afflictionPanel = new AfflictionPanel(this.root);
     this.trialPanel = document.createElement('div');
@@ -458,8 +462,21 @@ export class HUD {
       }
     }
     const isFlight = Boolean(siege?.isFlight);
+    this.flightSkillTile.hidden=!isFlight;
+    if(isFlight){
+      const tile=this.flightSkillTile,skill=flightMachine?.skill??{};
+      const fullName=siege.skillName??'FIRE AWAY';
+      tile.querySelector('.ability-icon').innerHTML=iconSvg(siege.skillIcon);
+      tile.querySelector('em').textContent=fullName.toUpperCase().includes('NARROW')?'NARROW':
+        fullName.toUpperCase().includes('ASCENSION')?'ASCEND':'FIRE AWAY';
+      const bound=this.ballistaControls?.bindings?.siegeSkill?.[0];
+      tile.querySelector('b').textContent=bound?bound.replace(/^Key/,'').replace(/^Digit/,''):'U';
+      this.#ability(tile,siege.skillActive?0:Math.max(0,(skill.readyAt??0)-serverNow),24);
+      tile.classList.toggle('active',Boolean(siege.skillActive));
+      if(siege.skillActive)tile.querySelector('strong').textContent='ACTIVE';
+    }
     this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
-    this.flightPanel.hidden = !siege || !isFlight;
+    this.flightChargeRail.hidden = !siege || !isFlight;
     const uprootedBallista=local?.alive&&local.operatingBallistaId
       ? snapshot?.bibyeBallista:null;
     const uprootedUntil=uprootedBallista?.outriggersDislodgedUntil;
@@ -485,29 +502,15 @@ export class HUD {
       pressure.hidden=siege.pressure==null;
       if(siege.pressure!=null){pressure.querySelector('output').textContent=Math.ceil(siege.pressure);pressure.querySelector('progress').value=siege.pressure;}
     } else if (siege && isFlight) {
-      this.flightPanel.querySelector('[data-flight-alt]').textContent = siege.alt;
-      const hullBar = this.flightPanel.querySelector('[data-flight-hull-bar]');
-      if (hullBar) { hullBar.max = siege.maxHull ?? 250; hullBar.value = siege.hull ?? 250; }
-      const hullOut = this.flightPanel.querySelector('[data-flight-hull]');
-      if (hullOut) hullOut.textContent = siege.hull ?? 250;
-      this.flightPanel.querySelector('[data-flight-charge]').textContent = siege.charge;
-      const chargeBar = this.flightPanel.querySelector('[data-flight-charge-bar]');
-      chargeBar.max = siege.maxCharge; chargeBar.value = siege.charge;
-      this.flightPanel.querySelector('[data-flight-rotor]').textContent = siege.rotor;
-      this.flightPanel.querySelector('[data-flight-rpm]').textContent = siege.rotorRPM;
-      this.flightPanel.querySelector('[data-flight-ammo]').textContent = siege.ammo;
-      const debt = this.flightPanel.querySelector('[data-flight-debt]');
-      debt.textContent = siege.debt > 0 ? `-${siege.debt}` : '';
-      const skill = this.flightPanel.querySelector('[data-flight-skill]');
-      skill.innerHTML = iconSvg(siege.skillIcon) + '<span>' + siege.skillText + '</span>';
-      skill.title = siege.skillName;
-      skill.classList.toggle('active', Boolean(siege.skillActive));
-      const warn = this.flightPanel.querySelector('[data-flight-warning]');
+      this.flightChargeRail.querySelector('[data-flight-alt]').textContent = siege.alt;
+      this.flightChargeRail.querySelector('[data-flight-charge]').textContent = siege.charge;
+      this.flightChargeRail.querySelector('[data-flight-charge-fill]').style.width =
+        (100 * siege.charge / Math.max(1,siege.maxCharge)).toFixed(2) + '%';
+      this.flightChargeRail.querySelector('[data-flight-rpm]').textContent = siege.rotorRPM;
+      this.flightChargeRail.querySelector('[data-flight-ammo]').textContent = siege.ammo;
+      const warn = this.flightChargeRail.querySelector('[data-flight-warning]');
       warn.hidden = !siege.warning;
       if (siege.warning) warn.textContent = siege.warning;
-      const controls = this.flightPanel.querySelector('[data-flight-controls]');
-      controls.hidden = Boolean(siege.touch);
-      controls.textContent = siege.controls;
     }
     const trialView = renownTrialsView(snapshot, serverNow);
     this.trialPanel.hidden = !trialView.visible;

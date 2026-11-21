@@ -84,10 +84,8 @@ function release(room,m,p,now){
   room.events.push({type:'fightFlightBoltReleased',machineId:m.id,projectileId:id,operatorId:p.id,
     point:origin,ammo:m.ammo,borrowed:false,ammoDebt:m.ammoDebt??0,
     chargeCost:fireAway?FIRE_AWAY.boltCharge:0,flightCharge:m.flightCharge,at:now});
-  if(fireAway&&m.flightCharge+1e-8<FIRE_AWAY.boltCharge){
-    // The paid final bolt exists. Unusable residual charge is exhausted immediately.
-    m.flightCharge=0;endFightFlightSkill(room,m,now,'exhausted');
-  }
+  // Partial charge remains usable after releasing Fire; the next held shot
+  // either finds enough recovered charge or exhausts the remaining battery.
   // Commit a tracked target AFTER a physical bolt actually exists. The
   // machine's independent gimbal then keeps this one hard-locked foe even
   // when the pilot's camera or sword aim moves away.

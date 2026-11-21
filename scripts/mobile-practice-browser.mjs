@@ -323,14 +323,18 @@ try {
       spell: { width: spell?.width, height: spell?.height, bottom: window.innerHeight - (spell?.bottom ?? 0), hidden: t?.buttons?.spell?.hidden, label: t?.buttons?.spell?.querySelector('span')?.textContent },
       plateWidth: plate.width,
       plateHeight: plate.height,
-      hasFlightHud: Boolean(hud?.querySelector('.flight-hud:not(.hidden)')),
+      hasFlightHud: Boolean(hud?.querySelector('.flight-charge-rail:not([hidden])')),
+      sweepHidden: t?.buttons?.siegeSweep?.hidden,
+      boltAmmo: t?.boltAmmoPill?.textContent,
     };
   })()`);
   console.log('Flight layout state:', flightLayout);
   assert.equal(flightLayout.isFlightMounted, true, 'Touch flight layer class active');
   assert.equal(flightLayout.spell.hidden, false, 'Mounted Steel button visible');
   assert.equal(flightLayout.spell.label, 'STEEL', 'Spell button displays STEEL while mounted');
-  assert.ok(flightLayout.hasFlightHud, 'Flight HUD with Hull, Rotor, Charge is visible');
+  assert.ok(flightLayout.hasFlightHud, 'Charge rail is visible below health and stamina');
+  assert.equal(flightLayout.sweepHidden,true,'Flight never shows Ballista Sweep');
+  assert.match(flightLayout.boltAmmo,/^\\d+\\/18$/,'ammo appears on the Bolt control');
 
   await captureShot('03-mobile-flight-mounted-ergonomics.png');
 

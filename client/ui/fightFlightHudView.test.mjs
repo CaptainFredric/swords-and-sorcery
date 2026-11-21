@@ -114,3 +114,16 @@ test('Charge-funded Fire Away HUD shows battery endurance, not borrowed bolts or
  assert.equal(fightFlightHudView(p,{fightFlight:m},14).ammo,0);
  assert.match(fightFlightHudView(p,{fightFlight:m},14).skillText,/11s/);
 });
+
+test('Flight instruments are in the health stack; no central status panel or duplicated READY tile',()=>{
+ const hud=readFileSync(new URL('./HUD.mjs',import.meta.url),'utf8');
+ const mobile=readFileSync(new URL('../mobile.css',import.meta.url),'utf8');
+ const controls=readFileSync(new URL('../game/TouchControls.mjs',import.meta.url),'utf8');
+ assert.match(hud,/flightChargeRail/);
+ assert.match(hud,/guardBlock.append\(this.flightChargeRail\)/);
+ assert.doesNotMatch(hud,/this\.flightPanel/);
+ assert.match(mobile,/touch-flight \.touch-siegeSweep \{display:none!important;\}/);
+ assert.match(controls,/this\.buttons\.siegeSweep\.hidden=!ballista/);
+ assert.match(controls,/setMountedRecovery\(this\.buttons\.siegeSkill,recovery,24\)/);
+ assert.match(controls,/touch-bolt-ammo/);
+});

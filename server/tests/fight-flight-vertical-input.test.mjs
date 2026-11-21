@@ -113,7 +113,8 @@ test('Legacy Space short press hops while sustained held Space becomes Rise; no 
  assert.ok(second.m.rotorPowered&&second.m.y>1);
  step(second.room,second.m,1.5,25,{jump:false});
  assert.equal(second.m.verticalIntent,'HOVER');
- assert.ok(Math.abs(second.m.velocity.y)<.5);
+ assert.ok(Math.abs(second.m.velocity.y)<1.1,
+   'released Rise becomes a gently bobbing hover, not continued ascent');
 });
 test('Stale held Rise after lost focus expires on the authoritative server without client release',()=>{
  const {room,m,p}=setup();

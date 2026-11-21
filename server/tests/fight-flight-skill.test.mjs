@@ -28,15 +28,18 @@ function tick(room,m,at,dt=DT){
  stepFightFlightSkill(room,m,at);
  stepFightFlightWeapons(room,m,dt,at);
 }
-test('Fire Away requires a 450 RPM intact rotor and charge, and its 24s timer starts on activation',()=>{
+test('Fire Away auto-spins an intact cold rotor and starts its 24s timer on activation',()=>{
  const {room,m,p}=setup();
- m.rotorRPM=440;assert.match(requestFightFlightSkill(room,m,p,1),/450 RPM/);
- m.rotorRPM=449.6;m.rotorHP=0;assert.match(requestFightFlightSkill(room,m,p,1),/intact rotor/);
+ m.rotorPowered=false;m.rotorAngularVelocity=0;m.rotorRPM=0;m.rotorEnergy=0;
+ m.rotorHP=0;assert.match(requestFightFlightSkill(room,m,p,1),/intact rotor/);
  m.rotorHP=100;m.flightCharge=0;
  assert.match(requestFightFlightSkill(room,m,p,1),/requires flight charge/);
  m.flightCharge=100;assert.equal(requestFightFlightSkill(room,m,p,1),null);
  assert.equal(m.skill.phase,'active');assert.equal(m.skill.activeUntil,null);
  assert.equal(m.skill.readyAt,25);assert.equal(m.ammo,18);
+ assert.equal(m.rotorPowered,true);assert.equal(m.rotorRPM,450);
+ assert.ok(Math.abs(m.rotorAngularVelocity-Math.PI*15)<1e-8);
+ assert.equal(m.rotorEnergy,100);
  assert.equal(m.ammoDebt,0);
  assert.equal(requestFightFlightSkill(room,m,p,2),'Fire Away is already active.');
  stepFightFlightSkill(room,m,6);
@@ -72,7 +75,7 @@ test('Rapid held-input repeats and Fire toggles cannot duplicate projectiles or 
  assert.equal(m.shotSeq,2);assert.equal(m.flightCharge,97);
  assert.equal(m.ammo,18);assert.equal(m.ammoDebt,0);
 });
-test('Stopping fire offsets hover cost without generating charge, while Rise still costs 15/s',()=>{
+test('Fire Away recovers 8/s when paused: neutral hover sustains itself and Rise nets 7/s cost',()=>{
  const {room,m,p}=setup();airborne(m,p,50);
  requestFightFlightSkill(room,m,p,1);
  for(let i=1;i<=90;i++)tick(room,m,1+i*DT);
@@ -81,7 +84,8 @@ test('Stopping fire offsets hover cost without generating charge, while Rise sti
  const before=m.flightCharge;
  p.input.flightRise=true;
  for(let i=1;i<=30;i++)tick(room,m,4+i*DT);
- assert.ok(m.flightCharge<before-14.8,'one second of climbing pays its normal 15 charge');
+ assert.ok(m.flightCharge<before-6.8&&m.flightCharge>before-7.3,
+   'one second of climbing spends 15/s and recovers 8/s only while not firing');
  assert.equal(m.ammo,18);
 });
 test('Held Fire drains normal flight power as well as 1.5 charge per bolt, and outlasts 3.5 seconds',()=>{
@@ -101,15 +105,16 @@ test('Held Fire drains normal flight power as well as 1.5 charge per bolt, and o
  assert.equal(m.skill.readyAt,25,'cooldown still starts at activation');
  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.action==='exhausted'));
 });
-test('Ground operation has no charge income during Fire Away, even with Fire released',()=>{
+test('Paused Fire Away also recovers charge on the ground, but firing suspends income',()=>{
  const {room,m,p}=setup();m.flightCharge=45;
  requestFightFlightSkill(room,m,p,1);
  for(let i=1;i<=30;i++)stepFightFlight(room,m,DT,1+i*DT);
- assert.ok(m.flightCharge<=45+1e-8,'ground recovery cannot fund stationary shooting');
- // Force the hypothetical full-speed grounded case without letting physics spin the rotor down.
- m.rotorRPM=450;
+ assert.ok(Math.abs(m.flightCharge-53)<.05,'one second without firing restores eight charge');
  requestFightFlightFire(room,m,p,true,2.1);
- assert.equal(m.flightCharge,43.5);
+ assert.ok(Math.abs(m.flightCharge-51.5)<.05);
+ const afterShot=m.flightCharge;
+ for(let i=1;i<=3;i++)stepFightFlight(room,m,DT,2.1+i*DT);
+ assert.equal(m.flightCharge,afterShot,'held Fire receives no charge even while grounded');
  assert.equal(m.ammo,18);
 });
 test('Brief Fire release after a bolt does not earn a free hover-charge tick',()=>{
@@ -135,16 +140,23 @@ test('Rotor falls below operating RPM: immediate interruption empties magazine, 
  assert.equal(m.skill.readyAt,25);
  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.action==='rotorLost'));
 });
-test('Insufficient charge creates no unpaid projectile and residual charge is exhausted',()=>{
+test('A final paid bolt leaves residual charge recoverable until the next attempted unpaid shot',()=>{
  const {room,m,p}=setup();m.flightCharge=2;
  requestFightFlightSkill(room,m,p,1);
  requestFightFlightFire(room,m,p,true,1);
- assert.equal(m.shotSeq,1);assert.equal(m.flightCharge,0);
- assert.equal(m.skill.phase,'idle');assert.equal(m.ammo,0);
+ assert.equal(m.shotSeq,1);assert.equal(m.flightCharge,.5);
+ assert.equal(m.skill.phase,'active');assert.equal(m.ammo,18);
+ requestFightFlightFire(room,m,p,false,1.01);
+ for(let i=1;i<=12;i++){
+   stepFightFlight(room,m,DT,1.01+i*DT);
+   stepFightFlightSkill(room,m,1.01+i*DT);
+ }
+ assert.ok(m.flightCharge>=1.5,'pausing preserves the Skill and recharges partial power');
+ assert.equal(m.skill.phase,'active');
  const fired=m.shotSeq;
- requestFightFlightFire(room,m,p,true,1.01);
- assert.equal(m.shotSeq,fired);
- assert.equal(room.fightFlightProjectiles.size,1);
+ requestFightFlightFire(room,m,p,true,1.5);
+ assert.equal(m.shotSeq,fired+1,'only the newly charge-paid bolt is released');
+ assert.equal(room.fightFlightProjectiles.size,2);
 });
 test('Movement depletion is resolved before another bolt in the same authoritative tick',()=>{
  const {room,m,p}=setup();airborne(m,p,1.6);
@@ -312,4 +324,27 @@ test('True firing pause does not retroactively debit its elapsed clock when fire
  stepFightFlight(room,m,DT,3+DT);
  assert.ok(held-m.flightCharge<3.1,
    'a two-second non-firing pause is not charged as a retroactive barrage');
+});
+
+test('Deliberately braking the rotor prevents Fire Away from auto-spinning through the brake',()=>{
+ const {room,m,p}=setup();m.rotorPowered=false;m.rotorRPM=0;m.rotorAngularVelocity=0;
+ m.rotorBrakeHeld=true;
+ assert.match(requestFightFlightSkill(room,m,p,1),/Release the rotor brake/);
+ assert.equal(m.rotorRPM,0);assert.notEqual(m.skill?.phase,'active');
+ m.rotorBrakeHeld=false;
+ assert.equal(requestFightFlightSkill(room,m,p,1),null);
+ assert.equal(m.rotorRPM,450);
+});
+test('A charging barrage has no income during held Fire, but regains neutral-hover power after real release',()=>{
+ const {room,m,p}=setup();airborne(m,p,80);
+ requestFightFlightSkill(room,m,p,1);
+ requestFightFlightFire(room,m,p,true,1);
+ for(let i=1;i<=15;i++)tick(room,m,1+i*DT);
+ const afterFiring=m.flightCharge;
+ assert.ok(afterFiring<71,'both physical bolt costs and flight drain are paid');
+ requestFightFlightFire(room,m,p,false,1.5);
+ for(let i=1;i<=36;i++)tick(room,m,1.5+i*DT);
+ assert.ok(m.flightCharge>=afterFiring-1.6&&m.flightCharge<=afterFiring+.2,
+   'the immediate post-shot grace spends less than 1.6 charge, then hover remains neutral');
+ assert.equal(m.skill.phase,'active');
 });

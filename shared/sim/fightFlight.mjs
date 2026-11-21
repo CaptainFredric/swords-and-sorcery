@@ -7,7 +7,7 @@ import {resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
 import {flightMountReach} from '../src/siegeMountReach.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-import {endFightFlightSkill,fightFlightHoverSupport,fightFlightBarrageFiring,fightFlightChargeCostDt,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
+import {endFightFlightSkill,fightFlightBarrageFiring,fightFlightChargeCostDt,equippedFightFlightSkill,fightFlightSkillActive,FIRE_AWAY,NARROW_TO_ONE,ASCENSION} from './fightFlightSkill.mjs';
 import {updateNarrowTracking} from './fightFlightTracking.mjs';
 import {VALKYRIE_RUN,practiceFlightRun} from './fightFlightRun.mjs';
 import {stepSiegeWreck} from './siegeWreck.mjs';
@@ -19,7 +19,7 @@ export const FIGHT_FLIGHT = Object.freeze({
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
   neutralStabilizeSec:1.05,neutralDescentSpeed:.4,
-  neutralBobMetres:.15,neutralBobHz:1.0,
+  neutralBobMetres:.20,neutralBobHz:.80,bobVelocity:.52,verticalResponse:7.4,
   airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
@@ -406,17 +406,22 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       const hoverHeight=(m.neutralHoverHeight??m.y)+bob;
       const hoverVelocity=m.neutralHoverFromRise?
         cap((hoverHeight-m.y)*3.1,-.5,1.05):0;
-      const support=fightFlightHoverSupport(m,now,{climbing:m.verticalIntent==='RISE',descending:descend});
-      const targetVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
+      // The oscillation changes the real integrated altitude, not only the
+      // cosmetic model transform. It persists through climb, hover and lower;
+      // a slower response preserves a little momentum when the lever changes.
+      const bobVelocity=m.verticalIntent==='HOP'?0:
+        FIGHT_FLIGHT.bobVelocity*Math.sin(now*2*Math.PI*FIGHT_FLIGHT.neutralBobHz);
+      const baseVelocity=m.verticalIntent==='RISE'?3.7:descend?-3.4:
         m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
-        support?0:settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
-      const correction=cap((targetVelocity-m.velocity.y)*9,-13,13)*lift;
+        settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
+      const targetVelocity=baseVelocity+bobVelocity;
+      const correction=cap((targetVelocity-m.velocity.y)*FIGHT_FLIGHT.verticalResponse,-11,11)*lift;
       const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
-      // Power assistance is only steady-altitude compensation. Ascending
-      // still spends the normal powered-climb charge; suppression is a choice.
+      // Every flight posture still pays its usual power cost. Fire Away's
+      // separate recharge below offsets level hover only after firing stops.
       const climbing=m.verticalIntent==='RISE';
-      const cost=support?0:climbing?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
+      const cost=climbing?FIGHT_FLIGHT.climbCost:descend?2:FIGHT_FLIGHT.hoverCost;
       m.flightCharge=cap(m.flightCharge-flightCostDt*cost,0,m.maxFlightCharge);
       if(descend&&m.velocity.y<-.3&&
           !fightFlightBarrageFiring(m,now))
@@ -424,10 +429,16 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     }else m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*dt,-18,5.4);
   }else{
     m.velocity.y=0;
-    // The grounded machine cannot refill the battery while running a charge-fed barrage.
     if(!fightFlightSkillActive(m,now,FIRE_AWAY.id))
       m.flightCharge=cap(m.flightCharge+dt*7,0,m.maxFlightCharge);
   }
+  // During Fire Away, the generator recovers at the normal level-hover rate
+  // whenever the trigger has genuinely been released. No income while held
+  // or during the 160ms post-shot grace window (anti-feathering). Climb and
+  // descent keep their normal net power cost; zero charge ends the Skill.
+  if(fightFlightSkillActive(m,now,FIRE_AWAY.id)&&m.flightCharge>0&&
+     !fightFlightBarrageFiring(m,now)&&m.rotorHP>0&&!m.emergencyBrakeActive)
+    m.flightCharge=cap(m.flightCharge+dt*FIGHT_FLIGHT.hoverCost,0,m.maxFlightCharge);
   if(m.edgeAutoLand&&!m.terminalDive){
     m.flightDashHeld=false;m.offensiveRun=false;m.runGroundPhase=null;m.runStopRequested=true;
     if(!m.grounded){
