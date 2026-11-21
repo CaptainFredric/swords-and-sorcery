@@ -2,7 +2,7 @@ import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
 import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
-import { playerMovementWorld } from './playerMovementWorld.mjs';
+import { playerMovementWorld,detachedRamFistSolid } from './playerMovementWorld.mjs';
 import {lostSiegeMachines} from './siegeAbyss.mjs';
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
@@ -3824,10 +3824,15 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // has its say first)
     for (const knight of room.players.values())
       if (knight.alive && knight.ultimateState?.id === 'one_hit_of_wonders') oneHitDefensiveWind(room, knight, nowSec);
-    stepProjectiles(room, dt, nowSec, world, { filterOwnerId });
-    stepFightFlightProjectiles(room,dt,nowSec,world,{filterOwnerId});
+    // A grounded detached fist is tangible cover, including against real
+    // bolts and spells. Add only that steel body to projectile geography;
+    // vehicle components already have their own authoritative hit systems.
+    const fistObstacle=detachedRamFistSolid(room.soFistication);
+    const projectileWorld=fistObstacle?{...world,solids:[...(world.solids??[]),fistObstacle]}:world;
+    stepProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
+    stepFightFlightProjectiles(room,dt,nowSec,projectileWorld,{filterOwnerId});
     if (room.biByeLlista) {
-      stepBiByeProjectiles(room, dt, nowSec, world, { filterOwnerId });
+      stepBiByeProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
     }
   } else {
     for (const projectile of room.projectiles.values()) {
