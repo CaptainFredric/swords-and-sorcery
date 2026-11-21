@@ -240,3 +240,21 @@ test('Low-power mobile audio retains all five distinct infusions while thinning 
   assert.deepEqual(mobile.played.map(x=>x.delay),desktop.played.map(x=>x.delay),
     'phone preserves elemental timing and recognizability');
 });
+
+test('midair Gale detonation has a distinct pressure boom and no four-second geological ambience',()=>{
+  const air=fixture(),ground=fixture();
+  const point={x:3,y:8,z:0};
+  const event={type:'oneHitImpact',playerId:'a',impactId:'air-gale',
+    point,tiers:{gale:2,frost:2},form:'aerial',at:2};
+  air.sound.onEvent({...event,air:true,fieldId:'air-field'});
+  ground.sound.onEvent({...event,air:false,groundBlast:true,fieldId:'ground-field'});
+  assert.notDeepEqual(air.played[0].recipe,ground.played[0].recipe,
+    'free-air shock is not the sound of stone cracking');
+  const floating={...field('air-field',{gale:2,frost:2}),air:true,
+    position:point,direction:{x:1,y:0,z:0},bornAt:2,until:3.3};
+  air.sound.update({players:[],oneHitWaves:[],oneHitFields:[floating]},2.1);
+  air.sound.update({players:[],oneHitWaves:[],oneHitFields:[floating]},2.42);
+  assert.ok(air.played.length>3,'flying pressure still has a brief audible residual');
+  air.sound.update({players:[],oneHitWaves:[],oneHitFields:[]},3.4);
+  assert.equal(air.sound.fields.size,0,'the airborne pressure sound expires on the server field');
+});
