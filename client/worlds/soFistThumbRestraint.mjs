@@ -59,8 +59,8 @@ export function restrainHellpingThumb(parts){
   if(difference>maxAngle+1e-5){
    // Preserve the original animated swing, but never allow an exaggerated
    // backward fold or compounded distal-joint kink.
-   part.node.quaternion.copy(part.rest).slerp(part.node.quaternion,
-     maxAngle/difference);
+   const authored=part.node.quaternion.clone();
+   part.node.quaternion.copy(part.rest).slerp(authored,maxAngle/difference);
   }
  }
 }
