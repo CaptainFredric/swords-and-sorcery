@@ -9,14 +9,14 @@ const clonePlacements=layout=>Object.fromEntries(
   Object.entries(layout).map(([action,placement])=>[action,{...placement}]));
 
 export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
-  stick: { left: 118, bottom: 110, size: 112, type: 'stick' },
+  stick: { left: 96, bottom: 110, size: 112, type: 'stick' },
   attack: { right: 28, bottom: 28, size: 80 },
   guard: { right: 152, bottom: 36, size: 64 },
   dash: { right: 138, bottom: 104, size: 54 },
   spell: { right: 88, bottom: 147, size: 54 },
   jump: { right: 21, bottom: 154, size: 58 },
   sprint: { left: 26, bottom: 190, size: 50 },
-  crouch: { left: 190, bottom: 187, size: 50 },
+  crouch: { left: 164, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
   ultimate: { right: 24, bottom: 222, size: 50 },
   // New action has no legacy CSS coordinates: always position it from the
@@ -310,6 +310,14 @@ function hydratePage(mode,side,overrides={}){
     if(base[action]&&patch&&typeof patch==='object')page[action]=mergePlacement(base[action],patch);
   return page;
 }
+// Preserve the immediately preceding factory stick/Crouch positions as
+// migration candidates. Old factory layouts should shift left with the new
+// preset; a deliberate custom thumb layout must remain where it was saved.
+const PREVIOUS_ON_FOOT_LAYOUT=Object.freeze({
+  ...DEFAULT_ON_FOOT_LAYOUT,
+  stick:{left:118,bottom:110,size:112,type:'stick'},
+  crouch:{left:190,bottom:187,size:50},
+});
 // A previous handedness preset labeled ALL positions "custom". That flag
 // does not distinguish a user edit from a historical factory position.
 const OLD_ON_FOOT_LAYOUT=Object.freeze({
@@ -317,7 +325,7 @@ const OLD_ON_FOOT_LAYOUT=Object.freeze({
 });
 const legacyCandidates=mode=>mode==='flight'?
   [DEFAULT_FLIGHT_LAYOUT,OUTGOING_FLIGHT_LAYOUT,PREVIOUS_FLIGHT_LAYOUT,LEGACY_FLIGHT_LAYOUT]:
-  mode==='onFoot'?[DEFAULT_ON_FOOT_LAYOUT,OLD_ON_FOOT_LAYOUT]:
+  mode==='onFoot'?[DEFAULT_ON_FOOT_LAYOUT,PREVIOUS_ON_FOOT_LAYOUT,OLD_ON_FOOT_LAYOUT]:
   [defaultsForPage(mode)];
 function legacySide(mode,items){
   // Global handedness belonged to whichever page was last edited; infer

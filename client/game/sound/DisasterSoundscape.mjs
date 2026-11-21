@@ -71,7 +71,7 @@ export class DisasterSoundscape {
     // Network resends or a frozen/replayed Inspection snapshot must never
     // produce a second huge blast. Distinct projectile uses retain their IDs.
     if(['coreflagrationArmed','projectileImpact','lineConductDischarge',
-      'spellCast','ultimateStart','oneHitTeleport','oneHitWave','oneHitImpact',
+      'spellCast','ultimateStart','oneHitTeleport','oneHitWave','oneHitImpact','oneHitLightningGroundStrike',
       'galeBlast'].includes(event.type)){
       const key=[event.type,event.projectileId??event.impactId??event.waveId??
         event.playerId??event.ownerId??'',event.at??'',event.stage??''].join(':');
@@ -159,10 +159,23 @@ export class DisasterSoundscape {
         // Fire ignites, frost fractures, Gale evacuates, lightning snaps, Steel
         // rumbles last. Avoid simply synchronizing five entire explosions.
         const delays={fire:.035,frost:.095,gale:.135,lightning:.185,steel:.23};
-        for(const e of elements)this.#around(point,disasterInfusionImpactRecipe(e,rand,{
-          tier:event.tiers[e],wave:Boolean(event.impactId)}),.76*balance,delays[e]);
+        for(const e of elements){
+          // Anvil strikes require an actual ground collision, not a midair
+          // projectile burst. Lightning's strike accent works at both tiers.
+          if(e==='steel'&&event.air)continue;
+          this.#around(point,disasterInfusionImpactRecipe(e,rand,{
+            tier:event.tiers[e],wave:Boolean(event.impactId)}),.76*balance,delays[e]);
+        }
         if(event.fieldId)this.fields.set(event.fieldId,{next:at(event.at,0)+.75,index:0});
         if(event.impactId)this.waves.delete(event.impactId);
+        break;
+      }
+      case 'oneHitLightningGroundStrike':{
+        // Independent bolt from the aerial wave, heard at the ground where
+        // it strikes. Never repeat all the wave's other elemental impacts.
+        this.#around(event.point,disasterInfusionImpactRecipe('lightning',rand,{
+          tier:2,wave:false}),.73);
+        this.#around(event.point,conductWireTailRecipe(rand),.31,.16);
         break;
       }
       case 'galeBlast':{
@@ -204,7 +217,9 @@ export class DisasterSoundscape {
       let cursor=this.fields.get(field.id);
       if(!cursor){cursor={next:nowSec+.22,index:0};this.fields.set(field.id,cursor);}
       if(nowSec+1e-5<cursor.next)continue;
-      cursor.next=nowSec+1.08;
+      // Gentle, overlapping layers; each 0.95-second envelope begins before
+      // the previous one ends. The field's actual lifetime supplies the fade.
+      cursor.next=nowSec+.86;
       const strength=fieldStrength(field,nowSec);
       if(strength<=.045)continue;
       const elements=tiersOf(field.tiers),balance=mix(elements.length);
@@ -216,13 +231,15 @@ export class DisasterSoundscape {
         ?galeStreamRecipe(this.random,{seconds:.42,weight:strength})
         :disasterFieldPulseRecipe(this.random,{strength}),
         gain*(field.air?.72:1));
-      // All five infusion timbres take turns throughout the authoritative
-      // field lifetime, two gentle accents per beat. Never five full booms.
-      for(let i=0;i<Math.min(2,elements.length);i++){
-        const e=elements[cursor.index++%elements.length];
+      // Each present element maintains a quiet, distinguishable layer; a
+      // five-element field stays recognizable without five simultaneous booms.
+      // Cap the combined loudness and stagger micro-pops across the beat.
+      for(let i=0;i<elements.length;i++){
+        const e=elements[(cursor.index+i)%elements.length];
         this.#around(field.position,disasterInfusionFieldRecipe(e,this.random,{
-          tier:field.tiers[e],strength}),gain*.94,.19+i*.34);
+          tier:field.tiers[e],strength}),gain*.63,.05+i*.075);
       }
+      cursor.index=(cursor.index+1)%Math.max(1,elements.length);
     }
     // Line of Conduct's visible wire remains in the server snapshot for one
     // second. A short electrical aftercurrent follows that REAL lifetime,

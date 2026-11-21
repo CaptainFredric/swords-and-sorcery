@@ -154,7 +154,7 @@ test('legacy default Crouch moves away from the joystick extension without overr
   const storage = memoryStorage();
   storage.setItem('ss-touch-layout', JSON.stringify(old));
   let current = loadTouchLayout(storage);
-  assert.deepEqual(current.onFoot.crouch, { left: 190, bottom: 187, size: 50 });
+  assert.deepEqual(current.onFoot.crouch, { left: 164, bottom: 187, size: 50 });
   storage.setItem('ss-touch-layout', JSON.stringify({
     ...old,
     onFoot: { ...old.onFoot, crouch: { ...old.onFoot.crouch, custom: true } },

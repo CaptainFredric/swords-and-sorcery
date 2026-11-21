@@ -189,18 +189,26 @@ export function disasterInfusionImpactRecipe(element,rand=Math.random,{tier=1,wa
       n('highpass',3400,.02,.43,.08*level,{at:.06,sweepTo:1100}),
     ],.13);
     case 'lightning':return recipe([
-      n('highpass',5700,.001,.085,.43*level,{sweepTo:1900}),
-      t('sawtooth',2300,440,.002,.22,.09*level),
-      n('bandpass',2800,.008,.26,.21*level,{at:.035,sweepTo:700,q:2}),
-      t('sine',94,44,.018,.39,.18*level,{at:.052}),
-    ],.29,.05);
+      // Immediate, unmistakable lightning crack at HALF and Full. Full has
+      // a longer low thunder body, but never doubles the direct strike.
+      n('highpass',6200*jitter(rand,.08),.001,.11,.39*level,{sweepTo:1400}),
+      n('bandpass',2900,.004,.22,.22*level,{at:.013,sweepTo:560,q:1.6}),
+      t('sawtooth',2400,420,.002,.17,.082*level),
+      t('sine',full?83:102,full?33:49,.016,full?.55:.29,.21*level,{at:.036}),
+      ...(full?[n('lowpass',440,.018,.46,.17*level,{at:.10,sweepTo:105})]:[]),
+    ],.30,.08);
     case 'steel':return recipe([
-      // A slow cavernous load-bearing groan, NOT a second fire explosion.
-      t('sine',67,28,.01,.92,.34*level),
-      n('lowpass',350,.03,.81,.21*level,{sweepTo:115}),
-      ring(rand,300,{decay:full?1.25:.8,gain:.15*level,partials:5,bright:.7}),
-      n('highpass',2700,.001,.055,.25*level),
-    ],.42,.15);
+      // Half Steel: a real anvil's sharp metal-on-metal strike, ringing
+      // above the original dense fracture. Full Steel strikes harder and
+      // sustains a longer overlapping second overtone. Ground impacts only
+      // (the soundscape does not play this recipe for midair eruptions).
+      n('highpass',4300*jitter(rand,.07),.001,.048,(full?.38:.26)*level),
+      ring(rand,full?780:940,{decay:full?1.32:.72,gain:(full?.28:.20)*level,partials:7,bright:1.18}),
+      ring(rand,full?370:455,{decay:full?1.45:.88,gain:(full?.22:.15)*level,partials:5,bright:.78}),
+      t('sine',71,30,.006,.53,.24*level),
+      n('lowpass',350,.012,.48,.13*level,{sweepTo:110}),
+      ...(full?[n('highpass',2900,.001,.08,.14*level,{at:.045})]:[]),
+    ],.39,.12);
     default:return recipe([]);
   }
 }
@@ -214,33 +222,37 @@ export function disasterFieldPulseRecipe(rand=Math.random,{strength=1}={}){
   ],.17);
 }
 /** Low-density, distinct ambient accents, never replay an entire blast. */
+/** Quiet, continuous field bed; no independent timers or infinite sources.
+ * The soundscape renews this every .86 seconds while the authoritative field
+ * exists. Held noise layers overlap, soften and fade with fieldStrength. */
 export function disasterInfusionFieldRecipe(element,rand=Math.random,{tier=1,strength=1}={}){
-  const s=clamp(strength)*(Number(tier)>=2?1:.62);
+  const s=clamp(strength)*(Number(tier)>=2?1:.65);
   switch(element){
     case 'fire':return recipe([
-      n('bandpass',2500*jitter(rand,.2),.004,.075,.11*s,{at:.035}),
-      n('lowpass',350,.02,.26,.06*s,{sweepTo:210}),
-      n('highpass',4300,.001,.025,.05*s,{at:.18}),
-    ],.12);
+      n('bandpass',1520*jitter(rand,.11),.05,.25,.085*s,{hold:.61,sweepTo:580,q:.78}),
+      n('lowpass',480,.06,.28,.045*s,{hold:.62,sweepTo:290}),
+      n('highpass',3900*jitter(rand,.16),.001,.044,.050*s,{at:.12}),
+      n('highpass',4900*jitter(rand,.2),.001,.028,.034*s,{at:.56}),
+    ],.11);
     case 'frost':return recipe([
-      n('highpass',4600,.025,.23,.055*s,{sweepTo:3200}),
-      ring(rand,1850*jitter(rand,.14),{decay:.3,gain:.028*s,partials:3}),
-      n('highpass',5900,.001,.03,.065*s,{at:.16}),
-    ],.24);
-    case 'gale':{
-      const wind=galeStreamRecipe(rand,{seconds:.42,weight:.2+.6*s});
-      return {...wind,layers:wind.layers.map(layer=>({...layer,gain:layer.gain*s}))};
-    }
+      n('highpass',3850*jitter(rand,.09),.09,.25,.050*s,{hold:.63,sweepTo:2500}),
+      ring(rand,1850*jitter(rand,.08),{decay:.27,gain:.030*s,partials:3}),
+      n('highpass',6200,.001,.048,.057*s,{at:.52}),
+    ],.21);
+    case 'gale':return recipe([
+      n('bandpass',920*jitter(rand,.09),.08,.25,.10*s,{hold:.64,sweepTo:1370,q:.65}),
+      n('highpass',2650,.08,.25,.034*s,{hold:.56,sweepTo:1400}),
+    ],.11);
     case 'lightning':return recipe([
-      n('highpass',5100,.001,.035,.12*s),
-      n('bandpass',2700,.01,.13,.073*s,{at:.095,q:2.2,sweepTo:1150}),
-      t('sawtooth',680,330,.002,.085,.025*s,{at:.11}),
-    ],.13);
+      n('highpass',5200*jitter(rand,.12),.025,.16,.056*s,{hold:.64,sweepTo:2400}),
+      n('bandpass',3100,.003,.09,.077*s,{at:.08,q:1.8,sweepTo:900}),
+      t('sawtooth',770,320,.002,.085,.024*s,{at:.49}),
+    ],.14);
     case 'steel':return recipe([
-      t('sine',64,42,.04,.45,.12*s),
-      n('lowpass',240,.03,.33,.055*s,{sweepTo:105}),
-      ring(rand,225,{decay:.39,gain:.028*s,partials:2,bright:.5}),
-    ],.18);
+      t('sine',64,42,.07,.25,.050*s,{hold:.64}),
+      n('lowpass',240,.05,.24,.033*s,{hold:.65,sweepTo:105}),
+      ring(rand,325,{decay:.31,gain:.017*s,partials:2,bright:.5}),
+    ],.15);
     default:return recipe([]);
   }
 }

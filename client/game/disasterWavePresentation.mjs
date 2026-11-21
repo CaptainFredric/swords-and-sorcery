@@ -45,9 +45,9 @@ export function windbladeSurfacePoint(t,u=0,side=0){
   const width=x/.9;
   const span=Math.sqrt(Math.max(0,1-width*width));
   const depth=Math.max(0,Math.min(1,u));
-  const leading=.42*span-.11;
-  const z=leading-depth*(.98+.24*span);
-  const vault=(.035+.36*span*Math.sin(Math.PI*depth));
-  const turbulence=.035*span*Math.sin(5*x+depth*5);
-  return {x,y:side*vault+turbulence,z};
+  const leading=.50*Math.pow(span,.88)-.12;
+  const z=leading-depth*(.93+.18*span);
+  const vault=(.035+.34*span*Math.sin(Math.PI*depth));
+  // A clean, broad fingernail-like crescent: no sinusoidal wobble on the edge.
+  return {x,y:side*vault,z};
 }

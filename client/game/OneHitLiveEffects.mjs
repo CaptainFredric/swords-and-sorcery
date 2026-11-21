@@ -112,7 +112,7 @@ export function swordWave(tiers={}){
   edge.name='Windblade leading pressure front';
   edge.renderOrder=2;
   body.add(wake,edge);
-  body.scale.setScalar((tiers.fire??0)>=1?1.5/.9:1);
+  body.scale.setScalar((tiers.fire??0)>=1?1.85/.9:1);
   group.add(body);
   group.userData.breathe=clock=>{
     wake.material.opacity=.90+.1*Math.sin(clock*7);
@@ -345,6 +345,13 @@ export class OneHitLiveEffects {
       this.#burst(event.point,event.tiers,event.form);
     }
     if(event.type==='oneHitTeleport')this.#flash(event.to,event.tiers);
+    if(event.type==='oneHitLightningGroundStrike'){
+      // Independent vertical bolt from an airborne Gale+Lightning detonation.
+      // Server owns the ground point, victim selection, damage and Conduct.
+      const start=v(event.origin),end=v(event.point);
+      this.elements.bolt(start,end,{width:.052,ttl:.32,jag:.13,forks:3,steps:20});
+      this.#flash(event.point);
+    }
     if(event.type==='lineConductDischarge'){
       // The wire's far endpoint is authoritative, but its visible source
       // emerges from the REAL Sorcery socket rather than the server's

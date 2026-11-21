@@ -25,7 +25,7 @@ export const ONE_HIT_RULES = Object.freeze({
   waveTerminalRadius: 2.2,
   // A Fire-infused terminal blast equals an ordinary (uninfused) ground slam;
   // it is still smaller than the widened Fire-infused ground slam.
-  waveTerminalFireRadius: 3.4,
+  waveTerminalFireRadius: 4.0,
   // Held teleport visual aura does not continually expand or inflict damage.
   teleportAuraMaxRadius: 1.25,
   teleportDistanceScale: 22,
