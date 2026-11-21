@@ -294,6 +294,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     oneHitFields: (room.oneHitFields ?? []).map(f => ({
       id:f.id, ownerId:f.ownerId, position:{...f.position}, radius:f.radius, yaw:f.yaw??null,
       air:Boolean(f.air),direction:f.direction?{...f.direction}:null,
+      ...(f.trail?{trail:true,trailPoints:f.trailPoints.map(p=>({...p})),
+        activeAt:f.activeAt}:{}),
       bornAt:f.bornAt, until:f.until, tiers:{...f.tiers},
     })),
     lineConductWires: (room.lineConductWires ?? []).map(w => ({

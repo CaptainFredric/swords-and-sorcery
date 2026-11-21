@@ -30,7 +30,13 @@ export const ONE_HIT_RULES = Object.freeze({
   teleportAuraMaxRadius: 1.25,
   teleportDistanceScale: 22,
   teleportTimeScaleSec: 0.9,
-  lineOfConduct: Object.freeze({ nearDamage: 20, farDamage: 12, halfFalloffMetres: 12 }),
+  lineOfConduct: Object.freeze({
+    nearDamage: 20, farDamage: 12, halfFalloffMetres: 12,
+    afterlineSeconds: 1, afterlineRadius: .18, directRadius: .7,
+    // Electrical potential and its brief lifetime also fall off with
+    // distance, without making an across-map strike useless.
+    nearConduct: 12, farConduct: 4, nearConductSeconds: 3, farConductSeconds: 1.25,
+  }),
 });
 
 // Each element's first infusion adds its minimum meaningful direct spell hit
@@ -53,6 +59,49 @@ export function lineOfConductDamage(distanceMetres) {
   if (!Number.isFinite(distanceMetres) || distanceMetres < 0) throw new RangeError('Distance must be non-negative.');
   const { nearDamage, farDamage, halfFalloffMetres } = ONE_HIT_RULES.lineOfConduct;
   return Math.round(farDamage + (nearDamage - farDamage) / (1 + distanceMetres / halfFalloffMetres));
+}
+
+/** Gameplay has finite authored arenas, but no 240m damage cutoff.
+ * Aim through every known arena surface and target, stopping only at real
+ * intersecting solids. Compute the segment's end for network/VFX only. */
+export function lineOfConductReach(origin,direction,world={},targets=[]){
+  const project=p=>((p.x-origin.x)*direction.x+
+    (p.y-origin.y)*direction.y+(p.z-origin.z)*direction.z);
+  let reach=240;
+  for(const p of targets){
+    if(p&&[p.x,p.y,p.z].every(Number.isFinite))
+      reach=Math.max(reach,project(p)+12);
+  }
+  for(const f of world.floors??[]){
+    if(!Array.isArray(f.center)||!Array.isArray(f.size))continue;
+    const p={x:f.center[0],y:f.y??f.center[1],z:f.center[2]};
+    const half=.5*(Math.abs(direction.x)*(f.size[0]??0)+
+      Math.abs(direction.y)*(f.size[1]??0)+
+      Math.abs(direction.z)*(f.size[2]??0));
+    reach=Math.max(reach,project(p)+half+12);
+  }
+  for(const r of world.ramps??[]){
+    if(!Number.isFinite(r.minX)||!Number.isFinite(r.maxX)||
+       !Number.isFinite(r.minZ)||!Number.isFinite(r.maxZ))continue;
+    const mid={x:(r.minX+r.maxX)/2,
+      y:(Number(r.startY)||0)*.5+(Number(r.endY)||0)*.5,
+      z:(r.minZ+r.maxZ)/2};
+    const half=(Math.abs(direction.x)*(r.maxX-r.minX)+
+      Math.abs(direction.z)*(r.maxZ-r.minZ)+
+      Math.abs(direction.y)*Math.abs((r.endY??0)-(r.startY??0)))/2;
+    reach=Math.max(reach,project(mid)+half+12);
+  }
+  return reach;
+}
+
+export function lineOfConductAffliction(distanceMetres,nowSec,sourceId){
+  const r=ONE_HIT_RULES.lineOfConduct;
+  const d=Math.max(0,Number.isFinite(distanceMetres)?distanceMetres:Infinity);
+  const intensity=1/(1+d/r.halfFalloffMetres);
+  return {at:nowSec,initial:r.farConduct+
+      (r.nearConduct-r.farConduct)*intensity,
+    seconds:r.farConductSeconds+(r.nearConductSeconds-r.farConductSeconds)*intensity,
+    sourceId};
 }
 
 export function oneHitInfusionDamageBonus(tiers = {}) {

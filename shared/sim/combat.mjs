@@ -24,7 +24,8 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
-import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
+import { lineOfConductDamage, lineOfConductReach, lineOfConductAffliction, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
+import { ONE_HIT_WAKE, galeFrostWakeEnabled, galeFrostWakeRadius, closestWakePoint } from '../src/oneHitTrail.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
@@ -2301,7 +2302,7 @@ function stepOneHitChargeAura(room,caster,nowSec,world) {
   }
 }
 
-function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
+function oneHitGuard(room,caster,target,origin,nowSec,tiers={},wakeId=null) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
   // (40 for a guarded Disaster, whatever it carries: no infusion bears harder on a Guard)
   target.guardStamina=Math.max(0,target.guardStamina-40);
@@ -2312,7 +2313,7 @@ function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   // allied Frost, Lightning, Gale and Steel effects cross the guard.
   // This applies equally to slam, travelling sword-wave and terminal burst.
   if((tiers.fire??0)===2)
-    oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:.65,direct:true});
+    oneHitWaveAfflict(room,caster,target,tiers,nowSec,{shaken:.65,direct:true},wakeId);
   // Guard prevents the direct HP contact, not a gale's physical pressure.
   // A defended shove is smaller and follows the wave/impact direction.
   if((tiers.gale??0)>=1){
@@ -2378,15 +2379,30 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
   }
 }
 
+// The wave's decisive HP/Guard registry and its ELEMENTAL STATUS registry
+// are separate. An enemy can acquire the wake's statuses first and still
+// receive one real projectile hit later, but must not be Frozen/Conducted or
+// have skill cooldowns restarted a second time by that same cast.
+function oneHitWaveAfflict(room,caster,target,tiers,nowSec,opts,wakeId=null){
+ const wake=wakeId?room.oneHitFields?.find(f=>f.id===wakeId+':wake'):null;
+ if(wake?.trailTouched?.[target.id])return false;
+ oneHitAfflict(room,caster,target,tiers,nowSec,opts);
+ if(wake){
+  wake.trailTouched??={};wake.trailTouched[target.id]=true;
+  (wake.shakenContact??={})[target.id]=1;
+  (wake.conducted??={})[target.id]=1;
+ }
+ return true;
+}
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
-  terminalFire=false,
+  terminalFire=false,wakeId=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
   const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
-  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers)){onGuard?.();return false;}
+  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers,wakeId)){onGuard?.();return false;}
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
   const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
@@ -2416,7 +2432,8 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
         nowSec >= (target.staggerUntil??-Infinity)&&
         isInGuardCone(target,{position:incoming},nowSec),
     }))return false;
-  oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
+  oneHitWaveAfflict(room,caster,target,tiers,nowSec,
+    {shaken:distance<1.9?1:.6,direct:true},wakeId);
   return true;
 }
 // Every machine may receive at most ONE decisive structural hit from an
@@ -2572,9 +2589,35 @@ function stepOneHitFields(room,dt,nowSec,world) {
         player.spawnProtectionUntil>nowSec)continue;
       const contact=fieldContact(field,field.air?oneHitChest(player):player.position);
       if(!(contact>0))continue;
-      if(oneHitWorldContact(field.air?field.position:
-        {...field.position,y:field.position.y+.5},oneHitChest(player),world))continue;
+      // A long airborne wake checks occlusion from the CLOSEST actual segment.
+      // Checking its launch point would incorrectly reject players behind
+      // a wall that the traveling wave already passed on the other side.
+      const contactOrigin=field.trail
+        ?closestWakePoint(field.trailPoints,oneHitChest(player))
+        :field.air?field.position:{...field.position,y:field.position.y+.5};
+      if(!contactOrigin||oneHitWorldContact(contactOrigin,oneHitChest(player),world))continue;
       const strength=fieldStrength(field,nowSec);
+      if(field.trail){
+        field.trailTouched??={};
+        // All normal elemental/status consequences of a direct hit are
+        // transferred once PER ENEMY PER WAKE, without a second decisive HP
+        // hit. A direct wave victim has already been recorded by the hitIds.
+        if(!field.trailTouched[player.id]){
+          field.trailTouched[player.id]=true;
+          (field.shakenContact??={})[player.id]=1;
+          oneHitAfflict(room,owner,player,field.tiers,nowSec,{
+            shaken:Math.max(.4,strength*contact),direct:true});
+        }
+        if(field.tiers.fire===2){
+          field.trailBurnNext??={};
+          const next=field.trailBurnNext[player.id]??nowSec+ONE_HIT_WAKE.burnInterval;
+          if(nowSec>=next-1e-8){
+            field.trailBurnNext[player.id]=nowSec+ONE_HIT_WAKE.burnInterval;
+            applyDamage(room,owner.id,player.id,burnZoneLick(strength,ONE_HIT_WAKE.burnLick),
+              'one_hit_air_fire',nowSec,null,{ongoing:true});
+          }else field.trailBurnNext[player.id]=next;
+        }
+      }
       if(!player.oneHitField||strength>player.oneHitField.strength)
         player.oneHitField={id:field.id,ownerId:field.ownerId,strength,contact};
       // The base field REALLY shakes newly entering enemies. The visual
@@ -2608,7 +2651,9 @@ function stepOneHitFields(room,dt,nowSec,world) {
       }
       if(field.tiers.frost===2)player.oneHitFrostSlow=mergeFrostSlow(player.oneHitFrostSlow,
         {until:nowSec+ONE_HIT_FIELD.frostLingerSec,depth:fieldFrostDepth(strength,contact)},nowSec);
-      if(field.tiers.lightning===2){
+      if(field.tiers.lightning===2&&!field.trail){
+        // Trail Conduct was applied once when entering its actual 3D path.
+        // Ordinary fields still use deeper-contact scaling as before.
         const offered=fieldConduct(field,player.id,contact,nowSec);
         if(offered)oneHitConduct(room,player,offered,nowSec);
       }
@@ -2806,13 +2851,15 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{
       aerial:true,origin:rec.origin,distance:rec.distance,
       processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
+      wakeId:rec.wakeId,
       terminalFire:(rec.tiers.fire??0)>=1,
       // Blocking a radial shockwave stops HP, not the pressure and elemental
       // effects washing over everyone inside the visible explosion. Full
       // Fire already conducts these through Guard in oneHitGuard itself.
       onGuard:()=>{
         if((rec.tiers.fire??0)<2)
-          oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
+          oneHitWaveAfflict(room,caster,target,rec.tiers,nowSec,
+            {shaken:.6,direct:true},rec.wakeId);
       },
     }))caught.push(target.id);
   }
@@ -2846,7 +2893,16 @@ function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
     if(!blocked)applyDamage(room,caster.id,target.id,damage,
       'one_hit_lightning_ground',nowSec,null,
       {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade'});
-    if(target.alive)oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+    // The real vertical bolt may legitimately deal its own HP contact,
+    // but it must not renew Conduct already delivered by this same wake.
+    const wake=room.oneHitFields?.find(f=>f.id===wave.id+':wake');
+    if(target.alive&&!wake?.trailTouched?.[target.id]){
+      oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+      if(wake){
+        (wake.trailTouched??={})[target.id]=true;
+        (wake.conducted??={})[target.id]=1;
+      }
+    }
     targets.push(target.id);
   }
   room.events.push({type:'oneHitLightningGroundStrike',playerId:caster.id,
@@ -2875,7 +2931,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   // ruptures. Its DETONATION is a circular/spherical shockwave, including
   // delayed Frost contacts and the residual elemental field.
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,
-    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
+    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,wakeId:wave.id,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   const lightningEligible=air&&(wave.tiers.gale??0)>=2&&(wave.tiers.lightning??0)>=1;
@@ -3023,6 +3079,34 @@ function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
   return nearest;
 }
 
+function oneHitWakeAppend(room,wave,from,to,nowSec){
+  if(!galeFrostWakeEnabled(wave.tiers))return;
+  const id=wave.id+':wake';
+  let field=room.oneHitFields?.find(f=>f.id===id);
+  const duration=wave.tiers.steel===2
+    ?fieldSeconds(wave.tiers):airFieldSeconds(wave.tiers);
+  if(!field){
+    field={id,ownerId:wave.ownerId,trail:true,air:true,
+      position:{...from},direction:{...wave.direction},
+      radius:galeFrostWakeRadius(wave.tiers),
+      trailPoints:[{...from}],bornAt:nowSec,activeAt:nowSec,
+      until:nowSec+duration,tiers:{...wave.tiers},
+      trailTouched:{},trailBurnNext:{},conducted:{},shakenContact:{}};
+    (room.oneHitFields??=[]).push(field);
+  }
+  const last=field.trailPoints.at(-1);
+  if(Math.hypot(last.x-to.x,last.y-to.y,last.z-to.z)>.015)
+    field.trailPoints.push({...to});
+  // The travelling projectile is necessarily finite (22m max reach);
+  // extending while it moves cannot accumulate an infinite hazard.
+  field.activeAt=nowSec;
+  field.until=nowSec+duration;
+  for(const hitId of wave.hitIds??[]){
+    field.trailTouched[hitId]=true;
+    field.shakenContact[hitId]=1;
+    field.conducted[hitId]=1;
+  }
+}
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
@@ -3044,7 +3128,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
-        distance:wave.distance+step*frac,processed:wave.hitIds,
+        distance:wave.distance+step*frac,processed:wave.hitIds,wakeId:wave.id,
         onGuard:()=>{guardedContact={...near};}});
     }
     const machineContact=oneHitMachineWaveContact(room,caster,old,next,nowSec);
@@ -3055,6 +3139,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
         machineContact.point.z-old.z)<
         Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z))){
       wave.position=machineContact.point;
+      oneHitWakeAppend(room,wave,old,wave.position,nowSec);
       wave.distance+=step*machineContact.t;
       oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'machine');
       wave.distance=ONE_HIT_RULES.waveMaxReach;
@@ -3065,12 +3150,14 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       // Explode at the defender, with the usual smaller terminal blast.
       // The same defended victim remains in hitIds: no duplicated HP or Guard cost.
       wave.position=guardedContact;
+      oneHitWakeAppend(room,wave,old,wave.position,nowSec);
       wave.distance+=Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z);
       oneHitWaveImpact(room,caster,wave,guardedContact,null,nowSec,world,'guard');
       wave.distance=ONE_HIT_RULES.waveMaxReach;
       continue;
     }
     wave.position=oneHitAlong(old,next,stop);
+    oneHitWakeAppend(room,wave,old,wave.position,nowSec);
     wave.distance+=step*stop;
     if(contact){
       oneHitWaveImpact(room,caster,wave,wave.position,contact,nowSec,world);
@@ -3117,15 +3204,25 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       const t=Math.max(0,Math.min(1,((center.x-wire.origin.x)*dx+(center.y-wire.origin.y)*dy+
         (center.z-wire.origin.z)*dz)/lenSq));
       const near={x:wire.origin.x+dx*t,y:wire.origin.y+dy*t,z:wire.origin.z+dz*t};
-      const distance=Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z);
-      wire.inside??=new Set();
-      if(distance>.36)wire.inside.delete(target.id);
-      else if(distance<=.18 && !wire.inside.has(target.id)){
-        wire.inside.add(target.id);
-        const power=Math.max(0,(wire.until-nowSec));
-        const hit=applyDamage(room,wire.ownerId,target.id,(3+12*power),'line_of_conduct',nowSec,null,
-          {ongoing:true,infusionCastKey:wire.id});
-        if(hit)for(const actor of [caster,target]){
+      // The rendered beam passes through the TARGET'S PHYSICAL BODY, not
+      // just an infinitesimally thin point at chest height. A y=1.45 ray
+      // must electrify a standing knight even when their chest anchor is y=1.
+      const bodyTop=target.position.y+postureOf(target).height-.12;
+      const bodyBottom=target.position.y+.14;
+      const verticalMiss=Math.max(bodyBottom-near.y,near.y-bodyTop,0);
+      const distance=Math.hypot(center.x-near.x,verticalMiss,center.z-near.z);
+      // The massive initial hitscan has already applied all the HP damage.
+      // The exact residual 3D line is only a brief conductive tripwire:
+      // no damage, no repeatedly refreshing the same target, no Guard bypass
+      // damage from walking in and out. The affliction itself can still bite
+      // on a victim's next melee blow, using its normal combat rule.
+      wire.affected??=new Set(wire.inside??[]);
+      if(distance<=ONE_HIT_RULES.lineOfConduct.afterlineRadius+.30 &&
+          !wire.affected.has(target.id)){
+        wire.affected.add(target.id);
+        const along=t*Math.sqrt(lenSq);
+        oneHitConduct(room,target,lineOfConductAffliction(along,nowSec,wire.ownerId),nowSec);
+        for(const actor of [caster,target]){
           if(creditOneHitEncounter(actor,'lightning',wire.id))
             room.events.push({type:'oneHitInfusion',playerId:actor.id,element:'lightning',
               tier:actor.oneHitInfusions.lightning,at:nowSec});
@@ -3138,7 +3235,9 @@ function stepOneHitWorld(room,dt,nowSec,world) {
 function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   const origin={...pending.origin};
   const direction=normalize3(pending.direction);
-  const reach=240,end={x:origin.x+direction.x*reach,
+  const reach=lineOfConductReach(origin,direction,world,
+    [...room.players.values()].filter(p=>p.alive).map(p=>p.position));
+  const end={x:origin.x+direction.x*reach,
     y:origin.y+direction.y*reach,z:origin.z+direction.z*reach};
   let wall=1;
   for(const box of world?.solids??[]){
@@ -3148,7 +3247,8 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   const stop={x:origin.x+(end.x-origin.x)*wall,y:origin.y+(end.y-origin.y)*wall,
     z:origin.z+(end.z-origin.z)*wall};
   const wire={id:`conduct:${player.id}:${room.tickNumber}`,ownerId:player.id,
-    origin,end:stop,until:nowSec+1,inside:new Set()};
+    origin,end:stop,until:nowSec+ONE_HIT_RULES.lineOfConduct.afterlineSeconds,
+    affected:new Set()};
   (room.lineConductWires??=[]).push(wire);
   for(const target of room.players.values()){
     if(!target.alive||target.id===player.id||areAllies(room,player.id,target.id))continue;
@@ -3159,10 +3259,12 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
       (center.z-origin.z)*ab.z)/lenSq));
     const near={x:origin.x+ab.x*t,y:origin.y+ab.y*t,z:origin.z+ab.z*t};
     if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.7)continue;
-    wire.inside.add(target.id);
+    wire.affected.add(target.id);
     const dist=t*Math.sqrt(lenSq);
-    applyDamage(room,player.id,target.id,lineOfConductDamage(dist),'line_of_conduct',nowSec,
+    const hit=applyDamage(room,player.id,target.id,lineOfConductDamage(dist),'line_of_conduct',nowSec,
       null,{infusionCastKey:wire.id});
+    if(hit&&target.alive)
+      oneHitConduct(room,target,lineOfConductAffliction(dist,nowSec,player.id),nowSec);
   }
   room.events.push({type:'lineConductDischarge',playerId:player.id,origin,end:stop,at:nowSec});
 }

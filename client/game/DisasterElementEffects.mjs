@@ -862,6 +862,10 @@ export class DisasterElementEffects {
   #stepFields(snapshot, now, dt) {
     const seen = new Set();
     for (const field of snapshot?.oneHitFields ?? []) {
+      // A Frost+Gale wake is a connected 3D ribbon, drawn separately by
+      // OneHitLiveEffects from the authoritative polyline. Never turn it
+      // into a floating sphere at the wave's original launch point.
+      if(field.trail)continue;
       const strength = fieldStrength(field, now);
       if (strength <= 0) continue;
       seen.add(field.id);

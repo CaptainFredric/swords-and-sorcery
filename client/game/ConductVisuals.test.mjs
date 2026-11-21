@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {conductBoltSamples,conductVisualPhase,CONDUCT_VISUAL} from './conductShape.mjs';
+import {conductBoltSamples,conductVisualPhase,conductRemnantWidthFactor,CONDUCT_VISUAL} from './conductShape.mjs';
 
 // Three.js is loaded by the browser's import map. Test pure timing/geometry
 // in Node and the renderer's critical invariants with source contracts.
@@ -84,9 +84,25 @@ test('Hand electricity is more restrained but still gathers into a pointed bolt'
   assert.match(source,/this\.group\.removeFromParent\(\)/);
 });
 
-test('Damage and one-second danger remain simulation owned',()=>{
+test('the initial HP strike and status-only one-second afterline remain simulation owned',()=>{
   const sim=readFileSync(new URL('../../shared/sim/combat.mjs',import.meta.url),'utf8');
-  assert.match(sim,/origin,end:stop,until:nowSec\+1,inside:new Set\(\)/);
+  assert.match(sim,/until:nowSec\+ONE_HIT_RULES\.lineOfConduct\.afterlineSeconds/);
+  assert.match(sim,/affected:new Set\(\)/);
   assert.match(sim,/lineOfConductDamage\(dist\)/);
-  assert.match(sim,/distance<=\.18 && !wire\.inside\.has\(target\.id\)/);
+  assert.match(sim,/wire\.affected\.has\(target\.id\)/);
+  assert.match(sim,/oneHitConduct\(room,target,lineOfConductAffliction\(along,nowSec,wire\.ownerId\),nowSec\)/);
+  // Additional HP damage along the one-second remnant must never be restored.
+  const afterline=sim.split("for(const wire of room.lineConductWires??[])")[1].split("room.lineConductWires=")[0];
+  assert.doesNotMatch(afterline,/applyDamage\(/);
+});
+
+test('the damaging initial bolt fades into a visibly narrowing zero-HP conductive afterline',()=>{
+ const head=conductRemnantWidthFactor(.027,.20);
+ const thin=conductRemnantWidthFactor(.006,.20);
+ assert.ok(head<=thin);
+ const endOuter=conductRemnantWidthFactor(.027,.85);
+ const endCore=conductRemnantWidthFactor(.006,.85);
+ assert.ok(endOuter<endCore*.1,'wide sheath has vanished before the thin central hazard');
+ assert.match(source,/conductRemnantWidthFactor\(mesh\.userData\.conductRadius,elapsed\)/);
+ assert.match(source,/remnant\.userData\.conductRadius=radius/);
 });

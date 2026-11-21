@@ -2,6 +2,7 @@
 // Snapshots own expiration and position. Uses existing positional SFX mixer.
 import {fieldStrength} from '../../../shared/src/oneHitStatus.mjs';
 import {galeProfile} from '../../../shared/src/galeModes.mjs';
+import {closestWakePoint} from '../../../shared/src/oneHitTrail.mjs';
 import {
   DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
   coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
@@ -19,6 +20,8 @@ const roomGain=(position,listener)=>!position||!listener?1:
 const mix=count=>1/Math.sqrt(1+count*.34);
 const at=(n,fallback)=>Number.isFinite(n)?n:fallback;
 const impactPoint=event=>event?.groundBlast&&event?.groundPoint?event.groundPoint:event?.point;
+const fieldEarPoint=(field,ear)=>field.trail&&ear
+  ?closestWakePoint(field.trailPoints,ear)??field.position:field.position;
 // A long electrical ray is heard where it passes the listener, not teleported
 // to the player's ears from a distant wall or from the caster.
 export function nearestConductPoint(origin,end,ear){
@@ -219,8 +222,8 @@ export class DisasterSoundscape {
       if(Number.isFinite(when)&&nowSec-when>8)this.recent.delete(key);
     const ear=this.listener();
     const fields=(snapshot.oneHitFields??[])
-      .filter(f=>nowSec<f.until&&(!ear||dist(f.position,ear)<28))
-      .sort((a,b)=>dist(a.position,ear)-dist(b.position,ear))
+      .filter(f=>nowSec<f.until&&(!ear||dist(fieldEarPoint(f,ear),ear)<28))
+      .sort((a,b)=>dist(fieldEarPoint(a,ear),ear)-dist(fieldEarPoint(b,ear),ear))
       .slice(0,this.density<.8?2:3);
     const liveFields=new Set(fields.map(f=>f.id));
     for(const id of this.fields.keys())if(!liveFields.has(id))this.fields.delete(id);
@@ -238,7 +241,8 @@ export class DisasterSoundscape {
       // Multiplying the outer gain by strength as well made the field fade
       // quadratically and nearly disappear while Shaken remained active.
       const gain=.52*balance;
-      this.#around(field.position,field.air
+      const source=fieldEarPoint(field,ear);
+      this.#around(source,field.air
         ?galeStreamRecipe(this.random,{seconds:.42,weight:strength})
         :disasterFieldPulseRecipe(this.random,{strength}),
         gain*(field.air?.72:1));
@@ -247,7 +251,7 @@ export class DisasterSoundscape {
       // Cap the combined loudness and stagger micro-pops across the beat.
       for(let i=0;i<elements.length;i++){
         const e=elements[(cursor.index+i)%elements.length];
-        this.#around(field.position,disasterInfusionFieldRecipe(e,this.random,{
+        this.#around(source,disasterInfusionFieldRecipe(e,this.random,{
           tier:field.tiers[e],strength}),gain*.63,.05+i*.075);
       }
       cursor.index=(cursor.index+1)%Math.max(1,elements.length);

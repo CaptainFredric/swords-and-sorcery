@@ -38,6 +38,7 @@ try{
     "const THREE=await import('three');",
     "const {swordWave}=await import('/client/game/OneHitLiveEffects.mjs');",
     "const {DisasterElementEffects}=await import('/client/game/DisasterElementEffects.mjs');",
+    "const {makeWakeVisual,updateWakeVisual,disposeWakeVisual}=await import('/client/game/disasterWakeGeometry.mjs');",
     'const variants=[{},{gale:1},{gale:2},{gale:2,lightning:2},{gale:2,fire:2,frost:2,steel:2}];',
     'const proofs=[];',
     'for(const tiers of variants){',
@@ -87,8 +88,20 @@ try{
     'singleMainRibbon:added.length===8&&positions.count>160,',
     '}});',
     '}',
+    'const wakeTiers={gale:2,frost:1,fire:2,lightning:2,steel:2};',
+    'const frosted=makeWakeVisual(wakeTiers),trailPoints=[{x:0,y:18,z:0},{x:7,y:18,z:0},{x:14,y:23,z:-2}];',
+    'updateWakeVisual(frosted,{trailPoints,tiers:wakeTiers,radius:1.85},1);',
+    'const sheets=frosted.userData.wakeLayers,mesh=sheets[0]?.mesh,attr=mesh?.geometry.getAttribute("position");',
+    'const heights=attr?Array.from({length:attr.count},(_,i)=>attr.getY(i)):[];',
+    'const vivid=mesh?.material.opacity;',
+    'const wakeProof={fiveDistinctElements:sheets.length===10,threeDimensional:Math.max(...heights)>22&&Math.min(...heights)<19,',
+    'wideFire:Math.abs(attr.getZ(0)-attr.getZ(1))>3.3,',
+    'connected:sheets.every(x=>x.mesh.geometry.index.count>=12),visible:sheets.every(x=>x.mesh.visible)};',
+    'updateWakeVisual(frosted,{trailPoints,tiers:wakeTiers,radius:1.85},.4);',
+    'wakeProof.fades=mesh.material.opacity<vivid;',
+    'disposeWakeVisual(frosted);',
     'effects.dispose();wave.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});',
-    'return {proofs,parented,tracks,visualProofs};',
+    'return {proofs,parented,tracks,visualProofs,wakeProof};',
     '})()'
   ].join('\n');
   const evidence=await evaluate(source);
@@ -98,6 +111,9 @@ try{
   assert.deepEqual(evidence.visualProofs.flatMap(x=>Object.entries(x.passes)
     .filter(([,ok])=>!ok).map(([k])=>x.kind+': '+k)),[],
     'Gale+Lightning main bolt is continuous above/explosion/below even over bottomless void');
+  assert.deepEqual(Object.entries(evidence.wakeProof)
+    .filter(([,passes])=>!passes).map(([name])=>name),[],
+    'Frost+Gale leaves a visible colored 3D ribbon along real projectile travel');
   await writeFile(join(out,'result.json'),JSON.stringify(evidence,null,2)+'\n');
   console.log('[WINDBLADE COHERENCE PASS]',JSON.stringify({variants:evidence.proofs.length,lightningAttached:evidence.parented}));
 }catch(error){

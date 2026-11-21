@@ -1,4 +1,4 @@
-import { conductBoltSamples, conductVisualPhase } from './conductShape.mjs';
+import { conductBoltSamples, conductVisualPhase, conductRemnantWidthFactor } from './conductShape.mjs';
 import * as THREE from 'three';
 
 // The first strike is heavy and bright; the following one-second hazard is
@@ -78,6 +78,7 @@ export function createConductDischarge(origin,end,{handOrigin=null}={}){
   ]){
     const remnant=tube(straight,radius,color,opacity,Math.max(8,Math.min(240,Math.ceil(distance/2))));
     remnant.userData.conductRemnant=true;
+    remnant.userData.conductRadius=radius;
     remnant.visible=false;
     group.userData.conductRemnants.push(remnant);
     group.add(remnant);
@@ -137,7 +138,9 @@ export function updateConductAppearance(group,elapsed){
   updateConductDischarge(group,phase.growth);
   for(const mesh of group.children){
     const isRemnant=mesh.userData.conductRemnant;
-    const intensity=isRemnant?phase.residual:phase.impact;
+    const intensity=isRemnant
+      ?phase.residual*conductRemnantWidthFactor(mesh.userData.conductRadius,elapsed)
+      :phase.impact;
     mesh.material.opacity=(mesh.userData.conductOpacity??1)*intensity;
     mesh.visible=intensity>.008 &&
       (mesh.userData.conductFrom===undefined||
