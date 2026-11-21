@@ -2379,10 +2379,25 @@ function oneHitAfflict(room,caster,target,tiers,nowSec,{shaken=0,direct=false}={
   }
 }
 
+// The wave's decisive HP/Guard registry and its ELEMENTAL STATUS registry
+// are separate. An enemy can acquire the wake's statuses first and still
+// receive one real projectile hit later, but must not be Frozen/Conducted or
+// have skill cooldowns restarted a second time by that same cast.
+function oneHitWaveAfflict(room,caster,target,tiers,nowSec,opts,wakeId=null){
+ const wake=wakeId?room.oneHitFields?.find(f=>f.id===wakeId+':wake'):null;
+ if(wake?.trailTouched?.[target.id])return false;
+ oneHitAfflict(room,caster,target,tiers,nowSec,opts);
+ if(wake){
+  wake.trailTouched??={};wake.trailTouched[target.id]=true;
+  (wake.shakenContact??={})[target.id]=1;
+  (wake.conducted??={})[target.id]=1;
+ }
+ return true;
+}
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
-  terminalFire=false,
+  terminalFire=false,wakeId=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
@@ -2417,7 +2432,8 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
         nowSec >= (target.staggerUntil??-Infinity)&&
         isInGuardCone(target,{position:incoming},nowSec),
     }))return false;
-  oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:distance<1.9?1:.6,direct:true});
+  oneHitWaveAfflict(room,caster,target,tiers,nowSec,
+    {shaken:distance<1.9?1:.6,direct:true},wakeId);
   return true;
 }
 // Every machine may receive at most ONE decisive structural hit from an
@@ -2835,13 +2851,15 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{
       aerial:true,origin:rec.origin,distance:rec.distance,
       processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
+      wakeId:rec.wakeId,
       terminalFire:(rec.tiers.fire??0)>=1,
       // Blocking a radial shockwave stops HP, not the pressure and elemental
       // effects washing over everyone inside the visible explosion. Full
       // Fire already conducts these through Guard in oneHitGuard itself.
       onGuard:()=>{
         if((rec.tiers.fire??0)<2)
-          oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
+          oneHitWaveAfflict(room,caster,target,rec.tiers,nowSec,
+            {shaken:.6,direct:true},rec.wakeId);
       },
     }))caught.push(target.id);
   }
@@ -2904,7 +2922,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   // ruptures. Its DETONATION is a circular/spherical shockwave, including
   // delayed Frost contacts and the residual elemental field.
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,
-    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
+    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,wakeId:wave.id,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   const lightningEligible=air&&(wave.tiers.gale??0)>=2&&(wave.tiers.lightning??0)>=1;
@@ -3101,7 +3119,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
-        distance:wave.distance+step*frac,processed:wave.hitIds,
+        distance:wave.distance+step*frac,processed:wave.hitIds,wakeId:wave.id,
         onGuard:()=>{guardedContact={...near};}});
     }
     const machineContact=oneHitMachineWaveContact(room,caster,old,next,nowSec);
