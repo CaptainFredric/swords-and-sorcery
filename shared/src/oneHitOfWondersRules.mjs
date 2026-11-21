@@ -30,7 +30,13 @@ export const ONE_HIT_RULES = Object.freeze({
   teleportAuraMaxRadius: 1.25,
   teleportDistanceScale: 22,
   teleportTimeScaleSec: 0.9,
-  lineOfConduct: Object.freeze({ nearDamage: 20, farDamage: 12, halfFalloffMetres: 12 }),
+  lineOfConduct: Object.freeze({
+    nearDamage: 20, farDamage: 12, halfFalloffMetres: 12,
+    afterlineSeconds: 1, afterlineRadius: .18, directRadius: .7,
+    // Electrical potential and its brief lifetime also fall off with
+    // distance, without making an across-map strike useless.
+    nearConduct: 12, farConduct: 4, nearConductSeconds: 3, farConductSeconds: 1.25,
+  }),
 });
 
 // Each element's first infusion adds its minimum meaningful direct spell hit
@@ -53,6 +59,16 @@ export function lineOfConductDamage(distanceMetres) {
   if (!Number.isFinite(distanceMetres) || distanceMetres < 0) throw new RangeError('Distance must be non-negative.');
   const { nearDamage, farDamage, halfFalloffMetres } = ONE_HIT_RULES.lineOfConduct;
   return Math.round(farDamage + (nearDamage - farDamage) / (1 + distanceMetres / halfFalloffMetres));
+}
+
+export function lineOfConductAffliction(distanceMetres,nowSec,sourceId){
+  const r=ONE_HIT_RULES.lineOfConduct;
+  const d=Math.max(0,Number.isFinite(distanceMetres)?distanceMetres:Infinity);
+  const intensity=1/(1+d/r.halfFalloffMetres);
+  return {at:nowSec,initial:r.farConduct+
+      (r.nearConduct-r.farConduct)*intensity,
+    seconds:r.farConductSeconds+(r.nearConductSeconds-r.farConductSeconds)*intensity,
+    sourceId};
 }
 
 export function oneHitInfusionDamageBonus(tiers = {}) {
