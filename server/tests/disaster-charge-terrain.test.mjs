@@ -145,7 +145,7 @@ test('A non-Gale Ultimate falling during windup PLUNGES to actual ground, not an
   assert.equal(room.events.filter(e=>e.type==='oneHitWave').length,0);
   assert.equal(room.oneHitFields.length,1,'field appears at actual landing');
 });
-test('Non-Fire terminal gust inflicts ALL infusion statuses without inventing decisive HP',()=>{
+test('Non-Fire terminal Gale explosion damages through its whole ground AOE and carries every infusion',()=>{
   const {room,a,b}=setup();
   b.position={x:6.3,y:0,z:1.4};
   b.pendingSpell={spell:'fireball',castAt:99};
@@ -159,7 +159,7 @@ test('Non-Fire terminal gust inflicts ALL infusion statuses without inventing de
   assert.ok(event?.groundBlast);
   assert.equal(event.radius,2.2);
   assert.ok(event.fieldId);
-  assert.equal(b.health,100,'no Fire: status and pressure, not an additional HP strike');
+  assert.ok(b.health<100,'a nearby defender takes real radial HP damage even without Fire');
   assert.ok(b.shaken,'Shaken');
   assert.ok(b.blustered,'Blustered even on non-Fire terminal gust');
   assert.ok(b.electricalBacklash,'Shocking Conduct');
@@ -169,7 +169,7 @@ test('Non-Fire terminal gust inflicts ALL infusion statuses without inventing de
   assert.equal(room.oneHitFields.length,1);
   assert.deepEqual(room.oneHitFields[0].tiers,tiers);
   assert.equal(room.oneHitFields[0].radius,event.radius);
-  assert.equal(room.events.some(e=>e.type==='damage'&&e.victimId===b.id&&e.source==='one_hit_of_wonders'),false);
+  assert.equal(room.events.filter(e=>e.type==='damage'&&e.victimId===b.id&&e.source==='one_hit_of_wonders').length,1,'one guarded-or-hurt decisive contact per cast');
 });
 test('An untouched enemy entering the base field gets decaying Shaken once, without re-entry farming',()=>{
   const {room,a,b}=setup();
