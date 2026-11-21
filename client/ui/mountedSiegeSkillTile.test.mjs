@@ -27,8 +27,8 @@ test('ballista and Flight have distinct U icon/name with server-owned state',()=
  const bow=mountedSiegeSkillTile({alive:true,operatingBallistaId:'bow'},{bibyeBallista:ballista},12);
  assert.equal(bow.name,'LOOK AROUND');assert.equal(bow.icon,'siegeSweep');
  assert.equal(bow.state,'ACTIVE');
- const f={id:'flight',health:900,skill:{id:'fireAwayRightHere',phase:'active',readyAt:40}};
+ const f={id:'flight',health:900,skill:{id:'fireAwayImRightHere',phase:'active',readyAt:40}};
  const fly=mountedSiegeSkillTile({alive:true,operatingFightFlightId:'flight'},{fightFlight:f},12);
- assert.equal(fly.name,'FIRE AWAY');assert.equal(fly.state,'ACTIVE');
+ assert.equal(fly.name,'FIRE AWAY');assert.equal(fly.icon,'fireAway');assert.equal(fly.state,'ACTIVE');
  assert.equal(mountedSiegeSkillTile({alive:true},{},12),null);
 });
