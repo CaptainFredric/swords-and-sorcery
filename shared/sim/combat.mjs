@@ -2788,8 +2788,8 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       groundStrike(room,caster,2,{
         point:{x:point.x,y:floor,z:point.z},floor:{y:floor}
       },nowSec,world,waveSteel>=1?{
-        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel}
-      }:{});
+        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel,terminalGale:true}
+      }:{oneHit:{steel:0,terminalGale:true}});
     }finally{caster.yaw=oldYaw;}
     if((room.ruptures?.length??0)>before){
       const rupture=room.ruptures.at(-1);
@@ -3433,7 +3433,9 @@ function groundStrike(room, player, strikeIndex, met, nowSec, world, { through =
   room.events.push({
     type: 'rupture', id: rupture.id, ownerId: player.id, origin: point, speed: RUPTURE.speed,
     fissures: fissures.map((fissure) => ({ dir: fissure.dir, length: fissure.length, core: fissure.core })),
-    ...(oneHit?.steel ? { radial: true, steel: oneHit.steel } : {}), at: nowSec,
+    ...(oneHit?.steel||oneHit?.terminalGale ?
+      { radial:true,steel:oneHit.steel??0,
+        ...(oneHit?.terminalGale?{terminalGale:true}:{}) } : {}), at: nowSec,
   });
 }
 
