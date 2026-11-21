@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBiByeLlista,stepBiByeLlista,mountBiByeLlista,toggleBiByeDeploy,getBiByeOperatorTransform,getBiByeMuzzlePosition,getBiByeMuzzleDirection} from '../../shared/sim/biByeLlista.mjs';
 import {biByeFrames} from '../../shared/sim/biByeComponents.mjs';
+import {BI_BYE_TERRAIN} from '../../shared/sim/biByeTerrain.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
 const rad=n=>n*Math.PI/180;
 const floor={id:'ground',center:[0,-.1,0],size:[100,.2,100],y:0};
@@ -45,7 +46,7 @@ test('wheel radius climbs .15 and .25m solid curbs while a .35m riser remains an
 });
 test('full walls, steep ramps, narrow rocks and unsupported drops cannot be tunneled through',()=>{
  const wall=course();wall.solids=[{id:'wall',center:[0,2,1],size:[10,4,.08]}];const a=setup(wall);step(a,180);assert.ok(a.b.z<0);
- const steep=setup(course(30));step(steep,500);assert.ok(steep.b.z<5);assert.ok(steep.b.chassisPitch<rad(22.2));
+ const steep=setup(course(30));step(steep,500);assert.ok(steep.b.z<5);assert.ok(steep.b.chassisPitch<BI_BYE_TERRAIN.mobileGrade+.003);
  const drop={solids:[],floors:[{...floor,center:[0,-.1,-12],size:[12,.2,24]}],ramps:[]};const b=setup(drop);step(b,300);assert.ok(b.b.z<0);assert.ok(Math.abs(b.b.y)<.01);
  const rock=course();rock.solids=[{id:'rock',center:[.9,.65,1],size:[.5,1.3,.12]}];const c=setup(rock);step(c,180);assert.ok(c.b.z<1);
 });
