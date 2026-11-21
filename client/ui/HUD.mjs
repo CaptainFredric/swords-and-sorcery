@@ -539,6 +539,7 @@ export class HUD {
     } else if (siege && isFlight) {
       this.flightChargeRail.querySelector('[data-flight-alt]').textContent = siege.alt;
       this.flightChargeRail.querySelector('[data-flight-charge]').textContent = siege.charge;
+      this.flightChargeRail.classList.toggle('low',siege.charge<=15);
       this.flightChargeRail.querySelector('[data-flight-charge-fill]').style.width =
         (100 * siege.charge / Math.max(1,siege.maxCharge)).toFixed(2) + '%';
       this.flightChargeRail.querySelector('[data-flight-rpm]').textContent = siege.rotorRPM;
