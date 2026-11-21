@@ -1216,6 +1216,7 @@ export class TouchControls {
     }
   }
   #clearValkyrieRitual() {
+    if(this.ritual?.startedOnJump)this.flightJumpDownAt=null;
     this.ritual=null;
     this.ritualVisual=null;
     if(this.ritualGlowTimer!==null){
