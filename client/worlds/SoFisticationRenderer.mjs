@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
+import {graftArticulatedFist} from './soFistArticulatedHand.mjs';
 import {createFlickThumbRestraint,restrainFlickThumb} from './soFistThumbRestraint.mjs';
 import {ramWreckClip} from './flightAnimationState.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
@@ -80,17 +81,9 @@ export class SoFisticationRenderer {
      console.error('Argon v26 articulated hand incomplete; keeping production hydraulics',missing,extra.length);
      received(gltf,true);return;
     }
-    // Swap the named fist surface without touching the coupling locator,
-    // piston, collar, upper saddle, gear train or wheel hierarchy.
-    if(target.isMesh&&hand.isMesh){
-     target.geometry=hand.geometry;target.material=hand.material;
-    }else if(hand.isMesh){
-     for(const old of [...target.children])
-      if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
-     const surface=new THREE.Mesh(hand.geometry,hand.material);
-     surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
-    }
-    for(const part of [...hand.children])target.add(part);
+    // Keep the original hydraulic coupling but replace, rather than double,
+    // the rigid fist shell with the donor's fully articulated hand.
+    graftArticulatedFist(target,hand);
     gltf.animations=[...gltf.animations,...extra];
     this.v26HandInstalled=true;
     received(gltf,true);
