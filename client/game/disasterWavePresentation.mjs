@@ -51,3 +51,15 @@ export function windbladeSurfacePoint(t,u=0,side=0){
   // A clean, broad fingernail-like crescent: no sinusoidal wobble on the edge.
   return {x,y:side*vault,z};
 }
+
+/**
+ * Mild local-camera response to a grounded Windblade detonation. The
+ * travelling projectile must never kick harder than an actual ground slam.
+ * Other players feel the same nearby impact; beyond 24m there is no shake.
+ */
+export function windbladeImpactKick(viewer,impact) {
+  if(!viewer||!impact)return 0;
+  const metres=Math.hypot(viewer.x-impact.x,(viewer.y??0)-(impact.y??0),viewer.z-impact.z);
+  const near=Math.max(0,1-metres/24);
+  return .11*near*near;
+}
