@@ -111,6 +111,7 @@ try{
    ram.update(current,handState);
    const clipTime=name.startsWith('13_')?age-1:
      name.startsWith('16_')?current-handState.strikeAt:
+     name.startsWith('18_')||name.startsWith('19_')?age*(1.5/1.05):
      name.startsWith('22_')?((age%clip.duration)+clip.duration)%clip.duration:age;
    const expected=handTrack?.interpolant.evaluate(clipTime);
    const actual=handTrack?.node[handTrack.property]?.toArray();
