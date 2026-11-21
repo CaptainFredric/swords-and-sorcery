@@ -286,6 +286,10 @@ test('every newly earned infusion has its own quiet sound: Half and Full differ 
    'Full Steel acquisition has a deeper and longer metallic accent');
  root.sound.onEvent(event,snapshot);
  assert.equal(root.played.length,before+1,'duplicate infusion awards never replay');
+ root.sound.onEvent({type:'oneHitInfusion',playerId:'a',element:'fire',tier:2,at:10},snapshot);
+ root.sound.onEvent({type:'oneHitInfusion',playerId:'a',element:'frost',tier:2,at:10},snapshot);
+ assert.equal(root.played.length,before+3,
+   'different infusions earned on the same server tick both sound');
 });
 test('Steel anvil is a grounded blade sound only; a high Gale explosion still has its other elemental accents',()=>{
  const f=fixture();
