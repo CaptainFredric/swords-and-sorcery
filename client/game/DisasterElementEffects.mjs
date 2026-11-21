@@ -764,8 +764,9 @@ export class DisasterElementEffects {
       new Float32Array(fissures.length*18),3));
     geometry.setDrawRange(0,fissures.length*6);
     const material=new THREE.MeshBasicMaterial({
-      color:event.steel===2?0xdbe5e4:0xa2b3b1,
-      transparent:true,opacity:event.steel===2?.85:.65,
+      // A dark torn seam of earth, never a pale artificial indicator.
+      color:0x242019,
+      transparent:true,opacity:event.steel===2?.96:.83,
       side:THREE.DoubleSide,depthWrite:false,
     });
     const lines=new THREE.Mesh(geometry,material);
@@ -789,8 +790,8 @@ export class DisasterElementEffects {
       for(let arm=0;arm<f.fissures.length;arm++){
         const fissure=f.fissures[arm];
         const length=Math.min(head,fissure.length);
-        const width=f.steel===2?.072:f.steel===1?.055:.044;
-        const x=f.origin.x,z=f.origin.z,y=floor+.055;
+        const width=f.steel===2?.18:f.steel===1?.135:.10;
+        const x=f.origin.x,z=f.origin.z,y=floor+.115;
         const dx=fissure.dir.x,dz=fissure.dir.z,nx=-dz*width,nz=dx*width;
         const ex=x+dx*length,ez=z+dz*length,j=arm*6;
         for(const [k,px,pz] of [
@@ -799,7 +800,7 @@ export class DisasterElementEffects {
         ])positions.setXYZ(j+k,px,y,pz);
       }
       positions.needsUpdate=true;
-      f.lines.material.opacity=(f.steel===2?.86:.66)*
+      f.lines.material.opacity=(f.steel===2?.96:.82)*
         (head<longest?1:Math.max(0,(longest+.5-head)/.5));
       // (stone thrown every third of a metre of ground each arm splits)
       while (f.reached < Math.min(head, longest)) {
@@ -813,7 +814,7 @@ export class DisasterElementEffects {
           // scattering fewer stones evenly across ALL twelve arms.
           const crowded=f.fissures.length>=10;
           if(crowded&&Math.floor(f.reached/.34)%2===1)continue;
-          const count=crowded?1:f.steel===2?2:2;
+          const count=crowded?2:f.steel===2?2:2;
           for (let k = 0; k < this.#n(count); k += 1) {
             const side = rand(-1, 1);
             this.#stone(at, { x: arm.dir.x * rand(0.5, 2.5) - arm.dir.z * side * 2, y: rand(3, f.steel === 2 ? 8 : 5.5), z: arm.dir.z * rand(0.5, 2.5) + arm.dir.x * side * 2 },
@@ -1207,7 +1208,7 @@ export class DisasterElementEffects {
   // so Lightning-fast waves do not leave dotted trails on slower devices.
   waveBody(wave, mesh, dt) {
     const tiers=wave.tiers??{};
-    const scale=tiers.fire?1.5/.9:1;
+    const scale=tiers.fire?1.85/.9:1;
     const d=wave.direction;
     const speed=windbladeSpeed(tiers);
     const advance=windbladeTrailSpan(dt,tiers);
