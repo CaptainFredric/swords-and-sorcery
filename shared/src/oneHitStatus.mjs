@@ -51,6 +51,7 @@ export const ONE_HIT_STEEL = Object.freeze({
 export const ONE_HIT_REACH = Object.freeze({
   radius: 3.4, up: 2.6, down: 2.6,                       // the ordinary grounded blow
   fire: Object.freeze({ radius: 4.6, up: 3.5 }),         // with Fire
+  frontExtension: 0.32, // a broad, smoothly forward-expanded impact, not a cone that erases the sides/back
   wave: 0.9, waveFire: 1.5,                              // how near the travelling wave's line a body's middle must be
   terminal: 2.2, terminalFire: 3.0,                      // where the wave ends: its landing gust, or Fire's explosion
 });
@@ -77,6 +78,40 @@ export function groundReach(tiers = {}, rules = ONE_HIT_REACH) {
   return (tiers.fire ?? 0) >= 1 ? { radius: rules.fire.radius, up: rules.fire.up, down: rules.down } : { radius: rules.radius, up: rules.up, down: rules.down };
 }
 
+/**
+ * The ground slam's continuous, forward-biased radial boundary. Retain the
+ * entire original circle; add up to 32% reach toward the Spellblade's REAL
+ * fighting facing at the moment the blade strikes the ground. Diagonal
+ * directions receive a smooth part of that extension; sideways and backward
+ * stay at base radius. The same pure rule drives impact damage, lingering
+ * Frost, Full Fire ground damage, status fields and visible ground marks.
+ *
+ * Yaw zero faces world -Z (Castleward's combat-facing convention).
+ * A missing yaw keeps legacy circular aerial-wave endpoints circular.
+ */
+export function groundFootprintRadius(radius,yaw,dx,dz,rules=ONE_HIT_REACH){
+  if(!Number.isFinite(yaw))return radius;
+  const distance=Math.hypot(dx,dz);
+  if(distance<1e-8)return radius*(1+rules.frontExtension);
+  const facing=(-Math.sin(yaw)*dx-Math.cos(yaw)*dz)/distance;
+  const forward=Math.max(0,facing);
+  return radius*(1+rules.frontExtension*forward*forward);
+}
+
+/** True when a target's feet fall inside this particular landed footprint. */
+export function groundFootprintContains(origin,point,radius,yaw,padding=0){
+  const dx=point.x-origin.x,dz=point.z-origin.z;
+  return Math.hypot(dx,dz)<=groundFootprintRadius(radius,yaw,dx,dz)+padding;
+}
+
+/** For drawing: warp a location in the original circular footprint to its
+ * actual outward-expanded position, keeping the center and winding fixed. */
+export function groundFootprintWarp(x,z,radius,yaw){
+  const rim=groundFootprintRadius(radius,yaw,x,z);
+  const scale=radius>0?rim/radius:1;
+  return {x:x*scale,z:z*scale};
+}
+
 /** Fire + Gale: the share of the shove a knight struck `distance` from the heart of a blast of `radius` is given. */
 export function fireGaleShove(distance, radius, rules = ONE_HIT_FIRE_GALE) {
   const out = clamp01(distance / Math.max(radius, 1e-6));
@@ -99,8 +134,10 @@ export function fieldStrength(field, nowSec) {
 export function fieldContact(field, position, rules = ONE_HIT_FIELD) {
   if (!field || !position) return 0;
   if (Math.abs(position.y - field.position.y) > rules.vertical) return 0;
-  const distance = Math.hypot(position.x - field.position.x, position.z - field.position.z);
-  return clamp01((field.radius + rules.bodyRadius - distance) / (2 * rules.bodyRadius));
+  const dx=position.x-field.position.x,dz=position.z-field.position.z;
+  const distance = Math.hypot(dx,dz);
+  const rim=groundFootprintRadius(field.radius,field.yaw,dx,dz);
+  return clamp01((rim + rules.bodyRadius - distance) / (2 * rules.bodyRadius));
 }
 
 /** Shaken's clock inside a field: it recovers at only (1 - strength) of its pace, so its start is carried forward. */
