@@ -62,7 +62,8 @@ try{
  // settings validation fallback made HELLping impossible to equip.
  const helBefore=await evaluate("(() => {const c=document.querySelector('[data-siege-skill=hellpingHand]');return {name:c?.querySelector('.spell-name')?.textContent,description:c?.querySelector('small')?.textContent,checked:c?.getAttribute('aria-checked')};})()");
  assert.equal(helBefore.name,'HELLping Hand');
- assert.ok(helBefore.description.includes('seize a nearby enemy'));
+ assert.ok(helBefore.description.includes('grab and crush over four seconds'));
+ assert.ok(helBefore.description.includes('hand-assisted hop'));
  assert.ok(!helBefore.description.includes('undefined'));
  await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').click()");
  assert.equal(await evaluate("document.querySelector('[data-siege-skill=hellpingHand]').getAttribute('aria-checked')"),'true');
