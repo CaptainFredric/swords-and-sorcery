@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
-import {tryUltimate,stepRoom} from '../../shared/sim/combat.mjs';
+import {tryUltimate,releaseOneHitCharge,stepRoom} from '../../shared/sim/combat.mjs';
 import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {fieldContact} from '../../shared/src/oneHitStatus.mjs';
 
@@ -101,4 +101,19 @@ test('Full Fire extended forward ground burns and fields use impact-facing geome
  const snap=serializeSnapshot(room,after+.8,'caster');
  assert.equal(snap.oneHitBurnZones[0].yaw,0);
  assert.equal(snap.oneHitFields[0].yaw,0);
+});
+
+test('Full Lightning release sets forward footprint from the final atomic look, even without a new movement tick',()=>{
+ const {room,caster}=fixture({lightning:2});
+ caster.grounded=true;
+ assert.equal(tryUltimate(room,'caster',9,{held:true}),true);
+ const original=caster.yaw;
+ assert.equal(original,0);
+ // The browser releases at a new orientation before the next movement tick.
+ assert.equal(releaseOneHitCharge(room,'caster',9.3,{yaw:Math.PI,pitch:0}),true);
+ const event=room.events.find(e=>e.type==='oneHitImpact'&&e.form==='ground');
+ assert.ok(event,'teleport commit also emits an immediate grounded impact');
+ assert.ok(Math.abs(event.yaw-Math.PI)<1e-8,
+   'the committed footprint uses the release look rather than an old server yaw');
+ assert.equal(room.oneHitFields[0].yaw,event.yaw);
 });
