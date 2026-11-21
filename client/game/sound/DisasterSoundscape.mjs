@@ -6,7 +6,7 @@ import {
   DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
   coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
   conductWireTailRecipe,galeStreamRecipe,disasterEarthImpactRecipe,disasterAirImpactRecipe,
-  disasterInfusionChargeRecipe,disasterInfusionImpactRecipe,
+  disasterInfusionChargeRecipe,disasterInfusionEarnedRecipe,disasterInfusionImpactRecipe,
   disasterFieldPulseRecipe,disasterInfusionFieldRecipe,disasterWaveRushRecipe,
 } from './disasterSoundRecipes.mjs';
 
@@ -71,7 +71,7 @@ export class DisasterSoundscape {
     // Network resends or a frozen/replayed Inspection snapshot must never
     // produce a second huge blast. Distinct projectile uses retain their IDs.
     if(['coreflagrationArmed','projectileImpact','lineConductDischarge',
-      'spellCast','ultimateStart','oneHitTeleport','oneHitWave','oneHitImpact','oneHitLightningGroundStrike',
+      'spellCast','ultimateStart','oneHitInfusion','oneHitTeleport','oneHitWave','oneHitImpact','oneHitLightningGroundStrike',
       'galeBlast'].includes(event.type)){
       const key=[event.type,event.projectileId??event.impactId??event.waveId??
         event.playerId??event.ownerId??'',event.at??'',event.stage??''].join(':');
@@ -125,6 +125,14 @@ export class DisasterSoundscape {
         this.#around(origin,conductChargeRecipe(rand,{seconds}),.85);
         break;
       }
+      case 'oneHitInfusion':{
+        // Earning an infusion was visual-only. Let the award itself sound
+        // different for each element without mistaking it for an attack.
+        if(!DISASTER_AUDIO_ELEMENTS.includes(event.element))break;
+        this.#around(origin,disasterInfusionEarnedRecipe(event.element,rand,{
+          tier:event.tier}),event.tier>=2?.61:.45);
+        break;
+      }
       case 'ultimateStart':{
         if(event.ultimate!=='one_hit_of_wonders')break;
         const tiers=event.preparedTiers??actor?.ultimateState?.preparedTiers??{};
@@ -158,7 +166,10 @@ export class DisasterSoundscape {
           event.impactId?.72:.89);
         // Fire ignites, frost fractures, Gale evacuates, lightning snaps, Steel
         // rumbles last. Avoid simply synchronizing five entire explosions.
-        const delays={fire:.035,frost:.095,gale:.135,lightning:.185,steel:.23};
+        // The heavy sword-to-earth crack and the Steel anvil's initial clank
+        // are ONE physical contact. The anvil's ring keeps sounding after;
+        // never push its attack 230ms behind the blade.
+        const delays={fire:.035,frost:.095,gale:.135,lightning:.185,steel:0};
         for(const e of elements){
           // Anvil strikes require an actual ground collision, not a midair
           // projectile burst. Lightning's strike accent works at both tiers.
@@ -299,9 +310,17 @@ export class DisasterSoundscape {
       this.#around(wave.position,disasterWaveRushRecipe(this.random,{
         tier:wave.tiers?.gale??0}),.38*balance);
       if(elements.length){
-        const e=elements[cursor.index++%elements.length];
-        this.#around(wave.position,disasterInfusionFieldRecipe(e,this.random,{
-          strength:1,tier:wave.tiers[e]}),.3*balance,.08);
+        // In a mixed Gale wave, two quiet elemental signatures can travel
+        // with the moving front rather than rotating so slowly that a short
+        // wave finishes before the listener hears Fire, Frost or Steel.
+        // Low-density/mobile audio still plays one to protect performance.
+        const count=Math.min(elements.length,this.density<.8?1:2);
+        for(let i=0;i<count;i++){
+          const e=elements[(cursor.index+i)%elements.length];
+          this.#around(wave.position,disasterInfusionFieldRecipe(e,this.random,{
+            strength:1,tier:wave.tiers[e]}),.24*balance,.06+i*.11);
+        }
+        cursor.index=(cursor.index+count)%elements.length;
       }
     }
     for(const id of this.waves.keys())if(!liveWaves.has(id))this.waves.delete(id);
