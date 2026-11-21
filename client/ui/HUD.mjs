@@ -230,7 +230,7 @@ export class HUD {
     this.siegeContextPrompt.hidden=true;
     this.siegeContextPrompt.disabled=true;
     this.siegeContextPrompt.innerHTML='<strong></strong><small></small>';
-    this.siegeContextPrompt.addEventListener('click',()=>{
+    this.siegeContextPrompt.addEventListener?.('click',()=>{
       if(!this.siegeContextPrompt.disabled&&this.siegeContextAction)
         this.onSiegeContextAction?.(this.siegeContextAction);
     });
