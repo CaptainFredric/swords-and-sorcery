@@ -49,6 +49,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorPowered:false,rotorBrakeHeld:false,rotorTargetRPM:0,rotorRPM:0,
     rotorSpinupAcceleration:90,rotorSpindownAcceleration:65,rotorLiftAuthority:0,
     jumpWasHeld:false,hopStartedAt:null,hopRequested:false,airHopRequested:false,
+    groundHopTakeoffAt:-Infinity,groundHopRiseAssisted:false,
     airHopRemaining:0,nextAirHopAt:-Infinity,verticalIntent:'IDLE',neutralHoverAt:null,
     neutralHoverHeight:null,neutralHoverFromRise:false,rotorLiftSuppressedUntil:0,
     ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
@@ -296,6 +297,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     if(!descend&&((explicitHop&&m.health>0)||
       (canLaunch&&(legacyPress||input.flightRise||launchRise)))){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
+      m.groundHopTakeoffAt=explicitHop?now:-Infinity;
+      m.groundHopRiseAssisted=false;
       // A free mechanical ground hop must still be ascending when a mobile
       // 270ms Jump hold becomes powered Rise. 3.95m/s peaks at ~293ms under
       // the real 13.5m/s² gravity; no rotor or charge is used for the tap.
@@ -314,6 +317,19 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
   }
   if(live&&sustainedRise&&!m.grounded&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
+  // Ground Hop keeps the rotor OFF for a tap. When that SAME mobile Jump
+  // becomes held Rise (270ms), a normal half-second motor spool would
+  // arrive well after the Hop's apex. Bring the sound physical rotor to
+  // operating speed once, only on this charged and intact takeoff handoff.
+  // Other flight modes retain their ordinary spinup behavior and dynamics.
+  if(live&&input.flightRise&&!m.grounded&&intact&&m.flightCharge>0&&
+     !m.emergencyBrakeActive&&!m.groundHopRiseAssisted&&
+     now-(m.groundHopTakeoffAt??-Infinity)<=.65){
+    m.rotorPowered=true;
+    m.rotorAngularVelocity=Math.PI*15;
+    m.rotorEnergy=Math.max(m.rotorEnergy,100);
+    m.groundHopRiseAssisted=true;
+  }
   // A Rise release keeps the spinning rotor for neutral hover. Its *vertical*
   // command is nevertheless released immediately: no positive target velocity.
   const previousVerticalIntent=m.verticalIntent;
