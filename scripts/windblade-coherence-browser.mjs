@@ -53,7 +53,7 @@ try{
     'growsBack:xyz.getZ(back)<xyz.getZ(front)-.9,',
     'horizontal:Math.abs(xyz.getX(36*8)-xyz.getX(0))>1.7&&Math.abs(xyz.getY(front))<.15,',
     'vault:xyz.getY(front+3)>.2&&xyz.getY(otherSide+3)<-.2,',
-    'matchesRealRadius:Math.abs(xyz.getX(36*8)-.9)<.01&&Math.abs(body.scale.x-((tiers.fire??0)?1.5/.9:1))<1e-6,',
+    'matchesRealRadius:Math.abs(xyz.getX(36*8)-.9)<.01&&Math.abs(body.scale.x-((tiers.fire??0)?1.85/.9:1))<1e-6,',
     'transparent:!wake.material.depthWrite&&!edge.material.depthWrite,',
     '};',
     'if(tiers.gale===2){passes.lime=rgba.getY(front+5)>rgba.getX(front+5)*1.05;',
