@@ -210,13 +210,13 @@ test('Stay defends in brief readable Guard windows, without permanent immunity',
  knight.prowess=0;knight.ultimateKnight.refillAt=50;knight.ultimateLockedUntil=50;
  human.position={x:0,y:0,z:2};knight.position={x:0,y:0,z:0};
  human.spawnProtectionUntil=0;knight.spawnProtectionUntil=0;
- stepPracticeActors(room,2,world);
+ stepPracticeActors(room,3.7,world);
  assert.equal(knight.ultimateKnight.behavior,'stay');
  assert.equal(knight.guardHeld,true,'defensive station has a genuine Guard window');
- stepPracticeActors(room,3.8,world);
+ stepPracticeActors(room,4.9,world);
  assert.equal(knight.guardHeld,false,'Guard drops for a genuine counterattack opening');
  const before=knight.health;
- assert.equal(applyDamage(room,human.id,knight.id,15,'sword',3.8),true);
+ assert.equal(applyDamage(room,human.id,knight.id,15,'sword',4.9),true);
  assert.equal(knight.health,before-15,'stationary Knight is a real damageable actor');
 });
 
