@@ -327,6 +327,14 @@ menuScene?.setSubtitles(viewOptions(settings).subtitles);
 endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
+// HELLping's small proximity button is another way of pressing the SAME
+// authoritative U/T actions. It never sends a target ID, auto-captures,
+// or bypasses Guard, allied consent, machine state or cooldown.
+hud.onSiegeContextAction=action=>{
+ if(!runtime?.input?.enabled)return;
+ if(action==='siegeSkill')runtime.input.siegeSkill();
+ else if(action==='interact')runtime.input.interact();
+};
 let tutorialSession = null;
 // (what the Spellblade has out: both arms come in with the lesson's lines; out everywhere else)
 const tutorialEquipment = new TutorialEquipment({ session: () => tutorialSession });
