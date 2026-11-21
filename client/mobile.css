@@ -290,6 +290,10 @@ button, input { touch-action: manipulation; }
 .touch-ui .hud.flight-mounted .guard-block {margin-top:3px;}
 .touch-ui .hud.flight-mounted .guard-track {height:3px;margin-top:1px;}
 .touch-ui .hud.flight-mounted .flight-charge-heading {font-size:7px;letter-spacing:0;gap:3px;}
+/* These spans are nested in Guard's HUD, whose general 10px span rule
+   otherwise overrides the smaller instrument typography on phones. */
+.touch-ui .hud.flight-mounted .flight-charge-heading > span,
+.touch-ui .hud.flight-mounted .flight-mini-telemetry > span {font-size:7px;letter-spacing:0;}
 .touch-ui .hud.flight-mounted .flight-charge-heading > span::before {margin-right:4px;}
 .touch-ui .hud.flight-mounted .flight-charge-heading output {font-size:9px;}
 .touch-ui .hud.flight-mounted .flight-charge-track {height:9px;border-width:1px;}
