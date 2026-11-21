@@ -496,6 +496,15 @@ export class Effects {
     this.sparks(point, 0xffd48a, 14);
   }
 
+  // Ordinary aircraft component hits are steel-grey contact dust, not
+  // the long orange wood splinters or orange spark filaments.
+  flightComponentHit(point) {
+    if(!point)return;
+    for(let i=0,n=this.#many(3);i<n;i++)
+      this.#dust(point,{size:.35+Math.random()*.3,rise:.18,life:.24,
+        color:i%2?0x666c70:0x464f53});
+  }
+
   // A destroyed Flight component gives a modest pressure pop, not the
   // orange, elongated sparks used by ordinary sword-on-metal contacts.
   flightComponentBreak(point) {
