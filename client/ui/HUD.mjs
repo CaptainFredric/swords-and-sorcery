@@ -534,7 +534,7 @@ export class HUD {
     // The old 330px black instruction placard obscured the forward aim.
     this.ballistaPanel.hidden = !siege || Boolean(local.operatingBallistaId) ||
       Boolean(local.operatingRamId) || isFlight || gauge?.kind === 'ram';
-    const prompt=hellpingContextPrompt(local,snapshot,this.ballistaControls?.bindings);
+    const prompt=hellpingContextPrompt(local,snapshot,this.ballistaControls?.bindings,serverNow);
     this.siegeContextPrompt.hidden=!prompt;
     if(prompt){
       this.siegeContextPrompt.dataset.kind=prompt.kind;
