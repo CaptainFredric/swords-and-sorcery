@@ -25,6 +25,7 @@ import {
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import { lineOfConductDamage, lineOfConductReach, lineOfConductAffliction, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
+import { ONE_HIT_WAKE, galeFrostWakeEnabled, galeFrostWakeRadius, closestWakePoint } from '../src/oneHitTrail.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
@@ -2572,9 +2573,35 @@ function stepOneHitFields(room,dt,nowSec,world) {
         player.spawnProtectionUntil>nowSec)continue;
       const contact=fieldContact(field,field.air?oneHitChest(player):player.position);
       if(!(contact>0))continue;
-      if(oneHitWorldContact(field.air?field.position:
-        {...field.position,y:field.position.y+.5},oneHitChest(player),world))continue;
+      // A long airborne wake checks occlusion from the CLOSEST actual segment.
+      // Checking its launch point would incorrectly reject players behind
+      // a wall that the traveling wave already passed on the other side.
+      const contactOrigin=field.trail
+        ?closestWakePoint(field.trailPoints,oneHitChest(player))
+        :field.air?field.position:{...field.position,y:field.position.y+.5};
+      if(!contactOrigin||oneHitWorldContact(contactOrigin,oneHitChest(player),world))continue;
       const strength=fieldStrength(field,nowSec);
+      if(field.trail){
+        field.trailTouched??={};
+        // All normal elemental/status consequences of a direct hit are
+        // transferred once PER ENEMY PER WAKE, without a second decisive HP
+        // hit. A direct wave victim has already been recorded by the hitIds.
+        if(!field.trailTouched[player.id]){
+          field.trailTouched[player.id]=true;
+          (field.shakenContact??={})[player.id]=1;
+          oneHitAfflict(room,owner,player,field.tiers,nowSec,{
+            shaken:Math.max(.4,strength*contact),direct:true});
+        }
+        if(field.tiers.fire===2){
+          field.trailBurnNext??={};
+          const next=field.trailBurnNext[player.id]??nowSec+ONE_HIT_WAKE.burnInterval;
+          if(nowSec>=next-1e-8){
+            field.trailBurnNext[player.id]=nowSec+ONE_HIT_WAKE.burnInterval;
+            applyDamage(room,owner.id,player.id,burnZoneLick(strength,ONE_HIT_WAKE.burnLick),
+              'one_hit_air_fire',nowSec,null,{ongoing:true});
+          }else field.trailBurnNext[player.id]=next;
+        }
+      }
       if(!player.oneHitField||strength>player.oneHitField.strength)
         player.oneHitField={id:field.id,ownerId:field.ownerId,strength,contact};
       // The base field REALLY shakes newly entering enemies. The visual
@@ -2608,7 +2635,9 @@ function stepOneHitFields(room,dt,nowSec,world) {
       }
       if(field.tiers.frost===2)player.oneHitFrostSlow=mergeFrostSlow(player.oneHitFrostSlow,
         {until:nowSec+ONE_HIT_FIELD.frostLingerSec,depth:fieldFrostDepth(strength,contact)},nowSec);
-      if(field.tiers.lightning===2){
+      if(field.tiers.lightning===2&&!field.trail){
+        // Trail Conduct was applied once when entering its actual 3D path.
+        // Ordinary fields still use deeper-contact scaling as before.
         const offered=fieldConduct(field,player.id,contact,nowSec);
         if(offered)oneHitConduct(room,player,offered,nowSec);
       }
@@ -3023,6 +3052,34 @@ function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
   return nearest;
 }
 
+function oneHitWakeAppend(room,wave,from,to,nowSec){
+  if(!galeFrostWakeEnabled(wave.tiers))return;
+  const id=wave.id+':wake';
+  let field=room.oneHitFields?.find(f=>f.id===id);
+  const duration=wave.tiers.steel===2
+    ?fieldSeconds(wave.tiers):airFieldSeconds(wave.tiers);
+  if(!field){
+    field={id,ownerId:wave.ownerId,trail:true,air:true,
+      position:{...from},direction:{...wave.direction},
+      radius:galeFrostWakeRadius(wave.tiers),
+      trailPoints:[{...from}],bornAt:nowSec,activeAt:nowSec,
+      until:nowSec+duration,tiers:{...wave.tiers},
+      trailTouched:{},trailBurnNext:{},conducted:{},shakenContact:{}};
+    (room.oneHitFields??=[]).push(field);
+  }
+  const last=field.trailPoints.at(-1);
+  if(Math.hypot(last.x-to.x,last.y-to.y,last.z-to.z)>.015)
+    field.trailPoints.push({...to});
+  // The travelling projectile is necessarily finite (22m max reach);
+  // extending while it moves cannot accumulate an infinite hazard.
+  field.activeAt=nowSec;
+  field.until=nowSec+duration;
+  for(const hitId of wave.hitIds??[]){
+    field.trailTouched[hitId]=true;
+    field.shakenContact[hitId]=1;
+    field.conducted[hitId]=1;
+  }
+}
 function stepOneHitWorld(room,dt,nowSec,world) {
   for(const wave of room.oneHitWaves??[]) {
     const caster=room.players.get(wave.ownerId);
@@ -3055,6 +3112,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
         machineContact.point.z-old.z)<
         Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z))){
       wave.position=machineContact.point;
+      oneHitWakeAppend(room,wave,old,wave.position,nowSec);
       wave.distance+=step*machineContact.t;
       oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'machine');
       wave.distance=ONE_HIT_RULES.waveMaxReach;
@@ -3065,12 +3123,14 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       // Explode at the defender, with the usual smaller terminal blast.
       // The same defended victim remains in hitIds: no duplicated HP or Guard cost.
       wave.position=guardedContact;
+      oneHitWakeAppend(room,wave,old,wave.position,nowSec);
       wave.distance+=Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z);
       oneHitWaveImpact(room,caster,wave,guardedContact,null,nowSec,world,'guard');
       wave.distance=ONE_HIT_RULES.waveMaxReach;
       continue;
     }
     wave.position=oneHitAlong(old,next,stop);
+    oneHitWakeAppend(room,wave,old,wave.position,nowSec);
     wave.distance+=step*stop;
     if(contact){
       oneHitWaveImpact(room,caster,wave,wave.position,contact,nowSec,world);
