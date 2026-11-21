@@ -10,11 +10,11 @@ const clamp = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 
 export const AFFLICTIONS = Object.freeze({
   frozen: Object.freeze({
     name: 'Frozen', icon: 'afflictionFrozen', steady: true,
-    description: 'You can't move or start new actions. Anything already in progress resumes when the ice breaks.',
+    description: "You can't move or start new actions. Anything already in progress resumes when the ice breaks.",
   }),
   staggered: Object.freeze({
     name: 'Staggered', icon: 'afflictionStaggered', steady: true,
-    description: 'You've lost your balance. You can't attack, Guard, cast spells, or Dash until you recover.',
+    description: "You've lost your balance. You can't attack, Guard, cast spells, or Dash until you recover.",
   }),
   conduct: Object.freeze({
     name: 'Shocking Conduct', icon: 'afflictionConduct', steady: false,
@@ -26,7 +26,7 @@ export const AFFLICTIONS = Object.freeze({
   }),
   shaken: Object.freeze({
     name: 'Shaken', icon: 'afflictionShaken', steady: false,
-    description: 'Sprinting is slowed. Standing in All-Natural Disaster's lingering field delays your recovery.',
+    description: "Sprinting is slowed. Standing in All-Natural Disaster's lingering field delays your recovery.",
   }),
   burning: Object.freeze({
     name: 'Burning', icon: 'afflictionBurning', steady: true,
@@ -38,11 +38,11 @@ export const AFFLICTIONS = Object.freeze({
   }),
   frostbound: Object.freeze({
     name: 'Frostbound', icon: 'afflictionFrostbound', steady: true,
-    description: 'All-Natural Disaster's frost slows your movement. Standing in its frosted field can keep you slowed.',
+    description: "All-Natural Disaster's frost slows your movement. Standing in its frosted field can keep you slowed.",
   }),
   tornGround: Object.freeze({
     name: 'Torn Ground', icon: 'afflictionTornGround', steady: true,
-    description: 'You can't Sprint while standing on a Sunder fissure. Move off it to run again.',
+    description: "You can't Sprint while standing on a Sunder fissure. Move off it to run again.",
   }),
   rupture: Object.freeze({
     name: 'On Ruptured Ground', icon: 'afflictionRupture', steady: false,
