@@ -74,6 +74,7 @@ export function requestLongArmToJaw(room,b,p,now){
  if(f?.state==='abyss')return 'Return to the original deployment site, then leave the ram for recovery.';
  if(f?.state==='recovering')return 'The ram is undergoing unoccupied fist recovery.';
  if(f?.state==='destroyed')return 'The fist is destroyed and cannot be recovered.';
+ if(f?.state==='rolling')return 'The fist is still rolling. Drive alongside it once it stops.';
  if(f)return 'The fist is still airborne.';
  if(b.skill?.id!=='longArmToTheJaw')return 'Equip Long Arm to the Jaw first.';
  if(b.fistMounted===false)return 'The fist is not attached.';
@@ -359,6 +360,9 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
     event(room,b,'landed',at,{position:{...f.position}});
    }
   }
+  // A settled body has no remaining substeps: do not integrate it through
+  // more gravity or dispatch duplicate ground-landed events this same tick.
+  if(f.state==='resting')break;
   if(f.position.y<(Number.isFinite(world.abyssY)?world.abyssY:-30)||
      at-f.launchedAt>RAM_FIST.flightTimeout&&
       surfaceHeightAt(f.position.x,f.position.z,f.position.y+2,world)==null){
