@@ -127,6 +127,16 @@ export class InputController {
     for (const [action, codes] of Object.entries(this.bindings)) for (const code of codes ?? []) this.actionOf.set(code, action);
   }
 
+  #actionFor(code) {
+    // E is Dash on foot / Flight and ram hydraulic pitch, but Sharp Turn
+    // when mounted on the ballista. Respect remapped controls as well.
+    // Resolving by machine context prevents a duplicate default binding
+    // from silently replacing the Spellblade's Dash everywhere.
+    if(this.mountedBallista&&this.bindings.siegeSweep?.includes(code))return 'siegeSweep';
+    if(this.bindings.dash?.includes(code))return 'dash';
+    return this.actionOf.get(code);
+  }
+
   /** Whether any key bound to an action is held. */
   held(action) {
     for (const code of this.bindings[action] ?? []) if (this.keys.has(code)) return true;
@@ -134,7 +144,7 @@ export class InputController {
   }
 
   #press(code, repeat = false) {
-    const action = this.actionOf.get(code);
+    const action = this.#actionFor(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
@@ -154,7 +164,7 @@ export class InputController {
   }
 
   #release(code) {
-    const action = this.actionOf.get(code);
+    const action = this.#actionFor(code);
     if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
@@ -245,7 +255,7 @@ export class InputController {
         this.cancelPreparedGesture();
         return;
       }
-      const action = this.actionOf.get(event.code);
+      const action = this.#actionFor(event.code);
       if (this.enabled && action) {
         event.preventDefault();
         if (this.blockedKeys.has(event.code)) return;
