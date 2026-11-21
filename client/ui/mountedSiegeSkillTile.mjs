@@ -47,6 +47,8 @@ export function mountedSiegeSkillTile(local,snapshot,now){
     (id==='lookAroundAndFindOut'&&Boolean(machine.sweep?.kind==='skill'));
   const state=remaining>0&&!active?'COOLDOWN':
     id==='hellpingHand'&&machine.hellping?.phase==='vault'?'HOPPING':
+    id==='hellpingHand'&&machine.hellping?.phase==='ledgePull'?'PULLING UP':
+    id==='hellpingHand'&&machine.hellpingLedge?'LEDGE READY':
     id==='hellpingHand'&&machine.hellping?.phase==='open'?'PALM OPEN':
     id==='hellpingHand'&&machine.hellping?.phase==='grasp'?'CRUSHING':
     id==='hellpingHand'&&machine.hellping?.phase==='transport'?'CARRYING':
