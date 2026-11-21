@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {conductBoltSamples,conductVisualPhase,CONDUCT_VISUAL} from './conductShape.mjs';
+import {conductBoltSamples,conductVisualPhase,conductRemnantWidthFactor,CONDUCT_VISUAL} from './conductShape.mjs';
 
 // Three.js is loaded by the browser's import map. Test pure timing/geometry
 // in Node and the renderer's critical invariants with source contracts.
@@ -94,4 +94,15 @@ test('the initial HP strike and status-only one-second afterline remain simulati
   // Additional HP damage along the one-second remnant must never be restored.
   const afterline=sim.split("for(const wire of room.lineConductWires??[])")[1].split("room.lineConductWires=")[0];
   assert.doesNotMatch(afterline,/applyDamage\(/);
+});
+
+test('the damaging initial bolt fades into a visibly narrowing zero-HP conductive afterline',()=>{
+ const head=conductRemnantWidthFactor(.027,.20);
+ const thin=conductRemnantWidthFactor(.006,.20);
+ assert.ok(head<=thin);
+ const endOuter=conductRemnantWidthFactor(.027,.85);
+ const endCore=conductRemnantWidthFactor(.006,.85);
+ assert.ok(endOuter<endCore*.1,'wide sheath has vanished before the thin central hazard');
+ assert.match(source,/conductRemnantWidthFactor\(mesh\.userData\.conductRadius,elapsed\)/);
+ assert.match(source,/remnant\.userData\.conductRadius=radius/);
 });
