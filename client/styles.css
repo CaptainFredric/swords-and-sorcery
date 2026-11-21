@@ -234,7 +234,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
   display: grid; gap: 3px; pointer-events: none;
 }
-.hud-status-stack { position: absolute; top: 14px; left: calc(50% - 64px); transform: translateX(-50%); width: min(380px, calc(100% - 24px)); display: grid; justify-items: center; gap: 5px; pointer-events: none; }
+.hud-status-stack { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(380px, calc(100% - 24px)); display: grid; justify-items: center; gap: 5px; pointer-events: none; }
 .hud-status-stack > .match-info, .hud-status-stack > .duel-score { position: static; transform: none; max-width: 100%; margin: 0; text-align: center; }
 .hud-status-stack > .match-info { padding: 5px 10px; font-size: 9px; }
 .hud-status-stack > .duel-score { padding: 3px 9px; }
@@ -258,9 +258,12 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   border:1px solid #574729;box-shadow:inset 0 1px #fff6;}
 .flight-charge-rail::before{left:2px}.flight-charge-rail::after{right:2px}
 .flight-charge-rail[hidden] { display:none !important; }
-.flight-charge-heading { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+/* Value always owns its right-side space; letters may not push it outside the frame. */
+.flight-charge-heading { display:flex; justify-content:space-between; align-items:baseline; gap:5px; min-width:0;
   color:#e5c575; font:800 9px/1.1 system-ui,sans-serif; letter-spacing:.09em; }
-.flight-charge-heading output { color:#f8e8b5; font-size:11px; font-variant-numeric:tabular-nums; }
+.flight-charge-heading > span {min-width:0;white-space:nowrap;overflow:hidden;text-overflow:clip;}
+.flight-charge-heading output { flex:0 0 auto;min-width:3ch;text-align:right;padding-right:2px;
+  color:#f8e8b5; font-size:11px; font-variant-numeric:tabular-nums; }
 .flight-charge-track {height:11px;overflow:hidden;position:relative;
   border:2px ridge #887047;background:linear-gradient(#090e10,#20201b);
   box-shadow:inset 0 2px 5px #000c,0 1px #cfb67a70;}
