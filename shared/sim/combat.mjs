@@ -2431,6 +2431,7 @@ function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REAC
     id,ownerId:caster.id,position,radius,
     ...(Number.isFinite(yaw)?{yaw}:{}),...(air?{air:true,direction:{...direction}}:{}),
     bornAt:nowSec,nextAt:nowSec+(air?.3:.5),
+    ...(tiers.steel===2?{steelLocked:true}:{}),
     until:nowSec+(air?airFieldSeconds(tiers):fieldSeconds(tiers)),
   });
 }
@@ -2771,6 +2772,30 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
     air?null:yaw,air?wave.direction:null);
+  // The terminal blast is a real SECOND ground strike when it contacts
+  // solid terrain. Use the established Sunder rupture simulation with the
+  // projectile's flight yaw, never the caster's later facing. Full Steel
+  // expands it into twelve radial fissures; without Steel use the ordinary
+  // four-arm, forward-fanned rupture. Air detonations cannot fracture dirt.
+  // Existing moving-wave victims have already paid the single contact for
+  // this cast; the terminal rupture must not arbitrarily charge them again.
+  if(groundBlast&&floor!==null){
+    const waveSteel=wave.tiers.steel??0;
+    const oldYaw=caster.yaw;
+    const before=room.ruptures?.length??0;
+    try{
+      caster.yaw=yaw;
+      groundStrike(room,caster,2,{
+        point:{x:point.x,y:floor,z:point.z},floor:{y:floor}
+      },nowSec,world,waveSteel>=1?{
+        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel}
+      }:{});
+    }finally{caster.yaw=oldYaw;}
+    if((room.ruptures?.length??0)>before){
+      const rupture=room.ruptures.at(-1);
+      rupture.caught.push(...wave.hitIds);
+    }
+  }
   // The shorter terminal blast inherits the same forward-biased reach as
   // the grounded slam, without acquiring the SLAM's larger base radius.
   // Aerial detonations leave suspended pressure and elemental effects, not
