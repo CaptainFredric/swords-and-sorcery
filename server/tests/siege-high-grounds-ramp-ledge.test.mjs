@@ -50,7 +50,7 @@ test('real High Grounds western ascent supports the ram at multiple elevations',
 test('real High Grounds ascent supports six ballista wheels, not just infantry',()=>{
  const s=ballista(highGrounds,{x:-38,z:-105,heading:Math.PI});
  drive(s,'ballista',330);
- assert.ok(s.b.z>-91,'ballista should climb rather than stall on the ramp lip');
+ assert.ok(s.b.z>-91,'ballista should climb rather than stall on the ramp lip: '+JSON.stringify({z:s.b.z,y:s.b.y,pitch:s.b.chassisPitch,speed:s.b.speed}));
  assert.ok(s.b.y>.9,'ballista wheels follow the inclined surface');
  assert.ok(Math.abs(s.b.chassisPitch)<=BI_BYE_TERRAIN.mobileGrade+.003);
 });
@@ -62,8 +62,9 @@ test('26.6 degree canopy-to-crown cross ramp is inside the mobile siege grade en
  const sample={...createSoFistication({x:-22,z:-7.5,y:6,heading:Math.PI/2})};
  assert.ok(soFistTerrainPose(sample,highGrounds),'ram accepts middle of real ramp');
  const bow=createBiByeLlista({x:-22,z:-7.5,y:6,baseYaw:Math.PI/2});
- assert.ok(biByeTerrainPose(bow,biByeTerrainContext(highGrounds,bow)),
-   'ballista accepts middle of real ramp');
+ const diagnosis={};
+ assert.ok(biByeTerrainPose(bow,biByeTerrainContext(highGrounds,bow),diagnosis),
+   'ballista accepts middle of real ramp: '+JSON.stringify(diagnosis));
 });
 test('ram refuses unsupported air and truly steep ramps despite increased approach grades',()=>{
  const cliff={solids:[],floors:[{center:[0,-.1,2],size:[12,.2,8],y:0}],ramps:[]};
