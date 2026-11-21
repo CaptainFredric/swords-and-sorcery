@@ -239,7 +239,7 @@ export function frostSlowScale(slow, nowSec) {
 /** Shocking Conduct's potential left at `nowSec`. */
 export function conductRemaining(status, nowSec, rules = ONE_HIT_CONDUCT) {
   if (!status) return 0;
-  return Math.max(0, status.initial * clamp01(1 - (nowSec - status.at) / rules.seconds));
+  return Math.max(0, status.initial * clamp01(1 - (nowSec - status.at) / (status.seconds??rules.seconds)));
 }
 
 /** A direct Lightning-infused hit: the whole potential, from now. */
