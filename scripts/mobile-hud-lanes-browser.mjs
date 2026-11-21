@@ -57,7 +57,7 @@ async function measure(){
     "const b=s=>box(document.querySelector(s)),sh=document.querySelector('#game-shell').getBoundingClientRect();"+
     "return {w:sh.width,h:sh.height,objective:b('#breakthrough-hud'),feed:b('#kill-feed'),"+
     "leave:b('.touch-interact'),view:b('.touch-siegeView'),hp:b('.health-block'),"+
-    "drive:b('.drive-housing'),subtitle:b('#subtitle'),gauge:b('.machine-gauge'),flightHud:b('.flight-hud'),"+
+    "drive:b('.drive-housing'),subtitle:b('#subtitle'),gauge:b('.machine-gauge'),flightHud:b('.flight-charge-rail'),"+
     "steel:b('.touch-spell'),prime:b('.touch-siegeSkill')};})()");
 }
 function verify(kind,x,screen){
@@ -80,8 +80,8 @@ function verify(kind,x,screen){
   }else assert.ok(s.bottom>x.h-55,screen+' on-foot subtitle remains low');
   if(kind==='flight'){
     const flight=x.flightHud;
-    assert.ok(flight.visible&&flight.width>200&&flight.width<=340,
-      screen+' Flight meters remain readable after objective compaction');
+    assert.ok(flight.visible&&flight.width>=100&&flight.width<=170,
+      screen+' Flight charge rail remains compact below personal stamina');
     assert.ok(clear(flight,f,3)&&clear(flight,o,3),
       screen+' Flight meters stay in a lane separate from objective and kills');
   }
