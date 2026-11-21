@@ -64,3 +64,14 @@ export function finiteFlightLook(yaw,pitch,fallbackYaw=0){
     pitch:Math.max(-1.45,Math.min(1.45,finite(pitch))),
   };
 }
+
+/** For physical shot convergence, read the CURRENT authoritative carriage
+ * position, not the preceding render frame's cockpit camera. Rapid forward
+ * to reverse transitions otherwise send a target shifted behind the sight.
+ * An actual third-person boom retains its already-clipped camera position. */
+export function flightReticleOrigin(machine,previousCamera,{
+  sight=true,thirdBlend=0,ground=null,
+}={}){
+  if(!machine||!sight||thirdBlend>=.002)return previousCamera;
+  return stableFlightCockpitEye(machine,null,ground);
+}
