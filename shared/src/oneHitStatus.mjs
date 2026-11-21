@@ -158,8 +158,15 @@ const clamp01 = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? valu
 /** What is left of a field at `nowSec` (1 as it lands, 0 once it has run down). */
 export function fieldStrength(field, nowSec) {
   if (!field) return 0;
-  const life = (field.until ?? field.bornAt + ONE_HIT_FIELD.seconds) - field.bornAt;
-  return life > 0 ? clamp01(1 - (nowSec - field.bornAt) / life) : 0;
+  const until=field.until??field.bornAt+ONE_HIT_FIELD.seconds;
+  if(!(until>field.bornAt)||nowSec>=until)return 0;
+  // Full Steel stabilizes the entire RESIDUAL FIELD, rather than merely
+  // improving a Steel-only status. Fire, Frost, Gale, Lightning, Shaken and
+  // the Guard-stamina cost remain at their initial field strength until the
+  // unchanged, explicit expiration. Already-afflicted enemies keep their
+  // individual normal status timers; this does not freeze their clocks.
+  if(field.steelLocked||field.tiers?.steel===2)return 1;
+  return clamp01(1-(nowSec-field.bornAt)/(until-field.bornAt));
 }
 
 /**
