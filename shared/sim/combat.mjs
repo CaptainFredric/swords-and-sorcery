@@ -2850,6 +2850,10 @@ function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
   }
   room.events.push({type:'oneHitLightningGroundStrike',playerId:caster.id,
     waveId:wave.id,origin:{...point},point:impact,radius,damage,targets,at:nowSec});
+  // Reuse this exact server-resolved endpoint in the explosion event. The
+  // renderer draws ONE continuous bolt from above, through the airburst,
+  // to this real terrain contact rather than two unrelated lightning meshes.
+  return impact;
 }
 function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null) {
   const fire=(wave.tiers.fire??0)>=1;
@@ -2873,8 +2877,8 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
-  if(air&&(wave.tiers.lightning??0)>=1)
-    oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world);
+  const lightningGroundPoint=air&&(wave.tiers.lightning??0)>=1
+    ?oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world):null;
   oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,null,null);
   // The terminal blast is a real SECOND ground strike when it contacts
   // solid terrain. Use the established Sunder rupture simulation with the
@@ -2939,6 +2943,9 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const groundPoint=groundBlast&&floor!==null?{...point,y:floor}:null;
   room.events.push({type:'oneHitImpact',impactId:wave.id,playerId:caster.id,point:{...point},
     ...(groundPoint?{groundPoint}:{}),
+    // Distinct from groundPoint: the Gale shockwave still detonates HERE,
+    // while only its Lightning strand continues vertically to this floor.
+    ...(lightningGroundPoint?{lightningGroundPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
     radius,yaw:null,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
