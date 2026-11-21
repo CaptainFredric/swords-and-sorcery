@@ -41,7 +41,9 @@ function touch(s,at=1,guard=false){
  // of the hull-wide contact zones, never an arbitrary car-sized aura).
  foe.position={x:wheel.center[0]+(wheel.center[0]>0?.25:-.25),y:0,z:wheel.center[2]};
  foe.velocity={x:0,y:0,z:0};foe.impulse={x:0,z:0};
- foe.guarding=guard;foe.yaw=Math.PI;foe.guardStamina=100;
+ foe.guarding=guard;
+ const dx=wheel.center[0]-foe.position.x,dz=wheel.center[2]-foe.position.z;
+ foe.yaw=Math.atan2(-dx,-dz);foe.guardStamina=100;
  const before=foe.health;
  stepSiegeWheelContacts(room,machine,previous,dt,at,kind,newVolumes,old);
  return {damage:before-foe.health,shove:Math.hypot(foe.impulse.x,foe.impulse.z)};
