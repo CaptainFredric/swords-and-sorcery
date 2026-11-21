@@ -8,7 +8,10 @@ export function graftArticulatedFist(target,donor){
   // Capture only ORIGINAL meshes before moving anything from the donor.
   const legacy=[];
   target.traverse(part=>{if(part.isMesh)legacy.push(part);});
-  for(const part of legacy)if(part!==target)part.visible=false;
+  for(const part of legacy)if(part!==target){
+    part.visible=false;
+    part.userData.hiddenByArticulatedGraft=true;
+  }
   if(target.isMesh){
     // A mesh pivot cannot itself be hidden: doing so hides every finger.
     // Make its surface the donor's surface (or empty for an authored group).
