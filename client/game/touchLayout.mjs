@@ -16,7 +16,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   spell: { right: 88, bottom: 147, size: 54 },
   jump: { right: 21, bottom: 154, size: 58 },
   sprint: { left: 26, bottom: 190, size: 50 },
-  crouch: { left: 164, bottom: 187, size: 50 }
+  crouch: { left: 164, bottom: 187, size: 50 },
   gauntlet: { right: 206, bottom: 150, size: 46 },
   ultimate: { right: 24, bottom: 222, size: 50 },
   // New action has no legacy CSS coordinates: always position it from the
