@@ -4,6 +4,8 @@ import { renownTrialsView } from './renownTrialsView.mjs';
 import {restlessDayHudView} from './restlessDayHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {mountedSiegeSkillTile} from './mountedSiegeSkillTile.mjs';
+import {hellpingContextPrompt} from './hellpingContextPrompt.mjs';
+import {biByeSweepCooldownView} from './biByeControlView.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -158,6 +160,12 @@ export class HUD {
     this.flightSkillTile.hidden=true;
     this.flightSkillTile.innerHTML='<span class="ability-icon"></span><b>U</b><em>FIRE AWAY</em><strong>READY</strong>';
     this.spell.parentElement?.append(this.flightSkillTile);
+    this.ballistaSweepTile=document.createElement('div');
+    this.ballistaSweepTile.className='ability siege-skill-ability siege-sweep-ability ready';
+    this.ballistaSweepTile.hidden=true;
+    this.ballistaSweepTile.innerHTML='<span class="ability-icon"></span><b>E</b><em>SHARP TURN</em><strong>READY</strong>';
+    this.ballistaSweepTile.querySelector('.ability-icon').innerHTML=iconSvg('siegeSweep');
+    this.flightSkillTile.parentElement?.append(this.ballistaSweepTile);
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
@@ -216,6 +224,12 @@ export class HUD {
     this.siegeSight=document.createElement('div');this.siegeSight.className='siege-sight';this.siegeSight.hidden=true;
     this.siegeSight.innerHTML='<div class="siege-primary"><svg viewBox="0 0 40 40" aria-hidden="true"><path class="main-mark" d="M13 10H8V30H13M27 10H32V30H27M11 14V26M29 14V26"/><path class="upper-mark" d="M20 9L31 20L20 31L9 20ZM20 5V9M20 31V35"/></svg><b></b><small></small></div><div class="siege-secondary" aria-hidden="true">⌄</div>';
     this.root.append(this.siegeSight);
+    this.siegeContextPrompt=document.createElement('div');
+    this.siegeContextPrompt.className='siege-context-prompt';
+    this.siegeContextPrompt.hidden=true;
+    this.siegeContextPrompt.setAttribute('role','status');
+    this.siegeContextPrompt.innerHTML='<strong></strong><small></small>';
+    this.root.append(this.siegeContextPrompt);
     this.flash = document.querySelector('#status-flash');
     this.subtitleLine = document.querySelector('#subtitle');
     this.deathCard = document.querySelector('#death-card');
@@ -516,7 +530,32 @@ export class HUD {
         ?mountedSkill.remaining.toFixed(1)+'s':mountedSkill.state;
       tile.title=mountedSkill.hint;
     }
-    this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
+    // Mounted players already have HP/parts, U Skill and E Sharp Turn tiles.
+    // The old 330px black instruction placard obscured the forward aim.
+    this.ballistaPanel.hidden = !siege || Boolean(local.operatingBallistaId) ||
+      Boolean(local.operatingRamId) || isFlight || gauge?.kind === 'ram';
+    const prompt=hellpingContextPrompt(local,snapshot,this.ballistaControls?.bindings);
+    this.siegeContextPrompt.hidden=!prompt;
+    if(prompt){
+      this.siegeContextPrompt.dataset.kind=prompt.kind;
+      this.siegeContextPrompt.querySelector('strong').textContent=prompt.label;
+      this.siegeContextPrompt.querySelector('small').textContent=prompt.detail;
+    }
+    const bow=local.alive&&local.operatingBallistaId?snapshot?.bibyeBallista:null;
+    this.ballistaSweepTile.hidden=!bow;
+    if(bow){
+      const sweep=biByeSweepCooldownView(bow,serverNow);
+      this.#ability(this.ballistaSweepTile,sweep.remaining,sweep.total);
+      const key=this.ballistaControls?.bindings?.siegeSweep?.[0];
+      this.ballistaSweepTile.querySelector('b').textContent=key
+        ?key.replace(/^Key/,'').replace(/^Digit/,''):'E';
+      const active=Boolean(bow.sweep);
+      this.ballistaSweepTile.classList.toggle('active',active);
+      this.ballistaSweepTile.querySelector('strong').textContent=
+        active?(bow.sweep.phase==='settle'?'SETTLING':'TURNING'):
+        sweep.remaining>.01?sweep.remaining.toFixed(1)+'s':'READY';
+      this.ballistaSweepTile.title='A Sharp Turn · shares Bolt II recovery';
+    }
     this.flightChargeRail.hidden = !siege || !isFlight;
     const uprootedBallista=local?.alive&&local.operatingBallistaId
       ? snapshot?.bibyeBallista:null;
