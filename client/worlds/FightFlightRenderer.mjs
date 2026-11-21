@@ -56,6 +56,21 @@ export class FightFlightRenderer{
         side:THREE.DoubleSide}));
       flame.visible=false;flame.renderOrder=6;this.trailRoot.add(flame);return flame;
     });
+    // Destruction is not a terminal-dive firestorm: one small red-orange
+    // mechanical pop, then a column of soot rising until the shared 6s wreck
+    // cleanup. These shapes are NOT physics bodies, damage or orange streaks.
+    this.wreckRoot=everywhere(new THREE.Group());this.scene.add(this.wreckRoot);
+    this.wreckSmoke=Array.from({length:12},(_,i)=>{
+      const mesh=new THREE.Mesh(this.smokeGeometry,new THREE.MeshBasicMaterial({
+        color:i%3===0?0x605651:i%3===1?0x484845:0x343536,
+        transparent:true,opacity:0,depthWrite:false}));
+      mesh.visible=false;mesh.renderOrder=5;this.wreckRoot.add(mesh);return mesh;
+    });
+    this.wreckBurst=Array.from({length:6},(_,i)=>{
+      const mesh=new THREE.Mesh(this.smokeGeometry,new THREE.MeshBasicMaterial({
+        color:i%2===0?0xc83d22:0xf06b34,transparent:true,opacity:0,depthWrite:false}));
+      mesh.visible=false;mesh.renderOrder=6;this.wreckRoot.add(mesh);return mesh;
+    });
   }
   load(){
     if(this.pending||this.disposed)return this.pending??Promise.resolve(false);
@@ -132,6 +147,7 @@ export class FightFlightRenderer{
     this.drawBurnZones(zones,now);
     this.drawTerminalSmoke(now,m);
     this.drawTerminalHalos(now);
+    this.drawWreckAftermath(now,m);
     if(this.state?.id!==m?.id){this.pendingHits=[];this.lastMode=null;for(const e of this.modelMaterials)e.times=[-Infinity,-Infinity];}
     this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&!m.wreckVisualExpired);
     // High Grounds (including remote team production) does not pass through
@@ -248,6 +264,37 @@ export class FightFlightRenderer{
     }
     for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
   }
+  // Snapshot-clocked and bounded: no fire ribbon, no crackling geometry,
+  // no extra lights and absolutely no combat or world damage.
+  drawWreckAftermath(now,m){
+    const origin=m?.position??m;
+    const elapsed=now-(m?.destroyedAt??Infinity);
+    const active=Boolean(m&&!m.retired&&!m.wreckVisualExpired&&
+      Number.isFinite(m.destroyedAt)&&elapsed>=0);
+    for(let i=0;i<this.wreckBurst.length;i++){
+      const mesh=this.wreckBurst[i],age=elapsed-i*.014;
+      mesh.visible=active&&age>=0&&age<.31;
+      if(!mesh.visible)continue;
+      const angle=i*Math.PI*2/this.wreckBurst.length,reach=.18+age*2.15;
+      mesh.position.set(origin.x+Math.cos(angle)*reach,
+        origin.y+1.32+Math.sin(angle*2)*.24+age*.7,
+        origin.z+Math.sin(angle)*reach);
+      mesh.scale.setScalar(.27+age*2.15);
+      mesh.material.opacity=.64*(1-age/.31);
+    }
+    for(let i=0;i<this.wreckSmoke.length;i++){
+      const mesh=this.wreckSmoke[i],since=elapsed-i*.38;
+      mesh.visible=active&&since>=0&&since<1.65;
+      if(!mesh.visible)continue;
+      const angle=i*2.399963,drift=.22+since*.24;
+      mesh.position.set(origin.x+Math.cos(angle)*drift,
+        origin.y+1.1+since*1.66,
+        origin.z+Math.sin(angle)*drift);
+      mesh.scale.setScalar(.45+since*.86);
+      mesh.material.opacity=.37*(1-since/1.65);
+    }
+  }
+
   // The glowing capelike cloth leads a deterministic ribbon of dark smoke.
   // Pooling the meshes avoids allocating particle objects every render frame.
   drawTerminalSmoke(now,m){
@@ -555,6 +602,8 @@ export class FightFlightRenderer{
     this.drawTerminalHalos(Infinity);
     this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
     this.trailRoot.removeFromParent();
+    this.wreckRoot.removeFromParent();
+    for(const mesh of [...this.wreckSmoke,...this.wreckBurst])mesh.material.dispose();
     for(const puff of this.smokePuffs)puff.material.dispose();
     for(const flame of this.trailFlames)flame.material.dispose();
     this.smokeGeometry.dispose();this.trailFlameGeometry.dispose();
