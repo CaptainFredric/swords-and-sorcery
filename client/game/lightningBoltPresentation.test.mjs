@@ -30,6 +30,12 @@ test('plain Lightning, non-Gale blasts and grounded impacts never extend to a se
 test('unsupported void, missing endpoint or malformed coordinate never paints a fake downward bolt',()=>{
  const p={x:4,y:90,z:-8};
  assert.equal(lightningImpactPath(aerial(p,undefined)).descends,false);
+ const offMap=aerial(p,undefined);
+ offMap.lightningVoidPoint={x:4,y:-200,z:-8};
+ assert.equal(lightningImpactPath(offMap).descends,true,
+   'lightning remains visible down into the void with no ground hit');
+ assert.equal(lightningImpactPath(offMap).strikesGround,false);
+ assert.equal(lightningImpactPath(offMap).end.y,-200);
  assert.equal(lightningImpactPath(aerial(p,{x:4,y:NaN,z:-8})).descends,false);
  assert.equal(lightningImpactPath(aerial(p,{x:4,y:89,z:-8})).descends,false);
  assert.equal(lightningImpactPath(aerial({x:Infinity,y:90,z:0},{x:0,y:0,z:0})),null);
