@@ -10,7 +10,7 @@ import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation,flightDashChasePose} from './flightDashPresentation.mjs';
-import {stableFlightCockpitEye,finiteFlightLook} from './flightCameraSafety.mjs';
+import {stableFlightCockpitEye,flightReticleOrigin,finiteFlightLook} from './flightCameraSafety.mjs';
 import {FLIGHT_REPEATER,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
@@ -3703,8 +3703,20 @@ export class GameRuntime {
 
   #mountedIntent(wanted){
     if(this.localAuth?.operatingFightFlightId){
-      const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(wanted.yaw,wanted.pitch);
-      const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
+      const groundAt=(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld);
+      // Input is packaged before this frame's mounted camera render. A
+      // previous-frame eye briefly misses the center during hard reversals;
+      // converge from the CURRENT server-owned machine instead.
+      const previous=this.siegeCamera?.position??this.camera.position;
+      const machine=this.latestSnapshot?.fightFlight;
+      const origin=flightReticleOrigin(machine,previous,{
+        sight:this.siegeView==='sight',
+        thirdBlend:this.flightDashPresentation.thirdBlend??0,
+        ground:machine&&this.activeWorld?groundAt(machine.x,machine.z,machine.y):null,
+      });
+      const forward=aimVector(wanted.yaw,wanted.pitch);
+      const originVector=[origin.x,origin.y,origin.z];
+      const distance=reticleDistance(originVector,forward,{reach:this.#reach,groundAt,bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
       this.flightSiegeTarget={x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance};
       return {...wanted,siegeTarget:this.flightSiegeTarget,
         viewFov:this.camera.fov,viewAspect:this.camera.aspect,mounted:true};
@@ -3795,7 +3807,7 @@ export class GameRuntime {
         const effectivePitch = this.input.pitch + rootPitch;
         const traverseLimited = Math.abs(deltaYaw) > FLIGHT_REPEATER.maxTraverse + 0.02;
         const elevationLimited = effectivePitch < FLIGHT_REPEATER.minPitch - 0.02 || effectivePitch > FLIGHT_REPEATER.maxPitch + 0.02 || (Boolean(m.terminalDive) && this.input.pitch > -0.15);
-        const limited = traverseLimited || elevationLimited;
+        const limited = traverseLimited || elevationLimited || Boolean(m.crossbowAimLimited);
         const limitReason = traverseLimited ? 'TRAVERSE LIMIT' : elevationLimited ? 'ELEVATION LIMIT' : 'AIM LIMITED';
         let trueAim = null;
         if (limited) {
