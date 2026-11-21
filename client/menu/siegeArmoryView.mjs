@@ -3,11 +3,12 @@ import {SIEGE_SKILL_NAMES,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../..
 // Static 2D heraldic marks: presentation only, never a 3D model or asset fetch.
 const MACHINES=Object.freeze([
  {id:'biBye',name:'BI-BYE-LLISTA',mark:'II',icon:'heavyBolt',subtitle:'THE FIRST SHOT LOWERS THEIR DEFENSE...',
-  overview:'Long-range twin-bolt mobile siege artillery. Deploys ground outriggers to align its massive physical bolt, preceded by an inconvenient frost-conditioning shot.',
-  preview:'A traveling frost-conditioning bolt followed by a massive physical siege bolt.',
-  line:`A traveling frost-conditioning bolt followed by a massive physical siege bolt.
+  overview:'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.',
+  preview:'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.',
+  // Restored from the original siege copy preserved in the October browser evidence.
+  line:`A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.
 
-Castleward's engineers saw no need to settle for a single warning shot. The smaller bolt subjects the enemy to a most inconvenient cold. The larger bolt supplies the conclusion, and, rather generously, enough force to make further argument unnecessary.`,
+The first shot lowers the target's defense.`,
   facts:'650 hull · Bolt I: 18 frost / 2 m · Bolt II: 85 physical',
   attacks:[
    {name:'BOLT I · FROST CONDITIONING',icon:'frostBolt',line:'Rapid-fire conditioning bolt that drenches targets in sudden glacial cold, slowing their advance.',facts:'18 frost / 2 m reach'},
@@ -21,11 +22,12 @@ Castleward's engineers saw no need to settle for a single warning shot. The smal
   }
  },
  {id:'soFist',name:'SO-FIST-ICATION',mark:'FIST',icon:'ram',subtitle:'SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN',
-  overview:'Piston-driven elevating battering ram. Combines heavy mobile carriage protection with an armored steel gauntlet capable of delivering mechanical uppercuts.',
-  preview:'A charging, piston-driven battering ram capable of delivering a mechanical uppercut.',
-  line:`A charging, piston-driven battering ram capable of delivering a mechanical uppercut.
+  overview:'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more.',
+  preview:'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more.',
+  // The October 24 siege refinement plan explicitly preserves this exact text.
+  line:`This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.
 
-The engineers of Castleward discovered that a siege engine could have all the subtlety of a clenched fist—and built precisely that. Elevate the carriage, align the piston, and teach a wall how to receive a proper introduction. The detachable gauntlet ensures the enemy may still appreciate the machine's reach from a distance.`,
+Will not leave a scratch.`,
   facts:'Armored piston · charging drive · counterattack Skill',
   attacks:[
    {name:'RECIPROCATING PISTON',icon:'ram',line:'Hydraulic steel ram stroke that fractures gatehouse masonry and knocks opposing combatants off their feet.',facts:'Heavy physical blunt impact'},
