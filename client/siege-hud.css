@@ -230,3 +230,9 @@
 @media(prefers-reduced-motion:reduce) {
  .flight-brace-track i,.flight-rotor-track i {transition:none;}
 }
+
+/* Shift the complete three-part Flight instrument just clear of the
+   movable left stick and altitude rail; the measured caption lane follows. */
+.touch-ui .machine-gauge[data-kind="flight"] {
+  left:calc(50% + clamp(16px,2cqw,28px));
+}
