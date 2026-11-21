@@ -248,7 +248,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .flight-skill-ability .ability-icon { color:#f1cb82; }
 .flight-skill-ability.active { border-color:#e8c579; box-shadow:0 0 9px #e8c57933; }
 /* A fitted, riveted accumulator rather than an unframed yellow progress line. */
-.flight-charge-rail { width:250px; display:grid; gap:3px; pointer-events:none;
+.flight-charge-rail { width:250px; display:grid; grid-template-columns:minmax(0,1fr); gap:3px; pointer-events:none;
   box-sizing:border-box;padding:4px 7px 6px;position:relative;
   background:linear-gradient(155deg,#3b3526e6,#171a1be8 48%,#242219e8);
   border:1px solid #a68c5688;outline:1px solid #171817;
@@ -275,7 +275,9 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   box-shadow:inset 0 1px #fff6,0 0 9px #d7b45e88;transition:width .12s linear;}
 .flight-charge-rail.low .flight-charge-fill {background:linear-gradient(#f4b16a,#b75831);}
 .flight-charge-heading > span::before {content:'✦';font-size:8px;margin-right:6px;color:#efd68a;}
-.flight-mini-telemetry { display:flex; justify-content:space-between; align-items:center; gap:5px;
+/* The ALT/ROTOR/AMMO line cannot enlarge the accumulator's grid column.
+   Wrap whole instruments when space is tight, never clip the charge value. */
+.flight-mini-telemetry { display:flex; flex-wrap:wrap; min-width:0; justify-content:space-between; align-items:center; gap:3px 5px;
   color:#d6ccad; font:800 9px/1.2 system-ui,sans-serif; letter-spacing:.025em; white-space:nowrap; }
 .flight-mini-telemetry output { color:#f0e7d5; font-variant-numeric:tabular-nums; }
 .flight-inline-warning { color:#ffcf92; font:800 8px/1.2 system-ui,sans-serif; letter-spacing:.02em; }
