@@ -224,11 +224,16 @@ export class HUD {
     this.siegeSight=document.createElement('div');this.siegeSight.className='siege-sight';this.siegeSight.hidden=true;
     this.siegeSight.innerHTML='<div class="siege-primary"><svg viewBox="0 0 40 40" aria-hidden="true"><path class="main-mark" d="M13 10H8V30H13M27 10H32V30H27M11 14V26M29 14V26"/><path class="upper-mark" d="M20 9L31 20L20 31L9 20ZM20 5V9M20 31V35"/></svg><b></b><small></small></div><div class="siege-secondary" aria-hidden="true">⌄</div>';
     this.root.append(this.siegeSight);
-    this.siegeContextPrompt=document.createElement('div');
+    this.siegeContextPrompt=document.createElement('button');
+    this.siegeContextPrompt.type='button';
     this.siegeContextPrompt.className='siege-context-prompt';
     this.siegeContextPrompt.hidden=true;
-    this.siegeContextPrompt.setAttribute('role','status');
+    this.siegeContextPrompt.disabled=true;
     this.siegeContextPrompt.innerHTML='<strong></strong><small></small>';
+    this.siegeContextPrompt.addEventListener('click',()=>{
+      if(!this.siegeContextPrompt.disabled&&this.siegeContextAction)
+        this.onSiegeContextAction?.(this.siegeContextAction);
+    });
     this.root.append(this.siegeContextPrompt);
     this.flash = document.querySelector('#status-flash');
     this.subtitleLine = document.querySelector('#subtitle');
@@ -536,8 +541,12 @@ export class HUD {
       Boolean(local.operatingRamId) || isFlight || gauge?.kind === 'ram';
     const prompt=hellpingContextPrompt(local,snapshot,this.ballistaControls?.bindings,serverNow);
     this.siegeContextPrompt.hidden=!prompt;
+    this.siegeContextAction=prompt?.action??null;
+    this.siegeContextPrompt.disabled=!prompt?.action;
+    this.siegeContextPrompt.classList.toggle('is-actionable',Boolean(prompt?.action));
     if(prompt){
       this.siegeContextPrompt.dataset.kind=prompt.kind;
+      this.siegeContextPrompt.setAttribute('aria-label',prompt.label+' · '+prompt.detail);
       this.siegeContextPrompt.querySelector('strong').textContent=prompt.label;
       this.siegeContextPrompt.querySelector('small').textContent=prompt.detail;
     }
