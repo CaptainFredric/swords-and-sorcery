@@ -29,3 +29,24 @@ export function windbladePosition(wave,snapshotAt,now) {
     z:point.z+(Number(dir.z)||0)*distance,
   };
 }
+
+/**
+ * Windblade's horizontal, gently vaulted pressure-front coordinates in its
+ * local plane (travel is +Z). One connected translucent volume, not a
+ * vertical crescent or an opaque solid. Both the surface mesh and elemental
+ * motes use these SAME samples, so Lightning and Frost ride the real wave.
+ *
+ * t: across the 2.5m span, u: distance behind the leading shock, side:
+ * top (+1), bottom (-1), or central pressure core (0).
+ */
+export function windbladeSurfacePoint(t,u=0,side=0){
+  const x=(Math.max(0,Math.min(1,t))*2-1)*1.22;
+  const width=x/1.22;
+  const span=Math.sqrt(Math.max(0,1-width*width));
+  const depth=Math.max(0,Math.min(1,u));
+  const leading=.42*span-.11;
+  const z=leading-depth*(.98+.24*span);
+  const vault=(.035+.36*span*Math.sin(Math.PI*depth));
+  const turbulence=.035*span*Math.sin(5*x+depth*5);
+  return {x,y:side*vault+turbulence,z};
+}
