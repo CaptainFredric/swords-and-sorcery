@@ -346,16 +346,11 @@ export class OneHitLiveEffects {
     }
     if(event.type==='oneHitTeleport')this.#flash(event.to,event.tiers);
     if(event.type==='oneHitLightningGroundStrike'){
-      // Independent vertical bolt from an airborne Gale+Lightning detonation.
-      // Server owns the ground point, victim selection, damage and Conduct.
-      const start=v(event.origin),end=v(event.point);
-      // Length is determined by the server's actual ground point, not a
-      // fixed visual ray. Cap SIDEWAYS jag and branch reach separately so a
-      // high-altitude bolt stays vertical instead of fanning across the map.
-      const drop=Math.max(0,start.y-end.y);
-      this.elements.bolt(start,end,{width:.052,ttl:.32,jag:.13,forks:3,
-        steps:Math.min(40,Math.max(20,Math.ceil(drop/5))),
-        maxSway:.6,maxForkReach:2.5});
+      // The visible main bolt is now ONE uninterrupted mesh built by
+      // DisasterElementEffects.impact using the authoritative
+      // oneHitImpact.lightningGroundPoint. Rendering another strand here
+      // made the lightning seem to stop/restart at the aerial explosion.
+      // Keep only the small genuine ground-contact flash.
       this.#flash(event.point);
     }
     if(event.type==='lineConductDischarge'){
