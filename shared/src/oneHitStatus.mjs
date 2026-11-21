@@ -29,6 +29,16 @@ export const ONE_HIT_FIELD = Object.freeze({
   airPerElementSec: 0.08, // still brief when fully infused: at most 1.55 seconds
 });
 
+// The charge is NOT a miniature committed Ultimate. A small, close-range
+// contact pays each hostile actor ONCE per preparation, even if Full Lightning
+// is held indefinitely. This preserves the tactical approach deterrent
+// without letting a player farm damage/Conduct by never releasing the attack.
+export const ONE_HIT_CHARGE_AURA = Object.freeze({
+  radius:1.5,bodyRadius:.35,vertical:1.6,
+  fireDamage:2,frostDepth:.16,frostSeconds:1.3,
+  galeSeverity:.38,conductPotential:4,
+});
+
 export const ONE_HIT_CONDUCT = Object.freeze({
   potential: ONE_HIT_FIRST_INFUSION_DAMAGE.lightning, // 12
   seconds: ONE_HIT_STATUS_SECONDS,

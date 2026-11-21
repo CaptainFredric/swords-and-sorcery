@@ -496,6 +496,47 @@ export class DisasterElementEffects {
     };
     const rim = (radius) => { const a = rand(TAU); return new THREE.Vector3(feet.x + Math.cos(a) * radius, floor, feet.z + Math.sin(a) * radius); };
     const home = { x: heart.x, y: heart.y, z: heart.z };
+    // The five infusions form a SMALL, readable combat aura near the
+    // caster as well as gathering into the weapon. During indefinitely
+    // held Full Lightning, this remains visual even after each opponent
+    // has received the single allowed preparation contact.
+    const haloPoint=()=>{
+      const angle=rand(TAU),distance=rand(.55,1.42);
+      return {x:feet.x+Math.cos(angle)*distance,
+        y:feet.y+rand(.08,player.grounded?.55:1.25),
+        z:feet.z+Math.sin(angle)*distance};
+    };
+    if(tiers.fire>=1)emit('fireHalo',tiers.fire===2?28:18,()=>{
+      this.#mote('fire',haloPoint(),
+        {x:rand(-.8,.8),y:rand(.55,1.65),z:rand(-.8,.8)},
+        {size:rand(.025,.052),ttl:rand(.22,.47),stretch:2.7,drag:1.1});
+    });
+    if(tiers.frost>=1)emit('frostHalo',tiers.frost===2?27:17,()=>{
+      this.#mote('frost',haloPoint(),
+        {x:rand(-.5,.5),y:rand(.06,.5),z:rand(-.5,.5)},
+        {size:rand(.023,.046),ttl:rand(.27,.55),stretch:3,drag:1.5});
+    });
+    if(tiers.gale>=1)emit('galeHalo',tiers.gale===2?28:19,()=>{
+      const a=rand(TAU),r=rand(.65,1.43),speed=rand(2.5,4.7);
+      this.#mote('gale',{x:feet.x+Math.cos(a)*r,
+        y:feet.y+rand(.16,1.35),z:feet.z+Math.sin(a)*r},
+        {x:-Math.sin(a)*speed,y:rand(-.3,.6),z:Math.cos(a)*speed},
+        {size:.012,ttl:rand(.2,.38),stretch:rand(10,17),drag:.8});
+    });
+    if(tiers.steel>=1)emit('steelHalo',tiers.steel===2?19:12,()=>{
+      this.#mote('steel',haloPoint(),
+        {x:rand(-.3,.3),y:rand(.5,1.7),z:rand(-.3,.3)},
+        {size:rand(.014,.027),ttl:rand(.28,.5),stretch:4,drag:2});
+    });
+    if(tiers.lightning>=1&&this.clock>=(entry.auraBoltAt??0)){
+      entry.auraBoltAt=this.clock+(tiers.lightning===2?.18:.28)/this.density;
+      const a=rand(TAU),b=a+rand(.45,1.35),r=rand(.65,1.4);
+      const from=new THREE.Vector3(feet.x+Math.cos(a)*r,
+        feet.y+rand(.2,1.1),feet.z+Math.sin(a)*r);
+      const to=new THREE.Vector3(feet.x+Math.cos(b)*r,
+        feet.y+rand(.2,1.1),feet.z+Math.sin(b)*r);
+      this.#bolt(from,to,{width:.015,ttl:.11,jag:.1,forks:0,steps:5});
+    }
     // every Disaster: grit lifted off the ground toward the blade (the simple one is only this)
     emit('dust', 16, () => {
       const at = rim(rand(0.9, 2.2));
@@ -766,7 +807,13 @@ export class DisasterElementEffects {
         for (const arm of f.fissures) {
           if (f.reached > arm.length) continue;
           const at = { x: f.origin.x + arm.dir.x * f.reached, y: floor, z: f.origin.z + arm.dir.z * f.reached };
-          const count = f.steel === 2 ? 3 : 2;
+          // Twelve Full Steel fissures formerly pushed ~800 stones into
+          // a 240-instance pool, evicting the first arms and other effects.
+          // Keep the continuous independently drawn rupture ribbons while
+          // scattering fewer stones evenly across ALL twelve arms.
+          const crowded=f.fissures.length>=10;
+          if(crowded&&Math.floor(f.reached/.34)%2===1)continue;
+          const count=crowded?1:f.steel===2?2:2;
           for (let k = 0; k < this.#n(count); k += 1) {
             const side = rand(-1, 1);
             this.#stone(at, { x: arm.dir.x * rand(0.5, 2.5) - arm.dir.z * side * 2, y: rand(3, f.steel === 2 ? 8 : 5.5), z: arm.dir.z * rand(0.5, 2.5) + arm.dir.x * side * 2 },
