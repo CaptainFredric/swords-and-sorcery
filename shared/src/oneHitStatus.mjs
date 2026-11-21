@@ -25,6 +25,8 @@ export const ONE_HIT_FIELD = Object.freeze({
   frostLingerSec: 0.6,     // a chill picked up in the field lasts this long after the last contact
   conductStep: 0.15,       // a field passes on more Conduct only for this much deeper a contact than before
   shakenStep: 0.15,        // similarly, a newly entering knight gets only deeper Shaken, never infinite reapplications
+  airSeconds: 1.15,       // a midair termination loses pressure much faster than broken ground
+  airPerElementSec: 0.08, // still brief when fully infused: at most 1.55 seconds
 });
 
 export const ONE_HIT_CONDUCT = Object.freeze({
@@ -73,6 +75,11 @@ export function fieldSeconds(tiers = {}, rules = ONE_HIT_FIELD) {
   return rules.seconds + rules.perElementSec * distinctElements(tiers);
 }
 
+/** Short, free-floating residual pressure, never as long as damaged ground. */
+export function airFieldSeconds(tiers = {}, rules = ONE_HIT_FIELD) {
+  return rules.airSeconds + rules.airPerElementSec * distinctElements(tiers);
+}
+
 /** The grounded blow's reach for these stages: { radius, up, down } about where it landed. */
 export function groundReach(tiers = {}, rules = ONE_HIT_REACH) {
   return (tiers.fire ?? 0) >= 1 ? { radius: rules.fire.radius, up: rules.fire.up, down: rules.down } : { radius: rules.radius, up: rules.up, down: rules.down };
@@ -112,6 +119,34 @@ export function groundFootprintWarp(x,z,radius,yaw){
   return {x:x*scale,z:z*scale};
 }
 
+/**
+ * 3D terminal blast, biased along the actual projectile direction (including
+ * upward/downward shots). This is the same soft 32% forward expansion as a
+ * grounded slam, except a flying burst has no privileged ground plane.
+ * A perpendicular or rearward target retains the old radius.
+ */
+export function directionalBlastRadius(radius,direction,dx,dy,dz,rules=ONE_HIT_REACH) {
+  if(!direction)return radius;
+  const distance=Math.hypot(dx,dy,dz);
+  const length=Math.hypot(direction.x??0,direction.y??0,direction.z??0);
+  if(distance<1e-8||length<1e-8)return radius;
+  const facing=((direction.x??0)*dx+(direction.y??0)*dy+(direction.z??0)*dz)/(distance*length);
+  return radius*(1+rules.frontExtension*Math.max(0,facing)**2);
+}
+
+/** Both kinds of terminal blast use their real 3D distance, not a flat
+ * circle projected onto the floor. A ground hit extends in its travel yaw;
+ * a free-air hit extends along the complete 3D travel vector. */
+export function terminalBlastRadius(radius,yaw,direction,air,dx,dy,dz){
+  return air
+    ?directionalBlastRadius(radius,direction,dx,dy,dz)
+    :groundFootprintRadius(radius,yaw,dx,dz);
+}
+export function terminalBlastContains(origin,point,radius,yaw,direction,air,padding=0){
+  const dx=point.x-origin.x,dy=point.y-origin.y,dz=point.z-origin.z;
+  return Math.hypot(dx,dy,dz)<=terminalBlastRadius(radius,yaw,direction,air,dx,dy,dz)+padding;
+}
+
 /** Fire + Gale: the share of the shove a knight struck `distance` from the heart of a blast of `radius` is given. */
 export function fireGaleShove(distance, radius, rules = ONE_HIT_FIRE_GALE) {
   const out = clamp01(distance / Math.max(radius, 1e-6));
@@ -133,10 +168,12 @@ export function fieldStrength(field, nowSec) {
  */
 export function fieldContact(field, position, rules = ONE_HIT_FIELD) {
   if (!field || !position) return 0;
-  if (Math.abs(position.y - field.position.y) > rules.vertical) return 0;
-  const dx=position.x-field.position.x,dz=position.z-field.position.z;
-  const distance = Math.hypot(dx,dz);
-  const rim=groundFootprintRadius(field.radius,field.yaw,dx,dz);
+  if(!field.air&&Math.abs(position.y - field.position.y)>rules.vertical)return 0;
+  const dx=position.x-field.position.x,dy=position.y-field.position.y,dz=position.z-field.position.z;
+  const distance=field.air?Math.hypot(dx,dy,dz):Math.hypot(dx,dz);
+  const rim=field.air
+    ?directionalBlastRadius(field.radius,field.direction,dx,dy,dz)
+    :groundFootprintRadius(field.radius,field.yaw,dx,dz);
   return clamp01((rim + rules.bodyRadius - distance) / (2 * rules.bodyRadius));
 }
 
