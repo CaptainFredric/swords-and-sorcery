@@ -1,4 +1,5 @@
 import {siegeSkillLabel} from './siegeSkillView.mjs';
+import {hellpingContextPrompt} from './hellpingContextPrompt.mjs';
 import {keyLabel,registry} from '../settings/settingsRegistry.mjs';
 import {soFistTiming} from '../../shared/sim/soFistGeometry.mjs';
 import {soFistEntry} from '../../shared/sim/soFistication.mjs';
@@ -9,10 +10,11 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
   return {title:'SO-FIST-ICATION · HELLPING HAND',status:'IN ALLIED COMPARTMENT · INTERACT TO EXIT',
     controls:touch?'TAP LEAVE TO EXIT · YOU CAN ATTACK WHILE RIDING':
       '['+key('interact')+'] EXIT COMPARTMENT · ATTACK AVAILABLE'};
- const ally=b.team&&local.team===b.team&&b.hellping?.phase==='open';
- if(local.operatingRamId!==b.id&&ally&&Math.hypot(local.position.x-b.x,local.position.z-b.z)<4.1)
-  return {title:'SO-FIST-ICATION · HELLPING HAND',status:touch?'TAP ENTER TO BOARD':
-    '['+key('interact')+'] ENTER ALLIED COMPARTMENT',controls:''};
+ const boarding=local.operatingRamId!==b.id
+  ?hellpingContextPrompt(local,snapshot,bindings,now):null;
+ if(boarding?.kind==='ally')
+  return {title:'SO-FIST-ICATION · HELLPING HAND',status:touch?'TAP BOARD TO ENTER':
+    '['+key('interact')+'] BOARD ALLIED HAND',controls:''};
  if(local.operatingRamId!==b.id){const at=soFistEntry(b);if(b.operatorId||Math.hypot(at.x-local.position.x,at.z-local.position.z)>2.2)return null;if(b.detachedFist?.state==='recovering')return {title:'SO-FIST-ICATION',status:'FIST RECOVERY '+Math.max(0,Math.ceil((b.fistRecoveryUntil??now)-now))+'s · BOARDING LOCKED',controls:''};return{title:'SO-FIST-ICATION',status:touch?'Tap MOUNT at the rear frame':`[${key('interact')}] Operate`,controls:''};}
  const fist=b.components?.Fist,drive=b.components?.Drive,wheels=Object.entries(b.components??{}).filter(([id,c])=>id.startsWith('Wheel_')&&c.health<=0).length;
  const timing=soFistTiming(b);
