@@ -19,7 +19,7 @@ export const FIGHT_FLIGHT = Object.freeze({
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
   neutralStabilizeSec:1.05,neutralDescentSpeed:1.2,
-  neutralBobMetres:.20,neutralBobHz:.80,bobVelocity:.52,verticalResponse:7.4,
+  neutralBobMetres:.20,neutralBobHz:.80,bobVelocity:.56,verticalResponse:5.8,
   airHopCost:9.5,airHopVelocity:7.3,airHopHoldSec:.45,airHopCooldown:1.05,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
