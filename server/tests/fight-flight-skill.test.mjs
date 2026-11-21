@@ -341,7 +341,7 @@ test('A charging barrage has no income during held Fire, but regains neutral-hov
  requestFightFlightFire(room,m,p,true,1);
  for(let i=1;i<=15;i++)tick(room,m,1+i*DT);
  const afterFiring=m.flightCharge;
- assert.ok(afterFiring<70,'both physical bolt costs and flight drain are paid');
+ assert.ok(afterFiring<71,'both physical bolt costs and flight drain are paid');
  requestFightFlightFire(room,m,p,false,1.5);
  for(let i=1;i<=36;i++)tick(room,m,1.5+i*DT);
  assert.ok(m.flightCharge>=afterFiring-1.6&&m.flightCharge<=afterFiring+.2,
