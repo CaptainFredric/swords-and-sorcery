@@ -794,6 +794,26 @@ export class DisasterElementEffects {
           this.#dust({...at,y:floor+.12},
             {x:rand(-.3,.3),y:rand(.25,.6),z:rand(-.3,.3)},rand(.16,.28),1.3);});
       }
+      if(field.tiers?.gale>=1){
+        // A real low-pressure wind AURA, not only a gust at the initial hit
+        // or a swirl already stuck on a Blustered knight. Pale-white and
+        // lime wisps fill the exact directional footprint and gradually
+        // thin with the authoritative Shaken field's remaining strength.
+        emit('galeField',field.tiers.gale===2?100:67,()=>{
+          const at=inside(.96),dx=at.x-p.x,dz=at.z-p.z;
+          const span=Math.max(.3,Math.hypot(dx,dz));
+          const drift=rand(1.1,2.7)*(field.air?1:.8);
+          this.glow.spawn({
+            x:at.x,y:field.air?at.y:floor+rand(.08,.43),z:at.z,
+            vx:-dz/span*drift+rand(-.5,.5),
+            vy:field.air?rand(-.55,.55):rand(.16,.82),
+            vz:dx/span*drift+rand(-.5,.5),
+            sx:rand(.012,.026),sy:rand(.12,.29),sz:rand(.012,.027),
+            color:Math.random()<.48?0xf5fff1:0xb6f883,
+            ttl:rand(.24,.48),drag:1.35,align:true,
+          });
+        });
+      }
       if (field.tiers?.frost === 2) {
         // cold coming up off the ice, and the ice itself sinking back as the field goes
         emit('cold',field.air?48:20,()=>{const at=inside();
