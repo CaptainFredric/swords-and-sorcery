@@ -18,9 +18,9 @@ export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
   chargeMax:100,energyMax:100,mainHP:250,rotorHP:100,braceHP:80,
   hoverCost:8,climbCost:15,descentRecharge:5,groundSpeed:5.5,sprintSpeed:9.3,
-  neutralStabilizeSec:1.05,neutralDescentSpeed:.4,
+  neutralStabilizeSec:1.05,neutralDescentSpeed:1.2,
   neutralBobMetres:.20,neutralBobHz:.80,bobVelocity:.52,verticalResponse:7.4,
-  airHopCost:12,airHopVelocity:4.2,airHopHoldSec:.28,airHopCooldown:.95,
+  airHopCost:9.5,airHopVelocity:7.3,airHopHoldSec:.45,airHopCooldown:1.05,
   airSpeed:9,airAcceleration:9,groundAcceleration:11.5,gravity:13.5,
 });
 const cap=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -253,7 +253,14 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const explicitHop=Boolean(live&&m.hopRequested);
   const airHop=Boolean(explicitHop&&m.airHopRequested&&!m.grounded);
   m.hopRequested=false;m.airHopRequested=false; // one server-validated impulse
-  if(airHop&&intact&&!m.terminalDive&&!m.emergencyBrakeActive){
+  if(airHop&&intact&&!m.terminalDive&&!m.emergencyBrakeActive&&
+     m.flightCharge>=FIGHT_FLIGHT.airHopCost){
+    // One server-paid rotor-assisted impulse. Falling with a stopped rotor
+    // is a valid starting state; a destroyed rotor or empty battery is not.
+    const cold=(m.rotorRPM??0)<449.5;
+    m.rotorPowered=true;m.rotorAngularVelocity=Math.PI*15;m.rotorRPM=450;
+    m.rotorTargetRPM=450;m.rotorEnergy=Math.max(m.rotorEnergy??0,100);
+    if(cold)room.events?.push({type:'fightFlightAirHopSpinup',machineId:m.id,at:now});
     m.flightCharge=Math.max(0,m.flightCharge-FIGHT_FLIGHT.airHopCost);
     m.velocity.y=Math.max(m.velocity.y,FIGHT_FLIGHT.airHopVelocity);
     m.airHopRemaining=FIGHT_FLIGHT.airHopHoldSec;
@@ -284,7 +291,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
       m.crouched=false;m.rotorPowered=true;
     }else{
     if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
-    if(canLaunch&&!descend&&(explicitHop||legacyPress||input.flightRise||launchRise)){
+    // Tapping Jump while grounded is an unpowered, zero-charge hop;
+    // only sustained powered ascent requires a charged intact rotor.
+    if(!descend&&((explicitHop&&m.health>0)||
+      (canLaunch&&(legacyPress||input.flightRise||launchRise)))){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
       m.velocity.y=Math.max(m.velocity.y,3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
@@ -415,9 +425,15 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
         m.verticalIntent==='HOP'?Math.max(0,m.velocity.y):
         settled?-FIGHT_FLIGHT.neutralDescentSpeed:hoverVelocity;
       const targetVelocity=baseVelocity+bobVelocity;
-      const correction=cap((targetVelocity-m.velocity.y)*FIGHT_FLIGHT.verticalResponse,-11,11)*lift;
-      const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
-      m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
+      if(m.verticalIntent==='HOP'&&(m.airHopRemaining??0)>0){
+        // An actual upward arc, not a sustained hover at the initial impulse.
+        // Powered rotor lift catches the descent after the burst.
+        m.velocity.y=cap(m.velocity.y-FIGHT_FLIGHT.gravity*.8*dt,-12,FIGHT_FLIGHT.airHopVelocity);
+      }else{
+        const correction=cap((targetVelocity-m.velocity.y)*FIGHT_FLIGHT.verticalResponse,-11,11)*lift;
+        const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
+        m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
+      }
       // Every flight posture still pays its usual power cost. Fire Away's
       // separate recharge below offsets level hover only after firing stops.
       const climbing=m.verticalIntent==='RISE';
