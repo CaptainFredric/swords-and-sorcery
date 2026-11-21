@@ -278,22 +278,23 @@ button, input { touch-action: manipulation; }
 .touch-ui .bt-obj-name {font-size:11px;line-height:1.1;}
 .touch-ui .bt-state-pill {font-size:8px;letter-spacing:0;}
 .touch-ui .bt-bar-track {height:3px;}
-/* Fight-and-Flight also lives inside .hud-status-stack. Keep its six
-   instruments legible in a separate leftward strip: compacting the outer
-   objective must not crush flight metrics into a 200px-wide single row. */
-.touch-ui .hud.flight-mounted .flight-hud {
-  position:absolute;
-  top:calc(100% + 8px);
-  left:clamp(-105px, -10cqw, -60px);
-  width:min(335px, 44cqw);
-  max-width:none;
+/* Flight instrumentation is stacked under personal health and stamina;
+   no duplicate six-metric block under the match objective. */
+.touch-ui .hud.flight-mounted .bottom-hud {
+  top:calc(var(--safe-t) + 9px);
+  left:calc(var(--safe-l) + 96px);
+  width:min(150px,26cqw);
+  gap:3px;
 }
-.touch-ui .hud.flight-mounted .flight-hud-strip {
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:3px 5px;
-  box-sizing:border-box;
-}
+.touch-ui .hud.flight-mounted :is(.health-block,.guard-block,.flight-charge-rail) {width:100%;}
+.touch-ui .hud.flight-mounted .guard-block {margin-top:3px;}
+.touch-ui .hud.flight-mounted .guard-track {height:3px;margin-top:1px;}
+.touch-ui .hud.flight-mounted .flight-charge-heading {font-size:7px;letter-spacing:.04em;}
+.touch-ui .hud.flight-mounted .flight-charge-heading output {font-size:9px;}
+.touch-ui .hud.flight-mounted .flight-charge-track {height:7px;}
+.touch-ui .hud.flight-mounted .flight-mini-telemetry {font-size:7px;gap:3px;}
+.touch-ui .hud.flight-mounted .flight-desktop-ammo {display:none;}
+.touch-ui .hud.flight-mounted .flight-inline-warning {font-size:7px;}
 .touch-btn.denied { border-color:#f1aa7e; box-shadow:0 0 0 2px #d28b5b99,0 2px 10px #0006; }
 /* The newest kills are prepended by HUD.addFeed, so a bounded lane keeps
    the latest events readable without obscuring RAISE or the crosshair. */
@@ -317,7 +318,6 @@ button, input { touch-action: manipulation; }
      The feed moves BELOW the compact objective, not over it. */
   .touch-ui .hud-status-stack {left:calc(var(--safe-l) + 235px);width:min(175px, 33cqw);}
   .touch-ui .kill-feed {top:var(--mobile-feed-top, calc(var(--safe-t) + 142px));width:min(150px, 28cqw);}
-  .touch-ui .hud.flight-mounted .flight-hud {width:min(190px, 34cqw);}
 }
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
 .touch-ui .pointer-hint { top: 62%; padding: 12px 16px; font-size: 11px; }
@@ -573,12 +573,16 @@ html.turn-typing .rotate-prompt { display: none !important; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
 
-/* Fight-and-Flight mobile layout */
-.touch-ui .flight-hud { width: min(290px, 100%); }
-.touch-ui .flight-hud-strip { padding: 2px 6px; }
-.touch-ui .flight-metric label { font-size: 7px; }
-.touch-ui .flight-metric b { font-size: 11px; }
-.touch-ui .flight-bar-wrap progress { width: 36px; height: 5px; }
+/* Fight-and-Flight mobile: compact ammo count within its genuine firing button. */
+.touch-bolt-ammo { display:none; }
+.touch-controls.touch-flight .touch-siegeWeapon .touch-bolt-ammo {
+  display:block;position:absolute;right:5px;bottom:4px;padding:2px 4px;
+  background:rgba(13,24,28,.83);border:1px solid #91ced44d;border-radius:3px;
+  color:#cef7ff;font:800 8px/1 system-ui,sans-serif;letter-spacing:0;
+  font-variant-numeric:tabular-nums;pointer-events:none;
+}
+/* Sweep is artillery-only, even if an old saved layout has a position for it. */
+.touch-controls.touch-flight .touch-siegeSweep {display:none!important;}
 
 /* Flight layout positions come from touchLayout.mjs, including mirroring and
    saved edits. One visual family, with fixed targets around pressed metal faces. */
@@ -877,7 +881,6 @@ body.touch-layout-editor-open #practice-overlay {
  .touch-ui .ballista-hud strong { font-size:8px;letter-spacing:.02em; }
  .touch-ui .ballista-hud span { font-size:10px;line-height:1.15; }
  .touch-ui .ballista-hud small { display:none; }
- .touch-ui .hud.flight-mounted .flight-hud-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px 5px; }
  .touch-ui .hud.flight-mounted .match-info { font-size:7px; letter-spacing:.06em; }
 }
 /* Very narrow mobile objective and feed placement is handled together above. */
