@@ -32,7 +32,7 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
-  fireGaleShove } from '../src/oneHitStatus.mjs';
+  fireGaleShove, groundFootprintRadius, groundFootprintContains } from '../src/oneHitStatus.mjs';
 import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
@@ -2359,7 +2359,7 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
 // Component allocation is delegated to the machine's existing blast system.
 // Infused statuses are applied at reduced strength to machines separately;
 // no per-wheel duplicate 85-HP cuts are allowed.
-function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
+function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null) {
   const cast=String(caster.ultimateState?.startedAt??nowSec);
   const seen=room.oneHitSiegeContacts??=new Map();
   if(seen.size>128)seen.clear();
@@ -2383,20 +2383,25 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
     // giant machine hurt sphere. At most one allocation per machine/cast.
     const intersects=box.some(v=>{
       const c=v.center,extent=Math.hypot(...v.size)*.42;
-      return Math.hypot(point.x-c[0],point.y-c[1],point.z-c[2])<=radius+extent;
+      return Math.hypot(point.x-c[0],point.y-c[1],point.z-c[2])<=
+        groundFootprintRadius(radius,yaw,c[0]-point.x,c[2]-point.z)+extent;
     });
     if(!intersects)continue;
     seen.set(key,nowSec);
+    // Pass the same directional rim to each machine's existing component
+    // blast allocator. No multi-wheel duplicate hits or invented damage.
+    const blastRadius=groundFootprintRadius(radius,yaw,machine.x-point.x,machine.z-point.z);
     if(kind==='ram')
-      blastSoFistication(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+      blastSoFistication(room,machine,{point,radius:blastRadius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
     else if(kind==='ballista')
-      blastBiByeLlista(room,machine,{point,radius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
+      blastBiByeLlista(room,machine,{point,radius:blastRadius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
     else {
       // Fight-and-Flight has exposed, independently destructible pieces.
       // Choose one actual intersecting component rather than dealing full
       // blast damage to its rotor, two braces AND main hull at once.
       const hit=box.map(v=>({v,d:Math.hypot(point.x-v.center[0],point.y-v.center[1],point.z-v.center[2])}))
-        .filter(o=>o.d<=radius+Math.hypot(...o.v.size)*.42)
+        .filter(o=>o.d<=groundFootprintRadius(radius,yaw,
+          o.v.center[0]-point.x,o.v.center[2]-point.z)+Math.hypot(...o.v.size)*.42)
         .sort((a,b)=>a.d-b.d)[0];
       if(hit)damageFightFlight(room,machine,amount,caster.id,'one_hit_of_wonders',nowSec,
         {componentId:hit.v.componentId,point});
@@ -2412,22 +2417,25 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec) {
   }
 }
 
-function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius) {
+function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius,yaw=null) {
   (room.oneHitBurnZones??=[]).push({
-    id,ownerId:caster.id,position,radius,bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
+    id,ownerId:caster.id,position,radius,
+    ...(Number.isFinite(yaw)?{yaw}:{}),
+    bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
   });
 }
 // The grounded blow's contact: every enemy in its reach it has not yet met (`processed`: this attack's one registry,
 // a Guard that spent its contact included). Returns whom it struck now.
-function oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed) {
+function oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed,yaw=null) {
   const reach=groundReach(tiers),struck=[];
   for(const target of room.players.values()) {
     if(processed.includes(target.id))continue;
     const distance=Math.hypot(target.position.x-center.x,target.position.z-center.z);
     const rise=target.position.y-center.y;
-    if(distance>reach.radius||rise>reach.up||rise<-reach.down)continue;
+    const rim=groundFootprintRadius(reach.radius,yaw,target.position.x-center.x,target.position.z-center.z);
+    if(distance>rim||rise>reach.up||rise<-reach.down)continue;
     if(oneHitTouch(room,caster,target,tiers,nowSec,world,{distance,processed,
-      origin:{...center,y:center.y+1},blast:{distance,radius:reach.radius}}))struck.push(target.id);
+      origin:{...center,y:center.y+1},blast:{distance,radius:rim}}))struck.push(target.id);
   }
   return struck;
 }
@@ -2439,8 +2447,11 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   // decisive contact's authoritative impulse move the victim away from
   // the eruption; pulling bodies inward first concealed that displacement.
   const center={...caster.position},processed=[];
-  oneHitSiegeContact(room,caster,center,radius,tiers,nowSec);
-  const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed);
+  // Capture the facing at the precise landed tick, not activation, flight
+  // direction, subsequent aim changes or the client camera interpolation.
+  const yaw=Number.isFinite(caster.yaw)?caster.yaw:0;
+  oneHitSiegeContact(room,caster,center,radius,tiers,nowSec,yaw);
+  const struck=oneHitGroundContact(room,caster,center,tiers,nowSec,world,processed,yaw);
   // Reuse the game's actual rupture simulation and its visible fissure events.
   // The same enemy is never dealt the full decisive strike twice by its fissure.
   // Steel turns the lopsided star into a fracture all the way round (its arms still stop at whatever the ground
@@ -2451,19 +2462,19 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
     steel>=1?{rules:steelFractureRules(RUPTURE,steel),oneHit:{steel}}:{});
   const rupture=(room.ruptures?.length??0)>before?room.ruptures.at(-1):null;
   rupture?.caught.push(...struck);
-  if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...center},nowSec,tiers);
+  if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...center},nowSec,tiers,radius,yaw);
   // The field it leaves: laid down after the blow has landed, so the decisive hit is never counted against it.
-  const field={id:`oh-field:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...center},radius,
+  const field={id:`oh-field:${caster.id}:${nowSec}`,ownerId:caster.id,position:{...center},radius,yaw,
     bornAt:nowSec,until:nowSec+fieldSeconds(tiers),tiers:{...tiers},conducted:{},shakenContact:{}};
   (room.oneHitFields??=[]).push(field);
   // (whoever the blow itself struck has had its Conduct whole: its field owes them nothing more)
   if(tiers.lightning>=1)for(const id of struck)field.conducted[id]=1;
   for(const id of struck)field.shakenContact[id]=1;
   // Frost: the same contact stays open a moment longer for whoever it has not met (never a second hit on one it has)
-  if(tiers.frost>=1)(room.oneHitLingers??=[]).push({kind:'ground',ownerId:caster.id,center,tiers:{...tiers},
+  if(tiers.frost>=1)(room.oneHitLingers??=[]).push({kind:'ground',ownerId:caster.id,center,yaw,tiers:{...tiers},
     until:nowSec+ONE_HIT_FROST_LINGER_SEC,processed,ruptureId:rupture?.id??null,fieldId:field.id});
   room.events.push({type:'oneHitImpact',playerId:caster.id,point:{...center},
-    tiers:{...tiers},form:'ground',radius,height:reach.up,struck,fieldId:field.id,at:nowSec});
+    tiers:{...tiers},form:'ground',radius,yaw,height:reach.up,struck,fieldId:field.id,at:nowSec});
   return processed; // Shared with Frost late contact and Full Gale's wave.
 }
 
@@ -2778,7 +2789,7 @@ function stepOneHitLingers(room,nowSec,world) {
     const caster=room.players.get(rec.ownerId);
     if(!caster||nowSec>rec.until+1e-9)continue;
     const late=rec.kind==='ground'
-      ?oneHitGroundContact(room,caster,rec.center,rec.tiers,nowSec,world,rec.processed)
+      ?oneHitGroundContact(room,caster,rec.center,rec.tiers,nowSec,world,rec.processed,rec.yaw)
       :oneHitTerminalContact(room,caster,rec,nowSec,world);
     if(!late.length)continue;
     if(rec.ruptureId)room.ruptures?.find(r=>r.id===rec.ruptureId)?.caught.push(...late);
@@ -2888,7 +2899,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     const origin={...zone.position,y:zone.position.y+.08};
     for(const target of room.players.values()){
       if(Math.abs(target.position.y-zone.position.y)>1.25||
-        Math.hypot(target.position.x-zone.position.x,target.position.z-zone.position.z)>zone.radius||
+        !groundFootprintContains(zone.position,target.position,zone.radius,zone.yaw)||
         !oneHitVisible(room,caster,target,world,nowSec,origin))continue;
       applyDamage(room,zone.ownerId,target.id,burnZoneLick(fieldStrength(zone,nowSec)),'one_hit_ground_fire',nowSec,null,
         {ultimate:true,ongoing:true});
