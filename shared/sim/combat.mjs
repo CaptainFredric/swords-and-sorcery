@@ -29,7 +29,7 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
   oneHitGlide, oneHitChargingLightning, oneHitChargeIntent, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
-import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
+import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, ONE_HIT_CHARGE_AURA, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, galeFieldBluster, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
   fireGaleShove, groundFootprintRadius, groundFootprintContains,
@@ -1411,6 +1411,10 @@ function dischargeShockingConduct(room, attacker, spared, nowSec, facts = {}) {
  */
 export function interruptHitActions(room, target, attackerId, nowSec, source = 'sunder') {
   if (!target.alive) return;
+  // Steel's ordinary wind-up brace protects the committed preparation from
+  // action-cancelling blows. Damage still lands and remains fully lethal.
+  // Full Lightning's indefinite aiming interval is not a permanent bunker.
+  if(oneHitSteelBraced(target,nowSec))return;
   const what = [];
   if(interruptSwordTechnique(target,nowSec))what.push('technique');
   if (stopSustainedGale(room,target,nowSec)) what.push('spell');
@@ -2236,6 +2240,66 @@ function oneHitSteelBraced(player,nowSec) {
 }
 // Full Steel's HP floor is provided by oneHitSteelFloorActive, shared with
 // the HUD. A blocked killing blow is never saved as future damage.
+
+/** The small charging halo is a distinct, bounded preparation contact, NOT
+ * the actual decisive attack or a miniature persistent damage field. Each
+ * opponent can be caught only ONCE per cast, even through hours of held Full
+ * Lightning aim. A newly approaching knight can still encounter the halo.
+ * Steel itself is defensive: its ordinary finite wind-up brace is handled by
+ * oneHitSteelBraced and does not grant perpetual immunity while aiming. */
+function stepOneHitChargeAura(room,caster,nowSec,world) {
+  const state=caster.ultimateState;
+  if(state?.id!=='one_hit_of_wonders'||state.phase!=='startup')return;
+  const tiers=state.preparedTiers??{};
+  if(!['fire','frost','gale','lightning'].some(e=>(tiers[e]??0)>0))return;
+  const seen=state.chargeAuraContacted??=[];
+  const center=oneHitChest(caster),radius=ONE_HIT_CHARGE_AURA.radius;
+  for(const target of room.players.values()){
+    if(seen.includes(target.id)||!oneHitVisible(room,caster,target,world,nowSec,center))
+      continue;
+    const dx=target.position.x-caster.position.x;
+    const dz=target.position.z-caster.position.z;
+    const dy=oneHitChest(target).y-center.y;
+    if(caster.grounded&&Math.abs(target.position.y-caster.position.y)>ONE_HIT_CHARGE_AURA.vertical)
+      continue;
+    const distance=caster.grounded?Math.hypot(dx,dz):Math.hypot(dx,dy,dz);
+    if(distance>radius+ONE_HIT_CHARGE_AURA.bodyRadius)continue;
+    const contact=Math.min(1,Math.max(0,
+      (radius+ONE_HIT_CHARGE_AURA.bodyRadius-distance)/(2*ONE_HIT_CHARGE_AURA.bodyRadius)));
+    if(contact<=0)continue;
+    seen.push(target.id);
+    // Each elemental offering is intentionally weaker than its committed
+    // counterpart and cannot set a fake full-Frost freeze.
+    const affected=[];
+    if(tiers.fire>=1){
+      const damage=Math.max(1,Math.round(ONE_HIT_CHARGE_AURA.fireDamage*contact));
+      applyDamage(room,caster.id,target.id,damage,'one_hit_charge_fire',
+        nowSec,null,{ultimate:true,ongoing:true});
+      affected.push('fire');
+    }
+    if(tiers.frost>=1&&target.alive){
+      target.oneHitFrostSlow=mergeFrostSlow(target.oneHitFrostSlow,
+        {until:nowSec+ONE_HIT_CHARGE_AURA.frostSeconds,
+         depth:ONE_HIT_CHARGE_AURA.frostDepth*contact},nowSec);
+      affected.push('frost');
+    }
+    if(tiers.gale>=1&&target.alive){
+      const offered={at:nowSec,severity:ONE_HIT_CHARGE_AURA.galeSeverity*contact,
+        sourceId:caster.id};
+      if(blusterSeverity(offered,nowSec)>blusterSeverity(target.blustered,nowSec))
+        target.blustered=offered;
+      affected.push('gale');
+    }
+    if(tiers.lightning>=1&&target.alive){
+      oneHitConduct(room,target,{at:nowSec,
+        initial:ONE_HIT_CHARGE_AURA.conductPotential*contact,
+        sourceId:caster.id},nowSec);
+      affected.push('lightning');
+    }
+    room.events.push({type:'oneHitChargeAura',playerId:caster.id,
+      targetId:target.id,elements:affected,at:nowSec});
+  }
+}
 
 function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
@@ -3646,6 +3710,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     drainStagger(player.stagger, dt, nowSec);
     if(player.swordTechnique&&nowSec<(player.staggerUntil??-Infinity))interruptSwordTechnique(player,nowSec);
     stepUltimate(room, player, nowSec, world);
+    stepOneHitChargeAura(room,player,nowSec,world);
     const staggered = nowSec < player.staggerUntil;
     // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
     const chargingLightning=oneHitChargingLightning(player,nowSec);
