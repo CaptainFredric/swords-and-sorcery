@@ -581,11 +581,17 @@ test('short ledges no longer catch the swept gauntlet in midair',()=>{
    'the heavy gauntlet passed the shallow lip instead of freezing against it');
 });
 
-test('the final Long Arm discharge uses the same kinetic hit ledger and rolling collision',()=>{
+test('the final Long Arm discharge launches the same momentum-conserving fist',()=>{
  const s=setup('longArmToTheJaw');
- s.b.health=0;s.b.finalJaw={spent:false};
- // The authoritative final-shot module constructs a detachable projectile;
- // here inspect the public geometry contract without fabricating a second fist.
- assert.ok(RAM_FIST.actorRetention>.7&&RAM_FIST.actorRetention<1);
- assert.ok(RAM_FIST.rollStop>0);
+ assert.equal(damageSoFistication(s.room,s.b,20000,'enemy','ram',1,{componentId:'hull'}),true);
+ assert.equal(s.b.finalJaw?.phase,'aiming');
+ stepSoFistication(s.room,s.b,1/30,1.45,s.room.world);
+ const f=s.b.detachedFist;
+ assert.equal(f?.isFinal,true,'the destroyed ram genuinely released its mounted fist');
+ assert.deepEqual(f.hitVictims,[],'the terminal shot uses the independent victim contact ledger');
+ assert.deepEqual(f.hitMachines,[],'the terminal shot uses the independent machine contact ledger');
+ const origin={...f.position};
+ stepSoFistication(s.room,s.b,1/30,1.45+1/30,s.room.world);
+ assert.ok(Math.hypot(f.position.x-origin.x,f.position.y-origin.y,
+   f.position.z-origin.z)>.05,'the launched death-shot actually flies under server physics');
 });
