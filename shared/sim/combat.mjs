@@ -32,7 +32,8 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
   blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
-  fireGaleShove, groundFootprintRadius, groundFootprintContains } from '../src/oneHitStatus.mjs';
+  fireGaleShove, groundFootprintRadius, groundFootprintContains,
+  directionalBlastRadius, terminalBlastRadius, terminalBlastContains, airFieldSeconds } from '../src/oneHitStatus.mjs';
 import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, chivalryParries, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
@@ -2359,7 +2360,7 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
 // Component allocation is delegated to the machine's existing blast system.
 // Infused statuses are applied at reduced strength to machines separately;
 // no per-wheel duplicate 85-HP cuts are allowed.
-function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null) {
+function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null,direction=null) {
   const cast=String(caster.ultimateState?.startedAt??nowSec);
   const seen=room.oneHitSiegeContacts??=new Map();
   if(seen.size>128)seen.clear();
@@ -2384,13 +2385,17 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null) {
     const intersects=box.some(v=>{
       const c=v.center,extent=Math.hypot(...v.size)*.42;
       return Math.hypot(point.x-c[0],point.y-c[1],point.z-c[2])<=
-        groundFootprintRadius(radius,yaw,c[0]-point.x,c[2]-point.z)+extent;
+        (direction
+          ?directionalBlastRadius(radius,direction,c[0]-point.x,c[1]-point.y,c[2]-point.z)
+          :groundFootprintRadius(radius,yaw,c[0]-point.x,c[2]-point.z))+extent;
     });
     if(!intersects)continue;
     seen.set(key,nowSec);
     // Pass the same directional rim to each machine's existing component
     // blast allocator. No multi-wheel duplicate hits or invented damage.
-    const blastRadius=groundFootprintRadius(radius,yaw,machine.x-point.x,machine.z-point.z);
+    const blastRadius=direction
+      ?directionalBlastRadius(radius,direction,machine.x-point.x,machine.y-point.y,machine.z-point.z)
+      :groundFootprintRadius(radius,yaw,machine.x-point.x,machine.z-point.z);
     if(kind==='ram')
       blastSoFistication(room,machine,{point,radius:blastRadius,damage:amount},caster.id,'one_hit_of_wonders',nowSec);
     else if(kind==='ballista')
@@ -2400,8 +2405,11 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null) {
       // Choose one actual intersecting component rather than dealing full
       // blast damage to its rotor, two braces AND main hull at once.
       const hit=box.map(v=>({v,d:Math.hypot(point.x-v.center[0],point.y-v.center[1],point.z-v.center[2])}))
-        .filter(o=>o.d<=groundFootprintRadius(radius,yaw,
-          o.v.center[0]-point.x,o.v.center[2]-point.z)+Math.hypot(...o.v.size)*.42)
+        .filter(o=>o.d<=(direction
+          ?directionalBlastRadius(radius,direction,o.v.center[0]-point.x,
+            o.v.center[1]-point.y,o.v.center[2]-point.z)
+          :groundFootprintRadius(radius,yaw,o.v.center[0]-point.x,
+            o.v.center[2]-point.z))+Math.hypot(...o.v.size)*.42)
         .sort((a,b)=>a.d-b.d)[0];
       if(hit)damageFightFlight(room,machine,amount,caster.id,'one_hit_of_wonders',nowSec,
         {componentId:hit.v.componentId,point});
@@ -2417,11 +2425,13 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null) {
   }
 }
 
-function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius,yaw=null) {
+function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REACH.fire.radius,
+  yaw=null,{air=false,direction=null}={}) {
   (room.oneHitBurnZones??=[]).push({
     id,ownerId:caster.id,position,radius,
-    ...(Number.isFinite(yaw)?{yaw}:{}),
-    bornAt:nowSec,nextAt:nowSec+.5,until:nowSec+fieldSeconds(tiers),
+    ...(Number.isFinite(yaw)?{yaw}:{}),...(air?{air:true,direction:{...direction}}:{}),
+    bornAt:nowSec,nextAt:nowSec+(air?.3:.5),
+    until:nowSec+(air?airFieldSeconds(tiers):fieldSeconds(tiers)),
   });
 }
 // The grounded blow's contact: every enemy in its reach it has not yet met (`processed`: this attack's one registry,
@@ -2495,9 +2505,10 @@ function stepOneHitFields(room,dt,nowSec,world) {
       const owner=room.players.get(field.ownerId);
       if(!owner||field.ownerId===player.id||areAllies(room,field.ownerId,player.id)||
         player.spawnProtectionUntil>nowSec)continue;
-      const contact=fieldContact(field,player.position);
+      const contact=fieldContact(field,field.air?oneHitChest(player):player.position);
       if(!(contact>0))continue;
-      if(oneHitWorldContact({...field.position,y:field.position.y+.5},oneHitChest(player),world))continue;
+      if(oneHitWorldContact(field.air?field.position:
+        {...field.position,y:field.position.y+.5},oneHitChest(player),world))continue;
       const strength=fieldStrength(field,nowSec);
       if(!player.oneHitField||strength>player.oneHitField.strength)
         player.oneHitField={id:field.id,ownerId:field.ownerId,strength,contact};
@@ -2627,7 +2638,7 @@ function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   const fromGround=action.form==='ground';
   const wave={id:'oh-wave:'+player.id+':'+nowSec,ownerId:player.id,
     position:{x:player.position.x,y:player.position.y+(fromGround?.65:1),z:player.position.z},
-    direction,tiers:{...tiers},bornAt:nowSec,distance:0,
+    launchYaw:yaw,direction,tiers:{...tiers},bornAt:nowSec,distance:0,
     hitIds:action.hitIds,fromGround,
   };
   (room.oneHitWaves??=[]).push(wave);
@@ -2702,7 +2713,7 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
   for(const target of room.players.values()) {
     if(rec.hitIds.includes(target.id))continue;
     const center=oneHitChest(target);
-    if(Math.hypot(center.x-rec.origin.x,center.y-rec.origin.y,center.z-rec.origin.z)>rec.radius)continue;
+    if(!terminalBlastContains(rec.origin,center,rec.radius,rec.yaw,rec.direction,rec.air))continue;
     if(fire){
       if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{aerial:true,origin:rec.origin,direction:rec.direction,
         distance:rec.distance,processed:rec.hitIds,terminalFire:true}))caught.push(target.id);
@@ -2734,37 +2745,52 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     (floor!==null&&point.y>=floor-.04&&point.y-floor<=1.25);
   const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
   const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
-  const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,direction:wave.direction,tiers:{...wave.tiers},radius,
+  const air=!groundBlast;
+  // Direction is captured when the wave launches. A ground detonation
+  // projects that direction onto the floor, while a midair detonation uses
+  // its full 3D vector (so upward Gale shots explode forward and upward).
+  const yaw=Math.hypot(wave.direction.x,wave.direction.z)>.01
+    ?Math.atan2(-wave.direction.x,-wave.direction.z)
+    :Number.isFinite(wave.launchYaw)?wave.launchYaw:caster.yaw;
+  const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,
+    direction:wave.direction,tiers:{...wave.tiers},radius,yaw,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
-  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec);
-  // A ground-contacting wave leaves the SAME decaying Shaken terrain as a
-  // slam, but over its smaller terminal radius. The ground retains full
-  // Frost/Lightning field consequences and its own visible rubble. A wave
-  // bursting in free air cannot create a floating patch of earth.
-  let terminalFieldId=null;
-  if(groundBlast&&floor!==null){
-    const field={id:wave.id+':field',ownerId:caster.id,
-      position:{x:point.x,y:floor,z:point.z},radius,
-      bornAt:nowSec,until:nowSec+fieldSeconds(wave.tiers),
-      tiers:{...wave.tiers},conducted:{},shakenContact:{}};
-    if(wave.tiers.lightning>=1)for(const id of wave.hitIds)field.conducted[id]=1;
-    for(const id of wave.hitIds)field.shakenContact[id]=1;
-    (room.oneHitFields??=[]).push(field);
-    terminalFieldId=field.id;
-  }
-  // Half Frost's late decisive contacts share this very field; the field
-  // must remember them as direct victims rather than offering fresh Shaken
-  // and Conduct all over again on the next tick.
+  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
+    air?null:yaw,air?wave.direction:null);
+  // The shorter terminal blast inherits the same forward-biased reach as
+  // the grounded slam, without acquiring the SLAM's larger base radius.
+  // Aerial detonations leave suspended pressure and elemental effects, not
+  // fictitious broken ground. Their lives are much shorter.
+  const field={id:wave.id+':field',ownerId:caster.id,
+    position:groundBlast&&floor!==null?{x:point.x,y:floor,z:point.z}:{...point},
+    radius,...(air?{air:true,direction:{...wave.direction}}:{yaw}),
+    bornAt:nowSec,
+    until:nowSec+(air?airFieldSeconds(wave.tiers):fieldSeconds(wave.tiers)),
+    tiers:{...wave.tiers},conducted:{},shakenContact:{}};
+  if(wave.tiers.lightning>=1)for(const id of wave.hitIds)field.conducted[id]=1;
+  for(const id of wave.hitIds)field.shakenContact[id]=1;
+  (room.oneHitFields??=[]).push(field);
+  const terminalFieldId=field.id;
+  // The one-hit registry and Frost's delayed contact stay shared across the
+  // projectile, blast and lingering statuses. No repeated decisive HP cut.
   if(wave.tiers.frost>=1)(room.oneHitLingers??=[]).push({
     ...rec,fieldId:terminalFieldId,until:nowSec+ONE_HIT_FROST_LINGER_SEC,
   });
-  // (burning ground only where there is ground under it: nothing burns in the air)
-  if(wave.tiers.fire===2&&groundBlast) {
-    const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
-    if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
-      !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
-      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},nowSec,wave.tiers,radius);
+  if(wave.tiers.fire===2){
+    if(air){
+      // A short suspended burn volume: less damage per pulse than burning
+      // ground, and it vanishes with the flying pressure rather than four
+      // seconds of flames hanging in the sky.
+      oneHitBurnZone(room,caster,`${wave.id}:fire`,{...point},nowSec,wave.tiers,
+        radius,null,{air:true,direction:wave.direction});
+    }else{
+      const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
+      if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
+        !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
+        oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},
+          nowSec,wave.tiers,radius,yaw);
+    }
   }
   // Preserve the REAL projectile impact coordinate for damage, interpolation
   // and playback. Only the rubble/frost/Fire ground footprint uses groundPoint.
@@ -2773,7 +2799,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     ...(groundPoint?{groundPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
-    radius,struck,fieldId:terminalFieldId,at:nowSec});
+    radius,yaw,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
 // Full Steel lasts THROUGH the outgoing wave; the protection ends at its
@@ -2899,15 +2925,21 @@ function stepOneHitWorld(room,dt,nowSec,world) {
   room.oneHitWaves=(room.oneHitWaves??[]).filter(w=>w.distance<ONE_HIT_RULES.waveMaxReach);
   for(const zone of room.oneHitBurnZones??[]) {
     if(nowSec<zone.nextAt||zone.nextAt>zone.until)continue;
-    zone.nextAt+=.5;
+    zone.nextAt+=zone.air?.3:.5;
     const caster=room.players.get(zone.ownerId);
     if(!caster)continue;
-    const origin={...zone.position,y:zone.position.y+.08};
+    const origin=zone.air?zone.position:{...zone.position,y:zone.position.y+.08};
     for(const target of room.players.values()){
-      if(Math.abs(target.position.y-zone.position.y)>1.25||
-        !groundFootprintContains(zone.position,target.position,zone.radius,zone.yaw)||
-        !oneHitVisible(room,caster,target,world,nowSec,origin))continue;
-      applyDamage(room,zone.ownerId,target.id,burnZoneLick(fieldStrength(zone,nowSec)),'one_hit_ground_fire',nowSec,null,
+      if(target.id===zone.ownerId||!target.alive)continue;
+      if(zone.air){
+        if(!terminalBlastContains(zone.position,oneHitChest(target),zone.radius,null,
+          zone.direction,true))continue;
+      }else if(Math.abs(target.position.y-zone.position.y)>1.25||
+        !groundFootprintContains(zone.position,target.position,zone.radius,zone.yaw))continue;
+      if(!oneHitVisible(room,caster,target,world,nowSec,origin))continue;
+      applyDamage(room,zone.ownerId,target.id,
+        burnZoneLick(fieldStrength(zone,nowSec),zone.air?2:3),
+        zone.air?'one_hit_air_fire':'one_hit_ground_fire',nowSec,null,
         {ultimate:true,ongoing:true});
     }
   }

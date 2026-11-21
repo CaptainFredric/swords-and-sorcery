@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { windbladeSpeed, windbladeTrailSpan } from './disasterWavePresentation.mjs';
+import { windbladeSpeed, windbladeTrailSpan, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
-import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
+import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp,
+  directionalBlastRadius } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
 
@@ -32,6 +33,19 @@ const tmpColor = new THREE.Color();
 const tmpObject = new THREE.Object3D();
 const tmpVec = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
+
+// Random points inside the exact server-defined short aerial blast volume.
+// Sampling the directional rim prevents the VFX from promising hits behind
+// the wave that the shared simulation does not grant.
+function insideAirBlast(volume,share=1){
+  const a=rand(TAU),v=rand(-1,1),flat=Math.sqrt(1-v*v);
+  const ux=Math.cos(a)*flat,uy=v,uz=Math.sin(a)*flat;
+  const radial=Math.cbrt(Math.random())*
+    directionalBlastRadius(volume.radius,volume.direction,ux,uy,uz)*share;
+  return {x:volume.position.x+ux*radial,
+    y:volume.position.y+uy*radial,z:volume.position.z+uz*radial};
+}
+
 
 // One instanced pool of particles: a ring buffer, so a burst can never grow the scene.
 class ParticlePool {
@@ -362,8 +376,13 @@ export class DisasterElementEffects {
   // A Fire infusion is an actual expanding fireball, not just thin spark
   // streaks. Broad bright lobes push out before the dark smoke follows; all
   // pieces use existing instanced pools and do not add runtime shader types.
-  #fireExplosion(point,radius,height,ground,full,yaw=null) {
-    const rim=(angle)=>groundFootprintRadius(radius,ground?yaw:null,Math.cos(angle),Math.sin(angle));
+  #fireExplosion(point,radius,height,ground,full,yaw=null,direction=null) {
+    const rim=(angle,lift=0)=>{
+      const flat=Math.sqrt(Math.max(0,1-lift*lift));
+      return ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle))
+        :directionalBlastRadius(radius,direction,Math.cos(angle)*flat,lift,Math.sin(angle)*flat);
+    };
     const lobes=this.#n(full?76:56);
     for(let i=0;i<lobes;i++){
       const angle=rand(TAU),rise=ground?rand(0.06,.92):rand(-.9,.9);
@@ -372,9 +391,9 @@ export class DisasterElementEffects {
       this.glow.spawn({
         x:point.x+Math.cos(angle)*rand(.04,.24),y:point.y+.27+rand(.15),
         z:point.z+Math.sin(angle)*rand(.04,.24),
-        vx:Math.cos(angle)*flat*rim(angle)/ttl*magnitude,
+        vx:Math.cos(angle)*flat*rim(angle,rise)/ttl*magnitude,
         vy:rise*height/ttl*magnitude,
-        vz:Math.sin(angle)*flat*rim(angle)/ttl*magnitude,
+        vz:Math.sin(angle)*flat*rim(angle,rise)/ttl*magnitude,
         sx:rand(.17,.32)*(full?1.12:1),
         sy:rand(.18,.36)*(full?1.12:1),
         sz:rand(.15,.29)*(full?1.12:1),
@@ -385,7 +404,7 @@ export class DisasterElementEffects {
     // orange lobes and late smoke. All phases use the existing bounded pool.
     for(let i=0;i<this.#n(full?24:16);i++){
       const a=rand(TAU),rise=ground?rand(.18,.92):rand(-.9,.9),ttl=rand(.11,.23);
-      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=rim(a)*rand(.35,.74);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=rim(a,rise)*rand(.35,.74);
       this.glow.spawn({
         x:point.x+Math.cos(a)*rand(.05,.18),y:point.y+.24,
         z:point.z+Math.sin(a)*rand(.05,.18),
@@ -413,17 +432,41 @@ export class DisasterElementEffects {
   // distinct, smaller EXPLOSION, not an invisible no-damage puff. Fire uses
   // #fireExplosion at the same real terminal radius; other elements color
   // this shared pressure burst. No new collision or damage is introduced.
-  #waveExplosion(point,radius,ground,tiers){
+  #waveExplosion(point,radius,ground,tiers,yaw=null,direction=null){
     const n=this.#n(62);
     for(let i=0;i<n;i++){
       const a=rand(TAU),lift=ground?rand(.06,.88):rand(-.85,.85);
       const flat=Math.sqrt(Math.max(0,1-lift*lift));
-      const life=rand(.24,.43),travel=radius*rand(.55,1);
+      const rim=ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(a),Math.sin(a))
+        :directionalBlastRadius(radius,direction,Math.cos(a)*flat,lift,Math.sin(a)*flat);
+      const life=rand(.24,.43),travel=rim*rand(.55,1);
       const kind=tiers.frost?'frost':tiers.lightning?'lightning':tiers.steel?'steel':'gale';
       this.#mote(kind,point,{
         x:Math.cos(a)*flat*travel/life,y:lift*travel/life,
         z:Math.sin(a)*flat*travel/life,
       },{size:rand(.025,.065),ttl:life,drag:1.3,stretch:rand(5,10)});
+    }
+    // A legible expanding blast front: a brief 3D pressure shell composed
+    // entirely of the already-warmed particle pool. It pushes farther in
+    // the wave's actual direction and remains airy, never a solid orb.
+    const count=this.#n(76);
+    for(let i=0;i<count;i++){
+      const angle=(i+.35)*TAU/count,vertical=ground?rand(.06,.78):rand(-.94,.94);
+      const flat=Math.sqrt(Math.max(0,1-vertical*vertical));
+      const nx=Math.cos(angle)*flat,ny=vertical,nz=Math.sin(angle)*flat;
+      const rim=ground
+        ?groundFootprintRadius(radius,yaw,nx,nz)
+        :directionalBlastRadius(radius,direction,nx,ny,nz);
+      const ttl=rand(.26,.44),reach=rim*rand(.74,.98);
+      const white=i%3===0?0xf8fff3:0xc9ff97;
+      this.glow.spawn({
+        x:point.x+nx*.10,y:point.y+ny*.10,z:point.z+nz*.10,
+        vx:nx*reach/ttl,vy:ny*reach/ttl,vz:nz*reach/ttl,
+        sx:rand(.035,.07),sy:rand(.13,.26),sz:rand(.035,.065),
+        color:tiers.frost&&i%5===0?0xc7f1ff:white,
+        ttl,drag:.75,grow:.24,align:true,
+      });
     }
     for(let i=0;i<this.#n(16);i++){
       const a=rand(TAU);
@@ -531,9 +574,17 @@ export class DisasterElementEffects {
     const floor = p.y + 0.02;
     const steel = tiers.steel ?? 0;
     const radius = event.radius ?? 3.4;
-    const yaw=ground&&event.form==='ground'?event.yaw:null;
-    const rim=(angle)=>groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle));
-    if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers);
+    const yaw=ground?event.yaw:null;
+    const direction=event.impactId?event.direction:null;
+    const rim=(angle,lift=0)=>{
+      const flat=Math.sqrt(Math.max(0,1-lift*lift));
+      return ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle))
+        :directionalBlastRadius(radius,direction,Math.cos(angle)*flat,lift,Math.sin(angle)*flat);
+    };
+    // Gale's pressure burst is always present, including a Fire-infused
+    // detonation. Fire adds combustion to the same real explosion.
+    if(event.impactId)this.#waveExplosion(p,radius,ground,tiers,yaw,direction);
     if (ground) {
       // the ground breaks where the blade went in: stone thrown out and up, more of it and harder for Steel
       const rocks = this.#n(steel === 2 ? 80 : steel === 1 ? 46 : 22);
@@ -574,7 +625,7 @@ export class DisasterElementEffects {
       const reach = radius, tall = ground ? (event.height ?? 3.5) : radius;
       for (let i = 0; i < this.#n(tiers.fire === 2 ? 90 : 70); i += 1) {
         const a = rand(TAU), lift = ground ? Math.random() : rand(-1, 1), flat = Math.sqrt(Math.max(0, 1 - lift * lift)), ttl = rand(0.26, 0.42);
-        const outReach=rim(a);
+        const outReach=rim(a,lift);
         this.#mote('fire', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * flat * outReach / ttl * 0.8, y: lift * tall / ttl * 0.8, z: Math.sin(a) * flat * outReach / ttl * 0.8 },
           { size: rand(0.045, 0.1), ttl, drag: 1.1, stretch: 3 });
       }
@@ -582,7 +633,7 @@ export class DisasterElementEffects {
         const a = rand(TAU);
         this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
       }
-      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2,yaw);
+      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2,yaw,direction);
     }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
@@ -701,34 +752,71 @@ export class DisasterElementEffects {
       seen.add(field.id);
       let entry = this.fields.get(field.id);
       if (!entry) {
-        entry = { acc: {}, arcAt: 0, rock: this.#rockField(field), ice: null };
-        if (field.tiers?.frost === 2) entry.ice = this.#iceField(field);
+        entry = {acc:{},arcAt:0,rock:field.air?null:this.#rockField(field),ice:null};
+        if (!field.air&&field.tiers?.frost===2) entry.ice=this.#iceField(field);
         this.fields.set(field.id, entry);
       }
-      this.#poseRockField(entry.rock,field,strength,now);
+      if(entry.rock)this.#poseRockField(entry.rock,field,strength,now);
       const p = field.position, floor = p.y + 0.03;
       const emit = (key, perSec, fn) => {
         entry.acc[key] = (entry.acc[key] ?? 0) + perSec * this.density * dt * strength;
         while (entry.acc[key] >= 1) { entry.acc[key] -= 1; fn(); }
       };
-      const inside = (share = 1) => { const a = rand(TAU),
-        r = Math.sqrt(Math.random()) * groundFootprintRadius(field.radius,field.yaw,Math.cos(a),Math.sin(a))*share;
-        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      // every field: the broken ground still shifting, grit hopping and dust hanging over it
-      emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), floor, 0.6); });
-      emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
+      const inside=(share=1)=>{
+        if(field.air)return insideAirBlast(field,share);
+        const a=rand(TAU),r=Math.sqrt(Math.random())*
+          groundFootprintRadius(field.radius,field.yaw,Math.cos(a),Math.sin(a))*share;
+        return {x:p.x+Math.cos(a)*r,y:floor,z:p.z+Math.sin(a)*r};
+      };
+      if(field.air){
+        // A compact suspended pressure volume, clearly visible for its
+        // 1.15–1.55 second authoritative lifetime, then gone. It is made of
+        // bounded particles, NOT an opaque sphere or a patch of floating dirt.
+        emit('airflow',88,()=>{
+          const at=inside(.96),velocity=field.direction??{x:0,y:0,z:-1};
+          this.#mote(field.tiers?.gale?'gale':'steel',at,
+            {x:velocity.x*rand(.7,2.3)+rand(-.7,.7),
+             y:velocity.y*rand(.7,2.3)+rand(-.6,.6),
+             z:velocity.z*rand(.7,2.3)+rand(-.7,.7)},
+            {size:rand(.010,.022),ttl:rand(.21,.40),stretch:rand(7,13),drag:1.1});
+        });
+        emit('airhaze',18,()=>{
+          const at=inside(.8);
+          this.#dust(at,{x:rand(-.6,.6),y:rand(-.4,.4),z:rand(-.6,.6)},
+            rand(.08,.16),rand(.4,.7),field.tiers?.frost?0xcbe9eb:0xb0bdb1);
+        });
+      }else{
+        // Earth only fractures where the wave truly hit the ground.
+        emit('grit',26,()=>{const at=inside();
+          this.#stone(at,{x:rand(-.4,.4),y:rand(1.2,2.6),z:rand(-.4,.4)},
+            rand(.02,.05),floor,.6);});
+        emit('haze',2.5,()=>{const at=inside();
+          this.#dust({...at,y:floor+.12},
+            {x:rand(-.3,.3),y:rand(.25,.6),z:rand(-.3,.3)},rand(.16,.28),1.3);});
+      }
       if (field.tiers?.frost === 2) {
         // cold coming up off the ice, and the ice itself sinking back as the field goes
-        emit('cold', 20, () => { const at = inside(); this.#mote('frost', { ...at, y: floor + rand(0.05, 0.3) }, { x: rand(-0.4, 0.4), y: rand(0.3, 0.9), z: rand(-0.4, 0.4) }, { size: rand(0.02, 0.04), ttl: rand(0.6, 1), stretch: 2.5, drag: 0.8 }); });
-        emit('mist', 3, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.1 }, { x: rand(-0.5, 0.5), y: 0.15, z: rand(-0.5, 0.5) }, 0.26, 1.4, 0xd4edf8); });
+        emit('cold',field.air?48:20,()=>{const at=inside();
+          this.#mote('frost',field.air?at:{...at,y:floor+rand(.05,.3)},
+            {x:rand(-.4,.4),y:rand(.3,.9),z:rand(-.4,.4)},
+            {size:rand(.02,.04),ttl:rand(.35,field.air?.7:1),stretch:2.5,drag:.8});});
+        emit('mist',field.air?14:3,()=>{const at=inside();
+          this.#dust(field.air?at:{...at,y:floor+.1},
+            {x:rand(-.5,.5),y:.15,z:rand(-.5,.5)},
+            .26,field.air?.6:1.4,0xd4edf8);});
         if (entry.ice) this.#poseIce(entry.ice, field, strength, now);
       }
       if (field.tiers?.lightning === 2 && this.clock >= entry.arcAt) {
         // arcs crawling over the ground between two points of it: fewer and thinner as the charge runs out
         entry.arcAt = this.clock + rand(0.05, 0.11) / Math.max(0.15, strength) / this.density;
         const a = inside(), b = inside();
-        this.#bolt(new THREE.Vector3(a.x, floor + 0.08, a.z), new THREE.Vector3(b.x, floor + rand(0.1, 0.9 * strength + 0.15), b.z), { width: 0.016 + 0.03 * strength, ttl: 0.12, jag: 0.2, forks: strength > 0.5 ? 2 : 1 });
-        for (let i = 0; i < 3; i += 1) this.#mote('lightning', { ...b, y: floor + 0.1 }, { x: rand(-2, 2), y: rand(1, 3.5), z: rand(-2, 2) }, { size: 0.016, ttl: 0.22, gravity: 12, stretch: 5 });
+        this.#bolt(new THREE.Vector3(a.x,field.air?a.y:floor+.08,a.z),
+          new THREE.Vector3(b.x,field.air?b.y:floor+rand(.1,.9*strength+.15),b.z),
+          {width:.016+.03*strength,ttl:.12,jag:.2,forks:strength>.5?2:1});
+        for(let i=0;i<3;i++)this.#mote('lightning',
+          field.air?b:{...b,y:floor+.1},
+          {x:rand(-2,2),y:rand(1,3.5),z:rand(-2,2)},
+          {size:.016,ttl:.22,gravity:field.air?1:12,stretch:5});
       }
     }
     for (const [id, entry] of this.fields) if (!seen.has(id)) {
@@ -965,24 +1053,32 @@ export class DisasterElementEffects {
       const entry = this.fireAcc[zone.id] ??= { flame: 0, ember: 0, smoke: 0, seen: 0 };
       entry.seen = this.clock;
       const p = zone.position, floor = p.y + 0.03;
-      const inside = () => { const a = rand(TAU),
-        r = Math.sqrt(Math.random()) * groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
-        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
-      entry.flame += 340 * (0.25 + 0.75 * strength) * this.density * dt;
+      const inside=()=>{
+        if(zone.air)return insideAirBlast(zone);
+        const a=rand(TAU),r=Math.sqrt(Math.random())*
+          groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
+        return {x:p.x+Math.cos(a)*r,y:floor,z:p.z+Math.sin(a)*r};
+      };
+      entry.flame += (zone.air?145:340) * (.25+.75*strength)*this.density*dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
-        this.#mote('fire', inside(), { x: rand(-0.3, 0.3), y: rand(1.2, 2.2 + 2.4 * strength), z: rand(-0.3, 0.3) }, { size: rand(0.07, 0.13) * (0.5 + 0.5 * strength), ttl: rand(0.28, 0.5), stretch: 3.4, drag: 1.2 });
+        this.#mote('fire',inside(),{x:rand(-.3,.3),
+          y:zone.air?rand(-.5,.7):rand(1.2,2.2+2.4*strength),z:rand(-.3,.3)},
+          {size:rand(.07,.13)*(.5+.5*strength),ttl:rand(.28,.5),
+           stretch:3.4,drag:1.2});
       }
-      entry.ember += 26 * strength * this.density * dt;
+      entry.ember += (zone.air?18:26) * strength * this.density * dt;
       while (entry.ember >= 1) {
         entry.ember -= 1;
         this.#mote('fire', inside(), { x: rand(-0.8, 0.8), y: rand(2.5, 5), z: rand(-0.8, 0.8) }, { size: 0.018, ttl: rand(0.8, 1.4), stretch: 1.6, gravity: -1 });
       }
-      entry.smoke += 9 * (0.4 + 0.6 * strength) * this.density * dt;
+      entry.smoke += (zone.air?5:9) * (.4+.6*strength)*this.density*dt;
       while (entry.smoke >= 1) {
         entry.smoke -= 1;
         const at = inside();
-        this.#dust({ ...at, y: floor + rand(0.9, 1.5) }, { x: rand(-0.3, 0.3), y: rand(1.2, 2.2), z: rand(-0.3, 0.3) }, rand(0.35, 0.6), rand(1.4, 2.1), 0x2e2520);
+        this.#dust(zone.air?at:{...at,y:floor+rand(.9,1.5)},
+          {x:rand(-.3,.3),y:zone.air?rand(-.2,.9):rand(1.2,2.2),
+           z:rand(-.3,.3)},rand(.35,.6),zone.air?.7:rand(1.4,2.1),0x2e2520);
       }
     }
     for (const id of Object.keys(this.fireAcc)) if (this.clock - this.fireAcc[id].seen > 1) delete this.fireAcc[id];
@@ -1009,13 +1105,12 @@ export class DisasterElementEffects {
       y:d.y*(speed-lag)+rand(-.2,.2),
       z:d.z*(speed-lag)+rand(-.2,.2),
     });
-    // Read the real rendered arc (rotation and Fire scale included), then
-    // offset BACK along its actual 3D flight vector, not screen-horizontal.
-    const onArc=(t,behind=0)=>{
-      const a=-1.309+2.618*t;
-      const at=mesh.localToWorld(tmpVec.set(
-        Math.sin(a)*1.25,Math.cos(a)*1.25-.55,
-        .3*Math.cos(a*1.15)).applyAxisAngle(AXIS_Z,.42).multiplyScalar(scale)).clone();
+    // The drawn pressure membrane and ALL elemental motes share a single
+    // horizontal, vaulted 3D surface. Sample different depths and both sides
+    // rather than painting a tall, screen-facing crescent.
+    const onArc=(t,behind=0,depth=0,side=1)=>{
+      const p=windbladeSurfacePoint(t,depth,side);
+      const at=mesh.localToWorld(tmpVec.set(p.x,p.y,p.z).multiplyScalar(scale)).clone();
       at.x-=d.x*behind;at.y-=d.y*behind;at.z-=d.z*behind;
       return at;
     };
@@ -1034,14 +1129,14 @@ export class DisasterElementEffects {
     };
     stream('air',tiers.gale?86:70,()=>{
       this.#mote(tiers.steel&&!tiers.gale?'steel':'gale',
-        onArc(along(),trailing()),back(rand(4,7)),
+        onArc(along(),trailing(),rand(.1,.95),Math.random()<.5?1:-1),back(rand(4,7)),
         {size:tiers.steel&&!tiers.gale?.019:.013,stretch:rand(11,19),
           ttl:rand(.12,.22),drag:.25});
     });
     if(tiers.gale)stream('gale',tiers.gale===2?58:38,()=>{
       // These closely follow the pressure face; colour is the bright
       // white edge shedding into lime-green airflow, not extra projectiles.
-      const at=onArc(along(),trailing());
+      const at=onArc(along(),trailing(),rand(0,.7),Math.random()<.5?1:-1);
       const v=back(rand(2,4));
       this.glow.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
         sx:rand(.010,.018),sy:rand(.11,.24),sz:rand(.010,.018),
@@ -1049,26 +1144,26 @@ export class DisasterElementEffects {
         ttl:rand(.12,.24),drag:.24,align:true});
     });
     if(tiers.fire)stream('fire',tiers.fire===2?82:54,()=>{
-      const at=onArc(.03+along()*.45,trailing());
+      const at=onArc(along(),trailing(),rand(.1,.8),Math.random()<.5?1:-1);
       this.#mote('fire',at,back(rand(1.1,4)),
         {size:rand(.033,.069),stretch:rand(2.5,5.2),ttl:rand(.22,.44),
           gravity:-1.2,drag:1.3});
     });
     if(tiers.frost)stream('frost',tiers.frost===2?70:44,()=>{
       const tip=Math.random()<.58?(Math.random()<.5?rand(0,.2):rand(.8,1)):Math.random();
-      const at=onArc(tip,trailing());
+      const at=onArc(tip,trailing(),rand(.2,.9),Math.random()<.5?1:-1);
       this.#mote('frost',at,back(rand(.7,3.4)),
         {size:rand(.018,.045),stretch:rand(4,8),ttl:rand(.32,.62),
           gravity:1.5,drag:1.2});
     });
     if(tiers.steel)stream('steel',tiers.steel===2?17:10,()=>{
-      const at=onArc(along(),trailing()),v=back(rand(2,5));
+      const at=onArc(along(),trailing(),rand(.1,.8),Math.random()<.5?1:-1),v=back(rand(2,5));
       this.rock.spawn({x:at.x,y:at.y,z:at.z,vx:v.x,vy:v.y,vz:v.z,
         sx:rand(.025,.05),color:pick(COLOR.steel),ttl:.43,gravity:8,spin:10});
     });
     if(tiers.lightning){
       stream('spark',tiers.lightning===2?64:37,()=>{
-        const at=onArc(along(),trailing());
+        const at=onArc(along(),trailing(),rand(.0,.8),Math.random()<.5?1:-1);
         this.#mote('lightning',at,back(rand(2,6)),
           {size:rand(.011,.023),stretch:rand(6,12),ttl:rand(.11,.24),drag:2});
       });
@@ -1076,14 +1171,14 @@ export class DisasterElementEffects {
         acc.boltAt=this.clock+(tiers.lightning===2?.048:.084)/this.density;
         const from=rand(0,.62),to=Math.min(1,from+rand(.22,.42));
         const lag=trailing()*.6;
-        attachBolt(onArc(from,lag),onArc(to,lag),
+        attachBolt(onArc(from,lag,.1,1),onArc(to,lag,.5,-1),
           {width:tiers.lightning===2?.033:.024,ttl:.095,
             jag:.10,forks:1,steps:7});
         // An arc continuing behind the wind cut sells the electrical wake;
         // it never reads as a second moving attack.
         if(tiers.gale){
           const t=rand(.18,.82),reach=rand(.3,Math.max(.65,advance+.35));
-          attachBolt(onArc(t,0),onArc(t,Math.min(1.1,reach)),
+          attachBolt(onArc(t,0,.05,1),onArc(t,Math.min(1.1,reach),.9,-1),
             {width:.013,ttl:.10,jag:.07,forks:0,steps:5});
         }
       }

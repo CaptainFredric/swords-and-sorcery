@@ -118,6 +118,18 @@ export function disasterEarthImpactRecipe(rand=Math.random,{wave=false}={}){
     n('lowpass',300,.065,.62,.2*q,{at:.17,sweepTo:95}),
   ],.37,.13);
 }
+/** Gale's airborne terminal blast: compressed wind and a hollow shock boom,
+ * without the geological cracks reserved for an actual ground collision. */
+export function disasterAirImpactRecipe(rand=Math.random){
+  return recipe([
+    n('bandpass',1000*jitter(rand,.12),.002,.17,.39,{sweepTo:230,q:.92}),
+    n('lowpass',480,.008,.58,.32,{sweepTo:125}),
+    t('sine',120,48,.012,.39,.23),
+    n('highpass',2900*jitter(rand,.15),.004,.23,.13,{at:.055,sweepTo:700}),
+    n('bandpass',570,.025,.44,.18,{at:.12,sweepTo:230}),
+  ],.28,.09);
+}
+
 /** Infusion cast signature, differentiated before the main earth impact. */
 export function disasterInfusionChargeRecipe(element,rand=Math.random,{tier=1}={}){
   const full=Number(tier)>=2,m=full?1:.66;

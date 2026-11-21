@@ -5,7 +5,7 @@ import {galeProfile} from '../../../shared/src/galeModes.mjs';
 import {
   DISASTER_AUDIO_ELEMENTS,coreMagmaArmRecipe,coreMagmaFuseRecipe,
   coreMagmaDetonationRecipe,conductChargeRecipe,conductDischargeRecipe,
-  conductWireTailRecipe,galeStreamRecipe,disasterEarthImpactRecipe,
+  conductWireTailRecipe,galeStreamRecipe,disasterEarthImpactRecipe,disasterAirImpactRecipe,
   disasterInfusionChargeRecipe,disasterInfusionImpactRecipe,
   disasterFieldPulseRecipe,disasterInfusionFieldRecipe,disasterWaveRushRecipe,
 } from './disasterSoundRecipes.mjs';
@@ -153,7 +153,8 @@ export class DisasterSoundscape {
         // Preserve the attack's initial weight regardless of infusion count.
         // Only the EXTRA elemental layers share a collective loudness budget;
         // previously all five infusions paradoxically weakened the base hit.
-        this.#around(point,disasterEarthImpactRecipe(rand,{wave:Boolean(event.impactId)}),
+        this.#around(point,event.air?disasterAirImpactRecipe(rand):
+          disasterEarthImpactRecipe(rand,{wave:Boolean(event.impactId)}),
           event.impactId?.72:.89);
         // Fire ignites, frost fractures, Gale evacuates, lightning snaps, Steel
         // rumbles last. Avoid simply synchronizing five entire explosions.
@@ -211,7 +212,10 @@ export class DisasterSoundscape {
       // Multiplying the outer gain by strength as well made the field fade
       // quadratically and nearly disappear while Shaken remained active.
       const gain=.52*balance;
-      this.#around(field.position,disasterFieldPulseRecipe(this.random,{strength}),gain);
+      this.#around(field.position,field.air
+        ?galeStreamRecipe(this.random,{seconds:.42,weight:strength})
+        :disasterFieldPulseRecipe(this.random,{strength}),
+        gain*(field.air?.72:1));
       // All five infusion timbres take turns throughout the authoritative
       // field lifetime, two gentle accents per beat. Never five full booms.
       for(let i=0;i<Math.min(2,elements.length);i++){

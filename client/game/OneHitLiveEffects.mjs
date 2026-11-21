@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
-import { windbladePosition } from './disasterWavePresentation.mjs';
+import { windbladePosition, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
+import { groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -25,79 +26,45 @@ const M=(color,opacity=.84)=>new THREE.MeshBasicMaterial({color,transparent:true
 const v=p=>new THREE.Vector3(p.x,p.y,p.z);
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 
-// The sword wave: ONE crescent of cut air, the shape the blade left, with fainter pressure arcs trailing it. What it
-// carries changes that same body, never adds another: Steel makes it denser and darker, Fire burns along its lower
-// limb, Frost rimes its tips and inner edge. (Lightning runs along it as branches: DisasterElementEffects.waveBody.)
-// Its size is its real reach: Fire's wave catches further out, so it is drawn that much larger.
-const WAVE_ARC=75*Math.PI/180;
-function crescent(tiers,{width=.24,fade=1}={}) {
-  const steps=26,positions=[],colors=[],index=[];
-  const base=new THREE.Color(0xf3fff2),steel=new THREE.Color(0x8d959f),
-    gale=new THREE.Color(0xa8f67c),windWhite=new THREE.Color(0xfafff4),
-    fire=new THREE.Color(0xff7a1c),hot=new THREE.Color(0xffd080),
-    frost=new THREE.Color(0xbfeaff),electric=new THREE.Color(0xffef9a),c=new THREE.Color();
-  for(let i=0;i<=steps;i++){
-    const t=i/steps,a=-WAVE_ARC+2*WAVE_ARC*t,taper=Math.pow(Math.max(0,Math.cos(a*1.12)),.8);
-    const outer=1.25,inner=outer-(width*taper+.015),bow=.34*Math.cos(a*1.15); // (bowed forward at its middle)
-    for(const [r,edge] of [[outer,0],[inner,1]]){
-      positions.push(Math.sin(a)*r,Math.cos(a)*r-.55,bow-(edge?.07:0));
-      c.copy(base);
-      if(tiers.steel)c.lerp(steel,tiers.steel===2?.85:.6);
-      // The Gale cut has a white leading edge and a lime-green pressure
-      // sheath. The element remains visible even under Fire or Lightning.
-      if(tiers.gale)c.lerp(edge?gale:windWhite,(tiers.gale===2?.76:.54)*
-        (.55+.45*Math.sin(Math.PI*t)));
-      // Fire: along the lower limb, hottest at the leading edge
-      if(tiers.fire&&t<.46)c.lerp(edge?fire:hot,Math.min(1,(.46-t)/.3)*(tiers.fire===2?1:.8));
-      // Frost: crystalline tips and a chilled inner edge; the center still
-      // reads as wind rather than a generic blue projectile.
-      if(tiers.frost){const tip=Math.max(0,(Math.abs(t-.5)-.3)/.2);c.lerp(frost,Math.min(1,Math.max(tip,edge?.7:0))*(tiers.frost===2?1:.82));}
-      if(tiers.lightning&&i%5<2)c.lerp(electric,tiers.lightning===2?.43:.24);
-      colors.push(c.r*fade,c.g*fade,c.b*fade);
-    }
-    if(i){const k=(i-1)*2;index.push(k,k+1,k+2,k+1,k+3,k+2);}
-  }
-  const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  geometry.setIndex(index);
-  return geometry;
-}
-// Unlike several copies of the crescent parked behind each other, this
-// pressure membrane is ONE connected surface from the edge to its wake.
-// Transparency falls continuously with depth; no duplicate blade silhouettes.
-// An RGBA vertex colour uses Three's built-in vertex-alpha path (no shaders).
-function pressureWake(tiers={}) {
-  const segments=36,depthSlices=7,positions=[],colors=[],index=[];
-  const white=new THREE.Color(0xfafff3),lime=new THREE.Color(0xb4fa85),
-    frost=new THREE.Color(0xd6f3ff),fire=new THREE.Color(0xffb767),
-    steel=new THREE.Color(0xb1b8b6),c=new THREE.Color();
+// The Windblade is a HORIZONTAL, vaulted pressure front. Its transparent
+// top and underside form an airy 3D shock sheet, tapering into a turbulent
+// wake. It is not a vertical sword-cut crescent, a dense solid projectile,
+// or several detached arcs. Local +Z is the server-authoritative flight axis.
+// Fire widens it through the existing wave range multiplier.
+const WAVE_SEGMENTS=36,WAVE_SLICES=7;
+function windbladeTint(tiers,t,u,edge=false){
+  const c=new THREE.Color(edge?0xf8fff7:0xdbeeda),
+    white=new THREE.Color(0xfaffee),lime=new THREE.Color(0xa7f16d),
+    frost=new THREE.Color(0xa8e5ff),fire=new THREE.Color(0xffa356),
+    steel=new THREE.Color(0xa6b0b4),lightning=new THREE.Color(0xffe784);
   const gale=Number(tiers.gale??0);
-  const presence=gale===2?1:gale===1?.78:.48;
-  for(let i=0;i<=segments;i++){
-    const t=i/segments,a=-WAVE_ARC+2*WAVE_ARC*t;
-    const tip=Math.pow(Math.max(0,Math.cos(a*1.12)),.8);
-    const along=Math.pow(Math.max(0,Math.sin(Math.PI*t)),.5);
-    for(let j=0;j<=depthSlices;j++){
-      const u=j/depthSlices;
-      // Root near the middle of the REAL leading band, then peel back and
-      // inwards. The whole wake follows the arc, including its two tips.
-      const radius=1.25-(.12+.20*u)*tip-.015;
-      const x=Math.sin(a)*radius,y=Math.cos(a)*radius-.55;
-      const z=.34*Math.cos(a*1.15)-.04-u*(.98+.12*along);
-      positions.push(x,y,z);
-      c.copy(white).lerp(lime,gale?Math.min(.84,.18+.68*u):.12+.25*u);
-      if(tiers.steel)c.lerp(steel,tiers.steel===2?.55:.33);
-      if(tiers.frost)c.lerp(frost,(tiers.frost===2?.70:.45)*(.25+.75*Math.max(u,1-along)));
-      if(tiers.fire&&t<.48)c.lerp(fire,(tiers.fire===2?.83:.61)*(.48-t)/.48);
-      // A lightning glint is on the FACE; the actual forks are attached
-      // to the moving projectile, not left hanging in world space.
-      const alpha=presence*.35*Math.pow(1-u,1.6)*(.2+.8*along);
-      colors.push(c.r,c.g,c.b,Math.max(0,Math.min(1,alpha)));
-      if(i&&j){
-        const k=(i-1)*(depthSlices+1)+j-1;
-        const n=i*(depthSlices+1)+j-1;
-        index.push(k,k+1,n,k+1,n+1,n);
+  if(gale)c.lerp(edge?white:lime,(gale===2?.82:.60)*(.45+.55*u));
+  if(tiers.steel)c.lerp(steel,tiers.steel===2?.55:.34);
+  if(tiers.fire)c.lerp(fire,(tiers.fire===2?.81:.57)*(.2+.8*(1-u))*(.72+.28*t));
+  if(tiers.frost)c.lerp(frost,(tiers.frost===2?.75:.5)*(.35+.65*Math.abs(t-.5)*2));
+  if(tiers.lightning)c.lerp(lightning,(tiers.lightning===2?.45:.25)*(.35+.65*Math.sin(t*23)**2));
+  return c;
+}
+function pressureWake(tiers={}){
+  const positions=[],colors=[],index=[];
+  const gale=Number(tiers.gale??0);
+  const presence=gale===2?1:gale===1?.82:.62;
+  for(const side of [1,-1]){
+    const offset=positions.length/3;
+    for(let i=0;i<=WAVE_SEGMENTS;i++){
+      const t=i/WAVE_SEGMENTS;
+      const span=Math.sin(Math.PI*t);
+      for(let j=0;j<=WAVE_SLICES;j++){
+        const u=j/WAVE_SLICES,point=windbladeSurfacePoint(t,u,side);
+        positions.push(point.x,point.y,point.z);
+        const color=windbladeTint(tiers,t,u);
+        const alpha=presence*.46*Math.pow(1-u,1.35)*(.20+.8*span);
+        colors.push(color.r,color.g,color.b,alpha);
+        if(i&&j){
+          const row=WAVE_SLICES+1;
+          const a=offset+(i-1)*row+j-1,b=offset+i*row+j-1;
+          index.push(a,a+1,b,a+1,b+1,b);
+        }
       }
     }
   }
@@ -107,31 +74,48 @@ function pressureWake(tiers={}) {
   geometry.setIndex(index);
   return geometry;
 }
-
-export function swordWave(tiers={}) {
+function pressureEdge(tiers={}){
+  const positions=[],colors=[],index=[],steps=36;
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const p=windbladeSurfacePoint(t,0,0);
+    const back=windbladeSurfacePoint(t,.105,0);
+    const thickness=(.025+.055*Math.sin(Math.PI*t));
+    for(const [point,dy,edge] of [[p,thickness,0],[p,-thickness,0],[back,0,1]]){
+      positions.push(point.x,point.y+dy,point.z);
+      const color=windbladeTint(tiers,t,edge?.15:0,true);
+      colors.push(color.r,color.g,color.b);
+    }
+    if(i){
+      const a=(i-1)*3,b=i*3;
+      index.push(a,a+1,b,a+1,b+1,b,a+1,a+2,b+1,a+2,b+2,b+1);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(index);
+  return geometry;
+}
+export function swordWave(tiers={}){
   const group=new THREE.Group(),body=new THREE.Group();
-  // ONE dense pressure edge and ONE continuous attenuating membrane. The
-  // older three detached crescents created duplicate silhouettes in motion.
   const wake=new THREE.Mesh(pressureWake(tiers),new THREE.MeshBasicMaterial({
-    vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide,
-    opacity:1,
+    vertexColors:true,transparent:true,depthWrite:false,
+    side:THREE.DoubleSide,opacity:1,
   }));
   wake.name='Windblade continuous pressure wake';
   wake.renderOrder=1;
-  const edge=new THREE.Mesh(crescent(tiers,{width:.23}),new THREE.MeshBasicMaterial({
-    vertexColors:true,transparent:true,opacity:tiers.steel?.96:.93,
+  const edge=new THREE.Mesh(pressureEdge(tiers),new THREE.MeshBasicMaterial({
+    vertexColors:true,transparent:true,opacity:tiers.steel?.87:.76,
     depthWrite:false,side:THREE.DoubleSide,
   }));
-  edge.name='Windblade leading cut';
+  edge.name='Windblade leading pressure front';
   edge.renderOrder=2;
   body.add(wake,edge);
-  // This rotation and scale belong to the ENTIRE sheet, not independent arcs.
-  body.rotation.z=.42;
   body.scale.setScalar((tiers.fire??0)>=1?1.5/.9:1);
   group.add(body);
   group.userData.breathe=clock=>{
-    // Subtle air-pressure pulsation without detaching the membrane.
-    wake.material.opacity=.92+.08*Math.sin(clock*8);
+    wake.material.opacity=.90+.1*Math.sin(clock*7);
   };
   return group;
 }
@@ -260,14 +244,24 @@ export class OneHitLiveEffects {
   #stepZones(snapshot,now) {
     const seen=new Set();
     for(const zone of snapshot?.oneHitBurnZones??[]){
-      if(zone.until<=now)continue;
+      if(zone.until<=now||zone.air)continue;
+      // Mid-air Fire has only suspended flames: never draw a floating
+      // scorch disc. Ground scorch matches its server-owned directional
+      // footprint, including the forward-extended Fire infusion.
       seen.add(zone.id);
       let obj=this.zones.get(zone.id);
       if(!obj){
         obj=new THREE.Group();obj.position.copy(v(zone.position));
-        const coals=new THREE.Mesh(new THREE.CircleGeometry(zone.radius,48),M(0x532d1a,.33));
+        const geometry=new THREE.CircleGeometry(zone.radius,64);
+        const positions=geometry.getAttribute('position');
+        for(let i=0;i<positions.count;i++){
+          const warp=groundFootprintWarp(positions.getX(i),-positions.getY(i),
+            zone.radius,zone.yaw);
+          positions.setXY(i,warp.x,-warp.z);
+        }
+        positions.needsUpdate=true;
+        const coals=new THREE.Mesh(geometry,M(0x532d1a,.33));
         coals.rotation.x=-Math.PI/2;coals.position.y=.042;
-        // (scorched ground only: the flames, embers and smoke on it are DisasterElementEffects', dying with the fire)
         obj.add(coals);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
