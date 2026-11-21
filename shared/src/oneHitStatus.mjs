@@ -262,6 +262,21 @@ export function blusterSeverity(status, nowSec, rules = ONE_HIT_BLUSTER) {
 }
 
 /**
+ * Gale's lasting field offers Blustered continuously but with decaying
+ * strength. Contact depth matters; a grazing footfall gives less resistance
+ * than standing in the center. A directly inflicted, stronger Blustered
+ * effect is never weakened by a lesser aura, and leaving the aura allows
+ * the remaining effect to decay normally.
+ */
+export function galeFieldBluster(status,field,contact,nowSec){
+  if(!(field?.tiers?.gale>=1)||!(contact>0))return status??null;
+  const offer=fieldStrength(field,nowSec)*clamp01(contact);
+  const old=blusterSeverity(status,nowSec);
+  if(offer<=old+0.012)return status??null;
+  return {at:nowSec,severity:offer,sourceId:field.ownerId,fieldId:field.id};
+}
+
+/**
  * A Blustered knight's fighting facing this tick: it turns toward where they look by at most the status's turn rate
  * (slowest when fresh, freeing up as it fades). The look itself (`wanted`, the camera's own yaw) is not touched.
  */
