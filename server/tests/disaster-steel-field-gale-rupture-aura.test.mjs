@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {tryUltimate,stepRoom,interruptHitActions} from '../../shared/sim/combat.mjs';
 import {ONE_HIT_RULES} from '../../shared/src/oneHitOfWondersRules.mjs';
+import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {fieldStrength,fieldSeconds,ONE_HIT_CHARGE_AURA} from '../../shared/src/oneHitStatus.mjs';
 
 const DT=1/30;
@@ -127,4 +128,33 @@ test('Steel blocks real action cancellation during finite bracing, not as perpet
  interruptHitActions(room,caster,'target',10.32,'sunder');
  assert.equal(caster.ultimateState,null,
    'after the finite genuine wind-up the caster is not permanently immune to interruption');
+});
+
+test('actual Full Steel ground slam transmits nondecaying Fire, Frost and Gale fields',()=>{
+ const {room,target}=setup({fire:2,frost:2,gale:1,steel:2});
+ assert.equal(tryUltimate(room,'caster',9),true);
+ for(let i=0;i<42;i++)tick(room,9+i*DT);
+ const slam=room.events.find(e=>e.type==='oneHitImpact'&&e.form==='ground');
+ assert.ok(slam,'real server commit creates the field, not a mocked status');
+ const field=room.oneHitFields.find(f=>f.id===slam.fieldId);
+ assert.ok(field&&field.tiers.steel===2&&field.tiers.frost===2&&field.tiers.gale===1);
+ const zone=room.oneHitBurnZones[0];
+ assert.ok(zone&&zone.steelLocked,'Full Fire burn inherits the Steel field fortification');
+ const late=field.bornAt+(field.until-field.bornAt)*.8;
+ assert.equal(fieldStrength(field,late),1,'the real field does not weaken before expiry');
+ assert.equal(fieldStrength(zone,late),1,'the real Fire damage does not weaken before expiry');
+ const snapshot=serializeSnapshot(room,10.4,'caster');
+ assert.equal(snapshot.oneHitFields[0].tiers.steel,2);
+ assert.equal(snapshot.oneHitBurnZones[0].steelLocked,true,
+   'remote client knows Full Fire should be drawn at undiminished intensity');
+ target.position={x:0,y:0,z:-2};
+ target.velocity={x:0,y:0,z:0};target.impulse={x:0,z:0};
+ const before=target.health;
+ const eventCount=room.events.length;
+ tick(room,late);
+ const licks=room.events.slice(eventCount).filter(e=>
+   e.type==='damage'&&e.source==='one_hit_ground_fire'&&e.victimId===target.id);
+ assert.ok(licks.length>0,'late Full Fire deals genuine periodic damage');
+ assert.equal(licks[0].amount,3,'Full Steel preserves the FULL three-point lick');
+ assert.ok(target.health<before);
 });
