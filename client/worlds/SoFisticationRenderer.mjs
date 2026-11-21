@@ -107,7 +107,7 @@ export class SoFisticationRenderer {
    this.environment=new THREE.DataTexture(sky,32,16,THREE.RGBAFormat);this.environment.mapping=THREE.EquirectangularReflectionMapping;this.environment.colorSpace=THREE.SRGBColorSpace;this.environment.needsUpdate=true;
    this.model.traverse(o=>{
     if(o.name)this.nodes.set(o.name,o);
-    if(o.isMesh){o.castShadow=o.receiveShadow=true;let id='hull';
+    if(o.isMesh&&!o.userData.hiddenByArticulatedGraft){o.castShadow=o.receiveShadow=true;let id='hull';
      // GLTFLoader splits multi-material objects into child meshes. Component
      // identity belongs to the named authored parent, not a generated child name.
      for(let owner=o;owner&&owner!==this.model;owner=owner.parent){
