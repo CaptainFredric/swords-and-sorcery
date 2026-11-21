@@ -31,7 +31,7 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitGlide, oneHitChargingLightning, oneHitChargeIntent, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
-  blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
+  blusterSeverity, blusteredFacing, galeFieldBluster, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
   fireGaleShove, groundFootprintRadius, groundFootprintContains,
   directionalBlastRadius, terminalBlastRadius, terminalBlastContains, airFieldSeconds } from '../src/oneHitStatus.mjs';
 import {
@@ -2431,6 +2431,7 @@ function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REAC
     id,ownerId:caster.id,position,radius,
     ...(Number.isFinite(yaw)?{yaw}:{}),...(air?{air:true,direction:{...direction}}:{}),
     bornAt:nowSec,nextAt:nowSec+(air?.3:.5),
+    ...(tiers.steel===2?{steelLocked:true}:{}),
     until:nowSec+(air?airFieldSeconds(tiers):fieldSeconds(tiers)),
   });
 }
@@ -2527,6 +2528,19 @@ function stepOneHitFields(room,dt,nowSec,world) {
           type:'oneHitFieldShaken',playerId:player.id,fieldId:field.id,
           strength:Math.round(offered*100)/100,at:nowSec,
         });
+      }
+      if(field.tiers.gale>=1){
+        // Gale is a REAL persistent aura like Frost and Conduct: standing
+        // inside keeps Blustered applied, but the offered rotation penalty
+        // weakens with time and distance from the field's edge. A direct
+        // Gale hit keeps priority until this field actually offers more.
+        const old=player.blustered;
+        player.blustered=galeFieldBluster(old,field,contact,nowSec);
+        if(player.blustered!==old&&old?.fieldId!==field.id)
+          room.events.push({type:'oneHitFieldBlustered',playerId:player.id,
+            fieldId:field.id,sourceId:field.ownerId,
+            strength:Math.round(blusterSeverity(player.blustered,nowSec)*100)/100,
+            at:nowSec});
       }
       if(field.tiers.frost===2)player.oneHitFrostSlow=mergeFrostSlow(player.oneHitFrostSlow,
         {until:nowSec+ONE_HIT_FIELD.frostLingerSec,depth:fieldFrostDepth(strength,contact)},nowSec);
@@ -2758,6 +2772,30 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
   oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
     air?null:yaw,air?wave.direction:null);
+  // The terminal blast is a real SECOND ground strike when it contacts
+  // solid terrain. Use the established Sunder rupture simulation with the
+  // projectile's flight yaw, never the caster's later facing. Full Steel
+  // expands it into twelve radial fissures; without Steel use the ordinary
+  // four-arm, forward-fanned rupture. Air detonations cannot fracture dirt.
+  // Existing moving-wave victims have already paid the single contact for
+  // this cast; the terminal rupture must not arbitrarily charge them again.
+  if(groundBlast&&floor!==null){
+    const waveSteel=wave.tiers.steel??0;
+    const oldYaw=caster.yaw;
+    const before=room.ruptures?.length??0;
+    try{
+      caster.yaw=yaw;
+      groundStrike(room,caster,2,{
+        point:{x:point.x,y:floor,z:point.z},floor:{y:floor}
+      },nowSec,world,waveSteel>=1?{
+        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel,terminalGale:true}
+      }:{oneHit:{steel:0,terminalGale:true}});
+    }finally{caster.yaw=oldYaw;}
+    if((room.ruptures?.length??0)>before){
+      const rupture=room.ruptures.at(-1);
+      rupture.caught.push(...wave.hitIds);
+    }
+  }
   // The shorter terminal blast inherits the same forward-biased reach as
   // the grounded slam, without acquiring the SLAM's larger base radius.
   // Aerial detonations leave suspended pressure and elemental effects, not
@@ -3395,7 +3433,9 @@ function groundStrike(room, player, strikeIndex, met, nowSec, world, { through =
   room.events.push({
     type: 'rupture', id: rupture.id, ownerId: player.id, origin: point, speed: RUPTURE.speed,
     fissures: fissures.map((fissure) => ({ dir: fissure.dir, length: fissure.length, core: fissure.core })),
-    ...(oneHit?.steel ? { radial: true, steel: oneHit.steel } : {}), at: nowSec,
+    ...(oneHit?.steel||oneHit?.terminalGale ?
+      { radial:true,steel:oneHit.steel??0,
+        ...(oneHit?.terminalGale?{terminalGale:true}:{}) } : {}), at: nowSec,
   });
 }
 

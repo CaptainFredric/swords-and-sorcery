@@ -17,7 +17,7 @@ export function setupUltimateKnight(actor,nowSec,previous=null){
   actor.name='The Ultimate Knight';
   actor.botProfile='rival';
   const choice=KNIGHT_ULTIMATES.includes(previous?.selection)?previous.selection:'cycle';
-  const behavior=KNIGHT_BEHAVIORS.includes(previous?.behavior)?previous.behavior:'follow';
+  const behavior=KNIGHT_BEHAVIORS.includes(previous?.behavior)?previous.behavior:'stay';
   const stages=normalizeInfusions(previous?.stages??emptyInfusions());
   actor.ultimate=actor.startingUltimate=choice==='cycle'?CYCLE[0]:choice;
   actor.spell=actor.startingSpell=PREPARED[0];
@@ -27,6 +27,7 @@ export function setupUltimateKnight(actor,nowSec,previous=null){
   actor.ultimateKnight={cycle:0,tracked:null,committed:null,refillAt:nowSec,
     demonstration:null,castSlot:-1,dashSlot:-1,spellIndex:0,navigation:{},
     nextSwordAt:nowSec+6,swordReleaseAt:null,
+    nextTurnAt:nowSec,
     selection:choice,behavior,stages,anchor:{...actor.position}};
   actor.practiceOneHit={enabled:true,stages:{...stages}};
 }
@@ -116,16 +117,19 @@ function demonstrateChivalry(room, actor, nowSec, world) {
   const dy = target.position.y + postureOf(target).center - actor.position.y - postureOf(actor).eye + 0.1;
   const distance = Math.hypot(dx, dz); const length = Math.hypot(dx, dy, dz) || 1;
   const direction = { x: dx / length, y: dy / length, z: dz / length };
-  actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.asin(direction.y);
+  const aimYaw=Math.atan2(-dx,-dz),aimPitch=Math.asin(direction.y);
+  // Never teleport the body's facing or pitch on every teaching-AI
+  // tick. The combat movement step owns rotation, Guard arc, and Blustered
+  // slowdown, while a cast uses its explicit physical target vector.
   const age = Math.max(0, nowSec - state.commitAt); const loop = Math.floor(age / 3); const phase = age % 3;
   const guard = phase < 0.8 || (phase >= 1.7 && phase < 2.3);
   const sword = distance < 3.3 && phase < 2.5;
   const way = wayToward(world, actor, target, demo.navigation, nowSec);
-  const movementYaw = way ? Math.atan2(-(way.x - actor.position.x), -(way.z - actor.position.z)) : actor.yaw;
+  const movementYaw = way ? Math.atan2(-(way.x - actor.position.x), -(way.z - actor.position.z)) : aimYaw;
   const relative = movementYaw - actor.yaw;
   const forward = demo.behavior==='stay'?0:distance > 2.6 ? 0.55 : distance < 1.3 ? -0.3 : 0;
   actor.input = { forward: forward * Math.cos(relative), right: -forward * Math.sin(relative), jump: false,
-    attack: sword, guard, yaw: actor.yaw, pitch: actor.pitch };
+    attack: sword, guard, yaw: aimYaw, pitch: aimPitch };
   if (guard !== actor.guardHeld || (guard && !actor.guarding)) setGuard(room, actor.id, guard, nowSec);
   if (sword && !actor.attackHeld) beginAttack(room, actor.id, nowSec);
   else if (!sword && actor.attackHeld) endAttack(room, actor.id, nowSec);
@@ -152,20 +156,37 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
     if(actor.ultimate==='one_hit_of_wonders')
       actor.practiceOneHit={enabled:true,stages:{...demo.stages}};
   }
-  // The Full Lightning tier must RELEASE its held teleport. An ordinary
-  // player releases the button; the teaching opponent uses the same command.
+  // A held Lightning drill MUST release its actual player-controlled
+  // action. Previously Half Lightning was never released (waiting the full
+  // 1.75s maximum), and Full Lightning always charged 0.55s, blinking far
+  // away from the stationary drill and appearing impossible to hit.
+  // Stay demonstrates a short genuine blink and returns to its own post;
+  // Follow demonstrates a longer aimed travel without fake teleport snaps.
   const state=actor.ultimateState;
-  if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'&&
-     Number.isFinite(state.teleportHoldAt)&&!state.teleportReleased&&
-     nowSec-state.teleportHoldAt>=.55)
-    releaseOneHitCharge(room,actor.id,nowSec);
+  if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'){
+    const teleport=Number.isFinite(state.teleportHoldAt)&&!state.teleportReleased;
+    const partial=Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased;
+    const releaseAt=teleport?state.teleportHoldAt+(demo.behavior==='stay'?.14:.42):
+      partial?state.partialLightningReadyAt+.015:Infinity;
+    if((teleport||partial)&&nowSec>=releaseAt)
+      releaseOneHitCharge(room,actor.id,nowSec,
+        {yaw:actor.input?.yaw??actor.yaw,pitch:actor.input?.pitch??actor.pitch});
+  }
   if(demo.behavior==='stay'&&!actor.ultimateState&&
      actor.prowess>=PROWESS.full&&nowSec>=demo.refillAt)
     tryUltimate(room,actor.id,nowSec,{held:true});
   if (activeUltimate(actor, nowSec)?.id === 'chivalry') {
     demonstrateChivalry(room, actor, nowSec, world);
   } else {
-    if (demo.demonstration) { demo.demonstration = null; actor.ai = null; }
+    if(demo.demonstration){
+      demo.demonstration=null;actor.ai=null;
+      // Chivalry legitimately combines simultaneous sword, Guard, spells
+      // and Dash. Its held inputs must NOT leak into a later standalone
+      // Ultimate, where they previously caused flickering and permanent
+      // defensive behavior inconsistent with the visible animation.
+      if(actor.guardHeld||actor.guarding)setGuard(room,actor.id,false,nowSec);
+      if(actor.attackHeld)endAttack(room,actor.id,nowSec);
+    }
     // This is a dedicated ULTIMATE drill, not an ordinary spellblade bot.
     // Do not invoke the generic controller: it autonomously casts spells,
     // sword-spams and selects tactics unrelated to the chosen Ultimate.
@@ -175,15 +196,15 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
     if(target){
       const dx=target.position.x-actor.position.x,dz=target.position.z-actor.position.z;
       const dy=target.position.y+postureOf(target).center-actor.position.y-postureOf(actor).eye;
-      actor.yaw=Math.atan2(-dx,-dz);
-      actor.pitch=Math.atan2(dy,Math.max(.01,distance));
+      const aimYaw=Math.atan2(-dx,-dz);
+      const aimPitch=Math.atan2(dy,Math.max(.01,distance));
       const route=demo.behavior==='follow'&&distance>2.6?
         wayToward(world,actor,target,demo.navigation,nowSec):null;
       const movementYaw=route?
-        Math.atan2(-(route.x-actor.position.x),-(route.z-actor.position.z)):actor.yaw;
+        Math.atan2(-(route.x-actor.position.x),-(route.z-actor.position.z)):aimYaw;
       const relative=movementYaw-actor.yaw;
       const advance=demo.behavior==='follow'&&distance>3 ? .65:0;
-      actor.input={...actor.input,yaw:actor.yaw,pitch:actor.pitch,
+      actor.input={...actor.input,yaw:aimYaw,pitch:aimPitch,
         forward:advance*Math.cos(relative),right:-advance*Math.sin(relative),
         sprint:false,jump:false,guard:false,attack:false};
       if(demo.behavior==='follow'&&distance<16&&!actor.ultimateState&&
@@ -223,6 +244,16 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
         actor.input={...actor.input,forward:0,right:0,sprint:false,jump:false};
       }
     }
+    // Defend in actual, readable windows when the drill is idle and an
+    // opponent comes near. Guard is NOT permanent immunity, and cannot
+    // secretly continue through Disaster's physical startup/active phases.
+    // Follow can use the same defense; Stay simply never pursues its target.
+    const near=Boolean(target&&distance<4.2&&actor.guardStamina>12);
+    const defend=near&&!actor.ultimateState&&!actor.pendingSpell&&
+      (Math.floor(nowSec/1.2)%3===0);
+    if(defend!==Boolean(actor.guardHeld||actor.guarding))
+      setGuard(room,actor.id,defend,nowSec);
+    actor.input.guard=defend;
   }
   reconcile(actor, nowSec);
 }

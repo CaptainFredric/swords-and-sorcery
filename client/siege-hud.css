@@ -208,24 +208,40 @@
 .flight-brace-widget[data-state="destroyed"] .flight-brace-track i {background:#ae6358;}
 .flight-brace-widget:not([data-state="destroyed"]) .flight-brace-panel {
   stroke:color-mix(in srgb,#e7ede9 calc(var(--brace-steel) * 100%),#9aa9ae);}
-.flight-rotor-mini {display:none;margin-top:4px;color:#b8d9d8;
-  font:800 8px/1 'Alegreya Sans',sans-serif;letter-spacing:.04em;}
+/* Rotor is a destructible metal assembly, NOT the thin cyan stamina meter.
+   A faceted, taller steel instrument remains legible beside the side braces. */
+.flight-rotor-mini {display:none;margin-top:5px;color:#d2d7d5;
+  font:900 8px/1 'Alegreya Sans',sans-serif;letter-spacing:.055em;}
 .machine-gauge[data-kind="flight"] .flight-rotor-mini {display:flex;align-items:center;gap:6px;}
-.flight-rotor-mini span {flex:none;white-space:nowrap;}
-.flight-rotor-track {flex:1;height:4px;border:1px solid #37545a;background:#101818;overflow:hidden;}
+.flight-rotor-mini span {flex:none;white-space:nowrap;text-shadow:0 1px 1px #0b1011;}
+.flight-rotor-mini output {color:#edf0eb;font-variant-numeric:tabular-nums;}
+.flight-rotor-track {position:relative;flex:1;box-sizing:border-box;min-width:0;height:9px;
+  border:1px solid #929c9e;background:linear-gradient(180deg,#161c1e,#283135 45%,#14191b);
+  box-shadow:inset 0 1px 2px #030607,0 1px 0 #e2e8e453;overflow:hidden;}
+.flight-rotor-track::after {content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(105deg,transparent 0 12px,#10191b24 12px 14px);
+  box-shadow:inset 0 1px 0 #f7fcf263,inset 0 -1px 0 #101719b3;}
 .flight-rotor-track i {display:block;width:100%;height:100%;
-  background:linear-gradient(#95dce3,#437e8d);transition:width .14s linear;}
+  background:linear-gradient(180deg,#edf1ea 0%,#abb5b6 24%,#6d7b81 49%,#c5cecb 70%,#657278 100%);
+  box-shadow:inset 0 1px #ffffffb0,inset 0 -1px #29383b;
+  transition:width .14s linear;}
+.machine-gauge[data-kind="flight"][data-component-state="destroyed"] .flight-rotor-track {
+  border-color:#775d57;box-shadow:inset 0 1px 2px #080909;}
+.machine-gauge[data-kind="flight"][data-component-state="destroyed"] .flight-rotor-track i {
+  background:linear-gradient(#9b7771,#514947);}
 @container app (max-width:780px) {
   .machine-gauge[data-kind="flight"] .flight-brace-widget {flex-basis:49px;padding:1px 2px 3px;}
   .flight-brace-arch {max-height:24px;}
   .flight-brace-reading {font-size:7px;}
   .flight-rotor-mini {font-size:7px;gap:3px;}
+  .flight-rotor-track {height:8px;}
 }
 @container app (max-width:540px) {
   .machine-gauge[data-kind="flight"] .flight-brace-widget {flex-basis:40px;}
   .flight-brace-arch {max-height:21px;}
   .flight-brace-reading {font-size:6px;}
   .flight-brace-track {height:3px;margin-top:1px;}
+  .flight-rotor-track {height:7px;}
 }
 @media(prefers-reduced-motion:reduce) {
  .flight-brace-track i,.flight-rotor-track i {transition:none;}

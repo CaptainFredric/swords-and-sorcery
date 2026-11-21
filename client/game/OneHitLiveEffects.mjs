@@ -252,21 +252,37 @@ export class OneHitLiveEffects {
       let obj=this.zones.get(zone.id);
       if(!obj){
         obj=new THREE.Group();obj.position.copy(v(zone.position));
-        const geometry=new THREE.CircleGeometry(zone.radius,64);
-        const positions=geometry.getAttribute('position');
-        for(let i=0;i<positions.count;i++){
-          const warp=groundFootprintWarp(positions.getX(i),-positions.getY(i),
-            zone.radius,zone.yaw);
-          positions.setXY(i,warp.x,-warp.z);
-        }
-        positions.needsUpdate=true;
-        const coals=new THREE.Mesh(geometry,M(0x532d1a,.33));
+        // The old dark CircleGeometry barely read as a burning patch and
+        // hid the 32% forward extension under scattered Fire particles.
+        // Both a faint heated interior and a glowing perimeter are now
+        // warped to the SAME real 4.6m + directional game collision rim.
+        const warpGround=(geometry)=>{
+          const positions=geometry.getAttribute('position');
+          for(let i=0;i<positions.count;i++){
+            const warp=groundFootprintWarp(positions.getX(i),-positions.getY(i),
+              zone.radius,zone.yaw);
+            positions.setXY(i,warp.x,-warp.z);
+          }
+          positions.needsUpdate=true;
+          geometry.computeBoundingSphere();
+          return geometry;
+        };
+        const coals=new THREE.Mesh(
+          warpGround(new THREE.CircleGeometry(zone.radius,64)),
+          M(0x70402a,.37));
         coals.rotation.x=-Math.PI/2;coals.position.y=.042;
-        obj.add(coals);
+        coals.name='Full Fire elongated heated ground';
+        const rim=new THREE.Mesh(
+          warpGround(new THREE.RingGeometry(zone.radius*.79,zone.radius,64)),
+          M(0xff742b,.29));
+        rim.rotation.x=-Math.PI/2;rim.position.y=.053;
+        rim.name='Full Fire true outer burn boundary';
+        obj.add(coals,rim);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
       const left=clamp((zone.until-now)/Math.max(.01,zone.until-zone.bornAt),0,1);
-      obj.children[0].material.opacity=.2+.3*left;
+      obj.children[0].material.opacity=.19+.18*left;
+      obj.children[1].material.opacity=.07+.29*left;
     }
     for(const [id,obj] of this.zones)if(!seen.has(id)){this.#discard(obj);this.zones.delete(id);}
   }

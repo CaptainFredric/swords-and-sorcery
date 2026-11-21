@@ -158,8 +158,15 @@ const clamp01 = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? valu
 /** What is left of a field at `nowSec` (1 as it lands, 0 once it has run down). */
 export function fieldStrength(field, nowSec) {
   if (!field) return 0;
-  const life = (field.until ?? field.bornAt + ONE_HIT_FIELD.seconds) - field.bornAt;
-  return life > 0 ? clamp01(1 - (nowSec - field.bornAt) / life) : 0;
+  const until=field.until??field.bornAt+ONE_HIT_FIELD.seconds;
+  if(!(until>field.bornAt)||nowSec>=until)return 0;
+  // Full Steel stabilizes the entire RESIDUAL FIELD, rather than merely
+  // improving a Steel-only status. Fire, Frost, Gale, Lightning, Shaken and
+  // the Guard-stamina cost remain at their initial field strength until the
+  // unchanged, explicit expiration. Already-afflicted enemies keep their
+  // individual normal status timers; this does not freeze their clocks.
+  if(field.steelLocked||field.tiers?.steel===2)return 1;
+  return clamp01(1-(nowSec-field.bornAt)/(until-field.bornAt));
 }
 
 /**
@@ -259,6 +266,21 @@ export function fieldConduct(field, targetId, contact, nowSec, rules = ONE_HIT_F
 export function blusterSeverity(status, nowSec, rules = ONE_HIT_BLUSTER) {
   if (!status) return 0;
   return clamp01(status.severity ?? 1) * clamp01(1 - (nowSec - status.at) / rules.seconds);
+}
+
+/**
+ * Gale's lasting field offers Blustered continuously but with decaying
+ * strength. Contact depth matters; a grazing footfall gives less resistance
+ * than standing in the center. A directly inflicted, stronger Blustered
+ * effect is never weakened by a lesser aura, and leaving the aura allows
+ * the remaining effect to decay normally.
+ */
+export function galeFieldBluster(status,field,contact,nowSec){
+  if(!(field?.tiers?.gale>=1)||!(contact>0))return status??null;
+  const offer=fieldStrength(field,nowSec)*clamp01(contact);
+  const old=blusterSeverity(status,nowSec);
+  if(offer<=old+0.012)return status??null;
+  return {at:nowSec,severity:offer,sourceId:field.ownerId,fieldId:field.id};
 }
 
 /**
