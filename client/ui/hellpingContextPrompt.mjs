@@ -27,10 +27,10 @@ export function hellpingContextPrompt(local,snapshot,bindings={siegeSkill:['KeyU
    (local.id===b.operatorId?local:null);
  const open=b.hellping?.phase==='open';
  if(local.id===b.operatorId&&local.operatingRamId===b.id){
-   if(b.hellping?.phase==='grasp')return {label:'ENEMY SECURED',detail:'CRUSHING · '+skillKey+' RELEASE',kind:'enemy'};
-   if(b.hellping?.phase==='transport')return {label:'ALLY ABOARD',detail:skillKey+' RELEASE',kind:'ally'};
+   if(b.hellping?.phase==='grasp')return {label:'ENEMY SECURED',detail:'CRUSHING · '+skillKey+' RELEASE',kind:'enemy',action:'siegeSkill'};
+   if(b.hellping?.phase==='transport')return {label:'ALLY ABOARD',detail:skillKey+' RELEASE',kind:'ally',action:'siegeSkill'};
    if(b.hellping?.phase==='ledgePull')return {label:'HAND ANCHORED',detail:'PULLING UP',kind:'ledge'};
-   if(b.hellpingLedge)return {label:skillKey+' · GRAB LEDGE',detail:'PULL UP',kind:'ledge'};
+   if(b.hellpingLedge)return {label:skillKey+' · GRAB LEDGE',detail:'PULL UP',kind:'ledge',action:'siegeSkill'};
    if(['vault','release'].includes(b.hellping?.phase)||
      (!open&&(b.skill.readyAt??0)>now+.01))return null;
    const candidates=(snapshot?.players??[])
@@ -38,13 +38,13 @@ export function hellpingContextPrompt(local,snapshot,bindings={siegeSkill:['KeyU
      .sort((a,c)=>a.distance-c.distance||String(a.p.id).localeCompare(String(c.p.id)));
    const enemy=candidates.find(c=>!allies(operator,c.p)&&c.distance<=HELLPING.reach);
    if(enemy)return open
-     ?{label:skillKey+' · SEIZE',detail:enemy.p.guarding?'GUARD MAY RESIST':'ENEMY IN REACH',kind:'enemy'}
-     :{label:skillKey+' · OPEN HAND',detail:'ENEMY NEARBY',kind:'enemy'};
+     ?{label:skillKey+' · SEIZE',detail:enemy.p.guarding?'GUARD MAY RESIST':'ENEMY IN REACH',kind:'enemy',action:'siegeSkill'}
+     :{label:skillKey+' · OPEN HAND',detail:'ENEMY NEARBY',kind:'enemy',action:'siegeSkill'};
    const ally=candidates.find(c=>allies(operator,c.p)&&c.distance<=3);
    if(ally&&open)return {label:'ALLY MAY BOARD',detail:'ALLY PRESSES '+interactKey,kind:'ally'};
    return null;
  }
  if(!operator||!open||!isCandidate(local,b)||!allies(operator,local)||
      palmDistance(b,local)>3)return null;
- return {label:interactKey+' · BOARD HAND',detail:'ALLIED TRANSPORT',kind:'ally'};
+ return {label:interactKey+' · BOARD HAND',detail:'ALLIED TRANSPORT',kind:'ally',action:'interact'};
 }
