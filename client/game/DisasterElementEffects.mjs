@@ -742,10 +742,13 @@ export class DisasterElementEffects {
       const incoming=new THREE.Vector3(p.x+rand(-1.5,1.5),p.y+15,p.z+rand(-1.5,1.5));
       const through=new THREE.Vector3(p.x,floor,p.z);
       const ending=trace?.descends?new THREE.Vector3(trace.end.x,trace.end.y,trace.end.z):through;
-      this.#bolt(incoming,ending,{width:full?.155:.103,ttl:trace?.descends?.43:.26,
-        jag:.08,forks:3,steps:11,via:trace?.descends?through:null,
-        maxSway:trace?.descends?.8:Infinity,
-        maxForkReach:trace?.descends?2.5:Infinity});
+      this.#bolt(incoming,ending,{
+        width:full ? .155 : .103,
+        ttl:trace?.descends ? .43 : .26,
+        jag:.08,forks:3,steps:11,via:trace?.descends ? through : null,
+        maxSway:trace?.descends ? .8 : Infinity,
+        maxForkReach:trace?.descends ? 2.5 : Infinity,
+      });
       const forks = this.#n(full ? 11 : 7);
       for (let i = 0; i < forks; i += 1) {
         const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * rim(a) * (full ? 1.15 : 0.8);
