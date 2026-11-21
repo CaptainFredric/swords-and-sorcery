@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {stableFlightCockpitEye,flightReticleOrigin,finiteFlightLook,FLIGHT_VISOR} from './flightCameraSafety.mjs';
+import {flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 
 const m=(pitch=0,height=0,heading=0)=>({
   id:'flight-1',x:1,y:height,z:2,heading,runPitch:pitch,
@@ -84,4 +85,25 @@ test('reticle convergence uses the latest Flight machine eye, not last frame on 
    'third-person boom stays at its collision-clipped camera');
  assert.equal(flightReticleOrigin(after,oldEye,{sight:true,thirdBlend:.5}),oldEye,
    'a returning Dash boom retains the actual transitional camera');
+});
+
+test('bolts physically converge on current crosshair targets across a moving Flight carriage',()=>{
+ const machine=m(0,6,.34);
+ for(const [x,z] of [[0,0],[.7,-.35],[-.9,.45]]){
+   machine.x=x;machine.z=z;
+   const oldEye={x:x-.9,y:7.555,z:z+.8};
+   const origin=flightReticleOrigin(machine,oldEye,{sight:true,thirdBlend:0});
+   const yaw=machine.heading,pitch=.02;
+   const fwd={x:-Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),
+     z:-Math.cos(yaw)*Math.cos(pitch)};
+   for(const range of [4,12,40]){
+     const target={x:origin.x+fwd.x*range,y:origin.y+fwd.y*range,z:origin.z+fwd.z*range};
+     const solved=flightRepeaterAim(machine,{yaw,pitch,siegeTarget:target});
+     const muzzle=flightMuzzle(machine,solved),dir=flightDirection(machine,solved);
+     const delta={x:target.x-muzzle.x,y:target.y-muzzle.y,z:target.z-muzzle.z};
+     const forward=delta.x*dir.x+delta.y*dir.y+delta.z*dir.z;
+     const miss=Math.hypot(delta.x-forward*dir.x,delta.y-forward*dir.y,delta.z-forward*dir.z);
+     assert.ok(miss<.012,'real bolt must cross reticle at '+range+'m, miss '+miss);
+   }
+ }
 });
