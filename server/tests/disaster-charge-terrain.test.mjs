@@ -203,3 +203,45 @@ test('Base-field rock fracture telegraph persists, fades with field strength and
   assert.match(effects,/if \(entry\.rock\) this\.#disposeIce\(entry\.rock\)/);
   assert.match(effects,/const radius=field\.radius/);
 });
+
+test('Gale terminal ground AOE hurts an off-line target, but Guard blocks HP while statuses still reach them',()=>{
+  const encounter=guard=>{
+    const {room,a,b}=setup({gale:2,lightning:1});
+    b.position={x:6.2,y:0,z:1.45};b.health=100;
+    b.guarding=guard;b.guardStartedAt=0;b.yaw=-.4;b.guardStamina=100;
+    room.oneHitWaves=[{id:'radial-contact',ownerId:a.id,position:{x:5,y:.65,z:0},
+      direction:{x:1,y:0,z:0},tiers:{gale:2,lightning:1},bornAt:9,distance:5,hitIds:[]}];
+    const terrain={...world,solids:[{id:'wall',center:[7,2,0],size:[.2,6,10]}]};
+    tick(room,9,9.3,terrain);
+    const impact=room.events.find(e=>e.type==='oneHitImpact'&&e.impactId==='radial-contact');
+    assert.ok(impact?.groundBlast,'the wave really detonates against terrain');
+    assert.ok(impact.radius>=2.2);
+    return {room,b};
+  };
+  const bare=encounter(false);
+  assert.ok(bare.b.health<100,'side-step misses the travelling blade but not its circular ground explosion');
+  assert.ok(bare.b.electricalBacklash,'the missed blade still delivers Conduct');
+  const guarded=encounter(true);
+  assert.equal(guarded.b.health,100,'Guard prevents the radial HP hit');
+  assert.ok(guarded.b.electricalBacklash,'a guarded victim still feels elemental Conduct');
+  assert.ok(guarded.b.blustered,'radial pressure still Blusters through Guard');
+});
+
+test('Gale+Lightning sky burst sends one independent bolt straight to distant ground without other infusions',()=>{
+  const {room,a,b}=setup();
+  b.position={x:6.1,y:0,z:.8};b.health=100;
+  const tiers={fire:0,frost:0,gale:2,lightning:1,steel:0};
+  room.oneHitWaves=[{id:'sky-bolt',ownerId:a.id,position:{x:5,y:7,z:0},
+    direction:{x:1,y:0,z:0},tiers,bornAt:9,distance:5,hitIds:[]}];
+  const wall={...world,solids:[{id:'high-wall',center:[7,5,0],size:[.2,10,10]}]};
+  tick(room,9,9.3,wall);
+  const impact=room.events.find(e=>e.type==='oneHitImpact'&&e.impactId==='sky-bolt');
+  const bolt=room.events.find(e=>e.type==='oneHitLightningGroundStrike'&&e.waveId==='sky-bolt');
+  assert.ok(impact?.air,'blade explodes in free air');
+  assert.ok(bolt,'lightning falls from the airborne detonation to solid ground');
+  assert.ok(bolt.origin.y-bolt.point.y>5,'ground height is independent of blast height');
+  assert.equal(bolt.point.y,0);
+  assert.ok(b.health<100,'target below the wave takes one independent lightning strike');
+  assert.ok(b.electricalBacklash,'it carries Shocking Conduct');
+  assert.ok(!room.events.some(e=>e.type==='rupture'),'an air blast does not split the ground merely because lightning travels down');
+});
