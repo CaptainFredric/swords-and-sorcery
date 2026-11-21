@@ -115,6 +115,7 @@ export class TouchControls {
     this.flightLowerSources = new Set();
     this.flightRailPointer = null;
     this.jumpHeld = false;
+    this.flightJumpDownAt = null;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
     // Raise/Lower fingers tilt their front by default. An outward swipe
@@ -495,6 +496,7 @@ export class TouchControls {
     this.crouchTap = null;
     this.viewGesture = null;
     this.jumpHeld = false;
+    this.flightJumpDownAt = null;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
     this.ramTiltGestures.clear();
@@ -514,13 +516,19 @@ export class TouchControls {
     const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&!g.lift);
     const raise=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.lift);
     const lower=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.lift);
+    // A short mounted Jump is one Hop. After 420ms, the same held
+    // thumb controls Rise; the left stick remains exclusively movement.
+    const ritualJump=Boolean(this.ritual?.startedOnJump&&!this.ritual.completed&&
+      this.ritual.index===0&&this.ritual.segmentProgress<.08);
+    const heldFlightJump=Boolean(this.flightMounted&&this.flightJumpDownAt!=null&&
+      (this.jumpHeld||ritualJump)&&performance.now()-this.flightJumpDownAt>=420);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.ramMounted?false:
-        this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
-      flightRise: Boolean(this.flightMounted && this.flightRiseHeld),
-      flightLower: Boolean(this.flightMounted && this.flightLowerHeld),
+        !this.flightMounted&&(this.jumpHeld || (!this.inspectionFlight && performance.now() < this.jumpUntil)),
+      flightRise: Boolean(this.flightMounted&&(this.flightRiseHeld||heldFlightJump)),
+      flightLower: Boolean(this.flightMounted&&this.flightLowerHeld&&!heldFlightJump),
       ramRaise: Boolean(this.ramMounted && raise),
       ramLower: Boolean(this.ramMounted && lower),
       ramPitchUp: Boolean(this.ramMounted && pitchUp),
@@ -1229,6 +1237,7 @@ export class TouchControls {
     this.#clearValkyrieRitual();
     event.preventDefault();
     try{this.layer.setPointerCapture?.(event.pointerId);}catch{}
+    this.flightJumpDownAt=performance.now();
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
       this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),
       startedOnJump:true,startPoint:point};
@@ -1283,7 +1292,7 @@ export class TouchControls {
       this.valkyrieStatus.textContent='ᛞ · VALKYRIE!';
     }
     // Show the partial or complete stroke briefly AFTER the thumb lifts.
-    this.ritual=null;this.ritualVisual=g;
+    this.ritual=null;this.flightJumpDownAt=null;this.ritualVisual=g;
     this.#paintValkyrieRitual();
     if(this.ritualGlowTimer!==null)clearTimeout(this.ritualGlowTimer);
     this.ritualGlowTimer=setTimeout(()=>{
@@ -1647,6 +1656,8 @@ export class TouchControls {
     }
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
+        this.jumpHeld=true;
+        this.flightJumpDownAt=performance.now();
         this.input.flightHop?.();
       } else {
         this.jumpHeld = true;
@@ -1710,7 +1721,10 @@ export class TouchControls {
         this.input.flightUltimate?.(false, `touch:${pointerId}`);
       } else this.input.ultimateRelease?.(`touch:${pointerId}`,cancelled);
     }
-    if (action === 'jump') this.jumpHeld = false;
+    if (action === 'jump') {
+      this.jumpHeld = false;
+      this.flightJumpDownAt = null;
+    }
     if(action==='crouch'&&this.ramMounted)
       this.ramLowerHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='crouch'&&(this.inspectionFlight || this.flightMounted))this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
