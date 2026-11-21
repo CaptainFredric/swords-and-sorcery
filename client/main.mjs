@@ -3102,7 +3102,7 @@ $('#practice-spellblade').addEventListener('click', () => socket.practiceSpawnDu
 const KNIGHT_DRILL_KEY='ss-practice-ultimate-knight-drill-v1';
 const knightElements=['fire','frost','gale','lightning','steel'];
 const knightConfigPanel=$('#practice-ultimate-knight-config');
-const knightDrillDefaults=()=>({selection:'cycle',behavior:'follow',
+const knightDrillDefaults=()=>({selection:'cycle',behavior:'stay',
   stages:Object.fromEntries(knightElements.map(id=>[id,0]))});
 function readSavedKnightDrill(){
   let raw=null;
