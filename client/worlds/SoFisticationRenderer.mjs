@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
 import {graftArticulatedFist} from './soFistArticulatedHand.mjs';
-import {createFlickThumbRestraint,restrainFlickThumb} from './soFistThumbRestraint.mjs';
+import {createFlickThumbRestraint,restrainFlickThumb,createHellpingThumbRestraint,restrainHellpingThumb} from './soFistThumbRestraint.mjs';
 import {ramWreckClip} from './flightAnimationState.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
@@ -131,6 +131,7 @@ export class SoFisticationRenderer {
    this.availableClips=new Set(gltf.animations.map(a=>a.name));
    this.animation=new MachineAnimationComposition(this.model,gltf.animations);
    this.flickThumbParts=createFlickThumbRestraint(this.model,gltf.animations);
+   this.hellpingThumbParts=createHellpingThumbRestraint(this.v26HandInstalled?this.model:null);
    // New elevation pivots are deliberately NOT controlled by an animation
    // clip. Capture their rests once: additive per-frame lifting would drift.
    this.liftRest=new Map(['Upper_Ram_Lift','Upper_Elevation_Pivot',
@@ -239,6 +240,7 @@ export class SoFisticationRenderer {
        clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
      }
      this.animation.sample({clip,time,loop},handTrack);
+     restrainHellpingThumb(this.hellpingThumbParts);
    }
    this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
    for(let i=0;i<this.wheels.length;i++){
