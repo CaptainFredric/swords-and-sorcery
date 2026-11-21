@@ -71,14 +71,33 @@ try{
     'wave.position.x+=4;wave.position.y+=1;wave.updateWorldMatrix(true,true);',
     'const post=bolt?.getWorldPosition(position.clone());',
     'const tracks=parented&&Math.abs(post.x-pre.x-4)<1e-5&&Math.abs(post.y-pre.y-1)<1e-5;',
+    // Inspect the ACTUAL THREE geometry: the thick sky bolt must pass through
+    // the airborne Gale explosion and keep descending to the terrain / void.
+    'const visualProofs=[];',
+    'for(const destination of [{label:"ground",lightningGroundPoint:{x:7,y:0,z:2}},{label:"void",lightningVoidPoint:{x:7,y:-230,z:2}}]){',
+    'const before=effects.bolts.length;',
+    'effects.impact({type:"oneHitImpact",impactId:"long-sky-"+destination.label,point:{x:7,y:160,z:2},form:"aerial",groundBlast:false,tiers:{gale:2,lightning:1},radius:2.2,direction:{x:1,y:0,z:0},...destination});',
+    'const added=effects.bolts.slice(before),main=added[0]?.mesh,positions=main?.geometry.getAttribute("position");',
+    'const ys=positions?Array.from({length:positions.count},(_,i)=>positions.getY(i)):[];',
+    'const lowest=Math.min(...ys),highest=Math.max(...ys);',
+    'visualProofs.push({kind:destination.label,boltCount:added.length,lowest,highest,passes:{',
+    'startsAbove:highest>=174.8,',
+    'crossesExplosion:ys.some(y=>Math.abs(y-160)<.05),',
+    'descendsToEndpoint:lowest<=(destination.label==="ground"?.2:-229.8),',
+    'singleMainRibbon:added.length===8&&positions.count>160,',
+    '}});',
+    '}',
     'effects.dispose();wave.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});',
-    'return {proofs,parented,tracks};',
+    'return {proofs,parented,tracks,visualProofs};',
     '})()'
   ].join('\n');
   const evidence=await evaluate(source);
   assert.deepEqual(evidence.proofs.flatMap(x=>Object.entries(x.passes)
     .filter(([,value])=>!value).map(([key])=>JSON.stringify(x.tiers)+': '+key)),[]);
   assert.ok(evidence.parented&&evidence.tracks,'Lightning filaments travel with the wave');
+  assert.deepEqual(evidence.visualProofs.flatMap(x=>Object.entries(x.passes)
+    .filter(([,ok])=>!ok).map(([k])=>x.kind+': '+k)),[],
+    'Gale+Lightning main bolt is continuous above/explosion/below even over bottomless void');
   await writeFile(join(out,'result.json'),JSON.stringify(evidence,null,2)+'\n');
   console.log('[WINDBLADE COHERENCE PASS]',JSON.stringify({variants:evidence.proofs.length,lightningAttached:evidence.parented}));
 }catch(error){
