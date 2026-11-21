@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {Room} from '../../shared/sim/Room.mjs';
-import {tryUltimate,releaseOneHitCharge,stepRoom} from '../../shared/sim/combat.mjs';
+import {tryUltimate,releaseOneHitCharge,detonateOneHitWave,stepRoom} from '../../shared/sim/combat.mjs';
 import {ONE_HIT_RULES} from '../../shared/src/oneHitOfWondersRules.mjs';
 import {oneHitChargingLightning} from '../../shared/src/oneHitInfusions.mjs';
 const DT=1/30;
@@ -244,4 +244,48 @@ test('Gale+Lightning sky burst sends one independent bolt straight to distant gr
   assert.ok(b.health<100,'target below the wave takes one independent lightning strike');
   assert.ok(b.electricalBacklash,'it carries Shocking Conduct');
   assert.ok(!room.events.some(e=>e.type==='rupture'),'an air blast does not split the ground merely because lightning travels down');
+});
+
+test('Gale+Lightning reaches modeled ground arbitrarily far below; other infusion effects stay in midair',()=>{
+  const {room,a,b}=setup();
+  b.position={x:6,y:0,z:0};b.health=100;b.spellReadyAt=0;
+  const tiers={fire:2,frost:2,gale:2,lightning:1,steel:2};
+  room.oneHitWaves=[{id:'very-high-bolt',ownerId:a.id,
+    position:{x:6,y:160,z:0},direction:{x:1,y:0,z:0},
+    tiers,bornAt:9,distance:5,hitIds:[]}];
+  assert.equal(detonateOneHitWave(room,a.id,'very-high-bolt',9.1),true);
+  const blast=room.events.find(e=>e.type==='oneHitImpact'&&e.impactId==='very-high-bolt');
+  const bolt=room.events.find(e=>e.type==='oneHitLightningGroundStrike'&&e.waveId==='very-high-bolt');
+  assert.equal(blast?.air,true);
+  assert.equal(blast.point.y,160,'the Gale explosion must not be dragged down to the target');
+  assert.equal(bolt?.origin.y,160);
+  assert.equal(bolt?.point.y,0,'the independent bolt reaches ground with no height cutoff');
+  assert.ok(b.health<100&&b.electricalBacklash,'only Lightning hits the knight below');
+  assert.equal(b.blustered??null,null,'the Gale explosion remains high above');
+  assert.equal(b.oneHitFrostSlow??null,null,'Frost does not follow the bolt');
+  assert.equal(b.spellReadyAt,0,'Steel does not reset cooldowns through the bolt');
+  assert.equal(room.oneHitFields.at(-1).position.y,160,'lingering field stays at explosion altitude');
+  assert.equal(room.oneHitBurnZones.at(-1).position.y,160,'Fire remains suspended at the explosion');
+  assert.equal(room.events.some(e=>e.type==='rupture'),false,'the bolt does not fracture ground as a Steel slam');
+});
+
+test('airborne Gale+Lightning targets the highest supported surface below, never empty space',()=>{
+  const run=(floors,footY)=>{
+    const {room,a,b}=setup();
+    room.world={...world,floors,ramps:[]};
+    b.position={x:6,y:footY,z:0};b.health=100;
+    room.oneHitWaves=[{id:'long-drop',ownerId:a.id,
+      position:{x:6,y:300,z:0},direction:{x:1,y:0,z:0},
+      tiers:{gale:2,lightning:1},bornAt:9,distance:7,hitIds:[]}];
+    assert.equal(detonateOneHitWave(room,a.id,'long-drop',9.1),true);
+    return {room,b,bolt:room.events.find(e=>e.type==='oneHitLightningGroundStrike')};
+  };
+  const low={id:'ground',center:[0,-.1,0],size:[200,.2,200],y:0};
+  const high={id:'platform',center:[6,41.9,0],size:[4,.2,4],y:42};
+  const platform=run([low,high],42);
+  assert.equal(platform.bolt?.point.y,42,'bolt stops at the highest floor, not the bottom of the world');
+  assert.ok(platform.b.health<100);
+  const voidWorld=run([],0);
+  assert.equal(voidWorld.bolt,undefined,'nothing is conjured beneath an unsupported void');
+  assert.equal(voidWorld.b.health,100);
 });

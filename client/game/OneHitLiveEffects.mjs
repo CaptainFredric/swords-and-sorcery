@@ -349,7 +349,13 @@ export class OneHitLiveEffects {
       // Independent vertical bolt from an airborne Gale+Lightning detonation.
       // Server owns the ground point, victim selection, damage and Conduct.
       const start=v(event.origin),end=v(event.point);
-      this.elements.bolt(start,end,{width:.052,ttl:.32,jag:.13,forks:3,steps:20});
+      // Length is determined by the server's actual ground point, not a
+      // fixed visual ray. Cap SIDEWAYS jag and branch reach separately so a
+      // high-altitude bolt stays vertical instead of fanning across the map.
+      const drop=Math.max(0,start.y-end.y);
+      this.elements.bolt(start,end,{width:.052,ttl:.32,jag:.13,forks:3,
+        steps:Math.min(40,Math.max(20,Math.ceil(drop/5))),
+        maxSway:.6,maxForkReach:2.5});
       this.#flash(event.point);
     }
     if(event.type==='lineConductDischarge'){

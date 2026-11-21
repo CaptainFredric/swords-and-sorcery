@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { windbladeSpeed, windbladeTrailSpan, windbladePosition } from './disasterWavePresentation.mjs';
+import { windbladeSpeed, windbladeTrailSpan, windbladePosition, windbladeImpactKick } from './disasterWavePresentation.mjs';
 
 test('Windblade trail samples the same flight speed as the authoritative projectile',()=>{
   assert.equal(windbladeSpeed({}),28);
@@ -36,4 +36,16 @@ test('a Gale pressure front travels smoothly in actual 3D space between network 
   assert.ok(Math.abs(capped.y-(3+28*.10*.8))<1e-8,'a stale snapshot cannot send the rendered wave infinitely far');
   assert.deepEqual(windbladePosition(wave,NaN,10.05),a);
   assert.deepEqual(windbladePosition(wave,10,NaN),a);
+});
+
+test('Gale projectile impact camera kick is gentle and falls off with 3D distance',()=>{
+  const hit={x:0,y:0,z:0};
+  const close=windbladeImpactKick(hit,hit);
+  assert.ok(close>.09&&close<.2,'nearby wave kick stays well below an actual ground slam');
+  assert.ok(windbladeImpactKick({x:6,y:0,z:0},hit)<close);
+  assert.ok(windbladeImpactKick({x:12,y:0,z:0},hit)<close*.3);
+  assert.ok(windbladeImpactKick({x:0,y:12,z:0},hit)<close*.3,'airborne viewers use 3D distance');
+  assert.equal(windbladeImpactKick({x:24,y:0,z:0},hit),0);
+  assert.equal(windbladeImpactKick({x:100,y:0,z:0},hit),0);
+  assert.equal(windbladeImpactKick(null,hit),0);
 });

@@ -136,7 +136,7 @@ class ParticlePool {
 }
 
 // A jagged path from a to b with forks off it, as points and child branches.
-function boltPath(a, b, { jag = 0.22, steps = 7, forks = 2, depth = 0 } = {}) {
+function boltPath(a, b, { jag = 0.22, steps = 7, forks = 2, depth = 0, maxSway = Infinity, maxForkReach = Infinity } = {}) {
   const points = [a.clone()];
   const along = b.clone().sub(a);
   const length = along.length() || 1;
@@ -144,7 +144,7 @@ function boltPath(a, b, { jag = 0.22, steps = 7, forks = 2, depth = 0 } = {}) {
   const other = new THREE.Vector3().crossVectors(along, side).normalize();
   for (let i = 1; i < steps; i += 1) {
     const t = i / steps;
-    const sway = jag * length * (0.35 + 0.65 * Math.sin(t * Math.PI));
+    const sway = Math.min(maxSway, jag * length * (0.35 + 0.65 * Math.sin(t * Math.PI)));
     points.push(a.clone().addScaledVector(along, t).addScaledVector(side, rand(-1, 1) * sway).addScaledVector(other, rand(-1, 1) * sway));
   }
   points.push(b.clone());
@@ -152,10 +152,10 @@ function boltPath(a, b, { jag = 0.22, steps = 7, forks = 2, depth = 0 } = {}) {
   if (depth < 2) for (let f = 0; f < forks; f += 1) {
     const at = 1 + Math.floor(rand(steps - 2));
     const from = points[at];
-    const reach = length * rand(0.28, 0.5) * (1 - at / steps * 0.4);
+    const reach = Math.min(maxForkReach, length * rand(0.28, 0.5) * (1 - at / steps * 0.4));
     const to = from.clone().addScaledVector(along, reach / length * rand(0.5, 1))
       .addScaledVector(side, rand(-1, 1) * reach * 0.8).addScaledVector(other, rand(-1, 1) * reach * 0.8);
-    branches.push(boltPath(from, to, { jag: jag * 1.15, steps: Math.max(3, steps - 3), forks: depth === 0 ? 1 : 0, depth: depth + 1 }));
+    branches.push(boltPath(from, to, { jag: jag * 1.15, steps: Math.max(3, steps - 3), forks: depth === 0 ? 1 : 0, depth: depth + 1, maxSway, maxForkReach }));
   }
   return { points, branches, depth };
 }
@@ -288,9 +288,9 @@ export class DisasterElementEffects {
   // --- pieces -----------------------------------------------------------------------------------------------------
   /** A thick branching bolt between two points (the teleport's flash and guide use it too). */
   bolt(from, to, options) { this.#bolt(from, to, options); }
-  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7, parent = null } = {}) {
+  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7, maxSway = Infinity, maxForkReach = Infinity, parent = null } = {}) {
     if (this.bolts.length >= 42) this.#dropBolt(0);
-    const mesh = new THREE.Mesh(boltGeometry(boltPath(from, to, { jag, forks, steps }), width), this.boltMaterial.clone());
+    const mesh = new THREE.Mesh(boltGeometry(boltPath(from, to, { jag, forks, steps, maxSway, maxForkReach }), width), this.boltMaterial.clone());
     mesh.frustumCulled = false;
     // A travelling Windblade's sparks must follow the same moving mesh.
     // Other world impacts and teleport effects remain world-anchored.

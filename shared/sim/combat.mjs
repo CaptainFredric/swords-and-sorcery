@@ -2818,14 +2818,16 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
   return caught;
 }
 
-// A Gale+Lightning wave exploding ABOVE playable ground sends one real
-// independent lightning strike vertically down to the highest supported
-// surface below. Its damage is only the Gale+Lightning aerial pair: Fire,
-// Frost and Steel cannot amplify it, and already-hit wave victims are exempt.
-// Unlike the moving blade, this is a consolation for an overshot air burst.
+// Gale+Lightning's AIRBORNE detonation keeps its normal explosion and all
+// non-Lightning infusions at the explosion's altitude. Only this independent
+// lightning bolt projects vertically down onto the highest supported floor.
+// Deliberately NO vertical range cap: a wave bursting far above an arena can
+// still strike the floor directly beneath it. No floor means no ground bolt.
+// Fire, Frost and Steel never amplify the bolt, and already-hit wave victims
+// are exempt from its one decisive HP contact.
 function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
   if((wave.tiers.gale??0)<2||(wave.tiers.lightning??0)<1)return;
-  const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
+  const floor=surfaceHeightAt(point.x,point.z,point.y,world);
   if(floor===null||floor>=point.y-1.25)return;
   const impact={x:point.x,y:floor,z:point.z};
   const radius=ONE_HIT_RULES.waveTerminalRadius;
