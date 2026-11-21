@@ -3,6 +3,7 @@ import {highGroundsHudView} from './highGroundsHudView.mjs';
 import { renownTrialsView } from './renownTrialsView.mjs';
 import {restlessDayHudView} from './restlessDayHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
+import {mountedSiegeSkillTile} from './mountedSiegeSkillTile.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -150,10 +151,10 @@ export class HUD {
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
     this.ultimateShown = 'sunder';
     this.ultimateReady = false;
-    // On desktop, the equipped Flight Skill needs its own existing-style
-    // cooldown tile now that the duplicate central READY panel is gone.
+    // The same standard cooldown tile follows the operator between all
+    // three siege machines; it never replaces the Spellblade's own abilities.
     this.flightSkillTile=document.createElement('div');
-    this.flightSkillTile.className='ability flight-skill-ability ready';
+    this.flightSkillTile.className='ability siege-skill-ability ready';
     this.flightSkillTile.hidden=true;
     this.flightSkillTile.innerHTML='<span class="ability-icon"></span><b>U</b><em>FIRE AWAY</em><strong>READY</strong>';
     this.spell.parentElement?.append(this.flightSkillTile);
@@ -497,18 +498,23 @@ export class HUD {
       }
     }
     const isFlight = Boolean(siege?.isFlight);
-    this.flightSkillTile.hidden=!isFlight;
-    if(isFlight){
-      const tile=this.flightSkillTile,skill=flightMachine?.skill??{};
-      const fullName=siege.skillName??'FIRE AWAY';
-      tile.querySelector('.ability-icon').innerHTML=iconSvg(siege.skillIcon);
-      tile.querySelector('em').textContent=fullName.toUpperCase().includes('NARROW')?'NARROW':
-        fullName.toUpperCase().includes('ASCENSION')?'ASCEND':'FIRE AWAY';
+    const mountedSkill=mountedSiegeSkillTile(local,snapshot,serverNow);
+    this.flightSkillTile.hidden=!mountedSkill;
+    if(mountedSkill){
+      const tile=this.flightSkillTile;
+      const glyph=isFlight&&siege.skillIcon?siege.skillIcon:mountedSkill.icon;
+      if(tile.dataset.icon!==glyph){
+        tile.dataset.icon=glyph;
+        tile.querySelector('.ability-icon').innerHTML=iconSvg(glyph);
+      }
+      tile.querySelector('em').textContent=mountedSkill.name;
       const bound=this.ballistaControls?.bindings?.siegeSkill?.[0];
       tile.querySelector('b').textContent=bound?bound.replace(/^Key/,'').replace(/^Digit/,''):'U';
-      this.#ability(tile,siege.skillActive?0:Math.max(0,(skill.readyAt??0)-serverNow),24);
-      tile.classList.toggle('active',Boolean(siege.skillActive));
-      if(siege.skillActive)tile.querySelector('strong').textContent='ACTIVE';
+      this.#ability(tile,mountedSkill.active?0:mountedSkill.remaining,mountedSkill.total);
+      tile.classList.toggle('active',mountedSkill.active);
+      tile.querySelector('strong').textContent=mountedSkill.state==='COOLDOWN'
+        ?mountedSkill.remaining.toFixed(1)+'s':mountedSkill.state;
+      tile.title=mountedSkill.hint;
     }
     this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
     this.flightChargeRail.hidden = !siege || !isFlight;

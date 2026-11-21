@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {graftArticulatedFist} from '../worlds/soFistArticulatedHand.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
@@ -32,15 +33,7 @@ function graftWorkshopArgonHand(base,donor){
  const extra=donor.animations.filter(a=>/^(1[1-9]|2[0-6])_/.test(a.name));
  if(!target||!hand||missing.length||extra.length!==16)
    throw Error('Incomplete Argon v26 donor: missing '+missing.join(',')+', clips '+extra.length);
- if(target.isMesh&&hand.isMesh){
-  target.geometry=hand.geometry;target.material=hand.material;
- }else if(hand.isMesh){
-  for(const old of [...target.children])
-   if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
-  const surface=new THREE.Mesh(hand.geometry,hand.material);
-  surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
- }
- for(const part of [...hand.children])target.add(part);
+ graftArticulatedFist(target,hand);
  // Donor carriages do NOT have the production hydraulic pivots. Their tracks
  // must never animate the base, wheels, piston, driver or independent lift.
  const handClips=extra.map(clip=>new THREE.AnimationClip(clip.name,clip.duration,

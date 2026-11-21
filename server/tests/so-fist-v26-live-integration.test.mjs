@@ -9,7 +9,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,
 import {assembleSoFistAsset,SO_FIST_V26} from '../../scripts/assemble-so-fist-v26.mjs';
 import {soFistUpperPoint} from '../../shared/sim/soFistElevation.mjs';
 import {soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
-import {boardHellpingHand,exitHellpingHand} from '../../shared/sim/soFistHellpingHand.mjs';
+import {boardHellpingHand,exitHellpingHand,hellpingPalm,HELLPING} from '../../shared/sim/soFistHellpingHand.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 function game(skill='hellpingHand'){
  const room=new Room('HELLPING_TEST',{mode:'PRACTICE'});room.state='PLAYING';
@@ -123,10 +123,11 @@ test('vault travels in a bounded arc, lands on supported terrain, and recovers',
  s.op.input={forward:1,right:0,sprint:false};
  assert.equal(primeSoFistSkill(s.room,s.b,s.op,.2),null);
  assert.equal(s.b.hellping.phase,'vault');
- tick(s,.2,3.22);
- assert.ok(s.b.z<-2.0,'forward hand plant moved the ram');
+ tick(s,.2,1.28);
+ assert.ok(s.b.z<-2.0,'short forward hand plant moved the ram');
  assert.ok(Math.abs(s.b.y)<.15,'landed on real floor');
  assert.equal(s.b.hellping.phase,'release');
+ assert.ok(HELLPING.vaultSeconds<1.2,'hand hop responds in roughly one second');
 });
 test('Beat to the Punch still primes with a lost glove if the drive survives',()=>{
  const s=game('beatToThePunch');
@@ -151,4 +152,45 @@ test('final death shot shares COM with attached fist, picks ballistic target and
  assert.ok(s.b.detachedFist?.isFinal);
  for(const [n,k] of ['x','y','z'].entries())
   assert.ok(Math.abs(s.b.detachedFist.position[k]-muzzle[n])<.001,k);
+});
+
+test('open HELLping palm pivots the chassis around the planted hand instead of creeping',()=>{
+ const s=game();
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,0),null);
+ const before=hellpingPalm(s.b),heading=s.b.heading;
+ s.op.input={forward:0,right:1,sprint:false};
+ tick(s,0,.45);
+ const after=hellpingPalm(s.b);
+ assert.ok(Math.abs(s.b.heading-heading)>.08,'operator can aim around the planted palm');
+ assert.ok(Math.hypot(after[0]-before[0],after[2]-before[2])<.15,
+   'the fist anchor stays still while the machine turns behind it');
+ assert.ok(Math.abs(s.b.speed)<.25,'aiming is not a disguised carriage crawl');
+ assert.equal(s.b.hellping.phase,'open');
+});
+
+test('HELLping backward hop and diagonal aim are distinct, short, safe movements',()=>{
+ const s=game();
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,0),null);
+ s.op.input={forward:-1,right:.8,sprint:false};
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,.2),null);
+ assert.equal(s.b.hellping.phase,'vault');
+ assert.equal(s.b.hellping.direction,-1);
+ assert.ok(s.b.hellping.landing.z>1.5,'reverse hop moves backward');
+ assert.ok(s.b.hellping.landing.heading>.1,'rightward leverage affects the hop heading');
+ const landing={...s.b.hellping.landing};
+ tick(s,.2,1.28);
+ assert.equal(s.b.hellping?.phase,'release');
+ assert.ok(Math.hypot(s.b.x-landing.x,s.b.z-landing.z)<.12,'lands at its planned position');
+ assert.ok(Math.abs(s.b.heading-landing.heading)<.02,'server heading follows the authored hop');
+ assert.ok(Math.abs(s.b.y)<.15);
+});
+
+test('HELLping never vaults toward unsupported ground',()=>{
+ const s=game();
+ assert.equal(primeSoFistSkill(s.room,s.b,s.op,0),null);
+ s.room.world={...s.room.world,floors:[{id:'tiny-landing',center:[0,-.1,0],size:[2,.2,2],y:0}]};
+ s.op.input={forward:1,right:0,sprint:false};
+ const error=primeSoFistSkill(s.room,s.b,s.op,.2);
+ assert.match(error,/safe landing/i);
+ assert.equal(s.b.hellping.phase,'open','an invalid landing does not spend the hand Skill');
 });

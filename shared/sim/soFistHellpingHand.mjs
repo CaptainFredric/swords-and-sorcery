@@ -11,9 +11,12 @@ import {soFistUpperPoint} from './soFistElevation.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const HELLPING=Object.freeze({crushSeconds:4,reach:2.25,openSeconds:1,
-  vaultSeconds:3,vaultTravel:1.15*SO_FIST_SCALE,vaultHeight:.969,cooldown:24});
+  // A short, deliberate hand-assisted hop, not a three-second floating carriage.
+  vaultSeconds:1.05,vaultForward:3.65,vaultBackward:2.65,vaultHeight:.92,
+  vaultAimRadians:.22,braceTurnRate:.72,cooldown:24});
 const site=(b,y,z)=>soFistUpperPoint(soFistFrame(b),b,[0,y*SO_FIST_SCALE,z*SO_FIST_SCALE]);
-const palm=b=>site(b,.34,.885);
+export const hellpingPalm=b=>site(b,.34,.885);
+const palm=hellpingPalm;
 const seat=b=>site(b,.33,.715);
 const distance=(p,v)=>Math.hypot(p.position.x-v[0],p.position.y+postureOf(p).height*.5-v[1],p.position.z-v[2]);
 const near=(b,p,r=HELLPING.reach)=>distance(p,palm(b))<=r;
@@ -90,15 +93,19 @@ export function exitHellpingHand(room,b,p,now){
  b.hellping={phase:'open',at:now-HELLPING.openSeconds,exitAt:now};
  emit(room,b,'passengerExited',now,{passengerId:p.id});return true;
 }
-function vault(room,b,now,direction){
- const f=soFistFrame(b).axes[2];
- const x=b.x+f[0]*direction*HELLPING.vaultTravel;
- const z=b.z+f[2]*direction*HELLPING.vaultTravel;
+function vault(room,b,now,direction,steer=0){
+ // Aim from the machine's actual heading, with a small final left/right
+ // leverage adjustment. This is a planted-hand impulse, not a free Dash.
+ const heading=b.heading+clamp(steer,-1,1)*HELLPING.vaultAimRadians;
+ const travel=direction>0?HELLPING.vaultForward:HELLPING.vaultBackward;
+ const x=b.x-Math.sin(heading)*direction*travel;
+ const z=b.z-Math.cos(heading)*direction*travel;
  const y=surfaceHeightAt(x,z,b.y+.7,room.world);
  if(y==null||Math.abs(y-b.y)>1)return false;
  b.hellping={phase:'vault',at:now,direction,
-  start:{x:b.x,y:b.y,z:b.z},landing:{x,y,z}};
- b.speed=0;b.charging=false;emit(room,b,'vaultStarted',now,{direction});
+  start:{x:b.x,y:b.y,z:b.z,heading:b.heading},
+  landing:{x,y,z,heading}};
+ b.speed=0;b.charging=false;emit(room,b,'vaultStarted',now,{direction,heading});
  return true;
 }
 export function requestHellpingHand(room,b,p,now){
@@ -142,7 +149,10 @@ export function requestHellpingHand(room,b,p,now){
   emit(room,b,'captured',now,{targetId:victim.id});return null;
  }
  const direction=(p.input?.forward??0)>.45?1:(p.input?.forward??0)<-.45?-1:0;
- if(direction&&vault(room,b,now,direction))return null;
+ if(direction){
+  return vault(room,b,now,direction,p.input?.right??0)
+   ?null:'No safe landing for the hand-assisted hop.';
+ }
  return releaseHellpingHand(room,b,now)
   ?null:'HELLping Hand cannot release yet.';
 }
@@ -182,8 +192,13 @@ export function stepHellpingHand(room,b,dt,now){
   // No stagger or attack cancellation: passengers can still fight.
  }else if(h.phase==='vault'){
   const t=clamp((now-h.at)/HELLPING.vaultSeconds,0,1),from=h.start,to=h.landing;
-  const next={x:from.x+(to.x-from.x)*t,y:from.y+(to.y-from.y)*t+
-    HELLPING.vaultHeight*4*t*(1-t),z:from.z+(to.z-from.z)*t};
+  // Accelerate off the braced fingers, then settle smoothly onto real floor.
+  // The lift is a short arc and the hand remains the visual point of leverage.
+  const launched=1-Math.pow(1-t,2),arc=Math.sin(Math.PI*t);
+  const next={x:from.x+(to.x-from.x)*launched,
+    y:from.y+(to.y-from.y)*launched+HELLPING.vaultHeight*arc,
+    z:from.z+(to.z-from.z)*launched,
+    heading:from.heading+(to.heading-from.heading)*launched};
   const obstacles=[...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista)];
   if(soFistSolids({...b,...next}).some(box=>obstacles.some(s=>machineryOverlap(box,s)))){
    releaseHellpingHand(room,b,now,{force:true});return;

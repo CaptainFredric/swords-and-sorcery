@@ -24,8 +24,8 @@ export function siegeSkillControlLabel(b,now){
   const phase=b.hellping?.phase;
   if(phase==='grasp')return 'CRUSH';
   if(phase==='transport')return 'RELEASE ALLY';
-  if(phase==='vault')return 'VAULTING';
-  if(phase==='open')return 'GRAB / VAULT / CLOSE';
+  if(phase==='vault')return 'HOPPING';
+  if(phase==='open')return 'GRAB / HOP';
   return remaining>0?Math.ceil(remaining)+'s':'OPEN HAND';
  }
  if(s.id==='beatToThePunch'){

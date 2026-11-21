@@ -33,6 +33,14 @@ export function machineGaugeView(local, snapshot, now = 0) {
     view.piston = age < timing.release ? 'PISTON · WINDING' :
       age < timing.peak ? 'PISTON · RELEASED' :
       age < timing.cycle ? 'PISTON · RESETTING' : 'PISTON · READY';
+    if(machine.skill?.id==='hellpingHand'){
+      const phase=machine.hellping?.phase;
+      if(phase==='open')view.piston='PALM BRACED · SIDEWAYS TO AIM';
+      else if(phase==='vault')view.piston='HAND-ASSISTED HOP';
+      else if(phase==='grasp')view.piston='HAND CRUSHING';
+      else if(phase==='transport')view.piston='ALLIED PASSENGER';
+      else if(phase==='release')view.piston='HAND RETRACTING';
+    }
     const fist = machine.components?.Fist;
     if (fist) {
       const fistHealth = amount(fist.health);

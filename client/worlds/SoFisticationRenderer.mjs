@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MachineAnimationComposition} from './MachineAnimationComposition.mjs';
+import {graftArticulatedFist} from './soFistArticulatedHand.mjs';
 import {createFlickThumbRestraint,restrainFlickThumb} from './soFistThumbRestraint.mjs';
 import {ramWreckClip} from './flightAnimationState.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
@@ -80,17 +81,9 @@ export class SoFisticationRenderer {
      console.error('Argon v26 articulated hand incomplete; keeping production hydraulics',missing,extra.length);
      received(gltf,true);return;
     }
-    // Swap the named fist surface without touching the coupling locator,
-    // piston, collar, upper saddle, gear train or wheel hierarchy.
-    if(target.isMesh&&hand.isMesh){
-     target.geometry=hand.geometry;target.material=hand.material;
-    }else if(hand.isMesh){
-     for(const old of [...target.children])
-      if(old.isMesh&&old.name.startsWith('Armored_Fist_'))old.visible=false;
-     const surface=new THREE.Mesh(hand.geometry,hand.material);
-     surface.name='Argon_Articulated_Hand_Surface';target.add(surface);
-    }
-    for(const part of [...hand.children])target.add(part);
+    // Keep the original hydraulic coupling but replace, rather than double,
+    // the rigid fist shell with the donor's fully articulated hand.
+    graftArticulatedFist(target,hand);
     gltf.animations=[...gltf.animations,...extra];
     this.v26HandInstalled=true;
     received(gltf,true);
@@ -114,7 +107,7 @@ export class SoFisticationRenderer {
    this.environment=new THREE.DataTexture(sky,32,16,THREE.RGBAFormat);this.environment.mapping=THREE.EquirectangularReflectionMapping;this.environment.colorSpace=THREE.SRGBColorSpace;this.environment.needsUpdate=true;
    this.model.traverse(o=>{
     if(o.name)this.nodes.set(o.name,o);
-    if(o.isMesh){o.castShadow=o.receiveShadow=true;let id='hull';
+    if(o.isMesh&&!o.userData.hiddenByArticulatedGraft){o.castShadow=o.receiveShadow=true;let id='hull';
      // GLTFLoader splits multi-material objects into child meshes. Component
      // identity belongs to the named authored parent, not a generated child name.
      for(let owner=o;owner&&owner!==this.model;owner=owner.parent){
@@ -239,7 +232,9 @@ export class SoFisticationRenderer {
      }else if(hand.phase==='vault'){
        clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
          '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
-       time=handAge;loop=false;
+       // Match the complete authored hand-plant animation to the shorter,
+       // 1.05-second authoritative impulse instead of leaving it half-open.
+       time=handAge*(1.5/1.05);loop=false;
      }else if(hand.phase==='release'){
        clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
      }

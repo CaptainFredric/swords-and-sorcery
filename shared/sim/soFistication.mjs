@@ -27,7 +27,7 @@ import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
 import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
-import {requestHellpingHand,stepHellpingHand,releaseHellpingHand} from './soFistHellpingHand.mjs';
+import {requestHellpingHand,stepHellpingHand,releaseHellpingHand,hellpingPalm,HELLPING} from './soFistHellpingHand.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:5.3,reverse:3.1,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
 const hasFist=b=>Boolean((b?.components?.Fist?.health??0)>0&&b.fistMounted!==false);
@@ -272,9 +272,14 @@ const p=room.players.get(b.operatorId);
  // A full sideways stick is a request for a tight wheeled turn, not a tank pivot.
  // Crawl in the existing travel direction (forward when parked), with steering
  // reversed during reverse travel so LEFT/RIGHT still mean left/right heading.
- const sidewaysTurn=Boolean(driver&&!b.charging&&Math.abs(input.forward??0)<.08&&
+ // While the hand is open and the carriage has settled, A/D (or horizontal
+ // stick) rotates around the PLANTED PALM. Ordinary stationary steering used
+ // to creep the entire chassis, making HELLping's aiming imprecise.
+ const bracedAim=Boolean(driver&&b.hellping?.phase==='open'&&!b.charging&&
+   Math.abs(input.forward??0)<.15&&Math.abs(b.speed)<.5&&driveScale>0);
+ const sidewaysTurn=Boolean(driver&&!bracedAim&&!b.charging&&Math.abs(input.forward??0)<.08&&
    Math.abs(input.right??0)>.92);
- const driveForward=sidewaysTurn?(b.speed<-.45?-.72:.72):(input.forward??0);
+ const driveForward=bracedAim?0:sidewaysTurn?(b.speed<-.45?-.72:.72):(input.forward??0);
  const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?SO_FIST.speed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/.384,0,1));
  const reversing=target*b.speed<0;
  const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
@@ -342,6 +347,25 @@ const p=room.players.get(b.operatorId);
   stepSiegeWheelContacts(room,b,from,sub,contactAt,'ram',
     soFistVolumes(b,contactAt),soFistVolumes(from,contactAt-sub));
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(travelSpeed)/SO_FIST_WHEELS[w].radius;}
+ }
+ // The open fist acts as a real leverage point when the operator aims.
+ // Keep its horizontal anchor stationary while the heavy chassis pivots
+ // behind it. Reject positions obstructed by architecture/other machines.
+ if(bracedAim&&Math.abs(b.speed)<.2&&Math.abs(input.right??0)>.12){
+  const planted=hellpingPalm(b);
+  const candidate={...b,heading:b.heading+
+    clamp(input.right,-1,1)*HELLPING.braceTurnRate*dt};
+  const turned=hellpingPalm(candidate);
+  candidate.x+=planted[0]-turned[0];
+  candidate.z+=planted[2]-turned[2];
+  const pose=soFistTerrainPose(candidate,world);
+  const obstacles=getBiByeSolids(room.biByeLlista);
+  const withinBounds=!world?.edgeBoundary||pose&&
+    edgeMachineProgressAllowed(soFistSolids(b),
+      soFistSolids({...candidate,...pose}),world.edgeBoundary);
+  if(pose&&Math.abs(pose.y-b.y)<.12&&withinBounds&&
+    soFistClear({...candidate,...pose},world,obstacles))
+    Object.assign(b,candidate,pose);
  }
  // Reflect AFTER-contact momentum in the network snapshot, including rebounds.
  b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
