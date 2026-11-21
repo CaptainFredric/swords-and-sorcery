@@ -102,7 +102,7 @@ try{
   ];
   for(const [name,phase,age] of phases){
    const clip=ram.animation.clips.get(name);
-   const handTrack=clip?.tracks.find(t=>/^(?:Index|Middle|Ring|Pinky|Thumb)_\\d+\\.quaternion$/.test(t.name));
+   const handTrack=clip?.tracks.find(t=>/^(?:Index|Middle|Ring|Pinky)_\\d+\\.quaternion$/.test(t.name));
    const current=80+age;
    const handState={...b,id:'hellping-visual-proof',flickAt:null,strikeAt:name.startsWith('16_')?80.15:null,
      hellping:{phase,at:80,direction:name.startsWith('18_')?-1:1,
@@ -116,7 +116,8 @@ try{
    const expected=handTrack?.interpolant.evaluate(clipTime);
    const actual=handTrack?.node[handTrack.property]?.toArray();
    const error=expected&&actual?Math.max(...actual.map((v,i)=>Math.abs(v-expected[i]))):null;
-   s.hellpingClips.push({clip:name,phase,animatedJoint:handTrack?.name??null,error});
+   s.hellpingClips.push({clip:name,phase,animatedJoint:handTrack?.name??null,error,
+     thumbAngles:(ram.hellpingThumbParts??[]).map(part=>part.rest.angleTo(part.node.quaternion))});
   }
   // The shipped Armory must also use the genuine donor, not its old v2.7
   // model. Open the real workshop, load the original asset, and sample the
@@ -156,7 +157,8 @@ try{
   ]){
     const delta=time-workshop.performance.time;
     workshop.update(delta);
-    w.stages.push({time,expected,active:[...(workshop.previewAnimation?.layers?.keys()??[])]});
+    w.stages.push({time,expected,active:[...(workshop.previewAnimation?.layers?.keys()??[])],
+      thumbAngles:(workshop.hellpingThumbParts??[]).map(part=>part.rest.angleTo(part.node.quaternion))});
   }
   s.workshop=w;
   workshop.dispose();
@@ -196,6 +198,16 @@ try{
  for(const phase of report.hellpingClips){
   assert.ok(phase.animatedJoint,'Missing an actual animated hand joint in '+phase.clip);
   assert.ok(phase.error<.0002,'Displayed joint does not match '+phase.clip+' (error '+phase.error+')');
+  assert.equal(phase.thumbAngles.length,3,'HELLping retains all three genuine thumb joints');
+  for(let i=0;i<3;i++)
+   assert.ok(phase.thumbAngles[i]<=[.82,.57,.43][i]+.001,
+    'Thumb_'+(i+1)+' flays backward in '+phase.clip+' at '+phase.thumbAngles[i]);
+ }
+ for(const phase of report.workshop.stages){
+  assert.equal(phase.thumbAngles.length,3,'Workshop retains all thumb joints');
+  for(let i=0;i<3;i++)
+   assert.ok(phase.thumbAngles[i]<=[.82,.57,.43][i]+.002,
+     'Workshop Thumb_'+(i+1)+' flays backward at '+phase.expected);
  }
  console.log('[ARGON HELLPING HAND CHROME PHASES]',JSON.stringify(report.hellpingClips));
  assert.equal(report.workshop.loaded,true,'Armory must load the production hydraulic rig');
