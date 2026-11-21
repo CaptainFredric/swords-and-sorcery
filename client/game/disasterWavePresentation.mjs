@@ -40,8 +40,9 @@ export function windbladePosition(wave,snapshotAt,now) {
  * top (+1), bottom (-1), or central pressure core (0).
  */
 export function windbladeSurfacePoint(t,u=0,side=0){
-  const x=(Math.max(0,Math.min(1,t))*2-1)*1.22;
-  const width=x/1.22;
+  // .9m physical half-width; Fire scales the whole sheet 1.5/.9.
+  const x=(Math.max(0,Math.min(1,t))*2-1)*.9;
+  const width=x/.9;
   const span=Math.sqrt(Math.max(0,1-width*width));
   const depth=Math.max(0,Math.min(1,u));
   const leading=.42*span-.11;
