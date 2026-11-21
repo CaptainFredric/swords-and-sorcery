@@ -5,6 +5,7 @@ import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintW
   directionalBlastRadius } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
+import { lightningImpactPath } from './lightningBoltPresentation.mjs';
 
 // All-Natural Disaster's elements, as they are seen. Presentation only: who was hit, how hard, where a field lies and
 // how much of it is left all come from the shared room (snapshots and events). Everything drawn here hangs off one of
@@ -288,9 +289,21 @@ export class DisasterElementEffects {
   // --- pieces -----------------------------------------------------------------------------------------------------
   /** A thick branching bolt between two points (the teleport's flash and guide use it too). */
   bolt(from, to, options) { this.#bolt(from, to, options); }
-  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7, maxSway = Infinity, maxForkReach = Infinity, parent = null } = {}) {
+  #bolt(from, to, { width = 0.035, ttl = 0.16, jag = 0.2, forks = 2, steps = 7, maxSway = Infinity, maxForkReach = Infinity, via = null, parent = null } = {}) {
     if (this.bolts.length >= 42) this.#dropBolt(0);
-    const mesh = new THREE.Mesh(boltGeometry(boltPath(from, to, { jag, forks, steps, maxSway, maxForkReach }), width), this.boltMaterial.clone());
+    // When Lightning connects the sky, the airborne Gale burst and ground,
+    // construct ONE ribbon mesh with an exact shared explosion vertex.
+    // Two independent bolt meshes looked disconnected, as though the strike
+    // simply ended in midair; never cap the downward endpoint by distance.
+    const path=via?(()=>{
+      const above=boltPath(from,via,{jag,steps,forks,maxSway,maxForkReach});
+      const drop=Math.max(0,via.y-to.y);
+      const below=boltPath(via,to,{jag:Math.min(jag,.13),forks:Math.min(forks,3),
+        steps:Math.min(72,Math.max(20,Math.ceil(drop/3))),maxSway,maxForkReach});
+      return {points:[...above.points.slice(0,-1),...below.points],
+        branches:[...above.branches,...below.branches],depth:0};
+    })():boltPath(from,to,{jag,forks,steps,maxSway,maxForkReach});
+    const mesh = new THREE.Mesh(boltGeometry(path, width), this.boltMaterial.clone());
     mesh.frustumCulled = false;
     // A travelling Windblade's sparks must follow the same moving mesh.
     // Other world impacts and teleport effects remain world-anchored.
@@ -720,9 +733,19 @@ export class DisasterElementEffects {
       }
     }
     if (tiers.lightning) {
-      // the discharge: one strike down into the blow, and thick forks running out from it along the ground
+      // All Lightning impacts have the original dramatic 15m incoming bolt.
+      // For an airborne Gale+Lightning strike, continue that SAME visible
+      // ribbon through this explosion to the server's actual ground contact.
+      // Other elemental effects and the Gale pressure burst remain up here.
       const full = tiers.lightning === 2;
-      this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.155 : 0.103, ttl: 0.26, jag: 0.08, forks: 3, steps: 11 });
+      const trace=lightningImpactPath(event);
+      const incoming=new THREE.Vector3(p.x+rand(-1.5,1.5),p.y+15,p.z+rand(-1.5,1.5));
+      const through=new THREE.Vector3(p.x,floor,p.z);
+      const ending=trace?.descends?new THREE.Vector3(trace.end.x,trace.end.y,trace.end.z):through;
+      this.#bolt(incoming,ending,{width:full?.155:.103,ttl:trace?.descends?.43:.26,
+        jag:.08,forks:3,steps:11,via:trace?.descends?through:null,
+        maxSway:trace?.descends?.8:Infinity,
+        maxForkReach:trace?.descends?2.5:Infinity});
       const forks = this.#n(full ? 11 : 7);
       for (let i = 0; i < forks; i += 1) {
         const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * rim(a) * (full ? 1.15 : 0.8);
