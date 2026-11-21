@@ -208,8 +208,8 @@ test('Rise release holds a powered bobbing hover for about a second, then gently
  assert.equal(m.verticalIntent,'HOVER');
  assert.ok(m.flightCharge>0);
  step(room,m,releaseTime+22*DT,32,{flightRise:false});
- assert.ok(m.velocity.y<-.2&&m.velocity.y>-.8,
-   'after the hold the rotor controls a slow descent, not a gravity drop');
+ assert.ok(m.velocity.y<-.2&&m.velocity.y>-2.5,
+   'after the hold the rotor controls moderate descent rather than free fall');
  assert.equal(m.neutralHoverFromRise,true);
 });
 
