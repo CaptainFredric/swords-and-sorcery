@@ -7,6 +7,7 @@ import {createSoFistication,soFistEntry,mountSoFistication,dismountSoFistication
 import {soFistVolumes,soFistStriker,soFistFrame,SO_FIST_SCALE} from '../../shared/sim/soFistGeometry.mjs';
 import {SO_FIST_LIFT,soFistAllowedPitch,soFistUpperPoint,soFistPitchCylinderPose} from '../../shared/sim/soFistElevation.mjs';
 import {requestLongArmToJaw,RAM_FIST} from '../../shared/sim/soFistDetachedFist.mjs';
+import {playerMovementWorld} from '../../shared/sim/playerMovementWorld.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {endSiegeSkill} from '../../shared/sim/siegeSkills.mjs';
@@ -104,7 +105,8 @@ test('Physical fist flies, lands, and starts cooldown only on nearby intentional
  assert.ok(s.b.detachedFist.velocity.z<0);
  // In this flat arena a level shot will eventually hit the ground.
  step(s,3,{},1);
- assert.ok(['resting','falling','abyss'].includes(s.b.detachedFist?.state));
+ assert.ok(['resting','rolling','falling','abyss'].includes(s.b.detachedFist?.state),
+   'the landed fist may still be rolling before it comes to rest');
  s.b.detachedFist.state='resting';
  s.b.detachedFist.position={x:0,y:.62,z:-4};
  assert.match(primeSoFistSkill(s.room,s.b,s.p,4.2),/drive.*beside/i);
@@ -524,4 +526,73 @@ test('bare piston contact follows the recovered authored striker tip through lif
   const frontOverhang=shaftFront.reduce((v,n,i)=>v+(n-face[i])*cap.axes[2][i],0);
   assert.ok(Math.abs(frontOverhang-.012*SO_FIST_SCALE)<.001,'shaft covers the cap mesh');
  }
+});
+
+
+test('a guarding knight cannot halt the physical fist or protect the second knight behind him',()=>{
+ const s=setup('longArmToTheJaw');
+ // A high enough hydraulic launch for both distinct, forward targets.
+ s.b.ramLiftY=.72;
+ const enemies=[-4.9,-7.9].map((z,i)=>{
+   const p=s.room.addPlayer({id:'gauntlet-target-'+i,token:'target-'+i,name:'Target'},0);
+   p.position={x:0,y:0,z};p.yaw=Math.PI;p.guarding=true;
+   p.guardStamina=100;p.spawnProtectionUntil=0;
+   return p;
+ });
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ const startZ=s.b.detachedFist.position.z;
+ step(s,.4,{},1);
+ const f=s.b.detachedFist;
+ assert.ok(f.position.z<startZ-4,'the fist traveled far beyond the first defender');
+ assert.deepEqual(f.hitVictims,enemies.map(p=>p.id),'each knight was contacted exactly once');
+ assert.equal(f.hitVictims.length,2,'no repeated collision damage to the same body');
+ assert.ok(enemies.every(p=>p.guardStamina<100),
+   'a block spends Guard stamina, but cannot arrest the projectile');
+ assert.ok(s.room.events.filter(e=>e.type==='soFistDetachedFist'&&e.action==='impact'&&e.kind==='actor').length===2);
+});
+
+test('launched armored fist rolls after landing, loses momentum and remains physical cover',()=>{
+ const s=setup('longArmToTheJaw');
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ const f=s.b.detachedFist;
+ f.position={x:8,y:1.4,z:-6};f.velocity={x:2,y:-3,z:-10};
+ step(s,.32,{},1);
+ assert.ok(['rolling','resting'].includes(f.state),
+   'a fast landing must enter a grounded rolling or settling phase');
+ const before={...f.position};
+ step(s,.5,{},1.32);
+ assert.ok(f.position.z<before.z-.4,'the fist must actually translate across the floor');
+ assert.ok(f.spin.x!==0,'its heavy body visually rotates with travel');
+ step(s,7,{},1.82);
+ assert.equal(f.state,'resting','rolling eventually stops under physical drag');
+ assert.deepEqual(f.velocity,{x:0,y:0,z:0});
+ const shared=playerMovementWorld(s.room.world,{ram:s.b});
+ const solid=shared.solids.find(box=>box.id==='sofist-detached-'+s.b.id);
+ assert.ok(solid,'the resting fist is an authoritative/client-shared physical obstruction');
+ assert.ok(solid.size[0]>=1.5&&solid.size[2]>=1.5);
+ assert.equal(s.b.detachedFist,f,'the fallen gauntlet persists until intentional retrieval');
+});
+
+test('short ledges no longer catch the swept gauntlet in midair',()=>{
+ const s=setup('longArmToTheJaw');
+ s.room.world.solids=[{id:'low-stone-lip',center:[0,.19,-4],size:[3,.38,.22],material:'stone'}];
+ assert.equal(primeSoFistSkill(s.room,s.b,s.p,1),null);
+ step(s,.27,{},1);
+ assert.ok(s.b.detachedFist.position.z<-4.35,
+   'the heavy gauntlet passed the shallow lip instead of freezing against it');
+});
+
+test('the final Long Arm discharge launches the same momentum-conserving fist',()=>{
+ const s=setup('longArmToTheJaw');
+ assert.equal(damageSoFistication(s.room,s.b,20000,'enemy','ram',1,{componentId:'hull'}),true);
+ assert.equal(s.b.finalJaw?.phase,'aiming');
+ stepSoFistication(s.room,s.b,1/30,1.45,s.room.world);
+ const f=s.b.detachedFist;
+ assert.equal(f?.isFinal,true,'the destroyed ram genuinely released its mounted fist');
+ assert.deepEqual(f.hitVictims,[],'the terminal shot uses the independent victim contact ledger');
+ assert.deepEqual(f.hitMachines,[],'the terminal shot uses the independent machine contact ledger');
+ const origin={...f.position};
+ stepSoFistication(s.room,s.b,1/30,1.45+1/30,s.room.world);
+ assert.ok(Math.hypot(f.position.x-origin.x,f.position.y-origin.y,
+   f.position.z-origin.z)>.05,'the launched death-shot actually flies under server physics');
 });

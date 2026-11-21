@@ -20,7 +20,10 @@ import {skillOperator} from './siegeSkills.mjs';
 export const RAM_FIST=Object.freeze({speed:23,gravity:17,radius:.971,
   groundRadius:.6734,
   falloffStart:12,falloffEnd:36,closeDamage:125,farDamage:55,
-  horizontalDamping:.15,flightTimeout:8,
+  // Massive gauntlet: a blocked attack costs momentum, not the entire shot.
+  actorRetention:.84,machineRetention:.72,wallSlide:.72,
+  rollDrag:1.08,rollStop:.38,rollMinSpeed:1.1,groundBounce:.17,
+  ledgeStep:.38,flightTimeout:8,
   maxSubstep:1/90,maxTravelStep:.26,wallRestitution:.14});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const hypot=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
@@ -71,6 +74,7 @@ export function requestLongArmToJaw(room,b,p,now){
  if(f?.state==='abyss')return 'Return to the original deployment site, then leave the ram for recovery.';
  if(f?.state==='recovering')return 'The ram is undergoing unoccupied fist recovery.';
  if(f?.state==='destroyed')return 'The fist is destroyed and cannot be recovered.';
+ if(f?.state==='rolling')return 'The fist is still rolling. Drive alongside it once it stops.';
  if(f)return 'The fist is still airborne.';
  if(b.skill?.id!=='longArmToTheJaw')return 'Equip Long Arm to the Jaw first.';
  if(b.fistMounted===false)return 'The fist is not attached.';
@@ -94,6 +98,7 @@ export function requestLongArmToJaw(room,b,p,now){
  b.detachedFist={state:'flying',position:origin,velocity,launchedAt:now,
    launchHeading:b.heading??0,launchPitch:b.ramElevPitch??0,
    traveled:0,ownerId:p.id,home:{...home},impactCount:0,
+   hitVictims:[],hitMachines:[],
    spin:{x:0,y:0,z:0},angularVelocity:{x:6.8,y:1.1,z:.7},
    healthAtLaunch:b.components.Fist.health};
  b.fistMounted=false;b.skill.phase='active';b.skill.primedAt=now;
@@ -105,8 +110,37 @@ function hitWall(room,start,end,world){
  for(const box of structureWorld(world,room.structures).solids??[]){
   const target={...box,size:box.size?.map(x=>x+RAM_FIST.radius*2)};
   if(!target.size)continue;
-  const hit=segmentAabbHit(vec(start),vec(end),target);
-  if(hit&&(!nearest||hit.t<nearest.t))nearest={...hit,kind:'wall',solid:box};
+  const rawHit=segmentAabbHit(vec(start),vec(end),target);
+  if(!rawHit)continue;
+  // A fast projectile can start a substep *inside* the conservative wall
+  // envelope after a preceding contact. The ray API then reports t=0 and
+  // a zero normal. Recover the approach face instead of ignoring it and
+  // permitting a high-speed tunnel through masonry.
+  let hit=rawHit;
+  if(hit.t<=1e-6&&hit.normal?.every(v=>Math.abs(v)<1e-8)&&
+     !box.axes&&box.center&&box.size){
+    const delta=[end.x-start.x,end.y-start.y,end.z-start.z];
+    const axis=[0,1,2].sort((i,j)=>Math.abs(delta[j])-Math.abs(delta[i]))[0];
+    if(Math.abs(delta[axis])>1e-8){
+     const normal=[0,0,0],edge=[start.x,start.y,start.z];
+     normal[axis]=-Math.sign(delta[axis]);
+     edge[axis]=box.center[axis]+normal[axis]*(box.size[axis]/2+RAM_FIST.radius+.02);
+     hit={...hit,point:edge,normal};
+    }
+  }
+  // The broad sphere must not snag on a trim edge which the modeled
+  // gauntlet's lower surface has already cleared. Gentle lips are stepped
+  // over; a real vertical obstruction still deflects the heavy body.
+  const top=box.center?.[1]+(box.size?.[1]??0)/2;
+  // The wide swept body protects the fist from tunneling, but the actual
+  // modeled bottom is higher than the conservative sphere's lowest point.
+  // A beam that passes entirely below that bottom must not snag it at all.
+  if(Number.isFinite(top)&&top<Math.min(start.y,end.y)-RAM_FIST.groundRadius-.035)continue;
+  const rise=top-(start.y-RAM_FIST.groundRadius);
+  const lowLip=Number.isFinite(rise)&&rise>=-.03&&rise<=RAM_FIST.ledgeStep &&
+    Math.hypot(end.x-start.x,end.z-start.z)>1e-6;
+  const hitKind=lowLip?'step':'wall';
+  if(hit&&(!nearest||hit.t<nearest.t))nearest={...hit,kind:hitKind,solid:box,top};
  }
  return nearest;
 }
@@ -129,7 +163,9 @@ function hitGround(start,end,world){
 function hitActors(room,b,start,end){
  let best=null;
  for(const p of room.players.values()){
-  if(!p.alive||p.id===b.detachedFist.ownerId||areAllies(room,b.detachedFist.ownerId,p.id))continue;
+  if(!p.alive||p.id===b.detachedFist.ownerId||
+     b.detachedFist.hitVictims?.includes(p.id)||
+     areAllies(room,b.detachedFist.ownerId,p.id))continue;
   const h=postureOf(p).height,center=[p.position.x,p.position.y+h/2,p.position.z];
   const box={center,size:[.9+2*RAM_FIST.radius,h+2*RAM_FIST.radius,.9+2*RAM_FIST.radius],
     axes:[[1,0,0],[0,1,0],[0,0,1]]};
@@ -141,9 +177,15 @@ function hitActors(room,b,start,end){
 function projectileImpact(room,b,f,hit,now){
  const at={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
  const normalDamage=fistDamage(f.traveled);
- const damage=f.isFinal&&f.fragment?
+ const normalHit=f.isFinal&&f.fragment?
    Math.round(normalDamage*85/RAM_FIST.closeDamage):normalDamage;
+ // A rolling gauntlet remains a collision hazard but cannot reproduce its
+ // full launch impact indefinitely on the ground.
+ const damage=f.state==='rolling'?Math.round(normalHit*.22):normalHit;
  if(hit.kind==='actor'){
+  f.hitVictims??=[];
+  if(f.hitVictims.includes(hit.victim.id))return;
+  f.hitVictims.push(hit.victim.id);
   const guarded=Boolean(hit.victim.guarding&&
     isInGuardCone(hit.victim,{position:at},now));
   if(guarded){
@@ -163,9 +205,15 @@ function projectileImpact(room,b,f,hit,now){
    interruptHitActions(room,hit.victim,f.ownerId,now,'long-arm-to-the-jaw');
   }
  }else if(hit.kind==='ballista'){
+  f.hitMachines??=[];
+  if(f.hitMachines.includes('ballista'))return;
+  f.hitMachines.push('ballista');
   damageBiByeLlista(room,room.biByeLlista,damage,f.ownerId,'long-arm-to-the-jaw',now,
    {componentId:hit.box.componentId,point:at});
  }else if(hit.kind==='flight'){
+  f.hitMachines??=[];
+  if(f.hitMachines.includes('flight'))return;
+  f.hitMachines.push('flight');
   damageFightFlight(room,room.fightFlight,damage,f.ownerId,'long-arm-to-the-jaw',now,
    {componentId:hit.componentId??hit.box.componentId,point:at});
  }else if(hit.kind==='wall'){
@@ -175,15 +223,14 @@ function projectileImpact(room,b,f,hit,now){
  }
  event(room,b,'impact',now,{kind:hit.kind,componentId:hit.box?.componentId??hit.componentId,
    position:at,damage});
- f.position=at;
- const normal=wallNormal(hit.normal,f.velocity);
- const inward=f.velocity.x*normal[0]+f.velocity.y*normal[1]+f.velocity.z*normal[2];
- const reflect=hit.kind==='wall'&&inward<0?(1+RAM_FIST.wallRestitution)*inward:0;
- f.velocity={x:(f.velocity.x-reflect*normal[0])*RAM_FIST.horizontalDamping,
-   y:Math.max(-3,Math.min(2,(f.velocity.y-reflect*normal[1])*.15)),
-   z:(f.velocity.z-reflect*normal[2])*RAM_FIST.horizontalDamping};
- f.angularVelocity={x:3.4,y:2.8,z:2.1};
- f.state='falling';f.impactCount++;
+ f.impactCount++;
+ const multiplier=hit.kind==='actor'?RAM_FIST.actorRetention:RAM_FIST.machineRetention;
+ // Guard changes damage and stamina. It does not magically turn a flying
+ // half-ton armored fist into a stationary object. Momentum is retained
+ // after each distinct body or machine, so a line of knights can be hit.
+ f.velocity={x:f.velocity.x*multiplier,y:f.velocity.y*multiplier,
+   z:f.velocity.z*multiplier};
+ f.angularVelocity={x:5.1,y:1.8,z:2.8};
 }
 export function stepDetachedRamFist(room,b,dt,now,world=room.world){
  if(!b?.detachedFist||b.retired||(b.health<=0&&!b.detachedFist.isFinal))return;
@@ -224,7 +271,7 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
   return;
  }
  if(f.state==='resting')return;
- if(!['flying','falling'].includes(f.state)||!Number.isFinite(dt)||dt<=0)return;
+ if(!['flying','falling','rolling'].includes(f.state)||!Number.isFinite(dt)||dt<=0)return;
  // A fist launched during this server tick has not flown for the entire
  // tick. Never integrate a final death discharge before its launch timestamp.
  const simulatedDt=Math.min(dt,Math.max(0,now-(f.launchedAt??(now-dt))));
@@ -235,24 +282,32 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
  const h=simulatedDt/steps;
  for(let i=0;i<steps;i++){
   const previous={...f.position},v={...f.velocity};
-  const next={x:previous.x+v.x*h,
+  let next={x:previous.x+v.x*h,
    y:previous.y+v.y*h-.5*RAM_FIST.gravity*h*h,
    z:previous.z+v.z*h};
+  if(f.state==='rolling'){
+   // Rolling stays supported at the *current* ground height. A ledge with
+   // no support sends the fist falling with its remaining horizontal speed.
+   const floor=surfaceHeightAt(next.x,next.z,previous.y+.1,world);
+   if(floor==null){f.state='falling';next.y=previous.y-.5*RAM_FIST.gravity*h*h;}
+   else next.y=floor+RAM_FIST.groundRadius;
+  }
   const movement=Math.hypot(next.x-previous.x,next.y-previous.y,next.z-previous.z);
   const at=now-simulatedDt+h*(i+1);
-  let hits=[hitWall(room,previous,next,world),hitGround(previous,next,world)];
-  if(f.state==='flying'){
+  let hits=[hitWall(room,previous,next,world),
+    f.state==='rolling'?null:hitGround(previous,next,world)];
+  if(f.state==='flying'||f.state==='rolling'){
    hits.push(hitActors(room,b,previous,next));
    const ballista=room.biByeLlista;
    // Use the REAL articulated component OBBs. getBiByeSolids only provides
    // broad-phase AABBs and loses component IDs / physical openings.
-   if(ballista&&ballista.health>0&&!ballista.retired)
+   if(ballista&&ballista.health>0&&!ballista.retired&&!f.hitMachines?.includes('ballista'))
     for(const box of biByeHitVolumes(ballista,at)){
      const hit=orientedBoxHit(vec(previous),vec(next),box,RAM_FIST.radius);
      if(hit)hits.push({...hit,kind:'ballista'});
     }
    const flight=room.fightFlight;
-   if(flight&&flight.health>0&&!flight.retired){
+   if(flight&&flight.health>0&&!flight.retired&&!f.hitMachines?.includes('flight')){
     const hit=fightFlightFirstHit(flight,vec(previous),vec(next),RAM_FIST.radius);
     if(hit)hits.push({...hit,kind:'flight'});
    }
@@ -270,27 +325,64 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
   if(earliest){
    const impactTime=at-h*(1-alpha);
    if(earliest.kind==='ground'){
-    f.velocity={x:0,y:0,z:0};f.angularVelocity={x:0,y:0,z:0};
-    f.state='resting';
-    event(room,b,'landed',impactTime,{position:f.position});
-   }else if(f.state==='flying'){
-    projectileImpact(room,b,f,earliest,impactTime);
-   }else{
-    // Once spent, the fist can glance off masonry but cannot deal a second
-    // full-power attack by being bounced or dragged through another collider.
-    const normal=wallNormal(earliest.normal,f.velocity);
-    const inward=f.velocity.x*normal[0]+f.velocity.y*normal[1]+f.velocity.z*normal[2];
-    if(inward<0){
-     const impulse=(1+RAM_FIST.wallRestitution)*inward;
-     f.velocity.x=(f.velocity.x-impulse*normal[0])*.55;
-     f.velocity.y=(f.velocity.y-impulse*normal[1])*.55;
-     f.velocity.z=(f.velocity.z-impulse*normal[2])*.55;
+    const speed=Math.hypot(f.velocity.x,f.velocity.z);
+    f.position.y=earliest.point[1];
+    f.velocity.y=0;
+    f.state=speed>=RAM_FIST.rollMinSpeed?'rolling':'resting';
+    if(f.state==='resting'){
+     f.velocity={x:0,y:0,z:0};f.angularVelocity={x:0,y:0,z:0};
+     event(room,b,'landed',impactTime,{position:{...f.position}});
     }
-    f.position={x:f.position.x+normal[0]*.005,y:f.position.y+normal[1]*.005,
-      z:f.position.z+normal[2]*.005};
+   }else if(earliest.kind==='step'){
+    const stepUp=Math.max(0,earliest.top+RAM_FIST.groundRadius-f.position.y);
+    f.position.y+=Math.min(stepUp,RAM_FIST.ledgeStep);
+    f.velocity.x*=.94;f.velocity.z*=.94;
+    // Rolling over a short masonry lip is not a second damaging impact.
+   }else if(earliest.kind==='actor'||earliest.kind==='ballista'||earliest.kind==='flight'){
+    projectileImpact(room,b,f,earliest,impactTime);
+    // Move clear of the contacted body before the next swept substep. This
+    // plus hitVictims/hitMachines prevents an immediate zero-time rehit.
+    const length=Math.hypot(f.velocity.x,f.velocity.y,f.velocity.z)||1;
+    f.position.x+=f.velocity.x/length*.025;
+    f.position.y+=f.velocity.y/length*.025;
+    f.position.z+=f.velocity.z/length*.025;
+   }else{
+    // A genuine wall absorbs *normal* motion, not all tangential momentum.
+    // Friction and rebound settle it; a glancing fist can still roll away.
+    const n=wallNormal(earliest.normal,f.velocity);
+    const inward=f.velocity.x*n[0]+f.velocity.y*n[1]+f.velocity.z*n[2];
+    if(inward<0){
+     f.velocity.x=(f.velocity.x-(1+RAM_FIST.wallRestitution)*inward*n[0])*RAM_FIST.wallSlide;
+     f.velocity.y=(f.velocity.y-(1+RAM_FIST.wallRestitution)*inward*n[1])*RAM_FIST.wallSlide;
+     f.velocity.z=(f.velocity.z-(1+RAM_FIST.wallRestitution)*inward*n[2])*RAM_FIST.wallSlide;
+    }
+    f.position={x:f.position.x+n[0]*.026,y:f.position.y+n[1]*.026,
+      z:f.position.z+n[2]*.026};
+    if(f.state==='flying')projectileImpact(room,b,f,earliest,impactTime);
+    if(f.state==='flying')f.state='falling';
    }
-   break;
   }
+  if(f.state==='rolling'){
+   const drag=Math.exp(-RAM_FIST.rollDrag*h);
+   f.velocity.x*=drag;f.velocity.z*=drag;f.velocity.y=0;
+   // Rotation is visual evidence of translated mass; it diminishes as the
+   // carriage-sized object slows, rather than spinning forever in place.
+   f.angularVelocity={x:-f.velocity.z/RAM_FIST.groundRadius,
+     y:0,z:f.velocity.x/RAM_FIST.groundRadius};
+   if(Math.hypot(f.velocity.x,f.velocity.z)<RAM_FIST.rollStop){
+    f.state='resting';f.velocity={x:0,y:0,z:0};
+    f.angularVelocity={x:0,y:0,z:0};
+    event(room,b,'landed',at,{position:{...f.position}});
+   }
+  }
+  // A settled body has no remaining substeps: do not integrate it through
+  // more gravity or dispatch duplicate ground-landed events this same tick.
+  if(f.state==='resting')break;
+  // A substantial masonry collision spends the remaining fractional tick:
+  // the next authoritative step starts from the separated, rebounding body.
+  // Only player and machine impacts are allowed to continue through the
+  // current tick, so a thin wall can never be crossed by leftover substeps.
+  if(earliest?.kind==='wall')break;
   if(f.position.y<(Number.isFinite(world.abyssY)?world.abyssY:-30)||
      at-f.launchedAt>RAM_FIST.flightTimeout&&
       surfaceHeightAt(f.position.x,f.position.z,f.position.y+2,world)==null){

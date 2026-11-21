@@ -16,3 +16,14 @@ test('Each machine has compact preview and expandable Story of Siege without cut
  assert.match(flight.line,/It is simply doom/);
  assert.match(flight.line,/nigh-unreachable/);
 });
+
+test('creator-era siege stories are restored verbatim in Armory and Practice source',()=>{
+ const [ballista,ram]=siegeArmoryView();
+ assert.equal(ballista.preview,
+  'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.');
+ assert.equal(ballista.line,ballista.preview+'\n\nThe first shot lowers the target\'s defense.');
+ assert.equal(ram.preview,
+  'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more.');
+ assert.equal(ram.line,
+  ram.preview+' The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.\n\nWill not leave a scratch.');
+});

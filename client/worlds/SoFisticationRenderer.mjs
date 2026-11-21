@@ -319,7 +319,7 @@ export class SoFisticationRenderer {
   // fist is destroyed or launched, so the exposed striker never looks hollow.
   if(ring)ring.visible=true;
   const remote=b.detachedFist;
-  if(remote&&['flying','falling','resting'].includes(remote.state)){
+  if(remote&&['flying','falling','rolling','resting'].includes(remote.state)){
    if(!this.detachedTemplate&&!this.detachedUnavailable)this.loadDetached();
    if(!this.detachedVisual&&fist){
     // Both GLBs have the same named center locator. Rebase the standalone
@@ -345,9 +345,10 @@ export class SoFisticationRenderer {
    }
    if(this.detachedVisual){
     const resting=remote.state==='resting';
+    const rolling=remote.state==='rolling';
     const groundY=remote.position.y-RAM_FIST.groundRadius;
     this.detachedVisual.position.set(remote.position.x,
-      resting?groundY+this.detachedRestHeight:remote.position.y,remote.position.z);
+      resting||rolling?groundY+this.detachedRestHeight:remote.position.y,remote.position.z);
     // Preserve the launch orientation independently of later steering on the
     // carriage. Tumble about the modeled COM, not the bayonet coupling.
     const originFrame=soFistFrame({...b,heading:remote.launchHeading??b.heading});

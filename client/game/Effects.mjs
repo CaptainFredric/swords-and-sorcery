@@ -496,6 +496,31 @@ export class Effects {
     this.sparks(point, 0xffd48a, 14);
   }
 
+  // Ordinary aircraft component hits are steel-grey contact dust, not
+  // the long orange wood splinters or orange spark filaments.
+  flightComponentHit(point) {
+    if(!point)return;
+    for(let i=0,n=this.#many(3);i<n;i++)
+      this.#dust(point,{size:.35+Math.random()*.3,rise:.18,life:.24,
+        color:i%2?0x666c70:0x464f53});
+  }
+
+  // A destroyed Flight component gives a modest pressure pop, not the
+  // orange, elongated sparks used by ordinary sword-on-metal contacts.
+  flightComponentBreak(point) {
+    if(!point)return;
+    for(let i=0,n=this.#many(6);i<n;i++){
+      const angle=i*Math.PI*2/Math.max(1,n);
+      this.#dust(point,{size:.55+Math.random()*.3,
+        rise:.45+Math.random()*.45,life:.28+Math.random()*.17,
+        color:i%2===0?0xd25029:0xa63d28,
+        velocity:new THREE.Vector3(Math.cos(angle)*1.15,.6,Math.sin(angle)*1.15)});
+    }
+    for(let i=0,n=this.#many(4);i<n;i++)
+      this.#dust(point,{size:.65+Math.random()*.3,rise:.9,life:.8,
+        color:i%2?0x55514d:0x383a3a});
+  }
+
   // a puff of dust off the ground, drifting up and spreading as it thins
   // (velocity: where it is thrown, if not straight up)
   #dust(point, { size = 1, rise = 0.8, life = 0.6, color = 0x9a8a72, velocity = null } = {}) {
