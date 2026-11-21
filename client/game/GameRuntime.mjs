@@ -31,6 +31,7 @@ import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatA
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
 import { OneHitLiveEffects } from './OneHitLiveEffects.mjs';
+import { windbladeImpactKick } from './disasterWavePresentation.mjs';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
 import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
@@ -2097,20 +2098,18 @@ export class GameRuntime {
       if (event.type === 'groundStrike') this.scenes.groundSlam(event.playerId, event.at);
       if (event.type === 'groundStrike') {
         this.#play(groundSlamRecipe(), event.playerId === me ? null : event.point, 1);
-        if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
+        // Terminal Gale ruptures reuse groundStrike for real fissures, but
+        // must not inherit the caster's heavy melee-slam camera jolt.
+        if (event.playerId === me && !event.oneHit?.terminalGale)
+          this.cameraKick = Math.max(this.cameraKick, 0.2);
       }
-      // Every grounded Gale Windblade detonation shakes the viewing knight,
-      // even when another player fired it. Only proximity sets the strength:
-      // a nearby ground impact is felt; one across the map is not.
+      // Windblade ground detonations give every nearby viewer a small,
+      // distance-fading nudge, never a second full melee-slam camera jolt.
       if(event.type==='oneHitImpact'&&event.impactId&&event.groundBlast&&
         (event.tiers?.gale??0)>=2){
         const p=this.localState?.position??this.localAuth?.position;
-        const hit=event.groundPoint??event.point;
-        if(p&&hit){
-          const metres=Math.hypot(p.x-hit.x,(p.y??0)-(hit.y??0),p.z-hit.z);
-          const near=Math.max(0,1-metres/34);
-          this.cameraKick=Math.max(this.cameraKick??0,.33*near*near);
-        }
+        this.cameraKick=Math.max(this.cameraKick??0,
+          windbladeImpactKick(p,event.groundPoint??event.point));
       }
       if (event.type === 'rupture') {
         this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, width: RUPTURE.width, trailWidth: RUPTURE.trailWidth });
