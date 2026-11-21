@@ -148,18 +148,10 @@ export class TouchControls {
       </div>
       ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill','siegeSweep'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
+          <div class="touch-face">${svg(icon)}<span>${label}</span>${action === 'siegeWeapon' ? '<b class="touch-bolt-ammo" aria-hidden="true"></b>' : ''}${action === 'dash' ? '<small class="touch-status"></small>' : ''}${(cooldown||['attack','ramFlick','siegeSkill','siegeSweep'].includes(action)) ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}</div>
         </div>`).join('')}`;
     root.append(this.layer);
-    // The live reserve is attached to the BOLT control and follows saved,
-    // mirrored and resized layouts; it is not a floating HUD rectangle.
-    this.boltAmmoPill=document.createElement('b');
-    this.boltAmmoPill.className='touch-bolt-ammo';
-    this.boltAmmoPill.setAttribute('aria-hidden','true');
-    this.buttons=Object.fromEntries([...this.layer.querySelectorAll('[data-action]')]
-      .filter(element=>element.classList.contains('touch-btn'))
-      .map(element=>[element.dataset.action,element]));
-    this.buttons.siegeWeapon.querySelector('.touch-face')?.append(this.boltAmmoPill);
+    // Ammo badge lives inside the Bolt face (including custom layouts).
     // A read-only, full-layer ink overlay connects the ACTUAL four Flight
     // buttons. It never becomes a fifth movable control or intercepts taps.
     // The original Jump finger is captured by the existing touch layer.
@@ -230,6 +222,7 @@ export class TouchControls {
     this.motionGuide = this.layer.querySelector('.touch-motion-guide');
     this.motionLabel = this.layer.querySelector('.touch-motion-label');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
+    this.boltAmmoPill=this.buttons.siegeWeapon.querySelector('.touch-bolt-ammo');
     this.cooldowns = BUTTONS.filter((button) => button.cooldown).map(({ action, cooldown }) => ({
       element: this.buttons[action],
       timer: this.buttons[action].querySelector('.touch-timer'),
