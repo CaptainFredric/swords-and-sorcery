@@ -118,9 +118,9 @@ function demonstrateChivalry(room, actor, nowSec, world) {
   const distance = Math.hypot(dx, dz); const length = Math.hypot(dx, dy, dz) || 1;
   const direction = { x: dx / length, y: dy / length, z: dz / length };
   const aimYaw=Math.atan2(-dx,-dz),aimPitch=Math.asin(direction.y);
-  // Never teleport the BODY facing on every teaching-AI tick: the combat
-  // movement step owns rotation, Guard's actual arc and Blustered slowdown.
-  actor.pitch=aimPitch;
+  // Never teleport the body's facing or pitch on every teaching-AI
+  // tick. The combat movement step owns rotation, Guard arc, and Blustered
+  // slowdown, while a cast uses its explicit physical target vector.
   const age = Math.max(0, nowSec - state.commitAt); const loop = Math.floor(age / 3); const phase = age % 3;
   const guard = phase < 0.8 || (phase >= 1.7 && phase < 2.3);
   const sword = distance < 3.3 && phase < 2.5;
@@ -198,7 +198,6 @@ export function stepUltimateKnight(room, actor, nowSec, world = room.world, { ra
       const dy=target.position.y+postureOf(target).center-actor.position.y-postureOf(actor).eye;
       const aimYaw=Math.atan2(-dx,-dz);
       const aimPitch=Math.atan2(dy,Math.max(.01,distance));
-      actor.pitch=aimPitch;
       const route=demo.behavior==='follow'&&distance>2.6?
         wayToward(world,actor,target,demo.navigation,nowSec):null;
       const movementYaw=route?
