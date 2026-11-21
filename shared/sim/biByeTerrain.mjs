@@ -2,7 +2,7 @@ import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeRootFrame, biByeHitVolumes, 
 import { boxWorld } from '../src/orientedBox.mjs';
 
 const RAD=Math.PI/180, R=.55, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:22*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
+export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:28.5*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const inside=(s,x,z)=>x>=s.x0-1e-7&&x<=s.x1+1e-7&&z>=s.z0-1e-7&&z<=s.z1+1e-7;
@@ -63,10 +63,17 @@ export function biByeTerrainPose(b,ctx){
   const root=biByeRootFrame(pose),v=root.axes[1].map(n=>n*R);
   contacts=wheelDefs.map((def,i)=>{
    const p=boxWorld(root,def.pivot),dir=boxWorld(root,[Math.sin(steering[i]),0,Math.cos(steering[i])],true),u=dir.map(n=>n*R);
-   const direct=groundAt(ctx,p[0],p[2],p[1]+.35);
-   if(direct===null||p[1]-direct>R+.32||direct-p[1]>BI_BYE_TERRAIN.step)return null;
+   // A ramp is an inclined wheel path, not a vertical curb. Its leading
+   // contact may rise well above the old axle while the rear wheels are
+   // still on the flat approach; retain the strict .25m limit for risers.
+   const ceiling=p[1]+R+.35;
+   const direct=groundAt(ctx,p[0],p[2],ceiling);
+   const onRamp=ctx.surfaces.some(s=>(s.a||s.c)&&inside(s,p[0],p[2])&&
+     Math.abs(height(s,p[0],p[2])-direct)<.015);
+   if(direct===null||p[1]-direct>R+.32||
+      direct-p[1]>(onRamp?R+.3:BI_BYE_TERRAIN.step))return null;
    let y=-Infinity;
-   for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,p[1]+.35)-root.axes[0][1]*lane);}
+   for(const lane of [-.13,0,.13]){const q=p.map((n,k)=>n+root.axes[0][k]*lane);y=Math.max(y,circleSupport(ctx,q,u,v,ceiling)-root.axes[0][1]*lane);}
    return Number.isFinite(y)?[def.pivot[0],def.pivot[2],y]:null;
   });
   if(contacts.some(p=>!p))return null;
