@@ -286,10 +286,10 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       bornAt:w.bornAt, tiers:{...w.tiers},
     })),
     oneHitBurnZones: (room.oneHitBurnZones ?? []).map(z => ({
-      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, bornAt:z.bornAt, until:z.until,
+      id:z.id, ownerId:z.ownerId, position:{...z.position}, radius:z.radius, yaw:z.yaw??null, bornAt:z.bornAt, until:z.until,
     })),
     oneHitFields: (room.oneHitFields ?? []).map(f => ({
-      id:f.id, ownerId:f.ownerId, position:{...f.position}, radius:f.radius, bornAt:f.bornAt, until:f.until, tiers:{...f.tiers},
+      id:f.id, ownerId:f.ownerId, position:{...f.position}, radius:f.radius, yaw:f.yaw??null, bornAt:f.bornAt, until:f.until, tiers:{...f.tiers},
     })),
     lineConductWires: (room.lineConductWires ?? []).map(w => ({
       id:w.id, ownerId:w.ownerId, origin:{...w.origin}, end:{...w.end}, until:w.until,
@@ -309,7 +309,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
         room.soFistication.detachedFist?.state??(room.soFistication.fistMounted?'attached':'absent'),
       drivePressure:room.soFistication.pressure,
       reverseChargeAvailable:soFistReverseChargeAvailable(room.soFistication),
-      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,wheelContactAt:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,

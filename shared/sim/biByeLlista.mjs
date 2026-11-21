@@ -10,6 +10,7 @@ import {mitigateSiegeSteel,endSiegeSteel} from './siegeSteel.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
+import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
 import {damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
 import { sampleTransform } from './history.mjs';
@@ -774,8 +775,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
         ballista.steer=wheelSteer*affliction.steering;
+        // Other siege machines and architecture remain solid. Players are
+        // contacted by moving wheels, never included as immovable obstacles.
         const others=soFistSolids(room.soFistication);
-        for(const other of room.players?.values()??[]){if(other.alive&&other.id!==ballista.operatorId)others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});}
         const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
         const slices=Math.max(1,Math.ceil(Math.abs(speed*dt)/.05));
         for(let i=0;i<slices&&Math.abs(speed)>1e-5;i++){
@@ -814,9 +816,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   // the shove in the following tick. Unoccupied machines obey it as well.
   const impulse=ballista.externalVelocity??{x:0,z:0};
   if(ballista.mode==='MOBILE'&&Math.hypot(impulse.x,impulse.z)>SIEGE_IMPACT.restSpeed){
+    // A knock-on impulse likewise clears bodies without turning them into
+    // invisible walls in the ballista's obstacle solver.
     const others=soFistSolids(room.soFistication);
-    for(const other of room.players?.values()??[])if(other.alive&&other.id!==ballista.operatorId)
-      others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});
     const ctx=biByeTerrainContext(world,ballista,others);
     const initiallyBlocked=!biByeTerrainClear(ballista,ctx);
     const slices=Math.max(1,Math.ceil(Math.hypot(impulse.x,impulse.z)*dt/.05));
@@ -852,6 +854,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     ballista.externalVelocity={x:(ballista.externalVelocity?.x??0)*fade,z:(ballista.externalVelocity?.z??0)*fade};
   }else ballista.externalVelocity={x:0,z:0};
 
+  if(ballista.mode===BI_BYE_MODES.MOBILE)stepSiegeWheelContacts(
+    room,ballista,previousPose,dt,nowSec,'ballista',
+    biByeHitVolumes(ballista,nowSec),biByeHitVolumes(previousPose,nowSec-dt));
   const roll = biByeWheelTravel(previousPose, ballista, biByeWheelSteering(ballista.steer??0));
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
 

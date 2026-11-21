@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { windbladeSpeed, windbladeTrailSpan } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
-import { blusterSeverity, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
+import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
 
@@ -306,7 +306,7 @@ export class DisasterElementEffects {
   // a shallow pressure dome of mist and suspended, slowly settling fragments.
   // Full Frost carries the same burst with a denser crystalline silhouette.
   // Existing prewarmed instanced pools keep this cheap even in busy matches.
-  #frostSuspendedDome(point, radius, full, ground = true) {
+  #frostSuspendedDome(point, radius, full, ground = true, yaw = null) {
     if (!ground) return; // airborne waves get their existing directional burst
     const profile = frostSuspensionProfile(full ? 2 : 1, radius, this.density);
     if (!profile) return;
@@ -317,7 +317,7 @@ export class DisasterElementEffects {
       const angle = i * 2.399963229728653 + rand(-.22, .22);
       const u = Math.sqrt((i + .45) / shards);
       const dome = Math.sqrt(Math.max(0, 1 - u * u));
-      const reach = radius * (.43 + .43 * u);
+      const reach = groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle)) * (.43 + .43 * u);
       const rise = height * (.23 + .67 * dome);
       const life = rand(.95, 1.45);
       const size = rand(full ? .055 : .042, full ? .115 : .088);
@@ -341,7 +341,7 @@ export class DisasterElementEffects {
       const angle = i * 2.399963229728653 + rand(-.5, .5);
       const u = Math.sqrt((i + .5) / vapour);
       const crown = Math.sqrt(Math.max(0, 1 - u * u));
-      const reach = radius * (.25 + .55 * u);
+      const reach = groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle)) * (.25 + .55 * u);
       const release = rand(2.7, 3.8);
       const size = rand(.23, full ? .52 : .44);
       this.smoke.spawn({
@@ -362,7 +362,8 @@ export class DisasterElementEffects {
   // A Fire infusion is an actual expanding fireball, not just thin spark
   // streaks. Broad bright lobes push out before the dark smoke follows; all
   // pieces use existing instanced pools and do not add runtime shader types.
-  #fireExplosion(point,radius,height,ground,full) {
+  #fireExplosion(point,radius,height,ground,full,yaw=null) {
+    const rim=(angle)=>groundFootprintRadius(radius,ground?yaw:null,Math.cos(angle),Math.sin(angle));
     const lobes=this.#n(full?76:56);
     for(let i=0;i<lobes;i++){
       const angle=rand(TAU),rise=ground?rand(0.06,.92):rand(-.9,.9);
@@ -371,9 +372,9 @@ export class DisasterElementEffects {
       this.glow.spawn({
         x:point.x+Math.cos(angle)*rand(.04,.24),y:point.y+.27+rand(.15),
         z:point.z+Math.sin(angle)*rand(.04,.24),
-        vx:Math.cos(angle)*flat*radius/ttl*magnitude,
+        vx:Math.cos(angle)*flat*rim(angle)/ttl*magnitude,
         vy:rise*height/ttl*magnitude,
-        vz:Math.sin(angle)*flat*radius/ttl*magnitude,
+        vz:Math.sin(angle)*flat*rim(angle)/ttl*magnitude,
         sx:rand(.17,.32)*(full?1.12:1),
         sy:rand(.18,.36)*(full?1.12:1),
         sz:rand(.15,.29)*(full?1.12:1),
@@ -384,7 +385,7 @@ export class DisasterElementEffects {
     // orange lobes and late smoke. All phases use the existing bounded pool.
     for(let i=0;i<this.#n(full?24:16);i++){
       const a=rand(TAU),rise=ground?rand(.18,.92):rand(-.9,.9),ttl=rand(.11,.23);
-      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=radius*rand(.35,.74);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=rim(a)*rand(.35,.74);
       this.glow.spawn({
         x:point.x+Math.cos(a)*rand(.05,.18),y:point.y+.24,
         z:point.z+Math.sin(a)*rand(.05,.18),
@@ -530,6 +531,8 @@ export class DisasterElementEffects {
     const floor = p.y + 0.02;
     const steel = tiers.steel ?? 0;
     const radius = event.radius ?? 3.4;
+    const yaw=ground&&event.form==='ground'?event.yaw:null;
+    const rim=(angle)=>groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle));
     if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers);
     if (ground) {
       // the ground breaks where the blade went in: stone thrown out and up, more of it and harder for Steel
@@ -542,7 +545,7 @@ export class DisasterElementEffects {
       }
       // and the dust of it, rolling outward low (in place of a drawn ring: it is the ground's own)
       for (let i = 0; i < this.#n(22); i += 1) {
-        const a = i / 22 * TAU + rand(0.2), speed = rand(3.5, 6.5) * (steel ? 1.2 : 1);
+        const a = i / 22 * TAU + rand(0.2), speed = rand(3.5, 6.5) * (steel ? 1.2 : 1) * (rim(a)/radius);
         this.#dust({ x: p.x + Math.cos(a) * 0.5, y: floor + 0.15, z: p.z + Math.sin(a) * 0.5 }, { x: Math.cos(a) * speed, y: rand(0.2, 1), z: Math.sin(a) * speed }, rand(0.22, 0.36), rand(0.8, 1.3));
       }
     } else {
@@ -560,7 +563,7 @@ export class DisasterElementEffects {
           { size: rand(0.05, 0.1), ttl: rand(0.35, 0.7), drag: 1.6, stretch: 3.6 });
       }
       for (let i = 0; i < this.#n(full ? 46 : 22); i += 1) {
-        const a = rand(TAU), speed = rand(3, full ? radius * 2.4 : 6);
+        const a = rand(TAU), speed = rand(3, full ? rim(a) * 2.4 : 6 * rim(a)/radius);
         this.#mote('fire', { x: p.x, y: floor + 0.12, z: p.z }, { x: Math.cos(a) * speed, y: rand(0.5, 2.5), z: Math.sin(a) * speed }, { size: rand(0.022, 0.045), ttl: rand(0.3, 0.55), gravity: 5, drag: 2, stretch: 4 });
       }
       for (let i = 0; i < this.#n(full ? 10 : 5); i += 1) this.#dust({ x: p.x + rand(-0.6, 0.6), y: floor + rand(0.8, 1.6), z: p.z + rand(-0.6, 0.6) }, { x: rand(-0.5, 0.5), y: rand(1.5, 3), z: rand(-0.5, 0.5) }, rand(0.35, 0.6), rand(1.2, 1.9), 0x2b211c);
@@ -571,14 +574,15 @@ export class DisasterElementEffects {
       const reach = radius, tall = ground ? (event.height ?? 3.5) : radius;
       for (let i = 0; i < this.#n(tiers.fire === 2 ? 90 : 70); i += 1) {
         const a = rand(TAU), lift = ground ? Math.random() : rand(-1, 1), flat = Math.sqrt(Math.max(0, 1 - lift * lift)), ttl = rand(0.26, 0.42);
-        this.#mote('fire', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * flat * reach / ttl * 0.8, y: lift * tall / ttl * 0.8, z: Math.sin(a) * flat * reach / ttl * 0.8 },
+        const outReach=rim(a);
+        this.#mote('fire', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * flat * outReach / ttl * 0.8, y: lift * tall / ttl * 0.8, z: Math.sin(a) * flat * outReach / ttl * 0.8 },
           { size: rand(0.045, 0.1), ttl, drag: 1.1, stretch: 3 });
       }
       for (let i = 0; i < this.#n(16); i += 1) {
         const a = rand(TAU);
         this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
       }
-      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2);
+      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2,yaw);
     }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
@@ -595,12 +599,12 @@ export class DisasterElementEffects {
       // Give Half Frost's extended first-contact interval a readable volume,
       // rather than implying that a handful of fast splinters is the attack.
       // Full Frost retains its separately authored standing ice field.
-      this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground);
+      this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground, yaw);
       // A cold compression front rolls outward at ankle height, then
       // separates into slow vapour and bright ice splinters. The persistent
       // Full Frost plates remain the gameplay indicator, not this mist.
       for(let i=0;i<this.#n(full?34:22);i++){
-        const a=(i+rand(.5))/ (full?34:22)*TAU,reach=radius*rand(.55,1);
+        const a=(i+rand(.5))/ (full?34:22)*TAU,reach=rim(a)*rand(.55,1);
         this.#dust({x:p.x+Math.cos(a)*rand(.12,.35),
             y:floor+rand(.1,.35),z:p.z+Math.sin(a)*rand(.12,.35)},
           {x:Math.cos(a)*reach*rand(1.4,2.5),y:rand(.18,.65),
@@ -629,7 +633,7 @@ export class DisasterElementEffects {
       this.#bolt(new THREE.Vector3(p.x + rand(-1.5, 1.5), p.y + 15, p.z + rand(-1.5, 1.5)), new THREE.Vector3(p.x, floor, p.z), { width: full ? 0.155 : 0.103, ttl: 0.26, jag: 0.08, forks: 3, steps: 11 });
       const forks = this.#n(full ? 11 : 7);
       for (let i = 0; i < forks; i += 1) {
-        const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * radius * (full ? 1.15 : 0.8);
+        const a = i / forks * TAU + rand(0.4), reach = rand(0.6, 1) * rim(a) * (full ? 1.15 : 0.8);
         this.#bolt(new THREE.Vector3(p.x, floor + 0.15, p.z), new THREE.Vector3(p.x + Math.cos(a) * reach, floor + rand(0.05, 0.5), p.z + Math.sin(a) * reach),
           { width: full ? 0.073 : 0.051, ttl: rand(0.19, 0.3), jag: 0.14, forks: 2 });
       }
@@ -707,7 +711,9 @@ export class DisasterElementEffects {
         entry.acc[key] = (entry.acc[key] ?? 0) + perSec * this.density * dt * strength;
         while (entry.acc[key] >= 1) { entry.acc[key] -= 1; fn(); }
       };
-      const inside = (share = 1) => { const a = rand(TAU), r = Math.sqrt(Math.random()) * field.radius * share; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
+      const inside = (share = 1) => { const a = rand(TAU),
+        r = Math.sqrt(Math.random()) * groundFootprintRadius(field.radius,field.yaw,Math.cos(a),Math.sin(a))*share;
+        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
       // every field: the broken ground still shifting, grit hopping and dust hanging over it
       emit('grit', 26, () => { const at = inside(); this.#stone(at, { x: rand(-0.4, 0.4), y: rand(1.2, 2.6), z: rand(-0.4, 0.4) }, rand(0.02, 0.05), floor, 0.6); });
       emit('haze', 2.5, () => { const at = inside(); this.#dust({ ...at, y: floor + 0.12 }, { x: rand(-0.3, 0.3), y: rand(0.25, 0.6), z: rand(-0.3, 0.3) }, rand(0.16, 0.28), 1.3); });
@@ -740,6 +746,7 @@ export class DisasterElementEffects {
     rock.name='disaster-shaken-ground-field';
     rock.position.set(field.position.x,field.position.y,field.position.z);
     const radius=field.radius;
+    const warp=(x,z)=>groundFootprintWarp(x,z,radius,field.yaw);
     let seed=frostPatternHash(field.id);
     const randRock=()=>{
       seed=(seed+0x6d2b79f5)>>>0;
@@ -751,7 +758,7 @@ export class DisasterElementEffects {
     const groundTriangles=[],perimeter=[];
     for(let i=0;i<72;i++){
       const a=i/72*TAU,r=radius*(.955+.043*randRock());
-      perimeter.push({x:Math.cos(a)*r,z:Math.sin(a)*r});
+      perimeter.push(warp(Math.cos(a)*r,Math.sin(a)*r));
     }
     for(let i=0;i<perimeter.length;i++){
       const p=perimeter[i],q=perimeter[(i+1)%perimeter.length];
@@ -769,8 +776,9 @@ export class DisasterElementEffects {
     const cut=(x1,z1,x2,z2,width)=>{
       const dx=x2-x1,dz=z2-z1,l=Math.hypot(dx,dz)||1;
       const nx=-dz/l*width,nz=dx/l*width;
-      fissures.push(x1-nx,.046,z1-nz,x2-nx,.046,z2-nz,x2+nx,.046,z2+nz,
-        x1-nx,.046,z1-nz,x2+nx,.046,z2+nz,x1+nx,.046,z1+nz);
+      const a=warp(x1-nx,z1-nz),b=warp(x2-nx,z2-nz),c=warp(x2+nx,z2+nz),d=warp(x1+nx,z1+nz);
+      fissures.push(a.x,.046,a.z,b.x,.046,b.z,c.x,.046,c.z,
+        a.x,.046,a.z,c.x,.046,c.z,d.x,.046,d.z);
     };
     // Steel leaves its characteristic eight- or twelve-armed fracture
     // visible in the grounded endpoint's hazard footprint. These are
@@ -812,7 +820,7 @@ export class DisasterElementEffects {
       const angle=randRock()*TAU;
       const distance=radius*Math.sqrt(randRock())*(.75+.24*randRock());
       pebbles.push({
-        x:Math.cos(angle)*distance,z:Math.sin(angle)*distance,
+        ...warp(Math.cos(angle)*distance,Math.sin(angle)*distance),
         size:.025+Math.pow(randRock(),2)*.105,
         angle:randRock()*TAU,phase:randRock()*TAU,
       });
@@ -853,6 +861,7 @@ export class DisasterElementEffects {
   // this must not resemble dozens of cones planted in unfrozen grass.
   #iceField(field) {
     const pattern=crackedFrostPattern(field.radius,field.id,Math.round(92*this.density));
+    const warp=(x,z)=>groundFootprintWarp(x,z,field.radius,field.yaw);
     const ice=new THREE.Group();
     ice.name='disaster-cracked-frost-field';
     ice.position.set(field.position.x,field.position.y,field.position.z);
@@ -860,7 +869,8 @@ export class DisasterElementEffects {
     const underlayPositions=[];
     for(let i=0;i<pattern.outline.length;i++){
       const a=pattern.outline[i],b=pattern.outline[(i+1)%pattern.outline.length];
-      underlayPositions.push(0,0.033,0, a.x,0.033,a.z, b.x,0.033,b.z);
+      const wa=warp(a.x,a.z),wb=warp(b.x,b.z);
+      underlayPositions.push(0,0.033,0, wa.x,0.033,wa.z, wb.x,0.033,wb.z);
     }
     const underlayGeo=new THREE.BufferGeometry();
     underlayGeo.setAttribute('position',new THREE.Float32BufferAttribute(underlayPositions,3));
@@ -879,9 +889,10 @@ export class DisasterElementEffects {
       const y=0.055+0.006*(plate.tint%3);
       for(let i=0;i<vertices.length;i++){
         const a=vertices[i],b=vertices[(i+1)%vertices.length];
-        positions.push(plate.center.x,y+.003,plate.center.z,a.x,y,a.z,b.x,y,b.z);
+        const wc=warp(plate.center.x,plate.center.z),wa=warp(a.x,a.z),wb=warp(b.x,b.z);
+        positions.push(wc.x,y+.003,wc.z,wa.x,y,wa.z,wb.x,y,wb.z);
         for(const color of [centerTint,tint,tint])colors.push(color.r,color.g,color.b);
-        if((i+plate.tint)%3!==0)ridgePositions.push(a.x,y+.003,a.z,b.x,y+.003,b.z);
+        if((i+plate.tint)%3!==0)ridgePositions.push(wa.x,y+.003,wa.z,wb.x,y+.003,wb.z);
       }
       ends.push(positions.length/3);
     }
@@ -907,7 +918,7 @@ export class DisasterElementEffects {
     crystals.name='frost-shattered-small-crystals';
     const shards=Array.from({length:count},(_,i)=>{
       const plate=pattern.plates[Math.floor((i+.35)*pattern.plates.length/count)]??{center:{x:0,z:0}};
-      return {x:plate.center.x,z:plate.center.z,height:rand(.12,.4),width:rand(.035,.08),
+      return {...warp(plate.center.x,plate.center.z),height:rand(.12,.4),width:rand(.035,.08),
         lean:rand(-.4,.4),turn:rand(TAU),delay:Math.hypot(plate.center.x,plate.center.z)/field.radius*.25};
     });
     ice.add(crystals);
@@ -954,7 +965,9 @@ export class DisasterElementEffects {
       const entry = this.fireAcc[zone.id] ??= { flame: 0, ember: 0, smoke: 0, seen: 0 };
       entry.seen = this.clock;
       const p = zone.position, floor = p.y + 0.03;
-      const inside = () => { const a = rand(TAU), r = Math.sqrt(Math.random()) * zone.radius; return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
+      const inside = () => { const a = rand(TAU),
+        r = Math.sqrt(Math.random()) * groundFootprintRadius(zone.radius,zone.yaw,Math.cos(a),Math.sin(a));
+        return { x: p.x + Math.cos(a) * r, y: floor, z: p.z + Math.sin(a) * r }; };
       entry.flame += 340 * (0.25 + 0.75 * strength) * this.density * dt;
       while (entry.flame >= 1) {
         entry.flame -= 1;
