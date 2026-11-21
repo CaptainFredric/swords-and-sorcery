@@ -7,7 +7,8 @@ import {soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistTerrainPose,soFistClear} from './soFistication.mjs';
 import {soFistUpperPoint} from './soFistElevation.mjs';
-import {soFistFrame,SO_FIST_SCALE} from './soFistGeometry.mjs';
+import {soFistFrame,SO_FIST_SCALE,SO_FIST_WHEELS} from './soFistGeometry.mjs';
+import {boxWorld} from '../src/orientedBox.mjs';
 
 export const LEDGE_PULL=Object.freeze({
   duration:1.65,maxRise:1.7,minDrop:-.28,scanStep:.2,
@@ -61,6 +62,15 @@ export function findHellpingLedge(room,b,now=0){
   const contact=soFistTerrainPose(proposed,world);
   if(!contact||!soFistClear({...proposed,...contact},world,getBiByeSolids(room.biByeLlista)))
    continue;
+  // An intermediate bridge pose may have front wheels on the high shelf
+  // and rear wheels still on the old low bank. That is NOT a safe landing:
+  // the pull only finishes when all four wheels share the destination shelf.
+  const placed={...proposed,...contact},root=soFistFrame(placed);
+  if(!SO_FIST_WHEELS.every(w=>{
+   const p=boxWorld(root,w.pivot);
+   const support=surfaceHeightAt(p[0],p[2],y+1.5,world);
+   return support!=null&&support>=y-.28;
+  }))continue;
   // Find the *near* edge of the landing, not just its centre. Its rim must
   // be inside the articulated palm's forward reach and vertical travel.
   let anchor=null;
