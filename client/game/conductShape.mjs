@@ -35,3 +35,14 @@ export function conductVisualPhase(seconds){
     clamp((CONDUCT_VISUAL.wireEndSec-t)/.20,0,1);
   return {growth,impact,residual};
 }
+
+/** Narrow the afterline without scaling or moving its authoritative 3D path.
+ * Outer glowing sheath vanishes first; the thin central conductor remains
+ * visible until the residual fades at one second. */
+export function conductRemnantWidthFactor(radius,elapsed){
+ const age=clamp((Math.max(0,elapsed)-CONDUCT_VISUAL.travelSec)/
+   (CONDUCT_VISUAL.wireEndSec-CONDUCT_VISUAL.travelSec),0,1);
+ if(radius>=.025)return clamp(1-age*1.55,0,1);
+ if(radius>=.012)return clamp(1-age*.93,0,1);
+ return clamp(1-age*.18,0,1);
+}
