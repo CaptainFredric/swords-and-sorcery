@@ -262,6 +262,10 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   box-shadow:0 2px 7px #0005;
 }
 .siege-context-prompt[hidden] {display:none!important;}
+.siege-context-prompt:disabled {opacity:1;cursor:default;}
+.siege-context-prompt.is-actionable {pointer-events:auto;cursor:pointer;}
+.siege-context-prompt.is-actionable:hover {border-color:rgba(240,207,142,.9);background:rgba(46,37,26,.92);}
+.siege-context-prompt.is-actionable:active {transform:translateX(-50%) scale(.97);}
 .siege-context-prompt strong {
   color:#f5e4b7;font:800 11px/1.1 ui-sans-serif,system-ui,sans-serif;
   letter-spacing:.095em;white-space:nowrap;
