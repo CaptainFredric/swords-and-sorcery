@@ -72,7 +72,7 @@ export function applyOneHitShaken(target, nowSec, quality = 1) {
 
 export function oneHitBacklashRemaining(status, nowSec) {
   if (!status) return 0;
-  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / ONE_HIT_STATUS_SECONDS));
+  const fraction = Math.max(0, Math.min(1, 1 - (nowSec - status.at) / (status.seconds??ONE_HIT_STATUS_SECONDS)));
   return Math.max(0, status.initial * fraction);
 }
 
