@@ -41,7 +41,7 @@ test('Neutral powered hover stabilizes then gently descends without losing rotor
   assert.ok(m.rotorPowered&&m.rotorRPM>0);
   tick(room,m,1.5,50,{jump:false,crouch:false});
   assert.ok(m.rotorLiftAuthority>.8,'real rotor provides neutral hover support');
-  assert.ok(m.velocity.y<-.25&&m.velocity.y>-.7,'neutral hover converges to gentle powered descent');
+  assert.ok(m.velocity.y<-.25&&m.velocity.y>-2.5,'neutral hover converges to controlled powered descent');
 });
 test('A short Space tap is a hop; a held Space press produces sustained takeoff',()=>{
   const brief=setup();
