@@ -55,6 +55,9 @@ export function stepSiegeWheelContacts(room,machine,previous,dt,now,kind,wheels,
   if(!victim.alive||victim.id===machine.operatorId||
     victim.operatingRamId===machine.id||victim.operatingBallistaId===machine.id||
     areAllies(room,machine.operatorId,victim.id))continue;
+  // The separate forward chassis/striker contact has already spent this
+  // approach. Wheel rims must not deliver a second hit on the same victim.
+  if(kind==='ram'&&machine.bodyEpisodes?.[victim.id])continue;
   if(now-(machine.wheelContactAt[victim.id]??-Infinity)<profile.cooldown)continue;
   const point=center(victim);
   const wheel=current.find(box=>nearbyWheel(box,prev.get(box.componentId)??box,point));
