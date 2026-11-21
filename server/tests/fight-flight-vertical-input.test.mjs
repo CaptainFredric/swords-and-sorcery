@@ -261,6 +261,8 @@ test('Mobile 270ms Hop-to-Rise handoff begins before the natural hop apex',()=>{
  const before=m.y;
  step(room,m,8*DT,6,{flightRise:true});
  assert.equal(m.rotorPowered,true);
+ assert.ok(m.rotorRPM>=449.5,'270ms hold has real rotor authority, not a delayed half-second spool');
+ assert.equal(m.groundHopRiseAssisted,true,'only the accepted hold earns rapid rotor engagement');
  assert.equal(m.verticalIntent,'RISE');
  assert.ok(m.y>before,'the hold transition starts powered climb without the visible pre-rise dip');
  assert.ok(m.flightCharge<50,'the powered portion pays its normal charge');
