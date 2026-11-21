@@ -807,7 +807,13 @@ export class DisasterElementEffects {
         for (const arm of f.fissures) {
           if (f.reached > arm.length) continue;
           const at = { x: f.origin.x + arm.dir.x * f.reached, y: floor, z: f.origin.z + arm.dir.z * f.reached };
-          const count = f.steel === 2 ? 3 : 2;
+          // Twelve Full Steel fissures formerly pushed ~800 stones into
+          // a 240-instance pool, evicting the first arms and other effects.
+          // Keep the continuous independently drawn rupture ribbons while
+          // scattering fewer stones evenly across ALL twelve arms.
+          const crowded=f.fissures.length>=10;
+          if(crowded&&Math.floor(f.reached/.34)%2===1)continue;
+          const count=crowded?1:f.steel===2?2:2;
           for (let k = 0; k < this.#n(count); k += 1) {
             const side = rand(-1, 1);
             this.#stone(at, { x: arm.dir.x * rand(0.5, 2.5) - arm.dir.z * side * 2, y: rand(3, f.steel === 2 ? 8 : 5.5), z: arm.dir.z * rand(0.5, 2.5) + arm.dir.x * side * 2 },
