@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { windbladeSpeed, windbladeTrailSpan, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
 import { oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
-import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
+import { blusterSeverity, fieldStrength, groundFootprintRadius, groundFootprintWarp,
+  directionalBlastRadius } from '../../shared/src/oneHitStatus.mjs';
 import { crackedFrostPattern, frostPatternHash } from './disasterFrostGeometry.mjs';
 import { frostSuspensionProfile } from './frostSuspensionPlan.mjs';
 
@@ -32,6 +33,19 @@ const tmpColor = new THREE.Color();
 const tmpObject = new THREE.Object3D();
 const tmpVec = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
+
+// Random points inside the exact server-defined short aerial blast volume.
+// Sampling the directional rim prevents the VFX from promising hits behind
+// the wave that the shared simulation does not grant.
+function insideAirBlast(volume,share=1){
+  const a=rand(TAU),v=rand(-1,1),flat=Math.sqrt(1-v*v);
+  const ux=Math.cos(a)*flat,uy=v,uz=Math.sin(a)*flat;
+  const radial=Math.cbrt(Math.random())*
+    directionalBlastRadius(volume.radius,volume.direction,ux,uy,uz)*share;
+  return {x:volume.position.x+ux*radial,
+    y:volume.position.y+uy*radial,z:volume.position.z+uz*radial};
+}
+
 
 // One instanced pool of particles: a ring buffer, so a burst can never grow the scene.
 class ParticlePool {
@@ -362,8 +376,13 @@ export class DisasterElementEffects {
   // A Fire infusion is an actual expanding fireball, not just thin spark
   // streaks. Broad bright lobes push out before the dark smoke follows; all
   // pieces use existing instanced pools and do not add runtime shader types.
-  #fireExplosion(point,radius,height,ground,full,yaw=null) {
-    const rim=(angle)=>groundFootprintRadius(radius,ground?yaw:null,Math.cos(angle),Math.sin(angle));
+  #fireExplosion(point,radius,height,ground,full,yaw=null,direction=null) {
+    const rim=(angle,lift=0)=>{
+      const flat=Math.sqrt(Math.max(0,1-lift*lift));
+      return ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle))
+        :directionalBlastRadius(radius,direction,Math.cos(angle)*flat,lift,Math.sin(angle)*flat);
+    };
     const lobes=this.#n(full?76:56);
     for(let i=0;i<lobes;i++){
       const angle=rand(TAU),rise=ground?rand(0.06,.92):rand(-.9,.9);
@@ -372,9 +391,9 @@ export class DisasterElementEffects {
       this.glow.spawn({
         x:point.x+Math.cos(angle)*rand(.04,.24),y:point.y+.27+rand(.15),
         z:point.z+Math.sin(angle)*rand(.04,.24),
-        vx:Math.cos(angle)*flat*rim(angle)/ttl*magnitude,
+        vx:Math.cos(angle)*flat*rim(angle,rise)/ttl*magnitude,
         vy:rise*height/ttl*magnitude,
-        vz:Math.sin(angle)*flat*rim(angle)/ttl*magnitude,
+        vz:Math.sin(angle)*flat*rim(angle,rise)/ttl*magnitude,
         sx:rand(.17,.32)*(full?1.12:1),
         sy:rand(.18,.36)*(full?1.12:1),
         sz:rand(.15,.29)*(full?1.12:1),
@@ -385,7 +404,7 @@ export class DisasterElementEffects {
     // orange lobes and late smoke. All phases use the existing bounded pool.
     for(let i=0;i<this.#n(full?24:16);i++){
       const a=rand(TAU),rise=ground?rand(.18,.92):rand(-.9,.9),ttl=rand(.11,.23);
-      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=rim(a)*rand(.35,.74);
+      const flat=Math.sqrt(Math.max(0,1-rise*rise)),reach=rim(a,rise)*rand(.35,.74);
       this.glow.spawn({
         x:point.x+Math.cos(a)*rand(.05,.18),y:point.y+.24,
         z:point.z+Math.sin(a)*rand(.05,.18),
@@ -413,12 +432,15 @@ export class DisasterElementEffects {
   // distinct, smaller EXPLOSION, not an invisible no-damage puff. Fire uses
   // #fireExplosion at the same real terminal radius; other elements color
   // this shared pressure burst. No new collision or damage is introduced.
-  #waveExplosion(point,radius,ground,tiers){
+  #waveExplosion(point,radius,ground,tiers,yaw=null,direction=null){
     const n=this.#n(62);
     for(let i=0;i<n;i++){
       const a=rand(TAU),lift=ground?rand(.06,.88):rand(-.85,.85);
       const flat=Math.sqrt(Math.max(0,1-lift*lift));
-      const life=rand(.24,.43),travel=radius*rand(.55,1);
+      const rim=ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(a),Math.sin(a))
+        :directionalBlastRadius(radius,direction,Math.cos(a)*flat,lift,Math.sin(a)*flat);
+      const life=rand(.24,.43),travel=rim*rand(.55,1);
       const kind=tiers.frost?'frost':tiers.lightning?'lightning':tiers.steel?'steel':'gale';
       this.#mote(kind,point,{
         x:Math.cos(a)*flat*travel/life,y:lift*travel/life,
@@ -531,9 +553,15 @@ export class DisasterElementEffects {
     const floor = p.y + 0.02;
     const steel = tiers.steel ?? 0;
     const radius = event.radius ?? 3.4;
-    const yaw=ground&&event.form==='ground'?event.yaw:null;
-    const rim=(angle)=>groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle));
-    if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers);
+    const yaw=ground?event.yaw:null;
+    const direction=event.impactId?event.direction:null;
+    const rim=(angle,lift=0)=>{
+      const flat=Math.sqrt(Math.max(0,1-lift*lift));
+      return ground
+        ?groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle))
+        :directionalBlastRadius(radius,direction,Math.cos(angle)*flat,lift,Math.sin(angle)*flat);
+    };
+    if(event.impactId&&!tiers.fire)this.#waveExplosion(p,radius,ground,tiers,yaw,direction);
     if (ground) {
       // the ground breaks where the blade went in: stone thrown out and up, more of it and harder for Steel
       const rocks = this.#n(steel === 2 ? 80 : steel === 1 ? 46 : 22);
@@ -574,7 +602,7 @@ export class DisasterElementEffects {
       const reach = radius, tall = ground ? (event.height ?? 3.5) : radius;
       for (let i = 0; i < this.#n(tiers.fire === 2 ? 90 : 70); i += 1) {
         const a = rand(TAU), lift = ground ? Math.random() : rand(-1, 1), flat = Math.sqrt(Math.max(0, 1 - lift * lift)), ttl = rand(0.26, 0.42);
-        const outReach=rim(a);
+        const outReach=rim(a,lift);
         this.#mote('fire', { x: p.x, y: floor + 0.3, z: p.z }, { x: Math.cos(a) * flat * outReach / ttl * 0.8, y: lift * tall / ttl * 0.8, z: Math.sin(a) * flat * outReach / ttl * 0.8 },
           { size: rand(0.045, 0.1), ttl, drag: 1.1, stretch: 3 });
       }
@@ -582,7 +610,7 @@ export class DisasterElementEffects {
         const a = rand(TAU);
         this.#stone({ x: p.x, y: floor + 0.2, z: p.z }, { x: Math.cos(a) * rand(2, 6), y: rand(5, 10), z: Math.sin(a) * rand(2, 6) }, rand(0.05, 0.13), ground ? floor : null, 1.4);
       }
-      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2,yaw);
+      this.#fireExplosion(p,reach,tall,ground,tiers.fire===2,yaw,direction);
     }
     if (tiers.frost) {
       // formation: frost racing outward over the ground, and a burst of splinters where it started
