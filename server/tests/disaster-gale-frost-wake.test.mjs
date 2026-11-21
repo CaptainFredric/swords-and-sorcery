@@ -64,12 +64,12 @@ test('a remote enemy entering the AIR wake gets ALL normal afflictions once, not
  assert.ok(b.spellReadyAt>9.4,'Full Steel resets cooldowns once');
  assert.equal(room.events.filter(e=>e.type==='damage'&&e.source==='one_hit_of_wonders').length,0);
  const restarted=b.spellReadyAt,conduct=b.electricalBacklash;
- for(let i=1;i<9;i++)stepRoom(room,DT,9.4+i*DT,world);
+ for(let i=1;i<14;i++)stepRoom(room,DT,9.4+i*DT,world);
  assert.equal(b.spellReadyAt,restarted,'staying in the wake does not repeatedly reset skills');
  assert.deepEqual(b.electricalBacklash,conduct,'no repeat Conduct from same wake');
  assert.ok(b.health<1000,'Full Fire produces its established small burning licks while inside');
  assert.ok(room.events.some(e=>e.type==='damage'&&e.source==='one_hit_air_fire'));
- b.position.z=8;stepRoom(room,DT,9.75,world);
+ b.position.z=8;stepRoom(room,DT,9.86,world);
  assert.ok(b.electricalBacklash&&b.oneHitFrostSlow&&b.blustered,
    'the affected player keeps timed statuses after leaving the trail without Full Lightning gating');
 });
