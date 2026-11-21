@@ -291,7 +291,12 @@ test('airborne Gale+Lightning targets the highest supported surface below, never
   assert.ok(platform.b.health<100);
   const voidWorld=run([],0);
   assert.equal(voidWorld.bolt,undefined,'nothing is conjured beneath an unsupported void');
-  assert.equal(voidWorld.room.events.find(e=>e.type==='oneHitImpact')?.lightningGroundPoint,
-    undefined,'no fictitious visual bolt into an unsupported void');
+  const voidBlast=voidWorld.room.events.find(e=>e.type==='oneHitImpact');
+  assert.equal(voidBlast?.lightningGroundPoint,undefined,
+    'the unsupported void still has no damaging ground contact');
+  assert.ok(voidBlast?.lightningVoidPoint?.y< -100,
+    'the visible strand passes below the world rather than stopping at the sky explosion');
+  assert.equal(voidBlast.lightningVoidPoint.x,voidBlast.point.x);
+  assert.equal(voidBlast.lightningVoidPoint.z,voidBlast.point.z);
   assert.equal(voidWorld.b.health,100);
 });
