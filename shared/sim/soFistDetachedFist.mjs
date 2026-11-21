@@ -110,8 +110,24 @@ function hitWall(room,start,end,world){
  for(const box of structureWorld(world,room.structures).solids??[]){
   const target={...box,size:box.size?.map(x=>x+RAM_FIST.radius*2)};
   if(!target.size)continue;
-  const hit=segmentAabbHit(vec(start),vec(end),target);
-  if(!hit)continue;
+  const rawHit=segmentAabbHit(vec(start),vec(end),target);
+  if(!rawHit)continue;
+  // A fast projectile can start a substep *inside* the conservative wall
+  // envelope after a preceding contact. The ray API then reports t=0 and
+  // a zero normal. Recover the approach face instead of ignoring it and
+  // permitting a high-speed tunnel through masonry.
+  let hit=rawHit;
+  if(hit.t<=1e-6&&hit.normal?.every(v=>Math.abs(v)<1e-8)&&
+     !box.axes&&box.center&&box.size){
+    const delta=[end.x-start.x,end.y-start.y,end.z-start.z];
+    const axis=[0,1,2].sort((i,j)=>Math.abs(delta[j])-Math.abs(delta[i]))[0];
+    if(Math.abs(delta[axis])>1e-8){
+     const normal=[0,0,0],edge=[start.x,start.y,start.z];
+     normal[axis]=-Math.sign(delta[axis]);
+     edge[axis]=box.center[axis]+normal[axis]*(box.size[axis]/2+RAM_FIST.radius+.02);
+     hit={...hit,point:edge,normal};
+    }
+  }
   // The broad sphere must not snag on a trim edge which the modeled
   // gauntlet's lower surface has already cleared. Gentle lips are stepped
   // over; a real vertical obstruction still deflects the heavy body.
@@ -124,7 +140,6 @@ function hitWall(room,start,end,world){
   const lowLip=Number.isFinite(rise)&&rise>=-.03&&rise<=RAM_FIST.ledgeStep &&
     Math.hypot(end.x-start.x,end.z-start.z)>1e-6;
   const hitKind=lowLip?'step':'wall';
-  if(hit.t<1e-5&&hit.normal?.every(n=>n===0))continue;
   if(hit&&(!nearest||hit.t<nearest.t))nearest={...hit,kind:hitKind,solid:box,top};
  }
  return nearest;
