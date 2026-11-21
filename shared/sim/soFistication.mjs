@@ -26,6 +26,7 @@ import {requestLongArmToJaw,stepDetachedRamFist} from './soFistDetachedFist.mjs'
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
+import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
 import {requestHellpingHand,stepHellpingHand,releaseHellpingHand} from './soFistHellpingHand.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:5.3,reverse:3.1,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
@@ -211,20 +212,8 @@ export function soFistTerrainPose(b,world){
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
 export function soFistClear(b,world,extra=[],{operatorStation=false}={}){if((b.operatorId||operatorStation)&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
-// Movement solids can press a player aside, but that correction must itself
-// fit in the world. Stop the carriage when machinery and masonry leave no room.
-function pinsPlayer(room,next,world,obstacles){
- const nearby=[...room.players.values()].filter(p=>p.alive&&p.id!==next.operatorId&&p.operatingRamId!==next.id&&Math.hypot(p.position.x-next.x,p.position.z-next.z)<SO_FIST_SCALE*2);
- if(!nearby.length)return false;
- const machine=soFistSolids(next),solids=[...(world.solids??[]),...obstacles];
- for(const p of nearby){
-  const pressed=resolvePlayerWorld(p.position,.45,machine,postureOf(p).height);
-  if(Math.hypot(pressed.x-p.position.x,pressed.z-p.position.z)<.001)continue;
-  const safe=resolvePlayerWorld(pressed,.45,solids,postureOf(p).height);
-  if(Math.hypot(safe.x-pressed.x,safe.z-pressed.z)>.0005)return true;
- }
- return false;
-}
+// Spellblades are never carriage roadblocks. Normal foot collision and
+// wheel contact push them aside; world and other siege machines still block.
 export function stepSoFistication(room,b,dt,now,world=room.world){
  if(!b||b.retired)return;if(b.health<=0){
    stepFinalJaw(room,b,now);
@@ -303,7 +292,7 @@ const p=room.players.get(b.operatorId);
   const rearZ=SO_FIST_WHEELS[2].pivot[2];
   const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*travelSpeed*sub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*travelSpeed*sub,heading};const pose=soFistTerrainPose(next,world);
   const obstacles=getBiByeSolids(room.biByeLlista);
-  // A knight's conviction is not a collision, and must never do impact damage.
+  // Spellblades do not appear in this carriage's static obstacle list.
    if(b.operatorId&&world?.edgeBoundary&&pose&&
        !edgeMachineProgressAllowed(soFistSolids(b),soFistSolids({...next,...pose}),world.edgeBoundary)){
      b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;break;
@@ -347,16 +336,11 @@ const p=room.players.get(b.operatorId);
    recordSiegeImpact(room,b,now,{speed:Math.abs(crashSpeed),normal:{x:Math.sin(b.heading)*Math.sign(crashSpeed),z:Math.cos(b.heading)*Math.sign(crashSpeed)},kind:'carriage-wall'});
    b.speed=ramReboundSpeed(crashSpeed);break;
   }
-  if(pinsPlayer(room,{...next,...pose},world,obstacles)){
-   // Preserve the impact on the swept contact surface, then brake. Low energy
-   // pressure reaches this path with no damage or armed wall consequence.
-   resolveSoFistContacts(room,{...b,...next,...pose},from,sub,now-dt+(i+1)*sub,now-dt,dt);
-   const crashSpeed=travelSpeed;b.recoilVelocity=0;
-   recordSiegeImpact(room,b,now,{speed:Math.abs(crashSpeed),normal:{x:Math.sin(b.heading)*Math.sign(crashSpeed),z:Math.cos(b.heading)*Math.sign(crashSpeed)},kind:'carriage-body'});
-   b.speed=ramReboundSpeed(crashSpeed);break;
-  }
   Object.assign(b,next,pose);
-  resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
+  const contactAt=now-dt+(i+1)*sub;
+  resolveSoFistContacts(room,b,from,sub,contactAt,now-dt,dt);
+  stepSiegeWheelContacts(room,b,from,sub,contactAt,'ram',
+    soFistVolumes(b,contactAt),soFistVolumes(from,contactAt-sub));
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(travelSpeed)/SO_FIST_WHEELS[w].radius;}
  }
  // Reflect AFTER-contact momentum in the network snapshot, including rebounds.
@@ -453,7 +437,10 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
   }
   if(!contact&&!b.bodyEpisodes[victim.id]&&Math.abs(b.speed)>.001){
    for(let i=0;i<volumes.length;i++){
-    const box=volumes[i],oldBox=oldVolumes[i]??box,h=targetSweep(box,oldBox,victim,oldPosition,endPosition);
+    const box=volumes[i],oldBox=oldVolumes[i]??box;
+    // Wheel rims are modest, localized impacts handled separately.
+    if(box.componentId?.startsWith('Wheel_'))continue;
+    const h=targetSweep(box,oldBox,victim,oldPosition,endPosition);
     if(h&&(!contact||h.t<contact.t)){
      contact=h;surfaceVelocity={x:(box.center[0]-oldBox.center[0])/dt,z:(box.center[2]-oldBox.center[2])/dt};
      if(Math.hypot(...h.normal)<.1){
@@ -496,7 +483,8 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
     b.bodyEpisodes[victim.id]={x:b.x,z:b.z,normal:[...normal]};
    b.recentVictims[victim.id]=now;
    room.events.push({type:'soFistImpact',machineId:b.id,victimId:victim.id,piston,guarded,point:{...victim.position},at:now});
-   if(!piston)b.speed*=.65;
+   // Body contact is not a brake: maintain carriage travel momentum.
+   if(!piston)b.speed*=(frontal?.97:.995);
   }
  }
 }
