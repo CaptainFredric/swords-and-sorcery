@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
 import { windbladePosition, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
+import { groundFootprintWarp } from '../../shared/src/oneHitStatus.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -243,14 +244,24 @@ export class OneHitLiveEffects {
   #stepZones(snapshot,now) {
     const seen=new Set();
     for(const zone of snapshot?.oneHitBurnZones??[]){
-      if(zone.until<=now)continue;
+      if(zone.until<=now||zone.air)continue;
+      // Mid-air Fire has only suspended flames: never draw a floating
+      // scorch disc. Ground scorch matches its server-owned directional
+      // footprint, including the forward-extended Fire infusion.
       seen.add(zone.id);
       let obj=this.zones.get(zone.id);
       if(!obj){
         obj=new THREE.Group();obj.position.copy(v(zone.position));
-        const coals=new THREE.Mesh(new THREE.CircleGeometry(zone.radius,48),M(0x532d1a,.33));
+        const geometry=new THREE.CircleGeometry(zone.radius,64);
+        const positions=geometry.getAttribute('position');
+        for(let i=0;i<positions.count;i++){
+          const warp=groundFootprintWarp(positions.getX(i),-positions.getY(i),
+            zone.radius,zone.yaw);
+          positions.setXY(i,warp.x,-warp.z);
+        }
+        positions.needsUpdate=true;
+        const coals=new THREE.Mesh(geometry,M(0x532d1a,.33));
         coals.rotation.x=-Math.PI/2;coals.position.y=.042;
-        // (scorched ground only: the flames, embers and smoke on it are DisasterElementEffects', dying with the fire)
         obj.add(coals);
         this.root.add(obj);this.zones.set(zone.id,obj);
       }
