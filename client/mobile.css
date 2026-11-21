@@ -291,7 +291,8 @@ button, input { touch-action: manipulation; }
 .touch-ui .hud.flight-mounted .guard-track {height:3px;margin-top:1px;}
 .touch-ui .hud.flight-mounted .flight-charge-heading {font-size:7px;letter-spacing:.04em;}
 .touch-ui .hud.flight-mounted .flight-charge-heading output {font-size:9px;}
-.touch-ui .hud.flight-mounted .flight-charge-track {height:7px;}
+.touch-ui .hud.flight-mounted .flight-charge-track {height:9px;border-width:1px;}
+.touch-ui .hud.flight-mounted .flight-charge-rail {padding:3px 5px 4px;}
 .touch-ui .hud.flight-mounted .flight-mini-telemetry {font-size:7px;gap:3px;}
 .touch-ui .hud.flight-mounted .flight-desktop-ammo {display:none;}
 .touch-ui .hud.flight-mounted .flight-inline-warning {font-size:7px;}

@@ -76,6 +76,7 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
   if(!m||m.retired||m.mode==='DESTROYED'||!(amount>0))return false;
   const def=COMPONENTS[componentId];if(!def)return false;
   if(m[def.hp]<=0)return false;
+  if(attackerId&&m.operatorId===attackerId)return false;
   if(m.team&&attackerId&&room.players.get(attackerId)?.team===m.team)return false;
   let actual=amount,turned=0;
   if(def.steel){

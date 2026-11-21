@@ -1957,3 +1957,41 @@ test('mobile Ballista Sweep shows the spell-style countdown from authoritative s
  assert.equal(button.classList.contains('cooling'),false);
  controls.dispose();
 });
+
+test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 420ms without a second thumb',()=>{
+ const pilot={alive:true,operatingFightFlightId:'ff',ultimate:'sunder',prowess:0,
+   position:{x:0,y:0,z:0}};
+ const {controls,input,send}=setup(pilot);
+ input.mountedFlight=true;input.touch=controls;
+ let hops=0;input.flightHop=()=>hops++;
+ controls.update(pilot,5,{snapshot:{fightFlight:{id:'ff',health:250,rotorHP:100,grounded:true}}});
+ send('pointerdown',730,420,{action:'jump',pointerId:808});
+ assert.equal(hops,1);
+ assert.equal(controls.movement().jump,false,'mounted Jump never sends the legacy desktop jump channel');
+ assert.equal(controls.movement().flightRise,false,'initial tap is a mechanical Hop');
+ controls.flightJumpDownAt=performance.now()-430;
+ assert.equal(controls.movement().flightRise,true,'same held Jump now asks for powered ascent');
+ assert.equal(input.movement().flightRise,true,'authoritative input packet carries the rise intent');
+ assert.equal(hops,1,'a hold never generates additional hops');
+ send('pointercancel',730,420,{action:'jump',pointerId:808,target:controls.layer});
+ assert.equal(controls.movement().flightRise,false,'lost/cancelled finger ends powered ascent');
+ assert.equal(controls.flightJumpDownAt,null);
+ controls.dispose();
+});
+test('held Jump takes vertical precedence over joystick Lower only until it is released',()=>{
+ const pilot={alive:true,operatingFightFlightId:'ff',ultimate:'sunder',prowess:0,
+   position:{x:0,y:0,z:0}};
+ const {controls,input,send}=setup(pilot);input.mountedFlight=true;input.touch=controls;
+ input.flightHop=()=>{};
+ controls.update(pilot,5,{snapshot:{fightFlight:{id:'ff',health:250,rotorHP:100,grounded:false}}});
+ controls.flightLowerHeld=true;
+ send('pointerdown',730,420,{action:'jump',pointerId:810});
+ assert.equal(controls.movement().flightLower,true);
+ controls.flightJumpDownAt=performance.now()-430;
+ assert.equal(controls.movement().flightRise,true);
+ assert.equal(controls.movement().flightLower,false,'one motor never receives opposing Rise/Lower');
+ send('pointerup',730,420,{action:'jump',pointerId:810});
+ assert.equal(controls.movement().flightRise,false);
+ assert.equal(controls.movement().flightLower,true,'joystick lower takes over on release');
+ controls.dispose();
+});

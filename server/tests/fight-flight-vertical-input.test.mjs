@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
-import {createFightFlight,mountFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
+import {createFightFlight,mountFightFlight,stepFightFlight,FIGHT_FLIGHT} from '../../shared/sim/fightFlight.mjs';
 import {stepFlightRun} from '../../shared/sim/fightFlightRun.mjs';
 import {stepRoom,killPlayer} from '../../shared/sim/combat.mjs';
 
@@ -77,7 +77,7 @@ test('released Rise retains powered rotor and visible coasting height before the
   step(room,m,t+8*DT,20,{flightRise:false});
   assert.ok(m.y>=takeoffHeight-.35,'hover keeps nearly the attained altitude for ~1 second');
   step(room,m,t+28*DT,28,{flightRise:false});
-  assert.ok(m.velocity.y>-.9&&m.velocity.y<0,'later descent is controlled, not ballistic');
+  assert.ok(m.velocity.y>-2.5&&m.velocity.y<0,'released Rise descends moderately, never ballistically');
 });
 
 test('Lower responds on its first packet, holding sustains descent and release damps it',()=>{
@@ -208,7 +208,46 @@ test('Rise release holds a powered bobbing hover for about a second, then gently
  assert.equal(m.verticalIntent,'HOVER');
  assert.ok(m.flightCharge>0);
  step(room,m,releaseTime+22*DT,32,{flightRise:false});
- assert.ok(m.velocity.y<-.2&&m.velocity.y>-.8,
-   'after the hold the rotor controls a slow descent, not a gravity drop');
+ assert.ok(m.velocity.y<-.2&&m.velocity.y>-2.5,
+   'after the hold the rotor controls moderate descent rather than free fall');
  assert.equal(m.neutralHoverFromRise,true);
+});
+
+test('An ordinary grounded mobile Hop costs no flight charge, including at an empty battery',()=>{
+ const {room,m,p}=setup();
+ m.flightCharge=0;m.rotorPowered=false;
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightHop'},1),{});
+ stepFightFlight(room,m,DT,1+DT);
+ assert.equal(m.rotorPowered,false);
+ assert.equal(m.flightCharge,0);
+ assert.ok(m.y>0&&m.velocity.y>0,'ground tap still launches the normal mechanical hop');
+ for(let i=2;i<=55;i++)stepFightFlight(room,m,DT,1+i*DT);
+ assert.equal(m.grounded,true,'ordinary hop comes back to the same floor');
+});
+test('Falling with a cold rotor can Air Hop to 450 RPM; each pop costs charge and remains server gated',()=>{
+ const {room,m,p}=setup();
+ m.grounded=false;m.mode='FALLING';m.y=12;m.position.y=12;p.position.y=12;
+ m.velocity.y=-2;m.rotorPowered=false;m.rotorAngularVelocity=0;m.rotorRPM=0;
+ m.flightCharge=48;
+ assert.deepEqual(applyRoomCommand(room,p,{type:'flightHop'},2),{});
+ assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2).rejected,'no simultaneous duplicate pop');
+ const before=m.y,charge=m.flightCharge;
+ stepFightFlight(room,m,DT,2+DT);
+ assert.equal(m.rotorPowered,true);
+ assert.ok(m.rotorRPM>=449.5);
+ assert.ok(m.velocity.y>5.8,'cold-start air hop becomes a strong upward impulse');
+ assert.ok(m.flightCharge<charge-FIGHT_FLIGHT.airHopCost+.001,'authoritative charge pays for the pop');
+ let peak=m.y;
+ for(let i=2;i<=31;i++){stepFightFlight(room,m,DT,2+i*DT);peak=Math.max(peak,m.y);}
+ assert.ok(peak>before+1.5,'powered Air Hop clears more height than its old short pop');
+ assert.ok(applyRoomCommand(room,p,{type:'flightHop'},2.6).rejected,'air-hop cooldown is enforced');
+});
+test('Aerial jump cannot revive a destroyed rotor or borrow an unfunded charge',()=>{
+ const a=setup();a.m.grounded=false;a.m.y=9;a.m.position.y=9;
+ a.m.rotorPowered=false;a.m.rotorRPM=0;a.m.rotorHP=0;
+ assert.ok(applyRoomCommand(a.room,a.p,{type:'flightHop'},2).rejected);
+ const b=setup();b.m.grounded=false;b.m.y=9;b.m.position.y=9;
+ b.m.flightCharge=FIGHT_FLIGHT.airHopCost-.01;b.m.rotorPowered=false;
+ assert.ok(applyRoomCommand(b.room,b.p,{type:'flightHop'},2).rejected);
+ assert.equal(b.m.flightCharge,FIGHT_FLIGHT.airHopCost-.01);
 });

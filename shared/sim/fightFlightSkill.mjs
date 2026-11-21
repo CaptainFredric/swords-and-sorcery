@@ -59,7 +59,8 @@ export function requestFightFlightSkill(room,m,p,now,aim=null){
   if(chosen===FIRE_AWAY)m.ammoDebt=0;
   const old=m.skill??{};
   m.skill={...old,id:chosen.id,phase:'active',
-    readyAt:chosen===NARROW_TO_ONE?now:now+chosen.cooldown,
+    // The running barrage/lock never burns its recovery clock.
+    readyAt:chosen===NARROW_TO_ONE||chosen===FIRE_AWAY?now:now+chosen.cooldown,
     activeUntil:chosen.duration==null?null:now+chosen.duration,startedAt:now,
     borrowed:0,targetId:null,lockedOnce:false,targetVisible:false,targetInTraverse:false,noClearShot:false,
     trackingState:chosen===NARROW_TO_ONE?'acquiring':null,
@@ -107,6 +108,7 @@ export function endFightFlightSkill(room,m,now,reason='expired'){
   // A sustained lock must never have completed its cooldown before it ends.
   if(skill===NARROW_TO_ONE.id)m.skill.readyAt=now+NARROW_TO_ONE.cooldown;
   if(skill===FIRE_AWAY.id){
+    m.skill.readyAt=now+FIRE_AWAY.cooldown;
     // No debt, reserve or fractional production carries past the charge-fed barrage.
     m.ammo=0;m.ammoProduction=0;m.ammoDebt=0;
   }

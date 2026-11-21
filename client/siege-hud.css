@@ -179,3 +179,54 @@
  .touch-ui .uprooted-outriggers-indicator strong{font-size:9px;}
  .touch-ui .uprooted-outriggers-indicator span{font-size:8px;}
 }
+
+/* Fight-and-Flight: independent destructible Steel side cages, each formed
+   by three faceted plates. Hull remains centered, rotor is a small submeter.
+   The caption lane automatically follows the gauge's measured height. */
+.flight-brace-widget {display:none;position:relative;flex:0 0 65px;min-width:0;
+  padding:2px 3px 5px;box-sizing:border-box;text-align:center;
+  background:linear-gradient(145deg,#454f52,#20292c);
+  border:1px solid #8f9b9e;box-shadow:inset 0 1px #e0eceb65,0 2px 7px #0009;
+  --brace-steel:0;}
+.machine-gauge[data-kind="flight"] .flight-brace-widget {display:block;}
+.machine-gauge[data-kind="flight"] .machine-component {display:none;}
+.machine-gauge[data-kind="flight"] .machine-health-main {padding:4px 6px 5px;}
+.flight-brace-arch {width:100%;max-height:35px;display:block;overflow:visible;
+  filter:drop-shadow(0 0 calc(6px * var(--brace-steel)) #edf3e2);}
+.flight-brace-panel {fill:#737d81;stroke:#b9c5c7;stroke-width:1.3;stroke-linejoin:bevel;}
+.flight-brace-cap {fill:#a1aaad;}
+.flight-brace-ridge {fill:none;stroke:#e3e8e1;stroke-width:1.4;opacity:.9;}
+.flight-brace-reading {display:flex;flex-direction:column;gap:1px;
+  color:#dce5e5;font:800 8px/1 'Alegreya Sans',sans-serif;}
+.flight-brace-reading b {color:#f2f4e9;font-variant-numeric:tabular-nums;}
+.flight-brace-track {height:4px;background:#111718;border:1px solid #768084;margin-top:3px;overflow:hidden;}
+.flight-brace-track i {display:block;width:100%;height:100%;
+  background:linear-gradient(#dee6e5,#657981);transition:width .14s linear;}
+.flight-brace-widget[data-state="destroyed"] {opacity:.65;border-color:#715c56;background:#252728;}
+.flight-brace-widget[data-state="destroyed"] .flight-brace-panel {fill:#574945;stroke:#9e7161;}
+.flight-brace-widget[data-state="destroyed"] .flight-brace-ridge {stroke:#bd8070;}
+.flight-brace-widget[data-state="destroyed"] .flight-brace-track i {background:#ae6358;}
+.flight-brace-widget:not([data-state="destroyed"]) .flight-brace-panel {
+  stroke:color-mix(in srgb,#e7ede9 calc(var(--brace-steel) * 100%),#9aa9ae);}
+.flight-rotor-mini {display:none;margin-top:4px;color:#b8d9d8;
+  font:800 8px/1 'Alegreya Sans',sans-serif;letter-spacing:.04em;}
+.machine-gauge[data-kind="flight"] .flight-rotor-mini {display:flex;align-items:center;gap:6px;}
+.flight-rotor-mini span {flex:none;white-space:nowrap;}
+.flight-rotor-track {flex:1;height:4px;border:1px solid #37545a;background:#101818;overflow:hidden;}
+.flight-rotor-track i {display:block;width:100%;height:100%;
+  background:linear-gradient(#95dce3,#437e8d);transition:width .14s linear;}
+@container app (max-width:780px) {
+  .machine-gauge[data-kind="flight"] .flight-brace-widget {flex-basis:49px;padding:1px 2px 3px;}
+  .flight-brace-arch {max-height:24px;}
+  .flight-brace-reading {font-size:7px;}
+  .flight-rotor-mini {font-size:7px;gap:3px;}
+}
+@container app (max-width:540px) {
+  .machine-gauge[data-kind="flight"] .flight-brace-widget {flex-basis:40px;}
+  .flight-brace-arch {max-height:21px;}
+  .flight-brace-reading {font-size:6px;}
+  .flight-brace-track {height:3px;margin-top:1px;}
+}
+@media(prefers-reduced-motion:reduce) {
+ .flight-brace-track i,.flight-rotor-track i {transition:none;}
+}

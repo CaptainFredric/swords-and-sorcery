@@ -506,7 +506,10 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  // The fist is not a hittable component of the carriage while in flight,
  // resting on the ground or being recovered from the abyss.
  if(componentId==='Fist'&&!hasFist(b))return false;
- if(room.mode!=='PRACTICE'&&(b.operatorId===attackerId||areAllies(room,b.operatorId,attackerId)||b.team&&room.players.get(attackerId)?.team===b.team))return false;
+ // A mounted pilot owns their carriage even in Practice, where friendly
+ // sparring damage would otherwise be enabled for nearby siege targets.
+ if(attackerId&&b.operatorId===attackerId)return false;
+ if(room.mode!=='PRACTICE'&&(areAllies(room,b.operatorId,attackerId)||b.team&&room.players.get(attackerId)?.team===b.team))return false;
  const component=b.components[componentId],target=component??b;if(target.health<=0)return false;
  const old=target.health;
  if(componentId==='Fist'){const range=STEEL_DAMAGE_RANGES[source];amount=Math.min(amount,range?.min??Math.round(amount*GAME.swordGlance/GAME.swordDamage));}

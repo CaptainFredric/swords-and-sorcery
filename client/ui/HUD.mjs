@@ -277,12 +277,28 @@ export class HUD {
     this.machineGauge.className = 'machine-gauge';
     this.machineGauge.hidden = true;
     this.machineGauge.setAttribute('role','meter');
+    // A faceted three-member structural arch for each independent flight
+    // brace. No additional virtual hit points: every number is server HP.
+    const flightBrace=(side,short)=>`
+      <div class="flight-brace-widget flight-brace-${side}" data-brace-side="${side}">
+        <svg class="flight-brace-arch" viewBox="0 0 76 45" aria-hidden="true">
+          <path class="flight-brace-panel flight-brace-leg" d="M3 41 11 16 24 8 29 16 20 23 12 43Z"/>
+          <path class="flight-brace-panel flight-brace-cap" d="M22 8H52L61 16 54 23H21L14 16Z"/>
+          <path class="flight-brace-panel flight-brace-leg" d="M52 8 65 16 73 41 64 43 56 23 47 16Z"/>
+          <path class="flight-brace-ridge" d="M11 40 18 20 24 15H51L58 20 65 40"/>
+        </svg>
+        <div class="flight-brace-reading"><span>${short} BRACE</span><b data-brace-hp>80/80</b></div>
+        <div class="flight-brace-track"><i data-brace-fill></i></div>
+      </div>`;
     this.machineGauge.innerHTML =
       '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
       '<small class="machine-piston" data-machine-piston></small>'+
       '<div class="machine-health-assembly">'+
+        flightBrace('left','L')+
         '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
-        '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div></div>'+
+        '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div>'+
+        '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div></div>'+
+        flightBrace('right','R')+
         '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
       '</div><small class="machine-gauge-context" data-machine-context></small>';
@@ -450,6 +466,25 @@ export class HUD {
           machineGaugeNumber(gauge.component.health) + '/' + machineGaugeNumber(gauge.component.maxHealth);
         el.querySelector('[data-component-fill]').style.width = gauge.component.percent.toFixed(2) + '%';
       }
+      if(gauge.kind==='flight'){
+        for(const [side,data] of Object.entries(gauge.braces??{})){
+          const arch=el.querySelector('[data-brace-side="'+side+'"]');
+          if(!arch||!data)continue;
+          arch.dataset.state=data.state;
+          arch.style.setProperty('--brace-steel',Math.max(0,Math.min(1,data.steel??0)).toFixed(3));
+          arch.setAttribute('aria-label',data.label+' '+machineGaugeNumber(data.health)+
+            ' of '+machineGaugeNumber(data.maxHealth)+' HP');
+          arch.querySelector('[data-brace-hp]').textContent=
+            machineGaugeNumber(data.health)+'/'+machineGaugeNumber(data.maxHealth);
+          arch.querySelector('[data-brace-fill]').style.width=data.percent.toFixed(2)+'%';
+        }
+        const rotor=gauge.component;
+        if(rotor){
+          el.querySelector('[data-flight-rotor-hp]').textContent=
+            machineGaugeNumber(rotor.health)+'/'+machineGaugeNumber(rotor.maxHealth);
+          el.querySelector('[data-flight-rotor-fill]').style.width=rotor.percent.toFixed(2)+'%';
+        }
+      }
       if (gauge.kind === 'ram') {
         const pitch = Math.round(gauge.pitch);
         el.querySelector('[data-ram-pitch]').textContent = (pitch > 0 ? '+' : '') + pitch + '°';
@@ -504,6 +539,7 @@ export class HUD {
     } else if (siege && isFlight) {
       this.flightChargeRail.querySelector('[data-flight-alt]').textContent = siege.alt;
       this.flightChargeRail.querySelector('[data-flight-charge]').textContent = siege.charge;
+      this.flightChargeRail.classList.toggle('low',siege.charge<=15);
       this.flightChargeRail.querySelector('[data-flight-charge-fill]').style.width =
         (100 * siege.charge / Math.max(1,siege.maxCharge)).toFixed(2) + '%';
       this.flightChargeRail.querySelector('[data-flight-rpm]').textContent = siege.rotorRPM;

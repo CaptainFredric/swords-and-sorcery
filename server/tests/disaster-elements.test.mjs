@@ -7,6 +7,8 @@ import { beginAttack, tryUltimate, releaseOneHitCharge, tryCastSpell, tryGauntle
 import { configurePracticeOneHit } from '../../shared/sim/practice.mjs';
 import { serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
+import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.mjs';
+import {damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
 import { ONE_HIT_ELEMENTS, ONE_HIT_PRESETS, oneHitDamage, oneHitBacklashRemaining, shakenSprintFactor } from '../../shared/src/oneHitInfusions.mjs';
 import { ONE_HIT_FIRST_INFUSION_DAMAGE } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
@@ -1162,4 +1164,24 @@ test('every status and field is on the wire, and all of them are gone a few seco
   assert.equal(b.oneHitFrostSlow, null); assert.equal(b.burn, null); assert.equal(b.oneHitField, null);
   assert.equal(room.oneHitFields.length, 0); assert.equal(room.oneHitBurnZones.length, 0);
   assert.equal(b.speedScale, 1);
+});
+
+test('a mounted Spellblade Disaster cannot damage or disrupt its own unteamed Flight carriage',()=>{
+ const {room,a,b}=battle({mode:'FFA',at:{x:5,y:0,z:0}});
+ const m=createFightFlight({id:'disaster-carriage',x:0,y:0,z:0});
+ room.fightFlight=m;
+ a.position={x:0,y:0,z:1};
+ assert.equal(mountFightFlight(room,m,a,8.9),true);
+ const before=[m.health,m.rotorHP,m.braceLHP,m.braceRHP];
+ const at=slam(room,9);
+ assert.deepEqual([m.health,m.rotorHP,m.braceLHP,m.braceRHP],before,
+   'its own pilot cannot cut hull, rotor or either independent Steel cage');
+ assert.equal(m.disasterAffliction,undefined,'friendly mounted machine also avoids disruptive status');
+ assert.equal(room.events.some(e=>e.type==='oneHitSiegeImpact'&&e.machineId===m.id),false,
+   'friendly area contact is not credited as enemy machine impact');
+ assert.equal(damageFightFlight(room,m,50,a.id,'one_hit_of_wonders',at,{componentId:'main'}),false,
+   'direct component damage refuses its own pilot even in FFA');
+ const health=m.health;
+ damageFightFlight(room,m,26,b.id,'one_hit_of_wonders',at,{componentId:'main'});
+ assert.ok(m.health<health,'the same chassis remains vulnerable to an actual enemy');
 });

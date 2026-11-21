@@ -1,6 +1,7 @@
 // Pure presentation of authoritative siege-machine health. Never owns damage, repair or recovery.
 import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
 import { FIGHT_FLIGHT } from '../../shared/sim/fightFlight.mjs';
+import {steelStrength} from '../../shared/src/steel.mjs';
 const positive = value => Number.isFinite(value) && value > 0;
 const amount = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, value) : fallback;
 const fraction = (health, maxHealth) => maxHealth > 0 ? Math.max(0, Math.min(100, 100 * health / maxHealth)) : 0;
@@ -21,7 +22,7 @@ export function machineGaugeView(local, snapshot, now = 0) {
   const view = {
     id: machine.id, kind, title,
     health, maxHealth, percent: fraction(health, maxHealth),
-    component: null, pressure: null, pitch: null, piston: '', context: '',
+    component: null, pressure: null, pitch: null, piston: '', context: '', braces: null,
   };
   if (kind === 'ram') {
     const pressure = amount(machine.pressure);
@@ -56,6 +57,16 @@ export function machineGaugeView(local, snapshot, now = 0) {
     view.component = { label: 'ROTOR', health: rotorHealth, maxHealth: maxRotor,
       percent: fraction(rotorHealth, maxRotor), state: rotorHealth <= 0 ? 'destroyed' : 'attached' };
     if (rotorHealth <= 0) view.context = 'ROTOR DESTROYED';
+    // Two separately destructible side cages, both with their own innate Steel.
+    const ward=steelStrength(machine.siegeSteel?.steel,now);
+    const brace=(hpKey,id,label)=>{
+      const hp=amount(machine[hpKey]);
+      return {id,label,health:hp,maxHealth:FIGHT_FLIGHT.braceHP,
+        percent:fraction(hp,FIGHT_FLIGHT.braceHP),state:hp<=0?'destroyed':'attached',
+        steel:Math.max(ward,steelStrength(machine.componentSteel?.[id],now))};
+    };
+    view.braces={left:brace('braceLHP','braceL','LEFT BRACE'),
+      right:brace('braceRHP','braceR','RIGHT BRACE')};
   }
   return view;
 }
