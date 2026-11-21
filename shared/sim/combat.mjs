@@ -31,7 +31,7 @@ import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitGlide, oneHitChargingLightning, oneHitChargeIntent, oneHitSteelFloorActive, emptyInfusions, ONE_HIT_STATUS_SECONDS } from '../src/oneHitInfusions.mjs';
 import { ONE_HIT_FIELD, ONE_HIT_BLUSTER, ONE_HIT_STEEL, fieldStrength, fieldContact, shakenHeldBack, fieldGuardLoss,
   burnZoneLick, fieldFrostDepth, mergeFrostSlow, frostSlowScale, directConduct, mergeConduct, fieldConduct,
-  blusterSeverity, blusteredFacing, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
+  blusterSeverity, blusteredFacing, galeFieldBluster, steelFractureRules, ONE_HIT_REACH, ONE_HIT_FROST_LINGER_SEC, fieldSeconds, groundReach,
   fireGaleShove, groundFootprintRadius, groundFootprintContains,
   directionalBlastRadius, terminalBlastRadius, terminalBlastContains, airFieldSeconds } from '../src/oneHitStatus.mjs';
 import {
@@ -2527,6 +2527,19 @@ function stepOneHitFields(room,dt,nowSec,world) {
           type:'oneHitFieldShaken',playerId:player.id,fieldId:field.id,
           strength:Math.round(offered*100)/100,at:nowSec,
         });
+      }
+      if(field.tiers.gale>=1){
+        // Gale is a REAL persistent aura like Frost and Conduct: standing
+        // inside keeps Blustered applied, but the offered rotation penalty
+        // weakens with time and distance from the field's edge. A direct
+        // Gale hit keeps priority until this field actually offers more.
+        const old=player.blustered;
+        player.blustered=galeFieldBluster(old,field,contact,nowSec);
+        if(player.blustered!==old&&old?.fieldId!==field.id)
+          room.events.push({type:'oneHitFieldBlustered',playerId:player.id,
+            fieldId:field.id,sourceId:field.ownerId,
+            strength:Math.round(blusterSeverity(player.blustered,nowSec)*100)/100,
+            at:nowSec});
       }
       if(field.tiers.frost===2)player.oneHitFrostSlow=mergeFrostSlow(player.oneHitFrostSlow,
         {until:nowSec+ONE_HIT_FIELD.frostLingerSec,depth:fieldFrostDepth(strength,contact)},nowSec);
