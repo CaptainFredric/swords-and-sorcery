@@ -102,6 +102,11 @@ export const DEFAULT_FLIGHT_LAYOUT = Object.freeze({
   spell:{right:154,bottom:214,size:50},
   siegeView:{right:14,top:6,size:36},
   interact:{right:60,top:6,size:36},
+  // Reclaim the unused Sweep corner and keep the left-side utilities inside
+  // the safe inset even on narrow landscape phones.
+  pause:{left:4,top:8,size:38},
+  scores:{left:47,top:8,size:38},
+  practiceTools:{left:4,top:56,size:44},
   // The Dagaz ink is derived from these button rectangles. It must NEVER
   // carry an independent stale coordinate/size when a player edits controls.
 });
