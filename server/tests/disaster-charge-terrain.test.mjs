@@ -294,7 +294,7 @@ test('airborne Gale+Lightning targets the highest supported surface below, never
   const voidBlast=voidWorld.room.events.find(e=>e.type==='oneHitImpact');
   assert.equal(voidBlast?.lightningGroundPoint,undefined,
     'the unsupported void still has no damaging ground contact');
-  assert.ok(voidBlast?.lightningVoidPoint?.y< -100,
+  assert.ok(voidBlast?.lightningVoidPoint?.y<=voidWorld.room.world.abyssY-24,
     'the visible strand passes below the world rather than stopping at the sky explosion');
   assert.equal(voidBlast.lightningVoidPoint.x,voidBlast.point.x);
   assert.equal(voidBlast.lightningVoidPoint.z,voidBlast.point.z);
