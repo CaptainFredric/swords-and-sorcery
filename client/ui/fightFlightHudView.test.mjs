@@ -32,11 +32,13 @@ test('Flight HUD labels selected indefinite Skills and shows actionable lock fee
  assert.equal(a.skillIcon,'doNotStopMyAscension');
 });
 
-test('Mounted Flight preserves the desktop E ability tile while other siege machines conceal it',()=>{
+test('Mounted Flight retains its E tile while ram and ballista display only their equipped U Skill',()=>{
  const css=readFileSync(new URL('../../client/styles.css',import.meta.url),'utf8');
  const hud=readFileSync(new URL('./HUD.mjs',import.meta.url),'utf8');
  const armory=readFileSync(new URL('../main.mjs',import.meta.url),'utf8');
- assert.match(css,/\.ballista-mounted:not\(\.flight-mounted\) \.abilities \{ display: none; \}/);
+ assert.match(css,/\.ballista-mounted:not\(\.flight-mounted\) \.abilities \{display:flex;\}/);
+ assert.match(css,/\.ballista-mounted:not\(\.flight-mounted\) \.abilities \.ability:not\(\.siege-skill-ability\) \{display:none !important;\}/);
+ assert.match(hud,/mountedSiegeSkillTile\(local,snapshot,serverNow\)/);
  assert.doesNotMatch(css,/\.ballista-mounted \.abilities \{ display: none; \}/);
  assert.match(hud,/inFlight\?'FLIGHT DASH':'DASH'/);
  assert.match(hud,/iconSvg\(dashFace\)/);
