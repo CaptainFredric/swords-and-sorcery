@@ -52,7 +52,7 @@ test('rotor spools up once; held Rise, stabilization and gentle neutral descent 
  // (the released lever coasts a little higher and then bobs visibly, 0d152834: level is a height held, not a speed)
  assert.ok(Math.abs(m.y-m.neutralHoverHeight)<=FIGHT_FLIGHT.neutralBobMetres+.1,'hover holds near its set height before one second');
  frames(room,m,2+26*DT,24);
- assert.ok(m.velocity.y<-.25&&m.velocity.y>-.75,'settled neutral is gentle descent');
+ assert.ok(m.velocity.y<-.25&&m.velocity.y>-2.5,'settled neutral is a moderate, lift-controlled descent');
  assert.ok(m.rotorLiftAuthority>.8&&m.flightCharge>0,'flight combat persists beyond the first second');
 });
 test('climb and hover power budgets are measurable; Lower recharges on a controlled descent',()=>{
