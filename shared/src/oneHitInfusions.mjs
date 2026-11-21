@@ -1,6 +1,7 @@
 // One Hit of Wonders: server-owned, spell-use-based elemental progression.
 // This module has no visual dependencies; demos and Practice presets cannot award combat stages.
 import { oneHitDecisiveDamage, oneHitAttackForm, oneHitTeleportReach } from './oneHitOfWondersRules.mjs';
+import { ULTIMATES } from './ultimates.mjs';
 
 export const ONE_HIT_ELEMENTS = Object.freeze(['fire', 'frost', 'gale', 'lightning', 'steel']);
 export const ONE_HIT_BASE_DAMAGE = 46;
@@ -131,13 +132,12 @@ export function oneHitGlide(player,speed=7.5){
 }
 
 /** Full Steel's temporary 1-HP floor. Never store prevented lethal damage.
- * There are two distinctly bounded phases:
- *  - Bracing: the ordinary 0.92-second preparation from the ORIGINAL press,
- *    even when Full Lightning can hold a teleport indefinitely afterward.
- *  - Commitment: a fresh protection window for the actual released attack,
- *    including its still-unresolved Gale wave (not a new 0.92-second timer).
- * Neither charging longer nor simply standing inside the aim can extend the
- * first phase. The active phase ends with the resolved wave/Ultimate expiry.
+ * Full Lightning changes the ATTACK TIMING, not the amount of protection:
+ * its charge can last arbitrarily long, but a Full Steel + Full Lightning
+ * caster gets at most the normal cast's startup + active duration from their
+ * ORIGINAL press (0.92 + 1.65 seconds), with no timer refresh or banking.
+ * Releasing Lightning commits the attack and IMMEDIATELY ends that protection.
+ * Without Full Lightning the old ground/air protection windows are unchanged.
  * Both authoritative damage and the health-bar sliver read this same check.
  */
 export function oneHitSteelFloorActive(player, nowSec) {
@@ -146,13 +146,20 @@ export function oneHitSteelFloorActive(player, nowSec) {
   if(state?.id!=='one_hit_of_wonders')return false;
   const tiers=state.oneHit?.tiers??state.preparedTiers;
   if((tiers?.steel??0)<2)return false;
+  if((tiers.lightning??0)>=2){
+    const normal=ULTIMATES.one_hit_of_wonders;
+    return state.phase==='startup'&&!state.teleportReleased &&
+      Number.isFinite(state.startedAt)&&Number.isFinite(state.commitAt)&&
+      nowSec<state.commitAt+1e-9 &&
+      nowSec<state.startedAt+normal.startupSec+normal.activeSec;
+  }
   if(state.phase==='startup') {
-    // A finite ordinary cast may still complete at its scheduled time; a
-    // delayed Half/Full Lightning release NEVER refreshes this initial brace.
+    // Half Lightning retains the ordinary finite bracing limit. Neither
+    // a delayed Half Lightning release nor a held Full tier can renew it.
     if(!Number.isFinite(state.commitAt)||!Number.isFinite(state.startedAt))
       return false;
     return nowSec<state.commitAt+1e-9 &&
-      nowSec<state.startedAt+0.92;
+      nowSec<state.startedAt+ULTIMATES.one_hit_of_wonders.startupSec;
   }
   if(state.phase==='active')
     return Number.isFinite(state.until)&&nowSec<state.until &&
