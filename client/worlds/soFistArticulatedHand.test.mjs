@@ -1,7 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from 'three';
+
 import {graftArticulatedFist} from './soFistArticulatedHand.mjs';
+
+// The browser supplies THREE; tests exercise the real graft's scene-graph
+// contract without relying on the browser's import map in Node.
+class FakeNode {
+ constructor(){this.children=[];this.parent=null;this.name='';this.visible=true;this.isMesh=false;this.userData={};}
+ add(part){if(part.parent)part.parent.children=part.parent.children.filter(child=>child!==part);
+  part.parent=this;this.children.push(part);}
+ traverse(fn){fn(this);for(const child of this.children)child.traverse(fn);}
+ getObjectByName(name){let found=null;this.traverse(part=>{if(!found&&part.name===name)found=part;});return found;}
+}
+class FakeGroup extends FakeNode {}
+class FakeGeometry {}
+class FakeMesh extends FakeNode {
+ constructor(geometry,material){super();this.isMesh=true;this.geometry=geometry;this.material=material;}
+}
+const THREE={
+ Group:FakeGroup,Mesh:FakeMesh,BoxGeometry:FakeGeometry,MeshBasicMaterial:class {},
+};
+
 
 test('a grouped hydraulic fist replaces its closed armor rather than rendering two fists',()=>{
  const target=new THREE.Group();target.name='Armored_Fist';
