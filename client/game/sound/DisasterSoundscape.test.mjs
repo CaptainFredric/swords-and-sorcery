@@ -253,7 +253,7 @@ test('midair Gale detonation has a distinct pressure boom and no four-second geo
   const floating={...field('air-field',{gale:2,frost:2}),air:true,
     position:point,direction:{x:1,y:0,z:0},bornAt:2,until:3.3};
   air.sound.update({players:[],oneHitWaves:[],oneHitFields:[floating]},2.1);
-  air.sound.update({players:[],oneHitWaves:[],oneHitFields:[floating]},2.42);
+  air.sound.update({players:[],oneHitWaves:[],oneHitFields:[floating]},2.82);
   assert.ok(air.played.length>3,'flying pressure still has a brief audible residual');
   air.sound.update({players:[],oneHitWaves:[],oneHitFields:[]},3.4);
   assert.equal(air.sound.fields.size,0,'the airborne pressure sound expires on the server field');
