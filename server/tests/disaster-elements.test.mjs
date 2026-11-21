@@ -796,44 +796,54 @@ test('Full Steel: the last 1 HP is truly protected, without lethal debt after th
   assert.equal(room.events.find((e) => e.type === 'death' && e.victimId === 'a')?.killerId, 'b');
 });
 
-test('Full Steel: initial Lightning hold has finite 1-HP protection; late aim is vulnerable; committed strike protects again', () => {
-  { // survivable damage: nothing deferred, the knight lives on
+test('Full Steel + Full Lightning protects a single ordinary-duration hold, then ends on release without lethal debt', () => {
+  { // unmodified Steel still takes real, nonlethal damage
     const { room, a } = battle({ tiers: { steel: 2 }, at: { x: 30, y: 0, z: 0 } });
     tryUltimate(room, 'a', 9); run(room, 9, .3);
     applyDamage(room, 'b', 'a', 30, 'sword', 9.3);
     assert.equal(a.health, 70);
     run(room, 9.3, 4);
     assert.equal(a.alive, true);
-    assert.equal(room.events.some((e) => e.type === 'oneHitLastStand'), false);
+    assert.equal(room.events.some(e => e.type === 'oneHitLastStand'), false);
   }
-  { // Half Steel: no floor
+  { // Half Steel never gains the 1-HP floor
     const { room, a } = battle({ tiers: { steel: 1 }, at: { x: 30, y: 0, z: 0 } });
     tryUltimate(room, 'a', 9); run(room, 9, .3);
     applyDamage(room, 'b', 'a', 200, 'sword', 9.3);
     assert.equal(a.alive, false);
   }
-  { // Full Steel + Full Lightning protects its initial brief bracing window
+  { // True server-owned damage at 2.4 s cannot kill: normal 2.57 s budget.
     const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });
     assert.equal(tryUltimate(room, 'a', 9, { held: true }), true);
-    run(room, 9, .2);
-    applyDamage(room, 'b', 'a', 200, 'sword', 9.2);
-    assert.equal(a.alive, true, 'initial 0.92-second Steel bracing survives lethal damage');
+    run(room, 9, 2.4);
+    a.health=20;
+    applyDamage(room, 'b', 'a', 200, 'sword', 11.4);
     assert.equal(a.health,1);
-  }
-  { // ...but the committed attack after the release is protected like any other
-    const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });
-    tryUltimate(room, 'a', 9, { held: true });
-    run(room, 9, 5);
-    releaseOneHitCharge(room, 'a', 14);
+    assert.equal(a.alive,true);
+    assert.equal(room.events.filter(e=>e.type==='oneHitLastStand').length,1);
+    // A cast immediately cancels the remainder, even with a Gale wave.
+    assert.equal(releaseOneHitCharge(room, 'a', 11.43),true);
     assert.equal(a.ultimateState.phase, 'active');
-    applyDamage(room, 'b', 'a', 200, 'sword', 14.1);
-    assert.equal(a.health, 1);
-    const later = run(room, 14.1, 3);
-    assert.equal(a.alive, true, 'the attack ending cannot settle any lethal debt');
-    assert.equal(a.ultimateState, null);
-    assert.ok(a.health >= 1);
-    applyDamage(room, 'b', 'a', 200, 'sword', later);
-    assert.equal(a.alive, false, 'the next actual blow after the protection ends remains fatal');
+    assert.equal(a.ultimateState.deferredLethal,undefined);
+    applyDamage(room,'b','a',5,'sword',11.44);
+    assert.equal(a.alive,false,'committing Lightning immediately removes the 1-HP floor');
+  }
+  { // A held teleport outlasting the normal ultimate cannot stay invincible.
+    const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });
+    tryUltimate(room,'a',9,{held:true});run(room,9,2.7);
+    assert.equal(a.ultimateState.phase,'startup');
+    a.health=20;
+    applyDamage(room,'b','a',200,'sword',11.7);
+    assert.equal(a.alive,false,'late held aim never extends the normal Steel duration');
+  }
+  { // There is no fresh floor if Lightning was held a very long time.
+    const { room, a } = battle({ tiers: { steel: 2, lightning: 2 }, at: { x: 30, y: 0, z: 0 } });
+    tryUltimate(room,'a',9,{held:true});run(room,9,5);
+    releaseOneHitCharge(room,'a',14);
+    assert.equal(a.ultimateState.phase,'active');
+    a.health=20;
+    applyDamage(room,'b','a',200,'sword',14.1);
+    assert.equal(a.alive,false,'late attack does not mint a new protection window');
   }
 });
 
