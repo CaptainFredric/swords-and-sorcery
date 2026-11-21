@@ -296,7 +296,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     if(!descend&&((explicitHop&&m.health>0)||
       (canLaunch&&(legacyPress||input.flightRise||launchRise)))){
       m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;
-      m.velocity.y=Math.max(m.velocity.y,3.2);
+      // A free mechanical ground hop must still be ascending when a mobile
+      // 270ms Jump hold becomes powered Rise. 3.95m/s peaks at ~293ms under
+      // the real 13.5m/s² gravity; no rotor or charge is used for the tap.
+      m.velocity.y=Math.max(m.velocity.y,explicitHop?3.95:3.2);
       if(legacyPress&&!input.flightRise&&!explicitHop){
         m.hopStartedAt=now;
         m.rotorPowered=true; // release inside the short-hop window cuts the motor
