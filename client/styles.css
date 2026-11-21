@@ -248,6 +248,36 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .siege-skill-ability .ability-icon { color:#f1cb82; }
 .siege-skill-ability.active { border-color:#e8c579; box-shadow:0 0 9px #e8c57933; }
 .siege-skill-ability em {white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:7.5px;}
+
+.siege-sweep-ability .ability-icon {color:#d9caa1;}
+.siege-context-prompt {
+  position:absolute;left:50%;top:calc(50% + 72px);
+  transform:translateX(-50%);z-index:18;pointer-events:none;
+  min-width:124px;max-width:min(250px,65cqw);
+  display:grid;justify-items:center;gap:2px;
+  padding:5px 11px 6px;text-align:center;
+  background:linear-gradient(100deg,rgba(25,26,22,.79),rgba(37,30,22,.86));
+  border:1px solid rgba(194,164,102,.56);
+  border-top:2px solid rgba(226,190,117,.7);
+  box-shadow:0 2px 7px #0005;
+}
+.siege-context-prompt[hidden] {display:none!important;}
+.siege-context-prompt strong {
+  color:#f5e4b7;font:800 11px/1.1 ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.095em;white-space:nowrap;
+}
+.siege-context-prompt small {
+  color:#c6c1b1;font:700 8px/1.1 ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.045em;white-space:nowrap;
+}
+.siege-context-prompt[data-kind="enemy"]{border-top-color:#e4a17d;}
+.siege-context-prompt[data-kind="ally"]{border-top-color:#96c9b2;}
+@container app (max-height: 430px){
+ .siege-context-prompt {top:calc(50% + 48px);padding:3px 8px 4px;}
+ .siege-context-prompt strong{font-size:9px;}
+ .siege-context-prompt small{font-size:7px;}
+}
+
 /* A fitted, riveted accumulator rather than an unframed yellow progress line. */
 .flight-charge-rail { width:250px; display:grid; grid-template-columns:minmax(0,1fr); gap:3px; pointer-events:none;
   box-sizing:border-box;padding:4px 7px 6px;position:relative;
