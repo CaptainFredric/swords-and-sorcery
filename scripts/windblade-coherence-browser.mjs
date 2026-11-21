@@ -95,7 +95,7 @@ try{
     'const heights=attr?Array.from({length:attr.count},(_,i)=>attr.getY(i)):[];',
     'const vivid=mesh?.material.opacity;',
     'const wakeProof={fiveDistinctElements:sheets.length===10,threeDimensional:Math.max(...heights)>22&&Math.min(...heights)<19,',
-    'wideFire:Math.abs(mesh.geometry.boundingSphere.radius)>5,',
+    'wideFire:Math.abs(attr.getZ(0)-attr.getZ(1))>3.3,',
     'connected:sheets.every(x=>x.mesh.geometry.index.count>=12),visible:sheets.every(x=>x.mesh.visible)};',
     'updateWakeVisual(frosted,{trailPoints,tiers:wakeTiers,radius:1.85},.4);',
     'wakeProof.fades=mesh.material.opacity<vivid;',
