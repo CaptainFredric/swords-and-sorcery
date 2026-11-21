@@ -2877,8 +2877,15 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
-  const lightningGroundPoint=air&&(wave.tiers.lightning??0)>=1
+  const lightningEligible=air&&(wave.tiers.gale??0)>=2&&(wave.tiers.lightning??0)>=1;
+  const lightningGroundPoint=lightningEligible
     ?oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world):null;
+  // A visual discharge still proceeds downward over bottomless space.
+  // This endpoint is purely cosmetic, deliberately BELOW the play volume;
+  // never emit a fictitious ground contact or apply damage at this point.
+  const lightningVoidPoint=lightningEligible&&!lightningGroundPoint
+    ?{x:point.x,y:Math.min(point.y-160,
+       Number.isFinite(world?.abyssY)?world.abyssY-24:point.y-160),z:point.z}:null;
   oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,null,null);
   // The terminal blast is a real SECOND ground strike when it contacts
   // solid terrain. Use the established Sunder rupture simulation with the
@@ -2946,6 +2953,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     // Distinct from groundPoint: the Gale shockwave still detonates HERE,
     // while only its Lightning strand continues vertically to this floor.
     ...(lightningGroundPoint?{lightningGroundPoint}:{}),
+    ...(lightningVoidPoint?{lightningVoidPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
     radius,yaw:null,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
