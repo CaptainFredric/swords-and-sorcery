@@ -162,6 +162,40 @@ export function disasterInfusionChargeRecipe(element,rand=Math.random,{tier=1}={
     default:return recipe([]);
   }
 }
+/** A sound for actually EARNING an infusion stage, not for simply
+ * starting the Ultimate. It uses each element's own timbre and stays quieter
+ * than a sword impact; Full is richer without doubling the volume. */
+export function disasterInfusionEarnedRecipe(element,rand=Math.random,{tier=1}={}){
+ const full=Number(tier)>=2,m=full?1:.68;
+ switch(element){
+  case 'fire':return recipe([
+   n('bandpass',1300*jitter(rand,.14),.005,.20,.18*m,{sweepTo:310}),
+   n('highpass',4900,.002,.11,.12*m,{at:.07,sweepTo:1600}),
+   t('triangle',185,105,.009,.28,.055*m),
+  ],.15);
+  case 'frost':return recipe([
+   n('highpass',5900,.005,.11,.15*m,{sweepTo:2450}),
+   ring(rand,full?1730:2020,{decay:full?.67:.41,gain:.10*m,partials:4,bright:1.15}),
+   n('bandpass',3250,.003,.09,.07*m,{at:.15,sweepTo:1450}),
+  ],.30);
+  case 'gale':return recipe([
+   n('bandpass',1700,.026,.35,.16*m,{sweepTo:430,q:.77}),
+   n('highpass',3700,.025,.23,.073*m,{sweepTo:1800}),
+   t('sine',220,87,.025,.26,.05*m),
+  ],.12);
+  case 'lightning':return recipe([
+   n('highpass',5800*jitter(rand,.14),.001,.09,.21*m,{sweepTo:2400}),
+   t('sawtooth',690,1750,.009,.16,.06*m),
+   n('bandpass',3300,.001,.065,.10*m,{at:.13,sweepTo:900}),
+  ],.18);
+  case 'steel':return recipe([
+   n('highpass',4400,.001,.045,.12*m,{sweepTo:1600}),
+   ring(rand,full?590:810,{decay:full?1:.62,gain:.11*m,partials:5,bright:.83}),
+   t('sine',95,55,.014,.30,.056*m),
+  ],.32);
+  default:return recipe([]);
+ }
+}
 /** Infusion impact signature: timbral identities distinct from base stone and from each other. */
 export function disasterInfusionImpactRecipe(element,rand=Math.random,{tier=1,wave=false}={}){
   const full=Number(tier)>=2,level=(full?1:.69)*(wave?.72:1);

@@ -2725,8 +2725,9 @@ function oneHitLaunchWave(room,player,tiers,nowSec,action) {
   action.waveLaunchedAt=nowSec;
   action.aimUntil=null;
   const speed=tiers.lightning?48:28;
-  // Full Steel protects the last HP through finite wave flight. This
-  // protection simply ends on impact; no stored lethal damage exists.
+  // Ordinary Full Steel can protect through finite wave flight. Combined
+  // Full Lightning used its fixed charge-phase floor already: releasing the
+  // attack removes it, even while the projectile is still travelling.
   const state=player.ultimateState;
   if(state?.id==='one_hit_of_wonders')
     state.until=Math.max(state.until??0,nowSec+ONE_HIT_RULES.waveMaxReach/speed+.18);
@@ -2959,8 +2960,9 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     radius,yaw:null,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
-// Full Steel lasts THROUGH the outgoing wave; the protection ends at its
-// terminal impact, manual detonation or maximum range, without lethal debt.
+// Non-Full-Lightning Steel lasts THROUGH the outgoing wave; the floor ends
+// at terminal impact, manual detonation or maximum range, without debt.
+// Full Lightning + Steel ends its floor on release, before any wave flight.
 function resolveOneHitWave(room,caster,wave,nowSec){
   const state=caster.ultimateState;
   if(state?.id!=='one_hit_of_wonders'||state.oneHit?.waveResolved||

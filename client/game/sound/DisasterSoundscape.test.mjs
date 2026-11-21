@@ -102,7 +102,7 @@ test('Moving Gale plays from changing world position and ends with server-owned 
   sound.update(sample,1.8);
   assert.equal(sound.waves.size,0,'no phantom wind after terminal explosion');
 });
-test('Rumble charge and all infused impacts are time-staggered, including low Steel and Frost',()=>{
+test('Rumble charge and infused accents sound distinctive while Steel rings ON the stone-breaking contact',()=>{
   const {sound,played}=fixture();
   const full=tiers(2),snapshot={players:[{id:'a',alive:true,position:{x:0,y:0,z:0}}]};
   sound.onEvent({type:'ultimateStart',playerId:'a',ultimate:'one_hit_of_wonders',
@@ -113,7 +113,13 @@ test('Rumble charge and all infused impacts are time-staggered, including low St
   sound.onEvent({type:'oneHitImpact',playerId:'a',form:'ground',point:{x:0,y:0,z:0},
     fieldId:'field-a',tiers:full,at:2},snapshot);
   assert.equal(played.length-before,6,'one real earth impact + five infusion hit signatures');
-  assert.ok(new Set(played.slice(before).map(p=>p.delay)).size===6);
+  const impact=played.slice(before);
+  assert.equal(impact[0].delay,0,'earth fracture starts exactly at server ground strike');
+  assert.equal(impact.at(-1).delay,0,'Steel anvil starts ON the same sword-to-earth event');
+  assert.ok(impact.at(-1).recipe.layers.some(l=>l.type==='ring'&&
+    l.partials.some(p=>p.decay>.5)),'Steel still rings after the initial shared impact');
+  assert.equal(new Set(impact.map(p=>p.delay)).size,5,
+    'other elements are staggered but Steel is locked to the cracking earth');
   assert.equal(sound.fields.get('field-a')?.next,2.75);
 });
 test('Stopped/restarted server clock cannot retain stale effects from an old match',()=>{
@@ -194,7 +200,7 @@ test('Layering five infusions never weakens the initial base-earth hit',()=>{
   assert.ok(full.played.slice(1).every(p=>p.gain<full.played[0].gain),
     'each elemental accent is secondary to the impact anchor');
   assert.equal(new Set(full.played.slice(1).map(p=>p.delay)).size,5,
-    'five signatures are staggered and not one overloaded sound');
+    'each infusion retains its own accent while the anvil rings at time zero');
 });
 test('Decay-scaled Shaken field is still an audible warning halfway through its real lifetime',()=>{
   const {sound,played}=fixture();
@@ -260,4 +266,40 @@ test('midair Gale detonation has a distinct pressure boom and no four-second geo
   assert.ok(air.played.length>3,'flying pressure still has a brief audible residual');
   air.sound.update({players:[],oneHitWaves:[],oneHitFields:[]},3.4);
   assert.equal(air.sound.fields.size,0,'the airborne pressure sound expires on the server field');
+});
+
+test('every newly earned infusion has its own quiet sound: Half and Full differ and network replays are silent',()=>{
+ const root=fixture(),snapshot={players:[{id:'a',alive:true,position:{x:2,y:0,z:3}}]};
+ for(const element of ['fire','frost','gale','lightning','steel']){
+  root.sound.onEvent({type:'oneHitInfusion',playerId:'a',element,tier:1,at:1+
+   ['fire','frost','gale','lightning','steel'].indexOf(element)},snapshot);
+ }
+ assert.equal(root.played.length,5,'each genuine infusion acquisition has its own audible cue');
+ assert.equal(new Set(root.played.map(p=>JSON.stringify(p.recipe))).size,5,
+   'the five elements must not share an interchangeable chime');
+ assert.ok(root.played.every(p=>p.point.y===1&&p.gain<.65));
+ const before=root.played.length;
+ const event={type:'oneHitInfusion',playerId:'a',element:'steel',tier:2,at:9};
+ root.sound.onEvent(event,snapshot);
+ assert.equal(root.played.length,before+1);
+ assert.notDeepEqual(root.played.at(-1).recipe,root.played[4].recipe,
+   'Full Steel acquisition has a deeper and longer metallic accent');
+ root.sound.onEvent(event,snapshot);
+ assert.equal(root.played.length,before+1,'duplicate infusion awards never replay');
+ root.sound.onEvent({type:'oneHitInfusion',playerId:'a',element:'fire',tier:2,at:10},snapshot);
+ root.sound.onEvent({type:'oneHitInfusion',playerId:'a',element:'frost',tier:2,at:10},snapshot);
+ assert.equal(root.played.length,before+3,
+   'different infusions earned on the same server tick both sound');
+});
+test('Steel anvil is a grounded blade sound only; a high Gale explosion still has its other elemental accents',()=>{
+ const f=fixture();
+ const sky={type:'oneHitImpact',impactId:'sky',playerId:'a',tiers:{gale:2,steel:2,fire:2},
+   point:{x:0,y:24,z:0},form:'aerial',air:true,at:1};
+ f.sound.onEvent(sky);
+ assert.equal(f.played.length,3,'air blast and Fire/Gale accents, but no airborne anvil');
+ const ground={...sky,impactId:'ground',point:{x:0,y:0,z:0},air:false,
+   groundBlast:true,at:2};
+ f.sound.onEvent(ground);
+ assert.equal(f.played.length,7,'ground impact additionally earns the Steel anvil');
+ assert.equal(f.played.at(-1).delay,0,'actual terrain impact and anvil share contact time');
 });
