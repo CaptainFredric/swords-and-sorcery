@@ -92,7 +92,12 @@ export function biByeTerrainPose(b,ctx,diagnostic=null){
   if(contacts.some(p=>!p))return reject('unsupported-wheel',{iteration});
   const plane=planeFit(contacts),pitch=Math.asin(clamp(plane.c,-1,1)),roll=Math.asin(clamp(plane.a/Math.cos(pitch),-1,1));
   const grade=Math.acos(clamp(Math.cos(pitch)*Math.cos(roll),-1,1));
-  if(grade>BI_BYE_TERRAIN.mobileGrade+.002)return reject('grade-limit',{iteration,grade,limit:BI_BYE_TERRAIN.mobileGrade});
+  // The first pass samples wheels in the OLD chassis attitude. On a
+  // 26.6-degree plane its raw height gradient is tan(26.6°)=.5, and asin(.5)
+  // incorrectly looks like 30 degrees. Pitch/roll must converge before the
+  // grade is classified; the fifth iteration uses the fitted contact frame.
+  if(iteration===4&&grade>BI_BYE_TERRAIN.mobileGrade+.002)
+   return reject('grade-limit',{iteration,grade,limit:BI_BYE_TERRAIN.mobileGrade});
   pose={...pose,chassisPitch:Math.abs(pitch)<1e-10?0:pitch,chassisRoll:Math.abs(roll)<1e-10?0:roll,y:plane.d-R*Math.cos(pitch)*Math.cos(roll)};
  }
  const root=biByeRootFrame(pose),up=root.axes[1][1];
