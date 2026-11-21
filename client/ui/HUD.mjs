@@ -156,7 +156,7 @@ export class HUD {
     this.flightSkillTile.className='ability flight-skill-ability ready';
     this.flightSkillTile.hidden=true;
     this.flightSkillTile.innerHTML='<span class="ability-icon"></span><b>U</b><em>FIRE AWAY</em><strong>READY</strong>';
-    this.ultimate.parentElement.append(this.flightSkillTile);
+    this.spell.parentElement?.append(this.flightSkillTile);
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
@@ -256,7 +256,7 @@ export class HUD {
       <div class="flight-mini-telemetry"><span>ALT <output data-flight-alt>0.0</output>m</span><span>ROTOR <output data-flight-rpm>0</output> RPM</span><span class="flight-desktop-ammo">AMMO <output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></span></div>
       <small class="flight-inline-warning" hidden data-flight-warning></small>
     `;
-    this.guardBlock.insertAdjacentElement('afterend',this.flightChargeRail);
+    this.guardBlock.append(this.flightChargeRail);
     this.root.append(this.statusStack);
     this.afflictionPanel = new AfflictionPanel(this.root);
     this.trialPanel = document.createElement('div');
