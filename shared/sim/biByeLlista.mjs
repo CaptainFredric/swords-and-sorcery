@@ -469,8 +469,10 @@ export function toggleBiByeDeploy(ballista, nowSec, world=null) {
  */
 export function biByeCanDamage(room, ballista, attackerId) {
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  // The owner may freely test attacks in Practice, but cannot damage
+  // their own mounted artillery while casting an Ultimate.
+  if (attackerId && ballista.operatorId === attackerId) return false;
   if (room.mode === 'PRACTICE') return true;
-  if (ballista.operatorId === attackerId) return false;
   const attacker = room.players?.get(attackerId);
   const team = ballista.team ?? room.players?.get(ballista.operatorId)?.team;
   return !(team && attacker?.team === team);
