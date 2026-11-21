@@ -2302,7 +2302,7 @@ function stepOneHitChargeAura(room,caster,nowSec,world) {
   }
 }
 
-function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
+function oneHitGuard(room,caster,target,origin,nowSec,tiers={},wakeId=null) {
   if(!target.guarding || !isInGuardCone(target,{position:origin},nowSec))return false;
   // (40 for a guarded Disaster, whatever it carries: no infusion bears harder on a Guard)
   target.guardStamina=Math.max(0,target.guardStamina-40);
@@ -2313,7 +2313,7 @@ function oneHitGuard(room,caster,target,origin,nowSec,tiers={}) {
   // allied Frost, Lightning, Gale and Steel effects cross the guard.
   // This applies equally to slam, travelling sword-wave and terminal burst.
   if((tiers.fire??0)===2)
-    oneHitAfflict(room,caster,target,tiers,nowSec,{shaken:.65,direct:true});
+    oneHitWaveAfflict(room,caster,target,tiers,nowSec,{shaken:.65,direct:true},wakeId);
   // Guard prevents the direct HP contact, not a gale's physical pressure.
   // A defended shove is smaller and follows the wave/impact direction.
   if((tiers.gale??0)>=1){
@@ -2402,7 +2402,7 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
   const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
-  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers)){onGuard?.();return false;}
+  if(oneHitGuard(room,caster,target,incoming,nowSec,tiers,wakeId)){onGuard?.();return false;}
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
   const dx=direction?.x??(target.position.x-origin.x),dz=direction?.z??(target.position.z-origin.z);
@@ -2893,7 +2893,16 @@ function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
     if(!blocked)applyDamage(room,caster.id,target.id,damage,
       'one_hit_lightning_ground',nowSec,null,
       {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade'});
-    if(target.alive)oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+    // The real vertical bolt may legitimately deal its own HP contact,
+    // but it must not renew Conduct already delivered by this same wake.
+    const wake=room.oneHitFields?.find(f=>f.id===wave.id+':wake');
+    if(target.alive&&!wake?.trailTouched?.[target.id]){
+      oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+      if(wake){
+        (wake.trailTouched??={})[target.id]=true;
+        (wake.conducted??={})[target.id]=1;
+      }
+    }
     targets.push(target.id);
   }
   room.events.push({type:'oneHitLightningGroundStrike',playerId:caster.id,
