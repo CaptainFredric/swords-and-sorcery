@@ -28,6 +28,7 @@ import {beginFlick,canFlick,stepFlick,FLICK} from './soFistFlick.mjs';
 import {queueFinalJaw,stepFinalJaw} from './soFistFinalJaw.mjs';
 import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
 import {requestHellpingHand,stepHellpingHand,releaseHellpingHand,hellpingPalm,HELLPING} from './soFistHellpingHand.mjs';
+import {findHellpingLedge} from './soFistLedge.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const RAM_TERRAIN=Object.freeze({maxGrade:29*Math.PI/180,maxContactDelta:1.95,wheelTravel:.28});
 export const SO_FIST=Object.freeze({speed:5.3,reverse:3.1,peak:12,pressure:100,hull:1400,fist:500,cycle:4,piston:SO_FIST_PISTON});
@@ -103,7 +104,7 @@ function stepRamElevation(room,b,dt,now,world){
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
   flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
- detachedFist:null,fistRecoveryUntil:0,hellping:null,
+ detachedFist:null,fistRecoveryUntil:0,hellping:null,hellpingLedge:null,
  fistHome:{x:overrides.x??0,y:overrides.y??0,z:overrides.z??0},...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
@@ -146,7 +147,7 @@ export function fireSoFistication(room,b,now){
  if(b?.emplacementId&&room.state!=='PLAYING')return false;
  if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
    (room.players.get(b.operatorId)?.staggerUntil??0)>now||
-   (['open','grasp','vault','release'].includes(b.hellping?.phase)||
+   (['open','grasp','vault','ledgePull','release'].includes(b.hellping?.phase)||
     b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle||
      b.flickAt!=null&&now-b.flickAt<FLICK.cycle))return false;
  // Invalid manual attempts must not disarm a waiting counterattack.
@@ -298,7 +299,7 @@ const p=room.players.get(b.operatorId);
  b.steer=clamp(input.right??0,-1,1)*(sidewaysTurn?Math.sign(driveForward):1)*
    affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
- const travelSpeed=b.hellping?.phase==='vault'?0:b.speed+(b.recoilVelocity??0);
+ const travelSpeed=['vault','ledgePull'].includes(b.hellping?.phase)?0:b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
  for(let i=0;i<steps;i++){
   if(Math.abs(travelSpeed)<1e-5)break;
@@ -432,6 +433,8 @@ const p=room.players.get(b.operatorId);
  b.recoilVelocity=Math.sign(recoil)*Math.max(0,Math.abs(recoil)-SIEGE_IMPACT.ramPistonRecoilBrake*dt);
  if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*travelSpeed,y:0,z:-Math.cos(b.heading)*travelSpeed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  stepFlick(room,b,dt,now);
+ // Prompt only when a server-verified handhold and fully supported landing exist.
+ b.hellpingLedge=findHellpingLedge(room,b,now);
  if(b.hellping?.phase==='transport'||b.hellping?.phase==='grasp')stepHellpingHand(room,b,dt,now);
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
 }
