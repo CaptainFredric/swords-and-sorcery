@@ -238,7 +238,7 @@ test('Cold-start Dash retains 450 RPM after prowess runs out, immediately allowi
   assert.equal(requestFightFlightSkill(s.room,s.m,s.p,s.now),null);
   assert.equal(s.m.skill.id,FIRE_AWAY.id);
   assert.equal(s.m.skill.phase,'active');
-  assert.equal(s.m.skill.readyAt,s.now+24);
+  assert.equal(s.m.skill.readyAt,s.now,'Fire Away has no pre-paid cooldown while active');
   assert.equal(requestFightFlightFire(s.room,s.m,s.p,true,s.now),true);
   assert.ok(Math.abs(s.m.flightCharge-(startCharge-FIRE_AWAY.boltCharge))<1e-8);
   assert.equal(s.m.ammo,startAmmo,'Fire Away pays flight charge, not ordinary ammunition');
