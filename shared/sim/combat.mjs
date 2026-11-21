@@ -24,7 +24,7 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
-import { lineOfConductDamage, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
+import { lineOfConductDamage, lineOfConductReach, lineOfConductAffliction, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
   oneHitDamage, oneHitForm, oneHitCommit, oneHitBacklashRemaining, applyOneHitShaken,
   shakenSprintFactor, creditOneHitEncounter, elementForSpell, normalizeInfusions,
@@ -3118,14 +3118,18 @@ function stepOneHitWorld(room,dt,nowSec,world) {
         (center.z-wire.origin.z)*dz)/lenSq));
       const near={x:wire.origin.x+dx*t,y:wire.origin.y+dy*t,z:wire.origin.z+dz*t};
       const distance=Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z);
-      wire.inside??=new Set();
-      if(distance>.36)wire.inside.delete(target.id);
-      else if(distance<=.18 && !wire.inside.has(target.id)){
-        wire.inside.add(target.id);
-        const power=Math.max(0,(wire.until-nowSec));
-        const hit=applyDamage(room,wire.ownerId,target.id,(3+12*power),'line_of_conduct',nowSec,null,
-          {ongoing:true,infusionCastKey:wire.id});
-        if(hit)for(const actor of [caster,target]){
+      // The massive initial hitscan has already applied all the HP damage.
+      // The exact residual 3D line is only a brief conductive tripwire:
+      // no damage, no repeatedly refreshing the same target, no Guard bypass
+      // damage from walking in and out. The affliction itself can still bite
+      // on a victim's next melee blow, using its normal combat rule.
+      wire.affected??=new Set(wire.inside??[]);
+      if(distance<=ONE_HIT_RULES.lineOfConduct.afterlineRadius &&
+          !wire.affected.has(target.id)){
+        wire.affected.add(target.id);
+        const along=t*Math.sqrt(lenSq);
+        oneHitConduct(room,target,lineOfConductAffliction(along,nowSec,wire.ownerId),nowSec);
+        for(const actor of [caster,target]){
           if(creditOneHitEncounter(actor,'lightning',wire.id))
             room.events.push({type:'oneHitInfusion',playerId:actor.id,element:'lightning',
               tier:actor.oneHitInfusions.lightning,at:nowSec});
@@ -3138,7 +3142,9 @@ function stepOneHitWorld(room,dt,nowSec,world) {
 function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   const origin={...pending.origin};
   const direction=normalize3(pending.direction);
-  const reach=240,end={x:origin.x+direction.x*reach,
+  const reach=lineOfConductReach(origin,direction,world,
+    [...room.players.values()].filter(p=>p.alive).map(p=>p.position));
+  const end={x:origin.x+direction.x*reach,
     y:origin.y+direction.y*reach,z:origin.z+direction.z*reach};
   let wall=1;
   for(const box of world?.solids??[]){
@@ -3148,7 +3154,8 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
   const stop={x:origin.x+(end.x-origin.x)*wall,y:origin.y+(end.y-origin.y)*wall,
     z:origin.z+(end.z-origin.z)*wall};
   const wire={id:`conduct:${player.id}:${room.tickNumber}`,ownerId:player.id,
-    origin,end:stop,until:nowSec+1,inside:new Set()};
+    origin,end:stop,until:nowSec+ONE_HIT_RULES.lineOfConduct.afterlineSeconds,
+    affected:new Set()};
   (room.lineConductWires??=[]).push(wire);
   for(const target of room.players.values()){
     if(!target.alive||target.id===player.id||areAllies(room,player.id,target.id))continue;
@@ -3159,10 +3166,12 @@ function dischargeLineOfConduct(room,player,pending,nowSec,world) {
       (center.z-origin.z)*ab.z)/lenSq));
     const near={x:origin.x+ab.x*t,y:origin.y+ab.y*t,z:origin.z+ab.z*t};
     if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>.7)continue;
-    wire.inside.add(target.id);
+    wire.affected.add(target.id);
     const dist=t*Math.sqrt(lenSq);
-    applyDamage(room,player.id,target.id,lineOfConductDamage(dist),'line_of_conduct',nowSec,
+    const hit=applyDamage(room,player.id,target.id,lineOfConductDamage(dist),'line_of_conduct',nowSec,
       null,{infusionCastKey:wire.id});
+    if(hit&&target.alive)
+      oneHitConduct(room,target,lineOfConductAffliction(dist,nowSec,player.id),nowSec);
   }
   room.events.push({type:'lineConductDischarge',playerId:player.id,origin,end:stop,at:nowSec});
 }
