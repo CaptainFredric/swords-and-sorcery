@@ -232,7 +232,9 @@ export class SoFisticationRenderer {
      }else if(hand.phase==='vault'){
        clip=hand.direction<0?'18_HELLping_Hand_Vault_AltA_TwoFinger_9Stages':
          '19_HELLping_Hand_Vault_AltB_MultiFinger_Claw_9Stages';
-       time=handAge;loop=false;
+       // Match the complete authored hand-plant animation to the shorter,
+       // 1.05-second authoritative impulse instead of leaving it half-open.
+       time=handAge*(1.5/1.05);loop=false;
      }else if(hand.phase==='release'){
        clip='14_HELLping_Hand_Release_Or_Fist_Destroyed';time=handAge;loop=false;
      }
