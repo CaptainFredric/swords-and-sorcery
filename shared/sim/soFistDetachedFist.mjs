@@ -378,6 +378,11 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
   // A settled body has no remaining substeps: do not integrate it through
   // more gravity or dispatch duplicate ground-landed events this same tick.
   if(f.state==='resting')break;
+  // A substantial masonry collision spends the remaining fractional tick:
+  // the next authoritative step starts from the separated, rebounding body.
+  // Only player and machine impacts are allowed to continue through the
+  // current tick, so a thin wall can never be crossed by leftover substeps.
+  if(earliest?.kind==='wall')break;
   if(f.position.y<(Number.isFinite(world.abyssY)?world.abyssY:-30)||
      at-f.launchedAt>RAM_FIST.flightTimeout&&
       surfaceHeightAt(f.position.x,f.position.z,f.position.y+2,world)==null){
