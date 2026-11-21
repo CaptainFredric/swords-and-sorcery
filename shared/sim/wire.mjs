@@ -555,14 +555,14 @@ export function applyRoomCommand(room, player, message, time) {
       const m=room.fightFlight;
       if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id||m.terminalDive)
         return {rejected:'Only the living Fight-and-Flight operator may hop.'};
-      if(m.hopRequested||m.rotorHP<=0||m.health<=0||m.emergencyBrakeActive||m.flightCharge<=2)
-        return {rejected:'Hop requires an intact, charged machine.'};
+      if(m.hopRequested||m.health<=0||m.emergencyBrakeActive)
+        return {rejected:'Hop requires an intact machine without an engaged brake.'};
       if(!m.grounded){
-        // Airborne Jump is a single, short rotor-assisted pop, not held Rise
-        // or an endlessly repeatable flight-charge-free double jump.
-        if(m.offensiveRun||m.terminalPrep||!m.rotorPowered||
-          m.flightCharge<FIGHT_FLIGHT.airHopCost+2||time<(m.nextAirHopAt??0))
-          return {rejected:'Air Hop needs rotor power, charge and cooldown.'};
+        // Air Hop starts an intact rotor even while falling with a stopped
+        // motor. Ground tapping remains mechanical and costs no charge.
+        if(m.offensiveRun||m.terminalPrep||m.rotorHP<=0||
+          m.flightCharge<FIGHT_FLIGHT.airHopCost||time<(m.nextAirHopAt??0))
+          return {rejected:'Air Hop needs an intact rotor, charge and cooldown.'};
         m.airHopRequested=true;
         m.nextAirHopAt=time+FIGHT_FLIGHT.airHopCooldown;
       }
