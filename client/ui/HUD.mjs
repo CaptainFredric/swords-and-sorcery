@@ -150,6 +150,13 @@ export class HUD {
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
     this.ultimateShown = 'sunder';
     this.ultimateReady = false;
+    // On desktop, the equipped Flight Skill needs its own existing-style
+    // cooldown tile now that the duplicate central READY panel is gone.
+    this.flightSkillTile=document.createElement('div');
+    this.flightSkillTile.className='ability flight-skill-ability ready';
+    this.flightSkillTile.hidden=true;
+    this.flightSkillTile.innerHTML='<span class="ability-icon"></span><b>U</b><em>FIRE AWAY</em><strong>READY</strong>';
+    this.ultimate.parentElement.append(this.flightSkillTile);
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
@@ -455,6 +462,19 @@ export class HUD {
       }
     }
     const isFlight = Boolean(siege?.isFlight);
+    this.flightSkillTile.hidden=!isFlight;
+    if(isFlight){
+      const tile=this.flightSkillTile,skill=flightMachine?.skill??{};
+      const fullName=siege.skillName??'FIRE AWAY';
+      tile.querySelector('.ability-icon').innerHTML=iconSvg(siege.skillIcon);
+      tile.querySelector('em').textContent=fullName.toUpperCase().includes('NARROW')?'NARROW':
+        fullName.toUpperCase().includes('ASCENSION')?'ASCEND':'FIRE AWAY';
+      const bound=this.ballistaControls?.bindings?.siegeSkill?.[0];
+      tile.querySelector('b').textContent=bound?bound.replace(/^Key/,'').replace(/^Digit/,''):'U';
+      this.#ability(tile,siege.skillActive?0:Math.max(0,(skill.readyAt??0)-serverNow),24);
+      tile.classList.toggle('active',Boolean(siege.skillActive));
+      if(siege.skillActive)tile.querySelector('strong').textContent='ACTIVE';
+    }
     this.ballistaPanel.hidden = !siege || isFlight || gauge?.kind === 'ram';
     this.flightChargeRail.hidden = !siege || !isFlight;
     const uprootedBallista=local?.alive&&local.operatingBallistaId
