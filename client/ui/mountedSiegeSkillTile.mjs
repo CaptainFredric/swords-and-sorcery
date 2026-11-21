@@ -13,7 +13,7 @@ const BALLISTA=Object.freeze({
   lookAroundAndFindOut:'LOOK AROUND',
 });
 const FLIGHT=Object.freeze({
-  fireAwayRightHere:['fireAwayRightHere','FIRE AWAY'],
+  fireAwayRightHere:['fireAway','FIRE AWAY'],
   narrowToOne:['narrowToOne','NARROW'],
   doNotStopMyAscension:['doNotStopMyAscension','ASCEND'],
 });
@@ -28,7 +28,11 @@ export function mountedSiegeSkillTile(local,snapshot,now){
   const machine=kind==='ram'?snapshot?.soFistication:
     kind==='ballista'?snapshot?.bibyeBallista:snapshot?.fightFlight;
   if(!machine||machine.retired||machine.health<=0)return null;
-  const skill=machine.skill??{},id=skill.id;
+  const skill=machine.skill??{};
+  // The armed Flight loadout calls Fire Away `fireAwayRightHere`, whereas the
+  // active runtime reports the historical `fireAwayImRightHere` contract ID.
+  const id=kind==='flight'&&skill.id==='fireAwayImRightHere'
+    ?'fireAwayRightHere':skill.id;
   const ram=RAM[id],flight=FLIGHT[id];
   const name=kind==='ram'?(ram?.[1]??'RAM SKILL'):
     kind==='flight'?(flight?.[1]??'FLIGHT SKILL'):
