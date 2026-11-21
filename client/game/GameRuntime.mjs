@@ -1744,7 +1744,8 @@ export class GameRuntime {
         if (op && event.result !== 'guard' && event.result !== 'parry') this.#sayMoment(op, ['flightRotorHit']);
       }
       if(event.type==='fightFlightComponentHit'&&event.point){
-        if(event.component==='braceL'||event.component==='braceR'||event.component==='main')this.effects.splinters?.(event.point);
+        if(event.destroyed)this.effects.flightComponentBreak?.(event.point);
+        else if(event.component==='braceL'||event.component==='braceR'||event.component==='main')this.effects.splinters?.(event.point);
         else this.effects.wallClang?.(event.point);
         if(event.attackerId===this.playerId&&event.destroyed)this.hud.flashText('COMPONENT BROKEN','gold',800);
         const op = this.latestSnapshot?.fightFlight?.operatorId;
