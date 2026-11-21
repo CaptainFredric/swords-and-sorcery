@@ -32,8 +32,8 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
    `LIFT ${lift.toFixed(1)}m · AIM +${elev.toFixed(0)}°`,(b.ramLiftBlockedAt!=null&&now>=b.ramLiftBlockedAt&&now-b.ramLiftBlockedAt<.75?'LIFT OBSTRUCTED':''),
    b.hellping?.phase==='grasp'?'CAPTURED ENEMY · CRUSHING':
      b.hellping?.phase==='transport'?'ALLY IN COMPARTMENT':
-     b.hellping?.phase==='open'?'OPEN PALM · PRESS SKILL TO GRAB':
-     b.hellping?.phase==='vault'?'HAND-VAULTING':'',recovery,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
-  controls:touch?'Full stick forward or hold CHARGE · JUMP raises upper ram · CROUCH lowers · Aim up for elevated punch · ATTACK piston · FLICK · SKILL · VIEW · LEAVE':
-  `Hold [${key('sprint')}] + W charge or S reverse while primed · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}]/[${key('crouch')}] pitch · [${key('jump')}] + [${key('dash')}]/[${key('crouch')}] lift/lower · [${key('siegeSkill')}] Skill`};
+     b.hellping?.phase==='open'?'HAND BRACED · A/D AIM · W/S + SKILL HOP · SKILL GRABS':
+     b.hellping?.phase==='vault'?'HAND-ASSISTED HOP':'',recovery,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
+  controls:touch?'HAND OPEN: sideways stick aims around planted fist · hold stick forward/back + SKILL to hop · SKILL near foe grabs · otherwise DRIVE · ATTACK · FLICK · VIEW · LEAVE':
+  `Hold [${key('sprint')}] + W charge · HAND OPEN: A/D aim around planted fist; W/S + [${key('siegeSkill')}] hop forward/back; [${key('siegeSkill')}] near foe grabs; neutral press closes · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}]/[${key('crouch')}] pitch · [${key('jump')}] + [${key('dash')}]/[${key('crouch')}] lift/lower`};
 }
