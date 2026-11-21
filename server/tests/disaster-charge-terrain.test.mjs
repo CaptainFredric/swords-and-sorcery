@@ -260,6 +260,8 @@ test('Gale+Lightning reaches modeled ground arbitrarily far below; other infusio
   assert.equal(blast.point.y,160,'the Gale explosion must not be dragged down to the target');
   assert.equal(bolt?.origin.y,160);
   assert.equal(bolt?.point.y,0,'the independent bolt reaches ground with no height cutoff');
+  assert.deepEqual(blast.lightningGroundPoint,bolt.point,
+    'the visible continuous bolt uses the same ground endpoint as real Lightning damage');
   assert.ok(b.health<100&&b.electricalBacklash,'only Lightning hits the knight below');
   assert.equal(b.blustered??null,null,'the Gale explosion remains high above');
   assert.equal(b.oneHitFrostSlow??null,null,'Frost does not follow the bolt');
@@ -284,8 +286,17 @@ test('airborne Gale+Lightning targets the highest supported surface below, never
   const high={id:'platform',center:[6,41.9,0],size:[4,.2,4],y:42};
   const platform=run([low,high],42);
   assert.equal(platform.bolt?.point.y,42,'bolt stops at the highest floor, not the bottom of the world');
+  assert.deepEqual(platform.room.events.find(e=>e.type==='oneHitImpact')?.lightningGroundPoint,
+    platform.bolt.point,'the 300m visual strand shares the authoritative elevated landing');
   assert.ok(platform.b.health<100);
   const voidWorld=run([],0);
   assert.equal(voidWorld.bolt,undefined,'nothing is conjured beneath an unsupported void');
+  const voidBlast=voidWorld.room.events.find(e=>e.type==='oneHitImpact');
+  assert.equal(voidBlast?.lightningGroundPoint,undefined,
+    'the unsupported void still has no damaging ground contact');
+  assert.ok(voidBlast?.lightningVoidPoint?.y<=voidWorld.room.world.abyssY-24,
+    'the visible strand passes below the world rather than stopping at the sky explosion');
+  assert.equal(voidBlast.lightningVoidPoint.x,voidBlast.point.x);
+  assert.equal(voidBlast.lightningVoidPoint.z,voidBlast.point.z);
   assert.equal(voidWorld.b.health,100);
 });
