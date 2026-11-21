@@ -15,6 +15,7 @@
 //   Blustered: the knight's fighting facing (sword, guard) turns only so fast; the look itself is never slowed.
 import { ONE_HIT_STATUS_SECONDS } from './oneHitInfusions.mjs';
 import { ONE_HIT_FIRST_INFUSION_DAMAGE } from './oneHitOfWondersRules.mjs';
+import { wakeContact } from './oneHitTrail.mjs';
 
 export const ONE_HIT_FIELD = Object.freeze({
   seconds: ONE_HIT_STATUS_SECONDS,   // a field of a blow with no infusions
@@ -176,6 +177,13 @@ export function fieldStrength(field, nowSec) {
   // unchanged, explicit expiration. Already-afflicted enemies keep their
   // individual normal status timers; this does not freeze their clocks.
   if(field.steelLocked||field.tiers?.steel===2)return 1;
+  // A moving Gale wave writes its trail progressively. It keeps its normal
+  // strength during flight; the entire path then dissipates toward its expiry.
+  if(field.trail){
+    const fadeFrom=field.activeAt??field.bornAt;
+    return nowSec<=fadeFrom?1:
+      clamp01(1-(nowSec-fadeFrom)/Math.max(.001,until-fadeFrom));
+  }
   return clamp01(1-(nowSec-field.bornAt)/(until-field.bornAt));
 }
 
@@ -185,6 +193,7 @@ export function fieldStrength(field, nowSec) {
  */
 export function fieldContact(field, position, rules = ONE_HIT_FIELD) {
   if (!field || !position) return 0;
+  if(field.trail)return wakeContact(field,position);
   if(!field.air&&Math.abs(position.y - field.position.y)>rules.vertical)return 0;
   const dx=position.x-field.position.x,dy=position.y-field.position.y,dz=position.z-field.position.z;
   const distance=field.air?Math.hypot(dx,dy,dz):Math.hypot(dx,dz);
