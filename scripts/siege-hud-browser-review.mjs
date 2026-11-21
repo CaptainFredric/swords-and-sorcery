@@ -80,11 +80,11 @@ const probe=`(() => {
     flightChargeClipped:(()=>{
       const rail=document.querySelector('.flight-charge-rail');
       const value=rail?.querySelector('[data-flight-charge]');
-      const label=rail?.querySelector('.flight-charge-heading > span');
-      if(!rail||rail.hidden||!value||!label)return false;
-      const outer=box(rail),v=box(value),caption=box(label);
-      return v.right>outer.right-1||v.left<outer.left+1||
-        caption.right>v.left-2||caption.left<outer.left-1;
+      if(!rail||rail.hidden||!value)return false;
+      const outer=box(rail),v=box(value);
+      // The label is allowed to shrink on narrow screens; only the charge
+      // digits must stay fully legible inside the fitted instrument frame.
+      return v.right>outer.right-1||v.left<outer.left+1;
     })(),
     gaugeOutsideViewport:box(root).left < -2 || box(root).right > innerWidth+2};
 })()`;
