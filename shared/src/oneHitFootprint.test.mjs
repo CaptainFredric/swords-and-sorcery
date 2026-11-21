@@ -18,7 +18,7 @@ test('Disaster preserves its full circular sides and rear while extending a broa
   assert.equal(groundFootprintContains(origin,{x:0,z:radius*1.25},radius,0),false);
   assert.equal(groundFootprintContains(origin,{x:radius*.96,z:0},radius,0),true);
   assert.equal(groundFootprintContains(origin,{x:radius*1.02,z:0},radius,0),false);
-  close(groundFootprintRadius(radius,null,0,-1),radius,'aerial waves stay round');
+  close(groundFootprintRadius(radius,null,0,-1),radius);
  }
 });
 
