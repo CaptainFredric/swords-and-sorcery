@@ -58,6 +58,8 @@ async function measure(){
     "return {w:sh.width,h:sh.height,objective:b('#breakthrough-hud'),feed:b('#kill-feed'),"+
     "leave:b('.touch-interact'),view:b('.touch-siegeView'),hp:b('.health-block'),"+
     "drive:b('.drive-housing'),subtitle:b('#subtitle'),gauge:b('.machine-gauge'),flightHud:b('.flight-charge-rail'),"+
+    "flightStick:b('.touch-controls.touch-flight .touch-stick'),"+
+    "flightLever:b('.touch-controls.touch-flight .touch-flight-rail'),"+
     "steel:b('.touch-spell'),prime:b('.touch-siegeSkill')};})()");
 }
 function verify(kind,x,screen){
@@ -84,6 +86,10 @@ function verify(kind,x,screen){
       screen+' Flight charge rail remains compact below personal stamina');
     assert.ok(clear(flight,f,3)&&clear(flight,o,3),
       screen+' Flight meters stay in a lane separate from objective and kills');
+    assert.ok(x.flightStick?.visible&&x.flightLever?.visible,
+      screen+' both Flight movement stick and altitude lever are active');
+    assert.ok(clear(g,x.flightStick,2)&&clear(g,x.flightLever,2),
+      screen+' complete Flight health/brace/rotor assembly clears stick and altitude lever');
   }
   if(kind==='ram'){
     assert.ok(d.visible&&d.top>=hp.bottom+2&&d.top<hp.bottom+55,

@@ -1958,7 +1958,7 @@ test('mobile Ballista Sweep shows the spell-style countdown from authoritative s
  controls.dispose();
 });
 
-test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 420ms without a second thumb',()=>{
+test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 270ms without a second thumb',()=>{
  const pilot={alive:true,operatingFightFlightId:'ff',ultimate:'sunder',prowess:0,
    position:{x:0,y:0,z:0}};
  const {controls,input,send}=setup(pilot);
@@ -1969,7 +1969,9 @@ test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 420ms
  assert.equal(hops,1);
  assert.equal(controls.movement().jump,false,'mounted Jump never sends the legacy desktop jump channel');
  assert.equal(controls.movement().flightRise,false,'initial tap is a mechanical Hop');
- controls.flightJumpDownAt=performance.now()-430;
+ controls.flightJumpDownAt=performance.now()-255;
+ assert.equal(controls.movement().flightRise,false,'255ms remains a tap');
+ controls.flightJumpDownAt=performance.now()-285;
  assert.equal(controls.movement().flightRise,true,'same held Jump now asks for powered ascent');
  assert.equal(input.movement().flightRise,true,'authoritative input packet carries the rise intent');
  assert.equal(hops,1,'a hold never generates additional hops');
@@ -1987,7 +1989,7 @@ test('held Jump takes vertical precedence over joystick Lower only until it is r
  controls.flightLowerHeld=true;
  send('pointerdown',730,420,{action:'jump',pointerId:810});
  assert.equal(controls.movement().flightLower,true);
- controls.flightJumpDownAt=performance.now()-430;
+ controls.flightJumpDownAt=performance.now()-285;
  assert.equal(controls.movement().flightRise,true);
  assert.equal(controls.movement().flightLower,false,'one motor never receives opposing Rise/Lower');
  send('pointerup',730,420,{action:'jump',pointerId:810});

@@ -516,12 +516,12 @@ export class TouchControls {
     const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&!g.lift);
     const raise=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.lift);
     const lower=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.lift);
-    // A short mounted Jump is one Hop. After 420ms, the same held
+    // A short mounted Jump is one Hop. After 270ms, the same held
     // thumb controls Rise; the left stick remains exclusively movement.
     const ritualJump=Boolean(this.ritual?.startedOnJump&&!this.ritual.completed&&
       this.ritual.index===0&&this.ritual.segmentProgress<.08);
     const heldFlightJump=Boolean(this.flightMounted&&this.flightJumpDownAt!=null&&
-      (this.jumpHeld||ritualJump)&&performance.now()-this.flightJumpDownAt>=420);
+      (this.jumpHeld||ritualJump)&&performance.now()-this.flightJumpDownAt>=270);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,

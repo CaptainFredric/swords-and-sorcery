@@ -77,6 +77,25 @@ const probe=`(() => {
         context.textContent.trim() && overlap(box(piston),box(context)));
     })(),
     playerOverlapsStamina:overlap(box(player),box(stamina)),
+    flightChargeGeometry:(()=>{
+      const rail=document.querySelector('.flight-charge-rail');
+      const heading=rail?.querySelector('.flight-charge-heading');
+      const value=rail?.querySelector('[data-flight-charge]');
+      if(!rail||!heading||!value)return null;
+      return {rail:box(rail),heading:box(heading),value:box(value),
+        label:box(heading.querySelector('span')), railDisplay:getComputedStyle(rail).display,
+        headingDisplay:getComputedStyle(heading).display,
+        valueText:value.textContent, bodyTouch:document.body.classList.contains('touch-ui')};
+    })(),
+    flightChargeClipped:(()=>{
+      const rail=document.querySelector('.flight-charge-rail');
+      const value=rail?.querySelector('[data-flight-charge]');
+      if(!rail||rail.hidden||!value)return false;
+      const outer=box(rail),v=box(value);
+      // The label is allowed to shrink on narrow screens; only the charge
+      // digits must stay fully legible inside the fitted instrument frame.
+      return v.right>outer.right-1||v.left<outer.left+1;
+    })(),
     gaugeOutsideViewport:box(root).left < -2 || box(root).right > innerWidth+2};
 })()`;
 async function render(machine,phase='attached') {
@@ -156,6 +175,8 @@ try {
   result.flight=await evaluate(probe);
   assert.equal(result.flight.machine,'180/250');
   assert.equal(result.flight.part,'44/100');
+  console.log('[SIEGE HUD DESKTOP CHARGE GEOMETRY]',JSON.stringify(result.flight.flightChargeGeometry));
+  assert.equal(result.flight.flightChargeClipped,false,'desktop Flight charge number must stay inside its metal frame');
   await capture('flight');
   await evaluate("window.__ssRuntime.hud.subtitle({text:'Nothing can stand before a proper siege, so long as the knight operating it remembers to look where he is going.',name:'SIEGE ENGINEER',seconds:35})");
   await sleep(180);
@@ -172,6 +193,8 @@ try {
     const measure=await evaluate(probe);
     result['mobile-'+kind]=measure;
     assert.equal(measure.gaugeOutsideViewport,false,kind+' gauge stays within portrait screen');
+    if(kind==='flight')assert.equal(measure.flightChargeClipped,false,
+      'mobile Flight charge readout must not clip against its metal housing');
     assert.equal(measure.captionVisible,true,'the long test subtitle is actually showing');
     assert.equal(measure.captionOverlap,false,kind+' gauge must never cover an active subtitle');
     assert.equal(measure.raisedBadgeOverlap,false,kind+' raised instrument badges must not cover subtitles');
