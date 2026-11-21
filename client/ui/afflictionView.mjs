@@ -10,43 +10,43 @@ const clamp = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 
 export const AFFLICTIONS = Object.freeze({
   frozen: Object.freeze({
     name: 'Frozen', icon: 'afflictionFrozen', steady: true,
-    description: 'The ice holds movement and new actions. Anything already under way resumes when it releases.',
+    description: "You can't move or start new actions. Anything already in progress resumes when the ice breaks.",
   }),
   staggered: Object.freeze({
     name: 'Staggered', icon: 'afflictionStaggered', steady: true,
-    description: 'Your balance is broken. You cannot begin an attack, Guard, spell, or Dash until you recover.',
+    description: "You've lost your balance. You can't attack, Guard, cast spells, or Dash until you recover.",
   }),
   conduct: Object.freeze({
     name: 'Shocking Conduct', icon: 'afflictionConduct', steady: false,
-    description: 'Your next melee strike that would land is stopped. The remaining electrical charge shocks you instead. Its potential is draining away.',
+    description: 'Your next sword or gauntlet hit is cancelled, and the remaining charge shocks you instead. The charge fades over time.',
   }),
   blustered: Object.freeze({
     name: 'Blustered', icon: 'afflictionBlustered', steady: false,
-    description: 'Your sword and Guard turn toward your aim more slowly. Your view is free to turn. The wind gradually lets go.',
+    description: 'You can look around freely, but your sword and Guard turn more slowly toward your aim. This wears off over time.',
   }),
   shaken: Object.freeze({
     name: 'Shaken', icon: 'afflictionShaken', steady: false,
-    description: 'Your Sprint is impaired. It wears off, but standing on a Disaster rupture holds back your recovery.',
+    description: "Sprinting is slowed. Standing in All-Natural Disaster's lingering field delays your recovery.",
   }),
   burning: Object.freeze({
     name: 'Burning', icon: 'afflictionBurning', steady: true,
-    description: 'Fire keeps dealing damage while it burns. The damage does not gradually weaken; the flames eventually go out.',
+    description: 'Fire deals repeated damage until the flames go out.',
   }),
   chilled: Object.freeze({
     name: 'Chilled', icon: 'afflictionChilled', steady: false,
-    description: 'Cold slows your movement and Sprint. The chill gradually thaws.',
+    description: 'Your movement is slowed. Your normal speed returns as the chill wears off.',
   }),
   frostbound: Object.freeze({
     name: 'Frostbound', icon: 'afflictionFrostbound', steady: true,
-    description: 'Disaster frost slows your movement. Its grip can linger after the initial freeze, or be renewed by a frost-covered rupture.',
+    description: "All-Natural Disaster's frost slows your movement. Standing in its frosted field can keep you slowed.",
   }),
   tornGround: Object.freeze({
     name: 'Torn Ground', icon: 'afflictionTornGround', steady: true,
-    description: 'An enemy’s Sundering strike has torn the ground beneath you. Sprint is denied while you stand on it.',
+    description: "You can't Sprint while standing on a Sunder fissure. Move off it to run again.",
   }),
   rupture: Object.freeze({
     name: 'On Ruptured Ground', icon: 'afflictionRupture', steady: false,
-    description: 'The fractured ground delays recovery from Shaken. Damage taken here also drains Guard stamina. Its influence fades as the field settles.',
+    description: 'You recover from Shaken more slowly here. Damage taken inside the field also drains Guard stamina.',
   }),
 });
 

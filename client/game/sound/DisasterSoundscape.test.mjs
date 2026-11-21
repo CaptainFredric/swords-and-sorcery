@@ -61,15 +61,18 @@ test('Base Shaken field makes decaying sound, pauses with frozen simulation, exp
   sound.update(sample,6);
   assert.equal(played.length,ended,'no sounds after server field expiry');
 });
-test('All five infusions remain DISTINCT during a field, alternating without a wall of sound',()=>{
+test('All five field infusions stay distinctly audible with quiet overlapping beds',()=>{
   const {sound,played}=fixture();
   const sample={oneHitFields:[field('full',tiers(2))],players:[],oneHitWaves:[]};
   for(let sec=.1;sec<=4.3;sec+=.55)sound.update(sample,sec);
   assert.ok(played.length>=9);
-  // At most the base plus two distinct accents per field beat.
-  assert.ok(played.length<=18,'polyphony cap');
+  // One low-level field body and each of the five unique elemental timbres
+  // each beat; all sources have finite envelopes and per-element gain caps.
+  assert.ok(played.length<=40,'bounded spatial field voices');
   const unique=new Set(played.map(p=>JSON.stringify(p.recipe)));
   assert.ok(unique.size>5,'base plus five different timbres over lifetime');
+  assert.ok(played.some(p=>p.recipe?.layers?.some(l=>l.hold>.5)),
+    'sustained elemental beds cover the gaps between field beats');
   assert.ok(played.every(p=>p.gain<=1.15),'safe mix');
 });
 test('Only nearest three fields play; distant battlefield chaos cannot spawn unlimited voices',()=>{

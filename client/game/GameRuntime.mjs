@@ -2099,6 +2099,19 @@ export class GameRuntime {
         this.#play(groundSlamRecipe(), event.playerId === me ? null : event.point, 1);
         if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
       }
+      // Every grounded Gale Windblade detonation shakes the viewing knight,
+      // even when another player fired it. Only proximity sets the strength:
+      // a nearby ground impact is felt; one across the map is not.
+      if(event.type==='oneHitImpact'&&event.impactId&&event.groundBlast&&
+        (event.tiers?.gale??0)>=2){
+        const p=this.localState?.position??this.localAuth?.position;
+        const hit=event.groundPoint??event.point;
+        if(p&&hit){
+          const metres=Math.hypot(p.x-hit.x,(p.y??0)-(hit.y??0),p.z-hit.z);
+          const near=Math.max(0,1-metres/34);
+          this.cameraKick=Math.max(this.cameraKick??0,.33*near*near);
+        }
+      }
       if (event.type === 'rupture') {
         this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, width: RUPTURE.width, trailWidth: RUPTURE.trailWidth });
         const runs = Math.max(...event.fissures.map((fissure) => fissure.length)) / event.speed;

@@ -100,6 +100,8 @@ export class TouchControls {
     this.boltJumpTriggered = new Set();
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickSprintRequested = false;
+    this.techniqueGesture=null;
+    this.techniqueTapReleases=new Set();
     this.sprintLatched = false;this.chargeHeld=false;
     this.valkyrieTouchLatched = new Map();
     this.ritual=null;
@@ -131,6 +133,10 @@ export class TouchControls {
         <svg class="touch-stick-shell" viewBox="0 0 112 162" preserveAspectRatio="none" aria-hidden="true">
           <path class="touch-cavity-normal" d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 1 1 24 60Z"/>
           <path class="touch-cavity-reverse" d="M24 60V16Q24 2 38 2H74Q88 2 88 16V60A56 56 0 0 1 88 152V196Q88 210 74 210H38Q24 210 24 196V152A56 56 0 0 1 24 60Z"/>
+          <g class="touch-rupture-cracks">
+            <path d="M51 6l-8 17 8 9-11 14 7 12M68 8l-9 16 8 13-10 17M29 34l14 9M84 27l-16 11"/>
+          </g>
+          <path class="touch-rupture-boundary" d="M24 60l13-5 11 6 11-7 11 5 18-5"/>
         </svg>
         <div class="touch-stick-knob"></div>
         <div class="touch-motion-guide" data-motion="idle" aria-hidden="true">
@@ -494,6 +500,10 @@ export class TouchControls {
     this.crouchLatched = false;
     this.flightCrouchHeld = false;
     this.crouchTap = null;
+    if(this.techniqueGesture?.timer)clearTimeout(this.techniqueGesture.timer);
+    this.techniqueGesture=null;
+    for(const id of this.techniqueTapReleases)this.input.technique(false,`touch:${id}`);
+    this.techniqueTapReleases.clear();
     this.viewGesture = null;
     this.jumpHeld = false;
     this.flightJumpDownAt = null;
@@ -582,6 +592,12 @@ export class TouchControls {
       (local.ultimateState?.preparedTiers?.lightning ??
         local.practiceOneHit?.stages?.lightning ??
         local.oneHitInfusions?.lightning)===2);
+    this.fullGaleEquipped=Boolean(local.alive &&
+      local.ultimate==='one_hit_of_wonders' &&
+      (local.ultimateState?.preparedTiers?.gale ??
+        local.practiceOneHit?.stages?.gale ??
+        local.oneHitInfusions?.gale)===2);
+    this.stickBase.classList.toggle('rupture-blocked',Boolean(local.tornGround));
     this.galeAvailable = local.spell === 'gale' && (practice || (local.spellReadyAt ?? 0) <= serverNow || local.castingSpell === 'gale');
     this.prepared = preparedSpellView(local, serverNow);
     this.input.updatePreparedSpells(local, serverNow);
@@ -1433,6 +1449,14 @@ export class TouchControls {
     }
     const looking = this.look?.id === event.pointerId ? this.look : null;
     const held = this.held.get(event.pointerId);
+    if(held==='technique'&&this.techniqueGesture?.id===event.pointerId&&
+       !this.techniqueGesture.engaged){
+      const p=gamePoint(event,this.layer),g=this.techniqueGesture;
+      if(Math.hypot(p.x-g.x,p.y-g.y)>16){
+        g.cancelled=true;
+        if(g.timer){clearTimeout(g.timer);g.timer=null;}
+      }
+    }
     // Pointer capture keeps the event target at the original Bolt button.
     // Read actual finger coordinates instead: firing never releases, while
     // entering Jump adds exactly one separate authoritative upward impulse.
@@ -1462,7 +1486,8 @@ export class TouchControls {
     // authoritative held state remains the source of actual teleport legality.
     if(held==='ultimate'&&
       !(this.input.ultimateGesture==='charge'&&
-        (this.input.disasterThreeDAim||this.fullLightningEquipped)))return;
+        (this.input.disasterThreeDAim||this.fullLightningEquipped||this.fullGaleEquipped) ||
+        (this.fullGaleEquipped&&Number.isFinite(this.input.oneHitAimUntil))))return;
     if (!this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false)) return;
     const look = this.input.look ?? { touch: 1, invertY: false };
     this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
@@ -1532,6 +1557,24 @@ export class TouchControls {
         this.buttons.crouch.classList.toggle('on', this.crouchLatched);
       }
     }
+    if(action==='technique'&&this.techniqueGesture?.id===event.pointerId){
+      const gesture=this.techniqueGesture;this.techniqueGesture=null;
+      if(gesture.timer)clearTimeout(gesture.timer);
+      const point=gamePoint(event,this.layer);
+      if(!gesture.engaged&&!gesture.cancelled&&
+        isDeliberateTap(gesture,{at:performance.now(),x:point.x,y:point.y,
+          lifted:event.type==='pointerup'})){
+        // Keep the tap alive across at least two input sends, just like
+        // Jump; a press/release within one send would be invisible to server.
+        const id=event.pointerId,source=`touch:${id}`;
+        this.techniqueTapReleases.add(id);
+        this.input.technique(true,source);
+        setTimeout(()=>{
+          if(!this.techniqueTapReleases.delete(id))return;
+          this.input.technique(false,source);
+        },110);
+      }
+    }
     if (action) {
       const denied=this.deniedButtons.has(event.pointerId);
       this.held.delete(event.pointerId);
@@ -1596,7 +1639,22 @@ export class TouchControls {
     element?.classList.add('pressed');
     if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
     if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
-    if (action === 'technique') this.input.technique(true, `touch:${event.pointerId}`);
+    if(action==='technique'){
+      // A quick swipe across WHIRL must never activate it. A deliberate
+      // release is a tap; a stationary hold arms after 130 ms, whereupon
+      // the same thumb can drag to aim throughout the continuing spins.
+      const point=gamePoint(event,this.layer);
+      const gesture={id:event.pointerId,x:point.x,y:point.y,at:performance.now(),
+        engaged:false,cancelled:false,timer:null};
+      gesture.timer=setTimeout(()=>{
+        gesture.timer=null;
+        if(this.techniqueGesture!==gesture||gesture.cancelled||
+          !this.held.has(gesture.id))return;
+        gesture.engaged=true;
+        this.input.technique(true,`touch:${gesture.id}`);
+      },130);
+      this.techniqueGesture=gesture;
+    }
     if (action === 'flightRise') {
       this.flightRiseSources.add(event.pointerId);
       this.flightRiseHeld = true;
@@ -1706,7 +1764,8 @@ export class TouchControls {
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
     if (action === 'attack') this.input.setAttack(false, `touch:${pointerId}`);
     if (action === 'guard') this.input.setGuard(false, `touch:${pointerId}`);
-    if (action === 'technique') this.input.technique(false, `touch:${pointerId}`);
+    if (action === 'technique'&&!this.techniqueTapReleases.has(pointerId))
+      this.input.technique(false, `touch:${pointerId}`);
     if (action === 'flightRise') {
       this.flightRiseSources.delete(pointerId);
       this.flightRiseHeld = this.flightRiseSources.size > 0;

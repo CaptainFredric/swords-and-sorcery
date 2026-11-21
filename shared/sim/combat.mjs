@@ -2786,34 +2786,68 @@ export function fireOneHitWave(room,playerId,nowSec){
 // Where the wave ends. Without Fire: its landing gust, which afflicts whoever it has not met and deals no HP. With
 // Fire: an explosion, a wider one all round, and part of the same decisive contact: whoever the wave had not yet met
 // takes the one decisive hit here, with everything the wave carries. `rec.hitIds` is the attack's one registry.
+// The terminal blast damages through its ENTIRE visible area, not only the
+// forward blade or the near-zero-width travel line. The wave and all its
+// contacts still share a single authoritative hit/Guard registry.
 function oneHitTerminalContact(room,caster,rec,nowSec,world) {
-  const fire=(rec.tiers.fire??0)>=1,caught=[];
+  const caught=[];
   for(const target of room.players.values()) {
     if(rec.hitIds.includes(target.id))continue;
-    const center=oneHitChest(target);
-    if(!terminalBlastContains(rec.origin,center,rec.radius,rec.yaw,rec.direction,rec.air))continue;
-    if(fire){
-      if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{aerial:true,origin:rec.origin,direction:rec.direction,
-        distance:rec.distance,processed:rec.hitIds,terminalFire:true}))caught.push(target.id);
-      continue;
-    }
-    if(!oneHitVisible(room,caster,target,world,nowSec,rec.origin))continue;
-    rec.hitIds.push(target.id);
-    if(oneHitGuard(room,caster,target,rec.guardSource,nowSec,rec.tiers))continue;
-    // A sword wave's terminal gust carries ALL of its infused on-contact
-    // properties, even without Fire's bonus HP blast. Steel still disrupts
-    // Skills, Gale still Blusters, Frost freezes, and Lightning conducts.
-    // Only the Fire tier creates new decisive HP damage at the endpoint.
-    oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
-    const scale=staggerShove(target.stagger);
-    shoveBody(target,{x:rec.direction.x*2.2*scale,y:.35,z:rec.direction.z*2.2*scale});
-    target.lastKnockbackAt=nowSec;
-    target.lastKnockbackBy=caster.id;
-    target.lastKnockbackSource='one_hit_wave_impact';
-    target.lastAttackerId=caster.id;
-    caught.push(target.id);
+    const dx=target.position.x-rec.origin.x,dz=target.position.z-rec.origin.z;
+    // Ground impacts are circular around their landing point. Airborne
+    // detonations are spheres. Neither has a hidden forward-only damage cone.
+    const inside=rec.air
+      ?Math.hypot(dx,oneHitChest(target).y-rec.origin.y,dz)<=rec.radius+0.4
+      :Math.hypot(dx,dz)<=rec.radius+0.4 &&
+        Math.abs(target.position.y-rec.origin.y)<=ONE_HIT_REACH.up;
+    if(!inside)continue;
+    const radial=Math.hypot(dx,dz);
+    if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{
+      aerial:true,origin:rec.origin,distance:rec.distance,
+      processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
+      terminalFire:(rec.tiers.fire??0)>=1,
+      // Blocking a radial shockwave stops HP, not the pressure and elemental
+      // effects washing over everyone inside the visible explosion. Full
+      // Fire already conducts these through Guard in oneHitGuard itself.
+      onGuard:()=>{
+        if((rec.tiers.fire??0)<2)
+          oneHitAfflict(room,caster,target,rec.tiers,nowSec,{shaken:.6,direct:true});
+      },
+    }))caught.push(target.id);
   }
   return caught;
+}
+
+// A Gale+Lightning wave exploding ABOVE playable ground sends one real
+// independent lightning strike vertically down to the highest supported
+// surface below. Its damage is only the Gale+Lightning aerial pair: Fire,
+// Frost and Steel cannot amplify it, and already-hit wave victims are exempt.
+// Unlike the moving blade, this is a consolation for an overshot air burst.
+function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
+  if((wave.tiers.gale??0)<2||(wave.tiers.lightning??0)<1)return;
+  const floor=surfaceHeightAt(point.x,point.z,point.y+1,world);
+  if(floor===null||floor>=point.y-1.25)return;
+  const impact={x:point.x,y:floor,z:point.z};
+  const radius=ONE_HIT_RULES.waveTerminalRadius;
+  const falloff=Math.max(.45,1-wave.distance/40);
+  const damage=Math.round(oneHitDamage({gale:1,lightning:1},36)*falloff);
+  const targets=[];
+  for(const target of room.players.values()){
+    if(wave.hitIds.includes(target.id)||
+      Math.hypot(target.position.x-impact.x,target.position.z-impact.z)>radius+0.4||
+      Math.abs(target.position.y-floor)>ONE_HIT_REACH.up ||
+      !oneHitVisible(room,caster,target,world,nowSec,{...impact,y:floor+.4}))continue;
+    wave.hitIds.push(target.id);
+    const blocked=oneHitGuard(room,caster,target,{...impact,y:floor+.5},nowSec,{lightning:1});
+    // The contact's electricity reaches a valid Guard; HP does not.
+    if(!blocked)applyDamage(room,caster.id,target.id,damage,
+      'one_hit_lightning_ground',nowSec,null,
+      {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade'});
+    if(target.alive)oneHitConduct(room,target,directConduct(caster.id,nowSec),nowSec);
+    targets.push(target.id);
+  }
+  room.events.push({type:'oneHitLightningGroundStrike',playerId:caster.id,
+    waveId:wave.id,origin:{...point},point:impact,radius,damage,targets,at:nowSec});
 }
 function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null) {
   const fire=(wave.tiers.fire??0)>=1;
@@ -2830,12 +2864,16 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const yaw=Math.hypot(wave.direction.x,wave.direction.z)>.01
     ?Math.atan2(-wave.direction.x,-wave.direction.z)
     :Number.isFinite(wave.launchYaw)?wave.launchYaw:caster.yaw;
+  // A projectile keeps its locked heading for travel and for the physical
+  // ruptures. Its DETONATION is a circular/spherical shockwave, including
+  // delayed Frost contacts and the residual elemental field.
   const rec={kind:'terminal',ownerId:caster.id,origin,guardSource,
-    direction:wave.direction,tiers:{...wave.tiers},radius,yaw,air,
+    direction:null,tiers:{...wave.tiers},radius,yaw:null,air,
     hitIds:wave.hitIds,distance:wave.distance};
   const struck=oneHitTerminalContact(room,caster,rec,nowSec,world);
-  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,
-    air?null:yaw,air?wave.direction:null);
+  if(air&&(wave.tiers.lightning??0)>=1)
+    oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world);
+  oneHitSiegeContact(room,caster,point,radius,wave.tiers,nowSec,null,null);
   // The terminal blast is a real SECOND ground strike when it contacts
   // solid terrain. Use the established Sunder rupture simulation with the
   // projectile's flight yaw, never the caster's later facing. Full Steel
@@ -2860,13 +2898,13 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       rupture.caught.push(...wave.hitIds);
     }
   }
-  // The shorter terminal blast inherits the same forward-biased reach as
-  // the grounded slam, without acquiring the SLAM's larger base radius.
+  // Terminal pressure has an even circular/spherical reach: no hidden
+  // forward bias in the lingering consequences of an AoE explosion.
   // Aerial detonations leave suspended pressure and elemental effects, not
   // fictitious broken ground. Their lives are much shorter.
   const field={id:wave.id+':field',ownerId:caster.id,
     position:groundBlast&&floor!==null?{x:point.x,y:floor,z:point.z}:{...point},
-    radius,...(air?{air:true,direction:{...wave.direction}}:{yaw}),
+    radius,yaw:null,...(air?{air:true,direction:null}:{}),
     bornAt:nowSec,
     until:nowSec+(air?airFieldSeconds(wave.tiers):fieldSeconds(wave.tiers)),
     tiers:{...wave.tiers},conducted:{},shakenContact:{}};
@@ -2885,13 +2923,13 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       // ground, and it vanishes with the flying pressure rather than four
       // seconds of flames hanging in the sky.
       oneHitBurnZone(room,caster,`${wave.id}:fire`,{...point},nowSec,wave.tiers,
-        radius,null,{air:true,direction:wave.direction});
+        radius,null,{air:true,direction:null});
     }else{
       const floor=surfaceHeightAt(origin.x,origin.z,origin.y,world);
       if(floor!==null&&origin.y-floor>=-.03&&origin.y-floor<=1.25&&
         !oneHitWorldContact(origin,{...origin,y:floor+.035},world))
         oneHitBurnZone(room,caster,`${wave.id}:fire`,{...origin,y:floor},
-          nowSec,wave.tiers,radius,yaw);
+          nowSec,wave.tiers,radius,null);
     }
   }
   // Preserve the REAL projectile impact coordinate for damage, interpolation
@@ -2901,7 +2939,7 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
     ...(groundPoint?{groundPoint}:{}),
     cause:cause??(contact?'terrain':'manual'),normal:contact?.normal??null,direction:wave.direction,
     tiers:{...wave.tiers},form:'aerial',groundBlast,fromGround:Boolean(wave.fromGround),
-    radius,yaw,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
+    radius,yaw:null,air,direction:{...wave.direction},struck,fieldId:terminalFieldId,at:nowSec});
   resolveOneHitWave(room,caster,wave,nowSec);
 }
 // Full Steel lasts THROUGH the outgoing wave; the protection ends at its

@@ -398,6 +398,7 @@ export class Effects {
     tick = null,
     own = false,
     ownGeometry = false,
+    essential = false, // Keep actual rupture seams ahead of throwaway dust at low mobile VFX budgets.
     // floorY: the ground under it; it comes to rest there (a skip, then still) instead of falling on through
     floorY = null,
   } = {}) {
@@ -422,10 +423,15 @@ export class Effects {
       tick,
       own,
       ownGeometry,
+      essential,
       floorY,
       baseScale: mesh.scale.clone(),
     });
-    while (this.transients.length > this.maxTransients) this.#removeTransient(this.transients.shift());
+    while(this.transients.length>this.maxTransients){
+      const disposable=this.transients.findIndex(t=>!t.essential);
+      if(disposable<0)break; // Never discard a live ground tear just to satisfy a dust-particle cap.
+      this.#removeTransient(this.transients.splice(disposable,1)[0]);
+    }
     return mesh;
   }
 
@@ -716,7 +722,7 @@ export class Effects {
       });
       let dustAt = 0, sparkAt = 0;
       this.#addTransient(split, {
-        life: activeSec + settleSec, own: true, ownGeometry: true,
+        life: activeSec + settleSec, own: true, ownGeometry: true, essential: true,
         tick: (age) => {
           const reached = Math.min(1, age / runSec);
           splitGeometry.setDrawRange(0, shown(age) * 6);

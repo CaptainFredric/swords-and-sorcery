@@ -71,14 +71,14 @@ test('a guarding defender stops and detonates Gale wave without duplicate HP or 
     'guarded wave resolves once');
 });
 
-test('Fire terminal wave explosion equals a plain grounded slam, smaller than a Fire slam',()=>{
+test('Fire terminal wave explosion widens beyond plain Gale while remaining smaller than a Fire slam',()=>{
   const {room,b}=battle({gale:2,fire:1});
   assert.equal(tryUltimate(room,'a',9),true);
   run(room,9,11.3);
   assert.equal(damage(room,b.id).length,1);
   const terminal=impacts(room);
   assert.equal(terminal.length,1);
-  assert.equal(terminal[0].radius,3.4);
+  assert.equal(terminal[0].radius,4.0);
   assert.equal(room.events.find(e=>e.type==='oneHitImpact'&&e.form==='ground').radius,4.6);
 });
 test('Full Gale plus Lightning teleports UP from the ground, then aims the wave independently',()=>{
