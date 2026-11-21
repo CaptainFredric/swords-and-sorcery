@@ -105,7 +105,8 @@ test('Physical fist flies, lands, and starts cooldown only on nearby intentional
  assert.ok(s.b.detachedFist.velocity.z<0);
  // In this flat arena a level shot will eventually hit the ground.
  step(s,3,{},1);
- assert.ok(['resting','falling','abyss'].includes(s.b.detachedFist?.state));
+ assert.ok(['resting','rolling','falling','abyss'].includes(s.b.detachedFist?.state),
+   'the landed fist may still be rolling before it comes to rest');
  s.b.detachedFist.state='resting';
  s.b.detachedFist.position={x:0,y:.62,z:-4};
  assert.match(primeSoFistSkill(s.room,s.b,s.p,4.2),/drive.*beside/i);
