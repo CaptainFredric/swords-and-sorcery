@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { spawnPracticeDummy, setPracticeDummyMode, stepPracticeActors, resetPracticePlayer } from '../../shared/sim/practice.mjs';
-import { stepRoom, killPlayer } from '../../shared/sim/combat.mjs';
+import { stepRoom, killPlayer, beginAttack, applyDamage } from '../../shared/sim/combat.mjs';
 import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/challenges.mjs';
 import { matchReward } from '../src/ProfileStore.mjs';
 import { eligibleChallengeParticipant } from '../src/challengeSettlement.mjs';
@@ -39,6 +39,7 @@ test('Ultimate Knight is a single Practice actor with its full name and ready ch
   const f = fixture(); assert.ok(f.knight);
   assert.equal(f.knight.name, 'The Ultimate Knight'); assert.equal(f.knight.botProfile, 'rival');
   assert.equal(f.knight.prowess, 100); assert.equal(f.knight.ultimate, 'sunder');
+  assert.equal(f.knight.ultimateKnight.behavior,'stay','default is Stay · Repeat & Defend');
   assert.deepEqual(f.knight.preparedSpells, ['fireball', 'frostfire', 'gale']);
   assert.equal(spawnPracticeDummy(f.room, 'ULTIMATE_KNIGHT', 1), f.knight);
   assert.equal([...f.room.players.values()].filter((p) => p.actorKind === 'dummy').length, 1);
@@ -47,6 +48,9 @@ test('Ultimate Knight is a single Practice actor with its full name and ready ch
 
 test('real commits cycle deterministically with a three second refill after recovery and concurrent demonstrations', () => {
   const f = fixture(); const events = []; const states = [];
+  // Explicit Follow demonstrates dashing as part of Chivalry; a newly
+  // spawned Knight now defaults to the stationary defensive drill.
+  assert.equal(configureUltimateKnight(f.room,f.human.id,{behavior:'follow'},0),true);
   for (let i = 0; i < 1800; i++) events.push(...frame(f, i / 30, states));
   const active = events.filter((e) => e.type === 'ultimateActive');
   assert.deepEqual(active.slice(0, 4).map((e) => e.ultimate), ['sunder', 'vortex', 'chivalry', 'sunder']);
@@ -199,4 +203,85 @@ test('Stay returns to its marked post by ordinary foot movement after physical d
   assert.equal(knight.input.sprint,false,'returns at walking pace, not teleported or boosted');
   assert.equal(knight.input.jump,false);
   assert.deepEqual(knight.ultimateKnight.anchor,anchor,'the drill post remains unchanged');
+});
+
+test('Stay defends in brief readable Guard windows, without permanent immunity',()=>{
+ const {room,human,knight}=fixture();
+ knight.prowess=0;knight.ultimateKnight.refillAt=50;knight.ultimateLockedUntil=50;
+ human.position={x:0,y:0,z:2};knight.position={x:0,y:0,z:0};
+ human.spawnProtectionUntil=0;knight.spawnProtectionUntil=0;
+ stepPracticeActors(room,2,world);
+ assert.equal(knight.ultimateKnight.behavior,'stay');
+ assert.equal(knight.guardHeld,true,'defensive station has a genuine Guard window');
+ stepPracticeActors(room,3.8,world);
+ assert.equal(knight.guardHeld,false,'Guard drops for a genuine counterattack opening');
+ const before=knight.health;
+ assert.equal(applyDamage(room,human.id,knight.id,15,'sword',3.8),true);
+ assert.equal(knight.health,before-15,'stationary Knight is a real damageable actor');
+});
+
+test('human sword can physically strike a vulnerable Ultimate Knight in normal Practice',()=>{
+ const {room,human,knight}=fixture();
+ human.position={x:0,y:0,z:2.05};human.yaw=0;human.input.yaw=0;
+ knight.position={x:0,y:0,z:0};knight.yaw=Math.PI;knight.input.yaw=Math.PI;
+ for(const p of [human,knight]){
+  p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};
+  p.spawnProtectionUntil=0;p.grounded=true;
+ }
+ // Keep the target idle for this independent sword-contact test; other
+ // tests cover its fully legitimate Ultimate/Steel defense.
+ knight.guardStamina=0;knight.prowess=0;knight.ultimateLockedUntil=100;
+ knight.ultimateKnight.refillAt=100;
+ assert.ok(beginAttack(room,human.id,2));
+ for(let i=0;i<22;i++){
+  const now=2+i/30;
+  stepPracticeActors(room,now,world,{random:()=>.5});
+  stepRoom(room,1/30,now,world);
+ }
+ assert.ok(room.events.some(e=>e.type==='swordHit'&&e.targetId===knight.id),
+   'real collision should register a player sword against the Ultimate Knight');
+ assert.ok(knight.health<100,'the actual sword hit reduces HP');
+});
+
+test('Half Lightning Knight releases its real charge promptly instead of hanging for the 1.75s maximum',()=>{
+ const {room,human,knight}=fixture();
+ assert.ok(configureUltimateKnight(room,human.id,{
+  selection:'one_hit_of_wonders',behavior:'stay',preset:'reset'},0));
+ assert.ok(configureUltimateKnight(room,human.id,{element:'lightning',tier:1},0));
+ for(let i=0;i<90;i++){
+  const now=i/30;
+  stepPracticeActors(room,now,world,{random:()=>.5});
+  stepRoom(room,1/30,now,world);
+ }
+ const start=room.events.find(e=>e.type==='ultimateStart'&&e.playerId===knight.id);
+ const commit=room.events.find(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id);
+ assert.ok(start&&commit,'real Half Lightning attack committed');
+ assert.ok(commit.at-start.at<.8,'the dummy released in normal responsive charge time');
+ assert.ok(room.events.some(e=>e.type==='oneHitImpact'&&e.playerId===knight.id));
+});
+
+test('Full Lightning + Gale Stay shows short real teleport and the actual projectile without running away',()=>{
+ const {room,human,knight}=fixture();
+ human.position={x:0,y:0,z:-9};
+ assert.ok(configureUltimateKnight(room,human.id,{
+  selection:'one_hit_of_wonders',behavior:'stay',preset:'reset'},0));
+ for(const [element,tier] of [['lightning',2],['gale',2]])
+  assert.ok(configureUltimateKnight(room,human.id,{element,tier},0));
+ const post={...knight.position};
+ for(let i=0;i<165;i++){
+  const now=i/30;
+  human.position={x:0,y:0,z:-9};
+  human.velocity={x:0,y:0,z:0};human.spawnProtectionUntil=0;
+  stepPracticeActors(room,now,world,{random:()=>.5});
+  stepRoom(room,1/30,now,world);
+ }
+ const tel=room.events.find(e=>e.type==='oneHitTeleport'&&e.playerId===knight.id);
+ assert.ok(tel,'Full Lightning uses the real authoritative teleport');
+ assert.ok(Math.hypot(tel.to.x-tel.from.x,tel.to.z-tel.from.z)<5,
+   'Stay does a short real blink instead of jumping a dozen meters away');
+ assert.ok(room.events.some(e=>e.type==='oneHitCommitted'&&e.playerId===knight.id));
+ assert.ok(room.events.some(e=>e.type==='oneHitWave'&&e.playerId===knight.id),
+   'Full Gale launches an actual projectile after the grounded slam');
+ assert.ok(Math.hypot(knight.position.x-post.x,knight.position.z-post.z)<5.2,
+   'the teaching opponent remains around its marked drill post');
 });
