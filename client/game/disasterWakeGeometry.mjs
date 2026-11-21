@@ -3,34 +3,18 @@
 // same collision polyline; no projected flat decal or extra hitboxes.
 import * as THREE from 'three';
 import {galeFrostWakeRadius} from '../../shared/src/oneHitTrail.mjs';
+import {wakeRibbonVertices} from './disasterWakeGeometryData.mjs';
 
 const COLORS={gale:0xb7f1a0,frost:0xa7e6ff,fire:0xff9647,
  lightning:0xffe16f,steel:0xc5ced7};
 const clamp01=x=>Math.max(0,Math.min(1,Number(x)||0));
-const vec=p=>new THREE.Vector3(p.x,p.y,p.z);
 export function wakeRibbonGeometry(points,radius,axis=0){
- const coords=[],faces=[];
- if(!Array.isArray(points)||points.length<2)return new THREE.BufferGeometry();
- for(let i=1;i<points.length;i++){
-  const a=vec(points[i-1]),b=vec(points[i]),direction=b.clone().sub(a);
-  if(direction.lengthSq()<1e-8)continue;
-  direction.normalize();
-  let lateral=new THREE.Vector3().crossVectors(direction,new THREE.Vector3(0,1,0));
-  if(lateral.lengthSq()<1e-7)
-   lateral=new THREE.Vector3().crossVectors(direction,new THREE.Vector3(0,0,1));
-  lateral.normalize();
-  if(axis===1)lateral.crossVectors(direction,lateral).normalize();
-  const off=lateral.multiplyScalar(radius);
-  const v=[a.clone().add(off),a.clone().sub(off),
-   b.clone().add(off),b.clone().sub(off)];
-  const offset=coords.length/3;
-  for(const p of v)coords.push(p.x,p.y,p.z);
-  faces.push(offset,offset+1,offset+2,offset+1,offset+3,offset+2);
- }
+ const {coords,faces}=wakeRibbonVertices(points,radius,axis);
  const g=new THREE.BufferGeometry();
- g.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));
- g.setIndex(faces);
- g.computeBoundingSphere();
+ if(coords.length){
+  g.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));
+  g.setIndex(faces);g.computeBoundingSphere();
+ }
  return g;
 }
 export function makeWakeVisual(tiers={}){
