@@ -6,7 +6,17 @@ import { soFistSolids } from './soFistGeometry.mjs';
 import { fightFlightSolids } from './fightFlight.mjs';
 
 export function playerMovementWorld(world, { ballista = null, ram = null, flight = null } = {}) {
-  const occupied = [...getBiByeSolids(ballista), ...soFistSolids(ram), ...fightFlightSolids(flight)];
+  const fist=ram?.detachedFist;
+  // World-space steel gauntlet: a settled launch is actual cover, not a
+  // visual pickup ring. This very same function runs on host and client, so
+  // no rubber-banding through the fist on remote player movement.
+  const detachedSolid=fist?.position&&!ram?.wreckVisualExpired&&
+    ['rolling','resting'].includes(fist.state)
+    ? [{id:'sofist-detached-'+ram.id,material:'steel',
+      center:[fist.position.x,fist.position.y,fist.position.z],
+      size:[1.65,1.22,1.65]}] : [];
+  const occupied = [...getBiByeSolids(ballista), ...soFistSolids(ram),
+    ...fightFlightSolids(flight),...detachedSolid];
   return occupied.length
     ? { ...world, solids: [...(world.solids ?? []), ...occupied] }
     : world;
