@@ -115,6 +115,10 @@ function hitWall(room,start,end,world){
   // gauntlet's lower surface has already cleared. Gentle lips are stepped
   // over; a real vertical obstruction still deflects the heavy body.
   const top=box.center?.[1]+(box.size?.[1]??0)/2;
+  // The wide swept body protects the fist from tunneling, but the actual
+  // modeled bottom is higher than the conservative sphere's lowest point.
+  // A beam that passes entirely below that bottom must not snag it at all.
+  if(Number.isFinite(top)&&top<Math.min(start.y,end.y)-RAM_FIST.groundRadius-.035)continue;
   const rise=top-(start.y-RAM_FIST.groundRadius);
   const lowLip=Number.isFinite(rise)&&rise>=-.03&&rise<=RAM_FIST.ledgeStep &&
     Math.hypot(end.x-start.x,end.z-start.z)>1e-6;
