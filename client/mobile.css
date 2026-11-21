@@ -283,13 +283,14 @@ button, input { touch-action: manipulation; }
 .touch-ui .hud.flight-mounted .bottom-hud {
   top:calc(var(--safe-t) + 9px);
   left:calc(var(--safe-l) + 96px);
-  width:min(150px,26cqw);
+  width:min(174px,29cqw);
   gap:3px;
 }
 .touch-ui .hud.flight-mounted :is(.health-block,.guard-block,.flight-charge-rail) {width:100%;}
 .touch-ui .hud.flight-mounted .guard-block {margin-top:3px;}
 .touch-ui .hud.flight-mounted .guard-track {height:3px;margin-top:1px;}
-.touch-ui .hud.flight-mounted .flight-charge-heading {font-size:7px;letter-spacing:.04em;}
+.touch-ui .hud.flight-mounted .flight-charge-heading {font-size:7px;letter-spacing:0;gap:3px;}
+.touch-ui .hud.flight-mounted .flight-charge-heading > span::before {margin-right:4px;}
 .touch-ui .hud.flight-mounted .flight-charge-heading output {font-size:9px;}
 .touch-ui .hud.flight-mounted .flight-charge-track {height:9px;border-width:1px;}
 .touch-ui .hud.flight-mounted .flight-charge-rail {padding:3px 5px 4px;}
@@ -918,3 +919,11 @@ body.touch-layout-editor-open #practice-overlay {
 .touch-controls.dead-navigation .touch-motion-guide {display:none!important;}
 .touch-controls.dead-navigation .touch-pause,
 .touch-controls.dead-navigation .touch-practiceTools:not([hidden]) {display:grid!important;}
+
+/* Put the match title over the sightline rather than offset 64px to the
+   left. Keep the dedicated objective lane's mobile size; only its anchor
+   changes while piloting Flight. */
+.touch-ui .hud.flight-mounted .hud-status-stack {
+  left:50%;right:auto;transform:translateX(-50%);
+  width:min(230px,31cqw);justify-items:center;
+}
