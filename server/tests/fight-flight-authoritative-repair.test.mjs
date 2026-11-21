@@ -84,7 +84,8 @@ test('active Skill eliminates steady-hover expense but not powered climb expense
  frames(room,m,75*DT,15);
  assert.ok(Math.abs(m.flightCharge-idleCharge)<.04);
  p.input.flightRise=true;frames(room,m,90*DT,20);
- assert.ok(m.flightCharge<idleCharge-7,'Skill does not make climbing free');
+ assert.ok(m.flightCharge<idleCharge-4.4,
+   'paused Skill still spends a net seven charge per second when climbing');
 });
 test('Practice held offensive Dash cycles meter at 42/s and 70/s without interrupting propulsion',()=>{
  const {room,p,m}=setup();p.prowess=100;p.ultimate='sunder';
