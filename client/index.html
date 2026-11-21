@@ -143,10 +143,10 @@
         <button type="button" id="armory-slot-technique" class="armory-slot-plaque slot-technique" data-slot="technique" data-inspector-category="technique" aria-pressed="false" aria-label="Select Technique">
           <span class="plaque-corner top-left"></span><span class="plaque-corner top-right"></span>
           <span class="plaque-corner bottom-left"></span><span class="plaque-corner bottom-right"></span>
-          <span class="plaque-icon" id="plaque-icon-technique" aria-hidden="true"></span>
+          <span class="plaque-icon" id="plaque-icon-technique" aria-hidden="true">⇏</span>
           <div class="plaque-text">
             <span class="plaque-label">TECHNIQUE</span>
-            <strong class="plaque-name" id="plaque-name-technique">None equipped</strong>
+            <strong class="plaque-name" id="plaque-name-technique">Rigid Riposte</strong>
           </div>
         </button>
 
@@ -405,6 +405,10 @@
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy">Fight one rival or train at your own pace.</p>
 
+        <button id="breakthrough-mode" class="mode-choice" type="button">
+          <span>BREAKTHROUGH</span>
+          <small>Team siege · capture objectives or hold the stronghold</small>
+        </button>
         <button id="bot-duel" class="mode-choice selected-activity" aria-pressed="true">
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
@@ -416,6 +420,7 @@
         <button id="edge-of-victory-mode" class="mode-choice" type="button">
           <span>EDGE OF VICTORY</span>
           <small>Four knights · discover spells · no retreat · one survivor</small>
+        </button>
         <button id="practice-mode" class="mode-choice">
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
@@ -455,6 +460,33 @@
             <button type="button" class="vote-chip" role="radio" data-renown-arena="castleward">CASTLEWARD</button>
           </div>
         </div>
+        <div id="solo-breakthrough-wrap" hidden>
+          <div id="solo-breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
+            <span>BATTLE SIZE</span>
+            <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
+            <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small>(RECOMMENDED)</small></button>
+          </div>
+          <div id="solo-breakthrough-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
+            <span>BATTLEFIELD</span>
+            <button type="button" class="vote-chip mine" role="radio" data-arena="bastion-breach">BASTION BREACH</button>
+            <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
+            <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
+          </div>
+          <div id="solo-breakthrough-team" class="vote-row solo-arena" role="radiogroup" aria-label="Allegiance">
+            <span>ALLEGIANCE</span>
+            <button type="button" class="vote-chip mine" role="radio" data-team="AUTO">AUTO</button>
+            <button type="button" class="vote-chip" role="radio" data-team="ATTACKERS">ATTACKERS</button>
+            <button type="button" class="vote-chip" role="radio" data-team="DEFENDERS">DEFENDERS</button>
+          </div>
+          <div id="solo-breakthrough-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Bot Difficulty">
+            <span>BOT DIFFICULTY</span>
+            <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
+            <button type="button" class="vote-chip mine" role="radio" data-skill="knight">KNIGHT</button>
+            <button type="button" class="vote-chip" role="radio" data-skill="champion">CHAMPION</button>
+            <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
+          </div>
+          <p class="panel-copy mettle-rival-note" id="solo-breakthrough-rival-note" aria-live="polite"></p>
+        </div>
         <div id="solo-rival-wrap">        <div id="solo-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Rival">
           <span>RIVAL</span>
           <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
@@ -463,7 +495,9 @@
           <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
         </div>
         <p class="panel-copy solo-rival-note" id="solo-rival-note" aria-live="polite"></p></div>
+        <p id="solo-renown-note" class="panel-copy" hidden>Permanent Renown rewards require a connected profile. Offline rehearsal plays the complete trial without account awards.</p>
         <button id="solo-launch" class="mode-choice primary-command" type="button"><span>START BOT DUEL</span><small>Enter the arena</small></button>
+        <button id="solo-renown-rehearse" class="mode-choice" type="button" hidden><span>REHEARSE ON THIS DEVICE</span><small>Play the solo waves without earning account Renown</small></button>
       </div></div>
     </section>
 
