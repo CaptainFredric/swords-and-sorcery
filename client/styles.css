@@ -261,7 +261,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .flight-inline-warning { color:#ffcf92; font:800 8px/1.2 system-ui,sans-serif; letter-spacing:.02em; }
 .flight-inline-warning[hidden] {display:none !important;}
 .flight-mounted .guard-track { height:4px; margin-top:2px; }
-.flight-mounted .guard-block span {display:none;}
+.flight-mounted .guard-block > span {display:none;}
 .flight-mounted .guard-block {margin-top:3px;}
 .ballista-mounted:not(.flight-mounted) .guard-block,
 .ballista-mounted:not(.flight-mounted) .abilities { display: none; }
