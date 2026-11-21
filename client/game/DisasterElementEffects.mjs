@@ -306,7 +306,7 @@ export class DisasterElementEffects {
   // a shallow pressure dome of mist and suspended, slowly settling fragments.
   // Full Frost carries the same burst with a denser crystalline silhouette.
   // Existing prewarmed instanced pools keep this cheap even in busy matches.
-  #frostSuspendedDome(point, radius, full, ground = true) {
+  #frostSuspendedDome(point, radius, full, ground = true, yaw = null) {
     if (!ground) return; // airborne waves get their existing directional burst
     const profile = frostSuspensionProfile(full ? 2 : 1, radius, this.density);
     if (!profile) return;
@@ -317,7 +317,7 @@ export class DisasterElementEffects {
       const angle = i * 2.399963229728653 + rand(-.22, .22);
       const u = Math.sqrt((i + .45) / shards);
       const dome = Math.sqrt(Math.max(0, 1 - u * u));
-      const reach = radius * (.43 + .43 * u);
+      const reach = groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle)) * (.43 + .43 * u);
       const rise = height * (.23 + .67 * dome);
       const life = rand(.95, 1.45);
       const size = rand(full ? .055 : .042, full ? .115 : .088);
@@ -341,7 +341,7 @@ export class DisasterElementEffects {
       const angle = i * 2.399963229728653 + rand(-.5, .5);
       const u = Math.sqrt((i + .5) / vapour);
       const crown = Math.sqrt(Math.max(0, 1 - u * u));
-      const reach = radius * (.25 + .55 * u);
+      const reach = groundFootprintRadius(radius,yaw,Math.cos(angle),Math.sin(angle)) * (.25 + .55 * u);
       const release = rand(2.7, 3.8);
       const size = rand(.23, full ? .52 : .44);
       this.smoke.spawn({
@@ -599,7 +599,7 @@ export class DisasterElementEffects {
       // Give Half Frost's extended first-contact interval a readable volume,
       // rather than implying that a handful of fast splinters is the attack.
       // Full Frost retains its separately authored standing ice field.
-      this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground);
+      this.#frostSuspendedDome({ x: p.x, y: floor, z: p.z }, radius, full, ground, yaw);
       // A cold compression front rolls outward at ankle height, then
       // separates into slow vapour and bright ice splinters. The persistent
       // Full Frost plates remain the gameplay indicator, not this mist.
