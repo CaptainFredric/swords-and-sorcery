@@ -310,6 +310,14 @@ function hydratePage(mode,side,overrides={}){
     if(base[action]&&patch&&typeof patch==='object')page[action]=mergePlacement(base[action],patch);
   return page;
 }
+// Preserve the immediately preceding factory stick/Crouch positions as
+// migration candidates. Old factory layouts should shift left with the new
+// preset; a deliberate custom thumb layout must remain where it was saved.
+const PREVIOUS_ON_FOOT_LAYOUT=Object.freeze({
+  ...DEFAULT_ON_FOOT_LAYOUT,
+  stick:{left:118,bottom:110,size:112,type:'stick'},
+  crouch:{left:190,bottom:187,size:50},
+});
 // A previous handedness preset labeled ALL positions "custom". That flag
 // does not distinguish a user edit from a historical factory position.
 const OLD_ON_FOOT_LAYOUT=Object.freeze({
@@ -317,7 +325,7 @@ const OLD_ON_FOOT_LAYOUT=Object.freeze({
 });
 const legacyCandidates=mode=>mode==='flight'?
   [DEFAULT_FLIGHT_LAYOUT,OUTGOING_FLIGHT_LAYOUT,PREVIOUS_FLIGHT_LAYOUT,LEGACY_FLIGHT_LAYOUT]:
-  mode==='onFoot'?[DEFAULT_ON_FOOT_LAYOUT,OLD_ON_FOOT_LAYOUT]:
+  mode==='onFoot'?[DEFAULT_ON_FOOT_LAYOUT,PREVIOUS_ON_FOOT_LAYOUT,OLD_ON_FOOT_LAYOUT]:
   [defaultsForPage(mode)];
 function legacySide(mode,items){
   // Global handedness belonged to whichever page was last edited; infer
