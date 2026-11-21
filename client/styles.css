@@ -244,6 +244,9 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .ballista-hud span { font-size: 12px; }
 .ballista-hud small { font-size: 10px; line-height: 1.3; color: #c4bda8; }
 /* Mounted flight uses the personal health stack, not a center-screen telemetry card. */
+.flight-skill-ability[hidden] { display:none !important; }
+.flight-skill-ability .ability-icon { color:#f1cb82; }
+.flight-skill-ability.active { border-color:#e8c579; box-shadow:0 0 9px #e8c57933; }
 .flight-charge-rail { width:250px; display:grid; gap:3px; pointer-events:none; }
 .flight-charge-rail[hidden] { display:none !important; }
 .flight-charge-heading { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
