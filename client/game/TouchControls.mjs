@@ -1617,20 +1617,6 @@ export class TouchControls {
     }
   };
 
-  #fingerOverJump(event){
-    const jump=this.buttons.jump;
-    if(!jump||jump.hidden)return false;
-    const x=event.clientX,y=event.clientY;
-    if(!Number.isFinite(x)||!Number.isFinite(y))return false;
-    // getBoundingClientRect is in viewport coordinates, including when the
-    // game canvas is rotated to landscape by ScreenTurn.
-    const rect=jump.getBoundingClientRect?.();
-    if(rect&&Number.isFinite(rect.left)&&Number.isFinite(rect.right)&&
-      Number.isFinite(rect.top)&&Number.isFinite(rect.bottom))
-      return x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom;
-    return document.elementFromPoint?.(x,y)?.closest?.('[data-action="jump"]')===jump;
-  }
-
   #gateHeld(action, requested, source, notify = true) {
     if (this.input.gateHeldAction) return this.input.gateHeldAction(action, requested, source, notify);
     return requested && this.input.allowAction?.(action, notify) !== false;
