@@ -6,6 +6,7 @@ import {soFistHudView} from './soFistHudView.mjs';
 import {mountedSiegeSkillTile} from './mountedSiegeSkillTile.mjs';
 import {hellpingContextPrompt} from './hellpingContextPrompt.mjs';
 import {biByeSweepCooldownView} from './biByeControlView.mjs';
+import {BI_BYE_COMPONENTS} from '../../shared/sim/biByeComponents.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -311,6 +312,14 @@ export class HUD {
         <div class="flight-brace-reading"><span>${short} BRACE</span><b data-brace-hp>80/80</b></div>
         <div class="flight-brace-track"><i data-brace-fill></i></div>
       </div>`;
+    // Fixed, compact parts instrumentation. The labels exist once, while
+    // each authoritative HP value updates in-place on incoming snapshots.
+    const bibyeParts=(kind,title)=>'<div class="bibye-part-group" data-part-group="'+kind+'">'+
+      '<strong>'+title+'</strong><div class="bibye-part-items">'+
+      BI_BYE_COMPONENTS.filter(part=>part.kind===kind).map(part=>
+        '<div class="bibye-part" data-part-id="'+part.id+'" data-part-state="intact" aria-label="'+part.id+'">'+
+        '<span>'+part.id.split('_')[1]+'</span><div class="bibye-part-track"><i data-part-fill></i></div>'+
+        '</div>').join('')+'</div></div>';
     this.machineGauge.innerHTML =
       '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
       '<small class="machine-piston" data-machine-piston></small>'+
@@ -318,7 +327,8 @@ export class HUD {
         flightBrace('left','L')+
         '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div>'+
-        '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div></div>'+
+        '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div>'+
+        '<div class="bibye-parts" data-bibye-parts>'+bibyeParts('wheel','WHEELS')+bibyeParts('stabilizer','SUPPORTS')+'</div></div>'+
         flightBrace('right','R')+
         '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
@@ -486,6 +496,19 @@ export class HUD {
         el.querySelector('[data-component-hp]').textContent =
           machineGaugeNumber(gauge.component.health) + '/' + machineGaugeNumber(gauge.component.maxHealth);
         el.querySelector('[data-component-fill]').style.width = gauge.component.percent.toFixed(2) + '%';
+      }
+      if(gauge.kind==='ballista'){
+        const parts=el.querySelector('[data-bibye-parts]');
+        parts.hidden=!(gauge.parts?.wheels?.length||gauge.parts?.stabilizers?.length);
+        for(const part of [...(gauge.parts?.wheels??[]),...(gauge.parts?.stabilizers??[])]){
+          const widget=parts.querySelector('[data-part-id="'+part.id+'"]');
+          if(!widget)continue;
+          widget.dataset.partState=part.state;
+          widget.querySelector('[data-part-fill]').style.width=part.percent.toFixed(2)+'%';
+          widget.title=part.id.replace('_',' ')+' · '+
+            machineGaugeNumber(part.health)+'/'+machineGaugeNumber(part.maxHealth)+' HP';
+          widget.setAttribute('aria-label',widget.title);
+        }
       }
       if(gauge.kind==='flight'){
         for(const [side,data] of Object.entries(gauge.braces??{})){
