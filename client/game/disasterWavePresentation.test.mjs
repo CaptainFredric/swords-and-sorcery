@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { windbladeSpeed, windbladeTrailSpan, windbladePosition, windbladeImpactKick } from './disasterWavePresentation.mjs';
+import { windbladeSpeed, windbladeTrailSpan, windbladePosition, windbladeImpactKick, windbladeLevelBasis } from './disasterWavePresentation.mjs';
 
 test('Windblade trail samples the same flight speed as the authoritative projectile',()=>{
   assert.equal(windbladeSpeed({}),28);
@@ -48,4 +48,34 @@ test('Gale projectile impact camera kick is gentle and falls off with 3D distanc
   assert.equal(windbladeImpactKick({x:24,y:0,z:0},hit),0);
   assert.equal(windbladeImpactKick({x:100,y:0,z:0},hit),0);
   assert.equal(windbladeImpactKick(null,hit),0);
+});
+
+test('Gale blade remains world-horizontal while traveling along any aimed pitch',()=>{
+  const shots=[
+    {x:0,y:0,z:1},{x:.4,y:.8,z:.45},
+    {x:0,y:-.96,z:.28},{x:0,y:1,z:0},
+    {x:0,y:-1,z:0},{x:-.8,y:.1,z:-.4},
+  ];
+  for(const direction of shots){
+    const basis=windbladeLevelBasis(direction);
+    assert.equal(basis.right.y,0,'the WIDE axis must be exactly horizontal');
+    const length=Math.hypot(direction.x,direction.y,direction.z);
+    for(const axis of ['x','y','z'])
+      assert.ok(Math.abs(basis.forward[axis]-direction[axis]/length)<1e-8,
+        'velocity continues along aimed 3D direction');
+    const dot=basis.right.x*basis.forward.x+basis.right.y*basis.forward.y+
+      basis.right.z*basis.forward.z;
+    assert.ok(Math.abs(dot)<1e-7,'wide axis stays perpendicular to flight');
+    const rightLength=Math.hypot(...Object.values(basis.right));
+    assert.ok(Math.abs(rightLength-1)<1e-7);
+  }
+});
+test('straight-up or down Gale shots have a stable level fallback',()=>{
+  const prior={x:0,y:0,z:-1};
+  const up=windbladeLevelBasis({x:0,y:1,z:0},prior);
+  const down=windbladeLevelBasis({x:0,y:-1,z:0},prior);
+  assert.deepEqual(up.right,prior);
+  assert.deepEqual(down.right,prior);
+  assert.equal(up.right.y,0);
+  assert.equal(down.right.y,0);
 });
