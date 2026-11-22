@@ -10,7 +10,7 @@ import {TEAMS} from '../../shared/src/teams.mjs';
 
 const DT=1/30;
 function advance(room,start,frames,{bots=false,practice=false}={}){
- const timing={max:0,slow:0};
+ const timing={max:0,slow:0,events:{}};
  for(let tick=0;tick<frames;tick++){
   const now=start+tick*DT,begin=performance.now();
   if(bots)stepBotControllers(room,now,room.world,{random:()=>.53});
@@ -23,6 +23,7 @@ function advance(room,start,frames,{bots=false,practice=false}={}){
   const elapsed=performance.now()-begin;
   timing.max=Math.max(timing.max,elapsed);
   if(elapsed>120)timing.slow++;
+  for(const event of room.events)timing.events[event.type]=(timing.events[event.type]??0)+1;
   room.events.length=0; // the network normally sends and drains these per tick
  }
  return timing;
@@ -72,6 +73,8 @@ test('Practice Full Gale+Lightning against mounted Fight-and-Flight keeps sim an
  advance(room,3.02,22,{practice:true});
  releaseOneHitCharge(room,player.id,3.76,{yaw:player.yaw,pitch:.52});
  const result=advance(room,3.78,240,{practice:true});
+ assert.ok((result.events.oneHitWave??0)>0,
+   'stress test must exercise the flying Gale wave, not just charge startup');
  assert.ok(result.max<2000,'Gale/Lightning and rotor collision cannot hang a simulation step');
  assert.ok(room.players.has(player.id),'active Practice session survives ultimate interaction');
 });
