@@ -52,8 +52,30 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
 .kill-feed { position: absolute; top: 22px; right: 22px; width: min(380px, 40cqw); text-align: right; font-size: 11px; overflow-wrap: anywhere; }
 .feed-line { margin-bottom: 6px; padding: 6px 9px; white-space: normal; background: linear-gradient(90deg, transparent, rgba(15,16,13,.68)); text-shadow: 0 1px 2px #000; transition: opacity .6s; }
 .feed-line.fade { opacity: 0; }
-.feed-line.fire { color: #ffc08b; }
-.feed-line.abyss { color: #c1c6d8; }
+/* One cause-colored message; an actual multi-infused Disaster uses ivory
+   narration and separate elemental words rather than one misleading tint.
+   Bright desaturated metals remain legible over the dark HUD backing. */
+.feed-line.tone-sword,.feed-line.tone-mixed {color:#f4efe6;}
+.feed-line.tone-fire,.feed-infusion.tone-fire {color:#ffa477;}
+.feed-line.tone-frost,.feed-infusion.tone-frost {color:#a9e0ff;}
+.feed-line.tone-gale,.feed-infusion.tone-gale {color:#c1f2cb;}
+.feed-line.tone-lightning,.feed-infusion.tone-lightning {color:#ffe477;}
+.feed-line.tone-steel,.feed-infusion.tone-steel {color:#c7d5de;}
+.feed-line.tone-siege {color:#c3c5c8;}
+.feed-line.tone-abyss {color:#e3e2df;}
+.feed-line.tone-self {color:#e9e8e4;}
+.feed-line.tone-ascension {color:#ffc05c;}
+.feed-infusion {display:inline;white-space:nowrap;font-weight:800;letter-spacing:.025em;text-shadow:0 1px 3px #000;}
+/* The locally earned SLAIN marker follows the same authoritative cause. */
+.status-flash.kill.tone-sword,.status-flash.kill.tone-mixed {color:#f4efe6;}
+.status-flash.kill.tone-fire {color:#ffa477;}
+.status-flash.kill.tone-frost {color:#a9e0ff;}
+.status-flash.kill.tone-gale {color:#c1f2cb;}
+.status-flash.kill.tone-lightning {color:#ffe477;}
+.status-flash.kill.tone-steel {color:#c7d5de;}
+.status-flash.kill.tone-siege {color:#c3c5c8;}
+.status-flash.kill.tone-abyss,.status-flash.kill.tone-self {color:#e3e2df;}
+.status-flash.kill.tone-ascension {color:#ffc05c;}
 .crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%); filter: drop-shadow(0 1px 2px #000); }
 .crosshair.recoil { transform: translate(-50%,-50%) scale(1.15); transition: transform .15s ease-out; }
 .crosshair i { position:absolute; background:#eef0e8; transition:.08s; }
