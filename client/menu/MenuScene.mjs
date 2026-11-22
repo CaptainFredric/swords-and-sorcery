@@ -138,7 +138,7 @@ export class MenuScene {
     this.container.appendChild(this.tourFade);
 
     // the whole of Castleward, drawn with the environment kit, at its late-afternoon light
-    this.world = new CastlewardRenderer(this.scene);
+    this.world = new CastlewardRenderer(this.scene, { biByeOptions: { deferAuthored: true } });
     this.siegeWorkshop = new SiegeWorkshopScene(this.scene);
     const light = CASTLEWARD_LIGHTING;
     this.hemisphere = new THREE.HemisphereLight(light.hemisphere.skyColor, light.hemisphere.groundColor, light.hemisphere.intensity);

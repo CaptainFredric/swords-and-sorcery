@@ -115,24 +115,28 @@ export class SiegeWorkshopScene {
 
     this.#buildEnvironment();
     this.#initFallbacks();
-    this.selectMachine('soFist');
   }
 
   setVisible(visible) {
     this.root.visible = Boolean(visible);
     if (!visible) this.stopPreview();
-    if (visible && !this.knight && !this.knightLoading) {
-      this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
-        if (!instance) return;
-        if (this.disposed) { instance.dispose(); return; }
-        this.knight = instance;
-        this.root.add(instance.root);
-        instance.root.rotation.y = -.52;
-        instance.setCloth('crimson');
-        instance.setEmblem('grimoirelee');
-        instance.root.traverse(node => { if (node.isMesh) node.castShadow = true; });
-        this.#placeKnight();
-      }).catch(error => console.warn('Siege Workshop comparison knight unavailable', error));
+    if (visible) {
+      if (!this.machinePivot.children.length || (!this.cache.has(this.activeMachineId) && !this.inFlight.has(this.activeMachineId))) {
+        this.selectMachine(this.activeMachineId);
+      }
+      if (!this.knight && !this.knightLoading) {
+        this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
+          if (!instance) return;
+          if (this.disposed) { instance.dispose(); return; }
+          this.knight = instance;
+          this.root.add(instance.root);
+          instance.root.rotation.y = -.52;
+          instance.setCloth('crimson');
+          instance.setEmblem('grimoirelee');
+          instance.root.traverse(node => { if (node.isMesh) node.castShadow = true; });
+          this.#placeKnight();
+        }).catch(error => console.warn('Siege Workshop comparison knight unavailable', error));
+      }
     }
   }
 
@@ -492,7 +496,9 @@ export class SiegeWorkshopScene {
     } else {
       const fallback = this.fallbacks.get(id);
       if (fallback) this.machinePivot.add(fallback);
-      this.loadAuthored(id);
+      if (this.root.visible) {
+        this.loadAuthored(id);
+      }
     }
 
     this.machinePivot.position.y = 0;

@@ -73,7 +73,11 @@ export class BiByeLlistaRenderer {
     this.fallbackComponentMaterials=this.#copyDamageMaterials(this.fallbackGroup);
 
     // 2. Load authored v4.1 production GLB asset asynchronously
-    this.#loadAuthoredModel();
+    if (this.options?.deferAuthored) {
+      setTimeout(() => { if (!this.disposed) this.#loadAuthoredModel(); }, 4500);
+    } else {
+      this.#loadAuthoredModel();
+    }
 
     scene.add(this.group);
   }

@@ -301,8 +301,9 @@ function liftVeil() {
   menuScene?.setShot(router.current ?? SCREEN_IDS.MAIN_MENU, 2.8);
   offerTutorial();
 }
-// never keep the menu hostage: lift after a while even on a very slow connection
-setTimeout(liftVeil, 12000);
+// never keep the menu hostage: allow click-to-dismiss and lift promptly on slower connections
+loadingVeil?.addEventListener('click', liftVeil, { once: true });
+setTimeout(liftVeil, 3200);
 
 // start both character downloads at once; the menu, the first-person arms and opponents then share them
 preloadSpellbladeAssets().catch(() => {});
@@ -3849,12 +3850,11 @@ async function connectInitialSession() {
   const hadSession = Boolean(socket.token && localStorage.getItem('ss-room-code'));
   if (hadSession) {
     const reached = await Promise.race([
-      socket.connect(),
+      socket.connect({ timeoutMs: 2500 }),
       new Promise((resolve) => {
-        const off = socket.on('status', ({ status }) => {
-          if (status === 'connecting') return;
+        const off = socket.on('connection', ({ connected }) => {
           off();
-          resolve(status === 'online');
+          resolve(connected);
         });
       }),
     ]);

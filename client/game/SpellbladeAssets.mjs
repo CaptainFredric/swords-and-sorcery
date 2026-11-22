@@ -231,10 +231,20 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   };
 }
 
-export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL) {
+export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL, { deferFirstPerson = true } = {}) {
   const manifest = await loadManifest(manifestUrl);
   if (manifest.enabled === false) return null;
-  await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url), loadMotion('thirdPerson'), loadMotion('firstPerson')]);
+  await Promise.all([loadGltf(manifest.thirdPerson.url), loadMotion('thirdPerson')]);
+  if (deferFirstPerson) {
+    const scheduleFp = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback
+      : (cb) => setTimeout(cb, 1200);
+    scheduleFp(() => {
+      Promise.all([loadGltf(manifest.firstPerson.url), loadMotion('firstPerson')]).catch(() => {});
+    });
+  } else {
+    await Promise.all([loadGltf(manifest.firstPerson.url), loadMotion('firstPerson')]);
+  }
   return manifest.sourceRevision;
 }
 
