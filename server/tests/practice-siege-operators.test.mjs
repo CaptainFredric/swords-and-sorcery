@@ -245,3 +245,59 @@ test('Hostile operators cannot reclaim occupied, destroyed, or physically disabl
    assert.equal(a.siegeAi.phase,'foot',failure+' falls back to real foot behavior');
  }
 });
+
+
+test('Practice hostile loadouts are validated, mounted as real Skills and preserved through reset',()=>{
+ const {room,player}=setup();
+ const command=(action,machine,skill)=>applyRoomCommand(room,player,{
+   type:'practiceSiegeOpponent',action,machine,difficulty:'formidable',skill
+ },2);
+ assert.ok(command('spawn','bi-bye-llista','narrowToOne').rejected,
+   'another vehicle’s Skill cannot be fitted to this carriage');
+ assert.equal(room.biByeLlista,null,'invalid selection does not build a machine');
+ assert.deepEqual(command('spawn','bi-bye-llista','aSharpTurn'),{});
+ let actor=room.players.get(room.biByeLlista.operatorId);
+ assert.equal(actor.practiceSiegeOperator.skill,'aSharpTurn');
+ assert.equal(actor.siegeLoadout.biBye,'boltToTheOccasion',
+   'A Sharp Turn is an innate maneuver; it does not invent a fourth equipment slot');
+ assert.equal(room.biByeLlista.skill.id,'boltToTheOccasion');
+ assert.equal(serializeSnapshot(room,2).players.find(p=>p.id===actor.id).practiceSiegeOperator.skill,'aSharpTurn');
+ assert.ok(command('reset','bi-bye-llista','hellpingHand').rejected,
+   'invalid reset must not remove a living pilot');
+ assert.equal(room.biByeLlista.operatorId,actor.id);
+ assert.deepEqual(command('reset','bi-bye-llista','coldHowTouching'),{});
+ actor=room.players.get(room.biByeLlista.operatorId);
+ assert.equal(actor.siegeLoadout.biBye,'coldHowTouching');
+ assert.equal(room.biByeLlista.skill.id,'coldHowTouching');
+});
+test('Ballistefan uses the actual A Sharp Turn bow maneuver against a nearby Spellblade',()=>{
+ const {room,player}=setup();
+ assert.deepEqual(applyRoomCommand(room,player,{
+   type:'practiceSiegeOpponent',action:'spawn',
+   machine:'bi-bye-llista',difficulty:'formidable',skill:'aSharpTurn'
+ },2),{});
+ const m=room.biByeLlista;
+ player.position={x:m.x-Math.sin(m.heading)*4.2,y:0,
+   z:m.z-Math.cos(m.heading)*4.2};
+ stepPracticeActors(room,2.1,room.world);
+ assert.ok(room.events.some(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started'),
+   'AI must request the real one-turn melee hitbox, not emit a synthetic attack');
+ assert.equal(m.sweep?.kind,'single');
+ assert.ok(m.sweepHeavyReadyAt>2.1,'same mechanical heavy recovery as a human');
+});
+test('chosen Cold and Narrow Skills activate through ordinary authority and cooldown rules',()=>{
+ for(const [machine,skill,field] of [
+   ['bi-bye-llista','coldHowTouching','biByeLlista'],
+   ['fight-and-flight','narrowToOne','fightFlight'],
+ ]){
+  const {room,player}=setup();
+  const result=applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+    action:'spawn',machine,difficulty:'formidable',skill},2);
+  assert.deepEqual(result,{},machine);
+  const m=room[field],pilot=room.players.get(m.operatorId);
+  assert.equal(pilot.siegeLoadout[machine==='bi-bye-llista'?'biBye':'fightFlight'],skill);
+  stepPracticeActors(room,2.1,room.world);
+  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===m.id&&
+    e.action==='activated'),machine+' pilot uses the real mounted Skill command');
+ }
+});
