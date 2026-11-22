@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { siegeBladesHudView, matchInfoText } from '../../client/ui/HUD.mjs';
+import { SIEGE_MACHINE_CARDS, siegePickerSeconds, siegePickerMarkup } from '../../client/ui/SiegeMachinePicker.mjs';
 import { MenuController } from '../../client/menu/MenuController.mjs';
 import { privateRoomPreview, PRIVATE_MODE_DEFAULTS } from '../../client/menu/privateRoomRules.mjs';
 import { roomSettings } from '../../shared/src/roomSettings.mjs';
@@ -17,7 +18,7 @@ test('siegeBladesHudView formats Match and Endless formats, countdowns, and over
       format: 'MATCH',
       roundNumber: 2,
       matchRounds: 5,
-      roundsToWin: 3,
+      selectionEndsAt: null,
       scores: { ATTACKERS: 1, DEFENDERS: 0 },
       roundWinner: null,
       roundResetCountdown: null,
@@ -33,7 +34,7 @@ test('siegeBladesHudView formats Match and Endless formats, countdowns, and over
   assert.equal(v1.format, 'MATCH');
   assert.equal(v1.roundNumber, 2);
   assert.equal(v1.matchRounds, 5);
-  assert.equal(v1.roundsToWin, 3);
+  assert.equal(v1.selectionEndsAt, null);
   assert.equal(v1.scores.ATTACKERS, 1);
   assert.equal(v1.scores.DEFENDERS, 0);
   assert.equal(v1.isResetting, false);
@@ -90,7 +91,7 @@ test('matchInfoText formats Siege Blades descriptions', () => {
       format: 'MATCH',
       roundNumber: 1,
       matchRounds: 3,
-      roundsToWin: 2,
+      selectionEndsAt: null,
       scores: { ATTACKERS: 0, DEFENDERS: 0 },
       roundResetCountdown: null,
       clashActive: false,
@@ -99,7 +100,7 @@ test('matchInfoText formats Siege Blades descriptions', () => {
   };
   const text1 = matchInfoText(matchSnap, 30);
   assert.ok(text1.includes('SIEGE BLADES'));
-  assert.ok(text1.includes('BEST OF 3'));
+  assert.ok(text1.includes('3 ROUNDS'));
   assert.ok(text1.includes('ROUND 1'));
   assert.ok(text1.includes('AZURE 0 · CRIMSON 0'));
   assert.ok(text1.includes('2:30'));
@@ -112,7 +113,7 @@ test('matchInfoText formats Siege Blades descriptions', () => {
     },
   };
   const text2 = matchInfoText(resetSnap, 40);
-  assert.equal(text2, 'NEXT ROUND IN 5s · AZURE 0 · CRIMSON 0');
+  assert.equal(text2, 'ROUND COMPLETE · AZURE 0 · CRIMSON 0');
 });
 
 test('MenuController manages Siege Blades options and dispatches startSolo', () => {
@@ -233,7 +234,38 @@ test('Launching Siege Blades through LocalHost preserves custom settings on Room
   assert.ok(host.room.siegeBlades);
   assert.equal(host.room.siegeBlades.format, 'MATCH');
   assert.equal(host.room.siegeBlades.matchRounds, 5);
-  assert.equal(host.room.siegeBlades.roundsToWin, 3);
+  assert.equal(host.room.siegeBlades.matchRounds, 5);
+  assert.equal(host.room.policy.scored, false, 'Siege Blades never inherits the generic 2-kill finish');
+  assert.equal(host.room.policy.timed, false, 'only the mode-owned per-round clock decides overtime');
   assert.equal(host.room.siegeBlades.clashStarts, false);
   assert.equal(host.room.siegeBlades.machineSelection, 'so-fist-ication');
+});
+
+
+test('Machine draft has three distinct recognizable selectable portraits, descriptions and authoritative countdown', () => {
+  assert.deepEqual(SIEGE_MACHINE_CARDS.map(c=>c.id),[
+    'so-fist-ication','bi-bye-llista','fight-and-flight']);
+  const html=siegePickerMarkup();
+  assert.equal((html.match(/data-siege-pick=/g)||[]).length,3);
+  assert.equal((html.match(/role="img"/g)||[]).length,3);
+  for(const machine of SIEGE_MACHINE_CARDS){
+    assert.ok(html.includes(machine.name));
+    assert.ok(html.includes(machine.description));
+  }
+  assert.equal(siegePickerSeconds(18,10),8);
+  assert.equal(siegePickerSeconds(18,17.3),1);
+  assert.equal(siegePickerSeconds(18,20),0);
+  assert.equal(siegePickerSeconds(null,10),0);
+});
+
+test('Siege HUD announces a machine selection phase instead of promising another round within the score pause',()=>{
+  const snapshot={
+    mode:'SIEGE_BLADES',matchStartedAt:0,matchSeconds:180,
+    siegeBlades:{format:'MATCH',roundNumber:4,matchRounds:5,
+      scores:{ATTACKERS:2,DEFENDERS:1},selectionEndsAt:18,
+      roundResetCountdown:null,overtimeActive:false},
+  };
+  const view=siegeBladesHudView({id:'local',team:'ATTACKERS'},snapshot,12);
+  assert.equal(view.selectionEndsAt,18);
+  assert.equal(matchInfoText(snapshot,12),'CHOOSE YOUR SIEGE MACHINE · ROUND 4 · AZURE 2 · CRIMSON 1');
 });
