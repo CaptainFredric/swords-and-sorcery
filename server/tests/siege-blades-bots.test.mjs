@@ -11,6 +11,7 @@ import {
   SIEGE_BOT_DIFFICULTIES,
 } from '../../shared/sim/siegeBladesMode.mjs';
 import { damageSoFistication } from '../../shared/sim/soFistication.mjs';
+import { SIEGE_SKILL_OPTIONS, selectedSiegeSkill } from '../../shared/src/siegeLoadout.mjs';
 
 function setupBotRoom(machineClass, difficulty = 'knight') {
   const room = new Room('sb-bot-test', {
@@ -36,6 +37,45 @@ function setupBotRoom(machineClass, difficulty = 'knight') {
   provisionSiegeBladesFleet(room, 0);
   return { room, bot1, bot2 };
 }
+
+
+test('Siege Blades bots equip actual Skills by difficulty; A Sharp Turn remains built-in', () => {
+  const choices = [
+    [SIEGE_MACHINE_CLASSES.RAM, 'soFist', 'beatToThePunch', 'longArmToTheJaw'],
+    [SIEGE_MACHINE_CLASSES.BALLISTA, 'biBye', 'boltToTheOccasion', 'lookAroundAndFindOut'],
+    [SIEGE_MACHINE_CLASSES.FLIGHT, 'fightFlight', 'fireAwayRightHere', 'narrowToOne'],
+  ];
+  for (const [kind, slot, ordinary, champion] of choices) {
+    for (const difficulty of ['squire', 'knight', 'champion']) {
+      const { room, bot1 } = setupBotRoom(kind, difficulty);
+      const machine = room.getMachineForPlayer(bot1.id);
+      const expected = difficulty === 'champion' ? champion : ordinary;
+      assert.ok(SIEGE_SKILL_OPTIONS[slot].includes(expected));
+      assert.equal(bot1.siegeLoadout[slot], expected, `${kind}/${difficulty}: proper Armory slot`);
+      assert.equal(selectedSiegeSkill(bot1, slot), expected);
+      assert.equal(machine.skill?.id, expected, `${kind}/${difficulty}: machine has actual selected Skill`);
+      assert.equal(bot1.siegeLoadout.skill, undefined, 'no legacy pseudo-skill field');
+      assert.notEqual(machine.skill?.id, 'aSharpTurn', 'the ballista sweep is never a Skill');
+    }
+  }
+});
+
+test('Siege Blades carries a human operator\'s equipped Skill into its provisioned machine', () => {
+  const room = new Room('sb-human-loadout', { mode: GAME_MODES.SIEGE_BLADES, worldId: 'high-grounds' });
+  room.state = 'PLAYING';
+  room.siegeBlades = createSiegeBladesState(room, { format: 'ENDLESS', teamSize: 1, clashStarts: false });
+  const human = room.addPlayer({
+    id: 'human', token: 'h', team: TEAMS.ATTACKERS,
+    siegeLoadout: { biBye: 'coldHowTouching', soFist: 'hellpingHand', fightFlight: 'doNotStopMyAscension' },
+  }, 0);
+  const opponent = room.addPlayer({ id: 'bot', token: 'b', team: TEAMS.DEFENDERS }, 0);
+  opponent.actorKind = 'bot';
+  human.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.BALLISTA;
+  opponent.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.RAM;
+  provisionSiegeBladesFleet(room, 0);
+  assert.equal(room.getMachineForPlayer(human.id)?.skill?.id, 'coldHowTouching');
+  assert.equal(room.getMachineForPlayer(opponent.id)?.skill?.id, 'beatToThePunch');
+});
 
 test('SO-FIST-ICATION Ram bot mirror match executes steering, charge, and piston strikes', () => {
   const { room, bot1, bot2 } = setupBotRoom(SIEGE_MACHINE_CLASSES.RAM, 'champion');

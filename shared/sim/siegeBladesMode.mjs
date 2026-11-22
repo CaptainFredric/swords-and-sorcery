@@ -17,6 +17,7 @@ import { setFlightUltimateHold } from './fightFlightTerminal.mjs';
 import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
 import { surfaceHeightAt, segmentAabbHit } from '../src/collision.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { normalizeSiegeLoadout, selectedSiegeSkill } from '../src/siegeLoadout.mjs';
 import { beginAttack, endAttack } from './combat.mjs';
 import { considerOperatorSteel } from './practiceSiegeOperators.mjs';
 
@@ -268,6 +269,19 @@ export function provisionSiegeBladesFleet(room, nowSec) {
       }
     }
 
+    // Bots select real Armory skills. A Sharp Turn remains an innate ballista
+    // attack, independent of the selected Skill.
+    const skillSlot = chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA ? 'biBye'
+      : chosenClass === SIEGE_MACHINE_CLASSES.RAM ? 'soFist' : 'fightFlight';
+    if (player.actorKind === 'bot') {
+      const botSkill = chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA
+        ? (state.botDifficulty === 'champion' ? 'lookAroundAndFindOut' : 'boltToTheOccasion')
+        : chosenClass === SIEGE_MACHINE_CLASSES.RAM
+        ? (state.botDifficulty === 'champion' ? 'longArmToTheJaw' : 'beatToThePunch')
+        : (state.botDifficulty === 'champion' ? 'narrowToOne' : 'fireAwayRightHere');
+      player.siegeLoadout = normalizeSiegeLoadout({ ...player.siegeLoadout, [skillSlot]: botSkill });
+    }
+
     const machineId = `sb-${player.id}-r${state.roundNumber}`;
     let machine = null;
 
@@ -308,6 +322,9 @@ export function provisionSiegeBladesFleet(room, nowSec) {
       player.operatingRamId = machine.id;
     }
 
+    // Provisioning skips normal mount functions; initialize the equipped
+    // Skill here so the bot AI actually sees what its Armory loadout selected.
+    machine.skill = { ...machine.skill, id: selectedSiegeSkill(player, skillSlot) };
     machine.operatorId = player.id;
     room.addMachine(machine);
 
@@ -327,14 +344,6 @@ export function provisionSiegeBladesFleet(room, nowSec) {
 
     if (player.actorKind === 'bot') {
       player.spell = (state.botDifficulty === 'squire' && Math.random() < 0.4) ? 'fireball' : 'steel';
-      player.siegeLoadout = {
-        machine: chosenClass,
-        skill: chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA
-          ? (state.botDifficulty === 'champion' ? 'lookAroundAndFindOut' : 'aSharpTurn')
-          : chosenClass === SIEGE_MACHINE_CLASSES.RAM
-          ? (state.botDifficulty === 'champion' ? 'longArmToTheJaw' : 'beatToThePunch')
-          : (state.botDifficulty === 'champion' ? 'narrowToOne' : 'fireAwayImRightHere'),
-      };
       player.siegeAi = {
         seed: Math.random() * 100,
         decisions: 0,
@@ -730,13 +739,13 @@ function stepDonte(room, a, m, target, ai, tuning, now) {
   }
   const canSpend = ammo >= (skilled ? 3 : 1) || (d < 8 && ammo >= 1);
 
-  const fireAway = m.skill?.id === 'fireAwayImRightHere' && m.skill.phase === 'active';
+  const fireAway = m.skill?.id === 'fireAwayRightHere' && m.skill.phase === 'active';
   if (fireAway && (charge < 38 || !visible)) {
     endFightFlightSkill(room, m, now, charge < 38 ? 'chargeReserve' : 'lostSight');
   }
   const chosen = m.skill?.id;
   if (m.skill?.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0) && visible && accurate && !regroup) {
-    const want = chosen === 'fireAwayImRightHere'
+    const want = chosen === 'fireAwayRightHere'
       ? charge > 77 && ammo < 7 && d > 9 && d < 29 && !attacking
       : chosen === 'narrowToOne' ? d > 7 && d < 34
       : chosen === 'doNotStopMyAscension' ? d > 4 && d < 20 && ammo > 3 && charge > 32
@@ -744,7 +753,7 @@ function stepDonte(room, a, m, target, ai, tuning, now) {
     if (want) requestFightFlightSkill(room, m, a, now);
   }
   const skillActive = m.skill?.phase === 'active' && m.skill.id === 'narrowToOne';
-  const blastMode = m.skill?.phase === 'active' && m.skill.id === 'fireAwayImRightHere';
+  const blastMode = m.skill?.phase === 'active' && m.skill.id === 'fireAwayRightHere';
   const fire = visible && !regroup && !attacking && (accurate || skillActive) && now + 1e-8 >= (ai.nextFireAt ?? 0) && (blastMode ? charge > 38 : canSpend);
   requestFightFlightFire(room, m, a, fire, now);
 

@@ -348,7 +348,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
       burningUntil: p.burn?.until ?? 0,
       // Sheathed in Steel: when it was called and until when it holds full (it wears off evenly from there)
-      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck), ...(p.steel.extended ? { extended: true } : {}), ...(p.steel.earning ? { earning: true } : {}) } : null,
+      steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck), ...(p.steel.earning ? { earning: true } : {}) } : null,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       // the Practice Yard's recast gates (practiceRecast.mjs): the real cooldowns above are shown as they are
