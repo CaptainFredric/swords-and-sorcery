@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {HUD} from './HUD.mjs';
-import {KILLFEED_TONES,killFeedAppearance} from '../game/killFeedColor.mjs';
+import {KILLFEED_TONES,killFeedAppearance,killFeedColoredWords} from '../game/killFeedColor.mjs';
 
 class FakeNode {
   constructor(tag='div') {
     this.tagName=tag.toUpperCase();this._text='';this.children=[];
-    this.dataset={};this.className='';this.classList={remove(){},add(){}};
+    this.dataset={};this.style={};this.className='';this.classList={remove(){},add(){}};
   }
   set textContent(value){this._text=String(value);this.children=[];}
   get textContent(){return this._text+this.children.map(n=>n.textContent).join('');}
@@ -16,7 +16,7 @@ class FakeNode {
   get lastElementChild(){return this.children.at(-1)??null;}
   remove(){this.removed=true;}
 }
-test('HUD renders five independently tinted Disaster words without parsing arbitrary player names as HTML',()=>{
+test('HUD colors the authored Disaster sentence itself, with five elements and NO appended labels',()=>{
  const old=globalThis.document;
  globalThis.document={createElement:tag=>new FakeNode(tag)};
  try{
@@ -26,29 +26,34 @@ test('HUD renders five independently tinted Disaster words without parsing arbit
   const appearance=killFeedAppearance(event);
   const raw='Rowan <img src=x onerror=alert(1)> slew Perry';
   const node=HUD.prototype.addFeed.call(hud,raw,appearance.tone,'same',appearance.infusions);
+  const parts=killFeedColoredWords(raw,appearance.infusions);
   assert.equal(node.className,'feed-line mixed tone-mixed');
-  assert.equal(node.children.length,5);
-  assert.deepEqual(node.children.map(n=>n.className),[
-    'feed-infusion tone-fire','feed-infusion tone-frost','feed-infusion tone-gale',
-    'feed-infusion tone-lightning','feed-infusion tone-steel']);
-  assert.ok(node.textContent.startsWith(raw),'author-written copy remains literal unchanged');
-  assert.equal(node.children[0].title,'FIRE infusion · Full');
-  assert.equal(node.children.at(-1).title,'STEEL infusion · Half');
-  assert.equal(node.children.some(n=>n.tagName==='IMG'),false,'untrusted names never become elements');
+  assert.equal(node.textContent,raw,'no extra · FIRE or other element text');
+  assert.equal(node.children.length,parts.length,'each fragment belongs to existing text');
+  assert.deepEqual([...new Set(parts.flatMap(p=>p.tones))],
+    ['fire','frost','gale','lightning','steel']);
+  assert.ok(node.children.every(n=>n.className.startsWith('feed-word')),
+    'all colors affect original prose only');
+  assert.ok(node.children.some(n=>n.style.backgroundImage?.includes('linear-gradient(')),
+    'short fragments can carry more than one infusion without inserting badges');
+  assert.equal(node.children.some(n=>n.tagName==='IMG'),false,
+    'untrusted names are never parsed into HTML');
   clearTimeout(node.feedFadeTimer);clearTimeout(node.feedRemoveTimer);
   const next=HUD.prototype.addFeed.call(hud,'Rowan slew Perry again','sword','same');
   assert.strictEqual(next,node,'one keyed line is replaced, not duplicated');
-  assert.equal(next.children.length,0,'old element words never bleed into a new kill');
+  assert.equal(next.children.length,0,'old colored words never bleed into a new kill');
   assert.equal(feed.children.length,1);
   clearTimeout(node.feedFadeTimer);clearTimeout(node.feedRemoveTimer);
  }finally{globalThis.document=old;}
 });
-test('CSS exposes readable feed and local SLAIN color for every registered cause and chip',()=>{
+test('CSS exposes readable feed, colored prose and local SLAIN for every registered cause',()=>{
  const css=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
  for(const tone of Object.keys(KILLFEED_TONES)){
   assert.match(css,new RegExp('\\.feed-line\\.tone-'+tone+'\\b'),tone+' feed family exists');
   assert.match(css,new RegExp('\\.status-flash\\.kill\\.tone-'+tone+'\\b'),tone+' SLAIN family exists');
  }
  for(const element of ['fire','frost','gale','lightning','steel'])
-  assert.match(css,new RegExp('\\.feed-infusion\\.tone-'+element+'\\b'));
+  assert.match(css,new RegExp('\\.feed-word\\.tone-'+element+'\\b'));
+ assert.match(css,/\.feed-word\.feed-gradient/);
+ assert.doesNotMatch(css,/\.feed-infusion/,'former elemental chips are removed');
 });
