@@ -254,7 +254,7 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   const sweepFocus=focus==='aSharpTurn'||focus==='lookAroundAndFindOut';
   if(m.mode==='MOBILE'){
     const wheel=drive(room,m,target,ai,tuning,{
-      ideal:sweepFocus?4.2:tuning.preferred,deadZone:sweepFocus?1:3});
+      ideal:sweepFocus?3.0:tuning.preferred,deadZone:sweepFocus?.5:3});
     a.input={...a.input,...wheel,yaw:desired.yaw,pitch:desired.pitch,siegeTarget:{...desired.point,y:desired.point.y+1.15}};
     if(d>9&&d<42&&Math.abs(wheel.err)<.4&&los&&Math.abs(m.speed??0)<.3)
       toggleBiByeDeploy(m,now,room.world);
@@ -273,7 +273,7 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   if(!los||m.mode==='DESTROYED'||m.mode==='DEPLOYING'||m.mode==='RETRACTING')return;
   const isAligned=Math.abs(difference(desired.yaw,m.mainYaw??m.heading))<.2;
   const competent=ai.difficulty!=='learner';
-  if(competent&&d<=(focus==='aSharpTurn'?7.2:4.9)&&
+  if(competent&&d<=(focus==='aSharpTurn'?3.65:3.4)&&
     now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'){
     // A Sharp Turn is available on any equipped ballista. It physically
     // checks its entire bow sweep against terrain and machinery, spends the
@@ -283,7 +283,7 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     if(!problem)return;
   }
   if(competent&&m.skill?.id==='lookAroundAndFindOut'&&
-    d<9.5&&now>=(ai.nextSweepAt??0)){
+    d<3.8&&now>=(ai.nextSweepAt??0)){
     const problem=requestLookAroundAndFindOut(room,m,a,now);
     ai.nextSweepAt=now+(problem?1.25:4.5);
     if(!problem)return;
