@@ -1,6 +1,7 @@
 // Pure presentation of authoritative siege-machine health. Never owns damage, repair or recovery.
 import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
 import { FIGHT_FLIGHT } from '../../shared/sim/fightFlight.mjs';
+import {BI_BYE_COMPONENTS} from '../../shared/sim/biByeComponents.mjs';
 import {steelStrength} from '../../shared/src/steel.mjs';
 const positive = value => Number.isFinite(value) && value > 0;
 const amount = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, value) : fallback;
@@ -58,6 +59,23 @@ export function machineGaugeView(local, snapshot, now = 0) {
         percent: fraction(fistHealth, fistMax), state };
       view.context = context;
     }
+  } else if(kind==='ballista'&&machine.components){
+    // Ten small, independently destructible parts: six carriage wheels and
+    // four outriggers. Read the actual serialized HP, never synthesize it
+    // from hull HP or fill missing components with fake health.
+    const parts=BI_BYE_COMPONENTS.filter(def=>machine.components[def.id])
+      .map(def=>{
+        const hp=machine.components[def.id],health=amount(hp.health);
+        const maxHealth=positive(hp.maxHealth)?hp.maxHealth:def.maxHealth;
+        return {id:def.id,label:def.id.split('_')[1],
+          kind:def.kind,health,maxHealth,
+          percent:fraction(health,maxHealth),state:health<=0?'destroyed':
+            health<maxHealth*.35?'critical':'intact'};
+      });
+    view.parts={
+      wheels:parts.filter(p=>p.kind==='wheel'),
+      stabilizers:parts.filter(p=>p.kind==='stabilizer'),
+    };
   } else if (kind === 'flight' && Number.isFinite(machine.rotorHP)) {
     // Read the component cap from transmitted state or the simulation config.
     const maxRotor = positive(machine.maxRotorHP) ? machine.maxRotorHP : FIGHT_FLIGHT.rotorHP;

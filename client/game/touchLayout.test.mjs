@@ -600,3 +600,23 @@ test('touch objective, killfeed, drive pressure and subtitles use separate mobil
  assert.match(siege,/\.touch-ui \.drive-housing \{[\s\S]*top:calc\(var\(--safe-t,0px\) \+ 66px\)/);
  assert.match(play,/\.touch-ui \.hud\.ballista-mounted #subtitle \{[\s\S]*--siege-gauge-height, 54px\) \+ 7px/);
 });
+
+
+test('mobile ballista puts VIEW above SWEEP, lowers primary fire controls and preserves safe wheel-and-skill lanes',async()=>{
+ const {DEFAULT_BALLISTA_LAYOUT,BI_BYE_MOUNTED_ACTIONS}=await import('./touchLayout.mjs');
+ const layout=DEFAULT_BALLISTA_LAYOUT;
+ assert.ok(layout.siegeView.bottom>layout.siegeSweep.bottom+layout.siegeSweep.size,
+  'VIEW sits a full touch row above the physical SWEEP action');
+ assert.equal(layout.siegeWeapon.top,100);
+ assert.equal(layout.deploy.top,100);
+ const right=(item)=>({left:-(item.right+item.size),right:-item.right,
+  bottom:item.bottom,top:item.bottom+item.size});
+ const collide=(a,b)=>a.left<b.right&&a.right>b.left&&a.bottom<b.top&&a.top>b.bottom;
+ const sweep=right(layout.siegeSweep);
+ for(const name of ['siegeBoth','siegeSkill','spell','attack']){
+  const other=layout[name];if(other?.bottom===undefined)continue;
+  assert.equal(collide(sweep,right(other)),false,'SWEEP clears '+name);
+ }
+ assert.ok(BI_BYE_MOUNTED_ACTIONS.siegeWeapon.top>
+  56,'actual mobile UPPER control is below the previous killfeed lane');
+});

@@ -43,6 +43,11 @@ const aimDragAction=(action,flight,disaster=false,ram=false)=>
   (action==='ultimate'&&!flight&&disaster);
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
+// Tap for a discrete rotor Hop; sustained Jump, without an initial Hop,
+// drives continuous powered ascent. A release during the tap window is the
+// ONLY ordinary Jump gesture that sends flightHop.
+const FLIGHT_TAP_MS = 170;
+const FLIGHT_LOOK_DRAG_PX = 14;
 
 const BUTTONS = [
   { action: 'attack', label: 'ATTACK' },
@@ -96,9 +101,8 @@ export class TouchControls {
     this.look = null;
     this.deniedButtons = new Set();
     this.held = new Map();   // pointerId -> action for held buttons
-    // Bolt stays held by the original finger; crossing into Jump fires one
-    // independent Hop without transferring or releasing the repeater pointer.
-    this.boltJumpTriggered = new Set();
+    // Bolt owns its original finger until release; passing over another
+    // button must never issue an unrequested Hop while firing.
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickSprintRequested = false;
     this.techniqueGesture=null;
@@ -119,6 +123,8 @@ export class TouchControls {
     this.flightRailPointer = null;
     this.jumpHeld = false;
     this.flightJumpDownAt = null;
+    this.flightJumpDragged = false;
+    this.flightJumpOrigin = null;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
     // Raise/Lower fingers tilt their front by default. An outward swipe
@@ -478,7 +484,6 @@ export class TouchControls {
     }
     for (const [pointerId, action] of this.held) this.#release(action, pointerId, true);
     this.held.clear();
-    this.boltJumpTriggered.clear();
     this.buttons.jump?.classList.remove('pressed');
     this.#resetFlightRail();
     this.flightRiseSources.clear();
@@ -508,6 +513,8 @@ export class TouchControls {
     this.viewGesture = null;
     this.jumpHeld = false;
     this.flightJumpDownAt = null;
+    this.flightJumpDragged = false;
+    this.flightJumpOrigin = null;
     this.jumpUntil = 0;
     this.ramLowerHeld = false;
     this.ramTiltGestures.clear();
@@ -527,12 +534,12 @@ export class TouchControls {
     const pitchDown=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&!g.lift);
     const raise=[...this.ramTiltGestures.values()].some(g=>g.action==='jump'&&g.lift);
     const lower=[...this.ramTiltGestures.values()].some(g=>g.action==='crouch'&&g.lift);
-    // A short mounted Jump is one Hop. After 270ms, the same held
-    // thumb controls Rise; the left stick remains exclusively movement.
+    // Only an actual quick RELEASE fires Hop. A still-held Jump rises
+    // continuously after the short intent threshold; it never first Hops.
     const ritualJump=Boolean(this.ritual?.startedOnJump&&!this.ritual.completed&&
       this.ritual.index===0&&this.ritual.segmentProgress<.08);
     const heldFlightJump=Boolean(this.flightMounted&&this.flightJumpDownAt!=null&&
-      (this.jumpHeld||ritualJump)&&performance.now()-this.flightJumpDownAt>=270);
+      (this.jumpHeld||ritualJump)&&performance.now()-this.flightJumpDownAt>=FLIGHT_TAP_MS);
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
@@ -1260,13 +1267,31 @@ export class TouchControls {
     this.flightJumpDownAt=performance.now();
     this.ritual={...createValkyrieRitual(event.pointerId,performance.now(),
       this.valkyrieGeometry.points,this.valkyrieGeometry.reversePoints),
-      startedOnJump:true,startPoint:point};
+      startedOnJump:true,startPoint:point,startClientX:event.clientX,startClientY:event.clientY};
     this.#paintValkyrieRitual();
     return true;
   }
   #ritualMove(event) {
     const g=this.ritual;if(!g||g.pointerId!==event.pointerId)return false;
     event.preventDefault();
+    // A visible Dagaz guide must not monopolize Jump forever. An off-path
+    // drag is ordinary camera steering; a stroke following its first diagonal
+    // continues to draw the rune. Convert without creating a flightHop.
+    if(g.index===0&&g.segmentProgress<.08&&!g.completed){
+      const p=this.#ritualPoint(event),first=g.points[0],next=g.points[1];
+      const dx=next[0]-first[0],dy=next[1]-first[1];
+      const length=Math.hypot(dx,dy)||1;
+      const off=Math.abs((p.x-first[0])*dy-(p.y-first[1])*dx)/length;
+      if(off>54&&Math.hypot(p.x-first[0],p.y-first[1])>64){
+        this.ritual=null;this.ritualVisual=null;this.#paintValkyrieRitual();
+        this.#press('jump',event);
+        this.flightJumpDownAt=g.startedAt;
+        this.flightJumpDragged=true;
+        const aim=this.aim?.get(event.pointerId);
+        if(aim){aim.clientX=g.startClientX;aim.clientY=g.startClientY;}
+        return false; // continue through ordinary #move camera handling
+      }
+    }
     // Native coalesced pointer samples capture fast diagonal and crossing
     // strokes that browsers otherwise deliver as one enormous final move.
     const events=typeof event.getCoalescedEvents==='function'?
@@ -1302,7 +1327,7 @@ export class TouchControls {
     event.preventDefault();
     if(event.type==='pointerup'&&g.startedOnJump&&!g.completed&&
        g.index===0&&g.segmentProgress<.08&&
-       performance.now()-g.startedAt<230){
+       performance.now()-g.startedAt<FLIGHT_TAP_MS){
       this.input.flightHop?.();
     }
     // The final horizontal sweep merely ARMS the ritual. Only a deliberate
@@ -1460,18 +1485,11 @@ export class TouchControls {
         if(g.timer){clearTimeout(g.timer);g.timer=null;}
       }
     }
-    // Pointer capture keeps the event target at the original Bolt button.
-    // Read actual finger coordinates instead: firing never releases, while
-    // entering Jump adds exactly one separate authoritative upward impulse.
-    if(this.flightMounted && held==='siegeWeapon' && event.pointerType!=='mouse' &&
-      !this.boltJumpTriggered.has(event.pointerId) && this.#fingerOverJump(event)){
-      this.boltJumpTriggered.add(event.pointerId);
-      const source=`touch-bolt-jump:${event.pointerId}`;
-      if(this.#gateHeld('jump',true,source)){
-        this.input.flightHop?.();
-        this.buttons.jump?.classList.add('pressed');
-      }
-      this.#gateHeld('jump',false,source,false);
+    // Cross-button pointer capture never turns a firing swipe into a Hop.
+    if(this.flightMounted&&held==='jump'&&this.flightJumpOrigin){
+      const d=Math.hypot(event.clientX-this.flightJumpOrigin.x,
+        event.clientY-this.flightJumpOrigin.y);
+      if(d>FLIGHT_LOOK_DRAG_PX)this.flightJumpDragged=true;
     }
     const aiming = aimDragAction(held,this.flightMounted,true,this.ramMounted) ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
@@ -1544,7 +1562,7 @@ export class TouchControls {
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
     const action = this.held.get(event.pointerId);
-    if(this.boltJumpTriggered.delete(event.pointerId))this.buttons.jump?.classList.remove('pressed');
+
     if(action==='siegeView'&&this.viewGesture?.id===event.pointerId){
       const g=this.viewGesture;this.viewGesture=null;
       if(event.type==='pointerup'&&!g.zoomed&&g.travel<18&&this.input.enabled)this.input.onAction?.('siegeView',true);
@@ -1598,20 +1616,6 @@ export class TouchControls {
       }
     }
   };
-
-  #fingerOverJump(event){
-    const jump=this.buttons.jump;
-    if(!jump||jump.hidden)return false;
-    const x=event.clientX,y=event.clientY;
-    if(!Number.isFinite(x)||!Number.isFinite(y))return false;
-    // getBoundingClientRect is in viewport coordinates, including when the
-    // game canvas is rotated to landscape by ScreenTurn.
-    const rect=jump.getBoundingClientRect?.();
-    if(rect&&Number.isFinite(rect.left)&&Number.isFinite(rect.right)&&
-      Number.isFinite(rect.top)&&Number.isFinite(rect.bottom))
-      return x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom;
-    return document.elementFromPoint?.(x,y)?.closest?.('[data-action="jump"]')===jump;
-  }
 
   #gateHeld(action, requested, source, notify = true) {
     if (this.input.gateHeldAction) return this.input.gateHeldAction(action, requested, source, notify);
@@ -1720,7 +1724,8 @@ export class TouchControls {
       if (this.input.mountedFlight || this.flightMounted) {
         this.jumpHeld=true;
         this.flightJumpDownAt=performance.now();
-        this.input.flightHop?.();
+        this.flightJumpDragged=false;
+        this.flightJumpOrigin={x:event.clientX,y:event.clientY};
       } else {
         this.jumpHeld = true;
         this.jumpUntil = performance.now() + JUMP_LATCH_MS;
@@ -1785,8 +1790,15 @@ export class TouchControls {
       } else this.input.ultimateRelease?.(`touch:${pointerId}`,cancelled);
     }
     if (action === 'jump') {
+      // A long hold is Rise only. A fast tap is Hop only. Dragging the
+      // same held finger looks around and suppresses accidental Hop on lift.
+      if(this.flightMounted&&!cancelled&&this.flightJumpDownAt!=null&&
+        performance.now()-this.flightJumpDownAt<FLIGHT_TAP_MS&&
+        !this.flightJumpDragged)this.input.flightHop?.();
       this.jumpHeld = false;
       this.flightJumpDownAt = null;
+      this.flightJumpDragged = false;
+      this.flightJumpOrigin = null;
     }
     if(action==='crouch'&&this.ramMounted)
       this.ramLowerHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));

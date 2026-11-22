@@ -15,15 +15,21 @@ export const SIEGE_WHEEL_HAZARD=Object.freeze({
   source:'knock-on-steel',
  }),
  ballista:Object.freeze({
-  minSpeed:1.8,damageBase:1,damagePerSpeed:.55,maxDamage:7,
-  shoveBase:2.0,shovePerSpeed:.19,stagger:8,cooldown:1.15,guardDrain:7,
+  minSpeed:1.5,damageBase:2,damagePerSpeed:.55,maxDamage:7,
+  shoveBase:2.35,shovePerSpeed:.21,stagger:8,cooldown:.85,guardDrain:7,
   source:'bibye-wheel',
  }),
 });
 
 const byId=boxes=>new Map(boxes.map(box=>[box.componentId,box]));
 const midway=(a,b)=>({...b,center:b.center.map((v,i)=>(v+a.center[i])/2)});
-const center=p=>[p.position.x,p.position.y+Math.min(1.8,postureOf(p).height)/2,p.position.z];
+// Wheels pass the feet and shins, not the chest. A chest-only query misses
+// a Spellblade pressed against the rear wheel at normal standing height.
+const contactSamples=p=>{
+ const height=postureOf(p).height;
+ return [.30,Math.min(.82,height*.43)].map(y=>
+   [p.position.x,p.position.y+y,p.position.z]);
+};
 
 function nearbyWheel(wheel,previous,point){
  // Wheels are small OBBs in their TRUE raised/steered chassis frames.
@@ -59,8 +65,9 @@ export function stepSiegeWheelContacts(room,machine,previous,dt,now,kind,wheels,
   // approach. Wheel rims must not deliver a second hit on the same victim.
   if(kind==='ram'&&machine.bodyEpisodes?.[victim.id])continue;
   if(now-(machine.wheelContactAt[victim.id]??-Infinity)<profile.cooldown)continue;
-  const point=center(victim);
-  const wheel=current.find(box=>nearbyWheel(box,prev.get(box.componentId)??box,point));
+  const points=contactSamples(victim);
+  const wheel=current.find(box=>points.some(point=>
+    nearbyWheel(box,prev.get(box.componentId)??box,point)));
   if(!wheel)continue;
   const angle=Math.hypot(victim.position.x-wheel.center[0],victim.position.z-wheel.center[2]);
   const side=wheel.componentId.endsWith('L')?1:-1;

@@ -132,19 +132,20 @@ const MOUNTED_ACTIONS = Object.freeze({
 export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
  // Steel is available on deployed artillery, too. Its on-foot position
  // overlapped the conditional BOTH carousel on compact landscape phones.
- spell:{right:198,bottom:104,size:48},
+ spell:{right:210,bottom:104,size:46},
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
  siegeBoth:{right:64,bottom:102,size:60},
-  siegeSweep:{right:140,bottom:188,size:54},
- deploy:{right:68,top:56,size:48},
- siegeWeapon:{right:12,top:56,size:48},
+  // Sweep belongs below View, within the firing thumb's lower arc.
+  siegeSweep:{right:139,bottom:108,size:52},
+ // Move Mode/Upper down away from top-right killfeed messages.
+ deploy:{right:68,top:100,size:48},
+ siegeWeapon:{right:12,top:100,size:48},
 });
 const BI_BYE_UTILITIES=Object.freeze({
  interact:{right:60,top:8,size:38},
- // View sits beside the conditional BOTH slot, not beside accidental LEAVE.
- // Keep enough clearance from the lower Steel / heavy-fire row on short phones.
- siegeView:{right:145,bottom:111,size:40},
+ // View now sits ABOVE Sweep; neither overlaps the Bolt II/BOTH row.
+ siegeView:{right:139,bottom:188,size:42},
 });
 
 /**
