@@ -18,7 +18,7 @@ import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { SIEGE_SKILLS } from '../../shared/sim/siegeSkills.mjs';
 import { biByeModeButton, biByeSkillIcon, biByeCombatView, biByeSweepCooldownView } from '../ui/biByeControlView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
-import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode, clearTouchButtonOverlap } from './touchLayout.mjs';
+import { loadTouchLayout, applyLayoutItem, clearLayoutItem, mountedTouchLayout, layoutForMode, clearTouchButtonOverlap, resolveBallistaControlClearance } from './touchLayout.mjs';
 import { touchMotionIndicator, TOUCH_MOTION_LABELS } from './touchMotionIndicator.mjs';
 import { VALKYRIE_RITUAL_POINTS,VALKYRIE_RITUAL_PATH,
   buildValkyrieRitualGeometry,ritualStartNear,createValkyrieRitual,
@@ -327,7 +327,11 @@ export class TouchControls {
     // The motion well is a child of the stick: edited, moved, or mirrored
     // joystick placements carry the feedback with them automatically.
     this.stickBase.classList.toggle('motion-mirrored', Boolean(layout?.stick?.right != null));
-    for(const element of [this.stickBase,this.valkyrieStencil,...Object.values(this.buttons)])clearLayoutItem(element);
+    for(const element of [this.stickBase,this.valkyrieStencil,...Object.values(this.buttons)]){
+      clearLayoutItem(element);
+      // Transient anti-overlap offsets must not survive a layout or mode change.
+      if(element?.style)element.style.translate='';
+    }
     if (layout) {
       for (const [action, placement] of Object.entries(layout)) {
         if(action==='valkyrieStencil')continue; // obsolete saved overlay anchor
@@ -390,6 +394,55 @@ export class TouchControls {
     const shift=clearTouchButtonOverlap(moving,fixed,bounds,other);
     if(shift&&(shift.dx||shift.dy))
       steel.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
+  }
+
+  // Old/custom ballista saves can place VIEW directly underneath SWEEP (or
+  // put SWEEP onto a conditional BOTH button). Resolve actual game-space hit
+  // rectangles, not screenshots or visual-only transforms. This also works
+  // when ScreenTurn rotates the CSS viewport on portrait-locked phones.
+  #clearBallistaTouchOverlaps() {
+    const sweep=this.buttons.siegeSweep,view=this.buttons.siegeView;
+    if(!sweep||!view)return;
+    if(!this.active||!this.ballistaMounted||this.previewMode||
+       this.layer.classList.contains('touch-layout-editing')){
+      sweep.style.translate='';view.style.translate='';return;
+    }
+    const now=globalThis.performance?.now?.()??0;
+    if(now<(this.ballistaClearanceNextAt??0))return;
+    this.ballistaClearanceNextAt=now+220;
+    sweep.style.translate='';view.style.translate='';
+    const rect=(element,centered=false)=>{
+      if(!Number.isFinite(element?.offsetLeft)||!Number.isFinite(element?.offsetTop)||
+         !Number.isFinite(element?.offsetWidth)||!Number.isFinite(element?.offsetHeight))return null;
+      const left=element.offsetLeft-(centered?element.offsetWidth*.5:0);
+      return {left,right:left+element.offsetWidth,
+        top:element.offsetTop,bottom:element.offsetTop+element.offsetHeight};
+    };
+    const rectangles={};
+    for(const [action,button]of Object.entries(this.buttons)){
+      if(button.hidden||globalThis.getComputedStyle?.(button)?.display==='none')continue;
+      const box=rect(button);
+      if(box)rectangles[action]=box;
+    }
+    // Reserve the real subtitle/gauge bounds, including their centered CSS
+    // transform. Do not relocate VIEW into text or a passive status instrument.
+    for(const [name,selector]of [['caption','#subtitle'],['machineGauge','.machine-gauge']]){
+      const element=globalThis.document?.querySelector?.(selector);
+      if(!element||element.hidden||
+         globalThis.getComputedStyle?.(element)?.display==='none')continue;
+      if(name==='caption'&&!element.classList.contains('show'))continue;
+      const box=rect(element,true);
+      if(box)rectangles[name]=box;
+    }
+    const stick=rect(this.stickBase,true);
+    if(stick)rectangles.stick=stick;
+    const bounds={left:0,top:0,right:this.layer.clientWidth,bottom:this.layer.clientHeight};
+    const shifts=resolveBallistaControlClearance(rectangles,bounds);
+    for(const action of ['siegeSweep','siegeView']){
+      const shift=shifts[action];
+      if(shift&&(shift.dx||shift.dy))
+        this.buttons[action].style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
+    }
   }
 
   // Saved VIEW/LEAVE buttons may be lower than their current presets.
@@ -1031,6 +1084,7 @@ export class TouchControls {
       }
     }
     this.#clearMountedSteelSkillOverlap();
+    this.#clearBallistaTouchOverlaps();
     this.#syncMobileFeedLane();
   }
 
