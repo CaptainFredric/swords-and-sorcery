@@ -773,7 +773,7 @@ export class HUD {
         fillEl.dataset.team = ctrl ?? '';
 
         const m = snapshot.machines ? Object.values(snapshot.machines).find(mach => mach.operatorId === local?.id) : null;
-        if (m && (m.class === 'fight-and-flight' || m.kind === 'flight' || m.rotorHP !== undefined)) {
+        if (m && (m.class === 'fight-and-flight' || m.kind === 'flight' || m.type === 'fight-and-flight' || m.rotorHP !== undefined)) {
           const high = (m.y ?? 0) > 4.5;
           hintEl.classList.toggle('hidden', !high);
         } else {

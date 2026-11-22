@@ -1084,8 +1084,9 @@ function showPauseSection(section) {
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#siege-blades-button')?.addEventListener('click', () => {
   showMenuError('');
-  breakthroughMenu.dataset.panel = 'list';
   mettleActivation.choose('SIEGE_BLADES');
+  breakthroughMenu.dataset.panel = 'details';
+  resetCompanionCrown(breakthroughMenu);
   route(SCREEN_IDS.BREAKTHROUGH_MENU);
 });
 $('#breakthrough-button')?.addEventListener('click', () => {
