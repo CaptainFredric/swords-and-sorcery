@@ -16,7 +16,7 @@ import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellb
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
-import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
 import { riposteView, whirlView } from './techniqueMotion.mjs';
 import { mixSwordArm, riposteFirstPersonPose, steadyRiposteForearm } from './fpTechniques.mjs';
@@ -967,13 +967,6 @@ export class WeaponView {
         (1 - Math.max(guardArm, combo?.weight ?? 0, away.sword?.weight ?? 0));
       const gripRoll = FP_MOTION.swordGripRoll * relaxedGrip;
       const gripTilt = FP_MOTION.swordGripTilt * relaxedGrip;
-      // Riposte starts from the grip orientation the player actually saw.
-      if (relaxedGrip) {
-        const arm = this.shownSwordArm;
-        const edge = rotateVector(arm.edge, normalize(arm.blade), gripRoll);
-        arm.blade = rotateVector(arm.blade, GRIP_TILT_AXIS, gripTilt);
-        arm.edge = rotateVector(edge, GRIP_TILT_AXIS, gripTilt);
-      }
       // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
       // has it)
       // (in the cockpit the sword arm rests a little low and out; eased in and out, so a strike, the Guard and the
@@ -1016,6 +1009,8 @@ export class WeaponView {
           { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.swordWristLean * motion.neutral, space: 'local' },
           // Apply the relaxed grip on top of the shared sword roll. The hand and blade turn together.
           ...(this.bladeInHand ? [{ bone: 'hand.R', axis: this.bladeInHand, angle: gripRoll - REST_EDGE_TURN, space: 'local' }] : []),
+          { bone: 'upper_arm.R', axis: [1, 0, 0], angle: FP_MOTION.swordGripLift * relaxedGrip },
+          { bone: 'upper_arm.R', axis: [0, 1, 0], angle: FP_MOTION.swordGripOut * relaxedGrip },
           { bone: 'hand.R', axis: GRIP_TILT_AXIS, angle: gripTilt },
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
@@ -1057,7 +1052,16 @@ export class WeaponView {
         } : undefined,
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;
-      this.productionInstance.animator.apply(shown, frozen ? 0 : dt);
+      const animator = this.productionInstance.animator;
+      animator.apply(shown, frozen ? 0 : dt);
+      // Riposte starts at the displayed grip, including the shoulder motion that raised it.
+      if (relaxedGrip && this.bladeInHand) {
+        const { wrist, grip, aim, roll } = FIRST_PERSON_SWORD_ARM;
+        const bones = animator.boneApi;
+        this.shownSwordArm.wrist = bones.position(wrist);
+        this.shownSwordArm.blade = bones.direction(grip, aim);
+        this.shownSwordArm.edge = bones.direction(grip, roll);
+      }
       this.lastPlan = shown;
       const w = motion.weapon;
       // the body carries the arms into each cut
