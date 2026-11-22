@@ -650,10 +650,11 @@ function sheatheInSteel(room, player, spell, nowSec) {
 }
 
 /**
- * Steel, the fifth infusion. One Sheathe in Steel use, worn through its whole fully hardened spell without the knight
- * being staggered or killed, earns one stage (two such uses: Full Steel). A use that qualifies, by a knight who then
- * holds a Steel stage, also keeps its plate fully hardened until Steel's own cooldown is over; then it wears off as
- * it always does. The longer plate is the one use's: it earns nothing further.
+ * One uninterrupted five-second Sheathe in Steel earns one Steel infusion.
+ * Earning Half Steel grants one immediate bonus ward, with the ordinary
+ * five-second full-strength interval followed by normal decay. The bonus is
+ * not a spell cast, does not restart the cooldown, and cannot earn Full Steel.
+ * A second manually cast and completed ward still earns Full Steel normally.
  */
 function stepSteelInfusion(room, player, nowSec) {
   const steel = player.steel;
@@ -661,11 +662,16 @@ function stepSteelInfusion(room, player, nowSec) {
   if (nowSec < player.staggerUntil) { player.steel = { ...steel, earning: false }; return; }
   if (nowSec < steel.calledAt + STEEL.fullSec) return;
   const earned = creditOneHitEncounter(player, 'steel', `steel:${player.id}:${steel.calledAt}`);
-  const held = normalizeInfusions(player.oneHitInfusions).steel >= 1;
-  player.steel = { ...steel, earning: false,
-    ...(held ? { fullUntil: Math.max(steel.fullUntil, steel.calledAt + STEEL.cooldownSec), extended: true } : {}) };
-  if (earned) room.events.push({ type: 'oneHitInfusion', playerId: player.id, element: 'steel', tier: player.oneHitInfusions.steel, at: nowSec });
-  if (held) room.events.push({ type: 'steelExtended', playerId: player.id, fullUntil: player.steel.fullUntil, at: nowSec });
+  const tier = normalizeInfusions(player.oneHitInfusions).steel;
+  player.steel = { ...steel, earning: false };
+  if (earned) room.events.push({ type: 'oneHitInfusion', playerId: player.id, element: 'steel', tier, at: nowSec });
+  if (earned && tier === 1) {
+    // The one-time Half Steel reward is a fresh ward, NOT another qualifying
+    // spell use. Do not set earning or alter the actual spell's cooldown.
+    player.steel = callSteel(nowSec);
+    room.events.push({ type: 'steelOn', playerId: player.id, bonus: true, at: nowSec,
+      readyAt: player.spellReadyAt });
+  }
 }
 
 /**
