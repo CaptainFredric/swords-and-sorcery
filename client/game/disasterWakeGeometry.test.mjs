@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {wakeTubeVertices,wakePathFrames,wakeSamplePath} from './disasterWakeGeometryData.mjs';
+import {wakeTubeVertices,wakePathFrames,wakeSamplePath,fullSteelWakeExitOpacity,FULL_STEEL_WAKE_EXIT_FADE_SEC} from './disasterWakeGeometryData.mjs';
 
 const points=[{x:1,y:15,z:-2},{x:6,y:15,z:-2},{x:12,y:19,z:-4}];
 const renderer=readFileSync(new URL('./disasterWakeGeometry.mjs',import.meta.url),'utf8');
@@ -50,4 +50,20 @@ test('renderer animates an infused volume with controlled visual-only motes and 
   assert.match(renderer,/uTime\.value=time/,'animated instead of static');
   assert.match(renderer,/mesh\.geometry\.dispose\(\)/,'geometry is cleaned on path updates');
   assert.doesNotMatch(renderer,/wakeRibbonVertices|axis<=1/,'no intersecting stretched cards');
+});
+
+test('Full Steel is fully visible to expiry, then its cosmetic shell fades out within 260ms',()=>{
+ assert.equal(FULL_STEEL_WAKE_EXIT_FADE_SEC,.26);
+ assert.equal(fullSteelWakeExitOpacity(0),1,'first frame after expiration remains visible');
+ assert.ok(fullSteelWakeExitOpacity(.08)<.6&&fullSteelWakeExitOpacity(.08)>.4);
+ assert.ok(fullSteelWakeExitOpacity(.18)<.13);
+ assert.equal(fullSteelWakeExitOpacity(.26),0);
+ assert.equal(fullSteelWakeExitOpacity(.8),0);
+ assert.equal(fullSteelWakeExitOpacity(Infinity),0);
+ const live=readFileSync(new URL('./OneHitLiveEffects.mjs',import.meta.url),'utf8');
+ assert.match(live,/state\.fullSteelWake&&expired&&state\.lastWakeField/,
+   'only an expired Full Steel field gets a visual-only ghost');
+ assert.match(live,/updateWakeVisual\(mesh,state\.lastWakeField,opacity,this\.visualClock\)/);
+ assert.match(live,/disposeWakeVisual\(mesh\)/,
+   'expired visual still gets disposed');
 });

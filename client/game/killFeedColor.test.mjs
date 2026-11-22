@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {killFeedAppearance,killFeedTone,killFeedInfusionTags,KILLFEED_SOURCE_TONES,
+import {killFeedAppearance,killFeedTone,killFeedInfusionTags,killFeedColoredWords,KILLFEED_SOURCE_TONES,
   KILLFEED_ELEMENTS,KILLFEED_TONES} from './killFeedColor.mjs';
 import {killFeedDeath,terminalAscensionFeed} from './killFeedText.mjs';
 
@@ -45,7 +45,7 @@ test('neutral attributed/uncredited abyss and generic suicide stay ivory, Valkyr
  assert.deepEqual(terminalAscensionFeed('Perry',[]),{text:'Perry Ascended',kind:'fire'},
    'original author-facing Ascension copy stays unchanged');
 });
-test('multi-infused Disaster prints each REAL element in canonical order and keeps existing authored joke intact',()=>{
+test('multi-infused Disaster retains exact element metadata without changing the authored joke',()=>{
  const event=lethal('one_hit_of_wonders',{killContext:'disaster-windblade',
    infusionTiers:{fire:2,frost:1,gale:2,lightning:1,steel:2}});
  const copy=killFeedDeath(event,'Rowan','Perry');
@@ -79,4 +79,29 @@ test('only actual infusions are rendered, full tier does not repeat a word, futu
  assert.equal(killFeedTone(lethal('one_hit_of_wonders',{
    killContext:'lightning-teleport-slam'})),'lightning');
  assert.ok(Object.keys(KILLFEED_SOURCE_TONES).length>20,'all source variants are explicitly registered');
+});
+
+test('infusion colors live on the original words, never on appended FIRE · FROST chips',()=>{
+ const event=lethal('one_hit_of_wonders',{infusionTiers:
+   {fire:2,frost:1,gale:2,lightning:1,steel:2}});
+ const infusions=killFeedAppearance(event).infusions;
+ const phrase='Rowan mastered Perry near the outer wall';
+ const colored=killFeedColoredWords(phrase,infusions);
+ assert.equal(colored.map(p=>p.text).join(''),phrase,'all original spaces and punctuation survive');
+ assert.deepEqual([...new Set(colored.flatMap(p=>p.tones))],
+   ['fire','frost','gale','lightning','steel'],'all five elements appear within the prose');
+ assert.equal(colored.length,phrase.match(/\S+\s*|\s+/gu).length,'no extra label fragments');
+ assert.ok(colored.every(part=>!part.text.includes(' · FIRE')),'no elemental suffixes');
+ const short='Rowan won';
+ const shortParts=killFeedColoredWords(short,infusions);
+ assert.equal(shortParts.map(p=>p.text).join(''),short);
+ assert.deepEqual([...new Set(shortParts.flatMap(p=>p.tones))],
+   ['fire','frost','gale','lightning','steel'],
+   'short lines blend the extra colors inside existing words rather than lose elements');
+ assert.deepEqual(killFeedColoredWords(phrase,[{tone:'fire'}]),[],
+   'single-element lines inherit their whole-line cause color');
+ assert.deepEqual(killFeedColoredWords(phrase,[{tone:'hacked'},{tone:'steel'}]),[],
+   'unknown or untrusted tones cannot become styles');
+ assert.deepEqual(killFeedColoredWords('   ',infusions),[],
+   'pure whitespace never receives phantom labels');
 });

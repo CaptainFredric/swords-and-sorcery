@@ -3606,7 +3606,7 @@ export class GameRuntime {
         this.latestSnapshot?.players.find(p=>p.id===id)?.name).filter(Boolean);
       const group=groupHeroFeed(victim?.name??'someone',participants,event);
       if(group?.text){
-        this.hud.addFeed(group.text,'sword');
+        this.hud.addFeed(group.text,appearance.tone,null,appearance.infusions);
         return;
       }
     }
@@ -3622,13 +3622,21 @@ export class GameRuntime {
         this.graveFeedWindows.set(killer.id,group);
       }
       if(!group.victims.some(entry=>entry.id===event.victimId))
-        group.victims.push({id:event.victimId,name:victim?.name??'someone'});
+        group.victims.push({id:event.victimId,name:victim?.name??'someone',
+          infusions:appearance.infusions});
       group.lastAt=at;
       if(group.victims.length>=2){
         const names=group.victims.map(entry=>entry.name);
         const grave=groupCheatingFeed(killer.name,names,event) ??
           graveTimeFeed(names[0],names.slice(1));
-        if(grave)this.hud.addFeed(grave.text,appearance.tone,`grave:${killer.id}:${group.firstAt}`);
+        if(grave){
+          // The grave entry represents several lethal attacks. Show the union
+          // of their actual Disaster infusions, not only the most recent kill.
+          const infusions=[...new Map(group.victims.flatMap(v=>v.infusions??[])
+            .map(x=>[x.tone,x])).values()];
+          this.hud.addFeed(grave.text,appearance.tone,
+            `grave:${killer.id}:${group.firstAt}`,infusions);
+        }
         return;
       }
     }
