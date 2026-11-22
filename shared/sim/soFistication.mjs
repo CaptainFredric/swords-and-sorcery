@@ -320,9 +320,9 @@ const p=room.players.get(b.operatorId);
         const kind=other.class??other.kind;
         let damaged=false;
         if(kind==='so-fist-ication'||kind==='ram'){
-          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point});
+          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
         }else if(kind==='fight-and-flight'||kind==='flight'){
-          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point,steelMinimum:5});
+          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'main',point,steelMinimum:5});
         }else{
           damaged=damageBiByeLlista(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
  
