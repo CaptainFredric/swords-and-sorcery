@@ -220,8 +220,8 @@ try{
   return out;
  })()`);
  assert.deepEqual(skillChoices['bi-bye-llista'],
-   ['auto','boltToTheOccasion','coldHowTouching','lookAroundAndFindOut','aSharpTurn'],
-   'Ballistefan gets every equippable Skill plus innate Sharp Turn focus');
+   ['auto','boltToTheOccasion','coldHowTouching','lookAroundAndFindOut'],
+   'Ballistefan equips only actual Skills; A Sharp Turn stays innate');
  assert.deepEqual(skillChoices['so-fist-ication'],
    ['auto','beatToThePunch','longArmToTheJaw','hellpingHand']);
  assert.deepEqual(skillChoices['fight-and-flight'],
