@@ -256,7 +256,7 @@ test('distinct Disaster finishing phases do not overwrite near-full or Lightning
 test('manual Gale blast respects a facing Guard at its exact center, but a rear detonation can bypass it',()=>{
  const detonation=(offset,guardYaw,alreadyTouched=false)=>{
   const {room,a,b}=battle({gale:2});
-  b.position={x:10,y:2,z:0};b.velocity={x:0,y:0,z:0};
+  b.position={x:10,y:2,z:0};b.velocity={x:0,y:0,z:0};b.history=[];
   b.yaw=guardYaw;b.input.yaw=guardYaw;
   b.guarding=true;b.guardHeld=true;b.guardStartedAt=8;b.guardStamina=100;
   const wave={id:'directional-manual',ownerId:a.id,
