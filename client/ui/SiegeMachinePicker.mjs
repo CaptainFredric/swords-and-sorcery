@@ -53,11 +53,11 @@ export class SiegeMachinePicker {
       this.updateSelection(machine);
       this.onPick(machine);
     };
-    this.element.addEventListener('click',event=>{
+    this.element.addEventListener?.('click',event=>{
       const button=event.target.closest?.('[data-siege-pick]');
       if(button)choose(button.dataset.siegePick);
     });
-    this.element.addEventListener('keydown',event=>{
+    this.element.addEventListener?.('keydown',event=>{
       const index=Number(event.key)-1;
       if(event.repeat||!this.active||!Number.isInteger(index)||index<0||index>=SIEGE_MACHINE_CARDS.length)return;
       event.preventDefault();
