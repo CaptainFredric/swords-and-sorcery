@@ -494,6 +494,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const siege=m.externalSiegeImpulse;
   if(siege){
     m.velocity.x=cap(m.velocity.x+siege.x,-24,24);
+    if(siege.y)m.velocity.y=cap(m.velocity.y+siege.y,-18,16);
     m.velocity.z=cap(m.velocity.z+siege.z,-24,24);
     m.externalSiegeImpulse=null;
   }

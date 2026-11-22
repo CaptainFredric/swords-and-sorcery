@@ -8,9 +8,9 @@ import { areAllies } from '../src/teams.mjs';
 
 export function getMachineKind(m) {
   if (!m) return null;
-  if (m.kind === 'flight' || m.class === 'fight-and-flight' || m.class === 'flight' || m.rotorHP !== undefined) return 'flight';
-  if (m.kind === 'ballista' || m.class === 'bi-bye-llista' || m.class === 'ballista' || m.weaponFocus !== undefined) return 'ballista';
-  if (m.kind === 'ram' || m.class === 'so-fist-ication' || m.class === 'ram' || m.components?.Fist !== undefined || m.pressure !== undefined) return 'ram';
+  if (m.kind === 'flight' || m.class === 'fight-and-flight' || m.class === 'flight' || m.type === 'fight-and-flight' || m.type === 'flight' || m.rotorHP !== undefined) return 'flight';
+  if (m.kind === 'ballista' || m.class === 'bi-bye-llista' || m.class === 'ballista' || m.type === 'bi-bye-llista' || m.type === 'ballista' || m.weaponFocus !== undefined) return 'ballista';
+  if (m.kind === 'ram' || m.class === 'so-fist-ication' || m.class === 'ram' || m.type === 'so-fist-ication' || m.type === 'ram' || m.components?.Fist !== undefined || m.pressure !== undefined) return 'ram';
   return 'machine';
 }
 

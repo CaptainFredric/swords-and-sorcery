@@ -665,7 +665,10 @@ export class GameRuntime {
     // the meter full: a restrained note, once
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
-    this.hud.onSiegeMachineChosen = machine => this.socket.send({ type: 'siegeBladesChoose', machine });
+    this.hud.onSiegeMachineChosen = machine => {
+      this.#play(steelTickRecipe(Math.random, { strength: 0.95 }), null, 0.75);
+      this.socket.send({ type: 'siegeBladesChoose', machine });
+    };
     this.input.onDashLocal = (dir) => {
       if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
@@ -3903,11 +3906,15 @@ export class GameRuntime {
     // other non-flight camera path; no stale visual or forced camera mode.
     this.flightDashPresentation.reset();
     const ram=Boolean(this.localAuth?.operatingRamId);
+    const flight=Boolean(this.localAuth?.operatingFightFlightId);
     let bRenderer = null;
     let b = null;
     if (ram) {
       bRenderer = this.fleetRenderer?.getRenderer(this.localAuth.operatingRamId) || this.world?.soFistication || this.ramRenderer;
       b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth.operatingRamId);
+    } else if (flight) {
+      bRenderer = this.fleetRenderer?.getRenderer(this.localAuth.operatingFightFlightId) || this.flightRenderer;
+      b = this.#siegeMachine(this.localAuth.operatingFightFlightId);
     } else {
       bRenderer = this.fleetRenderer?.getRenderer(this.localAuth?.operatingBallistaId) || this.world?.biByeLlista;
       b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth?.operatingBallistaId);
@@ -4377,6 +4384,14 @@ export class GameRuntime {
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
+    if (this.siegeSelectionOpen) {
+      for (const rig of this.remotePlayers.rigs.values()) {
+        if (rig.root) rig.root.visible = false;
+      }
+      if (this.remotePlayers.self?.root) {
+        this.remotePlayers.self.root.visible = false;
+      }
+    }
     this.#showAfflictions(dt);
     // Whirl Like the Wind continuous presentation: white crescents + light green gale ascent
     const whirlPlayers = this.latestSnapshot?.players ?? [];
@@ -4430,6 +4445,12 @@ export class GameRuntime {
         this.latestSnapshot?.bibyeBallista?.id,
         this.latestSnapshot?.fightFlight?.id,
       ].filter(Boolean),
+      getPrimaryRenderer: (id) => {
+        if (id && id === this.latestSnapshot?.fightFlight?.id) return this.flightRenderer;
+        if (id && id === this.latestSnapshot?.soFistication?.id) return this.ramRenderer;
+        if (id && id === this.latestSnapshot?.bibyeBallista?.id) return this.world?.biByeLlista;
+        return null;
+      },
       playingLocally: this.socket.playingLocally,
       frozen: this.socket.inspectionFrozen,
       localAim: localFlightAim,

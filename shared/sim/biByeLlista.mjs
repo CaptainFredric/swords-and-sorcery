@@ -841,11 +841,14 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       // A piston contact can begin at the boundary of the ram's hit volumes.
       // Escape from an initial overlap is safe only if separating from the
       // ram AND clearing the permanent world + player obstacles.
-      if(!safe&&initiallyBlocked&&room.soFistication){
-        const ram=room.soFistication;
-        const away=Math.hypot(proposed.x-ram.x,proposed.z-ram.z)>
-          Math.hypot(ballista.x-ram.x,ballista.z-ram.z)+1e-6;
-        if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
+      if(!safe&&initiallyBlocked){
+        const ram=(ballista.lastImpactSourceId?room.getMachine?.(ballista.lastImpactSourceId):null)
+          ||room.soFistication||getFleetMachines(room).find(m=>getMachineKind(m)==='ram');
+        if(ram){
+          const away=Math.hypot(proposed.x-ram.x,proposed.z-ram.z)>
+            Math.hypot(ballista.x-ram.x,ballista.z-ram.z)+1e-6;
+          if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
+        }
       }
       if(!safe){ballista.externalVelocity={x:0,z:0};break;}
       Object.assign(ballista,{x:proposed.x,y:proposed.y,z:proposed.z,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:pose.wheelOffsets});

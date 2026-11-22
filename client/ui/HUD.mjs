@@ -136,6 +136,7 @@ export function siegeBladesHudView(local, snapshot, serverNow) {
     overtimeActive: Boolean(s.overtimeActive),
     zone: s.zone ?? null,
     clock,
+    elapsed,
   };
 }
 
@@ -770,6 +771,10 @@ export class HUD {
         bannerEl.classList.remove('hidden');
         bannerEl.className = 'sb-banner sb-clash';
         bannerEl.textContent = '⚡ CLASH START ⚡';
+      } else if (sbView.elapsed < 2.2) {
+        bannerEl.classList.remove('hidden');
+        bannerEl.className = 'sb-banner sb-deploy';
+        bannerEl.textContent = 'DEPLOY TO BATTLE · ENGAGE!';
       } else {
         bannerEl.classList.add('hidden');
       }

@@ -1,5 +1,6 @@
 import {biByeDeployProgress,biByeAimPose} from './biByeComponents.mjs';
 import {interruptBiByeSupport} from './biByeWeapons.mjs';
+import {getMachineKind} from './fleetGeometry.mjs';
 // Bounded authoritative impact response shared by the two heavy siege chassis.
 // All translation remains subject to each machine's existing terrain/collision solver.
 export const SIEGE_IMPACT=Object.freeze({
@@ -45,10 +46,11 @@ export function recoilRamOnPistonHit(room,b,now,{speed,normal,kind,point=null}){
  recordSiegeImpact(room,b,now,{speed:energy,normal,kind,point});
  return true;
 }
-export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
+export function applyBallistaImpact(room,b,now,{normal,speed,point=null,sourceId=null}={}){
  if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return false;
  const nx=normal?.x??0,nz=normal?.z??0,len=Math.hypot(nx,nz);
  if(len<.01)return false;
+ if(sourceId)b.lastImpactSourceId=sourceId;
  const mobile=b.mode==='MOBILE';
  const braced=b.mode==='DEPLOYED'||b.mode==='DEPLOYING';
  const energy=Math.max(0,speed);
@@ -63,6 +65,15 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
   const x=old.x+direction.x*impulse,z=old.z+direction.z*impulse;
   const scale=Math.min(1,SIEGE_IMPACT.mobileBallistaMaxSpeed/Math.max(.001,Math.hypot(x,z)));
   b.externalVelocity={x:x*scale,z:z*scale};
+  // Oblique deflection
+  const forward={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+  const lateral={x:-forward.z,z:forward.x};
+  const sideways=direction.x*lateral.x+direction.z*lateral.z;
+  if(Math.abs(sideways)>0.05){
+    const yawDeflect=clamp(energy*0.015,0,0.15)*sideways;
+    b.heading+=yawDeflect;
+    b.baseYaw=(b.baseYaw??b.heading)+yawDeflect;
+  }
  }else if(braced&&energy>=SIEGE_IMPACT.uprootOutriggersSpeed){
   // The deployed legs are torn FREE, not magically planted harder.
   // Use the actual retracting assembly animation so all observers see
@@ -98,32 +109,47 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
  * teleport it or temporarily exempt it from terrain and other chassis.
  * Only one caller per genuine damaging impact applies the impulse.
  */
-export function applyMachineImpact(room,target,now,{normal,speed,point=null}={}){
+export function applyMachineImpact(room,target,now,{normal,speed,point=null,sourceId=null}={}){
  if(!target||target.retired||target.health<=0||target.mode==='DESTROYED')return false;
  const length=Math.hypot(normal?.x??0,normal?.z??0);
  if(length<.01||!(speed>0))return false;
  const direction={x:normal.x/length,z:normal.z/length};
- if(target.kind==='ballista'||target.class==='bi-bye-llista')
-   return applyBallistaImpact(room,target,now,{normal:direction,speed,point});
- if(target.kind==='ram'||target.class==='so-fist-ication'){
-   // The wheeled ram has a longitudinal drivetrain; a head-on impact pushes
-   // it backwards while a rear hit drives it forward. Oblique contacts
-   // transfer only their physically supported longitudinal component.
+ const kind = getMachineKind(target);
+ if (sourceId) target.lastImpactSourceId = sourceId;
+
+ if(kind==='ballista')
+   return applyBallistaImpact(room,target,now,{normal:direction,speed,point,sourceId});
+ if(kind==='ram'){
+   // Wheeled ram drivetrain: longitudinal recoil pushes it along heading axis.
    const forward={x:-Math.sin(target.heading),z:-Math.cos(target.heading)};
-   const alignment=direction.x*forward.x+direction.z*forward.z;
-   const recoil=clamp(speed*SIEGE_IMPACT.ramTargetTransfer,0,SIEGE_IMPACT.ramTargetMaxRecoil)*alignment;
+   const lateral={x:-forward.z,z:forward.x};
+   const longitudinal=direction.x*forward.x+direction.z*forward.z;
+   const sideways=direction.x*lateral.x+direction.z*lateral.z;
+
+   const recoil=clamp(speed*SIEGE_IMPACT.ramTargetTransfer,0,SIEGE_IMPACT.ramTargetMaxRecoil)*longitudinal;
    target.recoilVelocity=clamp((target.recoilVelocity??0)+recoil,
      -SIEGE_IMPACT.ramTargetMaxRecoil,SIEGE_IMPACT.ramTargetMaxRecoil);
+
+   // Oblique impact transfers bounded lateral recoil and yaw deflection
+   if(Math.abs(sideways)>0.04){
+     const sideImpulse=clamp(speed*0.22,0,2.2)*sideways;
+     target.lateralRecoil=clamp((target.lateralRecoil??0)+sideImpulse,-2.5,2.5);
+     const yawTorque=clamp(speed*0.02,0,0.16)*sideways;
+     target.heading+=yawTorque;
+   }
    recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'ram-piston',point});
    return true;
  }
- if(target.kind==='flight'||target.class==='fight-and-flight'){
-   // Flight has full 3-D velocity; feed this into the same swept collision
-   // integrator as rotor strikes, rather than adjusting position directly.
+ if(kind==='flight'){
+   // Flight has full 3-D velocity; feed into swept collision solver.
    const impulse=clamp(speed*SIEGE_IMPACT.flightTargetTransfer,0,SIEGE_IMPACT.flightTargetMaxImpulse);
-   const old=target.externalSiegeImpulse??{x:0,z:0};
-   target.externalSiegeImpulse={x:clamp(old.x+direction.x*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
-     z:clamp(old.z+direction.z*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse)};
+   const old=target.externalSiegeImpulse??{x:0,y:0,z:0};
+   const ny=normal?.y??0.2;
+   target.externalSiegeImpulse={
+     x:clamp(old.x+direction.x*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
+     y:clamp((old.y??0)+ny*impulse*0.5,-SIEGE_IMPACT.flightTargetMaxImpulse*0.5,SIEGE_IMPACT.flightTargetMaxImpulse*0.8),
+     z:clamp(old.z+direction.z*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse)
+   };
    recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'flight-piston',point});
    return true;
  }

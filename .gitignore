@@ -19,3 +19,7 @@ artifacts/
 # Local browser verification captures and control sessions
 output/
 .playwright-cli/
+
+# Assembled multipart assets
+assets/source/so-fist-ication/argon-v26/SO_FIST_ICATION.blend
+client/assets/props/so-fist-ication/so-fist-ication-v26.glb

@@ -156,13 +156,17 @@ export function createSiegeBladesState(room, options = {}) {
 }
 
 export const SIEGE_SELECTION_SECONDS = 8;
+export function getSiegeSelectionDuration(roundNumber = 1) {
+  return roundNumber <= 1 ? 8 : 6;
+}
 const VALID_MACHINE_CLASSES = new Set(Object.values(SIEGE_MACHINE_CLASSES));
 
 /** Server-owned selection phase before EVERY round, including the first. */
 export function beginSiegeBladesSelection(room, nowSec) {
   const state = room.siegeBlades;
   if (!state) return false;
-  state.selectionEndsAt = nowSec + SIEGE_SELECTION_SECONDS;
+  const duration = getSiegeSelectionDuration(state.roundNumber);
+  state.selectionEndsAt = nowSec + duration;
   state.selectionChoices = new Map();
   room.resetFleet(nowSec);
   state.spawnAssignments.clear();
@@ -535,6 +539,8 @@ export function resetSiegeBladesRound(room, nowSec) {
   // A previous round's hazards may outlive its pilots; none may enter the
   // next round or hurt someone while they are choosing a fresh machine.
   room.projectiles?.clear();
+  room.bibyeProjectiles?.clear();
+  room.fightFlightProjectiles?.clear();
   room.ruptures = [];
   room.oneHitBurnZones = [];
   room.oneHitFields = [];

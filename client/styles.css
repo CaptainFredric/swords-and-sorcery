@@ -945,6 +945,16 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
    mode which asks only once before the match. Keep all three machines visible
    at once in the shortest landscape mobile viewport. */
 .hud.siege-choosing { z-index: 30; }
+.hud.siege-choosing .touch-controls,
+.hud.siege-choosing .reticle,
+.hud.siege-choosing .flight-charge-rail,
+.hud.siege-choosing .ballista-hud,
+.hud.siege-choosing .uprooted-outriggers-indicator,
+.hud.siege-choosing .guard-block {
+  pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
 .sb-machine-picker { position:absolute; inset:0; z-index:40; display:grid; place-items:center;
   pointer-events:auto; isolation:isolate; color:#e7dfce; font-family:system-ui,sans-serif; }
 .sb-machine-picker[hidden] { display:none !important; }
@@ -963,25 +973,34 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
 .sb-draft-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(5px,1.6vw,16px); }
 .sb-draft-card { min-width:0; display:flex; flex-direction:column; align-items:stretch;
   gap:clamp(3px,.75vh,8px); padding:clamp(6px,1.4vw,15px); text-align:left;
-  border:1px solid #696756; border-bottom:3px solid #867658; border-radius:2px;
+  border:1px solid #696756; border-bottom:3px solid #867658; border-radius:3px;
   background:linear-gradient(180deg,#2d3231,#1c2220 63%,#151b18); color:#e9e1cd;
-  cursor:pointer; transition:background .12s,border-color .12s,box-shadow .12s; }
-.sb-draft-card:hover,.sb-draft-card:focus-visible { border-color:#dcc38c; background:#35403a; outline:none; }
-.sb-draft-card.selected { border-color:#f4d488; border-bottom-color:#ffde8f;
-  background:linear-gradient(180deg,#414236,#242e27); box-shadow:inset 0 0 0 1px #eccb7466,0 0 16px #cfaa4c38; }
+  cursor:pointer; transition:background .15s,border-color .15s,box-shadow .15s,transform .15s; }
+.sb-draft-card:hover,.sb-draft-card:focus-visible { border-color:#dcc38c; background:#35403a; outline:none; transform:translateY(-2px); }
+.sb-draft-card.selected { border-color:#f7dc92; border-bottom:3px solid #ffe9a6;
+  background:linear-gradient(180deg,#444537,#242f28); box-shadow:inset 0 0 0 1px #eccb74aa,0 0 20px #e0ba5555,0 8px 24px rgba(0,0,0,0.6); }
 .sb-draft-art { display:grid; place-items:center; width:100%; aspect-ratio:2.25;
   border:1px solid #847b6359; background:radial-gradient(ellipse at 50% 60%,#57625b55,#111915);
-  overflow:hidden; }
+  overflow:hidden; position:relative; }
+.sb-draft-img { display:block; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,0.6)); transition:transform 0.16s ease-out; }
+.sb-draft-card:hover .sb-draft-img,.sb-draft-card:focus-visible .sb-draft-img { transform:scale(1.04); }
+.sb-draft-card.selected .sb-draft-img { transform:scale(1.05); filter:drop-shadow(0 8px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 10px rgba(230,190,110,0.35)); }
 .sb-draft-art svg { display:block; width:100%; height:100%; max-width:270px; }
 .sb-draft-role { color:#cbb786; font-size:clamp(8px,1.6vh,10px); font-weight:800; letter-spacing:.13em; }
 .sb-draft-card strong { font-size:clamp(11px,2.55vh,18px); line-height:1.1; font-weight:900; }
 .sb-draft-card small { color:#b5b7b0; line-height:1.3; font-size:clamp(9px,1.7vh,12px); min-height:2.6em; }
 .sb-draft-key { align-self:flex-start; color:#d8c18d; border-top:1px solid #9b8b6044;
   padding-top:4px; margin-top:auto; font:800 clamp(8px,1.35vh,10px)/1 system-ui; letter-spacing:.1em; }
+.sb-key-badge { display:inline-block; padding:1px 5px; margin-right:3px; background:#1b201d; border:1px solid #998762; border-radius:3px; color:#fae4aa; font-weight:900; font-size:.95em; }
 .sb-draft-footer { display:flex; justify-content:space-between; align-items:center; gap:12px;
   margin-top:clamp(7px,2vh,20px); padding-top:clamp(6px,1.5vh,14px); border-top:1px solid #8b806455;
   font-size:clamp(10px,1.8vh,14px); font-weight:800; letter-spacing:.045em; }
 .sb-draft-footer b { color:#f4d18b; font-size:1.45em; font-variant-numeric:tabular-nums; }
+.sb-banner.sb-deploy {
+  background:linear-gradient(90deg,transparent,rgba(210,180,90,0.3),transparent);
+  color:#ffe9a6; border-top:1px solid #f4d488; border-bottom:1px solid #f4d488;
+  text-shadow:0 0 12px #d2b878; letter-spacing:0.14em;
+}
 @media (max-height:440px) {
  .sb-draft-content {padding:7px 12px;}
  .sb-draft-art {aspect-ratio:3;}

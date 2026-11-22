@@ -23,6 +23,10 @@ export class SoFistSound {
  event(e,b,now){
   if(!b||e.machineId!==b.id)return;
   if(e.type==='soFistSteam')this.sound.play('ramVent',b,0.7);
+  if(e.type==='soFistChassisMachineImpact'){
+    this.sound.event({...e,type:'bibyeDamaged',ballistaId:b.id,material:'metal'},b,now);
+    this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
+  }
   if(e.type==='siegeImpact'&&e.kind!=='piston-wall'&&e.strength>.12)this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
    if(e.type==='soFistBlocked')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
   if(e.type==='soFistImpact')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);

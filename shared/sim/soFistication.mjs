@@ -97,7 +97,7 @@ function stepRamElevation(room,b,dt,now,world){
   b.ramLiftBlockedAt=now;
  }
 }
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',class:'so-fist-ication',kind:'ram',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',class:'so-fist-ication',kind:'ram',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,lateralRecoil:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
   flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
  detachedFist:null,fistRecoveryUntil:0,hellping:null,
@@ -293,7 +293,8 @@ const p=room.players.get(b.operatorId);
   if(Math.abs(travelSpeed)<1e-5)break;
   const from={...b},heading=b.heading+soFistTurnRate({...b,speed:travelSpeed})*sub;
   const rearZ=SO_FIST_WHEELS[2].pivot[2];
-  const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*travelSpeed*sub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*travelSpeed*sub,heading};const pose=soFistTerrainPose(next,world);
+  const latRecoil=b.lateralRecoil??0,latSub=latRecoil*sub;
+  const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*travelSpeed*sub-Math.cos(heading)*latSub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*travelSpeed*sub+Math.sin(heading)*latSub,heading};const pose=soFistTerrainPose(next,world);
   const obstacles=getFleetSolids(room,b.id);
   // Spellblades do not appear in this carriage's static obstacle list.
    if(b.operatorId&&world?.edgeBoundary&&pose&&
@@ -328,7 +329,7 @@ const p=room.players.get(b.operatorId);
  
         }
         if(damaged){
-          applyMachineImpact(room,other,now,{normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
+          applyMachineImpact(room,other,now,{normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point,sourceId:b.id});
           b.lastChassisBallistaAt=now;
           room.events.push({type:'soFistChassisMachineImpact',machineId:b.id,targetId:other.id,point,damage,at:now});
         }
@@ -409,7 +410,7 @@ const p=room.players.get(b.operatorId);
     }
     if(struck){
       const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
-      applyMachineImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint});
+      applyMachineImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint,sourceId:b.id});
       b.strokeMachines??=[];b.strokeMachines.push(other.id);
       recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',point:hitPoint});
       const oldOffset=soFistPose(b,now-dt).offset;
@@ -424,6 +425,8 @@ const p=room.players.get(b.operatorId);
  b.wheelRolls=wheelTravel;
  const recoil=b.recoilVelocity??0;
  b.recoilVelocity=Math.sign(recoil)*Math.max(0,Math.abs(recoil)-SIEGE_IMPACT.ramPistonRecoilBrake*dt);
+ const lat=b.lateralRecoil??0;
+ b.lateralRecoil=Math.sign(lat)*Math.max(0,Math.abs(lat)-6.0*dt);
  if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*travelSpeed,y:0,z:-Math.cos(b.heading)*travelSpeed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  stepFlick(room,b,dt,now);
  if(b.hellping?.phase==='transport'||b.hellping?.phase==='grasp')stepHellpingHand(room,b,dt,now);
@@ -543,7 +546,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
     queueFinalJaw(room,b,now,{attackerId});
     beginSiegeWreck(room,b,'so-fist-ication',now,{attackerId,source,point});
     if(b.finalJaw)b.wreckFistMissing=false;
-    b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;
+    b.mode='DESTROYED';b.strikeAt=null;b.speed=0;b.recoilVelocity=0;b.lateralRecoil=0;
     const pilot=b.operatorId?room.players.get(b.operatorId):null;
     dismountSoFistication(room,b,pilot,{force:true,at:now});
     if(pilot?.alive)applyDamage(room,attackerId,pilot.id,35,'so-fist-collapse',now);

@@ -26,11 +26,14 @@ export function siegePickerMarkup(){
       <h2>CHOOSE YOUR SIEGE MACHINE</h2>
       <p class="sb-draft-instruction">You can change your choice until the timer ends.</p>
       <div class="sb-draft-choices">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" data-siege-pick="${machine.id}" aria-pressed="false">
-        <span class="sb-draft-art">${ART[machine.id]}</span>
+        <span class="sb-draft-art">
+          <img src="/client/assets/props/siege-cards/${machine.id}.png" alt="${machine.name}" class="sb-draft-img" loading="eager" onerror="this.style.display='none';const f=this.nextElementSibling;if(f)f.style.display='block';" />
+          <span class="sb-draft-svg-fallback" style="display:none;">${ART[machine.id]}</span>
+        </span>
         <span class="sb-draft-role">${machine.role}</span>
         <strong>${machine.name}</strong>
         <small>${machine.description}</small>
-        <span class="sb-draft-key">PRESS ${index+1}</span>
+        <span class="sb-draft-key"><kbd class="sb-key-badge">${index+1}</kbd> PRESS ${index+1}</span>
       </button>`).join('')}</div>
       <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>8</b>S</span></div>
     </div>`;
@@ -47,9 +50,15 @@ export class SiegeMachinePicker {
     this.element.setAttribute('aria-label','Choose your siege machine');
     this.element.tabIndex=-1;
     this.element.innerHTML=siegePickerMarkup();
+    this.round=null;
+    this.localChoice=null;
+    this.lastChoice=null;
+    this.active=false;
+
     const choose=machine=>{
       if(!this.active)return;
       this.localChoice=machine;
+      this.lastChoice=machine;
       this.updateSelection(machine);
       this.onPick(machine);
     };
@@ -64,9 +73,6 @@ export class SiegeMachinePicker {
       choose(SIEGE_MACHINE_CARDS[index].id);
     });
     root.append(this.element);
-    this.round=null;
-    this.localChoice=null;
-    this.active=false;
   }
   hide(){this.active=false;this.element.hidden=true;}
   updateSelection(choice){
@@ -75,8 +81,9 @@ export class SiegeMachinePicker {
       card.classList.toggle('selected',selected);
       card.setAttribute('aria-pressed',String(selected));
     }
+    const chosenCard = SIEGE_MACHINE_CARDS.find(c=>c.id===choice);
     this.element.querySelector('[data-sb-draft-status]').textContent=choice
-      ? 'SELECTED · '+(SIEGE_MACHINE_CARDS.find(c=>c.id===choice)?.name??'MACHINE')
+      ? 'SELECTED · '+(chosenCard?.name??'MACHINE')
       : 'NO CHOICE · ASSIGN RANDOMLY';
   }
   update(snapshot,playerId,serverNow){
@@ -84,13 +91,20 @@ export class SiegeMachinePicker {
     if(!state||!Number.isFinite(state.selectionEndsAt)){this.hide();return false;}
     if(this.round!==state.roundNumber){
       this.round=state.roundNumber;
-      this.localChoice=null;
       this.element.querySelector('[data-sb-draft-round]').textContent=String(this.round);
+      if(this.lastChoice&&!this.localChoice){
+        this.localChoice=this.lastChoice;
+      }
     }
     const newlyOpened=!this.active;
     this.active=true;this.element.hidden=false;
     const confirmed=state.selectionChoices?.[playerId]??null;
-    if(confirmed===this.localChoice||!this.localChoice)this.localChoice=confirmed;
+    if(confirmed){
+      this.localChoice=confirmed;
+      this.lastChoice=confirmed;
+    }else if(!this.localChoice&&this.lastChoice){
+      this.localChoice=this.lastChoice;
+    }
     this.updateSelection(this.localChoice);
     this.element.querySelector('[data-sb-draft-seconds]').textContent=String(siegePickerSeconds(state.selectionEndsAt,serverNow));
     if(newlyOpened)this.element.focus?.({preventScroll:true});

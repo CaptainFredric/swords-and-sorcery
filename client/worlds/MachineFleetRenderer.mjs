@@ -2,6 +2,7 @@ import { SoFisticationRenderer } from './SoFisticationRenderer.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { FightFlightRenderer } from './FightFlightRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
+import { getMachineKind } from '../../shared/sim/fleetGeometry.mjs';
 
 /**
  * MachineFleetRenderer manages Three.js rendering for multiple simultaneous
@@ -16,7 +17,12 @@ export class MachineFleetRenderer {
   }
 
   getRenderer(id) {
-    return this.fleet.get(id)?.renderer ?? null;
+    const entry = this.fleet.get(id);
+    if (entry?.renderer) return entry.renderer;
+    if (typeof this.options?.getPrimaryRenderer === 'function') {
+      return this.options.getPrimaryRenderer(id);
+    }
+    return null;
   }
 
   getComponentWorldPosition(machineId, componentId) {
@@ -35,6 +41,7 @@ export class MachineFleetRenderer {
   }
 
   update(serverNow, snapshot, dt = 1 / 60, options = {}) {
+    this.options = options;
     if (!snapshot) return;
     const machines = Array.isArray(snapshot.machines) ? snapshot.machines : [];
     const activeIds = new Set();
@@ -47,30 +54,30 @@ export class MachineFleetRenderer {
 
       activeIds.add(machine.id);
       let entry = this.fleet.get(machine.id);
-      const type = machine.type || (machine.kind ?? 'ram');
+      const kind = getMachineKind(machine) || (machine.kind ?? 'ram');
 
-      if (!entry || entry.type !== type) {
+      if (!entry || entry.kind !== kind) {
         if (entry) {
           entry.renderer?.dispose?.();
         }
         let renderer = null;
         let motion = null;
-        if (type === 'flight') {
+        if (kind === 'flight') {
           renderer = new FightFlightRenderer(this.scene);
-        } else if (type === 'ballista') {
+        } else if (kind === 'ballista') {
           renderer = new BiByeLlistaRenderer(this.scene);
           motion = new BiByeMotion();
         } else {
           renderer = new SoFisticationRenderer(this.scene);
           motion = new BiByeMotion();
         }
-        entry = { id: machine.id, type, renderer, motion };
+        entry = { id: machine.id, kind, type: kind, renderer, motion };
         this.fleet.set(machine.id, entry);
       }
 
-      if (type === 'flight') {
-        const proj = (snapshot.fightFlightProjectiles || []).filter(p => p.flightId === machine.id || !p.flightId);
-        const burns = (snapshot.flightBurnZones || []).filter(b => b.flightId === machine.id || !b.flightId);
+      if (kind === 'flight') {
+        const proj = (snapshot.fightFlightProjectiles || []).filter(p => p.flightId === machine.id || p.machineId === machine.id || !p.flightId);
+        const burns = (snapshot.flightBurnZones || []).filter(b => b.flightId === machine.id || b.machineId === machine.id || !b.flightId);
         entry.renderer.update(
           serverNow,
           machine,
@@ -80,8 +87,8 @@ export class MachineFleetRenderer {
           options.localAim ?? null,
           options.operators?.get?.(machine.operatorId) ?? null
         );
-      } else if (type === 'ballista') {
-        const proj = (snapshot.bibyeProjectiles || []).filter(p => p.ballistaId === machine.id || !p.ballistaId);
+      } else if (kind === 'ballista') {
+        const proj = (snapshot.bibyeProjectiles || []).filter(p => p.ballistaId === machine.id || p.machineId === machine.id || !p.ballistaId);
         entry.motion.push(machine, proj, snapshot.serverTime ?? serverNow, machine.revision ?? 0);
         const view = entry.motion.sample(serverNow, options.playingLocally ?? true, options.frozen ?? false);
         entry.renderer.update(view.clock, view.ballista, view.projectiles);
