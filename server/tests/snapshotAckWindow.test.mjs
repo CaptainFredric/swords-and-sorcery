@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGameServer, SNAPSHOT_ACK_WINDOW_TICKS } from '../src/server.mjs';
+import { createGameServer, SNAPSHOT_ACK_WINDOW_TICKS, snapshotWindowAllows, SNAPSHOT_RECOVERY_PROBE_SEC } from '../src/server.mjs';
 
 // A raw client, so the test decides when snapshots are acknowledged.
 async function practiceClient(port) {
@@ -67,6 +67,13 @@ test('unacknowledged snapshots in flight are bounded, and an acknowledgement res
     await settle(500);
     assert.equal(client.snapshots.length, held, 'held while unacknowledged');
 
+    // Once a stale ACK exhausts the credit window, the server must probe
+    // occasionally, rather than leave the match frozen forever.
+    await settle(1100);
+    const probed = client.snapshots.length - held;
+    assert.ok(probed >= 1 && probed <= 2,
+      'one recovery snapshot eventually arrives, not a full unbounded stream');
+
     client.acknowledgeEach();
     await settle(1000);
     assert.ok(client.snapshots.length - held > 20, 'a client that keeps acknowledging gets the full rate back');
@@ -93,4 +100,26 @@ test('an acknowledgement from another room never holds snapshots back', async ()
     await settle(1500);
     assert.ok(snapshots.length - before > 30);
   } finally { ws.close(); await server.stop(); }
+});
+
+
+test('ACK backpressure cannot permanently starve a room; recovery probes are spaced',()=>{
+ const s={snapshotSent:{roomCode:'A',tick:120},
+   snapshotAck:{roomCode:'A',tick:90}};
+ assert.equal(snapshotWindowAllows(s,'A',121,1),false);
+ assert.equal(snapshotWindowAllows(s,'A',122,2),false);
+ assert.equal(snapshotWindowAllows(s,'A',123,1+SNAPSHOT_RECOVERY_PROBE_SEC),true,
+   'the first stale-window recovery packet is offered');
+ s.snapshotSent.tick=123;
+ assert.equal(snapshotWindowAllows(s,'A',124,3.1),false,
+   'a probe does not reenable the full firehose');
+ assert.equal(snapshotWindowAllows(s,'A',126,5.1),true,
+   'another probe is sent if the previous probe also went unacknowledged');
+ s.snapshotAck.tick=125;
+ assert.equal(snapshotWindowAllows(s,'A',127,5.2),true,
+   'acknowledging the recovery snapshot restores full-rate delivery');
+ assert.equal(s.snapshotProbeAt,null);
+ s.snapshotSent={roomCode:'B',tick:400};
+ assert.equal(snapshotWindowAllows(s,'B',401,5.3),true,
+   'old room ACKs cannot suppress a new room');
 });
