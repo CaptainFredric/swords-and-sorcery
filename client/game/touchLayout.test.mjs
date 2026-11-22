@@ -264,7 +264,7 @@ test('stock mounted firing controls stay in the right thumb area with distinct t
 test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',async()=>{
  const {mountedTouchLayout}=await import('./touchLayout.mjs');
  const l=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
- const items=['attack','siegeSkill','siegeBoth','siegeWeapon','deploy','interact','siegeView','spell'];
+ const items=['attack','siegeSkill','siegeBoth','siegeSweep','siegeWeapon','deploy','interact','siegeView','spell'];
  const bounds=name=>{const p=l[name],s=p.size;return {
   left:568-(p.right??0)-s,right:568-(p.right??0),
   top:p.top??320-p.bottom-s,bottom:p.top!=null?p.top+s:320-p.bottom
@@ -289,16 +289,47 @@ test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',a
  assert.equal(mirrored.deploy.left,l.deploy.right);
 });
 
-test('Bi-Bye View is beside BOTH but away from LEAVE, and custom VIEW stays untouched',async()=>{
- const {mountedTouchLayout}=await import('./touchLayout.mjs');
- const b=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
- assert.equal(b.siegeView.top,undefined);
- assert.ok(Math.abs((b.siegeView.bottom+b.siegeView.size/2)-(b.siegeBoth.bottom+b.siegeBoth.size/2))<25);
- const separation=b.siegeView.right-(b.siegeBoth.right+b.siegeBoth.size);
- assert.ok(separation>=12&&separation<55,'VIEW is to the left of BOTH with a deliberate gap');
- assert.ok(b.interact.top===8,'LEAVE stays in the separate top utility corner');
- const custom={right:211,bottom:43,size:49,custom:true};
- assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,siegeView:custom},'right','biBye').siegeView,custom);
+test('Bi-Bye View is above Sweep, with Sweep between the two firing columns',async()=>{
+  const {mountedTouchLayout}=await import('./touchLayout.mjs');
+  const b=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
+  assert.ok(b.siegeView.bottom>b.siegeSweep.bottom+b.siegeSweep.size,
+    'VIEW has a separate vertical lane above SWEEP');
+  assert.ok(b.siegeSweep.right+b.siegeSweep.size/2<
+    b.siegeSkill.right+b.siegeSkill.size/2,
+    'SWEEP lies between the PRIME II and BOLT I columns');
+  assert.ok(b.siegeSweep.right+b.siegeSweep.size/2>
+    b.attack.right+b.attack.size/2);
+  assert.ok(b.siegeBoth.bottom>b.attack.bottom+b.attack.size,
+    'BOTH is above BOLT I, not on top of it');
+  assert.ok(b.interact.top===8,'LEAVE stays in the top utility corner');
+  const custom={right:211,bottom:43,size:49,custom:true};
+  assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,siegeView:custom},'right','biBye').siegeView,custom);
+});
+
+test('older overlapping ballista VIEW saves are moved without moving firing buttons',async()=>{
+  const {resolveBallistaControlClearance}=await import('./touchLayout.mjs');
+  const sweep={left:400,right:452,top:140,bottom:192};
+  const view={left:410,right:452,top:142,bottom:184};
+  const boxes={
+    siegeSweep:sweep,siegeView:view,
+    siegeBoth:{left:465,right:519,top:140,bottom:194},
+    siegeSkill:{left:300,right:368,top:226,bottom:294},
+  };
+  const bounds={left:0,top:0,right:568,bottom:320};
+  const shifted=resolveBallistaControlClearance(boxes,bounds);
+  assert.equal(shifted.siegeSweep,undefined,'keep SWEEP in its playable position');
+  assert.ok(shifted.siegeView,'relocate the actual VIEW touch target');
+  const rect={left:view.left+shifted.siegeView.dx,right:view.right+shifted.siegeView.dx,
+    top:view.top+shifted.siegeView.dy,bottom:view.bottom+shifted.siegeView.dy};
+  assert.ok(rect.top>=4&&rect.bottom<=316&&rect.left>=4&&rect.right<=564);
+  for(const [name,other]of Object.entries(boxes)){
+    if(name==='siegeView')continue;
+    assert.ok(rect.right+7<=other.left||rect.left>=other.right+7||
+      rect.bottom+7<=other.top||rect.top>=other.bottom+7,'VIEW still overlaps '+name);
+  }
+  assert.deepEqual(resolveBallistaControlClearance({...boxes,
+    siegeView:{left:380,right:422,top:60,bottom:102}},bounds),{},
+    'leave valid edited positions unchanged');
 });
 
 test('four distinct edit pages persist joystick radius and siege controls without editing one another',async()=>{
