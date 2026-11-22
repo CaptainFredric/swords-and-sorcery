@@ -3795,6 +3795,15 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // An ongoing wave uses wholly ordinary Spellblade combat. Preparation and
   // the Renowner ceremony do not advance combat, hazards or input physics.
   if (room.mode === GAME_MODES.RENOWN_TRIALS && !renownTrialCombatOpen(room)) return room.events;
+  // No swords, projectiles, vehicle physics or hazards run during a Siege
+  // Blades score intermission / server-timed machine selection. Its own clock
+  // still advances, and a new fleet is provisioned at the selection deadline.
+  if (room.mode === GAME_MODES.SIEGE_BLADES &&
+      (room.siegeBlades?.selectionEndsAt != null || room.siegeBlades?.roundResetCountdown != null)) {
+    modeCall(room, 'step', dt, nowSec, { damage: applyDamage });
+    room.tickNumber += 1;
+    return room.events;
+  }
   if (room.mode === GAME_MODES.EDGE_OF_VICTORY) {
     stepEdgeOfVictory(room, nowSec, world);
     edgeHandleMountedOperators(room, nowSec);

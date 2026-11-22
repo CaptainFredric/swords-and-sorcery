@@ -22,6 +22,7 @@ import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
 import { AfflictionPanel } from './AfflictionPanel.mjs';
+import { SiegeMachinePicker } from './SiegeMachinePicker.mjs';
 import {killFeedColoredWords,KILLFEED_TONES} from '../game/killFeedColor.mjs';
 
 const HIT_MARKERS = Object.freeze({
@@ -124,7 +125,7 @@ export function siegeBladesHudView(local, snapshot, serverNow) {
     format: s.format ?? 'MATCH',
     roundNumber: s.roundNumber ?? 1,
     matchRounds: s.matchRounds ?? 3,
-    roundsToWin: s.roundsToWin ?? 2,
+    selectionEndsAt: s.selectionEndsAt ?? null,
     scores,
     myTeam,
     teamLabel: isAzure ? 'AZURE' : 'CRIMSON',
@@ -158,15 +159,18 @@ export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'HIGH_GROUNDS') return `THE HIGH GROUNDS · TERRITORY · ${clockStr}`;
   if (snapshot?.mode === 'SIEGE_BLADES') {
     const s = snapshot.siegeBlades;
-    const formatStr = s?.format === 'ENDLESS' ? 'ENDLESS EXHIBITION' : `BEST OF ${s?.matchRounds ?? 3}`;
+    const formatStr = s?.format === 'ENDLESS' ? 'ENDLESS EXHIBITION' : `${s?.matchRounds ?? 3} ROUNDS`;
     const roundStr = `ROUND ${s?.roundNumber ?? 1}`;
     const scoresStr = `AZURE ${s?.scores?.ATTACKERS ?? 0} · CRIMSON ${s?.scores?.DEFENDERS ?? 0}`;
     const roundStart = Number.isFinite(s?.roundStartedAt) ? s.roundStartedAt : (Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow);
     const roundSecs = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 180;
     const roundLeft = Math.max(0, roundSecs - Math.max(0, serverNow - roundStart));
     const sbClock = (snapshot?.overtime || s?.overtimeActive) ? 'OVERTIME' : `${Math.floor(roundLeft / 60)}:${Math.floor(roundLeft % 60).toString().padStart(2, '0')}`;
+    if (Number.isFinite(s?.selectionEndsAt)) {
+      return `CHOOSE YOUR SIEGE MACHINE · ROUND ${s.roundNumber} · ${scoresStr}`;
+    }
     if (s?.roundResetCountdown != null) {
-      return `NEXT ROUND IN ${Math.ceil(s.roundResetCountdown)}s · ${scoresStr}`;
+      return `ROUND COMPLETE · ${scoresStr}`;
     }
     if (s?.overtimeActive) {
       const contest = s.zone?.contested ? 'CONTESTED' : (s.zone?.controllingTeam ? `${s.zone.controllingTeam} ${s.zone.holdPercent}%` : 'UNCONTESTED');
@@ -314,7 +318,7 @@ export class HUD {
     this.siegeBladesHud.className = 'siege-blades-hud hidden';
     this.siegeBladesHud.innerHTML = `
       <div class="sb-header">
-        <span class="sb-badge" data-sb-format>ROUND 1 · BEST OF 3</span>
+        <span class="sb-badge" data-sb-format>ROUND 1 OF 3</span>
         <span class="sb-clock" data-sb-clock>3:00</span>
       </div>
       <div class="sb-score-row">
@@ -332,6 +336,7 @@ export class HUD {
     this.statusStack = document.createElement('div');
     this.statusStack.className = 'hud-status-stack';
     this.statusStack.append(this.matchInfo, this.duelScore, this.breakthroughHud, this.siegeBladesHud, this.preparedPanel);
+    this.siegeMachinePicker = new SiegeMachinePicker(this.root, machine => this.onSiegeMachineChosen?.(machine));
     this.ballistaPanel = document.createElement('div');
     this.ballistaPanel.className = 'ballista-hud';
     this.ballistaPanel.hidden = true;
@@ -442,7 +447,7 @@ export class HUD {
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
-  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); }
+  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); this.siegeMachinePicker.hide(); this.root.classList.remove('siege-choosing'); }
   cycleAfflictionDetails() { this.afflictionPanel.cycle(); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', Boolean(locked) || Boolean(this.suppressPointerHint));
@@ -455,7 +460,9 @@ export class HUD {
   }
 
   update(local, snapshot, serverNow) {
-    if (!local) { this.afflictionPanel.clear(); return; }
+    if (!local) { this.afflictionPanel.clear(); this.siegeMachinePicker.hide(); this.root.classList.remove('siege-choosing'); return; }
+    const choosing = this.siegeMachinePicker.update(snapshot, local.id, serverNow);
+    this.root.classList.toggle('siege-choosing', choosing);
     this.afflictionPanel.update(local, serverNow);
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
@@ -743,7 +750,7 @@ export class HUD {
 
       const formatLabel = sbView.format === 'ENDLESS'
         ? `ROUND ${sbView.roundNumber} · ENDLESS EXHIBITION`
-        : `ROUND ${sbView.roundNumber} · BEST OF ${sbView.matchRounds} (FIRST TO ${sbView.roundsToWin})`;
+        : `ROUND ${sbView.roundNumber} OF ${sbView.matchRounds}`;
       this.siegeBladesHud.querySelector('[data-sb-format]').textContent = formatLabel;
       this.siegeBladesHud.querySelector('[data-sb-clock]').textContent = sbView.clock;
       this.siegeBladesHud.querySelector('[data-sb-azure]').textContent = String(sbView.scores.ATTACKERS ?? 0);
@@ -755,6 +762,10 @@ export class HUD {
         bannerEl.className = 'sb-banner sb-countdown';
         const winTeam = sbView.roundWinner === 'ATTACKERS' ? 'AZURE' : sbView.roundWinner === 'DEFENDERS' ? 'CRIMSON' : sbView.roundWinner === 'DRAW' ? 'DRAW' : null;
         bannerEl.textContent = winTeam === 'DRAW' ? `ROUND ENDED IN A DRAW · NEXT ROUND IN ${sbView.countdownSec}s...` : winTeam ? `ROUND WON BY ${winTeam} · NEXT ROUND IN ${sbView.countdownSec}s...` : `NEXT ROUND IN ${sbView.countdownSec}s...`;
+      } else if (Number.isFinite(sbView.selectionEndsAt)) {
+        bannerEl.classList.remove('hidden');
+        bannerEl.className = 'sb-banner sb-countdown';
+        bannerEl.textContent = 'CHOOSE YOUR MACHINE';
       } else if (sbView.clashActive) {
         bannerEl.classList.remove('hidden');
         bannerEl.className = 'sb-banner sb-clash';

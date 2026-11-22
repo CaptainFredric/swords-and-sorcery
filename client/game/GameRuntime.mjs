@@ -665,6 +665,7 @@ export class GameRuntime {
     // the meter full: a restrained note, once
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
+    this.hud.onSiegeMachineChosen = machine => this.socket.send({ type: 'siegeBladesChoose', machine });
     this.input.onDashLocal = (dir) => {
       if (this.trialControlsLocked) return;
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) return;
@@ -1421,6 +1422,18 @@ export class GameRuntime {
       this.clearBlend=0;this.input.aimGain=1;
     }
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
+    const picking = snapshot.mode === 'SIEGE_BLADES' && snapshot.roomState === 'PLAYING' &&
+      Number.isFinite(snapshot.siegeBlades?.selectionEndsAt);
+    if (picking && !this.siegeSelectionOpen) {
+      // Let the player use actual buttons instead of leaving the mouse in
+      // pointer lock. Clear any carried attack/flight keys at this boundary.
+      this.releasePointer();
+      this.input.releaseInputs();
+      this.weapon.setAttack(false);
+      this.weapon.setGuard(false);
+      this.weapon.cancelCast();
+    }
+    this.siegeSelectionOpen = picking;
     this.latestSnapshot = snapshot;
     this.world?.setRestlessDayState?.(snapshot.modeState,snapshot);
     if (this.socket.inspectionAvailable) {
