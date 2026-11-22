@@ -23,6 +23,25 @@ const clamp01 = (t) => Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0));
 const smooth = (t) => { const s = clamp01(t); return s * s * (3 - 2 * s); };
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 const dir = (left, rise) => [-Math.sin(left * DEG) * Math.cos(rise * DEG), Math.sin(rise * DEG), -Math.cos(left * DEG) * Math.cos(rise * DEG)];
+const dot = (a, b) => a.reduce((sum, value, i) => sum + value * b[i], 0);
+const across = (vector, axis) => {
+  const along = dot(vector, axis);
+  return normalize(vector.map((value, i) => value - along * axis[i]));
+};
+
+// The vambrace sits off the forearm's long axis on this rig.
+// Keep that bulk below the grip as the thrust settles, while the hand
+// counter-rotates to preserve the exact pose the sword solver set.
+export function steadyRiposteForearm(api, weight) {
+  if (weight <= 0) return;
+  const axis = api.direction('forearm.R', [0, 1, 0]);
+  const armor = across(api.direction('forearm.R', [0.06, 0, -0.16]), axis);
+  const below = across([0.34, -1, 0], axis);
+  const quarter = rotateVector(armor, axis, Math.PI / 2);
+  const turn = Math.atan2(dot(quarter, below), dot(armor, below)) * weight;
+  api.rotate('forearm.R', axis, turn);
+  api.rotate('hand.R', axis, -turn);
+}
 
 const REST = Object.freeze({ wrist: REST_ARM.wrist, blade: REST_ARM.blade, edge: REST_ARM.edge, shoulder: [0, 0, 0] });
 // the blade from a wrist toward a point on the aim this far ahead: seen converging on the crosshair from the lower right
@@ -95,5 +114,8 @@ export function riposteFirstPersonPose(age, m = FP_RIPOSTE, timing = RIPOSTE_MOT
     counter = [0.45 * (1 - home), 0.75 * (1 - home), 0.05 * (1 - home)];
     body = [-0.03 * (1 - home), -0.01 * (1 - home), -0.13 * (1 - home)];
   }
-  return { arm, offHand: null, look: { pitch: 0, roll: 0, yaw: 0 }, body, counter };
+  const settle = timing.driveTo + timing.hold;
+  const forearmWeight = smooth((age - timing.brace) / m.driveSec) *
+    (1 - smooth((age - settle - timing.rise * 0.42) / (timing.rise * 0.58)));
+  return { arm, offHand: null, look: { pitch: 0, roll: 0, yaw: 0 }, body, counter, forearmWeight };
 }

@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FP_RIPOSTE, riposteFirstPersonPose } from './fpTechniques.mjs';
+import { FP_RIPOSTE, riposteFirstPersonPose, steadyRiposteForearm } from './fpTechniques.mjs';
 import { RIPOSTE_MOTION } from './techniqueMotion.mjs';
 import { REST_ARM } from './fpSlash.mjs';
+import { rotateVector } from './swordArmIK.mjs';
 
 const DEG = 180 / Math.PI;
 const offAim = (blade) => Math.acos(Math.max(-1, Math.min(1, -blade[2] / Math.hypot(...blade)))) * DEG;
@@ -38,6 +39,38 @@ test('the first-person Riposte comes home and lets go of the arms', () => {
     const pose = riposteFirstPersonPose(t);
     assert.ok(Math.hypot(...pose.arm.wrist.map((v, i) => v - previous.arm.wrist[i])) < 0.1, `the hand jumps at ${t.toFixed(3)}`);
     previous = pose;
+  }
+});
+
+test('Riposte keeps the forearm armor below the grip through landing without turning the hand', () => {
+  const { brace, driveTo, hold, rise } = RIPOSTE_MOTION;
+  assert.equal(riposteFirstPersonPose(brace).forearmWeight, 0);
+  for (const t of [driveTo, driveTo + hold, driveTo + hold + 0.1]) {
+    assert.equal(riposteFirstPersonPose(t).forearmWeight, 1);
+  }
+  assert.ok(riposteFirstPersonPose(driveTo + hold + rise - 0.001).forearmWeight < 0.001);
+
+  const axis = [0, 0, -1];
+  // The clip can put the sleeve on either side of the blade when it changes phase.
+  for (const initial of [-2, -1, 0, 1, 2]) {
+    let forearmTurn = initial;
+    let handTurn = 0;
+    const direction = ([x, y, z]) => rotateVector([x, z, -y], axis, forearmTurn);
+    const api = {
+      direction: (_, local) => direction(local),
+      rotate(bone, around, angle) {
+        assert.deepEqual(around, axis);
+        if (bone === 'forearm.R') forearmTurn += angle;
+        else {
+          assert.equal(bone, 'hand.R');
+          handTurn += angle;
+        }
+      },
+    };
+    steadyRiposteForearm(api, 1);
+    const armor = direction([0.06, 0, -0.16]);
+    assert.ok(armor[1] < -0.15 && armor[0] > 0);
+    assert.ok(Math.abs(forearmTurn + handTurn - initial) < 1e-9);
   }
 });
 

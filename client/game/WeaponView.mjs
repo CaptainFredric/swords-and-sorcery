@@ -19,7 +19,7 @@ import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, draw
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
 import { riposteView, whirlView } from './techniqueMotion.mjs';
-import { mixSwordArm, riposteFirstPersonPose } from './fpTechniques.mjs';
+import { mixSwordArm, riposteFirstPersonPose, steadyRiposteForearm } from './fpTechniques.mjs';
 
 // What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
@@ -1036,6 +1036,7 @@ export class WeaponView {
           }
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
+            if (techniquePose) steadyRiposteForearm(bones, techniquePose.forearmWeight * techniquePose.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }
           // the gauntlet strike has the magic hand
