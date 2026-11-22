@@ -1252,6 +1252,9 @@ soloRival.addEventListener('click', (event) => {
 showSoloRival();
 
 // --- Breakthrough & Siege setup controls -----------------------------------------------------------------------
+let mettleSoloMode = null;
+const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
+  : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughSize = $('#breakthrough-size');
 function showBreakthroughSize() {
   if (!breakthroughSize) return;
@@ -1378,9 +1381,6 @@ function showSiegeControls() {
 
 const breakthroughArena = $('#breakthrough-arena');
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
-let mettleSoloMode = null;
-const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
-  : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
