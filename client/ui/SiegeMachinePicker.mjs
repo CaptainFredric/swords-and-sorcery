@@ -47,13 +47,21 @@ export class SiegeMachinePicker {
     this.element.setAttribute('aria-label','Choose your siege machine');
     this.element.tabIndex=-1;
     this.element.innerHTML=siegePickerMarkup();
+    const choose=machine=>{
+      if(!this.active)return;
+      this.localChoice=machine;
+      this.updateSelection(machine);
+      this.onPick(machine);
+    };
     this.element.addEventListener('click',event=>{
       const button=event.target.closest?.('[data-siege-pick]');
-      if(button&&this.active){
-        this.localChoice=button.dataset.siegePick;
-        this.updateSelection(this.localChoice);
-        this.onPick(this.localChoice);
-      }
+      if(button)choose(button.dataset.siegePick);
+    });
+    this.element.addEventListener('keydown',event=>{
+      const index=Number(event.key)-1;
+      if(event.repeat||!this.active||!Number.isInteger(index)||index<0||index>=SIEGE_MACHINE_CARDS.length)return;
+      event.preventDefault();
+      choose(SIEGE_MACHINE_CARDS[index].id);
     });
     root.append(this.element);
     this.round=null;
