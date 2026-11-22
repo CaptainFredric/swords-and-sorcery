@@ -1061,7 +1061,9 @@ export class TouchControls {
       ? aerialTravel
         ? 'Drag to look freely and teleport in 3D with Full Gale and Full Lightning'
         : 'Drag to look freely; Full Lightning teleports along the ground, even when you look up'
-      : (view.ultimate.short ?? view.ultimate.label).toUpperCase());
+      : view.action==='detonate'?'Detonate the flying Gale wave':
+        (view.ultimate.short ?? view.ultimate.label).toUpperCase());
+    button.dataset.action=view.action??'ultimate';
     // Its normal Ultimate word comes back as soon as the held aim ends.
     const word = teleportAim ? 'DRAG TO AIM' :
       (view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase());
