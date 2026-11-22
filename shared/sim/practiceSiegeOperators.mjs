@@ -252,6 +252,14 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   // A Sharp Turn is a melee maneuver, so a pilot set to practice it actually
   // closes to blade reach rather than camping at ordinary bolt distance.
   const sweepFocus=focus==='aSharpTurn'||focus==='lookAroundAndFindOut';
+  // Cold is a pre-shot enhancement. A mobile operator may legitimately
+  // activate it BEFORE deploying stabilizers; doing it afterward can miss
+  // the entire exposure window while the outriggers are moving.
+  if(ai.difficulty!=='learner'&&los&&d<43&&
+    ['MOBILE','DEPLOYED'].includes(m.mode)&&
+    m.skill?.id==='coldHowTouching'&&m.skill.phase==='idle'&&
+    now+1e-8>=(m.skill.readyAt??0))
+    requestColdHowTouching(room,m,a,now);
   if(m.mode==='MOBILE'){
     const wheel=drive(room,m,target,ai,tuning,{
       ideal:sweepFocus?3.0:tuning.preferred,deadZone:sweepFocus?.5:3});
@@ -288,9 +296,6 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     ai.nextSweepAt=now+(problem?1.25:4.5);
     if(!problem)return;
   }
-  if(competent&&m.skill?.id==='coldHowTouching'&&
-    d<43&&m.skill.phase==='idle'&&now>=(m.skill.readyAt??0))
-    requestColdHowTouching(room,m,a,now);
   // Deployed and aligned at close range, conduct a *real* coupled volley.
   // Tracking may require repeated deliberate input until the latch engages;
   // never prime the independent Skill in the middle of that preparation.
