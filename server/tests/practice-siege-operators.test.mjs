@@ -277,8 +277,8 @@ test('Ballistefan uses the actual A Sharp Turn bow maneuver against a nearby Spe
    machine:'bi-bye-llista',difficulty:'formidable',skill:'aSharpTurn'
  },2),{});
  const m=room.biByeLlista;
- player.position={x:m.x-Math.sin(m.heading)*4.2,y:0,
-   z:m.z-Math.cos(m.heading)*4.2};
+ player.position={x:m.x-Math.sin(m.heading)*3.15,y:0,
+   z:m.z-Math.cos(m.heading)*3.15};
  stepPracticeActors(room,2.1,room.world);
  assert.ok(room.events.some(e=>e.type==='bibyeSweep'&&e.kind==='single'&&e.action==='started'),
    'AI must request the real one-turn melee hitbox, not emit a synthetic attack');
