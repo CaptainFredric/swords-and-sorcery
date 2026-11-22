@@ -32,7 +32,7 @@ export function windbladePosition(wave,snapshotAt,now) {
 
 /**
  * Windblade's horizontal, gently vaulted pressure-front coordinates in its
- * local plane (travel is +Z). One connected translucent volume, not a
+ * local plane (facing +Z; actual 3D travel is independent). One translucent volume, not a
  * vertical crescent or an opaque solid. Both the surface mesh and elemental
  * motes use these SAME samples, so Lightning and Frost ride the real wave.
  *
