@@ -3075,16 +3075,30 @@ export function detonateOneHitWave(room,playerId,waveId,nowSec) {
 }
 
 function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
+  // Disaster's flight path uses {x,y,z}; every articulated siege first-hit
+  // routine uses [x,y,z] for orientedBoxHit/boxLocal. Passing objects threw
+  // "point.map is not a function" every simulation tick after a Gale wave
+  // launched, leaving the client free to predict its own movement while all
+  // authoritative actors, combat and snapshots stopped updating.
+  const start=[from.x,from.y,from.z],end=[to.x,to.y,to.z];
+  const machines=room.machines?.size ? room.machines.values() :
+    [room.soFistication,room.biByeLlista,room.fightFlight];
   let nearest=null;
-  for(const [machine,hit] of [
-    [room.soFistication,soFistFirstHit(room.soFistication,from,to,nowSec,.16)],
-    [room.biByeLlista,biByeFirstHit(room.biByeLlista,from,to,nowSec,.16)],
-    [room.fightFlight,fightFlightFirstHit(room.fightFlight,from,to,.16)],
-  ]) {
-    if(!hit||!machine||machine.retired||machine.health<=0)continue;
-    if(machine.operatorId===caster.id)continue;
-    if(machine.team&&caster.team===machine.team)continue;
-    if(Number.isFinite(hit.t)&&(!nearest||hit.t<nearest.t))
+  for(const machine of machines) {
+    // Check the target *before* calculating its geometry. The previous eager
+    // array also called all three tests on absent, friendly or dead machines.
+    if(!machine||machine.retired||machine.mode==='DESTROYED'||
+      !(machine.health>0)||machine.operatorId===caster.id||
+      (machine.team&&caster.team===machine.team))continue;
+    const kind=machine.kind??machine.class??machine.type;
+    const hit=(kind==='ram'||kind==='so-fist-ication'||machine.components?.Fist)
+      ?soFistFirstHit(machine,start,end,nowSec,.16):
+      (kind==='ballista'||kind==='bi-bye-llista'||machine.weaponFocus!==undefined)
+      ?biByeFirstHit(machine,start,end,nowSec,.16):
+      (kind==='flight'||kind==='fight-and-flight'||machine.rotorHP!==undefined)
+      ?fightFlightFirstHit(machine,start,end,.16):null;
+    if(hit&&Number.isFinite(hit.t)&&hit.t>=0&&hit.t<=1&&
+      (!nearest||hit.t<nearest.t))
       nearest={t:hit.t,point:{x:from.x+(to.x-from.x)*hit.t,
         y:from.y+(to.y-from.y)*hit.t,z:from.z+(to.z-from.z)*hit.t}};
   }
