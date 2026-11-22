@@ -2887,8 +2887,7 @@ function updateHostileSkillChoices(machine,active=null){
   const select=$('#practice-hostile-skill'),slot=HOSTILE_SKILL_SLOTS[machine];
   if(!select||!slot||select.dataset.machine===machine)return;
   const choices=[['auto','TACTICAL · AUTOMATIC'],
-    ...SIEGE_SKILL_OPTIONS[slot].map(id=>[id,SIEGE_SKILL_NAMES[id].toUpperCase()]),
-    ...(slot==='biBye'?[['aSharpTurn','A SHARP TURN · MANEUVER FOCUS']]:[])];
+    ...SIEGE_SKILL_OPTIONS[slot].map(id=>[id,SIEGE_SKILL_NAMES[id].toUpperCase()])];
   select.replaceChildren(...choices.map(([value,label])=>new Option(label,value)));
   select.value=active?.skill&&choices.some(([id])=>id===active.skill)?active.skill:'auto';
   select.dataset.machine=machine;
@@ -2910,7 +2909,7 @@ function updateInspectionControls() {
     const role=hostile?.name??'No hostile operator';
     const alive=hostile?.health>0;
     hostileStatus.textContent=hostile
-      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'} · ${hostile.practiceSiegeOperator.skill==='aSharpTurn'?'A SHARP TURN':(SIEGE_SKILL_NAMES[hostile.practiceSiegeOperator.skill]??'TACTICAL')}`
+      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'} · ${SIEGE_SKILL_NAMES[hostile.practiceSiegeOperator.skill]??'TACTICAL'}`
       : 'No hostile operator summoned.';
   }
   const machineType=$('#practice-siege-type').value;
