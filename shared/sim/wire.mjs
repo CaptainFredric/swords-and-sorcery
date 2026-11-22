@@ -447,6 +447,12 @@ export function applyRoomCommand(room, player, message, time) {
       'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
       'flightDash','flightHop','flightUltimateHold','siegeOperate',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire','bibyeSharpTurn'].includes(message.type)) return {};
+  // During a round draft no combat actions are legal; even a forged client
+  // message cannot attack, move, or operate a machine before the clock ends.
+  if (room.mode === GAME_MODES.SIEGE_BLADES && message.type === 'siegeBladesChoose')
+    return modeCall(room, 'command', player, message, time) ?? {};
+  if (room.mode === GAME_MODES.SIEGE_BLADES &&
+      (room.siegeBlades?.selectionEndsAt != null || room.siegeBlades?.roundResetCountdown != null)) return {};
   // Mounted input belongs to the siege session; personal combat resumes on exit.
   if(message.type==='restlessLadder')return modeCall(room,'command',player,message,time)??{rejected:'No siege ladders in this mode.'};
   if(player?.restlessCarrying && ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell','dash','gauntlet','ultimate','technique'].includes(message.type))return {rejected:'Set down the heavy siege ladder first.'};
