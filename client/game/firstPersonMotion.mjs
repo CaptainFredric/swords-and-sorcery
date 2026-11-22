@@ -23,8 +23,8 @@ export const FP_MOTION = Object.freeze({
   swordForearmTurn: -0.45,
   // the blade leans across to the left, its flat to the eye: the grip reads as held, not stacked
   swordWristLean: 0.3,
-  // Turn the resting grip around the blade axis to show the thumb side of the fist.
-  swordGripRoll: 50 * Math.PI / 180,
+  // Roll the resting grip until the thumb is visible to the left of the hilt in first person.
+  swordGripRoll: 92 * Math.PI / 180,
   // A small counterclockwise lean of the hand and sword in the player view.
   swordGripTilt: 8 * Math.PI / 180,
   magicArmDrop: 0.12,
