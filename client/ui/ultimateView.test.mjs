@@ -73,3 +73,21 @@ test('Chivalry distinguishes its planning startup and ten second active duration
   assert.equal(active.charge, 1);
   assert.equal(ultimateView({ ultimate: 'chivalry', ultimateState: { id: 'chivalry', phase: 'active', until: 20 } }, 20).state, 'charging');
 });
+
+
+test('active Gale wave temporarily turns Ultimate into DETONATE and restores its name afterward',()=>{
+ const initial={ultimate:'one_hit_of_wonders',alive:true,prowess:0,ultimateLockedUntil:12};
+ const active=ultimateView({...initial,oneHitWaveId:'gale-wave-1'},10);
+ assert.equal(active.action,'detonate');
+ assert.equal(active.word,'DETONATE');
+ assert.equal(active.label,'PRESS AGAIN');
+ assert.equal(active.state,'active');
+ const expired=ultimateView(initial,10);
+ assert.equal(expired.action,undefined);
+ assert.notEqual(expired.word,'DETONATE');
+ assert.equal(expired.state,'locked');
+ const dead=ultimateView({...initial,alive:false,oneHitWaveId:'old'},10);
+ assert.notEqual(dead.word,'DETONATE','a stale network wave is not usable after death');
+ const mounted=ultimateView({...initial,oneHitWaveId:'old',operatingBallistaId:'ballista'},10);
+ assert.notEqual(mounted.word,'DETONATE','mounted machine inputs stay machine-specific');
+});
