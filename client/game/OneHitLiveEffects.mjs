@@ -30,7 +30,7 @@ const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 // The Windblade is a HORIZONTAL, vaulted pressure front. Its transparent
 // top and underside form an airy 3D shock sheet, tapering into a turbulent
 // wake. It is not a vertical sword-cut crescent, a dense solid projectile,
-// or several detached arcs. Local +Z is the server-authoritative flight axis.
+// or several detached arcs. Local +Z is yaw-only; translation follows full 3D flight.
 // Fire widens it through the existing wave range multiplier.
 const WAVE_SEGMENTS=36,WAVE_SLICES=7;
 function windbladeTint(tiers,t,u,edge=false){
