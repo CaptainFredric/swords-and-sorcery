@@ -394,7 +394,7 @@ export class HUD {
     const bibyeParts=(kind,title)=>'<div class="bibye-part-group" data-part-group="'+kind+'">'+
       '<strong>'+title+'</strong><div class="bibye-part-items">'+
       BI_BYE_COMPONENTS.filter(part=>part.kind===kind).map(part=>
-        '<div class="bibye-part" data-part-id="'+part.id+'" data-part-state="intact" aria-label="'+part.id+'">'+
+        '<div class="bibye-part" data-part-id="'+part.id+'" data-part-state="unavailable" aria-label="'+part.id+'">'+
         '<span>'+part.id.split('_')[1]+'</span><div class="bibye-part-track"><i data-part-fill></i></div>'+
         '</div>').join('')+'</div></div>';
     this.machineGauge.innerHTML =
@@ -576,8 +576,19 @@ export class HUD {
       }
       if(gauge.kind==='ballista'){
         const parts=el.querySelector('[data-bibye-parts]');
-        parts.hidden=!(gauge.parts?.wheels?.length||gauge.parts?.stabilizers?.length);
-        for(const part of [...(gauge.parts?.wheels??[]),...(gauge.parts?.stabilizers??[])]){
+        const supplied=[...(gauge.parts?.wheels??[]),...(gauge.parts?.stabilizers??[])];
+        parts.hidden=!supplied.length;
+        // An older/partial server may omit a part. Never render missing
+        // telemetry as a healthy wheel or stabilizer.
+        const available=new Set(supplied.map(part=>part.id));
+        for(const widget of parts.querySelectorAll('[data-part-id]')){
+          if(available.has(widget.dataset.partId))continue;
+          widget.dataset.partState='unavailable';
+          widget.querySelector('[data-part-fill]').style.width='0%';
+          widget.title=widget.dataset.partId.replace('_',' ')+' · status unavailable';
+          widget.setAttribute('aria-label',widget.title);
+        }
+        for(const part of supplied){
           const widget=parts.querySelector('[data-part-id="'+part.id+'"]');
           if(!widget)continue;
           widget.dataset.partState=part.state;
