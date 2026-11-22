@@ -429,3 +429,28 @@ test('terminal suicide alone also emits an Ascended event with no fictitious ene
  assert.deepEqual(outcomes[0]?.victimIds,[]);
  assert.equal(outcomes.length,1);
 });
+
+test('Valkyrie initial explosion wipes all Prowess only from enemies it actually kills',()=>{
+ const s=setup();commit(s);
+ const dead=s.room.addPlayer({id:'killed-by-blast',token:'blast',name:'Blast Victim'},0);
+ const survivor=s.room.addPlayer({id:'survives-blast',token:'survivor',name:'Survivor'},0);
+ for(const p of [dead,survivor]){
+   p.alive=true;p.spawnProtectionUntil=0;p.position={x:0,y:0,z:0};
+ }
+ dead.health=25;dead.prowess=98;
+ survivor.position.x=6;survivor.health=1000;survivor.maxHealth=1000;
+ survivor.prowess=43;
+ s.m.x=0;s.m.y=0;s.m.z=0;s.m.grounded=true;s.m.terminalDive.impactAt=2.2;
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
+ assert.equal(dead.alive,false);
+ assert.equal(dead.prowess,0,
+   'a fatal initial explosion consumes the enemy Ultimate meter even though ordinary death preserves it');
+ assert.equal(survivor.alive,true);
+ assert.equal(survivor.prowess,43,
+   'surviving the impact alone does not trigger the later ground-flame drain');
+ const after=survivor.health;
+ stepFlightBurnZones(s.room,2.7);
+ assert.ok(survivor.health<after);
+ assert.equal(survivor.prowess,Math.max(0,43-(after-survivor.health)),
+   'survivor loses exactly the later fire damage from Prowess');
+});
