@@ -411,7 +411,6 @@ const p=room.players.get(b.operatorId);
       const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
       applyMachineImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint});
       b.strokeMachines??=[];b.strokeMachines.push(other.id);
-      const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
       recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',point:hitPoint});
       const oldOffset=soFistPose(b,now-dt).offset;
       b.strokeLimit=Math.max(oldOffset,oldOffset+(stroke.offset-oldOffset)*first.t-.002);
