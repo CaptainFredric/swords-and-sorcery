@@ -164,9 +164,11 @@ const POLICIES = Object.freeze({
     teamSize: 1,
     minHumansToStart: 1,
     botCount: 1,
-    scored: true,
-    timed: true,
-    scoreToWin: 2,
+    scored: false,
+    timed: false,
+    // Siege Blades owns its round score and per-round timer. Ordinary
+    // 2-kill victories / full-match timeout must never end a multi-round set.
+    scoreToWin: null,
     matchSeconds: 180,
     respawnSec: 0,
     autoStart: true,
