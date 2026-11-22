@@ -879,6 +879,9 @@ export class HUD {
     const word = view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase();
     const name = tile.querySelector('em');
     if (name.textContent !== word) name.textContent = word;
+    tile.dataset.action=view.action??'ultimate';
+    tile.setAttribute('aria-label',view.action==='detonate'
+      ? 'Detonate the flying Gale wave':(view.ultimate.short ?? view.ultimate.label).toUpperCase());
     const emphasis = view.emphasis ?? '';
     if ((tile.dataset.emphasis ?? '') !== emphasis) tile.dataset.emphasis = emphasis;
     // (while it runs: how much of its stretch is left, as a ring drawn round the tile)
