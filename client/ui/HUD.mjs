@@ -1134,17 +1134,27 @@ export class HUD {
     this.crosshair.classList.remove(...Object.keys(HIT_MARKERS));
   }
 
-  addFeed(text, kind = '', key = null) {
+  addFeed(text, kind = '', key = null, infusions = []) {
     // Keyed updates let an ongoing Blazing Vortex add each new fallen name
     // to ONE living feed entry. Other deaths still receive independent lines.
+    // Cause and elemental accents are authored as DOM text nodes, never HTML.
+    // Server player names and arbitrary killfeed prose cannot inject markup.
     let line=key?[...this.feed.children].find(node=>node.dataset?.feedKey===key):null;
     if(!line){
       line=document.createElement('div');
       if(key)line.dataset.feedKey=key;
       this.feed.prepend(line);
     }
-    line.className=`feed-line ${kind}`;
+    line.className=`feed-line ${kind} tone-${kind}`;
     line.textContent=text;
+    for(const infusion of infusions){
+      if(!['fire','frost','gale','lightning','steel'].includes(infusion?.tone))continue;
+      const word=document.createElement('span');
+      word.className=`feed-infusion tone-${infusion.tone}`;
+      word.textContent=` · ${infusion.label}`;
+      word.title=`${infusion.label} infusion · ${infusion.tier===2?'Full':'Half'}`;
+      line.appendChild(word);
+    }
     line.classList.remove('fade');
     if(line.feedFadeTimer!=null)clearTimeout(line.feedFadeTimer);
     if(line.feedRemoveTimer!=null)clearTimeout(line.feedRemoveTimer);
