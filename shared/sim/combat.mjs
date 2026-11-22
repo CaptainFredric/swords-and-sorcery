@@ -3799,7 +3799,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // Blades score intermission / server-timed machine selection. Its own clock
   // still advances, and a new fleet is provisioned at the selection deadline.
   if (room.mode === GAME_MODES.SIEGE_BLADES &&
-      (room.siegeBlades?.selectionEndsAt !== null || room.siegeBlades?.roundResetCountdown !== null)) {
+      (room.siegeBlades?.selectionEndsAt != null || room.siegeBlades?.roundResetCountdown != null)) {
     modeCall(room, 'step', dt, nowSec, { damage: applyDamage });
     room.tickNumber += 1;
     return room.events;
