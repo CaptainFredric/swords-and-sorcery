@@ -1,4 +1,5 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
+import { getFleetMachines, getFleetSolids, getFleetHitVolumes } from './fleetGeometry.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {createSiegeSkill,primeSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS,integratedRamHazard,sampleRamFailure} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
@@ -62,10 +63,7 @@ function stepRamElevation(room,b,dt,now,world){
  nextLift=Math.max(nextLift,Math.min(startLift,neededLift));
  const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
  if(Math.abs(deltaLift)+Math.abs(deltaPitch)<1e-9)return;
- const machineSolids=[
-  ...biByeHitVolumes(room.biByeLlista,now),
-  ...fightFlightHitVolumes(room.fightFlight)
- ];
+ const machineSolids=getFleetHitVolumes(room, b.operatorId, now);
  const actors=[...room.players.values()].filter(other=>
    other.alive&&other.id!==b.operatorId).map(other=>{
     const height=postureOf(other).height;
@@ -112,7 +110,7 @@ function stationClear(b,world,extra=[]){
  return Math.hypot(hit.x-at.x,hit.z-at.z)<.015&&!([...(world.solids??[]),...extra].some(s=>machineryOverlap(body,s)));
 }
 export function soFistExit(room,b,p,extras=[],accept=()=>true){
- const frame=soFistFrame(b),solids=[...(room.world.solids??[]),...soFistSolids(b),...getBiByeSolids(room.biByeLlista),...extras,...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
+ const frame=soFistFrame(b),solids=[...(room.world.solids??[]),...soFistSolids(b),...getFleetSolids(room,b.id),...extras,...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
  for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015&&accept(candidate))return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
@@ -124,7 +122,7 @@ export function mountSoFistication(room,b,p,now=0){
  const phase=room.mode==='RESTLESS_DAY'?(room.restlessDay?.phase??0):room.objectiveState?.phase;
  if(b.emplacementId&&(room.state!=='PLAYING'||!b.phases.includes(phase)))return false;
  const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
- const obstacles=[...getBiByeSolids(room.biByeLlista),...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
+ const obstacles=[...getFleetSolids(room,b.id),...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
  // Boarding is not an ejection test. A clear occupied saddle and proximity
  // to any side of the carriage are enough. A distant/blocked exit behind it
  // must not stop a knight standing beside the machine from mounting.
@@ -296,32 +294,43 @@ const p=room.players.get(b.operatorId);
   const from={...b},heading=b.heading+soFistTurnRate({...b,speed:travelSpeed})*sub;
   const rearZ=SO_FIST_WHEELS[2].pivot[2];
   const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*travelSpeed*sub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*travelSpeed*sub,heading};const pose=soFistTerrainPose(next,world);
-  const obstacles=getBiByeSolids(room.biByeLlista);
+  const obstacles=getFleetSolids(room,b.id);
   // Spellblades do not appear in this carriage's static obstacle list.
    if(b.operatorId&&world?.edgeBoundary&&pose&&
        !edgeMachineProgressAllowed(soFistSolids(b),soFistSolids({...next,...pose}),world.edgeBoundary)){
      b.edgeBlocked=true;b.charging=false;b.chargeDirection=0;break;
    }
    if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
-   // Chassis collision with a real ballista is more than a visual thud.
+   // Chassis collision with other machines is more than a visual thud.
    // Use the same mutually exclusive component contact and momentum path
    // as piston/Flick; a collision cannot damage every tick while overlapped.
-   const ballista=room.biByeLlista;
-   if(pose&&ballista&&!ballista.retired&&ballista.health>0&&
-      Math.abs(travelSpeed)>4.2&&now-(b.lastChassisBallistaAt??-Infinity)>.85){
-    const collided=soFistVolumes({...next,...pose}).some(v=>
-      biByeHitVolumes(ballista,now).some(box=>machineryOverlap(v,box)));
-    if(collided){
-      const intensity=Math.abs(travelSpeed);
-      const point={x:ballista.x,y:ballista.y+1,z:ballista.z};
-      const damage=Math.min(65,Math.round((intensity-4)*8));
-      if(damageBiByeLlista(room,ballista,damage,b.operatorId,'ram-charge',now,
-        {componentId:'hull',point})){
-        b.lastChassisBallistaAt=now;
-        applyBallistaImpact(room,ballista,now,
-          {normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
-        room.events.push({type:'soFistChassisMachineImpact',machineId:b.id,
-          targetId:ballista.id,point,damage,at:now});
+   if(pose&&Math.abs(travelSpeed)>4.2&&now-(b.lastChassisBallistaAt??-Infinity)>.85){
+    for(const other of getFleetMachines(room)){
+      if(other.id===b.id||other.retired||other.health<=0)continue;
+      if(b.operatorId&&other.operatorId&&areAllies(room,b.operatorId,other.operatorId))continue;
+      const otherVols=(other.class==='so-fist-ication'||other.kind==='ram')?soFistVolumes(other,now)
+        :(other.class==='fight-and-flight'||other.kind==='flight')?fightFlightHitVolumes(other)
+        :biByeHitVolumes(other,now);
+      const collided=soFistVolumes({...next,...pose}).some(v=>
+        otherVols.some(box=>machineryOverlap(v,box)));
+      if(collided){
+        const intensity=Math.abs(travelSpeed);
+        const point={x:other.x,y:other.y+1,z:other.z};
+        const damage=Math.min(65,Math.round((intensity-4)*8));
+        const kind=other.class??other.kind;
+        let damaged=false;
+        if(kind==='so-fist-ication'||kind==='ram'){
+          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point});
+        }else if(kind==='fight-and-flight'||kind==='flight'){
+          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point,steelMinimum:5});
+        }else{
+          damaged=damageBiByeLlista(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
+          if(damaged)applyBallistaImpact(room,other,now,{normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
+        }
+        if(damaged){
+          b.lastChassisBallistaAt=now;
+          room.events.push({type:'soFistChassisMachineImpact',machineId:b.id,targetId:other.id,point,damage,at:now});
+        }
       }
     }
    }
@@ -359,7 +368,7 @@ const p=room.players.get(b.operatorId);
   candidate.x+=planted[0]-turned[0];
   candidate.z+=planted[2]-turned[2];
   const pose=soFistTerrainPose(candidate,world);
-  const obstacles=getBiByeSolids(room.biByeLlista);
+  const obstacles=getFleetSolids(room,b.id);
   const withinBounds=!world?.edgeBoundary||pose&&
     edgeMachineProgressAllowed(soFistSolids(b),
       soFistSolids({...candidate,...pose}),world.edgeBoundary);
@@ -370,49 +379,44 @@ const p=room.players.get(b.operatorId);
  // Reflect AFTER-contact momentum in the network snapshot, including rebounds.
  b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  if(Math.abs(travelSpeed)<.001&&soFistPose(b,now).active)resolveSoFistContacts(room,b,{...b},dt,now,now-dt,dt);
- const other=room.biByeLlista,stroke=soFistPose(b,now);
- if(other&&other.health>0&&stroke.active&&!(b.strokeMachines??[]).includes(other.id)){
-  const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);let first=null;
-  for(const box of biByeHitVolumes(other,now)){
-   const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
-   const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first={...hit,box};
-  }
-  if(first){const armored=hasFist(b),damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);
-    const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
-    applyBallistaImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:{x:first.point[0],y:first.point[1],z:first.point[2]}});
-    recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',point:{x:first.point[0],y:first.point[1],z:first.point[2]}});
-     const oldOffset=soFistPose(b,now-dt).offset;
-     b.strokeLimit=Math.max(oldOffset,oldOffset+(stroke.offset-oldOffset)*first.t-.002);
-     b.strokeBlockedAt=now;}}
- }
- // An elevated piston can really punch a low-flying Fight-and-Flight.
- // Component routing is authoritative: hitting the rotor damages the rotor,
- // not an imaginary total-machine health box.
- const flyer=room.fightFlight;
- if(flyer&&flyer.health>0&&!flyer.retired&&stroke.active&&
-    !(b.strokeMachines??[]).includes(flyer.id)){
-  const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);let first=null;
-  for(const box of fightFlightHitVolumes(flyer)){
-   const size=box.size.map((v,i)=>v+
-    head.axes.reduce((n,axis,j)=>n+
-      Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
-   const hit=orientedBoxHit(old.center,head.center,{...box,size});
-   if(hit&&(!first||hit.t<first.t))first={...hit,box};
-  }
-  if(first){
-   const armored=hasFist(b),damage=armored?110:75+
-      15*clamp(stroke.velocity/12.6,0,1);
-   if(damageFightFlight(room,flyer,damage,b.strikeOperatorId,
-      'so-fist',now,{componentId:first.box.componentId,
-        point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){
-    b.strokeMachines??=[];b.strokeMachines.push(flyer.id);
-    const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
-    recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),
-      normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',
-      point:{x:first.point[0],y:first.point[1],z:first.point[2]}});
-    const oldOffset=soFistPose(b,now-dt).offset;
-    b.strokeLimit=Math.max(oldOffset,oldOffset+
-      (stroke.offset-oldOffset)*first.t-.002);b.strokeBlockedAt=now;
+ const stroke=soFistPose(b,now);
+ if(stroke.active){
+  const head=soFistStriker(b,now),old=soFistStriker(b,now-dt);
+  for(const other of getFleetMachines(room)){
+   if(other.id===b.id||other.retired||other.health<=0||(b.strokeMachines??[]).includes(other.id))continue;
+   if(b.strikeOperatorId&&other.operatorId&&areAllies(room,b.strikeOperatorId,other.operatorId))continue;
+   const otherVols=(other.class==='so-fist-ication'||other.kind==='ram')?soFistVolumes(other,now)
+     :(other.class==='fight-and-flight'||other.kind==='flight')?fightFlightHitVolumes(other)
+     :biByeHitVolumes(other,now);
+   let first=null;
+   for(const box of otherVols){
+    const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
+    const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first={...hit,box};
+   }
+   if(first){
+    const armored=hasFist(b),damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);
+    const kind=other.class??other.kind;
+    const hitPoint={x:first.point[0],y:first.point[1],z:first.point[2]};
+    let struck=false;
+    if(kind==='so-fist-ication'||kind==='ram'){
+      struck=damageSoFistication(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
+    }else if(kind==='fight-and-flight'||kind==='flight'){
+      struck=damageFightFlight(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
+    }else{
+      struck=damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
+      if(struck){
+        const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+        applyBallistaImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint});
+      }
+    }
+    if(struck){
+      b.strokeMachines??=[];b.strokeMachines.push(other.id);
+      const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+      recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',point:hitPoint});
+      const oldOffset=soFistPose(b,now-dt).offset;
+      b.strokeLimit=Math.max(oldOffset,oldOffset+(stroke.offset-oldOffset)*first.t-.002);
+      b.strokeBlockedAt=now;
+    }
    }
   }
  }

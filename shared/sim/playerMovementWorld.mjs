@@ -15,11 +15,25 @@ export function detachedRamFistSolid(ram){
     center:[fist.position.x,fist.position.y,fist.position.z],
     size:[1.65,1.22,1.65]};
 }
-export function playerMovementWorld(world, { ballista = null, ram = null, flight = null } = {}) {
+export function playerMovementWorld(world, { ballista = null, ram = null, flight = null, machines = null } = {}) {
   // World-space steel gauntlet: one shared host/client collision primitive.
-  const detachedSolid=detachedRamFistSolid(ram);
-  const occupied = [...getBiByeSolids(ballista), ...soFistSolids(ram),
-    ...fightFlightSolids(flight),...(detachedSolid?[detachedSolid]:[])];
+  const machineList = machines ?? [ballista, ram, flight].filter(Boolean);
+  const occupied = [];
+  const detachedSolids = [];
+  for (const m of machineList) {
+    if (!m || m.health <= 0 || m.retired) continue;
+    const kind = m.class ?? m.kind;
+    if (kind === 'so-fist-ication' || kind === 'ram') {
+      occupied.push(...soFistSolids(m));
+      const detached = detachedRamFistSolid(m);
+      if (detached) detachedSolids.push(detached);
+    } else if (kind === 'bi-bye-llista' || kind === 'ballista') {
+      occupied.push(...getBiByeSolids(m));
+    } else if (kind === 'fight-and-flight' || kind === 'flight') {
+      occupied.push(...fightFlightSolids(m));
+    }
+  }
+  occupied.push(...detachedSolids);
   return occupied.length
     ? { ...world, solids: [...(world.solids ?? []), ...occupied] }
     : world;

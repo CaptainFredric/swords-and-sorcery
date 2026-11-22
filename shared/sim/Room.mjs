@@ -120,8 +120,150 @@ function scoreFields() {
 }
 
 export class Room {
+  get soFistication() {
+    return this._legacySoFistication ?? [...this.machines.values()].find(m => m.class === 'so-fist-ication' || m.kind === 'ram') ?? null;
+  }
+  set soFistication(val) {
+    if (this._legacySoFistication && this.machines?.has(this._legacySoFistication.id)) {
+      this.machines.delete(this._legacySoFistication.id);
+    }
+    this._legacySoFistication = val;
+    if (val && this.machines) {
+      if (!val.id) val.id = `sofist-${this.code ?? 'room'}-${this.soFistRevision ?? 0}`;
+      this.machines.set(val.id, val);
+    }
+  }
+
+  get biByeLlista() {
+    return this._legacyBiByeLlista ?? [...this.machines.values()].find(m => m.class === 'bi-bye-llista' || m.kind === 'ballista') ?? null;
+  }
+  set biByeLlista(val) {
+    if (this._legacyBiByeLlista && this.machines?.has(this._legacyBiByeLlista.id)) {
+      this.machines.delete(this._legacyBiByeLlista.id);
+    }
+    this._legacyBiByeLlista = val;
+    if (val && this.machines) {
+      if (!val.id) val.id = `bibye-${this.code ?? 'room'}-${this.biByeRevision ?? 0}`;
+      this.machines.set(val.id, val);
+    }
+  }
+
+  get fightFlight() {
+    return this._legacyFightFlight ?? [...this.machines.values()].find(m => m.class === 'fight-and-flight' || m.kind === 'flight') ?? null;
+  }
+  set fightFlight(val) {
+    if (this._legacyFightFlight && this.machines?.has(this._legacyFightFlight.id)) {
+      this.machines.delete(this._legacyFightFlight.id);
+    }
+    this._legacyFightFlight = val;
+    if (val && this.machines) {
+      if (!val.id) val.id = `fight-flight-${this.code ?? 'room'}-${this.fightFlightRevision ?? 0}`;
+      this.machines.set(val.id, val);
+    }
+  }
+
+  addMachine(machine) {
+    if (!machine) return null;
+    if (!machine.id) {
+      this.machineCounter = (this.machineCounter ?? 0) + 1;
+      machine.id = `${machine.class ?? machine.kind ?? 'machine'}-${this.code ?? 'room'}-${this.machineCounter}`;
+    }
+    this.machines.set(machine.id, machine);
+    const kind = machine.class ?? machine.kind;
+    if ((kind === 'so-fist-ication' || kind === 'ram') && !this._legacySoFistication) {
+      this._legacySoFistication = machine;
+    } else if ((kind === 'bi-bye-llista' || kind === 'ballista') && !this._legacyBiByeLlista) {
+      this._legacyBiByeLlista = machine;
+    } else if ((kind === 'fight-and-flight' || kind === 'flight') && !this._legacyFightFlight) {
+      this._legacyFightFlight = machine;
+    }
+    return machine;
+  }
+
+  removeMachine(id, nowSec = 0) {
+    const machine = this.machines.get(id);
+    if (!machine) return false;
+    if (machine.operatorId) {
+      const p = this.players.get(machine.operatorId);
+      if (p) this.dismountPlayerFromMachines(p, nowSec, false);
+    }
+    this.machines.delete(id);
+    if (this._legacySoFistication?.id === id) this._legacySoFistication = null;
+    if (this._legacyBiByeLlista?.id === id) this._legacyBiByeLlista = null;
+    if (this._legacyFightFlight?.id === id) this._legacyFightFlight = null;
+    return true;
+  }
+
+  getMachine(id) {
+    return this.machines.get(id) ?? null;
+  }
+
+  getMachines() {
+    return [...this.machines.values()];
+  }
+
+  getMachineForPlayer(playerId) {
+    for (const m of this.machines.values()) {
+      if (m.operatorId === playerId) return m;
+    }
+    return null;
+  }
+
+  dismountPlayerFromMachines(player, nowSec = 0, isDisconnect = false) {
+    if (!player) return;
+    for (const m of this.machines.values()) {
+      if (m.operatorId === player.id) {
+        const kind = m.class ?? m.kind;
+        if (kind === 'so-fist-ication' || kind === 'ram') {
+          dismountSoFistication(this, m, player, { force: true });
+        } else if (kind === 'bi-bye-llista' || kind === 'ballista') {
+          dismountBiByeLlista(m, player, isDisconnect, this.world);
+        } else if (kind === 'fight-and-flight' || kind === 'flight') {
+          dismountFightFlight(this, m, player, { force: true, at: nowSec });
+        }
+      }
+    }
+    if (this._legacySoFistication?.operatorId === player.id) {
+      dismountSoFistication(this, this._legacySoFistication, player, { force: true });
+    }
+    if (this._legacyBiByeLlista?.operatorId === player.id) {
+      dismountBiByeLlista(this._legacyBiByeLlista, player, isDisconnect, this.world);
+    }
+    if (this._legacyFightFlight?.operatorId === player.id) {
+      dismountFightFlight(this, this._legacyFightFlight, player, { force: true, at: nowSec });
+    }
+    player.operatingRamId = null;
+    player.operatingBallistaId = null;
+    player.operatingFightFlightId = null;
+  }
+
+  resetFleet(nowSec = 0) {
+    this.roundGeneration = (this.roundGeneration ?? 0) + 1;
+    for (const p of this.players.values()) {
+      this.dismountPlayerFromMachines(p, nowSec, false);
+    }
+    this.machines.clear();
+    this._legacySoFistication = null;
+    this._legacyBiByeLlista = null;
+    this._legacyFightFlight = null;
+    this.projectiles.clear();
+    if (this.bibyeProjectiles) this.bibyeProjectiles.clear();
+    if (this.fightFlightProjectiles) this.fightFlightProjectiles.clear();
+    this.flightBurnZones = [];
+    this.oneHitWaves = [];
+    this.oneHitBurnZones = [];
+    this.oneHitFields = [];
+    this.lineConductWires = [];
+    this.ruptures = [];
+  }
+
   constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP, teamSize = null } = {}) {
     this.code = code;
+    this.machines = new Map();
+    this.roundGeneration = 0;
+    this._legacySoFistication = null;
+    this._legacyBiByeLlista = null;
+    this._legacyFightFlight = null;
     resetChallengeTracking(this);
     this.isPrivate = isPrivate;
     this.sharedPractice=false;
@@ -757,11 +899,7 @@ export class Room {
   removePlayer(id, nowSec) {
     const player = this.players.get(id);
     if (!player || player.actorKind !== 'human') return false;
-    if (this.biByeLlista && this.biByeLlista.operatorId === id) {
-      dismountBiByeLlista(this.biByeLlista, player, false, this.world);
-    }
-    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
-    if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
+    this.dismountPlayerFromMachines(player, nowSec, false);
     this.players.delete(id);
     if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'forfeit');
     if (this.hostOwnerId === id) this.hostOwnerId = null;
@@ -782,11 +920,7 @@ export class Room {
     // A dropped connection must not leave a five-spin hold armed server-side.
     // The standard interruption cooldown still applies on reconnection.
     interruptSwordTechnique(player,nowSec);
-    if (this.biByeLlista && this.biByeLlista.operatorId === id) {
-      dismountBiByeLlista(this.biByeLlista, player, true, this.world);
-    }
-    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
-    if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
+    this.dismountPlayerFromMachines(player, nowSec, true);
     player.connected = false;
     if(this.sharedPractice&&this.sharedPracticeHostId===id)
       this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
@@ -845,10 +979,7 @@ export class Room {
         && !player.connected
         && player.disconnectExpiresAt !== null
         && nowSec > player.disconnectExpiresAt) {
-        if (this.biByeLlista && this.biByeLlista.operatorId === id) {
-          dismountBiByeLlista(this.biByeLlista, player, false, this.world);
-        }
-        if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
+        this.dismountPlayerFromMachines(player, nowSec, false);
         this.players.delete(id);
         if (this.mode === GAME_MODES.EDGE_OF_VICTORY) eliminateEdgePlayer(this, id, nowSec, 'disconnected');
         if (this.hostOwnerId === id) this.hostOwnerId = null;
@@ -1023,6 +1154,8 @@ export class Room {
         this.world = bastionBreachForObjective(this.objectiveState);
     }
     // Match reset restores canonical geometry before rebuilding authoritative defense state.
+    this.roundGeneration = (this.roundGeneration ?? 0) + 1;
+    this.machines.clear();
     const baseWorld = getWorld(this.worldId);
     this.structures = createStructureState(baseWorld, (this.structures?.revision ?? 0) + 1);
     this.soFistication = null;

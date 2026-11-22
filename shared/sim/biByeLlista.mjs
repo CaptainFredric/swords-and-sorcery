@@ -1,4 +1,5 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
+import { getFleetMachines, getFleetSolids, blastFleet } from './fleetGeometry.mjs';
 import {ballistaMountReach} from '../src/siegeMountReach.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
@@ -777,7 +778,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         ballista.steer=wheelSteer*affliction.steering;
         // Other siege machines and architecture remain solid. Players are
         // contacted by moving wheels, never included as immovable obstacles.
-        const others=soFistSolids(room.soFistication);
+        const others=getFleetSolids(room, ballista.id);
         const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
         const slices=Math.max(1,Math.ceil(Math.abs(speed*dt)/.05));
         for(let i=0;i<slices&&Math.abs(speed)>1e-5;i++){
@@ -818,7 +819,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   if(ballista.mode==='MOBILE'&&Math.hypot(impulse.x,impulse.z)>SIEGE_IMPACT.restSpeed){
     // A knock-on impulse likewise clears bodies without turning them into
     // invisible walls in the ballista's obstacle solver.
-    const others=soFistSolids(room.soFistication);
+    const others=getFleetSolids(room, ballista.id);
     const ctx=biByeTerrainContext(world,ballista,others);
     const initiallyBlocked=!biByeTerrainClear(ballista,ctx);
     const slices=Math.max(1,Math.ceil(Math.hypot(impulse.x,impulse.z)*dt/.05));
@@ -906,21 +907,35 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
       }
     }
 
-    const machine = room.biByeLlista;
-    if (machine) {
-      // The launching rail/limbs may initially contain their own bolt. Exempt
-      // that assembly only until it clears the rail, never the entire carriage.
-      const own = projectile.ballistaId === machine.id;
-      const railClearTime = projectile.subKind === 'conditioning' ? 1.65 / 48 : 3.75 / 55;
+    const railClearTime = projectile.subKind === 'conditioning' ? 1.65 / 48 : 3.75 / 55;
+    for (const m of getFleetMachines(room)) {
+      if (m.health <= 0 || m.retired) continue;
+      const own = projectile.ballistaId === m.id;
+      if (!own && projectile.ownerId && m.operatorId && areAllies(room, projectile.ownerId, m.operatorId)) continue;
       const assembly = own && nowSec - projectile.bornAt <= railClearTime + dt ? (projectile.subKind === 'conditioning' ? 'upper' : 'main') : null;
-      const hit = biByeFirstHit(machine, [before.x,before.y,before.z], [after.x,after.y,after.z], nowSec, 0, assembly);
-      if (hit) hits.push({...hit,kind:"machine",point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});
+      const mKind = m.class ?? m.kind;
+      let hit = null;
+      let kind = 'machine';
+      if (mKind === 'so-fist-ication' || mKind === 'ram') {
+        kind = 'ram';
+        hit = soFistFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], nowSec);
+      } else if (mKind === 'fight-and-flight' || mKind === 'flight') {
+        kind = 'flight';
+        hit = fightFlightFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], projectile.radius ?? 0);
+      } else {
+        kind = 'machine';
+        hit = biByeFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], nowSec, 0, assembly);
+      }
+      if (hit) {
+        hits.push({
+          ...hit,
+          kind,
+          targetMachine: m,
+          box: hit.box,
+          point: Array.isArray(hit.point) ? { x: hit.point[0], y: hit.point[1], z: hit.point[2] } : hit.point,
+        });
+      }
     }
-
-    const flightHit=fightFlightFirstHit(room.fightFlight,[before.x,before.y,before.z],[after.x,after.y,after.z],projectile.radius??0);
-    if(flightHit)hits.push({t:flightHit.t,kind:'flight',box:flightHit.box,point:{x:flightHit.point[0],y:flightHit.point[1],z:flightHit.point[2]}});
-    const ramHit=soFistFirstHit(room.soFistication,[before.x,before.y,before.z],[after.x,after.y,after.z],nowSec);
-    if(ramHit)hits.push({...ramHit,kind:'ram',point:{x:ramHit.point[0],y:ramHit.point[1],z:ramHit.point[2]}});
 
     // 2. Ground terrain collision
     const ground = surfaceHeightAt(after.x, after.z, before.y, world);
@@ -1004,25 +1019,22 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           // Explosion remains at the actual bolt; unchanged falloff and guard.
           const impactAt=nowSec-flightDt+flightDt*first.t;
           detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false,impactAt);
-          if(room.soFistication&&room.soFistication.operatorId!==projectile.ownerId&&
-             !areAllies(room,projectile.ownerId,room.soFistication.operatorId)&&
-             !frostHasCover(world,impactPoint,{x:room.soFistication.x,
-               y:room.soFistication.y+1,z:room.soFistication.z}))
-            blastSoFistication(room,room.soFistication,{point:impactPoint,
-              radius:projectile.blastRadius,damage:projectile.directDamage},
-              projectile.ownerId,'bibye-conditioning',nowSec);
-          if(machine?.id!==projectile.ballistaId)
-            blastBiByeLlista(room,machine,{point:impactPoint,
-              radius:projectile.blastRadius,damage:projectile.directDamage},
-              projectile.ownerId,'bibye-conditioning',nowSec,world?.solids??[]);
-          frostBlastFlight(room,room.fightFlight,projectile,impactPoint,nowSec,world);
+          blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec);
           continue;
         }
         if(first.kind==='solid')damageStructureSolid(room,first.box,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{point:impactPoint});
-        if(first.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
-        if(first.kind==='flight')damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
-        if (first.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
-        else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:impactPoint,radius:projectile.blastRadius,damage:projectile.directDamage},projectile.ownerId,'bibye-conditioning',nowSec);
+        if(first.targetMachine){
+          const tm=first.targetMachine;
+          const k=tm.class??tm.kind;
+          if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
+          else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
+          else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
+        }else{
+          if(first.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
+          if(first.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
+          if(first.kind==='machine'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
+        }
+        blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec);
         detonateFrostBlast(room, projectile, impactPoint, nowSec, hitPlayer?.id, world, Boolean(first.parryContact));
         continue;
       }
@@ -1036,10 +1048,18 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
         // Solid world obstacle or ground decisively stops the physical bolt
         if (hit.kind === 'solid' || hit.kind === 'ground' || hit.kind === 'machine' || hit.kind === 'ram' || hit.kind === 'flight') {
           if(hit.kind==='solid')damageStructureSolid(room,hit.box,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{point:hit.point});
-          if(hit.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
-          if(hit.kind==='flight')damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
-          if (hit.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
-          else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec);
+          if(hit.targetMachine){
+            const tm=hit.targetMachine;
+            const k=tm.class??tm.kind;
+            if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
+            else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
+            else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
+          }else{
+            if(hit.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
+            if(hit.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
+            if(hit.kind==='machine'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
+          }
+          blastFleet(room,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec);
           room.bibyeProjectiles.delete(projectile.id);
           projectileTerminated = true;
 

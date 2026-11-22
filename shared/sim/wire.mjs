@@ -13,6 +13,7 @@ import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSieg
 import {requestBiByeSharpTurn,requestLookAroundAndFindOut,biByeSweepFireLocked} from './biByeSweep.mjs';
 import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill,requestBiByeCoupledFromUpper } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
+import { getFleetMachines } from './fleetGeometry.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
@@ -66,6 +67,113 @@ export function serializeLobby(room) {
       deaths: p.deaths,
     })),
   };
+}
+
+export function serializeFightFlight(m) {
+  if (!m) return null;
+  return {
+    ...m,
+    position: { x: m.x, y: m.y, z: m.z },
+    class: 'fight-and-flight',
+    kind: 'flight',
+  };
+}
+
+export function serializeSoFistication(m) {
+  if (!m) return null;
+  return {
+    ...m,
+    class: 'so-fist-ication',
+    kind: 'ram',
+    skill: { ...m.skill, failureThreshold: undefined },
+    position: { x: m.x, y: m.y, z: m.z },
+    fistHealth: m.components?.Fist?.health ?? 0,
+    fistMaxHealth: m.components?.Fist?.maxHealth ?? 0,
+    fistState: m.components?.Fist?.health <= 0 ? 'destroyed'
+      : m.detachedFist?.state ?? (m.fistMounted ? 'attached' : 'absent'),
+    drivePressure: m.pressure,
+    reverseChargeAvailable: soFistReverseChargeAvailable(m),
+    contacts: undefined, bodyEpisodes: undefined, recentVictims: undefined,
+    wheelContactAt: undefined, strokeVictims: undefined, strokeMachines: undefined,
+  };
+}
+
+export function serializeBiByeLlista(m, nowSec = 0) {
+  if (!m) return null;
+  return {
+    skill: { ...m.skill }, heavySkill: m.heavySkill, mainSkillUntil: m.mainSkillUntil,
+    sweepHeavyReadyAt: m.sweepHeavyReadyAt ?? 0,
+    lastSweepEndAt: m.lastSweepEndAt ?? null,
+    sweep: m.sweep ? { ...m.sweep, victims: undefined, machines: undefined } : null,
+    impactReaction: m.impactReaction, externalVelocity: m.externalVelocity,
+    outriggersDislodgedAt: Number.isFinite(m.outriggersDislodgedAt) ? m.outriggersDislodgedAt : null,
+    outriggersDislodgedUntil: Number.isFinite(m.outriggersDislodgedUntil) ? m.outriggersDislodgedUntil : null,
+    outriggersDislodgedSource: m.outriggersDislodgedSource,
+    builtAt: m.builtAt,
+    ownerId: m.ownerId ?? null,
+    id: m.id,
+    class: 'bi-bye-llista',
+    kind: 'ballista',
+    interactRadius: m.interactRadius,
+    position: { x: m.x, y: m.y, z: m.z },
+    x: m.x, y: m.y, z: m.z,
+    heading: m.heading,
+    chassisPitch: m.chassisPitch, chassisRoll: m.chassisRoll,
+    wheelOffsets: m.wheelOffsets ? [...m.wheelOffsets] : [0, 0, 0, 0, 0, 0],
+    stabilizerTilts: m.stabilizerTilts ? [...m.stabilizerTilts] : [0, 0, 0, 0],
+    deploymentReason: m.deploymentReason, deploymentRejectedAt: m.deploymentRejectedAt,
+    mainYaw: m.mainYaw, mainPitch: m.mainPitch,
+    upperYaw: m.upperYaw, upperPitch: m.upperPitch,
+    weaponFocus: m.weaponFocus, focusRevision: m.focusRevision,
+    coupling: m.coupling, couplingProgress: m.couplingProgress,
+    couplingReleaseFrom: m.couplingReleaseFrom,
+    couplingStartedAt: m.couplingStartedAt, couplingEndsAt: m.couplingEndsAt,
+    upperReleasedAt: m.upperReleasedAt, upperFiredAt: m.upperFiredAt,
+    upperShotKind: m.upperShotKind, mainReleasedAt: m.mainReleasedAt, heavyDelayTrippedAt: m.heavyDelayTrippedAt,
+    trackingSince: m.trackingSince, aimLimited: Boolean(m.aimLimited),
+    upperPending: m.mobileShotPendingAt != null,
+    upperQueued: Boolean(m.pendingIndependent),
+    combinedUpperPendingAt: m.combinedUpperPendingAt,
+    pendingCoupledFromUpper: Boolean(m.pendingCoupledFromUpper),
+    yaw: m.yaw,
+    pitch: m.pitch,
+    speed: m.speed ?? 0,
+    steer: m.steer ?? 0,
+    mode: m.mode,
+    deployProgress: biByeDeployProgress(m, nowSec),
+    components: structuredClone(m.components),
+    wheelRolls: m.wheelRolls ? [...m.wheelRolls] : [0, 0, 0, 0, 0, 0],
+    poseTime: nowSec,
+    retractFrom: m.retractFrom,
+    retractAim: m.retractAim ? { ...m.retractAim } : null,
+    modeTransitionEndsAt: Number.isFinite(m.modeTransitionEndsAt) ? m.modeTransitionEndsAt : null,
+    health: m.health,
+    lastHitAt: m.lastHitAt,
+    maxHealth: m.maxHealth,
+    state: m.state,
+    operatorId: m.operatorId,
+    firedAt: Number.isFinite(m.firedAt) ? m.firedAt : null,
+    mobileFiredAt: m.mobileFiredAt,
+    smallBoltReadyAt: m.smallBoltReadyAt,
+    reloadStartedAt: Number.isFinite(m.reloadStartedAt) ? m.reloadStartedAt : null,
+    reloadEndsAt: Number.isFinite(m.reloadEndsAt) ? m.reloadEndsAt : null,
+    destroyedAt: m.destroyedAt,
+    siegeSteel: m.siegeSteel ? { ...m.siegeSteel, steel: { ...m.siegeSteel.steel } } : null,
+    modeTransitionStartedAt: Number.isFinite(m.modeTransitionStartedAt) ? m.modeTransitionStartedAt : null,
+    smallBoltReady: nowSec + 1e-8 >= (m.smallBoltReadyAt ?? 0) && m.mobileShotPendingAt == null && !(m.coupling === 'FIRING' && m.upperReleasedAt == null),
+    mainBoltLoaded: Boolean(m.mainBoltLoaded),
+    reloadProgress: m.state === 'RELOADING'
+      ? Math.min(1.0, Math.max(0, (nowSec - m.reloadStartedAt) / BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec))
+      : (m.state === 'LOADED' ? 1.0 : 0.0),
+  };
+}
+
+export function serializeMachine(m, nowSec = 0) {
+  if (!m) return null;
+  const kind = m.class ?? m.kind;
+  if (kind === 'so-fist-ication' || kind === 'ram') return serializeSoFistication(m);
+  if (kind === 'fight-and-flight' || kind === 'flight') return serializeFightFlight(m);
+  return serializeBiByeLlista(m, nowSec);
 }
 
 export function serializeSnapshot(room, nowSec, recipientId = null) {
@@ -303,89 +411,15 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity, ...(p.corePhase ? { corePhase: p.corePhase, armedAt: p.armedAt ?? null, detonateAt: p.detonateAt ?? null } : {}) })),
     structures: room.structures,
+    machines: getFleetMachines(room).map(m => serializeMachine(m, nowSec)),
     fightFlightProjectiles:[...(room.fightFlightProjectiles?.values()??[])].map(p=>({id:p.id,machineId:p.machineId,ownerId:p.ownerId,position:p.position,velocity:p.velocity,bornAt:p.bornAt})),
     fightFlightRevision:room.fightFlightRevision??0,
     flightBurnZones:room.flightBurnZones??[],
-    fightFlight:room.fightFlight?{...room.fightFlight,position:{x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z}}:null,
+    fightFlight: serializeFightFlight(room.fightFlight),
     soFistRevision:room.soFistRevision??0,
-    soFistication:room.soFistication?{...room.soFistication,skill:{...room.soFistication.skill,failureThreshold:undefined},position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},
-      // All health and charge presentation comes from server-owned components.
-      fistHealth:room.soFistication.components?.Fist?.health??0,
-      fistMaxHealth:room.soFistication.components?.Fist?.maxHealth??0,
-      fistState:room.soFistication.components?.Fist?.health<=0?'destroyed':
-        room.soFistication.detachedFist?.state??(room.soFistication.fistMounted?'attached':'absent'),
-      drivePressure:room.soFistication.pressure,
-      reverseChargeAvailable:soFistReverseChargeAvailable(room.soFistication),
-      contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,wheelContactAt:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+    soFistication: serializeSoFistication(room.soFistication),
     bibyeRevision: room.biByeRevision??0,
-    bibyeBallista: room.biByeLlista ? {
-      skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
-      sweepHeavyReadyAt:room.biByeLlista.sweepHeavyReadyAt??0,
-      lastSweepEndAt:room.biByeLlista.lastSweepEndAt??null,
-      sweep:room.biByeLlista.sweep?{...room.biByeLlista.sweep,victims:undefined,machines:undefined}:null,
-      impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
-      outriggersDislodgedAt:Number.isFinite(room.biByeLlista.outriggersDislodgedAt)?room.biByeLlista.outriggersDislodgedAt:null,
-      outriggersDislodgedUntil:Number.isFinite(room.biByeLlista.outriggersDislodgedUntil)?room.biByeLlista.outriggersDislodgedUntil:null,
-      outriggersDislodgedSource:room.biByeLlista.outriggersDislodgedSource,
-      builtAt:room.biByeLlista.builtAt,
-      ownerId:room.biByeLlista.ownerId??null,
-      id: room.biByeLlista.id,
-      // Mobile and desktop MOUNT affordances must use the same authoritative
-      // reach as mountBiByeLlista, including the non-clipping front station.
-      interactRadius:room.biByeLlista.interactRadius,
-      position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
-      x: room.biByeLlista.x,
-      y: room.biByeLlista.y,
-      z: room.biByeLlista.z,
-      heading: room.biByeLlista.heading,
-      chassisPitch:room.biByeLlista.chassisPitch,chassisRoll:room.biByeLlista.chassisRoll,
-      wheelOffsets:[...room.biByeLlista.wheelOffsets],stabilizerTilts:[...room.biByeLlista.stabilizerTilts],
-      deploymentReason:room.biByeLlista.deploymentReason,deploymentRejectedAt:room.biByeLlista.deploymentRejectedAt,
-      mainYaw: room.biByeLlista.mainYaw, mainPitch: room.biByeLlista.mainPitch,
-      upperYaw: room.biByeLlista.upperYaw, upperPitch: room.biByeLlista.upperPitch,
-      weaponFocus: room.biByeLlista.weaponFocus, focusRevision: room.biByeLlista.focusRevision,
-      coupling: room.biByeLlista.coupling, couplingProgress: room.biByeLlista.couplingProgress,
-      couplingReleaseFrom: room.biByeLlista.couplingReleaseFrom,
-      couplingStartedAt: room.biByeLlista.couplingStartedAt, couplingEndsAt: room.biByeLlista.couplingEndsAt,
-      upperReleasedAt: room.biByeLlista.upperReleasedAt, upperFiredAt: room.biByeLlista.upperFiredAt,
-      upperShotKind: room.biByeLlista.upperShotKind, mainReleasedAt: room.biByeLlista.mainReleasedAt, heavyDelayTrippedAt: room.biByeLlista.heavyDelayTrippedAt,
-      trackingSince:room.biByeLlista.trackingSince,aimLimited:Boolean(room.biByeLlista.aimLimited),
-      upperPending: room.biByeLlista.mobileShotPendingAt != null,
-      upperQueued:Boolean(room.biByeLlista.pendingIndependent),
-      combinedUpperPendingAt:room.biByeLlista.combinedUpperPendingAt,
-      pendingCoupledFromUpper:Boolean(room.biByeLlista.pendingCoupledFromUpper),
-
-      yaw: room.biByeLlista.yaw,
-      pitch: room.biByeLlista.pitch,
-      speed: room.biByeLlista.speed ?? 0,
-      steer: room.biByeLlista.steer ?? 0,
-      mode: room.biByeLlista.mode,
-      deployProgress: biByeDeployProgress(room.biByeLlista, nowSec),
-      components: structuredClone(room.biByeLlista.components),
-      wheelRolls: [...room.biByeLlista.wheelRolls],
-      poseTime: nowSec,
-      retractFrom: room.biByeLlista.retractFrom,
-      retractAim: room.biByeLlista.retractAim ? {...room.biByeLlista.retractAim} : null,
-      modeTransitionEndsAt: Number.isFinite(room.biByeLlista.modeTransitionEndsAt) ? room.biByeLlista.modeTransitionEndsAt : null,
-      health: room.biByeLlista.health,
-      lastHitAt: room.biByeLlista.lastHitAt,
-      maxHealth: room.biByeLlista.maxHealth,
-      state: room.biByeLlista.state,
-      operatorId: room.biByeLlista.operatorId,
-      firedAt: Number.isFinite(room.biByeLlista.firedAt) ? room.biByeLlista.firedAt : null,
-      mobileFiredAt: room.biByeLlista.mobileFiredAt,
-      smallBoltReadyAt: room.biByeLlista.smallBoltReadyAt,
-      reloadStartedAt: Number.isFinite(room.biByeLlista.reloadStartedAt) ? room.biByeLlista.reloadStartedAt : null,
-      reloadEndsAt: Number.isFinite(room.biByeLlista.reloadEndsAt) ? room.biByeLlista.reloadEndsAt : null,
-      destroyedAt: room.biByeLlista.destroyedAt,
-      siegeSteel:room.biByeLlista.siegeSteel?{...room.biByeLlista.siegeSteel,steel:{...room.biByeLlista.siegeSteel.steel}}:null,
-      modeTransitionStartedAt: Number.isFinite(room.biByeLlista.modeTransitionStartedAt) ? room.biByeLlista.modeTransitionStartedAt : null,
-      smallBoltReady: nowSec + 1e-8 >= (room.biByeLlista.smallBoltReadyAt ?? 0) && room.biByeLlista.mobileShotPendingAt == null && !(room.biByeLlista.coupling === 'FIRING' && room.biByeLlista.upperReleasedAt == null),
-      mainBoltLoaded: Boolean(room.biByeLlista.mainBoltLoaded),
-      reloadProgress: room.biByeLlista.state === 'RELOADING'
-        ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.reloadStartedAt) / BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec))
-        : (room.biByeLlista.state === 'LOADED' ? 1.0 : 0.0),
-    } : null,
+    bibyeBallista: serializeBiByeLlista(room.biByeLlista, nowSec),
     bibyeProjectiles: [...(room.bibyeProjectiles?.values() ?? [])].map((p) => ({
       id: p.id,
       subKind: p.subKind,
@@ -500,10 +534,12 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
-      if(player.operatingRamId&&room.soFistication?.operatorId===player.id){if(message.down&&player.alive)fireSoFistication(room,room.soFistication,time);return {};}
-      if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
+      const opRam = player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : null;
+      if(opRam && opRam.operatorId === player.id){if(message.down&&player.alive)fireSoFistication(room,opRam,time);return {};}
+      const opBallista = player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : null;
+      if (opBallista && opBallista.operatorId === player.id) {
         if (message.down) {
-          fireBiByeLlista(room, room.biByeLlista, time);
+          fireBiByeLlista(room, opBallista, time);
         }
         return {};
       }
@@ -514,7 +550,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'ramFlick': {
-      const b=room.soFistication;
+      const b = player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : room.soFistication;
       if(!player.alive||!player.operatingRamId||b?.operatorId!==player.id)
         return {rejected:'Operate SO-FIST-ICATION to flick.'};
       return flickSoFistication(room,b,time)?{}:{rejected:'The armored hand is unavailable or recovering.'};
@@ -577,7 +613,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'flightEject': {
-      const m=room.fightFlight;
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
       if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id)
         return {rejected:'Operate Fight-and-Flight before ejecting.'};
       // A UI focus transition cancels Eject; a stale key-up/second touch must
@@ -595,23 +631,27 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'flightDash': {
-      const ok=requestFlightDash(room,room.fightFlight,player,Boolean(message.down),time);
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
+      const ok=requestFlightDash(room,m,player,Boolean(message.down),time);
       return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
     }
     case 'flightTerminalRitual': {
       // All requirements are host-side. Gesture coordinates are deliberately
       // *not* trusted; clients can never supply damage, HP or blast radius.
-      const ok=requestTerminalRitual(room,room.fightFlight,player,time);
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
+      const ok=requestTerminalRitual(room,m,player,time);
       return ok?{}:{rejected:'Terminal Dive needs an airborne intact rotor, active Ascension and a full ready Chivalry.'};
     }
     // the ultimate's key (a full prowess meter): the brace begins
-    case 'ultimate':
+    case 'ultimate': {
       // Preserve legacy/ordinary Chivalry activation for a mounted tap. The
       // separate held chord owns the terminal path; never convert a Dash hold
       // into a normal Ultimate activation or spend its reserved meter.
-      if(player.operatingFightFlightId&&(room.fightFlight?.flightDashHeld||room.fightFlight?.terminalPrep||room.fightFlight?.terminalDive))
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : null;
+      if(player.operatingFightFlightId&&(m?.flightDashHeld||m?.terminalPrep||m?.terminalDive))
         return {rejected:'Release Dash before activating ordinary Chivalry.'};
       tryUltimate(room,player.id,time,{held:message.held===true}); return {};
+    }
     case 'oneHitRelease':
       releaseOneHitCharge(room,player.id,time,{cancel:message.cancel===true,
         yaw:message.yaw,pitch:message.pitch}); return {};
@@ -620,7 +660,8 @@ export function applyRoomCommand(room, player, message, time) {
     case 'oneHitDetonate':
       detonateOneHitWave(room,player.id,message.waveId,time); return {};
     case 'flightUltimateHold': {
-      const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
+      const result=setFlightUltimateHold(room,m,player,Boolean(message.down),time);
       if(result.rejected)return {rejected:result.rejected};
       if(result.tapUltimate&&!message.cancel)tryUltimate(room,player.id,time);
       return {};
@@ -691,7 +732,9 @@ export function applyRoomCommand(room, player, message, time) {
     case 'practicePerryDismiss':
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'siegeSkill': {
-      const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
+      const ram=player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : room.soFistication;
+      const b=player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : room.biByeLlista;
+      const f=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
       const delta=a=>Math.atan2(Math.sin(a),Math.cos(a));
       const aim=player.operatingFightFlightId&&Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)&&
         Math.abs(delta(message.yaw-(player.input?.yaw??player.yaw)))<.35&&
@@ -704,18 +747,18 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'fightFlightFire': {
-      const m=room.fightFlight;
+      const m=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
       if(!requestFightFlightFire(room,m,player,Boolean(message.down),time))return {rejected:'Operate Fight-and-Flight to fire the repeater.'};
       return {};
     }
     case 'bibyeSharpTurn': {
-      const b=room.biByeLlista;
+      const b=player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : room.biByeLlista;
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
       const reason=requestBiByeSharpTurn(room,b,player,time);
       return reason?{rejected:reason}:{};
     }
     case 'bibyeHeavyFire': {
-      const b=room.biByeLlista;
+      const b=player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : room.biByeLlista;
       if(biByeSweepFireLocked(b))return {rejected:'Bolt II is mechanically locked during the sweep.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
       const ray=Number.isFinite(message.yaw)&&Number.isFinite(message.pitch)?
@@ -727,7 +770,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'bibyeCombinedFire': {
-      const b=room.biByeLlista;
+      const b=player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : room.biByeLlista;
       if(biByeSweepFireLocked(b))return {rejected:'Bolt II cannot be queued during the spin.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
       const reason=requestBiByeCombinedSkill(room,b,player,time,biByeTargetAim);
@@ -753,13 +796,22 @@ export function applyRoomCommand(room, player, message, time) {
           return {rejected:'Set down the siege ladder before mounting.'};
         let boarded=false;
         if(message.machine==='fight-and-flight'){
-          const reason=fightFlightMountProblem(room,room.fightFlight,player,time);
+          const candidates = [...room.machines.values()].filter(m => (m.class === 'fight-and-flight' || m.kind === 'flight') && !m.operatorId && m.health > 0);
+          if (room.fightFlight && !room.machines.has(room.fightFlight.id)) candidates.push(room.fightFlight);
+          const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 5) || candidates[0];
+          const reason=fightFlightMountProblem(room,target,player,time);
           if(reason)return {rejected:reason};
-          boarded=mountFightFlight(room,room.fightFlight,player,time);
+          boarded=mountFightFlight(room,target,player,time);
         }else if(message.machine==='so-fist-ication'){
-          boarded=Boolean(room.soFistication&&mountSoFistication(room,room.soFistication,player,time));
+          const candidates = [...room.machines.values()].filter(m => (m.class === 'so-fist-ication' || m.kind === 'ram') && !m.operatorId && m.health > 0);
+          if (room.soFistication && !room.machines.has(room.soFistication.id)) candidates.push(room.soFistication);
+          const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 6) || candidates[0];
+          boarded=Boolean(target&&mountSoFistication(room,target,player,time));
         }else if(message.machine==='bi-bye-llista'){
-          boarded=Boolean(room.biByeLlista&&mountBiByeLlista(room.biByeLlista,player,time));
+          const candidates = [...room.machines.values()].filter(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && !m.operatorId && m.health > 0);
+          if (room.biByeLlista && !room.machines.has(room.biByeLlista.id)) candidates.push(room.biByeLlista);
+          const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 6) || candidates[0];
+          boarded=Boolean(target&&mountBiByeLlista(target,player,time));
         }else return {rejected:'Unknown siege machine.'};
         if(!boarded)return {rejected:'The selected siege machine cannot be boarded from here.'};
         player.practiceUiFocus=false;
@@ -771,17 +823,30 @@ export function applyRoomCommand(room, player, message, time) {
       if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
          && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);
-      if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
-      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
+      if(player.operatingFightFlightId){
+        const f = room.machines?.get(player.operatingFightFlightId) || room.fightFlight;
+        return dismountFightFlight(room,f,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};
+      }
+      if(player.operatingRamId){
+        const ram = room.machines?.get(player.operatingRamId) || room.soFistication;
+        return dismountSoFistication(room,ram,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};
+      }
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
-      const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
-      if(f&&mountFightFlight(room,f,player,time)){player.practiceUiFocus=false;return {};}
-      if(ram&&mountSoFistication(room,ram,player,time)){player.practiceUiFocus=false;return {};}
-      if(b&&mountBiByeLlista(b,player,time)){player.practiceUiFocus=false;return {};}
+      const fleet = getFleetMachines(room);
+      for(const f of fleet.filter(m => (m.class === 'fight-and-flight' || m.kind === 'flight') && !m.operatorId && m.health > 0)) {
+        if(mountFightFlight(room,f,player,time)){player.practiceUiFocus=false;return {};}
+      }
+      for(const ram of fleet.filter(m => (m.class === 'so-fist-ication' || m.kind === 'ram') && !m.operatorId && m.health > 0)) {
+        if(mountSoFistication(room,ram,player,time)){player.practiceUiFocus=false;return {};}
+      }
+      for(const b of fleet.filter(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && !m.operatorId && m.health > 0)) {
+        if(mountBiByeLlista(b,player,time)){player.practiceUiFocus=false;return {};}
+      }
       // A generic "approach a station" message concealed cockpit collisions,
       // elevations and busy combat states, making taps appear completely inert.
       // Report the actual nearest machine's reason without bypassing a single
       // server-side safety or team rule.
+      const f = room.fightFlight;
       if(f&&Math.hypot(player.position.x-f.x,player.position.z-f.z)<=5){
         const reason=fightFlightMountProblem(room,f,player,time);
         if(reason)return {rejected:reason};
@@ -792,28 +857,32 @@ export function applyRoomCommand(room, player, message, time) {
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&player.operatingBallistaId)return {};
       if(player.operatingFightFlightId)return {rejected:'Land and dismount Fight-and-Flight first.'};
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
-      if (!room.biByeLlista) return { rejected: 'No ballista available' };
-      if (room.biByeLlista.operatorId === player.id) {
-        const interrupted=room.biByeLlista.skill?.id==='coldHowTouching'&&
-          room.biByeLlista.skill?.phase==='active';
-        dismountBiByeLlista(room.biByeLlista, player, true, room.world, time);
-        if(interrupted)room.events.push({type:'siegeSkill',machineId:room.biByeLlista.id,
+      const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null)
+        || [...(room.machines?.values() ?? [])].find(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && (!m.operatorId || m.operatorId === player.id))
+        || room.biByeLlista;
+      if (!b) return { rejected: 'No ballista available' };
+      if (b.operatorId === player.id) {
+        const interrupted=b.skill?.id==='coldHowTouching'&&
+          b.skill?.phase==='active';
+        dismountBiByeLlista(b, player, true, room.world, time);
+        if(interrupted)room.events.push({type:'siegeSkill',machineId:b.id,
           skill:'coldHowTouching',action:'ended',reason:'dismount',at:time});
       } else {
-        if(!mountBiByeLlista(room.biByeLlista,player,time))
+        if(!mountBiByeLlista(b,player,time))
           return {rejected:'Approach the ballista on the same level and finish any active attack.'};
         player.practiceUiFocus=false;
       }
       return {};
     }
     case 'bibyeToggleDeploy': {
-      if (!room.biByeLlista) return { rejected: 'No ballista available' };
-      if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to toggle deployment' };
-      toggleBiByeDeploy(room.biByeLlista, time, room.world);
+      const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null) || room.biByeLlista;
+      if (!b) return { rejected: 'No ballista available' };
+      if (b.operatorId !== player.id) return { rejected: 'Must operate ballista to toggle deployment' };
+      toggleBiByeDeploy(b, time, room.world);
       return {};
     }
     case 'bibyeWeaponFocus': {
-      const b = room.biByeLlista;
+      const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null) || room.biByeLlista;
       if (!player.alive || !b || b.operatorId !== player.id) return { rejected: 'Must operate ballista to change weapon' };
       const focus = message.focus ?? (b.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN');
       if (!setBiByeWeaponFocus(b, focus, time)) return { rejected: 'Deploy before switching weapon focus' };
@@ -821,7 +890,8 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'bibyeCoupledFire': {
-      const b=room.biByeLlista;
+      const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null) || room.biByeLlista;
+      if (!b) return { rejected: 'No ballista available' };
       if(biByeSweepFireLocked(b))return {rejected:'Bolt II is locked during the spin.'};
       if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)
         return {rejected:'Operate the ballista before firing a coupled volley.'};
@@ -834,9 +904,10 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'bibyeFire': {
-      if (!room.biByeLlista) return { rejected: 'No ballista available' };
-      if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to fire' };
-      fireBiByeLlista(room, room.biByeLlista, time);
+      const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null) || room.biByeLlista;
+      if (!b) return { rejected: 'No ballista available' };
+      if (b.operatorId !== player.id) return { rejected: 'Must operate ballista to fire' };
+      fireBiByeLlista(room, b, time);
       return {};
     }
     default: return {};

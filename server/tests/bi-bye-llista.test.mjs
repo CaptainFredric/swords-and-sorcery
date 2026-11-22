@@ -472,7 +472,7 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
 
   // Destruction via authoritative damage
-  damageBiByeLlista(room, ballista, 650, human.id, 'sword', 1.3);
+  damageBiByeLlista(room, ballista, 650, 'enemy', 'sword', 1.3);
   assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
   assert.equal(ballista.health, 0);
   assert.equal(ballista.operatorId, null);

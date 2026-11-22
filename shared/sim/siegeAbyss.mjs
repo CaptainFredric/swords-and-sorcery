@@ -1,21 +1,29 @@
+import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
+
 // Authoritative cleanup of siege machines that have genuinely fallen past
 // the arena's kill plane. On death a machine is GONE, not an unreachable
 // singleton that prevents a Practice rebuild. This is not a terrain-support
 // check: a legitimate airborne aircraft above the void is still playable.
-const TYPES=Object.freeze([
- {field:'fightFlight',revision:'fightFlightRevision',name:'fight-and-flight',event:'fightFlightDestroyed'},
- {field:'soFistication',revision:'soFistRevision',name:'so-fist-ication',event:'soFistDestroyed'},
- {field:'biByeLlista',revision:'biByeRevision',name:'bi-bye-llista',event:'bibyeDestroyed'},
-]);
 export const siegeAbyssLimit=world=>Number.isFinite(world?.abyssY)?world.abyssY:-9;
 
 export function lostSiegeMachines(room,now,killPlayer){
   if(!room||!room.world)return [];
   const abyss=siegeAbyssLimit(room.world),lost=[];
-  for(const cfg of TYPES){
-    const m=room[cfg.field];
+  const fleet=getFleetMachines(room);
+  for(const m of fleet){
     if(!m||m.retired)continue;
     if(!Number.isFinite(m.y)||m.y>=abyss)continue;
+    let isFlight = room.fightFlight === m;
+    let isRam = room.soFistication === m;
+    let isBallista = room.biByeLlista === m;
+    if (!isFlight && !isRam && !isBallista) {
+      const kind = getMachineKind(m);
+      isFlight = kind === 'flight';
+      isRam = kind === 'ram';
+      isBallista = kind === 'ballista';
+    }
+    const cfgName = isFlight ? 'fight-and-flight' : isRam ? 'so-fist-ication' : 'bi-bye-llista';
+    const eventName = isFlight ? 'fightFlightDestroyed' : isRam ? 'soFistDestroyed' : 'bibyeDestroyed';
     const id=m.id,at={x:m.x,y:m.y,z:m.z},owner=m.operatorId;
     // A terminal Valkyrie dive over the void has no collision and must not
     // detonate in midair or defer the pilot's respawn for 30 extra seconds.
@@ -44,15 +52,20 @@ export function lostSiegeMachines(room,now,killPlayer){
     m.pendingVolley=null;m.pendingIndependent=null;
     if(room.bibyeProjectiles)for(const [projectileId,p]of room.bibyeProjectiles)
       if(p.ballistaId===id&&p.pendingRelease)room.bibyeProjectiles.delete(projectileId);
-    room[cfg.field]=null;
-    room[cfg.revision]=(room[cfg.revision]??0)+1;
+    if(room.machines?.has(id))room.machines.delete(id);
+    if(room.soFistication===m)room.soFistication=null;
+    if(room.biByeLlista===m)room.biByeLlista=null;
+    if(room.fightFlight===m)room.fightFlight=null;
+    if(isFlight)room.fightFlightRevision=(room.fightFlightRevision??0)+1;
+    else if(isRam)room.soFistRevision=(room.soFistRevision??0)+1;
+    else if(isBallista)room.biByeRevision=(room.biByeRevision??0)+1;
     if(room.highGrounds?.foundries)for(const f of room.highGrounds.foundries)
       if(f.machineId===id){f.machineId=null;f.machine=null;}
-    const fields={machineId:id,...(cfg.field==='biByeLlista'?{ballistaId:id}:{}),
+    const fields={machineId:id,...(isBallista?{ballistaId:id}:{}),
       operatorId:owner??null,source:'abyss',point:at,at:now};
-    room.events?.push({type:cfg.event,...fields});
-    room.events?.push({type:'siegeMachineAbyss',machine:cfg.name,...fields});
-    lost.push({machineId:id,machine:cfg.name,operatorId:owner??null});
+    room.events?.push({type:eventName,...fields});
+    room.events?.push({type:'siegeMachineAbyss',machine:cfgName,...fields});
+    lost.push({machineId:id,machine:cfgName,operatorId:owner??null});
   }
   return lost;
 }
