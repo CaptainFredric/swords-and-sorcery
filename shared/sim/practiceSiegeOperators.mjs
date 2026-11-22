@@ -2,19 +2,23 @@
 // machinery. Decision quality varies, never damage, ammunition or cooldowns.
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista,toggleBiByeDeploy,
   fireBiByeMobile,fireBiByeFullVolley,biByeTargetAim} from './biByeLlista.mjs';
-import {requestBiByeHeavySkill,setBiByeWeaponFocus} from './biByeWeapons.mjs';
+import {requestBiByeHeavySkill,requestColdHowTouching,setBiByeWeaponFocus} from './biByeWeapons.mjs';
+import {requestBiByeSharpTurn,requestLookAroundAndFindOut,requestBiByeSweepStop} from './biByeSweep.mjs';
 import {createSoFistication,mountSoFistication,dismountSoFistication,soFistExit,
   soFistEntry,primeSoFistSkill,fireSoFistication} from './soFistication.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
 import {fightFlightConstructionClear} from './practiceFightFlight.mjs';
-import {requestFightFlightFire,flightMuzzle,flightRepeaterAim} from './fightFlightWeapons.mjs';
-import {requestFightFlightSkill} from './fightFlightSkill.mjs';
+import {requestFightFlightFire,flightMuzzle} from './fightFlightWeapons.mjs';
+import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
+import {requestFightFlightSkill,endFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {wayToward} from './botNav.mjs';
-import {beginAttack,endAttack} from './combat.mjs';
+import {beginAttack,endAttack,tryCastSpell} from './combat.mjs';
+import {machineSteelParts} from './siegeSteel.mjs';
+import {SIEGE_LOADOUT_DEFAULT,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 
 export const SIEGE_OPERATORS=Object.freeze({
   'bi-bye-llista':Object.freeze({name:'Ballistefan',field:'biByeLlista'}),
@@ -26,6 +30,17 @@ export const SIEGE_DIFFICULTIES=Object.freeze({
   skilled:Object.freeze({reaction:.23,lead:.78,preferred:19,skill:'champion',error:.012}),
   formidable:Object.freeze({reaction:.10,lead:1,preferred:21,skill:'spellblade',error:0}),
 });
+// A Sharp Turn belongs to every ballista, independent of equipped Skills.
+const SLOT=Object.freeze({'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight'});
+export const PRACTICE_SIEGE_SKILL_CHOICES=Object.freeze(Object.fromEntries(
+  Object.entries(SLOT).map(([machine,slot])=>[machine,Object.freeze([
+    'auto',...SIEGE_SKILL_OPTIONS[slot],
+  ])])));
+export function practiceOperatorSkill(machine,choice='auto'){
+  if(!PRACTICE_SIEGE_SKILL_CHOICES[machine]?.includes(choice))return null;
+  return choice==='auto'
+    ?SIEGE_LOADOUT_DEFAULT[SLOT[machine]]:choice;
+}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const difference=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const bearing=(a,b)=>Math.atan2(-(b.x-a.x),-(b.z-a.z));
@@ -65,6 +80,34 @@ function drive(room,m,target,ai,difficulty,{ideal=10,deadZone=2,reverse=true}={}
     ai.lastPosition={...at};ai.lastSampleAt=ai.now;
   }
   return {forward,right,err,d};
+}
+/** Skilled pilots use the identical Sheathe in Steel spell and its normal
+ * 18s cooldown. The vehicle's linked, finite repair budget is untouched.
+ * Choose the moment based on actual damaged parts or approaching fire, and
+ * do not cast on an intact idle chassis merely to farm infinite repair. */
+export function considerOperatorSteel(room,a,m,kind,foe,now){
+  if(a.practiceSiegeOperator?.difficulty==='learner'||a.spell!=='steel'||
+    !m||m.operatorId!==a.id||now<(a.spellReadyAt??0)||
+    now<(a.siegeAi?.nextSteelAt??0)||
+    m.siegeSteel&&m.siegeSteel.state!=='expired'&&now<(m.siegeSteel.protectionUntil??Infinity))
+    return false;
+  const parts=machineSteelParts(m,kind);
+  const missing=parts.reduce((sum,p)=>sum+Math.max(0,p.maxHealth-p.health),0);
+  const critical=parts.some(p=>p.health>0&&p.health/p.maxHealth<.65);
+  const approaching=Boolean(foe&&dist({x:m.x,z:m.z},foe.position)<(
+    kind==='flight'?16:kind==='ram'?9:30));
+  const endangered=approaching&&(
+    m.health/(m.maxHealth??m.health)<.88||
+    parts.some(p=>p.health>0&&p.health/p.maxHealth<.85));
+  // A damaged but quiet carriage can repair before heading back into combat.
+  // A threatened intact carriage may pre-cast only if an actual attack is
+  // underway: proactive mitigation, not free resource generation.
+  const anticipated=approaching&&Boolean(foe.attackActive||foe.pendingSpell||
+    foe.operatingBallistaId||foe.operatingRamId||foe.operatingFightFlightId);
+  if(missing<8&&!critical&&!endangered&&!anticipated)return false;
+  const used=tryCastSpell(room,a.id,{x:0,y:0,z:-1},now);
+  a.siegeAi.nextSteelAt=now+(used?1:1.5);
+  return used;
 }
 function noOperation(room,actor,now){
   const name=actor.practiceSiegeOperator?.machine,def=SIEGE_OPERATORS[name],m=room[def?.field];
@@ -113,7 +156,7 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   if(!candidates.length)return false;
   candidates.sort((a,b)=>a.score-b.score);
   const {machine,m}=candidates[0];
-  actor.practiceSiegeOperator={machine,difficulty:'formidable',opportunistic:true};
+  actor.practiceSiegeOperator={machine,difficulty:'formidable',skill:'auto',opportunistic:true};
   actor.siegeAi={seed:Math.floor(now*30)%2147483647,decisions:0,nextThinkAt:now,
     side:1,lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},
     stuckUntil:0,now,lastShotIAt:-Infinity,lastVolleyAt:-Infinity,
@@ -124,12 +167,14 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   return true;
 }
 /** Plan first. Reject occupied authoritative machines rather than making copies. */
-export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='skilled',now=0){
+export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='skilled',now=0,skill='auto'){
   const def=SIEGE_OPERATORS[machine],tuning=SIEGE_DIFFICULTIES[difficulty];
+  const equipped=practiceOperatorSkill(machine,skill);
   if(room?.mode!=='PRACTICE'||room.state!=='PLAYING'||!requester?.alive||
     requester.actorKind!=='human'||room.players.get(requester.id)!==requester)
     return {rejected:'Only a living Practice player can summon hostile operators.'};
   if(!def||!tuning)return {rejected:'Choose a siege opponent and difficulty.'};
+  if(!equipped)return {rejected:'Choose a valid Skill for the selected siege machine.'};
   if(room.players.size>=8)return {rejected:'Practice has reached the actor limit.'};
   if(room[def.field])return {rejected:'That machine is already in use. Remove or dismantle it before summoning its operator.'};
   if([...room.players.values()].some(p=>p.practiceSiegeOperator?.machine===machine))
@@ -142,10 +187,12 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
   const id='hostile-'+machine+'-'+room.code,revisionNo=(room[revision]??0)+1;
   m.id='hostile-'+machine+'-'+room.code+'-'+revisionNo;
   m.lifecycleId=m.id;m.builtAt=now;m.team=null;
-  const actor=room.addServerActor({id,name:def.name,actorKind:'bot',spell:'fireball',
+  const actor=room.addServerActor({id,name:def.name,actorKind:'bot',
+    spell:difficulty==='learner'?'fireball':'steel',
     ultimate:machine==='fight-and-flight'?'chivalry':'sunder'},now);
   actor.botSkill=tuning.skill;actor.botProfile='melee';
-  actor.practiceSiegeOperator={machine,difficulty};
+  actor.siegeLoadout=normalizeSiegeLoadout({...actor.siegeLoadout,[SLOT[machine]]:equipped});
+  actor.practiceSiegeOperator={machine,difficulty,skill};
   const entry=machine==='so-fist-ication'?soFistEntry(m,room.world):
     machine==='fight-and-flight'?{x:m.x,y:m.y,z:m.z+1}:{x:m.x,y:m.y,z:m.z};
   actor.position={...entry};actor.spawnProtectionUntil=now+.35;
@@ -158,7 +205,7 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
     lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},stuckUntil:0,now,
     lastShotIAt:-Infinity,lastVolleyAt:-Infinity,nextRamAt:now,nextDiveAt:now,phase:'mounted'};
   room.events.push({type:'practiceSiegeOpponentSpawned',playerId:actor.id,machineId:m.id,
-    machine,difficulty,name:def.name,at:now});
+    machine,difficulty,skill,name:def.name,at:now});
   return {};
 }
 // Grounded rotor clearance alone does not make a safe vertical launch site.
@@ -214,20 +261,35 @@ export function removePracticeSiegeOperator(room,requester,machine='all',now=0){
   }
   return {};
 }
-export function resetPracticeSiegeOperator(room,requester,machine,difficulty,now=0){
+export function resetPracticeSiegeOperator(room,requester,machine,difficulty,now=0,skill=null){
   const found=[...room.players.values()].find(p=>p.practiceSiegeOperator?.machine===machine);
-  if(!found)return spawnPracticeSiegeOperator(room,requester,machine,difficulty,now);
-  const last=found.practiceSiegeOperator.difficulty;
+  const previous=found?.practiceSiegeOperator;
+  const chosen=skill??previous?.skill??'auto';
+  // Reject an invalid loadout BEFORE removing a living machine/pilot.
+  if(!practiceOperatorSkill(machine,chosen))return {rejected:'Choose a valid Skill for the selected siege machine.'};
+  if(!found)return spawnPracticeSiegeOperator(room,requester,machine,difficulty,now,chosen);
+  const last=previous.difficulty;
   const removed=removePracticeSiegeOperator(room,requester,machine,now);
   if(removed.rejected)return removed;
-  return spawnPracticeSiegeOperator(room,requester,machine,difficulty??last,now);
+  return spawnPracticeSiegeOperator(room,requester,machine,difficulty??last,now,chosen);
 }
 function ballistefan(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
   const los=!blocked(room,at,target.position);
   const desired=aimInput(at,target,ai,tuning,48);
+  // Close threats get the innate sweep; equipping a Skill never replaces it.
+  const sweepFocus=m.skill?.id==='lookAroundAndFindOut';
+  // Cold is a pre-shot enhancement. A mobile operator may legitimately
+  // activate it BEFORE deploying stabilizers; doing it afterward can miss
+  // the entire exposure window while the outriggers are moving.
+  if(los&&d<43&&
+    ['MOBILE','DEPLOYED'].includes(m.mode)&&
+    m.skill?.id==='coldHowTouching'&&m.skill.phase==='idle'&&
+    now+1e-8>=(m.skill.readyAt??0))
+    requestColdHowTouching(room,m,a,now);
   if(m.mode==='MOBILE'){
-    const wheel=drive(room,m,target,ai,tuning,{ideal:tuning.preferred,deadZone:3});
+    const wheel=drive(room,m,target,ai,tuning,{
+      ideal:sweepFocus?3.0:tuning.preferred,deadZone:sweepFocus?.5:3});
     a.input={...a.input,...wheel,yaw:desired.yaw,pitch:desired.pitch,siegeTarget:{...desired.point,y:desired.point.y+1.15}};
     if(d>9&&d<42&&Math.abs(wheel.err)<.4&&los&&Math.abs(m.speed??0)<.3)
       toggleBiByeDeploy(m,now,room.world);
@@ -236,8 +298,37 @@ function ballistefan(room,a,m,target,ai,tuning,now){
       pitch:desired.pitch,siegeTarget:{...desired.point,y:desired.point.y+1.15}};
     if(m.mode==='DEPLOYED'&&(!los||d<7||d>47))toggleBiByeDeploy(m,now,room.world);
   }
+  if(m.sweep){
+    // A real sustained bow spin needs an ending. Commit the built-in
+    // mechanical settle/fire behavior, not an arbitrary instant animation.
+    if(m.sweep.kind==='skill'&&m.sweep.phase==='loop'&&
+      now-m.sweep.startedAt>2.35)requestBiByeSweepStop(m,now,true);
+    return;
+  }
   if(!los||m.mode==='DESTROYED'||m.mode==='DEPLOYING'||m.mode==='RETRACTING')return;
   const isAligned=Math.abs(difference(desired.yaw,m.mainYaw??m.heading))<.2;
+  const competent=ai.difficulty!=='learner';
+  // Equipped Skill receives first refusal in its actual tactical window.
+  // Otherwise the ordinary Sharp Turn would always preempt Look Around,
+  // effectively making that selected Skill impossible for a capable pilot.
+  if(m.skill?.id==='lookAroundAndFindOut'&&
+    m.skill.phase==='idle'&&now+1e-8>=(m.skill.readyAt??0)&&
+    d<(competent?3.8:2.9)&&now>=(ai.nextSweepAt??0)&&
+    (competent||ai.decisions%3===0)){
+    const problem=requestLookAroundAndFindOut(room,m,a,now);
+    ai.nextSweepAt=now+(problem?1.25:4.5);
+    if(!problem)return;
+  }
+  if(d<=(competent?3.4:2.8)&&
+    now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'&&
+    (competent||ai.decisions%3===0)){
+    // A Sharp Turn is available on any equipped ballista. It physically
+    // checks its entire bow sweep against terrain and machinery, spends the
+    // same four-second heavy gate as a human, and uses real blade hitboxes.
+    const problem=requestBiByeSharpTurn(room,m,a,now);
+    ai.nextSweepAt=now+(problem?1.15:4.2);
+    if(!problem)return;
+  }
   // Deployed and aligned at close range, conduct a *real* coupled volley.
   // Tracking may require repeated deliberate input until the latch engages;
   // never prime the independent Skill in the middle of that preparation.
@@ -249,7 +340,8 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   }
   // Otherwise the upper bolt conditions the target ahead of the separately
   // primed heavy Skill's authentic release catch.
-  if(m.mainBoltLoaded&&m.skill?.phase==='idle'&&d<55&&isAligned)
+  if(m.skill?.id==='boltToTheOccasion'&&m.mainBoltLoaded&&
+    m.skill.phase==='idle'&&d<55&&isAligned)
     requestBiByeHeavySkill(room,m,a,now,biByeTargetAim);
   if(m.skill?.phase==='primed'){
     if(now>=(m.smallBoltReadyAt??0)&&m.mobileShotPendingAt==null&&!m.pendingIndependent){
@@ -264,33 +356,60 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     setBiByeWeaponFocus(m,'MAIN',now);
     if(fireBiByeFullVolley(room,m,now))ai.lastVolleyAt=now;
   }else if(now>=(m.smallBoltReadyAt??0)&&m.mobileShotPendingAt==null&&
-    m.skill?.phase==='idle'&&Math.abs(difference(desired.yaw,m.upperYaw??m.heading))<.25){
+    (m.skill?.phase==='idle'||m.skill?.id==='coldHowTouching'&&m.skill?.phase==='active')&&
+    Math.abs(difference(desired.yaw,m.upperYaw??m.heading))<.25){
     setBiByeWeaponFocus(m,'UPPER',now);
     if(fireBiByeMobile(room,m,now))ai.lastShotIAt=now;
   }
 }
 function uppercuff(room,a,m,target,ai,tuning,now){
   const d=dist({x:m.x,z:m.z},target.position);
-  const approach=drive(room,m,target,ai,tuning,{ideal:2.8,deadZone:1.2,reverse:true});
+  const recoveringFist=m.skill?.id==='longArmToTheJaw'&&
+    m.detachedFist?.state==='resting';
+  const destination=recoveringFist
+    ?{position:m.detachedFist.position,velocity:{}}:target;
+  const approach=drive(room,m,destination,ai,tuning,{
+    ideal:recoveringFist?1.2:2.8,deadZone:recoveringFist?.45:1.2,
+    reverse:!recoveringFist});
   // Commit an actual approach *through* the piston release window. Retreat
   // only after the fist has passed its physical contact point, not as the
   // machine begins the windup (which previously pulled every clean hit away).
   if(m.strikeAt!=null&&now-m.strikeAt<1.1){
     approach.forward=.82;approach.right=clamp(-approach.err*.42,-.5,.5);
-  }else if(d<3.8){
+  }else if(d<3.8&&!recoveringFist){
     approach.forward=-.8;approach.right=clamp(-approach.err*.5,-1,1);
   }
   const forwardFacing=Math.abs(approach.err)<.5;
   a.input={...a.input,forward:approach.forward,right:approach.right,
     sprint:forwardFacing&&d>5&&d<22&&m.pressure>28&&m.components?.Drive?.health>0,
     yaw:m.heading,pitch:0};
-  // Beat to the Punch is a deliberate counterattack stance, not a permanent
-  // prime that prevents ordinary piston attacks from ever being released.
+  const chosen=m.skill?.id;
+  const ready=now+1e-8>=(m.skill?.readyAt??0);
+  const healthy=(m.components?.Fist?.health??0)>0&&
+    (m.components?.Drive?.health??0)>0;
+  // Beat to the Punch stays a reactive counter, not permanent priming.
   const visibleThreat=Boolean(target.attackActive||target.pendingSpell||
     (target.dashUntil??-Infinity)>now);
-  if(forwardFacing&&d<11&&visibleThreat&&m.skill?.phase==='idle'&&
-    m.components?.Fist?.health>0&&m.components?.Drive?.health>0)
+  if(chosen==='beatToThePunch'&&forwardFacing&&d<11&&visibleThreat&&
+    m.skill?.phase==='idle'&&healthy)
     primeSoFistSkill(room,m,a,now);
+  if(chosen==='longArmToTheJaw'&&
+    now>=(ai.nextSkillAt??0)){
+    // Recover a resting fist by the real pickup rule; never replenish an
+    // absent fist merely to let an AI fire its equipped Skill again.
+    if(m.detachedFist?.state==='resting'||
+      m.fistMounted!==false&&forwardFacing&&d>5.5&&d<18&&ready&&healthy){
+      const problem=primeSoFistSkill(room,m,a,now);
+      ai.nextSkillAt=now+(problem?.8:3.6);
+    }
+  }
+  if(chosen==='hellpingHand'&&
+    forwardFacing&&d<6.2&&healthy&&
+    (!m.hellping||m.hellping.phase==='open')&&
+    now>=(ai.nextSkillAt??0)&&ready){
+    const problem=primeSoFistSkill(room,m,a,now);
+    ai.nextSkillAt=now+(problem?.8:.3);
+  }
   if(forwardFacing&&d>=2.1&&d<6.2&&now>=ai.nextRamAt&&
     (m.strikeAt==null||now-m.strikeAt>=3.95)){
     if(fireSoFistication(room,m,now))ai.nextRamAt=now+3.95;
@@ -298,59 +417,109 @@ function uppercuff(room,a,m,target,ai,tuning,now){
 }
 function donte(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
-  const aim=aimInput(at,target,ai,tuning,64);
-  const charge=m.flightCharge??0;
-  // An offensive run must descend into actual blade altitude: hovering five
-  // metres above a grounded foe makes the beautiful rotor tactically useless.
-  const attackPass=ai.difficulty==='formidable'&&!m.grounded&&m.rotorHP>0&&
-    charge>37&&d>3&&d<17;
-  // The repeater is mounted above the feet and has only 20 degrees of
-  // downward elevation. Keep ordinary attack altitude within that *real*
-  // aiming envelope, or even perfect target leading would sail overhead.
-  const shootingAltitude=clamp(d*.28,1.6,5.4);
-  const desiredHeight=attackPass?target.position.y+.1:
-    target.position.y+shootingAltitude;
-  // Real helm authority is bounded by the flight physics turn rate.
-  const heading=bearing(at,aim.point);
-  // Physical muzzle parallax matters at close range: the left-side crossbow
-  // is 0.65 m off center and a center-of-machine ray would miss the knight.
-  // Iteratively solve the desired muzzle-to-torso vector, always evaluating
-  // the same joint-clamped authored transform the server uses to fire.
-  const impact={...aim.point,y:aim.point.y+1.1};
-  let fireYaw=heading,firePitch=0;
-  for(let iteration=0;iteration<3;iteration++){
-    const legal=flightRepeaterAim(m,{yaw:fireYaw,pitch:firePitch});
-    const muzzle=flightMuzzle(m,legal);
-    fireYaw=bearing(muzzle,impact);
-    firePitch=Math.atan2(impact.y-muzzle.y,
-      Math.max(.1,Math.hypot(impact.x-muzzle.x,impact.z-muzzle.z)));
+  const charge=m.flightCharge??0,ammo=m.ammo??0;
+  const skilled=ai.difficulty!=='learner',formidable=ai.difficulty==='formidable';
+  const rotorIntact=m.rotorHP>0;
+  const aim=aimInput(at,target,ai,tuning,FLIGHT_REPEATER.speed);
+  const heading=bearing(at,aim.point),facing=Math.abs(difference(heading,m.heading??0));
+  // Charge is fuel, not a timer to spend indiscriminately. When reserves fall,
+  // land and use the actual grounded recharge; do not hover forever on fumes.
+  if(skilled&&charge<27)ai.regroupForCharge=true;
+  if(ai.regroupForCharge&&charge>=(formidable?72:65))ai.regroupForCharge=false;
+  const regroup=Boolean(skilled&&ai.regroupForCharge);
+  // Close to sword/rotor reach only for a committed offensive pass. Otherwise
+  // keep the repeater clear of melee range, with lateral space to turn.
+  const readyDash=skilled&&rotorIntact&&!m.grounded&&!m.offensiveRun&&
+    !m.flightDashHeld&&!(m.terminalDive||m.terminalPrep)&&
+    charge>55&&(a.prowess??0)>=(formidable?44:70)&&
+    d>8&&d<17&&facing<.21&&
+    Math.abs(m.y-target.position.y)<2.6&&!regroup&&
+    now>=(ai.nextDashAt??0);
+  if(readyDash&&requestFlightDash(room,m,a,true,now)){
+    ai.dashDownAt=now;
+    ai.nextDashAt=now+(formidable?4:7);
   }
-  const climb=m.grounded?charge>22:charge>18&&m.y<desiredHeight-.8;
-  const descend=!m.grounded&&(m.y>desiredHeight+1.5||charge<17);
-  // Offensive passes, not stationary hovering at a single point.
-  const advance=d>5?1:d<2.1?-.6:.45;
-  const flank=d<13?ai.side*.4:0;
-  a.input={...a.input,forward:advance,right:flank,yaw:fireYaw,
-    pitch:clamp(firePitch,-1.45,1.45),
+  if(m.flightDashHeld&&
+    ((!m.terminalPrep&&now-(ai.dashDownAt??now)>.64)||
+      now-(ai.dashDownAt??now)>2.4||charge<20||!target.alive)){
+    // Ordinary rotor passes release promptly. A genuine Ascension/Chivalry
+    // terminal chord may finish its one-second windup before Dash lets go.
+    requestFlightDash(room,m,a,false,now);
+    ai.dashDownAt=null;
+  }
+  const attacking=Boolean(m.offensiveRun||m.flightDashHeld);
+  const optimalAltitude=clamp(d*.24,1.3,4.5);
+  const desiredHeight=attacking?target.position.y+.3:
+    regroup?target.position.y:target.position.y+optimalAltitude;
+  const climb=rotorIntact&&!regroup&&charge>=(skilled?37:22)&&
+    (m.grounded||m.y<desiredHeight-.9);
+  const descend=!m.grounded&&(regroup||m.y>desiredHeight+1.15||charge<20);
+  const retreat=d<(skilled?5.8:2.1)&&!attacking;
+  const steer=regroup?.2:retreat?-.9:d>(skilled?11:5)?1:.25;
+  const strafe=skilled&&!attacking&&d<24?ai.side*.48:0;
+  const impact={x:aim.point.x,y:aim.point.y+1.05,z:aim.point.z};
+  // Aim and collision share the ACTUAL crossbow muzzle and hinge limits.
+  // A target outside its 50-degree traverse or 65-degree elevation is not
+  // a reason to fire into the sky. Turn the chassis and wait for convergence.
+  const solution=flightRepeaterAim(m,{siegeTarget:impact});
+  const muzzle=flightMuzzle(m,solution),clear=!blocked(room,muzzle,impact);
+  const accurate=solution.missDistance<=
+    (formidable?.32:skilled?.45:.7)&&!solution.limited;
+  const visible=clear&&d<Math.min(FLIGHT_REPEATER.speed*FLIGHT_REPEATER.lifespan,43)&&
+    facing<1.02;
+  a.input={...a.input,forward:steer,right:strafe,yaw:heading,
+    pitch:clamp(solution.pitch,-1.45,1.45),siegeTarget:impact,
     jump:climb,crouch:descend,sprint:false};
-  if(m.ammo<4&&m.skill?.phase==='idle'&&d<32)requestFightFlightSkill(room,m,a,now);
-  // While Sword is committed, the real weapon gate controls the repeater;
-  // its requested trigger is a hold, never additional client-like damage.
-  requestFightFlightFire(room,m,a,d<42&&!blocked(room,at,target.position),now);
-  const close=d<2.5&&Math.abs(m.y-target.position.y)<2.7;
-  if(close&&!a.attackHeld&&now>=(a.attackRestartAt??0)){
-    // Ordinary mounted sword collision is resolved by standard combat step.
-    // Chivalry retains its normal concurrency permission.
+  // Use finite bursts, not a held 7Hz stream. Reserve the last rounds for a
+  // genuine close-range shot. Reload/regen already happen on machine ticks.
+  const shotSeq=m.shotSeq??0;
+  if(ai.burstStartSeq==null)ai.burstStartSeq=shotSeq;
+  const maxBurst=formidable?5:skilled?3:8;
+  if(shotSeq-ai.burstStartSeq>=maxBurst){
+    ai.nextFireAt=now+(formidable?.52:skilled?.78:.18);
+    ai.burstStartSeq=shotSeq;
+  }
+  const canSpend=ammo>=(skilled?3:1)||d<8&&ammo>=1;
+  // Fire Away replaces ammunition with real Flight Charge; stop its barrage
+  // before it can deprive the pilot of a controlled landing.
+  const fireAway=m.skill?.id==='fireAwayImRightHere'&&m.skill.phase==='active';
+  if(fireAway&&(charge<38||!visible)){
+    endFightFlightSkill(room,m,now,charge<38?'chargeReserve':'lostSight');
+  }
+  const chosen=m.skill?.id;
+  if(m.skill?.phase==='idle'&&
+    now+1e-8>=(m.skill.readyAt??0)&&visible&&accurate&&!regroup){
+    const want=chosen==='fireAwayImRightHere'
+      ?charge>77&&ammo<7&&d>9&&d<29&&!attacking:
+      chosen==='narrowToOne'?d>7&&d<34:
+      chosen==='doNotStopMyAscension'?d>4&&d<20&&ammo>3&&charge>32:
+      false;
+    if(want)requestFightFlightSkill(room,m,a,now);
+  }
+  const skillActive=m.skill?.phase==='active'&&
+    m.skill.id==='narrowToOne';
+  const blastMode=m.skill?.phase==='active'&&
+    m.skill.id==='fireAwayImRightHere';
+  const fire=visible&&!regroup&&!attacking&&
+    (accurate||skillActive)&&now+1e-8>=(ai.nextFireAt??0)&&
+    (blastMode?charge>38:canSpend);
+  requestFightFlightFire(room,m,a,fire,now);
+  const close=d<2.7&&Math.abs(m.y-target.position.y)<2.5;
+  if(close&&!attacking&&!a.attackHeld&&now>=(a.attackRestartAt??0)){
     beginAttack(room,a.id,now);
-  }else if(a.attackHeld)endAttack(room,a.id,now);
-  if(attackPass&&m.y<=target.position.y+1.3&&d>5&&
-    Math.abs(difference(heading,m.heading))<.25&&!m.offensiveRun)
-    requestFlightDash(room,m,a,true,now);
-  if(m.offensiveRun&& (charge<24||d<3))requestFlightDash(room,m,a,false,now);
-  if(ai.difficulty==='formidable'&&!m.grounded&&a.ultimate==='chivalry'&&
-    a.prowess>=100&&!a.ultimateState&&d<15&&m.rotorHP>0){
-    requestFlightDash(room,m,a,true,now);
-    setFlightUltimateHold(room,m,a,true,now);
+  }else if(a.attackHeld&&!close)endAttack(room,a.id,now);
+  // A pilot does not hold Dash indefinitely or trigger the terminal Ultimate
+  // in the middle of a low-charge escape.
+  if(formidable&&!regroup&&!m.grounded&&!m.offensiveRun&&
+    !m.flightDashHeld&&m.skill?.id==='doNotStopMyAscension'&&
+    m.skill.phase==='active'&&a.ultimate==='chivalry'&&a.prowess>=100&&
+    !a.ultimateState&&d<13&&charge>70&&rotorIntact&&
+    now>=(ai.nextDiveAt??0)){
+    if(requestFlightDash(room,m,a,true,now)){
+      setFlightUltimateHold(room,m,a,true,now);
+      ai.dashDownAt=now;
+      ai.nextDiveAt=now+15;
+    }
   }
 }
 /** Hostile Practice pilots return to their ORIGINAL intact machine by
@@ -447,6 +616,9 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
     if(ai.phase!=='mounted')ai.phase='mounted';
     ai.now=now;ai.difficulty=difficulty;
     const target=enemy(room,a);
+    if(difficulty!=='learner')
+      considerOperatorSteel(room,a,m,def.field==='fightFlight'?'flight':
+        def.field==='soFistication'?'ram':'bibye',target,now);
     if(!target){
       a.input={...a.input,forward:0,right:0,jump:false,crouch:false,sprint:false,attack:false};
       if(machine==='fight-and-flight')requestFightFlightFire(room,m,a,false,now);

@@ -644,10 +644,10 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'practiceSiegeOpponent':{
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage opponents.'};
-      const {action,machine,difficulty}=message;
-      if(action==='spawn')return spawnPracticeSiegeOperator(room,player,machine,difficulty,time);
+      const {action,machine,difficulty,skill}=message;
+      if(action==='spawn')return spawnPracticeSiegeOperator(room,player,machine,difficulty,time,skill??'auto');
       if(action==='remove')return removePracticeSiegeOperator(room,player,machine,time);
-      if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time);
+      if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time,skill??null);
       return {rejected:'Unknown hostile Practice operator action.'};
     }
     case 'highGroundsBuild':

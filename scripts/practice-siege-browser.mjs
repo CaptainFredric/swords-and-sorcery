@@ -210,6 +210,22 @@ try{
   touchActive:window.__ssRuntime.touch.active
  }))()`);
  assert.deepEqual(directExit,{menuHidden:true,drawerOpen:false,parent:'hud',touchActive:true});
+ const skillChoices=await evalInBrowser(`(() => {
+  const machine=document.querySelector('#practice-hostile-machine');
+  const skill=document.querySelector('#practice-hostile-skill'),out={};
+  for(const id of ['bi-bye-llista','so-fist-ication','fight-and-flight']){
+    machine.value=id;machine.dispatchEvent(new Event('change',{bubbles:true}));
+    out[id]=[...skill.options].map(option=>option.value);
+  }
+  return out;
+ })()`);
+ assert.deepEqual(skillChoices['bi-bye-llista'],
+   ['auto','boltToTheOccasion','coldHowTouching','lookAroundAndFindOut'],
+   'Ballistefan equips only actual Skills; A Sharp Turn stays innate');
+ assert.deepEqual(skillChoices['so-fist-ication'],
+   ['auto','beatToThePunch','longArmToTheJaw','hellpingHand']);
+ assert.deepEqual(skillChoices['fight-and-flight'],
+   ['auto','fireAwayRightHere','narrowToOne','doNotStopMyAscension']);
  const choices=[
   ['bi-bye-llista','Ballistefan','ballista'],
   ['so-fist-ication','Sir Uppercuff','ram'],

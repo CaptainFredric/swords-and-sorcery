@@ -28,6 +28,26 @@ const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
 // Unacknowledged snapshots in flight to one client may span at most this.
 export const SNAPSHOT_ACK_WINDOW_TICKS = Math.round(0.75 * TICK_RATE);
+// A missing/delayed ACK must not permanently starve a live match of snapshots.
+// Send just one fresh recovery probe per interval while the ACK window is full.
+export const SNAPSHOT_RECOVERY_PROBE_SEC = 2;
+/** ACK-window backpressure with bounded liveness probes. Only normal
+ * window frames resume at 30Hz; a silent receiver gets at most one new
+ * snapshot every two seconds rather than starvation or an unbounded queue. */
+export function snapshotWindowAllows(session,roomCode,tick,timeSec,{
+  windowTicks=SNAPSHOT_ACK_WINDOW_TICKS,probeSec=SNAPSHOT_RECOVERY_PROBE_SEC,
+}={}){
+  const sent=session.snapshotSent,ack=session.snapshotAck;
+  if(!sent||!ack||sent.roomCode!==roomCode||ack.roomCode!==roomCode||
+    tick<sent.tick||sent.tick-ack.tick<windowTicks){
+    session.snapshotProbeAt=null;
+    return true;
+  }
+  session.snapshotProbeAt??=timeSec;
+  if(timeSec-session.snapshotProbeAt<probeSec)return false;
+  session.snapshotProbeAt=timeSec;
+  return true;
+}
 const SOLO_MODES = new Set([
   GAME_MODES.BOT_DUEL,
   GAME_MODES.PRACTICE,
@@ -178,15 +198,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   // read. A client that acknowledges snapshots gets a new one only while the
   // unacknowledged ones span less than the window, so what it reads is recent.
   // A client that never acknowledges is never held back.
-  function snapshotWindowOpen(session, room, tick) {
-    const sent = session.snapshotSent;
-    const ack = session.snapshotAck;
-    if (!sent || !ack || sent.roomCode !== room.code || ack.roomCode !== room.code || tick < sent.tick) return true;
-    return sent.tick - ack.tick < SNAPSHOT_ACK_WINDOW_TICKS;
-  }
-
   function sendSnapshot(session, room, packet, tick) {
-    if (!snapshotWindowOpen(session, room, tick)) {
+    // The old ACK window had no liveness escape: once a client's last ACK
+    // stopped advancing, snapshots stopped forever. With no new snapshots
+    // there was nothing for the client to acknowledge and all other actors
+    // appeared frozen even though the local player could still predict motion.
+    if (!snapshotWindowAllows(session, room.code, tick, now())) {
       session.snapshotsHeld = (session.snapshotsHeld ?? 0) + 1;
       return false;
     }

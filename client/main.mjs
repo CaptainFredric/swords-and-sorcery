@@ -1,5 +1,6 @@
 import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
 import { ONE_HIT_PRESETS } from '../shared/src/oneHitInfusions.mjs';
+import {SIEGE_SKILL_OPTIONS,SIEGE_SKILL_NAMES} from '../shared/src/siegeLoadout.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
 import { createRepeatActivation } from './menu/repeatActivation.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
@@ -2879,6 +2880,18 @@ function practiceOneHitCommand(command){
   if(status){status.textContent='APPLYING PRACTICE INFUSIONS…';status.dataset.pending='true';}
   socket.practiceOneHit(command);
 }
+const HOSTILE_SKILL_SLOTS=Object.freeze({
+  'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight',
+});
+function updateHostileSkillChoices(machine,active=null){
+  const select=$('#practice-hostile-skill'),slot=HOSTILE_SKILL_SLOTS[machine];
+  if(!select||!slot||select.dataset.machine===machine)return;
+  const choices=[['auto','TACTICAL · AUTOMATIC'],
+    ...SIEGE_SKILL_OPTIONS[slot].map(id=>[id,SIEGE_SKILL_NAMES[id].toUpperCase()])];
+  select.replaceChildren(...choices.map(([value,label])=>new Option(label,value)));
+  select.value=active?.skill&&choices.some(([id])=>id===active.skill)?active.skill:'auto';
+  select.dataset.machine=machine;
+}
 function updateInspectionControls() {
   const destinationWorld = latestSnapshot?.mode === 'PRACTICE' && !latestSnapshot.tutorial ? latestSnapshot.worldId : null;
   const reposition = $('#practice-reposition');
@@ -2890,12 +2903,13 @@ function updateInspectionControls() {
   }
   const machineChoice=$('#practice-hostile-machine')?.value;
   const hostile=latestSnapshot?.players?.find(p=>p.practiceSiegeOperator?.machine===machineChoice);
+  updateHostileSkillChoices(machineChoice,hostile?.practiceSiegeOperator);
   const hostileStatus=$('#practice-hostile-status');
   if(hostileStatus){
     const role=hostile?.name??'No hostile operator';
     const alive=hostile?.health>0;
     hostileStatus.textContent=hostile
-      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'}`
+      ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'} · ${SIEGE_SKILL_NAMES[hostile.practiceSiegeOperator.skill]??'TACTICAL'}`
       : 'No hostile operator summoned.';
   }
   const machineType=$('#practice-siege-type').value;
@@ -3069,7 +3083,8 @@ $('#practice-hostile-machine')?.addEventListener('change',updateInspectionContro
 for(const action of ['spawn','reset','remove'])$('#practice-hostile-'+action)?.addEventListener('click',()=>{
   if(latestSnapshot?.mode!=='PRACTICE')return;
   const machine=$('#practice-hostile-machine').value,difficulty=$('#practice-hostile-difficulty').value;
-  socket.send({type:'practiceSiegeOpponent',action,machine,difficulty});
+  const skill=$('#practice-hostile-skill')?.value??'auto';
+  socket.send({type:'practiceSiegeOpponent',action,machine,difficulty,skill});
 });
 for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',async()=>{
   if(preparingSiege)return;const machine=$('#practice-siege-type').value,room=latestSnapshot?.roomCode;

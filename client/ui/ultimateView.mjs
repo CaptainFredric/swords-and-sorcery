@@ -17,7 +17,7 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
   const state = local?.ultimateState;
   if (local?.alive && local.oneHitWaveId && !local.operatingFightFlightId && !local.operatingRamId &&
     !local.operatingBallistaId && !local.restlessCarrying)
-    return {state:'active',charge:1,label:'IN FLIGHT',word:'DETONATE',ultimate};
+    return {state:'active',charge:1,label:'PRESS AGAIN',word:'DETONATE',action:'detonate',ultimate};
   if(state?.id==='one_hit_of_wonders'&&state.phase==='startup'){
     if(Number.isFinite(state.teleportHoldAt))return {state:'bracing',charge:1,label:'TELEPORT',word:'RELEASE',ultimate};
     if(Number.isFinite(state.partialLightningHoldAt)&&!state.partialLightningReleased){

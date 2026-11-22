@@ -17,7 +17,7 @@ export function fightFlightSkillActive(m,now,id=FIRE_AWAY.id){
 }
 export function requestFightFlightSkill(room,m,p,now,aim=null){
   const chosen=equippedFightFlightSkill(p);
-  if(!m||!p?.alive||p.connected===false||m.health<=0||m.retired||m.mode==='DESTROYED'||
+  if(!m||!p?.alive||(p.actorKind==='human'&&p.connected===false)||m.health<=0||m.retired||m.mode==='DESTROYED'||
     m.operatorId!==p.id||p.operatingFightFlightId!==m.id||room.players.get(p.id)!==p||
     (room.mode!=='PRACTICE'&&room.state!=='PLAYING'))
     return chosen===FIRE_AWAY?'Operate Fight-and-Flight to use Fire Away.':'Operate Fight-and-Flight to use '+chosen.name+'.';

@@ -95,6 +95,12 @@ export class LocalHost {
     this.latestSnapshot = null;
     this.snapshotReceivedAt = 0;
     this.pingMs = 0;
+    // A thrown simulation tick used to vanish into the browser console while
+    // the player could still move through client-side prediction. Preserve
+    // the exact exception and surface one actionable warning per episode.
+    this.lastSimulationFault = null;
+    this.lastSimulationFaultReportedAt = -Infinity;
+    this.pingMs = 0;
     this.local = true;
     this.generation = 0;
     this.cloth = 'crimson';
@@ -358,16 +364,33 @@ export class LocalHost {
 
   /** One step of the match, as the server's tick does it for each room. */
   tick(explicitTime) {
-    if (this.inspectionFrozen) {
-      if (this.inspectionFramesPlaying && this.wallNow() + 1e-9 >= this.inspectionNextBeat) {
-        this.stepInspection();
-        // One visible frame per beat. Background stalls never create a catch-up burst.
-        const nextBeat = this.inspectionNextBeat + 0.2;
-        this.inspectionNextBeat = nextBeat > this.wallNow() ? nextBeat : this.wallNow() + 0.2;
+    try {
+      if (this.inspectionFrozen) {
+        if (this.inspectionFramesPlaying && this.wallNow() + 1e-9 >= this.inspectionNextBeat) {
+          this.stepInspection();
+          // One visible frame per beat. Background stalls never create a catch-up burst.
+          const nextBeat = this.inspectionNextBeat + 0.2;
+          this.inspectionNextBeat = nextBeat > this.wallNow() ? nextBeat : this.wallNow() + 0.2;
+        }
+        return;
       }
-      return;
+      this.#step(explicitTime);
+      this.lastSimulationFault = null;
+    } catch (error) {
+      const at = this.wallNow(),detail=error instanceof Error?error.message:String(error);
+      this.lastSimulationFault={at,detail,stack:error?.stack??null,
+        mode:this.room?.mode??null,roomCode:this.room?.code??null,
+        tick:this.room?.tickNumber??null};
+      // A single bad bot decision must not silently make the whole arena look
+      // paused. This fault is exposed in-place; further ticks may recover.
+      // Never flood the user/console thirty times a second on a persistent bug.
+      if(at-this.lastSimulationFaultReportedAt>=5){
+        this.lastSimulationFaultReportedAt=at;
+        console.error('[Castleward local simulation] Failed tick:',error);
+        this.#deliver({type:'error',
+          message:'Local simulation stopped updating. Check console for the error; please report it.'},true);
+      }
     }
-    this.#step(explicitTime);
   }
 
   #step(explicitTime) {
