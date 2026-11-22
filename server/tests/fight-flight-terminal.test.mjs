@@ -134,6 +134,9 @@ test('Terminal epicenter outweighs edge damage, creates finite burning ground an
  assert.equal(s.m.health,0);assert.equal(s.m.terminalDiveSpent,true);
  assert.equal(s.room.flightBurnZones.length,1);
  const zones=s.room.flightBurnZones;
+ const explosion=s.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
+ assert.equal(explosion.groundBurnExpiresAt,zones[0].expiresAt,
+   'Valkyrie smoke halo must receive the precise server-owned fire expiry');
  assert.ok(zones[0].expiresAt-zones[0].startedAt>=TERMINAL.minFireDuration);
  assert.ok(zones[0].expiresAt-zones[0].startedAt<=TERMINAL.maxFireDuration);
  const before=close.health;
@@ -391,6 +394,8 @@ test('the craft detonates once after crossing the authored arena edge',()=>{
  assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
  const event=s.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
  assert.equal(event.reason,'out-of-bounds');
+ assert.equal(event.groundBurnExpiresAt,null,
+   'abyss detonation has no 7–12s burning ground or matching persistent smoke');
  assert.equal(s.room.flightBurnZones.length,0);
  assert.equal(resolveTerminalFlight(s.room,s.m,2.3),false);
 });

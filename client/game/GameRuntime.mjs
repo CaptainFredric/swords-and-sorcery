@@ -1839,7 +1839,11 @@ export class GameRuntime {
         // The aftershock is distinct from the damaging one-frame blast;
         // ground flame remains a separate host-owned hazard in the snapshot.
         this.flightRenderer.spawnTerminalHalo(event.point,
-          event.at??this.socket.serverNow(),event.fireDuration??7,radius,power);
+          event.at??this.socket.serverNow(),event.fireDuration??7,radius,power,
+          // The host publishes the same absolute expiry as the actual fire
+          // zone; null means there was no ground to catch fire. Do not time
+          // the cloud from animation playback or machine death.
+          event.groundBurnExpiresAt,event.machineId);
         this.#play(fireballImpactRecipe(),event.point,.85+.35*power);
       }
       if (event.type === 'siegeSteelOn') {

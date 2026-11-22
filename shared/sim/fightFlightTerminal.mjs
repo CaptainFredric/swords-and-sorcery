@@ -213,8 +213,15 @@ export function resolveTerminalFlight(room,m,now){
  const blastProfile=terminalBlastProfile(m);
  d.impactBlastProfile=blastProfile;
  const {radius,damage,fireRadius,fireDuration,fireTickDamage}=blastProfile;
+ // The halo and the damaging ground fire must share one authoritative
+ // expiration time. Detonations above the void have a blast but no ground
+ // burning zone, so they must not advertise a long-lived smoke/fire hazard.
+ const floor=surfaceHeightAt(point.x,point.z,point.y+1,room.world);
+ const hasGroundFire=floor!=null&&point.y-floor<=radius;
+ const groundBurnExpiresAt=hasGroundFire?now+fireDuration:null;
  room.events.push({type:'fightFlightTerminalExplosion',machineId:m.id,operatorId:d.operatorId,
-   point,radius,damage,condition:blastProfile.condition,fireDuration,fireRadius,reason,at:now});
+   point,radius,damage,condition:blastProfile.condition,fireDuration,fireRadius,
+   groundBurnExpiresAt,reason,at:now});
  const ascendedWith=[];
  for(const p of room.players.values()){
    if(!p.alive||p.id===d.operatorId||areAllies(room,d.operatorId,p.id))continue;
@@ -267,13 +274,12 @@ export function resolveTerminalFlight(room,m,now){
  room.flightBurnZones??=[];
  // The explosion follows the actual 3D impact; its *ground* fire settles onto
  // supported terrain, rather than hovering at the chassis altitude after a wall hit.
- const floor=surfaceHeightAt(point.x,point.z,point.y+1,room.world);
  // A detonation over an abyss or far above any surface has no burning GROUND.
  // Never create a hovering damage zone at its airborne explosion coordinates.
- if(floor!=null&&point.y-floor<=radius){
+ if(hasGroundFire){
    const firePoint={x:point.x,y:floor,z:point.z};
    room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:fireRadius,
-     tickDamage:fireTickDamage,startedAt:now,expiresAt:now+fireDuration,nextTickAt:now+TERMINAL.fireInterval});
+     tickDamage:fireTickDamage,startedAt:now,expiresAt:groundBurnExpiresAt,nextTickAt:now+TERMINAL.fireInterval});
  }
  return true;
 }
