@@ -63,3 +63,35 @@ export function windbladeImpactKick(viewer,impact) {
   const near=Math.max(0,1-metres/24);
   return .11*near*near;
 }
+
+/**
+ * Build a level, right-handed frame for the flying Gale pressure sheet.
+ * Local +Z follows the aimed 3D velocity; local +X is strictly horizontal.
+ * Unlike setFromUnitVectors(+Z, velocity), pitching cannot bank the blade or
+ * rotate its broad sweep into a vertical cut. Previous right stabilizes the
+ * otherwise undefined heading of a precisely vertical shot.
+ */
+export function windbladeLevelBasis(direction,previousRight=null){
+  const raw={x:Number(direction?.x)||0,y:Number(direction?.y)||0,z:Number(direction?.z)||0};
+  const magnitude=Math.hypot(raw.x,raw.y,raw.z)||1;
+  const forward=magnitude>1e-8?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}:{x:0,y:0,z:1};
+  const horizontal=Math.hypot(forward.x,forward.z);
+  const old=Math.hypot(previousRight?.x??0,previousRight?.z??0);
+  const right=horizontal>1e-3
+    ?{x:forward.z/horizontal,y:0,z:-forward.x/horizontal}
+    :old>1e-6
+      ?{x:previousRight.x/old,y:0,z:previousRight.z/old}
+      :{x:1,y:0,z:0};
+  // If the aim is nearly vertical, remove its tiny component along right so
+  // the basis remains orthonormal without materially changing sweep width.
+  const dot=forward.x*right.x+forward.z*right.z;
+  const corrected={x:right.x-forward.x*dot,y:-forward.y*dot,z:right.z-forward.z*dot};
+  const n=Math.hypot(corrected.x,corrected.y,corrected.z)||1;
+  const across={x:corrected.x/n,y:corrected.y/n,z:corrected.z/n};
+  const up={
+    x:forward.y*across.z-forward.z*across.y,
+    y:forward.z*across.x-forward.x*across.z,
+    z:forward.x*across.y-forward.y*across.x,
+  };
+  return {right:across,up,forward};
+}
