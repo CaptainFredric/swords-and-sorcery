@@ -13,10 +13,10 @@ export function arenaOptions(mode, selected) {
   return worlds.map(id=>`<option value="${id}"${id===selected?' selected':''}>${WORLD_NAMES[id]??id}</option>`).join('');
 }
 export function lobbyControls(message, localId) {
-  if (message.roomState !== 'WAITING' || !['FFA','BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY','EDGE_OF_VICTORY'].includes(message.mode)) return '';
+  if (message.roomState !== 'WAITING' || !['FFA','BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY','EDGE_OF_VICTORY','SIEGE_BLADES'].includes(message.mode)) return '';
   const host = message.hostId === localId;
   if (!host) {
-    const teams=message.mode==='BREAKTHROUGH'||message.mode==='HIGH_GROUNDS';
+    const teams=message.mode==='BREAKTHROUGH'||message.mode==='HIGH_GROUNDS'||message.mode==='SIEGE_BLADES';
     return `<div class="lobby-readonly"><p class="small-copy">The room host sets these rules:</p>
       <dl><div><dt>MODE</dt><dd>${message.mode.replaceAll('_',' ')}</dd></div>
       <div><dt>ARENA</dt><dd>${escape(WORLD_NAMES[message.worldId]??message.worldId)}</dd></div>
@@ -25,7 +25,7 @@ export function lobbyControls(message, localId) {
         <div><dt>BOT SKILL</dt><dd>${escape((message.botSkill??'knight').toUpperCase())}</dd></div>`
         :`<div><dt>FIRST TO</dt><dd>${message.scoreToWin??10}</dd></div>`}</dl></div>`;
   }
-  const team = message.mode === 'BREAKTHROUGH' || message.mode === 'HIGH_GROUNDS';
+  const team = message.mode === 'BREAKTHROUGH' || message.mode === 'HIGH_GROUNDS' || message.mode === 'SIEGE_BLADES';
   const fields = `<form class="lobby-config" novalidate>
     <label>MODE<select name="mode" class="game-input">
       <option value="FFA"${message.mode==='FFA'?' selected':''}>FREE-FOR-ALL</option>
@@ -33,11 +33,12 @@ export function lobbyControls(message, localId) {
       <option value="HIGH_GROUNDS"${message.mode==='HIGH_GROUNDS'?' selected':''}>HIGH GROUNDS</option>
       <option value="RESTLESS_DAY"${message.mode==='RESTLESS_DAY'?' selected':''}>RESTLESS DAY</option>
       <option value="EDGE_OF_VICTORY"${message.mode==='EDGE_OF_VICTORY'?' selected':''}>EDGE OF VICTORY</option>
+      <option value="SIEGE_BLADES"${message.mode==='SIEGE_BLADES'?' selected':''}>SIEGE BLADES</option>
     </select></label>
     <label>ARENA<select name="worldId" class="game-input">${arenaOptions(message.mode,message.worldId)}</select></label>
     <label data-score-field${team||message.mode==='EDGE_OF_VICTORY'?' hidden':''}>FIRST TO<input name="scoreToWin" class="game-input" type="number" inputmode="numeric" min="1" max="100" step="1" value="${Number.isFinite(message.scoreToWin)?message.scoreToWin:10}"></label>
     <label>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="decimal" min="1" max="30" step="any" value="${(message.matchSeconds??(team?300:360))/60}" required></label>
-    <label data-team-field${team?'':' hidden'}>SIDES<select name="teamSize" class="game-input"><option value="2"${message.teamSize===2?' selected':''}>2V2</option><option value="3"${message.teamSize===3?' selected':''}>3V3</option><option value="5"${message.teamSize===5?' selected':''}>5V5</option></select></label>
+    <label data-team-field${team?'':' hidden'}>SIDES<select name="teamSize" class="game-input"><option value="1"${message.teamSize===1?' selected':''}>1V1</option><option value="2"${message.teamSize===2?' selected':''}>2V2</option><option value="3"${message.teamSize===3?' selected':''}>3V3</option><option value="5"${message.teamSize===5?' selected':''}>5V5</option></select></label>
     <label data-bot-field${team||message.mode==='EDGE_OF_VICTORY'?'':' hidden'}>BOT DIFFICULTY<select name="botSkill" class="game-input">
     ${[['squire','SQUIRE'],['knight','KNIGHT'],['champion','CHAMPION'],['spellblade','THE SPELLBLADE']].map(([key,label])=>`<option value="${key}"${key===(message.botSkill??'knight')?' selected':''}>${label}</option>`).join('')}
     </select></label>

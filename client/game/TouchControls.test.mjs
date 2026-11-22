@@ -954,12 +954,13 @@ test('Fight-and-Flight discrete hop, continuous Rise and Lower, and multi-touch 
 
   controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
 
-  // 1. Tapping JUMP sends flightHop and does NOT latch jumpHeld
+  // Only quick release sends Hop; pressing by itself cannot Hop.
   send('pointerdown', 700, 400, { action: 'jump', pointerId: 10 });
-  assert.equal(hopSent, 1);
+  assert.equal(hopSent, 0);
   const mov1 = controls.movement();
   assert.equal(mov1.jump, false);
   send('pointerup', 700, 400, { action: 'jump', pointerId: 10 });
+  assert.equal(hopSent, 1);
 
   // The spring-centered rail replaces both legacy Rise / Lower buttons.
   const rail = flightRailTarget(controls);
@@ -1056,7 +1057,7 @@ test('mounted flight retains working independent climb, bolt, view, dash and pau
   controls.dispose();
 });
 
-test('Bolt-to-Jump swipe adds one mounted Hop while the same finger keeps firing',()=>{
+test('Bolt swipe never creates a phantom Hop; repeater stays held until release',()=>{
   const p={alive:true,spell:'fireball',position:{x:0,y:0,z:0},operatingFightFlightId:'flight'};
   const {controls,input,send}=setup(p);
   input.mountedFlight=true;input.touch=controls;
@@ -1071,14 +1072,13 @@ test('Bolt-to-Jump swipe adds one mounted Hop while the same finger keeps firing
   assert.equal(sent.some(x=>x.type==='flightHop'),false,'crossing empty gutter does not jump');
   send('pointermove',645,208,{action:'siegeWeapon',pointerId:75});
   send('pointermove',645,200,{action:'siegeWeapon',pointerId:75});
-  assert.equal(sent.filter(x=>x.type==='flightHop').length,1,'crossing onto Jump triggers only one Hop');
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,0,'crossing onto Jump never substitutes for a genuine Jump tap');
   assert.equal(sent.some(x=>x.type==='fightFlightFire'&&x.down===false),false,
     'Bolt continues firing while thumb is on Jump');
   assert.equal(input.flightFireSources.size,1);
-  assert.ok(controls.boltJumpTriggered.has(75));
+  assert.equal(controls.movement().flightRise,false,'Bolt finger cannot silently engage climb');
   send('pointerup',645,200,{action:'siegeWeapon',pointerId:75});
   assert.deepEqual(sent.at(-1),{type:'fightFlightFire',down:false});
-  assert.equal(controls.boltJumpTriggered.size,0);
   assert.equal(controls.buttons.jump.classList.contains('pressed'),false);
   controls.dispose();
 });
@@ -1097,14 +1097,14 @@ test('Bolt swipe cancellation, a new pointer, and non-Bolt drags stay independen
   send('pointerdown',640,280,{action:'siegeWeapon',pointerId:21});
   send('pointermove',640,194,{action:'siegeWeapon',pointerId:21});
   send('pointercancel',640,194,{action:'siegeWeapon',pointerId:21});
-  assert.equal(sent.filter(x=>x.type==='flightHop').length,1);
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,0,'a cancelled Bolt drag is never Hop');
   assert.equal(input.flightFireSources.size,0,'pointercancel releases the repeater');
   send('pointerdown',640,280,{action:'siegeWeapon',pointerId:22});
   send('pointermove',640,194,{action:'siegeWeapon',pointerId:22});
-  assert.equal(sent.filter(x=>x.type==='flightHop').length,2,'new finger can jump again');
+  assert.equal(sent.filter(x=>x.type==='flightHop').length,0,'a second Bolt finger also cannot cause Hop');
   controls.reset();
   assert.equal(input.flightFireSources.size,0);
-  assert.equal(controls.boltJumpTriggered.size,0);
+  assert.equal(controls.jumpHeld,false);
   controls.dispose();
 });
 
@@ -1958,7 +1958,7 @@ test('mobile Ballista Sweep shows the spell-style countdown from authoritative s
  controls.dispose();
 });
 
-test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 270ms without a second thumb',()=>{
+test('mobile mounted Jump only Hops on release; a hold becomes Rise at 170ms without a Hop',()=>{
  const pilot={alive:true,operatingFightFlightId:'ff',ultimate:'sunder',prowess:0,
    position:{x:0,y:0,z:0}};
  const {controls,input,send}=setup(pilot);
@@ -1966,18 +1966,19 @@ test('mobile mounted Jump taps for a single Hop, then becomes held Rise at 270ms
  let hops=0;input.flightHop=()=>hops++;
  controls.update(pilot,5,{snapshot:{fightFlight:{id:'ff',health:250,rotorHP:100,grounded:true}}});
  send('pointerdown',730,420,{action:'jump',pointerId:808});
- assert.equal(hops,1);
+ assert.equal(hops,0,'a mere touch never commits a Hop');
  assert.equal(controls.movement().jump,false,'mounted Jump never sends the legacy desktop jump channel');
- assert.equal(controls.movement().flightRise,false,'initial tap is a mechanical Hop');
- controls.flightJumpDownAt=performance.now()-255;
- assert.equal(controls.movement().flightRise,false,'255ms remains a tap');
- controls.flightJumpDownAt=performance.now()-285;
+ assert.equal(controls.movement().flightRise,false,'initial touch does not rise or Hop');
+ controls.flightJumpDownAt=performance.now()-135;
+ assert.equal(controls.movement().flightRise,false,'a short possible tap remains neutral');
+ controls.flightJumpDownAt=performance.now()-185;
  assert.equal(controls.movement().flightRise,true,'same held Jump now asks for powered ascent');
  assert.equal(input.movement().flightRise,true,'authoritative input packet carries the rise intent');
- assert.equal(hops,1,'a hold never generates additional hops');
+ assert.equal(hops,0,'a sustained hold never emits even an initial Hop');
  send('pointercancel',730,420,{action:'jump',pointerId:808,target:controls.layer});
  assert.equal(controls.movement().flightRise,false,'lost/cancelled finger ends powered ascent');
  assert.equal(controls.flightJumpDownAt,null);
+ assert.equal(hops,0,'cancelled holds must never turn into Hop');
  controls.dispose();
 });
 test('held Jump takes vertical precedence over joystick Lower only until it is released',()=>{
@@ -1989,11 +1990,67 @@ test('held Jump takes vertical precedence over joystick Lower only until it is r
  controls.flightLowerHeld=true;
  send('pointerdown',730,420,{action:'jump',pointerId:810});
  assert.equal(controls.movement().flightLower,true);
- controls.flightJumpDownAt=performance.now()-285;
+ controls.flightJumpDownAt=performance.now()-185;
  assert.equal(controls.movement().flightRise,true);
  assert.equal(controls.movement().flightLower,false,'one motor never receives opposing Rise/Lower');
  send('pointerup',730,420,{action:'jump',pointerId:810});
  assert.equal(controls.movement().flightRise,false);
  assert.equal(controls.movement().flightLower,true,'joystick lower takes over on release');
  controls.dispose();
+});
+
+
+test('Fight-and-Flight Jump drag steers camera while held and does not Hop on release',()=>{
+ const p={alive:true,position:{x:0,y:0,z:0},
+  operatingFightFlightId:'ff',ultimate:'sunder',prowess:20};
+ const {controls,input,send}=setup(p);input.mountedFlight=true;
+ let hops=0;input.flightHop=()=>hops++;
+ controls.update(p,5,{snapshot:{fightFlight:{id:'ff',health:250,rotorHP:100,grounded:false}}});
+ const startYaw=input.yaw,startPitch=input.pitch;
+ send('pointerdown',735,375,{action:'jump',pointerId:820});
+ send('pointermove',661,344,{action:'jump',pointerId:820});
+ assert.notEqual(input.yaw,startYaw,'held Jump swipe must turn the camera horizontally');
+ assert.notEqual(input.pitch,startPitch,'held Jump swipe must pitch the camera');
+ assert.equal(controls.flightJumpDragged,true);
+ controls.flightJumpDownAt=performance.now()-210;
+ assert.equal(controls.movement().flightRise,true);
+ send('pointerup',661,344,{action:'jump',pointerId:820});
+ assert.equal(hops,0,'steering and holding Jump must not issue a Hop on release');
+ assert.equal(controls.movement().flightRise,false);
+ controls.dispose();
+});
+test('short, stationary flight Jump release emits exactly one Hop; cancellation does not',()=>{
+ const p={alive:true,position:{x:0,y:0,z:0},operatingFightFlightId:'ff'};
+ const {controls,input,send}=setup(p);input.mountedFlight=true;
+ const calls=[];input.flightHop=()=>calls.push('hop');
+ controls.update(p,5,{snapshot:{fightFlight:{id:'ff',health:250,rotorHP:100,grounded:true}}});
+ send('pointerdown',734,374,{action:'jump',pointerId:821});
+ assert.equal(calls.length,0);
+ send('pointerup',734,374,{action:'jump',pointerId:821});
+ assert.deepEqual(calls,['hop']);
+ send('pointerdown',734,374,{action:'jump',pointerId:822});
+ send('pointercancel',734,374,{action:'jump',pointerId:822,target:controls.layer});
+ assert.deepEqual(calls,['hop']);
+ controls.dispose();
+});
+
+
+test('Flight Jump look remains available even when an Ascension rune guide is visible',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ const start=e.controls.valkyrieGeometry.points[0];
+ e.send('pointerdown',start[0],start[1],{action:'jump',pointerId:886});
+ assert.ok(e.controls.ritual,'the rune guide may initially recognize Jump');
+ const before=e.input.yaw;
+ e.send('pointermove',start[0]-145,start[1]+6,
+  {action:'jump',pointerId:886});
+ assert.equal(e.controls.ritual,null,'off-rune Jump drag yields to ordinary look');
+ assert.notEqual(e.input.yaw,before,'the same finger turns the view without releasing Jump');
+ e.controls.flightJumpDownAt=performance.now()-210;
+ assert.equal(e.controls.movement().flightRise,true);
+ e.send('pointerup',start[0]-145,start[1]+6,
+  {action:'jump',pointerId:886});
+ assert.equal(sent.some(m=>m.type==='flightHop'),false,
+  'a camera-dragged Jump is not a tap-Hop, even with the rune guide');
+ e.controls.dispose();
 });

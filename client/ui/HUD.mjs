@@ -6,6 +6,7 @@ import {soFistHudView} from './soFistHudView.mjs';
 import {mountedSiegeSkillTile} from './mountedSiegeSkillTile.mjs';
 import {hellpingContextPrompt} from './hellpingContextPrompt.mjs';
 import {biByeSweepCooldownView} from './biByeControlView.mjs';
+import {BI_BYE_COMPONENTS} from '../../shared/sim/biByeComponents.mjs';
 import {machineGaugeView, machineGaugeNumber} from './machineGaugeView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -101,6 +102,42 @@ export function breakthroughHudView(local, snapshot, serverNow) {
   };
 }
 
+export function siegeBladesHudView(local, snapshot, serverNow) {
+  if (snapshot?.mode !== 'SIEGE_BLADES' || !snapshot.siegeBlades) return { visible: false };
+  const s = snapshot.siegeBlades;
+  const myTeam = local?.team ?? 'ATTACKERS';
+  const isAzure = myTeam === 'ATTACKERS';
+  const scores = s.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
+  const isResetting = s.roundResetCountdown != null;
+  const countdownSec = isResetting ? Math.max(0, Math.ceil(s.roundResetCountdown)) : null;
+
+  const roundStart = Number.isFinite(s.roundStartedAt) ? s.roundStartedAt : (Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow);
+  const elapsed = Math.max(0, serverNow - roundStart);
+  const length = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 180;
+  const left = Math.max(0, length - elapsed);
+  const mins = Math.floor(left / 60);
+  const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  const clock = (snapshot?.overtime || s.overtimeActive) ? 'OVERTIME' : `${mins}:${secs}`;
+
+  return {
+    visible: true,
+    format: s.format ?? 'MATCH',
+    roundNumber: s.roundNumber ?? 1,
+    matchRounds: s.matchRounds ?? 3,
+    roundsToWin: s.roundsToWin ?? 2,
+    scores,
+    myTeam,
+    teamLabel: isAzure ? 'AZURE' : 'CRIMSON',
+    isResetting,
+    countdownSec,
+    roundWinner: s.roundWinner ?? null,
+    clashActive: Boolean(s.clashActive),
+    overtimeActive: Boolean(s.overtimeActive),
+    zone: s.zone ?? null,
+    clock,
+  };
+}
+
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.tutorial) return 'GREENER PASTURES  ·  TUTORIAL';
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -119,6 +156,27 @@ export function matchInfoText(snapshot, serverNow) {
   const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
   if (snapshot?.mode === 'RESTLESS_DAY') return `RESTLESS DAY · DAYLIGHT REMAINING · ${clockStr}`;
   if (snapshot?.mode === 'HIGH_GROUNDS') return `THE HIGH GROUNDS · TERRITORY · ${clockStr}`;
+  if (snapshot?.mode === 'SIEGE_BLADES') {
+    const s = snapshot.siegeBlades;
+    const formatStr = s?.format === 'ENDLESS' ? 'ENDLESS EXHIBITION' : `BEST OF ${s?.matchRounds ?? 3}`;
+    const roundStr = `ROUND ${s?.roundNumber ?? 1}`;
+    const scoresStr = `AZURE ${s?.scores?.ATTACKERS ?? 0} · CRIMSON ${s?.scores?.DEFENDERS ?? 0}`;
+    const roundStart = Number.isFinite(s?.roundStartedAt) ? s.roundStartedAt : (Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow);
+    const roundSecs = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 180;
+    const roundLeft = Math.max(0, roundSecs - Math.max(0, serverNow - roundStart));
+    const sbClock = (snapshot?.overtime || s?.overtimeActive) ? 'OVERTIME' : `${Math.floor(roundLeft / 60)}:${Math.floor(roundLeft % 60).toString().padStart(2, '0')}`;
+    if (s?.roundResetCountdown != null) {
+      return `NEXT ROUND IN ${Math.ceil(s.roundResetCountdown)}s · ${scoresStr}`;
+    }
+    if (s?.overtimeActive) {
+      const contest = s.zone?.contested ? 'CONTESTED' : (s.zone?.controllingTeam ? `${s.zone.controllingTeam} ${s.zone.holdPercent}%` : 'UNCONTESTED');
+      return `SIEGE BLADES · OVERTIME ZONE [${contest}] · ${scoresStr}`;
+    }
+    if (s?.clashActive) {
+      return `⚡ CLASH START ⚡ · ${scoresStr}`;
+    }
+    return `SIEGE BLADES · ${formatStr} · ${roundStr} · ${scoresStr} · ${sbClock}`;
+  }
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
     const objName = obj?.name ?? 'OBJECTIVE';
@@ -251,9 +309,29 @@ export class HUD {
     this.preparedPanel = document.createElement('div');
     this.preparedPanel.className = 'prepared-spells';
     this.preparedPanel.hidden = true;
+    this.siegeBladesHud = document.createElement('div');
+    this.siegeBladesHud.id = 'siege-blades-hud';
+    this.siegeBladesHud.className = 'siege-blades-hud hidden';
+    this.siegeBladesHud.innerHTML = `
+      <div class="sb-header">
+        <span class="sb-badge" data-sb-format>ROUND 1 · BEST OF 3</span>
+        <span class="sb-clock" data-sb-clock>3:00</span>
+      </div>
+      <div class="sb-score-row">
+        <div class="sb-team-score sb-azure"><span class="sb-team-tag">AZURE</span><b data-sb-azure>0</b></div>
+        <div class="sb-vs">VS</div>
+        <div class="sb-team-score sb-crimson"><b data-sb-crimson>0</b><span class="sb-team-tag">CRIMSON</span></div>
+      </div>
+      <div class="sb-banner hidden" data-sb-banner></div>
+      <div class="sb-overtime hidden" data-sb-overtime>
+        <div class="sb-ot-title"><span>OVERTIME ENGAGEMENT ZONE</span><strong data-sb-ot-status>UNCONTESTED</strong></div>
+        <div class="sb-ot-track"><div class="sb-ot-fill" data-sb-ot-fill style="width:0%"></div></div>
+        <small class="sb-ot-hint hidden" data-sb-ot-hint>ALTITUDE LIMIT 4m · DESCENT REQUIRED TO CONTEST</small>
+      </div>
+    `;
     this.statusStack = document.createElement('div');
     this.statusStack.className = 'hud-status-stack';
-    this.statusStack.append(this.matchInfo, this.duelScore, this.breakthroughHud, this.preparedPanel);
+    this.statusStack.append(this.matchInfo, this.duelScore, this.breakthroughHud, this.siegeBladesHud, this.preparedPanel);
     this.ballistaPanel = document.createElement('div');
     this.ballistaPanel.className = 'ballista-hud';
     this.ballistaPanel.hidden = true;
@@ -311,6 +389,14 @@ export class HUD {
         <div class="flight-brace-reading"><span>${short} BRACE</span><b data-brace-hp>80/80</b></div>
         <div class="flight-brace-track"><i data-brace-fill></i></div>
       </div>`;
+    // Fixed, compact parts instrumentation. The labels exist once, while
+    // each authoritative HP value updates in-place on incoming snapshots.
+    const bibyeParts=(kind,title)=>'<div class="bibye-part-group" data-part-group="'+kind+'">'+
+      '<strong>'+title+'</strong><div class="bibye-part-items">'+
+      BI_BYE_COMPONENTS.filter(part=>part.kind===kind).map(part=>
+        '<div class="bibye-part" data-part-id="'+part.id+'" data-part-state="intact" aria-label="'+part.id+'">'+
+        '<span>'+part.id.split('_')[1]+'</span><div class="bibye-part-track"><i data-part-fill></i></div>'+
+        '</div>').join('')+'</div></div>';
     this.machineGauge.innerHTML =
       '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
       '<small class="machine-piston" data-machine-piston></small>'+
@@ -318,7 +404,8 @@ export class HUD {
         flightBrace('left','L')+
         '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div>'+
-        '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div></div>'+
+        '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div>'+
+        '<div class="bibye-parts" data-bibye-parts>'+bibyeParts('wheel','WHEELS')+bibyeParts('stabilizer','SUPPORTS')+'</div></div>'+
         flightBrace('right','R')+
         '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
@@ -487,6 +574,19 @@ export class HUD {
           machineGaugeNumber(gauge.component.health) + '/' + machineGaugeNumber(gauge.component.maxHealth);
         el.querySelector('[data-component-fill]').style.width = gauge.component.percent.toFixed(2) + '%';
       }
+      if(gauge.kind==='ballista'){
+        const parts=el.querySelector('[data-bibye-parts]');
+        parts.hidden=!(gauge.parts?.wheels?.length||gauge.parts?.stabilizers?.length);
+        for(const part of [...(gauge.parts?.wheels??[]),...(gauge.parts?.stabilizers??[])]){
+          const widget=parts.querySelector('[data-part-id="'+part.id+'"]');
+          if(!widget)continue;
+          widget.dataset.partState=part.state;
+          widget.querySelector('[data-part-fill]').style.width=part.percent.toFixed(2)+'%';
+          widget.title=part.id.replace('_',' ')+' · '+
+            machineGaugeNumber(part.health)+'/'+machineGaugeNumber(part.maxHealth)+' HP';
+          widget.setAttribute('aria-label',widget.title);
+        }
+      }
       if(gauge.kind==='flight'){
         for(const [side,data] of Object.entries(gauge.braces??{})){
           const arch=el.querySelector('[data-brace-side="'+side+'"]');
@@ -634,9 +734,63 @@ export class HUD {
       }
     }
     const btView = snapshot.mode==='RESTLESS_DAY'?restlessDayHudView(local,snapshot,serverNow):snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
-    this.matchInfo.classList.toggle('hidden', btView.visible || snapshot.mode === 'RENOWN_TRIALS');
-    this.breakthroughHud.classList.toggle('hidden', !btView.visible);
-    if (btView.visible) {
+    const sbView = siegeBladesHudView(local, snapshot, serverNow);
+    this.siegeBladesHud?.classList.toggle('hidden', !sbView.visible);
+    if (sbView.visible) {
+      this.matchInfo.classList.add('hidden');
+      this.breakthroughHud.classList.add('hidden');
+      if (this.duelScore) this.duelScore.classList.add('hidden');
+
+      const formatLabel = sbView.format === 'ENDLESS'
+        ? `ROUND ${sbView.roundNumber} · ENDLESS EXHIBITION`
+        : `ROUND ${sbView.roundNumber} · BEST OF ${sbView.matchRounds} (FIRST TO ${sbView.roundsToWin})`;
+      this.siegeBladesHud.querySelector('[data-sb-format]').textContent = formatLabel;
+      this.siegeBladesHud.querySelector('[data-sb-clock]').textContent = sbView.clock;
+      this.siegeBladesHud.querySelector('[data-sb-azure]').textContent = String(sbView.scores.ATTACKERS ?? 0);
+      this.siegeBladesHud.querySelector('[data-sb-crimson]').textContent = String(sbView.scores.DEFENDERS ?? 0);
+
+      const bannerEl = this.siegeBladesHud.querySelector('[data-sb-banner]');
+      if (sbView.isResetting) {
+        bannerEl.classList.remove('hidden');
+        bannerEl.className = 'sb-banner sb-countdown';
+        const winTeam = sbView.roundWinner === 'ATTACKERS' ? 'AZURE' : sbView.roundWinner === 'DEFENDERS' ? 'CRIMSON' : sbView.roundWinner === 'DRAW' ? 'DRAW' : null;
+        bannerEl.textContent = winTeam === 'DRAW' ? `ROUND ENDED IN A DRAW · NEXT ROUND IN ${sbView.countdownSec}s...` : winTeam ? `ROUND WON BY ${winTeam} · NEXT ROUND IN ${sbView.countdownSec}s...` : `NEXT ROUND IN ${sbView.countdownSec}s...`;
+      } else if (sbView.clashActive) {
+        bannerEl.classList.remove('hidden');
+        bannerEl.className = 'sb-banner sb-clash';
+        bannerEl.textContent = '⚡ CLASH START ⚡';
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+
+      const otEl = this.siegeBladesHud.querySelector('[data-sb-overtime]');
+      if (sbView.overtimeActive && sbView.zone) {
+        otEl.classList.remove('hidden');
+        const statusEl = otEl.querySelector('[data-sb-ot-status]');
+        const fillEl = otEl.querySelector('[data-sb-ot-fill]');
+        const hintEl = otEl.querySelector('[data-sb-ot-hint]');
+        const isContested = sbView.zone.contested;
+        const ctrl = sbView.zone.controllingTeam;
+        const pct = sbView.zone.holdPercent ?? 0;
+        statusEl.textContent = isContested ? 'CONTESTED' : ctrl ? `${ctrl === 'ATTACKERS' ? 'AZURE' : 'CRIMSON'} HOLDING (${pct}%)` : 'UNCONTESTED';
+        fillEl.style.width = `${pct}%`;
+        fillEl.dataset.team = ctrl ?? '';
+
+        const m = snapshot.machines ? Object.values(snapshot.machines).find(mach => mach.operatorId === local?.id) : null;
+        if (m && (m.class === 'fight-and-flight' || m.kind === 'flight' || m.type === 'fight-and-flight' || m.rotorHP !== undefined)) {
+          const high = (m.y ?? 0) > 4.5;
+          hintEl.classList.toggle('hidden', !high);
+        } else {
+          hintEl.classList.add('hidden');
+        }
+      } else {
+        otEl.classList.add('hidden');
+      }
+    } else {
+      this.matchInfo.classList.toggle('hidden', btView.visible || snapshot.mode === 'RENOWN_TRIALS');
+      this.breakthroughHud.classList.toggle('hidden', !btView.visible);
+    }
+    if (btView.visible && !sbView.visible) {
       this.breakthroughHud.dataset.team = btView.team;
       this.breakthroughHud.dataset.state = btView.stateKey;
       this.breakthroughHud.dataset.mode = btView.mode??'breakthrough';

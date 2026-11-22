@@ -349,60 +349,62 @@ export function* vigilBars(rand = Math.random) {
   }
 }
 
-// THE LAST WING — Castleward's original Valkyrie passage, in the same
-// D-minor harmonic world as Steel at the Gate and The Keep Holds.
-// An iron oath, not a bright arcade victory jingle: broad low-brass calls,
-// bowed harmonic weight, measured war drums, and a gathering men's choir.
+// THE LAST WING — Flight to the Valkyrie rendition.
+// An authentic, heroic Richard Wagner "Ride of the Valkyries" (Walkürenritt) motif,
+// rooted in Castleward's D-minor orchestral world. Driven by the galloping 6/8
+// brass theme, sweeping string counterpoint, resonant war drums, and gathering choir.
 // Six eighth-note pulses to a bar; BPM measures the eighth-note pulse.
 export const VALKYRIES=Object.freeze({
  name:'valkyrie',bpm:216,beatsPerBar:6,hall:.46,scale:'D minor',
 });
 const VALKYRIE_CHORDS=Object.freeze(['Dm','Bb','Gm','A','Dm','C','Bb','A']);
-// [pitch, onset eighth, duration eighths]. The two four-bar strains
-// answer each other, resolving only after the entire eight-bar oath.
+// Wagner's iconic dotted-eighth / sixteenth galloping motif in D minor:
+// [pitch, onset eighth, duration eighths].
 const VALKYRIE_CALL=Object.freeze([
- [['D4',0,2],['A4',2,1],['D5',3,3]],
- [['F4',0,2],['Bb4',2,1],['D5',3,2.8]],
- [['G4',0,1.5],['Bb4',1.5,1.5],['D5',3,3]],
- [['C#5',0,2],['A4',2,1],['E5',3,2.8]],
- [['D5',0,1.5],['F5',1.5,1.5],['A5',3,2.8]],
- [['G5',0,2],['E5',2,1],['C5',3,3]],
- [['Bb4',0,2],['D5',2,1],['F5',3,2.8]],
- [['E5',0,1.5],['C#5',1.5,1.5],['D5',3,2.8]],
+ [['D4',0,1.5],['F4',1.5,0.5],['A4',2.0,1.0],['D5',3.0,2.0],['A4',5.0,1.0]],
+ [['F4',0,1.5],['Bb4',1.5,0.5],['D5',2.0,1.0],['F5',3.0,2.0],['D5',5.0,1.0]],
+ [['G4',0,1.5],['Bb4',1.5,0.5],['D5',2.0,1.0],['G5',3.0,2.0],['D5',5.0,1.0]],
+ [['C#5',0,1.5],['E5',1.5,0.5],['A4',2.0,1.0],['E5',3.0,2.0],['C#5',5.0,0.95]],
+ [['D5',0,1.5],['F5',1.5,0.5],['A5',2.0,1.0],['D6',3.0,2.0],['A5',5.0,1.0]],
+ [['C5',0,1.5],['E5',1.5,0.5],['G5',2.0,1.0],['C6',3.0,2.0],['G5',5.0,1.0]],
+ [['Bb4',0,1.5],['D5',1.5,0.5],['F5',2.0,1.0],['Bb5',3.0,2.0],['F5',5.0,1.0]],
+ [['A4',0,1.5],['C#5',1.5,0.5],['E5',2.0,1.0],['A5',3.0,2.0],['D5',5.0,0.95]],
 ]);
 export function* valkyrieBars(){
  let index=0;
  while(true){
   const i=index++%VALKYRIE_CHORDS.length;
   const chord=VALKYRIE_CHORDS[i],voicing=CHORDS[chord],events=[];
-  const lift=i>=4?1.12:1;
-  // The underlying bowed string harmony gives this its Castleward texture.
+  const lift=i>=4?1.15:1;
+  // Sweeping bowed string harmony giving the Wagnerian majesty
   events.push({inst:'strings',midi:voicing.choir,beat:0,beats:5.95,
-    vel:.72*lift,layer:0,pan:.10,swell:.55,release:.85,from:.22});
-  // A deliberately restrained hoofbeat: no sixteenth-note synthesizer
-  // chatter. The heavier second strain adds a second drum accent.
-  events.push({inst:'war',beat:0,beats:.6,vel:i%4===0?.90:.73,layer:0});
-  events.push({inst:'dum',beat:2,beats:.5,vel:.31,layer:0});
-  events.push({inst:'war',beat:3,beats:.58,vel:i>=4?.66:.48,layer:0});
-  events.push({inst:'dum',beat:5,beats:.4,vel:.27,layer:0});
-  // Sparse lute on each half-bar ties the sacrifice to the game's hall and
-  // battle scores. Its plucks should be felt under the low brass.
-  events.push({inst:'lute',midi:voicing.lute[0],beat:0,beats:1.8,vel:.42,layer:0,pan:-.25});
-  events.push({inst:'lute',midi:voicing.lute[1],beat:3,beats:1.8,vel:.29,layer:0,pan:-.25});
+    vel:.75*lift,layer:0,pan:.10,swell:.58,release:.85,from:.22});
+  // Relentless galloping war drums
+  events.push({inst:'war',beat:0,beats:.65,vel:i%4===0?.92:.76,layer:0});
+  events.push({inst:'dum',beat:1.5,beats:.45,vel:.34,layer:0});
+  events.push({inst:'war',beat:3,beats:.6,vel:i>=4?.72:.55,layer:0});
+  events.push({inst:'dum',beat:4.5,beats:.45,vel:.36,layer:0});
+  if(i>=4)events.push({inst:'war',beat:5.5,beats:.45,vel:.48,layer:0});
+  // Rhythmic lute arpeggio driving the pulse
+  events.push({inst:'lute',midi:voicing.lute[0],beat:0,beats:1.45,vel:.44,layer:0,pan:-.25});
+  events.push({inst:'lute',midi:voicing.lute[1],beat:1.5,beats:1.45,vel:.32,layer:0,pan:-.25});
+  events.push({inst:'lute',midi:voicing.lute[2],beat:3,beats:1.45,vel:.42,layer:0,pan:.25});
+  events.push({inst:'lute',midi:voicing.lute[3]??voicing.lute[1],beat:4.5,beats:1.45,vel:.34,layer:0,pan:.25});
+  // Soaring horn melody
   for(const [pitch,beat,beats] of VALKYRIE_CALL[i])
    events.push({inst:'horn',midi:noteToMidi(pitch),beat,beats,
-     vel:(i>=4?.96:.82)*lift,layer:0,pan:-.18});
-  // Only the later call has an answering horn, not constant bright unison.
+     vel:(i>=4?.98:.86)*lift,layer:0,pan:-.18});
+  // Answering counter-horn in the second strain
   if(i>=4){
-   const answer=VALKYRIE_CALL[i].at(-1);
-   events.push({inst:'horn',midi:noteToMidi(answer[0])-12,beat:3.12,
-     beats:2.6,vel:.48,layer:0,pan:.25});
+   const answer=VALKYRIE_CALL[i].at(-2);
+   events.push({inst:'horn',midi:noteToMidi(answer[0])-12,beat:3.0,
+     beats:2.8,vel:.56,layer:0,pan:.25});
   }
-  // Low, slow voices arrive as the last charge becomes an irrevocable oath.
+  // Men's choir swells as the final sacrifice mounts
   if(i===2||i===3||i>=5)
    events.push({inst:'choir',midi:voicing.choir,beat:0,beats:5.9,
-     vel:i>=6?.77:.58,layer:0,pan:0,attack:.45,release:.8});
-  // One genuine sustained low D through each four-bar phrase.
+     vel:i>=6?.82:.62,layer:0,pan:0,attack:.4,release:.8});
+  // Sustained low D pedal through each four-bar phrase
   if(i===0||i===4)
    events.push({inst:'drone',midi:noteToMidi('D2'),beat:0,
      beats:24,vel:1.0,layer:0,pan:0,attack:.8,release:1.3});

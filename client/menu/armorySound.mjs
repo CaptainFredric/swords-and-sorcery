@@ -4,12 +4,14 @@
 import { appUrl } from '../appUrl.mjs';
 
 export const ARMORY_CUE_BASE = 'client/assets/armory/';
-export const ARMORY_CUE_IDS = Object.freeze(['fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex', 'chivalry', 'coreflagration']);
+export const ARMORY_CUE_IDS = Object.freeze([
+  'fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex', 'chivalry',
+  'coreflagration', 'line_of_conduct', 'rigid_riposte', 'whirl_wind',
+]);
 // Temporary selection-cue fallbacks for newly added abilities, until their
 // separate rendered AAC/WAV assets have been authored and supplied.
 export const ARMORY_CUE_FALLBACKS=Object.freeze({
   one_hit_of_wonders:'sunder',
-  line_of_conduct:'frostfire',
 });
 export const armoryCueFor=id=>ARMORY_CUE_IDS.includes(id)?id:(ARMORY_CUE_FALLBACKS[id]??null);
 // how loud they sit on the UI bus, beside the menu music (the files themselves are all at one loudness)

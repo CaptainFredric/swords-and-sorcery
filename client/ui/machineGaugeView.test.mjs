@@ -78,3 +78,30 @@ test('flight side arches expose separate 80HP brace values, live steel and destr
  assert.equal(g.braces.right.state,'attached','one arch never borrows health from the other');
  assert.equal(g.braces.right.health,80);
 });
+
+
+test('ballista has actual independent HP indicators for all six wheels and four outriggers',()=>{
+ const components=Object.fromEntries(
+  [...['FL','FR','ML','MR','RL','RR'].map(id=>'Wheel_'+id),
+   ...['FL','FR','RL','RR'].map(id=>'Stabilizer_'+id)]
+   .map(id=>[id,{health:id==='Wheel_RL'?20:id==='Stabilizer_FR'?0:
+     id.startsWith('Wheel')?120:150,maxHealth:id.startsWith('Wheel')?120:150}]));
+ const b={id:'bb',health:317,maxHealth:650,mode:'MOBILE',components};
+ const g=machineGaugeView({alive:true,operatingBallistaId:'bb'}, {bibyeBallista:b});
+ assert.equal(g.component,null,'do not replace primary hull health with a component');
+ assert.deepEqual(g.parts.wheels.map(p=>p.id),
+  ['Wheel_FL','Wheel_FR','Wheel_ML','Wheel_MR','Wheel_RL','Wheel_RR']);
+ assert.deepEqual(g.parts.stabilizers.map(p=>p.id),
+  ['Stabilizer_FL','Stabilizer_FR','Stabilizer_RL','Stabilizer_RR']);
+ const rear=g.parts.wheels.find(p=>p.id==='Wheel_RL');
+ assert.equal(rear.health,20);assert.equal(rear.maxHealth,120);
+ assert.equal(rear.state,'critical');
+ const rig=g.parts.stabilizers.find(p=>p.id==='Stabilizer_FR');
+ assert.equal(rig.health,0);assert.equal(rig.percent,0);assert.equal(rig.state,'destroyed');
+ assert.equal(g.parts.stabilizers.find(p=>p.id==='Stabilizer_RL').percent,100);
+ components.Wheel_RL.health=0;
+ const newer=machineGaugeView({alive:true,operatingBallistaId:'bb'}, {bibyeBallista:b});
+ assert.equal(newer.parts.wheels.find(p=>p.id==='Wheel_RL').state,'destroyed');
+ assert.equal(g.parts.wheels.find(p=>p.id==='Wheel_RL').health,20,
+  'old presentation snapshot remains independent and cannot heal/break other wheels');
+});

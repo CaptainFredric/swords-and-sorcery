@@ -48,6 +48,11 @@ const solids=[
   solid('inner-sally-cover-left',-15,1.1,10,4,2.2,1.5,'timber'),
   solid('inner-sally-cover-right',13,.8,7,5,1.6,1.5,'timber'),
   solid('inner-forge-hearth',-20,1.5,2,4.2,3.0,3.4,'stone'),
+  // Solid foundation cores eliminating hollow under-floor cavities and ramp head-clipping:
+  solid('renowner-dais-core',0,0.375,56,9.8,0.75,9.8,'stone'),
+  solid('outer-west-defender-footing',-19.5,0.7,-14,4.8,1.4,5.0,'stone'),
+  solid('outer-east-defender-footing',19.5,0.7,-14,4.8,1.4,5.0,'stone'),
+  solid('inner-east-defender-footing',19.5,0.7,36.25,4.8,1.4,5.0,'stone'),
   solid('inner-masonry-stockpile',20,1.0,4,3.8,2.0,3.2,'stone'),
   solid('final-court-column-left',-15,2.1,48,2.2,4.2,2.2),
   solid('final-court-column-right',15,2.1,48,2.2,4.2,2.2),

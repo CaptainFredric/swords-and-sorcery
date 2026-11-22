@@ -1,6 +1,7 @@
 // Authoritative repeating crossbow fitted to the v2.6 left-side muzzle.
 // Actual finite bolts: never a damage aura or a client-authored damage command.
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
+import { raycastFleet } from './fleetGeometry.mjs';
 import {postureOf} from '../src/body.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
@@ -8,6 +9,8 @@ import {sweptSegmentCylinderHit,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeFirstHit} from './biByeComponents.mjs';
 import {soFistFirstHit} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
+import { getMachineKind } from './fleetGeometry.mjs';
+import {damageFightFlight} from './fightFlightComponents.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
@@ -133,10 +136,8 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
       hits.push({t,kind:'ground',point:{x:a.x+(b.x-a.x)*t,y:floor,z:a.z+(b.z-a.z)*t}});
     }
     // Existing siege volumes use actual components, not a chassis-wide health redirect.
-    const bh=room.biByeLlista?biByeFirstHit(room.biByeLlista,[a.x,a.y,a.z],[b.x,b.y,b.z],now):null;
-    if(bh)hits.push({t:bh.t,kind:'ballista',hit:bh,point:{x:bh.point[0],y:bh.point[1],z:bh.point[2]}});
-    const rh=soFistFirstHit(room.soFistication,[a.x,a.y,a.z],[b.x,b.y,b.z],now);
-    if(rh)hits.push({t:rh.t,kind:'ram',hit:rh,point:{x:rh.point[0],y:rh.point[1],z:rh.point[2]}});
+    const fleetHit = raycastFleet(room, a, b, { excludeMachineId: q.machineId, attackerId: q.ownerId, nowSec: now, radius: q.radius ?? 0 });
+    if (fleetHit) hits.push({ t: fleetHit.t, kind: fleetHit.kind, hit: fleetHit, targetMachine: fleetHit.targetMachine, point: fleetHit.point });
     for(const p of room.players.values()){
       if(!p.alive||p.id===q.ownerId||areAllies(room,q.ownerId,p.id))continue;
       const h=sweptSegmentCylinderHit(a,b,{x:p.position.x,y:p.position.y-q.radius,z:p.position.z,
@@ -169,8 +170,16 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
           damage:defended?0:Math.max(0,healthBefore-p.health),at:now});
       }else{
         if(first.kind==='wall')damageStructureSolid(room,first.solid,damage,q.ownerId,'fight-flight-repeater',now,{point});
-        if(first.kind==='ballista')damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box.componentId,point});
-        if(first.kind==='ram')damageSoFistication(room,room.soFistication,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box.componentId,point});
+        if(first.targetMachine){
+          const tm=first.targetMachine;
+          const k=getMachineKind(tm);
+          if(k==='ballista')damageBiByeLlista(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+          else if(k==='ram')damageSoFistication(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+          else if(k==='flight')damageFightFlight(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point,steelMinimum:2});
+        } else {
+          if(first.kind==='ballista'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+          if(first.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+        }
         room.events.push({type:'fightFlightBoltImpact',machineId:q.machineId,projectileId:q.id,attackerId:q.ownerId,point,hitKind:first.kind,damage,at:now});
       }
       map.delete(q.id);

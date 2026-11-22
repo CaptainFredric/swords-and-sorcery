@@ -86,7 +86,8 @@ function drive(room,m,target,ai,difficulty,{ideal=10,deadZone=2,reverse=true}={}
  * Choose the moment based on actual damaged parts or approaching fire, and
  * do not cast on an intact idle chassis merely to farm infinite repair. */
 export function considerOperatorSteel(room,a,m,kind,foe,now){
-  if(a.practiceSiegeOperator?.difficulty==='learner'||a.spell!=='steel'||
+  const diff=a.practiceSiegeOperator?.difficulty??a.siegeAi?.difficulty??'skilled';
+  if(diff==='learner'||a.spell!=='steel'||
     !m||m.operatorId!==a.id||now<(a.spellReadyAt??0)||
     now<(a.siegeAi?.nextSteelAt??0)||
     m.siegeSteel&&m.siegeSteel.state!=='expired'&&now<(m.siegeSteel.protectionUntil??Infinity))
@@ -106,7 +107,7 @@ export function considerOperatorSteel(room,a,m,kind,foe,now){
     foe.operatingBallistaId||foe.operatingRamId||foe.operatingFightFlightId);
   if(missing<8&&!critical&&!endangered&&!anticipated)return false;
   const used=tryCastSpell(room,a.id,{x:0,y:0,z:-1},now);
-  a.siegeAi.nextSteelAt=now+(used?1:1.5);
+  if(a.siegeAi) a.siegeAi.nextSteelAt=now+(used?1:1.5);
   return used;
 }
 function noOperation(room,actor,now){
@@ -156,7 +157,7 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   if(!candidates.length)return false;
   candidates.sort((a,b)=>a.score-b.score);
   const {machine,m}=candidates[0];
-  actor.practiceSiegeOperator={machine,difficulty:'formidable',skill:'auto',opportunistic:true};
+  actor.practiceSiegeOperator={machine,difficulty:'formidable',opportunistic:true};
   actor.siegeAi={seed:Math.floor(now*30)%2147483647,decisions:0,nextThinkAt:now,
     side:1,lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},
     stuckUntil:0,now,lastShotIAt:-Infinity,lastVolleyAt:-Infinity,

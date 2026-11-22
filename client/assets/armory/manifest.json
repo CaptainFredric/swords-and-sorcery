@@ -37,9 +37,23 @@
     },
     "coreflagration": {
       "file": "coreflagration",
-      "seconds": 0.62,
-      "channels": 1,
-      "provisionalSource": "fireball placeholder; render unique cue before release"
+      "seconds": 0.72,
+      "channels": 1
+    },
+    "line_of_conduct": {
+      "file": "line_of_conduct",
+      "seconds": 0.66,
+      "channels": 1
+    },
+    "rigid_riposte": {
+      "file": "rigid_riposte",
+      "seconds": 0.68,
+      "channels": 1
+    },
+    "whirl_wind": {
+      "file": "whirl_wind",
+      "seconds": 0.72,
+      "channels": 2
     }
   }
 }

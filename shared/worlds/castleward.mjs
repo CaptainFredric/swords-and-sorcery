@@ -203,8 +203,8 @@ export const CASTLEWARD = Object.freeze({
       nav('approach', 0, 0, 10.5), nav('approach-west', -7, 0, 9), nav('approach-east', 7, 0, 9),
       // up the ramp to the bailey, and up to each wall walk
       nav('ramp-top', 0, 2.5, 19.5), nav('bailey', 0, 2.5, 23), nav('bailey-west', -4.8, 2.5, 17.75), nav('bailey-east', 4.8, 2.5, 17.75),
-      nav('west-walk-foot', -7, 2.5, 17.75), nav('west-walk', -7.4, 4, 22.5),
-      nav('east-walk-foot', 7, 2.5, 17.75), nav('east-walk', 7.4, 4, 22.5),
+      nav('west-walk-foot', -7, 2.625, 17.75), nav('west-walk', -7.4, 4, 22.5),
+      nav('east-walk-foot', 7, 2.625, 17.75), nav('east-walk', 7.4, 4, 22.5),
       // the west village
       nav('village', -12, 0, 0), nav('village-west', -18.5, 0, 0.5), nav('village-south', -12.5, 0, -5.5), nav('village-north', -12, 0, 8.5),
       // the east meadow and the chapel

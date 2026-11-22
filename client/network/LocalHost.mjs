@@ -34,7 +34,7 @@ const INSPECTION_ACTIONS = new Set([
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.RENOWN_TRIALS, GAME_MODES.EDGE_OF_VICTORY]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.RENOWN_TRIALS, GAME_MODES.EDGE_OF_VICTORY, GAME_MODES.SIEGE_BLADES]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
 export const SOLO_PROFILE_KEY = 'ss-solo-profile-cache';
 
@@ -155,7 +155,23 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name, worldId, botSkill, tutorial = false, team = null, teamSize = null) {
+  startSolo(mode, name, worldId, botSkill, tutorial = false, team = null, teamSize = null, customSettings = null) {
+    if (typeof tutorial === 'string' && (tutorial === 'ATTACKERS' || tutorial === 'DEFENDERS')) {
+      customSettings = teamSize;
+      teamSize = team;
+      team = tutorial;
+      tutorial = false;
+    } else if (typeof tutorial === 'number') {
+      customSettings = team;
+      teamSize = tutorial;
+      team = null;
+      tutorial = false;
+    } else if (tutorial && typeof tutorial === 'object') {
+      customSettings = tutorial;
+      teamSize = customSettings.teamSize ?? null;
+      team = customSettings.team ?? null;
+      tutorial = false;
+    }
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
@@ -163,7 +179,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const resolvedWorld = tutorial ? 'greener-pastures' : arenaForMode(mode, worldId);
-    const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
+    const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize, ...customSettings, siegeBladesSettings: customSettings });
     room.localTutorial = tutorial;
     if (!this.profile && this.storage) {
       try {

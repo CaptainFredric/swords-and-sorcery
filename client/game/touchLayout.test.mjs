@@ -289,13 +289,12 @@ test('Bi-Bye-llista has a distinct compact nonoverlapping right-thumb cluster',a
  assert.equal(mirrored.deploy.left,l.deploy.right);
 });
 
-test('Bi-Bye View is beside BOTH but away from LEAVE, and custom VIEW stays untouched',async()=>{
+test('Bi-Bye View sits above Sweep without overlapping BOTH, and custom VIEW stays untouched',async()=>{
  const {mountedTouchLayout}=await import('./touchLayout.mjs');
  const b=mountedTouchLayout(DEFAULT_ON_FOOT_LAYOUT,'right','biBye');
  assert.equal(b.siegeView.top,undefined);
- assert.ok(Math.abs((b.siegeView.bottom+b.siegeView.size/2)-(b.siegeBoth.bottom+b.siegeBoth.size/2))<25);
- const separation=b.siegeView.right-(b.siegeBoth.right+b.siegeBoth.size);
- assert.ok(separation>=12&&separation<55,'VIEW is to the left of BOTH with a deliberate gap');
+ assert.ok(b.siegeView.bottom>b.siegeSweep.bottom);
+ assert.ok(b.siegeView.bottom>b.siegeBoth.bottom);
  assert.ok(b.interact.top===8,'LEAVE stays in the separate top utility corner');
  const custom={right:211,bottom:43,size:49,custom:true};
  assert.deepEqual(mountedTouchLayout({...DEFAULT_ON_FOOT_LAYOUT,siegeView:custom},'right','biBye').siegeView,custom);
@@ -599,4 +598,24 @@ test('touch objective, killfeed, drive pressure and subtitles use separate mobil
  assert.match(mobile,/\.touch-ui \.hud-status-stack \{[\s\S]*left:max\(/);
  assert.match(siege,/\.touch-ui \.drive-housing \{[\s\S]*top:calc\(var\(--safe-t,0px\) \+ 66px\)/);
  assert.match(play,/\.touch-ui \.hud\.ballista-mounted #subtitle \{[\s\S]*--siege-gauge-height, 54px\) \+ 7px/);
+});
+
+
+test('mobile ballista puts VIEW above SWEEP, lowers primary fire controls and preserves safe wheel-and-skill lanes',async()=>{
+ const {DEFAULT_BALLISTA_LAYOUT,BI_BYE_MOUNTED_ACTIONS}=await import('./touchLayout.mjs');
+ const layout=DEFAULT_BALLISTA_LAYOUT;
+ assert.ok(layout.siegeView.bottom>layout.siegeSweep.bottom+layout.siegeSweep.size,
+  'VIEW sits a full touch row above the physical SWEEP action');
+ assert.equal(layout.siegeWeapon.top,100);
+ assert.equal(layout.deploy.top,100);
+ const right=(item)=>({left:-(item.right+item.size),right:-item.right,
+  bottom:item.bottom,top:item.bottom+item.size});
+ const collide=(a,b)=>a.left<b.right&&a.right>b.left&&a.bottom<b.top&&a.top>b.bottom;
+ const sweep=right(layout.siegeSweep);
+ for(const name of ['siegeBoth','siegeSkill','spell','attack']){
+  const other=layout[name];if(other?.bottom===undefined)continue;
+  assert.equal(collide(sweep,right(other)),false,'SWEEP clears '+name);
+ }
+ assert.ok(BI_BYE_MOUNTED_ACTIONS.siegeWeapon.top>
+  56,'actual mobile UPPER control is below the previous killfeed lane');
 });

@@ -7,18 +7,18 @@ export function validRoomNumber(key, value) {
 export function roomSettings(current, patch) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { error: 'Choose valid room settings.' };
   const mode = patch.mode ?? current.mode;
-  if (!['FFA', 'BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'EDGE_OF_VICTORY'].includes(mode)) return { error: 'Choose an available battle mode.' };
+  if (!['FFA', 'BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'EDGE_OF_VICTORY', 'SIEGE_BLADES'].includes(mode)) return { error: 'Choose an available battle mode.' };
   const changedMode = mode !== current.mode, defaults = getModePolicy(mode);
   const worlds = arenasForMode(mode);
   const worldId = patch.worldId ?? (!changedMode && worlds.includes(current.worldId) ? current.worldId : worlds[0]);
   if (!worlds.includes(worldId)) return { error: 'That arena belongs to another mode.' };
   const scoreToWin = mode === 'FFA' ? (patch.scoreToWin ?? (!changedMode ? current.scoreToWin : defaults.scoreToWin)) : null;
   const matchSeconds = patch.matchSeconds ?? (!changedMode ? current.policy.matchSeconds : defaults.matchSeconds);
-  const teamSize = mode === 'RESTLESS_DAY' ? 5 : (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS') ? (patch.teamSize ?? (!changedMode ? current.policy.teamSize : 3)) : null;
-  const botSkill = (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS' || mode === 'RESTLESS_DAY' || mode === 'EDGE_OF_VICTORY') ? (patch.botSkill ?? (!changedMode ? current.botSkill : 'knight')) : null;
+  const teamSize = mode === 'RESTLESS_DAY' ? 5 : (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS' || mode === 'SIEGE_BLADES') ? (patch.teamSize ?? (!changedMode ? current.policy.teamSize : (mode === 'SIEGE_BLADES' ? 1 : 3))) : null;
+  const botSkill = (mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS' || mode === 'RESTLESS_DAY' || mode === 'EDGE_OF_VICTORY' || mode === 'SIEGE_BLADES') ? (patch.botSkill ?? (!changedMode ? current.botSkill : 'knight')) : null;
   if (mode === 'FFA' && !validRoomNumber('score', scoreToWin)) return { error: 'First to must be a whole number from 1 to 100.' };
   if (!validRoomNumber('time', matchSeconds)) return { error: 'Match time must be from 1 to 30 minutes.' };
-  if (teamSize !== null && !(mode === 'RESTLESS_DAY' ? teamSize === 5 : [2, 3].includes(teamSize))) return { error: 'Choose 2v2 or 3v3.' };
+  if (teamSize !== null && !(mode === 'RESTLESS_DAY' ? teamSize === 5 : mode === 'SIEGE_BLADES' ? [1, 2, 3].includes(teamSize) : [2, 3].includes(teamSize))) return { error: mode === 'SIEGE_BLADES' ? 'Choose 1v1, 2v2, or 3v3.' : 'Choose 2v2 or 3v3.' };
   if (botSkill !== null && !['squire', 'knight', 'champion', 'spellblade'].includes(botSkill)) return { error: 'Choose an available bot difficulty.' };
   return { mode, worldId, scoreToWin, matchSeconds, teamSize, botSkill };
 }

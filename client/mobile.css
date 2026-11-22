@@ -299,6 +299,12 @@ button, input { touch-action: manipulation; }
   box-sizing:border-box;width:100%;min-width:0;
   padding:4px 6px;gap:2px;
 }
+.touch-ui .siege-blades-hud {
+  box-sizing:border-box;width:100%;min-width:0;
+  padding:4px 6px;gap:2px;
+}
+.touch-ui .sb-team-score b { font-size: 13px; }
+.touch-ui .sb-banner { font-size: 8px; }
 .touch-ui .breakthrough-hud .bt-footer,
 .touch-ui .breakthrough-hud .bt-phase {display:none;}
 .touch-ui .bt-team-badge {padding:1px 4px;font-size:7px;letter-spacing:.08em;}
@@ -944,6 +950,10 @@ body.touch-layout-editor-open #practice-overlay {
   transform:translateY(5px);
 }
 .touch-ui .status-flash.show {transform:translateY(0);}
+/* Desktop's U-Skill and E-Sweep keyboard tiles are READ-ONLY HUD labels,
+   not touch buttons. Mobile already has the real SKILL and SWEEP targets.
+   Hide the unusable duplicate plaques so they cannot cover the sightline. */
+.touch-ui .hud .abilities .siege-skill-ability {display:none !important;}
 .touch-ui .hud.ballista-mounted:not(.flight-mounted) .ballista-hud {display:none !important;}
 
 /* During defeat, only navigation remains clickable: no phantom attacks. */

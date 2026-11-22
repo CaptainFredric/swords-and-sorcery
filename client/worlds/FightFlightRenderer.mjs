@@ -4,6 +4,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {FlightRigAnimation} from './FlightRigAnimation.mjs';
+import {valkyrieHaloExpiry,valkyrieSmokeHaloState} from './valkyrieSmokeHalo.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection,flightRepeaterPitchLimits} from '../../shared/src/flightRepeaterAim.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
@@ -146,7 +147,7 @@ export class FightFlightRenderer{
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
     this.drawTerminalSmoke(now,m);
-    this.drawTerminalHalos(now);
+    this.drawTerminalHalos(now,zones);
     this.drawWreckAftermath(now,m);
     if(this.state?.id!==m?.id){this.pendingHits=[];this.lastMode=null;for(const e of this.modelMaterials)e.times=[-Infinity,-Infinity];}
     this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&!m.wreckVisualExpired);
@@ -330,8 +331,8 @@ export class FightFlightRenderer{
       flame.rotation.set(-.3*Math.sin(heading),i*.73,.25*Math.cos(heading));
     }
   }
-  // A short-lived 3D aftershock; the brighter fireball and heavy shrapnel
-  // come from Effects.valkyrieDetonation. This never creates a damage zone.
+  // The blast flash lasts moments; its smoke halo rises and disperses over
+  // the actual lifetime of the host-owned ground fire. Purely presentational.
   #haloParts(){
     const group=new THREE.Group();
     const core=new THREE.Mesh(this.blastCoreGeometry,new THREE.MeshBasicMaterial({
@@ -342,10 +343,12 @@ export class FightFlightRenderer{
       const ring=new THREE.Mesh(this.haloGeometry,new THREE.MeshBasicMaterial({
         color:i?0x65605b:0xf6a14a,transparent:true,opacity:.5,
         depthWrite:false,side:THREE.DoubleSide}));
-      ring.rotation.x=i?0:-Math.PI/2;
+      // Both rings lie horizontally: golden shock at impact, smoky wreath
+      // rising above the flame until the final authoritative burn tick.
+      ring.rotation.x=-Math.PI/2;
       ring.renderOrder=4;group.add(ring);return ring;
     });
-    const smoke=Array.from({length:12},(_,i)=>{
+    const smoke=Array.from({length:18},(_,i)=>{
       const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
         color:i%4===0?0x6c4939:i%3===0?0x433a35:0x262827,
         transparent:true,opacity:0,depthWrite:false}));
@@ -353,15 +356,18 @@ export class FightFlightRenderer{
     });
     return {group,core,rings,smoke};
   }
-  spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5){
-    if(!point||![point.x,point.y,point.z].every(Number.isFinite))return;
+  spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5,burnExpiresAt=undefined,machineId=null){
+    if(!point||![point.x,point.y,point.z].every(Number.isFinite)||
+      !Number.isFinite(startedAt))return;
     const radius=Math.max(2,Math.min(13,blastRadius));
     const power=Math.max(0,Math.min(1,condition));
-    const lifetime=Math.min(5,Math.max(2.6,(Number(duration)||7)*.45));
+    const expiresAt=valkyrieHaloExpiry(startedAt,duration,burnExpiresAt);
     const {group,core,rings,smoke}=this.#haloParts();
     group.position.set(point.x,point.y,point.z);
     this.haloRoot.add(group);
-    this.halos.push({group,core,rings,smoke,startedAt,duration:lifetime,radius,power});
+    this.halos.push({group,core,rings,smoke,startedAt,expiresAt,radius,power,
+      zoneId:burnExpiresAt!==null&&machineId?machineId+'-burn':null,
+      confirmedZone:false});
     // An event lost during a lag spike must never accumulate unbounded VFX.
     while(this.halos.length>5){
       const old=this.halos.shift();
@@ -369,36 +375,55 @@ export class FightFlightRenderer{
       old.group.traverse(node=>{if(node.isMesh)node.material.dispose();});
     }
   }
-  drawTerminalHalos(now){
+  drawTerminalHalos(now,zones=[]){
     for(const effect of [...this.halos]){
-      const elapsed=Math.max(0,now-effect.startedAt);
-      const {group,core,rings,smoke,radius,duration,power}=effect;
-      if(elapsed>=duration){
+      // If the server has already removed this fire (e.g. new match/reset),
+      // remove its smoke too. A freshly received explosion may precede its
+      // first corresponding snapshot, so only require presence after it was
+      // observed once.
+      if(effect.zoneId&&Array.isArray(zones)){
+        const live=zones.find(z=>z.id===effect.zoneId);
+        if(live&&Number.isFinite(live.expiresAt)){
+          effect.expiresAt=live.expiresAt;
+          effect.confirmedZone=true;
+        }else if(effect.confirmedZone)effect.expiresAt=now;
+      }
+      const {group,core,rings,smoke,radius,power}=effect;
+      const state=valkyrieSmokeHaloState(now,effect.startedAt,effect.expiresAt,radius,power);
+      if(!state){
         group.removeFromParent();
         group.traverse(node=>{if(node.isMesh)node.material.dispose();});
         this.halos.splice(this.halos.indexOf(effect),1);
         continue;
       }
+      const elapsed=state.age;
       const shock=Math.min(1,elapsed/.72),ease=1-(1-shock)**3;
       core.visible=elapsed<.36;
       core.scale.setScalar(radius*(.12+.29*shock));
       core.material.opacity=.8*(1-Math.min(1,elapsed/.36))**2;
+      // The bright, short-range impact shock is NOT a long-lasting fire
+      // marker; it fades in the first second.
       rings[0].visible=elapsed<1.1;
       rings[0].scale.setScalar(radius*(.11+.89*ease));
       rings[0].material.opacity=.48*(1-Math.min(1,elapsed/1.1))**1.4;
-      rings[1].visible=elapsed<1.7;
-      rings[1].scale.setScalar(radius*(.09+.57*Math.min(1,elapsed/1.4)));
-      rings[1].material.opacity=.31*(1-Math.min(1,elapsed/1.7));
-      rings[1].rotation.y=elapsed*.5;
+      // The second ring is a faint smoke rim, not a second rigid expanding
+      // shockwave. Its elevation, expansion and fade follow the fire clock.
+      rings[1].visible=state.rimOpacity>.001;
+      rings[1].position.set(0,state.elevation,0);
+      rings[1].scale.setScalar(state.ringRadius);
+      rings[1].material.opacity=state.rimOpacity;
+      rings[1].rotation.y=elapsed*.11;
+      // A recognizable horizontal wreath of smoke; varying the perimeter
+      // slightly prevents a perfect torus of identical-looking particles.
       for(let i=0;i<smoke.length;i++){
-        const puff=smoke[i],angle=i*2.399963;
-        const drift=radius*(.06+.3*Math.min(1,elapsed/2.4))*(.7+.3*(i%4)/3);
-        puff.position.set(Math.cos(angle)*drift,
-          .35+elapsed*(1.15+.27*(i%5))+.2*(i%3),
-          Math.sin(angle)*drift);
-        puff.scale.setScalar(radius*(.085+.075*(i%4)/3)+elapsed*(.25+.1*(i%3)));
-        puff.material.opacity=(.16+.1*power)*(1-elapsed/duration)**1.5*
-          Math.min(1,elapsed/.35);
+        const puff=smoke[i];
+        const angle=2*Math.PI*i/smoke.length+.055*Math.sin(i*.71+elapsed*.36);
+        const spread=state.ringRadius*(.92+.08*Math.sin(i*1.37+elapsed*.23));
+        puff.position.set(Math.cos(angle)*spread,
+          state.elevation+Math.sin(i*2.31+elapsed*.7)*(.13+radius*.045),
+          Math.sin(angle)*spread);
+        puff.scale.setScalar(state.puffScale*(.83+(i%5)*.055));
+        puff.material.opacity=state.smokeOpacity*(.78+.22*(i%4)/3);
       }
     }
   }

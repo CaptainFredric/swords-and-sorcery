@@ -1191,6 +1191,125 @@ export function vortexEndRecipe(rand = Math.random) {
   };
 }
 
+/**
+ * Whirl Like the Wind: a 360-degree aerodynamic spinning swoosh of rushing air,
+ * accompanied by the thin whistling ring of the circling blade edge.
+ * When rising on Gale Garner, an ascending wind draft carries the whoosh upward.
+ */
+export function whirlSpinRecipe(rand = Math.random, { revolution = 0, gale = false } = {}) {
+  const baseFreq = (460 + Math.min(220, revolution * 35)) * jitter(rand, 0.08);
+  const sweepEnd = (gale ? baseFreq * 3.4 : baseFreq * 2.2) * jitter(rand, 0.06);
+  const whistle = (2600 + Math.min(600, revolution * 80)) * jitter(rand, 0.07);
+  const layers = [
+    // The rushing centrifugal swoosh of air
+    { type: 'noise', filter: 'bandpass', freq: baseFreq, q: 1.4, sweepTo: sweepEnd, attack: 0.03, decay: 0.28, gain: 0.52 },
+    // Blade edge whistling through the arc
+    { type: 'noise', filter: 'bandpass', freq: whistle, q: 6.5, sweepTo: whistle * 1.3, attack: 0.04, decay: 0.22, gain: 0.14, at: 0.02 },
+    // Low rotational air displacement
+    { type: 'noise', filter: 'lowpass', freq: 220, q: 0.8, attack: 0.02, decay: 0.26, gain: 0.32 },
+  ];
+  if (gale) {
+    // Rising draft: high airy lift rush
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 1100 * jitter(rand, 0.08), q: 2.2, sweepTo: 3400, attack: 0.05, decay: 0.32, gain: 0.38, at: 0.03 });
+  }
+  return { layers, reverb: 0.14 };
+}
+
+/**
+ * Rigid Riposte - Stance Start / Twinkle:
+ * A subtle, crystalline star glint chime catching the blade tip near the start of the brace,
+ * anchored by the quiet metallic ring of poised steel.
+ */
+export function riposteTwinkleRecipe(rand = Math.random) {
+  const chime = 4200 * jitter(rand, 0.04);
+  return {
+    layers: [
+      // Delicate silvery star chime
+      { type: 'ring', partials: [
+        { freq: chime, gain: 0.18, decay: 0.26 },
+        { freq: chime * 1.33, gain: 0.12, decay: 0.22 },
+        { freq: chime * 1.78, gain: 0.08, decay: 0.18 },
+        { freq: chime * 2.25, gain: 0.05, decay: 0.14 },
+      ]},
+      // Unsheathe / blade alignment glint
+      { type: 'noise', filter: 'highpass', freq: 5600 * jitter(rand, 0.08), q: 2.2, attack: 0.001, decay: 0.03, gain: 0.24 },
+      // Subtle metallic body ring
+      ring(rand, 1180, { decay: 0.35, gain: 0.11, partials: 3, bright: 1.2 }),
+    ],
+    reverb: 0.22,
+    hall: 0.1,
+  };
+}
+
+/**
+ * Rigid Riposte - Forward Stab:
+ * A subtle slight whoosh as the blade thrusts forward through air. Focused, clean, not heavy.
+ */
+export function riposteThrustRecipe(rand = Math.random) {
+  const low = 520 * jitter(rand, 0.08);
+  return {
+    layers: [
+      // Subtle aerodynamic thrust rush
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.8, sweepTo: low * 2.4, attack: 0.02, decay: 0.16, gain: 0.34 },
+      // Fine blade edge hiss
+      { type: 'noise', filter: 'bandpass', freq: 3400 * jitter(rand, 0.06), q: 6.0, sweepTo: 2200, attack: 0.015, decay: 0.11, gain: 0.12, at: 0.01 },
+    ],
+    reverb: 0.08,
+  };
+}
+
+/**
+ * Rigid Riposte - Specialized Parry:
+ * The signature parry sound when Rigid Riposte intercepts an incoming strike:
+ * An uncompromising, unyielding steel impact with a distinctive singing chime and long golden sustain.
+ */
+export function rigidRiposteParryRecipe(rand = Math.random) {
+  const sing = 1480 * jitter(rand, 0.03);
+  return {
+    layers: [
+      // The sharp rigid clash
+      { type: 'noise', filter: 'highpass', freq: 6400 * jitter(rand, 0.06), q: 1.2, attack: 0.0003, decay: 0.016, gain: 0.85 },
+      // Solid steel bind (no give)
+      { type: 'noise', filter: 'bandpass', freq: 3200 * jitter(rand, 0.08), q: 5.0, sweepTo: 4800, attack: 0.002, decay: 0.08, gain: 0.42, at: 0.005 },
+      // Unyielding blade singing high
+      ring(rand, sing, { decay: 1.55, gain: 0.32, bright: 1.45 }),
+      { ...ring(rand, sing * 1.5, { decay: 0.95, gain: 0.14, partials: 4, bright: 1.3 }), at: 0.008 },
+      // Star shimmer overtone
+      { type: 'ring', partials: [
+        { freq: 4950 * jitter(rand, 0.03), gain: 0.11, decay: 0.45 },
+        { freq: 7420 * jitter(rand, 0.03), gain: 0.06, decay: 0.32 },
+      ], at: 0.004 },
+    ],
+    reverb: 0.52,
+    hall: 0.22,
+  };
+}
+
+/**
+ * Bi-Bye-llista "A Sharp Turn" mechanical turning and spinning sound:
+ * Rapid gear teeth ratchet chattering, heavy pivot torque, and the aerodynamic whir
+ * of the massive bow assembly spinning 360 degrees.
+ */
+export function bibyeSharpTurnRecipe(rand = Math.random) {
+  return {
+    layers: [
+      // Carriage pivot thud and torque rush
+      { type: 'noise', filter: 'bandpass', freq: 420 * jitter(rand, 0.08), q: 1.2, sweepTo: 220, attack: 0.005, decay: 0.38, gain: 0.65 },
+      { type: 'tone', wave: 'sine', freq: 110 * jitter(rand, 0.04), slideTo: 45, attack: 0.004, decay: 0.28, gain: 0.55 },
+      // Mechanical ratchet spinning clicks
+      ...Array.from({ length: 11 }, (_, i) => ({
+        type: 'noise', filter: 'highpass', freq: (2100 + (i % 3) * 350) * jitter(rand, 0.05),
+        q: 1.5, attack: 0.001, decay: 0.022, gain: 0.26 * (1 - i / 18), at: 0.025 + i * 0.035,
+      })),
+      // Spinning bow arms air whoosh
+      { type: 'noise', filter: 'bandpass', freq: 1150 * jitter(rand, 0.08), q: 2.2, sweepTo: 2400, attack: 0.02, decay: 0.36, gain: 0.42, at: 0.03 },
+      // Metallic gear tooth resonance
+      ring(rand, 520, { decay: 0.48, gain: 0.16, partials: 4 }),
+    ],
+    reverb: 0.28,
+  };
+}
+
 // Rigid Riposte, landed: a thrust, not a cut. The point punches through plate in one sharp instant (a hard, narrow
 // crack and a short metallic tick), and the whole lunging body arrives behind it (a deep, quick thud), then a brief,
 // darker ring than a cut's: the steel driven in rather than drawn across. A grazing thrust skates off the plate.
@@ -1210,34 +1329,4 @@ export function riposteHitRecipe(rand = Math.random, { clean = true } = {}) {
   ];
   if (!clean) layers.push({ type: 'noise', filter: 'bandpass', freq: 3000 * jitter(rand, 0.1), q: 2, sweepTo: 1600, attack: 0.004, decay: 0.12, gain: 0.2 });
   return { layers, reverb: 0.26 };
-}
-
-// Rigid Riposte's lunge: the brace let go, the body driven forward behind the point (a low rush that rises, and the
-// point's thin whistle along it). Heard whether or not it lands.
-export function riposteDriveRecipe(rand = Math.random) {
-  const low = 180 * jitter(rand, 0.06);
-  return {
-    layers: [
-      { type: 'noise', filter: 'bandpass', freq: low, q: 1.1, sweepTo: low * 3.4, attack: 0.03, decay: 0.24, gain: 0.5 },
-      { type: 'noise', filter: 'bandpass', freq: low * 9, q: 8, sweepTo: low * 13, attack: 0.05, decay: 0.12, gain: 0.07, at: 0.03 },
-      // the push-off: the rear foot driving off the ground
-      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.7, attack: 0.004, decay: 0.09, gain: 0.35 },
-    ],
-    reverb: 0.1,
-  };
-}
-
-// Whirl Like the Wind, one revolution: the blade swept round through the air (a broad rush that rises and falls with
-// the turn) and its edge's thin whistle; each paid revolution a touch higher and fuller as the momentum builds.
-export function whirlTurnRecipe(rand = Math.random, { turn = 0 } = {}) {
-  const build = Math.min(1, Math.max(0, turn) / 3);
-  const low = (240 + 70 * build) * jitter(rand, 0.06);
-  return {
-    layers: [
-      { type: 'noise', filter: 'bandpass', freq: low, q: 1.2, sweepTo: low * 3.2, attack: 0.16, decay: 0.3, gain: 0.34 + 0.12 * build },
-      { type: 'noise', filter: 'bandpass', freq: low * 8, q: 9, sweepTo: low * 11, attack: 0.12, decay: 0.16, gain: 0.05 + 0.03 * build, at: 0.08 },
-      { type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.12, decay: 0.22, gain: 0.18 },
-    ],
-    reverb: 0.1,
-  };
 }

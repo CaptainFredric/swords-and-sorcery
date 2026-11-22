@@ -1,4 +1,5 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
+import { getFleetMachines, getFleetSolids, getFleetHitVolumes, raycastFleet, blastFleet, getMachineKind } from './fleetGeometry.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
 import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
@@ -24,6 +25,7 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
+import {valkyrieFlameExposure} from './valkyrieFlames.mjs';
 import { lineOfConductDamage, lineOfConductReach, lineOfConductAffliction, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_WAKE, galeFrostWakeEnabled, galeFrostWakeRadius, closestWakePoint } from '../src/oneHitTrail.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
@@ -105,14 +107,25 @@ function resolveTechniqueContact(room,attacker,action,contact,nowSec){
     const solid=contact.kind==='solid'?contact.solid:null;
     const damage=action.contract.damage.clean;
     if(solid){
-      const ram=String(solid.id??'').startsWith('sofist-');
-      const flight=String(solid.id??'').startsWith('fight-flight-');
-      if(solid.componentId){
-        (flight?damageFightFlight:ram?damageSoFistication:damageBiByeLlista)(
-          room,flight?room.fightFlight:ram?room.soFistication:room.biByeLlista,
-          damage,attacker.id,'sword',nowSec,{
-            componentId:solid.componentId,point:contact.point,material:solid.material,
+      const targetMachine = (solid.machineId ? room.machines?.get(solid.machineId) : null)
+        || (String(solid.id??'').startsWith('fight-flight-') ? room.fightFlight : null)
+        || (String(solid.id??'').startsWith('sofist-') ? room.soFistication : null)
+        || (String(solid.id??'').startsWith('bibye-') ? room.biByeLlista : null);
+      if(solid.componentId && targetMachine){
+        const kind = targetMachine.class ?? targetMachine.kind;
+        if (kind === 'fight-and-flight' || kind === 'flight') {
+          damageFightFlight(room, targetMachine, damage, attacker.id, 'sword', nowSec, {
+            componentId: solid.componentId, point: contact.point, material: solid.material,
           });
+        } else if (kind === 'so-fist-ication' || kind === 'ram') {
+          damageSoFistication(room, targetMachine, damage, attacker.id, 'sword', nowSec, {
+            componentId: solid.componentId, point: contact.point, material: solid.material,
+          });
+        } else {
+          damageBiByeLlista(room, targetMachine, damage, attacker.id, 'sword', nowSec, {
+            componentId: solid.componentId, point: contact.point, material: solid.material,
+          });
+        }
       }
       if(String(solid.id??'').startsWith('siege-ladder-'))
         damageRestlessLadder(room,solid.id.split('-').slice(2,4).join('-'),
@@ -637,10 +650,11 @@ function sheatheInSteel(room, player, spell, nowSec) {
 }
 
 /**
- * Steel, the fifth infusion. One Sheathe in Steel use, worn through its whole fully hardened spell without the knight
- * being staggered or killed, earns one stage (two such uses: Full Steel). A use that qualifies, by a knight who then
- * holds a Steel stage, also keeps its plate fully hardened until Steel's own cooldown is over; then it wears off as
- * it always does. The longer plate is the one use's: it earns nothing further.
+ * One uninterrupted five-second Sheathe in Steel earns one Steel infusion.
+ * Earning Half Steel grants one immediate bonus ward, with the ordinary
+ * five-second full-strength interval followed by normal decay. The bonus is
+ * not a spell cast, does not restart the cooldown, and cannot earn Full Steel.
+ * A second manually cast and completed ward still earns Full Steel normally.
  */
 function stepSteelInfusion(room, player, nowSec) {
   const steel = player.steel;
@@ -648,11 +662,16 @@ function stepSteelInfusion(room, player, nowSec) {
   if (nowSec < player.staggerUntil) { player.steel = { ...steel, earning: false }; return; }
   if (nowSec < steel.calledAt + STEEL.fullSec) return;
   const earned = creditOneHitEncounter(player, 'steel', `steel:${player.id}:${steel.calledAt}`);
-  const held = normalizeInfusions(player.oneHitInfusions).steel >= 1;
-  player.steel = { ...steel, earning: false,
-    ...(held ? { fullUntil: Math.max(steel.fullUntil, steel.calledAt + STEEL.cooldownSec), extended: true } : {}) };
-  if (earned) room.events.push({ type: 'oneHitInfusion', playerId: player.id, element: 'steel', tier: player.oneHitInfusions.steel, at: nowSec });
-  if (held) room.events.push({ type: 'steelExtended', playerId: player.id, fullUntil: player.steel.fullUntil, at: nowSec });
+  const tier = normalizeInfusions(player.oneHitInfusions).steel;
+  player.steel = { ...steel, earning: false };
+  if (earned) room.events.push({ type: 'oneHitInfusion', playerId: player.id, element: 'steel', tier, at: nowSec });
+  if (earned && tier === 1) {
+    // The one-time Half Steel reward is a fresh ward, NOT another qualifying
+    // spell use. Do not set earning or alter the actual spell's cooldown.
+    player.steel = callSteel(nowSec);
+    room.events.push({ type: 'steelOn', playerId: player.id, bonus: true, at: nowSec,
+      readyAt: player.spellReadyAt });
+  }
 }
 
 /**
@@ -1017,9 +1036,7 @@ function sweepStrike(room, player, nowSec, world) {
   const until = Math.min(nowSec, window.to);
   // Incoming blades must actually meet rotor/braces/chassis before a covered
   // rider. The mounted knight may swing *out* through their own hardware.
-  const flightCover=room.fightFlight?.operatorId===player.id?[]:fightFlightHitVolumes(room.fightFlight);
-  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec),
-    ...soFistVolumes(room.soFistication,nowSec),...flightCover];
+  const solids = [...(world.solids ?? []), ...getFleetHitVolumes(room, player.id, nowSec)];
   const blade = live.slam ? SLAM_STRIKE : live.kind ?? live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
@@ -1068,13 +1085,27 @@ function sweepStrike(room, player, nowSec, world) {
       player.attackSweep = null;
       if (met.solid.componentId) {
         const quality = aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z))) * 180/Math.PI);
-        const ram=met.solid.id?.startsWith('sofist-');
-        const flight=met.solid.id?.startsWith('fight-flight-');
         const damage=swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal});
-        (flight?damageFightFlight:ram?damageSoFistication:damageBiByeLlista)(
-          room,flight?room.fightFlight:ram?room.soFistication:room.biByeLlista,
-          damage,player.id,'sword',nowSec,
-          {componentId:met.solid.componentId,point:met.point,material:met.solid.material});
+        const targetMachine = (met.solid.machineId ? room.machines?.get(met.solid.machineId) : null)
+          || (met.solid.id?.startsWith('fight-flight-') ? room.fightFlight : null)
+          || (met.solid.id?.startsWith('sofist-') ? room.soFistication : null)
+          || room.biByeLlista;
+        if (targetMachine) {
+          const kind = targetMachine.class ?? targetMachine.kind;
+          if (kind === 'fight-and-flight' || kind === 'flight') {
+            damageFightFlight(room, targetMachine, damage, player.id, 'sword', nowSec, {
+              componentId: met.solid.componentId, point: met.point, material: met.solid.material,
+            });
+          } else if (kind === 'so-fist-ication' || kind === 'ram') {
+            damageSoFistication(room, targetMachine, damage, player.id, 'sword', nowSec, {
+              componentId: met.solid.componentId, point: met.point, material: met.solid.material,
+            });
+          } else {
+            damageBiByeLlista(room, targetMachine, damage, player.id, 'sword', nowSec, {
+              componentId: met.solid.componentId, point: met.point, material: met.solid.material,
+            });
+          }
+        }
       }
       if(String(met.solid.id??'').startsWith('siege-ladder-'))damageRestlessLadder(room,met.solid.id.split('-').slice(2,4).join('-'),swordDamage({level:DAMAGE_LEVELS.normal}),player.id,nowSec);
       damageStructureSolid(room,met.solid,swordDamage({quality:aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z)))*180/Math.PI),level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{point:met.point});
@@ -1122,8 +1153,7 @@ function lethalIncomingCounter(room, defender, opponent, atSec) {
   const toAt = Math.min(atSec + .18, win.to);
   if (!(toAt > fromAt + 1e-9)) return false;
   const blade = active.slam ? SLAM_STRIKE : active.kind ?? active.strike;
-  const solids = [...(room.world?.solids ?? []), ...biByeHitVolumes(room.biByeLlista, atSec),
-    ...soFistVolumes(room.soFistication, atSec), ...fightFlightHitVolumes(room.fightFlight)];
+  const solids = [...(room.world?.solids ?? []), ...getFleetHitVolumes(room, opponent.id, atSec)];
   const target = transformFor(defender, atSec);
   const bodies = [{ id: defender.id, base: target.position, top: postureOf(target).crown }];
   const enemy = transformFor(opponent, atSec);
@@ -1532,6 +1562,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
 
+  // Sample the CURRENT authoritative field, not its next scheduled burn tick:
+  // allied last-HP protection and hostile Prowess loss apply to any incoming
+  // damage while actually inside the flames.
+  const valkyrieFlames=valkyrieFlameExposure(room,victim,nowSec);
   let finalAmount = amount;
   let finalSteel = steel;
   let finalTurned = turned;
@@ -1574,6 +1608,11 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
         until: state.until ?? null, at: nowSec });
     }
   }
+  // Valkyrie's sacrifice protects allies' LAST HP only while they are
+  // physically in its active ground fire. Existing Steel mitigation, damage
+  // events, knockback and other effects resolve normally before this floor.
+  if(valkyrieFlames.allied&&finalAmount>0)
+    finalAmount=Math.min(finalAmount,Math.max(0,victim.health-1));
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
   if (taken > 0) {
@@ -1614,7 +1653,18 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
-  if (!ongoing) prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });
+  // Do not first AWARD the usual damage-taken Prowess only to subtract it:
+  // the requested net penalty is exactly the HP actually lost, not .86 HP.
+  // Attackers still earn their ordinary dealt-damage Prowess.
+  if (!ongoing) prowessForDamage(room,room.players.get(attackerId),victim,taken,
+    {ultimate,victimGains:!valkyrieFlames.hostile});
+  if(valkyrieFlames.hostile&&taken>0){
+    const before=victim.prowess??0;
+    victim.prowess=Math.max(0,before-taken);
+    if(before>victim.prowess)room.events.push({
+      type:'valkyrieProwessBurn',playerId:victimId,
+      amount:before-victim.prowess,at:nowSec});
+  }
   if (knockback) {
     const scale = staggerShove(victim.stagger);
     shoveBody(victim, { x: knockback.x * scale, y: knockback.y, z: knockback.z * scale });
@@ -1686,12 +1736,8 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   victim.alive = false;
   interruptSwordTechnique(victim,nowSec);
   victim.health = 0;
-  if (victim.operatingBallistaId && room.biByeLlista) {
-    dismountBiByeLlista(room.biByeLlista, victim);
-  }
-  if (victim.operatingFightFlightId && room.fightFlight) dismountFightFlight(room,room.fightFlight,victim,{force:true,at:nowSec});
-  if (victim.operatingRamId && room.soFistication) {
-    dismountSoFistication(room, room.soFistication, victim, { administrative: false, force: true });
+  if (victim.operatingBallistaId || victim.operatingFightFlightId || victim.operatingRamId) {
+    room.dismountPlayerFromMachines?.(victim, nowSec, false);
   }
   victim.guarding = false;
   victim.steel = null;
@@ -1979,7 +2025,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
 }
 
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
-function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null, directComponent = null, directRamComponent = null) {
+function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null, directComponent = null, directRamComponent = null, directTargetMachine = null) {
   room.projectiles.delete(projectile.id);
   const spell = spellFor(projectile.spell);
   // fire throws a body back; cold only staggers it a little (and an ember is a small fire)
@@ -2025,13 +2071,29 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
-  if(directRamComponent)damageSoFistication(room,room.soFistication,spell.directDamage,projectile.ownerId,spell.id,nowSec,{componentId:directRamComponent,point});
-  else blastSoFistication(room,room.soFistication,{point,radius:spell.radius,damage:spell.directDamage},projectile.ownerId,spell.id,nowSec);
-  if (directComponent) {
-    damageBiByeLlista(room,room.biByeLlista,spell.directDamage,projectile.ownerId,spell.id,nowSec,{componentId:directComponent,point});
+  const excludedMachines = [];
+  if (directTargetMachine) {
+    excludedMachines.push(directTargetMachine.id);
+    const kind = directTargetMachine.class ?? directTargetMachine.kind;
+    const compId = directComponent || directRamComponent;
+    if (kind === 'fight-and-flight' || kind === 'flight') {
+      damageFightFlight(room, directTargetMachine, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: compId, point, steelMinimum: 2 });
+    } else if (kind === 'so-fist-ication' || kind === 'ram') {
+      damageSoFistication(room, directTargetMachine, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: compId, point });
+    } else {
+      damageBiByeLlista(room, directTargetMachine, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: compId, point });
+    }
   } else {
-    blastBiByeLlista(room,room.biByeLlista,{point,radius:spell.radius,damage:spell.directDamage},projectile.ownerId,spell.id,nowSec,room.world?.solids ?? []);
+    if (directRamComponent && room.soFistication) {
+      excludedMachines.push(room.soFistication.id);
+      damageSoFistication(room, room.soFistication, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directRamComponent, point });
+    }
+    if (directComponent && room.biByeLlista) {
+      excludedMachines.push(room.biByeLlista.id);
+      damageBiByeLlista(room, room.biByeLlista, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directComponent, point });
+    }
   }
+  blastFleet(room, { point, radius: spell.radius, damage: spell.directDamage }, projectile.ownerId, spell.id, nowSec, excludedMachines);
 
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
@@ -2068,8 +2130,7 @@ function coreflagrationBurst(room, projectile, point, nowSec, damage, final = fa
       };
     }
   }
-  if (room.soFistication) blastSoFistication(room, room.soFistication, { point, radius: spell.radius, damage }, projectile.ownerId, spell.id, nowSec);
-  if (room.biByeLlista) blastBiByeLlista(room, room.biByeLlista, { point, radius: spell.radius, damage }, projectile.ownerId, spell.id, nowSec, room.world?.solids ?? []);
+  blastFleet(room, { point, radius: spell.radius, damage }, projectile.ownerId, spell.id, nowSec);
 }
 
 function armCoreflagration(room, projectile, point, nowSec, worldHit = false) {
@@ -2179,9 +2240,8 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
       if (String(box.id??'').startsWith('bibye-')) continue;
       const hit=segmentAabbHit(a,b,box);if(hit)hits.push({...hit,box,kind:'world'});
     }
-    const machine=biByeFirstHit(room.biByeLlista,a,b,nowSec);
-    if(machine)hits.push({...machine,kind:'machine'});
-    const ram=soFistFirstHit(room.soFistication,a,b,nowSec);if(ram)hits.push({...ram,kind:'ram'});
+    const fleetHit = raycastFleet(room, before, after, { attackerId: projectile.ownerId, nowSec });
+    if (fleetHit) hits.push({ ...fleetHit, point: [fleetHit.point.x, fleetHit.point.y, fleetHit.point.z] });
     const ground=surfaceHeightAt(after.x,after.z,before.y,world);
     if(ground!==null&&after.y<=ground&&before.y>ground){
       const t=(before.y-ground)/(before.y-after.y);
@@ -2204,8 +2264,13 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
       if (projectile.spell === 'coreflagration' && hit.kind === 'player' && coreflagrationParry(room, projectile, hit.player, nowSec)) { projectile.position = { ...point }; continue; }
       if(hit.kind==='world'&&hit.box&&String(hit.box.id??'').startsWith('siege-ladder-'))damageRestlessLadder(room,hit.box.id.split('-').slice(2,4).join('-'),spellFor(projectile.spell).directDamage??30,projectile.ownerId,nowSec);
        if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,projectile.spell==='coreflagration'?spellFor(projectile.spell).core.initialDamage:spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
+      const isMachine = ['machine', 'ram', 'ballista', 'flight'].includes(hit.kind);
+      const machineComp = isMachine ? hit.box?.componentId : null;
       if (projectile.spell === 'coreflagration') armCoreflagration(room, projectile, point, nowSec, hit.kind !== 'player');
-      else explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
+      else explodeSpell(room, projectile, point, nowSec, hit.kind !== 'player', hit.player?.id ?? null,
+        hit.kind === 'machine' || hit.kind === 'ballista' ? machineComp : null,
+        hit.kind === 'ram' ? machineComp : null,
+        hit.targetMachine ?? null);
       continue;
     }
 
@@ -2448,11 +2513,7 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null,direc
   const seen=room.oneHitSiegeContacts??=new Map();
   if(seen.size>128)seen.clear();
   const amount=Math.max(1,Math.round(oneHitDamage(tiers,ONE_HIT_BASE_DAMAGE)*.65));
-  const machines=[
-    [room.soFistication,'ram'],
-    [room.biByeLlista,'ballista'],
-    [room.fightFlight,'flight'],
-  ];
+  const machines = getFleetMachines(room).map(m => [m, getMachineKind(m)]);
   for(const [machine,kind] of machines) {
     if(!machine||machine.retired||machine.mode==='DESTROYED'||!(machine.health>0))continue;
     // The rider's own platform remains friendly even in FFA/Practice when
@@ -3075,20 +3136,9 @@ export function detonateOneHitWave(room,playerId,waveId,nowSec) {
 }
 
 function oneHitMachineWaveContact(room,caster,from,to,nowSec) {
-  let nearest=null;
-  for(const [machine,hit] of [
-    [room.soFistication,soFistFirstHit(room.soFistication,from,to,nowSec,.16)],
-    [room.biByeLlista,biByeFirstHit(room.biByeLlista,from,to,nowSec,.16)],
-    [room.fightFlight,fightFlightFirstHit(room.fightFlight,from,to,.16)],
-  ]) {
-    if(!hit||!machine||machine.retired||machine.health<=0)continue;
-    if(machine.operatorId===caster.id)continue;
-    if(machine.team&&caster.team===machine.team)continue;
-    if(Number.isFinite(hit.t)&&(!nearest||hit.t<nearest.t))
-      nearest={t:hit.t,point:{x:from.x+(to.x-from.x)*hit.t,
-        y:from.y+(to.y-from.y)*hit.t,z:from.z+(to.z-from.z)*hit.t}};
-  }
-  return nearest;
+  const hit = raycastFleet(room, from, to, { attackerId: caster.id, nowSec, radius: .16 });
+  if (!hit) return null;
+  return { t: hit.t, point: { x: from.x + (to.x - from.x) * hit.t, y: from.y + (to.y - from.y) * hit.t, z: from.z + (to.z - from.z) * hit.t } };
 }
 
 function oneHitWakeAppend(room,wave,from,to,nowSec){
@@ -3772,7 +3822,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     center: room.edgeOfVictory.center, radius: room.edgeOfVictory.radius } };
   room.world = world;
   markTornGround(room);
-  const effectiveWorld = playerMovementWorld(world, {ballista:room.biByeLlista,ram:room.soFistication,flight:room.fightFlight});
+  const effectiveWorld = playerMovementWorld(world, {machines: getFleetMachines(room)});
 
   for (const player of room.players.values()) {
     const isFrozenActor = Boolean(room.inspectionFrozenActors?.has(player.id));
@@ -3938,21 +3988,24 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.grounded=false;
     }
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
-    const aboardFlight=Boolean(player.operatingFightFlightId && room.fightFlight?.operatorId === player.id);
+    const opFlight = player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : null;
+    const aboardFlight = Boolean(opFlight && opFlight.operatorId === player.id);
     if (aboardFlight) {
       // Flight uses Jump for ascent, not accidental ejection. Keep the existing
       // sword chain/swept contact logic below, *only* skip ordinary foot locomotion.
-      player.position={x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z};
-      player.velocity={...room.fightFlight.velocity};player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;
+      player.position={x:opFlight.x,y:opFlight.y,z:opFlight.z};
+      player.velocity={...opFlight.velocity};player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;
       player.sprinting=false;player.sprintBlend=0;
     }
-    if (player.operatingRamId && room.soFistication?.operatorId === player.id) {
-      if(input.jump)dismountSoFistication(room,room.soFistication,player);
-      if(player.operatingRamId){player.position=soFistOperator(room.soFistication);player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;player.sprinting=false;player.sprintBlend=0;continue;}
+    const opRam = player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : null;
+    if (opRam && opRam.operatorId === player.id) {
+      if(input.jump)dismountSoFistication(room,opRam,player);
+      if(player.operatingRamId){player.position=soFistOperator(opRam);player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;player.sprinting=false;player.sprintBlend=0;continue;}
     }
-    if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
+    const opBallista = player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : null;
+    if (opBallista && opBallista.operatorId === player.id) {
       if (input.jump) {
-        dismountBiByeLlista(room.biByeLlista, player);
+        dismountBiByeLlista(opBallista, player);
         const moved = movePlayer(player, input, dt, nowSec, world);
         player.position = moved.position;
         player.velocity = moved.velocity;
@@ -3967,7 +4020,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         player.yaw = input.yaw ?? player.yaw;
         player.pitch = input.pitch ?? player.pitch;
       } else {
-        const bl = room.biByeLlista;
+        const bl = opBallista;
         const cos = Math.cos(bl.heading - bl.baseYaw);
         const sin = Math.sin(bl.heading - bl.baseYaw);
         const ox = bl.operatorOffset.x * cos - bl.operatorOffset.z * sin;
@@ -4017,9 +4070,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       // geometry, not merely static terrain. Techniques must see those same
       // authoritative surfaces (and not the coarse rider movement hulls).
       const bladeWorld={...world,solids:[...(world.solids??[]),
-        ...biByeHitVolumes(room.biByeLlista,nowSec),
-        ...soFistVolumes(room.soFistication,nowSec),
-        ...fightFlightHitVolumes(room.fightFlight)]};
+        ...getFleetHitVolumes(room,player.id,nowSec)]};
       stepLiveSwordTechnique(room,player,nowSec,bladeWorld,(action,contact)=>
         resolveTechniqueContact(room,player,action,contact,nowSec));
     }
@@ -4092,34 +4143,42 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId&&!p.operatingFightFlightId), effectiveWorld);
   const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
-  if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
-    stepTerminalPreparation(room,room.fightFlight,nowSec);
-    stepFlightRun(room,room.fightFlight,dt,nowSec);
-    const flight=room.fightFlight,dive=flight.terminalDive;
-    if(dive&&!dive.resolved){
-      // At 30Hz multiplayer advances one frame. A throttled solo browser can
-      // skip wall-clock seconds while still delivering fixed 1/30s host ticks.
-      // Catch up ONLY the committed machine's physical trajectory; never allow
-      // the physical charge to be skipped by a stalled browser host.
-      const frames=terminalFlightSteps(dive,nowSec,dt);
-      for(let i=0;i<frames&&!dive.resolved;i++){
-        const physicsNow=dive.startedAt+(dive.simulatedSec??0)+dt;
-        advanceTerminalFlight(room,flight,dt,physicsNow);
-        stepFightFlight(room,flight,dt,physicsNow,world);
-        stepFightFlightRotor(room,flight,dt,physicsNow);
-        resolveTerminalFlight(room,flight,nowSec);
+  const fleet = getFleetMachines(room);
+  for (const flight of fleet.filter(m => getMachineKind(m) === 'flight')) {
+    if (!isOthersFreeze || flight.operatorId === activeActorId) {
+      stepTerminalPreparation(room, flight, nowSec);
+      stepFlightRun(room, flight, dt, nowSec);
+      const dive = flight.terminalDive;
+      if (dive && !dive.resolved) {
+        const frames = terminalFlightSteps(dive, nowSec, dt);
+        for (let i = 0; i < frames && !dive.resolved; i++) {
+          const physicsNow = dive.startedAt + (dive.simulatedSec ?? 0) + dt;
+          advanceTerminalFlight(room, flight, dt, physicsNow);
+          stepFightFlight(room, flight, dt, physicsNow, world);
+          stepFightFlightRotor(room, flight, dt, physicsNow);
+          resolveTerminalFlight(room, flight, nowSec);
+        }
+      } else {
+        stepFightFlight(room, flight, dt, nowSec, world);
+        stepFightFlightRotor(room, flight, dt, nowSec);
       }
-    }else{
-      stepFightFlight(room,flight,dt,nowSec,world);
-      stepFightFlightRotor(room,flight,dt,nowSec);
+      stepFightFlightSkill(room, flight, nowSec);
+      stepFightFlightWeapons(room, flight, dt, nowSec);
+      const op = room.players.get(flight.operatorId);
+      if (op) recordTransform(op, nowSec);
     }
-    stepFightFlightSkill(room,flight,nowSec);
-    stepFightFlightWeapons(room,flight,dt,nowSec);
-    const op=room.players.get(room.fightFlight.operatorId);if(op)recordTransform(op,nowSec);
   }
-  if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
-  if (room.biByeLlista && (!isOthersFreeze || room.biByeLlista.operatorId === activeActorId)) {
-    stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
+  for (const ram of fleet.filter(m => getMachineKind(m) === 'ram')) {
+    if (!isOthersFreeze || ram.operatorId === activeActorId) {
+      stepSoFistication(room, ram, dt, nowSec, world);
+      const op = room.players.get(ram.operatorId);
+      if (op) recordTransform(op, nowSec);
+    }
+  }
+  for (const ballista of fleet.filter(m => getMachineKind(m) === 'ballista')) {
+    if (!isOthersFreeze || ballista.operatorId === activeActorId) {
+      stepBiByeLlista(room, ballista, dt, nowSec);
+    }
   }
   // Run AFTER vehicle physics, BEFORE damage/projectiles/Steel. Removing a
   // machine beyond abyssY here avoids zombie Practice build/rebuild slots and
@@ -4127,9 +4186,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if(!isOthersFreeze)lostSiegeMachines(room,nowSec,killPlayer);
   // One shared authoritative repair clock per machine; never per pilot or
   // per rendered frame. Damage entrypoints also use the same ward object.
-  if(room.fightFlight)stepSiegeSteel(room,room.fightFlight,nowSec);
-  if(room.biByeLlista)stepSiegeSteel(room,room.biByeLlista,nowSec);
-  if(room.soFistication)stepSiegeSteel(room,room.soFistication,nowSec);
+  for (const m of fleet) {
+    stepSiegeSteel(room, m, nowSec);
+  }
   if (!room.freezeProjectiles) {
     const filterOwnerId = isOthersFreeze ? activeActorId : null;
     // (a spell loosed this very tick from close by is inside a Disaster's wind before it has moved at all: the wind
@@ -4139,11 +4198,15 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // A grounded detached fist is tangible cover, including against real
     // bolts and spells. Add only that steel body to projectile geography;
     // vehicle components already have their own authoritative hit systems.
-    const fistObstacle=detachedRamFistSolid(room.soFistication);
-    const projectileWorld=fistObstacle?{...world,solids:[...(world.solids??[]),fistObstacle]}:world;
+    const detachedSolids = [];
+    for (const ram of fleet.filter(m => getMachineKind(m) === 'ram')) {
+      const fist = detachedRamFistSolid(ram);
+      if (fist) detachedSolids.push(fist);
+    }
+    const projectileWorld = detachedSolids.length ? { ...world, solids: [...(world.solids ?? []), ...detachedSolids] } : world;
     stepProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
     stepFightFlightProjectiles(room,dt,nowSec,projectileWorld,{filterOwnerId});
-    if (room.biByeLlista) {
+    if ((room.bibyeProjectiles && room.bibyeProjectiles.size > 0) || room.biByeLlista) {
       stepBiByeProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
     }
   } else {

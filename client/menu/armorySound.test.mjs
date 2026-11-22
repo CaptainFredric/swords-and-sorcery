@@ -69,10 +69,12 @@ const pan = (sound, from, to) => { const [l, r] = sound.channels.map((c) => rms(
 
 test('every card in the Armory has its own cue: each spell and each ultimate, Chivalry included', () => {
   const view = armoryView('fireball');
-  const cards = [...view.spells, ...view.ultimates].map((card) => card.id);
+  const cards = [...view.spells, ...view.ultimates, ...view.techniques].map((card) => card.id);
   for (const id of cards) assert.ok(armoryCueFor(id), `${id} has a playable cue`);
   assert.equal(armoryCueFor('one_hit_of_wonders'),'sunder');
-  assert.equal(armoryCueFor('line_of_conduct'),'frostfire');
+  assert.equal(armoryCueFor('line_of_conduct'),'line_of_conduct');
+  assert.equal(armoryCueFor('rigid_riposte'),'rigid_riposte');
+  assert.equal(armoryCueFor('whirl_wind'),'whirl_wind');
   assert.equal(new Set(ARMORY_CUE_IDS).size, ARMORY_CUE_IDS.length);
 });
 

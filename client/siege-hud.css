@@ -190,6 +190,41 @@
   --brace-steel:0;}
 .machine-gauge[data-kind="flight"] .flight-brace-widget {display:block;}
 .machine-gauge[data-kind="flight"] .machine-component {display:none;}
+
+/* Bi-Bye-llista's ten real weak points, grouped by function but tracked
+   individually. Each miniature carries its own current/maximum HP tooltip.
+   The hull remains the dominant meter and these never widen the HUD. */
+.bibye-parts {display:none;gap:3px;margin-top:5px;padding-top:4px;
+ border-top:1px solid #8b73535c;}
+.machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {display:grid;}
+.bibye-part-group {display:flex;align-items:center;min-width:0;gap:5px;}
+.bibye-part-group>strong {flex:0 0 48px;color:#c9bda4;
+ font:800 7px/1 'Alegreya Sans',sans-serif;letter-spacing:.055em;}
+.bibye-part-items {display:flex;flex:1;gap:3px;min-width:0;}
+.bibye-part {flex:1;min-width:0;color:#dccda9;opacity:.9;
+ font:800 7px/1 'Alegreya Sans',sans-serif;text-align:center;
+ font-variant-numeric:tabular-nums;}
+.bibye-part span {display:block;margin-bottom:2px;}
+.bibye-part-track {height:4px;border:1px solid #6f6b61;overflow:hidden;
+ background:#131816;box-shadow:inset 0 1px 1px #000b;}
+.bibye-part-track i {display:block;width:100%;height:100%;
+ background:linear-gradient(#a8c6bc,#5e9485);transition:width .14s linear;}
+.bibye-part[data-part-state="critical"] .bibye-part-track i {
+ background:linear-gradient(#ffba77,#aa5529);}
+.bibye-part[data-part-state="destroyed"] {color:#a88477;}
+.bibye-part[data-part-state="destroyed"] .bibye-part-track {border-color:#805246;}
+@container app (max-width:540px) {
+ .bibye-parts {margin-top:3px;padding-top:3px;gap:2px;}
+ .bibye-part-group {gap:2px;}
+ .bibye-part-group>strong {flex-basis:34px;font-size:6px;}
+ .bibye-part-items {gap:2px;}
+ .bibye-part {font-size:6px;}
+ .bibye-part-track {height:3px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .bibye-part-track i {transition:none;}
+}
+
 .machine-gauge[data-kind="flight"] .machine-health-main {padding:4px 6px 5px;}
 .flight-brace-arch {width:100%;max-height:35px;display:block;overflow:visible;
   filter:drop-shadow(0 0 calc(6px * var(--brace-steel)) #edf3e2);}

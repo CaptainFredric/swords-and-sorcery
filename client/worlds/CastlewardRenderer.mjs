@@ -30,8 +30,9 @@ function box(center, size) {
 }
 
 export class CastlewardRenderer {
-  constructor(scene) {
+  constructor(scene, options = {}) {
     this.scene = scene;
+    this.options = options;
     this.group = new THREE.Group();
     this.group.name = 'Castleward';
     this.decor = buildCastlewardDecorPlan(1337);
@@ -45,7 +46,7 @@ export class CastlewardRenderer {
     scene.background = new THREE.Color(CASTLEWARD_LIGHTING.background);
     scene.fog = new THREE.FogExp2(CASTLEWARD_LIGHTING.fog.color, CASTLEWARD_LIGHTING.fog.density);
     scene.add(this.group);
-    this.biByeLlista = new BiByeLlistaRenderer(scene);
+    this.biByeLlista = new BiByeLlistaRenderer(scene, options.biByeOptions);
     this.biByeLlistaData = null;
     this.biByeMotion = new BiByeMotion();
     this.biByeProjectilesData = [];

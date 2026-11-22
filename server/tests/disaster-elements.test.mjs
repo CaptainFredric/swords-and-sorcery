@@ -605,34 +605,43 @@ test('Full Lightning: the held teleport reaches further the longer it is held, w
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-test('Steel is earned by wearing one Sheathe in Steel through, uninterrupted: one stage a use, and the plate then lasts to its cooldown', () => {
+test('Steel earns one stage per real five-second cast; Half Steel grants one non-qualifying ordinary ward', () => {
   const { room, a } = battle();
   a.spell = 'steel'; a.preparedSpells = ['steel']; a.spellReadyAt = 0; a.spellReadyById = {};
   assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10), true);
   assert.ok(a.steel.earning);
   run(room, 10, STEEL.fullSec - .2);
-  assert.equal(a.oneHitInfusions.steel, 0, 'not before it has been worn through');
+  assert.equal(a.oneHitInfusions.steel, 0, 'no stage before five uninterrupted seconds');
   run(room, 10 + STEEL.fullSec - .2, .4);
   assert.equal(a.oneHitInfusions.steel, 1, 'Half Steel');
-  assert.equal(room.events.filter((e) => e.type === 'oneHitInfusion' && e.element === 'steel').length, 1);
-  // the extension: fully hardened until the cooldown is over, then the ordinary wearing off
-  assert.equal(a.steel.fullUntil, 10 + STEEL.cooldownSec);
-  assert.equal(steelStrength(a.steel, 10 + STEEL.cooldownSec - .01), 1);
-  assert.ok(Math.abs(steelStrength(a.steel, 10 + STEEL.cooldownSec + STEEL.fadeSec / 2) - .5) < 1e-9);
-  assert.equal(steelStrength(a.steel, 10 + STEEL.cooldownSec + STEEL.fadeSec), 0);
-  // the long plate earns nothing more
+  assert.equal(room.events.filter(e => e.type === 'oneHitInfusion' && e.element === 'steel').length, 1);
+  const bonusEvents = room.events.filter(e => e.type === 'steelOn' && e.bonus);
+  assert.equal(bonusEvents.length, 1, 'Half Steel immediately grants exactly one bonus ward');
+  assert.equal(a.steel.calledAt, bonusEvents[0].at);
+  assert.equal(a.steel.fullUntil, a.steel.calledAt + STEEL.fullSec);
+  assert.equal(a.steel.earning, undefined, 'the bonus ward must not qualify toward Full Steel');
+  assert.equal(a.spellReadyAt, 10 + STEEL.cooldownSec, 'the bonus does not restart the real spell cooldown');
+  assert.equal(steelStrength(a.steel, a.steel.fullUntil), 1);
+  assert.ok(Math.abs(steelStrength(a.steel, a.steel.fullUntil + STEEL.fadeSec / 2) - .5) < 1e-9);
+  assert.equal(steelStrength(a.steel, a.steel.fullUntil + STEEL.fadeSec), 0);
+  assert.equal(steelStrength(a.steel, 10 + STEEL.cooldownSec), 0, 'no ward held until cooldown expiry');
   run(room, 10 + STEEL.fullSec + .2, STEEL.cooldownSec - STEEL.fullSec);
-  assert.equal(a.oneHitInfusions.steel, 1, 'the extended period makes no further progress');
-  // a second use: Full Steel; a third: nothing more
+  assert.equal(a.oneHitInfusions.steel, 1, 'the bonus never earns a second infusion');
+
   a.spellReadyAt = 0;
   assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 40), true);
   run(room, 40, STEEL.fullSec + .1);
-  assert.equal(a.oneHitInfusions.steel, 2, 'Full Steel');
+  assert.equal(a.oneHitInfusions.steel, 2, 'a second actual qualifying cast grants Full Steel');
+  assert.equal(a.steel.calledAt, 40, 'earning Full Steel does not cast another bonus ward');
+  assert.equal(a.steel.fullUntil, 40 + STEEL.fullSec);
+  assert.equal(room.events.filter(e => e.type === 'steelOn' && e.bonus).length, 1);
+
   a.spellReadyAt = 0;
-  tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 70);
+  assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 70), true);
   run(room, 70, STEEL.fullSec + .1);
   assert.equal(a.oneHitInfusions.steel, 2);
-  assert.equal(a.steel.fullUntil, 70 + STEEL.cooldownSec, 'a qualifying use by a knight holding Steel still lasts');
+  assert.equal(a.steel.fullUntil, 70 + STEEL.fullSec, 'further casts use ordinary ward timing');
+  assert.equal(room.events.filter(e => e.type === 'steelOn' && e.bonus).length, 1);
 });
 
 test('Steel is not earned by an interrupted use, by a knight killed in it, or by one who does not carry the Disaster', () => {

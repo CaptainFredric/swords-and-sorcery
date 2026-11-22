@@ -6,6 +6,7 @@ import { structureDefinitions, structureWorld } from '../../shared/sim/structure
 import {withRestlessLadders,constrainRestlessCarry} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
+import { MachineFleetRenderer } from '../worlds/MachineFleetRenderer.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
@@ -66,10 +67,11 @@ import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoin
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe, riposteHitRecipe, riposteDriveRecipe, whirlTurnRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe, riposteHitRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
+  whirlSpinRecipe, riposteTwinkleRecipe, riposteThrustRecipe, rigidRiposteParryRecipe,
 } from './sound/soundRecipes.mjs';
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { DisasterSoundscape } from './sound/DisasterSoundscape.mjs';
@@ -236,6 +238,7 @@ export class GameRuntime {
     this.edgeRenderer = new EdgeBoundaryRenderer(this.scene);
     this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.flightRenderer=new FightFlightRenderer(this.scene);
+    this.fleetRenderer = new MachineFleetRenderer(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
     const view = this.#viewSize();
@@ -286,7 +289,11 @@ export class GameRuntime {
     // another knight's Blazing Vortex: the star's ting as it is lit, and the beat of the blade, once a turn
     this.remotePlayers.onVortexSpark = (id) => this.#play(vortexStarRecipe(), this.#bodyPosition(id), 0.7);
     this.remotePlayers.onVortexTurn = (id, rate) => this.#play(vortexWhooshRecipe(Math.random, { rate }), this.#bodyPosition(id), 0.6);
-    this.remotePlayers.onWhirlTurn = (id, turn) => this.#play(whirlTurnRecipe(Math.random, { turn }), this.#bodyPosition(id), 0.65);
+    this.remotePlayers.onWhirlTurn = (id, revolution) => {
+      if (revolution === 0) return; // The technique-start event is the first turn's cue.
+      const gale = this.latestSnapshot?.players?.find(player => player.id === id)?.spell === 'gale';
+      this.#play(whirlSpinRecipe(Math.random, { revolution, gale }), this.#bodyPosition(id), 0.65);
+    };
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
     // and his longer scenes, each part said when the game has earned it (voiceScenes.mjs)
@@ -1626,7 +1633,6 @@ export class GameRuntime {
         this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
       }
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
-      if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
       // All-Natural Disaster impacts and Gale-wave endings use the central
       // layered soundscape, avoiding a duplicate generic fireball/ground boom.
       if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
@@ -1841,7 +1847,11 @@ export class GameRuntime {
         // The aftershock is distinct from the damaging one-frame blast;
         // ground flame remains a separate host-owned hazard in the snapshot.
         this.flightRenderer.spawnTerminalHalo(event.point,
-          event.at??this.socket.serverNow(),event.fireDuration??7,radius,power);
+          event.at??this.socket.serverNow(),event.fireDuration??7,radius,power,
+          // The host publishes the same absolute expiry as the actual fire
+          // zone; null means there was no ground to catch fire. Do not time
+          // the cloud from animation playback or machine death.
+          event.groundBurnExpiresAt,event.machineId);
         this.#play(fireballImpactRecipe(),event.point,.85+.35*power);
       }
       if (event.type === 'siegeSteelOn') {
@@ -1896,6 +1906,7 @@ export class GameRuntime {
       }
       this.ramRenderer.hit(event);
       this.flightRenderer.hit(event);
+      this.fleetRenderer?.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       const frostFeedback=biByeFrostFeedback(event,this.playerId);
@@ -2143,14 +2154,24 @@ export class GameRuntime {
       }
       // a blade snagged on some small furnishing in passing: very rarely, the knight formally surrenders over it
       if (event.type === 'swordWorldImpact' && event.snag) this.#sayMoment(event.playerId, ['bladeSnag']);
+      if (event.type === 'swordTechniqueStarted') {
+        const at = this.#bodyPosition(event.playerId);
+        const mine = event.playerId === me;
+        if (event.id === 'rigid_riposte') {
+          this.#play(riposteTwinkleRecipe(), mine ? null : at, mine ? 1 : 0.85);
+          setTimeout(() => {
+            if (this.playing) this.#play(riposteThrustRecipe(), mine ? null : this.#bodyPosition(event.playerId), mine ? 0.9 : 0.75);
+          }, 220);
+        } else if (event.id === 'whirl_wind') {
+          const player = this.latestSnapshot?.players?.find((p) => p.id === event.playerId);
+          const gale = Boolean(player?.spell === 'gale');
+          const lift = Boolean(player?.swordTechnique?.galeLift || (gale && player?.grounded === false));
+          this.#play(whirlSpinRecipe(Math.random, { revolution: 0, gale }), mine ? null : at, mine ? 1 : 0.85);
+          if (at) this.effects.whirlVfx(at, player?.yaw ?? 0, { galeLift: lift });
+        }
+      }
       if (event.type === 'swordHit') this.#swordHit(event);
       if (event.type === 'swordTechniqueHit') this.#techniqueHit(event);
-      // the Riposte's lunge is heard as its brace lets go (0.22 s in, the contract's activeFrom), landed or not
-      if (event.type === 'swordTechniqueStarted' && event.id === 'rigid_riposte') {
-        const mine = event.playerId === me;
-        const delay = Math.max(0, (event.at ?? 0) + 0.2 - this.socket.serverNow());
-        this.#play(riposteDriveRecipe(), mine ? null : this.#bodyPosition(event.playerId), mine ? 0.9 : 0.7, delay);
-      }
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
@@ -2435,6 +2456,10 @@ export class GameRuntime {
 
   #siegeMachine(machineId) {
     if (!machineId) return null;
+    if (Array.isArray(this.latestSnapshot?.machines)) {
+      const found = this.latestSnapshot.machines.find((m) => m && m.id === machineId);
+      if (found) return found;
+    }
     if (this.latestSnapshot?.fightFlight?.id === machineId) return this.latestSnapshot.fightFlight;
     if (this.latestSnapshot?.bibyeBallista?.id === machineId) return this.latestSnapshot.bibyeBallista;
     if (this.latestSnapshot?.soFistication?.id === machineId) return this.latestSnapshot.soFistication;
@@ -2443,6 +2468,8 @@ export class GameRuntime {
 
   #siegeComponentPosition(machineId, componentId) {
     if (!machineId || !componentId) return null;
+    const fleetPos = this.fleetRenderer?.getComponentWorldPosition(machineId, componentId);
+    if (fleetPos) return fleetPos;
     if (this.flightRenderer?.state?.id === machineId) {
       const pos = this.flightRenderer.getComponentWorldPosition(componentId);
       if (pos) return pos;
@@ -3609,7 +3636,8 @@ export class GameRuntime {
       if (parry && event.technique === 'rigid_riposte') this.remotePlayers.showRiposteBraceCue(event.defenderId, event.at, show);
       else show();
     }
-    const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
+    const isRiposteParry = parry && (event.technique === 'rigid_riposte' || this.latestSnapshot?.players?.find((p) => p.id === event.defenderId)?.swordTechnique?.id === 'rigid_riposte');
+    const recipe = isRiposteParry ? rigidRiposteParryRecipe() : parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
     if (!event.ram) this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
     // a Sundering blow lands on a guard as two: CLANG-CLANG, the weight of it under both
@@ -3910,7 +3938,15 @@ export class GameRuntime {
     // other non-flight camera path; no stale visual or forced camera mode.
     this.flightDashPresentation.reset();
     const ram=Boolean(this.localAuth?.operatingRamId);
-    const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
+    let bRenderer = null;
+    let b = null;
+    if (ram) {
+      bRenderer = this.fleetRenderer?.getRenderer(this.localAuth.operatingRamId) || this.world?.soFistication || this.ramRenderer;
+      b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth.operatingRamId);
+    } else {
+      bRenderer = this.fleetRenderer?.getRenderer(this.localAuth?.operatingBallistaId) || this.world?.biByeLlista;
+      b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth?.operatingBallistaId);
+    }
     const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId) && b && b.mode !== 'DESTROYED';
     const optics=clearOptics(this.clearBlend??0,this.view.fov,Boolean(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled),dt);
     this.clearBlend=optics.blend;
@@ -3922,11 +3958,11 @@ export class GameRuntime {
     const rotation = this.camera.quaternion.clone();
     let ramOrbit=null;
     if (mounted) {
-      const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
+      const locator = ram?null:bRenderer?.getMountedCameraPosition?.(this.siegeView, target);
       if(ram){
         if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
         else {
-          const sight = this.ramRenderer.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
+          const sight = bRenderer?.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
           target.set(...boxWorld(soFistFrame(b),sight));
         }
       }
@@ -4379,9 +4415,26 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     // my own Whirl's revolutions, heard as each begins (another knight's are RemotePlayers' onWhirlTurn)
     const ownTurn = whirlRevolution(this.localAuth?.swordTechnique, this.socket.serverNow());
-    if (ownTurn !== null && ownTurn !== this.ownWhirlTurn) this.#play(whirlTurnRecipe(Math.random, { turn: ownTurn }), null, 0.8);
+    if (ownTurn > 0 && ownTurn !== this.ownWhirlTurn) {
+      this.#play(whirlSpinRecipe(Math.random, { revolution: ownTurn, gale: this.localAuth?.spell === 'gale' }), null, 0.8);
+    }
     this.ownWhirlTurn = ownTurn;
     this.#showAfflictions(dt);
+    // Whirl Like the Wind continuous presentation: white crescents + light green gale ascent
+    const whirlPlayers = this.latestSnapshot?.players ?? [];
+    for (const p of whirlPlayers) {
+      if (p.swordTechnique?.id === 'whirl_wind' && p.swordTechnique.phase === 'active') {
+        const at = this.#bodyPosition(p.id);
+        const gale = p.spell === 'gale';
+        const lift = Boolean(p.swordTechnique.galeLift || (gale && p.grounded === false));
+        const key = `whirl:${p.id}`;
+        const last = this.lastWhirlVfxAt?.get(key) ?? 0;
+        if (timeSec - last >= 0.15) {
+          (this.lastWhirlVfxAt ??= new Map()).set(key, timeSec);
+          if (at) this.effects.whirlVfx(at, p.yaw ?? 0, { galeLift: lift, count: 5 });
+        }
+      }
+    }
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
     this.world?.setTrialState?.(this.latestSnapshot, this.socket.serverNow());
@@ -4413,6 +4466,16 @@ export class GameRuntime {
     // (the terminal dive's shaders, built once the machine is in: its first dive and impact must not stall the frame)
     if(this.flightRenderer.model&&!this.flightRenderer.terminalWarmed)this.flightRenderer.warmTerminal(this.renderer,this.camera);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
+    this.fleetRenderer?.update(this.socket.serverNow(), this.latestSnapshot, dt, {
+      primaryIds: [
+        this.latestSnapshot?.soFistication?.id,
+        this.latestSnapshot?.bibyeBallista?.id,
+        this.latestSnapshot?.fightFlight?.id,
+      ].filter(Boolean),
+      playingLocally: this.socket.playingLocally,
+      frozen: this.socket.inspectionFrozen,
+      localAim: localFlightAim,
+    });
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)
     for (const impact of this.world?.takeImpacts?.() ?? []) {
@@ -4548,6 +4611,46 @@ export class GameRuntime {
         }
       }
     }
+    if (this.fleetRenderer?.fleet) {
+      for (const [id, entry] of this.fleetRenderer.fleet) {
+        const machineState = this.latestSnapshot?.machines?.find((m) => m.id === id);
+        if (!machineState?.operatorId) continue;
+        const driver = machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId);
+        if (!driver?.root?.visible) continue;
+        if (entry.type === 'ram') {
+          const ramPose = entry.renderer.presentationData;
+          if (ramPose) {
+            const at = soFistOperator(ramPose), frame = soFistFrame(ramPose);
+            driver.root.position.set(at.x, at.y, at.z);
+            driver.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...frame.axes.map((a, i) => new THREE.Vector3(...a).multiplyScalar(i === 1 ? 1 : -1))));
+            driver.visualInstance?.animator?.applyRam(entry.renderer.getOperatorStation(ramPose.poseTime ?? this.socket.serverNow()));
+          }
+        } else if (entry.type === 'ballista') {
+          const mountedMachine = entry.renderer.presentationData;
+          if (mountedMachine) {
+            const pose = getBiByeOperatorTransform({ ...mountedMachine, ...mountedMachine.position });
+            driver.root.position.set(pose.position.x, pose.position.y, pose.position.z);
+            driver.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...pose.axes.map((a) => new THREE.Vector3(...a))));
+            driver.visualInstance?.animator?.applyMounted(mountedMachine, mountedMachine.poseTime ?? this.socket.serverNow(), entry.renderer.getOperatorGrips());
+          }
+        } else if (entry.type === 'flight') {
+          if (entry.renderer.model && Number.isFinite(machineState.x) && Number.isFinite(machineState.y) && Number.isFinite(machineState.z)) {
+            driver.root.position.set(machineState.x, machineState.y, machineState.z);
+            driver.root.rotation.set(-(machineState.runPitch ?? 0), Number.isFinite(machineState.heading) ? machineState.heading : 0, 0, 'YXZ');
+            try {
+              const driverPlayer = machineState.operatorId === this.localAuth?.id ? this.localAuth : this.latestSnapshot?.players?.find((p) => p.id === machineState.operatorId);
+              const attacking = Boolean(driverPlayer?.attackActive || (machineState.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
+              const combat = {
+                attackAge: driverPlayer?.attackActive && Number.isFinite(driverPlayer.attackStartedAt) ? this.socket.serverNow() - driverPlayer.attackStartedAt : null,
+                guarding: Boolean(driverPlayer?.guarding),
+                yawOffset: Number.isFinite(driverPlayer?.yaw) && Number.isFinite(machineState.heading) ? Math.atan2(Math.sin(driverPlayer.yaw - machineState.heading), Math.cos(driverPlayer.yaw - machineState.heading)) : 0,
+              };
+              driver.visualInstance?.animator?.applyFightFlight(entry.renderer.getOperatorGrips(), attacking || driverPlayer?.guarding, machineState, this.socket.serverNow(), dt, combat);
+            } catch (_e) {}
+          }
+        }
+      }
+    }
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
@@ -4557,8 +4660,8 @@ export class GameRuntime {
       disasterTeleportAiming(disasterCharge)){
       const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
       const world=this.activeWorld;
-      const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,
-        ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
+      const solids=edge?playerMovementWorld(world,{machines:this.latestSnapshot?.machines??[this.latestSnapshot?.bibyeBallista,
+        this.latestSnapshot?.soFistication,this.latestSnapshot?.fightFlight].filter(Boolean)}).solids:world.solids;
       const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
         allowVertical:disasterCharge.preparedTiers.gale===2,
@@ -4773,7 +4876,7 @@ export class GameRuntime {
     this.running = false;
     clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
-    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.fleetRenderer?.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

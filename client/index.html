@@ -71,6 +71,7 @@
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
         <button id="seek-duel" class="menu-command primary-command"><span>SEEK A DUEL</span><small>Match with another player, one on one</small></button>
+        <button id="siege-blades-button" class="menu-command"><span>SIEGE BLADES</span><small>Machine combat in SO-FIST-ICATION, Bi-Bye-llista &amp; Flight</small></button>
         <button id="breakthrough-button" class="menu-command"><span>MODES OF METTLE</span><small>Breakthrough, High Grounds and other battles</small></button>
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Browse public matches</small></button>
         <button id="solo-button" class="menu-command"><span>SOLO</span><small>Bot Duel, practice and training tools</small></button>
@@ -474,6 +475,7 @@
         <h2>MODES OF METTLE</h2>
         <div id="mettle-modes" class="mode-filters" role="group" aria-label="Battle mode">
           <button type="button" data-mettle-mode="BREAKTHROUGH" class="selected">BREAKTHROUGH</button>
+          <button type="button" data-mettle-mode="SIEGE_BLADES">SIEGE BLADES</button>
           <button type="button" data-mettle-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
           <button type="button" data-mettle-mode="RESTLESS_DAY">RESTLESS DAY</button>
           <button type="button" data-mettle-mode="RENOWN_TRIALS">RAMPAGE TO RENOWN</button>
@@ -513,8 +515,44 @@
         <input id="breakthrough-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
           <span>BATTLE SIZE</span>
+          <button type="button" class="vote-chip" role="radio" data-size="1">1V1</button>
           <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
           <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small>(RECOMMENDED)</small></button>
+        </div>
+
+        <div id="siege-format" class="vote-row solo-arena" role="radiogroup" aria-label="Format" hidden>
+          <span>FORMAT</span>
+          <button type="button" class="vote-chip" role="radio" data-siege-format="MATCH">MATCH <small>(BEST OF 3)</small></button>
+          <button type="button" class="vote-chip mine" role="radio" data-siege-format="ENDLESS">ENDLESS EXHIBITION</button>
+        </div>
+
+        <div id="siege-rounds" class="vote-row solo-arena" role="radiogroup" aria-label="Match Rounds" hidden>
+          <span>MATCH ROUNDS</span>
+          <button type="button" class="vote-chip mine" role="radio" data-siege-rounds="3">BEST OF 3</button>
+          <button type="button" class="vote-chip" role="radio" data-siege-rounds="5">BEST OF 5</button>
+          <button type="button" class="vote-chip" role="radio" data-siege-rounds="7">BEST OF 7</button>
+        </div>
+
+        <div id="siege-endless-rounds" class="vote-row solo-arena" role="radiogroup" aria-label="Endless Rounds" hidden>
+          <span>EXHIBITION CAP</span>
+          <button type="button" class="vote-chip" role="radio" data-endless-rounds="10">10 ROUNDS</button>
+          <button type="button" class="vote-chip mine" role="radio" data-endless-rounds="25">25 ROUNDS</button>
+          <button type="button" class="vote-chip" role="radio" data-endless-rounds="50">50 ROUNDS</button>
+          <button type="button" class="vote-chip" role="radio" data-endless-rounds="0">UNLIMITED</button>
+        </div>
+
+        <div id="siege-machine" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Machine" hidden>
+          <span>SIEGE MACHINE</span>
+          <button type="button" class="vote-chip mine" role="radio" data-machine="random">RANDOM</button>
+          <button type="button" class="vote-chip" role="radio" data-machine="so-fist-ication">SO-FIST-ICATION</button>
+          <button type="button" class="vote-chip" role="radio" data-machine="bi-bye-llista">BI-BYE-LLISTA</button>
+          <button type="button" class="vote-chip" role="radio" data-machine="fight-and-flight">FIGHT-AND-FLIGHT</button>
+        </div>
+
+        <div id="siege-clash-wrap" class="vote-row solo-arena" role="radiogroup" aria-label="Clash Starts" hidden>
+          <span>CLASH STARTS</span>
+          <button type="button" class="vote-chip mine" role="radio" data-clash="on">ENABLED <small>(12% IN 1V1)</small></button>
+          <button type="button" class="vote-chip" role="radio" data-clash="off">DISABLED</button>
         </div>
 
         <div id="breakthrough-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
@@ -558,6 +596,7 @@
           <button type="button" data-mode="ALL" class="selected">ALL</button>
           <button type="button" data-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" data-mode="BREAKTHROUGH">BREAKTHROUGH</button>
+          <button type="button" data-mode="SIEGE_BLADES">SIEGE BLADES</button>
           <button type="button" data-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
            <button type="button" data-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>
         </div>
@@ -577,7 +616,7 @@
         <button id="raise-room" class="mode-choice" type="button"><span>CREATE PUBLIC ROOM</span><small>Choose its rules before opening the doors</small></button>
         <form id="room-create-form" class="lobby-config" hidden>
           <label>MODE<select name="mode" class="game-input">
-            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option><option value="EDGE_OF_VICTORY">EDGE OF VICTORY</option>
+            <option value="FFA">FREE-FOR-ALL</option><option value="BREAKTHROUGH">BREAKTHROUGH</option><option value="SIEGE_BLADES">SIEGE BLADES</option><option value="HIGH_GROUNDS">HIGH GROUNDS</option><option value="EDGE_OF_VICTORY">EDGE OF VICTORY</option>
           </select></label>
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
@@ -602,6 +641,7 @@
         <div id="private-mode" class="mode-filters private-mode-tabs" role="group" aria-label="Private match mode">
           <button type="button" class="selected" aria-pressed="true" data-private-mode="FFA">FREE-FOR-ALL</button>
           <button type="button" aria-pressed="false" data-private-mode="BREAKTHROUGH">BREAKTHROUGH</button>
+          <button type="button" aria-pressed="false" data-private-mode="SIEGE_BLADES">SIEGE BLADES</button>
           <button type="button" aria-pressed="false" data-private-mode="HIGH_GROUNDS">HIGH GROUNDS</button>
           <button type="button" aria-pressed="false" data-private-mode="RESTLESS_DAY">RESTLESS DAY</button>
           <button type="button" aria-pressed="false" data-private-mode="EDGE_OF_VICTORY">EDGE OF VICTORY</button>

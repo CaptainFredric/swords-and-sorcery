@@ -34,8 +34,8 @@ export function gainProwess(room, player, amount, rules = PROWESS) {
  * What damage pays: the one who dealt it and the one who took it (none for hurting oneself; an ultimate's own damage
  * pays its user nothing, though the one it hurts still earns from it).
  */
-export function prowessForDamage(room, attacker, victim, amount, { ultimate = false } = {}, rules = PROWESS) {
+export function prowessForDamage(room, attacker, victim, amount, { ultimate = false, victimGains = true } = {}, rules = PROWESS) {
   if (!attacker || !victim || attacker === victim) return;
   if (!ultimate) gainProwess(room, attacker, amount * rules.dealt, rules);
-  gainProwess(room, victim, amount * rules.taken, rules);
+  if(victimGains)gainProwess(room, victim, amount * rules.taken, rules);
 }

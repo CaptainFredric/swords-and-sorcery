@@ -45,7 +45,7 @@ test('Disaster visuals keep the ice floor locked, fade the field and preserve or
   assert.match(source,/name='frost-crack-edges'/);
   assert.match(source,/geometry\.setDrawRange\(0,visible\?data\.ends\[visible-1\]:0\)/);
   assert.match(source,/this\.#disposeIce\(entry\.ice\)/);
-  assert.match(source,/this\.#fireExplosion\(p,reach,tall,ground,tiers\.fire===2\)/);
+  assert.match(source,/this\.#fireExplosion\(p,reach,tall,ground,tiers\.fire===2/);
   assert.match(source,/if \(!full \|\| !ground \|\| !event\.fieldId\) this\.#iceCrown/);
   assert.match(combat,/until:nowSec\+fieldSeconds\(tiers\)/);
   assert.match(combat,/if\(tiers\.frost>=1\)[\s\S]*?ONE_HIT_FROST_LINGER_SEC/);

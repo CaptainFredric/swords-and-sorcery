@@ -134,6 +134,9 @@ test('Terminal epicenter outweighs edge damage, creates finite burning ground an
  assert.equal(s.m.health,0);assert.equal(s.m.terminalDiveSpent,true);
  assert.equal(s.room.flightBurnZones.length,1);
  const zones=s.room.flightBurnZones;
+ const explosion=s.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
+ assert.equal(explosion.groundBurnExpiresAt,zones[0].expiresAt,
+   'Valkyrie smoke halo must receive the precise server-owned fire expiry');
  assert.ok(zones[0].expiresAt-zones[0].startedAt>=TERMINAL.minFireDuration);
  assert.ok(zones[0].expiresAt-zones[0].startedAt<=TERMINAL.maxFireDuration);
  const before=close.health;
@@ -391,6 +394,8 @@ test('the craft detonates once after crossing the authored arena edge',()=>{
  assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
  const event=s.room.events.find(e=>e.type==='fightFlightTerminalExplosion');
  assert.equal(event.reason,'out-of-bounds');
+ assert.equal(event.groundBurnExpiresAt,null,
+   'abyss detonation has no 7–12s burning ground or matching persistent smoke');
  assert.equal(s.room.flightBurnZones.length,0);
  assert.equal(resolveTerminalFlight(s.room,s.m,2.3),false);
 });
@@ -423,4 +428,29 @@ test('terminal suicide alone also emits an Ascended event with no fictitious ene
  const outcomes=s.room.events.filter(e=>e.type==='flightTerminalAscended');
  assert.deepEqual(outcomes[0]?.victimIds,[]);
  assert.equal(outcomes.length,1);
+});
+
+test('Valkyrie initial explosion wipes all Prowess only from enemies it actually kills',()=>{
+ const s=setup();commit(s);
+ const dead=s.room.addPlayer({id:'killed-by-blast',token:'blast',name:'Blast Victim'},0);
+ const survivor=s.room.addPlayer({id:'survives-blast',token:'survivor',name:'Survivor'},0);
+ for(const p of [dead,survivor]){
+   p.alive=true;p.spawnProtectionUntil=0;p.position={x:0,y:0,z:0};
+ }
+ dead.health=25;dead.prowess=98;
+ survivor.position.x=6;survivor.health=1000;survivor.maxHealth=1000;
+ survivor.prowess=43;
+ s.m.x=0;s.m.y=0;s.m.z=0;s.m.grounded=true;s.m.terminalDive.impactAt=2.2;
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.2),true);
+ assert.equal(dead.alive,false);
+ assert.equal(dead.prowess,0,
+   'a fatal initial explosion consumes the enemy Ultimate meter even though ordinary death preserves it');
+ assert.equal(survivor.alive,true);
+ assert.equal(survivor.prowess,43,
+   'surviving the impact alone does not trigger the later ground-flame drain');
+ const after=survivor.health;
+ stepFlightBurnZones(s.room,2.7);
+ assert.ok(survivor.health<after);
+ assert.equal(survivor.prowess,Math.max(0,43-(after-survivor.health)),
+   'survivor loses exactly the later fire damage from Prowess');
 });

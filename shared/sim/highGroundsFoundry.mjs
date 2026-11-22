@@ -4,6 +4,7 @@
 // rejects a second active instance of that same class until the collection
 // refactor can support true mirror-match fleets.
 import { createBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
+import { getFleetSolids } from './fleetGeometry.mjs';
 import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
 import { createSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { soFistSolids } from './soFistGeometry.mjs';
@@ -37,20 +38,12 @@ export function requestHighGroundsMachine(room, player, type, now) {
     return { rejected: 'Approach your own siege foundry to select a machine.' };
   }
   if (f.readyAt > now) return { rejected: 'The foundry is still recovering from production.' };
-  const own = f.machine && room[fieldOf[f.machine]];
+  const own = f.machineId ? (room.machines?.get(f.machineId) || room[fieldOf[f.machine]]) : null;
   if (own?.id === f.machineId && running(own)) {
     return { rejected: 'Your team already has a functioning siege machine.' };
   }
-  const field = fieldOf[type];
-  if (running(room[field])) {
-    return { rejected: 'That machine type is already deployed. Choose another until fleet support is implemented.' };
-  }
   const at = { x: f.spawnX, y: f.y, z: f.spawnZ, heading: f.heading };
-  const other = [
-    ...(running(room.biByeLlista) ? getBiByeSolids(room.biByeLlista) : []),
-    ...(running(room.soFistication) ? soFistSolids(room.soFistication) : []),
-    ...(running(room.fightFlight) ? fightFlightSolids(room.fightFlight) : []),
-  ];
+  const other = getFleetSolids(room);
   let machine = null, eventType = null, revision = null;
   if (type === 'bi-bye-llista') {
     revision = 'biByeRevision'; eventType = 'bibyeConstructed';
@@ -85,7 +78,8 @@ export function requestHighGroundsMachine(room, player, type, now) {
   // Ownership belongs to the builder, not to whichever player later mounts.
   // This identity is the prerequisite for future per-player, per-type quotas.
   machine.ownerId = player.id;
-  room[field] = machine;
+  if (room.addMachine) room.addMachine(machine);
+  else room[field] = machine;
   if (type === 'bi-bye-llista') room.bibyeProjectiles ??= new Map();
   if (type === 'fight-and-flight') room.fightFlightProjectiles ??= new Map();
   f.machineId = machine.id;
