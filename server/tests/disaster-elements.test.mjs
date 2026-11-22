@@ -1196,3 +1196,34 @@ test('a mounted Spellblade Disaster cannot damage or disrupt its own unteamed Fl
  damageFightFlight(room,m,26,b.id,'one_hit_of_wonders',at,{componentId:'main'});
  assert.ok(m.health<health,'the same chassis remains vulnerable to an actual enemy');
 });
+
+test('lethal Disaster preserves the exact FIVE infused tiers after its caster consumes them',()=>{
+  const tiers={fire:2,frost:1,gale:1,lightning:1,steel:2};
+  const {room,a,b}=battle({tiers});
+  b.health=30;
+  slam(room);
+  const death=room.events.find(e=>e.type==='death'&&e.victimId==='b');
+  assert.ok(death,'real grounded All-Natural Disaster kills the target');
+  assert.equal(death.source,'one_hit_of_wonders');
+  for(const [element,tier] of Object.entries(tiers))
+    assert.equal(death.infusionTiers?.[element],tier,element+' carries its cast-time stage');
+  assert.deepEqual(Object.values(a.oneHitInfusions),[0,0,0,0,0],
+    'caster has already consumed infusions; client must NEVER read their current state');
+});
+test('lethal delayed Disaster effects retain authored cast tiers; plain sword deaths do not borrow them',()=>{
+ const tiers={fire:2,frost:1,gale:2,lightning:2,steel:2};
+ const first=battle({tiers});
+ first.b.health=6;
+ applyDamage(first.room,'a','b',20,'one_hit_air_fire',9,null,{
+   ultimate:true,ongoing:true,infusionTiers:tiers,
+ });
+ const fire=first.room.events.find(e=>e.type==='death'&&e.victimId==='b');
+ assert.equal(fire.source,'one_hit_air_fire');
+ assert.deepEqual(fire.infusionTiers,tiers);
+ const second=battle({tiers});
+ second.b.health=6;
+ applyDamage(second.room,'a','b',20,'sword',9);
+ const plain=second.room.events.find(e=>e.type==='death'&&e.victimId==='b');
+ assert.equal(plain?.infusionTiers,undefined,
+   'ordinary kill cannot inherit whatever the killer currently has equipped');
+});
