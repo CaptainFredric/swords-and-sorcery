@@ -25,6 +25,8 @@ export const FP_MOTION = Object.freeze({
   swordWristLean: 0.3,
   // Turn the resting grip around the blade axis to show the thumb side of the fist.
   swordGripRoll: 50 * Math.PI / 180,
+  // A small counterclockwise lean of the hand and sword in the player view.
+  swordGripTilt: 8 * Math.PI / 180,
   magicArmDrop: 0.12,
   // the magic hand turned a little outward, open and ready, instead of a clawed fist seen from above
   magicForearmTwist: 0.4,

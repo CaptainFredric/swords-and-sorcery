@@ -25,6 +25,7 @@ import { mixSwordArm, riposteFirstPersonPose, steadyRiposteForearm } from './fpT
 // or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
 // reveal are played (drawSword, revealHand); an action that needs one before it is out brings it out quickly.
 const QUICK_DRAW_SEC = 0.32;
+const GRIP_TILT_AXIS = Object.freeze([0, 0, 1]);
 // seconds for the cockpit's sword-arm rest to give way to a strike or the Guard, and to come back after it
 const COCKPIT_REST_EASE = 0.16;
 const QUICK_REVEAL_SEC = 0.3;
@@ -962,12 +963,16 @@ export class WeaponView {
       // the sword arm as this frame shows it (the guard's ward and any strike over rest), for a technique to begin from
       const shownArm = mixSwordArm(null, guardArm > 1e-3 ? guardTargets(timeSec, guardArm).arm : null, guardArm);
       this.shownSwordArm = combo ? mixSwordArm(shownArm, combo.arm, combo.weight) : shownArm;
-      const gripRoll = mounted || this.flightCockpit ? 0 : FP_MOTION.swordGripRoll * motion.neutral *
+      const relaxedGrip = mounted || this.flightCockpit ? 0 : motion.neutral *
         (1 - Math.max(guardArm, combo?.weight ?? 0, away.sword?.weight ?? 0));
-      // Riposte takes its starting edge from the grip the player actually saw.
-      if (gripRoll) {
+      const gripRoll = FP_MOTION.swordGripRoll * relaxedGrip;
+      const gripTilt = FP_MOTION.swordGripTilt * relaxedGrip;
+      // Riposte starts from the grip orientation the player actually saw.
+      if (relaxedGrip) {
         const arm = this.shownSwordArm;
-        arm.edge = rotateVector(arm.edge, normalize(arm.blade), gripRoll);
+        const edge = rotateVector(arm.edge, normalize(arm.blade), gripRoll);
+        arm.blade = rotateVector(arm.blade, GRIP_TILT_AXIS, gripTilt);
+        arm.edge = rotateVector(edge, GRIP_TILT_AXIS, gripTilt);
       }
       // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
       // has it)
@@ -1011,6 +1016,7 @@ export class WeaponView {
           { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.swordWristLean * motion.neutral, space: 'local' },
           // Apply the relaxed grip on top of the shared sword roll. The hand and blade turn together.
           ...(this.bladeInHand ? [{ bone: 'hand.R', axis: this.bladeInHand, angle: gripRoll - REST_EDGE_TURN, space: 'local' }] : []),
+          { bone: 'hand.R', axis: GRIP_TILT_AXIS, angle: gripTilt },
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
