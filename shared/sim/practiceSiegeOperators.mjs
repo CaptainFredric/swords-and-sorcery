@@ -281,6 +281,16 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   if(!los||m.mode==='DESTROYED'||m.mode==='DEPLOYING'||m.mode==='RETRACTING')return;
   const isAligned=Math.abs(difference(desired.yaw,m.mainYaw??m.heading))<.2;
   const competent=ai.difficulty!=='learner';
+  // Equipped Skill receives first refusal in its actual tactical window.
+  // Otherwise the ordinary Sharp Turn would always preempt Look Around,
+  // effectively making that selected Skill impossible for a capable pilot.
+  if(competent&&m.skill?.id==='lookAroundAndFindOut'&&
+    m.skill.phase==='idle'&&now+1e-8>=(m.skill.readyAt??0)&&
+    d<3.8&&now>=(ai.nextSweepAt??0)){
+    const problem=requestLookAroundAndFindOut(room,m,a,now);
+    ai.nextSweepAt=now+(problem?1.25:4.5);
+    if(!problem)return;
+  }
   if(competent&&d<=(focus==='aSharpTurn'?3.65:3.4)&&
     now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'){
     // A Sharp Turn is available on any equipped ballista. It physically
@@ -288,12 +298,6 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     // same four-second heavy gate as a human, and uses real blade hitboxes.
     const problem=requestBiByeSharpTurn(room,m,a,now);
     ai.nextSweepAt=now+(problem?1.15:4.2);
-    if(!problem)return;
-  }
-  if(competent&&m.skill?.id==='lookAroundAndFindOut'&&
-    d<3.8&&now>=(ai.nextSweepAt??0)){
-    const problem=requestLookAroundAndFindOut(room,m,a,now);
-    ai.nextSweepAt=now+(problem?1.25:4.5);
     if(!problem)return;
   }
   // Deployed and aligned at close range, conduct a *real* coupled volley.
