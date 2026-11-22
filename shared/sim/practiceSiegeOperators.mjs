@@ -248,8 +248,13 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
   const los=!blocked(room,at,target.position);
   const desired=aimInput(at,target,ai,tuning,48);
+  const focus=a.practiceSiegeOperator?.skill??'auto';
+  // A Sharp Turn is a melee maneuver, so a pilot set to practice it actually
+  // closes to blade reach rather than camping at ordinary bolt distance.
+  const sweepFocus=focus==='aSharpTurn'||focus==='lookAroundAndFindOut';
   if(m.mode==='MOBILE'){
-    const wheel=drive(room,m,target,ai,tuning,{ideal:tuning.preferred,deadZone:3});
+    const wheel=drive(room,m,target,ai,tuning,{
+      ideal:sweepFocus?4.2:tuning.preferred,deadZone:sweepFocus?1:3});
     a.input={...a.input,...wheel,yaw:desired.yaw,pitch:desired.pitch,siegeTarget:{...desired.point,y:desired.point.y+1.15}};
     if(d>9&&d<42&&Math.abs(wheel.err)<.4&&los&&Math.abs(m.speed??0)<.3)
       toggleBiByeDeploy(m,now,room.world);
@@ -258,8 +263,34 @@ function ballistefan(room,a,m,target,ai,tuning,now){
       pitch:desired.pitch,siegeTarget:{...desired.point,y:desired.point.y+1.15}};
     if(m.mode==='DEPLOYED'&&(!los||d<7||d>47))toggleBiByeDeploy(m,now,room.world);
   }
+  if(m.sweep){
+    // A real sustained bow spin needs an ending. Commit the built-in
+    // mechanical settle/fire behavior, not an arbitrary instant animation.
+    if(m.sweep.kind==='skill'&&m.sweep.phase==='loop'&&
+      now-m.sweep.startedAt>2.35)requestBiByeSweepStop(m,now,true);
+    return;
+  }
   if(!los||m.mode==='DESTROYED'||m.mode==='DEPLOYING'||m.mode==='RETRACTING')return;
   const isAligned=Math.abs(difference(desired.yaw,m.mainYaw??m.heading))<.2;
+  const competent=ai.difficulty!=='learner';
+  if(competent&&d<=(focus==='aSharpTurn'?7.2:4.9)&&
+    now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'){
+    // A Sharp Turn is available on any equipped ballista. It physically
+    // checks its entire bow sweep against terrain and machinery, spends the
+    // same four-second heavy gate as a human, and uses real blade hitboxes.
+    const problem=requestBiByeSharpTurn(room,m,a,now);
+    ai.nextSweepAt=now+(problem?1.15:4.2);
+    if(!problem)return;
+  }
+  if(competent&&m.skill?.id==='lookAroundAndFindOut'&&
+    d<9.5&&now>=(ai.nextSweepAt??0)){
+    const problem=requestLookAroundAndFindOut(room,m,a,now);
+    ai.nextSweepAt=now+(problem?1.25:4.5);
+    if(!problem)return;
+  }
+  if(competent&&m.skill?.id==='coldHowTouching'&&
+    d<43&&m.skill.phase==='idle'&&now>=(m.skill.readyAt??0))
+    requestColdHowTouching(room,m,a,now);
   // Deployed and aligned at close range, conduct a *real* coupled volley.
   // Tracking may require repeated deliberate input until the latch engages;
   // never prime the independent Skill in the middle of that preparation.
@@ -271,7 +302,8 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   }
   // Otherwise the upper bolt conditions the target ahead of the separately
   // primed heavy Skill's authentic release catch.
-  if(m.mainBoltLoaded&&m.skill?.phase==='idle'&&d<55&&isAligned)
+  if(m.skill?.id==='boltToTheOccasion'&&m.mainBoltLoaded&&
+    m.skill.phase==='idle'&&d<55&&isAligned)
     requestBiByeHeavySkill(room,m,a,now,biByeTargetAim);
   if(m.skill?.phase==='primed'){
     if(now>=(m.smallBoltReadyAt??0)&&m.mobileShotPendingAt==null&&!m.pendingIndependent){
@@ -306,13 +338,33 @@ function uppercuff(room,a,m,target,ai,tuning,now){
   a.input={...a.input,forward:approach.forward,right:approach.right,
     sprint:forwardFacing&&d>5&&d<22&&m.pressure>28&&m.components?.Drive?.health>0,
     yaw:m.heading,pitch:0};
-  // Beat to the Punch is a deliberate counterattack stance, not a permanent
-  // prime that prevents ordinary piston attacks from ever being released.
+  const chosen=m.skill?.id;
+  const ready=now+1e-8>=(m.skill?.readyAt??0);
+  const healthy=(m.components?.Fist?.health??0)>0&&
+    (m.components?.Drive?.health??0)>0;
+  // Beat to the Punch stays a reactive counter, not permanent priming.
   const visibleThreat=Boolean(target.attackActive||target.pendingSpell||
     (target.dashUntil??-Infinity)>now);
-  if(forwardFacing&&d<11&&visibleThreat&&m.skill?.phase==='idle'&&
-    m.components?.Fist?.health>0&&m.components?.Drive?.health>0)
+  if(chosen==='beatToThePunch'&&forwardFacing&&d<11&&visibleThreat&&
+    m.skill?.phase==='idle'&&healthy)
     primeSoFistSkill(room,m,a,now);
+  if(ai.difficulty!=='learner'&&chosen==='longArmToTheJaw'&&
+    now>=(ai.nextSkillAt??0)){
+    // Recover a resting fist by the real pickup rule; never replenish an
+    // absent fist merely to let an AI fire its equipped Skill again.
+    if(m.detachedFist?.state==='resting'||
+      m.fistMounted!==false&&forwardFacing&&d>5.5&&d<18&&ready&&healthy){
+      const problem=primeSoFistSkill(room,m,a,now);
+      ai.nextSkillAt=now+(problem?.8:3.6);
+    }
+  }
+  if(ai.difficulty!=='learner'&&chosen==='hellpingHand'&&
+    forwardFacing&&d<6.2&&healthy&&
+    (!m.hellping||m.hellping.phase==='open')&&
+    now>=(ai.nextSkillAt??0)&&ready){
+    const problem=primeSoFistSkill(room,m,a,now);
+    ai.nextSkillAt=now+(problem?.8:.3);
+  }
   if(forwardFacing&&d>=2.1&&d<6.2&&now>=ai.nextRamAt&&
     (m.strikeAt==null||now-m.strikeAt>=3.95)){
     if(fireSoFistication(room,m,now))ai.nextRamAt=now+3.95;
@@ -355,7 +407,18 @@ function donte(room,a,m,target,ai,tuning,now){
   a.input={...a.input,forward:advance,right:flank,yaw:fireYaw,
     pitch:clamp(firePitch,-1.45,1.45),
     jump:climb,crouch:descend,sprint:false};
-  if(m.ammo<4&&m.skill?.phase==='idle'&&d<32)requestFightFlightSkill(room,m,a,now);
+  const chosen=m.skill?.id;
+  if(ai.difficulty!=='learner'&&m.skill?.phase==='idle'&&
+    now+1e-8>=(m.skill.readyAt??0)&&d<38&&!blocked(room,at,target.position)){
+    // All three equipped Skills use the exact mounted command and shared
+    // charge, ammunition and cooldown gates. No privileged AI projectiles.
+    const want=chosen==='fireAwayImRightHere'
+      ?m.ammo<6&&charge>14:
+      chosen==='narrowToOne'?d<34:
+      chosen==='doNotStopMyAscension'?d<18&&m.ammo>0:
+      false;
+    if(want)requestFightFlightSkill(room,m,a,now);
+  }
   // While Sword is committed, the real weapon gate controls the repeater;
   // its requested trigger is a hold, never additional client-like damage.
   requestFightFlightFire(room,m,a,d<42&&!blocked(room,at,target.position),now);
