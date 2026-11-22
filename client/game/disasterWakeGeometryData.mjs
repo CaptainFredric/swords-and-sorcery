@@ -71,3 +71,14 @@ export function wakeTubeVertices(points,radius,sides=10){
   }
   return {coords,uvs,faces};
 }
+
+/** Full Steel's lingering wake is constant until its authoritative expiry.
+ * AFTER expiry this cosmetic-only envelope fades quickly (~0.26 seconds).
+ * The server has already removed the field, so this cannot extend afflictions.
+ */
+export const FULL_STEEL_WAKE_EXIT_FADE_SEC=0.26;
+export function fullSteelWakeExitOpacity(elapsed){
+  if(!Number.isFinite(elapsed))return 0;
+  const remain=Math.max(0,1-Math.max(0,elapsed)/FULL_STEEL_WAKE_EXIT_FADE_SEC);
+  return remain*remain; // swift but not an abrupt single-frame disappearance
+}
