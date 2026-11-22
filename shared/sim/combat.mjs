@@ -24,6 +24,7 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
+import {valkyrieFlameExposure} from './valkyrieFlames.mjs';
 import { lineOfConductDamage, lineOfConductReach, lineOfConductAffliction, ONE_HIT_RULES } from '../src/oneHitOfWondersRules.mjs';
 import { ONE_HIT_WAKE, galeFrostWakeEnabled, galeFrostWakeRadius, closestWakePoint } from '../src/oneHitTrail.mjs';
 import { ONE_HIT_BASE_DAMAGE, ONE_HIT_GROUND_RADIUS, ONE_HIT_AERIAL_DURATION,
@@ -1532,6 +1533,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
 
+  // Sample the CURRENT authoritative field, not its next scheduled burn tick:
+  // allied last-HP protection and hostile Prowess loss apply to any incoming
+  // damage while actually inside the flames.
+  const valkyrieFlames=valkyrieFlameExposure(room,victim,nowSec);
   let finalAmount = amount;
   let finalSteel = steel;
   let finalTurned = turned;
@@ -1574,6 +1579,11 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
         until: state.until ?? null, at: nowSec });
     }
   }
+  // Valkyrie's sacrifice protects allies' LAST HP only while they are
+  // physically in its active ground fire. Existing Steel mitigation, damage
+  // events, knockback and other effects resolve normally before this floor.
+  if(valkyrieFlames.allied&&finalAmount>0)
+    finalAmount=Math.min(finalAmount,Math.max(0,victim.health-1));
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
   if (taken > 0) {
@@ -1614,7 +1624,18 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
-  if (!ongoing) prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });
+  // Do not first AWARD the usual damage-taken Prowess only to subtract it:
+  // the requested net penalty is exactly the HP actually lost, not .86 HP.
+  // Attackers still earn their ordinary dealt-damage Prowess.
+  if (!ongoing) prowessForDamage(room,room.players.get(attackerId),victim,taken,
+    {ultimate,victimGains:!valkyrieFlames.hostile});
+  if(valkyrieFlames.hostile&&taken>0){
+    const before=victim.prowess??0;
+    victim.prowess=Math.max(0,before-taken);
+    if(before>victim.prowess)room.events.push({
+      type:'valkyrieProwessBurn',playerId:victimId,
+      amount:before-victim.prowess,at:nowSec});
+  }
   if (knockback) {
     const scale = staggerShove(victim.stagger);
     shoveBody(victim, { x: knockback.x * scale, y: knockback.y, z: knockback.z * scale });
