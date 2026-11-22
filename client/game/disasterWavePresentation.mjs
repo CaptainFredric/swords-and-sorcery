@@ -73,7 +73,7 @@ export function windbladeImpactKick(viewer,impact) {
  */
 export function windbladeLevelBasis(direction,previousRight=null){
   const raw={x:Number(direction?.x)||0,y:Number(direction?.y)||0,z:Number(direction?.z)||0};
-  const magnitude=Math.hypot(raw.x,raw.y,raw.z)||1;
+  const magnitude=Math.hypot(raw.x,raw.y,raw.z);
   const forward=magnitude>1e-8?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}:{x:0,y:0,z:1};
   const horizontal=Math.hypot(forward.x,forward.z);
   const old=Math.hypot(previousRight?.x??0,previousRight?.z??0);
