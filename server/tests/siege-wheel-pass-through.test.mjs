@@ -30,13 +30,13 @@ function fixture(kind){
  return {room,driver,foe,machine,kind};
 }
 const volumes=(machine,kind,now=0)=>kind==='ram'?soFistVolumes(machine,now):biByeHitVolumes(machine,now);
-function touch(s,at=1,guard=false){
+function touch(s,at=1,guard=false,wheelId='Wheel_FL'){
  const {room,machine,foe,kind}=s;
  const previous={...machine};
  const old=volumes(previous,kind,at-dt);
  machine.z-=.24;
  const newVolumes=volumes(machine,kind,at);
- const wheel=newVolumes.find(v=>v.componentId==='Wheel_FL');
+ const wheel=newVolumes.find(v=>v.componentId===wheelId);
  // Actual left wheel center with a 0.25m outward offset (well short
  // of the hull-wide contact zones, never an arbitrary car-sized aura).
  foe.position={x:wheel.center[0]+(wheel.center[0]>0?.25:-.25),y:0,z:wheel.center[2]};
@@ -109,4 +109,24 @@ test('both mobile machines drive past a body in the carriage path, while real st
   }
   assert.ok(rock.machine.z>-4,`${kind} must still respect solid masonry`);
  }
+});
+
+
+test('moving ballista REAR wheels protect its flanks without a stationary damage aura',()=>{
+ const s=fixture('ballista');
+ const first=touch(s,1,false,'Wheel_RL');
+ assert.ok(first.damage>0&&first.damage<=7,'rear wheel makes a light real contact');
+ assert.ok(first.shove>=2,'rear wheel pushes the attacker away, not a passive burn');
+ const immediate=touch(s,1.15,false,'Wheel_RL');
+ assert.equal(immediate.damage,0,'one victim cannot take damage every simulation frame');
+ const again=touch(s,2,false,'Wheel_RL');
+ assert.ok(again.damage>0,'persistent hugging during actual movement is repelled again after recovery');
+ assert.equal(s.room.events.filter(e=>e.type==='siegeWheelContact').length,2);
+ const before=s.foe.health,previous={...s.machine};
+ const hit=volumes(s.machine,'ballista',2.03);
+ stepSiegeWheelContacts(s.room,s.machine,previous,dt,2.03,'ballista',hit,hit);
+ assert.equal(s.foe.health,before,'stationary wheel cannot hurt even when close');
+ s.machine.components.Wheel_RL.health=0;
+ const dead=touch(s,3,false,'Wheel_RL');
+ assert.equal(dead.damage,0,'a destroyed wheel cannot keep attacking');
 });
