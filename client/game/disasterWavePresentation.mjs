@@ -65,29 +65,25 @@ export function windbladeImpactKick(viewer,impact) {
 }
 
 /**
- * Build a level, right-handed frame for the flying Gale pressure sheet.
- * Local +Z follows the aimed 3D velocity; local +X is strictly horizontal.
- * Unlike setFromUnitVectors(+Z, velocity), pitching cannot bank the blade or
- * rotate its broad sweep into a vertical cut. Previous right stabilizes the
- * otherwise undefined heading of a precisely vertical shot.
+ * World-horizontal presentation frame for the Gale pressure sheet.
+ * This is a YAW-ONLY visual orientation: the complete broad X/Z membrane
+ * stays parallel to world ground at all camera pitches. The projectile's
+ * movement and collision still use the separate, true 3D travel vector.
  */
 export function windbladeLevelBasis(direction,previousRight=null){
   const raw={x:Number(direction?.x)||0,y:Number(direction?.y)||0,z:Number(direction?.z)||0};
   const magnitude=Math.hypot(raw.x,raw.y,raw.z);
-  const forward=magnitude>1e-8?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}:{x:0,y:0,z:1};
-  const horizontal=Math.hypot(forward.x,forward.z);
+  const travel=magnitude>1e-8
+    ?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}
+    :{x:0,y:0,z:1};
+  const horizontal=Math.hypot(travel.x,travel.z);
   const old=Math.hypot(previousRight?.x??0,previousRight?.z??0);
-  // For every nonvertical trajectory, the broad axis is *exactly* level
-  // and perpendicular to flight; no camera pitch or roll can tilt it.
-  const right=horizontal>1e-8
-    ?{x:forward.z/horizontal,y:0,z:-forward.x/horizontal}
+  const right=horizontal>1e-3
+    ?{x:travel.z/horizontal,y:0,z:-travel.x/horizontal}
     :old>1e-8
       ?{x:previousRight.x/old,y:0,z:previousRight.z/old}
       :{x:1,y:0,z:0};
-  const up={
-    x:forward.y*right.z-forward.z*right.y,
-    y:forward.z*right.x-forward.x*right.z,
-    z:forward.x*right.y-forward.y*right.x,
-  };
-  return {right,up,forward};
+  const up={x:0,y:1,z:0};
+  const forward={x:-right.z,y:0,z:right.x};
+  return {right,up,forward,travel};
 }
