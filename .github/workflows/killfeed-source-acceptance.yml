@@ -4,9 +4,14 @@ on:
     paths:
       - 'client/game/killFeedText.mjs'
       - 'client/game/killFeedText.test.mjs'
+      - 'client/game/killFeedColor.mjs'
+      - 'client/game/killFeedColor.test.mjs'
       - 'client/game/GameRuntime.mjs'
+      - 'client/ui/HUD.mjs'
+      - 'client/styles.css'
       - 'shared/sim/combat.mjs'
       - 'server/tests/disaster-gale-reposition.test.mjs'
+      - 'server/tests/disaster-elements.test.mjs'
       - '.github/workflows/killfeed-source-acceptance.yml'
 permissions:
   contents: read
@@ -23,4 +28,4 @@ jobs:
       - name: Validate real death provenance and kill-feed copy
         run: |
           npm run check:browser-imports
-          node --test client/game/killFeedText.test.mjs server/tests/disaster-gale-reposition.test.mjs server/tests/contextual-killfeed.test.mjs
+          node --test client/game/killFeedColor.test.mjs client/game/killFeedText.test.mjs server/tests/disaster-elements.test.mjs server/tests/disaster-gale-reposition.test.mjs server/tests/contextual-killfeed.test.mjs
