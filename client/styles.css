@@ -52,20 +52,22 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
 .kill-feed { position: absolute; top: 22px; right: 22px; width: min(380px, 40cqw); text-align: right; font-size: 11px; overflow-wrap: anywhere; }
 .feed-line { margin-bottom: 6px; padding: 6px 9px; white-space: normal; background: linear-gradient(90deg, transparent, rgba(15,16,13,.68)); text-shadow: 0 1px 2px #000; transition: opacity .6s; }
 .feed-line.fade { opacity: 0; }
-/* One cause-colored message; an actual multi-infused Disaster uses ivory
-   narration and separate elemental words rather than one misleading tint.
-   Bright desaturated metals remain legible over the dark HUD backing. */
+/* Ordinary deaths have one authoritative cause color. Multi-infused
+   Disasters color stretches of the ORIGINAL authored sentence instead of
+   adding FIRE · FROST labels or changing the joke itself. */
 .feed-line.tone-sword,.feed-line.tone-mixed {color:#f4efe6;}
-.feed-line.tone-fire,.feed-infusion.tone-fire {color:#ffa477;}
-.feed-line.tone-frost,.feed-infusion.tone-frost {color:#a9e0ff;}
-.feed-line.tone-gale,.feed-infusion.tone-gale {color:#c1f2cb;}
-.feed-line.tone-lightning,.feed-infusion.tone-lightning {color:#ffe477;}
-.feed-line.tone-steel,.feed-infusion.tone-steel {color:#c7d5de;}
+.feed-line.tone-fire,.feed-word.tone-fire {color:#ffa477;}
+.feed-line.tone-frost,.feed-word.tone-frost {color:#a9e0ff;}
+.feed-line.tone-gale,.feed-word.tone-gale {color:#c1f2cb;}
+.feed-line.tone-lightning,.feed-word.tone-lightning {color:#ffe477;}
+.feed-line.tone-steel,.feed-word.tone-steel {color:#c7d5de;}
 .feed-line.tone-siege {color:#c3c5c8;}
 .feed-line.tone-abyss {color:#e3e2df;}
 .feed-line.tone-self {color:#e9e8e4;}
 .feed-line.tone-ascension {color:#ffc05c;}
-.feed-infusion {display:inline;white-space:nowrap;font-weight:800;letter-spacing:.025em;text-shadow:0 1px 3px #000;}
+.feed-word {display:inline;white-space:pre-wrap;}
+.feed-word.feed-gradient {color:transparent;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;}
 /* The locally earned SLAIN marker follows the same authoritative cause. */
 .status-flash.kill.tone-sword,.status-flash.kill.tone-mixed {color:#f4efe6;}
 .status-flash.kill.tone-fire {color:#ffa477;}
