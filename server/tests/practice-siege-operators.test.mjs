@@ -360,7 +360,7 @@ test('Skilled Donte saves ammunition and fuel, and commits real rotor Dash at a 
 
 test('each equippable siege Skill can be activated by a formidable hostile pilot',()=>{
  const skills=[
-  {machine:'bi-bye-llista',field:'biByeLlista',skill:'boltToTheOccasion',distance:18,trigger:e=>e.type==='siegeSkill'&&e.skill==='boltToTheOccasion'},
+  {machine:'bi-bye-llista',field:'biByeLlista',skill:'boltToTheOccasion',distance:8,trigger:e=>e.type==='siegeSkill'&&e.skill==='boltToTheOccasion'},
   {machine:'bi-bye-llista',field:'biByeLlista',skill:'coldHowTouching',distance:18,trigger:e=>e.type==='siegeSkill'&&e.skill==='coldHowTouching'},
   {machine:'bi-bye-llista',field:'biByeLlista',skill:'lookAroundAndFindOut',distance:3.1,trigger:e=>e.type==='bibyeSweep'&&e.kind==='skill'},
   {machine:'so-fist-ication',field:'soFistication',skill:'beatToThePunch',distance:8,trigger:e=>e.type==='siegeSkill'&&e.skill==='beatToThePunch',attack:true},
