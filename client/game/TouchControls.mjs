@@ -456,13 +456,14 @@ export class TouchControls {
     for(const action of ['siegeView','interact']){
       const btn=this.buttons[action];
       if(!btn||btn.hidden||globalThis.getComputedStyle?.(btn)?.display==='none')continue;
-      // Ballista intentionally keeps VIEW near the BOTH firing row. That
-      // button is already BELOW the feed and must not force kill messages
-      // onto the Attack button. Only controls intersecting the feed's
-      // upper lane reserve additional vertical space.
-      if(Number.isFinite(btn.offsetTop)&&Number.isFinite(btn.offsetHeight)&&
-         btn.offsetTop<top+Math.min(100,this.layer.clientHeight*.26))
-        top=Math.max(top,btn.offsetTop+btn.offsetHeight+9);
+      // The clearance resolver may shift a custom VIEW target. Reserve
+      // the actual translated hit rectangle, not its stale preset anchor.
+      // Lower firing-row buttons should not push kill messages onto Attack.
+      const translatedY=Number.parseFloat(String(btn.style.translate??'').split(' ')[1])||0;
+      const visualTop=btn.offsetTop+translatedY;
+      if(Number.isFinite(visualTop)&&Number.isFinite(btn.offsetHeight)&&
+         visualTop<top+Math.min(100,this.layer.clientHeight*.26))
+        top=Math.max(top,visualTop+btn.offsetHeight+9);
     }
     feed.style.setProperty('--mobile-feed-top',Math.ceil(top)+'px');
   }
