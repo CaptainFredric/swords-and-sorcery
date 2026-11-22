@@ -178,6 +178,33 @@ export function clearTouchButtonOverlap(moving, fixed, bounds, obstacles = [], g
   return null;
 }
 
+/**
+ * Keep the two ballista-specific touch targets usable even with saved legacy
+ * layouts. Never move primary fire, PRIME II, BOTH, or the mode switches:
+ * Sweep yields to those, then View yields to Sweep and every other control.
+ * The caller moves the DOM element itself, not a decorative visual copy.
+ */
+export function resolveBallistaControlClearance(rectangles,bounds,gap=7) {
+  const boxes=Object.fromEntries(Object.entries(rectangles??{}).map(([name,r])=>[name,{...r}]));
+  const shifts={};
+  const overlaps=(a,b)=>a.left<b.right+gap&&a.right>b.left-gap&&
+    a.top<b.bottom+gap&&a.bottom>b.top-gap;
+  for(const action of ['siegeSweep','siegeView']){
+    const moving=boxes[action];if(!moving)continue;
+    const other=Object.entries(boxes).filter(([name])=>name!==action&&
+      !(action==='siegeSweep'&&name==='siegeView'));
+    const hit=other.find(([,rect])=>overlaps(moving,rect));
+    if(!hit)continue;
+    const shift=clearTouchButtonOverlap(moving,hit[1],bounds,
+      other.filter(([name])=>name!==hit[0]).map(([,rect])=>rect),gap);
+    if(!shift)continue;
+    boxes[action]={left:moving.left+shift.dx,right:moving.right+shift.dx,
+      top:moving.top+shift.dy,bottom:moving.bottom+shift.dy};
+    shifts[action]=shift;
+  }
+  return shifts;
+}
+
 export function mirrorLayoutHorizontal(layout) {
   const mirrored = {};
   for (const [key, item] of Object.entries(layout)) {
