@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
-import {tryUltimate,releaseOneHitCharge,stepRoom,applyDamage} from '../../shared/sim/combat.mjs';
+import {tryUltimate,releaseOneHitCharge,stepRoom,applyDamage,detonateOneHitWave} from '../../shared/sim/combat.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {PROWESS} from '../../shared/src/prowess.mjs';
 import {ONE_HIT_RULES} from '../../shared/src/oneHitOfWondersRules.mjs';
@@ -250,4 +250,38 @@ test('distinct Disaster finishing phases do not overwrite near-full or Lightning
   'lightning-teleport-slam','nearly-full-disaster','disaster-ground-slam',
   'disaster-windblade','disaster-terminal-fire'
  ].includes(death.killContext));
+});
+
+
+test('manual Gale blast respects a facing Guard at its exact center, but a rear detonation can bypass it',()=>{
+ const detonation=(offset,guardYaw,alreadyTouched=false)=>{
+  const {room,a,b}=battle({gale:2});
+  b.position={x:10,y:2,z:0};b.velocity={x:0,y:0,z:0};
+  b.yaw=guardYaw;b.input.yaw=guardYaw;
+  b.guarding=true;b.guardHeld=true;b.guardStartedAt=8;b.guardStamina=100;
+  const wave={id:'directional-manual',ownerId:a.id,
+    position:{x:10+offset,y:3,z:0},direction:{x:1,y:0,z:0},
+    bornAt:9,distance:10+offset,tiers:{fire:0,frost:0,gale:2,lightning:0,steel:0},
+    hitIds:alreadyTouched?[b.id]:[],fromGround:false,launchYaw:-Math.PI/2};
+  room.oneHitWaves=[wave];
+  assert.equal(detonateOneHitWave(room,a.id,wave.id,9.2),true);
+  assert.equal(room.oneHitWaves.length,0);
+  return {b,hit:damage(room,b.id).length,blocks:room.events.filter(e=>
+    e.type==='block'&&e.oneHit&&e.defenderId===b.id).length,
+    impact:impacts(room)[0]};
+ };
+ const center=detonation(0,Math.PI/2);
+ assert.equal(center.hit,0,'a wave exploding at precisely zero horizontal separation is not free Guard bypass');
+ assert.equal(center.blocks,1);
+ assert.equal(center.b.guardStamina,60,'Guard pays its normal single 40-stamina contact');
+ assert.equal(center.impact.cause,'manual');
+ const rear=detonation(1.5,Math.PI/2);
+ assert.equal(rear.hit,1,'a real rear-angle blast defeats a front-facing Guard');
+ assert.equal(rear.blocks,0);
+ const front=detonation(-1.5,Math.PI/2);
+ assert.equal(front.hit,0,'an ordinary forward blast is still blockable');
+ assert.equal(front.blocks,1);
+ const shared=detonation(1.5,Math.PI/2,true);
+ assert.equal(shared.hit,0,'the same wave cannot strike its earlier defended target twice');
+ assert.equal(shared.blocks,0,'the prior contact cannot drain Guard again');
 });
