@@ -1282,6 +1282,7 @@ breakthroughSize?.addEventListener('click', (event) => {
   }
   showBreakthroughSize();
   showSiegeControls();
+  showBreakthroughArena();
 });
 showBreakthroughSize();
 
@@ -1301,6 +1302,7 @@ siegeFormat?.addEventListener('click', (event) => {
   menuController.chooseSiegeFormat(chip.dataset.siegeFormat);
   showSiegeFormat();
   showSiegeControls();
+  showBreakthroughArena();
 });
 
 const siegeRounds = $('#siege-rounds');
@@ -1318,6 +1320,7 @@ siegeRounds?.addEventListener('click', (event) => {
   if (!chip) return;
   menuController.chooseSiegeRounds(Number(chip.dataset.siegeRounds));
   showSiegeRounds();
+  showBreakthroughArena();
 });
 
 const siegeEndlessRounds = $('#siege-endless-rounds');
@@ -1337,22 +1340,6 @@ siegeEndlessRounds?.addEventListener('click', (event) => {
   showSiegeEndlessRounds();
 });
 
-const siegeMachine = $('#siege-machine');
-function showSiegeMachine() {
-  if (!siegeMachine) return;
-  const chosen = menuController.siegeMachine();
-  for (const chip of siegeMachine.querySelectorAll('[data-machine]')) {
-    const on = chip.dataset.machine === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
-  }
-}
-siegeMachine?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-machine]');
-  if (!chip) return;
-  menuController.chooseSiegeMachine(chip.dataset.machine);
-  showSiegeMachine();
-});
 
 const siegeClash = $('#siege-clash-wrap');
 function showSiegeClash() {
@@ -1377,7 +1364,9 @@ function showSiegeControls() {
   const format = menuController.siegeFormat();
   if (siegeRounds) siegeRounds.hidden = !isSiege || format !== 'MATCH';
   if (siegeEndlessRounds) siegeEndlessRounds.hidden = !isSiege || format !== 'ENDLESS';
-  if (siegeMachine) siegeMachine.hidden = !isSiege;
+  // (no allegiance in Siege Blades: Azure and Crimson are assigned; a private room's host can still arrange them)
+  const allegiance = $('#breakthrough-team');
+  if (allegiance) allegiance.hidden = isSiege;
   const is1v1Endless = isSiege && format === 'ENDLESS' && menuController.siegeSize() === 1;
   if (siegeClash) siegeClash.hidden = !is1v1Endless;
 }
@@ -1431,17 +1420,16 @@ function showBreakthroughArena() {
   showSiegeFormat();
   showSiegeRounds();
   showSiegeEndlessRounds();
-  showSiegeMachine();
   showSiegeClash();
   if (breakthroughSubtitle) {
     breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : isSiege
-      ? 'SIEGE BLADES · ' + (chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS')
+      ? `SIEGE BLADES · ${chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS'} · ${menuController.siegeSize()}V${menuController.siegeSize()} · ${menuController.siegeFormat() === 'MATCH' ? `${menuController.siegeRounds()} ROUNDS` : 'ENDLESS'}`
       : chosen === 'outerworks' ? 'THE OUTERWORKS'
       : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
     breakthroughCopy.textContent = isSiege
-      ? 'Operate SO-FIST-ICATION, Bi-Bye-llista, or Fight-and-Flight across symmetrical battlegrounds. Choose your siege machine before every round. Matches play all selected rounds, with overtime engagement zones. Endless exhibition supports clash starts.'
+      ? 'Team battles in siege machines. Before every round, choose the ram, the ballista or the flying repeater; the last team with a machine standing takes the round.'
       : renown
       ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
       : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'
@@ -1840,8 +1828,9 @@ function playMettleBots() {
     teamSize: menuController.siegeSize(),
     worldId: menuController.breakthroughArena(),
     botSkill: menuController.breakthroughSkill(),
-    team: menuController.breakthroughTeam(),
-    machine: menuController.siegeMachine(),
+    // (sides are assigned, and each player chooses a machine in the draft before every round)
+    team: 'AUTO',
+    machine: 'random',
     matchRounds: menuController.siegeRounds(),
     endlessRoundCap: menuController.siegeEndlessRounds(),
     clashStarts: menuController.siegeClashStarts(),
@@ -1867,7 +1856,7 @@ $('#breakthrough-create-private')?.addEventListener('click', () => {
     const f=privateForm.elements;
     f.worldId.value=menuController.breakthroughArena();
     f.teamSize.value=String(menuController.siegeSize());
-    f.team.value=menuController.breakthroughTeam();
+    f.team.value='AUTO';
     f.botSkill.value=menuController.breakthroughSkill();
     renderPrivateMode({reset:false});
     privateMenu.dataset.panel='list';
