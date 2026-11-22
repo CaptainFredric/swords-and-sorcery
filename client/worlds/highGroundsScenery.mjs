@@ -90,8 +90,11 @@ function addCliffFooting(group,materials,x,z,w,d,top,bottom,seed) {
  * an expansive forested landscape instead of a black-bottomless void. */
 export function buildHighGroundsSurroundings(group, world, materials) {
   valleySurface(group,materials);
+  // Continuous stone foundations and cliff footings under the entire central vehicle road
+  // and camp decks, eliminating the empty cavities beneath the road slabs.
   const centers=[[-1,-100,45,33],[1,100,45,33],[0,0,28,24],
-    [0,-52,24,22],[0,52,24,22]];
+    [0,-52,24,22],[0,52,24,22],
+    [0,-71,16,30],[0,-41,15,32],[0,41,15,32],[0,71,16,30]];
   centers.forEach(([x,z,w,d],i)=>addCliffFooting(group,materials,x,z,w,d,-1.35,-90,i));
   // Each Bloom's rock is cut where its crown ramp climbs through the deck (the stairwell in the world's floors), so
   // the ramp rises in an open cutting between two shoulders of rock and not through a cliff face.
@@ -100,9 +103,16 @@ export function buildHighGroundsSurroundings(group, world, materials) {
     addCliffFooting(group,materials,side*29.75,side*-0.75,8.5,9.5,11.6,-90,i);
     addCliffFooting(group,materials,side*29.75,side*15.25,8.5,8.5,11.6,-90,i);
   }
-  // A spur of the cliff under each camp ascent's pier (the pier itself is one of the world's solids).
-  for(const [k,[sx,sz]] of [[-1,-1],[1,-1],[1,1],[-1,1]].entries())
+  // Substantial cliff buttresses beneath the elevated canopy walkways (Y=12):
+  // anchors the 50-metre high roads into the mountain massif instead of hovering over thin air.
+  for(const [x,z,w,d,idx] of [[-38,-42,12,46,50],[-38,34.5,12,61,51],[38,-34.5,12,61,52],[38,42,12,46,53]]) {
+    addCliffFooting(group,materials,x,z,w*.85,d*.7,11.6,-90,idx);
+  }
+  // Cliff spurs supporting the mid and upper piers under each camp ascent ramp
+  for(const [k,[sx,sz]] of [[-1,-1],[1,-1],[1,1],[-1,1]].entries()){
     addCliffFooting(group,materials,sx*38,sz*81.5,11,4,-5.9,-90,20+k*3);
+    addCliffFooting(group,materials,sx*38,sz*71,11,4,-8.9,-90,21+k*3);
+  }
   // The colossal flowering trees are rooted in *real visible highland rock*.
   // Previously the trunks stopped at Y=-1 with open sky beneath them, making
   // the entire battlefield look suspended in a featureless void.
@@ -178,6 +188,11 @@ export function buildHighGroundsDetail(group, world, mats) {
           [x,13.37,z+side*3.62],'bridge-rail-brass-finial');
     for(const x of [-28,0,28]) {
       beam('suspended-bridge-crossbrace',[x,10.3,z],[.22,.27,6.4],mats.underwood);
+    }
+    // Heavy timber corbel trusses and diagonal braces supporting the high bridge deck above the piers:
+    for(const x of [-38,-14,14,38]){
+      beam('bridge-corbel-truss',[x,11.2,z],[1.8,1.2,6.8],mats.timber);
+      beam('bridge-brace-diagonal',[x,9.4,z],[1.2,2.4,5.4],mats.underwood);
     }
   }
   for(const [i,site] of world.objectives.entries()){

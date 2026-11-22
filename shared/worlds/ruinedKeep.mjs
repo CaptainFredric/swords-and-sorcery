@@ -187,7 +187,7 @@ export const RUINED_KEEP = Object.freeze({
     nodes: Object.freeze([
       nav('ward', 0, 0, -9), nav('ward-breach', 0, 0.45, -6.3), nav('ward-west', -5.5, 0, -4), nav('ward-east', 5.5, 0, -6.5), nav('ward-southwest', -6.5, 0, -11),
       nav('ward-southeast', 5.5, 0, -11), nav('ward-north', 0, 0, -1.5), nav('ward-northeast', 7, 0, -1.2),
-      nav('breach', -9.3, 0, -6.5), nav('breach-ramp', -8.65, 0.55, -6.8), nav('terrace', -11.2, 0, -6.5), nav('terrace-north', -11.2, 0, -3.8), nav('terrace-south', -11.2, 0, -9.3),
+      nav('breach', -9.3, 0.46, -6.5), nav('breach-ramp', -8.65, 0.55, -6.8), nav('terrace', -11.2, 0, -6.5), nav('terrace-north', -11.2, 0, -3.8), nav('terrace-south', -11.2, 0, -9.3),
       nav('hall-gap', 0, 0, 1.2), nav('side-door', 9.2, 0, 1.2), nav('east-aisle', 9.6, 0, 5.5), nav('hall', -2, 0, 6.5), nav('hall-east', 7.8, 0, 8.5),
       nav('hall-west', -7.8, 0, 7), nav('hall-northwest', -7.8, 0, 11.5), nav('hall-northeast', 7.8, 0, 11.5), nav('hall-centre', 2.5, 0, 8),
       nav('dais', 0, 0.6, 11.8),
