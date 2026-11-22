@@ -255,13 +255,15 @@ test('Practice hostile loadouts are validated, mounted as real Skills and preser
  assert.ok(command('spawn','bi-bye-llista','narrowToOne').rejected,
    'another vehicle’s Skill cannot be fitted to this carriage');
  assert.equal(room.biByeLlista,null,'invalid selection does not build a machine');
- assert.deepEqual(command('spawn','bi-bye-llista','aSharpTurn'),{});
+ assert.ok(command('spawn','bi-bye-llista','aSharpTurn').rejected,
+   'A Sharp Turn is built in, never a selectable Skill');
+ assert.deepEqual(command('spawn','bi-bye-llista','auto'),{});
  let actor=room.players.get(room.biByeLlista.operatorId);
- assert.equal(actor.practiceSiegeOperator.skill,'aSharpTurn');
+ assert.equal(actor.practiceSiegeOperator.skill,'auto');
  assert.equal(actor.siegeLoadout.biBye,'boltToTheOccasion',
    'A Sharp Turn is an innate maneuver; it does not invent a fourth equipment slot');
  assert.equal(room.biByeLlista.skill.id,'boltToTheOccasion');
- assert.equal(serializeSnapshot(room,2).players.find(p=>p.id===actor.id).practiceSiegeOperator.skill,'aSharpTurn');
+ assert.equal(serializeSnapshot(room,2).players.find(p=>p.id===actor.id).practiceSiegeOperator.skill,'auto');
  assert.ok(command('reset','bi-bye-llista','hellpingHand').rejected,
    'invalid reset must not remove a living pilot');
  assert.equal(room.biByeLlista.operatorId,actor.id);
@@ -274,7 +276,7 @@ test('Ballistefan uses the actual A Sharp Turn bow maneuver against a nearby Spe
  const {room,player}=setup();
  assert.deepEqual(applyRoomCommand(room,player,{
    type:'practiceSiegeOpponent',action:'spawn',
-   machine:'bi-bye-llista',difficulty:'formidable',skill:'aSharpTurn'
+   machine:'bi-bye-llista',difficulty:'formidable',skill:'auto'
  },2),{});
  const m=room.biByeLlista;
  player.position={x:m.x-Math.sin(m.heading)*3.15,y:0,
@@ -300,4 +302,57 @@ test('chosen Cold and Narrow Skills activate through ordinary authority and cool
   assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===m.id&&
     e.action==='activated'),machine+' pilot uses the real mounted Skill command');
  }
+});
+
+
+test('Skilled and Formidable hostile operators cast real Sheathe in Steel to repair finite damage',async()=>{
+ const {stepSiegeSteel}=await import('../../shared/sim/siegeSteel.mjs');
+ for(const [machine,field] of [['bi-bye-llista','biByeLlista'],
+   ['so-fist-ication','soFistication'],['fight-and-flight','fightFlight']]){
+  const {room,player}=setup();
+  assert.deepEqual(applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+    action:'spawn',machine,difficulty:'skilled',skill:'auto'},2),{});
+  const m=room[field],actor=room.players.get(m.operatorId);
+  assert.equal(actor.spell,'steel',machine+' equips the actual ward');
+  m.health-=80;
+  const before=m.health;
+  stepPracticeActors(room,2.1,room.world);
+  assert.equal(m.siegeSteel?.operatorId,actor.id,machine+' ward is machine-owned');
+  assert.ok(room.events.some(e=>e.type==='steelOn'&&e.playerId===actor.id));
+  assert.ok(actor.spellReadyAt>2.1+10,'hostile AI never uses Practice unlimited recasts');
+  stepSiegeSteel(room,m,4.1);
+  assert.ok(m.health>before,machine+' receives physical finite Steel restoration');
+  assert.ok(m.siegeSteel.baselineHealed>0);
+  stepPracticeActors(room,4.15,room.world);
+  assert.ok(!room.events.some(e=>e.type==='siegeSteelOn'&&e.at===4.15),
+    'existing ward cannot be layered by a second cast');
+ }
+ const {room,player}=setup();
+ assert.deepEqual(applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+  action:'spawn',machine:'bi-bye-llista',difficulty:'learner',skill:'auto'},2),{});
+ room.biByeLlista.health-=70;
+ stepPracticeActors(room,2.1,room.world);
+ assert.equal(room.biByeLlista.siegeSteel,undefined,
+  'Learner does not automatically cast the repair ward');
+});
+test('Skilled Donte saves ammunition and fuel, and commits real rotor Dash at a feasible closing angle',()=>{
+ const {room,player}=setup();
+ assert.deepEqual(applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+  action:'spawn',machine:'fight-and-flight',difficulty:'formidable',
+  skill:'fireAwayRightHere'},2),{});
+ const m=room.fightFlight,actor=room.players.get(m.operatorId);
+ player.position={x:m.x-Math.sin(m.heading)*12,y:0,
+  z:m.z-Math.cos(m.heading)*12};
+ m.y=1.5;m.grounded=false;m.mode='AIRBORNE';
+ m.velocity.y=0;m.flightCharge=17;m.rotorHP=100;
+ stepPracticeActors(room,2.1,room.world);
+ assert.equal(m.firingOperatorId,null,'regrouping pilot does not waste scarce shots');
+ assert.equal(m.flightDashHeld,false,'low flight charge suppresses rotor Dash');
+ assert.equal(actor.siegeAi.regroupForCharge,true);
+ m.flightCharge=90;actor.prowess=80;actor.siegeAi.nextThinkAt=2.2;
+ stepPracticeActors(room,2.3,room.world);
+ assert.equal(actor.siegeAi.regroupForCharge,false);
+ assert.equal(m.flightDashHeld,true,'closing pass uses ordinary rotor Dash mechanics');
+ assert.ok(room.events.some(e=>e.type==='fightFlightGroundDashTakeoff')===false,
+  'an airborne Dash is not fabricated as a second grounded takeoff');
 });
