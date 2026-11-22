@@ -21,6 +21,7 @@ import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
 import { AfflictionPanel } from './AfflictionPanel.mjs';
+import {killFeedColoredWords,KILLFEED_TONES} from '../game/killFeedColor.mjs';
 
 const HIT_MARKERS = Object.freeze({
   hit: { priority: 1, milliseconds: 160 },
@@ -1146,14 +1147,21 @@ export class HUD {
       this.feed.prepend(line);
     }
     line.className=`feed-line ${kind} tone-${kind}`;
-    line.textContent=text;
-    for(const infusion of infusions){
-      if(!['fire','frost','gale','lightning','steel'].includes(infusion?.tone))continue;
-      const word=document.createElement('span');
-      word.className=`feed-infusion tone-${infusion.tone}`;
-      word.textContent=` · ${infusion.label}`;
-      word.title=`${infusion.label} infusion · ${infusion.tier===2?'Full':'Half'}`;
-      line.appendChild(word);
+    const colored=killFeedColoredWords(text,infusions);
+    // Clearing textContent also clears old colored spans on a keyed update.
+    // No labels or new prose are added: the original text is unchanged.
+    line.textContent=colored.length?'':text;
+    for(const part of colored){
+      const span=document.createElement('span');
+      const valid=part.tones.filter(tone=>Object.hasOwn(KILLFEED_TONES,tone));
+      if(valid.length===1)span.className=`feed-word tone-${valid[0]}`;
+      else if(valid.length>1){
+        span.className='feed-word feed-gradient';
+        // Colors come strictly from KILLFEED_TONES, never server/user HTML.
+        span.style.backgroundImage=`linear-gradient(90deg, ${valid.map(tone=>KILLFEED_TONES[tone]).join(', ')})`;
+      }else span.className='feed-word';
+      span.textContent=part.text;
+      line.appendChild(span);
     }
     line.classList.remove('fade');
     if(line.feedFadeTimer!=null)clearTimeout(line.feedFadeTimer);
