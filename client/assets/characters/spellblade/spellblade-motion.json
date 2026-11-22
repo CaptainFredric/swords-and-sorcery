@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "sha256": "fd90237d636901c35ab1f335593d7c6dff946f37ce2647e6649884a3babc64b5",
-  "bytes": 1042236,
+  "sha256": "a2e0da3525975b88e993aa810a308ada0be8545cc40ff9bd8262ff539993d3df",
+  "bytes": 1063780,
   "canonicalSha256": "b43e5c3fb0c60a0a722577e0fad266efb3eef0f260fd88698e81192f41d10e80",
   "candidateSha256": "9dae42a815f4108afab4fdab95673293422283b677ea97f06ac0375ba50516a1",
   "fps": 30,
@@ -27,19 +27,19 @@
       "name": "Technique_RigidRiposte_Interception",
       "durationSec": 0.22,
       "frames": 54,
-      "source": "Spellblade Candidate v3 technique actions, Blender authored"
+      "source": "Spellblade Candidate v3 technique actions, Blender authored + pinned blade arm pass"
     },
     {
       "name": "Technique_RigidRiposte_Thrust",
       "durationSec": 0.26,
       "frames": 64,
-      "source": "Spellblade Candidate v3 technique actions, Blender authored"
+      "source": "Spellblade Candidate v3 technique actions, Blender authored + pinned blade arm pass"
     },
     {
       "name": "Technique_RigidRiposte_Recovery",
       "durationSec": 0.35,
       "frames": 85,
-      "source": "Spellblade Candidate v3 technique actions, Blender authored"
+      "source": "Spellblade Candidate v3 technique actions, Blender authored + pinned blade arm pass"
     },
     {
       "name": "Technique_RigidRiposte_Parried",

@@ -41,10 +41,10 @@ export const FP_RIPOSTE = Object.freeze({
   // other way, as it had, rolled the gauntlet a quarter turn in one frame as the brace came through it, 2026-11-19)
   intercept: Object.freeze({ wrist: [0.3, -0.24, -0.62], blade: dir(20, 48), edge: REST_ARM.edge, shoulder: [-0.02, 0.03, -0.02] }),
   // loaded: drawn back by the hip, the point levelled at the aim, the hand on the grip as at rest
-  loaded: Object.freeze({ wrist: LOADED_WRIST, blade: LOADED_BLADE, edge: thrustEdge(LOADED_BLADE, 45), shoulder: [0.03, -0.01, 0.06] }),
+  loaded: Object.freeze({ wrist: LOADED_WRIST, blade: LOADED_BLADE, edge: thrustEdge(LOADED_BLADE, 45), shoulder: [0.03, -0.01, 0.025] }),
   // driven home: the arm at full stretch along the aim (within its reach: the body carries it the rest of the way),
-  // the shoulder thrown after it
-  driven: Object.freeze({ wrist: DRIVEN_WRIST, blade: DRIVEN_BLADE, edge: thrustEdge(DRIVEN_BLADE, 72), shoulder: [-0.07, 0.01, -0.14] }),
+  // the shoulder follows just enough for the elbow to open as the wrist advances
+  driven: Object.freeze({ wrist: DRIVEN_WRIST, blade: DRIVEN_BLADE, edge: thrustEdge(DRIVEN_BLADE, 72), shoulder: [-0.07, 0.01, -0.018] }),
   interceptBy: 0.09,  // the blade across to take the blow
   loadFrom: 0.09,     // and drawn back from here to the brace's end (unhurried: the drive, not the draw, is the fast part)
   driveSec: 0.1,      // thrown forward over this long (the point faster than anything in the brace)
