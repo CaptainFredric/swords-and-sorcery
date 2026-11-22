@@ -8,15 +8,19 @@ import {
   provisionSiegeBladesFleet,
   stepSiegeBlades,
   resetSiegeBladesRound,
+  beginSiegeBladesSelection,
+  selectSiegeBladesMachine,
+  SIEGE_SELECTION_SECONDS,
   SIEGE_BLADES_FORMATS,
   SIEGE_MACHINE_CLASSES,
 } from '../../shared/sim/siegeBladesMode.mjs';
-import { serializeSnapshot } from '../../shared/sim/wire.mjs';
+import { serializeSnapshot, applyRoomCommand } from '../../shared/sim/wire.mjs';
 import { damageSoFistication } from '../../shared/sim/soFistication.mjs';
+import { stepRoom } from '../../shared/sim/combat.mjs';
 import { damageBiByeLlista } from '../../shared/sim/biByeLlista.mjs';
 import { damageFightFlight } from '../../shared/sim/fightFlightComponents.mjs';
 
-function setupSiegeBladesRoom({ format = 'MATCH', teamSize = 1, worldId = 'high-grounds', clashStarts = null } = {}) {
+function setupSiegeBladesRoom({ format = 'MATCH', teamSize = 1, worldId = 'high-grounds', clashStarts = null, matchRounds = 3 } = {}) {
   const room = new Room('sb-test-room', {
     mode: GAME_MODES.SIEGE_BLADES,
     worldId,
@@ -28,7 +32,7 @@ function setupSiegeBladesRoom({ format = 'MATCH', teamSize = 1, worldId = 'high-
     format,
     teamSize,
     clashStarts,
-    matchRounds: 3,
+    matchRounds,
     botDifficulty: 'knight',
   });
 
@@ -62,7 +66,8 @@ test('Siege Blades 1v1 Match spawns mirrored combatants in machines', () => {
   assert.ok(snapshot.siegeBlades);
   assert.equal(snapshot.siegeBlades.format, 'MATCH');
   assert.equal(snapshot.siegeBlades.roundNumber, 1);
-  assert.equal(snapshot.siegeBlades.roundsToWin, 2);
+  assert.equal(snapshot.siegeBlades.matchRounds, 3);
+  assert.equal(snapshot.siegeBlades.selectionEndsAt, null);
 });
 
 test('Elimination rule: machine destruction causes player elimination; component damage does not', () => {
@@ -101,63 +106,110 @@ test('Elimination rule: machine destruction causes player elimination; component
   assert.equal(room.siegeBlades.scores[TEAMS.DEFENDERS], 0);
 });
 
-test('Match format ends when a team reaches score to win (Best of 3)', () => {
-  const room = setupSiegeBladesRoom({ format: 'MATCH', teamSize: 1 });
-  const p1 = room.addPlayer({ id: 'azure-pilot', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
-  const p2 = room.addPlayer({ id: 'crimson-pilot', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
-
+test('Match format plays exactly five rounds even after one team has an early majority', () => {
+  const room = setupSiegeBladesRoom({ format: 'MATCH', teamSize: 1, matchRounds: 5 });
+  const azure = room.addPlayer({ id: 'azure-pilot', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
+  const crimson = room.addPlayer({ id: 'crimson-pilot', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
   provisionSiegeBladesFleet(room, 0);
-
-  // Round 1 win for Azure
-  p2.alive = false;
-  stepSiegeBlades(room, 1 / 30, 1.0);
-  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS], 1);
-  assert.equal(room.siegeBlades.matchFinished, false);
-
-  // Reset to round 2
-  resetSiegeBladesRound(room, 2.0);
-  assert.equal(room.siegeBlades.roundNumber, 2);
-
-  // Round 2 win for Azure -> reaches 2 wins in Bo3 -> Match finished!
-  const crimsonM2 = room.getMachineForPlayer(p2.id);
-  crimsonM2.health = 0;
-  crimsonM2.mode = 'DESTROYED';
-  stepSiegeBlades(room, 1 / 30, 3.0);
-
-  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS], 2);
-  assert.equal(room.siegeBlades.matchFinished, true);
-  assert.equal(room.siegeBlades.matchWinner, TEAMS.ATTACKERS);
-  assert.equal(room.state, 'FINISHED');
+  const winners=[TEAMS.ATTACKERS,TEAMS.ATTACKERS,TEAMS.ATTACKERS,TEAMS.DEFENDERS,TEAMS.DEFENDERS];
+  let now=0;
+  for(let i=0;i<winners.length;i++){
+    const victim=winners[i]===TEAMS.ATTACKERS?crimson:azure;
+    victim.alive=false;
+    stepSiegeBlades(room,1/30,now+1);
+    assert.equal(room.siegeBlades.roundWinner,winners[i]);
+    assert.equal(room.siegeBlades.roundNumber,i+1);
+    assert.equal(room.siegeBlades.matchFinished,i===4,
+      'winning three straight rounds never skips configured fourth and fifth');
+    if(i<4){
+      resetSiegeBladesRound(room,now+2);
+      assert.equal(room.getMachines().length,0,'between rounds the machines are unprovisioned');
+      assert.equal(room.siegeBlades.selectionEndsAt,now+2+SIEGE_SELECTION_SECONDS);
+      stepSiegeBlades(room,1/30,now+2+SIEGE_SELECTION_SECONDS+.05);
+      assert.equal(room.getMachines().length,2);
+      now+=2+SIEGE_SELECTION_SECONDS+.05;
+    }
+  }
+  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS],3);
+  assert.equal(room.siegeBlades.scores[TEAMS.DEFENDERS],2);
+  assert.equal(room.siegeBlades.matchWinner,TEAMS.ATTACKERS);
+  assert.equal(room.state,'FINISHED');
 });
 
-test('Endless format triggers 6-second countdown between rounds without leaving room', () => {
+test('Generic kills and global deadline cannot end a Siege Blades match prematurely',()=>{
+  const room=setupSiegeBladesRoom({format:'MATCH',matchRounds:7});
+  const azure=room.addPlayer({id:'azure',token:'a',team:TEAMS.ATTACKERS},0);
+  const crimson=room.addPlayer({id:'crimson',token:'c',team:TEAMS.DEFENDERS},0);
+  assert.equal(room.policy.scored,false);
+  assert.equal(room.policy.timed,false);
+  room.recordKill(azure.id,crimson.id,1);
+  room.recordKill(azure.id,crimson.id,2);
+  assert.equal(room.state,'PLAYING','two enemy kills are not the victory condition');
+  assert.equal(room.siegeBlades.matchFinished,false);
+});
+
+test('Round machine selection is authoritative, per-player, and freezes input until deployment',()=>{
+  const room=setupSiegeBladesRoom({format:'MATCH',matchRounds:5});
+  const azure=room.addPlayer({id:'azure',token:'a',team:TEAMS.ATTACKERS},0);
+  const crimson=room.addPlayer({id:'crimson',token:'c',team:TEAMS.DEFENDERS},0);
+  room.siegeBlades.machineSelection=SIEGE_MACHINE_CLASSES.RAM;
+  beginSiegeBladesSelection(room,10);
+  assert.equal(room.getMachines().length,0);
+  assert.equal(room.siegeBlades.selectionEndsAt,10+SIEGE_SELECTION_SECONDS);
+  assert.ok(applyRoomCommand(room,azure,{type:'siegeBladesChoose',machine:'not-a-machine'},11).rejected);
+  assert.ok(!applyRoomCommand(room,azure,{type:'siegeBladesChoose',machine:SIEGE_MACHINE_CLASSES.FLIGHT},11).rejected);
+  assert.ok(!applyRoomCommand(room,azure,{type:'siegeBladesChoose',machine:SIEGE_MACHINE_CLASSES.BALLISTA},12).rejected,
+    'players can change their minds');
+  assert.ok(!applyRoomCommand(room,crimson,{type:'siegeBladesChoose',machine:SIEGE_MACHINE_CLASSES.RAM},12).rejected);
+  const original=azure.input.forward;
+  applyRoomCommand(room,azure,{type:'input',forward:1,right:0},12);
+  assert.equal(azure.input.forward,original,'movement is disabled during the draft');
+  assert.equal(room.siegeBlades.selectionChoices.get(azure.id),SIEGE_MACHINE_CLASSES.BALLISTA);
+  assert.equal(room.siegeBlades.selectionChoices.get(crimson.id),SIEGE_MACHINE_CLASSES.RAM);
+  stepSiegeBlades(room,1/30,10+SIEGE_SELECTION_SECONDS-.01);
+  assert.equal(room.getMachines().length,0,'selection closes on the actual server deadline');
+  stepSiegeBlades(room,1/30,10+SIEGE_SELECTION_SECONDS+.01);
+  assert.equal(room.getMachineForPlayer(azure.id)?.class,SIEGE_MACHINE_CLASSES.BALLISTA);
+  assert.equal(room.getMachineForPlayer(crimson.id)?.class,SIEGE_MACHINE_CLASSES.RAM);
+  assert.equal(room.siegeBlades.selectionEndsAt,null);
+  assert.ok(applyRoomCommand(room,azure,{type:'siegeBladesChoose',machine:SIEGE_MACHINE_CLASSES.FLIGHT},20).rejected,
+    'a late packet cannot change already spawned machinery');
+});
+
+test('Opening a real match creates a selection phase before any combat machines exist',()=>{
+  const room=setupSiegeBladesRoom();
+  room.addPlayer({id:'a',token:'a',team:TEAMS.ATTACKERS},0);
+  room.addPlayer({id:'b',token:'b',team:TEAMS.DEFENDERS},0);
+  room.startMatch(0);
+  assert.equal(room.getMachines().length,0);
+  assert.equal(room.siegeBlades.selectionEndsAt,SIEGE_SELECTION_SECONDS);
+  stepRoom(room,1/30,1,room.world);
+  assert.equal(room.getMachines().length,0);
+  stepRoom(room,1/30,SIEGE_SELECTION_SECONDS+.01,room.world);
+  assert.equal(room.getMachines().length,2);
+  assert.equal(room.siegeBlades.roundNumber,1);
+});
+
+test('Endless format runs score pause, timed machine draft, then atomically resets', () => {
   const room = setupSiegeBladesRoom({ format: 'ENDLESS', teamSize: 1 });
   const p1 = room.addPlayer({ id: 'p1', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
   const p2 = room.addPlayer({ id: 'p2', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
-
   provisionSiegeBladesFleet(room, 0);
-
-  // End round 1 by eliminating p2
-  p2.alive = false;
-  stepSiegeBlades(room, 1 / 30, 1.0);
-
-  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS], 1);
-  assert.equal(room.siegeBlades.roundWinner, TEAMS.ATTACKERS);
-  assert.equal(room.siegeBlades.roundResetCountdown, 6.0);
-
-  // Step 3 seconds of countdown
-  stepSiegeBlades(room, 3.0, 4.0);
-  assert.ok(room.siegeBlades.roundResetCountdown <= 3.0 && room.siegeBlades.roundResetCountdown > 0);
-  assert.equal(room.siegeBlades.roundNumber, 1);
-
-  // Step past remaining 3 seconds -> triggers atomic reset into Round 2
-  stepSiegeBlades(room, 3.1, 7.1);
-  assert.equal(room.siegeBlades.roundResetCountdown, null);
-  assert.equal(room.siegeBlades.roundNumber, 2);
-  assert.equal(room.siegeBlades.roundWinner, null);
-  assert.equal(p1.alive, true);
-  assert.equal(p2.alive, true);
-  assert.equal(room.getMachines().length, 2);
+  p2.alive=false;
+  stepSiegeBlades(room,1/30,1);
+  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS],1);
+  assert.equal(room.siegeBlades.roundResetCountdown,2);
+  stepSiegeBlades(room,2.1,3.1);
+  assert.equal(room.siegeBlades.roundNumber,2);
+  assert.equal(room.getMachines().length,0);
+  assert.equal(room.siegeBlades.selectionEndsAt,3.1+SIEGE_SELECTION_SECONDS);
+  assert.equal(p2.alive,true);
+  assert.equal(room.siegeBlades.matchFinished,false);
+  assert.equal(selectSiegeBladesMachine(room,p1,SIEGE_MACHINE_CLASSES.FLIGHT,4),true);
+  stepSiegeBlades(room,1/30,3.1+SIEGE_SELECTION_SECONDS+.05);
+  assert.equal(room.siegeBlades.selectionEndsAt,null);
+  assert.equal(room.getMachines().length,2);
+  assert.equal(room.getMachineForPlayer(p1.id)?.class,SIEGE_MACHINE_CLASSES.FLIGHT);
 });
 
 test('Overtime Engagement Zone activates at 180s in Match format and enforces low-altitude Flight contest', () => {
