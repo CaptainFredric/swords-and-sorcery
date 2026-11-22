@@ -29,14 +29,18 @@ test('sword, fire, ice, Gale, electricity, Steel and siege use their actual leth
  assert.equal(killFeedAppearance(reversal).tone,'lightning','the UI is correctly yellow');
  const overload=lethal('one_hit_of_wonders',{killContext:'nearly-full-disaster'});
  assert.equal(killFeedDeath(overload,'Rowan','Perry').kind,'frost');
- assert.equal(killFeedAppearance(overload).tone,'sword',
-   'without reliable tiers, do not invent a Frost-first infusion');
+ assert.equal(killFeedAppearance(overload).tone,'mixed',
+   'legacy nearly-full Disaster is neutral mixed without inventing its exact tiers');
 });
 test('neutral attributed/uncredited abyss and generic suicide stay ivory, Valkyrie Ascension remains gold',()=>{
  assert.equal(killFeedTone(lethal('abyss')),'abyss');
  assert.equal(killFeedTone(lethal('abyss',{killerId:null})),'abyss');
  assert.equal(killFeedTone(lethal('fireball',{killerId:'Perry'})),'self');
  assert.equal(killFeedTone(lethal('sword',{killerId:null})),'self');
+ assert.equal(killFeedAppearance(lethal('one_hit_of_wonders',{
+   killerId:'Perry',infusionTiers:{fire:2,steel:2}})).tone,'self');
+ assert.deepEqual(killFeedAppearance(lethal('one_hit_of_wonders',{
+   killerId:'Perry',infusionTiers:{fire:2,steel:2}})).infusions,[]);
  assert.equal(killFeedTone(lethal('fight-flight-terminal',{killerId:null})),'ascension');
  assert.deepEqual(terminalAscensionFeed('Perry',[]),{text:'Perry Ascended',kind:'fire'},
    'original author-facing Ascension copy stays unchanged');
@@ -68,5 +72,11 @@ test('only actual infusions are rendered, full tier does not repeat a word, futu
  assert.equal(killFeedAppearance(lethal('one_hit_of_wonders',{infusionTiers:{steel:2}})).tone,'steel');
  assert.equal(killFeedAppearance(lethal('one_hit_of_wonders',{infusionTiers:{}})).tone,'sword');
  assert.deepEqual(KILLFEED_ELEMENTS,['fire','frost','gale','lightning','steel']);
+ assert.equal(killFeedTone(lethal('one_hit_of_wonders',{
+   killContext:'disaster-windblade'})),'gale');
+ assert.equal(killFeedTone(lethal('one_hit_of_wonders',{
+   killContext:'disaster-terminal-fire'})),'fire');
+ assert.equal(killFeedTone(lethal('one_hit_of_wonders',{
+   killContext:'lightning-teleport-slam'})),'lightning');
  assert.ok(Object.keys(KILLFEED_SOURCE_TONES).length>20,'all source variants are explicitly registered');
 });
