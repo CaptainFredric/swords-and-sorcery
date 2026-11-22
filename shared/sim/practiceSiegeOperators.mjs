@@ -8,8 +8,9 @@ import {createSoFistication,mountSoFistication,dismountSoFistication,soFistExit,
   soFistEntry,primeSoFistSkill,fireSoFistication} from './soFistication.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
 import {fightFlightConstructionClear} from './practiceFightFlight.mjs';
-import {requestFightFlightFire,flightMuzzle,flightRepeaterAim} from './fightFlightWeapons.mjs';
-import {requestFightFlightSkill} from './fightFlightSkill.mjs';
+import {requestFightFlightFire,flightMuzzle} from './fightFlightWeapons.mjs';
+import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
+import {requestFightFlightSkill,endFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
@@ -414,70 +415,104 @@ function uppercuff(room,a,m,target,ai,tuning,now){
 }
 function donte(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
-  const aim=aimInput(at,target,ai,tuning,64);
-  const charge=m.flightCharge??0;
-  // An offensive run must descend into actual blade altitude: hovering five
-  // metres above a grounded foe makes the beautiful rotor tactically useless.
-  const attackPass=ai.difficulty==='formidable'&&!m.grounded&&m.rotorHP>0&&
-    charge>37&&d>3&&d<17;
-  // The repeater is mounted above the feet and has only 20 degrees of
-  // downward elevation. Keep ordinary attack altitude within that *real*
-  // aiming envelope, or even perfect target leading would sail overhead.
-  const shootingAltitude=clamp(d*.28,1.6,5.4);
-  const desiredHeight=attackPass?target.position.y+.1:
-    target.position.y+shootingAltitude;
-  // Real helm authority is bounded by the flight physics turn rate.
-  const heading=bearing(at,aim.point);
-  // Physical muzzle parallax matters at close range: the left-side crossbow
-  // is 0.65 m off center and a center-of-machine ray would miss the knight.
-  // Iteratively solve the desired muzzle-to-torso vector, always evaluating
-  // the same joint-clamped authored transform the server uses to fire.
-  const impact={...aim.point,y:aim.point.y+1.1};
-  let fireYaw=heading,firePitch=0;
-  for(let iteration=0;iteration<3;iteration++){
-    const legal=flightRepeaterAim(m,{yaw:fireYaw,pitch:firePitch});
-    const muzzle=flightMuzzle(m,legal);
-    fireYaw=bearing(muzzle,impact);
-    firePitch=Math.atan2(impact.y-muzzle.y,
-      Math.max(.1,Math.hypot(impact.x-muzzle.x,impact.z-muzzle.z)));
+  const charge=m.flightCharge??0,ammo=m.ammo??0;
+  const skilled=ai.difficulty!=='learner',formidable=ai.difficulty==='formidable';
+  const rotorIntact=m.rotorHP>0;
+  const aim=aimInput(at,target,ai,tuning,FLIGHT_REPEATER.speed);
+  const heading=bearing(at,aim.point),facing=Math.abs(difference(heading,m.heading??0));
+  // Charge is fuel, not a timer to spend indiscriminately. When reserves fall,
+  // land and use the actual grounded recharge; do not hover forever on fumes.
+  if(skilled&&charge<27)ai.regroupForCharge=true;
+  if(ai.regroupForCharge&&charge>=(formidable?72:65))ai.regroupForCharge=false;
+  const regroup=Boolean(skilled&&ai.regroupForCharge);
+  // Close to sword/rotor reach only for a committed offensive pass. Otherwise
+  // keep the repeater clear of melee range, with lateral space to turn.
+  const readyDash=skilled&&rotorIntact&&!m.grounded&&!m.offensiveRun&&
+    !m.flightDashHeld&&!(m.terminalDive||m.terminalPrep)&&
+    charge>55&&(a.prowess??0)>=(formidable?44:70)&&
+    d>8&&d<17&&facing<.21&&
+    Math.abs(m.y-target.position.y)<2.6&&!regroup&&
+    now>=(ai.nextDashAt??0);
+  if(readyDash&&requestFlightDash(room,m,a,true,now)){
+    ai.dashDownAt=now;
+    ai.nextDashAt=now+(formidable?4:7);
   }
-  const climb=m.grounded?charge>22:charge>18&&m.y<desiredHeight-.8;
-  const descend=!m.grounded&&(m.y>desiredHeight+1.5||charge<17);
-  // Offensive passes, not stationary hovering at a single point.
-  const advance=d>5?1:d<2.1?-.6:.45;
-  const flank=d<13?ai.side*.4:0;
-  a.input={...a.input,forward:advance,right:flank,yaw:fireYaw,
-    pitch:clamp(firePitch,-1.45,1.45),
+  if(m.flightDashHeld&&
+    (now-(ai.dashDownAt??now)>.64||charge<20||!target.alive)){
+    requestFlightDash(room,m,a,false,now);
+    ai.dashDownAt=null;
+  }
+  const attacking=Boolean(m.offensiveRun||m.flightDashHeld);
+  const optimalAltitude=clamp(d*.24,1.3,4.5);
+  const desiredHeight=attacking?target.position.y+.3:
+    regroup?target.position.y:target.position.y+optimalAltitude;
+  const climb=rotorIntact&&!regroup&&charge>=(skilled?37:22)&&
+    (m.grounded||m.y<desiredHeight-.9);
+  const descend=!m.grounded&&(regroup||m.y>desiredHeight+1.15||charge<20);
+  const retreat=d<(skilled?5.8:2.1)&&!attacking;
+  const steer=regroup?.2:retreat?-.9:d>(skilled?11:5)?1:.25;
+  const strafe=skilled&&!attacking&&d<24?ai.side*.48:0;
+  const impact={x:aim.point.x,y:aim.point.y+1.05,z:aim.point.z};
+  // Aim and collision share the ACTUAL crossbow muzzle and hinge limits.
+  // A target outside its 50-degree traverse or 65-degree elevation is not
+  // a reason to fire into the sky. Turn the chassis and wait for convergence.
+  const solution=flightRepeaterAim(m,{siegeTarget:impact});
+  const muzzle=flightMuzzle(m,solution),clear=!blocked(room,muzzle,impact);
+  const accurate=solution.missDistance<=
+    (formidable?.32:skilled?.45:.7)&&!solution.limited;
+  const visible=clear&&d<Math.min(FLIGHT_REPEATER.speed*FLIGHT_REPEATER.lifespan,43)&&
+    facing<1.02;
+  a.input={...a.input,forward:steer,right:strafe,yaw:heading,
+    pitch:clamp(solution.pitch,-1.45,1.45),siegeTarget:impact,
     jump:climb,crouch:descend,sprint:false};
+  // Use finite bursts, not a held 7Hz stream. Reserve the last rounds for a
+  // genuine close-range shot. Reload/regen already happen on machine ticks.
+  const shotSeq=m.shotSeq??0;
+  if(ai.burstStartSeq==null)ai.burstStartSeq=shotSeq;
+  const maxBurst=formidable?5:skilled?3:8;
+  if(shotSeq-ai.burstStartSeq>=maxBurst){
+    ai.nextFireAt=now+(formidable?.52:skilled?.78:.18);
+    ai.burstStartSeq=shotSeq;
+  }
+  const canSpend=ammo>=(skilled?3:1)||d<8&&ammo>=1;
+  // Fire Away replaces ammunition with real Flight Charge; stop its barrage
+  // before it can deprive the pilot of a controlled landing.
+  const fireAway=m.skill?.id==='fireAwayImRightHere'&&m.skill.phase==='active';
+  if(fireAway&&(charge<38||!visible)){
+    endFightFlightSkill(room,m,now,charge<38?'chargeReserve':'lostSight');
+  }
   const chosen=m.skill?.id;
-  if(ai.difficulty!=='learner'&&m.skill?.phase==='idle'&&
-    now+1e-8>=(m.skill.readyAt??0)&&d<38&&!blocked(room,at,target.position)){
-    // All three equipped Skills use the exact mounted command and shared
-    // charge, ammunition and cooldown gates. No privileged AI projectiles.
+  if(skilled&&m.skill?.phase==='idle'&&
+    now+1e-8>=(m.skill.readyAt??0)&&visible&&accurate&&!regroup){
     const want=chosen==='fireAwayImRightHere'
-      ?m.ammo<6&&charge>14:
-      chosen==='narrowToOne'?d<34:
-      chosen==='doNotStopMyAscension'?d<18&&m.ammo>0:
+      ?charge>77&&ammo<7&&d>9&&d<29&&!attacking:
+      chosen==='narrowToOne'?d>7&&d<34:
+      chosen==='doNotStopMyAscension'?d>4&&d<20&&ammo>3&&charge>32:
       false;
     if(want)requestFightFlightSkill(room,m,a,now);
   }
-  // While Sword is committed, the real weapon gate controls the repeater;
-  // its requested trigger is a hold, never additional client-like damage.
-  requestFightFlightFire(room,m,a,d<42&&!blocked(room,at,target.position),now);
-  const close=d<2.5&&Math.abs(m.y-target.position.y)<2.7;
-  if(close&&!a.attackHeld&&now>=(a.attackRestartAt??0)){
-    // Ordinary mounted sword collision is resolved by standard combat step.
-    // Chivalry retains its normal concurrency permission.
+  const skillActive=m.skill?.phase==='active'&&
+    m.skill.id==='narrowToOne';
+  const blastMode=m.skill?.phase==='active'&&
+    m.skill.id==='fireAwayImRightHere';
+  const fire=visible&&!regroup&&!attacking&&
+    (accurate||skillActive)&&now+1e-8>=(ai.nextFireAt??0)&&
+    (blastMode?charge>38:canSpend);
+  requestFightFlightFire(room,m,a,fire,now);
+  const close=d<2.7&&Math.abs(m.y-target.position.y)<2.5;
+  if(close&&!attacking&&!a.attackHeld&&now>=(a.attackRestartAt??0)){
     beginAttack(room,a.id,now);
-  }else if(a.attackHeld)endAttack(room,a.id,now);
-  if(attackPass&&m.y<=target.position.y+1.3&&d>5&&
-    Math.abs(difference(heading,m.heading))<.25&&!m.offensiveRun)
-    requestFlightDash(room,m,a,true,now);
-  if(m.offensiveRun&& (charge<24||d<3))requestFlightDash(room,m,a,false,now);
-  if(ai.difficulty==='formidable'&&!m.grounded&&a.ultimate==='chivalry'&&
-    a.prowess>=100&&!a.ultimateState&&d<15&&m.rotorHP>0){
-    requestFlightDash(room,m,a,true,now);
-    setFlightUltimateHold(room,m,a,true,now);
+  }else if(a.attackHeld&&!close)endAttack(room,a.id,now);
+  // A pilot does not hold Dash indefinitely or trigger the terminal Ultimate
+  // in the middle of a low-charge escape.
+  if(formidable&&!regroup&&!m.grounded&&!m.offensiveRun&&
+    !m.flightDashHeld&&a.ultimate==='chivalry'&&a.prowess>=100&&
+    !a.ultimateState&&d<13&&charge>70&&rotorIntact&&
+    now>=(ai.nextDiveAt??0)){
+    if(requestFlightDash(room,m,a,true,now)){
+      setFlightUltimateHold(room,m,a,true,now);
+      ai.nextDiveAt=now+15;
+    }
   }
 }
 /** Hostile Practice pilots return to their ORIGINAL intact machine by
