@@ -9,10 +9,10 @@ import { BACKDROP_MOODS, backdropLighting, buildBackdrop } from './kit/backdrop.
 // (the court stands open to a late-afternoon sky over a green march: kit/backdrop.mjs)
 const COURT_BACKDROP_RADIUS = 260;
 export const COURT_OF_MERIT_LIGHTING = backdropLighting({
-  background: 0x8a7a70,
-  fog: Object.freeze({ color: 0x8a7a70, density: 0.0028 }),
-  hemisphere: Object.freeze({ skyColor: 0xffeed6, groundColor: 0x5a4a3c, intensity: 1.8 }),
-  sun: Object.freeze({ color: 0xffd9a0, intensity: 2.8, position: [15, 45, -20] }),
+  background: 0x736d6a,
+  fog: Object.freeze({ color: 0x736d6a, density: 0.0028 }),
+  hemisphere: Object.freeze({ skyColor: 0xffeed6, groundColor: 0x5a4a3c, intensity: 1.35 }),
+  sun: Object.freeze({ color: 0xffd9a0, intensity: 2.2, position: [15, 45, -20] }),
   sky: Object.freeze({ zenith: 0x55688a, horizon: 0xe8b98a, below: 0x3a3430 }),
 }, { radius: COURT_BACKDROP_RADIUS, density: 0.0028 });
 
@@ -130,7 +130,11 @@ export class CourtOfMeritRenderer {
         continue;
       }
       if (kind === 'brazier') { this.#buildBrazier(s.center, s.size, ironM, flameM); continue; }
-      if (kind === 'podium') { batch.metal.block({ cx, cy: y0, cz, sx, sy, sz, chamfer: 0.05, jitter: 0, color: PALETTE.brass, rand, shade: 0.04 }); continue; }
+      if (kind === 'podium') {
+        batch.stone.block({ cx, cy: y0, cz, sx, sy, sz, chamfer: 0.04, jitter: 0, color: PALETTE.stoneDark, rand });
+        batch.metal.block({ cx, cy: y0 + sy - .025, cz, sx, sy: .025, sz, chamfer: .01, jitter: 0, color: PALETTE.brassDark, rand });
+        continue;
+      }
       if (kind === 'pillar') { this.#column(batch, rand, s); continue; }
       if (kind === 'stand-tier') { this.#tier(batch, rand, s); continue; }
       if (kind === 'balustrade') {
@@ -159,6 +163,23 @@ export class CourtOfMeritRenderer {
       masonry(batch, rand, s);
     }
 
+    // The tribunal is recessed visually into its existing north curtain.
+    // All relief remains against that collider, clear of the fighting floor.
+    masonry(batch, rand, {center:[0,3.85,17.49],size:[6.6,5.1,.10]},
+      {color:0x59565c, coping:false});
+    for (const x of [-3.4, 3.4]) {
+      batch.stone.prism({cx:x,cy:1.4,cz:17.50,radiusBottom:.26,radiusTop:.23,height:4.7,sides:8,color:PALETTE.stoneLight,rand});
+      batch.metal.block({cx:x,cy:5.9,cz:17.48,sx:.65,sy:.18,sz:.16,chamfer:.02,jitter:0,color:PALETTE.brassDark,rand});
+    }
+    // A shallow broken pediment frames the crest without adding a platform.
+    for (const side of [-1,1]) {
+      const cornice=box(this.group,[3.45,.16,.12],[side*1.68,6.18,17.4],brassM);
+      cornice.rotation.z=side*-.1;
+    }
+    const runnerM=this.#registerMat(mat(PALETTE.crimson,.98));
+    box(this.group,[1.65,.008,1.28],[0,.808,12.7],runnerM);
+    for(const x of [-.85,.85]) box(this.group,[.035,.01,1.28],[x,.81,12.7],brassM);
+
     // 4. The gates' portcullises, raised into their arches (each wave walks in under them)
     for (const id of ['west-sally-arch', 'east-sally-arch', 'south-portal-arch']) {
       const a = COURT_OF_MERIT.solids.find((x) => x.id === id);
@@ -178,7 +199,7 @@ export class CourtOfMeritRenderer {
       this.group.add(mesh);
       this.banners.push(mesh);
     };
-    for (const x of [-13.5, -9, 9, 13.5]) hang({ x, y: 6.2, z: 17.45, width: 1.7, height: 4.0, facing: Math.PI });
+    for (const x of [-13.5, -9, -4.5, 4.5, 9, 13.5]) hang({ x, y: 6.2, z: 17.45, width: 1.7, height: 4.0, facing: Math.PI });
     hang({ x: -23.45, y: 4.4, z: 6.5, width: 1.4, height: 2.6, facing: Math.PI / 2 });
     hang({ x: 23.45, y: 4.4, z: 6.5, width: 1.4, height: 2.6, facing: -Math.PI / 2 });
     hang({ x: -8, y: 4.9, z: -23.45, width: 1.4, height: 2.6, facing: 0 });

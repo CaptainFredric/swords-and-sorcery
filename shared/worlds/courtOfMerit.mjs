@@ -115,8 +115,8 @@ const SOLIDS = [
   solid('jury-box-east', [9.4, 17.9], [0, 1.6], [14.2, 17.5], { kind: 'jury-box' }),
 
   // --- the Rightful Renowner: podium and effigy (fixed where the trial's ceremony expects it)
-  solid('renowner-tribunal-podium', [-2.2, 2.2], [TRIBUNAL_SEAT_Y, TRIBUNAL_SEAT_Y + 0.6], [15.2, 17.2], { kind: 'podium', material: 'brass' }),
-  solid('renowner-tribunal-body', [-1.216, 1.216], [TRIBUNAL_SEAT_Y + 0.6, TRIBUNAL_SEAT_Y + 5.1], [15.107, 17.293], { kind: 'renowner-body', material: 'iron' }),
+  solid('renowner-tribunal-podium', [-2.2, 2.2], [TRIBUNAL_SEAT_Y - 0.16, TRIBUNAL_SEAT_Y], [15.2, 17.2], { kind: 'podium', material: 'brass' }),
+  solid('renowner-tribunal-body', [-1.216, 1.216], [TRIBUNAL_SEAT_Y, TRIBUNAL_SEAT_Y + 4.5], [15.107, 17.293], { kind: 'renowner-body', material: 'iron' }),
 
   // --- ceremonial fire: braziers on the dais, and one at the south of the floor
   solid('tribunal-brazier-left', [-5.0, -4.2], [TRIBUNAL_Y, TRIBUNAL_Y + 1.2], [12.4, 13.2], { kind: 'brazier' }),

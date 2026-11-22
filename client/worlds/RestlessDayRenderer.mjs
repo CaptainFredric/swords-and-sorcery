@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RenownerModel } from './RenownerModel.mjs';
-import { RESTLESS_RENOWNER_SCALE } from '../../shared/worlds/renownerGeometry.mjs';
+import { RESTLESS_RENOWNER_SCALE, RESTLESS_RENOWNER_SWORD_SCALE } from '../../shared/worlds/renownerGeometry.mjs';
 import { RESTLESS_DAY_WORLD } from '../../shared/worlds/restlessDay.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
@@ -510,7 +510,7 @@ export class RestlessDayRenderer {
   #buildMonument() {
     const {x, y, z} = RESTLESS_DAY_WORLD.restlessDay.renowner;
     this.renowner = new RenownerModel(this.group, [x, y, z], {
-      scale: RESTLESS_RENOWNER_SCALE, carpet: false,
+      scale: RESTLESS_RENOWNER_SCALE, swordScale: RESTLESS_RENOWNER_SWORD_SCALE, carpet: false,
     });
   }
 
