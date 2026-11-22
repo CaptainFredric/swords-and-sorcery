@@ -440,7 +440,10 @@ function donte(room,a,m,target,ai,tuning,now){
     ai.nextDashAt=now+(formidable?4:7);
   }
   if(m.flightDashHeld&&
-    (now-(ai.dashDownAt??now)>.64||charge<20||!target.alive)){
+    ((!m.terminalPrep&&now-(ai.dashDownAt??now)>.64)||
+      now-(ai.dashDownAt??now)>2.4||charge<20||!target.alive)){
+    // Ordinary rotor passes release promptly. A genuine Ascension/Chivalry
+    // terminal chord may finish its one-second windup before Dash lets go.
     requestFlightDash(room,m,a,false,now);
     ai.dashDownAt=null;
   }
@@ -508,11 +511,13 @@ function donte(room,a,m,target,ai,tuning,now){
   // A pilot does not hold Dash indefinitely or trigger the terminal Ultimate
   // in the middle of a low-charge escape.
   if(formidable&&!regroup&&!m.grounded&&!m.offensiveRun&&
-    !m.flightDashHeld&&a.ultimate==='chivalry'&&a.prowess>=100&&
+    !m.flightDashHeld&&m.skill?.id==='doNotStopMyAscension'&&
+    m.skill.phase==='active'&&a.ultimate==='chivalry'&&a.prowess>=100&&
     !a.ultimateState&&d<13&&charge>70&&rotorIntact&&
     now>=(ai.nextDiveAt??0)){
     if(requestFlightDash(room,m,a,true,now)){
       setFlightUltimateHold(room,m,a,true,now);
+      ai.dashDownAt=now;
       ai.nextDiveAt=now+15;
     }
   }
