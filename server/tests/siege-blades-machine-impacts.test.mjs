@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {applyMachineImpact,SIEGE_IMPACT} from '../../shared/sim/siegeImpact.mjs';
-import {createSoFistication} from '../../shared/sim/soFistication.mjs';
+import {createSoFistication,stepSoFistication} from '../../shared/sim/soFistication.mjs';
+import {Room} from '../../shared/sim/Room.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {createBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 
@@ -38,4 +39,17 @@ test('machine impact ignores invalid, zero-energy and destroyed machinery',()=>{
  assert.equal(applyMachineImpact(r,healthy,2,{normal:{x:0,z:1},speed:0}),false);
  assert.equal(applyMachineImpact(r,healthy,2,{normal:{x:0,z:0},speed:12}),false);
  assert.equal(r.events.length,0);
+});
+
+
+test('ram-on-ram impact actually rolls the target backwards in the world',()=>{
+ const r=new Room('RAM-PHYSICS',{mode:'PRACTICE'});
+ r.state='PLAYING';
+ r.world={floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],ramps:[],solids:[],abyssY:-20};
+ const target=r.addMachine(createSoFistication({id:'ram-target',x:0,y:0,z:0,heading:Math.PI}));
+ const start=target.z;
+ assert.equal(applyMachineImpact(r,target,1,{normal:{x:0,z:-1},speed:12}),true);
+ for(let i=1;i<=22;i++)stepSoFistication(r,target,1/30,1+i/30);
+ assert.ok(target.z<start-.15,`ram must physically move backwards; z=${target.z}, start=${start}`);
+ assert.ok(target.wheelRolls.some(roll=>Math.abs(roll)>.1),'its real wheels should roll, not only its visual chassis rock');
 });
