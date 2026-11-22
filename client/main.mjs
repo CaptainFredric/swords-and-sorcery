@@ -457,13 +457,15 @@ function syncSoundscape() {
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    const flight=latestSnapshot?.fightFlight;
+    const fleet = latestSnapshot?.machines ?? [];
+    const flight = (latestSnapshot?.fightFlight?.operatorId === runtime?.playerId || latestSnapshot?.fightFlight?.terminalDive?.operatorId === runtime?.playerId)
+      ? latestSnapshot.fightFlight
+      : (fleet.find(m => m.kind === 'flight' && (m.operatorId === runtime?.playerId || m.terminalDive?.operatorId === runtime?.playerId)) || latestSnapshot?.fightFlight);
     const yours=Boolean(flight&&runtime?.playerId&&
       (flight.operatorId===runtime.playerId||flight.terminalDive?.operatorId===runtime.playerId));
-    // Wagner's Ride is the TERMINAL sacrifice's own cue only.
-    // An ordinary offensive Dash, Ascension Skill, or one-second chord
-    // preparation must never replace the arena music.
-    const valkyrie=Boolean(fighting&&yours&&flight?.terminalDive&&!flight.terminalDive.resolved);
+    // Flight to the Valkyrie cue plays when initiating the hidden skill (terminal chord preparation)
+    // as well as during the committed sacrificial dive.
+    const valkyrie=Boolean(fighting&&yours&&(flight?.terminalPrep || (flight?.terminalDive&&!flight.terminalDive.resolved)));
     // The ride is a temporary, player-specific cue. It overrides an otherwise
     // fixed soundtrack only during this deliberately equipped machine action.
     const piece=valkyrie?'valkyrie':fighting?(overridePiece??fightPieceFor(latestSnapshot)):(overridePiece??null);

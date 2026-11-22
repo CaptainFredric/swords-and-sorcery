@@ -64,6 +64,19 @@ test('primed siege skill activates the subtle ratcheting loop and stops on unpri
  assert.ok(!audio.loops.has('ratchet'), 'Ratchet loop stops when skill is no longer primed');
 });
 
+test('A Sharp Turn sweep triggers mechanical turning and spinning sound and engages high-speed ratchet loop', () => {
+ const {audio, heard} = setup();
+ audio.update({ ...machine, sweep: { kind: 'single', phase: 'single' } }, opt);
+ assert.ok(audio.loops.has('ratchet'), 'Ratchet loop spins during sweep');
+ assert.ok(audio.loops.has('turn'), 'Turn loop spins during sweep');
+ audio.event({ type: 'bibyeSweep', ballistaId: 'b', action: 'started', kind: 'single', at: 1 }, machine, 1);
+ assert.ok(heard.some(x => x.recipe?.tag === 'sharpTurn'), 'A Sharp Turn plays mechanical sharpTurn recipe');
+ audio.event({ type: 'bibyeSweepImpact', ballistaId: 'b', at: 1.2 }, machine, 1.2);
+ assert.ok(heard.some(x => x.recipe?.tag === 'metal'), 'sweep impact plays metal clash');
+ audio.update(machine, opt);
+ assert.ok(!audio.loops.has('ratchet'), 'Ratchet loop ceases once sweep completes');
+});
+
 test('primed pressure repeats at full noise energy without a silent boundary',()=>{
  let seed=87;const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/2**32;};
  const samples=biByeLoopSamples('pressure',22050,2,random);

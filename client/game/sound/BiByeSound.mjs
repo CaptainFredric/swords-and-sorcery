@@ -1,4 +1,4 @@
-import { ring, spatialize } from './soundRecipes.mjs';
+import { ring, spatialize, bibyeSharpTurnRecipe } from './soundRecipes.mjs';
 
 const noise=(freq,decay,gain,at=0,filter='bandpass',q=.7)=>({type:'noise',filter,freq,q,attack:.002,decay,gain,at});
 const thud=(freq,decay,gain,at=0)=>({type:'tone',wave:'sine',freq,slideTo:Math.max(28,freq*.46),attack:.003,decay,gain,at});
@@ -24,6 +24,7 @@ export function biByeRecipe(kind,rand=Math.random){
   steamRelease:[noise(3100,.36,.52,0,'bandpass',1.3),noise(4400,.26,.35,.02,'highpass'),thud(90,.22,.42)],
   ramVent:[noise(2700,.23,.28,.055,'bandpass',.7),noise(5200,.17,.13,.065,'highpass')],
   frost:[noise(2300,.3,.33),noise(5400,.12,.12),ring(rand,1100,{decay:.38,gain:.055,partials:3})],
+  sharpTurn:bibyeSharpTurnRecipe(rand).layers,
   siegeImpact:[...wood,noise(2200,.09,.38),thud(72,.35,.55)],
  };
  return {tag:kind,layers:recipes[kind]??wood,reverb:kind==='shotII'?.32:kind==='wreck'?.4:.16};
@@ -90,14 +91,15 @@ export class BiByeSound {
   this.#loop('roll',moving,b,.30,Math.max(.4,Math.abs(b.speed??0)/3.2));
   const elapsed=Math.max(.001,options.now-(this.poseAt??options.now));
   const turn=last ? Math.abs(Math.atan2(Math.sin((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw)),Math.cos((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw))))/elapsed : 0;
-  this.#loop('turn',owned&&turn>.035,b,Math.min(.16,turn*.12),Math.max(.6,Math.min(1.4,turn/.8)));
+  const inSweep=Boolean(b.sweep);
+  this.#loop('turn',(owned&&turn>.035)||inSweep,b,inSweep?.32:Math.min(.16,turn*.12),inSweep?1.4:Math.max(.6,Math.min(1.4,turn/.8)));
   this.poseAt=options.now;
   const upper=b.upperFiredAt??b.mobileFiredAt;
   const recock=upper!=null&&options.now>upper+.85&&options.now<b.smallBoltReadyAt;
   const primed=owned&&b.skill?.phase==='primed';
   this.#loop('winch',owned&&b.state==='RELOADING',b,.23);
   this.#loop('recock',owned&&recock,b,.14,1.12);
-  this.#loop('ratchet',primed,b,.13,1.05);
+  this.#loop('ratchet',primed||inSweep,b,inSweep?.26:.13,inSweep?1.35:1.05);
   if(last?.mode!==b.mode){if(b.mode==='DEPLOYING')this.#play('deploy',b);if(b.mode==='RETRACTING')this.#play('retract',b);}
   if(moving&&Math.abs((b.steer??0)-(last?.steer??0))>.25&&options.now>this.nextCreak){this.#play('creak',b,.7);this.nextCreak=options.now+.55;}
   if(this.settleAt!=null&&options.now>=this.settleAt){this.#play('settle',b);this.settleAt=null;}
@@ -118,6 +120,9 @@ export class BiByeSound {
   if(event.type==='bibyeHeavyDelayTripped')kind='delay';
   if(event.type==='bibyeCouplingReleased')kind='release';
   if(event.type==='bibyeModeChanged')kind='catch';
+  if(event.type==='bibyeSweep')kind=event.action==='started'?'sharpTurn':'catch';
+  if(event.type==='bibyeSweepImpact')kind='metal';
+  if(event.type==='bibyeSweepMachineImpact')kind='siegeImpact';
   if(event.type==='bibyeDamaged'&&event.source!=='sword')kind=event.componentId?.startsWith('Wheel')?'wheel':event.componentId?.startsWith('Stabilizer')?'stabilizer':event.material==='metal'?'metal':'wood';
   if(event.type==='bibyeComponentFailed')kind='failure';
   if(event.type==='bibyeDestroyed'){this.stop();this.active=Boolean(this.options?.active);kind='wreck';}
