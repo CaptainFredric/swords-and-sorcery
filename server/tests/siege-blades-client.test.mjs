@@ -4,6 +4,8 @@ import { siegeBladesHudView, matchInfoText } from '../../client/ui/HUD.mjs';
 import { MenuController } from '../../client/menu/MenuController.mjs';
 import { privateRoomPreview, PRIVATE_MODE_DEFAULTS } from '../../client/menu/privateRoomRules.mjs';
 import { roomSettings } from '../../shared/src/roomSettings.mjs';
+import { LocalHost } from '../../client/network/LocalHost.mjs';
+import { GameLink } from '../../client/network/GameLink.mjs';
 
 test('siegeBladesHudView formats Match and Endless formats, countdowns, and overtime correctly', () => {
   const local = { id: 'p1', team: 'ATTACKERS' };
@@ -199,4 +201,39 @@ test('Private room rules and settings support Siege Blades 1v1, 2v2, 3v3', () =>
   const prevBadArena = privateRoomPreview('SIEGE_BLADES', { worldId: 'ruined-keep' });
   assert.equal(prevBadArena.ok, false);
   assert.ok(prevBadArena.error.includes('arena'));
+});
+
+test('Launching Siege Blades through LocalHost preserves custom settings on Room and mode state', () => {
+  const host = new LocalHost({
+    now: () => 0,
+    every: () => 1,
+    cancel: () => {},
+    later: (fn) => fn(),
+  });
+
+  const customSettings = {
+    format: 'MATCH',
+    teamSize: 2,
+    matchRounds: 5,
+    clashStarts: false,
+    botDifficulty: 'champion',
+    machineSelection: 'so-fist-ication',
+  };
+
+  host.startSolo('SIEGE_BLADES', 'Commander', 'blackbell-foundry', 'champion', false, 'ATTACKERS', 2, customSettings);
+
+  assert.ok(host.room);
+  assert.equal(host.room.mode, 'SIEGE_BLADES');
+  assert.equal(host.room.worldId, 'blackbell-foundry');
+  assert.ok(host.room.siegeBladesSettings);
+  assert.equal(host.room.siegeBladesSettings.format, 'MATCH');
+  assert.equal(host.room.siegeBladesSettings.matchRounds, 5);
+  assert.equal(host.room.siegeBladesSettings.clashStarts, false);
+
+  assert.ok(host.room.siegeBlades);
+  assert.equal(host.room.siegeBlades.format, 'MATCH');
+  assert.equal(host.room.siegeBlades.matchRounds, 5);
+  assert.equal(host.room.siegeBlades.roundsToWin, 3);
+  assert.equal(host.room.siegeBlades.clashStarts, false);
+  assert.equal(host.room.siegeBlades.machineSelection, 'so-fist-ication');
 });

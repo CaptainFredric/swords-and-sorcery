@@ -156,6 +156,22 @@ export class LocalHost {
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
   startSolo(mode, name, worldId, botSkill, tutorial = false, team = null, teamSize = null, customSettings = null) {
+    if (typeof tutorial === 'string' && (tutorial === 'ATTACKERS' || tutorial === 'DEFENDERS')) {
+      customSettings = teamSize;
+      teamSize = team;
+      team = tutorial;
+      tutorial = false;
+    } else if (typeof tutorial === 'number') {
+      customSettings = team;
+      teamSize = tutorial;
+      team = null;
+      tutorial = false;
+    } else if (tutorial && typeof tutorial === 'object') {
+      customSettings = tutorial;
+      teamSize = customSettings.teamSize ?? null;
+      team = customSettings.team ?? null;
+      tutorial = false;
+    }
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;

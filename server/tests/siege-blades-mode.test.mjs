@@ -202,11 +202,12 @@ test('Overtime Engagement Zone activates at 180s in Match format and enforces lo
 
   stepSiegeBlades(room, 1.0, 183.0);
   assert.equal(room.siegeBlades.zone.contested, true, 'Low altitude Flight should contest the zone');
-  assert.equal(room.siegeBlades.zone.holdSec, holdBefore, 'Contested zone timer must pause');
+  assert.ok(room.siegeBlades.zone.holdSec < holdBefore, 'Contested zone timer must decay');
 });
 
 test('Clash Starts spawn combatants 20–28m apart with symmetric line of sight', () => {
   const room = setupSiegeBladesRoom({ format: 'ENDLESS', teamSize: 1, clashStarts: true });
+  room.siegeBlades.forceClash = true;
   const p1 = room.addPlayer({ id: 'p1', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
   const p2 = room.addPlayer({ id: 'p2', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
 
@@ -219,6 +220,89 @@ test('Clash Starts spawn combatants 20–28m apart with symmetric line of sight'
 
   const separation = Math.hypot(m2.x - m1.x, m2.z - m1.z);
   assert.ok(separation >= 20 && separation <= 28, `Separation ${separation} must be between 20 and 28m`);
+});
+
+test('Overtime arena-specific radius and 20-second continuous hold requirement', () => {
+  const rHigh = setupSiegeBladesRoom({ worldId: 'high-grounds' });
+  const rFoundry = setupSiegeBladesRoom({ worldId: 'blackbell-foundry' });
+  const rOuter = setupSiegeBladesRoom({ worldId: 'outerworks' });
+
+  assert.equal(rHigh.siegeBlades.zone.radius, 28);
+  assert.equal(rFoundry.siegeBlades.zone.radius, 26);
+  assert.equal(rOuter.siegeBlades.zone.radius, 24);
+  assert.equal(rHigh.siegeBlades.overtimeHoldRequired, 20);
+});
+
+test('Clash Starts probability is 12% in casual 1v1 Endless, and 0% in Match or when disabled', () => {
+  // In Match mode: 0% clash
+  const rMatch = setupSiegeBladesRoom({ format: 'MATCH', teamSize: 1, clashStarts: true });
+  rMatch.addPlayer({ id: 'p1', token: '1', team: TEAMS.ATTACKERS }, 0);
+  rMatch.addPlayer({ id: 'p2', token: '2', team: TEAMS.DEFENDERS }, 0);
+  provisionSiegeBladesFleet(rMatch, 0);
+  assert.equal(rMatch.siegeBlades.clashActiveThisRound, false);
+
+  // When disabled: 0% clash
+  const rDisabled = setupSiegeBladesRoom({ format: 'ENDLESS', teamSize: 1, clashStarts: false });
+  rDisabled.addPlayer({ id: 'p1', token: '1', team: TEAMS.ATTACKERS }, 0);
+  rDisabled.addPlayer({ id: 'p2', token: '2', team: TEAMS.DEFENDERS }, 0);
+  provisionSiegeBladesFleet(rDisabled, 0);
+  assert.equal(rDisabled.siegeBlades.clashActiveThisRound, false);
+
+  // In 1v1 Endless with clash enabled, verify probability over trials
+  let clashCount = 0;
+  const trials = 1000;
+  for (let i = 0; i < trials; i++) {
+    const r = setupSiegeBladesRoom({ format: 'ENDLESS', teamSize: 1, clashStarts: true });
+    r.addPlayer({ id: 'p1', token: '1', team: TEAMS.ATTACKERS }, 0);
+    r.addPlayer({ id: 'p2', token: '2', team: TEAMS.DEFENDERS }, 0);
+    provisionSiegeBladesFleet(r, 0);
+    if (r.siegeBlades.clashActiveThisRound) clashCount++;
+  }
+  // Expected ~120 out of 1000 (standard deviation ~10.3). Should easily be between 60 and 180.
+  assert.ok(clashCount > 60 && clashCount < 180, `Clash frequency ${clashCount}/${trials} should be around 12%`);
+});
+
+test('Mutual elimination handles draw explicitly without awarding score to null team', () => {
+  const room = setupSiegeBladesRoom({ format: 'MATCH', teamSize: 1 });
+  const p1 = room.addPlayer({ id: 'p1', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
+  const p2 = room.addPlayer({ id: 'p2', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
+  provisionSiegeBladesFleet(room, 0);
+
+  // Both eliminated simultaneously
+  p1.alive = false;
+  p2.alive = false;
+  stepSiegeBlades(room, 1 / 30, 1.0);
+
+  assert.equal(room.siegeBlades.roundWinner, 'DRAW');
+  assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS], 0);
+  assert.equal(room.siegeBlades.scores[TEAMS.DEFENDERS], 0);
+  assert.equal(room.siegeBlades.scores[null], undefined);
+});
+
+test('Round reset comprehensively restores pilot health, stamina, prowess, cooldowns, and Disaster afflictions', () => {
+  const room = setupSiegeBladesRoom({ format: 'ENDLESS', teamSize: 1 });
+  const p1 = room.addPlayer({ id: 'p1', token: 'tok-1', team: TEAMS.ATTACKERS }, 0);
+  const p2 = room.addPlayer({ id: 'p2', token: 'tok-2', team: TEAMS.DEFENDERS }, 0);
+  provisionSiegeBladesFleet(room, 0);
+
+  // Inflict damage, afflictions, cooldowns on p1
+  p1.health = 20;
+  p1.guardStamina = 10;
+  p1.prowess = 80;
+  p1.burn = { active: true, expiresAt: 100 };
+  p1.chill = { active: true, expiresAt: 100 };
+  p1.spellReadyAt = 50;
+  p1.pendingSpell = { id: 'sunder' };
+
+  resetSiegeBladesRound(room, 10.0);
+
+  assert.equal(p1.health, 100);
+  assert.equal(p1.guardStamina, 100);
+  assert.equal(p1.prowess, 0);
+  assert.equal(p1.burn, null);
+  assert.equal(p1.chill, null);
+  assert.equal(p1.spellReadyAt, 0);
+  assert.equal(p1.pendingSpell, null);
 });
 
 test('Authoritative Bot Controllers step machine weapons and steering in Siege Blades', () => {

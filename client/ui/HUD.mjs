@@ -111,8 +111,8 @@ export function siegeBladesHudView(local, snapshot, serverNow) {
   const isResetting = s.roundResetCountdown != null;
   const countdownSec = isResetting ? Math.max(0, Math.ceil(s.roundResetCountdown)) : null;
 
-  const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
-  const elapsed = Math.max(0, serverNow - startedAt);
+  const roundStart = Number.isFinite(s.roundStartedAt) ? s.roundStartedAt : (Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow);
+  const elapsed = Math.max(0, serverNow - roundStart);
   const length = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 180;
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
@@ -161,6 +161,10 @@ export function matchInfoText(snapshot, serverNow) {
     const formatStr = s?.format === 'ENDLESS' ? 'ENDLESS EXHIBITION' : `BEST OF ${s?.matchRounds ?? 3}`;
     const roundStr = `ROUND ${s?.roundNumber ?? 1}`;
     const scoresStr = `AZURE ${s?.scores?.ATTACKERS ?? 0} · CRIMSON ${s?.scores?.DEFENDERS ?? 0}`;
+    const roundStart = Number.isFinite(s?.roundStartedAt) ? s.roundStartedAt : (Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow);
+    const roundSecs = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 180;
+    const roundLeft = Math.max(0, roundSecs - Math.max(0, serverNow - roundStart));
+    const sbClock = (snapshot?.overtime || s?.overtimeActive) ? 'OVERTIME' : `${Math.floor(roundLeft / 60)}:${Math.floor(roundLeft % 60).toString().padStart(2, '0')}`;
     if (s?.roundResetCountdown != null) {
       return `NEXT ROUND IN ${Math.ceil(s.roundResetCountdown)}s · ${scoresStr}`;
     }
@@ -171,7 +175,7 @@ export function matchInfoText(snapshot, serverNow) {
     if (s?.clashActive) {
       return `⚡ CLASH START ⚡ · ${scoresStr}`;
     }
-    return `SIEGE BLADES · ${formatStr} · ${roundStr} · ${scoresStr} · ${clockStr}`;
+    return `SIEGE BLADES · ${formatStr} · ${roundStr} · ${scoresStr} · ${sbClock}`;
   }
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
@@ -749,8 +753,8 @@ export class HUD {
       if (sbView.isResetting) {
         bannerEl.classList.remove('hidden');
         bannerEl.className = 'sb-banner sb-countdown';
-        const winTeam = sbView.roundWinner === 'ATTACKERS' ? 'AZURE' : sbView.roundWinner === 'DEFENDERS' ? 'CRIMSON' : null;
-        bannerEl.textContent = winTeam ? `ROUND WON BY ${winTeam} · NEXT ROUND IN ${sbView.countdownSec}s...` : `NEXT ROUND IN ${sbView.countdownSec}s...`;
+        const winTeam = sbView.roundWinner === 'ATTACKERS' ? 'AZURE' : sbView.roundWinner === 'DEFENDERS' ? 'CRIMSON' : sbView.roundWinner === 'DRAW' ? 'DRAW' : null;
+        bannerEl.textContent = winTeam === 'DRAW' ? `ROUND ENDED IN A DRAW · NEXT ROUND IN ${sbView.countdownSec}s...` : winTeam ? `ROUND WON BY ${winTeam} · NEXT ROUND IN ${sbView.countdownSec}s...` : `NEXT ROUND IN ${sbView.countdownSec}s...`;
       } else if (sbView.clashActive) {
         bannerEl.classList.remove('hidden');
         bannerEl.className = 'sb-banner sb-clash';
