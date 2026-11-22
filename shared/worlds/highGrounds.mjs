@@ -184,16 +184,28 @@ const rampWorks = [
   underRamp('ramp-pier-east-south-ascent', rampNamed['east-south-ascent'], -83, -80, 33, 43, -6),
   underRamp('ramp-pier-east-ascent', rampNamed['east-ascent'], 80, 83, 33, 43, -6),
   underRamp('ramp-pier-west-north-descent', rampNamed['west-north-descent'], 80, 83, -43, -33, -6),
+  // Upper stone piers carrying the long camp ascents before they meet the canopy
+  underRamp('ramp-upper-pier-west-ascent', rampNamed['west-ascent'], -73, -69, -43, -33, -9),
+  underRamp('ramp-upper-pier-east-south-ascent', rampNamed['east-south-ascent'], -73, -69, 33, 43, -9),
+  underRamp('ramp-upper-pier-east-ascent', rampNamed['east-ascent'], 69, 73, 33, 43, -9),
+  underRamp('ramp-upper-pier-west-north-descent', rampNamed['west-north-descent'], 69, 73, -43, -33, -9),
   // the crown ramps: a footing on the Crown Span, and a pier standing on the root shelf's outer edge below
   ...rampFooting(rampNamed['west-to-crown'], -11.4, -15, 0, 0.9),
   ...rampFooting(rampNamed['crown-to-east'], 11.4, 15, 0, 0.9),
   underRamp('ramp-pier-west-to-crown', rampNamed['west-to-crown'], -21, -19, -9.5, -5.5, -9),
   underRamp('ramp-pier-crown-to-east', rampNamed['crown-to-east'], 19, 21, 5.5, 9.5, -9),
+  // Upper buttresses supporting the crown ramps' approach to the high canopy
+  underRamp('ramp-upper-pier-west-to-crown', rampNamed['west-to-crown'], -28, -26, -9.5, -5.5, -9),
+  underRamp('ramp-upper-pier-crown-to-east', rampNamed['crown-to-east'], 26, 28, 5.5, 9.5, -9),
   // ...and cheek walls down each side of the cut they climb through the Bloom's deck (their tops under the deck)
   solid('ramp-cheek-west-bridge', -29.75, 9.55, -3.815, 8.5, 4.7, 0.43, 'stone'),
   solid('ramp-cheek-west-wing', -29.75, 9.55, -11.185, 8.5, 4.7, 0.43, 'stone'),
   solid('ramp-cheek-east-bridge', 29.75, 9.55, 3.815, 8.5, 4.7, 0.43, 'stone'),
   solid('ramp-cheek-east-wing', 29.75, 9.55, 11.185, 8.5, 4.7, 0.43, 'stone'),
+  // Retaining cheek walls under the forward deck edges where root ramps descend:
+  // prevents standing beneath the overhanging deck lip and seals the stair trench.
+  solid('root-approach-cheek-azure', -11.6, -1.8, -47.25, 1.2, 4.4, 13.5, 'stone'),
+  solid('root-approach-cheek-crimson', 11.6, -1.8, 47.25, 1.2, 4.4, 13.5, 'stone'),
   // the root ramps: a footing on the root shelf, which runs on five metres under each ramp's foot
   ...rampFooting(rampNamed['root-west-south'], -31, -34, -9),
   ...rampFooting(rampNamed['root-east-north'], 31, 34, -9),
@@ -210,6 +222,32 @@ const solids = [
   ...propSolids(PROPS),
   ...rampWorks,
   ...crownMantlets,
+  // Solid stone road foundations separating the central road (Y=0) from the lower root shelf (Y=-9):
+  // eliminates the empty cavity under the roadbed while preserving the full 14m central vehicle road.
+  solid('road-retaining-west-south', -8.5, -4.5, -17, 3.0, 9.0, 18, 'stone'),
+  solid('road-retaining-west-north', -8.5, -4.5, 17, 3.0, 9.0, 18, 'stone'),
+  solid('road-retaining-east-south', 8.5, -4.5, -17, 3.0, 9.0, 18, 'stone'),
+  solid('road-retaining-east-north', 8.5, -4.5, 17, 3.0, 9.0, 18, 'stone'),
+  // Natural bedrock cliff walls backing the lower root passages: transforms the root shelves
+  // into authentic stone trenches cut into the highland, backing the miner lanterns and fungi.
+  solid('root-cliff-west', -22.5, -3.5, -3, 3.0, 11.0, 60, 'stone'),
+  solid('root-cliff-east', 22.5, -3.5, 3, 3.0, 11.0, 60, 'stone'),
+  // Massive stone abutments anchoring the high crossbridges into the canopy cliffs (X=±38):
+  solid('bridge-abutment-west-south', -38, 5.5, -57, 5.0, 13.0, 8.0, 'stone'),
+  solid('bridge-abutment-east-south', 38, 5.5, -57, 5.0, 13.0, 8.0, 'stone'),
+  solid('bridge-abutment-west-north', -38, 5.5, 57, 5.0, 13.0, 8.0, 'stone'),
+  solid('bridge-abutment-east-north', 38, 5.5, 57, 5.0, 13.0, 8.0, 'stone'),
+  // Structural piers beneath the high bridges beside the central road (X=±14):
+  // gives the 78m crossing true physical support without narrowing the central vehicle corridor.
+  solid('bridge-pier-west-south', -14, 5.5, -57, 2.2, 13.0, 2.6, 'stone'),
+  solid('bridge-pier-east-south', 14, 5.5, -57, 2.2, 13.0, 2.6, 'stone'),
+  solid('bridge-pier-west-north', -14, 5.5, 57, 2.2, 13.0, 2.6, 'stone'),
+  solid('bridge-pier-east-north', 14, 5.5, 57, 2.2, 13.0, 2.6, 'stone'),
+  // Substantial timber-and-stone piers supporting the 50m canopy highways at Y=12:
+  solid('canopy-pier-west-south', -38, 5.5, -42, 3.5, 13.0, 3.5, 'stone'),
+  solid('canopy-pier-west-north', -38, 5.5, 34.5, 3.5, 13.0, 3.5, 'stone'),
+  solid('canopy-pier-east-south', 38, 5.5, -34.5, 3.5, 13.0, 3.5, 'stone'),
+  solid('canopy-pier-east-north', 38, 5.5, 42, 3.5, 13.0, 3.5, 'stone'),
   // Structural railings on the edges of high crossbridges, above the
   // central vehicle road. These have *real* collision and won't draw
   // misleading phantom barriers in flight or first-person combat.
