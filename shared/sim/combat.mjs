@@ -1526,7 +1526,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
   minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
-  killVariant = null, guardWouldSave = false,
+  killVariant = null, guardWouldSave = false, infusionTiers = null,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1643,6 +1643,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     excessDamage: Math.max(0, finalAmount-healthBefore),
     guardWouldSave: Boolean(guardWouldSave),
     pelted: source==='fight-flight-repeater'&&victim.killfeedPelting?.hits>=3,
+    ...(infusionTiers?{infusionTiers:{...infusionTiers}}:{}),
   });
   return true;
 }
@@ -1752,6 +1753,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
   const death = { type: 'death', victimId, killerId: credited, source,
+    ...(killFacts.infusionTiers?{infusionTiers:{...killFacts.infusionTiers}}:{}),
     ...(special?{killContext:special}:{}),
     ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
     ...(killFacts.excessDamage>=GAME.maxHealth?{extremeOverkill:true}:{}),
@@ -2275,7 +2277,7 @@ function stepOneHitChargeAura(room,caster,nowSec,world) {
     if(tiers.fire>=1){
       const damage=Math.max(1,Math.round(ONE_HIT_CHARGE_AURA.fireDamage*contact));
       applyDamage(room,caster.id,target.id,damage,'one_hit_charge_fire',
-        nowSec,null,{ultimate:true,ongoing:true});
+        nowSec,null,{ultimate:true,ongoing:true,infusionTiers:tiers});
       affected.push('fire');
     }
     if(tiers.frost>=1&&target.alive){
@@ -2415,7 +2417,7 @@ function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   const stages=Object.values(tiers).reduce((sum,n)=>sum+(Number(n)||0),0);
   if(!applyDamage(room,caster.id,target.id,damage,'one_hit_of_wonders',nowSec,
     {x:dx/d*shove,y:.6,z:dz/d*shove},{
-      ultimate:true,rawDamage:damage,
+      ultimate:true,rawDamage:damage,infusionTiers:tiers,
       // A source cannot tell whether this was the actual ground impact,
       // the travelling sword-pressure front, or its terminal Fire blast.
       // The SERVER witnessed the contact; attach that fact to the death,
@@ -2511,7 +2513,7 @@ function oneHitBurnZone(room,caster,id,position,nowSec,tiers,radius=ONE_HIT_REAC
   (room.oneHitBurnZones??=[]).push({
     id,ownerId:caster.id,position,radius,
     ...(Number.isFinite(yaw)?{yaw}:{}),...(air?{air:true,direction:{...direction}}:{}),
-    bornAt:nowSec,nextAt:nowSec+(air?.3:.5),
+    bornAt:nowSec,nextAt:nowSec+(air?.3:.5),tiers:{...tiers},
     ...(tiers.steel===2?{steelLocked:true}:{}),
     until:nowSec+(air?airFieldSeconds(tiers):fieldSeconds(tiers)),
   });
@@ -2557,7 +2559,7 @@ function oneHitSlam(room,caster,tiers,nowSec,world) {
   const steel=tiers.steel??0;
   const before=room.ruptures?.length??0;
   groundStrike(room,caster,2,{point:{...center},floor:{y:center.y}},nowSec,world,
-    steel>=1?{rules:steelFractureRules(RUPTURE,steel),oneHit:{steel}}:{});
+    steel>=1?{rules:steelFractureRules(RUPTURE,steel),oneHit:{steel,tiers:{...tiers}}}:{});
   const rupture=(room.ruptures?.length??0)>before?room.ruptures.at(-1):null;
   rupture?.caught.push(...struck);
   if(tiers.fire===2)oneHitBurnZone(room,caster,`oh-burn:${caster.id}:${nowSec}`,{...center},nowSec,tiers,radius,yaw);
@@ -2614,7 +2616,7 @@ function stepOneHitFields(room,dt,nowSec,world) {
           if(nowSec>=next-1e-8){
             field.trailBurnNext[player.id]=nowSec+ONE_HIT_WAKE.burnInterval;
             applyDamage(room,owner.id,player.id,burnZoneLick(strength,ONE_HIT_WAKE.burnLick),
-              'one_hit_air_fire',nowSec,null,{ongoing:true});
+              'one_hit_air_fire',nowSec,null,{ongoing:true,infusionTiers:field.tiers});
           }else field.trailBurnNext[player.id]=next;
         }
       }
@@ -2810,7 +2812,7 @@ function stepOneHitActor(room,player,dt,nowSec,world) {
           target.position.z-player.position.z)>3.2)continue;
       if(!oneHitVisible(room,player,target,world,nowSec,oneHitChest(player)))continue;
       action.vortexTicks[target.id]=count+1;
-      applyDamage(room,player.id,target.id,5,'one_hit_vortex',nowSec,null,{ultimate:true,ongoing:true});
+      applyDamage(room,player.id,target.id,5,'one_hit_vortex',nowSec,null,{ultimate:true,ongoing:true,infusionTiers:action.tiers});
     }
   }
   if(nowSec>=action.waveAt)oneHitLaunchWave(room,player,action.tiers,nowSec,action);
@@ -2892,7 +2894,7 @@ function oneHitLightningGroundStrike(room,caster,wave,point,nowSec,world) {
     // The contact's electricity reaches a valid Guard; HP does not.
     if(!blocked)applyDamage(room,caster.id,target.id,damage,
       'one_hit_lightning_ground',nowSec,null,
-      {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade'});
+      {ultimate:true,rawDamage:damage,killVariant:'disaster-windblade',infusionTiers:wave.tiers});
     // The real vertical bolt may legitimately deal its own HP contact,
     // but it must not renew Conduct already delivered by this same wake.
     const wake=room.oneHitFields?.find(f=>f.id===wave.id+':wake');
@@ -2960,8 +2962,8 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
       groundStrike(room,caster,2,{
         point:{x:point.x,y:floor,z:point.z},floor:{y:floor}
       },nowSec,world,waveSteel>=1?{
-        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel,terminalGale:true}
-      }:{oneHit:{steel:0,terminalGale:true}});
+        rules:steelFractureRules(RUPTURE,waveSteel),oneHit:{steel:waveSteel,terminalGale:true,tiers:{...wave.tiers}}
+      }:{oneHit:{steel:0,terminalGale:true,tiers:{...wave.tiers}}});
     }finally{caster.yaw=oldYaw;}
     if((room.ruptures?.length??0)>before){
       const rupture=room.ruptures.at(-1);
@@ -3186,7 +3188,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       applyDamage(room,zone.ownerId,target.id,
         burnZoneLick(fieldStrength(zone,nowSec),zone.air?2:3),
         zone.air?'one_hit_air_fire':'one_hit_ground_fire',nowSec,null,
-        {ultimate:true,ongoing:true});
+        {ultimate:true,ongoing:true,infusionTiers:zone.tiers});
     }
   }
   room.oneHitBurnZones=(room.oneHitBurnZones??[]).filter(z=>nowSec<z.until);
@@ -3684,7 +3686,8 @@ function stepRuptures(room, nowSec) {
       rupture.caught.push(target.id);
       const core = hit === 'core';
       applyDamage(room, rupture.ownerId, target.id, core ? RUPTURE.damage : RUPTURE.trailDamage, 'rupture', nowSec,
-        { x: 0, y: core ? RUPTURE.jolt : RUPTURE.trailJolt, z: 0 }, { ultimate: true });
+        { x: 0, y: core ? RUPTURE.jolt : RUPTURE.trailJolt, z: 0 },
+        { ultimate: true, infusionTiers:rupture.oneHit?.tiers??null });
       staggerBy(room, target, core ? RUPTURE.stagger : RUPTURE.trailStagger, nowSec, rupture.ownerId);
       // (a Steel-infused Disaster's radial fracture: whoever an arm catches is Shaken; the rupture's own small hurt
       // above is all the HP it takes, never the decisive hit again)
