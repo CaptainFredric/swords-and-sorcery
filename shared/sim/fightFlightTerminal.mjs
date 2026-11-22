@@ -6,6 +6,7 @@ import {VALKYRIE_RUN,stepFlightPitchAttitude} from './fightFlightRun.mjs';
 import {flightSupportAt} from './flightSupport.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
+import {valkyrieFlameAllied,valkyrieFlameContains} from './valkyrieFlames.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
 import {endSiegeSteel} from './siegeSteel.mjs';
 import {applyDamage,killPlayer} from './combat.mjs';
@@ -231,7 +232,12 @@ export function resolveTerminalFlight(room,m,now){
    const raw=terminalRadialDamage(damage,dist,radius);
    if(raw>0){
      applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
-     if(!p.alive)ascendedWith.push(p.id);
+     if(!p.alive){
+       // An enemy defeated by the INITIAL explosion forfeits all remaining
+       // Prowess (ordinary deaths elsewhere retain their earned meter).
+       p.prowess=0;
+       ascendedWith.push(p.id);
+     }
    }
  }
  // Use established per-component blast allocations for both siege engines;
@@ -278,7 +284,8 @@ export function resolveTerminalFlight(room,m,now){
  // Never create a hovering damage zone at its airborne explosion coordinates.
  if(hasGroundFire){
    const firePoint={x:point.x,y:floor,z:point.z};
-   room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:fireRadius,
+   room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,
+     team:room.players.get(d.operatorId)?.team??null,point:firePoint,radius:fireRadius,
      tickDamage:fireTickDamage,startedAt:now,expiresAt:groundBurnExpiresAt,nextTickAt:now+TERMINAL.fireInterval});
  }
  return true;
@@ -291,9 +298,9 @@ export function stepFlightBurnZones(room,now){
    const age=clamp((now-zone.startedAt)/lifetime,0,1);
    zone.nextTickAt=now+terminalFireInterval(age);
    for(const p of room.players.values()){
-     if(!p.alive||areAllies(room,zone.sourceId,p.id))continue;
+     if(!p.alive||valkyrieFlameAllied(room,zone,p)||
+        !valkyrieFlameContains(room,zone,p,now))continue;
      const distance=Math.hypot(p.position.x-zone.point.x,p.position.z-zone.point.z);
-     if(distance>zone.radius||Math.abs(p.position.y-zone.point.y)>1.5||occluded(room,zone.point,p))continue;
      const spatial=Math.max(0,1-distance/zone.radius);
      const temporal=Math.max(.35,1-.65*age);
      const amount=Math.max(1,Math.round((zone.tickDamage??TERMINAL.fireTickDamage)*spatial**.65*temporal));
