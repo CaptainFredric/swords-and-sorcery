@@ -2033,3 +2033,24 @@ test('short, stationary flight Jump release emits exactly one Hop; cancellation 
  assert.deepEqual(calls,['hop']);
  controls.dispose();
 });
+
+
+test('Flight Jump look remains available even when an Ascension rune guide is visible',()=>{
+ const e=valkyrieFlightFixture(),sent=[];
+ e.input.socket.send=m=>sent.push(m);
+ const start=e.controls.valkyrieGeometry.points[0];
+ e.send('pointerdown',start[0],start[1],{action:'jump',pointerId:886});
+ assert.ok(e.controls.ritual,'the rune guide may initially recognize Jump');
+ const before=e.input.yaw;
+ e.send('pointermove',start[0]-145,start[1]+6,
+  {action:'jump',pointerId:886});
+ assert.equal(e.controls.ritual,null,'off-rune Jump drag yields to ordinary look');
+ assert.notEqual(e.input.yaw,before,'the same finger turns the view without releasing Jump');
+ e.controls.flightJumpDownAt=performance.now()-210;
+ assert.equal(e.controls.movement().flightRise,true);
+ e.send('pointerup',start[0]-145,start[1]+6,
+  {action:'jump',pointerId:886});
+ assert.equal(sent.some(m=>m.type==='flightHop'),false,
+  'a camera-dragged Jump is not a tap-Hop, even with the rune guide');
+ e.controls.dispose();
+});
