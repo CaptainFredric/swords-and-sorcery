@@ -15,7 +15,8 @@ import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {wayToward} from './botNav.mjs';
-import {beginAttack,endAttack} from './combat.mjs';
+import {beginAttack,endAttack,tryCastSpell} from './combat.mjs';
+import {machineSteelParts} from './siegeSteel.mjs';
 import {SIEGE_LOADOUT_DEFAULT,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 
 export const SIEGE_OPERATORS=Object.freeze({
@@ -78,6 +79,34 @@ function drive(room,m,target,ai,difficulty,{ideal=10,deadZone=2,reverse=true}={}
     ai.lastPosition={...at};ai.lastSampleAt=ai.now;
   }
   return {forward,right,err,d};
+}
+/** Skilled pilots use the identical Sheathe in Steel spell and its normal
+ * 18s cooldown. The vehicle's linked, finite repair budget is untouched.
+ * Choose the moment based on actual damaged parts or approaching fire, and
+ * do not cast on an intact idle chassis merely to farm infinite repair. */
+export function considerOperatorSteel(room,a,m,kind,foe,now){
+  if(a.practiceSiegeOperator?.difficulty==='learner'||a.spell!=='steel'||
+    !m||m.operatorId!==a.id||now<(a.spellReadyAt??0)||
+    now<(a.siegeAi?.nextSteelAt??0)||
+    m.siegeSteel&&m.siegeSteel.state!=='expired'&&now<(m.siegeSteel.protectionUntil??Infinity))
+    return false;
+  const parts=machineSteelParts(m,kind);
+  const missing=parts.reduce((sum,p)=>sum+Math.max(0,p.maxHealth-p.health),0);
+  const critical=parts.some(p=>p.health>0&&p.health/p.maxHealth<.65);
+  const approaching=Boolean(foe&&dist({x:m.x,z:m.z},foe.position)<(
+    kind==='flight'?16:kind==='ram'?9:30));
+  const endangered=approaching&&(
+    m.health/(m.maxHealth??m.health)<.88||
+    parts.some(p=>p.health>0&&p.health/p.maxHealth<.85));
+  // A damaged but quiet carriage can repair before heading back into combat.
+  // A threatened intact carriage may pre-cast only if an actual attack is
+  // underway: proactive mitigation, not free resource generation.
+  const anticipated=approaching&&Boolean(foe.attackActive||foe.pendingSpell||
+    foe.operatingBallistaId||foe.operatingRamId||foe.operatingFightFlightId);
+  if(missing<8&&!critical&&!endangered&&!anticipated)return false;
+  const used=tryCastSpell(room,a.id,{x:0,y:0,z:-1},now);
+  a.siegeAi.nextSteelAt=now+(used?1:1.5);
+  return used;
 }
 function noOperation(room,actor,now){
   const name=actor.practiceSiegeOperator?.machine,def=SIEGE_OPERATORS[name],m=room[def?.field];
@@ -157,7 +186,8 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
   const id='hostile-'+machine+'-'+room.code,revisionNo=(room[revision]??0)+1;
   m.id='hostile-'+machine+'-'+room.code+'-'+revisionNo;
   m.lifecycleId=m.id;m.builtAt=now;m.team=null;
-  const actor=room.addServerActor({id,name:def.name,actorKind:'bot',spell:'fireball',
+  const actor=room.addServerActor({id,name:def.name,actorKind:'bot',
+    spell:difficulty==='learner'?'fireball':'steel',
     ultimate:machine==='fight-and-flight'?'chivalry':'sunder'},now);
   actor.botSkill=tuning.skill;actor.botProfile='melee';
   actor.siegeLoadout=normalizeSiegeLoadout({...actor.siegeLoadout,[SLOT[machine]]:equipped});
@@ -544,6 +574,9 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
     if(ai.phase!=='mounted')ai.phase='mounted';
     ai.now=now;ai.difficulty=difficulty;
     const target=enemy(room,a);
+    if(difficulty!=='learner')
+      considerOperatorSteel(room,a,m,def.field==='fightFlight'?'flight':
+        def.field==='soFistication'?'ram':'bibye',target,now);
     if(!target){
       a.input={...a.input,forward:0,right:0,jump:false,crouch:false,sprint:false,attack:false};
       if(machine==='fight-and-flight')requestFightFlightFire(room,m,a,false,now);
