@@ -53,22 +53,36 @@ test('Grounded Full Gale gets the slam AND one shared-registry travelling wave',
   assert.equal(terminal[0].radius,ONE_HIT_RULES.waveTerminalRadius);
   assert.equal(terminal[0].groundBlast,true);
 });
-test('a guarding defender stops and detonates Gale wave without duplicate HP or Guard loss',()=>{
-  const {room,a,b}=battle({gale:2});
-  b.position={x:10,y:0,z:0};
-  b.yaw=Math.PI/2;b.input.yaw=b.yaw;
-  b.guarding=true;b.guardStartedAt=0;b.guardStamina=100;
-  assert.equal(tryUltimate(room,'a',9),true);
-  run(room,9,10.8);
-  const explosion=impacts(room).find(e=>e.cause==='guard');
-  assert.ok(explosion,'the wave explodes on a defended sword contact');
-  assert.ok(explosion.point.x>7&&explosion.point.x<12,
-    'impact is near the guard, not the far 22m range limit');
-  assert.equal(damage(room,b.id).length,0,'guarded victim has no decisive HP hit');
-  assert.equal(b.guardStamina,60,'one guard contact costs exactly 40 stamina');
-  assert.equal(waves(room).length,1,'one wave launched');
-  assert.equal(room.events.filter(e=>e.type==='oneHitWaveResolved').length,1,
-    'guarded wave resolves once');
+test('Guard absorbs its own Gale contact but the wave passes on to the next Spellblade, without Steel',()=>{
+  // Full Steel changes fields and cooldowns, not whether a person can stand
+  // in front of this pressure wave to stop everybody behind them.
+  for(const steel of [0,2]){
+    const {room,a,b}=battle({gale:2,steel});
+    const behind=room.addServerActor({
+      id:'behind-'+steel,name:'Behind Guard',actorKind:'dummy',
+    },0);
+    b.position={x:10,y:0,z:0};
+    b.yaw=Math.PI/2;b.input.yaw=b.yaw;
+    b.guarding=true;b.guardStartedAt=0;b.guardStamina=100;
+    behind.position={x:15,y:0,z:0};
+    behind.spawnProtectionUntil=0;
+    assert.equal(tryUltimate(room,'a',9),true);
+    run(room,9,10.8);
+    const end=impacts(room);
+    assert.equal(end.length,1,'the wave still ends with a single terminal blast');
+    assert.equal(end[0].cause,'range','Guard never steals terminal detonation');
+    assert.ok(end[0].point.x>19,'the explosion is beyond both Spellblades');
+    assert.equal(damage(room,b.id).length,0,'raised Guard still protects HP');
+    assert.equal(b.guardStamina,60,'the defended contact still costs 40 Guard');
+    assert.equal(room.events.filter(e=>
+      e.type==='block'&&e.oneHit&&e.defenderId===b.id).length,1,
+      'a passing wave cannot farm extra blocks or drain');
+    assert.equal(damage(room,behind.id).length,1,
+      'an unguarded Spellblade behind Guard is still struck once');
+    assert.equal(waves(room).length,1);
+    assert.equal(room.events.filter(e=>e.type==='oneHitWaveResolved').length,1,
+      'one wave launch has exactly one terminal resolution');
+  }
 });
 
 test('Fire terminal wave explosion widens beyond plain Gale while remaining smaller than a Fire slam',()=>{

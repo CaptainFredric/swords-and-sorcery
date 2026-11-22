@@ -2828,7 +2828,7 @@ export function fireOneHitWave(room,playerId,nowSec){
   oneHitLaunchWave(room,player,action.tiers,nowSec,action);
   return true;
 }
-// The wave pierces bodies. Terrain contact or an intentional second press
+// The wave pierces Spellblades regardless of Guard. Terrain contact or an intentional second press
 // ends it; at maximum range it explodes at its endpoint. Splash contributes
 // no second decisive hit, even on targets who spent Guard on the moving blade.
 // Where the wave ends. Without Fire: its landing gust, which afflicts whoever it has not met and deals no HP. With
@@ -3119,9 +3119,7 @@ function stepOneHitWorld(room,dt,nowSec,world) {
     const next={x:old.x+wave.direction.x*step,y:old.y+wave.direction.y*step,z:old.z+wave.direction.z*step};
     const contact=oneHitWorldContact(old,next,world);
     const stop=contact?.t??1;
-    let guardedContact=null;
     for(const target of room.players.values()){
-      if(guardedContact)break;
       if(wave.hitIds.includes(target.id)||!target.alive||target.id===caster.id)continue;
       const center=oneHitChest(target);
       const frac=Math.max(0,Math.min(stop,((center.x-old.x)*wave.direction.x+
@@ -3129,32 +3127,20 @@ function stepOneHitWorld(room,dt,nowSec,world) {
       const near=oneHitAlong(old,next,frac);
       if(Math.hypot(center.x-near.x,center.y-near.y,center.z-near.z)>((wave.tiers.fire??0)>=1?ONE_HIT_REACH.waveFire:ONE_HIT_REACH.wave))continue;
       const origin={x:near.x-wave.direction.x*.06,y:near.y-wave.direction.y*.06,z:near.z-wave.direction.z*.06};
+      // Guard is a successful personal defense, not a world collision.
+      // oneHitTouch still spends 40 Guard stamina, blocks direct HP damage
+      // and puts the target in hitIds; the same pressure front continues.
       oneHitTouch(room,caster,target,wave.tiers,nowSec,world,{aerial:true,origin,direction:wave.direction,
-        distance:wave.distance+step*frac,processed:wave.hitIds,wakeId:wave.id,
-        onGuard:()=>{guardedContact={...near};}});
+        distance:wave.distance+step*frac,processed:wave.hitIds,wakeId:wave.id});
     }
     const machineContact=oneHitMachineWaveContact(room,caster,old,next,nowSec);
-    // Intercept the nearest machine only if it lies before a world obstacle.
-    // Guard and hardware each produce the normal terminal burst once.
-    if(machineContact&&machineContact.t<=stop&&
-      (!guardedContact||Math.hypot(machineContact.point.x-old.x,machineContact.point.y-old.y,
-        machineContact.point.z-old.z)<
-        Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z))){
+    // Physical siege hardware and terrain still stop the travelling wave.
+    // Individual Spellblades, guarding or otherwise, do not.
+    if(machineContact&&machineContact.t<=stop){
       wave.position=machineContact.point;
       oneHitWakeAppend(room,wave,old,wave.position,nowSec);
       wave.distance+=step*machineContact.t;
       oneHitWaveImpact(room,caster,wave,wave.position,null,nowSec,world,'machine');
-      wave.distance=ONE_HIT_RULES.waveMaxReach;
-      continue;
-    }
-    if(guardedContact) {
-      // Guard spends its one contact AND stops the travelling sword-wave.
-      // Explode at the defender, with the usual smaller terminal blast.
-      // The same defended victim remains in hitIds: no duplicated HP or Guard cost.
-      wave.position=guardedContact;
-      oneHitWakeAppend(room,wave,old,wave.position,nowSec);
-      wave.distance+=Math.hypot(guardedContact.x-old.x,guardedContact.y-old.y,guardedContact.z-old.z);
-      oneHitWaveImpact(room,caster,wave,guardedContact,null,nowSec,world,'guard');
       wave.distance=ONE_HIT_RULES.waveMaxReach;
       continue;
     }
