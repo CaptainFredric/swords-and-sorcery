@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { windbladeSpeed, windbladeTrailSpan, windbladePosition, windbladeImpactKick } from './disasterWavePresentation.mjs';
+import { windbladeSpeed, windbladeTrailSpan, windbladePosition, windbladeImpactKick, windbladeLevelBasis } from './disasterWavePresentation.mjs';
 
 test('Windblade trail samples the same flight speed as the authoritative projectile',()=>{
   assert.equal(windbladeSpeed({}),28);
@@ -48,4 +48,35 @@ test('Gale projectile impact camera kick is gentle and falls off with 3D distanc
   assert.equal(windbladeImpactKick({x:24,y:0,z:0},hit),0);
   assert.equal(windbladeImpactKick({x:100,y:0,z:0},hit),0);
   assert.equal(windbladeImpactKick(null,hit),0);
+});
+
+test('Gale membrane remains wholly world-parallel while the projectile travels in 3D',()=>{
+  const shots=[
+    {x:0,y:0,z:1},{x:.4,y:.8,z:.45},
+    {x:0,y:-.96,z:.28},{x:0,y:1,z:0},
+    {x:0,y:-1,z:0},{x:-.8,y:.1,z:-.4},
+  ];
+  for(const direction of shots){
+    const basis=windbladeLevelBasis(direction);
+    assert.equal(basis.right.y,0,'width is level');
+    assert.equal(basis.forward.y,0,'the whole sheet, not just its width, is level');
+    assert.deepEqual(basis.up,{x:0,y:1,z:0},'no bank or pitch');
+    const length=Math.hypot(direction.x,direction.y,direction.z);
+    for(const axis of ['x','y','z'])
+      assert.ok(Math.abs(basis.travel[axis]-direction[axis]/length)<1e-8,
+        'true 3D velocity remains independent of the yaw-only visual');
+    const dot=basis.right.x*basis.forward.x+basis.right.z*basis.forward.z;
+    assert.ok(Math.abs(dot)<1e-8,'wide axis perpendicular to horizontal heading');
+    assert.ok(Math.abs(Math.hypot(basis.right.x,basis.right.z)-1)<1e-8);
+  }
+});
+test('straight-up and straight-down shots retain a stable level heading',()=>{
+  const prior={x:0,y:0,z:-1};
+  for(const pitch of [1,-1]){
+    const basis=windbladeLevelBasis({x:0,y:pitch,z:0},prior);
+    assert.deepEqual(basis.right,prior);
+    assert.equal(basis.forward.y,0);
+    assert.equal(basis.travel.y,pitch);
+  }
+  assert.equal(windbladeLevelBasis(null).forward.z,1,'invalid direction has safe heading');
 });

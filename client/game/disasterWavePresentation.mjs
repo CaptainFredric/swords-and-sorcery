@@ -32,7 +32,7 @@ export function windbladePosition(wave,snapshotAt,now) {
 
 /**
  * Windblade's horizontal, gently vaulted pressure-front coordinates in its
- * local plane (travel is +Z). One connected translucent volume, not a
+ * local plane (facing +Z; actual 3D travel is independent). One translucent volume, not a
  * vertical crescent or an opaque solid. Both the surface mesh and elemental
  * motes use these SAME samples, so Lightning and Frost ride the real wave.
  *
@@ -62,4 +62,28 @@ export function windbladeImpactKick(viewer,impact) {
   const metres=Math.hypot(viewer.x-impact.x,(viewer.y??0)-(impact.y??0),viewer.z-impact.z);
   const near=Math.max(0,1-metres/24);
   return .11*near*near;
+}
+
+/**
+ * World-horizontal presentation frame for the Gale pressure sheet.
+ * This is a YAW-ONLY visual orientation: the complete broad X/Z membrane
+ * stays parallel to world ground at all camera pitches. The projectile's
+ * movement and collision still use the separate, true 3D travel vector.
+ */
+export function windbladeLevelBasis(direction,previousRight=null){
+  const raw={x:Number(direction?.x)||0,y:Number(direction?.y)||0,z:Number(direction?.z)||0};
+  const magnitude=Math.hypot(raw.x,raw.y,raw.z);
+  const travel=magnitude>1e-8
+    ?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}
+    :{x:0,y:0,z:1};
+  const horizontal=Math.hypot(travel.x,travel.z);
+  const old=Math.hypot(previousRight?.x??0,previousRight?.z??0);
+  const right=horizontal>1e-3
+    ?{x:travel.z/horizontal,y:0,z:-travel.x/horizontal}
+    :old>1e-8
+      ?{x:previousRight.x/old,y:0,z:previousRight.z/old}
+      :{x:1,y:0,z:0};
+  const up={x:0,y:1,z:0};
+  const forward={x:-right.z,y:0,z:right.x};
+  return {right,up,forward,travel};
 }

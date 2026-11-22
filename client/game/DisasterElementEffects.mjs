@@ -1231,7 +1231,7 @@ export class DisasterElementEffects {
     for (const id of Object.keys(this.fireAcc)) if (this.clock - this.fireAcc[id].seen > 1) delete this.fireAcc[id];
   }
   // The sword wave in flight. Everything here is drawn on the one wave's own body (`mesh`: its crescent, turned the
-  // way it flies): torn air streaming back off its arc, and what it carries riding the same arc (embers off its
+  // way it faces horizontally): torn air streaming off its arc and carried elements (embers off its
   // burning limb, rime off its tips, filings in its pressure, lightning branching along it). No second projectile.
   // One physically continuous Windblade, not multiple disconnected spell
   // projectiles. Sample each arc across the distance moved this render frame
