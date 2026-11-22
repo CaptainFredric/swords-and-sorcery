@@ -9,6 +9,7 @@ import {sweptSegmentCylinderHit,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeFirstHit} from './biByeComponents.mjs';
 import {soFistFirstHit} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
+import { getMachineKind } from './fleetGeometry.mjs';
 import {damageFightFlight} from './fightFlightComponents.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
@@ -171,10 +172,10 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
         if(first.kind==='wall')damageStructureSolid(room,first.solid,damage,q.ownerId,'fight-flight-repeater',now,{point});
         if(first.targetMachine){
           const tm=first.targetMachine;
-          const k=tm.class??tm.kind;
-          if(k==='ballista'||k==='bi-bye-llista')damageBiByeLlista(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
-          else if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
-          else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point,steelMinimum:2});
+          const k=getMachineKind(tm);
+          if(k==='ballista')damageBiByeLlista(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+          else if(k==='ram')damageSoFistication(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
+          else if(k==='flight')damageFightFlight(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point,steelMinimum:2});
         } else {
           if(first.kind==='ballista'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
           if(first.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});

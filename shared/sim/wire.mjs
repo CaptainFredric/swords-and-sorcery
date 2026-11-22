@@ -13,7 +13,7 @@ import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSieg
 import {requestBiByeSharpTurn,requestLookAroundAndFindOut,biByeSweepFireLocked} from './biByeSweep.mjs';
 import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill,requestBiByeCoupledFromUpper } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
-import { getFleetMachines } from './fleetGeometry.mjs';
+import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
@@ -170,10 +170,11 @@ export function serializeBiByeLlista(m, nowSec = 0) {
 
 export function serializeMachine(m, nowSec = 0) {
   if (!m) return null;
-  const kind = m.class ?? m.kind;
-  if (kind === 'so-fist-ication' || kind === 'ram') return serializeSoFistication(m);
-  if (kind === 'fight-and-flight' || kind === 'flight') return serializeFightFlight(m);
-  return serializeBiByeLlista(m, nowSec);
+  const kind = getMachineKind(m);
+  if (kind === 'ram') return serializeSoFistication(m);
+  if (kind === 'flight') return serializeFightFlight(m);
+  if (kind === 'ballista') return serializeBiByeLlista(m, nowSec);
+  return null;
 }
 
 export function serializeSnapshot(room, nowSec, recipientId = null) {
@@ -205,6 +206,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     overtime: Boolean(room.overtime),
     edgeOfVictory: edgeSnapshot(room),
     modeState: modeSnapshot(room,nowSec),
+    siegeBlades: room.mode === GAME_MODES.SIEGE_BLADES ? (modeSnapshot(room, nowSec) ?? null) : null,
     highGrounds: room.highGrounds ? {
       sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
       scores: { ...room.highGrounds.scores },
@@ -796,19 +798,19 @@ export function applyRoomCommand(room, player, message, time) {
           return {rejected:'Set down the siege ladder before mounting.'};
         let boarded=false;
         if(message.machine==='fight-and-flight'){
-          const candidates = [...room.machines.values()].filter(m => (m.class === 'fight-and-flight' || m.kind === 'flight') && !m.operatorId && m.health > 0);
+          const candidates = [...room.machines.values()].filter(m => getMachineKind(m) === 'flight' && !m.operatorId && m.health > 0);
           if (room.fightFlight && !room.machines.has(room.fightFlight.id)) candidates.push(room.fightFlight);
           const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 5) || candidates[0];
           const reason=fightFlightMountProblem(room,target,player,time);
           if(reason)return {rejected:reason};
           boarded=mountFightFlight(room,target,player,time);
         }else if(message.machine==='so-fist-ication'){
-          const candidates = [...room.machines.values()].filter(m => (m.class === 'so-fist-ication' || m.kind === 'ram') && !m.operatorId && m.health > 0);
+          const candidates = [...room.machines.values()].filter(m => getMachineKind(m) === 'ram' && !m.operatorId && m.health > 0);
           if (room.soFistication && !room.machines.has(room.soFistication.id)) candidates.push(room.soFistication);
           const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 6) || candidates[0];
           boarded=Boolean(target&&mountSoFistication(room,target,player,time));
         }else if(message.machine==='bi-bye-llista'){
-          const candidates = [...room.machines.values()].filter(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && !m.operatorId && m.health > 0);
+          const candidates = [...room.machines.values()].filter(m => getMachineKind(m) === 'ballista' && !m.operatorId && m.health > 0);
           if (room.biByeLlista && !room.machines.has(room.biByeLlista.id)) candidates.push(room.biByeLlista);
           const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 6) || candidates[0];
           boarded=Boolean(target&&mountBiByeLlista(target,player,time));
@@ -833,13 +835,13 @@ export function applyRoomCommand(room, player, message, time) {
       }
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const fleet = getFleetMachines(room);
-      for(const f of fleet.filter(m => (m.class === 'fight-and-flight' || m.kind === 'flight') && !m.operatorId && m.health > 0)) {
+      for(const f of fleet.filter(m => getMachineKind(m) === 'flight' && !m.operatorId && m.health > 0)) {
         if(mountFightFlight(room,f,player,time)){player.practiceUiFocus=false;return {};}
       }
-      for(const ram of fleet.filter(m => (m.class === 'so-fist-ication' || m.kind === 'ram') && !m.operatorId && m.health > 0)) {
+      for(const ram of fleet.filter(m => getMachineKind(m) === 'ram' && !m.operatorId && m.health > 0)) {
         if(mountSoFistication(room,ram,player,time)){player.practiceUiFocus=false;return {};}
       }
-      for(const b of fleet.filter(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && !m.operatorId && m.health > 0)) {
+      for(const b of fleet.filter(m => getMachineKind(m) === 'ballista' && !m.operatorId && m.health > 0)) {
         if(mountBiByeLlista(b,player,time)){player.practiceUiFocus=false;return {};}
       }
       // A generic "approach a station" message concealed cockpit collisions,
@@ -858,7 +860,7 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingFightFlightId)return {rejected:'Land and dismount Fight-and-Flight first.'};
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       const b = (player.operatingBallistaId ? room.machines?.get(player.operatingBallistaId) : null)
-        || [...(room.machines?.values() ?? [])].find(m => (m.class === 'bi-bye-llista' || m.kind === 'ballista') && (!m.operatorId || m.operatorId === player.id))
+        || [...(room.machines?.values() ?? [])].find(m => getMachineKind(m) === 'ballista' && (!m.operatorId || m.operatorId === player.id))
         || room.biByeLlista;
       if (!b) return { rejected: 'No ballista available' };
       if (b.operatorId === player.id) {

@@ -63,7 +63,7 @@ function stepRamElevation(room,b,dt,now,world){
  nextLift=Math.max(nextLift,Math.min(startLift,neededLift));
  const deltaLift=nextLift-startLift,deltaPitch=nextPitch-startPitch;
  if(Math.abs(deltaLift)+Math.abs(deltaPitch)<1e-9)return;
- const machineSolids=getFleetHitVolumes(room, b.operatorId, now);
+ const machineSolids=getFleetHitVolumes(room, b.id, now);
  const actors=[...room.players.values()].filter(other=>
    other.alive&&other.id!==b.operatorId).map(other=>{
     const height=postureOf(other).height;
@@ -97,7 +97,7 @@ function stepRamElevation(room,b,dt,now,world){
   b.ramLiftBlockedAt=now;
  }
 }
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',class:'so-fist-ication',kind:'ram',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,recoilVelocity:0,steer:0,pressure:100,charging:false,chargeDirection:0,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),
  ramLiftY:0,ramElevPitch:0,ramLiftBlockedAt:null,fistMounted:true,
   flickAt:null,flickLastAge:0,flickContactUsed:false,flickOwnerId:null,
  detachedFist:null,fistRecoveryUntil:0,hellping:null,

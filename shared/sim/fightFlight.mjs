@@ -42,6 +42,7 @@ function collisionFree(p,solids,height=FIGHT_FLIGHT.height,radius=FIGHT_FLIGHT.r
 }
 export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=null,team=null}={}){
   return {id:id??'fight-flight-1',lifecycleId:lifecycleId??id??'fight-flight-1',
+    class:'fight-and-flight',kind:'flight',type:'fight-and-flight',
     operatorId:null,team,x,y,z,heading,position:{x,y,z},velocity:{x:0,y:0,z:0},
     mode:'GROUNDED',crouched:false,grounded:true,health:250,maxHealth:250,
     rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,rotorEpisodes:{},lastRotorDelta:0,

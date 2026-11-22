@@ -1,5 +1,5 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
-import { getFleetMachines, getFleetSolids, blastFleet } from './fleetGeometry.mjs';
+import { getFleetMachines, getFleetSolids, blastFleet, getMachineKind } from './fleetGeometry.mjs';
 import {ballistaMountReach} from '../src/siegeMountReach.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
@@ -162,6 +162,9 @@ export function createBiByeLlista(overrides = {}) {
   return {
     ...biByeWeaponState(conf.baseYaw),
     id: conf.id,
+    class: 'bi-bye-llista',
+    kind: 'ballista',
+    type: 'bi-bye-llista',
     x: conf.x,
     y: conf.y,
     z: conf.z,
@@ -913,7 +916,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
       const own = projectile.ballistaId === m.id;
       if (!own && projectile.ownerId && m.operatorId && areAllies(room, projectile.ownerId, m.operatorId)) continue;
       const assembly = own && nowSec - projectile.bornAt <= railClearTime + dt ? (projectile.subKind === 'conditioning' ? 'upper' : 'main') : null;
-      const mKind = m.class ?? m.kind;
+      const mKind = getMachineKind(m);
       let hit = null;
       let kind = 'machine';
       if (mKind === 'so-fist-ication' || mKind === 'ram') {
@@ -1019,13 +1022,18 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           // Explosion remains at the actual bolt; unchanged falloff and guard.
           const impactAt=nowSec-flightDt+flightDt*first.t;
           detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false,impactAt);
-          blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec);
+          const excludedMachines = [projectile.ballistaId];
+        if (first.targetMachine?.id) excludedMachines.push(first.targetMachine.id);
+        else if (first.kind === 'ram' && room.soFistication?.id) excludedMachines.push(room.soFistication.id);
+        else if (first.kind === 'flight' && room.fightFlight?.id) excludedMachines.push(room.fightFlight.id);
+        else if (first.kind === 'machine' && room.biByeLlista?.id) excludedMachines.push(room.biByeLlista.id);
+        blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec, excludedMachines);
           continue;
         }
         if(first.kind==='solid')damageStructureSolid(room,first.box,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{point:impactPoint});
         if(first.targetMachine){
           const tm=first.targetMachine;
-          const k=tm.class??tm.kind;
+          const k=getMachineKind(tm);
           if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
           else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
           else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
@@ -1034,7 +1042,12 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           if(first.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
           if(first.kind==='machine'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         }
-        blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec);
+        const excludedMachines = [projectile.ballistaId];
+        if (first.targetMachine?.id) excludedMachines.push(first.targetMachine.id);
+        else if (first.kind === 'ram' && room.soFistication?.id) excludedMachines.push(room.soFistication.id);
+        else if (first.kind === 'flight' && room.fightFlight?.id) excludedMachines.push(room.fightFlight.id);
+        else if (first.kind === 'machine' && room.biByeLlista?.id) excludedMachines.push(room.biByeLlista.id);
+        blastFleet(room, { point: impactPoint, radius: projectile.blastRadius, damage: projectile.directDamage }, projectile.ownerId, 'bibye-conditioning', nowSec, excludedMachines);
         detonateFrostBlast(room, projectile, impactPoint, nowSec, hitPlayer?.id, world, Boolean(first.parryContact));
         continue;
       }
@@ -1050,7 +1063,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           if(hit.kind==='solid')damageStructureSolid(room,hit.box,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{point:hit.point});
           if(hit.targetMachine){
             const tm=hit.targetMachine;
-            const k=tm.class??tm.kind;
+            const k=getMachineKind(tm);
             if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
             else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
             else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
@@ -1059,7 +1072,12 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
             if(hit.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
             if(hit.kind==='machine'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
           }
-          blastFleet(room,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec);
+          const excludedMachines = [projectile.ballistaId];
+          if (hit.targetMachine?.id) excludedMachines.push(hit.targetMachine.id);
+          else if (hit.kind === 'ram' && room.soFistication?.id) excludedMachines.push(room.soFistication.id);
+          else if (hit.kind === 'flight' && room.fightFlight?.id) excludedMachines.push(room.fightFlight.id);
+          else if (hit.kind === 'machine' && room.biByeLlista?.id) excludedMachines.push(room.biByeLlista.id);
+          blastFleet(room,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec,excludedMachines);
           room.bibyeProjectiles.delete(projectile.id);
           projectileTerminated = true;
 
@@ -1219,6 +1237,18 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
     directVictimId,
     at: nowSec,
   });
+
+  const processedFlight = new Set();
+  for (const m of getFleetMachines(room)) {
+    const k = m.class ?? m.kind;
+    if (k === 'flight' || k === 'fight-and-flight') {
+      processedFlight.add(m.id);
+      frostBlastFlight(room, m, projectile, point, nowSec, world);
+    }
+  }
+  if (room.fightFlight && !processedFlight.has(room.fightFlight.id)) {
+    frostBlastFlight(room, room.fightFlight, projectile, point, nowSec, world);
+  }
 
   for (const victim of room.players.values()) {
     if (!victim.alive || victim.spawnProtectionUntil > nowSec) continue;

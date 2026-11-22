@@ -109,10 +109,12 @@ export function raycastFleet(room, from, to, options = {}) {
 /**
  * Applies area damage/blast to all machines within radius.
  */
-export function blastFleet(room, blast, attackerId, source, nowSec) {
+export function blastFleet(room, blast, attackerId, source, nowSec, excludeMachineIds = []) {
   const { point, radius, damage } = blast;
+  const excluded = Array.isArray(excludeMachineIds) ? excludeMachineIds : (excludeMachineIds ? [excludeMachineIds] : []);
   for (const m of getFleetMachines(room)) {
     if (m.health <= 0 || m.retired) continue;
+    if (excluded.includes(m.id)) continue;
     if (attackerId && m.operatorId && areAllies(room, attackerId, m.operatorId)) continue;
 
     const kind = getMachineKind(m);

@@ -1,5 +1,5 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
-import { getFleetMachines, getFleetSolids, getFleetHitVolumes, raycastFleet, blastFleet } from './fleetGeometry.mjs';
+import { getFleetMachines, getFleetSolids, getFleetHitVolumes, raycastFleet, blastFleet, getMachineKind } from './fleetGeometry.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
 import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
@@ -2065,7 +2065,9 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
+  const excludedMachines = [];
   if (directTargetMachine) {
+    excludedMachines.push(directTargetMachine.id);
     const kind = directTargetMachine.class ?? directTargetMachine.kind;
     const compId = directComponent || directRamComponent;
     if (kind === 'fight-and-flight' || kind === 'flight') {
@@ -2076,10 +2078,16 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       damageBiByeLlista(room, directTargetMachine, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: compId, point });
     }
   } else {
-    if (directRamComponent && room.soFistication) damageSoFistication(room, room.soFistication, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directRamComponent, point });
-    if (directComponent && room.biByeLlista) damageBiByeLlista(room, room.biByeLlista, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directComponent, point });
+    if (directRamComponent && room.soFistication) {
+      excludedMachines.push(room.soFistication.id);
+      damageSoFistication(room, room.soFistication, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directRamComponent, point });
+    }
+    if (directComponent && room.biByeLlista) {
+      excludedMachines.push(room.biByeLlista.id);
+      damageBiByeLlista(room, room.biByeLlista, spell.directDamage, projectile.ownerId, spell.id, nowSec, { componentId: directComponent, point });
+    }
   }
-  blastFleet(room, { point, radius: spell.radius, damage: spell.directDamage }, projectile.ownerId, spell.id, nowSec);
+  blastFleet(room, { point, radius: spell.radius, damage: spell.directDamage }, projectile.ownerId, spell.id, nowSec, excludedMachines);
 
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
@@ -2499,7 +2507,7 @@ function oneHitSiegeContact(room,caster,point,radius,tiers,nowSec,yaw=null,direc
   const seen=room.oneHitSiegeContacts??=new Map();
   if(seen.size>128)seen.clear();
   const amount=Math.max(1,Math.round(oneHitDamage(tiers,ONE_HIT_BASE_DAMAGE)*.65));
-  const machines = getFleetMachines(room).map(m => [m, (m.class === 'so-fist-ication' || m.kind === 'ram') ? 'ram' : (m.class === 'bi-bye-llista' || m.kind === 'ballista') ? 'ballista' : 'flight']);
+  const machines = getFleetMachines(room).map(m => [m, getMachineKind(m)]);
   for(const [machine,kind] of machines) {
     if(!machine||machine.retired||machine.mode==='DESTROYED'||!(machine.health>0))continue;
     // The rider's own platform remains friendly even in FFA/Practice when
@@ -4130,7 +4138,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
   const fleet = getFleetMachines(room);
-  for (const flight of fleet.filter(m => m.class === 'fight-and-flight' || m.kind === 'flight')) {
+  for (const flight of fleet.filter(m => getMachineKind(m) === 'flight')) {
     if (!isOthersFreeze || flight.operatorId === activeActorId) {
       stepTerminalPreparation(room, flight, nowSec);
       stepFlightRun(room, flight, dt, nowSec);
@@ -4154,14 +4162,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       if (op) recordTransform(op, nowSec);
     }
   }
-  for (const ram of fleet.filter(m => m.class === 'so-fist-ication' || m.kind === 'ram')) {
+  for (const ram of fleet.filter(m => getMachineKind(m) === 'ram')) {
     if (!isOthersFreeze || ram.operatorId === activeActorId) {
       stepSoFistication(room, ram, dt, nowSec, world);
       const op = room.players.get(ram.operatorId);
       if (op) recordTransform(op, nowSec);
     }
   }
-  for (const ballista of fleet.filter(m => m.class === 'bi-bye-llista' || m.kind === 'ballista')) {
+  for (const ballista of fleet.filter(m => getMachineKind(m) === 'ballista')) {
     if (!isOthersFreeze || ballista.operatorId === activeActorId) {
       stepBiByeLlista(room, ballista, dt, nowSec);
     }
@@ -4185,14 +4193,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // bolts and spells. Add only that steel body to projectile geography;
     // vehicle components already have their own authoritative hit systems.
     const detachedSolids = [];
-    for (const ram of fleet.filter(m => m.class === 'so-fist-ication' || m.kind === 'ram')) {
+    for (const ram of fleet.filter(m => getMachineKind(m) === 'ram')) {
       const fist = detachedRamFistSolid(ram);
       if (fist) detachedSolids.push(fist);
     }
     const projectileWorld = detachedSolids.length ? { ...world, solids: [...(world.solids ?? []), ...detachedSolids] } : world;
     stepProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
     stepFightFlightProjectiles(room,dt,nowSec,projectileWorld,{filterOwnerId});
-    if (room.biByeLlista) {
+    if ((room.bibyeProjectiles && room.bibyeProjectiles.size > 0) || room.biByeLlista) {
       stepBiByeProjectiles(room, dt, nowSec, projectileWorld, { filterOwnerId });
     }
   } else {

@@ -26,6 +26,7 @@ import { createObjectiveState } from './objectives.mjs';
 import { modeCall } from './modeRuntime.mjs';
 import { createHighGroundsState, availableHighGroundsSpawns, finishHighGroundsOnTime } from './highGroundsMode.mjs';
 import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
+import { getMachineKind } from './fleetGeometry.mjs';
 import { createEdgeOfVictoryState, edgeSpawnOrder, eliminateEdgePlayer, updateEdgeSurvivors } from './edgeOfVictory.mjs';
 
 const COUNTDOWN_SEC = 3;
@@ -121,7 +122,7 @@ function scoreFields() {
 
 export class Room {
   get soFistication() {
-    return this._legacySoFistication ?? [...this.machines.values()].find(m => m.class === 'so-fist-ication' || m.kind === 'ram') ?? null;
+    return this._legacySoFistication ?? [...this.machines.values()].find(m => getMachineKind(m) === 'ram') ?? null;
   }
   set soFistication(val) {
     if (this._legacySoFistication && this.machines?.has(this._legacySoFistication.id)) {
@@ -135,7 +136,7 @@ export class Room {
   }
 
   get biByeLlista() {
-    return this._legacyBiByeLlista ?? [...this.machines.values()].find(m => m.class === 'bi-bye-llista' || m.kind === 'ballista') ?? null;
+    return this._legacyBiByeLlista ?? [...this.machines.values()].find(m => getMachineKind(m) === 'ballista') ?? null;
   }
   set biByeLlista(val) {
     if (this._legacyBiByeLlista && this.machines?.has(this._legacyBiByeLlista.id)) {
@@ -149,7 +150,7 @@ export class Room {
   }
 
   get fightFlight() {
-    return this._legacyFightFlight ?? [...this.machines.values()].find(m => m.class === 'fight-and-flight' || m.kind === 'flight') ?? null;
+    return this._legacyFightFlight ?? [...this.machines.values()].find(m => getMachineKind(m) === 'flight') ?? null;
   }
   set fightFlight(val) {
     if (this._legacyFightFlight && this.machines?.has(this._legacyFightFlight.id)) {
@@ -164,17 +165,17 @@ export class Room {
 
   addMachine(machine) {
     if (!machine) return null;
+    const kind = getMachineKind(machine);
     if (!machine.id) {
       this.machineCounter = (this.machineCounter ?? 0) + 1;
-      machine.id = `${machine.class ?? machine.kind ?? 'machine'}-${this.code ?? 'room'}-${this.machineCounter}`;
+      machine.id = `${kind}-${this.code ?? 'room'}-${this.machineCounter}`;
     }
     this.machines.set(machine.id, machine);
-    const kind = machine.class ?? machine.kind;
-    if ((kind === 'so-fist-ication' || kind === 'ram') && !this._legacySoFistication) {
+    if (kind === 'ram' && !this._legacySoFistication) {
       this._legacySoFistication = machine;
-    } else if ((kind === 'bi-bye-llista' || kind === 'ballista') && !this._legacyBiByeLlista) {
+    } else if (kind === 'ballista' && !this._legacyBiByeLlista) {
       this._legacyBiByeLlista = machine;
-    } else if ((kind === 'fight-and-flight' || kind === 'flight') && !this._legacyFightFlight) {
+    } else if (kind === 'flight' && !this._legacyFightFlight) {
       this._legacyFightFlight = machine;
     }
     return machine;
@@ -213,12 +214,12 @@ export class Room {
     if (!player) return;
     for (const m of this.machines.values()) {
       if (m.operatorId === player.id) {
-        const kind = m.class ?? m.kind;
-        if (kind === 'so-fist-ication' || kind === 'ram') {
+        const kind = getMachineKind(m);
+        if (kind === 'ram') {
           dismountSoFistication(this, m, player, { force: true });
-        } else if (kind === 'bi-bye-llista' || kind === 'ballista') {
+        } else if (kind === 'ballista') {
           dismountBiByeLlista(m, player, isDisconnect, this.world);
-        } else if (kind === 'fight-and-flight' || kind === 'flight') {
+        } else if (kind === 'flight') {
           dismountFightFlight(this, m, player, { force: true, at: nowSec });
         }
       }
@@ -257,7 +258,7 @@ export class Room {
     this.ruptures = [];
   }
 
-  constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP, teamSize = null } = {}) {
+  constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP, teamSize = null, ...settings } = {}) {
     this.code = code;
     this.machines = new Map();
     this.roundGeneration = 0;
@@ -270,10 +271,11 @@ export class Room {
     this.sharedPracticeHostId=null;
     this.mode = mode;
     this.policy = { ...getModePolicy(mode) };
-    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3) && !this.policy.fixedTeamSize) {
+    if (this.policy.teamMode && (teamSize === 1 || teamSize === 2 || teamSize === 3) && !this.policy.fixedTeamSize) {
       this.policy.teamSize = teamSize;
       this.policy.botCount = teamSize * 2 - 1;
     }
+    this.siegeBladesSettings = settings.siegeBladesSettings ?? (mode === GAME_MODES.SIEGE_BLADES ? settings : null);
     this.worldId = worldId;
     this.world = getWorld(worldId);
     this.structures = createStructureState(this.world);
@@ -388,7 +390,7 @@ export class Room {
       if (!['WAITING', 'COUNTDOWN'].includes(this.state)) return 'A battle in progress cannot accept new competitors.';
       return this.players.size < 4 ? null : 'Room is full.';
     }
-    if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY].includes(this.mode)
+    if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.SIEGE_BLADES].includes(this.mode)
       && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room is not joinable by invitation.';
     if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
     if (this.mode === GAME_MODES.PRACTICE && this.sharedPractice)
@@ -668,7 +670,7 @@ export class Room {
     if (this.state !== 'WAITING' || playerId !== this.hostId() || !this.players.get(playerId)?.connected) return 'Only the room host may change settings before the countdown.';
     const settings = roomSettings(this, patch);
     if (settings.error) return settings.error;
-    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(settings.mode) ? settings.teamSize * 2 : settings.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) return 'Too many Spellblades for that team size.';
+    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'SIEGE_BLADES'].includes(settings.mode) ? settings.teamSize * 2 : settings.mode === GAME_MODES.EDGE_OF_VICTORY ? 4 : 8)) return 'Too many Spellblades for that team size.';
     const world = getWorld(settings.worldId);
     const previousMode=this.mode;
     // Everything is validated before actors or geometry change.
