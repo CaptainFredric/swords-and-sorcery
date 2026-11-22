@@ -8,6 +8,12 @@ import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
 import { MountedSwordArm } from './mountedSwordArm.mjs';
 import { GESTURE_ARMS, PALM_REACH } from './spellbladeGestures.mjs';
 import { solveArm } from './swordArmIK.mjs';
+import { alignRiposteBraceBlade } from './riposteBracePresentation.mjs';
+
+// a Sword Technique's clips (third person); how long the pose it is entered from takes to die away (a Whirl's spin
+// carries the sword round at once, so it is let into it a little longer; scripts/sword-loop-audit.mjs emulates both)
+const TECHNIQUE_CLIP = /^Technique_/;
+const TECHNIQUE_ENTRY_SEC = 0.14, WHIRL_ENTRY_SEC = 0.2;
 import { SPELL_HAND } from './spellHand.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
@@ -442,7 +448,11 @@ export class SpellbladeAnimator {
       this.composition.release(['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
       this.composing = false;
     }
-    // The mixer may skip an unchanged binding. Restore its underlying sample before blending the exit again.
+    // The mixer may skip an unchanged binding. Restore its underlying sample before blending the exit again. (The
+    // procedural layer's bones first: restored after, they put back last frame's corrected pose, which the blend-out
+    // then took for the clip's and corrected again, every frame; the arm drifted up to 167 degrees from the clip and
+    // snapped back as the blend ended, 2026-11-19.)
+    this.#restoreTouched();
     this.composition.restoreBase();
     const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
     if(plan?.requiredClip&&clip!==plan.clip){
@@ -460,7 +470,19 @@ export class SpellbladeAnimator {
       // (a plan may name its own hand-over: one strike's follow-through into the next one's raise)
       // (a plan's own hand-over applies from the clip it names, blendFrom; from anything else, the ordinary cross-fade)
       const own = Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.activeClip);
-      const duration = step > 0 && this.activeAction ? (own ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
+      let duration = step > 0 && this.activeAction ? (own ? plan.blend : blendSeconds(this.activeClip, plan.clip)) : 0;
+      // A Sword Technique entered from anything else is inertialized, not cross-faded: the pose on screen is taken
+      // once, its difference from the technique's first frame is fixed bone by bone, and that difference dies away
+      // while the clip plays on as authored (spellbladeComposition's blend-out, as a moving knight's hand-over is).
+      // A cross-fade weighs the two poses afresh every frame; Candidate v3's Riposte Enter turns the forearm some 130
+      // degrees in 0.08 s, so out of a Guard just let go the two came to face opposite ways part way through and the
+      // blend flipped to the other side: the point jumped 1.5 to 2 m in a frame (2026-11-19).
+      if (duration > 0 && TECHNIQUE_CLIP.test(plan.clip) && !TECHNIQUE_CLIP.test(this.activeClip ?? '')) {
+        this.#restoreTouched();
+        // (a plan may say how long: a Riposte out of a Guard finishes its entry on the server's clock)
+        this.composition.release(Number.isFinite(plan.entrySec) ? plan.entrySec : Math.max(duration, /Whirl/.test(plan.clip) ? WHIRL_ENTRY_SEC : TECHNIQUE_ENTRY_SEC), { space: 'model' });
+        duration = 0;
+      }
       let startProgress = 0;
       if (duration > 0) {
         // every outgoing clip restarts its fade from the weight it has right now, so a switch in the middle of a
@@ -530,9 +552,16 @@ export class SpellbladeAnimator {
     this.mixer.update(0);
     this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
-    // (a machine's pose comes after this: its own apply* draws the character layer over it)
-    // (a machine's own pose applies it after its own, on the machine's path)
-      if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
+    // A machine's own pose applies its character layer after mounting.
+    if (!plan.ramMounted && !plan.flightMounted && !plan.mounted) this.#applyCharacter();
+    if (plan.braceBlade) {
+      this.root.updateMatrixWorld(true);
+      _rootInv.copy(this.root.matrixWorld).invert();
+      this.root.getWorldQuaternion(_rootQuatInv).invert();
+      const entry = this.composition.out;
+      const settled = entry ? Math.min(1, entry.elapsed / entry.duration) : 1;
+      alignRiposteBraceBlade(this.boneApi, plan.braceBlade, settled);
+    }
     this.#followPauldrons();
     this.cloth?.apply(step);
     this.onPose?.(plan);

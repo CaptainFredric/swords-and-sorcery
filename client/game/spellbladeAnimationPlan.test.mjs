@@ -39,12 +39,13 @@ test('a chain begun Sundering plays every strike as the heavy slam, each at its 
 test('cast timing comes from the authoritative cast window start', () => {
   const plan = resolveSpellbladeAnimationPlan({
     state: 'cast',
-    player: { castPoseStartAt: 5 },
+    player: { castPoseStartAt: 5, castPoseReleaseAt: 5.3 },
     serverNow: 5.22,
     localTime: 88,
   });
   assert.equal(plan.clip, 'Cast');
-  close(plan.time, 0.22);
+  close(plan.time, 0.44);
+  assert.equal(plan.normalized, true);
   assert.equal(plan.loop, false);
 });
 
@@ -399,4 +400,19 @@ test('the held Full Lightning aim loops its authored charge, in the air and on t
   assert.equal(plan(false,60.2).clip,'AllNatural_Lightning_Charge_Air');
   assert.equal(plan(true,10.3).clip,'AllNatural_Lightning_Charge_Ground');
   assert.equal(plan(true,10.3).fallback,'Slash_3','and a model without it keeps the raised heavy strike');
+});
+
+test('a Guard or a cast on the move keeps the legs in their gait; standing, the clip has the whole body', () => {
+  const running = { velocity: { x: 0, y: 0, z: -7.5 }, castPoseStartAt: 1 };
+  for (const state of ['guard', 'cast']) {
+    const clip = state === 'guard' ? 'Guard' : 'Cast';
+    const moving = resolveSpellbladeAnimationPlan({ state, player: running, serverNow: 1.1, localTime: 3 });
+    assert.equal(moving.layers.locomotion.clip, 'Run', `${state}: the legs run`);
+    for (const owner of ['posture', 'sword', 'sorcery']) assert.equal(moving.layers[owner].clip, clip, `${state}: ${owner}`);
+    const sprinting = resolveSpellbladeAnimationPlan({ state, player: { ...running, sprinting: true }, serverNow: 1.1, localTime: 3 });
+    assert.equal(sprinting.layers.locomotion.clip, 'Sprint');
+    const standing = resolveSpellbladeAnimationPlan({ state, player: { velocity: { x: 0.3, y: 0, z: 0 }, castPoseStartAt: 1 }, serverNow: 1.1, localTime: 3 });
+    assert.equal(standing.clip, clip);
+    assert.equal(standing.layers, undefined, `${state}: standing, the whole body`);
+  }
 });

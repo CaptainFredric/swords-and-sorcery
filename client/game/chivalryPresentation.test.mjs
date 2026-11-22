@@ -8,7 +8,7 @@ import { canPresentLocalAction, localWeaponReleaseForEvent } from './localAction
 
 const active = {
   alive: true, guarding: true, guardStamina: 90, attackActive: true, attackStartedAt: 10,
-  velocity: { x: 0, y: 0, z: -7 }, dashUntil: 10.5, castPoseStartAt: 10.1, castPoseUntil: 10.7,
+  velocity: { x: 0, y: 0, z: -7 }, dashUntil: 10.5, castPoseStartAt: 10.1, castPoseReleaseAt: 10.4, castPoseUntil: 10.66,
   preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', commitAt: 9.9, until: 18.9 },
 };
@@ -21,7 +21,8 @@ test('all four authored ownership channels coexist at their original accepted cl
   assert.equal(plan.layers.sword.clip, 'GuardCut_1');
   assert.equal(plan.layers.sorcery.clip, 'Cast');
   assert.ok(Math.abs(plan.layers.sword.time - 0.2) < 1e-9);
-  assert.ok(Math.abs(plan.layers.sorcery.time - 0.1) < 1e-9);
+  assert.ok(Math.abs(plan.layers.sorcery.time - 0.2) < 1e-9);
+  assert.equal(plan.layers.sorcery.normalized, true);
   for (const change of [{ guarding: false }, { dashUntil: 0 }, { castPoseUntil: 0 }]) {
     const sword = planFor({ ...active, ...change }).layers.sword;
     assert.equal(sword.time, plan.layers.sword.time, 'ordinary action changes preserve strike clock');

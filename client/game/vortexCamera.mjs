@@ -45,6 +45,14 @@ export function chaseWanted(knight, serverNow, vortex = ULTIMATES.vortex) {
   return serverNow >= state.commitAt && serverNow < (state.until ?? state.commitAt + vortex.activeSec);
 }
 
+/** Whirl uses the chase view throughout the move, including the visible exit. */
+export function whirlCameraWanted(knight, serverNow) {
+  if (!knight?.alive || knight.operatingBallistaId || knight.operatingRamId || knight.operatingFightFlightId) return false;
+  const action = knight.swordTechnique;
+  return action?.id === 'whirl_wind' && serverNow >= (action.initialStartedAt ?? action.startedAt)
+    && serverNow < (action.until ?? action.endsAt ?? Infinity);
+}
+
 /** How far out the view is (0: in the helm; 1: all the way out), `dt` seconds on: out quickly, back in a little slower. */
 export function stepChase(blend, wanted, dt, rules = VORTEX_CAMERA) {
   const now = Math.max(0, Math.min(1, Number(blend) || 0));

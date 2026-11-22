@@ -56,6 +56,10 @@ export function createEmblemBanner(root) {
 
   let wanted = null;
   const defaultBack = (banner, id) => {
+    if (banner.material.userData.grimoireleeBaked) {
+      banner.material.map = banner.base;
+      return;
+    }
     grimoireleeClothTexture(banner.mesh, banner.base).then((texture) => {
       if (!disposed && wanted === id) banner.material.map = texture;
     }).catch(() => {});

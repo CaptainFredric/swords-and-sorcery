@@ -1,4 +1,4 @@
-import { concurrentPresentation } from './spellbladePose.mjs';
+import { castClipPhase, concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
@@ -6,10 +6,12 @@ import { disasterHolding, disasterWindupSec } from './oneHitCamera.mjs';
 import { ONE_HIT_AERIAL_DURATION } from '../../shared/src/oneHitInfusions.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
+import { RIPOSTE_BRACE_SEC, RIPOSTE_RECENT_GUARD_SEC, riposteBraceBlade } from './riposteBracePresentation.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
 const RESPAWN_SEC = 3;
+const WALK_REFERENCE_SPEED = 1.9;
 // Guard: frames 1-8 raise the guard, frames 8-56 are a breathing hold that loops (30 fps)
 export const GUARD_HOLD_START = 8 / 30;
 export const GUARD_HOLD_SECONDS = 48 / 30;
@@ -25,6 +27,12 @@ function nonNegative(value) {
 
 function fixed(clip, time = 0, loop = false) {
   return { clip, time: nonNegative(time), loop, weight: 1 };
+}
+
+function castPlan(player, now) {
+  const start = finite(player.castPoseStartAt, now);
+  const release = finite(player.castPoseReleaseAt, start + 0.3);
+  return { ...fixed('Cast', castClipPhase(now, start, release)), normalized: true, actionKey: start };
 }
 
 // the heavy strike's contact, this far into Slash_3 (its slot begins at the chain's third start)
@@ -198,7 +206,7 @@ function disasterPlan(player, serverNow) {
 // Animation clips share the action's authoritative clock. Enter is blended
 // into the EXISTING 0.22 s Rigid interception and first 0.6 s Whirl, never
 // inserted as extra startup. The supplied GLBs must be shipped separately.
-const RIPOSTE_BRACE_SEC=.22, RIPOSTE_ENTER_CLIP_SEC=.1;
+const RIPOSTE_ENTER_CLIP_SEC=.1, RIPOSTE_GUARD_REJOIN_SEC=.133;
 // Where the authored brace (Enter, then Interception: seconds through the two) is, each moment of the server's
 // brace: fitted to the server's own samples of the blade (swordTechniqueContracts.mjs), which bring the sword up
 // fast and then carry it across. server/tests/spellblade-motion-sidecar.test.mjs holds the two together.
@@ -214,14 +222,14 @@ export function riposteBraceClipTime(age){
 }
 // A technique begun as the Guard comes down (within this long of the knight last being seen guarding): the sword is
 // still on its way down from overhead, the furthest it can be from where a technique wants it.
-const TECHNIQUE_OUT_OF_GUARD_SEC=.3;
+
 export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false, grounded=true, guardSeenAt=null) {
   if(!action)return null;
   const clipPrefix=firstPerson?'FP_':'';
   const age=Math.max(0,serverNow-(action.startedAt??serverNow));
   const key=action.initialStartedAt??action.startedAt;
   const began=action.initialStartedAt??action.startedAt??serverNow;
-  const outOfGuard=Number.isFinite(guardSeenAt)&&began-guardSeenAt<=TECHNIQUE_OUT_OF_GUARD_SEC&&began-guardSeenAt>=-.05;
+  const outOfGuard=Number.isFinite(guardSeenAt)&&began-guardSeenAt<=RIPOSTE_RECENT_GUARD_SEC&&began-guardSeenAt>=-.05;
   const clip=(name,at,extra={})=>({
     // (how each clip is eased into is the animator's: spellbladeBlend.mjs knows what it is coming from)
     ...fixed(clipPrefix+name,at),actionKey:key,
@@ -240,6 +248,15 @@ export function swordTechniqueAnimationPlan(action, serverNow, firstPerson=false
     // the server's, untouched: the brace still ends, and the thrust still begins, at 0.22 s.
     if(age<RIPOSTE_BRACE_SEC){
       const authored=riposteBraceClipTime(age);
+      // The sword is already raised out of Guard. Blend into a held brace pose past the forearm roll,
+      // then rejoin the contact-aligned clip clock before the late interception.
+      if(outOfGuard&&!firstPerson){
+        const time=riposteBraceClipTime(Math.max(age,RIPOSTE_GUARD_REJOIN_SEC))-RIPOSTE_ENTER_CLIP_SEC;
+        return clip('Technique_RigidRiposte_Interception',time,{
+          entrySec:Math.max(.10,RIPOSTE_GUARD_REJOIN_SEC-age),
+          braceBlade:riposteBraceBlade(age),
+        });
+      }
       return authored<RIPOSTE_ENTER_CLIP_SEC?clip('Technique_RigidRiposte_Enter',authored)
         :clip('Technique_RigidRiposte_Interception',authored-RIPOSTE_ENTER_CLIP_SEC);
     }
@@ -292,7 +309,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const attack = { ...attackPlan(player, serverNow, { guarded: true }), actionKey: player.attackStartedAt };
     const defensive = { ...attack, clip: attack.clip.replace('Slash_', 'GuardCut_'), fallback: attack.clip };
     const cut = layers.guard ? defensive : attack;
-    const cast = { ...fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), actionKey: player.castPoseStartAt };
+    const cast = castPlan(player, serverNow);
     const locomotion = layers.dash
       ? fixed('Dash', serverNow - (finite(player.dashUntil, serverNow) - MOVEMENT.dashDuration))
       : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
@@ -343,7 +360,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   }
 
   if (state === 'cast') {
-    return fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow));
+    return onTheMove(player, castPlan(player, serverNow), serverNow, localTime);
   }
 
   if (state === 'dash') {
@@ -363,12 +380,28 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   }
 
   // The guard stays raised but breathes: loop the hold section on the local clock.
-  if (state === 'guard') return fixed('Guard', guardHoldTime(localTime));
+  if (state === 'guard') return onTheMove(player, fixed('Guard', guardHoldTime(localTime)), serverNow, localTime);
   // the air pose follows the jump: take-off at the start of the clip, falling toward its end
   if (state === 'air') return { ...fixed('Air', airPhase(player.velocity?.y)), normalized: true };
   if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run', rate: strideRate(player, SPRINT.speed) };
-  if (state === 'run') return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
+  if (state === 'run') {
+    const speed = Math.hypot(finite(player.velocity?.x), finite(player.velocity?.z));
+    if (player.grounded !== false && !player.crouched && speed > 0.8 && speed <= WALK_REFERENCE_SPEED * 1.2) {
+      return { ...fixed('Walk', localTime, true), fallback: 'Run', rate: strideRate(player, WALK_REFERENCE_SPEED) };
+    }
+    return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
+  }
   return fixed('Idle', idleTime(localTime), true);
+}
+
+// A Guard or a cast on the move: the legs keep their gait (or the air's pose) under it, as a moving strike's do. The
+// whole-body clip has its feet planted, and a guarding knight moves at the full running pace: played whole, those
+// planted feet skated along under him. Standing, the clip keeps the whole body.
+function onTheMove(player, upper, serverNow, localTime) {
+  const moving = locomotionState(player);
+  if (moving === 'idle') return upper;
+  const locomotion = resolveSpellbladeAnimationPlan({ state: moving, player, serverNow, localTime });
+  return { ...locomotion, layers: { locomotion, posture: upper, sword: upper, sorcery: upper }, moving: true };
 }
 
 // stride cadence follows ground speed (the sprint builds up), so feet do not skate
