@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createConductDischarge, updateConductAppearance, ConductHandEffects } from './ConductVisuals.mjs';
 import { DisasterElementEffects } from './DisasterElementEffects.mjs';
-import { windbladePosition, windbladeSurfacePoint } from './disasterWavePresentation.mjs';
+import { windbladePosition, windbladeSurfacePoint, windbladeLevelBasis } from './disasterWavePresentation.mjs';
 import { groundFootprintWarp, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import {makeWakeVisual, updateWakeVisual, disposeWakeVisual} from './disasterWakeGeometry.mjs';
 
@@ -254,7 +254,7 @@ export class OneHitLiveEffects {
         this.root.add(mesh);
         this.wakeTrails.set(field.id,mesh);
       }
-      updateWakeVisual(mesh,field,fieldStrength(field,now));
+      updateWakeVisual(mesh,field,fieldStrength(field,now),this.visualClock);
     }
     for(const [id,mesh] of this.wakeTrails)if(!seen.has(id)){
       disposeWakeVisual(mesh);
@@ -433,7 +433,11 @@ export class OneHitLiveEffects {
       mesh.position.set(rendered.x,rendered.y,rendered.z);
       if(mesh.userData.snapshot!==snapshot?.serverTime){
         mesh.userData.snapshot=snapshot?.serverTime;
-        mesh.quaternion.setFromUnitVectors(Z,v(wave.direction).normalize());
+        // The broad axis stays level even on rising, falling and vertical shots.
+        const basis=windbladeLevelBasis(wave.direction,mesh.userData.levelRight);
+        mesh.userData.levelRight=basis.right;
+        mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+          v(basis.right),v(basis.up),v(basis.forward)));
       }
       // Use the same smooth, bounded flight prediction for the pressure
       // sheet and all particles. Impact still removes it at server contact.
