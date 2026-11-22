@@ -28,17 +28,15 @@ export const SIEGE_DIFFICULTIES=Object.freeze({
   skilled:Object.freeze({reaction:.23,lead:.78,preferred:19,skill:'champion',error:.012}),
   formidable:Object.freeze({reaction:.10,lead:1,preferred:21,skill:'spellblade',error:0}),
 });
-// A Sharp Turn is the ballista's innate physical bow attack, NOT a fourth
-// equipped Skill. The selection emphasizes that maneuver while the operator
-// keeps the legitimate default Bolt to the Occasion equipment.
+// A Sharp Turn belongs to every ballista, independent of equipped Skills.
 const SLOT=Object.freeze({'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight'});
 export const PRACTICE_SIEGE_SKILL_CHOICES=Object.freeze(Object.fromEntries(
   Object.entries(SLOT).map(([machine,slot])=>[machine,Object.freeze([
-    'auto',...SIEGE_SKILL_OPTIONS[slot],...(slot==='biBye'?['aSharpTurn']:[]),
+    'auto',...SIEGE_SKILL_OPTIONS[slot],
   ])])));
 export function practiceOperatorSkill(machine,choice='auto'){
   if(!PRACTICE_SIEGE_SKILL_CHOICES[machine]?.includes(choice))return null;
-  return choice==='auto'||choice==='aSharpTurn'
+  return choice==='auto'
     ?SIEGE_LOADOUT_DEFAULT[SLOT[machine]]:choice;
 }
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -248,10 +246,8 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
   const los=!blocked(room,at,target.position);
   const desired=aimInput(at,target,ai,tuning,48);
-  const focus=a.practiceSiegeOperator?.skill??'auto';
-  // A Sharp Turn is a melee maneuver, so a pilot set to practice it actually
-  // closes to blade reach rather than camping at ordinary bolt distance.
-  const sweepFocus=focus==='aSharpTurn'||focus==='lookAroundAndFindOut';
+  // Close threats get the innate sweep; equipping a Skill never replaces it.
+  const sweepFocus=m.skill?.id==='lookAroundAndFindOut';
   // Cold is a pre-shot enhancement. A mobile operator may legitimately
   // activate it BEFORE deploying stabilizers; doing it afterward can miss
   // the entire exposure window while the outriggers are moving.
@@ -291,7 +287,7 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     ai.nextSweepAt=now+(problem?1.25:4.5);
     if(!problem)return;
   }
-  if(competent&&d<=(focus==='aSharpTurn'?3.65:3.4)&&
+  if(competent&&d<=3.4&&
     now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'){
     // A Sharp Turn is available on any equipped ballista. It physically
     // checks its entire bow sweep against terrain and machinery, spends the
