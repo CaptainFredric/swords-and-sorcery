@@ -318,20 +318,27 @@ function ballistefan(room,a,m,target,ai,tuning,now){
     setBiByeWeaponFocus(m,'MAIN',now);
     if(fireBiByeFullVolley(room,m,now))ai.lastVolleyAt=now;
   }else if(now>=(m.smallBoltReadyAt??0)&&m.mobileShotPendingAt==null&&
-    m.skill?.phase==='idle'&&Math.abs(difference(desired.yaw,m.upperYaw??m.heading))<.25){
+    (m.skill?.phase==='idle'||m.skill?.id==='coldHowTouching'&&m.skill?.phase==='active')&&
+    Math.abs(difference(desired.yaw,m.upperYaw??m.heading))<.25){
     setBiByeWeaponFocus(m,'UPPER',now);
     if(fireBiByeMobile(room,m,now))ai.lastShotIAt=now;
   }
 }
 function uppercuff(room,a,m,target,ai,tuning,now){
   const d=dist({x:m.x,z:m.z},target.position);
-  const approach=drive(room,m,target,ai,tuning,{ideal:2.8,deadZone:1.2,reverse:true});
+  const recoveringFist=m.skill?.id==='longArmToTheJaw'&&
+    m.detachedFist?.state==='resting';
+  const destination=recoveringFist
+    ?{position:m.detachedFist.position,velocity:{}}:target;
+  const approach=drive(room,m,destination,ai,tuning,{
+    ideal:recoveringFist?1.2:2.8,deadZone:recoveringFist?.45:1.2,
+    reverse:!recoveringFist});
   // Commit an actual approach *through* the piston release window. Retreat
   // only after the fist has passed its physical contact point, not as the
   // machine begins the windup (which previously pulled every clean hit away).
   if(m.strikeAt!=null&&now-m.strikeAt<1.1){
     approach.forward=.82;approach.right=clamp(-approach.err*.42,-.5,.5);
-  }else if(d<3.8){
+  }else if(d<3.8&&!recoveringFist){
     approach.forward=-.8;approach.right=clamp(-approach.err*.5,-1,1);
   }
   const forwardFacing=Math.abs(approach.err)<.5;
