@@ -93,10 +93,12 @@ function overlaps(a,b){
 }
 export function biByeTerrainClear(b,ctx){
  const volumes=biByeHitVolumes(b);
+ // (which solids are low drivable surfaces, found once rather than by a scan of every surface for each pair)
+ const low=new Set();for(const s of ctx.surfaces)if(s.solid)low.add(s.solid);
  for(const v of volumes){
+  const wheel=v.componentId.startsWith('Wheel_');
   for(const solid of ctx.solids){
-   const low=ctx.surfaces.some(s=>s.solid===solid);
-   if((low||solid.terrainFloor)&&v.componentId.startsWith('Wheel_'))continue;
+   if(wheel&&(low.has(solid)||solid.terrainFloor))continue;
    if(overlaps(v,solid))return false;
   }
   if(v.componentId==='hull'&&v.assembly==='carriage'){
