@@ -85,3 +85,30 @@ export function killFeedAppearance(event){
    infusions.length===1?infusions[0].tone:cause;
  return {tone,infusions};
 }
+
+/**
+ * Color the ACTUAL killfeed sentence, without appending an elemental legend.
+ * Keep contiguous stretches of prose together instead of cycling rainbow
+ * colors every letter. Assign one or more real infusions to each word.
+ * For short messages with fewer words than elements, blend the extra tones
+ * inside the existing words rather than inventing extra text.
+ *
+ * Text is passed to DOM textContent by the renderer, never innerHTML.
+ */
+export function killFeedColoredWords(text,infusions=[]){
+  const original=String(text??'');
+  const tones=[...new Set((Array.isArray(infusions)?infusions:[])
+    .map(entry=>entry?.tone).filter(tone=>KILLFEED_ELEMENTS.includes(tone)))];
+  if(tones.length<2)return [];
+  const tokens=original.match(/\S+\s*|\s+/gu)??[];
+  const count=tokens.filter(token=>/\S/u.test(token)).length;
+  if(!count)return [];
+  let position=0;
+  return tokens.map(token=>{
+    if(!/\S/u.test(token))return {text:token,tones:[]};
+    const start=Math.floor(position*tones.length/count);
+    const end=Math.max(start+1,Math.floor((position+1)*tones.length/count));
+    position++;
+    return {text:token,tones:tones.slice(start,end)};
+  });
+}
