@@ -77,21 +77,17 @@ export function windbladeLevelBasis(direction,previousRight=null){
   const forward=magnitude>1e-8?{x:raw.x/magnitude,y:raw.y/magnitude,z:raw.z/magnitude}:{x:0,y:0,z:1};
   const horizontal=Math.hypot(forward.x,forward.z);
   const old=Math.hypot(previousRight?.x??0,previousRight?.z??0);
-  const right=horizontal>1e-3
+  // For every nonvertical trajectory, the broad axis is *exactly* level
+  // and perpendicular to flight; no camera pitch or roll can tilt it.
+  const right=horizontal>1e-8
     ?{x:forward.z/horizontal,y:0,z:-forward.x/horizontal}
-    :old>1e-6
+    :old>1e-8
       ?{x:previousRight.x/old,y:0,z:previousRight.z/old}
       :{x:1,y:0,z:0};
-  // If the aim is nearly vertical, remove its tiny component along right so
-  // the basis remains orthonormal without materially changing sweep width.
-  const dot=forward.x*right.x+forward.z*right.z;
-  const corrected={x:right.x-forward.x*dot,y:-forward.y*dot,z:right.z-forward.z*dot};
-  const n=Math.hypot(corrected.x,corrected.y,corrected.z)||1;
-  const across={x:corrected.x/n,y:corrected.y/n,z:corrected.z/n};
   const up={
-    x:forward.y*across.z-forward.z*across.y,
-    y:forward.z*across.x-forward.x*across.z,
-    z:forward.x*across.y-forward.y*across.x,
+    x:forward.y*right.z-forward.z*right.y,
+    y:forward.z*right.x-forward.x*right.z,
+    z:forward.x*right.y-forward.y*right.x,
   };
-  return {right:across,up,forward};
+  return {right,up,forward};
 }
