@@ -2,7 +2,8 @@
 // machinery. Decision quality varies, never damage, ammunition or cooldowns.
 import {createBiByeLlista,mountBiByeLlista,dismountBiByeLlista,toggleBiByeDeploy,
   fireBiByeMobile,fireBiByeFullVolley,biByeTargetAim} from './biByeLlista.mjs';
-import {requestBiByeHeavySkill,setBiByeWeaponFocus} from './biByeWeapons.mjs';
+import {requestBiByeHeavySkill,requestColdHowTouching,setBiByeWeaponFocus} from './biByeWeapons.mjs';
+import {requestBiByeSharpTurn,requestLookAroundAndFindOut,requestBiByeSweepStop} from './biByeSweep.mjs';
 import {createSoFistication,mountSoFistication,dismountSoFistication,soFistExit,
   soFistEntry,primeSoFistSkill,fireSoFistication} from './soFistication.mjs';
 import {createFightFlight,mountFightFlight,dismountFightFlight,fightFlightExit} from './fightFlight.mjs';
@@ -15,6 +16,7 @@ import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {wayToward} from './botNav.mjs';
 import {beginAttack,endAttack} from './combat.mjs';
+import {SIEGE_LOADOUT_DEFAULT,SIEGE_SKILL_OPTIONS,normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 
 export const SIEGE_OPERATORS=Object.freeze({
   'bi-bye-llista':Object.freeze({name:'Ballistefan',field:'biByeLlista'}),
@@ -26,6 +28,19 @@ export const SIEGE_DIFFICULTIES=Object.freeze({
   skilled:Object.freeze({reaction:.23,lead:.78,preferred:19,skill:'champion',error:.012}),
   formidable:Object.freeze({reaction:.10,lead:1,preferred:21,skill:'spellblade',error:0}),
 });
+// A Sharp Turn is the ballista's innate physical bow attack, NOT a fourth
+// equipped Skill. The selection emphasizes that maneuver while the operator
+// keeps the legitimate default Bolt to the Occasion equipment.
+const SLOT=Object.freeze({'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight'});
+export const PRACTICE_SIEGE_SKILL_CHOICES=Object.freeze(Object.fromEntries(
+  Object.entries(SLOT).map(([machine,slot])=>[machine,Object.freeze([
+    'auto',...SIEGE_SKILL_OPTIONS[slot],...(slot==='biBye'?['aSharpTurn']:[]),
+  ])])));
+export function practiceOperatorSkill(machine,choice='auto'){
+  if(!PRACTICE_SIEGE_SKILL_CHOICES[machine]?.includes(choice))return null;
+  return choice==='auto'||choice==='aSharpTurn'
+    ?SIEGE_LOADOUT_DEFAULT[SLOT[machine]]:choice;
+}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const difference=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const bearing=(a,b)=>Math.atan2(-(b.x-a.x),-(b.z-a.z));
@@ -113,7 +128,7 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   if(!candidates.length)return false;
   candidates.sort((a,b)=>a.score-b.score);
   const {machine,m}=candidates[0];
-  actor.practiceSiegeOperator={machine,difficulty:'formidable',opportunistic:true};
+  actor.practiceSiegeOperator={machine,difficulty:'formidable',skill:'auto',opportunistic:true};
   actor.siegeAi={seed:Math.floor(now*30)%2147483647,decisions:0,nextThinkAt:now,
     side:1,lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},
     stuckUntil:0,now,lastShotIAt:-Infinity,lastVolleyAt:-Infinity,
@@ -124,12 +139,14 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   return true;
 }
 /** Plan first. Reject occupied authoritative machines rather than making copies. */
-export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='skilled',now=0){
+export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='skilled',now=0,skill='auto'){
   const def=SIEGE_OPERATORS[machine],tuning=SIEGE_DIFFICULTIES[difficulty];
+  const equipped=practiceOperatorSkill(machine,skill);
   if(room?.mode!=='PRACTICE'||room.state!=='PLAYING'||!requester?.alive||
     requester.actorKind!=='human'||room.players.get(requester.id)!==requester)
     return {rejected:'Only a living Practice player can summon hostile operators.'};
   if(!def||!tuning)return {rejected:'Choose a siege opponent and difficulty.'};
+  if(!equipped)return {rejected:'Choose a valid Skill for the selected siege machine.'};
   if(room.players.size>=8)return {rejected:'Practice has reached the actor limit.'};
   if(room[def.field])return {rejected:'That machine is already in use. Remove or dismantle it before summoning its operator.'};
   if([...room.players.values()].some(p=>p.practiceSiegeOperator?.machine===machine))
@@ -145,7 +162,8 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
   const actor=room.addServerActor({id,name:def.name,actorKind:'bot',spell:'fireball',
     ultimate:machine==='fight-and-flight'?'chivalry':'sunder'},now);
   actor.botSkill=tuning.skill;actor.botProfile='melee';
-  actor.practiceSiegeOperator={machine,difficulty};
+  actor.siegeLoadout=normalizeSiegeLoadout({...actor.siegeLoadout,[SLOT[machine]]:equipped});
+  actor.practiceSiegeOperator={machine,difficulty,skill};
   const entry=machine==='so-fist-ication'?soFistEntry(m,room.world):
     machine==='fight-and-flight'?{x:m.x,y:m.y,z:m.z+1}:{x:m.x,y:m.y,z:m.z};
   actor.position={...entry};actor.spawnProtectionUntil=now+.35;
@@ -158,7 +176,7 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
     lastSampleAt:now,lastPosition:{x:m.x,y:m.y,z:m.z},stuckUntil:0,now,
     lastShotIAt:-Infinity,lastVolleyAt:-Infinity,nextRamAt:now,nextDiveAt:now,phase:'mounted'};
   room.events.push({type:'practiceSiegeOpponentSpawned',playerId:actor.id,machineId:m.id,
-    machine,difficulty,name:def.name,at:now});
+    machine,difficulty,skill,name:def.name,at:now});
   return {};
 }
 // Grounded rotor clearance alone does not make a safe vertical launch site.
@@ -214,13 +232,17 @@ export function removePracticeSiegeOperator(room,requester,machine='all',now=0){
   }
   return {};
 }
-export function resetPracticeSiegeOperator(room,requester,machine,difficulty,now=0){
+export function resetPracticeSiegeOperator(room,requester,machine,difficulty,now=0,skill=null){
   const found=[...room.players.values()].find(p=>p.practiceSiegeOperator?.machine===machine);
-  if(!found)return spawnPracticeSiegeOperator(room,requester,machine,difficulty,now);
-  const last=found.practiceSiegeOperator.difficulty;
+  const previous=found?.practiceSiegeOperator;
+  const chosen=skill??previous?.skill??'auto';
+  // Reject an invalid loadout BEFORE removing a living machine/pilot.
+  if(!practiceOperatorSkill(machine,chosen))return {rejected:'Choose a valid Skill for the selected siege machine.'};
+  if(!found)return spawnPracticeSiegeOperator(room,requester,machine,difficulty,now,chosen);
+  const last=previous.difficulty;
   const removed=removePracticeSiegeOperator(room,requester,machine,now);
   if(removed.rejected)return removed;
-  return spawnPracticeSiegeOperator(room,requester,machine,difficulty??last,now);
+  return spawnPracticeSiegeOperator(room,requester,machine,difficulty??last,now,chosen);
 }
 function ballistefan(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
