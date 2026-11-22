@@ -135,17 +135,18 @@ export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
  spell:{right:210,bottom:104,size:46},
  attack:{right:12,bottom:14,size:76},
  siegeSkill:{right:98,bottom:18,size:68},
- siegeBoth:{right:64,bottom:102,size:60},
-  // Sweep belongs below View, within the firing thumb's lower arc.
-  siegeSweep:{right:139,bottom:108,size:52},
- // Move Mode/Upper down away from top-right killfeed messages.
- deploy:{right:68,top:100,size:48},
- siegeWeapon:{right:12,top:100,size:48},
+  // A distinct middle firing row: Sweep sits between PRIME II and BOLT I.
+  // BOTH is conditional and has its own space on the right of Sweep.
+  siegeBoth:{right:14,bottom:102,size:54},
+  siegeSweep:{right:76,bottom:106,size:52},
+  // Upper controls stay separate from the firing thumb row.
+  deploy:{right:68,top:100,size:48},
+  siegeWeapon:{right:12,top:100,size:48},
 });
 const BI_BYE_UTILITIES=Object.freeze({
- interact:{right:60,top:8,size:38},
- // View now sits ABOVE Sweep; neither overlaps the Bolt II/BOTH row.
- siegeView:{right:139,bottom:188,size:42},
+  interact:{right:60,top:8,size:38},
+  // Sights/zoom stays above-left of Sweep, away from conditional BOTH.
+  siegeView:{right:148,bottom:184,size:42},
 });
 
 /**
