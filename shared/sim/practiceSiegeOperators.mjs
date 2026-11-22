@@ -282,7 +282,7 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   // Cold is a pre-shot enhancement. A mobile operator may legitimately
   // activate it BEFORE deploying stabilizers; doing it afterward can miss
   // the entire exposure window while the outriggers are moving.
-  if(ai.difficulty!=='learner'&&los&&d<43&&
+  if(los&&d<43&&
     ['MOBILE','DEPLOYED'].includes(m.mode)&&
     m.skill?.id==='coldHowTouching'&&m.skill.phase==='idle'&&
     now+1e-8>=(m.skill.readyAt??0))
@@ -311,15 +311,17 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   // Equipped Skill receives first refusal in its actual tactical window.
   // Otherwise the ordinary Sharp Turn would always preempt Look Around,
   // effectively making that selected Skill impossible for a capable pilot.
-  if(competent&&m.skill?.id==='lookAroundAndFindOut'&&
+  if(m.skill?.id==='lookAroundAndFindOut'&&
     m.skill.phase==='idle'&&now+1e-8>=(m.skill.readyAt??0)&&
-    d<3.8&&now>=(ai.nextSweepAt??0)){
+    d<(competent?3.8:2.9)&&now>=(ai.nextSweepAt??0)&&
+    (competent||ai.decisions%3===0)){
     const problem=requestLookAroundAndFindOut(room,m,a,now);
     ai.nextSweepAt=now+(problem?1.25:4.5);
     if(!problem)return;
   }
-  if(competent&&d<=3.4&&
-    now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'){
+  if(d<=(competent?3.4:2.8)&&
+    now>=(ai.nextSweepAt??0)&&m.skill?.phase==='idle'&&
+    (competent||ai.decisions%3===0)){
     // A Sharp Turn is available on any equipped ballista. It physically
     // checks its entire bow sweep against terrain and machinery, spends the
     // same four-second heavy gate as a human, and uses real blade hitboxes.
@@ -391,7 +393,7 @@ function uppercuff(room,a,m,target,ai,tuning,now){
   if(chosen==='beatToThePunch'&&forwardFacing&&d<11&&visibleThreat&&
     m.skill?.phase==='idle'&&healthy)
     primeSoFistSkill(room,m,a,now);
-  if(ai.difficulty!=='learner'&&chosen==='longArmToTheJaw'&&
+  if(chosen==='longArmToTheJaw'&&
     now>=(ai.nextSkillAt??0)){
     // Recover a resting fist by the real pickup rule; never replenish an
     // absent fist merely to let an AI fire its equipped Skill again.
@@ -401,7 +403,7 @@ function uppercuff(room,a,m,target,ai,tuning,now){
       ai.nextSkillAt=now+(problem?.8:3.6);
     }
   }
-  if(ai.difficulty!=='learner'&&chosen==='hellpingHand'&&
+  if(chosen==='hellpingHand'&&
     forwardFacing&&d<6.2&&healthy&&
     (!m.hellping||m.hellping.phase==='open')&&
     now>=(ai.nextSkillAt??0)&&ready){
@@ -482,7 +484,7 @@ function donte(room,a,m,target,ai,tuning,now){
     endFightFlightSkill(room,m,now,charge<38?'chargeReserve':'lostSight');
   }
   const chosen=m.skill?.id;
-  if(skilled&&m.skill?.phase==='idle'&&
+  if(m.skill?.phase==='idle'&&
     now+1e-8>=(m.skill.readyAt??0)&&visible&&accurate&&!regroup){
     const want=chosen==='fireAwayImRightHere'
       ?charge>77&&ammo<7&&d>9&&d<29&&!attacking:
