@@ -356,3 +356,35 @@ test('Skilled Donte saves ammunition and fuel, and commits real rotor Dash at a 
  assert.ok(room.events.some(e=>e.type==='fightFlightGroundDashTakeoff')===false,
   'an airborne Dash is not fabricated as a second grounded takeoff');
 });
+
+
+test('each equippable siege Skill can be activated by a formidable hostile pilot',()=>{
+ const skills=[
+  {machine:'bi-bye-llista',field:'biByeLlista',skill:'boltToTheOccasion',distance:18,trigger:e=>e.type==='siegeSkill'&&e.skill==='boltToTheOccasion'},
+  {machine:'bi-bye-llista',field:'biByeLlista',skill:'coldHowTouching',distance:18,trigger:e=>e.type==='siegeSkill'&&e.skill==='coldHowTouching'},
+  {machine:'bi-bye-llista',field:'biByeLlista',skill:'lookAroundAndFindOut',distance:3.1,trigger:e=>e.type==='bibyeSweep'&&e.kind==='skill'},
+  {machine:'so-fist-ication',field:'soFistication',skill:'beatToThePunch',distance:8,trigger:e=>e.type==='siegeSkill'&&e.skill==='beatToThePunch',attack:true},
+  {machine:'so-fist-ication',field:'soFistication',skill:'longArmToTheJaw',distance:9,trigger:e=>e.type==='soFistFist'||e.type==='ramFistLaunched'||e.type==='soFistDetachedFist'},
+  {machine:'so-fist-ication',field:'soFistication',skill:'hellpingHand',distance:3.1,trigger:e=>e.type==='siegeSkill'&&e.skill==='hellpingHand'},
+  {machine:'fight-and-flight',field:'fightFlight',skill:'fireAwayRightHere',distance:15,trigger:e=>e.type==='siegeSkill'&&e.skill==='fireAwayImRightHere',ammo:5},
+  {machine:'fight-and-flight',field:'fightFlight',skill:'narrowToOne',distance:15,trigger:e=>e.type==='siegeSkill'&&e.skill==='narrowToOne'},
+  {machine:'fight-and-flight',field:'fightFlight',skill:'doNotStopMyAscension',distance:15,trigger:e=>e.type==='siegeSkill'&&e.skill==='doNotStopMyAscension'},
+ ];
+ for(const cfg of skills){
+  const {room,player}=setup();
+  assert.deepEqual(applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+   action:'spawn',machine:cfg.machine,difficulty:'formidable',skill:cfg.skill},2),{},cfg.skill);
+  const m=room[cfg.field],operator=room.players.get(m.operatorId);
+  const heading=m.heading??0;
+  player.position={x:m.x-Math.sin(heading)*cfg.distance,y:0,
+    z:m.z-Math.cos(heading)*cfg.distance};
+  if(cfg.attack){player.attackActive=true;player.attackStartedAt=2.02;}
+  if(cfg.ammo)m.ammo=cfg.ammo;
+  stepPracticeActors(room,2.1,room.world);
+  const activated=room.events.some(cfg.trigger)||
+    (cfg.skill==='longArmToTheJaw'&&m.detachedFist?.state==='flying');
+  assert.ok(activated,cfg.skill+' uses its existing, authorized machine behavior');
+  assert.equal(operator.siegeLoadout[cfg.machine==='bi-bye-llista'?'biBye':
+    cfg.machine==='so-fist-ication'?'soFist':'fightFlight'],cfg.skill);
+ }
+});
