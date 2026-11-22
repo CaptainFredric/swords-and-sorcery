@@ -2399,11 +2399,11 @@ function oneHitWaveAfflict(room,caster,target,tiers,nowSec,opts,wakeId=null){
 const oneHitChest=actor=>({...actor.position,y:actor.position.y+1});
 function oneHitTouch(room,caster,target,tiers,nowSec,world,{
   aerial=false,distance=0,origin=oneHitChest(caster),direction=null,processed=null,blast=null,onGuard=null,
-  terminalFire=false,wakeId=null,
+  terminalFire=false,wakeId=null,guardOrigin=null,
 }={}) {
   if(!oneHitVisible(room,caster,target,world,nowSec,origin))return false;
   processed?.push(target.id); // Guard also spends this wave's single contact.
-  const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:origin;
+  const incoming=direction?{x:target.position.x-direction.x,y:origin.y,z:target.position.z-direction.z}:(guardOrigin??origin);
   if(oneHitGuard(room,caster,target,incoming,nowSec,tiers,wakeId)){onGuard?.();return false;}
   const falloff=aerial?Math.max(.45,1-distance/40):1;
   const damage=oneHitDamage(tiers,aerial?36:ONE_HIT_BASE_DAMAGE)*falloff;
@@ -2853,6 +2853,11 @@ function oneHitTerminalContact(room,caster,rec,nowSec,world) {
     if(oneHitTouch(room,caster,target,rec.tiers,nowSec,world,{
       aerial:true,origin:rec.origin,distance:rec.distance,
       processed:rec.hitIds,blast:{distance:radial,radius:rec.radius},
+      // A point-blank blast's center coincides with the defender. A zero
+      // horizontal vector is NOT an automatic Guard bypass. Use the actual
+      // inbound flight direction; for other points the radial center itself
+      // decides whether the blast reached the flank or rear.
+      guardOrigin:radial<.025?rec.guardSource:null,
       wakeId:rec.wakeId,
       terminalFire:(rec.tiers.fire??0)>=1,
       // Blocking a radial shockwave stops HP, not the pressure and elemental
@@ -2921,7 +2926,12 @@ function oneHitWaveImpact(room,caster,wave,point,contact,nowSec,world,cause=null
   const groundBlast=contact?.kind==='ground'||
     (floor!==null&&point.y>=floor-.04&&point.y-floor<=1.25);
   const origin=contact ? {x:point.x-wave.direction.x*.06,y:point.y-wave.direction.y*.06,z:point.z-wave.direction.z*.06} : point;
-  const guardSource=contact ? {x:point.x-wave.direction.x,y:origin.y,z:point.z-wave.direction.z} : point;
+  const flat=Math.hypot(wave.direction.x,wave.direction.z);
+  const guardSource=flat>.001
+    ?{x:point.x-wave.direction.x/flat,y:origin.y,z:point.z-wave.direction.z/flat}
+    :Math.hypot(caster.position.x-point.x,caster.position.z-point.z)>.025
+      ?{...caster.position,y:origin.y}
+      :{x:point.x+Math.sin(caster.yaw??0),y:origin.y,z:point.z+Math.cos(caster.yaw??0)};
   const air=!groundBlast;
   // Direction is captured when the wave launches. A ground detonation
   // projects that direction onto the floor, while a midair detonation uses
