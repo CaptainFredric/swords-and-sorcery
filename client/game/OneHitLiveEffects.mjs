@@ -4,6 +4,7 @@ import { DisasterElementEffects } from './DisasterElementEffects.mjs';
 import { windbladePosition, windbladeSurfacePoint, windbladeLevelBasis } from './disasterWavePresentation.mjs';
 import { groundFootprintWarp, fieldStrength } from '../../shared/src/oneHitStatus.mjs';
 import {makeWakeVisual, updateWakeVisual, disposeWakeVisual} from './disasterWakeGeometry.mjs';
+import {fullSteelWakeExitOpacity} from './disasterWakeGeometryData.mjs';
 
 // Live Castleward presentation. Purely cosmetic: damage, Steel, infusions and
 // teleport positions are owned by the shared simulation and come over snapshots.
@@ -254,9 +255,28 @@ export class OneHitLiveEffects {
         this.root.add(mesh);
         this.wakeTrails.set(field.id,mesh);
       }
+      // Store only the last authoritative visual shape and expiry. There is
+      // no extra collision/damage field after the server removes this one.
+      mesh.userData.lastWakeField=field;
+      mesh.userData.wakeExpiresAt=field.until;
+      mesh.userData.fullSteelWake=Boolean(field.steelLocked||field.tiers?.steel===2);
+      mesh.userData.fadeStartedAt=null;
       updateWakeVisual(mesh,field,fieldStrength(field,now),this.visualClock);
     }
     for(const [id,mesh] of this.wakeTrails)if(!seen.has(id)){
+      const state=mesh.userData;
+      // Full Steel alone stays fully dense until it expires. When expiry
+      // arrives, leave its LAST rendered shape for a rapid cosmetic fade.
+      // A field removed unexpectedly before expiry is discarded normally.
+      const expired=Number.isFinite(state.wakeExpiresAt)&&now>=state.wakeExpiresAt-.05;
+      if(state.fullSteelWake&&expired&&state.lastWakeField){
+        state.fadeStartedAt??=this.visualClock;
+        const opacity=fullSteelWakeExitOpacity(this.visualClock-state.fadeStartedAt);
+        if(opacity>.005){
+          updateWakeVisual(mesh,state.lastWakeField,opacity,this.visualClock);
+          continue;
+        }
+      }
       disposeWakeVisual(mesh);
       this.wakeTrails.delete(id);
     }
