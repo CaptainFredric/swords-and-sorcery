@@ -12,6 +12,7 @@ const SOLO_MODES = new Set([
   GAME_MODES.RESTLESS_DAY,
   GAME_MODES.RENOWN_TRIALS,
   GAME_MODES.EDGE_OF_VICTORY,
+  GAME_MODES.SIEGE_BLADES,
 ]);
 
 export function generateRoomCode(random = Math.random) {

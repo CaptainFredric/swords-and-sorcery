@@ -56,6 +56,7 @@ const SOLO_MODES = new Set([
   GAME_MODES.RESTLESS_DAY,
   GAME_MODES.RENOWN_TRIALS,
   GAME_MODES.EDGE_OF_VICTORY,
+  GAME_MODES.SIEGE_BLADES,
 ]);
 const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -479,15 +480,20 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         return;
       }
       let teamSize = null;
-      if ((message.mode === GAME_MODES.BREAKTHROUGH || message.mode === GAME_MODES.HIGH_GROUNDS) && message.teamSize !== undefined) {
+      if ((message.mode === GAME_MODES.BREAKTHROUGH || message.mode === GAME_MODES.HIGH_GROUNDS || message.mode === GAME_MODES.SIEGE_BLADES) && message.teamSize !== undefined) {
         teamSize = Number(message.teamSize);
-        if (teamSize !== 2 && teamSize !== 3) {
-          send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
+        const allowedSizes = message.mode === GAME_MODES.SIEGE_BLADES ? [1, 2, 3] : [2, 3];
+        if (!allowedSizes.includes(teamSize)) {
+          send(session, { type: 'error', message: `Invalid team size: must be ${allowedSizes.join(', ')}` });
           return;
         }
       }
       const resolvedWorld = arenaForMode(message.mode, message.worldId);
-      const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });
+      const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, {
+        teamSize,
+        ...(message.customSettings && typeof message.customSettings === 'object' ? message.customSettings : {}),
+        siegeBladesSettings: message.customSettings,
+      });
 
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       // (how well the rival plays: the player's choice, the Knight's otherwise)

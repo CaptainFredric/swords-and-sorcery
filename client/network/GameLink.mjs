@@ -184,24 +184,24 @@ export class GameLink {
   }
 
   /** Solo has its own host regardless of the multiplayer connection's availability. */
-  startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
+  startSolo(mode, name, worldId, botSkill, team = null, teamSize = null, customSettings = null) {
     // Only a server-controlled trial may deposit permanent Renown. The same
     // simulation can rehearse locally when offline, without wallet authority.
     if (mode === 'RENOWN_TRIALS') {
       return this.#online('startSolo', [mode, name, worldId, botSkill, team, teamSize]);
     }
-    this.#startLocalSolo(mode, name, worldId, botSkill, team, teamSize);
+    this.#startLocalSolo(mode, name, worldId, botSkill, team, teamSize, customSettings);
   }
 
   startRenownRehearsal(name, worldId) {
     this.#startLocalSolo('RENOWN_TRIALS', name, worldId);
   }
 
-  #startLocalSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
+  #startLocalSolo(mode, name, worldId, botSkill, team = null, teamSize = null, customSettings = null) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.disconnect();
     this.hosting = 'local';
-    this.local.startSolo(mode, name, worldId, botSkill, false, team, teamSize);
+    this.local.startSolo(mode, name, worldId, botSkill, false, team, teamSize, customSettings);
   }
 
   #rehearseTrial(args, reason) {
