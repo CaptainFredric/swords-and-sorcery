@@ -16,7 +16,7 @@ import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellb
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
-import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
 import { riposteView, whirlView } from './techniqueMotion.mjs';
 import { mixSwordArm, riposteFirstPersonPose, steadyRiposteForearm } from './fpTechniques.mjs';
@@ -962,6 +962,13 @@ export class WeaponView {
       // the sword arm as this frame shows it (the guard's ward and any strike over rest), for a technique to begin from
       const shownArm = mixSwordArm(null, guardArm > 1e-3 ? guardTargets(timeSec, guardArm).arm : null, guardArm);
       this.shownSwordArm = combo ? mixSwordArm(shownArm, combo.arm, combo.weight) : shownArm;
+      const gripRoll = mounted || this.flightCockpit ? 0 : FP_MOTION.swordGripRoll * motion.neutral *
+        (1 - Math.max(guardArm, combo?.weight ?? 0, away.sword?.weight ?? 0));
+      // Riposte takes its starting edge from the grip the player actually saw.
+      if (gripRoll) {
+        const arm = this.shownSwordArm;
+        arm.edge = rotateVector(arm.edge, normalize(arm.blade), gripRoll);
+      }
       // (in the flight cockpit: how much of its resting carriage the sword arm keeps, none while a strike or the guard
       // has it)
       // (in the cockpit the sword arm rests a little low and out; eased in and out, so a strike, the Guard and the
@@ -1002,10 +1009,8 @@ export class WeaponView {
           { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
           { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },
           { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.swordWristLean * motion.neutral, space: 'local' },
-          // the sword turned about its own length in the hand, the far edge round to the right: less of its flat to
-          // the eye, in every pose the hand is in (so nothing unwinds as the guard comes up); a chain sets its own
-          // turn, beginning and ending on this same rest (fpSlash.mjs REST_ARM)
-          ...(this.bladeInHand ? [{ bone: 'hand.R', axis: this.bladeInHand, angle: -REST_EDGE_TURN, space: 'local' }] : []),
+          // Apply the relaxed grip on top of the shared sword roll. The hand and blade turn together.
+          ...(this.bladeInHand ? [{ bone: 'hand.R', axis: this.bladeInHand, angle: gripRoll - REST_EDGE_TURN, space: 'local' }] : []),
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
