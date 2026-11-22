@@ -1627,7 +1627,6 @@ export class GameRuntime {
         this.hud.flashText('SHOCKED BY YOUR OWN BLOW','sunder',1200);
       }
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
-      if(event.type==='steelExtended'&&event.playerId===this.playerId)this.hud.flashText('STEEL HOLDS UNTIL ITS COOLDOWN','sunder',1300);
       // All-Natural Disaster impacts and Gale-wave endings use the central
       // layered soundscape, avoiding a duplicate generic fireball/ground boom.
       if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
