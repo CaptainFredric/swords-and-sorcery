@@ -7,8 +7,9 @@ export const SIEGE_IMPACT=Object.freeze({
  ramReboundFraction:.16,ramReboundMax:1.55,
  pistonReboundMax:.78,ramReverseChargeAcceleration:6.25,
  ramPistonRecoilTransfer:.33,ramPistonRecoilMax:3.75,ramPistonRecoilBrake:4.9,
- mobileBallistaTransfer:.19,mobileBallistaMaxSpeed:3.4,
- mobileDrag:4.2,restSpeed:.06,rockDuration:1.15,rockPitch:.075,rockRoll:.042,
+ mobileBallistaTransfer:.34,mobileBallistaMaxSpeed:5.6,
+ ramTargetTransfer:.40,ramTargetMaxRecoil:5.4,flightTargetTransfer:.34,flightTargetMaxImpulse:6.5,
+ mobileDrag:3.2,restSpeed:.06,rockDuration:1.3,rockPitch:.12,rockRoll:.075,
  uprootOutriggersSpeed:8,uprootRetractSeconds:.48,outriggerRecoverySec:2.2,
 });
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -90,4 +91,41 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
   }
  }
  return true;
+}
+
+/** A heavy piston/charge collision must actually MOVE the struck machine.
+ * Translate through each machine's existing world/collision solver: never
+ * teleport it or temporarily exempt it from terrain and other chassis.
+ * Only one caller per genuine damaging impact applies the impulse.
+ */
+export function applyMachineImpact(room,target,now,{normal,speed,point=null}={}){
+ if(!target||target.retired||target.health<=0||target.mode==='DESTROYED')return false;
+ const length=Math.hypot(normal?.x??0,normal?.z??0);
+ if(length<.01||!(speed>0))return false;
+ const direction={x:normal.x/length,z:normal.z/length};
+ if(target.kind==='ballista'||target.class==='bi-bye-llista')
+   return applyBallistaImpact(room,target,now,{normal:direction,speed,point});
+ if(target.kind==='ram'||target.class==='so-fist-ication'){
+   // The wheeled ram has a longitudinal drivetrain; a head-on impact pushes
+   // it backwards while a rear hit drives it forward. Oblique contacts
+   // transfer only their physically supported longitudinal component.
+   const forward={x:-Math.sin(target.heading),z:-Math.cos(target.heading)};
+   const alignment=direction.x*forward.x+direction.z*forward.z;
+   const recoil=clamp(speed*SIEGE_IMPACT.ramTargetTransfer,0,SIEGE_IMPACT.ramTargetMaxRecoil)*alignment;
+   target.recoilVelocity=clamp((target.recoilVelocity??0)+recoil,
+     -SIEGE_IMPACT.ramTargetMaxRecoil,SIEGE_IMPACT.ramTargetMaxRecoil);
+   recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'ram-piston',point});
+   return true;
+ }
+ if(target.kind==='flight'||target.class==='fight-and-flight'){
+   // Flight has full 3-D velocity; feed this into the same swept collision
+   // integrator as rotor strikes, rather than adjusting position directly.
+   const impulse=clamp(speed*SIEGE_IMPACT.flightTargetTransfer,0,SIEGE_IMPACT.flightTargetMaxImpulse);
+   const old=target.externalSiegeImpulse??{x:0,z:0};
+   target.externalSiegeImpulse={x:clamp(old.x+direction.x*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
+     z:clamp(old.z+direction.z*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse)};
+   recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'flight-piston',point});
+   return true;
+ }
+ return false;
 }
