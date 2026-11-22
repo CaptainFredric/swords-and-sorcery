@@ -34,7 +34,10 @@ test('HUD colors the authored Disaster sentence itself, with five elements and N
     ['fire','frost','gale','lightning','steel']);
   assert.ok(node.children.every(n=>n.className.startsWith('feed-word')),
     'all colors affect original prose only');
-  assert.ok(node.children.some(n=>n.style.backgroundImage?.includes('linear-gradient(')),
+  const short=HUD.prototype.addFeed.call(hud,'Rowan won',appearance.tone,'same',appearance.infusions);
+  assert.strictEqual(short,node,'keyed text updates reuse the same element');
+  assert.equal(short.textContent,'Rowan won','short messages keep their exact wording');
+  assert.ok(short.children.some(n=>n.style.backgroundImage?.includes('linear-gradient(')),
     'short fragments can carry more than one infusion without inserting badges');
   assert.equal(node.children.some(n=>n.tagName==='IMG'),false,
     'untrusted names are never parsed into HTML');
