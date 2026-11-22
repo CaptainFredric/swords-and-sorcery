@@ -1,7 +1,7 @@
 import {SIEGE_SKILLS} from './siegeSkills.mjs';
 import {biByeRootFrame} from './biByeComponents.mjs';
 import {soFistUpperBox,soFistUpperPoint,soFistUpperAxes} from './soFistElevation.mjs';
-import {boxWorld,orientedBoxHit} from '../src/orientedBox.mjs';
+import {boxWorld,orientedBoxHit,alignedSeparated} from '../src/orientedBox.mjs';
 export const SO_FIST_SCALE=2.85;
 // Recovered Argon shaft bounds and exposed striker locator, in the
 // lowered/retracted model frame. Stroke, lift and pitch compose afterward.
@@ -130,6 +130,7 @@ export function soFistFirstHit(b,start,end,now,grow=0){let best=null;for(const b
 export function soFistSolids(b){return soFistVolumes(b).map(v=>({...v,kind:'siege-chassis'}));}
 const IDENTITY_AXES=[[1,0,0],[0,1,0],[0,0,1]];
 export function machineryOverlap(a,b){
+ if(alignedSeparated(a,b))return false;
  const dot=(x,y)=>x.reduce((n,v,i)=>n+v*y[i],0),cross=(x,y)=>[x[1]*y[2]-x[2]*y[1],x[2]*y[0]-x[0]*y[2],x[0]*y[1]-x[1]*y[0]],B=b.axes??IDENTITY_AXES,delta=b.center.map((v,i)=>v-a.center[i]);
  const separated=axis=>{if(dot(axis,axis)<1e-10)return false;const r=(box,axes)=>axes.reduce((n,v,i)=>n+Math.abs(dot(v,axis))*box.size[i]/2,0);return Math.abs(dot(delta,axis))>=r(a,a.axes)+r(b,B)-.002;};
  // Most world pieces are far away. Reject on the face axes before constructing

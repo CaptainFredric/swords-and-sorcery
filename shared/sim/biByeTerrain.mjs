@@ -1,5 +1,5 @@
 import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeRootFrame, biByeHitVolumes, biByeWheelSteering } from './biByeComponents.mjs';
-import { boxWorld } from '../src/orientedBox.mjs';
+import { boxWorld, alignedSeparated } from '../src/orientedBox.mjs';
 
 const RAD=Math.PI/180, R=.55, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:22*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
@@ -83,6 +83,7 @@ export function biByeTerrainPose(b,ctx){
  return {y:pose.y,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:offsets};
 }
 function overlaps(a,b){
+ if(alignedSeparated(a,b))return false;
  const B=b.axes??[[1,0,0],[0,1,0],[0,0,1]],delta=b.center.map((n,i)=>n-a.center[i]);
  for(const axis of [...a.axes,...B,...a.axes.flatMap(u=>B.map(v=>cross(u,v)))]){
   if(dot(axis,axis)<1e-10)continue;
