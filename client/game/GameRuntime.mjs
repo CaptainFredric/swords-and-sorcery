@@ -45,6 +45,7 @@ import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs'
 import { InputController } from './InputController.mjs';
 import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
 import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
+import {killFeedAppearance} from './killFeedColor.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
 import { advancePredictedMovement, galeLiftPrediction } from './predictMovement.mjs';
@@ -2237,7 +2238,7 @@ export class GameRuntime {
         const names=(event.victimIds??[]).map(id=>
           everyone.find(p=>p.id===id)?.name??'someone');
         const feed=terminalAscensionFeed(operator?.name??'The pilot',names);
-        this.hud.addFeed(feed.text,feed.kind);
+        this.hud.addFeed(feed.text,'ascension');
       }
       if (event.type === 'death') {
         this.flightVoState?.delete(event.victimId);
@@ -3584,8 +3585,9 @@ export class GameRuntime {
     const killer = this.latestSnapshot?.players.find((p) => p.id === event.killerId);
     const victim = this.latestSnapshot?.players.find((p) => p.id === event.victimId);
     if (event.victimId === this.playerId) this.#dying(event, killer);
+    const appearance=killFeedAppearance(event);
     if (event.killerId === this.playerId) {
-      this.hud.flashText('SLAIN  +1', 'kill');
+      this.hud.flashText('SLAIN  +1', 'kill tone-'+appearance.tone);
       this.hud.hit('kill');
       // the killing blow lands harder: a longer hit-stop, a toll in the courtyard, a shockwave at their feet
       this.weapon.hitstop(hitstopSeconds({ kill: true }), hitKick({ kill: true }));
@@ -3604,7 +3606,7 @@ export class GameRuntime {
         this.latestSnapshot?.players.find(p=>p.id===id)?.name).filter(Boolean);
       const group=groupHeroFeed(victim?.name??'someone',participants,event);
       if(group?.text){
-        this.hud.addFeed(group.text,group.kind);
+        this.hud.addFeed(group.text,'sword');
         return;
       }
     }
@@ -3626,7 +3628,7 @@ export class GameRuntime {
         const names=group.victims.map(entry=>entry.name);
         const grave=groupCheatingFeed(killer.name,names,event) ??
           graveTimeFeed(names[0],names.slice(1));
-        if(grave)this.hud.addFeed(grave.text,grave.kind,`grave:${killer.id}:${group.firstAt}`);
+        if(grave)this.hud.addFeed(grave.text,appearance.tone,`grave:${killer.id}:${group.firstAt}`);
         return;
       }
     }
@@ -3643,9 +3645,9 @@ export class GameRuntime {
       streak.lastAt=at;
       const feed=streak.names.length===1?copy:
         vortexStreakFeed(killer.name,streak.names);
-      this.hud.addFeed(feed.text,feed.kind,`vortex:${killer.id}:${streak.startedAt}`);
+      this.hud.addFeed(feed.text,appearance.tone,`vortex:${killer.id}:${streak.startedAt}`);
     }else if(copy){
-      this.hud.addFeed(copy.text,copy.kind);
+      this.hud.addFeed(copy.text,appearance.tone,null,appearance.infusions);
     }
   }
 
