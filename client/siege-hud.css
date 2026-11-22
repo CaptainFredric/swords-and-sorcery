@@ -191,38 +191,60 @@
 .machine-gauge[data-kind="flight"] .flight-brace-widget {display:block;}
 .machine-gauge[data-kind="flight"] .machine-component {display:none;}
 
-/* Bi-Bye-llista's ten real weak points, grouped by function but tracked
-   individually. Each miniature carries its own current/maximum HP tooltip.
-   The hull remains the dominant meter and these never widen the HUD. */
-.bibye-parts {display:none;gap:3px;margin-top:5px;padding-top:4px;
- border-top:1px solid #8b73535c;}
-.machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {display:grid;}
-.bibye-part-group {display:flex;align-items:center;min-width:0;gap:5px;}
-.bibye-part-group>strong {flex:0 0 48px;color:#c9bda4;
- font:800 7px/1 'Alegreya Sans',sans-serif;letter-spacing:.055em;}
-.bibye-part-items {display:flex;flex:1;gap:3px;min-width:0;}
-.bibye-part {flex:1;min-width:0;color:#dccda9;opacity:.9;
- font:800 7px/1 'Alegreya Sans',sans-serif;text-align:center;
- font-variant-numeric:tabular-nums;}
-.bibye-part span {display:block;margin-bottom:2px;}
-.bibye-part-track {height:4px;border:1px solid #6f6b61;overflow:hidden;
- background:#131816;box-shadow:inset 0 1px 1px #000b;}
+/* Ballista instrumentation: the hull gets one clear meter; all ten real
+   wheels/outriggers remain individually readable in a single narrow strip.
+   The entire group is passive so it never steals a firing or VIEW tap. */
+.machine-gauge[data-kind="ballista"] {width:min(355px,calc(100% - 210px));}
+.machine-gauge[data-kind="ballista"] .machine-health-main {
+  padding:4px 6px 5px;border-width:1px;
+  background:linear-gradient(#37372c,#191d1b);
+  box-shadow:inset 0 1px #bba26b,0 2px 8px #0008;
+}
+.machine-gauge[data-kind="ballista"] .machine-health-head b {font-size:10px;letter-spacing:.065em;}
+.machine-gauge[data-kind="ballista"] .machine-health-head output {font-size:10px;}
+.machine-gauge[data-kind="ballista"] .machine-health-track {height:7px;margin-top:3px;}
+.bibye-parts {display:none;align-items:center;gap:9px;margin-top:4px;padding-top:3px;
+  border-top:1px solid #8b73534d;min-width:0;}
+.machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {display:flex;}
+.bibye-part-group {display:flex;align-items:center;min-width:0;gap:4px;}
+.bibye-part-group>strong {flex:none;color:#c9bda4;
+  font:800 7px/1 'Alegreya Sans',sans-serif;letter-spacing:.045em;}
+.bibye-part-items {display:flex;flex:0 0 auto;gap:2px;min-width:0;}
+/* Labels remain on each component, not repeated in an oversized two-row
+   dashboard. The coloured portion is its actual independent HP fraction. */
+.bibye-part {position:relative;display:grid;place-items:center;box-sizing:border-box;
+  flex:0 0 19px;width:19px;height:13px;overflow:hidden;
+  background:#151b19;border:1px solid #6e766e;border-radius:2px;
+  color:#f1eddb;font:900 8px/1 'Alegreya Sans',sans-serif;
+  text-align:center;font-variant-numeric:tabular-nums;}
+.bibye-part span {position:relative;z-index:1;text-shadow:0 1px 2px #07100e,0 0 2px #07100e;}
+.bibye-part-track {position:absolute;inset:0;background:#151b19;overflow:hidden;}
 .bibye-part-track i {display:block;width:100%;height:100%;
- background:linear-gradient(#a8c6bc,#5e9485);transition:width .14s linear;}
+  background:linear-gradient(#89b7a6,#4d796b);transition:width .14s linear;}
+.bibye-part[data-part-state="critical"] {border-color:#cb925c;color:#fff0d3;}
 .bibye-part[data-part-state="critical"] .bibye-part-track i {
- background:linear-gradient(#ffba77,#aa5529);}
-.bibye-part[data-part-state="destroyed"] {color:#a88477;}
-.bibye-part[data-part-state="destroyed"] .bibye-part-track {border-color:#805246;}
+  background:linear-gradient(#ebb87d,#a75a32);}
+.bibye-part[data-part-state="destroyed"] {border-color:#bd6656;color:#f1aaa0;background:#3a2521;}
+.bibye-part[data-part-state="destroyed"] .bibye-part-track {background:#3a2521;}
+.bibye-part[data-part-state="unavailable"] {border-color:#525954;color:#8d948c;}
+.bibye-part[data-part-state="unavailable"] .bibye-part-track {background:#1b1d1b;}
+@container app (max-width:780px) {
+  .machine-gauge[data-kind="ballista"] {width:min(325px,54%);}
+  .bibye-parts {gap:5px;}
+  .bibye-part-group {gap:3px;}
+  .bibye-part-group>strong {font-size:6px;}
+  .bibye-part {flex-basis:18px;width:18px;height:12px;font-size:7px;}
+}
 @container app (max-width:540px) {
- .bibye-parts {margin-top:3px;padding-top:3px;gap:2px;}
- .bibye-part-group {gap:2px;}
- .bibye-part-group>strong {flex-basis:34px;font-size:6px;}
- .bibye-part-items {gap:2px;}
- .bibye-part {font-size:6px;}
- .bibye-part-track {height:3px;}
+  .machine-gauge[data-kind="ballista"] {width:min(230px,51%);}
+  .machine-gauge[data-kind="ballista"] .machine-health-head b {font-size:8px;}
+  .bibye-parts {flex-wrap:wrap;gap:3px;margin-top:3px;padding-top:3px;}
+  .bibye-part-group {width:100%;gap:5px;}
+  .bibye-part-group>strong {flex:0 0 42px;font-size:6px;}
+  .bibye-part {flex-basis:17px;width:17px;height:11px;font-size:7px;}
 }
 @media(prefers-reduced-motion:reduce){
- .bibye-part-track i {transition:none;}
+  .bibye-part-track i {transition:none;}
 }
 
 .machine-gauge[data-kind="flight"] .machine-health-main {padding:4px 6px 5px;}
