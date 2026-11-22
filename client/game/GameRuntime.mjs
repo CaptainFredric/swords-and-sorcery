@@ -6,6 +6,7 @@ import { structureDefinitions, structureWorld } from '../../shared/sim/structure
 import {withRestlessLadders,constrainRestlessCarry} from '../../shared/sim/restlessDayMode.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
+import { MachineFleetRenderer } from '../worlds/MachineFleetRenderer.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
@@ -235,6 +236,7 @@ export class GameRuntime {
     this.edgeRenderer = new EdgeBoundaryRenderer(this.scene);
     this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.flightRenderer=new FightFlightRenderer(this.scene);
+    this.fleetRenderer = new MachineFleetRenderer(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
     const view = this.#viewSize();
@@ -1898,6 +1900,7 @@ export class GameRuntime {
       }
       this.ramRenderer.hit(event);
       this.flightRenderer.hit(event);
+      this.fleetRenderer?.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       const frostFeedback=biByeFrostFeedback(event,this.playerId);
@@ -2426,6 +2429,10 @@ export class GameRuntime {
 
   #siegeMachine(machineId) {
     if (!machineId) return null;
+    if (Array.isArray(this.latestSnapshot?.machines)) {
+      const found = this.latestSnapshot.machines.find((m) => m && m.id === machineId);
+      if (found) return found;
+    }
     if (this.latestSnapshot?.fightFlight?.id === machineId) return this.latestSnapshot.fightFlight;
     if (this.latestSnapshot?.bibyeBallista?.id === machineId) return this.latestSnapshot.bibyeBallista;
     if (this.latestSnapshot?.soFistication?.id === machineId) return this.latestSnapshot.soFistication;
@@ -2434,6 +2441,8 @@ export class GameRuntime {
 
   #siegeComponentPosition(machineId, componentId) {
     if (!machineId || !componentId) return null;
+    const fleetPos = this.fleetRenderer?.getComponentWorldPosition(machineId, componentId);
+    if (fleetPos) return fleetPos;
     if (this.flightRenderer?.state?.id === machineId) {
       const pos = this.flightRenderer.getComponentWorldPosition(componentId);
       if (pos) return pos;
@@ -3864,7 +3873,15 @@ export class GameRuntime {
     // other non-flight camera path; no stale visual or forced camera mode.
     this.flightDashPresentation.reset();
     const ram=Boolean(this.localAuth?.operatingRamId);
-    const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
+    let bRenderer = null;
+    let b = null;
+    if (ram) {
+      bRenderer = this.fleetRenderer?.getRenderer(this.localAuth.operatingRamId) || this.world?.soFistication || this.ramRenderer;
+      b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth.operatingRamId);
+    } else {
+      bRenderer = this.fleetRenderer?.getRenderer(this.localAuth?.operatingBallistaId) || this.world?.biByeLlista;
+      b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth?.operatingBallistaId);
+    }
     const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId) && b && b.mode !== 'DESTROYED';
     const optics=clearOptics(this.clearBlend??0,this.view.fov,Boolean(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled),dt);
     this.clearBlend=optics.blend;
@@ -3876,11 +3893,11 @@ export class GameRuntime {
     const rotation = this.camera.quaternion.clone();
     let ramOrbit=null;
     if (mounted) {
-      const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
+      const locator = ram?null:bRenderer?.getMountedCameraPosition?.(this.siegeView, target);
       if(ram){
         if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
         else {
-          const sight = this.ramRenderer.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
+          const sight = bRenderer?.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
           target.set(...boxWorld(soFistFrame(b),sight));
         }
       }
@@ -4362,6 +4379,16 @@ export class GameRuntime {
     // (the terminal dive's shaders, built once the machine is in: its first dive and impact must not stall the frame)
     if(this.flightRenderer.model&&!this.flightRenderer.terminalWarmed)this.flightRenderer.warmTerminal(this.renderer,this.camera);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
+    this.fleetRenderer?.update(this.socket.serverNow(), this.latestSnapshot, dt, {
+      primaryIds: [
+        this.latestSnapshot?.soFistication?.id,
+        this.latestSnapshot?.bibyeBallista?.id,
+        this.latestSnapshot?.fightFlight?.id,
+      ].filter(Boolean),
+      playingLocally: this.socket.playingLocally,
+      frozen: this.socket.inspectionFrozen,
+      localAim: localFlightAim,
+    });
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)
     for (const impact of this.world?.takeImpacts?.() ?? []) {
@@ -4497,6 +4524,46 @@ export class GameRuntime {
         }
       }
     }
+    if (this.fleetRenderer?.fleet) {
+      for (const [id, entry] of this.fleetRenderer.fleet) {
+        const machineState = this.latestSnapshot?.machines?.find((m) => m.id === id);
+        if (!machineState?.operatorId) continue;
+        const driver = machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId);
+        if (!driver?.root?.visible) continue;
+        if (entry.type === 'ram') {
+          const ramPose = entry.renderer.presentationData;
+          if (ramPose) {
+            const at = soFistOperator(ramPose), frame = soFistFrame(ramPose);
+            driver.root.position.set(at.x, at.y, at.z);
+            driver.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...frame.axes.map((a, i) => new THREE.Vector3(...a).multiplyScalar(i === 1 ? 1 : -1))));
+            driver.visualInstance?.animator?.applyRam(entry.renderer.getOperatorStation(ramPose.poseTime ?? this.socket.serverNow()));
+          }
+        } else if (entry.type === 'ballista') {
+          const mountedMachine = entry.renderer.presentationData;
+          if (mountedMachine) {
+            const pose = getBiByeOperatorTransform({ ...mountedMachine, ...mountedMachine.position });
+            driver.root.position.set(pose.position.x, pose.position.y, pose.position.z);
+            driver.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...pose.axes.map((a) => new THREE.Vector3(...a))));
+            driver.visualInstance?.animator?.applyMounted(mountedMachine, mountedMachine.poseTime ?? this.socket.serverNow(), entry.renderer.getOperatorGrips());
+          }
+        } else if (entry.type === 'flight') {
+          if (entry.renderer.model && Number.isFinite(machineState.x) && Number.isFinite(machineState.y) && Number.isFinite(machineState.z)) {
+            driver.root.position.set(machineState.x, machineState.y, machineState.z);
+            driver.root.rotation.set(-(machineState.runPitch ?? 0), Number.isFinite(machineState.heading) ? machineState.heading : 0, 0, 'YXZ');
+            try {
+              const driverPlayer = machineState.operatorId === this.localAuth?.id ? this.localAuth : this.latestSnapshot?.players?.find((p) => p.id === machineState.operatorId);
+              const attacking = Boolean(driverPlayer?.attackActive || (machineState.operatorId === this.localAuth?.id && (this.input.attackHeld || this.weapon?.attackHeld)));
+              const combat = {
+                attackAge: driverPlayer?.attackActive && Number.isFinite(driverPlayer.attackStartedAt) ? this.socket.serverNow() - driverPlayer.attackStartedAt : null,
+                guarding: Boolean(driverPlayer?.guarding),
+                yawOffset: Number.isFinite(driverPlayer?.yaw) && Number.isFinite(machineState.heading) ? Math.atan2(Math.sin(driverPlayer.yaw - machineState.heading), Math.cos(driverPlayer.yaw - machineState.heading)) : 0,
+              };
+              driver.visualInstance?.animator?.applyFightFlight(entry.renderer.getOperatorGrips(), attacking || driverPlayer?.guarding, machineState, this.socket.serverNow(), dt, combat);
+            } catch (_e) {}
+          }
+        }
+      }
+    }
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
@@ -4506,8 +4573,8 @@ export class GameRuntime {
       disasterTeleportAiming(disasterCharge)){
       const origin=this.localAuth.position,edge=this.latestSnapshot?.edgeOfVictory;
       const world=this.activeWorld;
-      const solids=edge?playerMovementWorld(world,{ballista:this.latestSnapshot?.bibyeBallista,
-        ram:this.latestSnapshot?.soFistication,flight:this.latestSnapshot?.fightFlight}).solids:world.solids;
+      const solids=edge?playerMovementWorld(world,{machines:this.latestSnapshot?.machines??[this.latestSnapshot?.bibyeBallista,
+        this.latestSnapshot?.soFistication,this.latestSnapshot?.fightFlight].filter(Boolean)}).solids:world.solids;
       const plan=planOneHitTeleport({origin,yaw:this.input.yaw,pitch:this.input.pitch,
         aerial:!this.localAuth.grounded&&disasterCharge.preparedTiers.gale===2,
         allowVertical:disasterCharge.preparedTiers.gale===2,
@@ -4722,7 +4789,7 @@ export class GameRuntime {
     this.running = false;
     clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
-    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.fleetRenderer?.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

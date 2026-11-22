@@ -135,11 +135,11 @@ function hitWall(room,start,end,world){
   // The wide swept body protects the fist from tunneling, but the actual
   // modeled bottom is higher than the conservative sphere's lowest point.
   // A beam that passes entirely below that bottom must not snag it at all.
-  if(Number.isFinite(top)&&top<Math.min(start.y,end.y)-RAM_FIST.groundRadius-.035)continue;
   const rise=top-(start.y-RAM_FIST.groundRadius);
   const lowLip=Number.isFinite(rise)&&rise>=-.03&&rise<=RAM_FIST.ledgeStep &&
     Math.hypot(end.x-start.x,end.z-start.z)>1e-6;
-  const hitKind=lowLip?'step':'wall';
+  if(Number.isFinite(top)&&top<Math.min(start.y,end.y)-RAM_FIST.groundRadius+.035||lowLip)continue;
+  const hitKind='wall';
   if(hit&&(!nearest||hit.t<nearest.t))nearest={...hit,kind:hitKind,solid:box,top};
  }
  return nearest;

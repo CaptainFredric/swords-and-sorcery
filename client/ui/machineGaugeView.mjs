@@ -10,13 +10,29 @@ const fraction = (health, maxHealth) => maxHealth > 0 ? Math.max(0, Math.min(100
 export function machineGaugeView(local, snapshot, now = 0) {
   if (!local?.alive || !snapshot) return null;
   let machine, kind, title;
-  if (local.operatingRamId && snapshot.soFistication?.id === local.operatingRamId) {
-    machine = snapshot.soFistication; kind = 'ram'; title = 'SO-FIST-ICATION';
-  } else if (local.operatingBallistaId && snapshot.bibyeBallista?.id === local.operatingBallistaId) {
-    machine = snapshot.bibyeBallista; kind = 'ballista'; title = 'BI-BYE-LLISTA';
-  } else if (local.operatingFightFlightId && snapshot.fightFlight?.id === local.operatingFightFlightId) {
-    machine = snapshot.fightFlight; kind = 'flight'; title = 'FIGHT-AND-FLIGHT';
-  } else return null;
+  const opId = local.operatingRamId || local.operatingBallistaId || local.operatingFightFlightId;
+  if (!opId) return null;
+  if (Array.isArray(snapshot.machines)) {
+    machine = snapshot.machines.find(m => m && m.id === opId);
+    if (machine) {
+      if (machine.type === 'flight' || machine.kind === 'flight' || local.operatingFightFlightId === machine.id) {
+        kind = 'flight'; title = 'FIGHT-AND-FLIGHT';
+      } else if (machine.type === 'ballista' || machine.kind === 'ballista' || local.operatingBallistaId === machine.id) {
+        kind = 'ballista'; title = 'BI-BYE-LLISTA';
+      } else {
+        kind = 'ram'; title = 'SO-FIST-ICATION';
+      }
+    }
+  }
+  if (!machine) {
+    if (local.operatingRamId && snapshot.soFistication?.id === local.operatingRamId) {
+      machine = snapshot.soFistication; kind = 'ram'; title = 'SO-FIST-ICATION';
+    } else if (local.operatingBallistaId && snapshot.bibyeBallista?.id === local.operatingBallistaId) {
+      machine = snapshot.bibyeBallista; kind = 'ballista'; title = 'BI-BYE-LLISTA';
+    } else if (local.operatingFightFlightId && snapshot.fightFlight?.id === local.operatingFightFlightId) {
+      machine = snapshot.fightFlight; kind = 'flight'; title = 'FIGHT-AND-FLIGHT';
+    } else return null;
+  }
   const health = amount(machine.health);
   if (machine.retired || machine.mode === 'DESTROYED' || health <= 0) return null;
   const maxHealth = positive(machine.maxHealth) ? machine.maxHealth : Math.max(1, health);
