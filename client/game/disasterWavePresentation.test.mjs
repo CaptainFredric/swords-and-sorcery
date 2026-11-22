@@ -50,7 +50,7 @@ test('Gale projectile impact camera kick is gentle and falls off with 3D distanc
   assert.equal(windbladeImpactKick(null,hit),0);
 });
 
-test('Gale blade remains world-horizontal while traveling along any aimed pitch',()=>{
+test('Gale membrane remains wholly world-parallel while the projectile travels in 3D',()=>{
   const shots=[
     {x:0,y:0,z:1},{x:.4,y:.8,z:.45},
     {x:0,y:-.96,z:.28},{x:0,y:1,z:0},
@@ -58,24 +58,25 @@ test('Gale blade remains world-horizontal while traveling along any aimed pitch'
   ];
   for(const direction of shots){
     const basis=windbladeLevelBasis(direction);
-    assert.equal(basis.right.y,0,'the WIDE axis must be exactly horizontal');
+    assert.equal(basis.right.y,0,'width is level');
+    assert.equal(basis.forward.y,0,'the whole sheet, not just its width, is level');
+    assert.deepEqual(basis.up,{x:0,y:1,z:0},'no bank or pitch');
     const length=Math.hypot(direction.x,direction.y,direction.z);
     for(const axis of ['x','y','z'])
-      assert.ok(Math.abs(basis.forward[axis]-direction[axis]/length)<1e-8,
-        'velocity continues along aimed 3D direction');
-    const dot=basis.right.x*basis.forward.x+basis.right.y*basis.forward.y+
-      basis.right.z*basis.forward.z;
-    assert.ok(Math.abs(dot)<1e-7,'wide axis stays perpendicular to flight');
-    const rightLength=Math.hypot(...Object.values(basis.right));
-    assert.ok(Math.abs(rightLength-1)<1e-7);
+      assert.ok(Math.abs(basis.travel[axis]-direction[axis]/length)<1e-8,
+        'true 3D velocity remains independent of the yaw-only visual');
+    const dot=basis.right.x*basis.forward.x+basis.right.z*basis.forward.z;
+    assert.ok(Math.abs(dot)<1e-8,'wide axis perpendicular to horizontal heading');
+    assert.ok(Math.abs(Math.hypot(basis.right.x,basis.right.z)-1)<1e-8);
   }
 });
-test('straight-up or down Gale shots have a stable level fallback',()=>{
+test('straight-up and straight-down shots retain a stable level heading',()=>{
   const prior={x:0,y:0,z:-1};
-  const up=windbladeLevelBasis({x:0,y:1,z:0},prior);
-  const down=windbladeLevelBasis({x:0,y:-1,z:0},prior);
-  assert.deepEqual(up.right,prior);
-  assert.deepEqual(down.right,prior);
-  assert.equal(up.right.y,0);
-  assert.equal(down.right.y,0);
+  for(const pitch of [1,-1]){
+    const basis=windbladeLevelBasis({x:0,y:pitch,z:0},prior);
+    assert.deepEqual(basis.right,prior);
+    assert.equal(basis.forward.y,0);
+    assert.equal(basis.travel.y,pitch);
+  }
+  assert.equal(windbladeLevelBasis(null).forward.z,1,'invalid direction has safe heading');
 });
