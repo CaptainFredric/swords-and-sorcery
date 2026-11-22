@@ -70,6 +70,7 @@ import {
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
+  whirlSpinRecipe, riposteTwinkleRecipe, riposteThrustRecipe, rigidRiposteParryRecipe,
 } from './sound/soundRecipes.mjs';
 import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { DisasterSoundscape } from './sound/DisasterSoundscape.mjs';
@@ -2148,6 +2149,22 @@ export class GameRuntime {
       }
       // a blade snagged on some small furnishing in passing: very rarely, the knight formally surrenders over it
       if (event.type === 'swordWorldImpact' && event.snag) this.#sayMoment(event.playerId, ['bladeSnag']);
+      if (event.type === 'swordTechniqueStarted') {
+        const at = this.#bodyPosition(event.playerId);
+        const mine = event.playerId === me;
+        if (event.id === 'rigid_riposte') {
+          this.#play(riposteTwinkleRecipe(), mine ? null : at, mine ? 1 : 0.85);
+          setTimeout(() => {
+            if (this.playing) this.#play(riposteThrustRecipe(), mine ? null : this.#bodyPosition(event.playerId), mine ? 0.9 : 0.75);
+          }, 220);
+        } else if (event.id === 'whirl_wind') {
+          const player = this.latestSnapshot?.players?.find((p) => p.id === event.playerId);
+          const gale = Boolean(player?.spell === 'gale');
+          const lift = Boolean(player?.swordTechnique?.galeLift || (gale && player?.grounded === false));
+          this.#play(whirlSpinRecipe(Math.random, { revolution: 0, gale }), mine ? null : at, mine ? 1 : 0.85);
+          if (at) this.effects.whirlVfx(at, player?.yaw ?? 0, { galeLift: lift });
+        }
+      }
       if (event.type === 'swordHit') this.#swordHit(event);
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
@@ -3572,7 +3589,8 @@ export class GameRuntime {
       const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
       this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
     }
-    const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
+    const isRiposteParry = parry && (event.technique === 'rigid_riposte' || this.latestSnapshot?.players?.find((p) => p.id === event.defenderId)?.swordTechnique?.id === 'rigid_riposte');
+    const recipe = isRiposteParry ? rigidRiposteParryRecipe() : parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
     if (!event.ram) this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
     // a Sundering blow lands on a guard as two: CLANG-CLANG, the weight of it under both
@@ -4348,6 +4366,21 @@ export class GameRuntime {
     }
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
+    // Whirl Like the Wind continuous presentation: white crescents + light green gale ascent
+    const whirlPlayers = this.latestSnapshot?.players ?? [];
+    for (const p of whirlPlayers) {
+      if (p.swordTechnique?.id === 'whirl_wind' && p.swordTechnique.phase === 'active') {
+        const at = this.#bodyPosition(p.id);
+        const gale = p.spell === 'gale';
+        const lift = Boolean(p.swordTechnique.galeLift || (gale && p.grounded === false));
+        const key = `whirl:${p.id}`;
+        const last = this.lastWhirlVfxAt?.get(key) ?? 0;
+        if (timeSec - last >= 0.15) {
+          (this.lastWhirlVfxAt ??= new Map()).set(key, timeSec);
+          if (at) this.effects.whirlVfx(at, p.yaw ?? 0, { galeLift: lift, count: 5 });
+        }
+      }
+    }
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
     this.world?.setTrialState?.(this.latestSnapshot, this.socket.serverNow());

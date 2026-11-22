@@ -118,6 +118,100 @@ export class MenuController {
     return this.chooseBreakthroughTeam(team);
   }
 
+  siegeFormat() {
+    const raw = this.storage?.getItem?.('ss-siege-format');
+    return raw === 'MATCH' ? 'MATCH' : 'ENDLESS';
+  }
+
+  chooseSiegeFormat(format) {
+    const chosen = format === 'MATCH' ? 'MATCH' : 'ENDLESS';
+    this.storage?.setItem?.('ss-siege-format', chosen);
+    return chosen;
+  }
+
+  siegeSize() {
+    const raw = Number(this.storage?.getItem?.('ss-siege-size'));
+    return (raw === 1 || raw === 2 || raw === 3) ? raw : 1;
+  }
+
+  chooseSiegeSize(size) {
+    const chosen = (Number(size) === 2 || Number(size) === 3) ? Number(size) : 1;
+    this.storage?.setItem?.('ss-siege-size', String(chosen));
+    return chosen;
+  }
+
+  siegeMachine() {
+    const raw = this.storage?.getItem?.('ss-siege-machine');
+    return ['random', 'so-fist-ication', 'bi-bye-llista', 'fight-and-flight'].includes(raw) ? raw : 'random';
+  }
+
+  chooseSiegeMachine(machine) {
+    const chosen = ['random', 'so-fist-ication', 'bi-bye-llista', 'fight-and-flight'].includes(machine) ? machine : 'random';
+    this.storage?.setItem?.('ss-siege-machine', chosen);
+    return chosen;
+  }
+
+  siegeRounds() {
+    const raw = Number(this.storage?.getItem?.('ss-siege-rounds'));
+    return (raw === 3 || raw === 5 || raw === 7) ? raw : 3;
+  }
+
+  chooseSiegeRounds(rounds) {
+    const chosen = (Number(rounds) === 5 || Number(rounds) === 7) ? Number(rounds) : 3;
+    this.storage?.setItem?.('ss-siege-rounds', String(chosen));
+    return chosen;
+  }
+
+  siegeEndlessRounds() {
+    const rawVal = this.storage?.getItem?.('ss-siege-endless-rounds');
+    if (rawVal === null || rawVal === undefined) return 25;
+    const raw = Number(rawVal);
+    return (raw === 10 || raw === 25 || raw === 50 || raw === 0) ? raw : 25;
+  }
+
+  chooseSiegeEndlessRounds(rounds) {
+    const val = Number(rounds);
+    const chosen = (val === 10 || val === 50 || val === 0) ? val : 25;
+    this.storage?.setItem?.('ss-siege-endless-rounds', String(chosen));
+    return chosen;
+  }
+
+  siegeClashStarts() {
+    const raw = this.storage?.getItem?.('ss-siege-clash');
+    return raw !== 'false';
+  }
+
+  chooseSiegeClashStarts(enabled) {
+    const chosen = Boolean(enabled);
+    this.storage?.setItem?.('ss-siege-clash', String(chosen));
+    return chosen;
+  }
+
+  siegeBlades(rawName, options = null) {
+    const format = options?.format ?? this.siegeFormat();
+    const size = (options?.teamSize !== undefined ? Number(options.teamSize) : this.siegeSize());
+    const skill = options?.botSkill ?? this.breakthroughSkill();
+    const arena = options?.worldId ?? (this.breakthroughArena() === 'outerworks' || this.breakthroughArena() === 'blackbell-foundry' ? this.breakthroughArena() : 'high-grounds');
+    const teamPref = options?.team ?? this.breakthroughTeam();
+    const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
+    const machine = options?.machine ?? this.siegeMachine();
+    const matchRounds = options?.matchRounds ?? this.siegeRounds();
+    const endlessRoundCap = options?.endlessRoundCap ?? this.siegeEndlessRounds();
+    const clashStarts = options?.clashStarts ?? this.siegeClashStarts();
+
+    return this.#withName(rawName, (name) => {
+      return this.socket.startSolo('SIEGE_BLADES', name, arena, skill, team, size, {
+        format,
+        teamSize: size,
+        botDifficulty: skill,
+        machineSelection: machine,
+        matchRounds,
+        endlessRoundCap,
+        clashStarts,
+      });
+    });
+  }
+
   #withName(rawName, action) {
     const name = normalizeName(rawName);
     if (!name) return { ok: false, error: 'Enter a Spellblade name.' };

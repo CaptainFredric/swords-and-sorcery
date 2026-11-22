@@ -3,6 +3,7 @@
 // See docs/modes/mode-runtime-contract.md for timing, return types and testing.
 import { GAME_MODES } from '../src/modes.mjs';
 import { RESTLESS_DAY_HANDLER } from './restlessDayMode.mjs';
+import { SIEGE_BLADES_HANDLER } from './siegeBladesMode.mjs';
 
 export const MODE_HOOKS=Object.freeze([
   'ownsTeamObjectives','init','beforeSpawns','reset','baseWorld','composeWorld',
@@ -24,6 +25,7 @@ export function defineModeHandler(mode,handler){
 }
 const handlers=new Map([
   [GAME_MODES.RESTLESS_DAY,defineModeHandler(GAME_MODES.RESTLESS_DAY,RESTLESS_DAY_HANDLER)],
+  [GAME_MODES.SIEGE_BLADES,defineModeHandler(GAME_MODES.SIEGE_BLADES,SIEGE_BLADES_HANDLER)],
 ]);
 export function modeHandler(mode){return handlers.get(mode)??null;}
 export function modeCall(room,hook,...args){return modeHandler(room.mode)?.[hook]?.(room,...args);}

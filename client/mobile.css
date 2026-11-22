@@ -299,6 +299,12 @@ button, input { touch-action: manipulation; }
   box-sizing:border-box;width:100%;min-width:0;
   padding:4px 6px;gap:2px;
 }
+.touch-ui .siege-blades-hud {
+  box-sizing:border-box;width:100%;min-width:0;
+  padding:4px 6px;gap:2px;
+}
+.touch-ui .sb-team-score b { font-size: 13px; }
+.touch-ui .sb-banner { font-size: 8px; }
 .touch-ui .breakthrough-hud .bt-footer,
 .touch-ui .breakthrough-hud .bt-phase {display:none;}
 .touch-ui .bt-team-badge {padding:1px 4px;font-size:7px;letter-spacing:.08em;}

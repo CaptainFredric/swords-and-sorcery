@@ -257,6 +257,21 @@ export class Effects {
     this.scorchGeometry = new THREE.CircleGeometry(1, 24);
     this.shardGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.2);
     this.moteGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+    this.whirlGaleMaterial = new THREE.MeshBasicMaterial({
+      color: 0x91e86e,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.whirlGaleLightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xcfff87,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
     this.flameGeometry = new THREE.OctahedronGeometry(0.1, 0);
     this.spellMaterials = new Map();
     this.elementalMistMaterials = new Map();
@@ -775,6 +790,85 @@ export class Effects {
     }
     if (feet) for (let i = 0, n = this.#many(4); i < n; i += 1) this.#dust({ x: feet.x, y: feet.y + 0.05, z: feet.z }, { size: 1.2, rise: 0.5, life: 0.55 });
     this.#flashLight(at, 0xff9a50, 2.6, 0.12, 4);
+  }
+
+  /**
+   * Whirl Like the Wind visual effects:
+   * Generates expanding crescent white particle ribbons and radiant sparks.
+   * When rising with Gale Garner equipped (galeLift), adds upward-spiraling light green wind
+   * streaks and motes matching Gale Garner's color palette.
+   */
+  whirlVfx(point, yaw = 0, { galeLift = false, count = 8 } = {}) {
+    if (!point) return;
+    const n = this.#many(count);
+    const center = { x: point.x, y: point.y + 0.95, z: point.z };
+    // Crescent white particle effects for Whirl Like the Wind
+    for (let i = 0; i < n; i += 1) {
+      const angle = yaw + (i * Math.PI * 2) / n + (Math.random() - 0.5) * 0.4;
+      const r = 0.75 + Math.random() * 0.5;
+      const mesh = new THREE.Mesh(this.slashGeometry, this.slashMaterial);
+      mesh.position.set(center.x + Math.cos(angle) * r, center.y + (Math.random() - 0.5) * 0.25, center.z + Math.sin(angle) * r);
+      mesh.rotation.set((Math.random() - 0.5) * 0.3, -angle + Math.PI / 2, (Math.random() - 0.5) * 0.3);
+      mesh.scale.setScalar(0.75 + Math.random() * 0.45);
+      const tangentSpeed = 3.5 + Math.random() * 2.0;
+      this.#addTransient(mesh, {
+        velocity: new THREE.Vector3(-Math.sin(angle) * tangentSpeed, (Math.random() - 0.3) * 0.5, Math.cos(angle) * tangentSpeed),
+        life: 0.18 + Math.random() * 0.12,
+        shrink: true,
+        fade: true,
+        spin: new THREE.Vector3(0, 4, 0),
+      });
+    }
+    // White spark particles around the perimeter
+    for (let i = 0; i < this.#many(6); i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const mesh = new THREE.Mesh(this.sparkGeometry, this.slashMaterial);
+      mesh.position.set(center.x + Math.cos(angle) * 0.9, center.y + (Math.random() - 0.5) * 0.3, center.z + Math.sin(angle) * 0.9);
+      mesh.scale.setScalar(1.2);
+      this.#addTransient(mesh, {
+        velocity: new THREE.Vector3(Math.cos(angle) * 4.0, (Math.random() - 0.2) * 1.5, Math.sin(angle) * 4.0),
+        life: 0.22 + Math.random() * 0.15,
+        shrink: true,
+        gravity: 1.5,
+      });
+    }
+    // Light green Gale Garner effects when rising with Whirl
+    if (galeLift) {
+      const greenCount = this.#many(10);
+      for (let i = 0; i < greenCount; i += 1) {
+        const angle = yaw + (i * Math.PI * 2) / greenCount + (Math.random() - 0.5) * 0.3;
+        const r = 0.5 + Math.random() * 0.6;
+        const isLight = i % 2 === 0;
+        const mat = isLight ? this.whirlGaleLightMaterial : this.whirlGaleMaterial;
+        // Rising wind streak
+        const streak = new THREE.Mesh(this.windStreakGeometry, mat);
+        streak.position.set(center.x + Math.cos(angle) * r, center.y - 0.4 + Math.random() * 0.3, center.z + Math.sin(angle) * r);
+        streak.rotation.set((Math.random() - 0.5) * 0.4, -angle + Math.PI / 2, (Math.random() - 0.5) * 0.4);
+        streak.scale.set(0.65 + Math.random() * 0.4, 0.65 + Math.random() * 0.4, 0.8 + Math.random() * 0.5);
+        this.#addTransient(streak, {
+          velocity: new THREE.Vector3(-Math.sin(angle) * 2.8, 3.2 + Math.random() * 2.4, Math.cos(angle) * 2.8),
+          life: 0.26 + Math.random() * 0.16,
+          shrink: true,
+          fade: true,
+          spin: new THREE.Vector3(0, 5, 0),
+        });
+      }
+      // Light green rising motes
+      for (let i = 0; i < this.#many(8); i += 1) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 0.3 + Math.random() * 0.5;
+        const mote = new THREE.Mesh(this.moteGeometry, this.whirlGaleLightMaterial);
+        mote.position.set(center.x + Math.cos(a) * r, center.y - 0.2 + (Math.random() - 0.5) * 0.3, center.z + Math.sin(a) * r);
+        mote.scale.setScalar(1.6);
+        this.#addTransient(mote, {
+          velocity: new THREE.Vector3(-Math.sin(a) * 2.2, 4.0 + Math.random() * 2.8, Math.cos(a) * 2.2),
+          life: 0.3 + Math.random() * 0.2,
+          shrink: true,
+          fade: true,
+          gravity: -1.2,
+        });
+      }
+    }
   }
 
   /**

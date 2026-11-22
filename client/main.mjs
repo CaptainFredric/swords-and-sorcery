@@ -457,13 +457,15 @@ function syncSoundscape() {
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    const flight=latestSnapshot?.fightFlight;
+    const fleet = latestSnapshot?.machines ?? [];
+    const flight = (latestSnapshot?.fightFlight?.operatorId === runtime?.playerId || latestSnapshot?.fightFlight?.terminalDive?.operatorId === runtime?.playerId)
+      ? latestSnapshot.fightFlight
+      : (fleet.find(m => m.kind === 'flight' && (m.operatorId === runtime?.playerId || m.terminalDive?.operatorId === runtime?.playerId)) || latestSnapshot?.fightFlight);
     const yours=Boolean(flight&&runtime?.playerId&&
       (flight.operatorId===runtime.playerId||flight.terminalDive?.operatorId===runtime.playerId));
-    // Wagner's Ride is the TERMINAL sacrifice's own cue only.
-    // An ordinary offensive Dash, Ascension Skill, or one-second chord
-    // preparation must never replace the arena music.
-    const valkyrie=Boolean(fighting&&yours&&flight?.terminalDive&&!flight.terminalDive.resolved);
+    // Flight to the Valkyrie cue plays when initiating the hidden skill (terminal chord preparation)
+    // as well as during the committed sacrificial dive.
+    const valkyrie=Boolean(fighting&&yours&&(flight?.terminalPrep || (flight?.terminalDive&&!flight.terminalDive.resolved)));
     // The ride is a temporary, player-specific cue. It overrides an otherwise
     // fixed soundtrack only during this deliberately equipped machine action.
     const piece=valkyrie?'valkyrie':fighting?(overridePiece??fightPieceFor(latestSnapshot)):(overridePiece??null);
@@ -921,6 +923,21 @@ function updateEnd(snapshot) {
     rematchCopy.textContent = 'A new run begins at the first wave.';
     return;
   }
+  if (snapshot.mode === 'SIEGE_BLADES') {
+    const me = snapshot.players.find(p => p.id === socket.playerId);
+    const sb = snapshot.siegeBlades;
+    const scores = sb?.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
+    const won = Boolean(snapshot.winnerTeam && snapshot.winnerTeam === me?.team);
+    winnerTitle.textContent = snapshot.winnerTeam ? (won ? 'VICTORY' : 'DEFEAT') : 'DRAW';
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>SIEGE BLADES · AZURE ${scores.ATTACKERS ?? 0} : CRIMSON ${scores.DEFENDERS ?? 0}</strong><small>${escapeHtml((snapshot.finishReason ?? 'Siege match concluded').replaceAll('-', ' '))}</small></div>`
+      + [...snapshot.players].sort((a,b) => (a.team === me?.team ? -1 : 1) - (b.team === me?.team ? -1 : 1) || b.kills - a.kills)
+        .map(p => `<div class="final-row ${p.id === socket.playerId ? 'you' : ''}"><span class="bt-side-tag ${p.team === 'DEFENDERS' ? 'def' : 'att'}">${p.team === 'DEFENDERS' ? 'CRIM' : 'AZUR'}</span><b>${escapeHtml(p.name)}</b><strong>${p.kills} K</strong><em>${p.deaths} D</em></div>`).join('');
+    seekAnotherButton.classList.remove('hidden');
+    rematchButton.classList.remove('hidden');
+    rematchButton.textContent = 'PLAY AGAIN';
+    rematchCopy.textContent = 'Begin another round of Siege Blades.';
+    return;
+  }
   if (snapshot.mode === 'HIGH_GROUNDS') {
     const me = snapshot.players.find(p => p.id === socket.playerId);
     const scores = snapshot.highGrounds?.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
@@ -1067,6 +1084,13 @@ function showPauseSection(section) {
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
+$('#siege-blades-button')?.addEventListener('click', () => {
+  showMenuError('');
+  mettleActivation.choose('SIEGE_BLADES');
+  breakthroughMenu.dataset.panel = 'details';
+  resetCompanionCrown(breakthroughMenu);
+  route(SCREEN_IDS.BREAKTHROUGH_MENU);
+});
 $('#breakthrough-button')?.addEventListener('click', () => {
   mettleActivation.reset(); showMenuError(''); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
 });
@@ -1148,7 +1172,7 @@ $('#how-button').addEventListener('click', () => {
 });
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
-const MENU_REACTIONS = { 'solo-button': 'salute', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
+const MENU_REACTIONS = { 'solo-button': 'salute', 'siege-blades-button': 'rally', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
 for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEventListener('click', () => menuScene?.react(reaction));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
@@ -1229,13 +1253,19 @@ soloRival.addEventListener('click', (event) => {
 });
 showSoloRival();
 
-// --- Breakthrough setup controls -------------------------------------------------------------------------------
+// --- Breakthrough & Siege setup controls -----------------------------------------------------------------------
+let mettleSoloMode = null;
+const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
+  : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughSize = $('#breakthrough-size');
 function showBreakthroughSize() {
   if (!breakthroughSize) return;
-  const chosen = menuController.breakthroughSize();
+  const isSiege = selectedMettleMode() === 'SIEGE_BLADES';
+  const chosen = isSiege ? menuController.siegeSize() : menuController.breakthroughSize();
   for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
-    const on = Number(chip.dataset.size) === chosen;
+    const sizeVal = Number(chip.dataset.size);
+    chip.hidden = sizeVal === 1 && !isSiege;
+    const on = sizeVal === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
@@ -1243,23 +1273,127 @@ function showBreakthroughSize() {
 breakthroughSize?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-size]');
   if (!chip) return;
-  menuController.chooseBreakthroughSize(Number(chip.dataset.size));
+  const sizeVal = Number(chip.dataset.size);
+  if (selectedMettleMode() === 'SIEGE_BLADES') {
+    menuController.chooseSiegeSize(sizeVal);
+  } else {
+    menuController.chooseBreakthroughSize(sizeVal);
+  }
   showBreakthroughSize();
+  showSiegeControls();
 });
 showBreakthroughSize();
 
+const siegeFormat = $('#siege-format');
+function showSiegeFormat() {
+  if (!siegeFormat) return;
+  const chosen = menuController.siegeFormat();
+  for (const chip of siegeFormat.querySelectorAll('[data-siege-format]')) {
+    const on = chip.dataset.siegeFormat === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+siegeFormat?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-siege-format]');
+  if (!chip) return;
+  menuController.chooseSiegeFormat(chip.dataset.siegeFormat);
+  showSiegeFormat();
+  showSiegeControls();
+});
+
+const siegeRounds = $('#siege-rounds');
+function showSiegeRounds() {
+  if (!siegeRounds) return;
+  const chosen = menuController.siegeRounds();
+  for (const chip of siegeRounds.querySelectorAll('[data-siege-rounds]')) {
+    const on = Number(chip.dataset.siegeRounds) === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+siegeRounds?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-siege-rounds]');
+  if (!chip) return;
+  menuController.chooseSiegeRounds(Number(chip.dataset.siegeRounds));
+  showSiegeRounds();
+});
+
+const siegeEndlessRounds = $('#siege-endless-rounds');
+function showSiegeEndlessRounds() {
+  if (!siegeEndlessRounds) return;
+  const chosen = menuController.siegeEndlessRounds();
+  for (const chip of siegeEndlessRounds.querySelectorAll('[data-endless-rounds]')) {
+    const on = Number(chip.dataset.endlessRounds) === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+siegeEndlessRounds?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-endless-rounds]');
+  if (!chip) return;
+  menuController.chooseSiegeEndlessRounds(Number(chip.dataset.endlessRounds));
+  showSiegeEndlessRounds();
+});
+
+const siegeMachine = $('#siege-machine');
+function showSiegeMachine() {
+  if (!siegeMachine) return;
+  const chosen = menuController.siegeMachine();
+  for (const chip of siegeMachine.querySelectorAll('[data-machine]')) {
+    const on = chip.dataset.machine === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+siegeMachine?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-machine]');
+  if (!chip) return;
+  menuController.chooseSiegeMachine(chip.dataset.machine);
+  showSiegeMachine();
+});
+
+const siegeClash = $('#siege-clash-wrap');
+function showSiegeClash() {
+  if (!siegeClash) return;
+  const chosen = menuController.siegeClashStarts();
+  for (const chip of siegeClash.querySelectorAll('[data-clash]')) {
+    const on = (chip.dataset.clash === 'on') === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+siegeClash?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-clash]');
+  if (!chip) return;
+  menuController.chooseSiegeClashStarts(chip.dataset.clash === 'on');
+  showSiegeClash();
+});
+
+function showSiegeControls() {
+  const isSiege = selectedMettleMode() === 'SIEGE_BLADES';
+  if (siegeFormat) siegeFormat.hidden = !isSiege;
+  const format = menuController.siegeFormat();
+  if (siegeRounds) siegeRounds.hidden = !isSiege || format !== 'MATCH';
+  if (siegeEndlessRounds) siegeEndlessRounds.hidden = !isSiege || format !== 'ENDLESS';
+  if (siegeMachine) siegeMachine.hidden = !isSiege;
+  const is1v1Endless = isSiege && format === 'ENDLESS' && menuController.siegeSize() === 1;
+  if (siegeClash) siegeClash.hidden = !is1v1Endless;
+}
+
 const breakthroughArena = $('#breakthrough-arena');
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
-let mettleSoloMode = null;
-const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughArena() === 'restless-day' ? 'RESTLESS_DAY'
-  : menuController.breakthroughArena() === 'high-grounds' ? 'HIGH_GROUNDS' : 'BREAKTHROUGH');
 const breakthroughCopy = $('#breakthrough-panel-copy');
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
-  const chosen = menuController.breakthroughArena();
   const mode = selectedMettleMode();
+  const isSiege = mode === 'SIEGE_BLADES';
   const solo = mode === 'RENOWN_TRIALS' || mode === 'EDGE_OF_VICTORY';
   const renown = mode === 'RENOWN_TRIALS';
+  let chosen = menuController.breakthroughArena();
+  if (isSiege && !['outerworks', 'blackbell-foundry', 'high-grounds'].includes(chosen)) {
+    chosen = menuController.chooseBreakthroughArena('high-grounds');
+  }
   breakthroughMenu.dataset.soloMode = solo ? 'true' : 'false';
   breakthroughMenu.querySelector('.mettle-companion').hidden = solo;
   $('#mettle-options').hidden = solo;
@@ -1269,25 +1403,45 @@ function showBreakthroughArena() {
   const launch = $('#breakthrough-play-bots');
   launch.querySelector('span').textContent = renown ? 'BEGIN REWARDED TRIAL' : solo ? 'ENTER EDGE OF VICTORY' : 'PLAY WITH BOTS';
   launch.querySelector('small').textContent = renown ? 'Solo waves on the server with account Renown' : solo
-    ? 'Solo · last knight standing against three rivals' : 'Launch a team battle, with bots filling open slots';
+    ? 'Solo · last knight standing against three rivals' : isSiege ? 'Launch a siege machine battle, with bots filling open slots' : 'Launch a team battle, with bots filling open slots';
   for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
     button.classList.toggle('selected',button.dataset.mettleMode===mode);
     button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
   }
   for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
-    chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
+    if (isSiege) {
+      chip.hidden = !['outerworks', 'blackbell-foundry', 'high-grounds'].includes(chip.dataset.arena);
+    } else {
+      chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
+    }
     const on = chip.dataset.arena === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
   $('#breakthrough-size').hidden=mode==='RESTLESS_DAY';
-  $('#breakthrough-find-public').hidden=solo||mode==='RESTLESS_DAY';
+  const publicBtn = $('#breakthrough-find-public');
+  if (publicBtn) {
+    publicBtn.hidden = solo || mode === 'RESTLESS_DAY';
+    publicBtn.querySelector('span').textContent = isSiege ? 'FIND MATCH' : 'BROWSE PUBLIC MATCHES';
+    publicBtn.querySelector('small').textContent = isSiege ? 'Match with another player in Siege Blades (Best of 3)' : 'Find a battle with other Spellblades';
+  }
+  showBreakthroughSize();
+  showSiegeControls();
+  showSiegeFormat();
+  showSiegeRounds();
+  showSiegeEndlessRounds();
+  showSiegeMachine();
+  showSiegeClash();
   if (breakthroughSubtitle) {
-    breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : chosen === 'outerworks' ? 'THE OUTERWORKS'
+    breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : isSiege
+      ? 'SIEGE BLADES · ' + (chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS')
+      : chosen === 'outerworks' ? 'THE OUTERWORKS'
       : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
-    breakthroughCopy.textContent = renown
+    breakthroughCopy.textContent = isSiege
+      ? 'Operate SO-FIST-ICATION, Bi-Bye-llista, or Fight-and-Flight across symmetrical battlegrounds. Match format features overtime engagement zones; Endless format features instant reset and clash starts.'
+      : renown
       ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
       : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'
       ? 'Five attackers carry two heavy metal ladders across the field, breach both castle walls, and destroy the Rightful Renowner before sundown. Defend the institution—or make it to bed.'
@@ -1303,8 +1457,14 @@ function showBreakthroughArena() {
 const mettleActivation = createRepeatActivation({
   selected: selectedMettleMode,
   select: chosen => {
-    mettleSoloMode = ['RENOWN_TRIALS', 'EDGE_OF_VICTORY'].includes(chosen) ? chosen : null;
+    mettleSoloMode = ['RENOWN_TRIALS', 'EDGE_OF_VICTORY', 'SIEGE_BLADES'].includes(chosen) ? chosen : null;
     if (!mettleSoloMode) menuController.chooseBreakthroughArena(chosen==='RESTLESS_DAY'?'restless-day':chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
+    if (chosen === 'SIEGE_BLADES') {
+      const cur = menuController.breakthroughArena();
+      if (!['outerworks', 'blackbell-foundry', 'high-grounds'].includes(cur)) {
+        menuController.chooseBreakthroughArena('high-grounds');
+      }
+    }
     showBreakthroughArena();
     // On a narrow display keep the tabs visible for the second tap.
     // Battle orders remain accessible through the dedicated options button.
@@ -1664,11 +1824,27 @@ $('#solo-details')?.addEventListener('click',()=>{
 });
 $('#solo-launch').addEventListener('click',()=>soloActivation.run());
 $('#breakthrough-find-public')?.addEventListener('click', () => {
+  const mode = selectedMettleMode();
+  if (mode === 'SIEGE_BLADES') {
+    openRooms('SIEGE_BLADES');
+    return;
+  }
   openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
 });
 function playMettleBots() {
   if (mettleSoloMode === 'RENOWN_TRIALS') return runMenuAction(menuController.renownTrials(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
   if (mettleSoloMode === 'EDGE_OF_VICTORY') return runMenuAction(menuController.edgeOfVictory(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
+  if (mettleSoloMode === 'SIEGE_BLADES') return runMenuAction(menuController.siegeBlades(nameInput.value, {
+    format: menuController.siegeFormat(),
+    teamSize: menuController.siegeSize(),
+    worldId: menuController.breakthroughArena(),
+    botSkill: menuController.breakthroughSkill(),
+    team: menuController.breakthroughTeam(),
+    machine: menuController.siegeMachine(),
+    matchRounds: menuController.siegeRounds(),
+    endlessRoundCap: menuController.siegeEndlessRounds(),
+    clashStarts: menuController.siegeClashStarts(),
+  }), SCREEN_IDS.BREAKTHROUGH_MENU);
   return runMenuAction(menuController.breakthrough(nameInput.value, {
     team: menuController.breakthroughTeam(),
     botSkill: menuController.breakthroughSkill(),
@@ -1682,6 +1858,21 @@ $('#mettle-renown-rehearse').addEventListener('click', () => runMenuAction(
 $('#breakthrough-create-private')?.addEventListener('click', () => {
   // Private siege rooms should pass through the same rule review as every
   // other private mode. Preserve the battle orders already chosen in Mettle.
+  const mode = selectedMettleMode();
+  if (mode === 'SIEGE_BLADES') {
+    privateActivation.reset();
+    privateModeSelected = 'SIEGE_BLADES';
+    renderPrivateMode();
+    const f=privateForm.elements;
+    f.worldId.value=menuController.breakthroughArena();
+    f.teamSize.value=String(menuController.siegeSize());
+    f.team.value=menuController.breakthroughTeam();
+    f.botSkill.value=menuController.breakthroughSkill();
+    renderPrivateMode({reset:false});
+    privateMenu.dataset.panel='list';
+    route(SCREEN_IDS.PRIVATE_MENU);
+    return;
+  }
   const arena=menuController.breakthroughArena();
   privateActivation.reset();
   privateModeSelected=arena==='restless-day'?'RESTLESS_DAY':arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';

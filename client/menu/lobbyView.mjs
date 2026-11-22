@@ -26,6 +26,7 @@ export function modeLabel(mode) {
   if (mode === 'HIGH_GROUNDS') return 'HIGH GROUNDS';
   if (mode === 'RESTLESS_DAY') return 'RESTLESS DAY';
   if (mode === 'EDGE_OF_VICTORY') return 'EDGE OF VICTORY';
+  if (mode === 'SIEGE_BLADES') return 'SIEGE BLADES';
   return 'FREE-FOR-ALL';
 }
 
@@ -39,10 +40,10 @@ function connectedHumans(message) {
 }
 
 export function lobbyStateText(message, serverNow = 0) {
-  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode)) {
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'SIEGE_BLADES'].includes(message.mode)) {
     if (message.roomState === 'COUNTDOWN') return 'SIEGE STARTING…';
     if (message.roomState === 'REMATCH_COUNTDOWN') return 'NEXT ROUND STARTING…';
-    return `RALLYING SPELLBLADES · ${message.teamSize ?? 3}V${message.teamSize ?? 3}`;
+    return `RALLYING SPELLBLADES · ${message.teamSize ?? (message.mode === 'SIEGE_BLADES' ? 1 : 3)}V${message.teamSize ?? (message.mode === 'SIEGE_BLADES' ? 1 : 3)}`;
   }
   if (message.mode === 'EDGE_OF_VICTORY') {
     if (message.roomState === 'COUNTDOWN') return 'THE KNIGHTS ENTER THE BATTLEGROUND…';
@@ -70,9 +71,9 @@ export function lobbyStateText(message, serverNow = 0) {
 }
 
 function playerStatus(message, player) {
-  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode)) {
-    // High Grounds has two invading sides; neither is the defending faction.
-    const side = message.mode === 'HIGH_GROUNDS'
+  if (['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'SIEGE_BLADES'].includes(message.mode)) {
+    // High Grounds and Siege Blades use Azure vs Crimson
+    const side = (message.mode === 'HIGH_GROUNDS' || message.mode === 'SIEGE_BLADES')
       ? player.team === 'DEFENDERS' ? 'CRIMSON' : 'AZURE'
       : player.team === 'DEFENDERS' ? 'DEFENDERS' : 'ATTACKERS';
     if (player.actorKind === 'bot') return `${side} · BOT · OPEN SEAT`;
@@ -95,7 +96,7 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
   const ffa = message.mode === 'FFA';
   const edge = message.mode === 'EDGE_OF_VICTORY';
   const botDuel = message.mode === 'BOT_DUEL';
-  const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY'].includes(message.mode);
+  const breakthrough = ['BREAKTHROUGH', 'HIGH_GROUNDS', 'RESTLESS_DAY', 'SIEGE_BLADES'].includes(message.mode);
   const waiting = message.roomState === 'WAITING';
   const me = (message.players ?? []).find((p) => p.id === localId);
   const players = (message.players ?? []).map((player) => ({
@@ -132,13 +133,15 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     ? 'Get ready. The duel begins after the countdown.'
     : 'Press Start Bot Duel when ready. A short countdown follows.';
   if (breakthrough) {
-    const mySide = message.mode === 'HIGH_GROUNDS'
+    const mySide = (message.mode === 'HIGH_GROUNDS' || message.mode === 'SIEGE_BLADES')
       ? me?.team === 'DEFENDERS' ? 'Crimson' : 'Azure'
       : me?.team === 'DEFENDERS' ? 'Defenders' : 'Attackers';
     footer = message.mode === 'RESTLESS_DAY'
       ? `Your side: ${mySide}. Five attackers carry ladders to destroy the Renowner before sunset; defenders protect it until sundown.`
       : message.mode === 'HIGH_GROUNDS'
       ? `Your side: ${mySide}. Both sides capture territory; open seats can be filled by joining Spellblades.`
+      : message.mode === 'SIEGE_BLADES'
+      ? `Your side: ${mySide}. Machine combat in SO-FIST-ICATION, Bi-Bye-llista, and Fight-and-Flight.`
       : `Your side: ${mySide}. Empty ${message.teamSize ?? 3}v${message.teamSize ?? 3} slots are filled by bots; friends joining by code replace bots.`;
   }
   if (message.mode === 'DUEL') footer = 'A matchmade duel. First to five.';

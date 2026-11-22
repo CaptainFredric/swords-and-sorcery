@@ -10,6 +10,7 @@ export const GAME_MODES = Object.freeze({
   RESTLESS_DAY: 'RESTLESS_DAY',
   RENOWN_TRIALS: 'RENOWN_TRIALS',
   EDGE_OF_VICTORY: 'EDGE_OF_VICTORY',
+  SIEGE_BLADES: 'SIEGE_BLADES',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
@@ -21,6 +22,7 @@ export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
 export const RESTLESS_DAY_ARENAS = Object.freeze(['restless-day']);
 export const EDGE_OF_VICTORY_ARENAS = Object.freeze(['ruined-keep']);
 export const RENOWN_ARENAS = Object.freeze(['court-of-merit', 'castleward']);
+export const SIEGE_BLADES_ARENAS = Object.freeze(['high-grounds', 'blackbell-foundry', 'outerworks']);
 
 const MODE_ARENAS = Object.freeze({
   [GAME_MODES.PRACTICE]: PRACTICE_ARENAS,
@@ -29,6 +31,7 @@ const MODE_ARENAS = Object.freeze({
   [GAME_MODES.RESTLESS_DAY]: RESTLESS_DAY_ARENAS,
   [GAME_MODES.EDGE_OF_VICTORY]: EDGE_OF_VICTORY_ARENAS,
   [GAME_MODES.RENOWN_TRIALS]: RENOWN_ARENAS,
+  [GAME_MODES.SIEGE_BLADES]: SIEGE_BLADES_ARENAS,
 });
 
 export function arenasForMode(mode) {
@@ -42,7 +45,7 @@ export function arenaForMode(mode, worldId) {
 
 /** Legacy world validation for callers that have no mode. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RESTLESS_DAY_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId) || RENOWN_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId) || RESTLESS_DAY_ARENAS.includes(worldId) || EDGE_OF_VICTORY_ARENAS.includes(worldId) || RENOWN_ARENAS.includes(worldId) || SIEGE_BLADES_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 
@@ -155,6 +158,22 @@ const POLICIES = Object.freeze({
     // the rival team opens in peace for a moment so players orient
     openingPeaceSec: 2,
   }),
+  [GAME_MODES.SIEGE_BLADES]: Object.freeze({
+    id: GAME_MODES.SIEGE_BLADES,
+    teamMode: true,
+    teamSize: 1,
+    minHumansToStart: 1,
+    botCount: 1,
+    scored: true,
+    timed: true,
+    scoreToWin: 2,
+    matchSeconds: 180,
+    respawnSec: 0,
+    autoStart: true,
+    allowRematchVote: true,
+    countdownSec: 3,
+    openingPeaceSec: 2,
+  }),
 });
 
 export function getModePolicy(id) {
@@ -170,5 +189,6 @@ export const PUBLIC_ROOM_MODES = Object.freeze({
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({ name: 'BREAKTHROUGH', arenas: BREAKTHROUGH_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
   [GAME_MODES.HIGH_GROUNDS]: Object.freeze({ name: 'HIGH GROUNDS', arenas: HIGH_GROUNDS_ARENAS, capacity: 6, teamMode: true, joinMidMatch: true }),
   [GAME_MODES.EDGE_OF_VICTORY]: Object.freeze({ name: 'EDGE OF VICTORY', arenas: EDGE_OF_VICTORY_ARENAS, capacity: 4, teamMode: false, joinMidMatch: false }),
+  [GAME_MODES.SIEGE_BLADES]: Object.freeze({ name: 'SIEGE BLADES', arenas: SIEGE_BLADES_ARENAS, capacity: 6, teamMode: true, joinMidMatch: false }),
 });
 export function publicRoomMode(id) { return PUBLIC_ROOM_MODES[id] ?? null; }

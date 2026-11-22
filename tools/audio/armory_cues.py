@@ -385,6 +385,95 @@ def chivalry(rng):
     return finish(room(out, rng, 0.12), low_cut=110)
 
 
+def coreflagration(rng):
+    """primed projectile crackle -> core burst -> deep volcanic eruption. A burning stone that bursts with a sharp crack,
+    followed by a secondary heavy volcanic rumble, roaring core flame expansion, and volatile popping embers."""
+    n = frames(0.72)
+    out = np.zeros(n)
+    m = frames(0.08)
+    place(out, impact(rng, 2200, 8000, 0.002), 0.0, 1.2)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 1800, 4500), 2.0) * env(m, 0.002, 0.06), 0.0, 0.9)
+    blast = 0.11
+    place(out, impact(rng, 800, 6000, 0.0035), blast, 2.4)
+    m = frames(0.18)
+    place(out, svf(rng.standard_normal(m), 'low', sweep(m, 600, 140), 1.2) * env(m, 0.004, 0.15), blast, 1.4)
+    m = frames(0.44)
+    t = np.arange(m) / SR
+    rumble = (0.7 * np.sin(2 * np.pi * 78 * t) + 0.4 * np.sin(2 * np.pi * 135 * t + 0.9)) * env(m, 0.02, 0.36, 0.03)
+    place(out, rumble, blast + 0.01, 0.85)
+    m = frames(0.48)
+    place(out, flame(m, rng, sweep(m, 280, 850), 1.0, 32, 0.7) * env(m, 0.03, 0.38, 0.02), blast + 0.015, 1.3)
+    for i in range(14):
+        at = blast + 0.06 + (i / 14) ** 1.1 * 0.4 + rng.uniform(0, 0.025)
+        place(out, pop(rng, rng.uniform(1200, 4800), rng.uniform(0.008, 0.022)), at, 0.55 * (1 - i / 18) * rng.uniform(0.6, 1.1))
+    return finish(room(out, rng, 0.11), low_cut=65)
+
+
+def line_of_conduct(rng):
+    """lightning snap -> ionizing crackle -> conducting hum. An explosive high-voltage electric arc snap,
+    a rapid cluster of secondary ionizing micro-arcs, and a deep vibrating electromagnetic conduction hum (120/240 Hz).
+    Crisp, electric, sharp: no fire, no frost."""
+    n = frames(0.66)
+    out = np.zeros(n)
+    place(out, impact(rng, 4500, 15000, 0.0022), 0.0, 2.6)
+    m = frames(0.04)
+    place(out, svf(rng.standard_normal(m), 'high', 3200, 1.2) * env(m, 0.0005, 0.035), 0.0, 1.5)
+    at = 0.003
+    for i in range(16):
+        decay = rng.uniform(0.003, 0.012)
+        k = frames(decay * 3 + 0.002)
+        click = svf(rng.standard_normal(k), 'band', rng.uniform(3500, 11000), 3.5) * np.exp(-np.linspace(0, 5, k))
+        place(out, click, at, 1.1 * (0.88 ** i) * rng.uniform(0.6, 1.2))
+        at += rng.uniform(0.008, 0.024)
+    m = frames(0.48)
+    t = np.arange(m) / SR
+    shape = env(m, 0.01, 0.38, 0.04)
+    hum = (
+        0.55 * np.sin(2 * np.pi * 120 * t) +
+        0.35 * np.sin(2 * np.pi * 240 * t + 0.4) +
+        0.20 * np.sin(2 * np.pi * 360 * t + 1.2) +
+        0.12 * np.sin(2 * np.pi * 480 * t + 2.1)
+    ) * shape
+    place(out, hum, 0.012, 0.45)
+    sizzle = svf(rng.standard_normal(m), 'band', sweep(m, 7800, 3200), 2.2) * shape * turbulence(m, rng, 28, 0.4)
+    place(out, sizzle, 0.008, 0.72)
+    return finish(room(out, rng, 0.1), low_cut=75)
+
+
+def rigid_riposte(rng):
+    """star twinkle -> blade unsheathe -> precise forward thrust. A crystalline star twinkle catching the poised blade
+    at the start, a clean steel glide, and a focused slight forward thrust whoosh. Firm, elegant, disciplined."""
+    n = frames(0.68)
+    out = np.zeros(n)
+    chime_modes = [(4200, 0.45, 0.22), (5600, 0.32, 0.18), (7400, 0.20, 0.14), (9200, 0.12, 0.10)]
+    place(out, modes(frames(0.28), chime_modes, rng, attack=0.0003), 0.02, 0.85)
+    place(out, impact(rng, 4500, 12000, 0.001), 0.02, 0.6)
+    m = frames(0.18)
+    u = np.linspace(0, 1, m)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 2200, 4800), 3.2) * (0.2 + 0.8 * u ** 1.4), 0.06, 0.75)
+    place(out, modes(frames(0.24), [(1280, 0.35, 0.16), (1280 * 2.09, 0.18, 0.10)], rng), 0.14, 0.5)
+    m = frames(0.22)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 480, 1150), 1.6) * env(m, 0.02, 0.16), 0.22, 0.7)
+    place(out, svf(rng.standard_normal(m), 'band', 3100, 5.0) * env(m, 0.015, 0.12), 0.23, 0.3)
+    return finish(room(out, rng, 0.1), low_cut=90)
+
+
+def whirl_wind(rng):
+    """spinning aerodynamic swoosh -> blade edge whistle across stereo field. A 360-degree centrifugal rush of air
+    spinning from left to right, accompanied by the whistling ring of the circling blade edge. Mobile, dynamic, buoyant."""
+    n = frames(0.72)
+    out = np.zeros((2, n))
+    m = frames(0.52)
+    shape = env(m, 0.025, 0.42, 0.04)
+    travel = np.linspace(-0.8, 0.85, m)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 420, 1350), 1.3) * shape, 0.04, 1.4, pan=travel)
+    place(out, svf(rng.standard_normal(m), 'low', 240, 0.8) * shape, 0.05, 0.8, pan=travel)
+    whistle_freq = sweep(m, 2400, 3800)
+    place(out, svf(rng.standard_normal(m), 'band', whistle_freq, 5.5) * shape, 0.06, 0.45, pan=travel)
+    place(out, modes(frames(0.35), [(740, 0.25, 0.22), (740 * 1.47, 0.18, 0.16)], rng), 0.12, 0.4, pan=0.2)
+    return finish(room(out, rng, 0.1), low_cut=110)
+
+
 CUES = {
     'fireball': (fireball, 11),
     'frostfire': (frostfire, 12),
@@ -393,6 +482,10 @@ CUES = {
     'sunder': (sunder, 15),
     'vortex': (vortex, 16),
     'chivalry': (chivalry, 17),
+    'coreflagration': (coreflagration, 18),
+    'line_of_conduct': (line_of_conduct, 19),
+    'rigid_riposte': (rigid_riposte, 20),
+    'whirl_wind': (whirl_wind, 21),
 }
 
 

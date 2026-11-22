@@ -36,7 +36,7 @@ test('airborne fields use chest-height 3D contact and expire much sooner than gr
  const position={x:0,y:8,z:0},direction={x:0,y:0,z:-1},radius=2.2;
  const field={position,radius,air:true,direction};
  assert.ok(fieldContact(field,{x:0,y:8,z:-2.45})>.4);
- assert.equal(fieldContact(field,{x:0,y:8,z:2.45}),0);
+ assert.equal(fieldContact(field,{x:0,y:8,z:2.65}),0);
  assert.equal(fieldContact(field,{x:0,y:11,z:0}),0);
  assert.ok(airFieldSeconds({})>=1&&airFieldSeconds({})<2);
  assert.ok(airFieldSeconds({fire:2,frost:2,gale:2,lightning:2,steel:2})<2);

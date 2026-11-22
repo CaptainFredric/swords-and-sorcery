@@ -1065,9 +1065,8 @@ export function stepBotControllers(
     // Machine AI owns mounted pilots and their ordinary foot navigation
     // back to an intact, unoccupied machine. Regular foot combat resumes
     // when their assigned machine is destroyed or unavailable.
-    if(actor.practiceSiegeOperator &&
-      (actor.operatingBallistaId||actor.operatingRamId||actor.operatingFightFlightId||
-        actor.siegeAi?.phase==='remount'))continue;
+    if ((actor.operatingBallistaId || actor.operatingRamId || actor.operatingFightFlightId) ||
+        (actor.practiceSiegeOperator && actor.siegeAi?.phase === 'remount')) continue;
     const skill = botSkill(actor);
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
