@@ -54,6 +54,13 @@ export function killFeedTone(event){
  if(source==='fight-flight-terminal'||event?.ascension===true)return 'ascension';
  if(source==='abyss')return 'abyss'; // attributed and uncredited falls alike
  if(!event?.killerId||event.killerId===event.victimId)return 'self';
+ if(source==='one_hit_of_wonders'){
+   const context=event?.killContext;
+   if(context==='disaster-windblade')return 'gale';
+   if(context==='disaster-terminal-fire')return 'fire';
+   if(context==='lightning-teleport-slam')return 'lightning';
+   if(context==='nearly-full-disaster')return 'mixed';
+ }
  if(hasOwn(KILLFEED_SOURCE_TONES,source))return KILLFEED_SOURCE_TONES[source];
  // A newly introduced elemental source can be classified by its canonical
  // prefix until it receives a deliberate explicit classification.
@@ -66,8 +73,11 @@ export function killFeedTone(event){
 }
 export function killFeedAppearance(event){
  const source=String(event?.source??'');
- const infusions=killFeedInfusionTags(source,event?.infusionTiers);
  const cause=killFeedTone(event);
+ // Self-deaths and falls remain neutral; a credited attack is required for
+ // the colored attack composition. The Ascension summary is always gold.
+ const infusions=['self','abyss','ascension'].includes(cause)?[]:
+   killFeedInfusionTags(source,event?.infusionTiers);
  // The original physical cause still determines the color of the line if
  // only a single element is present; multiple sources get an ivory body and
  // individually colored words, so no tier is misleadingly treated as primary.
