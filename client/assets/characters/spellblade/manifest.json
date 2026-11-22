@@ -188,9 +188,9 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151",
-    "sha256": "730a445c9e5673f4eb19c82c32c3ff615f676a5609c55fb69506465f1e27c517",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151&asset=afef929d1bfa4cc21dec0b647c2c8fd656c8952b",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151&asset=afef929d1bfa4cc21dec0b647c2c8fd656c8952b",
+    "sha256": "afef929d1bfa4cc21dec0b647c2c8fd656c8952bd205c3f7c738de0d90bc77d9",
     "bytes": 3454772,
     "jointCount": 41,
     "meshCount": 4,

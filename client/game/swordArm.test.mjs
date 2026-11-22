@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, elbowAngleFor, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, REST_EDGE_TURN, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamAgainPose, slamPose, SLAM_END } from './fpSlash.mjs';
+import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, REST_EDGE_TURN, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, poseThirdCutForearm, recoveryPose, slamAgainPose, slamPose, SLAM_END, swordRecoveryDuration } from './fpSlash.mjs';
 import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
 // a toy arm with the first-person rig's proportions: each bone a pivot and an orientation (three axes), turning a
@@ -47,6 +47,41 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const degrees = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(normalize(a), normalize(b))))) * 180 / Math.PI;
 const [C1, C2, C3] = COMBO_CONTACTS;
 const FRAME = 1 / 60;
+
+test('the third cut turns the cuff and elbow cap together without shifting the fist or sword', () => {
+  const arm = toyArm();
+  solveSwordArm(arm.api, comboPose(C3 - 0.12).arm);
+  const wrist = arm.api.position('hand.R');
+  const grip = arm.api.position('socket_sword');
+  const blade = arm.api.direction('socket_sword', FIRST_PERSON_SWORD_ARM.aim);
+  const edge = arm.api.direction('socket_sword', FIRST_PERSON_SWORD_ARM.roll);
+  const rollCues = [];
+  const rotate = arm.api.rotate;
+  arm.api.rotate = (bone, axis, turn) => {
+    rollCues.push({ bone, axis, turn });
+    if (bone !== 'elbow.R') rotate(bone, axis, turn);
+  };
+  poseThirdCutForearm(arm.api, C3 - 0.12, 1);
+  assert.ok(Math.abs(rollCues[0].turn) > 1);
+  assert.deepEqual(rollCues.map(cue => cue.bone), ['forearm.R', 'elbow.R', 'hand.R']);
+  assert.equal(rollCues[0].turn, rollCues[1].turn);
+  assert.ok(distance(wrist, arm.api.position('hand.R')) < 1e-9);
+  assert.ok(distance(grip, arm.api.position('socket_sword')) < 1e-9);
+  assert.ok(distance(blade, arm.api.direction('socket_sword', FIRST_PERSON_SWORD_ARM.aim)) < 1e-9);
+  assert.ok(distance(edge, arm.api.direction('socket_sword', FIRST_PERSON_SWORD_ARM.roll)) < 1e-9);
+  rollCues.length = 0;
+  poseThirdCutForearm(arm.api, C1, 1);
+  poseThirdCutForearm(arm.api, COMBO_END, 1);
+  assert.equal(rollCues.length, 0);
+});
+
+test('the raised grip handoff uses the same end time as each authored recovery', () => {
+  for (const [from, options] of [[C1 + 0.2, {}], [C3 + 0.15, {}], [C2 + 0.1, { quick: true }]]) {
+    const end = swordRecoveryDuration(from, options);
+    assert.ok(recoveryPose(from, end - 0.001, options));
+    assert.equal(recoveryPose(from, end + 0.001, options), null);
+  }
+});
 
 // where the sword is, as the game's camera sees it (78 degrees tall, the arms' root a little below the eye): the
 // middle of the blade (its strong) and its tip, projected (-1..1 across a 16:9 view, and up it)

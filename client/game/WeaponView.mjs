@@ -15,7 +15,7 @@ import { SORCERY_LIFT } from './SorceryVolume.mjs';
 import { resolveFirstPersonAnimationPlan, swordPresentationTime } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
+import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, poseThirdCutForearm, recoveryPose, slamAgainPose, slamPose, swordRecoveryDuration } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { guardTargets } from './fpGuardPose.mjs';
 import { riposteView, whirlView } from './techniqueMotion.mjs';
@@ -28,6 +28,7 @@ const QUICK_DRAW_SEC = 0.32;
 const GRIP_TILT_AXIS = Object.freeze([0, 0, 1]);
 // seconds for the cockpit's sword-arm rest to give way to a strike or the Guard, and to come back after it
 const COCKPIT_REST_EASE = 0.16;
+const RAISED_GRIP_HANDOFF = 0.265;
 const QUICK_REVEAL_SEC = 0.3;
 // the magic hand: down out of sight; raised palm up, its rune shown, a little above and in from where it rests; at rest
 // (the first-person Idle's own, measured from the rig: where the reveal hands back to it)
@@ -924,7 +925,9 @@ export class WeaponView {
       // (a Sword Technique drawn by the arm solver: the Riposte's brace, thrust and recovery, fpTechniques.mjs)
       const techniquePose = vortexPose ? null : this.#techniquePose(timeSec, dt);
       // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
-      const sourceCombo = vortexPose ?? techniquePose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
+      const raisedGrip = !mounted && !this.flightCockpit && !this.concurrent;
+      const sourceCombo = vortexPose ?? techniquePose ?? this.#bracePose(timeSec) ??
+        this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore, raisedGrip);
       this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
       // Guard owns a complete defensive path, including the way home when a committed chain ends.
       // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.
@@ -956,14 +959,19 @@ export class WeaponView {
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
-      this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
+      const guardRate = raisedGrip ? 7 : FP_MOTION.guardBlendRate;
+      this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, guardRate * dt);
       // (a strike has the arms; as it lets go of them, the guard takes them in step: gated on the strike's being there
       // at all, a guard raised during a cut's way home snapped on, 23 cm in a frame, the moment the cut was gone)
-      const guardArm = this.guardBlend * (combo ? 1 - combo.weight : 1);
+      const guardWeight = raisedGrip ? this.guardBlend ** 2 * (3 - 2 * this.guardBlend) : this.guardBlend;
+      const guardArm = guardWeight * (combo ? 1 - combo.weight : 1);
       // the sword arm as this frame shows it (the guard's ward and any strike over rest), for a technique to begin from
       const shownArm = mixSwordArm(null, guardArm > 1e-3 ? guardTargets(timeSec, guardArm).arm : null, guardArm);
       this.shownSwordArm = combo ? mixSwordArm(shownArm, combo.arm, combo.weight) : shownArm;
-      const relaxedGrip = mounted || this.flightCockpit ? 0 : motion.neutral *
+      // Keep the pose being handed off under an opening cut. The action's ownership,
+      // not the generic action spring, releases the raised wrist during its preparation.
+      const gripNeutral = combo?.raisedGrip && chain ? 1 : motion.neutral;
+      const relaxedGrip = mounted || this.flightCockpit ? 0 : gripNeutral *
         (1 - Math.max(guardArm, combo?.weight ?? 0, away.sword?.weight ?? 0));
       const gripRoll = FP_MOTION.swordGripRoll * relaxedGrip;
       const gripTilt = FP_MOTION.swordGripTilt * relaxedGrip;
@@ -1043,6 +1051,7 @@ export class WeaponView {
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
             if (techniquePose) steadyRiposteForearm(bones, techniquePose.forearmWeight * techniquePose.weight);
+            if (combo.raisedGrip) poseThirdCutForearm(bones, combo.time, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }
           // the gauntlet strike has the magic hand
@@ -1191,33 +1200,31 @@ export class WeaponView {
   // chain is under way it is the chain; when it ends they come home along a way of their own (quicker and straighter
   // when it was broken off), carrying on as they were moving; a new chain takes over from wherever they were (a short
   // hand-over, never a jump); a guard, a cast or a dash takes them for its own clip, the path letting go of them.
-  #combo(state, timeSec, stateBefore) {
+  #combo(state, timeSec, stateBefore, raisedGrip) {
     const ease = (t) => t * t * (3 - 2 * t);
     if (state === 'attack') {
       const startedAt = this.attackStartedAt;
       if (this.comboSource?.chainAt !== startedAt) {
         const previous = this.comboLetGo ? null : this.comboSource;
         this.comboHandover = previous ? { from: previous, at: timeSec } : null;
-        // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
-        // a dash it takes a beat to take hold of them, and so it does from the flight cockpit's own resting carriage
-        // (taken at once, the arm jumped 12 cm into the cut)
-        const fadeIn = !previous && (stateBefore !== 'idle' || this.flightCockpit);
         // (a chain begun Sundering is slams to its end, as the server swings it; one that follows straight on from a
         // slam, both hands still on the grip, carries on from there with them: they never leave the sword between)
         const onGrip = Boolean(previous?.slam) && (this.comboShown?.offHand?.weight ?? 0) > 0.5;
         const slam = this.sunderActive ? (onGrip ? 'again' : true) : false;
+        const relaxed = raisedGrip && !slam;
+        const fadeIn = !previous && (relaxed || stateBefore !== 'idle' || this.flightCockpit);
         // (its form, the falling chain or the rising one, is the local chain's: decided as it starts, by the server's
         // own rule, and never changed under way unless the server says otherwise: adoptVariant)
         const variant = slam ? 0 : this.swordChain.chain?.variant ?? 0;
         const chain = slam === 'again' ? slamAgainPose : slam ? slamPose : (t) => comboPose(t, variant);
-        this.comboSource = { chainAt: startedAt, fadeIn, slam, variant, pose: (t) => chain(t - startedAt) };
+        this.comboSource = { chainAt: startedAt, fadeIn, raisedGrip: relaxed, slam, variant, pose: (t) => chain(t - startedAt) };
         this.comboLetGo = null;
         this.comboBroken = false;
       }
       const source = this.comboSource;
       this.comboLast = { since: timeSec - startedAt, at: timeSec, variant: source.variant };
       // (in the cockpit, over the time its carriage takes to give way, so the two hand over as one movement)
-      const fadeFor = this.flightCockpit ? COCKPIT_REST_EASE : 0.1;
+      const fadeFor = source.raisedGrip ? RAISED_GRIP_HANDOFF : this.flightCockpit ? COCKPIT_REST_EASE : 0.1;
       const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / fadeFor)) : 1;
       return this.#comboShow(source.pose(timeSec), timeSec, weight);
     }
@@ -1233,11 +1240,16 @@ export class WeaponView {
       const { since, at, variant } = this.comboLast;
       const quick = this.comboBroken;
       const slam = this.comboSource.slam === 'again' ? 'again' : Boolean(this.comboSource.slam);
-      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick, slam, variant }) };
+      const endAt = at + swordRecoveryDuration(since, { quick, slam });
+      this.comboSource = { home: true, raisedGrip: this.comboSource.raisedGrip, endAt,
+        weight: this.comboShown?.weight ?? 1, pose: (t) => recoveryPose(since, t - at, { quick, slam, variant }) };
     }
     const pose = this.comboSource.pose(timeSec);
     if (!pose) return this.#comboDone();
-    return this.#comboShow(pose, timeSec, this.comboShown?.weight ?? 1);
+    const home = this.comboSource;
+    const weight = home.raisedGrip ? home.weight * ease(Math.min(1, Math.max(0, (home.endAt - timeSec) / RAISED_GRIP_HANDOFF)))
+      : this.comboShown?.weight ?? 1;
+    return this.#comboShow(pose, timeSec, weight);
   }
 
   // the pose shown, blended from the path the arms were on while a new chain takes over from it
@@ -1248,7 +1260,7 @@ export class WeaponView {
       if (w >= 1) this.comboHandover = null;
       else shown = blendPoses(this.comboHandover.from.pose(timeSec) ?? comboPose(0), pose, w);
     }
-    this.comboShown = { ...shown, weight };
+    this.comboShown = { ...shown, weight, raisedGrip: this.comboSource.raisedGrip };
     return this.comboShown;
   }
 
