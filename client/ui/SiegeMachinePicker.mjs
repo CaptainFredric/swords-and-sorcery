@@ -2,37 +2,42 @@
 // actual accessible buttons. Network authority owns the countdown and pick;
 // local selection is shown immediately while the snapshot catches up.
 export const SIEGE_MACHINE_CARDS = Object.freeze([
-  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'ARMORED RAM',description:'Close the distance. Drive the mechanical fist into enemy machines.'}),
-  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'TWIN-BOLT BALLISTA',description:'Mobile firepower, heavy bolts, and a vicious built-in turning attack.'}),
-  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'FLYING REPEATER',description:'Climb, strafe, and spend flight charge on rapid-fire bolts.'}),
+  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge · Crush · Recoil'}),
+  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Aim · Deploy · Fire'}),
+  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Fly · Strafe · Volley'}),
 ]);
 
-// Compact machine portraits, not load-bearing 3-D assets: the selection must
-// remain usable on slow mobile connections before the full GLBs have loaded.
-const WHEELS='<g stroke="#cfba89" stroke-width="3" fill="#272d31"><circle cx="64" cy="104" r="13"/><circle cx="165" cy="104" r="13"/></g><g stroke="#907d5b" stroke-width="2"><path d="M64 91v26m-13-13h26m88-13v26m-13-13h26"/></g>';
-const ART=Object.freeze({
-  'so-fist-ication':`<svg viewBox="0 0 240 132" role="img" aria-label="Armored siege ram with four wheels and an extended steel fist"><g fill="#4d5354" stroke="#b6a478" stroke-width="2.5"><path d="M31 93L50 74h139l18 19-13 12H40z"/><path d="M62 72V52h95l24 20z"/><rect x="83" y="60" width="66" height="13" rx="2" fill="#94744e"/></g><g stroke="#e0d3b7" stroke-width="3"><path d="M143 66h38m-13-7h24m-9 14h11"/></g><path d="M186 53l9-7h18l9 10-2 18-12 10-20-3-9-13z" fill="#a6afb3" stroke="#e0c999" stroke-width="3"/><path d="M190 48V38l8-3 6 8V33l8 0 1 12 9-1 4 12" fill="#b5bdc1" stroke="#e0c999" stroke-width="2.4"/><path d="M75 72h41" stroke="#d35b46" stroke-width="5"/>${WHEELS}</svg>`,
-  'bi-bye-llista':`<svg viewBox="0 0 240 132" role="img" aria-label="Wheeled siege ballista with two stacked crossbow launchers"><g fill="#424948" stroke="#b7a67f" stroke-width="2"><path d="M36 97h173l-22 10H44z"/><path d="M63 82h118l17 15H46z"/></g><path d="M120 81V48m-34 28 69-54m-32 57 53-33" stroke="#d6c59a" stroke-width="6"/><g stroke="#c9b586" stroke-width="3" fill="none"><path d="M63 38q42 34 95 0M85 66q40 25 102 1"/><path d="m61 38 107 1m-83 27 102 1" stroke="#e2d1ab"/></g><path d="m104 34 58 4-9-7m-33 33 66 3-11-8" stroke="#aebbc1" stroke-width="4" fill="none"/><path d="M108 78h39v12h-39z" fill="#963d34" stroke="#d4b477" stroke-width="2"/>${WHEELS}</svg>`,
-  'fight-and-flight':`<svg viewBox="0 0 240 132" role="img" aria-label="Flying rotor-powered crossbow platform with a compact repeater"><g stroke="#d8cfb0" stroke-width="5" stroke-linecap="round"><path d="M37 43h168M122 24v39"/></g><circle cx="122" cy="43" r="8" fill="#9dabb3" stroke="#d9c79a" stroke-width="3"/><path d="M93 57h59l19 19-9 18H77L67 76z" fill="#576063" stroke="#d5c18e" stroke-width="3"/><path d="M79 75h89" stroke="#9a473d" stroke-width="6"/><path d="M153 66l45-12m-13-12 14 12-8 14m-44 10 49 2" stroke="#c9d5da" stroke-width="3.5" fill="none"/><g stroke="#bea97d" stroke-width="4"><path d="M93 96l-11 15m58-15 13 15M89 112h70"/></g><path d="M65 72 40 80m124-8 29 11" stroke="#d4be8c" stroke-width="4"/></svg>`,
-});
+// Each card's picture is a still of the machine's real model, rendered by the game's own renderer
+// (scripts/render-siege-machine-cards.mjs): a small WebP, so the draft never waits on the machines' GLBs.
+export const siegeMachinePicture = (id) => `/client/assets/ui/siege-machines/${id}.webp`;
 
 export function siegePickerSeconds(selectionEndsAt,serverNow){
   return Number.isFinite(selectionEndsAt) ? Math.max(0,Math.ceil(selectionEndsAt-serverNow)) : 0;
 }
+export function siegePickerStatus(choice){
+  const machine=SIEGE_MACHINE_CARDS.find(c=>c.id===choice);
+  return machine?`Your machine · ${machine.name}`:'No machine chosen · one will be assigned';
+}
 export function siegePickerMarkup(){
   return `<div class="sb-draft-backdrop" aria-hidden="true"></div>
     <div class="sb-draft-content">
-      <p class="sb-draft-eyebrow">SIEGE BLADES · ROUND <span data-sb-draft-round>1</span></p>
-      <h2>CHOOSE YOUR SIEGE MACHINE</h2>
-      <p class="sb-draft-instruction">You can change your choice until the timer ends.</p>
-      <div class="sb-draft-choices">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" data-siege-pick="${machine.id}" aria-pressed="false">
-        <span class="sb-draft-art">${ART[machine.id]}</span>
-        <span class="sb-draft-role">${machine.role}</span>
-        <strong>${machine.name}</strong>
-        <small>${machine.description}</small>
-        <span class="sb-draft-key">PRESS ${index+1}</span>
+      <header class="sb-draft-head">
+        <div class="sb-draft-title">
+          <p class="sb-draft-eyebrow">SIEGE BLADES · ROUND <span data-sb-draft-round>1</span></p>
+          <h2>Choose your machine</h2>
+          <p class="sb-draft-status" data-sb-draft-status aria-live="polite">${siegePickerStatus(null)}</p>
+        </div>
+        <div class="sb-draft-clock" role="timer" aria-label="Deploying in"><b data-sb-draft-seconds>8</b><small>DEPLOY</small></div>
+      </header>
+      <div class="sb-draft-choices" role="radiogroup" aria-label="Siege machine">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" role="radio" data-siege-pick="${machine.id}" aria-checked="false" tabindex="${index===0?0:-1}">
+        <span class="sb-draft-art"><img src="${siegeMachinePicture(machine.id)}" alt="${machine.name}, ${machine.role.toLowerCase()}" decoding="async" draggable="false"></span>
+        <span class="sb-draft-text">
+          <strong>${machine.name}</strong>
+          <span class="sb-draft-role">${machine.role}</span>
+          <small>${machine.description}</small>
+        </span>
+        <kbd class="sb-draft-key" aria-hidden="true">${index+1}</kbd>
       </button>`).join('')}</div>
-      <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>8</b>S</span></div>
     </div>`;
 }
 
@@ -58,10 +63,16 @@ export class SiegeMachinePicker {
       if(button)choose(button.dataset.siegePick);
     });
     this.element.addEventListener?.('keydown',event=>{
-      const index=Number(event.key)-1;
-      if(event.repeat||!this.active||!Number.isInteger(index)||index<0||index>=SIEGE_MACHINE_CARDS.length)return;
+      if(event.repeat||!this.active)return;
+      const count=SIEGE_MACHINE_CARDS.length,current=SIEGE_MACHINE_CARDS.findIndex(c=>c.id===this.localChoice);
+      let index=Number(event.key)-1;
+      // (the arrow keys step along the three, as in any radio group; 1, 2 and 3 pick directly)
+      if(event.key==='ArrowRight'||event.key==='ArrowDown')index=(current+1+count)%count;
+      if(event.key==='ArrowLeft'||event.key==='ArrowUp')index=current<0?count-1:(current-1+count)%count;
+      if(!Number.isInteger(index)||index<0||index>=count)return;
       event.preventDefault();
       choose(SIEGE_MACHINE_CARDS[index].id);
+      this.element.querySelector(`[data-siege-pick="${SIEGE_MACHINE_CARDS[index].id}"]`)?.focus?.({preventScroll:true});
     });
     root.append(this.element);
     this.round=null;
@@ -70,14 +81,14 @@ export class SiegeMachinePicker {
   }
   hide(){this.active=false;this.element.hidden=true;}
   updateSelection(choice){
-    for(const card of this.element.querySelectorAll('[data-siege-pick]')){
+    const cards=[...this.element.querySelectorAll('[data-siege-pick]')];
+    for(const [index,card] of cards.entries()){
       const selected=card.dataset.siegePick===choice;
       card.classList.toggle('selected',selected);
-      card.setAttribute('aria-pressed',String(selected));
+      card.setAttribute('aria-checked',String(selected));
+      card.tabIndex=selected||(!choice&&index===0)?0:-1;
     }
-    this.element.querySelector('[data-sb-draft-status]').textContent=choice
-      ? 'SELECTED · '+(SIEGE_MACHINE_CARDS.find(c=>c.id===choice)?.name??'MACHINE')
-      : 'NO CHOICE · ASSIGN RANDOMLY';
+    this.element.querySelector('[data-sb-draft-status]').textContent=siegePickerStatus(choice);
   }
   update(snapshot,playerId,serverNow){
     const state=snapshot?.mode==='SIEGE_BLADES'&&snapshot.roomState==='PLAYING'?snapshot.siegeBlades:null;
@@ -92,7 +103,9 @@ export class SiegeMachinePicker {
     const confirmed=state.selectionChoices?.[playerId]??null;
     if(confirmed===this.localChoice||!this.localChoice)this.localChoice=confirmed;
     this.updateSelection(this.localChoice);
-    this.element.querySelector('[data-sb-draft-seconds]').textContent=String(siegePickerSeconds(state.selectionEndsAt,serverNow));
+    const seconds=siegePickerSeconds(state.selectionEndsAt,serverNow);
+    this.element.querySelector('[data-sb-draft-seconds]').textContent=String(seconds);
+    this.element.classList.toggle('sb-draft-closing',seconds<=3);
     if(newlyOpened)this.element.focus?.({preventScroll:true});
     return true;
   }
