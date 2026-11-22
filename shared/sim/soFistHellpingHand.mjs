@@ -9,6 +9,8 @@ import {skillOperator,SIEGE_SKILLS,skillEvent} from './siegeSkills.mjs';
 import {SO_FIST_SCALE,soFistFrame,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 import {soFistUpperPoint} from './soFistElevation.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
+import {getFleetSolids} from './fleetGeometry.mjs';
+import {soFistTerrainPose} from './soFistication.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const HELLPING=Object.freeze({crushSeconds:4,reach:2.25,openSeconds:1,
   // A short, deliberate hand-assisted hop, not a three-second floating carriage.
@@ -92,6 +94,20 @@ export function exitHellpingHand(room,b,p,now){
  // egress clip; exitAt replicates with the ordinary authoritative snapshot.
  b.hellping={phase:'open',at:now-HELLPING.openSeconds,exitAt:now};
  emit(room,b,'passengerExited',now,{passengerId:p.id});return true;
+}
+// A hop stopped in the air comes down: onto the floor beneath it where it is clear, else back where it took off.
+// Released mid-arc, the carriage stayed up to the hop's height in the air, and the drive, which only follows the
+// floor under its wheels a few centimetres at a time, could never bring it down.
+function settleVault(room,b,h,obstacles){
+ const clear=pose=>!soFistSolids({...b,...pose}).some(box=>obstacles.some(s=>machineryOverlap(box,s)));
+ const ground=surfaceHeightAt(b.x,b.z,b.y+.3,room.world);
+ const here=ground==null?null:soFistTerrainPose({...b,y:ground},room.world);
+ if(here&&clear(here))Object.assign(b,here);
+ else{
+  const start={x:h.start.x,z:h.start.z,heading:h.start.heading,y:h.start.y};
+  Object.assign(b,start,soFistTerrainPose({...b,...start},room.world)??{});
+ }
+ b.speed=0;b.charging=false;
 }
 function vault(room,b,now,direction,steer=0){
  // Aim from the machine's actual heading, with a small final left/right
@@ -199,11 +215,16 @@ export function stepHellpingHand(room,b,dt,now){
     y:from.y+(to.y-from.y)*launched+HELLPING.vaultHeight*arc,
     z:from.z+(to.z-from.z)*launched,
     heading:from.heading+(to.heading-from.heading)*launched};
-  const obstacles=[...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista)];
+  // (every other machine is in the way too: a hop never passes through a ram, ballista or aircraft)
+  const obstacles=[...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista),...getFleetSolids(room,b.id)];
   if(soFistSolids({...b,...next}).some(box=>obstacles.some(s=>machineryOverlap(box,s)))){
-   releaseHellpingHand(room,b,now,{force:true});return;
+   settleVault(room,b,h,obstacles);releaseHellpingHand(room,b,now,{force:true});return;
   }
   Object.assign(b,next);b.speed=0;b.charging=false;
-  if(t>=1-1e-8){emit(room,b,'vaultLanded',now);releaseHellpingHand(room,b,now,{force:true});}
+  if(t>=1-1e-8){
+   // (onto the landing's own slope, not the tilt it took off with)
+   const landed=soFistTerrainPose(b,room.world);if(landed)Object.assign(b,landed);
+   emit(room,b,'vaultLanded',now);releaseHellpingHand(room,b,now,{force:true});
+  }
  }
 }
