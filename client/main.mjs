@@ -1252,6 +1252,8 @@ function showBreakthroughSize() {
   for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
     const sizeVal = Number(chip.dataset.size);
     chip.hidden = sizeVal === 1 && !isSiege;
+    // (3v3 is Breakthrough's recommended battle; a Siege 3v3 is six machines at once, and is not offered as the default)
+    const tag = chip.querySelector('[data-size-recommended]'); if (tag) tag.hidden = isSiege;
     const on = sizeVal === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
