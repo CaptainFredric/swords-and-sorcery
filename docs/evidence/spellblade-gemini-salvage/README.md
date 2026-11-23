@@ -72,3 +72,18 @@ Checked with the skinned-mesh floor measurement in `scripts/lib/glbSkin.mjs`, fo
 - `white-flag-defeat-front.jpg` / `white-flag-defeat-side.jpg`: in the yard against a MELEE dummy, through the game's own `killPlayer`. He crouches and lays the sword down, then holds the flag en garde and swishes at the dummy.
 - `lightning-flat-on-back-gag.jpg`: flat on his back in the dust, then the kip-up, then standing.
 - `fp-round2-right-arm-capped-left-arm-open.jpg`: the right arm's cap holds. The dark spikes still at the bottom belong to **Arm.L**, Codex's untouched left (magic-hand) arm. It has the same open rear end, seen when it reaches across for the two-handed heavy cut. That's a defect older than this salvage, and the next request to Gemini.
+
+## Round three: the left arm, and the Armory's clipping
+
+**Left arm.** Gemini capped `Arm.L`'s open rear end the same way (`spellblade-fp-coaxial-both-capped`, SHA256 `19f161e8…`). Only `Arm.L` changed. In `fp-chain-both-arms-capped.jpg`, both sleeves read as solid armour through the two-handed heavy cut.
+
+**Armory showcases.** The blade-through-armour audit (skinned meshes at 30 fps; Codex's ordinary clips score 0) found all six Armory showcase clips driving the sword 30–35 cm into the ground and through the right boot. Those clips were carried over from Gemini's v11. Fireball did it on 9 of its 46 frames.
+
+`transplant-spellblade-clips.mjs --restage-sword-arm Idle` re-keys only the right arm, fingers, sword socket and sword of those clips from Codex's Idle carry. The body, legs and spell hand perform exactly as authored.
+
+Result:
+- 0 frames through armour in all six;
+- the blade stays 7–27 cm above the ground;
+- the model is 12.39 MB, under its 12.5 MB soft target.
+
+Before (top) and after are in `armory-showcase-before-after.jpg`, for Fireball and Gale.

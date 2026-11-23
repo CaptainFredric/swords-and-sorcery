@@ -14,6 +14,8 @@
 //       the production Idle's first frame by the clip's end (no blade left in the floor);
 //       lag: the share of that settle the sword arm waits for the body to rise first;
 //       via: pass through that production clip's first frame half-way (e.g. via=Guard)
+//   node scripts/transplant-spellblade-clips.mjs --restage-sword-arm Idle --clips A,B [--apply]
+//     (the sword arm of production clips re-keyed from another production clip; the rest untouched)
 //   node scripts/transplant-spellblade-clips.mjs --first-person <file.glb> --sha <sha256> [--apply]
 //     (a whole first-person model: same joints, sockets, clips and rest pose required)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -316,6 +318,96 @@ function transplantClips(baseFile, donorFile, expected, names, edits = {}, fillF
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: target.animations.map((a) => a.name), report };
 }
 
+/**
+ * Re-stage the sword arm of production clips from another production clip (e.g. Idle): every channel of the right
+ * arm, its fingers, the sword socket and the sword is re-keyed at the clip's own key times from the template, at the
+ * same time (looped on the template's length). The rest of each clip (body, legs, spell hand) is untouched. For clips
+ * whose sword is only carried, where the authored carry drives the blade into the floor or through the boots.
+ */
+function restageSwordArm(baseFile, templateName, names) {
+  const base = glb(baseFile), doc = structuredClone(base.doc);
+  const read = (id) => {
+    const acc = doc.accessors[id], v = doc.bufferViews[acc.bufferView], n = { SCALAR: 1, VEC3: 3, VEC4: 4 }[acc.type];
+    if (acc.componentType !== 5126 || !n) throw Error('Only float animation data can be re-staged');
+    const off = (v.byteOffset ?? 0) + (acc.byteOffset ?? 0), stride = v.byteStride ?? n * 4;
+    return Array.from({ length: acc.count }, (_, i) => Array.from({ length: n }, (_, c) => base.bin.readFloatLE(off + i * stride + c * 4)));
+  };
+  const lerp = (a, b, t) => a.map((x, i) => x + (b[i] - x) * t);
+  const slerp = (a, b, t) => {
+    let d = a.reduce((s, x, i) => s + x * b[i], 0); const bb = d < 0 ? b.map((x) => -x) : b; d = Math.abs(d);
+    if (d > 0.9995) { const r = lerp(a, bb, t), l = Math.hypot(...r); return r.map((x) => x / l); }
+    const th = Math.acos(d), s = Math.sin(th);
+    return a.map((x, i) => x * Math.sin((1 - t) * th) / s + bb[i] * Math.sin(t * th) / s);
+  };
+  const template = doc.animations.find((a) => a.name === templateName);
+  if (!template) throw Error('No template clip ' + templateName);
+  const tracks = new Map();
+  let span = 0;
+  for (const c of template.channels) {
+    const s = template.samplers[c.sampler], times = read(s.input).map((r) => r[0]);
+    span = Math.max(span, times.at(-1));
+    tracks.set(c.target.node + '/' + c.target.path, { times, values: read(s.output) });
+  }
+  const at = (track, t, rot) => {
+    const { times, values } = track; t = ((t % span) + span) % span;
+    if (t <= times[0]) return values[0];
+    if (t >= times.at(-1)) return values.at(-1);
+    let i = 0; while (i < times.length - 2 && t > times[i + 1]) i++;
+    const u = (t - times[i]) / (times[i + 1] - times[i]);
+    return rot ? slerp(values[i], values[i + 1], u) : lerp(values[i], values[i + 1], u);
+  };
+  const blobs = [base.bin.subarray(0, doc.buffers[0].byteLength)];
+  let length = doc.buffers[0].byteLength;
+  const pad = align(length) - length; blobs.push(Buffer.alloc(pad)); length += pad;
+  const add = (rows, type) => {
+    const flat = rows.flat(), data = Buffer.from(new Float32Array(flat).buffer);
+    const view = doc.bufferViews.push({ buffer: 0, byteOffset: length, byteLength: data.length }) - 1;
+    blobs.push(data, Buffer.alloc(align(data.length) - data.length)); length += align(data.length);
+    return doc.accessors.push({ bufferView: view, componentType: 5126, count: rows.length, type,
+      ...(type === 'SCALAR' ? { min: [Math.min(...flat)], max: [Math.max(...flat)] } : {}) }) - 1;
+  };
+  const report = [];
+  for (const name of names) {
+    const clip = doc.animations.find((a) => a.name === name);
+    if (!clip) throw Error('No production clip ' + name);
+    let restaged = 0;
+    for (const c of clip.channels) {
+      const bone = doc.nodes[c.target.node]?.name ?? '';
+      if (!SWORD_ARM.test(bone) || c.target.path === 'weights') continue;
+      const track = tracks.get(c.target.node + '/' + c.target.path);
+      if (!track) continue;
+      const s = clip.samplers[c.sampler], times = read(s.input).map((r) => r[0]);
+      // a dense enough grid to carry the template's own motion (30 Hz across the clip)
+      const grid = [...new Set([...times, ...Array.from({ length: Math.ceil(times.at(-1) * 30) + 1 }, (_, k) => Math.min(times.at(-1), k / 30))])].sort((a, b) => a - b);
+      const rot = c.target.path === 'rotation';
+      const values = grid.map((t) => at(track, t, rot));
+      if (rot) for (let i = 1; i < values.length; i++) if (values[i].reduce((d, x, k) => d + x * values[i - 1][k], 0) < 0) values[i] = values[i].map((x) => -x);
+      // only the keys linear interpolation cannot reproduce (0.1 mm / ~0.01 degree), every skipped key checked
+      const keep = [0];
+      for (let i = 1; i < grid.length - 1; i++) {
+        const a = keep.at(-1);
+        for (let k = a + 1; k <= i; k++) {
+          const u = (grid[k] - grid[a]) / (grid[i + 1] - grid[a]);
+          const guess = rot ? slerp(values[a], values[i + 1], u) : lerp(values[a], values[i + 1], u);
+          if (guess.some((x, q) => Math.abs(x - values[k][q]) > 1e-4)) { keep.push(i); break; }
+        }
+      }
+      if (grid.length > 1) keep.push(grid.length - 1);
+      c.sampler = clip.samplers.push({ interpolation: 'LINEAR', input: add(keep.map((i) => [grid[i]]), 'SCALAR'),
+        output: add(keep.map((i) => values[i]), values[0].length === 4 ? 'VEC4' : 'VEC3') }) - 1;
+      restaged++;
+    }
+    // samplers no channel uses any more are dropped, then everything unreferenced is compacted away
+    const used = new Set(clip.channels.map((c) => c.sampler)), remap = new Map();
+    clip.samplers = clip.samplers.filter((_, i) => used.has(i) && remap.set(i, remap.size));
+    for (const c of clip.channels) c.sampler = remap.get(c.sampler);
+    report.push({ clip: name, restaged, from: templateName });
+  }
+  const bin = compact(doc, Buffer.concat(blobs));
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 function replaceFirstPerson(baseFile, donorFile, expected) {
   const base = glb(baseFile), donor = glb(donorFile);
   if (sha(donor.raw) !== expected) throw Error('Unexpected first-person GLB (sha256 ' + sha(donor.raw) + ')');
@@ -333,7 +425,11 @@ const apply = process.argv.includes('--apply');
 const manifestFile = join(dir, 'manifest.json');
 const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
 let key, file, result;
-if (arg('--first-person')) {
+if (arg('--restage-sword-arm')) {
+  // --restage-sword-arm Idle --clips A,B: the sword arm of production clips A and B, carried as in Idle
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = restageSwordArm(join(dir, file), arg('--restage-sword-arm'), (arg('--clips') || '').split(',').filter(Boolean));
+} else if (arg('--first-person')) {
   key = 'firstPerson'; file = 'spellblade-fp.glb';
   result = replaceFirstPerson(join(dir, file), resolve(arg('--first-person')), arg('--sha'));
 } else {
