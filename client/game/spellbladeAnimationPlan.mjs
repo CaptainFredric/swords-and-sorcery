@@ -115,21 +115,36 @@ export const DISASTER_CLIPS = Object.freeze({
 });
 const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) => entry.clip));
 
-// PLACEHOLDER: how often a Full Lightning ground arrival lands on its face instead of the slam. Nobody has chosen
-// a rate yet. Purely cosmetic: the server's strike, its timing and its debris are the same either way.
-let arrivalGagChance = 0.15;
-/** For previews and captures: 0 never, 1 always. */
-export function setLightningArrivalGagChance(chance) { arrivalGagChance = Math.max(0, Math.min(1, Number(chance) || 0)); }
+// How often a Full Lightning ground arrival lands on its face instead of the slam. Purely cosmetic: the server's
+// strike, its timing and its debris are the same either way. The odds follow the aim the player held: a near-instant
+// release (a panicked blink) faceplants half the time; otherwise a short aim rarely does and a long, greedy charge
+// does more and more often. (The rates are first guesses, for playtesting.)
+export const ARRIVAL_GAG_ODDS = Object.freeze({ tapSec: 0.2, tap: 0.5, base: 0.08, longSec: 3, long: 0.5 });
+let arrivalGagOverride = null;
+/** For previews and captures: 0 never, 1 always; null returns to the held-aim odds. */
+export function setLightningArrivalGagChance(chance) {
+  arrivalGagOverride = chance === null || chance === undefined ? null : Math.max(0, Math.min(1, Number(chance) || 0));
+}
+/** The faceplant's odds for an arrival whose aim was held this long (seconds). */
+export function lightningArrivalGagOdds(heldSec) {
+  const held = Math.max(0, Number(heldSec) || 0), o = ARRIVAL_GAG_ODDS;
+  if (held < o.tapSec) return o.tap;
+  const t = Math.min(1, (held - o.tapSec) / (o.longSec - o.tapSec));
+  return o.base + (o.long - o.base) * t * t * (3 - 2 * t);
+}
 /**
  * Whether this arrival is the faceplant. Never with Full Gale (its infusion owns the landing). Decided from the
- * player and the commit time alone, so every client draws the same knight on his face.
+ * player, the commit time and the held aim alone, so every client draws the same knight on his face.
  */
 export function lightningArrivalGag(player, action) {
-  if (!(arrivalGagChance > 0) || ((action?.oneHit?.tiers ?? action?.preparedTiers ?? {}).gale ?? 0) >= 2) return false;
-  const seed = `${player?.id ?? ''}:${Math.round(finite(action?.commitAt, 0) * 1000)}`;
+  if (((action?.oneHit?.tiers ?? action?.preparedTiers ?? {}).gale ?? 0) >= 2) return false;
+  const commitAt = finite(action?.commitAt, 0);
+  const chance = arrivalGagOverride ?? lightningArrivalGagOdds(commitAt - finite(action?.teleportHoldAt, commitAt));
+  if (!(chance > 0)) return false;
+  const seed = `${player?.id ?? ''}:${Math.round(commitAt * 1000)}`;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
-  return ((h >>> 0) / 4294967296) < arrivalGagChance;
+  return ((h >>> 0) / 4294967296) < chance;
 }
 
 /**

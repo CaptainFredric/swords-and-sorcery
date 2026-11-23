@@ -306,7 +306,11 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
   assert.equal(plan(airAim,30.3).clip,'AllNatural_Lightning_Charge_Air');
   assert.equal(plan({...aim,grounded:false},30.3).clip,'AllNatural_Lightning_Charge_Ground','without Full Gale there is no aerial form: knocked into the air, it is still the ground aim');
   const arrived={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:31,until:32.65,teleportHoldAt:10,oneHit:{form:'ground',tiers:{lightning:2}}}};
+  // (the slam itself: the cosmetic faceplant that sometimes stands in for it is held off here, tested on its own)
+  const { setLightningArrivalGagChance } = await import('./spellbladeAnimationPlan.mjs');
+  setLightningArrivalGagChance(0);
   const arrival=plan(arrived,31);
+  setLightningArrivalGagChance(null);
   assert.equal(arrival.clip,'AllNatural_Lightning_Arrival_Slam');
   assert.ok(Math.abs(arrival.time-DISASTER_CLIPS.arrival.contact)<1e-9,'no second wind-up: the blade lands as the knight arrives');
   // Full Gale in the air: one uninterrupted winding clip beginning on key
@@ -419,7 +423,7 @@ test('a Guard or a cast on the move keeps the legs in their gait; standing, the 
   }
 });
 
-test('now and then a Full Lightning ground arrival is the faceplant gag: the same on every client, never with Full Gale', async () => {
+test('now and then a Full Lightning ground arrival is the faceplant gag: likelier for an instant release or a long charge, the same on every client, never with Full Gale', async () => {
   const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
   const { DISASTER_CLIPS, lightningArrivalGag, setLightningArrivalGagChance } = await import('./spellbladeAnimationPlan.mjs');
   const plan = (player, now) => resolveSpellbladeAnimationPlan({ state: resolveSpellbladeState(player, now), player, serverNow: now });
@@ -433,16 +437,28 @@ test('now and then a Full Lightning ground arrival is the faceplant gag: the sam
     assert.equal(plan(arrived('p1', 31, { lightning: 2, gale: 2 }), 31.2).clip, DISASTER_CLIPS.arrival.clip, 'never with Full Gale');
     setLightningArrivalGagChance(0);
     assert.equal(plan(arrived('p1', 31), 31.2).clip, DISASTER_CLIPS.arrival.clip);
-    setLightningArrivalGagChance(0.15);
-    // the same player and commit always draw the same way; across many arrivals it is a minority
-    let gags = 0;
-    for (let i = 0; i < 400; i++) {
-      const action = arrived('p' + (i % 7), 40 + i * 1.37).ultimateState;
-      assert.equal(lightningArrivalGag({ id: 'p' + (i % 7) }, action), lightningArrivalGag({ id: 'p' + (i % 7) }, action));
-      if (lightningArrivalGag({ id: 'p' + (i % 7) }, action)) gags++;
-    }
-    assert.ok(gags > 20 && gags < 110, `about 15 % (${gags} of 400)`);
+    setLightningArrivalGagChance(null);
+    // the odds follow the held aim: a panicked instant release, then rare, then likelier the longer the charge
+    const { lightningArrivalGagOdds, ARRIVAL_GAG_ODDS: o } = await import('./spellbladeAnimationPlan.mjs');
+    assert.equal(lightningArrivalGagOdds(0.05), o.tap);
+    assert.ok(Math.abs(lightningArrivalGagOdds(o.tapSec) - o.base) < 1e-9);
+    assert.ok(lightningArrivalGagOdds(1) > o.base && lightningArrivalGagOdds(2) > lightningArrivalGagOdds(1));
+    assert.equal(lightningArrivalGagOdds(10), o.long);
+    // the same player and commit always draw the same way; across many arrivals it follows those odds
+    const share = (heldSec) => {
+      let gags = 0;
+      for (let i = 0; i < 600; i++) {
+        const action = { ...arrived('p' + (i % 7), 40 + i * 1.37).ultimateState };
+        action.teleportHoldAt = action.commitAt - heldSec;
+        assert.equal(lightningArrivalGag({ id: 'p' + (i % 7) }, action), lightningArrivalGag({ id: 'p' + (i % 7) }, action));
+        if (lightningArrivalGag({ id: 'p' + (i % 7) }, action)) gags++;
+      }
+      return gags / 600;
+    };
+    assert.ok(Math.abs(share(0.05) - o.tap) < 0.08, 'a near-instant release: about half');
+    assert.ok(Math.abs(share(0.6) - lightningArrivalGagOdds(0.6)) < 0.06, 'a short aim: rarely');
+    assert.ok(Math.abs(share(4) - o.long) < 0.08, 'a long charge: about half again');
   } finally {
-    setLightningArrivalGagChance(0.15);
+    setLightningArrivalGagChance(null);
   }
 });
