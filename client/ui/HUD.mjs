@@ -1152,7 +1152,10 @@ export class HUD {
     }
     const lane = (root.offsetWidth ?? 0) - 2 * reach - 24;
     gauge.style.setProperty('--gauge-lane', reach && lane >= 280 ? `${Math.floor(lane)}px` : 'none');
-    gauge.style.setProperty('--gauge-lift', reach && lane < 280 ? `${Math.ceil(rise + 10)}px` : '0px');
+    const lift = reach && lane < 280 ? Math.ceil(rise + 10) : 0;
+    gauge.style.setProperty('--gauge-lift', `${lift}px`);
+    // (a raised gauge raises the subtitle lane above it too)
+    if (lift !== this.gaugeLift) { this.gaugeLift = lift; this.#syncMachineCaptionClearance(); }
   }
 
   #gaugeLaneDue = false;
@@ -1165,7 +1168,8 @@ export class HUD {
     const mounted=!this.machineGauge?.hidden;
     const gaugeHeight=mounted
       ?Math.ceil(this.machineGauge?.offsetHeight??this.machineGauge?.getBoundingClientRect?.()?.height??0):0;
-    const height=mounted?Math.max(30,gaugeHeight):0;
+    // (plus the lift that stands it above the ability tiles, where it has been raised: see #syncGaugeLane)
+    const height=mounted?Math.max(30,gaugeHeight)+(this.gaugeLift??0):0;
     this.root?.style?.setProperty?.('--siege-gauge-height',height+'px');
     // Keep this informational height for inspector/screenshots; captions are
     // outside the health assembly rather than lifting the assembly itself.
