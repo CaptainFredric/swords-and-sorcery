@@ -1,6 +1,8 @@
 // A short, interactive draft before every Siege Blades round. The cards are
 // actual accessible buttons. Network authority owns the countdown and pick;
 // local selection is shown immediately while the snapshot catches up.
+import {WORLD_NAMES} from '../menu/lobbyView.mjs';
+
 export const SIEGE_MACHINE_CARDS = Object.freeze([
   Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge · Crush · Recoil'}),
   Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Aim · Deploy · Fire'}),
@@ -23,7 +25,7 @@ export function siegePickerMarkup(){
     <div class="sb-draft-content">
       <header class="sb-draft-head">
         <div class="sb-draft-title">
-          <p class="sb-draft-eyebrow">SIEGE BLADES · ROUND <span data-sb-draft-round>1</span></p>
+          <p class="sb-draft-eyebrow"><span data-sb-draft-arena>SIEGE BLADES</span> · ROUND <span data-sb-draft-round>1</span></p>
           <h2>Choose your machine</h2>
           <p class="sb-draft-status" data-sb-draft-status aria-live="polite">${siegePickerStatus(null)}</p>
         </div>
@@ -97,6 +99,8 @@ export class SiegeMachinePicker {
       this.round=state.roundNumber;
       this.localChoice=null;
       this.element.querySelector('[data-sb-draft-round]').textContent=String(this.round);
+      // (the draft opens the match: it names the arena the full-screen gate would have)
+      this.element.querySelector('[data-sb-draft-arena]').textContent=(WORLD_NAMES[snapshot.worldId]??'Siege Blades').toUpperCase();
     }
     const newlyOpened=!this.active;
     this.active=true;this.element.hidden=false;

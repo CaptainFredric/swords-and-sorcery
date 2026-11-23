@@ -357,7 +357,7 @@ export class HUD {
     this.flightChargeRail.innerHTML = `
       <div class="flight-charge-heading"><span>FLIGHT CHARGE</span><output data-flight-charge>100</output></div>
       <div class="flight-charge-track"><div class="flight-charge-fill" data-flight-charge-fill></div></div>
-      <div class="flight-mini-telemetry"><span>ALT <output data-flight-alt>0.0</output>m</span><span>ROTOR <output data-flight-rpm>0</output> RPM</span><span class="flight-desktop-ammo">AMMO <output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></span></div>
+      <div class="flight-mini-telemetry"><span>ALT <output data-flight-alt>0.0</output>m</span><span>SPIN <output data-flight-rpm>0</output> RPM</span><span class="flight-desktop-ammo">AMMO <output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></span></div>
       <small class="flight-inline-warning" hidden data-flight-warning></small>
     `;
     this.guardBlock.append(this.flightChargeRail);
@@ -424,6 +424,8 @@ export class HUD {
     // Health is anchored to the bottom safe area. Its ACTUAL wrapped height,
     // not a guessed number, reserves a separate subtitle lane above it.
     this.captionResize?.observe(this.machineGauge);
+    this.laneResize = globalThis.ResizeObserver ? new ResizeObserver(() => this.#syncGaugeLane()) : null;
+    globalThis.addEventListener?.('resize', () => this.#syncGaugeLane());
     this.driveHousing = document.createElement('div');
     this.driveHousing.className = 'drive-housing';
     this.driveHousing.hidden = true;
@@ -443,11 +445,12 @@ export class HUD {
     // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
     // keep their own place: the touch layout has no ability tiles)
     this.abilityRow = this.spell?.parentElement ?? null;
+    if (this.abilityRow) this.laneResize?.observe(this.abilityRow);
     this.preparedDocked = false;
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
-  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); this.siegeMachinePicker.hide(); this.root.classList.remove('siege-choosing'); }
+  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); this.afflictionPanel.clear(); this.siegeMachinePicker.hide(); this.root.classList.remove('siege-choosing'); globalThis.document?.body?.classList.remove('siege-drafting'); }
   cycleAfflictionDetails() { this.afflictionPanel.cycle(); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', Boolean(locked) || Boolean(this.suppressPointerHint));
@@ -463,6 +466,8 @@ export class HUD {
     if (!local) { this.afflictionPanel.clear(); this.siegeMachinePicker.hide(); this.root.classList.remove('siege-choosing'); return; }
     const choosing = this.siegeMachinePicker.update(snapshot, local.id, serverNow);
     this.root.classList.toggle('siege-choosing', choosing);
+    // (a Siege round opens on its draft, which names the arena: the full-screen arena gate would hide its first seconds)
+    globalThis.document?.body?.classList.toggle('siege-drafting', choosing);
     this.afflictionPanel.update(local, serverNow);
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
@@ -556,7 +561,9 @@ export class HUD {
     const gaugeVisibilityChanged = this.machineGauge.hidden !== !gauge;
     this.machineGauge.hidden = !gauge;
     if (gaugeVisibilityChanged) this.#syncMachineCaptionClearance();
+    if (gaugeVisibilityChanged || (gauge && this.machineGauge.dataset.kind !== gauge.kind)) this.#gaugeLaneDue = true;
     this.driveHousing.hidden = !gauge?.pressure;
+    if (this.#gaugeLaneDue) { this.#gaugeLaneDue = false; queueMicrotask(() => this.#syncGaugeLane()); }
     if (gauge) {
       const el = this.machineGauge;
       el.classList.toggle('gauge-new', el.dataset.machineId !== String(gauge.id));
@@ -1122,6 +1129,33 @@ export class HUD {
     const rise=Math.max(0,Number.isFinite(bottom)?bottom:112)+height+9;
     this.root.style.setProperty('--status-caption-bottom',Math.ceil(rise)+'px');
   }
+
+  /**
+   * The machine gauge sits bottom-centre between the ability tiles: with four tiles (a flier's Q, E, R and Skill) on a
+   * 1280-wide screen the 410 px gauge ran over the last tile. It narrows to the lane the tiles leave, or, where that
+   * lane is too narrow to read, stands just above them. Measured in the HUD's own layout units, as ScreenTurn may rotate
+   * the whole page.
+   */
+  #syncGaugeLane() {
+    const gauge = this.machineGauge, row = this.abilityRow, root = this.root;
+    if (!gauge?.style) return;
+    const offset = (element) => { let x = 0, y = 0; for (let e = element; e; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; } return [x, y]; };
+    let reach = 0, rise = 0;
+    if (!gauge.hidden && row?.offsetParent && row.offsetWidth > 4) {
+      const [rootX, rootY] = offset(root), [x, y] = offset(row);
+      const left = x - rootX, top = y - rootY, width = root.offsetWidth, height = root.offsetHeight;
+      // (only tiles in the gauge's band, along the bottom, compete with it)
+      if (top + row.offsetHeight > height - Math.max(gauge.offsetHeight, 40) - 4) {
+        reach = left + row.offsetWidth / 2 < width / 2 ? left + row.offsetWidth : width - left;
+        rise = row.offsetHeight;
+      }
+    }
+    const lane = (root.offsetWidth ?? 0) - 2 * reach - 24;
+    gauge.style.setProperty('--gauge-lane', reach && lane >= 280 ? `${Math.floor(lane)}px` : 'none');
+    gauge.style.setProperty('--gauge-lift', reach && lane < 280 ? `${Math.ceil(rise + 10)}px` : '0px');
+  }
+
+  #gaugeLaneDue = false;
 
   #syncMachineCaptionClearance() {
     // CSS ScreenTurn can rotate the ENTIRE game 90 degrees on portrait-locked

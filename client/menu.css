@@ -233,6 +233,8 @@
 @keyframes veil-in { from { opacity: 0; } }
 
 /* --- the arena gate: black opens onto the arena with its name ------------------------------------------------- */
+/* (a Siege round opens on its machine draft, which names the arena itself) */
+body.siege-drafting .arena-gate { display: none; }
 .arena-gate { position: fixed; inset: 0; z-index: 45; display: grid; place-content: center; gap: 8px; text-align: center; pointer-events: none; background: #0c0806; color: var(--heraldry-cream); animation: gate-open 1.25s ease-in both; }
 .arena-gate p { margin: 0; font: 400 clamp(30px, 5cqw, 58px)/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; animation: gate-title 1.25s ease-out both; }
 .arena-gate small { color: var(--heraldry-brass-light); font: 800 11px/1 var(--font-script); letter-spacing: .3em; animation: gate-title 1.25s ease-out both; }
